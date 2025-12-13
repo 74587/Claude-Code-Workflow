@@ -7,6 +7,13 @@ var memoryGraphData = null;
 var recentContext = [];
 var memoryTimeFilter = 'all'; // 'today', 'week', 'all'
 var selectedNode = null;
+var activeMemoryEnabled = false;
+var activeMemoryStatus = null;
+var activeMemoryConfig = {
+  interval: 'manual', // manual, 5, 15, 30, 60 (minutes)
+  tool: 'gemini'      // gemini, qwen
+};
+var activeMemorySyncTimer = null; // Timer for automatic periodic sync
 
 // ========== Main Render Function ==========
 async function renderMemoryView() {
@@ -29,11 +36,20 @@ async function renderMemoryView() {
   await Promise.all([
     loadMemoryStats(),
     loadMemoryGraph(),
-    loadRecentContext()
+    loadRecentContext(),
+    loadActiveMemoryStatus()
   ]);
 
-  // Render three-column layout
+  // Render layout with Active Memory header
   container.innerHTML = '<div class="memory-view">' +
+    '<div class="memory-header">' +
+    '<div class="memory-header-left">' +
+    '<h2><i data-lucide="brain" class="w-5 h-5"></i> ' + t('memory.title') + '</h2>' +
+    '</div>' +
+    '<div class="memory-header-right">' +
+    renderActiveMemoryControls() +
+    '</div>' +
+    '</div>' +
     '<div class="memory-columns">' +
     '<div class="memory-column left" id="memory-hotspots"></div>' +
     '<div class="memory-column center" id="memory-graph"></div>' +
@@ -48,6 +64,56 @@ async function renderMemoryView() {
 
   // Initialize Lucide icons
   if (window.lucide) lucide.createIcons();
+}
+
+function renderActiveMemoryControls() {
+  var html = '<div class="active-memory-controls">' +
+    '<div class="active-memory-toggle">' +
+    '<span class="toggle-label">' + t('memory.activeMemory') + '</span>' +
+    '<label class="toggle-switch">' +
+    '<input type="checkbox" id="activeMemorySwitch" ' + (activeMemoryEnabled ? 'checked' : '') + ' onchange="toggleActiveMemory(this.checked)">' +
+    '<span class="toggle-slider"></span>' +
+    '</label>' +
+    (activeMemoryEnabled ? '<span class="toggle-status active"><i data-lucide="zap" class="w-3 h-3"></i> ' + t('memory.active') + '</span>' : '<span class="toggle-status">' + t('memory.inactive') + '</span>') +
+    '</div>';
+
+  if (activeMemoryEnabled) {
+    var isAutoSync = activeMemoryConfig.interval !== 'manual';
+    html += '<div class="active-memory-config">' +
+      // Interval selector
+      '<div class="config-item">' +
+      '<label>' + t('memory.interval') + '</label>' +
+      '<select id="activeMemoryInterval" onchange="updateActiveMemoryConfig(\'interval\', this.value)">' +
+      '<option value="manual"' + (activeMemoryConfig.interval === 'manual' ? ' selected' : '') + '>' + t('memory.intervalManual') + '</option>' +
+      '<option value="5"' + (activeMemoryConfig.interval === '5' ? ' selected' : '') + '>5 ' + t('memory.minutes') + '</option>' +
+      '<option value="15"' + (activeMemoryConfig.interval === '15' ? ' selected' : '') + '>15 ' + t('memory.minutes') + '</option>' +
+      '<option value="30"' + (activeMemoryConfig.interval === '30' ? ' selected' : '') + '>30 ' + t('memory.minutes') + '</option>' +
+      '<option value="60"' + (activeMemoryConfig.interval === '60' ? ' selected' : '') + '>60 ' + t('memory.minutes') + '</option>' +
+      '</select>' +
+      '</div>' +
+      // CLI tool selector
+      '<div class="config-item">' +
+      '<label>' + t('memory.cliTool') + '</label>' +
+      '<select id="activeMemoryCli" onchange="updateActiveMemoryConfig(\'tool\', this.value)">' +
+      '<option value="gemini"' + (activeMemoryConfig.tool === 'gemini' ? ' selected' : '') + '>Gemini</option>' +
+      '<option value="qwen"' + (activeMemoryConfig.tool === 'qwen' ? ' selected' : '') + '>Qwen</option>' +
+      '</select>' +
+      '</div>' +
+      // Auto-sync indicator
+      (isAutoSync ? '<div class="auto-sync-indicator"><i data-lucide="timer" class="w-3 h-3"></i> ' + t('memory.autoSyncActive') + '</div>' : '') +
+      '</div>' +
+      // Sync button and status
+      '<div class="active-memory-actions">' +
+      '<button class="btn-icon btn-sync" onclick="syncActiveMemory()" title="' + t('memory.syncNow') + '">' +
+      '<i data-lucide="refresh-cw" class="w-4 h-4"></i>' +
+      '</button>' +
+      (activeMemoryStatus && activeMemoryStatus.lastSync ?
+        '<span class="last-sync">' + t('memory.lastSync') + ': ' + formatTimestamp(activeMemoryStatus.lastSync) + '</span>' : '') +
+      '</div>';
+  }
+
+  html += '</div>';
+  return html;
 }
 
 // ========== Data Loading ==========
@@ -90,6 +156,168 @@ async function loadRecentContext() {
     console.error('Failed to load recent context:', err);
     recentContext = [];
     return [];
+  }
+}
+
+// ========== Active Memory Functions ==========
+// Timer management for automatic sync
+function startActiveMemorySyncTimer() {
+  // Clear any existing timer
+  stopActiveMemorySyncTimer();
+
+  // Only start timer if interval is not manual
+  if (activeMemoryConfig.interval === 'manual' || !activeMemoryEnabled) {
+    return;
+  }
+
+  var intervalMs = parseInt(activeMemoryConfig.interval, 10) * 60 * 1000; // Convert minutes to ms
+  console.log('[ActiveMemory] Starting auto-sync timer:', activeMemoryConfig.interval, 'minutes');
+
+  activeMemorySyncTimer = setInterval(function() {
+    console.log('[ActiveMemory] Auto-sync triggered');
+    syncActiveMemory();
+  }, intervalMs);
+}
+
+function stopActiveMemorySyncTimer() {
+  if (activeMemorySyncTimer) {
+    console.log('[ActiveMemory] Stopping auto-sync timer');
+    clearInterval(activeMemorySyncTimer);
+    activeMemorySyncTimer = null;
+  }
+}
+
+async function loadActiveMemoryStatus() {
+  try {
+    var response = await fetch('/api/memory/active/status');
+    if (!response.ok) throw new Error('Failed to load active memory status');
+    var data = await response.json();
+    activeMemoryEnabled = data.enabled || false;
+    activeMemoryStatus = data.status || null;
+    // Load config if available
+    if (data.config) {
+      activeMemoryConfig = Object.assign(activeMemoryConfig, data.config);
+    }
+
+    // Start timer if active memory is enabled and interval is not manual
+    if (activeMemoryEnabled && activeMemoryConfig.interval !== 'manual') {
+      startActiveMemorySyncTimer();
+    }
+
+    return data;
+  } catch (err) {
+    console.error('Failed to load active memory status:', err);
+    activeMemoryEnabled = false;
+    activeMemoryStatus = null;
+    return { enabled: false };
+  }
+}
+
+async function toggleActiveMemory(enabled) {
+  try {
+    var response = await fetch('/api/memory/active/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        enabled: enabled,
+        config: activeMemoryConfig
+      })
+    });
+    if (!response.ok) throw new Error('Failed to toggle active memory');
+    var data = await response.json();
+    activeMemoryEnabled = data.enabled;
+
+    // Manage auto-sync timer based on enabled state
+    if (activeMemoryEnabled) {
+      startActiveMemorySyncTimer();
+    } else {
+      stopActiveMemorySyncTimer();
+    }
+
+    // Show notification
+    if (window.showToast) {
+      showToast(enabled ? t('memory.activeMemoryEnabled') : t('memory.activeMemoryDisabled'), 'success');
+    }
+
+    // Re-render the view to update UI
+    renderMemoryView();
+  } catch (err) {
+    console.error('Failed to toggle active memory:', err);
+    if (window.showToast) {
+      showToast(t('memory.activeMemoryError'), 'error');
+    }
+    // Revert checkbox state
+    var checkbox = document.getElementById('activeMemorySwitch');
+    if (checkbox) checkbox.checked = !enabled;
+  }
+}
+
+async function updateActiveMemoryConfig(key, value) {
+  activeMemoryConfig[key] = value;
+
+  try {
+    var response = await fetch('/api/memory/active/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ config: activeMemoryConfig })
+    });
+    if (!response.ok) throw new Error('Failed to update config');
+
+    // Restart timer if interval changed and active memory is enabled
+    if (key === 'interval' && activeMemoryEnabled) {
+      startActiveMemorySyncTimer();
+    }
+
+    if (window.showToast) {
+      showToast(t('memory.configUpdated'), 'success');
+    }
+  } catch (err) {
+    console.error('Failed to update active memory config:', err);
+    if (window.showToast) {
+      showToast(t('memory.configError'), 'error');
+    }
+  }
+}
+
+async function syncActiveMemory() {
+  var syncBtn = document.querySelector('.btn-sync');
+  if (syncBtn) {
+    syncBtn.classList.add('syncing');
+    syncBtn.disabled = true;
+  }
+
+  try {
+    var response = await fetch('/api/memory/active/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tool: activeMemoryConfig.tool
+      })
+    });
+    if (!response.ok) throw new Error('Failed to sync active memory');
+    var data = await response.json();
+
+    if (window.showToast) {
+      showToast(t('memory.syncComplete') + ' (' + (data.filesAnalyzed || 0) + ' ' + t('memory.filesAnalyzed') + ')', 'success');
+    }
+
+    // Refresh data and update last sync time
+    await loadActiveMemoryStatus();
+    // Update last sync display without full re-render
+    var lastSyncEl = document.querySelector('.last-sync');
+    if (lastSyncEl && activeMemoryStatus && activeMemoryStatus.lastSync) {
+      lastSyncEl.textContent = t('memory.lastSync') + ': ' + formatTimestamp(activeMemoryStatus.lastSync);
+    }
+  } catch (err) {
+    console.error('Failed to sync active memory:', err);
+    if (window.showToast) {
+      showToast(t('memory.syncError'), 'error');
+    }
+  } finally {
+    if (syncBtn) {
+      syncBtn.classList.remove('syncing');
+      syncBtn.disabled = false;
+    }
   }
 }
 
@@ -163,6 +391,12 @@ function renderHotspotList(items, type) {
 }
 
 // ========== Center Column: Memory Graph ==========
+// Store graph state for zoom/pan
+var graphZoom = null;
+var graphSvg = null;
+var graphGroup = null;
+var graphSimulation = null;
+
 function renderGraphColumn() {
   var container = document.getElementById('memory-graph');
   if (!container) return;
@@ -173,9 +407,18 @@ function renderGraphColumn() {
     '<h3><i data-lucide="network" class="w-4 h-4"></i> ' + t('memory.memoryGraph') + '</h3>' +
     '<span class="section-count">' + (memoryGraphData.nodes || []).length + ' ' + t('memory.nodes') + '</span>' +
     '</div>' +
-    '<div class="section-header-actions">' +
-    '<button class="btn-icon" onclick="resetGraphView()" title="' + t('memory.resetView') + '">' +
+    '<div class="section-header-actions graph-controls">' +
+    '<button class="btn-icon" onclick="zoomGraphIn()" title="' + t('memory.zoomIn') + '">' +
+    '<i data-lucide="zoom-in" class="w-4 h-4"></i>' +
+    '</button>' +
+    '<button class="btn-icon" onclick="zoomGraphOut()" title="' + t('memory.zoomOut') + '">' +
+    '<i data-lucide="zoom-out" class="w-4 h-4"></i>' +
+    '</button>' +
+    '<button class="btn-icon" onclick="fitGraphToView()" title="' + t('memory.fitView') + '">' +
     '<i data-lucide="maximize-2" class="w-4 h-4"></i>' +
+    '</button>' +
+    '<button class="btn-icon" onclick="resetGraphView()" title="' + t('memory.resetView') + '">' +
+    '<i data-lucide="refresh-cw" class="w-4 h-4"></i>' +
     '</button>' +
     '</div>' +
     '</div>' +
@@ -223,81 +466,140 @@ function renderMemoryGraph(graphData) {
   if (!container) return;
 
   var width = container.clientWidth || 600;
-  var height = container.clientHeight || 500;
+  var height = container.clientHeight || 400;
 
   // Clear existing
   container.innerHTML = '';
 
-  var svg = d3.select('#memoryGraphSvg')
+  // Filter and clean nodes - remove invalid names (like JSON data)
+  var cleanNodes = graphData.nodes.filter(function(node) {
+    var name = node.name || node.id || '';
+    // Filter out JSON-like data, error messages, and very long strings
+    if (name.length > 100) return false;
+    if (name.includes('"status"') || name.includes('"content"')) return false;
+    if (name.includes('"todos"') || name.includes('"activeForm"')) return false;
+    if (name.startsWith('{') || name.startsWith('[')) return false;
+    // Allow all valid node types: file, module, component
+    return true;
+  }).map(function(node) {
+    // Truncate long names for display
+    var displayName = node.name || node.id || 'Unknown';
+    if (displayName.length > 25) {
+      displayName = displayName.substring(0, 22) + '...';
+    }
+    return Object.assign({}, node, { displayName: displayName });
+  });
+
+  // Filter edges to only include valid nodes
+  var nodeIds = new Set(cleanNodes.map(function(n) { return n.id; }));
+  var cleanEdges = graphData.edges.filter(function(edge) {
+    var sourceId = typeof edge.source === 'object' ? edge.source.id : edge.source;
+    var targetId = typeof edge.target === 'object' ? edge.target.id : edge.target;
+    return nodeIds.has(sourceId) && nodeIds.has(targetId);
+  });
+
+  // Create SVG with zoom support
+  graphSvg = d3.select('#memoryGraphSvg')
     .append('svg')
     .attr('width', width)
     .attr('height', height)
-    .attr('class', 'memory-graph-svg');
+    .attr('class', 'memory-graph-svg')
+    .attr('viewBox', [0, 0, width, height]);
+
+  // Create a group for zoom/pan transformations
+  graphGroup = graphSvg.append('g').attr('class', 'graph-content');
+
+  // Setup zoom behavior
+  graphZoom = d3.zoom()
+    .scaleExtent([0.1, 4])
+    .on('zoom', function(event) {
+      graphGroup.attr('transform', event.transform);
+    });
+
+  graphSvg.call(graphZoom);
 
   // Create force simulation
-  var simulation = d3.forceSimulation(graphData.nodes)
-    .force('link', d3.forceLink(graphData.edges).id(function(d) { return d.id; }).distance(100))
-    .force('charge', d3.forceManyBody().strength(-300))
+  graphSimulation = d3.forceSimulation(cleanNodes)
+    .force('link', d3.forceLink(cleanEdges).id(function(d) { return d.id; }).distance(80))
+    .force('charge', d3.forceManyBody().strength(-200))
     .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('collision', d3.forceCollide().radius(function(d) { return (d.heat || 10) + 5; }));
+    .force('collision', d3.forceCollide().radius(function(d) { return Math.max(15, (d.heat || 10) + 10); }))
+    .force('x', d3.forceX(width / 2).strength(0.05))
+    .force('y', d3.forceY(height / 2).strength(0.05));
 
   // Draw edges
-  var link = svg.append('g')
+  var link = graphGroup.append('g')
+    .attr('class', 'graph-links')
     .selectAll('line')
-    .data(graphData.edges)
+    .data(cleanEdges)
     .enter()
     .append('line')
     .attr('class', 'graph-edge')
     .attr('stroke-width', function(d) { return Math.sqrt(d.weight || 1); });
 
   // Draw nodes
-  var node = svg.append('g')
-    .selectAll('circle')
-    .data(graphData.nodes)
+  var node = graphGroup.append('g')
+    .attr('class', 'graph-nodes')
+    .selectAll('g')
+    .data(cleanNodes)
     .enter()
-    .append('circle')
-    .attr('class', function(d) { return 'graph-node ' + (d.type || 'file'); })
-    .attr('r', function(d) { return (d.heat || 10); })
-    .attr('data-id', function(d) { return d.id; })
+    .append('g')
+    .attr('class', function(d) { return 'graph-node-group ' + (d.type || 'file'); })
     .call(d3.drag()
       .on('start', dragstarted)
       .on('drag', dragged)
       .on('end', dragended))
     .on('click', function(event, d) {
+      event.stopPropagation();
       selectNode(d);
     });
 
-  // Node labels
-  var label = svg.append('g')
-    .selectAll('text')
-    .data(graphData.nodes)
-    .enter()
-    .append('text')
+  // Add circles to nodes
+  node.append('circle')
+    .attr('class', function(d) { return 'graph-node ' + (d.type || 'file'); })
+    .attr('r', function(d) { return Math.max(8, Math.min(20, (d.heat || 10))); })
+    .attr('data-id', function(d) { return d.id; });
+
+  // Add labels to nodes
+  node.append('text')
     .attr('class', 'graph-label')
-    .text(function(d) { return d.name || d.id; })
-    .attr('x', 8)
-    .attr('y', 3);
+    .text(function(d) {
+      // Show file count for modules
+      if (d.type === 'module' && d.fileCount) {
+        return d.displayName + ' (' + d.fileCount + ')';
+      }
+      return d.displayName;
+    })
+    .attr('x', function(d) { return Math.max(10, (d.heat || 10)) + 4; })
+    .attr('y', 4)
+    .attr('font-size', '11px');
 
   // Update positions on simulation tick
-  simulation.on('tick', function() {
+  graphSimulation.on('tick', function() {
     link
       .attr('x1', function(d) { return d.source.x; })
       .attr('y1', function(d) { return d.source.y; })
       .attr('x2', function(d) { return d.target.x; })
       .attr('y2', function(d) { return d.target.y; });
 
-    node
-      .attr('cx', function(d) { return d.x; })
-      .attr('cy', function(d) { return d.y; });
-
-    label
-      .attr('x', function(d) { return d.x + 8; })
-      .attr('y', function(d) { return d.y + 3; });
+    node.attr('transform', function(d) {
+      return 'translate(' + d.x + ',' + d.y + ')';
+    });
   });
+
+  // Auto-fit after simulation stabilizes
+  graphSimulation.on('end', function() {
+    fitGraphToView();
+  });
+
+  // Also fit after initial layout
+  setTimeout(function() {
+    fitGraphToView();
+  }, 1000);
 
   // Drag functions
   function dragstarted(event, d) {
-    if (!event.active) simulation.alphaTarget(0.3).restart();
+    if (!event.active) graphSimulation.alphaTarget(0.3).restart();
     d.fx = d.x;
     d.fy = d.y;
   }
@@ -308,18 +610,94 @@ function renderMemoryGraph(graphData) {
   }
 
   function dragended(event, d) {
-    if (!event.active) simulation.alphaTarget(0);
+    if (!event.active) graphSimulation.alphaTarget(0);
     d.fx = null;
     d.fy = null;
   }
+}
+
+// ========== Graph Zoom Controls ==========
+function zoomGraphIn() {
+  if (graphSvg && graphZoom) {
+    graphSvg.transition().duration(300).call(graphZoom.scaleBy, 1.3);
+  }
+}
+
+function zoomGraphOut() {
+  if (graphSvg && graphZoom) {
+    graphSvg.transition().duration(300).call(graphZoom.scaleBy, 0.7);
+  }
+}
+
+function fitGraphToView() {
+  if (!graphSvg || !graphGroup || !graphZoom) return;
+
+  var container = document.getElementById('memoryGraphSvg');
+  if (!container) return;
+
+  var width = container.clientWidth || 600;
+  var height = container.clientHeight || 400;
+
+  // Get the bounds of all nodes
+  var bounds = graphGroup.node().getBBox();
+  if (bounds.width === 0 || bounds.height === 0) return;
+
+  // Calculate scale to fit with padding
+  var padding = 40;
+  var scale = Math.min(
+    (width - padding * 2) / bounds.width,
+    (height - padding * 2) / bounds.height
+  );
+  scale = Math.min(Math.max(scale, 0.2), 2); // Clamp scale between 0.2 and 2
+
+  // Calculate translation to center
+  var tx = (width - bounds.width * scale) / 2 - bounds.x * scale;
+  var ty = (height - bounds.height * scale) / 2 - bounds.y * scale;
+
+  // Apply transform with animation
+  graphSvg.transition()
+    .duration(500)
+    .call(graphZoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
+function centerGraphOnNode(nodeId) {
+  if (!graphSvg || !graphGroup || !graphZoom) return;
+
+  var container = document.getElementById('memoryGraphSvg');
+  if (!container) return;
+
+  var width = container.clientWidth || 600;
+  var height = container.clientHeight || 400;
+
+  // Find the node
+  var nodeData = null;
+  graphGroup.selectAll('.graph-node-group').each(function(d) {
+    if (d.id === nodeId) nodeData = d;
+  });
+
+  if (!nodeData || nodeData.x === undefined) return;
+
+  // Calculate translation to center on node
+  var scale = 1.2;
+  var tx = width / 2 - nodeData.x * scale;
+  var ty = height / 2 - nodeData.y * scale;
+
+  graphSvg.transition()
+    .duration(500)
+    .call(graphZoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
 }
 
 function selectNode(node) {
   selectedNode = node;
 
   // Highlight in graph
-  d3.selectAll('.graph-node').classed('selected', false);
-  d3.selectAll('.graph-node[data-id="' + node.id + '"]').classed('selected', true);
+  if (graphGroup) {
+    graphGroup.selectAll('.graph-node').classed('selected', false);
+    graphGroup.selectAll('.graph-node[data-id="' + node.id + '"]').classed('selected', true);
+  }
+
+  // Center graph on selected node
+  centerGraphOnNode(node.id);
 
   // Show node details in context column
   showNodeDetails(node);
@@ -329,19 +707,15 @@ function highlightNode(path) {
   var node = memoryGraphData.nodes.find(function(n) { return n.path === path || n.id === path; });
   if (node) {
     selectNode(node);
-    // Center graph on node if possible
-    if (typeof d3 !== 'undefined') {
-      var container = document.getElementById('memoryGraphSvg');
-      if (container) {
-        container.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }
   }
 }
 
 function resetGraphView() {
   selectedNode = null;
-  d3.selectAll('.graph-node').classed('selected', false);
+  if (graphGroup) {
+    graphGroup.selectAll('.graph-node').classed('selected', false);
+  }
+  fitGraphToView();
   renderContextColumn();
 }
 
@@ -382,13 +756,14 @@ function renderContextTimeline(prompts) {
   }
 
   return '<div class="context-timeline">' +
-    prompts.map(function(item) {
+    prompts.map(function(item, index) {
       var timestamp = item.timestamp ? formatTimestamp(item.timestamp) : 'Unknown time';
       var type = item.type || 'unknown';
-      var typeIcon = type === 'read' ? 'eye' : type === 'edit' ? 'pencil' : 'file-text';
+      var typeIcon = type === 'read' ? 'eye' : type === 'write' ? 'pencil' : type === 'edit' ? 'pencil' : 'file-text';
       var files = item.files || [];
+      var description = item.prompt || item.description || 'No description';
 
-      return '<div class="timeline-item">' +
+      return '<div class="timeline-item" data-index="' + index + '" onclick="toggleTimelineItem(this)">' +
         '<div class="timeline-icon ' + type + '">' +
         '<i data-lucide="' + typeIcon + '" class="w-3.5 h-3.5"></i>' +
         '</div>' +
@@ -397,14 +772,13 @@ function renderContextTimeline(prompts) {
         '<span class="timeline-type">' + escapeHtml(type.charAt(0).toUpperCase() + type.slice(1)) + '</span>' +
         '<span class="timeline-time">' + timestamp + '</span>' +
         '</div>' +
-        '<div class="timeline-prompt">' + escapeHtml(item.prompt || item.description || 'No description') + '</div>' +
+        '<div class="timeline-prompt">' + escapeHtml(description) + '</div>' +
         (files.length > 0 ? '<div class="timeline-files">' +
-          files.slice(0, 3).map(function(f) {
-            return '<span class="file-tag" onclick="highlightNode(\'' + escapeHtml(f) + '\')">' +
+          files.map(function(f) {
+            return '<span class="file-tag" onclick="event.stopPropagation(); highlightNode(\'' + escapeHtml(f) + '\')">' +
               '<i data-lucide="file" class="w-3 h-3"></i> ' + escapeHtml(f.split('/').pop().split('\\').pop()) +
               '</span>';
           }).join('') +
-          (files.length > 3 ? '<span class="file-tag more">+' + (files.length - 3) + ' more</span>' : '') +
           '</div>' : '') +
         '</div>' +
         '</div>';
@@ -412,10 +786,17 @@ function renderContextTimeline(prompts) {
     '</div>';
 }
 
+/**
+ * Toggle timeline item expansion
+ */
+function toggleTimelineItem(element) {
+  element.classList.toggle('expanded');
+}
+
 function renderContextStats() {
   var totalReads = recentContext.filter(function(c) { return c.type === 'read'; }).length;
-  var totalEdits = recentContext.filter(function(c) { return c.type === 'edit'; }).length;
-  var totalPrompts = recentContext.filter(function(c) { return c.type === 'prompt'; }).length;
+  var totalEdits = recentContext.filter(function(c) { return c.type === 'edit' || c.type === 'write'; }).length;
+  var totalMentions = recentContext.filter(function(c) { return c.type === 'mention'; }).length;
 
   return '<div class="context-stats">' +
     '<div class="context-stat-item">' +
@@ -430,8 +811,8 @@ function renderContextStats() {
     '</div>' +
     '<div class="context-stat-item">' +
     '<i data-lucide="message-square" class="w-4 h-4"></i>' +
-    '<span class="stat-label">' + t('memory.prompts') + '</span>' +
-    '<span class="stat-value">' + totalPrompts + '</span>' +
+    '<span class="stat-label">' + t('memory.mentions') + '</span>' +
+    '<span class="stat-value">' + totalMentions + '</span>' +
     '</div>' +
     '</div>';
 }

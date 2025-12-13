@@ -2,7 +2,7 @@
 // Displays CLI tool availability status and allows setting default tool
 
 // ========== CLI State ==========
-let cliToolStatus = { gemini: {}, qwen: {}, codex: {} };
+let cliToolStatus = { gemini: {}, qwen: {}, codex: {}, claude: {} };
 let codexLensStatus = { ready: false };
 let semanticStatus = { available: false };
 let defaultCliTool = 'gemini';
@@ -105,16 +105,18 @@ function renderCliStatus() {
   const toolDescriptions = {
     gemini: 'Google AI for code analysis',
     qwen: 'Alibaba AI assistant',
-    codex: 'OpenAI code generation'
+    codex: 'OpenAI code generation',
+    claude: 'Anthropic AI assistant'
   };
 
   const toolIcons = {
     gemini: 'sparkle',
     qwen: 'bot',
-    codex: 'code-2'
+    codex: 'code-2',
+    claude: 'brain'
   };
 
-  const tools = ['gemini', 'qwen', 'codex'];
+  const tools = ['gemini', 'qwen', 'codex', 'claude'];
 
   const toolsHtml = tools.map(tool => {
     const status = cliToolStatus[tool] || {};
@@ -270,7 +272,7 @@ function renderCliStatus() {
               <span class="cli-toggle-slider"></span>
             </label>
           </div>
-          <p class="cli-setting-desc">Use native tool resume (gemini -r, qwen --resume, codex resume)</p>
+          <p class="cli-setting-desc">Use native tool resume (gemini -r, qwen --resume, codex resume, claude --resume)</p>
         </div>
         <div class="cli-setting-item ${!smartContextEnabled ? 'disabled' : ''}">
           <label class="cli-setting-label">

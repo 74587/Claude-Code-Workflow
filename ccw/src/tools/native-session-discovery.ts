@@ -432,11 +432,103 @@ class CodexSessionDiscoverer extends SessionDiscoverer {
   }
 }
 
+/**
+ * Claude Code Session Discoverer
+ * Path: ~/.claude/projects/<projectHash>/sessions/*.jsonl
+ * Claude Code stores sessions with UUID-based session IDs
+ */
+class ClaudeSessionDiscoverer extends SessionDiscoverer {
+  tool = 'claude';
+  basePath = join(getHomePath(), '.claude', 'projects');
+
+  getSessions(options: SessionDiscoveryOptions = {}): NativeSession[] {
+    const { workingDir, limit, afterTimestamp } = options;
+    const sessions: NativeSession[] = [];
+
+    try {
+      if (!existsSync(this.basePath)) return [];
+
+      // If workingDir provided, only look in that project's folder
+      let projectDirs: string[];
+      if (workingDir) {
+        const projectHash = calculateProjectHash(workingDir);
+        const projectPath = join(this.basePath, projectHash);
+        projectDirs = existsSync(projectPath) ? [projectHash] : [];
+      } else {
+        projectDirs = readdirSync(this.basePath).filter(d => {
+          const fullPath = join(this.basePath, d);
+          return statSync(fullPath).isDirectory();
+        });
+      }
+
+      for (const projectHash of projectDirs) {
+        const sessionsDir = join(this.basePath, projectHash, 'sessions');
+        if (!existsSync(sessionsDir)) continue;
+
+        const sessionFiles = readdirSync(sessionsDir)
+          .filter(f => f.endsWith('.jsonl') || f.endsWith('.json'))
+          .map(f => ({
+            name: f,
+            path: join(sessionsDir, f),
+            stat: statSync(join(sessionsDir, f))
+          }))
+          .sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs);
+
+        for (const file of sessionFiles) {
+          if (afterTimestamp && file.stat.mtime <= afterTimestamp) continue;
+
+          try {
+            // Extract session ID from filename or content
+            const uuidMatch = file.name.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+            if (uuidMatch) {
+              sessions.push({
+                sessionId: uuidMatch[1],
+                tool: this.tool,
+                filePath: file.path,
+                projectHash,
+                createdAt: file.stat.birthtime,
+                updatedAt: file.stat.mtime
+              });
+            } else {
+              // Try reading first line for session metadata
+              const firstLine = readFileSync(file.path, 'utf8').split('\n')[0];
+              const meta = JSON.parse(firstLine);
+              if (meta.session_id) {
+                sessions.push({
+                  sessionId: meta.session_id,
+                  tool: this.tool,
+                  filePath: file.path,
+                  projectHash,
+                  createdAt: new Date(meta.timestamp || file.stat.birthtime),
+                  updatedAt: file.stat.mtime
+                });
+              }
+            }
+          } catch {
+            // Skip invalid files
+          }
+        }
+      }
+
+      sessions.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+      return limit ? sessions.slice(0, limit) : sessions;
+    } catch {
+      return [];
+    }
+  }
+
+  findSessionById(sessionId: string): NativeSession | null {
+    const sessions = this.getSessions();
+    return sessions.find(s => s.sessionId === sessionId) || null;
+  }
+}
+
 // Singleton discoverers
 const discoverers: Record<string, SessionDiscoverer> = {
   gemini: new GeminiSessionDiscoverer(),
   qwen: new QwenSessionDiscoverer(),
-  codex: new CodexSessionDiscoverer()
+  codex: new CodexSessionDiscoverer(),
+  claude: new ClaudeSessionDiscoverer()
 };
 
 /**

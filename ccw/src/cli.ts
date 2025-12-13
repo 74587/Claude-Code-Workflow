@@ -151,12 +151,12 @@ export function run(argv: string[]): void {
   // CLI command
   program
     .command('cli [subcommand] [args...]')
-    .description('Unified CLI tool executor (gemini/qwen/codex)')
+    .description('Unified CLI tool executor (gemini/qwen/codex/claude)')
     .option('--tool <tool>', 'CLI tool to use', 'gemini')
     .option('--mode <mode>', 'Execution mode: analysis, write, auto', 'analysis')
     .option('--model <model>', 'Model override')
     .option('--cd <path>', 'Working directory')
-    .option('--includeDirs <dirs>', 'Additional directories (--include-directories for gemini/qwen, --add-dir for codex)')
+    .option('--includeDirs <dirs>', 'Additional directories (--include-directories for gemini/qwen, --add-dir for codex/claude)')
     .option('--timeout <ms>', 'Timeout in milliseconds', '300000')
     .option('--no-stream', 'Disable streaming output')
     .option('--limit <n>', 'History limit')

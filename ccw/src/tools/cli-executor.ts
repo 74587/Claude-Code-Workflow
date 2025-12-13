@@ -299,6 +299,35 @@ function buildCommand(params: {
       }
       break;
 
+    case 'claude':
+      // Claude Code: claude -p "prompt" for non-interactive mode
+      args.push('-p'); // Print mode (non-interactive)
+      // Native resume: claude --resume <session-id> or --continue
+      if (nativeResume?.enabled) {
+        if (nativeResume.isLatest) {
+          args.push('--continue');
+        } else if (nativeResume.sessionId) {
+          args.push('--resume', nativeResume.sessionId);
+        }
+      }
+      if (model) {
+        args.push('--model', model);
+      }
+      // Permission modes for write/auto
+      if (mode === 'write' || mode === 'auto') {
+        args.push('--dangerously-skip-permissions');
+      }
+      // Output format for better parsing
+      args.push('--output-format', 'text');
+      // Add directories
+      if (include) {
+        const dirs = include.split(',').map(d => d.trim()).filter(d => d);
+        for (const addDir of dirs) {
+          args.push('--add-dir', addDir);
+        }
+      }
+      break;
+
     default:
       throw new Error(`Unknown CLI tool: ${tool}`);
   }
@@ -1172,7 +1201,7 @@ export async function batchDeleteExecutionsAsync(baseDir: string, ids: string[])
  * Get status of all CLI tools
  */
 export async function getCliToolsStatus(): Promise<Record<string, ToolAvailability>> {
-  const tools = ['gemini', 'qwen', 'codex'];
+  const tools = ['gemini', 'qwen', 'codex', 'claude'];
   const results: Record<string, ToolAvailability> = {};
 
   await Promise.all(tools.map(async (tool) => {

@@ -917,109 +917,6 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         return;
       }
 
-      // API: Memory Module - Get hotspot statistics
-      if (pathname === '/api/memory/stats') {
-        const projectPath = url.searchParams.get('path') || initialPath;
-        const limit = parseInt(url.searchParams.get('limit') || '20', 10);
-        const type = url.searchParams.get('type') || null;
-        const sort = url.searchParams.get('sort') || 'heat';
-
-        try {
-          const memoryStore = getMemoryStore(projectPath);
-          let hotEntities = memoryStore.getHotEntities(limit);
-
-          // Filter by type if specified
-          if (type) {
-            hotEntities = hotEntities.filter(e => e.type === type);
-          }
-
-          // Sort by field
-          if (sort === 'reads') {
-            hotEntities.sort((a, b) => b.stats.read_count - a.stats.read_count);
-          } else if (sort === 'writes') {
-            hotEntities.sort((a, b) => b.stats.write_count - a.stats.write_count);
-          }
-
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            items: hotEntities.map(e => ({
-              value: e.value,
-              type: e.type,
-              read_count: e.stats.read_count,
-              write_count: e.stats.write_count,
-              mention_count: e.stats.mention_count,
-              heat_score: e.stats.heat_score
-            }))
-          }));
-        } catch (error: unknown) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: (error as Error).message }));
-        }
-        return;
-      }
-
-      // API: Memory Module - Get association graph
-      if (pathname === '/api/memory/graph') {
-        const projectPath = url.searchParams.get('path') || initialPath;
-        const center = url.searchParams.get('center');
-        const depth = parseInt(url.searchParams.get('depth') || '1', 10);
-
-        if (!center) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'center parameter is required' }));
-          return;
-        }
-
-        try {
-          const memoryStore = getMemoryStore(projectPath);
-
-          // Find the center entity (assume it's a file for now)
-          const entity = memoryStore.getEntity('file', center);
-          if (!entity) {
-            res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Entity not found' }));
-            return;
-          }
-
-          // Get associations
-          const associations = memoryStore.getAssociations(entity.id!, 20);
-          const stats = memoryStore.getStats(entity.id!);
-
-          // Build graph structure
-          const nodes = [
-            {
-              id: entity.id!.toString(),
-              label: entity.value,
-              type: entity.type,
-              heat: stats?.heat_score || 0
-            }
-          ];
-
-          const links = [];
-          for (const assoc of associations) {
-            nodes.push({
-              id: assoc.target.id!.toString(),
-              label: assoc.target.value,
-              type: assoc.target.type,
-              heat: 0
-            });
-
-            links.push({
-              source: entity.id!.toString(),
-              target: assoc.target.id!.toString(),
-              weight: assoc.weight
-            });
-          }
-
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ nodes, links }));
-        } catch (error: unknown) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: (error as Error).message }));
-        }
-        return;
-      }
-
       // API: Memory Module - Track entity access
       if (pathname === '/api/memory/track' && req.method === 'POST') {
         handlePostRequest(req, res, async (body) => {
@@ -1245,7 +1142,7 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       if (pathname === '/api/memory/insights/analyze' && req.method === 'POST') {
         handlePostRequest(req, res, async (body: any) => {
           const projectPath = body.path || initialPath;
-          const tool = body.tool || 'gemini'; // gemini, qwen, codex
+          const tool = body.tool || 'gemini'; // gemini, qwen, codex, claude
           const prompts = body.prompts || [];
           const lang = body.lang || 'en'; // Language preference
 
@@ -1340,6 +1237,527 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
             };
           } catch (error: unknown) {
             return { error: (error as Error).message, status: 500 };
+          }
+        });
+        return;
+      }
+
+      // API: Memory Module - Get hotspot statistics
+      if (pathname === '/api/memory/stats') {
+        const projectPath = url.searchParams.get('path') || initialPath;
+        const filter = url.searchParams.get('filter') || 'all'; // today, week, all
+        const limit = parseInt(url.searchParams.get('limit') || '10', 10);
+
+        try {
+          const memoryStore = getMemoryStore(projectPath);
+          const hotEntities = memoryStore.getHotEntities(limit * 4);
+
+          // Filter by time if needed
+          let filtered = hotEntities;
+          if (filter === 'today') {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            filtered = hotEntities.filter((e: any) => new Date(e.last_seen_at) >= today);
+          } else if (filter === 'week') {
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            filtered = hotEntities.filter((e: any) => new Date(e.last_seen_at) >= weekAgo);
+          }
+
+          // Separate into mostRead and mostEdited
+          const fileEntities = filtered.filter((e: any) => e.type === 'file');
+
+          const mostRead = fileEntities
+            .filter((e: any) => e.stats.read_count > 0)
+            .sort((a: any, b: any) => b.stats.read_count - a.stats.read_count)
+            .slice(0, limit)
+            .map((e: any) => ({
+              path: e.value,
+              file: e.value.split(/[/\\]/).pop(),
+              heat: e.stats.read_count,
+              count: e.stats.read_count,
+              lastSeen: e.last_seen_at
+            }));
+
+          const mostEdited = fileEntities
+            .filter((e: any) => e.stats.write_count > 0)
+            .sort((a: any, b: any) => b.stats.write_count - a.stats.write_count)
+            .slice(0, limit)
+            .map((e: any) => ({
+              path: e.value,
+              file: e.value.split(/[/\\]/).pop(),
+              heat: e.stats.write_count,
+              count: e.stats.write_count,
+              lastSeen: e.last_seen_at
+            }));
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ stats: { mostRead, mostEdited } }));
+        } catch (error: unknown) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ stats: { mostRead: [], mostEdited: [] } }));
+        }
+        return;
+      }
+
+      // API: Memory Module - Get memory graph (file associations with modules and components)
+      if (pathname === '/api/memory/graph') {
+        const projectPath = url.searchParams.get('path') || initialPath;
+
+        try {
+          const memoryStore = getMemoryStore(projectPath);
+          const hotEntities = memoryStore.getHotEntities(100);
+
+          // Build file nodes from entities
+          const fileEntities = hotEntities.filter((e: any) => e.type === 'file');
+          const fileNodes = fileEntities.map((e: any) => {
+            const fileName = e.value.split(/[/\\]/).pop() || '';
+            // Detect component type based on file name patterns
+            const isComponent = /\.(tsx|jsx|vue|svelte)$/.test(fileName) ||
+              /^[A-Z][a-zA-Z]+\.(ts|js)$/.test(fileName) ||
+              fileName.includes('.component.') ||
+              fileName.includes('.controller.');
+
+            return {
+              id: e.value,
+              name: fileName,
+              path: e.value,
+              type: isComponent ? 'component' : 'file',
+              heat: Math.min(25, 8 + e.stats.heat_score / 10)
+            };
+          });
+
+          // Extract unique modules (directories) from file paths
+          const moduleMap = new Map<string, { heat: number; files: string[] }>();
+          for (const file of fileEntities) {
+            const parts = file.value.split(/[/\\]/);
+            // Get parent directory as module (skip if root level)
+            if (parts.length > 1) {
+              const modulePath = parts.slice(0, -1).join('/');
+              const moduleName = parts[parts.length - 2] || modulePath;
+              // Skip common non-module directories
+              if (['node_modules', '.git', 'dist', 'build', '.next', '.nuxt'].includes(moduleName)) continue;
+
+              if (!moduleMap.has(modulePath)) {
+                moduleMap.set(modulePath, { heat: 0, files: [] });
+              }
+              const mod = moduleMap.get(modulePath)!;
+              mod.heat += file.stats.heat_score / 20;
+              mod.files.push(file.value);
+            }
+          }
+
+          // Create module nodes (limit to top modules by heat)
+          const moduleNodes = Array.from(moduleMap.entries())
+            .sort((a, b) => b[1].heat - a[1].heat)
+            .slice(0, 15)
+            .map(([modulePath, data]) => ({
+              id: modulePath,
+              name: modulePath.split(/[/\\]/).pop() || modulePath,
+              path: modulePath,
+              type: 'module',
+              heat: Math.min(20, 12 + data.heat / 5),
+              fileCount: data.files.length
+            }));
+
+          // Combine all nodes
+          const nodes = [...fileNodes, ...moduleNodes];
+          const nodeIds = new Set(nodes.map(n => n.id));
+
+          // Build edges from associations
+          const edges: any[] = [];
+          const edgeSet = new Set<string>(); // Prevent duplicate edges
+
+          // Add file-to-file associations
+          for (const entity of hotEntities) {
+            if (!entity.id || entity.type !== 'file') continue;
+            const associations = memoryStore.getAssociations(entity.id, 10);
+            for (const assoc of associations) {
+              if (assoc.target && nodeIds.has(assoc.target.value)) {
+                const edgeKey = [entity.value, assoc.target.value].sort().join('|');
+                if (!edgeSet.has(edgeKey)) {
+                  edgeSet.add(edgeKey);
+                  edges.push({
+                    source: entity.value,
+                    target: assoc.target.value,
+                    weight: assoc.weight
+                  });
+                }
+              }
+            }
+          }
+
+          // Add file-to-module edges (files belong to their parent modules)
+          for (const [modulePath, data] of moduleMap.entries()) {
+            if (!nodeIds.has(modulePath)) continue;
+            for (const filePath of data.files) {
+              if (nodeIds.has(filePath)) {
+                const edgeKey = [modulePath, filePath].sort().join('|');
+                if (!edgeSet.has(edgeKey)) {
+                  edgeSet.add(edgeKey);
+                  edges.push({
+                    source: modulePath,
+                    target: filePath,
+                    weight: 2 // Lower weight for structural relationships
+                  });
+                }
+              }
+            }
+          }
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ graph: { nodes, edges } }));
+        } catch (error: unknown) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ graph: { nodes: [], edges: [] } }));
+        }
+        return;
+      }
+
+      // API: Memory Module - Get recent context activities
+      if (pathname === '/api/memory/recent') {
+        const projectPath = url.searchParams.get('path') || initialPath;
+        const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+
+        try {
+          const memoryStore = getMemoryStore(projectPath);
+
+          // Get recent access logs with entity info - filter to file type only
+          const db = (memoryStore as any).db;
+          const recentLogs = db.prepare(`
+            SELECT a.*, e.type, e.value
+            FROM access_logs a
+            JOIN entities e ON a.entity_id = e.id
+            WHERE e.type = 'file'
+            ORDER BY a.timestamp DESC
+            LIMIT ?
+          `).all(limit * 2) as any[]; // Fetch more to account for filtering
+
+          // Filter out invalid entries (JSON strings, error messages, etc.)
+          const validLogs = recentLogs.filter((log: any) => {
+            const value = log.value || '';
+            // Skip if value looks like JSON or contains error-like patterns
+            if (value.includes('"status"') || value.includes('"content"') ||
+                value.includes('"activeForm"') || value.startsWith('{') ||
+                value.startsWith('[') || value.includes('graph 400')) {
+              return false;
+            }
+            // Must have a file extension or look like a valid path
+            const hasExtension = /\.[a-zA-Z0-9]{1,10}$/.test(value);
+            const looksLikePath = value.includes('/') || value.includes('\\');
+            return hasExtension || looksLikePath;
+          }).slice(0, limit);
+
+          const recent = validLogs.map((log: any) => ({
+            type: log.action, // read, write, mention
+            timestamp: log.timestamp,
+            prompt: log.context_summary || '',
+            files: [log.value],
+            description: `${log.action}: ${log.value.split(/[/\\]/).pop()}`
+          }));
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ recent }));
+        } catch (error: unknown) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ recent: [] }));
+        }
+        return;
+      }
+
+      // API: Active Memory - Get status
+      if (pathname === '/api/memory/active/status') {
+        const projectPath = url.searchParams.get('path') || initialPath;
+
+        try {
+          const configPath = path.join(projectPath, '.claude', 'rules', 'active_memory.md');
+          const configJsonPath = path.join(projectPath, '.claude', 'rules', 'active_memory_config.json');
+          const enabled = fs.existsSync(configPath);
+          let lastSync: string | null = null;
+          let fileCount = 0;
+          let config = { interval: 'manual', tool: 'gemini' };
+
+          if (enabled) {
+            const stats = fs.statSync(configPath);
+            lastSync = stats.mtime.toISOString();
+            const content = fs.readFileSync(configPath, 'utf-8');
+            // Count file sections
+            fileCount = (content.match(/^## /gm) || []).length;
+          }
+
+          // Load config if exists
+          if (fs.existsSync(configJsonPath)) {
+            try {
+              config = JSON.parse(fs.readFileSync(configJsonPath, 'utf-8'));
+            } catch (e) { /* ignore parse errors */ }
+          }
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            enabled,
+            status: enabled ? { lastSync, fileCount } : null,
+            config
+          }));
+        } catch (error: unknown) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ enabled: false, status: null, config: { interval: 'manual', tool: 'gemini' } }));
+        }
+        return;
+      }
+
+      // API: Active Memory - Toggle
+      if (pathname === '/api/memory/active/toggle' && req.method === 'POST') {
+        let body = '';
+        req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+        req.on('end', async () => {
+          try {
+            const { enabled, config } = JSON.parse(body || '{}');
+            const projectPath = initialPath;
+            const rulesDir = path.join(projectPath, '.claude', 'rules');
+            const configPath = path.join(rulesDir, 'active_memory.md');
+            const configJsonPath = path.join(rulesDir, 'active_memory_config.json');
+
+            if (enabled) {
+              // Enable: Create directory and initial file
+              if (!fs.existsSync(rulesDir)) {
+                fs.mkdirSync(rulesDir, { recursive: true });
+              }
+
+              // Save config
+              if (config) {
+                fs.writeFileSync(configJsonPath, JSON.stringify(config, null, 2), 'utf-8');
+              }
+
+              // Create initial active_memory.md with header
+              const initialContent = `# Active Memory
+
+> Auto-generated understanding of frequently accessed files.
+> Last updated: ${new Date().toISOString()}
+
+---
+
+*No files analyzed yet. Click "Sync Now" to analyze hot files.*
+`;
+              fs.writeFileSync(configPath, initialContent, 'utf-8');
+
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ enabled: true, message: 'Active Memory enabled' }));
+            } else {
+              // Disable: Remove the files
+              if (fs.existsSync(configPath)) {
+                fs.unlinkSync(configPath);
+              }
+              if (fs.existsSync(configJsonPath)) {
+                fs.unlinkSync(configJsonPath);
+              }
+
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ enabled: false, message: 'Active Memory disabled' }));
+            }
+          } catch (error: unknown) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: (error as Error).message }));
+          }
+        });
+        return;
+      }
+
+      // API: Active Memory - Update Config
+      if (pathname === '/api/memory/active/config' && req.method === 'POST') {
+        let body = '';
+        req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+        req.on('end', async () => {
+          try {
+            const { config } = JSON.parse(body || '{}');
+            const projectPath = initialPath;
+            const rulesDir = path.join(projectPath, '.claude', 'rules');
+            const configJsonPath = path.join(rulesDir, 'active_memory_config.json');
+
+            if (!fs.existsSync(rulesDir)) {
+              fs.mkdirSync(rulesDir, { recursive: true });
+            }
+
+            fs.writeFileSync(configJsonPath, JSON.stringify(config, null, 2), 'utf-8');
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, config }));
+          } catch (error: unknown) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: (error as Error).message }));
+          }
+        });
+        return;
+      }
+
+      // API: Active Memory - Sync (analyze hot files using CLI and update active_memory.md)
+      if (pathname === '/api/memory/active/sync' && req.method === 'POST') {
+        let body = '';
+        req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+        req.on('end', async () => {
+          try {
+            const { tool = 'gemini' } = JSON.parse(body || '{}');
+            const projectPath = initialPath;
+            const rulesDir = path.join(projectPath, '.claude', 'rules');
+            const configPath = path.join(rulesDir, 'active_memory.md');
+
+            // Get hot files from memory store
+            const memoryStore = getMemoryStore(projectPath);
+            const hotEntities = memoryStore.getHotEntities(20);
+            const hotFiles = hotEntities
+              .filter((e: any) => e.type === 'file')
+              .slice(0, 10); // Limit to top 10 files
+
+            // Build file list for CLI analysis
+            const filePaths = hotFiles.map((f: any) => {
+              const filePath = f.value;
+              return path.isAbsolute(filePath) ? filePath : path.join(projectPath, filePath);
+            }).filter((p: string) => fs.existsSync(p));
+
+            // Build the active memory content header
+            let content = `# Active Memory
+
+> Auto-generated understanding of frequently accessed files using ${tool.toUpperCase()}.
+> Last updated: ${new Date().toISOString()}
+> Files analyzed: ${hotFiles.length}
+> CLI Tool: ${tool}
+
+---
+
+`;
+
+            // Use CLI to analyze files if available
+            const { spawn } = require('child_process');
+            let cliOutput = '';
+
+            // Build CLI command based on tool
+            const cliPrompt = `PURPOSE: Analyze the following hot files and provide a concise understanding of each.
+TASK: For each file, describe its purpose, key exports, dependencies, and how it relates to other files.
+MODE: analysis
+CONTEXT: ${filePaths.map((p: string) => '@' + p).join(' ')}
+EXPECTED: Markdown format with ## headings for each file, bullet points for key information.
+RULES: Be concise. Focus on practical understanding. Include function signatures for key exports.`;
+
+            const cliCmd = tool === 'qwen' ? 'qwen' : 'gemini';
+            const cliArgs = ['-p', cliPrompt];
+
+            // Try to execute CLI
+            try {
+              const cliProcess = spawn(cliCmd, cliArgs, {
+                cwd: projectPath,
+                shell: true,
+                timeout: 120000 // 2 minute timeout
+              });
+
+              cliOutput = await new Promise<string>((resolve, reject) => {
+                let output = '';
+                let errorOutput = '';
+
+                cliProcess.stdout?.on('data', (data: Buffer) => {
+                  output += data.toString();
+                });
+
+                cliProcess.stderr?.on('data', (data: Buffer) => {
+                  errorOutput += data.toString();
+                });
+
+                cliProcess.on('close', (code: number) => {
+                  if (code === 0 || output.length > 100) {
+                    resolve(output);
+                  } else {
+                    reject(new Error(errorOutput || 'CLI execution failed'));
+                  }
+                });
+
+                cliProcess.on('error', (err: Error) => {
+                  reject(err);
+                });
+
+                // Timeout fallback
+                setTimeout(() => {
+                  if (output.length > 0) {
+                    resolve(output);
+                  } else {
+                    reject(new Error('CLI timeout'));
+                  }
+                }, 120000);
+              });
+
+              // Add CLI output to content
+              content += cliOutput + '\n\n---\n\n';
+
+            } catch (cliErr) {
+              // Fallback to basic analysis if CLI fails
+              console.warn('[Active Memory] CLI analysis failed, using basic analysis:', (cliErr as Error).message);
+
+              // Basic analysis fallback
+              for (const file of hotFiles) {
+                const fileName = file.value.split(/[/\\]/).pop() || file.value;
+                const filePath = file.value;
+                const heat = file.stats?.heat_score || 0;
+                const readCount = file.stats?.read_count || 0;
+                const writeCount = file.stats?.write_count || 0;
+
+                content += `## ${fileName}
+
+- **Path**: \`${filePath}\`
+- **Heat Score**: ${heat}
+- **Access**: ${readCount} reads, ${writeCount} writes
+- **Last Seen**: ${file.last_seen_at || 'Unknown'}
+
+`;
+
+                // Try to read file and generate summary
+                try {
+                  const fullPath = path.isAbsolute(filePath) ? filePath : path.join(projectPath, filePath);
+
+                  if (fs.existsSync(fullPath)) {
+                    const stat = fs.statSync(fullPath);
+                    const ext = path.extname(fullPath).toLowerCase();
+
+                    content += `- **Size**: ${(stat.size / 1024).toFixed(1)} KB\n`;
+                    content += `- **Type**: ${ext || 'unknown'}\n`;
+
+                    const textExts = ['.ts', '.js', '.tsx', '.jsx', '.md', '.json', '.css', '.html', '.vue', '.svelte', '.py', '.go', '.rs'];
+                    if (textExts.includes(ext) && stat.size < 100000) {
+                      const fileContent = fs.readFileSync(fullPath, 'utf-8');
+                      const lines = fileContent.split('\n').slice(0, 30);
+
+                      const exports = lines.filter(l =>
+                        l.includes('export ') || l.includes('function ') ||
+                        l.includes('class ') || l.includes('interface ')
+                      ).slice(0, 8);
+
+                      if (exports.length > 0) {
+                        content += `\n**Key Exports**:\n\`\`\`\n${exports.join('\n')}\n\`\`\`\n`;
+                      }
+                    }
+                  }
+                } catch (fileErr) {
+                  // Skip file analysis errors
+                }
+
+                content += '\n---\n\n';
+              }
+            }
+
+            // Ensure directory exists
+            if (!fs.existsSync(rulesDir)) {
+              fs.mkdirSync(rulesDir, { recursive: true });
+            }
+
+            // Write the file
+            fs.writeFileSync(configPath, content, 'utf-8');
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              success: true,
+              filesAnalyzed: hotFiles.length,
+              path: configPath,
+              usedCli: cliOutput.length > 0
+            }));
+          } catch (error: unknown) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: (error as Error).message }));
           }
         });
         return;
@@ -2985,7 +3403,7 @@ async function getFileContent(filePath) {
 /**
  * Trigger update-module-claude tool (async execution)
  * @param {string} targetPath - Directory path to update
- * @param {string} tool - CLI tool to use (gemini, qwen, codex)
+ * @param {string} tool - CLI tool to use (gemini, qwen, codex, claude)
  * @param {string} strategy - Update strategy (single-layer, multi-layer)
  * @returns {Promise<Object>}
  */

@@ -79,10 +79,11 @@ function normalizePath(filePath: string): string {
 }
 
 /**
- * Get project path from current working directory
+ * Get project path from hook data or current working directory
  */
-function getProjectPath(): string {
-  return process.cwd();
+function getProjectPath(hookCwd?: string): string {
+  // Prefer hook's cwd (actual project workspace) over process.cwd()
+  return hookCwd || process.cwd();
 }
 
 /**
@@ -90,6 +91,7 @@ function getProjectPath(): string {
  */
 async function trackAction(options: TrackOptions): Promise<void> {
   let { type, action, value, session, stdin } = options;
+  let hookCwd: string | undefined;
 
   // If --stdin flag is set, read from stdin (Claude Code hook format)
   if (stdin) {
@@ -98,6 +100,7 @@ async function trackAction(options: TrackOptions): Promise<void> {
       if (stdinData) {
         const hookData = JSON.parse(stdinData);
         session = hookData.session_id || session;
+        hookCwd = hookData.cwd; // Extract workspace path from hook
 
         // Extract value based on hook event
         if (hookData.tool_input) {
@@ -151,7 +154,7 @@ async function trackAction(options: TrackOptions): Promise<void> {
   }
 
   try {
-    const projectPath = getProjectPath();
+    const projectPath = getProjectPath(hookCwd);
     const store = getMemoryStore(projectPath);
     const now = new Date().toISOString();
 

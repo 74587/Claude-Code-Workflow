@@ -104,6 +104,7 @@ async function renderExplorer() {
             <option value="gemini">Gemini</option>
             <option value="qwen">Qwen</option>
             <option value="codex">Codex</option>
+            <option value="claude">Claude</option>
           </select>
         </div>
         <div class="task-queue-actions">
@@ -707,12 +708,17 @@ function addUpdateTask(path, tool = 'gemini', strategy = 'single-layer') {
  * Add task from folder context (right-click or button)
  */
 function addFolderToQueue(folderPath, strategy = 'single-layer') {
-  // Use the selected CLI tool from the queue panel
-  addUpdateTask(folderPath, defaultCliTool, strategy);
-  
-  // Show task queue if not visible
-  if (!isTaskQueueVisible) {
-    toggleTaskQueue();
+  // Use the sidebar queue instead of floating panel
+  if (typeof addUpdateTaskToSidebar === 'function') {
+    addUpdateTaskToSidebar(folderPath, defaultCliTool, strategy);
+  } else {
+    // Fallback to local queue
+    addUpdateTask(folderPath, defaultCliTool, strategy);
+
+    // Show task queue if not visible
+    if (!isTaskQueueVisible) {
+      toggleTaskQueue();
+    }
   }
 }
 

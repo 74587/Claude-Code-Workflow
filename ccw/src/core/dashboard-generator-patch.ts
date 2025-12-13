@@ -27,6 +27,7 @@ const MODULE_FILES = [
   'dashboard-js/components/mcp-manager.js',
   'dashboard-js/components/hook-manager.js',
   'dashboard-js/components/version-check.js',
+  'dashboard-js/components/task-queue-sidebar.js',
   // Views
   'dashboard-js/views/home.js',
   'dashboard-js/views/project-overview.js',

@@ -187,15 +187,27 @@ export class CliHistoryStore {
    * Migrate schema for existing databases
    */
   private migrateSchema(): void {
-    // Check if category column exists
-    const tableInfo = this.db.prepare('PRAGMA table_info(conversations)').all() as Array<{ name: string }>;
-    const hasCategory = tableInfo.some(col => col.name === 'category');
+    try {
+      // Check if category column exists
+      const tableInfo = this.db.prepare('PRAGMA table_info(conversations)').all() as Array<{ name: string }>;
+      const hasCategory = tableInfo.some(col => col.name === 'category');
 
-    if (!hasCategory) {
-      this.db.exec(`
-        ALTER TABLE conversations ADD COLUMN category TEXT DEFAULT 'user';
-        CREATE INDEX IF NOT EXISTS idx_conversations_category ON conversations(category);
-      `);
+      if (!hasCategory) {
+        console.log('[CLI History] Migrating database: adding category column...');
+        this.db.exec(`
+          ALTER TABLE conversations ADD COLUMN category TEXT DEFAULT 'user';
+        `);
+        // Create index separately to handle potential errors
+        try {
+          this.db.exec(`CREATE INDEX IF NOT EXISTS idx_conversations_category ON conversations(category);`);
+        } catch (indexErr) {
+          console.warn('[CLI History] Category index creation warning:', (indexErr as Error).message);
+        }
+        console.log('[CLI History] Migration complete: category column added');
+      }
+    } catch (err) {
+      console.error('[CLI History] Migration error:', (err as Error).message);
+      // Don't throw - allow the store to continue working with existing schema
     }
   }
 

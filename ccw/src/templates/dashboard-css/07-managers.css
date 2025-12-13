@@ -1863,3 +1863,238 @@
   }
 }
 
+/* ==========================================
+   UPDATE TASKS SECTION - In CLI Tab
+   ========================================== */
+
+/* Section Container */
+.update-tasks-section {
+  border-bottom: 1px solid hsl(var(--border));
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+
+.update-tasks-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.update-tasks-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.update-tasks-clear-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.update-tasks-clear-btn:hover {
+  background: hsl(var(--destructive) / 0.1);
+  color: hsl(var(--destructive));
+}
+
+.update-tasks-list {
+  padding: 0 12px;
+}
+
+.update-tasks-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  text-align: center;
+  color: hsl(var(--muted-foreground));
+}
+
+.update-tasks-empty span {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.update-tasks-empty p {
+  font-size: 0.75rem;
+  margin: 4px 0 0;
+}
+
+/* CLI History Section */
+.cli-history-section {
+  padding-top: 4px;
+}
+
+.cli-history-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.cli-history-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.cli-history-list {
+  padding: 0 12px;
+}
+
+/* Individual Update Task Item */
+.update-task-item {
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  transition: all 0.15s ease;
+}
+
+.update-task-item:last-child {
+  margin-bottom: 0;
+}
+
+.update-task-item.status-pending {
+  border-left: 3px solid hsl(var(--muted-foreground));
+}
+
+.update-task-item.status-running {
+  border-left: 3px solid hsl(var(--warning));
+  background: hsl(var(--warning) / 0.05);
+}
+
+.update-task-item.status-completed {
+  border-left: 3px solid hsl(var(--success));
+  background: hsl(var(--success) / 0.05);
+  opacity: 0.8;
+}
+
+.update-task-item.status-failed {
+  border-left: 3px solid hsl(var(--destructive));
+  background: hsl(var(--destructive) / 0.05);
+}
+
+.update-task-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.update-task-status {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.update-task-item.status-running .update-task-status {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.update-task-name {
+  flex: 1;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.update-task-strategy {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.update-task-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.update-task-cli-select {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.update-task-cli-select:hover:not(:disabled) {
+  border-color: hsl(var(--primary));
+}
+
+.update-task-cli-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.update-task-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.update-task-start {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.update-task-start:hover {
+  background: hsl(var(--primary) / 0.9);
+  transform: scale(1.05);
+}
+
+.update-task-remove {
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+}
+
+.update-task-remove:hover {
+  background: hsl(var(--destructive) / 0.1);
+  color: hsl(var(--destructive));
+}
+
+.update-task-stop {
+  background: hsl(var(--warning));
+  color: white;
+}
+
+.update-task-stop:hover {
+  background: hsl(var(--warning) / 0.9);
+}
+
+.update-task-message {
+  font-size: 0.6875rem;
+  color: hsl(var(--muted-foreground));
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid hsl(var(--border));
+}
+

@@ -9,6 +9,10 @@ let cliQueueData = [];
 let currentQueueTab = 'tasks'; // 'tasks' | 'cli'
 let cliCategoryFilter = 'all'; // 'all' | 'user' | 'internal' | 'insight'
 
+// Update task queue data (for CLAUDE.md updates from explorer)
+let sidebarUpdateTasks = [];
+let isSidebarTaskRunning = {}; // Track running tasks by id
+
 /**
  * Initialize task queue sidebar
  */
@@ -65,10 +69,36 @@ function initTaskQueueSidebar() {
         </div>
 
         <div class="task-queue-content" id="cliQueueContent" style="display: none;">
-          <div class="task-queue-empty-state">
-            <div class="task-queue-empty-icon">⚡</div>
-            <div class="task-queue-empty-text">No CLI executions</div>
-            <div class="task-queue-empty-hint">CLI tool executions will appear here</div>
+          <!-- Update Tasks Section -->
+          <div class="update-tasks-section" id="updateTasksSection">
+            <div class="update-tasks-header">
+              <span class="update-tasks-title">📝 ${t('taskQueue.title')}</span>
+              <button class="update-tasks-clear-btn" onclick="clearCompletedUpdateTasks()" title="${t('taskQueue.clearCompleted')}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                </svg>
+              </button>
+            </div>
+            <div class="update-tasks-list" id="updateTasksList">
+              <div class="update-tasks-empty">
+                <span>${t('taskQueue.noTasks')}</span>
+                <p>${t('taskQueue.noTasksHint')}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- CLI History Section -->
+          <div class="cli-history-section" id="cliHistorySection">
+            <div class="cli-history-header">
+              <span class="cli-history-title">⚡ ${t('title.cliHistory')}</span>
+            </div>
+            <div class="cli-history-list" id="cliHistoryList">
+              <div class="task-queue-empty-state">
+                <div class="task-queue-empty-icon">⚡</div>
+                <div class="task-queue-empty-text">No internal executions</div>
+                <div class="task-queue-empty-hint">CLI tool executions will appear here</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -89,7 +119,7 @@ function initTaskQueueSidebar() {
 
   updateTaskQueueData();
   updateCliQueueData();
-  renderTaskQueue();
+  renderTaskQueueSidebar();
   renderCliQueue();
   updateTaskQueueBadge();
 }
@@ -114,7 +144,7 @@ function toggleTaskQueueSidebar() {
       toggle.classList.add('hidden');
       // Refresh data when opened
       updateTaskQueueData();
-      renderTaskQueue();
+      renderTaskQueueSidebar();
     } else {
       sidebar.classList.remove('open');
       overlay.classList.remove('show');
@@ -182,9 +212,10 @@ function updateTaskQueueData() {
 }
 
 /**
- * Render task queue list
+ * Render task queue list in sidebar
+ * Note: Named renderTaskQueueSidebar to avoid conflict with explorer.js renderTaskQueue
  */
-function renderTaskQueue(filter) {
+function renderTaskQueueSidebar(filter) {
   filter = filter || 'all';
   var contentEl = document.getElementById('taskQueueContent');
   if (!contentEl) {
@@ -249,7 +280,7 @@ function filterTaskQueue(filter) {
   document.querySelectorAll('.task-filter-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.filter === filter);
   });
-  renderTaskQueue(filter);
+  renderTaskQueueSidebar(filter);
 }
 
 /**
@@ -307,7 +338,7 @@ function updateTaskQueueBadge() {
 function refreshTaskQueue() {
   updateTaskQueueData();
   updateCliQueueData();
-  renderTaskQueue();
+  renderTaskQueueSidebar();
   renderCliQueue();
   updateTaskQueueBadge();
 }
@@ -365,7 +396,7 @@ async function updateCliQueueData() {
  * Render CLI queue list
  */
 function renderCliQueue() {
-  const contentEl = document.getElementById('cliQueueContent');
+  const contentEl = document.getElementById('cliHistoryList');
   if (!contentEl) return;
 
   // Filter by category
@@ -458,4 +489,228 @@ function getCliTimeAgo(date) {
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
   return `${Math.floor(seconds / 86400)}d`;
+}
+
+// ==========================================
+// UPDATE TASK QUEUE - For CLAUDE.md Updates
+// ==========================================
+
+/**
+ * Add update task to sidebar queue (called from explorer)
+ */
+function addUpdateTaskToSidebar(path, tool = 'gemini', strategy = 'single-layer') {
+  const task = {
+    id: Date.now(),
+    path,
+    tool,
+    strategy,
+    status: 'pending', // pending, running, completed, failed
+    message: '',
+    addedAt: new Date().toISOString()
+  };
+
+  sidebarUpdateTasks.push(task);
+  renderSidebarUpdateTasks();
+  updateCliTabBadge();
+
+  // Open sidebar and switch to CLI tab if not visible
+  if (!isTaskQueueSidebarVisible) {
+    toggleTaskQueueSidebar();
+  }
+  switchQueueTab('cli');
+}
+
+/**
+ * Remove update task from queue
+ */
+function removeUpdateTask(taskId) {
+  sidebarUpdateTasks = sidebarUpdateTasks.filter(t => t.id !== taskId);
+  renderSidebarUpdateTasks();
+  updateCliTabBadge();
+}
+
+/**
+ * Clear completed/failed update tasks
+ */
+function clearCompletedUpdateTasks() {
+  sidebarUpdateTasks = sidebarUpdateTasks.filter(t => t.status === 'pending' || t.status === 'running');
+  renderSidebarUpdateTasks();
+  updateCliTabBadge();
+}
+
+/**
+ * Update CLI tool for a specific task
+ */
+function updateSidebarTaskCliTool(taskId, tool) {
+  const task = sidebarUpdateTasks.find(t => t.id === taskId);
+  if (task && task.status === 'pending') {
+    task.tool = tool;
+  }
+}
+
+/**
+ * Execute a single update task
+ */
+async function executeSidebarUpdateTask(taskId) {
+  const task = sidebarUpdateTasks.find(t => t.id === taskId);
+  if (!task || task.status !== 'pending') return;
+
+  const folderName = task.path.split('/').pop() || task.path;
+
+  // Update status to running
+  task.status = 'running';
+  task.message = t('taskQueue.processing');
+  isSidebarTaskRunning[taskId] = true;
+  renderSidebarUpdateTasks();
+
+  if (typeof addGlobalNotification === 'function') {
+    addGlobalNotification('info', `Processing: ${folderName}`, `Strategy: ${task.strategy}, Tool: ${task.tool}`, 'Explorer');
+  }
+
+  try {
+    const response = await fetch('/api/update-claude-md', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        path: task.path,
+        tool: task.tool,
+        strategy: task.strategy
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      task.status = 'completed';
+      task.message = t('taskQueue.updated');
+      if (typeof addGlobalNotification === 'function') {
+        addGlobalNotification('success', `Completed: ${folderName}`, result.message, 'Explorer');
+      }
+    } else {
+      task.status = 'failed';
+      task.message = result.error || t('taskQueue.failed');
+      if (typeof addGlobalNotification === 'function') {
+        addGlobalNotification('error', `Failed: ${folderName}`, result.error || 'Unknown error', 'Explorer');
+      }
+    }
+  } catch (error) {
+    task.status = 'failed';
+    task.message = error.message;
+    if (typeof addGlobalNotification === 'function') {
+      addGlobalNotification('error', `Error: ${folderName}`, error.message, 'Explorer');
+    }
+  } finally {
+    delete isSidebarTaskRunning[taskId];
+    renderSidebarUpdateTasks();
+    updateCliTabBadge();
+
+    // Refresh tree to show updated CLAUDE.md files
+    if (typeof loadExplorerTree === 'function' && typeof explorerCurrentPath !== 'undefined') {
+      loadExplorerTree(explorerCurrentPath);
+    }
+  }
+}
+
+/**
+ * Stop/cancel a running update task (if possible)
+ */
+function stopSidebarUpdateTask(taskId) {
+  // Currently just removes the task - actual cancellation would need AbortController
+  const task = sidebarUpdateTasks.find(t => t.id === taskId);
+  if (task && task.status === 'running') {
+    task.status = 'failed';
+    task.message = 'Cancelled';
+    delete isSidebarTaskRunning[taskId];
+    renderSidebarUpdateTasks();
+    updateCliTabBadge();
+  }
+}
+
+/**
+ * Render update task queue list
+ */
+function renderSidebarUpdateTasks() {
+  const listEl = document.getElementById('updateTasksList');
+  if (!listEl) return;
+
+  if (sidebarUpdateTasks.length === 0) {
+    listEl.innerHTML = `
+      <div class="update-tasks-empty">
+        <span>${t('taskQueue.noTasks')}</span>
+        <p>${t('taskQueue.noTasksHint')}</p>
+      </div>
+    `;
+    return;
+  }
+
+  listEl.innerHTML = sidebarUpdateTasks.map(task => {
+    const folderName = task.path.split('/').pop() || task.path;
+    const strategyIcon = task.strategy === 'multi-layer' ? '📂' : '📄';
+    const strategyLabel = task.strategy === 'multi-layer'
+      ? t('taskQueue.withSubdirs')
+      : t('taskQueue.currentOnly');
+
+    const statusIcon = {
+      'pending': '⏳',
+      'running': '🔄',
+      'completed': '✅',
+      'failed': '❌'
+    }[task.status];
+
+    const isPending = task.status === 'pending';
+    const isRunning = task.status === 'running';
+
+    return `
+      <div class="update-task-item status-${task.status}" data-task-id="${task.id}">
+        <div class="update-task-header">
+          <span class="update-task-status">${statusIcon}</span>
+          <span class="update-task-name" title="${escapeHtml(task.path)}">${escapeHtml(folderName)}</span>
+          <span class="update-task-strategy" title="${strategyLabel}">${strategyIcon}</span>
+        </div>
+        <div class="update-task-controls">
+          <select class="update-task-cli-select"
+                  onchange="updateSidebarTaskCliTool(${task.id}, this.value)"
+                  ${!isPending ? 'disabled' : ''}>
+            <option value="gemini" ${task.tool === 'gemini' ? 'selected' : ''}>Gemini</option>
+            <option value="qwen" ${task.tool === 'qwen' ? 'selected' : ''}>Qwen</option>
+            <option value="codex" ${task.tool === 'codex' ? 'selected' : ''}>Codex</option>
+            <option value="claude" ${task.tool === 'claude' ? 'selected' : ''}>Claude</option>
+          </select>
+          ${isPending ? `
+            <button class="update-task-btn update-task-start" onclick="executeSidebarUpdateTask(${task.id})" title="${t('taskQueue.startAll')}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+            </button>
+            <button class="update-task-btn update-task-remove" onclick="removeUpdateTask(${task.id})" title="Remove">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          ` : ''}
+          ${isRunning ? `
+            <button class="update-task-btn update-task-stop" onclick="stopSidebarUpdateTask(${task.id})" title="Stop">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="6" width="12" height="12"/>
+              </svg>
+            </button>
+          ` : ''}
+        </div>
+        ${task.message ? `<div class="update-task-message">${escapeHtml(task.message)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+/**
+ * Update CLI tab badge with pending update tasks count
+ */
+function updateCliTabBadge() {
+  const pendingCount = sidebarUpdateTasks.filter(t => t.status === 'pending' || t.status === 'running').length;
+  const cliTabBadge = document.getElementById('cliTabBadge');
+  if (cliTabBadge) {
+    const totalCount = pendingCount + cliQueueData.length;
+    cliTabBadge.textContent = totalCount;
+    cliTabBadge.style.display = totalCount > 0 ? 'inline' : 'none';
+  }
 }

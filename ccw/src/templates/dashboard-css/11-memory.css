@@ -9,6 +9,10 @@
 .memory-view {
   height: 100%;
   min-height: 600px;
+  max-height: calc(100vh - 150px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .memory-view.loading {
@@ -18,11 +22,241 @@
   justify-content: center;
 }
 
+/* Memory Header with Active Memory Toggle */
+.memory-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid hsl(var(--border));
+  flex-shrink: 0;
+}
+
+.memory-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.memory-header-left h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin: 0;
+}
+
+.memory-header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Active Memory Controls Container */
+.active-memory-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Active Memory Toggle */
+.active-memory-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Active Memory Config */
+.active-memory-config {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid hsl(var(--border));
+}
+
+.config-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.config-item label {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+}
+
+.config-item select {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.25rem;
+  cursor: pointer;
+  outline: none;
+  min-width: 80px;
+}
+
+.config-item select:focus {
+  border-color: hsl(var(--primary));
+}
+
+.config-item select:hover {
+  border-color: hsl(var(--primary) / 0.5);
+}
+
+/* Active Memory Actions */
+.active-memory-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid hsl(var(--border));
+}
+
+.last-sync {
+  font-size: 0.6875rem;
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+}
+
+.toggle-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: hsl(var(--muted));
+  border-radius: 24px;
+  transition: all 0.3s ease;
+}
+
+.toggle-slider::before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: hsl(var(--primary));
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(20px);
+}
+
+.toggle-switch input:focus + .toggle-slider {
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.3);
+}
+
+.toggle-status {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  background: hsl(var(--muted) / 0.5);
+}
+
+.toggle-status.active {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: hsl(142 76% 36%);
+  background: hsl(142 76% 36% / 0.1);
+}
+
+/* Auto-sync indicator */
+.auto-sync-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  white-space: nowrap;
+}
+
+.auto-sync-indicator svg {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Sync Button */
+.btn-sync {
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  background: hsl(var(--primary) / 0.1);
+  border: 1px solid hsl(var(--primary) / 0.3);
+  color: hsl(var(--primary));
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-sync:hover {
+  background: hsl(var(--primary) / 0.2);
+  border-color: hsl(var(--primary));
+}
+
+.btn-sync.syncing {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-sync.syncing i {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .memory-columns {
   display: grid;
   grid-template-columns: 280px 1fr 320px;
   gap: 1.5rem;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  max-height: calc(100vh - 230px);
 }
 
 .memory-column {
@@ -33,6 +267,7 @@
   border-radius: 0.75rem;
   overflow: hidden;
   min-width: 0;
+  max-height: 100%;
 }
 
 /* Memory Section inside columns */
@@ -40,6 +275,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow: hidden;
 }
 
 .section-header {
@@ -110,10 +346,15 @@
   flex: 1;
   overflow-y: auto;
   padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
 }
 
 .hotspot-list-container {
-  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .hotspot-list-container:last-child {
@@ -130,6 +371,7 @@
   margin: 0 0 0.5rem 0;
   padding-bottom: 0.375rem;
   border-bottom: 1px solid hsl(var(--border));
+  flex-shrink: 0;
 }
 
 /* Hotspot List Items */
@@ -267,8 +509,8 @@
 }
 
 .legend-dot.file { background: hsl(var(--primary)); }
-.legend-dot.module { background: hsl(var(--muted-foreground)); }
-.legend-dot.component { background: hsl(var(--success)); }
+.legend-dot.module { background: hsl(var(--muted-foreground)); border: 1px dashed hsl(var(--muted-foreground)); }
+.legend-dot.component { background: hsl(142 76% 36%); }
 
 /* Graph Container */
 .graph-container,
@@ -277,9 +519,11 @@
   position: relative;
   background: hsl(var(--background));
   min-height: 300px;
+  max-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 .memory-graph-container svg {
@@ -425,8 +669,10 @@
   flex: 1;
   overflow-y: auto;
   padding: 0.75rem;
+  min-height: 0;
 }
 
+/* Context Timeline Card Style */
 .timeline-item {
   display: flex;
   gap: 0.75rem;
@@ -436,10 +682,21 @@
   border: 1px solid hsl(var(--border));
   border-radius: 0.5rem;
   transition: all 0.15s ease;
+  cursor: pointer;
+  min-height: 60px;
+  max-height: 120px;
+  overflow: hidden;
 }
 
 .timeline-item:hover {
   border-color: hsl(var(--primary) / 0.3);
+  background: hsl(var(--hover));
+}
+
+.timeline-item.expanded {
+  max-height: none;
+  background: hsl(var(--muted) / 0.3);
+  border-color: hsl(var(--primary) / 0.5);
 }
 
 .timeline-item:last-child {
@@ -641,6 +898,12 @@
   .memory-columns {
     grid-template-columns: 1fr;
     gap: 1rem;
+    max-height: none;
+    overflow-y: auto;
+  }
+
+  .memory-column {
+    max-height: 500px;
   }
 }
 
@@ -654,6 +917,7 @@
   border: 1px solid hsl(var(--border));
   border-radius: 0.75rem;
   overflow: hidden;
+  max-height: 100%;
 }
 
 .hotspots-header {
@@ -683,6 +947,7 @@
   flex: 1;
   overflow-y: auto;
   padding: 0.5rem;
+  min-height: 0;
 }
 
 .hotspot-item {
@@ -793,6 +1058,7 @@
   border: 1px solid hsl(var(--border));
   border-radius: 0.75rem;
   overflow: hidden;
+  max-height: 100%;
 }
 
 .graph-header {
@@ -828,7 +1094,9 @@
   flex: 1;
   position: relative;
   background: hsl(var(--background));
-  min-height: 400px;
+  min-height: 300px;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 /* D3 Graph Elements */
@@ -943,6 +1211,111 @@
   }
 }
 
+/* Graph Zoom/Pan Styles */
+.memory-graph-svg {
+  cursor: grab;
+}
+
+.memory-graph-svg:active {
+  cursor: grabbing;
+}
+
+.graph-content {
+  transition: transform 0.1s ease-out;
+}
+
+/* Graph Node Groups */
+.graph-node-group {
+  cursor: pointer;
+}
+
+.graph-node-group:hover circle {
+  filter: brightness(1.2);
+}
+
+.graph-node-group.file circle {
+  fill: hsl(var(--primary));
+  stroke: hsl(var(--primary));
+  stroke-width: 2;
+}
+
+.graph-node-group.module circle {
+  fill: hsl(var(--muted));
+  stroke: hsl(var(--muted-foreground));
+  stroke-width: 2;
+  stroke-dasharray: 4 2;
+}
+
+.graph-node-group.component circle {
+  fill: hsl(142 76% 36%);
+  stroke: hsl(142 76% 36%);
+  stroke-width: 2;
+}
+
+/* Individual graph-node circles (for legacy support) */
+.graph-node.file {
+  fill: hsl(var(--primary));
+  stroke: hsl(var(--primary));
+  stroke-width: 2;
+}
+
+.graph-node.module {
+  fill: hsl(var(--muted));
+  stroke: hsl(var(--muted-foreground));
+  stroke-width: 2;
+  stroke-dasharray: 4 2;
+}
+
+.graph-node.component {
+  fill: hsl(142 76% 36%);
+  stroke: hsl(142 76% 36%);
+  stroke-width: 2;
+}
+
+/* Selected Node */
+.graph-node.selected {
+  stroke: hsl(var(--foreground));
+  stroke-width: 3;
+  filter: drop-shadow(0 0 8px hsl(var(--primary)));
+}
+
+/* Graph Labels */
+.graph-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  fill: hsl(var(--foreground));
+  pointer-events: none;
+  user-select: none;
+  text-shadow:
+    1px 1px 2px hsl(var(--background)),
+    -1px -1px 2px hsl(var(--background)),
+    1px -1px 2px hsl(var(--background)),
+    -1px 1px 2px hsl(var(--background));
+}
+
+/* Graph Controls */
+.graph-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.graph-controls .btn-icon {
+  padding: 0.375rem;
+  border-radius: 0.375rem;
+  background: transparent;
+  border: 1px solid transparent;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.graph-controls .btn-icon:hover {
+  background: hsl(var(--muted));
+  border-color: hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+
 /* ========================================
  * Context Timeline (Right Column)
  * ======================================== */
@@ -953,6 +1326,7 @@
   border: 1px solid hsl(var(--border));
   border-radius: 0.75rem;
   overflow: hidden;
+  max-height: 100%;
 }
 
 .context-header {
@@ -982,37 +1356,10 @@
   flex: 1;
   overflow-y: auto;
   padding: 0.75rem;
+  min-height: 0;
 }
 
-.timeline-item {
-  position: relative;
-  padding-left: 1.5rem;
-  padding-bottom: 1rem;
-  border-left: 2px solid hsl(var(--border));
-}
-
-.timeline-item:last-child {
-  border-left-color: transparent;
-  padding-bottom: 0;
-}
-
-.timeline-item::before {
-  content: '';
-  position: absolute;
-  left: -6px;
-  top: 0;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: hsl(var(--primary));
-  border: 2px solid hsl(var(--card));
-}
-
-.timeline-item.recent::before {
-  background: hsl(0 84% 60%);
-  box-shadow: 0 0 8px hsl(0 84% 60% / 0.5);
-  animation: timelinePulse 2s infinite;
-}
+/* Timeline item styles moved to Context Timeline Card Style section (line ~445) */
 
 .timeline-timestamp {
   font-size: 0.6875rem;
