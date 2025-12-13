@@ -100,7 +100,7 @@ function generateFromUnifiedTemplate(data: unknown): string {
 
   // Read JS content
   let jsContent = '';
-  const moduleBase = join(__dirname, '../templates/dashboard-js');
+  const moduleBase = join(__dirname, '../../src/templates/dashboard-js');
 
   if (existsSync(moduleBase)) {
     jsContent = MODULE_FILES.map(file => {
