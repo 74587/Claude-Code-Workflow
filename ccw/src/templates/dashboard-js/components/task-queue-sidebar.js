@@ -3,7 +3,7 @@
 // ==========================================
 // Right-side slide-out toolbar for task queue management
 
-let isTaskQueueVisible = false;
+let isTaskQueueSidebarVisible = false;
 let taskQueueData = [];
 
 /**
@@ -65,13 +65,13 @@ function initTaskQueueSidebar() {
  * Toggle task queue sidebar visibility
  */
 function toggleTaskQueueSidebar() {
-  isTaskQueueVisible = !isTaskQueueVisible;
+  isTaskQueueSidebarVisible = !isTaskQueueSidebarVisible;
   const sidebar = document.getElementById('taskQueueSidebar');
   const overlay = document.getElementById('taskQueueOverlay');
   const toggle = document.getElementById('taskQueueToggle');
 
   if (sidebar && overlay && toggle) {
-    if (isTaskQueueVisible) {
+    if (isTaskQueueSidebarVisible) {
       // Close notification sidebar if open
       if (isNotificationPanelVisible && typeof toggleNotifSidebar === 'function') {
         toggleNotifSidebar();

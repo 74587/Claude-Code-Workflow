@@ -2,11 +2,26 @@
 // GLOBAL NOTIFICATION SYSTEM - Right Sidebar
 // ==========================================
 // Right-side slide-out toolbar for notifications and quick actions
+// Supports browser system notifications (cross-platform)
+
+// Notification settings
+let notifSettings = {
+  systemNotifEnabled: false,
+  soundEnabled: false
+};
 
 /**
  * Initialize global notification sidebar
  */
 function initGlobalNotifications() {
+  // Load settings from localStorage
+  loadNotifSettings();
+  
+  // Request notification permission if enabled
+  if (notifSettings.systemNotifEnabled) {
+    requestNotificationPermission();
+  }
+
   // Create sidebar if not exists
   if (!document.getElementById('notifSidebar')) {
     const sidebarHtml = `
@@ -22,6 +37,19 @@ function initGlobalNotifications() {
               <path d="M18 6L6 18M6 6l12 12"/>
             </svg>
           </button>
+        </div>
+
+        <div class="notif-sidebar-settings" id="notifSettings">
+          <label class="notif-setting-item">
+            <input type="checkbox" id="systemNotifToggle" onchange="toggleSystemNotifications(this.checked)">
+            <span class="notif-setting-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              System Notifications
+            </span>
+          </label>
         </div>
 
         <div class="notif-sidebar-actions">
@@ -60,10 +88,130 @@ function initGlobalNotifications() {
     container.id = 'notifSidebarContainer';
     container.innerHTML = sidebarHtml;
     document.body.appendChild(container);
+    
+    // Initialize toggle state
+    const toggle = document.getElementById('systemNotifToggle');
+    if (toggle) {
+      toggle.checked = notifSettings.systemNotifEnabled;
+    }
   }
 
   renderGlobalNotifications();
   updateGlobalNotifBadge();
+}
+
+/**
+ * Load notification settings from localStorage
+ */
+function loadNotifSettings() {
+  try {
+    const saved = localStorage.getItem('ccw_notif_settings');
+    if (saved) {
+      notifSettings = { ...notifSettings, ...JSON.parse(saved) };
+    }
+  } catch (e) {
+    console.error('[Notif] Failed to load settings:', e);
+  }
+}
+
+/**
+ * Save notification settings to localStorage
+ */
+function saveNotifSettings() {
+  try {
+    localStorage.setItem('ccw_notif_settings', JSON.stringify(notifSettings));
+  } catch (e) {
+    console.error('[Notif] Failed to save settings:', e);
+  }
+}
+
+/**
+ * Toggle system notifications
+ */
+function toggleSystemNotifications(enabled) {
+  notifSettings.systemNotifEnabled = enabled;
+  saveNotifSettings();
+  
+  if (enabled) {
+    requestNotificationPermission();
+  }
+}
+
+/**
+ * Request browser notification permission
+ */
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) {
+    console.warn('[Notif] Browser does not support notifications');
+    return false;
+  }
+  
+  if (Notification.permission === 'granted') {
+    return true;
+  }
+  
+  if (Notification.permission !== 'denied') {
+    const permission = await Notification.requestPermission();
+    return permission === 'granted';
+  }
+  
+  return false;
+}
+
+/**
+ * Show system notification (browser notification)
+ */
+function showSystemNotification(notification) {
+  if (!notifSettings.systemNotifEnabled) return;
+  if (!('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  
+  const typeIcon = {
+    'info': 'ℹ️',
+    'success': '✅',
+    'warning': '⚠️',
+    'error': '❌'
+  }[notification.type] || '🔔';
+  
+  const title = `${typeIcon} ${notification.message}`;
+  let body = '';
+  
+  if (notification.source) {
+    body = `[${notification.source}]`;
+  }
+  
+  // Extract plain text from details if HTML formatted
+  if (notification.details) {
+    const detailText = notification.details.replace(/<[^>]*>/g, '').trim();
+    if (detailText) {
+      body += body ? '\n' + detailText : detailText;
+    }
+  }
+  
+  try {
+    const sysNotif = new Notification(title, {
+      body: body.substring(0, 200),
+      icon: '/favicon.ico',
+      tag: `ccw-notif-${notification.id}`,
+      requireInteraction: notification.type === 'error'
+    });
+    
+    // Click to open sidebar
+    sysNotif.onclick = () => {
+      window.focus();
+      if (!isNotificationPanelVisible) {
+        toggleNotifSidebar();
+      }
+      sysNotif.close();
+    };
+    
+    // Auto close after 5s (except errors)
+    if (notification.type !== 'error') {
+      setTimeout(() => sysNotif.close(), 5000);
+    }
+  } catch (e) {
+    console.error('[Notif] Failed to show system notification:', e);
+  }
 }
 
 /**
@@ -80,8 +228,6 @@ function toggleNotifSidebar() {
       sidebar.classList.add('open');
       overlay.classList.add('show');
       toggle.classList.add('hidden');
-      // Mark notifications as read when opened
-      markAllNotificationsRead();
     } else {
       sidebar.classList.remove('open');
       overlay.classList.remove('show');
@@ -105,8 +251,11 @@ function toggleGlobalNotifications() {
 function addGlobalNotification(type, message, details = null, source = null) {
   // Format details if it's an object
   let formattedDetails = details;
+  let rawDetails = details; // Keep raw for system notification
+  
   if (details && typeof details === 'object') {
     formattedDetails = formatNotificationJson(details);
+    rawDetails = JSON.stringify(details, null, 2);
   } else if (typeof details === 'string') {
     // Try to parse and format if it looks like JSON
     const trimmed = details.trim();
@@ -115,6 +264,7 @@ function addGlobalNotification(type, message, details = null, source = null) {
       try {
         const parsed = JSON.parse(trimmed);
         formattedDetails = formatNotificationJson(parsed);
+        rawDetails = JSON.stringify(parsed, null, 2);
       } catch (e) {
         // Not valid JSON, use as-is
         formattedDetails = details;
@@ -127,9 +277,11 @@ function addGlobalNotification(type, message, details = null, source = null) {
     type,
     message,
     details: formattedDetails,
+    rawDetails: rawDetails,
     source,
     timestamp: new Date().toISOString(),
-    read: false
+    read: false,
+    expanded: false
   };
 
   globalNotificationQueue.unshift(notification);
@@ -147,10 +299,8 @@ function addGlobalNotification(type, message, details = null, source = null) {
   renderGlobalNotifications();
   updateGlobalNotifBadge();
 
-  // Show toast for important notifications
-  if (type === 'error' || type === 'success') {
-    showNotificationToast(notification);
-  }
+  // Show system notification instead of toast
+  showSystemNotification(notification);
 }
 
 /**
@@ -217,36 +367,14 @@ function formatNotificationJson(obj) {
 }
 
 /**
- * Show a brief toast notification
+ * Toggle notification item expansion
  */
-function showNotificationToast(notification) {
-  const typeIcon = {
-    'info': 'ℹ️',
-    'success': '✅',
-    'warning': '⚠️',
-    'error': '❌'
-  }[notification.type] || 'ℹ️';
-
-  // Remove existing toast
-  const existing = document.querySelector('.notif-toast');
-  if (existing) existing.remove();
-
-  const toast = document.createElement('div');
-  toast.className = `notif-toast type-${notification.type}`;
-  toast.innerHTML = `
-    <span class="toast-icon">${typeIcon}</span>
-    <span class="toast-message">${escapeHtml(notification.message)}</span>
-  `;
-  document.body.appendChild(toast);
-
-  // Animate in
-  requestAnimationFrame(() => toast.classList.add('show'));
-
-  // Auto-remove
-  setTimeout(() => {
-    toast.classList.remove('show');
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
+function toggleNotifExpand(notifId) {
+  const notif = globalNotificationQueue.find(n => n.id === notifId);
+  if (notif) {
+    notif.expanded = !notif.expanded;
+    renderGlobalNotifications();
+  }
 }
 
 /**
@@ -277,26 +405,36 @@ function renderGlobalNotifications() {
 
     const time = formatNotifTime(notif.timestamp);
     const sourceLabel = notif.source ? `<span class="notif-source">${escapeHtml(notif.source)}</span>` : '';
+    const hasDetails = notif.details && notif.details.length > 0;
+    const expandIcon = hasDetails ? (notif.expanded ? '▼' : '▶') : '';
 
-    // Details may already be HTML formatted or plain text
+    // Details section - collapsed by default, show preview
     let detailsHtml = '';
-    if (notif.details) {
-      // Check if details is already HTML formatted (contains our json-* classes)
-      if (typeof notif.details === 'string' && notif.details.includes('class="json-')) {
-        detailsHtml = `<div class="notif-details-json">${notif.details}</div>`;
+    if (hasDetails) {
+      if (notif.expanded) {
+        // Expanded view - show full details
+        if (typeof notif.details === 'string' && notif.details.includes('class="json-')) {
+          detailsHtml = `<div class="notif-details-json notif-details-expanded">${notif.details}</div>`;
+        } else {
+          detailsHtml = `<div class="notif-details notif-details-expanded">${escapeHtml(String(notif.details))}</div>`;
+        }
       } else {
-        detailsHtml = `<div class="notif-details">${escapeHtml(String(notif.details))}</div>`;
+        // Collapsed view - show hint
+        detailsHtml = `<div class="notif-details-hint">Click to view details</div>`;
       }
     }
 
     return `
-      <div class="notif-item type-${notif.type} ${notif.read ? 'read' : ''}" data-id="${notif.id}">
+      <div class="notif-item type-${notif.type} ${notif.read ? 'read' : ''} ${hasDetails ? 'has-details' : ''} ${notif.expanded ? 'expanded' : ''}" 
+           data-id="${notif.id}" 
+           onclick="toggleNotifExpand(${notif.id})">
         <div class="notif-item-header">
           <span class="notif-icon">${typeIcon}</span>
           <div class="notif-item-content">
             <span class="notif-message">${escapeHtml(notif.message)}</span>
             ${sourceLabel}
           </div>
+          ${hasDetails ? `<span class="notif-expand-icon">${expandIcon}</span>` : ''}
         </div>
         ${detailsHtml}
         <div class="notif-meta">

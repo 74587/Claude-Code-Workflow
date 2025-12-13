@@ -11,6 +11,7 @@ import { resolvePath, getRecentPaths, trackRecentPath, removeRecentPath, normali
 import { getCliToolsStatus, getExecutionHistory, getExecutionHistoryAsync, getExecutionDetail, getConversationDetail, deleteExecution, deleteExecutionAsync, batchDeleteExecutionsAsync, executeCliTool } from '../tools/cli-executor.js';
 import { getAllManifests } from './manifest.js';
 import { checkVenvStatus, bootstrapVenv, executeCodexLens, checkSemanticStatus, installSemantic } from '../tools/codex-lens.js';
+import { generateSmartContext, formatSmartContext } from '../tools/smart-context.js';
 import { listTools } from '../tools/index.js';
 import type { ServerConfig } from '../types/config.js';interface ServerOptions {  port?: number;  initialPath?: string;  host?: string;  open?: boolean;}interface PostResult {  error?: string;  status?: number;  [key: string]: unknown;}type PostHandler = (body: unknown) => Promise<PostResult>;
 
@@ -107,6 +108,7 @@ const MODULE_FILES = [
   'components/_review_tab.js',
   'components/task-drawer-core.js',
   'components/task-drawer-renderers.js',
+  'components/task-queue-sidebar.js',
   'components/flowchart.js',
   'views/home.js',
   'views/project-overview.js',
@@ -635,38 +637,25 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         return;
       }
 
-      // API: CLI Settings
-      if (pathname === '/api/cli/settings' && req.method === 'POST') {
-        handlePostRequest(req, res, async (body) => {
-          const { storageBackend: backend } = body as { storageBackend?: string };
-
-          if (backend && (backend === 'sqlite' || backend === 'json')) {
-            // Import and set storage backend dynamically
-            try {
-              const { setStorageBackend } = await import('../tools/cli-executor.js');
-              setStorageBackend(backend as 'sqlite' | 'json');
-              return { success: true, storageBackend: backend };
-            } catch (err) {
-              return { success: false, error: (err as Error).message };
-            }
-          }
-
-          return { success: true, message: 'No changes' };
-        });
-        return;
-      }
-
       // API: CLI Execution History
       if (pathname === '/api/cli/history') {
         const projectPath = url.searchParams.get('path') || initialPath;
         const limit = parseInt(url.searchParams.get('limit') || '50', 10);
         const tool = url.searchParams.get('tool') || null;
         const status = url.searchParams.get('status') || null;
+        const search = url.searchParams.get('search') || null;
         const recursive = url.searchParams.get('recursive') !== 'false'; // Default true
 
-        const history = getExecutionHistory(projectPath, { limit, tool, status, recursive });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(history));
+        // Use async version to ensure SQLite is initialized
+        getExecutionHistoryAsync(projectPath, { limit, tool, status, search, recursive })
+          .then(history => {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(history));
+          })
+          .catch(err => {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+          });
         return;
       }
 
@@ -683,14 +672,21 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
 
         // Handle DELETE request
         if (req.method === 'DELETE') {
-          const result = deleteExecution(projectPath, executionId);
-          if (result.success) {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: true, message: 'Execution deleted' }));
-          } else {
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: result.error || 'Delete failed' }));
-          }
+          // Use async version to ensure SQLite is initialized
+          deleteExecutionAsync(projectPath, executionId)
+            .then(result => {
+              if (result.success) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, message: 'Execution deleted' }));
+              } else {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: result.error || 'Delete failed' }));
+              }
+            })
+            .catch(err => {
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: err.message }));
+            });
           return;
         }
 
@@ -725,10 +721,30 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // API: Execute CLI Tool
       if (pathname === '/api/cli/execute' && req.method === 'POST') {
         handlePostRequest(req, res, async (body) => {
-          const { tool, prompt, mode, model, dir, includeDirs, timeout } = body;
+          const { tool, prompt, mode, format, model, dir, includeDirs, timeout, smartContext } = body;
 
           if (!tool || !prompt) {
             return { error: 'tool and prompt are required', status: 400 };
+          }
+
+          // Generate smart context if enabled
+          let finalPrompt = prompt;
+          if (smartContext?.enabled) {
+            try {
+              const contextResult = await generateSmartContext(prompt, {
+                enabled: true,
+                maxFiles: smartContext.maxFiles || 10,
+                searchMode: 'text'
+              }, dir || initialPath);
+
+              const contextAppendage = formatSmartContext(contextResult);
+              if (contextAppendage) {
+                finalPrompt = prompt + contextAppendage;
+              }
+            } catch (err) {
+              console.warn('[Smart Context] Failed to generate:', err);
+              // Continue without smart context
+            }
           }
 
           // Start execution
@@ -749,10 +765,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
             // Execute with streaming output broadcast
             const result = await executeCliTool({
               tool,
-              prompt,
+              prompt: finalPrompt,
               mode: mode || 'analysis',
+              format: format || 'plain',
               model,
-              dir: dir || initialPath,
+              cd: dir || initialPath,
               includeDirs,
               timeout: timeout || 300000,
               stream: true

@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       // Close task queue sidebar if open
-      if (isTaskQueueVisible && typeof toggleTaskQueueSidebar === 'function') {
+      if (isTaskQueueSidebarVisible && typeof toggleTaskQueueSidebar === 'function') {
         toggleTaskQueueSidebar();
       }
     }

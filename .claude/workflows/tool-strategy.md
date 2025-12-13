@@ -37,6 +37,19 @@ mcp__ccw-tools__write_file(path="file.txt", content="code with `backticks` and $
 
 **Options**: `backup`, `createDirectories`, `encoding`
 
+### read_file
+
+**When to Use**: Read multiple files, directory traversal, content search
+
+```
+mcp__ccw-tools__read_file(paths="file.ts")                         # Single file
+mcp__ccw-tools__read_file(paths=["a.ts", "b.ts"])                  # Multiple files
+mcp__ccw-tools__read_file(paths="src/", pattern="*.ts")            # Directory + glob
+mcp__ccw-tools__read_file(paths="src/", contentPattern="TODO")     # Regex search
+```
+
+**Options**: `pattern`, `contentPattern`, `maxDepth` (3), `includeContent` (true), `maxFiles` (50)
+
 ### codex_lens
 
 **When to Use**: Code indexing and semantic search

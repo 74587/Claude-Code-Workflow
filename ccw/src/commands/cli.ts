@@ -4,6 +4,7 @@
  */
 
 import chalk from 'chalk';
+import http from 'http';
 import {
   cliExecutorTool,
   getCliToolsStatus,
@@ -11,6 +12,38 @@ import {
   getExecutionDetail,
   getConversationDetail
 } from '../tools/cli-executor.js';
+
+// Dashboard notification settings
+const DASHBOARD_PORT = process.env.CCW_PORT || 3456;
+
+/**
+ * Notify dashboard of CLI execution events (fire and forget)
+ */
+function notifyDashboard(data: Record<string, unknown>): void {
+  const payload = JSON.stringify({
+    type: 'cli_execution',
+    ...data,
+    timestamp: new Date().toISOString()
+  });
+
+  const req = http.request({
+    hostname: 'localhost',
+    port: Number(DASHBOARD_PORT),
+    path: '/api/hook',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(payload)
+    }
+  });
+
+  // Fire and forget - log errors only in debug mode
+  req.on('error', (err) => {
+    if (process.env.DEBUG) console.error('[Dashboard] CLI notification failed:', err.message);
+  });
+  req.write(payload);
+  req.end();
+}
 
 interface CliExecOptions {
   tool?: string;
@@ -88,6 +121,15 @@ async function execAction(prompt: string | undefined, options: CliExecOptions): 
     console.log();
   }
 
+  // Notify dashboard: execution started
+  notifyDashboard({
+    event: 'started',
+    tool,
+    mode,
+    prompt_preview: prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''),
+    custom_id: id || null
+  });
+
   // Streaming output handler
   const onOutput = noStream ? null : (chunk: any) => {
     process.stdout.write(chunk.data);
@@ -130,17 +172,49 @@ async function execAction(prompt: string | undefined, options: CliExecOptions): 
         console.log(chalk.gray(`  Total: ${result.conversation.turn_count} turns, ${(result.conversation.total_duration_ms / 1000).toFixed(1)}s`));
       }
       console.log(chalk.dim(`  Continue: ccw cli exec "..." --resume ${result.execution.id}`));
+
+      // Notify dashboard: execution completed
+      notifyDashboard({
+        event: 'completed',
+        tool,
+        mode,
+        execution_id: result.execution.id,
+        success: true,
+        duration_ms: result.execution.duration_ms,
+        turn_count: result.conversation.turn_count
+      });
     } else {
       console.log(chalk.red(`  ✗ Failed (${result.execution.status})`));
       console.log(chalk.gray(`  ID: ${result.execution.id}`));
       if (result.stderr) {
         console.error(chalk.red(result.stderr));
       }
+
+      // Notify dashboard: execution failed
+      notifyDashboard({
+        event: 'completed',
+        tool,
+        mode,
+        execution_id: result.execution.id,
+        success: false,
+        status: result.execution.status,
+        duration_ms: result.execution.duration_ms
+      });
+
       process.exit(1);
     }
   } catch (error) {
     const err = error as Error;
     console.error(chalk.red(`  Error: ${err.message}`));
+
+    // Notify dashboard: execution error
+    notifyDashboard({
+      event: 'error',
+      tool,
+      mode,
+      error: err.message
+    });
+
     process.exit(1);
   }
 }

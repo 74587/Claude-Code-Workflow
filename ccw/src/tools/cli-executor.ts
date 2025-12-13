@@ -40,6 +40,7 @@ const ParamsSchema = z.object({
   tool: z.enum(['gemini', 'qwen', 'codex']),
   prompt: z.string().min(1, 'Prompt is required'),
   mode: z.enum(['analysis', 'write', 'auto']).default('analysis'),
+  format: z.enum(['plain', 'yaml', 'json']).default('plain'), // Multi-turn prompt concatenation format
   model: z.string().optional(),
   cd: z.string().optional(),
   includeDirs: z.string().optional(),
@@ -49,6 +50,9 @@ const ParamsSchema = z.object({
 });
 
 type Params = z.infer<typeof ParamsSchema>;
+
+// Prompt concatenation format types
+type PromptFormat = 'plain' | 'yaml' | 'json';
 
 interface ToolAvailability {
   available: boolean;
@@ -248,21 +252,6 @@ function ensureHistoryDir(baseDir: string): string {
 }
 
 /**
- * Load history index
- */
-function loadHistoryIndex(historyDir: string): HistoryIndex {
-  const indexPath = join(historyDir, 'index.json');
-  if (existsSync(indexPath)) {
-    try {
-      return JSON.parse(readFileSync(indexPath, 'utf8'));
-    } catch {
-      return { version: 1, total_executions: 0, executions: [] };
-    }
-  }
-  return { version: 1, total_executions: 0, executions: [] };
-}
-
-/**
  * Save conversation to SQLite
  */
 async function saveConversationAsync(historyDir: string, conversation: ConversationRecord): Promise<void> {
@@ -384,29 +373,25 @@ function mergeConversations(conversations: ConversationRecord[]): MergeResult {
 /**
  * Build prompt from merged conversations
  */
-function buildMergedPrompt(mergeResult: MergeResult, newPrompt: string): string {
-  const parts: string[] = [];
+function buildMergedPrompt(
+  mergeResult: MergeResult,
+  newPrompt: string,
+  format: PromptFormat = 'plain'
+): string {
+  const concatenator = createPromptConcatenator({ format });
 
-  parts.push('=== MERGED CONVERSATION HISTORY ===');
-  parts.push(`(From ${mergeResult.sourceConversations.length} conversations: ${mergeResult.sourceConversations.map(c => c.id).join(', ')})`);
-  parts.push('');
+  // Set metadata for merged conversations
+  concatenator.setMetadata(
+    'merged_sources',
+    mergeResult.sourceConversations.map(c => c.id).join(', ')
+  );
 
   // Add all merged turns with source tracking
   for (const turn of mergeResult.mergedTurns) {
-    parts.push(`--- Turn ${turn.turn} [${turn.source_id}] ---`);
-    parts.push('USER:');
-    parts.push(turn.prompt);
-    parts.push('');
-    parts.push('ASSISTANT:');
-    parts.push(turn.output.stdout || '[No output recorded]');
-    parts.push('');
+    concatenator.addFromConversationTurn(turn, turn.source_id);
   }
 
-  parts.push('=== NEW REQUEST ===');
-  parts.push('');
-  parts.push(newPrompt);
-
-  return parts.join('\n');
+  return concatenator.build(newPrompt);
 }
 
 /**
@@ -421,7 +406,7 @@ async function executeCliTool(
     throw new Error(`Invalid params: ${parsed.error.message}`);
   }
 
-  const { tool, prompt, mode, model, cd, includeDirs, timeout, resume, id: customId } = parsed.data;
+  const { tool, prompt, mode, format, model, cd, includeDirs, timeout, resume, id: customId } = parsed.data;
 
   // Determine working directory early (needed for conversation lookup)
   const workingDir = cd || process.cwd();
@@ -505,11 +490,11 @@ async function executeCliTool(
   // For append: use existingConversation (from target ID)
   let finalPrompt = prompt;
   if (mergeResult && mergeResult.mergedTurns.length > 0) {
-    finalPrompt = buildMergedPrompt(mergeResult, prompt);
+    finalPrompt = buildMergedPrompt(mergeResult, prompt, format);
   } else {
     const conversationForContext = contextConversation || existingConversation;
     if (conversationForContext && conversationForContext.turns.length > 0) {
-      finalPrompt = buildMultiTurnPrompt(conversationForContext, prompt);
+      finalPrompt = buildMultiTurnPrompt(conversationForContext, prompt, format);
     }
   }
 
@@ -845,9 +830,9 @@ function findCliHistoryDirs(baseDir: string, maxDepth: number = 3): string[] {
   function scanDir(dir: string, depth: number) {
     if (depth > maxDepth) return;
 
-    // Check if this directory has CLI history
+    // Check if this directory has CLI history (SQLite database)
     const historyDir = join(dir, '.workflow', '.cli-history');
-    if (existsSync(join(historyDir, 'index.json'))) {
+    if (existsSync(join(historyDir, 'history.db'))) {
       historyDirs.push(historyDir);
     }
 
@@ -1046,11 +1031,6 @@ export async function getCliToolsStatus(): Promise<Record<string, ToolAvailabili
 }
 
 // ========== Prompt Concatenation System ==========
-
-/**
- * Supported prompt concatenation formats
- */
-type PromptFormat = 'plain' | 'yaml' | 'json';
 
 /**
  * Turn data structure for concatenation
@@ -1477,7 +1457,7 @@ export { executeCliTool, checkToolAvailability };
 export { PromptConcatenator, createPromptConcatenator, buildPrompt, buildMultiTurnPrompt };
 
 // Note: Async storage functions (getExecutionHistoryAsync, deleteExecutionAsync,
-// batchDeleteExecutionsAsync, setStorageBackend) are exported at declaration site
+// batchDeleteExecutionsAsync) are exported at declaration site - SQLite storage only
 
 // Export tool definition (for legacy imports) - This allows direct calls to execute with onOutput
 export const cliExecutorTool = {

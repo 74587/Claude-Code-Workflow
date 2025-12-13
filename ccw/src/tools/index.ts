@@ -19,6 +19,7 @@ import * as sessionManagerMod from './session-manager.js';
 import * as cliExecutorMod from './cli-executor.js';
 import * as smartSearchMod from './smart-search.js';
 import * as codexLensMod from './codex-lens.js';
+import * as readFileMod from './read-file.js';
 
 // Import legacy JS tools
 import { uiGeneratePreviewTool } from './ui-generate-preview.js';
@@ -297,6 +298,7 @@ registerTool(toLegacyTool(sessionManagerMod));
 registerTool(toLegacyTool(cliExecutorMod));
 registerTool(toLegacyTool(smartSearchMod));
 registerTool(toLegacyTool(codexLensMod));
+registerTool(toLegacyTool(readFileMod));
 
 // Register legacy JS tools
 registerTool(uiGeneratePreviewTool);

@@ -52,6 +52,9 @@ interface UpdateModeResult {
   message: string;
 }
 
+// Max lines to show in diff preview
+const MAX_DIFF_LINES = 15;
+
 interface LineModeResult {
   content: string;
   modified: boolean;
@@ -61,7 +64,7 @@ interface LineModeResult {
   message: string;
 }
 
-type EditResult = Omit<UpdateModeResult | LineModeResult, 'content'>;
+// Internal type for mode results (content excluded in final output)
 
 /**
  * Resolve file path and read content
@@ -485,8 +488,30 @@ Options: dryRun=true (preview diff), replaceAll=true (replace all occurrences)`,
   },
 };
 
+/**
+ * Truncate diff to max lines with indicator
+ */
+function truncateDiff(diff: string, maxLines: number): string {
+  if (!diff) return '';
+  const lines = diff.split('\n');
+  if (lines.length <= maxLines) return diff;
+  return lines.slice(0, maxLines).join('\n') + `\n... (+${lines.length - maxLines} more lines)`;
+}
+
+/**
+ * Build compact result for output
+ */
+interface CompactEditResult {
+  path: string;
+  modified: boolean;
+  message: string;
+  replacements?: number;
+  diff?: string;
+  dryRun?: boolean;
+}
+
 // Handler function
-export async function handler(params: Record<string, unknown>): Promise<ToolResult<EditResult>> {
+export async function handler(params: Record<string, unknown>): Promise<ToolResult<CompactEditResult>> {
   const parsed = ParamsSchema.safeParse(params);
   if (!parsed.success) {
     return { success: false, error: `Invalid params: ${parsed.error.message}` };
@@ -514,9 +539,24 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
       writeFile(resolvedPath, result.content);
     }
 
-    // Remove content from result
-    const { content: _, ...output } = result;
-    return { success: true, result: output as EditResult };
+    // Build compact result
+    const compactResult: CompactEditResult = {
+      path: resolvedPath,
+      modified: result.modified,
+      message: result.message,
+    };
+
+    // Add mode-specific fields
+    if ('replacements' in result) {
+      compactResult.replacements = result.replacements;
+      compactResult.dryRun = result.dryRun;
+      // Truncate diff for compact output
+      if (result.diff) {
+        compactResult.diff = truncateDiff(result.diff, MAX_DIFF_LINES);
+      }
+    }
+
+    return { success: true, result: compactResult };
   } catch (error) {
     return { success: false, error: (error as Error).message };
   }

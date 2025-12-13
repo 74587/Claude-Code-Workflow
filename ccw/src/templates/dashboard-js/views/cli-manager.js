@@ -58,15 +58,17 @@ async function renderCliManager() {
 
   container.innerHTML = '<div class="status-manager">' +
     '<div class="status-two-column">' +
-    '<div class="status-section" id="tools-section"></div>' +
-    '<div class="status-section" id="ccw-section"></div>' +
+    '<div class="cli-section" id="tools-section"></div>' +
+    '<div class="cli-section" id="ccw-section"></div>' +
     '</div>' +
-    '<div class="status-section" id="ccw-endpoint-tools-section" style="margin-top: 1.5rem;"></div>' +
+    '<div class="cli-settings-section" id="cli-settings-section" style="margin-top: 1.5rem;"></div>' +
+    '<div class="cli-section" id="ccw-endpoint-tools-section" style="margin-top: 1.5rem;"></div>' +
     '</div>';
 
   // Render sub-panels
   renderToolsSection();
   renderCcwSection();
+  renderCliSettingsSection();
   renderCcwEndpointToolsSection();
 
   // Initialize Lucide icons
@@ -238,6 +240,74 @@ function renderCcwSection() {
     '</div>' +
     installationsHtml;
 
+  if (window.lucide) lucide.createIcons();
+}
+
+// ========== CLI Settings Section (Full Width) ==========
+function renderCliSettingsSection() {
+  var container = document.getElementById('cli-settings-section');
+  if (!container) return;
+
+  var settingsHtml = '<div class="section-header">' +
+      '<div class="section-header-left">' +
+        '<h3><i data-lucide="settings" class="w-4 h-4"></i> ' + t('cli.settings') + '</h3>' +
+      '</div>' +
+    '</div>' +
+    '<div class="cli-settings-grid">' +
+      '<div class="cli-setting-item">' +
+        '<label class="cli-setting-label">' +
+          '<i data-lucide="layers" class="w-3 h-3"></i>' +
+          t('cli.promptFormat') +
+        '</label>' +
+        '<div class="cli-setting-control">' +
+          '<select class="cli-setting-select" onchange="setPromptFormat(this.value)">' +
+            '<option value="plain"' + (promptConcatFormat === 'plain' ? ' selected' : '') + '>Plain Text</option>' +
+            '<option value="yaml"' + (promptConcatFormat === 'yaml' ? ' selected' : '') + '>YAML</option>' +
+            '<option value="json"' + (promptConcatFormat === 'json' ? ' selected' : '') + '>JSON</option>' +
+          '</select>' +
+        '</div>' +
+        '<p class="cli-setting-desc">' + t('cli.promptFormatDesc') + '</p>' +
+      '</div>' +
+      '<div class="cli-setting-item">' +
+        '<label class="cli-setting-label">' +
+          '<i data-lucide="database" class="w-3 h-3"></i>' +
+          t('cli.storageBackend') +
+        '</label>' +
+        '<div class="cli-setting-control">' +
+          '<span class="cli-setting-value">SQLite</span>' +
+        '</div>' +
+        '<p class="cli-setting-desc">' + t('cli.storageBackendDesc') + '</p>' +
+      '</div>' +
+      '<div class="cli-setting-item">' +
+        '<label class="cli-setting-label">' +
+          '<i data-lucide="sparkles" class="w-3 h-3"></i>' +
+          t('cli.smartContext') +
+        '</label>' +
+        '<div class="cli-setting-control">' +
+          '<label class="cli-toggle">' +
+            '<input type="checkbox"' + (smartContextEnabled ? ' checked' : '') + ' onchange="setSmartContextEnabled(this.checked)">' +
+            '<span class="cli-toggle-slider"></span>' +
+          '</label>' +
+        '</div>' +
+        '<p class="cli-setting-desc">' + t('cli.smartContextDesc') + '</p>' +
+      '</div>' +
+      '<div class="cli-setting-item' + (!smartContextEnabled ? ' disabled' : '') + '">' +
+        '<label class="cli-setting-label">' +
+          '<i data-lucide="files" class="w-3 h-3"></i>' +
+          t('cli.maxContextFiles') +
+        '</label>' +
+        '<div class="cli-setting-control">' +
+          '<select class="cli-setting-select" onchange="setSmartContextMaxFiles(this.value)"' + (!smartContextEnabled ? ' disabled' : '') + '>' +
+            '<option value="5"' + (smartContextMaxFiles === 5 ? ' selected' : '') + '>5 files</option>' +
+            '<option value="10"' + (smartContextMaxFiles === 10 ? ' selected' : '') + '>10 files</option>' +
+            '<option value="20"' + (smartContextMaxFiles === 20 ? ' selected' : '') + '>20 files</option>' +
+          '</select>' +
+        '</div>' +
+        '<p class="cli-setting-desc">' + t('cli.maxContextFilesDesc') + '</p>' +
+      '</div>' +
+    '</div>';
+
+  container.innerHTML = settingsHtml;
   if (window.lucide) lucide.createIcons();
 }
 
@@ -744,7 +814,17 @@ async function executeCliFromDashboard() {
     var response = await fetch('/api/cli/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tool: tool, mode: mode, prompt: prompt, dir: projectPath })
+      body: JSON.stringify({
+        tool: tool,
+        mode: mode,
+        prompt: prompt,
+        dir: projectPath,
+        format: promptConcatFormat,
+        smartContext: {
+          enabled: smartContextEnabled,
+          maxFiles: smartContextMaxFiles
+        }
+      })
     });
     var result = await response.json();
 
@@ -777,6 +857,11 @@ function handleCliExecutionStarted(payload) {
   };
   cliExecutionOutput = '';
 
+  // Show toast notification
+  if (typeof addGlobalNotification === 'function') {
+    addGlobalNotification('info', 'CLI ' + payload.tool + ' started', payload.mode + ' mode', 'CLI');
+  }
+
   if (currentView === 'cli-manager') {
     var outputPanel = document.getElementById('cli-output-panel');
     var outputContent = document.getElementById('cli-output-content');
@@ -806,6 +891,15 @@ function handleCliExecutionCompleted(payload) {
   if (statusIndicator) statusIndicator.className = 'status-indicator ' + (payload.success ? 'success' : 'error');
   if (statusText) statusText.textContent = payload.success ? 'Completed in ' + formatDuration(payload.duration_ms) : 'Failed: ' + payload.status;
 
+  // Show toast notification
+  if (typeof addGlobalNotification === 'function') {
+    if (payload.success) {
+      addGlobalNotification('success', 'CLI execution completed', formatDuration(payload.duration_ms), 'CLI');
+    } else {
+      addGlobalNotification('error', 'CLI execution failed', payload.status, 'CLI');
+    }
+  }
+
   currentCliExecution = null;
   if (currentView === 'cli-manager') {
     loadCliHistory().then(function() { renderCliHistory(); });
@@ -818,6 +912,11 @@ function handleCliExecutionError(payload) {
 
   if (statusIndicator) statusIndicator.className = 'status-indicator error';
   if (statusText) statusText.textContent = 'Error: ' + payload.error;
+
+  // Show toast notification
+  if (typeof addGlobalNotification === 'function') {
+    addGlobalNotification('error', 'CLI execution error', payload.error, 'CLI');
+  }
 
   currentCliExecution = null;
 }

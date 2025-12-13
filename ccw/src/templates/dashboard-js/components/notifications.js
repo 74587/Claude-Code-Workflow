@@ -160,8 +160,13 @@ function handleNotification(data) {
       break;
 
     case 'tool_execution':
-      // Handle tool execution notifications from CLI
+      // Handle tool execution notifications from MCP tools
       handleToolExecutionNotification(payload);
+      break;
+
+    case 'cli_execution':
+      // Handle CLI command notifications (ccw cli exec)
+      handleCliCommandNotification(payload);
       break;
 
     // CLI Tool Execution Events
@@ -195,7 +200,7 @@ function handleNotification(data) {
 }
 
 /**
- * Handle tool execution notifications from CLI
+ * Handle tool execution notifications from MCP tools
  * @param {Object} payload - Tool execution payload
  */
 function handleToolExecutionNotification(payload) {
@@ -210,19 +215,21 @@ function handleToolExecutionNotification(payload) {
     case 'started':
       notifType = 'info';
       message = `Executing ${toolName}...`;
+      // Pass raw object for HTML formatting
       if (params) {
-        details = formatJsonDetails(params, 150);
+        details = params;
       }
       break;
 
     case 'completed':
       notifType = 'success';
       message = `${toolName} completed`;
+      // Pass raw object for HTML formatting
       if (result) {
         if (result._truncated) {
           details = result.preview;
         } else {
-          details = formatJsonDetails(result, 200);
+          details = result;
         }
       }
       break;
@@ -238,13 +245,89 @@ function handleToolExecutionNotification(payload) {
       message = `${toolName}: ${status}`;
   }
 
-  // Add to global notifications
+  // Add to global notifications - pass objects directly for HTML formatting
+  if (typeof addGlobalNotification === 'function') {
+    addGlobalNotification(notifType, message, details, 'MCP');
+  }
+
+  // Log to console
+  console.log(`[MCP] ${status}: ${toolName}`, payload);
+}
+
+/**
+ * Handle CLI command notifications (ccw cli exec)
+ * @param {Object} payload - CLI execution payload
+ */
+function handleCliCommandNotification(payload) {
+  const { event, tool, mode, prompt_preview, execution_id, success, duration_ms, status, error, turn_count, custom_id } = payload;
+
+  let notifType = 'info';
+  let message = '';
+  let details = null;
+
+  switch (event) {
+    case 'started':
+      notifType = 'info';
+      message = `CLI ${tool} started`;
+      // Pass structured object for rich display
+      details = {
+        mode: mode,
+        prompt: prompt_preview
+      };
+      if (custom_id) {
+        details.id = custom_id;
+      }
+      break;
+
+    case 'completed':
+      if (success) {
+        notifType = 'success';
+        const turnStr = turn_count > 1 ? ` (turn ${turn_count})` : '';
+        message = `CLI ${tool} completed${turnStr}`;
+        // Pass structured object for rich display
+        details = {
+          duration: duration_ms ? `${(duration_ms / 1000).toFixed(1)}s` : '-',
+          execution_id: execution_id
+        };
+        if (turn_count > 1) {
+          details.turns = turn_count;
+        }
+      } else {
+        notifType = 'error';
+        message = `CLI ${tool} failed`;
+        details = {
+          status: status || 'Unknown error',
+          execution_id: execution_id
+        };
+      }
+      break;
+
+    case 'error':
+      notifType = 'error';
+      message = `CLI ${tool} error`;
+      details = error || 'Unknown error';
+      break;
+
+    default:
+      notifType = 'info';
+      message = `CLI ${tool}: ${event}`;
+  }
+
+  // Add to global notifications - pass objects for HTML formatting
   if (typeof addGlobalNotification === 'function') {
     addGlobalNotification(notifType, message, details, 'CLI');
   }
 
+  // Refresh CLI history if on history view
+  if (event === 'completed' && typeof currentView !== 'undefined' && 
+      (currentView === 'history' || currentView === 'cli-history')) {
+    if (typeof loadCliHistory === 'function' && typeof renderCliHistoryView === 'function') {
+      loadCliHistory().then(() => renderCliHistoryView());
+    }
+  }
+
   // Log to console
-  console.log(`[CLI] ${status}: ${toolName}`, payload);
+  console.log(`[CLI Command] ${event}: ${tool}`, payload);
 }
 
 // ========== Auto Refresh ==========

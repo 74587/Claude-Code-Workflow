@@ -94,7 +94,7 @@ async function renderCliHistoryView() {
           '<button class="btn-icon" onclick="event.stopPropagation(); showExecutionDetail(\'' + exec.id + '\')" title="View Details">' +
             '<i data-lucide="eye" class="w-4 h-4"></i>' +
           '</button>' +
-          '<button class="btn-icon btn-danger" onclick="event.stopPropagation(); confirmDeleteExecution(\'' + exec.id + '\')" title="Delete">' +
+          '<button class="btn-icon btn-danger" onclick="event.stopPropagation(); confirmDeleteExecution(\'' + exec.id + (exec.sourceDir ? '\',\'' + escapeHtml(exec.sourceDir) : '') + '\')" title="Delete">' +
             '<i data-lucide="trash-2" class="w-4 h-4"></i>' +
           '</button>' +
         '</div>' +

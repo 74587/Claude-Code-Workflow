@@ -358,15 +358,20 @@ async function refreshCliHistory() {
 }
 
 // ========== Delete Execution ==========
-function confirmDeleteExecution(executionId) {
+function confirmDeleteExecution(executionId, sourceDir) {
   if (confirm('Delete this execution record? This action cannot be undone.')) {
-    deleteExecution(executionId);
+    deleteExecution(executionId, sourceDir);
   }
 }
 
-async function deleteExecution(executionId) {
+async function deleteExecution(executionId, sourceDir) {
   try {
-    const response = await fetch(`/api/cli/execution?path=${encodeURIComponent(projectPath)}&id=${encodeURIComponent(executionId)}`, {
+    // Build correct path - use sourceDir if provided for recursive items
+    const basePath = sourceDir && sourceDir !== '.' 
+      ? projectPath + '/' + sourceDir 
+      : projectPath;
+    
+    const response = await fetch(`/api/cli/execution?path=${encodeURIComponent(basePath)}&id=${encodeURIComponent(executionId)}`, {
       method: 'DELETE'
     });
 
@@ -375,9 +380,15 @@ async function deleteExecution(executionId) {
       throw new Error(error.error || 'Failed to delete');
     }
 
-    // Remove from local state
-    cliExecutionHistory = cliExecutionHistory.filter(exec => exec.id !== executionId);
-    renderCliHistory();
+    // Reload fresh data from server and re-render
+    await loadCliHistory();
+    
+    // Render appropriate view based on current view
+    if (typeof currentView !== 'undefined' && (currentView === 'history' || currentView === 'cli-history')) {
+      renderCliHistoryView();
+    } else {
+      renderCliHistory();
+    }
     showRefreshToast('Execution deleted', 'success');
   } catch (err) {
     console.error('Failed to delete execution:', err);

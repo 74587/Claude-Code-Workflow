@@ -17,7 +17,7 @@ const SERVER_NAME = 'ccw-tools';
 const SERVER_VERSION = '6.1.4';
 
 // Default enabled tools (core set)
-const DEFAULT_TOOLS: string[] = ['write_file', 'edit_file', 'codex_lens', 'smart_search'];
+const DEFAULT_TOOLS: string[] = ['write_file', 'edit_file', 'read_file', 'codex_lens', 'smart_search'];
 
 /**
  * Get list of enabled tools from environment or defaults

@@ -24,12 +24,9 @@ const ParamsSchema = z.object({
 
 type Params = z.infer<typeof ParamsSchema>;
 
+// Compact result for output
 interface WriteResult {
-  success: boolean;
   path: string;
-  created: boolean;
-  overwritten: boolean;
-  backupPath: string | null;
   bytes: number;
   message: string;
 }
@@ -153,19 +150,24 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
   // Write file
   try {
     writeFileSync(resolvedPath, content, { encoding });
+    const bytes = Buffer.byteLength(content, encoding);
+
+    // Build compact message
+    let message: string;
+    if (fileExists) {
+      message = backupPath
+        ? `Overwrote (${bytes}B, backup: ${basename(backupPath)})`
+        : `Overwrote (${bytes}B)`;
+    } else {
+      message = `Created (${bytes}B)`;
+    }
 
     return {
       success: true,
       result: {
-        success: true,
         path: resolvedPath,
-        created: !fileExists,
-        overwritten: fileExists,
-        backupPath,
-        bytes: Buffer.byteLength(content, encoding),
-        message: fileExists
-          ? `Successfully overwrote ${filePath}${backupPath ? ` (backup: ${backupPath})` : ''}`
-          : `Successfully created ${filePath}`,
+        bytes,
+        message,
       },
     };
   } catch (error) {
