@@ -52,6 +52,7 @@ ccw cli exec "<prompt>" --resume [id]  # Resume previous session
 
 - **Use tools early and often** - Tools are faster and more thorough
 - **Unified CLI** - Always use `ccw cli exec` for consistent parameter handling
+- **One template required** - ALWAYS reference exactly ONE template in RULES (use universal fallback if no specific match)
 - **Write protection** - Require EXPLICIT `--mode write` or `--mode auto`
 - **No escape characters** - NEVER use `\$`, `\"`, `\'` in CLI commands
 
@@ -134,7 +135,7 @@ Every command MUST include these fields:
 | **MODE** | Permission level | `analysis` / `write` / `auto` |
 | **CONTEXT** | File patterns + Memory context | `@src/**/* | Memory: Previous refactoring (abc123)` |
 | **EXPECTED** | Deliverable format, quality criteria | "Security report with risk levels and recommendations" |
-| **RULES** | Template reference + constraints | `$(cat template.txt) | Focus on auth | analysis=READ-ONLY` |
+| **RULES** | **Template (REQUIRED)** + constraints | `$(cat ~/.claude/.../analysis/02-analyze-code-patterns.txt) | Focus on auth | analysis=READ-ONLY` |
 
 ### CONTEXT Configuration
 
@@ -185,6 +186,10 @@ ccw cli exec "..." --tool gemini --cd src
 
 **Format**: `RULES: $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt) | [constraints]`
 
+**⚠️ MANDATORY**: Exactly ONE template reference is REQUIRED. Select from Task-Template Matrix or use universal fallback:
+- `universal/00-universal-rigorous-style.txt` - For precision-critical tasks (default fallback)
+- `universal/00-universal-creative-style.txt` - For exploratory tasks
+
 **Command Substitution Rules**:
 - Use `$(cat ...)` directly - do NOT read template content first
 - NEVER use escape characters: `\$`, `\"`, `\'`
@@ -192,14 +197,11 @@ ccw cli exec "..." --tool gemini --cd src
 
 **Examples**:
 ```bash
-# With template
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt) | Focus on auth
+# Specific template (preferred)
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt) | Focus on auth | analysis=READ-ONLY
 
-# Multiple templates
-RULES: $(cat template1.txt) $(cat template2.txt) | Enterprise standards
-
-# No template
-RULES: Focus on security patterns, include dependency analysis | analysis=READ-ONLY
+# Universal fallback (when no specific template matches)
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-rigorous-style.txt) | Focus on security patterns | analysis=READ-ONLY
 ```
 
 ### Template System
@@ -376,7 +378,7 @@ ccw cli exec "<prompt>" --tool codex --timeout 1800000   # 30 min
 ### Workflow Principles
 
 - **Use CCW unified interface** for all executions
-- **Start with templates** for consistency
+- **Always include template** - Use Task-Template Matrix or universal fallback
 - **Be specific** - Clear PURPOSE, TASK, EXPECTED fields
 - **Include constraints** - File patterns, scope in RULES
 - **Leverage memory context** when building on previous work
@@ -399,6 +401,6 @@ ccw cli exec "<prompt>" --tool codex --timeout 1800000   # 30 min
 - [ ] **Context gathered** - File references + memory (default `@**/*`)
 - [ ] **Directory navigation** - `--cd` and/or `--includeDirs`
 - [ ] **Tool selected** - `--tool gemini|qwen|codex`
-- [ ] **Template applied** - Standard Prompt Template
+- [ ] **Template applied (REQUIRED)** - Use specific or universal fallback template
 - [ ] **Constraints specified** - Scope, requirements
 - [ ] **Timeout configured** - Based on complexity
