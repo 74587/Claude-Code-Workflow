@@ -115,6 +115,12 @@ export function run(argv) {
     .option('--path <path>', 'File path (for edit_file)')
     .option('--old <text>', 'Old text to replace (for edit_file)')
     .option('--new <text>', 'New text (for edit_file)')
+    .option('--action <action>', 'Action to perform (for codex_lens)')
+    .option('--query <query>', 'Search query (for codex_lens)')
+    .option('--limit <n>', 'Max results (for codex_lens)', '20')
+    .option('--file <file>', 'File path for symbol extraction (for codex_lens)')
+    .option('--files <files>', 'Comma-separated file paths (for codex_lens update)')
+    .option('--languages <langs>', 'Comma-separated languages (for codex_lens init)')
     .action((subcommand, args, options) => toolCommand(subcommand, args, options));
 
   // Session command

@@ -577,19 +577,14 @@ async function execute(params) {
  */
 export const smartSearchTool = {
   name: 'smart_search',
-  description: `Unified search with intelligent mode selection.
+  description: `Intelligent code search with multiple modes.
 
-Modes:
-- auto: Classify intent and recommend optimal search mode (default)
-- exact: Precise literal matching via ripgrep
-- fuzzy: Approximate matching with typo tolerance
-- semantic: Natural language understanding via LLM/embeddings
-- graph: Dependency relationship traversal
+Usage:
+  smart_search(query="function main", path=".")           # Auto-select mode
+  smart_search(query="def init", mode="exact")            # Exact match
+  smart_search(query="authentication logic", mode="semantic")  # NL search
 
-Features:
-- Multi-backend search coordination
-- Result fusion with RRF ranking
-- Configurable result limits and context`,
+Modes: auto (default), exact, fuzzy, semantic, graph`,
   parameters: {
     type: 'object',
     properties: {

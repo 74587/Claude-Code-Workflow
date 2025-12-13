@@ -391,14 +391,13 @@ async function execute(params) {
  */
 export const editFileTool = {
   name: 'edit_file',
-  description: `Edit file with two modes:
-- update: Replace oldText with newText (default). Supports multiple edits via 'edits' array.
-- line: Position-driven line operations (insert_before, insert_after, replace, delete)
+  description: `Edit file by text replacement or line operations.
 
-Features:
-- dryRun: Preview changes without modifying file (returns diff)
-- Auto line ending adaptation (CRLF/LF)
-- Fuzzy matching for whitespace differences`,
+Usage:
+  edit_file(path="f.js", oldText="old", newText="new")
+  edit_file(path="f.js", mode="line", operation="insert_after", line=10, text="new line")
+
+Options: dryRun=true (preview diff), replaceAll=true (replace all occurrences)`,
   parameters: {
     type: 'object',
     properties: {

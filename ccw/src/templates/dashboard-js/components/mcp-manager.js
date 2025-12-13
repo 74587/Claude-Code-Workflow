@@ -579,20 +579,66 @@ async function createMcpServerWithConfig(name, serverConfig) {
     showRefreshToast(`Failed to create MCP server: ${err.message}`, 'error');
   }
 }
+
 // ========== CCW Tools MCP Installation ==========
-async function installCcwToolsMcp() {
-  // Define CCW Tools MCP server configuration
-  // Use npx for better cross-platform compatibility (handles PATH issues)
-  const ccwToolsConfig = {
+
+// Get selected tools from checkboxes
+function getSelectedCcwTools() {
+  const checkboxes = document.querySelectorAll('.ccw-tool-checkbox:checked');
+  return Array.from(checkboxes).map(cb => cb.dataset.tool);
+}
+
+// Select tools by category
+function selectCcwTools(type) {
+  const checkboxes = document.querySelectorAll('.ccw-tool-checkbox');
+  const coreTools = ['write_file', 'edit_file', 'codex_lens', 'smart_search'];
+
+  checkboxes.forEach(cb => {
+    if (type === 'all') {
+      cb.checked = true;
+    } else if (type === 'none') {
+      cb.checked = false;
+    } else if (type === 'core') {
+      cb.checked = coreTools.includes(cb.dataset.tool);
+    }
+  });
+}
+
+// Build CCW Tools config with selected tools
+function buildCcwToolsConfig(selectedTools) {
+  const config = {
     command: "npx",
     args: ["-y", "ccw-mcp"]
   };
 
+  // Add env if not all tools or not default 4 core tools
+  const coreTools = ['write_file', 'edit_file', 'codex_lens', 'smart_search'];
+  const isDefault = selectedTools.length === 4 &&
+    coreTools.every(t => selectedTools.includes(t)) &&
+    selectedTools.every(t => coreTools.includes(t));
+
+  if (selectedTools.length === 15) {
+    config.env = { CCW_ENABLED_TOOLS: 'all' };
+  } else if (!isDefault && selectedTools.length > 0) {
+    config.env = { CCW_ENABLED_TOOLS: selectedTools.join(',') };
+  }
+
+  return config;
+}
+
+async function installCcwToolsMcp() {
+  const selectedTools = getSelectedCcwTools();
+
+  if (selectedTools.length === 0) {
+    showRefreshToast('Please select at least one tool', 'warning');
+    return;
+  }
+
+  const ccwToolsConfig = buildCcwToolsConfig(selectedTools);
+
   try {
-    // Show loading toast
     showRefreshToast('Installing CCW Tools MCP...', 'info');
 
-    // Use the existing copyMcpServerToProject function
     const response = await fetch('/api/mcp-copy-server', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -609,12 +655,51 @@ async function installCcwToolsMcp() {
     if (result.success) {
       await loadMcpConfig();
       renderMcpManager();
-      showRefreshToast('CCW Tools MCP installed successfully', 'success');
+      showRefreshToast(`CCW Tools installed (${selectedTools.length} tools)`, 'success');
     } else {
       showRefreshToast(result.error || 'Failed to install CCW Tools MCP', 'error');
     }
   } catch (err) {
     console.error('Failed to install CCW Tools MCP:', err);
     showRefreshToast(`Failed to install CCW Tools MCP: ${err.message}`, 'error');
+  }
+}
+
+async function updateCcwToolsMcp() {
+  const selectedTools = getSelectedCcwTools();
+
+  if (selectedTools.length === 0) {
+    showRefreshToast('Please select at least one tool', 'warning');
+    return;
+  }
+
+  const ccwToolsConfig = buildCcwToolsConfig(selectedTools);
+
+  try {
+    showRefreshToast('Updating CCW Tools MCP...', 'info');
+
+    const response = await fetch('/api/mcp-copy-server', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectPath: projectPath,
+        serverName: 'ccw-tools',
+        serverConfig: ccwToolsConfig
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to update CCW Tools MCP');
+
+    const result = await response.json();
+    if (result.success) {
+      await loadMcpConfig();
+      renderMcpManager();
+      showRefreshToast(`CCW Tools updated (${selectedTools.length} tools)`, 'success');
+    } else {
+      showRefreshToast(result.error || 'Failed to update CCW Tools MCP', 'error');
+    }
+  } catch (err) {
+    console.error('Failed to update CCW Tools MCP:', err);
+    showRefreshToast(`Failed to update CCW Tools MCP: ${err.message}`, 'error');
   }
 }

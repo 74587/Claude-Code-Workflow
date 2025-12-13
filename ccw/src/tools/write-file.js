@@ -110,14 +110,10 @@ async function execute(params) {
  */
 export const writeFileTool = {
   name: 'write_file',
-  description: `Create a new file or overwrite an existing file with content.
+  description: `Write content to file. Auto-creates parent directories.
 
-Features:
-- Creates parent directories automatically (configurable)
-- Optional backup before overwrite
-- Supports text content with proper encoding
-
-Use with caution as it will overwrite existing files without warning unless backup is enabled.`,
+Usage: write_file(path="file.js", content="code here")
+Options: backup=true (backup before overwrite), encoding="utf8"`,
   parameters: {
     type: 'object',
     properties: {

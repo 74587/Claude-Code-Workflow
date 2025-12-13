@@ -70,13 +70,14 @@ async function schemaAction(options) {
  * Execute a tool with given parameters
  * @param {string} toolName - Tool name
  * @param {string|undefined} jsonParams - JSON string of parameters
- * @param {Object} options - CLI options (--path, --old, --new for edit_file)
+ * @param {Object} options - CLI options
  */
 async function execAction(toolName, jsonParams, options) {
   if (!toolName) {
     console.error(chalk.red('Tool name is required'));
     console.error(chalk.gray('Usage: ccw tool exec <tool_name> \'{"param": "value"}\''));
     console.error(chalk.gray('       ccw tool exec edit_file --path file.txt --old "old" --new "new"'));
+    console.error(chalk.gray('       ccw tool exec codex_lens --action search --query "pattern"'));
     process.exit(1);
   }
 
@@ -100,7 +101,7 @@ async function execAction(toolName, jsonParams, options) {
       process.exit(1);
     }
   } else if (toolName === 'edit_file') {
-    // Legacy support for edit_file with --path, --old, --new options
+    // Parameter mode for edit_file
     if (!options.path || !options.old || !options.new) {
       console.error(chalk.red('edit_file requires --path, --old, and --new parameters'));
       console.error(chalk.gray('Usage: ccw tool exec edit_file --path file.txt --old "old text" --new "new text"'));
@@ -109,8 +110,23 @@ async function execAction(toolName, jsonParams, options) {
     params.path = options.path;
     params.oldText = options.old;
     params.newText = options.new;
+  } else if (toolName === 'codex_lens') {
+    // Parameter mode for codex_lens
+    if (!options.action) {
+      console.error(chalk.red('codex_lens requires --action parameter'));
+      console.error(chalk.gray('Usage: ccw tool exec codex_lens --action search --query "pattern" --path .'));
+      console.error(chalk.gray('Actions: init, search, search_files, symbol, status, update, bootstrap, check'));
+      process.exit(1);
+    }
+    params.action = options.action;
+    if (options.path) params.path = options.path;
+    if (options.query) params.query = options.query;
+    if (options.limit) params.limit = parseInt(options.limit, 10);
+    if (options.file) params.file = options.file;
+    if (options.files) params.files = options.files.split(',').map(f => f.trim());
+    if (options.languages) params.languages = options.languages.split(',').map(l => l.trim());
   } else if (jsonParams) {
-    // Non-JSON string provided but not for edit_file
+    // Non-JSON string provided but not for supported tools
     console.error(chalk.red('Parameters must be valid JSON'));
     console.error(chalk.gray(`Usage: ccw tool exec ${toolName} '{"param": "value"}'`));
     process.exit(1);
@@ -157,5 +173,6 @@ export async function toolCommand(subcommand, args, options) {
       console.log(chalk.gray('  ccw tool schema edit_file'));
       console.log(chalk.gray('  ccw tool exec <tool_name> \'{"param": "value"}\''));
       console.log(chalk.gray('  ccw tool exec edit_file --path file.txt --old "old text" --new "new text"'));
+      console.log(chalk.gray('  ccw tool exec codex_lens --action search --query "def main" --path .'));
   }
 }

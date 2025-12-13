@@ -350,6 +350,26 @@ export async function startServer(options = {}) {
         return;
       }
 
+      // API: Install CCW MCP server to project
+      if (pathname === '/api/mcp-install-ccw' && req.method === 'POST') {
+        handlePostRequest(req, res, async (body) => {
+          const { projectPath } = body;
+          if (!projectPath) {
+            return { error: 'projectPath is required', status: 400 };
+          }
+
+          // Generate CCW MCP server config
+          const ccwMcpConfig = {
+            command: "ccw-mcp",
+            args: []
+          };
+
+          // Use existing addMcpServerToProject to install CCW MCP
+          return addMcpServerToProject(projectPath, 'ccw-mcp', ccwMcpConfig);
+        });
+        return;
+      }
+
       // API: Remove MCP server from project
       if (pathname === '/api/mcp-remove-server' && req.method === 'POST') {
         handlePostRequest(req, res, async (body) => {

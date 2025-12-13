@@ -1,6 +1,33 @@
 // MCP Manager View
 // Renders the MCP server management interface
 
+// CCW Tools available for MCP
+const CCW_MCP_TOOLS = [
+  // Core tools (always recommended)
+  { name: 'write_file', desc: 'Write/create files', core: true },
+  { name: 'edit_file', desc: 'Edit/replace content', core: true },
+  { name: 'codex_lens', desc: 'Code index & search', core: true },
+  { name: 'smart_search', desc: 'Quick regex/NL search', core: true },
+  // Optional tools
+  { name: 'session_manager', desc: 'Workflow sessions', core: false },
+  { name: 'generate_module_docs', desc: 'Generate docs', core: false },
+  { name: 'update_module_claude', desc: 'Update CLAUDE.md', core: false },
+  { name: 'cli_executor', desc: 'Gemini/Qwen/Codex CLI', core: false },
+];
+
+// Get currently enabled tools from installed config
+function getCcwEnabledTools() {
+  const currentPath = projectPath.replace(/\//g, '\\');
+  const projectData = mcpAllProjects[currentPath] || {};
+  const ccwConfig = projectData.mcpServers?.['ccw-tools'];
+  if (ccwConfig?.env?.CCW_ENABLED_TOOLS) {
+    const val = ccwConfig.env.CCW_ENABLED_TOOLS;
+    if (val.toLowerCase() === 'all') return CCW_MCP_TOOLS.map(t => t.name);
+    return val.split(',').map(t => t.trim());
+  }
+  return CCW_MCP_TOOLS.filter(t => t.core).map(t => t.name);
+}
+
 async function renderMcpManager() {
   const container = document.getElementById('mainContent');
   if (!container) return;
@@ -36,7 +63,7 @@ async function renderMcpManager() {
     .filter(([name, info]) => !currentProjectServerNames.includes(name) && !info.isGlobal);
   // Check if CCW Tools is already installed
   const isCcwToolsInstalled = currentProjectServerNames.includes("ccw-tools");
-
+  const enabledTools = getCcwEnabledTools();
 
   container.innerHTML = `
     <div class="mcp-manager">
@@ -54,7 +81,7 @@ async function renderMcpManager() {
                   ${isCcwToolsInstalled ? `
                     <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-success-light text-success">
                       <i data-lucide="check" class="w-3 h-3"></i>
-                      Installed
+                      ${enabledTools.length} tools
                     </span>
                   ` : `
                     <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-primary/20 text-primary">
@@ -63,36 +90,35 @@ async function renderMcpManager() {
                     </span>
                   `}
                 </div>
-                <p class="text-sm text-muted-foreground mb-3">
-                  CCW built-in tools for file editing, code search, session management, and more
-                </p>
-                <div class="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span class="flex items-center gap-1">
-                    <i data-lucide="layers" class="w-3 h-3"></i>
-                    15 tools available
-                  </span>
-                  <span class="flex items-center gap-1">
-                    <i data-lucide="zap" class="w-3 h-3"></i>
-                    Native integration
-                  </span>
-                  <span class="flex items-center gap-1">
-                    <i data-lucide="shield-check" class="w-3 h-3"></i>
-                    Built-in & tested
-                  </span>
+                <!-- Tool Selection Grid -->
+                <div class="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-3">
+                  ${CCW_MCP_TOOLS.map(tool => `
+                    <label class="flex items-center gap-1.5 text-xs cursor-pointer hover:bg-muted/50 rounded px-1.5 py-1 transition-colors">
+                      <input type="checkbox" class="ccw-tool-checkbox w-3 h-3"
+                             data-tool="${tool.name}"
+                             ${enabledTools.includes(tool.name) ? 'checked' : ''}>
+                      <span class="${tool.core ? 'font-medium' : 'text-muted-foreground'}">${tool.desc}</span>
+                    </label>
+                  `).join('')}
+                </div>
+                <div class="flex items-center gap-3 text-xs">
+                  <button class="text-primary hover:underline" onclick="selectCcwTools('core')">Core only</button>
+                  <button class="text-primary hover:underline" onclick="selectCcwTools('all')">All</button>
+                  <button class="text-muted-foreground hover:underline" onclick="selectCcwTools('none')">None</button>
                 </div>
               </div>
             </div>
             <div class="shrink-0">
               ${isCcwToolsInstalled ? `
-                <button class="px-4 py-2 text-sm bg-muted text-muted-foreground rounded-lg cursor-not-allowed" disabled>
-                  <i data-lucide="check" class="w-4 h-4 inline mr-1"></i>
-                  Installed
+                <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
+                        onclick="updateCcwToolsMcp()">
+                  Update
                 </button>
               ` : `
                 <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2"
                         onclick="installCcwToolsMcp()">
                   <i data-lucide="download" class="w-4 h-4"></i>
-                  Install CCW Tools
+                  Install
                 </button>
               `}
             </div>

@@ -1,10 +1,6 @@
-# Development Guidelines
 
-## Overview
-
-This document defines project-specific coding standards and development principles.
-### CLI Tool Context Protocols
-For all CLI tool usage, command syntax, and integration guidelines:
+### Tool Context Protocols
+For all  tool usage, command syntax, and integration guidelines:
 - **Tool Strategy**: @~/.claude/workflows/tool-strategy.md
 - **Intelligent Context Strategy**: @~/.claude/workflows/intelligent-tools-strategy.md
 - **Context Search Commands**: @~/.claude/workflows/context-search-strategy.md

@@ -722,28 +722,15 @@ async function execute(params) {
 
 export const sessionManagerTool = {
   name: 'session_manager',
-  description: `Workflow session lifecycle management tool.
-
-Operations:
-- init: Create new session with directory structure
-- list: List sessions (active, archived, or both)
-- read: Read file content by content_type
-- write: Write content to file by content_type
-- update: Update existing JSON file (shallow merge)
-- archive: Move session from active to archives
-- mkdir: Create directories within session
-- delete: Delete a file within session
-- stats: Get session statistics (tasks, summaries, plan)
-
-Content Types:
-session, plan, task, summary, process, chat, brainstorm,
-review-dim, review-iter, review-fix, todo, context
+  description: `Workflow session management.
 
 Usage:
-ccw tool exec session_manager '{"operation":"list"}'
-ccw tool exec session_manager '{"operation":"init","session_id":"WFS-test"}'
-ccw tool exec session_manager '{"operation":"read","session_id":"WFS-test","content_type":"session"}'
-ccw tool exec session_manager '{"operation":"stats","session_id":"WFS-test"}'`,
+  session_manager(operation="init", type="workflow", description="...")
+  session_manager(operation="list", location="active|archived|both")
+  session_manager(operation="read", sessionId="WFS-xxx", contentType="plan|task|summary")
+  session_manager(operation="write", sessionId="WFS-xxx", contentType="plan", content={...})
+  session_manager(operation="archive", sessionId="WFS-xxx")
+  session_manager(operation="stats", sessionId="WFS-xxx")`,
 
   parameters: {
     type: 'object',

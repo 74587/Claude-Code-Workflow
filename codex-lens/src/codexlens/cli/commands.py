@@ -243,6 +243,7 @@ def init(
 def search(
     query: str = typer.Argument(..., help="FTS query to run."),
     limit: int = typer.Option(20, "--limit", "-n", min=1, max=500, help="Max results."),
+    files_only: bool = typer.Option(False, "--files-only", "-f", help="Return only file paths without content snippets."),
     use_global: bool = typer.Option(False, "--global", "-g", help="Use global database instead of workspace-local."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
@@ -251,6 +252,7 @@ def search(
 
     Searches the workspace-local .codexlens/index.db by default.
     Use --global to search the global database at ~/.codexlens/.
+    Use --files-only to return only matching file paths.
     """
     _configure_logging(verbose)
 
@@ -258,12 +260,22 @@ def search(
     try:
         store, db_path = _get_store_for_path(Path.cwd(), use_global)
         store.initialize()
-        results = store.search_fts(query, limit=limit)
-        payload = {"query": query, "count": len(results), "results": results}
-        if json_mode:
-            print_json(success=True, result=payload)
+
+        if files_only:
+            file_paths = store.search_files_only(query, limit=limit)
+            payload = {"query": query, "count": len(file_paths), "files": file_paths}
+            if json_mode:
+                print_json(success=True, result=payload)
+            else:
+                for fp in file_paths:
+                    console.print(fp)
         else:
-            render_search_results(results)
+            results = store.search_fts(query, limit=limit)
+            payload = {"query": query, "count": len(results), "results": results}
+            if json_mode:
+                print_json(success=True, result=payload)
+            else:
+                render_search_results(results)
     except Exception as exc:
         if json_mode:
             print_json(success=False, error=str(exc))

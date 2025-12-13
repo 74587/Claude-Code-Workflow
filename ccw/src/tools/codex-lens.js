@@ -384,6 +384,30 @@ async function searchCode(params) {
 }
 
 /**
+ * Search code and return only file paths
+ * @param {Object} params - Search parameters
+ * @returns {Promise<Object>}
+ */
+async function searchFiles(params) {
+  const { query, path = '.', limit = 20 } = params;
+
+  const args = ['search', query, '--files-only', '--limit', limit.toString(), '--json'];
+
+  const result = await executeCodexLens(args, { cwd: path });
+
+  if (result.success) {
+    try {
+      result.files = JSON.parse(result.output);
+      delete result.output;
+    } catch {
+      // Keep raw output if JSON parse fails
+    }
+  }
+
+  return result;
+}
+
+/**
  * Extract symbols from a file
  * @param {Object} params - Parameters
  * @returns {Promise<Object>}
@@ -474,6 +498,9 @@ async function execute(params) {
     case 'search':
       return searchCode(rest);
 
+    case 'search_files':
+      return searchFiles(rest);
+
     case 'symbol':
       return extractSymbols(rest);
 
@@ -497,7 +524,7 @@ async function execute(params) {
       return checkVenvStatus();
 
     default:
-      throw new Error(`Unknown action: ${action}. Valid actions: init, search, symbol, status, update, bootstrap, check`);
+      throw new Error(`Unknown action: ${action}. Valid actions: init, search, search_files, symbol, status, update, bootstrap, check`);
   }
 }
 
@@ -506,38 +533,30 @@ async function execute(params) {
  */
 export const codexLensTool = {
   name: 'codex_lens',
-  description: `Code indexing and semantic search via CodexLens Python package.
+  description: `Code indexing and search.
 
-Actions:
-- init: Initialize index for a directory
-- search: Search code (text or semantic mode)
-- symbol: Extract symbols from a file
-- status: Get index status
-- update: Incrementally update specific files (add/modify/remove)
-- bootstrap: Force re-install CodexLens venv
-- check: Check venv readiness
-
-Features:
-- Automatic venv bootstrap at ~/.codexlens/venv
-- SQLite FTS5 full-text search
-- Tree-sitter symbol extraction
-- Incremental updates for changed files
-- Optional semantic search with embeddings`,
+Usage:
+  codex_lens(action="init", path=".")           # Index directory
+  codex_lens(action="search", query="func", path=".")  # Search code
+  codex_lens(action="search_files", query="x")  # Search, return paths only
+  codex_lens(action="symbol", file="f.py")      # Extract symbols
+  codex_lens(action="status")                   # Index status
+  codex_lens(action="update", files=["a.js"])   # Update specific files`,
   parameters: {
     type: 'object',
     properties: {
       action: {
         type: 'string',
-        enum: ['init', 'search', 'symbol', 'status', 'update', 'bootstrap', 'check'],
+        enum: ['init', 'search', 'search_files', 'symbol', 'status', 'update', 'bootstrap', 'check'],
         description: 'Action to perform'
       },
       path: {
         type: 'string',
-        description: 'Target path (for init, search, status, update)'
+        description: 'Target path (for init, search, search_files, status, update)'
       },
       query: {
         type: 'string',
-        description: 'Search query (for search action)'
+        description: 'Search query (for search and search_files actions)'
       },
       mode: {
         type: 'string',
@@ -561,7 +580,7 @@ Features:
       },
       limit: {
         type: 'number',
-        description: 'Maximum results (for search action)',
+        description: 'Maximum results (for search and search_files actions)',
         default: 20
       },
       format: {
