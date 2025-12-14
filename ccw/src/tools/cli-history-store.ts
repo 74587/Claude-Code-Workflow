@@ -38,6 +38,7 @@ export interface ConversationRecord {
   turn_count: number;
   latest_status: 'success' | 'error' | 'timeout';
   turns: ConversationTurn[];
+  parent_execution_id?: string; // For fork/retry scenarios
 }
 
 export interface HistoryQueryOptions {
@@ -72,6 +73,20 @@ export interface NativeSessionMapping {
   native_session_path?: string; // Native file path
   project_hash?: string;       // Project hash (Gemini/Qwen)
   created_at: string;
+}
+
+// Review record interface
+export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'changes_requested';
+
+export interface ReviewRecord {
+  id?: number;
+  execution_id: string;
+  status: ReviewStatus;
+  rating?: number;
+  comments?: string;
+  reviewer?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
@@ -113,7 +128,9 @@ export class CliHistoryStore {
         total_duration_ms INTEGER DEFAULT 0,
         turn_count INTEGER DEFAULT 0,
         latest_status TEXT DEFAULT 'success',
-        prompt_preview TEXT
+        prompt_preview TEXT,
+        parent_execution_id TEXT,
+        FOREIGN KEY (parent_execution_id) REFERENCES conversations(id) ON DELETE SET NULL
       );
 
       -- Turns table (individual conversation turns)
@@ -193,6 +210,23 @@ export class CliHistoryStore {
 
       CREATE INDEX IF NOT EXISTS idx_insights_created ON insights(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_insights_tool ON insights(tool);
+
+      -- Reviews table for CLI execution reviews
+      CREATE TABLE IF NOT EXISTS reviews (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        execution_id TEXT NOT NULL UNIQUE,
+        status TEXT NOT NULL DEFAULT 'pending',
+        rating INTEGER,
+        comments TEXT,
+        reviewer TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (execution_id) REFERENCES conversations(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_reviews_execution ON reviews(execution_id);
+      CREATE INDEX IF NOT EXISTS idx_reviews_status ON reviews(status);
+      CREATE INDEX IF NOT EXISTS idx_reviews_created ON reviews(created_at DESC);
     `);
 
     // Migration: Add category column if not exists (for existing databases)
@@ -207,6 +241,7 @@ export class CliHistoryStore {
       // Check if category column exists
       const tableInfo = this.db.prepare('PRAGMA table_info(conversations)').all() as Array<{ name: string }>;
       const hasCategory = tableInfo.some(col => col.name === 'category');
+      const hasParentExecutionId = tableInfo.some(col => col.name === 'parent_execution_id');
 
       if (!hasCategory) {
         console.log('[CLI History] Migrating database: adding category column...');
@@ -220,6 +255,19 @@ export class CliHistoryStore {
           console.warn('[CLI History] Category index creation warning:', (indexErr as Error).message);
         }
         console.log('[CLI History] Migration complete: category column added');
+      }
+
+      if (!hasParentExecutionId) {
+        console.log('[CLI History] Migrating database: adding parent_execution_id column...');
+        this.db.exec(`
+          ALTER TABLE conversations ADD COLUMN parent_execution_id TEXT;
+        `);
+        try {
+          this.db.exec(`CREATE INDEX IF NOT EXISTS idx_conversations_parent ON conversations(parent_execution_id);`);
+        } catch (indexErr) {
+          console.warn('[CLI History] Parent execution index creation warning:', (indexErr as Error).message);
+        }
+        console.log('[CLI History] Migration complete: parent_execution_id column added');
       }
     } catch (err) {
       console.error('[CLI History] Migration error:', (err as Error).message);
@@ -314,8 +362,8 @@ export class CliHistoryStore {
       : '';
 
     const upsertConversation = this.db.prepare(`
-      INSERT INTO conversations (id, created_at, updated_at, tool, model, mode, category, total_duration_ms, turn_count, latest_status, prompt_preview)
-      VALUES (@id, @created_at, @updated_at, @tool, @model, @mode, @category, @total_duration_ms, @turn_count, @latest_status, @prompt_preview)
+      INSERT INTO conversations (id, created_at, updated_at, tool, model, mode, category, total_duration_ms, turn_count, latest_status, prompt_preview, parent_execution_id)
+      VALUES (@id, @created_at, @updated_at, @tool, @model, @mode, @category, @total_duration_ms, @turn_count, @latest_status, @prompt_preview, @parent_execution_id)
       ON CONFLICT(id) DO UPDATE SET
         updated_at = @updated_at,
         total_duration_ms = @total_duration_ms,
@@ -350,7 +398,8 @@ export class CliHistoryStore {
         total_duration_ms: conversation.total_duration_ms,
         turn_count: conversation.turn_count,
         latest_status: conversation.latest_status,
-        prompt_preview: promptPreview
+        prompt_preview: promptPreview,
+        parent_execution_id: conversation.parent_execution_id || null
       });
 
       for (const turn of conversation.turns) {
@@ -397,6 +446,7 @@ export class CliHistoryStore {
       total_duration_ms: conv.total_duration_ms,
       turn_count: conv.turn_count,
       latest_status: conv.latest_status,
+      parent_execution_id: conv.parent_execution_id || undefined,
       turns: turns.map(t => ({
         turn: t.turn_number,
         timestamp: t.timestamp,
@@ -932,6 +982,107 @@ export class CliHistoryStore {
    */
   deleteInsight(id: string): boolean {
     const result = this.db.prepare('DELETE FROM insights WHERE id = ?').run(id);
+    return result.changes > 0;
+  }
+
+  /**
+   * Save or update a review for an execution
+   */
+  saveReview(review: Omit<ReviewRecord, 'id' | 'created_at' | 'updated_at'> & { created_at?: string; updated_at?: string }): ReviewRecord {
+    const now = new Date().toISOString();
+    const created_at = review.created_at || now;
+    const updated_at = review.updated_at || now;
+
+    const stmt = this.db.prepare(`
+      INSERT INTO reviews (execution_id, status, rating, comments, reviewer, created_at, updated_at)
+      VALUES (@execution_id, @status, @rating, @comments, @reviewer, @created_at, @updated_at)
+      ON CONFLICT(execution_id) DO UPDATE SET
+        status = @status,
+        rating = @rating,
+        comments = @comments,
+        reviewer = @reviewer,
+        updated_at = @updated_at
+    `);
+
+    const result = stmt.run({
+      execution_id: review.execution_id,
+      status: review.status,
+      rating: review.rating ?? null,
+      comments: review.comments ?? null,
+      reviewer: review.reviewer ?? null,
+      created_at,
+      updated_at
+    });
+
+    return {
+      id: result.lastInsertRowid as number,
+      execution_id: review.execution_id,
+      status: review.status,
+      rating: review.rating,
+      comments: review.comments,
+      reviewer: review.reviewer,
+      created_at,
+      updated_at
+    };
+  }
+
+  /**
+   * Get review for an execution
+   */
+  getReview(executionId: string): ReviewRecord | null {
+    const row = this.db.prepare(
+      'SELECT * FROM reviews WHERE execution_id = ?'
+    ).get(executionId) as any;
+
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      execution_id: row.execution_id,
+      status: row.status as ReviewStatus,
+      rating: row.rating,
+      comments: row.comments,
+      reviewer: row.reviewer,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
+  }
+
+  /**
+   * Get reviews with optional filtering
+   */
+  getReviews(options: { status?: ReviewStatus; limit?: number } = {}): ReviewRecord[] {
+    const { status, limit = 50 } = options;
+
+    let sql = 'SELECT * FROM reviews';
+    const params: any = { limit };
+
+    if (status) {
+      sql += ' WHERE status = @status';
+      params.status = status;
+    }
+
+    sql += ' ORDER BY updated_at DESC LIMIT @limit';
+
+    const rows = this.db.prepare(sql).all(params) as any[];
+
+    return rows.map(row => ({
+      id: row.id,
+      execution_id: row.execution_id,
+      status: row.status as ReviewStatus,
+      rating: row.rating,
+      comments: row.comments,
+      reviewer: row.reviewer,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    }));
+  }
+
+  /**
+   * Delete a review
+   */
+  deleteReview(executionId: string): boolean {
+    const result = this.db.prepare('DELETE FROM reviews WHERE execution_id = ?').run(executionId);
     return result.changes > 0;
   }
 

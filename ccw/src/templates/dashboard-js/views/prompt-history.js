@@ -8,6 +8,8 @@ var promptHistorySearch = '';
 var promptHistoryDateFilter = null;
 var promptHistoryProjectFilter = null;
 var selectedPromptId = null;
+var promptInsightsHistory = []; // Insights analysis history
+var selectedPromptInsight = null; // Currently selected insight for detail view
 
 // ========== Data Loading ==========
 async function loadPromptHistory() {
@@ -40,6 +42,20 @@ async function loadPromptInsights() {
   }
 }
 
+async function loadPromptInsightsHistory() {
+  try {
+    var response = await fetch('/api/memory/insights?limit=20');
+    if (!response.ok) throw new Error('Failed to load insights history');
+    var data = await response.json();
+    promptInsightsHistory = data.insights || [];
+    return promptInsightsHistory;
+  } catch (err) {
+    console.error('Failed to load insights history:', err);
+    promptInsightsHistory = [];
+    return [];
+  }
+}
+
 // ========== Rendering ==========
 async function renderPromptHistoryView() {
   var container = document.getElementById('mainContent');
@@ -52,7 +68,7 @@ async function renderPromptHistoryView() {
   if (searchInput) searchInput.parentElement.style.display = 'none';
 
   // Load data
-  await Promise.all([loadPromptHistory(), loadPromptInsights()]);
+  await Promise.all([loadPromptHistory(), loadPromptInsights(), loadPromptInsightsHistory()]);
 
   // Calculate stats
   var totalPrompts = promptHistoryData.length;
@@ -232,49 +248,205 @@ function renderInsightsPanel() {
     return html;
   }
 
-  if (!promptInsights || !promptInsights.patterns || promptInsights.patterns.length === 0) {
-    html += '<div class="insights-empty-state">' +
+  // Show insights history cards
+  html += '<div class="insights-history-container">' +
+    renderPromptInsightsHistory() +
+    '</div>';
+
+  // Show detail panel if an insight is selected
+  if (selectedPromptInsight) {
+    html += '<div class="insight-detail-panel" id="promptInsightDetailPanel">' +
+      renderPromptInsightDetail(selectedPromptInsight) +
+    '</div>';
+  }
+
+  return html;
+}
+
+function renderPromptInsightsHistory() {
+  if (!promptInsightsHistory || promptInsightsHistory.length === 0) {
+    return '<div class="insights-empty-state">' +
       '<i data-lucide="brain" class="w-10 h-10"></i>' +
       '<p>' + t('prompt.noInsights') + '</p>' +
       '<p class="insights-hint">' + t('prompt.noInsightsText') + '</p>' +
     '</div>';
-  } else {
-    html += '<div class="insights-list">';
-
-    // Render detected patterns
-    if (promptInsights.patterns && promptInsights.patterns.length > 0) {
-      html += '<div class="insights-section">' +
-        '<h4><i data-lucide="alert-circle" class="w-4 h-4"></i> Detected Patterns</h4>';
-      for (var i = 0; i < promptInsights.patterns.length; i++) {
-        html += renderPatternCard(promptInsights.patterns[i]);
-      }
-      html += '</div>';
-    }
-
-    // Render suggestions
-    if (promptInsights.suggestions && promptInsights.suggestions.length > 0) {
-      html += '<div class="insights-section">' +
-        '<h4><i data-lucide="zap" class="w-4 h-4"></i> Optimization Suggestions</h4>';
-      for (var j = 0; j < promptInsights.suggestions.length; j++) {
-        html += renderSuggestionCard(promptInsights.suggestions[j]);
-      }
-      html += '</div>';
-    }
-
-    // Render similar successful prompts
-    if (promptInsights.similar_prompts && promptInsights.similar_prompts.length > 0) {
-      html += '<div class="insights-section">' +
-        '<h4><i data-lucide="stars" class="w-4 h-4"></i> Similar Successful Prompts</h4>';
-      for (var k = 0; k < promptInsights.similar_prompts.length; k++) {
-        html += renderSimilarPromptCard(promptInsights.similar_prompts[k]);
-      }
-      html += '</div>';
-    }
-
-    html += '</div>';
   }
 
+  return '<div class="insights-history-cards">' +
+    promptInsightsHistory.map(function(insight) {
+      var patternCount = (insight.patterns || []).length;
+      var suggestionCount = (insight.suggestions || []).length;
+      var severity = getPromptInsightSeverity(insight.patterns);
+      var timeAgo = formatPromptTimestamp(insight.created_at);
+
+      return '<div class="insight-history-card ' + severity + '" onclick="showPromptInsightDetail(\'' + insight.id + '\')">' +
+        '<div class="insight-card-header">' +
+          '<div class="insight-card-tool">' +
+            '<i data-lucide="' + getPromptToolIcon(insight.tool) + '" class="w-4 h-4"></i>' +
+            '<span>' + (insight.tool || 'CLI') + '</span>' +
+          '</div>' +
+          '<div class="insight-card-time">' + timeAgo + '</div>' +
+        '</div>' +
+        '<div class="insight-card-stats">' +
+          '<div class="insight-stat">' +
+            '<span class="insight-stat-value">' + patternCount + '</span>' +
+            '<span class="insight-stat-label">' + (isZh() ? '模式' : 'Patterns') + '</span>' +
+          '</div>' +
+          '<div class="insight-stat">' +
+            '<span class="insight-stat-value">' + suggestionCount + '</span>' +
+            '<span class="insight-stat-label">' + (isZh() ? '建议' : 'Suggestions') + '</span>' +
+          '</div>' +
+          '<div class="insight-stat">' +
+            '<span class="insight-stat-value">' + (insight.prompt_count || 0) + '</span>' +
+            '<span class="insight-stat-label">' + (isZh() ? '提示' : 'Prompts') + '</span>' +
+          '</div>' +
+        '</div>' +
+        (insight.patterns && insight.patterns.length > 0 ?
+          '<div class="insight-card-preview">' +
+            '<div class="pattern-preview ' + (insight.patterns[0].severity || 'low') + '">' +
+              '<span class="pattern-type">' + escapeHtml(insight.patterns[0].type || 'pattern') + '</span>' +
+              '<span class="pattern-desc">' + escapeHtml((insight.patterns[0].description || '').substring(0, 60)) + '...</span>' +
+            '</div>' +
+          '</div>' : '') +
+      '</div>';
+    }).join('') +
+  '</div>';
+}
+
+function getPromptInsightSeverity(patterns) {
+  if (!patterns || patterns.length === 0) return 'low';
+  var hasHigh = patterns.some(function(p) { return p.severity === 'high'; });
+  var hasMedium = patterns.some(function(p) { return p.severity === 'medium'; });
+  return hasHigh ? 'high' : (hasMedium ? 'medium' : 'low');
+}
+
+function getPromptToolIcon(tool) {
+  switch(tool) {
+    case 'gemini': return 'sparkles';
+    case 'qwen': return 'bot';
+    case 'codex': return 'code-2';
+    default: return 'cpu';
+  }
+}
+
+function formatPromptTimestamp(timestamp) {
+  if (!timestamp) return '';
+  var date = new Date(timestamp);
+  var now = new Date();
+  var diff = now - date;
+  var minutes = Math.floor(diff / 60000);
+  var hours = Math.floor(diff / 3600000);
+  var days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return isZh() ? '刚刚' : 'Just now';
+  if (minutes < 60) return minutes + (isZh() ? ' 分钟前' : 'm ago');
+  if (hours < 24) return hours + (isZh() ? ' 小时前' : 'h ago');
+  if (days < 7) return days + (isZh() ? ' 天前' : 'd ago');
+  return date.toLocaleDateString();
+}
+
+async function showPromptInsightDetail(insightId) {
+  try {
+    var response = await fetch('/api/memory/insights/' + insightId);
+    if (!response.ok) throw new Error('Failed to load insight detail');
+    var data = await response.json();
+    selectedPromptInsight = data.insight;
+    renderPromptHistoryView();
+  } catch (err) {
+    console.error('Failed to load insight detail:', err);
+    if (window.showToast) {
+      showToast(isZh() ? '加载洞察详情失败' : 'Failed to load insight detail', 'error');
+    }
+  }
+}
+
+function closePromptInsightDetail() {
+  selectedPromptInsight = null;
+  renderPromptHistoryView();
+}
+
+function renderPromptInsightDetail(insight) {
+  if (!insight) return '';
+
+  var html = '<div class="insight-detail">' +
+    '<div class="insight-detail-header">' +
+      '<h4><i data-lucide="lightbulb" class="w-4 h-4"></i> ' + (isZh() ? '洞察详情' : 'Insight Detail') + '</h4>' +
+      '<button class="btn-icon" onclick="closePromptInsightDetail()" title="' + t('common.close') + '">' +
+        '<i data-lucide="x" class="w-4 h-4"></i>' +
+      '</button>' +
+    '</div>' +
+    '<div class="insight-detail-meta">' +
+      '<span><i data-lucide="' + getPromptToolIcon(insight.tool) + '" class="w-3 h-3"></i> ' + (insight.tool || 'CLI') + '</span>' +
+      '<span><i data-lucide="clock" class="w-3 h-3"></i> ' + formatPromptTimestamp(insight.created_at) + '</span>' +
+      '<span><i data-lucide="file-text" class="w-3 h-3"></i> ' + (insight.prompt_count || 0) + ' ' + (isZh() ? '个提示已分析' : 'prompts analyzed') + '</span>' +
+    '</div>';
+
+  // Patterns
+  if (insight.patterns && insight.patterns.length > 0) {
+    html += '<div class="insight-patterns">' +
+      '<h5><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> ' + (isZh() ? '发现的模式' : 'Patterns Found') + ' (' + insight.patterns.length + ')</h5>' +
+      '<div class="patterns-list">' +
+      insight.patterns.map(function(p) {
+        return '<div class="pattern-item ' + (p.severity || 'low') + '">' +
+          '<div class="pattern-header">' +
+            '<span class="pattern-type-badge">' + escapeHtml(p.type || 'pattern') + '</span>' +
+            '<span class="pattern-severity">' + (p.severity || 'low') + '</span>' +
+            (p.occurrences ? '<span class="pattern-occurrences">' + p.occurrences + 'x</span>' : '') +
+          '</div>' +
+          '<div class="pattern-description">' + escapeHtml(p.description || '') + '</div>' +
+          (p.suggestion ? '<div class="pattern-suggestion"><i data-lucide="arrow-right" class="w-3 h-3"></i> ' + escapeHtml(p.suggestion) + '</div>' : '') +
+        '</div>';
+      }).join('') +
+      '</div>' +
+    '</div>';
+  }
+
+  // Suggestions
+  if (insight.suggestions && insight.suggestions.length > 0) {
+    html += '<div class="insight-suggestions">' +
+      '<h5><i data-lucide="lightbulb" class="w-3.5 h-3.5"></i> ' + (isZh() ? '提供的建议' : 'Suggestions') + ' (' + insight.suggestions.length + ')</h5>' +
+      '<div class="suggestions-list">' +
+      insight.suggestions.map(function(s) {
+        return '<div class="suggestion-item">' +
+          '<div class="suggestion-title">' + escapeHtml(s.title || '') + '</div>' +
+          '<div class="suggestion-description">' + escapeHtml(s.description || '') + '</div>' +
+          (s.example ? '<div class="suggestion-example"><code>' + escapeHtml(s.example) + '</code></div>' : '') +
+        '</div>';
+      }).join('') +
+      '</div>' +
+    '</div>';
+  }
+
+  html += '<div class="insight-detail-actions">' +
+    '<button class="btn btn-sm btn-danger" onclick="deletePromptInsight(\'' + insight.id + '\')">' +
+      '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i> ' + t('common.delete') +
+    '</button>' +
+  '</div>' +
+  '</div>';
+
   return html;
+}
+
+async function deletePromptInsight(insightId) {
+  if (!confirm(isZh() ? '确定要删除这条洞察记录吗？' : 'Are you sure you want to delete this insight?')) return;
+
+  try {
+    var response = await fetch('/api/memory/insights/' + insightId, { method: 'DELETE' });
+    if (!response.ok) throw new Error('Failed to delete insight');
+
+    selectedPromptInsight = null;
+    await loadPromptInsightsHistory();
+    renderPromptHistoryView();
+
+    if (window.showToast) {
+      showToast(isZh() ? '洞察已删除' : 'Insight deleted', 'success');
+    }
+  } catch (err) {
+    console.error('Failed to delete insight:', err);
+    if (window.showToast) {
+      showToast(isZh() ? '删除洞察失败' : 'Failed to delete insight', 'error');
+    }
+  }
 }
 
 function renderPatternCard(pattern) {

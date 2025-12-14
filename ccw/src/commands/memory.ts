@@ -6,6 +6,7 @@
 import chalk from 'chalk';
 import { getMemoryStore, type Entity, type HotEntity, type PromptHistory } from '../core/memory-store.js';
 import { HistoryImporter } from '../core/history-importer.js';
+import { notifyMemoryUpdate, notifyRefreshRequired } from '../tools/notifier.js';
 import { join } from 'path';
 import { existsSync, readdirSync } from 'fs';
 
@@ -190,6 +191,13 @@ async function trackAction(options: TrackOptions): Promise<void> {
       }
     }
 
+    // Notify server of memory update (best-effort, non-blocking)
+    notifyMemoryUpdate({
+      entityType: type,
+      entityId: String(entityId),
+      action: action
+    }).catch(() => { /* ignore errors - server may not be running */ });
+
     if (stdin) {
       // Silent mode for hooks - just exit successfully
       process.exit(0);
@@ -275,6 +283,11 @@ async function importAction(options: ImportOptions): Promise<void> {
     console.log(chalk.gray(`  Total Skipped: ${totalSkipped}`));
     console.log(chalk.gray(`  Total Errors: ${totalErrors}`));
     console.log(chalk.gray(`  Database: ${dbPath}\n`));
+
+    // Notify server to refresh memory data
+    if (totalImported > 0) {
+      notifyRefreshRequired('memory').catch(() => { /* ignore */ });
+    }
   } catch (error) {
     console.error(chalk.red(`\n  Error importing: ${(error as Error).message}\n`));
     process.exit(1);
@@ -611,6 +624,11 @@ async function pruneAction(options: PruneOptions): Promise<void> {
 
     console.log(chalk.green(`\n  Pruned ${accessResult.changes} access logs`));
     console.log(chalk.green(`  Pruned ${entitiesResult.changes} entities\n`));
+
+    // Notify server to refresh memory data
+    if (accessResult.changes > 0 || entitiesResult.changes > 0) {
+      notifyRefreshRequired('memory').catch(() => { /* ignore */ });
+    }
 
   } catch (error) {
     console.error(chalk.red(`\n  Error: ${(error as Error).message}\n`));

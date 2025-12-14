@@ -108,6 +108,10 @@ function initNavigation() {
         renderMemoryView();
       } else if (currentView === 'prompt-history') {
         renderPromptHistoryView();
+      } else if (currentView === 'skills-manager') {
+        renderSkillsManager();
+      } else if (currentView === 'rules-manager') {
+        renderRulesManager();
       }
     });
   });
@@ -136,6 +140,10 @@ function updateContentTitle() {
     titleEl.textContent = t('title.memoryModule');
   } else if (currentView === 'prompt-history') {
     titleEl.textContent = t('title.promptHistory');
+  } else if (currentView === 'skills-manager') {
+    titleEl.textContent = t('title.skillsManager');
+  } else if (currentView === 'rules-manager') {
+    titleEl.textContent = t('title.rulesManager');
   } else if (currentView === 'liteTasks') {
     const names = { 'lite-plan': t('title.litePlanSessions'), 'lite-fix': t('title.liteFixSessions') };
     titleEl.textContent = names[currentLiteType] || t('title.liteTasks');

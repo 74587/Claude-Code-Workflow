@@ -52,16 +52,22 @@ mcp__ccw-tools__read_file(paths="src/", contentPattern="TODO")     # Regex searc
 
 ### codex_lens
 
-**When to Use**: Code indexing and semantic search
+**When to Use**: Code indexing, semantic search, cache management
 
 ```
 mcp__ccw-tools__codex_lens(action="init", path=".")
 mcp__ccw-tools__codex_lens(action="search", query="function main", path=".")
 mcp__ccw-tools__codex_lens(action="search_files", query="pattern", limit=20)
 mcp__ccw-tools__codex_lens(action="symbol", file="src/main.py")
+mcp__ccw-tools__codex_lens(action="status")
+mcp__ccw-tools__codex_lens(action="config_show")
+mcp__ccw-tools__codex_lens(action="config_set", key="index_dir", value="/path")
+mcp__ccw-tools__codex_lens(action="config_migrate", newPath="/new/path")
+mcp__ccw-tools__codex_lens(action="clean", path=".")
+mcp__ccw-tools__codex_lens(action="clean", all=true)
 ```
 
-**Actions**: `init`, `search`, `search_files`, `symbol`, `status`, `update`
+**Actions**: `init`, `search`, `search_files`, `symbol`, `status`, `config_show`, `config_set`, `config_migrate`, `clean`
 
 ### smart_search
 

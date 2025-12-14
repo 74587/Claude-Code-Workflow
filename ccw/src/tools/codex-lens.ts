@@ -35,12 +35,27 @@ let bootstrapReady = false;
 
 // Define Zod schema for validation
 const ParamsSchema = z.object({
-  action: z.enum(['init', 'search', 'search_files', 'symbol', 'status', 'update', 'bootstrap', 'check']),
+  action: z.enum([
+    'init',
+    'search',
+    'search_files',
+    'symbol',
+    'status',
+    'config_show',
+    'config_set',
+    'config_migrate',
+    'clean',
+    'bootstrap',
+    'check',
+  ]),
   path: z.string().optional(),
   query: z.string().optional(),
   mode: z.enum(['text', 'semantic']).default('text'),
   file: z.string().optional(),
-  files: z.array(z.string()).optional(),
+  key: z.string().optional(), // For config_set action
+  value: z.string().optional(), // For config_set action
+  newPath: z.string().optional(), // For config_migrate action
+  all: z.boolean().optional(), // For clean action
   languages: z.array(z.string()).optional(),
   limit: z.number().default(20),
   format: z.enum(['json', 'table', 'plain']).default('json'),
@@ -75,7 +90,8 @@ interface ExecuteResult {
   files?: unknown;
   symbols?: unknown;
   status?: unknown;
-  updateResult?: unknown;
+  config?: unknown;
+  cleanResult?: unknown;
   ready?: boolean;
   version?: string;
 }
@@ -534,24 +550,105 @@ async function getStatus(params: Params): Promise<ExecuteResult> {
 }
 
 /**
- * Update specific files in the index
+ * Show configuration
  * @param params - Parameters
  * @returns Execution result
  */
-async function updateFiles(params: Params): Promise<ExecuteResult> {
-  const { files, path = '.' } = params;
-
-  if (!files || !Array.isArray(files) || files.length === 0) {
-    return { success: false, error: 'files parameter is required and must be a non-empty array' };
-  }
-
-  const args = ['update', ...files, '--json'];
-
-  const result = await executeCodexLens(args, { cwd: path });
+async function configShow(): Promise<ExecuteResult> {
+  const args = ['config', 'show', '--json'];
+  const result = await executeCodexLens(args);
 
   if (result.success && result.output) {
     try {
-      result.updateResult = JSON.parse(result.output);
+      result.config = JSON.parse(result.output);
+      delete result.output;
+    } catch {
+      // Keep raw output if JSON parse fails
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Set configuration value
+ * @param params - Parameters
+ * @returns Execution result
+ */
+async function configSet(params: Params): Promise<ExecuteResult> {
+  const { key, value } = params;
+
+  if (!key) {
+    return { success: false, error: 'key is required for config_set action' };
+  }
+  if (!value) {
+    return { success: false, error: 'value is required for config_set action' };
+  }
+
+  const args = ['config', 'set', key, value, '--json'];
+  const result = await executeCodexLens(args);
+
+  if (result.success && result.output) {
+    try {
+      result.config = JSON.parse(result.output);
+      delete result.output;
+    } catch {
+      // Keep raw output if JSON parse fails
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Migrate indexes to new location
+ * @param params - Parameters
+ * @returns Execution result
+ */
+async function configMigrate(params: Params): Promise<ExecuteResult> {
+  const { newPath } = params;
+
+  if (!newPath) {
+    return { success: false, error: 'newPath is required for config_migrate action' };
+  }
+
+  const args = ['config', 'migrate', newPath, '--json'];
+  const result = await executeCodexLens(args, { timeout: 300000 }); // 5 min for migration
+
+  if (result.success && result.output) {
+    try {
+      result.config = JSON.parse(result.output);
+      delete result.output;
+    } catch {
+      // Keep raw output if JSON parse fails
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Clean indexes
+ * @param params - Parameters
+ * @returns Execution result
+ */
+async function cleanIndexes(params: Params): Promise<ExecuteResult> {
+  const { path, all } = params;
+
+  const args = ['clean'];
+
+  if (all) {
+    args.push('--all');
+  } else if (path) {
+    args.push(path);
+  }
+
+  args.push('--json');
+  const result = await executeCodexLens(args);
+
+  if (result.success && result.output) {
+    try {
+      result.cleanResult = JSON.parse(result.output);
       delete result.output;
     } catch {
       // Keep raw output if JSON parse fails
@@ -572,18 +669,35 @@ Usage:
   codex_lens(action="search_files", query="x")  # Search, return paths only
   codex_lens(action="symbol", file="f.py")      # Extract symbols
   codex_lens(action="status")                   # Index status
-  codex_lens(action="update", files=["a.js"])   # Update specific files`,
+  codex_lens(action="config_show")              # Show configuration
+  codex_lens(action="config_set", key="index_dir", value="/path/to/indexes")  # Set config
+  codex_lens(action="config_migrate", newPath="/new/path")  # Migrate indexes
+  codex_lens(action="clean")                    # Show clean status
+  codex_lens(action="clean", path=".")          # Clean specific project
+  codex_lens(action="clean", all=true)          # Clean all indexes`,
   inputSchema: {
     type: 'object',
     properties: {
       action: {
         type: 'string',
-        enum: ['init', 'search', 'search_files', 'symbol', 'status', 'update', 'bootstrap', 'check'],
+        enum: [
+          'init',
+          'search',
+          'search_files',
+          'symbol',
+          'status',
+          'config_show',
+          'config_set',
+          'config_migrate',
+          'clean',
+          'bootstrap',
+          'check',
+        ],
         description: 'Action to perform',
       },
       path: {
         type: 'string',
-        description: 'Target path (for init, search, search_files, status, update)',
+        description: 'Target path (for init, search, search_files, status, clean)',
       },
       query: {
         type: 'string',
@@ -599,10 +713,22 @@ Usage:
         type: 'string',
         description: 'File path (for symbol action)',
       },
-      files: {
-        type: 'array',
-        items: { type: 'string' },
-        description: 'File paths to update (for update action)',
+      key: {
+        type: 'string',
+        description: 'Config key (for config_set action, e.g., "index_dir")',
+      },
+      value: {
+        type: 'string',
+        description: 'Config value (for config_set action)',
+      },
+      newPath: {
+        type: 'string',
+        description: 'New index path (for config_migrate action)',
+      },
+      all: {
+        type: 'boolean',
+        description: 'Clean all indexes (for clean action)',
+        default: false,
       },
       languages: {
         type: 'array',
@@ -658,8 +784,20 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
         result = await getStatus(parsed.data);
         break;
 
-      case 'update':
-        result = await updateFiles(parsed.data);
+      case 'config_show':
+        result = await configShow();
+        break;
+
+      case 'config_set':
+        result = await configSet(parsed.data);
+        break;
+
+      case 'config_migrate':
+        result = await configMigrate(parsed.data);
+        break;
+
+      case 'clean':
+        result = await cleanIndexes(parsed.data);
         break;
 
       case 'bootstrap': {
@@ -686,7 +824,7 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
 
       default:
         throw new Error(
-          `Unknown action: ${action}. Valid actions: init, search, search_files, symbol, status, update, bootstrap, check`
+          `Unknown action: ${action}. Valid actions: init, search, search_files, symbol, status, config_show, config_set, config_migrate, clean, bootstrap, check`
         );
     }
 

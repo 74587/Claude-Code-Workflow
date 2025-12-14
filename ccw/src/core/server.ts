@@ -57,7 +57,8 @@ const MODULE_CSS_FILES = [
   '09-explorer.css',
   '10-cli.css',
   '11-memory.css',
-  '11-prompt-history.css'
+  '11-prompt-history.css',
+  '12-skills-rules.css'
 ];
 
 /**
@@ -126,6 +127,8 @@ const MODULE_FILES = [
   'views/explorer.js',
   'views/memory.js',
   'views/prompt-history.js',
+  'views/skills-manager.js',
+  'views/rules-manager.js',
   'main.js'
 ];
 /**
@@ -420,6 +423,37 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         return;
       }
 
+      // API: System notify - CLI to Server communication bridge
+      // Allows CLI commands to trigger WebSocket broadcasts for UI updates
+      if (pathname === '/api/system/notify' && req.method === 'POST') {
+        handlePostRequest(req, res, async (body) => {
+          const { type, scope, data } = body as {
+            type: 'REFRESH_REQUIRED' | 'MEMORY_UPDATED' | 'HISTORY_UPDATED' | 'INSIGHT_GENERATED';
+            scope: 'memory' | 'history' | 'insights' | 'all';
+            data?: Record<string, unknown>;
+          };
+
+          if (!type || !scope) {
+            return { error: 'type and scope are required', status: 400 };
+          }
+
+          // Map CLI notification types to WebSocket broadcast format
+          const notification = {
+            type,
+            payload: {
+              scope,
+              timestamp: new Date().toISOString(),
+              ...data
+            }
+          };
+
+          broadcastToClients(notification);
+
+          return { success: true, broadcast: true, clientCount: wsClients.size };
+        });
+        return;
+      }
+
       // API: Get hooks configuration
       if (pathname === '/api/hooks' && req.method === 'GET') {
         const projectPathParam = url.searchParams.get('path');
@@ -462,12 +496,12 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         return;
       }
 
-      // API: Discover SKILL packages in project
+      // API: Get all skills (project and user)
       if (pathname === '/api/skills') {
         const projectPathParam = url.searchParams.get('path') || initialPath;
-        const skills = await discoverSkillPackages(projectPathParam);
+        const skillsData = getSkillsConfig(projectPathParam);
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(skills));
+        res.end(JSON.stringify(skillsData));
         return;
       }
 
@@ -821,7 +855,7 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // API: Execute CLI Tool
       if (pathname === '/api/cli/execute' && req.method === 'POST') {
         handlePostRequest(req, res, async (body) => {
-          const { tool, prompt, mode, format, model, dir, includeDirs, timeout, smartContext } = body;
+          const { tool, prompt, mode, format, model, dir, includeDirs, timeout, smartContext, parentExecutionId, category } = body;
 
           if (!tool || !prompt) {
             return { error: 'tool and prompt are required', status: 400 };
@@ -857,6 +891,7 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
               executionId,
               tool,
               mode: mode || 'analysis',
+              parentExecutionId,
               timestamp: new Date().toISOString()
             }
           });
@@ -872,6 +907,8 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
               cd: dir || initialPath,
               includeDirs,
               timeout: timeout || 300000,
+              category: category || 'user',
+              parentExecutionId,
               stream: true
             }, (chunk) => {
               // Broadcast output chunks via WebSocket
@@ -914,6 +951,94 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
             return { error: (error as Error).message, status: 500 };
           }
         });
+        return;
+      }
+
+      // API: CLI Review - Submit review for an execution
+      if (pathname.startsWith('/api/cli/review/') && req.method === 'POST') {
+        const executionId = pathname.replace('/api/cli/review/', '');
+        handlePostRequest(req, res, async (body) => {
+          const { status, rating, comments, reviewer } = body as {
+            status: 'pending' | 'approved' | 'rejected' | 'changes_requested';
+            rating?: number;
+            comments?: string;
+            reviewer?: string;
+          };
+
+          if (!status) {
+            return { error: 'status is required', status: 400 };
+          }
+
+          try {
+            const historyStore = await import('../tools/cli-history-store.js').then(m => m.getHistoryStore(initialPath));
+
+            // Verify execution exists
+            const execution = historyStore.getConversation(executionId);
+            if (!execution) {
+              return { error: 'Execution not found', status: 404 };
+            }
+
+            // Save review
+            const review = historyStore.saveReview({
+              execution_id: executionId,
+              status,
+              rating,
+              comments,
+              reviewer
+            });
+
+            // Broadcast review update
+            broadcastToClients({
+              type: 'CLI_REVIEW_UPDATED',
+              payload: {
+                executionId,
+                review,
+                timestamp: new Date().toISOString()
+              }
+            });
+
+            return { success: true, review };
+          } catch (error: unknown) {
+            return { error: (error as Error).message, status: 500 };
+          }
+        });
+        return;
+      }
+
+      // API: CLI Review - Get review for an execution
+      if (pathname.startsWith('/api/cli/review/') && req.method === 'GET') {
+        const executionId = pathname.replace('/api/cli/review/', '');
+        try {
+          const historyStore = await import('../tools/cli-history-store.js').then(m => m.getHistoryStore(initialPath));
+          const review = historyStore.getReview(executionId);
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ review }));
+        } catch (error: unknown) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: (error as Error).message }));
+        }
+        return;
+      }
+
+      // API: CLI Reviews - List all reviews
+      if (pathname === '/api/cli/reviews' && req.method === 'GET') {
+        try {
+          const historyStore = await import('../tools/cli-history-store.js').then(m => m.getHistoryStore(initialPath));
+          const statusFilter = url.searchParams.get('status') as 'pending' | 'approved' | 'rejected' | 'changes_requested' | null;
+          const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+
+          const reviews = historyStore.getReviews({
+            status: statusFilter || undefined,
+            limit
+          });
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ reviews, count: reviews.length }));
+        } catch (error: unknown) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: (error as Error).message }));
+        }
         return;
       }
 
@@ -1963,6 +2088,69 @@ RULES: Be concise. Focus on practical understanding. Include function signatures
             return { error: 'path is required', status: 400 };
           }
           return await triggerUpdateClaudeMd(targetPath, tool, strategy);
+        });
+        return;
+      }
+
+      // ========== Skills & Rules API Routes ==========
+
+      // API: Get single skill detail
+      if (pathname.startsWith('/api/skills/') && req.method === 'GET' && !pathname.endsWith('/skills/')) {
+        const skillName = decodeURIComponent(pathname.replace('/api/skills/', ''));
+        const location = url.searchParams.get('location') || 'project';
+        const projectPathParam = url.searchParams.get('path') || initialPath;
+        const skillDetail = getSkillDetail(skillName, location, projectPathParam);
+        if (skillDetail.error) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(skillDetail));
+        } else {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(skillDetail));
+        }
+        return;
+      }
+
+      // API: Delete skill
+      if (pathname.startsWith('/api/skills/') && req.method === 'DELETE') {
+        const skillName = decodeURIComponent(pathname.replace('/api/skills/', ''));
+        handlePostRequest(req, res, async (body) => {
+          const { location, projectPath: projectPathParam } = body;
+          return deleteSkill(skillName, location, projectPathParam || initialPath);
+        });
+        return;
+      }
+
+      // API: Get all rules
+      if (pathname === '/api/rules') {
+        const projectPathParam = url.searchParams.get('path') || initialPath;
+        const rulesData = getRulesConfig(projectPathParam);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(rulesData));
+        return;
+      }
+
+      // API: Get single rule detail
+      if (pathname.startsWith('/api/rules/') && req.method === 'GET' && !pathname.endsWith('/rules/')) {
+        const ruleName = decodeURIComponent(pathname.replace('/api/rules/', ''));
+        const location = url.searchParams.get('location') || 'project';
+        const projectPathParam = url.searchParams.get('path') || initialPath;
+        const ruleDetail = getRuleDetail(ruleName, location, projectPathParam);
+        if (ruleDetail.error) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(ruleDetail));
+        } else {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(ruleDetail));
+        }
+        return;
+      }
+
+      // API: Delete rule
+      if (pathname.startsWith('/api/rules/') && req.method === 'DELETE') {
+        const ruleName = decodeURIComponent(pathname.replace('/api/rules/', ''));
+        handlePostRequest(req, res, async (body) => {
+          const { location, projectPath: projectPathParam } = body;
+          return deleteRule(ruleName, location, projectPathParam || initialPath);
         });
         return;
       }
@@ -3703,4 +3891,442 @@ function compareVersions(v1, v2) {
     if (p1 < p2) return -1;
   }
   return 0;
+}
+
+// ========== Skills Helper Functions ==========
+
+/**
+ * Parse SKILL.md file to extract frontmatter and content
+ * @param {string} content - File content
+ * @returns {Object} Parsed frontmatter and content
+ */
+function parseSkillFrontmatter(content) {
+  const result = {
+    name: '',
+    description: '',
+    version: null,
+    allowedTools: [],
+    content: ''
+  };
+
+  // Check for YAML frontmatter
+  if (content.startsWith('---')) {
+    const endIndex = content.indexOf('---', 3);
+    if (endIndex > 0) {
+      const frontmatter = content.substring(3, endIndex).trim();
+      result.content = content.substring(endIndex + 3).trim();
+
+      // Parse frontmatter lines
+      const lines = frontmatter.split('\n');
+      for (const line of lines) {
+        const colonIndex = line.indexOf(':');
+        if (colonIndex > 0) {
+          const key = line.substring(0, colonIndex).trim().toLowerCase();
+          const value = line.substring(colonIndex + 1).trim();
+
+          if (key === 'name') {
+            result.name = value.replace(/^["']|["']$/g, '');
+          } else if (key === 'description') {
+            result.description = value.replace(/^["']|["']$/g, '');
+          } else if (key === 'version') {
+            result.version = value.replace(/^["']|["']$/g, '');
+          } else if (key === 'allowed-tools' || key === 'allowedtools') {
+            // Parse as comma-separated or YAML array
+            result.allowedTools = value.replace(/^\[|\]$/g, '').split(',').map(t => t.trim()).filter(Boolean);
+          }
+        }
+      }
+    }
+  } else {
+    result.content = content;
+  }
+
+  return result;
+}
+
+/**
+ * Get skills configuration from project and user directories
+ * @param {string} projectPath
+ * @returns {Object}
+ */
+function getSkillsConfig(projectPath) {
+  const result = {
+    projectSkills: [],
+    userSkills: []
+  };
+
+  try {
+    // Project skills: .claude/skills/
+    const projectSkillsDir = join(projectPath, '.claude', 'skills');
+    if (existsSync(projectSkillsDir)) {
+      const skills = readdirSync(projectSkillsDir, { withFileTypes: true });
+      for (const skill of skills) {
+        if (skill.isDirectory()) {
+          const skillMdPath = join(projectSkillsDir, skill.name, 'SKILL.md');
+          if (existsSync(skillMdPath)) {
+            const content = readFileSync(skillMdPath, 'utf8');
+            const parsed = parseSkillFrontmatter(content);
+
+            // Get supporting files
+            const skillDir = join(projectSkillsDir, skill.name);
+            const supportingFiles = getSupportingFiles(skillDir);
+
+            result.projectSkills.push({
+              name: parsed.name || skill.name,
+              description: parsed.description,
+              version: parsed.version,
+              allowedTools: parsed.allowedTools,
+              location: 'project',
+              path: skillDir,
+              supportingFiles
+            });
+          }
+        }
+      }
+    }
+
+    // User skills: ~/.claude/skills/
+    const userSkillsDir = join(homedir(), '.claude', 'skills');
+    if (existsSync(userSkillsDir)) {
+      const skills = readdirSync(userSkillsDir, { withFileTypes: true });
+      for (const skill of skills) {
+        if (skill.isDirectory()) {
+          const skillMdPath = join(userSkillsDir, skill.name, 'SKILL.md');
+          if (existsSync(skillMdPath)) {
+            const content = readFileSync(skillMdPath, 'utf8');
+            const parsed = parseSkillFrontmatter(content);
+
+            // Get supporting files
+            const skillDir = join(userSkillsDir, skill.name);
+            const supportingFiles = getSupportingFiles(skillDir);
+
+            result.userSkills.push({
+              name: parsed.name || skill.name,
+              description: parsed.description,
+              version: parsed.version,
+              allowedTools: parsed.allowedTools,
+              location: 'user',
+              path: skillDir,
+              supportingFiles
+            });
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error reading skills config:', error);
+  }
+
+  return result;
+}
+
+/**
+ * Get list of supporting files for a skill
+ * @param {string} skillDir
+ * @returns {string[]}
+ */
+function getSupportingFiles(skillDir) {
+  const files = [];
+  try {
+    const entries = readdirSync(skillDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name !== 'SKILL.md') {
+        if (entry.isFile()) {
+          files.push(entry.name);
+        } else if (entry.isDirectory()) {
+          files.push(entry.name + '/');
+        }
+      }
+    }
+  } catch (e) {
+    // Ignore errors
+  }
+  return files;
+}
+
+/**
+ * Get single skill detail
+ * @param {string} skillName
+ * @param {string} location - 'project' or 'user'
+ * @param {string} projectPath
+ * @returns {Object}
+ */
+function getSkillDetail(skillName, location, projectPath) {
+  try {
+    const baseDir = location === 'project'
+      ? join(projectPath, '.claude', 'skills')
+      : join(homedir(), '.claude', 'skills');
+
+    const skillDir = join(baseDir, skillName);
+    const skillMdPath = join(skillDir, 'SKILL.md');
+
+    if (!existsSync(skillMdPath)) {
+      return { error: 'Skill not found' };
+    }
+
+    const content = readFileSync(skillMdPath, 'utf8');
+    const parsed = parseSkillFrontmatter(content);
+    const supportingFiles = getSupportingFiles(skillDir);
+
+    return {
+      skill: {
+        name: parsed.name || skillName,
+        description: parsed.description,
+        version: parsed.version,
+        allowedTools: parsed.allowedTools,
+        content: parsed.content,
+        location,
+        path: skillDir,
+        supportingFiles
+      }
+    };
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+}
+
+/**
+ * Delete a skill
+ * @param {string} skillName
+ * @param {string} location
+ * @param {string} projectPath
+ * @returns {Object}
+ */
+function deleteSkill(skillName, location, projectPath) {
+  try {
+    const baseDir = location === 'project'
+      ? join(projectPath, '.claude', 'skills')
+      : join(homedir(), '.claude', 'skills');
+
+    const skillDir = join(baseDir, skillName);
+
+    if (!existsSync(skillDir)) {
+      return { error: 'Skill not found' };
+    }
+
+    // Recursively delete directory
+    const deleteRecursive = (dirPath) => {
+      if (existsSync(dirPath)) {
+        readdirSync(dirPath).forEach((file) => {
+          const curPath = join(dirPath, file);
+          if (statSync(curPath).isDirectory()) {
+            deleteRecursive(curPath);
+          } else {
+            unlinkSync(curPath);
+          }
+        });
+        fsPromises.rmdir(dirPath);
+      }
+    };
+
+    deleteRecursive(skillDir);
+
+    return { success: true, skillName, location };
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+}
+
+// ========== Rules Helper Functions ==========
+
+/**
+ * Parse rule file to extract frontmatter (paths) and content
+ * @param {string} content - File content
+ * @returns {Object} Parsed frontmatter and content
+ */
+function parseRuleFrontmatter(content) {
+  const result = {
+    paths: [],
+    content: content
+  };
+
+  // Check for YAML frontmatter
+  if (content.startsWith('---')) {
+    const endIndex = content.indexOf('---', 3);
+    if (endIndex > 0) {
+      const frontmatter = content.substring(3, endIndex).trim();
+      result.content = content.substring(endIndex + 3).trim();
+
+      // Parse frontmatter lines
+      const lines = frontmatter.split('\n');
+      for (const line of lines) {
+        const colonIndex = line.indexOf(':');
+        if (colonIndex > 0) {
+          const key = line.substring(0, colonIndex).trim().toLowerCase();
+          const value = line.substring(colonIndex + 1).trim();
+
+          if (key === 'paths') {
+            // Parse as comma-separated or YAML array
+            result.paths = value.replace(/^\[|\]$/g, '').split(',').map(t => t.trim()).filter(Boolean);
+          }
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Get rules configuration from project and user directories
+ * @param {string} projectPath
+ * @returns {Object}
+ */
+function getRulesConfig(projectPath) {
+  const result = {
+    projectRules: [],
+    userRules: []
+  };
+
+  try {
+    // Project rules: .claude/rules/
+    const projectRulesDir = join(projectPath, '.claude', 'rules');
+    if (existsSync(projectRulesDir)) {
+      const rules = scanRulesDirectory(projectRulesDir, 'project', '');
+      result.projectRules = rules;
+    }
+
+    // User rules: ~/.claude/rules/
+    const userRulesDir = join(homedir(), '.claude', 'rules');
+    if (existsSync(userRulesDir)) {
+      const rules = scanRulesDirectory(userRulesDir, 'user', '');
+      result.userRules = rules;
+    }
+  } catch (error) {
+    console.error('Error reading rules config:', error);
+  }
+
+  return result;
+}
+
+/**
+ * Recursively scan rules directory for .md files
+ * @param {string} dirPath
+ * @param {string} location
+ * @param {string} subdirectory
+ * @returns {Object[]}
+ */
+function scanRulesDirectory(dirPath, location, subdirectory) {
+  const rules = [];
+
+  try {
+    const entries = readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = join(dirPath, entry.name);
+
+      if (entry.isFile() && entry.name.endsWith('.md')) {
+        const content = readFileSync(fullPath, 'utf8');
+        const parsed = parseRuleFrontmatter(content);
+
+        rules.push({
+          name: entry.name,
+          paths: parsed.paths,
+          content: parsed.content,
+          location,
+          path: fullPath,
+          subdirectory: subdirectory || null
+        });
+      } else if (entry.isDirectory()) {
+        // Recursively scan subdirectories
+        const subRules = scanRulesDirectory(fullPath, location, subdirectory ? `${subdirectory}/${entry.name}` : entry.name);
+        rules.push(...subRules);
+      }
+    }
+  } catch (e) {
+    // Ignore errors
+  }
+
+  return rules;
+}
+
+/**
+ * Get single rule detail
+ * @param {string} ruleName
+ * @param {string} location - 'project' or 'user'
+ * @param {string} projectPath
+ * @returns {Object}
+ */
+function getRuleDetail(ruleName, location, projectPath) {
+  try {
+    const baseDir = location === 'project'
+      ? join(projectPath, '.claude', 'rules')
+      : join(homedir(), '.claude', 'rules');
+
+    // Find the rule file (could be in subdirectory)
+    const rulePath = findRuleFile(baseDir, ruleName);
+
+    if (!rulePath) {
+      return { error: 'Rule not found' };
+    }
+
+    const content = readFileSync(rulePath, 'utf8');
+    const parsed = parseRuleFrontmatter(content);
+
+    return {
+      rule: {
+        name: ruleName,
+        paths: parsed.paths,
+        content: parsed.content,
+        location,
+        path: rulePath
+      }
+    };
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+}
+
+/**
+ * Find rule file in directory (including subdirectories)
+ * @param {string} baseDir
+ * @param {string} ruleName
+ * @returns {string|null}
+ */
+function findRuleFile(baseDir, ruleName) {
+  try {
+    // Direct path
+    const directPath = join(baseDir, ruleName);
+    if (existsSync(directPath)) {
+      return directPath;
+    }
+
+    // Search in subdirectories
+    const entries = readdirSync(baseDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const subPath = findRuleFile(join(baseDir, entry.name), ruleName);
+        if (subPath) return subPath;
+      }
+    }
+  } catch (e) {
+    // Ignore errors
+  }
+  return null;
+}
+
+/**
+ * Delete a rule
+ * @param {string} ruleName
+ * @param {string} location
+ * @param {string} projectPath
+ * @returns {Object}
+ */
+function deleteRule(ruleName, location, projectPath) {
+  try {
+    const baseDir = location === 'project'
+      ? join(projectPath, '.claude', 'rules')
+      : join(homedir(), '.claude', 'rules');
+
+    const rulePath = findRuleFile(baseDir, ruleName);
+
+    if (!rulePath) {
+      return { error: 'Rule not found' };
+    }
+
+    unlinkSync(rulePath);
+
+    return { success: true, ruleName, location };
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
 }

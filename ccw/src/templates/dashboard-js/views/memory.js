@@ -58,14 +58,12 @@ async function renderMemoryView() {
     '<div class="memory-column center" id="memory-graph"></div>' +
     '<div class="memory-column right" id="memory-context"></div>' +
     '</div>' +
-    '<div class="memory-insights-section" id="memory-insights"></div>' +
     '</div>';
 
   // Render each column
   renderHotspotsColumn();
   renderGraphColumn();
   renderContextColumn();
-  renderInsightsSection();
 
   // Initialize Lucide icons
   if (window.lucide) lucide.createIcons();

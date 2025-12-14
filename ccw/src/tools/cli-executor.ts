@@ -63,6 +63,7 @@ const ParamsSchema = z.object({
   id: z.string().optional(), // Custom execution ID (e.g., IMPL-001-step1)
   noNative: z.boolean().optional(), // Force prompt concatenation instead of native resume
   category: z.enum(['user', 'internal', 'insight']).default('user'), // Execution category for tracking
+  parentExecutionId: z.string().optional(), // Parent execution ID for fork/retry scenarios
 });
 
 // Execution category types
