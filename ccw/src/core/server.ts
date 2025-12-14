@@ -1,8 +1,8 @@
 // @ts-nocheck
 import http from 'http';
 import { URL } from 'url';
-import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, statSync, promises as fsPromises } from 'fs';
-import { join, dirname } from 'path';
+import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, statSync, unlinkSync, promises as fsPromises } from 'fs';
+import { join, dirname, isAbsolute, extname } from 'path';
 import { homedir } from 'os';
 import { createHash } from 'crypto';
 import { scanSessions } from './session-scanner.js';
@@ -1229,6 +1229,26 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
               }
             }
 
+            // Save insight to database
+            try {
+              const storeModule = await import('../tools/cli-history-store.js');
+              const store = storeModule.getHistoryStore(projectPath);
+              const insightId = `insight-${Date.now()}`;
+              store.saveInsight({
+                id: insightId,
+                tool,
+                promptCount: prompts.length,
+                patterns: insights.patterns,
+                suggestions: insights.suggestions,
+                rawOutput: result.stdout || '',
+                executionId: result.execution?.id,
+                lang
+              });
+              console.log('[Insights] Saved insight:', insightId);
+            } catch (saveErr) {
+              console.warn('[Insights] Failed to save insight:', (saveErr as Error).message);
+            }
+
             return {
               success: true,
               insights,
@@ -1239,6 +1259,73 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
             return { error: (error as Error).message, status: 500 };
           }
         });
+        return;
+      }
+
+      // API: Get insights history
+      if (pathname === '/api/memory/insights') {
+        const projectPath = url.searchParams.get('path') || initialPath;
+        const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+        const tool = url.searchParams.get('tool') || undefined;
+
+        try {
+          const storeModule = await import('../tools/cli-history-store.js');
+          const store = storeModule.getHistoryStore(projectPath);
+          const insights = store.getInsights({ limit, tool });
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, insights }));
+        } catch (error: unknown) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: (error as Error).message }));
+        }
+        return;
+      }
+
+      // API: Get single insight detail
+      if (pathname.startsWith('/api/memory/insights/') && req.method === 'GET') {
+        const insightId = pathname.replace('/api/memory/insights/', '');
+        const projectPath = url.searchParams.get('path') || initialPath;
+
+        if (!insightId || insightId === 'analyze') {
+          // Skip - handled by other routes
+        } else {
+          try {
+            const storeModule = await import('../tools/cli-history-store.js');
+            const store = storeModule.getHistoryStore(projectPath);
+            const insight = store.getInsight(insightId);
+
+            if (insight) {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: true, insight }));
+            } else {
+              res.writeHead(404, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Insight not found' }));
+            }
+          } catch (error: unknown) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: (error as Error).message }));
+          }
+          return;
+        }
+      }
+
+      // API: Delete insight
+      if (pathname.startsWith('/api/memory/insights/') && req.method === 'DELETE') {
+        const insightId = pathname.replace('/api/memory/insights/', '');
+        const projectPath = url.searchParams.get('path') || initialPath;
+
+        try {
+          const storeModule = await import('../tools/cli-history-store.js');
+          const store = storeModule.getHistoryStore(projectPath);
+          const deleted = store.deleteInsight(insightId);
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: deleted }));
+        } catch (error: unknown) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: (error as Error).message }));
+        }
         return;
       }
 
@@ -1469,26 +1556,32 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
       if (pathname === '/api/memory/active/status') {
         const projectPath = url.searchParams.get('path') || initialPath;
 
+        if (!projectPath) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ enabled: false, status: null, config: { interval: 'manual', tool: 'gemini' } }));
+          return;
+        }
+
         try {
-          const configPath = path.join(projectPath, '.claude', 'rules', 'active_memory.md');
-          const configJsonPath = path.join(projectPath, '.claude', 'rules', 'active_memory_config.json');
-          const enabled = fs.existsSync(configPath);
+          const configPath = join(projectPath, '.claude', 'rules', 'active_memory.md');
+          const configJsonPath = join(projectPath, '.claude', 'rules', 'active_memory_config.json');
+          const enabled = existsSync(configPath);
           let lastSync: string | null = null;
           let fileCount = 0;
           let config = { interval: 'manual', tool: 'gemini' };
 
           if (enabled) {
-            const stats = fs.statSync(configPath);
+            const stats = statSync(configPath);
             lastSync = stats.mtime.toISOString();
-            const content = fs.readFileSync(configPath, 'utf-8');
+            const content = readFileSync(configPath, 'utf-8');
             // Count file sections
             fileCount = (content.match(/^## /gm) || []).length;
           }
 
           // Load config if exists
-          if (fs.existsSync(configJsonPath)) {
+          if (existsSync(configJsonPath)) {
             try {
-              config = JSON.parse(fs.readFileSync(configJsonPath, 'utf-8'));
+              config = JSON.parse(readFileSync(configJsonPath, 'utf-8'));
             } catch (e) { /* ignore parse errors */ }
           }
 
@@ -1499,6 +1592,7 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
             config
           }));
         } catch (error: unknown) {
+          console.error('Active Memory status error:', error);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ enabled: false, status: null, config: { interval: 'manual', tool: 'gemini' } }));
         }
@@ -1513,19 +1607,26 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
           try {
             const { enabled, config } = JSON.parse(body || '{}');
             const projectPath = initialPath;
-            const rulesDir = path.join(projectPath, '.claude', 'rules');
-            const configPath = path.join(rulesDir, 'active_memory.md');
-            const configJsonPath = path.join(rulesDir, 'active_memory_config.json');
+
+            if (!projectPath) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'No project path configured' }));
+              return;
+            }
+
+            const rulesDir = join(projectPath, '.claude', 'rules');
+            const configPath = join(rulesDir, 'active_memory.md');
+            const configJsonPath = join(rulesDir, 'active_memory_config.json');
 
             if (enabled) {
               // Enable: Create directory and initial file
-              if (!fs.existsSync(rulesDir)) {
-                fs.mkdirSync(rulesDir, { recursive: true });
+              if (!existsSync(rulesDir)) {
+                mkdirSync(rulesDir, { recursive: true });
               }
 
               // Save config
               if (config) {
-                fs.writeFileSync(configJsonPath, JSON.stringify(config, null, 2), 'utf-8');
+                writeFileSync(configJsonPath, JSON.stringify(config, null, 2), 'utf-8');
               }
 
               // Create initial active_memory.md with header
@@ -1538,25 +1639,28 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
 
 *No files analyzed yet. Click "Sync Now" to analyze hot files.*
 `;
-              fs.writeFileSync(configPath, initialContent, 'utf-8');
+              writeFileSync(configPath, initialContent, 'utf-8');
 
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ enabled: true, message: 'Active Memory enabled' }));
             } else {
               // Disable: Remove the files
-              if (fs.existsSync(configPath)) {
-                fs.unlinkSync(configPath);
+              if (existsSync(configPath)) {
+                unlinkSync(configPath);
               }
-              if (fs.existsSync(configJsonPath)) {
-                fs.unlinkSync(configJsonPath);
+              if (existsSync(configJsonPath)) {
+                unlinkSync(configJsonPath);
               }
 
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ enabled: false, message: 'Active Memory disabled' }));
             }
           } catch (error: unknown) {
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: (error as Error).message }));
+            console.error('Active Memory toggle error:', error);
+            if (!res.headersSent) {
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: (error as Error).message }));
+            }
           }
         });
         return;
@@ -1570,14 +1674,14 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
           try {
             const { config } = JSON.parse(body || '{}');
             const projectPath = initialPath;
-            const rulesDir = path.join(projectPath, '.claude', 'rules');
-            const configJsonPath = path.join(rulesDir, 'active_memory_config.json');
+            const rulesDir = join(projectPath, '.claude', 'rules');
+            const configJsonPath = join(rulesDir, 'active_memory_config.json');
 
-            if (!fs.existsSync(rulesDir)) {
-              fs.mkdirSync(rulesDir, { recursive: true });
+            if (!existsSync(rulesDir)) {
+              mkdirSync(rulesDir, { recursive: true });
             }
 
-            fs.writeFileSync(configJsonPath, JSON.stringify(config, null, 2), 'utf-8');
+            writeFileSync(configJsonPath, JSON.stringify(config, null, 2), 'utf-8');
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true, config }));
@@ -1597,21 +1701,33 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
           try {
             const { tool = 'gemini' } = JSON.parse(body || '{}');
             const projectPath = initialPath;
-            const rulesDir = path.join(projectPath, '.claude', 'rules');
-            const configPath = path.join(rulesDir, 'active_memory.md');
 
-            // Get hot files from memory store
-            const memoryStore = getMemoryStore(projectPath);
-            const hotEntities = memoryStore.getHotEntities(20);
-            const hotFiles = hotEntities
-              .filter((e: any) => e.type === 'file')
-              .slice(0, 10); // Limit to top 10 files
+            if (!projectPath) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'No project path configured' }));
+              return;
+            }
+
+            const rulesDir = join(projectPath, '.claude', 'rules');
+            const configPath = join(rulesDir, 'active_memory.md');
+
+            // Get hot files from memory store - with fallback
+            let hotFiles: any[] = [];
+            try {
+              const memoryStore = getMemoryStore(projectPath);
+              const hotEntities = memoryStore.getHotEntities(20);
+              hotFiles = hotEntities
+                .filter((e: any) => e.type === 'file')
+                .slice(0, 10);
+            } catch (memErr) {
+              console.warn('[Active Memory] Memory store error, using empty list:', (memErr as Error).message);
+            }
 
             // Build file list for CLI analysis
             const filePaths = hotFiles.map((f: any) => {
               const filePath = f.value;
-              return path.isAbsolute(filePath) ? filePath : path.join(projectPath, filePath);
-            }).filter((p: string) => fs.existsSync(p));
+              return isAbsolute(filePath) ? filePath : join(projectPath, filePath);
+            }).filter((p: string) => existsSync(p));
 
             // Build the active memory content header
             let content = `# Active Memory
@@ -1625,11 +1741,10 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
 
 `;
 
-            // Use CLI to analyze files if available
-            const { spawn } = require('child_process');
+            // Use CCW CLI tool to analyze files
             let cliOutput = '';
 
-            // Build CLI command based on tool
+            // Build CLI prompt
             const cliPrompt = `PURPOSE: Analyze the following hot files and provide a concise understanding of each.
 TASK: For each file, describe its purpose, key exports, dependencies, and how it relates to other files.
 MODE: analysis
@@ -1637,50 +1752,24 @@ CONTEXT: ${filePaths.map((p: string) => '@' + p).join(' ')}
 EXPECTED: Markdown format with ## headings for each file, bullet points for key information.
 RULES: Be concise. Focus on practical understanding. Include function signatures for key exports.`;
 
-            const cliCmd = tool === 'qwen' ? 'qwen' : 'gemini';
-            const cliArgs = ['-p', cliPrompt];
-
-            // Try to execute CLI
+            // Try to execute CLI using CCW's built-in executor
             try {
-              const cliProcess = spawn(cliCmd, cliArgs, {
-                cwd: projectPath,
-                shell: true,
-                timeout: 120000 // 2 minute timeout
+              const syncId = `active-memory-${Date.now()}`;
+              const result = await executeCliTool({
+                tool: tool === 'qwen' ? 'qwen' : 'gemini',
+                prompt: cliPrompt,
+                mode: 'analysis',
+                format: 'plain',
+                cd: projectPath,
+                timeout: 120000,
+                stream: false,
+                category: 'internal',
+                id: syncId
               });
 
-              cliOutput = await new Promise<string>((resolve, reject) => {
-                let output = '';
-                let errorOutput = '';
-
-                cliProcess.stdout?.on('data', (data: Buffer) => {
-                  output += data.toString();
-                });
-
-                cliProcess.stderr?.on('data', (data: Buffer) => {
-                  errorOutput += data.toString();
-                });
-
-                cliProcess.on('close', (code: number) => {
-                  if (code === 0 || output.length > 100) {
-                    resolve(output);
-                  } else {
-                    reject(new Error(errorOutput || 'CLI execution failed'));
-                  }
-                });
-
-                cliProcess.on('error', (err: Error) => {
-                  reject(err);
-                });
-
-                // Timeout fallback
-                setTimeout(() => {
-                  if (output.length > 0) {
-                    resolve(output);
-                  } else {
-                    reject(new Error('CLI timeout'));
-                  }
-                }, 120000);
-              });
+              if (result.success && result.execution?.output) {
+                cliOutput = result.execution.output;
+              }
 
               // Add CLI output to content
               content += cliOutput + '\n\n---\n\n';
@@ -1708,18 +1797,18 @@ RULES: Be concise. Focus on practical understanding. Include function signatures
 
                 // Try to read file and generate summary
                 try {
-                  const fullPath = path.isAbsolute(filePath) ? filePath : path.join(projectPath, filePath);
+                  const fullPath = isAbsolute(filePath) ? filePath : join(projectPath, filePath);
 
-                  if (fs.existsSync(fullPath)) {
-                    const stat = fs.statSync(fullPath);
-                    const ext = path.extname(fullPath).toLowerCase();
+                  if (existsSync(fullPath)) {
+                    const stat = statSync(fullPath);
+                    const ext = extname(fullPath).toLowerCase();
 
                     content += `- **Size**: ${(stat.size / 1024).toFixed(1)} KB\n`;
                     content += `- **Type**: ${ext || 'unknown'}\n`;
 
                     const textExts = ['.ts', '.js', '.tsx', '.jsx', '.md', '.json', '.css', '.html', '.vue', '.svelte', '.py', '.go', '.rs'];
                     if (textExts.includes(ext) && stat.size < 100000) {
-                      const fileContent = fs.readFileSync(fullPath, 'utf-8');
+                      const fileContent = readFileSync(fullPath, 'utf-8');
                       const lines = fileContent.split('\n').slice(0, 30);
 
                       const exports = lines.filter(l =>
@@ -1741,12 +1830,12 @@ RULES: Be concise. Focus on practical understanding. Include function signatures
             }
 
             // Ensure directory exists
-            if (!fs.existsSync(rulesDir)) {
-              fs.mkdirSync(rulesDir, { recursive: true });
+            if (!existsSync(rulesDir)) {
+              mkdirSync(rulesDir, { recursive: true });
             }
 
             // Write the file
-            fs.writeFileSync(configPath, content, 'utf-8');
+            writeFileSync(configPath, content, 'utf-8');
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
@@ -1756,8 +1845,11 @@ RULES: Be concise. Focus on practical understanding. Include function signatures
               usedCli: cliOutput.length > 0
             }));
           } catch (error: unknown) {
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: (error as Error).message }));
+            console.error('[Active Memory] Sync error:', error);
+            if (!res.headersSent) {
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: (error as Error).message }));
+            }
           }
         });
         return;

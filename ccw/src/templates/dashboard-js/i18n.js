@@ -613,6 +613,16 @@ const i18n = {
     'memory.autoSyncActive': 'Auto-sync',
     'memory.configUpdated': 'Configuration updated',
     'memory.configError': 'Failed to update configuration',
+    'memory.insightsHistory': 'Insights History',
+    'memory.insightsEmpty': 'No insights yet. Run an analysis to generate insights.',
+    'memory.insightPatterns': 'Patterns',
+    'memory.insightSuggestions': 'Suggestions',
+    'memory.insightDetail': 'Insight Detail',
+    'memory.insightDelete': 'Delete',
+    'memory.insightDeleteConfirm': 'Are you sure you want to delete this insight?',
+    'memory.insightDeleted': 'Insight deleted',
+    'memory.prompts': 'prompts',
+    'memory.refreshInsights': 'Refresh',
 
     // Common
     'common.cancel': 'Cancel',
@@ -1237,6 +1247,16 @@ const i18n = {
     'memory.autoSyncActive': '自动同步',
     'memory.configUpdated': '配置已更新',
     'memory.configError': '配置更新失败',
+    'memory.insightsHistory': '洞察历史',
+    'memory.insightsEmpty': '暂无洞察记录。运行分析以生成洞察。',
+    'memory.insightPatterns': '模式',
+    'memory.insightSuggestions': '建议',
+    'memory.insightDetail': '洞察详情',
+    'memory.insightDelete': '删除',
+    'memory.insightDeleteConfirm': '确定要删除此洞察吗？',
+    'memory.insightDeleted': '洞察已删除',
+    'memory.prompts': '提示',
+    'memory.refreshInsights': '刷新',
 
     // Common
     'common.cancel': '取消',

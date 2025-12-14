@@ -14,6 +14,8 @@ var activeMemoryConfig = {
   tool: 'gemini'      // gemini, qwen
 };
 var activeMemorySyncTimer = null; // Timer for automatic periodic sync
+var insightsHistory = []; // Insights analysis history
+var selectedInsight = null; // Currently selected insight for detail view
 
 // ========== Main Render Function ==========
 async function renderMemoryView() {
@@ -37,7 +39,8 @@ async function renderMemoryView() {
     loadMemoryStats(),
     loadMemoryGraph(),
     loadRecentContext(),
-    loadActiveMemoryStatus()
+    loadActiveMemoryStatus(),
+    loadInsightsHistory()
   ]);
 
   // Render layout with Active Memory header
@@ -55,12 +58,14 @@ async function renderMemoryView() {
     '<div class="memory-column center" id="memory-graph"></div>' +
     '<div class="memory-column right" id="memory-context"></div>' +
     '</div>' +
+    '<div class="memory-insights-section" id="memory-insights"></div>' +
     '</div>';
 
   // Render each column
   renderHotspotsColumn();
   renderGraphColumn();
   renderContextColumn();
+  renderInsightsSection();
 
   // Initialize Lucide icons
   if (window.lucide) lucide.createIcons();
@@ -155,6 +160,20 @@ async function loadRecentContext() {
   } catch (err) {
     console.error('Failed to load recent context:', err);
     recentContext = [];
+    return [];
+  }
+}
+
+async function loadInsightsHistory() {
+  try {
+    var response = await fetch('/api/memory/insights?limit=10');
+    if (!response.ok) throw new Error('Failed to load insights history');
+    var data = await response.json();
+    insightsHistory = data.insights || [];
+    return insightsHistory;
+  } catch (err) {
+    console.error('Failed to load insights history:', err);
+    insightsHistory = [];
     return [];
   }
 }
@@ -883,6 +902,208 @@ function showNodeDetails(node) {
     '</div>';
 
   if (window.lucide) lucide.createIcons();
+}
+
+// ========== Insights Section ==========
+function renderInsightsSection() {
+  var container = document.getElementById('memory-insights');
+  if (!container) return;
+
+  container.innerHTML = '<div class="insights-section">' +
+    '<div class="section-header">' +
+    '<div class="section-header-left">' +
+    '<h3><i data-lucide="lightbulb" class="w-4 h-4"></i> ' + t('memory.insightsHistory') + '</h3>' +
+    '<span class="section-count">' + insightsHistory.length + ' ' + t('memory.analyses') + '</span>' +
+    '</div>' +
+    '<div class="section-header-actions">' +
+    '<button class="btn-icon" onclick="refreshInsightsHistory()" title="' + t('common.refresh') + '">' +
+    '<i data-lucide="refresh-cw" class="w-4 h-4"></i>' +
+    '</button>' +
+    '</div>' +
+    '</div>' +
+    '<div class="insights-cards-container">' +
+    renderInsightsCards() +
+    '</div>' +
+    (selectedInsight ? '<div class="insight-detail-panel" id="insightDetailPanel">' + renderInsightDetail(selectedInsight) + '</div>' : '') +
+    '</div>';
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function renderInsightsCards() {
+  if (!insightsHistory || insightsHistory.length === 0) {
+    return '<div class="insights-empty">' +
+      '<i data-lucide="lightbulb-off" class="w-8 h-8"></i>' +
+      '<p>' + t('memory.noInsightsYet') + '</p>' +
+      '<p class="insights-empty-hint">' + t('memory.triggerAnalysis') + '</p>' +
+      '</div>';
+  }
+
+  return '<div class="insights-cards">' +
+    insightsHistory.map(function(insight) {
+      var patternCount = (insight.patterns || []).length;
+      var suggestionCount = (insight.suggestions || []).length;
+      var severity = getInsightSeverity(insight.patterns);
+      var date = new Date(insight.created_at);
+      var timeAgo = formatTimestamp(insight.created_at);
+
+      return '<div class="insight-card ' + severity + '" onclick="showInsightDetail(\'' + insight.id + '\')">' +
+        '<div class="insight-card-header">' +
+        '<div class="insight-card-tool">' +
+        '<i data-lucide="' + getToolIcon(insight.tool) + '" class="w-4 h-4"></i>' +
+        '<span>' + insight.tool + '</span>' +
+        '</div>' +
+        '<div class="insight-card-time">' + timeAgo + '</div>' +
+        '</div>' +
+        '<div class="insight-card-stats">' +
+        '<div class="insight-stat">' +
+        '<span class="insight-stat-value">' + patternCount + '</span>' +
+        '<span class="insight-stat-label">' + t('memory.patterns') + '</span>' +
+        '</div>' +
+        '<div class="insight-stat">' +
+        '<span class="insight-stat-value">' + suggestionCount + '</span>' +
+        '<span class="insight-stat-label">' + t('memory.suggestions') + '</span>' +
+        '</div>' +
+        '<div class="insight-stat">' +
+        '<span class="insight-stat-value">' + insight.prompt_count + '</span>' +
+        '<span class="insight-stat-label">' + t('memory.prompts') + '</span>' +
+        '</div>' +
+        '</div>' +
+        '<div class="insight-card-preview">' +
+        (insight.patterns && insight.patterns.length > 0 ?
+          '<div class="pattern-preview ' + (insight.patterns[0].severity || 'low') + '">' +
+          '<span class="pattern-type">' + escapeHtml(insight.patterns[0].type || 'pattern') + '</span>' +
+          '<span class="pattern-desc">' + escapeHtml((insight.patterns[0].description || '').substring(0, 60)) + '...</span>' +
+          '</div>' : '') +
+        '</div>' +
+        '</div>';
+    }).join('') +
+    '</div>';
+}
+
+function getInsightSeverity(patterns) {
+  if (!patterns || patterns.length === 0) return 'low';
+  var hasHigh = patterns.some(function(p) { return p.severity === 'high'; });
+  var hasMedium = patterns.some(function(p) { return p.severity === 'medium'; });
+  return hasHigh ? 'high' : (hasMedium ? 'medium' : 'low');
+}
+
+function getToolIcon(tool) {
+  switch(tool) {
+    case 'gemini': return 'sparkles';
+    case 'qwen': return 'bot';
+    case 'codex': return 'code-2';
+    default: return 'cpu';
+  }
+}
+
+async function showInsightDetail(insightId) {
+  try {
+    var response = await fetch('/api/memory/insights/' + insightId);
+    if (!response.ok) throw new Error('Failed to load insight detail');
+    var data = await response.json();
+    selectedInsight = data.insight;
+    renderInsightsSection();
+  } catch (err) {
+    console.error('Failed to load insight detail:', err);
+    if (window.showToast) {
+      showToast(t('memory.loadInsightError'), 'error');
+    }
+  }
+}
+
+function closeInsightDetail() {
+  selectedInsight = null;
+  renderInsightsSection();
+}
+
+function renderInsightDetail(insight) {
+  if (!insight) return '';
+
+  var html = '<div class="insight-detail">' +
+    '<div class="insight-detail-header">' +
+    '<h4><i data-lucide="lightbulb" class="w-4 h-4"></i> ' + t('memory.insightDetail') + '</h4>' +
+    '<button class="btn-icon" onclick="closeInsightDetail()" title="' + t('common.close') + '">' +
+    '<i data-lucide="x" class="w-4 h-4"></i>' +
+    '</button>' +
+    '</div>' +
+    '<div class="insight-detail-meta">' +
+    '<span><i data-lucide="' + getToolIcon(insight.tool) + '" class="w-3 h-3"></i> ' + insight.tool + '</span>' +
+    '<span><i data-lucide="clock" class="w-3 h-3"></i> ' + formatTimestamp(insight.created_at) + '</span>' +
+    '<span><i data-lucide="file-text" class="w-3 h-3"></i> ' + insight.prompt_count + ' ' + t('memory.promptsAnalyzed') + '</span>' +
+    '</div>';
+
+  // Patterns
+  if (insight.patterns && insight.patterns.length > 0) {
+    html += '<div class="insight-patterns">' +
+      '<h5><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> ' + t('memory.patternsFound') + ' (' + insight.patterns.length + ')</h5>' +
+      '<div class="patterns-list">' +
+      insight.patterns.map(function(p) {
+        return '<div class="pattern-item ' + (p.severity || 'low') + '">' +
+          '<div class="pattern-header">' +
+          '<span class="pattern-type-badge">' + escapeHtml(p.type || 'pattern') + '</span>' +
+          '<span class="pattern-severity">' + (p.severity || 'low') + '</span>' +
+          (p.occurrences ? '<span class="pattern-occurrences">' + p.occurrences + 'x</span>' : '') +
+          '</div>' +
+          '<div class="pattern-description">' + escapeHtml(p.description || '') + '</div>' +
+          (p.suggestion ? '<div class="pattern-suggestion"><i data-lucide="arrow-right" class="w-3 h-3"></i> ' + escapeHtml(p.suggestion) + '</div>' : '') +
+          '</div>';
+      }).join('') +
+      '</div>' +
+      '</div>';
+  }
+
+  // Suggestions
+  if (insight.suggestions && insight.suggestions.length > 0) {
+    html += '<div class="insight-suggestions">' +
+      '<h5><i data-lucide="lightbulb" class="w-3.5 h-3.5"></i> ' + t('memory.suggestionsProvided') + ' (' + insight.suggestions.length + ')</h5>' +
+      '<div class="suggestions-list">' +
+      insight.suggestions.map(function(s) {
+        return '<div class="suggestion-item">' +
+          '<div class="suggestion-title">' + escapeHtml(s.title || '') + '</div>' +
+          '<div class="suggestion-description">' + escapeHtml(s.description || '') + '</div>' +
+          (s.example ? '<div class="suggestion-example"><code>' + escapeHtml(s.example) + '</code></div>' : '') +
+          '</div>';
+      }).join('') +
+      '</div>' +
+      '</div>';
+  }
+
+  html += '<div class="insight-detail-actions">' +
+    '<button class="btn btn-sm btn-danger" onclick="deleteInsight(\'' + insight.id + '\')">' +
+    '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i> ' + t('common.delete') +
+    '</button>' +
+    '</div>' +
+    '</div>';
+
+  return html;
+}
+
+async function deleteInsight(insightId) {
+  if (!confirm(t('memory.confirmDeleteInsight'))) return;
+
+  try {
+    var response = await fetch('/api/memory/insights/' + insightId, { method: 'DELETE' });
+    if (!response.ok) throw new Error('Failed to delete insight');
+
+    selectedInsight = null;
+    await loadInsightsHistory();
+    renderInsightsSection();
+
+    if (window.showToast) {
+      showToast(t('memory.insightDeleted'), 'success');
+    }
+  } catch (err) {
+    console.error('Failed to delete insight:', err);
+    if (window.showToast) {
+      showToast(t('memory.deleteInsightError'), 'error');
+    }
+  }
+}
+
+async function refreshInsightsHistory() {
+  await loadInsightsHistory();
+  renderInsightsSection();
 }
 
 // ========== Actions ==========

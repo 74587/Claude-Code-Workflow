@@ -177,6 +177,22 @@ export class CliHistoryStore {
       -- Indexes for native session lookups
       CREATE INDEX IF NOT EXISTS idx_native_tool_session ON native_session_mapping(tool, native_session_id);
       CREATE INDEX IF NOT EXISTS idx_native_session_id ON native_session_mapping(native_session_id);
+
+      -- Insights analysis history table
+      CREATE TABLE IF NOT EXISTS insights (
+        id TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL,
+        tool TEXT NOT NULL,
+        prompt_count INTEGER DEFAULT 0,
+        patterns TEXT,
+        suggestions TEXT,
+        raw_output TEXT,
+        execution_id TEXT,
+        lang TEXT DEFAULT 'en'
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_insights_created ON insights(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_insights_tool ON insights(tool);
     `);
 
     // Migration: Add category column if not exists (for existing databases)
@@ -814,6 +830,109 @@ export class CliHistoryStore {
       count: history.count,
       executions: enrichedExecutions
     };
+  }
+
+  // ========== Insights Methods ==========
+
+  /**
+   * Save an insights analysis result
+   */
+  saveInsight(insight: {
+    id: string;
+    tool: string;
+    promptCount: number;
+    patterns: any[];
+    suggestions: any[];
+    rawOutput?: string;
+    executionId?: string;
+    lang?: string;
+  }): void {
+    const stmt = this.db.prepare(`
+      INSERT OR REPLACE INTO insights (id, created_at, tool, prompt_count, patterns, suggestions, raw_output, execution_id, lang)
+      VALUES (@id, @created_at, @tool, @prompt_count, @patterns, @suggestions, @raw_output, @execution_id, @lang)
+    `);
+
+    stmt.run({
+      id: insight.id,
+      created_at: new Date().toISOString(),
+      tool: insight.tool,
+      prompt_count: insight.promptCount,
+      patterns: JSON.stringify(insight.patterns || []),
+      suggestions: JSON.stringify(insight.suggestions || []),
+      raw_output: insight.rawOutput || null,
+      execution_id: insight.executionId || null,
+      lang: insight.lang || 'en'
+    });
+  }
+
+  /**
+   * Get insights history
+   */
+  getInsights(options: { limit?: number; tool?: string } = {}): {
+    id: string;
+    created_at: string;
+    tool: string;
+    prompt_count: number;
+    patterns: any[];
+    suggestions: any[];
+    execution_id: string | null;
+    lang: string;
+  }[] {
+    const { limit = 20, tool } = options;
+
+    let sql = 'SELECT id, created_at, tool, prompt_count, patterns, suggestions, execution_id, lang FROM insights';
+    const params: any = {};
+
+    if (tool) {
+      sql += ' WHERE tool = @tool';
+      params.tool = tool;
+    }
+
+    sql += ' ORDER BY created_at DESC LIMIT @limit';
+    params.limit = limit;
+
+    const rows = this.db.prepare(sql).all(params) as any[];
+
+    return rows.map(row => ({
+      ...row,
+      patterns: JSON.parse(row.patterns || '[]'),
+      suggestions: JSON.parse(row.suggestions || '[]')
+    }));
+  }
+
+  /**
+   * Get a single insight by ID
+   */
+  getInsight(id: string): {
+    id: string;
+    created_at: string;
+    tool: string;
+    prompt_count: number;
+    patterns: any[];
+    suggestions: any[];
+    raw_output: string | null;
+    execution_id: string | null;
+    lang: string;
+  } | null {
+    const row = this.db.prepare(
+      'SELECT * FROM insights WHERE id = ?'
+    ).get(id) as any;
+
+    if (!row) return null;
+
+    return {
+      ...row,
+      patterns: JSON.parse(row.patterns || '[]'),
+      suggestions: JSON.parse(row.suggestions || '[]')
+    };
+  }
+
+  /**
+   * Delete an insight
+   */
+  deleteInsight(id: string): boolean {
+    const result = this.db.prepare('DELETE FROM insights WHERE id = ?').run(id);
+    return result.changes > 0;
   }
 
   /**
