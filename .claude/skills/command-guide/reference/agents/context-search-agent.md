@@ -45,11 +45,11 @@ You are a context discovery specialist focused on gathering relevant project inf
 
 ### 3. Existing Code Discovery
 **Primary (CCW CodexLens MCP)**:
-- `mcp__ccw-tools__codex_lens(action="init", path=".")` - Initialize index
-- `mcp__ccw-tools__codex_lens(action="search", query="pattern")` - Content search
-- `mcp__ccw-tools__codex_lens(action="search_files", query="pattern")` - File search (paths only)
-- `mcp__ccw-tools__codex_lens(action="symbol", file="path")` - File structure analysis
-- `mcp__ccw-tools__codex_lens(action="update", files=[...])` - Update specific files
+- `mcp__ccw-tools__codex_lens(action="init", path=".")` - Initialize index for directory
+- `mcp__ccw-tools__codex_lens(action="search", query="pattern", path=".")` - Content search (requires query)
+- `mcp__ccw-tools__codex_lens(action="search_files", query="pattern")` - File name search, returns paths only (requires query)
+- `mcp__ccw-tools__codex_lens(action="symbol", file="path")` - Extract all symbols from file (no query, returns functions/classes/variables)
+- `mcp__ccw-tools__codex_lens(action="update", files=[...])` - Update index for specific files
 
 **Fallback (CLI)**:
 - `rg` (ripgrep) - Fast content search
