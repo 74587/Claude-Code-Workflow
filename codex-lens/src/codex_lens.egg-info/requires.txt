@@ -2,8 +2,11 @@ typer>=0.9
 rich>=13
 pydantic>=2.0
 tree-sitter>=0.20
+tree-sitter-python>=0.25
+tree-sitter-javascript>=0.25
+tree-sitter-typescript>=0.23
 pathspec>=0.11
 
 [semantic]
 numpy>=1.24
-sentence-transformers>=2.2
+fastembed>=0.2

@@ -9,7 +9,8 @@ import {
   bootstrapVenv,
   executeCodexLens,
   checkSemanticStatus,
-  installSemantic
+  installSemantic,
+  uninstallCodexLens
 } from '../../tools/codex-lens.js';
 
 export interface RouteContext {
@@ -44,9 +45,111 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         const result = await bootstrapVenv();
         if (result.success) {
           const status = await checkVenvStatus();
+          // Broadcast installation event
+          broadcastToClients({
+            type: 'CODEXLENS_INSTALLED',
+            payload: { version: status.version, timestamp: new Date().toISOString() }
+          });
           return { success: true, message: 'CodexLens installed successfully', version: status.version };
         } else {
           return { success: false, error: result.error, status: 500 };
+        }
+      } catch (err) {
+        return { success: false, error: err.message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // API: CodexLens Uninstall
+  if (pathname === '/api/codexlens/uninstall' && req.method === 'POST') {
+    handlePostRequest(req, res, async () => {
+      try {
+        const result = await uninstallCodexLens();
+        if (result.success) {
+          // Broadcast uninstallation event
+          broadcastToClients({
+            type: 'CODEXLENS_UNINSTALLED',
+            payload: { timestamp: new Date().toISOString() }
+          });
+          return { success: true, message: 'CodexLens uninstalled successfully' };
+        } else {
+          return { success: false, error: result.error, status: 500 };
+        }
+      } catch (err) {
+        return { success: false, error: err.message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // API: CodexLens Config - GET (Get current configuration)
+  if (pathname === '/api/codexlens/config' && req.method === 'GET') {
+    try {
+      const result = await executeCodexLens(['config-show', '--json']);
+      if (result.success) {
+        try {
+          const config = JSON.parse(result.output);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(config));
+        } catch {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ index_dir: '~/.codexlens/indexes', index_count: 0 }));
+        }
+      } else {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ index_dir: '~/.codexlens/indexes', index_count: 0 }));
+      }
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // API: CodexLens Config - POST (Set configuration)
+  if (pathname === '/api/codexlens/config' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { index_dir } = body;
+
+      if (!index_dir) {
+        return { success: false, error: 'index_dir is required', status: 400 };
+      }
+
+      try {
+        const result = await executeCodexLens(['config-set', '--key', 'index_dir', '--value', index_dir, '--json']);
+        if (result.success) {
+          return { success: true, message: 'Configuration updated successfully' };
+        } else {
+          return { success: false, error: result.error || 'Failed to update configuration', status: 500 };
+        }
+      } catch (err) {
+        return { success: false, error: err.message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // API: CodexLens Clean (Clean indexes)
+  if (pathname === '/api/codexlens/clean' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { all = false, path } = body;
+
+      try {
+        const args = ['clean'];
+        if (all) {
+          args.push('--all');
+        }
+        if (path) {
+          args.push('--path', path);
+        }
+        args.push('--json');
+
+        const result = await executeCodexLens(args);
+        if (result.success) {
+          return { success: true, message: 'Indexes cleaned successfully' };
+        } else {
+          return { success: false, error: result.error || 'Failed to clean indexes', status: 500 };
         }
       } catch (err) {
         return { success: false, error: err.message, status: 500 };

@@ -207,32 +207,14 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
   // Install/Uninstall
   var installBtn = document.getElementById('installBtn');
   if (installBtn) {
-    installBtn.onclick = async function() {
+    installBtn.onclick = function() {
       var status = cliToolStatus[tool] || {};
-      var endpoint = status.available ? '/api/cli/uninstall' : '/api/cli/install';
-      var action = status.available ? 'uninstalling' : 'installing';
-
-      showRefreshToast(tool.charAt(0).toUpperCase() + tool.slice(1) + ' ' + action + '...', 'info');
       closeModal();
 
-      try {
-        var response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tool: tool })
-        });
-        var result = await response.json();
-
-        if (result.success) {
-          showRefreshToast(result.message || (tool + ' ' + (status.available ? 'uninstalled' : 'installed')), 'success');
-          await loadCliToolStatus();
-          renderToolsSection();
-          if (window.lucide) lucide.createIcons();
-        } else {
-          showRefreshToast(result.error || 'Operation failed', 'error');
-        }
-      } catch (err) {
-        showRefreshToast('Failed: ' + err.message, 'error');
+      if (status.available) {
+        openCliUninstallWizard(tool);
+      } else {
+        openCliInstallWizard(tool);
       }
     };
   }
@@ -384,20 +366,22 @@ function renderToolsSection() {
   }).join('');
 
   // CodexLens item
-  var codexLensHtml = '<div class="tool-item ' + (codexLensStatus.ready ? 'available' : 'unavailable') + '">' +
+  var codexLensHtml = '<div class="tool-item clickable ' + (codexLensStatus.ready ? 'available' : 'unavailable') + '" onclick="showCodexLensConfigModal()">' +
     '<div class="tool-item-left">' +
       '<span class="tool-status-dot ' + (codexLensStatus.ready ? 'status-available' : 'status-unavailable') + '"></span>' +
       '<div class="tool-item-info">' +
-        '<div class="tool-item-name">CodexLens <span class="tool-type-badge">Index</span></div>' +
+        '<div class="tool-item-name">CodexLens <span class="tool-type-badge">Index</span>' +
+          '<i data-lucide="settings" class="w-3 h-3 tool-config-icon"></i></div>' +
         '<div class="tool-item-desc">' + (codexLensStatus.ready ? t('cli.codexLensDesc') : t('cli.codexLensDescFull')) + '</div>' +
       '</div>' +
     '</div>' +
     '<div class="tool-item-right">' +
       (codexLensStatus.ready
         ? '<span class="tool-status-text success"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> v' + (codexLensStatus.version || 'installed') + '</span>' +
-          '<button class="btn-sm btn-outline" onclick="initCodexLensIndex()"><i data-lucide="database" class="w-3 h-3"></i> ' + t('cli.initIndex') + '</button>'
+          '<button class="btn-sm btn-outline" onclick="event.stopPropagation(); initCodexLensIndex()"><i data-lucide="database" class="w-3 h-3"></i> ' + t('cli.initIndex') + '</button>' +
+          '<button class="btn-sm btn-outline btn-danger" onclick="event.stopPropagation(); uninstallCodexLens()"><i data-lucide="trash-2" class="w-3 h-3"></i> ' + t('cli.uninstall') + '</button>'
         : '<span class="tool-status-text muted"><i data-lucide="circle-dashed" class="w-3.5 h-3.5"></i> ' + t('cli.notInstalled') + '</span>' +
-          '<button class="btn-sm btn-primary" onclick="installCodexLens()"><i data-lucide="download" class="w-3 h-3"></i> ' + t('cli.install') + '</button>') +
+          '<button class="btn-sm btn-primary" onclick="event.stopPropagation(); installCodexLens()"><i data-lucide="download" class="w-3 h-3"></i> ' + t('cli.install') + '</button>') +
     '</div>' +
   '</div>';
 
@@ -1202,4 +1186,608 @@ function handleCliExecutionError(payload) {
   }
 
   currentCliExecution = null;
+}
+
+// ========== CLI Tool Install/Uninstall Wizards ==========
+function openCliInstallWizard(toolName) {
+  var toolDescriptions = {
+    gemini: 'Google AI for code analysis and generation',
+    qwen: 'Alibaba AI assistant for coding',
+    codex: 'OpenAI code generation and understanding',
+    claude: 'Anthropic AI assistant'
+  };
+
+  var toolPackages = {
+    gemini: '@google/gemini-cli',
+    qwen: '@qwen-code/qwen-code',
+    codex: '@openai/codex',
+    claude: '@anthropic-ai/claude-code'
+  };
+
+  var modal = document.createElement('div');
+  modal.id = 'cliInstallModal';
+  modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+  modal.innerHTML =
+    '<div class="bg-card rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">' +
+      '<div class="p-6">' +
+        '<div class="flex items-center gap-3 mb-4">' +
+          '<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">' +
+            '<i data-lucide="download" class="w-5 h-5 text-primary"></i>' +
+          '</div>' +
+          '<div>' +
+            '<h3 class="text-lg font-semibold">Install ' + toolName.charAt(0).toUpperCase() + toolName.slice(1) + '</h3>' +
+            '<p class="text-sm text-muted-foreground">' + (toolDescriptions[toolName] || 'CLI tool') + '</p>' +
+          '</div>' +
+        '</div>' +
+        '<div class="space-y-4">' +
+          '<div class="bg-muted/50 rounded-lg p-4">' +
+            '<h4 class="font-medium mb-2">What will be installed:</h4>' +
+            '<ul class="text-sm space-y-2 text-muted-foreground">' +
+              '<li class="flex items-start gap-2">' +
+                '<i data-lucide="check" class="w-4 h-4 text-success mt-0.5"></i>' +
+                '<span><strong>NPM Package:</strong> <code class="bg-muted px-1 rounded">' + (toolPackages[toolName] || toolName) + '</code></span>' +
+              '</li>' +
+              '<li class="flex items-start gap-2">' +
+                '<i data-lucide="check" class="w-4 h-4 text-success mt-0.5"></i>' +
+                '<span><strong>Global installation</strong> - Available system-wide</span>' +
+              '</li>' +
+              '<li class="flex items-start gap-2">' +
+                '<i data-lucide="check" class="w-4 h-4 text-success mt-0.5"></i>' +
+                '<span><strong>CLI commands</strong> - Accessible from terminal</span>' +
+              '</li>' +
+            '</ul>' +
+          '</div>' +
+          '<div class="bg-primary/5 border border-primary/20 rounded-lg p-3">' +
+            '<div class="flex items-start gap-2">' +
+              '<i data-lucide="info" class="w-4 h-4 text-primary mt-0.5"></i>' +
+              '<div class="text-sm text-muted-foreground">' +
+                '<p class="font-medium text-foreground">Installation Method</p>' +
+                '<p class="mt-1">Uses <code class="bg-muted px-1 rounded">npm install -g</code></p>' +
+                '<p class="mt-1">First installation may take 1-2 minutes depending on network speed.</p>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div id="cliInstallProgress" class="hidden">' +
+            '<div class="flex items-center gap-3">' +
+              '<div class="animate-spin w-5 h-5 border-2 border-primary border-t-transparent rounded-full"></div>' +
+              '<span class="text-sm" id="cliInstallStatus">Starting installation...</span>' +
+            '</div>' +
+            '<div class="mt-2 h-2 bg-muted rounded-full overflow-hidden">' +
+              '<div id="cliInstallProgressBar" class="h-full bg-primary transition-all duration-300" style="width: 0%"></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="border-t border-border p-4 flex justify-end gap-3 bg-muted/30">' +
+        '<button class="btn-outline px-4 py-2" onclick="closeCliInstallWizard()">Cancel</button>' +
+        '<button id="cliInstallBtn" class="btn-primary px-4 py-2" onclick="startCliInstall(\'' + toolName + '\')">' +
+          '<i data-lucide="download" class="w-4 h-4 mr-2"></i>' +
+          'Install Now' +
+        '</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(modal);
+
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+}
+
+function closeCliInstallWizard() {
+  var modal = document.getElementById('cliInstallModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+async function startCliInstall(toolName) {
+  var progressDiv = document.getElementById('cliInstallProgress');
+  var installBtn = document.getElementById('cliInstallBtn');
+  var statusText = document.getElementById('cliInstallStatus');
+  var progressBar = document.getElementById('cliInstallProgressBar');
+
+  progressDiv.classList.remove('hidden');
+  installBtn.disabled = true;
+  installBtn.innerHTML = '<span class="animate-pulse">Installing...</span>';
+
+  var stages = [
+    { progress: 20, text: 'Connecting to NPM registry...' },
+    { progress: 40, text: 'Downloading package...' },
+    { progress: 60, text: 'Installing dependencies...' },
+    { progress: 80, text: 'Setting up CLI commands...' },
+    { progress: 95, text: 'Finalizing installation...' }
+  ];
+
+  var currentStage = 0;
+  var progressInterval = setInterval(function() {
+    if (currentStage < stages.length) {
+      statusText.textContent = stages[currentStage].text;
+      progressBar.style.width = stages[currentStage].progress + '%';
+      currentStage++;
+    }
+  }, 1000);
+
+  try {
+    var response = await fetch('/api/cli/install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tool: toolName })
+    });
+
+    clearInterval(progressInterval);
+    var result = await response.json();
+
+    if (result.success) {
+      progressBar.style.width = '100%';
+      statusText.textContent = 'Installation complete!';
+
+      setTimeout(function() {
+        closeCliInstallWizard();
+        showRefreshToast(toolName + ' installed successfully!', 'success');
+        loadCliToolStatus().then(function() {
+          renderToolsSection();
+          if (window.lucide) lucide.createIcons();
+        });
+      }, 1000);
+    } else {
+      statusText.textContent = 'Error: ' + result.error;
+      progressBar.classList.add('bg-destructive');
+      installBtn.disabled = false;
+      installBtn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Retry';
+      if (window.lucide) lucide.createIcons();
+    }
+  } catch (err) {
+    clearInterval(progressInterval);
+    statusText.textContent = 'Error: ' + err.message;
+    progressBar.classList.add('bg-destructive');
+    installBtn.disabled = false;
+    installBtn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Retry';
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+function openCliUninstallWizard(toolName) {
+  var modal = document.createElement('div');
+  modal.id = 'cliUninstallModal';
+  modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+  modal.innerHTML =
+    '<div class="bg-card rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">' +
+      '<div class="p-6">' +
+        '<div class="flex items-center gap-3 mb-4">' +
+          '<div class="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">' +
+            '<i data-lucide="trash-2" class="w-5 h-5 text-destructive"></i>' +
+          '</div>' +
+          '<div>' +
+            '<h3 class="text-lg font-semibold">Uninstall ' + toolName.charAt(0).toUpperCase() + toolName.slice(1) + '</h3>' +
+            '<p class="text-sm text-muted-foreground">Remove CLI tool from system</p>' +
+          '</div>' +
+        '</div>' +
+        '<div class="space-y-4">' +
+          '<div class="bg-destructive/5 border border-destructive/20 rounded-lg p-4">' +
+            '<h4 class="font-medium text-destructive mb-2">What will be removed:</h4>' +
+            '<ul class="text-sm space-y-2 text-muted-foreground">' +
+              '<li class="flex items-start gap-2">' +
+                '<i data-lucide="x" class="w-4 h-4 text-destructive mt-0.5"></i>' +
+                '<span>Global NPM package</span>' +
+              '</li>' +
+              '<li class="flex items-start gap-2">' +
+                '<i data-lucide="x" class="w-4 h-4 text-destructive mt-0.5"></i>' +
+                '<span>CLI commands and executables</span>' +
+              '</li>' +
+              '<li class="flex items-start gap-2">' +
+                '<i data-lucide="x" class="w-4 h-4 text-destructive mt-0.5"></i>' +
+                '<span>Tool configuration (if any)</span>' +
+              '</li>' +
+            '</ul>' +
+          '</div>' +
+          '<div class="bg-warning/10 border border-warning/20 rounded-lg p-3">' +
+            '<div class="flex items-start gap-2">' +
+              '<i data-lucide="alert-triangle" class="w-4 h-4 text-warning mt-0.5"></i>' +
+              '<div class="text-sm">' +
+                '<p class="font-medium text-warning">Note</p>' +
+                '<p class="text-muted-foreground">You can reinstall this tool anytime from the CLI Manager.</p>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div id="cliUninstallProgress" class="hidden">' +
+            '<div class="flex items-center gap-3">' +
+              '<div class="animate-spin w-5 h-5 border-2 border-destructive border-t-transparent rounded-full"></div>' +
+              '<span class="text-sm" id="cliUninstallStatus">Removing package...</span>' +
+            '</div>' +
+            '<div class="mt-2 h-2 bg-muted rounded-full overflow-hidden">' +
+              '<div id="cliUninstallProgressBar" class="h-full bg-destructive transition-all duration-300" style="width: 0%"></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="border-t border-border p-4 flex justify-end gap-3 bg-muted/30">' +
+        '<button class="btn-outline px-4 py-2" onclick="closeCliUninstallWizard()">Cancel</button>' +
+        '<button id="cliUninstallBtn" class="btn-destructive px-4 py-2" onclick="startCliUninstall(\'' + toolName + '\')">' +
+          '<i data-lucide="trash-2" class="w-4 h-4 mr-2"></i>' +
+          'Uninstall' +
+        '</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(modal);
+
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+}
+
+function closeCliUninstallWizard() {
+  var modal = document.getElementById('cliUninstallModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+async function startCliUninstall(toolName) {
+  var progressDiv = document.getElementById('cliUninstallProgress');
+  var uninstallBtn = document.getElementById('cliUninstallBtn');
+  var statusText = document.getElementById('cliUninstallStatus');
+  var progressBar = document.getElementById('cliUninstallProgressBar');
+
+  progressDiv.classList.remove('hidden');
+  uninstallBtn.disabled = true;
+  uninstallBtn.innerHTML = '<span class="animate-pulse">Uninstalling...</span>';
+
+  var stages = [
+    { progress: 33, text: 'Removing package files...' },
+    { progress: 66, text: 'Cleaning up dependencies...' },
+    { progress: 90, text: 'Finalizing removal...' }
+  ];
+
+  var currentStage = 0;
+  var progressInterval = setInterval(function() {
+    if (currentStage < stages.length) {
+      statusText.textContent = stages[currentStage].text;
+      progressBar.style.width = stages[currentStage].progress + '%';
+      currentStage++;
+    }
+  }, 500);
+
+  try {
+    var response = await fetch('/api/cli/uninstall', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tool: toolName })
+    });
+
+    clearInterval(progressInterval);
+    var result = await response.json();
+
+    if (result.success) {
+      progressBar.style.width = '100%';
+      statusText.textContent = 'Uninstallation complete!';
+
+      setTimeout(function() {
+        closeCliUninstallWizard();
+        showRefreshToast(toolName + ' uninstalled successfully!', 'success');
+        loadCliToolStatus().then(function() {
+          renderToolsSection();
+          if (window.lucide) lucide.createIcons();
+        });
+      }, 1000);
+    } else {
+      statusText.textContent = 'Error: ' + result.error;
+      progressBar.classList.remove('bg-destructive');
+      progressBar.classList.add('bg-destructive');
+      uninstallBtn.disabled = false;
+      uninstallBtn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Retry';
+      if (window.lucide) lucide.createIcons();
+    }
+  } catch (err) {
+    clearInterval(progressInterval);
+    statusText.textContent = 'Error: ' + err.message;
+    progressBar.classList.remove('bg-destructive');
+    progressBar.classList.add('bg-destructive');
+    uninstallBtn.disabled = false;
+    uninstallBtn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Retry';
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+// ========== CodexLens Configuration Modal ==========
+async function showCodexLensConfigModal() {
+  var loadingContent = '<div class="text-center py-8">' +
+    '<div class="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>' +
+    '<p class="text-muted-foreground">' + t('codexlens.loadingConfig') + '</p>' +
+  '</div>';
+
+  showModal(t('codexlens.config'), loadingContent, { size: 'md' });
+
+  try {
+    // Fetch current configuration
+    var response = await fetch('/api/codexlens/config');
+    var config = await response.json();
+
+    var content = buildCodexLensConfigContent(config);
+    showModal('CodexLens Configuration', content, { size: 'md' });
+
+    setTimeout(function() {
+      initCodexLensConfigEvents(config);
+      if (window.lucide) lucide.createIcons();
+    }, 100);
+  } catch (err) {
+    var errorContent = '<div class="bg-destructive/10 border border-destructive/20 rounded-lg p-4">' +
+      '<div class="flex items-start gap-2">' +
+        '<i data-lucide="alert-circle" class="w-5 h-5 text-destructive mt-0.5"></i>' +
+        '<div>' +
+          '<p class="font-medium text-destructive">Failed to load configuration</p>' +
+          '<p class="text-sm text-muted-foreground mt-1">' + err.message + '</p>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+    showModal('CodexLens Configuration', errorContent, { size: 'md' });
+  }
+}
+
+function buildCodexLensConfigContent(config) {
+  var status = codexLensStatus || {};
+  var isInstalled = status.ready;
+  var indexDir = config.index_dir || '~/.codexlens/indexes';
+  var currentWorkspace = config.current_workspace || 'None';
+  var indexCount = config.index_count || 0;
+
+  return '<div class="tool-config-modal">' +
+    // Status Section
+    '<div class="tool-config-section">' +
+      '<h4>' + t('codexlens.status') + '</h4>' +
+      '<div class="tool-config-badges">' +
+        '<span class="badge ' + (isInstalled ? 'badge-success' : 'badge-muted') + '">' +
+          '<i data-lucide="' + (isInstalled ? 'check-circle' : 'circle-dashed') + '" class="w-3 h-3"></i> ' +
+          (isInstalled ? t('codexlens.installed') : t('codexlens.notInstalled')) +
+        '</span>' +
+        '<span class="badge badge-primary">' +
+          '<i data-lucide="database" class="w-3 h-3"></i> ' + indexCount + ' ' + t('codexlens.indexes') +
+        '</span>' +
+      '</div>' +
+      (currentWorkspace !== 'None'
+        ? '<div class="mt-3 p-3 bg-muted/30 rounded-lg">' +
+            '<p class="text-sm text-muted-foreground mb-1">' + t('codexlens.currentWorkspace') + ':</p>' +
+            '<p class="text-sm font-mono break-all">' + escapeHtml(currentWorkspace) + '</p>' +
+          '</div>'
+        : '') +
+    '</div>' +
+
+    // Index Storage Path Section
+    '<div class="tool-config-section">' +
+      '<h4>' + t('codexlens.indexStoragePath') + ' <span class="text-muted">(' + t('codexlens.whereIndexesStored') + ')</span></h4>' +
+      '<div class="space-y-3">' +
+        '<div class="bg-muted/30 rounded-lg p-3">' +
+          '<p class="text-sm text-muted-foreground mb-2">' + t('codexlens.currentPath') + ':</p>' +
+          '<p class="text-sm font-mono break-all bg-background px-2 py-1 rounded border border-border">' +
+            escapeHtml(indexDir) +
+          '</p>' +
+        '</div>' +
+        '<div>' +
+          '<label class="text-sm font-medium mb-2 block">' + t('codexlens.newStoragePath') + ':</label>' +
+          '<input type="text" id="indexDirInput" class="tool-config-input w-full" ' +
+            'placeholder="' + t('codexlens.pathPlaceholder') + '" ' +
+            'value="' + escapeHtml(indexDir) + '" />' +
+          '<p class="text-xs text-muted-foreground mt-2">' +
+            '<i data-lucide="info" class="w-3 h-3 inline"></i> ' +
+            t('codexlens.pathInfo') +
+          '</p>' +
+        '</div>' +
+        '<div class="bg-warning/10 border border-warning/20 rounded-lg p-3">' +
+          '<div class="flex items-start gap-2">' +
+            '<i data-lucide="alert-triangle" class="w-4 h-4 text-warning mt-0.5"></i>' +
+            '<div class="text-sm">' +
+              '<p class="font-medium text-warning">' + t('codexlens.migrationRequired') + '</p>' +
+              '<p class="text-muted-foreground mt-1">' + t('codexlens.migrationWarning') + '</p>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+
+    // Actions Section
+    '<div class="tool-config-section">' +
+      '<h4>' + t('codexlens.actions') + '</h4>' +
+      '<div class="tool-config-actions">' +
+        (isInstalled
+          ? '<button class="btn-sm btn-outline" onclick="event.stopPropagation(); initCodexLensIndex()">' +
+              '<i data-lucide="database" class="w-3 h-3"></i> ' + t('codexlens.initializeIndex') +
+            '</button>' +
+            '<button class="btn-sm btn-outline" onclick="event.stopPropagation(); cleanCodexLensIndexes()">' +
+              '<i data-lucide="trash" class="w-3 h-3"></i> ' + t('codexlens.cleanAllIndexes') +
+            '</button>' +
+            '<button class="btn-sm btn-outline btn-danger" onclick="event.stopPropagation(); uninstallCodexLens()">' +
+              '<i data-lucide="trash-2" class="w-3 h-3"></i> ' + t('cli.uninstall') +
+            '</button>'
+          : '<button class="btn-sm btn-primary" onclick="event.stopPropagation(); installCodexLens()">' +
+              '<i data-lucide="download" class="w-3 h-3"></i> ' + t('codexlens.installCodexLens') +
+            '</button>') +
+      '</div>' +
+    '</div>' +
+
+    // Test Search Section
+    (isInstalled
+      ? '<div class="tool-config-section">' +
+          '<h4>' + t('codexlens.testSearch') + ' <span class="text-muted">(' + t('codexlens.testFunctionality') + ')</span></h4>' +
+          '<div class="space-y-3">' +
+            '<div class="flex gap-2">' +
+              '<select id="searchTypeSelect" class="tool-config-select flex-1">' +
+                '<option value="search">' + t('codexlens.textSearch') + '</option>' +
+                '<option value="search_files">' + t('codexlens.fileSearch') + '</option>' +
+                '<option value="symbol">' + t('codexlens.symbolSearch') + '</option>' +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<input type="text" id="searchQueryInput" class="tool-config-input w-full" ' +
+                'placeholder="' + t('codexlens.searchPlaceholder') + '" />' +
+            '</div>' +
+            '<div>' +
+              '<button class="btn-sm btn-primary w-full" id="runSearchBtn">' +
+                '<i data-lucide="search" class="w-3 h-3"></i> ' + t('codexlens.runSearch') +
+              '</button>' +
+            '</div>' +
+            '<div id="searchResults" class="hidden">' +
+              '<div class="bg-muted/30 rounded-lg p-3 max-h-64 overflow-y-auto">' +
+                '<div class="flex items-center justify-between mb-2">' +
+                  '<p class="text-sm font-medium">' + t('codexlens.results') + ':</p>' +
+                  '<span id="searchResultCount" class="text-xs text-muted-foreground"></span>' +
+                '</div>' +
+                '<pre id="searchResultContent" class="text-xs font-mono whitespace-pre-wrap break-all"></pre>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>'
+      : '') +
+
+    // Footer
+    '<div class="tool-config-footer">' +
+      '<button class="btn btn-outline" onclick="closeModal()">' + t('common.cancel') + '</button>' +
+      '<button class="btn btn-primary" id="saveCodexLensConfigBtn">' +
+        '<i data-lucide="save" class="w-3.5 h-3.5"></i> ' + t('codexlens.saveConfig') +
+      '</button>' +
+    '</div>' +
+  '</div>';
+}
+
+function initCodexLensConfigEvents(currentConfig) {
+  var saveBtn = document.getElementById('saveCodexLensConfigBtn');
+  if (saveBtn) {
+    saveBtn.onclick = async function() {
+      var indexDirInput = document.getElementById('indexDirInput');
+      var newIndexDir = indexDirInput ? indexDirInput.value.trim() : '';
+
+      if (!newIndexDir) {
+        showRefreshToast(t('codexlens.pathEmpty'), 'error');
+        return;
+      }
+
+      if (newIndexDir === currentConfig.index_dir) {
+        closeModal();
+        return;
+      }
+
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="animate-pulse">' + t('common.saving') + '</span>';
+
+      try {
+        var response = await fetch('/api/codexlens/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ index_dir: newIndexDir })
+        });
+
+        var result = await response.json();
+
+        if (result.success) {
+          showRefreshToast(t('codexlens.configSaved'), 'success');
+          closeModal();
+
+          // Refresh CodexLens status
+          if (typeof loadCodexLensStatus === 'function') {
+            await loadCodexLensStatus();
+            renderToolsSection();
+            if (window.lucide) lucide.createIcons();
+          }
+        } else {
+          showRefreshToast(t('common.saveFailed') + ': ' + result.error, 'error');
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '<i data-lucide="save" class="w-3.5 h-3.5"></i> ' + t('codexlens.saveConfig');
+          if (window.lucide) lucide.createIcons();
+        }
+      } catch (err) {
+        showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i data-lucide="save" class="w-3.5 h-3.5"></i> ' + t('codexlens.saveConfig');
+        if (window.lucide) lucide.createIcons();
+      }
+    };
+  }
+
+  // Test Search Button
+  var runSearchBtn = document.getElementById('runSearchBtn');
+  if (runSearchBtn) {
+    runSearchBtn.onclick = async function() {
+      var searchType = document.getElementById('searchTypeSelect').value;
+      var query = document.getElementById('searchQueryInput').value.trim();
+      var resultsDiv = document.getElementById('searchResults');
+      var resultCount = document.getElementById('searchResultCount');
+      var resultContent = document.getElementById('searchResultContent');
+
+      if (!query) {
+        showRefreshToast(t('codexlens.enterQuery'), 'warning');
+        return;
+      }
+
+      runSearchBtn.disabled = true;
+      runSearchBtn.innerHTML = '<span class="animate-pulse">' + t('codexlens.searching') + '</span>';
+      resultsDiv.classList.add('hidden');
+
+      try {
+        var endpoint = '/api/codexlens/' + searchType;
+        var params = new URLSearchParams({ query: query, limit: '20' });
+
+        var response = await fetch(endpoint + '?' + params.toString());
+        var result = await response.json();
+
+        console.log('[CodexLens Test] Search result:', result);
+
+        if (result.success) {
+          var results = result.results || result.files || [];
+          resultCount.textContent = results.length + ' ' + t('codexlens.resultsCount');
+          resultContent.textContent = JSON.stringify(results, null, 2);
+          resultsDiv.classList.remove('hidden');
+          showRefreshToast(t('codexlens.searchCompleted') + ': ' + results.length + ' ' + t('codexlens.resultsCount'), 'success');
+        } else {
+          resultContent.textContent = t('common.error') + ': ' + (result.error || t('common.unknownError'));
+          resultsDiv.classList.remove('hidden');
+          showRefreshToast(t('codexlens.searchFailed') + ': ' + result.error, 'error');
+        }
+
+        runSearchBtn.disabled = false;
+        runSearchBtn.innerHTML = '<i data-lucide="search" class="w-3 h-3"></i> ' + t('codexlens.runSearch');
+        if (window.lucide) lucide.createIcons();
+      } catch (err) {
+        console.error('[CodexLens Test] Error:', err);
+        resultContent.textContent = t('common.exception') + ': ' + err.message;
+        resultsDiv.classList.remove('hidden');
+        showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+        runSearchBtn.disabled = false;
+        runSearchBtn.innerHTML = '<i data-lucide="search" class="w-3 h-3"></i> ' + t('codexlens.runSearch');
+        if (window.lucide) lucide.createIcons();
+      }
+    };
+  }
+}
+
+async function cleanCodexLensIndexes() {
+  if (!confirm(t('codexlens.cleanConfirm'))) {
+    return;
+  }
+
+  try {
+    showRefreshToast(t('codexlens.cleaning'), 'info');
+
+    var response = await fetch('/api/codexlens/clean', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ all: true })
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast(t('codexlens.cleanSuccess'), 'success');
+
+      // Refresh status
+      if (typeof loadCodexLensStatus === 'function') {
+        await loadCodexLensStatus();
+        renderToolsSection();
+        if (window.lucide) lucide.createIcons();
+      }
+    } else {
+      showRefreshToast(t('codexlens.cleanFailed') + ': ' + result.error, 'error');
+    }
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
 }

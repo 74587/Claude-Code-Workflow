@@ -4,9 +4,10 @@
  * Handles all Rules-related API endpoints
  */
 import type { IncomingMessage, ServerResponse } from 'http';
-import { readFileSync, existsSync, readdirSync, unlinkSync } from 'fs';
+import { readFileSync, existsSync, readdirSync, unlinkSync, promises as fsPromises } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { executeCliTool } from '../../tools/cli-executor.js';
 
 export interface RouteContext {
   pathname: string;
@@ -221,6 +222,191 @@ function deleteRule(ruleName, location, projectPath) {
 }
 
 /**
+ * Generate rule content via CLI tool
+ * @param {Object} params
+ * @param {string} params.generationType - 'description' | 'template' | 'extract'
+ * @param {string} params.description - Rule description (for 'description' mode)
+ * @param {string} params.templateType - Template type (for 'template' mode)
+ * @param {string} params.extractScope - Scope pattern (for 'extract' mode)
+ * @param {string} params.extractFocus - Focus areas (for 'extract' mode)
+ * @param {string} params.fileName - Target file name
+ * @param {string} params.location - 'project' or 'user'
+ * @param {string} params.subdirectory - Optional subdirectory
+ * @param {string} params.projectPath - Project root path
+ * @returns {Object}
+ */
+async function generateRuleViaCLI(params) {
+  try {
+    const {
+      generationType,
+      description,
+      templateType,
+      extractScope,
+      extractFocus,
+      fileName,
+      location,
+      subdirectory,
+      projectPath
+    } = params;
+
+    let prompt = '';
+    let mode = 'analysis';
+    let workingDir = projectPath;
+
+    // Build prompt based on generation type
+    if (generationType === 'description') {
+      mode = 'write';
+      prompt = `PURPOSE: Generate Claude Code memory rule from description to guide Claude's behavior
+TASK: • Analyze rule requirements • Generate markdown content with clear instructions
+MODE: write
+EXPECTED: Complete rule content in markdown format
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-rigorous-style.txt) | Follow Claude Code rule format | Use frontmatter for conditional rules if paths specified | write=CREATE
+
+RULE DESCRIPTION:
+${description}
+
+FILE NAME: ${fileName}`;
+    } else if (generationType === 'template') {
+      mode = 'write';
+      prompt = `PURPOSE: Generate Claude Code rule from template type
+TASK: • Create rule based on ${templateType} template • Generate structured markdown content
+MODE: write
+EXPECTED: Complete rule content in markdown format following template structure
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-rigorous-style.txt) | Follow Claude Code rule format | Use ${templateType} template patterns | write=CREATE
+
+TEMPLATE TYPE: ${templateType}
+FILE NAME: ${fileName}`;
+    } else if (generationType === 'extract') {
+      mode = 'analysis';
+      prompt = `PURPOSE: Extract coding rules from existing codebase to document patterns and conventions
+TASK: • Analyze code patterns in specified scope • Extract common conventions • Identify best practices
+MODE: analysis
+CONTEXT: @${extractScope || '**/*'}
+EXPECTED: Rule content based on codebase analysis with examples
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on actual patterns found | Include code examples | analysis=READ-ONLY
+
+ANALYSIS SCOPE: ${extractScope || '**/*'}
+FOCUS AREAS: ${extractFocus || 'naming conventions, error handling, code structure'}`;
+    } else {
+      return { error: `Unknown generation type: ${generationType}` };
+    }
+
+    // Execute CLI tool (Gemini) with at least 10 minutes timeout
+    const result = await executeCliTool({
+      tool: 'gemini',
+      prompt,
+      mode,
+      cd: workingDir,
+      timeout: 600000 // 10 minutes
+    });
+
+    if (!result.success) {
+      return {
+        error: `CLI execution failed: ${result.stderr || 'Unknown error'}`,
+        stderr: result.stderr
+      };
+    }
+
+    // Extract generated content from stdout
+    const generatedContent = result.stdout.trim();
+
+    if (!generatedContent) {
+      return {
+        error: 'CLI execution returned empty content',
+        stdout: result.stdout,
+        stderr: result.stderr
+      };
+    }
+
+    // Create the rule using the generated content
+    const createResult = await createRule({
+      fileName,
+      content: generatedContent,
+      paths: [],
+      location,
+      subdirectory,
+      projectPath
+    });
+
+    return {
+      success: createResult.success || false,
+      ...createResult,
+      generatedContent,
+      executionId: result.conversation?.id
+    };
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+}
+
+/**
+ * Create a new rule
+ * @param {Object} params
+ * @param {string} params.fileName - Rule file name (must end with .md)
+ * @param {string} params.content - Rule content (markdown)
+ * @param {string[]} params.paths - Optional paths for conditional rule
+ * @param {string} params.location - 'project' or 'user'
+ * @param {string} params.subdirectory - Optional subdirectory path
+ * @param {string} params.projectPath - Project root path
+ * @returns {Object}
+ */
+async function createRule(params) {
+  try {
+    const { fileName, content, paths, location, subdirectory, projectPath } = params;
+
+    // Validate file name
+    if (!fileName || !fileName.endsWith('.md')) {
+      return { error: 'File name must end with .md' };
+    }
+
+    // Build base directory
+    const baseDir = location === 'project'
+      ? join(projectPath, '.claude', 'rules')
+      : join(homedir(), '.claude', 'rules');
+
+    // Build target directory (with optional subdirectory)
+    const targetDir = subdirectory
+      ? join(baseDir, subdirectory)
+      : baseDir;
+
+    // Ensure target directory exists
+    await fsPromises.mkdir(targetDir, { recursive: true });
+
+    // Build complete file path
+    const filePath = join(targetDir, fileName);
+
+    // Check if file already exists
+    if (existsSync(filePath)) {
+      return { error: `Rule '${fileName}' already exists in ${location} location` };
+    }
+
+    // Build complete content with frontmatter if paths provided
+    let completeContent = content;
+    if (paths && paths.length > 0) {
+      const frontmatter = `---
+paths: [${paths.join(', ')}]
+---
+
+`;
+      completeContent = frontmatter + content;
+    }
+
+    // Write rule file
+    await fsPromises.writeFile(filePath, completeContent, 'utf8');
+
+    return {
+      success: true,
+      fileName,
+      location,
+      path: filePath,
+      subdirectory: subdirectory || null
+    };
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+}
+
+/**
  * Handle Rules routes
  * @returns true if route was handled, false otherwise
  */
@@ -258,6 +444,80 @@ export async function handleRulesRoutes(ctx: RouteContext): Promise<boolean> {
     handlePostRequest(req, res, async (body) => {
       const { location, projectPath: projectPathParam } = body;
       return deleteRule(ruleName, location, projectPathParam || initialPath);
+    });
+    return true;
+  }
+
+  // API: Create rule
+  if (pathname === '/api/rules/create' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const {
+        mode,
+        fileName,
+        content,
+        paths,
+        location,
+        subdirectory,
+        projectPath: projectPathParam,
+        // CLI generation parameters
+        generationType,
+        description,
+        templateType,
+        extractScope,
+        extractFocus
+      } = body;
+
+      if (!fileName) {
+        return { error: 'File name is required' };
+      }
+
+      if (!location) {
+        return { error: 'Location is required (project or user)' };
+      }
+
+      const projectPath = projectPathParam || initialPath;
+
+      // CLI generation mode
+      if (mode === 'cli-generate') {
+        if (!generationType) {
+          return { error: 'generationType is required for CLI generation mode' };
+        }
+
+        // Validate based on generation type
+        if (generationType === 'description' && !description) {
+          return { error: 'description is required for description-based generation' };
+        }
+
+        if (generationType === 'template' && !templateType) {
+          return { error: 'templateType is required for template-based generation' };
+        }
+
+        return await generateRuleViaCLI({
+          generationType,
+          description,
+          templateType,
+          extractScope,
+          extractFocus,
+          fileName,
+          location,
+          subdirectory: subdirectory || '',
+          projectPath
+        });
+      }
+
+      // Manual creation mode
+      if (!content) {
+        return { error: 'Content is required for manual creation' };
+      }
+
+      return await createRule({
+        fileName,
+        content,
+        paths: paths || [],
+        location,
+        subdirectory: subdirectory || '',
+        projectPath
+      });
     });
     return true;
   }

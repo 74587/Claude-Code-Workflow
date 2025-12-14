@@ -17,6 +17,7 @@ import { handleSkillsRoutes } from './routes/skills-routes.js';
 import { handleRulesRoutes } from './routes/rules-routes.js';
 import { handleSessionRoutes } from './routes/session-routes.js';
 import { handleCcwRoutes } from './routes/ccw-routes.js';
+import { handleClaudeRoutes } from './routes/claude-routes.js';
 
 // Import WebSocket handling
 import { handleWebSocketUpgrade, broadcastToClients } from './websocket.js';
@@ -59,7 +60,8 @@ const MODULE_CSS_FILES = [
   '10-cli.css',
   '11-memory.css',
   '11-prompt-history.css',
-  '12-skills-rules.css'
+  '12-skills-rules.css',
+  '13-claude-manager.css'
 ];
 
 // Modular JS files in dependency order
@@ -104,6 +106,7 @@ const MODULE_FILES = [
   'views/prompt-history.js',
   'views/skills-manager.js',
   'views/rules-manager.js',
+  'views/claude-manager.js',
   'main.js'
 ];
 
@@ -239,6 +242,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // CLI routes (/api/cli/*)
       if (pathname.startsWith('/api/cli/')) {
         if (await handleCliRoutes(routeContext)) return;
+      }
+
+      // Claude CLAUDE.md routes (/api/memory/claude/*)
+      if (pathname.startsWith('/api/memory/claude/')) {
+        if (await handleClaudeRoutes(routeContext)) return;
       }
 
       // Memory routes (/api/memory/*)

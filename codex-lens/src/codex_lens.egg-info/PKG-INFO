@@ -11,7 +11,10 @@ Requires-Dist: typer>=0.9
 Requires-Dist: rich>=13
 Requires-Dist: pydantic>=2.0
 Requires-Dist: tree-sitter>=0.20
+Requires-Dist: tree-sitter-python>=0.25
+Requires-Dist: tree-sitter-javascript>=0.25
+Requires-Dist: tree-sitter-typescript>=0.23
 Requires-Dist: pathspec>=0.11
 Provides-Extra: semantic
 Requires-Dist: numpy>=1.24; extra == "semantic"
-Requires-Dist: sentence-transformers>=2.2; extra == "semantic"
+Requires-Dist: fastembed>=0.2; extra == "semantic"

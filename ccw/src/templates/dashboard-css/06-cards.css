@@ -1528,6 +1528,11 @@ code.ctx-meta-chip-value {
   color: white;
 }
 
+.status-toast.warning {
+  background: hsl(38 92% 50%);
+  color: white;
+}
+
 .status-toast.fade-out {
   animation: toastFadeOut 0.3s ease forwards;
 }

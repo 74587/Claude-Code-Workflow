@@ -47,18 +47,71 @@ async function renderMcpManager() {
   const projectData = mcpAllProjects[currentPath] || {};
   const projectServers = projectData.mcpServers || {};
   const disabledServers = projectData.disabledMcpServers || [];
+  const hasMcpJson = projectData.hasMcpJson || false;
+  const mcpJsonPath = projectData.mcpJsonPath || null;
 
   // Get all available servers from all projects
   const allAvailableServers = getAllAvailableMcpServers();
 
-  // Separate current project servers and available servers
-  const currentProjectServerNames = Object.keys(projectServers);
+  // Separate servers by category:
+  // 1. Project Available = Global + Project-specific (servers available to current project)
+  // 2. Global Management = Global servers that can be managed
+  // 3. Other Projects = Servers from other projects (can install to project or global)
 
-  // Separate enterprise, user, and other project servers
-  const enterpriseServerEntries = Object.entries(mcpEnterpriseServers || {})
-    .filter(([name]) => !currentProjectServerNames.includes(name));
-  const userServerEntries = Object.entries(mcpUserServers || {})
-    .filter(([name]) => !currentProjectServerNames.includes(name) && !(mcpEnterpriseServers || {})[name]);
+  const currentProjectServerNames = Object.keys(projectServers);
+  const globalServerNames = Object.keys(mcpUserServers || {});
+  const enterpriseServerNames = Object.keys(mcpEnterpriseServers || {});
+
+  // Project Available MCP: servers available to current project
+  // This includes: Enterprise (highest priority) + Global + Project-specific
+  const projectAvailableEntries = [];
+
+  // Add enterprise servers first (highest priority)
+  for (const [name, config] of Object.entries(mcpEnterpriseServers || {})) {
+    projectAvailableEntries.push({
+      name,
+      config,
+      source: 'enterprise',
+      canRemove: false,
+      canToggle: false
+    });
+  }
+
+  // Add global servers
+  for (const [name, config] of Object.entries(mcpUserServers || {})) {
+    if (!enterpriseServerNames.includes(name)) {
+      projectAvailableEntries.push({
+        name,
+        config,
+        source: 'global',
+        canRemove: false, // Can't remove from project view, must go to global management
+        canToggle: true,
+        isEnabled: !disabledServers.includes(name)
+      });
+    }
+  }
+
+  // Add project-specific servers
+  for (const [name, config] of Object.entries(projectServers)) {
+    if (!enterpriseServerNames.includes(name) && !globalServerNames.includes(name)) {
+      projectAvailableEntries.push({
+        name,
+        config,
+        source: 'project',
+        canRemove: true,
+        canToggle: true,
+        isEnabled: !disabledServers.includes(name)
+      });
+    }
+  }
+
+  // Global Management: user global servers (for management)
+  const globalManagementEntries = Object.entries(mcpUserServers || {});
+
+  // Enterprise servers (for display only, read-only)
+  const enterpriseServerEntries = Object.entries(mcpEnterpriseServers || {});
+
+  // Other Projects: servers from other projects (not in current project, not global)
   const otherProjectServers = Object.entries(allAvailableServers)
     .filter(([name, info]) => !currentProjectServerNames.includes(name) && !info.isGlobal);
   // Check if CCW Tools is already installed
@@ -126,20 +179,31 @@ async function renderMcpManager() {
         </div>
       </div>
 
-      <!-- Current Project MCP Servers -->
+      <!-- Project Available MCP Servers -->
       <div class="mcp-section mb-6">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-3">
-            <h3 class="text-lg font-semibold text-foreground">${t('mcp.currentProject')}</h3>
+            <h3 class="text-lg font-semibold text-foreground">${t('mcp.projectAvailable')}</h3>
             <button class="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
-                    onclick="openMcpCreateModal()">
-              <span>+</span> ${t('mcp.newServer')}
+                    onclick="openMcpCreateModal('project')">
+              <span>+</span> ${t('mcp.newProjectServer')}
             </button>
+            ${hasMcpJson ? `
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs bg-success/10 text-success rounded-md border border-success/20">
+                <i data-lucide="file-check" class="w-3.5 h-3.5"></i>
+                .mcp.json
+              </span>
+            ` : `
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs bg-muted text-muted-foreground rounded-md border border-border" title="New servers will create .mcp.json">
+                <i data-lucide="file-plus" class="w-3.5 h-3.5"></i>
+                Will use .mcp.json
+              </span>
+            `}
           </div>
-          <span class="text-sm text-muted-foreground">${currentProjectServerNames.length} ${t('mcp.serversConfigured')}</span>
+          <span class="text-sm text-muted-foreground">${projectAvailableEntries.length} ${t('mcp.serversAvailable')}</span>
         </div>
 
-        ${currentProjectServerNames.length === 0 ? `
+        ${projectAvailableEntries.length === 0 ? `
           <div class="mcp-empty-state bg-card border border-border rounded-lg p-6 text-center">
             <div class="text-muted-foreground mb-3"><i data-lucide="plug" class="w-10 h-10 mx-auto"></i></div>
             <p class="text-muted-foreground">${t('empty.noMcpServers')}</p>
@@ -147,53 +211,43 @@ async function renderMcpManager() {
           </div>
         ` : `
           <div class="mcp-server-grid grid gap-3">
-            ${currentProjectServerNames.map(serverName => {
-              const serverConfig = projectServers[serverName];
-              const isEnabled = !disabledServers.includes(serverName);
-              return renderMcpServerCard(serverName, serverConfig, isEnabled, true);
+            ${projectAvailableEntries.map(entry => {
+              return renderProjectAvailableServerCard(entry);
             }).join('')}
           </div>
         `}
       </div>
 
-      <!-- Enterprise MCP Servers (Managed) -->
-      ${enterpriseServerEntries.length > 0 ? `
-        <div class="mcp-section mb-6">
-          <div class="flex items-center justify-between mb-4">
+      <!-- Global Available MCP Servers -->
+      <div class="mcp-section mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-3">
             <div class="flex items-center gap-2">
-              <i data-lucide="building-2" class="w-5 h-5"></i>
-              <h3 class="text-lg font-semibold text-foreground">Enterprise MCP Servers</h3>
-              <span class="text-xs px-2 py-0.5 bg-warning/20 text-warning rounded-full">Managed</span>
+              <i data-lucide="globe" class="w-5 h-5 text-success"></i>
+              <h3 class="text-lg font-semibold text-foreground">${t('mcp.globalAvailable')}</h3>
             </div>
-            <span class="text-sm text-muted-foreground">${enterpriseServerEntries.length} servers (read-only)</span>
+            <button class="px-3 py-1.5 text-sm bg-success text-success-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
+                    onclick="openMcpCreateModal('global')">
+              <span>+</span> ${t('mcp.newGlobalServer')}
+            </button>
           </div>
+          <span class="text-sm text-muted-foreground">${globalManagementEntries.length} ${t('mcp.globalServersFrom')}</span>
+        </div>
 
+        ${globalManagementEntries.length === 0 ? `
+          <div class="mcp-empty-state bg-card border border-border rounded-lg p-6 text-center">
+            <div class="text-muted-foreground mb-3"><i data-lucide="globe" class="w-10 h-10 mx-auto"></i></div>
+            <p class="text-muted-foreground">${t('empty.noGlobalMcpServers')}</p>
+            <p class="text-sm text-muted-foreground mt-1">${t('empty.globalServersHint')}</p>
+          </div>
+        ` : `
           <div class="mcp-server-grid grid gap-3">
-            ${enterpriseServerEntries.map(([serverName, serverConfig]) => {
-              return renderEnterpriseServerCard(serverName, serverConfig);
+            ${globalManagementEntries.map(([serverName, serverConfig]) => {
+              return renderGlobalManagementCard(serverName, serverConfig);
             }).join('')}
           </div>
-        </div>
-      ` : ''}
-
-      <!-- User MCP Servers -->
-      ${userServerEntries.length > 0 ? `
-        <div class="mcp-section mb-6">
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-2">
-              <i data-lucide="user" class="w-5 h-5"></i>
-              <h3 class="text-lg font-semibold text-foreground">User MCP Servers</h3>
-            </div>
-            <span class="text-sm text-muted-foreground">${userServerEntries.length} servers from ~/.claude.json</span>
-          </div>
-
-          <div class="mcp-server-grid grid gap-3">
-            ${userServerEntries.map(([serverName, serverConfig]) => {
-              return renderGlobalServerCard(serverName, serverConfig, 'user');
-            }).join('')}
-          </div>
-        </div>
-      ` : ''}
+        `}
+      </div>
 
       <!-- Available MCP Servers from Other Projects -->
       <div class="mcp-section">
@@ -238,6 +292,7 @@ async function renderMcpManager() {
                 const serverNames = Object.keys(servers);
                 const isCurrentProject = path === currentPath;
                 const enabledCount = serverNames.filter(s => !projectDisabled.includes(s)).length;
+                const projectHasMcpJson = config.hasMcpJson || false;
 
                 return `
                   <tr class="border-b border-border last:border-b-0 ${isCurrentProject ? 'bg-primary/5' : 'hover:bg-hover/50'}">
@@ -245,9 +300,10 @@ async function renderMcpManager() {
                       <div class="flex items-center gap-2 min-w-0">
                         <span class="shrink-0">${isCurrentProject ? '<i data-lucide="map-pin" class="w-4 h-4 text-primary"></i>' : '<i data-lucide="folder" class="w-4 h-4"></i>'}</span>
                         <div class="min-w-0">
-                          <div class="font-medium text-foreground truncate text-sm" title="${escapeHtml(path)}">
-                            ${escapeHtml(path.split('\\').pop() || path)}
-                            ${isCurrentProject ? `<span class="ml-2 text-xs text-primary font-medium">${t('mcp.current')}</span>` : ''}
+                          <div class="font-medium text-foreground truncate text-sm flex items-center gap-2" title="${escapeHtml(path)}">
+                            <span class="truncate">${escapeHtml(path.split('\\').pop() || path)}</span>
+                            ${isCurrentProject ? `<span class="text-xs text-primary font-medium shrink-0">${t('mcp.current')}</span>` : ''}
+                            ${projectHasMcpJson ? `<span class="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 text-xs bg-success/10 text-success rounded" title=".mcp.json detected"><i data-lucide="file-check" class="w-3 h-3"></i></span>` : ''}
                           </div>
                           <div class="text-xs text-muted-foreground truncate">${escapeHtml(path)}</div>
                         </div>
@@ -291,25 +347,40 @@ async function renderMcpManager() {
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-function renderMcpServerCard(serverName, serverConfig, isEnabled, isInCurrentProject) {
-  const command = serverConfig.command || 'N/A';
-  const args = serverConfig.args || [];
-  const hasEnv = serverConfig.env && Object.keys(serverConfig.env).length > 0;
+// Render card for Project Available MCP (current project can use)
+function renderProjectAvailableServerCard(entry) {
+  const { name, config, source, canRemove, canToggle, isEnabled } = entry;
+  const command = config.command || 'N/A';
+  const args = config.args || [];
+  const hasEnv = config.env && Object.keys(config.env).length > 0;
+
+  // Source badge
+  let sourceBadge = '';
+  if (source === 'enterprise') {
+    sourceBadge = '<span class="text-xs px-2 py-0.5 bg-warning/20 text-warning rounded-full">Enterprise</span>';
+  } else if (source === 'global') {
+    sourceBadge = '<span class="text-xs px-2 py-0.5 bg-success/10 text-success rounded-full">Global</span>';
+  } else if (source === 'project') {
+    sourceBadge = '<span class="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">Project</span>';
+  }
 
   return `
-    <div class="mcp-server-card bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all ${isEnabled ? '' : 'opacity-60'}">
+    <div class="mcp-server-card bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all ${canToggle && !isEnabled ? 'opacity-60' : ''}">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-center gap-2">
-          <span>${isEnabled ? '<i data-lucide="check-circle" class="w-5 h-5 text-success"></i>' : '<i data-lucide="x-circle" class="w-5 h-5 text-destructive"></i>'}</span>
-          <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
+          <span>${canToggle && isEnabled ? '<i data-lucide="check-circle" class="w-5 h-5 text-success"></i>' : '<i data-lucide="circle" class="w-5 h-5 text-muted-foreground"></i>'}</span>
+          <h4 class="font-semibold text-foreground">${escapeHtml(name)}</h4>
+          ${sourceBadge}
         </div>
-        <label class="mcp-toggle relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" class="sr-only peer"
-                 ${isEnabled ? 'checked' : ''}
-                 data-server-name="${escapeHtml(serverName)}"
-                 data-action="toggle">
-          <div class="w-9 h-5 bg-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-success"></div>
-        </label>
+        ${canToggle ? `
+          <label class="mcp-toggle relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" class="sr-only peer"
+                   ${isEnabled ? 'checked' : ''}
+                   data-server-name="${escapeHtml(name)}"
+                   data-action="toggle">
+            <div class="w-9 h-5 bg-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-success"></div>
+          </label>
+        ` : ''}
       </div>
 
       <div class="mcp-server-details text-sm space-y-1">
@@ -326,20 +397,85 @@ function renderMcpServerCard(serverName, serverConfig, isEnabled, isInCurrentPro
         ${hasEnv ? `
           <div class="flex items-center gap-2 text-muted-foreground">
             <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">env</span>
-            <span class="text-xs">${Object.keys(serverConfig.env).length} variables</span>
+            <span class="text-xs">${Object.keys(config.env).length} variables</span>
           </div>
         ` : ''}
       </div>
 
-      ${isInCurrentProject ? `
-        <div class="mt-3 pt-3 border-t border-border">
+      <div class="mt-3 pt-3 border-t border-border flex items-center justify-between">
+        <button class="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+                data-server-name="${escapeHtml(name)}"
+                data-server-config="${escapeHtml(JSON.stringify(config))}"
+                data-scope="${source === 'global' ? 'global' : 'project'}"
+                data-action="copy-install-cmd">
+          <i data-lucide="copy" class="w-3 h-3"></i>
+          ${t('mcp.copyInstallCmd')}
+        </button>
+        ${canRemove ? `
           <button class="text-xs text-destructive hover:text-destructive/80 transition-colors"
-                  data-server-name="${escapeHtml(serverName)}"
+                  data-server-name="${escapeHtml(name)}"
                   data-action="remove">
             ${t('mcp.removeFromProject')}
           </button>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
+// Render card for Global Management (manage global servers)
+function renderGlobalManagementCard(serverName, serverConfig) {
+  const command = serverConfig.command || serverConfig.url || 'N/A';
+  const args = serverConfig.args || [];
+  const hasEnv = serverConfig.env && Object.keys(serverConfig.env).length > 0;
+  const serverType = serverConfig.type || 'stdio';
+
+  return `
+    <div class="mcp-server-card mcp-server-global bg-card border border-success/30 rounded-lg p-4 hover:shadow-md transition-all">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="globe" class="w-5 h-5 text-success"></i>
+          <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
         </div>
-      ` : ''}
+      </div>
+
+      <div class="mcp-server-details text-sm space-y-1">
+        <div class="flex items-center gap-2 text-muted-foreground">
+          <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${serverType === 'stdio' ? 'cmd' : 'url'}</span>
+          <span class="truncate" title="${escapeHtml(command)}">${escapeHtml(command)}</span>
+        </div>
+        ${args.length > 0 ? `
+          <div class="flex items-start gap-2 text-muted-foreground">
+            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">args</span>
+            <span class="text-xs font-mono truncate" title="${escapeHtml(args.join(' '))}">${escapeHtml(args.slice(0, 3).join(' '))}${args.length > 3 ? '...' : ''}</span>
+          </div>
+        ` : ''}
+        ${hasEnv ? `
+          <div class="flex items-center gap-2 text-muted-foreground">
+            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">env</span>
+            <span class="text-xs">${Object.keys(serverConfig.env).length} variables</span>
+          </div>
+        ` : ''}
+        <div class="flex items-center gap-2 text-muted-foreground mt-1">
+          <span class="text-xs italic">${t('mcp.availableToAll')}</span>
+        </div>
+      </div>
+
+      <div class="mt-3 pt-3 border-t border-border flex items-center justify-between">
+        <button class="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+                data-server-name="${escapeHtml(serverName)}"
+                data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
+                data-scope="global"
+                data-action="copy-install-cmd">
+          <i data-lucide="copy" class="w-3 h-3"></i>
+          ${t('mcp.copyInstallCmd')}
+        </button>
+        <button class="text-xs text-destructive hover:text-destructive/80 transition-colors"
+                data-server-name="${escapeHtml(serverName)}"
+                data-action="remove-global">
+          ${t('mcp.removeGlobal')}
+        </button>
+      </div>
     </div>
   `;
 }
@@ -373,13 +509,26 @@ function renderAvailableServerCard(serverName, serverInfo) {
             </span>
           ` : ''}
         </div>
-        <button class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
-                data-server-name="${escapeHtml(originalName)}"
-                data-server-key="${escapeHtml(serverName)}"
-                data-server-config='${JSON.stringify(serverConfig).replace(/'/g, "&#39;")}'
-                data-action="add">
-          ${t('mcp.add')}
-        </button>
+        <div class="flex gap-2">
+          <button class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
+                  data-server-name="${escapeHtml(originalName)}"
+                  data-server-key="${escapeHtml(serverName)}"
+                  data-server-config='${JSON.stringify(serverConfig).replace(/'/g, "&#39;")}'
+                  data-scope="project"
+                  data-action="add-from-other"
+                  title="${t('mcp.installToProject')}">
+            <i data-lucide="folder-plus" class="w-3.5 h-3.5 inline"></i>
+          </button>
+          <button class="px-3 py-1 text-xs bg-success text-success-foreground rounded hover:opacity-90 transition-opacity"
+                  data-server-name="${escapeHtml(originalName)}"
+                  data-server-key="${escapeHtml(serverName)}"
+                  data-server-config='${JSON.stringify(serverConfig).replace(/'/g, "&#39;")}'
+                  data-scope="global"
+                  data-action="add-from-other"
+                  title="${t('mcp.installToGlobal')}">
+            <i data-lucide="globe" class="w-3.5 h-3.5 inline"></i>
+          </button>
+        </div>
       </div>
 
       <div class="mcp-server-details text-sm space-y-1">
@@ -398,101 +547,21 @@ function renderAvailableServerCard(serverName, serverInfo) {
           ${sourceProjectName ? `<span class="text-xs text-muted-foreground/70">• from ${escapeHtml(sourceProjectName)}</span>` : ''}
         </div>
       </div>
-    </div>
-  `;
-}
 
-function renderGlobalServerCard(serverName, serverConfig, source = 'user') {
-  const command = serverConfig.command || serverConfig.url || 'N/A';
-  const args = serverConfig.args || [];
-  const hasEnv = serverConfig.env && Object.keys(serverConfig.env).length > 0;
-  const serverType = serverConfig.type || 'stdio';
-
-  return `
-    <div class="mcp-server-card mcp-server-global bg-card border border-primary/30 rounded-lg p-4 hover:shadow-md transition-all">
-      <div class="flex items-start justify-between mb-3">
-        <div class="flex items-center gap-2">
-          <i data-lucide="user" class="w-5 h-5"></i>
-          <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
-          <span class="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">User</span>
-        </div>
-        <button class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
-                data-server-name="${escapeHtml(serverName)}"
-                data-server-config='${JSON.stringify(serverConfig).replace(/'/g, "&#39;")}'
-                data-action="add">
-          ${t('mcp.addToProject')}
+      <div class="mt-3 pt-3 border-t border-border">
+        <button class="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+                data-server-name="${escapeHtml(originalName)}"
+                data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
+                data-scope="project"
+                data-action="copy-install-cmd">
+          <i data-lucide="copy" class="w-3 h-3"></i>
+          ${t('mcp.copyInstallCmd')}
         </button>
       </div>
-
-      <div class="mcp-server-details text-sm space-y-1">
-        <div class="flex items-center gap-2 text-muted-foreground">
-          <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${serverType === 'stdio' ? 'cmd' : 'url'}</span>
-          <span class="truncate" title="${escapeHtml(command)}">${escapeHtml(command)}</span>
-        </div>
-        ${args.length > 0 ? `
-          <div class="flex items-start gap-2 text-muted-foreground">
-            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">args</span>
-            <span class="text-xs font-mono truncate" title="${escapeHtml(args.join(' '))}">${escapeHtml(args.slice(0, 3).join(' '))}${args.length > 3 ? '...' : ''}</span>
-          </div>
-        ` : ''}
-        ${hasEnv ? `
-          <div class="flex items-center gap-2 text-muted-foreground">
-            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">env</span>
-            <span class="text-xs">${Object.keys(serverConfig.env).length} variables</span>
-          </div>
-        ` : ''}
-        <div class="flex items-center gap-2 text-muted-foreground mt-1">
-          <span class="text-xs italic">Available to all projects from ~/.claude.json</span>
-        </div>
-      </div>
     </div>
   `;
 }
 
-function renderEnterpriseServerCard(serverName, serverConfig) {
-  const command = serverConfig.command || serverConfig.url || 'N/A';
-  const args = serverConfig.args || [];
-  const hasEnv = serverConfig.env && Object.keys(serverConfig.env).length > 0;
-  const serverType = serverConfig.type || 'stdio';
-
-  return `
-    <div class="mcp-server-card mcp-server-enterprise bg-card border border-warning/30 rounded-lg p-4 hover:shadow-md transition-all">
-      <div class="flex items-start justify-between mb-3">
-        <div class="flex items-center gap-2">
-          <i data-lucide="building-2" class="w-5 h-5"></i>
-          <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
-          <span class="text-xs px-2 py-0.5 bg-warning/20 text-warning rounded-full">Enterprise</span>
-          <i data-lucide="lock" class="w-3 h-3 text-muted-foreground"></i>
-        </div>
-        <span class="px-3 py-1 text-xs bg-muted text-muted-foreground rounded cursor-not-allowed">
-          Read-only
-        </span>
-      </div>
-
-      <div class="mcp-server-details text-sm space-y-1">
-        <div class="flex items-center gap-2 text-muted-foreground">
-          <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${serverType === 'stdio' ? 'cmd' : 'url'}</span>
-          <span class="truncate" title="${escapeHtml(command)}">${escapeHtml(command)}</span>
-        </div>
-        ${args.length > 0 ? `
-          <div class="flex items-start gap-2 text-muted-foreground">
-            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">args</span>
-            <span class="text-xs font-mono truncate" title="${escapeHtml(args.join(' '))}">${escapeHtml(args.slice(0, 3).join(' '))}${args.length > 3 ? '...' : ''}</span>
-          </div>
-        ` : ''}
-        ${hasEnv ? `
-          <div class="flex items-center gap-2 text-muted-foreground">
-            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">env</span>
-            <span class="text-xs">${Object.keys(serverConfig.env).length} variables</span>
-          </div>
-        ` : ''}
-        <div class="flex items-center gap-2 text-muted-foreground mt-1">
-          <span class="text-xs italic">Managed by organization (highest priority)</span>
-        </div>
-      </div>
-    </div>
-  `;
-}
 
 function attachMcpEventListeners() {
   // Toggle switches
@@ -504,22 +573,48 @@ function attachMcpEventListeners() {
     });
   });
 
-  // Add buttons - use btn.dataset instead of e.target.dataset for event bubbling safety
-  document.querySelectorAll('.mcp-server-card button[data-action="add"]').forEach(btn => {
+  // Add from other projects (with scope selection)
+  document.querySelectorAll('.mcp-server-card button[data-action="add-from-other"]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const serverName = btn.dataset.serverName;
       const serverConfig = JSON.parse(btn.dataset.serverConfig);
-      await copyMcpServerToProject(serverName, serverConfig);
+      const scope = btn.dataset.scope; // 'project' or 'global'
+
+      if (scope === 'global') {
+        await addGlobalMcpServer(serverName, serverConfig);
+      } else {
+        await copyMcpServerToProject(serverName, serverConfig);
+      }
     });
   });
 
-  // Remove buttons - use btn.dataset instead of e.target.dataset for event bubbling safety
+  // Remove buttons (project-level)
   document.querySelectorAll('.mcp-server-card button[data-action="remove"]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const serverName = btn.dataset.serverName;
       if (confirm(t('mcp.removeConfirm', { name: serverName }))) {
         await removeMcpServerFromProject(serverName);
       }
+    });
+  });
+
+  // Remove buttons (global-level)
+  document.querySelectorAll('.mcp-server-card button[data-action="remove-global"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const serverName = btn.dataset.serverName;
+      if (confirm(t('mcp.removeGlobalConfirm', { name: serverName }))) {
+        await removeGlobalMcpServer(serverName);
+      }
+    });
+  });
+
+  // Copy install command buttons
+  document.querySelectorAll('.mcp-server-card button[data-action="copy-install-cmd"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const serverName = btn.dataset.serverName;
+      const serverConfig = JSON.parse(btn.dataset.serverConfig);
+      const scope = btn.dataset.scope || 'project';
+      await copyMcpInstallCommand(serverName, serverConfig, scope);
     });
   });
 }

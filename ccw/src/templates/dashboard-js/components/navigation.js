@@ -112,6 +112,8 @@ function initNavigation() {
         renderSkillsManager();
       } else if (currentView === 'rules-manager') {
         renderRulesManager();
+      } else if (currentView === 'claude-manager') {
+        renderClaudeManager();
       }
     });
   });
@@ -144,6 +146,8 @@ function updateContentTitle() {
     titleEl.textContent = t('title.skillsManager');
   } else if (currentView === 'rules-manager') {
     titleEl.textContent = t('title.rulesManager');
+  } else if (currentView === 'claude-manager') {
+    titleEl.textContent = t('title.claudeManager');
   } else if (currentView === 'liteTasks') {
     const names = { 'lite-plan': t('title.litePlanSessions'), 'lite-fix': t('title.liteFixSessions') };
     titleEl.textContent = names[currentLiteType] || t('title.liteTasks');

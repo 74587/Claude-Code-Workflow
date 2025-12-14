@@ -834,8 +834,37 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
   }
 }
 
+/**
+ * Uninstall CodexLens by removing the venv directory
+ * @returns Uninstall result
+ */
+async function uninstallCodexLens(): Promise<BootstrapResult> {
+  try {
+    // Check if venv exists
+    if (!existsSync(CODEXLENS_VENV)) {
+      return { success: false, error: 'CodexLens not installed (venv not found)' };
+    }
+
+    console.log('[CodexLens] Uninstalling CodexLens...');
+    console.log(`[CodexLens] Removing directory: ${CODEXLENS_DATA_DIR}`);
+
+    // Remove the entire .codexlens directory
+    const fs = await import('fs');
+    fs.rmSync(CODEXLENS_DATA_DIR, { recursive: true, force: true });
+
+    // Reset bootstrap cache
+    bootstrapChecked = false;
+    bootstrapReady = false;
+
+    console.log('[CodexLens] CodexLens uninstalled successfully');
+    return { success: true, message: 'CodexLens uninstalled successfully' };
+  } catch (err) {
+    return { success: false, error: `Failed to uninstall CodexLens: ${(err as Error).message}` };
+  }
+}
+
 // Export for direct usage
-export { ensureReady, executeCodexLens, checkVenvStatus, bootstrapVenv, checkSemanticStatus, installSemantic };
+export { ensureReady, executeCodexLens, checkVenvStatus, bootstrapVenv, checkSemanticStatus, installSemantic, uninstallCodexLens };
 
 // Backward-compatible export for tests
 export const codexLensTool = {

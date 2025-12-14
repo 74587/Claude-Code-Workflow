@@ -4,16 +4,12 @@
  * Handles all MCP-related API endpoints
  */
 import type { IncomingMessage, ServerResponse } from 'http';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
-import * as McpTemplatesDb from './mcp-templates-db.js';
 
 // Claude config file path
 const CLAUDE_CONFIG_PATH = join(homedir(), '.claude.json');
-
-// Workspace root path for scanning .mcp.json files
-let WORKSPACE_ROOT = process.cwd();
 
 export interface RouteContext {
   pathname: string;
@@ -69,83 +65,6 @@ function getMcpServersFromFile(filePath) {
 }
 
 /**
- * Add or update MCP server in project's .mcp.json file
- * @param {string} projectPath - Project directory path
- * @param {string} serverName - MCP server name
- * @param {Object} serverConfig - MCP server configuration
- * @returns {Object} Result with success/error
- */
-function addMcpServerToMcpJson(projectPath, serverName, serverConfig) {
-  try {
-    const normalizedPath = normalizeProjectPathForConfig(projectPath);
-    const mcpJsonPath = join(normalizedPath, '.mcp.json');
-    
-    // Read existing .mcp.json or create new structure
-    let mcpJson = safeReadJson(mcpJsonPath) || { mcpServers: {} };
-    
-    // Ensure mcpServers exists
-    if (!mcpJson.mcpServers) {
-      mcpJson.mcpServers = {};
-    }
-    
-    // Add or update the server
-    mcpJson.mcpServers[serverName] = serverConfig;
-    
-    // Write back to .mcp.json
-    writeFileSync(mcpJsonPath, JSON.stringify(mcpJson, null, 2), 'utf8');
-    
-    return {
-      success: true,
-      serverName,
-      serverConfig,
-      scope: 'project-mcp-json',
-      path: mcpJsonPath
-    };
-  } catch (error: unknown) {
-    console.error('Error adding MCP server to .mcp.json:', error);
-    return { error: (error as Error).message };
-  }
-}
-
-/**
- * Remove MCP server from project's .mcp.json file
- * @param {string} projectPath - Project directory path
- * @param {string} serverName - MCP server name
- * @returns {Object} Result with success/error
- */
-function removeMcpServerFromMcpJson(projectPath, serverName) {
-  try {
-    const normalizedPath = normalizeProjectPathForConfig(projectPath);
-    const mcpJsonPath = join(normalizedPath, '.mcp.json');
-    
-    if (!existsSync(mcpJsonPath)) {
-      return { error: '.mcp.json not found' };
-    }
-    
-    const mcpJson = safeReadJson(mcpJsonPath);
-    if (!mcpJson || !mcpJson.mcpServers || !mcpJson.mcpServers[serverName]) {
-      return { error: `Server not found: ${serverName}` };
-    }
-    
-    // Remove the server
-    delete mcpJson.mcpServers[serverName];
-    
-    // Write back to .mcp.json
-    writeFileSync(mcpJsonPath, JSON.stringify(mcpJson, null, 2), 'utf8');
-    
-    return {
-      success: true,
-      serverName,
-      removed: true,
-      scope: 'project-mcp-json'
-    };
-  } catch (error: unknown) {
-    console.error('Error removing MCP server from .mcp.json:', error);
-    return { error: (error as Error).message };
-  }
-}
-
-/**
  * Get MCP configuration from multiple sources (per official Claude Code docs):
  *
  * Priority (highest to lowest):
@@ -195,7 +114,6 @@ function getMcpConfig() {
     }
 
     // 3. For each known project, check for .mcp.json (project-level config)
-    // .mcp.json is now the PRIMARY source for project-level MCP servers
     const projectPaths = Object.keys(result.projects);
     for (const projectPath of projectPaths) {
       const mcpJsonPath = join(projectPath, '.mcp.json');
@@ -203,22 +121,17 @@ function getMcpConfig() {
         const mcpJsonConfig = safeReadJson(mcpJsonPath);
         if (mcpJsonConfig?.mcpServers) {
           // Merge .mcp.json servers into project config
-          // .mcp.json has HIGHER priority than ~/.claude.json projects[path].mcpServers
+          // Project's .mcp.json has lower priority than ~/.claude.json projects[path].mcpServers
           const existingServers = result.projects[projectPath]?.mcpServers || {};
           result.projects[projectPath] = {
             ...result.projects[projectPath],
             mcpServers: {
-              ...existingServers,             // ~/.claude.json projects[path] (lower priority, legacy)
-              ...mcpJsonConfig.mcpServers     // .mcp.json (higher priority, new default)
+              ...mcpJsonConfig.mcpServers,  // .mcp.json (lower priority)
+              ...existingServers             // ~/.claude.json projects[path] (higher priority)
             },
-            mcpJsonPath: mcpJsonPath,  // Track source for debugging
-            hasMcpJson: true
+            mcpJsonPath: mcpJsonPath  // Track source for debugging
           };
-          result.configSources.push({ 
-            type: 'project-mcp-json', 
-            path: mcpJsonPath, 
-            count: Object.keys(mcpJsonConfig.mcpServers).length 
-          });
+          result.configSources.push({ type: 'project-mcp-json', path: mcpJsonPath, count: Object.keys(mcpJsonConfig.mcpServers).length });
         }
       }
     }
@@ -310,21 +223,13 @@ function toggleMcpServerEnabled(projectPath, serverName, enable) {
 
 /**
  * Add MCP server to project
- * Now defaults to using .mcp.json instead of .claude.json
  * @param {string} projectPath
  * @param {string} serverName
  * @param {Object} serverConfig
- * @param {boolean} useLegacyConfig - If true, use .claude.json instead of .mcp.json
  * @returns {Object}
  */
-function addMcpServerToProject(projectPath, serverName, serverConfig, useLegacyConfig = false) {
+function addMcpServerToProject(projectPath, serverName, serverConfig) {
   try {
-    // Default: Use .mcp.json for project-level MCP servers
-    if (!useLegacyConfig) {
-      return addMcpServerToMcpJson(projectPath, serverName, serverConfig);
-    }
-
-    // Legacy: Use .claude.json (kept for backward compatibility)
     if (!existsSync(CLAUDE_CONFIG_PATH)) {
       return { error: '.claude.json not found' };
     }
@@ -369,8 +274,7 @@ function addMcpServerToProject(projectPath, serverName, serverConfig, useLegacyC
     return {
       success: true,
       serverName,
-      serverConfig,
-      scope: 'project-legacy'
+      serverConfig
     };
   } catch (error: unknown) {
     console.error('Error adding MCP server:', error);
@@ -380,67 +284,47 @@ function addMcpServerToProject(projectPath, serverName, serverConfig, useLegacyC
 
 /**
  * Remove MCP server from project
- * Checks both .mcp.json and .claude.json
  * @param {string} projectPath
  * @param {string} serverName
  * @returns {Object}
  */
 function removeMcpServerFromProject(projectPath, serverName) {
   try {
+    if (!existsSync(CLAUDE_CONFIG_PATH)) {
+      return { error: '.claude.json not found' };
+    }
+
+    const content = readFileSync(CLAUDE_CONFIG_PATH, 'utf8');
+    const config = JSON.parse(content);
+
     const normalizedPath = normalizeProjectPathForConfig(projectPath);
-    const mcpJsonPath = join(normalizedPath, '.mcp.json');
-    
-    let removedFromMcpJson = false;
-    let removedFromClaudeJson = false;
-    
-    // Try to remove from .mcp.json first (new default)
-    if (existsSync(mcpJsonPath)) {
-      const mcpJson = safeReadJson(mcpJsonPath);
-      if (mcpJson?.mcpServers?.[serverName]) {
-        const result = removeMcpServerFromMcpJson(projectPath, serverName);
-        if (result.success) {
-          removedFromMcpJson = true;
-        }
-      }
+
+    if (!config.projects || !config.projects[normalizedPath]) {
+      return { error: `Project not found: ${normalizedPath}` };
     }
 
-    // Also try to remove from .claude.json (legacy - may coexist)
-    if (existsSync(CLAUDE_CONFIG_PATH)) {
-      const content = readFileSync(CLAUDE_CONFIG_PATH, 'utf8');
-      const config = JSON.parse(content);
+    const projectConfig = config.projects[normalizedPath];
 
-      if (config.projects && config.projects[normalizedPath]) {
-        const projectConfig = config.projects[normalizedPath];
-
-        if (projectConfig.mcpServers && projectConfig.mcpServers[serverName]) {
-          // Remove the server
-          delete projectConfig.mcpServers[serverName];
-
-          // Also remove from disabled list if present
-          if (projectConfig.disabledMcpServers) {
-            projectConfig.disabledMcpServers = projectConfig.disabledMcpServers.filter(s => s !== serverName);
-          }
-
-          // Write back to file
-          writeFileSync(CLAUDE_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
-          removedFromClaudeJson = true;
-        }
-      }
+    if (!projectConfig.mcpServers || !projectConfig.mcpServers[serverName]) {
+      return { error: `Server not found: ${serverName}` };
     }
 
-    // Return success if removed from either location
-    if (removedFromMcpJson || removedFromClaudeJson) {
-      return {
-        success: true,
-        serverName,
-        removed: true,
-        scope: removedFromMcpJson ? 'project-mcp-json' : 'project-legacy',
-        removedFrom: removedFromMcpJson && removedFromClaudeJson ? 'both' : 
-                     removedFromMcpJson ? '.mcp.json' : '.claude.json'
-      };
+    // Remove the server
+    delete projectConfig.mcpServers[serverName];
+
+    // Also remove from disabled list if present
+    if (projectConfig.disabledMcpServers) {
+      projectConfig.disabledMcpServers = projectConfig.disabledMcpServers.filter(s => s !== serverName);
     }
 
-    return { error: `Server not found: ${serverName}` };
+    // Write back to file
+    writeFileSync(CLAUDE_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+
+    return {
+      success: true,
+      serverName,
+      removed: true
+    };
   } catch (error: unknown) {
     console.error('Error removing MCP server:', error);
     return { error: (error as Error).message };
@@ -658,111 +542,6 @@ export async function handleMcpRoutes(ctx: RouteContext): Promise<boolean> {
         return { error: 'serverName is required', status: 400 };
       }
       return removeGlobalMcpServer(serverName);
-    });
-    return true;
-  }
-
-  // ========================================
-  // MCP Templates API
-  // ========================================
-
-  // API: Get all MCP templates
-  if (pathname === '/api/mcp-templates' && req.method === 'GET') {
-    const templates = McpTemplatesDb.getAllTemplates();
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, templates }));
-    return true;
-  }
-
-  // API: Save MCP template
-  if (pathname === '/api/mcp-templates' && req.method === 'POST') {
-    handlePostRequest(req, res, async (body) => {
-      const { name, description, serverConfig, tags, category } = body;
-      if (!name || !serverConfig) {
-        return { error: 'name and serverConfig are required', status: 400 };
-      }
-      return McpTemplatesDb.saveTemplate({
-        name,
-        description,
-        serverConfig,
-        tags,
-        category
-      });
-    });
-    return true;
-  }
-
-  // API: Get template by name
-  if (pathname.startsWith('/api/mcp-templates/') && req.method === 'GET') {
-    const templateName = decodeURIComponent(pathname.split('/api/mcp-templates/')[1]);
-    const template = McpTemplatesDb.getTemplateByName(templateName);
-    if (template) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, template }));
-    } else {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: 'Template not found' }));
-    }
-    return true;
-  }
-
-  // API: Delete MCP template
-  if (pathname.startsWith('/api/mcp-templates/') && req.method === 'DELETE') {
-    const templateName = decodeURIComponent(pathname.split('/api/mcp-templates/')[1]);
-    const result = McpTemplatesDb.deleteTemplate(templateName);
-    res.writeHead(result.success ? 200 : 404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(result));
-    return true;
-  }
-
-  // API: Search MCP templates
-  if (pathname === '/api/mcp-templates/search' && req.method === 'GET') {
-    const keyword = url.searchParams.get('q') || '';
-    const templates = McpTemplatesDb.searchTemplates(keyword);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, templates }));
-    return true;
-  }
-
-  // API: Get all categories
-  if (pathname === '/api/mcp-templates/categories' && req.method === 'GET') {
-    const categories = McpTemplatesDb.getAllCategories();
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, categories }));
-    return true;
-  }
-
-  // API: Get templates by category
-  if (pathname.startsWith('/api/mcp-templates/category/') && req.method === 'GET') {
-    const category = decodeURIComponent(pathname.split('/api/mcp-templates/category/')[1]);
-    const templates = McpTemplatesDb.getTemplatesByCategory(category);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, templates }));
-    return true;
-  }
-
-  // API: Install template to project or global
-  if (pathname === '/api/mcp-templates/install' && req.method === 'POST') {
-    handlePostRequest(req, res, async (body) => {
-      const { templateName, projectPath, scope } = body;
-      if (!templateName) {
-        return { error: 'templateName is required', status: 400 };
-      }
-
-      const template = McpTemplatesDb.getTemplateByName(templateName);
-      if (!template) {
-        return { error: 'Template not found', status: 404 };
-      }
-
-      // Install to global or project
-      if (scope === 'global') {
-        return addGlobalMcpServer(templateName, template.serverConfig);
-      } else {
-        if (!projectPath) {
-          return { error: 'projectPath is required for project scope', status: 400 };
-        }
-        return addMcpServerToProject(projectPath, templateName, template.serverConfig);
-      }
     });
     return true;
   }

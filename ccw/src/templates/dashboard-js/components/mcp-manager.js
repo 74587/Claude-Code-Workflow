@@ -142,6 +142,59 @@ async function removeMcpServerFromProject(serverName) {
   }
 }
 
+async function addGlobalMcpServer(serverName, serverConfig) {
+  try {
+    const response = await fetch('/api/mcp-add-global-server', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        serverName: serverName,
+        serverConfig: serverConfig
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to add global MCP server');
+
+    const result = await response.json();
+    if (result.success) {
+      await loadMcpConfig();
+      renderMcpManager();
+      showRefreshToast(`Global MCP server "${serverName}" added`, 'success');
+    }
+    return result;
+  } catch (err) {
+    console.error('Failed to add global MCP server:', err);
+    showRefreshToast(`Failed to add global MCP server: ${err.message}`, 'error');
+    return null;
+  }
+}
+
+async function removeGlobalMcpServer(serverName) {
+  try {
+    const response = await fetch('/api/mcp-remove-global-server', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        serverName: serverName
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to remove global MCP server');
+
+    const result = await response.json();
+    if (result.success) {
+      await loadMcpConfig();
+      renderMcpManager();
+      showRefreshToast(`Global MCP server "${serverName}" removed`, 'success');
+    }
+    return result;
+  } catch (err) {
+    console.error('Failed to remove global MCP server:', err);
+    showRefreshToast(`Failed to remove global MCP server: ${err.message}`, 'error');
+    return null;
+  }
+}
+
 // ========== Badge Update ==========
 function updateMcpBadge() {
   const badge = document.getElementById('badgeMcpServers');
@@ -260,8 +313,40 @@ function isServerInCurrentProject(serverName) {
   return serverName in servers;
 }
 
+// Generate install command for MCP server
+function generateMcpInstallCommand(serverName, serverConfig, scope = 'project') {
+  const command = serverConfig.command || '';
+  const args = serverConfig.args || [];
+
+  // Check if it's an npx-based package
+  if (command === 'npx' && args.length > 0) {
+    const packageName = args[0];
+    // Check if it's a scoped package or standard package
+    if (packageName.startsWith('@') || packageName.includes('/')) {
+      const scopeFlag = scope === 'global' ? ' --global' : '';
+      return `claude mcp add ${packageName}${scopeFlag}`;
+    }
+  }
+
+  // For custom servers, return JSON configuration
+  const scopeFlag = scope === 'global' ? ' --global' : '';
+  return `claude mcp add ${serverName}${scopeFlag}`;
+}
+
+// Copy install command to clipboard
+async function copyMcpInstallCommand(serverName, serverConfig, scope = 'project') {
+  try {
+    const command = generateMcpInstallCommand(serverName, serverConfig, scope);
+    await navigator.clipboard.writeText(command);
+    showRefreshToast(t('mcp.installCmdCopied'), 'success');
+  } catch (error) {
+    console.error('Failed to copy install command:', error);
+    showRefreshToast(t('mcp.installCmdFailed'), 'error');
+  }
+}
+
 // ========== MCP Create Modal ==========
-function openMcpCreateModal() {
+function openMcpCreateModal(scope = 'project') {
   const modal = document.getElementById('mcpCreateModal');
   if (modal) {
     modal.classList.remove('hidden');
@@ -276,6 +361,11 @@ function openMcpCreateModal() {
     // Clear JSON input
     document.getElementById('mcpServerJson').value = '';
     document.getElementById('mcpJsonPreview').classList.add('hidden');
+    // Set scope (global or project)
+    const scopeSelect = document.getElementById('mcpServerScope');
+    if (scopeSelect) {
+      scopeSelect.value = scope;
+    }
     // Focus on name input
     document.getElementById('mcpServerName').focus();
     // Setup JSON input listener
@@ -427,6 +517,8 @@ async function submitMcpCreateFromForm() {
   const command = document.getElementById('mcpServerCommand').value.trim();
   const argsText = document.getElementById('mcpServerArgs').value.trim();
   const envText = document.getElementById('mcpServerEnv').value.trim();
+  const scopeSelect = document.getElementById('mcpServerScope');
+  const scope = scopeSelect ? scopeSelect.value : 'project';
 
   // Validate required fields
   if (!name) {
@@ -471,7 +563,7 @@ async function submitMcpCreateFromForm() {
     serverConfig.env = env;
   }
 
-  await createMcpServerWithConfig(name, serverConfig);
+  await createMcpServerWithConfig(name, serverConfig, scope);
 }
 
 async function submitMcpCreateFromJson() {
@@ -550,18 +642,30 @@ async function submitMcpCreateFromJson() {
   }
 }
 
-async function createMcpServerWithConfig(name, serverConfig) {
+async function createMcpServerWithConfig(name, serverConfig, scope = 'project') {
   // Submit to API
   try {
-    const response = await fetch('/api/mcp-copy-server', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        projectPath: projectPath,
-        serverName: name,
-        serverConfig: serverConfig
-      })
-    });
+    let response;
+    if (scope === 'global') {
+      response = await fetch('/api/mcp-add-global-server', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serverName: name,
+          serverConfig: serverConfig
+        })
+      });
+    } else {
+      response = await fetch('/api/mcp-copy-server', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectPath: projectPath,
+          serverName: name,
+          serverConfig: serverConfig
+        })
+      });
+    }
 
     if (!response.ok) throw new Error('Failed to create MCP server');
 
@@ -570,7 +674,8 @@ async function createMcpServerWithConfig(name, serverConfig) {
       closeMcpCreateModal();
       await loadMcpConfig();
       renderMcpManager();
-      showRefreshToast(`MCP server "${name}" created successfully`, 'success');
+      const scopeLabel = scope === 'global' ? 'global' : 'project';
+      showRefreshToast(`MCP server "${name}" created in ${scopeLabel} scope`, 'success');
     } else {
       showRefreshToast(result.error || 'Failed to create MCP server', 'error');
     }

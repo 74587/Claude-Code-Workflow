@@ -214,3 +214,113 @@
   border-color: hsl(var(--primary));
   box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2);
 }
+
+/* ==========================================
+   CREATE MODAL STYLES (Skills & Rules)
+   ========================================== */
+
+/* Modal Overlay */
+.modal-overlay {
+  animation: fadeIn 0.15s ease-out;
+  backdrop-filter: blur(2px);
+}
+
+/* Modal Dialog */
+.modal-dialog {
+  animation: slideUpModal 0.2s ease-out;
+}
+
+@keyframes slideUpModal {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Location Selection Buttons */
+.location-btn {
+  cursor: pointer;
+}
+
+.location-btn:active {
+  transform: scale(0.98);
+}
+
+/* Validation Result Animations */
+#skillValidationResult > div,
+#ruleValidationResult > div {
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Path Input List Animations */
+#rulePathsList > div {
+  animation: slideDown 0.15s ease-out;
+}
+
+/* Form Input Focus States */
+.modal-dialog input:focus,
+.modal-dialog textarea:focus,
+.modal-dialog select:focus {
+  outline: none;
+  border-color: hsl(var(--primary));
+  ring: 2px;
+  ring-color: hsl(var(--primary) / 0.2);
+}
+
+/* Checkbox Custom Styling */
+.modal-dialog input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: hsl(var(--primary));
+}
+
+/* Textarea Specific */
+.modal-dialog textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* Button Hover States */
+.modal-dialog button:not(:disabled):hover {
+  opacity: 0.9;
+}
+
+.modal-dialog button:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+/* Loading Spinner in Validation */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive Modal */
+@media (max-width: 640px) {
+  .modal-dialog {
+    max-width: 95vw;
+    max-height: 95vh;
+  }
+}

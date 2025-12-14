@@ -184,6 +184,9 @@ function renderCliStatus() {
             </button>`
           : `<button class="btn-sm btn-outline flex items-center gap-1" onclick="initCodexLensIndex()">
               <i data-lucide="database" class="w-3 h-3"></i> Init Index
+            </button>
+            <button class="btn-sm btn-outline flex items-center gap-1" onclick="uninstallCodexLens()">
+              <i data-lucide="trash-2" class="w-3 h-3"></i> Uninstall
             </button>`
         }
       </div>
@@ -379,8 +382,121 @@ async function refreshAllCliStatus() {
   renderCliStatus();
 }
 
-async function installCodexLens() {
-  showRefreshToast('Installing CodexLens...', 'info');
+function installCodexLens() {
+  openCodexLensInstallWizard();
+}
+
+function openCodexLensInstallWizard() {
+  const modal = document.createElement('div');
+  modal.id = 'codexlensInstallModal';
+  modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+  modal.innerHTML = `
+    <div class="bg-card rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
+      <div class="p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+            <i data-lucide="database" class="w-5 h-5 text-primary"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold">Install CodexLens</h3>
+            <p class="text-sm text-muted-foreground">Python-based code indexing engine</p>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <div class="bg-muted/50 rounded-lg p-4">
+            <h4 class="font-medium mb-2">What will be installed:</h4>
+            <ul class="text-sm space-y-2 text-muted-foreground">
+              <li class="flex items-start gap-2">
+                <i data-lucide="check" class="w-4 h-4 text-success mt-0.5"></i>
+                <span><strong>Python virtual environment</strong> - Isolated Python environment</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <i data-lucide="check" class="w-4 h-4 text-success mt-0.5"></i>
+                <span><strong>CodexLens package</strong> - Code indexing and search engine</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <i data-lucide="check" class="w-4 h-4 text-success mt-0.5"></i>
+                <span><strong>SQLite FTS5</strong> - Full-text search database</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="bg-primary/5 border border-primary/20 rounded-lg p-3">
+            <div class="flex items-start gap-2">
+              <i data-lucide="info" class="w-4 h-4 text-primary mt-0.5"></i>
+              <div class="text-sm text-muted-foreground">
+                <p class="font-medium text-foreground">Installation Location</p>
+                <p class="mt-1"><code class="bg-muted px-1 rounded">~/.codexlens/venv</code></p>
+                <p class="mt-1">First installation may take 2-3 minutes to download and setup Python packages.</p>
+              </div>
+            </div>
+          </div>
+
+          <div id="codexlensInstallProgress" class="hidden">
+            <div class="flex items-center gap-3">
+              <div class="animate-spin w-5 h-5 border-2 border-primary border-t-transparent rounded-full"></div>
+              <span class="text-sm" id="codexlensInstallStatus">Starting installation...</span>
+            </div>
+            <div class="mt-2 h-2 bg-muted rounded-full overflow-hidden">
+              <div id="codexlensProgressBar" class="h-full bg-primary transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="border-t border-border p-4 flex justify-end gap-3 bg-muted/30">
+        <button class="btn-outline px-4 py-2" onclick="closeCodexLensInstallWizard()">Cancel</button>
+        <button id="codexlensInstallBtn" class="btn-primary px-4 py-2" onclick="startCodexLensInstall()">
+          <i data-lucide="download" class="w-4 h-4 mr-2"></i>
+          Install Now
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+}
+
+function closeCodexLensInstallWizard() {
+  const modal = document.getElementById('codexlensInstallModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+async function startCodexLensInstall() {
+  const progressDiv = document.getElementById('codexlensInstallProgress');
+  const installBtn = document.getElementById('codexlensInstallBtn');
+  const statusText = document.getElementById('codexlensInstallStatus');
+  const progressBar = document.getElementById('codexlensProgressBar');
+
+  // Show progress, disable button
+  progressDiv.classList.remove('hidden');
+  installBtn.disabled = true;
+  installBtn.innerHTML = '<span class="animate-pulse">Installing...</span>';
+
+  // Simulate progress stages
+  const stages = [
+    { progress: 10, text: 'Creating virtual environment...' },
+    { progress: 30, text: 'Installing pip packages...' },
+    { progress: 50, text: 'Installing CodexLens package...' },
+    { progress: 70, text: 'Setting up Python dependencies...' },
+    { progress: 90, text: 'Finalizing installation...' }
+  ];
+
+  let currentStage = 0;
+  const progressInterval = setInterval(() => {
+    if (currentStage < stages.length) {
+      statusText.textContent = stages[currentStage].text;
+      progressBar.style.width = `${stages[currentStage].progress}%`;
+      currentStage++;
+    }
+  }, 1500);
 
   try {
     const response = await fetch('/api/codexlens/bootstrap', {
@@ -389,40 +505,288 @@ async function installCodexLens() {
       body: JSON.stringify({})
     });
 
+    clearInterval(progressInterval);
     const result = await response.json();
+
     if (result.success) {
-      showRefreshToast('CodexLens installed successfully!', 'success');
-      await loadCodexLensStatus();
-      renderCliStatus();
+      progressBar.style.width = '100%';
+      statusText.textContent = 'Installation complete!';
+
+      setTimeout(() => {
+        closeCodexLensInstallWizard();
+        showRefreshToast('CodexLens installed successfully!', 'success');
+        loadCodexLensStatus().then(() => renderCliStatus());
+      }, 1000);
     } else {
-      showRefreshToast(`Install failed: ${result.error}`, 'error');
+      statusText.textContent = `Error: ${result.error}`;
+      progressBar.classList.add('bg-destructive');
+      installBtn.disabled = false;
+      installBtn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Retry';
+      if (window.lucide) lucide.createIcons();
     }
   } catch (err) {
-    showRefreshToast(`Install error: ${err.message}`, 'error');
+    clearInterval(progressInterval);
+    statusText.textContent = `Error: ${err.message}`;
+    progressBar.classList.add('bg-destructive');
+    installBtn.disabled = false;
+    installBtn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Retry';
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+function uninstallCodexLens() {
+  openCodexLensUninstallWizard();
+}
+
+function openCodexLensUninstallWizard() {
+  const modal = document.createElement('div');
+  modal.id = 'codexlensUninstallModal';
+  modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+  modal.innerHTML = `
+    <div class="bg-card rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
+      <div class="p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">
+            <i data-lucide="trash-2" class="w-5 h-5 text-destructive"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold">Uninstall CodexLens</h3>
+            <p class="text-sm text-muted-foreground">Remove CodexLens and all data</p>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <div class="bg-destructive/5 border border-destructive/20 rounded-lg p-4">
+            <h4 class="font-medium text-destructive mb-2">What will be removed:</h4>
+            <ul class="text-sm space-y-2 text-muted-foreground">
+              <li class="flex items-start gap-2">
+                <i data-lucide="x" class="w-4 h-4 text-destructive mt-0.5"></i>
+                <span>Virtual environment at <code class="bg-muted px-1 rounded">~/.codexlens/venv</code></span>
+              </li>
+              <li class="flex items-start gap-2">
+                <i data-lucide="x" class="w-4 h-4 text-destructive mt-0.5"></i>
+                <span>All CodexLens indexed data and databases</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <i data-lucide="x" class="w-4 h-4 text-destructive mt-0.5"></i>
+                <span>Configuration and semantic search models</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="bg-warning/10 border border-warning/20 rounded-lg p-3">
+            <div class="flex items-start gap-2">
+              <i data-lucide="alert-triangle" class="w-4 h-4 text-warning mt-0.5"></i>
+              <div class="text-sm">
+                <p class="font-medium text-warning">Warning</p>
+                <p class="text-muted-foreground">This action cannot be undone. All indexed code data will be permanently deleted.</p>
+              </div>
+            </div>
+          </div>
+
+          <div id="codexlensUninstallProgress" class="hidden">
+            <div class="flex items-center gap-3">
+              <div class="animate-spin w-5 h-5 border-2 border-destructive border-t-transparent rounded-full"></div>
+              <span class="text-sm" id="codexlensUninstallStatus">Removing files...</span>
+            </div>
+            <div class="mt-2 h-2 bg-muted rounded-full overflow-hidden">
+              <div id="codexlensUninstallProgressBar" class="h-full bg-destructive transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="border-t border-border p-4 flex justify-end gap-3 bg-muted/30">
+        <button class="btn-outline px-4 py-2" onclick="closeCodexLensUninstallWizard()">Cancel</button>
+        <button id="codexlensUninstallBtn" class="btn-destructive px-4 py-2" onclick="startCodexLensUninstall()">
+          <i data-lucide="trash-2" class="w-4 h-4 mr-2"></i>
+          Uninstall
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+}
+
+function closeCodexLensUninstallWizard() {
+  const modal = document.getElementById('codexlensUninstallModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+async function startCodexLensUninstall() {
+  const progressDiv = document.getElementById('codexlensUninstallProgress');
+  const uninstallBtn = document.getElementById('codexlensUninstallBtn');
+  const statusText = document.getElementById('codexlensUninstallStatus');
+  const progressBar = document.getElementById('codexlensUninstallProgressBar');
+
+  // Show progress, disable button
+  progressDiv.classList.remove('hidden');
+  uninstallBtn.disabled = true;
+  uninstallBtn.innerHTML = '<span class="animate-pulse">Uninstalling...</span>';
+
+  // Simulate progress stages
+  const stages = [
+    { progress: 25, text: 'Removing virtual environment...' },
+    { progress: 50, text: 'Deleting indexed data...' },
+    { progress: 75, text: 'Cleaning up configuration...' },
+    { progress: 90, text: 'Finalizing removal...' }
+  ];
+
+  let currentStage = 0;
+  const progressInterval = setInterval(() => {
+    if (currentStage < stages.length) {
+      statusText.textContent = stages[currentStage].text;
+      progressBar.style.width = `${stages[currentStage].progress}%`;
+      currentStage++;
+    }
+  }, 500);
+
+  try {
+    const response = await fetch('/api/codexlens/uninstall', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+
+    clearInterval(progressInterval);
+    const result = await response.json();
+
+    if (result.success) {
+      progressBar.style.width = '100%';
+      statusText.textContent = 'Uninstallation complete!';
+
+      setTimeout(() => {
+        closeCodexLensUninstallWizard();
+        showRefreshToast('CodexLens uninstalled successfully!', 'success');
+        loadCodexLensStatus().then(() => renderCliStatus());
+      }, 1000);
+    } else {
+      statusText.textContent = `Error: ${result.error}`;
+      progressBar.classList.remove('bg-destructive');
+      progressBar.classList.add('bg-destructive');
+      uninstallBtn.disabled = false;
+      uninstallBtn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Retry';
+      if (window.lucide) lucide.createIcons();
+    }
+  } catch (err) {
+    clearInterval(progressInterval);
+    statusText.textContent = `Error: ${err.message}`;
+    progressBar.classList.remove('bg-destructive');
+    progressBar.classList.add('bg-destructive');
+    uninstallBtn.disabled = false;
+    uninstallBtn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Retry';
+    if (window.lucide) lucide.createIcons();
   }
 }
 
 async function initCodexLensIndex() {
+  // Get current workspace path from multiple sources
+  let targetPath = null;
+
+  // Helper function to check if path is valid
+  const isValidPath = (path) => {
+    return path && typeof path === 'string' && path.length > 0 &&
+           (path.includes('/') || path.includes('\\')) &&
+           !path.startsWith('{{') && !path.endsWith('}}');
+  };
+
+  console.log('[CodexLens] Attempting to get project path...');
+
+  // Try 1: Global projectPath variable
+  if (isValidPath(projectPath)) {
+    targetPath = projectPath;
+    console.log('[CodexLens] ✓ Using global projectPath:', targetPath);
+  }
+
+  // Try 2: Get from workflowData
+  if (!targetPath && typeof workflowData !== 'undefined' && workflowData && isValidPath(workflowData.projectPath)) {
+    targetPath = workflowData.projectPath;
+    console.log('[CodexLens] ✓ Using workflowData.projectPath:', targetPath);
+  }
+
+  // Try 3: Get from current path display element
+  if (!targetPath) {
+    const currentPathEl = document.getElementById('currentPath');
+    if (currentPathEl && currentPathEl.textContent) {
+      const pathText = currentPathEl.textContent.trim();
+      if (isValidPath(pathText)) {
+        targetPath = pathText;
+        console.log('[CodexLens] ✓ Using currentPath element text:', targetPath);
+      }
+    }
+  }
+
+  // Final validation
+  if (!targetPath) {
+    showRefreshToast('Error: No workspace loaded. Please open a workspace first.', 'error');
+    console.error('[CodexLens] No valid project path available');
+    console.error('[CodexLens] Attempted sources: projectPath:', projectPath, 'workflowData:', workflowData);
+    return;
+  }
+
   showRefreshToast('Initializing CodexLens index...', 'info');
+  console.log('[CodexLens] Initializing index for path:', targetPath);
 
   try {
     const response = await fetch('/api/codexlens/init', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: projectPath })
+      body: JSON.stringify({ path: targetPath })
     });
 
     const result = await response.json();
+    console.log('[CodexLens] Init result:', result);
+
     if (result.success) {
-      const data = result.result?.result || result.result || result;
+      let data = null;
+
+      // Try to parse nested JSON in output field
+      if (result.output && typeof result.output === 'string') {
+        try {
+          // Extract JSON from output (it may contain other text before the JSON)
+          const jsonMatch = result.output.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            data = parsed.result || parsed;
+            console.log('[CodexLens] Parsed from output:', data);
+          }
+        } catch (e) {
+          console.warn('[CodexLens] Failed to parse output as JSON:', e);
+        }
+      }
+
+      // Fallback to direct result field
+      if (!data) {
+        data = result.result?.result || result.result || result;
+      }
+
       const files = data.files_indexed || 0;
+      const dirs = data.dirs_indexed || 0;
       const symbols = data.symbols_indexed || 0;
-      showRefreshToast(`Index created: ${files} files, ${symbols} symbols`, 'success');
+
+      console.log('[CodexLens] Parsed data:', { files, dirs, symbols });
+
+      if (files === 0 && dirs === 0) {
+        showRefreshToast(`Warning: No files indexed. Path: ${targetPath}`, 'warning');
+        console.warn('[CodexLens] No files indexed. Full data:', data);
+      } else {
+        showRefreshToast(`Index created: ${files} files, ${dirs} directories`, 'success');
+        console.log('[CodexLens] Index created successfully');
+      }
     } else {
       showRefreshToast(`Init failed: ${result.error}`, 'error');
+      console.error('[CodexLens] Init error:', result.error);
     }
   } catch (err) {
     showRefreshToast(`Init error: ${err.message}`, 'error');
+    console.error('[CodexLens] Exception:', err);
   }
 }
 
@@ -591,7 +955,7 @@ function openSemanticSettingsModal() {
       tool.charAt(0).toUpperCase() + tool.slice(1) + '</option>';
   }).join('');
 
-  const fallbackOptions = '<option value="">None</option>' + availableTools.map(function(tool) {
+  const fallbackOptions = '<option value="">' + t('semantic.none') + '</option>' + availableTools.map(function(tool) {
     return '<option value="' + tool + '"' + (llmEnhancementSettings.fallbackTool === tool ? ' selected' : '') + '>' +
       tool.charAt(0).toUpperCase() + tool.slice(1) + '</option>';
   }).join('');
@@ -607,16 +971,16 @@ function openSemanticSettingsModal() {
             '<i data-lucide="sparkles" class="w-5 h-5 text-primary"></i>' +
           '</div>' +
           '<div>' +
-            '<h3 class="text-lg font-semibold">Semantic Search Settings</h3>' +
-            '<p class="text-sm text-muted-foreground">Configure LLM enhancement for semantic indexing</p>' +
+            '<h3 class="text-lg font-semibold">' + t('semantic.settings') + '</h3>' +
+            '<p class="text-sm text-muted-foreground">' + t('semantic.configDesc') + '</p>' +
           '</div>' +
         '</div>' +
         '<div class="space-y-4">' +
           '<div class="flex items-center justify-between p-4 bg-muted/50 rounded-lg">' +
             '<div>' +
               '<h4 class="font-medium flex items-center gap-2">' +
-                '<i data-lucide="brain" class="w-4 h-4"></i>LLM Enhancement</h4>' +
-              '<p class="text-sm text-muted-foreground mt-1">Use LLM to generate code summaries for better semantic search</p>' +
+                '<i data-lucide="brain" class="w-4 h-4"></i>' + t('semantic.llmEnhancement') + '</h4>' +
+              '<p class="text-sm text-muted-foreground mt-1">' + t('semantic.llmDesc') + '</p>' +
             '</div>' +
             '<label class="cli-toggle">' +
               '<input type="checkbox" id="llmEnhancementToggle" ' + (llmEnhancementSettings.enabled ? 'checked' : '') +
@@ -628,29 +992,29 @@ function openSemanticSettingsModal() {
             '<div class="grid grid-cols-2 gap-4">' +
               '<div>' +
                 '<label class="block text-sm font-medium mb-2">' +
-                  '<i data-lucide="cpu" class="w-3 h-3 inline mr-1"></i>Primary LLM Tool</label>' +
+                  '<i data-lucide="cpu" class="w-3 h-3 inline mr-1"></i>' + t('semantic.primaryTool') + '</label>' +
                 '<select class="cli-setting-select w-full" id="llmToolSelect" onchange="updateLlmTool(this.value)" ' + disabled + '>' + toolOptions + '</select>' +
               '</div>' +
               '<div>' +
                 '<label class="block text-sm font-medium mb-2">' +
-                  '<i data-lucide="refresh-cw" class="w-3 h-3 inline mr-1"></i>Fallback Tool</label>' +
+                  '<i data-lucide="refresh-cw" class="w-3 h-3 inline mr-1"></i>' + t('semantic.fallbackTool') + '</label>' +
                 '<select class="cli-setting-select w-full" id="llmFallbackSelect" onchange="updateLlmFallback(this.value)" ' + disabled + '>' + fallbackOptions + '</select>' +
               '</div>' +
             '</div>' +
             '<div class="grid grid-cols-2 gap-4">' +
               '<div>' +
                 '<label class="block text-sm font-medium mb-2">' +
-                  '<i data-lucide="layers" class="w-3 h-3 inline mr-1"></i>Batch Size</label>' +
+                  '<i data-lucide="layers" class="w-3 h-3 inline mr-1"></i>' + t('semantic.batchSize') + '</label>' +
                 '<select class="cli-setting-select w-full" id="llmBatchSelect" onchange="updateLlmBatchSize(this.value)" ' + disabled + '>' +
-                  '<option value="1"' + (llmEnhancementSettings.batchSize === 1 ? ' selected' : '') + '>1 file</option>' +
-                  '<option value="3"' + (llmEnhancementSettings.batchSize === 3 ? ' selected' : '') + '>3 files</option>' +
-                  '<option value="5"' + (llmEnhancementSettings.batchSize === 5 ? ' selected' : '') + '>5 files</option>' +
-                  '<option value="10"' + (llmEnhancementSettings.batchSize === 10 ? ' selected' : '') + '>10 files</option>' +
+                  '<option value="1"' + (llmEnhancementSettings.batchSize === 1 ? ' selected' : '') + '>1 ' + t('semantic.file') + '</option>' +
+                  '<option value="3"' + (llmEnhancementSettings.batchSize === 3 ? ' selected' : '') + '>3 ' + t('semantic.files') + '</option>' +
+                  '<option value="5"' + (llmEnhancementSettings.batchSize === 5 ? ' selected' : '') + '>5 ' + t('semantic.files') + '</option>' +
+                  '<option value="10"' + (llmEnhancementSettings.batchSize === 10 ? ' selected' : '') + '>10 ' + t('semantic.files') + '</option>' +
                 '</select>' +
               '</div>' +
               '<div>' +
                 '<label class="block text-sm font-medium mb-2">' +
-                  '<i data-lucide="clock" class="w-3 h-3 inline mr-1"></i>Timeout</label>' +
+                  '<i data-lucide="clock" class="w-3 h-3 inline mr-1"></i>' + t('semantic.timeout') + '</label>' +
                 '<select class="cli-setting-select w-full" id="llmTimeoutSelect" onchange="updateLlmTimeout(this.value)" ' + disabled + '>' +
                   '<option value="60000"' + (llmEnhancementSettings.timeoutMs === 60000 ? ' selected' : '') + '>1 min</option>' +
                   '<option value="180000"' + (llmEnhancementSettings.timeoutMs === 180000 ? ' selected' : '') + '>3 min</option>' +
@@ -664,25 +1028,109 @@ function openSemanticSettingsModal() {
             '<div class="flex items-start gap-2">' +
               '<i data-lucide="info" class="w-4 h-4 text-primary mt-0.5"></i>' +
               '<div class="text-sm text-muted-foreground">' +
-                '<p>LLM enhancement generates code summaries and keywords for each file, improving semantic search accuracy.</p>' +
-                '<p class="mt-1">Run <code class="bg-muted px-1 rounded">codex-lens enhance</code> after enabling to process existing files.</p>' +
+                '<p>' + t('semantic.enhanceInfo') + '</p>' +
+                '<p class="mt-1">' + t('semantic.enhanceCommand') + ' <code class="bg-muted px-1 rounded">codex-lens enhance</code> ' + t('semantic.enhanceAfterEnable') + '</p>' +
               '</div>' +
             '</div>' +
           '</div>' +
           '<div class="flex gap-2 pt-2">' +
             '<button class="btn-sm btn-outline flex items-center gap-1 flex-1" onclick="runEnhanceCommand()" ' + disabled + '>' +
-              '<i data-lucide="zap" class="w-3 h-3"></i>Run Enhance Now</button>' +
+              '<i data-lucide="zap" class="w-3 h-3"></i>' + t('semantic.runEnhanceNow') + '</button>' +
             '<button class="btn-sm btn-outline flex items-center gap-1 flex-1" onclick="viewEnhanceStatus()">' +
-              '<i data-lucide="bar-chart-2" class="w-3 h-3"></i>View Status</button>' +
+              '<i data-lucide="bar-chart-2" class="w-3 h-3"></i>' + t('semantic.viewStatus') + '</button>' +
+          '</div>' +
+          '<div class="border-t border-border my-4"></div>' +
+          '<div>' +
+            '<h4 class="font-medium mb-3 flex items-center gap-2">' +
+              '<i data-lucide="search" class="w-4 h-4"></i>' + t('semantic.testSearch') + '</h4>' +
+            '<div class="space-y-3">' +
+              '<div>' +
+                '<input type="text" id="semanticSearchInput" class="tool-config-input w-full" ' +
+                  'placeholder="' + t('semantic.searchPlaceholder') + '" />' +
+              '</div>' +
+              '<div>' +
+                '<button class="btn-sm btn-primary w-full" id="runSemanticSearchBtn">' +
+                  '<i data-lucide="search" class="w-3 h-3"></i> ' + t('semantic.runSearch') +
+                '</button>' +
+              '</div>' +
+              '<div id="semanticSearchResults" class="hidden">' +
+                '<div class="bg-muted/30 rounded-lg p-3 max-h-64 overflow-y-auto">' +
+                  '<div class="flex items-center justify-between mb-2">' +
+                    '<p class="text-sm font-medium">' + t('codexlens.results') + ':</p>' +
+                    '<span id="semanticResultCount" class="text-xs text-muted-foreground"></span>' +
+                  '</div>' +
+                  '<pre id="semanticResultContent" class="text-xs font-mono whitespace-pre-wrap break-all"></pre>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
           '</div>' +
         '</div>' +
       '</div>' +
       '<div class="border-t border-border p-4 flex justify-end gap-3 bg-muted/30">' +
-        '<button class="btn-outline px-4 py-2" onclick="closeSemanticSettingsModal()">Close</button>' +
+        '<button class="btn-outline px-4 py-2" onclick="closeSemanticSettingsModal()">' + t('semantic.close') + '</button>' +
       '</div>' +
     '</div>';
 
   document.body.appendChild(modal);
+
+  // Add semantic search button handler
+  setTimeout(function() {
+    var runSemanticSearchBtn = document.getElementById('runSemanticSearchBtn');
+    if (runSemanticSearchBtn) {
+      runSemanticSearchBtn.onclick = async function() {
+        var query = document.getElementById('semanticSearchInput').value.trim();
+        var resultsDiv = document.getElementById('semanticSearchResults');
+        var resultCount = document.getElementById('semanticResultCount');
+        var resultContent = document.getElementById('semanticResultContent');
+
+        if (!query) {
+          showRefreshToast(t('codexlens.enterQuery'), 'warning');
+          return;
+        }
+
+        runSemanticSearchBtn.disabled = true;
+        runSemanticSearchBtn.innerHTML = '<span class="animate-pulse">' + t('codexlens.searching') + '</span>';
+        resultsDiv.classList.add('hidden');
+
+        try {
+          var params = new URLSearchParams({
+            query: query,
+            mode: 'semantic',
+            limit: '10'
+          });
+
+          var response = await fetch('/api/codexlens/search?' + params.toString());
+          var result = await response.json();
+
+          console.log('[Semantic Search Test] Result:', result);
+
+          if (result.success) {
+            var results = result.results || [];
+            resultCount.textContent = results.length + ' ' + t('codexlens.resultsCount');
+            resultContent.textContent = JSON.stringify(results, null, 2);
+            resultsDiv.classList.remove('hidden');
+            showRefreshToast(t('codexlens.searchCompleted') + ': ' + results.length + ' ' + t('codexlens.resultsCount'), 'success');
+          } else {
+            resultContent.textContent = t('common.error') + ': ' + (result.error || t('common.unknownError'));
+            resultsDiv.classList.remove('hidden');
+            showRefreshToast(t('codexlens.searchFailed') + ': ' + result.error, 'error');
+          }
+
+          runSemanticSearchBtn.disabled = false;
+          runSemanticSearchBtn.innerHTML = '<i data-lucide="search" class="w-3 h-3"></i> ' + t('semantic.runSearch');
+          if (window.lucide) lucide.createIcons();
+        } catch (err) {
+          console.error('[Semantic Search Test] Error:', err);
+          resultContent.textContent = t('common.exception') + ': ' + err.message;
+          resultsDiv.classList.remove('hidden');
+          showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+          runSemanticSearchBtn.disabled = false;
+          runSemanticSearchBtn.innerHTML = '<i data-lucide="search" class="w-3 h-3"></i> ' + t('semantic.runSearch');
+          if (window.lucide) lucide.createIcons();
+        }
+      };
+    }
+  }, 100);
 
   var handleEscape = function(e) {
     if (e.key === 'Escape') {
@@ -713,37 +1161,37 @@ function toggleLlmEnhancement(enabled) {
   }
 
   renderCliStatus();
-  showRefreshToast('LLM Enhancement ' + (enabled ? 'enabled' : 'disabled'), 'success');
+  showRefreshToast(t('semantic.llmEnhancement') + ' ' + (enabled ? t('semantic.enabled') : t('semantic.disabled')), 'success');
 }
 
 function updateLlmTool(tool) {
   llmEnhancementSettings.tool = tool;
   localStorage.setItem('ccw-llm-enhancement-tool', tool);
-  showRefreshToast('Primary LLM tool set to ' + tool, 'success');
+  showRefreshToast(t('semantic.toolSetTo') + ' ' + tool, 'success');
 }
 
 function updateLlmFallback(tool) {
   llmEnhancementSettings.fallbackTool = tool;
   localStorage.setItem('ccw-llm-enhancement-fallback', tool);
-  showRefreshToast('Fallback tool set to ' + (tool || 'none'), 'success');
+  showRefreshToast(t('semantic.fallbackSetTo') + ' ' + (tool || t('semantic.none')), 'success');
 }
 
 function updateLlmBatchSize(size) {
   llmEnhancementSettings.batchSize = parseInt(size, 10);
   localStorage.setItem('ccw-llm-enhancement-batch-size', size);
-  showRefreshToast('Batch size set to ' + size + ' files', 'success');
+  showRefreshToast(t('semantic.batchSetTo') + ' ' + size + ' ' + t('semantic.files'), 'success');
 }
 
 function updateLlmTimeout(ms) {
   llmEnhancementSettings.timeoutMs = parseInt(ms, 10);
   localStorage.setItem('ccw-llm-enhancement-timeout', ms);
   var mins = parseInt(ms, 10) / 60000;
-  showRefreshToast('Timeout set to ' + mins + ' minute' + (mins > 1 ? 's' : ''), 'success');
+  showRefreshToast(t('semantic.timeoutSetTo') + ' ' + mins + ' ' + (mins > 1 ? t('semantic.minutes') : t('semantic.minute')), 'success');
 }
 
 async function runEnhanceCommand() {
   if (!llmEnhancementSettings.enabled) {
-    showRefreshToast('Please enable LLM Enhancement first', 'warning');
+    showRefreshToast(t('semantic.enableFirst'), 'warning');
     return;
   }
 

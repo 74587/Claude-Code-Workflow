@@ -214,13 +214,13 @@ function handleNotification(data) {
       if (typeof handleMemoryUpdated === 'function') {
         handleMemoryUpdated(payload);
       }
-      // Force refresh of memory view if active
-      if (getCurrentView && getCurrentView() === 'memory') {
-        if (typeof loadMemoryStats === 'function') {
-          loadMemoryStats().then(function() {
-            if (typeof renderHotspotsColumn === 'function') renderHotspotsColumn();
-          });
-        }
+      // Force refresh of memory view
+      if (typeof loadMemoryStats === 'function') {
+        loadMemoryStats().then(function() {
+          if (typeof renderHotspotsColumn === 'function') renderHotspotsColumn();
+        }).catch(function(err) {
+          console.error('[Memory] Failed to refresh stats:', err);
+        });
       }
       break;
 
@@ -254,13 +254,140 @@ function handleNotification(data) {
           'Memory'
         );
       }
-      // Refresh Active Memory status if on memory view
-      if (getCurrentView && getCurrentView() === 'memory') {
-        if (typeof loadActiveMemoryStatus === 'function') {
-          loadActiveMemoryStatus();
-        }
+      // Refresh Active Memory status
+      if (typeof loadActiveMemoryStatus === 'function') {
+        loadActiveMemoryStatus().catch(function(err) {
+          console.error('[Active Memory] Failed to refresh status:', err);
+        });
       }
       console.log('[Active Memory] Sync completed:', payload);
+      break;
+
+    case 'CLAUDE_FILE_SYNCED':
+      // Handle CLAUDE.md file sync completion
+      if (typeof addGlobalNotification === 'function') {
+        const { path, level, tool, mode } = payload;
+        const fileName = path.split(/[/\\]/).pop();
+        addGlobalNotification(
+          'success',
+          `${fileName} synced`,
+          {
+            'Level': level,
+            'Tool': tool,
+            'Mode': mode,
+            'Time': new Date(payload.timestamp).toLocaleTimeString()
+          },
+          'CLAUDE.md'
+        );
+      }
+      // Refresh file list
+      if (typeof loadClaudeFiles === 'function') {
+        loadClaudeFiles().then(() => {
+          // Re-render the view to show updated content
+          if (typeof renderClaudeManager === 'function') {
+            renderClaudeManager();
+          }
+        }).catch(err => console.error('[CLAUDE.md] Failed to refresh files:', err));
+      }
+      console.log('[CLAUDE.md] Sync completed:', payload);
+      break;
+
+    case 'CLI_TOOL_INSTALLED':
+      // Handle CLI tool installation completion
+      if (typeof addGlobalNotification === 'function') {
+        const { tool } = payload;
+        addGlobalNotification(
+          'success',
+          `${tool} installed successfully`,
+          {
+            'Tool': tool,
+            'Time': new Date(payload.timestamp).toLocaleTimeString()
+          },
+          'CLI Tools'
+        );
+      }
+      // Refresh CLI manager
+      if (typeof loadCliToolStatus === 'function') {
+        loadCliToolStatus().then(() => {
+          if (typeof renderToolsSection === 'function') {
+            renderToolsSection();
+          }
+        }).catch(err => console.error('[CLI Tools] Failed to refresh status:', err));
+      }
+      console.log('[CLI Tools] Installation completed:', payload);
+      break;
+
+    case 'CLI_TOOL_UNINSTALLED':
+      // Handle CLI tool uninstallation completion
+      if (typeof addGlobalNotification === 'function') {
+        const { tool } = payload;
+        addGlobalNotification(
+          'success',
+          `${tool} uninstalled successfully`,
+          {
+            'Tool': tool,
+            'Time': new Date(payload.timestamp).toLocaleTimeString()
+          },
+          'CLI Tools'
+        );
+      }
+      // Refresh CLI manager
+      if (typeof loadCliToolStatus === 'function') {
+        loadCliToolStatus().then(() => {
+          if (typeof renderToolsSection === 'function') {
+            renderToolsSection();
+          }
+        }).catch(err => console.error('[CLI Tools] Failed to refresh status:', err));
+      }
+      console.log('[CLI Tools] Uninstallation completed:', payload);
+      break;
+
+    case 'CODEXLENS_INSTALLED':
+      // Handle CodexLens installation completion
+      if (typeof addGlobalNotification === 'function') {
+        const { version } = payload;
+        addGlobalNotification(
+          'success',
+          `CodexLens installed successfully`,
+          {
+            'Version': version || 'latest',
+            'Time': new Date(payload.timestamp).toLocaleTimeString()
+          },
+          'CodexLens'
+        );
+      }
+      // Refresh CLI status if active
+      if (typeof loadCodexLensStatus === 'function') {
+        loadCodexLensStatus().then(() => {
+          if (typeof renderCliStatus === 'function') {
+            renderCliStatus();
+          }
+        });
+      }
+      console.log('[CodexLens] Installation completed:', payload);
+      break;
+
+    case 'CODEXLENS_UNINSTALLED':
+      // Handle CodexLens uninstallation completion
+      if (typeof addGlobalNotification === 'function') {
+        addGlobalNotification(
+          'success',
+          `CodexLens uninstalled successfully`,
+          {
+            'Time': new Date(payload.timestamp).toLocaleTimeString()
+          },
+          'CodexLens'
+        );
+      }
+      // Refresh CLI status if active
+      if (typeof loadCodexLensStatus === 'function') {
+        loadCodexLensStatus().then(() => {
+          if (typeof renderCliStatus === 'function') {
+            renderCliStatus();
+          }
+        });
+      }
+      console.log('[CodexLens] Uninstallation completed:', payload);
       break;
 
     default:

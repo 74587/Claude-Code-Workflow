@@ -7,6 +7,7 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import { readFileSync, existsSync, readdirSync, statSync, unlinkSync, promises as fsPromises } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { executeCliTool } from '../../tools/cli-executor.js';
 
 export interface RouteContext {
   pathname: string;
@@ -252,6 +253,250 @@ function deleteSkill(skillName, location, projectPath) {
   }
 }
 
+/**
+ * Validate skill folder structure
+ * @param {string} folderPath - Path to skill folder
+ * @returns {Object} Validation result with skill info
+ */
+function validateSkillFolder(folderPath) {
+  const errors = [];
+
+  // Check if folder exists
+  if (!existsSync(folderPath)) {
+    return { valid: false, errors: ['Folder does not exist'], skillInfo: null };
+  }
+
+  // Check if it's a directory
+  try {
+    const stat = statSync(folderPath);
+    if (!stat.isDirectory()) {
+      return { valid: false, errors: ['Path is not a directory'], skillInfo: null };
+    }
+  } catch (e) {
+    return { valid: false, errors: ['Cannot access folder'], skillInfo: null };
+  }
+
+  // Check SKILL.md exists
+  const skillMdPath = join(folderPath, 'SKILL.md');
+  if (!existsSync(skillMdPath)) {
+    errors.push('SKILL.md file not found');
+    return { valid: false, errors, skillInfo: null };
+  }
+
+  // Parse and validate frontmatter
+  try {
+    const content = readFileSync(skillMdPath, 'utf8');
+    const parsed = parseSkillFrontmatter(content);
+
+    if (!parsed.name) {
+      errors.push('name field is required in frontmatter');
+    }
+    if (!parsed.description) {
+      errors.push('description field is required in frontmatter');
+    }
+
+    // Get supporting files
+    const supportingFiles = getSupportingFiles(folderPath);
+
+    // If validation passed
+    if (errors.length === 0) {
+      return {
+        valid: true,
+        errors: [],
+        skillInfo: {
+          name: parsed.name,
+          description: parsed.description,
+          version: parsed.version,
+          allowedTools: parsed.allowedTools,
+          supportingFiles
+        }
+      };
+    } else {
+      return { valid: false, errors, skillInfo: null };
+    }
+  } catch (error) {
+    return { valid: false, errors: ['Failed to parse SKILL.md: ' + (error as Error).message], skillInfo: null };
+  }
+}
+
+/**
+ * Recursively copy directory
+ * @param {string} source - Source directory path
+ * @param {string} target - Target directory path
+ */
+async function copyDirectoryRecursive(source, target) {
+  await fsPromises.mkdir(target, { recursive: true });
+
+  const entries = await fsPromises.readdir(source, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const sourcePath = join(source, entry.name);
+    const targetPath = join(target, entry.name);
+
+    if (entry.isDirectory()) {
+      await copyDirectoryRecursive(sourcePath, targetPath);
+    } else {
+      await fsPromises.copyFile(sourcePath, targetPath);
+    }
+  }
+}
+
+/**
+ * Import skill from folder
+ * @param {string} sourcePath - Source skill folder path
+ * @param {string} location - 'project' or 'user'
+ * @param {string} projectPath - Project root path
+ * @param {string} customName - Optional custom name for skill
+ * @returns {Object}
+ */
+async function importSkill(sourcePath, location, projectPath, customName) {
+  try {
+    // Validate source folder
+    const validation = validateSkillFolder(sourcePath);
+    if (!validation.valid) {
+      return { error: validation.errors.join(', ') };
+    }
+
+    const baseDir = location === 'project'
+      ? join(projectPath, '.claude', 'skills')
+      : join(homedir(), '.claude', 'skills');
+
+    // Ensure base directory exists
+    if (!existsSync(baseDir)) {
+      await fsPromises.mkdir(baseDir, { recursive: true });
+    }
+
+    // Determine target folder name
+    const skillName = customName || validation.skillInfo.name;
+    const targetPath = join(baseDir, skillName);
+
+    // Check if already exists
+    if (existsSync(targetPath)) {
+      return { error: `Skill '${skillName}' already exists in ${location} location` };
+    }
+
+    // Copy entire folder recursively
+    await copyDirectoryRecursive(sourcePath, targetPath);
+
+    return {
+      success: true,
+      skillName,
+      location,
+      path: targetPath
+    };
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+}
+
+/**
+ * Generate skill via CLI tool (Gemini)
+ * @param {Object} params - Generation parameters
+ * @param {string} params.generationType - 'description' or 'template'
+ * @param {string} params.description - Skill description from user
+ * @param {string} params.skillName - Name for the skill
+ * @param {string} params.location - 'project' or 'user'
+ * @param {string} params.projectPath - Project root path
+ * @returns {Object}
+ */
+async function generateSkillViaCLI({ generationType, description, skillName, location, projectPath }) {
+  try {
+    // Validate inputs
+    if (!skillName) {
+      return { error: 'Skill name is required' };
+    }
+    if (generationType === 'description' && !description) {
+      return { error: 'Description is required for description-based generation' };
+    }
+
+    // Determine target directory
+    const baseDir = location === 'project'
+      ? join(projectPath, '.claude', 'skills')
+      : join(homedir(), '.claude', 'skills');
+
+    const targetPath = join(baseDir, skillName);
+
+    // Check if already exists
+    if (existsSync(targetPath)) {
+      return { error: `Skill '${skillName}' already exists in ${location} location` };
+    }
+
+    // Ensure base directory exists
+    if (!existsSync(baseDir)) {
+      await fsPromises.mkdir(baseDir, { recursive: true });
+    }
+
+    // Build CLI prompt
+    const targetLocationDisplay = location === 'project'
+      ? '.claude/skills/'
+      : '~/.claude/skills/';
+
+    const prompt = `PURPOSE: Generate a complete Claude Code skill from description
+TASK: • Parse skill requirements • Create SKILL.md with proper frontmatter (name, description, version, allowed-tools) • Generate supporting files if needed in skill folder
+MODE: write
+CONTEXT: @**/*
+EXPECTED: Complete skill folder structure with SKILL.md and all necessary files
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-rigorous-style.txt) | Follow Claude Code skill format | Include name, description in frontmatter | write=CREATE
+
+SKILL DESCRIPTION:
+${description || 'Generate a basic skill template'}
+
+SKILL NAME: ${skillName}
+TARGET LOCATION: ${targetLocationDisplay}
+TARGET PATH: ${targetPath}
+
+REQUIREMENTS:
+1. Create SKILL.md with frontmatter containing:
+   - name: "${skillName}"
+   - description: Brief description of the skill
+   - version: "1.0.0"
+   - allowed-tools: List of tools this skill can use (e.g., [Read, Write, Edit, Bash])
+2. Add skill content below frontmatter explaining what the skill does and how to use it
+3. If the skill requires supporting files (e.g., templates, scripts), create them in the skill folder
+4. Ensure all files are properly formatted and follow best practices`;
+
+    // Execute CLI tool (Gemini) with write mode
+    const result = await executeCliTool({
+      tool: 'gemini',
+      prompt,
+      mode: 'write',
+      cd: baseDir,
+      timeout: 600000, // 10 minutes
+      category: 'internal'
+    });
+
+    // Check if execution was successful
+    if (!result.success) {
+      return {
+        error: `CLI generation failed: ${result.stderr || 'Unknown error'}`,
+        stdout: result.stdout,
+        stderr: result.stderr
+      };
+    }
+
+    // Validate the generated skill
+    const validation = validateSkillFolder(targetPath);
+    if (!validation.valid) {
+      return {
+        error: `Generated skill is invalid: ${validation.errors.join(', ')}`,
+        stdout: result.stdout,
+        stderr: result.stderr
+      };
+    }
+
+    return {
+      success: true,
+      skillName: validation.skillInfo.name,
+      location,
+      path: targetPath,
+      stdout: result.stdout,
+      stderr: result.stderr
+    };
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+}
+
 // ========== Skills API Routes ==========
 
 /**
@@ -292,6 +537,60 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
     handlePostRequest(req, res, async (body) => {
       const { location, projectPath: projectPathParam } = body;
       return deleteSkill(skillName, location, projectPathParam || initialPath);
+    });
+    return true;
+  }
+
+  // API: Validate skill import
+  if (pathname === '/api/skills/validate-import' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { sourcePath } = body;
+      if (!sourcePath) {
+        return { valid: false, errors: ['Source path is required'], skillInfo: null };
+      }
+      return validateSkillFolder(sourcePath);
+    });
+    return true;
+  }
+
+  // API: Create/Import skill
+  if (pathname === '/api/skills/create' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { mode, location, sourcePath, skillName, description, generationType, projectPath: projectPathParam } = body;
+
+      if (!mode) {
+        return { error: 'Mode is required (import or cli-generate)' };
+      }
+
+      if (!location) {
+        return { error: 'Location is required (project or user)' };
+      }
+
+      const projectPath = projectPathParam || initialPath;
+
+      if (mode === 'import') {
+        // Import mode: copy existing skill folder
+        if (!sourcePath) {
+          return { error: 'Source path is required for import mode' };
+        }
+
+        return await importSkill(sourcePath, location, projectPath, skillName);
+      } else if (mode === 'cli-generate') {
+        // CLI generate mode: use Gemini to generate skill
+        if (!skillName) {
+          return { error: 'Skill name is required for CLI generation mode' };
+        }
+
+        return await generateSkillViaCLI({
+          generationType: generationType || 'description',
+          description,
+          skillName,
+          location,
+          projectPath
+        });
+      } else {
+        return { error: 'Invalid mode. Must be "import" or "cli-generate"' };
+      }
     });
     return true;
   }
