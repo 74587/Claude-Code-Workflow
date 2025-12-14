@@ -194,6 +194,50 @@ function handleNotification(data) {
       }
       break;
 
+    // CLI Review Events
+    case 'CLI_REVIEW_UPDATED':
+      if (typeof handleCliReviewUpdated === 'function') {
+        handleCliReviewUpdated(payload);
+      }
+      // Also refresh CLI history to show review status
+      if (typeof refreshCliHistory === 'function') {
+        refreshCliHistory();
+      }
+      break;
+
+    // System Notify Events (from CLI commands)
+    case 'REFRESH_REQUIRED':
+      handleRefreshRequired(payload);
+      break;
+
+    case 'MEMORY_UPDATED':
+      if (typeof handleMemoryUpdated === 'function') {
+        handleMemoryUpdated(payload);
+      }
+      // Force refresh of memory view if active
+      if (getCurrentView && getCurrentView() === 'memory') {
+        if (typeof loadMemoryStats === 'function') {
+          loadMemoryStats().then(function() {
+            if (typeof renderHotspotsColumn === 'function') renderHotspotsColumn();
+          });
+        }
+      }
+      break;
+
+    case 'HISTORY_UPDATED':
+      // Refresh CLI history when updated externally
+      if (typeof refreshCliHistory === 'function') {
+        refreshCliHistory();
+      }
+      break;
+
+    case 'INSIGHT_GENERATED':
+      // Refresh insights when new insight is generated
+      if (typeof loadInsightsHistory === 'function') {
+        loadInsightsHistory();
+      }
+      break;
+
     default:
       console.log('[WS] Unknown notification type:', type);
   }
@@ -425,6 +469,60 @@ async function refreshWorkspaceData(newData) {
   }
 
   lastDataHash = calculateDataHash();
+}
+
+/**
+ * Handle REFRESH_REQUIRED events from CLI commands
+ * @param {Object} payload - Contains scope (memory|history|insights|all)
+ */
+function handleRefreshRequired(payload) {
+  const scope = payload?.scope || 'all';
+  console.log('[WS] Refresh required for scope:', scope);
+
+  switch (scope) {
+    case 'memory':
+      // Refresh memory stats and graph
+      if (typeof loadMemoryStats === 'function') {
+        loadMemoryStats().then(function() {
+          if (typeof renderHotspotsColumn === 'function') renderHotspotsColumn();
+        });
+      }
+      if (typeof loadMemoryGraph === 'function') {
+        loadMemoryGraph();
+      }
+      break;
+
+    case 'history':
+      // Refresh CLI history
+      if (typeof refreshCliHistory === 'function') {
+        refreshCliHistory();
+      }
+      break;
+
+    case 'insights':
+      // Refresh insights history
+      if (typeof loadInsightsHistory === 'function') {
+        loadInsightsHistory();
+      }
+      break;
+
+    case 'all':
+    default:
+      // Refresh everything
+      refreshIfNeeded();
+      if (typeof loadMemoryStats === 'function') {
+        loadMemoryStats().then(function() {
+          if (typeof renderHotspotsColumn === 'function') renderHotspotsColumn();
+        });
+      }
+      if (typeof refreshCliHistory === 'function') {
+        refreshCliHistory();
+      }
+      if (typeof loadInsightsHistory === 'function') {
+        loadInsightsHistory();
+      }
+      break;
+  }
 }
 
 // ========== Cleanup ==========

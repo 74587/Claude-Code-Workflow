@@ -6,6 +6,8 @@ var currentCliExecution = null;
 var cliExecutionOutput = '';
 var ccwInstallations = [];
 var ccwEndpointTools = [];
+var cliToolConfig = null;  // Store loaded CLI config
+var predefinedModels = {}; // Store predefined models per tool
 
 // ========== CCW Installations ==========
 async function loadCcwInstallations() {
@@ -35,6 +37,271 @@ async function loadCcwEndpointTools() {
     ccwEndpointTools = [];
     return [];
   }
+}
+
+// ========== CLI Tool Configuration ==========
+async function loadCliToolConfig() {
+  try {
+    var response = await fetch('/api/cli/config');
+    if (!response.ok) throw new Error('Failed to load CLI config');
+    var data = await response.json();
+    cliToolConfig = data.config || null;
+    predefinedModels = data.predefinedModels || {};
+    return data;
+  } catch (err) {
+    console.error('Failed to load CLI config:', err);
+    cliToolConfig = null;
+    predefinedModels = {};
+    return null;
+  }
+}
+
+async function updateCliToolConfig(tool, updates) {
+  try {
+    var response = await fetch('/api/cli/config/' + tool, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    if (!response.ok) throw new Error('Failed to update CLI config');
+    var data = await response.json();
+    if (data.success && cliToolConfig && cliToolConfig.tools) {
+      cliToolConfig.tools[tool] = data.config;
+    }
+    return data;
+  } catch (err) {
+    console.error('Failed to update CLI config:', err);
+    throw err;
+  }
+}
+
+// ========== Tool Configuration Modal ==========
+async function showToolConfigModal(toolName) {
+  // Load config if not already loaded
+  if (!cliToolConfig) {
+    await loadCliToolConfig();
+  }
+
+  var toolConfig = cliToolConfig && cliToolConfig.tools ? cliToolConfig.tools[toolName] : null;
+  var models = predefinedModels[toolName] || [];
+  var status = cliToolStatus[toolName] || {};
+
+  if (!toolConfig) {
+    toolConfig = { enabled: true, primaryModel: '', secondaryModel: '' };
+  }
+
+  var content = buildToolConfigModalContent(toolName, toolConfig, models, status);
+  showModal('Configure ' + toolName.charAt(0).toUpperCase() + toolName.slice(1), content, { size: 'md' });
+
+  // Initialize event handlers after modal is shown
+  setTimeout(function() {
+    initToolConfigModalEvents(toolName, toolConfig, models);
+  }, 100);
+}
+
+function buildToolConfigModalContent(tool, config, models, status) {
+  var isAvailable = status.available;
+  var isEnabled = config.enabled;
+
+  // Check if model is custom (not in predefined list or empty)
+  var isPrimaryCustom = !config.primaryModel || models.indexOf(config.primaryModel) === -1;
+  var isSecondaryCustom = !config.secondaryModel || models.indexOf(config.secondaryModel) === -1;
+
+  var modelsOptionsHtml = function(selected, isCustom) {
+    var html = '';
+    for (var i = 0; i < models.length; i++) {
+      var m = models[i];
+      html += '<option value="' + escapeHtml(m) + '"' + (m === selected && !isCustom ? ' selected' : '') + '>' + escapeHtml(m) + '</option>';
+    }
+    html += '<option value="__custom__"' + (isCustom ? ' selected' : '') + '>Custom...</option>';
+    return html;
+  };
+
+  return '<div class="tool-config-modal">' +
+    // Status Section
+    '<div class="tool-config-section">' +
+      '<h4>Status</h4>' +
+      '<div class="tool-config-badges">' +
+        '<span class="badge ' + (isAvailable ? 'badge-success' : 'badge-muted') + '">' +
+          '<i data-lucide="' + (isAvailable ? 'check-circle' : 'circle-dashed') + '" class="w-3 h-3"></i> ' +
+          (isAvailable ? 'Installed' : 'Not Installed') +
+        '</span>' +
+        '<span class="badge ' + (isEnabled ? 'badge-primary' : 'badge-muted') + '">' +
+          '<i data-lucide="' + (isEnabled ? 'toggle-right' : 'toggle-left') + '" class="w-3 h-3"></i> ' +
+          (isEnabled ? 'Enabled' : 'Disabled') +
+        '</span>' +
+      '</div>' +
+    '</div>' +
+
+    // Actions Section
+    '<div class="tool-config-section">' +
+      '<h4>Actions</h4>' +
+      '<div class="tool-config-actions">' +
+        '<button class="btn-sm ' + (isEnabled ? 'btn-outline' : 'btn-primary') + '" id="toggleEnableBtn" ' + (!isAvailable ? 'disabled' : '') + '>' +
+          '<i data-lucide="' + (isEnabled ? 'toggle-left' : 'toggle-right') + '" class="w-3 h-3"></i> ' +
+          (isEnabled ? 'Disable' : 'Enable') +
+        '</button>' +
+        '<button class="btn-sm ' + (isAvailable ? 'btn-outline btn-danger-outline' : 'btn-primary') + '" id="installBtn">' +
+          '<i data-lucide="' + (isAvailable ? 'trash-2' : 'download') + '" class="w-3 h-3"></i> ' +
+          (isAvailable ? 'Uninstall' : 'Install') +
+        '</button>' +
+      '</div>' +
+    '</div>' +
+
+    // Primary Model Section
+    '<div class="tool-config-section">' +
+      '<h4>Primary Model <span class="text-muted">(CLI endpoint calls)</span></h4>' +
+      '<div class="model-select-group">' +
+        '<select id="primaryModelSelect" class="tool-config-select">' +
+          modelsOptionsHtml(config.primaryModel, isPrimaryCustom) +
+        '</select>' +
+        '<input type="text" id="primaryModelCustom" class="tool-config-input" ' +
+          'style="display: ' + (isPrimaryCustom ? 'block' : 'none') + ';" ' +
+          'placeholder="Enter model name (e.g., gemini-2.5-pro)" ' +
+          'value="' + (isPrimaryCustom && config.primaryModel ? escapeHtml(config.primaryModel) : '') + '" />' +
+      '</div>' +
+    '</div>' +
+
+    // Secondary Model Section
+    '<div class="tool-config-section">' +
+      '<h4>Secondary Model <span class="text-muted">(internal tools)</span></h4>' +
+      '<div class="model-select-group">' +
+        '<select id="secondaryModelSelect" class="tool-config-select">' +
+          modelsOptionsHtml(config.secondaryModel, isSecondaryCustom) +
+        '</select>' +
+        '<input type="text" id="secondaryModelCustom" class="tool-config-input" ' +
+          'style="display: ' + (isSecondaryCustom ? 'block' : 'none') + ';" ' +
+          'placeholder="Enter model name (e.g., gemini-2.5-flash)" ' +
+          'value="' + (isSecondaryCustom && config.secondaryModel ? escapeHtml(config.secondaryModel) : '') + '" />' +
+      '</div>' +
+    '</div>' +
+
+    // Footer
+    '<div class="tool-config-footer">' +
+      '<button class="btn btn-outline" onclick="closeModal()">' + t('common.cancel') + '</button>' +
+      '<button class="btn btn-primary" id="saveConfigBtn">' +
+        '<i data-lucide="save" class="w-3.5 h-3.5"></i> ' + t('common.save') +
+      '</button>' +
+    '</div>' +
+  '</div>';
+}
+
+function initToolConfigModalEvents(tool, currentConfig, models) {
+  // Toggle Enable/Disable
+  var toggleBtn = document.getElementById('toggleEnableBtn');
+  if (toggleBtn) {
+    toggleBtn.onclick = async function() {
+      var newEnabled = !currentConfig.enabled;
+      try {
+        await updateCliToolConfig(tool, { enabled: newEnabled });
+        showRefreshToast(tool + ' ' + (newEnabled ? 'enabled' : 'disabled'), 'success');
+        closeModal();
+        renderToolsSection();
+        if (window.lucide) lucide.createIcons();
+      } catch (err) {
+        showRefreshToast('Failed to update: ' + err.message, 'error');
+      }
+    };
+  }
+
+  // Install/Uninstall
+  var installBtn = document.getElementById('installBtn');
+  if (installBtn) {
+    installBtn.onclick = async function() {
+      var status = cliToolStatus[tool] || {};
+      var endpoint = status.available ? '/api/cli/uninstall' : '/api/cli/install';
+      var action = status.available ? 'uninstalling' : 'installing';
+
+      showRefreshToast(tool.charAt(0).toUpperCase() + tool.slice(1) + ' ' + action + '...', 'info');
+      closeModal();
+
+      try {
+        var response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tool: tool })
+        });
+        var result = await response.json();
+
+        if (result.success) {
+          showRefreshToast(result.message || (tool + ' ' + (status.available ? 'uninstalled' : 'installed')), 'success');
+          await loadCliToolStatus();
+          renderToolsSection();
+          if (window.lucide) lucide.createIcons();
+        } else {
+          showRefreshToast(result.error || 'Operation failed', 'error');
+        }
+      } catch (err) {
+        showRefreshToast('Failed: ' + err.message, 'error');
+      }
+    };
+  }
+
+  // Model select handlers
+  var primarySelect = document.getElementById('primaryModelSelect');
+  var primaryCustom = document.getElementById('primaryModelCustom');
+  var secondarySelect = document.getElementById('secondaryModelSelect');
+  var secondaryCustom = document.getElementById('secondaryModelCustom');
+
+  if (primarySelect && primaryCustom) {
+    primarySelect.onchange = function() {
+      if (this.value === '__custom__') {
+        primaryCustom.style.display = 'block';
+        primaryCustom.focus();
+      } else {
+        primaryCustom.style.display = 'none';
+        primaryCustom.value = '';
+      }
+    };
+  }
+
+  if (secondarySelect && secondaryCustom) {
+    secondarySelect.onchange = function() {
+      if (this.value === '__custom__') {
+        secondaryCustom.style.display = 'block';
+        secondaryCustom.focus();
+      } else {
+        secondaryCustom.style.display = 'none';
+        secondaryCustom.value = '';
+      }
+    };
+  }
+
+  // Save button
+  var saveBtn = document.getElementById('saveConfigBtn');
+  if (saveBtn) {
+    saveBtn.onclick = async function() {
+      var primaryModel = primarySelect.value === '__custom__'
+        ? primaryCustom.value.trim()
+        : primarySelect.value;
+      var secondaryModel = secondarySelect.value === '__custom__'
+        ? secondaryCustom.value.trim()
+        : secondarySelect.value;
+
+      if (!primaryModel) {
+        showRefreshToast('Primary model is required', 'error');
+        return;
+      }
+      if (!secondaryModel) {
+        showRefreshToast('Secondary model is required', 'error');
+        return;
+      }
+
+      try {
+        await updateCliToolConfig(tool, {
+          primaryModel: primaryModel,
+          secondaryModel: secondaryModel
+        });
+        showRefreshToast('Configuration saved', 'success');
+        closeModal();
+      } catch (err) {
+        showRefreshToast('Failed to save: ' + err.message, 'error');
+      }
+    };
+  }
+
+  // Initialize lucide icons in modal
+  if (window.lucide) lucide.createIcons();
 }
 
 // ========== Rendering ==========
@@ -94,12 +361,13 @@ function renderToolsSection() {
     var isAvailable = status.available;
     var isDefault = defaultCliTool === tool;
 
-    return '<div class="tool-item ' + (isAvailable ? 'available' : 'unavailable') + '">' +
+    return '<div class="tool-item clickable ' + (isAvailable ? 'available' : 'unavailable') + '" onclick="showToolConfigModal(\'' + tool + '\')">' +
       '<div class="tool-item-left">' +
         '<span class="tool-status-dot ' + (isAvailable ? 'status-available' : 'status-unavailable') + '"></span>' +
         '<div class="tool-item-info">' +
           '<div class="tool-item-name">' + tool.charAt(0).toUpperCase() + tool.slice(1) +
             (isDefault ? '<span class="tool-default-badge">' + t('cli.default') + '</span>' : '') +
+            '<i data-lucide="settings" class="w-3 h-3 tool-config-icon"></i>' +
           '</div>' +
           '<div class="tool-item-desc">' + toolDescriptions[tool] + '</div>' +
         '</div>' +
@@ -109,7 +377,7 @@ function renderToolsSection() {
           ? '<span class="tool-status-text success"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> ' + t('cli.ready') + '</span>'
           : '<span class="tool-status-text muted"><i data-lucide="circle-dashed" class="w-3.5 h-3.5"></i> ' + t('cli.notInstalled') + '</span>') +
         (isAvailable && !isDefault
-          ? '<button class="btn-sm btn-outline" onclick="setDefaultCliTool(\'' + tool + '\')"><i data-lucide="star" class="w-3 h-3"></i> ' + t('cli.setDefault') + '</button>'
+          ? '<button class="btn-sm btn-outline" onclick="event.stopPropagation(); setDefaultCliTool(\'' + tool + '\')"><i data-lucide="star" class="w-3 h-3"></i> ' + t('cli.setDefault') + '</button>'
           : '') +
       '</div>' +
     '</div>';
@@ -136,11 +404,13 @@ function renderToolsSection() {
   // Semantic Search item (only show if CodexLens is installed)
   var semanticHtml = '';
   if (codexLensStatus.ready) {
-    semanticHtml = '<div class="tool-item ' + (semanticStatus.available ? 'available' : 'unavailable') + '">' +
+    semanticHtml = '<div class="tool-item clickable ' + (semanticStatus.available ? 'available' : 'unavailable') + '" onclick="openSemanticSettingsModal()">' +
       '<div class="tool-item-left">' +
         '<span class="tool-status-dot ' + (semanticStatus.available ? 'status-available' : 'status-unavailable') + '"></span>' +
         '<div class="tool-item-info">' +
-          '<div class="tool-item-name">Semantic Search <span class="tool-type-badge ai">AI</span></div>' +
+          '<div class="tool-item-name">Semantic Search <span class="tool-type-badge ai">AI</span>' +
+            (llmEnhancementSettings.enabled ? '<span class="tool-type-badge llm">LLM</span>' : '') +
+            '<i data-lucide="settings" class="w-3 h-3 tool-config-icon"></i></div>' +
           '<div class="tool-item-desc">' + (semanticStatus.available ? 'AI-powered code understanding' : 'Natural language code search') + '</div>' +
         '</div>' +
       '</div>' +
@@ -148,7 +418,7 @@ function renderToolsSection() {
         (semanticStatus.available
           ? '<span class="tool-status-text success"><i data-lucide="sparkles" class="w-3.5 h-3.5"></i> ' + (semanticStatus.backend || 'Ready') + '</span>'
           : '<span class="tool-status-text muted"><i data-lucide="circle-dashed" class="w-3.5 h-3.5"></i> Not Installed</span>' +
-            '<button class="btn-sm btn-primary" onclick="openSemanticInstallWizard()"><i data-lucide="brain" class="w-3 h-3"></i> Install</button>') +
+            '<button class="btn-sm btn-primary" onclick="event.stopPropagation(); openSemanticInstallWizard()"><i data-lucide="brain" class="w-3 h-3"></i> Install</button>') +
       '</div>' +
     '</div>';
   }

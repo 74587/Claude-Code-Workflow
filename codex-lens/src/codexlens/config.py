@@ -78,6 +78,11 @@ class Config:
         }
     )
 
+    llm_enabled: bool = False
+    llm_tool: str = "gemini"
+    llm_timeout_ms: int = 300000
+    llm_batch_size: int = 5
+
     def __post_init__(self) -> None:
         try:
             self.data_dir = self.data_dir.expanduser().resolve()

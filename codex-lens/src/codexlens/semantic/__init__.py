@@ -32,4 +32,38 @@ def check_semantic_available() -> tuple[bool, str | None]:
     """Check if semantic search dependencies are available."""
     return SEMANTIC_AVAILABLE, _import_error
 
-__all__ = ["SEMANTIC_AVAILABLE", "SEMANTIC_BACKEND", "check_semantic_available"]
+# Export LLM enhancement classes
+try:
+    from .llm_enhancer import (
+        LLMEnhancer,
+        LLMConfig,
+        SemanticMetadata,
+        FileData,
+        EnhancedSemanticIndexer,
+        create_enhancer,
+        create_enhanced_indexer,
+    )
+    LLM_AVAILABLE = True
+except ImportError:
+    LLM_AVAILABLE = False
+    LLMEnhancer = None  # type: ignore
+    LLMConfig = None  # type: ignore
+    SemanticMetadata = None  # type: ignore
+    FileData = None  # type: ignore
+    EnhancedSemanticIndexer = None  # type: ignore
+    create_enhancer = None  # type: ignore
+    create_enhanced_indexer = None  # type: ignore
+
+__all__ = [
+    "SEMANTIC_AVAILABLE",
+    "SEMANTIC_BACKEND",
+    "check_semantic_available",
+    "LLM_AVAILABLE",
+    "LLMEnhancer",
+    "LLMConfig",
+    "SemanticMetadata",
+    "FileData",
+    "EnhancedSemanticIndexer",
+    "create_enhancer",
+    "create_enhanced_indexer",
+]

@@ -464,6 +464,26 @@ export class CliHistoryStore {
   }
 
   /**
+   * Get conversation with native session info
+   */
+  getConversationWithNativeInfo(id: string): (ConversationRecord & {
+    hasNativeSession: boolean;
+    nativeSessionId?: string;
+    nativeSessionPath?: string;
+  }) | null {
+    const conv = this.getConversation(id);
+    if (!conv) return null;
+
+    const mapping = this.getNativeSessionMapping(id);
+    return {
+      ...conv,
+      hasNativeSession: !!mapping,
+      nativeSessionId: mapping?.native_session_id,
+      nativeSessionPath: mapping?.native_session_path
+    };
+  }
+
+  /**
    * Query execution history
    */
   getHistory(options: HistoryQueryOptions = {}): {

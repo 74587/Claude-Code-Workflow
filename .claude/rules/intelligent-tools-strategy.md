@@ -15,13 +15,24 @@
 ### Universal Prompt Template
 
 ```
-PURPOSE: [objective + why + success criteria]
-TASK: • [step 1] • [step 2] • [step 3]
+PURPOSE: [what] + [why] + [success criteria] + [constraints/scope]
+TASK: • [step 1: specific action] • [step 2: specific action] • [step 3: specific action]
 MODE: [analysis|write|auto]
-CONTEXT: @**/* | Memory: [session/tech/module context]
-EXPECTED: [format + quality + structure]
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt) | [constraints] | MODE=[permission]
+CONTEXT: @[file patterns] | Memory: [session/tech/module context]
+EXPECTED: [deliverable format] + [quality criteria] + [structure requirements]
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt) | [domain constraints] | MODE=[permission]
 ```
+
+### Intent Capture Checklist (Before CLI Execution)
+
+**⚠️ CRITICAL**: Before executing any CLI command, verify these intent dimensions:
+**Intent Validation Questions**:
+- [ ] Is the objective specific and measurable?
+- [ ] Are success criteria defined?
+- [ ] Is the scope clearly bounded?
+- [ ] Are constraints and limitations stated?
+- [ ] Is the expected output format clear?
+- [ ] Is the action level (read/write) explicit?
 
 ### Tool Selection
 
@@ -128,14 +139,15 @@ ASSISTANT RESPONSE: [Previous output]
 
 Every command MUST include these fields:
 
-| Field | Purpose | Example |
-|-------|---------|---------|
-| **PURPOSE** | Goal, why needed, success criteria | "Analyze auth module for security vulnerabilities" |
-| **TASK** | Actionable steps (• bullet format) | "• Review patterns • Identify risks • Document findings" |
-| **MODE** | Permission level | `analysis` / `write` / `auto` |
-| **CONTEXT** | File patterns + Memory context | `@src/**/* | Memory: Previous refactoring (abc123)` |
-| **EXPECTED** | Deliverable format, quality criteria | "Security report with risk levels and recommendations" |
-| **RULES** | **Template (REQUIRED)** + constraints | `$(cat ~/.claude/.../analysis/02-analyze-code-patterns.txt) | Focus on auth | analysis=READ-ONLY` |
+| Field | Purpose | Components | Bad Example | Good Example |
+|-------|---------|------------|-------------|--------------|
+| **PURPOSE** | Goal + motivation + success | What + Why + Success Criteria + Constraints | "Analyze code" | "Identify security vulnerabilities in auth module to pass compliance audit; success = all OWASP Top 10 addressed; scope = src/auth/** only" |
+| **TASK** | Actionable steps | Specific verbs + targets | "• Review code • Find issues" | "• Scan for SQL injection in query builders • Check XSS in template rendering • Verify CSRF token validation" |
+| **MODE** | Permission level | analysis / write / auto | (missing) | "analysis" or "write" |
+| **CONTEXT** | File scope + history | File patterns + Memory | "@**/*" | "@src/auth/**/*.ts @shared/utils/security.ts \| Memory: Previous auth refactoring (WFS-001)" |
+| **EXPECTED** | Output specification | Format + Quality + Structure | "Report" | "Markdown report with: severity levels (Critical/High/Medium/Low), file:line references, remediation code snippets, priority ranking" |
+| **RULES** | Template + constraints | $(cat template) + domain rules | (missing) | "$(cat ~/.claude/.../security.txt) \| Focus on authentication \| Ignore test files \| analysis=READ-ONLY" |
+
 
 ### CONTEXT Configuration
 
@@ -303,42 +315,55 @@ CCW automatically maps to tool-specific syntax:
 
 ### Command Examples
 
+#### Task-Type Specific Templates
+
+**Analysis Task** (Security Audit):
 ```bash
-# Analysis (default)
 ccw cli exec "
-PURPOSE: Analyze authentication
-TASK: • Review patterns • Identify risks
+PURPOSE: Identify OWASP Top 10 vulnerabilities in authentication module to pass security audit; success = all critical/high issues documented with remediation
+TASK: • Scan for injection flaws (SQL, command, LDAP) • Check authentication bypass vectors • Evaluate session management • Assess sensitive data exposure
 MODE: analysis
-CONTEXT: @**/* @../shared/**/*
-EXPECTED: Analysis report
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | analysis=READ-ONLY
-" --tool gemini --cd src/auth --includeDirs ../shared
-
-# Write mode
-ccw cli exec "
-PURPOSE: Generate API docs
-TASK: • Create docs • Add examples
-MODE: write
-CONTEXT: @src/api/**/*
-EXPECTED: Complete documentation
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | write=CREATE/MODIFY/DELETE
-" --tool gemini --mode write
-
-# Auto mode (Codex)
-ccw cli exec "
-PURPOSE: Implement auth module
-TASK: • Create service • Add validation • Setup JWT
-MODE: auto
-CONTEXT: @**/* | Memory: Following project security patterns
-EXPECTED: Complete module with tests
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | auto=FULL
-" --tool codex --mode auto
-
-# Fallback strategy
-ccw cli exec "<prompt>" --tool gemini    # Primary
-ccw cli exec "<prompt>" --tool qwen      # Fallback
+CONTEXT: @src/auth/**/* @src/middleware/auth.ts | Memory: Using bcrypt for passwords, JWT for sessions
+EXPECTED: Security report with: severity matrix, file:line references, CVE mappings where applicable, remediation code snippets prioritized by risk
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/03-assess-security-risks.txt) | Focus on authentication | Ignore test files | analysis=READ-ONLY
+" --tool gemini --cd src/auth --timeout 600000
 ```
 
+**Implementation Task** (New Feature):
+```bash
+ccw cli exec "
+PURPOSE: Implement rate limiting for API endpoints to prevent abuse; must be configurable per-endpoint; backward compatible with existing clients
+TASK: • Create rate limiter middleware with sliding window • Implement per-route configuration • Add Redis backend for distributed state • Include bypass for internal services
+MODE: auto
+CONTEXT: @src/middleware/**/* @src/config/**/* | Memory: Using Express.js, Redis already configured, existing middleware pattern in auth.ts
+EXPECTED: Production-ready code with: TypeScript types, unit tests, integration test, configuration example, migration guide
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | Follow existing middleware patterns | No breaking changes | auto=FULL
+" --tool codex --mode auto --timeout 1800000
+```
+
+**Bug Fix Task**:
+```bash
+ccw cli exec "
+PURPOSE: Fix memory leak in WebSocket connection handler causing server OOM after 24h; root cause must be identified before any fix
+TASK: • Trace connection lifecycle from open to close • Identify event listener accumulation • Check cleanup on disconnect • Verify garbage collection eligibility
+MODE: analysis
+CONTEXT: @src/websocket/**/* @src/services/connection-manager.ts | Memory: Using ws library, ~5000 concurrent connections in production
+EXPECTED: Root cause analysis with: memory profile, leak source (file:line), fix recommendation with code, verification steps
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt) | Focus on resource cleanup | analysis=READ-ONLY
+" --tool gemini --cd src --timeout 900000
+```
+
+**Refactoring Task**:
+```bash
+ccw cli exec "
+PURPOSE: Refactor payment processing to use strategy pattern for multi-gateway support; no functional changes; all existing tests must pass
+TASK: • Extract gateway interface from current implementation • Create strategy classes for Stripe, PayPal • Implement factory for gateway selection • Migrate existing code to use strategies
+MODE: write
+CONTEXT: @src/payments/**/* @src/types/payment.ts | Memory: Currently only Stripe, adding PayPal next sprint, must support future gateways
+EXPECTED: Refactored code with: strategy interface, concrete implementations, factory class, updated tests, migration checklist
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-refactor-codebase.txt) | Preserve all existing behavior | Tests must pass | write=CREATE/MODIFY/DELETE
+" --tool gemini --mode write --timeout 1200000
+```
 ---
 
 ## Configuration

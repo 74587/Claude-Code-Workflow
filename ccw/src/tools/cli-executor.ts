@@ -22,6 +22,12 @@ import {
   getResumeModeDescription,
   type ResumeDecision
 } from './resume-strategy.js';
+import {
+  isToolEnabled as isToolEnabledFromConfig,
+  enableTool as enableToolFromConfig,
+  disableTool as disableToolFromConfig,
+  getPrimaryModel
+} from './cli-config-manager.js';
 
 // CLI History storage path
 const CLI_HISTORY_DIR = join(process.cwd(), '.workflow', '.cli-history');
@@ -720,12 +726,23 @@ async function executeCliTool(
     }
   }
 
+  // Determine effective model (use config's primaryModel if not explicitly provided)
+  let effectiveModel = model;
+  if (!effectiveModel) {
+    try {
+      effectiveModel = getPrimaryModel(workingDir, tool);
+    } catch {
+      // Config not available, use default (let the CLI tool use its own default)
+      effectiveModel = undefined;
+    }
+  }
+
   // Build command
   const { command, args, useStdin } = buildCommand({
     tool,
     prompt: finalPrompt,
     mode,
-    model,
+    model: effectiveModel,
     dir: cd,
     include: includeDirs,
     nativeResume: nativeResumeConfig
@@ -1204,6 +1221,19 @@ export function getConversationDetail(baseDir: string, conversationId: string): 
 }
 
 /**
+ * Get conversation detail with native session info
+ */
+export function getConversationDetailWithNativeInfo(baseDir: string, conversationId: string) {
+  try {
+    const store = getSqliteStoreSync(baseDir);
+    return store.getConversationWithNativeInfo(conversationId);
+  } catch {
+    // SQLite not initialized, return null
+    return null;
+  }
+}
+
+/**
  * Get execution detail by ID (legacy, returns ExecutionRecord for backward compatibility)
  */
 export function getExecutionDetail(baseDir: string, executionId: string): ExecutionRecord | null {
@@ -1269,6 +1299,181 @@ export async function getCliToolsStatus(): Promise<Record<string, ToolAvailabili
 
   await Promise.all(tools.map(async (tool) => {
     results[tool] = await checkToolAvailability(tool);
+  }));
+
+  return results;
+}
+
+// CLI tool package mapping
+const CLI_TOOL_PACKAGES: Record<string, string> = {
+  gemini: '@google/gemini-cli',
+  qwen: '@qwen-code/qwen-code',
+  codex: '@openai/codex',
+  claude: '@anthropic-ai/claude-code'
+};
+
+// Disabled tools storage (in-memory fallback, main storage is in cli-config.json)
+const disabledTools = new Set<string>();
+
+// Default working directory for config operations
+let configBaseDir = process.cwd();
+
+/**
+ * Set the base directory for config operations
+ */
+export function setConfigBaseDir(dir: string): void {
+  configBaseDir = dir;
+}
+
+/**
+ * Install a CLI tool via npm
+ */
+export async function installCliTool(tool: string): Promise<{ success: boolean; error?: string }> {
+  const packageName = CLI_TOOL_PACKAGES[tool];
+  if (!packageName) {
+    return { success: false, error: `Unknown tool: ${tool}` };
+  }
+
+  return new Promise((resolve) => {
+    const child = spawn('npm', ['install', '-g', packageName], {
+      shell: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    let stderr = '';
+    child.stderr?.on('data', (data) => { stderr += data.toString(); });
+
+    child.on('close', (code) => {
+      // Clear cache to force re-check
+      toolAvailabilityCache.delete(tool);
+
+      if (code === 0) {
+        resolve({ success: true });
+      } else {
+        resolve({ success: false, error: stderr || `npm install failed with code ${code}` });
+      }
+    });
+
+    child.on('error', (err) => {
+      resolve({ success: false, error: err.message });
+    });
+
+    // Timeout after 2 minutes
+    setTimeout(() => {
+      child.kill();
+      resolve({ success: false, error: 'Installation timed out' });
+    }, 120000);
+  });
+}
+
+/**
+ * Uninstall a CLI tool via npm
+ */
+export async function uninstallCliTool(tool: string): Promise<{ success: boolean; error?: string }> {
+  const packageName = CLI_TOOL_PACKAGES[tool];
+  if (!packageName) {
+    return { success: false, error: `Unknown tool: ${tool}` };
+  }
+
+  return new Promise((resolve) => {
+    const child = spawn('npm', ['uninstall', '-g', packageName], {
+      shell: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    let stderr = '';
+    child.stderr?.on('data', (data) => { stderr += data.toString(); });
+
+    child.on('close', (code) => {
+      // Clear cache to force re-check
+      toolAvailabilityCache.delete(tool);
+
+      if (code === 0) {
+        resolve({ success: true });
+      } else {
+        resolve({ success: false, error: stderr || `npm uninstall failed with code ${code}` });
+      }
+    });
+
+    child.on('error', (err) => {
+      resolve({ success: false, error: err.message });
+    });
+
+    // Timeout after 1 minute
+    setTimeout(() => {
+      child.kill();
+      resolve({ success: false, error: 'Uninstallation timed out' });
+    }, 60000);
+  });
+}
+
+/**
+ * Enable a CLI tool (updates config file)
+ */
+export function enableCliTool(tool: string): { success: boolean } {
+  try {
+    enableToolFromConfig(configBaseDir, tool);
+    disabledTools.delete(tool); // Also update in-memory fallback
+    return { success: true };
+  } catch (err) {
+    console.error('[cli-executor] Error enabling tool:', err);
+    disabledTools.delete(tool); // Fallback to in-memory
+    return { success: true };
+  }
+}
+
+/**
+ * Disable a CLI tool (updates config file)
+ */
+export function disableCliTool(tool: string): { success: boolean } {
+  try {
+    disableToolFromConfig(configBaseDir, tool);
+    disabledTools.add(tool); // Also update in-memory fallback
+    return { success: true };
+  } catch (err) {
+    console.error('[cli-executor] Error disabling tool:', err);
+    disabledTools.add(tool); // Fallback to in-memory
+    return { success: true };
+  }
+}
+
+/**
+ * Check if a tool is enabled (reads from config file)
+ */
+export function isToolEnabled(tool: string): boolean {
+  try {
+    return isToolEnabledFromConfig(configBaseDir, tool);
+  } catch {
+    // Fallback to in-memory check
+    return !disabledTools.has(tool);
+  }
+}
+
+/**
+ * Get full status of all CLI tools including enabled state
+ */
+export async function getCliToolsFullStatus(): Promise<Record<string, {
+  available: boolean;
+  enabled: boolean;
+  path: string | null;
+  packageName: string;
+}>> {
+  const tools = Object.keys(CLI_TOOL_PACKAGES);
+  const results: Record<string, {
+    available: boolean;
+    enabled: boolean;
+    path: string | null;
+    packageName: string;
+  }> = {};
+
+  await Promise.all(tools.map(async (tool) => {
+    const availability = await checkToolAvailability(tool);
+    results[tool] = {
+      available: availability.available,
+      enabled: isToolEnabled(tool),
+      path: availability.path,
+      packageName: CLI_TOOL_PACKAGES[tool]
+    };
   }));
 
   return results;

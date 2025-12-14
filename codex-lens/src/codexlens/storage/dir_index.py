@@ -347,6 +347,222 @@ class DirIndexStore:
             row = conn.execute("SELECT COUNT(*) AS c FROM files").fetchone()
             return int(row["c"]) if row else 0
 
+    # === Semantic Metadata ===
+
+    def add_semantic_metadata(
+        self,
+        file_id: int,
+        summary: str,
+        keywords: List[str],
+        purpose: str,
+        llm_tool: str
+    ) -> None:
+        """Add or update semantic metadata for a file.
+
+        Args:
+            file_id: File ID from files table
+            summary: LLM-generated summary
+            keywords: List of keywords
+            purpose: Purpose/role of the file
+            llm_tool: Tool used to generate metadata (gemini/qwen)
+        """
+        with self._lock:
+            conn = self._get_connection()
+
+            import json
+            import time
+
+            keywords_json = json.dumps(keywords)
+            generated_at = time.time()
+
+            conn.execute(
+                """
+                INSERT INTO semantic_metadata(file_id, summary, keywords, purpose, llm_tool, generated_at)
+                VALUES(?, ?, ?, ?, ?, ?)
+                ON CONFLICT(file_id) DO UPDATE SET
+                    summary=excluded.summary,
+                    keywords=excluded.keywords,
+                    purpose=excluded.purpose,
+                    llm_tool=excluded.llm_tool,
+                    generated_at=excluded.generated_at
+                """,
+                (file_id, summary, keywords_json, purpose, llm_tool, generated_at),
+            )
+            conn.commit()
+
+    def get_semantic_metadata(self, file_id: int) -> Optional[Dict[str, Any]]:
+        """Get semantic metadata for a file.
+
+        Args:
+            file_id: File ID from files table
+
+        Returns:
+            Dict with summary, keywords, purpose, llm_tool, generated_at, or None if not found
+        """
+        with self._lock:
+            conn = self._get_connection()
+
+            row = conn.execute(
+                """
+                SELECT summary, keywords, purpose, llm_tool, generated_at
+                FROM semantic_metadata WHERE file_id=?
+                """,
+                (file_id,),
+            ).fetchone()
+
+            if not row:
+                return None
+
+            import json
+
+            return {
+                "summary": row["summary"],
+                "keywords": json.loads(row["keywords"]) if row["keywords"] else [],
+                "purpose": row["purpose"],
+                "llm_tool": row["llm_tool"],
+                "generated_at": float(row["generated_at"]) if row["generated_at"] else 0.0,
+            }
+
+    def get_files_without_semantic(self) -> List[FileEntry]:
+        """Get all files that don't have semantic metadata.
+
+        Returns:
+            List of FileEntry objects without semantic metadata
+        """
+        with self._lock:
+            conn = self._get_connection()
+
+            rows = conn.execute(
+                """
+                SELECT f.id, f.name, f.full_path, f.language, f.mtime, f.line_count
+                FROM files f
+                LEFT JOIN semantic_metadata sm ON f.id = sm.file_id
+                WHERE sm.id IS NULL
+                ORDER BY f.name
+                """
+            ).fetchall()
+
+            return [
+                FileEntry(
+                    id=int(row["id"]),
+                    name=row["name"],
+                    full_path=Path(row["full_path"]),
+                    language=row["language"],
+                    mtime=float(row["mtime"]) if row["mtime"] else 0.0,
+                    line_count=int(row["line_count"]) if row["line_count"] else 0,
+                )
+                for row in rows
+            ]
+
+    def search_semantic_keywords(self, keyword: str) -> List[Tuple[FileEntry, List[str]]]:
+        """Search files by semantic keywords.
+
+        Args:
+            keyword: Keyword to search for (case-insensitive)
+
+        Returns:
+            List of (FileEntry, keywords) tuples where keyword matches
+        """
+        with self._lock:
+            conn = self._get_connection()
+
+            keyword_pattern = f"%{keyword}%"
+
+            rows = conn.execute(
+                """
+                SELECT f.id, f.name, f.full_path, f.language, f.mtime, f.line_count, sm.keywords
+                FROM files f
+                JOIN semantic_metadata sm ON f.id = sm.file_id
+                WHERE sm.keywords LIKE ? COLLATE NOCASE
+                ORDER BY f.name
+                """,
+                (keyword_pattern,),
+            ).fetchall()
+
+            import json
+
+            results = []
+            for row in rows:
+                file_entry = FileEntry(
+                    id=int(row["id"]),
+                    name=row["name"],
+                    full_path=Path(row["full_path"]),
+                    language=row["language"],
+                    mtime=float(row["mtime"]) if row["mtime"] else 0.0,
+                    line_count=int(row["line_count"]) if row["line_count"] else 0,
+                )
+                keywords = json.loads(row["keywords"]) if row["keywords"] else []
+                results.append((file_entry, keywords))
+
+            return results
+
+    def list_semantic_metadata(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        llm_tool: Optional[str] = None,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """List all semantic metadata with file information.
+
+        Args:
+            offset: Number of records to skip (for pagination)
+            limit: Maximum records to return (max 100)
+            llm_tool: Optional filter by LLM tool used
+
+        Returns:
+            Tuple of (list of metadata dicts, total count)
+        """
+        import json
+
+        with self._lock:
+            conn = self._get_connection()
+
+            base_query = """
+                SELECT f.id as file_id, f.name as file_name, f.full_path,
+                       f.language, f.line_count,
+                       sm.summary, sm.keywords, sm.purpose,
+                       sm.llm_tool, sm.generated_at
+                FROM files f
+                JOIN semantic_metadata sm ON f.id = sm.file_id
+            """
+            count_query = """
+                SELECT COUNT(*) as total
+                FROM files f
+                JOIN semantic_metadata sm ON f.id = sm.file_id
+            """
+
+            params: List[Any] = []
+            if llm_tool:
+                base_query += " WHERE sm.llm_tool = ?"
+                count_query += " WHERE sm.llm_tool = ?"
+                params.append(llm_tool)
+
+            base_query += " ORDER BY sm.generated_at DESC LIMIT ? OFFSET ?"
+            params.extend([min(limit, 100), offset])
+
+            count_params = [llm_tool] if llm_tool else []
+            total_row = conn.execute(count_query, count_params).fetchone()
+            total = int(total_row["total"]) if total_row else 0
+
+            rows = conn.execute(base_query, params).fetchall()
+
+            results = []
+            for row in rows:
+                results.append({
+                    "file_id": int(row["file_id"]),
+                    "file_name": row["file_name"],
+                    "full_path": row["full_path"],
+                    "language": row["language"],
+                    "line_count": int(row["line_count"]) if row["line_count"] else 0,
+                    "summary": row["summary"],
+                    "keywords": json.loads(row["keywords"]) if row["keywords"] else [],
+                    "purpose": row["purpose"],
+                    "llm_tool": row["llm_tool"],
+                    "generated_at": float(row["generated_at"]) if row["generated_at"] else 0.0,
+                })
+
+            return results, total
+
     # === Subdirectory Links ===
 
     def register_subdir(
@@ -748,12 +964,28 @@ class DirIndexStore:
                 """
             )
 
+            # Semantic metadata table
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS semantic_metadata (
+                    id INTEGER PRIMARY KEY,
+                    file_id INTEGER UNIQUE REFERENCES files(id) ON DELETE CASCADE,
+                    summary TEXT,
+                    keywords TEXT,
+                    purpose TEXT,
+                    llm_tool TEXT,
+                    generated_at REAL
+                )
+                """
+            )
+
             # Indexes
             conn.execute("CREATE INDEX IF NOT EXISTS idx_files_name ON files(name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_files_path ON files(full_path)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_subdirs_name ON subdirs(name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_file ON symbols(file_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_semantic_file ON semantic_metadata(file_id)")
 
         except sqlite3.DatabaseError as exc:
             raise StorageError(f"Failed to create schema: {exc}") from exc

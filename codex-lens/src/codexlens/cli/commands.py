@@ -1098,3 +1098,132 @@ def clean(
         else:
             console.print(f"[red]Clean failed (unexpected):[/red] {exc}")
             raise typer.Exit(code=1)
+
+
+@app.command("semantic-list")
+def semantic_list(
+    path: Path = typer.Option(Path("."), "--path", "-p", help="Project path to list metadata from."),
+    offset: int = typer.Option(0, "--offset", "-o", min=0, help="Number of records to skip."),
+    limit: int = typer.Option(50, "--limit", "-n", min=1, max=100, help="Maximum records to return."),
+    tool_filter: Optional[str] = typer.Option(None, "--tool", "-t", help="Filter by LLM tool (gemini/qwen)."),
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
+) -> None:
+    """List semantic metadata entries for indexed files.
+
+    Shows files that have LLM-generated summaries and keywords.
+    Results are aggregated from all index databases in the project.
+    """
+    _configure_logging(verbose)
+    base_path = path.expanduser().resolve()
+
+    registry: Optional[RegistryStore] = None
+    try:
+        registry = RegistryStore()
+        registry.initialize()
+        mapper = PathMapper()
+
+        project_info = registry.find_project(base_path)
+        if not project_info:
+            raise CodexLensError(f"No index found for: {base_path}. Run 'codex-lens init' first.")
+
+        index_dir = mapper.source_to_index_dir(base_path)
+        if not index_dir.exists():
+            raise CodexLensError(f"Index directory not found: {index_dir}")
+
+        all_results: list = []
+        total_count = 0
+
+        index_files = sorted(index_dir.rglob("_index.db"))
+
+        for db_path in index_files:
+            try:
+                store = DirIndexStore(db_path)
+                store.initialize()
+
+                results, count = store.list_semantic_metadata(
+                    offset=0,
+                    limit=1000,
+                    llm_tool=tool_filter,
+                )
+
+                source_dir = mapper.index_to_source(db_path.parent)
+                for r in results:
+                    r["source_dir"] = str(source_dir)
+
+                all_results.extend(results)
+                total_count += count
+
+                store.close()
+            except Exception as e:
+                if verbose:
+                    console.print(f"[yellow]Warning: Error reading {db_path}: {e}[/yellow]")
+
+        all_results.sort(key=lambda x: x["generated_at"], reverse=True)
+        paginated = all_results[offset : offset + limit]
+
+        result = {
+            "path": str(base_path),
+            "total": total_count,
+            "offset": offset,
+            "limit": limit,
+            "count": len(paginated),
+            "entries": paginated,
+        }
+
+        if json_mode:
+            print_json(success=True, result=result)
+        else:
+            if not paginated:
+                console.print("[yellow]No semantic metadata found.[/yellow]")
+                console.print("Run 'codex-lens enhance' to generate metadata for indexed files.")
+            else:
+                table = Table(title=f"Semantic Metadata ({total_count} total)")
+                table.add_column("File", style="cyan", max_width=40)
+                table.add_column("Language", style="dim")
+                table.add_column("Purpose", max_width=30)
+                table.add_column("Keywords", max_width=25)
+                table.add_column("Tool")
+
+                for entry in paginated:
+                    keywords_str = ", ".join(entry["keywords"][:3])
+                    if len(entry["keywords"]) > 3:
+                        keywords_str += f" (+{len(entry['keywords']) - 3})"
+
+                    table.add_row(
+                        entry["file_name"],
+                        entry["language"] or "-",
+                        (entry["purpose"] or "-")[:30],
+                        keywords_str or "-",
+                        entry["llm_tool"] or "-",
+                    )
+
+                console.print(table)
+
+                if total_count > len(paginated):
+                    console.print(
+                        f"[dim]Showing {offset + 1}-{offset + len(paginated)} of {total_count}. "
+                        "Use --offset and --limit for pagination.[/dim]"
+                    )
+
+    except StorageError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Storage error: {exc}")
+        else:
+            console.print(f"[red]Semantic-list failed (storage):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except CodexLensError as exc:
+        if json_mode:
+            print_json(success=False, error=str(exc))
+        else:
+            console.print(f"[red]Semantic-list failed:[/red] {exc}")
+            raise typer.Exit(code=1)
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=f"Unexpected error: {exc}")
+        else:
+            console.print(f"[red]Semantic-list failed (unexpected):[/red] {exc}")
+            raise typer.Exit(code=1)
+    finally:
+        if registry is not None:
+            registry.close()

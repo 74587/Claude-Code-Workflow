@@ -44,7 +44,7 @@ async function loadPromptInsights() {
 
 async function loadPromptInsightsHistory() {
   try {
-    var response = await fetch('/api/memory/insights?limit=20');
+    var response = await fetch('/api/memory/insights?limit=20&path=' + encodeURIComponent(projectPath));
     if (!response.ok) throw new Error('Failed to load insights history');
     var data = await response.json();
     promptInsightsHistory = data.insights || [];
@@ -698,6 +698,9 @@ async function triggerCliInsightsAnalysis() {
       promptInsights = data.insights;
       console.log('[PromptHistory] Insights parsed:', promptInsights);
     }
+
+    // Reload insights history to show the new analysis result
+    await loadPromptInsightsHistory();
 
     showRefreshToast(t('toast.completed') + ' (' + tool + ')', 'success');
   } catch (err) {

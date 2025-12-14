@@ -330,6 +330,9 @@ async function showExecutionDetail(executionId, sourceDir) {
     `;
   }
 
+  // Check if native session is available
+  const hasNativeSession = conversation.hasNativeSession || conversation.nativeSessionId;
+
   const modalContent = `
     <div class="cli-detail-header">
       <div class="cli-detail-info">
@@ -344,6 +347,13 @@ async function showExecutionDetail(executionId, sourceDir) {
         <span><i data-lucide="calendar" class="w-3 h-3"></i> ${new Date(createdAt).toLocaleString()}</span>
         <span><i data-lucide="hash" class="w-3 h-3"></i> ${executionId.split('-')[0]}</span>
       </div>
+      ${hasNativeSession ? `
+        <div class="cli-detail-native-action">
+          <button class="btn btn-sm btn-primary" onclick="showNativeSessionDetail('${executionId}')">
+            <i data-lucide="eye" class="w-3.5 h-3.5"></i> View Full Process Conversation
+          </button>
+        </div>
+      ` : ''}
     </div>
     ${turnCount > 1 ? `
       <div class="cli-view-toggle">
@@ -665,26 +675,52 @@ async function showNativeSessionDetail(executionId) {
              </span>`
           : '';
 
-        // Thoughts section
+        // Thoughts section (collapsible)
         const thoughtsHtml = turn.thoughts && turn.thoughts.length > 0
           ? `<div class="native-thoughts-section">
-               <h5><i data-lucide="brain" class="w-3 h-3"></i> Thoughts</h5>
-               <ul class="native-thoughts-list">
-                 ${turn.thoughts.map(t => `<li>${escapeHtml(t)}</li>`).join('')}
-               </ul>
+               <details class="turn-thinking-details">
+                 <summary class="turn-thinking-summary">
+                   <i data-lucide="brain" class="w-3 h-3"></i>
+                   💭 Thinking Process (${turn.thoughts.length} thoughts)
+                 </summary>
+                 <div class="turn-thinking-content">
+                   <ul class="native-thoughts-list">
+                     ${turn.thoughts.map(t => `<li>${escapeHtml(t)}</li>`).join('')}
+                   </ul>
+                 </div>
+               </details>
              </div>`
           : '';
 
-        // Tool calls section
+        // Tool calls section (collapsible for each call)
         const toolCallsHtml = turn.toolCalls && turn.toolCalls.length > 0
           ? `<div class="native-tools-section">
-               <h5><i data-lucide="wrench" class="w-3 h-3"></i> Tool Calls (${turn.toolCalls.length})</h5>
+               <div class="turn-tool-calls-header">
+                 <i data-lucide="wrench" class="w-3 h-3"></i>
+                 <strong>Tool Calls (${turn.toolCalls.length})</strong>
+               </div>
                <div class="native-tools-list">
-                 ${turn.toolCalls.map(tc => `
-                   <div class="native-tool-call">
-                     <span class="native-tool-name">${escapeHtml(tc.name)}</span>
-                     ${tc.output ? `<pre class="native-tool-output">${escapeHtml(tc.output.substring(0, 500))}${tc.output.length > 500 ? '...' : ''}</pre>` : ''}
-                   </div>
+                 ${turn.toolCalls.map((tc, tcIdx) => `
+                   <details class="turn-tool-call-details" ${tcIdx === 0 ? 'open' : ''}>
+                     <summary class="turn-tool-call-summary">
+                       <span class="native-tool-name">🔧 ${escapeHtml(tc.name)}</span>
+                       ${tc.output ? `<span class="native-tool-size">(${tc.output.length} chars)</span>` : ''}
+                     </summary>
+                     <div class="turn-tool-call-content">
+                       ${tc.input ? `
+                         <div class="turn-tool-input">
+                           <strong>Input:</strong>
+                           <pre>${escapeHtml(JSON.stringify(tc.input, null, 2))}</pre>
+                         </div>
+                       ` : ''}
+                       ${tc.output ? `
+                         <div class="turn-tool-output">
+                           <strong>Output:</strong>
+                           <pre class="native-tool-output">${escapeHtml(tc.output)}</pre>
+                         </div>
+                       ` : ''}
+                     </div>
+                   </details>
                  `).join('')}
                </div>
              </div>`
@@ -758,7 +794,7 @@ async function showNativeSessionDetail(executionId) {
   // Store for export
   window._currentNativeSession = nativeSession;
 
-  showModal('Native Session Detail', modalContent, 'modal-lg');
+  showModal('Native Session Detail', modalContent, { size: 'lg' });
 }
 
 /**

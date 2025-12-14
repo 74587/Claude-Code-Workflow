@@ -9,6 +9,7 @@ import { readdirSync, statSync, existsSync, readFileSync, mkdirSync, writeFileSy
 import { join, resolve, basename, extname, relative } from 'path';
 import { execSync } from 'child_process';
 import { tmpdir } from 'os';
+import { getSecondaryModel } from './cli-config-manager.js';
 
 // Directories to exclude
 const EXCLUDE_DIRS = [
@@ -266,8 +267,15 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
       return { success: false, error: `Not a directory: ${targetPath}` };
     }
 
-    // Set model
-    const actualModel = model || DEFAULT_MODELS[tool] || DEFAULT_MODELS.gemini;
+    // Set model (use secondaryModel from config for internal calls)
+    let actualModel = model;
+    if (!actualModel) {
+      try {
+        actualModel = getSecondaryModel(process.cwd(), tool);
+      } catch {
+        actualModel = DEFAULT_MODELS[tool] || DEFAULT_MODELS.gemini;
+      }
+    }
 
     // Scan directory
     const { info: structureInfo, folderType } = scanDirectoryStructure(targetPath);

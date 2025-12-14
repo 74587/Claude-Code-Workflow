@@ -30,6 +30,7 @@ class SearchOptions:
         total_limit: Total result limit across all directories
         include_symbols: Whether to include symbol search results
         files_only: Return only file paths without excerpts
+        include_semantic: Whether to include semantic keyword search results
     """
     depth: int = -1
     max_workers: int = 8
@@ -37,6 +38,7 @@ class SearchOptions:
     total_limit: int = 100
     include_symbols: bool = False
     files_only: bool = False
+    include_semantic: bool = False
 
 
 @dataclass
@@ -378,7 +380,8 @@ class ChainSearchEngine:
                 idx_path,
                 query,
                 options.limit_per_dir,
-                options.files_only
+                options.files_only,
+                options.include_semantic
             ): idx_path
             for idx_path in index_paths
         }
@@ -400,7 +403,8 @@ class ChainSearchEngine:
     def _search_single_index(self, index_path: Path,
                               query: str,
                               limit: int,
-                              files_only: bool = False) -> List[SearchResult]:
+                              files_only: bool = False,
+                              include_semantic: bool = False) -> List[SearchResult]:
         """Search a single index database.
 
         Handles exceptions gracefully, returning empty list on failure.
@@ -410,18 +414,40 @@ class ChainSearchEngine:
             query: FTS5 query string
             limit: Maximum results from this index
             files_only: If True, skip snippet generation for faster search
+            include_semantic: If True, also search semantic keywords and merge results
 
         Returns:
             List of SearchResult objects (empty on error)
         """
         try:
             with DirIndexStore(index_path) as store:
+                # Get FTS results
                 if files_only:
                     # Fast path: return paths only without snippets
                     paths = store.search_files_only(query, limit=limit)
-                    return [SearchResult(path=p, score=0.0, excerpt="") for p in paths]
+                    fts_results = [SearchResult(path=p, score=0.0, excerpt="") for p in paths]
                 else:
-                    return store.search_fts(query, limit=limit)
+                    fts_results = store.search_fts(query, limit=limit)
+                
+                # Optionally add semantic keyword results
+                if include_semantic:
+                    try:
+                        semantic_matches = store.search_semantic_keywords(query)
+                        # Convert semantic matches to SearchResult with 0.8x weight
+                        for file_entry, keywords in semantic_matches:
+                            # Create excerpt from keywords
+                            excerpt = f"Keywords: {', '.join(keywords[:5])}"
+                            # Use a base score of 10.0 for semantic matches, weighted by 0.8
+                            semantic_result = SearchResult(
+                                path=str(file_entry.full_path),
+                                score=10.0 * 0.8,
+                                excerpt=excerpt
+                            )
+                            fts_results.append(semantic_result)
+                    except Exception as sem_exc:
+                        self.logger.debug(f"Semantic search error in {index_path}: {sem_exc}")
+                
+                return fts_results
         except Exception as exc:
             self.logger.debug(f"Search error in {index_path}: {exc}")
             return []
