@@ -15,7 +15,7 @@ from rich.table import Table
 
 from codexlens.config import Config
 from codexlens.entities import IndexedFile, SearchResult, Symbol
-from codexlens.errors import CodexLensError
+from codexlens.errors import CodexLensError, ConfigError, ParseError, StorageError, SearchError
 from codexlens.parsers.factory import ParserFactory
 from codexlens.storage.path_mapper import PathMapper
 from codexlens.storage.registry import RegistryStore, ProjectInfo
@@ -124,11 +124,41 @@ def init(
             if build_result.errors:
                 console.print(f"  [yellow]Warnings:[/yellow] {len(build_result.errors)} errors")
 
-    except Exception as exc:
+    except StorageError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Storage error: {exc}")
+        else:
+            console.print(f"[red]Init failed (storage):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except ConfigError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Configuration error: {exc}")
+        else:
+            console.print(f"[red]Init failed (config):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except ParseError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Parse error: {exc}")
+        else:
+            console.print(f"[red]Init failed (parse):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except PermissionError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Permission denied: {exc}")
+        else:
+            console.print(f"[red]Init failed (permission denied):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except CodexLensError as exc:
         if json_mode:
             print_json(success=False, error=str(exc))
         else:
             console.print(f"[red]Init failed:[/red] {exc}")
+            raise typer.Exit(code=1)
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=f"Unexpected error: {exc}")
+        else:
+            console.print(f"[red]Init failed (unexpected):[/red] {exc}")
             raise typer.Exit(code=1)
     finally:
         if registry is not None:
@@ -193,11 +223,29 @@ def search(
                 if verbose:
                     console.print(f"[dim]Searched {result.stats.dirs_searched} directories in {result.stats.time_ms:.1f}ms[/dim]")
 
-    except Exception as exc:
+    except SearchError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Search error: {exc}")
+        else:
+            console.print(f"[red]Search failed (query):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except StorageError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Storage error: {exc}")
+        else:
+            console.print(f"[red]Search failed (storage):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except CodexLensError as exc:
         if json_mode:
             print_json(success=False, error=str(exc))
         else:
             console.print(f"[red]Search failed:[/red] {exc}")
+            raise typer.Exit(code=1)
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=f"Unexpected error: {exc}")
+        else:
+            console.print(f"[red]Search failed (unexpected):[/red] {exc}")
             raise typer.Exit(code=1)
     finally:
         if registry is not None:
@@ -240,11 +288,29 @@ def symbol(
         else:
             render_symbols(syms)
 
-    except Exception as exc:
+    except SearchError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Search error: {exc}")
+        else:
+            console.print(f"[red]Symbol lookup failed (search):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except StorageError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Storage error: {exc}")
+        else:
+            console.print(f"[red]Symbol lookup failed (storage):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except CodexLensError as exc:
         if json_mode:
             print_json(success=False, error=str(exc))
         else:
             console.print(f"[red]Symbol lookup failed:[/red] {exc}")
+            raise typer.Exit(code=1)
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=f"Unexpected error: {exc}")
+        else:
+            console.print(f"[red]Symbol lookup failed (unexpected):[/red] {exc}")
             raise typer.Exit(code=1)
     finally:
         if registry is not None:
@@ -277,11 +343,35 @@ def inspect(
                 render_file_inspect(indexed.path, indexed.language, indexed.symbols)
             else:
                 render_status({"file": indexed.path, "language": indexed.language})
-    except Exception as exc:
+    except ParseError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Parse error: {exc}")
+        else:
+            console.print(f"[red]Inspect failed (parse):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except FileNotFoundError as exc:
+        if json_mode:
+            print_json(success=False, error=f"File not found: {exc}")
+        else:
+            console.print(f"[red]Inspect failed (file not found):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except PermissionError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Permission denied: {exc}")
+        else:
+            console.print(f"[red]Inspect failed (permission denied):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except CodexLensError as exc:
         if json_mode:
             print_json(success=False, error=str(exc))
         else:
             console.print(f"[red]Inspect failed:[/red] {exc}")
+            raise typer.Exit(code=1)
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=f"Unexpected error: {exc}")
+        else:
+            console.print(f"[red]Inspect failed (unexpected):[/red] {exc}")
             raise typer.Exit(code=1)
 
 
@@ -335,11 +425,23 @@ def status(
             console.print(f"  Total Directories: {stats['total_dirs']}")
             console.print(f"  Index Size: {stats['index_size_mb']} MB")
 
-    except Exception as exc:
+    except StorageError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Storage error: {exc}")
+        else:
+            console.print(f"[red]Status failed (storage):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except CodexLensError as exc:
         if json_mode:
             print_json(success=False, error=str(exc))
         else:
             console.print(f"[red]Status failed:[/red] {exc}")
+            raise typer.Exit(code=1)
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=f"Unexpected error: {exc}")
+        else:
+            console.print(f"[red]Status failed (unexpected):[/red] {exc}")
             raise typer.Exit(code=1)
     finally:
         if registry is not None:
@@ -474,11 +576,29 @@ def projects(
 
     except typer.BadParameter:
         raise
-    except Exception as exc:
+    except StorageError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Storage error: {exc}")
+        else:
+            console.print(f"[red]Projects command failed (storage):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except PermissionError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Permission denied: {exc}")
+        else:
+            console.print(f"[red]Projects command failed (permission denied):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except CodexLensError as exc:
         if json_mode:
             print_json(success=False, error=str(exc))
         else:
             console.print(f"[red]Projects command failed:[/red] {exc}")
+            raise typer.Exit(code=1)
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=f"Unexpected error: {exc}")
+        else:
+            console.print(f"[red]Projects command failed (unexpected):[/red] {exc}")
             raise typer.Exit(code=1)
     finally:
         if registry is not None:
@@ -626,13 +746,208 @@ def config(
 
     except typer.BadParameter:
         raise
-    except Exception as exc:
+    except ConfigError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Configuration error: {exc}")
+        else:
+            console.print(f"[red]Config command failed (config):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except StorageError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Storage error: {exc}")
+        else:
+            console.print(f"[red]Config command failed (storage):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except PermissionError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Permission denied: {exc}")
+        else:
+            console.print(f"[red]Config command failed (permission denied):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except CodexLensError as exc:
         if json_mode:
             print_json(success=False, error=str(exc))
         else:
             console.print(f"[red]Config command failed:[/red] {exc}")
             raise typer.Exit(code=1)
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=f"Unexpected error: {exc}")
+        else:
+            console.print(f"[red]Config command failed (unexpected):[/red] {exc}")
+            raise typer.Exit(code=1)
 
+
+
+
+@app.command()
+def enhance(
+    path: Path = typer.Argument(Path("."), exists=True, file_okay=False, dir_okay=True, help="Project root to enhance."),
+    tool: str = typer.Option("gemini", "--tool", "-t", help="LLM tool to use (gemini or qwen)."),
+    batch_size: int = typer.Option(5, "--batch-size", "-b", min=1, max=20, help="Number of files to process per batch."),
+    force: bool = typer.Option(False, "--force", "-f", help="Regenerate metadata for all files, even if already exists."),
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
+) -> None:
+    """Generate LLM-enhanced semantic metadata for indexed files.
+
+    Uses CCW CLI to generate summaries, keywords, and purpose descriptions.
+    Requires ccw to be installed and accessible in PATH.
+    """
+    _configure_logging(verbose)
+    base_path = path.expanduser().resolve()
+
+    registry: RegistryStore | None = None
+    try:
+        # Check if ccw is available
+        import subprocess
+        try:
+            subprocess.run(["ccw", "--version"], capture_output=True, check=True)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            raise CodexLensError("ccw CLI not found. Please install ccw first.")
+
+        # Validate tool
+        if tool not in ("gemini", "qwen"):
+            raise CodexLensError(f"Invalid tool: {tool}. Must be 'gemini' or 'qwen'.")
+
+        registry = RegistryStore()
+        registry.initialize()
+        mapper = PathMapper()
+
+        # Find project
+        project_info = registry.find_project(base_path)
+        if not project_info:
+            raise CodexLensError(f"No index found for: {base_path}. Run 'codex-lens init' first.")
+
+        # Import LLM enhancer
+        try:
+            from codexlens.semantic.llm_enhancer import LLMEnhancer, LLMConfig
+        except ImportError as e:
+            raise CodexLensError(f"Semantic enhancement requires additional dependencies: {e}")
+
+        # Create enhancer with config
+        config = LLMConfig(tool=tool, batch_size=batch_size)
+        enhancer = LLMEnhancer(config=config)
+
+        # Get index directory
+        index_dir = mapper.source_to_index_dir(base_path)
+        if not index_dir.exists():
+            raise CodexLensError(f"Index directory not found: {index_dir}")
+
+        # Process all index databases recursively
+        from codexlens.storage.dir_index import DirIndexStore
+        from pathlib import Path
+
+        total_processed = 0
+        total_errors = 0
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TimeElapsedColumn(),
+            console=console,
+        ) as progress:
+            # Find all _index.db files
+            index_files = list(index_dir.rglob("_index.db"))
+            task = progress.add_task(f"Enhancing {len(index_files)} directories...", total=len(index_files))
+
+            for db_path in index_files:
+                try:
+                    store = DirIndexStore(db_path)
+                    store.initialize()
+
+                    # Get files to process
+                    if force:
+                        files_to_process = store.list_files()
+                    else:
+                        files_to_process = store.get_files_without_semantic()
+
+                    if not files_to_process:
+                        progress.update(task, advance=1)
+                        continue
+
+                    # Process files
+                    for file_entry in files_to_process:
+                        try:
+                            # Read file content
+                            with open(file_entry.full_path, "r", encoding="utf-8", errors="ignore") as f:
+                                content = f.read()
+
+                            # Generate metadata
+                            metadata = enhancer.enhance_file(
+                                path=str(file_entry.full_path),
+                                content=content,
+                                language=file_entry.language or "unknown"
+                            )
+
+                            # Store metadata
+                            store.add_semantic_metadata(
+                                file_id=file_entry.id,
+                                summary=metadata.summary,
+                                keywords=metadata.keywords,
+                                purpose=metadata.purpose,
+                                llm_tool=tool
+                            )
+
+                            total_processed += 1
+
+                        except Exception as e:
+                            total_errors += 1
+                            if verbose:
+                                console.print(f"[yellow]Error processing {file_entry.full_path}: {e}[/yellow]")
+
+                    store.close()
+
+                except Exception as e:
+                    total_errors += 1
+                    if verbose:
+                        console.print(f"[yellow]Error processing {db_path}: {e}[/yellow]")
+
+                progress.update(task, advance=1)
+
+        result = {
+            "path": str(base_path),
+            "tool": tool,
+            "files_processed": total_processed,
+            "errors": total_errors,
+        }
+
+        if json_mode:
+            print_json(success=True, result=result)
+        else:
+            console.print(f"[green]Enhanced {total_processed} files using {tool}[/green]")
+            if total_errors > 0:
+                console.print(f"  [yellow]Errors: {total_errors}[/yellow]")
+
+    except StorageError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Storage error: {exc}")
+        else:
+            console.print(f"[red]Enhancement failed (storage):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except PermissionError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Permission denied: {exc}")
+        else:
+            console.print(f"[red]Enhancement failed (permission denied):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except CodexLensError as exc:
+        if json_mode:
+            print_json(success=False, error=str(exc))
+        else:
+            console.print(f"[red]Enhancement failed:[/red] {exc}")
+            raise typer.Exit(code=1)
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=f"Unexpected error: {exc}")
+        else:
+            console.print(f"[red]Enhancement failed (unexpected):[/red] {exc}")
+            raise typer.Exit(code=1)
+    finally:
+        if registry is not None:
+            registry.close()
 
 @app.command()
 def clean(
@@ -759,9 +1074,27 @@ def clean(
                 console.print(f"  Total Size: {result['total_size_mb']} MB")
                 console.print("\n[dim]Use 'clean <path>' to remove a specific project or 'clean --all' to remove everything.[/dim]")
 
-    except Exception as exc:
+    except StorageError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Storage error: {exc}")
+        else:
+            console.print(f"[red]Clean failed (storage):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except PermissionError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Permission denied: {exc}")
+        else:
+            console.print(f"[red]Clean failed (permission denied):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except CodexLensError as exc:
         if json_mode:
             print_json(success=False, error=str(exc))
         else:
             console.print(f"[red]Clean failed:[/red] {exc}")
+            raise typer.Exit(code=1)
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=f"Unexpected error: {exc}")
+        else:
+            console.print(f"[red]Clean failed (unexpected):[/red] {exc}")
             raise typer.Exit(code=1)
