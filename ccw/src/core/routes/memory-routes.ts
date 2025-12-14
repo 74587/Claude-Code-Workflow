@@ -734,7 +734,7 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
 
     try {
       const configPath = join(projectPath, '.claude', 'rules', 'active_memory.md');
-      const configJsonPath = join(projectPath, '.claude', 'rules', 'active_memory_config.json');
+      const configJsonPath = join(projectPath, '.claude', 'active_memory_config.json');
       const enabled = existsSync(configPath);
       let lastSync: string | null = null;
       let fileCount = 0;
@@ -785,13 +785,17 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
         }
 
         const rulesDir = join(projectPath, '.claude', 'rules');
+        const claudeDir = join(projectPath, '.claude');
         const configPath = join(rulesDir, 'active_memory.md');
-        const configJsonPath = join(rulesDir, 'active_memory_config.json');
+        const configJsonPath = join(claudeDir, 'active_memory_config.json');
 
         if (enabled) {
-          // Enable: Create directory and initial file
+          // Enable: Create directories and initial file
           if (!existsSync(rulesDir)) {
             mkdirSync(rulesDir, { recursive: true });
+          }
+          if (!existsSync(claudeDir)) {
+            mkdirSync(claudeDir, { recursive: true });
           }
 
           // Save config
@@ -844,11 +848,11 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
       try {
         const { config } = JSON.parse(body || '{}');
         const projectPath = initialPath;
-        const rulesDir = join(projectPath, '.claude', 'rules');
-        const configJsonPath = join(rulesDir, 'active_memory_config.json');
+        const claudeDir = join(projectPath, '.claude');
+        const configJsonPath = join(claudeDir, 'active_memory_config.json');
 
-        if (!existsSync(rulesDir)) {
-          mkdirSync(rulesDir, { recursive: true });
+        if (!existsSync(claudeDir)) {
+          mkdirSync(claudeDir, { recursive: true });
         }
 
         writeFileSync(configJsonPath, JSON.stringify(config, null, 2), 'utf-8');
@@ -938,7 +942,10 @@ RULES: Be concise. Focus on practical understanding. Include function signatures
           });
 
           if (result.success && result.execution?.output) {
-            cliOutput = result.execution.output;
+            // Extract stdout from output object
+            cliOutput = typeof result.execution.output === 'string'
+              ? result.execution.output
+              : result.execution.output.stdout || '';
           }
 
           // Add CLI output to content
@@ -1006,6 +1013,18 @@ RULES: Be concise. Focus on practical understanding. Include function signatures
 
         // Write the file
         writeFileSync(configPath, content, 'utf-8');
+
+        // Broadcast Active Memory sync completion event
+        broadcastToClients({
+          type: 'ACTIVE_MEMORY_SYNCED',
+          payload: {
+            filesAnalyzed: hotFiles.length,
+            path: configPath,
+            tool,
+            usedCli: cliOutput.length > 0,
+            timestamp: new Date().toISOString()
+          }
+        });
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({

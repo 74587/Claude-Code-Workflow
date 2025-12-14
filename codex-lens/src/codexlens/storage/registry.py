@@ -424,6 +424,9 @@ class RegistryStore:
         Searches for the closest parent directory that has an index.
         Useful for supporting subdirectory searches.
 
+        Optimized to use single database query instead of iterating through
+        each parent directory level.
+
         Args:
             source_path: Source directory or file path
 
@@ -434,23 +437,30 @@ class RegistryStore:
             conn = self._get_connection()
             source_path_resolved = source_path.resolve()
 
-            # Check from current path up to root
+            # Build list of all parent paths from deepest to shallowest
+            paths_to_check = []
             current = source_path_resolved
             while True:
-                current_str = str(current)
-                row = conn.execute(
-                    "SELECT * FROM dir_mapping WHERE source_path=?", (current_str,)
-                ).fetchone()
-
-                if row:
-                    return self._row_to_dir_mapping(row)
-
+                paths_to_check.append(str(current))
                 parent = current.parent
                 if parent == current:  # Reached filesystem root
                     break
                 current = parent
 
-            return None
+            if not paths_to_check:
+                return None
+
+            # Single query with WHERE IN, ordered by path length (longest = nearest)
+            placeholders = ','.join('?' * len(paths_to_check))
+            query = f"""
+                SELECT * FROM dir_mapping
+                WHERE source_path IN ({placeholders})
+                ORDER BY LENGTH(source_path) DESC
+                LIMIT 1
+            """
+
+            row = conn.execute(query, paths_to_check).fetchone()
+            return self._row_to_dir_mapping(row) if row else None
 
     def get_project_dirs(self, project_id: int) -> List[DirMapping]:
         """Get all directory mappings for a project.

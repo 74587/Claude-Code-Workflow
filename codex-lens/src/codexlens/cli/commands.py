@@ -1123,11 +1123,11 @@ def semantic_list(
         registry.initialize()
         mapper = PathMapper()
 
-        project_info = registry.find_project(base_path)
+        project_info = registry.get_project(base_path)
         if not project_info:
             raise CodexLensError(f"No index found for: {base_path}. Run 'codex-lens init' first.")
 
-        index_dir = mapper.source_to_index_dir(base_path)
+        index_dir = Path(project_info.index_root)
         if not index_dir.exists():
             raise CodexLensError(f"Index directory not found: {index_dir}")
 

@@ -375,6 +375,7 @@ class DirIndexStore:
             keywords_json = json.dumps(keywords)
             generated_at = time.time()
 
+            # Write to semantic_metadata table (for backward compatibility)
             conn.execute(
                 """
                 INSERT INTO semantic_metadata(file_id, summary, keywords, purpose, llm_tool, generated_at)
@@ -388,6 +389,37 @@ class DirIndexStore:
                 """,
                 (file_id, summary, keywords_json, purpose, llm_tool, generated_at),
             )
+
+            # Write to normalized keywords tables for optimized search
+            # First, remove existing keyword associations
+            conn.execute("DELETE FROM file_keywords WHERE file_id = ?", (file_id,))
+
+            # Then add new keywords
+            for keyword in keywords:
+                keyword = keyword.strip()
+                if not keyword:
+                    continue
+
+                # Insert keyword if it doesn't exist
+                conn.execute(
+                    "INSERT OR IGNORE INTO keywords(keyword) VALUES(?)",
+                    (keyword,)
+                )
+
+                # Get keyword_id
+                row = conn.execute(
+                    "SELECT id FROM keywords WHERE keyword = ?",
+                    (keyword,)
+                ).fetchone()
+
+                if row:
+                    keyword_id = row["id"]
+                    # Link file to keyword
+                    conn.execute(
+                        "INSERT OR IGNORE INTO file_keywords(file_id, keyword_id) VALUES(?, ?)",
+                        (file_id, keyword_id)
+                    )
+
             conn.commit()
 
     def get_semantic_metadata(self, file_id: int) -> Optional[Dict[str, Any]]:
@@ -454,11 +486,12 @@ class DirIndexStore:
                 for row in rows
             ]
 
-    def search_semantic_keywords(self, keyword: str) -> List[Tuple[FileEntry, List[str]]]:
+    def search_semantic_keywords(self, keyword: str, use_normalized: bool = True) -> List[Tuple[FileEntry, List[str]]]:
         """Search files by semantic keywords.
 
         Args:
             keyword: Keyword to search for (case-insensitive)
+            use_normalized: Use optimized normalized tables (default: True)
 
         Returns:
             List of (FileEntry, keywords) tuples where keyword matches
@@ -466,35 +499,71 @@ class DirIndexStore:
         with self._lock:
             conn = self._get_connection()
 
-            keyword_pattern = f"%{keyword}%"
+            if use_normalized:
+                # Optimized query using normalized tables with indexed lookup
+                # Use prefix search (keyword%) for better index utilization
+                keyword_pattern = f"{keyword}%"
 
-            rows = conn.execute(
-                """
-                SELECT f.id, f.name, f.full_path, f.language, f.mtime, f.line_count, sm.keywords
-                FROM files f
-                JOIN semantic_metadata sm ON f.id = sm.file_id
-                WHERE sm.keywords LIKE ? COLLATE NOCASE
-                ORDER BY f.name
-                """,
-                (keyword_pattern,),
-            ).fetchall()
+                rows = conn.execute(
+                    """
+                    SELECT f.id, f.name, f.full_path, f.language, f.mtime, f.line_count,
+                           GROUP_CONCAT(k.keyword, ',') as keywords
+                    FROM files f
+                    JOIN file_keywords fk ON f.id = fk.file_id
+                    JOIN keywords k ON fk.keyword_id = k.id
+                    WHERE k.keyword LIKE ? COLLATE NOCASE
+                    GROUP BY f.id, f.name, f.full_path, f.language, f.mtime, f.line_count
+                    ORDER BY f.name
+                    """,
+                    (keyword_pattern,),
+                ).fetchall()
 
-            import json
+                results = []
+                for row in rows:
+                    file_entry = FileEntry(
+                        id=int(row["id"]),
+                        name=row["name"],
+                        full_path=Path(row["full_path"]),
+                        language=row["language"],
+                        mtime=float(row["mtime"]) if row["mtime"] else 0.0,
+                        line_count=int(row["line_count"]) if row["line_count"] else 0,
+                    )
+                    keywords = row["keywords"].split(',') if row["keywords"] else []
+                    results.append((file_entry, keywords))
 
-            results = []
-            for row in rows:
-                file_entry = FileEntry(
-                    id=int(row["id"]),
-                    name=row["name"],
-                    full_path=Path(row["full_path"]),
-                    language=row["language"],
-                    mtime=float(row["mtime"]) if row["mtime"] else 0.0,
-                    line_count=int(row["line_count"]) if row["line_count"] else 0,
-                )
-                keywords = json.loads(row["keywords"]) if row["keywords"] else []
-                results.append((file_entry, keywords))
+                return results
 
-            return results
+            else:
+                # Fallback to original query for backward compatibility
+                keyword_pattern = f"%{keyword}%"
+
+                rows = conn.execute(
+                    """
+                    SELECT f.id, f.name, f.full_path, f.language, f.mtime, f.line_count, sm.keywords
+                    FROM files f
+                    JOIN semantic_metadata sm ON f.id = sm.file_id
+                    WHERE sm.keywords LIKE ? COLLATE NOCASE
+                    ORDER BY f.name
+                    """,
+                    (keyword_pattern,),
+                ).fetchall()
+
+                import json
+
+                results = []
+                for row in rows:
+                    file_entry = FileEntry(
+                        id=int(row["id"]),
+                        name=row["name"],
+                        full_path=Path(row["full_path"]),
+                        language=row["language"],
+                        mtime=float(row["mtime"]) if row["mtime"] else 0.0,
+                        line_count=int(row["line_count"]) if row["line_count"] else 0,
+                    )
+                    keywords = json.loads(row["keywords"]) if row["keywords"] else []
+                    results.append((file_entry, keywords))
+
+                return results
 
     def list_semantic_metadata(
         self,
@@ -794,19 +863,26 @@ class DirIndexStore:
             return [row["full_path"] for row in rows]
 
     def search_symbols(
-        self, name: str, kind: Optional[str] = None, limit: int = 50
+        self, name: str, kind: Optional[str] = None, limit: int = 50, prefix_mode: bool = True
     ) -> List[Symbol]:
         """Search symbols by name pattern.
 
         Args:
-            name: Symbol name pattern (LIKE query)
+            name: Symbol name pattern
             kind: Optional symbol kind filter
             limit: Maximum results to return
+            prefix_mode: If True, use prefix search (faster with index);
+                        If False, use substring search (slower)
 
         Returns:
             List of Symbol objects
         """
-        pattern = f"%{name}%"
+        # Prefix search is much faster as it can use index
+        if prefix_mode:
+            pattern = f"{name}%"
+        else:
+            pattern = f"%{name}%"
+
         with self._lock:
             conn = self._get_connection()
             if kind:
@@ -979,6 +1055,28 @@ class DirIndexStore:
                 """
             )
 
+            # Normalized keywords tables for performance
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS keywords (
+                    id INTEGER PRIMARY KEY,
+                    keyword TEXT NOT NULL UNIQUE
+                )
+                """
+            )
+
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS file_keywords (
+                    file_id INTEGER NOT NULL,
+                    keyword_id INTEGER NOT NULL,
+                    PRIMARY KEY (file_id, keyword_id),
+                    FOREIGN KEY (file_id) REFERENCES files (id) ON DELETE CASCADE,
+                    FOREIGN KEY (keyword_id) REFERENCES keywords (id) ON DELETE CASCADE
+                )
+                """
+            )
+
             # Indexes
             conn.execute("CREATE INDEX IF NOT EXISTS idx_files_name ON files(name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_files_path ON files(full_path)")
@@ -986,6 +1084,9 @@ class DirIndexStore:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_file ON symbols(file_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_semantic_file ON semantic_metadata(file_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_keywords_keyword ON keywords(keyword)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_file_keywords_file_id ON file_keywords(file_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_file_keywords_keyword_id ON file_keywords(keyword_id)")
 
         except sqlite3.DatabaseError as exc:
             raise StorageError(f"Failed to create schema: {exc}") from exc

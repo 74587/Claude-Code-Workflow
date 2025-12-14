@@ -238,6 +238,31 @@ function handleNotification(data) {
       }
       break;
 
+    case 'ACTIVE_MEMORY_SYNCED':
+      // Handle Active Memory sync completion
+      if (typeof addGlobalNotification === 'function') {
+        const { filesAnalyzed, tool, usedCli } = payload;
+        const method = usedCli ? `CLI (${tool})` : 'Basic';
+        addGlobalNotification(
+          'success',
+          'Active Memory synced',
+          {
+            'Files Analyzed': filesAnalyzed,
+            'Method': method,
+            'Timestamp': new Date(payload.timestamp).toLocaleTimeString()
+          },
+          'Memory'
+        );
+      }
+      // Refresh Active Memory status if on memory view
+      if (getCurrentView && getCurrentView() === 'memory') {
+        if (typeof loadActiveMemoryStatus === 'function') {
+          loadActiveMemoryStatus();
+        }
+      }
+      console.log('[Active Memory] Sync completed:', payload);
+      break;
+
     default:
       console.log('[WS] Unknown notification type:', type);
   }
