@@ -43,6 +43,8 @@ class SQLiteStore:
                 conn.execute("PRAGMA journal_mode=WAL")
                 conn.execute("PRAGMA synchronous=NORMAL")
                 conn.execute("PRAGMA foreign_keys=ON")
+                # Memory-mapped I/O for faster reads (30GB limit)
+                conn.execute("PRAGMA mmap_size=30000000000")
                 self._pool[thread_id] = conn
 
             self._local.conn = conn
@@ -384,7 +386,8 @@ class SQLiteStore:
                 language UNINDEXED,
                 content,
                 content='files',
-                content_rowid='id'
+                content_rowid='id',
+                tokenize="unicode61 tokenchars '_'"
             )
             """
         )
