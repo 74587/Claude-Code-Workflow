@@ -1,7 +1,16 @@
 import { glob } from 'glob';
-import { readFileSync, existsSync, statSync, readdirSync } from 'fs';
+import { readFile, readdir, stat, access } from 'fs/promises';
+import { constants } from 'fs';
 import { join, basename } from 'path';
 import type { SessionMetadata, SessionType } from '../types/session.js';
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path, constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 interface SessionData extends SessionMetadata {
   path: string;
@@ -28,46 +37,54 @@ export async function scanSessions(workflowDir: string): Promise<ScanSessionsRes
     hasReviewData: false
   };
 
-  if (!existsSync(workflowDir)) {
+  if (!await fileExists(workflowDir)) {
     return result;
   }
 
-  // Scan active sessions
+    // Scan active sessions
   const activeDir = join(workflowDir, 'active');
-  if (existsSync(activeDir)) {
+  if (await fileExists(activeDir)) {
     const activeSessions = await findWfsSessions(activeDir);
-    for (const sessionName of activeSessions) {
+    const activeSessionDataPromises = activeSessions.map(async (sessionName) => {
       const sessionPath = join(activeDir, sessionName);
-      const sessionData = readSessionData(sessionPath);
+      const sessionData = await readSessionData(sessionPath);
       if (sessionData) {
-        result.active.push({
+        // Check for review data
+        if (await fileExists(join(sessionPath, '.review'))) {
+          result.hasReviewData = true;
+        }
+        return {
           ...sessionData,
           path: sessionPath,
           isActive: true
-        });
-        // Check for review data
-        if (existsSync(join(sessionPath, '.review'))) {
-          result.hasReviewData = true;
-        }
+        };
       }
-    }
+      return null;
+    });
+
+    const activeSessionData = (await Promise.all(activeSessionDataPromises)).filter((s): s is SessionData => s !== null);
+    result.active.push(...activeSessionData);
   }
 
-  // Scan archived sessions
+    // Scan archived sessions
   const archivesDir = join(workflowDir, 'archives');
-  if (existsSync(archivesDir)) {
+  if (await fileExists(archivesDir)) {
     const archivedSessions = await findWfsSessions(archivesDir);
-    for (const sessionName of archivedSessions) {
+    const archivedSessionDataPromises = archivedSessions.map(async (sessionName) => {
       const sessionPath = join(archivesDir, sessionName);
-      const sessionData = readSessionData(sessionPath);
+      const sessionData = await readSessionData(sessionPath);
       if (sessionData) {
-        result.archived.push({
+        return {
           ...sessionData,
           path: sessionPath,
           isActive: false
-        });
+        };
       }
-    }
+      return null;
+    });
+
+    const archivedSessionData = (await Promise.all(archivedSessionDataPromises)).filter((s): s is SessionData => s !== null);
+    result.archived.push(...archivedSessionData);
   }
 
   // Sort by creation date (newest first)
@@ -98,7 +115,7 @@ async function findWfsSessions(dir: string): Promise<string[]> {
   } catch {
     // Fallback: manual directory listing
     try {
-      const entries = readdirSync(dir, { withFileTypes: true });
+      const entries = await readdir(dir, { withFileTypes: true });
       return entries
         .filter(e => e.isDirectory() && e.name.startsWith('WFS-'))
         .map(e => e.name);
@@ -162,13 +179,13 @@ function inferTypeFromName(sessionName: string): SessionType {
  * @param sessionPath - Path to session directory
  * @returns Session data object or null if invalid
  */
-function readSessionData(sessionPath: string): SessionData | null {
+async function readSessionData(sessionPath: string): Promise<SessionData | null> {
   const sessionFile = join(sessionPath, 'workflow-session.json');
   const sessionName = basename(sessionPath);
 
-  if (existsSync(sessionFile)) {
+  if (await fileExists(sessionFile)) {
     try {
-      const data = JSON.parse(readFileSync(sessionFile, 'utf8')) as Record<string, unknown>;
+      const data = JSON.parse(await readFile(sessionFile, 'utf8')) as Record<string, unknown>;
 
       // Multi-level type detection: JSON type > workflow_type > infer from name
       let type = (data.type as SessionType) || (data.workflow_type as SessionType) || inferTypeFromName(sessionName);
@@ -201,7 +218,7 @@ function readSessionData(sessionPath: string): SessionData | null {
   const inferredType = inferTypeFromName(sessionName);
 
   try {
-    const stats = statSync(sessionPath);
+    const stats = await stat(sessionPath);
     const createdAt = timestampFromName || stats.birthtime.toISOString();
     return {
       id: sessionName,
@@ -242,9 +259,9 @@ function readSessionData(sessionPath: string): SessionData | null {
  * @param sessionPath - Path to session directory
  * @returns True if review data exists
  */
-export function hasReviewData(sessionPath: string): boolean {
+export async function hasReviewData(sessionPath: string): Promise<boolean> {
   const reviewDir = join(sessionPath, '.review');
-  return existsSync(reviewDir);
+  return await fileExists(reviewDir);
 }
 
 /**
@@ -254,7 +271,7 @@ export function hasReviewData(sessionPath: string): boolean {
  */
 export async function getTaskFiles(sessionPath: string): Promise<string[]> {
   const taskDir = join(sessionPath, '.task');
-  if (!existsSync(taskDir)) {
+  if (!await fileExists(taskDir)) {
     return [];
   }
 

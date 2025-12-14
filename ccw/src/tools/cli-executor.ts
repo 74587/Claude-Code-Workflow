@@ -79,6 +79,46 @@ interface ToolAvailability {
   path: string | null;
 }
 
+// Tool availability cache with TTL
+interface CachedToolAvailability {
+  result: ToolAvailability;
+  timestamp: number;
+}
+
+// Cache storage: Map<toolName, CachedToolAvailability>
+const toolAvailabilityCache = new Map<string, CachedToolAvailability>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Check if cache entry is still valid
+ */
+function isCacheValid(cached: CachedToolAvailability): boolean {
+  return Date.now() - cached.timestamp < CACHE_TTL_MS;
+}
+
+/**
+ * Clear expired cache entries
+ */
+function clearExpiredCache(): void {
+  const now = Date.now();
+  const entriesToDelete: string[] = [];
+
+  toolAvailabilityCache.forEach((cached, tool) => {
+    if (now - cached.timestamp >= CACHE_TTL_MS) {
+      entriesToDelete.push(tool);
+    }
+  });
+
+  entriesToDelete.forEach(tool => toolAvailabilityCache.delete(tool));
+}
+
+/**
+ * Clear all cache entries (useful for testing or forced refresh)
+ */
+export function clearToolCache(): void {
+  toolAvailabilityCache.clear();
+}
+
 // Single turn in a conversation
 interface ConversationTurn {
   turn: number;
@@ -107,6 +147,7 @@ interface ConversationRecord {
   turn_count: number;
   latest_status: 'success' | 'error' | 'timeout';
   turns: ConversationTurn[];
+  parent_execution_id?: string; // For fork/retry scenarios
 }
 
 // Legacy single execution record (for backward compatibility)
@@ -151,9 +192,19 @@ interface ExecutionOutput {
 }
 
 /**
- * Check if a CLI tool is available
+ * Check if a CLI tool is available (with caching)
  */
 async function checkToolAvailability(tool: string): Promise<ToolAvailability> {
+  // Check cache first
+  const cached = toolAvailabilityCache.get(tool);
+  if (cached && isCacheValid(cached)) {
+    return cached.result;
+  }
+
+  // Clear expired entries periodically
+  clearExpiredCache();
+
+  // Perform actual check
   return new Promise((resolve) => {
     const isWindows = process.platform === 'win32';
     const command = isWindows ? 'where' : 'which';
@@ -167,21 +218,43 @@ async function checkToolAvailability(tool: string): Promise<ToolAvailability> {
     child.stdout!.on('data', (data) => { stdout += data.toString(); });
 
     child.on('close', (code) => {
-      if (code === 0 && stdout.trim()) {
-        resolve({ available: true, path: stdout.trim().split('\n')[0] });
-      } else {
-        resolve({ available: false, path: null });
-      }
+      const result: ToolAvailability = code === 0 && stdout.trim()
+        ? { available: true, path: stdout.trim().split('\n')[0] }
+        : { available: false, path: null };
+
+      // Cache the result
+      toolAvailabilityCache.set(tool, {
+        result,
+        timestamp: Date.now()
+      });
+
+      resolve(result);
     });
 
     child.on('error', () => {
-      resolve({ available: false, path: null });
+      const result: ToolAvailability = { available: false, path: null };
+
+      // Cache negative results too
+      toolAvailabilityCache.set(tool, {
+        result,
+        timestamp: Date.now()
+      });
+
+      resolve(result);
     });
 
     // Timeout after 5 seconds
     setTimeout(() => {
       child.kill();
-      resolve({ available: false, path: null });
+      const result: ToolAvailability = { available: false, path: null };
+
+      // Cache timeout results
+      toolAvailabilityCache.set(tool, {
+        result,
+        timestamp: Date.now()
+      });
+
+      resolve(result);
     }, 5000);
   });
 }
@@ -503,7 +576,7 @@ async function executeCliTool(
     throw new Error(`Invalid params: ${parsed.error.message}`);
   }
 
-  const { tool, prompt, mode, format, model, cd, includeDirs, timeout, resume, id: customId, noNative, category } = parsed.data;
+  const { tool, prompt, mode, format, model, cd, includeDirs, timeout, resume, id: customId, noNative, category, parentExecutionId } = parsed.data;
 
   // Determine working directory early (needed for conversation lookup)
   const workingDir = cd || process.cwd();
@@ -858,7 +931,8 @@ async function executeCliTool(
               total_duration_ms: duration,
               turn_count: 1,
               latest_status: status,
-              turns: [newTurn]
+              turns: [newTurn],
+              parent_execution_id: parentExecutionId
             };
         // Try to save conversation to history
         try {

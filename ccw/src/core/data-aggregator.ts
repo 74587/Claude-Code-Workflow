@@ -2,6 +2,7 @@ import { glob } from 'glob';
 import { readFileSync, existsSync } from 'fs';
 import { join, basename } from 'path';
 import { scanLiteTasks } from './lite-scanner.js';
+import { createDashboardCache } from './cache-manager.js';
 
 interface SessionData {
   session_id: string;
@@ -143,12 +144,33 @@ interface ProjectOverview {
 }
 
 /**
- * Aggregate all data for dashboard rendering
+ * Aggregate all data for dashboard rendering (with caching)
  * @param sessions - Scanned sessions from session-scanner
  * @param workflowDir - Path to .workflow directory
  * @returns Aggregated dashboard data
  */
 export async function aggregateData(sessions: ScanSessionsResult, workflowDir: string): Promise<DashboardData> {
+  // Initialize cache manager
+  const cache = createDashboardCache(workflowDir);
+
+  // Prepare paths to watch for changes
+  const watchPaths = [
+    join(workflowDir, 'active'),
+    join(workflowDir, 'archives'),
+    join(workflowDir, 'project.json'),
+    ...sessions.active.map(s => s.path),
+    ...sessions.archived.map(s => s.path)
+  ];
+
+  // Check cache first
+  const cachedData = cache.get(watchPaths);
+  if (cachedData !== null) {
+    console.log('Using cached dashboard data');
+    return cachedData;
+  }
+
+  console.log('Cache miss - regenerating dashboard data');
+
   const data: DashboardData = {
     generatedAt: new Date().toISOString(),
     activeSessions: [],
@@ -211,6 +233,9 @@ export async function aggregateData(sessions: ScanSessionsResult, workflowDir: s
   } catch (err) {
     console.error('Error loading project overview:', (err as Error).message);
   }
+
+  // Store in cache before returning
+  cache.set(data, watchPaths);
 
   return data;
 }
