@@ -171,8 +171,9 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recomme
 | MCP Server | Purpose | Installation Guide |
 |------------|---------|-------------------|
 | **Exa MCP** | External API patterns & best practices | [Install Guide](https://smithery.ai/server/exa) |
-| **Code Index MCP** | Advanced internal code search | [Install Guide](https://github.com/johnhuang316/code-index-mcp) |
 | **Chrome DevTools MCP** | ⚠️ **Required for UI workflows** - URL mode design extraction | [Install Guide](https://github.com/ChromeDevTools/chrome-devtools-mcp) |
+
+> **Note**: Code Index MCP has been replaced by CCW's built-in **CodexLens** (`mcp__ccw-tools__codex_lens`). No additional installation required for code indexing.
 
 ⚠️ **Note**: Some workflows expect MCP tools to be available. Without them, you may experience:
 - Slower code analysis and search operations

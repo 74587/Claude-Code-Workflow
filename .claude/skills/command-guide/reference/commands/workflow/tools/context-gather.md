@@ -237,7 +237,7 @@ Execute complete context-search-agent workflow for implementation planning:
 ### Phase 1: Initialization & Pre-Analysis
 1. **Project State Loading**: Read and parse `.workflow/project.json`. Use its `overview` section as the foundational `project_context`. This is your primary source for architecture, tech stack, and key components. If file doesn't exist, proceed with fresh analysis.
 2. **Detection**: Check for existing context-package (early exit if valid)
-3. **Foundation**: Initialize code-index, get project structure, load docs
+3. **Foundation**: Initialize CodexLens, get project structure, load docs
 4. **Analysis**: Extract keywords, determine scope, classify complexity based on task description and project state
 
 ### Phase 2: Multi-Source Context Discovery

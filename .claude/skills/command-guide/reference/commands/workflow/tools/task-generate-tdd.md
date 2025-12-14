@@ -113,7 +113,7 @@ Phase 2: Agent Execution (Document Generation)
     // Existing test patterns and coverage analysis
   },
   "mcp_capabilities": {
-    "code_index": true,
+    "codex_lens": true,
     "exa_code": true,
     "exa_web": true
   }
@@ -338,7 +338,7 @@ Generate all three documents and report completion status:
 - TDD cycles configured: N cycles with quantified test cases
 - Artifacts integrated: synthesis-spec, guidance-specification, N role analyses
 - Test context integrated: existing patterns and coverage
-- MCP enhancements: code-index, exa-research
+- MCP enhancements: CodexLens, exa-research
 - Session ready for TDD execution: /workflow:execute
 `
 )

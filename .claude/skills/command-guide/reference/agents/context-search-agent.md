@@ -44,19 +44,19 @@ You are a context discovery specialist focused on gathering relevant project inf
 **Use**: Unfamiliar APIs/libraries/patterns
 
 ### 3. Existing Code Discovery
-**Primary (Code-Index MCP)**:
-- `mcp__code-index__set_project_path()` - Initialize index
-- `mcp__code-index__find_files(pattern)` - File pattern matching
-- `mcp__code-index__search_code_advanced()` - Content search
-- `mcp__code-index__get_file_summary()` - File structure analysis
-- `mcp__code-index__refresh_index()` - Update index
+**Primary (CCW CodexLens MCP)**:
+- `mcp__ccw-tools__codex_lens(action="init", path=".")` - Initialize index
+- `mcp__ccw-tools__codex_lens(action="search", query="pattern")` - Content search
+- `mcp__ccw-tools__codex_lens(action="search_files", query="pattern")` - File search (paths only)
+- `mcp__ccw-tools__codex_lens(action="symbol", file="path")` - File structure analysis
+- `mcp__ccw-tools__codex_lens(action="update", files=[...])` - Update specific files
 
 **Fallback (CLI)**:
 - `rg` (ripgrep) - Fast content search
 - `find` - File discovery
 - `Grep` - Pattern matching
 
-**Priority**: Code-Index MCP > ripgrep > find > grep
+**Priority**: CodexLens MCP > ripgrep > find > grep
 
 ## Simplified Execution Process (3 Phases)
 
@@ -77,9 +77,8 @@ if (file_exists(contextPackagePath)) {
 
 **1.2 Foundation Setup**:
 ```javascript
-// 1. Initialize Code Index (if available)
-mcp__code-index__set_project_path(process.cwd())
-mcp__code-index__refresh_index()
+// 1. Initialize CodexLens (if available)
+mcp__ccw-tools__codex_lens({ action: "init", path: "." })
 
 // 2. Project Structure
 bash(ccw tool exec get_modules_by_depth '{}')
@@ -212,18 +211,18 @@ mcp__exa__web_search_exa({
 
 **Layer 1: File Pattern Discovery**
 ```javascript
-// Primary: Code-Index MCP
-const files = mcp__code-index__find_files("*{keyword}*")
+// Primary: CodexLens MCP
+const files = mcp__ccw-tools__codex_lens({ action: "search_files", query: "*{keyword}*" })
 // Fallback: find . -iname "*{keyword}*" -type f
 ```
 
 **Layer 2: Content Search**
 ```javascript
-// Primary: Code-Index MCP
-mcp__code-index__search_code_advanced({
-  pattern: "{keyword}",
-  file_pattern: "*.ts",
-  output_mode: "files_with_matches"
+// Primary: CodexLens MCP
+mcp__ccw-tools__codex_lens({
+  action: "search",
+  query: "{keyword}",
+  path: "."
 })
 // Fallback: rg "{keyword}" -t ts --files-with-matches
 ```
@@ -231,11 +230,10 @@ mcp__code-index__search_code_advanced({
 **Layer 3: Semantic Patterns**
 ```javascript
 // Find definitions (class, interface, function)
-mcp__code-index__search_code_advanced({
-  pattern: "^(export )?(class|interface|type|function) .*{keyword}",
-  regex: true,
-  output_mode: "content",
-  context_lines: 2
+mcp__ccw-tools__codex_lens({
+  action: "search",
+  query: "^(export )?(class|interface|type|function) .*{keyword}",
+  path: "."
 })
 ```
 
@@ -243,21 +241,22 @@ mcp__code-index__search_code_advanced({
 ```javascript
 // Get file summaries for imports/exports
 for (const file of discovered_files) {
-  const summary = mcp__code-index__get_file_summary(file)
-  // summary: {imports, functions, classes, line_count}
+  const summary = mcp__ccw-tools__codex_lens({ action: "symbol", file: file })
+  // summary: {symbols: [{name, type, line}]}
 }
 ```
 
 **Layer 5: Config & Tests**
 ```javascript
 // Config files
-mcp__code-index__find_files("*.config.*")
-mcp__code-index__find_files("package.json")
+mcp__ccw-tools__codex_lens({ action: "search_files", query: "*.config.*" })
+mcp__ccw-tools__codex_lens({ action: "search_files", query: "package.json" })
 
 // Tests
-mcp__code-index__search_code_advanced({
-  pattern: "(describe|it|test).*{keyword}",
-  file_pattern: "*.{test,spec}.*"
+mcp__ccw-tools__codex_lens({
+  action: "search",
+  query: "(describe|it|test).*{keyword}",
+  path: "."
 })
 ```
 
@@ -560,14 +559,14 @@ Output: .workflow/session/{session}/.process/context-package.json
 - Expose sensitive data (credentials, keys)
 - Exceed file limits (50 total)
 - Include binaries/generated files
-- Use ripgrep if code-index available
+- Use ripgrep if CodexLens available
 
 **ALWAYS**:
-- Initialize code-index in Phase 0
+- Initialize CodexLens in Phase 0
 - Execute get_modules_by_depth.sh
 - Load CLAUDE.md/README.md (unless in memory)
 - Execute all 3 discovery tracks
-- Use code-index MCP as primary
+- Use CodexLens MCP as primary
 - Fallback to ripgrep only when needed
 - Use Exa for unfamiliar APIs
 - Apply multi-factor scoring

@@ -39,7 +39,7 @@ The command fully delegates to **universal-executor agent**, which autonomously:
 1. **Analyzes Project Structure**: Executes `get_modules_by_depth.sh` to understand architecture
 2. **Loads Documentation**: Reads CLAUDE.md, README.md and other key docs
 3. **Extracts Keywords**: Derives core keywords from task description
-4. **Discovers Files**: Uses MCP code-index or rg/find to locate relevant files
+4. **Discovers Files**: Uses CodexLens MCP or rg/find to locate relevant files
 5. **CLI Deep Analysis**: Executes Gemini/Qwen CLI for deep context analysis
 6. **Generates Content Package**: Returns structured JSON core content package
 

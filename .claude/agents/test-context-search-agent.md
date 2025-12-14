@@ -36,10 +36,10 @@ You are a test context discovery specialist focused on gathering test coverage i
 **Use**: Phase 1 source context loading
 
 ### 2. Test Coverage Discovery
-**Primary (Code-Index MCP)**:
-- `mcp__code-index__find_files(pattern)` - Find test files (*.test.*, *.spec.*)
-- `mcp__code-index__search_code_advanced()` - Search test patterns
-- `mcp__code-index__get_file_summary()` - Analyze test structure
+**Primary (CCW CodexLens MCP)**:
+- `mcp__ccw-tools__codex_lens(action="search_files", query="*.test.*")` - Find test files
+- `mcp__ccw-tools__codex_lens(action="search", query="pattern")` - Search test patterns
+- `mcp__ccw-tools__codex_lens(action="symbol", file="path")` - Analyze test structure
 
 **Fallback (CLI)**:
 - `rg` (ripgrep) - Fast test pattern search
@@ -120,9 +120,10 @@ for (const summary_path of summaries) {
 
 **2.1 Existing Test Discovery**:
 ```javascript
-// Method 1: Code-Index MCP (preferred)
-const test_files = mcp__code-index__find_files({
-  patterns: ["*.test.*", "*.spec.*", "*test_*.py", "*_test.go"]
+// Method 1: CodexLens MCP (preferred)
+const test_files = mcp__ccw-tools__codex_lens({
+  action: "search_files",
+  query: "*.test.* OR *.spec.* OR test_*.py OR *_test.go"
 });
 
 // Method 2: Fallback CLI
