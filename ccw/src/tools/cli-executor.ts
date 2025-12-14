@@ -222,39 +222,27 @@ async function checkToolAvailability(tool: string): Promise<ToolAvailability> {
         ? { available: true, path: stdout.trim().split('\n')[0] }
         : { available: false, path: null };
 
-      // Cache the result
-      toolAvailabilityCache.set(tool, {
-        result,
-        timestamp: Date.now()
-      });
+      // Only cache positive results to avoid caching transient failures
+      if (result.available) {
+        toolAvailabilityCache.set(tool, {
+          result,
+          timestamp: Date.now()
+        });
+      }
 
       resolve(result);
     });
 
     child.on('error', () => {
-      const result: ToolAvailability = { available: false, path: null };
-
-      // Cache negative results too
-      toolAvailabilityCache.set(tool, {
-        result,
-        timestamp: Date.now()
-      });
-
-      resolve(result);
+      // Don't cache errors - they may be transient
+      resolve({ available: false, path: null });
     });
 
     // Timeout after 5 seconds
     setTimeout(() => {
       child.kill();
-      const result: ToolAvailability = { available: false, path: null };
-
-      // Cache timeout results
-      toolAvailabilityCache.set(tool, {
-        result,
-        timestamp: Date.now()
-      });
-
-      resolve(result);
+      // Don't cache timeouts - they may be transient
+      resolve({ available: false, path: null });
     }, 5000);
   });
 }
