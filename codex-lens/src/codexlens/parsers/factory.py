@@ -48,6 +48,10 @@ class SimpleRegexParser:
             symbols = _parse_java_symbols(text)
         elif self.language_id == "go":
             symbols = _parse_go_symbols(text)
+        elif self.language_id == "markdown":
+            symbols = _parse_markdown_symbols(text)
+        elif self.language_id == "text":
+            symbols = _parse_text_symbols(text)
         else:
             symbols = _parse_generic_symbols(text)
 
@@ -221,3 +225,32 @@ def _parse_generic_symbols(text: str) -> List[Symbol]:
         if def_match:
             symbols.append(Symbol(name=def_match.group(1), kind="function", range=(i, i)))
     return symbols
+
+
+# Markdown heading regex: # Heading, ## Heading, etc.
+_MD_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$")
+
+
+def _parse_markdown_symbols(text: str) -> List[Symbol]:
+    """Parse Markdown headings as symbols.
+    
+    Extracts # headings as 'section' symbols with heading level as kind suffix.
+    """
+    symbols: List[Symbol] = []
+    for i, line in enumerate(text.splitlines(), start=1):
+        heading_match = _MD_HEADING_RE.match(line)
+        if heading_match:
+            level = len(heading_match.group(1))
+            title = heading_match.group(2).strip()
+            # Use 'section' kind with level indicator
+            kind = f"h{level}"
+            symbols.append(Symbol(name=title, kind=kind, range=(i, i)))
+    return symbols
+
+
+def _parse_text_symbols(text: str) -> List[Symbol]:
+    """Parse plain text files - no symbols, just index content."""
+    # Text files don't have structured symbols, return empty list
+    # The file content will still be indexed for FTS search
+    return []
+

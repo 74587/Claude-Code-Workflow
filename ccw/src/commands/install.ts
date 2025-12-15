@@ -12,7 +12,7 @@ import type { Spinner } from 'ora';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Source directories to install
+// Source directories to install (includes .codex with prompts folder)
 const SOURCE_DIRS = ['.claude', '.codex', '.gemini', '.qwen'];
 
 // Subdirectories that should always be installed to global (~/.claude/)
@@ -108,6 +108,16 @@ export async function installCommand(options: InstallOptions): Promise<void> {
 
   console.log('');
   info(`Found ${availableDirs.length} directories to install: ${availableDirs.join(', ')}`);
+
+  // Show what will be installed including .codex/prompts
+  if (availableDirs.includes('.codex')) {
+    const promptsPath = join(sourceDir, '.codex', 'prompts');
+    if (existsSync(promptsPath)) {
+      const promptFiles = readdirSync(promptsPath, { recursive: true });
+      info(`  └─ .codex/prompts: ${promptFiles.length} files (workflow execute, lite-execute)`);
+    }
+  }
+
   divider();
 
   // Check for existing installation at target path
@@ -205,6 +215,13 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     '',
     chalk.gray(`Manifest: ${basename(manifestPath)}`)
   ];
+
+  // Add codex prompts info if installed
+  if (availableDirs.includes('.codex')) {
+    summaryLines.push('');
+    summaryLines.push(chalk.cyan('Codex Prompts: ✓ Installed'));
+    summaryLines.push(chalk.gray(`  Path: ${join(installPath, '.codex', 'prompts')}`));
+  }
 
   summaryBox({
     title: ' Installation Summary ',

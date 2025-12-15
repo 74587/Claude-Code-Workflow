@@ -1,12 +1,10 @@
-// @ts-nocheck
 /**
  * Graph Routes Module
  * Handles graph visualization API endpoints for codex-lens data
  */
 import type { IncomingMessage, ServerResponse } from 'http';
-import { executeCodexLens } from '../../tools/codex-lens.js';
 import { homedir } from 'os';
-import { join } from 'path';
+import { join, resolve, normalize } from 'path';
 import { existsSync } from 'fs';
 import Database from 'better-sqlite3';
 
@@ -83,6 +81,34 @@ interface ImpactAnalysis {
 }
 
 /**
+ * Validate and sanitize project path to prevent path traversal attacks
+ * @returns sanitized absolute path or null if invalid
+ */
+function validateProjectPath(projectPath: string, initialPath: string): string | null {
+  if (!projectPath) {
+    return initialPath;
+  }
+
+  // Resolve to absolute path
+  const resolved = resolve(projectPath);
+  const normalized = normalize(resolved);
+
+  // Check for path traversal attempts
+  if (normalized.includes('..') || normalized !== resolved) {
+    console.error(`[Graph] Path traversal attempt blocked: ${projectPath}`);
+    return null;
+  }
+
+  // Ensure path exists and is a directory
+  if (!existsSync(normalized)) {
+    console.error(`[Graph] Path does not exist: ${normalized}`);
+    return null;
+  }
+
+  return normalized;
+}
+
+/**
  * Map codex-lens symbol kinds to graph node types
  */
 function mapSymbolKind(kind: string): string {
@@ -151,7 +177,8 @@ async function querySymbols(projectPath: string): Promise<GraphNode[]> {
       tokenCount: row.token_count || undefined,
     }));
   } catch (err) {
-    console.error(`[Graph] Failed to query symbols: ${err.message}`);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[Graph] Failed to query symbols: ${message}`);
     return [];
   }
 }
@@ -194,9 +221,46 @@ async function queryRelationships(projectPath: string): Promise<GraphEdge[]> {
       sourceFile: row.source_file,
     }));
   } catch (err) {
-    console.error(`[Graph] Failed to query relationships: ${err.message}`);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[Graph] Failed to query relationships: ${message}`);
     return [];
   }
+}
+
+/**
+ * Sanitize a string for use in SQL LIKE patterns
+ * Escapes special characters: %, _, [, ]
+ */
+function sanitizeForLike(input: string): string {
+  return input
+    .replace(/\[/g, '[[]')  // Escape [ first
+    .replace(/%/g, '[%]')   // Escape %
+    .replace(/_/g, '[_]');  // Escape _
+}
+
+/**
+ * Validate and parse symbol ID format
+ * Expected format: file:name:line or just symbolName
+ * @returns sanitized symbol name or null if invalid
+ */
+function parseSymbolId(symbolId: string): string | null {
+  if (!symbolId || symbolId.length > 500) {
+    return null;
+  }
+
+  // Remove any potentially dangerous characters
+  const sanitized = symbolId.replace(/[<>'";&|`$\\]/g, '');
+
+  // Parse the format: file:name:line
+  const parts = sanitized.split(':');
+  if (parts.length >= 2) {
+    // Return the name part (second element)
+    const name = parts[1].trim();
+    return name.length > 0 ? name : null;
+  }
+
+  // If no colons, use the whole string as name
+  return sanitized.trim() || null;
 }
 
 /**
@@ -211,12 +275,18 @@ async function analyzeImpact(projectPath: string, symbolId: string): Promise<Imp
     return { directDependents: [], affectedFiles: [] };
   }
 
+  // Parse and validate symbol ID
+  const symbolName = parseSymbolId(symbolId);
+  if (!symbolName) {
+    console.error(`[Graph] Invalid symbol ID format: ${symbolId}`);
+    return { directDependents: [], affectedFiles: [] };
+  }
+
   try {
     const db = Database(dbPath, { readonly: true });
 
-    // Parse symbolId to extract symbol name
-    const parts = symbolId.split(':');
-    const symbolName = parts.length >= 2 ? parts[1] : symbolId;
+    // Sanitize for LIKE query to prevent injection via special characters
+    const sanitizedName = sanitizeForLike(symbolName);
 
     // Find all symbols that reference this symbol
     const rows = db.prepare(`
@@ -228,7 +298,7 @@ async function analyzeImpact(projectPath: string, symbolId: string): Promise<Imp
       JOIN symbols s ON r.source_symbol_id = s.id
       JOIN files f ON s.file_id = f.id
       WHERE r.target_qualified_name LIKE ?
-    `).all(`%${symbolName}%`);
+    `).all(`%${sanitizedName}%`);
 
     db.close();
 
@@ -243,7 +313,8 @@ async function analyzeImpact(projectPath: string, symbolId: string): Promise<Imp
       affectedFiles,
     };
   } catch (err) {
-    console.error(`[Graph] Failed to analyze impact: ${err.message}`);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[Graph] Failed to analyze impact: ${message}`);
     return { directDependents: [], affectedFiles: [] };
   }
 }
@@ -257,42 +328,65 @@ export async function handleGraphRoutes(ctx: RouteContext): Promise<boolean> {
 
   // API: Graph Nodes - Get all symbols as graph nodes
   if (pathname === '/api/graph/nodes') {
-    const projectPath = url.searchParams.get('path') || initialPath;
+    const rawPath = url.searchParams.get('path') || initialPath;
+    const projectPath = validateProjectPath(rawPath, initialPath);
+
+    if (!projectPath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid project path', nodes: [] }));
+      return true;
+    }
 
     try {
       const nodes = await querySymbols(projectPath);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ nodes }));
     } catch (err) {
+      console.error(`[Graph] Error fetching nodes:`, err);
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message, nodes: [] }));
+      res.end(JSON.stringify({ error: 'Failed to fetch graph nodes', nodes: [] }));
     }
     return true;
   }
 
   // API: Graph Edges - Get all relationships as graph edges
   if (pathname === '/api/graph/edges') {
-    const projectPath = url.searchParams.get('path') || initialPath;
+    const rawPath = url.searchParams.get('path') || initialPath;
+    const projectPath = validateProjectPath(rawPath, initialPath);
+
+    if (!projectPath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid project path', edges: [] }));
+      return true;
+    }
 
     try {
       const edges = await queryRelationships(projectPath);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ edges }));
     } catch (err) {
+      console.error(`[Graph] Error fetching edges:`, err);
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message, edges: [] }));
+      res.end(JSON.stringify({ error: 'Failed to fetch graph edges', edges: [] }));
     }
     return true;
   }
 
   // API: Impact Analysis - Get impact analysis for a symbol
   if (pathname === '/api/graph/impact') {
-    const projectPath = url.searchParams.get('path') || initialPath;
+    const rawPath = url.searchParams.get('path') || initialPath;
+    const projectPath = validateProjectPath(rawPath, initialPath);
     const symbolId = url.searchParams.get('symbol');
+
+    if (!projectPath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid project path', directDependents: [], affectedFiles: [] }));
+      return true;
+    }
 
     if (!symbolId) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'symbol parameter is required' }));
+      res.end(JSON.stringify({ error: 'symbol parameter is required', directDependents: [], affectedFiles: [] }));
       return true;
     }
 
@@ -301,13 +395,35 @@ export async function handleGraphRoutes(ctx: RouteContext): Promise<boolean> {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(impact));
     } catch (err) {
+      console.error(`[Graph] Error analyzing impact:`, err);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
-        error: err.message,
+        error: 'Failed to analyze impact',
         directDependents: [],
         affectedFiles: []
       }));
     }
+    return true;
+  }
+
+  // API: Search Process - Get search pipeline visualization data (placeholder)
+  if (pathname === '/api/graph/search-process') {
+    // This endpoint returns mock data for the search process visualization
+    // In a real implementation, this would integrate with codex-lens search pipeline
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      stages: [
+        { id: 1, name: 'Query Parsing', duration: 0, status: 'pending' },
+        { id: 2, name: 'Vector Search', duration: 0, status: 'pending' },
+        { id: 3, name: 'Graph Enrichment', duration: 0, status: 'pending' },
+        { id: 4, name: 'Chunk Hierarchy', duration: 0, status: 'pending' },
+        { id: 5, name: 'Result Ranking', duration: 0, status: 'pending' }
+      ],
+      chunks: [],
+      callers: [],
+      callees: [],
+      message: 'Search process visualization requires an active search query'
+    }));
     return true;
   }
 

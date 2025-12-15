@@ -44,7 +44,7 @@ GETTING_STARTED_CN.md
 # PowerShell installer (not needed for npm)
 Install-Claude.ps1
 install-remote.ps1
-
+*.mcp.json
 # ccw internal files
 ccw/package.json
 ccw/node_modules/

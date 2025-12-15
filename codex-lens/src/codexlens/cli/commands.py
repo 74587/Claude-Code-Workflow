@@ -801,8 +801,17 @@ def enhance(
     try:
         # Check if ccw is available
         import subprocess
+        import shutil
+        import sys
         try:
-            subprocess.run(["ccw", "--version"], capture_output=True, check=True)
+            ccw_cmd = shutil.which("ccw")
+            if not ccw_cmd:
+                raise FileNotFoundError("ccw not in PATH")
+            # On Windows, .cmd files need shell=True
+            if sys.platform == "win32":
+                subprocess.run("ccw --version", shell=True, capture_output=True, check=True)
+            else:
+                subprocess.run(["ccw", "--version"], capture_output=True, check=True)
         except (subprocess.CalledProcessError, FileNotFoundError):
             raise CodexLensError("ccw CLI not found. Please install ccw first.")
 
@@ -815,7 +824,7 @@ def enhance(
         mapper = PathMapper()
 
         # Find project
-        project_info = registry.find_project(base_path)
+        project_info = registry.get_project(base_path)
         if not project_info:
             raise CodexLensError(f"No index found for: {base_path}. Run 'codex-lens init' first.")
 

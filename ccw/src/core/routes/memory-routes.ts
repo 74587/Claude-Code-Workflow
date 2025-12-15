@@ -379,7 +379,9 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
           tool,
           prompt: analysisPrompt,
           mode: 'analysis',
-          timeout: 120000
+          timeout: 120000,
+          cd: projectPath,
+          category: 'insights'
         });
 
         // Try to parse JSON from response
@@ -521,8 +523,9 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
         filtered = hotEntities.filter((e: any) => new Date(e.last_seen_at) >= weekAgo);
       }
 
-      // Separate into mostRead and mostEdited
+      // Separate into mostRead, mostEdited, and mostMentioned
       const fileEntities = filtered.filter((e: any) => e.type === 'file');
+      const topicEntities = filtered.filter((e: any) => e.type === 'topic');
 
       const mostRead = fileEntities
         .filter((e: any) => e.stats.read_count > 0)
@@ -548,11 +551,23 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
           lastSeen: e.last_seen_at
         }));
 
+      const mostMentioned = topicEntities
+        .filter((e: any) => e.stats.mention_count > 0)
+        .sort((a: any, b: any) => b.stats.mention_count - a.stats.mention_count)
+        .slice(0, limit)
+        .map((e: any) => ({
+          topic: e.value,
+          preview: e.value.substring(0, 100) + (e.value.length > 100 ? '...' : ''),
+          heat: e.stats.mention_count,
+          count: e.stats.mention_count,
+          lastSeen: e.last_seen_at
+        }));
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ stats: { mostRead, mostEdited } }));
+      res.end(JSON.stringify({ stats: { mostRead, mostEdited, mostMentioned } }));
     } catch (error: unknown) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ stats: { mostRead: [], mostEdited: [] } }));
+      res.end(JSON.stringify({ stats: { mostRead: [], mostEdited: [], mostMentioned: [] } }));
     }
     return true;
   }

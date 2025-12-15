@@ -137,47 +137,112 @@ function getDbRecordCount(dbPath: string, tableName: string): number {
 }
 
 /**
- * Get storage statistics for a specific project by ID
+ * Check if a directory is a project data directory
+ * A project data directory contains at least one of: cli-history, memory, cache, config
  */
-export function getProjectStorageStats(projectId: string): ProjectStorageStats {
-  const paths = StoragePaths.projectById(projectId);
+function isProjectDataDirectory(dirPath: string): boolean {
+  const dataMarkers = ['cli-history', 'memory', 'cache', 'config'];
+  return dataMarkers.some(marker => existsSync(join(dirPath, marker)));
+}
 
-  const cliHistorySize = getDirSize(paths.cliHistory);
-  const memorySize = getDirSize(paths.memory);
-  const cacheSize = getDirSize(paths.cache);
-  const configSize = getDirSize(paths.config);
+/**
+ * Get storage statistics for a specific project by path
+ * @param projectId - Project ID (can be hierarchical like "parent/child")
+ * @param projectDir - Actual directory path in storage
+ */
+function getProjectStats(projectId: string, projectDir: string): ProjectStorageStats {
+  const cliHistoryDir = join(projectDir, 'cli-history');
+  const memoryDir = join(projectDir, 'memory');
+  const cacheDir = join(projectDir, 'cache');
+  const configDir = join(projectDir, 'config');
+
+  const cliHistorySize = getDirSize(cliHistoryDir);
+  const memorySize = getDirSize(memoryDir);
+  const cacheSize = getDirSize(cacheDir);
+  const configSize = getDirSize(configDir);
 
   let recordCount: number | undefined;
-  if (existsSync(paths.historyDb)) {
-    recordCount = getDbRecordCount(paths.historyDb, 'conversations');
+  const historyDb = join(cliHistoryDir, 'history.db');
+  if (existsSync(historyDb)) {
+    recordCount = getDbRecordCount(historyDb, 'conversations');
   }
 
   return {
     projectId,
     totalSize: cliHistorySize + memorySize + cacheSize + configSize,
     cliHistory: {
-      exists: existsSync(paths.cliHistory),
+      exists: existsSync(cliHistoryDir),
       size: cliHistorySize,
       recordCount
     },
     memory: {
-      exists: existsSync(paths.memory),
+      exists: existsSync(memoryDir),
       size: memorySize
     },
     cache: {
-      exists: existsSync(paths.cache),
+      exists: existsSync(cacheDir),
       size: cacheSize
     },
     config: {
-      exists: existsSync(paths.config),
+      exists: existsSync(configDir),
       size: configSize
     },
-    lastModified: getLatestModTime(paths.root)
+    lastModified: getLatestModTime(projectDir)
   };
 }
 
 /**
+ * Get storage statistics for a specific project by ID (legacy)
+ */
+export function getProjectStorageStats(projectId: string): ProjectStorageStats {
+  const paths = StoragePaths.projectById(projectId);
+  return getProjectStats(projectId, paths.root);
+}
+
+/**
+ * Recursively scan project directory for hierarchical structure
+ * @param basePath - Base directory to scan
+ * @param relativePath - Relative path from projects root
+ * @param results - Array to accumulate results
+ */
+function scanProjectDirectory(
+  basePath: string,
+  relativePath: string,
+  results: ProjectStorageStats[]
+): void {
+  if (!existsSync(basePath)) return;
+
+  try {
+    const entries = readdirSync(basePath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+
+      const fullPath = join(basePath, entry.name);
+      const currentRelPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+
+      // Check if this is a project data directory
+      if (isProjectDataDirectory(fullPath)) {
+        const projectId = currentRelPath;
+        const stats = getProjectStats(projectId, fullPath);
+        results.push(stats);
+      }
+
+      // Recursively scan subdirectories (excluding data directories)
+      const dataDirs = ['cli-history', 'memory', 'cache', 'config'];
+      if (!dataDirs.includes(entry.name)) {
+        scanProjectDirectory(fullPath, currentRelPath, results);
+      }
+    }
+  } catch (err) {
+    // Ignore read errors
+    if (process.env.DEBUG) console.error(`[Storage] Failed to scan ${basePath}: ${err}`);
+  }
+}
+
+/**
  * Get all storage statistics
+ * Supports hierarchical project structure
  */
 export function getStorageStats(): StorageStats {
   const rootPath = CCW_HOME;
@@ -187,19 +252,10 @@ export function getStorageStats(): StorageStats {
   const mcpTemplatesPath = StoragePaths.global.mcpTemplates();
   const globalDbSize = getFileSize(mcpTemplatesPath);
 
-  // Projects
+  // Projects - use recursive scanning for hierarchical structure
   const projects: ProjectStorageStats[] = [];
   if (existsSync(projectsDir)) {
-    try {
-      const entries = readdirSync(projectsDir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isDirectory()) {
-          projects.push(getProjectStorageStats(entry.name));
-        }
-      }
-    } catch {
-      // Ignore read errors
-    }
+    scanProjectDirectory(projectsDir, '', projects);
   }
 
   // Sort by last modified (most recent first)

@@ -195,7 +195,7 @@ class TestConfig:
             try:
                 config = Config()
                 assert config.language_for_path("test.xyz") is None
-                assert config.language_for_path("README.md") is None
+                assert config.language_for_path("data.csv") is None
             finally:
                 del os.environ["CODEXLENS_DATA_DIR"]
 

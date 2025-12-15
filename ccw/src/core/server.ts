@@ -62,7 +62,8 @@ const MODULE_CSS_FILES = [
   '11-memory.css',
   '11-prompt-history.css',
   '12-skills-rules.css',
-  '13-claude-manager.css'
+  '13-claude-manager.css',
+  '14-graph-explorer.css'
 ];
 
 // Modular JS files in dependency order
@@ -109,6 +110,7 @@ const MODULE_FILES = [
   'views/skills-manager.js',
   'views/rules-manager.js',
   'views/claude-manager.js',
+  'views/graph-explorer.js',
   'main.js'
 ];
 

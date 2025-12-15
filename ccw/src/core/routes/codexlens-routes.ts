@@ -252,6 +252,82 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
     return true;
   }
 
+
+  // API: CodexLens Search (FTS5 text search)
+  if (pathname === '/api/codexlens/search') {
+    const query = url.searchParams.get('query') || '';
+    const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+    const projectPath = url.searchParams.get('path') || initialPath;
+
+    if (!query) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Query parameter is required' }));
+      return true;
+    }
+
+    try {
+      const args = ['search', query, '--path', projectPath, '--limit', limit.toString(), '--json'];
+
+      const result = await executeCodexLens(args, { cwd: projectPath });
+
+      if (result.success) {
+        try {
+          const parsed = JSON.parse(result.output);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, ...parsed.result }));
+        } catch {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, results: [], output: result.output }));
+        }
+      } else {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: result.error }));
+      }
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+    return true;
+  }
+
+  // API: CodexLens Search Files Only (return file paths only)
+  if (pathname === '/api/codexlens/search_files') {
+    const query = url.searchParams.get('query') || '';
+    const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+    const projectPath = url.searchParams.get('path') || initialPath;
+
+    if (!query) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Query parameter is required' }));
+      return true;
+    }
+
+    try {
+      const args = ['search', query, '--path', projectPath, '--limit', limit.toString(), '--files-only', '--json'];
+
+      const result = await executeCodexLens(args, { cwd: projectPath });
+
+      if (result.success) {
+        try {
+          const parsed = JSON.parse(result.output);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, ...parsed.result }));
+        } catch {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, files: [], output: result.output }));
+        }
+      } else {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: result.error }));
+      }
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+    return true;
+  }
+
+
   // API: CodexLens Semantic Search Install (fastembed, ONNX-based, ~200MB)
   if (pathname === '/api/codexlens/semantic/install' && req.method === 'POST') {
     handlePostRequest(req, res, async () => {

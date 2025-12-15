@@ -91,7 +91,7 @@ export function run(argv: string[]): void {
   // Install command
   program
     .command('install')
-    .description('Install Claude Code Workflow to your system')
+    .description('Install Claude Code Workflow to your system (includes .codex/prompts)')
     .option('-m, --mode <mode>', 'Installation mode: Global or Path')
     .option('-p, --path <path>', 'Installation path (for Path mode)')
     .option('-f, --force', 'Force installation without prompts')

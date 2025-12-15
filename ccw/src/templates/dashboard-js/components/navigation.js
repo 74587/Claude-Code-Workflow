@@ -52,10 +52,25 @@ function initPathSelector() {
   });
 }
 
+// Cleanup function for view transitions
+function cleanupPreviousView() {
+  // Cleanup graph explorer
+  if (currentView === 'graph-explorer' && typeof window.cleanupGraphExplorer === 'function') {
+    window.cleanupGraphExplorer();
+  }
+  // Hide storage card when leaving cli-manager
+  var storageCard = document.getElementById('storageCard');
+  if (storageCard) {
+    storageCard.style.display = 'none';
+  }
+}
+
 // Navigation
 function initNavigation() {
   document.querySelectorAll('.nav-item[data-filter]').forEach(item => {
     item.addEventListener('click', () => {
+      cleanupPreviousView();
+
       setActiveNavItem(item);
       currentFilter = item.dataset.filter;
       currentLiteType = null;
@@ -70,6 +85,8 @@ function initNavigation() {
   // Lite Tasks Navigation
   document.querySelectorAll('.nav-item[data-lite]').forEach(item => {
     item.addEventListener('click', () => {
+      cleanupPreviousView();
+
       setActiveNavItem(item);
       currentLiteType = item.dataset.lite;
       currentFilter = null;
@@ -84,6 +101,8 @@ function initNavigation() {
   // View Navigation (Project Overview, MCP Manager, etc.)
   document.querySelectorAll('.nav-item[data-view]').forEach(item => {
     item.addEventListener('click', () => {
+      cleanupPreviousView();
+
       setActiveNavItem(item);
       currentView = item.dataset.view;
       currentFilter = null;

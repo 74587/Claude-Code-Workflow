@@ -27,3 +27,5 @@ COMMAND_TEMPLATE_ORCHESTRATOR.md
 *.pyc
 .codexlens/
 settings.json
+*.mcp.json
+.mcp.json

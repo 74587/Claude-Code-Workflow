@@ -27,7 +27,7 @@ export type CliToolName = 'gemini' | 'qwen' | 'codex';
 export const PREDEFINED_MODELS: Record<CliToolName, string[]> = {
   gemini: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
   qwen: ['coder-model', 'vision-model', 'qwen2.5-coder-32b'],
-  codex: ['gpt5-codex', 'gpt-4.1', 'o4-mini', 'o3']
+  codex: ['gpt-5.2', 'gpt-4.1', 'o4-mini', 'o3']
 };
 
 export const DEFAULT_CONFIG: CliConfig = {
@@ -45,8 +45,8 @@ export const DEFAULT_CONFIG: CliConfig = {
     },
     codex: {
       enabled: true,
-      primaryModel: 'gpt5-codex',
-      secondaryModel: 'gpt5-codex'
+      primaryModel: 'gpt-5.2',
+      secondaryModel: 'gpt-5.2'
     }
   }
 };

@@ -66,6 +66,8 @@ class Config:
             "go": {"extensions": [".go"], "tree_sitter_language": "go"},
             "zig": {"extensions": [".zig"], "tree_sitter_language": "zig"},
             "objective-c": {"extensions": [".m", ".mm"], "tree_sitter_language": "objc"},
+            "markdown": {"extensions": [".md", ".mdx"], "tree_sitter_language": None},
+            "text": {"extensions": [".txt"], "tree_sitter_language": None},
         }
     )
     parsing_rules: Dict[str, Dict[str, Any]] = field(

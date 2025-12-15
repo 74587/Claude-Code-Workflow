@@ -345,6 +345,7 @@ function renderHotspotsColumn() {
 
   var mostRead = memoryStats.mostRead || [];
   var mostEdited = memoryStats.mostEdited || [];
+  var mostMentioned = memoryStats.mostMentioned || [];
 
   container.innerHTML = '<div class="memory-section">' +
     '<div class="section-header">' +
@@ -371,6 +372,10 @@ function renderHotspotsColumn() {
     '<h4 class="hotspot-list-title"><i data-lucide="pencil" class="w-3.5 h-3.5"></i> ' + t('memory.mostEdited') + '</h4>' +
     renderHotspotList(mostEdited, 'edit') +
     '</div>' +
+    '<div class="hotspot-list-container">' +
+    '<h4 class="hotspot-list-title"><i data-lucide="message-circle" class="w-3.5 h-3.5"></i> ' + t('memory.mostMentioned') + '</h4>' +
+    renderTopicList(mostMentioned) +
+    '</div>' +
     '</div>' +
     '</div>';
 
@@ -380,7 +385,7 @@ function renderHotspotsColumn() {
 function renderHotspotList(items, type) {
   if (!items || items.length === 0) {
     return '<div class="hotspot-empty">' +
-      '<i data-lucide="inbox" class="w-6 h-6"></i>' +
+      '<i data-lucide="inbox" class="w-5 h-5"></i>' +
       '<p>' + t('memory.noData') + '</p>' +
       '</div>';
   }
@@ -401,6 +406,34 @@ function renderHotspotList(items, type) {
         '<div class="hotspot-heat ' + heatClass + '">' +
         '<span class="heat-badge">' + heat + '</span>' +
         '<i data-lucide="' + (type === 'read' ? 'eye' : 'pencil') + '" class="w-3 h-3"></i>' +
+        '</div>' +
+        '</div>';
+    }).join('') +
+    '</div>';
+}
+
+function renderTopicList(items) {
+  if (!items || items.length === 0) {
+    return '<div class="hotspot-empty">' +
+      '<i data-lucide="inbox" class="w-5 h-5"></i>' +
+      '<p>' + t('memory.noData') + '</p>' +
+      '</div>';
+  }
+
+  return '<div class="hotspot-list topic-list">' +
+    items.map(function(item, index) {
+      var heat = item.heat || item.count || 0;
+      var heatClass = heat > 10 ? 'high' : heat > 5 ? 'medium' : 'low';
+      var preview = item.preview || item.topic || 'Unknown';
+
+      return '<div class="hotspot-item topic-item">' +
+        '<div class="hotspot-rank">' + (index + 1) + '</div>' +
+        '<div class="hotspot-info">' +
+        '<div class="hotspot-name topic-preview" title="' + escapeHtml(item.topic || '') + '">' + escapeHtml(preview) + '</div>' +
+        '</div>' +
+        '<div class="hotspot-heat ' + heatClass + '">' +
+        '<span class="heat-badge">' + heat + '</span>' +
+        '<i data-lucide="message-circle" class="w-3 h-3"></i>' +
         '</div>' +
         '</div>';
     }).join('') +
@@ -458,7 +491,7 @@ function renderMemoryGraph(graphData) {
     var container = document.getElementById('memoryGraphSvg');
     if (container) {
       container.innerHTML = '<div class="graph-empty-state">' +
-        '<i data-lucide="network" class="w-12 h-12"></i>' +
+        '<i data-lucide="network" class="w-8 h-8"></i>' +
         '<p>' + t('memory.noGraphData') + '</p>' +
         '</div>';
       if (window.lucide) lucide.createIcons();
@@ -471,7 +504,7 @@ function renderMemoryGraph(graphData) {
     var container = document.getElementById('memoryGraphSvg');
     if (container) {
       container.innerHTML = '<div class="graph-error">' +
-        '<i data-lucide="alert-triangle" class="w-8 h-8"></i>' +
+        '<i data-lucide="alert-triangle" class="w-6 h-6"></i>' +
         '<p>' + t('memory.d3NotLoaded') + '</p>' +
         '</div>';
       if (window.lucide) lucide.createIcons();
@@ -767,7 +800,7 @@ function renderContextColumn() {
 function renderContextTimeline(prompts) {
   if (!prompts || prompts.length === 0) {
     return '<div class="context-empty">' +
-      '<i data-lucide="inbox" class="w-8 h-8"></i>' +
+      '<i data-lucide="inbox" class="w-6 h-6"></i>' +
       '<p>' + t('memory.noRecentActivity') + '</p>' +
       '</div>';
   }

@@ -139,8 +139,9 @@ async function renderMcpManager() {
                 <i data-lucide="bot" class="w-4 h-4 inline mr-1.5"></i>
                 Claude
               </button>
-              <button class="cli-mode-btn px-4 py-2 text-sm font-medium rounded-md transition-all ${currentCliMode === 'codex' ? 'bg-orange-500 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
-                      onclick="setCliMode('codex')">
+              <button class="cli-mode-btn px-4 py-2 text-sm font-medium rounded-md transition-all ${currentCliMode === 'codex' ? 'shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+                      onclick="setCliMode('codex')"
+                      style="${currentCliMode === 'codex' ? 'background-color: #f97316; color: white;' : ''}">
                 <i data-lucide="code-2" class="w-4 h-4 inline mr-1.5"></i>
                 Codex
               </button>
@@ -228,6 +229,7 @@ async function renderMcpManager() {
                   <div class="flex items-center gap-2">
                     <i data-lucide="bot" class="w-5 h-5 text-primary"></i>
                     <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
+                    <span class="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">Claude</span>
                     ${alreadyInCodex ? `<span class="text-xs px-2 py-0.5 bg-success/10 text-success rounded-full">${t('mcp.codex.alreadyAdded')}</span>` : ''}
                   </div>
                   ${!alreadyInCodex ? `
@@ -250,6 +252,26 @@ async function renderMcpManager() {
         </div>
       </div>
       ` : ''}
+
+      <!-- Available MCP Servers from Other Projects (Codex mode) -->
+      <div class="mcp-section">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-foreground">${t('mcp.availableOther')}</h3>
+          <span class="text-sm text-muted-foreground">${otherProjectServers.length} ${t('mcp.serversAvailable')}</span>
+        </div>
+
+        ${otherProjectServers.length === 0 ? `
+          <div class="mcp-empty-state bg-card border border-border rounded-lg p-6 text-center">
+            <p class="text-muted-foreground">${t('empty.noAdditionalMcp')}</p>
+          </div>
+        ` : `
+          <div class="mcp-server-grid grid gap-3">
+            ${otherProjectServers.map(([serverName, serverInfo]) => {
+              return renderAvailableServerCardForCodex(serverName, serverInfo);
+            }).join('')}
+          </div>
+        `}
+      </div>
       ` : `
       <!-- CCW Tools MCP Server Card -->
       <div class="mcp-section mb-6">
@@ -486,6 +508,55 @@ async function renderMcpManager() {
       </div>
       ` : ''}
 
+      <!-- Copy Codex Servers to Claude (Claude mode only) -->
+      ${currentCliMode === 'claude' && Object.keys(codexMcpServers || {}).length > 0 ? `
+      <div class="mcp-section mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-foreground flex items-center gap-2">
+            <i data-lucide="copy" class="w-5 h-5"></i>
+            ${t('mcp.claude.copyFromCodex')}
+          </h3>
+          <span class="text-sm text-muted-foreground">${Object.keys(codexMcpServers || {}).length} ${t('mcp.serversAvailable')}</span>
+        </div>
+        <div class="mcp-server-grid grid gap-3">
+          ${Object.entries(codexMcpServers || {}).map(([serverName, serverConfig]) => {
+            const alreadyInClaude = mcpUserServers && mcpUserServers[serverName];
+            const isStdio = !!serverConfig.command;
+            const isHttp = !!serverConfig.url;
+            return `
+              <div class="mcp-server-card bg-card border ${alreadyInClaude ? 'border-success/50' : 'border-orange-200 dark:border-orange-800'} border-dashed rounded-lg p-4 hover:shadow-md transition-all">
+                <div class="flex items-start justify-between mb-3">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <i data-lucide="code-2" class="w-5 h-5 text-orange-500"></i>
+                    <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
+                    <span class="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 rounded-full">Codex</span>
+                    ${isHttp
+                      ? '<span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full">HTTP</span>'
+                      : '<span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-full">STDIO</span>'
+                    }
+                    ${alreadyInClaude ? '<span class="text-xs px-2 py-0.5 bg-success/10 text-success rounded-full">' + t('mcp.claude.alreadyAdded') + '</span>' : ''}
+                  </div>
+                  ${!alreadyInClaude ? `
+                    <button class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
+                            onclick="copyCodexServerToClaude('${escapeHtml(serverName)}', ${JSON.stringify(serverConfig).replace(/'/g, "&#39;")})"
+                            title="${t('mcp.claude.copyToClaude')}">
+                      <i data-lucide="arrow-right" class="w-3.5 h-3.5 inline"></i> Claude
+                    </button>
+                  ` : ''}
+                </div>
+                <div class="mcp-server-details text-sm space-y-1">
+                  <div class="flex items-center gap-2 text-muted-foreground">
+                    <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${isHttp ? t('mcp.url') : t('mcp.cmd')}</span>
+                    <span class="truncate" title="${escapeHtml(serverConfig.command || serverConfig.url || 'N/A')}">${escapeHtml(serverConfig.command || serverConfig.url || 'N/A')}</span>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+      ` : ''}
+
       <!-- All Projects MCP Overview Table (Claude mode only) -->
       ${currentCliMode === 'claude' ? `
       <div class="mcp-section mt-6">
@@ -676,7 +747,12 @@ function renderGlobalManagementCard(serverName, serverConfig) {
   const serverType = serverConfig.type || 'stdio';
 
   return `
-    <div class="mcp-server-card mcp-server-global bg-card border border-success/30 rounded-lg p-4 hover:shadow-md transition-all">
+    <div class="mcp-server-card mcp-server-global bg-card border border-success/30 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer"
+         data-server-name="${escapeHtml(serverName)}"
+         data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
+         data-server-source="global"
+         data-action="view-details"
+         title="${t('mcp.clickToEdit')}">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-center gap-2">
           <i data-lucide="globe" class="w-5 h-5 text-success"></i>
@@ -706,7 +782,7 @@ function renderGlobalManagementCard(serverName, serverConfig) {
         </div>
       </div>
 
-      <div class="mt-3 pt-3 border-t border-border flex items-center justify-end">
+      <div class="mt-3 pt-3 border-t border-border flex items-center justify-end" onclick="event.stopPropagation()">
         <button class="text-xs text-destructive hover:text-destructive/80 transition-colors"
                 data-server-name="${escapeHtml(serverName)}"
                 data-action="remove-global">
@@ -807,6 +883,70 @@ function renderAvailableServerCard(serverName, serverInfo) {
   `;
 }
 
+// Render available server card for Codex mode (with Claude badge and copy to Codex button)
+function renderAvailableServerCardForCodex(serverName, serverInfo) {
+  const serverConfig = serverInfo.config;
+  const usedIn = serverInfo.usedIn || [];
+  const command = serverConfig.command || serverConfig.url || 'N/A';
+  const args = serverConfig.args || [];
+
+  // Get the actual name to use when adding
+  const originalName = serverInfo.originalName || serverName;
+  const hasVariant = serverInfo.originalName && serverInfo.originalName !== serverName;
+
+  // Get source project info
+  const sourceProject = serverInfo.sourceProject;
+  const sourceProjectName = sourceProject ? (sourceProject.split('\\').pop() || sourceProject.split('/').pop()) : null;
+
+  // Generate args preview
+  const argsPreview = args.length > 0 ? args.slice(0, 3).join(' ') + (args.length > 3 ? '...' : '') : '';
+
+  // Check if already in Codex
+  const alreadyInCodex = codexMcpServers && codexMcpServers[originalName];
+
+  return `
+    <div class="mcp-server-card mcp-server-available bg-card border ${alreadyInCodex ? 'border-success/50' : 'border-border'} border-dashed rounded-lg p-4 hover:shadow-md hover:border-solid transition-all">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span><i data-lucide="circle-dashed" class="w-5 h-5 text-muted-foreground"></i></span>
+          <h4 class="font-semibold text-foreground">${escapeHtml(originalName)}</h4>
+          <span class="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">Claude</span>
+          ${hasVariant ? `
+            <span class="text-xs px-2 py-0.5 bg-warning/20 text-warning rounded-full" title="Different config from: ${escapeHtml(sourceProject || '')}">
+              ${escapeHtml(sourceProjectName || 'variant')}
+            </span>
+          ` : ''}
+          ${alreadyInCodex ? `<span class="text-xs px-2 py-0.5 bg-success/10 text-success rounded-full">${t('mcp.codex.alreadyAdded')}</span>` : ''}
+        </div>
+        ${!alreadyInCodex ? `
+          <button class="px-3 py-1 text-xs bg-orange-500 text-white rounded hover:opacity-90 transition-opacity"
+                  onclick="copyClaudeServerToCodex('${escapeHtml(originalName)}', ${JSON.stringify(serverConfig).replace(/'/g, "&#39;")})"
+                  title="${t('mcp.codex.copyToCodex')}">
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 inline"></i> Codex
+          </button>
+        ` : ''}
+      </div>
+
+      <div class="mcp-server-details text-sm space-y-1">
+        <div class="flex items-center gap-2 text-muted-foreground">
+          <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${t('mcp.cmd')}</span>
+          <span class="truncate" title="${escapeHtml(command)}">${escapeHtml(command)}</span>
+        </div>
+        ${argsPreview ? `
+          <div class="flex items-start gap-2 text-muted-foreground">
+            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">${t('mcp.args')}</span>
+            <span class="text-xs font-mono truncate" title="${escapeHtml(args.join(' '))}">${escapeHtml(argsPreview)}</span>
+          </div>
+        ` : ''}
+        <div class="flex items-center gap-2 text-muted-foreground">
+          <span class="text-xs">${t('mcp.usedInCount').replace('{count}', usedIn.length).replace('{s}', usedIn.length !== 1 ? 's' : '')}</span>
+          ${sourceProjectName ? `<span class="text-xs text-muted-foreground/70">• ${t('mcp.from')} ${escapeHtml(sourceProjectName)}</span>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 // ========================================
 // Codex MCP Server Card Renderer
 // ========================================
@@ -825,14 +965,17 @@ function renderCodexServerCard(serverName, serverConfig) {
     : `<span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-full">STDIO</span>`;
 
   return `
-    <div class="mcp-server-card bg-card border border-orange-200 dark:border-orange-800 rounded-lg p-4 hover:shadow-md transition-all ${!isEnabled ? 'opacity-60' : ''}"
+    <div class="mcp-server-card bg-card border border-orange-200 dark:border-orange-800 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer ${!isEnabled ? 'opacity-60' : ''}"
          data-server-name="${escapeHtml(serverName)}"
          data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
-         data-cli-type="codex">
+         data-cli-type="codex"
+         data-action="view-details-codex"
+         title="${t('mcp.clickToEdit')}">
       <div class="flex items-start justify-between mb-3">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
           <span>${isEnabled ? '<i data-lucide="check-circle" class="w-5 h-5 text-orange-500"></i>' : '<i data-lucide="circle" class="w-5 h-5 text-muted-foreground"></i>'}</span>
           <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
+          <span class="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 rounded-full">Codex</span>
           ${typeBadge}
         </div>
         <label class="mcp-toggle relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
@@ -1041,13 +1184,22 @@ function attachMcpEventListeners() {
     });
   });
 
-  // View details - click on server card
+  // View details / Edit - click on Claude server card
   document.querySelectorAll('.mcp-server-card[data-action="view-details"]').forEach(card => {
     card.addEventListener('click', (e) => {
       const serverName = card.dataset.serverName;
       const serverConfig = JSON.parse(card.dataset.serverConfig);
       const serverSource = card.dataset.serverSource;
-      showMcpDetails(serverName, serverConfig, serverSource);
+      showMcpEditModal(serverName, serverConfig, serverSource, 'claude');
+    });
+  });
+
+  // View details / Edit - click on Codex server card
+  document.querySelectorAll('.mcp-server-card[data-action="view-details-codex"]').forEach(card => {
+    card.addEventListener('click', (e) => {
+      const serverName = card.dataset.serverName;
+      const serverConfig = JSON.parse(card.dataset.serverConfig);
+      showMcpEditModal(serverName, serverConfig, 'codex', 'codex');
     });
   });
 
@@ -1068,14 +1220,38 @@ function attachMcpEventListeners() {
 }
 
 // ========================================
-// MCP Details Modal
+// MCP Edit Modal (replaces Details Modal)
 // ========================================
 
-function showMcpDetails(serverName, serverConfig, serverSource) {
+// Store current editing context
+let mcpEditContext = {
+  serverName: null,
+  serverConfig: null,
+  serverSource: null,
+  cliType: 'claude'
+};
+
+function showMcpDetails(serverName, serverConfig, serverSource, cliType = 'claude') {
+  showMcpEditModal(serverName, serverConfig, serverSource, cliType);
+}
+
+function showMcpEditModal(serverName, serverConfig, serverSource, cliType = 'claude') {
   const modal = document.getElementById('mcpDetailsModal');
   const modalBody = document.getElementById('mcpDetailsModalBody');
 
   if (!modal || !modalBody) return;
+
+  // Store editing context
+  mcpEditContext = {
+    serverName,
+    serverConfig: JSON.parse(JSON.stringify(serverConfig)), // Deep clone
+    serverSource,
+    cliType
+  };
+
+  // Check if editable (enterprise is read-only)
+  const isReadOnly = serverSource === 'enterprise';
+  const isCodex = cliType === 'codex';
 
   // Build source badge
   let sourceBadge = '';
@@ -1085,74 +1261,271 @@ function showMcpDetails(serverName, serverConfig, serverSource) {
     sourceBadge = `<span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-success/10 text-success">${t('mcp.sourceGlobal')}</span>`;
   } else if (serverSource === 'project') {
     sourceBadge = `<span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-primary/10 text-primary">${t('mcp.sourceProject')}</span>`;
+  } else if (isCodex) {
+    sourceBadge = `<span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">Codex</span>`;
   }
 
-  // Build environment variables display
-  let envHtml = '';
-  if (serverConfig.env && Object.keys(serverConfig.env).length > 0) {
-    envHtml = '<div class="mt-4"><h4 class="font-semibold text-sm text-foreground mb-2">' + t('mcp.env') + '</h4><div class="bg-muted rounded-lg p-3 space-y-1 font-mono text-xs">';
-    for (const [key, value] of Object.entries(serverConfig.env)) {
-      envHtml += `<div class="flex items-start gap-2"><span class="text-muted-foreground shrink-0">${escapeHtml(key)}:</span><span class="text-foreground break-all">${escapeHtml(value)}</span></div>`;
-    }
-    envHtml += '</div></div>';
-  } else {
-    envHtml = '<div class="mt-4"><h4 class="font-semibold text-sm text-foreground mb-2">' + t('mcp.env') + '</h4><p class="text-sm text-muted-foreground">' + t('mcp.detailsModal.noEnv') + '</p></div>';
-  }
+  // Format args and env for textarea
+  const argsText = (serverConfig.args || []).join('\n');
+  const envText = Object.entries(serverConfig.env || {}).map(([k, v]) => `${k}=${v}`).join('\n');
 
+  // Build edit form HTML
   modalBody.innerHTML = `
     <div class="space-y-4">
       <!-- Server Name and Source -->
       <div>
         <label class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">${t('mcp.detailsModal.serverName')}</label>
         <div class="mt-1 flex items-center gap-2">
-          <h3 class="text-xl font-bold text-foreground">${escapeHtml(serverName)}</h3>
+          <input type="text" id="mcpEditName" value="${escapeHtml(serverName)}"
+                 class="text-lg font-bold text-foreground bg-transparent border-b border-border focus:border-primary outline-none px-1 py-0.5 flex-1"
+                 ${isReadOnly ? 'disabled' : ''}
+                 placeholder="${t('mcp.editModal.serverNamePlaceholder')}">
           ${sourceBadge}
         </div>
       </div>
 
-      <!-- Configuration -->
+      <!-- Command/URL -->
       <div>
-        <h4 class="font-semibold text-sm text-foreground mb-2">${t('mcp.detailsModal.configuration')}</h4>
-        <div class="space-y-2">
-          <!-- Command -->
-          <div class="flex items-start gap-3">
-            <span class="font-mono text-xs bg-muted px-2 py-1 rounded shrink-0">${t('mcp.cmd')}</span>
-            <code class="text-sm font-mono text-foreground break-all">${escapeHtml(serverConfig.command || serverConfig.url || 'N/A')}</code>
-          </div>
+        <label class="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
+          ${serverConfig.url ? t('mcp.url') : t('mcp.cmd')}
+        </label>
+        <input type="text" id="mcpEditCommand" value="${escapeHtml(serverConfig.command || serverConfig.url || '')}"
+               class="w-full px-3 py-2 text-sm font-mono bg-muted border border-border rounded-lg focus:border-primary outline-none"
+               ${isReadOnly ? 'disabled' : ''}
+               placeholder="${serverConfig.url ? 'https://...' : 'npx, node, python...'}">
+      </div>
 
-          <!-- Arguments -->
-          ${serverConfig.args && serverConfig.args.length > 0 ? `
-            <div class="flex items-start gap-3">
-              <span class="font-mono text-xs bg-muted px-2 py-1 rounded shrink-0">${t('mcp.args')}</span>
-              <div class="flex-1 space-y-1">
-                ${serverConfig.args.map((arg, index) => `
-                  <div class="text-sm font-mono text-foreground flex items-center gap-2">
-                    <span class="text-muted-foreground">[${index}]</span>
-                    <code class="break-all">${escapeHtml(arg)}</code>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          ` : ''}
-        </div>
+      <!-- Arguments -->
+      <div>
+        <label class="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
+          ${t('mcp.args')} <span class="font-normal">(${t('mcp.editModal.onePerLine')})</span>
+        </label>
+        <textarea id="mcpEditArgs" rows="3"
+                  class="w-full px-3 py-2 text-sm font-mono bg-muted border border-border rounded-lg focus:border-primary outline-none resize-none"
+                  ${isReadOnly ? 'disabled' : ''}
+                  placeholder="-y&#10;package-name">${escapeHtml(argsText)}</textarea>
       </div>
 
       <!-- Environment Variables -->
-      ${envHtml}
-
-      <!-- Raw JSON -->
       <div>
-        <h4 class="font-semibold text-sm text-foreground mb-2">Raw JSON</h4>
-        <pre class="bg-muted rounded-lg p-3 text-xs font-mono overflow-x-auto">${escapeHtml(JSON.stringify(serverConfig, null, 2))}</pre>
+        <label class="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
+          ${t('mcp.env')} <span class="font-normal">(KEY=VALUE ${t('mcp.editModal.onePerLine')})</span>
+        </label>
+        <textarea id="mcpEditEnv" rows="3"
+                  class="w-full px-3 py-2 text-sm font-mono bg-muted border border-border rounded-lg focus:border-primary outline-none resize-none"
+                  ${isReadOnly ? 'disabled' : ''}
+                  placeholder="API_KEY=your-key&#10;DEBUG=true">${escapeHtml(envText)}</textarea>
       </div>
+
+      ${isCodex ? `
+      <!-- Codex-specific: enabled_tools -->
+      <div>
+        <label class="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
+          ${t('mcp.codex.enabledTools')} <span class="font-normal">(${t('mcp.editModal.onePerLine')})</span>
+        </label>
+        <textarea id="mcpEditEnabledTools" rows="2"
+                  class="w-full px-3 py-2 text-sm font-mono bg-muted border border-border rounded-lg focus:border-primary outline-none resize-none"
+                  ${isReadOnly ? 'disabled' : ''}
+                  placeholder="tool1&#10;tool2">${escapeHtml((serverConfig.enabled_tools || []).join('\n'))}</textarea>
+      </div>
+      ` : ''}
+
+      <!-- Raw JSON Preview (collapsible) -->
+      <details class="group">
+        <summary class="text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-pointer flex items-center gap-1">
+          <i data-lucide="chevron-right" class="w-3 h-3 transition-transform group-open:rotate-90"></i>
+          Raw JSON
+        </summary>
+        <pre id="mcpEditJsonPreview" class="mt-2 bg-muted rounded-lg p-3 text-xs font-mono overflow-x-auto">${escapeHtml(JSON.stringify(serverConfig, null, 2))}</pre>
+      </details>
+
+      <!-- Action Buttons -->
+      ${!isReadOnly ? `
+      <div class="flex items-center justify-between pt-4 border-t border-border">
+        <div class="flex items-center gap-2">
+          ${serverSource === 'project' || isCodex ? `
+            <button onclick="deleteMcpFromEdit()" class="px-4 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors flex items-center gap-1.5">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+              ${t('mcp.editModal.delete')}
+            </button>
+          ` : ''}
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="closeMcpEditModal()" class="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">
+            ${t('common.cancel')}
+          </button>
+          <button onclick="saveMcpEdit()" class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            ${t('mcp.editModal.save')}
+          </button>
+        </div>
+      </div>
+      ` : `
+      <div class="flex items-center justify-end pt-4 border-t border-border">
+        <button onclick="closeMcpEditModal()" class="px-4 py-2 text-sm bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors">
+          ${t('common.close')}
+        </button>
+      </div>
+      `}
     </div>
   `;
+
+  // Update modal title
+  const modalTitle = modal.querySelector('h2');
+  if (modalTitle) {
+    modalTitle.textContent = isReadOnly ? t('mcp.detailsModal.title') : t('mcp.editModal.title');
+  }
 
   // Show modal
   modal.classList.remove('hidden');
 
   // Re-initialize Lucide icons in modal
   if (typeof lucide !== 'undefined') lucide.createIcons();
+
+  // Add input listeners to update JSON preview
+  if (!isReadOnly) {
+    ['mcpEditCommand', 'mcpEditArgs', 'mcpEditEnv', 'mcpEditEnabledTools'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', updateMcpEditJsonPreview);
+      }
+    });
+  }
+}
+
+function closeMcpEditModal() {
+  const modal = document.getElementById('mcpDetailsModal');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+  mcpEditContext = { serverName: null, serverConfig: null, serverSource: null, cliType: 'claude' };
+}
+
+function updateMcpEditJsonPreview() {
+  const preview = document.getElementById('mcpEditJsonPreview');
+  if (!preview) return;
+
+  const config = buildConfigFromEditForm();
+  preview.textContent = JSON.stringify(config, null, 2);
+}
+
+function buildConfigFromEditForm() {
+  const command = document.getElementById('mcpEditCommand')?.value.trim() || '';
+  const argsText = document.getElementById('mcpEditArgs')?.value.trim() || '';
+  const envText = document.getElementById('mcpEditEnv')?.value.trim() || '';
+  const enabledToolsEl = document.getElementById('mcpEditEnabledTools');
+
+  // Build config
+  const config = {};
+
+  // Command or URL
+  if (mcpEditContext.serverConfig?.url) {
+    config.url = command;
+  } else {
+    config.command = command;
+  }
+
+  // Args
+  if (argsText) {
+    config.args = argsText.split('\n').map(a => a.trim()).filter(a => a);
+  }
+
+  // Env
+  if (envText) {
+    config.env = {};
+    envText.split('\n').forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed && trimmed.includes('=')) {
+        const eqIndex = trimmed.indexOf('=');
+        const key = trimmed.substring(0, eqIndex).trim();
+        const value = trimmed.substring(eqIndex + 1).trim();
+        if (key) {
+          config.env[key] = value;
+        }
+      }
+    });
+  }
+
+  // Codex-specific: enabled_tools
+  if (enabledToolsEl) {
+    const toolsText = enabledToolsEl.value.trim();
+    if (toolsText) {
+      config.enabled_tools = toolsText.split('\n').map(t => t.trim()).filter(t => t);
+    }
+  }
+
+  return config;
+}
+
+async function saveMcpEdit() {
+  const newName = document.getElementById('mcpEditName')?.value.trim();
+  if (!newName) {
+    showRefreshToast(t('mcp.editModal.nameRequired'), 'error');
+    return;
+  }
+
+  const newConfig = buildConfigFromEditForm();
+
+  if (!newConfig.command && !newConfig.url) {
+    showRefreshToast(t('mcp.editModal.commandRequired'), 'error');
+    return;
+  }
+
+  const { serverName, serverSource, cliType } = mcpEditContext;
+  const nameChanged = newName !== serverName;
+
+  try {
+    if (cliType === 'codex') {
+      // Codex MCP update
+      // If name changed, remove old and add new
+      if (nameChanged) {
+        await removeCodexMcpServer(serverName);
+      }
+      await addCodexMcpServer(newName, newConfig);
+    } else if (serverSource === 'global') {
+      // Global MCP update
+      if (nameChanged) {
+        await removeGlobalMcpServer(serverName);
+      }
+      await addGlobalMcpServer(newName, newConfig);
+    } else if (serverSource === 'project') {
+      // Project MCP update
+      if (nameChanged) {
+        await removeMcpServerFromProject(serverName);
+      }
+      await copyMcpServerToProject(newName, newConfig, 'mcp');
+    }
+
+    closeMcpEditModal();
+    showRefreshToast(t('mcp.editModal.saved', { name: newName }), 'success');
+  } catch (err) {
+    console.error('Failed to save MCP edit:', err);
+    showRefreshToast(t('mcp.editModal.saveFailed') + ': ' + err.message, 'error');
+  }
+}
+
+async function deleteMcpFromEdit() {
+  const { serverName, serverSource, cliType } = mcpEditContext;
+
+  if (!confirm(t('mcp.editModal.deleteConfirm', { name: serverName }))) {
+    return;
+  }
+
+  try {
+    if (cliType === 'codex') {
+      await removeCodexMcpServer(serverName);
+    } else if (serverSource === 'global') {
+      await removeGlobalMcpServer(serverName);
+    } else if (serverSource === 'project') {
+      await removeMcpServerFromProject(serverName);
+    }
+
+    closeMcpEditModal();
+    showRefreshToast(t('mcp.editModal.deleted', { name: serverName }), 'success');
+  } catch (err) {
+    console.error('Failed to delete MCP:', err);
+    showRefreshToast(t('mcp.editModal.deleteFailed') + ': ' + err.message, 'error');
+  }
 }
 
 // ========================================

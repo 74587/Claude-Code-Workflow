@@ -40,6 +40,7 @@ const MODULE_FILES = [
   'dashboard-js/views/mcp-manager.js',
   'dashboard-js/views/hook-manager.js',
   'dashboard-js/views/history.js',
+  'dashboard-js/views/graph-explorer.js',
   // Navigation & Main
   'dashboard-js/components/navigation.js',
   'dashboard-js/main.js'

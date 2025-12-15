@@ -222,7 +222,7 @@ function renderGraphLegend() {
 function renderSearchProcessView() {
   if (!searchProcessData) {
     return '<div class="search-process-empty">' +
-      '<i data-lucide="search-x" class="w-12 h-12"></i>' +
+      '<i data-lucide="search-x" class="w-8 h-8"></i>' +
       '<p>' + t('graph.noSearchData') + '</p>' +
       '</div>';
   }
@@ -280,7 +280,7 @@ function initializeCytoscape() {
   // Check if Cytoscape.js is loaded
   if (typeof cytoscape === 'undefined') {
     container.innerHTML = '<div class="cytoscape-error">' +
-      '<i data-lucide="alert-triangle" class="w-8 h-8"></i>' +
+      '<i data-lucide="alert-triangle" class="w-6 h-6"></i>' +
       '<p>' + t('graph.cytoscapeNotLoaded') + '</p>' +
       '</div>';
     if (window.lucide) lucide.createIcons();
@@ -289,7 +289,7 @@ function initializeCytoscape() {
 
   if (graphData.nodes.length === 0) {
     container.innerHTML = '<div class="cytoscape-empty">' +
-      '<i data-lucide="network" class="w-12 h-12"></i>' +
+      '<i data-lucide="network" class="w-8 h-8"></i>' +
       '<p>' + t('graph.noGraphData') + '</p>' +
       '</div>';
     if (window.lucide) lucide.createIcons();
@@ -493,6 +493,15 @@ function selectNode(nodeData) {
     panel.classList.remove('hidden');
     panel.innerHTML = renderNodeDetails(nodeData);
     if (window.lucide) lucide.createIcons();
+
+    // Attach event listener for impact analysis button (prevents XSS)
+    var impactBtn = document.getElementById('impactAnalysisBtn');
+    if (impactBtn) {
+      impactBtn.addEventListener('click', function() {
+        var nodeId = this.getAttribute('data-node-id');
+        if (nodeId) showImpactAnalysis(nodeId);
+      });
+    }
   }
 }
 
@@ -559,7 +568,7 @@ function renderNodeDetails(node) {
     '</div>' +
     '</div>' +
     '<div class="node-details-actions">' +
-    '<button class="btn btn-sm btn-primary" onclick="showImpactAnalysis(\'' + escapeHtml(node.id) + '\')">' +
+    '<button class="btn btn-sm btn-primary" id="impactAnalysisBtn" data-node-id="' + escapeHtml(node.id) + '">' +
     '<i data-lucide="target" class="w-3 h-3"></i> ' + t('graph.impactAnalysis') +
     '</button>' +
     '</div>' +
@@ -629,7 +638,7 @@ function centerCytoscape() {
 // ========== Impact Analysis ==========
 async function showImpactAnalysis(symbolId) {
   try {
-    var response = await fetch('/api/graph/impact/' + encodeURIComponent(symbolId));
+    var response = await fetch('/api/graph/impact?symbol=' + encodeURIComponent(symbolId));
     if (!response.ok) throw new Error('Failed to fetch impact analysis');
     var data = await response.json();
 
@@ -726,4 +735,23 @@ function hideStatsAndCarousel() {
   var carousel = document.getElementById('carouselContainer');
   if (statsGrid) statsGrid.style.display = 'none';
   if (carousel) carousel.style.display = 'none';
+}
+
+// ========== Cleanup Function ==========
+/**
+ * Clean up Cytoscape instance to prevent memory leaks
+ * Should be called when navigating away from the graph explorer view
+ */
+function cleanupGraphExplorer() {
+  if (cyInstance) {
+    cyInstance.destroy();
+    cyInstance = null;
+  }
+  selectedNode = null;
+  searchProcessData = null;
+}
+
+// Register cleanup on navigation (called by navigation.js before switching views)
+if (typeof window !== 'undefined') {
+  window.cleanupGraphExplorer = cleanupGraphExplorer;
 }

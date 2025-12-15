@@ -61,6 +61,7 @@ const MODULE_FILES = [
   'views/mcp-manager.js',
   'views/hook-manager.js',
   'views/history.js',
+  'views/graph-explorer.js',
   'main.js'
 ];
 

@@ -7,7 +7,7 @@ import Database from 'better-sqlite3';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, rmdirSync } from 'fs';
 import { join } from 'path';
 import { parseSessionFile, formatConversation, extractConversationPairs, type ParsedSession, type ParsedTurn } from './session-content-parser.js';
-import { StoragePaths, ensureStorageDir } from '../config/storage-paths.js';
+import { StoragePaths, ensureStorageDir, getProjectId } from '../config/storage-paths.js';
 
 // Types
 export interface ConversationTurn {
@@ -239,10 +239,12 @@ export class CliHistoryStore {
    */
   private migrateSchema(): void {
     try {
-      // Check if category column exists
+      // Check if columns exist
       const tableInfo = this.db.prepare('PRAGMA table_info(conversations)').all() as Array<{ name: string }>;
       const hasCategory = tableInfo.some(col => col.name === 'category');
       const hasParentExecutionId = tableInfo.some(col => col.name === 'parent_execution_id');
+      const hasProjectRoot = tableInfo.some(col => col.name === 'project_root');
+      const hasRelativePath = tableInfo.some(col => col.name === 'relative_path');
 
       if (!hasCategory) {
         console.log('[CLI History] Migrating database: adding category column...');
@@ -269,6 +271,28 @@ export class CliHistoryStore {
           console.warn('[CLI History] Parent execution index creation warning:', (indexErr as Error).message);
         }
         console.log('[CLI History] Migration complete: parent_execution_id column added');
+      }
+
+      // Add hierarchical storage support columns
+      if (!hasProjectRoot) {
+        console.log('[CLI History] Migrating database: adding project_root column for hierarchical storage...');
+        this.db.exec(`
+          ALTER TABLE conversations ADD COLUMN project_root TEXT;
+        `);
+        try {
+          this.db.exec(`CREATE INDEX IF NOT EXISTS idx_conversations_project_root ON conversations(project_root);`);
+        } catch (indexErr) {
+          console.warn('[CLI History] Project root index creation warning:', (indexErr as Error).message);
+        }
+        console.log('[CLI History] Migration complete: project_root column added');
+      }
+
+      if (!hasRelativePath) {
+        console.log('[CLI History] Migrating database: adding relative_path column for hierarchical storage...');
+        this.db.exec(`
+          ALTER TABLE conversations ADD COLUMN relative_path TEXT;
+        `);
+        console.log('[CLI History] Migration complete: relative_path column added');
       }
     } catch (err) {
       console.error('[CLI History] Migration error:', (err as Error).message);
@@ -1115,17 +1139,21 @@ export class CliHistoryStore {
   }
 }
 
-// Singleton instance cache
+// Singleton instance cache - keyed by normalized project ID for consistency
 const storeCache = new Map<string, CliHistoryStore>();
 
 /**
  * Get or create a store instance for a directory
+ * Uses normalized project ID as cache key to handle path casing differences
  */
 export function getHistoryStore(baseDir: string): CliHistoryStore {
-  if (!storeCache.has(baseDir)) {
-    storeCache.set(baseDir, new CliHistoryStore(baseDir));
+  // Use getProjectId to normalize path for consistent cache key
+  const cacheKey = getProjectId(baseDir);
+
+  if (!storeCache.has(cacheKey)) {
+    storeCache.set(cacheKey, new CliHistoryStore(baseDir));
   }
-  return storeCache.get(baseDir)!;
+  return storeCache.get(cacheKey)!;
 }
 
 /**

@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from codexlens.entities import SearchResult, Symbol
+from codexlens.entities import CodeRelationship, SearchResult, Symbol
 from codexlens.errors import StorageError
 
 
@@ -224,6 +224,99 @@ class DirIndexStore:
             except sqlite3.DatabaseError as exc:
                 conn.rollback()
                 raise StorageError(f"Failed to add file {name}: {exc}") from exc
+
+    def add_relationships(
+        self,
+        file_path: str | Path,
+        relationships: List[CodeRelationship],
+    ) -> int:
+        """Store code relationships for a file.
+
+        Args:
+            file_path: Path to the source file
+            relationships: List of CodeRelationship objects to store
+
+        Returns:
+            Number of relationships stored
+
+        Raises:
+            StorageError: If database operations fail
+        """
+        if not relationships:
+            return 0
+
+        with self._lock:
+            conn = self._get_connection()
+            file_path_str = str(Path(file_path).resolve())
+
+            try:
+                # Get file_id
+                row = conn.execute(
+                    "SELECT id FROM files WHERE full_path=?", (file_path_str,)
+                ).fetchone()
+                if not row:
+                    return 0
+
+                file_id = int(row["id"])
+
+                # Delete existing relationships for symbols in this file
+                conn.execute(
+                    """
+                    DELETE FROM code_relationships
+                    WHERE source_symbol_id IN (
+                        SELECT id FROM symbols WHERE file_id=?
+                    )
+                    """,
+                    (file_id,),
+                )
+
+                # Insert new relationships
+                relationship_rows = []
+                for rel in relationships:
+                    # Find symbol_id by name and file
+                    symbol_row = conn.execute(
+                        """
+                        SELECT id FROM symbols
+                        WHERE file_id=? AND name=? AND start_line<=? AND end_line>=?
+                        LIMIT 1
+                        """,
+                        (file_id, rel.source_symbol, rel.source_line, rel.source_line),
+                    ).fetchone()
+
+                    if not symbol_row:
+                        # Try matching by name only
+                        symbol_row = conn.execute(
+                            "SELECT id FROM symbols WHERE file_id=? AND name=? LIMIT 1",
+                            (file_id, rel.source_symbol),
+                        ).fetchone()
+
+                    if symbol_row:
+                        relationship_rows.append((
+                            int(symbol_row["id"]),
+                            rel.target_symbol,
+                            rel.relationship_type,
+                            rel.source_line,
+                            rel.target_file,
+                        ))
+
+                if relationship_rows:
+                    conn.executemany(
+                        """
+                        INSERT INTO code_relationships(
+                            source_symbol_id, target_qualified_name, relationship_type,
+                            source_line, target_file
+                        )
+                        VALUES(?, ?, ?, ?, ?)
+                        """,
+                        relationship_rows,
+                    )
+
+                conn.commit()
+                return len(relationship_rows)
+
+            except sqlite3.DatabaseError as exc:
+                conn.rollback()
+                raise StorageError(f"Failed to add relationships: {exc}") from exc
 
     def add_files_batch(
         self, files: List[Tuple[str, Path, str, str, Optional[List[Symbol]]]]
@@ -1143,6 +1236,21 @@ class DirIndexStore:
                 """
             )
 
+            # Code relationships table for graph visualization
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS code_relationships (
+                    id INTEGER PRIMARY KEY,
+                    source_symbol_id INTEGER NOT NULL,
+                    target_qualified_name TEXT NOT NULL,
+                    relationship_type TEXT NOT NULL,
+                    source_line INTEGER NOT NULL,
+                    target_file TEXT,
+                    FOREIGN KEY (source_symbol_id) REFERENCES symbols (id) ON DELETE CASCADE
+                )
+                """
+            )
+
             # Indexes
             conn.execute("CREATE INDEX IF NOT EXISTS idx_files_name ON files(name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_files_path ON files(full_path)")
@@ -1154,6 +1262,9 @@ class DirIndexStore:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_keywords_keyword ON keywords(keyword)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_file_keywords_file_id ON file_keywords(file_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_file_keywords_keyword_id ON file_keywords(keyword_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_rel_source ON code_relationships(source_symbol_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_rel_target ON code_relationships(target_qualified_name)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_rel_type ON code_relationships(relationship_type)")
 
         except sqlite3.DatabaseError as exc:
             raise StorageError(f"Failed to create schema: {exc}") from exc

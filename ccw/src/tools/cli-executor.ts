@@ -319,6 +319,8 @@ function buildCommand(params: {
       break;
 
     case 'codex':
+      // Codex does NOT support stdin - prompt must be passed as command line argument
+      useStdin = false;
       // Native resume: codex resume <uuid> [prompt] or --last
       if (nativeResume?.enabled) {
         args.push('resume');
@@ -343,6 +345,10 @@ function buildCommand(params: {
             args.push('--add-dir', addDir);
           }
         }
+        // Add prompt as positional argument for resume
+        if (prompt) {
+          args.push(prompt);
+        }
       } else {
         // Standard exec mode
         args.push('exec');
@@ -362,6 +368,10 @@ function buildCommand(params: {
             args.push('--add-dir', addDir);
           }
         }
+        // Add prompt as positional argument (codex exec "prompt")
+        if (prompt) {
+          args.push(prompt);
+        }
       }
       break;
 
@@ -379,9 +389,11 @@ function buildCommand(params: {
       if (model) {
         args.push('--model', model);
       }
-      // Permission modes for write/auto
+      // Permission modes: write/auto → bypassPermissions, analysis → default
       if (mode === 'write' || mode === 'auto') {
-        args.push('--dangerously-skip-permissions');
+        args.push('--permission-mode', 'bypassPermissions');
+      } else {
+        args.push('--permission-mode', 'default');
       }
       // Output format for better parsing
       args.push('--output-format', 'text');
@@ -570,7 +582,7 @@ async function executeCliTool(
 
   // Determine working directory early (needed for conversation lookup)
   const workingDir = cd || process.cwd();
-  const historyDir = ensureHistoryDir(workingDir);
+  ensureHistoryDir(workingDir); // Ensure history directory exists
 
   // Get SQLite store for native session lookup
   const store = await getSqliteStore(workingDir);
@@ -722,16 +734,8 @@ async function executeCliTool(
     }
   }
 
-  // Determine effective model (use config's primaryModel if not explicitly provided)
-  let effectiveModel = model;
-  if (!effectiveModel) {
-    try {
-      effectiveModel = getPrimaryModel(workingDir, tool);
-    } catch {
-      // Config not available, use default (let the CLI tool use its own default)
-      effectiveModel = undefined;
-    }
-  }
+  // Only pass model if explicitly provided - let CLI tools use their own defaults
+  const effectiveModel = model;
 
   // Build command
   const { command, args, useStdin } = buildCommand({
@@ -864,7 +868,7 @@ async function executeCliTool(
         // Save all source conversations
         try {
           for (const conv of savedConversations) {
-            saveConversation(historyDir, conv);
+            saveConversation(workingDir, conv);
           }
         } catch (err) {
           console.error('[CLI Executor] Failed to save merged histories:', (err as Error).message);
@@ -906,7 +910,7 @@ async function executeCliTool(
             };
         // Save merged conversation
         try {
-          saveConversation(historyDir, conversation);
+          saveConversation(workingDir, conversation);
         } catch (err) {
           console.error('[CLI Executor] Failed to save merged conversation:', (err as Error).message);
         }
@@ -937,7 +941,7 @@ async function executeCliTool(
             };
         // Try to save conversation to history
         try {
-          saveConversation(historyDir, conversation);
+          saveConversation(workingDir, conversation);
         } catch (err) {
           // Non-fatal: continue even if history save fails
           console.error('[CLI Executor] Failed to save history:', (err as Error).message);
@@ -945,7 +949,8 @@ async function executeCliTool(
       }
 
       // Track native session after execution (async, non-blocking)
-      trackNewSession(tool, new Date(startTime), workingDir)
+      // Pass prompt for precise matching in parallel execution scenarios
+      trackNewSession(tool, new Date(startTime), workingDir, prompt)
         .then((nativeSession) => {
           if (nativeSession) {
             // Save native session mapping
@@ -1211,8 +1216,8 @@ export function getExecutionHistory(baseDir: string, options: {
  * Get conversation detail by ID (returns ConversationRecord)
  */
 export function getConversationDetail(baseDir: string, conversationId: string): ConversationRecord | null {
-  const paths = StoragePaths.project(baseDir);
-  return loadConversation(paths.cliHistory, conversationId);
+  // Pass baseDir directly - loadConversation will resolve the correct storage path
+  return loadConversation(baseDir, conversationId);
 }
 
 /**

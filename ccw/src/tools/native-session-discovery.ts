@@ -70,18 +70,60 @@ abstract class SessionDiscoverer {
 
   /**
    * Track new session created during execution
+   * @param beforeTimestamp - Filter sessions created after this time
+   * @param workingDir - Project working directory
+   * @param prompt - Optional prompt content for precise matching (fallback)
    */
   async trackNewSession(
     beforeTimestamp: Date,
-    workingDir: string
+    workingDir: string,
+    prompt?: string
   ): Promise<NativeSession | null> {
     const sessions = this.getSessions({
       workingDir,
       afterTimestamp: beforeTimestamp,
-      limit: 1
+      limit: 10 // Get more candidates for prompt matching
     });
-    return sessions.length > 0 ? sessions[0] : null;
+
+    if (sessions.length === 0) return null;
+
+    // If only one session or no prompt provided, return the latest
+    if (sessions.length === 1 || !prompt) {
+      return sessions[0];
+    }
+
+    // Try to match by prompt content (fallback for parallel execution)
+    const matched = this.matchSessionByPrompt(sessions, prompt);
+    return matched || sessions[0]; // Fallback to latest if no match
   }
+
+  /**
+   * Match session by prompt content
+   * Searches for the prompt in session's user messages
+   */
+  matchSessionByPrompt(sessions: NativeSession[], prompt: string): NativeSession | null {
+    // Normalize prompt for comparison (first 200 chars)
+    const promptPrefix = prompt.substring(0, 200).trim();
+    if (!promptPrefix) return null;
+
+    for (const session of sessions) {
+      try {
+        const userMessage = this.extractFirstUserMessage(session.filePath);
+        if (userMessage && userMessage.includes(promptPrefix)) {
+          return session;
+        }
+      } catch {
+        // Skip sessions that can't be read
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Extract first user message from session file
+   * Override in subclass for tool-specific format
+   */
+  abstract extractFirstUserMessage(filePath: string): string | null;
 }
 
 /**
@@ -156,6 +198,23 @@ class GeminiSessionDiscoverer extends SessionDiscoverer {
   findSessionById(sessionId: string): NativeSession | null {
     const sessions = this.getSessions();
     return sessions.find(s => s.sessionId === sessionId) || null;
+  }
+
+  /**
+   * Extract first user message from Gemini session file
+   * Format: { "messages": [{ "type": "user", "content": "..." }] }
+   */
+  extractFirstUserMessage(filePath: string): string | null {
+    try {
+      const content = JSON.parse(readFileSync(filePath, 'utf8'));
+      if (content.messages && Array.isArray(content.messages)) {
+        const userMsg = content.messages.find((m: { type: string }) => m.type === 'user');
+        return userMsg?.content || null;
+      }
+      return null;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -330,6 +389,46 @@ class QwenSessionDiscoverer extends SessionDiscoverer {
     const sessions = this.getSessions();
     return sessions.find(s => s.sessionId === sessionId) || null;
   }
+
+  /**
+   * Extract first user message from Qwen session file
+   * New format (.jsonl): { type: "user", message: { role: "user", parts: [{ text: "..." }] } }
+   * Legacy format (.json): { "messages": [{ "type": "user", "content": "..." }] }
+   */
+  extractFirstUserMessage(filePath: string): string | null {
+    try {
+      const content = readFileSync(filePath, 'utf8');
+
+      // Check if JSONL (new format) or JSON (legacy)
+      if (filePath.endsWith('.jsonl')) {
+        // JSONL format - find first user message
+        const lines = content.split('\n').filter(l => l.trim());
+        for (const line of lines) {
+          try {
+            const entry = JSON.parse(line);
+            // New Qwen format: { type: "user", message: { parts: [{ text: "..." }] } }
+            if (entry.type === 'user' && entry.message?.parts?.[0]?.text) {
+              return entry.message.parts[0].text;
+            }
+            // Alternative format
+            if (entry.role === 'user' && entry.content) {
+              return entry.content;
+            }
+          } catch { /* skip invalid lines */ }
+        }
+      } else {
+        // Legacy JSON format
+        const data = JSON.parse(content);
+        if (data.messages && Array.isArray(data.messages)) {
+          const userMsg = data.messages.find((m: { type: string }) => m.type === 'user');
+          return userMsg?.content || null;
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
 }
 
 /**
@@ -430,6 +529,32 @@ class CodexSessionDiscoverer extends SessionDiscoverer {
     const sessions = this.getSessions();
     return sessions.find(s => s.sessionId === sessionId) || null;
   }
+
+  /**
+   * Extract first user message from Codex session file (.jsonl)
+   * Format: {"type":"event_msg","payload":{"type":"user_message","message":"..."}}
+   */
+  extractFirstUserMessage(filePath: string): string | null {
+    try {
+      const content = readFileSync(filePath, 'utf8');
+      const lines = content.split('\n').filter(l => l.trim());
+
+      for (const line of lines) {
+        try {
+          const entry = JSON.parse(line);
+          // Look for user_message event
+          if (entry.type === 'event_msg' &&
+              entry.payload?.type === 'user_message' &&
+              entry.payload?.message) {
+            return entry.payload.message;
+          }
+        } catch { /* skip invalid lines */ }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
 }
 
 /**
@@ -462,15 +587,17 @@ class ClaudeSessionDiscoverer extends SessionDiscoverer {
       }
 
       for (const projectHash of projectDirs) {
-        const sessionsDir = join(this.basePath, projectHash, 'sessions');
-        if (!existsSync(sessionsDir)) continue;
+        // Claude Code stores session files directly in project folder (not in 'sessions' subdirectory)
+        // e.g., ~/.claude/projects/D--Claude-dms3/<uuid>.jsonl
+        const projectDir = join(this.basePath, projectHash);
+        if (!existsSync(projectDir)) continue;
 
-        const sessionFiles = readdirSync(sessionsDir)
+        const sessionFiles = readdirSync(projectDir)
           .filter(f => f.endsWith('.jsonl') || f.endsWith('.json'))
           .map(f => ({
             name: f,
-            path: join(sessionsDir, f),
-            stat: statSync(join(sessionsDir, f))
+            path: join(projectDir, f),
+            stat: statSync(join(projectDir, f))
           }))
           .sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs);
 
@@ -521,6 +648,35 @@ class ClaudeSessionDiscoverer extends SessionDiscoverer {
     const sessions = this.getSessions();
     return sessions.find(s => s.sessionId === sessionId) || null;
   }
+
+  /**
+   * Extract first user message from Claude Code session file (.jsonl)
+   * Format: {"type":"user","message":{"role":"user","content":"..."},"isMeta":false,...}
+   */
+  extractFirstUserMessage(filePath: string): string | null {
+    try {
+      const content = readFileSync(filePath, 'utf8');
+      const lines = content.split('\n').filter(l => l.trim());
+
+      for (const line of lines) {
+        try {
+          const entry = JSON.parse(line);
+          // Claude Code format: type="user", message.role="user", message.content="..."
+          // Skip meta messages and command messages
+          if (entry.type === 'user' &&
+              entry.message?.role === 'user' &&
+              entry.message?.content &&
+              !entry.isMeta &&
+              !entry.message.content.startsWith('<command-')) {
+            return entry.message.content;
+          }
+        } catch { /* skip invalid lines */ }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
 }
 
 // Singleton discoverers
@@ -564,15 +720,20 @@ export function findNativeSessionById(
 
 /**
  * Track new session created during execution
+ * @param tool - CLI tool name (gemini, qwen, codex, claude)
+ * @param beforeTimestamp - Filter sessions created after this time
+ * @param workingDir - Project working directory
+ * @param prompt - Optional prompt for precise matching in parallel execution
  */
 export async function trackNewSession(
   tool: string,
   beforeTimestamp: Date,
-  workingDir: string
+  workingDir: string,
+  prompt?: string
 ): Promise<NativeSession | null> {
   const discoverer = discoverers[tool];
   if (!discoverer) return null;
-  return discoverer.trackNewSession(beforeTimestamp, workingDir);
+  return discoverer.trackNewSession(beforeTimestamp, workingDir, prompt);
 }
 
 /**

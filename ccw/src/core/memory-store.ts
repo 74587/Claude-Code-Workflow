@@ -6,7 +6,7 @@
 import Database from 'better-sqlite3';
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { StoragePaths, ensureStorageDir } from '../config/storage-paths.js';
+import { StoragePaths, ensureStorageDir, getProjectId } from '../config/storage-paths.js';
 
 // Types
 export interface Entity {
@@ -127,6 +127,7 @@ export class MemoryStore {
     this.db.pragma('synchronous = NORMAL');
 
     this.initDatabase();
+    this.migrateSchema();
   }
 
   /**
@@ -281,6 +282,43 @@ export class MemoryStore {
         VALUES (new.id, new.prompt_text, new.context_summary);
       END;
     `);
+  }
+
+  /**
+   * Migrate schema for existing databases
+   */
+  private migrateSchema(): void {
+    try {
+      // Check if hierarchical storage columns exist in conversations table
+      const tableInfo = this.db.prepare('PRAGMA table_info(conversations)').all() as Array<{ name: string }>;
+      const hasProjectRoot = tableInfo.some(col => col.name === 'project_root');
+      const hasRelativePath = tableInfo.some(col => col.name === 'relative_path');
+
+      // Add hierarchical storage support columns
+      if (!hasProjectRoot) {
+        console.log('[Memory Store] Migrating database: adding project_root column for hierarchical storage...');
+        this.db.exec(`
+          ALTER TABLE conversations ADD COLUMN project_root TEXT;
+        `);
+        try {
+          this.db.exec(`CREATE INDEX IF NOT EXISTS idx_conversations_project_root ON conversations(project_root);`);
+        } catch (indexErr) {
+          console.warn('[Memory Store] Project root index creation warning:', (indexErr as Error).message);
+        }
+        console.log('[Memory Store] Migration complete: project_root column added');
+      }
+
+      if (!hasRelativePath) {
+        console.log('[Memory Store] Migrating database: adding relative_path column for hierarchical storage...');
+        this.db.exec(`
+          ALTER TABLE conversations ADD COLUMN relative_path TEXT;
+        `);
+        console.log('[Memory Store] Migration complete: relative_path column added');
+      }
+    } catch (err) {
+      console.error('[Memory Store] Migration error:', (err as Error).message);
+      // Don't throw - allow the store to continue working with existing schema
+    }
   }
 
   /**
@@ -677,17 +715,21 @@ export class MemoryStore {
   }
 }
 
-// Singleton instance cache
+// Singleton instance cache - keyed by normalized project ID for consistency
 const storeCache = new Map<string, MemoryStore>();
 
 /**
  * Get or create a store instance for a project
+ * Uses normalized project ID as cache key to handle path casing differences
  */
 export function getMemoryStore(projectPath: string): MemoryStore {
-  if (!storeCache.has(projectPath)) {
-    storeCache.set(projectPath, new MemoryStore(projectPath));
+  // Use getProjectId to normalize path for consistent cache key
+  const cacheKey = getProjectId(projectPath);
+
+  if (!storeCache.has(cacheKey)) {
+    storeCache.set(cacheKey, new MemoryStore(projectPath));
   }
-  return storeCache.get(projectPath)!;
+  return storeCache.get(cacheKey)!;
 }
 
 /**
