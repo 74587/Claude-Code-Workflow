@@ -87,15 +87,23 @@ async function toggleMcpServer(serverName, enable) {
   }
 }
 
-async function copyMcpServerToProject(serverName, serverConfig) {
+async function copyMcpServerToProject(serverName, serverConfig, configType = null) {
   try {
+    // If configType not specified, ask user to choose
+    if (!configType) {
+      const choice = await showConfigTypeDialog();
+      if (!choice) return null; // User cancelled
+      configType = choice;
+    }
+
     const response = await fetch('/api/mcp-copy-server', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         projectPath: projectPath,
         serverName: serverName,
-        serverConfig: serverConfig
+        serverConfig: serverConfig,
+        configType: configType  // 'claude' for .claude.json, 'mcp' for .mcp.json
       })
     });
 
@@ -105,7 +113,8 @@ async function copyMcpServerToProject(serverName, serverConfig) {
     if (result.success) {
       await loadMcpConfig();
       renderMcpManager();
-      showRefreshToast(`MCP server "${serverName}" added to project`, 'success');
+      const location = configType === 'mcp' ? '.mcp.json' : '.claude.json';
+      showRefreshToast(`MCP server "${serverName}" added to project (${location})`, 'success');
     }
     return result;
   } catch (err) {
@@ -113,6 +122,53 @@ async function copyMcpServerToProject(serverName, serverConfig) {
     showRefreshToast(`Failed to add MCP server: ${err.message}`, 'error');
     return null;
   }
+}
+
+// Show dialog to let user choose config type
+function showConfigTypeDialog() {
+  return new Promise((resolve) => {
+    const dialog = document.createElement('div');
+    dialog.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+    dialog.innerHTML = `
+      <div class="bg-card border border-border rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
+        <h3 class="text-lg font-semibold mb-4">${t('mcp.chooseInstallLocation')}</h3>
+        <div class="space-y-3 mb-6">
+          <button class="config-type-option w-full text-left px-4 py-3 border border-border rounded-lg hover:bg-accent hover:border-primary transition-all" data-type="claude">
+            <div class="font-medium">${t('mcp.installToClaudeJson')}</div>
+            <div class="text-sm text-muted-foreground mt-1">${t('mcp.claudeJsonDesc')}</div>
+          </button>
+          <button class="config-type-option w-full text-left px-4 py-3 border border-border rounded-lg hover:bg-accent hover:border-primary transition-all" data-type="mcp">
+            <div class="font-medium">${t('mcp.installToMcpJson')}</div>
+            <div class="text-sm text-muted-foreground mt-1">${t('mcp.mcpJsonDesc')}</div>
+          </button>
+        </div>
+        <button class="cancel-btn w-full px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors">${t('common.cancel')}</button>
+      </div>
+    `;
+    document.body.appendChild(dialog);
+
+    const options = dialog.querySelectorAll('.config-type-option');
+    options.forEach(btn => {
+      btn.addEventListener('click', () => {
+        resolve(btn.dataset.type);
+        document.body.removeChild(dialog);
+      });
+    });
+
+    const cancelBtn = dialog.querySelector('.cancel-btn');
+    cancelBtn.addEventListener('click', () => {
+      resolve(null);
+      document.body.removeChild(dialog);
+    });
+
+    // Close on backdrop click
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) {
+        resolve(null);
+        document.body.removeChild(dialog);
+      }
+    });
+  });
 }
 
 async function removeMcpServerFromProject(serverName) {

@@ -77,7 +77,7 @@ function getMcpServersFromFile(filePath) {
  */
 function addMcpServerToMcpJson(projectPath, serverName, serverConfig) {
   try {
-    const normalizedPath = normalizeProjectPathForConfig(projectPath);
+    const normalizedPath = normalizePathForFileSystem(projectPath);
     const mcpJsonPath = join(normalizedPath, '.mcp.json');
     
     // Read existing .mcp.json or create new structure
@@ -115,7 +115,7 @@ function addMcpServerToMcpJson(projectPath, serverName, serverConfig) {
  */
 function removeMcpServerFromMcpJson(projectPath, serverName) {
   try {
-    const normalizedPath = normalizeProjectPathForConfig(projectPath);
+    const normalizedPath = normalizePathForFileSystem(projectPath);
     const mcpJsonPath = join(normalizedPath, '.mcp.json');
     
     if (!existsSync(mcpJsonPath)) {
@@ -238,20 +238,41 @@ function getMcpConfig() {
 }
 
 /**
- * Normalize project path for .claude.json (Windows backslash format)
+ * Normalize path to filesystem format (for accessing .mcp.json files)
+ * Always uses forward slashes for cross-platform compatibility
  * @param {string} path
  * @returns {string}
  */
-function normalizeProjectPathForConfig(path) {
-  // Convert forward slashes to backslashes for Windows .claude.json format
-  let normalized = path.replace(/\//g, '\\');
-
-  // Handle /d/path format -> D:\path
-  if (normalized.match(/^\\[a-zA-Z]\\/)) {
+function normalizePathForFileSystem(path) {
+  let normalized = path.replace(/\\/g, '/');
+  
+  // Handle /d/path format -> D:/path
+  if (normalized.match(/^\/[a-zA-Z]\//)) {
     normalized = normalized.charAt(1).toUpperCase() + ':' + normalized.slice(2);
   }
-
+  
   return normalized;
+}
+
+/**
+ * Normalize project path to match existing format in .claude.json
+ * Checks both forward slash and backslash formats to find existing entry
+ * @param {string} path
+ * @param {Object} claudeConfig - Optional existing config to check format
+ * @returns {string}
+ */
+function normalizeProjectPathForConfig(path, claudeConfig = null) {
+  // IMPORTANT: Always normalize to forward slashes to prevent duplicate entries
+  // (e.g., prevents both "D:/Claude_dms3" and "D:\\Claude_dms3")
+  let normalizedForward = path.replace(/\\/g, '/');
+
+  // Handle /d/path format -> D:/path
+  if (normalizedForward.match(/^\/[a-zA-Z]\//)) {
+    normalizedForward = normalizedForward.charAt(1).toUpperCase() + ':' + normalizedForward.slice(2);
+  }
+
+  // ALWAYS return forward slash format to prevent duplicates
+  return normalizedForward;
 }
 
 /**
@@ -270,7 +291,7 @@ function toggleMcpServerEnabled(projectPath, serverName, enable) {
     const content = readFileSync(CLAUDE_CONFIG_PATH, 'utf8');
     const config = JSON.parse(content);
 
-    const normalizedPath = normalizeProjectPathForConfig(projectPath);
+    const normalizedPath = normalizeProjectPathForConfig(projectPath, config);
 
     if (!config.projects || !config.projects[normalizedPath]) {
       return { error: `Project not found: ${normalizedPath}` };
@@ -332,7 +353,7 @@ function addMcpServerToProject(projectPath, serverName, serverConfig, useLegacyC
     const content = readFileSync(CLAUDE_CONFIG_PATH, 'utf8');
     const config = JSON.parse(content);
 
-    const normalizedPath = normalizeProjectPathForConfig(projectPath);
+    const normalizedPath = normalizeProjectPathForConfig(projectPath, config);
 
     // Create project entry if it doesn't exist
     if (!config.projects) {
@@ -387,8 +408,8 @@ function addMcpServerToProject(projectPath, serverName, serverConfig, useLegacyC
  */
 function removeMcpServerFromProject(projectPath, serverName) {
   try {
-    const normalizedPath = normalizeProjectPathForConfig(projectPath);
-    const mcpJsonPath = join(normalizedPath, '.mcp.json');
+    const normalizedPathForFile = normalizePathForFileSystem(projectPath);
+    const mcpJsonPath = join(normalizedPathForFile, '.mcp.json');
     
     let removedFromMcpJson = false;
     let removedFromClaudeJson = false;
@@ -408,6 +429,9 @@ function removeMcpServerFromProject(projectPath, serverName) {
     if (existsSync(CLAUDE_CONFIG_PATH)) {
       const content = readFileSync(CLAUDE_CONFIG_PATH, 'utf8');
       const config = JSON.parse(content);
+
+      // Get normalized path that matches existing config format
+      const normalizedPath = normalizeProjectPathForConfig(projectPath, config);
 
       if (config.projects && config.projects[normalizedPath]) {
         const projectConfig = config.projects[normalizedPath];
@@ -597,11 +621,13 @@ export async function handleMcpRoutes(ctx: RouteContext): Promise<boolean> {
   // API: Copy MCP server to project
   if (pathname === '/api/mcp-copy-server' && req.method === 'POST') {
     handlePostRequest(req, res, async (body) => {
-      const { projectPath, serverName, serverConfig } = body;
+      const { projectPath, serverName, serverConfig, configType } = body;
       if (!projectPath || !serverName || !serverConfig) {
         return { error: 'projectPath, serverName, and serverConfig are required', status: 400 };
       }
-      return addMcpServerToProject(projectPath, serverName, serverConfig);
+      // configType: 'mcp' = use .mcp.json (default), 'claude' = use .claude.json
+      const useLegacyConfig = configType === 'claude';
+      return addMcpServerToProject(projectPath, serverName, serverConfig, useLegacyConfig);
     });
     return true;
   }

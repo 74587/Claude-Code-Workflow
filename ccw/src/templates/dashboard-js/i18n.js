@@ -431,7 +431,31 @@ const i18n = {
     'mcp.jsonFormatsHint': 'Supports {"servers": {...}}, {"mcpServers": {...}}, and direct server config formats.',
     'mcp.previewServers': 'Preview (servers to be added):',
     'mcp.create': 'Create',
-    
+    'mcp.chooseInstallLocation': 'Choose Installation Location',
+    'mcp.installToClaudeJson': 'Install to .claude.json',
+    'mcp.installToMcpJson': 'Install to .mcp.json (Recommended)',
+    'mcp.claudeJsonDesc': 'Save in root .claude.json projects section (shared config)',
+    'mcp.mcpJsonDesc': 'Save in project .mcp.json file (recommended for version control)',
+
+    // MCP Templates
+    'mcp.templates': 'MCP Templates',
+    'mcp.savedTemplates': 'saved templates',
+    'mcp.saveAsTemplate': 'Save as Template',
+    'mcp.enterTemplateName': 'Enter template name',
+    'mcp.enterTemplateDesc': 'Enter template description (optional)',
+    'mcp.enterServerName': 'Enter server name',
+    'mcp.templateSaved': 'Template "{name}" saved successfully',
+    'mcp.templateSaveFailed': 'Failed to save template: {error}',
+    'mcp.templateNotFound': 'Template "{name}" not found',
+    'mcp.templateInstalled': 'Server "{name}" installed successfully',
+    'mcp.templateInstallFailed': 'Failed to install template: {error}',
+    'mcp.deleteTemplate': 'Delete Template',
+    'mcp.deleteTemplateConfirm': 'Delete template "{name}"?',
+    'mcp.templateDeleted': 'Template "{name}" deleted successfully',
+    'mcp.templateDeleteFailed': 'Failed to delete template: {error}',
+    'mcp.toProject': 'To Project',
+    'mcp.toGlobal': 'To Global',
+
     // Hook Manager
     'hook.projectHooks': 'Project Hooks',
     'hook.projectFile': '.claude/settings.json',
@@ -1346,6 +1370,11 @@ const i18n = {
     'mcp.jsonFormatsHint': '支持 {"servers": {...}}、{"mcpServers": {...}} 和直接服务器配置格式。',
     'mcp.previewServers': '预览（将添加的服务器）:',
     'mcp.create': '创建',
+    'mcp.chooseInstallLocation': '选择安装位置',
+    'mcp.installToClaudeJson': '安装到 .claude.json',
+    'mcp.installToMcpJson': '安装到 .mcp.json（推荐）',
+    'mcp.claudeJsonDesc': '保存在根目录 .claude.json projects 字段下（共享配置）',
+    'mcp.mcpJsonDesc': '保存在项目 .mcp.json 文件中（推荐用于版本控制）',
     
     // Hook Manager
     'hook.projectHooks': '项目钩子',

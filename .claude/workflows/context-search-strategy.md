@@ -13,7 +13,7 @@
 **rg (ripgrep)**: Fast content search with regex support
 **find**: File/directory location by name patterns
 **grep**: Built-in pattern matching (fallback when rg unavailable)
-**get_modules_by_depth.sh**: Program architecture analysis (MANDATORY before planning)
+**get_modules_by_depth**: Program architecture analysis (MANDATORY before planning)
 
 
 

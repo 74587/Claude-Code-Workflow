@@ -43,6 +43,9 @@ async function renderMcpManager() {
     await loadMcpConfig();
   }
 
+  // Load MCP templates
+  await loadMcpTemplates();
+
   const currentPath = projectPath.replace(/\//g, '\\');
   const projectData = mcpAllProjects[currentPath] || {};
   const projectServers = projectData.mcpServers || {};
@@ -269,6 +272,77 @@ async function renderMcpManager() {
         `}
       </div>
 
+      <!-- MCP Templates Section -->
+      ${mcpTemplates.length > 0 ? `
+      <div class="mcp-section mt-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-foreground flex items-center gap-2">
+            <i data-lucide="layout-template" class="w-5 h-5"></i>
+            ${t('mcp.templates')}
+          </h3>
+          <span class="text-sm text-muted-foreground">${mcpTemplates.length} ${t('mcp.savedTemplates')}</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          ${mcpTemplates.map(template => `
+            <div class="mcp-template-card bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all">
+              <div class="flex items-start justify-between mb-3">
+                <div class="flex-1 min-w-0">
+                  <h4 class="font-semibold text-foreground truncate flex items-center gap-2">
+                    <i data-lucide="layout-template" class="w-4 h-4 shrink-0"></i>
+                    <span class="truncate">${escapeHtml(template.name)}</span>
+                  </h4>
+                  ${template.description ? `
+                    <p class="text-xs text-muted-foreground mt-1 line-clamp-2">${escapeHtml(template.description)}</p>
+                  ` : ''}
+                </div>
+              </div>
+
+              <div class="mcp-server-details text-sm space-y-1 mb-3">
+                <div class="flex items-center gap-2 text-muted-foreground">
+                  <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">cmd</span>
+                  <span class="truncate text-xs" title="${escapeHtml(template.serverConfig.command)}">${escapeHtml(template.serverConfig.command)}</span>
+                </div>
+                ${template.serverConfig.args && template.serverConfig.args.length > 0 ? `
+                  <div class="flex items-start gap-2 text-muted-foreground">
+                    <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">args</span>
+                    <span class="text-xs font-mono truncate" title="${escapeHtml(template.serverConfig.args.join(' '))}">${escapeHtml(template.serverConfig.args.slice(0, 2).join(' '))}${template.serverConfig.args.length > 2 ? '...' : ''}</span>
+                  </div>
+                ` : ''}
+              </div>
+
+              <div class="mt-3 pt-3 border-t border-border flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <button class="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+                          data-template-name="${escapeHtml(template.name)}"
+                          data-scope="project"
+                          data-action="install-template"
+                          title="${t('mcp.installToProject')}">
+                    <i data-lucide="download" class="w-3 h-3"></i>
+                    ${t('mcp.toProject')}
+                  </button>
+                  <button class="text-xs text-success hover:text-success/80 transition-colors flex items-center gap-1"
+                          data-template-name="${escapeHtml(template.name)}"
+                          data-scope="global"
+                          data-action="install-template"
+                          title="${t('mcp.installToGlobal')}">
+                    <i data-lucide="globe" class="w-3 h-3"></i>
+                    ${t('mcp.toGlobal')}
+                  </button>
+                </div>
+                <button class="text-xs text-destructive hover:text-destructive/80 transition-colors"
+                        data-template-name="${escapeHtml(template.name)}"
+                        data-action="delete-template"
+                        title="${t('mcp.deleteTemplate')}">
+                  <i data-lucide="trash-2" class="w-3 h-3"></i>
+                </button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      ` : ''}
+
       <!-- All Projects MCP Overview Table -->
       <div class="mcp-section mt-6">
         <div class="flex items-center justify-between mb-4">
@@ -402,15 +476,25 @@ function renderProjectAvailableServerCard(entry) {
         ` : ''}
       </div>
 
-      <div class="mt-3 pt-3 border-t border-border flex items-center justify-between">
-        <button class="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
-                data-server-name="${escapeHtml(name)}"
-                data-server-config="${escapeHtml(JSON.stringify(config))}"
-                data-scope="${source === 'global' ? 'global' : 'project'}"
-                data-action="copy-install-cmd">
-          <i data-lucide="copy" class="w-3 h-3"></i>
-          ${t('mcp.copyInstallCmd')}
-        </button>
+      <div class="mt-3 pt-3 border-t border-border flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <button class="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+                  data-server-name="${escapeHtml(name)}"
+                  data-server-config="${escapeHtml(JSON.stringify(config))}"
+                  data-scope="${source === 'global' ? 'global' : 'project'}"
+                  data-action="copy-install-cmd">
+            <i data-lucide="copy" class="w-3 h-3"></i>
+            ${t('mcp.copyInstallCmd')}
+          </button>
+          <button class="text-xs text-success hover:text-success/80 transition-colors flex items-center gap-1"
+                  data-server-name="${escapeHtml(name)}"
+                  data-server-config="${escapeHtml(JSON.stringify(config))}"
+                  data-action="save-as-template"
+                  title="${t('mcp.saveAsTemplate')}">
+            <i data-lucide="save" class="w-3 h-3"></i>
+            ${t('mcp.saveAsTemplate')}
+          </button>
+        </div>
         ${canRemove ? `
           <button class="text-xs text-destructive hover:text-destructive/80 transition-colors"
                   data-server-name="${escapeHtml(name)}"
@@ -617,4 +701,156 @@ function attachMcpEventListeners() {
       await copyMcpInstallCommand(serverName, serverConfig, scope);
     });
   });
+
+  // Save as template buttons
+  document.querySelectorAll('.mcp-server-card button[data-action="save-as-template"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const serverName = btn.dataset.serverName;
+      const serverConfig = JSON.parse(btn.dataset.serverConfig);
+      await saveMcpAsTemplate(serverName, serverConfig);
+    });
+  });
+
+  // Install from template buttons
+  document.querySelectorAll('.mcp-template-card button[data-action="install-template"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const templateName = btn.dataset.templateName;
+      const scope = btn.dataset.scope || 'project';
+      await installFromTemplate(templateName, scope);
+    });
+  });
+
+  // Delete template buttons
+  document.querySelectorAll('.mcp-template-card button[data-action="delete-template"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const templateName = btn.dataset.templateName;
+      if (confirm(t('mcp.deleteTemplateConfirm', { name: templateName }))) {
+        await deleteMcpTemplate(templateName);
+      }
+    });
+  });
+}
+
+// ========================================
+// MCP Template Management Functions
+// ========================================
+
+let mcpTemplates = [];
+
+/**
+ * Load all MCP templates from API
+ */
+async function loadMcpTemplates() {
+  try {
+    const response = await fetch('/api/mcp-templates');
+    const data = await response.json();
+
+    if (data.success) {
+      mcpTemplates = data.templates || [];
+      console.log('[MCP Templates] Loaded', mcpTemplates.length, 'templates');
+    } else {
+      console.error('[MCP Templates] Failed to load:', data.error);
+      mcpTemplates = [];
+    }
+
+    return mcpTemplates;
+  } catch (error) {
+    console.error('[MCP Templates] Error loading templates:', error);
+    mcpTemplates = [];
+    return [];
+  }
+}
+
+/**
+ * Save MCP server configuration as a template
+ */
+async function saveMcpAsTemplate(serverName, serverConfig) {
+  try {
+    // Prompt for template name and description
+    const templateName = prompt(t('mcp.enterTemplateName'), serverName);
+    if (!templateName) return;
+
+    const description = prompt(t('mcp.enterTemplateDesc'), `Template for ${serverName}`);
+
+    const payload = {
+      name: templateName,
+      description: description || '',
+      serverConfig: serverConfig,
+      category: 'user'
+    };
+
+    const response = await fetch('/api/mcp-templates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showNotification(t('mcp.templateSaved', { name: templateName }), 'success');
+      await loadMcpTemplates();
+      await renderMcpManager(); // Refresh view
+    } else {
+      showNotification(t('mcp.templateSaveFailed', { error: data.error }), 'error');
+    }
+  } catch (error) {
+    console.error('[MCP] Save template error:', error);
+    showNotification(t('mcp.templateSaveFailed', { error: error.message }), 'error');
+  }
+}
+
+/**
+ * Install MCP server from template
+ */
+async function installFromTemplate(templateName, scope = 'project') {
+  try {
+    // Find template
+    const template = mcpTemplates.find(t => t.name === templateName);
+    if (!template) {
+      showNotification(t('mcp.templateNotFound', { name: templateName }), 'error');
+      return;
+    }
+
+    // Prompt for server name (default to template name)
+    const serverName = prompt(t('mcp.enterServerName'), templateName);
+    if (!serverName) return;
+
+    // Install based on scope
+    if (scope === 'project') {
+      await installMcpToProject(serverName, template.serverConfig);
+    } else if (scope === 'global') {
+      await addGlobalMcpServer(serverName, template.serverConfig);
+    }
+
+    showNotification(t('mcp.templateInstalled', { name: serverName }), 'success');
+    await renderMcpManager();
+  } catch (error) {
+    console.error('[MCP] Install from template error:', error);
+    showNotification(t('mcp.templateInstallFailed', { error: error.message }), 'error');
+  }
+}
+
+/**
+ * Delete MCP template
+ */
+async function deleteMcpTemplate(templateName) {
+  try {
+    const response = await fetch(`/api/mcp-templates/${encodeURIComponent(templateName)}`, {
+      method: 'DELETE'
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showNotification(t('mcp.templateDeleted', { name: templateName }), 'success');
+      await loadMcpTemplates();
+      await renderMcpManager();
+    } else {
+      showNotification(t('mcp.templateDeleteFailed', { error: data.error }), 'error');
+    }
+  } catch (error) {
+    console.error('[MCP] Delete template error:', error);
+    showNotification(t('mcp.templateDeleteFailed', { error: error.message }), 'error');
+  }
 }

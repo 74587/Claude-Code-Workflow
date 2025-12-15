@@ -588,9 +588,21 @@ function closeRuleCreateModal(event) {
 
 function selectRuleLocation(location) {
   ruleCreateState.location = location;
-  // Re-render modal
-  closeRuleCreateModal();
-  openRuleCreateModal();
+
+  // Update button styles without re-rendering modal
+  const buttons = document.querySelectorAll('.location-btn');
+  buttons.forEach(btn => {
+    const isProject = btn.querySelector('.font-medium')?.textContent?.includes(t('rules.projectRules'));
+    const isUser = btn.querySelector('.font-medium')?.textContent?.includes(t('rules.userRules'));
+
+    if ((isProject && location === 'project') || (isUser && location === 'user')) {
+      btn.classList.remove('border-border', 'hover:border-primary/50');
+      btn.classList.add('border-primary', 'bg-primary/10');
+    } else {
+      btn.classList.remove('border-primary', 'bg-primary/10');
+      btn.classList.add('border-border', 'hover:border-primary/50');
+    }
+  });
 }
 
 function toggleRuleConditional() {

@@ -1,22 +1,11 @@
 {
   "mcpServers": {
-    "test-mcp-server": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
-        "D:/Claude_dms3"
-      ]
-    },
     "ccw-tools": {
       "command": "npx",
       "args": [
         "-y",
         "ccw-mcp"
-      ],
-      "env": {
-        "CCW_ENABLED_TOOLS": "write_file,edit_file,codex_lens,smart_search"
-      }
+      ]
     }
   }
 }

@@ -733,7 +733,7 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
     }
 
     try {
-      const configPath = join(projectPath, '.claude', 'rules', 'active_memory.md');
+      const configPath = join(projectPath, '.claude', 'CLAUDE.md');
       const configJsonPath = join(projectPath, '.claude', 'active_memory_config.json');
       const enabled = existsSync(configPath);
       let lastSync: string | null = null;
@@ -784,16 +784,12 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
           return;
         }
 
-        const rulesDir = join(projectPath, '.claude', 'rules');
         const claudeDir = join(projectPath, '.claude');
-        const configPath = join(rulesDir, 'active_memory.md');
+        const configPath = join(claudeDir, 'CLAUDE.md');
         const configJsonPath = join(claudeDir, 'active_memory_config.json');
 
         if (enabled) {
           // Enable: Create directories and initial file
-          if (!existsSync(rulesDir)) {
-            mkdirSync(rulesDir, { recursive: true });
-          }
           if (!existsSync(claudeDir)) {
             mkdirSync(claudeDir, { recursive: true });
           }
@@ -803,8 +799,8 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
             writeFileSync(configJsonPath, JSON.stringify(config, null, 2), 'utf-8');
           }
 
-          // Create initial active_memory.md with header
-          const initialContent = `# Active Memory
+          // Create initial CLAUDE.md with header
+          const initialContent = `# CLAUDE.md - Project Memory
 
 > Auto-generated understanding of frequently accessed files.
 > Last updated: ${new Date().toISOString()}
@@ -867,7 +863,7 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
     return true;
   }
 
-  // API: Active Memory - Sync (analyze hot files using CLI and update active_memory.md)
+  // API: Active Memory - Sync (analyze hot files using CLI and update CLAUDE.md)
   if (pathname === '/api/memory/active/sync' && req.method === 'POST') {
     let body = '';
     req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
@@ -882,8 +878,8 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
           return;
         }
 
-        const rulesDir = join(projectPath, '.claude', 'rules');
-        const configPath = join(rulesDir, 'active_memory.md');
+        const claudeDir = join(projectPath, '.claude');
+        const configPath = join(claudeDir, 'CLAUDE.md');
 
         // Get hot files from memory store - with fallback
         let hotFiles: any[] = [];
@@ -903,8 +899,8 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
           return isAbsolute(filePath) ? filePath : join(projectPath, filePath);
         }).filter((p: string) => existsSync(p));
 
-        // Build the active memory content header
-        let content = `# Active Memory
+        // Build the CLAUDE.md content header
+        let content = `# CLAUDE.md - Project Memory
 
 > Auto-generated understanding of frequently accessed files using ${tool.toUpperCase()}.
 > Last updated: ${new Date().toISOString()}
@@ -942,14 +938,29 @@ RULES: Be concise. Focus on practical understanding. Include function signatures
           });
 
           if (result.success && result.execution?.output) {
-            // Extract stdout from output object
-            cliOutput = typeof result.execution.output === 'string'
-              ? result.execution.output
-              : result.execution.output.stdout || '';
+            // Extract stdout from output object with proper serialization
+            const output = result.execution.output;
+            if (typeof output === 'string') {
+              cliOutput = output;
+            } else if (output && typeof output === 'object') {
+              // Handle object output - extract stdout or serialize the object
+              if (output.stdout && typeof output.stdout === 'string') {
+                cliOutput = output.stdout;
+              } else if (output.stderr && typeof output.stderr === 'string') {
+                cliOutput = output.stderr;
+              } else {
+                // Last resort: serialize the entire object as JSON
+                cliOutput = JSON.stringify(output, null, 2);
+              }
+            } else {
+              cliOutput = '';
+            }
           }
 
-          // Add CLI output to content
-          content += cliOutput + '\n\n---\n\n';
+          // Add CLI output to content (only if not empty)
+          if (cliOutput && cliOutput.trim()) {
+            content += cliOutput + '\n\n---\n\n';
+          }
 
         } catch (cliErr) {
           // Fallback to basic analysis if CLI fails
@@ -1007,8 +1018,8 @@ RULES: Be concise. Focus on practical understanding. Include function signatures
         }
 
         // Ensure directory exists
-        if (!existsSync(rulesDir)) {
-          mkdirSync(rulesDir, { recursive: true });
+        if (!existsSync(claudeDir)) {
+          mkdirSync(claudeDir, { recursive: true });
         }
 
         // Write the file

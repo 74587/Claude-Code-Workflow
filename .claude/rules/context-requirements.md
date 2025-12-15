@@ -44,3 +44,4 @@ Before implementation, always:
 - `fuzzy`: Typo-tolerant search
 - `semantic`: Concept-based search
 - `graph`: Dependency analysis
+
