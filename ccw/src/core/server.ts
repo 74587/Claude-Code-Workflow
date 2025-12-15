@@ -11,6 +11,7 @@ import { handleMemoryRoutes } from './routes/memory-routes.js';
 import { handleMcpRoutes } from './routes/mcp-routes.js';
 import { handleHooksRoutes } from './routes/hooks-routes.js';
 import { handleCodexLensRoutes } from './routes/codexlens-routes.js';
+import { handleGraphRoutes } from './routes/graph-routes.js';
 import { handleSystemRoutes } from './routes/system-routes.js';
 import { handleFilesRoutes } from './routes/files-routes.js';
 import { handleSkillsRoutes } from './routes/skills-routes.js';
@@ -268,6 +269,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // CodexLens routes (/api/codexlens/*)
       if (pathname.startsWith('/api/codexlens/')) {
         if (await handleCodexLensRoutes(routeContext)) return;
+      }
+
+      // Graph routes (/api/graph/*)
+      if (pathname.startsWith('/api/graph/')) {
+        if (await handleGraphRoutes(routeContext)) return;
       }
 
       // CCW routes (/api/ccw/*)
