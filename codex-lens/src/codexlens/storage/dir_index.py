@@ -149,15 +149,21 @@ class DirIndexStore:
                 # Replace symbols
                 conn.execute("DELETE FROM symbols WHERE file_id=?", (file_id,))
                 if symbols:
+                    # Extract token_count and symbol_type from symbol metadata if available
+                    symbol_rows = []
+                    for s in symbols:
+                        token_count = getattr(s, 'token_count', None)
+                        symbol_type = getattr(s, 'symbol_type', None) or s.kind
+                        symbol_rows.append(
+                            (file_id, s.name, s.kind, s.range[0], s.range[1], token_count, symbol_type)
+                        )
+
                     conn.executemany(
                         """
-                        INSERT INTO symbols(file_id, name, kind, start_line, end_line)
-                        VALUES(?, ?, ?, ?, ?)
+                        INSERT INTO symbols(file_id, name, kind, start_line, end_line, token_count, symbol_type)
+                        VALUES(?, ?, ?, ?, ?, ?, ?)
                         """,
-                        [
-                            (file_id, s.name, s.kind, s.range[0], s.range[1])
-                            for s in symbols
-                        ],
+                        symbol_rows,
                     )
 
                 conn.commit()
@@ -216,15 +222,21 @@ class DirIndexStore:
 
                     conn.execute("DELETE FROM symbols WHERE file_id=?", (file_id,))
                     if symbols:
+                        # Extract token_count and symbol_type from symbol metadata if available
+                        symbol_rows = []
+                        for s in symbols:
+                            token_count = getattr(s, 'token_count', None)
+                            symbol_type = getattr(s, 'symbol_type', None) or s.kind
+                            symbol_rows.append(
+                                (file_id, s.name, s.kind, s.range[0], s.range[1], token_count, symbol_type)
+                            )
+
                         conn.executemany(
                             """
-                            INSERT INTO symbols(file_id, name, kind, start_line, end_line)
-                            VALUES(?, ?, ?, ?, ?)
+                            INSERT INTO symbols(file_id, name, kind, start_line, end_line, token_count, symbol_type)
+                            VALUES(?, ?, ?, ?, ?, ?, ?)
                             """,
-                            [
-                                (file_id, s.name, s.kind, s.range[0], s.range[1])
-                                for s in symbols
-                            ],
+                            symbol_rows,
                         )
 
                 conn.commit()
@@ -1021,7 +1033,9 @@ class DirIndexStore:
                     name TEXT NOT NULL,
                     kind TEXT NOT NULL,
                     start_line INTEGER,
-                    end_line INTEGER
+                    end_line INTEGER,
+                    token_count INTEGER,
+                    symbol_type TEXT
                 )
                 """
             )
@@ -1083,6 +1097,7 @@ class DirIndexStore:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_subdirs_name ON subdirs(name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_file ON symbols(file_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_type ON symbols(symbol_type)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_semantic_file ON semantic_metadata(file_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_keywords_keyword ON keywords(keyword)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_file_keywords_file_id ON file_keywords(file_id)")

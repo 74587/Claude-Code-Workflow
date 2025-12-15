@@ -6,6 +6,7 @@
 import Database from 'better-sqlite3';
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { StoragePaths, ensureStorageDir } from '../config/storage-paths.js';
 
 // Types
 export interface Entity {
@@ -115,12 +116,12 @@ export class MemoryStore {
   private dbPath: string;
 
   constructor(projectPath: string) {
-    const memoryDir = join(projectPath, '.workflow', '.memory');
-    if (!existsSync(memoryDir)) {
-      mkdirSync(memoryDir, { recursive: true });
-    }
+    // Use centralized storage path
+    const paths = StoragePaths.project(projectPath);
+    const memoryDir = paths.memory;
+    ensureStorageDir(memoryDir);
 
-    this.dbPath = join(memoryDir, 'memory.db');
+    this.dbPath = paths.memoryDb;
     this.db = new Database(this.dbPath);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('synchronous = NORMAL');

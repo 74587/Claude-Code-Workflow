@@ -7,6 +7,7 @@ import Database from 'better-sqlite3';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, rmdirSync } from 'fs';
 import { join } from 'path';
 import { parseSessionFile, formatConversation, extractConversationPairs, type ParsedSession, type ParsedTurn } from './session-content-parser.js';
+import { StoragePaths, ensureStorageDir } from '../config/storage-paths.js';
 
 // Types
 export interface ConversationTurn {
@@ -97,12 +98,12 @@ export class CliHistoryStore {
   private dbPath: string;
 
   constructor(baseDir: string) {
-    const historyDir = join(baseDir, '.workflow', '.cli-history');
-    if (!existsSync(historyDir)) {
-      mkdirSync(historyDir, { recursive: true });
-    }
+    // Use centralized storage path
+    const paths = StoragePaths.project(baseDir);
+    const historyDir = paths.cliHistory;
+    ensureStorageDir(historyDir);
 
-    this.dbPath = join(historyDir, 'history.db');
+    this.dbPath = paths.historyDb;
     this.db = new Database(this.dbPath);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('synchronous = NORMAL');

@@ -83,6 +83,9 @@ class Config:
     llm_timeout_ms: int = 300000
     llm_batch_size: int = 5
 
+    # Hybrid chunker configuration
+    hybrid_max_chunk_size: int = 2000  # Max characters per chunk before LLM refinement
+    hybrid_llm_refinement: bool = False  # Enable LLM-based semantic boundary refinement
     def __post_init__(self) -> None:
         try:
             self.data_dir = self.data_dir.expanduser().resolve()

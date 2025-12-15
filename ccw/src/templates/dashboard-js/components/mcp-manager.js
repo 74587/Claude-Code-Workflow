@@ -15,6 +15,11 @@ let mcpCurrentProjectServers = {};
 let mcpConfigSources = [];
 let mcpCreateMode = 'form'; // 'form' or 'json'
 
+// ========== CLI Toggle State (Claude / Codex) ==========
+let currentCliMode = 'claude'; // 'claude' or 'codex'
+let codexMcpConfig = null;
+let codexMcpServers = {};
+
 // ========== Initialization ==========
 function initMcpManager() {
   // Initialize MCP navigation
@@ -44,6 +49,12 @@ async function loadMcpConfig() {
     mcpEnterpriseServers = data.enterpriseServers || {};
     mcpConfigSources = data.configSources || [];
 
+    // Load Codex MCP config
+    if (data.codex) {
+      codexMcpConfig = data.codex;
+      codexMcpServers = data.codex.servers || {};
+    }
+
     // Get current project servers
     const currentPath = projectPath.replace(/\//g, '\\');
     mcpCurrentProjectServers = mcpAllProjects[currentPath]?.mcpServers || {};
@@ -56,6 +67,135 @@ async function loadMcpConfig() {
     console.error('Failed to load MCP config:', err);
     return null;
   }
+}
+
+// ========== CLI Mode Toggle ==========
+function setCliMode(mode) {
+  currentCliMode = mode;
+  renderMcpManager();
+}
+
+function getCliMode() {
+  return currentCliMode;
+}
+
+// ========== Codex MCP Functions ==========
+
+/**
+ * Add MCP server to Codex config.toml
+ */
+async function addCodexMcpServer(serverName, serverConfig) {
+  try {
+    const response = await fetch('/api/codex-mcp-add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        serverName: serverName,
+        serverConfig: serverConfig
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to add Codex MCP server');
+
+    const result = await response.json();
+    if (result.success) {
+      await loadMcpConfig();
+      renderMcpManager();
+      showRefreshToast(t('mcp.codex.serverAdded', { name: serverName }), 'success');
+    } else {
+      showRefreshToast(result.error || t('mcp.codex.addFailed'), 'error');
+    }
+    return result;
+  } catch (err) {
+    console.error('Failed to add Codex MCP server:', err);
+    showRefreshToast(t('mcp.codex.addFailed') + ': ' + err.message, 'error');
+    return null;
+  }
+}
+
+/**
+ * Remove MCP server from Codex config.toml
+ */
+async function removeCodexMcpServer(serverName) {
+  try {
+    const response = await fetch('/api/codex-mcp-remove', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ serverName })
+    });
+
+    if (!response.ok) throw new Error('Failed to remove Codex MCP server');
+
+    const result = await response.json();
+    if (result.success) {
+      await loadMcpConfig();
+      renderMcpManager();
+      showRefreshToast(t('mcp.codex.serverRemoved', { name: serverName }), 'success');
+    } else {
+      showRefreshToast(result.error || t('mcp.codex.removeFailed'), 'error');
+    }
+    return result;
+  } catch (err) {
+    console.error('Failed to remove Codex MCP server:', err);
+    showRefreshToast(t('mcp.codex.removeFailed') + ': ' + err.message, 'error');
+    return null;
+  }
+}
+
+/**
+ * Toggle Codex MCP server enabled state
+ */
+async function toggleCodexMcpServer(serverName, enabled) {
+  try {
+    const response = await fetch('/api/codex-mcp-toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ serverName, enabled })
+    });
+
+    if (!response.ok) throw new Error('Failed to toggle Codex MCP server');
+
+    const result = await response.json();
+    if (result.success) {
+      await loadMcpConfig();
+      renderMcpManager();
+      showRefreshToast(t('mcp.codex.serverToggled', { name: serverName, state: enabled ? 'enabled' : 'disabled' }), 'success');
+    }
+    return result;
+  } catch (err) {
+    console.error('Failed to toggle Codex MCP server:', err);
+    showRefreshToast(t('mcp.codex.toggleFailed') + ': ' + err.message, 'error');
+    return null;
+  }
+}
+
+/**
+ * Copy Claude MCP server to Codex
+ */
+async function copyClaudeServerToCodex(serverName, serverConfig) {
+  return await addCodexMcpServer(serverName, serverConfig);
+}
+
+/**
+ * Copy Codex MCP server to Claude (global)
+ */
+async function copyCodexServerToClaude(serverName, serverConfig) {
+  // Convert Codex format to Claude format
+  const claudeConfig = {
+    command: serverConfig.command,
+    args: serverConfig.args || [],
+  };
+
+  if (serverConfig.env) {
+    claudeConfig.env = serverConfig.env;
+  }
+
+  // If it's an HTTP server
+  if (serverConfig.url) {
+    claudeConfig.url = serverConfig.url;
+  }
+
+  return await addGlobalMcpServer(serverName, claudeConfig);
 }
 
 async function toggleMcpServer(serverName, enable) {
@@ -255,7 +395,7 @@ async function removeGlobalMcpServer(serverName) {
 function updateMcpBadge() {
   const badge = document.getElementById('badgeMcpServers');
   if (badge) {
-    const currentPath = projectPath.replace(/\//g, '\\');
+    const currentPath = projectPath; // Keep original format (forward slash)
     const projectData = mcpAllProjects[currentPath];
     const servers = projectData?.mcpServers || {};
     const disabledServers = projectData?.disabledMcpServers || [];
@@ -702,7 +842,20 @@ async function createMcpServerWithConfig(name, serverConfig, scope = 'project') 
   // Submit to API
   try {
     let response;
-    if (scope === 'global') {
+    let scopeLabel;
+
+    if (scope === 'codex') {
+      // Create in Codex config.toml
+      response = await fetch('/api/codex-mcp-add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serverName: name,
+          serverConfig: serverConfig
+        })
+      });
+      scopeLabel = 'Codex';
+    } else if (scope === 'global') {
       response = await fetch('/api/mcp-add-global-server', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -711,6 +864,7 @@ async function createMcpServerWithConfig(name, serverConfig, scope = 'project') 
           serverConfig: serverConfig
         })
       });
+      scopeLabel = 'global';
     } else {
       response = await fetch('/api/mcp-copy-server', {
         method: 'POST',
@@ -721,6 +875,7 @@ async function createMcpServerWithConfig(name, serverConfig, scope = 'project') 
           serverConfig: serverConfig
         })
       });
+      scopeLabel = 'project';
     }
 
     if (!response.ok) throw new Error('Failed to create MCP server');
@@ -730,7 +885,6 @@ async function createMcpServerWithConfig(name, serverConfig, scope = 'project') 
       closeMcpCreateModal();
       await loadMcpConfig();
       renderMcpManager();
-      const scopeLabel = scope === 'global' ? 'global' : 'project';
       showRefreshToast(`MCP server "${name}" created in ${scopeLabel} scope`, 'success');
     } else {
       showRefreshToast(result.error || 'Failed to create MCP server', 'error');
@@ -787,7 +941,7 @@ function buildCcwToolsConfig(selectedTools) {
   return config;
 }
 
-async function installCcwToolsMcp() {
+async function installCcwToolsMcp(scope = 'workspace') {
   const selectedTools = getSelectedCcwTools();
 
   if (selectedTools.length === 0) {
@@ -798,27 +952,52 @@ async function installCcwToolsMcp() {
   const ccwToolsConfig = buildCcwToolsConfig(selectedTools);
 
   try {
-    showRefreshToast('Installing CCW Tools MCP...', 'info');
+    const scopeLabel = scope === 'global' ? 'globally' : 'to workspace';
+    showRefreshToast(`Installing CCW Tools MCP ${scopeLabel}...`, 'info');
 
-    const response = await fetch('/api/mcp-copy-server', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        projectPath: projectPath,
-        serverName: 'ccw-tools',
-        serverConfig: ccwToolsConfig
-      })
-    });
+    if (scope === 'global') {
+      // Install to global (~/.claude.json mcpServers)
+      const response = await fetch('/api/mcp-add-global', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serverName: 'ccw-tools',
+          serverConfig: ccwToolsConfig
+        })
+      });
 
-    if (!response.ok) throw new Error('Failed to install CCW Tools MCP');
+      if (!response.ok) throw new Error('Failed to install CCW Tools MCP globally');
 
-    const result = await response.json();
-    if (result.success) {
-      await loadMcpConfig();
-      renderMcpManager();
-      showRefreshToast(`CCW Tools installed (${selectedTools.length} tools)`, 'success');
+      const result = await response.json();
+      if (result.success) {
+        await loadMcpConfig();
+        renderMcpManager();
+        showRefreshToast(`CCW Tools installed globally (${selectedTools.length} tools)`, 'success');
+      } else {
+        showRefreshToast(result.error || 'Failed to install CCW Tools MCP globally', 'error');
+      }
     } else {
-      showRefreshToast(result.error || 'Failed to install CCW Tools MCP', 'error');
+      // Install to workspace (.mcp.json)
+      const response = await fetch('/api/mcp-copy-server', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectPath: projectPath,
+          serverName: 'ccw-tools',
+          serverConfig: ccwToolsConfig
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to install CCW Tools MCP to workspace');
+
+      const result = await response.json();
+      if (result.success) {
+        await loadMcpConfig();
+        renderMcpManager();
+        showRefreshToast(`CCW Tools installed to workspace (${selectedTools.length} tools)`, 'success');
+      } else {
+        showRefreshToast(result.error || 'Failed to install CCW Tools MCP to workspace', 'error');
+      }
     }
   } catch (err) {
     console.error('Failed to install CCW Tools MCP:', err);
@@ -826,7 +1005,7 @@ async function installCcwToolsMcp() {
   }
 }
 
-async function updateCcwToolsMcp() {
+async function updateCcwToolsMcp(scope = 'workspace') {
   const selectedTools = getSelectedCcwTools();
 
   if (selectedTools.length === 0) {
@@ -837,27 +1016,52 @@ async function updateCcwToolsMcp() {
   const ccwToolsConfig = buildCcwToolsConfig(selectedTools);
 
   try {
-    showRefreshToast('Updating CCW Tools MCP...', 'info');
+    const scopeLabel = scope === 'global' ? 'globally' : 'in workspace';
+    showRefreshToast(`Updating CCW Tools MCP ${scopeLabel}...`, 'info');
 
-    const response = await fetch('/api/mcp-copy-server', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        projectPath: projectPath,
-        serverName: 'ccw-tools',
-        serverConfig: ccwToolsConfig
-      })
-    });
+    if (scope === 'global') {
+      // Update global (~/.claude.json mcpServers)
+      const response = await fetch('/api/mcp-add-global', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serverName: 'ccw-tools',
+          serverConfig: ccwToolsConfig
+        })
+      });
 
-    if (!response.ok) throw new Error('Failed to update CCW Tools MCP');
+      if (!response.ok) throw new Error('Failed to update CCW Tools MCP globally');
 
-    const result = await response.json();
-    if (result.success) {
-      await loadMcpConfig();
-      renderMcpManager();
-      showRefreshToast(`CCW Tools updated (${selectedTools.length} tools)`, 'success');
+      const result = await response.json();
+      if (result.success) {
+        await loadMcpConfig();
+        renderMcpManager();
+        showRefreshToast(`CCW Tools updated globally (${selectedTools.length} tools)`, 'success');
+      } else {
+        showRefreshToast(result.error || 'Failed to update CCW Tools MCP globally', 'error');
+      }
     } else {
-      showRefreshToast(result.error || 'Failed to update CCW Tools MCP', 'error');
+      // Update workspace (.mcp.json)
+      const response = await fetch('/api/mcp-copy-server', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectPath: projectPath,
+          serverName: 'ccw-tools',
+          serverConfig: ccwToolsConfig
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to update CCW Tools MCP in workspace');
+
+      const result = await response.json();
+      if (result.success) {
+        await loadMcpConfig();
+        renderMcpManager();
+        showRefreshToast(`CCW Tools updated in workspace (${selectedTools.length} tools)`, 'success');
+      } else {
+        showRefreshToast(result.error || 'Failed to update CCW Tools MCP in workspace', 'error');
+      }
     }
   } catch (err) {
     console.error('Failed to update CCW Tools MCP:', err);

@@ -140,7 +140,7 @@ function toggleSection(header) {
 function initCollapsibleSections(container) {
   setTimeout(() => {
     const headers = container.querySelectorAll('.collapsible-header');
-    headers.forEach(header => {
+    headers.forEach((header) => {
       if (!header._clickBound) {
         header._clickBound = true;
         header.addEventListener('click', function(e) {

@@ -160,11 +160,13 @@ function showLiteTaskDetailPage(sessionKey) {
     </div>
   `;
 
-  // Initialize collapsible sections
+  // Initialize collapsible sections and task click handlers
   setTimeout(() => {
     document.querySelectorAll('.collapsible-header').forEach(header => {
       header.addEventListener('click', () => toggleSection(header));
     });
+    // Bind click events to lite task items on initial load
+    initLiteTaskClickHandlers();
   }, 50);
 }
 
@@ -194,11 +196,13 @@ function switchLiteDetailTab(tabName) {
   switch (tabName) {
     case 'tasks':
       contentArea.innerHTML = renderLiteTasksTab(session, tasks, completed, inProgress, pending);
-      // Re-initialize collapsible sections
+      // Re-initialize collapsible sections and task click handlers
       setTimeout(() => {
         document.querySelectorAll('.collapsible-header').forEach(header => {
           header.addEventListener('click', () => toggleSection(header));
         });
+        // Bind click events to lite task items
+        initLiteTaskClickHandlers();
       }, 50);
       break;
     case 'plan':
@@ -259,12 +263,16 @@ function renderLiteTaskDetailItem(sessionId, task) {
   const implCount = rawTask.implementation?.length || 0;
   const acceptCount = rawTask.acceptance?.length || 0;
 
+  // Escape for data attributes
+  const safeSessionId = escapeHtml(sessionId);
+  const safeTaskId = escapeHtml(task.id);
+
   return `
-    <div class="detail-task-item-full lite-task-item" onclick="openTaskDrawerForLite('${sessionId}', '${escapeHtml(task.id)}')" style="cursor: pointer;" title="Click to view details">
+    <div class="detail-task-item-full lite-task-item" data-session-id="${safeSessionId}" data-task-id="${safeTaskId}" style="cursor: pointer;" title="Click to view details">
       <div class="task-item-header-lite">
         <span class="task-id-badge">${escapeHtml(task.id)}</span>
         <span class="task-title">${escapeHtml(task.title || 'Untitled')}</span>
-        <button class="btn-view-json" onclick="event.stopPropagation(); showJsonModal('${taskJsonId}', '${escapeHtml(task.id)}')">{ } JSON</button>
+        <button class="btn-view-json" data-task-json-id="${taskJsonId}" data-task-display-id="${safeTaskId}">{ } JSON</button>
       </div>
       <div class="task-item-meta-lite">
         ${action ? `<span class="meta-badge action">${escapeHtml(action)}</span>` : ''}
@@ -283,6 +291,39 @@ function getMetaPreviewForLite(task, rawTask) {
   if (meta.type || rawTask.action) parts.push(meta.type || rawTask.action);
   if (meta.scope || rawTask.scope) parts.push(meta.scope || rawTask.scope);
   return parts.join(' | ') || 'No meta';
+}
+
+/**
+ * Initialize click handlers for lite task items
+ */
+function initLiteTaskClickHandlers() {
+  // Task item click handlers
+  document.querySelectorAll('.lite-task-item').forEach(item => {
+    if (!item._clickBound) {
+      item._clickBound = true;
+      item.addEventListener('click', function(e) {
+        // Don't trigger if clicking on JSON button
+        if (e.target.closest('.btn-view-json')) return;
+
+        const sessionId = this.dataset.sessionId;
+        const taskId = this.dataset.taskId;
+        openTaskDrawerForLite(sessionId, taskId);
+      });
+    }
+  });
+
+  // JSON button click handlers
+  document.querySelectorAll('.btn-view-json').forEach(btn => {
+    if (!btn._clickBound) {
+      btn._clickBound = true;
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const taskJsonId = this.dataset.taskJsonId;
+        const displayId = this.dataset.taskDisplayId;
+        showJsonModal(taskJsonId, displayId);
+      });
+    }
+  });
 }
 
 function openTaskDrawerForLite(sessionId, taskId) {
@@ -454,15 +495,15 @@ async function loadAndRenderLiteContextTab(session, contentArea) {
       const response = await fetch(`/api/session-detail?path=${encodeURIComponent(session.path)}&type=context`);
       if (response.ok) {
         const data = await response.json();
-        contentArea.innerHTML = renderLiteContextContent(data.context, data.explorations, session);
-        
-        // Re-initialize collapsible sections for explorations (scoped to contentArea)
+        contentArea.innerHTML = renderLiteContextContent(data.context, data.explorations, session, data.diagnoses);
+
+        // Re-initialize collapsible sections for explorations and diagnoses (scoped to contentArea)
         initCollapsibleSections(contentArea);
         return;
       }
     }
     // Fallback: show plan context if available
-    contentArea.innerHTML = renderLiteContextContent(null, null, session);
+    contentArea.innerHTML = renderLiteContextContent(null, null, session, null);
     initCollapsibleSections(contentArea);
   } catch (err) {
     contentArea.innerHTML = `<div class="tab-error">Failed to load context: ${err.message}</div>`;
@@ -530,7 +571,9 @@ function renderDiagnosesTab(session) {
 
   // Individual diagnosis items
   if (diagnoses.items && diagnoses.items.length > 0) {
-    const diagnosisCards = diagnoses.items.map(diag => renderDiagnosisCard(diag)).join('');
+    const diagnosisCards = diagnoses.items.map((diag) => {
+      return renderDiagnosisCard(diag);
+    }).join('');
     sections.push(`
       <div class="diagnoses-items-section">
         <h4 class="diagnoses-section-title"><i data-lucide="search" class="w-4 h-4 inline mr-1"></i> Diagnosis Details (${diagnoses.items.length})</h4>
@@ -565,7 +608,21 @@ function renderDiagnosisCard(diag) {
 function renderDiagnosisContent(diag) {
   let content = [];
 
-  // Summary/Overview
+  // Symptom (for detailed diagnosis structure)
+  if (diag.symptom) {
+    const symptom = diag.symptom;
+    content.push(`
+      <div class="diag-section">
+        <strong>Symptom:</strong>
+        ${symptom.description ? `<p>${escapeHtml(symptom.description)}</p>` : ''}
+        ${symptom.user_impact ? `<div class="symptom-impact"><strong>User Impact:</strong> ${escapeHtml(symptom.user_impact)}</div>` : ''}
+        ${symptom.frequency ? `<div class="symptom-freq"><strong>Frequency:</strong> <span class="badge">${escapeHtml(symptom.frequency)}</span></div>` : ''}
+        ${symptom.error_message ? `<div class="symptom-error"><strong>Error:</strong> <code>${escapeHtml(symptom.error_message)}</code></div>` : ''}
+      </div>
+    `);
+  }
+
+  // Summary/Overview (for simple diagnosis structure)
   if (diag.summary || diag.overview) {
     content.push(`
       <div class="diag-section">
@@ -576,11 +633,34 @@ function renderDiagnosisContent(diag) {
   }
 
   // Root Cause Analysis
-  if (diag.root_cause || diag.root_cause_analysis) {
+  if (diag.root_cause) {
+    const rootCause = diag.root_cause;
+    // Handle both object and string formats
+    if (typeof rootCause === 'object') {
+      content.push(`
+        <div class="diag-section">
+          <strong>Root Cause:</strong>
+          ${rootCause.file ? `<div class="rc-file"><strong>File:</strong> <code>${escapeHtml(rootCause.file)}</code></div>` : ''}
+          ${rootCause.line_range ? `<div class="rc-line"><strong>Lines:</strong> ${escapeHtml(rootCause.line_range)}</div>` : ''}
+          ${rootCause.function ? `<div class="rc-func"><strong>Function:</strong> <code>${escapeHtml(rootCause.function)}</code></div>` : ''}
+          ${rootCause.issue ? `<p>${escapeHtml(rootCause.issue)}</p>` : ''}
+          ${rootCause.confidence ? `<div class="rc-confidence"><strong>Confidence:</strong> ${(rootCause.confidence * 100).toFixed(0)}%</div>` : ''}
+          ${rootCause.category ? `<div class="rc-category"><strong>Category:</strong> <span class="badge">${escapeHtml(rootCause.category)}</span></div>` : ''}
+        </div>
+      `);
+    } else if (typeof rootCause === 'string') {
+      content.push(`
+        <div class="diag-section">
+          <strong>Root Cause:</strong>
+          <p>${escapeHtml(rootCause)}</p>
+        </div>
+      `);
+    }
+  } else if (diag.root_cause_analysis) {
     content.push(`
       <div class="diag-section">
         <strong>Root Cause:</strong>
-        <p>${escapeHtml(diag.root_cause || diag.root_cause_analysis)}</p>
+        <p>${escapeHtml(diag.root_cause_analysis)}</p>
       </div>
     `);
   }
@@ -660,6 +740,37 @@ function renderDiagnosisContent(diag) {
     `);
   }
 
+  // Reproduction Steps
+  if (diag.reproduction_steps && Array.isArray(diag.reproduction_steps)) {
+    content.push(`
+      <div class="diag-section">
+        <strong>Reproduction Steps:</strong>
+        <ol class="repro-steps-list">
+          ${diag.reproduction_steps.map(step => `<li>${escapeHtml(step)}</li>`).join('')}
+        </ol>
+      </div>
+    `);
+  }
+
+  // Fix Hints
+  if (diag.fix_hints && Array.isArray(diag.fix_hints)) {
+    content.push(`
+      <div class="diag-section">
+        <strong>Fix Hints (${diag.fix_hints.length}):</strong>
+        <div class="fix-hints-list">
+          ${diag.fix_hints.map((hint, idx) => `
+            <div class="fix-hint-item">
+              <div class="hint-header"><strong>Hint ${idx + 1}:</strong> ${escapeHtml(hint.description || 'No description')}</div>
+              ${hint.approach ? `<div class="hint-approach"><strong>Approach:</strong> ${escapeHtml(hint.approach)}</div>` : ''}
+              ${hint.risk ? `<div class="hint-risk"><strong>Risk:</strong> <span class="badge risk-${hint.risk}">${escapeHtml(hint.risk)}</span></div>` : ''}
+              ${hint.code_example ? `<div class="hint-code"><strong>Code Example:</strong><pre><code>${escapeHtml(hint.code_example)}</code></pre></div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+  }
+
   // Recommendations
   if (diag.recommendations && Array.isArray(diag.recommendations)) {
     content.push(`
@@ -672,10 +783,75 @@ function renderDiagnosisContent(diag) {
     `);
   }
 
-  // If no specific content was rendered, show raw JSON preview
-  if (content.length === 0) {
+  // Dependencies
+  if (diag.dependencies && typeof diag.dependencies === 'string') {
     content.push(`
       <div class="diag-section">
+        <strong>Dependencies:</strong>
+        <p>${escapeHtml(diag.dependencies)}</p>
+      </div>
+    `);
+  }
+
+  // Constraints
+  if (diag.constraints && typeof diag.constraints === 'string') {
+    content.push(`
+      <div class="diag-section">
+        <strong>Constraints:</strong>
+        <p>${escapeHtml(diag.constraints)}</p>
+      </div>
+    `);
+  }
+
+  // Clarification Needs
+  if (diag.clarification_needs && Array.isArray(diag.clarification_needs)) {
+    content.push(`
+      <div class="diag-section">
+        <strong>Clarification Needs:</strong>
+        <div class="clarification-list">
+          ${diag.clarification_needs.map(clar => `
+            <div class="clarification-item">
+              <div class="clar-question"><strong>Q:</strong> ${escapeHtml(clar.question)}</div>
+              ${clar.context ? `<div class="clar-context"><strong>Context:</strong> ${escapeHtml(clar.context)}</div>` : ''}
+              ${clar.options && Array.isArray(clar.options) ? `
+                <div class="clar-options">
+                  <strong>Options:</strong>
+                  <ul>
+                    ${clar.options.map(opt => `<li>${escapeHtml(opt)}</li>`).join('')}
+                  </ul>
+                </div>
+              ` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  // Related Issues
+  if (diag.related_issues && Array.isArray(diag.related_issues)) {
+    content.push(`
+      <div class="diag-section">
+        <strong>Related Issues:</strong>
+        <ul class="related-issues-list">
+          ${diag.related_issues.map(issue => `
+            <li>
+              ${issue.type ? `<span class="issue-type-badge">${escapeHtml(issue.type)}</span>` : ''}
+              ${issue.reference ? `<strong>${escapeHtml(issue.reference)}</strong>: ` : ''}
+              ${issue.description ? escapeHtml(issue.description) : ''}
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+    `);
+  }
+
+  // If no specific content was rendered, show raw JSON preview
+  if (content.length === 0) {
+    console.warn('[DEBUG] No content rendered for diagnosis:', diag);
+    content.push(`
+      <div class="diag-section">
+        <strong>Debug: Raw JSON</strong>
         <pre class="json-content">${escapeHtml(JSON.stringify(diag, null, 2))}</pre>
       </div>
     `);

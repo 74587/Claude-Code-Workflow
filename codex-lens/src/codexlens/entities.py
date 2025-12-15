@@ -13,6 +13,8 @@ class Symbol(BaseModel):
     name: str = Field(..., min_length=1)
     kind: str = Field(..., min_length=1)
     range: Tuple[int, int] = Field(..., description="(start_line, end_line), 1-based inclusive")
+    token_count: Optional[int] = Field(default=None, description="Token count for symbol content")
+    symbol_type: Optional[str] = Field(default=None, description="Extended symbol type for filtering")
 
     @field_validator("range")
     @classmethod
@@ -24,6 +26,13 @@ class Symbol(BaseModel):
             raise ValueError("range lines must be >= 1")
         if end_line < start_line:
             raise ValueError("end_line must be >= start_line")
+        return value
+
+    @field_validator("token_count")
+    @classmethod
+    def validate_token_count(cls, value: Optional[int]) -> Optional[int]:
+        if value is not None and value < 0:
+            raise ValueError("token_count must be >= 0")
         return value
 
 
@@ -59,6 +68,25 @@ class IndexedFile(BaseModel):
         if not cleaned:
             raise ValueError("value cannot be blank")
         return cleaned
+
+
+class CodeRelationship(BaseModel):
+    """A relationship between code symbols (e.g., function calls, inheritance)."""
+
+    source_symbol: str = Field(..., min_length=1, description="Name of source symbol")
+    target_symbol: str = Field(..., min_length=1, description="Name of target symbol")
+    relationship_type: str = Field(..., min_length=1, description="Type of relationship (call, inherits, etc.)")
+    source_file: str = Field(..., min_length=1, description="File path containing source symbol")
+    target_file: Optional[str] = Field(default=None, description="File path containing target (None if same file)")
+    source_line: int = Field(..., ge=1, description="Line number where relationship occurs (1-based)")
+
+    @field_validator("relationship_type")
+    @classmethod
+    def validate_relationship_type(cls, value: str) -> str:
+        allowed_types = {"call", "inherits", "imports"}
+        if value not in allowed_types:
+            raise ValueError(f"relationship_type must be one of {allowed_types}")
+        return value
 
 
 class SearchResult(BaseModel):

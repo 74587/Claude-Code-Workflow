@@ -99,9 +99,10 @@ async function getSessionDetailData(sessionPath, dataType) {
       }
     }
 
-    // Load explorations (exploration-*.json files) - check .process/ first, then session root
+    // Load explorations (exploration-*.json files) and diagnoses (diagnosis-*.json files) - check .process/ first, then session root
     if (dataType === 'context' || dataType === 'explorations' || dataType === 'all') {
       result.explorations = { manifest: null, data: {} };
+      result.diagnoses = { manifest: null, data: {} };
 
       // Try .process/ first (standard workflow sessions), then session root (lite tasks)
       const searchDirs = [
@@ -134,15 +135,41 @@ async function getSessionDetailData(sessionPath, dataType) {
           } catch (e) {
             result.explorations.manifest = null;
           }
-        } else {
-          // Fallback: scan for exploration-*.json files directly
+        }
+
+        // Look for diagnoses-manifest.json
+        const diagManifestFile = join(searchDir, 'diagnoses-manifest.json');
+        if (existsSync(diagManifestFile)) {
           try {
-            const files = readdirSync(searchDir).filter(f => f.startsWith('exploration-') && f.endsWith('.json'));
-            if (files.length > 0) {
+            result.diagnoses.manifest = JSON.parse(readFileSync(diagManifestFile, 'utf8'));
+
+            // Load each diagnosis file based on manifest
+            const diagnoses = result.diagnoses.manifest.diagnoses || [];
+            for (const diag of diagnoses) {
+              const diagFile = join(searchDir, diag.file);
+              if (existsSync(diagFile)) {
+                try {
+                  result.diagnoses.data[diag.angle] = JSON.parse(readFileSync(diagFile, 'utf8'));
+                } catch (e) {
+                  // Skip unreadable diagnosis files
+                }
+              }
+            }
+            break; // Found manifest, stop searching
+          } catch (e) {
+            result.diagnoses.manifest = null;
+          }
+        }
+
+        // Fallback: scan for exploration-*.json and diagnosis-*.json files directly
+        if (!result.explorations.manifest) {
+          try {
+            const expFiles = readdirSync(searchDir).filter(f => f.startsWith('exploration-') && f.endsWith('.json') && f !== 'explorations-manifest.json');
+            if (expFiles.length > 0) {
               // Create synthetic manifest
               result.explorations.manifest = {
-                exploration_count: files.length,
-                explorations: files.map((f, i) => ({
+                exploration_count: expFiles.length,
+                explorations: expFiles.map((f, i) => ({
                   angle: f.replace('exploration-', '').replace('.json', ''),
                   file: f,
                   index: i + 1
@@ -150,7 +177,7 @@ async function getSessionDetailData(sessionPath, dataType) {
               };
 
               // Load each file
-              for (const file of files) {
+              for (const file of expFiles) {
                 const angle = file.replace('exploration-', '').replace('.json', '');
                 try {
                   result.explorations.data[angle] = JSON.parse(readFileSync(join(searchDir, file), 'utf8'));
@@ -158,11 +185,45 @@ async function getSessionDetailData(sessionPath, dataType) {
                   // Skip unreadable files
                 }
               }
-              break; // Found explorations, stop searching
             }
           } catch (e) {
             // Directory read failed
           }
+        }
+
+        // Fallback: scan for diagnosis-*.json files directly
+        if (!result.diagnoses.manifest) {
+          try {
+            const diagFiles = readdirSync(searchDir).filter(f => f.startsWith('diagnosis-') && f.endsWith('.json') && f !== 'diagnoses-manifest.json');
+            if (diagFiles.length > 0) {
+              // Create synthetic manifest
+              result.diagnoses.manifest = {
+                diagnosis_count: diagFiles.length,
+                diagnoses: diagFiles.map((f, i) => ({
+                  angle: f.replace('diagnosis-', '').replace('.json', ''),
+                  file: f,
+                  index: i + 1
+                }))
+              };
+
+              // Load each file
+              for (const file of diagFiles) {
+                const angle = file.replace('diagnosis-', '').replace('.json', '');
+                try {
+                  result.diagnoses.data[angle] = JSON.parse(readFileSync(join(searchDir, file), 'utf8'));
+                } catch (e) {
+                  // Skip unreadable files
+                }
+              }
+            }
+          } catch (e) {
+            // Directory read failed
+          }
+        }
+
+        // If we found either explorations or diagnoses, break out of the loop
+        if (result.explorations.manifest || result.diagnoses.manifest) {
+          break;
         }
       }
     }

@@ -9,7 +9,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
-from codexlens.entities import IndexedFile, SearchResult, Symbol
+from codexlens.entities import CodeRelationship, IndexedFile, SearchResult, Symbol
 from codexlens.errors import StorageError
 
 
@@ -309,12 +309,183 @@ class SQLiteStore:
                 "SELECT language, COUNT(*) AS c FROM files GROUP BY language ORDER BY c DESC"
             ).fetchall()
             languages = {row["language"]: row["c"] for row in lang_rows}
+            # Include relationship count if table exists
+            relationship_count = 0
+            try:
+                rel_row = conn.execute("SELECT COUNT(*) AS c FROM code_relationships").fetchone()
+                relationship_count = int(rel_row["c"]) if rel_row else 0
+            except sqlite3.DatabaseError:
+                pass
+
             return {
                 "files": int(file_count),
                 "symbols": int(symbol_count),
+                "relationships": relationship_count,
                 "languages": languages,
                 "db_path": str(self.db_path),
             }
+
+
+    def add_relationships(self, file_path: str | Path, relationships: List[CodeRelationship]) -> None:
+        """Store code relationships for a file.
+
+        Args:
+            file_path: Path to the file containing the relationships
+            relationships: List of CodeRelationship objects to store
+        """
+        if not relationships:
+            return
+
+        with self._lock:
+            conn = self._get_connection()
+            resolved_path = str(Path(file_path).resolve())
+
+            # Get file_id
+            row = conn.execute("SELECT id FROM files WHERE path=?", (resolved_path,)).fetchone()
+            if not row:
+                raise StorageError(f"File not found in index: {file_path}")
+            file_id = int(row["id"])
+
+            # Delete existing relationships for symbols in this file
+            conn.execute(
+                """
+                DELETE FROM code_relationships
+                WHERE source_symbol_id IN (
+                    SELECT id FROM symbols WHERE file_id=?
+                )
+                """,
+                (file_id,)
+            )
+
+            # Insert new relationships
+            relationship_rows = []
+            for rel in relationships:
+                # Find source symbol ID
+                symbol_row = conn.execute(
+                    """
+                    SELECT id FROM symbols
+                    WHERE file_id=? AND name=? AND start_line <= ? AND end_line >= ?
+                    ORDER BY (end_line - start_line) ASC
+                    LIMIT 1
+                    """,
+                    (file_id, rel.source_symbol, rel.source_line, rel.source_line)
+                ).fetchone()
+
+                if symbol_row:
+                    source_symbol_id = int(symbol_row["id"])
+                    relationship_rows.append((
+                        source_symbol_id,
+                        rel.target_symbol,
+                        rel.relationship_type,
+                        rel.source_line,
+                        rel.target_file
+                    ))
+
+            if relationship_rows:
+                conn.executemany(
+                    """
+                    INSERT INTO code_relationships(
+                        source_symbol_id, target_qualified_name, relationship_type,
+                        source_line, target_file
+                    )
+                    VALUES(?, ?, ?, ?, ?)
+                    """,
+                    relationship_rows
+                )
+            conn.commit()
+
+    def query_relationships_by_target(
+        self, target_name: str, *, limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Query relationships by target symbol name (find all callers).
+
+        Args:
+            target_name: Name of the target symbol
+            limit: Maximum number of results
+
+        Returns:
+            List of dicts containing relationship info with file paths and line numbers
+        """
+        with self._lock:
+            conn = self._get_connection()
+            rows = conn.execute(
+                """
+                SELECT
+                    s.name AS source_symbol,
+                    r.target_qualified_name,
+                    r.relationship_type,
+                    r.source_line,
+                    f.path AS source_file,
+                    r.target_file
+                FROM code_relationships r
+                JOIN symbols s ON r.source_symbol_id = s.id
+                JOIN files f ON s.file_id = f.id
+                WHERE r.target_qualified_name = ?
+                ORDER BY f.path, r.source_line
+                LIMIT ?
+                """,
+                (target_name, limit)
+            ).fetchall()
+
+            return [
+                {
+                    "source_symbol": row["source_symbol"],
+                    "target_symbol": row["target_qualified_name"],
+                    "relationship_type": row["relationship_type"],
+                    "source_line": row["source_line"],
+                    "source_file": row["source_file"],
+                    "target_file": row["target_file"],
+                }
+                for row in rows
+            ]
+
+    def query_relationships_by_source(
+        self, source_symbol: str, source_file: str | Path, *, limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Query relationships by source symbol (find what a symbol calls).
+
+        Args:
+            source_symbol: Name of the source symbol
+            source_file: File path containing the source symbol
+            limit: Maximum number of results
+
+        Returns:
+            List of dicts containing relationship info
+        """
+        with self._lock:
+            conn = self._get_connection()
+            resolved_path = str(Path(source_file).resolve())
+
+            rows = conn.execute(
+                """
+                SELECT
+                    s.name AS source_symbol,
+                    r.target_qualified_name,
+                    r.relationship_type,
+                    r.source_line,
+                    f.path AS source_file,
+                    r.target_file
+                FROM code_relationships r
+                JOIN symbols s ON r.source_symbol_id = s.id
+                JOIN files f ON s.file_id = f.id
+                WHERE s.name = ? AND f.path = ?
+                ORDER BY r.source_line
+                LIMIT ?
+                """,
+                (source_symbol, resolved_path, limit)
+            ).fetchall()
+
+            return [
+                {
+                    "source_symbol": row["source_symbol"],
+                    "target_symbol": row["target_qualified_name"],
+                    "relationship_type": row["relationship_type"],
+                    "source_line": row["source_line"],
+                    "source_file": row["source_file"],
+                    "target_file": row["target_file"],
+                }
+                for row in rows
+            ]
 
     def _connect(self) -> sqlite3.Connection:
         """Legacy method for backward compatibility."""
@@ -348,6 +519,20 @@ class SQLiteStore:
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_kind ON symbols(kind)")
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS code_relationships (
+                    id INTEGER PRIMARY KEY,
+                    source_symbol_id INTEGER NOT NULL REFERENCES symbols(id) ON DELETE CASCADE,
+                    target_qualified_name TEXT NOT NULL,
+                    relationship_type TEXT NOT NULL,
+                    source_line INTEGER NOT NULL,
+                    target_file TEXT
+                )
+                """
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_rel_target ON code_relationships(target_qualified_name)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_rel_source ON code_relationships(source_symbol_id)")
             conn.commit()
         except sqlite3.DatabaseError as exc:
             raise StorageError(f"Failed to initialize database schema: {exc}") from exc

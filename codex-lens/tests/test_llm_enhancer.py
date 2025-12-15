@@ -829,3 +829,516 @@ class TestEdgeCases:
         assert result["/test/file.py"].summary == "Only summary provided"
         assert result["/test/file.py"].keywords == []
         assert result["/test/file.py"].purpose == ""
+
+
+# === Chunk Boundary Refinement Tests ===
+
+class TestRefineChunkBoundaries:
+    """Tests for refine_chunk_boundaries method."""
+
+    def test_refine_skips_docstring_chunks(self):
+        """Test that chunks with metadata type='docstring' pass through unchanged."""
+        enhancer = LLMEnhancer()
+
+        chunk = SemanticChunk(
+            content='"""This is a docstring."""\n' * 100,  # Large docstring
+            embedding=None,
+            metadata={
+                "chunk_type": "docstring",
+                "file": "/test/file.py",
+                "start_line": 1,
+                "end_line": 100,
+            }
+        )
+
+        result = enhancer.refine_chunk_boundaries(chunk, max_chunk_size=500)
+
+        # Should return original chunk unchanged
+        assert len(result) == 1
+        assert result[0] is chunk
+
+    def test_refine_skips_small_chunks(self):
+        """Test that chunks under max_chunk_size pass through unchanged."""
+        enhancer = LLMEnhancer()
+
+        small_content = "def small_function():\n    return 42"
+        chunk = SemanticChunk(
+            content=small_content,
+            embedding=None,
+            metadata={
+                "chunk_type": "code",
+                "file": "/test/file.py",
+                "start_line": 1,
+                "end_line": 2,
+            }
+        )
+
+        result = enhancer.refine_chunk_boundaries(chunk, max_chunk_size=2000)
+
+        # Small chunk should pass through unchanged
+        assert len(result) == 1
+        assert result[0] is chunk
+
+    @patch.object(LLMEnhancer, "check_available", return_value=True)
+    @patch.object(LLMEnhancer, "_invoke_ccw_cli")
+    def test_refine_splits_large_chunks(self, mock_invoke, mock_check):
+        """Test that chunks over threshold are split at LLM-suggested points."""
+        mock_invoke.return_value = {
+            "success": True,
+            "stdout": json.dumps({
+                "split_points": [
+                    {"line": 5, "reason": "end of first function"},
+                    {"line": 10, "reason": "end of second function"}
+                ]
+            }),
+            "stderr": "",
+            "exit_code": 0,
+        }
+
+        enhancer = LLMEnhancer()
+
+        # Create large chunk with clear line boundaries
+        lines = []
+        for i in range(15):
+            lines.append(f"def func{i}():\n")
+            lines.append(f"    return {i}\n")
+
+        large_content = "".join(lines)
+
+        chunk = SemanticChunk(
+            content=large_content,
+            embedding=None,
+            metadata={
+                "chunk_type": "code",
+                "file": "/test/file.py",
+                "start_line": 1,
+                "end_line": 30,
+            }
+        )
+
+        result = enhancer.refine_chunk_boundaries(chunk, max_chunk_size=100)
+
+        # Should split into multiple chunks
+        assert len(result) > 1
+        # All chunks should have refined_by_llm metadata
+        assert all(c.metadata.get("refined_by_llm") is True for c in result)
+        # All chunks should preserve file metadata
+        assert all(c.metadata.get("file") == "/test/file.py" for c in result)
+
+    @patch.object(LLMEnhancer, "check_available", return_value=True)
+    @patch.object(LLMEnhancer, "_invoke_ccw_cli")
+    def test_refine_handles_empty_split_points(self, mock_invoke, mock_check):
+        """Test graceful handling when LLM returns no split points."""
+        mock_invoke.return_value = {
+            "success": True,
+            "stdout": json.dumps({"split_points": []}),
+            "stderr": "",
+            "exit_code": 0,
+        }
+
+        enhancer = LLMEnhancer()
+
+        large_content = "x" * 3000
+        chunk = SemanticChunk(
+            content=large_content,
+            embedding=None,
+            metadata={
+                "chunk_type": "code",
+                "file": "/test/file.py",
+                "start_line": 1,
+                "end_line": 1,
+            }
+        )
+
+        result = enhancer.refine_chunk_boundaries(chunk, max_chunk_size=1000)
+
+        # Should return original chunk when no split points
+        assert len(result) == 1
+        assert result[0].content == large_content
+
+    def test_refine_disabled_returns_unchanged(self):
+        """Test that when config.enabled=False, refinement returns input unchanged."""
+        config = LLMConfig(enabled=False)
+        enhancer = LLMEnhancer(config)
+
+        large_content = "x" * 3000
+        chunk = SemanticChunk(
+            content=large_content,
+            embedding=None,
+            metadata={
+                "chunk_type": "code",
+                "file": "/test/file.py",
+            }
+        )
+
+        result = enhancer.refine_chunk_boundaries(chunk, max_chunk_size=1000)
+
+        # Should return original chunk when disabled
+        assert len(result) == 1
+        assert result[0] is chunk
+
+    @patch.object(LLMEnhancer, "check_available", return_value=False)
+    def test_refine_ccw_unavailable_returns_unchanged(self, mock_check):
+        """Test that when CCW is unavailable, refinement returns input unchanged."""
+        enhancer = LLMEnhancer()
+
+        large_content = "x" * 3000
+        chunk = SemanticChunk(
+            content=large_content,
+            embedding=None,
+            metadata={
+                "chunk_type": "code",
+                "file": "/test/file.py",
+            }
+        )
+
+        result = enhancer.refine_chunk_boundaries(chunk, max_chunk_size=1000)
+
+        # Should return original chunk when CCW unavailable
+        assert len(result) == 1
+        assert result[0] is chunk
+
+    @patch.object(LLMEnhancer, "check_available", return_value=True)
+    @patch.object(LLMEnhancer, "_invoke_ccw_cli")
+    def test_refine_fallback_on_primary_failure(self, mock_invoke, mock_check):
+        """Test that refinement falls back to secondary tool on primary failure."""
+        # Primary fails, fallback succeeds
+        mock_invoke.side_effect = [
+            {"success": False, "stdout": "", "stderr": "error", "exit_code": 1},
+            {
+                "success": True,
+                "stdout": json.dumps({"split_points": [{"line": 5, "reason": "split"}]}),
+                "stderr": "",
+                "exit_code": 0,
+            },
+        ]
+
+        enhancer = LLMEnhancer()
+
+        chunk = SemanticChunk(
+            content="def func():\n    pass\n" * 100,
+            embedding=None,
+            metadata={
+                "chunk_type": "code",
+                "file": "/test/file.py",
+                "start_line": 1,
+                "end_line": 200,
+            }
+        )
+
+        result = enhancer.refine_chunk_boundaries(chunk, max_chunk_size=100)
+
+        # Should use fallback tool
+        assert mock_invoke.call_count == 2
+        # Should successfully split
+        assert len(result) > 1
+
+    @patch.object(LLMEnhancer, "check_available", return_value=True)
+    @patch.object(LLMEnhancer, "_invoke_ccw_cli")
+    def test_refine_returns_original_on_error(self, mock_invoke, mock_check):
+        """Test that refinement returns original chunk on error."""
+        mock_invoke.side_effect = Exception("Unexpected error")
+
+        enhancer = LLMEnhancer()
+
+        chunk = SemanticChunk(
+            content="x" * 3000,
+            embedding=None,
+            metadata={
+                "chunk_type": "code",
+                "file": "/test/file.py",
+            }
+        )
+
+        result = enhancer.refine_chunk_boundaries(chunk, max_chunk_size=1000)
+
+        # Should return original chunk on error
+        assert len(result) == 1
+        assert result[0] is chunk
+
+
+class TestParseSplitPoints:
+    """Tests for _parse_split_points helper method."""
+
+    def test_parse_valid_split_points(self):
+        """Test parsing valid split points from JSON response."""
+        enhancer = LLMEnhancer()
+
+        stdout = json.dumps({
+            "split_points": [
+                {"line": 5, "reason": "end of function"},
+                {"line": 10, "reason": "class boundary"},
+                {"line": 15, "reason": "method boundary"}
+            ]
+        })
+
+        result = enhancer._parse_split_points(stdout)
+
+        assert result == [5, 10, 15]
+
+    def test_parse_split_points_with_markdown(self):
+        """Test parsing split points wrapped in markdown."""
+        enhancer = LLMEnhancer()
+
+        stdout = '''```json
+{
+    "split_points": [
+        {"line": 5, "reason": "split"},
+        {"line": 10, "reason": "split"}
+    ]
+}
+```'''
+
+        result = enhancer._parse_split_points(stdout)
+
+        assert result == [5, 10]
+
+    def test_parse_split_points_deduplicates(self):
+        """Test that duplicate line numbers are deduplicated."""
+        enhancer = LLMEnhancer()
+
+        stdout = json.dumps({
+            "split_points": [
+                {"line": 5, "reason": "split"},
+                {"line": 5, "reason": "duplicate"},
+                {"line": 10, "reason": "split"}
+            ]
+        })
+
+        result = enhancer._parse_split_points(stdout)
+
+        assert result == [5, 10]
+
+    def test_parse_split_points_sorts(self):
+        """Test that split points are sorted."""
+        enhancer = LLMEnhancer()
+
+        stdout = json.dumps({
+            "split_points": [
+                {"line": 15, "reason": "split"},
+                {"line": 5, "reason": "split"},
+                {"line": 10, "reason": "split"}
+            ]
+        })
+
+        result = enhancer._parse_split_points(stdout)
+
+        assert result == [5, 10, 15]
+
+    def test_parse_split_points_ignores_invalid(self):
+        """Test that invalid split points are ignored."""
+        enhancer = LLMEnhancer()
+
+        stdout = json.dumps({
+            "split_points": [
+                {"line": 5, "reason": "valid"},
+                {"line": -1, "reason": "negative"},
+                {"line": 0, "reason": "zero"},
+                {"line": "not_a_number", "reason": "string"},
+                {"reason": "missing line field"},
+                10  # Not a dict
+            ]
+        })
+
+        result = enhancer._parse_split_points(stdout)
+
+        assert result == [5]
+
+    def test_parse_split_points_empty_list(self):
+        """Test parsing empty split points list."""
+        enhancer = LLMEnhancer()
+
+        stdout = json.dumps({"split_points": []})
+
+        result = enhancer._parse_split_points(stdout)
+
+        assert result == []
+
+    def test_parse_split_points_no_json(self):
+        """Test parsing when no JSON is found."""
+        enhancer = LLMEnhancer()
+
+        stdout = "No JSON here at all"
+
+        result = enhancer._parse_split_points(stdout)
+
+        assert result == []
+
+    def test_parse_split_points_invalid_json(self):
+        """Test parsing invalid JSON."""
+        enhancer = LLMEnhancer()
+
+        stdout = '{"split_points": [invalid json}'
+
+        result = enhancer._parse_split_points(stdout)
+
+        assert result == []
+
+
+class TestSplitChunkAtPoints:
+    """Tests for _split_chunk_at_points helper method."""
+
+    def test_split_chunk_at_points_correctness(self):
+        """Test that chunks are split correctly at specified line numbers."""
+        enhancer = LLMEnhancer()
+
+        # Create chunk with enough content per section to not be filtered (>50 chars each)
+        lines = []
+        for i in range(1, 16):
+            lines.append(f"def function_number_{i}():  # This is function {i}\n")
+            lines.append(f"    return value_{i}\n")
+        content = "".join(lines)  # 30 lines total
+
+        chunk = SemanticChunk(
+            content=content,
+            embedding=None,
+            metadata={
+                "chunk_type": "code",
+                "file": "/test/file.py",
+                "start_line": 1,
+                "end_line": 30,
+            }
+        )
+
+        # Split at line indices 10 and 20 (boundaries will be [0, 10, 20, 30])
+        split_points = [10, 20]
+
+        result = enhancer._split_chunk_at_points(chunk, split_points)
+
+        # Should create 3 chunks with sufficient content
+        assert len(result) == 3
+
+        # Verify they all have the refined metadata
+        assert all(c.metadata.get("refined_by_llm") is True for c in result)
+        assert all("original_chunk_size" in c.metadata for c in result)
+
+    def test_split_chunk_preserves_metadata(self):
+        """Test that split chunks preserve original metadata."""
+        enhancer = LLMEnhancer()
+
+        # Create content with enough characters (>50) in each section
+        content = "# This is a longer line with enough content\n" * 5
+
+        chunk = SemanticChunk(
+            content=content,
+            embedding=None,
+            metadata={
+                "chunk_type": "code",
+                "file": "/test/file.py",
+                "language": "python",
+                "start_line": 10,
+                "end_line": 15,
+            }
+        )
+
+        split_points = [2]  # Split at line 2
+        result = enhancer._split_chunk_at_points(chunk, split_points)
+
+        # At least one chunk should be created
+        assert len(result) >= 1
+
+        for new_chunk in result:
+            assert new_chunk.metadata["chunk_type"] == "code"
+            assert new_chunk.metadata["file"] == "/test/file.py"
+            assert new_chunk.metadata["language"] == "python"
+            assert new_chunk.metadata.get("refined_by_llm") is True
+            assert "original_chunk_size" in new_chunk.metadata
+
+    def test_split_chunk_skips_tiny_sections(self):
+        """Test that very small sections are skipped."""
+        enhancer = LLMEnhancer()
+
+        # Create content where middle section will be tiny
+        content = (
+            "# Long line with lots of content to exceed 50 chars\n" * 3 +
+            "x\n" +  # Tiny section
+            "# Another long line with lots of content here too\n" * 3
+        )
+
+        chunk = SemanticChunk(
+            content=content,
+            embedding=None,
+            metadata={
+                "chunk_type": "code",
+                "file": "/test/file.py",
+                "start_line": 1,
+                "end_line": 7,
+            }
+        )
+
+        # Split to create tiny middle section
+        split_points = [3, 4]
+        result = enhancer._split_chunk_at_points(chunk, split_points)
+
+        # Tiny sections (< 50 chars stripped) should be filtered out
+        # Should have 2 chunks (first 3 lines and last 3 lines), middle filtered
+        assert all(len(c.content.strip()) >= 50 for c in result)
+
+    def test_split_chunk_empty_split_points(self):
+        """Test splitting with empty split points list."""
+        enhancer = LLMEnhancer()
+
+        content = "# Content line\n" * 10
+        chunk = SemanticChunk(
+            content=content,
+            embedding=None,
+            metadata={
+                "chunk_type": "code",
+                "file": "/test/file.py",
+                "start_line": 1,
+                "end_line": 10,
+            }
+        )
+
+        result = enhancer._split_chunk_at_points(chunk, [])
+
+        # Should return single chunk (original when content > 50 chars)
+        assert len(result) == 1
+
+    def test_split_chunk_sets_embedding_none(self):
+        """Test that split chunks have embedding set to None."""
+        enhancer = LLMEnhancer()
+
+        content = "# This is a longer line with enough content here\n" * 5
+        chunk = SemanticChunk(
+            content=content,
+            embedding=[0.1] * 384,  # Has embedding
+            metadata={
+                "chunk_type": "code",
+                "file": "/test/file.py",
+                "start_line": 1,
+                "end_line": 5,
+            }
+        )
+
+        split_points = [2]
+        result = enhancer._split_chunk_at_points(chunk, split_points)
+
+        # All split chunks should have None embedding (will be regenerated)
+        assert len(result) >= 1
+        assert all(c.embedding is None for c in result)
+
+    def test_split_chunk_returns_original_if_no_valid_chunks(self):
+        """Test that original chunk is returned if no valid chunks created."""
+        enhancer = LLMEnhancer()
+
+        # Very small content
+        content = "x"
+        chunk = SemanticChunk(
+            content=content,
+            embedding=None,
+            metadata={
+                "chunk_type": "code",
+                "file": "/test/file.py",
+                "start_line": 1,
+                "end_line": 1,
+            }
+        )
+
+        # Split at invalid point
+        split_points = [1]
+        result = enhancer._split_chunk_at_points(chunk, split_points)
+
+        # Should return original chunk when no valid splits
+        assert len(result) == 1
+        assert result[0] is chunk

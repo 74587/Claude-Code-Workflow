@@ -30,6 +30,11 @@ semantic = [
     "fastembed>=0.2",
 ]
 
+# Full features including tiktoken for accurate token counting
+full = [
+    "tiktoken>=0.5.0",
+]
+
 [project.urls]
 Homepage = "https://github.com/openai/codex-lens"
 

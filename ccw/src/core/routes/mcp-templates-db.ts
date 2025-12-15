@@ -7,15 +7,14 @@ import Database from 'better-sqlite3';
 import { existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
+import { StoragePaths, ensureStorageDir } from '../../config/storage-paths.js';
 
-// Database path
-const DB_DIR = join(homedir(), '.ccw');
-const DB_PATH = join(DB_DIR, 'mcp-templates.db');
+// Database path - uses centralized storage
+const DB_DIR = StoragePaths.global.databases();
+const DB_PATH = StoragePaths.global.mcpTemplates();
 
 // Ensure database directory exists
-if (!existsSync(DB_DIR)) {
-  mkdirSync(DB_DIR, { recursive: true });
-}
+ensureStorageDir(DB_DIR);
 
 // Initialize database connection
 let db: Database.Database | null = null;

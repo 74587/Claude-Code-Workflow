@@ -1,6 +1,7 @@
 import { resolve, join, relative, isAbsolute } from 'path';
 import { existsSync, mkdirSync, realpathSync, statSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
+import { StoragePaths, ensureStorageDir, LegacyPaths } from '../config/storage-paths.js';
 
 /**
  * Validation result for path operations
@@ -212,9 +213,23 @@ export function normalizePathForDisplay(filePath: string): string {
   return filePath.replace(/\\/g, '/');
 }
 
-// Recent paths storage file
-const RECENT_PATHS_FILE = join(homedir(), '.ccw-recent-paths.json');
+// Recent paths storage - uses centralized storage with backward compatibility
 const MAX_RECENT_PATHS = 10;
+
+/**
+ * Get the recent paths file location
+ * Uses new location but falls back to legacy location for backward compatibility
+ */
+function getRecentPathsFile(): string {
+  const newPath = StoragePaths.global.recentPaths();
+  const legacyPath = LegacyPaths.recentPaths();
+
+  // Backward compatibility: use legacy if it exists and new doesn't
+  if (!existsSync(newPath) && existsSync(legacyPath)) {
+    return legacyPath;
+  }
+  return newPath;
+}
 
 /**
  * Recent paths data structure
@@ -229,8 +244,9 @@ interface RecentPathsData {
  */
 export function getRecentPaths(): string[] {
   try {
-    if (existsSync(RECENT_PATHS_FILE)) {
-      const content = readFileSync(RECENT_PATHS_FILE, 'utf8');
+    const recentPathsFile = getRecentPathsFile();
+    if (existsSync(recentPathsFile)) {
+      const content = readFileSync(recentPathsFile, 'utf8');
       const data = JSON.parse(content) as RecentPathsData;
       return Array.isArray(data.paths) ? data.paths : [];
     }
@@ -258,8 +274,10 @@ export function trackRecentPath(projectPath: string): void {
     // Limit to max
     paths = paths.slice(0, MAX_RECENT_PATHS);
 
-    // Save
-    writeFileSync(RECENT_PATHS_FILE, JSON.stringify({ paths }, null, 2), 'utf8');
+    // Save to new centralized location
+    const recentPathsFile = StoragePaths.global.recentPaths();
+    ensureStorageDir(StoragePaths.global.config());
+    writeFileSync(recentPathsFile, JSON.stringify({ paths }, null, 2), 'utf8');
   } catch {
     // Ignore errors
   }
@@ -270,9 +288,9 @@ export function trackRecentPath(projectPath: string): void {
  */
 export function clearRecentPaths(): void {
   try {
-    if (existsSync(RECENT_PATHS_FILE)) {
-      writeFileSync(RECENT_PATHS_FILE, JSON.stringify({ paths: [] }, null, 2), 'utf8');
-    }
+    const recentPathsFile = StoragePaths.global.recentPaths();
+    ensureStorageDir(StoragePaths.global.config());
+    writeFileSync(recentPathsFile, JSON.stringify({ paths: [] }, null, 2), 'utf8');
   } catch {
     // Ignore errors
   }
@@ -293,8 +311,10 @@ export function removeRecentPath(pathToRemove: string): boolean {
     paths = paths.filter(p => normalizePathForDisplay(p) !== normalized);
 
     if (paths.length < originalLength) {
-      // Save updated list
-      writeFileSync(RECENT_PATHS_FILE, JSON.stringify({ paths }, null, 2), 'utf8');
+      // Save updated list to new centralized location
+      const recentPathsFile = StoragePaths.global.recentPaths();
+      ensureStorageDir(StoragePaths.global.config());
+      writeFileSync(recentPathsFile, JSON.stringify({ paths }, null, 2), 'utf8');
       return true;
     }
     return false;

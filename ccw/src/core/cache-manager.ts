@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from 'fs';
 import { join, dirname } from 'path';
+import { StoragePaths, ensureStorageDir } from '../config/storage-paths.js';
 
 interface CacheEntry<T> {
   data: T;
@@ -266,12 +267,25 @@ export class CacheManager<T> {
 }
 
 /**
+ * Extract project path from workflow directory
+ * @param workflowDir - Path to .workflow directory (e.g., /project/.workflow)
+ * @returns Project root path
+ */
+function extractProjectPath(workflowDir: string): string {
+  // workflowDir is typically {projectPath}/.workflow
+  return workflowDir.replace(/[\/\\]\.workflow$/, '') || workflowDir;
+}
+
+/**
  * Create a cache manager for dashboard data
  * @param workflowDir - Path to .workflow directory
  * @param ttl - Optional TTL in milliseconds
  * @returns CacheManager instance
  */
 export function createDashboardCache(workflowDir: string, ttl?: number): CacheManager<any> {
-  const cacheDir = join(workflowDir, '.ccw-cache');
+  // Use centralized storage path
+  const projectPath = extractProjectPath(workflowDir);
+  const cacheDir = StoragePaths.project(projectPath).cache;
+  ensureStorageDir(cacheDir);
   return new CacheManager('dashboard-data', { cacheDir, ttl });
 }

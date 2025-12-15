@@ -96,13 +96,18 @@ function renderImplPlanContent(implPlan) {
 // Lite Context Tab Rendering
 // ==========================================
 
-function renderLiteContextContent(context, explorations, session) {
+function renderLiteContextContent(context, explorations, session, diagnoses) {
   const plan = session.plan || {};
   let sections = [];
 
   // Render explorations if available (from exploration-*.json files)
   if (explorations && explorations.manifest) {
     sections.push(renderExplorationContext(explorations));
+  }
+
+  // Render diagnoses if available (from diagnosis-*.json files)
+  if (diagnoses && diagnoses.manifest) {
+    sections.push(renderDiagnosisContext(diagnoses));
   }
 
   // If we have context from context-package.json
@@ -153,7 +158,7 @@ function renderLiteContextContent(context, explorations, session) {
     <div class="tab-empty-state">
       <div class="empty-icon"><i data-lucide="package" class="w-12 h-12"></i></div>
       <div class="empty-title">No Context Data</div>
-      <div class="empty-text">No context-package.json or exploration files found for this session.</div>
+      <div class="empty-text">No context-package.json, exploration files, or diagnosis files found for this session.</div>
     </div>
   `;
 }
@@ -185,15 +190,19 @@ function renderExplorationContext(explorations) {
   `);
 
   // Render each exploration angle as collapsible section
-  const explorationOrder = ['architecture', 'dependencies', 'patterns', 'integration-points'];
+  const explorationOrder = ['architecture', 'dependencies', 'patterns', 'integration-points', 'testing'];
   const explorationTitles = {
     'architecture': '<i data-lucide="blocks" class="w-4 h-4 inline mr-1"></i>Architecture',
     'dependencies': '<i data-lucide="package" class="w-4 h-4 inline mr-1"></i>Dependencies',
     'patterns': '<i data-lucide="git-branch" class="w-4 h-4 inline mr-1"></i>Patterns',
-    'integration-points': '<i data-lucide="plug" class="w-4 h-4 inline mr-1"></i>Integration Points'
+    'integration-points': '<i data-lucide="plug" class="w-4 h-4 inline mr-1"></i>Integration Points',
+    'testing': '<i data-lucide="flask-conical" class="w-4 h-4 inline mr-1"></i>Testing'
   };
 
-  for (const angle of explorationOrder) {
+  // Collect all angles from data (in case there are exploration angles not in our predefined list)
+  const allAngles = [...new Set([...explorationOrder, ...Object.keys(data)])];
+
+  for (const angle of allAngles) {
     const expData = data[angle];
     if (!expData) {
       continue;
@@ -205,7 +214,7 @@ function renderExplorationContext(explorations) {
       <div class="exploration-section collapsible-section">
         <div class="collapsible-header">
           <span class="collapse-icon">▶</span>
-          <span class="section-label">${explorationTitles[angle] || angle}</span>
+          <span class="section-label">${explorationTitles[angle] || ('<i data-lucide="file-search" class="w-4 h-4 inline mr-1"></i>' + escapeHtml(angle.toUpperCase()))}</span>
         </div>
         <div class="collapsible-content collapsed">
           ${angleContent}
@@ -270,4 +279,146 @@ function renderExplorationAngle(angle, data) {
   }
 
   return content.join('') || '<p>No data available</p>';
+}
+
+// ==========================================
+// Diagnosis Context Rendering
+// ==========================================
+
+function renderDiagnosisContext(diagnoses) {
+  if (!diagnoses || !diagnoses.manifest) {
+    return '';
+  }
+
+  const manifest = diagnoses.manifest;
+  const data = diagnoses.data || {};
+
+  let sections = [];
+
+  // Header with manifest info
+  sections.push(`
+    <div class="diagnosis-header">
+      <h4><i data-lucide="stethoscope" class="w-4 h-4 inline mr-1"></i> ${escapeHtml(manifest.task_description || 'Diagnosis Context')}</h4>
+      <div class="diagnosis-meta">
+        <span class="meta-item">Diagnoses: <strong>${manifest.diagnosis_count || 0}</strong></span>
+      </div>
+    </div>
+  `);
+
+  // Render each diagnosis angle as collapsible section
+  const diagnosisOrder = ['root-cause', 'api-contracts', 'dataflow', 'performance', 'security', 'error-handling'];
+  const diagnosisTitles = {
+    'root-cause': '<i data-lucide="search" class="w-4 h-4 inline mr-1"></i>Root Cause',
+    'api-contracts': '<i data-lucide="plug" class="w-4 h-4 inline mr-1"></i>API Contracts',
+    'dataflow': '<i data-lucide="git-merge" class="w-4 h-4 inline mr-1"></i>Data Flow',
+    'performance': '<i data-lucide="zap" class="w-4 h-4 inline mr-1"></i>Performance',
+    'security': '<i data-lucide="shield" class="w-4 h-4 inline mr-1"></i>Security',
+    'error-handling': '<i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i>Error Handling'
+  };
+
+  // Collect all angles from data (in case there are diagnosis angles not in our predefined list)
+  const allAngles = [...new Set([...diagnosisOrder, ...Object.keys(data)])];
+
+  for (const angle of allAngles) {
+    const diagData = data[angle];
+    if (!diagData) {
+      continue;
+    }
+
+    const angleContent = renderDiagnosisAngle(angle, diagData);
+
+    sections.push(`
+      <div class="diagnosis-section collapsible-section">
+        <div class="collapsible-header">
+          <span class="collapse-icon">▶</span>
+          <span class="section-label">${diagnosisTitles[angle] || ('<i data-lucide="file-search" class="w-4 h-4 inline mr-1"></i>' + angle)}</span>
+        </div>
+        <div class="collapsible-content collapsed">
+          ${angleContent}
+        </div>
+      </div>
+    `);
+  }
+
+  return `<div class="diagnosis-context">${sections.join('')}</div>`;
+}
+
+function renderDiagnosisAngle(angle, data) {
+  let content = [];
+
+  // Summary/Overview
+  if (data.summary || data.overview) {
+    content.push(renderExpField('Summary', data.summary || data.overview));
+  }
+
+  // Root cause analysis
+  if (data.root_cause || data.root_cause_analysis) {
+    content.push(renderExpField('Root Cause', data.root_cause || data.root_cause_analysis));
+  }
+
+  // Issues/Findings
+  if (data.issues && Array.isArray(data.issues)) {
+    content.push(`
+      <div class="exp-field">
+        <label>Issues Found (${data.issues.length})</label>
+        <div class="issues-list">
+          ${data.issues.map(issue => {
+            if (typeof issue === 'string') {
+              return `<div class="issue-item">${escapeHtml(issue)}</div>`;
+            } else {
+              return `
+                <div class="issue-item">
+                  <div class="issue-title">${escapeHtml(issue.title || issue.description || 'Unknown')}</div>
+                  ${issue.location ? `<div class="issue-location"><code>${escapeHtml(issue.location)}</code></div>` : ''}
+                  ${issue.severity ? `<span class="severity-badge ${escapeHtml(issue.severity)}">${escapeHtml(issue.severity)}</span>` : ''}
+                </div>
+              `;
+            }
+          }).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  // Affected files
+  if (data.affected_files && Array.isArray(data.affected_files)) {
+    content.push(`
+      <div class="exp-field">
+        <label>Affected Files (${data.affected_files.length})</label>
+        <div class="path-tags">
+          ${data.affected_files.map(f => {
+            const filePath = typeof f === 'string' ? f : (f.path || f.file || '');
+            return `<span class="path-tag">${escapeHtml(filePath)}</span>`;
+          }).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  // Recommendations
+  if (data.recommendations && Array.isArray(data.recommendations)) {
+    content.push(`
+      <div class="exp-field">
+        <label>Recommendations</label>
+        <ol class="recommendations-list">
+          ${data.recommendations.map(rec => {
+            const recText = typeof rec === 'string' ? rec : (rec.description || rec.action || '');
+            return `<li>${escapeHtml(recText)}</li>`;
+          }).join('')}
+        </ol>
+      </div>
+    `);
+  }
+
+  // API Contracts (specific to api-contracts diagnosis)
+  if (data.contracts && Array.isArray(data.contracts)) {
+    content.push(renderExpField('API Contracts', data.contracts));
+  }
+
+  // Data flow (specific to dataflow diagnosis)
+  if (data.dataflow || data.data_flow) {
+    content.push(renderExpField('Data Flow', data.dataflow || data.data_flow));
+  }
+
+  return content.join('') || '<p>No diagnosis data available</p>';
 }

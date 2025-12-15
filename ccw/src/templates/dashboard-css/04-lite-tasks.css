@@ -1022,6 +1022,16 @@
   overflow: hidden;
 }
 
+.diagnosis-card .collapsible-content {
+  display: block;
+  padding: 1rem;
+  background: hsl(var(--card));
+}
+
+.diagnosis-card .collapsible-content.collapsed {
+  display: none;
+}
+
 .diagnosis-header {
   background: hsl(var(--muted) / 0.3);
 }

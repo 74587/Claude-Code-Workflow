@@ -17,7 +17,7 @@ const CCW_MCP_TOOLS = [
 
 // Get currently enabled tools from installed config
 function getCcwEnabledTools() {
-  const currentPath = projectPath.replace(/\//g, '\\');
+  const currentPath = projectPath; // Keep original format (forward slash)
   const projectData = mcpAllProjects[currentPath] || {};
   const ccwConfig = projectData.mcpServers?.['ccw-tools'];
   if (ccwConfig?.env?.CCW_ENABLED_TOOLS) {
@@ -46,7 +46,7 @@ async function renderMcpManager() {
   // Load MCP templates
   await loadMcpTemplates();
 
-  const currentPath = projectPath.replace(/\//g, '\\');
+  const currentPath = projectPath; // Keep original format (forward slash)
   const projectData = mcpAllProjects[currentPath] || {};
   const projectServers = projectData.mcpServers || {};
   const disabledServers = projectData.disabledMcpServers || [];
@@ -121,8 +121,136 @@ async function renderMcpManager() {
   const isCcwToolsInstalled = currentProjectServerNames.includes("ccw-tools");
   const enabledTools = getCcwEnabledTools();
 
+  // Prepare Codex servers data
+  const codexServerEntries = Object.entries(codexMcpServers || {});
+  const codexConfigExists = codexMcpConfig?.exists || false;
+  const codexConfigPath = codexMcpConfig?.configPath || '~/.codex/config.toml';
+
   container.innerHTML = `
     <div class="mcp-manager">
+      <!-- CLI Mode Toggle -->
+      <div class="mcp-cli-toggle mb-6">
+        <div class="flex items-center justify-between bg-card border border-border rounded-lg p-4">
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-medium text-foreground">${t('mcp.cliMode')}</span>
+            <div class="flex items-center bg-muted rounded-lg p-1">
+              <button class="cli-mode-btn px-4 py-2 text-sm font-medium rounded-md transition-all ${currentCliMode === 'claude' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+                      onclick="setCliMode('claude')">
+                <i data-lucide="bot" class="w-4 h-4 inline mr-1.5"></i>
+                Claude
+              </button>
+              <button class="cli-mode-btn px-4 py-2 text-sm font-medium rounded-md transition-all ${currentCliMode === 'codex' ? 'bg-orange-500 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+                      onclick="setCliMode('codex')">
+                <i data-lucide="code-2" class="w-4 h-4 inline mr-1.5"></i>
+                Codex
+              </button>
+            </div>
+          </div>
+          <div class="text-xs text-muted-foreground">
+            ${currentCliMode === 'claude'
+              ? `<span class="flex items-center gap-1"><i data-lucide="file-json" class="w-3 h-3"></i> ~/.claude.json</span>`
+              : `<span class="flex items-center gap-1"><i data-lucide="file-code" class="w-3 h-3"></i> ${codexConfigPath}</span>`
+            }
+          </div>
+        </div>
+      </div>
+
+      ${currentCliMode === 'codex' ? `
+      <!-- Codex MCP Servers Section -->
+      <div class="mcp-section mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="code-2" class="w-5 h-5 text-orange-500"></i>
+              <h3 class="text-lg font-semibold text-foreground">${t('mcp.codex.globalServers')}</h3>
+            </div>
+            <button class="px-3 py-1.5 text-sm bg-orange-500 text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
+                    onclick="openCodexMcpCreateModal()">
+              <span>+</span> ${t('mcp.codex.newServer')}
+            </button>
+            ${codexConfigExists ? `
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs bg-success/10 text-success rounded-md border border-success/20">
+                <i data-lucide="file-check" class="w-3.5 h-3.5"></i>
+                config.toml
+              </span>
+            ` : `
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs bg-muted text-muted-foreground rounded-md border border-border" title="Will create ~/.codex/config.toml">
+                <i data-lucide="file-plus" class="w-3.5 h-3.5"></i>
+                Will create config.toml
+              </span>
+            `}
+          </div>
+          <span class="text-sm text-muted-foreground">${codexServerEntries.length} ${t('mcp.serversAvailable')}</span>
+        </div>
+
+        <!-- Info about Codex MCP -->
+        <div class="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-4">
+          <div class="flex items-start gap-3">
+            <i data-lucide="info" class="w-5 h-5 text-orange-500 shrink-0 mt-0.5"></i>
+            <div class="text-sm">
+              <p class="text-orange-800 dark:text-orange-200 font-medium mb-1">${t('mcp.codex.infoTitle')}</p>
+              <p class="text-orange-700 dark:text-orange-300 text-xs">${t('mcp.codex.infoDesc')}</p>
+            </div>
+          </div>
+        </div>
+
+        ${codexServerEntries.length === 0 ? `
+          <div class="mcp-empty-state bg-card border border-border rounded-lg p-6 text-center">
+            <div class="text-muted-foreground mb-3"><i data-lucide="plug" class="w-10 h-10 mx-auto"></i></div>
+            <p class="text-muted-foreground">${t('mcp.codex.noServers')}</p>
+            <p class="text-sm text-muted-foreground mt-1">${t('mcp.codex.noServersHint')}</p>
+          </div>
+        ` : `
+          <div class="mcp-server-grid grid gap-3">
+            ${codexServerEntries.map(([serverName, serverConfig]) => {
+              return renderCodexServerCard(serverName, serverConfig);
+            }).join('')}
+          </div>
+        `}
+      </div>
+
+      <!-- Copy Claude Servers to Codex -->
+      ${Object.keys(mcpUserServers || {}).length > 0 ? `
+      <div class="mcp-section mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-foreground flex items-center gap-2">
+            <i data-lucide="copy" class="w-5 h-5"></i>
+            ${t('mcp.codex.copyFromClaude')}
+          </h3>
+          <span class="text-sm text-muted-foreground">${Object.keys(mcpUserServers || {}).length} ${t('mcp.serversAvailable')}</span>
+        </div>
+        <div class="mcp-server-grid grid gap-3">
+          ${Object.entries(mcpUserServers || {}).map(([serverName, serverConfig]) => {
+            const alreadyInCodex = codexMcpServers && codexMcpServers[serverName];
+            return `
+              <div class="mcp-server-card bg-card border ${alreadyInCodex ? 'border-success/50' : 'border-border'} border-dashed rounded-lg p-4 hover:shadow-md transition-all">
+                <div class="flex items-start justify-between mb-3">
+                  <div class="flex items-center gap-2">
+                    <i data-lucide="bot" class="w-5 h-5 text-primary"></i>
+                    <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
+                    ${alreadyInCodex ? `<span class="text-xs px-2 py-0.5 bg-success/10 text-success rounded-full">${t('mcp.codex.alreadyAdded')}</span>` : ''}
+                  </div>
+                  ${!alreadyInCodex ? `
+                    <button class="px-3 py-1 text-xs bg-orange-500 text-white rounded hover:opacity-90 transition-opacity"
+                            onclick="copyClaudeServerToCodex('${escapeHtml(serverName)}', ${JSON.stringify(serverConfig).replace(/'/g, "&#39;")})"
+                            title="${t('mcp.codex.copyToCodex')}">
+                      <i data-lucide="arrow-right" class="w-3.5 h-3.5 inline"></i> Codex
+                    </button>
+                  ` : ''}
+                </div>
+                <div class="mcp-server-details text-sm space-y-1">
+                  <div class="flex items-center gap-2 text-muted-foreground">
+                    <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${t('mcp.cmd')}</span>
+                    <span class="truncate" title="${escapeHtml(serverConfig.command || 'N/A')}">${escapeHtml(serverConfig.command || 'N/A')}</span>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+      ` : ''}
+      ` : `
       <!-- CCW Tools MCP Server Card -->
       <div class="mcp-section mb-6">
         <div class="ccw-tools-card bg-gradient-to-br from-primary/10 to-primary/5 border-2 ${isCcwToolsInstalled ? 'border-success' : 'border-primary/30'} rounded-lg p-6 hover:shadow-lg transition-all">
@@ -164,17 +292,32 @@ async function renderMcpManager() {
                 </div>
               </div>
             </div>
-            <div class="shrink-0">
+            <div class="shrink-0 flex gap-2">
               ${isCcwToolsInstalled ? `
-                <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
-                        onclick="updateCcwToolsMcp()">
-                  Update
+                <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
+                        onclick="updateCcwToolsMcp('workspace')"
+                        title="${t('mcp.updateInWorkspace')}">
+                  <i data-lucide="folder" class="w-4 h-4"></i>
+                  ${t('mcp.updateInWorkspace')}
+                </button>
+                <button class="px-4 py-2 text-sm bg-success text-success-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
+                        onclick="updateCcwToolsMcp('global')"
+                        title="${t('mcp.updateInGlobal')}">
+                  <i data-lucide="globe" class="w-4 h-4"></i>
+                  ${t('mcp.updateInGlobal')}
                 </button>
               ` : `
-                <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2"
-                        onclick="installCcwToolsMcp()">
-                  <i data-lucide="download" class="w-4 h-4"></i>
-                  Install
+                <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
+                        onclick="installCcwToolsMcp('workspace')"
+                        title="${t('mcp.installToWorkspace')}">
+                  <i data-lucide="folder" class="w-4 h-4"></i>
+                  ${t('mcp.installToWorkspace')}
+                </button>
+                <button class="px-4 py-2 text-sm bg-success text-success-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
+                        onclick="installCcwToolsMcp('global')"
+                        title="${t('mcp.installToGlobal')}">
+                  <i data-lucide="globe" class="w-4 h-4"></i>
+                  ${t('mcp.installToGlobal')}
                 </button>
               `}
             </div>
@@ -300,12 +443,12 @@ async function renderMcpManager() {
 
               <div class="mcp-server-details text-sm space-y-1 mb-3">
                 <div class="flex items-center gap-2 text-muted-foreground">
-                  <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">cmd</span>
+                  <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${t('mcp.cmd')}</span>
                   <span class="truncate text-xs" title="${escapeHtml(template.serverConfig.command)}">${escapeHtml(template.serverConfig.command)}</span>
                 </div>
                 ${template.serverConfig.args && template.serverConfig.args.length > 0 ? `
                   <div class="flex items-start gap-2 text-muted-foreground">
-                    <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">args</span>
+                    <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">${t('mcp.args')}</span>
                     <span class="text-xs font-mono truncate" title="${escapeHtml(template.serverConfig.args.join(' '))}">${escapeHtml(template.serverConfig.args.slice(0, 2).join(' '))}${template.serverConfig.args.length > 2 ? '...' : ''}</span>
                   </div>
                 ` : ''}
@@ -343,7 +486,8 @@ async function renderMcpManager() {
       </div>
       ` : ''}
 
-      <!-- All Projects MCP Overview Table -->
+      <!-- All Projects MCP Overview Table (Claude mode only) -->
+      ${currentCliMode === 'claude' ? `
       <div class="mcp-section mt-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-foreground">${t('mcp.allProjects')}</h3>
@@ -411,6 +555,25 @@ async function renderMcpManager() {
           </table>
         </div>
       </div>
+      ` : ''}
+
+      <!-- MCP Server Details Modal -->
+      <div id="mcpDetailsModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="bg-card border border-border rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+          <!-- Modal Header -->
+          <div class="flex items-center justify-between px-6 py-4 border-b border-border">
+            <h2 class="text-lg font-semibold text-foreground">${t('mcp.detailsModal.title')}</h2>
+            <button id="mcpDetailsModalClose" class="text-muted-foreground hover:text-foreground transition-colors">
+              <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+          </div>
+
+          <!-- Modal Body -->
+          <div id="mcpDetailsModalBody" class="px-6 py-4 overflow-y-auto flex-1">
+            <!-- Content will be dynamically filled -->
+          </div>
+        </div>
+      </div>
     </div>
   `;
 
@@ -431,15 +594,20 @@ function renderProjectAvailableServerCard(entry) {
   // Source badge
   let sourceBadge = '';
   if (source === 'enterprise') {
-    sourceBadge = '<span class="text-xs px-2 py-0.5 bg-warning/20 text-warning rounded-full">Enterprise</span>';
+    sourceBadge = `<span class="text-xs px-2 py-0.5 bg-warning/20 text-warning rounded-full">${t('mcp.sourceEnterprise')}</span>`;
   } else if (source === 'global') {
-    sourceBadge = '<span class="text-xs px-2 py-0.5 bg-success/10 text-success rounded-full">Global</span>';
+    sourceBadge = `<span class="text-xs px-2 py-0.5 bg-success/10 text-success rounded-full">${t('mcp.sourceGlobal')}</span>`;
   } else if (source === 'project') {
-    sourceBadge = '<span class="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">Project</span>';
+    sourceBadge = `<span class="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">${t('mcp.sourceProject')}</span>`;
   }
 
   return `
-    <div class="mcp-server-card bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all ${canToggle && !isEnabled ? 'opacity-60' : ''}">
+    <div class="mcp-server-card bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer ${canToggle && !isEnabled ? 'opacity-60' : ''}"
+         data-server-name="${escapeHtml(name)}"
+         data-server-config="${escapeHtml(JSON.stringify(config))}"
+         data-server-source="${source}"
+         data-action="view-details"
+         title="${t('mcp.clickToViewDetails')}">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-center gap-2">
           <span>${canToggle && isEnabled ? '<i data-lucide="check-circle" class="w-5 h-5 text-success"></i>' : '<i data-lucide="circle" class="w-5 h-5 text-muted-foreground"></i>'}</span>
@@ -447,7 +615,7 @@ function renderProjectAvailableServerCard(entry) {
           ${sourceBadge}
         </div>
         ${canToggle ? `
-          <label class="mcp-toggle relative inline-flex items-center cursor-pointer">
+          <label class="mcp-toggle relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
             <input type="checkbox" class="sr-only peer"
                    ${isEnabled ? 'checked' : ''}
                    data-server-name="${escapeHtml(name)}"
@@ -459,33 +627,25 @@ function renderProjectAvailableServerCard(entry) {
 
       <div class="mcp-server-details text-sm space-y-1">
         <div class="flex items-center gap-2 text-muted-foreground">
-          <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">cmd</span>
+          <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${t('mcp.cmd')}</span>
           <span class="truncate" title="${escapeHtml(command)}">${escapeHtml(command)}</span>
         </div>
         ${args.length > 0 ? `
           <div class="flex items-start gap-2 text-muted-foreground">
-            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">args</span>
+            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">${t('mcp.args')}</span>
             <span class="text-xs font-mono truncate" title="${escapeHtml(args.join(' '))}">${escapeHtml(args.slice(0, 3).join(' '))}${args.length > 3 ? '...' : ''}</span>
           </div>
         ` : ''}
         ${hasEnv ? `
           <div class="flex items-center gap-2 text-muted-foreground">
-            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">env</span>
-            <span class="text-xs">${Object.keys(config.env).length} variables</span>
+            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${t('mcp.env')}</span>
+            <span class="text-xs">${Object.keys(config.env).length} ${t('mcp.variables')}</span>
           </div>
         ` : ''}
       </div>
 
-      <div class="mt-3 pt-3 border-t border-border flex items-center justify-between gap-2">
+      <div class="mt-3 pt-3 border-t border-border flex items-center justify-between gap-2" onclick="event.stopPropagation()">
         <div class="flex items-center gap-2">
-          <button class="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
-                  data-server-name="${escapeHtml(name)}"
-                  data-server-config="${escapeHtml(JSON.stringify(config))}"
-                  data-scope="${source === 'global' ? 'global' : 'project'}"
-                  data-action="copy-install-cmd">
-            <i data-lucide="copy" class="w-3 h-3"></i>
-            ${t('mcp.copyInstallCmd')}
-          </button>
           <button class="text-xs text-success hover:text-success/80 transition-colors flex items-center gap-1"
                   data-server-name="${escapeHtml(name)}"
                   data-server-config="${escapeHtml(JSON.stringify(config))}"
@@ -525,19 +685,19 @@ function renderGlobalManagementCard(serverName, serverConfig) {
 
       <div class="mcp-server-details text-sm space-y-1">
         <div class="flex items-center gap-2 text-muted-foreground">
-          <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${serverType === 'stdio' ? 'cmd' : 'url'}</span>
+          <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${serverType === 'stdio' ? t('mcp.cmd') : t('mcp.url')}</span>
           <span class="truncate" title="${escapeHtml(command)}">${escapeHtml(command)}</span>
         </div>
         ${args.length > 0 ? `
           <div class="flex items-start gap-2 text-muted-foreground">
-            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">args</span>
+            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">${t('mcp.args')}</span>
             <span class="text-xs font-mono truncate" title="${escapeHtml(args.join(' '))}">${escapeHtml(args.slice(0, 3).join(' '))}${args.length > 3 ? '...' : ''}</span>
           </div>
         ` : ''}
         ${hasEnv ? `
           <div class="flex items-center gap-2 text-muted-foreground">
-            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">env</span>
-            <span class="text-xs">${Object.keys(serverConfig.env).length} variables</span>
+            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${t('mcp.env')}</span>
+            <span class="text-xs">${Object.keys(serverConfig.env).length} ${t('mcp.variables')}</span>
           </div>
         ` : ''}
         <div class="flex items-center gap-2 text-muted-foreground mt-1">
@@ -545,15 +705,7 @@ function renderGlobalManagementCard(serverName, serverConfig) {
         </div>
       </div>
 
-      <div class="mt-3 pt-3 border-t border-border flex items-center justify-between">
-        <button class="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
-                data-server-name="${escapeHtml(serverName)}"
-                data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
-                data-scope="global"
-                data-action="copy-install-cmd">
-          <i data-lucide="copy" class="w-3 h-3"></i>
-          ${t('mcp.copyInstallCmd')}
-        </button>
+      <div class="mt-3 pt-3 border-t border-border flex items-center justify-end">
         <button class="text-xs text-destructive hover:text-destructive/80 transition-colors"
                 data-server-name="${escapeHtml(serverName)}"
                 data-action="remove-global">
@@ -617,35 +769,162 @@ function renderAvailableServerCard(serverName, serverInfo) {
 
       <div class="mcp-server-details text-sm space-y-1">
         <div class="flex items-center gap-2 text-muted-foreground">
-          <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">cmd</span>
+          <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${t('mcp.cmd')}</span>
           <span class="truncate" title="${escapeHtml(command)}">${escapeHtml(command)}</span>
         </div>
         ${argsPreview ? `
           <div class="flex items-start gap-2 text-muted-foreground">
-            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">args</span>
+            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">${t('mcp.args')}</span>
             <span class="text-xs font-mono truncate" title="${escapeHtml(args.join(' '))}">${escapeHtml(argsPreview)}</span>
           </div>
         ` : ''}
         <div class="flex items-center gap-2 text-muted-foreground">
-          <span class="text-xs">Used in ${usedIn.length} project${usedIn.length !== 1 ? 's' : ''}</span>
-          ${sourceProjectName ? `<span class="text-xs text-muted-foreground/70">• from ${escapeHtml(sourceProjectName)}</span>` : ''}
+          <span class="text-xs">${t('mcp.usedInCount').replace('{count}', usedIn.length).replace('{s}', usedIn.length !== 1 ? 's' : '')}</span>
+          ${sourceProjectName ? `<span class="text-xs text-muted-foreground/70">• ${t('mcp.from')} ${escapeHtml(sourceProjectName)}</span>` : ''}
         </div>
       </div>
 
-      <div class="mt-3 pt-3 border-t border-border">
+      <div class="mt-3 pt-3 border-t border-border flex items-center gap-2">
         <button class="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
                 data-server-name="${escapeHtml(originalName)}"
                 data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
-                data-scope="project"
-                data-action="copy-install-cmd">
-          <i data-lucide="copy" class="w-3 h-3"></i>
-          ${t('mcp.copyInstallCmd')}
+                data-action="install-to-project"
+                title="${t('mcp.installToProject')}">
+          <i data-lucide="download" class="w-3 h-3"></i>
+          ${t('mcp.installToProject')}
+        </button>
+        <button class="text-xs text-success hover:text-success/80 transition-colors flex items-center gap-1"
+                data-server-name="${escapeHtml(originalName)}"
+                data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
+                data-action="install-to-global"
+                title="${t('mcp.installToGlobal')}">
+          <i data-lucide="globe" class="w-3 h-3"></i>
+          ${t('mcp.installToGlobal')}
         </button>
       </div>
     </div>
   `;
 }
 
+// ========================================
+// Codex MCP Server Card Renderer
+// ========================================
+
+function renderCodexServerCard(serverName, serverConfig) {
+  const isStdio = !!serverConfig.command;
+  const isHttp = !!serverConfig.url;
+  const isEnabled = serverConfig.enabled !== false; // Default to enabled
+  const command = serverConfig.command || serverConfig.url || 'N/A';
+  const args = serverConfig.args || [];
+  const hasEnv = serverConfig.env && Object.keys(serverConfig.env).length > 0;
+
+  // Server type badge
+  const typeBadge = isHttp
+    ? `<span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full">HTTP</span>`
+    : `<span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-full">STDIO</span>`;
+
+  return `
+    <div class="mcp-server-card bg-card border border-orange-200 dark:border-orange-800 rounded-lg p-4 hover:shadow-md transition-all ${!isEnabled ? 'opacity-60' : ''}"
+         data-server-name="${escapeHtml(serverName)}"
+         data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
+         data-cli-type="codex">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <span>${isEnabled ? '<i data-lucide="check-circle" class="w-5 h-5 text-orange-500"></i>' : '<i data-lucide="circle" class="w-5 h-5 text-muted-foreground"></i>'}</span>
+          <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
+          ${typeBadge}
+        </div>
+        <label class="mcp-toggle relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
+          <input type="checkbox" class="sr-only peer"
+                 ${isEnabled ? 'checked' : ''}
+                 data-server-name="${escapeHtml(serverName)}"
+                 data-action="toggle-codex">
+          <div class="w-9 h-5 bg-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
+        </label>
+      </div>
+
+      <div class="mcp-server-details text-sm space-y-1">
+        <div class="flex items-center gap-2 text-muted-foreground">
+          <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${isHttp ? t('mcp.url') : t('mcp.cmd')}</span>
+          <span class="truncate" title="${escapeHtml(command)}">${escapeHtml(command)}</span>
+        </div>
+        ${args.length > 0 ? `
+          <div class="flex items-start gap-2 text-muted-foreground">
+            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">${t('mcp.args')}</span>
+            <span class="text-xs font-mono truncate" title="${escapeHtml(args.join(' '))}">${escapeHtml(args.slice(0, 3).join(' '))}${args.length > 3 ? '...' : ''}</span>
+          </div>
+        ` : ''}
+        ${hasEnv ? `
+          <div class="flex items-center gap-2 text-muted-foreground">
+            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${t('mcp.env')}</span>
+            <span class="text-xs">${Object.keys(serverConfig.env).length} ${t('mcp.variables')}</span>
+          </div>
+        ` : ''}
+        ${serverConfig.enabled_tools ? `
+          <div class="flex items-center gap-2 text-muted-foreground">
+            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${t('mcp.codex.enabledTools')}</span>
+            <span class="text-xs">${serverConfig.enabled_tools.length} ${t('mcp.codex.tools')}</span>
+          </div>
+        ` : ''}
+      </div>
+
+      <div class="mt-3 pt-3 border-t border-border flex items-center justify-between gap-2" onclick="event.stopPropagation()">
+        <div class="flex items-center gap-2">
+          <button class="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+                  onclick="copyCodexServerToClaude('${escapeHtml(serverName)}', ${JSON.stringify(serverConfig).replace(/'/g, "&#39;")})"
+                  title="${t('mcp.codex.copyToClaude')}">
+            <i data-lucide="copy" class="w-3 h-3"></i>
+            ${t('mcp.codex.copyToClaude')}
+          </button>
+        </div>
+        <button class="text-xs text-destructive hover:text-destructive/80 transition-colors"
+                data-server-name="${escapeHtml(serverName)}"
+                data-action="remove-codex">
+          ${t('mcp.codex.remove')}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// ========================================
+// Codex MCP Create Modal
+// ========================================
+
+function openCodexMcpCreateModal() {
+  // Reuse the existing modal with different settings
+  const modal = document.getElementById('mcpCreateModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    // Reset to form mode
+    mcpCreateMode = 'form';
+    switchMcpCreateTab('form');
+    // Clear form
+    document.getElementById('mcpServerName').value = '';
+    document.getElementById('mcpServerCommand').value = '';
+    document.getElementById('mcpServerArgs').value = '';
+    document.getElementById('mcpServerEnv').value = '';
+    // Clear JSON input
+    document.getElementById('mcpServerJson').value = '';
+    document.getElementById('mcpJsonPreview').classList.add('hidden');
+    // Set scope to codex
+    const scopeSelect = document.getElementById('mcpServerScope');
+    if (scopeSelect) {
+      // Add codex option if not exists
+      if (!scopeSelect.querySelector('option[value="codex"]')) {
+        const codexOption = document.createElement('option');
+        codexOption.value = 'codex';
+        codexOption.textContent = t('mcp.codex.scopeCodex');
+        scopeSelect.appendChild(codexOption);
+      }
+      scopeSelect.value = 'codex';
+    }
+    // Focus on name input
+    document.getElementById('mcpServerName').focus();
+    // Setup JSON input listener
+    setupMcpJsonListener();
+  }
+}
 
 function attachMcpEventListeners() {
   // Toggle switches
@@ -692,13 +971,21 @@ function attachMcpEventListeners() {
     });
   });
 
-  // Copy install command buttons
-  document.querySelectorAll('.mcp-server-card button[data-action="copy-install-cmd"]').forEach(btn => {
+  // Install to project buttons
+  document.querySelectorAll('.mcp-server-card button[data-action="install-to-project"]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const serverName = btn.dataset.serverName;
       const serverConfig = JSON.parse(btn.dataset.serverConfig);
-      const scope = btn.dataset.scope || 'project';
-      await copyMcpInstallCommand(serverName, serverConfig, scope);
+      await installMcpToProject(serverName, serverConfig);
+    });
+  });
+
+  // Install to global buttons
+  document.querySelectorAll('.mcp-server-card button[data-action="install-to-global"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const serverName = btn.dataset.serverName;
+      const serverConfig = JSON.parse(btn.dataset.serverConfig);
+      await addGlobalMcpServer(serverName, serverConfig);
     });
   });
 
@@ -729,6 +1016,142 @@ function attachMcpEventListeners() {
       }
     });
   });
+
+  // ========================================
+  // Codex MCP Event Listeners
+  // ========================================
+
+  // Toggle Codex MCP servers
+  document.querySelectorAll('.mcp-server-card input[data-action="toggle-codex"]').forEach(input => {
+    input.addEventListener('change', async (e) => {
+      const serverName = e.target.dataset.serverName;
+      const enable = e.target.checked;
+      await toggleCodexMcpServer(serverName, enable);
+    });
+  });
+
+  // Remove Codex MCP servers
+  document.querySelectorAll('.mcp-server-card button[data-action="remove-codex"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const serverName = btn.dataset.serverName;
+      if (confirm(t('mcp.codex.removeConfirm', { name: serverName }))) {
+        await removeCodexMcpServer(serverName);
+      }
+    });
+  });
+
+  // View details - click on server card
+  document.querySelectorAll('.mcp-server-card[data-action="view-details"]').forEach(card => {
+    card.addEventListener('click', (e) => {
+      const serverName = card.dataset.serverName;
+      const serverConfig = JSON.parse(card.dataset.serverConfig);
+      const serverSource = card.dataset.serverSource;
+      showMcpDetails(serverName, serverConfig, serverSource);
+    });
+  });
+
+  // Modal close button
+  const closeBtn = document.getElementById('mcpDetailsModalClose');
+  const modal = document.getElementById('mcpDetailsModal');
+  if (closeBtn && modal) {
+    closeBtn.addEventListener('click', () => {
+      modal.classList.add('hidden');
+    });
+    // Close on background click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.classList.add('hidden');
+      }
+    });
+  }
+}
+
+// ========================================
+// MCP Details Modal
+// ========================================
+
+function showMcpDetails(serverName, serverConfig, serverSource) {
+  const modal = document.getElementById('mcpDetailsModal');
+  const modalBody = document.getElementById('mcpDetailsModalBody');
+
+  if (!modal || !modalBody) return;
+
+  // Build source badge
+  let sourceBadge = '';
+  if (serverSource === 'enterprise') {
+    sourceBadge = `<span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-warning/20 text-warning">${t('mcp.sourceEnterprise')}</span>`;
+  } else if (serverSource === 'global') {
+    sourceBadge = `<span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-success/10 text-success">${t('mcp.sourceGlobal')}</span>`;
+  } else if (serverSource === 'project') {
+    sourceBadge = `<span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-primary/10 text-primary">${t('mcp.sourceProject')}</span>`;
+  }
+
+  // Build environment variables display
+  let envHtml = '';
+  if (serverConfig.env && Object.keys(serverConfig.env).length > 0) {
+    envHtml = '<div class="mt-4"><h4 class="font-semibold text-sm text-foreground mb-2">' + t('mcp.env') + '</h4><div class="bg-muted rounded-lg p-3 space-y-1 font-mono text-xs">';
+    for (const [key, value] of Object.entries(serverConfig.env)) {
+      envHtml += `<div class="flex items-start gap-2"><span class="text-muted-foreground shrink-0">${escapeHtml(key)}:</span><span class="text-foreground break-all">${escapeHtml(value)}</span></div>`;
+    }
+    envHtml += '</div></div>';
+  } else {
+    envHtml = '<div class="mt-4"><h4 class="font-semibold text-sm text-foreground mb-2">' + t('mcp.env') + '</h4><p class="text-sm text-muted-foreground">' + t('mcp.detailsModal.noEnv') + '</p></div>';
+  }
+
+  modalBody.innerHTML = `
+    <div class="space-y-4">
+      <!-- Server Name and Source -->
+      <div>
+        <label class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">${t('mcp.detailsModal.serverName')}</label>
+        <div class="mt-1 flex items-center gap-2">
+          <h3 class="text-xl font-bold text-foreground">${escapeHtml(serverName)}</h3>
+          ${sourceBadge}
+        </div>
+      </div>
+
+      <!-- Configuration -->
+      <div>
+        <h4 class="font-semibold text-sm text-foreground mb-2">${t('mcp.detailsModal.configuration')}</h4>
+        <div class="space-y-2">
+          <!-- Command -->
+          <div class="flex items-start gap-3">
+            <span class="font-mono text-xs bg-muted px-2 py-1 rounded shrink-0">${t('mcp.cmd')}</span>
+            <code class="text-sm font-mono text-foreground break-all">${escapeHtml(serverConfig.command || serverConfig.url || 'N/A')}</code>
+          </div>
+
+          <!-- Arguments -->
+          ${serverConfig.args && serverConfig.args.length > 0 ? `
+            <div class="flex items-start gap-3">
+              <span class="font-mono text-xs bg-muted px-2 py-1 rounded shrink-0">${t('mcp.args')}</span>
+              <div class="flex-1 space-y-1">
+                ${serverConfig.args.map((arg, index) => `
+                  <div class="text-sm font-mono text-foreground flex items-center gap-2">
+                    <span class="text-muted-foreground">[${index}]</span>
+                    <code class="break-all">${escapeHtml(arg)}</code>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+
+      <!-- Environment Variables -->
+      ${envHtml}
+
+      <!-- Raw JSON -->
+      <div>
+        <h4 class="font-semibold text-sm text-foreground mb-2">Raw JSON</h4>
+        <pre class="bg-muted rounded-lg p-3 text-xs font-mono overflow-x-auto">${escapeHtml(JSON.stringify(serverConfig, null, 2))}</pre>
+      </div>
+    </div>
+  `;
+
+  // Show modal
+  modal.classList.remove('hidden');
+
+  // Re-initialize Lucide icons in modal
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 // ========================================
@@ -788,15 +1211,15 @@ async function saveMcpAsTemplate(serverName, serverConfig) {
     const data = await response.json();
 
     if (data.success) {
-      showNotification(t('mcp.templateSaved', { name: templateName }), 'success');
+      showRefreshToast(t('mcp.templateSaved', { name: templateName }), 'success');
       await loadMcpTemplates();
       await renderMcpManager(); // Refresh view
     } else {
-      showNotification(t('mcp.templateSaveFailed', { error: data.error }), 'error');
+      showRefreshToast(t('mcp.templateSaveFailed', { error: data.error }), 'error');
     }
   } catch (error) {
     console.error('[MCP] Save template error:', error);
-    showNotification(t('mcp.templateSaveFailed', { error: error.message }), 'error');
+    showRefreshToast(t('mcp.templateSaveFailed', { error: error.message }), 'error');
   }
 }
 
@@ -808,7 +1231,7 @@ async function installFromTemplate(templateName, scope = 'project') {
     // Find template
     const template = mcpTemplates.find(t => t.name === templateName);
     if (!template) {
-      showNotification(t('mcp.templateNotFound', { name: templateName }), 'error');
+      showRefreshToast(t('mcp.templateNotFound', { name: templateName }), 'error');
       return;
     }
 
@@ -823,11 +1246,11 @@ async function installFromTemplate(templateName, scope = 'project') {
       await addGlobalMcpServer(serverName, template.serverConfig);
     }
 
-    showNotification(t('mcp.templateInstalled', { name: serverName }), 'success');
+    showRefreshToast(t('mcp.templateInstalled', { name: serverName }), 'success');
     await renderMcpManager();
   } catch (error) {
     console.error('[MCP] Install from template error:', error);
-    showNotification(t('mcp.templateInstallFailed', { error: error.message }), 'error');
+    showRefreshToast(t('mcp.templateInstallFailed', { error: error.message }), 'error');
   }
 }
 
@@ -843,14 +1266,14 @@ async function deleteMcpTemplate(templateName) {
     const data = await response.json();
 
     if (data.success) {
-      showNotification(t('mcp.templateDeleted', { name: templateName }), 'success');
+      showRefreshToast(t('mcp.templateDeleted', { name: templateName }), 'success');
       await loadMcpTemplates();
       await renderMcpManager();
     } else {
-      showNotification(t('mcp.templateDeleteFailed', { error: data.error }), 'error');
+      showRefreshToast(t('mcp.templateDeleteFailed', { error: data.error }), 'error');
     }
   } catch (error) {
     console.error('[MCP] Delete template error:', error);
-    showNotification(t('mcp.templateDeleteFailed', { error: error.message }), 'error');
+    showRefreshToast(t('mcp.templateDeleteFailed', { error: error.message }), 'error');
   }
 }

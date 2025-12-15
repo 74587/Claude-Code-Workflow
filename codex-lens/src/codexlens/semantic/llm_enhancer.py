@@ -75,6 +75,34 @@ class LLMEnhancer:
     external LLM tools (gemini, qwen) via CCW CLI subprocess.
     """
 
+    CHUNK_REFINEMENT_PROMPT = '''PURPOSE: Identify optimal semantic split points in code chunk
+TASK:
+- Analyze the code structure to find natural semantic boundaries
+- Identify logical groupings (functions, classes, related statements)
+- Suggest split points that maintain semantic cohesion
+MODE: analysis
+EXPECTED: JSON format with split positions
+
+=== CODE CHUNK ===
+{code_chunk}
+
+=== OUTPUT FORMAT ===
+Return ONLY valid JSON (no markdown, no explanation):
+{{
+  "split_points": [
+    {{
+      "line": <line_number>,
+      "reason": "brief reason for split (e.g., 'start of new function', 'end of class definition')"
+    }}
+  ]
+}}
+
+Rules:
+- Split at function/class/method boundaries
+- Keep related code together (don't split mid-function)
+- Aim for chunks between 500-2000 characters
+- Return empty split_points if no good splits found'''
+
     PROMPT_TEMPLATE = '''PURPOSE: Generate semantic summaries and search keywords for code files
 TASK:
 - For each code block, generate a concise summary (1-2 sentences)
@@ -168,42 +196,246 @@ Return ONLY valid JSON (no markdown, no explanation):
         return results
 
     def enhance_file(
+
         self,
+
         path: str,
+
         content: str,
+
         language: str,
+
         working_dir: Optional[Path] = None,
+
     ) -> SemanticMetadata:
+
         """Enhance a single file with LLM-generated semantic metadata.
+
+
 
         Convenience method that wraps enhance_files for single file processing.
 
+
+
         Args:
+
             path: File path
+
             content: File content
+
             language: Programming language
+
+            working_dir: Optional working directory for CCW CLI
+
+
+
+        Returns:
+
+            SemanticMetadata for the file
+
+
+
+        Raises:
+
+            ValueError: If enhancement fails
+
+        """
+
+        file_data = FileData(path=path, content=content, language=language)
+
+        results = self.enhance_files([file_data], working_dir)
+
+
+
+        if path not in results:
+
+            # Return default metadata if enhancement failed
+
+            return SemanticMetadata(
+
+                summary=f"Code file written in {language}",
+
+                keywords=[language, "code"],
+
+                purpose="unknown",
+
+                file_path=path,
+
+                llm_tool=self.config.tool,
+
+            )
+
+
+
+        return results[path]
+
+    def refine_chunk_boundaries(
+        self,
+        chunk: SemanticChunk,
+        max_chunk_size: int = 2000,
+        working_dir: Optional[Path] = None,
+    ) -> List[SemanticChunk]:
+        """Refine chunk boundaries using LLM for large code chunks.
+
+        Uses LLM to identify semantic split points in large chunks,
+        breaking them into smaller, more cohesive pieces.
+
+        Args:
+            chunk: Original chunk to refine
+            max_chunk_size: Maximum characters before triggering refinement
             working_dir: Optional working directory for CCW CLI
 
         Returns:
-            SemanticMetadata for the file
-
-        Raises:
-            ValueError: If enhancement fails
+            List of refined chunks (original chunk if no splits or refinement fails)
         """
-        file_data = FileData(path=path, content=content, language=language)
-        results = self.enhance_files([file_data], working_dir)
+        # Skip if chunk is small enough
+        if len(chunk.content) <= max_chunk_size:
+            return [chunk]
 
-        if path not in results:
-            # Return default metadata if enhancement failed
-            return SemanticMetadata(
-                summary=f"Code file written in {language}",
-                keywords=[language, "code"],
-                purpose="unknown",
-                file_path=path,
-                llm_tool=self.config.tool,
+        # Skip if LLM enhancement disabled or unavailable
+        if not self.config.enabled or not self.check_available():
+            return [chunk]
+
+        # Skip docstring chunks - only refine code chunks
+        if chunk.metadata.get("chunk_type") == "docstring":
+            return [chunk]
+
+        try:
+            # Build refinement prompt
+            prompt = self.CHUNK_REFINEMENT_PROMPT.format(code_chunk=chunk.content)
+
+            # Invoke LLM
+            result = self._invoke_ccw_cli(
+                prompt,
+                tool=self.config.tool,
+                working_dir=working_dir,
             )
 
-        return results[path]
+            # Fallback if primary tool fails
+            if not result["success"] and self.config.fallback_tool:
+                result = self._invoke_ccw_cli(
+                    prompt,
+                    tool=self.config.fallback_tool,
+                    working_dir=working_dir,
+                )
+
+            if not result["success"]:
+                logger.debug("LLM refinement failed, returning original chunk")
+                return [chunk]
+
+            # Parse split points
+            split_points = self._parse_split_points(result["stdout"])
+            if not split_points:
+                logger.debug("No split points identified, returning original chunk")
+                return [chunk]
+
+            # Split chunk at identified boundaries
+            refined_chunks = self._split_chunk_at_points(chunk, split_points)
+            logger.debug(
+                "Refined chunk into %d smaller chunks (was %d chars)",
+                len(refined_chunks),
+                len(chunk.content),
+            )
+            return refined_chunks
+
+        except Exception as e:
+            logger.warning("Chunk refinement error: %s, returning original chunk", e)
+            return [chunk]
+
+    def _parse_split_points(self, stdout: str) -> List[int]:
+        """Parse split points from LLM response.
+
+        Args:
+            stdout: Raw stdout from CCW CLI
+
+        Returns:
+            List of line numbers where splits should occur (sorted)
+        """
+        # Extract JSON from response
+        json_str = self._extract_json(stdout)
+        if not json_str:
+            return []
+
+        try:
+            data = json.loads(json_str)
+            split_points_data = data.get("split_points", [])
+
+            # Extract line numbers
+            lines = []
+            for point in split_points_data:
+                if isinstance(point, dict) and "line" in point:
+                    line_num = point["line"]
+                    if isinstance(line_num, int) and line_num > 0:
+                        lines.append(line_num)
+
+            return sorted(set(lines))
+
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            logger.debug("Failed to parse split points: %s", e)
+            return []
+
+    def _split_chunk_at_points(
+        self,
+        chunk: SemanticChunk,
+        split_points: List[int],
+    ) -> List[SemanticChunk]:
+        """Split chunk at specified line numbers.
+
+        Args:
+            chunk: Original chunk to split
+            split_points: Sorted list of line numbers to split at
+
+        Returns:
+            List of smaller chunks
+        """
+        lines = chunk.content.splitlines(keepends=True)
+        chunks: List[SemanticChunk] = []
+
+        # Get original metadata
+        base_metadata = dict(chunk.metadata)
+        original_start = base_metadata.get("start_line", 1)
+
+        # Add start and end boundaries
+        boundaries = [0] + split_points + [len(lines)]
+
+        for i in range(len(boundaries) - 1):
+            start_idx = boundaries[i]
+            end_idx = boundaries[i + 1]
+
+            # Skip empty sections
+            if start_idx >= end_idx:
+                continue
+
+            # Extract content
+            section_lines = lines[start_idx:end_idx]
+            section_content = "".join(section_lines)
+
+            # Skip if too small
+            if len(section_content.strip()) < 50:
+                continue
+
+            # Create new chunk with updated metadata
+            new_metadata = base_metadata.copy()
+            new_metadata["start_line"] = original_start + start_idx
+            new_metadata["end_line"] = original_start + end_idx - 1
+            new_metadata["refined_by_llm"] = True
+            new_metadata["original_chunk_size"] = len(chunk.content)
+
+            chunks.append(
+                SemanticChunk(
+                    content=section_content,
+                    embedding=None,  # Embeddings will be regenerated
+                    metadata=new_metadata,
+                )
+            )
+
+        # If no valid chunks created, return original
+        if not chunks:
+            return [chunk]
+
+        return chunks
+
+
 
 
     def _process_batch(

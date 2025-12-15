@@ -12,8 +12,382 @@ import * as McpTemplatesDb from './mcp-templates-db.js';
 // Claude config file path
 const CLAUDE_CONFIG_PATH = join(homedir(), '.claude.json');
 
+// Codex config file path (TOML format)
+const CODEX_CONFIG_PATH = join(homedir(), '.codex', 'config.toml');
+
 // Workspace root path for scanning .mcp.json files
 let WORKSPACE_ROOT = process.cwd();
+
+// ========================================
+// TOML Parser for Codex Config
+// ========================================
+
+/**
+ * Simple TOML parser for Codex config.toml
+ * Supports basic types: strings, numbers, booleans, arrays, inline tables
+ */
+function parseToml(content: string): Record<string, any> {
+  const result: Record<string, any> = {};
+  let currentSection: string[] = [];
+  const lines = content.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trim();
+
+    // Skip empty lines and comments
+    if (!line || line.startsWith('#')) continue;
+
+    // Handle section headers [section] or [section.subsection]
+    const sectionMatch = line.match(/^\[([^\]]+)\]$/);
+    if (sectionMatch) {
+      currentSection = sectionMatch[1].split('.');
+      // Ensure nested sections exist
+      let obj = result;
+      for (const part of currentSection) {
+        if (!obj[part]) obj[part] = {};
+        obj = obj[part];
+      }
+      continue;
+    }
+
+    // Handle key = value pairs
+    const keyValueMatch = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/);
+    if (keyValueMatch) {
+      const key = keyValueMatch[1];
+      const rawValue = keyValueMatch[2].trim();
+      const value = parseTomlValue(rawValue);
+
+      // Navigate to current section
+      let obj = result;
+      for (const part of currentSection) {
+        if (!obj[part]) obj[part] = {};
+        obj = obj[part];
+      }
+      obj[key] = value;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Parse a TOML value
+ */
+function parseTomlValue(value: string): any {
+  // String (double-quoted)
+  if (value.startsWith('"') && value.endsWith('"')) {
+    return value.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  }
+
+  // String (single-quoted - literal)
+  if (value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1);
+  }
+
+  // Boolean
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+
+  // Number
+  if (/^-?\d+(\.\d+)?$/.test(value)) {
+    return value.includes('.') ? parseFloat(value) : parseInt(value, 10);
+  }
+
+  // Array
+  if (value.startsWith('[') && value.endsWith(']')) {
+    const inner = value.slice(1, -1).trim();
+    if (!inner) return [];
+    // Simple array parsing (handles basic cases)
+    const items: any[] = [];
+    let depth = 0;
+    let current = '';
+    let inString = false;
+    let stringChar = '';
+
+    for (const char of inner) {
+      if (!inString && (char === '"' || char === "'")) {
+        inString = true;
+        stringChar = char;
+        current += char;
+      } else if (inString && char === stringChar) {
+        inString = false;
+        current += char;
+      } else if (!inString && (char === '[' || char === '{')) {
+        depth++;
+        current += char;
+      } else if (!inString && (char === ']' || char === '}')) {
+        depth--;
+        current += char;
+      } else if (!inString && char === ',' && depth === 0) {
+        items.push(parseTomlValue(current.trim()));
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    if (current.trim()) {
+      items.push(parseTomlValue(current.trim()));
+    }
+    return items;
+  }
+
+  // Inline table { key = value, ... }
+  if (value.startsWith('{') && value.endsWith('}')) {
+    const inner = value.slice(1, -1).trim();
+    if (!inner) return {};
+    const table: Record<string, any> = {};
+    // Simple inline table parsing
+    const pairs = inner.split(',');
+    for (const pair of pairs) {
+      const match = pair.trim().match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/);
+      if (match) {
+        table[match[1]] = parseTomlValue(match[2].trim());
+      }
+    }
+    return table;
+  }
+
+  // Return as string if nothing else matches
+  return value;
+}
+
+/**
+ * Serialize object to TOML format for Codex config
+ */
+function serializeToml(obj: Record<string, any>, prefix: string = ''): string {
+  let result = '';
+  const sections: string[] = [];
+
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === null || value === undefined) continue;
+
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      // Handle nested sections (like mcp_servers.server_name)
+      const sectionKey = prefix ? `${prefix}.${key}` : key;
+      sections.push(sectionKey);
+
+      // Check if this is a section with sub-sections or direct values
+      const hasSubSections = Object.values(value).some(v => typeof v === 'object' && !Array.isArray(v));
+
+      if (hasSubSections) {
+        // This section has sub-sections, recurse without header
+        result += serializeToml(value, sectionKey);
+      } else {
+        // This section has direct values, add header and values
+        result += `\n[${sectionKey}]\n`;
+        for (const [subKey, subValue] of Object.entries(value)) {
+          if (subValue !== null && subValue !== undefined) {
+            result += `${subKey} = ${serializeTomlValue(subValue)}\n`;
+          }
+        }
+      }
+    } else if (!prefix) {
+      // Top-level simple values
+      result += `${key} = ${serializeTomlValue(value)}\n`;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Serialize a value to TOML format
+ */
+function serializeTomlValue(value: any): string {
+  if (typeof value === 'string') {
+    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  }
+  if (typeof value === 'boolean') {
+    return value ? 'true' : 'false';
+  }
+  if (typeof value === 'number') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(v => serializeTomlValue(v)).join(', ')}]`;
+  }
+  if (typeof value === 'object' && value !== null) {
+    const pairs = Object.entries(value)
+      .filter(([_, v]) => v !== null && v !== undefined)
+      .map(([k, v]) => `${k} = ${serializeTomlValue(v)}`);
+    return `{ ${pairs.join(', ')} }`;
+  }
+  return String(value);
+}
+
+// ========================================
+// Codex MCP Functions
+// ========================================
+
+/**
+ * Read Codex config.toml and extract MCP servers
+ */
+function getCodexMcpConfig(): { servers: Record<string, any>; configPath: string; exists: boolean } {
+  try {
+    if (!existsSync(CODEX_CONFIG_PATH)) {
+      return { servers: {}, configPath: CODEX_CONFIG_PATH, exists: false };
+    }
+
+    const content = readFileSync(CODEX_CONFIG_PATH, 'utf8');
+    const config = parseToml(content);
+
+    // MCP servers are under [mcp_servers] section
+    const mcpServers = config.mcp_servers || {};
+
+    return {
+      servers: mcpServers,
+      configPath: CODEX_CONFIG_PATH,
+      exists: true
+    };
+  } catch (error: unknown) {
+    console.error('Error reading Codex config:', error);
+    return { servers: {}, configPath: CODEX_CONFIG_PATH, exists: false };
+  }
+}
+
+/**
+ * Add or update MCP server in Codex config.toml
+ */
+function addCodexMcpServer(serverName: string, serverConfig: Record<string, any>): { success?: boolean; error?: string } {
+  try {
+    const codexDir = join(homedir(), '.codex');
+
+    // Ensure .codex directory exists
+    if (!existsSync(codexDir)) {
+      mkdirSync(codexDir, { recursive: true });
+    }
+
+    let config: Record<string, any> = {};
+
+    // Read existing config if it exists
+    if (existsSync(CODEX_CONFIG_PATH)) {
+      const content = readFileSync(CODEX_CONFIG_PATH, 'utf8');
+      config = parseToml(content);
+    }
+
+    // Ensure mcp_servers section exists
+    if (!config.mcp_servers) {
+      config.mcp_servers = {};
+    }
+
+    // Convert serverConfig from Claude format to Codex format
+    const codexServerConfig: Record<string, any> = {};
+
+    // Handle STDIO servers (command-based)
+    if (serverConfig.command) {
+      codexServerConfig.command = serverConfig.command;
+      if (serverConfig.args && serverConfig.args.length > 0) {
+        codexServerConfig.args = serverConfig.args;
+      }
+      if (serverConfig.env && Object.keys(serverConfig.env).length > 0) {
+        codexServerConfig.env = serverConfig.env;
+      }
+      if (serverConfig.cwd) {
+        codexServerConfig.cwd = serverConfig.cwd;
+      }
+    }
+
+    // Handle HTTP servers (url-based)
+    if (serverConfig.url) {
+      codexServerConfig.url = serverConfig.url;
+      if (serverConfig.bearer_token_env_var) {
+        codexServerConfig.bearer_token_env_var = serverConfig.bearer_token_env_var;
+      }
+      if (serverConfig.http_headers) {
+        codexServerConfig.http_headers = serverConfig.http_headers;
+      }
+    }
+
+    // Copy optional fields
+    if (serverConfig.startup_timeout_sec !== undefined) {
+      codexServerConfig.startup_timeout_sec = serverConfig.startup_timeout_sec;
+    }
+    if (serverConfig.tool_timeout_sec !== undefined) {
+      codexServerConfig.tool_timeout_sec = serverConfig.tool_timeout_sec;
+    }
+    if (serverConfig.enabled !== undefined) {
+      codexServerConfig.enabled = serverConfig.enabled;
+    }
+    if (serverConfig.enabled_tools) {
+      codexServerConfig.enabled_tools = serverConfig.enabled_tools;
+    }
+    if (serverConfig.disabled_tools) {
+      codexServerConfig.disabled_tools = serverConfig.disabled_tools;
+    }
+
+    // Add the server
+    config.mcp_servers[serverName] = codexServerConfig;
+
+    // Serialize and write back
+    const tomlContent = serializeToml(config);
+    writeFileSync(CODEX_CONFIG_PATH, tomlContent, 'utf8');
+
+    return { success: true };
+  } catch (error: unknown) {
+    console.error('Error adding Codex MCP server:', error);
+    return { error: (error as Error).message };
+  }
+}
+
+/**
+ * Remove MCP server from Codex config.toml
+ */
+function removeCodexMcpServer(serverName: string): { success?: boolean; error?: string } {
+  try {
+    if (!existsSync(CODEX_CONFIG_PATH)) {
+      return { error: 'Codex config.toml not found' };
+    }
+
+    const content = readFileSync(CODEX_CONFIG_PATH, 'utf8');
+    const config = parseToml(content);
+
+    if (!config.mcp_servers || !config.mcp_servers[serverName]) {
+      return { error: `Server not found: ${serverName}` };
+    }
+
+    // Remove the server
+    delete config.mcp_servers[serverName];
+
+    // Serialize and write back
+    const tomlContent = serializeToml(config);
+    writeFileSync(CODEX_CONFIG_PATH, tomlContent, 'utf8');
+
+    return { success: true };
+  } catch (error: unknown) {
+    console.error('Error removing Codex MCP server:', error);
+    return { error: (error as Error).message };
+  }
+}
+
+/**
+ * Toggle Codex MCP server enabled state
+ */
+function toggleCodexMcpServer(serverName: string, enabled: boolean): { success?: boolean; error?: string } {
+  try {
+    if (!existsSync(CODEX_CONFIG_PATH)) {
+      return { error: 'Codex config.toml not found' };
+    }
+
+    const content = readFileSync(CODEX_CONFIG_PATH, 'utf8');
+    const config = parseToml(content);
+
+    if (!config.mcp_servers || !config.mcp_servers[serverName]) {
+      return { error: `Server not found: ${serverName}` };
+    }
+
+    // Set enabled state
+    config.mcp_servers[serverName].enabled = enabled;
+
+    // Serialize and write back
+    const tomlContent = serializeToml(config);
+    writeFileSync(CODEX_CONFIG_PATH, tomlContent, 'utf8');
+
+    return { success: true };
+  } catch (error: unknown) {
+    console.error('Error toggling Codex MCP server:', error);
+    return { error: (error as Error).message };
+  }
+}
 
 export interface RouteContext {
   pathname: string;
@@ -598,11 +972,64 @@ function getProjectSettingsPath(projectPath) {
 export async function handleMcpRoutes(ctx: RouteContext): Promise<boolean> {
   const { pathname, url, req, res, initialPath, handlePostRequest, broadcastToClients } = ctx;
 
-  // API: Get MCP configuration
+  // API: Get MCP configuration (includes both Claude and Codex)
   if (pathname === '/api/mcp-config') {
     const mcpData = getMcpConfig();
+    const codexData = getCodexMcpConfig();
+    const combinedData = {
+      ...mcpData,
+      codex: codexData
+    };
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(mcpData));
+    res.end(JSON.stringify(combinedData));
+    return true;
+  }
+
+  // ========================================
+  // Codex MCP API Endpoints
+  // ========================================
+
+  // API: Get Codex MCP configuration
+  if (pathname === '/api/codex-mcp-config') {
+    const codexData = getCodexMcpConfig();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(codexData));
+    return true;
+  }
+
+  // API: Add Codex MCP server
+  if (pathname === '/api/codex-mcp-add' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { serverName, serverConfig } = body;
+      if (!serverName || !serverConfig) {
+        return { error: 'serverName and serverConfig are required', status: 400 };
+      }
+      return addCodexMcpServer(serverName, serverConfig);
+    });
+    return true;
+  }
+
+  // API: Remove Codex MCP server
+  if (pathname === '/api/codex-mcp-remove' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { serverName } = body;
+      if (!serverName) {
+        return { error: 'serverName is required', status: 400 };
+      }
+      return removeCodexMcpServer(serverName);
+    });
+    return true;
+  }
+
+  // API: Toggle Codex MCP server enabled state
+  if (pathname === '/api/codex-mcp-toggle' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { serverName, enabled } = body;
+      if (!serverName || enabled === undefined) {
+        return { error: 'serverName and enabled are required', status: 400 };
+      }
+      return toggleCodexMcpServer(serverName, enabled);
+    });
     return true;
   }
 

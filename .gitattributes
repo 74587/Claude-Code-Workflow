@@ -30,3 +30,4 @@
 *.tar binary
 *.gz binary
 *.pdf binary
+.mcp.json

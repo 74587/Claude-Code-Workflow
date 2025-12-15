@@ -29,9 +29,6 @@ import {
   getPrimaryModel
 } from './cli-config-manager.js';
 
-// CLI History storage path
-const CLI_HISTORY_DIR = join(process.cwd(), '.workflow', '.cli-history');
-
 // Lazy-loaded SQLite store module
 let sqliteStoreModule: typeof import('./cli-history-store.js') | null = null;
 

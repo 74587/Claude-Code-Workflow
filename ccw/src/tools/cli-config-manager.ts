@@ -1,10 +1,11 @@
 /**
  * CLI Configuration Manager
  * Handles loading, saving, and managing CLI tool configurations
- * Stores config in .workflow/cli-config.json
+ * Stores config in centralized storage (~/.ccw/projects/{id}/config/)
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import { StoragePaths, ensureStorageDir } from '../config/storage-paths.js';
 
 // ========== Types ==========
 
@@ -50,20 +51,15 @@ export const DEFAULT_CONFIG: CliConfig = {
   }
 };
 
-const CONFIG_DIR = '.workflow';
-const CONFIG_FILE = 'cli-config.json';
-
 // ========== Helper Functions ==========
 
 function getConfigPath(baseDir: string): string {
-  return path.join(baseDir, CONFIG_DIR, CONFIG_FILE);
+  return StoragePaths.project(baseDir).cliConfig;
 }
 
-function ensureConfigDir(baseDir: string): void {
-  const configDir = path.join(baseDir, CONFIG_DIR);
-  if (!fs.existsSync(configDir)) {
-    fs.mkdirSync(configDir, { recursive: true });
-  }
+function ensureConfigDirForProject(baseDir: string): void {
+  const configDir = StoragePaths.project(baseDir).config;
+  ensureStorageDir(configDir);
 }
 
 function isValidToolName(tool: string): tool is CliToolName {
@@ -145,7 +141,7 @@ export function loadCliConfig(baseDir: string): CliConfig {
  * Save CLI configuration to .workflow/cli-config.json
  */
 export function saveCliConfig(baseDir: string, config: CliConfig): void {
-  ensureConfigDir(baseDir);
+  ensureConfigDirForProject(baseDir);
   const configPath = getConfigPath(baseDir);
 
   try {
