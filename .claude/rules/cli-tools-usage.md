@@ -81,6 +81,26 @@ ccw cli exec "<PROMPT>" --tool <gemini|qwen|codex> --mode <analysis|write|auto>
 | `write` | Create/Modify/Delete | Documentation, code creation, file modifications | Requires `--mode write` |
 | `auto` | Full operations | Feature implementation, bug fixes, autonomous development | Codex only, requires `--mode auto` |
 
+### Mode Protocol References (MANDATORY)
+
+**⚠️ REQUIRED**: Every CLI execution MUST include the corresponding mode protocol in RULES:
+
+| Mode | Protocol (REQUIRED) |
+|------|---------------------|
+| `analysis` | `$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md)` |
+| `write/auto` | `$(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md)` |
+
+**RULES Format** (protocol MUST be included):
+```bash
+# Analysis mode - MUST include analysis-protocol.md
+RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/analysis/...) | constraints
+
+# Write/Auto mode - MUST include write-protocol.md
+RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/development/...) | constraints
+```
+
+**Validation**: CLI execution without mode protocol reference is INVALID
+
 ### Gemini & Qwen
 
 **Via CCW**: `ccw cli exec "<prompt>" --tool gemini` or `--tool qwen`

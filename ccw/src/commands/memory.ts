@@ -9,6 +9,7 @@ import { HistoryImporter } from '../core/history-importer.js';
 import { notifyMemoryUpdate, notifyRefreshRequired } from '../tools/notifier.js';
 import { join } from 'path';
 import { existsSync, readdirSync } from 'fs';
+import { StoragePaths } from '../config/storage-paths.js';
 
 interface TrackOptions {
   type?: string;
@@ -228,13 +229,13 @@ async function importAction(options: ImportOptions): Promise<void> {
 
   try {
     const projectPath = getProjectPath();
-    const memoryDir = join(projectPath, '.workflow', '.memory');
-    const dbPath = join(memoryDir, 'history.db');
+    const paths = StoragePaths.project(projectPath);
+    const dbPath = join(paths.memory, 'history.db');
 
     // Ensure memory directory exists
     const { mkdirSync } = await import('fs');
-    if (!existsSync(memoryDir)) {
-      mkdirSync(memoryDir, { recursive: true });
+    if (!existsSync(paths.memory)) {
+      mkdirSync(paths.memory, { recursive: true });
     }
 
     const importer = new HistoryImporter(dbPath);
@@ -569,17 +570,16 @@ async function pruneAction(options: PruneOptions): Promise<void> {
     const cutoffStr = cutoffDate.toISOString();
 
     const projectPath = getProjectPath();
-    const memoryDir = join(projectPath, '.workflow', '.memory');
-    const dbPath = join(memoryDir, 'memory.db');
+    const paths = StoragePaths.project(projectPath);
 
-    if (!existsSync(dbPath)) {
+    if (!existsSync(paths.memoryDb)) {
       console.log(chalk.yellow('  No memory database found. Nothing to prune.\n'));
       return;
     }
 
     // Use direct database access for pruning
     const Database = require('better-sqlite3');
-    const db = new Database(dbPath);
+    const db = new Database(paths.memoryDb);
 
     // Count records to prune
     const accessLogsCount = db.prepare(`

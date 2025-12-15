@@ -29,11 +29,20 @@ const LITE_FIX_BASE = '.workflow/.lite-fix';
 const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
 // Zod schemas - using tuple syntax for z.enum
-const ContentTypeEnum = z.enum(['session', 'plan', 'task', 'summary', 'process', 'chat', 'brainstorm', 'review-dim', 'review-iter', 'review-fix', 'todo', 'context']);
+const ContentTypeEnum = z.enum([
+  'session', 'plan', 'task', 'summary', 'process', 'chat', 'brainstorm',
+  'review-dim', 'review-iter', 'review-fix', 'todo', 'context',
+  // Lite-specific content types
+  'lite-plan', 'lite-fix-plan', 'exploration', 'explorations-manifest',
+  'diagnosis', 'diagnoses-manifest', 'clarifications', 'execution-context', 'session-metadata'
+]);
 
 const OperationEnum = z.enum(['init', 'list', 'read', 'write', 'update', 'archive', 'mkdir', 'delete', 'stats']);
 
-const LocationEnum = z.enum(['active', 'archived', 'both']);
+const LocationEnum = z.enum([
+  'active', 'archived', 'both',
+  'lite-plan', 'lite-fix', 'all'
+]);
 
 const ParamsSchema = z.object({
   operation: OperationEnum,
@@ -137,6 +146,7 @@ function validatePathParams(pathParams: Record<string, unknown>): void {
  * Dynamic params: {task_id}, {filename}, {dimension}, {iteration}
  */
 const PATH_ROUTES: Record<ContentType, string> = {
+  // Standard WFS content types
   session: '{base}/workflow-session.json',
   plan: '{base}/IMPL_PLAN.md',
   task: '{base}/.task/{task_id}.json',
@@ -149,6 +159,16 @@ const PATH_ROUTES: Record<ContentType, string> = {
   'review-fix': '{base}/.review/fixes/{filename}',
   todo: '{base}/TODO_LIST.md',
   context: '{base}/context-package.json',
+  // Lite-specific content types
+  'lite-plan': '{base}/plan.json',
+  'lite-fix-plan': '{base}/fix-plan.json',
+  'exploration': '{base}/exploration-{angle}.json',
+  'explorations-manifest': '{base}/explorations-manifest.json',
+  'diagnosis': '{base}/diagnosis-{angle}.json',
+  'diagnoses-manifest': '{base}/diagnoses-manifest.json',
+  'clarifications': '{base}/clarifications.json',
+  'execution-context': '{base}/execution-context.json',
+  'session-metadata': '{base}/session-metadata.json',
 };
 
 /**
@@ -187,8 +207,17 @@ function resolvePath(
 /**
  * Get session base path
  */
-function getSessionBase(sessionId: string, archived = false): string {
-  const basePath = archived ? ARCHIVE_BASE : ACTIVE_BASE;
+function getSessionBase(
+  sessionId: string,
+  location: 'active' | 'archived' | 'lite-plan' | 'lite-fix' = 'active'
+): string {
+  const locationMap: Record<string, string> = {
+    'active': ACTIVE_BASE,
+    'archived': ARCHIVE_BASE,
+    'lite-plan': LITE_PLAN_BASE,
+    'lite-fix': LITE_FIX_BASE,
+  };
+  const basePath = locationMap[location] || ACTIVE_BASE;
   return resolve(findWorkflowRoot(), basePath, sessionId);
 }
 
@@ -258,15 +287,65 @@ function writeTextFile(filePath: string, content: string): void {
 }
 
 // ============================================================
+// Helper Functions
+// ============================================================
+
+/**
+ * List sessions in a specific directory
+ * @param dirPath - Directory to scan
+ * @param location - Location identifier for returned sessions
+ * @param prefix - Optional prefix filter (e.g., 'WFS-'), null means no filter
+ * @param includeMetadata - Whether to load metadata for each session
+ */
+function listSessionsInDir(
+  dirPath: string,
+  location: string,
+  prefix: string | null,
+  includeMetadata: boolean
+): SessionInfo[] {
+  if (!existsSync(dirPath)) return [];
+
+  try {
+    const entries = readdirSync(dirPath, { withFileTypes: true });
+    return entries
+      .filter(e => e.isDirectory() && (prefix === null || e.name.startsWith(prefix)))
+      .map(e => {
+        const sessionInfo: SessionInfo = { session_id: e.name, location };
+        if (includeMetadata) {
+          // Try multiple metadata file locations
+          const metaPaths = [
+            join(dirPath, e.name, 'workflow-session.json'),
+            join(dirPath, e.name, 'session-metadata.json'),
+            join(dirPath, e.name, 'explorations-manifest.json'),
+            join(dirPath, e.name, 'diagnoses-manifest.json'),
+          ];
+          for (const metaPath of metaPaths) {
+            if (existsSync(metaPath)) {
+              try {
+                sessionInfo.metadata = readJsonFile(metaPath);
+                break;
+              } catch { /* continue */ }
+            }
+          }
+        }
+        return sessionInfo;
+      });
+  } catch {
+    return [];
+  }
+}
+
+// ============================================================
 // Operation Handlers
 // ============================================================
 
 /**
  * Operation: init
  * Create new session with directory structure
+ * Supports both WFS sessions and lite sessions (lite-plan, lite-fix)
  */
 function executeInit(params: Params): any {
-  const { session_id, metadata } = params;
+  const { session_id, metadata, location } = params;
 
   if (!session_id) {
     throw new Error('Parameter "session_id" is required for init');
@@ -275,27 +354,46 @@ function executeInit(params: Params): any {
   // Validate session_id format
   validateSessionId(session_id);
 
+  // Determine session location (default: active for WFS, or specified for lite)
+  const sessionLocation = (location === 'lite-plan' || location === 'lite-fix')
+    ? location
+    : 'active';
+
   // Check if session already exists (auto-detect all locations)
   const existing = findSession(session_id);
   if (existing) {
     throw new Error(`Session "${session_id}" already exists in ${existing.location}`);
   }
 
-  const sessionPath = getSessionBase(session_id);
+  const sessionPath = getSessionBase(session_id, sessionLocation);
 
-  // Create session directory structure
+  // Create session directory structure based on type
   ensureDir(sessionPath);
-  ensureDir(join(sessionPath, '.task'));
-  ensureDir(join(sessionPath, '.summaries'));
-  ensureDir(join(sessionPath, '.process'));
 
-  // Create workflow-session.json if metadata provided
+  let directoriesCreated: string[] = [];
+  if (sessionLocation === 'lite-plan' || sessionLocation === 'lite-fix') {
+    // Lite sessions: minimal structure, files created by workflow
+    // No subdirectories needed initially
+    directoriesCreated = [];
+  } else {
+    // WFS sessions: standard structure
+    ensureDir(join(sessionPath, '.task'));
+    ensureDir(join(sessionPath, '.summaries'));
+    ensureDir(join(sessionPath, '.process'));
+    directoriesCreated = ['.task', '.summaries', '.process'];
+  }
+
+  // Create session metadata file if provided
   let sessionMetadata = null;
   if (metadata) {
-    const sessionFile = join(sessionPath, 'workflow-session.json');
+    const sessionFile = sessionLocation.startsWith('lite-')
+      ? join(sessionPath, 'session-metadata.json')  // Lite sessions
+      : join(sessionPath, 'workflow-session.json'); // WFS sessions
+
     const sessionData = {
       session_id,
-      status: 'planning',
+      type: sessionLocation,
+      status: 'initialized',
       created_at: new Date().toISOString(),
       ...metadata,
     };
@@ -306,16 +404,17 @@ function executeInit(params: Params): any {
   return {
     operation: 'init',
     session_id,
+    location: sessionLocation,
     path: sessionPath,
-    directories_created: ['.task', '.summaries', '.process'],
+    directories_created: directoriesCreated,
     metadata: sessionMetadata,
-    message: `Session "${session_id}" initialized successfully`,
+    message: `Session "${session_id}" initialized in ${sessionLocation}`,
   };
 }
 
 /**
  * Operation: list
- * List sessions (active, archived, or both)
+ * List sessions (active, archived, lite-plan, lite-fix, or all)
  */
 function executeList(params: Params): any {
   const { location = 'both', include_metadata = false } = params;
@@ -324,63 +423,67 @@ function executeList(params: Params): any {
     operation: string;
     active: SessionInfo[];
     archived: SessionInfo[];
+    litePlan: SessionInfo[];
+    liteFix: SessionInfo[];
     total: number;
   } = {
     operation: 'list',
     active: [],
     archived: [],
+    litePlan: [],
+    liteFix: [],
     total: 0,
   };
 
-  // List active sessions
-  if (location === 'active' || location === 'both') {
-    const activePath = resolve(findWorkflowRoot(), ACTIVE_BASE);
-    if (existsSync(activePath)) {
-      const entries = readdirSync(activePath, { withFileTypes: true });
-      result.active = entries
-        .filter((e) => e.isDirectory() && e.name.startsWith('WFS-'))
-        .map((e) => {
-          const sessionInfo: SessionInfo = { session_id: e.name, location: 'active' };
-          if (include_metadata) {
-            const metaPath = join(activePath, e.name, 'workflow-session.json');
-            if (existsSync(metaPath)) {
-              try {
-                sessionInfo.metadata = readJsonFile(metaPath);
-              } catch {
-                sessionInfo.metadata = null;
-              }
-            }
-          }
-          return sessionInfo;
-        });
-    }
+  const root = findWorkflowRoot();
+
+  // Helper to check if location should be included
+  const shouldInclude = (loc: string) =>
+    location === 'all' || location === 'both' || location === loc;
+
+  // List active sessions (WFS-* prefix)
+  if (shouldInclude('active')) {
+    result.active = listSessionsInDir(
+      resolve(root, ACTIVE_BASE),
+      'active',
+      'WFS-',
+      include_metadata
+    );
   }
 
-  // List archived sessions
-  if (location === 'archived' || location === 'both') {
-    const archivePath = resolve(findWorkflowRoot(), ARCHIVE_BASE);
-    if (existsSync(archivePath)) {
-      const entries = readdirSync(archivePath, { withFileTypes: true });
-      result.archived = entries
-        .filter((e) => e.isDirectory() && e.name.startsWith('WFS-'))
-        .map((e) => {
-          const sessionInfo: SessionInfo = { session_id: e.name, location: 'archived' };
-          if (include_metadata) {
-            const metaPath = join(archivePath, e.name, 'workflow-session.json');
-            if (existsSync(metaPath)) {
-              try {
-                sessionInfo.metadata = readJsonFile(metaPath);
-              } catch {
-                sessionInfo.metadata = null;
-              }
-            }
-          }
-          return sessionInfo;
-        });
-    }
+  // List archived sessions (WFS-* prefix)
+  if (shouldInclude('archived')) {
+    result.archived = listSessionsInDir(
+      resolve(root, ARCHIVE_BASE),
+      'archived',
+      'WFS-',
+      include_metadata
+    );
   }
 
-  result.total = result.active.length + result.archived.length;
+  // List lite-plan sessions (no prefix filter)
+  if (location === 'all' || location === 'lite-plan') {
+    result.litePlan = listSessionsInDir(
+      resolve(root, LITE_PLAN_BASE),
+      'lite-plan',
+      null,
+      include_metadata
+    );
+  }
+
+  // List lite-fix sessions (no prefix filter)
+  if (location === 'all' || location === 'lite-fix') {
+    result.liteFix = listSessionsInDir(
+      resolve(root, LITE_FIX_BASE),
+      'lite-fix',
+      null,
+      include_metadata
+    );
+  }
+
+  result.total = result.active.length + result.archived.length +
+                 result.litePlan.length + result.liteFix.length;
+
   return result;
 }
 
@@ -543,31 +646,51 @@ function executeArchive(params: Params): any {
     throw new Error('Parameter "session_id" is required for archive');
   }
 
-  const activePath = getSessionBase(session_id, false);
-  const archivePath = getSessionBase(session_id, true);
-
-  if (!existsSync(activePath)) {
-    // Check if already archived
-    if (existsSync(archivePath)) {
-      return {
-        operation: 'archive',
-        session_id,
-        status: 'already_archived',
-        path: archivePath,
-        message: `Session "${session_id}" is already archived`,
-      };
-    }
-    throw new Error(`Session "${session_id}" not found in active sessions`);
+  // Find session in any location
+  const session = findSession(session_id);
+  if (!session) {
+    throw new Error(`Session "${session_id}" not found`);
   }
 
-  // Update status to completed before archiving
+  // Lite sessions do not support archiving
+  if (session.location === 'lite-plan' || session.location === 'lite-fix') {
+    throw new Error(`Lite sessions (${session.location}) do not support archiving. Use delete operation instead.`);
+  }
+
+  // Determine archive destination based on source location
+  let archivePath: string;
+
+  if (session.location === 'active') {
+    archivePath = getSessionBase(session_id, 'archived');
+  } else {
+    // Already archived
+    return {
+      operation: 'archive',
+      session_id,
+      status: 'already_archived',
+      path: session.path,
+      location: session.location,
+      message: `Session "${session_id}" is already archived`,
+    };
+  }
+
+  // Update status before archiving
   if (update_status) {
-    const sessionFile = join(activePath, 'workflow-session.json');
-    if (existsSync(sessionFile)) {
-      const sessionData = readJsonFile(sessionFile);
-      sessionData.status = 'completed';
-      sessionData.archived_at = new Date().toISOString();
-      writeJsonFile(sessionFile, sessionData);
+    const metadataFiles = [
+      join(session.path, 'workflow-session.json'),
+      join(session.path, 'session-metadata.json'),
+      join(session.path, 'explorations-manifest.json'),
+    ];
+    for (const metaFile of metadataFiles) {
+      if (existsSync(metaFile)) {
+        try {
+          const data = readJsonFile(metaFile);
+          data.status = 'completed';
+          data.archived_at = new Date().toISOString();
+          writeJsonFile(metaFile, data);
+          break;
+        } catch { /* continue */ }
+      }
     }
   }
 
@@ -575,23 +698,33 @@ function executeArchive(params: Params): any {
   ensureDir(dirname(archivePath));
 
   // Move session directory
-  renameSync(activePath, archivePath);
+  renameSync(session.path, archivePath);
 
   // Read session metadata after archiving
   let sessionMetadata = null;
-  const sessionFile = join(archivePath, 'workflow-session.json');
-  if (existsSync(sessionFile)) {
-    sessionMetadata = readJsonFile(sessionFile);
+  const metadataFiles = [
+    join(archivePath, 'workflow-session.json'),
+    join(archivePath, 'session-metadata.json'),
+    join(archivePath, 'explorations-manifest.json'),
+  ];
+  for (const metaFile of metadataFiles) {
+    if (existsSync(metaFile)) {
+      try {
+        sessionMetadata = readJsonFile(metaFile);
+        break;
+      } catch { /* continue */ }
+    }
   }
 
   return {
     operation: 'archive',
     session_id,
     status: 'archived',
-    source: activePath,
+    source: session.path,
+    source_location: session.location,
     destination: archivePath,
     metadata: sessionMetadata,
-    message: `Session "${session_id}" archived successfully`,
+    message: `Session "${session_id}" archived from ${session.location}`,
   };
 }
 

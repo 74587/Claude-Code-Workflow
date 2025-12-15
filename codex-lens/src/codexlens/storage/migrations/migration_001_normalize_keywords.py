@@ -57,6 +57,13 @@ def upgrade(db_conn: Connection):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_file_keywords_keyword_id ON file_keywords (keyword_id)")
 
     log.info("Migrating existing keywords from 'semantic_metadata' table...")
+
+    # Check if semantic_metadata table exists before querying
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_metadata'")
+    if not cursor.fetchone():
+        log.info("No 'semantic_metadata' table found, skipping data migration.")
+        return
+
     cursor.execute("SELECT file_id, keywords FROM semantic_metadata WHERE keywords IS NOT NULL AND keywords != ''")
 
     files_to_migrate = cursor.fetchall()

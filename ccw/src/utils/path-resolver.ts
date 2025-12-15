@@ -196,15 +196,6 @@ export function ensureDir(dirPath: string): void {
 }
 
 /**
- * Get the .workflow directory path from project path
- * @param projectPath - Path to project
- * @returns Path to .workflow directory
- */
-export function getWorkflowDir(projectPath: string): string {
-  return join(resolvePath(projectPath), '.workflow');
-}
-
-/**
  * Normalize path for display (handle Windows backslashes)
  * @param filePath - Path to normalize
  * @returns Normalized path with forward slashes

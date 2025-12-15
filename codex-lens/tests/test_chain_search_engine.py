@@ -557,34 +557,26 @@ class TestSearchCalleesSingle:
             mock_store_instance = MagicMock()
             MockStore.return_value.__enter__.return_value = mock_store_instance
 
-            # Mock _get_connection to return a mock connection
-            mock_conn = MagicMock()
-            mock_store_instance._get_connection.return_value = mock_conn
-
-            # Mock cursor for file query (getting files containing the symbol)
-            mock_file_cursor = MagicMock()
-            mock_file_cursor.fetchall.return_value = [{"path": "/test/module.py"}]
-            mock_conn.execute.return_value = mock_file_cursor
-
-            # Mock query_relationships_by_source to return relationship data
-            mock_rel_row = {
-                "source_symbol": source_symbol,
-                "target_symbol": "callee_function",
-                "relationship_type": "calls",
-                "source_line": 15,
-                "source_file": "/test/module.py",
-                "target_file": "/test/lib.py",
-            }
-            mock_store_instance.query_relationships_by_source.return_value = [mock_rel_row]
+            # Mock execute_query to return relationship data (using new public API)
+            mock_store_instance.execute_query.return_value = [
+                {
+                    "source_symbol": source_symbol,
+                    "target_symbol": "callee_function",
+                    "relationship_type": "call",
+                    "source_line": 15,
+                    "source_file": "/test/module.py",
+                    "target_file": "/test/lib.py",
+                }
+            ]
 
             # Execute
             result = search_engine._search_callees_single(sample_index_path, source_symbol)
 
-            # Assert
+            # Assert - verify execute_query was called (public API)
+            assert mock_store_instance.execute_query.called
             assert len(result) == 1
             assert result[0]["source_symbol"] == source_symbol
             assert result[0]["target_symbol"] == "callee_function"
-            mock_store_instance.query_relationships_by_source.assert_called_once_with(source_symbol, "/test/module.py")
 
     def test_search_callees_single_handles_errors(self, search_engine, sample_index_path):
         """Test that _search_callees_single returns empty list on error."""
@@ -612,33 +604,29 @@ class TestSearchInheritanceSingle:
             mock_store_instance = MagicMock()
             MockStore.return_value.__enter__.return_value = mock_store_instance
 
-            # Mock _get_connection to return a mock connection
-            mock_conn = MagicMock()
-            mock_store_instance._get_connection.return_value = mock_conn
-
-            # Mock cursor for relationship query
-            mock_cursor = MagicMock()
-            mock_row = {
-                "source_symbol": "DerivedClass",
-                "target_qualified_name": "BaseClass",
-                "relationship_type": "inherits",
-                "source_line": 5,
-                "source_file": "/test/derived.py",
-                "target_file": "/test/base.py",
-            }
-            mock_cursor.fetchall.return_value = [mock_row]
-            mock_conn.execute.return_value = mock_cursor
+            # Mock execute_query to return relationship data (using new public API)
+            mock_store_instance.execute_query.return_value = [
+                {
+                    "source_symbol": "DerivedClass",
+                    "target_qualified_name": "BaseClass",
+                    "relationship_type": "inherits",
+                    "source_line": 5,
+                    "source_file": "/test/derived.py",
+                    "target_file": "/test/base.py",
+                }
+            ]
 
             # Execute
             result = search_engine._search_inheritance_single(sample_index_path, class_name)
 
             # Assert
+            assert mock_store_instance.execute_query.called
             assert len(result) == 1
             assert result[0]["source_symbol"] == "DerivedClass"
             assert result[0]["relationship_type"] == "inherits"
 
-            # Verify SQL query uses 'inherits' filter
-            call_args = mock_conn.execute.call_args
+            # Verify execute_query was called with 'inherits' filter
+            call_args = mock_store_instance.execute_query.call_args
             sql_query = call_args[0][0]
             assert "relationship_type = 'inherits'" in sql_query
 

@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+import time
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from codexlens.entities import CodeRelationship, IndexedFile, SearchResult, Symbol
 from codexlens.errors import StorageError
@@ -15,29 +16,49 @@ from codexlens.errors import StorageError
 
 class SQLiteStore:
     """SQLiteStore providing FTS5 search and symbol lookup.
-    
+
     Implements thread-local connection pooling for improved performance.
     """
+
+    # Maximum number of connections to keep in pool to prevent memory leaks
+    MAX_POOL_SIZE = 32
+    # Idle timeout in seconds (10 minutes)
+    IDLE_TIMEOUT = 600
 
     def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)
         self._lock = threading.RLock()
         self._local = threading.local()
         self._pool_lock = threading.Lock()
-        self._pool: Dict[int, sqlite3.Connection] = {}
+        # Pool stores (connection, last_access_time) tuples
+        self._pool: Dict[int, Tuple[sqlite3.Connection, float]] = {}
         self._pool_generation = 0
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get or create a thread-local database connection."""
         thread_id = threading.get_ident()
+        current_time = time.time()
+
         if getattr(self._local, "generation", None) == self._pool_generation:
             conn = getattr(self._local, "conn", None)
             if conn is not None:
+                # Update last access time
+                with self._pool_lock:
+                    if thread_id in self._pool:
+                        self._pool[thread_id] = (conn, current_time)
                 return conn
 
         with self._pool_lock:
-            conn = self._pool.get(thread_id)
-            if conn is None:
+            pool_entry = self._pool.get(thread_id)
+            if pool_entry is not None:
+                conn, _ = pool_entry
+                # Update last access time
+                self._pool[thread_id] = (conn, current_time)
+            else:
+                # Clean up stale and idle connections if pool is too large
+                if len(self._pool) >= self.MAX_POOL_SIZE:
+                    self._cleanup_stale_connections()
+
                 conn = sqlite3.connect(self.db_path, check_same_thread=False)
                 conn.row_factory = sqlite3.Row
                 conn.execute("PRAGMA journal_mode=WAL")
@@ -45,17 +66,40 @@ class SQLiteStore:
                 conn.execute("PRAGMA foreign_keys=ON")
                 # Memory-mapped I/O for faster reads (30GB limit)
                 conn.execute("PRAGMA mmap_size=30000000000")
-                self._pool[thread_id] = conn
+                self._pool[thread_id] = (conn, current_time)
 
             self._local.conn = conn
             self._local.generation = self._pool_generation
             return conn
 
+    def _cleanup_stale_connections(self) -> None:
+        """Remove connections for threads that no longer exist or have been idle too long."""
+        current_time = time.time()
+        # Get list of active thread IDs
+        active_threads = {t.ident for t in threading.enumerate() if t.ident is not None}
+
+        # Find connections to remove: dead threads or idle timeout exceeded
+        stale_ids = []
+        for tid, (conn, last_access) in list(self._pool.items()):
+            is_dead_thread = tid not in active_threads
+            is_idle = (current_time - last_access) > self.IDLE_TIMEOUT
+            if is_dead_thread or is_idle:
+                stale_ids.append(tid)
+
+        # Close and remove stale connections
+        for tid in stale_ids:
+            try:
+                conn, _ = self._pool[tid]
+                conn.close()
+            except Exception:
+                pass
+            del self._pool[tid]
+
     def close(self) -> None:
         """Close all pooled connections."""
         with self._lock:
             with self._pool_lock:
-                for conn in self._pool.values():
+                for conn, _ in self._pool.values():
                     conn.close()
                 self._pool.clear()
                 self._pool_generation += 1
@@ -71,6 +115,56 @@ class SQLiteStore:
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
         self.close()
+
+    def execute_query(
+        self,
+        sql: str,
+        params: tuple = (),
+        allow_writes: bool = False
+    ) -> List[Dict[str, Any]]:
+        """Execute a raw SQL query and return results as dictionaries.
+
+        This is the public API for executing custom queries without bypassing
+        encapsulation via _get_connection().
+
+        By default, only SELECT queries are allowed. Use allow_writes=True
+        for trusted internal code that needs to execute other statements.
+
+        Args:
+            sql: SQL query string with ? placeholders for parameters
+            params: Tuple of parameter values to bind
+            allow_writes: If True, allow non-SELECT statements (default False)
+
+        Returns:
+            List of result rows as dictionaries
+
+        Raises:
+            StorageError: If query execution fails or validation fails
+        """
+        # Validate query type for security
+        sql_stripped = sql.strip().upper()
+        if not allow_writes:
+            # Only allow SELECT and WITH (for CTEs) statements
+            if not (sql_stripped.startswith("SELECT") or sql_stripped.startswith("WITH")):
+                raise StorageError(
+                    "Only SELECT queries are allowed. "
+                    "Use allow_writes=True for trusted internal operations.",
+                    db_path=str(self.db_path),
+                    operation="execute_query",
+                    details={"query_type": sql_stripped.split()[0] if sql_stripped else "EMPTY"}
+                )
+
+        try:
+            conn = self._get_connection()
+            rows = conn.execute(sql, params).fetchall()
+            return [dict(row) for row in rows]
+        except sqlite3.Error as e:
+            raise StorageError(
+                f"Query execution failed: {e}",
+                db_path=str(self.db_path),
+                operation="execute_query",
+                details={"error_type": type(e).__name__}
+            ) from e
 
     def initialize(self) -> None:
         with self._lock:
@@ -110,11 +204,13 @@ class SQLiteStore:
             if indexed_file.symbols:
                 conn.executemany(
                     """
-                    INSERT INTO symbols(file_id, name, kind, start_line, end_line)
-                    VALUES(?, ?, ?, ?, ?)
+                    INSERT INTO symbols(file_id, name, kind, start_line, end_line, token_count, symbol_type)
+                    VALUES(?, ?, ?, ?, ?, ?, ?)
                     """,
                     [
-                        (file_id, s.name, s.kind, s.range[0], s.range[1])
+                        (file_id, s.name, s.kind, s.range[0], s.range[1],
+                         getattr(s, 'token_count', None),
+                         getattr(s, 'symbol_type', None) or s.kind)
                         for s in indexed_file.symbols
                     ],
                 )
@@ -159,11 +255,13 @@ class SQLiteStore:
                     if indexed_file.symbols:
                         conn.executemany(
                             """
-                            INSERT INTO symbols(file_id, name, kind, start_line, end_line)
-                            VALUES(?, ?, ?, ?, ?)
+                            INSERT INTO symbols(file_id, name, kind, start_line, end_line, token_count, symbol_type)
+                            VALUES(?, ?, ?, ?, ?, ?, ?)
                             """,
                             [
-                                (file_id, s.name, s.kind, s.range[0], s.range[1])
+                                (file_id, s.name, s.kind, s.range[0], s.range[1],
+                                 getattr(s, 'token_count', None),
+                                 getattr(s, 'symbol_type', None) or s.kind)
                                 for s in indexed_file.symbols
                             ],
                         )
@@ -513,12 +611,15 @@ class SQLiteStore:
                     name TEXT NOT NULL,
                     kind TEXT NOT NULL,
                     start_line INTEGER NOT NULL,
-                    end_line INTEGER NOT NULL
+                    end_line INTEGER NOT NULL,
+                    token_count INTEGER,
+                    symbol_type TEXT
                 )
                 """
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_kind ON symbols(kind)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_type ON symbols(symbol_type)")
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS code_relationships (

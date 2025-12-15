@@ -29,8 +29,11 @@ export class CacheManager<T> {
    * @param options - Cache configuration options
    */
   constructor(cacheKey: string, options: CacheOptions = {}) {
+    if (!options.cacheDir) {
+      throw new Error('CacheManager requires cacheDir option. Use StoragePaths.project(path).cache');
+    }
     this.ttl = options.ttl || 5 * 60 * 1000; // Default: 5 minutes
-    this.cacheDir = options.cacheDir || '.ccw-cache';
+    this.cacheDir = options.cacheDir;
     this.cacheFile = join(this.cacheDir, `${cacheKey}.json`);
   }
 

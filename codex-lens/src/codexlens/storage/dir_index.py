@@ -55,6 +55,10 @@ class DirIndexStore:
     Thread-safe operations with WAL mode enabled.
     """
 
+    # Schema version for migration tracking
+    # Increment this when schema changes require migration
+    SCHEMA_VERSION = 2
+
     def __init__(self, db_path: str | Path) -> None:
         """Initialize directory index store.
 
@@ -70,9 +74,57 @@ class DirIndexStore:
         with self._lock:
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
             conn = self._get_connection()
+
+            # Check current schema version
+            current_version = self._get_schema_version(conn)
+
+            # Fail gracefully if database is from a newer version
+            if current_version > self.SCHEMA_VERSION:
+                raise StorageError(
+                    f"Database schema version {current_version} is newer than "
+                    f"supported version {self.SCHEMA_VERSION}. "
+                    f"Please update the application or use a compatible database.",
+                    db_path=str(self.db_path),
+                    operation="initialize",
+                    details={
+                        "current_version": current_version,
+                        "supported_version": self.SCHEMA_VERSION
+                    }
+                )
+
+            # Create or migrate schema
             self._create_schema(conn)
             self._create_fts_triggers(conn)
+
+            # Apply versioned migrations if needed
+            if current_version < self.SCHEMA_VERSION:
+                self._apply_migrations(conn, current_version)
+                self._set_schema_version(conn, self.SCHEMA_VERSION)
+
             conn.commit()
+
+    def _get_schema_version(self, conn: sqlite3.Connection) -> int:
+        """Get current schema version from database."""
+        try:
+            row = conn.execute("PRAGMA user_version").fetchone()
+            return row[0] if row else 0
+        except Exception:
+            return 0
+
+    def _set_schema_version(self, conn: sqlite3.Connection, version: int) -> None:
+        """Set schema version in database."""
+        conn.execute(f"PRAGMA user_version = {version}")
+
+    def _apply_migrations(self, conn: sqlite3.Connection, from_version: int) -> None:
+        """Apply schema migrations from current version to latest.
+
+        Args:
+            conn: Database connection
+            from_version: Current schema version
+        """
+        # Migration v0/v1 -> v2: Add 'name' column to files table
+        if from_version < 2:
+            self._migrate_v2_add_name_column(conn)
 
     def close(self) -> None:
         """Close database connection."""
@@ -1105,6 +1157,37 @@ class DirIndexStore:
 
         except sqlite3.DatabaseError as exc:
             raise StorageError(f"Failed to create schema: {exc}") from exc
+
+    def _migrate_v2_add_name_column(self, conn: sqlite3.Connection) -> None:
+        """Migration v2: Add 'name' column to files table.
+
+        Required for FTS5 external content table.
+
+        Args:
+            conn: Database connection
+        """
+        # Check if files table exists and has columns
+        cursor = conn.execute("PRAGMA table_info(files)")
+        files_columns = {row[1] for row in cursor.fetchall()}
+
+        if not files_columns:
+            return  # No files table yet, will be created fresh
+
+        # Skip if 'name' column already exists
+        if "name" in files_columns:
+            return
+
+        # Add 'name' column with default value
+        conn.execute("ALTER TABLE files ADD COLUMN name TEXT NOT NULL DEFAULT ''")
+
+        # Populate 'name' column from full_path using pathlib for robustness
+        rows = conn.execute("SELECT id, full_path FROM files WHERE name = ''").fetchall()
+        for row in rows:
+            file_id = row[0]
+            full_path = row[1]
+            # Use pathlib.Path.name for cross-platform compatibility
+            name = Path(full_path).name if full_path else ""
+            conn.execute("UPDATE files SET name = ? WHERE id = ?", (name, file_id))
 
     def _create_fts_triggers(self, conn: sqlite3.Connection) -> None:
         """Create FTS5 external content triggers.

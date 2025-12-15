@@ -199,7 +199,13 @@ class TestEntitySerialization:
         """Test Symbol serialization."""
         symbol = Symbol(name="test", kind="function", range=(1, 10))
         data = symbol.model_dump()
-        assert data == {"name": "test", "kind": "function", "range": (1, 10)}
+        assert data == {
+            "name": "test",
+            "kind": "function",
+            "range": (1, 10),
+            "token_count": None,
+            "symbol_type": None,
+        }
 
     def test_indexed_file_model_dump(self):
         """Test IndexedFile serialization."""

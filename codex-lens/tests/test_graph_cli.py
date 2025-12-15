@@ -130,7 +130,7 @@ def helper():
                     target_symbol="BaseClass",
                     relationship_type="inherits",
                     source_file=str(utils_file),
-                    source_line=5,
+                    source_line=6,  # DerivedClass is defined on line 6
                     target_file=str(utils_file)
                 ),
                 CodeRelationship(

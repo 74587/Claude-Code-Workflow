@@ -1,5 +1,5 @@
 export type SessionStatus = 'active' | 'paused' | 'completed' | 'archived';
-export type SessionType = 'workflow' | 'review' | 'tdd' | 'test' | 'docs';
+export type SessionType = 'workflow' | 'review' | 'tdd' | 'test' | 'docs' | 'lite-plan' | 'lite-fix';
 export type ContentType =
   | 'session' | 'plan' | 'task' | 'summary'
   | 'process' | 'chat' | 'brainstorm'

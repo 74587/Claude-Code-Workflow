@@ -6,6 +6,10 @@ function renderDashboard() {
   // Show stats grid and search (may be hidden by MCP view)
   showStatsAndSearch();
 
+  // Hide storage card (only shown in CLI Manager view)
+  const storageCard = document.getElementById('storageCard');
+  if (storageCard) storageCard.style.display = 'none';
+
   updateStats();
   updateBadges();
   updateCarousel();

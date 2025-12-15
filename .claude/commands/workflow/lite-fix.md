@@ -80,9 +80,21 @@ const bugSlug = bug_description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substr
 const dateStr = getUtc8ISOString().substring(0, 10)  // Format: 2025-11-29
 
 const sessionId = `${bugSlug}-${dateStr}`  // e.g., "user-avatar-upload-fails-2025-11-29"
-const sessionFolder = `.workflow/.lite-fix/${sessionId}`
 
-bash(`mkdir -p ${sessionFolder} && test -d ${sessionFolder} && echo "SUCCESS: ${sessionFolder}" || echo "FAILED: ${sessionFolder}"`)
+// Initialize session via session_manager tool
+const initResult = await ccw_tool_exec('session_manager', {
+  operation: 'init',
+  session_id: sessionId,
+  location: 'lite-fix',
+  metadata: {
+    description: bug_description,
+    severity: severity,  // Set after severity assessment
+    created_at: getUtc8ISOString()
+  }
+})
+
+const sessionFolder = initResult.result.path
+console.log(`Session initialized: ${sessionId} at ${sessionFolder}`)
 ```
 
 **Diagnosis Decision Logic**:

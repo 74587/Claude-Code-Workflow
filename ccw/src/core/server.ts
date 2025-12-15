@@ -82,6 +82,7 @@ const MODULE_FILES = [
   'components/hook-manager.js',
   'components/cli-status.js',
   'components/cli-history.js',
+  'components/storage-manager.js',
   'components/_exp_helpers.js',
   'components/tabs-other.js',
   'components/tabs-context.js',
@@ -295,11 +296,12 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         if (await handleFilesRoutes(routeContext)) return;
       }
 
-      // System routes (data, health, version, paths, shutdown, notify)
+      // System routes (data, health, version, paths, shutdown, notify, storage)
       if (pathname === '/api/data' || pathname === '/api/health' ||
           pathname === '/api/version-check' || pathname === '/api/shutdown' ||
           pathname === '/api/recent-paths' || pathname === '/api/switch-path' ||
-          pathname === '/api/remove-recent-path' || pathname === '/api/system/notify') {
+          pathname === '/api/remove-recent-path' || pathname === '/api/system/notify' ||
+          pathname.startsWith('/api/storage/')) {
         if (await handleSystemRoutes(routeContext)) return;
       }
 

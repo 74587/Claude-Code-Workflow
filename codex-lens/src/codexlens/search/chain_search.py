@@ -778,29 +778,39 @@ class ChainSearchEngine:
             List of callee relationship dicts (empty on error)
         """
         try:
-            # Use the connection pool via SQLiteStore
             with SQLiteStore(index_path) as store:
-                # Search across all files containing the symbol
-                # Get all files that have this symbol
-                conn = store._get_connection()
-                file_rows = conn.execute(
+                # Single JOIN query to get all callees (fixes N+1 query problem)
+                # Uses public execute_query API instead of _get_connection bypass
+                rows = store.execute_query(
                     """
-                    SELECT DISTINCT f.path
-                    FROM symbols s
+                    SELECT
+                        s.name AS source_symbol,
+                        r.target_qualified_name AS target_symbol,
+                        r.relationship_type,
+                        r.source_line,
+                        f.path AS source_file,
+                        r.target_file
+                    FROM code_relationships r
+                    JOIN symbols s ON r.source_symbol_id = s.id
                     JOIN files f ON s.file_id = f.id
-                    WHERE s.name = ?
+                    WHERE s.name = ? AND r.relationship_type = 'call'
+                    ORDER BY f.path, r.source_line
+                    LIMIT 100
                     """,
                     (source_symbol,)
-                ).fetchall()
+                )
 
-                # Collect results from all matching files
-                all_results = []
-                for file_row in file_rows:
-                    file_path = file_row["path"]
-                    results = store.query_relationships_by_source(source_symbol, file_path)
-                    all_results.extend(results)
-
-                return all_results
+                return [
+                    {
+                        "source_symbol": row["source_symbol"],
+                        "target_symbol": row["target_symbol"],
+                        "relationship_type": row["relationship_type"],
+                        "source_line": row["source_line"],
+                        "source_file": row["source_file"],
+                        "target_file": row["target_file"],
+                    }
+                    for row in rows
+                ]
         except Exception as exc:
             self.logger.debug(f"Callee search error in {index_path}: {exc}")
             return []
@@ -864,10 +874,11 @@ class ChainSearchEngine:
         """
         try:
             with SQLiteStore(index_path) as store:
-                conn = store._get_connection()
-
-                # Search both as base class (target) and derived class (source)
-                rows = conn.execute(
+                # Use UNION to find relationships where class is either:
+                # 1. The base class (target) - find derived classes
+                # 2. The derived class (source) - find parent classes
+                # Uses public execute_query API instead of _get_connection bypass
+                rows = store.execute_query(
                     """
                     SELECT
                         s.name AS source_symbol,
@@ -879,13 +890,23 @@ class ChainSearchEngine:
                     FROM code_relationships r
                     JOIN symbols s ON r.source_symbol_id = s.id
                     JOIN files f ON s.file_id = f.id
-                    WHERE (s.name = ? OR r.target_qualified_name LIKE ?)
-                        AND r.relationship_type = 'inherits'
-                    ORDER BY f.path, r.source_line
+                    WHERE r.target_qualified_name = ? AND r.relationship_type = 'inherits'
+                    UNION
+                    SELECT
+                        s.name AS source_symbol,
+                        r.target_qualified_name,
+                        r.relationship_type,
+                        r.source_line,
+                        f.path AS source_file,
+                        r.target_file
+                    FROM code_relationships r
+                    JOIN symbols s ON r.source_symbol_id = s.id
+                    JOIN files f ON s.file_id = f.id
+                    WHERE s.name = ? AND r.relationship_type = 'inherits'
                     LIMIT 100
                     """,
-                    (class_name, f"%{class_name}%")
-                ).fetchall()
+                    (class_name, class_name)
+                )
 
                 return [
                     {

@@ -111,6 +111,8 @@ class Chunker:
         avg_line_len = len(content) / max(len(lines), 1)
         lines_per_chunk = max(10, int(self.config.max_chunk_size / max(avg_line_len, 1)))
         overlap_lines = max(2, int(self.config.overlap / max(avg_line_len, 1)))
+        # Ensure overlap is less than chunk size to prevent infinite loop
+        overlap_lines = min(overlap_lines, lines_per_chunk - 1)
 
         start = 0
         chunk_idx = 0

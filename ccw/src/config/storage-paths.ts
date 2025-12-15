@@ -111,11 +111,34 @@ export function getProjectPaths(projectPath: string): ProjectPaths {
 }
 
 /**
+ * Get storage paths for a project by its ID (hash)
+ * Use when iterating centralized storage without original project path
+ * @param projectId - 16-character project ID hash
+ * @returns Object with all project-specific paths
+ */
+export function getProjectPathsById(projectId: string): ProjectPaths {
+  const projectDir = join(CCW_HOME, 'projects', projectId);
+
+  return {
+    root: projectDir,
+    cliHistory: join(projectDir, 'cli-history'),
+    historyDb: join(projectDir, 'cli-history', 'history.db'),
+    memory: join(projectDir, 'memory'),
+    memoryDb: join(projectDir, 'memory', 'memory.db'),
+    cache: join(projectDir, 'cache'),
+    dashboardCache: join(projectDir, 'cache', 'dashboard-data.json'),
+    config: join(projectDir, 'config'),
+    cliConfig: join(projectDir, 'config', 'cli-config.json'),
+  };
+}
+
+/**
  * Unified StoragePaths object combining global and project paths
  */
 export const StoragePaths = {
   global: GlobalPaths,
   project: getProjectPaths,
+  projectById: getProjectPathsById,
 };
 
 /**

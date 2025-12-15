@@ -10,6 +10,15 @@ import { join } from 'path';
 import { resolvePath, getRecentPaths, trackRecentPath, removeRecentPath, normalizePathForDisplay } from '../../utils/path-resolver.js';
 import { scanSessions } from '../session-scanner.js';
 import { aggregateData } from '../data-aggregator.js';
+import {
+  getStorageStats,
+  getStorageConfig,
+  cleanProjectStorage,
+  cleanAllStorage,
+  resolveProjectId,
+  projectExists,
+  formatBytes
+} from '../../tools/storage-manager.js';
 
 export interface RouteContext {
   pathname: string;
@@ -321,6 +330,95 @@ export async function handleSystemRoutes(ctx: RouteContext): Promise<boolean> {
       broadcastToClients(notification);
 
       return { success: true, broadcast: true };
+    });
+    return true;
+  }
+
+  // API: Get storage statistics
+  if (pathname === '/api/storage/stats') {
+    try {
+      const stats = getStorageStats();
+      const config = getStorageConfig();
+
+      // Format for dashboard display
+      const response = {
+        location: stats.rootPath,
+        isCustomLocation: config.isCustom,
+        totalSize: stats.totalSize,
+        totalSizeFormatted: formatBytes(stats.totalSize),
+        projectCount: stats.projectCount,
+        globalDb: stats.globalDb,
+        projects: stats.projects.map(p => ({
+          id: p.projectId,
+          totalSize: p.totalSize,
+          totalSizeFormatted: formatBytes(p.totalSize),
+          historyRecords: p.cliHistory.recordCount ?? 0,
+          hasCliHistory: p.cliHistory.exists,
+          hasMemory: p.memory.exists,
+          hasCache: p.cache.exists,
+          lastModified: p.lastModified?.toISOString() || null
+        }))
+      };
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(response));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to get storage stats', details: String(err) }));
+    }
+    return true;
+  }
+
+  // API: Clean storage
+  if (pathname === '/api/storage/clean' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { projectId, projectPath, all, types } = body as {
+        projectId?: string;
+        projectPath?: string;
+        all?: boolean;
+        types?: { cliHistory?: boolean; memory?: boolean; cache?: boolean; config?: boolean };
+      };
+
+      const cleanOptions = types || { all: true };
+
+      if (projectId) {
+        // Clean specific project by ID
+        if (!projectExists(projectId)) {
+          return { error: 'Project not found', status: 404 };
+        }
+        const result = cleanProjectStorage(projectId, cleanOptions);
+        return {
+          success: result.success,
+          freedBytes: result.freedBytes,
+          freedFormatted: formatBytes(result.freedBytes),
+          errors: result.errors
+        };
+      } else if (projectPath) {
+        // Clean specific project by path
+        const id = resolveProjectId(projectPath);
+        if (!projectExists(id)) {
+          return { error: 'No storage found for project', status: 404 };
+        }
+        const result = cleanProjectStorage(id, cleanOptions);
+        return {
+          success: result.success,
+          freedBytes: result.freedBytes,
+          freedFormatted: formatBytes(result.freedBytes),
+          errors: result.errors
+        };
+      } else if (all) {
+        // Clean all storage
+        const result = cleanAllStorage(cleanOptions);
+        return {
+          success: result.success,
+          projectsCleaned: result.projectsCleaned,
+          freedBytes: result.freedBytes,
+          freedFormatted: formatBytes(result.freedBytes),
+          errors: result.errors
+        };
+      } else {
+        return { error: 'Specify projectId, projectPath, or all=true', status: 400 };
+      }
     });
     return true;
   }

@@ -297,6 +297,10 @@ async function renderCliManager() {
   if (statsGrid) statsGrid.style.display = 'none';
   if (searchInput) searchInput.parentElement.style.display = 'none';
 
+  // Show storage card (only visible in CLI Manager view)
+  var storageCard = document.getElementById('storageCard');
+  if (storageCard) storageCard.style.display = '';
+
   // Load data (including CodexLens status for tools section)
   await Promise.all([
     loadCliToolStatus(),
@@ -319,6 +323,11 @@ async function renderCliManager() {
   renderCcwSection();
   renderCliSettingsSection();
   renderCcwEndpointToolsSection();
+
+  // Initialize storage manager card
+  if (typeof initStorageManager === 'function') {
+    initStorageManager();
+  }
 
   // Initialize Lucide icons
   if (window.lucide) lucide.createIcons();

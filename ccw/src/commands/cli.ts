@@ -9,9 +9,21 @@ import {
   cliExecutorTool,
   getCliToolsStatus,
   getExecutionHistory,
+  getExecutionHistoryAsync,
   getExecutionDetail,
   getConversationDetail
 } from '../tools/cli-executor.js';
+import {
+  getStorageStats,
+  getStorageConfig,
+  cleanProjectStorage,
+  cleanAllStorage,
+  formatBytes,
+  formatTimeAgo,
+  resolveProjectId,
+  projectExists,
+  getStorageLocationInstructions
+} from '../tools/storage-manager.js';
 
 // Dashboard notification settings
 const DASHBOARD_PORT = process.env.CCW_PORT || 3456;
@@ -62,6 +74,199 @@ interface HistoryOptions {
   limit?: string;
   tool?: string;
   status?: string;
+}
+
+interface StorageOptions {
+  all?: boolean;
+  project?: string;
+  cliHistory?: boolean;
+  memory?: boolean;
+  cache?: boolean;
+  config?: boolean;
+  force?: boolean;
+}
+
+/**
+ * Show storage information and management options
+ */
+async function storageAction(subAction: string | undefined, options: StorageOptions): Promise<void> {
+  switch (subAction) {
+    case 'info':
+    case undefined:
+      await showStorageInfo();
+      break;
+    case 'clean':
+      await cleanStorage(options);
+      break;
+    case 'config':
+      showStorageConfig();
+      break;
+    default:
+      showStorageHelp();
+  }
+}
+
+/**
+ * Show storage information
+ */
+async function showStorageInfo(): Promise<void> {
+  console.log(chalk.bold.cyan('\n  CCW Storage Information\n'));
+
+  const config = getStorageConfig();
+  const stats = getStorageStats();
+
+  // Configuration
+  console.log(chalk.bold.white('  Location:'));
+  console.log(`    ${chalk.cyan(stats.rootPath)}`);
+  if (config.isCustom) {
+    console.log(chalk.gray(`    (Custom: CCW_DATA_DIR=${config.envVar})`));
+  }
+  console.log();
+
+  // Summary
+  console.log(chalk.bold.white('  Summary:'));
+  console.log(`    Total Size:     ${chalk.yellow(formatBytes(stats.totalSize))}`);
+  console.log(`    Projects:       ${chalk.yellow(stats.projectCount.toString())}`);
+  console.log(`    Global DB:      ${stats.globalDb.exists ? chalk.green(formatBytes(stats.globalDb.size)) : chalk.gray('Not created')}`);
+  console.log();
+
+  // Projects breakdown
+  if (stats.projects.length > 0) {
+    console.log(chalk.bold.white('  Projects:'));
+    console.log(chalk.gray('    ID               Size       History    Last Used'));
+    console.log(chalk.gray('    ─────────────────────────────────────────────────────'));
+
+    for (const project of stats.projects) {
+      const historyInfo = project.cliHistory.recordCount !== undefined
+        ? `${project.cliHistory.recordCount} records`
+        : (project.cliHistory.exists ? 'Yes' : '-');
+
+      console.log(
+        `    ${chalk.dim(project.projectId)}  ` +
+        `${formatBytes(project.totalSize).padStart(8)}   ` +
+        `${historyInfo.padStart(10)}   ` +
+        `${chalk.gray(formatTimeAgo(project.lastModified))}`
+      );
+    }
+    console.log();
+  }
+
+  // Usage tips
+  console.log(chalk.gray('  Commands:'));
+  console.log(chalk.gray('    ccw cli storage clean              Clean all storage'));
+  console.log(chalk.gray('    ccw cli storage clean --project <path>  Clean specific project'));
+  console.log(chalk.gray('    ccw cli storage config             Show location config'));
+  console.log();
+}
+
+/**
+ * Clean storage
+ */
+async function cleanStorage(options: StorageOptions): Promise<void> {
+  const { all, project, force, cliHistory, memory, cache, config } = options;
+
+  // Determine what to clean
+  const cleanTypes = {
+    cliHistory: cliHistory || (!cliHistory && !memory && !cache && !config),
+    memory: memory || (!cliHistory && !memory && !cache && !config),
+    cache: cache || (!cliHistory && !memory && !cache && !config),
+    config: config || false, // Config requires explicit flag
+    all: !cliHistory && !memory && !cache && !config
+  };
+
+  if (project) {
+    // Clean specific project
+    const projectId = resolveProjectId(project);
+
+    if (!projectExists(projectId)) {
+      console.log(chalk.yellow(`\n  No storage found for project: ${project}`));
+      console.log(chalk.gray(`  (Project ID: ${projectId})\n`));
+      return;
+    }
+
+    if (!force) {
+      console.log(chalk.bold.yellow('\n  Warning: This will delete storage for project:'));
+      console.log(`    Path: ${project}`);
+      console.log(`    ID:   ${projectId}`);
+      console.log(chalk.gray('\n  Use --force to confirm deletion.\n'));
+      return;
+    }
+
+    console.log(chalk.bold.cyan('\n  Cleaning project storage...\n'));
+    const result = cleanProjectStorage(projectId, cleanTypes);
+
+    if (result.success) {
+      console.log(chalk.green(`  ✓ Cleaned ${formatBytes(result.freedBytes)}`));
+    } else {
+      console.log(chalk.red('  ✗ Cleanup completed with errors:'));
+      for (const err of result.errors) {
+        console.log(chalk.red(`    - ${err}`));
+      }
+    }
+  } else {
+    // Clean all storage
+    const stats = getStorageStats();
+
+    if (stats.projectCount === 0) {
+      console.log(chalk.yellow('\n  No storage to clean.\n'));
+      return;
+    }
+
+    if (!force) {
+      console.log(chalk.bold.yellow('\n  Warning: This will delete ALL CCW storage:'));
+      console.log(`    Location:  ${stats.rootPath}`);
+      console.log(`    Projects:  ${stats.projectCount}`);
+      console.log(`    Size:      ${formatBytes(stats.totalSize)}`);
+      console.log(chalk.gray('\n  Use --force to confirm deletion.\n'));
+      return;
+    }
+
+    console.log(chalk.bold.cyan('\n  Cleaning all storage...\n'));
+    const result = cleanAllStorage(cleanTypes);
+
+    if (result.success) {
+      console.log(chalk.green(`  ✓ Cleaned ${result.projectsCleaned} projects, freed ${formatBytes(result.freedBytes)}`));
+    } else {
+      console.log(chalk.yellow(`  ⚠ Cleaned ${result.projectsCleaned} projects with some errors:`));
+      for (const err of result.errors) {
+        console.log(chalk.red(`    - ${err}`));
+      }
+    }
+  }
+  console.log();
+}
+
+/**
+ * Show storage configuration
+ */
+function showStorageConfig(): void {
+  console.log(getStorageLocationInstructions());
+}
+
+/**
+ * Show storage help
+ */
+function showStorageHelp(): void {
+  console.log(chalk.bold.cyan('\n  CCW Storage Management\n'));
+  console.log('  Subcommands:');
+  console.log(chalk.gray('    info                Show storage information (default)'));
+  console.log(chalk.gray('    clean               Clean storage'));
+  console.log(chalk.gray('    config              Show configuration instructions'));
+  console.log();
+  console.log('  Clean Options:');
+  console.log(chalk.gray('    --project <path>    Clean specific project storage'));
+  console.log(chalk.gray('    --force             Confirm deletion'));
+  console.log(chalk.gray('    --cli-history       Clean only CLI history'));
+  console.log(chalk.gray('    --memory            Clean only memory store'));
+  console.log(chalk.gray('    --cache             Clean only cache'));
+  console.log(chalk.gray('    --config            Clean config (requires explicit flag)'));
+  console.log();
+  console.log('  Examples:');
+  console.log(chalk.gray('    ccw cli storage                           # Show storage info'));
+  console.log(chalk.gray('    ccw cli storage clean --force             # Clean all storage'));
+  console.log(chalk.gray('    ccw cli storage clean --project . --force # Clean current project'));
+  console.log(chalk.gray('    ccw cli storage config                    # Show config instructions'));
+  console.log();
 }
 
 /**
@@ -231,7 +436,7 @@ async function historyAction(options: HistoryOptions): Promise<void> {
 
   console.log(chalk.bold.cyan('\n  CLI Execution History\n'));
 
-  const history = getExecutionHistory(process.cwd(), { limit: parseInt(limit, 10), tool, status });
+  const history = await getExecutionHistoryAsync(process.cwd(), { limit: parseInt(limit, 10), tool, status });
 
   if (history.executions.length === 0) {
     console.log(chalk.gray('  No executions found.\n'));
@@ -360,11 +565,16 @@ export async function cliCommand(
       await detailAction(argsArray[0]);
       break;
 
+    case 'storage':
+      await storageAction(argsArray[0], options as unknown as StorageOptions);
+      break;
+
     default:
       console.log(chalk.bold.cyan('\n  CCW CLI Tool Executor\n'));
       console.log('  Unified interface for Gemini, Qwen, and Codex CLI tools.\n');
       console.log('  Subcommands:');
       console.log(chalk.gray('    status              Check CLI tools availability'));
+      console.log(chalk.gray('    storage [cmd]       Manage CCW storage (info/clean/config)'));
       console.log(chalk.gray('    exec <prompt>       Execute a CLI tool'));
       console.log(chalk.gray('    history             Show execution history'));
       console.log(chalk.gray('    detail <id>         Show execution detail'));
