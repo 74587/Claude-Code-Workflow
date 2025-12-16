@@ -181,31 +181,46 @@ def search(
     limit: int = typer.Option(20, "--limit", "-n", min=1, max=500, help="Max results."),
     depth: int = typer.Option(-1, "--depth", "-d", help="Search depth (-1 = unlimited, 0 = current only)."),
     files_only: bool = typer.Option(False, "--files-only", "-f", help="Return only file paths without content snippets."),
-    mode: str = typer.Option("exact", "--mode", "-m", help="Search mode: exact, fuzzy, hybrid, vector."),
+    mode: str = typer.Option("exact", "--mode", "-m", help="Search mode: exact, fuzzy, hybrid, vector, pure-vector."),
     weights: Optional[str] = typer.Option(None, "--weights", help="Custom RRF weights as 'exact,fuzzy,vector' (e.g., '0.5,0.3,0.2')."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
 ) -> None:
-    """Search indexed file contents using SQLite FTS5.
+    """Search indexed file contents using SQLite FTS5 or semantic vectors.
 
     Uses chain search across directory indexes.
     Use --depth to limit search recursion (0 = current dir only).
 
     Search Modes:
-      - exact: Exact FTS using unicode61 tokenizer (default)
-      - fuzzy: Fuzzy FTS using trigram tokenizer
-      - hybrid: RRF fusion of exact + fuzzy (recommended)
-      - vector: Semantic vector search (future)
+      - exact: Exact FTS using unicode61 tokenizer (default) - for code identifiers
+      - fuzzy: Fuzzy FTS using trigram tokenizer - for typo-tolerant search
+      - hybrid: RRF fusion of exact + fuzzy + vector (recommended) - best recall
+      - vector: Vector search with exact FTS fallback - semantic + keyword
+      - pure-vector: Pure semantic vector search only - natural language queries
+
+    Vector Search Requirements:
+      Vector search modes require pre-generated embeddings.
+      Use 'codexlens embeddings-generate' to create embeddings first.
 
     Hybrid Mode:
       Default weights: exact=0.4, fuzzy=0.3, vector=0.3
       Use --weights to customize (e.g., --weights 0.5,0.3,0.2)
+
+    Examples:
+      # Exact code search
+      codexlens search "authenticate_user" --mode exact
+
+      # Semantic search (requires embeddings)
+      codexlens search "how to verify user credentials" --mode pure-vector
+
+      # Best of both worlds
+      codexlens search "authentication" --mode hybrid
     """
     _configure_logging(verbose)
     search_path = path.expanduser().resolve()
 
     # Validate mode
-    valid_modes = ["exact", "fuzzy", "hybrid", "vector"]
+    valid_modes = ["exact", "fuzzy", "hybrid", "vector", "pure-vector"]
     if mode not in valid_modes:
         if json_mode:
             print_json(success=False, error=f"Invalid mode: {mode}. Must be one of: {', '.join(valid_modes)}")
@@ -244,8 +259,18 @@ def search(
         engine = ChainSearchEngine(registry, mapper)
 
         # Map mode to options
-        hybrid_mode = mode == "hybrid"
-        enable_fuzzy = mode in ["fuzzy", "hybrid"]
+        if mode == "exact":
+            hybrid_mode, enable_fuzzy, enable_vector, pure_vector = False, False, False, False
+        elif mode == "fuzzy":
+            hybrid_mode, enable_fuzzy, enable_vector, pure_vector = False, True, False, False
+        elif mode == "vector":
+            hybrid_mode, enable_fuzzy, enable_vector, pure_vector = True, False, True, False  # Vector + exact fallback
+        elif mode == "pure-vector":
+            hybrid_mode, enable_fuzzy, enable_vector, pure_vector = True, False, True, True  # Pure vector only
+        elif mode == "hybrid":
+            hybrid_mode, enable_fuzzy, enable_vector, pure_vector = True, True, True, False
+        else:
+            raise ValueError(f"Invalid mode: {mode}")
 
         options = SearchOptions(
             depth=depth,
@@ -253,6 +278,8 @@ def search(
             files_only=files_only,
             hybrid_mode=hybrid_mode,
             enable_fuzzy=enable_fuzzy,
+            enable_vector=enable_vector,
+            pure_vector=pure_vector,
             hybrid_weights=hybrid_weights,
         )
 
@@ -1573,3 +1600,483 @@ def semantic_list(
     finally:
         if registry is not None:
             registry.close()
+
+
+# ==================== Model Management Commands ====================
+
+@app.command(name="model-list")
+def model_list(
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+) -> None:
+    """List available embedding models and their installation status.
+
+    Shows 4 model profiles (fast, code, multilingual, balanced) with:
+    - Installation status
+    - Model size and dimensions
+    - Use case recommendations
+    """
+    try:
+        from codexlens.cli.model_manager import list_models
+
+        result = list_models()
+
+        if json_mode:
+            print_json(**result)
+        else:
+            if not result["success"]:
+                console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+                raise typer.Exit(code=1)
+
+            data = result["result"]
+            models = data["models"]
+            cache_dir = data["cache_dir"]
+            cache_exists = data["cache_exists"]
+
+            console.print("[bold]Available Embedding Models:[/bold]")
+            console.print(f"Cache directory: [dim]{cache_dir}[/dim] {'(exists)' if cache_exists else '(not found)'}\n")
+
+            table = Table(show_header=True, header_style="bold")
+            table.add_column("Profile", style="cyan")
+            table.add_column("Model Name", style="blue")
+            table.add_column("Dims", justify="right")
+            table.add_column("Size (MB)", justify="right")
+            table.add_column("Status", justify="center")
+            table.add_column("Use Case", style="dim")
+
+            for model in models:
+                status_icon = "[green]✓[/green]" if model["installed"] else "[dim]—[/dim]"
+                size_display = (
+                    f"{model['actual_size_mb']:.1f}" if model["installed"]
+                    else f"~{model['estimated_size_mb']}"
+                )
+                table.add_row(
+                    model["profile"],
+                    model["model_name"],
+                    str(model["dimensions"]),
+                    size_display,
+                    status_icon,
+                    model["use_case"][:40] + "..." if len(model["use_case"]) > 40 else model["use_case"],
+                )
+
+            console.print(table)
+            console.print("\n[dim]Use 'codexlens model-download <profile>' to download a model[/dim]")
+
+    except ImportError:
+        if json_mode:
+            print_json(success=False, error="fastembed not installed. Install with: pip install codexlens[semantic]")
+        else:
+            console.print("[red]Error:[/red] fastembed not installed")
+            console.print("[yellow]Install with:[/yellow] pip install codexlens[semantic]")
+            raise typer.Exit(code=1)
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=str(exc))
+        else:
+            console.print(f"[red]Model-list failed:[/red] {exc}")
+            raise typer.Exit(code=1)
+
+
+@app.command(name="model-download")
+def model_download(
+    profile: str = typer.Argument(..., help="Model profile to download (fast, code, multilingual, balanced)."),
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+) -> None:
+    """Download an embedding model by profile name.
+
+    Example:
+        codexlens model-download code  # Download code-optimized model
+    """
+    try:
+        from codexlens.cli.model_manager import download_model
+
+        if not json_mode:
+            console.print(f"[bold]Downloading model:[/bold] {profile}")
+            console.print("[dim]This may take a few minutes depending on your internet connection...[/dim]\n")
+
+        # Create progress callback for non-JSON mode
+        progress_callback = None if json_mode else lambda msg: console.print(f"[cyan]{msg}[/cyan]")
+
+        result = download_model(profile, progress_callback=progress_callback)
+
+        if json_mode:
+            print_json(**result)
+        else:
+            if not result["success"]:
+                console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+                raise typer.Exit(code=1)
+
+            data = result["result"]
+            console.print(f"[green]✓[/green] Model downloaded successfully!")
+            console.print(f"  Profile: {data['profile']}")
+            console.print(f"  Model: {data['model_name']}")
+            console.print(f"  Cache size: {data['cache_size_mb']:.1f} MB")
+            console.print(f"  Location: [dim]{data['cache_path']}[/dim]")
+
+    except ImportError:
+        if json_mode:
+            print_json(success=False, error="fastembed not installed. Install with: pip install codexlens[semantic]")
+        else:
+            console.print("[red]Error:[/red] fastembed not installed")
+            console.print("[yellow]Install with:[/yellow] pip install codexlens[semantic]")
+            raise typer.Exit(code=1)
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=str(exc))
+        else:
+            console.print(f"[red]Model-download failed:[/red] {exc}")
+            raise typer.Exit(code=1)
+
+
+@app.command(name="model-delete")
+def model_delete(
+    profile: str = typer.Argument(..., help="Model profile to delete (fast, code, multilingual, balanced)."),
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+) -> None:
+    """Delete a downloaded embedding model from cache.
+
+    Example:
+        codexlens model-delete fast  # Delete fast model
+    """
+    try:
+        from codexlens.cli.model_manager import delete_model
+
+        if not json_mode:
+            console.print(f"[bold yellow]Deleting model:[/bold yellow] {profile}")
+
+        result = delete_model(profile)
+
+        if json_mode:
+            print_json(**result)
+        else:
+            if not result["success"]:
+                console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+                raise typer.Exit(code=1)
+
+            data = result["result"]
+            console.print(f"[green]✓[/green] Model deleted successfully!")
+            console.print(f"  Profile: {data['profile']}")
+            console.print(f"  Model: {data['model_name']}")
+            console.print(f"  Freed space: {data['deleted_size_mb']:.1f} MB")
+
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=str(exc))
+        else:
+            console.print(f"[red]Model-delete failed:[/red] {exc}")
+            raise typer.Exit(code=1)
+
+
+@app.command(name="model-info")
+def model_info(
+    profile: str = typer.Argument(..., help="Model profile to get info (fast, code, multilingual, balanced)."),
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+) -> None:
+    """Get detailed information about a model profile.
+
+    Example:
+        codexlens model-info code  # Get code model details
+    """
+    try:
+        from codexlens.cli.model_manager import get_model_info
+
+        result = get_model_info(profile)
+
+        if json_mode:
+            print_json(**result)
+        else:
+            if not result["success"]:
+                console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+                raise typer.Exit(code=1)
+
+            data = result["result"]
+            console.print(f"[bold]Model Profile:[/bold] {data['profile']}")
+            console.print(f"  Model name: {data['model_name']}")
+            console.print(f"  Dimensions: {data['dimensions']}")
+            console.print(f"  Status: {'[green]Installed[/green]' if data['installed'] else '[dim]Not installed[/dim]'}")
+            if data['installed'] and data['actual_size_mb']:
+                console.print(f"  Cache size: {data['actual_size_mb']:.1f} MB")
+                console.print(f"  Location: [dim]{data['cache_path']}[/dim]")
+            else:
+                console.print(f"  Estimated size: ~{data['estimated_size_mb']} MB")
+            console.print(f"\n  Description: {data['description']}")
+            console.print(f"  Use case: {data['use_case']}")
+
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=str(exc))
+        else:
+            console.print(f"[red]Model-info failed:[/red] {exc}")
+            raise typer.Exit(code=1)
+
+
+# ==================== Embedding Management Commands ====================
+
+@app.command(name="embeddings-status")
+def embeddings_status(
+    path: Optional[Path] = typer.Argument(
+        None,
+        exists=True,
+        help="Path to specific _index.db file or directory containing indexes. If not specified, uses default index root.",
+    ),
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+) -> None:
+    """Check embedding status for one or all indexes.
+
+    Shows embedding statistics including:
+    - Number of chunks generated
+    - File coverage percentage
+    - Files missing embeddings
+
+    Examples:
+        codexlens embeddings-status                                    # Check all indexes
+        codexlens embeddings-status ~/.codexlens/indexes/project/_index.db  # Check specific index
+        codexlens embeddings-status ~/projects/my-app                  # Check project (auto-finds index)
+    """
+    try:
+        from codexlens.cli.embedding_manager import check_index_embeddings, get_embedding_stats_summary
+
+        # Determine what to check
+        if path is None:
+            # Check all indexes in default root
+            index_root = _get_index_root()
+            result = get_embedding_stats_summary(index_root)
+
+            if json_mode:
+                print_json(**result)
+            else:
+                if not result["success"]:
+                    console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+                    raise typer.Exit(code=1)
+
+                data = result["result"]
+                total = data["total_indexes"]
+                with_emb = data["indexes_with_embeddings"]
+                total_chunks = data["total_chunks"]
+
+                console.print(f"[bold]Embedding Status Summary[/bold]")
+                console.print(f"Index root: [dim]{index_root}[/dim]\n")
+                console.print(f"Total indexes: {total}")
+                console.print(f"Indexes with embeddings: [{'green' if with_emb > 0 else 'yellow'}]{with_emb}[/]/{total}")
+                console.print(f"Total chunks: {total_chunks:,}\n")
+
+                if data["indexes"]:
+                    table = Table(show_header=True, header_style="bold")
+                    table.add_column("Project", style="cyan")
+                    table.add_column("Files", justify="right")
+                    table.add_column("Chunks", justify="right")
+                    table.add_column("Coverage", justify="right")
+                    table.add_column("Status", justify="center")
+
+                    for idx_stat in data["indexes"]:
+                        status_icon = "[green]✓[/green]" if idx_stat["has_embeddings"] else "[dim]—[/dim]"
+                        coverage = f"{idx_stat['coverage_percent']:.1f}%" if idx_stat["has_embeddings"] else "—"
+
+                        table.add_row(
+                            idx_stat["project"],
+                            str(idx_stat["total_files"]),
+                            f"{idx_stat['total_chunks']:,}" if idx_stat["has_embeddings"] else "0",
+                            coverage,
+                            status_icon,
+                        )
+
+                    console.print(table)
+
+        else:
+            # Check specific index or find index for project
+            target_path = path.expanduser().resolve()
+
+            if target_path.is_file() and target_path.name == "_index.db":
+                # Direct index file
+                index_path = target_path
+            elif target_path.is_dir():
+                # Try to find index for this project
+                registry = RegistryStore()
+                try:
+                    registry.initialize()
+                    mapper = PathMapper()
+                    index_path = mapper.source_to_index_db(target_path)
+
+                    if not index_path.exists():
+                        console.print(f"[red]Error:[/red] No index found for {target_path}")
+                        console.print("Run 'codexlens init' first to create an index")
+                        raise typer.Exit(code=1)
+                finally:
+                    registry.close()
+            else:
+                console.print(f"[red]Error:[/red] Path must be _index.db file or directory")
+                raise typer.Exit(code=1)
+
+            result = check_index_embeddings(index_path)
+
+            if json_mode:
+                print_json(**result)
+            else:
+                if not result["success"]:
+                    console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+                    raise typer.Exit(code=1)
+
+                data = result["result"]
+                has_emb = data["has_embeddings"]
+
+                console.print(f"[bold]Embedding Status[/bold]")
+                console.print(f"Index: [dim]{data['index_path']}[/dim]\n")
+
+                if has_emb:
+                    console.print(f"[green]✓[/green] Embeddings available")
+                    console.print(f"  Total chunks: {data['total_chunks']:,}")
+                    console.print(f"  Total files: {data['total_files']:,}")
+                    console.print(f"  Files with embeddings: {data['files_with_chunks']:,}/{data['total_files']}")
+                    console.print(f"  Coverage: {data['coverage_percent']:.1f}%")
+
+                    if data["files_without_chunks"] > 0:
+                        console.print(f"\n[yellow]Warning:[/yellow] {data['files_without_chunks']} files missing embeddings")
+                        if data["missing_files_sample"]:
+                            console.print("  Sample missing files:")
+                            for file in data["missing_files_sample"]:
+                                console.print(f"    [dim]{file}[/dim]")
+                else:
+                    console.print(f"[yellow]—[/yellow] No embeddings found")
+                    console.print(f"  Total files indexed: {data['total_files']:,}")
+                    console.print("\n[dim]Generate embeddings with:[/dim]")
+                    console.print(f"  [cyan]codexlens embeddings-generate {index_path}[/cyan]")
+
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=str(exc))
+        else:
+            console.print(f"[red]Embeddings-status failed:[/red] {exc}")
+            raise typer.Exit(code=1)
+
+
+@app.command(name="embeddings-generate")
+def embeddings_generate(
+    path: Path = typer.Argument(
+        ...,
+        exists=True,
+        help="Path to _index.db file or project directory.",
+    ),
+    model: str = typer.Option(
+        "code",
+        "--model",
+        "-m",
+        help="Model profile: fast, code, multilingual, balanced.",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help="Force regeneration even if embeddings exist.",
+    ),
+    chunk_size: int = typer.Option(
+        2000,
+        "--chunk-size",
+        help="Maximum chunk size in characters.",
+    ),
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output."),
+) -> None:
+    """Generate semantic embeddings for code search.
+
+    Creates vector embeddings for all files in an index to enable
+    semantic search capabilities. Embeddings are stored in the same
+    database as the FTS index.
+
+    Model Profiles:
+      - fast: BAAI/bge-small-en-v1.5 (384 dims, ~80MB)
+      - code: jinaai/jina-embeddings-v2-base-code (768 dims, ~150MB) [recommended]
+      - multilingual: intfloat/multilingual-e5-large (1024 dims, ~1GB)
+      - balanced: mixedbread-ai/mxbai-embed-large-v1 (1024 dims, ~600MB)
+
+    Examples:
+        codexlens embeddings-generate ~/projects/my-app              # Auto-find index for project
+        codexlens embeddings-generate ~/.codexlens/indexes/project/_index.db  # Specific index
+        codexlens embeddings-generate ~/projects/my-app --model fast --force  # Regenerate with fast model
+    """
+    _configure_logging(verbose)
+
+    try:
+        from codexlens.cli.embedding_manager import generate_embeddings
+
+        # Resolve path
+        target_path = path.expanduser().resolve()
+
+        if target_path.is_file() and target_path.name == "_index.db":
+            # Direct index file
+            index_path = target_path
+        elif target_path.is_dir():
+            # Try to find index for this project
+            registry = RegistryStore()
+            try:
+                registry.initialize()
+                mapper = PathMapper()
+                index_path = mapper.source_to_index_db(target_path)
+
+                if not index_path.exists():
+                    console.print(f"[red]Error:[/red] No index found for {target_path}")
+                    console.print("Run 'codexlens init' first to create an index")
+                    raise typer.Exit(code=1)
+            finally:
+                registry.close()
+        else:
+            console.print(f"[red]Error:[/red] Path must be _index.db file or directory")
+            raise typer.Exit(code=1)
+
+        # Progress callback
+        def progress_update(msg: str):
+            if not json_mode and verbose:
+                console.print(f"  {msg}")
+
+        console.print(f"[bold]Generating embeddings[/bold]")
+        console.print(f"Index: [dim]{index_path}[/dim]")
+        console.print(f"Model: [cyan]{model}[/cyan]\n")
+
+        result = generate_embeddings(
+            index_path,
+            model_profile=model,
+            force=force,
+            chunk_size=chunk_size,
+            progress_callback=progress_update,
+        )
+
+        if json_mode:
+            print_json(**result)
+        else:
+            if not result["success"]:
+                error_msg = result.get("error", "Unknown error")
+                console.print(f"[red]Error:[/red] {error_msg}")
+
+                # Provide helpful hints
+                if "already has" in error_msg:
+                    console.print("\n[dim]Use --force to regenerate existing embeddings[/dim]")
+                elif "Semantic search not available" in error_msg:
+                    console.print("\n[dim]Install semantic dependencies:[/dim]")
+                    console.print("  [cyan]pip install codexlens[semantic][/cyan]")
+
+                raise typer.Exit(code=1)
+
+            data = result["result"]
+            elapsed = data["elapsed_time"]
+
+            console.print(f"[green]✓[/green] Embeddings generated successfully!")
+            console.print(f"  Model: {data['model_name']}")
+            console.print(f"  Chunks created: {data['chunks_created']:,}")
+            console.print(f"  Files processed: {data['files_processed']}")
+
+            if data["files_failed"] > 0:
+                console.print(f"  [yellow]Files failed: {data['files_failed']}[/yellow]")
+                if data["failed_files"]:
+                    console.print("  [dim]First failures:[/dim]")
+                    for file_path, error in data["failed_files"]:
+                        console.print(f"    [dim]{file_path}: {error}[/dim]")
+
+            console.print(f"  Time: {elapsed:.1f}s")
+
+            console.print("\n[dim]Use vector search with:[/dim]")
+            console.print("  [cyan]codexlens search 'your query' --mode pure-vector[/cyan]")
+
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=str(exc))
+        else:
+            console.print(f"[red]Embeddings-generate failed:[/red] {exc}")
+            raise typer.Exit(code=1)

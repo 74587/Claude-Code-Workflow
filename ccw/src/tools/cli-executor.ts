@@ -1130,8 +1130,8 @@ export async function getExecutionHistoryAsync(baseDir: string, options: {
 
   // Recursive mode: aggregate data from parent and all child projects
   if (recursive) {
-    const { scanChildProjects } = await import('../config/storage-paths.js');
-    const childProjects = scanChildProjects(baseDir);
+    const { scanChildProjectsAsync } = await import('../config/storage-paths.js');
+    const childProjects = await scanChildProjectsAsync(baseDir);
 
     let allExecutions: (HistoryIndex['executions'][0] & { sourceDir?: string })[] = [];
     let totalCount = 0;

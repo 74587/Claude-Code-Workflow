@@ -1113,6 +1113,10 @@ async function installCcwToolsMcpToCodex() {
 
     await addCodexMcpServer('ccw-tools', ccwToolsConfig);
 
+    // Reload MCP configuration and refresh the view
+    await loadMcpConfig();
+    renderMcpManager();
+
     const resultLabel = isUpdate ? 'updated in' : 'installed to';
     showRefreshToast(`CCW Tools ${resultLabel} Codex (${selectedTools.length} tools)`, 'success');
   } catch (err) {

@@ -17,6 +17,8 @@ export interface ConversationTurn {
   duration_ms: number;
   status: 'success' | 'error' | 'timeout';
   exit_code: number | null;
+  // NOTE: Naming inconsistency - using prompt/stdout vs tool_args/tool_output in MemoryStore
+  // This reflects CLI-specific semantics (prompt -> execution -> output)
   output: {
     stdout: string;
     stderr: string;
@@ -96,8 +98,11 @@ export interface ReviewRecord {
 export class CliHistoryStore {
   private db: Database.Database;
   private dbPath: string;
+  private projectPath: string;
 
   constructor(baseDir: string) {
+    this.projectPath = baseDir;
+
     // Use centralized storage path
     const paths = StoragePaths.project(baseDir);
     const historyDir = paths.cliHistory;
@@ -294,6 +299,22 @@ export class CliHistoryStore {
         `);
         console.log('[CLI History] Migration complete: relative_path column added');
       }
+
+      // Add missing timestamp index for turns table (for time-based queries)
+      try {
+        const indexExists = this.db.prepare(`
+          SELECT name FROM sqlite_master
+          WHERE type='index' AND name='idx_turns_timestamp'
+        `).get();
+
+        if (!indexExists) {
+          console.log('[CLI History] Adding missing timestamp index to turns table...');
+          this.db.exec(`CREATE INDEX IF NOT EXISTS idx_turns_timestamp ON turns(timestamp DESC);`);
+          console.log('[CLI History] Migration complete: turns timestamp index added');
+        }
+      } catch (indexErr) {
+        console.warn('[CLI History] Turns timestamp index creation warning:', (indexErr as Error).message);
+      }
     } catch (err) {
       console.error('[CLI History] Migration error:', (err as Error).message);
       // Don't throw - allow the store to continue working with existing schema
@@ -387,14 +408,16 @@ export class CliHistoryStore {
       : '';
 
     const upsertConversation = this.db.prepare(`
-      INSERT INTO conversations (id, created_at, updated_at, tool, model, mode, category, total_duration_ms, turn_count, latest_status, prompt_preview, parent_execution_id)
-      VALUES (@id, @created_at, @updated_at, @tool, @model, @mode, @category, @total_duration_ms, @turn_count, @latest_status, @prompt_preview, @parent_execution_id)
+      INSERT INTO conversations (id, created_at, updated_at, tool, model, mode, category, total_duration_ms, turn_count, latest_status, prompt_preview, parent_execution_id, project_root, relative_path)
+      VALUES (@id, @created_at, @updated_at, @tool, @model, @mode, @category, @total_duration_ms, @turn_count, @latest_status, @prompt_preview, @parent_execution_id, @project_root, @relative_path)
       ON CONFLICT(id) DO UPDATE SET
         updated_at = @updated_at,
         total_duration_ms = @total_duration_ms,
         turn_count = @turn_count,
         latest_status = @latest_status,
-        prompt_preview = @prompt_preview
+        prompt_preview = @prompt_preview,
+        project_root = @project_root,
+        relative_path = @relative_path
     `);
 
     const upsertTurn = this.db.prepare(`
@@ -424,7 +447,9 @@ export class CliHistoryStore {
         turn_count: conversation.turn_count,
         latest_status: conversation.latest_status,
         prompt_preview: promptPreview,
-        parent_execution_id: conversation.parent_execution_id || null
+        parent_execution_id: conversation.parent_execution_id || null,
+        project_root: this.projectPath,
+        relative_path: null  // For future hierarchical tracking
       });
 
       for (const turn of conversation.turns) {

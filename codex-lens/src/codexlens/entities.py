@@ -13,6 +13,7 @@ class Symbol(BaseModel):
     name: str = Field(..., min_length=1)
     kind: str = Field(..., min_length=1)
     range: Tuple[int, int] = Field(..., description="(start_line, end_line), 1-based inclusive")
+    file: Optional[str] = Field(default=None, description="Full path to the file containing this symbol")
     token_count: Optional[int] = Field(default=None, description="Token count for symbol content")
     symbol_type: Optional[str] = Field(default=None, description="Extended symbol type for filtering")
 

@@ -20,9 +20,7 @@ Query all symbols from the CodexLens SQLite database and return them as graph no
       "name": "functionName",
       "type": "FUNCTION",
       "file": "src/file.ts",
-      "line": 10,
-      "docstring": "function_type",
-      "tokenCount": 45
+      "line": 10
     }
   ]
 }
@@ -98,7 +96,7 @@ Maps source code paths to CodexLens index database paths following the storage s
 ### Database Schema
 Queries two main tables:
 1. **symbols** - Code symbol definitions
-   - `id`, `file_id`, `name`, `kind`, `start_line`, `end_line`, `token_count`, `symbol_type`
+   - `id`, `file_id`, `name`, `kind`, `start_line`, `end_line`
 2. **code_relationships** - Inter-symbol dependencies
    - `id`, `source_symbol_id`, `target_qualified_name`, `relationship_type`, `source_line`, `target_file`
 

@@ -104,45 +104,45 @@ export class HistoryImporter {
 
   /**
    * Initialize database schema for conversation history
+   * NOTE: Schema aligned with MemoryStore for seamless importing
    */
   private initSchema(): void {
     this.db.exec(`
-      -- Conversations table
+      -- Conversations table (aligned with MemoryStore schema)
       CREATE TABLE IF NOT EXISTS conversations (
         id TEXT PRIMARY KEY,
-        session_id TEXT NOT NULL,
-        project_path TEXT,
+        source TEXT DEFAULT 'ccw',
+        external_id TEXT,
+        project_name TEXT,
+        git_branch TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
-        message_count INTEGER DEFAULT 0,
-        total_tokens INTEGER DEFAULT 0,
-        metadata TEXT
+        quality_score INTEGER,
+        turn_count INTEGER DEFAULT 0,
+        prompt_preview TEXT
       );
 
-      -- Messages table
+      -- Messages table (aligned with MemoryStore schema)
       CREATE TABLE IF NOT EXISTS messages (
-        id TEXT PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         conversation_id TEXT NOT NULL,
-        parent_id TEXT,
-        role TEXT NOT NULL,
-        content TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
+        content_text TEXT,
+        content_json TEXT,
         timestamp TEXT NOT NULL,
-        model TEXT,
-        input_tokens INTEGER DEFAULT 0,
-        output_tokens INTEGER DEFAULT 0,
-        cwd TEXT,
-        git_branch TEXT,
+        token_count INTEGER,
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
       );
 
-      -- Tool calls table
+      -- Tool calls table (aligned with MemoryStore schema)
       CREATE TABLE IF NOT EXISTS tool_calls (
-        id TEXT PRIMARY KEY,
-        message_id TEXT NOT NULL,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        message_id INTEGER NOT NULL,
         tool_name TEXT NOT NULL,
-        tool_input TEXT,
-        tool_result TEXT,
-        timestamp TEXT NOT NULL,
+        tool_args TEXT,
+        tool_output TEXT,
+        status TEXT,
+        duration_ms INTEGER,
         FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
       );
 
@@ -160,13 +160,11 @@ export class HistoryImporter {
         created_at TEXT NOT NULL
       );
 
-      -- Indexes
-      CREATE INDEX IF NOT EXISTS idx_conversations_session ON conversations(session_id);
-      CREATE INDEX IF NOT EXISTS idx_conversations_project ON conversations(project_path);
+      -- Indexes (aligned with MemoryStore)
+      CREATE INDEX IF NOT EXISTS idx_conversations_created ON conversations(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
-      CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp DESC);
       CREATE INDEX IF NOT EXISTS idx_tool_calls_message ON tool_calls(message_id);
-      CREATE INDEX IF NOT EXISTS idx_tool_calls_name ON tool_calls(tool_name);
     `);
   }
 
@@ -332,17 +330,17 @@ export class HistoryImporter {
     const result: ImportResult = { imported: 0, skipped: 0, errors: 0 };
 
     const upsertConversation = this.db.prepare(`
-      INSERT INTO conversations (id, session_id, project_path, created_at, updated_at, message_count, metadata)
-      VALUES (@id, @session_id, @project_path, @created_at, @updated_at, 1, @metadata)
+      INSERT INTO conversations (id, source, external_id, project_name, created_at, updated_at, turn_count, prompt_preview)
+      VALUES (@id, @source, @external_id, @project_name, @created_at, @updated_at, 1, @prompt_preview)
       ON CONFLICT(id) DO UPDATE SET
         updated_at = @updated_at,
-        message_count = message_count + 1
+        turn_count = turn_count + 1,
+        prompt_preview = @prompt_preview
     `);
 
     const upsertMessage = this.db.prepare(`
-      INSERT INTO messages (id, conversation_id, role, content, timestamp, cwd)
-      VALUES (@id, @conversation_id, 'user', @content, @timestamp, @cwd)
-      ON CONFLICT(id) DO NOTHING
+      INSERT INTO messages (conversation_id, role, content_text, timestamp)
+      VALUES (@conversation_id, 'user', @content_text, @timestamp)
     `);
 
     const insertHash = this.db.prepare(`
@@ -354,7 +352,6 @@ export class HistoryImporter {
       for (const entry of entries) {
         try {
           const timestamp = new Date(entry.timestamp).toISOString();
-          const messageId = `${entry.sessionId}-${entry.timestamp}`;
           const hash = this.generateHash(entry.sessionId, timestamp, entry.display);
 
           // Check if hash exists
@@ -364,29 +361,28 @@ export class HistoryImporter {
             continue;
           }
 
-          // Insert conversation
+          // Insert conversation (using MemoryStore-compatible fields)
           upsertConversation.run({
             id: entry.sessionId,
-            session_id: entry.sessionId,
-            project_path: entry.project,
+            source: 'global_history',
+            external_id: entry.sessionId,
+            project_name: entry.project,
             created_at: timestamp,
             updated_at: timestamp,
-            metadata: JSON.stringify({ source: 'global_history' })
+            prompt_preview: entry.display.substring(0, 100)
           });
 
-          // Insert message
-          upsertMessage.run({
-            id: messageId,
+          // Insert message (using MemoryStore-compatible fields)
+          const insertResult = upsertMessage.run({
             conversation_id: entry.sessionId,
-            content: entry.display,
-            timestamp,
-            cwd: entry.project
+            content_text: entry.display,
+            timestamp
           });
 
-          // Insert hash
+          // Insert hash (using actual message ID from insert)
           insertHash.run({
             hash,
-            message_id: messageId,
+            message_id: String(insertResult.lastInsertRowid),
             created_at: timestamp
           });
 
@@ -413,24 +409,22 @@ export class HistoryImporter {
     const result: ImportResult = { imported: 0, skipped: 0, errors: 0 };
 
     const upsertConversation = this.db.prepare(`
-      INSERT INTO conversations (id, session_id, project_path, created_at, updated_at, message_count, total_tokens, metadata)
-      VALUES (@id, @session_id, @project_path, @created_at, @updated_at, @message_count, @total_tokens, @metadata)
+      INSERT INTO conversations (id, source, external_id, project_name, git_branch, created_at, updated_at, turn_count, prompt_preview)
+      VALUES (@id, @source, @external_id, @project_name, @git_branch, @created_at, @updated_at, @turn_count, @prompt_preview)
       ON CONFLICT(id) DO UPDATE SET
         updated_at = @updated_at,
-        message_count = @message_count,
-        total_tokens = @total_tokens
+        turn_count = @turn_count,
+        prompt_preview = @prompt_preview
     `);
 
     const upsertMessage = this.db.prepare(`
-      INSERT INTO messages (id, conversation_id, parent_id, role, content, timestamp, model, input_tokens, output_tokens, cwd, git_branch)
-      VALUES (@id, @conversation_id, @parent_id, @role, @content, @timestamp, @model, @input_tokens, @output_tokens, @cwd, @git_branch)
-      ON CONFLICT(id) DO NOTHING
+      INSERT INTO messages (conversation_id, role, content_text, content_json, timestamp, token_count)
+      VALUES (@conversation_id, @role, @content_text, @content_json, @timestamp, @token_count)
     `);
 
     const insertToolCall = this.db.prepare(`
-      INSERT INTO tool_calls (id, message_id, tool_name, tool_input, tool_result, timestamp)
-      VALUES (@id, @message_id, @tool_name, @tool_input, @tool_result, @timestamp)
-      ON CONFLICT(id) DO NOTHING
+      INSERT INTO tool_calls (message_id, tool_name, tool_args, tool_output, status)
+      VALUES (@message_id, @tool_name, @tool_args, @tool_output, @status)
     `);
 
     const insertHash = this.db.prepare(`
@@ -439,27 +433,29 @@ export class HistoryImporter {
     `);
 
     const transaction = this.db.transaction(() => {
-      let totalTokens = 0;
       const firstMessage = messages[0];
       const lastMessage = messages[messages.length - 1];
+      const promptPreview = firstMessage?.message
+        ? this.extractTextContent(firstMessage.message.content).substring(0, 100)
+        : '';
 
       // Insert conversation FIRST (before messages, for foreign key constraint)
       upsertConversation.run({
         id: sessionId,
-        session_id: sessionId,
-        project_path: metadata.cwd || null,
+        source: 'session_file',
+        external_id: sessionId,
+        project_name: metadata.cwd || null,
+        git_branch: metadata.gitBranch || null,
         created_at: firstMessage.timestamp,
         updated_at: lastMessage.timestamp,
-        message_count: 0,
-        total_tokens: 0,
-        metadata: JSON.stringify({ ...metadata, source: 'session_file' })
+        turn_count: 0,
+        prompt_preview: promptPreview
       });
 
       for (const msg of messages) {
         if (!msg.message) continue;
 
         try {
-          const messageId = msg.uuid || `${sessionId}-${msg.timestamp}`;
           const content = this.extractTextContent(msg.message.content);
           const hash = this.generateHash(sessionId, msg.timestamp, content);
 
@@ -470,43 +466,44 @@ export class HistoryImporter {
             continue;
           }
 
-          // Calculate tokens
+          // Calculate total tokens
           const inputTokens = msg.message.usage?.input_tokens || 0;
           const outputTokens = msg.message.usage?.output_tokens || 0;
-          totalTokens += inputTokens + outputTokens;
+          const totalTokens = inputTokens + outputTokens;
 
-          // Insert message
-          upsertMessage.run({
-            id: messageId,
+          // Store content as JSON if complex, otherwise as text
+          const contentJson = typeof msg.message.content === 'object'
+            ? JSON.stringify(msg.message.content)
+            : null;
+
+          // Insert message (using MemoryStore-compatible fields)
+          const insertResult = upsertMessage.run({
             conversation_id: sessionId,
-            parent_id: msg.parentUuid || null,
             role: msg.message.role,
-            content,
+            content_text: content,
+            content_json: contentJson,
             timestamp: msg.timestamp,
-            model: msg.message.model || null,
-            input_tokens: inputTokens,
-            output_tokens: outputTokens,
-            cwd: msg.cwd || metadata.cwd || null,
-            git_branch: msg.gitBranch || metadata.gitBranch || null
+            token_count: totalTokens
           });
+
+          const messageId = insertResult.lastInsertRowid as number;
 
           // Extract and insert tool calls
           const toolCalls = this.extractToolCalls(msg.message.content);
           for (const tool of toolCalls) {
             insertToolCall.run({
-              id: tool.id || `${messageId}-${tool.name}`,
               message_id: messageId,
               tool_name: tool.name,
-              tool_input: JSON.stringify(tool.input),
-              tool_result: tool.result || null,
-              timestamp: msg.timestamp
+              tool_args: JSON.stringify(tool.input),
+              tool_output: tool.result || null,
+              status: 'success'
             });
           }
 
-          // Insert hash
+          // Insert hash (using actual message ID from insert)
           insertHash.run({
             hash,
-            message_id: messageId,
+            message_id: String(messageId),
             created_at: msg.timestamp
           });
 
@@ -520,13 +517,14 @@ export class HistoryImporter {
       // Update conversation with final counts
       upsertConversation.run({
         id: sessionId,
-        session_id: sessionId,
-        project_path: metadata.cwd || null,
+        source: 'session_file',
+        external_id: sessionId,
+        project_name: metadata.cwd || null,
+        git_branch: metadata.gitBranch || null,
         created_at: firstMessage.timestamp,
         updated_at: lastMessage.timestamp,
-        message_count: result.imported,
-        total_tokens: totalTokens,
-        metadata: JSON.stringify({ ...metadata, source: 'session_file' })
+        turn_count: result.imported,
+        prompt_preview: promptPreview
       });
     });
 

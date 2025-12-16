@@ -235,6 +235,35 @@ async function loadHookConfig() {
   }
 }
 
+async function loadAvailableSkills() {
+  try {
+    const response = await fetch('/api/skills?path=' + encodeURIComponent(projectPath));
+    if (!response.ok) throw new Error('Failed to load skills');
+    const data = await response.json();
+
+    // Combine project and user skills
+    const projectSkills = (data.projectSkills || []).map(s => ({
+      name: s.name,
+      path: s.path,
+      scope: 'project'
+    }));
+    const userSkills = (data.userSkills || []).map(s => ({
+      name: s.name,
+      path: s.path,
+      scope: 'user'
+    }));
+
+    // Store in window for access by wizard
+    window.availableSkills = [...projectSkills, ...userSkills];
+
+    return window.availableSkills;
+  } catch (err) {
+    console.error('Failed to load available skills:', err);
+    window.availableSkills = [];
+    return [];
+  }
+}
+
 /**
  * Convert internal hook format to Claude Code format
  * Internal: { command, args, matcher, timeout }
@@ -510,7 +539,7 @@ function getHookEventIconLucide(event) {
 let currentWizardTemplate = null;
 let wizardConfig = {};
 
-function openHookWizardModal(wizardId) {
+async function openHookWizardModal(wizardId) {
   const wizard = WIZARD_TEMPLATES[wizardId];
   if (!wizard) {
     showRefreshToast('Wizard template not found', 'error');
@@ -528,6 +557,11 @@ function openHookWizardModal(wizardId) {
   // Initialize selectedOptions for multi-select wizards
   if (wizard.multiSelect) {
     wizardConfig.selectedOptions = [];
+  }
+
+  // Ensure available skills are loaded for SKILL context wizard
+  if (wizardId === 'skill-context' && typeof window.availableSkills === 'undefined') {
+    await loadAvailableSkills();
   }
 
   const modal = document.getElementById('hookWizardModal');
@@ -792,9 +826,19 @@ function renderSkillContextConfig() {
   const availableSkills = window.availableSkills || [];
 
   if (selectedOption === 'auto') {
-    const skillBadges = availableSkills.map(function(s) {
-      return '<span class="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 rounded text-xs">' + escapeHtml(s.name) + '</span>';
-    }).join(' ');
+    let skillBadges = '';
+    if (typeof window.availableSkills === 'undefined') {
+      // Still loading
+      skillBadges = '<span class="px-1.5 py-0.5 bg-muted text-muted-foreground rounded text-xs">' + t('common.loading') + '...</span>';
+    } else if (availableSkills.length === 0) {
+      // No skills found
+      skillBadges = '<span class="px-1.5 py-0.5 bg-warning/10 text-warning rounded text-xs">' + t('hook.wizard.noSkillsFound') + '</span>';
+    } else {
+      // Skills found
+      skillBadges = availableSkills.map(function(s) {
+        return '<span class="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 rounded text-xs">' + escapeHtml(s.name) + '</span>';
+      }).join(' ');
+    }
     return '<div class="bg-muted/30 rounded-lg p-4 text-sm text-muted-foreground">' +
       '<div class="flex items-center gap-2 mb-2">' +
         '<i data-lucide="info" class="w-4 h-4"></i>' +
@@ -814,10 +858,15 @@ function renderSkillContextConfig() {
     '</div>';
   } else {
     configListHtml = skillConfigs.map(function(config, idx) {
-      var skillOptions = availableSkills.map(function(s) {
-        var selected = config.skill === s.id ? 'selected' : '';
-        return '<option value="' + s.id + '" ' + selected + '>' + escapeHtml(s.name) + '</option>';
-      }).join('');
+      var skillOptions = '';
+      if (availableSkills.length === 0) {
+        skillOptions = '<option value="" disabled>' + t('hook.wizard.noSkillsFound') + '</option>';
+      } else {
+        skillOptions = availableSkills.map(function(s) {
+          var selected = config.skill === s.name ? 'selected' : '';
+          return '<option value="' + escapeHtml(s.name) + '" ' + selected + '>' + escapeHtml(s.name) + '</option>';
+        }).join('');
+      }
       return '<div class="border border-border rounded-lg p-3 bg-card">' +
         '<div class="flex items-center justify-between mb-2">' +
           '<select onchange="updateSkillConfig(' + idx + ', \'skill\', this.value)" ' +

@@ -293,8 +293,9 @@ function showRefreshToast(message, type) {
   toast.textContent = message;
   document.body.appendChild(toast);
 
+  // Increase display time to 3.5 seconds for better visibility
   setTimeout(() => {
     toast.classList.add('fade-out');
     setTimeout(() => toast.remove(), 300);
-  }, 2000);
+  }, 3500);
 }

@@ -35,6 +35,8 @@ class SearchOptions:
         include_semantic: Whether to include semantic keyword search results
         hybrid_mode: Enable hybrid search with RRF fusion (default False)
         enable_fuzzy: Enable fuzzy FTS in hybrid mode (default True)
+        enable_vector: Enable vector semantic search (default False)
+        pure_vector: If True, only use vector search without FTS fallback (default False)
         hybrid_weights: Custom RRF weights for hybrid search (optional)
     """
     depth: int = -1
@@ -46,6 +48,8 @@ class SearchOptions:
     include_semantic: bool = False
     hybrid_mode: bool = False
     enable_fuzzy: bool = True
+    enable_vector: bool = False
+    pure_vector: bool = False
     hybrid_weights: Optional[Dict[str, float]] = None
 
 
@@ -494,6 +498,8 @@ class ChainSearchEngine:
                 options.include_semantic,
                 options.hybrid_mode,
                 options.enable_fuzzy,
+                options.enable_vector,
+                options.pure_vector,
                 options.hybrid_weights
             ): idx_path
             for idx_path in index_paths
@@ -520,6 +526,8 @@ class ChainSearchEngine:
                               include_semantic: bool = False,
                               hybrid_mode: bool = False,
                               enable_fuzzy: bool = True,
+                              enable_vector: bool = False,
+                              pure_vector: bool = False,
                               hybrid_weights: Optional[Dict[str, float]] = None) -> List[SearchResult]:
         """Search a single index database.
 
@@ -527,12 +535,14 @@ class ChainSearchEngine:
 
         Args:
             index_path: Path to _index.db file
-            query: FTS5 query string
+            query: FTS5 query string (for FTS) or natural language query (for vector)
             limit: Maximum results from this index
             files_only: If True, skip snippet generation for faster search
             include_semantic: If True, also search semantic keywords and merge results
             hybrid_mode: If True, use hybrid search with RRF fusion
             enable_fuzzy: Enable fuzzy FTS in hybrid mode
+            enable_vector: Enable vector semantic search
+            pure_vector: If True, only use vector search without FTS fallback
             hybrid_weights: Custom RRF weights for hybrid search
 
         Returns:
@@ -547,10 +557,11 @@ class ChainSearchEngine:
                     query,
                     limit=limit,
                     enable_fuzzy=enable_fuzzy,
-                    enable_vector=False,  # Vector search not yet implemented
+                    enable_vector=enable_vector,
+                    pure_vector=pure_vector,
                 )
             else:
-                # Legacy single-FTS search
+                # Single-FTS search (exact or fuzzy mode)
                 with DirIndexStore(index_path) as store:
                     # Get FTS results
                     if files_only:
@@ -558,7 +569,11 @@ class ChainSearchEngine:
                         paths = store.search_files_only(query, limit=limit)
                         fts_results = [SearchResult(path=p, score=0.0, excerpt="") for p in paths]
                     else:
-                        fts_results = store.search_fts(query, limit=limit)
+                        # Use fuzzy FTS if enable_fuzzy=True (mode="fuzzy"), otherwise exact FTS
+                        if enable_fuzzy:
+                            fts_results = store.search_fts_fuzzy(query, limit=limit)
+                        else:
+                            fts_results = store.search_fts(query, limit=limit)
 
                     # Optionally add semantic keyword results
                     if include_semantic:

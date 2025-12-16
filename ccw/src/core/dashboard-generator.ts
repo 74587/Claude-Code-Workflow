@@ -24,7 +24,13 @@ const MODULE_CSS_FILES = [
   '07-managers.css',
   '08-review.css',
   '09-explorer.css',
-  '10-cli.css'
+  '10-cli.css',
+  '11-memory.css',
+  '11-prompt-history.css',
+  '12-skills-rules.css',
+  '13-claude-manager.css',
+  '14-graph-explorer.css',
+  '15-mcp-manager.css'
 ];
 
 const MODULE_FILES = [
@@ -57,6 +63,7 @@ const MODULE_FILES = [
   'views/lite-tasks.js',
   'views/fix-session.js',
   'views/cli-manager.js',
+  'views/codexlens-manager.js',
   'views/explorer.js',
   'views/mcp-manager.js',
   'views/hook-manager.js',

@@ -50,34 +50,67 @@ class HybridSearchEngine:
         limit: int = 20,
         enable_fuzzy: bool = True,
         enable_vector: bool = False,
+        pure_vector: bool = False,
     ) -> List[SearchResult]:
         """Execute hybrid search with parallel retrieval and RRF fusion.
 
         Args:
             index_path: Path to _index.db file
-            query: FTS5 query string
+            query: FTS5 query string (for FTS) or natural language query (for vector)
             limit: Maximum results to return after fusion
             enable_fuzzy: Enable fuzzy FTS search (default True)
             enable_vector: Enable vector search (default False)
+            pure_vector: If True, only use vector search without FTS fallback (default False)
 
         Returns:
             List of SearchResult objects sorted by fusion score
 
         Examples:
             >>> engine = HybridSearchEngine()
-            >>> results = engine.search(Path("project/_index.db"), "authentication")
+            >>> # Hybrid search (exact + fuzzy + vector)
+            >>> results = engine.search(Path("project/_index.db"), "authentication",
+            ...                         enable_vector=True)
+            >>> # Pure vector search (semantic only)
+            >>> results = engine.search(Path("project/_index.db"),
+            ...                         "how to authenticate users",
+            ...                         enable_vector=True, pure_vector=True)
             >>> for r in results[:5]:
             ...     print(f"{r.path}: {r.score:.3f}")
         """
         # Determine which backends to use
-        backends = {"exact": True}  # Always use exact search
-        if enable_fuzzy:
-            backends["fuzzy"] = True
-        if enable_vector:
-            backends["vector"] = True
+        backends = {}
+
+        if pure_vector:
+            # Pure vector mode: only use vector search, no FTS fallback
+            if enable_vector:
+                backends["vector"] = True
+            else:
+                # Invalid configuration: pure_vector=True but enable_vector=False
+                self.logger.warning(
+                    "pure_vector=True requires enable_vector=True. "
+                    "Falling back to exact search. "
+                    "To use pure vector search, enable vector search mode."
+                )
+                backends["exact"] = True
+        else:
+            # Hybrid mode: always include exact search as baseline
+            backends["exact"] = True
+            if enable_fuzzy:
+                backends["fuzzy"] = True
+            if enable_vector:
+                backends["vector"] = True
 
         # Execute parallel searches
         results_map = self._search_parallel(index_path, query, backends, limit)
+
+        # Provide helpful message if pure-vector mode returns no results
+        if pure_vector and enable_vector and len(results_map.get("vector", [])) == 0:
+            self.logger.warning(
+                "Pure vector search returned no results. "
+                "This usually means embeddings haven't been generated. "
+                "Run: codexlens embeddings-generate %s",
+                index_path.parent if index_path.name == "_index.db" else index_path
+            )
 
         # Apply RRF fusion
         # Filter weights to only active backends
@@ -195,17 +228,67 @@ class HybridSearchEngine:
     def _search_vector(
         self, index_path: Path, query: str, limit: int
     ) -> List[SearchResult]:
-        """Execute vector search (placeholder for future implementation).
+        """Execute vector similarity search using semantic embeddings.
 
         Args:
             index_path: Path to _index.db file
-            query: Query string
+            query: Natural language query string
             limit: Maximum results
 
         Returns:
-            List of SearchResult objects (empty for now)
+            List of SearchResult objects ordered by semantic similarity
         """
-        # Placeholder for vector search integration
-        # Will be implemented when VectorStore is available
-        self.logger.debug("Vector search not yet implemented")
-        return []
+        try:
+            # Check if semantic chunks table exists
+            import sqlite3
+            conn = sqlite3.connect(index_path)
+            cursor = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_chunks'"
+            )
+            has_semantic_table = cursor.fetchone() is not None
+            conn.close()
+
+            if not has_semantic_table:
+                self.logger.info(
+                    "No embeddings found in index. "
+                    "Generate embeddings with: codexlens embeddings-generate %s",
+                    index_path.parent if index_path.name == "_index.db" else index_path
+                )
+                return []
+
+            # Initialize embedder and vector store
+            from codexlens.semantic.embedder import Embedder
+            from codexlens.semantic.vector_store import VectorStore
+
+            embedder = Embedder(profile="code")  # Use code-optimized model
+            vector_store = VectorStore(index_path)
+
+            # Check if vector store has data
+            if vector_store.count_chunks() == 0:
+                self.logger.info(
+                    "Vector store is empty (0 chunks). "
+                    "Generate embeddings with: codexlens embeddings-generate %s",
+                    index_path.parent if index_path.name == "_index.db" else index_path
+                )
+                return []
+
+            # Generate query embedding
+            query_embedding = embedder.embed_single(query)
+
+            # Search for similar chunks
+            results = vector_store.search_similar(
+                query_embedding=query_embedding,
+                top_k=limit,
+                min_score=0.0,  # Return all results, let RRF handle filtering
+                return_full_content=True,
+            )
+
+            self.logger.debug("Vector search found %d results", len(results))
+            return results
+
+        except ImportError as exc:
+            self.logger.debug("Semantic dependencies not available: %s", exc)
+            return []
+        except Exception as exc:
+            self.logger.error("Vector search error: %s", exc)
+            return []

@@ -139,6 +139,27 @@ async function renderMcpManager() {
   const codexConfigExists = codexMcpConfig?.exists || false;
   const codexConfigPath = codexMcpConfig?.configPath || '~/.codex/config.toml';
 
+  // Collect cross-CLI servers (servers from other CLI not yet in current CLI)
+  const crossCliServers = [];
+  if (currentCliMode === 'claude') {
+    // In Claude mode, show Codex servers that aren't in Claude
+    for (const [name, config] of Object.entries(codexMcpServers || {})) {
+      const existsInClaude = currentProjectServerNames.includes(name) || globalServerNames.includes(name);
+      if (!existsInClaude) {
+        crossCliServers.push({ name, config, fromCli: 'codex' });
+      }
+    }
+  } else {
+    // In Codex mode, show Claude servers that aren't in Codex
+    const allClaudeServers = { ...mcpUserServers, ...projectServers };
+    for (const [name, config] of Object.entries(allClaudeServers)) {
+      const existsInCodex = codexMcpServers && codexMcpServers[name];
+      if (!existsInCodex) {
+        crossCliServers.push({ name, config, fromCli: 'claude' });
+      }
+    }
+  }
+
   container.innerHTML = `
     <div class="mcp-manager">
       <!-- CLI Mode Toggle -->
@@ -321,7 +342,7 @@ async function renderMcpManager() {
       ` : ''}
 
       <!-- Available MCP Servers from Other Projects (Codex mode) -->
-      <div class="mcp-section">
+      <div class="mcp-section mb-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-foreground">${t('mcp.availableOther')}</h3>
           <span class="text-sm text-muted-foreground">${otherProjectServers.length} ${t('mcp.serversAvailable')}</span>
@@ -339,14 +360,30 @@ async function renderMcpManager() {
           </div>
         `}
       </div>
+
+      <!-- Cross-CLI Servers: Available from Claude (Codex mode) -->
+      ${crossCliServers.length > 0 ? `
+      <div class="mcp-section">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-foreground flex items-center gap-2">
+            <i data-lucide="circle" class="w-5 h-5 text-blue-500"></i>
+            ${t('mcp.codex.copyFromClaude')}
+          </h3>
+          <span class="text-sm text-muted-foreground">${crossCliServers.length} ${t('mcp.serversAvailable')}</span>
+        </div>
+        <div class="mcp-server-grid grid gap-3">
+          ${crossCliServers.map(server => renderCrossCliServerCard(server, false)).join('')}
+        </div>
+      </div>
+      ` : ''}
       ` : `
       <!-- CCW Tools MCP Server Card -->
       <div class="mcp-section mb-6">
-        <div class="ccw-tools-card bg-gradient-to-br from-primary/10 to-primary/5 border-2 ${isCcwToolsInstalled ? 'border-success' : 'border-primary/30'} rounded-lg p-6 hover:shadow-lg transition-all">
+        <div class="ccw-tools-card bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-2 ${isCcwToolsInstalled ? 'border-success' : 'border-orange-500/30'} rounded-lg p-6 hover:shadow-lg transition-all">
           <div class="flex items-start justify-between gap-4">
             <div class="flex items-start gap-4 flex-1">
-              <div class="shrink-0 w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
-                <i data-lucide="wrench" class="w-6 h-6 text-primary-foreground"></i>
+              <div class="shrink-0 w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center">
+                <i data-lucide="wrench" class="w-6 h-6 text-white"></i>
               </div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-2">
@@ -357,7 +394,7 @@ async function renderMcpManager() {
                       ${enabledTools.length} tools
                     </span>
                   ` : `
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-primary/20 text-primary">
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-500/20 text-orange-600 dark:text-orange-400">
                       <i data-lucide="package" class="w-3 h-3"></i>
                       Available
                     </span>
@@ -375,15 +412,15 @@ async function renderMcpManager() {
                   `).join('')}
                 </div>
                 <div class="flex items-center gap-3 text-xs">
-                  <button class="text-primary hover:underline" onclick="selectCcwTools('core')">Core only</button>
-                  <button class="text-primary hover:underline" onclick="selectCcwTools('all')">All</button>
+                  <button class="text-orange-500 hover:underline" onclick="selectCcwTools('core')">Core only</button>
+                  <button class="text-orange-500 hover:underline" onclick="selectCcwTools('all')">All</button>
                   <button class="text-muted-foreground hover:underline" onclick="selectCcwTools('none')">None</button>
                 </div>
               </div>
             </div>
             <div class="shrink-0 flex gap-2">
               ${isCcwToolsInstalled ? `
-                <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
+                <button class="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
                         onclick="updateCcwToolsMcp('workspace')"
                         title="${t('mcp.updateInWorkspace')}">
                   <i data-lucide="folder" class="w-4 h-4"></i>
@@ -396,7 +433,7 @@ async function renderMcpManager() {
                   ${t('mcp.updateInGlobal')}
                 </button>
               ` : `
-                <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
+                <button class="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
                         onclick="installCcwToolsMcp('workspace')"
                         title="${t('mcp.installToWorkspace')}">
                   <i data-lucide="folder" class="w-4 h-4"></i>
@@ -485,7 +522,7 @@ async function renderMcpManager() {
       </div>
 
       <!-- Available MCP Servers from Other Projects -->
-      <div class="mcp-section">
+      <div class="mcp-section mb-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-foreground">${t('mcp.availableOther')}</h3>
           <span class="text-sm text-muted-foreground">${otherProjectServers.length} ${t('mcp.serversAvailable')}</span>
@@ -503,6 +540,22 @@ async function renderMcpManager() {
           </div>
         `}
       </div>
+
+      <!-- Cross-CLI Servers: Available from Codex (Claude mode) -->
+      ${crossCliServers.length > 0 ? `
+      <div class="mcp-section mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-foreground flex items-center gap-2">
+            <i data-lucide="circle-dashed" class="w-5 h-5 text-orange-500"></i>
+            ${t('mcp.claude.copyFromCodex')}
+          </h3>
+          <span class="text-sm text-muted-foreground">${crossCliServers.length} ${t('mcp.serversAvailable')}</span>
+        </div>
+        <div class="mcp-server-grid grid gap-3">
+          ${crossCliServers.map(server => renderCrossCliServerCard(server, true)).join('')}
+        </div>
+      </div>
+      ` : ''}
 
       <!-- MCP Templates Section -->
       ${mcpTemplates.length > 0 ? `
@@ -1010,6 +1063,15 @@ function renderAvailableServerCardForCodex(serverName, serverInfo) {
           ${sourceProjectName ? `<span class="text-xs text-muted-foreground/70">• ${t('mcp.from')} ${escapeHtml(sourceProjectName)}</span>` : ''}
         </div>
       </div>
+
+      <div class="mt-3 pt-3 border-t border-border flex items-center gap-2">
+        <button class="text-xs text-orange-500 hover:text-orange-600 transition-colors flex items-center gap-1"
+                onclick="copyClaudeServerToCodex('${escapeHtml(originalName)}', ${JSON.stringify(serverConfig).replace(/'/g, "&#39;")})"
+                title="${t('mcp.codex.copyToCodex')}">
+          <i data-lucide="download" class="w-3 h-3"></i>
+          ${t('mcp.codex.install')}
+        </button>
+      </div>
     </div>
   `;
 }
@@ -1096,6 +1158,104 @@ function renderCodexServerCard(serverName, serverConfig) {
       </div>
     </div>
   `;
+}
+
+// Render card for cross-CLI servers (servers from other CLI not in current CLI)
+function renderCrossCliServerCard(server, isClaude) {
+  const { name, config, fromCli } = server;
+  const isStdio = !!config.command;
+  const isHttp = !!config.url;
+  const command = config.command || config.url || 'N/A';
+  const args = config.args || [];
+
+  // Icon and color based on source CLI
+  const icon = fromCli === 'codex' ? 'circle-dashed' : 'circle';
+  const iconColor = fromCli === 'codex' ? 'orange' : 'blue';
+  const sourceBadgeColor = fromCli === 'codex' ? 'orange' : 'primary';
+  const targetCli = isClaude ? 'project' : 'codex';
+  const buttonText = isClaude ? t('mcp.codex.copyToClaude') : t('mcp.claude.copyToCodex');
+  const typeBadge = isHttp
+    ? `<span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full">HTTP</span>`
+    : `<span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-full">STDIO</span>`;
+
+  return `
+    <div class="mcp-server-card bg-card border border-dashed border-${iconColor}-200 dark:border-${iconColor}-800 rounded-lg p-4 hover:shadow-md hover:border-solid transition-all">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex items-start gap-3">
+          <div class="shrink-0">
+            <i data-lucide="${icon}" class="w-5 h-5 text-${iconColor}-500"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap mb-1">
+              <h4 class="font-semibold text-foreground">${escapeHtml(name)}</h4>
+              <span class="text-xs px-2 py-0.5 bg-${sourceBadgeColor}/10 text-${sourceBadgeColor} rounded-full">
+                ${fromCli === 'codex' ? 'Codex' : 'Claude'}
+              </span>
+              ${typeBadge}
+            </div>
+            <div class="text-sm space-y-1 text-muted-foreground">
+              <div class="flex items-center gap-2">
+                <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${isHttp ? t('mcp.url') : t('mcp.cmd')}</span>
+                <span class="truncate text-xs" title="${escapeHtml(command)}">${escapeHtml(command)}</span>
+              </div>
+              ${args.length > 0 ? `
+                <div class="flex items-start gap-2">
+                  <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">${t('mcp.args')}</span>
+                  <span class="text-xs font-mono truncate" title="${escapeHtml(args.join(' '))}">${escapeHtml(args.slice(0, 3).join(' '))}${args.length > 3 ? '...' : ''}</span>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="mt-3 pt-3 border-t border-border">
+        <button class="w-full px-3 py-2 text-sm font-medium bg-${iconColor}-500 hover:bg-${iconColor}-600 text-white rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                onclick="copyCrossCliServer('${escapeHtml(name)}', ${JSON.stringify(config).replace(/'/g, "&#39;")}, '${fromCli}', '${targetCli}')">
+          <i data-lucide="copy" class="w-4 h-4"></i>
+          ${buttonText}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// Copy server from one CLI to another
+async function copyCrossCliServer(name, config, fromCli, targetCli) {
+  try {
+    let endpoint, body;
+
+    if (targetCli === 'codex') {
+      // Copy from Claude to Codex
+      endpoint = '/api/codex-mcp-add';
+      body = { serverName: name, serverConfig: config };
+    } else if (targetCli === 'project') {
+      // Copy from Codex to Claude project
+      endpoint = '/api/mcp-copy-server';
+      body = { projectPath, serverName: name, serverConfig: config, configType: 'mcp' };
+    } else if (targetCli === 'global') {
+      // Copy to Claude global
+      endpoint = '/api/mcp-add-global-server';
+      body = { serverName: name, serverConfig: config };
+    }
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      const targetName = targetCli === 'codex' ? 'Codex' : 'Claude';
+      showToast(t('mcp.success'), `${t('mcp.serverInstalled')} (${targetName})`, 'success');
+      await loadMcpConfig();
+      renderMcpManager();
+    } else {
+      showToast(t('mcp.error'), data.error, 'error');
+    }
+  } catch (error) {
+    showToast(t('mcp.error'), error.message, 'error');
+  }
 }
 
 // ========================================

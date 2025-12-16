@@ -7,6 +7,12 @@ tree-sitter-javascript>=0.25
 tree-sitter-typescript>=0.23
 pathspec>=0.11
 
+[encoding]
+chardet>=5.0
+
+[full]
+tiktoken>=0.5.0
+
 [semantic]
 numpy>=1.24
 fastembed>=0.2

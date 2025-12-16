@@ -18,3 +18,7 @@ Requires-Dist: pathspec>=0.11
 Provides-Extra: semantic
 Requires-Dist: numpy>=1.24; extra == "semantic"
 Requires-Dist: fastembed>=0.2; extra == "semantic"
+Provides-Extra: encoding
+Requires-Dist: chardet>=5.0; extra == "encoding"
+Provides-Extra: full
+Requires-Dist: tiktoken>=0.5.0; extra == "full"

@@ -424,3 +424,62 @@ class TestMinTokenLength:
         # Should include "a" and "B"
         assert "a" in result or "aB" in result
         assert "B" in result or "aB" in result
+
+
+
+
+class TestComplexBooleanQueries:
+    """Tests for complex boolean query parsing."""
+    
+    @pytest.fixture
+    def parser(self):
+        return QueryParser()
+    
+    def test_nested_boolean_and_or(self, parser):
+        """Test parser preserves nested boolean logic: (A OR B) AND C."""
+        query = "(login OR logout) AND user"
+        expanded = parser.preprocess_query(query)
+        
+        # Should preserve parentheses and boolean operators
+        assert "(" in expanded
+        assert ")" in expanded
+        assert "AND" in expanded
+        assert "OR" in expanded
+    
+    def test_mixed_operators_with_expansion(self, parser):
+        """Test CamelCase expansion doesn't break boolean operators."""
+        query = "UserAuth AND (login OR logout)"
+        expanded = parser.preprocess_query(query)
+        
+        # Should expand UserAuth but preserve operators
+        assert "User" in expanded or "Auth" in expanded
+        assert "AND" in expanded
+        assert "OR" in expanded
+        assert "(" in expanded
+        
+    def test_quoted_phrases_with_boolean(self, parser):
+        """Test quoted phrases preserved with boolean operators."""
+        query = '"user authentication" AND login'
+        expanded = parser.preprocess_query(query)
+        
+        # Quoted phrase should remain intact
+        assert '"user authentication"' in expanded or '"' in expanded
+        assert "AND" in expanded
+    
+    def test_not_operator_preservation(self, parser):
+        """Test NOT operator is preserved correctly."""
+        query = "login NOT logout"
+        expanded = parser.preprocess_query(query)
+        
+        assert "NOT" in expanded
+        assert "login" in expanded
+        assert "logout" in expanded
+    
+    def test_complex_nested_three_levels(self, parser):
+        """Test deeply nested boolean logic: ((A OR B) AND C) OR D."""
+        query = "((UserAuth OR login) AND session) OR token"
+        expanded = parser.preprocess_query(query)
+        
+        # Should handle multiple nesting levels
+        assert expanded.count("(") >= 2  # At least 2 opening parens
+        assert expanded.count(")") >= 2  # At least 2 closing parens

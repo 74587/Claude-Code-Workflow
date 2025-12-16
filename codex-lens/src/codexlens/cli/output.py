@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
@@ -13,7 +14,9 @@ from rich.text import Text
 
 from codexlens.entities import SearchResult, Symbol
 
-console = Console()
+# Force UTF-8 encoding for Windows console to properly display Chinese text
+# Use force_terminal=True and legacy_windows=False to avoid GBK encoding issues
+console = Console(force_terminal=True, legacy_windows=False)
 
 
 def _to_jsonable(value: Any) -> Any:

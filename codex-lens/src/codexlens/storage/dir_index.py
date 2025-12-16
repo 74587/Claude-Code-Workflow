@@ -27,7 +27,6 @@ class SubdirLink:
     name: str
     index_path: Path
     files_count: int
-    direct_files: int
     last_updated: float
 
 
@@ -57,7 +56,7 @@ class DirIndexStore:
 
     # Schema version for migration tracking
     # Increment this when schema changes require migration
-    SCHEMA_VERSION = 4
+    SCHEMA_VERSION = 5
 
     def __init__(self, db_path: str | Path) -> None:
         """Initialize directory index store.
@@ -131,6 +130,11 @@ class DirIndexStore:
         # Migration v2 -> v4: Add dual FTS tables (exact + fuzzy)
         if from_version < 4:
             from codexlens.storage.migrations.migration_004_dual_fts import upgrade
+            upgrade(conn)
+
+        # Migration v4 -> v5: Remove unused/redundant fields
+        if from_version < 5:
+            from codexlens.storage.migrations.migration_005_cleanup_unused_fields import upgrade
             upgrade(conn)
 
     def close(self) -> None:
@@ -208,19 +212,17 @@ class DirIndexStore:
                 # Replace symbols
                 conn.execute("DELETE FROM symbols WHERE file_id=?", (file_id,))
                 if symbols:
-                    # Extract token_count and symbol_type from symbol metadata if available
+                    # Insert symbols without token_count and symbol_type
                     symbol_rows = []
                     for s in symbols:
-                        token_count = getattr(s, 'token_count', None)
-                        symbol_type = getattr(s, 'symbol_type', None) or s.kind
                         symbol_rows.append(
-                            (file_id, s.name, s.kind, s.range[0], s.range[1], token_count, symbol_type)
+                            (file_id, s.name, s.kind, s.range[0], s.range[1])
                         )
 
                     conn.executemany(
                         """
-                        INSERT INTO symbols(file_id, name, kind, start_line, end_line, token_count, symbol_type)
-                        VALUES(?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO symbols(file_id, name, kind, start_line, end_line)
+                        VALUES(?, ?, ?, ?, ?)
                         """,
                         symbol_rows,
                     )
@@ -374,19 +376,17 @@ class DirIndexStore:
 
                     conn.execute("DELETE FROM symbols WHERE file_id=?", (file_id,))
                     if symbols:
-                        # Extract token_count and symbol_type from symbol metadata if available
+                        # Insert symbols without token_count and symbol_type
                         symbol_rows = []
                         for s in symbols:
-                            token_count = getattr(s, 'token_count', None)
-                            symbol_type = getattr(s, 'symbol_type', None) or s.kind
                             symbol_rows.append(
-                                (file_id, s.name, s.kind, s.range[0], s.range[1], token_count, symbol_type)
+                                (file_id, s.name, s.kind, s.range[0], s.range[1])
                             )
 
                         conn.executemany(
                             """
-                            INSERT INTO symbols(file_id, name, kind, start_line, end_line, token_count, symbol_type)
-                            VALUES(?, ?, ?, ?, ?, ?, ?)
+                            INSERT INTO symbols(file_id, name, kind, start_line, end_line)
+                            VALUES(?, ?, ?, ?, ?)
                             """,
                             symbol_rows,
                         )
@@ -644,25 +644,22 @@ class DirIndexStore:
         with self._lock:
             conn = self._get_connection()
 
-            import json
             import time
 
-            keywords_json = json.dumps(keywords)
             generated_at = time.time()
 
-            # Write to semantic_metadata table (for backward compatibility)
+            # Write to semantic_metadata table (without keywords column)
             conn.execute(
                 """
-                INSERT INTO semantic_metadata(file_id, summary, keywords, purpose, llm_tool, generated_at)
-                VALUES(?, ?, ?, ?, ?, ?)
+                INSERT INTO semantic_metadata(file_id, summary, purpose, llm_tool, generated_at)
+                VALUES(?, ?, ?, ?, ?)
                 ON CONFLICT(file_id) DO UPDATE SET
                     summary=excluded.summary,
-                    keywords=excluded.keywords,
                     purpose=excluded.purpose,
                     llm_tool=excluded.llm_tool,
                     generated_at=excluded.generated_at
                 """,
-                (file_id, summary, keywords_json, purpose, llm_tool, generated_at),
+                (file_id, summary, purpose, llm_tool, generated_at),
             )
 
             # Write to normalized keywords tables for optimized search
@@ -709,9 +706,10 @@ class DirIndexStore:
         with self._lock:
             conn = self._get_connection()
 
+            # Get semantic metadata (without keywords column)
             row = conn.execute(
                 """
-                SELECT summary, keywords, purpose, llm_tool, generated_at
+                SELECT summary, purpose, llm_tool, generated_at
                 FROM semantic_metadata WHERE file_id=?
                 """,
                 (file_id,),
@@ -720,11 +718,23 @@ class DirIndexStore:
             if not row:
                 return None
 
-            import json
+            # Get keywords from normalized file_keywords table
+            keyword_rows = conn.execute(
+                """
+                SELECT k.keyword
+                FROM file_keywords fk
+                JOIN keywords k ON fk.keyword_id = k.id
+                WHERE fk.file_id = ?
+                ORDER BY k.keyword
+                """,
+                (file_id,),
+            ).fetchall()
+
+            keywords = [kw["keyword"] for kw in keyword_rows]
 
             return {
                 "summary": row["summary"],
-                "keywords": json.loads(row["keywords"]) if row["keywords"] else [],
+                "keywords": keywords,
                 "purpose": row["purpose"],
                 "llm_tool": row["llm_tool"],
                 "generated_at": float(row["generated_at"]) if row["generated_at"] else 0.0,
@@ -856,15 +866,14 @@ class DirIndexStore:
         Returns:
             Tuple of (list of metadata dicts, total count)
         """
-        import json
-
         with self._lock:
             conn = self._get_connection()
 
+            # Query semantic metadata without keywords column
             base_query = """
                 SELECT f.id as file_id, f.name as file_name, f.full_path,
                        f.language, f.line_count,
-                       sm.summary, sm.keywords, sm.purpose,
+                       sm.summary, sm.purpose,
                        sm.llm_tool, sm.generated_at
                 FROM files f
                 JOIN semantic_metadata sm ON f.id = sm.file_id
@@ -892,14 +901,30 @@ class DirIndexStore:
 
             results = []
             for row in rows:
+                file_id = int(row["file_id"])
+
+                # Get keywords from normalized file_keywords table
+                keyword_rows = conn.execute(
+                    """
+                    SELECT k.keyword
+                    FROM file_keywords fk
+                    JOIN keywords k ON fk.keyword_id = k.id
+                    WHERE fk.file_id = ?
+                    ORDER BY k.keyword
+                    """,
+                    (file_id,),
+                ).fetchall()
+
+                keywords = [kw["keyword"] for kw in keyword_rows]
+
                 results.append({
-                    "file_id": int(row["file_id"]),
+                    "file_id": file_id,
                     "file_name": row["file_name"],
                     "full_path": row["full_path"],
                     "language": row["language"],
                     "line_count": int(row["line_count"]) if row["line_count"] else 0,
                     "summary": row["summary"],
-                    "keywords": json.loads(row["keywords"]) if row["keywords"] else [],
+                    "keywords": keywords,
                     "purpose": row["purpose"],
                     "llm_tool": row["llm_tool"],
                     "generated_at": float(row["generated_at"]) if row["generated_at"] else 0.0,
@@ -922,7 +947,7 @@ class DirIndexStore:
             name: Subdirectory name
             index_path: Path to subdirectory's _index.db
             files_count: Total files recursively
-            direct_files: Files directly in subdirectory
+            direct_files: Deprecated parameter (no longer used)
         """
         with self._lock:
             conn = self._get_connection()
@@ -931,17 +956,17 @@ class DirIndexStore:
             import time
             last_updated = time.time()
 
+            # Note: direct_files parameter is deprecated but kept for backward compatibility
             conn.execute(
                 """
-                INSERT INTO subdirs(name, index_path, files_count, direct_files, last_updated)
-                VALUES(?, ?, ?, ?, ?)
+                INSERT INTO subdirs(name, index_path, files_count, last_updated)
+                VALUES(?, ?, ?, ?)
                 ON CONFLICT(name) DO UPDATE SET
                     index_path=excluded.index_path,
                     files_count=excluded.files_count,
-                    direct_files=excluded.direct_files,
                     last_updated=excluded.last_updated
                 """,
-                (name, index_path_str, files_count, direct_files, last_updated),
+                (name, index_path_str, files_count, last_updated),
             )
             conn.commit()
 
@@ -974,7 +999,7 @@ class DirIndexStore:
             conn = self._get_connection()
             rows = conn.execute(
                 """
-                SELECT id, name, index_path, files_count, direct_files, last_updated
+                SELECT id, name, index_path, files_count, last_updated
                 FROM subdirs
                 ORDER BY name
                 """
@@ -986,7 +1011,6 @@ class DirIndexStore:
                     name=row["name"],
                     index_path=Path(row["index_path"]),
                     files_count=int(row["files_count"]) if row["files_count"] else 0,
-                    direct_files=int(row["direct_files"]) if row["direct_files"] else 0,
                     last_updated=float(row["last_updated"]) if row["last_updated"] else 0.0,
                 )
                 for row in rows
@@ -1005,7 +1029,7 @@ class DirIndexStore:
             conn = self._get_connection()
             row = conn.execute(
                 """
-                SELECT id, name, index_path, files_count, direct_files, last_updated
+                SELECT id, name, index_path, files_count, last_updated
                 FROM subdirs WHERE name=?
                 """,
                 (name,),
@@ -1019,7 +1043,6 @@ class DirIndexStore:
                 name=row["name"],
                 index_path=Path(row["index_path"]),
                 files_count=int(row["files_count"]) if row["files_count"] else 0,
-                direct_files=int(row["direct_files"]) if row["direct_files"] else 0,
                 last_updated=float(row["last_updated"]) if row["last_updated"] else 0.0,
             )
 
@@ -1031,41 +1054,71 @@ class DirIndexStore:
         Args:
             name: Subdirectory name
             files_count: Total files recursively
-            direct_files: Files directly in subdirectory (optional)
+            direct_files: Deprecated parameter (no longer used)
         """
         with self._lock:
             conn = self._get_connection()
             import time
             last_updated = time.time()
 
-            if direct_files is not None:
-                conn.execute(
-                    """
-                    UPDATE subdirs
-                    SET files_count=?, direct_files=?, last_updated=?
-                    WHERE name=?
-                    """,
-                    (files_count, direct_files, last_updated, name),
-                )
-            else:
-                conn.execute(
-                    """
-                    UPDATE subdirs
-                    SET files_count=?, last_updated=?
-                    WHERE name=?
-                    """,
-                    (files_count, last_updated, name),
-                )
+            # Note: direct_files parameter is deprecated but kept for backward compatibility
+            conn.execute(
+                """
+                UPDATE subdirs
+                SET files_count=?, last_updated=?
+                WHERE name=?
+                """,
+                (files_count, last_updated, name),
+            )
             conn.commit()
 
     # === Search ===
 
-    def search_fts(self, query: str, limit: int = 20) -> List[SearchResult]:
+    @staticmethod
+    def _enhance_fts_query(query: str) -> str:
+        """Enhance FTS5 query to support prefix matching for simple queries.
+
+        For simple single-word or multi-word queries without FTS5 operators,
+        automatically adds prefix wildcard (*) to enable partial matching.
+
+        Examples:
+            "loadPack" -> "loadPack*"
+            "load package" -> "load* package*"
+            "load*" -> "load*" (already has wildcard, unchanged)
+            "NOT test" -> "NOT test" (has FTS operator, unchanged)
+
+        Args:
+            query: Original FTS5 query string
+
+        Returns:
+            Enhanced query string with prefix wildcards for simple queries
+        """
+        # Don't modify if query already contains FTS5 operators or wildcards
+        if any(op in query.upper() for op in [' AND ', ' OR ', ' NOT ', ' NEAR ', '*', '"']):
+            return query
+
+        # For simple queries, add prefix wildcard to each word
+        words = query.split()
+        enhanced_words = [f"{word}*" if not word.endswith('*') else word for word in words]
+        return ' '.join(enhanced_words)
+
+    def search_fts(self, query: str, limit: int = 20, enhance_query: bool = False) -> List[SearchResult]:
         """Full-text search in current directory files.
+
+        Uses files_fts_exact (unicode61 tokenizer) for exact token matching.
+        For fuzzy/substring search, use search_fts_fuzzy() instead.
+
+        Best Practice (from industry analysis of Codanna/Code-Index-MCP):
+        - Default: Respects exact user input without modification
+        - Users can manually add wildcards (e.g., "loadPack*") for prefix matching
+        - Automatic enhancement (enhance_query=True) is NOT recommended as it can
+          violate user intent and bring unwanted noise in results
 
         Args:
             query: FTS5 query string
             limit: Maximum results to return
+            enhance_query: If True, automatically add prefix wildcards for simple queries.
+                          Default False to respect exact user input.
 
         Returns:
             List of SearchResult objects sorted by relevance
@@ -1073,19 +1126,23 @@ class DirIndexStore:
         Raises:
             StorageError: If FTS search fails
         """
+        # Only enhance query if explicitly requested (not default behavior)
+        # Best practice: Let users control wildcards manually
+        final_query = self._enhance_fts_query(query) if enhance_query else query
+
         with self._lock:
             conn = self._get_connection()
             try:
                 rows = conn.execute(
                     """
-                    SELECT rowid, full_path, bm25(files_fts) AS rank,
-                           snippet(files_fts, 2, '[bold red]', '[/bold red]', '...', 20) AS excerpt
-                    FROM files_fts
-                    WHERE files_fts MATCH ?
+                    SELECT rowid, full_path, bm25(files_fts_exact) AS rank,
+                           snippet(files_fts_exact, 2, '[bold red]', '[/bold red]', '...', 20) AS excerpt
+                    FROM files_fts_exact
+                    WHERE files_fts_exact MATCH ?
                     ORDER BY rank
                     LIMIT ?
                     """,
-                    (query, limit),
+                    (final_query, limit),
                 ).fetchall()
             except sqlite3.DatabaseError as exc:
                 raise StorageError(f"FTS search failed: {exc}") from exc
@@ -1249,10 +1306,11 @@ class DirIndexStore:
             if kind:
                 rows = conn.execute(
                     """
-                    SELECT name, kind, start_line, end_line
-                    FROM symbols
-                    WHERE name LIKE ? AND kind=?
-                    ORDER BY name
+                    SELECT s.name, s.kind, s.start_line, s.end_line, f.full_path
+                    FROM symbols s
+                    JOIN files f ON s.file_id = f.id
+                    WHERE s.name LIKE ? AND s.kind=?
+                    ORDER BY s.name
                     LIMIT ?
                     """,
                     (pattern, kind, limit),
@@ -1260,10 +1318,11 @@ class DirIndexStore:
             else:
                 rows = conn.execute(
                     """
-                    SELECT name, kind, start_line, end_line
-                    FROM symbols
-                    WHERE name LIKE ?
-                    ORDER BY name
+                    SELECT s.name, s.kind, s.start_line, s.end_line, f.full_path
+                    FROM symbols s
+                    JOIN files f ON s.file_id = f.id
+                    WHERE s.name LIKE ?
+                    ORDER BY s.name
                     LIMIT ?
                     """,
                     (pattern, limit),
@@ -1274,6 +1333,7 @@ class DirIndexStore:
                     name=row["name"],
                     kind=row["kind"],
                     range=(row["start_line"], row["end_line"]),
+                    file=row["full_path"],
                 )
                 for row in rows
             ]
@@ -1359,7 +1419,7 @@ class DirIndexStore:
                 """
             )
 
-            # Subdirectories table
+            # Subdirectories table (v5: removed direct_files)
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS subdirs (
@@ -1367,13 +1427,12 @@ class DirIndexStore:
                     name TEXT NOT NULL UNIQUE,
                     index_path TEXT NOT NULL,
                     files_count INTEGER DEFAULT 0,
-                    direct_files INTEGER DEFAULT 0,
                     last_updated REAL
                 )
                 """
             )
 
-            # Symbols table
+            # Symbols table (v5: removed token_count and symbol_type)
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS symbols (
@@ -1382,9 +1441,7 @@ class DirIndexStore:
                     name TEXT NOT NULL,
                     kind TEXT NOT NULL,
                     start_line INTEGER,
-                    end_line INTEGER,
-                    token_count INTEGER,
-                    symbol_type TEXT
+                    end_line INTEGER
                 )
                 """
             )
@@ -1421,14 +1478,13 @@ class DirIndexStore:
                 """
             )
 
-            # Semantic metadata table
+            # Semantic metadata table (v5: removed keywords column)
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS semantic_metadata (
                     id INTEGER PRIMARY KEY,
                     file_id INTEGER UNIQUE REFERENCES files(id) ON DELETE CASCADE,
                     summary TEXT,
-                    keywords TEXT,
                     purpose TEXT,
                     llm_tool TEXT,
                     generated_at REAL
@@ -1473,13 +1529,12 @@ class DirIndexStore:
                 """
             )
 
-            # Indexes
+            # Indexes (v5: removed idx_symbols_type)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_files_name ON files(name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_files_path ON files(full_path)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_subdirs_name ON subdirs(name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_file ON symbols(file_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_type ON symbols(symbol_type)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_semantic_file ON semantic_metadata(file_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_keywords_keyword ON keywords(keyword)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_file_keywords_file_id ON file_keywords(file_id)")

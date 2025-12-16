@@ -5,7 +5,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import { homedir } from 'os';
 import { join, resolve, normalize } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import Database from 'better-sqlite3';
 
 export interface RouteContext {
@@ -63,8 +63,6 @@ interface GraphNode {
   type: string;
   file: string;
   line: number;
-  docstring?: string;
-  tokenCount?: number;
 }
 
 interface GraphEdge {
@@ -109,6 +107,36 @@ function validateProjectPath(projectPath: string, initialPath: string): string |
 }
 
 /**
+ * Find all _index.db files recursively in a directory
+ * @param dir Directory to search
+ * @returns Array of absolute paths to _index.db files
+ */
+function findAllIndexDbs(dir: string): string[] {
+  const dbs: string[] = [];
+
+  function traverse(currentDir: string): void {
+    const dbPath = join(currentDir, '_index.db');
+    if (existsSync(dbPath)) {
+      dbs.push(dbPath);
+    }
+
+    try {
+      const entries = readdirSync(currentDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          traverse(join(currentDir, entry.name));
+        }
+      }
+    } catch {
+      // Silently skip directories we can't read
+    }
+  }
+
+  traverse(dir);
+  return dbs;
+}
+
+/**
  * Map codex-lens symbol kinds to graph node types
  */
 function mapSymbolKind(kind: string): string {
@@ -138,93 +166,117 @@ function mapRelationType(relType: string): string {
 }
 
 /**
- * Query symbols from codex-lens database
+ * Query symbols from all codex-lens databases (hierarchical structure)
  */
 async function querySymbols(projectPath: string): Promise<GraphNode[]> {
   const mapper = new PathMapper();
-  const dbPath = mapper.sourceToIndexDb(projectPath);
+  const rootDbPath = mapper.sourceToIndexDb(projectPath);
+  const indexRoot = rootDbPath.replace(/[\\/]_index\.db$/, '');
 
-  if (!existsSync(dbPath)) {
+  if (!existsSync(indexRoot)) {
     return [];
   }
 
-  try {
-    const db = Database(dbPath, { readonly: true });
+  // Find all _index.db files recursively
+  const dbPaths = findAllIndexDbs(indexRoot);
 
-    const rows = db.prepare(`
-      SELECT
-        s.id,
-        s.name,
-        s.kind,
-        s.start_line,
-        s.token_count,
-        s.symbol_type,
-        f.path as file
-      FROM symbols s
-      JOIN files f ON s.file_id = f.id
-      ORDER BY f.path, s.start_line
-    `).all();
-
-    db.close();
-
-    return rows.map((row: any) => ({
-      id: `${row.file}:${row.name}:${row.start_line}`,
-      name: row.name,
-      type: mapSymbolKind(row.kind),
-      file: row.file,
-      line: row.start_line,
-      docstring: row.symbol_type || undefined,
-      tokenCount: row.token_count || undefined,
-    }));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[Graph] Failed to query symbols: ${message}`);
+  if (dbPaths.length === 0) {
     return [];
   }
+
+  const allNodes: GraphNode[] = [];
+
+  for (const dbPath of dbPaths) {
+    try {
+      const db = Database(dbPath, { readonly: true });
+
+      const rows = db.prepare(`
+        SELECT
+          s.id,
+          s.name,
+          s.kind,
+          s.start_line,
+          f.full_path as file
+        FROM symbols s
+        JOIN files f ON s.file_id = f.id
+        ORDER BY f.full_path, s.start_line
+      `).all();
+
+      db.close();
+
+      allNodes.push(...rows.map((row: any) => ({
+        id: `${row.file}:${row.name}:${row.start_line}`,
+        name: row.name,
+        type: mapSymbolKind(row.kind),
+        file: row.file,
+        line: row.start_line,
+      })));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[Graph] Failed to query symbols from ${dbPath}: ${message}`);
+      // Continue with other databases even if one fails
+    }
+  }
+
+  return allNodes;
 }
 
 /**
- * Query code relationships from codex-lens database
+ * Query code relationships from all codex-lens databases (hierarchical structure)
  */
 async function queryRelationships(projectPath: string): Promise<GraphEdge[]> {
   const mapper = new PathMapper();
-  const dbPath = mapper.sourceToIndexDb(projectPath);
+  const rootDbPath = mapper.sourceToIndexDb(projectPath);
+  const indexRoot = rootDbPath.replace(/[\\/]_index\.db$/, '');
 
-  if (!existsSync(dbPath)) {
+  if (!existsSync(indexRoot)) {
     return [];
   }
 
-  try {
-    const db = Database(dbPath, { readonly: true });
+  // Find all _index.db files recursively
+  const dbPaths = findAllIndexDbs(indexRoot);
 
-    const rows = db.prepare(`
-      SELECT
-        s.name as source_name,
-        s.start_line as source_line,
-        f.path as source_file,
-        r.target_qualified_name,
-        r.relationship_type,
-        r.target_file
-      FROM code_relationships r
-      JOIN symbols s ON r.source_symbol_id = s.id
-      JOIN files f ON s.file_id = f.id
-      ORDER BY f.path, s.start_line
-    `).all();
-
-    db.close();
-
-    return rows.map((row: any) => ({
-      source: `${row.source_file}:${row.source_name}:${row.source_line}`,
-      target: row.target_qualified_name,
-      type: mapRelationType(row.relationship_type),
-      sourceLine: row.source_line,
-      sourceFile: row.source_file,
-    }));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[Graph] Failed to query relationships: ${message}`);
+  if (dbPaths.length === 0) {
     return [];
   }
+
+  const allEdges: GraphEdge[] = [];
+
+  for (const dbPath of dbPaths) {
+    try {
+      const db = Database(dbPath, { readonly: true });
+
+      const rows = db.prepare(`
+        SELECT
+          s.name as source_name,
+          s.start_line as source_line,
+          f.full_path as source_file,
+          r.target_qualified_name,
+          r.relationship_type,
+          r.target_file
+        FROM code_relationships r
+        JOIN symbols s ON r.source_symbol_id = s.id
+        JOIN files f ON s.file_id = f.id
+        ORDER BY f.full_path, s.start_line
+      `).all();
+
+      db.close();
+
+      allEdges.push(...rows.map((row: any) => ({
+        source: `${row.source_file}:${row.source_name}:${row.source_line}`,
+        target: row.target_qualified_name,
+        type: mapRelationType(row.relationship_type),
+        sourceLine: row.source_line,
+        sourceFile: row.source_file,
+      })));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[Graph] Failed to query relationships from ${dbPath}: ${message}`);
+      // Continue with other databases even if one fails
+    }
+  }
+
+  return allEdges;
 }
 
 /**
@@ -292,7 +344,7 @@ async function analyzeImpact(projectPath: string, symbolId: string): Promise<Imp
     const rows = db.prepare(`
       SELECT DISTINCT
         s.name as dependent_name,
-        f.path as dependent_file,
+        f.full_path as dependent_file,
         s.start_line as dependent_line
       FROM code_relationships r
       JOIN symbols s ON r.source_symbol_id = s.id
@@ -330,6 +382,8 @@ export async function handleGraphRoutes(ctx: RouteContext): Promise<boolean> {
   if (pathname === '/api/graph/nodes') {
     const rawPath = url.searchParams.get('path') || initialPath;
     const projectPath = validateProjectPath(rawPath, initialPath);
+    const limitStr = url.searchParams.get('limit') || '1000';
+    const limit = Math.min(parseInt(limitStr, 10) || 1000, 5000); // Max 5000 nodes
 
     if (!projectPath) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -338,9 +392,15 @@ export async function handleGraphRoutes(ctx: RouteContext): Promise<boolean> {
     }
 
     try {
-      const nodes = await querySymbols(projectPath);
+      const allNodes = await querySymbols(projectPath);
+      const nodes = allNodes.slice(0, limit);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ nodes }));
+      res.end(JSON.stringify({
+        nodes,
+        total: allNodes.length,
+        limit,
+        hasMore: allNodes.length > limit
+      }));
     } catch (err) {
       console.error(`[Graph] Error fetching nodes:`, err);
       res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -353,6 +413,8 @@ export async function handleGraphRoutes(ctx: RouteContext): Promise<boolean> {
   if (pathname === '/api/graph/edges') {
     const rawPath = url.searchParams.get('path') || initialPath;
     const projectPath = validateProjectPath(rawPath, initialPath);
+    const limitStr = url.searchParams.get('limit') || '2000';
+    const limit = Math.min(parseInt(limitStr, 10) || 2000, 10000); // Max 10000 edges
 
     if (!projectPath) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -361,9 +423,15 @@ export async function handleGraphRoutes(ctx: RouteContext): Promise<boolean> {
     }
 
     try {
-      const edges = await queryRelationships(projectPath);
+      const allEdges = await queryRelationships(projectPath);
+      const edges = allEdges.slice(0, limit);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ edges }));
+      res.end(JSON.stringify({
+        edges,
+        total: allEdges.length,
+        limit,
+        hasMore: allEdges.length > limit
+      }));
     } catch (err) {
       console.error(`[Graph] Error fetching edges:`, err);
       res.writeHead(500, { 'Content-Type': 'application/json' });

@@ -567,6 +567,19 @@ function renderCliSettingsSection() {
         '</div>' +
         '<p class="cli-setting-desc">' + t('cli.nativeResumeDesc') + '</p>' +
       '</div>' +
+      '<div class="cli-setting-item">' +
+        '<label class="cli-setting-label">' +
+          '<i data-lucide="git-branch" class="w-3 h-3"></i>' +
+          t('cli.recursiveQuery') +
+        '</label>' +
+        '<div class="cli-setting-control">' +
+          '<label class="cli-toggle">' +
+            '<input type="checkbox"' + (recursiveQueryEnabled ? ' checked' : '') + ' onchange="setRecursiveQueryEnabled(this.checked)">' +
+            '<span class="cli-toggle-slider"></span>' +
+          '</label>' +
+        '</div>' +
+        '<p class="cli-setting-desc">' + t('cli.recursiveQueryDesc') + '</p>' +
+      '</div>' +
       '<div class="cli-setting-item' + (!smartContextEnabled ? ' disabled' : '') + '">' +
         '<label class="cli-setting-label">' +
           '<i data-lucide="files" class="w-3 h-3"></i>' +
@@ -1614,6 +1627,26 @@ function buildCodexLensConfigContent(config) {
       '</div>' +
     '</div>' +
 
+    // Semantic Dependencies Section
+    (isInstalled
+      ? '<div class="tool-config-section">' +
+          '<h4>' + t('codexlens.semanticDeps') + '</h4>' +
+          '<div id="semanticDepsStatus" class="space-y-2">' +
+            '<div class="text-sm text-muted-foreground">' + t('codexlens.checkingDeps') + '</div>' +
+          '</div>' +
+        '</div>'
+      : '') +
+
+    // Model Management Section
+    (isInstalled
+      ? '<div class="tool-config-section">' +
+          '<h4>' + t('codexlens.modelManagement') + '</h4>' +
+          '<div id="modelListContainer" class="space-y-2">' +
+            '<div class="text-sm text-muted-foreground">' + t('codexlens.loadingModels') + '</div>' +
+          '</div>' +
+        '</div>'
+      : '') +
+
     // Test Search Section
     (isInstalled
       ? '<div class="tool-config-section">' +
@@ -1624,6 +1657,12 @@ function buildCodexLensConfigContent(config) {
                 '<option value="search">' + t('codexlens.textSearch') + '</option>' +
                 '<option value="search_files">' + t('codexlens.fileSearch') + '</option>' +
                 '<option value="symbol">' + t('codexlens.symbolSearch') + '</option>' +
+              '</select>' +
+              '<select id="searchModeSelect" class="tool-config-select flex-1">' +
+                '<option value="exact">' + t('codexlens.exactMode') + '</option>' +
+                '<option value="fuzzy">' + t('codexlens.fuzzyMode') + '</option>' +
+                '<option value="hybrid">' + t('codexlens.hybridMode') + '</option>' +
+                '<option value="vector">' + t('codexlens.vectorMode') + '</option>' +
               '</select>' +
             '</div>' +
             '<div>' +
@@ -1717,6 +1756,7 @@ function initCodexLensConfigEvents(currentConfig) {
   if (runSearchBtn) {
     runSearchBtn.onclick = async function() {
       var searchType = document.getElementById('searchTypeSelect').value;
+      var searchMode = document.getElementById('searchModeSelect').value;
       var query = document.getElementById('searchQueryInput').value.trim();
       var resultsDiv = document.getElementById('searchResults');
       var resultCount = document.getElementById('searchResultCount');
@@ -1734,6 +1774,10 @@ function initCodexLensConfigEvents(currentConfig) {
       try {
         var endpoint = '/api/codexlens/' + searchType;
         var params = new URLSearchParams({ query: query, limit: '20' });
+        // Add mode parameter for search and search_files (not for symbol search)
+        if (searchType === 'search' || searchType === 'search_files') {
+          params.append('mode', searchMode);
+        }
 
         var response = await fetch(endpoint + '?' + params.toString());
         var result = await response.json();
@@ -1765,6 +1809,211 @@ function initCodexLensConfigEvents(currentConfig) {
         if (window.lucide) lucide.createIcons();
       }
     };
+  }
+
+  // Load semantic dependencies status
+  loadSemanticDepsStatus();
+
+  // Load model list
+  loadModelList();
+}
+
+// Load semantic dependencies status
+async function loadSemanticDepsStatus() {
+  var container = document.getElementById('semanticDepsStatus');
+  if (!container) return;
+
+  try {
+    var response = await fetch('/api/codexlens/semantic/status');
+    var result = await response.json();
+
+    if (result.available) {
+      container.innerHTML =
+        '<div class="flex items-center gap-2 text-sm">' +
+          '<i data-lucide="check-circle" class="w-4 h-4 text-success"></i>' +
+          '<span>' + t('codexlens.semanticInstalled') + '</span>' +
+          '<span class="text-muted-foreground">(' + (result.backend || 'fastembed') + ')</span>' +
+        '</div>';
+    } else {
+      container.innerHTML =
+        '<div class="space-y-2">' +
+          '<div class="flex items-center gap-2 text-sm text-muted-foreground">' +
+            '<i data-lucide="alert-circle" class="w-4 h-4"></i>' +
+            '<span>' + t('codexlens.semanticNotInstalled') + '</span>' +
+          '</div>' +
+          '<button class="btn-sm btn-outline" onclick="installSemanticDeps()">' +
+            '<i data-lucide="download" class="w-3 h-3"></i> ' + t('codexlens.installDeps') +
+          '</button>' +
+        '</div>';
+    }
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    container.innerHTML =
+      '<div class="text-sm text-error">' + t('common.error') + ': ' + err.message + '</div>';
+  }
+}
+
+// Install semantic dependencies
+async function installSemanticDeps() {
+  var container = document.getElementById('semanticDepsStatus');
+  if (!container) return;
+
+  container.innerHTML =
+    '<div class="text-sm text-muted-foreground animate-pulse">' + t('codexlens.installingDeps') + '</div>';
+
+  try {
+    var response = await fetch('/api/codexlens/semantic/install', { method: 'POST' });
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast(t('codexlens.depsInstalled'), 'success');
+      await loadSemanticDepsStatus();
+      await loadModelList();
+    } else {
+      showRefreshToast(t('codexlens.depsInstallFailed') + ': ' + result.error, 'error');
+      await loadSemanticDepsStatus();
+    }
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+    await loadSemanticDepsStatus();
+  }
+}
+
+// Load model list
+async function loadModelList() {
+  var container = document.getElementById('modelListContainer');
+  if (!container) return;
+
+  try {
+    var response = await fetch('/api/codexlens/models');
+    var result = await response.json();
+
+    if (!result.success || !result.result || !result.result.models) {
+      container.innerHTML =
+        '<div class="text-sm text-muted-foreground">' + t('codexlens.semanticNotInstalled') + '</div>';
+      return;
+    }
+
+    var models = result.result.models;
+    var html = '<div class="space-y-2">';
+
+    models.forEach(function(model) {
+      var statusIcon = model.installed
+        ? '<i data-lucide="check-circle" class="w-4 h-4 text-success"></i>'
+        : '<i data-lucide="circle" class="w-4 h-4 text-muted"></i>';
+
+      var sizeText = model.installed
+        ? model.actual_size_mb.toFixed(1) + ' MB'
+        : '~' + model.estimated_size_mb + ' MB';
+
+      var actionBtn = model.installed
+        ? '<button class="btn-sm btn-outline btn-danger" onclick="deleteModel(\'' + model.profile + '\')">' +
+            '<i data-lucide="trash-2" class="w-3 h-3"></i> ' + t('codexlens.deleteModel') +
+          '</button>'
+        : '<button class="btn-sm btn-outline" onclick="downloadModel(\'' + model.profile + '\')">' +
+            '<i data-lucide="download" class="w-3 h-3"></i> ' + t('codexlens.downloadModel') +
+          '</button>';
+
+      html +=
+        '<div class="border rounded-lg p-3 space-y-2" id="model-' + model.profile + '">' +
+          '<div class="flex items-start justify-between">' +
+            '<div class="flex-1">' +
+              '<div class="flex items-center gap-2 mb-1">' +
+                statusIcon +
+                '<span class="font-medium">' + model.profile + '</span>' +
+                '<span class="text-xs text-muted-foreground">(' + model.dimensions + ' dims)</span>' +
+              '</div>' +
+              '<div class="text-xs text-muted-foreground mb-1">' + model.model_name + '</div>' +
+              '<div class="text-xs text-muted-foreground">' + model.use_case + '</div>' +
+            '</div>' +
+            '<div class="text-right">' +
+              '<div class="text-xs text-muted-foreground mb-2">' + sizeText + '</div>' +
+              actionBtn +
+            '</div>' +
+          '</div>' +
+        '</div>';
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    container.innerHTML =
+      '<div class="text-sm text-error">' + t('common.error') + ': ' + err.message + '</div>';
+  }
+}
+
+// Download model
+async function downloadModel(profile) {
+  var modelCard = document.getElementById('model-' + profile);
+  if (!modelCard) return;
+
+  var originalHTML = modelCard.innerHTML;
+  modelCard.innerHTML =
+    '<div class="flex items-center justify-center p-3">' +
+      '<span class="text-sm text-muted-foreground animate-pulse">' + t('codexlens.downloading') + '</span>' +
+    '</div>';
+
+  try {
+    var response = await fetch('/api/codexlens/models/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile: profile })
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast(t('codexlens.modelDownloaded') + ': ' + profile, 'success');
+      await loadModelList();
+    } else {
+      showRefreshToast(t('codexlens.modelDownloadFailed') + ': ' + result.error, 'error');
+      modelCard.innerHTML = originalHTML;
+      if (window.lucide) lucide.createIcons();
+    }
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+    modelCard.innerHTML = originalHTML;
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+// Delete model
+async function deleteModel(profile) {
+  if (!confirm(t('codexlens.deleteModelConfirm') + ' ' + profile + '?')) {
+    return;
+  }
+
+  var modelCard = document.getElementById('model-' + profile);
+  if (!modelCard) return;
+
+  var originalHTML = modelCard.innerHTML;
+  modelCard.innerHTML =
+    '<div class="flex items-center justify-center p-3">' +
+      '<span class="text-sm text-muted-foreground animate-pulse">' + t('codexlens.deleting') + '</span>' +
+    '</div>';
+
+  try {
+    var response = await fetch('/api/codexlens/models/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile: profile })
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast(t('codexlens.modelDeleted') + ': ' + profile, 'success');
+      await loadModelList();
+    } else {
+      showRefreshToast(t('codexlens.modelDeleteFailed') + ': ' + result.error, 'error');
+      modelCard.innerHTML = originalHTML;
+      if (window.lucide) lucide.createIcons();
+    }
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+    modelCard.innerHTML = originalHTML;
+    if (window.lucide) lucide.createIcons();
   }
 }
 

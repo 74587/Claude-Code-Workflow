@@ -9,6 +9,7 @@ import { homedir } from 'os';
 import { join, resolve, dirname, relative, sep } from 'path';
 import { createHash } from 'crypto';
 import { existsSync, mkdirSync, renameSync, rmSync, readdirSync } from 'fs';
+import { readdir } from 'fs/promises';
 
 // Environment variable override for custom storage location
 // Made dynamic to support testing environments
@@ -529,6 +530,77 @@ export function scanChildProjects(projectPath: string): ChildProjectInfo[] {
   }
 
   scanDirectory(parentStorageDir, '');
+
+  return children;
+}
+
+/**
+ * Asynchronously scan for child projects in hierarchical storage structure
+ * Non-blocking version using fs.promises for better performance
+ * @param projectPath - Parent project path
+ * @returns Promise resolving to array of child project information
+ */
+export async function scanChildProjectsAsync(projectPath: string): Promise<ChildProjectInfo[]> {
+  const absolutePath = resolve(projectPath);
+  const parentId = getProjectId(absolutePath);
+  const parentStorageDir = join(getCCWHome(), 'projects', parentId);
+
+  // If parent storage doesn't exist, no children
+  if (!existsSync(parentStorageDir)) {
+    return [];
+  }
+
+  const children: ChildProjectInfo[] = [];
+
+  /**
+   * Recursively scan directory for project data directories (async)
+   */
+  async function scanDirectoryAsync(dir: string, relativePath: string): Promise<void> {
+    if (!existsSync(dir)) return;
+
+    try {
+      const entries = await readdir(dir, { withFileTypes: true });
+
+      // Process directories in parallel for better performance
+      const promises = entries
+        .filter(entry => entry.isDirectory())
+        .map(async (entry) => {
+          const fullPath = join(dir, entry.name);
+          const currentRelPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+
+          // Check if this directory contains project data
+          const dataMarkers = ['cli-history', 'memory', 'cache', 'config'];
+          const hasData = dataMarkers.some(marker => existsSync(join(fullPath, marker)));
+
+          if (hasData) {
+            // This is a child project
+            const childProjectPath = join(absolutePath, currentRelPath.replace(/\//g, sep));
+            const childId = getProjectId(childProjectPath);
+
+            children.push({
+              projectPath: childProjectPath,
+              relativePath: currentRelPath,
+              projectId: childId,
+              paths: getProjectPaths(childProjectPath)
+            });
+          }
+
+          // Continue scanning subdirectories (skip data directories)
+          if (!dataMarkers.includes(entry.name)) {
+            await scanDirectoryAsync(fullPath, currentRelPath);
+          }
+        });
+
+      await Promise.all(promises);
+    } catch (error) {
+      // Ignore read errors
+      if (process.env.DEBUG) {
+        console.error(`[scanChildProjectsAsync] Failed to scan ${dir}:`, error);
+      }
+    }
+  }
+
+  await scanDirectoryAsync(parentStorageDir, '');
 
   return children;
 }

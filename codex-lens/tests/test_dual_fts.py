@@ -469,3 +469,144 @@ class TestDualFTSPerformance:
                 assert len(results) > 0, "Should find matches in fuzzy FTS"
         finally:
             store.close()
+
+    def test_fuzzy_substring_matching(self, populated_db):
+        """Test fuzzy search finds partial token matches with trigram."""
+        store = DirIndexStore(populated_db)
+        store.initialize()
+
+        try:
+            # Check if trigram is available
+            with store._get_connection() as conn:
+                cursor = conn.execute(
+                    "SELECT sql FROM sqlite_master WHERE name='files_fts_fuzzy'"
+                )
+                fts_sql = cursor.fetchone()[0]
+                has_trigram = 'trigram' in fts_sql.lower()
+
+                if not has_trigram:
+                    pytest.skip("Trigram tokenizer not available, skipping fuzzy substring test")
+
+                # Search for partial token "func" should match "function0", "function1", etc.
+                cursor = conn.execute(
+                    """SELECT full_path, bm25(files_fts_fuzzy) as score
+                       FROM files_fts_fuzzy
+                       WHERE files_fts_fuzzy MATCH 'func'
+                       ORDER BY score
+                       LIMIT 10"""
+                )
+                results = cursor.fetchall()
+
+                # With trigram, should find matches
+                assert len(results) > 0, "Fuzzy search with trigram should find partial token matches"
+
+                # Verify results contain expected files with "function" in content
+                for path, score in results:
+                    assert "file" in path  # All test files named "test/fileN.py"
+                    assert score < 0  # BM25 scores are negative
+        finally:
+            store.close()
+
+
+class TestMigrationRecovery:
+    """Tests for migration failure recovery and edge cases."""
+
+    @pytest.fixture
+    def corrupted_v2_db(self):
+        """Create v2 database with incomplete migration state."""
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = Path(f.name)
+
+        conn = sqlite3.connect(db_path)
+        try:
+            # Create v2 schema with some data
+            conn.executescript("""
+                PRAGMA user_version = 2;
+
+                CREATE TABLE files (
+                    path TEXT PRIMARY KEY,
+                    content TEXT,
+                    language TEXT
+                );
+
+                INSERT INTO files VALUES ('test.py', 'content', 'python');
+
+                CREATE VIRTUAL TABLE files_fts USING fts5(
+                    path, content, language,
+                    content='files', content_rowid='rowid'
+                );
+            """)
+            conn.commit()
+        finally:
+            conn.close()
+
+        yield db_path
+
+        if db_path.exists():
+            db_path.unlink()
+
+    def test_migration_preserves_data_on_failure(self, corrupted_v2_db):
+        """Test that data is preserved if migration encounters issues."""
+        # Read original data
+        conn = sqlite3.connect(corrupted_v2_db)
+        cursor = conn.execute("SELECT path, content FROM files")
+        original_data = cursor.fetchall()
+        conn.close()
+
+        # Attempt migration (may fail or succeed)
+        store = DirIndexStore(corrupted_v2_db)
+        try:
+            store.initialize()
+        except Exception:
+            # Even if migration fails, original data should be intact
+            pass
+        finally:
+            store.close()
+
+        # Verify data still exists
+        conn = sqlite3.connect(corrupted_v2_db)
+        try:
+            # Check schema version to determine column name
+            cursor = conn.execute("PRAGMA user_version")
+            version = cursor.fetchone()[0]
+            
+            if version >= 4:
+                # Migration succeeded, use new column name
+                cursor = conn.execute("SELECT full_path, content FROM files WHERE full_path='test.py'")
+            else:
+                # Migration failed, use old column name
+                cursor = conn.execute("SELECT path, content FROM files WHERE path='test.py'")
+            
+            result = cursor.fetchone()
+
+            # Data should still be there
+            assert result is not None, "Data should be preserved after migration attempt"
+        finally:
+            conn.close()
+
+    def test_migration_idempotent_after_partial_failure(self, corrupted_v2_db):
+        """Test migration can be retried after partial failure."""
+        store1 = DirIndexStore(corrupted_v2_db)
+        store2 = DirIndexStore(corrupted_v2_db)
+
+        try:
+            # First attempt
+            try:
+                store1.initialize()
+            except Exception:
+                pass  # May fail partially
+
+            # Second attempt should succeed or fail gracefully
+            store2.initialize()  # Should not crash
+
+            # Verify database is in usable state
+            with store2._get_connection() as conn:
+                cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                tables = [row[0] for row in cursor.fetchall()]
+
+                # Should have files table (either old or new schema)
+                assert 'files' in tables
+        finally:
+            store1.close()
+            store2.close()
+

@@ -90,6 +90,8 @@ export interface ToolCall {
   id?: number;
   message_id: number;
   tool_name: string;
+  // NOTE: Naming inconsistency - using tool_args/tool_output vs tool_input/tool_result in HistoryImporter
+  // Kept for backward compatibility with existing databases
   tool_args?: string;
   tool_output?: string;
   status?: string;
@@ -114,8 +116,10 @@ export interface EntityWithAssociations extends Entity {
 export class MemoryStore {
   private db: Database.Database;
   private dbPath: string;
+  private projectPath: string;
 
   constructor(projectPath: string) {
+    this.projectPath = projectPath;
     // Use centralized storage path
     const paths = StoragePaths.project(projectPath);
     const memoryDir = paths.memory;
@@ -314,6 +318,22 @@ export class MemoryStore {
           ALTER TABLE conversations ADD COLUMN relative_path TEXT;
         `);
         console.log('[Memory Store] Migration complete: relative_path column added');
+      }
+
+      // Add missing timestamp index for messages table (for time-based queries)
+      try {
+        const indexExists = this.db.prepare(`
+          SELECT name FROM sqlite_master
+          WHERE type='index' AND name='idx_messages_timestamp'
+        `).get();
+
+        if (!indexExists) {
+          console.log('[Memory Store] Adding missing timestamp index to messages table...');
+          this.db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp DESC);`);
+          console.log('[Memory Store] Migration complete: messages timestamp index added');
+        }
+      } catch (indexErr) {
+        console.warn('[Memory Store] Messages timestamp index creation warning:', (indexErr as Error).message);
       }
     } catch (err) {
       console.error('[Memory Store] Migration error:', (err as Error).message);
@@ -597,13 +617,15 @@ export class MemoryStore {
    */
   saveConversation(conversation: Conversation): void {
     const stmt = this.db.prepare(`
-      INSERT INTO conversations (id, source, external_id, project_name, git_branch, created_at, updated_at, quality_score, turn_count, prompt_preview)
-      VALUES (@id, @source, @external_id, @project_name, @git_branch, @created_at, @updated_at, @quality_score, @turn_count, @prompt_preview)
+      INSERT INTO conversations (id, source, external_id, project_name, git_branch, created_at, updated_at, quality_score, turn_count, prompt_preview, project_root, relative_path)
+      VALUES (@id, @source, @external_id, @project_name, @git_branch, @created_at, @updated_at, @quality_score, @turn_count, @prompt_preview, @project_root, @relative_path)
       ON CONFLICT(id) DO UPDATE SET
         updated_at = @updated_at,
         quality_score = @quality_score,
         turn_count = @turn_count,
-        prompt_preview = @prompt_preview
+        prompt_preview = @prompt_preview,
+        project_root = @project_root,
+        relative_path = @relative_path
     `);
 
     stmt.run({
@@ -616,7 +638,9 @@ export class MemoryStore {
       updated_at: conversation.updated_at,
       quality_score: conversation.quality_score || null,
       turn_count: conversation.turn_count,
-      prompt_preview: conversation.prompt_preview || null
+      prompt_preview: conversation.prompt_preview || null,
+      project_root: this.projectPath,
+      relative_path: null  // For future hierarchical tracking
     });
   }
 
@@ -737,15 +761,15 @@ export function getMemoryStore(projectPath: string): MemoryStore {
  * @param projectPath - Parent project path
  * @returns Aggregated statistics from all projects
  */
-export function getAggregatedStats(projectPath: string): {
+export async function getAggregatedStats(projectPath: string): Promise<{
   entities: number;
   prompts: number;
   conversations: number;
   total: number;
   projects: Array<{ path: string; stats: { entities: number; prompts: number; conversations: number } }>;
-} {
-  const { scanChildProjects } = require('../config/storage-paths.js');
-  const childProjects = scanChildProjects(projectPath);
+}> {
+  const { scanChildProjectsAsync } = await import('../config/storage-paths.js');
+  const childProjects = await scanChildProjectsAsync(projectPath);
 
   const projectStats: Array<{ path: string; stats: { entities: number; prompts: number; conversations: number } }> = [];
   let totalEntities = 0;
@@ -813,12 +837,12 @@ export function getAggregatedStats(projectPath: string): {
  * @param options - Query options
  * @returns Combined entities from all projects with source information
  */
-export function getAggregatedEntities(
+export async function getAggregatedEntities(
   projectPath: string,
   options: { type?: string; limit?: number; offset?: number } = {}
-): Array<HotEntity & { sourceProject?: string }> {
-  const { scanChildProjects } = require('../config/storage-paths.js');
-  const childProjects = scanChildProjects(projectPath);
+): Promise<Array<HotEntity & { sourceProject?: string }>> {
+  const { scanChildProjectsAsync } = await import('../config/storage-paths.js');
+  const childProjects = await scanChildProjectsAsync(projectPath);
 
   const limit = options.limit || 50;
   const offset = options.offset || 0;
@@ -892,12 +916,12 @@ export function getAggregatedEntities(
  * @param limit - Maximum number of prompts to return
  * @returns Combined prompts from all projects with source information
  */
-export function getAggregatedPrompts(
+export async function getAggregatedPrompts(
   projectPath: string,
   limit: number = 50
-): Array<PromptHistory & { sourceProject?: string }> {
-  const { scanChildProjects } = require('../config/storage-paths.js');
-  const childProjects = scanChildProjects(projectPath);
+): Promise<Array<PromptHistory & { sourceProject?: string }>> {
+  const { scanChildProjectsAsync } = await import('../config/storage-paths.js');
+  const childProjects = await scanChildProjectsAsync(projectPath);
 
   const allPrompts: Array<PromptHistory & { sourceProject?: string }> = [];
 

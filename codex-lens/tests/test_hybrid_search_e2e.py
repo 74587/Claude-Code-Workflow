@@ -701,3 +701,72 @@ class TestHybridSearchFullCoverage:
                 store.close()
             if db_path.exists():
                 db_path.unlink()
+
+
+
+class TestHybridSearchWithVectorMock:
+    """Tests for hybrid search with mocked vector search."""
+    
+    @pytest.fixture
+    def mock_vector_db(self):
+        """Create database with vector search mocked."""
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = Path(f.name)
+        
+        store = DirIndexStore(db_path)
+        store.initialize()
+        
+        # Index sample files
+        files = {
+            "auth/login.py": "def login_user(username, password): authenticate()",
+            "auth/logout.py": "def logout_user(session): cleanup_session()",
+            "user/profile.py": "class UserProfile: def get_data(): pass"
+        }
+        
+        with store._get_connection() as conn:
+            for path, content in files.items():
+                name = path.split('/')[-1]
+                conn.execute(
+                    """INSERT INTO files (name, full_path, content, language, mtime)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (name, path, content, "python", 0.0)
+                )
+            conn.commit()
+        
+        yield db_path
+        store.close()
+        
+        if db_path.exists():
+            db_path.unlink()
+    
+    def test_hybrid_with_vector_enabled(self, mock_vector_db):
+        """Test hybrid search with vector search enabled (mocked)."""
+        from unittest.mock import patch, MagicMock
+        
+        # Mock the vector search to return fake results
+        mock_vector_results = [
+            SearchResult(path="auth/login.py", score=0.95, content_snippet="login"),
+            SearchResult(path="user/profile.py", score=0.75, content_snippet="profile")
+        ]
+        
+        engine = HybridSearchEngine()
+        
+        # Mock vector search method if it exists
+        with patch.object(engine, '_search_vector', return_value=mock_vector_results) if hasattr(engine, '_search_vector') else patch('codexlens.search.hybrid_search.vector_search', return_value=mock_vector_results):
+            results = engine.search(
+                mock_vector_db,
+                "login",
+                limit=10,
+                enable_fuzzy=True,
+                enable_vector=True  # ENABLE vector search
+            )
+            
+            # Should get results from RRF fusion of exact + fuzzy + vector
+            assert isinstance(results, list)
+            assert len(results) > 0, "Hybrid search with vector should return results"
+            
+            # Results should have fusion scores
+            for result in results:
+                assert hasattr(result, 'score')
+                assert result.score > 0  # RRF fusion scores are positive
+

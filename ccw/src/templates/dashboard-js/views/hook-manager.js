@@ -11,8 +11,11 @@ async function renderHookManager() {
   if (statsGrid) statsGrid.style.display = 'none';
   if (searchInput) searchInput.parentElement.style.display = 'none';
 
-  // Always reload hook config to get latest data
-  await loadHookConfig();
+  // Always reload hook config and available skills to get latest data
+  await Promise.all([
+    loadHookConfig(),
+    loadAvailableSkills()
+  ]);
 
   const globalHooks = hookConfig.global?.hooks || {};
   const projectHooks = hookConfig.project?.hooks || {};

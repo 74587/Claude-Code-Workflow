@@ -1,4 +1,3 @@
-// @ts-nocheck
 import http from 'http';
 import { URL } from 'url';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync, unlinkSync } from 'fs';
@@ -222,7 +221,7 @@ export async function handleMemoryRoutes(ctx: RouteContext): Promise<boolean> {
     const projectPath = url.searchParams.get('path') || initialPath;
     const limit = parseInt(url.searchParams.get('limit') || '50', 10);
     const search = url.searchParams.get('search') || null;
-    const recursive = url.searchParams.get('recursive') === 'true';
+    const recursive = url.searchParams.get('recursive') !== 'false';
 
     try {
       let prompts;
@@ -230,7 +229,7 @@ export async function handleMemoryRoutes(ctx: RouteContext): Promise<boolean> {
       // Recursive mode: aggregate prompts from parent and child projects
       if (recursive && !search) {
         const { getAggregatedPrompts } = await import('../memory-store.js');
-        prompts = getAggregatedPrompts(projectPath, limit);
+        prompts = await getAggregatedPrompts(projectPath, limit);
       } else {
         // Non-recursive mode or search mode: query only current project
         const memoryStore = getMemoryStore(projectPath);
@@ -390,11 +389,11 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
           mode: 'analysis',
           timeout: 120000,
           cd: projectPath,
-          category: 'insights'
+          category: 'insight'
         });
 
         // Try to parse JSON from response
-        let insights = { patterns: [], suggestions: [] };
+        let insights: { patterns: any[]; suggestions: any[] } = { patterns: [], suggestions: [] };
         if (result.stdout) {
           let outputText = result.stdout;
 
@@ -515,13 +514,13 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
     const projectPath = url.searchParams.get('path') || initialPath;
     const filter = url.searchParams.get('filter') || 'all'; // today, week, all
     const limit = parseInt(url.searchParams.get('limit') || '10', 10);
-    const recursive = url.searchParams.get('recursive') === 'true';
+    const recursive = url.searchParams.get('recursive') !== 'false';
 
     try {
       // If requesting aggregated stats, use the aggregated function
       if (url.searchParams.has('aggregated') || recursive) {
         const { getAggregatedStats } = await import('../memory-store.js');
-        const aggregatedStats = getAggregatedStats(projectPath);
+        const aggregatedStats = await getAggregatedStats(projectPath);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({

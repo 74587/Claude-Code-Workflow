@@ -15,6 +15,9 @@ let smartContextMaxFiles = parseInt(localStorage.getItem('ccw-smart-context-max-
 // Native Resume settings
 let nativeResumeEnabled = localStorage.getItem('ccw-native-resume') !== 'false'; // default true
 
+// Recursive Query settings (for hierarchical storage aggregation)
+let recursiveQueryEnabled = localStorage.getItem('ccw-recursive-query') !== 'false'; // default true
+
 // LLM Enhancement settings for Semantic Search
 let llmEnhancementSettings = {
   enabled: localStorage.getItem('ccw-llm-enhancement-enabled') === 'true',
@@ -26,12 +29,51 @@ let llmEnhancementSettings = {
 
 // ========== Initialization ==========
 function initCliStatus() {
-  // Load CLI status on init
-  loadCliToolStatus();
-  loadCodexLensStatus();
+  // Load all statuses in one call using aggregated endpoint
+  loadAllStatuses();
 }
 
 // ========== Data Loading ==========
+/**
+ * Load all statuses using aggregated endpoint (single API call)
+ */
+async function loadAllStatuses() {
+  try {
+    const response = await fetch('/api/status/all');
+    if (!response.ok) throw new Error('Failed to load status');
+    const data = await response.json();
+
+    // Update all status data
+    cliToolStatus = data.cli || { gemini: {}, qwen: {}, codex: {}, claude: {} };
+    codexLensStatus = data.codexLens || { ready: false };
+    semanticStatus = data.semantic || { available: false };
+
+    // Update badges
+    updateCliBadge();
+    updateCodexLensBadge();
+
+    return data;
+  } catch (err) {
+    console.error('Failed to load aggregated status:', err);
+    // Fallback to individual calls if aggregated endpoint fails
+    return await loadAllStatusesFallback();
+  }
+}
+
+/**
+ * Fallback: Load statuses individually if aggregated endpoint fails
+ */
+async function loadAllStatusesFallback() {
+  console.warn('[CLI Status] Using fallback individual API calls');
+  await Promise.all([
+    loadCliToolStatus(),
+    loadCodexLensStatus()
+  ]);
+}
+
+/**
+ * Legacy: Load CLI tool status individually
+ */
 async function loadCliToolStatus() {
   try {
     const response = await fetch('/api/cli/status');
@@ -49,6 +91,9 @@ async function loadCliToolStatus() {
   }
 }
 
+/**
+ * Legacy: Load CodexLens status individually
+ */
 async function loadCodexLensStatus() {
   try {
     const response = await fetch('/api/codexlens/status');
@@ -71,6 +116,9 @@ async function loadCodexLensStatus() {
   }
 }
 
+/**
+ * Legacy: Load semantic status individually
+ */
 async function loadSemanticStatus() {
   try {
     const response = await fetch('/api/codexlens/semantic/status');
@@ -223,7 +271,7 @@ function renderCliStatus() {
           <div class="flex items-center justify-between w-full mt-1">
             <div class="flex items-center gap-1 text-xs text-muted-foreground">
               <i data-lucide="hard-drive" class="w-3 h-3"></i>
-              <span>~500MB</span>
+              <span>~130MB</span>
             </div>
             <button class="btn-sm btn-outline flex items-center gap-1" onclick="event.stopPropagation(); openSemanticSettingsModal()">
               <i data-lucide="settings" class="w-3 h-3"></i>
@@ -377,8 +425,14 @@ function setNativeResumeEnabled(enabled) {
   showRefreshToast(`Native Resume ${enabled ? 'enabled' : 'disabled'}`, 'success');
 }
 
+function setRecursiveQueryEnabled(enabled) {
+  recursiveQueryEnabled = enabled;
+  localStorage.setItem('ccw-recursive-query', enabled.toString());
+  showRefreshToast(`Recursive Query ${enabled ? 'enabled' : 'disabled'}`, 'success');
+}
+
 async function refreshAllCliStatus() {
-  await Promise.all([loadCliToolStatus(), loadCodexLensStatus()]);
+  await loadAllStatuses();
   renderCliStatus();
 }
 
@@ -779,6 +833,9 @@ async function initCodexLensIndex() {
       } else {
         showRefreshToast(`Index created: ${files} files, ${dirs} directories`, 'success');
         console.log('[CodexLens] Index created successfully');
+
+        // Reload CodexLens status and refresh the view
+        loadCodexLensStatus().then(() => renderCliStatus());
       }
     } else {
       showRefreshToast(`Init failed: ${result.error}`, 'error');
@@ -820,19 +877,15 @@ function openSemanticInstallWizard() {
                 <i data-lucide="check" class="w-4 h-4 text-success mt-0.5"></i>
                 <span><strong>bge-small-en-v1.5</strong> - Embedding model (~130MB)</span>
               </li>
-              <li class="flex items-start gap-2">
-                <i data-lucide="check" class="w-4 h-4 text-success mt-0.5"></i>
-                <span><strong>PyTorch</strong> - Deep learning backend (~300MB)</span>
-              </li>
             </ul>
           </div>
 
-          <div class="bg-warning/10 border border-warning/20 rounded-lg p-3">
+          <div class="bg-primary/10 border border-primary/20 rounded-lg p-3">
             <div class="flex items-start gap-2">
-              <i data-lucide="alert-triangle" class="w-4 h-4 text-warning mt-0.5"></i>
+              <i data-lucide="info" class="w-4 h-4 text-primary mt-0.5"></i>
               <div class="text-sm">
-                <p class="font-medium text-warning">Large Download</p>
-                <p class="text-muted-foreground">Total size: ~500MB. First-time model loading may take a few minutes.</p>
+                <p class="font-medium text-primary">Download Size</p>
+                <p class="text-muted-foreground">Total size: ~130MB. First-time model loading may take a few minutes.</p>
               </div>
             </div>
           </div>
@@ -887,11 +940,10 @@ async function startSemanticInstall() {
 
   // Simulate progress stages
   const stages = [
-    { progress: 10, text: 'Installing numpy...' },
-    { progress: 30, text: 'Installing sentence-transformers...' },
-    { progress: 50, text: 'Installing PyTorch dependencies...' },
-    { progress: 70, text: 'Downloading embedding model...' },
-    { progress: 90, text: 'Finalizing installation...' }
+    { progress: 20, text: 'Installing sentence-transformers...' },
+    { progress: 50, text: 'Downloading embedding model...' },
+    { progress: 80, text: 'Setting up model cache...' },
+    { progress: 95, text: 'Finalizing installation...' }
   ];
 
   let currentStage = 0;

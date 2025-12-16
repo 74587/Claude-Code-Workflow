@@ -6,6 +6,7 @@ import { join } from 'path';
 import { resolvePath, getRecentPaths, normalizePathForDisplay } from '../utils/path-resolver.js';
 
 // Import route handlers
+import { handleStatusRoutes } from './routes/status-routes.js';
 import { handleCliRoutes } from './routes/cli-routes.js';
 import { handleMemoryRoutes } from './routes/memory-routes.js';
 import { handleMcpRoutes } from './routes/mcp-routes.js';
@@ -242,6 +243,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
 
       // Try each route handler in order
       // Order matters: more specific routes should come before general ones
+
+      // Status routes (/api/status/*) - Aggregated endpoint for faster loading
+      if (pathname.startsWith('/api/status/')) {
+        if (await handleStatusRoutes(routeContext)) return;
+      }
 
       // CLI routes (/api/cli/*)
       if (pathname.startsWith('/api/cli/')) {
