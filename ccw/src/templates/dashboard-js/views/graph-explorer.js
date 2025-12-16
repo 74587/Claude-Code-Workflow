@@ -306,17 +306,17 @@ function initializeCytoscape() {
     style: getCytoscapeStyles(),
     layout: {
       name: 'cose',
-      idealEdgeLength: 100,
-      nodeOverlap: 20,
+      idealEdgeLength: 180,
+      nodeOverlap: 50,
       refresh: 20,
       fit: true,
-      padding: 30,
+      padding: 50,
       randomize: false,
-      componentSpacing: 100,
-      nodeRepulsion: 400000,
+      componentSpacing: 150,
+      nodeRepulsion: 600000,
       edgeElasticity: 100,
       nestingFactor: 5,
-      gravity: 80,
+      gravity: 60,
       numIter: 1000,
       initialTemp: 200,
       coolingFactor: 0.95,
@@ -412,18 +412,18 @@ function getCytoscapeStyles() {
         'label': 'data(label)',
         'width': function(ele) {
           var refs = ele.data('references') || 0;
-          return Math.max(20, Math.min(60, 20 + refs * 2));
+          return Math.max(16, Math.min(48, 16 + refs * 1.5));
         },
         'height': function(ele) {
           var refs = ele.data('references') || 0;
-          return Math.max(20, Math.min(60, 20 + refs * 2));
+          return Math.max(16, Math.min(48, 16 + refs * 1.5));
         },
         'text-valign': 'center',
         'text-halign': 'center',
-        'font-size': '10px',
+        'font-size': '8px',
         'color': '#000',
         'text-outline-color': '#fff',
-        'text-outline-width': 2,
+        'text-outline-width': 1.5,
         'overlay-padding': 6
       }
     },
@@ -612,11 +612,14 @@ function refreshCytoscape() {
   cyInstance.add(elements);
   cyInstance.layout({
     name: 'cose',
-    idealEdgeLength: 100,
-    nodeOverlap: 20,
+    idealEdgeLength: 180,
+    nodeOverlap: 50,
     refresh: 20,
     fit: true,
-    padding: 30
+    padding: 50,
+    componentSpacing: 150,
+    nodeRepulsion: 600000,
+    gravity: 60
   }).run();
 
   deselectNode();
@@ -625,7 +628,7 @@ function refreshCytoscape() {
 // ========== Cytoscape Controls ==========
 function fitCytoscape() {
   if (cyInstance) {
-    cyInstance.fit(null, 30);
+    cyInstance.fit(null, 50);
   }
 }
 

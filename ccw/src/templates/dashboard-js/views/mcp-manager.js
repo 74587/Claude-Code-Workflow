@@ -193,23 +193,23 @@ async function renderMcpManager() {
       ${currentCliMode === 'codex' ? `
       <!-- CCW Tools MCP Server Card (Codex mode) -->
       <div class="mcp-section mb-6">
-        <div class="ccw-tools-card bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-2 ${codexMcpServers && codexMcpServers['ccw-tools'] ? 'border-success' : 'border-orange-500/30'} rounded-lg p-6 hover:shadow-lg transition-all">
+        <div class="ccw-tools-card bg-gradient-to-br from-primary/10 to-primary/5 border-2 ${codexMcpServers && codexMcpServers['ccw-tools'] ? 'border-success' : 'border-primary/30'} rounded-lg p-6 hover:shadow-lg transition-all">
           <div class="flex items-start justify-between gap-4">
             <div class="flex items-start gap-4 flex-1">
-              <div class="shrink-0 w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center">
+              <div class="shrink-0 w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
                 <i data-lucide="wrench" class="w-6 h-6 text-white"></i>
               </div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-2">
                   <h3 class="text-lg font-bold text-foreground">CCW Tools MCP</h3>
-                  <span class="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 rounded-full">Codex</span>
+                  <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-full">Codex</span>
                   ${codexMcpServers && codexMcpServers['ccw-tools'] ? `
                     <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-success-light text-success">
                       <i data-lucide="check" class="w-3 h-3"></i>
                       ${enabledToolsCodex.length} tools
                     </span>
                   ` : `
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-500/20 text-orange-600 dark:text-orange-400">
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-primary/20 text-primary">
                       <i data-lucide="package" class="w-3 h-3"></i>
                       ${t('mcp.available')}
                     </span>
@@ -228,14 +228,14 @@ async function renderMcpManager() {
                   `).join('')}
                 </div>
                 <div class="flex items-center gap-3 text-xs">
-                  <button class="text-orange-500 hover:underline" onclick="selectCcwToolsCodex('core')">Core only</button>
-                  <button class="text-orange-500 hover:underline" onclick="selectCcwToolsCodex('all')">All</button>
+                  <button class="text-primary hover:underline" onclick="selectCcwToolsCodex('core')">Core only</button>
+                  <button class="text-primary hover:underline" onclick="selectCcwToolsCodex('all')">All</button>
                   <button class="text-muted-foreground hover:underline" onclick="selectCcwToolsCodex('none')">None</button>
                 </div>
               </div>
             </div>
             <div class="shrink-0">
-              <button class="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
+              <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
                       onclick="installCcwToolsMcpToCodex()">
                 <i data-lucide="download" class="w-4 h-4"></i>
                 ${codexMcpServers && codexMcpServers['ccw-tools'] ? t('mcp.update') : t('mcp.install')}
@@ -250,10 +250,10 @@ async function renderMcpManager() {
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-3">
             <div class="flex items-center gap-2">
-              <i data-lucide="code-2" class="w-5 h-5 text-orange-500"></i>
+              <i data-lucide="code-2" class="w-5 h-5 text-primary"></i>
               <h3 class="text-lg font-semibold text-foreground">${t('mcp.codex.globalServers')}</h3>
             </div>
-            <button class="px-3 py-1.5 text-sm bg-orange-500 text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
+            <button class="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
                     onclick="openCodexMcpCreateModal()">
               <span>+</span> ${t('mcp.codex.newServer')}
             </button>
@@ -273,12 +273,12 @@ async function renderMcpManager() {
         </div>
 
         <!-- Info about Codex MCP -->
-        <div class="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-4">
+        <div class="bg-green-50 dark:bg-green-950/30 border border-primary/20 rounded-lg p-4 mb-4">
           <div class="flex items-start gap-3">
-            <i data-lucide="info" class="w-5 h-5 text-orange-500 shrink-0 mt-0.5"></i>
+            <i data-lucide="info" class="w-5 h-5 text-green-500 shrink-0 mt-0.5"></i>
             <div class="text-sm">
-              <p class="text-orange-800 dark:text-orange-200 font-medium mb-1">${t('mcp.codex.infoTitle')}</p>
-              <p class="text-orange-700 dark:text-orange-300 text-xs">${t('mcp.codex.infoDesc')}</p>
+              <p class="text-primary font-medium mb-1">${t('mcp.codex.infoTitle')}</p>
+              <p class="text-primary/80 text-xs">${t('mcp.codex.infoDesc')}</p>
             </div>
           </div>
         </div>
@@ -321,7 +321,7 @@ async function renderMcpManager() {
                     ${alreadyInCodex ? `<span class="text-xs px-2 py-0.5 bg-success/10 text-success rounded-full">${t('mcp.codex.alreadyAdded')}</span>` : ''}
                   </div>
                   ${!alreadyInCodex ? `
-                    <button class="px-3 py-1 text-xs bg-orange-500 text-white rounded hover:opacity-90 transition-opacity"
+                    <button class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
                             onclick="copyClaudeServerToCodex('${escapeHtml(serverName)}', ${JSON.stringify(serverConfig).replace(/'/g, "&#39;")})"
                             title="${t('mcp.codex.copyToCodex')}">
                       <i data-lucide="arrow-right" class="w-3.5 h-3.5 inline"></i> Codex
@@ -366,7 +366,7 @@ async function renderMcpManager() {
       <div class="mcp-section">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-foreground flex items-center gap-2">
-            <i data-lucide="circle" class="w-5 h-5 text-blue-500"></i>
+            <i data-lucide="circle" class="w-5 h-5 text-primary"></i>
             ${t('mcp.codex.copyFromClaude')}
           </h3>
           <span class="text-sm text-muted-foreground">${crossCliServers.length} ${t('mcp.serversAvailable')}</span>
@@ -379,10 +379,10 @@ async function renderMcpManager() {
       ` : `
       <!-- CCW Tools MCP Server Card -->
       <div class="mcp-section mb-6">
-        <div class="ccw-tools-card bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-2 ${isCcwToolsInstalled ? 'border-success' : 'border-orange-500/30'} rounded-lg p-6 hover:shadow-lg transition-all">
+        <div class="ccw-tools-card bg-gradient-to-br from-primary/10 to-primary/5 border-2 ${isCcwToolsInstalled ? 'border-success' : 'border-primary/30'} rounded-lg p-6 hover:shadow-lg transition-all">
           <div class="flex items-start justify-between gap-4">
             <div class="flex items-start gap-4 flex-1">
-              <div class="shrink-0 w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center">
+              <div class="shrink-0 w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
                 <i data-lucide="wrench" class="w-6 h-6 text-white"></i>
               </div>
               <div class="flex-1 min-w-0">
@@ -394,7 +394,7 @@ async function renderMcpManager() {
                       ${enabledTools.length} tools
                     </span>
                   ` : `
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-500/20 text-orange-600 dark:text-orange-400">
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-primary/20 text-primary">
                       <i data-lucide="package" class="w-3 h-3"></i>
                       Available
                     </span>
@@ -412,15 +412,15 @@ async function renderMcpManager() {
                   `).join('')}
                 </div>
                 <div class="flex items-center gap-3 text-xs">
-                  <button class="text-orange-500 hover:underline" onclick="selectCcwTools('core')">Core only</button>
-                  <button class="text-orange-500 hover:underline" onclick="selectCcwTools('all')">All</button>
+                  <button class="text-primary hover:underline" onclick="selectCcwTools('core')">Core only</button>
+                  <button class="text-primary hover:underline" onclick="selectCcwTools('all')">All</button>
                   <button class="text-muted-foreground hover:underline" onclick="selectCcwTools('none')">None</button>
                 </div>
               </div>
             </div>
             <div class="shrink-0 flex gap-2">
               ${isCcwToolsInstalled ? `
-                <button class="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
+                <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
                         onclick="updateCcwToolsMcp('workspace')"
                         title="${t('mcp.updateInWorkspace')}">
                   <i data-lucide="folder" class="w-4 h-4"></i>
@@ -433,7 +433,7 @@ async function renderMcpManager() {
                   ${t('mcp.updateInGlobal')}
                 </button>
               ` : `
-                <button class="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
+                <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
                         onclick="installCcwToolsMcp('workspace')"
                         title="${t('mcp.installToWorkspace')}">
                   <i data-lucide="folder" class="w-4 h-4"></i>
@@ -546,7 +546,7 @@ async function renderMcpManager() {
       <div class="mcp-section mb-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-foreground flex items-center gap-2">
-            <i data-lucide="circle-dashed" class="w-5 h-5 text-orange-500"></i>
+            <i data-lucide="circle-dashed" class="w-5 h-5 text-primary"></i>
             ${t('mcp.claude.copyFromCodex')}
           </h3>
           <span class="text-sm text-muted-foreground">${crossCliServers.length} ${t('mcp.serversAvailable')}</span>
@@ -644,12 +644,12 @@ async function renderMcpManager() {
             const isStdio = !!serverConfig.command;
             const isHttp = !!serverConfig.url;
             return `
-              <div class="mcp-server-card bg-card border ${alreadyInClaude ? 'border-success/50' : 'border-orange-200 dark:border-orange-800'} border-dashed rounded-lg p-4 hover:shadow-md transition-all">
+              <div class="mcp-server-card bg-card border ${alreadyInClaude ? 'border-success/50' : 'border-primary/20'} border-dashed rounded-lg p-4 hover:shadow-md transition-all">
                 <div class="flex items-start justify-between mb-3">
                   <div class="flex items-center gap-2 flex-wrap">
-                    <i data-lucide="code-2" class="w-5 h-5 text-orange-500"></i>
+                    <i data-lucide="code-2" class="w-5 h-5 text-primary"></i>
                     <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
-                    <span class="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 rounded-full">Codex</span>
+                    <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-full">Codex</span>
                     ${isHttp
                       ? '<span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full">HTTP</span>'
                       : '<span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-full">STDIO</span>'
@@ -1039,7 +1039,7 @@ function renderAvailableServerCardForCodex(serverName, serverInfo) {
           ${alreadyInCodex ? `<span class="text-xs px-2 py-0.5 bg-success/10 text-success rounded-full">${t('mcp.codex.alreadyAdded')}</span>` : ''}
         </div>
         ${!alreadyInCodex ? `
-          <button class="px-3 py-1 text-xs bg-orange-500 text-white rounded hover:opacity-90 transition-opacity"
+          <button class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
                   onclick="copyClaudeServerToCodex('${escapeHtml(originalName)}', ${JSON.stringify(serverConfig).replace(/'/g, "&#39;")})"
                   title="${t('mcp.codex.copyToCodex')}">
             <i data-lucide="arrow-right" class="w-3.5 h-3.5 inline"></i> Codex
@@ -1065,7 +1065,7 @@ function renderAvailableServerCardForCodex(serverName, serverInfo) {
       </div>
 
       <div class="mt-3 pt-3 border-t border-border flex items-center gap-2">
-        <button class="text-xs text-orange-500 hover:text-orange-600 transition-colors flex items-center gap-1"
+        <button class="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
                 onclick="copyClaudeServerToCodex('${escapeHtml(originalName)}', ${JSON.stringify(serverConfig).replace(/'/g, "&#39;")})"
                 title="${t('mcp.codex.copyToCodex')}">
           <i data-lucide="download" class="w-3 h-3"></i>
@@ -1094,7 +1094,7 @@ function renderCodexServerCard(serverName, serverConfig) {
     : `<span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-full">STDIO</span>`;
 
   return `
-    <div class="mcp-server-card bg-card border border-orange-200 dark:border-orange-800 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer ${!isEnabled ? 'opacity-60' : ''}"
+    <div class="mcp-server-card bg-card border border-primary/20 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer ${!isEnabled ? 'opacity-60' : ''}"
          data-server-name="${escapeHtml(serverName)}"
          data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
          data-cli-type="codex"
@@ -1102,9 +1102,9 @@ function renderCodexServerCard(serverName, serverConfig) {
          title="${t('mcp.clickToEdit')}">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-center gap-2 flex-wrap">
-          <span>${isEnabled ? '<i data-lucide="check-circle" class="w-5 h-5 text-orange-500"></i>' : '<i data-lucide="circle" class="w-5 h-5 text-muted-foreground"></i>'}</span>
+          <span>${isEnabled ? '<i data-lucide="check-circle" class="w-5 h-5 text-primary"></i>' : '<i data-lucide="circle" class="w-5 h-5 text-muted-foreground"></i>'}</span>
           <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
-          <span class="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 rounded-full">Codex</span>
+          <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-full">Codex</span>
           ${typeBadge}
         </div>
         <label class="mcp-toggle relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
@@ -1112,7 +1112,7 @@ function renderCodexServerCard(serverName, serverConfig) {
                  ${isEnabled ? 'checked' : ''}
                  data-server-name="${escapeHtml(serverName)}"
                  data-action="toggle-codex">
-          <div class="w-9 h-5 bg-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
+          <div class="w-9 h-5 bg-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
         </label>
       </div>
 
@@ -1170,27 +1170,29 @@ function renderCrossCliServerCard(server, isClaude) {
 
   // Icon and color based on source CLI
   const icon = fromCli === 'codex' ? 'circle-dashed' : 'circle';
-  const iconColor = fromCli === 'codex' ? 'orange' : 'blue';
-  const sourceBadgeColor = fromCli === 'codex' ? 'orange' : 'primary';
+  const sourceBadgeColor = fromCli === 'codex' ? 'green' : 'orange';
   const targetCli = isClaude ? 'project' : 'codex';
   const buttonText = isClaude ? t('mcp.codex.copyToClaude') : t('mcp.claude.copyToCodex');
   const typeBadge = isHttp
     ? `<span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full">HTTP</span>`
-    : `<span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-full">STDIO</span>`;
+    : `<span class="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded-full">STDIO</span>`;
+
+  // CLI badge with color
+  const cliBadge = fromCli === 'codex'
+    ? `<span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-full">Codex</span>`
+    : `<span class="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 rounded-full">Claude</span>`;
 
   return `
-    <div class="mcp-server-card bg-card border border-dashed border-${iconColor}-200 dark:border-${iconColor}-800 rounded-lg p-4 hover:shadow-md hover:border-solid transition-all">
+    <div class="mcp-server-card bg-card border border-dashed border-primary/20 rounded-lg p-4 hover:shadow-md hover:border-solid transition-all">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-start gap-3">
           <div class="shrink-0">
-            <i data-lucide="${icon}" class="w-5 h-5 text-${iconColor}-500"></i>
+            <i data-lucide="${icon}" class="w-5 h-5 text-primary"></i>
           </div>
           <div>
             <div class="flex items-center gap-2 flex-wrap mb-1">
               <h4 class="font-semibold text-foreground">${escapeHtml(name)}</h4>
-              <span class="text-xs px-2 py-0.5 bg-${sourceBadgeColor}/10 text-${sourceBadgeColor} rounded-full">
-                ${fromCli === 'codex' ? 'Codex' : 'Claude'}
-              </span>
+              ${cliBadge}
               ${typeBadge}
             </div>
             <div class="text-sm space-y-1 text-muted-foreground">
@@ -1209,7 +1211,7 @@ function renderCrossCliServerCard(server, isClaude) {
         </div>
       </div>
       <div class="mt-3 pt-3 border-t border-border">
-        <button class="w-full px-3 py-2 text-sm font-medium bg-${iconColor}-500 hover:bg-${iconColor}-600 text-white rounded-lg transition-colors flex items-center justify-center gap-1.5"
+        <button class="w-full px-3 py-2 text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center justify-center gap-1.5"
                 onclick="copyCrossCliServer('${escapeHtml(name)}', ${JSON.stringify(config).replace(/'/g, "&#39;")}, '${fromCli}', '${targetCli}')">
           <i data-lucide="copy" class="w-4 h-4"></i>
           ${buttonText}

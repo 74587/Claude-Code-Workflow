@@ -2,7 +2,187 @@
    MCP MANAGER - ORANGE THEME ENHANCEMENTS
    ========================================== */
 
-/* MCP CLI Mode Toggle - Orange for Codex */
+/* ==========================================
+   BASIC BUTTON STYLES
+   ========================================== */
+
+/* Primary buttons (blue) */
+.bg-primary {
+  background-color: hsl(221.2, 83.2%, 53.3%);
+  color: white;
+}
+
+.bg-primary:hover {
+  background-color: hsl(221.2, 83.2%, 45%);
+}
+
+.dark .bg-primary {
+  background-color: hsl(217.2, 91.2%, 59.8%);
+}
+
+.dark .bg-primary:hover {
+  background-color: hsl(217.2, 91.2%, 65%);
+}
+
+/* Success buttons (green) */
+.bg-success {
+  background-color: hsl(142.1, 76.2%, 36.3%);
+  color: white;
+}
+
+.bg-success:hover {
+  background-color: hsl(142.1, 76.2%, 30%);
+}
+
+.dark .bg-success {
+  background-color: hsl(142.1, 70.6%, 45.3%);
+}
+
+.dark .bg-success:hover {
+  background-color: hsl(142.1, 70.6%, 50%);
+}
+
+/* Destructive buttons (red) */
+.bg-destructive {
+  background-color: hsl(0, 84.2%, 60.2%);
+  color: white;
+}
+
+.bg-destructive:hover {
+  background-color: hsl(0, 84.2%, 50%);
+}
+
+.dark .bg-destructive {
+  background-color: hsl(0, 62.8%, 30.6%);
+}
+
+.dark .bg-destructive:hover {
+  background-color: hsl(0, 62.8%, 40%);
+}
+
+/* Secondary buttons (gray) */
+.bg-secondary {
+  background-color: hsl(210, 40%, 96.1%);
+  color: hsl(222.2, 47.4%, 11.2%);
+}
+
+.bg-secondary:hover {
+  background-color: hsl(210, 40%, 90%);
+}
+
+.dark .bg-secondary {
+  background-color: hsl(217.2, 32.6%, 17.5%);
+  color: hsl(210, 40%, 98%);
+}
+
+.dark .bg-secondary:hover {
+  background-color: hsl(217.2, 32.6%, 22%);
+}
+
+/* Muted/Ghost buttons */
+.bg-muted {
+  background-color: hsl(210, 40%, 96.1%);
+  color: hsl(215.4, 16.3%, 46.9%);
+}
+
+.bg-muted:hover {
+  background-color: hsl(210, 40%, 90%);
+}
+
+.dark .bg-muted {
+  background-color: hsl(217.2, 32.6%, 17.5%);
+  color: hsl(215, 20.2%, 65.1%);
+}
+
+.dark .bg-muted:hover {
+  background-color: hsl(217.2, 32.6%, 22%);
+}
+
+/* Button base styles */
+button {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button:focus-visible {
+  outline: 2px solid hsl(221.2, 83.2%, 53.3%);
+  outline-offset: 2px;
+}
+
+/* Icon buttons */
+button.icon-btn {
+  padding: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  min-height: 2rem;
+}
+
+/* ==========================================
+   CLAUDE (ORANGE) & CODEX (GREEN) THEMES
+   ========================================== */
+
+/* Claude Orange Colors */
+.text-claude {
+  color: #f97316;
+}
+
+.bg-claude {
+  background-color: #f97316;
+  color: white;
+}
+
+.bg-claude:hover {
+  background-color: #ea580c;
+}
+
+.border-claude {
+  border-color: #f97316;
+}
+
+/* Codex Green Colors */
+.text-codex {
+  color: #22c55e;
+}
+
+.bg-codex {
+  background-color: #22c55e;
+  color: white;
+}
+
+.bg-codex:hover {
+  background-color: #16a34a;
+}
+
+.border-codex {
+  border-color: #22c55e;
+}
+
+/* Dark mode adjustments */
+.dark .text-claude {
+  color: #fb923c;
+}
+
+.dark .text-codex {
+  color: #4ade80;
+}
+
+/* ==========================================
+   ORANGE THEME ENHANCEMENTS (CLAUDE)
+   ========================================== */
+
+/* MCP CLI Mode Toggle - Orange for Claude */
 .mcp-cli-toggle .cli-mode-btn {
   position: relative;
   overflow: hidden;
@@ -372,4 +552,187 @@
 
 .mcp-section .flex.items-center.gap-3 button:hover::before {
   transform: translateX(100%);
+}
+
+/* ==========================================
+   GREEN THEME ENHANCEMENTS (CODEX)
+   ========================================== */
+
+/* Codex green colors palette */
+.bg-green-500 {
+  background-color: #22c55e;
+}
+
+.text-green-500 {
+  color: #22c55e;
+}
+
+.text-green-600 {
+  color: #16a34a;
+}
+
+.text-green-700 {
+  color: #15803d;
+}
+
+.text-green-800 {
+  color: #166534;
+}
+
+.bg-green-50 {
+  background-color: #f0fdf4;
+}
+
+.bg-green-100 {
+  background-color: #dcfce7;
+}
+
+.border-green-200 {
+  border-color: #bbf7d0;
+}
+
+.border-green-500\/20 {
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.border-green-500\/30 {
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.border-green-800 {
+  border-color: #166534;
+}
+
+/* Dark mode green colors */
+.dark .bg-green-50 {
+  background-color: rgba(34, 197, 94, 0.05);
+}
+
+.dark .bg-green-100 {
+  background-color: rgba(34, 197, 94, 0.1);
+}
+
+.dark .bg-green-900\/30 {
+  background-color: rgba(20, 83, 45, 0.3);
+}
+
+.dark .text-green-200 {
+  color: #bbf7d0;
+}
+
+.dark .text-green-300 {
+  color: #86efac;
+}
+
+.dark .text-green-400 {
+  color: #4ade80;
+}
+
+.dark .border-green-800 {
+  border-color: #166534;
+}
+
+.dark .border-green-950\/30 {
+  background-color: rgba(5, 46, 22, 0.3);
+}
+
+/* Codex MCP Server Cards - Green Borders */
+.mcp-server-card[data-cli-type="codex-green"] {
+  border-left: 3px solid #22c55e;
+  transition: all 0.3s ease;
+}
+
+.mcp-server-card[data-cli-type="codex-green"]:hover {
+  border-left-width: 4px;
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.15);
+}
+
+/* Toggle switches - Green for Codex */
+.mcp-toggle input:checked + div.peer-checked\:bg-green-500 {
+  background: #22c55e;
+}
+
+/* Installation buttons - Enhanced Green */
+.bg-green-500:hover {
+  background-color: #16a34a;
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
+/* Info panels - Green accent */
+.bg-green-50.dark\:bg-green-950\/30 {
+  border-left: 3px solid #22c55e;
+}
+
+/* Codex section headers - Green gradient */
+.text-green-500 svg {
+  filter: drop-shadow(0 2px 4px rgba(34, 197, 94, 0.3));
+}
+
+.mcp-section h3.text-green-500 {
+  background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+}
+
+/* Animated pulse for Codex servers */
+.border-green-500\/30 {
+  animation: greenPulse 2s ease-in-out infinite;
+}
+
+@keyframes greenPulse {
+  0%, 100% {
+    border-color: rgba(34, 197, 94, 0.3);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+  50% {
+    border-color: rgba(34, 197, 94, 0.6);
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
+  }
+}
+
+/* Green button hover effects */
+.bg-green-500.rounded-lg {
+  position: relative;
+  overflow: hidden;
+}
+
+.bg-green-500.rounded-lg::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.3s, height 0.3s;
+}
+
+.bg-green-500.rounded-lg:active::after {
+  width: 200px;
+  height: 200px;
+}
+
+/* Green-themed success badges */
+.bg-green-100 {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Loading states with green */
+@keyframes greenGlow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.6);
+  }
+}
+
+.loading-green {
+  animation: greenGlow 1.5s ease-in-out infinite;
 }
