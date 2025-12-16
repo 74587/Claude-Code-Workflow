@@ -470,14 +470,14 @@ function computeCliStrategy(task, allTasks) {
   // Pattern: Gemini CLI deep analysis
   {
     "step": "gemini_analyze_[aspect]",
-    "command": "ccw cli exec 'PURPOSE: [goal]\\nTASK: [tasks]\\nMODE: analysis\\nCONTEXT: @[paths]\\nEXPECTED: [output]\\nRULES: $(cat [template]) | [constraints] | analysis=READ-ONLY' --tool gemini --cd [path]",
+    "command": "ccw cli exec 'PURPOSE: [goal]\\nTASK: [tasks]\\nMODE: analysis\\nCONTEXT: @[paths]\\nEXPECTED: [output]\\nRULES: $(cat [template]) | [constraints] | analysis=READ-ONLY' --tool gemini --mode analysis --cd [path]",
     "output_to": "analysis_result"
   },
 
   // Pattern: Qwen CLI analysis (fallback/alternative)
   {
     "step": "qwen_analyze_[aspect]",
-    "command": "ccw cli exec '[similar to gemini pattern]' --tool qwen --cd [path]",
+    "command": "ccw cli exec '[similar to gemini pattern]' --tool qwen --mode analysis --cd [path]",
     "output_to": "analysis_result"
   },
 
@@ -518,7 +518,7 @@ The examples above demonstrate **patterns**, not fixed requirements. Agent MUST:
 4. **Command Composition Patterns**:
    - **Single command**: `bash([simple_search])`
    - **Multiple commands**: `["bash([cmd1])", "bash([cmd2])"]`
-   - **CLI analysis**: `ccw cli exec '[prompt]' --tool gemini --cd [path]`
+   - **CLI analysis**: `ccw cli exec '[prompt]' --tool gemini --mode analysis --cd [path]`
    - **MCP integration**: `mcp__[tool]__[function]([params])`
 
 **Key Principle**: Examples show **structure patterns**, not specific implementations. Agent must create task-appropriate steps dynamically.

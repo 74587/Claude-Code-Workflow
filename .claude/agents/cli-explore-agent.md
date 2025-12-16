@@ -85,7 +85,7 @@ MODE: analysis
 CONTEXT: @**/*
 EXPECTED: {from prompt}
 RULES: {from prompt, if template specified} | analysis=READ-ONLY
-" --tool gemini --cd {dir} 
+" --tool gemini --mode analysis --cd {dir} 
 ```
 
 **Fallback Chain**: Gemini → Qwen → Codex → Bash-only

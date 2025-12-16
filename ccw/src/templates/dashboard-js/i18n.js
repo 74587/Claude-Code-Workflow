@@ -1035,6 +1035,10 @@ const i18n = {
     'graph.noSearchData': 'No search process data available.',
     'graph.center': 'Center',
     'graph.resetFilters': 'Reset Filters',
+
+    // Help & Guide
+    'nav.help': 'Help',
+    'title.helpGuide': 'Help & Guide',
     'graph.cytoscapeNotLoaded': 'Graph library not loaded',
     'graph.impactAnalysisError': 'Failed to load impact analysis',
     'graph.searchProcessDesc': 'Visualize how search queries flow through the system',
@@ -2118,6 +2122,10 @@ const i18n = {
     'graph.noSearchData': '无搜索过程数据。',
     'graph.center': '居中',
     'graph.resetFilters': '重置筛选',
+
+    // Help & Guide
+    'nav.help': '帮助',
+    'title.helpGuide': '帮助与指南',
     'graph.cytoscapeNotLoaded': '图谱库未加载',
     'graph.impactAnalysisError': '加载影响分析失败',
     'graph.searchProcessDesc': '可视化搜索查询在系统中的流转过程',

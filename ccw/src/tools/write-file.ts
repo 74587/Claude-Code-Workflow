@@ -10,7 +10,7 @@
 
 import { z } from 'zod';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
-import { writeFileSync, readFileSync, existsSync, mkdirSync, renameSync } from 'fs';
+import { writeFileSync, readFileSync, existsSync, mkdirSync, renameSync, statSync } from 'fs';
 import { resolve, isAbsolute, dirname, basename } from 'path';
 
 // Define Zod schema for validation
@@ -63,6 +63,39 @@ function createBackup(filePath: string): string | null {
     return backupPath;
   } catch (error) {
     throw new Error(`Failed to create backup: ${(error as Error).message}`);
+  }
+}
+
+/**
+ * Verify file write operation completed successfully
+ * @param filePath - Path to written file
+ * @param expectedBytes - Expected file size in bytes
+ * @param encoding - File encoding used
+ * @returns Error message if verification fails, null if successful
+ */
+function verifyFileWrite(filePath: string, expectedBytes: number, encoding: BufferEncoding): string | null {
+  // Check 1: File exists
+  if (!existsSync(filePath)) {
+    return `File verification failed: file does not exist at ${filePath}`;
+  }
+
+  try {
+    // Check 2: File size matches expected bytes
+    const stats = statSync(filePath);
+    if (stats.size !== expectedBytes) {
+      return `File verification failed: size mismatch (expected ${expectedBytes}B, actual ${stats.size}B)`;
+    }
+
+    // Check 3: File is readable (for long JSON files)
+    const readContent = readFileSync(filePath, { encoding });
+    const actualBytes = Buffer.byteLength(readContent, encoding);
+    if (actualBytes !== expectedBytes) {
+      return `File verification failed: content size mismatch after read (expected ${expectedBytes}B, read ${actualBytes}B)`;
+    }
+
+    return null; // Verification passed
+  } catch (error) {
+    return `File verification failed: ${(error as Error).message}`;
   }
 }
 
@@ -152,14 +185,23 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
     writeFileSync(resolvedPath, content, { encoding });
     const bytes = Buffer.byteLength(content, encoding);
 
+    // Verify write operation completed successfully
+    const verificationError = verifyFileWrite(resolvedPath, bytes, encoding as BufferEncoding);
+    if (verificationError) {
+      return {
+        success: false,
+        error: verificationError,
+      };
+    }
+
     // Build compact message
     let message: string;
     if (fileExists) {
       message = backupPath
-        ? `Overwrote (${bytes}B, backup: ${basename(backupPath)})`
-        : `Overwrote (${bytes}B)`;
+        ? `Overwrote (${bytes}B, backup: ${basename(backupPath)}) - verified`
+        : `Overwrote (${bytes}B) - verified`;
     } else {
-      message = `Created (${bytes}B)`;
+      message = `Created (${bytes}B) - verified`;
     }
 
     return {

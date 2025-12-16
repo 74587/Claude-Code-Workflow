@@ -111,7 +111,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/planning/02-breakdown-tas
 - Acceptance/verification must be quantified
 - Dependencies use task IDs
 - analysis=READ-ONLY
-" --tool {cli_tool} --cd {project_root}
+" --tool {cli_tool} --mode analysis --cd {project_root}
 ```
 
 ## Core Functions

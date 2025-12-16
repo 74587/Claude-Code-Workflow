@@ -135,6 +135,8 @@ function initNavigation() {
         renderClaudeManager();
       } else if (currentView === 'graph-explorer') {
         renderGraphExplorer();
+      } else if (currentView === 'help') {
+        renderHelpView();
       }
     });
   });
@@ -171,6 +173,8 @@ function updateContentTitle() {
     titleEl.textContent = t('title.claudeManager');
   } else if (currentView === 'graph-explorer') {
     titleEl.textContent = t('title.graphExplorer');
+  } else if (currentView === 'help') {
+    titleEl.textContent = t('title.helpGuide');
   } else if (currentView === 'liteTasks') {
     const names = { 'lite-plan': t('title.litePlanSessions'), 'lite-fix': t('title.liteFixSessions') };
     titleEl.textContent = names[currentLiteType] || t('title.liteTasks');

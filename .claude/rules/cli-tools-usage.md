@@ -49,11 +49,20 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt
 
 ## Tool Selection Matrix
 
-| Task Category | Tool | MODE | When to Use |
-|---------------|------|------|-------------|
-| **Read/Analyze** | Gemini/Qwen | `analysis` | Code review, architecture analysis, pattern discovery, exploration |
-| **Write/Create** | Gemini/Qwen | `write` | Documentation generation, file creation (non-code) |
-| **Implement/Fix** | Codex | `auto` | Feature implementation, bug fixes, test creation, refactoring |
+- **Read/Analyze**
+  - Tool: Gemini/Qwen
+  - MODE: `analysis`
+  - When to Use: Code review, architecture analysis, pattern discovery, exploration
+
+- **Write/Create**
+  - Tool: Gemini/Qwen
+  - MODE: `write`
+  - When to Use: Documentation generation, file creation (non-code)
+
+- **Implement/Fix**
+  - Tool: Codex
+  - MODE: `auto`
+  - When to Use: Feature implementation, bug fixes, test creation, refactoring
 
 ## Essential Command Structure
 
@@ -78,20 +87,30 @@ ccw cli exec "<PROMPT>" --tool <gemini|qwen|codex> --mode <analysis|write|auto>
 
 ### MODE Options
 
-| Mode | Permission | Use For | Specification |
-|------|------------|---------|---------------|
-| `analysis` | Read-only (default) | Code review, architecture analysis, pattern discovery | Auto for Gemini/Qwen |
-| `write` | Create/Modify/Delete | Documentation, code creation, file modifications | Requires `--mode write` |
-| `auto` | Full operations | Feature implementation, bug fixes, autonomous development | Codex only, requires `--mode auto` |
+- **`analysis`**
+  - Permission: Read-only (default)
+  - Use For: Code review, architecture analysis, pattern discovery
+  - Specification: Auto for Gemini/Qwen
+
+- **`write`**
+  - Permission: Create/Modify/Delete
+  - Use For: Documentation, code creation, file modifications
+  - Specification: Requires `--mode write`
+
+- **`auto`**
+  - Permission: Full operations
+  - Use For: Feature implementation, bug fixes, autonomous development
+  - Specification: Codex only, requires `--mode auto`
 
 ### Mode Protocol References (MANDATORY)
 
 **⚠️ REQUIRED**: Every CLI execution MUST include the corresponding mode protocol in RULES:
 
-| Mode | Protocol (REQUIRED) |
-|------|---------------------|
-| `analysis` | `$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md)` |
-| `write/auto` | `$(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md)` |
+- **`analysis`**
+  - Protocol (REQUIRED): `$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md)`
+
+- **`write/auto`**
+  - Protocol (REQUIRED): `$(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md)`
 
 **RULES Format** (protocol MUST be included):
 ```bash
@@ -140,10 +159,8 @@ ccw cli exec "Continue analyzing" --tool gemini --mode analysis --resume        
 ccw cli exec "Fix issues found" --tool codex --mode auto --resume <id>           # Resume specific session
 ```
 
-| Value | Description |
-|-------|-------------|
-| `--resume` (empty) | Resume most recent session |
-| `--resume <id>` | Resume specific execution ID |
+- **`--resume` (empty)**: Resume most recent session
+- **`--resume <id>`**: Resume specific execution ID
 
 **Context Assembly** (automatic):
 ```
@@ -164,14 +181,41 @@ ASSISTANT RESPONSE: [Previous output]
 
 Every command MUST include these fields:
 
-| Field | Purpose | Components | Bad Example | Good Example |
-|-------|---------|------------|-------------|--------------|
-| **PURPOSE** | Goal + motivation + success | What + Why + Success Criteria + Constraints | "Analyze code" | "Identify security vulnerabilities in auth module to pass compliance audit; success = all OWASP Top 10 addressed; scope = src/auth/** only" |
-| **TASK** | Actionable steps | Specific verbs + targets | "• Review code • Find issues" | "• Scan for SQL injection in query builders • Check XSS in template rendering • Verify CSRF token validation" |
-| **MODE** | Permission level | analysis / write / auto | (missing) | "analysis" or "write" |
-| **CONTEXT** | File scope + history | File patterns + Memory | "@**/*" | "@src/auth/**/*.ts @shared/utils/security.ts \| Memory: Previous auth refactoring (WFS-001)" |
-| **EXPECTED** | Output specification | Format + Quality + Structure | "Report" | "Markdown report with: severity levels (Critical/High/Medium/Low), file:line references, remediation code snippets, priority ranking" |
-| **RULES** | Template + constraints | $(cat template) + domain rules | (missing) | "$(cat ~/.claude/.../security.txt) \| Focus on authentication \| Ignore test files \| analysis=READ-ONLY" |
+- **PURPOSE**
+  - Purpose: Goal + motivation + success
+  - Components: What + Why + Success Criteria + Constraints
+  - Bad Example: "Analyze code"
+  - Good Example: "Identify security vulnerabilities in auth module to pass compliance audit; success = all OWASP Top 10 addressed; scope = src/auth/** only"
+
+- **TASK**
+  - Purpose: Actionable steps
+  - Components: Specific verbs + targets
+  - Bad Example: "• Review code • Find issues"
+  - Good Example: "• Scan for SQL injection in query builders • Check XSS in template rendering • Verify CSRF token validation"
+
+- **MODE**
+  - Purpose: Permission level
+  - Components: analysis / write / auto
+  - Bad Example: (missing)
+  - Good Example: "analysis" or "write"
+
+- **CONTEXT**
+  - Purpose: File scope + history
+  - Components: File patterns + Memory
+  - Bad Example: "@**/*"
+  - Good Example: "@src/auth/**/*.ts @shared/utils/security.ts \| Memory: Previous auth refactoring (WFS-001)"
+
+- **EXPECTED**
+  - Purpose: Output specification
+  - Components: Format + Quality + Structure
+  - Bad Example: "Report"
+  - Good Example: "Markdown report with: severity levels (Critical/High/Medium/Low), file:line references, remediation code snippets, priority ranking"
+
+- **RULES**
+  - Purpose: Template + constraints
+  - Components: $(cat template) + domain rules
+  - Bad Example: (missing)
+  - Good Example: "$(cat ~/.claude/.../security.txt) \| Focus on authentication \| Ignore test files \| analysis=READ-ONLY"
 
 
 ### CONTEXT Configuration
@@ -180,12 +224,10 @@ Every command MUST include these fields:
 
 #### File Patterns
 
-| Pattern | Scope |
-|---------|-------|
-| `@**/*` | All files (default) |
-| `@src/**/*.ts` | TypeScript in src |
-| `@../shared/**/*` | Sibling directory (requires `--includeDirs`) |
-| `@CLAUDE.md` | Specific file |
+- **`@**/*`**: All files (default)
+- **`@src/**/*.ts`**: TypeScript in src
+- **`@../shared/**/*`**: Sibling directory (requires `--includeDirs`)
+- **`@CLAUDE.md`**: Specific file
 
 #### Memory Context
 
@@ -253,35 +295,33 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-ri
 
 **Universal Templates**:
 
-| Template | Use For |
-|----------|---------|
-| `universal/00-universal-rigorous-style.txt` | Precision-critical, systematic methodology |
-| `universal/00-universal-creative-style.txt` | Exploratory, innovative solutions |
+- **`universal/00-universal-rigorous-style.txt`**: Precision-critical, systematic methodology
+- **`universal/00-universal-creative-style.txt`**: Exploratory, innovative solutions
 
 **Task-Template Matrix**:
 
-| Task Type | Template |
-|-----------|----------|
-| **Analysis** | |
-| Execution Tracing | `analysis/01-trace-code-execution.txt` |
-| Bug Diagnosis | `analysis/01-diagnose-bug-root-cause.txt` |
-| Code Patterns | `analysis/02-analyze-code-patterns.txt` |
-| Document Analysis | `analysis/02-analyze-technical-document.txt` |
-| Architecture Review | `analysis/02-review-architecture.txt` |
-| Code Review | `analysis/02-review-code-quality.txt` |
-| Performance | `analysis/03-analyze-performance.txt` |
-| Security | `analysis/03-assess-security-risks.txt` |
-| **Planning** | |
-| Architecture | `planning/01-plan-architecture-design.txt` |
-| Task Breakdown | `planning/02-breakdown-task-steps.txt` |
-| Component Design | `planning/02-design-component-spec.txt` |
-| Migration | `planning/03-plan-migration-strategy.txt` |
-| **Development** | |
-| Feature | `development/02-implement-feature.txt` |
-| Refactoring | `development/02-refactor-codebase.txt` |
-| Tests | `development/02-generate-tests.txt` |
-| UI Component | `development/02-implement-component-ui.txt` |
-| Debugging | `development/03-debug-runtime-issues.txt` |
+**Analysis**:
+- Execution Tracing: `analysis/01-trace-code-execution.txt`
+- Bug Diagnosis: `analysis/01-diagnose-bug-root-cause.txt`
+- Code Patterns: `analysis/02-analyze-code-patterns.txt`
+- Document Analysis: `analysis/02-analyze-technical-document.txt`
+- Architecture Review: `analysis/02-review-architecture.txt`
+- Code Review: `analysis/02-review-code-quality.txt`
+- Performance: `analysis/03-analyze-performance.txt`
+- Security: `analysis/03-assess-security-risks.txt`
+
+**Planning**:
+- Architecture: `planning/01-plan-architecture-design.txt`
+- Task Breakdown: `planning/02-breakdown-task-steps.txt`
+- Component Design: `planning/02-design-component-spec.txt`
+- Migration: `planning/03-plan-migration-strategy.txt`
+
+**Development**:
+- Feature: `development/02-implement-feature.txt`
+- Refactoring: `development/02-refactor-codebase.txt`
+- Tests: `development/02-generate-tests.txt`
+- UI Component: `development/02-implement-component-ui.txt`
+- Debugging: `development/03-debug-runtime-issues.txt`
 
 ---
 
@@ -289,16 +329,37 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-ri
 
 ### Command Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--tool <tool>` | gemini, qwen, codex | gemini |
-| `--mode <mode>` | **REQUIRED**: analysis, write, auto | **NONE** (must specify) |
-| `--model <model>` | Model override | auto-select |
-| `--cd <path>` | Working directory | current |
-| `--includeDirs <dirs>` | Additional directories (comma-separated) | none |
-| `--timeout <ms>` | Timeout in milliseconds | 300000 |
-| `--resume [id]` | Resume previous session | - |
-| `--no-stream` | Disable streaming | false |
+- **`--tool <tool>`**
+  - Description: gemini, qwen, codex
+  - Default: gemini
+
+- **`--mode <mode>`**
+  - Description: **REQUIRED**: analysis, write, auto
+  - Default: **NONE** (must specify)
+
+- **`--model <model>`**
+  - Description: Model override
+  - Default: auto-select
+
+- **`--cd <path>`**
+  - Description: Working directory
+  - Default: current
+
+- **`--includeDirs <dirs>`**
+  - Description: Additional directories (comma-separated)
+  - Default: none
+
+- **`--timeout <ms>`**
+  - Description: Timeout in milliseconds
+  - Default: 300000
+
+- **`--resume [id]`**
+  - Description: Resume previous session
+  - Default: -
+
+- **`--no-stream`**
+  - Description: Disable streaming
+  - Default: false
 
 ### Directory Configuration
 
@@ -331,12 +392,21 @@ ccw cli exec "..." --tool gemini --mode analysis --cd src/auth --includeDirs ../
 
 CCW automatically maps to tool-specific syntax:
 
-| CCW Parameter | Gemini/Qwen | Codex |
-|---------------|-------------|-------|
-| `--cd <path>` | `cd <path> &&` | `-C <path>` |
-| `--includeDirs <dirs>` | `--include-directories` | `--add-dir` (per dir) |
-| `--mode write` | `--approval-mode yolo` | `-s danger-full-access` |
-| `--mode auto` | N/A | `-s danger-full-access` |
+- **`--cd <path>`**
+  - Gemini/Qwen: `cd <path> &&`
+  - Codex: `-C <path>`
+
+- **`--includeDirs <dirs>`**
+  - Gemini/Qwen: `--include-directories`
+  - Codex: `--add-dir` (per dir)
+
+- **`--mode write`**
+  - Gemini/Qwen: `--approval-mode yolo`
+  - Codex: `-s danger-full-access`
+
+- **`--mode auto`**
+  - Gemini/Qwen: N/A
+  - Codex: `-s danger-full-access`
 
 ### Command Examples
 
@@ -397,12 +467,17 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-refactor-c
 
 **Minimum**: 5 minutes (300000ms)
 
-| Complexity | Range | Examples |
-|------------|-------|----------|
-| Simple | 5-10min (300000-600000ms) | Analysis, search |
-| Medium | 10-20min (600000-1200000ms) | Refactoring, documentation |
-| Complex | 20-60min (1200000-3600000ms) | Implementation, migration |
-| Heavy | 60-120min (3600000-7200000ms) | Large codebase, multi-file |
+- **Simple**: 5-10min (300000-600000ms)
+  - Examples: Analysis, search
+
+- **Medium**: 10-20min (600000-1200000ms)
+  - Examples: Refactoring, documentation
+
+- **Complex**: 20-60min (1200000-3600000ms)
+  - Examples: Implementation, migration
+
+- **Heavy**: 60-120min (3600000-7200000ms)
+  - Examples: Large codebase, multi-file
 
 **Codex Multiplier**: 3x allocated time (minimum 15min / 900000ms)
 
@@ -437,12 +512,10 @@ ccw cli exec "<prompt>" --tool codex --mode auto --timeout 1800000   # 30 min
 
 ### Workflow Integration
 
-| Phase | Command |
-|-------|---------|
-| Understanding | `ccw cli exec "<prompt>" --tool gemini` |
-| Architecture | `ccw cli exec "<prompt>" --tool gemini` |
-| Implementation | `ccw cli exec "<prompt>" --tool codex --mode auto` |
-| Quality | `ccw cli exec "<prompt>" --tool codex --mode write` |
+- **Understanding**: `ccw cli exec "<prompt>" --tool gemini`
+- **Architecture**: `ccw cli exec "<prompt>" --tool gemini`
+- **Implementation**: `ccw cli exec "<prompt>" --tool codex --mode auto`
+- **Quality**: `ccw cli exec "<prompt>" --tool codex --mode write`
 
 ### Planning Checklist
 

@@ -20,6 +20,7 @@ import { handleRulesRoutes } from './routes/rules-routes.js';
 import { handleSessionRoutes } from './routes/session-routes.js';
 import { handleCcwRoutes } from './routes/ccw-routes.js';
 import { handleClaudeRoutes } from './routes/claude-routes.js';
+import { handleHelpRoutes } from './routes/help-routes.js';
 
 // Import WebSocket handling
 import { handleWebSocketUpgrade, broadcastToClients } from './websocket.js';
@@ -65,12 +66,14 @@ const MODULE_CSS_FILES = [
   '12-skills-rules.css',
   '13-claude-manager.css',
   '14-graph-explorer.css',
-  '15-mcp-manager.css'
+  '15-mcp-manager.css',
+  '16-help.css'
 ];
 
 // Modular JS files in dependency order
 const MODULE_FILES = [
   'i18n.js',  // Must be loaded first for translations
+  'help-i18n.js',  // Help page translations
   'utils.js',
   'state.js',
   'api.js',
@@ -113,6 +116,7 @@ const MODULE_FILES = [
   'views/rules-manager.js',
   'views/claude-manager.js',
   'views/graph-explorer.js',
+  'views/help.js',
   'main.js'
 ];
 
@@ -298,6 +302,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // Rules routes (/api/rules*)
       if (pathname.startsWith('/api/rules')) {
         if (await handleRulesRoutes(routeContext)) return;
+      }
+
+      // Help routes (/api/help/*)
+      if (pathname.startsWith('/api/help/')) {
+        if (await handleHelpRoutes(routeContext)) return;
       }
 
       // Session routes (/api/session-detail, /api/update-task-status, /api/bulk-update-task-status)

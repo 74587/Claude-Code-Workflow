@@ -1,202 +1,94 @@
-# MCP 优化和模板功能实现总结
+# Session Management Design Evolution Analysis
 
-## 完成的功能
+## 1. Abstraction Layer Value Analysis
 
-### 1. ✅ .mcp.json 支持优化
+The current architecture employs a "Thick Tool, Thin CLI" pattern.
 
-#### 后端改进（`mcp-routes.ts`）
-- **新增函数**：
-  - `addMcpServerToMcpJson()` - 添加服务器到 .mcp.json
-  - `removeMcpServerFromMcpJson()` - 从 .mcp.json 删除服务器
-  
-- **优化的配置优先级**：
-  ```
-  1. Enterprise managed-mcp.json (最高优先级，不可覆盖)
-  2. .mcp.json (项目级，新默认) ← 优先级提升
-  3. ~/.claude.json projects[path].mcpServers (遗留支持)
-  4. ~/.claude.json mcpServers (用户全局)
-  ```
+*   **CLI Layer (`session.ts`)**: Acts primarily as a UI adapter. Its value lies in:
+    *   **UX Enhancement**: formatting JSON outputs into human-readable text (colors, indentation).
+    *   **Shortcuts**: providing semantic commands like `status` and `task` which map to generic `update` operations in the backend.
+    *   **Safety**: specialized error handling (e.g., `EPIPE`) and user feedback.
+*   **Tool Layer (`session-manager.ts`)**: Encapsulates the core business logic.
+    *   **Centralized Security**: The `validatePathParams` and `findSession` functions ensure operations are confined to valid session scopes, preventing path traversal.
+    *   **Path Routing**: The `PATH_ROUTES` constant abstracts the physical file structure away from the logical operations. Consumers request "plan" or "task", not specific file paths.
+    *   **Polymorphism**: Handles both "Standard WFS" (heavy workflow) and "Lite" (ephemeral) sessions through a unified interface.
 
-- **智能安装逻辑**：
-  - `addMcpServerToProject()` 默认写入 `.mcp.json`
-  - 仍然支持 `.claude.json`（向后兼容）
-  - `removeMcpServerFromProject()` 自动检测并从两处删除
+**Verdict**: The abstraction is high-value for **security** and **consistency**, ensuring that all session interactions (whether from CLI or Agent) adhere to the same structural invariants. However, the semantic mapping is thinning, with the CLI often just passing raw JSON `content` directly to the tool.
 
-- **元数据跟踪**：
-  ```json
-  {
-    "mcpJsonPath": "D:\\Claude_dms3\\.mcp.json",
-    "hasMcpJson": true
-  }
-  ```
+## 2. Hidden Complexity Costs
 
-#### 前端 UI 改进（`mcp-manager.js`）
-- **配置来源指示器**：
-  - 有 .mcp.json：显示绿色 `file-check` 图标
-  - 无 .mcp.json：显示提示 "Will use .mcp.json"
+The "Unified Session Manager" design hides significant complexity that is beginning to leak:
 
-- **项目概览表增强**：
-  - 每个项目旁显示 `.mcp.json` 状态图标
-  - 清晰区分配置来源
+*   **Discovery Overhead**: `findSession` performs a linear search across 4 distinct directory roots (`active`, `archived`, `lite-plan`, `lite-fix`) for *every single operation*. As the number of sessions grows, this disk I/O could become a bottleneck.
+*   **Leaky Abstractions in Handling "Lite" Sessions**:
+    *   `executeInit` contains explicit branching logic (`if (location === 'lite-plan'...)`).
+    *   `executeArchive` explicitly throws errors for Lite sessions.
+    *   The "Unified" interface creates a false promise of compatibility; consumers must "know" that `archive` doesn't work for Lite sessions, breaking the Liskov Substitution Principle.
+*   **Routing Table Explosion**: `PATH_ROUTES` is becoming a "God Object" mapping. It mixes different domains:
+    *   Core Workflow (`session`, `plan`)
+    *   Task Management (`task`, `summary`)
+    *   Review Systems (`review-dim`, `review-iter`)
+    *   Lite System (`lite-plan`, `exploration`)
+    *   *Cost*: Adding a new feature requires touching the Schema, the Routing Table, and often the Operation Switch.
 
-### 2. ✅ MCP 模板系统
+## 3. Parameter Transformation Overhead
 
-#### 数据库模块（`mcp-templates-db.ts`）
-- **数据库位置**：`~/.ccw/mcp-templates.db`
-- **模板结构**：
-  ```typescript
-  interface McpTemplate {
-    id?: number;
-    name: string;
-    description?: string;
-    serverConfig: {
-      command: string;
-      args?: string[];
-      env?: Record<string, string>;
-    };
-    tags?: string[];
-    category?: string;
-    createdAt?: number;
-    updatedAt?: number;
-  }
-  ```
+Data undergoes multiple transformations, creating friction:
 
-- **功能**：
-  - `saveTemplate()` - 保存/更新模板
-  - `getAllTemplates()` - 获取所有模板
-  - `getTemplateByName()` - 按名称查找
-  - `getTemplatesByCategory()` - 按分类查找
-  - `searchTemplates()` - 关键字搜索
-  - `deleteTemplate()` - 删除模板
+1.  **CLI Args -> Options Object**: `args` parsed into `InitOptions`, `ReadOptions`.
+2.  **Options -> Tool Params**: Specialized options (`options.taskId`) are manually mapped to generic `path_params`.
+    *   *Risk*: The CLI must implicitly know which `content_type` requires which `path_params`. For example, `readAction` manually constructs `path_params` for `taskId`, `filename`, `dimension`, etc. If the Tool changes a required param, the CLI breaks.
+3.  **Tool Params -> Zod Validation**: The tool re-validates the structure.
+4.  **Tool -> File System**: The tool maps logical params to physical paths.
 
-#### API 端点
-| 方法 | 路径 | 功能 |
-|------|------|------|
-| GET | `/api/mcp-templates` | 获取所有模板 |
-| POST | `/api/mcp-templates` | 保存模板 |
-| GET | `/api/mcp-templates/:name` | 获取单个模板 |
-| DELETE | `/api/mcp-templates/:name` | 删除模板 |
-| GET | `/api/mcp-templates/search?q=keyword` | 搜索模板 |
-| GET | `/api/mcp-templates/categories` | 获取所有分类 |
-| GET | `/api/mcp-templates/category/:name` | 按分类获取 |
-| POST | `/api/mcp-templates/install` | 安装模板到项目/全局 |
+**High Friction Area**: The generic `path_params` object. It forces a loose contract. A strict type system (e.g., distinct interfaces for `ReadTaskParams` vs `ReadPlanParams`) is lost in favor of a generic `Record<string, string>`.
 
-### 3. ✅ Bug 修复
+## 4. Alternative Architecture Proposals
 
-#### 删除服务器逻辑优化
-- **问题**：无法正确删除来自 .mcp.json 的服务器
-- **解决**：
-  ```typescript
-  // 现在会同时检查两个位置
-  removeMcpServerFromProject() {
-    // 尝试从 .mcp.json 删除
-    // 也尝试从 .claude.json 删除
-    // 返回详细的删除结果
-  }
-  ```
+### Proposal A: Domain-Specific Tools (Split by Lifecycle)
+Split the monolithic `session_manager` into targeted tools.
+*   **Components**: `wfs_manager` (Standard Workflow), `lite_session_manager` (Lite/Ephemeral).
+*   **Pros**:
+    *   Clean separation of concerns. `lite` tools don't need `archive` or `task` logic.
+    *   Simpler Schemas.
+    *   Faster discovery (look in 1 place).
+*   **Cons**:
+    *   Agent confusion: "Which tool do I use to read a file?"
+    *   Duplicated utility code (file reading, writing).
 
-## 测试验证
+### Proposal B: Resource-Oriented Architecture (REST-like)
+Focus on Resources rather than Operations.
+*   **Components**: `task_tool` (CRUD for tasks), `session_tool` (Lifecycle), `file_tool` (Safe FS access within session).
+*   **Pros**:
+    *   Aligns with how LLMs think (Action on Object).
+    *   `task_tool` can enforce strict schemas for task status updates, removing the "magic string" status updates in the current CLI.
+*   **Cons**:
+    *   Loss of the "Session" as a coherent unit of work.
+    *   Harder to implement "global" operations like `archive` which touch multiple resources.
 
-### 1. .mcp.json 识别测试
-```bash
-$ curl http://localhost:3456/api/mcp-config | jq
-```
-✅ 成功识别 `D:\Claude_dms3\.mcp.json`
-✅ 正确加载服务器配置：
-  - test-mcp-server
-  - ccw-tools (含环境变量)
+### Proposal C: Strategy Pattern (Internal Refactor)
+Keep the Unified Interface, but refactor internals.
+*   **Design**: `SessionManager` class delegates to `SessionStrategy` implementations (`StandardStrategy`, `LiteStrategy`).
+*   **Pros**:
+    *   Removes `if (lite)` checks from main logic.
+    *   Preserves the simple "one tool" interface for Agents.
+    *   Allows `LiteStrategy` to throw "NotSupported" cleanly or handle `archive` differently (e.g., delete).
+*   **Cons**:
+    *   Does not solve the `path_params` loose typing issue.
 
-### 2. 创建的测试文件
-- `D:\Claude_dms3\.mcp.json` - 测试配置文件
+## 5. Recommended Optimal Design
 
-## 待实现功能
+**Hybrid Approach: Strategy Pattern + Stronger Typing**
 
-### 前端 UI（下一步）
-- [ ] 模板管理界面
-  - 模板列表视图
-  - 创建/编辑模板表单
-  - 模板预览
-  - 从现有服务器保存为模板
-  - 从模板快速安装
+1.  **Refactor `session-manager.ts` to use a Strategy Pattern.**
+    *   Define a `SessionStrategy` interface: `init`, `resolvePath`, `list`, `archive`.
+    *   Implement `StandardWorkflowStrategy` and `LiteWorkflowStrategy`.
+    *   The `handler` simply identifies the session type (via `findSession` or input param) and delegates.
 
-### CCW Tools 安装增强
-- [ ] 全局安装选项
-  - 添加到 ~/.claude.json
-  - 所有项目可用
-  
-- [ ] 项目安装选项（当前默认）
-  - 写入 .mcp.json
-  - 仅当前项目可用
+2.  **Flatten the Path Resolution.**
+    *   Instead of `path_params: { task_id: "1" }`, promote widely used IDs to top-level optional params in the Zod schema: `task_id?: string`, `filename?: string`. This makes the contract explicit to the LLM.
 
-## 使用示例
+3.  **Deprecate "Hybrid" content types.**
+    *   Instead of `content_type="lite-plan"`, just use `content_type="plan"` and let the `LiteStrategy` decide where that lives (`plan.json` vs `IMPL_PLAN.md`). This unifies the language the Agent uses—it always "reads the plan", regardless of session type.
 
-### 保存当前服务器为模板
-```javascript
-// POST /api/mcp-templates
-{
-  "name": "filesystem-server",
-  "description": "MCP Filesystem server for local files",
-  "serverConfig": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/files"]
-  },
-  "category": "官方",
-  "tags": ["filesystem", "mcp", "official"]
-}
-```
-
-### 安装模板到项目
-```javascript
-// POST /api/mcp-templates/install
-{
-  "templateName": "filesystem-server",
-  "projectPath": "D:/Claude_dms3",
-  "scope": "project"  // 或 "global"
-}
-```
-
-## 架构优势
-
-### 1. 清晰的配置层次
-- **企业级** → 组织统一管理
-- **.mcp.json** → 项目团队共享（可提交 git）
-- **.claude.json** → 用户个人配置（不提交）
-
-### 2. 向后兼容
-- 遗留 `.claude.json` 配置仍然有效
-- 平滑迁移路径
-
-### 3. 模板复用
-- 常用配置保存为模板
-- 跨项目快速部署
-- 团队共享最佳实践
-
-## 文件修改清单
-
-### 新增文件
-1. `ccw/src/core/mcp-templates-db.ts` - 模板数据库模块
-
-### 修改文件
-1. `ccw/src/core/routes/mcp-routes.ts`
-   - 添加 .mcp.json 读写函数
-   - 优化配置优先级
-   - 添加模板 API 路由
-   - 修复删除逻辑
-
-2. `ccw/src/templates/dashboard-js/views/mcp-manager.js`
-   - 添加 .mcp.json 状态显示
-   - 项目概览表增强
-
-### 测试文件
-1. `D:\Claude_dms3\.mcp.json` - 测试配置
-
-## 下一步计划
-
-1. **完成前端模板管理 UI**
-2. **实现 CCW Tools 全局/项目安装切换**
-3. **添加预设模板库**（官方 MCP 服务器）
-4. **模板导入/导出功能**
-
----
-生成时间：2025-12-14
-Claude Code Workflow v6.1.4
+**Benefit**: This maintains the ease of use for the Agent (one tool) while cleaning up the internal complexity and removing the "Leaky Abstractions" where the Agent currently has to know if it's in a Lite or Standard session to ask for the right file type.

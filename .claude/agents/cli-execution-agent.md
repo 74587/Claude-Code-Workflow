@@ -155,7 +155,7 @@ MODE: analysis
 CONTEXT: @**/*
 EXPECTED: {output}
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
-" --tool gemini --cd {dir}
+" --tool gemini --mode analysis --cd {dir}
 
 # Qwen fallback: Replace '--tool gemini' with '--tool qwen'
 ```
@@ -172,7 +172,7 @@ ccw cli exec "..." --tool codex --mode auto --cd {dir}
 
 **Cross-Directory** (Gemini/Qwen):
 ```bash
-ccw cli exec "CONTEXT: @**/* @../shared/**/*" --tool gemini --cd src/auth --includeDirs ../shared
+ccw cli exec "CONTEXT: @**/* @../shared/**/*" --tool gemini --mode analysis --cd src/auth --includeDirs ../shared
 ```
 
 **Directory Scope**:
