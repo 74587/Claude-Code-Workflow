@@ -394,52 +394,32 @@ results = engine.search(
   - 指导用户如何生成嵌入
   - 集成到搜索引擎日志中
 
-### ✅ LLM语义增强验证 (2025-12-16)
+### ❌ LLM语义增强功能已移除 (2025-12-16)
 
-**测试目标**: 验证LLM增强的向量搜索是否正常工作，对比纯向量搜索效果
+**移除原因**: 简化代码库，减少外部依赖
 
-**测试基础设施**:
-- 创建测试套件 `tests/test_llm_enhanced_search.py` (550+ lines)
-- 创建独立测试脚本 `scripts/compare_search_methods.py` (460+ lines)
-- 创建完整文档 `docs/LLM_ENHANCED_SEARCH_GUIDE.md` (460+ lines)
+**已移除内容**:
+- `src/codexlens/semantic/llm_enhancer.py` - LLM增强核心模块
+- `src/codexlens/cli/commands.py` 中的 `enhance` 命令
+- `tests/test_llm_enhancer.py` - LLM增强测试
+- `tests/test_llm_enhanced_search.py` - LLM对比测试
+- `scripts/compare_search_methods.py` - 对比测试脚本
+- `scripts/test_misleading_comments.py` - 误导性注释测试
+- `scripts/show_llm_analysis.py` - LLM分析展示脚本
+- `scripts/inspect_llm_summaries.py` - LLM摘要检查工具
+- `docs/LLM_ENHANCED_SEARCH_GUIDE.md` - LLM使用指南
+- `docs/LLM_ENHANCEMENT_TEST_RESULTS.md` - LLM测试结果
+- `docs/MISLEADING_COMMENTS_TEST_RESULTS.md` - 误导性注释测试结果
+- `docs/CLI_INTEGRATION_SUMMARY.md` - CLI集成文档（包含enhance命令）
+- `docs/DOCSTRING_LLM_HYBRID_DESIGN.md` - LLM混合策略设计
 
-**测试数据**:
-- 5个真实Python代码样本 (认证、API、验证、数据库)
-- 6个自然语言测试查询
-- 涵盖密码哈希、JWT令牌、用户API、邮箱验证、数据库连接等场景
+**保留功能**:
+- ✅ 纯向量搜索 (pure_vector) 完整保留
+- ✅ 语义嵌入生成 (`codexlens embeddings-generate`)
+- ✅ 语义嵌入状态检查 (`codexlens embeddings-status`)
+- ✅ 所有核心搜索功能
 
-**测试结果** (2025-12-16):
-```
-数据集: 5个Python文件, 5个查询
-测试工具: Gemini Flash 2.5
-
-Setup Time:
-  - Pure Vector:    2.3秒  (直接嵌入代码)
-  - LLM-Enhanced: 174.2秒  (通过Gemini生成摘要, 75x slower)
-
-Accuracy:
-  - Pure Vector:    5/5 (100%) - 所有查询Rank 1
-  - LLM-Enhanced:   5/5 (100%) - 所有查询Rank 1
-  - Score:         15 vs 15 (平局)
-```
-
-**关键发现**:
-1. ✅ **LLM增强功能正常工作**
-   - CCW CLI集成正常
-   - Gemini API调用成功
-   - 摘要生成和嵌入创建正常
-
-2. **性能权衡**
-   - 索引阶段慢75倍 (LLM API调用开销)
-   - 查询阶段速度相同 (都是向量相似度搜索)
-   - 适合离线索引，在线查询场景
-
-3. **准确性**
-   - 测试数据集太简单 (5文件，完美1:1映射)
-   - 两种方法都达到100%准确率
-   - 需要更大、更复杂的代码库来显示差异
-
-**结论**: LLM语义增强功能已验证可正常工作，可用于生产环境
+**历史记录**: LLM增强功能在测试中表现良好，但为简化维护和减少外部依赖（CCW CLI, Gemini/Qwen API）而移除。设计文档（DESIGN_EVALUATION_REPORT.md等）保留作为历史参考。
 
 ### P2 - 中期（1-2月）
 

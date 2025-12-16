@@ -397,13 +397,11 @@ function renderToolsSection() {
   // Semantic Search item (only show if CodexLens is installed)
   var semanticHtml = '';
   if (codexLensStatus.ready) {
-    semanticHtml = '<div class="tool-item clickable ' + (semanticStatus.available ? 'available' : 'unavailable') + '" onclick="openSemanticSettingsModal()">' +
+    semanticHtml = '<div class="tool-item ' + (semanticStatus.available ? 'available' : 'unavailable') + '">' +
       '<div class="tool-item-left">' +
         '<span class="tool-status-dot ' + (semanticStatus.available ? 'status-available' : 'status-unavailable') + '"></span>' +
         '<div class="tool-item-info">' +
-          '<div class="tool-item-name">Semantic Search <span class="tool-type-badge ai">AI</span>' +
-            (llmEnhancementSettings.enabled ? '<span class="tool-type-badge llm">LLM</span>' : '') +
-            '<i data-lucide="settings" class="w-3 h-3 tool-config-icon"></i></div>' +
+          '<div class="tool-item-name">Semantic Search <span class="tool-type-badge ai">AI</span></div>' +
           '<div class="tool-item-desc">' + (semanticStatus.available ? 'AI-powered code understanding' : 'Natural language code search') + '</div>' +
         '</div>' +
       '</div>' +
