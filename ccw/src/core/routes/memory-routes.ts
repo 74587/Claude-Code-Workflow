@@ -222,21 +222,30 @@ export async function handleMemoryRoutes(ctx: RouteContext): Promise<boolean> {
     const projectPath = url.searchParams.get('path') || initialPath;
     const limit = parseInt(url.searchParams.get('limit') || '50', 10);
     const search = url.searchParams.get('search') || null;
+    const recursive = url.searchParams.get('recursive') === 'true';
 
     try {
-      const memoryStore = getMemoryStore(projectPath);
       let prompts;
 
-      if (search) {
-        prompts = memoryStore.searchPrompts(search, limit);
+      // Recursive mode: aggregate prompts from parent and child projects
+      if (recursive && !search) {
+        const { getAggregatedPrompts } = await import('../memory-store.js');
+        prompts = getAggregatedPrompts(projectPath, limit);
       } else {
-        // Get all recent prompts (we'll need to add this method to MemoryStore)
-        const stmt = memoryStore['db'].prepare(`
-          SELECT * FROM prompt_history
-          ORDER BY timestamp DESC
-          LIMIT ?
-        `);
-        prompts = stmt.all(limit);
+        // Non-recursive mode or search mode: query only current project
+        const memoryStore = getMemoryStore(projectPath);
+
+        if (search) {
+          prompts = memoryStore.searchPrompts(search, limit);
+        } else {
+          // Get all recent prompts (we'll need to add this method to MemoryStore)
+          const stmt = memoryStore['db'].prepare(`
+            SELECT * FROM prompt_history
+            ORDER BY timestamp DESC
+            LIMIT ?
+          `);
+          prompts = stmt.all(limit);
+        }
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -506,8 +515,23 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, just p
     const projectPath = url.searchParams.get('path') || initialPath;
     const filter = url.searchParams.get('filter') || 'all'; // today, week, all
     const limit = parseInt(url.searchParams.get('limit') || '10', 10);
+    const recursive = url.searchParams.get('recursive') === 'true';
 
     try {
+      // If requesting aggregated stats, use the aggregated function
+      if (url.searchParams.has('aggregated') || recursive) {
+        const { getAggregatedStats } = await import('../memory-store.js');
+        const aggregatedStats = getAggregatedStats(projectPath);
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          stats: aggregatedStats,
+          aggregated: true
+        }));
+        return true;
+      }
+
+      // Original hotspot statistics (non-recursive)
       const memoryStore = getMemoryStore(projectPath);
       const hotEntities = memoryStore.getHotEntities(limit * 4);
 

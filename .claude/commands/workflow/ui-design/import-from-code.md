@@ -187,7 +187,7 @@ Task(subagent_type="ui-design-agent",
     CONTEXT: @**/*.css @**/*.scss @**/*.js @**/*.ts
     EXPECTED: JSON report listing conflicts with file:line, values, semantic context
     RULES: Focus on core tokens | Report ALL variants | analysis=READ-ONLY
-    \" --tool gemini --cd ${source}
+    \" --tool gemini --mode analysis --cd ${source}
     \`\`\`
 
   **Step 1: Load file list**
@@ -302,7 +302,7 @@ Task(subagent_type="ui-design-agent",
     CONTEXT: @**/*.css @**/*.scss @**/*.js @**/*.ts
     EXPECTED: JSON report listing frameworks, animation types, file locations
     RULES: Focus on framework consistency | Map all animations | analysis=READ-ONLY
-    \" --tool gemini --cd ${source}
+    \" --tool gemini --mode analysis --cd ${source}
     \`\`\`
 
   **Step 1: Load file list**
@@ -381,7 +381,7 @@ Task(subagent_type="ui-design-agent",
     CONTEXT: @**/*.css @**/*.scss @**/*.js @**/*.ts @**/*.html
     EXPECTED: JSON report categorizing components, layout patterns, naming conventions
     RULES: Focus on component reusability | Identify layout systems | analysis=READ-ONLY
-    \" --tool gemini --cd ${source}
+    \" --tool gemini --mode analysis --cd ${source}
     \`\`\`
 
   **Step 1: Load file list**

@@ -57,7 +57,7 @@ class DirIndexStore:
 
     # Schema version for migration tracking
     # Increment this when schema changes require migration
-    SCHEMA_VERSION = 2
+    SCHEMA_VERSION = 4
 
     def __init__(self, db_path: str | Path) -> None:
         """Initialize directory index store.
@@ -93,11 +93,13 @@ class DirIndexStore:
                 )
 
             # Create or migrate schema
-            self._create_schema(conn)
-            self._create_fts_triggers(conn)
-
-            # Apply versioned migrations if needed
-            if current_version < self.SCHEMA_VERSION:
+            if current_version == 0:
+                # New database - create schema directly
+                self._create_schema(conn)
+                self._create_fts_triggers(conn)
+                self._set_schema_version(conn, self.SCHEMA_VERSION)
+            elif current_version < self.SCHEMA_VERSION:
+                # Existing database - apply migrations
                 self._apply_migrations(conn, current_version)
                 self._set_schema_version(conn, self.SCHEMA_VERSION)
 
@@ -125,6 +127,11 @@ class DirIndexStore:
         # Migration v0/v1 -> v2: Add 'name' column to files table
         if from_version < 2:
             self._migrate_v2_add_name_column(conn)
+
+        # Migration v2 -> v4: Add dual FTS tables (exact + fuzzy)
+        if from_version < 4:
+            from codexlens.storage.migrations.migration_004_dual_fts import upgrade
+            upgrade(conn)
 
     def close(self) -> None:
         """Close database connection."""
@@ -464,6 +471,117 @@ class DirIndexStore:
             ).fetchone()
 
             return float(row["mtime"]) if row and row["mtime"] else None
+
+    def needs_reindex(self, full_path: str | Path) -> bool:
+        """Check if a file needs reindexing based on mtime comparison.
+
+        Uses 1ms tolerance to handle filesystem timestamp precision variations.
+
+        Args:
+            full_path: Complete source file path
+
+        Returns:
+            True if file should be reindexed (new, modified, or missing from index)
+        """
+        full_path_obj = Path(full_path).resolve()
+        if not full_path_obj.exists():
+            return False  # File doesn't exist, skip indexing
+
+        # Get current filesystem mtime
+        try:
+            current_mtime = full_path_obj.stat().st_mtime
+        except OSError:
+            return False  # Can't read file stats, skip
+
+        # Get stored mtime from database
+        stored_mtime = self.get_file_mtime(full_path_obj)
+
+        # File not in index, needs indexing
+        if stored_mtime is None:
+            return True
+
+        # Compare with 1ms tolerance for floating point precision
+        MTIME_TOLERANCE = 0.001
+        return abs(current_mtime - stored_mtime) > MTIME_TOLERANCE
+
+    def add_file_incremental(
+        self,
+        name: str,
+        full_path: str | Path,
+        content: str,
+        language: str,
+        symbols: Optional[List[Symbol]] = None,
+    ) -> Optional[int]:
+        """Add or update a file only if it has changed (incremental indexing).
+
+        Checks mtime before indexing to skip unchanged files.
+
+        Args:
+            name: Filename without path
+            full_path: Complete source file path
+            content: File content for indexing
+            language: Programming language identifier
+            symbols: List of Symbol objects from the file
+
+        Returns:
+            Database file_id if indexed, None if skipped (unchanged)
+
+        Raises:
+            StorageError: If database operations fail
+        """
+        # Check if reindexing is needed
+        if not self.needs_reindex(full_path):
+            return None  # Skip unchanged file
+
+        # File changed or new, perform full indexing
+        return self.add_file(name, full_path, content, language, symbols)
+
+    def cleanup_deleted_files(self, source_dir: Path) -> int:
+        """Remove indexed files that no longer exist in the source directory.
+
+        Scans the source directory and removes database entries for deleted files.
+
+        Args:
+            source_dir: Source directory to scan
+
+        Returns:
+            Number of deleted file entries removed
+
+        Raises:
+            StorageError: If cleanup operations fail
+        """
+        with self._lock:
+            conn = self._get_connection()
+            source_dir = source_dir.resolve()
+
+            try:
+                # Get all indexed file paths
+                rows = conn.execute("SELECT full_path FROM files").fetchall()
+                indexed_paths = {row["full_path"] for row in rows}
+
+                # Build set of existing files in source directory
+                existing_paths = set()
+                for file_path in source_dir.rglob("*"):
+                    if file_path.is_file():
+                        existing_paths.add(str(file_path.resolve()))
+
+                # Find orphaned entries (indexed but no longer exist)
+                deleted_paths = indexed_paths - existing_paths
+
+                # Remove orphaned entries
+                deleted_count = 0
+                for deleted_path in deleted_paths:
+                    conn.execute("DELETE FROM files WHERE full_path=?", (deleted_path,))
+                    deleted_count += 1
+
+                if deleted_count > 0:
+                    conn.commit()
+
+                return deleted_count
+
+            except Exception as exc:
+                conn.rollback()
+                raise StorageError(f"Failed to cleanup deleted files: {exc}") from exc
 
     def list_files(self) -> List[FileEntry]:
         """List all files in current directory.
@@ -985,6 +1103,92 @@ class DirIndexStore:
                 )
             return results
 
+    def search_fts_exact(self, query: str, limit: int = 20) -> List[SearchResult]:
+        """Full-text search using exact token matching (unicode61 tokenizer).
+
+        Args:
+            query: FTS5 query string
+            limit: Maximum results to return
+
+        Returns:
+            List of SearchResult objects sorted by relevance
+
+        Raises:
+            StorageError: If FTS search fails
+        """
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                rows = conn.execute(
+                    """
+                    SELECT rowid, full_path, bm25(files_fts_exact) AS rank,
+                           snippet(files_fts_exact, 2, '[bold red]', '[/bold red]', '...', 20) AS excerpt
+                    FROM files_fts_exact
+                    WHERE files_fts_exact MATCH ?
+                    ORDER BY rank
+                    LIMIT ?
+                    """,
+                    (query, limit),
+                ).fetchall()
+            except sqlite3.DatabaseError as exc:
+                raise StorageError(f"FTS exact search failed: {exc}") from exc
+
+            results: List[SearchResult] = []
+            for row in rows:
+                rank = float(row["rank"]) if row["rank"] is not None else 0.0
+                score = abs(rank) if rank < 0 else 0.0
+                results.append(
+                    SearchResult(
+                        path=row["full_path"],
+                        score=score,
+                        excerpt=row["excerpt"],
+                    )
+                )
+            return results
+
+    def search_fts_fuzzy(self, query: str, limit: int = 20) -> List[SearchResult]:
+        """Full-text search using fuzzy/substring matching (trigram or extended unicode61 tokenizer).
+
+        Args:
+            query: FTS5 query string
+            limit: Maximum results to return
+
+        Returns:
+            List of SearchResult objects sorted by relevance
+
+        Raises:
+            StorageError: If FTS search fails
+        """
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                rows = conn.execute(
+                    """
+                    SELECT rowid, full_path, bm25(files_fts_fuzzy) AS rank,
+                           snippet(files_fts_fuzzy, 2, '[bold red]', '[/bold red]', '...', 20) AS excerpt
+                    FROM files_fts_fuzzy
+                    WHERE files_fts_fuzzy MATCH ?
+                    ORDER BY rank
+                    LIMIT ?
+                    """,
+                    (query, limit),
+                ).fetchall()
+            except sqlite3.DatabaseError as exc:
+                raise StorageError(f"FTS fuzzy search failed: {exc}") from exc
+
+            results: List[SearchResult] = []
+            for row in rows:
+                rank = float(row["rank"]) if row["rank"] is not None else 0.0
+                score = abs(rank) if rank < 0 else 0.0
+                results.append(
+                    SearchResult(
+                        path=row["full_path"],
+                        score=score,
+                        excerpt=row["excerpt"],
+                    )
+                )
+            return results
+
     def search_files_only(self, query: str, limit: int = 20) -> List[str]:
         """Fast FTS search returning only file paths (no snippet generation).
 
@@ -1185,16 +1389,34 @@ class DirIndexStore:
                 """
             )
 
-            # FTS5 external content table with code-friendly tokenizer
-            # unicode61 tokenchars keeps underscores as part of tokens
-            # so 'user_id' is indexed as one token, not 'user' and 'id'
+            # Dual FTS5 external content tables for exact and fuzzy matching
+            # files_fts_exact: unicode61 tokenizer for exact token matching
+            # files_fts_fuzzy: trigram tokenizer (or extended unicode61) for substring/fuzzy matching
+            from codexlens.storage.sqlite_utils import check_trigram_support
+
+            has_trigram = check_trigram_support(conn)
+            fuzzy_tokenizer = "trigram" if has_trigram else "unicode61 tokenchars '_-'"
+
+            # Exact FTS table with unicode61 tokenizer
             conn.execute(
                 """
-                CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
+                CREATE VIRTUAL TABLE IF NOT EXISTS files_fts_exact USING fts5(
                     name, full_path UNINDEXED, content,
                     content='files',
                     content_rowid='id',
-                    tokenize="unicode61 tokenchars '_'"
+                    tokenize="unicode61 tokenchars '_-'"
+                )
+                """
+            )
+
+            # Fuzzy FTS table with trigram or extended unicode61 tokenizer
+            conn.execute(
+                f"""
+                CREATE VIRTUAL TABLE IF NOT EXISTS files_fts_fuzzy USING fts5(
+                    name, full_path UNINDEXED, content,
+                    content='files',
+                    content_rowid='id',
+                    tokenize="{fuzzy_tokenizer}"
                 )
                 """
             )
@@ -1301,38 +1523,72 @@ class DirIndexStore:
             conn.execute("UPDATE files SET name = ? WHERE id = ?", (name, file_id))
 
     def _create_fts_triggers(self, conn: sqlite3.Connection) -> None:
-        """Create FTS5 external content triggers.
+        """Create FTS5 external content triggers for dual FTS tables.
+
+        Creates synchronized triggers for both files_fts_exact and files_fts_fuzzy tables.
 
         Args:
             conn: Database connection
         """
-        # Insert trigger
+        # Insert triggers for files_fts_exact
         conn.execute(
             """
-            CREATE TRIGGER IF NOT EXISTS files_ai AFTER INSERT ON files BEGIN
-                INSERT INTO files_fts(rowid, name, full_path, content)
+            CREATE TRIGGER IF NOT EXISTS files_exact_ai AFTER INSERT ON files BEGIN
+                INSERT INTO files_fts_exact(rowid, name, full_path, content)
                 VALUES(new.id, new.name, new.full_path, new.content);
             END
             """
         )
 
-        # Delete trigger
+        # Delete trigger for files_fts_exact
         conn.execute(
             """
-            CREATE TRIGGER IF NOT EXISTS files_ad AFTER DELETE ON files BEGIN
-                INSERT INTO files_fts(files_fts, rowid, name, full_path, content)
+            CREATE TRIGGER IF NOT EXISTS files_exact_ad AFTER DELETE ON files BEGIN
+                INSERT INTO files_fts_exact(files_fts_exact, rowid, name, full_path, content)
                 VALUES('delete', old.id, old.name, old.full_path, old.content);
             END
             """
         )
 
-        # Update trigger
+        # Update trigger for files_fts_exact
         conn.execute(
             """
-            CREATE TRIGGER IF NOT EXISTS files_au AFTER UPDATE ON files BEGIN
-                INSERT INTO files_fts(files_fts, rowid, name, full_path, content)
+            CREATE TRIGGER IF NOT EXISTS files_exact_au AFTER UPDATE ON files BEGIN
+                INSERT INTO files_fts_exact(files_fts_exact, rowid, name, full_path, content)
                 VALUES('delete', old.id, old.name, old.full_path, old.content);
-                INSERT INTO files_fts(rowid, name, full_path, content)
+                INSERT INTO files_fts_exact(rowid, name, full_path, content)
+                VALUES(new.id, new.name, new.full_path, new.content);
+            END
+            """
+        )
+
+        # Insert trigger for files_fts_fuzzy
+        conn.execute(
+            """
+            CREATE TRIGGER IF NOT EXISTS files_fuzzy_ai AFTER INSERT ON files BEGIN
+                INSERT INTO files_fts_fuzzy(rowid, name, full_path, content)
+                VALUES(new.id, new.name, new.full_path, new.content);
+            END
+            """
+        )
+
+        # Delete trigger for files_fts_fuzzy
+        conn.execute(
+            """
+            CREATE TRIGGER IF NOT EXISTS files_fuzzy_ad AFTER DELETE ON files BEGIN
+                INSERT INTO files_fts_fuzzy(files_fts_fuzzy, rowid, name, full_path, content)
+                VALUES('delete', old.id, old.name, old.full_path, old.content);
+            END
+            """
+        )
+
+        # Update trigger for files_fts_fuzzy
+        conn.execute(
+            """
+            CREATE TRIGGER IF NOT EXISTS files_fuzzy_au AFTER UPDATE ON files BEGIN
+                INSERT INTO files_fts_fuzzy(files_fts_fuzzy, rowid, name, full_path, content)
+                VALUES('delete', old.id, old.name, old.full_path, old.content);
+                INSERT INTO files_fts_fuzzy(rowid, name, full_path, content)
                 VALUES(new.id, new.name, new.full_path, new.content);
             END
             """

@@ -1128,33 +1128,61 @@ export async function getExecutionHistoryAsync(baseDir: string, options: {
 }> {
   const { limit = 50, tool = null, status = null, category = null, search = null, recursive = false } = options;
 
-  // With centralized storage, just query the current project
-  // recursive mode now searches all projects in centralized storage
+  // Recursive mode: aggregate data from parent and all child projects
   if (recursive) {
-    const projectIds = findProjectsWithHistory();
+    const { scanChildProjects } = await import('../config/storage-paths.js');
+    const childProjects = scanChildProjects(baseDir);
+
     let allExecutions: (HistoryIndex['executions'][0] & { sourceDir?: string })[] = [];
     let totalCount = 0;
 
-    for (const projectId of projectIds) {
-      try {
-        // Use centralized path helper for project ID
-        const projectPaths = StoragePaths.projectById(projectId);
-        if (existsSync(projectPaths.historyDb)) {
-          // We need to use CliHistoryStore directly for arbitrary project IDs
-          const { CliHistoryStore } = await import('./cli-history-store.js');
-          // CliHistoryStore expects a project path, but we have project ID
-          // For now, skip cross-project queries - just query current project
-        }
-      } catch {
-        // Skip projects with errors
+    // Query parent project - apply limit at source to reduce memory footprint
+    try {
+      const parentStore = await getSqliteStore(baseDir);
+      const parentResult = parentStore.getHistory({ limit, tool, status, category, search });
+      totalCount += parentResult.total;
+
+      for (const exec of parentResult.executions) {
+        allExecutions.push({ ...exec, sourceDir: baseDir });
+      }
+    } catch (error) {
+      if (process.env.DEBUG) {
+        console.error(`[CLI History] Failed to query parent project ${baseDir}:`, error);
       }
     }
 
-    // For simplicity, just query current project in recursive mode too
-    const store = await getSqliteStore(baseDir);
-    return store.getHistory({ limit, tool, status, category, search });
+    // Query all child projects - apply limit to each child
+    for (const child of childProjects) {
+      try {
+        const childStore = await getSqliteStore(child.projectPath);
+        const childResult = childStore.getHistory({ limit, tool, status, category, search });
+        totalCount += childResult.total;
+
+        for (const exec of childResult.executions) {
+          allExecutions.push({
+            ...exec,
+            sourceDir: child.relativePath // Show relative path for clarity
+          });
+        }
+      } catch (error) {
+        if (process.env.DEBUG) {
+          console.error(`[CLI History] Failed to query child project ${child.projectPath}:`, error);
+        }
+      }
+    }
+
+    // Sort by timestamp (newest first) and apply limit
+    allExecutions.sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
+    const limitedExecutions = allExecutions.slice(0, limit);
+
+    return {
+      total: totalCount,
+      count: limitedExecutions.length,
+      executions: limitedExecutions
+    };
   }
 
+  // Non-recursive mode: only query current project
   const store = await getSqliteStore(baseDir);
   return store.getHistory({ limit, tool, status, category, search });
 }
@@ -1176,26 +1204,49 @@ export function getExecutionHistory(baseDir: string, options: {
 
   try {
     if (recursive) {
-      const projectDirs = findProjectsWithHistory();
+      const { scanChildProjects } = require('../config/storage-paths.js');
+      const childProjects = scanChildProjects(baseDir);
+
       let allExecutions: (HistoryIndex['executions'][0] & { sourceDir?: string })[] = [];
       let totalCount = 0;
 
-      for (const projectDir of projectDirs) {
-        try {
-          // Use baseDir as context for relative path display
-          const store = getSqliteStoreSync(baseDir);
-          const result = store.getHistory({ limit: 100, tool, status });
-          totalCount += result.total;
+      // Query parent project - apply limit at source
+      try {
+        const parentStore = getSqliteStoreSync(baseDir);
+        const parentResult = parentStore.getHistory({ limit, tool, status });
+        totalCount += parentResult.total;
 
-          for (const exec of result.executions) {
-            allExecutions.push({ ...exec, sourceDir: projectDir });
-          }
-        } catch {
-          // Skip projects with errors
+        for (const exec of parentResult.executions) {
+          allExecutions.push({ ...exec, sourceDir: baseDir });
+        }
+      } catch (error) {
+        if (process.env.DEBUG) {
+          console.error(`[CLI History Sync] Failed to query parent project ${baseDir}:`, error);
         }
       }
 
-      allExecutions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      // Query all child projects - apply limit to each child
+      for (const child of childProjects) {
+        try {
+          const childStore = getSqliteStoreSync(child.projectPath);
+          const childResult = childStore.getHistory({ limit, tool, status });
+          totalCount += childResult.total;
+
+          for (const exec of childResult.executions) {
+            allExecutions.push({
+              ...exec,
+              sourceDir: child.relativePath
+            });
+          }
+        } catch (error) {
+          if (process.env.DEBUG) {
+            console.error(`[CLI History Sync] Failed to query child project ${child.projectPath}:`, error);
+          }
+        }
+      }
+
+      // Sort by timestamp (newest first) and apply limit
+      allExecutions.sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
 
       return {
         total: totalCount,

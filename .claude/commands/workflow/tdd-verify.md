@@ -139,7 +139,7 @@ EXPECTED:
 - Red-Green-Refactor cycle validation
 - Best practices adherence assessment
 RULES: Focus on TDD best practices and workflow adherence. Be specific about violations and improvements.
-" --tool gemini --cd project-root > .workflow/active/{sessionId}/TDD_COMPLIANCE_REPORT.md
+" --tool gemini --mode analysis --cd project-root > .workflow/active/{sessionId}/TDD_COMPLIANCE_REPORT.md
 ```
 
 **Output**: TDD_COMPLIANCE_REPORT.md

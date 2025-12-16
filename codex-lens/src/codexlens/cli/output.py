@@ -41,15 +41,45 @@ def print_json(*, success: bool, result: Any = None, error: str | None = None) -
     console.print_json(json.dumps(payload, ensure_ascii=False))
 
 
-def render_search_results(results: Sequence[SearchResult], *, title: str = "Search Results") -> None:
+def render_search_results(
+    results: Sequence[SearchResult], *, title: str = "Search Results", verbose: bool = False
+) -> None:
+    """Render search results with optional source tags in verbose mode.
+
+    Args:
+        results: Search results to display
+        title: Table title
+        verbose: If True, show search source tags ([E], [F], [V]) and fusion scores
+    """
     table = Table(title=title, show_lines=False)
+
+    if verbose:
+        # Verbose mode: show source tags
+        table.add_column("Source", style="dim", width=6, justify="center")
+
     table.add_column("Path", style="cyan", no_wrap=True)
     table.add_column("Score", style="magenta", justify="right")
     table.add_column("Excerpt", style="white")
 
     for res in results:
         excerpt = res.excerpt or ""
-        table.add_row(res.path, f"{res.score:.3f}", excerpt)
+        score_str = f"{res.score:.3f}"
+
+        if verbose:
+            # Extract search source tag if available
+            source = getattr(res, "search_source", None)
+            source_tag = ""
+            if source == "exact":
+                source_tag = "[E]"
+            elif source == "fuzzy":
+                source_tag = "[F]"
+            elif source == "vector":
+                source_tag = "[V]"
+            elif source == "fusion":
+                source_tag = "[RRF]"
+            table.add_row(source_tag, res.path, score_str, excerpt)
+        else:
+            table.add_row(res.path, score_str, excerpt)
 
     console.print(table)
 

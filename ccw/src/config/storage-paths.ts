@@ -11,10 +11,14 @@ import { createHash } from 'crypto';
 import { existsSync, mkdirSync, renameSync, rmSync, readdirSync } from 'fs';
 
 // Environment variable override for custom storage location
-const CCW_DATA_DIR = process.env.CCW_DATA_DIR;
+// Made dynamic to support testing environments
+export function getCCWHome(): string {
+  return process.env.CCW_DATA_DIR || join(homedir(), '.ccw');
+}
 
-// Base CCW home directory
-export const CCW_HOME = CCW_DATA_DIR || join(homedir(), '.ccw');
+// Base CCW home directory (deprecated - use getCCWHome() for dynamic access)
+// Kept for backward compatibility but will use dynamic value in tests
+export const CCW_HOME = getCCWHome();
 
 /**
  * Convert project path to a human-readable folder name
@@ -119,7 +123,7 @@ function detectHierarchyImpl(absolutePath: string): HierarchyInfo {
   const currentId = pathToFolderName(absolutePath);
 
   // Get all existing project directories
-  const projectsDir = join(CCW_HOME, 'projects');
+  const projectsDir = join(getCCWHome(), 'projects');
   if (!existsSync(projectsDir)) {
     return { currentId, parentId: null, relativePath: '' };
   }
@@ -243,7 +247,7 @@ function migrateToHierarchical(legacyDir: string, targetDir: string): void {
  * @param parentPath - Parent project path
  */
 function migrateChildProjects(parentId: string, parentPath: string): void {
-  const projectsDir = join(CCW_HOME, 'projects');
+  const projectsDir = join(getCCWHome(), 'projects');
   if (!existsSync(projectsDir)) return;
 
   const absoluteParentPath = resolve(parentPath);
@@ -312,25 +316,25 @@ export function ensureStorageDir(dirPath: string): void {
  */
 export const GlobalPaths = {
   /** Root CCW home directory */
-  root: () => CCW_HOME,
+  root: () => getCCWHome(),
 
   /** Config directory */
-  config: () => join(CCW_HOME, 'config'),
+  config: () => join(getCCWHome(), 'config'),
 
   /** Global settings file */
-  settings: () => join(CCW_HOME, 'config', 'settings.json'),
+  settings: () => join(getCCWHome(), 'config', 'settings.json'),
 
   /** Recent project paths file */
-  recentPaths: () => join(CCW_HOME, 'config', 'recent-paths.json'),
+  recentPaths: () => join(getCCWHome(), 'config', 'recent-paths.json'),
 
   /** Databases directory */
-  databases: () => join(CCW_HOME, 'db'),
+  databases: () => join(getCCWHome(), 'db'),
 
   /** MCP templates database */
-  mcpTemplates: () => join(CCW_HOME, 'db', 'mcp-templates.db'),
+  mcpTemplates: () => join(getCCWHome(), 'db', 'mcp-templates.db'),
 
   /** Logs directory */
-  logs: () => join(CCW_HOME, 'logs'),
+  logs: () => join(getCCWHome(), 'logs'),
 };
 
 /**
@@ -370,7 +374,7 @@ export function getProjectPaths(projectPath: string): ProjectPaths {
 
   if (hierarchy.parentId) {
     // Has parent, use hierarchical structure
-    projectDir = join(CCW_HOME, 'projects', hierarchy.parentId);
+    projectDir = join(getCCWHome(), 'projects', hierarchy.parentId);
 
     // Build subdirectory path from relative path
     const segments = hierarchy.relativePath.split('/').filter(Boolean);
@@ -379,7 +383,7 @@ export function getProjectPaths(projectPath: string): ProjectPaths {
     }
 
     // Check if we need to migrate old flat data
-    const legacyDir = join(CCW_HOME, 'projects', hierarchy.currentId);
+    const legacyDir = join(getCCWHome(), 'projects', hierarchy.currentId);
     if (existsSync(legacyDir)) {
       try {
         migrateToHierarchical(legacyDir, projectDir);
@@ -393,7 +397,7 @@ export function getProjectPaths(projectPath: string): ProjectPaths {
     }
   } else {
     // No parent, use root-level storage
-    projectDir = join(CCW_HOME, 'projects', hierarchy.currentId);
+    projectDir = join(getCCWHome(), 'projects', hierarchy.currentId);
 
     // Check if there are child projects that need migration
     try {
@@ -424,7 +428,7 @@ export function getProjectPaths(projectPath: string): ProjectPaths {
  * @returns Object with all project-specific paths
  */
 export function getProjectPathsById(projectId: string): ProjectPaths {
-  const projectDir = join(CCW_HOME, 'projects', projectId);
+  const projectDir = join(getCCWHome(), 'projects', projectId);
 
   return {
     root: projectDir,
@@ -447,6 +451,87 @@ export const StoragePaths = {
   project: getProjectPaths,
   projectById: getProjectPathsById,
 };
+
+/**
+ * Information about a child project in hierarchical structure
+ */
+export interface ChildProjectInfo {
+  /** Absolute path to the child project */
+  projectPath: string;
+  /** Relative path from parent project */
+  relativePath: string;
+  /** Project ID */
+  projectId: string;
+  /** Storage paths for this child project */
+  paths: ProjectPaths;
+}
+
+/**
+ * Recursively scan for child projects in hierarchical storage structure
+ * @param projectPath - Parent project path
+ * @returns Array of child project information
+ */
+export function scanChildProjects(projectPath: string): ChildProjectInfo[] {
+  const absolutePath = resolve(projectPath);
+  const parentId = getProjectId(absolutePath);
+  const parentStorageDir = join(getCCWHome(), 'projects', parentId);
+
+  // If parent storage doesn't exist, no children
+  if (!existsSync(parentStorageDir)) {
+    return [];
+  }
+
+  const children: ChildProjectInfo[] = [];
+
+  /**
+   * Recursively scan directory for project data directories
+   */
+  function scanDirectory(dir: string, relativePath: string): void {
+    if (!existsSync(dir)) return;
+
+    try {
+      const entries = readdirSync(dir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+
+        const fullPath = join(dir, entry.name);
+        const currentRelPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+
+        // Check if this directory contains project data
+        const dataMarkers = ['cli-history', 'memory', 'cache', 'config'];
+        const hasData = dataMarkers.some(marker => existsSync(join(fullPath, marker)));
+
+        if (hasData) {
+          // This is a child project
+          const childProjectPath = join(absolutePath, currentRelPath.replace(/\//g, sep));
+          const childId = getProjectId(childProjectPath);
+
+          children.push({
+            projectPath: childProjectPath,
+            relativePath: currentRelPath,
+            projectId: childId,
+            paths: getProjectPaths(childProjectPath)
+          });
+        }
+
+        // Continue scanning subdirectories (skip data directories)
+        if (!dataMarkers.includes(entry.name)) {
+          scanDirectory(fullPath, currentRelPath);
+        }
+      }
+    } catch (error) {
+      // Ignore read errors
+      if (process.env.DEBUG) {
+        console.error(`[scanChildProjects] Failed to scan ${dir}:`, error);
+      }
+    }
+  }
+
+  scanDirectory(parentStorageDir, '');
+
+  return children;
+}
 
 /**
  * Legacy storage paths (for backward compatibility detection)
@@ -487,7 +572,7 @@ export function isLegacyStoragePresent(projectPath: string): boolean {
  * Get CCW home directory (for external use)
  */
 export function getCcwHome(): string {
-  return CCW_HOME;
+  return getCCWHome();
 }
 
 /**

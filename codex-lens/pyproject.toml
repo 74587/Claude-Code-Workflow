@@ -30,6 +30,11 @@ semantic = [
     "fastembed>=0.2",
 ]
 
+# Encoding detection for non-UTF8 files
+encoding = [
+    "chardet>=5.0",
+]
+
 # Full features including tiktoken for accurate token counting
 full = [
     "tiktoken>=0.5.0",

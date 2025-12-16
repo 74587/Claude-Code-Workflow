@@ -212,7 +212,7 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
     const status = url.searchParams.get('status') || null;
     const category = url.searchParams.get('category') as 'user' | 'internal' | 'insight' | null;
     const search = url.searchParams.get('search') || null;
-    const recursive = url.searchParams.get('recursive') !== 'false';
+    const recursive = url.searchParams.get('recursive') === 'true';
 
     getExecutionHistoryAsync(projectPath, { limit, tool, status, category, search, recursive })
       .then(history => {

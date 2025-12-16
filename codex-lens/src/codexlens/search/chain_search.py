@@ -18,6 +18,7 @@ from codexlens.storage.registry import RegistryStore, DirMapping
 from codexlens.storage.dir_index import DirIndexStore, SubdirLink
 from codexlens.storage.path_mapper import PathMapper
 from codexlens.storage.sqlite_store import SQLiteStore
+from codexlens.search.hybrid_search import HybridSearchEngine
 
 
 @dataclass
@@ -32,6 +33,9 @@ class SearchOptions:
         include_symbols: Whether to include symbol search results
         files_only: Return only file paths without excerpts
         include_semantic: Whether to include semantic keyword search results
+        hybrid_mode: Enable hybrid search with RRF fusion (default False)
+        enable_fuzzy: Enable fuzzy FTS in hybrid mode (default True)
+        hybrid_weights: Custom RRF weights for hybrid search (optional)
     """
     depth: int = -1
     max_workers: int = 8
@@ -40,6 +44,9 @@ class SearchOptions:
     include_symbols: bool = False
     files_only: bool = False
     include_semantic: bool = False
+    hybrid_mode: bool = False
+    enable_fuzzy: bool = True
+    hybrid_weights: Optional[Dict[str, float]] = None
 
 
 @dataclass
@@ -484,7 +491,10 @@ class ChainSearchEngine:
                 query,
                 options.limit_per_dir,
                 options.files_only,
-                options.include_semantic
+                options.include_semantic,
+                options.hybrid_mode,
+                options.enable_fuzzy,
+                options.hybrid_weights
             ): idx_path
             for idx_path in index_paths
         }
@@ -507,7 +517,10 @@ class ChainSearchEngine:
                               query: str,
                               limit: int,
                               files_only: bool = False,
-                              include_semantic: bool = False) -> List[SearchResult]:
+                              include_semantic: bool = False,
+                              hybrid_mode: bool = False,
+                              enable_fuzzy: bool = True,
+                              hybrid_weights: Optional[Dict[str, float]] = None) -> List[SearchResult]:
         """Search a single index database.
 
         Handles exceptions gracefully, returning empty list on failure.
@@ -518,39 +531,54 @@ class ChainSearchEngine:
             limit: Maximum results from this index
             files_only: If True, skip snippet generation for faster search
             include_semantic: If True, also search semantic keywords and merge results
+            hybrid_mode: If True, use hybrid search with RRF fusion
+            enable_fuzzy: Enable fuzzy FTS in hybrid mode
+            hybrid_weights: Custom RRF weights for hybrid search
 
         Returns:
             List of SearchResult objects (empty on error)
         """
         try:
-            with DirIndexStore(index_path) as store:
-                # Get FTS results
-                if files_only:
-                    # Fast path: return paths only without snippets
-                    paths = store.search_files_only(query, limit=limit)
-                    fts_results = [SearchResult(path=p, score=0.0, excerpt="") for p in paths]
-                else:
-                    fts_results = store.search_fts(query, limit=limit)
-                
-                # Optionally add semantic keyword results
-                if include_semantic:
-                    try:
-                        semantic_matches = store.search_semantic_keywords(query)
-                        # Convert semantic matches to SearchResult with 0.8x weight
-                        for file_entry, keywords in semantic_matches:
-                            # Create excerpt from keywords
-                            excerpt = f"Keywords: {', '.join(keywords[:5])}"
-                            # Use a base score of 10.0 for semantic matches, weighted by 0.8
-                            semantic_result = SearchResult(
-                                path=str(file_entry.full_path),
-                                score=10.0 * 0.8,
-                                excerpt=excerpt
-                            )
-                            fts_results.append(semantic_result)
-                    except Exception as sem_exc:
-                        self.logger.debug(f"Semantic search error in {index_path}: {sem_exc}")
-                
-                return fts_results
+            # Use hybrid search if enabled
+            if hybrid_mode:
+                hybrid_engine = HybridSearchEngine(weights=hybrid_weights)
+                fts_results = hybrid_engine.search(
+                    index_path,
+                    query,
+                    limit=limit,
+                    enable_fuzzy=enable_fuzzy,
+                    enable_vector=False,  # Vector search not yet implemented
+                )
+            else:
+                # Legacy single-FTS search
+                with DirIndexStore(index_path) as store:
+                    # Get FTS results
+                    if files_only:
+                        # Fast path: return paths only without snippets
+                        paths = store.search_files_only(query, limit=limit)
+                        fts_results = [SearchResult(path=p, score=0.0, excerpt="") for p in paths]
+                    else:
+                        fts_results = store.search_fts(query, limit=limit)
+
+                    # Optionally add semantic keyword results
+                    if include_semantic:
+                        try:
+                            semantic_matches = store.search_semantic_keywords(query)
+                            # Convert semantic matches to SearchResult with 0.8x weight
+                            for file_entry, keywords in semantic_matches:
+                                # Create excerpt from keywords
+                                excerpt = f"Keywords: {', '.join(keywords[:5])}"
+                                # Use a base score of 10.0 for semantic matches, weighted by 0.8
+                                semantic_result = SearchResult(
+                                    path=str(file_entry.full_path),
+                                    score=10.0 * 0.8,
+                                    excerpt=excerpt
+                                )
+                                fts_results.append(semantic_result)
+                        except Exception as sem_exc:
+                            self.logger.debug(f"Semantic search error in {index_path}: {sem_exc}")
+
+            return fts_results
         except Exception as exc:
             self.logger.debug(f"Search error in {index_path}: {exc}")
             return []

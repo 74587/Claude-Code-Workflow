@@ -574,11 +574,11 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-q
 # - Report findings directly
 
 # Method 2: Gemini Review (recommended)
-ccw cli exec "[Shared Prompt Template with artifacts]" --tool gemini
+ccw cli exec "[Shared Prompt Template with artifacts]" --tool gemini --mode analysis
 # CONTEXT includes: @**/* @${plan.json} [@${exploration.json}]
 
 # Method 3: Qwen Review (alternative)
-ccw cli exec "[Shared Prompt Template with artifacts]" --tool qwen
+ccw cli exec "[Shared Prompt Template with artifacts]" --tool qwen --mode analysis
 # Same prompt as Gemini, different execution engine
 
 # Method 4: Codex Review (autonomous)

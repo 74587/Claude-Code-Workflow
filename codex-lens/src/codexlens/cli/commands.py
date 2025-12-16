@@ -20,6 +20,7 @@ from codexlens.parsers.factory import ParserFactory
 from codexlens.storage.path_mapper import PathMapper
 from codexlens.storage.registry import RegistryStore, ProjectInfo
 from codexlens.storage.index_tree import IndexTreeBuilder
+from codexlens.storage.dir_index import DirIndexStore
 from codexlens.search.chain_search import ChainSearchEngine, SearchOptions
 
 from .output import (
@@ -77,6 +78,7 @@ def init(
         help="Limit indexing to specific languages (repeat or comma-separated).",
     ),
     workers: int = typer.Option(4, "--workers", "-w", min=1, max=16, help="Parallel worker processes."),
+    force: bool = typer.Option(False, "--force", "-f", help="Force full reindex (skip incremental mode)."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
 ) -> None:
@@ -84,6 +86,9 @@ def init(
 
     Indexes are stored in ~/.codexlens/indexes/ with mirrored directory structure.
     Set CODEXLENS_INDEX_DIR to customize the index location.
+
+    By default, uses incremental indexing (skip unchanged files).
+    Use --force to rebuild all files regardless of modification time.
     """
     _configure_logging(verbose)
     config = Config()
@@ -96,14 +101,18 @@ def init(
         registry.initialize()
         mapper = PathMapper()
 
-        builder = IndexTreeBuilder(registry, mapper, config)
+        builder = IndexTreeBuilder(registry, mapper, config, incremental=not force)
 
-        console.print(f"[bold]Building index for:[/bold] {base_path}")
+        if force:
+            console.print(f"[bold]Building index for:[/bold] {base_path} [yellow](FULL reindex)[/yellow]")
+        else:
+            console.print(f"[bold]Building index for:[/bold] {base_path} [dim](incremental)[/dim]")
 
         build_result = builder.build(
             source_root=base_path,
             languages=languages,
             workers=workers,
+            force_full=force,
         )
 
         result = {
@@ -172,6 +181,8 @@ def search(
     limit: int = typer.Option(20, "--limit", "-n", min=1, max=500, help="Max results."),
     depth: int = typer.Option(-1, "--depth", "-d", help="Search depth (-1 = unlimited, 0 = current only)."),
     files_only: bool = typer.Option(False, "--files-only", "-f", help="Return only file paths without content snippets."),
+    mode: str = typer.Option("exact", "--mode", "-m", help="Search mode: exact, fuzzy, hybrid, vector."),
+    weights: Optional[str] = typer.Option(None, "--weights", help="Custom RRF weights as 'exact,fuzzy,vector' (e.g., '0.5,0.3,0.2')."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
 ) -> None:
@@ -179,9 +190,50 @@ def search(
 
     Uses chain search across directory indexes.
     Use --depth to limit search recursion (0 = current dir only).
+
+    Search Modes:
+      - exact: Exact FTS using unicode61 tokenizer (default)
+      - fuzzy: Fuzzy FTS using trigram tokenizer
+      - hybrid: RRF fusion of exact + fuzzy (recommended)
+      - vector: Semantic vector search (future)
+
+    Hybrid Mode:
+      Default weights: exact=0.4, fuzzy=0.3, vector=0.3
+      Use --weights to customize (e.g., --weights 0.5,0.3,0.2)
     """
     _configure_logging(verbose)
     search_path = path.expanduser().resolve()
+
+    # Validate mode
+    valid_modes = ["exact", "fuzzy", "hybrid", "vector"]
+    if mode not in valid_modes:
+        if json_mode:
+            print_json(success=False, error=f"Invalid mode: {mode}. Must be one of: {', '.join(valid_modes)}")
+        else:
+            console.print(f"[red]Invalid mode:[/red] {mode}")
+            console.print(f"[dim]Valid modes: {', '.join(valid_modes)}[/dim]")
+        raise typer.Exit(code=1)
+
+    # Parse custom weights if provided
+    hybrid_weights = None
+    if weights:
+        try:
+            weight_parts = [float(w.strip()) for w in weights.split(",")]
+            if len(weight_parts) == 3:
+                weight_sum = sum(weight_parts)
+                if abs(weight_sum - 1.0) > 0.01:
+                    console.print(f"[yellow]Warning: Weights sum to {weight_sum:.2f}, should sum to 1.0. Normalizing...[/yellow]")
+                    # Normalize weights
+                    weight_parts = [w / weight_sum for w in weight_parts]
+                hybrid_weights = {
+                    "exact": weight_parts[0],
+                    "fuzzy": weight_parts[1],
+                    "vector": weight_parts[2],
+                }
+            else:
+                console.print("[yellow]Warning: Invalid weights format (need 3 values). Using defaults.[/yellow]")
+        except ValueError:
+            console.print("[yellow]Warning: Invalid weights format. Using defaults.[/yellow]")
 
     registry: RegistryStore | None = None
     try:
@@ -190,10 +242,18 @@ def search(
         mapper = PathMapper()
 
         engine = ChainSearchEngine(registry, mapper)
+
+        # Map mode to options
+        hybrid_mode = mode == "hybrid"
+        enable_fuzzy = mode in ["fuzzy", "hybrid"]
+
         options = SearchOptions(
             depth=depth,
             total_limit=limit,
             files_only=files_only,
+            hybrid_mode=hybrid_mode,
+            enable_fuzzy=enable_fuzzy,
+            hybrid_weights=hybrid_weights,
         )
 
         if files_only:
@@ -208,8 +268,17 @@ def search(
             result = engine.search(query, search_path, options)
             payload = {
                 "query": query,
+                "mode": mode,
                 "count": len(result.results),
-                "results": [{"path": r.path, "score": r.score, "excerpt": r.excerpt} for r in result.results],
+                "results": [
+                    {
+                        "path": r.path,
+                        "score": r.score,
+                        "excerpt": r.excerpt,
+                        "source": getattr(r, "search_source", None),
+                    }
+                    for r in result.results
+                ],
                 "stats": {
                     "dirs_searched": result.stats.dirs_searched,
                     "files_matched": result.stats.files_matched,
@@ -219,9 +288,8 @@ def search(
             if json_mode:
                 print_json(success=True, result=payload)
             else:
-                render_search_results(result.results)
-                if verbose:
-                    console.print(f"[dim]Searched {result.stats.dirs_searched} directories in {result.stats.time_ms:.1f}ms[/dim]")
+                render_search_results(result.results, verbose=verbose)
+                console.print(f"[dim]Mode: {mode} | Searched {result.stats.dirs_searched} directories in {result.stats.time_ms:.1f}ms[/dim]")
 
     except SearchError as exc:
         if json_mode:
@@ -404,6 +472,27 @@ def status(
                 if f.is_file():
                     index_size += f.stat().st_size
 
+        # Check schema version and enabled features
+        schema_version = None
+        has_dual_fts = False
+        if projects and index_root.exists():
+            # Check first index database for features
+            index_files = list(index_root.rglob("_index.db"))
+            if index_files:
+                try:
+                    with DirIndexStore(index_files[0]) as store:
+                        with store._lock:
+                            conn = store._get_connection()
+                            schema_version = store._get_schema_version(conn)
+                            # Check if dual FTS tables exist
+                            cursor = conn.execute(
+                                "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('search_fts_exact', 'search_fts_fuzzy')"
+                            )
+                            fts_tables = [row[0] for row in cursor.fetchall()]
+                            has_dual_fts = len(fts_tables) == 2
+                except Exception:
+                    pass
+
         stats = {
             "index_root": str(index_root),
             "registry_path": str(_get_registry_path()),
@@ -412,6 +501,13 @@ def status(
             "total_dirs": total_dirs,
             "index_size_bytes": index_size,
             "index_size_mb": round(index_size / (1024 * 1024), 2),
+            "schema_version": schema_version,
+            "features": {
+                "exact_fts": True,  # Always available
+                "fuzzy_fts": has_dual_fts,
+                "hybrid_search": has_dual_fts,
+                "vector_search": False,  # Not yet implemented
+            },
         }
 
         if json_mode:
@@ -424,6 +520,17 @@ def status(
             console.print(f"  Total Files: {stats['total_files']}")
             console.print(f"  Total Directories: {stats['total_dirs']}")
             console.print(f"  Index Size: {stats['index_size_mb']} MB")
+            if schema_version:
+                console.print(f"  Schema Version: {schema_version}")
+            console.print("\n[bold]Search Backends:[/bold]")
+            console.print(f"  Exact FTS: ✓ (unicode61)")
+            if has_dual_fts:
+                console.print(f"  Fuzzy FTS: ✓ (trigram)")
+                console.print(f"  Hybrid Search: ✓ (RRF fusion)")
+            else:
+                console.print(f"  Fuzzy FTS: ✗ (run 'migrate' to enable)")
+                console.print(f"  Hybrid Search: ✗ (run 'migrate' to enable)")
+            console.print(f"  Vector Search: ✗ (future)")
 
     except StorageError as exc:
         if json_mode:
@@ -778,6 +885,139 @@ def config(
             raise typer.Exit(code=1)
 
 
+@app.command()
+def migrate(
+    path: Path = typer.Argument(Path("."), exists=True, file_okay=False, dir_okay=True, help="Project root to migrate."),
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
+) -> None:
+    """Migrate project indexes to latest schema (Dual-FTS upgrade).
+
+    Upgrades all _index.db files in the project to schema version 4, which includes:
+    - Dual FTS tables (exact + fuzzy)
+    - Encoding detection support
+    - Incremental indexing metadata
+
+    This is a safe operation that preserves all existing data.
+    Progress is shown during migration.
+    """
+    _configure_logging(verbose)
+    base_path = path.expanduser().resolve()
+
+    registry: RegistryStore | None = None
+    try:
+        registry = RegistryStore()
+        registry.initialize()
+        mapper = PathMapper()
+
+        # Find project
+        project_info = registry.get_project(base_path)
+        if not project_info:
+            raise CodexLensError(f"No index found for: {base_path}. Run 'codex-lens init' first.")
+
+        index_dir = mapper.source_to_index_dir(base_path)
+        if not index_dir.exists():
+            raise CodexLensError(f"Index directory not found: {index_dir}")
+
+        # Find all _index.db files
+        index_files = list(index_dir.rglob("_index.db"))
+
+        if not index_files:
+            if json_mode:
+                print_json(success=True, result={"message": "No indexes to migrate", "migrated": 0})
+            else:
+                console.print("[yellow]No indexes found to migrate.[/yellow]")
+            return
+
+        migrated_count = 0
+        error_count = 0
+        already_migrated = 0
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TextColumn("({task.completed}/{task.total})"),
+            TimeElapsedColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task(f"Migrating {len(index_files)} indexes...", total=len(index_files))
+
+            for db_path in index_files:
+                try:
+                    store = DirIndexStore(db_path)
+
+                    # Check current version
+                    with store._lock:
+                        conn = store._get_connection()
+                        current_version = store._get_schema_version(conn)
+
+                        if current_version >= DirIndexStore.SCHEMA_VERSION:
+                            already_migrated += 1
+                            if verbose:
+                                progress.console.print(f"[dim]Already migrated: {db_path.parent.name}[/dim]")
+                        elif current_version > 0:
+                            # Apply migrations
+                            store._apply_migrations(conn, current_version)
+                            store._set_schema_version(conn, DirIndexStore.SCHEMA_VERSION)
+                            conn.commit()
+                            migrated_count += 1
+                            if verbose:
+                                progress.console.print(f"[green]Migrated: {db_path.parent.name} (v{current_version} → v{DirIndexStore.SCHEMA_VERSION})[/green]")
+                        else:
+                            # New database, initialize directly
+                            store.initialize()
+                            migrated_count += 1
+
+                    store.close()
+
+                except Exception as e:
+                    error_count += 1
+                    if verbose:
+                        progress.console.print(f"[red]Error migrating {db_path}: {e}[/red]")
+
+                progress.update(task, advance=1)
+
+        result = {
+            "path": str(base_path),
+            "total_indexes": len(index_files),
+            "migrated": migrated_count,
+            "already_migrated": already_migrated,
+            "errors": error_count,
+        }
+
+        if json_mode:
+            print_json(success=True, result=result)
+        else:
+            console.print(f"[green]Migration complete:[/green]")
+            console.print(f"  Total indexes: {len(index_files)}")
+            console.print(f"  Migrated: {migrated_count}")
+            console.print(f"  Already up-to-date: {already_migrated}")
+            if error_count > 0:
+                console.print(f"  [yellow]Errors: {error_count}[/yellow]")
+
+    except StorageError as exc:
+        if json_mode:
+            print_json(success=False, error=f"Storage error: {exc}")
+        else:
+            console.print(f"[red]Migration failed (storage):[/red] {exc}")
+            raise typer.Exit(code=1)
+    except CodexLensError as exc:
+        if json_mode:
+            print_json(success=False, error=str(exc))
+        else:
+            console.print(f"[red]Migration failed:[/red] {exc}")
+            raise typer.Exit(code=1)
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=f"Unexpected error: {exc}")
+        else:
+            console.print(f"[red]Migration failed (unexpected):[/red] {exc}")
+            raise typer.Exit(code=1)
+    finally:
+        if registry is not None:
+            registry.close()
 
 
 @app.command()

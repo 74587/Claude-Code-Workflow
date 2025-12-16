@@ -77,7 +77,7 @@ class IndexTreeBuilder:
     }
 
     def __init__(
-        self, registry: RegistryStore, mapper: PathMapper, config: Config = None
+        self, registry: RegistryStore, mapper: PathMapper, config: Config = None, incremental: bool = True
     ):
         """Initialize the index tree builder.
 
@@ -85,18 +85,21 @@ class IndexTreeBuilder:
             registry: Global registry store for project tracking
             mapper: Path mapper for source to index conversions
             config: CodexLens configuration (uses defaults if None)
+            incremental: Enable incremental indexing (default True)
         """
         self.registry = registry
         self.mapper = mapper
         self.config = config or Config()
         self.parser_factory = ParserFactory(self.config)
         self.logger = logging.getLogger(__name__)
+        self.incremental = incremental
 
     def build(
         self,
         source_root: Path,
         languages: List[str] = None,
         workers: int = 4,
+        force_full: bool = False,
     ) -> BuildResult:
         """Build complete index tree for a project.
 
@@ -106,11 +109,13 @@ class IndexTreeBuilder:
         3. Build indexes bottom-up (deepest first)
         4. Link subdirectories to parents
         5. Update project statistics
+        6. Cleanup deleted files (if incremental mode)
 
         Args:
             source_root: Project root directory to index
             languages: Optional list of language IDs to limit indexing
             workers: Number of parallel worker processes
+            force_full: Force full reindex (override incremental mode)
 
         Returns:
             BuildResult with statistics and errors
@@ -122,7 +127,12 @@ class IndexTreeBuilder:
         if not source_root.exists():
             raise ValueError(f"Source root does not exist: {source_root}")
 
-        self.logger.info("Building index tree for %s", source_root)
+        # Override incremental mode if force_full is True
+        use_incremental = self.incremental and not force_full
+        if force_full:
+            self.logger.info("Building index tree for %s (FULL reindex)", source_root)
+        else:
+            self.logger.info("Building index tree for %s (incremental=%s)", source_root, use_incremental)
 
         # Register project
         index_root = self.mapper.source_to_index_dir(source_root)
@@ -185,6 +195,25 @@ class IndexTreeBuilder:
                 continue
             # Link children to this directory
             self._link_children_to_parent(result.source_path, all_results)
+
+        # Cleanup deleted files if in incremental mode
+        if use_incremental:
+            self.logger.info("Cleaning up deleted files...")
+            total_deleted = 0
+            for result in all_results:
+                if result.error:
+                    continue
+                try:
+                    with DirIndexStore(result.index_path) as store:
+                        deleted_count = store.cleanup_deleted_files(result.source_path)
+                        total_deleted += deleted_count
+                        if deleted_count > 0:
+                            self.logger.debug("Removed %d deleted files from %s", deleted_count, result.source_path)
+                except Exception as exc:
+                    self.logger.warning("Cleanup failed for %s: %s", result.source_path, exc)
+
+            if total_deleted > 0:
+                self.logger.info("Removed %d deleted files from index", total_deleted)
 
         # Update project statistics
         self.registry.update_project_stats(source_root, total_files, total_dirs)
@@ -436,9 +465,15 @@ class IndexTreeBuilder:
 
             files_count = 0
             symbols_count = 0
+            skipped_count = 0
 
             for file_path in source_files:
                 try:
+                    # Check if file needs reindexing (incremental mode)
+                    if self.incremental and not store.needs_reindex(file_path):
+                        skipped_count += 1
+                        continue
+
                     # Read and parse file
                     text = file_path.read_text(encoding="utf-8", errors="ignore")
                     language_id = self.config.language_for_path(file_path)
@@ -491,13 +526,23 @@ class IndexTreeBuilder:
 
             store.close()
 
-            self.logger.debug(
-                "Built %s: %d files, %d symbols, %d subdirs",
-                dir_path,
-                files_count,
-                symbols_count,
-                len(subdirs),
-            )
+            if skipped_count > 0:
+                self.logger.debug(
+                    "Built %s: %d files indexed, %d skipped (unchanged), %d symbols, %d subdirs",
+                    dir_path,
+                    files_count,
+                    skipped_count,
+                    symbols_count,
+                    len(subdirs),
+                )
+            else:
+                self.logger.debug(
+                    "Built %s: %d files, %d symbols, %d subdirs",
+                    dir_path,
+                    files_count,
+                    symbols_count,
+                    len(subdirs),
+                )
 
             return DirBuildResult(
                 source_path=dir_path,

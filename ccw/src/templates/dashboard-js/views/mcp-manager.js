@@ -15,7 +15,7 @@ const CCW_MCP_TOOLS = [
   { name: 'cli_executor', desc: 'Gemini/Qwen/Codex CLI', core: false },
 ];
 
-// Get currently enabled tools from installed config
+// Get currently enabled tools from installed config (Claude)
 function getCcwEnabledTools() {
   const currentPath = projectPath; // Keep original format (forward slash)
   const projectData = mcpAllProjects[currentPath] || {};
@@ -25,6 +25,18 @@ function getCcwEnabledTools() {
     if (val.toLowerCase() === 'all') return CCW_MCP_TOOLS.map(t => t.name);
     return val.split(',').map(t => t.trim());
   }
+  return CCW_MCP_TOOLS.filter(t => t.core).map(t => t.name);
+}
+
+// Get currently enabled tools from Codex config
+function getCcwEnabledToolsCodex() {
+  const ccwConfig = codexMcpServers?.['ccw-tools'];
+  if (ccwConfig?.env?.CCW_ENABLED_TOOLS) {
+    const val = ccwConfig.env.CCW_ENABLED_TOOLS;
+    if (val.toLowerCase() === 'all') return CCW_MCP_TOOLS.map(t => t.name);
+    return val.split(',').map(t => t.trim());
+  }
+  // Default to core tools if not installed
   return CCW_MCP_TOOLS.filter(t => t.core).map(t => t.name);
 }
 
@@ -120,6 +132,7 @@ async function renderMcpManager() {
   // Check if CCW Tools is already installed
   const isCcwToolsInstalled = currentProjectServerNames.includes("ccw-tools");
   const enabledTools = getCcwEnabledTools();
+  const enabledToolsCodex = getCcwEnabledToolsCodex();
 
   // Prepare Codex servers data
   const codexServerEntries = Object.entries(codexMcpServers || {});
@@ -157,6 +170,60 @@ async function renderMcpManager() {
       </div>
 
       ${currentCliMode === 'codex' ? `
+      <!-- CCW Tools MCP Server Card (Codex mode) -->
+      <div class="mcp-section mb-6">
+        <div class="ccw-tools-card bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-2 ${codexMcpServers && codexMcpServers['ccw-tools'] ? 'border-success' : 'border-orange-500/30'} rounded-lg p-6 hover:shadow-lg transition-all">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex items-start gap-4 flex-1">
+              <div class="shrink-0 w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center">
+                <i data-lucide="wrench" class="w-6 h-6 text-white"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-2">
+                  <h3 class="text-lg font-bold text-foreground">CCW Tools MCP</h3>
+                  <span class="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 rounded-full">Codex</span>
+                  ${codexMcpServers && codexMcpServers['ccw-tools'] ? `
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-success-light text-success">
+                      <i data-lucide="check" class="w-3 h-3"></i>
+                      ${enabledToolsCodex.length} tools
+                    </span>
+                  ` : `
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-500/20 text-orange-600 dark:text-orange-400">
+                      <i data-lucide="package" class="w-3 h-3"></i>
+                      ${t('mcp.available')}
+                    </span>
+                  `}
+                </div>
+                <p class="text-sm text-muted-foreground mb-3">${t('mcp.ccwToolsDesc')}</p>
+                <!-- Tool Selection Grid for Codex -->
+                <div class="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-3">
+                  ${CCW_MCP_TOOLS.map(tool => `
+                    <label class="flex items-center gap-1.5 text-xs cursor-pointer hover:bg-muted/50 rounded px-1.5 py-1 transition-colors">
+                      <input type="checkbox" class="ccw-tool-checkbox-codex w-3 h-3"
+                             data-tool="${tool.name}"
+                             ${enabledToolsCodex.includes(tool.name) ? 'checked' : ''}>
+                      <span class="${tool.core ? 'font-medium' : 'text-muted-foreground'}">${tool.desc}</span>
+                    </label>
+                  `).join('')}
+                </div>
+                <div class="flex items-center gap-3 text-xs">
+                  <button class="text-orange-500 hover:underline" onclick="selectCcwToolsCodex('core')">Core only</button>
+                  <button class="text-orange-500 hover:underline" onclick="selectCcwToolsCodex('all')">All</button>
+                  <button class="text-muted-foreground hover:underline" onclick="selectCcwToolsCodex('none')">None</button>
+                </div>
+              </div>
+            </div>
+            <div class="shrink-0">
+              <button class="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
+                      onclick="installCcwToolsMcpToCodex()">
+                <i data-lucide="download" class="w-4 h-4"></i>
+                ${codexMcpServers && codexMcpServers['ccw-tools'] ? t('mcp.update') : t('mcp.install')}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Codex MCP Servers Section -->
       <div class="mcp-section mb-6">
         <div class="flex items-center justify-between mb-4">

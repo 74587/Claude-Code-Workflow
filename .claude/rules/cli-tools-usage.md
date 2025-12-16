@@ -61,10 +61,13 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt
 ccw cli exec "<PROMPT>" --tool <gemini|qwen|codex> --mode <analysis|write|auto>
 ```
 
+**⚠️ CRITICAL**: `--mode` parameter is **MANDATORY** for all CLI executions. No defaults are assumed.
+
 ### Core Principles
 
 - **Use tools early and often** - Tools are faster and more thorough
 - **Unified CLI** - Always use `ccw cli exec` for consistent parameter handling
+- **Mode is MANDATORY** - ALWAYS explicitly specify `--mode analysis|write|auto` (no implicit defaults)
 - **One template required** - ALWAYS reference exactly ONE template in RULES (use universal fallback if no specific match)
 - **Write protection** - Require EXPLICIT `--mode write` or `--mode auto`
 - **No escape characters** - NEVER use `\$`, `\"`, `\'` in CLI commands
@@ -103,12 +106,12 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 
 ### Gemini & Qwen
 
-**Via CCW**: `ccw cli exec "<prompt>" --tool gemini` or `--tool qwen`
+**Via CCW**: `ccw cli exec "<prompt>" --tool gemini --mode analysis` or `--tool qwen --mode analysis`
 
 **Characteristics**:
 - Large context window, pattern recognition
 - Best for: Analysis, documentation, code exploration, architecture review
-- Default MODE: `analysis` (read-only)
+- Recommended MODE: `analysis` (read-only) for analysis tasks, `write` for file creation
 - Priority: Prefer Gemini; use Qwen as fallback
 
 **Models** (override via `--model`):
@@ -133,8 +136,8 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 **Resume via `--resume` parameter**:
 
 ```bash
-ccw cli exec "Continue analyzing" --resume              # Resume last session
-ccw cli exec "Fix issues found" --resume <id>           # Resume specific session
+ccw cli exec "Continue analyzing" --tool gemini --mode analysis --resume              # Resume last session
+ccw cli exec "Fix issues found" --tool codex --mode auto --resume <id>           # Resume specific session
 ```
 
 | Value | Description |
@@ -213,7 +216,7 @@ rg "export.*Component" --files-with-matches --type ts
 CONTEXT: @components/Auth.tsx @types/auth.d.ts | Memory: Previous type refactoring
 
 # Step 3: Execute CLI
-ccw cli exec "..." --tool gemini --cd src
+ccw cli exec "..." --tool gemini --mode analysis --cd src
 ```
 
 ### RULES Configuration
@@ -289,7 +292,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-ri
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--tool <tool>` | gemini, qwen, codex | gemini |
-| `--mode <mode>` | analysis, write, auto | analysis |
+| `--mode <mode>` | **REQUIRED**: analysis, write, auto | **NONE** (must specify) |
 | `--model <model>` | Model override | auto-select |
 | `--cd <path>` | Working directory | current |
 | `--includeDirs <dirs>` | Additional directories (comma-separated) | none |
@@ -314,10 +317,10 @@ When using `--cd`:
 
 ```bash
 # Single directory
-ccw cli exec "CONTEXT: @**/* @../shared/**/*" --cd src/auth --includeDirs ../shared
+ccw cli exec "CONTEXT: @**/* @../shared/**/*" --tool gemini --mode analysis --cd src/auth --includeDirs ../shared
 
 # Multiple directories
-ccw cli exec "..." --cd src/auth --includeDirs ../shared,../types,../utils
+ccw cli exec "..." --tool gemini --mode analysis --cd src/auth --includeDirs ../shared,../types,../utils
 ```
 
 **Rule**: If CONTEXT contains `@../dir/**/*`, MUST include `--includeDirs ../dir`
@@ -404,8 +407,8 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-refactor-c
 **Codex Multiplier**: 3x allocated time (minimum 15min / 900000ms)
 
 ```bash
-ccw cli exec "<prompt>" --tool gemini --timeout 600000   # 10 min
-ccw cli exec "<prompt>" --tool codex --timeout 1800000   # 30 min
+ccw cli exec "<prompt>" --tool gemini --mode analysis --timeout 600000   # 10 min
+ccw cli exec "<prompt>" --tool codex --mode auto --timeout 1800000   # 30 min
 ```
 
 ### Permission Framework
@@ -413,9 +416,9 @@ ccw cli exec "<prompt>" --tool codex --timeout 1800000   # 30 min
 **Single-Use Authorization**: Each execution requires explicit user instruction. Previous authorization does NOT carry over.
 
 **Mode Hierarchy**:
-- `analysis` (default): Read-only, safe for auto-execution
-- `write`: Requires explicit `--mode write`
-- `auto`: Requires explicit `--mode auto`
+- `analysis`: Read-only, safe for auto-execution
+- `write`: Create/Modify/Delete files - requires explicit `--mode write`
+- `auto`: Full operations - requires explicit `--mode auto`
 - **Exception**: User provides clear instructions like "modify", "create", "implement"
 
 ---

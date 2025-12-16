@@ -1068,3 +1068,55 @@ async function updateCcwToolsMcp(scope = 'workspace') {
     showRefreshToast(`Failed to update CCW Tools MCP: ${err.message}`, 'error');
   }
 }
+
+// ========================================
+// CCW Tools MCP for Codex
+// ========================================
+
+// Get selected tools from Codex checkboxes
+function getSelectedCcwToolsCodex() {
+  const checkboxes = document.querySelectorAll('.ccw-tool-checkbox-codex:checked');
+  return Array.from(checkboxes).map(cb => cb.dataset.tool);
+}
+
+// Select tools by category for Codex
+function selectCcwToolsCodex(type) {
+  const checkboxes = document.querySelectorAll('.ccw-tool-checkbox-codex');
+  const coreTools = ['write_file', 'edit_file', 'codex_lens', 'smart_search'];
+
+  checkboxes.forEach(cb => {
+    if (type === 'all') {
+      cb.checked = true;
+    } else if (type === 'none') {
+      cb.checked = false;
+    } else if (type === 'core') {
+      cb.checked = coreTools.includes(cb.dataset.tool);
+    }
+  });
+}
+
+// Install/Update CCW Tools MCP to Codex
+async function installCcwToolsMcpToCodex() {
+  const selectedTools = getSelectedCcwToolsCodex();
+
+  if (selectedTools.length === 0) {
+    showRefreshToast('Please select at least one tool', 'warning');
+    return;
+  }
+
+  const ccwToolsConfig = buildCcwToolsConfig(selectedTools);
+
+  try {
+    const isUpdate = codexMcpServers && codexMcpServers['ccw-tools'];
+    const actionLabel = isUpdate ? 'Updating' : 'Installing';
+    showRefreshToast(`${actionLabel} CCW Tools MCP to Codex...`, 'info');
+
+    await addCodexMcpServer('ccw-tools', ccwToolsConfig);
+
+    const resultLabel = isUpdate ? 'updated in' : 'installed to';
+    showRefreshToast(`CCW Tools ${resultLabel} Codex (${selectedTools.length} tools)`, 'success');
+  } catch (err) {
+    console.error('Failed to install CCW Tools MCP to Codex:', err);
+    showRefreshToast(`Failed to install CCW Tools MCP to Codex: ${err.message}`, 'error');
+  }
+}

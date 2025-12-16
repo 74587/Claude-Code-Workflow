@@ -733,6 +733,215 @@ export function getMemoryStore(projectPath: string): MemoryStore {
 }
 
 /**
+ * Get aggregated stats from parent and all child projects
+ * @param projectPath - Parent project path
+ * @returns Aggregated statistics from all projects
+ */
+export function getAggregatedStats(projectPath: string): {
+  entities: number;
+  prompts: number;
+  conversations: number;
+  total: number;
+  projects: Array<{ path: string; stats: { entities: number; prompts: number; conversations: number } }>;
+} {
+  const { scanChildProjects } = require('../config/storage-paths.js');
+  const childProjects = scanChildProjects(projectPath);
+
+  const projectStats: Array<{ path: string; stats: { entities: number; prompts: number; conversations: number } }> = [];
+  let totalEntities = 0;
+  let totalPrompts = 0;
+  let totalConversations = 0;
+
+  // Get parent stats
+  try {
+    const parentStore = getMemoryStore(projectPath);
+    const db = (parentStore as any).db;
+
+    const entityCount = (db.prepare('SELECT COUNT(*) as count FROM entities').get() as { count: number }).count;
+    const promptCount = (db.prepare('SELECT COUNT(*) as count FROM prompt_history').get() as { count: number }).count;
+    const conversationCount = (db.prepare('SELECT COUNT(*) as count FROM conversations').get() as { count: number }).count;
+
+    projectStats.push({
+      path: projectPath,
+      stats: { entities: entityCount, prompts: promptCount, conversations: conversationCount }
+    });
+    totalEntities += entityCount;
+    totalPrompts += promptCount;
+    totalConversations += conversationCount;
+  } catch (error) {
+    if (process.env.DEBUG) {
+      console.error(`[Memory Store] Failed to get stats for parent ${projectPath}:`, error);
+    }
+  }
+
+  // Get child stats
+  for (const child of childProjects) {
+    try {
+      const childStore = getMemoryStore(child.projectPath);
+      const db = (childStore as any).db;
+
+      const entityCount = (db.prepare('SELECT COUNT(*) as count FROM entities').get() as { count: number }).count;
+      const promptCount = (db.prepare('SELECT COUNT(*) as count FROM prompt_history').get() as { count: number }).count;
+      const conversationCount = (db.prepare('SELECT COUNT(*) as count FROM conversations').get() as { count: number }).count;
+
+      projectStats.push({
+        path: child.relativePath,
+        stats: { entities: entityCount, prompts: promptCount, conversations: conversationCount }
+      });
+      totalEntities += entityCount;
+      totalPrompts += promptCount;
+      totalConversations += conversationCount;
+    } catch (error) {
+      if (process.env.DEBUG) {
+        console.error(`[Memory Store] Failed to get stats for child ${child.projectPath}:`, error);
+      }
+    }
+  }
+
+  return {
+    entities: totalEntities,
+    prompts: totalPrompts,
+    conversations: totalConversations,
+    total: totalEntities + totalPrompts + totalConversations,
+    projects: projectStats
+  };
+}
+
+/**
+ * Get aggregated entities from parent and all child projects
+ * @param projectPath - Parent project path
+ * @param options - Query options
+ * @returns Combined entities from all projects with source information
+ */
+export function getAggregatedEntities(
+  projectPath: string,
+  options: { type?: string; limit?: number; offset?: number } = {}
+): Array<HotEntity & { sourceProject?: string }> {
+  const { scanChildProjects } = require('../config/storage-paths.js');
+  const childProjects = scanChildProjects(projectPath);
+
+  const limit = options.limit || 50;
+  const offset = options.offset || 0;
+  const allEntities: Array<HotEntity & { sourceProject?: string }> = [];
+
+  // Get parent entities - apply LIMIT at SQL level
+  try {
+    const parentStore = getMemoryStore(projectPath);
+    const db = (parentStore as any).db;
+
+    let query = 'SELECT * FROM entities';
+    const params: any[] = [];
+
+    if (options.type) {
+      query += ' WHERE type = ?';
+      params.push(options.type);
+    }
+
+    query += ' ORDER BY last_seen_at DESC LIMIT ?';
+    params.push(limit);
+
+    const stmt = db.prepare(query);
+    const parentEntities = stmt.all(...params) as Entity[];
+    allEntities.push(...parentEntities.map((e: Entity) => ({ ...e, stats: {} as EntityStats, sourceProject: projectPath })));
+  } catch (error) {
+    if (process.env.DEBUG) {
+      console.error(`[Memory Store] Failed to get entities for parent ${projectPath}:`, error);
+    }
+  }
+
+  // Get child entities - apply LIMIT to each child
+  for (const child of childProjects) {
+    try {
+      const childStore = getMemoryStore(child.projectPath);
+      const db = (childStore as any).db;
+
+      let query = 'SELECT * FROM entities';
+      const params: any[] = [];
+
+      if (options.type) {
+        query += ' WHERE type = ?';
+        params.push(options.type);
+      }
+
+      query += ' ORDER BY last_seen_at DESC LIMIT ?';
+      params.push(limit);
+
+      const stmt = db.prepare(query);
+      const childEntities = stmt.all(...params) as Entity[];
+      allEntities.push(...childEntities.map((e: Entity) => ({ ...e, stats: {} as EntityStats, sourceProject: child.relativePath })));
+    } catch (error) {
+      if (process.env.DEBUG) {
+        console.error(`[Memory Store] Failed to get entities for child ${child.projectPath}:`, error);
+      }
+    }
+  }
+
+  // Sort by last_seen_at and apply final limit with offset
+  allEntities.sort((a, b) => {
+    const aTime = a.last_seen_at ? new Date(a.last_seen_at).getTime() : 0;
+    const bTime = b.last_seen_at ? new Date(b.last_seen_at).getTime() : 0;
+    return bTime - aTime;
+  });
+
+  return allEntities.slice(offset, offset + limit);
+}
+
+/**
+ * Get aggregated prompts from parent and all child projects
+ * @param projectPath - Parent project path
+ * @param limit - Maximum number of prompts to return
+ * @returns Combined prompts from all projects with source information
+ */
+export function getAggregatedPrompts(
+  projectPath: string,
+  limit: number = 50
+): Array<PromptHistory & { sourceProject?: string }> {
+  const { scanChildProjects } = require('../config/storage-paths.js');
+  const childProjects = scanChildProjects(projectPath);
+
+  const allPrompts: Array<PromptHistory & { sourceProject?: string }> = [];
+
+  // Get parent prompts - use direct SQL query with LIMIT
+  try {
+    const parentStore = getMemoryStore(projectPath);
+    const db = (parentStore as any).db;
+
+    const stmt = db.prepare('SELECT * FROM prompt_history ORDER BY timestamp DESC LIMIT ?');
+    const parentPrompts = stmt.all(limit) as PromptHistory[];
+    allPrompts.push(...parentPrompts.map((p: PromptHistory) => ({ ...p, sourceProject: projectPath })));
+  } catch (error) {
+    if (process.env.DEBUG) {
+      console.error(`[Memory Store] Failed to get prompts for parent ${projectPath}:`, error);
+    }
+  }
+
+  // Get child prompts - apply LIMIT to each child to reduce memory footprint
+  for (const child of childProjects) {
+    try {
+      const childStore = getMemoryStore(child.projectPath);
+      const db = (childStore as any).db;
+
+      const stmt = db.prepare('SELECT * FROM prompt_history ORDER BY timestamp DESC LIMIT ?');
+      const childPrompts = stmt.all(limit) as PromptHistory[];
+      allPrompts.push(...childPrompts.map((p: PromptHistory) => ({ ...p, sourceProject: child.relativePath })));
+    } catch (error) {
+      if (process.env.DEBUG) {
+        console.error(`[Memory Store] Failed to get prompts for child ${child.projectPath}:`, error);
+      }
+    }
+  }
+
+  // Sort by timestamp and apply final limit
+  allPrompts.sort((a, b) => {
+    const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+    const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+    return bTime - aTime;
+  });
+
+  return allPrompts.slice(0, limit);
+}
+
+/**
  * Close all store instances
  */
 export function closeAllStores(): void {

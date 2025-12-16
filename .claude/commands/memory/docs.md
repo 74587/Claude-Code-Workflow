@@ -364,7 +364,7 @@ api_id=$((group_count + 3))
       },
       {
         "step": "analyze_project",
-        "command": "bash(gemini \"PURPOSE: Analyze project structure\\nTASK: Extract overview from modules\\nMODE: analysis\\nCONTEXT: [all_module_docs]\\nEXPECTED: Project outline\")",
+        "command": "bash(ccw cli exec \"PURPOSE: Analyze project structure\\nTASK: Extract overview from modules\\nMODE: analysis\\nCONTEXT: [all_module_docs]\\nEXPECTED: Project outline\" --tool gemini --mode analysis)",
         "output_to": "project_outline"
       }
     ],
@@ -404,7 +404,7 @@ api_id=$((group_count + 3))
     "pre_analysis": [
       {"step": "load_existing_docs", "command": "bash(cat .workflow/docs/${project_name}/{ARCHITECTURE,EXAMPLES}.md 2>/dev/null || echo 'No existing docs')", "output_to": "existing_arch_examples"},
       {"step": "load_all_docs", "command": "bash(cat .workflow/docs/${project_name}/README.md && find .workflow/docs/${project_name} -type f -name '*.md' ! -path '*/README.md' ! -path '*/ARCHITECTURE.md' ! -path '*/EXAMPLES.md' ! -path '*/api/*' | xargs cat)", "output_to": "all_docs"},
-      {"step": "analyze_architecture", "command": "bash(gemini \"PURPOSE: Analyze system architecture\\nTASK: Synthesize architectural overview and examples\\nMODE: analysis\\nCONTEXT: [all_docs]\\nEXPECTED: Architecture + Examples outline\")", "output_to": "arch_examples_outline"}
+      {"step": "analyze_architecture", "command": "bash(ccw cli exec \"PURPOSE: Analyze system architecture\\nTASK: Synthesize architectural overview and examples\\nMODE: analysis\\nCONTEXT: [all_docs]\\nEXPECTED: Architecture + Examples outline\" --tool gemini --mode analysis)", "output_to": "arch_examples_outline"}
     ],
     "implementation_approach": [
       {
@@ -441,7 +441,7 @@ api_id=$((group_count + 3))
     "pre_analysis": [
       {"step": "discover_api", "command": "bash(rg 'router\\.| @(Get|Post)' -g '*.{ts,js}')", "output_to": "endpoint_discovery"},
       {"step": "load_existing_api", "command": "bash(cat .workflow/docs/${project_name}/api/README.md 2>/dev/null || echo 'No existing API docs')", "output_to": "existing_api_docs"},
-      {"step": "analyze_api", "command": "bash(gemini \"PURPOSE: Document HTTP API\\nTASK: Analyze endpoints\\nMODE: analysis\\nCONTEXT: @src/api/**/* [endpoint_discovery]\\nEXPECTED: API outline\")", "output_to": "api_outline"}
+      {"step": "analyze_api", "command": "bash(ccw cli exec \"PURPOSE: Document HTTP API\\nTASK: Analyze endpoints\\nMODE: analysis\\nCONTEXT: @src/api/**/* [endpoint_discovery]\\nEXPECTED: API outline\" --tool gemini --mode analysis)", "output_to": "api_outline"}
     ],
     "implementation_approach": [
       {

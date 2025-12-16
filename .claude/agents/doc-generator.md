@@ -216,7 +216,7 @@ Before completion, verify:
 {
   "step": "analyze_module_structure",
   "action": "Deep analysis of module structure and API",
-  "command": "ccw cli exec \"PURPOSE: Document module comprehensively\nTASK: Extract module purpose, architecture, public API, dependencies\nMODE: analysis\nCONTEXT: @**/* System: [system_context]\nEXPECTED: Complete module analysis for documentation\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt)\" --tool gemini --cd src/auth",
+  "command": "ccw cli exec \"PURPOSE: Document module comprehensively\nTASK: Extract module purpose, architecture, public API, dependencies\nMODE: analysis\nCONTEXT: @**/* System: [system_context]\nEXPECTED: Complete module analysis for documentation\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt)\" --tool gemini --mode analysis --cd src/auth",
   "output_to": "module_analysis",
   "on_error": "fail"
 }

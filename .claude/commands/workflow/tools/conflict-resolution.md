@@ -152,7 +152,7 @@ Task(subagent_type="cli-execution-agent", prompt=`
     - ModuleOverlap conflicts with overlap_analysis
     - Targeted clarification questions
   RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on breaking changes, migration needs, and functional overlaps | Prioritize exploration-identified conflicts | analysis=READ-ONLY
-  " --tool gemini --cd {project_root}
+  " --tool gemini --mode analysis --cd {project_root}
 
   Fallback: Qwen (same prompt) → Claude (manual analysis)
 

@@ -3,7 +3,8 @@
  * Tests for hierarchical storage path generation and migration
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, before, after, afterEach } from 'node:test';
+import assert from 'node:assert';
 import { join, resolve } from 'path';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
@@ -18,62 +19,68 @@ import {
   getProjectPaths,
   clearHierarchyCache,
   getProjectId
-} from '../src/config/storage-paths.js';
+} from '../dist/config/storage-paths.js';
 
-describe('Storage Paths - Hierarchical Structure', () => {
-  beforeEach(() => {
-    // Clean test directory
+describe('Storage Paths - Hierarchical Structure', async () => {
+  const cleanTestEnv = () => {
     if (existsSync(TEST_CCW_HOME)) {
       rmSync(TEST_CCW_HOME, { recursive: true, force: true });
     }
     mkdirSync(TEST_CCW_HOME, { recursive: true });
     clearHierarchyCache();
+  };
+
+  before(async () => {
+    cleanTestEnv();
   });
 
-  afterEach(() => {
-    // Cleanup
-    if (existsSync(TEST_CCW_HOME)) {
-      rmSync(TEST_CCW_HOME, { recursive: true, force: true });
-    }
-    clearHierarchyCache();
+  after(async () => {
+    cleanTestEnv();
   });
 
-  describe('Project ID Generation', () => {
-    it('should generate consistent project IDs', () => {
+  describe('Project ID Generation', async () => {
+    afterEach(async () => {
+      cleanTestEnv();
+    });
+    it('should generate consistent project IDs', async () => {
       const path1 = 'D:\\Claude_dms3';
       const path2 = 'D:\\Claude_dms3';
 
       const id1 = getProjectId(path1);
       const id2 = getProjectId(path2);
 
-      expect(id1).toBe(id2);
-      expect(id1).toContain('d--claude_dms3');
+      assert.strictEqual(id1, id2);
+      assert.ok(id1.includes('d--claude_dms3'));
     });
 
-    it('should handle different path formats', () => {
+    it('should handle different path formats', async () => {
       // Test Windows path
       const winId = getProjectId('D:\\Claude_dms3');
-      expect(winId).toBeTruthy();
+      assert.ok(winId);
 
       // Test Unix-like path
       const unixId = getProjectId('/home/user/project');
-      expect(unixId).toBeTruthy();
+      assert.ok(unixId);
 
       // Different paths should have different IDs
-      expect(winId).not.toBe(unixId);
+      assert.notStrictEqual(winId, unixId);
     });
   });
 
-  describe('Hierarchy Detection', () => {
-    it('should detect no parent for root project', () => {
-      const hierarchy = detectHierarchy('D:\\Claude_dms3');
-
-      expect(hierarchy.parentId).toBeNull();
-      expect(hierarchy.relativePath).toBe('');
-      expect(hierarchy.currentId).toBeTruthy();
+  describe('Hierarchy Detection', async () => {
+    afterEach(async () => {
+      cleanTestEnv();
     });
 
-    it('should detect parent when parent storage exists', () => {
+    it('should detect no parent for root project', async () => {
+      const hierarchy = detectHierarchy('D:\\Claude_dms3');
+
+      assert.strictEqual(hierarchy.parentId, null);
+      assert.strictEqual(hierarchy.relativePath, '');
+      assert.ok(hierarchy.currentId);
+    });
+
+    it('should detect parent when parent storage exists', async () => {
       // Create parent storage
       const parentPath = 'D:\\Claude_dms3';
       const parentId = getProjectId(parentPath);
@@ -84,11 +91,11 @@ describe('Storage Paths - Hierarchical Structure', () => {
       const childPath = 'D:\\Claude_dms3\\ccw';
       const hierarchy = detectHierarchy(childPath);
 
-      expect(hierarchy.parentId).toBe(parentId);
-      expect(hierarchy.relativePath).toBe('ccw');
+      assert.strictEqual(hierarchy.parentId, parentId);
+      assert.strictEqual(hierarchy.relativePath, 'ccw');
     });
 
-    it('should detect nested hierarchy', () => {
+    it('should detect nested hierarchy', async () => {
       // Create parent storage
       const rootPath = 'D:\\Claude_dms3';
       const rootId = getProjectId(rootPath);
@@ -99,21 +106,21 @@ describe('Storage Paths - Hierarchical Structure', () => {
       const nestedPath = 'D:\\Claude_dms3\\ccw\\src';
       const hierarchy = detectHierarchy(nestedPath);
 
-      expect(hierarchy.parentId).toBe(rootId);
-      expect(hierarchy.relativePath).toBe('ccw/src');
+      assert.strictEqual(hierarchy.parentId, rootId);
+      assert.strictEqual(hierarchy.relativePath, 'ccw/src');
     });
 
-    it('should cache detection results', () => {
+    it('should cache detection results', async () => {
       const path = 'D:\\Claude_dms3\\ccw';
 
       const result1 = detectHierarchy(path);
       const result2 = detectHierarchy(path);
 
       // Should return exact same object (cached)
-      expect(result1).toBe(result2);
+      assert.strictEqual(result1, result2);
     });
 
-    it('should clear cache when requested', () => {
+    it('should clear cache when requested', async () => {
       const path = 'D:\\Claude_dms3\\ccw';
 
       const result1 = detectHierarchy(path);
@@ -121,23 +128,28 @@ describe('Storage Paths - Hierarchical Structure', () => {
       const result2 = detectHierarchy(path);
 
       // Should return different object instances after cache clear
-      expect(result1).not.toBe(result2);
+      assert.notStrictEqual(result1, result2);
       // But same values
-      expect(result1.currentId).toBe(result2.currentId);
+      assert.strictEqual(result1.currentId, result2.currentId);
     });
   });
 
-  describe('Hierarchical Path Generation', () => {
-    it('should generate flat path for root project', () => {
+  describe('Hierarchical Path Generation', async () => {
+    afterEach(async () => {
+      cleanTestEnv();
+    });
+
+    it('should generate flat path for root project', async () => {
       const projectPath = 'D:\\Claude_dms3';
       const paths = getProjectPaths(projectPath);
 
-      expect(paths.root).toContain('projects');
-      expect(paths.root).toContain('d--claude_dms3');
-      expect(paths.root).not.toContain('ccw');
+      assert.ok(paths.root.includes('projects'));
+      assert.ok(paths.root.includes('d--claude_dms3'));
+      // Check that path ends with project ID, not a subdirectory
+      assert.ok(paths.root.endsWith('d--claude_dms3') || paths.root.endsWith('d--claude_dms3\\') || paths.root.endsWith('d--claude_dms3/'));
     });
 
-    it('should generate hierarchical path when parent exists', () => {
+    it('should generate hierarchical path when parent exists', async () => {
       // Create parent storage
       const parentPath = 'D:\\Claude_dms3';
       const parentId = getProjectId(parentPath);
@@ -148,12 +160,12 @@ describe('Storage Paths - Hierarchical Structure', () => {
       const childPath = 'D:\\Claude_dms3\\ccw';
       const paths = getProjectPaths(childPath);
 
-      expect(paths.root).toContain(parentId);
-      expect(paths.root).toContain('ccw');
-      expect(paths.root.endsWith('ccw')).toBe(true);
+      assert.ok(paths.root.includes(parentId));
+      assert.ok(paths.root.includes('ccw'));
+      assert.ok(paths.root.endsWith('ccw'));
     });
 
-    it('should generate nested hierarchical paths', () => {
+    it('should generate nested hierarchical paths', async () => {
       // Create parent storage
       const parentPath = 'D:\\Claude_dms3';
       const parentId = getProjectId(parentPath);
@@ -164,27 +176,27 @@ describe('Storage Paths - Hierarchical Structure', () => {
       const nestedPath = 'D:\\Claude_dms3\\ccw\\src';
       const paths = getProjectPaths(nestedPath);
 
-      expect(paths.root).toContain(parentId);
-      expect(paths.root).toContain('ccw');
-      expect(paths.root).toContain('src');
-      expect(paths.root.endsWith('src')).toBe(true);
+      assert.ok(paths.root.includes(parentId));
+      assert.ok(paths.root.includes('ccw'));
+      assert.ok(paths.root.includes('src'));
+      assert.ok(paths.root.endsWith('src'));
     });
 
-    it('should include all required subdirectories', () => {
+    it('should include all required subdirectories', async () => {
       const projectPath = 'D:\\Claude_dms3';
       const paths = getProjectPaths(projectPath);
 
-      expect(paths.cliHistory).toContain('cli-history');
-      expect(paths.memory).toContain('memory');
-      expect(paths.cache).toContain('cache');
-      expect(paths.config).toContain('config');
-      expect(paths.historyDb).toContain('history.db');
-      expect(paths.memoryDb).toContain('memory.db');
+      assert.ok(paths.cliHistory.includes('cli-history'));
+      assert.ok(paths.memory.includes('memory'));
+      assert.ok(paths.cache.includes('cache'));
+      assert.ok(paths.config.includes('config'));
+      assert.ok(paths.historyDb.includes('history.db'));
+      assert.ok(paths.memoryDb.includes('memory.db'));
     });
   });
 
-  describe('Migration from Flat to Hierarchical', () => {
-    it('should migrate flat structure to hierarchical', () => {
+  describe('Migration from Flat to Hierarchical', async () => {
+    it('should migrate flat structure to hierarchical', async () => {
       // Setup: Create parent storage
       const parentPath = 'D:\\Claude_dms3';
       const parentId = getProjectId(parentPath);
@@ -205,19 +217,28 @@ describe('Storage Paths - Hierarchical Structure', () => {
       // Trigger migration by calling getProjectPaths
       const paths = getProjectPaths(childPath);
 
+      console.log('[DEBUG] Test file path:', testFile);
+      console.log('[DEBUG] Flat storage dir:', flatStorageDir);
+      console.log('[DEBUG] Flat storage exists before migration:', existsSync(flatStorageDir));
+      console.log('[DEBUG] Returned paths.root:', paths.root);
+      console.log('[DEBUG] Returned paths.cliHistory:', paths.cliHistory);
+      console.log('[DEBUG] Expected migrated file:', join(paths.cliHistory, 'test.txt'));
+      console.log('[DEBUG] Migrated file exists:', existsSync(join(paths.cliHistory, 'test.txt')));
+      console.log('[DEBUG] Flat storage exists after migration:', existsSync(flatStorageDir));
+
       // Verify hierarchical path structure
-      expect(paths.root).toContain('ccw');
-      expect(paths.root.endsWith('ccw')).toBe(true);
+      assert.ok(paths.root.includes('ccw'));
+      assert.ok(paths.root.endsWith('ccw'));
 
       // Verify data was migrated
       const migratedFile = join(paths.cliHistory, 'test.txt');
-      expect(existsSync(migratedFile)).toBe(true);
+      assert.ok(existsSync(migratedFile));
 
       // Verify old flat structure was deleted
-      expect(existsSync(flatStorageDir)).toBe(false);
+      assert.ok(!existsSync(flatStorageDir));
     });
 
-    it('should handle migration failures gracefully', () => {
+    it('should handle migration failures gracefully', async () => {
       // Create scenario that might fail migration
       const parentPath = 'D:\\Claude_dms3';
       const parentId = getProjectId(parentPath);
@@ -227,25 +248,25 @@ describe('Storage Paths - Hierarchical Structure', () => {
       const childPath = 'D:\\Claude_dms3\\ccw';
 
       // Should not throw error even if migration fails
-      expect(() => {
+      assert.doesNotThrow(() => {
         const paths = getProjectPaths(childPath);
-        expect(paths).toBeTruthy();
-      }).not.toThrow();
+        assert.ok(paths);
+      });
     });
   });
 
-  describe('Path Normalization', () => {
-    it('should normalize Windows path separators', () => {
+  describe('Path Normalization', async () => {
+    it('should normalize Windows path separators', async () => {
       const hierarchy = detectHierarchy('D:\\Claude_dms3\\ccw\\src');
 
       // Relative path should use forward slashes
       if (hierarchy.relativePath) {
-        expect(hierarchy.relativePath).not.toContain('\\');
-        expect(hierarchy.relativePath).toContain('/');
+        assert.ok(!hierarchy.relativePath.includes('\\'));
+        assert.ok(hierarchy.relativePath.includes('/'));
       }
     });
 
-    it('should handle trailing slashes', () => {
+    it('should handle trailing slashes', async () => {
       const path1 = 'D:\\Claude_dms3\\ccw';
       const path2 = 'D:\\Claude_dms3\\ccw\\';
 
@@ -253,12 +274,12 @@ describe('Storage Paths - Hierarchical Structure', () => {
       const id2 = getProjectId(path2);
 
       // Should produce same ID regardless of trailing slash
-      expect(id1).toBe(id2);
+      assert.strictEqual(id1, id2);
     });
   });
 
-  describe('Edge Cases', () => {
-    it('should handle very deep nesting', () => {
+  describe('Edge Cases', async () => {
+    it('should handle very deep nesting', async () => {
       // Create deep parent storage
       const parentPath = 'D:\\Claude_dms3';
       const parentId = getProjectId(parentPath);
@@ -269,25 +290,25 @@ describe('Storage Paths - Hierarchical Structure', () => {
       const deepPath = 'D:\\Claude_dms3\\a\\b\\c\\d\\e';
       const paths = getProjectPaths(deepPath);
 
-      expect(paths.root).toContain(parentId);
-      expect(paths.root).toContain('a');
-      expect(paths.root).toContain('e');
+      assert.ok(paths.root.includes(parentId));
+      assert.ok(paths.root.includes('a'));
+      assert.ok(paths.root.includes('e'));
     });
 
-    it('should handle special characters in path names', () => {
+    it('should handle special characters in path names', async () => {
       const specialPath = 'D:\\Claude_dms3\\my-project_v2';
       const id = getProjectId(specialPath);
 
-      expect(id).toBeTruthy();
-      expect(id).toContain('my-project_v2');
+      assert.ok(id);
+      assert.ok(id.includes('my-project_v2'));
     });
 
-    it('should handle relative paths by resolving them', () => {
+    it('should handle relative paths by resolving them', async () => {
       const relativePath = './ccw';
       const paths = getProjectPaths(relativePath);
 
       // Should resolve to absolute path
-      expect(paths.root).toBeTruthy();
+      assert.ok(paths.root);
     });
   });
 });
