@@ -18,6 +18,9 @@ var activeWorkflowDiagram = 'tdd';
 
 // ========== Main Render Function ==========
 async function renderHelpView() {
+  // Debug: Check if ht function is available
+  console.log('[Help View] ht function available:', typeof ht, typeof window.ht);
+
   hideStatsAndCarousel();
 
   var container = document.getElementById('mainContent');

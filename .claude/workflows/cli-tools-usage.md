@@ -17,11 +17,11 @@
 ```
 ┌─ Task Analysis/Documentation?
 │  └─→ Use Gemini (Fallback: Codex,Qwen)
-│     └─→ MODE: analysis (default, read-only)
+│     └─→ MODE: analysis (read-only)
 │
 └─ Task Implementation/Bug Fix?
-   └─→ Use Codex  (Fallback: Gemini,Qwen)
-      └─→ MODE: auto (full operations) or write (file operations)
+   └─→ Use Codex (Fallback: Gemini,Qwen)
+      └─→ MODE: write (file operations)
 ```
 
 
@@ -30,10 +30,10 @@
 ```
 PURPOSE: [what] + [why] + [success criteria] + [constraints/scope]
 TASK: • [step 1: specific action] • [step 2: specific action] • [step 3: specific action]
-MODE: [analysis|write|auto]
+MODE: [analysis|write]
 CONTEXT: @[file patterns] | Memory: [session/tech/module context]
 EXPECTED: [deliverable format] + [quality criteria] + [structure requirements]
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt) | [domain constraints] | MODE=[permission]
+RULES: $(cat ~/.claude/workflows/cli-templates/protocols/[mode]-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt) | [domain constraints]
 ```
 
 ### Intent Capture Checklist (Before CLI Execution)
@@ -54,20 +54,15 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt
   - MODE: `analysis`
   - When to Use: Code review, architecture analysis, pattern discovery, exploration
 
-- **Write/Create**
-  - Tool: Gemini/Qwen
+- **Write/Implement**
+  - Tool: Codex (Fallback: Gemini/Qwen)
   - MODE: `write`
-  - When to Use: Documentation generation, file creation (non-code)
-
-- **Implement/Fix**
-  - Tool: Codex
-  - MODE: `auto`
-  - When to Use: Feature implementation, bug fixes, test creation, refactoring
+  - When to Use: Feature implementation, bug fixes, test creation, refactoring, documentation generation, file creation
 
 ## Essential Command Structure
 
 ```bash
-ccw cli exec "<PROMPT>" --tool <gemini|qwen|codex> --mode <analysis|write|auto>
+ccw cli exec "<PROMPT>" --tool <gemini|qwen|codex> --mode <analysis|write>
 ```
 
 **⚠️ CRITICAL**: `--mode` parameter is **MANDATORY** for all CLI executions. No defaults are assumed.
@@ -76,9 +71,9 @@ ccw cli exec "<PROMPT>" --tool <gemini|qwen|codex> --mode <analysis|write|auto>
 
 - **Use tools early and often** - Tools are faster and more thorough
 - **Unified CLI** - Always use `ccw cli exec` for consistent parameter handling
-- **Mode is MANDATORY** - ALWAYS explicitly specify `--mode analysis|write|auto` (no implicit defaults)
+- **Mode is MANDATORY** - ALWAYS explicitly specify `--mode analysis|write` (no implicit defaults)
 - **One template required** - ALWAYS reference exactly ONE template in RULES (use universal fallback if no specific match)
-- **Write protection** - Require EXPLICIT `--mode write` or `--mode auto`
+- **Write protection** - Require EXPLICIT `--mode write` for file operations
 - **No escape characters** - NEVER use `\$`, `\"`, `\'` in CLI commands
 
 ---
@@ -88,40 +83,51 @@ ccw cli exec "<PROMPT>" --tool <gemini|qwen|codex> --mode <analysis|write|auto>
 ### MODE Options
 
 - **`analysis`**
-  - Permission: Read-only (default)
-  - Use For: Code review, architecture analysis, pattern discovery
-  - Specification: Auto for Gemini/Qwen
+  - Permission: Read-only
+  - Use For: Code review, architecture analysis, pattern discovery, exploration
+  - Specification: Safe for all tools (Gemini/Qwen/Codex)
 
 - **`write`**
   - Permission: Create/Modify/Delete
-  - Use For: Documentation, code creation, file modifications
-  - Specification: Requires `--mode write`
-
-- **`auto`**
-  - Permission: Full operations
-  - Use For: Feature implementation, bug fixes, autonomous development
-  - Specification: Codex only, requires `--mode auto`
+  - Use For: Feature implementation, bug fixes, documentation, code creation, file modifications
+  - Specification: Requires explicit `--mode write`
 
 ### Mode Protocol References (MANDATORY)
 
 **⚠️ REQUIRED**: Every CLI execution MUST include the corresponding mode protocol in RULES:
 
-- **`analysis`**
-  - Protocol (REQUIRED): `$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md)`
+#### Mode Rule= Templates
 
-- **`write/auto`**
-  - Protocol (REQUIRED): `$(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md)`
+**Purpose**: Mode protocols define permission boundaries and operational constraints for each execution mode.
+
+**Protocol Mapping**:
+
+- **`analysis`** mode
+  - Protocol: `$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md)`
+  - Permission: Read-only operations
+  - Enforces: No file creation/modification/deletion
+
+- **`write`** mode
+  - Protocol: `$(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md)`
+  - Permission: Create/Modify/Delete files
+  - Enforces: Explicit write authorization and full workflow execution capability
 
 **RULES Format** (protocol MUST be included):
 ```bash
 # Analysis mode - MUST include analysis-protocol.md
 RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/analysis/...) | constraints
 
-# Write/Auto mode - MUST include write-protocol.md
+# Write mode - MUST include write-protocol.md
 RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/development/...) | constraints
 ```
 
 **Validation**: CLI execution without mode protocol reference is INVALID
+
+**Why Mode Rules Are Required**:
+- Ensures consistent permission enforcement across all tools (Gemini/Qwen/Codex)
+- Prevents accidental file modifications during analysis tasks
+- Provides explicit authorization trail for write operations
+- Enables safe automation with clear boundaries
 
 ### Gemini & Qwen
 
@@ -141,12 +147,12 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 
 ### Codex
 
-**Via CCW**: `ccw cli exec "<prompt>" --tool codex --mode auto`
+**Via CCW**: `ccw cli exec "<prompt>" --tool codex --mode write`
 
 **Characteristics**:
 - Autonomous development, mathematical reasoning
-- Best for: Implementation, testing, automation
-- No default MODE - must explicitly specify `--mode write` or `--mode auto`
+- Best for: Implementation, testing, automation, bug fixes
+- No default MODE - must explicitly specify `--mode analysis` or `--mode write`
 
 **Models**: `gpt-5.2`
 
@@ -156,7 +162,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 
 ```bash
 ccw cli exec "Continue analyzing" --tool gemini --mode analysis --resume              # Resume last session
-ccw cli exec "Fix issues found" --tool codex --mode auto --resume <id>           # Resume specific session
+ccw cli exec "Fix issues found" --tool codex --mode write --resume <id>           # Resume specific session
 ```
 
 - **`--resume` (empty)**: Resume most recent session
@@ -212,10 +218,10 @@ Every command MUST include these fields:
   - Good Example: "Markdown report with: severity levels (Critical/High/Medium/Low), file:line references, remediation code snippets, priority ranking"
 
 - **RULES**
-  - Purpose: Template + constraints
-  - Components: $(cat template) + domain rules
+  - Purpose: Protocol + template + constraints
+  - Components: $(cat protocol) + $(cat template) + domain rules
   - Bad Example: (missing)
-  - Good Example: "$(cat ~/.claude/.../security.txt) \| Focus on authentication \| Ignore test files \| analysis=READ-ONLY"
+  - Good Example: "$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/analysis/03-assess-security-risks.txt) \| Focus on authentication \| Ignore test files"
 
 
 ### CONTEXT Configuration
@@ -334,7 +340,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-ri
   - Default: gemini
 
 - **`--mode <mode>`**
-  - Description: **REQUIRED**: analysis, write, auto
+  - Description: **REQUIRED**: analysis, write
   - Default: **NONE** (must specify)
 
 - **`--model <model>`**
@@ -400,12 +406,12 @@ CCW automatically maps to tool-specific syntax:
   - Gemini/Qwen: `--include-directories`
   - Codex: `--add-dir` (per dir)
 
+- **`--mode analysis`**
+  - Gemini/Qwen: (default read-only)
+  - Codex: (default read-only)
+
 - **`--mode write`**
   - Gemini/Qwen: `--approval-mode yolo`
-  - Codex: `-s danger-full-access`
-
-- **`--mode auto`**
-  - Gemini/Qwen: N/A
   - Codex: `-s danger-full-access`
 
 ### Command Examples
@@ -420,7 +426,7 @@ TASK: • Scan for injection flaws (SQL, command, LDAP) • Check authentication
 MODE: analysis
 CONTEXT: @src/auth/**/* @src/middleware/auth.ts | Memory: Using bcrypt for passwords, JWT for sessions
 EXPECTED: Security report with: severity matrix, file:line references, CVE mappings where applicable, remediation code snippets prioritized by risk
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/03-assess-security-risks.txt) | Focus on authentication | Ignore test files | analysis=READ-ONLY
+RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/analysis/03-assess-security-risks.txt) | Focus on authentication | Ignore test files
 " --tool gemini --cd src/auth --timeout 600000
 ```
 
@@ -429,11 +435,11 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/03-assess-securi
 ccw cli exec "
 PURPOSE: Implement rate limiting for API endpoints to prevent abuse; must be configurable per-endpoint; backward compatible with existing clients
 TASK: • Create rate limiter middleware with sliding window • Implement per-route configuration • Add Redis backend for distributed state • Include bypass for internal services
-MODE: auto
+MODE: write
 CONTEXT: @src/middleware/**/* @src/config/**/* | Memory: Using Express.js, Redis already configured, existing middleware pattern in auth.ts
 EXPECTED: Production-ready code with: TypeScript types, unit tests, integration test, configuration example, migration guide
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | Follow existing middleware patterns | No breaking changes | auto=FULL
-" --tool codex --mode auto --timeout 1800000
+RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | Follow existing middleware patterns | No breaking changes
+" --tool codex --mode write --timeout 1800000
 ```
 
 **Bug Fix Task**:
@@ -444,7 +450,7 @@ TASK: • Trace connection lifecycle from open to close • Identify event liste
 MODE: analysis
 CONTEXT: @src/websocket/**/* @src/services/connection-manager.ts | Memory: Using ws library, ~5000 concurrent connections in production
 EXPECTED: Root cause analysis with: memory profile, leak source (file:line), fix recommendation with code, verification steps
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt) | Focus on resource cleanup | analysis=READ-ONLY
+RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt) | Focus on resource cleanup
 " --tool gemini --cd src --timeout 900000
 ```
 
@@ -456,7 +462,7 @@ TASK: • Extract gateway interface from current implementation • Create strat
 MODE: write
 CONTEXT: @src/payments/**/* @src/types/payment.ts | Memory: Currently only Stripe, adding PayPal next sprint, must support future gateways
 EXPECTED: Refactored code with: strategy interface, concrete implementations, factory class, updated tests, migration checklist
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-refactor-codebase.txt) | Preserve all existing behavior | Tests must pass | write=CREATE/MODIFY/DELETE
+RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/development/02-refactor-codebase.txt) | Preserve all existing behavior | Tests must pass
 " --tool gemini --mode write --timeout 1200000
 ```
 ---
@@ -483,7 +489,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-refactor-c
 
 ```bash
 ccw cli exec "<prompt>" --tool gemini --mode analysis --timeout 600000   # 10 min
-ccw cli exec "<prompt>" --tool codex --mode auto --timeout 1800000   # 30 min
+ccw cli exec "<prompt>" --tool codex --mode write --timeout 1800000   # 30 min
 ```
 
 ### Permission Framework
@@ -492,8 +498,7 @@ ccw cli exec "<prompt>" --tool codex --mode auto --timeout 1800000   # 30 min
 
 **Mode Hierarchy**:
 - `analysis`: Read-only, safe for auto-execution
-- `write`: Create/Modify/Delete files - requires explicit `--mode write`
-- `auto`: Full operations - requires explicit `--mode auto`
+- `write`: Create/Modify/Delete files, full operations - requires explicit `--mode write`
 - **Exception**: User provides clear instructions like "modify", "create", "implement"
 
 ---
@@ -512,15 +517,15 @@ ccw cli exec "<prompt>" --tool codex --mode auto --timeout 1800000   # 30 min
 
 ### Workflow Integration
 
-- **Understanding**: `ccw cli exec "<prompt>" --tool gemini`
-- **Architecture**: `ccw cli exec "<prompt>" --tool gemini`
-- **Implementation**: `ccw cli exec "<prompt>" --tool codex --mode auto`
+- **Understanding**: `ccw cli exec "<prompt>" --tool gemini --mode analysis`
+- **Architecture**: `ccw cli exec "<prompt>" --tool gemini --mode analysis`
+- **Implementation**: `ccw cli exec "<prompt>" --tool codex --mode write`
 - **Quality**: `ccw cli exec "<prompt>" --tool codex --mode write`
 
 ### Planning Checklist
 
 - [ ] **Purpose defined** - Clear goal and intent
-- [ ] **Mode selected** - `--mode analysis|write|auto`
+- [ ] **Mode selected** - `--mode analysis|write`
 - [ ] **Context gathered** - File references + memory (default `@**/*`)
 - [ ] **Directory navigation** - `--cd` and/or `--includeDirs`
 - [ ] **Tool selected** - `--tool gemini|qwen|codex`

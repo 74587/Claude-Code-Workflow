@@ -137,7 +137,7 @@ var helpI18n = {
 
 // Helper function to get help translation
 function ht(key, replacements) {
-  var lang = typeof currentLanguage !== 'undefined' ? currentLanguage : 'en';
+  var lang = typeof currentLang !== 'undefined' ? currentLang : 'en';
   var translations = helpI18n[lang] || helpI18n.en;
   var text = translations[key] || helpI18n.en[key] || key;
 
@@ -150,3 +150,9 @@ function ht(key, replacements) {
 
   return text;
 }
+
+// Expose ht function globally
+window.ht = ht;
+
+// Debug log to verify loading
+console.log('[Help i18n] ht function loaded and exposed to window:', typeof window.ht);

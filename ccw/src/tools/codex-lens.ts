@@ -39,26 +39,12 @@ const ParamsSchema = z.object({
     'init',
     'search',
     'search_files',
-    'symbol',
-    'status',
-    'config_show',
-    'config_set',
-    'config_migrate',
-    'clean',
-    'bootstrap',
-    'check',
   ]),
   path: z.string().optional(),
   query: z.string().optional(),
-  mode: z.enum(['text', 'semantic']).default('text'),
-  file: z.string().optional(),
-  key: z.string().optional(), // For config_set action
-  value: z.string().optional(), // For config_set action
-  newPath: z.string().optional(), // For config_migrate action
-  all: z.boolean().optional(), // For clean action
+  mode: z.enum(['auto', 'text', 'semantic', 'exact', 'fuzzy', 'hybrid', 'vector', 'pure-vector']).default('auto'),
   languages: z.array(z.string()).optional(),
   limit: z.number().default(20),
-  format: z.enum(['json', 'table', 'plain']).default('json'),
 });
 
 type Params = z.infer<typeof ParamsSchema>;
@@ -447,13 +433,26 @@ async function initIndex(params: Params): Promise<ExecuteResult> {
  * @returns Execution result
  */
 async function searchCode(params: Params): Promise<ExecuteResult> {
-  const { query, path = '.', limit = 20 } = params;
+  const { query, path = '.', limit = 20, mode = 'auto' } = params;
 
   if (!query) {
     return { success: false, error: 'Query is required for search action' };
   }
 
-  const args = ['search', query, '--limit', limit.toString(), '--json'];
+  // Map MCP mode names to CLI mode names
+  const modeMap: Record<string, string> = {
+    'text': 'exact',
+    'semantic': 'pure-vector',
+    'auto': 'auto',
+    'exact': 'exact',
+    'fuzzy': 'fuzzy',
+    'hybrid': 'hybrid',
+    'vector': 'vector',
+    'pure-vector': 'pure-vector',
+  };
+
+  const cliMode = modeMap[mode] || 'auto';
+  const args = ['search', query, '--limit', limit.toString(), '--mode', cliMode, '--json'];
 
   const result = await executeCodexLens(args, { cwd: path });
 
@@ -475,13 +474,26 @@ async function searchCode(params: Params): Promise<ExecuteResult> {
  * @returns Execution result
  */
 async function searchFiles(params: Params): Promise<ExecuteResult> {
-  const { query, path = '.', limit = 20 } = params;
+  const { query, path = '.', limit = 20, mode = 'auto' } = params;
 
   if (!query) {
     return { success: false, error: 'Query is required for search_files action' };
   }
 
-  const args = ['search', query, '--files-only', '--limit', limit.toString(), '--json'];
+  // Map MCP mode names to CLI mode names
+  const modeMap: Record<string, string> = {
+    'text': 'exact',
+    'semantic': 'pure-vector',
+    'auto': 'auto',
+    'exact': 'exact',
+    'fuzzy': 'fuzzy',
+    'hybrid': 'hybrid',
+    'vector': 'vector',
+    'pure-vector': 'pure-vector',
+  };
+
+  const cliMode = modeMap[mode] || 'auto';
+  const args = ['search', query, '--files-only', '--limit', limit.toString(), '--mode', cliMode, '--json'];
 
   const result = await executeCodexLens(args, { cwd: path });
 
@@ -661,20 +673,23 @@ async function cleanIndexes(params: Params): Promise<ExecuteResult> {
 // Tool schema for MCP
 export const schema: ToolSchema = {
   name: 'codex_lens',
-  description: `CodexLens - Code indexing and search.
+  description: `CodexLens - Code indexing and semantic search.
 
 Usage:
-  codex_lens(action="init", path=".")           # Index directory
-  codex_lens(action="search", query="func", path=".")  # Search code
+  codex_lens(action="init", path=".")           # Index directory (auto-generates embeddings if available)
+  codex_lens(action="search", query="func")     # Search code (auto: hybrid if embeddings exist, else exact)
+  codex_lens(action="search", query="func", mode="hybrid")  # Force hybrid search
   codex_lens(action="search_files", query="x")  # Search, return paths only
-  codex_lens(action="symbol", file="f.py")      # Extract symbols
-  codex_lens(action="status")                   # Index status
-  codex_lens(action="config_show")              # Show configuration
-  codex_lens(action="config_set", key="index_dir", value="/path/to/indexes")  # Set config
-  codex_lens(action="config_migrate", newPath="/new/path")  # Migrate indexes
-  codex_lens(action="clean")                    # Show clean status
-  codex_lens(action="clean", path=".")          # Clean specific project
-  codex_lens(action="clean", all=true)          # Clean all indexes`,
+
+Search Modes:
+  - auto: Auto-detect (hybrid if embeddings exist, exact otherwise) [default]
+  - exact/text: Exact FTS for code identifiers
+  - hybrid: Exact + Fuzzy + Vector fusion (best results, requires embeddings)
+  - fuzzy: Typo-tolerant search
+  - vector: Semantic + keyword
+  - pure-vector/semantic: Pure semantic search
+
+Note: For advanced operations (config, status, clean), use CLI directly: codexlens --help`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -684,67 +699,32 @@ Usage:
           'init',
           'search',
           'search_files',
-          'symbol',
-          'status',
-          'config_show',
-          'config_set',
-          'config_migrate',
-          'clean',
-          'bootstrap',
-          'check',
         ],
-        description: 'Action to perform',
+        description: 'Action to perform: init (index directory), search (search code), search_files (search files only)',
       },
       path: {
         type: 'string',
-        description: 'Target path (for init, search, search_files, status, clean)',
+        description: 'Target directory path (for init, search, search_files). Defaults to current directory.',
       },
       query: {
         type: 'string',
-        description: 'Search query (for search and search_files actions)',
+        description: 'Search query (required for search and search_files actions)',
       },
       mode: {
         type: 'string',
-        enum: ['text', 'semantic'],
-        description: 'Search mode (default: text)',
-        default: 'text',
-      },
-      file: {
-        type: 'string',
-        description: 'File path (for symbol action)',
-      },
-      key: {
-        type: 'string',
-        description: 'Config key (for config_set action, e.g., "index_dir")',
-      },
-      value: {
-        type: 'string',
-        description: 'Config value (for config_set action)',
-      },
-      newPath: {
-        type: 'string',
-        description: 'New index path (for config_migrate action)',
-      },
-      all: {
-        type: 'boolean',
-        description: 'Clean all indexes (for clean action)',
-        default: false,
+        enum: ['auto', 'text', 'semantic', 'exact', 'fuzzy', 'hybrid', 'vector', 'pure-vector'],
+        description: 'Search mode: auto (default, hybrid if embeddings exist), text/exact (FTS), hybrid (best), fuzzy, vector, semantic/pure-vector',
+        default: 'auto',
       },
       languages: {
         type: 'array',
         items: { type: 'string' },
-        description: 'Languages to index (for init action)',
+        description: 'Languages to index (for init action). Example: ["javascript", "typescript", "python"]',
       },
       limit: {
         type: 'number',
-        description: 'Maximum results (for search and search_files actions)',
+        description: 'Maximum number of search results (for search and search_files actions)',
         default: 20,
-      },
-      format: {
-        type: 'string',
-        enum: ['json', 'table', 'plain'],
-        description: 'Output format',
-        default: 'json',
       },
     },
     required: ['action'],
@@ -776,55 +756,9 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
         result = await searchFiles(parsed.data);
         break;
 
-      case 'symbol':
-        result = await extractSymbols(parsed.data);
-        break;
-
-      case 'status':
-        result = await getStatus(parsed.data);
-        break;
-
-      case 'config_show':
-        result = await configShow();
-        break;
-
-      case 'config_set':
-        result = await configSet(parsed.data);
-        break;
-
-      case 'config_migrate':
-        result = await configMigrate(parsed.data);
-        break;
-
-      case 'clean':
-        result = await cleanIndexes(parsed.data);
-        break;
-
-      case 'bootstrap': {
-        // Force re-bootstrap
-        bootstrapChecked = false;
-        bootstrapReady = false;
-        const bootstrapResult = await bootstrapVenv();
-        result = bootstrapResult.success
-          ? { success: true, message: 'CodexLens bootstrapped successfully' }
-          : { success: false, error: bootstrapResult.error };
-        break;
-      }
-
-      case 'check': {
-        const checkResult = await checkVenvStatus();
-        result = {
-          success: checkResult.ready,
-          ready: checkResult.ready,
-          error: checkResult.error,
-          version: checkResult.version,
-        };
-        break;
-      }
-
       default:
         throw new Error(
-          `Unknown action: ${action}. Valid actions: init, search, search_files, symbol, status, config_show, config_set, config_migrate, clean, bootstrap, check`
+          `Unknown action: ${action}. Valid actions: init, search, search_files`
         );
     }
 

@@ -255,7 +255,7 @@ Based on userConfig.executionMethod:
 CLI Resume Support (MANDATORY for all CLI commands):
 - Use --resume parameter to continue from previous task execution
 - Read previous task's cliExecutionId from session state
-- Format: ccw cli exec "[prompt]" --resume ${previousCliId} --tool ${tool} --mode auto
+- Format: ccw cli exec "[prompt]" --resume ${previousCliId} --tool ${tool} --mode write
 
 ## EXPLORATION CONTEXT (from context-package.exploration_results)
 - Load exploration_results from context-package.json

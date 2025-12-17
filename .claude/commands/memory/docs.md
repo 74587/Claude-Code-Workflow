@@ -241,7 +241,7 @@ api_id=$((group_count + 3))
 **Command Patterns**:
 - Gemini/Qwen: `ccw cli exec "..." --tool gemini --cd dir`
 - CLI Mode: `ccw cli exec "..." --tool gemini --mode write --cd dir`
-- Codex: `ccw cli exec "..." --tool codex --mode auto --cd dir`
+- Codex: `ccw cli exec "..." --tool codex --mode write --cd dir`
 
 **Generation Process**:
 1. Read configuration values (tool, cli_execute, mode) from workflow-session.json

@@ -473,7 +473,7 @@ Detailed plan: ${executionContext.session.artifacts.plan}`)
   return prompt
 }
 
-ccw cli exec "${buildCLIPrompt(batch)}" --tool codex --mode auto
+ccw cli exec "${buildCLIPrompt(batch)}" --tool codex --mode write
 ```
 
 **Execution with fixed IDs** (predictable ID pattern):
@@ -496,8 +496,8 @@ const previousCliId = batch.resumeFromCliId || null
 
 // Build command with fixed ID (and optional resume for continuation)
 const cli_command = previousCliId
-  ? `ccw cli exec "${buildCLIPrompt(batch)}" --tool codex --mode auto --id ${fixedExecutionId} --resume ${previousCliId}`
-  : `ccw cli exec "${buildCLIPrompt(batch)}" --tool codex --mode auto --id ${fixedExecutionId}`
+  ? `ccw cli exec "${buildCLIPrompt(batch)}" --tool codex --mode write --id ${fixedExecutionId} --resume ${previousCliId}`
+  : `ccw cli exec "${buildCLIPrompt(batch)}" --tool codex --mode write --id ${fixedExecutionId}`
 
 bash_result = Bash(
   command=cli_command,
@@ -519,7 +519,7 @@ if (bash_result.status === 'failed' || bash_result.status === 'timeout') {
 ⚠️ Execution incomplete. Resume available:
    Fixed ID: ${fixedExecutionId}
    Lookup: ccw cli detail ${fixedExecutionId}
-   Resume: ccw cli exec "Continue tasks" --resume ${fixedExecutionId} --tool codex --mode auto --id ${fixedExecutionId}-retry
+   Resume: ccw cli exec "Continue tasks" --resume ${fixedExecutionId} --tool codex --mode write --id ${fixedExecutionId}-retry
 `)
 
   // Store for potential retry in same session
@@ -582,7 +582,7 @@ ccw cli exec "[Shared Prompt Template with artifacts]" --tool qwen --mode analys
 # Same prompt as Gemini, different execution engine
 
 # Method 4: Codex Review (autonomous)
-ccw cli exec "[Verify plan acceptance criteria at ${plan.json}]" --tool codex --mode auto
+ccw cli exec "[Verify plan acceptance criteria at ${plan.json}]" --tool codex --mode write
 ```
 
 **Multi-Round Review with Fixed IDs**:
@@ -744,5 +744,5 @@ Appended to `previousExecutionResults` array for context continuity in multi-exe
 ccw cli detail ${fixedCliId}
 
 # Resume with new fixed ID for retry
-ccw cli exec "Continue from where we left off" --resume ${fixedCliId} --tool codex --mode auto --id ${fixedCliId}-retry
+ccw cli exec "Continue from where we left off" --resume ${fixedCliId} --tool codex --mode write --id ${fixedCliId}-retry
 ```

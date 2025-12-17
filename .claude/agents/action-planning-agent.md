@@ -542,8 +542,8 @@ The `implementation_approach` supports **two execution modes** based on the pres
    - **Use for**: Large-scale features, complex refactoring, or when user explicitly requests CLI tool usage
    - **Required fields**: Same as default mode **PLUS** `command`, `resume_from` (optional)
    - **Command patterns** (with resume support):
-     - `ccw cli exec '[prompt]' --tool codex --mode auto --cd [path]`
-     - `ccw cli exec '[prompt]' --resume ${previousCliId} --tool codex --mode auto` (resume from previous)
+     - `ccw cli exec '[prompt]' --tool codex --mode write --cd [path]`
+     - `ccw cli exec '[prompt]' --resume ${previousCliId} --tool codex --mode write` (resume from previous)
      - `ccw cli exec '[prompt]' --tool gemini --mode write --cd [path]` (write mode)
    - **Resume mechanism**: When step depends on previous CLI execution, include `--resume` with previous execution ID
 
@@ -621,7 +621,7 @@ Agent determines CLI tool usage per-step based on user semantics and task nature
     "step": 3,
     "title": "Execute implementation using CLI tool",
     "description": "Use Codex/Gemini for complex autonomous execution",
-    "command": "ccw cli exec '[prompt]' --tool codex --mode auto --cd [path]",
+    "command": "ccw cli exec '[prompt]' --tool codex --mode write --cd [path]",
     "modification_points": ["[Same as default mode]"],
     "logic_flow": ["[Same as default mode]"],
     "depends_on": [1, 2],
@@ -634,7 +634,7 @@ Agent determines CLI tool usage per-step based on user semantics and task nature
     "step": 4,
     "title": "Continue implementation with context",
     "description": "Resume from previous step with accumulated context",
-    "command": "ccw cli exec '[continuation prompt]' --resume ${step3_cli_id} --tool codex --mode auto",
+    "command": "ccw cli exec '[continuation prompt]' --resume ${step3_cli_id} --tool codex --mode write",
     "resume_from": "step3_cli_id",  // Reference previous step's CLI ID
     "modification_points": ["[Continue from step 3]"],
     "logic_flow": ["[Build on previous output]"],

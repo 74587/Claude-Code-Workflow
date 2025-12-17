@@ -79,6 +79,8 @@ def init(
     ),
     workers: int = typer.Option(4, "--workers", "-w", min=1, max=16, help="Parallel worker processes."),
     force: bool = typer.Option(False, "--force", "-f", help="Force full reindex (skip incremental mode)."),
+    no_embeddings: bool = typer.Option(False, "--no-embeddings", help="Skip automatic embedding generation (if semantic deps installed)."),
+    embedding_model: str = typer.Option("code", "--embedding-model", help="Embedding model profile: fast, code, multilingual, balanced."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
 ) -> None:
@@ -89,6 +91,9 @@ def init(
 
     By default, uses incremental indexing (skip unchanged files).
     Use --force to rebuild all files regardless of modification time.
+
+    If semantic search dependencies are installed, automatically generates embeddings
+    after indexing completes. Use --no-embeddings to skip this step.
     """
     _configure_logging(verbose)
     config = Config()
@@ -132,6 +137,59 @@ def init(
             console.print(f"  Index root: {build_result.index_root}")
             if build_result.errors:
                 console.print(f"  [yellow]Warnings:[/yellow] {len(build_result.errors)} errors")
+
+        # Auto-generate embeddings if semantic search is available
+        if not no_embeddings:
+            try:
+                from codexlens.semantic import SEMANTIC_AVAILABLE
+                from codexlens.cli.embedding_manager import generate_embeddings
+
+                if SEMANTIC_AVAILABLE:
+                    # Find the index file
+                    index_path = Path(build_result.index_root) / "_index.db"
+
+                    if not json_mode:
+                        console.print("\n[bold]Generating embeddings...[/bold]")
+                        console.print(f"Model: [cyan]{embedding_model}[/cyan]")
+
+                    # Progress callback for non-json mode
+                    def progress_update(msg: str):
+                        if not json_mode and verbose:
+                            console.print(f"  {msg}")
+
+                    embed_result = generate_embeddings(
+                        index_path,
+                        model_profile=embedding_model,
+                        force=False,  # Don't force regenerate during init
+                        chunk_size=2000,
+                        progress_callback=progress_update if not json_mode else None,
+                    )
+
+                    if embed_result["success"]:
+                        embed_data = embed_result["result"]
+                        result["embeddings_generated"] = True
+                        result["embeddings_count"] = embed_data["chunks_embedded"]
+
+                        if not json_mode:
+                            console.print(f"[green]✓[/green] Generated [bold]{embed_data['chunks_embedded']}[/bold] embeddings in {embed_data['elapsed_time']:.1f}s")
+                    else:
+                        if not json_mode:
+                            console.print(f"[yellow]Warning:[/yellow] Embedding generation failed: {embed_result.get('error', 'Unknown error')}")
+                        result["embeddings_generated"] = False
+                        result["embeddings_error"] = embed_result.get("error")
+                else:
+                    if not json_mode and verbose:
+                        console.print("[dim]Semantic search not available. Skipping embeddings.[/dim]")
+                    result["embeddings_generated"] = False
+                    result["embeddings_error"] = "Semantic dependencies not installed"
+            except Exception as e:
+                if not json_mode and verbose:
+                    console.print(f"[yellow]Warning:[/yellow] Could not generate embeddings: {e}")
+                result["embeddings_generated"] = False
+                result["embeddings_error"] = str(e)
+        else:
+            result["embeddings_generated"] = False
+            result["embeddings_error"] = "Skipped (--no-embeddings)"
 
     except StorageError as exc:
         if json_mode:
@@ -181,7 +239,7 @@ def search(
     limit: int = typer.Option(20, "--limit", "-n", min=1, max=500, help="Max results."),
     depth: int = typer.Option(-1, "--depth", "-d", help="Search depth (-1 = unlimited, 0 = current only)."),
     files_only: bool = typer.Option(False, "--files-only", "-f", help="Return only file paths without content snippets."),
-    mode: str = typer.Option("exact", "--mode", "-m", help="Search mode: exact, fuzzy, hybrid, vector, pure-vector."),
+    mode: str = typer.Option("auto", "--mode", "-m", help="Search mode: auto, exact, fuzzy, hybrid, vector, pure-vector."),
     weights: Optional[str] = typer.Option(None, "--weights", help="Custom RRF weights as 'exact,fuzzy,vector' (e.g., '0.5,0.3,0.2')."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
@@ -192,7 +250,8 @@ def search(
     Use --depth to limit search recursion (0 = current dir only).
 
     Search Modes:
-      - exact: Exact FTS using unicode61 tokenizer (default) - for code identifiers
+      - auto: Auto-detect (hybrid if embeddings exist, exact otherwise) [default]
+      - exact: Exact FTS using unicode61 tokenizer - for code identifiers
       - fuzzy: Fuzzy FTS using trigram tokenizer - for typo-tolerant search
       - hybrid: RRF fusion of exact + fuzzy + vector (recommended) - best recall
       - vector: Vector search with exact FTS fallback - semantic + keyword
@@ -207,20 +266,23 @@ def search(
       Use --weights to customize (e.g., --weights 0.5,0.3,0.2)
 
     Examples:
-      # Exact code search
+      # Auto-detect mode (uses hybrid if embeddings available)
+      codexlens search "authentication"
+
+      # Explicit exact code search
       codexlens search "authenticate_user" --mode exact
 
       # Semantic search (requires embeddings)
       codexlens search "how to verify user credentials" --mode pure-vector
 
-      # Best of both worlds
+      # Force hybrid mode
       codexlens search "authentication" --mode hybrid
     """
     _configure_logging(verbose)
     search_path = path.expanduser().resolve()
 
     # Validate mode
-    valid_modes = ["exact", "fuzzy", "hybrid", "vector", "pure-vector"]
+    valid_modes = ["auto", "exact", "fuzzy", "hybrid", "vector", "pure-vector"]
     if mode not in valid_modes:
         if json_mode:
             print_json(success=False, error=f"Invalid mode: {mode}. Must be one of: {', '.join(valid_modes)}")
@@ -258,19 +320,48 @@ def search(
 
         engine = ChainSearchEngine(registry, mapper)
 
+        # Auto-detect mode if set to "auto"
+        actual_mode = mode
+        if mode == "auto":
+            # Check if embeddings are available by looking for project in registry
+            project_record = registry.find_by_source_path(str(search_path))
+            has_embeddings = False
+
+            if project_record:
+                # Check if index has embeddings
+                index_path = Path(project_record["index_root"]) / "_index.db"
+                try:
+                    from codexlens.cli.embedding_manager import check_embeddings_status
+                    embed_status = check_embeddings_status(index_path)
+                    if embed_status["success"]:
+                        embed_data = embed_status["result"]
+                        has_embeddings = embed_data["has_embeddings"] and embed_data["chunks_count"] > 0
+                except Exception:
+                    pass
+
+            # Choose mode based on embedding availability
+            if has_embeddings:
+                actual_mode = "hybrid"
+                if not json_mode and verbose:
+                    console.print("[dim]Auto-detected mode: hybrid (embeddings available)[/dim]")
+            else:
+                actual_mode = "exact"
+                if not json_mode and verbose:
+                    console.print("[dim]Auto-detected mode: exact (no embeddings)[/dim]")
+
         # Map mode to options
-        if mode == "exact":
+        if actual_mode == "exact":
             hybrid_mode, enable_fuzzy, enable_vector, pure_vector = False, False, False, False
-        elif mode == "fuzzy":
+        elif actual_mode == "fuzzy":
             hybrid_mode, enable_fuzzy, enable_vector, pure_vector = False, True, False, False
-        elif mode == "vector":
+        elif actual_mode == "vector":
             hybrid_mode, enable_fuzzy, enable_vector, pure_vector = True, False, True, False  # Vector + exact fallback
-        elif mode == "pure-vector":
+        elif actual_mode == "pure-vector":
             hybrid_mode, enable_fuzzy, enable_vector, pure_vector = True, False, True, True  # Pure vector only
-        elif mode == "hybrid":
+        elif actual_mode == "hybrid":
             hybrid_mode, enable_fuzzy, enable_vector, pure_vector = True, True, True, False
         else:
-            raise ValueError(f"Invalid mode: {mode}")
+            raise ValueError(f"Invalid mode: {actual_mode}")
 
         options = SearchOptions(
             depth=depth,
@@ -295,7 +386,7 @@ def search(
             result = engine.search(query, search_path, options)
             payload = {
                 "query": query,
-                "mode": mode,
+                "mode": actual_mode,
                 "count": len(result.results),
                 "results": [
                     {
@@ -316,7 +407,7 @@ def search(
                 print_json(success=True, result=payload)
             else:
                 render_search_results(result.results, verbose=verbose)
-                console.print(f"[dim]Mode: {mode} | Searched {result.stats.dirs_searched} directories in {result.stats.time_ms:.1f}ms[/dim]")
+                console.print(f"[dim]Mode: {actual_mode} | Searched {result.stats.dirs_searched} directories in {result.stats.time_ms:.1f}ms[/dim]")
 
     except SearchError as exc:
         if json_mode:
