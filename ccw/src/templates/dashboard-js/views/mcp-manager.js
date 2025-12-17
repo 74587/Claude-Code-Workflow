@@ -6,8 +6,7 @@ const CCW_MCP_TOOLS = [
   // Core tools (always recommended)
   { name: 'write_file', desc: 'Write/create files', core: true },
   { name: 'edit_file', desc: 'Edit/replace content', core: true },
-  { name: 'codex_lens', desc: 'Code index & search', core: true },
-  { name: 'smart_search', desc: 'Quick regex/NL search', core: true },
+  { name: 'smart_search', desc: 'Hybrid search (regex + semantic)', core: true },
   // Optional tools
   { name: 'session_manager', desc: 'Workflow sessions', core: false },
   { name: 'generate_module_docs', desc: 'Generate docs', core: false },
@@ -236,7 +235,7 @@ async function renderMcpManager() {
             </div>
             <div class="shrink-0">
               <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
-                      onclick="installCcwToolsMcpToCodex()">
+                      data-action="install-ccw-codex">
                 <i data-lucide="download" class="w-4 h-4"></i>
                 ${codexMcpServers && codexMcpServers['ccw-tools'] ? t('mcp.update') : t('mcp.install')}
               </button>
@@ -322,7 +321,9 @@ async function renderMcpManager() {
                   </div>
                   ${!alreadyInCodex ? `
                     <button class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
-                            onclick="copyClaudeServerToCodex('${escapeHtml(serverName)}', ${JSON.stringify(serverConfig).replace(/'/g, "&#39;")})"
+                            data-action="copy-to-codex"
+                            data-server-name="${escapeHtml(serverName)}"
+                            data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
                             title="${t('mcp.codex.copyToCodex')}">
                       <i data-lucide="arrow-right" class="w-3.5 h-3.5 inline"></i> Codex
                     </button>
@@ -421,26 +422,26 @@ async function renderMcpManager() {
             <div class="shrink-0 flex gap-2">
               ${isCcwToolsInstalled ? `
                 <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
-                        onclick="updateCcwToolsMcp('workspace')"
+                        data-action="update-ccw-workspace"
                         title="${t('mcp.updateInWorkspace')}">
                   <i data-lucide="folder" class="w-4 h-4"></i>
                   ${t('mcp.updateInWorkspace')}
                 </button>
                 <button class="px-4 py-2 text-sm bg-success text-success-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
-                        onclick="updateCcwToolsMcp('global')"
+                        data-action="update-ccw-global"
                         title="${t('mcp.updateInGlobal')}">
                   <i data-lucide="globe" class="w-4 h-4"></i>
                   ${t('mcp.updateInGlobal')}
                 </button>
               ` : `
                 <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
-                        onclick="installCcwToolsMcp('workspace')"
+                        data-action="install-ccw-workspace"
                         title="${t('mcp.installToWorkspace')}">
                   <i data-lucide="folder" class="w-4 h-4"></i>
                   ${t('mcp.installToWorkspace')}
                 </button>
                 <button class="px-4 py-2 text-sm bg-success text-success-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
-                        onclick="installCcwToolsMcp('global')"
+                        data-action="install-ccw-global"
                         title="${t('mcp.installToGlobal')}">
                   <i data-lucide="globe" class="w-4 h-4"></i>
                   ${t('mcp.installToGlobal')}
@@ -658,7 +659,9 @@ async function renderMcpManager() {
                   </div>
                   ${!alreadyInClaude ? `
                     <button class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
-                            onclick="copyCodexServerToClaude('${escapeHtml(serverName)}', ${JSON.stringify(serverConfig).replace(/'/g, "&#39;")})"
+                            data-action="copy-codex-to-claude"
+                            data-server-name="${escapeHtml(serverName)}"
+                            data-server-config='${JSON.stringify(serverConfig).replace(/'/g, "&#39;")}'
                             title="${t('mcp.claude.copyToClaude')}">
                       <i data-lucide="arrow-right" class="w-3.5 h-3.5 inline"></i> Claude
                     </button>
@@ -769,11 +772,12 @@ async function renderMcpManager() {
     </div>
   `;
 
-  // Attach event listeners for toggle switches
-  attachMcpEventListeners();
-  
-  // Initialize Lucide icons
+  // Initialize Lucide icons FIRST (before attaching event listeners)
+  // lucide.createIcons() may replace DOM elements, which would remove event listeners
   if (typeof lucide !== 'undefined') lucide.createIcons();
+  
+  // Attach event listeners AFTER icon initialization
+  attachMcpEventListeners();
 }
 
 // Render card for Project Available MCP (current project can use)
@@ -1040,7 +1044,9 @@ function renderAvailableServerCardForCodex(serverName, serverInfo) {
         </div>
         ${!alreadyInCodex ? `
           <button class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
-                  onclick="copyClaudeServerToCodex('${escapeHtml(originalName)}', ${JSON.stringify(serverConfig).replace(/'/g, "&#39;")})"
+                  data-action="copy-to-codex"
+                  data-server-name="${escapeHtml(originalName)}"
+                  data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
                   title="${t('mcp.codex.copyToCodex')}">
             <i data-lucide="arrow-right" class="w-3.5 h-3.5 inline"></i> Codex
           </button>
@@ -1066,7 +1072,9 @@ function renderAvailableServerCardForCodex(serverName, serverInfo) {
 
       <div class="mt-3 pt-3 border-t border-border flex items-center gap-2">
         <button class="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
-                onclick="copyClaudeServerToCodex('${escapeHtml(originalName)}', ${JSON.stringify(serverConfig).replace(/'/g, "&#39;")})"
+                data-action="copy-to-codex"
+                data-server-name="${escapeHtml(originalName)}"
+                data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
                 title="${t('mcp.codex.copyToCodex')}">
           <i data-lucide="download" class="w-3 h-3"></i>
           ${t('mcp.codex.install')}
@@ -1144,7 +1152,9 @@ function renderCodexServerCard(serverName, serverConfig) {
       <div class="mt-3 pt-3 border-t border-border flex items-center justify-between gap-2" onclick="event.stopPropagation()">
         <div class="flex items-center gap-2">
           <button class="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
-                  onclick="copyCodexServerToClaude('${escapeHtml(serverName)}', ${JSON.stringify(serverConfig).replace(/'/g, "&#39;")})"
+                  data-action="copy-codex-to-claude"
+                  data-server-name="${escapeHtml(serverName)}"
+                  data-server-config='${JSON.stringify(serverConfig).replace(/'/g, "&#39;")}'
                   title="${t('mcp.codex.copyToClaude')}">
             <i data-lucide="copy" class="w-3 h-3"></i>
             ${t('mcp.codex.copyToClaude')}
@@ -1212,7 +1222,11 @@ function renderCrossCliServerCard(server, isClaude) {
       </div>
       <div class="mt-3 pt-3 border-t border-border">
         <button class="w-full px-3 py-2 text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center justify-center gap-1.5"
-                onclick="copyCrossCliServer('${escapeHtml(name)}', ${JSON.stringify(config).replace(/'/g, "&#39;")}, '${fromCli}', '${targetCli}')">
+                data-action="copy-cross-cli"
+                data-server-name="${escapeHtml(name)}"
+                data-server-config='${JSON.stringify(config).replace(/'/g, "&#39;")}'
+                data-from-cli="${fromCli}"
+                data-target-cli="${targetCli}">
           <i data-lucide="copy" class="w-4 h-4"></i>
           ${buttonText}
         </button>
@@ -1349,7 +1363,7 @@ function attachMcpEventListeners() {
     btn.addEventListener('click', async (e) => {
       const serverName = btn.dataset.serverName;
       const serverConfig = JSON.parse(btn.dataset.serverConfig);
-      await installMcpToProject(serverName, serverConfig);
+      await copyMcpServerToProject(serverName, serverConfig);
     });
   });
 
@@ -1391,6 +1405,51 @@ function attachMcpEventListeners() {
   });
 
   // ========================================
+  // CCW Tools MCP Event Listeners
+  // ========================================
+
+  // CCW Tools action buttons (workspace/global install/update)
+  const ccwActions = {
+    'update-ccw-workspace': () => updateCcwToolsMcp('workspace'),
+    'update-ccw-global': () => updateCcwToolsMcp('global'),
+    'install-ccw-workspace': () => installCcwToolsMcp('workspace'),
+    'install-ccw-global': () => installCcwToolsMcp('global'),
+    'install-ccw-codex': () => installCcwToolsMcpToCodex()
+  };
+
+  // Mode-specific and conditionally rendered actions (don't warn if not found)
+  const conditionalActions = new Set([
+    'install-ccw-codex',      // Only in Codex mode
+    'update-ccw-workspace',   // Only if ccw-tools installed
+    'update-ccw-global'       // Only if ccw-tools installed
+  ]);
+
+  Object.entries(ccwActions).forEach(([action, handler]) => {
+    const btns = document.querySelectorAll(`button[data-action="${action}"]`);
+
+    if (btns.length > 0) {
+      console.log(`[MCP] Attaching listener to ${action} (${btns.length} button(s) found)`);
+      btns.forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          console.log(`[MCP] Button clicked: ${action}`);
+          try {
+            await handler();
+          } catch (err) {
+            console.error(`[MCP] Error executing handler for ${action}:`, err);
+            if (typeof showRefreshToast === 'function') {
+              showRefreshToast(`Action failed: ${err.message}`, 'error');
+            }
+          }
+        });
+      });
+    } else if (!conditionalActions.has(action)) {
+      // Only warn if button is not conditionally rendered
+      console.warn(`[MCP] No buttons found for action: ${action}`);
+    }
+  });
+
+  // ========================================
   // Codex MCP Event Listeners
   // ========================================
 
@@ -1410,6 +1469,61 @@ function attachMcpEventListeners() {
       if (confirm(t('mcp.codex.removeConfirm', { name: serverName }))) {
         await removeCodexMcpServer(serverName);
       }
+    });
+  });
+
+  // Copy Claude servers to Codex
+  document.querySelectorAll('button[data-action="copy-to-codex"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const serverName = btn.dataset.serverName;
+      const serverConfig = JSON.parse(btn.dataset.serverConfig);
+      console.log('[MCP] Copying to Codex:', serverName);
+      await copyClaudeServerToCodex(serverName, serverConfig);
+    });
+  });
+
+  // Copy Codex servers to Claude
+  document.querySelectorAll('button[data-action="copy-codex-to-claude"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const serverName = btn.dataset.serverName;
+      let serverConfig;
+      try {
+        serverConfig = JSON.parse(btn.dataset.serverConfig);
+      } catch (err) {
+        console.error('[MCP] JSON Parse Error:', err);
+        if (typeof showRefreshToast === 'function') {
+          showRefreshToast('Failed to parse server configuration', 'error');
+        }
+        return;
+      }
+      console.log('[MCP] Copying Codex to Claude:', serverName);
+      await copyCodexServerToClaude(serverName, serverConfig);
+    });
+  });
+
+  // Copy servers across CLI tools
+  document.querySelectorAll('button[data-action="copy-cross-cli"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const serverName = btn.dataset.serverName;
+      let serverConfig;
+      try {
+        serverConfig = JSON.parse(btn.dataset.serverConfig);
+      } catch (err) {
+        console.error('[MCP] JSON Parse Error:', err);
+        if (typeof showRefreshToast === 'function') {
+          showRefreshToast('Failed to parse server configuration', 'error');
+        }
+        return;
+      }
+      const fromCli = btn.dataset.fromCli;
+      const targetCli = btn.dataset.targetCli;
+      console.log('[MCP] Copying cross-CLI:', serverName, 'from', fromCli, 'to', targetCli);
+      await copyCrossCliServer(serverName, serverConfig, fromCli, targetCli);
     });
   });
 
@@ -1844,7 +1958,7 @@ async function installFromTemplate(templateName, scope = 'project') {
 
     // Install based on scope
     if (scope === 'project') {
-      await installMcpToProject(serverName, template.serverConfig);
+      await copyMcpServerToProject(serverName, template.serverConfig);
     } else if (scope === 'global') {
       await addGlobalMcpServer(serverName, template.serverConfig);
     }
@@ -1880,3 +1994,11 @@ async function deleteMcpTemplate(templateName) {
     showRefreshToast(t('mcp.templateDeleteFailed', { error: error.message }), 'error');
   }
 }
+
+// ========== Global Exports for onclick handlers ==========
+// Expose functions to global scope to support inline onclick handlers
+window.openCodexMcpCreateModal = openCodexMcpCreateModal;
+window.closeMcpEditModal = closeMcpEditModal;
+window.saveMcpEdit = saveMcpEdit;
+window.deleteMcpFromEdit = deleteMcpFromEdit;
+window.saveMcpAsTemplate = saveMcpAsTemplate;

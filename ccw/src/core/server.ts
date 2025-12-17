@@ -269,8 +269,8 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         if (await handleMemoryRoutes(routeContext)) return;
       }
 
-      // MCP routes (/api/mcp*)
-      if (pathname.startsWith('/api/mcp')) {
+      // MCP routes (/api/mcp*, /api/codex-mcp*)
+      if (pathname.startsWith('/api/mcp') || pathname.startsWith('/api/codex-mcp')) {
         if (await handleMcpRoutes(routeContext)) return;
       }
 

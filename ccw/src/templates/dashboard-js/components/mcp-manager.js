@@ -395,14 +395,19 @@ async function removeGlobalMcpServer(serverName) {
 function updateMcpBadge() {
   const badge = document.getElementById('badgeMcpServers');
   if (badge) {
-    const currentPath = projectPath; // Keep original format (forward slash)
-    const projectData = mcpAllProjects[currentPath];
+    // Try both path formats to find the matching key
+    const forwardSlashPath = projectPath.replace(/\\/g, '/');
+    const backSlashPath = projectPath.replace(/\//g, '\\');
+
+    // Find matching project data using either path format
+    const projectData = mcpAllProjects[forwardSlashPath] || mcpAllProjects[backSlashPath] || mcpAllProjects[projectPath];
     const servers = projectData?.mcpServers || {};
     const disabledServers = projectData?.disabledMcpServers || [];
 
     const totalServers = Object.keys(servers).length;
     const enabledServers = totalServers - disabledServers.length;
 
+    console.log('[MCP Badge]', { projectPath, forwardSlashPath, backSlashPath, totalServers, enabledServers });
     badge.textContent = `${enabledServers}/${totalServers}`;
   }
 }
@@ -957,7 +962,7 @@ async function installCcwToolsMcp(scope = 'workspace') {
 
     if (scope === 'global') {
       // Install to global (~/.claude.json mcpServers)
-      const response = await fetch('/api/mcp-add-global', {
+      const response = await fetch('/api/mcp-add-global-server', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1021,7 +1026,7 @@ async function updateCcwToolsMcp(scope = 'workspace') {
 
     if (scope === 'global') {
       // Update global (~/.claude.json mcpServers)
-      const response = await fetch('/api/mcp-add-global', {
+      const response = await fetch('/api/mcp-add-global-server', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1124,3 +1129,11 @@ async function installCcwToolsMcpToCodex() {
     showRefreshToast(`Failed to install CCW Tools MCP to Codex: ${err.message}`, 'error');
   }
 }
+
+// ========== Global Exports for onclick handlers ==========
+// Expose functions to global scope to support inline onclick handlers
+window.setCliMode = setCliMode;
+window.getCliMode = getCliMode;
+window.selectCcwTools = selectCcwTools;
+window.selectCcwToolsCodex = selectCcwToolsCodex;
+window.openMcpCreateModal = openMcpCreateModal;

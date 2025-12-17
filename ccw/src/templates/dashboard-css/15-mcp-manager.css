@@ -218,6 +218,16 @@ button.icon-btn {
   background: radial-gradient(circle, rgba(249, 115, 22, 0.1) 0%, transparent 70%);
   opacity: 0;
   transition: opacity 0.3s ease;
+  pointer-events: none; /* Prevent blocking clicks */
+  z-index: 0;
+}
+
+/* Ensure interactive elements are above decorative layers */
+.ccw-tools-card button,
+.ccw-tools-card input,
+.ccw-tools-card label {
+  position: relative;
+  z-index: 1;
 }
 
 .ccw-tools-card:hover::before {
