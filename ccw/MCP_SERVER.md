@@ -59,11 +59,10 @@ The MCP server exposes the following CCW tools:
 - **write_file** - Create or overwrite files
 
 ### Code Analysis
-- **codex_lens** - Analyze code execution flow
+- **smart_search** - Intelligent code search with hybrid/exact/ripgrep modes
 - **get_modules_by_depth** - Get module hierarchy by depth
 - **classify_folders** - Classify project folders
 - **detect_changed_modules** - Detect modules with git changes
-- **smart_search** - Intelligent code search
 
 ### Session Management
 - **session_manager** - Manage workflow sessions
@@ -88,7 +87,7 @@ Once configured, you can use CCW tools directly in Claude Desktop conversations:
 ```
 Can you use edit_file to update the header in README.md?
 
-Use codex_lens to analyze the authentication flow in src/auth/login.js
+Use smart_search to find authentication logic: smart_search(query="authentication")
 
 Get the module structure with get_modules_by_depth
 ```

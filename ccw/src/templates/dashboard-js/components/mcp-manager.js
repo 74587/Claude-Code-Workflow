@@ -20,6 +20,11 @@ let currentCliMode = 'claude'; // 'claude' or 'codex'
 let codexMcpConfig = null;
 let codexMcpServers = {};
 
+// ========== Project Config Type Preference ==========
+// 'mcp' = .mcp.json (project root file, recommended)
+// 'claude' = claude.json projects[path].mcpServers (shared config)
+let preferredProjectConfigType = 'mcp';
+
 // ========== Initialization ==========
 function initMcpManager() {
   // Initialize MCP navigation
@@ -229,11 +234,9 @@ async function toggleMcpServer(serverName, enable) {
 
 async function copyMcpServerToProject(serverName, serverConfig, configType = null) {
   try {
-    // If configType not specified, ask user to choose
+    // If configType not specified, use the preferred config type (toggle setting)
     if (!configType) {
-      const choice = await showConfigTypeDialog();
-      if (!choice) return null; // User cancelled
-      configType = choice;
+      configType = preferredProjectConfigType;
     }
 
     const response = await fetch('/api/mcp-copy-server', {
@@ -982,14 +985,16 @@ async function installCcwToolsMcp(scope = 'workspace') {
         showRefreshToast(result.error || 'Failed to install CCW Tools MCP globally', 'error');
       }
     } else {
-      // Install to workspace (.mcp.json)
+      // Install to workspace (use preferredProjectConfigType)
+      const configType = preferredProjectConfigType;
       const response = await fetch('/api/mcp-copy-server', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           projectPath: projectPath,
           serverName: 'ccw-tools',
-          serverConfig: ccwToolsConfig
+          serverConfig: ccwToolsConfig,
+          configType: configType
         })
       });
 
@@ -999,7 +1004,8 @@ async function installCcwToolsMcp(scope = 'workspace') {
       if (result.success) {
         await loadMcpConfig();
         renderMcpManager();
-        showRefreshToast(`CCW Tools installed to workspace (${selectedTools.length} tools)`, 'success');
+        const location = configType === 'mcp' ? '.mcp.json' : 'claude.json';
+        showRefreshToast(`CCW Tools installed to ${location} (${selectedTools.length} tools)`, 'success');
       } else {
         showRefreshToast(result.error || 'Failed to install CCW Tools MCP to workspace', 'error');
       }
@@ -1046,14 +1052,16 @@ async function updateCcwToolsMcp(scope = 'workspace') {
         showRefreshToast(result.error || 'Failed to update CCW Tools MCP globally', 'error');
       }
     } else {
-      // Update workspace (.mcp.json)
+      // Update workspace (use preferredProjectConfigType)
+      const configType = preferredProjectConfigType;
       const response = await fetch('/api/mcp-copy-server', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           projectPath: projectPath,
           serverName: 'ccw-tools',
-          serverConfig: ccwToolsConfig
+          serverConfig: ccwToolsConfig,
+          configType: configType
         })
       });
 
@@ -1063,7 +1071,8 @@ async function updateCcwToolsMcp(scope = 'workspace') {
       if (result.success) {
         await loadMcpConfig();
         renderMcpManager();
-        showRefreshToast(`CCW Tools updated in workspace (${selectedTools.length} tools)`, 'success');
+        const location = configType === 'mcp' ? '.mcp.json' : 'claude.json';
+        showRefreshToast(`CCW Tools updated in ${location} (${selectedTools.length} tools)`, 'success');
       } else {
         showRefreshToast(result.error || 'Failed to update CCW Tools MCP in workspace', 'error');
       }
@@ -1130,6 +1139,25 @@ async function installCcwToolsMcpToCodex() {
   }
 }
 
+// ========== Project Config Type Toggle ==========
+function toggleProjectConfigType() {
+  preferredProjectConfigType = preferredProjectConfigType === 'mcp' ? 'claude' : 'mcp';
+  console.log('[MCP] Preferred project config type changed to:', preferredProjectConfigType);
+  // Re-render to update toggle display
+  renderMcpManager();
+}
+
+function getPreferredProjectConfigType() {
+  return preferredProjectConfigType;
+}
+
+function setPreferredProjectConfigType(type) {
+  if (type === 'mcp' || type === 'claude') {
+    preferredProjectConfigType = type;
+    console.log('[MCP] Preferred project config type set to:', preferredProjectConfigType);
+  }
+}
+
 // ========== Global Exports for onclick handlers ==========
 // Expose functions to global scope to support inline onclick handlers
 window.setCliMode = setCliMode;
@@ -1137,3 +1165,6 @@ window.getCliMode = getCliMode;
 window.selectCcwTools = selectCcwTools;
 window.selectCcwToolsCodex = selectCcwToolsCodex;
 window.openMcpCreateModal = openMcpCreateModal;
+window.toggleProjectConfigType = toggleProjectConfigType;
+window.getPreferredProjectConfigType = getPreferredProjectConfigType;
+window.setPreferredProjectConfigType = setPreferredProjectConfigType;

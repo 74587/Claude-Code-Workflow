@@ -3,6 +3,8 @@
 // Internationalization for help page (Chinese translations)
 // ==========================================
 
+console.log('[Help i18n] File loading started');
+
 var helpI18n = {
   zh: {
     // Page Headers
@@ -30,10 +32,13 @@ var helpI18n = {
 
     // Workflow Diagrams
     'help.diagrams.title': '常见工作流场景',
-    'help.diagrams.tdd': 'TDD 开发',
-    'help.diagrams.feature': '功能开发',
-    'help.diagrams.bugfix': 'Bug 调查',
-    'help.diagrams.review': '代码审查',
+    'help.diagrams.decision': '决策流程：选择规划方式',
+    'help.diagrams.brainstorm': '头脑风暴',
+    'help.diagrams.cliResume': 'CLI Resume机制',
+    'help.diagrams.bugFix': 'Bug修复流程',
+    'help.diagrams.lite': 'Lite轻量工作流',
+    'help.diagrams.planFull': 'Plan完整规划',
+    'help.diagrams.tdd': 'TDD测试驱动',
     'help.diagrams.fit': '适应视图',
     'help.diagrams.zoomIn': '放大',
     'help.diagrams.zoomOut': '缩小',
@@ -42,6 +47,59 @@ var helpI18n = {
     'help.diagrams.legend.nextSteps': '下一步',
     'help.diagrams.legend.alternatives': '替代方案',
     'help.diagrams.notLoaded': 'Cytoscape.js 未加载',
+
+    // Workflow Steps - Decision
+    'help.workflows.decision.start': '任务开始',
+    'help.workflows.decision.cliAnalyze': 'CLI分析理解项目',
+    'help.workflows.decision.understand': '充分理解蓝图',
+    'help.workflows.decision.simple': '简单任务',
+    'help.workflows.decision.medium': '中等任务',
+    'help.workflows.decision.complex': '复杂任务',
+    'help.workflows.decision.claudeExec': 'Claude执行(优先)',
+    'help.workflows.decision.cliExec': 'CLI执行',
+    'help.workflows.decision.claudePlan': 'Claude自带Plan',
+
+    // Workflow Steps - Brainstorm
+    'help.workflows.brainstorm.start': '不确定方向',
+    'help.workflows.brainstorm.question': '知道做什么吗？',
+    'help.workflows.brainstorm.product': '不知道：探索产品',
+    'help.workflows.brainstorm.design': '知道但不知怎么做',
+    'help.workflows.brainstorm.next': '进入规划阶段',
+
+    // Workflow Steps - CLI Resume
+    'help.workflows.cliResume.firstExec': 'ccw cli exec "分析..."',
+    'help.workflows.cliResume.saveContext': '保存会话上下文',
+    'help.workflows.cliResume.resumeCmd': 'ccw cli exec --resume',
+    'help.workflows.cliResume.merge': '合并历史对话',
+    'help.workflows.cliResume.continue': '继续执行任务',
+    'help.workflows.cliResume.splitOutput': '拆分结果存储',
+    'help.workflows.cliResume.complete': '完成',
+
+    // Workflow Steps - Bug Fix
+    'help.workflows.bugFix.start': '发现Bug',
+    'help.workflows.bugFix.cliAnalyze': 'CLI分析定位Bug',
+    'help.workflows.bugFix.diagnosis': '诊断根因',
+    'help.workflows.bugFix.impact': '影响评估',
+    'help.workflows.bugFix.strategy': '修复策略',
+    'help.workflows.bugFix.execute': '执行修复',
+    'help.workflows.bugFix.complete': '完成',
+
+    // Workflow Steps - Plan Full
+    'help.workflows.planFull.start': '复杂项目开始',
+    'help.workflows.planFull.cliAnalyze': 'CLI深度分析项目',
+    'help.workflows.planFull.complete': '会话完成',
+
+    // Workflow Steps - Lite
+    'help.workflows.lite.start': '开始',
+    'help.workflows.lite.confirm': '三维确认',
+    'help.workflows.lite.complete': '完成',
+
+    // Workflow Steps - TDD
+    'help.workflows.tdd.start': '开始',
+    'help.workflows.tdd.red': 'Red: 编写失败测试',
+    'help.workflows.tdd.green': 'Green: 实现代码',
+    'help.workflows.tdd.refactor': 'Refactor: 重构优化',
+    'help.workflows.tdd.complete': '完成',
 
     // CodexLens
     'help.codexlens.title': 'CodexLens 快速入门',
@@ -95,10 +153,13 @@ var helpI18n = {
 
     // Workflow Diagrams
     'help.diagrams.title': 'Common Workflow Scenarios',
+    'help.diagrams.decision': 'Decision: Choose Planning Approach',
+    'help.diagrams.brainstorm': 'Brainstorming',
+    'help.diagrams.cliResume': 'CLI Resume Mechanism',
+    'help.diagrams.bugFix': 'Bug Fix Workflow',
+    'help.diagrams.lite': 'Lite Workflow',
+    'help.diagrams.planFull': 'Full Planning',
     'help.diagrams.tdd': 'TDD Development',
-    'help.diagrams.feature': 'Feature Development',
-    'help.diagrams.bugfix': 'Bug Investigation',
-    'help.diagrams.review': 'Code Review',
     'help.diagrams.fit': 'Fit to View',
     'help.diagrams.zoomIn': 'Zoom In',
     'help.diagrams.zoomOut': 'Zoom Out',
@@ -107,6 +168,59 @@ var helpI18n = {
     'help.diagrams.legend.nextSteps': 'Next Steps',
     'help.diagrams.legend.alternatives': 'Alternatives',
     'help.diagrams.notLoaded': 'Cytoscape.js not loaded',
+
+    // Workflow Steps - Decision
+    'help.workflows.decision.start': 'Task Start',
+    'help.workflows.decision.cliAnalyze': 'CLI Analyze Project',
+    'help.workflows.decision.understand': 'Understand Blueprint',
+    'help.workflows.decision.simple': 'Simple Task',
+    'help.workflows.decision.medium': 'Medium Task',
+    'help.workflows.decision.complex': 'Complex Task',
+    'help.workflows.decision.claudeExec': 'Claude Execute (Preferred)',
+    'help.workflows.decision.cliExec': 'CLI Execute',
+    'help.workflows.decision.claudePlan': 'Claude Built-in Plan',
+
+    // Workflow Steps - Brainstorm
+    'help.workflows.brainstorm.start': 'Uncertain Direction',
+    'help.workflows.brainstorm.question': 'Know What to Build?',
+    'help.workflows.brainstorm.product': 'No: Explore Product',
+    'help.workflows.brainstorm.design': 'Yes but Not How',
+    'help.workflows.brainstorm.next': 'Enter Planning Phase',
+
+    // Workflow Steps - CLI Resume
+    'help.workflows.cliResume.firstExec': 'ccw cli exec "analyze..."',
+    'help.workflows.cliResume.saveContext': 'Save Session Context',
+    'help.workflows.cliResume.resumeCmd': 'ccw cli exec --resume',
+    'help.workflows.cliResume.merge': 'Merge Conversation History',
+    'help.workflows.cliResume.continue': 'Continue Execution',
+    'help.workflows.cliResume.splitOutput': 'Split & Store Results',
+    'help.workflows.cliResume.complete': 'Complete',
+
+    // Workflow Steps - Bug Fix
+    'help.workflows.bugFix.start': 'Bug Discovered',
+    'help.workflows.bugFix.cliAnalyze': 'CLI Analyze & Locate Bug',
+    'help.workflows.bugFix.diagnosis': 'Root Cause Analysis',
+    'help.workflows.bugFix.impact': 'Impact Assessment',
+    'help.workflows.bugFix.strategy': 'Fix Strategy',
+    'help.workflows.bugFix.execute': 'Execute Fix',
+    'help.workflows.bugFix.complete': 'Complete',
+
+    // Workflow Steps - Plan Full
+    'help.workflows.planFull.start': 'Complex Project Start',
+    'help.workflows.planFull.cliAnalyze': 'CLI Deep Analysis',
+    'help.workflows.planFull.complete': 'Session Complete',
+
+    // Workflow Steps - Lite
+    'help.workflows.lite.start': 'Start',
+    'help.workflows.lite.confirm': '3D Confirmation',
+    'help.workflows.lite.complete': 'Complete',
+
+    // Workflow Steps - TDD
+    'help.workflows.tdd.start': 'Start',
+    'help.workflows.tdd.red': 'Red: Write Failing Test',
+    'help.workflows.tdd.green': 'Green: Implement Code',
+    'help.workflows.tdd.refactor': 'Refactor: Optimize',
+    'help.workflows.tdd.complete': 'Complete',
 
     // CodexLens
     'help.codexlens.title': 'CodexLens Quick Start',

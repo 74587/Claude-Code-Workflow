@@ -192,9 +192,9 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         const args = ['clean'];
         if (all) {
           args.push('--all');
-        }
-        if (path) {
-          args.push('--path', path);
+        } else if (path) {
+          // Path is passed as a positional argument, not as a flag
+          args.push(path);
         }
         args.push('--json');
 

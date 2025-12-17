@@ -45,6 +45,12 @@ const ParamsSchema = z.object({
   mode: z.enum(['auto', 'text', 'semantic', 'exact', 'fuzzy', 'hybrid', 'vector', 'pure-vector']).default('auto'),
   languages: z.array(z.string()).optional(),
   limit: z.number().default(20),
+  // Additional fields for internal functions
+  file: z.string().optional(),
+  key: z.string().optional(),
+  value: z.string().optional(),
+  newPath: z.string().optional(),
+  all: z.boolean().optional(),
 });
 
 type Params = z.infer<typeof ParamsSchema>;

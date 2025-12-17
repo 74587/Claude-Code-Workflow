@@ -14,7 +14,7 @@ var activeHelpTab = 'cli';
 var helpSearchQuery = '';
 var helpSearchTimeout = null;
 var cytoscapeInstance = null;
-var activeWorkflowDiagram = 'tdd';
+var activeWorkflowDiagram = 'decision';
 
 // ========== Main Render Function ==========
 async function renderHelpView() {
@@ -377,17 +377,26 @@ function renderWorkflowDiagrams() {
       <div class="mb-4">
         <h3 class="text-lg font-semibold text-foreground mb-3">${ht('help.diagrams.title')}</h3>
         <div class="flex gap-2 flex-wrap">
+          <button class="workflow-diagram-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors" data-workflow="decision">
+            ${ht('help.diagrams.decision')}
+          </button>
+          <button class="workflow-diagram-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors" data-workflow="brainstorm">
+            ${ht('help.diagrams.brainstorm')}
+          </button>
+          <button class="workflow-diagram-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors" data-workflow="cli-resume">
+            ${ht('help.diagrams.cliResume')}
+          </button>
+          <button class="workflow-diagram-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors" data-workflow="bug-fix">
+            ${ht('help.diagrams.bugFix')}
+          </button>
+          <button class="workflow-diagram-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors" data-workflow="lite">
+            ${ht('help.diagrams.lite')}
+          </button>
+          <button class="workflow-diagram-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors" data-workflow="plan-full">
+            ${ht('help.diagrams.planFull')}
+          </button>
           <button class="workflow-diagram-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors" data-workflow="tdd">
             ${ht('help.diagrams.tdd')}
-          </button>
-          <button class="workflow-diagram-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors" data-workflow="feature">
-            ${ht('help.diagrams.feature')}
-          </button>
-          <button class="workflow-diagram-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors" data-workflow="bugfix">
-            ${ht('help.diagrams.bugfix')}
-          </button>
-          <button class="workflow-diagram-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors" data-workflow="review">
-            ${ht('help.diagrams.review')}
           </button>
         </div>
       </div>
@@ -507,6 +516,17 @@ function initializeCytoscapeDiagram(workflow) {
     return;
   }
 
+  // Get computed CSS variable values
+  var rootStyles = getComputedStyle(document.documentElement);
+  var primaryColor = rootStyles.getPropertyValue('--primary').trim();
+  var foregroundColor = rootStyles.getPropertyValue('--foreground').trim();
+  var mutedColor = rootStyles.getPropertyValue('--muted-foreground').trim();
+
+  // Convert HSL values to usable format
+  var primaryHsl = primaryColor ? 'hsl(' + primaryColor + ')' : '#3B82F6';
+  var foregroundHsl = foregroundColor ? 'hsl(' + foregroundColor + ')' : '#1F2937';
+  var mutedHsl = mutedColor ? 'hsl(' + mutedColor + ')' : '#6B7280';
+
   // Initialize Cytoscape
   cytoscapeInstance = cytoscape({
     container: container,
@@ -515,43 +535,68 @@ function initializeCytoscapeDiagram(workflow) {
       {
         selector: 'node',
         style: {
-          'background-color': 'hsl(var(--primary))',
+          'shape': 'roundrectangle',
+          'background-color': primaryHsl,
+          'background-opacity': 0.9,
+          'border-width': 2,
+          'border-color': primaryHsl,
+          'border-opacity': 1,
           'label': 'data(label)',
-          'color': 'hsl(var(--foreground))',
+          'color': '#FFFFFF',
           'text-valign': 'center',
           'text-halign': 'center',
-          'font-size': '12px',
-          'width': '80px',
-          'height': '80px',
+          'font-size': '14px',
+          'font-weight': '600',
+          'width': '140px',
+          'height': '60px',
           'text-wrap': 'wrap',
-          'text-max-width': '70px'
+          'text-max-width': '130px',
+          'padding': '8px',
+          'shadow-blur': 10,
+          'shadow-color': '#000000',
+          'shadow-opacity': 0.2,
+          'shadow-offset-x': 0,
+          'shadow-offset-y': 2
         }
       },
       {
         selector: 'edge',
         style: {
-          'width': 2,
-          'line-color': 'hsl(var(--muted-foreground))',
-          'target-arrow-color': 'hsl(var(--muted-foreground))',
+          'width': 3,
+          'line-color': mutedHsl,
+          'target-arrow-color': mutedHsl,
           'target-arrow-shape': 'triangle',
+          'target-arrow-fill': 'filled',
+          'arrow-scale': 1.5,
           'curve-style': 'bezier',
           'label': 'data(label)',
-          'font-size': '10px',
-          'color': 'hsl(var(--muted-foreground))'
+          'font-size': '12px',
+          'font-weight': '500',
+          'color': foregroundHsl,
+          'text-background-color': '#FFFFFF',
+          'text-background-opacity': 0.9,
+          'text-background-padding': '4px',
+          'text-background-shape': 'roundrectangle',
+          'text-border-width': 1,
+          'text-border-color': mutedHsl,
+          'text-border-opacity': 0.3
         }
       },
       {
         selector: 'edge.prerequisite',
         style: {
-          'line-color': 'hsl(var(--primary))',
-          'target-arrow-color': 'hsl(var(--primary))'
+          'line-color': primaryHsl,
+          'target-arrow-color': primaryHsl,
+          'width': 3
         }
       },
       {
         selector: 'edge.next-step',
         style: {
           'line-color': '#10B981',
-          'target-arrow-color': '#10B981'
+          'target-arrow-color': '#10B981',
+          'width': 3,
+          'line-style': 'solid'
         }
       },
       {
@@ -559,15 +604,20 @@ function initializeCytoscapeDiagram(workflow) {
         style: {
           'line-color': '#F59E0B',
           'target-arrow-color': '#F59E0B',
-          'line-style': 'dashed'
+          'line-style': 'dashed',
+          'line-dash-pattern': [10, 5],
+          'width': 2.5
         }
       }
     ],
     layout: {
-      name: 'dagre',
-      rankDir: 'TB',
-      nodeSep: 50,
-      rankSep: 80
+      name: 'breadthfirst',
+      directed: true,
+      padding: 80,
+      spacingFactor: 2,
+      avoidOverlap: true,
+      nodeDimensionsIncludeLabels: true,
+      animate: false
     }
   });
 
@@ -583,83 +633,156 @@ function initializeCytoscapeDiagram(workflow) {
 }
 
 function getWorkflowGraphData(workflow) {
-  var nodes = [];
-  var edges = [];
-
   var workflows = {
-    'tdd': ['workflow:tdd-plan', 'workflow:execute', 'workflow:tdd-verify'],
-    'feature': ['workflow:plan', 'workflow:action-plan-verify', 'workflow:execute', 'workflow:review'],
-    'bugfix': ['workflow:lite-fix', 'workflow:lite-execute', 'workflow:test-cycle-execute'],
-    'review': ['workflow:review-session-cycle', 'workflow:review-fix', 'workflow:test-cycle-execute']
+    'decision': {
+      nodes: [
+        { data: { id: 'start', label: ht('help.workflows.decision.start') } },
+        { data: { id: 'cli-analyze', label: ht('help.workflows.decision.cliAnalyze') } },
+        { data: { id: 'understand', label: ht('help.workflows.decision.understand') } },
+        { data: { id: 'simple', label: ht('help.workflows.decision.simple') } },
+        { data: { id: 'medium', label: ht('help.workflows.decision.medium') } },
+        { data: { id: 'complex', label: ht('help.workflows.decision.complex') } },
+        { data: { id: 'claude-exec', label: ht('help.workflows.decision.claudeExec') } },
+        { data: { id: 'cli-exec', label: ht('help.workflows.decision.cliExec') } },
+        { data: { id: 'claude-plan', label: ht('help.workflows.decision.claudePlan') } },
+        { data: { id: 'lite-plan', label: '/workflow:lite-plan' } },
+        { data: { id: 'full-plan', label: '/workflow:plan' } }
+      ],
+      edges: [
+        { data: { source: 'start', target: 'cli-analyze' }, classes: 'next-step' },
+        { data: { source: 'cli-analyze', target: 'understand' }, classes: 'next-step' },
+        { data: { source: 'understand', target: 'simple' }, classes: 'alternative' },
+        { data: { source: 'understand', target: 'medium' }, classes: 'alternative' },
+        { data: { source: 'understand', target: 'complex' }, classes: 'alternative' },
+        { data: { source: 'simple', target: 'claude-exec', label: '优先' }, classes: 'next-step' },
+        { data: { source: 'simple', target: 'cli-exec' }, classes: 'alternative' },
+        { data: { source: 'medium', target: 'claude-plan' }, classes: 'next-step' },
+        { data: { source: 'medium', target: 'lite-plan' }, classes: 'alternative' },
+        { data: { source: 'complex', target: 'full-plan' }, classes: 'next-step' }
+      ]
+    },
+    'brainstorm': {
+      nodes: [
+        { data: { id: 'start', label: ht('help.workflows.brainstorm.start') } },
+        { data: { id: 'question', label: ht('help.workflows.brainstorm.question') } },
+        { data: { id: 'product', label: ht('help.workflows.brainstorm.product') } },
+        { data: { id: 'design', label: ht('help.workflows.brainstorm.design') } },
+        { data: { id: 'brainstorm-product', label: '/workflow:brainstorm:auto-parallel' } },
+        { data: { id: 'brainstorm-design', label: '/workflow:brainstorm:auto-parallel' } },
+        { data: { id: 'next', label: ht('help.workflows.brainstorm.next') } }
+      ],
+      edges: [
+        { data: { source: 'start', target: 'question' }, classes: 'next-step' },
+        { data: { source: 'question', target: 'product' }, classes: 'alternative' },
+        { data: { source: 'question', target: 'design' }, classes: 'alternative' },
+        { data: { source: 'product', target: 'brainstorm-product' }, classes: 'next-step' },
+        { data: { source: 'design', target: 'brainstorm-design' }, classes: 'next-step' },
+        { data: { source: 'brainstorm-product', target: 'next' }, classes: 'next-step' },
+        { data: { source: 'brainstorm-design', target: 'next' }, classes: 'next-step' }
+      ]
+    },
+    'cli-resume': {
+      nodes: [
+        { data: { id: 'first-exec', label: ht('help.workflows.cliResume.firstExec') } },
+        { data: { id: 'save-context', label: ht('help.workflows.cliResume.saveContext') } },
+        { data: { id: 'resume-cmd', label: ht('help.workflows.cliResume.resumeCmd') } },
+        { data: { id: 'merge', label: ht('help.workflows.cliResume.merge') } },
+        { data: { id: 'continue', label: ht('help.workflows.cliResume.continue') } },
+        { data: { id: 'split-output', label: ht('help.workflows.cliResume.splitOutput') } },
+        { data: { id: 'complete', label: ht('help.workflows.cliResume.complete') } }
+      ],
+      edges: [
+        { data: { source: 'first-exec', target: 'save-context' }, classes: 'next-step' },
+        { data: { source: 'save-context', target: 'resume-cmd' }, classes: 'next-step' },
+        { data: { source: 'resume-cmd', target: 'merge' }, classes: 'next-step' },
+        { data: { source: 'merge', target: 'continue' }, classes: 'next-step' },
+        { data: { source: 'continue', target: 'split-output' }, classes: 'next-step' },
+        { data: { source: 'split-output', target: 'complete' }, classes: 'next-step' }
+      ]
+    },
+    'bug-fix': {
+      nodes: [
+        { data: { id: 'start', label: ht('help.workflows.bugFix.start') } },
+        { data: { id: 'cli-analyze', label: ht('help.workflows.bugFix.cliAnalyze') } },
+        { data: { id: 'lite-fix', label: '/workflow:lite-fix' } },
+        { data: { id: 'diagnosis', label: ht('help.workflows.bugFix.diagnosis') } },
+        { data: { id: 'impact', label: ht('help.workflows.bugFix.impact') } },
+        { data: { id: 'strategy', label: ht('help.workflows.bugFix.strategy') } },
+        { data: { id: 'execute', label: ht('help.workflows.bugFix.execute') } },
+        { data: { id: 'complete', label: ht('help.workflows.bugFix.complete') } }
+      ],
+      edges: [
+        { data: { source: 'start', target: 'cli-analyze' }, classes: 'next-step' },
+        { data: { source: 'cli-analyze', target: 'lite-fix' }, classes: 'next-step' },
+        { data: { source: 'lite-fix', target: 'diagnosis' }, classes: 'next-step' },
+        { data: { source: 'diagnosis', target: 'impact' }, classes: 'next-step' },
+        { data: { source: 'impact', target: 'strategy' }, classes: 'next-step' },
+        { data: { source: 'strategy', target: 'execute' }, classes: 'next-step' },
+        { data: { source: 'execute', target: 'complete' }, classes: 'next-step' }
+      ]
+    },
+    'plan-full': {
+      nodes: [
+        { data: { id: 'start', label: ht('help.workflows.planFull.start') } },
+        { data: { id: 'cli-analyze', label: ht('help.workflows.planFull.cliAnalyze') } },
+        { data: { id: 'plan', label: '/workflow:plan' } },
+        { data: { id: 'verify', label: '/workflow:action-plan-verify' } },
+        { data: { id: 'execute', label: '/workflow:execute' } },
+        { data: { id: 'test', label: '/workflow:test-gen' } },
+        { data: { id: 'review', label: '/workflow:review' } },
+        { data: { id: 'complete', label: '/workflow:session:complete' } }
+      ],
+      edges: [
+        { data: { source: 'start', target: 'cli-analyze' }, classes: 'next-step' },
+        { data: { source: 'cli-analyze', target: 'plan' }, classes: 'next-step' },
+        { data: { source: 'plan', target: 'verify' }, classes: 'next-step' },
+        { data: { source: 'verify', target: 'execute' }, classes: 'next-step' },
+        { data: { source: 'execute', target: 'test' }, classes: 'next-step' },
+        { data: { source: 'test', target: 'review' }, classes: 'next-step' },
+        { data: { source: 'review', target: 'complete' }, classes: 'next-step' }
+      ]
+    },
+    'lite': {
+      nodes: [
+        { data: { id: 'start', label: ht('help.workflows.lite.start') } },
+        { data: { id: 'lite-plan', label: '/workflow:lite-plan' } },
+        { data: { id: 'confirm', label: ht('help.workflows.lite.confirm') } },
+        { data: { id: 'lite-execute', label: '/workflow:lite-execute' } },
+        { data: { id: 'complete', label: ht('help.workflows.lite.complete') } }
+      ],
+      edges: [
+        { data: { source: 'start', target: 'lite-plan' }, classes: 'next-step' },
+        { data: { source: 'lite-plan', target: 'confirm' }, classes: 'next-step' },
+        { data: { source: 'confirm', target: 'lite-execute' }, classes: 'next-step' },
+        { data: { source: 'lite-execute', target: 'complete' }, classes: 'next-step' }
+      ]
+    },
+    'tdd': {
+      nodes: [
+        { data: { id: 'start', label: ht('help.workflows.tdd.start') } },
+        { data: { id: 'tdd-plan', label: '/workflow:tdd-plan' } },
+        { data: { id: 'red', label: ht('help.workflows.tdd.red') } },
+        { data: { id: 'green', label: ht('help.workflows.tdd.green') } },
+        { data: { id: 'refactor', label: ht('help.workflows.tdd.refactor') } },
+        { data: { id: 'verify', label: '/workflow:tdd-verify' } },
+        { data: { id: 'complete', label: ht('help.workflows.tdd.complete') } }
+      ],
+      edges: [
+        { data: { source: 'start', target: 'tdd-plan' }, classes: 'next-step' },
+        { data: { source: 'tdd-plan', target: 'red' }, classes: 'next-step' },
+        { data: { source: 'red', target: 'green' }, classes: 'next-step' },
+        { data: { source: 'green', target: 'refactor' }, classes: 'next-step' },
+        { data: { source: 'refactor', target: 'verify' }, classes: 'next-step' },
+        { data: { source: 'verify', target: 'complete' }, classes: 'next-step' }
+      ]
+    }
   };
 
-  var workflowCommands = workflows[workflow] || workflows['tdd'];
-
+  var workflowData = workflows[workflow] || workflows['decision'];
   console.log('Building workflow diagram for:', workflow);
-  console.log('Commands:', workflowCommands);
-  console.log('Available workflows data:', helpData.workflows ? Object.keys(helpData.workflows).length + ' commands' : 'no data');
+  console.log('Generated graph:', workflowData.nodes.length, 'nodes,', workflowData.edges.length, 'edges');
 
-  // Build graph from workflow relationships
-  workflowCommands.forEach(function(cmd) {
-    nodes.push({ data: { id: cmd, label: cmd.replace('workflow:', '').replace('task:', '') } });
-
-    var relationships = helpData.workflows ? helpData.workflows[cmd] : null;
-    if (relationships) {
-      // Add prerequisites
-      if (relationships.prerequisites) {
-        relationships.prerequisites.forEach(function(prereq) {
-          if (!nodes.find(n => n.data.id === prereq)) {
-            nodes.push({ data: { id: prereq, label: prereq.replace('workflow:', '').replace('task:', '') } });
-          }
-          edges.push({
-            data: { source: prereq, target: cmd, label: 'requires' },
-            classes: 'prerequisite'
-          });
-        });
-      }
-
-      // Add next steps
-      if (relationships.next_steps) {
-        relationships.next_steps.forEach(function(next) {
-          if (!nodes.find(n => n.data.id === next)) {
-            nodes.push({ data: { id: next, label: next.replace('workflow:', '').replace('task:', '') } });
-          }
-          edges.push({
-            data: { source: cmd, target: next, label: 'then' },
-            classes: 'next-step'
-          });
-        });
-      }
-
-      // Add alternatives
-      if (relationships.alternatives) {
-        relationships.alternatives.forEach(function(alt) {
-          if (!nodes.find(n => n.data.id === alt)) {
-            nodes.push({ data: { id: alt, label: alt.replace('workflow:', '').replace('task:', '') } });
-          }
-          edges.push({
-            data: { source: cmd, target: alt, label: 'or' },
-            classes: 'alternative'
-          });
-        });
-      }
-    }
-  });
-
-  console.log('Generated graph:', nodes.length, 'nodes,', edges.length, 'edges');
-  
-  // If no edges but we have nodes, create a simple chain
-  if (edges.length === 0 && nodes.length > 1) {
-    console.log('No relationships found, creating simple chain');
-    for (var i = 0; i < nodes.length - 1; i++) {
-      edges.push({
-        data: { source: nodes[i].data.id, target: nodes[i + 1].data.id },
-        classes: 'next-step'
-      });
-    }
-  }
-
-  return nodes.concat(edges);
+  return workflowData.nodes.concat(workflowData.edges);
 }
 
 function showCommandTooltip(commandName, node) {

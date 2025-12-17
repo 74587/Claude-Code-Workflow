@@ -135,7 +135,7 @@ export function run(argv: string[]): void {
   program
     .command('session [subcommand] [args...]')
     .description('Workflow session lifecycle management')
-    .option('--location <loc>', 'Location filter: active|archived|both')
+    .option('--location <loc>', 'Session location: active|lite-plan|lite-fix (init); Filter: active|archived|both (list)')
     .option('--type <type>', 'Content type or session type')
     .option('--content <json>', 'Content for write/update')
     .option('--task-id <id>', 'Task ID for task content')

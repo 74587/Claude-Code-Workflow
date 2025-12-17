@@ -53,10 +53,13 @@ interface SessionInput {
   session_id?: string;
   id?: string;
   project?: string;
+  description?: string;
   status?: string;
   type?: string;
   workflow_type?: string | null;
-  created_at?: string | null;
+  created_at?: string | null;  // For backward compatibility
+  created?: string;  // From SessionMetadata
+  updated?: string;  // From SessionMetadata
   archived_at?: string | null;
   path: string;
 }
@@ -249,11 +252,11 @@ export async function aggregateData(sessions: ScanSessionsResult, workflowDir: s
 async function processSession(session: SessionInput, isActive: boolean): Promise<SessionData> {
   const result: SessionData = {
     session_id: session.session_id || session.id || '',
-    project: session.project || session.session_id || session.id || '',
+    project: session.project || session.description || session.session_id || session.id || '',
     status: session.status || (isActive ? 'active' : 'archived'),
     type: session.type || 'workflow',  // Session type (workflow, review, test, docs)
     workflow_type: session.workflow_type || null,  // Original workflow_type for reference
-    created_at: session.created_at || null,  // Raw ISO string - let frontend format
+    created_at: session.created || session.created_at || null,  // Prefer 'created' from SessionMetadata, fallback to 'created_at'
     archived_at: session.archived_at || null,  // Raw ISO string - let frontend format
     path: session.path,
     tasks: [],

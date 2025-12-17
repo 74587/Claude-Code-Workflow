@@ -29,7 +29,7 @@ npm install -g ccw
 Once configured, Claude Desktop can use these CCW tools:
 
 - **File Operations**: `edit_file`, `write_file`
-- **Code Analysis**: `codex_lens`, `smart_search`, `get_modules_by_depth`, `classify_folders`
+- **Code Analysis**: `smart_search`, `get_modules_by_depth`, `classify_folders`
 - **Git Integration**: `detect_changed_modules`
 - **Session Management**: `session_manager`
 - **UI/Design**: `discover_design_files`, `ui_generate_preview`, `convert_tokens_to_css`
@@ -40,7 +40,7 @@ Once configured, Claude Desktop can use these CCW tools:
 ```
 "Use edit_file to update the version in package.json"
 
-"Use codex_lens to analyze the authentication flow"
+"Use smart_search to find authentication logic"
 
 "Use get_modules_by_depth to show me the project structure"
 ```

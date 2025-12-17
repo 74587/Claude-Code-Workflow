@@ -18,7 +18,7 @@ import * as convertTokensToCssMod from './convert-tokens-to-css.js';
 import * as sessionManagerMod from './session-manager.js';
 import * as cliExecutorMod from './cli-executor.js';
 import * as smartSearchMod from './smart-search.js';
-import * as codexLensMod from './codex-lens.js';
+// codex_lens removed - functionality integrated into smart_search
 import * as readFileMod from './read-file.js';
 
 // Import legacy JS tools
@@ -297,7 +297,7 @@ registerTool(toLegacyTool(convertTokensToCssMod));
 registerTool(toLegacyTool(sessionManagerMod));
 registerTool(toLegacyTool(cliExecutorMod));
 registerTool(toLegacyTool(smartSearchMod));
-registerTool(toLegacyTool(codexLensMod));
+// codex_lens removed - functionality integrated into smart_search
 registerTool(toLegacyTool(readFileMod));
 
 // Register legacy JS tools

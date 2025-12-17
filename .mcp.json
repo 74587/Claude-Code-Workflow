@@ -1,11 +1,3 @@
 {
-  "mcpServers": {
-    "ccw-tools": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "ccw-mcp"
-      ]
-    }
-  }
+  "mcpServers": {}
 }

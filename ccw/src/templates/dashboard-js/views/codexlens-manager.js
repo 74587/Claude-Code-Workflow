@@ -109,6 +109,9 @@ function buildCodexLensConfigContent(config) {
             ? '<button class="btn-sm btn-outline" onclick="initCodexLensIndex()">' +
                 '<i data-lucide="database" class="w-3 h-3"></i> ' + t('codexlens.initializeIndex') +
               '</button>' +
+              '<button class="btn-sm btn-outline" onclick="cleanCurrentWorkspaceIndex()">' +
+                '<i data-lucide="folder-x" class="w-3 h-3"></i> ' + t('codexlens.cleanCurrentWorkspace') +
+              '</button>' +
               '<button class="btn-sm btn-outline" onclick="cleanCodexLensIndexes()">' +
                 '<i data-lucide="trash" class="w-3 h-3"></i> ' + t('codexlens.cleanAllIndexes') +
               '</button>' +
@@ -557,6 +560,45 @@ function installCodexLens() {
  */
 function uninstallCodexLens() {
   openCliUninstallWizard('codexlens');
+}
+
+/**
+ * Clean current workspace index
+ */
+async function cleanCurrentWorkspaceIndex() {
+  if (!confirm(t('codexlens.cleanCurrentWorkspaceConfirm'))) {
+    return;
+  }
+
+  try {
+    showRefreshToast(t('codexlens.cleaning'), 'info');
+
+    // Get current workspace path (projectPath is a global variable from state.js)
+    var workspacePath = projectPath;
+
+    var response = await fetch('/api/codexlens/clean', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: workspacePath })
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast(t('codexlens.cleanCurrentWorkspaceSuccess'), 'success');
+
+      // Refresh status
+      if (typeof loadCodexLensStatus === 'function') {
+        await loadCodexLensStatus();
+        renderToolsSection();
+        if (window.lucide) lucide.createIcons();
+      }
+    } else {
+      showRefreshToast(t('codexlens.cleanFailed') + ': ' + result.error, 'error');
+    }
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
 }
 
 /**
