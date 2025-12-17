@@ -1,11 +1,11 @@
-import { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, readFileSync, writeFileSync, unlinkSync, rmdirSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { showHeader, createSpinner, info, warning, error, summaryBox, divider } from '../utils/ui.js';
-import { createManifest, addFileEntry, addDirectoryEntry, saveManifest, findManifest, getAllManifests } from '../core/manifest.js';
+import { createManifest, addFileEntry, addDirectoryEntry, saveManifest, findManifest, getAllManifests, getFileReferenceCounts } from '../core/manifest.js';
 import { validatePath } from '../utils/path-resolver.js';
 import type { Spinner } from 'ora';
 
@@ -122,6 +122,8 @@ export async function installCommand(options: InstallOptions): Promise<void> {
 
   // Check for existing installation at target path
   const existingManifest = findManifest(installPath, mode);
+  let cleanupStats = { removed: 0, skipped: 0 };
+
   if (existingManifest) {
     warning('Existing installation found at this location');
     const { backup } = await inquirer.prompt([{
@@ -133,6 +135,30 @@ export async function installCommand(options: InstallOptions): Promise<void> {
 
     if (backup) {
       await createBackup(installPath, existingManifest);
+    }
+
+    // Clean up old files that won't be replaced
+    console.log('');
+    const cleanupSpinner = createSpinner('Analyzing files to clean up...').start();
+
+    try {
+      // Get list of files that will be installed
+      const newFiles = getNewInstallationFiles(sourceDir, installPath, mode);
+      // Also add version.json which will be created
+      const versionPath = join(installPath, '.claude', 'version.json');
+      newFiles.add(versionPath.toLowerCase().replace(/\\/g, '/'));
+
+      cleanupSpinner.text = 'Cleaning up obsolete files...';
+      cleanupStats = await cleanupOldFiles(existingManifest, newFiles, cleanupSpinner);
+
+      if (cleanupStats.removed > 0 || cleanupStats.skipped > 0) {
+        cleanupSpinner.succeed(`Cleanup: ${cleanupStats.removed} files removed, ${cleanupStats.skipped} shared files preserved`);
+      } else {
+        cleanupSpinner.succeed('No obsolete files to clean up');
+      }
+    } catch (err) {
+      const errMsg = err as Error;
+      cleanupSpinner.warn(`Cleanup warning: ${errMsg.message}`);
     }
   }
 
@@ -211,10 +237,19 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     chalk.white(`Version: ${chalk.cyan(version)}`),
     '',
     chalk.gray(`Files installed: ${totalFiles}`),
-    chalk.gray(`Directories created: ${totalDirs}`),
-    '',
-    chalk.gray(`Manifest: ${basename(manifestPath)}`)
+    chalk.gray(`Directories created: ${totalDirs}`)
   ];
+
+  // Add cleanup stats if any files were processed
+  if (cleanupStats.removed > 0 || cleanupStats.skipped > 0) {
+    summaryLines.push(chalk.gray(`Obsolete files removed: ${cleanupStats.removed}`));
+    if (cleanupStats.skipped > 0) {
+      summaryLines.push(chalk.gray(`Shared files preserved: ${cleanupStats.skipped}`));
+    }
+  }
+
+  summaryLines.push('');
+  summaryLines.push(chalk.gray(`Manifest: ${basename(manifestPath)}`));
 
   // Add codex prompts info if installed
   if (availableDirs.includes('.codex')) {
@@ -282,6 +317,139 @@ async function selectPath(): Promise<string> {
   }]);
 
   return path;
+}
+
+/**
+ * Get list of files that will be installed from source directories
+ * @param sourceDir - Source directory
+ * @param installPath - Installation path
+ * @param mode - Installation mode
+ * @returns Set of normalized file paths that will be installed
+ */
+function getNewInstallationFiles(sourceDir: string, installPath: string, mode: string): Set<string> {
+  const newFiles = new Set<string>();
+  const globalPath = homedir();
+
+  // For Path mode, also include global subdirectories
+  if (mode === 'Path') {
+    for (const subdir of GLOBAL_SUBDIRS) {
+      const srcPath = join(sourceDir, '.claude', subdir);
+      if (existsSync(srcPath)) {
+        const destPath = join(globalPath, '.claude', subdir);
+        collectFilesRecursive(srcPath, destPath, newFiles);
+      }
+    }
+  }
+
+  // Collect files from all source directories
+  const availableDirs = SOURCE_DIRS.filter(dir => existsSync(join(sourceDir, dir)));
+  for (const dir of availableDirs) {
+    const srcPath = join(sourceDir, dir);
+    const destPath = join(installPath, dir);
+    const excludeDirs = (mode === 'Path' && dir === '.claude') ? GLOBAL_SUBDIRS : [];
+    collectFilesRecursive(srcPath, destPath, newFiles, excludeDirs);
+  }
+
+  return newFiles;
+}
+
+/**
+ * Recursively collect file paths from source to destination mapping
+ * @param srcDir - Source directory
+ * @param destDir - Destination directory
+ * @param files - Set to add file paths to
+ * @param excludeDirs - Directories to exclude
+ */
+function collectFilesRecursive(srcDir: string, destDir: string, files: Set<string>, excludeDirs: string[] = []): void {
+  if (!existsSync(srcDir)) return;
+
+  const entries = readdirSync(srcDir);
+  for (const entry of entries) {
+    if (excludeDirs.includes(entry)) continue;
+
+    const srcPath = join(srcDir, entry);
+    const destPath = join(destDir, entry);
+    const stat = statSync(srcPath);
+
+    if (stat.isDirectory()) {
+      collectFilesRecursive(srcPath, destPath, files);
+    } else {
+      files.add(destPath.toLowerCase().replace(/\\/g, '/'));
+    }
+  }
+}
+
+/**
+ * Clean up old installation files that won't be replaced by new installation
+ * @param existingManifest - Existing manifest with old file list
+ * @param newFiles - Set of file paths that will be installed
+ * @param spinner - Spinner for progress display
+ * @returns Count of removed files and skipped files
+ */
+async function cleanupOldFiles(
+  existingManifest: any,
+  newFiles: Set<string>,
+  spinner: any
+): Promise<{ removed: number; skipped: number }> {
+  let removed = 0;
+  let skipped = 0;
+
+  const oldFiles = existingManifest.files || [];
+  const manifestId = existingManifest.manifest_id;
+
+  // Get file reference counts from other installations
+  const fileRefs = getFileReferenceCounts(manifestId);
+
+  // Process files in reverse order (deepest first)
+  const sortedFiles = [...oldFiles].sort((a: any, b: any) => b.path.length - a.path.length);
+
+  for (const fileEntry of sortedFiles) {
+    const filePath = fileEntry.path;
+    const normalizedPath = filePath.toLowerCase().replace(/\\/g, '/');
+
+    // Skip if file will be replaced by new installation
+    if (newFiles.has(normalizedPath)) {
+      continue;
+    }
+
+    // Skip if file is referenced by other installations
+    const refs = fileRefs.get(normalizedPath) || [];
+    if (refs.length > 0) {
+      skipped++;
+      continue;
+    }
+
+    // Try to remove the file
+    try {
+      if (existsSync(filePath)) {
+        spinner.text = `Cleaning: ${basename(filePath)}`;
+        unlinkSync(filePath);
+        removed++;
+      }
+    } catch {
+      // Ignore errors during cleanup
+    }
+  }
+
+  // Clean up empty directories from old installation
+  const oldDirs = existingManifest.directories || [];
+  const sortedDirs = [...oldDirs].sort((a: any, b: any) => b.path.length - a.path.length);
+
+  for (const dirEntry of sortedDirs) {
+    const dirPath = dirEntry.path;
+    try {
+      if (existsSync(dirPath)) {
+        const contents = readdirSync(dirPath);
+        if (contents.length === 0) {
+          rmdirSync(dirPath);
+        }
+      }
+    } catch {
+      // Ignore errors during cleanup
+    }
+  }
+
+  return { removed, skipped };
 }
 
 /**

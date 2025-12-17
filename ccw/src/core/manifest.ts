@@ -229,3 +229,43 @@ export function deleteManifest(manifestFile: string): void {
 export function getManifestDir(): string {
   return MANIFEST_DIR;
 }
+
+/**
+ * Get file reference counts across all manifests
+ * Returns a map of file path -> array of manifest IDs that reference it
+ * @param excludeManifestId - Optional manifest ID to exclude from counting
+ * @returns Map of file paths to referencing manifest IDs
+ */
+export function getFileReferenceCounts(excludeManifestId?: string): Map<string, string[]> {
+  const fileRefs = new Map<string, string[]>();
+  const manifests = getAllManifests();
+
+  for (const manifest of manifests) {
+    // Skip the excluded manifest (usually the one being replaced)
+    if (excludeManifestId && manifest.manifest_id === excludeManifestId) {
+      continue;
+    }
+
+    for (const fileEntry of manifest.files || []) {
+      const normalizedPath = fileEntry.path.toLowerCase().replace(/\\/g, '/');
+      const refs = fileRefs.get(normalizedPath) || [];
+      refs.push(manifest.manifest_id);
+      fileRefs.set(normalizedPath, refs);
+    }
+  }
+
+  return fileRefs;
+}
+
+/**
+ * Check if a file is referenced by other installations
+ * @param filePath - File path to check
+ * @param excludeManifestId - Manifest ID to exclude from checking
+ * @returns True if file is referenced by other installations
+ */
+export function isFileReferencedByOthers(filePath: string, excludeManifestId: string): boolean {
+  const fileRefs = getFileReferenceCounts(excludeManifestId);
+  const normalizedPath = filePath.toLowerCase().replace(/\\/g, '/');
+  const refs = fileRefs.get(normalizedPath) || [];
+  return refs.length > 0;
+}
