@@ -255,6 +255,21 @@ def generate_embeddings(
     }
 
 
+def discover_all_index_dbs(index_root: Path) -> List[Path]:
+    """Recursively find all _index.db files in an index tree.
+
+    Args:
+        index_root: Root directory to scan for _index.db files
+
+    Returns:
+        Sorted list of paths to _index.db files
+    """
+    if not index_root.exists():
+        return []
+
+    return sorted(index_root.rglob("_index.db"))
+
+
 def find_all_indexes(scan_dir: Path) -> List[Path]:
     """Find all _index.db files in directory tree.
 
@@ -268,6 +283,146 @@ def find_all_indexes(scan_dir: Path) -> List[Path]:
         return []
 
     return list(scan_dir.rglob("_index.db"))
+
+
+
+def generate_embeddings_recursive(
+    index_root: Path,
+    model_profile: str = "code",
+    force: bool = False,
+    chunk_size: int = 2000,
+    progress_callback: Optional[callable] = None,
+) -> Dict[str, any]:
+    """Generate embeddings for all index databases in a project recursively.
+
+    Args:
+        index_root: Root index directory containing _index.db files
+        model_profile: Model profile (fast, code, multilingual, balanced)
+        force: If True, regenerate even if embeddings exist
+        chunk_size: Maximum chunk size in characters
+        progress_callback: Optional callback for progress updates
+
+    Returns:
+        Aggregated result dictionary with generation statistics
+    """
+    # Discover all _index.db files
+    index_files = discover_all_index_dbs(index_root)
+
+    if not index_files:
+        return {
+            "success": False,
+            "error": f"No index databases found in {index_root}",
+        }
+
+    if progress_callback:
+        progress_callback(f"Found {len(index_files)} index databases to process")
+
+    # Process each index database
+    all_results = []
+    total_chunks = 0
+    total_files_processed = 0
+    total_files_failed = 0
+
+    for idx, index_path in enumerate(index_files, 1):
+        if progress_callback:
+            try:
+                rel_path = index_path.relative_to(index_root)
+            except ValueError:
+                rel_path = index_path
+            progress_callback(f"[{idx}/{len(index_files)}] Processing {rel_path}")
+
+        result = generate_embeddings(
+            index_path,
+            model_profile=model_profile,
+            force=force,
+            chunk_size=chunk_size,
+            progress_callback=None,  # Don't cascade callbacks
+        )
+
+        all_results.append({
+            "path": str(index_path),
+            "success": result["success"],
+            "result": result.get("result"),
+            "error": result.get("error"),
+        })
+
+        if result["success"]:
+            data = result["result"]
+            total_chunks += data["chunks_created"]
+            total_files_processed += data["files_processed"]
+            total_files_failed += data["files_failed"]
+
+    successful = sum(1 for r in all_results if r["success"])
+
+    return {
+        "success": successful > 0,
+        "result": {
+            "indexes_processed": len(index_files),
+            "indexes_successful": successful,
+            "indexes_failed": len(index_files) - successful,
+            "total_chunks_created": total_chunks,
+            "total_files_processed": total_files_processed,
+            "total_files_failed": total_files_failed,
+            "model_profile": model_profile,
+            "details": all_results,
+        },
+    }
+
+
+def get_embeddings_status(index_root: Path) -> Dict[str, any]:
+    """Get comprehensive embeddings coverage status for all indexes.
+
+    Args:
+        index_root: Root index directory
+
+    Returns:
+        Aggregated status with coverage statistics
+    """
+    index_files = discover_all_index_dbs(index_root)
+
+    if not index_files:
+        return {
+            "success": True,
+            "result": {
+                "total_indexes": 0,
+                "total_files": 0,
+                "files_with_embeddings": 0,
+                "files_without_embeddings": 0,
+                "total_chunks": 0,
+                "coverage_percent": 0.0,
+                "indexes_with_embeddings": 0,
+                "indexes_without_embeddings": 0,
+            },
+        }
+
+    total_files = 0
+    files_with_embeddings = 0
+    total_chunks = 0
+    indexes_with_embeddings = 0
+
+    for index_path in index_files:
+        status = check_index_embeddings(index_path)
+        if status["success"]:
+            result = status["result"]
+            total_files += result["total_files"]
+            files_with_embeddings += result["files_with_chunks"]
+            total_chunks += result["total_chunks"]
+            if result["has_embeddings"]:
+                indexes_with_embeddings += 1
+
+    return {
+        "success": True,
+        "result": {
+            "total_indexes": len(index_files),
+            "total_files": total_files,
+            "files_with_embeddings": files_with_embeddings,
+            "files_without_embeddings": total_files - files_with_embeddings,
+            "total_chunks": total_chunks,
+            "coverage_percent": round((files_with_embeddings / total_files * 100) if total_files > 0 else 0, 1),
+            "indexes_with_embeddings": indexes_with_embeddings,
+            "indexes_without_embeddings": len(index_files) - indexes_with_embeddings,
+        },
+    }
 
 
 def get_embedding_stats_summary(index_root: Path) -> Dict[str, any]:

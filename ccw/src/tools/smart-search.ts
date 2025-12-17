@@ -1,12 +1,17 @@
 /**
- * Smart Search Tool - Unified search with mode-based execution
- * Modes: auto, exact, fuzzy, semantic, graph
+ * Smart Search Tool - Unified intelligent search with CodexLens integration
  *
  * Features:
- * - Intent classification (auto mode)
- * - Multi-backend search routing
- * - Result fusion with RRF ranking
- * - Configurable search parameters
+ * - Intent classification with automatic mode selection
+ * - CodexLens integration (init, hybrid, vector, semantic)
+ * - Ripgrep fallback for exact mode
+ * - Index status checking and warnings
+ * - Multi-backend search routing with RRF ranking
+ *
+ * Actions:
+ * - init: Initialize CodexLens index
+ * - search: Intelligent search with auto mode selection
+ * - status: Check index status
  */
 
 import { z } from 'zod';
@@ -19,19 +24,23 @@ import {
 
 // Define Zod schema for validation
 const ParamsSchema = z.object({
-  query: z.string().min(1, 'Query is required'),
-  mode: z.enum(['auto', 'exact', 'fuzzy', 'semantic', 'graph']).default('auto'),
+  action: z.enum(['init', 'search', 'search_files', 'status']).default('search'),
+  query: z.string().optional(),
+  mode: z.enum(['auto', 'hybrid', 'exact', 'ripgrep']).default('auto'),
   output_mode: z.enum(['full', 'files_only', 'count']).default('full'),
+  path: z.string().optional(),
   paths: z.array(z.string()).default([]),
   contextLines: z.number().default(0),
   maxResults: z.number().default(100),
   includeHidden: z.boolean().default(false),
+  languages: z.array(z.string()).optional(),
+  limit: z.number().default(100),
 });
 
 type Params = z.infer<typeof ParamsSchema>;
 
 // Search mode constants
-const SEARCH_MODES = ['auto', 'exact', 'fuzzy', 'semantic', 'graph'] as const;
+const SEARCH_MODES = ['auto', 'hybrid', 'exact', 'ripgrep'] as const;
 
 // Classification confidence threshold
 const CONFIDENCE_THRESHOLD = 0.7;
@@ -70,16 +79,89 @@ interface SearchMetadata {
   classified_as?: string;
   confidence?: number;
   reasoning?: string;
+  embeddings_coverage_percent?: number;
   warning?: string;
   note?: string;
+  index_status?: 'indexed' | 'not_indexed' | 'partial';
 }
 
 interface SearchResult {
   success: boolean;
-  results?: ExactMatch[] | SemanticMatch[] | GraphMatch[];
+  results?: ExactMatch[] | SemanticMatch[] | GraphMatch[] | unknown;
   output?: string;
   metadata?: SearchMetadata;
   error?: string;
+  status?: unknown;
+  message?: string;
+}
+
+interface IndexStatus {
+  indexed: boolean;
+  has_embeddings: boolean;
+  file_count?: number;
+  embeddings_coverage_percent?: number;
+  warning?: string;
+}
+
+/**
+ * Check if CodexLens index exists for current directory
+ * @param path - Directory path to check
+ * @returns Index status
+ */
+async function checkIndexStatus(path: string = '.'): Promise<IndexStatus> {
+  try {
+    const result = await executeCodexLens(['status', '--json'], { cwd: path });
+
+    if (!result.success) {
+      return {
+        indexed: false,
+        has_embeddings: false,
+        warning: 'No CodexLens index found. Run smart_search(action="init") to create index for better search results.',
+      };
+    }
+
+    // Parse status output
+    try {
+      // Strip ANSI color codes from JSON output
+      const cleanOutput = (result.output || '{}').replace(/\x1b\[[0-9;]*m/g, '');
+      const status = JSON.parse(cleanOutput);
+      const indexed = status.indexed === true || status.file_count > 0;
+      
+      // Get embeddings coverage from comprehensive status
+      const embeddingsData = status.embeddings || {};
+      const embeddingsCoverage = embeddingsData.coverage_percent || 0;
+      const has_embeddings = embeddingsCoverage >= 50; // Threshold: 50%
+
+      let warning: string | undefined;
+      if (!indexed) {
+        warning = 'No CodexLens index found. Run smart_search(action="init") to create index for better search results.';
+      } else if (embeddingsCoverage === 0) {
+        warning = 'Index exists but no embeddings generated. Run: codexlens embeddings-generate --recursive';
+      } else if (embeddingsCoverage < 50) {
+        warning = `Embeddings coverage is ${embeddingsCoverage.toFixed(1)}% (below 50%). Hybrid search will use exact mode. Run: codexlens embeddings-generate --recursive`;
+      }
+
+      return {
+        indexed,
+        has_embeddings,
+        file_count: status.file_count,
+        embeddings_coverage_percent: embeddingsCoverage,
+        warning,
+      };
+    } catch {
+      return {
+        indexed: false,
+        has_embeddings: false,
+        warning: 'Failed to parse index status',
+      };
+    }
+  } catch {
+    return {
+      indexed: false,
+      has_embeddings: false,
+      warning: 'CodexLens not available',
+    };
+  }
 }
 
 /**
@@ -123,42 +205,33 @@ function detectRelationship(query: string): boolean {
 
 /**
  * Classify query intent and recommend search mode
+ * Simple mapping: hybrid (NL + index + embeddings) | exact (index or insufficient embeddings) | ripgrep (no index)
  * @param query - Search query string
+ * @param hasIndex - Whether CodexLens index exists
+ * @param hasSufficientEmbeddings - Whether embeddings coverage >= 50%
  * @returns Classification result
  */
-function classifyIntent(query: string): Classification {
-  // Initialize mode scores
-  const scores: Record<string, number> = {
-    exact: 0,
-    fuzzy: 0,
-    semantic: 0,
-    graph: 0,
-  };
+function classifyIntent(query: string, hasIndex: boolean = false, hasSufficientEmbeddings: boolean = false): Classification {
+  // Detect query patterns
+  const isNaturalLanguage = detectNaturalLanguage(query);
 
-  // Apply detection heuristics with weighted scoring
-  if (detectLiteral(query)) {
-    scores.exact += 0.8;
+  // Simple decision tree
+  let mode: string;
+  let confidence: number;
+
+  if (!hasIndex) {
+    // No index: use ripgrep
+    mode = 'ripgrep';
+    confidence = 1.0;
+  } else if (isNaturalLanguage && hasSufficientEmbeddings) {
+    // Natural language + sufficient embeddings: use hybrid
+    mode = 'hybrid';
+    confidence = 0.9;
+  } else {
+    // Simple query OR insufficient embeddings: use exact
+    mode = 'exact';
+    confidence = 0.8;
   }
-
-  if (detectRegex(query)) {
-    scores.fuzzy += 0.7;
-  }
-
-  if (detectNaturalLanguage(query)) {
-    scores.semantic += 0.9;
-  }
-
-  if (detectFilePath(query)) {
-    scores.exact += 0.6;
-  }
-
-  if (detectRelationship(query)) {
-    scores.graph += 0.85;
-  }
-
-  // Find mode with highest confidence score
-  const mode = Object.keys(scores).reduce((a, b) => (scores[a] > scores[b] ? a : b));
-  const confidence = scores[mode];
 
   // Build reasoning string
   const detectedPatterns: string[] = [];
@@ -168,7 +241,7 @@ function classifyIntent(query: string): Classification {
   if (detectFilePath(query)) detectedPatterns.push('file path');
   if (detectRelationship(query)) detectedPatterns.push('relationship');
 
-  const reasoning = `Query classified as ${mode} (confidence: ${confidence.toFixed(2)}, detected: ${detectedPatterns.join(', ')})`;
+  const reasoning = `Query classified as ${mode} (confidence: ${confidence.toFixed(2)}, detected: ${detectedPatterns.join(', ')}, index: ${hasIndex ? 'available' : 'not available'}, embeddings: ${hasSufficientEmbeddings ? 'sufficient' : 'insufficient'})`;
 
   return { mode, confidence, reasoning };
 }
@@ -234,105 +307,192 @@ function buildRipgrepCommand(params: {
 }
 
 /**
- * Mode: auto - Intent classification and mode selection
- * Analyzes query to determine optimal search mode
+ * Action: init - Initialize CodexLens index
  */
-async function executeAutoMode(params: Params): Promise<SearchResult> {
-  const { query } = params;
+async function executeInitAction(params: Params): Promise<SearchResult> {
+  const { path = '.', languages } = params;
 
-  // Classify intent
-  const classification = classifyIntent(query);
-
-  // Route to appropriate mode based on classification
-  switch (classification.mode) {
-    case 'exact': {
-      const exactResult = await executeExactMode(params);
-      return {
-        ...exactResult,
-        metadata: {
-          ...exactResult.metadata!,
-          classified_as: classification.mode,
-          confidence: classification.confidence,
-          reasoning: classification.reasoning,
-        },
-      };
-    }
-
-    case 'fuzzy':
-      return {
-        success: false,
-        error: 'Fuzzy mode not yet implemented',
-        metadata: {
-          mode: 'fuzzy',
-          backend: '',
-          count: 0,
-          query,
-          classified_as: classification.mode,
-          confidence: classification.confidence,
-          reasoning: classification.reasoning,
-        },
-      };
-
-    case 'semantic': {
-      const semanticResult = await executeSemanticMode(params);
-      return {
-        ...semanticResult,
-        metadata: {
-          ...semanticResult.metadata!,
-          classified_as: classification.mode,
-          confidence: classification.confidence,
-          reasoning: classification.reasoning,
-        },
-      };
-    }
-
-    case 'graph': {
-      const graphResult = await executeGraphMode(params);
-      return {
-        ...graphResult,
-        metadata: {
-          ...graphResult.metadata!,
-          classified_as: classification.mode,
-          confidence: classification.confidence,
-          reasoning: classification.reasoning,
-        },
-      };
-    }
-
-    default: {
-      const fallbackResult = await executeExactMode(params);
-      return {
-        ...fallbackResult,
-        metadata: {
-          ...fallbackResult.metadata!,
-          classified_as: 'exact',
-          confidence: 0.5,
-          reasoning: 'Fallback to exact mode due to unknown classification',
-        },
-      };
-    }
-  }
-}
-
-/**
- * Mode: exact - Precise file path and content matching
- * Uses ripgrep for literal string matching
- */
-async function executeExactMode(params: Params): Promise<SearchResult> {
-  const { query, paths = [], contextLines = 0, maxResults = 100, includeHidden = false } = params;
-
-  // Check ripgrep availability
-  if (!checkToolAvailability('rg')) {
+  // Check CodexLens availability
+  const readyStatus = await ensureCodexLensReady();
+  if (!readyStatus.ready) {
     return {
       success: false,
-      error: 'ripgrep not available - please install ripgrep (rg) to use exact search mode',
+      error: `CodexLens not available: ${readyStatus.error}. CodexLens will be auto-installed on first use.`,
     };
   }
 
-  // Build ripgrep command
+  const args = ['init', path];
+  if (languages && languages.length > 0) {
+    args.push('--languages', languages.join(','));
+  }
+
+  const result = await executeCodexLens(args, { cwd: path, timeout: 300000 });
+
+  return {
+    success: result.success,
+    error: result.error,
+    message: result.success
+      ? `CodexLens index created successfully for ${path}`
+      : undefined,
+  };
+}
+
+/**
+ * Action: status - Check CodexLens index status
+ */
+async function executeStatusAction(params: Params): Promise<SearchResult> {
+  const { path = '.' } = params;
+
+  const indexStatus = await checkIndexStatus(path);
+
+  return {
+    success: true,
+    status: indexStatus,
+    message: indexStatus.warning || `Index status: ${indexStatus.indexed ? 'indexed' : 'not indexed'}, embeddings: ${indexStatus.has_embeddings ? 'available' : 'not available'}`,
+  };
+}
+
+/**
+ * Mode: auto - Intent classification and mode selection
+ * Routes to: hybrid (NL + index) | exact (index) | ripgrep (no index)
+ */
+async function executeAutoMode(params: Params): Promise<SearchResult> {
+  const { query, path = '.' } = params;
+
+  if (!query) {
+    return {
+      success: false,
+      error: 'Query is required for search action',
+    };
+  }
+
+  // Check index status
+  const indexStatus = await checkIndexStatus(path);
+
+  // Classify intent with index and embeddings awareness
+  const classification = classifyIntent(
+    query, 
+    indexStatus.indexed, 
+    indexStatus.has_embeddings  // This now considers 50% threshold
+  );
+
+  // Route to appropriate mode based on classification
+  let result: SearchResult;
+
+  switch (classification.mode) {
+    case 'hybrid':
+      result = await executeHybridMode(params);
+      break;
+
+    case 'exact':
+      result = await executeCodexLensExactMode(params);
+      break;
+
+    case 'ripgrep':
+      result = await executeRipgrepMode(params);
+      break;
+
+    default:
+      // Fallback to ripgrep
+      result = await executeRipgrepMode(params);
+      break;
+  }
+
+  // Add classification metadata
+  if (result.metadata) {
+    result.metadata.classified_as = classification.mode;
+    result.metadata.confidence = classification.confidence;
+    result.metadata.reasoning = classification.reasoning;
+    result.metadata.embeddings_coverage_percent = indexStatus.embeddings_coverage_percent;
+    result.metadata.index_status = indexStatus.indexed
+      ? (indexStatus.has_embeddings ? 'indexed' : 'partial')
+      : 'not_indexed';
+
+    // Add warning if needed
+    if (indexStatus.warning) {
+      result.metadata.warning = indexStatus.warning;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Mode: ripgrep - Fast literal string matching using ripgrep
+ * No index required, fallback to CodexLens if ripgrep unavailable
+ */
+async function executeRipgrepMode(params: Params): Promise<SearchResult> {
+  const { query, paths = [], contextLines = 0, maxResults = 100, includeHidden = false, path = '.' } = params;
+
+  if (!query) {
+    return {
+      success: false,
+      error: 'Query is required for search',
+    };
+  }
+
+  // Check if ripgrep is available
+  const hasRipgrep = checkToolAvailability('rg');
+
+  // If ripgrep not available, fall back to CodexLens exact mode
+  if (!hasRipgrep) {
+    const readyStatus = await ensureCodexLensReady();
+    if (!readyStatus.ready) {
+      return {
+        success: false,
+        error: 'Neither ripgrep nor CodexLens available. Install ripgrep (rg) or CodexLens for search functionality.',
+      };
+    }
+
+    // Use CodexLens exact mode as fallback
+    const args = ['search', query, '--limit', maxResults.toString(), '--mode', 'exact', '--json'];
+    const result = await executeCodexLens(args, { cwd: path });
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error,
+        metadata: {
+          mode: 'ripgrep',
+          backend: 'codexlens-fallback',
+          count: 0,
+          query,
+        },
+      };
+    }
+
+    // Parse results
+    let results: SemanticMatch[] = [];
+    try {
+      const parsed = JSON.parse(result.output || '{}');
+      const data = parsed.results || parsed;
+      results = (Array.isArray(data) ? data : []).map((item: any) => ({
+        file: item.path || item.file,
+        score: item.score || 0,
+        content: item.excerpt || item.content || '',
+        symbol: item.symbol || null,
+      }));
+    } catch {
+      // Keep empty results
+    }
+
+    return {
+      success: true,
+      results,
+      metadata: {
+        mode: 'ripgrep',
+        backend: 'codexlens-fallback',
+        count: results.length,
+        query,
+        note: 'Using CodexLens exact mode (ripgrep not available)',
+      },
+    };
+  }
+
+  // Use ripgrep
   const { command, args } = buildRipgrepCommand({
     query,
-    paths: paths.length > 0 ? paths : ['.'],
+    paths: paths.length > 0 ? paths : [path],
     contextLines,
     maxResults,
     includeHidden,
@@ -340,7 +500,7 @@ async function executeExactMode(params: Params): Promise<SearchResult> {
 
   return new Promise((resolve) => {
     const child = spawn(command, args, {
-      cwd: process.cwd(),
+      cwd: path || process.cwd(),
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
@@ -386,7 +546,7 @@ async function executeExactMode(params: Params): Promise<SearchResult> {
           success: true,
           results,
           metadata: {
-            mode: 'exact',
+            mode: 'ripgrep',
             backend: 'ripgrep',
             count: results.length,
             query,
@@ -412,60 +572,126 @@ async function executeExactMode(params: Params): Promise<SearchResult> {
 }
 
 /**
- * Mode: fuzzy - Approximate matching with tolerance
- * Uses fuzzy matching algorithms for typo-tolerant search
+ * Mode: exact - CodexLens exact/FTS search
+ * Requires index
  */
-async function executeFuzzyMode(params: Params): Promise<SearchResult> {
-  return {
-    success: false,
-    error: 'Fuzzy mode not implemented - fuzzy matching engine pending',
-  };
-}
+async function executeCodexLensExactMode(params: Params): Promise<SearchResult> {
+  const { query, path = '.', limit = 100 } = params;
 
-/**
- * Mode: semantic - Natural language understanding search
- * Uses CodexLens embeddings for semantic similarity
- */
-async function executeSemanticMode(params: Params): Promise<SearchResult> {
-  const { query, paths = [], maxResults = 100 } = params;
+  if (!query) {
+    return {
+      success: false,
+      error: 'Query is required for search',
+    };
+  }
 
   // Check CodexLens availability
   const readyStatus = await ensureCodexLensReady();
   if (!readyStatus.ready) {
     return {
       success: false,
-      error: `CodexLens not available: ${readyStatus.error}. Run 'ccw tool exec codex_lens {"action":"bootstrap"}' to install.`,
+      error: `CodexLens not available: ${readyStatus.error}`,
     };
   }
 
-  // Determine search path
-  const searchPath = paths.length > 0 ? paths[0] : '.';
+  // Check index status
+  const indexStatus = await checkIndexStatus(path);
 
-  // Execute CodexLens semantic search
-  const result = await executeCodexLens(['search', query, '--limit', maxResults.toString(), '--json'], {
-    cwd: searchPath,
-  });
+  const args = ['search', query, '--limit', limit.toString(), '--mode', 'exact', '--json'];
+  const result = await executeCodexLens(args, { cwd: path });
 
   if (!result.success) {
     return {
       success: false,
       error: result.error,
       metadata: {
-        mode: 'semantic',
+        mode: 'exact',
         backend: 'codexlens',
         count: 0,
         query,
+        warning: indexStatus.warning,
       },
     };
   }
 
-  // Parse and transform results
+  // Parse results
   let results: SemanticMatch[] = [];
   try {
-    const cleanOutput = result.output!.replace(/\r\n/g, '\n');
-    const parsed = JSON.parse(cleanOutput);
-    const data = parsed.result || parsed;
-    results = (data.results || []).map((item: any) => ({
+    const parsed = JSON.parse(result.output || '{}');
+    const data = parsed.results || parsed;
+    results = (Array.isArray(data) ? data : []).map((item: any) => ({
+      file: item.path || item.file,
+      score: item.score || 0,
+      content: item.excerpt || item.content || '',
+      symbol: item.symbol || null,
+    }));
+  } catch {
+    // Keep empty results
+  }
+
+  return {
+    success: true,
+    results,
+    metadata: {
+      mode: 'exact',
+      backend: 'codexlens',
+      count: results.length,
+      query,
+      warning: indexStatus.warning,
+    },
+  };
+}
+
+/**
+ * Mode: hybrid - Best quality search with RRF fusion
+ * Uses CodexLens hybrid mode (exact + fuzzy + vector)
+ * Requires index with embeddings
+ */
+async function executeHybridMode(params: Params): Promise<SearchResult> {
+  const { query, path = '.', limit = 100 } = params;
+
+  if (!query) {
+    return {
+      success: false,
+      error: 'Query is required for search',
+    };
+  }
+
+  // Check CodexLens availability
+  const readyStatus = await ensureCodexLensReady();
+  if (!readyStatus.ready) {
+    return {
+      success: false,
+      error: `CodexLens not available: ${readyStatus.error}`,
+    };
+  }
+
+  // Check index status
+  const indexStatus = await checkIndexStatus(path);
+
+  const args = ['search', query, '--limit', limit.toString(), '--mode', 'hybrid', '--json'];
+  const result = await executeCodexLens(args, { cwd: path });
+
+  if (!result.success) {
+    return {
+      success: false,
+      error: result.error,
+      metadata: {
+        mode: 'hybrid',
+        backend: 'codexlens',
+        count: 0,
+        query,
+        warning: indexStatus.warning,
+      },
+    };
+  }
+
+  // Parse results
+  let results: SemanticMatch[] = [];
+  try {
+    const parsed = JSON.parse(result.output || '{}');
+    const data = parsed.results || parsed;
+    results = (Array.isArray(data) ? data : []).map((item: any) => ({
       file: item.path || item.file,
       score: item.score || 0,
       content: item.excerpt || item.content || '',
@@ -477,11 +703,11 @@ async function executeSemanticMode(params: Params): Promise<SearchResult> {
       results: [],
       output: result.output,
       metadata: {
-        mode: 'semantic',
+        mode: 'hybrid',
         backend: 'codexlens',
         count: 0,
         query,
-        warning: 'Failed to parse JSON output',
+        warning: indexStatus.warning || 'Failed to parse JSON output',
       },
     };
   }
@@ -490,105 +716,12 @@ async function executeSemanticMode(params: Params): Promise<SearchResult> {
     success: true,
     results,
     metadata: {
-      mode: 'semantic',
+      mode: 'hybrid',
       backend: 'codexlens',
       count: results.length,
       query,
-    },
-  };
-}
-
-/**
- * Mode: graph - Dependency and relationship traversal
- * Uses CodexLens symbol extraction for code analysis
- */
-async function executeGraphMode(params: Params): Promise<SearchResult> {
-  const { query, paths = [], maxResults = 100 } = params;
-
-  // Check CodexLens availability
-  const readyStatus = await ensureCodexLensReady();
-  if (!readyStatus.ready) {
-    return {
-      success: false,
-      error: `CodexLens not available: ${readyStatus.error}. Run 'ccw tool exec codex_lens {"action":"bootstrap"}' to install.`,
-    };
-  }
-
-  // First, search for relevant files using text search
-  const searchPath = paths.length > 0 ? paths[0] : '.';
-
-  const textResult = await executeCodexLens(['search', query, '--limit', maxResults.toString(), '--json'], {
-    cwd: searchPath,
-  });
-
-  if (!textResult.success) {
-    return {
-      success: false,
-      error: textResult.error,
-      metadata: {
-        mode: 'graph',
-        backend: 'codexlens',
-        count: 0,
-        query,
-      },
-    };
-  }
-
-  // Parse results and extract symbols from top files
-  let results: GraphMatch[] = [];
-  try {
-    const parsed = JSON.parse(textResult.output!);
-    const files = [...new Set((parsed.results || parsed).map((item: any) => item.path || item.file))].slice(
-      0,
-      10
-    );
-
-    // Extract symbols from files in parallel
-    const symbolPromises = files.map((file) =>
-      executeCodexLens(['symbol', file as string, '--json'], { cwd: searchPath }).then((result) => ({
-        file,
-        result,
-      }))
-    );
-
-    const symbolResults = await Promise.all(symbolPromises);
-
-    for (const { file, result } of symbolResults) {
-      if (result.success) {
-        try {
-          const symbols = JSON.parse(result.output!);
-          results.push({
-            file: file as string,
-            symbols: symbols.symbols || symbols,
-            relationships: [],
-          });
-        } catch {
-          // Skip files with parse errors
-        }
-      }
-    }
-  } catch {
-    return {
-      success: false,
-      error: 'Failed to parse search results',
-      metadata: {
-        mode: 'graph',
-        backend: 'codexlens',
-        count: 0,
-        query,
-      },
-    };
-  }
-
-  return {
-    success: true,
-    results,
-    metadata: {
-      mode: 'graph',
-      backend: 'codexlens',
-      count: results.length,
-      query,
-      note: 'Graph mode provides symbol extraction; full dependency graph analysis pending',
+      note: 'Hybrid mode uses RRF fusion (exact + fuzzy + vector) for best results',
+      warning: indexStatus.warning,
     },
   };
 }
@@ -596,36 +729,73 @@ async function executeGraphMode(params: Params): Promise<SearchResult> {
 // Tool schema for MCP
 export const schema: ToolSchema = {
   name: 'smart_search',
-  description: `Intelligent code search with multiple modes.
+  description: `Intelligent code search with three optimized modes: hybrid, exact, ripgrep.
 
-Usage:
-  smart_search(query="function main", path=".")           # Auto-select mode
-  smart_search(query="def init", mode="exact")            # Exact match
-  smart_search(query="authentication logic", mode="semantic")  # NL search
+**Quick Start:**
+  smart_search(query="authentication logic")           # Auto mode (intelligent routing)
+  smart_search(action="init", path=".")                # Initialize index (required for hybrid)
+  smart_search(action="status")                        # Check index status
 
-Modes: auto (default), exact, fuzzy, semantic, graph`,
+**Three Core Modes:**
+  1. auto (default): Intelligent routing based on query and index
+     - Natural language + index → hybrid
+     - Simple query + index → exact
+     - No index → ripgrep
+
+  2. hybrid: CodexLens RRF fusion (exact + fuzzy + vector)
+     - Best quality, semantic understanding
+     - Requires index with embeddings
+
+  3. exact: CodexLens FTS (full-text search)
+     - Precise keyword matching
+     - Requires index
+
+  4. ripgrep: Direct ripgrep execution
+     - Fast, no index required
+     - Literal string matching
+
+**Actions:**
+  - search (default): Intelligent search with auto routing
+  - init: Create CodexLens index (required for hybrid/exact)
+  - status: Check index and embedding availability
+  - search_files: Return file paths only
+
+**Workflow:**
+  1. Run action="init" to create index
+  2. Use auto mode - it routes to hybrid for NL queries, exact for simple queries
+  3. Use ripgrep mode for fast searches without index`,
   inputSchema: {
     type: 'object',
     properties: {
+      action: {
+        type: 'string',
+        enum: ['init', 'search', 'search_files', 'status'],
+        description: 'Action to perform: init (create index), search (default), search_files (paths only), status (check index)',
+        default: 'search',
+      },
       query: {
         type: 'string',
-        description: 'Search query (file pattern, text content, or natural language)',
+        description: 'Search query (required for search/search_files actions)',
       },
       mode: {
         type: 'string',
         enum: SEARCH_MODES,
-        description: 'Search mode (default: auto)',
+        description: 'Search mode: auto (default), hybrid (best quality), exact (CodexLens FTS), ripgrep (fast, no index)',
         default: 'auto',
       },
       output_mode: {
         type: 'string',
         enum: ['full', 'files_only', 'count'],
-        description: 'Output mode: full (default), files_only (paths only), count (per-file counts)',
+        description: 'Output format: full (default), files_only (paths only), count (per-file counts)',
         default: 'full',
+      },
+      path: {
+        type: 'string',
+        description: 'Directory path for init/search actions (default: current directory)',
       },
       paths: {
         type: 'array',
-        description: 'Paths to search within (default: current directory)',
+        description: 'Multiple paths to search within (for search action)',
         items: {
           type: 'string',
         },
@@ -633,21 +803,31 @@ Modes: auto (default), exact, fuzzy, semantic, graph`,
       },
       contextLines: {
         type: 'number',
-        description: 'Number of context lines around matches (default: 0)',
+        description: 'Number of context lines around matches (exact mode only)',
         default: 0,
       },
       maxResults: {
         type: 'number',
-        description: 'Maximum number of results to return (default: 100)',
+        description: 'Maximum number of results (default: 100)',
+        default: 100,
+      },
+      limit: {
+        type: 'number',
+        description: 'Alias for maxResults',
         default: 100,
       },
       includeHidden: {
         type: 'boolean',
-        description: 'Include hidden files/directories (default: false)',
+        description: 'Include hidden files/directories',
         default: false,
       },
+      languages: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Languages to index (for init action). Example: ["javascript", "typescript"]',
+      },
     },
-    required: ['query'],
+    required: [],
   },
 };
 
@@ -655,20 +835,27 @@ Modes: auto (default), exact, fuzzy, semantic, graph`,
  * Transform results based on output_mode
  */
 function transformOutput(
-  results: ExactMatch[] | SemanticMatch[] | GraphMatch[],
+  results: ExactMatch[] | SemanticMatch[] | GraphMatch[] | unknown[],
   outputMode: 'full' | 'files_only' | 'count'
 ): unknown {
+  if (!Array.isArray(results)) {
+    return results;
+  }
+
   switch (outputMode) {
     case 'files_only': {
       // Extract unique file paths
-      const files = [...new Set(results.map((r) => r.file))];
+      const files = [...new Set(results.map((r: any) => r.file))].filter(Boolean);
       return { files, count: files.length };
     }
     case 'count': {
       // Count matches per file
       const counts: Record<string, number> = {};
       for (const r of results) {
-        counts[r.file] = (counts[r.file] || 0) + 1;
+        const file = (r as any).file;
+        if (file) {
+          counts[file] = (counts[file] || 0) + 1;
+        }
       }
       return {
         files: Object.entries(counts).map(([file, count]) => ({ file, count })),
@@ -688,34 +875,58 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
     return { success: false, error: `Invalid params: ${parsed.error.message}` };
   }
 
-  const { mode, output_mode } = parsed.data;
+  const { action, mode, output_mode, limit, maxResults } = parsed.data;
+
+  // Use limit if maxResults not provided
+  if (limit && !maxResults) {
+    parsed.data.maxResults = limit;
+  }
 
   try {
     let result: SearchResult;
 
-    switch (mode) {
-      case 'auto':
-        result = await executeAutoMode(parsed.data);
+    // Handle actions
+    switch (action) {
+      case 'init':
+        result = await executeInitAction(parsed.data);
         break;
-      case 'exact':
-        result = await executeExactMode(parsed.data);
+
+      case 'status':
+        result = await executeStatusAction(parsed.data);
         break;
-      case 'fuzzy':
-        result = await executeFuzzyMode(parsed.data);
-        break;
-      case 'semantic':
-        result = await executeSemanticMode(parsed.data);
-        break;
-      case 'graph':
-        result = await executeGraphMode(parsed.data);
-        break;
+
+      case 'search_files':
+        // For search_files, use search mode but force files_only output
+        parsed.data.output_mode = 'files_only';
+        // Fall through to search
+
+      case 'search':
       default:
-        throw new Error(`Unsupported mode: ${mode}`);
+        // Handle search modes: auto | hybrid | exact | ripgrep
+        switch (mode) {
+          case 'auto':
+            result = await executeAutoMode(parsed.data);
+            break;
+          case 'hybrid':
+            result = await executeHybridMode(parsed.data);
+            break;
+          case 'exact':
+            result = await executeCodexLensExactMode(parsed.data);
+            break;
+          case 'ripgrep':
+            result = await executeRipgrepMode(parsed.data);
+            break;
+          default:
+            throw new Error(`Unsupported mode: ${mode}. Use: auto, hybrid, exact, or ripgrep`);
+        }
+        break;
     }
 
-    // Transform output based on output_mode
-    if (result.success && result.results && output_mode !== 'full') {
-      result.results = transformOutput(result.results, output_mode) as typeof result.results;
+    // Transform output based on output_mode (for search actions only)
+    if (action === 'search' || action === 'search_files') {
+      if (result.success && result.results && output_mode !== 'full') {
+        result.results = transformOutput(result.results as any[], output_mode);
+      }
     }
 
     return result.success ? { success: true, result } : { success: false, error: result.error };
