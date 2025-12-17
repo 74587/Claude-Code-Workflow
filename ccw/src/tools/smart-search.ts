@@ -1138,3 +1138,76 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
     return { success: false, error: (error as Error).message };
   }
 }
+
+/**
+ * Execute init action with external progress callback
+ * Used by MCP server for streaming progress
+ */
+export async function executeInitWithProgress(
+  params: Record<string, unknown>,
+  onProgress?: (progress: ProgressInfo) => void
+): Promise<SearchResult> {
+  const path = (params.path as string) || '.';
+  const languages = params.languages as string[] | undefined;
+
+  // Check CodexLens availability
+  const readyStatus = await ensureCodexLensReady();
+  if (!readyStatus.ready) {
+    return {
+      success: false,
+      error: `CodexLens not available: ${readyStatus.error}. CodexLens will be auto-installed on first use.`,
+    };
+  }
+
+  const args = ['init', path];
+  if (languages && languages.length > 0) {
+    args.push('--languages', languages.join(','));
+  }
+
+  // Track progress updates
+  const progressUpdates: ProgressInfo[] = [];
+  let lastProgress: ProgressInfo | null = null;
+
+  const result = await executeCodexLens(args, {
+    cwd: path,
+    timeout: 300000,
+    onProgress: (progress: ProgressInfo) => {
+      progressUpdates.push(progress);
+      lastProgress = progress;
+      // Call external progress callback if provided
+      if (onProgress) {
+        onProgress(progress);
+      }
+    },
+  });
+
+  // Build metadata with progress info
+  const metadata: SearchMetadata = {
+    action: 'init',
+    path,
+  };
+
+  if (lastProgress !== null) {
+    const p = lastProgress as ProgressInfo;
+    metadata.progress = {
+      stage: p.stage,
+      message: p.message,
+      percent: p.percent,
+      filesProcessed: p.filesProcessed,
+      totalFiles: p.totalFiles,
+    };
+  }
+
+  if (progressUpdates.length > 0) {
+    metadata.progressHistory = progressUpdates.slice(-5);
+  }
+
+  return {
+    success: result.success,
+    error: result.error,
+    message: result.success
+      ? `CodexLens index created successfully for ${path}`
+      : undefined,
+    metadata,
+  };
+}

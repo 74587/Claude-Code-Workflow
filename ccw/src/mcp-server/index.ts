@@ -10,7 +10,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { getAllToolSchemas, executeTool } from '../tools/index.js';
+import { getAllToolSchemas, executeTool, executeToolWithProgress } from '../tools/index.js';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
 
 const SERVER_NAME = 'ccw-tools';
@@ -104,7 +104,19 @@ function createServer(): Server {
     }
 
     try {
-      const result: ToolResult = await executeTool(name, args || {});
+      // For smart_search init action, use progress-aware execution
+      const isInitAction = name === 'smart_search' && args?.action === 'init';
+
+      let result: ToolResult;
+      if (isInitAction) {
+        // Execute with progress callback that writes to stderr
+        result = await executeToolWithProgress(name, args || {}, (progress) => {
+          // Output progress to stderr (visible in terminal, doesn't interfere with JSON-RPC)
+          console.error(`[Progress] ${progress.percent}% - ${progress.message}`);
+        });
+      } else {
+        result = await executeTool(name, args || {});
+      }
 
       if (!result.success) {
         return {

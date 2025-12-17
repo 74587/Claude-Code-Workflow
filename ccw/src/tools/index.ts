@@ -18,8 +18,10 @@ import * as convertTokensToCssMod from './convert-tokens-to-css.js';
 import * as sessionManagerMod from './session-manager.js';
 import * as cliExecutorMod from './cli-executor.js';
 import * as smartSearchMod from './smart-search.js';
+import { executeInitWithProgress } from './smart-search.js';
 // codex_lens removed - functionality integrated into smart_search
 import * as readFileMod from './read-file.js';
+import type { ProgressInfo } from './codex-lens.js';
 
 // Import legacy JS tools
 import { uiGeneratePreviewTool } from './ui-generate-preview.js';
@@ -258,6 +260,60 @@ function sanitizeResult(result: unknown): unknown {
     return { _truncated: true, preview: str.substring(0, 500) + '...' };
   }
   return result;
+}
+
+/**
+ * Execute a tool with progress callback (for init actions)
+ */
+export async function executeToolWithProgress(
+  name: string,
+  params: Record<string, unknown> = {},
+  onProgress?: (progress: ProgressInfo) => void
+): Promise<{
+  success: boolean;
+  result?: unknown;
+  error?: string;
+}> {
+  // For smart_search init, use special progress-aware execution
+  if (name === 'smart_search' && params.action === 'init') {
+    try {
+      // Notify dashboard - execution started
+      notifyDashboard({
+        toolName: name,
+        status: 'started',
+        params: sanitizeParams(params)
+      });
+
+      const result = await executeInitWithProgress(params, onProgress);
+
+      // Notify dashboard - execution completed
+      notifyDashboard({
+        toolName: name,
+        status: 'completed',
+        result: sanitizeResult(result)
+      });
+
+      return {
+        success: result.success,
+        result,
+        error: result.error
+      };
+    } catch (error) {
+      notifyDashboard({
+        toolName: name,
+        status: 'failed',
+        error: (error as Error).message || 'Tool execution failed'
+      });
+
+      return {
+        success: false,
+        error: (error as Error).message || 'Tool execution failed'
+      };
+    }
+  }
+
+  // Fall back to regular execution for other tools
+  return executeTool(name, params);
 }
 
 /**
