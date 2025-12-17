@@ -309,14 +309,11 @@ explorations.forEach(exp => {
   }
 })
 
-// Deduplicate exact same questions only
-const seen = new Set()
-const dedupedClarifications = allClarifications.filter(c => {
-  const key = c.question.toLowerCase()
-  if (seen.has(key)) return false
-  seen.add(key)
-  return true
-})
+// Intelligent deduplication: analyze allClarifications by intent
+// - Identify questions with similar intent across different angles
+// - Merge similar questions: combine options, consolidate context
+// - Produce dedupedClarifications with unique intents only
+const dedupedClarifications = intelligentMerge(allClarifications)
 
 // Multi-round clarification: batch questions (max 4 per round)
 if (dedupedClarifications.length > 0) {
