@@ -112,14 +112,18 @@ After bash validation, the model takes control to:
 
 1. **Load Context**: Read completed task summaries and changed files
    ```bash
-   # Load implementation summaries
-   ccw session read ${sessionId} --type summary --raw
+   # Load implementation summaries (iterate through .summaries/ directory)
+   for summary in .workflow/active/${sessionId}/.summaries/*.md; do
+     cat "$summary"
+   done
 
    # Load test results (if available)
-   ccw session read ${sessionId} --type summary --filename "TEST-FIX-*.md" --raw 2>/dev/null
+   for test_summary in .workflow/active/${sessionId}/.summaries/TEST-FIX-*.md 2>/dev/null; do
+     cat "$test_summary"
+   done
 
    # Get session created_at for git log filter
-   created_at=$(ccw session read ${sessionId} --type session --raw | jq -r .created_at)
+   created_at=$(ccw session ${sessionId} read workflow-session.json | jq -r .created_at)
    git log --since="$created_at" --name-only --pretty=format: | sort -u
    ```
 
@@ -170,11 +174,13 @@ After bash validation, the model takes control to:
    - Verify all requirements and acceptance criteria met:
      ```bash
      # Load task requirements and acceptance criteria
-     ccw session read ${sessionId} --type task --raw | jq -r '
-       "Task: " + .id + "\n" +
-       "Requirements: " + (.context.requirements | join(", ")) + "\n" +
-       "Acceptance: " + (.context.acceptance | join(", "))
-     '
+     for task_file in .workflow/active/${sessionId}/.task/*.json; do
+       cat "$task_file" | jq -r '
+         "Task: " + .id + "\n" +
+         "Requirements: " + (.context.requirements | join(", ")) + "\n" +
+         "Acceptance: " + (.context.acceptance | join(", "))
+       '
+     done
 
      # Check implementation summaries against requirements
      ccw cli exec "

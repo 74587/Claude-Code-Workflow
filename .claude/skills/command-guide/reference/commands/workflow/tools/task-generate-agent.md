@@ -28,6 +28,12 @@ Input Parsing:
    ├─ Parse flags: --session
    └─ Validation: session_id REQUIRED
 
+Phase 0: User Configuration (Interactive)
+   ├─ Question 1: Supplementary materials/guidelines?
+   ├─ Question 2: Execution method preference (Agent/CLI/Hybrid)
+   ├─ Question 3: CLI tool preference (if CLI selected)
+   └─ Store: userConfig for agent prompt
+
 Phase 1: Context Preparation & Module Detection (Command)
    ├─ Assemble session paths (metadata, context package, output dirs)
    ├─ Provide metadata (session_id, execution_mode, mcp_capabilities)
@@ -56,6 +62,82 @@ Phase 3: Integration (+1 Coordinator, Multi-Module Only)
 ```
 
 ## Document Generation Lifecycle
+
+### Phase 0: User Configuration (Interactive)
+
+**Purpose**: Collect user preferences before task generation to ensure generated tasks match execution expectations.
+
+**User Questions**:
+```javascript
+AskUserQuestion({
+  questions: [
+    {
+      question: "Do you have supplementary materials or guidelines to include?",
+      header: "Materials",
+      multiSelect: false,
+      options: [
+        { label: "No additional materials", description: "Use existing context only" },
+        { label: "Provide file paths", description: "I'll specify paths to include" },
+        { label: "Provide inline content", description: "I'll paste content directly" }
+      ]
+    },
+    {
+      question: "Select execution method for generated tasks:",
+      header: "Execution",
+      multiSelect: false,
+      options: [
+        { label: "Agent (Recommended)", description: "Claude agent executes tasks directly" },
+        { label: "Hybrid", description: "Agent orchestrates, calls CLI for complex steps" },
+        { label: "CLI Only", description: "All execution via CLI tools (codex/gemini/qwen)" }
+      ]
+    },
+    {
+      question: "If using CLI, which tool do you prefer?",
+      header: "CLI Tool",
+      multiSelect: false,
+      options: [
+        { label: "Codex (Recommended)", description: "Best for implementation tasks" },
+        { label: "Gemini", description: "Best for analysis and large context" },
+        { label: "Qwen", description: "Alternative analysis tool" },
+        { label: "Auto", description: "Let agent decide per-task" }
+      ]
+    }
+  ]
+})
+```
+
+**Handle Materials Response**:
+```javascript
+if (userConfig.materials === "Provide file paths") {
+  // Follow-up question for file paths
+  const pathsResponse = AskUserQuestion({
+    questions: [{
+      question: "Enter file paths to include (comma-separated or one per line):",
+      header: "Paths",
+      multiSelect: false,
+      options: [
+        { label: "Enter paths", description: "Provide paths in text input" }
+      ]
+    }]
+  })
+  userConfig.supplementaryPaths = parseUserPaths(pathsResponse)
+}
+```
+
+**Build userConfig**:
+```javascript
+const userConfig = {
+  supplementaryMaterials: {
+    type: "none|paths|inline",
+    content: [...],  // Parsed paths or inline content
+  },
+  executionMethod: "agent|hybrid|cli",
+  preferredCliTool: "codex|gemini|qwen|auto",
+  enableResume: true  // Always enable resume for CLI executions
+}
+```
+
+**Pass to Agent**: Include `userConfig` in agent prompt for Phase 2A/2B.
 
 ### Phase 1: Context Preparation & Module Detection (Command Responsibility)
 
@@ -159,10 +241,21 @@ Output:
 Session ID: {session-id}
 MCP Capabilities: {exa_code, exa_web, code_index}
 
+## USER CONFIGURATION (from Phase 0)
+Execution Method: ${userConfig.executionMethod}  // agent|hybrid|cli
+Preferred CLI Tool: ${userConfig.preferredCliTool}  // codex|gemini|qwen|auto
+Supplementary Materials: ${userConfig.supplementaryMaterials}
+
 ## CLI TOOL SELECTION
-Determine CLI tool usage per-step based on user's task description:
-- If user specifies "use Codex/Gemini/Qwen for X" → Add command field to relevant steps
-- Default: Agent execution (no command field) unless user explicitly requests CLI
+Based on userConfig.executionMethod:
+- "agent": No command field in implementation_approach steps
+- "hybrid": Add command field to complex steps only (agent handles simple steps)
+- "cli": Add command field to ALL implementation_approach steps
+
+CLI Resume Support (MANDATORY for all CLI commands):
+- Use --resume parameter to continue from previous task execution
+- Read previous task's cliExecutionId from session state
+- Format: ccw cli exec "[prompt]" --resume ${previousCliId} --tool ${tool} --mode write
 
 ## EXPLORATION CONTEXT (from context-package.exploration_results)
 - Load exploration_results from context-package.json
@@ -186,6 +279,7 @@ Determine CLI tool usage per-step based on user's task description:
    - Artifacts integration from context package
    - **focus_paths enhanced with exploration critical_files**
    - Flow control with pre_analysis steps (include exploration integration_points analysis)
+   - **CLI Execution IDs and strategies (MANDATORY)**
 
 2. Implementation Plan (IMPL_PLAN.md)
    - Context analysis and artifact references
@@ -196,6 +290,27 @@ Determine CLI tool usage per-step based on user's task description:
    - Hierarchical structure (containers, pending, completed markers)
    - Links to task JSONs and summaries
    - Matches task JSON hierarchy
+
+## CLI EXECUTION ID REQUIREMENTS (MANDATORY)
+Each task JSON MUST include:
+- **cli_execution_id**: Unique ID for CLI execution (format: `{session_id}-{task_id}`)
+- **cli_execution**: Strategy object based on depends_on:
+  - No deps → `{ "strategy": "new" }`
+  - 1 dep (single child) → `{ "strategy": "resume", "resume_from": "parent-cli-id" }`
+  - 1 dep (multiple children) → `{ "strategy": "fork", "resume_from": "parent-cli-id" }`
+  - N deps → `{ "strategy": "merge_fork", "merge_from": ["id1", "id2", ...] }`
+
+**CLI Execution Strategy Rules**:
+1. **new**: Task has no dependencies - starts fresh CLI conversation
+2. **resume**: Task has 1 parent AND that parent has only this child - continues same conversation
+3. **fork**: Task has 1 parent BUT parent has multiple children - creates new branch with parent context
+4. **merge_fork**: Task has multiple parents - merges all parent contexts into new conversation
+
+**Execution Command Patterns**:
+- new: `ccw cli exec "[prompt]" --tool [tool] --mode write --id [cli_execution_id]`
+- resume: `ccw cli exec "[prompt]" --resume [resume_from] --tool [tool] --mode write`
+- fork: `ccw cli exec "[prompt]" --resume [resume_from] --id [cli_execution_id] --tool [tool] --mode write`
+- merge_fork: `ccw cli exec "[prompt]" --resume [merge_from.join(',')] --id [cli_execution_id] --tool [tool] --mode write`
 
 ## QUALITY STANDARDS
 Hard Constraints:

@@ -30,7 +30,7 @@ ccw session stats WFS-session
 
 ### Step 3: Read Session Metadata
 ```bash
-ccw session read WFS-session --type session
+ccw session WFS-session read workflow-session.json
 # Returns: session_id, status, project, created_at, etc.
 ```
 
@@ -39,8 +39,8 @@ ccw session read WFS-session --type session
 ### Basic Operations
 - **List all sessions**: `ccw session list`
 - **List active only**: `ccw session list --location active`
-- **Read session data**: `ccw session read WFS-xxx --type session`
-- **Get task stats**: `ccw session stats WFS-xxx`
+- **Read session data**: `ccw session WFS-xxx read workflow-session.json`
+- **Get task stats**: `ccw session WFS-xxx stats`
 
 ## Simple Output Format
 

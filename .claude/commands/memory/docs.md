@@ -74,7 +74,7 @@ SlashCommand(command="/workflow:session:start --type docs --new \"{project_name}
 
 ```bash
 # Update workflow-session.json with docs-specific fields
-ccw session update {sessionId} --type session --content '{"target_path":"{target_path}","project_root":"{project_root}","project_name":"{project_name}","mode":"full","tool":"gemini","cli_execute":false}'
+ccw session {sessionId} write workflow-session.json '{"target_path":"{target_path}","project_root":"{project_root}","project_name":"{project_name}","mode":"full","tool":"gemini","cli_execute":false}'
 ```
 
 ### Phase 2: Analyze Structure
@@ -136,7 +136,7 @@ bash(if [ -d .workflow/docs/\${project_name} ]; then find .workflow/docs/\${proj
 
 ```bash
 # Count existing docs from doc-planning-data.json
-ccw session read WFS-docs-{timestamp} --type process --filename doc-planning-data.json --raw | jq '.existing_docs.file_list | length'
+ccw session WFS-docs-{timestamp} read .process/doc-planning-data.json --raw | jq '.existing_docs.file_list | length'
 # Or read entire process file and parse
 ```
 
@@ -191,10 +191,10 @@ Large Projects (single dir >10 docs):
 
 ```bash
 # 1. Get top-level directories from doc-planning-data.json
-ccw session read WFS-docs-{timestamp} --type process --filename doc-planning-data.json --raw | jq -r '.top_level_dirs[]'
+ccw session WFS-docs-{timestamp} read .process/doc-planning-data.json --raw | jq -r '.top_level_dirs[]'
 
 # 2. Get mode from workflow-session.json
-ccw session read WFS-docs-{timestamp} --type session --raw | jq -r '.mode // "full"'
+ccw session WFS-docs-{timestamp} read workflow-session.json --raw | jq -r '.mode // "full"'
 
 # 3. Check for HTTP API
 bash(grep -r "router\.|@Get\|@Post" src/ 2>/dev/null && echo "API_FOUND" || echo "NO_API")
@@ -223,7 +223,7 @@ bash(grep -r "router\.|@Get\|@Post" src/ 2>/dev/null && echo "API_FOUND" || echo
 
 **Task ID Calculation**:
 ```bash
-group_count=$(ccw session read WFS-docs-{timestamp} --type process --filename doc-planning-data.json --raw | jq '.groups.count')
+group_count=$(ccw session WFS-docs-{timestamp} read .process/doc-planning-data.json --raw | jq '.groups.count')
 readme_id=$((group_count + 1))   # Next ID after groups
 arch_id=$((group_count + 2))
 api_id=$((group_count + 3))
@@ -239,7 +239,7 @@ api_id=$((group_count + 3))
 | **CLI** | true | implementation_approach | write | --mode write | Execute CLI commands, validate output |
 
 **Command Patterns**:
-- Gemini/Qwen: `ccw cli exec "..." --tool gemini --cd dir`
+- Gemini/Qwen: `ccw cli exec "..." --tool gemini --mode analysis --cd dir`
 - CLI Mode: `ccw cli exec "..." --tool gemini --mode write --cd dir`
 - Codex: `ccw cli exec "..." --tool codex --mode write --cd dir`
 
@@ -286,8 +286,8 @@ api_id=$((group_count + 3))
         "step": "load_precomputed_data",
         "action": "Load Phase 2 analysis and extract group directories",
         "commands": [
-          "ccw session read ${session_id} --type process --filename doc-planning-data.json",
-          "ccw session read ${session_id} --type process --filename doc-planning-data.json --raw | jq '.groups.assignments[] | select(.group_id == \"${group_number}\") | .directories'"
+          "ccw session ${session_id} read .process/doc-planning-data.json",
+          "ccw session ${session_id} read .process/doc-planning-data.json --raw | jq '.groups.assignments[] | select(.group_id == \"${group_number}\") | .directories'"
         ],
         "output_to": "phase2_context",
         "note": "Single JSON file contains all Phase 2 analysis results"

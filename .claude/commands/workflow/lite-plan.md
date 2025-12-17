@@ -72,29 +72,57 @@ Phase 5: Dispatch
 ### Phase 1: Intelligent Multi-Angle Exploration
 
 **Session Setup** (MANDATORY - follow exactly):
+
+**Option 1: Using CLI Command** (Recommended for simplicity):
+```bash
+# Generate session ID
+task_slug=$(echo "${task_description}" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-' | cut -c1-40)
+date_str=$(date -u '+%Y-%m-%d')
+session_id="${task_slug}-${date_str}"
+
+# Initialize lite-plan session (location auto-inferred from type)
+ccw session init "${session_id}" \
+  --type lite-plan \
+  --content "{\"description\":\"${task_description}\",\"complexity\":\"${complexity}\"}"
+
+# Get session folder
+session_folder=".workflow/.lite-plan/${session_id}"
+echo "Session initialized: ${session_id} at ${session_folder}"
+```
+
+**Option 2: Using session_manager Tool** (For programmatic access):
 ```javascript
 // Helper: Get UTC+8 (China Standard Time) ISO string
 const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
 
 const taskSlug = task_description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 40)
-const dateStr = getUtc8ISOString().substring(0, 10)  // Format: 2025-11-29
+const dateStr = getUtc8ISOString().substring(0, 10)  // Format: 2025-12-17
 
-const sessionId = `${taskSlug}-${dateStr}`  // e.g., "implement-jwt-refresh-2025-11-29"
+const sessionId = `${taskSlug}-${dateStr}`  // e.g., "implement-jwt-refresh-2025-12-17"
 
-// Initialize session via session_manager tool
-const initResult = await ccw_tool_exec('session_manager', {
-  operation: 'init',
-  session_id: sessionId,
-  location: 'lite-plan',
-  metadata: {
-    description: task_description,
-    complexity: complexity,  // Set after complexity assessment
-    created_at: getUtc8ISOString()
-  }
-})
+
 
 const sessionFolder = initResult.result.path
 console.log(`Session initialized: ${sessionId} at ${sessionFolder}`)
+```
+
+**Session File Structure**:
+- `session-metadata.json` - Session metadata (created at init, contains description, complexity, status)
+- `plan.json` - Actual planning content (created later in Phase 3, contains tasks, steps, dependencies)
+
+**Metadata Field Usage**:
+- `description`: Displayed in dashboard session list (replaces session ID as title)
+- `complexity`: Used for planning strategy selection (Low → Direct Claude, Medium/High → Agent)
+- `created_at`: Displayed in dashboard timeline
+- Custom fields: Any additional fields in metadata are saved and accessible programmatically
+
+**Accessing Session Data**:
+```bash
+# Read session metadata
+ccw session ${session_id} read session-metadata.json
+
+# Read plan content (after Phase 3 completion)
+ccw session ${session_id} read plan.json
 ```
 
 **Exploration Decision Logic**:

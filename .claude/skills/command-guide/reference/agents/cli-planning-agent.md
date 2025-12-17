@@ -134,7 +134,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/{template}) |
 - Consider previous iteration failures
 - Validate fix doesn't introduce new vulnerabilities
 - analysis=READ-ONLY
-" --tool {cli_tool} --cd {project_root} --timeout {timeout_value}
+" --tool {cli_tool} --mode analysis --cd {project_root} --timeout {timeout_value}
 ```
 
 **Layer-Specific Guidance Injection**:
@@ -529,7 +529,7 @@ See: `.process/iteration-{iteration}-cli-output.txt`
    ```bash
    ccw cli exec "PURPOSE: Analyze integration test failure...
    TASK: Examine component interactions, data flow, interface contracts...
-   RULES: Analyze full call stack and data flow across components" --tool gemini
+   RULES: Analyze full call stack and data flow across components" --tool gemini --mode analysis
    ```
 3. **Parse Output**: Extract RCA, 修复建议, 验证建议 sections
 4. **Generate Task JSON** (IMPL-fix-1.json):

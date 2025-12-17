@@ -30,10 +30,17 @@ The `--type` parameter classifies sessions for CCW dashboard organization:
 | `tdd` | TDD-based development | `/workflow:tdd-plan` |
 | `test` | Test generation/fix sessions | `/workflow:test-fix-gen` |
 | `docs` | Documentation sessions | `/memory:docs` |
+| `lite-plan` | Lightweight planning workflow | `/workflow:lite-plan` |
+| `lite-fix` | Lightweight bug fix workflow | `/workflow:lite-fix` |
+
+**Special Behavior for `lite-plan` and `lite-fix`**:
+- These types automatically infer the storage location (`.workflow/.lite-plan/` or `.workflow/.lite-fix/`)
+- No need to specify `--location` parameter when using these types
+- Alternative: Use `--location lite-plan` or `--location lite-fix` directly
 
 **Validation**: If `--type` is provided with invalid value, return error:
 ```
-ERROR: Invalid session type. Valid types: workflow, review, tdd, test, docs
+ERROR: Invalid session type. Valid types: workflow, review, tdd, test, docs, lite-plan, lite-fix
 ```
 
 ## Step 0: Initialize Project State (First-time Only)
@@ -75,7 +82,7 @@ ccw session list --location active
 
 ### Step 2: Display Session Metadata
 ```bash
-ccw session read WFS-promptmaster-platform --type session
+ccw session WFS-promptmaster-platform read workflow-session.json
 ```
 
 ### Step 4: User Decision
@@ -102,7 +109,7 @@ ccw session list --location active
 # Pattern: WFS-{lowercase-slug-from-description}
 
 # Create session with ccw (creates directories + metadata atomically)
-ccw session init WFS-implement-oauth2-auth --type workflow --content '{"project":"implement OAuth2 auth","status":"planning"}'
+ccw session init WFS-implement-oauth2-auth --type workflow
 ```
 
 **Output**: `SESSION_ID: WFS-implement-oauth2-auth`
@@ -113,7 +120,7 @@ ccw session init WFS-implement-oauth2-auth --type workflow --content '{"project"
 ccw session list --location active
 
 # Read session metadata for relevance check
-ccw session read WFS-promptmaster-platform --type session
+ccw session WFS-promptmaster-platform read workflow-session.json
 
 # If task contains project keywords → Reuse session
 # If task unrelated → Create new session (use Step 2a)
@@ -149,9 +156,40 @@ ccw session list --location active
 
 ### Step 2: Create Session Structure
 ```bash
-# Single command creates directories (.process, .task, .summaries) + metadata
-ccw session init WFS-fix-login-bug --type workflow --content '{"project":"fix login bug","status":"planning"}'
+# Basic init - creates directories + default metadata
+ccw session init WFS-fix-login-bug --type workflow
+
+# Advanced init - with custom metadata
+ccw session init WFS-oauth-implementation --type workflow --content '{"description":"OAuth2 authentication system","priority":"high","complexity":"medium"}'
 ```
+
+**Default Metadata** (auto-generated):
+```json
+{
+  "session_id": "WFS-fix-login-bug",
+  "type": "workflow",
+  "status": "planning",
+  "created_at": "2025-12-17T..."
+}
+```
+
+**Custom Metadata** (merged with defaults):
+```json
+{
+  "session_id": "WFS-oauth-implementation",
+  "type": "workflow",
+  "status": "planning",
+  "created_at": "2025-12-17T...",
+  "description": "OAuth2 authentication system",
+  "priority": "high",
+  "complexity": "medium"
+}
+```
+
+**Field Usage**:
+- `description`: Displayed in dashboard (replaces session_id as title)
+- `status`: Can override default "planning" (e.g., "active", "implementing")
+- Custom fields: Any additional fields are saved and accessible programmatically
 
 **Output**: `SESSION_ID: WFS-fix-login-bug`
 

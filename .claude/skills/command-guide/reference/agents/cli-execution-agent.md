@@ -134,7 +134,7 @@ RULES: $(cat {selected_template}) | {constraints}
 ```
 analyze|plan → gemini (qwen fallback) + mode=analysis
 execute (simple|medium) → gemini (qwen fallback) + mode=write
-execute (complex) → codex + mode=auto
+execute (complex) → codex + mode=write
 discuss → multi (gemini + codex parallel)
 ```
 
@@ -155,7 +155,7 @@ MODE: analysis
 CONTEXT: @**/*
 EXPECTED: {output}
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
-" --tool gemini --cd {dir}
+" --tool gemini --mode analysis --cd {dir}
 
 # Qwen fallback: Replace '--tool gemini' with '--tool qwen'
 ```
@@ -165,14 +165,14 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
 ccw cli exec "..." --tool gemini --mode write --cd {dir}
 ```
 
-**Codex (Auto)**:
+**Codex (Write)**:
 ```bash
-ccw cli exec "..." --tool codex --mode auto --cd {dir}
+ccw cli exec "..." --tool codex --mode write --cd {dir}
 ```
 
 **Cross-Directory** (Gemini/Qwen):
 ```bash
-ccw cli exec "CONTEXT: @**/* @../shared/**/*" --tool gemini --cd src/auth --includeDirs ../shared
+ccw cli exec "CONTEXT: @**/* @../shared/**/*" --tool gemini --mode analysis --cd src/auth --includeDirs ../shared
 ```
 
 **Directory Scope**:

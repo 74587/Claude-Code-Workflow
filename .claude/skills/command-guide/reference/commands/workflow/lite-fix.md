@@ -72,17 +72,60 @@ Phase 5: Dispatch
 ### Phase 1: Intelligent Multi-Angle Diagnosis
 
 **Session Setup** (MANDATORY - follow exactly):
+
+**Option 1: Using CLI Command** (Recommended for simplicity):
+```bash
+# Generate session ID
+bug_slug=$(echo "${bug_description}" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-' | cut -c1-40)
+date_str=$(date -u '+%Y-%m-%d')
+session_id="${bug_slug}-${date_str}"
+
+# Initialize lite-fix session (location auto-inferred from type)
+ccw session init "${session_id}" \
+  --type lite-fix \
+  --content "{\"description\":\"${bug_description}\",\"severity\":\"${severity}\"}"
+
+
+
+# Get session folder
+session_folder=".workflow/.lite-fix/${session_id}"
+echo "Session initialized: ${session_id} at ${session_folder}"
+```
+
+**Option 2: Using session_manager Tool** (For programmatic access):
 ```javascript
 // Helper: Get UTC+8 (China Standard Time) ISO string
 const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
 
 const bugSlug = bug_description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 40)
-const dateStr = getUtc8ISOString().substring(0, 10)  // Format: 2025-11-29
+const dateStr = getUtc8ISOString().substring(0, 10)  // Format: 2025-12-17
 
-const sessionId = `${bugSlug}-${dateStr}`  // e.g., "user-avatar-upload-fails-2025-11-29"
-const sessionFolder = `.workflow/.lite-fix/${sessionId}`
+const sessionId = `${bugSlug}-${dateStr}`  // e.g., "user-avatar-upload-fails-2025-12-17"
 
-bash(`mkdir -p ${sessionFolder} && test -d ${sessionFolder} && echo "SUCCESS: ${sessionFolder}" || echo "FAILED: ${sessionFolder}"`)
+
+
+const sessionFolder = initResult.result.path
+console.log(`Session initialized: ${sessionId} at ${sessionFolder}`)
+```
+
+**Session File Structure**:
+- `session-metadata.json` - Session metadata (created at init, contains description, severity, status)
+- `fix-plan.json` - Actual fix planning content (created later in Phase 3, contains fix tasks, diagnosis results)
+
+**Metadata Field Usage**:
+- `description`: Displayed in dashboard session list (replaces session ID as title)
+- `severity`: Used for fix planning strategy selection (Low/Medium → Direct Claude, High/Critical → Agent)
+- `created_at`: Displayed in dashboard timeline
+- `status`: Updated through workflow (diagnosing → fixing → completed)
+- Custom fields: Any additional fields in metadata are saved and accessible programmatically
+
+**Accessing Session Data**:
+```bash
+# Read session metadata
+ccw session ${session_id} read session-metadata.json
+
+# Read fix plan content (after Phase 3 completion)
+ccw session ${session_id} read fix-plan.json
 ```
 
 **Diagnosis Decision Logic**:

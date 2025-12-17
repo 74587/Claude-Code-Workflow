@@ -198,7 +198,7 @@ Objectives:
    CONTEXT: @IMPL_PLAN.md @workflow-session.json
    EXPECTED: Structured lessons and conflicts in JSON format
    RULES: Template reference from skill-aggregation.txt
-   " --tool gemini --cd .workflow/.archives/{session_id}
+   " --tool gemini --mode analysis --cd .workflow/.archives/{session_id}
 
 3.5. **Generate SKILL.md Description** (CRITICAL for auto-loading):
 
@@ -345,7 +345,7 @@ Objectives:
    CONTEXT: [Provide aggregated JSON data]
    EXPECTED: Final aggregated structure for SKILL documents
    RULES: Template reference from skill-aggregation.txt
-   " --tool gemini
+   " --tool gemini --mode analysis
 
 3. Read templates for formatting (same 4 templates as single mode)
 

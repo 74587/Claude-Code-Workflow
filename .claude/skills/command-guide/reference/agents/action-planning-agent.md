@@ -203,7 +203,13 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
   "id": "IMPL-N",
   "title": "Descriptive task name",
   "status": "pending|active|completed|blocked",
-  "context_package_path": ".workflow/active/WFS-{session}/.process/context-package.json"
+  "context_package_path": ".workflow/active/WFS-{session}/.process/context-package.json",
+  "cli_execution_id": "WFS-{session}-IMPL-N",
+  "cli_execution": {
+    "strategy": "new|resume|fork|merge_fork",
+    "resume_from": "parent-cli-id",
+    "merge_from": ["id1", "id2"]
+  }
 }
 ```
 
@@ -216,6 +222,50 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
 - `title`: Descriptive task name summarizing the work
 - `status`: Task state - `pending` (not started), `active` (in progress), `completed` (done), `blocked` (waiting on dependencies)
 - `context_package_path`: Path to smart context package containing project structure, dependencies, and brainstorming artifacts catalog
+- `cli_execution_id`: Unique CLI conversation ID (format: `{session_id}-{task_id}`)
+- `cli_execution`: CLI execution strategy based on task dependencies
+  - `strategy`: Execution pattern (`new`, `resume`, `fork`, `merge_fork`)
+  - `resume_from`: Parent task's cli_execution_id (for resume/fork)
+  - `merge_from`: Array of parent cli_execution_ids (for merge_fork)
+
+**CLI Execution Strategy Rules** (MANDATORY - apply to all tasks):
+
+| Dependency Pattern | Strategy | CLI Command Pattern |
+|--------------------|----------|---------------------|
+| No `depends_on` | `new` | `--id {cli_execution_id}` |
+| 1 parent, parent has 1 child | `resume` | `--resume {resume_from}` |
+| 1 parent, parent has N children | `fork` | `--resume {resume_from} --id {cli_execution_id}` |
+| N parents | `merge_fork` | `--resume {merge_from.join(',')} --id {cli_execution_id}` |
+
+**Strategy Selection Algorithm**:
+```javascript
+function computeCliStrategy(task, allTasks) {
+  const deps = task.context?.depends_on || []
+  const childCount = allTasks.filter(t =>
+    t.context?.depends_on?.includes(task.id)
+  ).length
+
+  if (deps.length === 0) {
+    return { strategy: "new" }
+  } else if (deps.length === 1) {
+    const parentTask = allTasks.find(t => t.id === deps[0])
+    const parentChildCount = allTasks.filter(t =>
+      t.context?.depends_on?.includes(deps[0])
+    ).length
+
+    if (parentChildCount === 1) {
+      return { strategy: "resume", resume_from: parentTask.cli_execution_id }
+    } else {
+      return { strategy: "fork", resume_from: parentTask.cli_execution_id }
+    }
+  } else {
+    const mergeFrom = deps.map(depId =>
+      allTasks.find(t => t.id === depId).cli_execution_id
+    )
+    return { strategy: "merge_fork", merge_from: mergeFrom }
+  }
+}
+```
 
 #### Meta Object
 
@@ -225,7 +275,13 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
     "type": "feature|bugfix|refactor|test-gen|test-fix|docs",
     "agent": "@code-developer|@action-planning-agent|@test-fix-agent|@universal-executor",
     "execution_group": "parallel-abc123|null",
-    "module": "frontend|backend|shared|null"
+    "module": "frontend|backend|shared|null",
+    "execution_config": {
+      "method": "agent|hybrid|cli",
+      "cli_tool": "codex|gemini|qwen|auto",
+      "enable_resume": true,
+      "previous_cli_id": "string|null"
+    }
   }
 }
 ```
@@ -235,6 +291,11 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
 - `agent`: Assigned agent for execution
 - `execution_group`: Parallelization group ID (tasks with same ID can run concurrently) or `null` for sequential tasks
 - `module`: Module identifier for multi-module projects (e.g., `frontend`, `backend`, `shared`) or `null` for single-module
+- `execution_config`: CLI execution settings (from userConfig in task-generate-agent)
+  - `method`: Execution method - `agent` (direct), `hybrid` (agent + CLI), `cli` (CLI only)
+  - `cli_tool`: Preferred CLI tool - `codex`, `gemini`, `qwen`, or `auto`
+  - `enable_resume`: Whether to use `--resume` for CLI continuity (default: true)
+  - `previous_cli_id`: Previous task's CLI execution ID for resume (populated at runtime)
 
 **Test Task Extensions** (for type="test-gen" or type="test-fix"):
 
@@ -409,14 +470,14 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
   // Pattern: Gemini CLI deep analysis
   {
     "step": "gemini_analyze_[aspect]",
-    "command": "ccw cli exec 'PURPOSE: [goal]\\nTASK: [tasks]\\nMODE: analysis\\nCONTEXT: @[paths]\\nEXPECTED: [output]\\nRULES: $(cat [template]) | [constraints] | analysis=READ-ONLY' --tool gemini --cd [path]",
+    "command": "ccw cli exec 'PURPOSE: [goal]\\nTASK: [tasks]\\nMODE: analysis\\nCONTEXT: @[paths]\\nEXPECTED: [output]\\nRULES: $(cat [template]) | [constraints] | analysis=READ-ONLY' --tool gemini --mode analysis --cd [path]",
     "output_to": "analysis_result"
   },
 
   // Pattern: Qwen CLI analysis (fallback/alternative)
   {
     "step": "qwen_analyze_[aspect]",
-    "command": "ccw cli exec '[similar to gemini pattern]' --tool qwen --cd [path]",
+    "command": "ccw cli exec '[similar to gemini pattern]' --tool qwen --mode analysis --cd [path]",
     "output_to": "analysis_result"
   },
 
@@ -457,7 +518,7 @@ The examples above demonstrate **patterns**, not fixed requirements. Agent MUST:
 4. **Command Composition Patterns**:
    - **Single command**: `bash([simple_search])`
    - **Multiple commands**: `["bash([cmd1])", "bash([cmd2])"]`
-   - **CLI analysis**: `ccw cli exec '[prompt]' --tool gemini --cd [path]`
+   - **CLI analysis**: `ccw cli exec '[prompt]' --tool gemini --mode analysis --cd [path]`
    - **MCP integration**: `mcp__[tool]__[function]([params])`
 
 **Key Principle**: Examples show **structure patterns**, not specific implementations. Agent must create task-appropriate steps dynamically.
@@ -479,11 +540,12 @@ The `implementation_approach` supports **two execution modes** based on the pres
    - Specified command executes the step directly
    - Leverages specialized CLI tools (codex/gemini/qwen) for complex reasoning
    - **Use for**: Large-scale features, complex refactoring, or when user explicitly requests CLI tool usage
-   - **Required fields**: Same as default mode **PLUS** `command`
-   - **Command patterns**:
-     - `ccw cli exec '[prompt]' --tool codex --mode auto --cd [path]`
-     - `ccw cli exec '[task]' --tool codex --mode auto` (multi-step with context)
+   - **Required fields**: Same as default mode **PLUS** `command`, `resume_from` (optional)
+   - **Command patterns** (with resume support):
+     - `ccw cli exec '[prompt]' --tool codex --mode write --cd [path]`
+     - `ccw cli exec '[prompt]' --resume ${previousCliId} --tool codex --mode write` (resume from previous)
      - `ccw cli exec '[prompt]' --tool gemini --mode write --cd [path]` (write mode)
+   - **Resume mechanism**: When step depends on previous CLI execution, include `--resume` with previous execution ID
 
 **Semantic CLI Tool Selection**:
 
@@ -559,11 +621,26 @@ Agent determines CLI tool usage per-step based on user semantics and task nature
     "step": 3,
     "title": "Execute implementation using CLI tool",
     "description": "Use Codex/Gemini for complex autonomous execution",
-    "command": "ccw cli exec '[prompt]' --tool codex --mode auto --cd [path]",
+    "command": "ccw cli exec '[prompt]' --tool codex --mode write --cd [path]",
     "modification_points": ["[Same as default mode]"],
     "logic_flow": ["[Same as default mode]"],
     "depends_on": [1, 2],
-    "output": "cli_implementation"
+    "output": "cli_implementation",
+    "cli_output_id": "step3_cli_id"  // Store execution ID for resume
+  },
+
+  // === CLI MODE with Resume: Continue from previous CLI execution ===
+  {
+    "step": 4,
+    "title": "Continue implementation with context",
+    "description": "Resume from previous step with accumulated context",
+    "command": "ccw cli exec '[continuation prompt]' --resume ${step3_cli_id} --tool codex --mode write",
+    "resume_from": "step3_cli_id",  // Reference previous step's CLI ID
+    "modification_points": ["[Continue from step 3]"],
+    "logic_flow": ["[Build on previous output]"],
+    "depends_on": [3],
+    "output": "continued_implementation",
+    "cli_output_id": "step4_cli_id"
   }
 ]
 ```
@@ -759,6 +836,8 @@ Use `analysis_results.complexity` or task count to determine structure:
 - Use provided context package: Extract all information from structured context
 - Respect memory-first rule: Use provided content (already loaded from memory/file)
 - Follow 6-field schema: All task JSONs must have id, title, status, context_package_path, meta, context, flow_control
+- **Assign CLI execution IDs**: Every task MUST have `cli_execution_id` (format: `{session_id}-{task_id}`)
+- **Compute CLI execution strategy**: Based on `depends_on`, set `cli_execution.strategy` (new/resume/fork/merge_fork)
 - Map artifacts: Use artifacts_inventory to populate task.context.artifacts array
 - Add MCP integration: Include MCP tool steps in flow_control.pre_analysis when capabilities available
 - Validate task count: Maximum 12 tasks hard limit, request re-scope if exceeded

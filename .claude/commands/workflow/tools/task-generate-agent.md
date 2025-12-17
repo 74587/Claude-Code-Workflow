@@ -307,10 +307,10 @@ Each task JSON MUST include:
 4. **merge_fork**: Task has multiple parents - merges all parent contexts into new conversation
 
 **Execution Command Patterns**:
-- new: `ccw cli exec "[prompt]" --tool [tool] --id [cli_execution_id]`
-- resume: `ccw cli exec "[prompt]" --resume [resume_from] --tool [tool]`
-- fork: `ccw cli exec "[prompt]" --resume [resume_from] --id [cli_execution_id] --tool [tool]`
-- merge_fork: `ccw cli exec "[prompt]" --resume [merge_from.join(',')] --id [cli_execution_id] --tool [tool]`
+- new: `ccw cli exec "[prompt]" --tool [tool] --mode write --id [cli_execution_id]`
+- resume: `ccw cli exec "[prompt]" --resume [resume_from] --tool [tool] --mode write`
+- fork: `ccw cli exec "[prompt]" --resume [resume_from] --id [cli_execution_id] --tool [tool] --mode write`
+- merge_fork: `ccw cli exec "[prompt]" --resume [merge_from.join(',')] --id [cli_execution_id] --tool [tool] --mode write`
 
 ## QUALITY STANDARDS
 Hard Constraints:

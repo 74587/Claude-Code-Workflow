@@ -6,6 +6,7 @@
 import chalk from 'chalk';
 import http from 'http';
 import { executeTool } from '../tools/index.js';
+import { resolveFilePath, PathResolutionError, type ResolverContext } from './session-path-resolver.js';
 
 // Handle EPIPE errors gracefully (occurs when piping to head/jq that closes early)
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
@@ -22,6 +23,8 @@ interface ListOptions {
 
 interface InitOptions {
   type?: string;
+  content?: string;  // JSON string for custom metadata
+  location?: string; // Session location: active | lite-plan | lite-fix
 }
 
 interface ReadOptions {
@@ -146,14 +149,64 @@ async function listAction(options: ListOptions): Promise<void> {
 async function initAction(sessionId: string | undefined, options: InitOptions): Promise<void> {
   if (!sessionId) {
     console.error(chalk.red('Session ID is required'));
-    console.error(chalk.gray('Usage: ccw session init <session_id> [--type <type>]'));
+    console.error(chalk.gray('Usage: ccw session init <session_id> [--location <location>] [--type <type>] [--content <json>]'));
     process.exit(1);
   }
 
-  const params = {
+  // Auto-infer location from type if not explicitly provided
+  // When type is 'lite-plan' or 'lite-fix', default location should match the type
+  const sessionLocation = options.location || 
+    (options.type === 'lite-plan' ? 'lite-plan' :
+     options.type === 'lite-fix' ? 'lite-fix' :
+     'active');
+  
+  // Infer type from location if not explicitly provided
+  const sessionType = options.type || (sessionLocation === 'active' ? 'workflow' : sessionLocation);
+
+  // Parse custom metadata from --content if provided
+  let customMetadata: any = {};
+  if (options.content) {
+    try {
+      customMetadata = JSON.parse(options.content);
+    } catch (e) {
+      const error = e as Error;
+      console.error(chalk.red('Invalid JSON in --content parameter'));
+      console.error(chalk.gray(`Parse error: ${error.message}`));
+      process.exit(1);
+    }
+  }
+
+  // Filter custom metadata: only allow safe fields, block system-critical fields
+  const blockedFields = ['session_id', 'type', 'status', 'created_at', 'updated_at', 'archived_at'];
+  const filteredCustomMetadata: any = {};
+  for (const key in customMetadata) {
+    if (!blockedFields.includes(key)) {
+      filteredCustomMetadata[key] = customMetadata[key];
+    } else {
+      console.warn(chalk.yellow(`⚠  WARNING: Field '${key}' in --content is reserved and will be ignored`));
+    }
+  }
+
+  // Merge metadata: defaults < custom (filtered) < required fields
+  const metadata: any = Object.assign(
+    {
+      session_id: sessionId,
+      type: sessionType,
+      status: 'planning',
+      created_at: new Date().toISOString()
+    },
+    filteredCustomMetadata,  // User custom fields (filtered)
+    {
+      session_id: sessionId,  // Force override - always use CLI param
+      type: sessionType       // Force override - always use --type or default
+    }
+  );
+
+  const params: any = {
     operation: 'init',
     session_id: sessionId,
-    session_type: options.type || 'workflow'
+    metadata: metadata,
+    location: sessionLocation  // Always pass location to session_manager
   };
 
   const result = await executeTool('session_manager', params);
@@ -170,16 +223,146 @@ async function initAction(sessionId: string | undefined, options: InitOptions): 
     payload: result.result
   });
 
+  // Lite sessions (lite-plan, lite-fix) use session-metadata.json, others use workflow-session.json
+  const metadataFile = sessionLocation.startsWith('lite-') ? 'session-metadata.json' : 'workflow-session.json';
+
   console.log(chalk.green(`✓ Session "${sessionId}" initialized`));
   console.log(chalk.gray(`  Location: ${(result.result as any).path}`));
+  console.log(chalk.gray(`  Metadata: ${metadataFile} created`));
 }
 
 /**
- * Read session content
+ * Get session information (location and path)
+ * Helper function for path resolution
+ */
+async function getSessionInfo(sessionId: string): Promise<{ path: string; location: 'active' | 'archived' | 'lite-plan' | 'lite-fix' }> {
+  // Use session_manager to find the session
+  const findParams = {
+    operation: 'list',
+    location: 'all',
+    include_metadata: false
+  };
+
+  const result = await executeTool('session_manager', findParams);
+
+  if (!result.success) {
+    throw new Error(`Failed to list sessions: ${result.error}`);
+  }
+
+  const resultData = result.result as any;
+  const allSessions = [
+    ...(resultData.active || []).map((s: any) => ({ ...s, location: 'active' as const })),
+    ...(resultData.archived || []).map((s: any) => ({ ...s, location: 'archived' as const })),
+    ...(resultData.litePlan || []).map((s: any) => ({ ...s, location: 'lite-plan' as const })),
+    ...(resultData.liteFix || []).map((s: any) => ({ ...s, location: 'lite-fix' as const })),
+  ];
+
+  const session = allSessions.find((s: any) => s.session_id === sessionId || s.id === sessionId);
+
+  if (!session) {
+    throw new Error(`Session "${sessionId}" not found in active, archived, lite-plan, or lite-fix locations`);
+  }
+
+  // Return actual session path from the session object
+  return {
+    path: session.path || '',
+    location: session.location
+  };
+}
+
+/**
+ * Read session content (NEW - with path resolution)
+ * @param {string} sessionId - Session ID
+ * @param {string} filename - Filename or relative path
+ * @param {Object} options - CLI options
+ */
+async function readAction(
+  sessionId: string | undefined,
+  filename: string | undefined,
+  options: ReadOptions
+): Promise<void> {
+  if (!sessionId) {
+    console.error(chalk.red('Session ID is required'));
+    console.error(chalk.gray('Usage: ccw session <session-id> read <filename|path>'));
+    process.exit(1);
+  }
+
+  // Backward compatibility: if --type is provided, use legacy implementation
+  if (options.type) {
+    console.warn(chalk.yellow('⚠  WARNING: --type parameter is deprecated'));
+    console.warn(chalk.gray('   Old: ccw session read WFS-001 --type task --task-id IMPL-001'));
+    console.warn(chalk.gray('   New: ccw session WFS-001 read IMPL-001.json'));
+    console.log();
+    return readActionLegacy(sessionId, options);
+  }
+
+  if (!filename) {
+    console.error(chalk.red('Filename is required'));
+    console.error(chalk.gray('Usage: ccw session <session-id> read <filename|path>'));
+    console.error(chalk.gray(''));
+    console.error(chalk.gray('Examples:'));
+    console.error(chalk.gray('  ccw session WFS-001 read IMPL-001.json'));
+    console.error(chalk.gray('  ccw session WFS-001 read IMPL_PLAN.md'));
+    console.error(chalk.gray('  ccw session WFS-001 read .task/IMPL-001.json'));
+    process.exit(1);
+  }
+
+  try {
+    // Get session context
+    const session = await getSessionInfo(sessionId);
+    const context: ResolverContext = {
+      sessionPath: session.path,
+      sessionLocation: session.location
+    };
+
+    // Resolve filename to content_type
+    const resolved = resolveFilePath(filename, context);
+
+    // Call session_manager tool
+    const params: any = {
+      operation: 'read',
+      session_id: sessionId,
+      content_type: resolved.contentType,
+    };
+
+    if (resolved.pathParams) {
+      params.path_params = resolved.pathParams;
+    }
+
+    const result = await executeTool('session_manager', params);
+
+    if (!result.success) {
+      console.error(chalk.red(`Error: ${result.error}`));
+      process.exit(1);
+    }
+
+    // Output raw content for piping
+    if (options.raw) {
+      console.log(typeof (result.result as any).content === 'string'
+        ? (result.result as any).content
+        : JSON.stringify((result.result as any).content, null, 2));
+    } else {
+      console.log(JSON.stringify(result, null, 2));
+    }
+  } catch (error: any) {
+    if (error instanceof PathResolutionError) {
+      console.error(chalk.red(`Error: ${error.message}`));
+      if (error.suggestions.length > 0) {
+        console.log(chalk.yellow('\nSuggestions:'));
+        error.suggestions.forEach(s => console.log(chalk.gray(`  ${s}`)));
+      }
+      process.exit(1);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Read session content (LEGACY - with --type parameter)
  * @param {string} sessionId - Session ID
  * @param {Object} options - CLI options
  */
-async function readAction(sessionId: string | undefined, options: ReadOptions): Promise<void> {
+async function readActionLegacy(sessionId: string | undefined, options: ReadOptions): Promise<void> {
   if (!sessionId) {
     console.error(chalk.red('Session ID is required'));
     console.error(chalk.gray('Usage: ccw session read <session_id> --type <content_type>'));
@@ -193,10 +376,10 @@ async function readAction(sessionId: string | undefined, options: ReadOptions): 
   };
 
   // Add path_params if provided
-  if (options.taskId) params.path_params = { ...params.path_params, task_id: options.taskId };
-  if (options.filename) params.path_params = { ...params.path_params, filename: options.filename };
-  if (options.dimension) params.path_params = { ...params.path_params, dimension: options.dimension };
-  if (options.iteration) params.path_params = { ...params.path_params, iteration: options.iteration };
+  if (options.taskId) params.path_params = { ...(params.path_params || {}), task_id: options.taskId };
+  if (options.filename) params.path_params = { ...(params.path_params || {}), filename: options.filename };
+  if (options.dimension) params.path_params = { ...(params.path_params || {}), dimension: options.dimension };
+  if (options.iteration) params.path_params = { ...(params.path_params || {}), iteration: options.iteration };
 
   const result = await executeTool('session_manager', params);
 
@@ -216,11 +399,144 @@ async function readAction(sessionId: string | undefined, options: ReadOptions): 
 }
 
 /**
- * Write session content
+ * Write session content (NEW - with path resolution)
+ * @param {string} sessionId - Session ID
+ * @param {string} filename - Filename or relative path
+ * @param {string} contentString - Content to write
+ * @param {Object} options - CLI options
+ */
+async function writeAction(
+  sessionId: string | undefined,
+  filename: string | undefined,
+  contentString: string | undefined,
+  options: WriteOptions
+): Promise<void> {
+  if (!sessionId) {
+    console.error(chalk.red('Session ID is required'));
+    console.error(chalk.gray('Usage: ccw session <session-id> write <filename|path> <content>'));
+    process.exit(1);
+  }
+
+  // Backward compatibility: if --type is provided, use legacy implementation
+  if (options.type) {
+    console.warn(chalk.yellow('⚠  WARNING: --type parameter is deprecated'));
+    console.warn(chalk.gray('   Old: ccw session write WFS-001 --type plan --content "# Plan"'));
+    console.warn(chalk.gray('   New: ccw session WFS-001 write IMPL_PLAN.md "# Plan"'));
+    console.log();
+    return writeActionLegacy(sessionId, options);
+  }
+
+  if (!filename || !contentString) {
+    console.error(chalk.red('Filename and content are required'));
+    console.error(chalk.gray('Usage: ccw session <session-id> write <filename|path> <content>'));
+    console.error(chalk.gray(''));
+    console.error(chalk.gray('Examples:'));
+    console.error(chalk.gray('  ccw session WFS-001 write IMPL_PLAN.md "# Implementation Plan"'));
+    console.error(chalk.gray('  ccw session WFS-001 write IMPL-001.json \'{"id":"IMPL-001","status":"pending"}\''));
+    console.error(chalk.gray('  ccw session WFS-001 write .task/IMPL-001.json \'{"status":"completed"}\''));
+    process.exit(1);
+  }
+
+  try {
+    // Get session context
+    const session = await getSessionInfo(sessionId);
+    const context: ResolverContext = {
+      sessionPath: session.path,
+      sessionLocation: session.location
+    };
+
+    // Resolve filename to content_type
+    const resolved = resolveFilePath(filename, context);
+
+    // Parse content (try JSON first, fallback to string)
+    let content: any;
+    try {
+      content = JSON.parse(contentString);
+    } catch {
+      content = contentString;
+    }
+
+    // Call session_manager tool
+    const params: any = {
+      operation: 'write',
+      session_id: sessionId,
+      content_type: resolved.contentType,
+      content,
+    };
+
+    if (resolved.pathParams) {
+      params.path_params = resolved.pathParams;
+    }
+
+    const result = await executeTool('session_manager', params);
+
+    if (!result.success) {
+      console.error(chalk.red(`Error: ${result.error}`));
+      process.exit(1);
+    }
+
+    // Emit granular event based on content_type
+    const contentType = resolved.contentType;
+    let eventType = 'CONTENT_WRITTEN';
+    let entityId = null;
+
+    switch (contentType) {
+      case 'task':
+        eventType = 'TASK_CREATED';
+        entityId = resolved.pathParams?.task_id || content.task_id;
+        break;
+      case 'summary':
+        eventType = 'SUMMARY_WRITTEN';
+        entityId = resolved.pathParams?.task_id;
+        break;
+      case 'plan':
+        eventType = 'PLAN_UPDATED';
+        break;
+      case 'review-dim':
+        eventType = 'REVIEW_UPDATED';
+        entityId = resolved.pathParams?.dimension;
+        break;
+      case 'review-iter':
+        eventType = 'REVIEW_UPDATED';
+        entityId = resolved.pathParams?.iteration;
+        break;
+      case 'review-fix':
+        eventType = 'REVIEW_UPDATED';
+        entityId = resolved.pathParams?.filename;
+        break;
+      case 'session':
+        eventType = 'SESSION_UPDATED';
+        break;
+    }
+
+    notifyDashboard({
+      type: eventType,
+      sessionId: sessionId,
+      entityId: entityId,
+      contentType: contentType,
+      payload: (result.result as any).written_content || content
+    });
+
+    console.log(chalk.green(`✓ Content written to ${resolved.resolvedPath}`));
+  } catch (error: any) {
+    if (error instanceof PathResolutionError) {
+      console.error(chalk.red(`Error: ${error.message}`));
+      if (error.suggestions.length > 0) {
+        console.log(chalk.yellow('\nSuggestions:'));
+        error.suggestions.forEach(s => console.log(chalk.gray(`  ${s}`)));
+      }
+      process.exit(1);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Write session content (LEGACY - with --type parameter)
  * @param {string} sessionId - Session ID
  * @param {Object} options - CLI options
  */
-async function writeAction(sessionId: string | undefined, options: WriteOptions): Promise<void> {
+async function writeActionLegacy(sessionId: string | undefined, options: WriteOptions): Promise<void> {
   if (!sessionId) {
     console.error(chalk.red('Session ID is required'));
     console.error(chalk.gray('Usage: ccw session write <session_id> --type <content_type> --content <json>'));
@@ -248,8 +564,8 @@ async function writeAction(sessionId: string | undefined, options: WriteOptions)
   };
 
   // Add path_params if provided
-  if (options.taskId) params.path_params = { ...params.path_params, task_id: options.taskId };
-  if (options.filename) params.path_params = { ...params.path_params, filename: options.filename };
+  if (options.taskId) params.path_params = { ...(params.path_params || {}), task_id: options.taskId };
+  if (options.filename) params.path_params = { ...(params.path_params || {}), filename: options.filename };
 
   const result = await executeTool('session_manager', params);
 
@@ -712,7 +1028,38 @@ export async function sessionCommand(
   args: string | string[],
   options: any
 ): Promise<void> {
-  const argsArray = Array.isArray(args) ? args : (args ? [args] : []);
+  let argsArray = Array.isArray(args) ? args : (args ? [args] : []);
+
+  // Detect new format: ccw session WFS-xxx <operation> <args>
+  // If subcommand looks like a session ID, rearrange parameters
+  // Exception: 'init' should always use traditional format (ccw session init WFS-xxx)
+  const isSessionId = subcommand && (
+    subcommand.startsWith('WFS-') ||
+    subcommand === 'manifest' ||
+    subcommand === 'project' ||
+    /^[A-Z][A-Z0-9]*-[A-Z0-9]+/.test(subcommand)  // Generic session ID pattern (uppercase prefix + dash + alphanumeric)
+  );
+
+  if (isSessionId && argsArray.length > 0) {
+    const operation = argsArray[0];
+
+    // Reject new format for init operation (semantic error)
+    if (operation === 'init') {
+      console.error(chalk.red('Error: Invalid format for init operation'));
+      console.error(chalk.gray('Correct: ccw session init <session-id>'));
+      console.error(chalk.gray(`Wrong:   ccw session <session-id> init`));
+      console.error(chalk.yellow('\nReason: Session must be initialized before it can be referenced'));
+      process.exit(1);
+    }
+
+    // New format detected: session-id comes first
+    const sessionId = subcommand;
+    const operationArgs = argsArray.slice(1);
+
+    // Rearrange: operation becomes subcommand, session-id goes into args
+    subcommand = operation;
+    argsArray = [sessionId, ...operationArgs];
+  }
 
   switch (subcommand) {
     case 'list':
@@ -722,10 +1069,12 @@ export async function sessionCommand(
       await initAction(argsArray[0], options);
       break;
     case 'read':
-      await readAction(argsArray[0], options);
+      // args[0] = session-id, args[1] = filename (optional for backward compat)
+      await readAction(argsArray[0], argsArray[1], options);
       break;
     case 'write':
-      await writeAction(argsArray[0], options);
+      // args[0] = session-id, args[1] = filename, args[2] = content
+      await writeAction(argsArray[0], argsArray[1], argsArray[2], options);
       break;
     case 'update':
       await updateAction(argsArray[0], options);
@@ -754,18 +1103,26 @@ export async function sessionCommand(
     default:
       console.log(chalk.bold.cyan('\nCCW Session Management\n'));
       console.log('Subcommands:');
-      console.log(chalk.gray('  list                                    List all sessions'));
-      console.log(chalk.gray('  init <session_id>                       Initialize new session'));
-      console.log(chalk.gray('  status <session_id> <status>            Update session status'));
-      console.log(chalk.gray('  task <session_id> <task_id> <status>    Update task status'));
-      console.log(chalk.gray('  stats <session_id>                      Get session statistics'));
-      console.log(chalk.gray('  delete <session_id> <file_path>         Delete file within session'));
-      console.log(chalk.gray('  read <session_id>                       Read session content'));
-      console.log(chalk.gray('  write <session_id>                      Write session content'));
-      console.log(chalk.gray('  update <session_id>                     Update session (merge)'));
-      console.log(chalk.gray('  archive <session_id>                    Archive session'));
-      console.log(chalk.gray('  mkdir <session_id>                      Create subdirectory'));
-      console.log(chalk.gray('  exec <json>                             Execute raw operation'));
+      console.log(chalk.gray('  list                                      List all sessions'));
+      console.log(chalk.gray('  <session-id> init [metadata]              Initialize new session'));
+      console.log(chalk.gray('  <session-id> read <filename|path>         Read session content'));
+      console.log(chalk.gray('  <session-id> write <filename> <content>   Write session content'));
+      console.log(chalk.gray('  <session-id> stats                        Get session statistics'));
+      console.log(chalk.gray('  <session-id> archive                      Archive session'));
+      console.log(chalk.gray('  <session-id> status <status>              Update session status'));
+      console.log(chalk.gray('  <session-id> task <task-id> <status>      Update task status'));
+      console.log(chalk.gray('  <session-id> delete <file-path>           Delete file within session'));
+      console.log(chalk.gray('  <session-id> update                       Update session (merge)'));
+      console.log(chalk.gray('  <session-id> mkdir                        Create subdirectory'));
+      console.log(chalk.gray('  exec <json>                               Execute raw operation'));
+      console.log();
+      console.log('Filename/Path Examples:');
+      console.log(chalk.gray('  IMPL-001.json                      Task file (auto: .task/)'));
+      console.log(chalk.gray('  .task/IMPL-001.json                Task file (explicit path)'));
+      console.log(chalk.gray('  IMPL_PLAN.md                       Implementation plan'));
+      console.log(chalk.gray('  TODO_LIST.md                       TODO list'));
+      console.log(chalk.gray('  workflow-session.json              Session metadata'));
+      console.log(chalk.gray('  .review/dimensions/security.json   Review dimension'));
       console.log();
       console.log('Status Values:');
       console.log(chalk.gray('  Session: planning, active, implementing, reviewing, completed, paused'));
@@ -773,11 +1130,12 @@ export async function sessionCommand(
       console.log();
       console.log('Examples:');
       console.log(chalk.gray('  ccw session list'));
-      console.log(chalk.gray('  ccw session init WFS-my-feature'));
-      console.log(chalk.gray('  ccw session status WFS-my-feature active'));
-      console.log(chalk.gray('  ccw session task WFS-my-feature IMPL-001 completed'));
-      console.log(chalk.gray('  ccw session stats WFS-my-feature'));
-      console.log(chalk.gray('  ccw session delete WFS-my-feature .archiving'));
-      console.log(chalk.gray('  ccw session archive WFS-my-feature'));
+      console.log(chalk.gray('  ccw session WFS-001 init'));
+      console.log(chalk.gray('  ccw session WFS-001 read IMPL_PLAN.md'));
+      console.log(chalk.gray('  ccw session WFS-001 read IMPL-001.json'));
+      console.log(chalk.gray('  ccw session WFS-001 write IMPL_PLAN.md "# Plan"'));
+      console.log(chalk.gray('  ccw session WFS-001 write IMPL-001.json \'{"status":"pending"}\''));
+      console.log(chalk.gray('  ccw session WFS-001 stats'));
+      console.log(chalk.gray('  ccw session WFS-001 archive'));
   }
 }

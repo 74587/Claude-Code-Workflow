@@ -23,7 +23,7 @@ ccw session list --location active
 
 ### Step 2: Check Session Status
 ```bash
-ccw session read WFS-session --type session
+ccw session WFS-session read workflow-session.json
 # Check .status field in response
 ```
 
@@ -35,17 +35,15 @@ ccw session list --location active
 
 ### Step 4: Update Session Status to Active
 ```bash
-ccw session status WFS-session active
-# Or with full update:
-ccw session update WFS-session --type session --content '{"status":"active","resumed_at":"2025-12-10T08:00:00Z"}'
+ccw session WFS-session status active
 ```
 
 ## Simple Commands
 
 ### Basic Operations
 - **List sessions**: `ccw session list --location active`
-- **Check status**: `ccw session read WFS-xxx --type session`
-- **Update status**: `ccw session status WFS-xxx active`
+- **Check status**: `ccw session WFS-xxx read workflow-session.json`
+- **Update status**: `ccw session WFS-xxx status active`
 
 ### Resume Result
 ```

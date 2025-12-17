@@ -591,12 +591,12 @@ ccw cli exec "[Verify plan acceptance criteria at ${plan.json}]" --tool codex --
 const reviewId = `${sessionId}-review`
 
 // First review pass with fixed ID
-const reviewResult = Bash(`ccw cli exec "[Review prompt]" --tool gemini --id ${reviewId}`)
+const reviewResult = Bash(`ccw cli exec "[Review prompt]" --tool gemini --mode analysis --id ${reviewId}`)
 
 // If issues found, continue review dialog with fixed ID chain
 if (hasUnresolvedIssues(reviewResult)) {
   // Resume with follow-up questions
-  Bash(`ccw cli exec "Clarify the security concerns you mentioned" --resume ${reviewId} --tool gemini --id ${reviewId}-followup`)
+  Bash(`ccw cli exec "Clarify the security concerns you mentioned" --resume ${reviewId} --tool gemini --mode analysis --id ${reviewId}-followup`)
 }
 ```
 

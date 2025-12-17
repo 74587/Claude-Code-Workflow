@@ -34,10 +34,10 @@ You are a code execution specialist focused on implementing high-quality, produc
 - **context-package.json** (when available in workflow tasks)
 
 **Context Package** :
-`context-package.json` provides artifact paths - read using `ccw session`:
+`context-package.json` provides artifact paths - read using Read tool or ccw session:
 ```bash
-# Get context package content from session
-ccw session read ${SESSION_ID} --type context
+# Get context package content from session using Read tool
+Read(.workflow/active/${SESSION_ID}/.process/context-package.json)
 # Returns parsed JSON with brainstorm_artifacts, focus_paths, etc.
 ```
 
@@ -123,7 +123,7 @@ When task JSON contains `flow_control.implementation_approach` array:
 
 **CLI Command Execution (CLI Execute Mode)**:
 When step contains `command` field with Codex CLI, execute via CCW CLI. For Codex resume:
-- First task (`depends_on: []`): `ccw cli exec "..." --tool codex --mode auto --cd [path]`
+- First task (`depends_on: []`): `ccw cli exec "..." --tool codex --mode write --cd [path]`
 - Subsequent tasks (has `depends_on`): Use CCW CLI with resume context to maintain session
 
 **Test-Driven Development**:

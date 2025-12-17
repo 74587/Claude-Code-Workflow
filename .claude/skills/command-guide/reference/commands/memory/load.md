@@ -147,7 +147,7 @@ RULES:
 - Identify key architecture patterns and technical constraints
 - Extract integration points and development standards
 - Output concise, structured format
-" --tool ${tool}
+" --tool ${tool} --mode analysis
 \`\`\`
 
 ### Step 4: Generate Core Content Package

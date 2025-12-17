@@ -46,7 +46,7 @@ You are a test context discovery specialist focused on gathering test coverage i
 - `find` - Test file discovery
 - `Grep` - Framework detection
 
-**Priority**: CodexLens MCP > ripgrep > find > grep
+**Priority**: Code-Index MCP > ripgrep > find > grep
 
 ### 3. Framework & Convention Analysis
 **Tools**:

@@ -473,10 +473,10 @@ Detailed plan: ${executionContext.session.artifacts.plan}`)
   return prompt
 }
 
-ccw cli exec "${buildCLIPrompt(batch)}" --tool codex --mode auto
+ccw cli exec "${buildCLIPrompt(batch)}" --tool codex --mode write
 ```
 
-**Execution with tracking**:
+**Execution with fixed IDs** (predictable ID pattern):
 ```javascript
 // Launch CLI in foreground (NOT background)
 // Timeout based on complexity: Low=40min, Medium=60min, High=100min
@@ -486,15 +486,48 @@ const timeoutByComplexity = {
   "High": 6000000    // 100 minutes
 }
 
+// Generate fixed execution ID: ${sessionId}-${groupId}
+// This enables predictable ID lookup without relying on resume context chains
+const sessionId = executionContext?.session?.id || 'standalone'
+const fixedExecutionId = `${sessionId}-${batch.groupId}`  // e.g., "implement-auth-2025-12-13-P1"
+
+// Check if resuming from previous failed execution
+const previousCliId = batch.resumeFromCliId || null
+
+// Build command with fixed ID (and optional resume for continuation)
+const cli_command = previousCliId
+  ? `ccw cli exec "${buildCLIPrompt(batch)}" --tool codex --mode write --id ${fixedExecutionId} --resume ${previousCliId}`
+  : `ccw cli exec "${buildCLIPrompt(batch)}" --tool codex --mode write --id ${fixedExecutionId}`
+
 bash_result = Bash(
   command=cli_command,
   timeout=timeoutByComplexity[planObject.complexity] || 3600000
 )
 
+// Execution ID is now predictable: ${fixedExecutionId}
+// Can also extract from output: "ID: implement-auth-2025-12-13-P1"
+const cliExecutionId = fixedExecutionId
+
 // Update TodoWrite when execution completes
 ```
 
-**Result Collection**: After completion, analyze output and collect result following `executionResult` structure
+**Resume on Failure** (with fixed ID):
+```javascript
+// If execution failed or timed out, offer resume option
+if (bash_result.status === 'failed' || bash_result.status === 'timeout') {
+  console.log(`
+⚠️ Execution incomplete. Resume available:
+   Fixed ID: ${fixedExecutionId}
+   Lookup: ccw cli detail ${fixedExecutionId}
+   Resume: ccw cli exec "Continue tasks" --resume ${fixedExecutionId} --tool codex --mode write --id ${fixedExecutionId}-retry
+`)
+
+  // Store for potential retry in same session
+  batch.resumeFromCliId = fixedExecutionId
+}
+```
+
+**Result Collection**: After completion, analyze output and collect result following `executionResult` structure (include `cliExecutionId` for resume capability)
 
 ### Step 4: Progress Tracking
 
@@ -541,15 +574,30 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-q
 # - Report findings directly
 
 # Method 2: Gemini Review (recommended)
-ccw cli exec "[Shared Prompt Template with artifacts]" --tool gemini
+ccw cli exec "[Shared Prompt Template with artifacts]" --tool gemini --mode analysis
 # CONTEXT includes: @**/* @${plan.json} [@${exploration.json}]
 
 # Method 3: Qwen Review (alternative)
-ccw cli exec "[Shared Prompt Template with artifacts]" --tool qwen
+ccw cli exec "[Shared Prompt Template with artifacts]" --tool qwen --mode analysis
 # Same prompt as Gemini, different execution engine
 
 # Method 4: Codex Review (autonomous)
-ccw cli exec "[Verify plan acceptance criteria at ${plan.json}]" --tool codex --mode auto
+ccw cli exec "[Verify plan acceptance criteria at ${plan.json}]" --tool codex --mode write
+```
+
+**Multi-Round Review with Fixed IDs**:
+```javascript
+// Generate fixed review ID
+const reviewId = `${sessionId}-review`
+
+// First review pass with fixed ID
+const reviewResult = Bash(`ccw cli exec "[Review prompt]" --tool gemini --mode analysis --id ${reviewId}`)
+
+// If issues found, continue review dialog with fixed ID chain
+if (hasUnresolvedIssues(reviewResult)) {
+  // Resume with follow-up questions
+  Bash(`ccw cli exec "Clarify the security concerns you mentioned" --resume ${reviewId} --tool gemini --mode analysis --id ${reviewId}-followup`)
+}
 ```
 
 **Implementation Note**: Replace `[Shared Prompt Template with artifacts]` placeholder with actual template content, substituting:
@@ -623,8 +671,10 @@ console.log(`✓ Development index: [${category}] ${entry.title}`)
 | Empty file | File exists but no content | Error: "File is empty: {path}. Provide task description." |
 | Invalid Enhanced Task JSON | JSON missing required fields | Warning: "Missing required fields. Treating as plain text." |
 | Malformed JSON | JSON parsing fails | Treat as plain text (expected for non-JSON files) |
-| Execution failure | Agent/Codex crashes | Display error, save partial progress, suggest retry |
+| Execution failure | Agent/Codex crashes | Display error, use fixed ID `${sessionId}-${groupId}` for resume: `ccw cli exec "Continue" --resume <fixed-id> --id <fixed-id>-retry` |
+| Execution timeout | CLI exceeded timeout | Use fixed ID for resume with extended timeout |
 | Codex unavailable | Codex not installed | Show installation instructions, offer Agent execution |
+| Fixed ID not found | Custom ID lookup failed | Check `ccw cli history`, verify date directories |
 
 ## Data Structures
 
@@ -679,8 +729,20 @@ Collected after each execution call completes:
   tasksSummary: string,                // Brief description of tasks handled
   completionSummary: string,           // What was completed
   keyOutputs: string,                  // Files created/modified, key changes
-  notes: string                        // Important context for next execution
+  notes: string,                       // Important context for next execution
+  fixedCliId: string | null            // Fixed CLI execution ID (e.g., "implement-auth-2025-12-13-P1")
 }
 ```
 
 Appended to `previousExecutionResults` array for context continuity in multi-execution scenarios.
+
+**Fixed ID Pattern**: `${sessionId}-${groupId}` enables predictable lookup without auto-generated timestamps.
+
+**Resume Usage**: If `status` is "partial" or "failed", use `fixedCliId` to resume:
+```bash
+# Lookup previous execution
+ccw cli detail ${fixedCliId}
+
+# Resume with new fixed ID for retry
+ccw cli exec "Continue from where we left off" --resume ${fixedCliId} --tool codex --mode write --id ${fixedCliId}-retry
+```

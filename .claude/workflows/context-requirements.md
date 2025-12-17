@@ -5,40 +5,67 @@ Before implementation, always:
 - Map dependencies and integration points
 - Understand testing framework and coding conventions
 
-## Context Gathering
+## MCP Tools Usage
 
-**MANDATORY**: Use `codex_lens` (MCP tool) for all code search and analysis.
+### smart_search - Code Search (REQUIRED)
 
-### codex_lens (REQUIRED)
+**When**: Find code, understand codebase structure, locate implementations
 
-**MCP Actions**: `init`, `search`, `search_files` (Advanced ops via CLI: `codexlens --help`)
-
-**Initialize**:
-```
-codex_lens(action="init", path=".")
-```
-- Auto-generates embeddings if `fastembed` installed
-- Skip with `--no-embeddings` flag
-
-**Search** (Auto hybrid mode):
-```
-codex_lens(action="search", query="authentication")
-```
-**Search Files**:
-```
-codex_lens(action="search_files", query="payment")
+**How**:
+```javascript
+smart_search(query="authentication logic")           // Auto mode (recommended)
+smart_search(action="init", path=".")                // First-time setup
+smart_search(query="LoginUser", mode="exact")        // Precise matching
+smart_search(query="import", mode="ripgrep")         // Fast, no index
 ```
 
-### read_file (MCP)
-- Read files found by codex_lens
-- Directory traversal with patterns
-- Batch operations
+**Modes**: `auto` (intelligent routing), `hybrid` (best quality), `exact` (FTS), `ripgrep` (fast)
 
-### smart_search
-- Fallback when codex_lens unavailable
-- Small projects (<100 files)
+---
 
-### Exa
-- External APIs, libraries, frameworks
-- Recent documentation beyond knowledge cutoff
-- Public implementation examples
+### read_file - Read File Contents
+
+**When**: Read files found by smart_search
+
+**How**:
+```javascript
+read_file(path="/path/to/file.ts")                   // Single file
+read_file(path="/src/**/*.config.ts")                // Pattern matching
+```
+
+---
+
+### edit_file - Modify Files
+
+**When**: Built-in Edit tool fails or need advanced features
+
+**How**:
+```javascript
+edit_file(path="/file.ts", old_string="...", new_string="...", mode="update")
+edit_file(path="/file.ts", line=10, content="...", mode="insert_after")
+```
+
+**Modes**: `update` (replace text), `insert_after`, `insert_before`, `delete_line`
+
+---
+
+### write_file - Create/Overwrite Files
+
+**When**: Create new files or completely replace content
+
+**How**:
+```javascript
+write_file(path="/new-file.ts", content="...")
+```
+
+---
+
+### Exa - External Search
+
+**When**: Find documentation/examples outside codebase
+
+**How**:
+```javascript
+exa(query="React hooks 2025 documentation")
+exa(query="FastAPI auth example github")
+```

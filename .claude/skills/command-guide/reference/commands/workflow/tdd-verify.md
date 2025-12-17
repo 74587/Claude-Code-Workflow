@@ -77,18 +77,32 @@ find .workflow/active/ -name "WFS-*" -type d | head -1 | sed 's/.*\///'
 
 ```bash
 # Load all task JSONs
-ccw session read {sessionId} --type task
+for task_file in .workflow/active/{sessionId}/.task/*.json; do
+  cat "$task_file"
+done
 
 # Extract task IDs
-ccw session read {sessionId} --type task --raw | jq -r '.id'
+for task_file in .workflow/active/{sessionId}/.task/*.json; do
+  cat "$task_file" | jq -r '.id'
+done
 
 # Check dependencies - read tasks and filter for IMPL/REFACTOR
-ccw session read {sessionId} --type task --task-id "IMPL-*" --raw | jq -r '.context.depends_on[]?'
-ccw session read {sessionId} --type task --task-id "REFACTOR-*" --raw | jq -r '.context.depends_on[]?'
+for task_file in .workflow/active/{sessionId}/.task/IMPL-*.json; do
+  cat "$task_file" | jq -r '.context.depends_on[]?'
+done
+
+for task_file in .workflow/active/{sessionId}/.task/REFACTOR-*.json; do
+  cat "$task_file" | jq -r '.context.depends_on[]?'
+done
 
 # Check meta fields
-ccw session read {sessionId} --type task --raw | jq -r '.meta.tdd_phase'
-ccw session read {sessionId} --type task --raw | jq -r '.meta.agent'
+for task_file in .workflow/active/{sessionId}/.task/*.json; do
+  cat "$task_file" | jq -r '.meta.tdd_phase'
+done
+
+for task_file in .workflow/active/{sessionId}/.task/*.json; do
+  cat "$task_file" | jq -r '.meta.agent'
+done
 ```
 
 **Validation**:
@@ -139,7 +153,7 @@ EXPECTED:
 - Red-Green-Refactor cycle validation
 - Best practices adherence assessment
 RULES: Focus on TDD best practices and workflow adherence. Be specific about violations and improvements.
-" --tool gemini --cd project-root > .workflow/active/{sessionId}/TDD_COMPLIANCE_REPORT.md
+" --tool gemini --mode analysis --cd project-root > .workflow/active/{sessionId}/TDD_COMPLIANCE_REPORT.md
 ```
 
 **Output**: TDD_COMPLIANCE_REPORT.md

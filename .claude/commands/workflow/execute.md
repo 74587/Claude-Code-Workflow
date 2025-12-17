@@ -149,7 +149,7 @@ Parse user input (supports: number "1", full ID "WFS-auth-system", or partial "a
 
 #### Step 1.3: Load Session Metadata
 ```bash
-ccw session read ${sessionId} --type session
+ccw session ${sessionId} read workflow-session.json
 ```
 
 **Output**: Store session metadata in memory

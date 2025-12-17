@@ -74,7 +74,7 @@ ccw cli exec "<PROMPT>" --tool <gemini|qwen|codex> --mode <analysis|write>
 - **Mode is MANDATORY** - ALWAYS explicitly specify `--mode analysis|write` (no implicit defaults)
 - **One template required** - ALWAYS reference exactly ONE template in RULES (use universal fallback if no specific match)
 - **Write protection** - Require EXPLICIT `--mode write` for file operations
-- **No escape characters** - NEVER use `\$`, `\"`, `\'` in CLI commands
+- **Use double quotes for shell expansion** - Always wrap prompts in double quotes `"..."` to enable `$(cat ...)` command substitution; NEVER use single quotes or escape characters (`\$`, `\"`, `\'`)
 
 ---
 
@@ -276,9 +276,22 @@ ccw cli exec "..." --tool gemini --mode analysis --cd src
 - `universal/00-universal-creative-style.txt` - For exploratory tasks
 
 **Command Substitution Rules**:
-- Use `$(cat ...)` directly - do NOT read template content first
-- NEVER use escape characters: `\$`, `\"`, `\'`
-- Tilde expands correctly in prompt context
+- Use `$(cat ...)` directly in **double quotes** - command substitution executes in your local shell BEFORE passing to ccw
+- Shell expands `$(cat ...)` into file content automatically - do NOT read template content first
+- NEVER use escape characters (`\$`, `\"`, `\'`) or single quotes - these prevent shell expansion
+- Tilde (`~`) expands correctly in prompt context
+
+**Critical**: Use double quotes `"..."` around the entire prompt to enable `$(cat ...)` expansion:
+```bash
+# ✓ CORRECT - double quotes allow shell expansion
+ccw cli exec "RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ..." --tool gemini
+
+# ✗ WRONG - single quotes prevent expansion
+ccw cli exec 'RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ...' --tool gemini
+
+# ✗ WRONG - escaped $ prevents expansion
+ccw cli exec "RULES: \$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ..." --tool gemini
+```
 
 **Examples**:
 ```bash

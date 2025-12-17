@@ -354,10 +354,14 @@ function executeInit(params: Params): any {
   // Validate session_id format
   validateSessionId(session_id);
 
-  // Determine session location (default: active for WFS, or specified for lite)
-  const sessionLocation = (location === 'lite-plan' || location === 'lite-fix')
-    ? location
-    : 'active';
+  // Auto-infer location from metadata.type if location not explicitly provided
+  // Priority: explicit location > metadata.type > default 'active'
+  const sessionLocation: 'active' | 'archived' | 'lite-plan' | 'lite-fix' = 
+    (location === 'active' || location === 'archived' || location === 'lite-plan' || location === 'lite-fix') 
+      ? location
+      : (metadata?.type === 'lite-plan' ? 'lite-plan' :
+         metadata?.type === 'lite-fix' ? 'lite-fix' :
+         'active');
 
   // Check if session already exists (auto-detect all locations)
   const existing = findSession(session_id);
@@ -392,7 +396,7 @@ function executeInit(params: Params): any {
 
     const sessionData = {
       session_id,
-      type: sessionLocation,
+      type: metadata?.type || sessionLocation,  // Preserve user-specified type if provided
       status: 'initialized',
       created_at: new Date().toISOString(),
       ...metadata,

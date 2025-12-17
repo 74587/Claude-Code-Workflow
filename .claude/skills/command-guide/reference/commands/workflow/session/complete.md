@@ -34,7 +34,7 @@ ccw session list --location active
 #### Step 1.2: Check for Existing Archiving Marker (Resume Detection)
 ```bash
 # Check if session is already being archived (marker file exists)
-ccw session read WFS-session-name --type process --filename .archiving 2>/dev/null && echo "RESUMING" || echo "NEW"
+ccw session WFS-session-name read .process/.archiving 2>/dev/null && echo "RESUMING" || echo "NEW"
 ```
 
 **If RESUMING**:
@@ -47,7 +47,7 @@ ccw session read WFS-session-name --type process --filename .archiving 2>/dev/nu
 #### Step 1.3: Create Archiving Marker
 ```bash
 # Mark session as "archiving in progress"
-ccw session write WFS-session-name --type process --filename .archiving --content ''
+ccw session WFS-session-name write .process/.archiving ''
 ```
 **Purpose**:
 - Prevents concurrent operations on this session
@@ -171,8 +171,8 @@ ccw session archive WFS-session-name
 
 #### Step 3.2: Update Manifest
 ```bash
-# Read current manifest using ccw (or create empty array if not exists)
-ccw session read manifest --type manifest --raw 2>/dev/null || echo "[]"
+# Check if manifest exists
+test -f .workflow/archives/manifest.json && echo "EXISTS" || echo "NOT_FOUND"
 ```
 
 **JSON Update Logic**:
@@ -221,8 +221,8 @@ rm .workflow/archives/WFS-session-name/.process/.archiving 2>/dev/null || true
 
 #### Step 4.1: Check Project State Exists
 ```bash
-# Check project state using ccw
-ccw session read project --type project 2>/dev/null && echo "EXISTS" || echo "SKIP"
+# Check if project.json exists
+test -f .workflow/project.json && echo "EXISTS" || echo "SKIP"
 ```
 
 **If SKIP**: Output warning and skip Phase 4
@@ -248,11 +248,6 @@ const featureId = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 5
 ```
 
 #### Step 4.3: Update project.json
-
-```bash
-# Read current project state using ccw
-ccw session read project --type project --raw
-```
 
 **JSON Update Logic**:
 ```javascript
