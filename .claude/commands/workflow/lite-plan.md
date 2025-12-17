@@ -417,23 +417,9 @@ ${JSON.stringify(clarificationContext) || "None"}
 ${complexity}
 
 ## Requirements
-Generate plan.json with:
-- summary: 2-3 sentence overview
-- approach: High-level implementation strategy (incorporating insights from all exploration angles)
-- tasks: 2-7 structured tasks (**IMPORTANT: group by feature/module, NOT by file**)
-  - **Task Granularity Principle**: Each task = one complete feature unit or module
-  - title: action verb + target module/feature (e.g., "Implement auth token refresh")
-  - scope: module path (src/auth/) or feature name, prefer module-level over single file
-  - action, description
-  - modification_points: ALL files to modify for this feature (group related changes)
-  - implementation (3-7 steps covering all modification_points)
-  - reference (pattern, files, examples)
-  - acceptance (2-4 criteria for the entire feature)
-  - depends_on: task IDs this task depends on (use sparingly, only for true dependencies)
-- estimated_time, recommended_execution, complexity
-- _metadata:
-  - timestamp, source, planning_mode
-  - exploration_angles: ${JSON.stringify(manifest.explorations.map(e => e.angle))}
+Generate plan.json following the schema obtained above. Key constraints:
+- tasks: 2-7 structured tasks (**group by feature/module, NOT by file**)
+- _metadata.exploration_angles: ${JSON.stringify(manifest.explorations.map(e => e.angle))}
 
 ## Task Grouping Rules
 1. **Group by feature**: All changes for one feature = one task (even if 3-5 files)
@@ -445,12 +431,11 @@ Generate plan.json with:
 7. **Prefer parallel**: Most tasks should be independent (no depends_on)
 
 ## Execution
-1. Read ALL exploration files for comprehensive context
-2. Execute CLI planning using Gemini (Qwen fallback)
-3. Synthesize findings from multiple exploration angles
-4. Parse output and structure plan
-5. Write JSON: Write('${sessionFolder}/plan.json', jsonContent)
-6. Return brief completion summary
+1. Read schema file (cat command above)
+2. Read ALL exploration files for comprehensive context
+3. Synthesize findings and generate plan following schema
+4. Write JSON: Write('${sessionFolder}/plan.json', jsonContent)
+5. Return brief completion summary
 `
 )
 ```
