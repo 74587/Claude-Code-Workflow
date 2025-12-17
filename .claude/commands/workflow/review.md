@@ -122,9 +122,8 @@ After bash validation, the model takes control to:
      cat "$test_summary"
    done
 
-   # Get session created_at for git log filter
-   created_at=$(ccw session ${sessionId} read workflow-session.json | jq -r .created_at)
-   git log --since="$created_at" --name-only --pretty=format: | sort -u
+   # Get changed files
+   git log --since="$(cat .workflow/active/${sessionId}/workflow-session.json | jq -r .created_at)" --name-only --pretty=format: | sort -u
    ```
 
 2. **Perform Specialized Review**: Based on `review_type`

@@ -17,30 +17,41 @@ Display all workflow sessions with their current status, progress, and metadata.
 
 ## Implementation Flow
 
-### Step 1: List All Sessions
+### Step 1: Find All Sessions
 ```bash
-ccw session list --location both
+ls .workflow/active/WFS-* 2>/dev/null
 ```
 
-### Step 2: Get Session Statistics
+### Step 2: Check Active Session
 ```bash
-ccw session stats WFS-session
-# Returns: tasks count by status, summaries count, has_plan
+find .workflow/active/ -name "WFS-*" -type d 2>/dev/null | head -1
 ```
 
 ### Step 3: Read Session Metadata
 ```bash
-ccw session WFS-session read workflow-session.json
-# Returns: session_id, status, project, created_at, etc.
+jq -r '.session_id, .status, .project' .workflow/active/WFS-session/workflow-session.json
 ```
 
-## Simple Commands
+### Step 4: Count Task Progress
+```bash
+find .workflow/active/WFS-session/.task/ -name "*.json" -type f 2>/dev/null | wc -l
+find .workflow/active/WFS-session/.summaries/ -name "*.md" -type f 2>/dev/null | wc -l
+```
+
+### Step 5: Get Creation Time
+```bash
+jq -r '.created_at // "unknown"' .workflow/active/WFS-session/workflow-session.json
+```
+
+## Simple Bash Commands
 
 ### Basic Operations
-- **List all sessions**: `ccw session list`
-- **List active only**: `ccw session list --location active`
-- **Read session data**: `ccw session WFS-xxx read workflow-session.json`
-- **Get task stats**: `ccw session WFS-xxx stats`
+- **List sessions**: `find .workflow/active/ -name "WFS-*" -type d`
+- **Find active**: `find .workflow/active/ -name "WFS-*" -type d`
+- **Read session data**: `jq -r '.session_id, .status' session.json`
+- **Count tasks**: `find .task/ -name "*.json" -type f | wc -l`
+- **Count completed**: `find .summaries/ -name "*.md" -type f 2>/dev/null | wc -l`
+- **Get timestamp**: `jq -r '.created_at' session.json`
 
 ## Simple Output Format
 
@@ -77,38 +88,9 @@ Total: 3 sessions (1 active, 1 paused, 1 completed)
 
 ### Quick Commands
 ```bash
-# Count active sessions using ccw
-ccw session list --location active --no-metadata
-# Returns session count in result.total
+# Count all sessions
+ls .workflow/active/WFS-* | wc -l
 
 # Show recent sessions
-ccw session list --location active
-```
-## session_manager Tool Alternative
-
-Use `ccw tool exec session_manager` for simplified session listing:
-
-### List All Sessions (Active + Archived)
-```bash
-ccw tool exec session_manager '{"operation":"list","location":"both","include_metadata":true}'
-
-# Response:
-# {
-#   "success": true,
-#   "result": {
-#     "active": [{"session_id":"WFS-xxx","metadata":{...}}],
-#     "archived": [{"session_id":"WFS-yyy","metadata":{...}}],
-#     "total": 2
-#   }
-# }
-```
-
-### List Active Sessions Only
-```bash
-ccw tool exec session_manager '{"operation":"list","location":"active","include_metadata":true}'
-```
-
-### Read Specific Session
-```bash
-ccw tool exec session_manager '{"operation":"read","session_id":"WFS-xxx","content_type":"session"}'
+ls -t .workflow/active/WFS-*/workflow-session.json | head -3
 ```

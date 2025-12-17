@@ -17,33 +17,39 @@ Resume the most recently paused workflow session, restoring all context and stat
 
 ### Step 1: Find Paused Sessions
 ```bash
-ccw session list --location active
-# Filter for sessions with status="paused"
+ls .workflow/active/WFS-* 2>/dev/null
 ```
 
 ### Step 2: Check Session Status
 ```bash
-ccw session WFS-session read workflow-session.json
-# Check .status field in response
+jq -r '.status' .workflow/active/WFS-session/workflow-session.json
 ```
 
 ### Step 3: Find Most Recent Paused
 ```bash
-ccw session list --location active
-# Sort by created_at, filter for paused status
+ls -t .workflow/active/WFS-*/workflow-session.json | head -1
 ```
 
-### Step 4: Update Session Status to Active
+### Step 4: Update Session Status
 ```bash
-ccw session WFS-session status active
+jq '.status = "active"' .workflow/active/WFS-session/workflow-session.json > temp.json
+mv temp.json .workflow/active/WFS-session/workflow-session.json
 ```
 
-## Simple Commands
+### Step 5: Add Resume Timestamp
+```bash
+jq '.resumed_at = "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"' .workflow/active/WFS-session/workflow-session.json > temp.json
+mv temp.json .workflow/active/WFS-session/workflow-session.json
+```
+
+## Simple Bash Commands
 
 ### Basic Operations
-- **List sessions**: `ccw session list --location active`
-- **Check status**: `ccw session WFS-xxx read workflow-session.json`
-- **Update status**: `ccw session WFS-xxx status active`
+- **List sessions**: `ls .workflow/active/WFS-*`
+- **Check status**: `jq -r '.status' session.json`
+- **Find recent**: `ls -t .workflow/active/*/workflow-session.json | head -1`
+- **Update status**: `jq '.status = "active"' session.json > temp.json`
+- **Add timestamp**: `jq '.resumed_at = "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"'`
 
 ### Resume Result
 ```
@@ -52,26 +58,4 @@ Session WFS-user-auth resumed
 - Paused at: 2025-09-15T14:30:00Z
 - Resumed at: 2025-09-15T15:45:00Z
 - Ready for: /workflow:execute
-```
-## session_manager Tool Alternative
-
-Use `ccw tool exec session_manager` for session resume:
-
-### Update Session Status
-```bash
-# Update status to active
-ccw tool exec session_manager '{
-  "operation": "update",
-  "session_id": "WFS-xxx",
-  "content_type": "session",
-  "content": {
-    "status": "active",
-    "resumed_at": "2025-12-10T08:00:00Z"
-  }
-}'
-```
-
-### Read Session Status
-```bash
-ccw tool exec session_manager '{"operation":"read","session_id":"WFS-xxx","content_type":"session"}'
 ```
