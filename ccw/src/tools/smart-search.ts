@@ -21,12 +21,13 @@ import {
   ensureReady as ensureCodexLensReady,
   executeCodexLens,
 } from './codex-lens.js';
+import type { ProgressInfo } from './codex-lens.js';
 
 // Define Zod schema for validation
 const ParamsSchema = z.object({
   action: z.enum(['init', 'search', 'search_files', 'status']).default('search'),
   query: z.string().optional(),
-  mode: z.enum(['auto', 'hybrid', 'exact', 'ripgrep']).default('auto'),
+  mode: z.enum(['auto', 'hybrid', 'exact', 'ripgrep', 'parallel']).default('auto'),
   output_mode: z.enum(['full', 'files_only', 'count']).default('full'),
   path: z.string().optional(),
   paths: z.array(z.string()).default([]),
@@ -35,12 +36,17 @@ const ParamsSchema = z.object({
   includeHidden: z.boolean().default(false),
   languages: z.array(z.string()).optional(),
   limit: z.number().default(100),
+  parallelWeights: z.object({
+    hybrid: z.number().default(0.5),
+    exact: z.number().default(0.3),
+    ripgrep: z.number().default(0.2),
+  }).optional(),
 });
 
 type Params = z.infer<typeof ParamsSchema>;
 
 // Search mode constants
-const SEARCH_MODES = ['auto', 'hybrid', 'exact', 'ripgrep'] as const;
+const SEARCH_MODES = ['auto', 'hybrid', 'exact', 'ripgrep', 'parallel'] as const;
 
 // Classification confidence threshold
 const CONFIDENCE_THRESHOLD = 0.7;
@@ -72,10 +78,10 @@ interface GraphMatch {
 }
 
 interface SearchMetadata {
-  mode: string;
-  backend: string;
-  count: number;
-  query: string;
+  mode?: string;
+  backend?: string;
+  count?: number;
+  query?: string;
   classified_as?: string;
   confidence?: number;
   reasoning?: string;
@@ -83,6 +89,17 @@ interface SearchMetadata {
   warning?: string;
   note?: string;
   index_status?: 'indexed' | 'not_indexed' | 'partial';
+  // Init action specific
+  action?: string;
+  path?: string;
+  progress?: {
+    stage: string;
+    message: string;
+    percent: number;
+    filesProcessed?: number;
+    totalFiles?: number;
+  };
+  progressHistory?: ProgressInfo[];
 }
 
 interface SearchResult {
@@ -326,7 +343,39 @@ async function executeInitAction(params: Params): Promise<SearchResult> {
     args.push('--languages', languages.join(','));
   }
 
-  const result = await executeCodexLens(args, { cwd: path, timeout: 300000 });
+  // Track progress updates
+  const progressUpdates: ProgressInfo[] = [];
+  let lastProgress: ProgressInfo | null = null;
+
+  const result = await executeCodexLens(args, {
+    cwd: path,
+    timeout: 300000,
+    onProgress: (progress: ProgressInfo) => {
+      progressUpdates.push(progress);
+      lastProgress = progress;
+    },
+  });
+
+  // Build metadata with progress info
+  const metadata: SearchMetadata = {
+    action: 'init',
+    path,
+  };
+
+  if (lastProgress !== null) {
+    const p = lastProgress as ProgressInfo;
+    metadata.progress = {
+      stage: p.stage,
+      message: p.message,
+      percent: p.percent,
+      filesProcessed: p.filesProcessed,
+      totalFiles: p.totalFiles,
+    };
+  }
+
+  if (progressUpdates.length > 0) {
+    metadata.progressHistory = progressUpdates.slice(-5); // Keep last 5 progress updates
+  }
 
   return {
     success: result.success,
@@ -334,6 +383,7 @@ async function executeInitAction(params: Params): Promise<SearchResult> {
     message: result.success
       ? `CodexLens index created successfully for ${path}`
       : undefined,
+    metadata,
   };
 }
 
@@ -726,17 +776,155 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
   };
 }
 
+/**
+ * TypeScript implementation of Reciprocal Rank Fusion
+ * Reference: codex-lens/src/codexlens/search/ranking.py
+ * Formula: score(d) = Σ weight_source / (k + rank_source(d))
+ */
+function applyRRFFusion(
+  resultsMap: Map<string, any[]>,
+  weights: Record<string, number>,
+  limit: number,
+  k: number = 60,
+): any[] {
+  const pathScores = new Map<string, { score: number; result: any; sources: string[] }>();
+
+  resultsMap.forEach((results, source) => {
+    const weight = weights[source] || 0;
+    if (weight === 0 || !results) return;
+
+    results.forEach((result, rank) => {
+      const path = result.file || result.path;
+      if (!path) return;
+
+      const rrfContribution = weight / (k + rank + 1);
+
+      if (!pathScores.has(path)) {
+        pathScores.set(path, { score: 0, result, sources: [] });
+      }
+      const entry = pathScores.get(path)!;
+      entry.score += rrfContribution;
+      if (!entry.sources.includes(source)) {
+        entry.sources.push(source);
+      }
+    });
+  });
+
+  // Sort by fusion score descending
+  return Array.from(pathScores.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(item => ({
+      ...item.result,
+      fusion_score: item.score,
+      matched_backends: item.sources,
+    }));
+}
+
+/**
+ * Mode: parallel - Run all backends simultaneously with RRF fusion
+ * Returns best results from hybrid + exact + ripgrep combined
+ */
+async function executeParallelMode(params: Params): Promise<SearchResult> {
+  const { query, path = '.', limit = 100, parallelWeights } = params;
+
+  if (!query) {
+    return {
+      success: false,
+      error: 'Query is required for search',
+    };
+  }
+
+  // Default weights if not provided
+  const weights = parallelWeights || {
+    hybrid: 0.5,
+    exact: 0.3,
+    ripgrep: 0.2,
+  };
+
+  // Run all backends in parallel
+  const [hybridResult, exactResult, ripgrepResult] = await Promise.allSettled([
+    executeHybridMode(params),
+    executeCodexLensExactMode(params),
+    executeRipgrepMode(params),
+  ]);
+
+  // Collect successful results
+  const resultsMap = new Map<string, any[]>();
+  const backendStatus: Record<string, string> = {};
+
+  if (hybridResult.status === 'fulfilled' && hybridResult.value.success) {
+    resultsMap.set('hybrid', hybridResult.value.results as any[]);
+    backendStatus.hybrid = 'success';
+  } else {
+    backendStatus.hybrid = hybridResult.status === 'rejected'
+      ? `error: ${hybridResult.reason}`
+      : `failed: ${(hybridResult as PromiseFulfilledResult<SearchResult>).value.error}`;
+  }
+
+  if (exactResult.status === 'fulfilled' && exactResult.value.success) {
+    resultsMap.set('exact', exactResult.value.results as any[]);
+    backendStatus.exact = 'success';
+  } else {
+    backendStatus.exact = exactResult.status === 'rejected'
+      ? `error: ${exactResult.reason}`
+      : `failed: ${(exactResult as PromiseFulfilledResult<SearchResult>).value.error}`;
+  }
+
+  if (ripgrepResult.status === 'fulfilled' && ripgrepResult.value.success) {
+    resultsMap.set('ripgrep', ripgrepResult.value.results as any[]);
+    backendStatus.ripgrep = 'success';
+  } else {
+    backendStatus.ripgrep = ripgrepResult.status === 'rejected'
+      ? `error: ${ripgrepResult.reason}`
+      : `failed: ${(ripgrepResult as PromiseFulfilledResult<SearchResult>).value.error}`;
+  }
+
+  // If no results from any backend
+  if (resultsMap.size === 0) {
+    return {
+      success: false,
+      error: 'All search backends failed',
+      metadata: {
+        mode: 'parallel',
+        backend: 'multi-backend',
+        count: 0,
+        query,
+        backend_status: backendStatus,
+      } as any,
+    };
+  }
+
+  // Apply RRF fusion
+  const fusedResults = applyRRFFusion(resultsMap, weights, limit);
+
+  return {
+    success: true,
+    results: fusedResults,
+    metadata: {
+      mode: 'parallel',
+      backend: 'multi-backend',
+      count: fusedResults.length,
+      query,
+      backends_used: Array.from(resultsMap.keys()),
+      backend_status: backendStatus,
+      weights,
+      note: 'Parallel mode runs hybrid + exact + ripgrep simultaneously with RRF fusion',
+    } as any,
+  };
+}
+
 // Tool schema for MCP
 export const schema: ToolSchema = {
   name: 'smart_search',
-  description: `Intelligent code search with three optimized modes: hybrid, exact, ripgrep.
+  description: `Intelligent code search with five modes: auto, hybrid, exact, ripgrep, parallel.
 
 **Quick Start:**
   smart_search(query="authentication logic")           # Auto mode (intelligent routing)
   smart_search(action="init", path=".")                # Initialize index (required for hybrid)
   smart_search(action="status")                        # Check index status
 
-**Three Core Modes:**
+**Five Modes:**
   1. auto (default): Intelligent routing based on query and index
      - Natural language + index → hybrid
      - Simple query + index → exact
@@ -753,6 +941,10 @@ export const schema: ToolSchema = {
   4. ripgrep: Direct ripgrep execution
      - Fast, no index required
      - Literal string matching
+
+  5. parallel: Run all backends simultaneously
+     - Highest recall, runs hybrid + exact + ripgrep in parallel
+     - Results merged using RRF fusion with configurable weights
 
 **Actions:**
   - search (default): Intelligent search with auto routing
@@ -780,7 +972,7 @@ export const schema: ToolSchema = {
       mode: {
         type: 'string',
         enum: SEARCH_MODES,
-        description: 'Search mode: auto (default), hybrid (best quality), exact (CodexLens FTS), ripgrep (fast, no index)',
+        description: 'Search mode: auto (default), hybrid (best quality), exact (CodexLens FTS), ripgrep (fast, no index), parallel (all backends with RRF fusion)',
         default: 'auto',
       },
       output_mode: {
@@ -825,6 +1017,15 @@ export const schema: ToolSchema = {
         type: 'array',
         items: { type: 'string' },
         description: 'Languages to index (for init action). Example: ["javascript", "typescript"]',
+      },
+      parallelWeights: {
+        type: 'object',
+        properties: {
+          hybrid: { type: 'number', default: 0.5 },
+          exact: { type: 'number', default: 0.3 },
+          ripgrep: { type: 'number', default: 0.2 },
+        },
+        description: 'RRF weights for parallel mode. Weights should sum to 1.0. Default: {hybrid: 0.5, exact: 0.3, ripgrep: 0.2}',
       },
     },
     required: [],
@@ -902,7 +1103,7 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
 
       case 'search':
       default:
-        // Handle search modes: auto | hybrid | exact | ripgrep
+        // Handle search modes: auto | hybrid | exact | ripgrep | parallel
         switch (mode) {
           case 'auto':
             result = await executeAutoMode(parsed.data);
@@ -916,8 +1117,11 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
           case 'ripgrep':
             result = await executeRipgrepMode(parsed.data);
             break;
+          case 'parallel':
+            result = await executeParallelMode(parsed.data);
+            break;
           default:
-            throw new Error(`Unsupported mode: ${mode}. Use: auto, hybrid, exact, or ripgrep`);
+            throw new Error(`Unsupported mode: ${mode}. Use: auto, hybrid, exact, ripgrep, or parallel`);
         }
         break;
     }

@@ -91,6 +91,15 @@ interface ExecuteResult {
 interface ExecuteOptions {
   timeout?: number;
   cwd?: string;
+  onProgress?: (progress: ProgressInfo) => void;
+}
+
+interface ProgressInfo {
+  stage: string;
+  message: string;
+  percent: number;
+  filesProcessed?: number;
+  totalFiles?: number;
 }
 
 /**
@@ -362,13 +371,64 @@ async function ensureReady(): Promise<ReadyStatus> {
 }
 
 /**
+ * Parse progress info from CodexLens output
+ * @param line - Output line to parse
+ * @returns Progress info or null
+ */
+function parseProgressLine(line: string): ProgressInfo | null {
+  // Parse file processing progress: "Processing file X/Y: path"
+  const fileMatch = line.match(/Processing file (\d+)\/(\d+):\s*(.+)/i);
+  if (fileMatch) {
+    const current = parseInt(fileMatch[1], 10);
+    const total = parseInt(fileMatch[2], 10);
+    return {
+      stage: 'indexing',
+      message: `Processing ${fileMatch[3]}`,
+      percent: Math.round((current / total) * 80) + 10, // 10-90%
+      filesProcessed: current,
+      totalFiles: total,
+    };
+  }
+
+  // Parse stage messages
+  if (line.includes('Discovering files')) {
+    return { stage: 'discover', message: 'Discovering files...', percent: 5 };
+  }
+  if (line.includes('Building index')) {
+    return { stage: 'build', message: 'Building index...', percent: 10 };
+  }
+  if (line.includes('Extracting symbols')) {
+    return { stage: 'symbols', message: 'Extracting symbols...', percent: 50 };
+  }
+  if (line.includes('Generating embeddings') || line.includes('Creating embeddings')) {
+    return { stage: 'embeddings', message: 'Generating embeddings...', percent: 70 };
+  }
+  if (line.includes('Finalizing') || line.includes('Complete')) {
+    return { stage: 'complete', message: 'Finalizing...', percent: 95 };
+  }
+
+  // Parse indexed count: "Indexed X files"
+  const indexedMatch = line.match(/Indexed (\d+) files/i);
+  if (indexedMatch) {
+    return {
+      stage: 'complete',
+      message: `Indexed ${indexedMatch[1]} files`,
+      percent: 100,
+      filesProcessed: parseInt(indexedMatch[1], 10),
+    };
+  }
+
+  return null;
+}
+
+/**
  * Execute CodexLens CLI command
  * @param args - CLI arguments
  * @param options - Execution options
  * @returns Execution result
  */
 async function executeCodexLens(args: string[], options: ExecuteOptions = {}): Promise<ExecuteResult> {
-  const { timeout = 60000, cwd = process.cwd() } = options;
+  const { timeout = 60000, cwd = process.cwd(), onProgress } = options;
 
   // Ensure ready
   const readyStatus = await ensureReady();
@@ -387,10 +447,35 @@ async function executeCodexLens(args: string[], options: ExecuteOptions = {}): P
     let timedOut = false;
 
     child.stdout.on('data', (data) => {
-      stdout += data.toString();
+      const chunk = data.toString();
+      stdout += chunk;
+
+      // Report progress if callback provided
+      if (onProgress) {
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          const progress = parseProgressLine(line.trim());
+          if (progress) {
+            onProgress(progress);
+          }
+        }
+      }
     });
+
     child.stderr.on('data', (data) => {
-      stderr += data.toString();
+      const chunk = data.toString();
+      stderr += chunk;
+
+      // Also check stderr for progress (some tools output there)
+      if (onProgress) {
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          const progress = parseProgressLine(line.trim());
+          if (progress) {
+            onProgress(progress);
+          }
+        }
+      }
     });
 
     const timeoutId = setTimeout(() => {
@@ -802,6 +887,9 @@ async function uninstallCodexLens(): Promise<BootstrapResult> {
     return { success: false, error: `Failed to uninstall CodexLens: ${(err as Error).message}` };
   }
 }
+
+// Export types
+export type { ProgressInfo, ExecuteOptions };
 
 // Export for direct usage
 export { ensureReady, executeCodexLens, checkVenvStatus, bootstrapVenv, checkSemanticStatus, installSemantic, uninstallCodexLens };

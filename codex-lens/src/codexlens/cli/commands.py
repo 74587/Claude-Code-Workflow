@@ -77,7 +77,7 @@ def init(
         "-l",
         help="Limit indexing to specific languages (repeat or comma-separated).",
     ),
-    workers: int = typer.Option(4, "--workers", "-w", min=1, max=16, help="Parallel worker processes."),
+    workers: Optional[int] = typer.Option(None, "--workers", "-w", min=1, max=16, help="Parallel worker processes (default: auto-detect based on CPU count, max 16)."),
     force: bool = typer.Option(False, "--force", "-f", help="Force full reindex (skip incremental mode)."),
     no_embeddings: bool = typer.Option(False, "--no-embeddings", help="Skip automatic embedding generation (if semantic deps installed)."),
     embedding_model: str = typer.Option("code", "--embedding-model", help="Embedding model profile: fast, code, multilingual, balanced."),

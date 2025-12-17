@@ -542,10 +542,160 @@ async function deleteModel(profile) {
 // ============================================================
 
 /**
- * Initialize CodexLens index
+ * Initialize CodexLens index with progress tracking
  */
 function initCodexLensIndex() {
-  openCliInstallWizard('codexlens');
+  // Create progress modal
+  var modal = document.createElement('div');
+  modal.id = 'codexlensIndexModal';
+  modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+  modal.innerHTML =
+    '<div class="bg-card rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">' +
+      '<div class="p-6">' +
+        '<div class="flex items-center gap-3 mb-4">' +
+          '<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">' +
+            '<i data-lucide="database" class="w-5 h-5 text-primary"></i>' +
+          '</div>' +
+          '<div>' +
+            '<h3 class="text-lg font-semibold">' + t('codexlens.indexing') + '</h3>' +
+            '<p class="text-sm text-muted-foreground">' + t('codexlens.indexingDesc') + '</p>' +
+          '</div>' +
+        '</div>' +
+        '<div class="space-y-4">' +
+          '<div id="codexlensIndexProgress">' +
+            '<div class="flex items-center gap-3">' +
+              '<div class="animate-spin w-5 h-5 border-2 border-primary border-t-transparent rounded-full"></div>' +
+              '<span class="text-sm" id="codexlensIndexStatus">' + t('codexlens.preparingIndex') + '</span>' +
+            '</div>' +
+            '<div class="mt-3 h-2 bg-muted rounded-full overflow-hidden">' +
+              '<div id="codexlensIndexProgressBar" class="h-full bg-primary transition-all duration-300" style="width: 0%"></div>' +
+            '</div>' +
+            '<div class="mt-2 text-xs text-muted-foreground" id="codexlensIndexDetails"></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="border-t border-border p-4 flex justify-end gap-3 bg-muted/30">' +
+        '<button class="btn-outline px-4 py-2" id="codexlensIndexCancelBtn" onclick="cancelCodexLensIndex()">' + t('common.cancel') + '</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(modal);
+  if (window.lucide) lucide.createIcons();
+
+  // Start indexing
+  startCodexLensIndexing();
+}
+
+/**
+ * Start the indexing process
+ */
+async function startCodexLensIndexing() {
+  var statusText = document.getElementById('codexlensIndexStatus');
+  var progressBar = document.getElementById('codexlensIndexProgressBar');
+  var detailsText = document.getElementById('codexlensIndexDetails');
+  var cancelBtn = document.getElementById('codexlensIndexCancelBtn');
+
+  // Setup WebSocket listener for progress events
+  window.codexlensIndexProgressHandler = function(event) {
+    if (event.type === 'CODEXLENS_INDEX_PROGRESS') {
+      var payload = event.payload;
+      if (statusText) statusText.textContent = payload.message || t('codexlens.indexing');
+      if (progressBar) progressBar.style.width = (payload.percent || 0) + '%';
+      if (detailsText && payload.filesProcessed !== undefined) {
+        detailsText.textContent = t('codexlens.filesProcessed') + ': ' + payload.filesProcessed +
+          (payload.totalFiles ? ' / ' + payload.totalFiles : '');
+      }
+
+      // Handle completion
+      if (payload.stage === 'complete') {
+        handleIndexComplete(true, payload.message);
+      } else if (payload.stage === 'error') {
+        handleIndexComplete(false, payload.message);
+      }
+    }
+  };
+
+  // Register with notification system if available
+  if (typeof registerWsEventHandler === 'function') {
+    registerWsEventHandler('CODEXLENS_INDEX_PROGRESS', window.codexlensIndexProgressHandler);
+  }
+
+  try {
+    var response = await fetch('/api/codexlens/init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: projectPath })
+    });
+
+    var result = await response.json();
+
+    if (!result.success && statusText) {
+      // If WebSocket didn't report error, show it now
+      handleIndexComplete(false, result.error || t('common.unknownError'));
+    }
+  } catch (err) {
+    handleIndexComplete(false, err.message);
+  }
+}
+
+/**
+ * Handle index completion
+ */
+function handleIndexComplete(success, message) {
+  var statusText = document.getElementById('codexlensIndexStatus');
+  var progressBar = document.getElementById('codexlensIndexProgressBar');
+  var cancelBtn = document.getElementById('codexlensIndexCancelBtn');
+
+  // Unregister WebSocket handler
+  if (typeof unregisterWsEventHandler === 'function') {
+    unregisterWsEventHandler('CODEXLENS_INDEX_PROGRESS', window.codexlensIndexProgressHandler);
+  }
+
+  if (success) {
+    if (progressBar) progressBar.style.width = '100%';
+    if (statusText) statusText.textContent = t('codexlens.indexComplete');
+    if (cancelBtn) cancelBtn.textContent = t('common.close');
+
+    showRefreshToast(t('codexlens.indexSuccess'), 'success');
+
+    // Auto-close after 2 seconds
+    setTimeout(function() {
+      closeCodexLensIndexModal();
+      // Refresh status
+      if (typeof loadCodexLensStatus === 'function') {
+        loadCodexLensStatus().then(function() {
+          renderToolsSection();
+          if (window.lucide) lucide.createIcons();
+        });
+      }
+    }, 2000);
+  } else {
+    if (progressBar) progressBar.classList.add('bg-destructive');
+    if (statusText) statusText.textContent = t('codexlens.indexFailed') + ': ' + message;
+    if (cancelBtn) cancelBtn.textContent = t('common.close');
+
+    showRefreshToast(t('codexlens.indexFailed') + ': ' + message, 'error');
+  }
+}
+
+/**
+ * Cancel indexing
+ */
+function cancelCodexLensIndex() {
+  closeCodexLensIndexModal();
+}
+
+/**
+ * Close index modal
+ */
+function closeCodexLensIndexModal() {
+  var modal = document.getElementById('codexlensIndexModal');
+  if (modal) modal.remove();
+
+  // Unregister WebSocket handler
+  if (typeof unregisterWsEventHandler === 'function' && window.codexlensIndexProgressHandler) {
+    unregisterWsEventHandler('CODEXLENS_INDEX_PROGRESS', window.codexlensIndexProgressHandler);
+  }
 }
 
 /**

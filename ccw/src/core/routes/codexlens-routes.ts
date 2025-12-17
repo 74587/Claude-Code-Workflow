@@ -12,6 +12,7 @@ import {
   installSemantic,
   uninstallCodexLens
 } from '../../tools/codex-lens.js';
+import type { ProgressInfo } from '../../tools/codex-lens.js';
 
 export interface RouteContext {
   pathname: string;
@@ -217,9 +218,32 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
       const { path: projectPath } = body;
       const targetPath = projectPath || initialPath;
 
+      // Broadcast start event
+      broadcastToClients({
+        type: 'CODEXLENS_INDEX_PROGRESS',
+        payload: { stage: 'start', message: 'Starting index...', percent: 0, path: targetPath }
+      });
+
       try {
-        const result = await executeCodexLens(['init', targetPath, '--json'], { cwd: targetPath });
+        const result = await executeCodexLens(['init', targetPath, '--json'], {
+          cwd: targetPath,
+          timeout: 300000, // 5 minutes
+          onProgress: (progress: ProgressInfo) => {
+            // Broadcast progress to all connected clients
+            broadcastToClients({
+              type: 'CODEXLENS_INDEX_PROGRESS',
+              payload: { ...progress, path: targetPath }
+            });
+          }
+        });
+
         if (result.success) {
+          // Broadcast completion
+          broadcastToClients({
+            type: 'CODEXLENS_INDEX_PROGRESS',
+            payload: { stage: 'complete', message: 'Index complete', percent: 100, path: targetPath }
+          });
+
           try {
             const parsed = extractJSON(result.output);
             return { success: true, result: parsed };
@@ -227,9 +251,19 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
             return { success: true, output: result.output };
           }
         } else {
+          // Broadcast error
+          broadcastToClients({
+            type: 'CODEXLENS_INDEX_PROGRESS',
+            payload: { stage: 'error', message: result.error || 'Unknown error', percent: 0, path: targetPath }
+          });
           return { success: false, error: result.error, status: 500 };
         }
       } catch (err) {
+        // Broadcast error
+        broadcastToClients({
+          type: 'CODEXLENS_INDEX_PROGRESS',
+          payload: { stage: 'error', message: err.message, percent: 0, path: targetPath }
+        });
         return { success: false, error: err.message, status: 500 };
       }
     });

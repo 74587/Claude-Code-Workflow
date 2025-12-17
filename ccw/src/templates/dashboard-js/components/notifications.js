@@ -87,6 +87,49 @@ let autoRefreshInterval = null;
 let lastDataHash = null;
 const AUTO_REFRESH_INTERVAL_MS = 30000; // 30 seconds
 
+// Custom event handlers registry for components to subscribe to specific events
+const wsEventHandlers = {};
+
+/**
+ * Register a custom handler for a specific WebSocket event type
+ * @param {string} eventType - The event type to listen for
+ * @param {Function} handler - The handler function
+ */
+function registerWsEventHandler(eventType, handler) {
+  if (!wsEventHandlers[eventType]) {
+    wsEventHandlers[eventType] = [];
+  }
+  wsEventHandlers[eventType].push(handler);
+}
+
+/**
+ * Unregister a custom handler for a specific WebSocket event type
+ * @param {string} eventType - The event type
+ * @param {Function} handler - The handler function to remove
+ */
+function unregisterWsEventHandler(eventType, handler) {
+  if (wsEventHandlers[eventType]) {
+    wsEventHandlers[eventType] = wsEventHandlers[eventType].filter(h => h !== handler);
+  }
+}
+
+/**
+ * Dispatch event to registered handlers
+ * @param {string} eventType - The event type
+ * @param {Object} data - The full event data
+ */
+function dispatchToEventHandlers(eventType, data) {
+  if (wsEventHandlers[eventType]) {
+    wsEventHandlers[eventType].forEach(handler => {
+      try {
+        handler(data);
+      } catch (e) {
+        console.error('[WS] Error in custom handler for', eventType, e);
+      }
+    });
+  }
+}
+
 // ========== WebSocket Connection ==========
 function initWebSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -388,6 +431,12 @@ function handleNotification(data) {
         });
       }
       console.log('[CodexLens] Uninstallation completed:', payload);
+      break;
+
+    case 'CODEXLENS_INDEX_PROGRESS':
+      // Handle CodexLens index progress updates
+      dispatchToEventHandlers('CODEXLENS_INDEX_PROGRESS', data);
+      console.log('[CodexLens] Index progress:', payload.stage, payload.percent + '%');
       break;
 
     default:

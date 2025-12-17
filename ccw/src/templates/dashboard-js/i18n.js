@@ -278,6 +278,15 @@ const i18n = {
     'codexlens.modelDeleteFailed': 'Model deletion failed',
     'codexlens.deleteModelConfirm': 'Are you sure you want to delete model',
 
+    // CodexLens Indexing Progress
+    'codexlens.indexing': 'Indexing',
+    'codexlens.indexingDesc': 'Building code index for workspace',
+    'codexlens.preparingIndex': 'Preparing index...',
+    'codexlens.filesProcessed': 'Files processed',
+    'codexlens.indexComplete': 'Index complete',
+    'codexlens.indexSuccess': 'Index created successfully',
+    'codexlens.indexFailed': 'Indexing failed',
+
     // Semantic Search Configuration
     'semantic.settings': 'Semantic Search Settings',
     'semantic.testSearch': 'Test Semantic Search',
@@ -1393,6 +1402,15 @@ const i18n = {
     'codexlens.modelDeleted': '模型已删除',
     'codexlens.modelDeleteFailed': '模型删除失败',
     'codexlens.deleteModelConfirm': '确定要删除模型',
+
+    // CodexLens 索引进度
+    'codexlens.indexing': '索引中',
+    'codexlens.indexingDesc': '正在为工作区构建代码索引',
+    'codexlens.preparingIndex': '准备索引...',
+    'codexlens.filesProcessed': '已处理文件',
+    'codexlens.indexComplete': '索引完成',
+    'codexlens.indexSuccess': '索引创建成功',
+    'codexlens.indexFailed': '索引失败',
 
     // Semantic Search 配置
     'semantic.settings': '语义搜索设置',

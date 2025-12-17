@@ -98,7 +98,7 @@ class IndexTreeBuilder:
         self,
         source_root: Path,
         languages: List[str] = None,
-        workers: int = 4,
+        workers: int = None,
         force_full: bool = False,
     ) -> BuildResult:
         """Build complete index tree for a project.
@@ -126,6 +126,11 @@ class IndexTreeBuilder:
         source_root = source_root.resolve()
         if not source_root.exists():
             raise ValueError(f"Source root does not exist: {source_root}")
+
+        # Auto-detect optimal worker count if not specified
+        if workers is None:
+            workers = min(os.cpu_count() or 4, 16)  # Cap at 16 workers
+            self.logger.debug("Auto-detected %d workers for parallel indexing", workers)
 
         # Override incremental mode if force_full is True
         use_incremental = self.incremental and not force_full
@@ -238,7 +243,7 @@ class IndexTreeBuilder:
         self,
         source_path: Path,
         languages: List[str] = None,
-        workers: int = 4,
+        workers: int = None,
     ) -> BuildResult:
         """Incrementally update a subtree.
 
