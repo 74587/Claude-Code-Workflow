@@ -66,6 +66,12 @@ write_file(path="/new-file.ts", content="...")
 
 **How**:
 ```javascript
-exa(query="React hooks 2025 documentation")
-exa(query="FastAPI auth example github")
+mcp__exa__search(query="React hooks 2025 documentation")
+mcp__exa__search(query="FastAPI auth example", numResults=10)
+mcp__exa__search(query="latest API docs", livecrawl="always")
 ```
+
+**Parameters**:
+- `query` (required): Search query string
+- `numResults` (optional): Number of results to return (default: 5)
+- `livecrawl` (optional): `"always"` or `"fallback"` for live crawling
