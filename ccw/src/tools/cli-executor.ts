@@ -758,11 +758,12 @@ async function executeCliTool(
   const startTime = Date.now();
 
   return new Promise((resolve, reject) => {
-    // Direct spawn without shell - CLI tools (codex/gemini/qwen) don't need shell wrapper
-    // This avoids Windows cmd.exe ENOENT errors and simplifies argument handling
+    // Windows requires shell: true for npm global commands (.cmd files)
+    // Unix-like systems can use shell: false for direct execution
+    const isWindows = process.platform === 'win32';
     const child = spawn(command, args, {
       cwd: workingDir,
-      shell: false,
+      shell: isWindows,  // Enable shell on Windows for .cmd files
       stdio: [useStdin ? 'pipe' : 'ignore', 'pipe', 'pipe']
     });
 

@@ -1,10 +1,3 @@
-# Context Requirements
-
-Before implementation, always:
-- Identify 3+ existing similar patterns
-- Map dependencies and integration points
-- Understand testing framework and coding conventions
-
 ## MCP Tools Usage
 
 ### smart_search - Code Search (REQUIRED)

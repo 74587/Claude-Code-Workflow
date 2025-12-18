@@ -89,7 +89,12 @@ class TestTokenMetadataStorage:
                 assert file_entry.name == "math.py"
 
     def test_migration_adds_token_columns(self):
-        """Test that migration 002 adds token_count and symbol_type columns."""
+        """Test that migrations properly handle token_count and symbol_type columns.
+
+        Note: Migration 002 adds these columns, but migration 005 removes them
+        as they were identified as unused/redundant. New databases should not
+        have these columns.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             store = SQLiteStore(db_path)
@@ -100,19 +105,21 @@ class TestTokenMetadataStorage:
                 manager = MigrationManager(conn)
                 manager.apply_migrations()
 
-                # Verify columns exist
+                # Verify columns do NOT exist after all migrations
+                # (migration_005 removes token_count and symbol_type)
                 cursor = conn.execute("PRAGMA table_info(symbols)")
                 columns = {row[1] for row in cursor.fetchall()}
 
-                assert "token_count" in columns
-                assert "symbol_type" in columns
+                # These columns should NOT be present after migration_005
+                assert "token_count" not in columns, "token_count should be removed by migration_005"
+                assert "symbol_type" not in columns, "symbol_type should be removed by migration_005"
 
-                # Verify index exists
+                # Index on symbol_type should also not exist
                 cursor = conn.execute(
                     "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_symbols_type'"
                 )
                 index = cursor.fetchone()
-                assert index is not None
+                assert index is None, "idx_symbols_type should not exist after migration_005"
 
     def test_batch_insert_preserves_token_metadata(self):
         """Test that batch insert preserves token metadata."""
@@ -258,23 +265,30 @@ class TestTokenMetadataStorage:
 
 
 class TestTokenCountAccuracy:
-    """Tests for token count accuracy in storage."""
+    """Tests for symbol storage accuracy.
+
+    Note: token_count and symbol_type columns were removed in migration_005
+    as they were identified as unused/redundant. These tests now verify
+    that symbols are stored correctly with their basic fields.
+    """
 
     def test_stored_token_count_matches_original(self):
-        """Test that stored token_count matches the original value."""
+        """Test that symbols are stored correctly (token_count no longer stored).
+
+        Note: token_count field was removed from schema. This test verifies
+        that symbols are still stored correctly with basic fields.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             store = SQLiteStore(db_path)
 
             with store:
-                expected_token_count = 256
-
                 symbols = [
                     Symbol(
                         name="complex_func",
                         kind="function",
                         range=(1, 20),
-                        token_count=expected_token_count
+                        token_count=256  # This field is accepted but not stored
                     ),
                 ]
 
@@ -287,41 +301,42 @@ class TestTokenCountAccuracy:
                 content = "def complex_func():\n    # Some complex logic\n    pass\n"
                 store.add_file(indexed_file, content)
 
-                # Verify by querying the database directly
+                # Verify symbol is stored with basic fields
                 conn = store._get_connection()
                 cursor = conn.execute(
-                    "SELECT token_count FROM symbols WHERE name = ?",
+                    "SELECT name, kind, start_line, end_line FROM symbols WHERE name = ?",
                     ("complex_func",)
                 )
                 row = cursor.fetchone()
 
                 assert row is not None
-                stored_token_count = row[0]
-                assert stored_token_count == expected_token_count
+                assert row["name"] == "complex_func"
+                assert row["kind"] == "function"
+                assert row["start_line"] == 1
+                assert row["end_line"] == 20
 
     def test_100_percent_storage_accuracy(self):
-        """Test that 100% of token counts are stored correctly."""
+        """Test that 100% of symbols are stored correctly.
+
+        Note: token_count field was removed from schema. This test verifies
+        that symbols are stored correctly with basic fields.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "_index.db"
             store = DirIndexStore(db_path)
 
             with store:
-                # Create a mapping of expected token counts
-                expected_counts = {}
-
-                # Store symbols with known token counts
+                # Store symbols
                 file_entries = []
                 for i in range(100):
-                    token_count = 10 + i * 3
                     symbol_name = f"func{i}"
-                    expected_counts[symbol_name] = token_count
 
                     symbols = [
                         Symbol(
                             name=symbol_name,
                             kind="function",
                             range=(1, 2),
-                            token_count=token_count
+                            token_count=10 + i * 3  # Accepted but not stored
                         )
                     ]
 
@@ -337,17 +352,17 @@ class TestTokenCountAccuracy:
                 count = store.add_files_batch(file_entries)
                 assert count == 100
 
-                # Verify all token counts are stored correctly
+                # Verify all symbols are stored correctly
                 conn = store._get_connection()
                 cursor = conn.execute(
-                    "SELECT name, token_count FROM symbols ORDER BY name"
+                    "SELECT name, kind, start_line, end_line FROM symbols ORDER BY name"
                 )
                 rows = cursor.fetchall()
 
                 assert len(rows) == 100
 
-                # Verify each stored token_count matches what we set
-                for name, token_count in rows:
-                    expected = expected_counts[name]
-                    assert token_count == expected, \
-                        f"Symbol {name} has token_count {token_count}, expected {expected}"
+                # Verify each symbol has correct basic fields
+                for row in rows:
+                    assert row["kind"] == "function"
+                    assert row["start_line"] == 1
+                    assert row["end_line"] == 2

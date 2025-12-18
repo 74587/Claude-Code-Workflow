@@ -61,15 +61,29 @@ const MODULE_CSS_FILES = [
   '07-managers.css',
   '08-review.css',
   '09-explorer.css',
-  '10-cli.css',
-  '11-memory.css',
-  '11-prompt-history.css',
-  '12-skills-rules.css',
-  '13-claude-manager.css',
-  '14-graph-explorer.css',
-  '15-mcp-manager.css',
-  '16-help.css',
-  '17-core-memory.css'
+  // CLI modules (split from 10-cli.css)
+  '10-cli-status.css',
+  '11-cli-history.css',
+  '12-cli-legacy.css',
+  '13-cli-ccw.css',
+  '14-cli-modals.css',
+  '15-cli-endpoints.css',
+  '16-cli-session.css',
+  '17-cli-conversation.css',
+  '18-cli-settings.css',
+  '19-cli-native-session.css',
+  '20-cli-taskqueue.css',
+  '21-cli-toolmgmt.css',
+  '22-cli-semantic.css',
+  // Other modules
+  '23-memory.css',
+  '24-prompt-history.css',
+  '25-skills-rules.css',
+  '26-claude-manager.css',
+  '27-graph-explorer.css',
+  '28-mcp-manager.css',
+  '29-help.css',
+  '30-core-memory.css'
 ];
 
 // Modular JS files in dependency order

@@ -376,7 +376,7 @@ class DirIndexStore:
 
                     conn.execute("DELETE FROM symbols WHERE file_id=?", (file_id,))
                     if symbols:
-                        # Insert symbols without token_count and symbol_type
+                        # Insert symbols
                         symbol_rows = []
                         for s in symbols:
                             symbol_rows.append(
@@ -819,21 +819,22 @@ class DirIndexStore:
                 return results
 
             else:
-                # Fallback to original query for backward compatibility
+                # Fallback using normalized tables with contains matching (slower but more flexible)
                 keyword_pattern = f"%{keyword}%"
 
                 rows = conn.execute(
                     """
-                    SELECT f.id, f.name, f.full_path, f.language, f.mtime, f.line_count, sm.keywords
+                    SELECT f.id, f.name, f.full_path, f.language, f.mtime, f.line_count,
+                           GROUP_CONCAT(k.keyword, ',') as keywords
                     FROM files f
-                    JOIN semantic_metadata sm ON f.id = sm.file_id
-                    WHERE sm.keywords LIKE ? COLLATE NOCASE
+                    JOIN file_keywords fk ON f.id = fk.file_id
+                    JOIN keywords k ON fk.keyword_id = k.id
+                    WHERE k.keyword LIKE ? COLLATE NOCASE
+                    GROUP BY f.id, f.name, f.full_path, f.language, f.mtime, f.line_count
                     ORDER BY f.name
                     """,
                     (keyword_pattern,),
                 ).fetchall()
-
-                import json
 
                 results = []
                 for row in rows:
@@ -845,7 +846,7 @@ class DirIndexStore:
                         mtime=float(row["mtime"]) if row["mtime"] else 0.0,
                         line_count=int(row["line_count"]) if row["line_count"] else 0,
                     )
-                    keywords = json.loads(row["keywords"]) if row["keywords"] else []
+                    keywords = row["keywords"].split(',') if row["keywords"] else []
                     results.append((file_entry, keywords))
 
                 return results
@@ -1432,7 +1433,7 @@ class DirIndexStore:
                 """
             )
 
-            # Symbols table (v5: removed token_count and symbol_type)
+            # Symbols table with token metadata
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS symbols (

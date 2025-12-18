@@ -61,3 +61,10 @@
 - **Reference, don't duplicate** - point to other layers, never copy content
 - **Maintain perspective** - each layer sees the system at its appropriate scale
 - **Avoid implementation creep** - higher layers stay architectural
+
+# Context Requirements
+
+Before implementation, always:
+- Identify 3+ existing similar patterns
+- Map dependencies and integration points
+- Understand testing framework and coding conventions

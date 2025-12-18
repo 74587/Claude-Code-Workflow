@@ -64,6 +64,14 @@ def upgrade(db_conn: Connection):
         log.info("No 'semantic_metadata' table found, skipping data migration.")
         return
 
+    # Check if 'keywords' column exists in semantic_metadata table
+    # (current schema may already use normalized tables without this column)
+    cursor.execute("PRAGMA table_info(semantic_metadata)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "keywords" not in columns:
+        log.info("No 'keywords' column in semantic_metadata table, skipping data migration.")
+        return
+
     cursor.execute("SELECT file_id, keywords FROM semantic_metadata WHERE keywords IS NOT NULL AND keywords != ''")
 
     files_to_migrate = cursor.fetchall()

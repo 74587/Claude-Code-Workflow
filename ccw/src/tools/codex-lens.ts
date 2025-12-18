@@ -39,10 +39,16 @@ const ParamsSchema = z.object({
     'init',
     'search',
     'search_files',
+    'status',
+    'symbol',
+    'check',
+    'update',
+    'bootstrap',
   ]),
   path: z.string().optional(),
   query: z.string().optional(),
   mode: z.enum(['auto', 'text', 'semantic', 'exact', 'fuzzy', 'hybrid', 'vector', 'pure-vector']).default('auto'),
+  format: z.enum(['json', 'text', 'pretty']).default('json'),
   languages: z.array(z.string()).optional(),
   limit: z.number().default(20),
   // Additional fields for internal functions
@@ -790,8 +796,13 @@ Note: For advanced operations (config, status, clean), use CLI directly: codexle
           'init',
           'search',
           'search_files',
+          'status',
+          'symbol',
+          'check',
+          'update',
+          'bootstrap',
         ],
-        description: 'Action to perform: init (index directory), search (search code), search_files (search files only)',
+        description: 'Action to perform: init/update (index directory), search (search code), search_files (search files only), status (index status), symbol (extract symbols), check (check if ready), bootstrap (setup venv)',
       },
       path: {
         type: 'string',
@@ -806,6 +817,12 @@ Note: For advanced operations (config, status, clean), use CLI directly: codexle
         enum: ['auto', 'text', 'semantic', 'exact', 'fuzzy', 'hybrid', 'vector', 'pure-vector'],
         description: 'Search mode: auto (default, hybrid if embeddings exist), text/exact (FTS), hybrid (best), fuzzy, vector, semantic/pure-vector',
         default: 'auto',
+      },
+      format: {
+        type: 'string',
+        enum: ['json', 'text', 'pretty'],
+        description: 'Output format: json (default), text, pretty',
+        default: 'json',
       },
       languages: {
         type: 'array',
@@ -847,9 +864,41 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
         result = await searchFiles(parsed.data);
         break;
 
+      case 'status':
+        result = await getStatus(parsed.data);
+        break;
+
+      case 'symbol':
+        result = await extractSymbols(parsed.data);
+        break;
+
+      case 'check':
+        const checkStatus = await ensureReady();
+        result = {
+          success: checkStatus.ready,
+          ready: checkStatus.ready,
+          version: checkStatus.version,
+          error: checkStatus.error,
+        };
+        break;
+
+      case 'update':
+        // Update is an alias for init (incremental update)
+        result = await initIndex(parsed.data);
+        break;
+
+      case 'bootstrap':
+        const bootstrapResult = await bootstrapVenv();
+        result = {
+          success: bootstrapResult.success,
+          message: bootstrapResult.message,
+          error: bootstrapResult.error,
+        };
+        break;
+
       default:
         throw new Error(
-          `Unknown action: ${action}. Valid actions: init, search, search_files`
+          `Unknown action: ${action}. Valid actions: init, search, search_files, status, symbol, check, update, bootstrap`
         );
     }
 

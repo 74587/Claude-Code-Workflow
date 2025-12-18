@@ -86,7 +86,7 @@ class TestEmbedder:
     def test_embedder_initialization(self, embedder):
         """Test embedder initializes correctly."""
         assert embedder.model_name == "BAAI/bge-small-en-v1.5"
-        assert embedder.EMBEDDING_DIM == 384
+        assert embedder.embedding_dim == 384
         assert embedder._model is None  # Lazy loading
 
     def test_embed_single_returns_correct_dimension(self, embedder):

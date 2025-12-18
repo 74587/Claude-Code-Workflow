@@ -36,22 +36,27 @@ log = logging.getLogger(__name__)
 def upgrade(db_conn: Connection):
     """Remove unused and redundant fields from schema.
 
+    Note: Transaction management is handled by MigrationManager.
+    This migration should NOT start its own transaction.
+
     Args:
         db_conn: The SQLite database connection.
     """
     cursor = db_conn.cursor()
 
-    try:
-        cursor.execute("BEGIN TRANSACTION")
+    # Step 1: Remove semantic_metadata.keywords (if column exists)
+    log.info("Checking semantic_metadata.keywords column...")
 
-        # Step 1: Remove semantic_metadata.keywords
-        log.info("Removing semantic_metadata.keywords column...")
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_metadata'"
+    )
+    if cursor.fetchone():
+        # Check if keywords column exists
+        cursor.execute("PRAGMA table_info(semantic_metadata)")
+        columns = {row[1] for row in cursor.fetchall()}
 
-        # Check if semantic_metadata table exists
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_metadata'"
-        )
-        if cursor.fetchone():
+        if "keywords" in columns:
+            log.info("Removing semantic_metadata.keywords column...")
             cursor.execute("""
                 CREATE TABLE semantic_metadata_new (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -79,16 +84,23 @@ def upgrade(db_conn: Connection):
             )
             log.info("Removed semantic_metadata.keywords column")
         else:
-            log.info("semantic_metadata table does not exist, skipping")
+            log.info("semantic_metadata.keywords column does not exist, skipping")
+    else:
+        log.info("semantic_metadata table does not exist, skipping")
 
-        # Step 2: Remove symbols.token_count and symbols.symbol_type
-        log.info("Removing symbols.token_count and symbols.symbol_type columns...")
+    # Step 2: Remove symbols.token_count and symbols.symbol_type (if columns exist)
+    log.info("Checking symbols.token_count and symbols.symbol_type columns...")
 
-        # Check if symbols table exists
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='symbols'"
-        )
-        if cursor.fetchone():
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='symbols'"
+    )
+    if cursor.fetchone():
+        # Check if token_count or symbol_type columns exist
+        cursor.execute("PRAGMA table_info(symbols)")
+        columns = {row[1] for row in cursor.fetchall()}
+
+        if "token_count" in columns or "symbol_type" in columns:
+            log.info("Removing symbols.token_count and symbols.symbol_type columns...")
             cursor.execute("""
                 CREATE TABLE symbols_new (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -110,21 +122,28 @@ def upgrade(db_conn: Connection):
             cursor.execute("DROP TABLE symbols")
             cursor.execute("ALTER TABLE symbols_new RENAME TO symbols")
 
-            # Recreate indexes (excluding idx_symbols_type which indexed symbol_type)
+            # Recreate indexes
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_symbols_file ON symbols(file_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name)")
             log.info("Removed symbols.token_count and symbols.symbol_type columns")
         else:
-            log.info("symbols table does not exist, skipping")
+            log.info("symbols.token_count/symbol_type columns do not exist, skipping")
+    else:
+        log.info("symbols table does not exist, skipping")
 
-        # Step 3: Remove subdirs.direct_files
-        log.info("Removing subdirs.direct_files column...")
+    # Step 3: Remove subdirs.direct_files (if column exists)
+    log.info("Checking subdirs.direct_files column...")
 
-        # Check if subdirs table exists
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='subdirs'"
-        )
-        if cursor.fetchone():
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='subdirs'"
+    )
+    if cursor.fetchone():
+        # Check if direct_files column exists
+        cursor.execute("PRAGMA table_info(subdirs)")
+        columns = {row[1] for row in cursor.fetchall()}
+
+        if "direct_files" in columns:
+            log.info("Removing subdirs.direct_files column...")
             cursor.execute("""
                 CREATE TABLE subdirs_new (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -148,26 +167,15 @@ def upgrade(db_conn: Connection):
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_subdirs_name ON subdirs(name)")
             log.info("Removed subdirs.direct_files column")
         else:
-            log.info("subdirs table does not exist, skipping")
+            log.info("subdirs.direct_files column does not exist, skipping")
+    else:
+        log.info("subdirs table does not exist, skipping")
 
-        cursor.execute("COMMIT")
-        log.info("Migration 005 completed successfully")
+    log.info("Migration 005 completed successfully")
 
-        # Vacuum to reclaim space (outside transaction)
-        try:
-            log.info("Running VACUUM to reclaim space...")
-            cursor.execute("VACUUM")
-            log.info("VACUUM completed successfully")
-        except Exception as e:
-            log.warning(f"VACUUM failed (non-critical): {e}")
-
-    except Exception as e:
-        log.error(f"Migration 005 failed: {e}")
-        try:
-            cursor.execute("ROLLBACK")
-        except Exception:
-            pass
-        raise
+    # Vacuum to reclaim space (outside transaction, optional)
+    # Note: VACUUM cannot run inside a transaction, so we skip it here
+    # The caller can run VACUUM separately if desired
 
 
 def downgrade(db_conn: Connection):

@@ -204,13 +204,11 @@ class SQLiteStore:
             if indexed_file.symbols:
                 conn.executemany(
                     """
-                    INSERT INTO symbols(file_id, name, kind, start_line, end_line, token_count, symbol_type)
-                    VALUES(?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO symbols(file_id, name, kind, start_line, end_line)
+                    VALUES(?, ?, ?, ?, ?)
                     """,
                     [
-                        (file_id, s.name, s.kind, s.range[0], s.range[1],
-                         getattr(s, 'token_count', None),
-                         getattr(s, 'symbol_type', None) or s.kind)
+                        (file_id, s.name, s.kind, s.range[0], s.range[1])
                         for s in indexed_file.symbols
                     ],
                 )
@@ -255,13 +253,11 @@ class SQLiteStore:
                     if indexed_file.symbols:
                         conn.executemany(
                             """
-                            INSERT INTO symbols(file_id, name, kind, start_line, end_line, token_count, symbol_type)
-                            VALUES(?, ?, ?, ?, ?, ?, ?)
+                            INSERT INTO symbols(file_id, name, kind, start_line, end_line)
+                            VALUES(?, ?, ?, ?, ?)
                             """,
                             [
-                                (file_id, s.name, s.kind, s.range[0], s.range[1],
-                                 getattr(s, 'token_count', None),
-                                 getattr(s, 'symbol_type', None) or s.kind)
+                                (file_id, s.name, s.kind, s.range[0], s.range[1])
                                 for s in indexed_file.symbols
                             ],
                         )
@@ -611,15 +607,12 @@ class SQLiteStore:
                     name TEXT NOT NULL,
                     kind TEXT NOT NULL,
                     start_line INTEGER NOT NULL,
-                    end_line INTEGER NOT NULL,
-                    token_count INTEGER,
-                    symbol_type TEXT
+                    end_line INTEGER NOT NULL
                 )
                 """
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_kind ON symbols(kind)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_symbols_type ON symbols(symbol_type)")
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS code_relationships (

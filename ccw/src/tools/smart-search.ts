@@ -141,9 +141,11 @@ async function checkIndexStatus(path: string = '.'): Promise<IndexStatus> {
     try {
       // Strip ANSI color codes from JSON output
       const cleanOutput = (result.output || '{}').replace(/\x1b\[[0-9;]*m/g, '');
-      const status = JSON.parse(cleanOutput);
-      const indexed = status.indexed === true || status.file_count > 0;
-      
+      const parsed = JSON.parse(cleanOutput);
+      // Handle both direct and nested response formats (status returns {success, result: {...}})
+      const status = parsed.result || parsed;
+      const indexed = status.projects_count > 0 || status.total_files > 0;
+
       // Get embeddings coverage from comprehensive status
       const embeddingsData = status.embeddings || {};
       const embeddingsCoverage = embeddingsData.coverage_percent || 0;
@@ -161,7 +163,7 @@ async function checkIndexStatus(path: string = '.'): Promise<IndexStatus> {
       return {
         indexed,
         has_embeddings,
-        file_count: status.file_count,
+        file_count: status.total_files,
         embeddings_coverage_percent: embeddingsCoverage,
         warning,
       };

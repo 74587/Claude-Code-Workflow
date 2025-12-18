@@ -19,9 +19,10 @@ async function showCodexLensConfigModal() {
     const modalHtml = buildCodexLensConfigContent(config);
 
     // Create and show modal
-    const modalContainer = document.createElement('div');
-    modalContainer.innerHTML = modalHtml;
-    document.body.appendChild(modalContainer);
+    const tempContainer = document.createElement('div');
+    tempContainer.innerHTML = modalHtml;
+    const modal = tempContainer.firstElementChild;
+    document.body.appendChild(modal);
 
     // Initialize icons
     if (window.lucide) lucide.createIcons();
@@ -65,11 +66,21 @@ function buildCodexLensConfigContent(config) {
         '<div class="flex items-center gap-4 text-sm">' +
           '<div class="flex items-center gap-2">' +
             '<span class="text-muted-foreground">' + t('codexlens.currentWorkspace') + ':</span>' +
-            '<span class="font-medium">' + (isInstalled ? t('codexlens.installed') : t('codexlens.notInstalled')) + '</span>' +
+            (isInstalled
+              ? '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-success/10 text-success border border-success/20">' +
+                  '<i data-lucide="check-circle" class="w-3.5 h-3.5"></i>' +
+                  t('codexlens.installed') +
+                '</span>'
+              : '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">' +
+                  '<i data-lucide="circle" class="w-3.5 h-3.5"></i>' +
+                  t('codexlens.notInstalled') +
+                '</span>') +
           '</div>' +
           '<div class="flex items-center gap-2">' +
             '<span class="text-muted-foreground">' + t('codexlens.indexes') + ':</span>' +
-            '<span class="font-medium">' + indexCount + '</span>' +
+            '<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20">' +
+              indexCount +
+            '</span>' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -106,20 +117,20 @@ function buildCodexLensConfigContent(config) {
         '<h4>' + t('codexlens.actions') + '</h4>' +
         '<div class="tool-config-actions">' +
           (isInstalled
-            ? '<button class="btn-sm btn-outline" onclick="initCodexLensIndex()">' +
-                '<i data-lucide="database" class="w-3 h-3"></i> ' + t('codexlens.initializeIndex') +
+            ? '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors" onclick="initCodexLensIndex()">' +
+                '<i data-lucide="database" class="w-3.5 h-3.5"></i> ' + t('codexlens.initializeIndex') +
               '</button>' +
-              '<button class="btn-sm btn-outline" onclick="cleanCurrentWorkspaceIndex()">' +
-                '<i data-lucide="folder-x" class="w-3 h-3"></i> ' + t('codexlens.cleanCurrentWorkspace') +
+              '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-background hover:bg-muted/50 transition-colors" onclick="cleanCurrentWorkspaceIndex()">' +
+                '<i data-lucide="folder-x" class="w-3.5 h-3.5"></i> ' + t('codexlens.cleanCurrentWorkspace') +
               '</button>' +
-              '<button class="btn-sm btn-outline" onclick="cleanCodexLensIndexes()">' +
-                '<i data-lucide="trash" class="w-3 h-3"></i> ' + t('codexlens.cleanAllIndexes') +
+              '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-background hover:bg-muted/50 transition-colors" onclick="cleanCodexLensIndexes()">' +
+                '<i data-lucide="trash" class="w-3.5 h-3.5"></i> ' + t('codexlens.cleanAllIndexes') +
               '</button>' +
-              '<button class="btn-sm btn-outline btn-danger" onclick="uninstallCodexLens()">' +
-                '<i data-lucide="trash-2" class="w-3 h-3"></i> ' + t('cli.uninstall') +
+              '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-destructive/30 bg-destructive/5 text-destructive hover:bg-destructive/10 transition-colors" onclick="uninstallCodexLens()">' +
+                '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i> ' + t('cli.uninstall') +
               '</button>'
-            : '<button class="btn-sm btn-primary" onclick="installCodexLens()">' +
-                '<i data-lucide="download" class="w-3 h-3"></i> ' + t('codexlens.installCodexLens') +
+            : '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors" onclick="installCodexLens()">' +
+                '<i data-lucide="download" class="w-3.5 h-3.5"></i> ' + t('codexlens.installCodexLens') +
               '</button>') +
         '</div>' +
       '</div>' +
@@ -172,12 +183,12 @@ function buildCodexLensConfigContent(config) {
                 '</button>' +
               '</div>' +
               '<div id="searchResults" class="hidden">' +
-                '<div class="bg-muted/30 rounded-lg p-3 max-h-64 overflow-y-auto">' +
-                  '<div class="flex items-center justify-between mb-2">' +
+                '<div>' +
+                  '<div class="flex items-center justify-between">' +
                     '<p class="text-sm font-medium">' + t('codexlens.results') + ':</p>' +
                     '<span id="searchResultCount" class="text-xs text-muted-foreground"></span>' +
                   '</div>' +
-                  '<pre id="searchResultContent" class="text-xs font-mono whitespace-pre-wrap break-all"></pre>' +
+                  '<pre id="searchResultContent"></pre>' +
                 '</div>' +
               '</div>' +
             '</div>' +

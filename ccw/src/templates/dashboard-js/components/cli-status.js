@@ -92,6 +92,15 @@ async function loadCodexLensStatus() {
     const data = await response.json();
     codexLensStatus = data;
 
+    // Expose to window for other modules (e.g., codexlens-manager.js)
+    if (!window.cliToolsStatus) {
+      window.cliToolsStatus = {};
+    }
+    window.cliToolsStatus.codexlens = {
+      installed: data.ready || false,
+      version: data.version || null
+    };
+
     // Update CodexLens badge
     updateCodexLensBadge();
 

@@ -7,7 +7,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from codexlens.errors import StorageError
 
@@ -461,6 +461,66 @@ class RegistryStore:
 
             row = conn.execute(query, paths_to_check).fetchone()
             return self._row_to_dir_mapping(row) if row else None
+
+    def find_by_source_path(self, source_path: str) -> Optional[Dict[str, str]]:
+        """Find project by source path (exact or nearest match).
+
+        Searches for a project whose source_root matches or contains
+        the given source_path.
+
+        Args:
+            source_path: Source directory path as string
+
+        Returns:
+            Dict with project info including 'index_root', or None if not found
+        """
+        with self._lock:
+            conn = self._get_connection()
+            source_path_resolved = str(Path(source_path).resolve())
+
+            # First try exact match on projects table
+            row = conn.execute(
+                "SELECT * FROM projects WHERE source_root=?", (source_path_resolved,)
+            ).fetchone()
+
+            if row:
+                return {
+                    "id": str(row["id"]),
+                    "source_root": row["source_root"],
+                    "index_root": row["index_root"],
+                    "status": row["status"] or "active",
+                }
+
+            # Try finding project that contains this path
+            # Build list of all parent paths
+            paths_to_check = []
+            current = Path(source_path_resolved)
+            while True:
+                paths_to_check.append(str(current))
+                parent = current.parent
+                if parent == current:
+                    break
+                current = parent
+
+            if paths_to_check:
+                placeholders = ','.join('?' * len(paths_to_check))
+                query = f"""
+                    SELECT * FROM projects
+                    WHERE source_root IN ({placeholders})
+                    ORDER BY LENGTH(source_root) DESC
+                    LIMIT 1
+                """
+                row = conn.execute(query, paths_to_check).fetchone()
+
+                if row:
+                    return {
+                        "id": str(row["id"]),
+                        "source_root": row["source_root"],
+                        "index_root": row["index_root"],
+                        "status": row["status"] or "active",
+                    }
+
+            return None
 
     def get_project_dirs(self, project_id: int) -> List[DirMapping]:
         """Get all directory mappings for a project.

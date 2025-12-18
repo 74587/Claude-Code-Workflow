@@ -135,7 +135,7 @@ class TestKeywordNormalization:
         assert len(indexes) == 3
 
     def test_add_semantic_metadata_populates_normalized_tables(self, temp_index_db):
-        """Test that adding metadata populates both old and new tables."""
+        """Test that adding metadata populates the normalized keyword tables."""
         # Add a file
         file_id = temp_index_db.add_file(
             name="test.py",
@@ -156,13 +156,15 @@ class TestKeywordNormalization:
 
         conn = temp_index_db._get_connection()
 
-        # Check semantic_metadata table (backward compatibility)
+        # Check semantic_metadata table (without keywords column in current schema)
         row = conn.execute(
-            "SELECT keywords FROM semantic_metadata WHERE file_id=?",
+            "SELECT summary, purpose, llm_tool FROM semantic_metadata WHERE file_id=?",
             (file_id,)
         ).fetchone()
         assert row is not None
-        assert json.loads(row["keywords"]) == keywords
+        assert row["summary"] == "Test summary"
+        assert row["purpose"] == "Testing"
+        assert row["llm_tool"] == "gemini"
 
         # Check normalized keywords table
         keyword_rows = conn.execute("""
@@ -347,21 +349,33 @@ class TestMigrationManager:
         assert current_version >= 0
 
     def test_migration_001_can_run(self, temp_index_db):
-        """Test that migration_001 can be applied."""
+        """Test that migration_001 is idempotent on current schema.
+
+        Note: Current schema already has normalized keywords tables created
+        during initialize(), so migration_001 should be a no-op but not fail.
+        The original migration was designed to migrate from semantic_metadata.keywords
+        to normalized tables, but new databases use normalized tables directly.
+        """
         conn = temp_index_db._get_connection()
 
-        # Add some test data to semantic_metadata first
+        # Add some test data using the current normalized schema
         conn.execute("""
             INSERT INTO files(id, name, full_path, language, content, mtime, line_count)
             VALUES(100, 'test.py', '/test_migration.py', 'python', 'def test(): pass', 0, 10)
         """)
-        conn.execute("""
-            INSERT INTO semantic_metadata(file_id, keywords)
-            VALUES(100, ?)
-        """, (json.dumps(["test", "keyword"]),))
+
+        # Insert directly into normalized tables (current schema)
+        conn.execute("INSERT OR IGNORE INTO keywords(keyword) VALUES(?)", ("test",))
+        conn.execute("INSERT OR IGNORE INTO keywords(keyword) VALUES(?)", ("keyword",))
+
+        kw1_id = conn.execute("SELECT id FROM keywords WHERE keyword=?", ("test",)).fetchone()[0]
+        kw2_id = conn.execute("SELECT id FROM keywords WHERE keyword=?", ("keyword",)).fetchone()[0]
+
+        conn.execute("INSERT OR IGNORE INTO file_keywords(file_id, keyword_id) VALUES(?, ?)", (100, kw1_id))
+        conn.execute("INSERT OR IGNORE INTO file_keywords(file_id, keyword_id) VALUES(?, ?)", (100, kw2_id))
         conn.commit()
 
-        # Run migration (should be idempotent, tables already created by initialize())
+        # Run migration (should be idempotent - tables already exist)
         try:
             migration_001_normalize_keywords.upgrade(conn)
             success = True
@@ -371,7 +385,7 @@ class TestMigrationManager:
 
         assert success
 
-        # Verify data was migrated
+        # Verify data still exists
         keyword_count = conn.execute("""
             SELECT COUNT(*) as c FROM file_keywords WHERE file_id=100
         """).fetchone()["c"]

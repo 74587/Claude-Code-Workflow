@@ -102,7 +102,7 @@ class MigrationManager:
 
         This method checks the current database version and applies all
         subsequent migrations in order. Each migration is applied within
-        a transaction.
+        a transaction, unless the migration manages its own transactions.
         """
         current_version = self.get_current_version()
         log.info(f"Current database schema version: {current_version}")
@@ -111,21 +111,36 @@ class MigrationManager:
             if migration.version > current_version:
                 log.info(f"Applying migration {migration.version}: {migration.name}...")
                 try:
-                    self.db_conn.execute("BEGIN")
+                    # Check if a transaction is already in progress
+                    in_transaction = self.db_conn.in_transaction
+
+                    # Only start transaction if not already in one
+                    if not in_transaction:
+                        self.db_conn.execute("BEGIN")
+
                     migration.upgrade(self.db_conn)
                     self.set_version(migration.version)
-                    self.db_conn.execute("COMMIT")
+
+                    # Only commit if we started the transaction and it's still active
+                    if not in_transaction and self.db_conn.in_transaction:
+                        self.db_conn.execute("COMMIT")
+
                     log.info(
                         f"Successfully applied migration {migration.version}: {migration.name}"
                     )
                 except Exception as e:
                     log.error(
-                        f"Failed to apply migration {migration.version}: {migration.name}. Rolling back. Error: {e}",
+                        f"Failed to apply migration {migration.version}: {migration.name}. Error: {e}",
                         exc_info=True,
                     )
-                    self.db_conn.execute("ROLLBACK")
+                    # Try to rollback if transaction is active
+                    try:
+                        if self.db_conn.in_transaction:
+                            self.db_conn.execute("ROLLBACK")
+                    except Exception:
+                        pass  # Ignore rollback errors
                     raise
-        
+
         latest_migration_version = self.migrations[-1].version if self.migrations else 0
         if current_version < latest_migration_version:
             # This case can be hit if migrations were applied but the loop was exited

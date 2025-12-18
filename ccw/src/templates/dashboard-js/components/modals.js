@@ -45,10 +45,26 @@ function showModal(title, content, options = {}) {
 }
 
 function closeModal() {
-  const overlay = document.querySelector('.generic-modal-overlay');
-  if (overlay) {
-    overlay.classList.remove('active');
-    setTimeout(() => overlay.remove(), 200);
+  // Try generic modal overlay first
+  const genericOverlay = document.querySelector('.generic-modal-overlay');
+  if (genericOverlay) {
+    genericOverlay.classList.remove('active');
+    setTimeout(() => genericOverlay.remove(), 200);
+    return;
+  }
+
+  // Try CodexLens config modal
+  const codexLensModal = document.getElementById('codexlensConfigModal');
+  if (codexLensModal) {
+    codexLensModal.remove();
+    return;
+  }
+
+  // Try any modal-backdrop
+  const modalBackdrop = document.querySelector('.modal-backdrop');
+  if (modalBackdrop) {
+    modalBackdrop.remove();
+    return;
   }
 }
 

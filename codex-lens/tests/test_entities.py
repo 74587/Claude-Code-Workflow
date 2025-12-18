@@ -203,6 +203,7 @@ class TestEntitySerialization:
             "name": "test",
             "kind": "function",
             "range": (1, 10),
+            "file": None,
             "token_count": None,
             "symbol_type": None,
         }

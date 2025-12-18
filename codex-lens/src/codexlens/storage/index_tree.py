@@ -143,6 +143,9 @@ class IndexTreeBuilder:
         index_root = self.mapper.source_to_index_dir(source_root)
         project_info = self.registry.register_project(source_root, index_root)
 
+        # Report progress: discovering files (5%)
+        print("Discovering files...", flush=True)
+
         # Collect directories by depth
         dirs_by_depth = self._collect_dirs_by_depth(source_root, languages)
 
@@ -156,6 +159,13 @@ class IndexTreeBuilder:
                 total_dirs=0,
                 errors=["No indexable directories found"],
             )
+
+        # Calculate total directories for progress tracking
+        total_dirs_to_process = sum(len(dirs) for dirs in dirs_by_depth.values())
+        processed_dirs = 0
+
+        # Report progress: building index (10%)
+        print("Building index...", flush=True)
 
         total_files = 0
         total_dirs = 0
@@ -179,10 +189,17 @@ class IndexTreeBuilder:
             for result in results:
                 if result.error:
                     all_errors.append(f"{result.source_path}: {result.error}")
+                    processed_dirs += 1
                     continue
 
                 total_files += result.files_count
                 total_dirs += 1
+                processed_dirs += 1
+
+                # Report progress for each processed directory (10-80%)
+                # Use "Processing file" format for frontend parser compatibility
+                progress_percent = 10 + int((processed_dirs / total_dirs_to_process) * 70)
+                print(f"Processing file {processed_dirs}/{total_dirs_to_process}: {result.source_path.name}", flush=True)
 
                 # Register directory in registry
                 self.registry.register_dir(
@@ -192,6 +209,9 @@ class IndexTreeBuilder:
                     depth=self.mapper.get_relative_depth(result.source_path, source_root),
                     files_count=result.files_count,
                 )
+
+        # Report progress: linking subdirectories (80%)
+        print("Linking subdirectories...", flush=True)
 
         # After building all directories, link subdirectories to parents
         # This needs to happen after all indexes exist
@@ -203,6 +223,8 @@ class IndexTreeBuilder:
 
         # Cleanup deleted files if in incremental mode
         if use_incremental:
+            # Report progress: cleaning up (90%)
+            print("Cleaning up deleted files...", flush=True)
             self.logger.info("Cleaning up deleted files...")
             total_deleted = 0
             for result in all_results:
@@ -220,8 +242,14 @@ class IndexTreeBuilder:
             if total_deleted > 0:
                 self.logger.info("Removed %d deleted files from index", total_deleted)
 
+        # Report progress: finalizing (95%)
+        print("Finalizing...", flush=True)
+
         # Update project statistics
         self.registry.update_project_stats(source_root, total_files, total_dirs)
+
+        # Report completion (100%)
+        print(f"Indexed {total_files} files", flush=True)
 
         self.logger.info(
             "Index build complete: %d files, %d directories, %d errors",
