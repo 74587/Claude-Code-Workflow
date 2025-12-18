@@ -20,6 +20,11 @@ var edgeFilters = {
 };
 var selectedNode = null;
 var searchProcessData = null;
+var availableFiles = [];
+var availableModules = [];
+var selectedFile = null;
+var selectedModule = null;
+var filterMode = 'all'; // 'all', 'file', 'module'
 
 // ========== Node/Edge Colors ==========
 var NODE_COLORS = {
@@ -53,7 +58,8 @@ async function renderGraphExplorer() {
   // Load data
   await Promise.all([
     loadGraphData(),
-    loadSearchProcessData()
+    loadSearchProcessData(),
+    loadFilesAndModules()
   ]);
 
   // Render layout
@@ -71,11 +77,22 @@ async function renderGraphExplorer() {
 // ========== Data Loading ==========
 async function loadGraphData() {
   try {
-    var nodesResp = await fetch('/api/graph/nodes');
+    // Build query parameters based on filter mode
+    var queryParams = new URLSearchParams();
+    if (filterMode === 'file' && selectedFile) {
+      queryParams.set('file', selectedFile);
+    } else if (filterMode === 'module' && selectedModule) {
+      queryParams.set('module', selectedModule);
+    }
+
+    var nodesUrl = '/api/graph/nodes' + (queryParams.toString() ? '?' + queryParams.toString() : '');
+    var edgesUrl = '/api/graph/edges' + (queryParams.toString() ? '?' + queryParams.toString() : '');
+
+    var nodesResp = await fetch(nodesUrl);
     if (!nodesResp.ok) throw new Error('Failed to load graph nodes');
     var nodesData = await nodesResp.json();
 
-    var edgesResp = await fetch('/api/graph/edges');
+    var edgesResp = await fetch(edgesUrl);
     if (!edgesResp.ok) throw new Error('Failed to load graph edges');
     var edgesData = await edgesResp.json();
 
@@ -88,6 +105,23 @@ async function loadGraphData() {
     console.error('Failed to load graph data:', err);
     graphData = { nodes: [], edges: [] };
     return graphData;
+  }
+}
+
+async function loadFilesAndModules() {
+  try {
+    var response = await fetch('/api/graph/files');
+    if (!response.ok) throw new Error('Failed to load files and modules');
+    var data = await response.json();
+
+    availableFiles = data.files || [];
+    availableModules = data.modules || [];
+    return { files: availableFiles, modules: availableModules };
+  } catch (err) {
+    console.error('Failed to load files and modules:', err);
+    availableFiles = [];
+    availableModules = [];
+    return { files: [], modules: [] };
   }
 }
 
@@ -219,6 +253,40 @@ function renderGraphView() {
 
 function renderFilterDropdowns() {
   return '<div class="filter-dropdowns">' +
+    // Scope filter
+    '<div class="filter-group scope-filter">' +
+    '<label>' + t('graph.scope') + '</label>' +
+    '<div class="scope-selector">' +
+    '<label class="filter-radio">' +
+    '<input type="radio" name="scopeMode" value="all" ' + (filterMode === 'all' ? 'checked' : '') + ' onchange="changeScopeMode(\'all\')">' +
+    '<span>' + t('graph.allFiles') + '</span>' +
+    '</label>' +
+    '<label class="filter-radio">' +
+    '<input type="radio" name="scopeMode" value="module" ' + (filterMode === 'module' ? 'checked' : '') + ' onchange="changeScopeMode(\'module\')">' +
+    '<span>' + t('graph.byModule') + '</span>' +
+    '</label>' +
+    '<label class="filter-radio">' +
+    '<input type="radio" name="scopeMode" value="file" ' + (filterMode === 'file' ? 'checked' : '') + ' onchange="changeScopeMode(\'file\')">' +
+    '<span>' + t('graph.byFile') + '</span>' +
+    '</label>' +
+    '</div>' +
+    // Module selector (shown when filterMode === 'module')
+    (filterMode === 'module' ?
+      '<select id="moduleSelect" class="filter-select" onchange="selectModule(this.value)">' +
+      '<option value="">' + t('graph.selectModule') + '</option>' +
+      availableModules.map(function(module) {
+        return '<option value="' + escapeHtml(module) + '" ' + (selectedModule === module ? 'selected' : '') + '>' + escapeHtml(module) + '</option>';
+      }).join('') +
+      '</select>' : '') +
+    // File selector (shown when filterMode === 'file')
+    (filterMode === 'file' ?
+      '<select id="fileSelect" class="filter-select" onchange="selectFile(this.value)">' +
+      '<option value="">' + t('graph.selectFile') + '</option>' +
+      availableFiles.map(function(file) {
+        return '<option value="' + escapeHtml(file) + '" ' + (selectedFile === file ? 'selected' : '') + '>' + escapeHtml(file) + '</option>';
+      }).join('') +
+      '</select>' : '') +
+    '</div>' +
     '<div class="filter-group">' +
     '<label>' + t('graph.nodeTypes') + '</label>' +
     Object.keys(NODE_COLORS).map(function(type) {
@@ -843,6 +911,42 @@ function cleanupGraphExplorer() {
   }
   selectedNode = null;
   searchProcessData = null;
+}
+
+// ========== Scope Filter Actions ==========
+async function changeScopeMode(mode) {
+  filterMode = mode;
+  selectedFile = null;
+  selectedModule = null;
+
+  // Re-render the filter panel
+  var sidebar = document.querySelector('.graph-sidebar');
+  if (sidebar) {
+    var controlsSection = sidebar.querySelector('.graph-controls-section');
+    if (controlsSection) {
+      controlsSection.innerHTML = '<h3>' + t('graph.filters') + '</h3>' + renderFilterDropdowns();
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+
+  // If mode is 'all', reload graph immediately
+  if (mode === 'all') {
+    await refreshGraphData();
+  }
+}
+
+async function selectModule(modulePath) {
+  selectedModule = modulePath;
+  if (modulePath) {
+    await refreshGraphData();
+  }
+}
+
+async function selectFile(filePath) {
+  selectedFile = filePath;
+  if (filePath) {
+    await refreshGraphData();
+  }
 }
 
 // Register cleanup on navigation (called by navigation.js before switching views)

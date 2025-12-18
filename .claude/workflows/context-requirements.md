@@ -15,11 +15,9 @@ Before implementation, always:
 ```javascript
 smart_search(query="authentication logic")           // Auto mode (recommended)
 smart_search(action="init", path=".")                // First-time setup
-smart_search(query="LoginUser", mode="exact")        // Precise matching
-smart_search(query="import", mode="ripgrep")         // Fast, no index
 ```
 
-**Modes**: `auto` (intelligent routing), `hybrid` (best quality), `exact` (FTS), `ripgrep` (fast)
+**Modes**: `auto` (intelligent routing), `hybrid` (best quality), `exact` (FTS)
 
 ---
 

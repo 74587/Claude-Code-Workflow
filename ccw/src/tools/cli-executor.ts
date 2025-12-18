@@ -213,8 +213,9 @@ async function checkToolAvailability(tool: string): Promise<ToolAvailability> {
     const isWindows = process.platform === 'win32';
     const command = isWindows ? 'where' : 'which';
 
+    // Direct spawn - where/which are system commands that don't need shell wrapper
     const child = spawn(command, [tool], {
-      shell: isWindows,
+      shell: false,
       stdio: ['ignore', 'pipe', 'pipe']
     });
 
@@ -757,25 +758,11 @@ async function executeCliTool(
   const startTime = Date.now();
 
   return new Promise((resolve, reject) => {
-    const isWindows = process.platform === 'win32';
-
-    // On Windows with shell:true, we need to properly quote args containing spaces
-    let spawnArgs = args;
-
-    if (isWindows) {
-      // Quote arguments containing spaces for cmd.exe
-      spawnArgs = args.map(arg => {
-        if (arg.includes(' ') || arg.includes('"')) {
-          // Escape existing quotes and wrap in quotes
-          return `"${arg.replace(/"/g, '\\"')}"`;
-        }
-        return arg;
-      });
-    }
-
-    const child = spawn(command, spawnArgs, {
+    // Direct spawn without shell - CLI tools (codex/gemini/qwen) don't need shell wrapper
+    // This avoids Windows cmd.exe ENOENT errors and simplifies argument handling
+    const child = spawn(command, args, {
       cwd: workingDir,
-      shell: isWindows,
+      shell: false,
       stdio: [useStdin ? 'pipe' : 'ignore', 'pipe', 'pipe']
     });
 

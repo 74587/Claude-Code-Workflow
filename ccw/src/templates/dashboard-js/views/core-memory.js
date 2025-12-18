@@ -8,7 +8,7 @@ var coreMemGraphZoom = null;
 var coreMemGraphSimulation = null;
 
 async function renderCoreMemoryView() {
-  const content = document.getElementById('content');
+  const content = document.getElementById('mainContent');
   hideStatsAndCarousel();
 
   // Fetch core memories

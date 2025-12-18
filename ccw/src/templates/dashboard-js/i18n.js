@@ -1108,6 +1108,12 @@ const i18n = {
     'graph.references': 'references',
     'graph.affectedSymbols': 'Affected Symbols',
     'graph.depth': 'Depth',
+    'graph.scope': 'Scope',
+    'graph.allFiles': 'All Files',
+    'graph.byModule': 'By Module',
+    'graph.byFile': 'By File',
+    'graph.selectModule': 'Select a module...',
+    'graph.selectFile': 'Select a file...',
 
     // CLI Sync (used in claude-manager.js)
     'claude.cliSync': 'CLI Auto-Sync',
@@ -2300,6 +2306,12 @@ const i18n = {
     'graph.references': '引用',
     'graph.symbolType': '符号类型',
     'graph.affectedSymbols': '受影响符号',
+    'graph.scope': '范围',
+    'graph.allFiles': '所有文件',
+    'graph.byModule': '按模块',
+    'graph.byFile': '按文件',
+    'graph.selectModule': '选择模块...',
+    'graph.selectFile': '选择文件...',
 
     // CLI Sync (used in claude-manager.js)
     'claude.cliSync': 'CLI 自动同步',

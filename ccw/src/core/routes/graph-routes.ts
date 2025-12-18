@@ -167,8 +167,11 @@ function mapRelationType(relType: string): string {
 
 /**
  * Query symbols from all codex-lens databases (hierarchical structure)
+ * @param projectPath Root project path
+ * @param fileFilter Optional file path filter (supports wildcards)
+ * @param moduleFilter Optional module/directory filter
  */
-async function querySymbols(projectPath: string): Promise<GraphNode[]> {
+async function querySymbols(projectPath: string, fileFilter?: string, moduleFilter?: string): Promise<GraphNode[]> {
   const mapper = new PathMapper();
   const rootDbPath = mapper.sourceToIndexDb(projectPath);
   const indexRoot = rootDbPath.replace(/[\\/]_index\.db$/, '');
@@ -190,7 +193,21 @@ async function querySymbols(projectPath: string): Promise<GraphNode[]> {
     try {
       const db = Database(dbPath, { readonly: true });
 
-      const rows = db.prepare(`
+      // Build WHERE clause for filtering
+      let whereClause = '';
+      const params: string[] = [];
+
+      if (fileFilter) {
+        const sanitized = sanitizeForLike(fileFilter);
+        whereClause = 'WHERE f.full_path LIKE ?';
+        params.push(`%${sanitized}%`);
+      } else if (moduleFilter) {
+        const sanitized = sanitizeForLike(moduleFilter);
+        whereClause = 'WHERE f.full_path LIKE ?';
+        params.push(`${sanitized}%`);
+      }
+
+      const query = `
         SELECT
           s.id,
           s.name,
@@ -199,8 +216,11 @@ async function querySymbols(projectPath: string): Promise<GraphNode[]> {
           f.full_path as file
         FROM symbols s
         JOIN files f ON s.file_id = f.id
+        ${whereClause}
         ORDER BY f.full_path, s.start_line
-      `).all();
+      `;
+
+      const rows = params.length > 0 ? db.prepare(query).all(...params) : db.prepare(query).all();
 
       db.close();
 
@@ -223,8 +243,11 @@ async function querySymbols(projectPath: string): Promise<GraphNode[]> {
 
 /**
  * Query code relationships from all codex-lens databases (hierarchical structure)
+ * @param projectPath Root project path
+ * @param fileFilter Optional file path filter (supports wildcards)
+ * @param moduleFilter Optional module/directory filter
  */
-async function queryRelationships(projectPath: string): Promise<GraphEdge[]> {
+async function queryRelationships(projectPath: string, fileFilter?: string, moduleFilter?: string): Promise<GraphEdge[]> {
   const mapper = new PathMapper();
   const rootDbPath = mapper.sourceToIndexDb(projectPath);
   const indexRoot = rootDbPath.replace(/[\\/]_index\.db$/, '');
@@ -246,7 +269,21 @@ async function queryRelationships(projectPath: string): Promise<GraphEdge[]> {
     try {
       const db = Database(dbPath, { readonly: true });
 
-      const rows = db.prepare(`
+      // Build WHERE clause for filtering
+      let whereClause = '';
+      const params: string[] = [];
+
+      if (fileFilter) {
+        const sanitized = sanitizeForLike(fileFilter);
+        whereClause = 'WHERE f.full_path LIKE ?';
+        params.push(`%${sanitized}%`);
+      } else if (moduleFilter) {
+        const sanitized = sanitizeForLike(moduleFilter);
+        whereClause = 'WHERE f.full_path LIKE ?';
+        params.push(`${sanitized}%`);
+      }
+
+      const query = `
         SELECT
           s.name as source_name,
           s.start_line as source_line,
@@ -257,8 +294,11 @@ async function queryRelationships(projectPath: string): Promise<GraphEdge[]> {
         FROM code_relationships r
         JOIN symbols s ON r.source_symbol_id = s.id
         JOIN files f ON s.file_id = f.id
+        ${whereClause}
         ORDER BY f.full_path, s.start_line
-      `).all();
+      `;
+
+      const rows = params.length > 0 ? db.prepare(query).all(...params) : db.prepare(query).all();
 
       db.close();
 
@@ -384,6 +424,8 @@ export async function handleGraphRoutes(ctx: RouteContext): Promise<boolean> {
     const projectPath = validateProjectPath(rawPath, initialPath);
     const limitStr = url.searchParams.get('limit') || '1000';
     const limit = Math.min(parseInt(limitStr, 10) || 1000, 5000); // Max 5000 nodes
+    const fileFilter = url.searchParams.get('file') || undefined;
+    const moduleFilter = url.searchParams.get('module') || undefined;
 
     if (!projectPath) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -392,14 +434,15 @@ export async function handleGraphRoutes(ctx: RouteContext): Promise<boolean> {
     }
 
     try {
-      const allNodes = await querySymbols(projectPath);
+      const allNodes = await querySymbols(projectPath, fileFilter, moduleFilter);
       const nodes = allNodes.slice(0, limit);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         nodes,
         total: allNodes.length,
         limit,
-        hasMore: allNodes.length > limit
+        hasMore: allNodes.length > limit,
+        filters: { file: fileFilter, module: moduleFilter }
       }));
     } catch (err) {
       console.error(`[Graph] Error fetching nodes:`, err);
@@ -415,6 +458,8 @@ export async function handleGraphRoutes(ctx: RouteContext): Promise<boolean> {
     const projectPath = validateProjectPath(rawPath, initialPath);
     const limitStr = url.searchParams.get('limit') || '2000';
     const limit = Math.min(parseInt(limitStr, 10) || 2000, 10000); // Max 10000 edges
+    const fileFilter = url.searchParams.get('file') || undefined;
+    const moduleFilter = url.searchParams.get('module') || undefined;
 
     if (!projectPath) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -423,19 +468,82 @@ export async function handleGraphRoutes(ctx: RouteContext): Promise<boolean> {
     }
 
     try {
-      const allEdges = await queryRelationships(projectPath);
+      const allEdges = await queryRelationships(projectPath, fileFilter, moduleFilter);
       const edges = allEdges.slice(0, limit);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         edges,
         total: allEdges.length,
         limit,
-        hasMore: allEdges.length > limit
+        hasMore: allEdges.length > limit,
+        filters: { file: fileFilter, module: moduleFilter }
       }));
     } catch (err) {
       console.error(`[Graph] Error fetching edges:`, err);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Failed to fetch graph edges', edges: [] }));
+    }
+    return true;
+  }
+
+  // API: Get available files and modules for filtering
+  if (pathname === '/api/graph/files') {
+    const rawPath = url.searchParams.get('path') || initialPath;
+    const projectPath = validateProjectPath(rawPath, initialPath);
+
+    if (!projectPath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid project path', files: [], modules: [] }));
+      return true;
+    }
+
+    try {
+      const mapper = new PathMapper();
+      const rootDbPath = mapper.sourceToIndexDb(projectPath);
+      const indexRoot = rootDbPath.replace(/[\\/]_index\.db$/, '');
+
+      if (!existsSync(indexRoot)) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ files: [], modules: [] }));
+        return true;
+      }
+
+      const dbPaths = findAllIndexDbs(indexRoot);
+      const filesSet = new Set<string>();
+      const modulesSet = new Set<string>();
+
+      for (const dbPath of dbPaths) {
+        try {
+          const db = Database(dbPath, { readonly: true });
+          const rows = db.prepare(`SELECT DISTINCT full_path FROM files`).all();
+          db.close();
+
+          rows.forEach((row: any) => {
+            const filePath = row.full_path;
+            filesSet.add(filePath);
+
+            // Extract module path (directory)
+            const lastSlash = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+            if (lastSlash > 0) {
+              const modulePath = filePath.substring(0, lastSlash);
+              modulesSet.add(modulePath);
+            }
+          });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error(`[Graph] Failed to query files from ${dbPath}: ${message}`);
+        }
+      }
+
+      const files = Array.from(filesSet).sort();
+      const modules = Array.from(modulesSet).sort();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ files, modules }));
+    } catch (err) {
+      console.error(`[Graph] Error fetching files:`, err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to fetch files and modules', files: [], modules: [] }));
     }
     return true;
   }
