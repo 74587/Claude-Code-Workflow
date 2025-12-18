@@ -71,9 +71,6 @@ async function importAction(text: string): Promise<void> {
 
     console.log(chalk.green(`✓ Created memory: ${memory.id}`));
 
-    // Extract knowledge graph
-    store.extractKnowledgeGraph(memory.id);
-
     // Notify dashboard
     notifyRefreshRequired('memory').catch(() => { /* ignore */ });
 

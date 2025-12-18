@@ -20,43 +20,44 @@ export interface CoreMemory {
   metadata?: string; // JSON string
 }
 
-export interface KnowledgeGraphNode {
-  memory_id: string;
-  node_id: string;
-  node_type: string; // file, function, module, concept
-  node_label: string;
+export interface SessionCluster {
+  id: string;  // Format: CLST-YYYYMMDD-HHMMSS
+  name: string;
+  description?: string;
+  intent?: string;
+  created_at: string;
+  updated_at: string;
+  status: 'active' | 'archived' | 'merged';
+  metadata?: string;
 }
 
-export interface KnowledgeGraphEdge {
-  memory_id: string;
-  edge_source: string;
-  edge_target: string;
-  edge_type: string; // depends_on, implements, uses, relates_to
+export interface ClusterMember {
+  cluster_id: string;
+  session_id: string;
+  session_type: 'core_memory' | 'workflow' | 'cli_history' | 'native';
+  sequence_order: number;
+  added_at: string;
+  relevance_score: number;
 }
 
-export interface EvolutionVersion {
-  memory_id: string;
-  version: number;
-  content: string;
-  timestamp: string;
-  diff_stats?: {
-    added: number;
-    modified: number;
-    deleted: number;
-  };
+export interface ClusterRelation {
+  source_cluster_id: string;
+  target_cluster_id: string;
+  relation_type: 'depends_on' | 'extends' | 'conflicts_with' | 'related_to';
+  created_at: string;
 }
 
-export interface KnowledgeGraph {
-  nodes: Array<{
-    id: string;
-    type: string;
-    label: string;
-  }>;
-  edges: Array<{
-    source: string;
-    target: string;
-    type: string;
-  }>;
+export interface SessionMetadataCache {
+  session_id: string;
+  session_type: string;
+  title?: string;
+  summary?: string;
+  keywords?: string[];  // stored as JSON
+  token_estimate?: number;
+  file_patterns?: string[];  // stored as JSON
+  created_at?: string;
+  last_accessed?: string;
+  access_count: number;
 }
 
 /**
@@ -86,6 +87,9 @@ export class CoreMemoryStore {
    * Initialize database schema
    */
   private initDatabase(): void {
+    // Migrate old tables
+    this.migrateDatabase();
+
     this.db.exec(`
       -- Core memories table
       CREATE TABLE IF NOT EXISTS memories (
@@ -99,49 +103,82 @@ export class CoreMemoryStore {
         metadata TEXT
       );
 
-      -- Knowledge graph nodes table
-      CREATE TABLE IF NOT EXISTS knowledge_graph (
-        memory_id TEXT NOT NULL,
-        node_id TEXT NOT NULL,
-        node_type TEXT NOT NULL,
-        node_label TEXT NOT NULL,
-        PRIMARY KEY (memory_id, node_id),
-        FOREIGN KEY (memory_id) REFERENCES memories(id) ON DELETE CASCADE
+      -- Session clusters table
+      CREATE TABLE IF NOT EXISTS session_clusters (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        intent TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        status TEXT DEFAULT 'active',
+        metadata TEXT
       );
 
-      -- Knowledge graph edges table
-      CREATE TABLE IF NOT EXISTS knowledge_graph_edges (
-        memory_id TEXT NOT NULL,
-        edge_source TEXT NOT NULL,
-        edge_target TEXT NOT NULL,
-        edge_type TEXT NOT NULL,
-        PRIMARY KEY (memory_id, edge_source, edge_target),
-        FOREIGN KEY (memory_id) REFERENCES memories(id) ON DELETE CASCADE
+      -- Cluster members table
+      CREATE TABLE IF NOT EXISTS cluster_members (
+        cluster_id TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        session_type TEXT NOT NULL,
+        sequence_order INTEGER NOT NULL,
+        added_at TEXT NOT NULL,
+        relevance_score REAL DEFAULT 1.0,
+        PRIMARY KEY (cluster_id, session_id),
+        FOREIGN KEY (cluster_id) REFERENCES session_clusters(id) ON DELETE CASCADE
       );
 
-      -- Evolution history table
-      CREATE TABLE IF NOT EXISTS evolution_history (
-        memory_id TEXT NOT NULL,
-        version INTEGER NOT NULL,
-        content TEXT NOT NULL,
-        timestamp TEXT NOT NULL,
-        diff_stats TEXT,
-        PRIMARY KEY (memory_id, version),
-        FOREIGN KEY (memory_id) REFERENCES memories(id) ON DELETE CASCADE
+      -- Cluster relations table
+      CREATE TABLE IF NOT EXISTS cluster_relations (
+        source_cluster_id TEXT NOT NULL,
+        target_cluster_id TEXT NOT NULL,
+        relation_type TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (source_cluster_id, target_cluster_id),
+        FOREIGN KEY (source_cluster_id) REFERENCES session_clusters(id) ON DELETE CASCADE,
+        FOREIGN KEY (target_cluster_id) REFERENCES session_clusters(id) ON DELETE CASCADE
+      );
+
+      -- Session metadata cache table
+      CREATE TABLE IF NOT EXISTS session_metadata_cache (
+        session_id TEXT PRIMARY KEY,
+        session_type TEXT NOT NULL,
+        title TEXT,
+        summary TEXT,
+        keywords TEXT,
+        token_estimate INTEGER,
+        file_patterns TEXT,
+        created_at TEXT,
+        last_accessed TEXT,
+        access_count INTEGER DEFAULT 0
       );
 
       -- Indexes for efficient queries
       CREATE INDEX IF NOT EXISTS idx_memories_created ON memories(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_memories_updated ON memories(updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_memories_archived ON memories(archived);
-      CREATE INDEX IF NOT EXISTS idx_knowledge_graph_memory ON knowledge_graph(memory_id);
-      CREATE INDEX IF NOT EXISTS idx_knowledge_graph_edges_memory ON knowledge_graph_edges(memory_id);
-      CREATE INDEX IF NOT EXISTS idx_evolution_history_memory ON evolution_history(memory_id);
+      CREATE INDEX IF NOT EXISTS idx_session_clusters_status ON session_clusters(status);
+      CREATE INDEX IF NOT EXISTS idx_cluster_members_cluster ON cluster_members(cluster_id);
+      CREATE INDEX IF NOT EXISTS idx_cluster_members_session ON cluster_members(session_id);
+      CREATE INDEX IF NOT EXISTS idx_session_metadata_type ON session_metadata_cache(session_type);
     `);
   }
 
   /**
-   * Generate timestamp-based ID
+   * Migrate database by removing old tables
+   */
+  private migrateDatabase(): void {
+    const oldTables = ['knowledge_graph', 'knowledge_graph_edges', 'evolution_history'];
+    for (const table of oldTables) {
+      try {
+        this.db.exec(`DROP TABLE IF EXISTS ${table}`);
+      } catch (e) {
+        // Ignore if table doesn't exist
+      }
+    }
+  }
+
+  /**
+   * Generate timestamp-based ID for core memory
    */
   private generateId(): string {
     const now = new Date();
@@ -152,6 +189,20 @@ export class CoreMemoryStore {
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
     return `CMEM-${year}${month}${day}-${hours}${minutes}${seconds}`;
+  }
+
+  /**
+   * Generate cluster ID
+   */
+  generateClusterId(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return `CLST-${year}${month}${day}-${hours}${minutes}${seconds}`;
   }
 
   /**
@@ -182,10 +233,6 @@ export class CoreMemoryStore {
         id
       );
 
-      // Add evolution history entry
-      const currentVersion = this.getLatestVersion(id);
-      this.addEvolutionVersion(id, currentVersion + 1, memory.content);
-
       return this.getMemory(id)!;
     } else {
       // Insert new memory
@@ -204,9 +251,6 @@ export class CoreMemoryStore {
         memory.archived ? 1 : 0,
         memory.metadata || null
       );
-
-      // Add initial evolution history entry (version 1)
-      this.addEvolutionVersion(id, 1, memory.content);
 
       return this.getMemory(id)!;
     }
@@ -318,204 +362,357 @@ ${memory.content}
     `);
     stmt.run(summary, new Date().toISOString(), memoryId);
 
-    // Add evolution history entry
-    const currentVersion = this.getLatestVersion(memoryId);
-    this.addEvolutionVersion(memoryId, currentVersion + 1, memory.content);
-
     return summary;
   }
 
   /**
-   * Extract knowledge graph from memory content
+   * Create a new session cluster
    */
-  extractKnowledgeGraph(memoryId: string): KnowledgeGraph {
-    const memory = this.getMemory(memoryId);
-    if (!memory) throw new Error('Memory not found');
+  createCluster(cluster: Partial<SessionCluster> & { name: string }): SessionCluster {
+    const now = new Date().toISOString();
+    const id = cluster.id || this.generateClusterId();
 
-    // Simple extraction based on patterns in content
-    const nodes: KnowledgeGraph['nodes'] = [];
-    const edges: KnowledgeGraph['edges'] = [];
-    const nodeSet = new Set<string>();
-
-    // Extract file references
-    const filePattern = /(?:file|path|module):\s*([^\s,]+(?:\.ts|\.js|\.py|\.go|\.java|\.rs))/gi;
-    let match;
-    while ((match = filePattern.exec(memory.content)) !== null) {
-      const filePath = match[1];
-      if (!nodeSet.has(filePath)) {
-        nodes.push({ id: filePath, type: 'file', label: filePath.split('/').pop() || filePath });
-        nodeSet.add(filePath);
-      }
-    }
-
-    // Extract function/class references
-    const functionPattern = /(?:function|class|method):\s*(\w+)/gi;
-    while ((match = functionPattern.exec(memory.content)) !== null) {
-      const funcName = match[1];
-      const nodeId = `func:${funcName}`;
-      if (!nodeSet.has(nodeId)) {
-        nodes.push({ id: nodeId, type: 'function', label: funcName });
-        nodeSet.add(nodeId);
-      }
-    }
-
-    // Extract module references
-    const modulePattern = /(?:module|package):\s*(\w+(?:\/\w+)*)/gi;
-    while ((match = modulePattern.exec(memory.content)) !== null) {
-      const moduleName = match[1];
-      const nodeId = `module:${moduleName}`;
-      if (!nodeSet.has(nodeId)) {
-        nodes.push({ id: nodeId, type: 'module', label: moduleName });
-        nodeSet.add(nodeId);
-      }
-    }
-
-    // Extract relationships
-    const dependsPattern = /(\w+)\s+depends on\s+(\w+)/gi;
-    while ((match = dependsPattern.exec(memory.content)) !== null) {
-      const source = match[1];
-      const target = match[2];
-      edges.push({ source, target, type: 'depends_on' });
-    }
-
-    const usesPattern = /(\w+)\s+uses\s+(\w+)/gi;
-    while ((match = usesPattern.exec(memory.content)) !== null) {
-      const source = match[1];
-      const target = match[2];
-      edges.push({ source, target, type: 'uses' });
-    }
-
-    // Save to database
-    this.db.prepare(`DELETE FROM knowledge_graph WHERE memory_id = ?`).run(memoryId);
-    this.db.prepare(`DELETE FROM knowledge_graph_edges WHERE memory_id = ?`).run(memoryId);
-
-    const nodeStmt = this.db.prepare(`
-      INSERT INTO knowledge_graph (memory_id, node_id, node_type, node_label)
-      VALUES (?, ?, ?, ?)
+    const stmt = this.db.prepare(`
+      INSERT INTO session_clusters (id, name, description, intent, created_at, updated_at, status, metadata)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    for (const node of nodes) {
-      nodeStmt.run(memoryId, node.id, node.type, node.label);
-    }
+    stmt.run(
+      id,
+      cluster.name,
+      cluster.description || null,
+      cluster.intent || null,
+      now,
+      now,
+      cluster.status || 'active',
+      cluster.metadata || null
+    );
 
-    const edgeStmt = this.db.prepare(`
-      INSERT INTO knowledge_graph_edges (memory_id, edge_source, edge_target, edge_type)
-      VALUES (?, ?, ?, ?)
-    `);
-
-    for (const edge of edges) {
-      edgeStmt.run(memoryId, edge.source, edge.target, edge.type);
-    }
-
-    return { nodes, edges };
+    return this.getCluster(id)!;
   }
 
   /**
-   * Get knowledge graph for a memory
+   * Get cluster by ID
    */
-  getKnowledgeGraph(memoryId: string): KnowledgeGraph {
-    const nodeStmt = this.db.prepare(`
-      SELECT node_id, node_type, node_label
-      FROM knowledge_graph
-      WHERE memory_id = ?
-    `);
+  getCluster(id: string): SessionCluster | null {
+    const stmt = this.db.prepare(`SELECT * FROM session_clusters WHERE id = ?`);
+    const row = stmt.get(id) as any;
+    if (!row) return null;
 
-    const edgeStmt = this.db.prepare(`
-      SELECT edge_source, edge_target, edge_type
-      FROM knowledge_graph_edges
-      WHERE memory_id = ?
-    `);
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      intent: row.intent,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      status: row.status,
+      metadata: row.metadata
+    };
+  }
 
-    const nodeRows = nodeStmt.all(memoryId) as any[];
-    const edgeRows = edgeStmt.all(memoryId) as any[];
+  /**
+   * List all clusters
+   */
+  listClusters(status?: string): SessionCluster[] {
+    let query = 'SELECT * FROM session_clusters';
+    const params: any[] = [];
 
-    const nodes = nodeRows.map(row => ({
-      id: row.node_id,
-      type: row.node_type,
-      label: row.node_label
+    if (status) {
+      query += ' WHERE status = ?';
+      params.push(status);
+    }
+
+    query += ' ORDER BY updated_at DESC';
+
+    const stmt = this.db.prepare(query);
+    const rows = stmt.all(...params) as any[];
+
+    return rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      intent: row.intent,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      status: row.status,
+      metadata: row.metadata
     }));
-
-    const edges = edgeRows.map(row => ({
-      source: row.edge_source,
-      target: row.edge_target,
-      type: row.edge_type
-    }));
-
-    return { nodes, edges };
   }
 
   /**
-   * Get latest version number for a memory
+   * Update cluster
    */
-  private getLatestVersion(memoryId: string): number {
+  updateCluster(id: string, updates: Partial<SessionCluster>): SessionCluster | null {
+    const existing = this.getCluster(id);
+    if (!existing) return null;
+
+    const now = new Date().toISOString();
     const stmt = this.db.prepare(`
-      SELECT MAX(version) as max_version
-      FROM evolution_history
-      WHERE memory_id = ?
+      UPDATE session_clusters
+      SET name = ?, description = ?, intent = ?, updated_at = ?, status = ?, metadata = ?
+      WHERE id = ?
     `);
-    const result = stmt.get(memoryId) as { max_version: number | null };
-    return result.max_version || 0;
+
+    stmt.run(
+      updates.name || existing.name,
+      updates.description !== undefined ? updates.description : existing.description,
+      updates.intent !== undefined ? updates.intent : existing.intent,
+      now,
+      updates.status || existing.status,
+      updates.metadata !== undefined ? updates.metadata : existing.metadata,
+      id
+    );
+
+    return this.getCluster(id);
   }
 
   /**
-   * Add evolution version
+   * Delete cluster
    */
-  private addEvolutionVersion(memoryId: string, version: number, content: string): void {
+  deleteCluster(id: string): boolean {
+    const stmt = this.db.prepare(`DELETE FROM session_clusters WHERE id = ?`);
+    const result = stmt.run(id);
+    return result.changes > 0;
+  }
+
+  /**
+   * Add member to cluster
+   */
+  addClusterMember(member: Omit<ClusterMember, 'added_at'>): ClusterMember {
+    const now = new Date().toISOString();
+
     const stmt = this.db.prepare(`
-      INSERT INTO evolution_history (memory_id, version, content, timestamp)
+      INSERT INTO cluster_members (cluster_id, session_id, session_type, sequence_order, added_at, relevance_score)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      member.cluster_id,
+      member.session_id,
+      member.session_type,
+      member.sequence_order,
+      now,
+      member.relevance_score
+    );
+
+    return {
+      ...member,
+      added_at: now
+    };
+  }
+
+  /**
+   * Remove member from cluster
+   */
+  removeClusterMember(clusterId: string, sessionId: string): boolean {
+    const stmt = this.db.prepare(`
+      DELETE FROM cluster_members
+      WHERE cluster_id = ? AND session_id = ?
+    `);
+    const result = stmt.run(clusterId, sessionId);
+    return result.changes > 0;
+  }
+
+  /**
+   * Get all members of a cluster
+   */
+  getClusterMembers(clusterId: string): ClusterMember[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM cluster_members
+      WHERE cluster_id = ?
+      ORDER BY sequence_order ASC
+    `);
+
+    const rows = stmt.all(clusterId) as any[];
+    return rows.map(row => ({
+      cluster_id: row.cluster_id,
+      session_id: row.session_id,
+      session_type: row.session_type,
+      sequence_order: row.sequence_order,
+      added_at: row.added_at,
+      relevance_score: row.relevance_score
+    }));
+  }
+
+  /**
+   * Get all clusters that contain a session
+   */
+  getSessionClusters(sessionId: string): SessionCluster[] {
+    const stmt = this.db.prepare(`
+      SELECT sc.*
+      FROM session_clusters sc
+      INNER JOIN cluster_members cm ON sc.id = cm.cluster_id
+      WHERE cm.session_id = ?
+      ORDER BY sc.updated_at DESC
+    `);
+
+    const rows = stmt.all(sessionId) as any[];
+    return rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      intent: row.intent,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      status: row.status,
+      metadata: row.metadata
+    }));
+  }
+
+  /**
+   * Add relation between clusters
+   */
+  addClusterRelation(relation: Omit<ClusterRelation, 'created_at'>): ClusterRelation {
+    const now = new Date().toISOString();
+
+    const stmt = this.db.prepare(`
+      INSERT INTO cluster_relations (source_cluster_id, target_cluster_id, relation_type, created_at)
       VALUES (?, ?, ?, ?)
     `);
-    stmt.run(memoryId, version, content, new Date().toISOString());
+
+    stmt.run(
+      relation.source_cluster_id,
+      relation.target_cluster_id,
+      relation.relation_type,
+      now
+    );
+
+    return {
+      ...relation,
+      created_at: now
+    };
   }
 
   /**
-   * Track evolution history
+   * Remove relation between clusters
    */
-  trackEvolution(memoryId: string): EvolutionVersion[] {
+  removeClusterRelation(sourceId: string, targetId: string): boolean {
     const stmt = this.db.prepare(`
-      SELECT version, content, timestamp, diff_stats
-      FROM evolution_history
-      WHERE memory_id = ?
-      ORDER BY version ASC
+      DELETE FROM cluster_relations
+      WHERE source_cluster_id = ? AND target_cluster_id = ?
+    `);
+    const result = stmt.run(sourceId, targetId);
+    return result.changes > 0;
+  }
+
+  /**
+   * Get all relations for a cluster
+   */
+  getClusterRelations(clusterId: string): ClusterRelation[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM cluster_relations
+      WHERE source_cluster_id = ? OR target_cluster_id = ?
+      ORDER BY created_at DESC
     `);
 
-    const rows = stmt.all(memoryId) as any[];
-    return rows.map((row, index) => {
-      let diffStats: EvolutionVersion['diff_stats'];
+    const rows = stmt.all(clusterId, clusterId) as any[];
+    return rows.map(row => ({
+      source_cluster_id: row.source_cluster_id,
+      target_cluster_id: row.target_cluster_id,
+      relation_type: row.relation_type,
+      created_at: row.created_at
+    }));
+  }
 
-      if (index > 0) {
-        const prevContent = rows[index - 1].content;
-        const currentContent = row.content;
+  /**
+   * Upsert session metadata
+   */
+  upsertSessionMetadata(metadata: SessionMetadataCache): SessionMetadataCache {
+    const now = new Date().toISOString();
 
-        // Simple diff calculation
-        const prevLines = prevContent.split('\n');
-        const currentLines = currentContent.split('\n');
+    const existing = this.getSessionMetadata(metadata.session_id);
 
-        let added = 0;
-        let deleted = 0;
-        let modified = 0;
+    if (existing) {
+      const stmt = this.db.prepare(`
+        UPDATE session_metadata_cache
+        SET session_type = ?, title = ?, summary = ?, keywords = ?, token_estimate = ?,
+            file_patterns = ?, last_accessed = ?, access_count = ?
+        WHERE session_id = ?
+      `);
 
-        const maxLen = Math.max(prevLines.length, currentLines.length);
-        for (let i = 0; i < maxLen; i++) {
-          const prevLine = prevLines[i];
-          const currentLine = currentLines[i];
+      stmt.run(
+        metadata.session_type,
+        metadata.title || null,
+        metadata.summary || null,
+        metadata.keywords ? JSON.stringify(metadata.keywords) : null,
+        metadata.token_estimate || null,
+        metadata.file_patterns ? JSON.stringify(metadata.file_patterns) : null,
+        now,
+        existing.access_count + 1,
+        metadata.session_id
+      );
+    } else {
+      const stmt = this.db.prepare(`
+        INSERT INTO session_metadata_cache
+        (session_id, session_type, title, summary, keywords, token_estimate, file_patterns, created_at, last_accessed, access_count)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
 
-          if (!prevLine && currentLine) added++;
-          else if (prevLine && !currentLine) deleted++;
-          else if (prevLine !== currentLine) modified++;
-        }
+      stmt.run(
+        metadata.session_id,
+        metadata.session_type,
+        metadata.title || null,
+        metadata.summary || null,
+        metadata.keywords ? JSON.stringify(metadata.keywords) : null,
+        metadata.token_estimate || null,
+        metadata.file_patterns ? JSON.stringify(metadata.file_patterns) : null,
+        metadata.created_at || now,
+        now,
+        metadata.access_count || 1
+      );
+    }
 
-        diffStats = { added, modified, deleted };
-      }
+    return this.getSessionMetadata(metadata.session_id)!;
+  }
 
-      return {
-        memory_id: memoryId,
-        version: row.version,
-        content: row.content,
-        timestamp: row.timestamp,
-        diff_stats: diffStats
-      };
-    });
+  /**
+   * Get session metadata
+   */
+  getSessionMetadata(sessionId: string): SessionMetadataCache | null {
+    const stmt = this.db.prepare(`SELECT * FROM session_metadata_cache WHERE session_id = ?`);
+    const row = stmt.get(sessionId) as any;
+    if (!row) return null;
+
+    return {
+      session_id: row.session_id,
+      session_type: row.session_type,
+      title: row.title,
+      summary: row.summary,
+      keywords: row.keywords ? JSON.parse(row.keywords) : undefined,
+      token_estimate: row.token_estimate,
+      file_patterns: row.file_patterns ? JSON.parse(row.file_patterns) : undefined,
+      created_at: row.created_at,
+      last_accessed: row.last_accessed,
+      access_count: row.access_count
+    };
+  }
+
+  /**
+   * Search sessions by keyword
+   */
+  searchSessionsByKeyword(keyword: string): SessionMetadataCache[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM session_metadata_cache
+      WHERE title LIKE ? OR summary LIKE ? OR keywords LIKE ?
+      ORDER BY access_count DESC, last_accessed DESC
+    `);
+
+    const pattern = `%${keyword}%`;
+    const rows = stmt.all(pattern, pattern, pattern) as any[];
+
+    return rows.map(row => ({
+      session_id: row.session_id,
+      session_type: row.session_type,
+      title: row.title,
+      summary: row.summary,
+      keywords: row.keywords ? JSON.parse(row.keywords) : undefined,
+      token_estimate: row.token_estimate,
+      file_patterns: row.file_patterns ? JSON.parse(row.file_patterns) : undefined,
+      created_at: row.created_at,
+      last_accessed: row.last_accessed,
+      access_count: row.access_count
+    }));
   }
 
   /**

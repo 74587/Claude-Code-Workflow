@@ -94,9 +94,6 @@ function executeImport(params: Params): ImportResult {
     content: text.trim(),
   });
 
-  // Extract knowledge graph
-  store.extractKnowledgeGraph(memory.id);
-
   return {
     operation: 'import',
     id: memory.id,
