@@ -138,7 +138,11 @@ function initNavigation() {
       } else if (currentView === 'help') {
         renderHelpView();
       } else if (currentView === 'core-memory') {
-        renderCoreMemoryView();
+        if (typeof renderCoreMemoryView === 'function') {
+          renderCoreMemoryView();
+        } else {
+          console.error('renderCoreMemoryView not defined - please refresh the page');
+        }
       }
     });
   });

@@ -1,15 +1,15 @@
 // Core Memory View
 // Manages strategic context entries with knowledge graph and evolution tracking
 
-// State for visualization
-let graphSvg = null;
-let graphGroup = null;
-let graphZoom = null;
-let graphSimulation = null;
+// State for visualization (prefixed to avoid collision with memory.js)
+var coreMemGraphSvg = null;
+var coreMemGraphGroup = null;
+var coreMemGraphZoom = null;
+var coreMemGraphSimulation = null;
 
 async function renderCoreMemoryView() {
   const content = document.getElementById('content');
-  hideStatsAndSearch();
+  hideStatsAndCarousel();
 
   // Fetch core memories
   const archived = false;
@@ -214,7 +214,8 @@ async function fetchCoreMemories(archived = false) {
   try {
     const response = await fetch(`/api/core-memory/memories?path=${encodeURIComponent(projectPath)}&archived=${archived}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
+    const data = await response.json();
+    return data.memories || [];
   } catch (error) {
     console.error('Failed to fetch core memories:', error);
     showNotification(t('coreMemory.fetchError'), 'error');
@@ -226,7 +227,8 @@ async function fetchMemoryById(memoryId) {
   try {
     const response = await fetch(`/api/core-memory/memories/${memoryId}?path=${encodeURIComponent(projectPath)}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
+    const data = await response.json();
+    return data.memory || null;
   } catch (error) {
     console.error('Failed to fetch memory:', error);
     showNotification(t('coreMemory.fetchError'), 'error');

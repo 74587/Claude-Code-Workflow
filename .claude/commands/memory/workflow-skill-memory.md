@@ -187,7 +187,7 @@ Objectives:
 
 3. Use Gemini for aggregation (optional):
    Command pattern:
-   ccw cli exec "
+   ccw cli -p "
    PURPOSE: Extract lessons and conflicts from workflow session
    TASK:
    • Analyze IMPL_PLAN and lessons from manifest
@@ -334,7 +334,7 @@ Objectives:
    - Sort sessions by date
 
 2. Use Gemini for final aggregation:
-   ccw cli exec "
+   ccw cli -p "
    PURPOSE: Aggregate lessons and conflicts from all workflow sessions
    TASK:
    • Group successes by functional domain

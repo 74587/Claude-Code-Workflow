@@ -17,6 +17,6 @@ Setup complete. I am ready for your first command.
 
   ✓ Completed in 19.6s
   ID: 1765690404300-gemini
-  Continue: ccw cli exec "..." --resume 1765690404300-gemini
+  Continue: ccw cli -p "..." --resume 1765690404300-gemini
 
 === STDERR ===

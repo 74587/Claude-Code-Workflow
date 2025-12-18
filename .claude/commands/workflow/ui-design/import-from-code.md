@@ -181,7 +181,7 @@ Task(subagent_type="ui-design-agent",
   - Pattern: rg → Extract values → Compare → If different → Read full context with comments → Record conflict
   - Alternative (if many files): Execute CLI analysis for comprehensive report:
     \`\`\`bash
-    ccw cli exec \"
+    ccw cli -p \"
     PURPOSE: Detect color token conflicts across all CSS/SCSS/JS files
     TASK: • Scan all files for color definitions • Identify conflicting values • Extract semantic comments
     MODE: analysis
@@ -297,7 +297,7 @@ Task(subagent_type="ui-design-agent",
   - Pattern: rg → Identify animation types → Map framework usage → Prioritize extraction targets
   - Alternative (if complex framework mix): Execute CLI analysis for comprehensive report:
     \`\`\`bash
-    ccw cli exec \"
+    ccw cli -p \"
     PURPOSE: Detect animation frameworks and patterns
     TASK: • Identify frameworks • Map animation patterns • Categorize by complexity
     MODE: analysis
@@ -377,7 +377,7 @@ Task(subagent_type="ui-design-agent",
   - Pattern: rg → Count occurrences → Classify by frequency → Prioritize universal components
   - Alternative (if large codebase): Execute CLI analysis for comprehensive categorization:
     \`\`\`bash
-    ccw cli exec \"
+    ccw cli -p \"
     PURPOSE: Classify components as universal vs specialized
     TASK: • Identify UI components • Classify reusability • Map layout systems
     MODE: analysis

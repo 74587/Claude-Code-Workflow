@@ -7,6 +7,7 @@ const CCW_MCP_TOOLS = [
   { name: 'write_file', desc: 'Write/create files', core: true },
   { name: 'edit_file', desc: 'Edit/replace content', core: true },
   { name: 'smart_search', desc: 'Hybrid search (regex + semantic)', core: true },
+  { name: 'core_memory', desc: 'Core memory management', core: true },
   // Optional tools
   { name: 'session_manager', desc: 'Workflow sessions', core: false },
   { name: 'generate_module_docs', desc: 'Generate docs', core: false },

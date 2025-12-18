@@ -474,7 +474,7 @@ Detailed plan: ${executionContext.session.artifacts.plan}`)
   return prompt
 }
 
-ccw cli exec "${buildCLIPrompt(batch)}" --tool codex --mode write
+ccw cli -p "${buildCLIPrompt(batch)}" --tool codex --mode write
 ```
 
 **Execution with fixed IDs** (predictable ID pattern):
@@ -497,8 +497,8 @@ const previousCliId = batch.resumeFromCliId || null
 
 // Build command with fixed ID (and optional resume for continuation)
 const cli_command = previousCliId
-  ? `ccw cli exec "${buildCLIPrompt(batch)}" --tool codex --mode write --id ${fixedExecutionId} --resume ${previousCliId}`
-  : `ccw cli exec "${buildCLIPrompt(batch)}" --tool codex --mode write --id ${fixedExecutionId}`
+  ? `ccw cli -p "${buildCLIPrompt(batch)}" --tool codex --mode write --id ${fixedExecutionId} --resume ${previousCliId}`
+  : `ccw cli -p "${buildCLIPrompt(batch)}" --tool codex --mode write --id ${fixedExecutionId}`
 
 bash_result = Bash(
   command=cli_command,
@@ -520,7 +520,7 @@ if (bash_result.status === 'failed' || bash_result.status === 'timeout') {
 ⚠️ Execution incomplete. Resume available:
    Fixed ID: ${fixedExecutionId}
    Lookup: ccw cli detail ${fixedExecutionId}
-   Resume: ccw cli exec "Continue tasks" --resume ${fixedExecutionId} --tool codex --mode write --id ${fixedExecutionId}-retry
+   Resume: ccw cli -p "Continue tasks" --resume ${fixedExecutionId} --tool codex --mode write --id ${fixedExecutionId}-retry
 `)
 
   // Store for potential retry in same session
@@ -575,15 +575,15 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-q
 # - Report findings directly
 
 # Method 2: Gemini Review (recommended)
-ccw cli exec "[Shared Prompt Template with artifacts]" --tool gemini --mode analysis
+ccw cli -p "[Shared Prompt Template with artifacts]" --tool gemini --mode analysis
 # CONTEXT includes: @**/* @${plan.json} [@${exploration.json}]
 
 # Method 3: Qwen Review (alternative)
-ccw cli exec "[Shared Prompt Template with artifacts]" --tool qwen --mode analysis
+ccw cli -p "[Shared Prompt Template with artifacts]" --tool qwen --mode analysis
 # Same prompt as Gemini, different execution engine
 
 # Method 4: Codex Review (autonomous)
-ccw cli exec "[Verify plan acceptance criteria at ${plan.json}]" --tool codex --mode write
+ccw cli -p "[Verify plan acceptance criteria at ${plan.json}]" --tool codex --mode write
 ```
 
 **Multi-Round Review with Fixed IDs**:
@@ -592,12 +592,12 @@ ccw cli exec "[Verify plan acceptance criteria at ${plan.json}]" --tool codex --
 const reviewId = `${sessionId}-review`
 
 // First review pass with fixed ID
-const reviewResult = Bash(`ccw cli exec "[Review prompt]" --tool gemini --mode analysis --id ${reviewId}`)
+const reviewResult = Bash(`ccw cli -p "[Review prompt]" --tool gemini --mode analysis --id ${reviewId}`)
 
 // If issues found, continue review dialog with fixed ID chain
 if (hasUnresolvedIssues(reviewResult)) {
   // Resume with follow-up questions
-  Bash(`ccw cli exec "Clarify the security concerns you mentioned" --resume ${reviewId} --tool gemini --mode analysis --id ${reviewId}-followup`)
+  Bash(`ccw cli -p "Clarify the security concerns you mentioned" --resume ${reviewId} --tool gemini --mode analysis --id ${reviewId}-followup`)
 }
 ```
 
@@ -672,7 +672,7 @@ console.log(`✓ Development index: [${category}] ${entry.title}`)
 | Empty file | File exists but no content | Error: "File is empty: {path}. Provide task description." |
 | Invalid Enhanced Task JSON | JSON missing required fields | Warning: "Missing required fields. Treating as plain text." |
 | Malformed JSON | JSON parsing fails | Treat as plain text (expected for non-JSON files) |
-| Execution failure | Agent/Codex crashes | Display error, use fixed ID `${sessionId}-${groupId}` for resume: `ccw cli exec "Continue" --resume <fixed-id> --id <fixed-id>-retry` |
+| Execution failure | Agent/Codex crashes | Display error, use fixed ID `${sessionId}-${groupId}` for resume: `ccw cli -p "Continue" --resume <fixed-id> --id <fixed-id>-retry` |
 | Execution timeout | CLI exceeded timeout | Use fixed ID for resume with extended timeout |
 | Codex unavailable | Codex not installed | Show installation instructions, offer Agent execution |
 | Fixed ID not found | Custom ID lookup failed | Check `ccw cli history`, verify date directories |
@@ -745,5 +745,5 @@ Appended to `previousExecutionResults` array for context continuity in multi-exe
 ccw cli detail ${fixedCliId}
 
 # Resume with new fixed ID for retry
-ccw cli exec "Continue from where we left off" --resume ${fixedCliId} --tool codex --mode write --id ${fixedCliId}-retry
+ccw cli -p "Continue from where we left off" --resume ${fixedCliId} --tool codex --mode write --id ${fixedCliId}-retry
 ```

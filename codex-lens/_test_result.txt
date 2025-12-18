@@ -16,4 +16,4 @@ Setup complete. I am ready for your first command.
 
   ✓ Completed in 16.0s
   ID: 1765690668720-gemini
-  Continue: ccw cli exec "..." --resume 1765690668720-gemini
+  Continue: ccw cli -p "..." --resume 1765690668720-gemini

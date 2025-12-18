@@ -107,7 +107,7 @@ Phase 3: Task JSON Generation
 
 **Template-Based Command Construction with Test Layer Awareness**:
 ```bash
-ccw cli exec "
+ccw cli -p "
 PURPOSE: Analyze {test_type} test failures and generate fix strategy for iteration {iteration}
 TASK:
 • Review {failed_tests.length} {test_type} test failures: [{test_names}]
@@ -527,7 +527,7 @@ See: `.process/iteration-{iteration}-cli-output.txt`
 1. **Detect test_type**: "integration" → Apply integration-specific diagnosis
 2. **Execute CLI**:
    ```bash
-   ccw cli exec "PURPOSE: Analyze integration test failure...
+   ccw cli -p "PURPOSE: Analyze integration test failure...
    TASK: Examine component interactions, data flow, interface contracts...
    RULES: Analyze full call stack and data flow across components" --tool gemini --mode analysis
    ```

@@ -58,6 +58,8 @@ function notifyDashboard(data: Record<string, unknown>): void {
 }
 
 interface CliExecOptions {
+  prompt?: string; // Prompt via --prompt/-p option (preferred for multi-line)
+  file?: string; // Read prompt from file
   tool?: string;
   mode?: string;
   model?: string;
@@ -270,6 +272,83 @@ function showStorageHelp(): void {
 }
 
 /**
+ * Test endpoint for debugging multi-line prompt parsing
+ * Shows exactly how Commander.js parsed the arguments
+ */
+function testParseAction(args: string[], options: CliExecOptions): void {
+  console.log(chalk.bold.cyan('\n  ═══════════════════════════════════════════════'));
+  console.log(chalk.bold.cyan('  │       CLI PARSE TEST ENDPOINT              │'));
+  console.log(chalk.bold.cyan('  ═══════════════════════════════════════════════\n'));
+
+  // Show args array parsing
+  console.log(chalk.bold.yellow('📦 Positional Arguments (args[]):'));
+  console.log(chalk.gray('   Length: ') + chalk.white(args.length));
+  if (args.length === 0) {
+    console.log(chalk.gray('   (empty)'));
+  } else {
+    args.forEach((arg, i) => {
+      console.log(chalk.gray(`   [${i}]: `) + chalk.green(`"${arg}"`));
+      // Show if multiline
+      if (arg.includes('\n')) {
+        console.log(chalk.yellow(`        ↳ Contains ${arg.split('\n').length} lines`));
+      }
+    });
+  }
+
+  console.log();
+
+  // Show options parsing
+  console.log(chalk.bold.yellow('⚙️  Options:'));
+  const optionEntries = Object.entries(options).filter(([_, v]) => v !== undefined);
+  if (optionEntries.length === 0) {
+    console.log(chalk.gray('   (none)'));
+  } else {
+    optionEntries.forEach(([key, value]) => {
+      const displayValue = typeof value === 'string' && value.includes('\n')
+        ? `"${value.substring(0, 50)}..." (${value.split('\n').length} lines)`
+        : JSON.stringify(value);
+      console.log(chalk.gray(`   --${key}: `) + chalk.cyan(displayValue));
+    });
+  }
+
+  console.log();
+
+  // Show what would be used as prompt
+  console.log(chalk.bold.yellow('🎯 Final Prompt Resolution:'));
+  const { prompt: optionPrompt, file } = options;
+
+  if (file) {
+    console.log(chalk.gray('   Source: ') + chalk.magenta('--file/-f option'));
+    console.log(chalk.gray('   File: ') + chalk.cyan(file));
+  } else if (optionPrompt) {
+    console.log(chalk.gray('   Source: ') + chalk.magenta('--prompt/-p option'));
+    console.log(chalk.gray('   Value: ') + chalk.green(`"${optionPrompt.substring(0, 100)}${optionPrompt.length > 100 ? '...' : ''}"`));
+    if (optionPrompt.includes('\n')) {
+      console.log(chalk.yellow(`   ↳ Multiline: ${optionPrompt.split('\n').length} lines`));
+    }
+  } else if (args[0]) {
+    console.log(chalk.gray('   Source: ') + chalk.magenta('positional argument (args[0])'));
+    console.log(chalk.gray('   Value: ') + chalk.green(`"${args[0].substring(0, 100)}${args[0].length > 100 ? '...' : ''}"`));
+    if (args[0].includes('\n')) {
+      console.log(chalk.yellow(`   ↳ Multiline: ${args[0].split('\n').length} lines`));
+    }
+  } else {
+    console.log(chalk.red('   No prompt found!'));
+  }
+
+  console.log();
+
+  // Show raw debug info
+  console.log(chalk.bold.yellow('🔍 Raw Debug Info:'));
+  console.log(chalk.gray('   process.argv:'));
+  process.argv.forEach((arg, i) => {
+    console.log(chalk.gray(`     [${i}]: `) + chalk.dim(arg.length > 60 ? arg.substring(0, 60) + '...' : arg));
+  });
+
+  console.log(chalk.bold.cyan('\n  ═══════════════════════════════════════════════\n'));
+}
+
+/**
  * Show CLI tool status
  */
 async function statusAction(): Promise<void> {
@@ -295,14 +374,42 @@ async function statusAction(): Promise<void> {
  * @param {string} prompt - Prompt to execute
  * @param {Object} options - CLI options
  */
-async function execAction(prompt: string | undefined, options: CliExecOptions): Promise<void> {
-  if (!prompt) {
+async function execAction(positionalPrompt: string | undefined, options: CliExecOptions): Promise<void> {
+  const { prompt: optionPrompt, file, tool = 'gemini', mode = 'analysis', model, cd, includeDirs, timeout, noStream, resume, id, noNative } = options;
+
+  // Priority: 1. --file, 2. --prompt/-p option, 3. positional argument
+  let finalPrompt: string | undefined;
+
+  if (file) {
+    // Read from file
+    const { readFileSync, existsSync } = await import('fs');
+    const { resolve } = await import('path');
+    const filePath = resolve(file);
+    if (!existsSync(filePath)) {
+      console.error(chalk.red(`Error: File not found: ${filePath}`));
+      process.exit(1);
+    }
+    finalPrompt = readFileSync(filePath, 'utf8').trim();
+    if (!finalPrompt) {
+      console.error(chalk.red('Error: File is empty'));
+      process.exit(1);
+    }
+  } else if (optionPrompt) {
+    // Use --prompt/-p option (preferred for multi-line)
+    finalPrompt = optionPrompt;
+  } else {
+    // Fall back to positional argument
+    finalPrompt = positionalPrompt;
+  }
+
+  if (!finalPrompt) {
     console.error(chalk.red('Error: Prompt is required'));
-    console.error(chalk.gray('Usage: ccw cli exec "<prompt>" --tool gemini'));
+    console.error(chalk.gray('Usage: ccw cli -p "<prompt>" --tool gemini'));
+    console.error(chalk.gray('   or: ccw cli -f prompt.txt --tool codex'));
     process.exit(1);
   }
 
-  const { tool = 'gemini', mode = 'analysis', model, cd, includeDirs, timeout, noStream, resume, id, noNative } = options;
+  const prompt_to_use = finalPrompt;
 
   // Parse resume IDs for merge scenario
   const resumeIds = resume && typeof resume === 'string' ? resume.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -333,7 +440,7 @@ async function execAction(prompt: string | undefined, options: CliExecOptions): 
     event: 'started',
     tool,
     mode,
-    prompt_preview: prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''),
+    prompt_preview: prompt_to_use.substring(0, 100) + (prompt_to_use.length > 100 ? '...' : ''),
     custom_id: id || null
   });
 
@@ -345,7 +452,7 @@ async function execAction(prompt: string | undefined, options: CliExecOptions): 
   try {
     const result = await cliExecutorTool.execute({
       tool,
-      prompt,
+      prompt: prompt_to_use,
       mode,
       model,
       cd,
@@ -398,7 +505,7 @@ async function execAction(prompt: string | undefined, options: CliExecOptions): 
         console.error(chalk.red(result.stderr));
       }
 
-      // Notify dashboard: execution failed
+      // Notify dashboard: execution failccw cli -p
       notifyDashboard({
         event: 'completed',
         tool,
@@ -535,7 +642,7 @@ function getTimeAgo(date: Date): string {
   return date.toLocaleDateString();
 }
 
-/**
+/**ccw cli -p
  * CLI command entry point
  * @param {string} subcommand - Subcommand (status, exec, history, detail)
  * @param {string[]} args - Arguments array
@@ -553,10 +660,6 @@ export async function cliCommand(
       await statusAction();
       break;
 
-    case 'exec':
-      await execAction(argsArray[0], options as CliExecOptions);
-      break;
-
     case 'history':
       await historyAction(options as HistoryOptions);
       break;
@@ -569,42 +672,62 @@ export async function cliCommand(
       await storageAction(argsArray[0], options as unknown as StorageOptions);
       break;
 
-    default:
-      console.log(chalk.bold.cyan('\n  CCW CLI Tool Executor\n'));
-      console.log('  Unified interface for Gemini, Qwen, and Codex CLI tools.\n');
-      console.log('  Subcommands:');
-      console.log(chalk.gray('    status              Check CLI tools availability'));
-      console.log(chalk.gray('    storage [cmd]       Manage CCW storage (info/clean/config)'));
-      console.log(chalk.gray('    exec <prompt>       Execute a CLI tool'));
-      console.log(chalk.gray('    history             Show execution history'));
-      console.log(chalk.gray('    detail <id>         Show execution detail'));
-      console.log();
-      console.log('  Exec Options:');
-      console.log(chalk.gray('    --tool <tool>       Tool to use: gemini, qwen, codex (default: gemini)'));
-      console.log(chalk.gray('    --mode <mode>       Mode: analysis, write, auto (default: analysis)'));
-      console.log(chalk.gray('    --model <model>     Model override'));
-      console.log(chalk.gray('    --cd <path>         Working directory'));
-      console.log(chalk.gray('    --includeDirs <dirs>  Additional directories (comma-separated)'));
-      console.log(chalk.gray('                        → gemini/qwen: --include-directories'));
-      console.log(chalk.gray('                        → codex: --add-dir'));
-      console.log(chalk.gray('    --timeout <ms>      Timeout in milliseconds (default: 300000)'));
-      console.log(chalk.gray('    --no-stream         Disable streaming output'));
-      console.log(chalk.gray('    --resume [id]       Resume previous session (empty=last, or execution ID)'));
-      console.log(chalk.gray('    --id <id>           Custom execution ID (e.g., IMPL-001-step1)'));
-      console.log();
-      console.log('  History Options:');
-      console.log(chalk.gray('    --limit <n>         Number of results (default: 20)'));
-      console.log(chalk.gray('    --tool <tool>       Filter by tool'));
-      console.log(chalk.gray('    --status <status>   Filter by status'));
-      console.log();
-      console.log('  Examples:');
-      console.log(chalk.gray('    ccw cli status'));
-      console.log(chalk.gray('    ccw cli exec "Analyze the auth module" --tool gemini'));
-      console.log(chalk.gray('    ccw cli exec "Analyze with context" --tool gemini --includeDirs ../shared,../types'));
-      console.log(chalk.gray('    ccw cli exec "Implement feature" --tool codex --mode auto --includeDirs ./lib'));
-      console.log(chalk.gray('    ccw cli exec "Continue analysis" --resume               # Resume last session'));
-      console.log(chalk.gray('    ccw cli exec "Continue..." --resume <id> --tool gemini  # Resume specific session'));
-      console.log(chalk.gray('    ccw cli history --tool gemini --limit 10'));
-      console.log();
+    case 'test-parse':
+      // Test endpoint to debug multi-line prompt parsing
+      testParseAction(argsArray, options as CliExecOptions);
+      break;
+
+    default: {
+      const execOptions = options as CliExecOptions;
+      // Auto-exec if: has -p/--prompt, has --stdin, has --resume, or subcommand looks like a prompt
+      const hasPromptOption = !!execOptions.prompt;
+      const hasStdin = !!execOptions.stdin;
+      const hasResume = execOptions.resume !== undefined;
+      const subcommandIsPrompt = subcommand && !subcommand.startsWith('-');
+
+      if (hasPromptOption || hasStdin || hasResume || subcommandIsPrompt) {
+        // Treat as exec: use subcommand as positional prompt if no -p option
+        const positionalPrompt = subcommandIsPrompt ? subcommand : undefined;
+        await execAction(positionalPrompt, execOptions);
+      } else {
+        // Show help
+        console.log(chalk.bold.cyan('\n  CCW CLI Tool Executor\n'));
+        console.log('  Unified interface for Gemini, Qwen, and Codex CLI tools.\n');
+        console.log('  Usage:');
+        console.log(chalk.gray('    ccw cli -p "<prompt>" --tool <tool>     Direct execution (recommended)'));
+        console.log(chalk.gray('    ccw cli "<prompt>" --tool <tool>        Shorthand'));
+        console.log(chalk.gray('    ccw cli exec "<prompt>" --tool <tool>   Explicit exec'));
+        console.log();
+        console.log('  Subcommands:');
+        console.log(chalk.gray('    status              Check CLI tools availability'));
+        console.log(chalk.gray('    storage [cmd]       Manage CCW storage (info/clean/config)'));
+        console.log(chalk.gray('    exec <prompt>       Execute a CLI tool (optional, default behavior)'));
+        console.log(chalk.gray('    history             Show execution history'));
+        console.log(chalk.gray('    detail <id>         Show execution detail'));
+        console.log(chalk.gray('    test-parse [args]   Debug CLI argument parsing'));
+        console.log();
+        console.log('  Exec Options:');
+        console.log(chalk.gray('    -p, --prompt <text> Prompt text (preferred for multi-line)'));
+        console.log(chalk.gray('    -f, --file <file>   Read prompt from file'));
+        console.log(chalk.gray('    --stdin             Read prompt from stdin'));
+        console.log(chalk.gray('    --tool <tool>       Tool to use: gemini, qwen, codex (default: gemini)'));
+        console.log(chalk.gray('    --mode <mode>       Mode: analysis, write, auto (default: analysis)'));
+        console.log(chalk.gray('    --model <model>     Model override'));
+        console.log(chalk.gray('    --cd <path>         Working directory'));
+        console.log(chalk.gray('    --includeDirs <dirs>  Additional directories (comma-separated)'));
+        console.log(chalk.gray('    ccw cli -ps>      Timeout in milliseconds (default: 300000)'));
+        console.log(chalk.gray('    --no-stream         Disable streaming output'));
+        console.log(chalk.gray('    --resume [id]       Resume previous session'));
+        console.log(chalk.gray('    --id <id>           Custom execution ID'));
+        console.log();
+        console.log('  Examples:');
+        console.log(chalk.gray('    ccw cli -p "Analyze auth module" --tool gemini'));
+        console.log(chalk.gray('    ccw cli "Simple prompt" --tool codex --mode write'));
+        console.log(chalk.gray('    ccw cli -p "$(cat prompt.txt)" --tool gemini'));
+        console.log(chalk.gray('    ccw cli --resume --tool gemini'));
+        console.log(chalk.gray('    ccw cli history --tool gemini --limit 10'));
+        console.log();
+      }
+    }
   }
 }

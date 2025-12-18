@@ -153,6 +153,8 @@ export function run(argv: string[]): void {
   program
     .command('cli [subcommand] [args...]')
     .description('Unified CLI tool executor (gemini/qwen/codex/claude)')
+    .option('-p, --prompt <prompt>', 'Prompt text (alternative to positional argument)')
+    .option('-f, --file <file>', 'Read prompt from file (best for multi-line prompts)')
     .option('--tool <tool>', 'CLI tool to use', 'gemini')
     .option('--mode <mode>', 'Execution mode: analysis, write, auto', 'analysis')
     .option('--model <model>', 'Model override')

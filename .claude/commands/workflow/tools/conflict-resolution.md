@@ -133,7 +133,7 @@ Task(subagent_type="cli-execution-agent", run_in_background=false, prompt=`
   ### 2. Execute CLI Analysis (Enhanced with Exploration + Scenario Uniqueness)
 
   Primary (Gemini):
-  ccw cli exec "
+  ccw cli -p "
   PURPOSE: Detect conflicts between plan and codebase, using exploration insights
   TASK:
   • **Review pre-identified conflict_indicators from exploration results**

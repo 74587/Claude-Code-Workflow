@@ -63,7 +63,7 @@ The agent supports **two execution modes** based on task JSON's `meta.cli_execut
    - Agent substitutes [target_folders] into command
    - Agent executes CLI command via CCW:
    ```bash
-   ccw cli exec "
+   ccw cli -p "
    PURPOSE: Generate module documentation
    TASK: Create API.md and README.md for each module
    MODE: write
@@ -216,7 +216,7 @@ Before completion, verify:
 {
   "step": "analyze_module_structure",
   "action": "Deep analysis of module structure and API",
-  "command": "ccw cli exec \"PURPOSE: Document module comprehensively\nTASK: Extract module purpose, architecture, public API, dependencies\nMODE: analysis\nCONTEXT: @**/* System: [system_context]\nEXPECTED: Complete module analysis for documentation\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt)\" --tool gemini --mode analysis --cd src/auth",
+  "command": "ccw cli -p \"PURPOSE: Document module comprehensively\nTASK: Extract module purpose, architecture, public API, dependencies\nMODE: analysis\nCONTEXT: @**/* System: [system_context]\nEXPECTED: Complete module analysis for documentation\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt)\" --tool gemini --mode analysis --cd src/auth",
   "output_to": "module_analysis",
   "on_error": "fail"
 }

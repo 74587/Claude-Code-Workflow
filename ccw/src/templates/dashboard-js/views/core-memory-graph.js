@@ -87,7 +87,7 @@ function renderKnowledgeGraphD3(graph) {
   }));
 
   // Create SVG with zoom support
-  graphSvg = d3.select('#knowledgeGraphContainer')
+  coreMemGraphSvg = d3.select('#knowledgeGraphContainer')
     .append('svg')
     .attr('width', width)
     .attr('height', height)
@@ -95,19 +95,19 @@ function renderKnowledgeGraphD3(graph) {
     .attr('viewBox', [0, 0, width, height]);
 
   // Create a group for zoom/pan transformations
-  graphGroup = graphSvg.append('g').attr('class', 'graph-content');
+  coreMemGraphGroup = coreMemGraphSvg.append('g').attr('class', 'graph-content');
 
   // Setup zoom behavior
-  graphZoom = d3.zoom()
+  coreMemGraphZoom = d3.zoom()
     .scaleExtent([0.1, 4])
     .on('zoom', (event) => {
-      graphGroup.attr('transform', event.transform);
+      coreMemGraphGroup.attr('transform', event.transform);
     });
 
-  graphSvg.call(graphZoom);
+  coreMemGraphSvg.call(coreMemGraphZoom);
 
   // Add arrowhead marker
-  graphSvg.append('defs').append('marker')
+  coreMemGraphSvg.append('defs').append('marker')
     .attr('id', 'arrowhead-core')
     .attr('viewBox', '-0 -5 10 10')
     .attr('refX', 20)
@@ -122,7 +122,7 @@ function renderKnowledgeGraphD3(graph) {
     .style('stroke', 'none');
 
   // Create force simulation
-  graphSimulation = d3.forceSimulation(nodes)
+  coreMemGraphSimulation = d3.forceSimulation(nodes)
     .force('link', d3.forceLink(edges).id(d => d.id).distance(100))
     .force('charge', d3.forceManyBody().strength(-300))
     .force('center', d3.forceCenter(width / 2, height / 2))
@@ -131,7 +131,7 @@ function renderKnowledgeGraphD3(graph) {
     .force('y', d3.forceY(height / 2).strength(0.05));
 
   // Draw edges
-  const link = graphGroup.append('g')
+  const link = coreMemGraphGroup.append('g')
     .attr('class', 'graph-links')
     .selectAll('line')
     .data(edges)
@@ -143,7 +143,7 @@ function renderKnowledgeGraphD3(graph) {
     .attr('marker-end', 'url(#arrowhead-core)');
 
   // Draw nodes
-  const node = graphGroup.append('g')
+  const node = coreMemGraphGroup.append('g')
     .attr('class', 'graph-nodes')
     .selectAll('g')
     .data(nodes)
@@ -183,7 +183,7 @@ function renderKnowledgeGraphD3(graph) {
     .attr('fill', '#333');
 
   // Update positions on simulation tick
-  graphSimulation.on('tick', () => {
+  coreMemGraphSimulation.on('tick', () => {
     link
       .attr('x1', d => d.source.x)
       .attr('y1', d => d.source.y)
@@ -195,7 +195,7 @@ function renderKnowledgeGraphD3(graph) {
 
   // Drag functions
   function dragstarted(event, d) {
-    if (!event.active) graphSimulation.alphaTarget(0.3).restart();
+    if (!event.active) coreMemGraphSimulation.alphaTarget(0.3).restart();
     d.fx = d.x;
     d.fy = d.y;
   }
@@ -206,7 +206,7 @@ function renderKnowledgeGraphD3(graph) {
   }
 
   function dragended(event, d) {
-    if (!event.active) graphSimulation.alphaTarget(0);
+    if (!event.active) coreMemGraphSimulation.alphaTarget(0);
     d.fx = null;
     d.fy = null;
   }

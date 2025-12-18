@@ -62,7 +62,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/[mode]-protocol.md) $(c
 ## Essential Command Structure
 
 ```bash
-ccw cli exec "<PROMPT>" --tool <gemini|qwen|codex> --mode <analysis|write>
+ccw cli -p "<PROMPT>" --tool <gemini|qwen|codex> --mode <analysis|write>
 ```
 
 **⚠️ CRITICAL**: `--mode` parameter is **MANDATORY** for all CLI executions. No defaults are assumed.
@@ -70,7 +70,7 @@ ccw cli exec "<PROMPT>" --tool <gemini|qwen|codex> --mode <analysis|write>
 ### Core Principles
 
 - **Use tools early and often** - Tools are faster and more thorough
-- **Unified CLI** - Always use `ccw cli exec` for consistent parameter handling
+- **Unified CLI** - Always use `ccw cli -p` for consistent parameter handling
 - **Mode is MANDATORY** - ALWAYS explicitly specify `--mode analysis|write` (no implicit defaults)
 - **One template required** - ALWAYS reference exactly ONE template in RULES (use universal fallback if no specific match)
 - **Write protection** - Require EXPLICIT `--mode write` for file operations
@@ -131,7 +131,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 
 ### Gemini & Qwen
 
-**Via CCW**: `ccw cli exec "<prompt>" --tool gemini --mode analysis` or `--tool qwen --mode analysis`
+**Via CCW**: `ccw cli -p "<prompt>" --tool gemini --mode analysis` or `--tool qwen --mode analysis`
 
 **Characteristics**:
 - Large context window, pattern recognition
@@ -147,7 +147,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 
 ### Codex
 
-**Via CCW**: `ccw cli exec "<prompt>" --tool codex --mode write`
+**Via CCW**: `ccw cli -p "<prompt>" --tool codex --mode write`
 
 **Characteristics**:
 - Autonomous development, mathematical reasoning
@@ -161,8 +161,8 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 **Resume via `--resume` parameter**:
 
 ```bash
-ccw cli exec "Continue analyzing" --tool gemini --mode analysis --resume              # Resume last session
-ccw cli exec "Fix issues found" --tool codex --mode write --resume <id>           # Resume specific session
+ccw cli -p "Continue analyzing" --tool gemini --mode analysis --resume              # Resume last session
+ccw cli -p "Fix issues found" --tool codex --mode write --resume <id>           # Resume specific session
 ```
 
 - **`--resume` (empty)**: Resume most recent session
@@ -264,7 +264,7 @@ rg "export.*Component" --files-with-matches --type ts
 CONTEXT: @components/Auth.tsx @types/auth.d.ts | Memory: Previous type refactoring
 
 # Step 3: Execute CLI
-ccw cli exec "..." --tool gemini --mode analysis --cd src
+ccw cli -p "..." --tool gemini --mode analysis --cd src
 ```
 
 ### RULES Configuration
@@ -284,13 +284,13 @@ ccw cli exec "..." --tool gemini --mode analysis --cd src
 **Critical**: Use double quotes `"..."` around the entire prompt to enable `$(cat ...)` expansion:
 ```bash
 # ✓ CORRECT - double quotes allow shell expansion
-ccw cli exec "RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ..." --tool gemini
+ccw cli -p "RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ..." --tool gemini
 
 # ✗ WRONG - single quotes prevent expansion
-ccw cli exec 'RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ...' --tool gemini
+ccw cli -p 'RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ...' --tool gemini
 
 # ✗ WRONG - escaped $ prevents expansion
-ccw cli exec "RULES: \$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ..." --tool gemini
+ccw cli -p "RULES: \$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ..." --tool gemini
 ```
 
 **Examples**:
@@ -397,10 +397,10 @@ When using `--cd`:
 
 ```bash
 # Single directory
-ccw cli exec "CONTEXT: @**/* @../shared/**/*" --tool gemini --mode analysis --cd src/auth --includeDirs ../shared
+ccw cli -p "CONTEXT: @**/* @../shared/**/*" --tool gemini --mode analysis --cd src/auth --includeDirs ../shared
 
 # Multiple directories
-ccw cli exec "..." --tool gemini --mode analysis --cd src/auth --includeDirs ../shared,../types,../utils
+ccw cli -p "..." --tool gemini --mode analysis --cd src/auth --includeDirs ../shared,../types,../utils
 ```
 
 **Rule**: If CONTEXT contains `@../dir/**/*`, MUST include `--includeDirs ../dir`
@@ -433,7 +433,7 @@ CCW automatically maps to tool-specific syntax:
 
 **Analysis Task** (Security Audit):
 ```bash
-ccw cli exec "
+ccw cli -p "
 PURPOSE: Identify OWASP Top 10 vulnerabilities in authentication module to pass security audit; success = all critical/high issues documented with remediation
 TASK: • Scan for injection flaws (SQL, command, LDAP) • Check authentication bypass vectors • Evaluate session management • Assess sensitive data exposure
 MODE: analysis
@@ -445,7 +445,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $
 
 **Implementation Task** (New Feature):
 ```bash
-ccw cli exec "
+ccw cli -p "
 PURPOSE: Implement rate limiting for API endpoints to prevent abuse; must be configurable per-endpoint; backward compatible with existing clients
 TASK: • Create rate limiter middleware with sliding window • Implement per-route configuration • Add Redis backend for distributed state • Include bypass for internal services
 MODE: write
@@ -457,7 +457,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 
 **Bug Fix Task**:
 ```bash
-ccw cli exec "
+ccw cli -p "
 PURPOSE: Fix memory leak in WebSocket connection handler causing server OOM after 24h; root cause must be identified before any fix
 TASK: • Trace connection lifecycle from open to close • Identify event listener accumulation • Check cleanup on disconnect • Verify garbage collection eligibility
 MODE: analysis
@@ -469,7 +469,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $
 
 **Refactoring Task**:
 ```bash
-ccw cli exec "
+ccw cli -p "
 PURPOSE: Refactor payment processing to use strategy pattern for multi-gateway support; no functional changes; all existing tests must pass
 TASK: • Extract gateway interface from current implementation • Create strategy classes for Stripe, PayPal • Implement factory for gateway selection • Migrate existing code to use strategies
 MODE: write
@@ -501,8 +501,8 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 **Codex Multiplier**: 3x allocated time (minimum 15min / 900000ms)
 
 ```bash
-ccw cli exec "<prompt>" --tool gemini --mode analysis --timeout 600000   # 10 min
-ccw cli exec "<prompt>" --tool codex --mode write --timeout 1800000   # 30 min
+ccw cli -p "<prompt>" --tool gemini --mode analysis --timeout 600000   # 10 min
+ccw cli -p "<prompt>" --tool codex --mode write --timeout 1800000   # 30 min
 ```
 
 ### Permission Framework
@@ -530,10 +530,10 @@ ccw cli exec "<prompt>" --tool codex --mode write --timeout 1800000   # 30 min
 
 ### Workflow Integration
 
-- **Understanding**: `ccw cli exec "<prompt>" --tool gemini --mode analysis`
-- **Architecture**: `ccw cli exec "<prompt>" --tool gemini --mode analysis`
-- **Implementation**: `ccw cli exec "<prompt>" --tool codex --mode write`
-- **Quality**: `ccw cli exec "<prompt>" --tool codex --mode write`
+- **Understanding**: `ccw cli -p "<prompt>" --tool gemini --mode analysis`
+- **Architecture**: `ccw cli -p "<prompt>" --tool gemini --mode analysis`
+- **Implementation**: `ccw cli -p "<prompt>" --tool codex --mode write`
+- **Quality**: `ccw cli -p "<prompt>" --tool codex --mode write`
 
 ### Planning Checklist
 

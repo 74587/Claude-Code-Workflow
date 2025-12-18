@@ -208,7 +208,7 @@ function handleNotification(data) {
       break;
 
     case 'cli_execution':
-      // Handle CLI command notifications (ccw cli exec)
+      // Handle CLI command notifications (ccw cli -p)
       handleCliCommandNotification(payload);
       break;
 
@@ -500,7 +500,7 @@ function handleToolExecutionNotification(payload) {
 }
 
 /**
- * Handle CLI command notifications (ccw cli exec)
+ * Handle CLI command notifications (ccw cli -p)
  * @param {Object} payload - CLI execution payload
  */
 function handleCliCommandNotification(payload) {

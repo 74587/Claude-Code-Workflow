@@ -238,9 +238,9 @@ api_id=$((group_count + 3))
 | **CLI** | true | implementation_approach | write | --mode write | Execute CLI commands, validate output |
 
 **Command Patterns**:
-- Gemini/Qwen: `ccw cli exec "..." --tool gemini --mode analysis --cd dir`
-- CLI Mode: `ccw cli exec "..." --tool gemini --mode write --cd dir`
-- Codex: `ccw cli exec "..." --tool codex --mode write --cd dir`
+- Gemini/Qwen: `ccw cli -p "..." --tool gemini --mode analysis --cd dir`
+- CLI Mode: `ccw cli -p "..." --tool gemini --mode write --cd dir`
+- Codex: `ccw cli -p "..." --tool codex --mode write --cd dir`
 
 **Generation Process**:
 1. Read configuration values (tool, cli_execute, mode) from workflow-session.json
@@ -331,7 +331,7 @@ api_id=$((group_count + 3))
 {
   "step": 2,
   "title": "Batch generate documentation via CLI",
-  "command": "ccw cli exec 'PURPOSE: Generate module docs\\nTASK: Create documentation\\nMODE: write\\nCONTEXT: @**/* [phase2_context]\\nEXPECTED: API.md and README.md\\nRULES: Mirror structure' --tool gemini --mode write --cd ${dirs_from_group}",
+  "command": "ccw cli -p 'PURPOSE: Generate module docs\\nTASK: Create documentation\\nMODE: write\\nCONTEXT: @**/* [phase2_context]\\nEXPECTED: API.md and README.md\\nRULES: Mirror structure' --tool gemini --mode write --cd ${dirs_from_group}",
   "depends_on": [1],
   "output": "generated_docs"
 }
@@ -363,7 +363,7 @@ api_id=$((group_count + 3))
       },
       {
         "step": "analyze_project",
-        "command": "bash(ccw cli exec \"PURPOSE: Analyze project structure\\nTASK: Extract overview from modules\\nMODE: analysis\\nCONTEXT: [all_module_docs]\\nEXPECTED: Project outline\" --tool gemini --mode analysis)",
+        "command": "bash(ccw cli -p \"PURPOSE: Analyze project structure\\nTASK: Extract overview from modules\\nMODE: analysis\\nCONTEXT: [all_module_docs]\\nEXPECTED: Project outline\" --tool gemini --mode analysis)",
         "output_to": "project_outline"
       }
     ],
@@ -403,7 +403,7 @@ api_id=$((group_count + 3))
     "pre_analysis": [
       {"step": "load_existing_docs", "command": "bash(cat .workflow/docs/${project_name}/{ARCHITECTURE,EXAMPLES}.md 2>/dev/null || echo 'No existing docs')", "output_to": "existing_arch_examples"},
       {"step": "load_all_docs", "command": "bash(cat .workflow/docs/${project_name}/README.md && find .workflow/docs/${project_name} -type f -name '*.md' ! -path '*/README.md' ! -path '*/ARCHITECTURE.md' ! -path '*/EXAMPLES.md' ! -path '*/api/*' | xargs cat)", "output_to": "all_docs"},
-      {"step": "analyze_architecture", "command": "bash(ccw cli exec \"PURPOSE: Analyze system architecture\\nTASK: Synthesize architectural overview and examples\\nMODE: analysis\\nCONTEXT: [all_docs]\\nEXPECTED: Architecture + Examples outline\" --tool gemini --mode analysis)", "output_to": "arch_examples_outline"}
+      {"step": "analyze_architecture", "command": "bash(ccw cli -p \"PURPOSE: Analyze system architecture\\nTASK: Synthesize architectural overview and examples\\nMODE: analysis\\nCONTEXT: [all_docs]\\nEXPECTED: Architecture + Examples outline\" --tool gemini --mode analysis)", "output_to": "arch_examples_outline"}
     ],
     "implementation_approach": [
       {
@@ -440,7 +440,7 @@ api_id=$((group_count + 3))
     "pre_analysis": [
       {"step": "discover_api", "command": "bash(rg 'router\\.| @(Get|Post)' -g '*.{ts,js}')", "output_to": "endpoint_discovery"},
       {"step": "load_existing_api", "command": "bash(cat .workflow/docs/${project_name}/api/README.md 2>/dev/null || echo 'No existing API docs')", "output_to": "existing_api_docs"},
-      {"step": "analyze_api", "command": "bash(ccw cli exec \"PURPOSE: Document HTTP API\\nTASK: Analyze endpoints\\nMODE: analysis\\nCONTEXT: @src/api/**/* [endpoint_discovery]\\nEXPECTED: API outline\" --tool gemini --mode analysis)", "output_to": "api_outline"}
+      {"step": "analyze_api", "command": "bash(ccw cli -p \"PURPOSE: Document HTTP API\\nTASK: Analyze endpoints\\nMODE: analysis\\nCONTEXT: @src/api/**/* [endpoint_discovery]\\nEXPECTED: API outline\" --tool gemini --mode analysis)", "output_to": "api_outline"}
     ],
     "implementation_approach": [
       {

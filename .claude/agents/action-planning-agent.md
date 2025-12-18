@@ -470,14 +470,14 @@ function computeCliStrategy(task, allTasks) {
   // Pattern: Gemini CLI deep analysis
   {
     "step": "gemini_analyze_[aspect]",
-    "command": "ccw cli exec 'PURPOSE: [goal]\\nTASK: [tasks]\\nMODE: analysis\\nCONTEXT: @[paths]\\nEXPECTED: [output]\\nRULES: $(cat [template]) | [constraints] | analysis=READ-ONLY' --tool gemini --mode analysis --cd [path]",
+    "command": "ccw cli -p 'PURPOSE: [goal]\\nTASK: [tasks]\\nMODE: analysis\\nCONTEXT: @[paths]\\nEXPECTED: [output]\\nRULES: $(cat [template]) | [constraints] | analysis=READ-ONLY' --tool gemini --mode analysis --cd [path]",
     "output_to": "analysis_result"
   },
 
   // Pattern: Qwen CLI analysis (fallback/alternative)
   {
     "step": "qwen_analyze_[aspect]",
-    "command": "ccw cli exec '[similar to gemini pattern]' --tool qwen --mode analysis --cd [path]",
+    "command": "ccw cli -p '[similar to gemini pattern]' --tool qwen --mode analysis --cd [path]",
     "output_to": "analysis_result"
   },
 
@@ -518,7 +518,7 @@ The examples above demonstrate **patterns**, not fixed requirements. Agent MUST:
 4. **Command Composition Patterns**:
    - **Single command**: `bash([simple_search])`
    - **Multiple commands**: `["bash([cmd1])", "bash([cmd2])"]`
-   - **CLI analysis**: `ccw cli exec '[prompt]' --tool gemini --mode analysis --cd [path]`
+   - **CLI analysis**: `ccw cli -p '[prompt]' --tool gemini --mode analysis --cd [path]`
    - **MCP integration**: `mcp__[tool]__[function]([params])`
 
 **Key Principle**: Examples show **structure patterns**, not specific implementations. Agent must create task-appropriate steps dynamically.
@@ -542,9 +542,9 @@ The `implementation_approach` supports **two execution modes** based on the pres
    - **Use for**: Large-scale features, complex refactoring, or when user explicitly requests CLI tool usage
    - **Required fields**: Same as default mode **PLUS** `command`, `resume_from` (optional)
    - **Command patterns** (with resume support):
-     - `ccw cli exec '[prompt]' --tool codex --mode write --cd [path]`
-     - `ccw cli exec '[prompt]' --resume ${previousCliId} --tool codex --mode write` (resume from previous)
-     - `ccw cli exec '[prompt]' --tool gemini --mode write --cd [path]` (write mode)
+     - `ccw cli -p '[prompt]' --tool codex --mode write --cd [path]`
+     - `ccw cli -p '[prompt]' --resume ${previousCliId} --tool codex --mode write` (resume from previous)
+     - `ccw cli -p '[prompt]' --tool gemini --mode write --cd [path]` (write mode)
    - **Resume mechanism**: When step depends on previous CLI execution, include `--resume` with previous execution ID
 
 **Semantic CLI Tool Selection**:
@@ -621,7 +621,7 @@ Agent determines CLI tool usage per-step based on user semantics and task nature
     "step": 3,
     "title": "Execute implementation using CLI tool",
     "description": "Use Codex/Gemini for complex autonomous execution",
-    "command": "ccw cli exec '[prompt]' --tool codex --mode write --cd [path]",
+    "command": "ccw cli -p '[prompt]' --tool codex --mode write --cd [path]",
     "modification_points": ["[Same as default mode]"],
     "logic_flow": ["[Same as default mode]"],
     "depends_on": [1, 2],
@@ -634,7 +634,7 @@ Agent determines CLI tool usage per-step based on user semantics and task nature
     "step": 4,
     "title": "Continue implementation with context",
     "description": "Resume from previous step with accumulated context",
-    "command": "ccw cli exec '[continuation prompt]' --resume ${step3_cli_id} --tool codex --mode write",
+    "command": "ccw cli -p '[continuation prompt]' --resume ${step3_cli_id} --tool codex --mode write",
     "resume_from": "step3_cli_id",  // Reference previous step's CLI ID
     "modification_points": ["[Continue from step 3]"],
     "logic_flow": ["[Build on previous output]"],

@@ -205,7 +205,7 @@ Comprehensive command guide for Claude Code Workflow (CCW) system covering 78 co
    - Specify required analysis depth
    - Request structured comparison/synthesis
    ```bash
-   ccw cli exec "
+   ccw cli -p "
    PURPOSE: Analyze command documentation to answer user query
    TASK: • [extracted user question with context]
    MODE: analysis

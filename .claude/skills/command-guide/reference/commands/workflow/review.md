@@ -137,7 +137,7 @@ After bash validation, the model takes control to:
      ```
    - Use Gemini for security analysis:
      ```bash
-     ccw cli exec "
+     ccw cli -p "
      PURPOSE: Security audit of completed implementation
      TASK: Review code for security vulnerabilities, insecure patterns, auth/authz issues
      CONTEXT: @.summaries/IMPL-*.md,../.. @../../CLAUDE.md
@@ -149,7 +149,7 @@ After bash validation, the model takes control to:
    **Architecture Review** (`--type=architecture`):
    - Use Qwen for architecture analysis:
      ```bash
-     ccw cli exec "
+     ccw cli -p "
      PURPOSE: Architecture compliance review
      TASK: Evaluate adherence to architectural patterns, identify technical debt, review design decisions
      CONTEXT: @.summaries/IMPL-*.md,../.. @../../CLAUDE.md
@@ -161,7 +161,7 @@ After bash validation, the model takes control to:
    **Quality Review** (`--type=quality`):
    - Use Gemini for code quality:
      ```bash
-     ccw cli exec "
+     ccw cli -p "
      PURPOSE: Code quality and best practices review
      TASK: Assess code readability, maintainability, adherence to best practices
      CONTEXT: @.summaries/IMPL-*.md,../.. @../../CLAUDE.md
@@ -183,7 +183,7 @@ After bash validation, the model takes control to:
      done
 
      # Check implementation summaries against requirements
-     ccw cli exec "
+     ccw cli -p "
      PURPOSE: Verify all requirements and acceptance criteria are met
      TASK: Cross-check implementation summaries against original requirements
      CONTEXT: @.task/IMPL-*.json,.summaries/IMPL-*.md,../.. @../../CLAUDE.md

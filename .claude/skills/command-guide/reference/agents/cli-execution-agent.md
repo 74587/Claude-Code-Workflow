@@ -148,7 +148,7 @@ discuss → multi (gemini + codex parallel)
 
 **Gemini/Qwen (Analysis)**:
 ```bash
-ccw cli exec "
+ccw cli -p "
 PURPOSE: {goal}
 TASK: {task}
 MODE: analysis
@@ -162,17 +162,17 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
 
 **Gemini/Qwen (Write)**:
 ```bash
-ccw cli exec "..." --tool gemini --mode write --cd {dir}
+ccw cli -p "..." --tool gemini --mode write --cd {dir}
 ```
 
 **Codex (Write)**:
 ```bash
-ccw cli exec "..." --tool codex --mode write --cd {dir}
+ccw cli -p "..." --tool codex --mode write --cd {dir}
 ```
 
 **Cross-Directory** (Gemini/Qwen):
 ```bash
-ccw cli exec "CONTEXT: @**/* @../shared/**/*" --tool gemini --mode analysis --cd src/auth --includeDirs ../shared
+ccw cli -p "CONTEXT: @**/* @../shared/**/*" --tool gemini --mode analysis --cd src/auth --includeDirs ../shared
 ```
 
 **Directory Scope**:

@@ -78,7 +78,7 @@ Phase 4: planObject Generation
 ## CLI Command Template
 
 ```bash
-ccw cli exec "
+ccw cli -p "
 PURPOSE: Generate plan for {task_description}
 TASK:
 • Analyze task/bug description and context

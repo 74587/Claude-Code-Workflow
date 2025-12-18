@@ -11,7 +11,7 @@ import { StoragePaths, ensureStorageDir } from '../config/storage-paths.js';
 
 export interface CliToolConfig {
   enabled: boolean;
-  primaryModel: string;      // For CLI endpoint calls (ccw cli exec)
+  primaryModel: string;      // For CLI endpoint calls (ccw cli -p)
   secondaryModel: string;    // For internal calls (llm_enhancer, generate_module_docs)
 }
 

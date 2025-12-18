@@ -319,8 +319,9 @@ function buildCommand(params: {
       break;
 
     case 'codex':
-      // Codex does NOT support stdin - prompt must be passed as command line argument
-      useStdin = false;
+      // Codex supports stdin when using `-` as prompt argument
+      // Using stdin avoids Windows command line escaping issues with multi-line/special char prompts
+      useStdin = true;
       // Native resume: codex resume <uuid> [prompt] or --last
       if (nativeResume?.enabled) {
         args.push('resume');
@@ -333,8 +334,13 @@ function buildCommand(params: {
         if (dir) {
           args.push('-C', dir);
         }
+        // Permission configuration based on mode:
+        // - analysis: --full-auto (read-only sandbox, no prompts) - safer for read operations
+        // - write/auto: --dangerously-bypass-approvals-and-sandbox (full access for modifications)
         if (mode === 'write' || mode === 'auto') {
-          args.push('--skip-git-repo-check', '-s', 'danger-full-access');
+          args.push('--dangerously-bypass-approvals-and-sandbox');
+        } else {
+          args.push('--full-auto');
         }
         if (model) {
           args.push('-m', model);
@@ -345,19 +351,21 @@ function buildCommand(params: {
             args.push('--add-dir', addDir);
           }
         }
-        // Add prompt as positional argument for resume
-        if (prompt) {
-          args.push(prompt);
-        }
+        // Use `-` to indicate reading prompt from stdin
+        args.push('-');
       } else {
         // Standard exec mode
         args.push('exec');
         if (dir) {
           args.push('-C', dir);
         }
-        args.push('--full-auto');
+        // Permission configuration based on mode:
+        // - analysis: --full-auto (read-only sandbox, no prompts) - safer for read operations
+        // - write/auto: --dangerously-bypass-approvals-and-sandbox (full access for modifications)
         if (mode === 'write' || mode === 'auto') {
-          args.push('--skip-git-repo-check', '-s', 'danger-full-access');
+          args.push('--dangerously-bypass-approvals-and-sandbox');
+        } else {
+          args.push('--full-auto');
         }
         if (model) {
           args.push('-m', model);
@@ -368,10 +376,8 @@ function buildCommand(params: {
             args.push('--add-dir', addDir);
           }
         }
-        // Add prompt as positional argument (codex exec "prompt")
-        if (prompt) {
-          args.push(prompt);
-        }
+        // Use `-` to indicate reading prompt from stdin (avoids Windows escaping issues)
+        args.push('-');
       }
       break;
 
@@ -734,8 +740,8 @@ async function executeCliTool(
     }
   }
 
-  // Only pass model if explicitly provided - let CLI tools use their own defaults
-  const effectiveModel = model;
+  // Use configured primary model if no explicit model provided
+  const effectiveModel = model || getPrimaryModel(workingDir, tool);
 
   // Build command
   const { command, args, useStdin } = buildCommand({

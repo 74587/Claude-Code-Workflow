@@ -16,4 +16,4 @@ Got it. I'm ready for your first command.
 
   ✓ Completed in 16.1s
   ID: 1765691168543-gemini
-  Continue: ccw cli exec "..." --resume 1765691168543-gemini
+  Continue: ccw cli -p "..." --resume 1765691168543-gemini

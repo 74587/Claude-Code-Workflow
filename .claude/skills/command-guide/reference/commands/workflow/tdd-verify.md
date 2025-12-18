@@ -141,7 +141,7 @@ done
 **Gemini analysis for comprehensive TDD compliance report**
 
 ```bash
-ccw cli exec "
+ccw cli -p "
 PURPOSE: Generate TDD compliance report
 TASK: Analyze TDD workflow execution and generate quality report
 CONTEXT: @{.workflow/active/{sessionId}/.task/*.json,.workflow/active/{sessionId}/.summaries/*,.workflow/active/{sessionId}/.process/tdd-cycle-report.md}

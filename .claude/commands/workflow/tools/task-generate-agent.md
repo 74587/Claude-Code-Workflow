@@ -256,7 +256,7 @@ Based on userConfig.executionMethod:
 CLI Resume Support (MANDATORY for all CLI commands):
 - Use --resume parameter to continue from previous task execution
 - Read previous task's cliExecutionId from session state
-- Format: ccw cli exec "[prompt]" --resume ${previousCliId} --tool ${tool} --mode write
+- Format: ccw cli -p "[prompt]" --resume ${previousCliId} --tool ${tool} --mode write
 
 ## EXPLORATION CONTEXT (from context-package.exploration_results)
 - Load exploration_results from context-package.json
@@ -308,10 +308,10 @@ Each task JSON MUST include:
 4. **merge_fork**: Task has multiple parents - merges all parent contexts into new conversation
 
 **Execution Command Patterns**:
-- new: `ccw cli exec "[prompt]" --tool [tool] --mode write --id [cli_execution_id]`
-- resume: `ccw cli exec "[prompt]" --resume [resume_from] --tool [tool] --mode write`
-- fork: `ccw cli exec "[prompt]" --resume [resume_from] --id [cli_execution_id] --tool [tool] --mode write`
-- merge_fork: `ccw cli exec "[prompt]" --resume [merge_from.join(',')] --id [cli_execution_id] --tool [tool] --mode write`
+- new: `ccw cli -p "[prompt]" --tool [tool] --mode write --id [cli_execution_id]`
+- resume: `ccw cli -p "[prompt]" --resume [resume_from] --tool [tool] --mode write`
+- fork: `ccw cli -p "[prompt]" --resume [resume_from] --id [cli_execution_id] --tool [tool] --mode write`
+- merge_fork: `ccw cli -p "[prompt]" --resume [merge_from.join(',')] --id [cli_execution_id] --tool [tool] --mode write`
 
 ## QUALITY STANDARDS
 Hard Constraints:

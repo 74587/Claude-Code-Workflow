@@ -70,7 +70,7 @@ Document recurring conflict patterns across workflow sessions with resolutions.
 
 **Command Pattern**:
 ```bash
-ccw cli exec "
+ccw cli -p "
 PURPOSE: Identify conflict patterns from workflow sessions
 TASK: • Extract conflicts from IMPL_PLAN and lessons • Group by type (architecture/dependencies/testing/performance) • Identify recurring patterns (same conflict in different sessions) • Link resolutions to specific sessions
 MODE: analysis

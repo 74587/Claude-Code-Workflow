@@ -78,7 +78,7 @@ rg "^import .* from " -n | head -30
 ### Gemini Semantic Analysis (deep-scan, dependency-map)
 
 ```bash
-ccw cli exec "
+ccw cli -p "
 PURPOSE: {from prompt}
 TASK: {from prompt}
 MODE: analysis

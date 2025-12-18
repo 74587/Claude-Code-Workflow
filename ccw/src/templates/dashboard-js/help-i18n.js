@@ -67,9 +67,9 @@ var helpI18n = {
     'help.workflows.brainstorm.next': '进入规划阶段',
 
     // Workflow Steps - CLI Resume
-    'help.workflows.cliResume.firstExec': 'ccw cli exec "分析..."',
+    'help.workflows.cliResume.firstExec': 'ccw cli -p "分析..."',
     'help.workflows.cliResume.saveContext': '保存会话上下文',
-    'help.workflows.cliResume.resumeCmd': 'ccw cli exec --resume',
+    'help.workflows.cliResume.resumeCmd': 'ccw cli -p --resume',
     'help.workflows.cliResume.merge': '合并历史对话',
     'help.workflows.cliResume.continue': '继续执行任务',
     'help.workflows.cliResume.splitOutput': '拆分结果存储',
@@ -188,9 +188,9 @@ var helpI18n = {
     'help.workflows.brainstorm.next': 'Enter Planning Phase',
 
     // Workflow Steps - CLI Resume
-    'help.workflows.cliResume.firstExec': 'ccw cli exec "analyze..."',
+    'help.workflows.cliResume.firstExec': 'ccw cli -p "analyze..."',
     'help.workflows.cliResume.saveContext': 'Save Session Context',
-    'help.workflows.cliResume.resumeCmd': 'ccw cli exec --resume',
+    'help.workflows.cliResume.resumeCmd': 'ccw cli -p --resume',
     'help.workflows.cliResume.merge': 'Merge Conversation History',
     'help.workflows.cliResume.continue': 'Continue Execution',
     'help.workflows.cliResume.splitOutput': 'Split & Store Results',
