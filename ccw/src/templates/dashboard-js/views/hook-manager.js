@@ -100,6 +100,8 @@ async function renderHookManager() {
         </div>
 
         <div class="hook-templates-grid grid grid-cols-1 md:grid-cols-2 gap-4">
+          ${renderQuickInstallCard('session-context', t('hook.tpl.sessionContext'), t('hook.tpl.sessionContextDesc'), 'UserPromptSubmit', '')}
+          ${renderQuickInstallCard('session-context-continuous', t('hook.tpl.sessionContextContinuous'), t('hook.tpl.sessionContextContinuousDesc'), 'UserPromptSubmit', '')}
           ${renderQuickInstallCard('codexlens-update', t('hook.tpl.codexlensSync'), t('hook.tpl.codexlensSyncDesc'), 'PostToolUse', 'Write|Edit')}
           ${renderQuickInstallCard('ccw-notify', t('hook.tpl.ccwDashboardNotify'), t('hook.tpl.ccwDashboardNotifyDesc'), 'PostToolUse', 'Write')}
           ${renderQuickInstallCard('log-tool', t('hook.tpl.toolLogger'), t('hook.tpl.toolLoggerDesc'), 'PostToolUse', 'All')}

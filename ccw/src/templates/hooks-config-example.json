@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "description": "Example hooks configuration for CCW. Place in .claude/settings.json under 'hooks' key.",
+  "hooks": {
+    "session-start": [
+      {
+        "name": "Progressive Disclosure",
+        "description": "Injects progressive disclosure index at session start",
+        "enabled": true,
+        "handler": "internal:context",
+        "timeout": 5000,
+        "failMode": "silent"
+      }
+    ],
+    "session-end": [
+      {
+        "name": "Update Cluster Metadata",
+        "description": "Updates cluster metadata after session ends",
+        "enabled": true,
+        "command": "ccw core-memory update-cluster --session $SESSION_ID",
+        "timeout": 30000,
+        "async": true,
+        "failMode": "log"
+      }
+    ],
+    "file-modified": [
+      {
+        "name": "Auto Commit Checkpoint",
+        "description": "Creates git checkpoint on file modifications",
+        "enabled": false,
+        "command": "git add . && git commit -m \"[Auto] Checkpoint: $FILE_PATH\"",
+        "timeout": 10000,
+        "async": true,
+        "failMode": "log"
+      }
+    ],
+    "context-request": [
+      {
+        "name": "Dynamic Context",
+        "description": "Provides context based on current session cluster",
+        "enabled": true,
+        "handler": "internal:context",
+        "timeout": 5000,
+        "failMode": "silent"
+      }
+    ]
+  },
+  "hookSettings": {
+    "globalTimeout": 60000,
+    "defaultFailMode": "silent",
+    "allowAsync": true,
+    "enableLogging": true
+  },
+  "notes": {
+    "handler": "Use 'internal:context' for built-in context generation, or 'command' for external commands",
+    "failMode": "Options: 'silent' (ignore errors), 'log' (log errors), 'fail' (abort on error)",
+    "variables": "Available: $SESSION_ID, $FILE_PATH, $PROJECT_PATH, $CLUSTER_ID",
+    "async": "Async hooks run in background and don't block the main flow"
+  }
+}

@@ -138,8 +138,16 @@ function findAllIndexDbs(dir: string): string[] {
 
 /**
  * Map codex-lens symbol kinds to graph node types
+ * Returns null for non-code symbols (markdown headings, etc.)
  */
-function mapSymbolKind(kind: string): string {
+function mapSymbolKind(kind: string): string | null {
+  const kindLower = kind.toLowerCase();
+
+  // Exclude markdown headings
+  if (/^h[1-6]$/.test(kindLower)) {
+    return null;
+  }
+
   const kindMap: Record<string, string> = {
     'function': 'FUNCTION',
     'class': 'CLASS',
@@ -148,8 +156,13 @@ function mapSymbolKind(kind: string): string {
     'module': 'MODULE',
     'interface': 'CLASS', // TypeScript interfaces as CLASS
     'type': 'CLASS', // Type aliases as CLASS
+    'constant': 'VARIABLE',
+    'property': 'VARIABLE',
+    'parameter': 'VARIABLE',
+    'import': 'MODULE',
+    'export': 'MODULE',
   };
-  return kindMap[kind.toLowerCase()] || 'VARIABLE';
+  return kindMap[kindLower] || 'VARIABLE';
 }
 
 /**
@@ -224,13 +237,19 @@ async function querySymbols(projectPath: string, fileFilter?: string, moduleFilt
 
       db.close();
 
-      allNodes.push(...rows.map((row: any) => ({
-        id: `${row.file}:${row.name}:${row.start_line}`,
-        name: row.name,
-        type: mapSymbolKind(row.kind),
-        file: row.file,
-        line: row.start_line,
-      })));
+      // Filter out non-code symbols (markdown headings, etc.)
+      rows.forEach((row: any) => {
+        const type = mapSymbolKind(row.kind);
+        if (type !== null) {
+          allNodes.push({
+            id: `${row.file}:${row.name}:${row.start_line}`,
+            name: row.name,
+            type,
+            file: row.file,
+            line: row.start_line,
+          });
+        }
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[Graph] Failed to query symbols from ${dbPath}: ${message}`);

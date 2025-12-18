@@ -77,7 +77,7 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
   // API: CodexLens Index List - Get all indexed projects with details
   if (pathname === '/api/codexlens/indexes') {
     try {
-      // First get config to find index directory
+      // Get config for index directory path
       const configResult = await executeCodexLens(['config', '--json']);
       let indexDir = '';
 
@@ -85,109 +85,127 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         try {
           const config = extractJSON(configResult.output);
           if (config.success && config.result) {
-            indexDir = config.result.index_root || '';
+            // CLI returns index_dir (not index_root)
+            indexDir = config.result.index_dir || config.result.index_root || '';
           }
         } catch (e) {
           console.error('[CodexLens] Failed to parse config for index list:', e.message);
         }
       }
 
-      // Get detailed status including projects
-      const statusResult = await executeCodexLens(['status', '--json']);
+      // Get project list using 'projects list' command
+      const projectsResult = await executeCodexLens(['projects', 'list', '--json']);
       let indexes: any[] = [];
       let totalSize = 0;
       let vectorIndexCount = 0;
       let normalIndexCount = 0;
 
+      if (projectsResult.success) {
+        try {
+          const projectsData = extractJSON(projectsResult.output);
+          if (projectsData.success && Array.isArray(projectsData.result)) {
+            const { statSync, existsSync } = await import('fs');
+            const { basename, join } = await import('path');
+
+            for (const project of projectsData.result) {
+              // Skip test/temp projects
+              if (project.source_root && (
+                project.source_root.includes('\\Temp\\') ||
+                project.source_root.includes('/tmp/') ||
+                project.total_files === 0
+              )) {
+                continue;
+              }
+
+              let projectSize = 0;
+              let hasVectorIndex = false;
+              let hasNormalIndex = true; // All projects have FTS index
+              let lastModified = null;
+
+              // Try to get actual index size from index_root
+              if (project.index_root && existsSync(project.index_root)) {
+                try {
+                  const { readdirSync } = await import('fs');
+                  const files = readdirSync(project.index_root);
+                  for (const file of files) {
+                    try {
+                      const filePath = join(project.index_root, file);
+                      const stat = statSync(filePath);
+                      projectSize += stat.size;
+                      if (!lastModified || stat.mtime > lastModified) {
+                        lastModified = stat.mtime;
+                      }
+                      // Check for vector/embedding files
+                      if (file.includes('vector') || file.includes('embedding') ||
+                          file.endsWith('.faiss') || file.endsWith('.npy') ||
+                          file.includes('semantic_chunks')) {
+                        hasVectorIndex = true;
+                      }
+                    } catch (e) {
+                      // Skip files we can't stat
+                    }
+                  }
+                } catch (e) {
+                  // Can't read index directory
+                }
+              }
+
+              if (hasVectorIndex) vectorIndexCount++;
+              if (hasNormalIndex) normalIndexCount++;
+              totalSize += projectSize;
+
+              // Use source_root as the display name
+              const displayName = project.source_root ? basename(project.source_root) : `project_${project.id}`;
+
+              indexes.push({
+                id: displayName,
+                path: project.source_root || '',
+                indexPath: project.index_root || '',
+                size: projectSize,
+                sizeFormatted: formatSize(projectSize),
+                fileCount: project.total_files || 0,
+                dirCount: project.total_dirs || 0,
+                hasVectorIndex,
+                hasNormalIndex,
+                status: project.status || 'active',
+                lastModified: lastModified ? lastModified.toISOString() : null
+              });
+            }
+
+            // Sort by file count (most files first), then by name
+            indexes.sort((a, b) => {
+              if (b.fileCount !== a.fileCount) return b.fileCount - a.fileCount;
+              return a.id.localeCompare(b.id);
+            });
+          }
+        } catch (e) {
+          console.error('[CodexLens] Failed to parse projects list:', e.message);
+        }
+      }
+
+      // Also get summary stats from status command
+      const statusResult = await executeCodexLens(['status', '--json']);
+      let statusSummary: any = {};
+
       if (statusResult.success) {
         try {
           const status = extractJSON(statusResult.output);
           if (status.success && status.result) {
-            const projectsCount = status.result.projects_count || 0;
-
-            // Try to get project list from index directory
-            if (indexDir) {
-              const { readdirSync, statSync, existsSync } = await import('fs');
-              const { join } = await import('path');
-              const { homedir } = await import('os');
-
-              // Expand ~ in path
-              const expandedDir = indexDir.startsWith('~')
-                ? join(homedir(), indexDir.slice(1))
-                : indexDir;
-
-              if (existsSync(expandedDir)) {
-                try {
-                  const entries = readdirSync(expandedDir, { withFileTypes: true });
-
-                  for (const entry of entries) {
-                    if (entry.isDirectory()) {
-                      const projectDir = join(expandedDir, entry.name);
-                      let projectSize = 0;
-                      let hasVectorIndex = false;
-                      let hasNormalIndex = false;
-                      let fileCount = 0;
-                      let lastModified = null;
-
-                      try {
-                        // Check for index files
-                        const projectFiles = readdirSync(projectDir);
-                        for (const file of projectFiles) {
-                          const filePath = join(projectDir, file);
-                          try {
-                            const stat = statSync(filePath);
-                            projectSize += stat.size;
-                            fileCount++;
-                            if (!lastModified || stat.mtime > lastModified) {
-                              lastModified = stat.mtime;
-                            }
-
-                            // Check index type
-                            if (file.includes('vector') || file.includes('embedding') || file.endsWith('.faiss') || file.endsWith('.npy')) {
-                              hasVectorIndex = true;
-                            }
-                            if (file.includes('fts') || file.endsWith('.db') || file.endsWith('.sqlite')) {
-                              hasNormalIndex = true;
-                            }
-                          } catch (e) {
-                            // Skip files we can't stat
-                          }
-                        }
-                      } catch (e) {
-                        // Can't read project directory
-                      }
-
-                      if (hasVectorIndex) vectorIndexCount++;
-                      if (hasNormalIndex) normalIndexCount++;
-                      totalSize += projectSize;
-
-                      indexes.push({
-                        id: entry.name,
-                        path: projectDir,
-                        size: projectSize,
-                        sizeFormatted: formatSize(projectSize),
-                        fileCount,
-                        hasVectorIndex,
-                        hasNormalIndex,
-                        lastModified: lastModified ? lastModified.toISOString() : null
-                      });
-                    }
-                  }
-
-                  // Sort by last modified (most recent first)
-                  indexes.sort((a, b) => {
-                    if (!a.lastModified) return 1;
-                    if (!b.lastModified) return -1;
-                    return new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime();
-                  });
-                } catch (e) {
-                  console.error('[CodexLens] Failed to read index directory:', e.message);
-                }
-              }
+            statusSummary = {
+              totalProjects: status.result.projects_count || indexes.length,
+              totalFiles: status.result.total_files || 0,
+              totalDirs: status.result.total_dirs || 0,
+              indexSizeBytes: status.result.index_size_bytes || totalSize,
+              indexSizeMb: status.result.index_size_mb || 0,
+              embeddings: status.result.embeddings || {}
+            };
+            // Use status total size if available
+            if (status.result.index_size_bytes) {
+              totalSize = status.result.index_size_bytes;
             }
           }
         } catch (e) {
-          console.error('[CodexLens] Failed to parse status for index list:', e.message);
+          console.error('[CodexLens] Failed to parse status:', e.message);
         }
       }
 
@@ -201,7 +219,8 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
           totalSize,
           totalSizeFormatted: formatSize(totalSize),
           vectorIndexCount,
-          normalIndexCount
+          normalIndexCount,
+          ...statusSummary
         }
       }));
     } catch (err) {
@@ -280,7 +299,8 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         try {
           const config = extractJSON(configResult.output);
           if (config.success && config.result) {
-            responseData.index_dir = config.result.index_root || responseData.index_dir;
+            // CLI returns index_dir (not index_root)
+            responseData.index_dir = config.result.index_dir || config.result.index_root || responseData.index_dir;
           }
         } catch (e) {
           console.error('[CodexLens] Failed to parse config:', e.message);

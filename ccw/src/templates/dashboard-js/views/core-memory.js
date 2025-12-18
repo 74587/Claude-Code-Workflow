@@ -49,12 +49,6 @@ function showNotification(message, type = 'info') {
   }, 3000);
 }
 
-// State for visualization (prefixed to avoid collision with memory.js)
-var coreMemGraphSvg = null;
-var coreMemGraphGroup = null;
-var coreMemGraphZoom = null;
-var coreMemGraphSimulation = null;
-
 async function renderCoreMemoryView() {
   const content = document.getElementById('mainContent');
   hideStatsAndCarousel();
@@ -65,9 +59,19 @@ async function renderCoreMemoryView() {
 
   content.innerHTML = `
     <div class="core-memory-container">
-      <!-- Header Actions -->
-      <div class="core-memory-header">
-        <div class="header-actions">
+      <!-- Tab Navigation -->
+      <div class="core-memory-tabs">
+        <div class="tab-nav">
+          <button class="tab-btn active" id="memoriesViewBtn" onclick="showMemoriesView()">
+            <i data-lucide="brain"></i>
+            ${t('coreMemory.memories')}
+          </button>
+          <button class="tab-btn" id="clustersViewBtn" onclick="showClustersView()">
+            <i data-lucide="folder-tree"></i>
+            ${t('coreMemory.clusters')}
+          </button>
+        </div>
+        <div class="tab-actions">
           <button class="btn btn-primary" onclick="showCreateMemoryModal()">
             <i data-lucide="plus"></i>
             ${t('coreMemory.createNew')}
@@ -81,23 +85,51 @@ async function renderCoreMemoryView() {
             ${t('common.refresh')}
           </button>
         </div>
+      </div>
+
+      <!-- Memories Tab Content (default view) -->
+      <div class="cm-tab-panel" id="memoriesGrid">
         <div class="memory-stats">
           <div class="stat-item">
             <span class="stat-label">${t('coreMemory.totalMemories')}</span>
             <span class="stat-value" id="totalMemoriesCount">${memories.length}</span>
           </div>
         </div>
+        <div class="memories-grid">
+          ${memories.length === 0
+            ? `<div class="empty-state">
+                 <i data-lucide="brain"></i>
+                 <p>${t('coreMemory.noMemories')}</p>
+               </div>`
+            : memories.map(memory => renderMemoryCard(memory)).join('')
+          }
+        </div>
       </div>
 
-      <!-- Memories Grid -->
-      <div class="memories-grid" id="memoriesGrid">
-        ${memories.length === 0
-          ? `<div class="empty-state">
-               <i data-lucide="brain"></i>
-               <p>${t('coreMemory.noMemories')}</p>
-             </div>`
-          : memories.map(memory => renderMemoryCard(memory)).join('')
-        }
+      <!-- Clusters Tab Content (hidden by default) -->
+      <div class="cm-tab-panel clusters-container" id="clustersContainer" style="display: none;">
+        <div class="clusters-layout">
+          <div class="clusters-sidebar">
+            <div class="clusters-sidebar-header">
+              <h4>${t('coreMemory.clustersList')}</h4>
+              <button class="btn btn-sm btn-primary" onclick="triggerAutoClustering()">
+                <i data-lucide="sparkles"></i>
+                ${t('coreMemory.autoCluster')}
+              </button>
+            </div>
+            <div id="clusterListContainer" class="cluster-list">
+              <!-- Clusters will be loaded here -->
+            </div>
+          </div>
+          <div class="clusters-detail">
+            <div id="clusterDetailContainer" class="cluster-detail-content">
+              <div class="empty-state">
+                <i data-lucide="folder-tree"></i>
+                <p>${t('coreMemory.selectCluster')}</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -242,14 +274,6 @@ function renderMemoryCard(memory) {
           <button class="feature-btn" onclick="generateMemorySummary('${memory.id}')" title="${t('coreMemory.generateSummary')}">
             <i data-lucide="sparkles"></i>
             ${t('coreMemory.summary')}
-          </button>
-          <button class="feature-btn" onclick="viewKnowledgeGraph('${memory.id}')" title="${t('coreMemory.knowledgeGraph')}">
-            <i data-lucide="network"></i>
-            ${t('coreMemory.graph')}
-          </button>
-          <button class="feature-btn" onclick="viewEvolutionHistory('${memory.id}')" title="${t('coreMemory.evolution')}">
-            <i data-lucide="git-branch"></i>
-            ${t('coreMemory.evolution')}
           </button>
         </div>
       </div>
@@ -448,97 +472,6 @@ async function generateMemorySummary(memoryId) {
   }
 }
 
-async function viewKnowledgeGraph(memoryId) {
-  try {
-    const response = await fetch(`/api/core-memory/memories/${memoryId}/knowledge-graph?path=${encodeURIComponent(projectPath)}`);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-    const graph = await response.json();
-
-    const modal = document.getElementById('memoryDetailModal');
-    document.getElementById('memoryDetailTitle').textContent = `${t('coreMemory.knowledgeGraph')} - ${memoryId}`;
-
-    const body = document.getElementById('memoryDetailBody');
-    body.innerHTML = `
-      <div class="knowledge-graph">
-        <div class="graph-section">
-          <h3>${t('coreMemory.entities')}</h3>
-          <div class="entities-list">
-            ${graph.entities && graph.entities.length > 0
-              ? graph.entities.map(entity => `
-                  <div class="entity-item">
-                    <span class="entity-name">${escapeHtml(entity.name)}</span>
-                    <span class="entity-type">${escapeHtml(entity.type)}</span>
-                  </div>
-                `).join('')
-              : `<p class="empty-text">${t('coreMemory.noEntities')}</p>`
-            }
-          </div>
-        </div>
-
-        <div class="graph-section">
-          <h3>${t('coreMemory.relationships')}</h3>
-          <div class="relationships-list">
-            ${graph.relationships && graph.relationships.length > 0
-              ? graph.relationships.map(rel => `
-                  <div class="relationship-item">
-                    <span class="rel-source">${escapeHtml(rel.source)}</span>
-                    <span class="rel-type">${escapeHtml(rel.type)}</span>
-                    <span class="rel-target">${escapeHtml(rel.target)}</span>
-                  </div>
-                `).join('')
-              : `<p class="empty-text">${t('coreMemory.noRelationships')}</p>`
-            }
-          </div>
-        </div>
-      </div>
-    `;
-
-    modal.style.display = 'flex';
-    lucide.createIcons();
-  } catch (error) {
-    console.error('Failed to fetch knowledge graph:', error);
-    showNotification(t('coreMemory.graphError'), 'error');
-  }
-}
-
-async function viewEvolutionHistory(memoryId) {
-  try {
-    const response = await fetch(`/api/core-memory/memories/${memoryId}/evolution?path=${encodeURIComponent(projectPath)}`);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-    const versions = await response.json();
-
-    const modal = document.getElementById('memoryDetailModal');
-    document.getElementById('memoryDetailTitle').textContent = `${t('coreMemory.evolutionHistory')} - ${memoryId}`;
-
-    const body = document.getElementById('memoryDetailBody');
-    body.innerHTML = `
-      <div class="evolution-timeline">
-        ${versions && versions.length > 0
-          ? versions.map((version, index) => `
-              <div class="evolution-version">
-                <div class="version-header">
-                  <span class="version-number">v${version.version}</span>
-                  <span class="version-date">${new Date(version.timestamp).toLocaleString()}</span>
-                </div>
-                <div class="version-reason">${escapeHtml(version.reason || t('coreMemory.noReason'))}</div>
-                ${index === 0 ? `<span class="badge badge-current">${t('coreMemory.current')}</span>` : ''}
-              </div>
-            `).join('')
-          : `<p class="empty-text">${t('coreMemory.noHistory')}</p>`
-        }
-      </div>
-    `;
-
-    modal.style.display = 'flex';
-    lucide.createIcons();
-  } catch (error) {
-    console.error('Failed to fetch evolution history:', error);
-    showNotification(t('coreMemory.evolutionError'), 'error');
-  }
-}
-
 async function viewMemoryDetail(memoryId) {
   const memory = await fetchMemoryById(memoryId);
   if (!memory) return;
@@ -603,20 +536,23 @@ async function toggleArchivedMemories() {
 async function refreshCoreMemories() {
   const memories = await fetchCoreMemories(showingArchivedMemories);
 
-  const grid = document.getElementById('memoriesGrid');
+  const container = document.getElementById('memoriesGrid');
+  const grid = container.querySelector('.memories-grid');
   const countEl = document.getElementById('totalMemoriesCount');
 
   if (countEl) countEl.textContent = memories.length;
 
-  if (memories.length === 0) {
-    grid.innerHTML = `
-      <div class="empty-state">
-        <i data-lucide="brain"></i>
-        <p>${showingArchivedMemories ? t('coreMemory.noArchivedMemories') : t('coreMemory.noMemories')}</p>
-      </div>
-    `;
-  } else {
-    grid.innerHTML = memories.map(memory => renderMemoryCard(memory)).join('');
+  if (grid) {
+    if (memories.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <i data-lucide="brain"></i>
+          <p>${showingArchivedMemories ? t('coreMemory.noArchivedMemories') : t('coreMemory.noMemories')}</p>
+        </div>
+      `;
+    } else {
+      grid.innerHTML = memories.map(memory => renderMemoryCard(memory)).join('');
+    }
   }
 
   lucide.createIcons();
@@ -627,4 +563,26 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// View Toggle Functions
+function showMemoriesView() {
+  document.getElementById('memoriesGrid').style.display = '';
+  document.getElementById('clustersContainer').style.display = 'none';
+  document.getElementById('memoriesViewBtn').classList.add('active');
+  document.getElementById('clustersViewBtn').classList.remove('active');
+}
+
+function showClustersView() {
+  document.getElementById('memoriesGrid').style.display = 'none';
+  document.getElementById('clustersContainer').style.display = '';
+  document.getElementById('memoriesViewBtn').classList.remove('active');
+  document.getElementById('clustersViewBtn').classList.add('active');
+
+  // Load clusters from core-memory-clusters.js
+  if (typeof loadClusters === 'function') {
+    loadClusters();
+  } else {
+    console.error('loadClusters is not available. Make sure core-memory-clusters.js is loaded.');
+  }
 }

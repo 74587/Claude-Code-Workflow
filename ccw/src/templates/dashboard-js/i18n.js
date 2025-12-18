@@ -12,7 +12,18 @@ const i18n = {
     // App title and brand
     'app.title': 'CCW Dashboard',
     'app.brand': 'Claude Code Workflow',
-    
+
+    // Common
+    'common.view': 'View',
+    'common.edit': 'Edit',
+    'common.delete': 'Delete',
+    'common.cancel': 'Cancel',
+    'common.save': 'Save',
+    'common.close': 'Close',
+    'common.loading': 'Loading...',
+    'common.error': 'Error',
+    'common.success': 'Success',
+
     // Header
     'header.project': 'Project:',
     'header.recentProjects': 'Recent Projects',
@@ -685,6 +696,10 @@ const i18n = {
     'hook.template.gitAddDesc': 'Auto stage written files',
 
     // Hook Quick Install Templates
+    'hook.tpl.sessionContext': 'Session Context (Start)',
+    'hook.tpl.sessionContextDesc': 'Load recent sessions at session start (time-sorted)',
+    'hook.tpl.sessionContextContinuous': 'Session Context (Continuous)',
+    'hook.tpl.sessionContextContinuousDesc': 'Load intent-matched sessions on every prompt (similarity-based)',
     'hook.tpl.codexlensSync': 'CodexLens Auto-Sync',
     'hook.tpl.codexlensSyncDesc': 'Auto-update code index when files are written or edited',
     'hook.tpl.ccwDashboardNotify': 'CCW Dashboard Notify',
@@ -704,6 +719,7 @@ const i18n = {
     'hook.category.git': 'git',
     'hook.category.memory': 'memory',
     'hook.category.skill': 'skill',
+    'hook.category.context': 'context',
 
     // Hook Wizard Templates
     'hook.wizard.memoryUpdate': 'Memory Update Hook',
@@ -1164,6 +1180,8 @@ const i18n = {
     'common.edit': 'Edit',
     'common.close': 'Close',
     'common.refresh': 'Refresh',
+    'common.refreshed': 'Refreshed',
+    'common.refreshing': 'Refreshing...',
     'common.loading': 'Loading...',
     'common.error': 'Error',
     'common.success': 'Success',
@@ -1226,12 +1244,56 @@ const i18n = {
     'coreMemory.evolutionError': 'Failed to load evolution history',
     'coreMemory.created': 'Created',
     'coreMemory.updated': 'Updated',
+
+    // View toggle
+    'coreMemory.memories': 'Memories',
+    'coreMemory.clusters': 'Clusters',
+    'coreMemory.clustersList': 'Cluster List',
+    'coreMemory.selectCluster': 'Select a cluster to view details',
+    'coreMemory.openSession': 'Open Session',
+    'coreMemory.clickToPreview': 'Click to preview',
+    'coreMemory.previewError': 'Failed to load preview',
+    'coreMemory.unknownSessionType': 'Unknown session type',
+
+    // Clustering features
+    'coreMemory.noClusters': 'No clusters yet',
+    'coreMemory.autoCluster': 'Auto Cluster',
+    'coreMemory.clusterLoadError': 'Failed to load clusters',
+    'coreMemory.clusterDetailError': 'Failed to load cluster details',
+    'coreMemory.intent': 'Intent',
+    'coreMemory.sessionTimeline': 'Session Timeline',
+    'coreMemory.relatedClusters': 'Related Clusters',
+    'coreMemory.noSessions': 'No sessions in this cluster',
+    'coreMemory.clusteringInProgress': 'Clustering in progress...',
+    'coreMemory.clusteringComplete': 'Created {created} clusters with {sessions} sessions',
+    'coreMemory.clusteringError': 'Auto-clustering failed',
+    'coreMemory.enterClusterName': 'Enter cluster name:',
+    'coreMemory.clusterCreated': 'Cluster created',
+    'coreMemory.clusterCreateError': 'Failed to create cluster',
+    'coreMemory.confirmDeleteCluster': 'Delete this cluster?',
+    'coreMemory.clusterDeleted': 'Cluster deleted',
+    'coreMemory.clusterDeleteError': 'Failed to delete cluster',
+    'coreMemory.clusterUpdated': 'Cluster updated',
+    'coreMemory.clusterUpdateError': 'Failed to update cluster',
+    'coreMemory.memberRemoved': 'Member removed',
+    'coreMemory.memberRemoveError': 'Failed to remove member',
   },
   
   zh: {
     // App title and brand
     'app.title': 'CCW 控制面板',
     'app.brand': 'Claude Code Workflow',
+
+    // Common
+    'common.view': '查看',
+    'common.edit': '编辑',
+    'common.delete': '删除',
+    'common.cancel': '取消',
+    'common.save': '保存',
+    'common.close': '关闭',
+    'common.loading': '加载中...',
+    'common.error': '错误',
+    'common.success': '成功',
     
     // Header
     'header.project': '项目:',
@@ -1883,6 +1945,10 @@ const i18n = {
     'hook.template.gitAddDesc': '自动暂存写入的文件',
 
     // Hook Quick Install Templates
+    'hook.tpl.sessionContext': 'Session 上下文（启动）',
+    'hook.tpl.sessionContextDesc': '会话启动时加载最近会话（按时间排序）',
+    'hook.tpl.sessionContextContinuous': 'Session 上下文（持续）',
+    'hook.tpl.sessionContextContinuousDesc': '每次提示词时加载意图匹配会话（相似度排序）',
     'hook.tpl.codexlensSync': 'CodexLens 自动同步',
     'hook.tpl.codexlensSyncDesc': '文件写入或编辑时自动更新代码索引',
     'hook.tpl.ccwDashboardNotify': 'CCW 控制面板通知',
@@ -1902,6 +1968,7 @@ const i18n = {
     'hook.category.git': 'Git',
     'hook.category.memory': '记忆',
     'hook.category.skill': '技能',
+    'hook.category.context': '上下文',
 
     // Hook Wizard Templates
     'hook.wizard.memoryUpdate': '记忆更新钩子',
@@ -2393,6 +2460,8 @@ const i18n = {
     'common.edit': '编辑',
     'common.close': '关闭',
     'common.refresh': '刷新',
+    'common.refreshed': '已刷新',
+    'common.refreshing': '刷新中...',
     'common.loading': '加载中...',
     'common.error': '错误',
     'common.success': '成功',
@@ -2455,6 +2524,39 @@ const i18n = {
     'coreMemory.evolutionError': '加载演化历史失败',
     'coreMemory.created': '创建时间',
     'coreMemory.updated': '更新时间',
+
+    // View toggle
+    'coreMemory.memories': '记忆',
+    'coreMemory.clusters': '聚类',
+    'coreMemory.clustersList': '聚类列表',
+    'coreMemory.selectCluster': '选择聚类查看详情',
+    'coreMemory.openSession': '打开 Session',
+    'coreMemory.clickToPreview': '点击预览',
+    'coreMemory.previewError': '加载预览失败',
+    'coreMemory.unknownSessionType': '未知的会话类型',
+
+    // Clustering features
+    'coreMemory.noClusters': '暂无聚类',
+    'coreMemory.autoCluster': '自动聚类',
+    'coreMemory.clusterLoadError': '加载聚类失败',
+    'coreMemory.clusterDetailError': '加载聚类详情失败',
+    'coreMemory.intent': '意图',
+    'coreMemory.sessionTimeline': 'Session 时间线',
+    'coreMemory.relatedClusters': '关联聚类',
+    'coreMemory.noSessions': '此聚类暂无 session',
+    'coreMemory.clusteringInProgress': '聚类进行中...',
+    'coreMemory.clusteringComplete': '创建了 {created} 个聚类，包含 {sessions} 个 session',
+    'coreMemory.clusteringError': '自动聚类失败',
+    'coreMemory.enterClusterName': '请输入聚类名称：',
+    'coreMemory.clusterCreated': '聚类已创建',
+    'coreMemory.clusterCreateError': '创建聚类失败',
+    'coreMemory.confirmDeleteCluster': '确定删除此聚类？',
+    'coreMemory.clusterDeleted': '聚类已删除',
+    'coreMemory.clusterDeleteError': '删除聚类失败',
+    'coreMemory.clusterUpdated': '聚类已更新',
+    'coreMemory.clusterUpdateError': '更新聚类失败',
+    'coreMemory.memberRemoved': '成员已移除',
+    'coreMemory.memberRemoveError': '移除成员失败',
   }
 };
 

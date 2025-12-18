@@ -202,6 +202,46 @@ export async function handleHooksRoutes(ctx: RouteContext): Promise<boolean> {
         resolvedSessionId = extractSessionIdFromPath(filePath);
       }
 
+      // Handle context hooks (session-start, context)
+      if (type === 'session-start' || type === 'context') {
+        try {
+          const projectPath = url.searchParams.get('path') || initialPath;
+          const { SessionClusteringService } = await import('../session-clustering-service.js');
+          const clusteringService = new SessionClusteringService(projectPath);
+
+          const format = url.searchParams.get('format') || 'markdown';
+
+          // Pass type and prompt to getProgressiveIndex
+          // session-start: returns recent sessions by time
+          // context: returns intent-matched sessions based on prompt
+          const index = await clusteringService.getProgressiveIndex({
+            type: type as 'session-start' | 'context',
+            sessionId: resolvedSessionId,
+            prompt: extraData.prompt // Pass user prompt for intent matching
+          });
+
+          // Return context directly
+          return {
+            success: true,
+            type: 'context',
+            format,
+            content: index,
+            sessionId: resolvedSessionId
+          };
+        } catch (error) {
+          console.error('[Hooks] Failed to generate context:', error);
+          // Return empty content on failure (fail silently)
+          return {
+            success: true,
+            type: 'context',
+            format: 'markdown',
+            content: '',
+            sessionId: resolvedSessionId,
+            error: (error as Error).message
+          };
+        }
+      }
+
       // Broadcast to all connected WebSocket clients
       const notification = {
         type: type || 'session_updated',

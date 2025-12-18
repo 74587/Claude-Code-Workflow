@@ -132,6 +132,7 @@ const MODULE_FILES = [
   'views/memory.js',
   'views/core-memory.js',
   'views/core-memory-graph.js',
+  'views/core-memory-clusters.js',
   'views/prompt-history.js',
   'views/skills-manager.js',
   'views/rules-manager.js',

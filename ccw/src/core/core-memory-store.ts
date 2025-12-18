@@ -164,15 +164,58 @@ export class CoreMemoryStore {
   }
 
   /**
-   * Migrate database by removing old tables
+   * Migrate database by removing old tables, views, and triggers
    */
   private migrateDatabase(): void {
     const oldTables = ['knowledge_graph', 'knowledge_graph_edges', 'evolution_history'];
-    for (const table of oldTables) {
+
+    try {
+      // Disable foreign key constraints during migration
+      this.db.pragma('foreign_keys = OFF');
+
+      // Drop any triggers that might reference old tables
+      const triggers = this.db.prepare(
+        `SELECT name FROM sqlite_master WHERE type='trigger'`
+      ).all() as { name: string }[];
+
+      for (const trigger of triggers) {
+        try {
+          this.db.exec(`DROP TRIGGER IF EXISTS "${trigger.name}"`);
+        } catch (e) {
+          // Ignore trigger drop errors
+        }
+      }
+
+      // Drop any views that might reference old tables
+      const views = this.db.prepare(
+        `SELECT name FROM sqlite_master WHERE type='view'`
+      ).all() as { name: string }[];
+
+      for (const view of views) {
+        try {
+          this.db.exec(`DROP VIEW IF EXISTS "${view.name}"`);
+        } catch (e) {
+          // Ignore view drop errors
+        }
+      }
+
+      // Now drop the old tables
+      for (const table of oldTables) {
+        try {
+          this.db.exec(`DROP TABLE IF EXISTS "${table}"`);
+        } catch (e) {
+          // Ignore if table doesn't exist
+        }
+      }
+
+      // Re-enable foreign key constraints
+      this.db.pragma('foreign_keys = ON');
+    } catch (e) {
+      // If migration fails, continue - tables may not exist
       try {
-        this.db.exec(`DROP TABLE IF EXISTS ${table}`);
-      } catch (e) {
-        // Ignore if table doesn't exist
+        this.db.pragma('foreign_keys = ON');
+      } catch (_) {
+        // Ignore
       }
     }
   }
@@ -202,7 +245,10 @@ export class CoreMemoryStore {
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
-    return `CLST-${year}${month}${day}-${hours}${minutes}${seconds}`;
+    const ms = String(now.getMilliseconds()).padStart(3, '0');
+    // Add random 2-digit suffix to ensure uniqueness
+    const random = String(Math.floor(Math.random() * 100)).padStart(2, '0');
+    return `CLST-${year}${month}${day}-${hours}${minutes}${seconds}${ms}${random}`;
   }
 
   /**

@@ -11,7 +11,7 @@ var nodeFilters = {
   CLASS: true,
   FUNCTION: true,
   METHOD: true,
-  VARIABLE: false
+  VARIABLE: true
 };
 var edgeFilters = {
   CALLS: true,
@@ -85,8 +85,17 @@ async function loadGraphData() {
       queryParams.set('module', selectedModule);
     }
 
-    var nodesUrl = '/api/graph/nodes' + (queryParams.toString() ? '?' + queryParams.toString() : '');
-    var edgesUrl = '/api/graph/edges' + (queryParams.toString() ? '?' + queryParams.toString() : '');
+    var queryString = queryParams.toString();
+    var nodesUrl = '/api/graph/nodes' + (queryString ? '?' + queryString : '');
+    var edgesUrl = '/api/graph/edges' + (queryString ? '?' + queryString : '');
+
+    console.log('[Graph] Loading data with filter:', {
+      mode: filterMode,
+      file: selectedFile,
+      module: selectedModule,
+      nodesUrl: nodesUrl,
+      edgesUrl: edgesUrl
+    });
 
     var nodesResp = await fetch(nodesUrl);
     if (!nodesResp.ok) throw new Error('Failed to load graph nodes');
@@ -100,6 +109,13 @@ async function loadGraphData() {
       nodes: nodesData.nodes || [],
       edges: edgesData.edges || []
     };
+
+    console.log('[Graph] Loaded data:', {
+      nodes: graphData.nodes.length,
+      edges: graphData.edges.length,
+      filters: nodesData.filters
+    });
+
     return graphData;
   } catch (err) {
     console.error('Failed to load graph data:', err);
@@ -449,6 +465,38 @@ function initializeCytoscape() {
     }
   });
 
+  // Mouse hover events for nodes
+  cyInstance.on('mouseover', 'node', function(evt) {
+    var node = evt.target;
+    node.addClass('hover');
+    // Highlight connected edges
+    node.connectedEdges().addClass('hover');
+  });
+
+  cyInstance.on('mouseout', 'node', function(evt) {
+    var node = evt.target;
+    node.removeClass('hover');
+    // Remove edge highlights (unless they are highlighted due to selection)
+    node.connectedEdges().removeClass('hover');
+  });
+
+  // Mouse hover events for edges
+  cyInstance.on('mouseover', 'edge', function(evt) {
+    var edge = evt.target;
+    edge.addClass('hover');
+    // Also highlight connected nodes
+    edge.source().addClass('hover');
+    edge.target().addClass('hover');
+  });
+
+  cyInstance.on('mouseout', 'edge', function(evt) {
+    var edge = evt.target;
+    edge.removeClass('hover');
+    // Remove node highlights
+    edge.source().removeClass('hover');
+    edge.target().removeClass('hover');
+  });
+
   // Fit view after layout
   setTimeout(function() {
     fitCytoscape();
@@ -464,6 +512,22 @@ function transformDataForCytoscape() {
     return nodeFilters[type];
   });
 
+  // Create node ID set and name-to-id mapping for edge resolution
+  var nodeIdSet = new Set();
+  var nodeNameToIds = {}; // Map symbol names to their node IDs
+
+  filteredNodes.forEach(function(node) {
+    var nodeId = node.id;
+    nodeIdSet.add(nodeId);
+
+    // Extract symbol name for matching
+    var name = node.name || '';
+    if (!nodeNameToIds[name]) {
+      nodeNameToIds[name] = [];
+    }
+    nodeNameToIds[name].push(nodeId);
+  });
+
   // Add nodes
   filteredNodes.forEach(function(node) {
     elements.push({
@@ -473,8 +537,8 @@ function transformDataForCytoscape() {
         label: node.name || node.id,
         type: node.type || 'MODULE',
         symbolType: node.symbolType,
-        path: node.path,
-        lineNumber: node.lineNumber,
+        path: node.path || node.file,
+        lineNumber: node.lineNumber || node.line,
         imports: node.imports || 0,
         exports: node.exports || 0,
         references: node.references || 0
@@ -482,29 +546,76 @@ function transformDataForCytoscape() {
     });
   });
 
-  // Create node ID set for filtering edges
-  var nodeIdSet = new Set(filteredNodes.map(function(n) { return n.id; }));
-
-  // Filter edges
+  // Filter and resolve edges
   var filteredEdges = graphData.edges.filter(function(edge) {
     var type = edge.type || 'CALLS';
-    return edgeFilters[type] &&
-           nodeIdSet.has(edge.source) &&
-           nodeIdSet.has(edge.target);
+    return edgeFilters[type];
   });
 
-  // Add edges
-  filteredEdges.forEach(function(edge, index) {
-    elements.push({
-      group: 'edges',
-      data: {
-        id: 'edge-' + index,
-        source: edge.source,
-        target: edge.target,
-        type: edge.type || 'CALLS',
-        weight: edge.weight || 1
+  // Process edges with target resolution
+  var edgeCount = 0;
+  filteredEdges.forEach(function(edge) {
+    var sourceId = edge.source;
+    var targetId = edge.target;
+
+    // Check if source exists
+    if (!nodeIdSet.has(sourceId)) {
+      return; // Skip if source node doesn't exist
+    }
+
+    // Try to resolve target
+    var resolvedTargetId = null;
+
+    // 1. Direct match
+    if (nodeIdSet.has(targetId)) {
+      resolvedTargetId = targetId;
+    }
+    // 2. Try to match by qualified name (extract symbol name)
+    else if (targetId) {
+      // Try to extract symbol name from qualified name
+      var targetName = targetId;
+
+      // Handle qualified names like "module.ClassName.methodName" or "file:name:line"
+      if (targetId.includes('.')) {
+        var parts = targetId.split('.');
+        targetName = parts[parts.length - 1]; // Get last part
+      } else if (targetId.includes(':')) {
+        var colonParts = targetId.split(':');
+        if (colonParts.length >= 2) {
+          targetName = colonParts[1]; // file:name:line format
+        }
       }
-    });
+
+      // Look up in name-to-id mapping
+      if (nodeNameToIds[targetName] && nodeNameToIds[targetName].length > 0) {
+        // If multiple matches, prefer one in the same file
+        var sourceFile = edge.sourceFile || '';
+        var matchInSameFile = nodeNameToIds[targetName].find(function(id) {
+          return id.startsWith(sourceFile);
+        });
+        resolvedTargetId = matchInSameFile || nodeNameToIds[targetName][0];
+      }
+    }
+
+    // Only add edge if both source and target are resolved
+    if (resolvedTargetId && sourceId !== resolvedTargetId) {
+      elements.push({
+        group: 'edges',
+        data: {
+          id: 'edge-' + edgeCount++,
+          source: sourceId,
+          target: resolvedTargetId,
+          type: edge.type || 'CALLS',
+          weight: edge.weight || 1
+        }
+      });
+    }
+  });
+
+  console.log('[Graph] Transformed elements:', {
+    nodes: filteredNodes.length,
+    edges: edgeCount,
+    totalRawEdges: filteredEdges.length
   });
 
   return elements;
@@ -512,47 +623,80 @@ function transformDataForCytoscape() {
 
 function getCytoscapeStyles() {
   var styles = [
-    // Node styles by type
+    // Node styles by type - no label by default
     {
       selector: 'node',
       style: {
         'background-color': function(ele) {
           return NODE_COLORS[ele.data('type')] || '#6B7280';
         },
-        'label': 'data(label)',
+        'label': '',  // No label by default
         'width': function(ele) {
           var refs = ele.data('references') || 0;
-          return Math.max(16, Math.min(48, 16 + refs * 1.5));
+          return Math.max(20, Math.min(48, 20 + refs * 1.5));
         },
         'height': function(ele) {
           var refs = ele.data('references') || 0;
-          return Math.max(16, Math.min(48, 16 + refs * 1.5));
+          return Math.max(20, Math.min(48, 20 + refs * 1.5));
         },
-        'text-valign': 'center',
-        'text-halign': 'center',
-        'font-size': '8px',
-        'color': '#000',
-        'text-outline-color': '#fff',
-        'text-outline-width': 1.5,
+        'border-width': 2,
+        'border-color': function(ele) {
+          var color = NODE_COLORS[ele.data('type')] || '#6B7280';
+          return darkenColor(color, 20);
+        },
         'overlay-padding': 6
       }
     },
-    // Selected node
+    // Hovered node - show label
+    {
+      selector: 'node.hover',
+      style: {
+        'label': 'data(label)',
+        'text-valign': 'top',
+        'text-halign': 'center',
+        'text-margin-y': -8,
+        'font-size': '11px',
+        'font-weight': 'bold',
+        'color': '#1f2937',
+        'text-outline-color': '#fff',
+        'text-outline-width': 2,
+        'text-background-color': '#fff',
+        'text-background-opacity': 0.9,
+        'text-background-padding': '4px',
+        'text-background-shape': 'roundrectangle',
+        'z-index': 999
+      }
+    },
+    // Selected node - show label
     {
       selector: 'node:selected',
       style: {
-        'border-width': 3,
+        'label': 'data(label)',
+        'border-width': 4,
         'border-color': '#000',
+        'text-valign': 'top',
+        'text-halign': 'center',
+        'text-margin-y': -8,
+        'font-size': '11px',
+        'font-weight': 'bold',
+        'color': '#1f2937',
+        'text-outline-color': '#fff',
+        'text-outline-width': 2,
+        'text-background-color': '#fff',
+        'text-background-opacity': 0.9,
+        'text-background-padding': '4px',
+        'text-background-shape': 'roundrectangle',
         'overlay-color': '#000',
-        'overlay-opacity': 0.2
+        'overlay-opacity': 0.2,
+        'z-index': 999
       }
     },
-    // Edge styles by type
+    // Edge styles by type - enhanced visibility
     {
       selector: 'edge',
       style: {
         'width': function(ele) {
-          return Math.max(1, ele.data('weight') || 1);
+          return Math.max(2, (ele.data('weight') || 1) * 1.5);
         },
         'line-color': function(ele) {
           return EDGE_COLORS[ele.data('type')] || '#6B7280';
@@ -562,8 +706,27 @@ function getCytoscapeStyles() {
         },
         'target-arrow-shape': 'triangle',
         'curve-style': 'bezier',
-        'arrow-scale': 1.2,
-        'opacity': 0.6
+        'arrow-scale': 1.5,
+        'opacity': 0.8,
+        'z-index': 1
+      }
+    },
+    // Hovered edge
+    {
+      selector: 'edge.hover',
+      style: {
+        'width': 4,
+        'opacity': 1,
+        'z-index': 100
+      }
+    },
+    // Highlighted edge (connected to selected node)
+    {
+      selector: 'edge.highlighted',
+      style: {
+        'width': 3,
+        'opacity': 1,
+        'z-index': 50
       }
     },
     // Selected edge
@@ -572,13 +735,24 @@ function getCytoscapeStyles() {
       style: {
         'line-color': '#000',
         'target-arrow-color': '#000',
-        'width': 3,
-        'opacity': 1
+        'width': 4,
+        'opacity': 1,
+        'z-index': 100
       }
     }
   ];
 
   return styles;
+}
+
+// Helper function to darken a color
+function darkenColor(hex, percent) {
+  var num = parseInt(hex.replace('#', ''), 16);
+  var amt = Math.round(2.55 * percent);
+  var R = Math.max(0, (num >> 16) - amt);
+  var G = Math.max(0, ((num >> 8) & 0x00FF) - amt);
+  var B = Math.max(0, (num & 0x0000FF) - amt);
+  return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
 }
 
 // ========== Node Selection ==========
@@ -847,21 +1021,14 @@ async function switchDataSource(source) {
   }
 
   // Update stats display
-  var statsSpans = document.querySelectorAll('.graph-stats');
-  if (statsSpans.length >= 2) {
-    statsSpans[0].innerHTML = '<i data-lucide="circle" class="w-3 h-3"></i> ' +
-      graphData.nodes.length + ' ' + t('graph.nodes');
-    statsSpans[1].innerHTML = '<i data-lucide="arrow-right" class="w-3 h-3"></i> ' +
-      graphData.edges.length + ' ' + t('graph.edges');
-    if (window.lucide) lucide.createIcons();
-  }
+  updateGraphStats();
 
-  // Refresh Cytoscape with new data
+  // Reinitialize Cytoscape with new data
   if (cyInstance) {
-    refreshCytoscape();
-  } else {
-    initializeCytoscape();
+    cyInstance.destroy();
+    cyInstance = null;
   }
+  initializeCytoscape();
 
   // Show toast notification
   if (window.showToast) {
@@ -876,18 +1043,50 @@ async function refreshGraphData() {
     showToast(t('common.refreshing'), 'info');
   }
 
+  // Show loading state in container
+  var container = document.getElementById('cytoscapeContainer');
+  if (container) {
+    container.innerHTML = '<div class="cytoscape-empty">' +
+      '<i data-lucide="loader-2" class="w-8 h-8 animate-spin"></i>' +
+      '<p>' + t('common.loading') + '</p>' +
+      '</div>';
+    if (window.lucide) lucide.createIcons();
+  }
+
+  // Load data based on source
   if (activeDataSource === 'memory') {
     await loadCoreMemoryGraphData();
   } else {
     await loadGraphData();
   }
 
-  if (activeTab === 'graph' && cyInstance) {
-    refreshCytoscape();
+  // Update stats display
+  updateGraphStats();
+
+  // Reinitialize Cytoscape with new data
+  if (cyInstance) {
+    cyInstance.destroy();
+    cyInstance = null;
+  }
+
+  if (activeTab === 'graph') {
+    initializeCytoscape();
   }
 
   if (window.showToast) {
     showToast(t('common.refreshed'), 'success');
+  }
+}
+
+// Update graph statistics display
+function updateGraphStats() {
+  var statsSpans = document.querySelectorAll('.graph-stats');
+  if (statsSpans.length >= 2) {
+    statsSpans[0].innerHTML = '<i data-lucide="circle" class="w-3 h-3"></i> ' +
+      graphData.nodes.length + ' ' + t('graph.nodes');
+    statsSpans[1].innerHTML = '<i data-lucide="arrow-right" class="w-3 h-3"></i> ' +
+      graphData.edges.length + ' ' + t('graph.edges');
+    if (window.lucide) lucide.createIcons();
   }
 }
 
@@ -915,6 +1114,7 @@ function cleanupGraphExplorer() {
 
 // ========== Scope Filter Actions ==========
 async function changeScopeMode(mode) {
+  console.log('[Graph] Changing scope mode to:', mode);
   filterMode = mode;
   selectedFile = null;
   selectedModule = null;
@@ -936,6 +1136,7 @@ async function changeScopeMode(mode) {
 }
 
 async function selectModule(modulePath) {
+  console.log('[Graph] Selecting module:', modulePath);
   selectedModule = modulePath;
   if (modulePath) {
     await refreshGraphData();
@@ -943,6 +1144,7 @@ async function selectModule(modulePath) {
 }
 
 async function selectFile(filePath) {
+  console.log('[Graph] Selecting file:', filePath);
   selectedFile = filePath;
   if (filePath) {
     await refreshGraphData();
