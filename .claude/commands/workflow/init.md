@@ -86,6 +86,7 @@ bash(cp .workflow/project.json .workflow/project.json.backup)
 ```javascript
 Task(
   subagent_type="cli-explore-agent",
+  run_in_background=false,
   description="Deep project analysis",
   prompt=`
 Analyze project for workflow initialization and generate .workflow/project.json.

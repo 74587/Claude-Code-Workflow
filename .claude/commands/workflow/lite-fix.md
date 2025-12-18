@@ -164,6 +164,7 @@ Launching ${selectedAngles.length} parallel diagnoses...
 const diagnosisTasks = selectedAngles.map((angle, index) =>
   Task(
     subagent_type="cli-explore-agent",
+    run_in_background=false,
     description=`Diagnose: ${angle}`,
     prompt=`
 ## Task Objective
@@ -400,6 +401,7 @@ Write(`${sessionFolder}/fix-plan.json`, JSON.stringify(fixPlan, null, 2))
 ```javascript
 Task(
   subagent_type="cli-lite-planning-agent",
+  run_in_background=false,
   description="Generate detailed fix plan",
   prompt=`
 Generate fix plan and write fix-plan.json.

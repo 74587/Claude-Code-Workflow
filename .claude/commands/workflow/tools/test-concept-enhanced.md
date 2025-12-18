@@ -76,6 +76,7 @@ Phase 3: Output Validation (Command)
 ```javascript
 Task(
   subagent_type="cli-execution-agent",
+  run_in_background=false,
   description="Analyze test coverage gaps and generate test strategy",
   prompt=`
 ## TASK OBJECTIVE

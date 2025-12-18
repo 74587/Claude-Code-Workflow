@@ -81,6 +81,7 @@ ELSE:
 **Framework-Based Analysis** (when guidance-specification.md exists):
 ```bash
 Task(subagent_type="conceptual-planning-agent",
+     run_in_background=false,
      prompt="Generate system architect analysis addressing topic framework
 
      ## Framework Integration Required
@@ -136,6 +137,7 @@ Task(subagent_type="conceptual-planning-agent",
 # For existing analysis updates
 IF update_mode = "incremental":
     Task(subagent_type="conceptual-planning-agent",
+         run_in_background=false,
          prompt="Update existing system architect analysis
 
          ## Current Analysis Context

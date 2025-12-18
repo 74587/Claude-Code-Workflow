@@ -333,6 +333,7 @@ Complete each task according to its "Done when" checklist.
 
 Task(
   subagent_type="code-developer",
+  run_in_background=false,
   description=batch.taskSummary,
   prompt=formatBatchPrompt({
     tasks: batch.tasks,

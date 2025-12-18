@@ -121,6 +121,7 @@ const sessionFolder = `.workflow/active/${session_id}/.process`;
 const explorationTasks = selectedAngles.map((angle, index) =>
   Task(
     subagent_type="cli-explore-agent",
+    run_in_background=false,
     description=`Explore: ${angle}`,
     prompt=`
 ## Task Objective
@@ -215,6 +216,7 @@ Write(`${sessionFolder}/explorations-manifest.json`, JSON.stringify(explorationM
 ```javascript
 Task(
   subagent_type="context-search-agent",
+  run_in_background=false,
   description="Gather comprehensive context for plan",
   prompt=`
 ## Execution Mode

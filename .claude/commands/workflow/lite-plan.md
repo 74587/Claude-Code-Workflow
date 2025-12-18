@@ -388,6 +388,7 @@ Write(`${sessionFolder}/plan.json`, JSON.stringify(plan, null, 2))
 ```javascript
 Task(
   subagent_type="cli-lite-planning-agent",
+  run_in_background=false,
   description="Generate detailed implementation plan",
   prompt=`
 Generate implementation plan and write plan.json.
@@ -432,10 +433,11 @@ Generate plan.json following the schema obtained above. Key constraints:
 
 ## Execution
 1. Read schema file (cat command above)
-2. Read ALL exploration files for comprehensive context
-3. Synthesize findings and generate plan following schema
-4. Write JSON: Write('${sessionFolder}/plan.json', jsonContent)
-5. Return brief completion summary
+2. Execute CLI planning using Gemini (Qwen fallback)
+3. Read ALL exploration files for comprehensive context
+4. Synthesize findings and generate plan following schema
+5. Write JSON: Write('${sessionFolder}/plan.json', jsonContent)
+6. Return brief completion summary
 `
 )
 ```

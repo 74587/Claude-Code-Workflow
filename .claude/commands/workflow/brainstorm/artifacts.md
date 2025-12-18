@@ -128,6 +128,7 @@ for (let i = 0; i < allQuestions.length; i += BATCH_SIZE) {
 ```javascript
 Task(
   subagent_type="context-search-agent",
+  run_in_background=false,
   description="Gather project context for brainstorm",
   prompt=`
 Execute context-search-agent in BRAINSTORM MODE (Phase 1-2 only).

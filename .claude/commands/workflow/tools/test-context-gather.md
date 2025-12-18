@@ -86,6 +86,7 @@ if (file_exists(testContextPath)) {
 ```javascript
 Task(
   subagent_type="test-context-search-agent",
+  run_in_background=false,
   description="Gather test coverage context",
   prompt=`
 You are executing as test-context-search-agent (.claude/agents/test-context-search-agent.md).

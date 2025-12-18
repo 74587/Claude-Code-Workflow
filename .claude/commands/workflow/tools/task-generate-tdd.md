@@ -194,6 +194,7 @@ const templatePath = hasCliExecuteFlag
 ```javascript
 Task(
   subagent_type="action-planning-agent",
+  run_in_background=false,
   description="Generate TDD task JSON and implementation plan",
   prompt=`
 ## Execution Context

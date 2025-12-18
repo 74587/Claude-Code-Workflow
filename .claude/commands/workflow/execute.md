@@ -380,6 +380,7 @@ TodoWrite({
 
 ```bash
 Task(subagent_type="{meta.agent}",
+     run_in_background=false,
      prompt="Execute task: {task.title}
 
      {[FLOW_CONTROL]}

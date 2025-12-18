@@ -108,7 +108,7 @@ Phase 4: Apply Modifications
 
 **Agent Delegation**:
 ```javascript
-Task(subagent_type="cli-execution-agent", prompt=`
+Task(subagent_type="cli-execution-agent", run_in_background=false, prompt=`
   ## Context
   - Session: {session_id}
   - Risk: {conflict_risk}

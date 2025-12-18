@@ -401,6 +401,7 @@ git log --since="${sessionCreatedAt}" --name-only --pretty=format: | sort -u
 ```javascript
 Task(
   subagent_type="cli-explore-agent",
+  run_in_background=false,
   description=`Execute ${dimension} review analysis via Deep Scan`,
   prompt=`
     ## Task Objective
@@ -487,6 +488,7 @@ Task(
 ```javascript
 Task(
   subagent_type="cli-explore-agent",
+  run_in_background=false,
   description=`Deep-dive analysis for critical finding: ${findingTitle} via Dependency Map + Deep Scan`,
   prompt=`
     ## Task Objective

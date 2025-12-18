@@ -161,6 +161,7 @@ echo "[Phase 1] Starting parallel agent analysis (3 agents)"
 
 ```javascript
 Task(subagent_type="ui-design-agent",
+     run_in_background=false,
      prompt="[STYLE_TOKENS_EXTRACTION]
   Extract visual design tokens from code files using code import extraction pattern.
 
@@ -276,6 +277,7 @@ Task(subagent_type="ui-design-agent",
 
 ```javascript
 Task(subagent_type="ui-design-agent",
+     run_in_background=false,
      prompt="[ANIMATION_TOKEN_GENERATION_TASK]
   Extract animation tokens from code files using code import extraction pattern.
 
@@ -355,6 +357,7 @@ Task(subagent_type="ui-design-agent",
 
 ```javascript
 Task(subagent_type="ui-design-agent",
+     run_in_background=false,
      prompt="[LAYOUT_TEMPLATE_GENERATION_TASK]
   Extract layout patterns from code files using code import extraction pattern.
 

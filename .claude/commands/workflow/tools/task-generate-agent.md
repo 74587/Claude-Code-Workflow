@@ -218,6 +218,7 @@ const userConfig = {
 ```javascript
 Task(
   subagent_type="action-planning-agent",
+  run_in_background=false,
   description="Generate planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md)",
   prompt=`
 ## TASK OBJECTIVE
@@ -344,6 +345,7 @@ Hard Constraints:
 const planningTasks = modules.map(module =>
   Task(
     subagent_type="action-planning-agent",
+    run_in_background=false,
     description=`Generate ${module.name} module task JSONs`,
     prompt=`
 ## TASK OBJECTIVE
@@ -424,6 +426,7 @@ const moduleResults = await Promise.all(planningTasks);
 // Launch +1 Coordinator Agent
 Task(
   subagent_type="action-planning-agent",
+  run_in_background=false,
   description="Integrate module tasks and generate unified documents",
   prompt=`
 ## TASK OBJECTIVE

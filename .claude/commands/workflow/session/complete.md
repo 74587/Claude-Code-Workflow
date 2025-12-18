@@ -70,6 +70,7 @@ Invoke `universal-executor` agent to analyze session and prepare archive metadat
 ```
 Task(
   subagent_type="universal-executor",
+  run_in_background=false,
   description="Analyze session for archival",
   prompt=`
 Analyze workflow session for archival preparation. Session is STILL in active location.

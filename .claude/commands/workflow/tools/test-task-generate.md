@@ -94,6 +94,7 @@ Phase 2: Test Document Generation (Agent)
 ```javascript
 Task(
   subagent_type="action-planning-agent",
+  run_in_background=false,
   description="Generate test planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md)",
   prompt=`
 ## TASK OBJECTIVE

@@ -221,6 +221,7 @@ return "conservative";
 ```javascript
 Task(
   subagent_type="cli-planning-agent",
+  run_in_background=false,
   description=`Analyze test failures (iteration ${N}) - ${strategy} strategy`,
   prompt=`
     ## Task Objective
@@ -271,6 +272,7 @@ Task(
 ```javascript
 Task(
   subagent_type="test-fix-agent",
+  run_in_background=false,
   description=`Execute ${task.meta.type}: ${task.title}`,
   prompt=`
     ## Task Objective
