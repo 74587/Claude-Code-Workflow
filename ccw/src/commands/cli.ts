@@ -402,14 +402,16 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
     finalPrompt = positionalPrompt;
   }
 
-  if (!finalPrompt) {
+  // Prompt is required unless resuming
+  if (!finalPrompt && !resume) {
     console.error(chalk.red('Error: Prompt is required'));
     console.error(chalk.gray('Usage: ccw cli -p "<prompt>" --tool gemini'));
     console.error(chalk.gray('   or: ccw cli -f prompt.txt --tool codex'));
+    console.error(chalk.gray('   or: ccw cli --resume --tool gemini'));
     process.exit(1);
   }
 
-  const prompt_to_use = finalPrompt;
+  const prompt_to_use = finalPrompt || '';
 
   // Parse resume IDs for merge scenario
   const resumeIds = resume && typeof resume === 'string' ? resume.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -679,14 +681,14 @@ export async function cliCommand(
 
     default: {
       const execOptions = options as CliExecOptions;
-      // Auto-exec if: has -p/--prompt, has --stdin, has --resume, or subcommand looks like a prompt
+      // Auto-exec if: has -p/--prompt, has -f/--file, has --resume, or subcommand looks like a prompt
       const hasPromptOption = !!execOptions.prompt;
-      const hasStdin = !!execOptions.stdin;
+      const hasFileOption = !!execOptions.file;
       const hasResume = execOptions.resume !== undefined;
       const subcommandIsPrompt = subcommand && !subcommand.startsWith('-');
 
-      if (hasPromptOption || hasStdin || hasResume || subcommandIsPrompt) {
-        // Treat as exec: use subcommand as positional prompt if no -p option
+      if (hasPromptOption || hasFileOption || hasResume || subcommandIsPrompt) {
+        // Treat as exec: use subcommand as positional prompt if no -p/-f option
         const positionalPrompt = subcommandIsPrompt ? subcommand : undefined;
         await execAction(positionalPrompt, execOptions);
       } else {
@@ -694,38 +696,32 @@ export async function cliCommand(
         console.log(chalk.bold.cyan('\n  CCW CLI Tool Executor\n'));
         console.log('  Unified interface for Gemini, Qwen, and Codex CLI tools.\n');
         console.log('  Usage:');
-        console.log(chalk.gray('    ccw cli -p "<prompt>" --tool <tool>     Direct execution (recommended)'));
-        console.log(chalk.gray('    ccw cli "<prompt>" --tool <tool>        Shorthand'));
-        console.log(chalk.gray('    ccw cli exec "<prompt>" --tool <tool>   Explicit exec'));
+        console.log(chalk.gray('    ccw cli -p "<prompt>" --tool <tool>     Execute with prompt'));
+        console.log(chalk.gray('    ccw cli -f prompt.txt --tool <tool>     Execute from file'));
         console.log();
         console.log('  Subcommands:');
         console.log(chalk.gray('    status              Check CLI tools availability'));
         console.log(chalk.gray('    storage [cmd]       Manage CCW storage (info/clean/config)'));
-        console.log(chalk.gray('    exec <prompt>       Execute a CLI tool (optional, default behavior)'));
         console.log(chalk.gray('    history             Show execution history'));
         console.log(chalk.gray('    detail <id>         Show execution detail'));
         console.log(chalk.gray('    test-parse [args]   Debug CLI argument parsing'));
         console.log();
-        console.log('  Exec Options:');
-        console.log(chalk.gray('    -p, --prompt <text> Prompt text (preferred for multi-line)'));
+        console.log('  Options:');
+        console.log(chalk.gray('    -p, --prompt <text> Prompt text'));
         console.log(chalk.gray('    -f, --file <file>   Read prompt from file'));
-        console.log(chalk.gray('    --stdin             Read prompt from stdin'));
-        console.log(chalk.gray('    --tool <tool>       Tool to use: gemini, qwen, codex (default: gemini)'));
+        console.log(chalk.gray('    --tool <tool>       Tool: gemini, qwen, codex (default: gemini)'));
         console.log(chalk.gray('    --mode <mode>       Mode: analysis, write, auto (default: analysis)'));
         console.log(chalk.gray('    --model <model>     Model override'));
         console.log(chalk.gray('    --cd <path>         Working directory'));
-        console.log(chalk.gray('    --includeDirs <dirs>  Additional directories (comma-separated)'));
-        console.log(chalk.gray('    ccw cli -ps>      Timeout in milliseconds (default: 300000)'));
-        console.log(chalk.gray('    --no-stream         Disable streaming output'));
+        console.log(chalk.gray('    --includeDirs <dirs>  Additional directories'));
+        console.log(chalk.gray('    --timeout <ms>      Timeout (default: 300000)'));
         console.log(chalk.gray('    --resume [id]       Resume previous session'));
-        console.log(chalk.gray('    --id <id>           Custom execution ID'));
         console.log();
         console.log('  Examples:');
         console.log(chalk.gray('    ccw cli -p "Analyze auth module" --tool gemini'));
-        console.log(chalk.gray('    ccw cli "Simple prompt" --tool codex --mode write'));
-        console.log(chalk.gray('    ccw cli -p "$(cat prompt.txt)" --tool gemini'));
+        console.log(chalk.gray('    ccw cli -f prompt.txt --tool codex --mode write'));
+        console.log(chalk.gray('    ccw cli -p "$(cat template.md)" --tool gemini'));
         console.log(chalk.gray('    ccw cli --resume --tool gemini'));
-        console.log(chalk.gray('    ccw cli history --tool gemini --limit 10'));
         console.log();
       }
     }

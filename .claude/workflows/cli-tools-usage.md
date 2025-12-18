@@ -139,9 +139,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 - Recommended MODE: `analysis` (read-only) for analysis tasks, `write` for file creation
 - Priority: Prefer Gemini; use Qwen as fallback
 
-**Models** (override via `--model`):
-- Gemini: `gemini-2.5-pro`
-- Qwen: `coder-model`, `vision-model`
+
 
 **Error Handling**: HTTP 429 may show error but still return results - check if results exist
 
@@ -154,19 +152,25 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 - Best for: Implementation, testing, automation, bug fixes
 - No default MODE - must explicitly specify `--mode analysis` or `--mode write`
 
-**Models**: `gpt-5.2`
 
 ### Session Resume
 
-**Resume via `--resume` parameter**:
+**When to Use**:
+- Multi-round planning (analysis → planning → implementation)
+- Multi-model collaboration (Gemini → Codex on same topic)
+- Topic continuity (building on previous findings)
+
+**Usage**:
 
 ```bash
-ccw cli -p "Continue analyzing" --tool gemini --mode analysis --resume              # Resume last session
-ccw cli -p "Fix issues found" --tool codex --mode write --resume <id>           # Resume specific session
+ccw cli -p "Continue analyzing" --tool gemini --mode analysis --resume              # Resume last
+ccw cli -p "Fix issues found" --tool codex --mode write --resume <id>              # Resume specific
+ccw cli -p "Merge findings" --tool gemini --mode analysis --resume <id1>,<id2>     # Merge multiple
 ```
 
-- **`--resume` (empty)**: Resume most recent session
-- **`--resume <id>`**: Resume specific execution ID
+- **`--resume`**: Last session
+- **`--resume <id>`**: Specific session
+- **`--resume <id1>,<id2>`**: Merge sessions (comma-separated)
 
 **Context Assembly** (automatic):
 ```
@@ -222,7 +226,6 @@ Every command MUST include these fields:
   - Components: $(cat protocol) + $(cat template) + domain rules
   - Bad Example: (missing)
   - Good Example: "$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/analysis/03-assess-security-risks.txt) \| Focus on authentication \| Ignore test files"
-
 
 ### CONTEXT Configuration
 
@@ -291,15 +294,6 @@ ccw cli -p 'RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-pr
 
 # ✗ WRONG - escaped $ prevents expansion
 ccw cli -p "RULES: \$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ..." --tool gemini
-```
-
-**Examples**:
-```bash
-# Specific template (preferred)
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt) | Focus on auth | analysis=READ-ONLY
-
-# Universal fallback (when no specific template matches)
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-rigorous-style.txt) | Focus on security patterns | analysis=READ-ONLY
 ```
 
 ### Template System
@@ -375,10 +369,6 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-ri
 - **`--resume [id]`**
   - Description: Resume previous session
   - Default: -
-
-- **`--no-stream`**
-  - Description: Disable streaming
-  - Default: false
 
 ### Directory Configuration
 
@@ -500,10 +490,6 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 
 **Codex Multiplier**: 3x allocated time (minimum 15min / 900000ms)
 
-```bash
-ccw cli -p "<prompt>" --tool gemini --mode analysis --timeout 600000   # 10 min
-ccw cli -p "<prompt>" --tool codex --mode write --timeout 1800000   # 30 min
-```
 
 ### Permission Framework
 
@@ -527,13 +513,6 @@ ccw cli -p "<prompt>" --tool codex --mode write --timeout 1800000   # 30 min
 - **Leverage memory context** when building on previous work
 - **Discover patterns first** - Use rg/MCP before CLI execution
 - **Default to full context** - Use `@**/*` unless specific files needed
-
-### Workflow Integration
-
-- **Understanding**: `ccw cli -p "<prompt>" --tool gemini --mode analysis`
-- **Architecture**: `ccw cli -p "<prompt>" --tool gemini --mode analysis`
-- **Implementation**: `ccw cli -p "<prompt>" --tool codex --mode write`
-- **Quality**: `ccw cli -p "<prompt>" --tool codex --mode write`
 
 ### Planning Checklist
 
