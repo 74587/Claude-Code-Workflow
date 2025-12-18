@@ -1,6 +1,54 @@
 // Core Memory View
 // Manages strategic context entries with knowledge graph and evolution tracking
 
+// Notification function
+function showNotification(message, type = 'info') {
+  // Create notification container if it doesn't exist
+  let container = document.getElementById('notificationContainer');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'notificationContainer';
+    container.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px;';
+    document.body.appendChild(container);
+  }
+
+  // Create notification element
+  const notification = document.createElement('div');
+  const bgColors = {
+    success: 'hsl(var(--success))',
+    error: 'hsl(var(--destructive))',
+    warning: 'hsl(var(--warning))',
+    info: 'hsl(var(--info))'
+  };
+
+  notification.style.cssText = `
+    background: ${bgColors[type] || bgColors.info};
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    max-width: 350px;
+    animation: slideInRight 0.3s ease-out;
+    font-size: 14px;
+    line-height: 1.5;
+  `;
+  notification.textContent = message;
+
+  // Add to container
+  container.appendChild(notification);
+
+  // Auto remove after 3 seconds
+  setTimeout(() => {
+    notification.style.animation = 'slideOutRight 0.3s ease-out';
+    setTimeout(() => {
+      container.removeChild(notification);
+      if (container.children.length === 0) {
+        document.body.removeChild(container);
+      }
+    }, 300);
+  }, 3000);
+}
+
 // State for visualization (prefixed to avoid collision with memory.js)
 var coreMemGraphSvg = null;
 var coreMemGraphGroup = null;
