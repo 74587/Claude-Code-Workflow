@@ -30,7 +30,9 @@ const MODULE_CSS_FILES = [
   '12-skills-rules.css',
   '13-claude-manager.css',
   '14-graph-explorer.css',
-  '15-mcp-manager.css'
+  '15-mcp-manager.css',
+  '16-help.css',
+  '17-core-memory.css'
 ];
 
 const MODULE_FILES = [
@@ -56,6 +58,8 @@ const MODULE_FILES = [
   'components/mcp-manager.js',
   'components/hook-manager.js',
   'components/version-check.js',
+  'components/storage-manager.js',
+  'components/index-manager.js',
   'views/home.js',
   'views/project-overview.js',
   'views/session-detail.js',
@@ -69,6 +73,14 @@ const MODULE_FILES = [
   'views/hook-manager.js',
   'views/history.js',
   'views/graph-explorer.js',
+  'views/memory.js',
+  'views/core-memory.js',
+  'views/core-memory-graph.js',
+  'views/prompt-history.js',
+  'views/skills-manager.js',
+  'views/rules-manager.js',
+  'views/claude-manager.js',
+  'views/help.js',
   'main.js'
 ];
 

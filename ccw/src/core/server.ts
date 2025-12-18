@@ -9,6 +9,7 @@ import { resolvePath, getRecentPaths, normalizePathForDisplay } from '../utils/p
 import { handleStatusRoutes } from './routes/status-routes.js';
 import { handleCliRoutes } from './routes/cli-routes.js';
 import { handleMemoryRoutes } from './routes/memory-routes.js';
+import { handleCoreMemoryRoutes } from './routes/core-memory-routes.js';
 import { handleMcpRoutes } from './routes/mcp-routes.js';
 import { handleHooksRoutes } from './routes/hooks-routes.js';
 import { handleCodexLensRoutes } from './routes/codexlens-routes.js';
@@ -259,8 +260,8 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         if (await handleCliRoutes(routeContext)) return;
       }
 
-      // Claude CLAUDE.md routes (/api/memory/claude/*)
-      if (pathname.startsWith('/api/memory/claude/')) {
+      // Claude CLAUDE.md routes (/api/memory/claude/*) and Language routes (/api/language/*)
+      if (pathname.startsWith('/api/memory/claude/') || pathname.startsWith('/api/language/')) {
         if (await handleClaudeRoutes(routeContext)) return;
       }
 
@@ -268,6 +269,12 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       if (pathname.startsWith('/api/memory/')) {
         if (await handleMemoryRoutes(routeContext)) return;
       }
+
+      // Core Memory routes (/api/core-memory/*)
+      if (pathname.startsWith('/api/core-memory/')) {
+        if (await handleCoreMemoryRoutes(routeContext)) return;
+      }
+
 
       // MCP routes (/api/mcp*, /api/codex-mcp*)
       if (pathname.startsWith('/api/mcp') || pathname.startsWith('/api/codex-mcp')) {

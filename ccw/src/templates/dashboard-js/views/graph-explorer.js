@@ -5,6 +5,7 @@
 var graphData = { nodes: [], edges: [] };
 var cyInstance = null;
 var activeTab = 'graph';
+var activeDataSource = 'code';
 var nodeFilters = {
   MODULE: true,
   CLASS: true,
@@ -90,6 +91,43 @@ async function loadGraphData() {
   }
 }
 
+async function loadCoreMemoryGraphData() {
+  try {
+    var response = await fetch('/api/core-memory/graph');
+    if (!response.ok) throw new Error('Failed to load core memory graph data');
+    var data = await response.json();
+
+    graphData = {
+      nodes: (data.nodes || []).map(function(node) {
+        return {
+          id: node.id || node.name,
+          name: node.name || node.label || node.id,
+          type: node.type || 'MODULE',
+          symbolType: node.symbol_type || node.symbolType,
+          path: node.path || node.file_path,
+          lineNumber: node.line_number || node.lineNumber,
+          imports: node.imports || 0,
+          exports: node.exports || 0,
+          references: node.references || 0
+        };
+      }),
+      edges: (data.edges || []).map(function(edge) {
+        return {
+          source: edge.source || edge.from,
+          target: edge.target || edge.to,
+          type: edge.type || edge.relation_type || 'CALLS',
+          weight: edge.weight || 1
+        };
+      })
+    };
+    return graphData;
+  } catch (err) {
+    console.error('Failed to load core memory graph data:', err);
+    graphData = { nodes: [], edges: [] };
+    return graphData;
+  }
+}
+
 async function loadSearchProcessData() {
   try {
     var response = await fetch('/api/graph/search-process');
@@ -154,6 +192,10 @@ function renderGraphView() {
     '<i data-lucide="arrow-right" class="w-3 h-3"></i> ' +
     graphData.edges.length + ' ' + t('graph.edges') +
     '</span>' +
+    '<select id="dataSourceSelect" onchange="switchDataSource(this.value)" class="data-source-select">' +
+    '<option value="code" ' + (activeDataSource === 'code' ? 'selected' : '') + '>' + t('graph.codeRelations') + '</option>' +
+    '<option value="memory" ' + (activeDataSource === 'memory' ? 'selected' : '') + '>' + t('graph.coreMemory') + '</option>' +
+    '</select>' +
     '</div>' +
     '<div class="graph-toolbar-right">' +
     '<button class="btn-icon" onclick="fitCytoscape()" title="' + t('graph.fitView') + '">' +
@@ -715,13 +757,62 @@ function closeImpactModal() {
   }
 }
 
+// ========== Data Source Switching ==========
+async function switchDataSource(source) {
+  activeDataSource = source;
+
+  // Show loading state
+  var container = document.getElementById('cytoscapeContainer');
+  if (container) {
+    container.innerHTML = '<div class="cytoscape-empty">' +
+      '<i data-lucide="loader-2" class="w-8 h-8 animate-spin"></i>' +
+      '<p>' + t('common.loading') + '</p>' +
+      '</div>';
+    if (window.lucide) lucide.createIcons();
+  }
+
+  // Load data based on source
+  if (source === 'memory') {
+    await loadCoreMemoryGraphData();
+  } else {
+    await loadGraphData();
+  }
+
+  // Update stats display
+  var statsSpans = document.querySelectorAll('.graph-stats');
+  if (statsSpans.length >= 2) {
+    statsSpans[0].innerHTML = '<i data-lucide="circle" class="w-3 h-3"></i> ' +
+      graphData.nodes.length + ' ' + t('graph.nodes');
+    statsSpans[1].innerHTML = '<i data-lucide="arrow-right" class="w-3 h-3"></i> ' +
+      graphData.edges.length + ' ' + t('graph.edges');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  // Refresh Cytoscape with new data
+  if (cyInstance) {
+    refreshCytoscape();
+  } else {
+    initializeCytoscape();
+  }
+
+  // Show toast notification
+  if (window.showToast) {
+    var sourceName = source === 'memory' ? t('graph.coreMemory') : t('graph.codeRelations');
+    showToast(t('graph.dataSourceSwitched') + ': ' + sourceName, 'success');
+  }
+}
+
 // ========== Data Refresh ==========
 async function refreshGraphData() {
   if (window.showToast) {
     showToast(t('common.refreshing'), 'info');
   }
 
-  await loadGraphData();
+  if (activeDataSource === 'memory') {
+    await loadCoreMemoryGraphData();
+  } else {
+    await loadGraphData();
+  }
 
   if (activeTab === 'graph' && cyInstance) {
     refreshCytoscape();

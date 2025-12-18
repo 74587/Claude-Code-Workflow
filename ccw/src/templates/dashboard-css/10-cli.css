@@ -3552,6 +3552,29 @@
   box-shadow: 0 0 0 2px hsl(var(--ring) / 0.5);
 }
 
+/* Language Setting Status Badge */
+.cli-setting-status {
+  margin-left: 0.75rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+.cli-setting-status.enabled {
+  background: hsl(var(--primary) / 0.15);
+  color: hsl(var(--primary));
+}
+
+.cli-setting-status.disabled {
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+}
+
 /* Ghost button variant for destructive actions */
 .btn-ghost.text-destructive {
   color: hsl(var(--destructive));

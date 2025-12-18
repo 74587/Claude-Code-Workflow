@@ -1285,6 +1285,30 @@
   color: hsl(var(--muted-foreground));
 }
 
+/* Data Source Selector */
+.data-source-select {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+}
+
+.data-source-select:hover {
+  background: hsl(var(--hover));
+  border-color: hsl(var(--primary) / 0.3);
+}
+
+.data-source-select:focus {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.1);
+}
+
 .btn-icon {
   display: flex;
   align-items: center;

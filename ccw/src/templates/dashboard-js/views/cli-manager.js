@@ -297,10 +297,6 @@ async function renderCliManager() {
   if (statsGrid) statsGrid.style.display = 'none';
   if (searchInput) searchInput.parentElement.style.display = 'none';
 
-  // Show storage card (only visible in CLI Manager view)
-  var storageCard = document.getElementById('storageCard');
-  if (storageCard) storageCard.style.display = '';
-
   // Load data (including CodexLens status for tools section)
   await Promise.all([
     loadCliToolStatus(),
@@ -314,19 +310,28 @@ async function renderCliManager() {
     '<div class="cli-section" id="tools-section"></div>' +
     '<div class="cli-section" id="ccw-section"></div>' +
     '</div>' +
+    '<div class="cli-section" id="language-settings-section" style="margin-top: 1.5rem;"></div>' +
     '<div class="cli-settings-section" id="cli-settings-section" style="margin-top: 1.5rem;"></div>' +
     '<div class="cli-section" id="ccw-endpoint-tools-section" style="margin-top: 1.5rem;"></div>' +
-    '</div>';
+    '</div>' +
+    '<section id="storageCard" class="mb-6"></section>' +
+    '<section id="indexCard" class="mb-6"></section>';
 
   // Render sub-panels
   renderToolsSection();
   renderCcwSection();
+  renderLanguageSettingsSection();
   renderCliSettingsSection();
   renderCcwEndpointToolsSection();
 
   // Initialize storage manager card
   if (typeof initStorageManager === 'function') {
     initStorageManager();
+  }
+
+  // Initialize index manager card
+  if (typeof initIndexManager === 'function') {
+    initIndexManager();
   }
 
   // Initialize Lucide icons
@@ -501,6 +506,94 @@ function renderCcwSection() {
     '</div>' +
     installationsHtml;
 
+  if (window.lucide) lucide.createIcons();
+}
+
+// ========== Language Settings State ==========
+var chineseResponseEnabled = false;
+var chineseResponseLoading = false;
+
+// ========== Language Settings Section ==========
+async function loadLanguageSettings() {
+  try {
+    var response = await fetch('/api/language/chinese-response');
+    if (!response.ok) throw new Error('Failed to load language settings');
+    var data = await response.json();
+    chineseResponseEnabled = data.enabled || false;
+    return data;
+  } catch (err) {
+    console.error('Failed to load language settings:', err);
+    chineseResponseEnabled = false;
+    return { enabled: false, guidelinesExists: false };
+  }
+}
+
+async function toggleChineseResponse(enabled) {
+  if (chineseResponseLoading) return;
+  chineseResponseLoading = true;
+
+  try {
+    var response = await fetch('/api/language/chinese-response', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: enabled })
+    });
+
+    if (!response.ok) {
+      var errData = await response.json();
+      throw new Error(errData.error || 'Failed to update setting');
+    }
+
+    var data = await response.json();
+    chineseResponseEnabled = data.enabled;
+
+    // Update UI
+    renderLanguageSettingsSection();
+
+    // Show toast
+    showRefreshToast(enabled ? t('lang.enableSuccess') : t('lang.disableSuccess'), 'success');
+  } catch (err) {
+    console.error('Failed to toggle Chinese response:', err);
+    showRefreshToast(enabled ? t('lang.enableFailed') : t('lang.disableFailed'), 'error');
+  } finally {
+    chineseResponseLoading = false;
+  }
+}
+
+async function renderLanguageSettingsSection() {
+  var container = document.getElementById('language-settings-section');
+  if (!container) return;
+
+  // Load current state if not loaded
+  if (!chineseResponseEnabled && !chineseResponseLoading) {
+    await loadLanguageSettings();
+  }
+
+  var settingsHtml = '<div class="section-header">' +
+      '<div class="section-header-left">' +
+        '<h3><i data-lucide="languages" class="w-4 h-4"></i> ' + t('lang.settings') + '</h3>' +
+      '</div>' +
+    '</div>' +
+    '<div class="cli-settings-grid" style="grid-template-columns: 1fr;">' +
+      '<div class="cli-setting-item">' +
+        '<label class="cli-setting-label">' +
+          '<i data-lucide="message-square-text" class="w-3 h-3"></i>' +
+          t('lang.chinese') +
+        '</label>' +
+        '<div class="cli-setting-control">' +
+          '<label class="cli-toggle">' +
+            '<input type="checkbox"' + (chineseResponseEnabled ? ' checked' : '') + ' onchange="toggleChineseResponse(this.checked)"' + (chineseResponseLoading ? ' disabled' : '') + '>' +
+            '<span class="cli-toggle-slider"></span>' +
+          '</label>' +
+          '<span class="cli-setting-status ' + (chineseResponseEnabled ? 'enabled' : 'disabled') + '">' +
+            (chineseResponseEnabled ? t('lang.enabled') : t('lang.disabled')) +
+          '</span>' +
+        '</div>' +
+        '<p class="cli-setting-desc">' + t('lang.chineseDesc') + '</p>' +
+      '</div>' +
+    '</div>';
+
+  container.innerHTML = settingsHtml;
   if (window.lucide) lucide.createIcons();
 }
 

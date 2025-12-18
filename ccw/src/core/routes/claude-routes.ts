@@ -800,5 +800,127 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
+  // API: Get Chinese response setting status
+  if (pathname === '/api/language/chinese-response' && req.method === 'GET') {
+    try {
+      const userClaudePath = join(homedir(), '.claude', 'CLAUDE.md');
+      const chineseRefPattern = /@.*chinese-response\.md/i;
+
+      let enabled = false;
+      let guidelinesPath = '';
+
+      // Check if user CLAUDE.md exists and contains Chinese response reference
+      if (existsSync(userClaudePath)) {
+        const content = readFileSync(userClaudePath, 'utf8');
+        enabled = chineseRefPattern.test(content);
+      }
+
+      // Find guidelines file path (project or user level)
+      const projectGuidelinesPath = join(initialPath, '.claude', 'workflows', 'chinese-response.md');
+      const userGuidelinesPath = join(homedir(), '.claude', 'workflows', 'chinese-response.md');
+
+      if (existsSync(projectGuidelinesPath)) {
+        guidelinesPath = projectGuidelinesPath;
+      } else if (existsSync(userGuidelinesPath)) {
+        guidelinesPath = userGuidelinesPath;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        enabled,
+        guidelinesPath,
+        guidelinesExists: !!guidelinesPath,
+        userClaudeMdExists: existsSync(userClaudePath)
+      }));
+      return true;
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (error as Error).message }));
+      return true;
+    }
+  }
+
+  // API: Toggle Chinese response setting
+  if (pathname === '/api/language/chinese-response' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body: any) => {
+      const { enabled } = body;
+
+      if (typeof enabled !== 'boolean') {
+        return { error: 'Missing or invalid enabled parameter', status: 400 };
+      }
+
+      try {
+        const userClaudePath = join(homedir(), '.claude', 'CLAUDE.md');
+        const userClaudeDir = join(homedir(), '.claude');
+
+        // Find guidelines file path
+        const projectGuidelinesPath = join(initialPath, '.claude', 'workflows', 'chinese-response.md');
+        const userGuidelinesPath = join(homedir(), '.claude', 'workflows', 'chinese-response.md');
+
+        let guidelinesRef = '';
+        if (existsSync(projectGuidelinesPath)) {
+          // Use project-level guidelines with absolute path
+          guidelinesRef = projectGuidelinesPath.replace(/\\/g, '/');
+        } else if (existsSync(userGuidelinesPath)) {
+          // Use user-level guidelines with ~ shorthand
+          guidelinesRef = '~/.claude/workflows/chinese-response.md';
+        } else {
+          return { error: 'Chinese response guidelines file not found', status: 404 };
+        }
+
+        const chineseRefLine = `- **中文回复准则**: @${guidelinesRef}`;
+        const chineseRefPattern = /^- \*\*中文回复准则\*\*:.*chinese-response\.md.*$/gm;
+
+        // Ensure user .claude directory exists
+        if (!existsSync(userClaudeDir)) {
+          const fs = require('fs');
+          fs.mkdirSync(userClaudeDir, { recursive: true });
+        }
+
+        let content = '';
+        if (existsSync(userClaudePath)) {
+          content = readFileSync(userClaudePath, 'utf8');
+        } else {
+          // Create new CLAUDE.md with header
+          content = '# Claude Instructions\n\n';
+        }
+
+        if (enabled) {
+          // Check if reference already exists
+          if (chineseRefPattern.test(content)) {
+            return { success: true, message: 'Already enabled' };
+          }
+
+          // Add reference after the header line or at the beginning
+          const headerMatch = content.match(/^# Claude Instructions\n\n?/);
+          if (headerMatch) {
+            const insertPosition = headerMatch[0].length;
+            content = content.slice(0, insertPosition) + chineseRefLine + '\n' + content.slice(insertPosition);
+          } else {
+            // Add header and reference
+            content = '# Claude Instructions\n\n' + chineseRefLine + '\n' + content;
+          }
+        } else {
+          // Remove reference
+          content = content.replace(chineseRefPattern, '').replace(/\n{3,}/g, '\n\n').trim();
+          if (content) content += '\n';
+        }
+
+        writeFileSync(userClaudePath, content, 'utf8');
+
+        // Broadcast update
+        broadcastToClients({
+          type: 'LANGUAGE_SETTING_CHANGED',
+          data: { chineseResponse: enabled }
+        });
+
+        return { success: true, enabled };
+      } catch (error) {
+        return { error: (error as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
   return false;
 }

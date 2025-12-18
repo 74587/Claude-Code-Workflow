@@ -10,6 +10,7 @@ import { toolCommand } from './commands/tool.js';
 import { sessionCommand } from './commands/session.js';
 import { cliCommand } from './commands/cli.js';
 import { memoryCommand } from './commands/memory.js';
+import { coreMemoryCommand } from './commands/core-memory.js';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -192,6 +193,21 @@ export function run(argv: string[]): void {
     .option('--older-than <age>', 'Age threshold for pruning', '30d')
     .option('--dry-run', 'Preview without deleting')
     .action((subcommand, args, options) => memoryCommand(subcommand, args, options));
+
+  // Core Memory command
+  program
+    .command('core-memory [subcommand] [args...]')
+    .description('Manage core memory entries for strategic context')
+    .option('--id <id>', 'Memory ID')
+    .option('--all', 'Archive all memories')
+    .option('--before <date>', 'Archive memories before date (YYYY-MM-DD)')
+    .option('--interactive', 'Interactive selection')
+    .option('--archived', 'List archived memories')
+    .option('--limit <n>', 'Number of results', '50')
+    .option('--json', 'Output as JSON')
+    .option('--force', 'Skip confirmation')
+    .option('--tool <tool>', 'Tool to use for summary: gemini, qwen', 'gemini')
+    .action((subcommand, args, options) => coreMemoryCommand(subcommand, args, options));
 
   program.parse(argv);
 }

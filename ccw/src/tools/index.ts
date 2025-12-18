@@ -21,6 +21,7 @@ import * as smartSearchMod from './smart-search.js';
 import { executeInitWithProgress } from './smart-search.js';
 // codex_lens removed - functionality integrated into smart_search
 import * as readFileMod from './read-file.js';
+import * as coreMemoryMod from './core-memory.js';
 import type { ProgressInfo } from './codex-lens.js';
 
 // Import legacy JS tools
@@ -355,6 +356,7 @@ registerTool(toLegacyTool(cliExecutorMod));
 registerTool(toLegacyTool(smartSearchMod));
 // codex_lens removed - functionality integrated into smart_search
 registerTool(toLegacyTool(readFileMod));
+registerTool(toLegacyTool(coreMemoryMod));
 
 // Register legacy JS tools
 registerTool(uiGeneratePreviewTool);
