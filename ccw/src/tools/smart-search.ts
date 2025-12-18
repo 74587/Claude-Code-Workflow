@@ -349,7 +349,7 @@ async function executeInitAction(params: Params): Promise<SearchResult> {
 
   const result = await executeCodexLens(args, {
     cwd: path,
-    timeout: 300000,
+    timeout: 1800000, // 30 minutes for large codebases
     onProgress: (progress: ProgressInfo) => {
       progressUpdates.push(progress);
       lastProgress = progress;
@@ -1170,7 +1170,7 @@ export async function executeInitWithProgress(
 
   const result = await executeCodexLens(args, {
     cwd: path,
-    timeout: 300000,
+    timeout: 1800000, // 30 minutes for large codebases
     onProgress: (progress: ProgressInfo) => {
       progressUpdates.push(progress);
       lastProgress = progress;

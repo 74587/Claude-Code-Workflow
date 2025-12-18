@@ -428,7 +428,7 @@ function parseProgressLine(line: string): ProgressInfo | null {
  * @returns Execution result
  */
 async function executeCodexLens(args: string[], options: ExecuteOptions = {}): Promise<ExecuteResult> {
-  const { timeout = 60000, cwd = process.cwd(), onProgress } = options;
+  const { timeout = 300000, cwd = process.cwd(), onProgress } = options; // Default 5 min
 
   // Ensure ready
   const readyStatus = await ensureReady();

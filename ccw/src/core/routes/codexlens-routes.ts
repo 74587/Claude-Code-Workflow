@@ -36,6 +36,18 @@ function stripAnsiCodes(str: string): string {
 }
 
 /**
+ * Format file size to human readable string
+ */
+function formatSize(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const k = 1024;
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const size = parseFloat((bytes / Math.pow(k, i)).toFixed(i < 2 ? 0 : 1));
+  return size + ' ' + units[i];
+}
+
+/**
  * Extract JSON from CLI output that may contain logging messages
  * CodexLens CLI outputs logs like "INFO ..." before the JSON
  * Also strips ANSI color codes that Rich library adds
@@ -61,6 +73,143 @@ function extractJSON(output: string): any {
  */
 export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean> {
   const { pathname, url, req, res, initialPath, handlePostRequest, broadcastToClients } = ctx;
+
+  // API: CodexLens Index List - Get all indexed projects with details
+  if (pathname === '/api/codexlens/indexes') {
+    try {
+      // First get config to find index directory
+      const configResult = await executeCodexLens(['config', '--json']);
+      let indexDir = '';
+
+      if (configResult.success) {
+        try {
+          const config = extractJSON(configResult.output);
+          if (config.success && config.result) {
+            indexDir = config.result.index_root || '';
+          }
+        } catch (e) {
+          console.error('[CodexLens] Failed to parse config for index list:', e.message);
+        }
+      }
+
+      // Get detailed status including projects
+      const statusResult = await executeCodexLens(['status', '--json']);
+      let indexes: any[] = [];
+      let totalSize = 0;
+      let vectorIndexCount = 0;
+      let normalIndexCount = 0;
+
+      if (statusResult.success) {
+        try {
+          const status = extractJSON(statusResult.output);
+          if (status.success && status.result) {
+            const projectsCount = status.result.projects_count || 0;
+
+            // Try to get project list from index directory
+            if (indexDir) {
+              const { readdirSync, statSync, existsSync } = await import('fs');
+              const { join } = await import('path');
+              const { homedir } = await import('os');
+
+              // Expand ~ in path
+              const expandedDir = indexDir.startsWith('~')
+                ? join(homedir(), indexDir.slice(1))
+                : indexDir;
+
+              if (existsSync(expandedDir)) {
+                try {
+                  const entries = readdirSync(expandedDir, { withFileTypes: true });
+
+                  for (const entry of entries) {
+                    if (entry.isDirectory()) {
+                      const projectDir = join(expandedDir, entry.name);
+                      let projectSize = 0;
+                      let hasVectorIndex = false;
+                      let hasNormalIndex = false;
+                      let fileCount = 0;
+                      let lastModified = null;
+
+                      try {
+                        // Check for index files
+                        const projectFiles = readdirSync(projectDir);
+                        for (const file of projectFiles) {
+                          const filePath = join(projectDir, file);
+                          try {
+                            const stat = statSync(filePath);
+                            projectSize += stat.size;
+                            fileCount++;
+                            if (!lastModified || stat.mtime > lastModified) {
+                              lastModified = stat.mtime;
+                            }
+
+                            // Check index type
+                            if (file.includes('vector') || file.includes('embedding') || file.endsWith('.faiss') || file.endsWith('.npy')) {
+                              hasVectorIndex = true;
+                            }
+                            if (file.includes('fts') || file.endsWith('.db') || file.endsWith('.sqlite')) {
+                              hasNormalIndex = true;
+                            }
+                          } catch (e) {
+                            // Skip files we can't stat
+                          }
+                        }
+                      } catch (e) {
+                        // Can't read project directory
+                      }
+
+                      if (hasVectorIndex) vectorIndexCount++;
+                      if (hasNormalIndex) normalIndexCount++;
+                      totalSize += projectSize;
+
+                      indexes.push({
+                        id: entry.name,
+                        path: projectDir,
+                        size: projectSize,
+                        sizeFormatted: formatSize(projectSize),
+                        fileCount,
+                        hasVectorIndex,
+                        hasNormalIndex,
+                        lastModified: lastModified ? lastModified.toISOString() : null
+                      });
+                    }
+                  }
+
+                  // Sort by last modified (most recent first)
+                  indexes.sort((a, b) => {
+                    if (!a.lastModified) return 1;
+                    if (!b.lastModified) return -1;
+                    return new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime();
+                  });
+                } catch (e) {
+                  console.error('[CodexLens] Failed to read index directory:', e.message);
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[CodexLens] Failed to parse status for index list:', e.message);
+        }
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        indexDir,
+        indexes,
+        summary: {
+          totalProjects: indexes.length,
+          totalSize,
+          totalSizeFormatted: formatSize(totalSize),
+          vectorIndexCount,
+          normalIndexCount
+        }
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+    return true;
+  }
 
   // API: CodexLens Status
   if (pathname === '/api/codexlens/status') {
@@ -227,7 +376,7 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
       try {
         const result = await executeCodexLens(['init', targetPath, '--json'], {
           cwd: targetPath,
-          timeout: 300000, // 5 minutes
+          timeout: 1800000, // 30 minutes for large codebases
           onProgress: (progress: ProgressInfo) => {
             // Broadcast progress to all connected clients
             broadcastToClients({
