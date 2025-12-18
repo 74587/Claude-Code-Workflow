@@ -542,44 +542,41 @@ async function deleteModel(profile) {
 // ============================================================
 
 /**
- * Initialize CodexLens index with progress tracking
+ * Initialize CodexLens index with bottom floating progress bar
  */
 function initCodexLensIndex() {
-  // Create progress modal
-  var modal = document.createElement('div');
-  modal.id = 'codexlensIndexModal';
-  modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
-  modal.innerHTML =
-    '<div class="bg-card rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">' +
-      '<div class="p-6">' +
-        '<div class="flex items-center gap-3 mb-4">' +
-          '<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">' +
-            '<i data-lucide="database" class="w-5 h-5 text-primary"></i>' +
-          '</div>' +
-          '<div>' +
-            '<h3 class="text-lg font-semibold">' + t('codexlens.indexing') + '</h3>' +
-            '<p class="text-sm text-muted-foreground">' + t('codexlens.indexingDesc') + '</p>' +
+  // Remove existing progress bar if any
+  closeCodexLensIndexModal();
+
+  // Create bottom floating progress bar
+  var progressBar = document.createElement('div');
+  progressBar.id = 'codexlensIndexFloating';
+  progressBar.className = 'fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border shadow-lg transform transition-transform duration-300';
+  progressBar.innerHTML =
+    '<div class="max-w-4xl mx-auto px-4 py-3">' +
+      '<div class="flex items-center justify-between gap-4">' +
+        '<div class="flex items-center gap-3 flex-1 min-w-0">' +
+          '<div class="animate-spin w-5 h-5 border-2 border-primary border-t-transparent rounded-full flex-shrink-0" id="codexlensIndexSpinner"></div>' +
+          '<div class="flex-1 min-w-0">' +
+            '<div class="flex items-center gap-2">' +
+              '<span class="font-medium text-sm">' + t('codexlens.indexing') + '</span>' +
+              '<span class="text-xs text-muted-foreground" id="codexlensIndexPercent">0%</span>' +
+            '</div>' +
+            '<div class="text-xs text-muted-foreground truncate" id="codexlensIndexStatus">' + t('codexlens.preparingIndex') + '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="space-y-4">' +
-          '<div id="codexlensIndexProgress">' +
-            '<div class="flex items-center gap-3">' +
-              '<div class="animate-spin w-5 h-5 border-2 border-primary border-t-transparent rounded-full"></div>' +
-              '<span class="text-sm" id="codexlensIndexStatus">' + t('codexlens.preparingIndex') + '</span>' +
-            '</div>' +
-            '<div class="mt-3 h-2 bg-muted rounded-full overflow-hidden">' +
-              '<div id="codexlensIndexProgressBar" class="h-full bg-primary transition-all duration-300" style="width: 0%"></div>' +
-            '</div>' +
-            '<div class="mt-2 text-xs text-muted-foreground" id="codexlensIndexDetails"></div>' +
+        '<div class="flex-1 max-w-xs hidden sm:block">' +
+          '<div class="h-2 bg-muted rounded-full overflow-hidden">' +
+            '<div id="codexlensIndexProgressBar" class="h-full bg-primary transition-all duration-300 ease-out" style="width: 0%"></div>' +
           '</div>' +
         '</div>' +
-      '</div>' +
-      '<div class="border-t border-border p-4 flex justify-end gap-3 bg-muted/30">' +
-        '<button class="btn-outline px-4 py-2" id="codexlensIndexCancelBtn" onclick="cancelCodexLensIndex()">' + t('common.cancel') + '</button>' +
+        '<button class="p-1.5 hover:bg-muted rounded-md transition-colors flex-shrink-0" onclick="closeCodexLensIndexModal()" title="' + t('common.close') + '">' +
+          '<i data-lucide="x" class="w-4 h-4"></i>' +
+        '</button>' +
       '</div>' +
     '</div>';
 
-  document.body.appendChild(modal);
+  document.body.appendChild(progressBar);
   if (window.lucide) lucide.createIcons();
 
   // Start indexing
@@ -592,35 +589,36 @@ function initCodexLensIndex() {
 async function startCodexLensIndexing() {
   var statusText = document.getElementById('codexlensIndexStatus');
   var progressBar = document.getElementById('codexlensIndexProgressBar');
-  var detailsText = document.getElementById('codexlensIndexDetails');
-  var cancelBtn = document.getElementById('codexlensIndexCancelBtn');
+  var percentText = document.getElementById('codexlensIndexPercent');
+  var spinner = document.getElementById('codexlensIndexSpinner');
 
   // Setup WebSocket listener for progress events
-  window.codexlensIndexProgressHandler = function(event) {
-    if (event.type === 'CODEXLENS_INDEX_PROGRESS') {
-      var payload = event.payload;
-      if (statusText) statusText.textContent = payload.message || t('codexlens.indexing');
-      if (progressBar) progressBar.style.width = (payload.percent || 0) + '%';
-      if (detailsText && payload.filesProcessed !== undefined) {
-        detailsText.textContent = t('codexlens.filesProcessed') + ': ' + payload.filesProcessed +
-          (payload.totalFiles ? ' / ' + payload.totalFiles : '');
-      }
+  window.codexlensIndexProgressHandler = function(data) {
+    var payload = data.payload || data;
+    console.log('[CodexLens] Progress event received:', payload);
 
-      // Handle completion
-      if (payload.stage === 'complete') {
-        handleIndexComplete(true, payload.message);
-      } else if (payload.stage === 'error') {
-        handleIndexComplete(false, payload.message);
-      }
+    if (statusText) statusText.textContent = payload.message || t('codexlens.indexing');
+    if (progressBar) progressBar.style.width = (payload.percent || 0) + '%';
+    if (percentText) percentText.textContent = (payload.percent || 0) + '%';
+
+    // Handle completion
+    if (payload.stage === 'complete') {
+      handleIndexComplete(true, payload.message);
+    } else if (payload.stage === 'error') {
+      handleIndexComplete(false, payload.message);
     }
   };
 
-  // Register with notification system if available
+  // Register with notification system
   if (typeof registerWsEventHandler === 'function') {
     registerWsEventHandler('CODEXLENS_INDEX_PROGRESS', window.codexlensIndexProgressHandler);
+    console.log('[CodexLens] Registered WebSocket progress handler');
+  } else {
+    console.warn('[CodexLens] registerWsEventHandler not available');
   }
 
   try {
+    console.log('[CodexLens] Starting index for:', projectPath);
     var response = await fetch('/api/codexlens/init', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -628,12 +626,16 @@ async function startCodexLensIndexing() {
     });
 
     var result = await response.json();
+    console.log('[CodexLens] Init result:', result);
 
-    if (!result.success && statusText) {
-      // If WebSocket didn't report error, show it now
+    // Check if completed successfully (WebSocket might have already reported)
+    if (result.success) {
+      handleIndexComplete(true, t('codexlens.indexComplete'));
+    } else if (!result.success) {
       handleIndexComplete(false, result.error || t('common.unknownError'));
     }
   } catch (err) {
+    console.error('[CodexLens] Init error:', err);
     handleIndexComplete(false, err.message);
   }
 }
@@ -644,21 +646,32 @@ async function startCodexLensIndexing() {
 function handleIndexComplete(success, message) {
   var statusText = document.getElementById('codexlensIndexStatus');
   var progressBar = document.getElementById('codexlensIndexProgressBar');
-  var cancelBtn = document.getElementById('codexlensIndexCancelBtn');
+  var percentText = document.getElementById('codexlensIndexPercent');
+  var spinner = document.getElementById('codexlensIndexSpinner');
+  var floatingBar = document.getElementById('codexlensIndexFloating');
 
   // Unregister WebSocket handler
-  if (typeof unregisterWsEventHandler === 'function') {
+  if (typeof unregisterWsEventHandler === 'function' && window.codexlensIndexProgressHandler) {
     unregisterWsEventHandler('CODEXLENS_INDEX_PROGRESS', window.codexlensIndexProgressHandler);
   }
 
   if (success) {
     if (progressBar) progressBar.style.width = '100%';
+    if (percentText) percentText.textContent = '100%';
     if (statusText) statusText.textContent = t('codexlens.indexComplete');
-    if (cancelBtn) cancelBtn.textContent = t('common.close');
+    if (spinner) {
+      spinner.classList.remove('animate-spin', 'border-primary');
+      spinner.classList.add('border-green-500');
+      spinner.innerHTML = '<i data-lucide="check" class="w-5 h-5 text-green-500"></i>';
+      if (window.lucide) lucide.createIcons();
+    }
+    if (floatingBar) {
+      floatingBar.classList.add('bg-green-500/10');
+    }
 
     showRefreshToast(t('codexlens.indexSuccess'), 'success');
 
-    // Auto-close after 2 seconds
+    // Auto-close after 3 seconds
     setTimeout(function() {
       closeCodexLensIndexModal();
       // Refresh status
@@ -668,29 +681,37 @@ function handleIndexComplete(success, message) {
           if (window.lucide) lucide.createIcons();
         });
       }
-    }, 2000);
+    }, 3000);
   } else {
-    if (progressBar) progressBar.classList.add('bg-destructive');
-    if (statusText) statusText.textContent = t('codexlens.indexFailed') + ': ' + message;
-    if (cancelBtn) cancelBtn.textContent = t('common.close');
+    if (progressBar) {
+      progressBar.classList.remove('bg-primary');
+      progressBar.classList.add('bg-destructive');
+    }
+    if (statusText) statusText.textContent = message || t('codexlens.indexFailed');
+    if (spinner) {
+      spinner.classList.remove('animate-spin', 'border-primary');
+      spinner.innerHTML = '<i data-lucide="alert-circle" class="w-5 h-5 text-destructive"></i>';
+      if (window.lucide) lucide.createIcons();
+    }
+    if (floatingBar) {
+      floatingBar.classList.add('bg-destructive/10');
+    }
 
     showRefreshToast(t('codexlens.indexFailed') + ': ' + message, 'error');
   }
 }
 
 /**
- * Cancel indexing
- */
-function cancelCodexLensIndex() {
-  closeCodexLensIndexModal();
-}
-
-/**
- * Close index modal
+ * Close floating progress bar
  */
 function closeCodexLensIndexModal() {
-  var modal = document.getElementById('codexlensIndexModal');
-  if (modal) modal.remove();
+  var floatingBar = document.getElementById('codexlensIndexFloating');
+  if (floatingBar) {
+    floatingBar.classList.add('translate-y-full');
+    setTimeout(function() {
+      floatingBar.remove();
+    }, 300);
+  }
 
   // Unregister WebSocket handler
   if (typeof unregisterWsEventHandler === 'function' && window.codexlensIndexProgressHandler) {
