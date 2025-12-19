@@ -18,6 +18,9 @@ const SOURCE_DIRS = ['.claude', '.codex', '.gemini', '.qwen'];
 // Subdirectories that should always be installed to global (~/.claude/)
 const GLOBAL_SUBDIRS = ['workflows', 'scripts', 'templates'];
 
+// Files that should be excluded from installation (user-specific settings)
+const EXCLUDED_FILES = ['settings.json', 'settings.local.json'];
+
 interface InstallOptions {
   mode?: string;
   path?: string;
@@ -359,20 +362,28 @@ function getNewInstallationFiles(sourceDir: string, installPath: string, mode: s
  * @param destDir - Destination directory
  * @param files - Set to add file paths to
  * @param excludeDirs - Directories to exclude
+ * @param excludeFiles - Files to exclude
  */
-function collectFilesRecursive(srcDir: string, destDir: string, files: Set<string>, excludeDirs: string[] = []): void {
+function collectFilesRecursive(
+  srcDir: string,
+  destDir: string,
+  files: Set<string>,
+  excludeDirs: string[] = [],
+  excludeFiles: string[] = EXCLUDED_FILES
+): void {
   if (!existsSync(srcDir)) return;
 
   const entries = readdirSync(srcDir);
   for (const entry of entries) {
     if (excludeDirs.includes(entry)) continue;
+    if (excludeFiles.includes(entry)) continue;
 
     const srcPath = join(srcDir, entry);
     const destPath = join(destDir, entry);
     const stat = statSync(srcPath);
 
     if (stat.isDirectory()) {
-      collectFilesRecursive(srcPath, destPath, files);
+      collectFilesRecursive(srcPath, destPath, files, [], excludeFiles);
     } else {
       files.add(destPath.toLowerCase().replace(/\\/g, '/'));
     }
@@ -491,7 +502,8 @@ async function copyDirectory(
   src: string,
   dest: string,
   manifest: any = null,
-  excludeDirs: string[] = []
+  excludeDirs: string[] = [],
+  excludeFiles: string[] = EXCLUDED_FILES
 ): Promise<CopyResult> {
   let files = 0;
   let directories = 0;
@@ -511,12 +523,17 @@ async function copyDirectory(
       continue;
     }
 
+    // Skip excluded files
+    if (excludeFiles.includes(entry)) {
+      continue;
+    }
+
     const srcPath = join(src, entry);
     const destPath = join(dest, entry);
     const stat = statSync(srcPath);
 
     if (stat.isDirectory()) {
-      const result = await copyDirectory(srcPath, destPath, manifest);
+      const result = await copyDirectory(srcPath, destPath, manifest, [], excludeFiles);
       files += result.files;
       directories += result.directories;
     } else {

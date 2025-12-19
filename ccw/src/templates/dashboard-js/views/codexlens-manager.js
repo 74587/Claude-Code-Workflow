@@ -554,8 +554,11 @@ async function deleteModel(profile) {
 
 /**
  * Initialize CodexLens index with bottom floating progress bar
+ * @param {string} indexType - 'vector' (with embeddings) or 'normal' (FTS only)
  */
-function initCodexLensIndex() {
+function initCodexLensIndex(indexType) {
+  indexType = indexType || 'vector';
+
   // Remove existing progress bar if any
   closeCodexLensIndexModal();
 
@@ -563,6 +566,7 @@ function initCodexLensIndex() {
   var progressBar = document.createElement('div');
   progressBar.id = 'codexlensIndexFloating';
   progressBar.className = 'fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border shadow-lg transform transition-transform duration-300';
+  var indexTypeLabel = indexType === 'vector' ? 'Vector' : 'FTS';
   progressBar.innerHTML =
     '<div class="max-w-4xl mx-auto px-4 py-3">' +
       '<div class="flex items-center justify-between gap-4">' +
@@ -570,7 +574,7 @@ function initCodexLensIndex() {
           '<div class="animate-spin w-5 h-5 border-2 border-primary border-t-transparent rounded-full flex-shrink-0" id="codexlensIndexSpinner"></div>' +
           '<div class="flex-1 min-w-0">' +
             '<div class="flex items-center gap-2">' +
-              '<span class="font-medium text-sm">' + t('codexlens.indexing') + '</span>' +
+              '<span class="font-medium text-sm">' + t('codexlens.indexing') + ' (' + indexTypeLabel + ')</span>' +
               '<span class="text-xs text-muted-foreground" id="codexlensIndexPercent">0%</span>' +
             '</div>' +
             '<div class="text-xs text-muted-foreground truncate" id="codexlensIndexStatus">' + t('codexlens.preparingIndex') + '</div>' +
@@ -590,14 +594,16 @@ function initCodexLensIndex() {
   document.body.appendChild(progressBar);
   if (window.lucide) lucide.createIcons();
 
-  // Start indexing
-  startCodexLensIndexing();
+  // Start indexing with specified type
+  startCodexLensIndexing(indexType);
 }
 
 /**
  * Start the indexing process
+ * @param {string} indexType - 'vector' or 'normal'
  */
-async function startCodexLensIndexing() {
+async function startCodexLensIndexing(indexType) {
+  indexType = indexType || 'vector';
   var statusText = document.getElementById('codexlensIndexStatus');
   var progressBar = document.getElementById('codexlensIndexProgressBar');
   var percentText = document.getElementById('codexlensIndexPercent');
@@ -629,11 +635,11 @@ async function startCodexLensIndexing() {
   }
 
   try {
-    console.log('[CodexLens] Starting index for:', projectPath);
+    console.log('[CodexLens] Starting index for:', projectPath, 'type:', indexType);
     var response = await fetch('/api/codexlens/init', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: projectPath })
+      body: JSON.stringify({ path: projectPath, indexType: indexType })
     });
 
     var result = await response.json();

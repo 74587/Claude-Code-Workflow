@@ -326,7 +326,8 @@ function buildRipgrepCommand(params: {
 }
 
 /**
- * Action: init - Initialize CodexLens index
+ * Action: init - Initialize CodexLens index (FTS only, no embeddings)
+ * For semantic/vector search, use ccw view dashboard or codexlens CLI directly
  */
 async function executeInitAction(params: Params): Promise<SearchResult> {
   const { path = '.', languages } = params;
@@ -340,7 +341,8 @@ async function executeInitAction(params: Params): Promise<SearchResult> {
     };
   }
 
-  const args = ['init', path];
+  // Build args with --no-embeddings for FTS-only index (faster)
+  const args = ['init', path, '--no-embeddings'];
   if (languages && languages.length > 0) {
     args.push('--languages', languages.join(','));
   }
@@ -379,12 +381,14 @@ async function executeInitAction(params: Params): Promise<SearchResult> {
     metadata.progressHistory = progressUpdates.slice(-5); // Keep last 5 progress updates
   }
 
+  const successMessage = result.success
+    ? `FTS index created for ${path}. Note: For semantic/vector search, create vector index via "ccw view" dashboard or run "codexlens init ${path}" (without --no-embeddings).`
+    : undefined;
+
   return {
     success: result.success,
     error: result.error,
-    message: result.success
-      ? `CodexLens index created successfully for ${path}`
-      : undefined,
+    message: successMessage,
     metadata,
   };
 }
@@ -923,7 +927,7 @@ export const schema: ToolSchema = {
 
 **Quick Start:**
   smart_search(query="authentication logic")           # Auto mode (intelligent routing)
-  smart_search(action="init", path=".")                # Initialize index (required for hybrid)
+  smart_search(action="init", path=".")                # Initialize FTS index (fast, no embeddings)
   smart_search(action="status")                        # Check index status
 
 **Five Modes:**
@@ -934,7 +938,7 @@ export const schema: ToolSchema = {
 
   2. hybrid: CodexLens RRF fusion (exact + fuzzy + vector)
      - Best quality, semantic understanding
-     - Requires index with embeddings
+     - Requires index with embeddings (create via "ccw view" dashboard)
 
   3. exact: CodexLens FTS (full-text search)
      - Precise keyword matching
@@ -950,21 +954,21 @@ export const schema: ToolSchema = {
 
 **Actions:**
   - search (default): Intelligent search with auto routing
-  - init: Create CodexLens index (required for hybrid/exact)
+  - init: Create FTS index only (no embeddings, faster). For vector/semantic search, use "ccw view" dashboard
   - status: Check index and embedding availability
   - search_files: Return file paths only
 
 **Workflow:**
-  1. Run action="init" to create index
-  2. Use auto mode - it routes to hybrid for NL queries, exact for simple queries
-  3. Use ripgrep mode for fast searches without index`,
+  1. Run action="init" to create FTS index (fast)
+  2. For semantic search: create vector index via "ccw view" dashboard or "codexlens init <path>"
+  3. Use auto mode - it routes to hybrid for NL queries, exact for simple queries`,
   inputSchema: {
     type: 'object',
     properties: {
       action: {
         type: 'string',
         enum: ['init', 'search', 'search_files', 'status'],
-        description: 'Action to perform: init (create index), search (default), search_files (paths only), status (check index)',
+        description: 'Action to perform: init (create FTS index, no embeddings), search (default), search_files (paths only), status (check index)',
         default: 'search',
       },
       query: {

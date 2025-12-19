@@ -434,20 +434,31 @@ class GraphAnalyzer:
     def _find_enclosing_symbol(self, node: TreeSitterNode, symbols: List[dict]) -> Optional[str]:
         """Find the enclosing function/method/class for a node.
 
+        Returns fully qualified name (e.g., "MyClass.my_method") by traversing up
+        the AST tree and collecting parent class/function names.
+
         Args:
             node: AST node to find enclosure for
             symbols: List of defined symbols
 
         Returns:
-            Name of enclosing symbol, or None if at module level
+            Fully qualified name of enclosing symbol, or None if at module level
         """
-        # Walk up the tree to find enclosing symbol
+        # Walk up the tree to find all enclosing symbols
+        enclosing_names = []
         parent = node.parent
+
         while parent is not None:
             for symbol in symbols:
                 if symbol["node"] == parent:
-                    return symbol["name"]
+                    # Prepend to maintain order (innermost to outermost)
+                    enclosing_names.insert(0, symbol["name"])
+                    break
             parent = parent.parent
+
+        # Return fully qualified name or None if at module level
+        if enclosing_names:
+            return ".".join(enclosing_names)
         return None
 
     def _extract_call_target(self, source_bytes: bytes, node: TreeSitterNode) -> Optional[str]:

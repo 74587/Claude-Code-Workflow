@@ -177,11 +177,20 @@ function renderIndexCard() {
           </table>
         </div>
         <div class="mt-4 flex justify-between items-center gap-2">
-          <button onclick="initCodexLensIndex()"
-                  class="text-xs px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded transition-colors flex items-center gap-1.5">
-            <i data-lucide="database" class="w-3.5 h-3.5"></i>
-            ${t('index.initCurrent') || 'Init Current Project'}
-          </button>
+          <div class="flex items-center gap-2">
+            <button onclick="initCodexLensIndex('vector')"
+                    class="text-xs px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded transition-colors flex items-center gap-1.5"
+                    title="${t('index.vectorDesc') || 'Semantic search with embeddings'}">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              ${t('index.vectorIndex') || 'Vector'}
+            </button>
+            <button onclick="initCodexLensIndex('normal')"
+                    class="text-xs px-3 py-1.5 bg-muted text-muted-foreground hover:bg-muted/80 rounded transition-colors flex items-center gap-1.5"
+                    title="${t('index.normalDesc') || 'Fast full-text search only'}">
+              <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+              ${t('index.normalIndex') || 'FTS'}
+            </button>
+          </div>
           <button onclick="cleanAllIndexesConfirm()"
                   class="text-xs px-3 py-1.5 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded transition-colors flex items-center gap-1.5">
             <i data-lucide="trash" class="w-3.5 h-3.5"></i>

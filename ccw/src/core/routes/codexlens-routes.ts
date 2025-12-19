@@ -384,17 +384,23 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
   // API: CodexLens Init (Initialize workspace index)
   if (pathname === '/api/codexlens/init' && req.method === 'POST') {
     handlePostRequest(req, res, async (body) => {
-      const { path: projectPath } = body;
+      const { path: projectPath, indexType = 'vector' } = body;
       const targetPath = projectPath || initialPath;
+
+      // Build CLI arguments based on index type
+      const args = ['init', targetPath, '--json'];
+      if (indexType === 'normal') {
+        args.push('--no-embeddings');
+      }
 
       // Broadcast start event
       broadcastToClients({
         type: 'CODEXLENS_INDEX_PROGRESS',
-        payload: { stage: 'start', message: 'Starting index...', percent: 0, path: targetPath }
+        payload: { stage: 'start', message: 'Starting index...', percent: 0, path: targetPath, indexType }
       });
 
       try {
-        const result = await executeCodexLens(['init', targetPath, '--json'], {
+        const result = await executeCodexLens(args, {
           cwd: targetPath,
           timeout: 1800000, // 30 minutes for large codebases
           onProgress: (progress: ProgressInfo) => {

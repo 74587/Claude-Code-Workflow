@@ -509,13 +509,13 @@ class SQLiteStore:
                     r.target_qualified_name,
                     r.relationship_type,
                     r.source_line,
-                    f.path AS source_file,
+                    f.full_path AS source_file,
                     r.target_file
                 FROM code_relationships r
                 JOIN symbols s ON r.source_symbol_id = s.id
                 JOIN files f ON s.file_id = f.id
                 WHERE r.target_qualified_name = ?
-                ORDER BY f.path, r.source_line
+                ORDER BY f.full_path, r.source_line
                 LIMIT ?
                 """,
                 (target_name, limit)

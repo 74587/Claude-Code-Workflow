@@ -512,6 +512,8 @@ function renderCcwSection() {
 // ========== Language Settings State ==========
 var chineseResponseEnabled = false;
 var chineseResponseLoading = false;
+var windowsPlatformEnabled = false;
+var windowsPlatformLoading = false;
 
 // ========== Language Settings Section ==========
 async function loadLanguageSettings() {
@@ -524,6 +526,20 @@ async function loadLanguageSettings() {
   } catch (err) {
     console.error('Failed to load language settings:', err);
     chineseResponseEnabled = false;
+    return { enabled: false, guidelinesExists: false };
+  }
+}
+
+async function loadWindowsPlatformSettings() {
+  try {
+    var response = await fetch('/api/language/windows-platform');
+    if (!response.ok) throw new Error('Failed to load Windows platform settings');
+    var data = await response.json();
+    windowsPlatformEnabled = data.enabled || false;
+    return data;
+  } catch (err) {
+    console.error('Failed to load Windows platform settings:', err);
+    windowsPlatformEnabled = false;
     return { enabled: false, guidelinesExists: false };
   }
 }
@@ -560,6 +576,38 @@ async function toggleChineseResponse(enabled) {
   }
 }
 
+async function toggleWindowsPlatform(enabled) {
+  if (windowsPlatformLoading) return;
+  windowsPlatformLoading = true;
+
+  try {
+    var response = await fetch('/api/language/windows-platform', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: enabled })
+    });
+
+    if (!response.ok) {
+      var errData = await response.json();
+      throw new Error(errData.error || 'Failed to update setting');
+    }
+
+    var data = await response.json();
+    windowsPlatformEnabled = data.enabled;
+
+    // Update UI
+    renderLanguageSettingsSection();
+
+    // Show toast
+    showRefreshToast(enabled ? t('lang.windowsEnableSuccess') : t('lang.windowsDisableSuccess'), 'success');
+  } catch (err) {
+    console.error('Failed to toggle Windows platform:', err);
+    showRefreshToast(enabled ? t('lang.windowsEnableFailed') : t('lang.windowsDisableFailed'), 'error');
+  } finally {
+    windowsPlatformLoading = false;
+  }
+}
+
 async function renderLanguageSettingsSection() {
   var container = document.getElementById('language-settings-section');
   if (!container) return;
@@ -568,13 +616,16 @@ async function renderLanguageSettingsSection() {
   if (!chineseResponseEnabled && !chineseResponseLoading) {
     await loadLanguageSettings();
   }
+  if (!windowsPlatformEnabled && !windowsPlatformLoading) {
+    await loadWindowsPlatformSettings();
+  }
 
   var settingsHtml = '<div class="section-header">' +
       '<div class="section-header-left">' +
         '<h3><i data-lucide="languages" class="w-4 h-4"></i> ' + t('lang.settings') + '</h3>' +
       '</div>' +
     '</div>' +
-    '<div class="cli-settings-grid" style="grid-template-columns: 1fr;">' +
+    '<div class="cli-settings-grid" style="grid-template-columns: 1fr 1fr;">' +
       '<div class="cli-setting-item">' +
         '<label class="cli-setting-label">' +
           '<i data-lucide="message-square-text" class="w-3 h-3"></i>' +
@@ -590,6 +641,22 @@ async function renderLanguageSettingsSection() {
           '</span>' +
         '</div>' +
         '<p class="cli-setting-desc">' + t('lang.chineseDesc') + '</p>' +
+      '</div>' +
+      '<div class="cli-setting-item">' +
+        '<label class="cli-setting-label">' +
+          '<i data-lucide="monitor" class="w-3 h-3"></i>' +
+          t('lang.windows') +
+        '</label>' +
+        '<div class="cli-setting-control">' +
+          '<label class="cli-toggle">' +
+            '<input type="checkbox"' + (windowsPlatformEnabled ? ' checked' : '') + ' onchange="toggleWindowsPlatform(this.checked)"' + (windowsPlatformLoading ? ' disabled' : '') + '>' +
+            '<span class="cli-toggle-slider"></span>' +
+          '</label>' +
+          '<span class="cli-setting-status ' + (windowsPlatformEnabled ? 'enabled' : 'disabled') + '">' +
+            (windowsPlatformEnabled ? t('lang.enabled') : t('lang.disabled')) +
+          '</span>' +
+        '</div>' +
+        '<p class="cli-setting-desc">' + t('lang.windowsDesc') + '</p>' +
       '</div>' +
     '</div>';
 

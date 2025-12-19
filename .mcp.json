@@ -7,6 +7,16 @@
         "chrome-devtools-mcp@latest"
       ],
       "env": {}
+    },
+    "ccw-tools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "ccw-mcp"
+      ],
+      "env": {
+        "CCW_ENABLED_TOOLS": "write_file,edit_file,smart_search"
+      }
     }
   }
 }

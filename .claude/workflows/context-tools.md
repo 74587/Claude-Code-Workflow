@@ -4,13 +4,18 @@
 
 **When**: Find code, understand codebase structure, locate implementations
 
-**How**:
+**Workflow** (search first, init if needed):
 ```javascript
-smart_search(query="authentication logic")           // Auto mode (recommended)
-smart_search(action="init", path=".")                // First-time setup
+// Step 1: Try search directly (works if index exists or uses ripgrep fallback)
+smart_search(query="authentication logic")
+
+// Step 2: Only if search warns "No CodexLens index found", then init
+smart_search(action="init", path=".")                  // Creates FTS index only
+
+// Note: For semantic/vector search, use "ccw view" dashboard to create vector index
 ```
 
-**Modes**: `auto` (intelligent routing), `hybrid` (best quality), `exact` (FTS)
+**Modes**: `auto` (intelligent routing), `hybrid` (semantic, needs vector index), `exact` (FTS), `ripgrep` (no index)
 
 ---
 

@@ -1226,16 +1226,13 @@ class DirIndexStore:
         query: str,
         limit: int = 20,
         enhance_query: bool = False,
-        return_full_content: bool = True,
+        return_full_content: bool = False,
         context_lines: int = 10,
     ) -> List[SearchResult]:
-        """Full-text search in current directory files with complete method blocks.
+        """Full-text search in current directory files.
 
         Uses files_fts_exact (unicode61 tokenizer) for exact token matching.
         For fuzzy/substring search, use search_fts_fuzzy() instead.
-
-        Returns complete code blocks (functions/methods/classes) containing the match,
-        rather than just a short snippet.
 
         Best Practice (from industry analysis of Codanna/Code-Index-MCP):
         - Default: Respects exact user input without modification
@@ -1248,11 +1245,12 @@ class DirIndexStore:
             limit: Maximum results to return
             enhance_query: If True, automatically add prefix wildcards for simple queries.
                           Default False to respect exact user input.
-            return_full_content: If True, include full code block in content field
+            return_full_content: If True, include full code block in content field.
+                                Default False for fast location-only results.
             context_lines: Lines of context when no symbol contains the match
 
         Returns:
-            List of SearchResult objects with complete code blocks
+            List of SearchResult objects (location-only by default, with content if requested)
 
         Raises:
             StorageError: If FTS search fails
@@ -1263,8 +1261,39 @@ class DirIndexStore:
 
         with self._lock:
             conn = self._get_connection()
+
+            # Fast path: location-only results (no content processing)
+            if not return_full_content:
+                try:
+                    rows = conn.execute(
+                        """
+                        SELECT rowid, full_path, bm25(files_fts_exact) AS rank,
+                               snippet(files_fts_exact, 2, '', '', '...', 30) AS excerpt
+                        FROM files_fts_exact
+                        WHERE files_fts_exact MATCH ?
+                        ORDER BY rank
+                        LIMIT ?
+                        """,
+                        (final_query, limit),
+                    ).fetchall()
+                except sqlite3.DatabaseError as exc:
+                    raise StorageError(f"FTS search failed: {exc}") from exc
+
+                results: List[SearchResult] = []
+                for row in rows:
+                    rank = float(row["rank"]) if row["rank"] is not None else 0.0
+                    score = abs(rank) if rank < 0 else 0.0
+                    results.append(
+                        SearchResult(
+                            path=row["full_path"],
+                            score=score,
+                            excerpt=row["excerpt"],
+                        )
+                    )
+                return results
+
+            # Full content path: fetch content and find containing symbols
             try:
-                # Join with files table to get content and file_id
                 rows = conn.execute(
                     """
                     SELECT f.id AS file_id, f.full_path, f.content,
@@ -1319,7 +1348,7 @@ class DirIndexStore:
                         path=file_path,
                         score=score,
                         excerpt=excerpt,
-                        content=block_content if return_full_content else None,
+                        content=block_content,
                         start_line=start_line,
                         end_line=end_line,
                         symbol_name=symbol_name,
@@ -1332,31 +1361,59 @@ class DirIndexStore:
         self,
         query: str,
         limit: int = 20,
-        return_full_content: bool = True,
+        return_full_content: bool = False,
         context_lines: int = 10,
     ) -> List[SearchResult]:
-        """Full-text search using exact token matching with complete method blocks.
-
-        Returns complete code blocks (functions/methods/classes) containing the match,
-        rather than just a short snippet. If no symbol contains the match, returns
-        context lines around the match.
+        """Full-text search using exact token matching.
 
         Args:
             query: FTS5 query string
             limit: Maximum results to return
-            return_full_content: If True, include full code block in content field
+            return_full_content: If True, include full code block in content field.
+                                Default False for fast location-only results.
             context_lines: Lines of context when no symbol contains the match
 
         Returns:
-            List of SearchResult objects with complete code blocks
+            List of SearchResult objects (location-only by default, with content if requested)
 
         Raises:
             StorageError: If FTS search fails
         """
         with self._lock:
             conn = self._get_connection()
+
+            # Fast path: location-only results (no content processing)
+            if not return_full_content:
+                try:
+                    rows = conn.execute(
+                        """
+                        SELECT rowid, full_path, bm25(files_fts_exact) AS rank,
+                               snippet(files_fts_exact, 2, '', '', '...', 30) AS excerpt
+                        FROM files_fts_exact
+                        WHERE files_fts_exact MATCH ?
+                        ORDER BY rank
+                        LIMIT ?
+                        """,
+                        (query, limit),
+                    ).fetchall()
+                except sqlite3.DatabaseError as exc:
+                    raise StorageError(f"FTS exact search failed: {exc}") from exc
+
+                results: List[SearchResult] = []
+                for row in rows:
+                    rank = float(row["rank"]) if row["rank"] is not None else 0.0
+                    score = abs(rank) if rank < 0 else 0.0
+                    results.append(
+                        SearchResult(
+                            path=row["full_path"],
+                            score=score,
+                            excerpt=row["excerpt"],
+                        )
+                    )
+                return results
+
+            # Full content path: fetch content and find containing symbols
             try:
-                # Join with files table to get content and file_id
                 rows = conn.execute(
                     """
                     SELECT f.id AS file_id, f.full_path, f.content,
@@ -1411,7 +1468,7 @@ class DirIndexStore:
                         path=file_path,
                         score=score,
                         excerpt=excerpt,
-                        content=block_content if return_full_content else None,
+                        content=block_content,
                         start_line=start_line,
                         end_line=end_line,
                         symbol_name=symbol_name,
@@ -1424,31 +1481,59 @@ class DirIndexStore:
         self,
         query: str,
         limit: int = 20,
-        return_full_content: bool = True,
+        return_full_content: bool = False,
         context_lines: int = 10,
     ) -> List[SearchResult]:
-        """Full-text search using fuzzy/substring matching with complete method blocks.
-
-        Returns complete code blocks (functions/methods/classes) containing the match,
-        rather than just a short snippet. If no symbol contains the match, returns
-        context lines around the match.
+        """Full-text search using fuzzy/substring matching.
 
         Args:
             query: FTS5 query string
             limit: Maximum results to return
-            return_full_content: If True, include full code block in content field
+            return_full_content: If True, include full code block in content field.
+                                Default False for fast location-only results.
             context_lines: Lines of context when no symbol contains the match
 
         Returns:
-            List of SearchResult objects with complete code blocks
+            List of SearchResult objects (location-only by default, with content if requested)
 
         Raises:
             StorageError: If FTS search fails
         """
         with self._lock:
             conn = self._get_connection()
+
+            # Fast path: location-only results (no content processing)
+            if not return_full_content:
+                try:
+                    rows = conn.execute(
+                        """
+                        SELECT rowid, full_path, bm25(files_fts_fuzzy) AS rank,
+                               snippet(files_fts_fuzzy, 2, '', '', '...', 30) AS excerpt
+                        FROM files_fts_fuzzy
+                        WHERE files_fts_fuzzy MATCH ?
+                        ORDER BY rank
+                        LIMIT ?
+                        """,
+                        (query, limit),
+                    ).fetchall()
+                except sqlite3.DatabaseError as exc:
+                    raise StorageError(f"FTS fuzzy search failed: {exc}") from exc
+
+                results: List[SearchResult] = []
+                for row in rows:
+                    rank = float(row["rank"]) if row["rank"] is not None else 0.0
+                    score = abs(rank) if rank < 0 else 0.0
+                    results.append(
+                        SearchResult(
+                            path=row["full_path"],
+                            score=score,
+                            excerpt=row["excerpt"],
+                        )
+                    )
+                return results
+
+            # Full content path: fetch content and find containing symbols
             try:
-                # Join with files table to get content and file_id
                 rows = conn.execute(
                     """
                     SELECT f.id AS file_id, f.full_path, f.content,
@@ -1503,7 +1588,7 @@ class DirIndexStore:
                         path=file_path,
                         score=score,
                         excerpt=excerpt,
-                        content=block_content if return_full_content else None,
+                        content=block_content,
                         start_line=start_line,
                         end_line=end_line,
                         symbol_name=symbol_name,

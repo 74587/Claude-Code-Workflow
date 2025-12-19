@@ -78,10 +78,10 @@ def outer():
         analyzer = GraphAnalyzer("python")
         relationships = analyzer.analyze_file(code, Path("test.py"))
 
-        # Should find inner -> inner_helper and outer -> inner
+        # Should find outer.inner -> inner_helper and outer -> inner (with fully qualified names)
         assert len(relationships) == 2
         call_pairs = {(rel.source_symbol, rel.target_symbol) for rel in relationships}
-        assert ("inner", "inner_helper") in call_pairs
+        assert ("outer.inner", "inner_helper") in call_pairs
         assert ("outer", "inner") in call_pairs
 
     def test_method_call_in_class(self):
@@ -97,10 +97,10 @@ def outer():
         analyzer = GraphAnalyzer("python")
         relationships = analyzer.analyze_file(code, Path("test.py"))
 
-        # Should find compute -> add
+        # Should find Calculator.compute -> add (with fully qualified source)
         assert len(relationships) == 1
         rel = relationships[0]
-        assert rel.source_symbol == "compute"
+        assert rel.source_symbol == "Calculator.compute"
         assert rel.target_symbol == "add"
 
     def test_module_level_call(self):
@@ -171,11 +171,11 @@ main()
         # Extract call pairs
         call_pairs = {(rel.source_symbol, rel.target_symbol) for rel in relationships}
 
-        # Expected relationships
+        # Expected relationships (with fully qualified source symbols for methods)
         expected = {
-            ("load", "read_file"),
-            ("process", "validate"),
-            ("process", "transform"),
+            ("DataProcessor.load", "read_file"),
+            ("DataProcessor.process", "validate"),
+            ("DataProcessor.process", "transform"),
             ("main", "DataProcessor"),
             ("main", "load"),
             ("main", "process"),
@@ -259,10 +259,10 @@ const main = () => {
         analyzer = GraphAnalyzer("javascript")
         relationships = analyzer.analyze_file(code, Path("test.js"))
 
-        # Should find compute -> add
+        # Should find Calculator.compute -> add (with fully qualified source)
         assert len(relationships) == 1
         rel = relationships[0]
-        assert rel.source_symbol == "compute"
+        assert rel.source_symbol == "Calculator.compute"
         assert rel.target_symbol == "add"
 
     def test_complex_javascript_file(self):
@@ -304,11 +304,12 @@ main();
         # Extract call pairs
         call_pairs = {(rel.source_symbol, rel.target_symbol) for rel in relationships}
 
-        # Expected relationships (note: constructor calls like "new DataProcessor()" are not tracked)
+        # Expected relationships (with fully qualified source symbols for methods)
+        # Note: constructor calls like "new DataProcessor()" are not tracked
         expected = {
-            ("load", "readFile"),
-            ("process", "validate"),
-            ("process", "transform"),
+            ("DataProcessor.load", "readFile"),
+            ("DataProcessor.process", "validate"),
+            ("DataProcessor.process", "transform"),
             ("main", "load"),
             ("main", "process"),
             ("<module>", "main"),
