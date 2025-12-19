@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from typing import Dict, List
 
-from codexlens.entities import SearchResult
+from codexlens.entities import SearchResult, AdditionalLocation
 
 
 def reciprocal_rank_fusion(
@@ -158,3 +158,117 @@ def tag_search_source(results: List[SearchResult], source: str) -> List[SearchRe
         tagged_results.append(tagged_result)
 
     return tagged_results
+
+
+def group_similar_results(
+    results: List[SearchResult],
+    score_threshold_abs: float = 0.01,
+    content_field: str = "excerpt"
+) -> List[SearchResult]:
+    """Group search results by content and score similarity.
+
+    Groups results that have similar content and similar scores into a single
+    representative result, with other locations stored in additional_locations.
+
+    Algorithm:
+    1. Group results by content (using excerpt or content field)
+    2. Within each content group, create subgroups based on score similarity
+    3. Select highest-scoring result as representative for each subgroup
+    4. Store other results in subgroup as additional_locations
+
+    Args:
+        results: A list of SearchResult objects (typically sorted by score)
+        score_threshold_abs: Absolute score difference to consider results similar.
+                            Results with |score_a - score_b| <= threshold are grouped.
+                            Default 0.01 is suitable for RRF fusion scores.
+        content_field: The field to use for content grouping ('excerpt' or 'content')
+
+    Returns:
+        A new list of SearchResult objects where similar items are grouped.
+        The list is sorted by score descending.
+
+    Examples:
+        >>> results = [SearchResult(path="a.py", score=0.5, excerpt="def foo()"),
+        ...            SearchResult(path="b.py", score=0.5, excerpt="def foo()")]
+        >>> grouped = group_similar_results(results)
+        >>> len(grouped)  # Two results merged into one
+        1
+        >>> len(grouped[0].additional_locations)  # One additional location
+        1
+    """
+    if not results:
+        return []
+
+    # Group results by content
+    content_map: Dict[str, List[SearchResult]] = {}
+    unidentifiable_results: List[SearchResult] = []
+
+    for r in results:
+        key = getattr(r, content_field, None)
+        if key and key.strip():
+            content_map.setdefault(key, []).append(r)
+        else:
+            # Results without content can't be grouped by content
+            unidentifiable_results.append(r)
+
+    final_results: List[SearchResult] = []
+
+    # Process each content group
+    for content_group in content_map.values():
+        # Sort by score descending within group
+        content_group.sort(key=lambda r: r.score, reverse=True)
+
+        while content_group:
+            # Take highest scoring as representative
+            representative = content_group.pop(0)
+            others_in_group = []
+            remaining_for_next_pass = []
+
+            # Find results with similar scores
+            for item in content_group:
+                if abs(representative.score - item.score) <= score_threshold_abs:
+                    others_in_group.append(item)
+                else:
+                    remaining_for_next_pass.append(item)
+
+            # Create grouped result with additional locations
+            if others_in_group:
+                # Build new result with additional_locations populated
+                grouped_result = SearchResult(
+                    path=representative.path,
+                    score=representative.score,
+                    excerpt=representative.excerpt,
+                    content=representative.content,
+                    symbol=representative.symbol,
+                    chunk=representative.chunk,
+                    metadata={
+                        **representative.metadata,
+                        "grouped_count": len(others_in_group) + 1,
+                    },
+                    start_line=representative.start_line,
+                    end_line=representative.end_line,
+                    symbol_name=representative.symbol_name,
+                    symbol_kind=representative.symbol_kind,
+                    additional_locations=[
+                        AdditionalLocation(
+                            path=other.path,
+                            score=other.score,
+                            start_line=other.start_line,
+                            end_line=other.end_line,
+                            symbol_name=other.symbol_name,
+                        ) for other in others_in_group
+                    ],
+                )
+                final_results.append(grouped_result)
+            else:
+                final_results.append(representative)
+
+            content_group = remaining_for_next_pass
+
+    # Add ungroupable results
+    final_results.extend(unidentifiable_results)
+
+    # Sort final results by score descending
+    final_results.sort(key=lambda r: r.score, reverse=True)
+
+    return final_results

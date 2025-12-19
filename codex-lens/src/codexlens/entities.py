@@ -90,6 +90,21 @@ class CodeRelationship(BaseModel):
         return value
 
 
+class AdditionalLocation(BaseModel):
+    """A pointer to another location where a similar result was found.
+
+    Used for grouping search results with similar scores and content,
+    where the primary result is stored in SearchResult and secondary
+    locations are stored in this model.
+    """
+
+    path: str = Field(..., min_length=1)
+    score: float = Field(..., ge=0.0)
+    start_line: Optional[int] = Field(default=None, description="Start line of the result (1-based)")
+    end_line: Optional[int] = Field(default=None, description="End line of the result (1-based)")
+    symbol_name: Optional[str] = Field(default=None, description="Name of matched symbol")
+
+
 class SearchResult(BaseModel):
     """A unified search result for lexical or semantic search."""
 
@@ -100,10 +115,16 @@ class SearchResult(BaseModel):
     symbol: Optional[Symbol] = None
     chunk: Optional[SemanticChunk] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
-    
+
     # Additional context for complete code blocks
     start_line: Optional[int] = Field(default=None, description="Start line of code block (1-based)")
     end_line: Optional[int] = Field(default=None, description="End line of code block (1-based)")
     symbol_name: Optional[str] = Field(default=None, description="Name of matched symbol/function/class")
     symbol_kind: Optional[str] = Field(default=None, description="Kind of symbol (function/class/method)")
+
+    # Field for grouping similar results
+    additional_locations: List["AdditionalLocation"] = Field(
+        default_factory=list,
+        description="Other locations for grouped results with similar scores and content."
+    )
 

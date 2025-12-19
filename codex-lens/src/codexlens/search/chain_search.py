@@ -38,6 +38,8 @@ class SearchOptions:
         enable_vector: Enable vector semantic search (default False)
         pure_vector: If True, only use vector search without FTS fallback (default False)
         hybrid_weights: Custom RRF weights for hybrid search (optional)
+        group_results: Enable grouping of similar results (default False)
+        grouping_threshold: Score threshold for grouping similar results (default 0.01)
     """
     depth: int = -1
     max_workers: int = 8
@@ -51,6 +53,8 @@ class SearchOptions:
     enable_vector: bool = False
     pure_vector: bool = False
     hybrid_weights: Optional[Dict[str, float]] = None
+    group_results: bool = False
+    grouping_threshold: float = 0.01
 
 
 @dataclass
@@ -210,6 +214,14 @@ class ChainSearchEngine:
 
         # Step 4: Merge and rank
         final_results = self._merge_and_rank(results, options.total_limit)
+
+        # Step 5: Optional grouping of similar results
+        if options.group_results:
+            from codexlens.search.ranking import group_similar_results
+            final_results = group_similar_results(
+                final_results, score_threshold_abs=options.grouping_threshold
+            )
+
         stats.files_matched = len(final_results)
 
         # Optional: Symbol search
