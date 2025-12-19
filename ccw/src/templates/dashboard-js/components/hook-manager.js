@@ -75,6 +75,19 @@ const HOOK_TEMPLATES = {
       interval: { type: 'number', default: 300, min: 60, max: 3600, label: 'Interval (seconds)', step: 60 }
     }
   },
+  'memory-update-count-based': {
+    event: 'PostToolUse',
+    matcher: 'Write|Edit',
+    command: 'bash',
+    args: ['-c', 'THRESHOLD=10; COUNT_FILE=~/.claude/.memory_update_count; INPUT=$(cat); FILE_PATH=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); [ -z "$FILE_PATH" ] && exit 0; COUNT=0; [ -f "$COUNT_FILE" ] && COUNT=$(cat "$COUNT_FILE" 2>/dev/null || echo 0); COUNT=$((COUNT + 1)); echo $COUNT > "$COUNT_FILE"; if [ $COUNT -ge $THRESHOLD ]; then echo 0 > "$COUNT_FILE"; ccw tool exec update_module_claude \'{"strategy":"related","tool":"gemini"}\' & fi'],
+    description: 'Update CLAUDE.md when file changes reach threshold (default: 10 files)',
+    category: 'memory',
+    configurable: true,
+    config: {
+      tool: { type: 'select', options: ['gemini', 'qwen', 'codex'], default: 'gemini', label: 'CLI Tool' },
+      threshold: { type: 'number', default: 10, min: 3, max: 50, label: 'File count threshold', step: 1 }
+    }
+  },
   // SKILL Context Loader templates
   'skill-context-keyword': {
     event: 'UserPromptSubmit',
@@ -165,11 +178,18 @@ const WIZARD_TEMPLATES = {
         name: 'Periodic Update',
         description: 'Update documentation at regular intervals during session',
         templateId: 'memory-update-periodic'
+      },
+      {
+        id: 'count-based',
+        name: 'Count-Based Update',
+        description: 'Update documentation when file changes reach threshold',
+        templateId: 'memory-update-count-based'
       }
     ],
     configFields: [
       { key: 'tool', type: 'select', label: 'CLI Tool', options: ['gemini', 'qwen', 'codex'], default: 'gemini', description: 'Tool for documentation generation' },
       { key: 'interval', type: 'number', label: 'Interval (seconds)', default: 300, min: 60, max: 3600, step: 60, showFor: ['periodic'], description: 'Time between updates' },
+      { key: 'threshold', type: 'number', label: 'File Count Threshold', default: 10, min: 3, max: 50, step: 1, showFor: ['count-based'], description: 'Number of file changes to trigger update' },
       { key: 'strategy', type: 'select', label: 'Update Strategy', options: ['related', 'single-layer'], default: 'related', description: 'Related: changed modules, Single-layer: current directory' }
     ]
   },
@@ -621,6 +641,7 @@ function renderWizardModalContent() {
     if (wizardId === 'memory-update') {
       if (optId === 'on-stop') return t('hook.wizard.onSessionEnd');
       if (optId === 'periodic') return t('hook.wizard.periodicUpdate');
+      if (optId === 'count-based') return t('hook.wizard.countBasedUpdate');
     }
     if (wizardId === 'memory-setup') {
       if (optId === 'file-read') return t('hook.wizard.fileReadTracker');
@@ -638,6 +659,7 @@ function renderWizardModalContent() {
     if (wizardId === 'memory-update') {
       if (optId === 'on-stop') return t('hook.wizard.onSessionEndDesc');
       if (optId === 'periodic') return t('hook.wizard.periodicUpdateDesc');
+      if (optId === 'count-based') return t('hook.wizard.countBasedUpdateDesc');
     }
     if (wizardId === 'memory-setup') {
       if (optId === 'file-read') return t('hook.wizard.fileReadTrackerDesc');
@@ -656,6 +678,7 @@ function renderWizardModalContent() {
     const labels = {
       'tool': t('hook.wizard.cliTool'),
       'interval': t('hook.wizard.intervalSeconds'),
+      'threshold': t('hook.wizard.fileCountThreshold'),
       'strategy': t('hook.wizard.updateStrategy')
     };
     return labels[fieldKey] || wizard.configFields.find(f => f.key === fieldKey)?.label || fieldKey;
@@ -665,6 +688,7 @@ function renderWizardModalContent() {
     const descs = {
       'tool': t('hook.wizard.toolForDocGen'),
       'interval': t('hook.wizard.timeBetweenUpdates'),
+      'threshold': t('hook.wizard.fileCountThresholdDesc'),
       'strategy': t('hook.wizard.relatedStrategy')
     };
     return descs[fieldKey] || wizard.configFields.find(f => f.key === fieldKey)?.description || '';
@@ -999,12 +1023,15 @@ function generateWizardCommand() {
   const tool = wizardConfig.tool || 'gemini';
   const strategy = wizardConfig.strategy || 'related';
   const interval = wizardConfig.interval || 300;
+  const threshold = wizardConfig.threshold || 10;
 
   // Build the ccw tool command based on configuration
   const params = JSON.stringify({ strategy, tool });
 
   if (triggerType === 'periodic') {
     return `INTERVAL=${interval}; LAST_FILE=~/.claude/.last_memory_update; NOW=$(date +%s); LAST=0; [ -f "$LAST_FILE" ] && LAST=$(cat "$LAST_FILE"); if [ $((NOW - LAST)) -ge $INTERVAL ]; then echo $NOW > "$LAST_FILE"; ccw tool exec update_module_claude '${params}' & fi`;
+  } else if (triggerType === 'count-based') {
+    return `THRESHOLD=${threshold}; COUNT_FILE=~/.claude/.memory_update_count; INPUT=$(cat); FILE_PATH=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); [ -z "$FILE_PATH" ] && exit 0; COUNT=0; [ -f "$COUNT_FILE" ] && COUNT=$(cat "$COUNT_FILE" 2>/dev/null || echo 0); COUNT=$((COUNT + 1)); echo $COUNT > "$COUNT_FILE"; if [ $COUNT -ge $THRESHOLD ]; then echo 0 > "$COUNT_FILE"; ccw tool exec update_module_claude '${params}' & fi`;
   } else {
     return `ccw tool exec update_module_claude '${params}'`;
   }

@@ -863,12 +863,13 @@ function renderProjectAvailableServerCard(entry) {
         ` : ''}
       </div>
 
-      <div class="mt-3 pt-3 border-t border-border flex items-center justify-between gap-2" onclick="event.stopPropagation()">
+      <div class="mt-3 pt-3 border-t border-border flex items-center justify-between gap-2">
         <div class="flex items-center gap-2">
           <button class="text-xs text-success hover:text-success/80 transition-colors flex items-center gap-1"
                   data-server-name="${escapeHtml(name)}"
                   data-server-config="${escapeHtml(JSON.stringify(config))}"
                   data-action="save-as-template"
+                  onclick="event.stopPropagation()"
                   title="${t('mcp.saveAsTemplate')}">
             <i data-lucide="save" class="w-3 h-3"></i>
             ${t('mcp.saveAsTemplate')}
@@ -877,7 +878,8 @@ function renderProjectAvailableServerCard(entry) {
         ${canRemove ? `
           <button class="text-xs text-destructive hover:text-destructive/80 transition-colors"
                   data-server-name="${escapeHtml(name)}"
-                  data-action="remove">
+                  data-action="remove"
+                  onclick="event.stopPropagation()">
             ${t('mcp.removeFromProject')}
           </button>
         ` : ''}
@@ -929,10 +931,11 @@ function renderGlobalManagementCard(serverName, serverConfig) {
         </div>
       </div>
 
-      <div class="mt-3 pt-3 border-t border-border flex items-center justify-end" onclick="event.stopPropagation()">
+      <div class="mt-3 pt-3 border-t border-border flex items-center justify-end">
         <button class="text-xs text-destructive hover:text-destructive/80 transition-colors"
                 data-server-name="${escapeHtml(serverName)}"
-                data-action="remove-global">
+                data-action="remove-global"
+                onclick="event.stopPropagation()">
           ${t('mcp.removeGlobal')}
         </button>
       </div>
@@ -1337,6 +1340,11 @@ function openCodexMcpCreateModal() {
 }
 
 function attachMcpEventListeners() {
+  // Debug: Log event listener attachment
+  const viewDetailsCards = document.querySelectorAll('.mcp-server-card[data-action="view-details"]');
+  const codexCards = document.querySelectorAll('.mcp-server-card[data-action="view-details-codex"]');
+  console.log('[MCP] Attaching event listeners - Claude cards:', viewDetailsCards.length, 'Codex cards:', codexCards.length);
+
   // Toggle switches
   document.querySelectorAll('.mcp-server-card input[data-action="toggle"]').forEach(input => {
     input.addEventListener('change', async (e) => {
@@ -1553,19 +1561,41 @@ function attachMcpEventListeners() {
   // View details / Edit - click on Claude server card
   document.querySelectorAll('.mcp-server-card[data-action="view-details"]').forEach(card => {
     card.addEventListener('click', (e) => {
-      const serverName = card.dataset.serverName;
-      const serverConfig = JSON.parse(card.dataset.serverConfig);
-      const serverSource = card.dataset.serverSource;
-      showMcpEditModal(serverName, serverConfig, serverSource, 'claude');
+      // Don't trigger if clicking on buttons or toggle
+      if (e.target.closest('button') || e.target.closest('label') || e.target.closest('input')) {
+        return;
+      }
+      try {
+        const serverName = card.dataset.serverName;
+        // Decode HTML entities before parsing JSON
+        const configStr = unescapeHtml(card.dataset.serverConfig);
+        const serverConfig = JSON.parse(configStr);
+        const serverSource = card.dataset.serverSource;
+        console.log('[MCP] Card clicked:', serverName, serverSource);
+        showMcpEditModal(serverName, serverConfig, serverSource, 'claude');
+      } catch (err) {
+        console.error('[MCP] Error handling card click:', err, card.dataset.serverConfig);
+      }
     });
   });
 
   // View details / Edit - click on Codex server card
   document.querySelectorAll('.mcp-server-card[data-action="view-details-codex"]').forEach(card => {
     card.addEventListener('click', (e) => {
-      const serverName = card.dataset.serverName;
-      const serverConfig = JSON.parse(card.dataset.serverConfig);
-      showMcpEditModal(serverName, serverConfig, 'codex', 'codex');
+      // Don't trigger if clicking on buttons or toggle
+      if (e.target.closest('button') || e.target.closest('label') || e.target.closest('input')) {
+        return;
+      }
+      try {
+        const serverName = card.dataset.serverName;
+        // Decode HTML entities before parsing JSON
+        const configStr = unescapeHtml(card.dataset.serverConfig);
+        const serverConfig = JSON.parse(configStr);
+        console.log('[MCP] Codex card clicked:', serverName);
+        showMcpEditModal(serverName, serverConfig, 'codex', 'codex');
+      } catch (err) {
+        console.error('[MCP] Error handling Codex card click:', err, card.dataset.serverConfig);
+      }
     });
   });
 

@@ -221,6 +221,7 @@ function renderWizardCard(wizardId) {
     if (wizardId === 'memory-update') {
       if (optId === 'on-stop') return t('hook.wizard.onSessionEnd');
       if (optId === 'periodic') return t('hook.wizard.periodicUpdate');
+      if (optId === 'count-based') return t('hook.wizard.countBasedUpdate');
     }
     if (wizardId === 'memory-setup') {
       if (optId === 'file-read') return t('hook.wizard.fileReadTracker');
@@ -238,6 +239,7 @@ function renderWizardCard(wizardId) {
     if (wizardId === 'memory-update') {
       if (optId === 'on-stop') return t('hook.wizard.onSessionEndDesc');
       if (optId === 'periodic') return t('hook.wizard.periodicUpdateDesc');
+      if (optId === 'count-based') return t('hook.wizard.countBasedUpdateDesc');
     }
     if (wizardId === 'memory-setup') {
       if (optId === 'file-read') return t('hook.wizard.fileReadTrackerDesc');

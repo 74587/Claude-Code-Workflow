@@ -21,6 +21,21 @@ function escapeHtml(str) {
 }
 
 /**
+ * Unescape HTML entities back to original characters
+ * @param {string} str - String with HTML entities
+ * @returns {string} String with entities decoded
+ */
+function unescapeHtml(str) {
+  if (typeof str !== 'string') return str;
+  return str
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+}
+
+/**
  * Truncate text to specified maximum length
  * @param {string} text - Text to truncate
  * @param {number} maxLen - Maximum length (including ellipsis)

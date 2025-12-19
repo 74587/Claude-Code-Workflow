@@ -930,8 +930,8 @@ function selectCcwTools(type) {
 // Build CCW Tools config with selected tools
 function buildCcwToolsConfig(selectedTools) {
   const config = {
-    command: "npx",
-    args: ["-y", "ccw-mcp"]
+    command: "cmd",
+    args: ["/c", "npx", "-y", "ccw-mcp"]
   };
 
   // Add env if not all tools or not default 4 core tools
