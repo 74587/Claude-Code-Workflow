@@ -1068,13 +1068,17 @@ export async function handleMcpRoutes(ctx: RouteContext): Promise<boolean> {
       }
 
       // Generate CCW MCP server config
+      // Use cmd /c to inherit Claude Code's working directory
       const ccwMcpConfig = {
-        command: "ccw-mcp",
-        args: []
+        command: "cmd",
+        args: ["/c", "npx", "-y", "ccw-mcp"],
+        env: {
+          CCW_ENABLED_TOOLS: "all"
+        }
       };
 
       // Use existing addMcpServerToProject to install CCW MCP
-      return addMcpServerToProject(projectPath, 'ccw-mcp', ccwMcpConfig);
+      return addMcpServerToProject(projectPath, 'ccw-tools', ccwMcpConfig);
     });
     return true;
   }

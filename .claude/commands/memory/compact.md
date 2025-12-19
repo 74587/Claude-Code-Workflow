@@ -182,73 +182,6 @@ After successful import, **clearly display the Recovery ID** to the user:
 ╚══════════════════════════════════════════════════════════════╝
 ```
 
-## 6. Usage Example
-
-```bash
-/memory:compact
-```
-
-**Output**:
-```markdown
-## Objective
-Add core-memory module to ccw for persistent memory management with knowledge graph visualization
-
-## Plan
-- [x] Create CoreMemoryStore with SQLite backend
-- [x] Implement RESTful API routes (/api/core-memory/*)
-- [x] Build frontend three-column view
-- [x] Simplify CLI to 4 commands
-- [x] Extend graph-explorer with data source switch
-
-## Active Files
-- ccw/src/core/core-memory-store.ts (storage layer)
-- ccw/src/core/routes/core-memory-routes.ts (API)
-- ccw/src/commands/core-memory.ts (CLI)
-- ccw/src/templates/dashboard-js/views/core-memory.js (frontend)
-
-## Last Action
-TypeScript build succeeded with no errors
-
-## Decisions
-- Independent storage: Avoid conflicts with existing memory-store.ts
-- Timestamp-based ID (CMEM-YYYYMMDD-HHMMSS): Human-readable and sortable
-- Extend graph-explorer: Reuse existing Cytoscape infrastructure
-
-## Constraints
-- CLI must be simple: only list/import/export/summary commands
-- Import/export use plain text, not files
-
-## Dependencies
-- No new packages added (uses existing better-sqlite3)
-
-## Known Issues
-- N+1 query in graph aggregation (acceptable for initial scale)
-
-## Changes Made
-- Created 4 new files (store, routes, CLI, frontend view)
-- Modified server.ts, navigation.js, i18n.js
-- Added /memory:compact slash command
-
-## Pending
-(none)
-
-## Notes
-User prefers minimal CLI design. Graph aggregation can be optimized with JOIN query if memory count grows.
-```
-
-**Result**:
-```
-╔══════════════════════════════════════════════════════════════╗
-║  ✓ Session Memory Saved                                      ║
-║                                                              ║
-║  Recovery ID: CMEM-20251218-150322                          ║
-║                                                              ║
-║  To restore this session in a new conversation:              ║
-║  > Use MCP: core_memory(operation="export", id="<ID>")      ║
-║  > Or CLI:  ccw core-memory export --id <ID>                ║
-╚══════════════════════════════════════════════════════════════╝
-```
-
 ## 7. Recovery Usage
 
 When starting a new session, load previous context using MCP tools:
@@ -266,7 +199,7 @@ mcp__ccw-tools__core_memory({ operation: "summary", id: "CMEM-20251218-150322" }
 
 Or via CLI:
 
-```bash
+```bash 
 ccw core-memory list
 ccw core-memory export --id CMEM-20251218-150322
 ccw core-memory summary --id CMEM-20251218-150322

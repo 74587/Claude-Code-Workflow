@@ -28,6 +28,7 @@ dependencies = [
 semantic = [
     "numpy>=1.24",
     "fastembed>=0.2",
+    "hnswlib>=0.8.0",
 ]
 
 # Encoding detection for non-UTF8 files

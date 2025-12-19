@@ -453,10 +453,10 @@ async function generateMemorySummary(memoryId) {
   try {
     showNotification(t('coreMemory.generatingSummary'), 'info');
 
-    const response = await fetch(`/api/core-memory/memories/${memoryId}/summary?path=${encodeURIComponent(projectPath)}`, {
+    const response = await fetch(`/api/core-memory/memories/${memoryId}/summary`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tool: 'gemini' })
+      body: JSON.stringify({ tool: 'gemini', path: projectPath })
     });
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);

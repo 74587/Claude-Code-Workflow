@@ -522,7 +522,7 @@ export class SessionClusteringService {
     const sortedSessions = sessions
       .filter(s => s.created_at)
       .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
-      .slice(0, 10); // Top 10 recent sessions
+      .slice(0, 5); // Top 5 recent sessions
 
     if (sortedSessions.length === 0) {
       return `<ccw-session-context>
@@ -634,7 +634,7 @@ Parameters: { "action": "search", "query": "<keyword>" }
     let output = `<ccw-session-context>
 ## 📋 Intent-Matched Sessions
 
-**Detected Intent**: ${promptSession.keywords.slice(0, 5).join(', ') || 'General'}
+**Detected Intent**: ${(promptSession.keywords || []).slice(0, 5).join(', ') || 'General'}
 
 `;
 

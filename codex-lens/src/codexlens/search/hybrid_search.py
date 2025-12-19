@@ -260,7 +260,6 @@ class HybridSearchEngine:
             from codexlens.semantic.embedder import Embedder
             from codexlens.semantic.vector_store import VectorStore
 
-            embedder = Embedder(profile="code")  # Use code-optimized model
             vector_store = VectorStore(index_path)
 
             # Check if vector store has data
@@ -271,6 +270,22 @@ class HybridSearchEngine:
                     index_path.parent if index_path.name == "_index.db" else index_path
                 )
                 return []
+
+            # Auto-detect embedding dimension and select appropriate profile
+            detected_dim = vector_store.dimension
+            if detected_dim is None:
+                self.logger.info("Vector store dimension unknown, using default profile")
+                profile = "code"  # Default fallback
+            elif detected_dim == 384:
+                profile = "fast"
+            elif detected_dim == 768:
+                profile = "code"
+            elif detected_dim == 1024:
+                profile = "multilingual"  # or balanced, both are 1024
+            else:
+                profile = "code"  # Default fallback
+
+            embedder = Embedder(profile=profile)
 
             # Generate query embedding
             query_embedding = embedder.embed_single(query)

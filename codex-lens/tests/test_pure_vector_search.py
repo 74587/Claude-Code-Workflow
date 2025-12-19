@@ -166,6 +166,7 @@ def login_handler(credentials: dict) -> bool:
             conn.commit()
 
         # Generate embeddings
+        vector_store = None
         try:
             from codexlens.semantic.embedder import Embedder
             from codexlens.semantic.vector_store import VectorStore
@@ -192,12 +193,19 @@ def login_handler(credentials: dict) -> bool:
 
         except Exception as exc:
             pytest.skip(f"Failed to generate embeddings: {exc}")
+        finally:
+            if vector_store is not None:
+                vector_store.close()
 
         yield db_path
         store.close()
 
-        if db_path.exists():
-            db_path.unlink()
+        # Ignore file deletion errors on Windows (SQLite file lock)
+        try:
+            if db_path.exists():
+                db_path.unlink()
+        except PermissionError:
+            pass  # Ignore Windows file lock errors
 
     def test_pure_vector_with_embeddings(self, db_with_embeddings):
         """Test pure vector search returns results when embeddings exist."""

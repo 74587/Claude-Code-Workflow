@@ -315,7 +315,10 @@ async function contextAction(options: CommandOptions): Promise<void> {
     const { SessionClusteringService } = await import('../core/session-clustering-service.js');
     const service = new SessionClusteringService(getProjectPath());
 
-    const index = await service.getProgressiveIndex();
+    // Default to session-start for CLI usage
+    const index = await service.getProgressiveIndex({
+      type: 'session-start'
+    });
 
     if (options.format === 'json') {
       console.log(JSON.stringify({ index }, null, 2));

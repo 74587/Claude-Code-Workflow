@@ -5,32 +5,42 @@ This script processes all files in a CodexLens index database and generates
 semantic vector embeddings for code chunks. The embeddings are stored in the
 same SQLite database in the 'semantic_chunks' table.
 
+Performance optimizations:
+- Parallel file processing using ProcessPoolExecutor
+- Batch embedding generation for efficient GPU/CPU utilization
+- Batch database writes to minimize I/O overhead
+- HNSW index auto-generation for fast similarity search
+
 Requirements:
     pip install codexlens[semantic]
     # or
-    pip install fastembed numpy
+    pip install fastembed numpy hnswlib
 
 Usage:
     # Generate embeddings for a single index
     python generate_embeddings.py /path/to/_index.db
 
+    # Generate embeddings with parallel processing
+    python generate_embeddings.py /path/to/_index.db --workers 4
+
+    # Use specific embedding model and batch size
+    python generate_embeddings.py /path/to/_index.db --model code --batch-size 256
+
     # Generate embeddings for all indexes in a directory
     python generate_embeddings.py --scan ~/.codexlens/indexes
-
-    # Use specific embedding model
-    python generate_embeddings.py /path/to/_index.db --model code
-
-    # Batch processing with progress
-    find ~/.codexlens/indexes -name "_index.db" | xargs -I {} python generate_embeddings.py {}
 """
 
 import argparse
 import logging
+import multiprocessing
+import os
 import sqlite3
 import sys
 import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 # Configure logging
 logging.basicConfig(
@@ -41,6 +51,22 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class FileData:
+    """Data for a single file to process."""
+    full_path: str
+    content: str
+    language: str
+
+
+@dataclass
+class ChunkData:
+    """Processed chunk data ready for embedding."""
+    file_path: str
+    content: str
+    metadata: dict
+
+
 def check_dependencies():
     """Check if semantic search dependencies are available."""
     try:
@@ -48,7 +74,7 @@ def check_dependencies():
         if not SEMANTIC_AVAILABLE:
             logger.error("Semantic search dependencies not available")
             logger.error("Install with: pip install codexlens[semantic]")
-            logger.error("Or: pip install fastembed numpy")
+            logger.error("Or: pip install fastembed numpy hnswlib")
             return False
         return True
     except ImportError as exc:
@@ -86,19 +112,63 @@ def check_existing_chunks(index_db_path: Path) -> int:
         return 0
 
 
+def process_file_worker(args: Tuple[str, str, str, int]) -> List[ChunkData]:
+    """Worker function to process a single file (runs in separate process).
+
+    Args:
+        args: Tuple of (file_path, content, language, chunk_size)
+
+    Returns:
+        List of ChunkData objects
+    """
+    file_path, content, language, chunk_size = args
+
+    try:
+        from codexlens.semantic.chunker import Chunker, ChunkConfig
+
+        chunker = Chunker(config=ChunkConfig(max_chunk_size=chunk_size))
+        chunks = chunker.chunk_sliding_window(
+            content,
+            file_path=file_path,
+            language=language
+        )
+
+        return [
+            ChunkData(
+                file_path=file_path,
+                content=chunk.content,
+                metadata=chunk.metadata or {}
+            )
+            for chunk in chunks
+        ]
+    except Exception as exc:
+        logger.debug(f"Error processing {file_path}: {exc}")
+        return []
+
+
 def generate_embeddings_for_index(
     index_db_path: Path,
     model_profile: str = "code",
     force: bool = False,
     chunk_size: int = 2000,
+    workers: int = 0,
+    batch_size: int = 256,
 ) -> dict:
     """Generate embeddings for all files in an index.
+
+    Performance optimizations:
+    - Parallel file processing (chunking)
+    - Batch embedding generation
+    - Batch database writes
+    - HNSW index auto-generation
 
     Args:
         index_db_path: Path to _index.db file
         model_profile: Model profile to use (fast, code, multilingual, balanced)
         force: If True, regenerate even if embeddings exist
         chunk_size: Maximum chunk size in characters
+        workers: Number of parallel workers (0 = auto-detect CPU count)
+        batch_size: Batch size for embedding generation
 
     Returns:
         Dictionary with generation statistics
@@ -122,14 +192,19 @@ def generate_embeddings_for_index(
             with sqlite3.connect(index_db_path) as conn:
                 conn.execute("DELETE FROM semantic_chunks")
                 conn.commit()
+            # Also remove HNSW index file
+            hnsw_path = index_db_path.parent / "_vectors.hnsw"
+            if hnsw_path.exists():
+                hnsw_path.unlink()
+                logger.info("Removed existing HNSW index")
         except Exception as exc:
-            logger.error(f"Failed to clear existing chunks: {exc}")
+            logger.error(f"Failed to clear existing data: {exc}")
 
     # Import dependencies
     try:
         from codexlens.semantic.embedder import Embedder
         from codexlens.semantic.vector_store import VectorStore
-        from codexlens.semantic.chunker import Chunker, ChunkConfig
+        from codexlens.entities import SemanticChunk
     except ImportError as exc:
         return {
             "success": False,
@@ -140,7 +215,6 @@ def generate_embeddings_for_index(
     try:
         embedder = Embedder(profile=model_profile)
         vector_store = VectorStore(index_db_path)
-        chunker = Chunker(config=ChunkConfig(max_chunk_size=chunk_size))
 
         logger.info(f"Using model: {embedder.model_name}")
         logger.info(f"Embedding dimension: {embedder.embedding_dim}")
@@ -155,7 +229,14 @@ def generate_embeddings_for_index(
         with sqlite3.connect(index_db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute("SELECT full_path, content, language FROM files")
-            files = cursor.fetchall()
+            files = [
+                FileData(
+                    full_path=row["full_path"],
+                    content=row["content"],
+                    language=row["language"] or "python"
+                )
+                for row in cursor.fetchall()
+            ]
     except Exception as exc:
         return {
             "success": False,
@@ -169,50 +250,131 @@ def generate_embeddings_for_index(
             "error": "No files found in index",
         }
 
-    # Process each file
-    total_chunks = 0
-    failed_files = []
+    # Determine worker count
+    if workers <= 0:
+        workers = min(multiprocessing.cpu_count(), len(files), 8)
+    logger.info(f"Using {workers} worker(s) for parallel processing")
+    logger.info(f"Batch size for embeddings: {batch_size}")
+
     start_time = time.time()
 
-    for idx, file_row in enumerate(files, 1):
-        file_path = file_row["full_path"]
-        content = file_row["content"]
-        language = file_row["language"] or "python"
+    # Phase 1: Parallel chunking
+    logger.info("Phase 1: Chunking files...")
+    chunk_start = time.time()
 
-        try:
-            # Create chunks using sliding window
-            chunks = chunker.chunk_sliding_window(
-                content,
-                file_path=file_path,
-                language=language
-            )
+    all_chunks: List[ChunkData] = []
+    failed_files = []
 
-            if not chunks:
-                logger.debug(f"[{idx}/{len(files)}] {file_path}: No chunks created")
-                continue
+    # Prepare work items
+    work_items = [
+        (f.full_path, f.content, f.language, chunk_size)
+        for f in files
+    ]
 
-            # Generate embeddings
-            for chunk in chunks:
-                embedding = embedder.embed_single(chunk.content)
-                chunk.embedding = embedding
+    if workers == 1:
+        # Single-threaded for debugging
+        for i, item in enumerate(work_items, 1):
+            try:
+                chunks = process_file_worker(item)
+                all_chunks.extend(chunks)
+                if i % 100 == 0:
+                    logger.info(f"Chunked {i}/{len(files)} files ({len(all_chunks)} chunks)")
+            except Exception as exc:
+                failed_files.append((item[0], str(exc)))
+    else:
+        # Parallel processing
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            futures = {
+                executor.submit(process_file_worker, item): item[0]
+                for item in work_items
+            }
 
-            # Store chunks
-            vector_store.add_chunks(chunks, file_path)
-            total_chunks += len(chunks)
+            completed = 0
+            for future in as_completed(futures):
+                file_path = futures[future]
+                completed += 1
+                try:
+                    chunks = future.result()
+                    all_chunks.extend(chunks)
+                    if completed % 100 == 0:
+                        logger.info(
+                            f"Chunked {completed}/{len(files)} files "
+                            f"({len(all_chunks)} chunks)"
+                        )
+                except Exception as exc:
+                    failed_files.append((file_path, str(exc)))
 
-            logger.info(f"[{idx}/{len(files)}] {file_path}: {len(chunks)} chunks")
+    chunk_time = time.time() - chunk_start
+    logger.info(f"Chunking completed in {chunk_time:.1f}s: {len(all_chunks)} chunks")
 
-        except Exception as exc:
-            logger.error(f"[{idx}/{len(files)}] {file_path}: ERROR - {exc}")
-            failed_files.append((file_path, str(exc)))
+    if not all_chunks:
+        return {
+            "success": False,
+            "error": "No chunks created from files",
+            "files_processed": len(files) - len(failed_files),
+            "files_failed": len(failed_files),
+        }
+
+    # Phase 2: Batch embedding generation
+    logger.info("Phase 2: Generating embeddings...")
+    embed_start = time.time()
+
+    # Extract all content for batch embedding
+    all_contents = [c.content for c in all_chunks]
+
+    # Generate embeddings in batches
+    all_embeddings = []
+    for i in range(0, len(all_contents), batch_size):
+        batch_contents = all_contents[i:i + batch_size]
+        batch_embeddings = embedder.embed(batch_contents)
+        all_embeddings.extend(batch_embeddings)
+
+        progress = min(i + batch_size, len(all_contents))
+        if progress % (batch_size * 4) == 0 or progress == len(all_contents):
+            logger.info(f"Generated embeddings: {progress}/{len(all_contents)}")
+
+    embed_time = time.time() - embed_start
+    logger.info(f"Embedding completed in {embed_time:.1f}s")
+
+    # Phase 3: Batch database write
+    logger.info("Phase 3: Storing chunks...")
+    store_start = time.time()
+
+    # Create SemanticChunk objects with embeddings
+    semantic_chunks_with_paths = []
+    for chunk_data, embedding in zip(all_chunks, all_embeddings):
+        semantic_chunk = SemanticChunk(
+            content=chunk_data.content,
+            metadata=chunk_data.metadata,
+        )
+        semantic_chunk.embedding = embedding
+        semantic_chunks_with_paths.append((semantic_chunk, chunk_data.file_path))
+
+    # Batch write (handles both SQLite and HNSW)
+    write_batch_size = 1000
+    total_stored = 0
+    for i in range(0, len(semantic_chunks_with_paths), write_batch_size):
+        batch = semantic_chunks_with_paths[i:i + write_batch_size]
+        vector_store.add_chunks_batch(batch)
+        total_stored += len(batch)
+        if total_stored % 5000 == 0 or total_stored == len(semantic_chunks_with_paths):
+            logger.info(f"Stored: {total_stored}/{len(semantic_chunks_with_paths)} chunks")
+
+    store_time = time.time() - store_start
+    logger.info(f"Storage completed in {store_time:.1f}s")
 
     elapsed_time = time.time() - start_time
 
     # Generate summary
     logger.info("=" * 60)
     logger.info(f"Completed in {elapsed_time:.1f}s")
-    logger.info(f"Total chunks created: {total_chunks}")
+    logger.info(f"  Chunking: {chunk_time:.1f}s")
+    logger.info(f"  Embedding: {embed_time:.1f}s")
+    logger.info(f"  Storage: {store_time:.1f}s")
+    logger.info(f"Total chunks created: {len(all_chunks)}")
     logger.info(f"Files processed: {len(files) - len(failed_files)}/{len(files)}")
+    if vector_store.ann_available:
+        logger.info(f"HNSW index vectors: {vector_store.ann_count}")
     if failed_files:
         logger.warning(f"Failed files: {len(failed_files)}")
         for file_path, error in failed_files[:5]:  # Show first 5 failures
@@ -220,10 +382,14 @@ def generate_embeddings_for_index(
 
     return {
         "success": True,
-        "chunks_created": total_chunks,
+        "chunks_created": len(all_chunks),
         "files_processed": len(files) - len(failed_files),
         "files_failed": len(failed_files),
         "elapsed_time": elapsed_time,
+        "chunk_time": chunk_time,
+        "embed_time": embed_time,
+        "store_time": store_time,
+        "ann_vectors": vector_store.ann_count if vector_store.ann_available else 0,
     }
 
 
@@ -267,6 +433,20 @@ def main():
         type=int,
         default=2000,
         help="Maximum chunk size in characters (default: 2000)"
+    )
+
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=0,
+        help="Number of parallel workers for chunking (default: auto-detect CPU count)"
+    )
+
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=256,
+        help="Batch size for embedding generation (default: 256)"
     )
 
     parser.add_argument(
@@ -324,6 +504,8 @@ def main():
                 model_profile=args.model,
                 force=args.force,
                 chunk_size=args.chunk_size,
+                workers=args.workers,
+                batch_size=args.batch_size,
             )
 
             if result["success"]:
@@ -348,6 +530,8 @@ def main():
             model_profile=args.model,
             force=args.force,
             chunk_size=args.chunk_size,
+            workers=args.workers,
+            batch_size=args.batch_size,
         )
 
         if not result["success"]:

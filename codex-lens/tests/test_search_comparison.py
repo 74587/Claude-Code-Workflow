@@ -33,15 +33,15 @@ class TestSearchComparison:
     @pytest.fixture
     def sample_project_db(self):
         """Create sample project database with semantic chunks."""
-        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
-            db_path = Path(f.name)
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+            db_path = Path(tmpdir) / "_index.db"
 
-        store = DirIndexStore(db_path)
-        store.initialize()
+            store = DirIndexStore(db_path)
+            store.initialize()
 
-        # Sample files with varied content for testing
-        sample_files = {
-            "src/auth/authentication.py": """
+            # Sample files with varied content for testing
+            sample_files = {
+                "src/auth/authentication.py": """
 def authenticate_user(username: str, password: str) -> bool:
     '''Authenticate user with credentials using bcrypt hashing.
 
@@ -61,7 +61,7 @@ def verify_credentials(user: str, pwd_hash: str) -> bool:
     # Database verification logic
     return True
 """,
-            "src/auth/authorization.py": """
+                "src/auth/authorization.py": """
 def authorize_action(user_id: int, resource: str, action: str) -> bool:
     '''Authorize user action on resource using role-based access control.
 
@@ -80,7 +80,7 @@ def has_permission(permissions, resource, action) -> bool:
     '''Check if permissions allow action on resource.'''
     return True
 """,
-            "src/models/user.py": """
+                "src/models/user.py": """
 from dataclasses import dataclass
 from typing import Optional
 
@@ -105,7 +105,7 @@ class User:
         '''Check if user has specific role.'''
         return True
 """,
-            "src/api/user_api.py": """
+                "src/api/user_api.py": """
 from flask import Flask, request, jsonify
 from models.user import User
 
@@ -135,7 +135,7 @@ def login():
         return jsonify({'token': token})
     return jsonify({'error': 'Invalid credentials'}), 401
 """,
-            "tests/test_auth.py": """
+                "tests/test_auth.py": """
 import pytest
 from auth.authentication import authenticate_user, hash_password
 
@@ -156,25 +156,22 @@ class TestAuthentication:
         hash2 = hash_password("password")
         assert hash1 != hash2  # Salts should differ
 """,
-        }
+            }
 
-        # Insert files into database
-        with store._get_connection() as conn:
-            for file_path, content in sample_files.items():
-                name = file_path.split('/')[-1]
-                lang = "python"
-                conn.execute(
-                    """INSERT INTO files (name, full_path, content, language, mtime)
-                       VALUES (?, ?, ?, ?, ?)""",
-                    (name, file_path, content, lang, time.time())
-                )
-            conn.commit()
+            # Insert files into database
+            with store._get_connection() as conn:
+                for file_path, content in sample_files.items():
+                    name = file_path.split('/')[-1]
+                    lang = "python"
+                    conn.execute(
+                        """INSERT INTO files (name, full_path, content, language, mtime)
+                           VALUES (?, ?, ?, ?, ?)""",
+                        (name, file_path, content, lang, time.time())
+                    )
+                conn.commit()
 
-        yield db_path
-        store.close()
-
-        if db_path.exists():
-            db_path.unlink()
+            yield db_path
+            store.close()
 
     def _check_semantic_chunks_table(self, db_path: Path) -> Dict[str, Any]:
         """Check if semantic_chunks table exists and has data."""
@@ -262,12 +259,14 @@ class TestAuthentication:
         engine = HybridSearchEngine()
 
         # Map mode to parameters
+        pure_vector = False
         if mode == "exact":
             enable_fuzzy, enable_vector = False, False
         elif mode == "fuzzy":
             enable_fuzzy, enable_vector = True, False
         elif mode == "vector":
             enable_fuzzy, enable_vector = False, True
+            pure_vector = True  # Use pure vector mode for vector-only search
         elif mode == "hybrid":
             enable_fuzzy, enable_vector = True, True
         else:
@@ -282,6 +281,7 @@ class TestAuthentication:
                 limit=limit,
                 enable_fuzzy=enable_fuzzy,
                 enable_vector=enable_vector,
+                pure_vector=pure_vector,
             )
             elapsed_ms = (time.time() - start_time) * 1000
 

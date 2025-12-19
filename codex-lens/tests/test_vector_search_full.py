@@ -435,6 +435,10 @@ class TestVectorStoreCache:
         chunk.embedding = embedder.embed_single(chunk.content)
         vector_store.add_chunk(chunk, "/test/a.py")
 
+        # Force brute-force mode to populate cache (disable ANN)
+        original_ann = vector_store._ann_index
+        vector_store._ann_index = None
+
         # Trigger cache population
         query_embedding = embedder.embed_single("function")
         vector_store.search_similar(query_embedding)
@@ -444,6 +448,9 @@ class TestVectorStoreCache:
         vector_store.clear_cache()
 
         assert vector_store._embedding_matrix is None
+
+        # Restore ANN index
+        vector_store._ann_index = original_ann
 
 
 # === Semantic Search Accuracy Tests ===
