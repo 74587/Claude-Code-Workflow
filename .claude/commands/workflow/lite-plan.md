@@ -353,6 +353,23 @@ if (dedupedClarifications.length > 0) {
 
 **IMPORTANT**: Phase 3 is **planning only** - NO code execution. All execution happens in Phase 5 via lite-execute.
 
+**Executor Assignment** (Claude 智能分配，plan 生成后执行):
+
+```javascript
+// 分配规则（优先级从高到低）：
+// 1. 用户明确指定："用 gemini 分析..." → gemini, "codex 实现..." → codex
+// 2. 任务类型推断：
+//    - 分析|审查|评估|探索 → gemini
+//    - 实现|创建|修改|修复 → codex (复杂) 或 agent (简单)
+// 3. 默认 → agent
+
+const executorAssignments = {}  // { taskId: { executor: 'gemini'|'codex'|'agent', reason: string } }
+plan.tasks.forEach(task => {
+  // Claude 根据上述规则语义分析，为每个 task 分配 executor
+  executorAssignments[task.id] = { executor: '...', reason: '...' }
+})
+```
+
 **Low Complexity** - Direct planning by Claude:
 ```javascript
 // Step 1: Read schema
@@ -532,9 +549,13 @@ executionContext = {
   explorationAngles: manifest.explorations.map(e => e.angle),
   explorationManifest: manifest,
   clarificationContext: clarificationContext || null,
-  executionMethod: userSelection.execution_method,
+  executionMethod: userSelection.execution_method,  // 全局默认，可被 executorAssignments 覆盖
   codeReviewTool: userSelection.code_review_tool,
   originalUserInput: task_description,
+
+  // 任务级 executor 分配（优先于全局 executionMethod）
+  executorAssignments: executorAssignments,  // { taskId: { executor, reason } }
+
   session: {
     id: sessionId,
     folder: sessionFolder,

@@ -258,6 +258,33 @@ TodoWrite({
 
 ### Step 3: Launch Execution
 
+**Executor Resolution** (任务级 executor 优先于全局设置):
+```javascript
+// 获取任务的 executor（优先使用 executorAssignments，fallback 到全局 executionMethod）
+function getTaskExecutor(task) {
+  const assignments = executionContext?.executorAssignments || {}
+  if (assignments[task.id]) {
+    return assignments[task.id].executor  // 'gemini' | 'codex' | 'agent'
+  }
+  // Fallback: 全局 executionMethod 映射
+  const method = executionContext?.executionMethod || 'Auto'
+  if (method === 'Agent') return 'agent'
+  if (method === 'Codex') return 'codex'
+  // Auto: 根据复杂度
+  return planObject.complexity === 'Low' ? 'agent' : 'codex'
+}
+
+// 按 executor 分组任务
+function groupTasksByExecutor(tasks) {
+  const groups = { gemini: [], codex: [], agent: [] }
+  tasks.forEach(task => {
+    const executor = getTaskExecutor(task)
+    groups[executor].push(task)
+  })
+  return groups
+}
+```
+
 **Execution Flow**: Parallel batches concurrently → Sequential batches in order
 ```javascript
 const parallel = executionCalls.filter(c => c.executionType === "parallel")
@@ -283,8 +310,9 @@ for (const call of sequential) {
 **Option A: Agent Execution**
 
 When to use:
-- `executionMethod = "Agent"`
-- `executionMethod = "Auto" AND complexity = "Low"`
+- `getTaskExecutor(task) === "agent"`
+- 或 `executionMethod = "Agent"` (全局 fallback)
+- 或 `executionMethod = "Auto" AND complexity = "Low"` (全局 fallback)
 
 **Task Formatting Principle**: Each task is a self-contained checklist. The agent only needs to know what THIS task requires, not its position or relation to other tasks.
 
@@ -400,8 +428,9 @@ function extractRelatedFiles(tasks) {
 **Option B: CLI Execution (Codex)**
 
 When to use:
-- `executionMethod = "Codex"`
-- `executionMethod = "Auto" AND complexity = "Medium" or "High"`
+- `getTaskExecutor(task) === "codex"`
+- 或 `executionMethod = "Codex"` (全局 fallback)
+- 或 `executionMethod = "Auto" AND complexity = "Medium/High"` (全局 fallback)
 
 **Task Formatting Principle**: Same as Agent - each task is a self-contained checklist. No task numbering or position awareness.
 
@@ -529,6 +558,15 @@ if (bash_result.status === 'failed' || bash_result.status === 'timeout') {
 ```
 
 **Result Collection**: After completion, analyze output and collect result following `executionResult` structure (include `cliExecutionId` for resume capability)
+
+**Option C: CLI Execution (Gemini)**
+
+When to use: `getTaskExecutor(task) === "gemini"` (分析类任务)
+
+```bash
+# 使用与 Option B 相同的 formatBatchPrompt，切换 tool 和 mode
+ccw cli -p "${formatBatchPrompt(batch)}" --tool gemini --mode analysis --id ${sessionId}-${batch.groupId}
+```
 
 ### Step 4: Progress Tracking
 
@@ -697,9 +735,14 @@ Passed from lite-plan via global variable:
   explorationAngles: string[],             // List of exploration angles
   explorationManifest: {...} | null,       // Exploration manifest
   clarificationContext: {...} | null,
-  executionMethod: "Agent" | "Codex" | "Auto",
+  executionMethod: "Agent" | "Codex" | "Auto",  // 全局默认
   codeReviewTool: "Skip" | "Gemini Review" | "Agent Review" | string,
   originalUserInput: string,
+
+  // 任务级 executor 分配（优先于 executionMethod）
+  executorAssignments: {
+    [taskId]: { executor: "gemini" | "codex" | "agent", reason: string }
+  },
 
   // Session artifacts location (saved by lite-plan)
   session: {
