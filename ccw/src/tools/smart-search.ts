@@ -946,46 +946,19 @@ async function executePriorityFallbackMode(params: Params): Promise<SearchResult
 // Tool schema for MCP
 export const schema: ToolSchema = {
   name: 'smart_search',
-  description: `Intelligent code search with five modes: auto, hybrid, exact, ripgrep, priority.
+  description: `Intelligent code search with five modes. Use "auto" mode (default) for intelligent routing.
 
-**Quick Start:**
-  smart_search(query="authentication logic")           # Auto mode (intelligent routing)
-  smart_search(action="init", path=".")                # Initialize index (required for hybrid)
-  smart_search(action="status")                        # Check index status
+**Usage:**
+  smart_search(query="authentication logic")        # auto mode - routes to best backend
+  smart_search(query="MyClass", mode="exact")       # exact mode - precise FTS matching
+  smart_search(query="auth", mode="ripgrep")        # ripgrep mode - fast literal search (no index)
+  smart_search(query="how to auth", mode="hybrid")  # hybrid mode - semantic search (requires index)
 
-**Five Modes:**
-  1. auto (default): Intelligent routing based on query and index
-     - Natural language + index → hybrid
-     - Simple query + index → exact
-     - No index → ripgrep
+**Index Management:**
+  smart_search(action="init")                       # Create FTS index for current directory
+  smart_search(action="status")                     # Check index and embedding status
 
-  2. hybrid: CodexLens RRF fusion (exact + fuzzy + vector)
-     - Best quality, semantic understanding
-     - Requires index with embeddings
-
-  3. exact: CodexLens FTS (full-text search)
-     - Precise keyword matching
-     - Requires index
-
-  4. ripgrep: Direct ripgrep execution
-     - Fast, no index required
-     - Literal string matching
-
-  5. priority: Fallback strategy for best balance of speed and recall
-     - Tries searches in order: hybrid -> exact -> ripgrep
-     - Returns results from the first successful search with results
-     - More efficient than running all backends in parallel
-
-**Actions:**
-  - search (default): Intelligent search with auto routing
-  - init: Create CodexLens index
-  - status: Check index and embedding availability
-  - search_files: Return file paths only
-
-**Workflow:**
-  1. Run action="init" to create index
-  2. Use auto mode - it routes to hybrid for NL queries, exact for simple queries
-  3. Use priority mode for comprehensive fallback search`,
+**Modes:** auto (intelligent routing), hybrid (semantic, needs index), exact (FTS), ripgrep (fast, no index), priority (fallback: hybrid→exact→ripgrep)`,
   inputSchema: {
     type: 'object',
     properties: {

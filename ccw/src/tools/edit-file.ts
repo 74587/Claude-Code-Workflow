@@ -415,13 +415,17 @@ function executeLineMode(content: string, params: Params): LineModeResult {
 // Tool schema for MCP
 export const schema: ToolSchema = {
   name: 'edit_file',
-  description: `Edit file by text replacement or line operations.
+  description: `Edit file using two modes: "update" for text replacement (default) and "line" for line-based operations.
 
-Usage:
+Usage (update mode):
   edit_file(path="f.js", oldText="old", newText="new")
-  edit_file(path="f.js", mode="line", operation="insert_after", line=10, text="new line")
+  edit_file(path="f.js", edits=[{oldText:"a",newText:"b"},{oldText:"c",newText:"d"}])
 
-Options: dryRun=true (preview diff), replaceAll=true (replace all occurrences)`,
+Usage (line mode):
+  edit_file(path="f.js", mode="line", operation="insert_after", line=10, text="new line")
+  edit_file(path="f.js", mode="line", operation="delete", line=5, end_line=8)
+
+Options: dryRun=true (preview diff), replaceAll=true (update mode only)`,
   inputSchema: {
     type: 'object',
     properties: {
