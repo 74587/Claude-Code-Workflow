@@ -10,6 +10,16 @@ import { notifyMemoryUpdate, notifyRefreshRequired } from '../tools/notifier.js'
 import { join } from 'path';
 import { existsSync, readdirSync } from 'fs';
 import { StoragePaths } from '../config/storage-paths.js';
+import {
+  generateEmbeddings,
+  searchMemories,
+  getEmbeddingStatus,
+  isEmbedderAvailable,
+  type EmbedOptions,
+  type SearchOptions as EmbedSearchOptions
+} from '../core/memory-embedder-bridge.js';
+import { getCoreMemoryStore } from '../core/core-memory-store.js';
+import { CliHistoryStore } from '../tools/cli-history-store.js';
 
 interface TrackOptions {
   type?: string;
@@ -45,6 +55,23 @@ interface SuggestOptions {
 interface PruneOptions {
   olderThan?: string;
   dryRun?: boolean;
+}
+
+interface EmbedCommandOptions {
+  id?: string;
+  force?: boolean;
+  batchSize?: string;
+}
+
+interface SearchCommandOptions {
+  topK?: string;
+  type?: 'core_memory' | 'workflow' | 'cli_history';
+  minScore?: string;
+  json?: boolean;
+}
+
+interface EmbedStatusOptions {
+  json?: boolean;
 }
 
 /**
@@ -637,15 +664,319 @@ async function pruneAction(options: PruneOptions): Promise<void> {
 }
 
 /**
+ * Chunk and prepare memories for embedding
+ */
+async function chunkMemoriesForEmbedding(projectPath: string, sourceId?: string, force?: boolean): Promise<number> {
+  const coreMemoryStore = getCoreMemoryStore(projectPath);
+  let chunksCreated = 0;
+
+  // 1. Chunk core memories
+  const memories = coreMemoryStore.getMemories({ archived: false, limit: 1000 });
+  for (const memory of memories) {
+    if (sourceId && memory.id !== sourceId) continue;
+
+    // Check if already chunked (skip unless force)
+    const existingChunks = coreMemoryStore.getChunks(memory.id);
+    if (existingChunks.length > 0 && !force) continue;
+
+    // Delete old chunks if force
+    if (force && existingChunks.length > 0) {
+      coreMemoryStore.deleteChunks(memory.id);
+    }
+
+    // Chunk the memory content
+    const chunks = coreMemoryStore.chunkContent(memory.content, memory.id, 'core_memory');
+
+    // Insert chunks
+    for (let i = 0; i < chunks.length; i++) {
+      coreMemoryStore.insertChunk({
+        source_id: memory.id,
+        source_type: 'core_memory',
+        chunk_index: i,
+        content: chunks[i],
+        created_at: new Date().toISOString()
+      });
+      chunksCreated++;
+    }
+  }
+
+  // 2. Chunk CLI history
+  try {
+    const cliHistoryStore = new CliHistoryStore(projectPath);
+    const history = cliHistoryStore.getHistory({ limit: 500 });
+
+    for (const exec of history.executions) {
+      if (sourceId && exec.id !== sourceId) continue;
+
+      // Check if already chunked
+      const existingChunks = coreMemoryStore.getChunks(exec.id);
+      if (existingChunks.length > 0 && !force) continue;
+
+      // Delete old chunks if force
+      if (force && existingChunks.length > 0) {
+        coreMemoryStore.deleteChunks(exec.id);
+      }
+
+      // Get conversation content
+      const conversation = cliHistoryStore.getConversation(exec.id);
+      if (!conversation || !conversation.turns || conversation.turns.length === 0) continue;
+
+      // Create content from turns
+      const content = conversation.turns
+        .map((t: any) => `Prompt: ${t.prompt}\nOutput: ${(t.stdout || '').substring(0, 500)}`)
+        .join('\n---\n');
+
+      // Chunk the content
+      const chunks = coreMemoryStore.chunkContent(content, exec.id, 'cli_history');
+
+      // Insert chunks
+      for (let i = 0; i < chunks.length; i++) {
+        coreMemoryStore.insertChunk({
+          source_id: exec.id,
+          source_type: 'cli_history',
+          chunk_index: i,
+          content: chunks[i],
+          created_at: new Date().toISOString()
+        });
+        chunksCreated++;
+      }
+    }
+  } catch {
+    // CLI history might not exist, continue
+  }
+
+  return chunksCreated;
+}
+
+/**
+ * Generate embeddings for memory chunks
+ */
+async function embedAction(options: EmbedCommandOptions): Promise<void> {
+  const { id, force, batchSize } = options;
+
+  try {
+    // Check embedder availability
+    if (!isEmbedderAvailable()) {
+      console.error(chalk.red('\nError: Memory embedder not available'));
+      console.error(chalk.gray('Ensure CodexLens venv exists at ~/.codexlens/venv\n'));
+      process.exit(1);
+    }
+
+    const projectPath = getProjectPath();
+    const paths = StoragePaths.project(projectPath);
+    const dbPath = join(paths.root, 'core-memory', 'core_memory.db');
+
+    if (!existsSync(dbPath)) {
+      console.error(chalk.red('\nError: Core memory database not found'));
+      console.error(chalk.gray('Create memories first using "ccw core-memory import"\n'));
+      process.exit(1);
+    }
+
+    // Step 1: Chunk memories first
+    console.log(chalk.cyan('Chunking memories...'));
+    const chunksCreated = await chunkMemoriesForEmbedding(projectPath, id, force);
+    if (chunksCreated > 0) {
+      console.log(chalk.green(`  Created ${chunksCreated} new chunks`));
+    }
+
+    // Step 2: Generate embeddings
+    console.log(chalk.cyan('Generating embeddings...'));
+
+    const embedOptions: EmbedOptions = {
+      sourceId: id,
+      force: force || false,
+      batchSize: batchSize ? parseInt(batchSize, 10) : 8
+    };
+
+    const result = await generateEmbeddings(dbPath, embedOptions);
+
+    if (!result.success) {
+      console.error(chalk.red(`\nError: ${result.error}\n`));
+      process.exit(1);
+    }
+
+    console.log(chalk.green(`\n✓ Processed ${result.chunks_processed} chunks in ${result.elapsed_time.toFixed(1)}s`));
+
+    // Get status to show breakdown by type
+    const status = await getEmbeddingStatus(dbPath);
+    if (status.success && Object.keys(status.by_type).length > 0) {
+      for (const [type, stats] of Object.entries(status.by_type)) {
+        if (stats.total > 0) {
+          console.log(chalk.white(`  - ${type}: ${stats.embedded} chunks`));
+        }
+      }
+    }
+    console.log();
+
+  } catch (error) {
+    console.error(chalk.red(`\nError: ${(error as Error).message}\n`));
+    process.exit(1);
+  }
+}
+
+/**
+ * Search memories using semantic search
+ */
+async function searchEmbedAction(query: string | undefined, options: SearchCommandOptions): Promise<void> {
+  if (!query) {
+    console.error(chalk.red('Error: Search query is required'));
+    console.error(chalk.gray('Usage: ccw memory search "<query>"'));
+    process.exit(1);
+  }
+
+  const { topK = '10', type, minScore = '0.5', json } = options;
+
+  try {
+    // Check embedder availability
+    if (!isEmbedderAvailable()) {
+      console.error(chalk.red('\nError: Memory embedder not available'));
+      console.error(chalk.gray('Ensure CodexLens venv exists at ~/.codexlens/venv\n'));
+      process.exit(1);
+    }
+
+    const projectPath = getProjectPath();
+    const paths = StoragePaths.project(projectPath);
+    const dbPath = join(paths.root, 'core-memory', 'core_memory.db');
+
+    if (!existsSync(dbPath)) {
+      console.error(chalk.red('\nError: Core memory database not found'));
+      console.error(chalk.gray('Create memories first using "ccw core-memory import"\n'));
+      process.exit(1);
+    }
+
+    const searchOptions: EmbedSearchOptions = {
+      topK: parseInt(topK, 10),
+      minScore: parseFloat(minScore),
+      sourceType: type
+    };
+
+    const result = await searchMemories(dbPath, query, searchOptions);
+
+    if (!result.success) {
+      console.error(chalk.red(`\nError: ${result.error}\n`));
+      process.exit(1);
+    }
+
+    if (json) {
+      const output = result.matches.map(m => ({
+        sourceId: m.source_id,
+        sourceType: m.source_type,
+        score: m.score,
+        content: m.content,
+        restoreCommand: m.restore_command
+      }));
+      console.log(JSON.stringify(output, null, 2));
+      return;
+    }
+
+    console.log(chalk.bold.cyan(`\nFound ${result.matches.length} matches for "${query}":\n`));
+
+    if (result.matches.length === 0) {
+      console.log(chalk.yellow('No results found. Try:'));
+      console.log(chalk.gray('  - Using different keywords'));
+      console.log(chalk.gray('  - Lowering --min-score threshold'));
+      console.log(chalk.gray('  - Running "ccw memory embed" to generate embeddings\n'));
+      return;
+    }
+
+    for (let i = 0; i < result.matches.length; i++) {
+      const match = result.matches[i];
+      const preview = match.content.length > 80
+        ? match.content.substring(0, 80) + '...'
+        : match.content;
+
+      console.log(chalk.bold.white(`${i + 1}. [${match.score.toFixed(2)}] ${match.source_id}`) + chalk.gray(` (${match.source_type})`));
+      console.log(chalk.white(`   "${preview}"`));
+      console.log(chalk.cyan(`   → ${match.restore_command}`));
+      console.log();
+    }
+
+  } catch (error) {
+    if (json) {
+      console.log(JSON.stringify({ error: (error as Error).message }, null, 2));
+    } else {
+      console.error(chalk.red(`\nError: ${(error as Error).message}\n`));
+    }
+    process.exit(1);
+  }
+}
+
+/**
+ * Show embedding status
+ */
+async function embedStatusAction(options: EmbedStatusOptions): Promise<void> {
+  const { json } = options;
+
+  try {
+    // Check embedder availability
+    if (!isEmbedderAvailable()) {
+      console.error(chalk.red('\nError: Memory embedder not available'));
+      console.error(chalk.gray('Ensure CodexLens venv exists at ~/.codexlens/venv\n'));
+      process.exit(1);
+    }
+
+    const projectPath = getProjectPath();
+    const paths = StoragePaths.project(projectPath);
+    const dbPath = join(paths.root, 'core-memory', 'core_memory.db');
+
+    if (!existsSync(dbPath)) {
+      console.error(chalk.red('\nError: Core memory database not found'));
+      console.error(chalk.gray('Create memories first using "ccw core-memory import"\n'));
+      process.exit(1);
+    }
+
+    const status = await getEmbeddingStatus(dbPath);
+
+    if (!status.success) {
+      console.error(chalk.red(`\nError: ${status.error}\n`));
+      process.exit(1);
+    }
+
+    if (json) {
+      console.log(JSON.stringify(status, null, 2));
+      return;
+    }
+
+    const embeddedPercent = status.total_chunks > 0
+      ? Math.round((status.embedded_chunks / status.total_chunks) * 100)
+      : 0;
+
+    console.log(chalk.bold.cyan('\nEmbedding Status:'));
+    console.log(chalk.white(`  Total chunks: ${status.total_chunks}`));
+    console.log(chalk.white(`  Embedded: ${status.embedded_chunks} (${embeddedPercent}%)`));
+    console.log(chalk.white(`  Pending: ${status.pending_chunks}`));
+
+    if (Object.keys(status.by_type).length > 0) {
+      console.log(chalk.bold.white('\nBy Type:'));
+      for (const [type, stats] of Object.entries(status.by_type)) {
+        const typePercent = stats.total > 0
+          ? Math.round((stats.embedded / stats.total) * 100)
+          : 0;
+        console.log(chalk.cyan(`  ${type}: `) + chalk.white(`${stats.embedded}/${stats.total} (${typePercent}%)`));
+      }
+    }
+    console.log();
+
+  } catch (error) {
+    if (json) {
+      console.log(JSON.stringify({ error: (error as Error).message }, null, 2));
+    } else {
+      console.error(chalk.red(`\nError: ${(error as Error).message}\n`));
+    }
+    process.exit(1);
+  }
+}
+
+/**
  * Memory command entry point
- * @param {string} subcommand - Subcommand (track, import, stats, search, suggest, prune)
+ * @param {string} subcommand - Subcommand (track, import, stats, search, suggest, prune, embed, embed-status)
  * @param {string|string[]} args - Arguments array
  * @param {Object} options - CLI options
  */
 export async function memoryCommand(
   subcommand: string,
   args: string | string[],
-  options: TrackOptions | ImportOptions | StatsOptions | SearchOptions | SuggestOptions | PruneOptions
+  options: TrackOptions | ImportOptions | StatsOptions | SearchOptions | SuggestOptions | PruneOptions | EmbedCommandOptions | SearchCommandOptions | EmbedStatusOptions
 ): Promise<void> {
   const argsArray = Array.isArray(args) ? args : (args ? [args] : []);
 
@@ -663,7 +994,12 @@ export async function memoryCommand(
       break;
 
     case 'search':
-      await searchAction(argsArray[0], options as SearchOptions);
+      // Check if this is semantic search (has --top-k or --min-score) or prompt history search
+      if ('topK' in options || 'minScore' in options) {
+        await searchEmbedAction(argsArray[0], options as SearchCommandOptions);
+      } else {
+        await searchAction(argsArray[0], options as SearchOptions);
+      }
       break;
 
     case 'suggest':
@@ -674,6 +1010,14 @@ export async function memoryCommand(
       await pruneAction(options as PruneOptions);
       break;
 
+    case 'embed':
+      await embedAction(options as EmbedCommandOptions);
+      break;
+
+    case 'embed-status':
+      await embedStatusAction(options as EmbedStatusOptions);
+      break;
+
     default:
       console.log(chalk.bold.cyan('\n  CCW Memory Module\n'));
       console.log('  Context tracking and prompt optimization.\n');
@@ -681,9 +1025,11 @@ export async function memoryCommand(
       console.log(chalk.gray('    track               Track entity access (used by hooks)'));
       console.log(chalk.gray('    import              Import Claude Code history'));
       console.log(chalk.gray('    stats               Show hotspot statistics'));
-      console.log(chalk.gray('    search <query>      Search through prompt history'));
+      console.log(chalk.gray('    search <query>      Search through prompt history (semantic or FTS)'));
       console.log(chalk.gray('    suggest             Get optimization suggestions'));
       console.log(chalk.gray('    prune               Clean up old data'));
+      console.log(chalk.gray('    embed               Generate embeddings for semantic search'));
+      console.log(chalk.gray('    embed-status        Show embedding generation status'));
       console.log();
       console.log('  Track Options:');
       console.log(chalk.gray('    --type <type>       Entity type: file, module, topic'));
@@ -701,8 +1047,22 @@ export async function memoryCommand(
       console.log(chalk.gray('    --sort <field>      Sort by: heat, reads, writes (default: heat)'));
       console.log(chalk.gray('    --json              Output as JSON'));
       console.log();
-      console.log('  Search Options:');
+      console.log('  Search Options (Prompt History):');
       console.log(chalk.gray('    --limit <n>         Number of results (default: 20)'));
+      console.log(chalk.gray('    --json              Output as JSON'));
+      console.log();
+      console.log('  Search Options (Semantic - requires embeddings):');
+      console.log(chalk.gray('    --top-k <n>         Number of results (default: 10)'));
+      console.log(chalk.gray('    --min-score <f>     Minimum similarity score (default: 0.5)'));
+      console.log(chalk.gray('    --type <type>       Filter: core_memory, workflow, cli_history'));
+      console.log(chalk.gray('    --json              Output as JSON'));
+      console.log();
+      console.log('  Embed Options:');
+      console.log(chalk.gray('    --id <id>           Specific memory/session ID to embed'));
+      console.log(chalk.gray('    --force             Force re-embed all chunks'));
+      console.log(chalk.gray('    --batch-size <n>    Batch size for embedding (default: 8)'));
+      console.log();
+      console.log('  Embed Status Options:');
       console.log(chalk.gray('    --json              Output as JSON'));
       console.log();
       console.log('  Suggest Options:');
@@ -718,7 +1078,11 @@ export async function memoryCommand(
       console.log(chalk.gray('    ccw memory track --type file --action read --value "src/auth.ts"'));
       console.log(chalk.gray('    ccw memory import --source history --project "my-app"'));
       console.log(chalk.gray('    ccw memory stats --type file --sort heat --limit 10'));
-      console.log(chalk.gray('    ccw memory search "authentication patterns"'));
+      console.log(chalk.gray('    ccw memory search "authentication patterns"  # FTS search'));
+      console.log(chalk.gray('    ccw memory embed                              # Generate all embeddings'));
+      console.log(chalk.gray('    ccw memory embed --id CMEM-xxx                # Embed specific memory'));
+      console.log(chalk.gray('    ccw memory embed-status                       # Check embedding status'));
+      console.log(chalk.gray('    ccw memory search "auth patterns" --top-k 5   # Semantic search'));
       console.log(chalk.gray('    ccw memory suggest --context "implementing JWT auth"'));
       console.log(chalk.gray('    ccw memory prune --older-than 60d --dry-run'));
       console.log();

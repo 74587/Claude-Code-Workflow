@@ -181,19 +181,24 @@ export function run(argv: string[]): void {
   program
     .command('memory [subcommand] [args...]')
     .description('Memory module for context tracking and prompt optimization')
-    .option('--type <type>', 'Entity type: file, module, topic')
+    .option('--type <type>', 'Entity type: file, module, topic (track) OR source type: core_memory, workflow, cli_history (search)')
     .option('--action <action>', 'Action: read, write, mention')
     .option('--value <value>', 'Entity value (file path, etc.)')
     .option('--session <session>', 'Session ID')
     .option('--stdin', 'Read input from stdin (for Claude Code hooks)')
     .option('--source <source>', 'Import source: history, sessions, all', 'all')
     .option('--project <project>', 'Project name filter')
-    .option('--limit <n>', 'Number of results', '20')
+    .option('--limit <n>', 'Number of results (prompt search)', '20')
     .option('--sort <field>', 'Sort by: heat, reads, writes', 'heat')
     .option('--json', 'Output as JSON')
     .option('--context <text>', 'Current task context')
     .option('--older-than <age>', 'Age threshold for pruning', '30d')
     .option('--dry-run', 'Preview without deleting')
+    .option('--id <id>', 'Memory/session ID (for embed command)')
+    .option('--force', 'Force re-embed all chunks')
+    .option('--batch-size <n>', 'Batch size for embedding', '8')
+    .option('--top-k <n>', 'Number of semantic search results', '10')
+    .option('--min-score <f>', 'Minimum similarity score for semantic search', '0.5')
     .action((subcommand, args, options) => memoryCommand(subcommand, args, options));
 
   // Core Memory command

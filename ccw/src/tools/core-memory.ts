@@ -1,14 +1,17 @@
 /**
  * Core Memory Tool - MCP tool for core memory management
- * Operations: list, import, export, summary
+ * Operations: list, import, export, summary, embed, search, embed_status
  */
 
 import { z } from 'zod';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
 import { getCoreMemoryStore } from '../core/core-memory-store.js';
+import * as MemoryEmbedder from '../core/memory-embedder-bridge.js';
+import { StoragePaths } from '../config/storage-paths.js';
+import { join } from 'path';
 
 // Zod schemas
-const OperationEnum = z.enum(['list', 'import', 'export', 'summary']);
+const OperationEnum = z.enum(['list', 'import', 'export', 'summary', 'embed', 'search', 'embed_status']);
 
 const ParamsSchema = z.object({
   operation: OperationEnum,
@@ -16,6 +19,15 @@ const ParamsSchema = z.object({
   id: z.string().optional(),
   tool: z.enum(['gemini', 'qwen']).optional().default('gemini'),
   limit: z.number().optional().default(100),
+  // Search parameters
+  query: z.string().optional(),
+  top_k: z.number().optional().default(10),
+  min_score: z.number().optional().default(0.3),
+  source_type: z.enum(['core_memory', 'workflow', 'cli_history']).optional(),
+  // Embed parameters
+  source_id: z.string().optional(),
+  batch_size: z.number().optional().default(8),
+  force: z.boolean().optional().default(false),
 });
 
 type Params = z.infer<typeof ParamsSchema>;
@@ -53,13 +65,51 @@ interface SummaryResult {
   summary: string;
 }
 
-type OperationResult = ListResult | ImportResult | ExportResult | SummaryResult;
+interface EmbedResult {
+  operation: 'embed';
+  chunks_processed: number;
+  chunks_failed: number;
+  elapsed_time: number;
+  message: string;
+}
+
+interface SearchResult {
+  operation: 'search';
+  query: string;
+  matches: Array<{
+    source_id: string;
+    source_type: string;
+    score: number;
+    excerpt: string;
+    restore_command: string;
+  }>;
+  total_matches: number;
+}
+
+interface EmbedStatusResult {
+  operation: 'embed_status';
+  total_chunks: number;
+  embedded_chunks: number;
+  pending_chunks: number;
+  by_type: Record<string, { total: number; embedded: number }>;
+}
+
+type OperationResult = ListResult | ImportResult | ExportResult | SummaryResult | EmbedResult | SearchResult | EmbedStatusResult;
 
 /**
  * Get project path from current working directory
  */
 function getProjectPath(): string {
   return process.cwd();
+}
+
+/**
+ * Get database path for current project
+ */
+function getDatabasePath(): string {
+  const projectPath = getProjectPath();
+  const paths = StoragePaths.project(projectPath);
+  return join(paths.root, 'core-memory', 'core_memory.db');
 }
 
 /**
@@ -154,6 +204,92 @@ async function executeSummary(params: Params): Promise<SummaryResult> {
 }
 
 /**
+ * Operation: embed
+ * Generate embeddings for memory chunks
+ */
+async function executeEmbed(params: Params): Promise<EmbedResult> {
+  const { source_id, batch_size = 8, force = false } = params;
+  const dbPath = getDatabasePath();
+
+  const result = await MemoryEmbedder.generateEmbeddings(dbPath, {
+    sourceId: source_id,
+    batchSize: batch_size,
+    force,
+  });
+
+  if (!result.success) {
+    throw new Error(result.error || 'Embedding generation failed');
+  }
+
+  return {
+    operation: 'embed',
+    chunks_processed: result.chunks_processed,
+    chunks_failed: result.chunks_failed,
+    elapsed_time: result.elapsed_time,
+    message: `Successfully processed ${result.chunks_processed} chunks in ${result.elapsed_time.toFixed(2)}s`,
+  };
+}
+
+/**
+ * Operation: search
+ * Search memory chunks using semantic search
+ */
+async function executeSearch(params: Params): Promise<SearchResult> {
+  const { query, top_k = 10, min_score = 0.3, source_type } = params;
+
+  if (!query) {
+    throw new Error('Parameter "query" is required for search operation');
+  }
+
+  const dbPath = getDatabasePath();
+
+  const result = await MemoryEmbedder.searchMemories(dbPath, query, {
+    topK: top_k,
+    minScore: min_score,
+    sourceType: source_type,
+  });
+
+  if (!result.success) {
+    throw new Error(result.error || 'Search failed');
+  }
+
+  return {
+    operation: 'search',
+    query,
+    matches: result.matches.map((match) => ({
+      source_id: match.source_id,
+      source_type: match.source_type,
+      score: match.score,
+      excerpt: match.content.substring(0, 200) + (match.content.length > 200 ? '...' : ''),
+      restore_command: match.restore_command,
+    })),
+    total_matches: result.matches.length,
+  };
+}
+
+/**
+ * Operation: embed_status
+ * Get embedding status statistics
+ */
+async function executeEmbedStatus(params: Params): Promise<EmbedStatusResult> {
+  const dbPath = getDatabasePath();
+
+  const result = await MemoryEmbedder.getEmbeddingStatus(dbPath);
+
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to get embedding status');
+  }
+
+  return {
+    operation: 'embed_status',
+    total_chunks: result.total_chunks,
+    embedded_chunks: result.embedded_chunks,
+    pending_chunks: result.pending_chunks,
+    by_type: result.by_type,
+  };
+}
+
+/**
  * Route to appropriate operation handler
  */
 async function execute(params: Params): Promise<OperationResult> {
@@ -168,9 +304,15 @@ async function execute(params: Params): Promise<OperationResult> {
       return executeExport(params);
     case 'summary':
       return executeSummary(params);
+    case 'embed':
+      return executeEmbed(params);
+    case 'search':
+      return executeSearch(params);
+    case 'embed_status':
+      return executeEmbedStatus(params);
     default:
       throw new Error(
-        `Unknown operation: ${operation}. Valid operations: list, import, export, summary`
+        `Unknown operation: ${operation}. Valid operations: list, import, export, summary, embed, search, embed_status`
       );
   }
 }
@@ -185,6 +327,9 @@ Usage:
   core_memory(operation="import", text="important context")  # Import text as new memory
   core_memory(operation="export", id="CMEM-xxx")             # Export memory as plain text
   core_memory(operation="summary", id="CMEM-xxx")            # Generate AI summary
+  core_memory(operation="embed", source_id="CMEM-xxx")       # Generate embeddings for memory
+  core_memory(operation="search", query="authentication")    # Search memories semantically
+  core_memory(operation="embed_status")                      # Check embedding status
 
 Memory IDs use format: CMEM-YYYYMMDD-HHMMSS`,
   inputSchema: {
@@ -192,7 +337,7 @@ Memory IDs use format: CMEM-YYYYMMDD-HHMMSS`,
     properties: {
       operation: {
         type: 'string',
-        enum: ['list', 'import', 'export', 'summary'],
+        enum: ['list', 'import', 'export', 'summary', 'embed', 'search', 'embed_status'],
         description: 'Operation to perform',
       },
       text: {
@@ -211,6 +356,35 @@ Memory IDs use format: CMEM-YYYYMMDD-HHMMSS`,
       limit: {
         type: 'number',
         description: 'Max number of memories to list (default: 100)',
+      },
+      query: {
+        type: 'string',
+        description: 'Search query text (required for search operation)',
+      },
+      top_k: {
+        type: 'number',
+        description: 'Number of search results to return (default: 10)',
+      },
+      min_score: {
+        type: 'number',
+        description: 'Minimum similarity score threshold (default: 0.3)',
+      },
+      source_type: {
+        type: 'string',
+        enum: ['core_memory', 'workflow', 'cli_history'],
+        description: 'Filter search by source type',
+      },
+      source_id: {
+        type: 'string',
+        description: 'Source ID to embed (optional for embed operation)',
+      },
+      batch_size: {
+        type: 'number',
+        description: 'Batch size for embedding generation (default: 8)',
+      },
+      force: {
+        type: 'boolean',
+        description: 'Force re-embedding even if embeddings exist (default: false)',
       },
     },
     required: ['operation'],

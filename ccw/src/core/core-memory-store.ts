@@ -60,6 +60,17 @@ export interface SessionMetadataCache {
   access_count: number;
 }
 
+export interface MemoryChunk {
+  id?: number;
+  source_id: string;
+  source_type: 'core_memory' | 'workflow' | 'cli_history';
+  chunk_index: number;
+  content: string;
+  embedding?: Buffer;
+  metadata?: string;
+  created_at: string;
+}
+
 /**
  * Core Memory Store using SQLite
  */
@@ -152,6 +163,19 @@ export class CoreMemoryStore {
         access_count INTEGER DEFAULT 0
       );
 
+      -- Memory chunks table for embeddings
+      CREATE TABLE IF NOT EXISTS memory_chunks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_id TEXT NOT NULL,
+        source_type TEXT NOT NULL,
+        chunk_index INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        embedding BLOB,
+        metadata TEXT,
+        created_at TEXT NOT NULL,
+        UNIQUE(source_id, chunk_index)
+      );
+
       -- Indexes for efficient queries
       CREATE INDEX IF NOT EXISTS idx_memories_created ON memories(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_memories_updated ON memories(updated_at DESC);
@@ -160,6 +184,8 @@ export class CoreMemoryStore {
       CREATE INDEX IF NOT EXISTS idx_cluster_members_cluster ON cluster_members(cluster_id);
       CREATE INDEX IF NOT EXISTS idx_cluster_members_session ON cluster_members(session_id);
       CREATE INDEX IF NOT EXISTS idx_session_metadata_type ON session_metadata_cache(session_type);
+      CREATE INDEX IF NOT EXISTS idx_memory_chunks_source ON memory_chunks(source_id, source_type);
+      CREATE INDEX IF NOT EXISTS idx_memory_chunks_embedded ON memory_chunks(embedding IS NOT NULL);
     `);
   }
 
@@ -813,6 +839,243 @@ ${memory.content}
       last_accessed: row.last_accessed,
       access_count: row.access_count
     }));
+  }
+
+  // ============================================================================
+  // Memory Chunks CRUD Operations
+  // ============================================================================
+
+  /**
+   * Chunk content into smaller pieces for embedding
+   * @param content Content to chunk
+   * @param sourceId Source identifier (e.g., memory ID)
+   * @param sourceType Type of source
+   * @returns Array of chunk content strings
+   */
+  chunkContent(content: string, sourceId: string, sourceType: string): string[] {
+    const CHUNK_SIZE = 1500;
+    const OVERLAP = 200;
+    const chunks: string[] = [];
+
+    // Split by paragraph boundaries first
+    const paragraphs = content.split(/\n\n+/);
+    let currentChunk = '';
+
+    for (const paragraph of paragraphs) {
+      // If adding this paragraph would exceed chunk size
+      if (currentChunk.length + paragraph.length > CHUNK_SIZE && currentChunk.length > 0) {
+        // Save current chunk
+        chunks.push(currentChunk.trim());
+
+        // Start new chunk with overlap
+        const overlapText = currentChunk.slice(-OVERLAP);
+        currentChunk = overlapText + '\n\n' + paragraph;
+      } else {
+        // Add paragraph to current chunk
+        currentChunk += (currentChunk ? '\n\n' : '') + paragraph;
+      }
+    }
+
+    // Add remaining chunk
+    if (currentChunk.trim()) {
+      chunks.push(currentChunk.trim());
+    }
+
+    // If no paragraphs or chunks are still too large, split by sentences
+    const finalChunks: string[] = [];
+    for (const chunk of chunks) {
+      if (chunk.length <= CHUNK_SIZE) {
+        finalChunks.push(chunk);
+      } else {
+        // Split by sentence boundaries
+        const sentences = chunk.split(/\. +/);
+        let sentenceChunk = '';
+
+        for (const sentence of sentences) {
+          const sentenceWithPeriod = sentence + '. ';
+          if (sentenceChunk.length + sentenceWithPeriod.length > CHUNK_SIZE && sentenceChunk.length > 0) {
+            finalChunks.push(sentenceChunk.trim());
+            const overlapText = sentenceChunk.slice(-OVERLAP);
+            sentenceChunk = overlapText + sentenceWithPeriod;
+          } else {
+            sentenceChunk += sentenceWithPeriod;
+          }
+        }
+
+        if (sentenceChunk.trim()) {
+          finalChunks.push(sentenceChunk.trim());
+        }
+      }
+    }
+
+    return finalChunks.length > 0 ? finalChunks : [content];
+  }
+
+  /**
+   * Insert a single chunk
+   */
+  insertChunk(chunk: Omit<MemoryChunk, 'id'>): number {
+    const now = new Date().toISOString();
+
+    const stmt = this.db.prepare(`
+      INSERT INTO memory_chunks (source_id, source_type, chunk_index, content, embedding, metadata, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const result = stmt.run(
+      chunk.source_id,
+      chunk.source_type,
+      chunk.chunk_index,
+      chunk.content,
+      chunk.embedding || null,
+      chunk.metadata || null,
+      chunk.created_at || now
+    );
+
+    return result.lastInsertRowid as number;
+  }
+
+  /**
+   * Insert multiple chunks in a batch
+   */
+  insertChunksBatch(chunks: Omit<MemoryChunk, 'id'>[]): void {
+    const now = new Date().toISOString();
+    const insert = this.db.prepare(`
+      INSERT INTO memory_chunks (source_id, source_type, chunk_index, content, embedding, metadata, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const transaction = this.db.transaction((chunks: Omit<MemoryChunk, 'id'>[]) => {
+      for (const chunk of chunks) {
+        insert.run(
+          chunk.source_id,
+          chunk.source_type,
+          chunk.chunk_index,
+          chunk.content,
+          chunk.embedding || null,
+          chunk.metadata || null,
+          chunk.created_at || now
+        );
+      }
+    });
+
+    transaction(chunks);
+  }
+
+  /**
+   * Get all chunks for a source
+   */
+  getChunks(sourceId: string): MemoryChunk[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM memory_chunks
+      WHERE source_id = ?
+      ORDER BY chunk_index ASC
+    `);
+
+    const rows = stmt.all(sourceId) as any[];
+    return rows.map(row => ({
+      id: row.id,
+      source_id: row.source_id,
+      source_type: row.source_type,
+      chunk_index: row.chunk_index,
+      content: row.content,
+      embedding: row.embedding,
+      metadata: row.metadata,
+      created_at: row.created_at
+    }));
+  }
+
+  /**
+   * Get chunks by source type
+   */
+  getChunksByType(sourceType: string): MemoryChunk[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM memory_chunks
+      WHERE source_type = ?
+      ORDER BY source_id, chunk_index ASC
+    `);
+
+    const rows = stmt.all(sourceType) as any[];
+    return rows.map(row => ({
+      id: row.id,
+      source_id: row.source_id,
+      source_type: row.source_type,
+      chunk_index: row.chunk_index,
+      content: row.content,
+      embedding: row.embedding,
+      metadata: row.metadata,
+      created_at: row.created_at
+    }));
+  }
+
+  /**
+   * Get chunks without embeddings
+   */
+  getUnembeddedChunks(limit?: number): MemoryChunk[] {
+    const query = `
+      SELECT * FROM memory_chunks
+      WHERE embedding IS NULL
+      ORDER BY created_at ASC
+      ${limit ? 'LIMIT ?' : ''}
+    `;
+
+    const stmt = this.db.prepare(query);
+    const rows = (limit ? stmt.all(limit) : stmt.all()) as any[];
+
+    return rows.map(row => ({
+      id: row.id,
+      source_id: row.source_id,
+      source_type: row.source_type,
+      chunk_index: row.chunk_index,
+      content: row.content,
+      embedding: row.embedding,
+      metadata: row.metadata,
+      created_at: row.created_at
+    }));
+  }
+
+  /**
+   * Update embedding for a chunk
+   */
+  updateChunkEmbedding(chunkId: number, embedding: Buffer): void {
+    const stmt = this.db.prepare(`
+      UPDATE memory_chunks
+      SET embedding = ?
+      WHERE id = ?
+    `);
+
+    stmt.run(embedding, chunkId);
+  }
+
+  /**
+   * Update embeddings for multiple chunks in a batch
+   */
+  updateChunkEmbeddingsBatch(updates: { id: number; embedding: Buffer }[]): void {
+    const update = this.db.prepare(`
+      UPDATE memory_chunks
+      SET embedding = ?
+      WHERE id = ?
+    `);
+
+    const transaction = this.db.transaction((updates: { id: number; embedding: Buffer }[]) => {
+      for (const { id, embedding } of updates) {
+        update.run(embedding, id);
+      }
+    });
+
+    transaction(updates);
+  }
+
+  /**
+   * Delete all chunks for a source
+   */
+  deleteChunks(sourceId: string): void {
+    const stmt = this.db.prepare(`
+      DELETE FROM memory_chunks
+      WHERE source_id = ?
+    `);
+
+    stmt.run(sourceId);
   }
 
   /**

@@ -11,9 +11,10 @@ import { join } from 'path';
 
 // Clustering dimension weights
 const WEIGHTS = {
-  fileOverlap: 0.3,
-  temporalProximity: 0.2,
-  semanticSimilarity: 0.3,
+  fileOverlap: 0.2,
+  temporalProximity: 0.15,
+  keywordSimilarity: 0.15,
+  vectorSimilarity: 0.3,
   intentAlignment: 0.2,
 };
 
@@ -219,13 +220,15 @@ export class SessionClusteringService {
   calculateRelevance(session1: SessionMetadataCache, session2: SessionMetadataCache): number {
     const fileScore = this.calculateFileOverlap(session1, session2);
     const temporalScore = this.calculateTemporalProximity(session1, session2);
-    const semanticScore = this.calculateSemanticSimilarity(session1, session2);
+    const keywordScore = this.calculateSemanticSimilarity(session1, session2);
+    const vectorScore = this.calculateVectorSimilarity(session1, session2);
     const intentScore = this.calculateIntentAlignment(session1, session2);
 
     return (
       fileScore * WEIGHTS.fileOverlap +
       temporalScore * WEIGHTS.temporalProximity +
-      semanticScore * WEIGHTS.semanticSimilarity +
+      keywordScore * WEIGHTS.keywordSimilarity +
+      vectorScore * WEIGHTS.vectorSimilarity +
       intentScore * WEIGHTS.intentAlignment
     );
   }
@@ -299,6 +302,98 @@ export class SessionClusteringService {
     const union = new Set([...set1, ...set2]);
 
     return intersection.size / union.size;
+  }
+
+  /**
+   * Calculate vector similarity using pre-computed embeddings from memory_chunks
+   * Returns average cosine similarity of chunk embeddings
+   */
+  private calculateVectorSimilarity(s1: SessionMetadataCache, s2: SessionMetadataCache): number {
+    const embedding1 = this.getSessionEmbedding(s1.session_id);
+    const embedding2 = this.getSessionEmbedding(s2.session_id);
+
+    // Graceful fallback if no embeddings available
+    if (!embedding1 || !embedding2) {
+      return 0;
+    }
+
+    return this.cosineSimilarity(embedding1, embedding2);
+  }
+
+  /**
+   * Get session embedding by averaging all chunk embeddings
+   */
+  private getSessionEmbedding(sessionId: string): number[] | null {
+    const chunks = this.coreMemoryStore.getChunks(sessionId);
+
+    if (chunks.length === 0) {
+      return null;
+    }
+
+    // Filter chunks that have embeddings
+    const embeddedChunks = chunks.filter(chunk => chunk.embedding && chunk.embedding.length > 0);
+
+    if (embeddedChunks.length === 0) {
+      return null;
+    }
+
+    // Convert Buffer embeddings to number arrays and calculate average
+    const embeddings = embeddedChunks.map(chunk => {
+      // Convert Buffer to Float32Array
+      const buffer = chunk.embedding!;
+      const float32Array = new Float32Array(buffer.buffer, buffer.byteOffset, buffer.byteLength / 4);
+      return Array.from(float32Array);
+    });
+
+    // Check all embeddings have same dimension
+    const dimension = embeddings[0].length;
+    if (!embeddings.every(emb => emb.length === dimension)) {
+      console.warn(`[VectorSimilarity] Inconsistent embedding dimensions for session ${sessionId}`);
+      return null;
+    }
+
+    // Calculate average embedding
+    const avgEmbedding = new Array(dimension).fill(0);
+    for (const embedding of embeddings) {
+      for (let i = 0; i < dimension; i++) {
+        avgEmbedding[i] += embedding[i];
+      }
+    }
+
+    for (let i = 0; i < dimension; i++) {
+      avgEmbedding[i] /= embeddings.length;
+    }
+
+    return avgEmbedding;
+  }
+
+  /**
+   * Calculate cosine similarity between two vectors
+   */
+  private cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length) {
+      console.warn('[VectorSimilarity] Vector dimension mismatch');
+      return 0;
+    }
+
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+
+    normA = Math.sqrt(normA);
+    normB = Math.sqrt(normB);
+
+    if (normA === 0 || normB === 0) {
+      return 0;
+    }
+
+    return dotProduct / (normA * normB);
   }
 
   /**
