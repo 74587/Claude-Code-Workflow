@@ -18,7 +18,7 @@ const SOURCE_DIRS = ['.claude', '.codex', '.gemini', '.qwen'];
 // Subdirectories that should always be installed to global (~/.claude/)
 const GLOBAL_SUBDIRS = ['workflows', 'scripts', 'templates'];
 
-// Files that should be excluded from installation (user-specific settings)
+// Files that should be excluded from cleanup (user-specific settings)
 const EXCLUDED_FILES = ['settings.json', 'settings.local.json'];
 
 interface InstallOptions {
@@ -123,49 +123,50 @@ export async function installCommand(options: InstallOptions): Promise<void> {
 
   divider();
 
-  // Check for existing installation at target path
+  // Check for existing installation manifest
   const existingManifest = findManifest(installPath, mode);
-  let cleanStats = { removed: 0, preserved: 0 };
+  let cleanStats = { removed: 0, skipped: 0 };
 
-  // Check if any target directories exist (regardless of manifest)
-  const existingDirs = SOURCE_DIRS.filter(dir => existsSync(join(installPath, dir)));
-  const hasExistingFiles = existingDirs.length > 0;
-
-  if (hasExistingFiles) {
-    if (existingManifest) {
-      warning('Existing installation found at this location');
-    } else {
-      warning('Existing configuration directories found (no manifest)');
-    }
-    info(`  Found: ${existingDirs.join(', ')}`);
+  if (existingManifest) {
+    // Has manifest - clean based on manifest records
+    warning('Existing installation found at this location');
+    info(`  Files in manifest: ${existingManifest.files?.length || 0}`);
+    info(`  Installed: ${new Date(existingManifest.installation_date).toLocaleDateString()}`);
 
     const { backup } = await inquirer.prompt([{
       type: 'confirm',
       name: 'backup',
-      message: 'Create backup before clean install?',
+      message: 'Create backup before reinstalling?',
       default: true
     }]);
 
     if (backup) {
-      await createBackup(installPath, existingManifest || { files: [], directories: [] });
+      await createBackup(existingManifest);
     }
 
-    // Clean install: remove all old files before copying new ones
+    // Clean based on manifest records
     console.log('');
-    const cleanSpinner = createSpinner('Performing clean install...').start();
+    const cleanSpinner = createSpinner('Cleaning previous installation...').start();
 
     try {
-      cleanSpinner.text = 'Removing old files...';
-      cleanStats = await cleanTargetDirectories(installPath, mode, cleanSpinner);
+      cleanSpinner.text = 'Removing manifest files...';
+      cleanStats = await cleanManifestFiles(existingManifest, cleanSpinner);
 
-      if (cleanStats.removed > 0 || cleanStats.preserved > 0) {
-        cleanSpinner.succeed(`Clean install: ${cleanStats.removed} files removed, ${cleanStats.preserved} user files preserved`);
+      if (cleanStats.removed > 0 || cleanStats.skipped > 0) {
+        cleanSpinner.succeed(`Cleanup: ${cleanStats.removed} files removed, ${cleanStats.skipped} settings preserved`);
       } else {
-        cleanSpinner.succeed('Clean install: directories prepared');
+        cleanSpinner.succeed('Cleanup: no files to remove');
       }
     } catch (err) {
       const errMsg = err as Error;
       cleanSpinner.warn(`Cleanup warning: ${errMsg.message}`);
+    }
+  } else {
+    // No manifest - first install or manual install, just overwrite
+    const existingDirs = SOURCE_DIRS.filter(dir => existsSync(join(installPath, dir)));
+    if (existingDirs.length > 0) {
+      info('No installation manifest found, files will be overwritten');
+      info(`  Existing directories: ${existingDirs.join(', ')}`);
     }
   }
 
@@ -247,11 +248,11 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     chalk.gray(`Directories created: ${totalDirs}`)
   ];
 
-  // Add clean install stats if any files were processed
-  if (cleanStats.removed > 0 || cleanStats.preserved > 0) {
+  // Add cleanup stats if any files were processed
+  if (cleanStats.removed > 0 || cleanStats.skipped > 0) {
     summaryLines.push(chalk.gray(`Old files removed: ${cleanStats.removed}`));
-    if (cleanStats.preserved > 0) {
-      summaryLines.push(chalk.gray(`User files preserved: ${cleanStats.preserved}`));
+    if (cleanStats.skipped > 0) {
+      summaryLines.push(chalk.gray(`Settings preserved: ${cleanStats.skipped}`));
     }
   }
 
@@ -327,105 +328,56 @@ async function selectPath(): Promise<string> {
 }
 
 /**
- * Clean target directories before installation
- * Removes all files except user-specific settings files
- * @param installPath - Installation path
- * @param mode - Installation mode
+ * Clean files based on manifest record
+ * Only removes files that were installed by the previous installation
+ * @param manifest - Existing manifest with file records
  * @param spinner - Spinner for progress display
- * @returns Count of removed files and preserved files
+ * @returns Count of removed files and skipped files
  */
-async function cleanTargetDirectories(
-  installPath: string,
-  mode: string,
+async function cleanManifestFiles(
+  manifest: any,
   spinner: Ora
-): Promise<{ removed: number; preserved: number }> {
+): Promise<{ removed: number; skipped: number }> {
   let removed = 0;
-  let preserved = 0;
-  const globalPath = homedir();
+  let skipped = 0;
 
-  // For Path mode, also clean global subdirectories
-  if (mode === 'Path') {
-    for (const subdir of GLOBAL_SUBDIRS) {
-      const targetPath = join(globalPath, '.claude', subdir);
-      if (existsSync(targetPath)) {
-        spinner.text = `Cleaning global ${subdir}...`;
-        const stats = cleanDirectoryRecursive(targetPath, EXCLUDED_FILES);
-        removed += stats.removed;
-        preserved += stats.preserved;
-      }
-    }
-  }
+  const files = manifest.files || [];
+  const directories = manifest.directories || [];
 
-  // Clean all target directories
-  for (const dir of SOURCE_DIRS) {
-    const targetPath = join(installPath, dir);
-    if (existsSync(targetPath)) {
-      spinner.text = `Cleaning ${dir}...`;
-      // For Path mode on .claude, exclude global subdirs (they're handled separately)
-      const excludeDirs = (mode === 'Path' && dir === '.claude') ? GLOBAL_SUBDIRS : [];
-      const stats = cleanDirectoryRecursive(targetPath, EXCLUDED_FILES, excludeDirs);
-      removed += stats.removed;
-      preserved += stats.preserved;
-    }
-  }
+  // Remove files in reverse order (process deepest paths first)
+  const sortedFiles = [...files].sort((a: any, b: any) => b.path.length - a.path.length);
 
-  return { removed, preserved };
-}
+  for (const fileEntry of sortedFiles) {
+    const filePath = fileEntry.path;
+    const fileName = basename(filePath);
 
-/**
- * Recursively clean a directory, removing all files except excluded ones
- * @param dirPath - Directory to clean
- * @param excludeFiles - Files to preserve
- * @param excludeDirs - Directories to skip
- * @returns Count of removed and preserved files
- */
-function cleanDirectoryRecursive(
-  dirPath: string,
-  excludeFiles: string[] = [],
-  excludeDirs: string[] = []
-): { removed: number; preserved: number } {
-  let removed = 0;
-  let preserved = 0;
-
-  if (!existsSync(dirPath)) {
-    return { removed, preserved };
-  }
-
-  const entries = readdirSync(dirPath);
-
-  for (const entry of entries) {
-    const entryPath = join(dirPath, entry);
-
-    // Skip excluded directories
-    if (excludeDirs.includes(entry)) {
+    // Skip excluded files (user settings)
+    if (EXCLUDED_FILES.includes(fileName)) {
+      skipped++;
       continue;
     }
 
     try {
-      const stat = statSync(entryPath);
+      if (existsSync(filePath)) {
+        spinner.text = `Removing: ${fileName}`;
+        unlinkSync(filePath);
+        removed++;
+      }
+    } catch {
+      // Ignore errors during cleanup
+    }
+  }
 
-      if (stat.isDirectory()) {
-        // Recursively clean subdirectory
-        const stats = cleanDirectoryRecursive(entryPath, excludeFiles, []);
-        removed += stats.removed;
-        preserved += stats.preserved;
+  // Clean up empty directories (deepest first)
+  const sortedDirs = [...directories].sort((a: any, b: any) => b.path.length - a.path.length);
 
-        // Remove empty directory
-        try {
-          const contents = readdirSync(entryPath);
-          if (contents.length === 0) {
-            rmdirSync(entryPath);
-          }
-        } catch {
-          // Ignore errors
-        }
-      } else {
-        // Check if file should be preserved
-        if (excludeFiles.includes(entry)) {
-          preserved++;
-        } else {
-          unlinkSync(entryPath);
-          removed++;
+  for (const dirEntry of sortedDirs) {
+    const dirPath = dirEntry.path;
+    try {
+      if (existsSync(dirPath)) {
+        const contents = readdirSync(dirPath);
+        if (contents.length === 0) {
+          rmdirSync(dirPath);
         }
       }
     } catch {
@@ -433,38 +385,53 @@ function cleanDirectoryRecursive(
     }
   }
 
-  return { removed, preserved };
+  return { removed, skipped };
 }
 
 /**
- * Create backup of existing installation
- * @param installPath - Installation path
- * @param _manifest - Existing manifest (unused, kept for compatibility)
+ * Create backup of files recorded in manifest
+ * @param manifest - Existing manifest with file records
  */
-async function createBackup(installPath: string, _manifest: any): Promise<void> {
+async function createBackup(manifest: any): Promise<void> {
   const spinner = createSpinner('Creating backup...').start();
 
   try {
+    const installPath = manifest.installation_path;
     const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').split('.')[0];
     const backupDir = join(installPath, `.claude-backup-${timestamp}`);
 
-    mkdirSync(backupDir, { recursive: true });
-
-    // Backup all existing source directories
+    const files = manifest.files || [];
     let backedUp = 0;
-    for (const dir of SOURCE_DIRS) {
-      const srcDir = join(installPath, dir);
-      if (existsSync(srcDir)) {
-        spinner.text = `Backing up ${dir}...`;
-        await copyDirectory(srcDir, join(backupDir, dir));
+
+    for (const fileEntry of files) {
+      const filePath = fileEntry.path;
+
+      if (!existsSync(filePath)) continue;
+
+      // Calculate relative path from install path
+      const relativePath = filePath.replace(installPath, '').replace(/^[\\/]/, '');
+      const backupPath = join(backupDir, relativePath);
+
+      // Create directory structure
+      const backupFileDir = dirname(backupPath);
+      if (!existsSync(backupFileDir)) {
+        mkdirSync(backupFileDir, { recursive: true });
+      }
+
+      // Copy file
+      try {
+        spinner.text = `Backing up: ${basename(filePath)}`;
+        copyFileSync(filePath, backupPath);
         backedUp++;
+      } catch {
+        // Ignore individual file errors
       }
     }
 
     if (backedUp > 0) {
-      spinner.succeed(`Backup created: ${backupDir}`);
+      spinner.succeed(`Backup created: ${backupDir} (${backedUp} files)`);
     } else {
-      spinner.info('No directories to backup');
+      spinner.info('No files to backup');
       // Remove empty backup dir
       try { rmdirSync(backupDir); } catch { /* ignore */ }
     }
