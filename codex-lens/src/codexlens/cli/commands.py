@@ -268,6 +268,7 @@ def search(
     files_only: bool = typer.Option(False, "--files-only", "-f", help="Return only file paths without content snippets."),
     mode: str = typer.Option("auto", "--mode", "-m", help="Search mode: auto, exact, fuzzy, hybrid, vector, pure-vector."),
     weights: Optional[str] = typer.Option(None, "--weights", help="Custom RRF weights as 'exact,fuzzy,vector' (e.g., '0.5,0.3,0.2')."),
+    enrich: bool = typer.Option(False, "--enrich", help="Enrich results with code graph relationships (calls, imports)."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
 ) -> None:
@@ -411,19 +412,42 @@ def search(
                     console.print(fp)
         else:
             result = engine.search(query, search_path, options)
+            results_list = [
+                {
+                    "path": r.path,
+                    "score": r.score,
+                    "excerpt": r.excerpt,
+                    "source": getattr(r, "search_source", None),
+                    "symbol": getattr(r, "symbol", None),
+                }
+                for r in result.results
+            ]
+
+            # Enrich results with relationship data if requested
+            enriched = False
+            if enrich:
+                try:
+                    from codexlens.search.enrichment import RelationshipEnricher
+
+                    # Find index path for the search path
+                    project_record = registry.find_by_source_path(str(search_path))
+                    if project_record:
+                        index_path = Path(project_record["index_root"]) / "_index.db"
+                        if index_path.exists():
+                            with RelationshipEnricher(index_path) as enricher:
+                                results_list = enricher.enrich(results_list, limit=limit)
+                            enriched = True
+                except Exception as e:
+                    # Enrichment failure should not break search
+                    if verbose:
+                        console.print(f"[yellow]Warning: Enrichment failed: {e}[/yellow]")
+
             payload = {
                 "query": query,
                 "mode": actual_mode,
-                "count": len(result.results),
-                "results": [
-                    {
-                        "path": r.path,
-                        "score": r.score,
-                        "excerpt": r.excerpt,
-                        "source": getattr(r, "search_source", None),
-                    }
-                    for r in result.results
-                ],
+                "count": len(results_list),
+                "enriched": enriched,
+                "results": results_list,
                 "stats": {
                     "dirs_searched": result.stats.dirs_searched,
                     "files_matched": result.stats.files_matched,
@@ -434,7 +458,8 @@ def search(
                 print_json(success=True, result=payload)
             else:
                 render_search_results(result.results, verbose=verbose)
-                console.print(f"[dim]Mode: {actual_mode} | Searched {result.stats.dirs_searched} directories in {result.stats.time_ms:.1f}ms[/dim]")
+                enrich_status = " | [green]Enriched[/green]" if enriched else ""
+                console.print(f"[dim]Mode: {actual_mode} | Searched {result.stats.dirs_searched} directories in {result.stats.time_ms:.1f}ms{enrich_status}[/dim]")
 
     except SearchError as exc:
         if json_mode:

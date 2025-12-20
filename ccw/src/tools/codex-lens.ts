@@ -51,6 +51,7 @@ const ParamsSchema = z.object({
   format: z.enum(['json', 'text', 'pretty']).default('json'),
   languages: z.array(z.string()).optional(),
   limit: z.number().default(20),
+  enrich: z.boolean().default(false),
   // Additional fields for internal functions
   file: z.string().optional(),
   key: z.string().optional(),
@@ -516,7 +517,7 @@ async function initIndex(params: Params): Promise<ExecuteResult> {
  * @returns Execution result
  */
 async function searchCode(params: Params): Promise<ExecuteResult> {
-  const { query, path = '.', limit = 20, mode = 'auto' } = params;
+  const { query, path = '.', limit = 20, mode = 'auto', enrich = false } = params;
 
   if (!query) {
     return { success: false, error: 'Query is required for search action' };
@@ -536,6 +537,10 @@ async function searchCode(params: Params): Promise<ExecuteResult> {
 
   const cliMode = modeMap[mode] || 'auto';
   const args = ['search', query, '--limit', limit.toString(), '--mode', cliMode, '--json'];
+
+  if (enrich) {
+    args.push('--enrich');
+  }
 
   const result = await executeCodexLens(args, { cwd: path });
 
@@ -557,7 +562,7 @@ async function searchCode(params: Params): Promise<ExecuteResult> {
  * @returns Execution result
  */
 async function searchFiles(params: Params): Promise<ExecuteResult> {
-  const { query, path = '.', limit = 20, mode = 'auto' } = params;
+  const { query, path = '.', limit = 20, mode = 'auto', enrich = false } = params;
 
   if (!query) {
     return { success: false, error: 'Query is required for search_files action' };
@@ -577,6 +582,10 @@ async function searchFiles(params: Params): Promise<ExecuteResult> {
 
   const cliMode = modeMap[mode] || 'auto';
   const args = ['search', query, '--files-only', '--limit', limit.toString(), '--mode', cliMode, '--json'];
+
+  if (enrich) {
+    args.push('--enrich');
+  }
 
   const result = await executeCodexLens(args, { cwd: path });
 
@@ -764,6 +773,9 @@ Usage:
   codex_lens(action="search", query="func", mode="hybrid")  # Force hybrid search
   codex_lens(action="search_files", query="x")  # Search, return paths only
 
+Graph Enrichment:
+  codex_lens(action="search", query="func", enrich=true)  # Enrich results with code relationships
+
 Search Modes:
   - auto: Auto-detect (hybrid if embeddings exist, exact otherwise) [default]
   - exact/text: Exact FTS for code identifiers
@@ -819,6 +831,11 @@ Note: For advanced operations (config, status, clean), use CLI directly: codexle
         type: 'number',
         description: 'Maximum number of search results (for search and search_files actions)',
         default: 20,
+      },
+      enrich: {
+        type: 'boolean',
+        description: 'Enrich search results with code graph relationships (calls, imports)',
+        default: false,
       },
     },
     required: ['action'],

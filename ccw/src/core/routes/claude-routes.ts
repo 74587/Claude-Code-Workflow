@@ -651,6 +651,14 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
         // Write updated content
         writeFileSync(filePath, finalContent, 'utf8');
 
+        // Mark file as updated for freshness tracking
+        try {
+          const { markFileAsUpdated } = await import('../claude-freshness.js');
+          markFileAsUpdated(filePath, level, 'cli_sync', initialPath, { tool, mode });
+        } catch (e) {
+          console.error('Failed to mark file as updated:', e);
+        }
+
         // Broadcast WebSocket event
         broadcastToClients({
           type: 'CLAUDE_FILE_SYNCED',
@@ -1024,6 +1032,151 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
       }
     });
     return true;
+  }
+
+  // API: Get freshness scores for all CLAUDE.md files
+  if (pathname === '/api/memory/claude/freshness' && req.method === 'GET') {
+    try {
+      const { calculateAllFreshness } = await import('../claude-freshness.js');
+
+      const projectPathParam = url.searchParams.get('path') || initialPath;
+      const threshold = parseInt(url.searchParams.get('threshold') || '20', 10);
+
+      // Get all CLAUDE.md files
+      const filesData = scanAllClaudeFiles(projectPathParam);
+
+      // Prepare file list for freshness calculation
+      const claudeFiles: Array<{
+        path: string;
+        level: 'user' | 'project' | 'module';
+        lastModified: string;
+      }> = [];
+
+      if (filesData.user.main) {
+        claudeFiles.push({
+          path: filesData.user.main.path,
+          level: 'user',
+          lastModified: filesData.user.main.lastModified
+        });
+      }
+
+      if (filesData.project.main) {
+        claudeFiles.push({
+          path: filesData.project.main.path,
+          level: 'project',
+          lastModified: filesData.project.main.lastModified
+        });
+      }
+
+      for (const module of filesData.modules) {
+        claudeFiles.push({
+          path: module.path,
+          level: 'module',
+          lastModified: module.lastModified
+        });
+      }
+
+      // Calculate freshness
+      const freshnessData = calculateAllFreshness(claudeFiles, projectPathParam, threshold);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(freshnessData));
+      return true;
+    } catch (error) {
+      console.error('Error calculating freshness:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (error as Error).message }));
+      return true;
+    }
+  }
+
+  // API: Mark a CLAUDE.md file as updated
+  if (pathname === '/api/memory/claude/mark-updated' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body: any) => {
+      const { path: filePath, source, metadata } = body;
+
+      if (!filePath) {
+        return { error: 'Missing path parameter', status: 400 };
+      }
+
+      if (!source || !['manual', 'cli_sync', 'dashboard', 'api'].includes(source)) {
+        return { error: 'Invalid or missing source parameter', status: 400 };
+      }
+
+      try {
+        const { markFileAsUpdated } = await import('../claude-freshness.js');
+
+        // Determine file level
+        let level: 'user' | 'project' | 'module' = 'module';
+        if (filePath.includes(join(homedir(), '.claude'))) {
+          level = 'user';
+        } else if (filePath.includes('.claude')) {
+          level = 'project';
+        }
+
+        const record = markFileAsUpdated(filePath, level, source, initialPath, metadata);
+
+        // Broadcast update
+        broadcastToClients({
+          type: 'CLAUDE_FRESHNESS_UPDATED',
+          data: {
+            path: filePath,
+            level,
+            updatedAt: record.updated_at,
+            source
+          }
+        });
+
+        return {
+          success: true,
+          record: {
+            id: record.id,
+            updated_at: record.updated_at,
+            filesChangedBeforeUpdate: record.files_changed_before_update
+          }
+        };
+      } catch (error) {
+        console.error('Error marking file as updated:', error);
+        return { error: (error as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // API: Get update history for a CLAUDE.md file
+  if (pathname === '/api/memory/claude/history' && req.method === 'GET') {
+    const filePath = url.searchParams.get('path');
+    const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+
+    if (!filePath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing path parameter' }));
+      return true;
+    }
+
+    try {
+      const { getUpdateHistory } = await import('../claude-freshness.js');
+
+      const records = getUpdateHistory(filePath, initialPath, limit);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        records: records.map(r => ({
+          id: r.id,
+          updated_at: r.updated_at,
+          update_source: r.update_source,
+          git_commit_hash: r.git_commit_hash,
+          files_changed_before_update: r.files_changed_before_update,
+          metadata: r.metadata ? JSON.parse(r.metadata) : undefined
+        }))
+      }));
+      return true;
+    } catch (error) {
+      console.error('Error getting update history:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (error as Error).message }));
+      return true;
+    }
   }
 
   return false;

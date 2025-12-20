@@ -71,6 +71,18 @@ export interface MemoryChunk {
   created_at: string;
 }
 
+export interface ClaudeUpdateRecord {
+  id?: number;
+  file_path: string;
+  file_level: 'user' | 'project' | 'module';
+  module_path?: string;
+  updated_at: string;
+  update_source: 'manual' | 'cli_sync' | 'dashboard' | 'api';
+  git_commit_hash?: string;
+  files_changed_before_update: number;
+  metadata?: string;
+}
+
 /**
  * Core Memory Store using SQLite
  */
@@ -176,6 +188,20 @@ export class CoreMemoryStore {
         UNIQUE(source_id, chunk_index)
       );
 
+      -- CLAUDE.md update history table
+      CREATE TABLE IF NOT EXISTS claude_update_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        file_path TEXT NOT NULL,
+        file_level TEXT NOT NULL CHECK(file_level IN ('user', 'project', 'module')),
+        module_path TEXT,
+        updated_at TEXT NOT NULL,
+        update_source TEXT NOT NULL CHECK(update_source IN ('manual', 'cli_sync', 'dashboard', 'api')),
+        git_commit_hash TEXT,
+        files_changed_before_update INTEGER DEFAULT 0,
+        metadata TEXT,
+        UNIQUE(file_path, updated_at)
+      );
+
       -- Indexes for efficient queries
       CREATE INDEX IF NOT EXISTS idx_memories_created ON memories(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_memories_updated ON memories(updated_at DESC);
@@ -186,6 +212,9 @@ export class CoreMemoryStore {
       CREATE INDEX IF NOT EXISTS idx_session_metadata_type ON session_metadata_cache(session_type);
       CREATE INDEX IF NOT EXISTS idx_memory_chunks_source ON memory_chunks(source_id, source_type);
       CREATE INDEX IF NOT EXISTS idx_memory_chunks_embedded ON memory_chunks(embedding IS NOT NULL);
+      CREATE INDEX IF NOT EXISTS idx_claude_history_path ON claude_update_history(file_path);
+      CREATE INDEX IF NOT EXISTS idx_claude_history_updated ON claude_update_history(updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_claude_history_module ON claude_update_history(module_path);
     `);
   }
 
@@ -1076,6 +1105,128 @@ ${memory.content}
     `);
 
     stmt.run(sourceId);
+  }
+
+  // ============================================================================
+  // CLAUDE.md Update History CRUD Operations
+  // ============================================================================
+
+  /**
+   * Insert a CLAUDE.md update record
+   */
+  insertClaudeUpdateRecord(record: Omit<ClaudeUpdateRecord, 'id'>): ClaudeUpdateRecord {
+    const stmt = this.db.prepare(`
+      INSERT INTO claude_update_history
+      (file_path, file_level, module_path, updated_at, update_source, git_commit_hash, files_changed_before_update, metadata)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const result = stmt.run(
+      record.file_path,
+      record.file_level,
+      record.module_path || null,
+      record.updated_at,
+      record.update_source,
+      record.git_commit_hash || null,
+      record.files_changed_before_update,
+      record.metadata || null
+    );
+
+    return {
+      id: result.lastInsertRowid as number,
+      ...record
+    };
+  }
+
+  /**
+   * Get the last update record for a file
+   */
+  getLastClaudeUpdate(filePath: string): ClaudeUpdateRecord | null {
+    const stmt = this.db.prepare(`
+      SELECT * FROM claude_update_history
+      WHERE file_path = ?
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `);
+
+    const row = stmt.get(filePath) as any;
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      file_path: row.file_path,
+      file_level: row.file_level,
+      module_path: row.module_path,
+      updated_at: row.updated_at,
+      update_source: row.update_source,
+      git_commit_hash: row.git_commit_hash,
+      files_changed_before_update: row.files_changed_before_update,
+      metadata: row.metadata
+    };
+  }
+
+  /**
+   * Get update history for a file
+   */
+  getClaudeUpdateHistory(filePath: string, limit: number = 50): ClaudeUpdateRecord[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM claude_update_history
+      WHERE file_path = ?
+      ORDER BY updated_at DESC
+      LIMIT ?
+    `);
+
+    const rows = stmt.all(filePath, limit) as any[];
+    return rows.map(row => ({
+      id: row.id,
+      file_path: row.file_path,
+      file_level: row.file_level,
+      module_path: row.module_path,
+      updated_at: row.updated_at,
+      update_source: row.update_source,
+      git_commit_hash: row.git_commit_hash,
+      files_changed_before_update: row.files_changed_before_update,
+      metadata: row.metadata
+    }));
+  }
+
+  /**
+   * Get all CLAUDE.md update records for freshness calculation
+   */
+  getAllClaudeUpdateRecords(): ClaudeUpdateRecord[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM claude_update_history
+      WHERE id IN (
+        SELECT MAX(id) FROM claude_update_history
+        GROUP BY file_path
+      )
+      ORDER BY updated_at DESC
+    `);
+
+    const rows = stmt.all() as any[];
+    return rows.map(row => ({
+      id: row.id,
+      file_path: row.file_path,
+      file_level: row.file_level,
+      module_path: row.module_path,
+      updated_at: row.updated_at,
+      update_source: row.update_source,
+      git_commit_hash: row.git_commit_hash,
+      files_changed_before_update: row.files_changed_before_update,
+      metadata: row.metadata
+    }));
+  }
+
+  /**
+   * Delete update records for a file
+   */
+  deleteClaudeUpdateRecords(filePath: string): number {
+    const stmt = this.db.prepare(`
+      DELETE FROM claude_update_history
+      WHERE file_path = ?
+    `);
+    const result = stmt.run(filePath);
+    return result.changes;
   }
 
   /**

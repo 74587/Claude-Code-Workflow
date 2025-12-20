@@ -14,7 +14,7 @@ import { getAllToolSchemas, executeTool, executeToolWithProgress } from '../tool
 import type { ToolSchema, ToolResult } from '../types/tool.js';
 
 const SERVER_NAME = 'ccw-tools';
-const SERVER_VERSION = '6.1.4';
+const SERVER_VERSION = '6.2.0';
 
 // Default enabled tools (core set)
 const DEFAULT_TOOLS: string[] = ['write_file', 'edit_file', 'read_file', 'smart_search', 'core_memory'];

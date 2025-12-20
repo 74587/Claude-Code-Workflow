@@ -36,6 +36,7 @@ const ParamsSchema = z.object({
   includeHidden: z.boolean().default(false),
   languages: z.array(z.string()).optional(),
   limit: z.number().default(10),
+  enrich: z.boolean().default(false),
 });
 
 type Params = z.infer<typeof ParamsSchema>;
@@ -59,11 +60,21 @@ interface ExactMatch {
   content: string;
 }
 
+interface RelationshipInfo {
+  type: string;           // 'calls', 'imports', 'called_by', 'imported_by'
+  direction: 'outgoing' | 'incoming';
+  target?: string;        // Target symbol name (for outgoing)
+  source?: string;        // Source symbol name (for incoming)
+  file: string;           // File path
+  line?: number;          // Line number
+}
+
 interface SemanticMatch {
   file: string;
   score: number;
   content: string;
   symbol: string | null;
+  relationships?: RelationshipInfo[];
 }
 
 interface GraphMatch {
@@ -635,7 +646,7 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
  * Requires index
  */
 async function executeCodexLensExactMode(params: Params): Promise<SearchResult> {
-  const { query, path = '.', maxResults = 10 } = params;
+  const { query, path = '.', maxResults = 10, enrich = false } = params;
 
   if (!query) {
     return {
@@ -657,6 +668,9 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
   const indexStatus = await checkIndexStatus(path);
 
   const args = ['search', query, '--limit', maxResults.toString(), '--mode', 'exact', '--json'];
+  if (enrich) {
+    args.push('--enrich');
+  }
   const result = await executeCodexLens(args, { cwd: path });
 
   if (!result.success) {
@@ -707,7 +721,7 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
  * Requires index with embeddings
  */
 async function executeHybridMode(params: Params): Promise<SearchResult> {
-  const { query, path = '.', maxResults = 10 } = params;
+  const { query, path = '.', maxResults = 10, enrich = false } = params;
 
   if (!query) {
     return {
@@ -729,6 +743,9 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
   const indexStatus = await checkIndexStatus(path);
 
   const args = ['search', query, '--limit', maxResults.toString(), '--mode', 'hybrid', '--json'];
+  if (enrich) {
+    args.push('--enrich');
+  }
   const result = await executeCodexLens(args, { cwd: path });
 
   if (!result.success) {
@@ -958,6 +975,9 @@ export const schema: ToolSchema = {
   smart_search(action="init")                       # Create FTS index for current directory
   smart_search(action="status")                     # Check index and embedding status
 
+**Graph Enrichment:**
+  smart_search(query="func", enrich=true)           # Enrich results with code relationships (calls, imports, called_by, imported_by)
+
 **Modes:** auto (intelligent routing), hybrid (semantic, needs index), exact (FTS), ripgrep (fast, no index), priority (fallback: hybrid→exact→ripgrep)`,
   inputSchema: {
     type: 'object',
@@ -1020,6 +1040,11 @@ export const schema: ToolSchema = {
         type: 'array',
         items: { type: 'string' },
         description: 'Languages to index (for init action). Example: ["javascript", "typescript"]',
+      },
+      enrich: {
+        type: 'boolean',
+        description: 'Enrich search results with code graph relationships (calls, imports, called_by, imported_by).',
+        default: false,
       },
     },
     required: [],

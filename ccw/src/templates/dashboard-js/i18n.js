@@ -1087,6 +1087,15 @@ const i18n = {
     'claudeManager.unsavedChanges': 'You have unsaved changes. Discard them?',
     'claudeManager.saved': 'File saved successfully',
     'claudeManager.saveError': 'Failed to save file',
+    'claudeManager.freshness': 'Freshness',
+    'claudeManager.lastContentUpdate': 'Last Content Update',
+    'claudeManager.changedFiles': 'Changed Files',
+    'claudeManager.filesSinceUpdate': 'files since update',
+    'claudeManager.updateReminder': 'This file may need updating',
+    'claudeManager.markAsUpdated': 'Mark as Updated',
+    'claudeManager.markedAsUpdated': 'Marked as updated successfully',
+    'claudeManager.markUpdateError': 'Failed to mark as updated',
+    'claudeManager.never': 'Never tracked',
 
     // Graph Explorer
     'nav.graphExplorer': 'Graph',
@@ -2377,6 +2386,15 @@ const i18n = {
     'claudeManager.unsavedChanges': '您有未保存的更改。是否放弃？',
     'claudeManager.saved': '文件保存成功',
     'claudeManager.saveError': '文件保存失败',
+    'claudeManager.freshness': '新鲜度',
+    'claudeManager.lastContentUpdate': '上次内容更新',
+    'claudeManager.changedFiles': '变动文件',
+    'claudeManager.filesSinceUpdate': '个文件自上次更新后变动',
+    'claudeManager.updateReminder': '此文件可能需要更新',
+    'claudeManager.markAsUpdated': '标记为已更新',
+    'claudeManager.markedAsUpdated': '已成功标记为已更新',
+    'claudeManager.markUpdateError': '标记更新失败',
+    'claudeManager.never': '从未追踪',
 
     // Graph Explorer
     'nav.graphExplorer': '图谱',

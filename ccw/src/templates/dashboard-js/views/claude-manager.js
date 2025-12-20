@@ -17,6 +17,8 @@ var fileTreeExpanded = {
   modules: {}
 };
 var searchQuery = '';
+var freshnessData = {}; // { [filePath]: FreshnessResult }
+var freshnessSummary = null;
 
 // ========== Main Render Function ==========
 async function renderClaudeManager() {
@@ -37,6 +39,7 @@ async function renderClaudeManager() {
 
   // Load data
   await loadClaudeFiles();
+  await loadFreshnessData();
 
   // Render layout
   container.innerHTML = '<div class="claude-manager-view">' +
@@ -85,8 +88,58 @@ async function loadClaudeFiles() {
 
 async function refreshClaudeFiles() {
   await loadClaudeFiles();
+  await loadFreshnessData();
   await renderClaudeManager();
   addGlobalNotification('success', t('claudeManager.refreshed'), null, 'CLAUDE.md');
+}
+
+// ========== Freshness Data Loading ==========
+async function loadFreshnessData() {
+  try {
+    var res = await fetch('/api/memory/claude/freshness?path=' + encodeURIComponent(projectPath || ''));
+    if (!res.ok) throw new Error('Failed to load freshness data');
+    var data = await res.json();
+
+    // Build lookup map
+    freshnessData = {};
+    if (data.files) {
+      data.files.forEach(function(f) {
+        freshnessData[f.path] = f;
+      });
+    }
+    freshnessSummary = data.summary || null;
+  } catch (error) {
+    console.error('Error loading freshness data:', error);
+    freshnessData = {};
+    freshnessSummary = null;
+  }
+}
+
+async function markFileAsUpdated() {
+  if (!selectedFile) return;
+
+  try {
+    var res = await fetch('/api/memory/claude/mark-updated', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        path: selectedFile.path,
+        source: 'dashboard'
+      })
+    });
+
+    if (!res.ok) throw new Error('Failed to mark file as updated');
+
+    addGlobalNotification('success', t('claudeManager.markedAsUpdated') || 'Marked as updated', null, 'CLAUDE.md');
+
+    // Reload freshness data
+    await loadFreshnessData();
+    renderFileTree();
+    renderFileMetadata();
+  } catch (error) {
+    console.error('Error marking file as updated:', error);
+    addGlobalNotification('error', t('claudeManager.markUpdateError') || 'Failed to mark as updated', null, 'CLAUDE.md');
+  }
 }
 
 // ========== File Tree Rendering ==========
@@ -183,11 +236,30 @@ function renderFileTreeItem(file, indentLevel) {
   var indentPx = indentLevel * 1.5;
   var safeId = file.id.replace(/'/g, "&apos;");
 
-  return '<div class="file-tree-item' + (isSelected ? ' selected' : '') + '" ' +
+  // Get freshness data for this file
+  var fd = freshnessData[file.path];
+  var freshnessClass = '';
+  var freshnessBadge = '';
+
+  if (fd) {
+    if (fd.freshness >= 75) {
+      freshnessClass = ' freshness-good';
+      freshnessBadge = '<span class="freshness-badge good">' + fd.freshness + '%</span>';
+    } else if (fd.freshness >= 50) {
+      freshnessClass = ' freshness-warn';
+      freshnessBadge = '<span class="freshness-badge warn">' + fd.freshness + '%</span>';
+    } else {
+      freshnessClass = ' freshness-stale';
+      freshnessBadge = '<span class="freshness-badge stale">' + fd.freshness + '%</span>';
+    }
+  }
+
+  return '<div class="file-tree-item' + freshnessClass + (isSelected ? ' selected' : '') + '" ' +
     'onclick="selectClaudeFile(\'' + safeId + '\')" ' +
     'style="padding-left: ' + indentPx + 'rem;">' +
     '<i data-lucide="file-text" class="w-4 h-4"></i>' +
     '<span class="file-name">' + escapeHtml(file.name) + '</span>' +
+    freshnessBadge +
     (file.parentDirectory ? '<span class="file-path-hint">' + escapeHtml(file.parentDirectory) + '</span>' : '') +
     '</div>';
 }
@@ -446,6 +518,38 @@ function renderFileMetadata() {
       '</div>';
   }
 
+  // Freshness section
+  var fd = freshnessData[selectedFile.path];
+  if (fd) {
+    var freshnessBarClass = fd.freshness >= 75 ? 'good' : fd.freshness >= 50 ? 'warn' : 'stale';
+    html += '<div class="metadata-section freshness-section">' +
+      '<h4><i data-lucide="activity" class="w-4 h-4"></i> ' + (t('claudeManager.freshness') || 'Freshness') + '</h4>' +
+      '<div class="freshness-gauge">' +
+      '<div class="freshness-bar ' + freshnessBarClass + '" style="width: ' + fd.freshness + '%"></div>' +
+      '</div>' +
+      '<div class="freshness-value-display">' + fd.freshness + '%</div>' +
+      '<div class="metadata-item">' +
+      '<span class="label">' + (t('claudeManager.lastContentUpdate') || 'Last Content Update') + '</span>' +
+      '<span class="value">' + (fd.lastUpdated ? formatDate(fd.lastUpdated) : (t('claudeManager.never') || 'Never tracked')) + '</span>' +
+      '</div>' +
+      '<div class="metadata-item">' +
+      '<span class="label">' + (t('claudeManager.changedFiles') || 'Changed Files') + '</span>' +
+      '<span class="value">' + fd.changedFilesCount + ' ' + (t('claudeManager.filesSinceUpdate') || 'files since update') + '</span>' +
+      '</div>';
+
+    if (fd.needsUpdate) {
+      html += '<div class="update-reminder">' +
+        '<i data-lucide="alert-triangle" class="w-4 h-4"></i>' +
+        '<span>' + (t('claudeManager.updateReminder') || 'This file may need updating') + '</span>' +
+        '</div>';
+    }
+
+    html += '<button class="btn btn-sm btn-secondary full-width" onclick="markFileAsUpdated()">' +
+      '<i data-lucide="check-circle" class="w-4 h-4"></i> ' + (t('claudeManager.markAsUpdated') || 'Mark as Updated') +
+      '</button>' +
+      '</div>';
+  }
+
   html += '<div class="metadata-section">' +
     '<h4>' + t('claudeManager.actions') + '</h4>';
 
@@ -536,10 +640,12 @@ async function syncFileWithCLI() {
     var result = await response.json();
 
     if (result.success) {
-      // Reload file content
+      // Reload file content and freshness data
       var fileData = await loadFileContent(selectedFile.path);
       if (fileData) {
         selectedFile = fileData;
+        await loadFreshnessData();
+        renderFileTree();
         renderFileViewer();
         renderFileMetadata();
       }

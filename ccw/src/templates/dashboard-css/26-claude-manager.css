@@ -735,6 +735,118 @@
 }
 
 /* ========================================
+ * Freshness Tracking Styles
+ * ======================================== */
+
+/* Freshness badges in file tree */
+.freshness-badge {
+  font-size: 0.65rem;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: auto;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.freshness-badge.good {
+  background: hsl(142, 71%, 45%, 0.15);
+  color: hsl(142, 71%, 45%);
+}
+
+.freshness-badge.warn {
+  background: hsl(38, 92%, 50%, 0.15);
+  color: hsl(38, 92%, 50%);
+}
+
+.freshness-badge.stale {
+  background: hsl(0, 72%, 51%, 0.15);
+  color: hsl(0, 72%, 51%);
+}
+
+/* File tree item freshness states */
+.file-tree-item.freshness-stale {
+  border-left: 2px solid hsl(0, 72%, 51%);
+}
+
+.file-tree-item.freshness-warn {
+  border-left: 2px solid hsl(38, 92%, 50%);
+}
+
+.file-tree-item.freshness-good {
+  border-left: 2px solid hsl(142, 71%, 45%);
+}
+
+/* Freshness section in metadata panel */
+.freshness-section {
+  padding: 1rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  background: hsl(var(--card));
+}
+
+.freshness-section h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Freshness gauge/progress bar */
+.freshness-gauge {
+  position: relative;
+  height: 8px;
+  background: hsl(var(--muted));
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0.75rem 0;
+}
+
+.freshness-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.freshness-bar.good {
+  background: linear-gradient(90deg, hsl(142, 71%, 45%), hsl(142, 71%, 55%));
+}
+
+.freshness-bar.warn {
+  background: linear-gradient(90deg, hsl(38, 92%, 50%), hsl(45, 92%, 50%));
+}
+
+.freshness-bar.stale {
+  background: linear-gradient(90deg, hsl(0, 72%, 51%), hsl(15, 72%, 51%));
+}
+
+/* Freshness value display */
+.freshness-value-display {
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+  margin-bottom: 0.75rem;
+}
+
+/* Update reminder warning */
+.update-reminder {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: hsl(38, 92%, 50%, 0.1);
+  border: 1px solid hsl(38, 92%, 50%, 0.3);
+  border-radius: 0.375rem;
+  color: hsl(38, 92%, 40%);
+  font-size: 0.8rem;
+  margin: 0.75rem 0;
+}
+
+.update-reminder i {
+  flex-shrink: 0;
+  color: hsl(38, 92%, 50%);
+}
+
+/* ========================================
  * Responsive Design
  * ======================================== */
 @media (max-width: 1400px) {
