@@ -126,6 +126,8 @@ CCW Dashboard (`ccw view`) 提供：
 - ❓ **帮助视图**: 国际化帮助文档
 - 💻 **CLI 管理器**: CLI 执行历史与会话恢复
 
+> 📖 详见 [**Dashboard 用户指南**](DASHBOARD_GUIDE.md) 和 [**Dashboard 操作指南**](DASHBOARD_OPERATIONS.md)。
+
 ---
 
 ## 🛠️ 命令参考
@@ -251,6 +253,10 @@ CCW 提供全面的文档，帮助您快速上手并掌握高级功能：
 - [**工作流决策指南**](WORKFLOW_DECISION_GUIDE.md) - 🌳 交互式流程图帮助选择正确的命令
 - [**示例**](EXAMPLES.md) - 真实世界用例和实践示例 (English)
 - [**常见问题**](FAQ.md) - 常见问题和故障排除 (English)
+
+### 🖥️ **Dashboard**
+- [**Dashboard 用户指南**](DASHBOARD_GUIDE.md) - Dashboard 界面概览和功能说明
+- [**Dashboard 操作指南**](DASHBOARD_OPERATIONS.md) - 详细操作步骤说明
 
 ### 🏗️ **架构与设计**
 - [**架构概览**](ARCHITECTURE.md) - 系统设计和核心组件 (English)

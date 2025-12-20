@@ -134,6 +134,8 @@ The CCW Dashboard (`ccw view`) provides:
 - ❓ **Help View**: Internationalized help documentation
 - 💻 **CLI Manager**: CLI execution history with session resume
 
+> 📖 See [**Dashboard Guide**](DASHBOARD_GUIDE.md) and [**Dashboard Operations**](DASHBOARD_OPERATIONS_EN.md) for detailed documentation.
+
 ---
 
 ## 🛠️ Command Reference
@@ -259,6 +261,10 @@ CCW provides comprehensive documentation to help you get started quickly and mas
 - [**Workflow Decision Guide**](WORKFLOW_DECISION_GUIDE.md) - 🌳 Interactive flowchart to choose the right command
 - [**Examples**](EXAMPLES.md) - Real-world use cases and practical examples
 - [**FAQ**](FAQ.md) - Common questions and troubleshooting
+
+### 🖥️ **Dashboard**
+- [**Dashboard Guide**](DASHBOARD_GUIDE.md) - Dashboard user guide and interface overview
+- [**Dashboard Operations**](DASHBOARD_OPERATIONS_EN.md) - Detailed operation instructions
 
 ### 🏗️ **Architecture & Design**
 - [**Architecture Overview**](ARCHITECTURE.md) - System design and core components

@@ -488,7 +488,7 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       if (result.conversation.turn_count > 1) {
         console.log(chalk.gray(`  Total: ${result.conversation.turn_count} turns, ${(result.conversation.total_duration_ms / 1000).toFixed(1)}s`));
       }
-      console.log(chalk.dim(`  Continue: ccw cli exec "..." --resume ${result.execution.id}`));
+      console.log(chalk.dim(`  Continue: ccw cli -p "..." --resume ${result.execution.id}`));
 
       // Notify dashboard: execution completed
       notifyDashboard({
@@ -625,7 +625,7 @@ async function detailAction(conversationId: string | undefined): Promise<void> {
     }
   }
 
-  console.log(chalk.dim(`\n  Continue: ccw cli exec "..." --resume ${conversation.id}`));
+  console.log(chalk.dim(`\n  Continue: ccw cli -p "..." --resume ${conversation.id}`));
   console.log();
 }
 

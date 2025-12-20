@@ -168,13 +168,19 @@ ccw core-memory cluster --dedup
 This release simplifies the `ccw tool exec edit_file` command for better usability.
 
 #### 🔄 Changed
-- **Simplified edit_file**: Removed JSON input support, now uses parameter-based input only (`--path`, `--old`, `--new`)
-- **Removed line mode**: Line operations now recommended via `sed` command
-- **Updated tool-strategy.md**: Added sed as line operation alternative with usage examples
+- **Simplified edit_file CLI**: Added parameter-based CLI input (`--path`, `--old`, `--new`) for easier command-line usage
+- **Updated tool-strategy.md**: Added sed as alternative for complex line operations
+
+> **Note**: The `edit_file` MCP tool still fully supports both `line` mode and `edits` array for programmatic use. The CLI simplification only affects the `ccw tool exec` command interface.
 
 #### Usage
 ```bash
+# CLI parameter mode (simplified)
 ccw tool exec edit_file --path "file.txt" --old "old text" --new "new text"
+
+# MCP tool still supports all modes
+edit_file(path="f.js", mode="line", operation="insert_after", line=10, text="new line")
+edit_file(path="f.js", edits=[{oldText: "a", newText: "b"}, {oldText: "c", newText: "d"}])
 ```
 
 ## [6.1.2] - 2025-12-09
