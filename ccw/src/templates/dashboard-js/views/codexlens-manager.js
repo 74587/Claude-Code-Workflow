@@ -554,10 +554,54 @@ async function deleteModel(profile) {
 
 /**
  * Initialize CodexLens index with bottom floating progress bar
- * @param {string} indexType - 'vector' (with embeddings) or 'normal' (FTS only)
+ * @param {string} indexType - 'vector' (with embeddings), 'normal' (FTS only), or 'full' (FTS + Vector)
+ * @param {string} embeddingModel - Model profile: 'code', 'fast', 'multilingual', 'balanced'
  */
-function initCodexLensIndex(indexType) {
+async function initCodexLensIndex(indexType, embeddingModel) {
   indexType = indexType || 'vector';
+  embeddingModel = embeddingModel || 'code';
+
+  // For vector or full index, check if semantic dependencies are available
+  if (indexType === 'vector' || indexType === 'full') {
+    try {
+      var semanticResponse = await fetch('/api/codexlens/semantic/status');
+      var semanticStatus = await semanticResponse.json();
+
+      if (!semanticStatus.available) {
+        // Semantic deps not installed - show confirmation dialog
+        var installDeps = confirm(
+          (t('codexlens.semanticNotInstalled') || 'Semantic search dependencies are not installed.') + '\n\n' +
+          (t('codexlens.installDepsPrompt') || 'Would you like to install them now? (This may take a few minutes)\n\nClick "Cancel" to create FTS index only.')
+        );
+
+        if (installDeps) {
+          // Install semantic dependencies first
+          showRefreshToast(t('codexlens.installingDeps') || 'Installing semantic dependencies...', 'info');
+          try {
+            var installResponse = await fetch('/api/codexlens/semantic/install', { method: 'POST' });
+            var installResult = await installResponse.json();
+
+            if (!installResult.success) {
+              showRefreshToast((t('codexlens.depsInstallFailed') || 'Failed to install dependencies') + ': ' + installResult.error, 'error');
+              // Fall back to FTS only
+              indexType = 'normal';
+            } else {
+              showRefreshToast(t('codexlens.depsInstalled') || 'Dependencies installed successfully', 'success');
+            }
+          } catch (err) {
+            showRefreshToast((t('common.error') || 'Error') + ': ' + err.message, 'error');
+            indexType = 'normal';
+          }
+        } else {
+          // User chose to skip - create FTS only
+          indexType = 'normal';
+        }
+      }
+    } catch (err) {
+      console.warn('[CodexLens] Could not check semantic status:', err);
+      // Continue with requested type, backend will handle fallback
+    }
+  }
 
   // Remove existing progress bar if any
   closeCodexLensIndexModal();
@@ -566,7 +610,24 @@ function initCodexLensIndex(indexType) {
   var progressBar = document.createElement('div');
   progressBar.id = 'codexlensIndexFloating';
   progressBar.className = 'fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border shadow-lg transform transition-transform duration-300';
-  var indexTypeLabel = indexType === 'vector' ? 'Vector' : 'FTS';
+
+  // Determine display label
+  var indexTypeLabel;
+  if (indexType === 'full') {
+    indexTypeLabel = 'FTS + Vector';
+  } else if (indexType === 'vector') {
+    indexTypeLabel = 'Vector';
+  } else {
+    indexTypeLabel = 'FTS';
+  }
+
+  // Add model info for vector indexes
+  var modelLabel = '';
+  if (indexType !== 'normal') {
+    var modelNames = { code: 'Code', fast: 'Fast', multilingual: 'Multi', balanced: 'Balanced' };
+    modelLabel = ' [' + (modelNames[embeddingModel] || embeddingModel) + ']';
+  }
+
   progressBar.innerHTML =
     '<div class="max-w-4xl mx-auto px-4 py-3">' +
       '<div class="flex items-center justify-between gap-4">' +
@@ -574,7 +635,7 @@ function initCodexLensIndex(indexType) {
           '<div class="animate-spin w-5 h-5 border-2 border-primary border-t-transparent rounded-full flex-shrink-0" id="codexlensIndexSpinner"></div>' +
           '<div class="flex-1 min-w-0">' +
             '<div class="flex items-center gap-2">' +
-              '<span class="font-medium text-sm">' + t('codexlens.indexing') + ' (' + indexTypeLabel + ')</span>' +
+              '<span class="font-medium text-sm">' + t('codexlens.indexing') + ' (' + indexTypeLabel + modelLabel + ')</span>' +
               '<span class="text-xs text-muted-foreground" id="codexlensIndexPercent">0%</span>' +
             '</div>' +
             '<div class="text-xs text-muted-foreground truncate" id="codexlensIndexStatus">' + t('codexlens.preparingIndex') + '</div>' +
@@ -594,16 +655,21 @@ function initCodexLensIndex(indexType) {
   document.body.appendChild(progressBar);
   if (window.lucide) lucide.createIcons();
 
-  // Start indexing with specified type
-  startCodexLensIndexing(indexType);
+  // For 'full' type, use 'vector' in the API (it creates FTS + embeddings)
+  var apiIndexType = (indexType === 'full') ? 'vector' : indexType;
+
+  // Start indexing with specified type and model
+  startCodexLensIndexing(apiIndexType, embeddingModel);
 }
 
 /**
  * Start the indexing process
  * @param {string} indexType - 'vector' or 'normal'
+ * @param {string} embeddingModel - Model profile: 'code', 'fast', 'multilingual', 'balanced'
  */
-async function startCodexLensIndexing(indexType) {
+async function startCodexLensIndexing(indexType, embeddingModel) {
   indexType = indexType || 'vector';
+  embeddingModel = embeddingModel || 'code';
   var statusText = document.getElementById('codexlensIndexStatus');
   var progressBar = document.getElementById('codexlensIndexProgressBar');
   var percentText = document.getElementById('codexlensIndexPercent');
@@ -635,11 +701,11 @@ async function startCodexLensIndexing(indexType) {
   }
 
   try {
-    console.log('[CodexLens] Starting index for:', projectPath, 'type:', indexType);
+    console.log('[CodexLens] Starting index for:', projectPath, 'type:', indexType, 'model:', embeddingModel);
     var response = await fetch('/api/codexlens/init', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: projectPath, indexType: indexType })
+      body: JSON.stringify({ path: projectPath, indexType: indexType, embeddingModel: embeddingModel })
     });
 
     var result = await response.json();

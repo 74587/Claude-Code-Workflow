@@ -338,6 +338,17 @@ async function renderCliManager() {
   if (window.lucide) lucide.createIcons();
 }
 
+// ========== Helper Functions ==========
+
+/**
+ * Get selected embedding model from dropdown
+ * @returns {string} Selected model profile (code, fast, multilingual, balanced)
+ */
+function getSelectedModel() {
+  var select = document.getElementById('codexlensModelSelect');
+  return select ? select.value : 'code';
+}
+
 // ========== Tools Section (Left Column) ==========
 function renderToolsSection() {
   var container = document.getElementById('tools-section');
@@ -392,8 +403,15 @@ function renderToolsSection() {
     '<div class="tool-item-right">' +
       (codexLensStatus.ready
         ? '<span class="tool-status-text success"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> v' + (codexLensStatus.version || 'installed') + '</span>' +
-          '<button class="btn-sm btn-outline" onclick="event.stopPropagation(); initCodexLensIndex(\'vector\')" title="' + (t('index.vectorDesc') || 'Semantic search with embeddings') + '"><i data-lucide="sparkles" class="w-3 h-3"></i> ' + (t('index.vectorIndex') || 'Vector') + '</button>' +
-          '<button class="btn-sm btn-outline" onclick="event.stopPropagation(); initCodexLensIndex(\'normal\')" title="' + (t('index.normalDesc') || 'Fast full-text search only') + '"><i data-lucide="file-text" class="w-3 h-3"></i> ' + (t('index.normalIndex') || 'FTS') + '</button>' +
+          '<select id="codexlensModelSelect" class="btn-sm bg-muted border border-border rounded text-xs" onclick="event.stopPropagation()" title="' + (t('index.selectModel') || 'Select embedding model') + '">' +
+            '<option value="code">' + (t('index.modelCode') || 'Code (768d)') + '</option>' +
+            '<option value="fast">' + (t('index.modelFast') || 'Fast (384d)') + '</option>' +
+            '<option value="multilingual">' + (t('index.modelMultilingual') || 'Multilingual (1024d)') + '</option>' +
+            '<option value="balanced">' + (t('index.modelBalanced') || 'Balanced (1024d)') + '</option>' +
+          '</select>' +
+          '<button class="btn-sm btn-primary" onclick="event.stopPropagation(); initCodexLensIndex(\'full\', getSelectedModel())" title="' + (t('index.fullDesc') || 'FTS + Semantic search (recommended)') + '"><i data-lucide="layers" class="w-3 h-3"></i> ' + (t('index.fullIndex') || '全部索引') + '</button>' +
+          '<button class="btn-sm btn-outline" onclick="event.stopPropagation(); initCodexLensIndex(\'vector\', getSelectedModel())" title="' + (t('index.vectorDesc') || 'Semantic search with embeddings') + '"><i data-lucide="sparkles" class="w-3 h-3"></i> ' + (t('index.vectorIndex') || '向量索引') + '</button>' +
+          '<button class="btn-sm btn-outline" onclick="event.stopPropagation(); initCodexLensIndex(\'normal\')" title="' + (t('index.normalDesc') || 'Fast full-text search only') + '"><i data-lucide="file-text" class="w-3 h-3"></i> ' + (t('index.normalIndex') || 'FTS索引') + '</button>' +
           '<button class="btn-sm btn-outline btn-danger" onclick="event.stopPropagation(); uninstallCodexLens()"><i data-lucide="trash-2" class="w-3 h-3"></i> ' + t('cli.uninstall') + '</button>'
         : '<span class="tool-status-text muted"><i data-lucide="circle-dashed" class="w-3.5 h-3.5"></i> ' + t('cli.notInstalled') + '</span>' +
           '<button class="btn-sm btn-primary" onclick="event.stopPropagation(); installCodexLens()"><i data-lucide="download" class="w-3 h-3"></i> ' + t('cli.install') + '</button>') +

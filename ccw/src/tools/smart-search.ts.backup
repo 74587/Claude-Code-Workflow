@@ -25,26 +25,18 @@ import type { ProgressInfo } from './codex-lens.js';
 
 // Define Zod schema for validation
 const ParamsSchema = z.object({
-  // Action: search (content), find_files (path/name pattern), init, status
-  // Note: search_files is deprecated, use search with output_mode='files_only'
-  action: z.enum(['init', 'search', 'search_files', 'find_files', 'status']).default('search'),
-  query: z.string().optional().describe('Content search query (for action="search")'),
-  pattern: z.string().optional().describe('Glob pattern for path matching (for action="find_files")'),
+  action: z.enum(['init', 'search', 'search_files', 'status']).default('search'),
+  query: z.string().optional(),
   mode: z.enum(['auto', 'hybrid', 'exact', 'ripgrep', 'priority']).default('auto'),
   output_mode: z.enum(['full', 'files_only', 'count']).default('full'),
   path: z.string().optional(),
   paths: z.array(z.string()).default([]),
   contextLines: z.number().default(0),
-  maxResults: z.number().default(20),  // Increased default
+  maxResults: z.number().default(10),
   includeHidden: z.boolean().default(false),
   languages: z.array(z.string()).optional(),
-  limit: z.number().default(20),  // Increased default
-  offset: z.number().default(0),  // NEW: Pagination offset (start_index)
+  limit: z.number().default(10),
   enrich: z.boolean().default(false),
-  // Search modifiers for ripgrep mode
-  regex: z.boolean().default(true),            // Use regex pattern matching (default: enabled)
-  caseSensitive: z.boolean().default(true),    // Case sensitivity (default: case-sensitive)
-  // Fuzzy matching is implicit in hybrid mode (RRF fusion)
 });
 
 type Params = z.infer<typeof ParamsSchema>;
@@ -54,46 +46,6 @@ const SEARCH_MODES = ['auto', 'hybrid', 'exact', 'ripgrep', 'priority'] as const
 
 // Classification confidence threshold
 const CONFIDENCE_THRESHOLD = 0.7;
-
-// File filtering configuration (ported from code-index)
-const FILTER_CONFIG = {
-  exclude_directories: new Set([
-    '.git', '.svn', '.hg', '.bzr',
-    'node_modules', '__pycache__', '.venv', 'venv', 'vendor', 'bower_components',
-    'dist', 'build', 'target', 'out', 'bin', 'obj',
-    '.idea', '.vscode', '.vs', '.sublime-workspace',
-    '.pytest_cache', '.coverage', '.tox', '.nyc_output', 'coverage', 'htmlcov',
-    '.next', '.nuxt', '.cache', '.parcel-cache',
-    '.DS_Store', 'Thumbs.db',
-  ]),
-  exclude_files: new Set([
-    '*.tmp', '*.temp', '*.swp', '*.swo', '*.bak', '*~', '*.orig', '*.log',
-    'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'Pipfile.lock',
-  ]),
-  // Windows device files - must use **/ pattern to match in any directory
-  // These cause "os error 1" on Windows when accessed
-  windows_device_files: new Set([
-    'nul', 'con', 'aux', 'prn',
-    'com1', 'com2', 'com3', 'com4', 'com5', 'com6', 'com7', 'com8', 'com9',
-    'lpt1', 'lpt2', 'lpt3', 'lpt4', 'lpt5', 'lpt6', 'lpt7', 'lpt8', 'lpt9',
-  ]),
-};
-
-function buildExcludeArgs(): string[] {
-  const args: string[] = [];
-  for (const dir of FILTER_CONFIG.exclude_directories) {
-    args.push('--glob', `!**/${dir}/**`);
-  }
-  for (const pattern of FILTER_CONFIG.exclude_files) {
-    args.push('--glob', `!${pattern}`);
-  }
-  // Windows device files need case-insensitive matching in any directory
-  for (const device of FILTER_CONFIG.windows_device_files) {
-    args.push('--glob', `!**/${device}`);
-    args.push('--glob', `!**/${device.toUpperCase()}`);
-  }
-  return args;
-}
 
 interface Classification {
   mode: string;
@@ -131,27 +83,11 @@ interface GraphMatch {
   relationships: unknown[];
 }
 
-// File match for find_files action (path-based search)
-interface FileMatch {
-  path: string;
-  type: 'file' | 'directory';
-  name: string;       // Filename only
-  extension?: string; // File extension (without dot)
-}
-
-interface PaginationInfo {
-  offset: number;     // Starting index of returned results
-  limit: number;      // Number of results requested
-  total: number;      // Total number of results found
-  has_more: boolean;  // True if more results are available
-}
-
 interface SearchMetadata {
   mode?: string;
   backend?: string;
   count?: number;
   query?: string;
-  pattern?: string;  // For find_files action
   classified_as?: string;
   confidence?: number;
   reasoning?: string;
@@ -160,9 +96,6 @@ interface SearchMetadata {
   note?: string;
   index_status?: 'indexed' | 'not_indexed' | 'partial';
   fallback_history?: string[];
-  suggested_weights?: Record<string, number>;
-  // Pagination metadata
-  pagination?: PaginationInfo;
   // Init action specific
   action?: string;
   path?: string;
@@ -178,7 +111,7 @@ interface SearchMetadata {
 
 interface SearchResult {
   success: boolean;
-  results?: ExactMatch[] | SemanticMatch[] | GraphMatch[] | FileMatch[] | unknown;
+  results?: ExactMatch[] | SemanticMatch[] | GraphMatch[] | unknown;
   output?: string;
   metadata?: SearchMetadata;
   error?: string;
@@ -303,14 +236,6 @@ function detectRelationship(query: string): boolean {
   return /(import|export|uses?|depends?|calls?|extends?)\s/i.test(query);
 }
 
-function looksLikeCodeQuery(query: string): boolean {
-  if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(query)) return true;
-  if (/[:.<>\-=(){}[\]]/.test(query) && query.split(/\s+/).length <= 2) return true;
-  if (/\.\*|\\\(|\\\[|\\s/.test(query)) return true;
-  if (/^[a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*$/.test(query)) return true;
-  return false;
-}
-
 /**
  * Classify query intent and recommend search mode
  * Simple mapping: hybrid (NL + index + embeddings) | exact (index or insufficient embeddings) | ripgrep (no index)
@@ -320,34 +245,34 @@ function looksLikeCodeQuery(query: string): boolean {
  * @returns Classification result
  */
 function classifyIntent(query: string, hasIndex: boolean = false, hasSufficientEmbeddings: boolean = false): Classification {
+  // Detect query patterns
   const isNaturalLanguage = detectNaturalLanguage(query);
-  const isCodeQuery = looksLikeCodeQuery(query);
-  const isRegexPattern = detectRegex(query);
 
+  // Simple decision tree
   let mode: string;
   let confidence: number;
 
   if (!hasIndex) {
+    // No index: use ripgrep
     mode = 'ripgrep';
     confidence = 1.0;
-  } else if (isCodeQuery || isRegexPattern) {
-    mode = 'exact';
-    confidence = 0.95;
   } else if (isNaturalLanguage && hasSufficientEmbeddings) {
+    // Natural language + sufficient embeddings: use hybrid
     mode = 'hybrid';
     confidence = 0.9;
   } else {
+    // Simple query OR insufficient embeddings: use exact
     mode = 'exact';
     confidence = 0.8;
   }
 
+  // Build reasoning string
   const detectedPatterns: string[] = [];
   if (detectLiteral(query)) detectedPatterns.push('literal');
   if (detectRegex(query)) detectedPatterns.push('regex');
   if (detectNaturalLanguage(query)) detectedPatterns.push('natural language');
   if (detectFilePath(query)) detectedPatterns.push('file path');
   if (detectRelationship(query)) detectedPatterns.push('relationship');
-  if (isCodeQuery) detectedPatterns.push('code identifier');
 
   const reasoning = `Query classified as ${mode} (confidence: ${confidence.toFixed(2)}, detected: ${detectedPatterns.join(', ')}, index: ${hasIndex ? 'available' : 'not available'}, embeddings: ${hasSufficientEmbeddings ? 'sufficient' : 'insufficient'})`;
 
@@ -381,46 +306,34 @@ function buildRipgrepCommand(params: {
   contextLines: number;
   maxResults: number;
   includeHidden: boolean;
-  regex?: boolean;
-  caseSensitive?: boolean;
 }): { command: string; args: string[] } {
-  const { query, paths = ['.'], contextLines = 0, maxResults = 10, includeHidden = false, regex = false, caseSensitive = true } = params;
+  const { query, paths = ['.'], contextLines = 0, maxResults = 10, includeHidden = false } = params;
 
   const args = [
-    '-n',
-    '--color=never',
-    '--json',
+    '-n', // Show line numbers
+    '--color=never', // Disable color output
+    '--json', // Output in JSON format
   ];
 
-  // Add file filtering (unless includeHidden is true)
-  if (!includeHidden) {
-    args.push(...buildExcludeArgs());
-  }
-
-  // Case sensitivity
-  if (!caseSensitive) {
-    args.push('--ignore-case');
-  }
-
+  // Add context lines if specified
   if (contextLines > 0) {
     args.push('-C', contextLines.toString());
   }
 
+  // Add max results limit
   if (maxResults > 0) {
     args.push('--max-count', maxResults.toString());
   }
 
+  // Include hidden files if specified
   if (includeHidden) {
     args.push('--hidden');
   }
 
-  // Regex mode (-e) vs fixed string mode (-F)
-  if (regex) {
-    args.push('-e', query);
-  } else {
-    args.push('-F', query);
-  }
+  // Use literal/fixed string matching for exact mode
+  args.push('-F', query);
 
+  // Add search paths
   args.push(...paths);
 
   return { command: 'rg', args };
@@ -579,7 +492,7 @@ async function executeAutoMode(params: Params): Promise<SearchResult> {
  * No index required, fallback to CodexLens if ripgrep unavailable
  */
 async function executeRipgrepMode(params: Params): Promise<SearchResult> {
-  const { query, paths = [], contextLines = 0, maxResults = 10, includeHidden = false, path = '.', regex = true, caseSensitive = true } = params;
+  const { query, paths = [], contextLines = 0, maxResults = 10, includeHidden = false, path = '.' } = params;
 
   if (!query) {
     return {
@@ -653,8 +566,6 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
     contextLines,
     maxResults,
     includeHidden,
-    regex,
-    caseSensitive,
   });
 
   return new Promise((resolve) => {
@@ -676,34 +587,31 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
 
     child.on('close', (code) => {
       const results: ExactMatch[] = [];
-      const lines = stdout.split('\n').filter((line) => line.trim());
 
-      for (const line of lines) {
-        try {
-          const item = JSON.parse(line);
+      if (code === 0 || (code === 1 && stdout.trim())) {
+        const lines = stdout.split('\n').filter((line) => line.trim());
 
-          if (item.type === 'match') {
-            const match: ExactMatch = {
-              file: item.data.path.text,
-              line: item.data.line_number,
-              column:
-                item.data.submatches && item.data.submatches[0]
-                  ? item.data.submatches[0].start + 1
-                  : 1,
-              content: item.data.lines.text.trim(),
-            };
-            results.push(match);
+        for (const line of lines) {
+          try {
+            const item = JSON.parse(line);
+
+            if (item.type === 'match') {
+              const match: ExactMatch = {
+                file: item.data.path.text,
+                line: item.data.line_number,
+                column:
+                  item.data.submatches && item.data.submatches[0]
+                    ? item.data.submatches[0].start + 1
+                    : 1,
+                content: item.data.lines.text.trim(),
+              };
+              results.push(match);
+            }
+          } catch {
+            continue;
           }
-        } catch {
-          continue;
         }
-      }
 
-      // Handle Windows device file errors gracefully (os error 1)
-      // If we have results despite the error, return them as partial success
-      const isWindowsDeviceError = stderr.includes('os error 1') || stderr.includes('函数不正确');
-
-      if (code === 0 || code === 1 || (isWindowsDeviceError && results.length > 0)) {
         resolve({
           success: true,
           results,
@@ -712,20 +620,6 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
             backend: 'ripgrep',
             count: results.length,
             query,
-            ...(isWindowsDeviceError && { warning: 'Some Windows device files were skipped' }),
-          },
-        });
-      } else if (isWindowsDeviceError && results.length === 0) {
-        // Windows device error but no results - might be the only issue
-        resolve({
-          success: true,
-          results: [],
-          metadata: {
-            mode: 'ripgrep',
-            backend: 'ripgrep',
-            count: 0,
-            query,
-            warning: 'No matches found (some Windows device files were skipped)',
           },
         });
       } else {
@@ -870,42 +764,15 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
 
   // Parse results
   let results: SemanticMatch[] = [];
-  let baselineInfo: { score: number; count: number } | null = null;
-  let initialCount = 0;
-
   try {
     const parsed = JSON.parse(stripAnsi(result.output || '{}'));
     const data = parsed.result?.results || parsed.results || parsed;
-    results = (Array.isArray(data) ? data : []).map((item: any) => {
-      const rawScore = item.score || 0;
-      // Hybrid mode returns distance scores (lower is better).
-      // Convert to similarity scores (higher is better) for consistency.
-      // Formula: similarity = 1 / (1 + distance)
-      const similarityScore = rawScore > 0 ? 1 / (1 + rawScore) : 1;
-      return {
-        file: item.path || item.file,
-        score: similarityScore,
-        content: item.excerpt || item.content || '',
-        symbol: item.symbol || null,
-      };
-    });
-
-    initialCount = results.length;
-
-    // Post-processing pipeline to improve semantic search quality
-    // 0. Filter dominant baseline scores (hot spot detection)
-    const baselineResult = filterDominantBaselineScores(results);
-    results = baselineResult.filteredResults;
-    baselineInfo = baselineResult.baselineInfo;
-
-    // 1. Filter noisy files (coverage, node_modules, etc.)
-    results = filterNoisyFiles(results);
-    // 2. Boost results containing query keywords
-    results = applyKeywordBoosting(results, query);
-    // 3. Enforce score diversity (penalize identical scores)
-    results = enforceScoreDiversity(results);
-    // 4. Re-sort by adjusted scores
-    results.sort((a, b) => b.score - a.score);
+    results = (Array.isArray(data) ? data : []).map((item: any) => ({
+      file: item.path || item.file,
+      score: item.score || 0,
+      content: item.excerpt || item.content || '',
+      symbol: item.symbol || null,
+    }));
   } catch {
     return {
       success: true,
@@ -921,12 +788,6 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
     };
   }
 
-  // Build metadata with baseline info if detected
-  let note = 'Hybrid mode uses RRF fusion (exact + fuzzy + vector) for best results';
-  if (baselineInfo) {
-    note += ` | Filtered ${initialCount - results.length} hot-spot results with baseline score ~${baselineInfo.score.toFixed(4)}`;
-  }
-
   return {
     success: true,
     results,
@@ -935,193 +796,10 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
       backend: 'codexlens',
       count: results.length,
       query,
-      note,
+      note: 'Hybrid mode uses RRF fusion (exact + fuzzy + vector) for best results',
       warning: indexStatus.warning,
-      suggested_weights: getRRFWeights(query),
     },
   };
-}
-
-const RRF_WEIGHTS = {
-  code: { exact: 0.7, fuzzy: 0.2, vector: 0.1 },
-  natural: { exact: 0.4, fuzzy: 0.2, vector: 0.4 },
-  default: { exact: 0.5, fuzzy: 0.2, vector: 0.3 },
-};
-
-function getRRFWeights(query: string): Record<string, number> {
-  const isCode = looksLikeCodeQuery(query);
-  const isNatural = detectNaturalLanguage(query);
-  if (isCode) return RRF_WEIGHTS.code;
-  if (isNatural) return RRF_WEIGHTS.natural;
-  return RRF_WEIGHTS.default;
-}
-
-/**
- * Post-processing: Filter noisy files from semantic search results
- * Uses FILTER_CONFIG patterns to remove irrelevant files.
- * Optimized: pre-compiled regexes, accurate path segment matching.
- */
-// Pre-compile file exclusion regexes once (avoid recompilation in loop)
-const FILE_EXCLUDE_REGEXES = [...FILTER_CONFIG.exclude_files].map(pattern =>
-  new RegExp('^' + pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*') + '$')
-);
-
-function filterNoisyFiles(results: SemanticMatch[]): SemanticMatch[] {
-  return results.filter(r => {
-    const filePath = r.file || '';
-    if (!filePath) return true;
-
-    const segments = filePath.split(/[/\\]/);
-
-    // Accurate directory check: segment must exactly match excluded directory
-    if (segments.some(segment => FILTER_CONFIG.exclude_directories.has(segment))) {
-      return false;
-    }
-
-    // Accurate file check: pattern matches filename only (not full path)
-    const filename = segments.pop() || '';
-    if (FILE_EXCLUDE_REGEXES.some(regex => regex.test(filename))) {
-      return false;
-    }
-
-    return true;
-  });
-}
-
-/**
- * Post-processing: Boost results containing query keywords
- * Extracts keywords from query and boosts matching results.
- * Optimized: uses whole-word matching with regex for accuracy.
- */
-// Helper to escape regex special characters
-function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function applyKeywordBoosting(results: SemanticMatch[], query: string): SemanticMatch[] {
-  // Extract meaningful keywords (ignore common words)
-  const stopWords = new Set(['the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'shall', 'can', 'need', 'dare', 'ought', 'used', 'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'just', 'and', 'but', 'if', 'or', 'because', 'until', 'while', 'although', 'though', 'after', 'before', 'when', 'whenever', 'where', 'wherever', 'whether', 'which', 'who', 'whom', 'whose', 'what', 'whatever', 'whichever', 'whoever', 'whomever', 'this', 'that', 'these', 'those', 'it', 'its']);
-
-  const keywords = query
-    .toLowerCase()
-    .split(/[\s,.;:()"{}[\]-]+/)  // More robust splitting on punctuation
-    .filter(word => word.length > 2 && !stopWords.has(word));
-
-  if (keywords.length === 0) return results;
-
-  // Create case-insensitive regexes for whole-word matching
-  const keywordRegexes = keywords.map(kw => new RegExp(`\\b${escapeRegExp(kw)}\\b`, 'i'));
-
-  return results.map(r => {
-    const content = r.content || '';
-    const file = r.file || '';
-
-    // Count keyword matches using whole-word regex
-    let matchCount = 0;
-    for (const regex of keywordRegexes) {
-      if (regex.test(content) || regex.test(file)) {
-        matchCount++;
-      }
-    }
-
-    // Apply boost only if there are matches
-    if (matchCount > 0) {
-      const matchRatio = matchCount / keywords.length;
-      const boost = 1 + (matchRatio * 0.3); // Up to 30% boost for full match
-      return {
-        ...r,
-        score: r.score * boost,
-      };
-    }
-
-    return r;
-  });
-}
-
-/**
- * Post-processing: Enforce score diversity
- * Penalizes results with identical scores (indicates undifferentiated matching)
- */
-function enforceScoreDiversity(results: SemanticMatch[]): SemanticMatch[] {
-  if (results.length < 2) return results;
-
-  // Count occurrences of each score (rounded to 3 decimal places for comparison)
-  const scoreCounts = new Map<number, number>();
-  for (const r of results) {
-    const roundedScore = Math.round(r.score * 1000) / 1000;
-    scoreCounts.set(roundedScore, (scoreCounts.get(roundedScore) || 0) + 1);
-  }
-
-  // Apply penalty to scores that appear more than twice
-  return results.map(r => {
-    const roundedScore = Math.round(r.score * 1000) / 1000;
-    const count = scoreCounts.get(roundedScore) || 1;
-
-    if (count > 2) {
-      // Progressive penalty: more duplicates = bigger penalty
-      const penalty = Math.max(0.7, 1 - (count * 0.05));
-      return { ...r, score: r.score * penalty };
-    }
-    return r;
-  });
-}
-
-/**
- * Post-processing: Filter results with dominant baseline score (hot spot detection)
- * When backend returns default "hot spot" files with identical high scores,
- * this function detects and removes them.
- *
- * Detection criteria:
- * - A single score appears in >50% of results
- * - That score is suspiciously high (>0.9)
- * - This indicates fallback mechanism returned placeholder results
- */
-function filterDominantBaselineScores(
-  results: SemanticMatch[]
-): { filteredResults: SemanticMatch[]; baselineInfo: { score: number; count: number } | null } {
-  if (results.length < 4) {
-    return { filteredResults: results, baselineInfo: null };
-  }
-
-  // Count occurrences of each score (rounded to 4 decimal places)
-  const scoreCounts = new Map<number, number>();
-  results.forEach(r => {
-    const rounded = Math.round(r.score * 10000) / 10000;
-    scoreCounts.set(rounded, (scoreCounts.get(rounded) || 0) + 1);
-  });
-
-  // Find the most dominant score
-  let dominantScore: number | null = null;
-  let dominantCount = 0;
-  scoreCounts.forEach((count, score) => {
-    if (count > dominantCount) {
-      dominantCount = count;
-      dominantScore = score;
-    }
-  });
-
-  // If a single score is present in >50% of results and is high (>0.9),
-  // treat it as a suspicious baseline score and filter it out
-  const BASELINE_THRESHOLD = 0.5;  // >50% of results have same score
-  const HIGH_SCORE_THRESHOLD = 0.9; // Score above 0.9 is suspiciously high
-
-  if (
-    dominantScore !== null &&
-    dominantCount > results.length * BASELINE_THRESHOLD &&
-    dominantScore > HIGH_SCORE_THRESHOLD
-  ) {
-    const filteredResults = results.filter(r => {
-      const rounded = Math.round(r.score * 10000) / 10000;
-      return rounded !== dominantScore;
-    });
-
-    return {
-      filteredResults,
-      baselineInfo: { score: dominantScore, count: dominantCount },
-    };
-  }
-
-  return { filteredResults: results, baselineInfo: null };
 }
 
 /**
@@ -1285,52 +963,34 @@ async function executePriorityFallbackMode(params: Params): Promise<SearchResult
 // Tool schema for MCP
 export const schema: ToolSchema = {
   name: 'smart_search',
-  description: `Unified code search tool with content search, file discovery, and semantic search capabilities.
+  description: `Intelligent code search with five modes. Use "auto" mode (default) for intelligent routing.
 
-**Actions:**
-- search: Search file content (default)
-- find_files: Find files by path/name pattern (glob matching)
-- init: Create FTS index
-- status: Check index status
-
-**Content Search (action="search"):**
+**Usage:**
   smart_search(query="authentication logic")        # auto mode - routes to best backend
   smart_search(query="MyClass", mode="exact")       # exact mode - precise FTS matching
-  smart_search(query="auth", mode="ripgrep")        # ripgrep mode - fast literal search
-  smart_search(query="how to auth", mode="hybrid")  # hybrid mode - semantic + fuzzy search
+  smart_search(query="auth", mode="ripgrep")        # ripgrep mode - fast literal search (no index)
+  smart_search(query="how to auth", mode="hybrid")  # hybrid mode - semantic search (requires index)
 
-**File Discovery (action="find_files"):**
-  smart_search(action="find_files", pattern="*.ts")           # find all TypeScript files
-  smart_search(action="find_files", pattern="src/**/*.js")    # recursive glob pattern
-  smart_search(action="find_files", pattern="test_*.py")      # find test files
-  smart_search(action="find_files", pattern="*.tsx", offset=20, limit=10)  # pagination
+**Index Management:**
+  smart_search(action="init")                       # Create FTS index for current directory
+  smart_search(action="status")                     # Check index and embedding status
 
-**Pagination:** All actions support offset/limit for paginated results:
-  smart_search(query="auth", limit=10, offset=0)    # first page
-  smart_search(query="auth", limit=10, offset=10)   # second page
+**Graph Enrichment:**
+  smart_search(query="func", enrich=true)           # Enrich results with code relationships (calls, imports, called_by, imported_by)
 
-**Regex Search (ripgrep mode):**
-  smart_search(query="class.*Builder")              # auto-detects regex pattern
-  smart_search(query="def.*\\(.*\\):")              # find function definitions
-  smart_search(query="import.*from", caseSensitive=false)  # case-insensitive
-
-**Modes:** auto (intelligent routing), hybrid (semantic+fuzzy), exact (FTS), ripgrep (fast), priority (fallback chain)`,
+**Modes:** auto (intelligent routing), hybrid (semantic, needs index), exact (FTS), ripgrep (fast, no index), priority (fallback: hybrid→exact→ripgrep)`,
   inputSchema: {
     type: 'object',
     properties: {
       action: {
         type: 'string',
-        enum: ['init', 'search', 'find_files', 'status', 'search_files'],
-        description: 'Action: search (content search), find_files (path pattern matching), init (create index), status (check index). Note: search_files is deprecated.',
+        enum: ['init', 'search', 'search_files', 'status'],
+        description: 'Action to perform: init (create FTS index, no embeddings), search (default), search_files (paths only), status (check index)',
         default: 'search',
       },
       query: {
         type: 'string',
-        description: 'Content search query (for action="search")',
-      },
-      pattern: {
-        type: 'string',
-        description: 'Glob pattern for file discovery (for action="find_files"). Examples: "*.ts", "src/**/*.js", "test_*.py"',
+        description: 'Search query (required for search/search_files actions)',
       },
       mode: {
         type: 'string',
@@ -1363,18 +1023,13 @@ export const schema: ToolSchema = {
       },
       maxResults: {
         type: 'number',
-        description: 'Maximum number of results (default: 20)',
-        default: 20,
+        description: 'Maximum number of results (default: 10)',
+        default: 10,
       },
       limit: {
         type: 'number',
-        description: 'Alias for maxResults (default: 20)',
-        default: 20,
-      },
-      offset: {
-        type: 'number',
-        description: 'Pagination offset - skip first N results (default: 0)',
-        default: 0,
+        description: 'Alias for maxResults',
+        default: 10,
       },
       includeHidden: {
         type: 'boolean',
@@ -1391,283 +1046,10 @@ export const schema: ToolSchema = {
         description: 'Enrich search results with code graph relationships (calls, imports, called_by, imported_by).',
         default: false,
       },
-      regex: {
-        type: 'boolean',
-        description: 'Use regex pattern matching instead of literal string (ripgrep mode only). Default: enabled. Example: smart_search(query="class.*Builder")',
-        default: true,
-      },
-      caseSensitive: {
-        type: 'boolean',
-        description: 'Case-sensitive search (default: true). Set to false for case-insensitive matching.',
-        default: true,
-      },
     },
     required: [],
   },
 };
-
-/**
- * Action: find_files - Find files by path/name pattern (glob matching)
- * Unlike search which looks inside file content, find_files matches file paths
- */
-async function executeFindFilesAction(params: Params): Promise<SearchResult> {
-  const { pattern, path = '.', limit = 20, offset = 0, includeHidden = false, caseSensitive = true } = params;
-
-  if (!pattern) {
-    return {
-      success: false,
-      error: 'Pattern is required for find_files action. Use glob patterns like "*.ts", "src/**/*.js", or "test_*.py"',
-    };
-  }
-
-  // Use ripgrep with --files flag for fast file listing with glob pattern
-  const hasRipgrep = checkToolAvailability('rg');
-
-  if (!hasRipgrep) {
-    // Fallback to CodexLens file listing if available
-    const readyStatus = await ensureCodexLensReady();
-    if (!readyStatus.ready) {
-      return {
-        success: false,
-        error: 'Neither ripgrep nor CodexLens available for file discovery.',
-      };
-    }
-
-    // Try CodexLens file list command
-    const args = ['list-files', '--json'];
-    const result = await executeCodexLens(args, { cwd: path });
-
-    if (!result.success) {
-      return {
-        success: false,
-        error: `Failed to list files: ${result.error}`,
-      };
-    }
-
-    // Parse and filter results by pattern
-    let files: string[] = [];
-    try {
-      const parsed = JSON.parse(stripAnsi(result.output || '[]'));
-      files = Array.isArray(parsed) ? parsed : (parsed.files || []);
-    } catch {
-      return {
-        success: false,
-        error: 'Failed to parse file list from CodexLens',
-      };
-    }
-
-    // Apply glob pattern matching using minimatch-style regex
-    const globRegex = globToRegex(pattern, caseSensitive);
-    const matchedFiles = files.filter(f => globRegex.test(f));
-
-    // Apply pagination
-    const total = matchedFiles.length;
-    const paginatedFiles = matchedFiles.slice(offset, offset + limit);
-
-    const results: FileMatch[] = paginatedFiles.map(filePath => {
-      const parts = filePath.split(/[/\\]/);
-      const name = parts[parts.length - 1] || '';
-      const ext = name.includes('.') ? name.split('.').pop() : undefined;
-      return {
-        path: filePath,
-        type: 'file' as const,
-        name,
-        extension: ext,
-      };
-    });
-
-    return {
-      success: true,
-      results,
-      metadata: {
-        pattern,
-        backend: 'codexlens',
-        count: results.length,
-        pagination: {
-          offset,
-          limit,
-          total,
-          has_more: offset + limit < total,
-        },
-      },
-    };
-  }
-
-  // Use ripgrep --files with glob pattern for fast file discovery
-  return new Promise((resolve) => {
-    const args = ['--files'];
-
-    // Add exclude patterns
-    if (!includeHidden) {
-      args.push(...buildExcludeArgs());
-    } else {
-      args.push('--hidden');
-    }
-
-    // Add glob pattern
-    args.push('--glob', pattern);
-
-    // Case sensitivity for glob matching
-    if (!caseSensitive) {
-      args.push('--iglob', pattern);
-      // Remove the case-sensitive glob and use iglob instead
-      const globIndex = args.indexOf('--glob');
-      if (globIndex !== -1) {
-        args.splice(globIndex, 2);
-      }
-    }
-
-    const child = spawn('rg', args, {
-      cwd: path || process.cwd(),
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    child.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-
-    child.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    child.on('close', (code) => {
-      // ripgrep returns 1 when no matches found, which is not an error
-      if (code !== 0 && code !== 1 && !stderr.includes('os error 1')) {
-        resolve({
-          success: false,
-          error: `ripgrep file search failed: ${stderr}`,
-        });
-        return;
-      }
-
-      const allFiles = stdout.split('\n').filter(line => line.trim());
-      const total = allFiles.length;
-
-      // Apply pagination
-      const paginatedFiles = allFiles.slice(offset, offset + limit);
-
-      const results: FileMatch[] = paginatedFiles.map(filePath => {
-        const normalizedPath = filePath.replace(/\\/g, '/');
-        const parts = normalizedPath.split('/');
-        const name = parts[parts.length - 1] || '';
-        const ext = name.includes('.') ? name.split('.').pop() : undefined;
-        return {
-          path: normalizedPath,
-          type: 'file' as const,
-          name,
-          extension: ext,
-        };
-      });
-
-      resolve({
-        success: true,
-        results,
-        metadata: {
-          pattern,
-          backend: 'ripgrep',
-          count: results.length,
-          pagination: {
-            offset,
-            limit,
-            total,
-            has_more: offset + limit < total,
-          },
-        },
-      });
-    });
-
-    child.on('error', (error) => {
-      resolve({
-        success: false,
-        error: `Failed to spawn ripgrep: ${error.message}`,
-      });
-    });
-  });
-}
-
-/**
- * Convert glob pattern to regex for file matching
- * Supports: *, **, ?, [abc], [!abc]
- */
-function globToRegex(pattern: string, caseSensitive: boolean = true): RegExp {
-  let i = 0;
-  const out: string[] = [];
-  const special = '.^$+{}|()';
-
-  while (i < pattern.length) {
-    const c = pattern[i];
-
-    if (c === '*') {
-      if (i + 1 < pattern.length && pattern[i + 1] === '*') {
-        // ** matches any path including /
-        out.push('.*');
-        i += 2;
-        // Skip following / if present
-        if (pattern[i] === '/') {
-          i++;
-        }
-        continue;
-      } else {
-        // * matches any character except /
-        out.push('[^/]*');
-      }
-    } else if (c === '?') {
-      out.push('[^/]');
-    } else if (c === '[') {
-      // Character class
-      let j = i + 1;
-      let negated = false;
-      if (pattern[j] === '!' || pattern[j] === '^') {
-        negated = true;
-        j++;
-      }
-      let classContent = '';
-      while (j < pattern.length && pattern[j] !== ']') {
-        classContent += pattern[j];
-        j++;
-      }
-      if (negated) {
-        out.push(`[^${classContent}]`);
-      } else {
-        out.push(`[${classContent}]`);
-      }
-      i = j;
-    } else if (special.includes(c)) {
-      out.push('\\' + c);
-    } else {
-      out.push(c);
-    }
-    i++;
-  }
-
-  const flags = caseSensitive ? '' : 'i';
-  return new RegExp('^' + out.join('') + '$', flags);
-}
-
-/**
- * Apply pagination to search results and add pagination metadata
- */
-function applyPagination<T>(
-  results: T[],
-  offset: number,
-  limit: number
-): { paginatedResults: T[]; pagination: PaginationInfo } {
-  const total = results.length;
-  const paginatedResults = results.slice(offset, offset + limit);
-
-  return {
-    paginatedResults,
-    pagination: {
-      offset,
-      limit,
-      total,
-      has_more: offset + limit < total,
-    },
-  };
-}
 
 /**
  * Transform results based on output_mode
@@ -1713,16 +1095,13 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
     return { success: false, error: `Invalid params: ${parsed.error.message}` };
   }
 
-  const { action, mode, output_mode, offset = 0 } = parsed.data;
+  const { action, mode, output_mode } = parsed.data;
 
   // Sync limit and maxResults - use the larger of the two if both provided
   // This ensures user-provided values take precedence over defaults
-  const effectiveLimit = Math.max(parsed.data.limit || 20, parsed.data.maxResults || 20);
+  const effectiveLimit = Math.max(parsed.data.limit || 10, parsed.data.maxResults || 10);
   parsed.data.maxResults = effectiveLimit;
   parsed.data.limit = effectiveLimit;
-
-  // Track if search_files was used (deprecated)
-  let deprecationWarning: string | undefined;
 
   try {
     let result: SearchResult;
@@ -1737,14 +1116,8 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
         result = await executeStatusAction(parsed.data);
         break;
 
-      case 'find_files':
-        // NEW: File path/name pattern matching (glob-based)
-        result = await executeFindFilesAction(parsed.data);
-        break;
-
       case 'search_files':
-        // DEPRECATED: Redirect to search with files_only output
-        deprecationWarning = 'action="search_files" is deprecated. Use action="search" with output_mode="files_only" for content-to-files search, or action="find_files" for path pattern matching.';
+        // For search_files, use search mode but force files_only output
         parsed.data.output_mode = 'files_only';
         // Fall through to search
 
@@ -1778,27 +1151,6 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
       if (result.success && result.results && output_mode !== 'full') {
         result.results = transformOutput(result.results as any[], output_mode);
       }
-
-      // Add pagination metadata for search results if not already present
-      if (result.success && result.results && Array.isArray(result.results)) {
-        const totalResults = (result.results as any[]).length;
-        if (!result.metadata) {
-          result.metadata = {};
-        }
-        if (!result.metadata.pagination) {
-          result.metadata.pagination = {
-            offset: 0,
-            limit: effectiveLimit,
-            total: totalResults,
-            has_more: false,  // Already limited by backend
-          };
-        }
-      }
-    }
-
-    // Add deprecation warning if applicable
-    if (deprecationWarning && result.metadata) {
-      result.metadata.warning = deprecationWarning;
     }
 
     return result.success ? { success: true, result } : { success: false, error: result.error };

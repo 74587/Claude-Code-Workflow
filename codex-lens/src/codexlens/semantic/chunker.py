@@ -150,8 +150,13 @@ class Chunker:
                 chunk_idx += 1
 
             # Move window, accounting for overlap
-            start = end - overlap_lines
-            if start >= len(lines) - overlap_lines:
+            step = lines_per_chunk - overlap_lines
+            if step <= 0:
+                step = 1  # Failsafe to prevent infinite loop
+            start += step
+
+            # Break if we've reached the end
+            if end >= len(lines):
                 break
 
         return chunks

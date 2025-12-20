@@ -429,7 +429,7 @@ function parseProgressLine(line: string): ProgressInfo | null {
 }
 
 /**
- * Execute CodexLens CLI command
+ * Execute CodexLens CLI command with real-time progress updates
  * @param args - CLI arguments
  * @param options - Execution options
  * @returns Execution result
@@ -463,34 +463,110 @@ async function executeCodexLens(args: string[], options: ExecuteOptions = {}): P
       fullCmd = `${quotedPython} -m codexlens ${cmdArgs.join(' ')}`;
     }
 
-    // Use exec with shell option for cross-platform compatibility
-    exec(fullCmd, {
-      cwd: process.platform === 'win32' ? undefined : cwd, // Don't use cwd on Windows, use cd command instead
+    // Use spawn with shell for real-time progress updates
+    // spawn streams output in real-time, unlike exec which buffers until completion
+    const child = spawn(fullCmd, [], {
+      cwd: process.platform === 'win32' ? undefined : cwd,
+      shell: process.platform === 'win32' ? process.env.ComSpec || true : true,
       timeout,
-      maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large outputs
-      shell: process.platform === 'win32' ? process.env.ComSpec : undefined,
-    }, (error, stdout, stderr) => {
-      if (error) {
-        if (error.killed) {
-          resolve({ success: false, error: 'Command timed out' });
-        } else {
-          resolve({ success: false, error: stderr || error.message });
-        }
-        return;
-      }
+    });
 
-      // Report final progress if callback provided
-      if (onProgress && stdout) {
-        const lines = stdout.split('\n');
-        for (const line of lines) {
-          const progress = parseProgressLine(line.trim());
+    let stdout = '';
+    let stderr = '';
+    let stdoutLineBuffer = '';
+    let stderrLineBuffer = '';
+    let timeoutHandle: NodeJS.Timeout | null = null;
+    let resolved = false;
+
+    // Helper to safely resolve only once
+    const safeResolve = (result: ExecuteResult) => {
+      if (resolved) return;
+      resolved = true;
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+        timeoutHandle = null;
+      }
+      resolve(result);
+    };
+
+    // Set up timeout handler
+    if (timeout > 0) {
+      timeoutHandle = setTimeout(() => {
+        if (!resolved) {
+          child.kill('SIGTERM');
+          // Give it a moment to die gracefully, then force kill
+          setTimeout(() => {
+            if (!resolved) {
+              child.kill('SIGKILL');
+            }
+          }, 5000);
+          safeResolve({ success: false, error: 'Command timed out' });
+        }
+      }, timeout);
+    }
+
+    // Process stdout line by line for real-time progress
+    child.stdout?.on('data', (data: Buffer) => {
+      const chunk = data.toString();
+      stdoutLineBuffer += chunk;
+      stdout += chunk;
+
+      // Process complete lines
+      const lines = stdoutLineBuffer.split('\n');
+      stdoutLineBuffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine && onProgress) {
+          const progress = parseProgressLine(trimmedLine);
           if (progress) {
             onProgress(progress);
           }
         }
       }
+    });
 
-      resolve({ success: true, output: stdout.trim() });
+    // Collect stderr
+    child.stderr?.on('data', (data: Buffer) => {
+      const chunk = data.toString();
+      stderrLineBuffer += chunk;
+      stderr += chunk;
+
+      // Also check stderr for progress (some tools output progress to stderr)
+      const lines = stderrLineBuffer.split('\n');
+      stderrLineBuffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine && onProgress) {
+          const progress = parseProgressLine(trimmedLine);
+          if (progress) {
+            onProgress(progress);
+          }
+        }
+      }
+    });
+
+    // Handle process errors (spawn failure)
+    child.on('error', (err) => {
+      safeResolve({ success: false, error: `Failed to start process: ${err.message}` });
+    });
+
+    // Handle process completion
+    child.on('close', (code) => {
+      // Process any remaining buffered content
+      if (stdoutLineBuffer.trim() && onProgress) {
+        const progress = parseProgressLine(stdoutLineBuffer.trim());
+        if (progress) {
+          onProgress(progress);
+        }
+      }
+
+      if (code === 0) {
+        safeResolve({ success: true, output: stdout.trim() });
+      } else {
+        safeResolve({ success: false, error: stderr.trim() || `Process exited with code ${code}` });
+      }
     });
   });
 }
