@@ -489,6 +489,113 @@ export class SessionClusteringService {
   }
 
   /**
+   * Deduplicate clusters by merging similar ones
+   * Clusters with same name or >50% member overlap are merged
+   * @returns Statistics about deduplication
+   */
+  async deduplicateClusters(): Promise<{ merged: number; deleted: number; remaining: number }> {
+    const clusters = this.coreMemoryStore.listClusters('active');
+    console.log(`[Dedup] Analyzing ${clusters.length} active clusters`);
+
+    if (clusters.length < 2) {
+      return { merged: 0, deleted: 0, remaining: clusters.length };
+    }
+
+    // Group clusters by name (case-insensitive)
+    const byName = new Map<string, typeof clusters>();
+    for (const cluster of clusters) {
+      const key = cluster.name.toLowerCase().trim();
+      if (!byName.has(key)) {
+        byName.set(key, []);
+      }
+      byName.get(key)!.push(cluster);
+    }
+
+    let merged = 0;
+    let deleted = 0;
+
+    // Merge clusters with same name
+    for (const [name, group] of byName) {
+      if (group.length < 2) continue;
+
+      // Sort by created_at (oldest first) to keep the original
+      group.sort((a, b) => a.created_at.localeCompare(b.created_at));
+      const target = group[0];
+      const sources = group.slice(1).map(c => c.id);
+
+      console.log(`[Dedup] Merging ${sources.length} duplicate clusters named '${name}' into ${target.id}`);
+
+      try {
+        const membersMoved = this.coreMemoryStore.mergeClusters(target.id, sources);
+        merged += sources.length;
+        console.log(`[Dedup] Moved ${membersMoved} members, deleted ${sources.length} clusters`);
+      } catch (error) {
+        console.warn(`[Dedup] Failed to merge: ${(error as Error).message}`);
+      }
+    }
+
+    // Check for clusters with high member overlap
+    const remainingClusters = this.coreMemoryStore.listClusters('active');
+    const clusterMembers = new Map<string, Set<string>>();
+
+    for (const cluster of remainingClusters) {
+      const members = this.coreMemoryStore.getClusterMembers(cluster.id);
+      clusterMembers.set(cluster.id, new Set(members.map(m => m.session_id)));
+    }
+
+    // Find and merge overlapping clusters
+    const processed = new Set<string>();
+    for (let i = 0; i < remainingClusters.length; i++) {
+      const clusterA = remainingClusters[i];
+      if (processed.has(clusterA.id)) continue;
+
+      const membersA = clusterMembers.get(clusterA.id)!;
+      const toMerge: string[] = [];
+
+      for (let j = i + 1; j < remainingClusters.length; j++) {
+        const clusterB = remainingClusters[j];
+        if (processed.has(clusterB.id)) continue;
+
+        const membersB = clusterMembers.get(clusterB.id)!;
+        const intersection = new Set([...membersA].filter(m => membersB.has(m)));
+
+        // Calculate overlap ratio (based on smaller cluster)
+        const minSize = Math.min(membersA.size, membersB.size);
+        if (minSize > 0 && intersection.size / minSize >= 0.5) {
+          toMerge.push(clusterB.id);
+          processed.add(clusterB.id);
+        }
+      }
+
+      if (toMerge.length > 0) {
+        console.log(`[Dedup] Merging ${toMerge.length} overlapping clusters into ${clusterA.id}`);
+        try {
+          this.coreMemoryStore.mergeClusters(clusterA.id, toMerge);
+          merged += toMerge.length;
+        } catch (error) {
+          console.warn(`[Dedup] Failed to merge overlapping: ${(error as Error).message}`);
+        }
+      }
+    }
+
+    // Delete empty clusters
+    const finalClusters = this.coreMemoryStore.listClusters('active');
+    for (const cluster of finalClusters) {
+      const members = this.coreMemoryStore.getClusterMembers(cluster.id);
+      if (members.length === 0) {
+        this.coreMemoryStore.deleteCluster(cluster.id);
+        deleted++;
+        console.log(`[Dedup] Deleted empty cluster: ${cluster.id}`);
+      }
+    }
+
+    const remaining = this.coreMemoryStore.listClusters('active').length;
+    console.log(`[Dedup] Complete: ${merged} merged, ${deleted} deleted, ${remaining} remaining`);
+
+    return { merged, deleted, remaining };
+  }
+
+  /**
    * Agglomerative clustering algorithm
    * Returns array of clusters (each cluster is array of sessions)
    */

@@ -523,6 +523,60 @@ ${memory.content}
   }
 
   /**
+   * Merge multiple clusters into one
+   * Keeps the first cluster and moves all members from others into it
+   * @param targetClusterId The cluster to keep
+   * @param sourceClusterIds The clusters to merge into target (will be deleted)
+   * @returns Number of members moved
+   */
+  mergeClusters(targetClusterId: string, sourceClusterIds: string[]): number {
+    const targetCluster = this.getCluster(targetClusterId);
+    if (!targetCluster) {
+      throw new Error(`Target cluster not found: ${targetClusterId}`);
+    }
+
+    let membersMoved = 0;
+    const existingMembers = new Set(
+      this.getClusterMembers(targetClusterId).map(m => m.session_id)
+    );
+
+    for (const sourceId of sourceClusterIds) {
+      if (sourceId === targetClusterId) continue;
+
+      const sourceMembers = this.getClusterMembers(sourceId);
+      const maxOrder = this.getClusterMembers(targetClusterId).length;
+
+      for (const member of sourceMembers) {
+        // Skip if already exists in target
+        if (existingMembers.has(member.session_id)) continue;
+
+        // Move member to target cluster
+        this.addClusterMember({
+          cluster_id: targetClusterId,
+          session_id: member.session_id,
+          session_type: member.session_type,
+          sequence_order: maxOrder + membersMoved + 1,
+          relevance_score: member.relevance_score
+        });
+
+        existingMembers.add(member.session_id);
+        membersMoved++;
+      }
+
+      // Delete source cluster
+      this.deleteCluster(sourceId);
+    }
+
+    // Update target cluster description
+    const finalMembers = this.getClusterMembers(targetClusterId);
+    this.updateCluster(targetClusterId, {
+      description: `Merged cluster with ${finalMembers.length} sessions`
+    });
+
+    return membersMoved;
+  }
+
+  /**
    * Add member to cluster
    */
   addClusterMember(member: Omit<ClusterMember, 'added_at'>): ClusterMember {
@@ -782,6 +836,219 @@ export function getCoreMemoryStore(projectPath: string): CoreMemoryStore {
     storeCache.set(normalizedPath, new CoreMemoryStore(projectPath));
   }
   return storeCache.get(normalizedPath)!;
+}
+
+// ============================================================================
+// Cross-workspace management functions
+// ============================================================================
+
+import { readdirSync, writeFileSync, readFileSync } from 'fs';
+import { homedir } from 'os';
+
+export interface ProjectInfo {
+  id: string;
+  path: string;
+  memoriesCount: number;
+  clustersCount: number;
+  lastUpdated?: string;
+}
+
+export interface ExportedMemory {
+  version: string;
+  exportedAt: string;
+  sourceProject: string;
+  memories: CoreMemory[];
+}
+
+/**
+ * Get CCW home directory
+ */
+function getCCWHome(): string {
+  return process.env.CCW_DATA_DIR || join(homedir(), '.ccw');
+}
+
+/**
+ * List all projects with their memory counts
+ */
+export function listAllProjects(): ProjectInfo[] {
+  const projectsDir = join(getCCWHome(), 'projects');
+
+  if (!existsSync(projectsDir)) {
+    return [];
+  }
+
+  const projects: ProjectInfo[] = [];
+  const entries = readdirSync(projectsDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+
+    const projectId = entry.name;
+    const coreMemoryDb = join(projectsDir, projectId, 'core-memory', 'core_memory.db');
+
+    let memoriesCount = 0;
+    let clustersCount = 0;
+    let lastUpdated: string | undefined;
+
+    if (existsSync(coreMemoryDb)) {
+      try {
+        const db = new Database(coreMemoryDb, { readonly: true });
+
+        // Count memories
+        const memResult = db.prepare('SELECT COUNT(*) as count FROM memories').get() as { count: number };
+        memoriesCount = memResult?.count || 0;
+
+        // Count clusters
+        try {
+          const clusterResult = db.prepare('SELECT COUNT(*) as count FROM session_clusters').get() as { count: number };
+          clustersCount = clusterResult?.count || 0;
+        } catch {
+          // Table might not exist
+        }
+
+        // Get last update time
+        const lastMemory = db.prepare('SELECT MAX(updated_at) as last FROM memories').get() as { last: string };
+        lastUpdated = lastMemory?.last;
+
+        db.close();
+      } catch {
+        // Database might be locked or corrupted
+      }
+    }
+
+    // Convert project ID back to approximate path
+    const approximatePath = projectId
+      .replace(/^([a-z])--/, '$1:/')  // d-- -> d:/
+      .replace(/--/g, '/')
+      .replace(/-/g, ' ');
+
+    projects.push({
+      id: projectId,
+      path: approximatePath,
+      memoriesCount,
+      clustersCount,
+      lastUpdated
+    });
+  }
+
+  // Sort by last updated (most recent first)
+  return projects.sort((a, b) => {
+    if (!a.lastUpdated) return 1;
+    if (!b.lastUpdated) return -1;
+    return b.lastUpdated.localeCompare(a.lastUpdated);
+  });
+}
+
+/**
+ * Get memories from another project by ID
+ */
+export function getMemoriesFromProject(projectId: string): CoreMemory[] {
+  const projectsDir = join(getCCWHome(), 'projects');
+  const coreMemoryDb = join(projectsDir, projectId, 'core-memory', 'core_memory.db');
+
+  if (!existsSync(coreMemoryDb)) {
+    throw new Error(`Project not found: ${projectId}`);
+  }
+
+  const db = new Database(coreMemoryDb, { readonly: true });
+
+  const stmt = db.prepare('SELECT * FROM memories ORDER BY updated_at DESC');
+  const rows = stmt.all() as any[];
+
+  db.close();
+
+  return rows.map(row => ({
+    id: row.id,
+    content: row.content,
+    summary: row.summary || '',
+    raw_output: row.raw_output,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    archived: Boolean(row.archived),
+    metadata: row.metadata
+  }));
+}
+
+/**
+ * Export memories to a JSON file
+ */
+export function exportMemories(
+  projectPath: string,
+  outputPath: string,
+  options?: { ids?: string[]; includeArchived?: boolean }
+): number {
+  const store = getCoreMemoryStore(projectPath);
+  let memories = store.getMemories({ archived: options?.includeArchived || false, limit: 10000 });
+
+  // Filter by IDs if specified
+  if (options?.ids && options.ids.length > 0) {
+    const idSet = new Set(options.ids);
+    memories = memories.filter(m => idSet.has(m.id));
+  }
+
+  const exportData: ExportedMemory = {
+    version: '1.0',
+    exportedAt: new Date().toISOString(),
+    sourceProject: projectPath,
+    memories
+  };
+
+  writeFileSync(outputPath, JSON.stringify(exportData, null, 2), 'utf-8');
+  return memories.length;
+}
+
+/**
+ * Import memories from a JSON file or another project
+ */
+export function importMemories(
+  targetProjectPath: string,
+  source: string,  // File path or project ID
+  options?: { overwrite?: boolean; prefix?: string }
+): { imported: number; skipped: number } {
+  const store = getCoreMemoryStore(targetProjectPath);
+  let memories: CoreMemory[];
+
+  // Check if source is a file or project ID
+  if (existsSync(source) && source.endsWith('.json')) {
+    // Import from file
+    const content = readFileSync(source, 'utf-8');
+    const data = JSON.parse(content) as ExportedMemory;
+    memories = data.memories;
+  } else {
+    // Import from project ID
+    memories = getMemoriesFromProject(source);
+  }
+
+  let imported = 0;
+  let skipped = 0;
+
+  for (const memory of memories) {
+    // Generate new ID with optional prefix
+    let newId = memory.id;
+    if (options?.prefix) {
+      newId = `${options.prefix}-${memory.id}`;
+    }
+
+    // Check if already exists
+    const existing = store.getMemory(newId);
+    if (existing && !options?.overwrite) {
+      skipped++;
+      continue;
+    }
+
+    // Import memory
+    store.upsertMemory({
+      id: newId,
+      content: memory.content,
+      summary: memory.summary,
+      raw_output: memory.raw_output,
+      metadata: memory.metadata
+    });
+
+    imported++;
+  }
+
+  return { imported, skipped };
 }
 
 /**

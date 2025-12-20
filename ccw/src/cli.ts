@@ -216,6 +216,12 @@ export function run(argv: string[]): void {
     .option('--members <ids>', 'Cluster member IDs (comma-separated)')
     .option('--status <status>', 'Cluster status filter')
     .option('--level <level>', 'Context level: metadata, keyFiles, full')
+    .option('--delete', 'Delete a cluster')
+    .option('--merge <ids>', 'Merge clusters into target (comma-separated source IDs)')
+    .option('--dedup', 'Deduplicate clusters by merging similar ones')
+    .option('--output <file>', 'Output file path for export')
+    .option('--overwrite', 'Overwrite existing memories when importing')
+    .option('--prefix <prefix>', 'Add prefix to imported memory IDs')
     .action((subcommand, args, options) => coreMemoryCommand(subcommand, args, options));
 
   program.parse(argv);

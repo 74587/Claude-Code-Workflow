@@ -1,10 +1,16 @@
 /**
  * Core Memory Command - Simplified CLI for core memory management
- * Four commands: list, import, export, summary
+ * Commands: list, import, export, summary, projects, cluster
  */
 
 import chalk from 'chalk';
-import { getCoreMemoryStore } from '../core/core-memory-store.js';
+import {
+  getCoreMemoryStore,
+  listAllProjects,
+  getMemoriesFromProject,
+  exportMemories,
+  importMemories
+} from '../core/core-memory-store.js';
 import { notifyRefreshRequired } from '../tools/notifier.js';
 
 interface CommandOptions {
@@ -13,6 +19,11 @@ interface CommandOptions {
   status?: string;
   json?: boolean;
   auto?: boolean;
+  output?: string;
+  from?: string;
+  overwrite?: boolean;
+  prefix?: string;
+  all?: boolean;
   scope?: string;
   create?: boolean;
   name?: string;
@@ -20,6 +31,9 @@ interface CommandOptions {
   format?: string;
   level?: string;
   type?: string;
+  delete?: boolean;
+  merge?: string;
+  dedup?: boolean;
 }
 
 /**
@@ -91,7 +105,7 @@ async function importAction(text: string): Promise<void> {
 }
 
 /**
- * Export a memory as plain text
+ * Export a memory as plain text (searches all projects if not found locally)
  */
 async function exportAction(options: CommandOptions): Promise<void> {
   const { id } = options;
@@ -103,16 +117,154 @@ async function exportAction(options: CommandOptions): Promise<void> {
   }
 
   try {
+    // First try current project
     const store = getCoreMemoryStore(getProjectPath());
-    const memory = store.getMemory(id);
+    let memory = store.getMemory(id);
+
+    // If not found, search all projects
+    if (!memory) {
+      const projects = listAllProjects();
+      for (const project of projects) {
+        try {
+          const memories = getMemoriesFromProject(project.id);
+          const found = memories.find(m => m.id === id);
+          if (found) {
+            memory = found;
+            console.error(chalk.gray(`Found in project: ${project.id}`));
+            break;
+          }
+        } catch {
+          // Skip projects that can't be read
+        }
+      }
+    }
 
     if (!memory) {
-      console.error(chalk.red(`Error: Memory "${id}" not found`));
+      console.error(chalk.red(`Error: Memory "${id}" not found in any project`));
       process.exit(1);
     }
 
     // Output plain text content
     console.log(memory.content);
+
+  } catch (error) {
+    console.error(chalk.red(`Error: ${(error as Error).message}`));
+    process.exit(1);
+  }
+}
+
+/**
+ * List all projects with their memory counts
+ */
+async function projectsAction(options: CommandOptions): Promise<void> {
+  try {
+    const projects = listAllProjects();
+
+    if (options.json) {
+      console.log(JSON.stringify(projects, null, 2));
+      return;
+    }
+
+    console.log(chalk.bold.cyan('\n  All CCW Projects\n'));
+
+    if (projects.length === 0) {
+      console.log(chalk.yellow('  No projects found\n'));
+      return;
+    }
+
+    console.log(chalk.gray('  ─────────────────────────────────────────────────────────────────'));
+
+    for (const project of projects) {
+      const hasData = project.memoriesCount > 0 || project.clustersCount > 0;
+      const icon = hasData ? '●' : '○';
+      const color = hasData ? chalk.cyan : chalk.gray;
+
+      console.log(color(`  ${icon} ${project.id}`));
+      console.log(chalk.white(`    Path: ${project.path}`));
+      console.log(chalk.white(`    Memories: ${project.memoriesCount} | Clusters: ${project.clustersCount}`));
+      if (project.lastUpdated) {
+        console.log(chalk.gray(`    Last updated: ${new Date(project.lastUpdated).toLocaleString()}`));
+      }
+      console.log(chalk.gray('  ─────────────────────────────────────────────────────────────────'));
+    }
+
+    console.log(chalk.gray(`\n  Total: ${projects.length} projects\n`));
+
+  } catch (error) {
+    console.error(chalk.red(`Error: ${(error as Error).message}`));
+    process.exit(1);
+  }
+}
+
+/**
+ * Import memories from file or another project
+ */
+async function importFromAction(source: string, options: CommandOptions): Promise<void> {
+  if (!source) {
+    console.error(chalk.red('Error: Source is required'));
+    console.error(chalk.gray('Usage: ccw core-memory import-from <source>'));
+    console.error(chalk.gray('       source: file.json or project-id'));
+    process.exit(1);
+  }
+
+  try {
+    const result = importMemories(getProjectPath(), source, {
+      overwrite: options.overwrite,
+      prefix: options.prefix
+    });
+
+    console.log(chalk.green(`✓ Import complete`));
+    console.log(chalk.white(`  Imported: ${result.imported}`));
+    console.log(chalk.white(`  Skipped: ${result.skipped} (already exist)`));
+
+    if (result.imported > 0) {
+      notifyRefreshRequired('memory').catch(() => { /* ignore */ });
+    }
+
+  } catch (error) {
+    console.error(chalk.red(`Error: ${(error as Error).message}`));
+    process.exit(1);
+  }
+}
+
+/**
+ * List memories from another project
+ */
+async function listFromAction(projectId: string, options: CommandOptions): Promise<void> {
+  if (!projectId) {
+    console.error(chalk.red('Error: Project ID is required'));
+    console.error(chalk.gray('Usage: ccw core-memory list-from <project-id>'));
+    console.error(chalk.gray('       Use "ccw core-memory projects" to see available projects'));
+    process.exit(1);
+  }
+
+  try {
+    const memories = getMemoriesFromProject(projectId);
+
+    if (options.json) {
+      console.log(JSON.stringify(memories, null, 2));
+      return;
+    }
+
+    console.log(chalk.bold.cyan(`\n  Memories from ${projectId}\n`));
+
+    if (memories.length === 0) {
+      console.log(chalk.yellow('  No memories found\n'));
+      return;
+    }
+
+    console.log(chalk.gray('  ─────────────────────────────────────────────────────────────────'));
+
+    for (const memory of memories) {
+      const date = new Date(memory.updated_at).toLocaleString();
+      const archived = memory.archived ? chalk.gray(' [archived]') : '';
+      console.log(chalk.cyan(`  ${memory.id}`) + archived);
+      console.log(chalk.white(`    ${memory.summary || memory.content.substring(0, 80)}${memory.content.length > 80 ? '...' : ''}`));
+      console.log(chalk.gray(`    Updated: ${date}`));
+      console.log(chalk.gray('  ─────────────────────────────────────────────────────────────────'));
+    }
+
+    console.log(chalk.gray(`\n  Total: ${memories.length}\n`));
 
   } catch (error) {
     console.error(chalk.red(`Error: ${(error as Error).message}`));
@@ -220,6 +372,67 @@ async function clusterAction(clusterId: string | undefined, options: CommandOpti
 
       // Notify dashboard
       notifyRefreshRequired('memory').catch(() => { /* ignore */ });
+      return;
+    }
+
+    // Deduplicate clusters
+    if (options.dedup) {
+      const { SessionClusteringService } = await import('../core/session-clustering-service.js');
+      const service = new SessionClusteringService(getProjectPath());
+
+      console.log(chalk.cyan('🔄 Deduplicating clusters...'));
+      const result = await service.deduplicateClusters();
+
+      console.log(chalk.green(`✓ Deduplication complete`));
+      console.log(chalk.white(`  Merged: ${result.merged} clusters`));
+      console.log(chalk.white(`  Deleted: ${result.deleted} empty clusters`));
+      console.log(chalk.white(`  Remaining: ${result.remaining} clusters`));
+
+      // Notify dashboard
+      notifyRefreshRequired('memory').catch(() => { /* ignore */ });
+      return;
+    }
+
+    // Delete cluster
+    if (options.delete && clusterId) {
+      const cluster = store.getCluster(clusterId);
+      if (!cluster) {
+        console.error(chalk.red(`Cluster not found: ${clusterId}`));
+        process.exit(1);
+      }
+
+      const deleted = store.deleteCluster(clusterId);
+      if (deleted) {
+        console.log(chalk.green(`✓ Deleted cluster: ${clusterId}`));
+        notifyRefreshRequired('memory').catch(() => { /* ignore */ });
+      } else {
+        console.error(chalk.red(`Failed to delete cluster: ${clusterId}`));
+        process.exit(1);
+      }
+      return;
+    }
+
+    // Merge clusters
+    if (options.merge && clusterId) {
+      const targetCluster = store.getCluster(clusterId);
+      if (!targetCluster) {
+        console.error(chalk.red(`Target cluster not found: ${clusterId}`));
+        process.exit(1);
+      }
+
+      const sourceIds = options.merge.split(',').map(s => s.trim());
+      console.log(chalk.cyan(`🔄 Merging ${sourceIds.length} clusters into ${clusterId}...`));
+
+      try {
+        const membersMoved = store.mergeClusters(clusterId, sourceIds);
+        console.log(chalk.green(`✓ Merged successfully`));
+        console.log(chalk.white(`  Members moved: ${membersMoved}`));
+        console.log(chalk.white(`  Clusters deleted: ${sourceIds.length}`));
+        notifyRefreshRequired('memory').catch(() => { /* ignore */ });
+      } catch (error) {
+        console.error(chalk.red(`Failed to merge: ${(error as Error).message}`));
+        process.exit(1);
+      }
       return;
     }
 
@@ -499,19 +712,38 @@ export async function coreMemoryCommand(
       await searchAction(textArg, options);
       break;
 
+    case 'projects':
+      await projectsAction(options);
+      break;
+
+    case 'import-from':
+      await importFromAction(textArg, options);
+      break;
+
+    case 'list-from':
+      await listFromAction(textArg, options);
+      break;
+
     default:
       console.log(chalk.bold.cyan('\n  CCW Core Memory\n'));
       console.log('  Manage core memory entries and session clusters.\n');
       console.log(chalk.bold('  Basic Commands:'));
       console.log(chalk.white('    list                        ') + chalk.gray('List all memories'));
       console.log(chalk.white('    import "<text>"             ') + chalk.gray('Import text as new memory'));
-      console.log(chalk.white('    export --id <id>            ') + chalk.gray('Export memory as plain text'));
+      console.log(chalk.white('    export --id <id>            ') + chalk.gray('Export memory (searches all projects)'));
       console.log(chalk.white('    summary --id <id>           ') + chalk.gray('Generate AI summary'));
+      console.log();
+      console.log(chalk.bold('  Cross-Workspace Commands:'));
+      console.log(chalk.white('    projects                    ') + chalk.gray('List all CCW projects'));
+      console.log(chalk.white('    list-from <project-id>      ') + chalk.gray('List memories from another project'));
       console.log();
       console.log(chalk.bold('  Clustering Commands:'));
       console.log(chalk.white('    clusters [--status]         ') + chalk.gray('List all clusters'));
       console.log(chalk.white('    cluster [id]                ') + chalk.gray('View cluster details'));
       console.log(chalk.white('    cluster --auto              ') + chalk.gray('Run auto-clustering'));
+      console.log(chalk.white('    cluster --dedup             ') + chalk.gray('Deduplicate similar clusters'));
+      console.log(chalk.white('    cluster <id> --delete       ') + chalk.gray('Delete a cluster'));
+      console.log(chalk.white('    cluster <id> --merge <ids>  ') + chalk.gray('Merge clusters into target'));
       console.log(chalk.white('    cluster --create --name     ') + chalk.gray('Create new cluster'));
       console.log(chalk.white('    context                     ') + chalk.gray('Get progressive index'));
       console.log(chalk.white('    load-cluster <id>           ') + chalk.gray('Load cluster context'));
@@ -520,28 +752,19 @@ export async function coreMemoryCommand(
       console.log(chalk.bold('  Options:'));
       console.log(chalk.gray('    --id <id>                   Memory ID (for export/summary)'));
       console.log(chalk.gray('    --tool gemini|qwen          AI tool for summary (default: gemini)'));
-      console.log(chalk.gray('    --status <status>           Filter by status (active/archived/merged)'));
       console.log(chalk.gray('    --json                      Output as JSON'));
       console.log(chalk.gray('    --scope <scope>             Auto-cluster scope (all/recent/unclustered)'));
-      console.log(chalk.gray('    --name <name>               Cluster name (for --create)'));
-      console.log(chalk.gray('    --members <ids>             Comma-separated session IDs (for --create)'));
-      console.log(chalk.gray('    --format <format>           Output format (markdown/json)'));
-      console.log(chalk.gray('    --level <level>             Detail level (metadata/keyFiles/full)'));
-      console.log(chalk.gray('    --type <type>               Filter by type (core/workflow/cli/all)'));
+      console.log(chalk.gray('    --dedup                     Deduplicate similar clusters'));
+      console.log(chalk.gray('    --delete                    Delete a cluster'));
+      console.log(chalk.gray('    --merge <ids>               Merge source clusters into target'));
       console.log();
       console.log(chalk.bold('  Examples:'));
-      console.log(chalk.gray('    # Basic commands'));
       console.log(chalk.gray('    ccw core-memory list'));
-      console.log(chalk.gray('    ccw core-memory import "Important context"'));
-      console.log(chalk.gray('    ccw core-memory export --id CMEM-20251217-143022'));
-      console.log();
-      console.log(chalk.gray('    # Clustering commands'));
-      console.log(chalk.gray('    ccw core-memory clusters'));
+      console.log(chalk.gray('    ccw core-memory export --id CMEM-xxx    # Searches all projects'));
+      console.log(chalk.gray('    ccw core-memory projects                # List all projects'));
+      console.log(chalk.gray('    ccw core-memory list-from d--other-project'));
       console.log(chalk.gray('    ccw core-memory cluster --auto'));
-      console.log(chalk.gray('    ccw core-memory cluster CLU-001'));
-      console.log(chalk.gray('    ccw core-memory cluster --create --name "Auth Module"'));
-      console.log(chalk.gray('    ccw core-memory load-cluster CLU-001 --level full'));
-      console.log(chalk.gray('    ccw core-memory search authentication --type workflow'));
+      console.log(chalk.gray('    ccw core-memory cluster --dedup'));
       console.log();
   }
 }
