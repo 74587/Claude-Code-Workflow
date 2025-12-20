@@ -40,27 +40,25 @@ write_file(path="/existing.ts", content="...", backup=true)  // Create backup fi
 
 ## Priority Logic
 
+> **Note**: Search priority is defined in `context-tools.md` - smart_search has HIGHEST PRIORITY for all discovery tasks.
+
+**Search & Discovery** (defer to context-tools.md):
+1. **smart_search FIRST** for any code/file discovery
+2. Built-in Grep only for single-file exact line search (location already confirmed)
+3. Exa for external/public knowledge
+
 **File Reading**:
-1. Known single file → Built-in Read
-2. Multiple files OR pattern matching → smart_search (MCP)
-3. Unknown location → smart_search then Read
-4. Large codebase + repeated access → smart_search (indexed)
+1. Unknown location → **smart_search first**, then Read
+2. Known confirmed file → Built-in Read directly
+3. Pattern matching → smart_search (action="find_files")
 
 **File Editing**:
 1. Always try built-in Edit first
 2. Fails 1+ times → edit_file (MCP)
 3. Still fails → write_file (MCP)
 
-**Search**:
-1. External knowledge → Exa (MCP)
-2. Exact pattern in small codebase → Built-in Grep
-3. Semantic/unknown location → smart_search (MCP)
-4. Large codebase + repeated searches → smart_search (indexed)
-
 ## Decision Triggers
 
-**Start with simplest tool** (Read, Edit, Grep)
-**Escalate to MCP tools** when built-ins fail or inappropriate
-**Use semantic search** for exploratory tasks
-**Use indexed search** for large, stable codebases
-**Use Exa** for external/public knowledge
+**Search tasks** → Always start with smart_search (per context-tools.md)
+**Known file edits** → Start with built-in Edit, escalate to MCP if fails
+**External knowledge** → Use Exa

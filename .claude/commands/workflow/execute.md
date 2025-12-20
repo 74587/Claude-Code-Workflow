@@ -56,6 +56,7 @@ Phase 2: Planning Document Validation
    └─ Validate .task/ contains IMPL-*.json files
 
 Phase 3: TodoWrite Generation
+   ├─ Update session status to "active" (Step 0)
    ├─ Parse TODO_LIST.md for task statuses
    ├─ Generate TodoWrite for entire workflow
    └─ Prepare session context paths
@@ -80,6 +81,7 @@ Phase 5: Completion
 Resume Mode (--resume-session):
    ├─ Skip Phase 1 & Phase 2
    └─ Entry Point: Phase 3 (TodoWrite Generation)
+      ├─ Update session status to "active" (if not already)
       └─ Continue: Phase 4 → Phase 5
 ```
 
@@ -178,6 +180,16 @@ bash(cat .workflow/active/${sessionId}/workflow-session.json)
 
 ### Phase 3: TodoWrite Generation
 **Applies to**: Both normal and resume modes (resume mode entry point)
+
+**Step 0: Update Session Status to Active**
+Before generating TodoWrite, update session status from "planning" to "active":
+```bash
+# Update session status (idempotent - safe to run if already active)
+jq '.status = "active" | .execution_started_at = (.execution_started_at // now | todate)' \
+  .workflow/active/${sessionId}/workflow-session.json > tmp.json && \
+  mv tmp.json .workflow/active/${sessionId}/workflow-session.json
+```
+This ensures the dashboard shows the session as "ACTIVE" during execution.
 
 **Process**:
 1. **Create TodoWrite List**: Generate task list from TODO_LIST.md (not from task JSONs)

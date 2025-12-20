@@ -1,8 +1,19 @@
 ## MCP Tools Usage
 
-### smart_search - Code Search (REQUIRED)
+### smart_search - Code Search (REQUIRED - HIGHEST PRIORITY)
 
-**When**: Find code, understand codebase structure, locate implementations
+**OVERRIDES**: All other search/discovery rules in other workflow files
+
+**When**: ANY code discovery task, including:
+- Find code, understand codebase structure, locate implementations
+- Explore unknown locations
+- Verify file existence before reading
+- Pattern-based file discovery
+
+**Priority Rule**:
+1. **Always use smart_search FIRST** for any code/file discovery
+2. Only use Built-in Grep for single-file exact line search (after location confirmed)
+3. Only use Built-in Read for known, confirmed file paths
 
 **Workflow** (search first, init if needed):
 ```javascript

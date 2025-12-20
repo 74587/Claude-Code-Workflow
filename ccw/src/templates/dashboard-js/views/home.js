@@ -102,24 +102,28 @@ function renderSessionCard(session) {
   const isActive = session._isActive !== false;
   const date = session.created_at;
 
-  // Detect planning status from session.status field
-  const isPlanning = session.status === 'planning';
+  // Get session status from metadata (default to 'planning' for new sessions)
+  // 3 states: planning → active → completed (archived)
+  const sessionStatus = session.status || 'planning';
+  const isPlanning = sessionStatus === 'planning';
 
   // Get session type badge
   const sessionType = session.type || 'workflow';
   const typeBadge = sessionType !== 'workflow' ? `<span class="session-type-badge ${sessionType}">${sessionType}</span>` : '';
 
   // Determine status badge class and text
-  // Priority: archived > planning > active
+  // Priority: archived location > planning status > active status
   let statusClass, statusText;
   if (!isActive) {
-    // Archived sessions always show as ARCHIVED regardless of status field
+    // Archived sessions (completed) always show as ARCHIVED
     statusClass = 'archived';
     statusText = t('session.status.archived');
   } else if (isPlanning) {
+    // Planning state - session created but not yet executed
     statusClass = 'planning';
     statusText = t('session.status.planning');
   } else {
+    // Active state - session is being executed
     statusClass = 'active';
     statusText = t('session.status.active');
   }

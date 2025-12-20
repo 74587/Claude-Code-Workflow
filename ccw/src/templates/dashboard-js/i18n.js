@@ -99,7 +99,7 @@ const i18n = {
     // Search
     'search.placeholder': 'Search...',
     
-    // Session cards
+    // Session cards - 3 states: planning, active, completed (archived location)
     'session.status.active': 'ACTIVE',
     'session.status.archived': 'ARCHIVED',
     'session.status.planning': 'PLANNING',
@@ -714,10 +714,8 @@ const i18n = {
     'hook.template.gitAddDesc': 'Auto stage written files',
 
     // Hook Quick Install Templates
-    'hook.tpl.sessionContext': 'Session Context (Start)',
-    'hook.tpl.sessionContextDesc': 'Load recent sessions at session start (time-sorted)',
-    'hook.tpl.sessionContextContinuous': 'Session Context (Continuous)',
-    'hook.tpl.sessionContextContinuousDesc': 'Load intent-matched sessions on every prompt (similarity-based)',
+    'hook.tpl.sessionContext': 'Session Context',
+    'hook.tpl.sessionContextDesc': 'Load cluster overview once at session start',
     'hook.tpl.codexlensSync': 'CodexLens Auto-Sync',
     'hook.tpl.codexlensSyncDesc': 'Auto-update code index when files are written or edited',
     'hook.tpl.ccwDashboardNotify': 'CCW Dashboard Notify',
@@ -2021,10 +2019,8 @@ const i18n = {
     'hook.template.gitAddDesc': '自动暂存写入的文件',
 
     // Hook Quick Install Templates
-    'hook.tpl.sessionContext': 'Session 上下文（启动）',
-    'hook.tpl.sessionContextDesc': '会话启动时加载最近会话（按时间排序）',
-    'hook.tpl.sessionContextContinuous': 'Session 上下文（持续）',
-    'hook.tpl.sessionContextContinuousDesc': '每次提示词时加载意图匹配会话（相似度排序）',
+    'hook.tpl.sessionContext': 'Session 上下文',
+    'hook.tpl.sessionContextDesc': '会话启动时加载集群概览（仅触发一次）',
     'hook.tpl.codexlensSync': 'CodexLens 自动同步',
     'hook.tpl.codexlensSyncDesc': '文件写入或编辑时自动更新代码索引',
     'hook.tpl.ccwDashboardNotify': 'CCW 控制面板通知',

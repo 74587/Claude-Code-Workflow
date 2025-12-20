@@ -138,23 +138,14 @@ const HOOK_TEMPLATES = {
     category: 'memory',
     timeout: 5000
   },
-  // Session Context - Progressive Disclosure (session start - recent sessions)
+  // Session Context - Fires once per session at startup
+  // Uses state file to detect first prompt, only fires once
   'session-context': {
     event: 'UserPromptSubmit',
     matcher: '',
     command: 'bash',
-    args: ['-c', 'curl -s -X POST -H "Content-Type: application/json" -d "{\\"type\\":\\"session-start\\",\\"sessionId\\":\\"$CLAUDE_SESSION_ID\\"}" http://localhost:3456/api/hook 2>/dev/null | jq -r ".content // empty"'],
-    description: 'Load recent sessions at session start (time-sorted)',
-    category: 'context',
-    timeout: 5000
-  },
-  // Session Context - Continuous Disclosure (intent matching on every prompt)
-  'session-context-continuous': {
-    event: 'UserPromptSubmit',
-    matcher: '',
-    command: 'bash',
-    args: ['-c', 'PROMPT=$(cat | jq -r ".prompt // empty"); curl -s -X POST -H "Content-Type: application/json" -d "{\\"type\\":\\"context\\",\\"sessionId\\":\\"$CLAUDE_SESSION_ID\\",\\"prompt\\":\\"$PROMPT\\"}" http://localhost:3456/api/hook 2>/dev/null | jq -r ".content // empty"'],
-    description: 'Load intent-matched sessions on every prompt (similarity-based)',
+    args: ['-c', 'STATE_FILE="/tmp/.ccw-session-$CLAUDE_SESSION_ID"; [ -f "$STATE_FILE" ] && exit 0; touch "$STATE_FILE"; curl -s -X POST -H "Content-Type: application/json" -d "{\\"sessionId\\":\\"$CLAUDE_SESSION_ID\\"}" http://localhost:3456/api/hook/session-context 2>/dev/null | jq -r ".content // empty"'],
+    description: 'Load session context once at startup (cluster overview)',
     category: 'context',
     timeout: 5000
   }

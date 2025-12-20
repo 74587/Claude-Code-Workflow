@@ -181,6 +181,31 @@ function deleteHookFromSettings(projectPath, scope, event, hookIndex) {
 }
 
 // ========================================
+// Session State Tracking (for progressive disclosure)
+// ========================================
+
+// Track sessions that have received startup context
+// Key: sessionId, Value: timestamp of first context load
+const sessionContextState = new Map<string, {
+  firstLoad: string;
+  loadCount: number;
+  lastPrompt?: string;
+}>();
+
+// Cleanup old sessions (older than 24 hours)
+function cleanupOldSessions() {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  for (const [sessionId, state] of sessionContextState.entries()) {
+    if (new Date(state.firstLoad).getTime() < cutoff) {
+      sessionContextState.delete(sessionId);
+    }
+  }
+}
+
+// Run cleanup every hour
+setInterval(cleanupOldSessions, 60 * 60 * 1000);
+
+// ========================================
 // Route Handler
 // ========================================
 
@@ -256,6 +281,89 @@ export async function handleHooksRoutes(ctx: RouteContext): Promise<boolean> {
       broadcastToClients(notification);
 
       return { success: true, notification };
+    });
+    return true;
+  }
+
+  // API: Unified Session Context endpoint (Progressive Disclosure)
+  // Automatically detects first prompt vs subsequent prompts
+  // - First prompt: returns cluster-based session overview
+  // - Subsequent prompts: returns intent-matched sessions based on prompt
+  if (pathname === '/api/hook/session-context' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { sessionId, prompt } = body as { sessionId?: string; prompt?: string };
+
+      if (!sessionId) {
+        return {
+          success: true,
+          content: '',
+          error: 'sessionId is required'
+        };
+      }
+
+      try {
+        const projectPath = url.searchParams.get('path') || initialPath;
+        const { SessionClusteringService } = await import('../session-clustering-service.js');
+        const clusteringService = new SessionClusteringService(projectPath);
+
+        // Check if this is the first prompt for this session
+        const existingState = sessionContextState.get(sessionId);
+        const isFirstPrompt = !existingState;
+
+        // Update session state
+        if (isFirstPrompt) {
+          sessionContextState.set(sessionId, {
+            firstLoad: new Date().toISOString(),
+            loadCount: 1,
+            lastPrompt: prompt
+          });
+        } else {
+          existingState.loadCount++;
+          existingState.lastPrompt = prompt;
+        }
+
+        // Determine which type of context to return
+        let contextType: 'session-start' | 'context';
+        let content: string;
+
+        if (isFirstPrompt) {
+          // First prompt: return session overview with clusters
+          contextType = 'session-start';
+          content = await clusteringService.getProgressiveIndex({
+            type: 'session-start',
+            sessionId
+          });
+        } else if (prompt && prompt.trim().length > 0) {
+          // Subsequent prompts with content: return intent-matched sessions
+          contextType = 'context';
+          content = await clusteringService.getProgressiveIndex({
+            type: 'context',
+            sessionId,
+            prompt
+          });
+        } else {
+          // Subsequent prompts without content: return minimal context
+          contextType = 'context';
+          content = ''; // No context needed for empty prompts
+        }
+
+        return {
+          success: true,
+          type: contextType,
+          isFirstPrompt,
+          loadCount: sessionContextState.get(sessionId)?.loadCount || 1,
+          content,
+          sessionId
+        };
+      } catch (error) {
+        console.error('[Hooks] Failed to generate session context:', error);
+        return {
+          success: true,
+          content: '',
+          sessionId,
+          error: (error as Error).message
+        };
+      }
     });
     return true;
   }

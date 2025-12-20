@@ -101,7 +101,6 @@ async function renderHookManager() {
 
         <div class="hook-templates-grid grid grid-cols-1 md:grid-cols-2 gap-4">
           ${renderQuickInstallCard('session-context', t('hook.tpl.sessionContext'), t('hook.tpl.sessionContextDesc'), 'UserPromptSubmit', '')}
-          ${renderQuickInstallCard('session-context-continuous', t('hook.tpl.sessionContextContinuous'), t('hook.tpl.sessionContextContinuousDesc'), 'UserPromptSubmit', '')}
           ${renderQuickInstallCard('codexlens-update', t('hook.tpl.codexlensSync'), t('hook.tpl.codexlensSyncDesc'), 'PostToolUse', 'Write|Edit')}
           ${renderQuickInstallCard('ccw-notify', t('hook.tpl.ccwDashboardNotify'), t('hook.tpl.ccwDashboardNotifyDesc'), 'PostToolUse', 'Write')}
           ${renderQuickInstallCard('log-tool', t('hook.tpl.toolLogger'), t('hook.tpl.toolLoggerDesc'), 'PostToolUse', 'All')}
@@ -506,11 +505,37 @@ async function uninstallHookTemplate(templateId) {
   const template = HOOK_TEMPLATES[templateId];
   if (!template) return;
 
+  // Extract unique identifier from template args for matching
+  // Template args format: ['-c', 'actual command...']
+  const templateArgs = template.args || [];
+  const templateFullCmd = templateArgs.length > 0 ? templateArgs.join(' ') : '';
+
+  // Define unique patterns for each template type
+  const uniquePatterns = {
+    'session-context': 'api/hook/session-context',
+    'codexlens-update': 'codexlens update',
+    'ccw-notify': 'api/hook',
+    'log-tool': 'tool-usage.log',
+    'lint-check': 'eslint',
+    'git-add': 'git add',
+    'memory-file-read': 'memory track',
+    'memory-file-write': 'memory track',
+    'memory-prompt-track': 'memory track'
+  };
+
+  const uniquePattern = uniquePatterns[templateId] || template.command;
+
+  // Helper to check if a hook matches the template
+  const matchesTemplate = (h) => {
+    const hookCmd = h.hooks?.[0]?.command || h.command || '';
+    return hookCmd.includes(uniquePattern);
+  };
+
   // Find and remove from project hooks
   const projectHooks = hookConfig.project?.hooks?.[template.event];
   if (projectHooks) {
     const hookList = Array.isArray(projectHooks) ? projectHooks : [projectHooks];
-    const index = hookList.findIndex(h => h.command === template.command);
+    const index = hookList.findIndex(matchesTemplate);
     if (index !== -1) {
       await removeHook('project', template.event, index);
       return;
@@ -521,12 +546,14 @@ async function uninstallHookTemplate(templateId) {
   const globalHooks = hookConfig.global?.hooks?.[template.event];
   if (globalHooks) {
     const hookList = Array.isArray(globalHooks) ? globalHooks : [globalHooks];
-    const index = hookList.findIndex(h => h.command === template.command);
+    const index = hookList.findIndex(matchesTemplate);
     if (index !== -1) {
       await removeHook('global', template.event, index);
       return;
     }
   }
+
+  showRefreshToast('Hook not found', 'error');
 }
 
 function attachHookEventListeners() {

@@ -833,64 +833,110 @@ export class SessionClusteringService {
 
   /**
    * Get recent sessions index (for session-start)
+   * Shows sessions grouped by clusters with progressive disclosure
    */
   private async getRecentSessionsIndex(): Promise<string> {
-    const sessions = await this.collectSessions({ scope: 'recent' });
+    // 1. Get all active clusters
+    const allClusters = this.coreMemoryStore.listClusters('active');
 
-    // Sort by created_at descending (most recent first)
-    const sortedSessions = sessions
-      .filter(s => s.created_at)
-      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
-      .slice(0, 5); // Top 5 recent sessions
+    // Sort clusters by most recent activity (based on member last_accessed)
+    const clustersWithActivity = allClusters.map(cluster => {
+      const members = this.coreMemoryStore.getClusterMembers(cluster.id);
+      const memberMetadata = members
+        .map(m => this.coreMemoryStore.getSessionMetadata(m.session_id))
+        .filter((m): m is SessionMetadataCache => m !== null);
 
-    if (sortedSessions.length === 0) {
-      return `<ccw-session-context>
-## 📋 Recent Sessions
+      const lastActivity = memberMetadata.reduce((latest, m) => {
+        const accessed = m.last_accessed || m.created_at || '';
+        return accessed > latest ? accessed : latest;
+      }, '');
 
-No recent sessions found. Start a new workflow to begin tracking.
+      return { cluster, members, memberMetadata, lastActivity };
+    }).sort((a, b) => b.lastActivity.localeCompare(a.lastActivity));
 
-**MCP Tools**:
-\`\`\`
-# Search sessions
-Use tool: mcp__ccw-tools__core_memory
-Parameters: { "action": "search", "query": "<keyword>" }
-
-# Create new session
-Parameters: { "action": "save", "content": "<context>" }
-\`\`\`
-</ccw-session-context>`;
-    }
-
-    // Generate table
-    let table = `| # | Session | Type | Title | Date |\n`;
-    table += `|---|---------|------|-------|------|\n`;
-
-    sortedSessions.forEach((s, idx) => {
-      const type = s.session_type === 'core_memory' ? 'Core' :
-                   s.session_type === 'workflow' ? 'Workflow' : 'CLI';
-      const title = (s.title || '').substring(0, 40);
-      const date = s.created_at ? new Date(s.created_at).toLocaleDateString() : '';
-      table += `| ${idx + 1} | ${s.session_id} | ${type} | ${title} | ${date} |\n`;
+    // 2. Get unclustered recent sessions
+    const allSessions = await this.collectSessions({ scope: 'recent' });
+    const clusteredSessionIds = new Set<string>();
+    clustersWithActivity.forEach(c => {
+      c.members.forEach(m => clusteredSessionIds.add(m.session_id));
     });
 
-    return `<ccw-session-context>
-## 📋 Recent Sessions (Last 30 days)
+    const unclusteredSessions = allSessions
+      .filter(s => !clusteredSessionIds.has(s.session_id))
+      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+      .slice(0, 3);
 
-${table}
+    // 3. Build output
+    let output = `<ccw-session-context>\n## 📋 Session Context (Progressive Disclosure)\n\n`;
 
-**Resume via MCP**:
-\`\`\`
-Use tool: mcp__ccw-tools__core_memory
-Parameters: { "action": "load", "id": "${sortedSessions[0].session_id}" }
-\`\`\`
+    // Show top 2 active clusters
+    const topClusters = clustersWithActivity.slice(0, 2);
+    if (topClusters.length > 0) {
+      output += `### 🔗 Active Clusters\n\n`;
 
----
-**Tip**: Sessions are sorted by most recent. Use \`search\` action to find specific topics.
-</ccw-session-context>`;
+      for (const { cluster, memberMetadata } of topClusters) {
+        output += `**${cluster.name}** (${memberMetadata.length} sessions)\n`;
+        if (cluster.intent) {
+          output += `> Intent: ${cluster.intent}\n`;
+        }
+        output += `\n| Session | Type | Title |\n|---------|------|-------|\n`;
+
+        // Show top 3 members per cluster
+        const displayMembers = memberMetadata.slice(0, 3);
+        for (const m of displayMembers) {
+          const type = m.session_type === 'core_memory' ? 'Core' :
+                       m.session_type === 'workflow' ? 'Workflow' : 'CLI';
+          const title = (m.title || '').substring(0, 35);
+          output += `| ${m.session_id} | ${type} | ${title} |\n`;
+        }
+
+        if (memberMetadata.length > 3) {
+          output += `| ... | ... | +${memberMetadata.length - 3} more |\n`;
+        }
+        output += `\n`;
+      }
+    }
+
+    // Show unclustered recent sessions
+    if (unclusteredSessions.length > 0) {
+      output += `### 📝 Recent Sessions (Unclustered)\n\n`;
+      output += `| Session | Type | Title | Date |\n`;
+      output += `|---------|------|-------|------|\n`;
+
+      for (const s of unclusteredSessions) {
+        const type = s.session_type === 'core_memory' ? 'Core' :
+                     s.session_type === 'workflow' ? 'Workflow' : 'CLI';
+        const title = (s.title || '').substring(0, 30);
+        const date = s.created_at ? new Date(s.created_at).toLocaleDateString() : '';
+        output += `| ${s.session_id} | ${type} | ${title} | ${date} |\n`;
+      }
+      output += `\n`;
+    }
+
+    // If nothing found
+    if (topClusters.length === 0 && unclusteredSessions.length === 0) {
+      output += `No recent sessions found. Start a new workflow to begin tracking.\n\n`;
+    }
+
+    // Add MCP tools reference
+    const topSession = topClusters[0]?.memberMetadata[0] || unclusteredSessions[0];
+    const topClusterId = topClusters[0]?.cluster.id;
+
+    output += `**MCP Tools**:\n\`\`\`\n`;
+    if (topSession) {
+      output += `# Resume session\nmcp__ccw-tools__core_memory({ "operation": "export", "id": "${topSession.session_id}" })\n\n`;
+    }
+    if (topClusterId) {
+      output += `# Load cluster context\nmcp__ccw-tools__core_memory({ "operation": "search", "query": "cluster:${topClusterId}" })\n`;
+    }
+    output += `\`\`\`\n</ccw-session-context>`;
+
+    return output;
   }
 
   /**
    * Get intent-matched sessions index (for context with prompt)
+   * Shows sessions grouped by clusters and ranked by relevance
    */
   private async getIntentMatchedIndex(prompt: string, sessionId?: string): Promise<string> {
     const sessions = await this.collectSessions({ scope: 'all' });
@@ -917,14 +963,27 @@ No sessions available for intent matching.
       access_count: 0
     };
 
+    // Build session-to-cluster mapping
+    const sessionClusterMap = new Map<string, SessionCluster[]>();
+    const allClusters = this.coreMemoryStore.listClusters('active');
+    for (const cluster of allClusters) {
+      const members = this.coreMemoryStore.getClusterMembers(cluster.id);
+      for (const member of members) {
+        const existing = sessionClusterMap.get(member.session_id) || [];
+        existing.push(cluster);
+        sessionClusterMap.set(member.session_id, existing);
+      }
+    }
+
     // Calculate relevance scores for all sessions
     const scoredSessions = sessions
       .filter(s => s.session_id !== sessionId) // Exclude current session
       .map(s => ({
         session: s,
-        score: this.calculateRelevance(promptSession, s)
+        score: this.calculateRelevance(promptSession, s),
+        clusters: sessionClusterMap.get(s.session_id) || []
       }))
-      .filter(item => item.score >= 0.3) // Minimum relevance threshold
+      .filter(item => item.score >= 0.15) // Minimum relevance threshold (lowered for file-path-based keywords)
       .sort((a, b) => b.score - a.score)
       .slice(0, 8); // Top 8 relevant sessions
 
@@ -938,70 +997,82 @@ No sessions match current intent. Consider:
 
 **MCP Tools**:
 \`\`\`
-Use tool: mcp__ccw-tools__core_memory
-Parameters: { "action": "search", "query": "<keyword>" }
+mcp__ccw-tools__core_memory({ "operation": "search", "query": "<keyword>" })
 \`\`\`
 </ccw-session-context>`;
     }
 
-    // Group by relevance tier
-    const highRelevance = scoredSessions.filter(s => s.score >= 0.6);
-    const mediumRelevance = scoredSessions.filter(s => s.score >= 0.4 && s.score < 0.6);
-    const lowRelevance = scoredSessions.filter(s => s.score < 0.4);
+    // Group sessions by cluster
+    const clusterGroups = new Map<string, { cluster: SessionCluster; sessions: typeof scoredSessions }>();
+    const unclusteredSessions: typeof scoredSessions = [];
+
+    for (const item of scoredSessions) {
+      if (item.clusters.length > 0) {
+        // Add to the highest-priority cluster
+        const primaryCluster = item.clusters[0];
+        const existing = clusterGroups.get(primaryCluster.id) || { cluster: primaryCluster, sessions: [] };
+        existing.sessions.push(item);
+        clusterGroups.set(primaryCluster.id, existing);
+      } else {
+        unclusteredSessions.push(item);
+      }
+    }
+
+    // Sort cluster groups by best session score
+    const sortedGroups = Array.from(clusterGroups.values())
+      .sort((a, b) => Math.max(...b.sessions.map(s => s.score)) - Math.max(...a.sessions.map(s => s.score)));
 
     // Generate output
-    let output = `<ccw-session-context>
-## 📋 Intent-Matched Sessions
+    let output = `<ccw-session-context>\n## 📋 Intent-Matched Sessions\n\n`;
+    output += `**Detected Intent**: ${(promptSession.keywords || []).slice(0, 5).join(', ') || 'General'}\n\n`;
 
-**Detected Intent**: ${(promptSession.keywords || []).slice(0, 5).join(', ') || 'General'}
+    // Show clustered sessions
+    if (sortedGroups.length > 0) {
+      output += `### 🔗 Matched Clusters\n\n`;
 
-`;
+      for (const { cluster, sessions: clusterSessions } of sortedGroups.slice(0, 2)) {
+        const avgScore = Math.round(clusterSessions.reduce((sum, s) => sum + s.score, 0) / clusterSessions.length * 100);
+        output += `**${cluster.name}** (${avgScore}% avg match)\n`;
+        if (cluster.intent) {
+          output += `> ${cluster.intent}\n`;
+        }
+        output += `\n| Session | Match | Title |\n|---------|-------|-------|\n`;
 
-    if (highRelevance.length > 0) {
-      output += `### 🔥 Highly Relevant (${highRelevance.length})\n`;
-      output += `| Session | Type | Match | Summary |\n`;
-      output += `|---------|------|-------|--------|\n`;
-      for (const item of highRelevance) {
+        for (const item of clusterSessions.slice(0, 3)) {
+          const matchPct = Math.round(item.score * 100);
+          const title = (item.session.title || '').substring(0, 35);
+          output += `| ${item.session.session_id} | ${matchPct}% | ${title} |\n`;
+        }
+        output += `\n`;
+      }
+    }
+
+    // Show unclustered sessions
+    if (unclusteredSessions.length > 0) {
+      output += `### 📝 Individual Matches\n\n`;
+      output += `| Session | Type | Match | Title |\n`;
+      output += `|---------|------|-------|-------|\n`;
+
+      for (const item of unclusteredSessions.slice(0, 4)) {
         const type = item.session.session_type === 'core_memory' ? 'Core' :
                      item.session.session_type === 'workflow' ? 'Workflow' : 'CLI';
         const matchPct = Math.round(item.score * 100);
-        const summary = (item.session.title || item.session.summary || '').substring(0, 35);
-        output += `| ${item.session.session_id} | ${type} | ${matchPct}% | ${summary} |\n`;
+        const title = (item.session.title || '').substring(0, 30);
+        output += `| ${item.session.session_id} | ${type} | ${matchPct}% | ${title} |\n`;
       }
       output += `\n`;
     }
 
-    if (mediumRelevance.length > 0) {
-      output += `### 📌 Related (${mediumRelevance.length})\n`;
-      output += `| Session | Type | Match | Summary |\n`;
-      output += `|---------|------|-------|--------|\n`;
-      for (const item of mediumRelevance) {
-        const type = item.session.session_type === 'core_memory' ? 'Core' :
-                     item.session.session_type === 'workflow' ? 'Workflow' : 'CLI';
-        const matchPct = Math.round(item.score * 100);
-        const summary = (item.session.title || item.session.summary || '').substring(0, 35);
-        output += `| ${item.session.session_id} | ${type} | ${matchPct}% | ${summary} |\n`;
-      }
-      output += `\n`;
+    // Add MCP tools reference
+    const topSession = scoredSessions[0];
+    const topCluster = sortedGroups[0]?.cluster;
+
+    output += `**MCP Tools**:\n\`\`\`\n`;
+    output += `# Resume top match\nmcp__ccw-tools__core_memory({ "operation": "export", "id": "${topSession.session.session_id}" })\n`;
+    if (topCluster) {
+      output += `\n# Load cluster context\nmcp__ccw-tools__core_memory({ "operation": "search", "query": "cluster:${topCluster.id}" })\n`;
     }
-
-    if (lowRelevance.length > 0) {
-      output += `### 💡 May Be Useful (${lowRelevance.length})\n`;
-      const sessionList = lowRelevance.map(s => s.session.session_id).join(', ');
-      output += `${sessionList}\n\n`;
-    }
-
-    // Add resume command for top match
-    const topMatch = scoredSessions[0];
-    output += `**Resume Top Match**:
-\`\`\`
-Use tool: mcp__ccw-tools__core_memory
-Parameters: { "action": "load", "id": "${topMatch.session.session_id}" }
-\`\`\`
-
----
-**Tip**: Sessions ranked by semantic similarity to your prompt.
-</ccw-session-context>`;
+    output += `\`\`\`\n</ccw-session-context>`;
 
     return output;
   }
