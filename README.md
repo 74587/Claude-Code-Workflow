@@ -5,7 +5,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v6.1.3-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v6.2.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![npm](https://img.shields.io/npm/v/claude-code-workflow.svg)](https://www.npmjs.com/package/claude-code-workflow)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
@@ -18,13 +18,20 @@
 
 **Claude Code Workflow (CCW)** is a JSON-driven multi-agent development framework with intelligent CLI orchestration (Gemini/Qwen/Codex), context-first architecture, and automated workflow execution. It transforms AI development from simple prompt chaining into a powerful orchestration system.
 
-> **🎉 Version 6.1.3: CLI Tool Simplification**
+> **🎉 Version 6.2.0: Native CodexLens & Dashboard Revolution**
 >
-> **Core Improvements**:
-> - 🔧 **Simplified edit_file**: Parameter-based input only (`--path`, `--old`, `--new`)
-> - 📝 **Updated tool-strategy.md**: Added sed as line operation alternative
+> **Breaking Changes**:
+> - ⚠️ CLI command refactored: `ccw cli exec` → `ccw cli -p`
+> - ⚠️ Code Index MCP replaced with native CodexLens
+> - ⚠️ Knowledge Graph replaced with Session Clustering
 >
-> See [CHANGELOG.md](CHANGELOG.md) for complete details.
+> **Core Features**:
+> - 🔍 **Native CodexLens**: Full-Text Search + Semantic Search + HNSW vector index
+> - 🖥️ **New Dashboard Views**: CLAUDE.md Manager, Skills Manager, Graph Explorer, Core Memory
+> - 📘 **TypeScript Migration**: Full backend modernization
+> - 🧠 **Session Clustering**: Intelligent memory management with cluster visualization
+>
+> See [CHANGELOG.md](CHANGELOG.md) for complete details and migration guide.
 
 > 📚 **New to CCW?** Check out the [**Getting Started Guide**](GETTING_STARTED.md) for a beginner-friendly 5-minute tutorial!
 
@@ -87,6 +94,8 @@ The `ccw` command provides a powerful CLI for managing your Claude Code Workflow
 | `ccw view` | Open the workflow dashboard in browser |
 | `ccw serve` | Start dashboard server without opening browser |
 | `ccw list` | List all managed installations |
+| `ccw cli -p "..."` | Execute CLI tools (Gemini/Qwen/Codex) with prompt |
+| `ccw core-memory` | Manage session clustering and memory |
 
 ### **Usage Examples**
 
@@ -115,10 +124,15 @@ ccw list
 The CCW Dashboard (`ccw view`) provides:
 - 📊 **Session Overview**: View all workflow sessions with status and progress
 - 📋 **Task Management**: Track task execution and completion
-- 🔍 **Review Sessions**: Manage code review cycles
+- 🔍 **CodexLens Manager**: Native code indexing with FTS + Semantic + Hybrid search
+- 🧠 **Core Memory**: Session clustering visualization with cluster management
+- 📄 **CLAUDE.md Manager**: File tree viewer for configuration management
+- 🎯 **Skills Manager**: View and manage Claude Code skills
+- 🕸️ **Graph Explorer**: Interactive code relationship visualization (Cytoscape.js)
 - ⚙️ **MCP Manager**: Configure and monitor MCP servers
 - 🪝 **Hook Manager**: Manage Claude Code hooks
-- 📁 **Project Explorer**: Navigate project structure and artifacts
+- ❓ **Help View**: Internationalized help documentation
+- 💻 **CLI Manager**: CLI execution history with session resume
 
 ---
 

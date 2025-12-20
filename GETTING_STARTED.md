@@ -1,11 +1,16 @@
 
 # 🚀 Claude Code Workflow (CCW) - Getting Started Guide
 
-Welcome to Claude Code Workflow (CCW) v5.0! This guide will help you get up and running in 5 minutes and experience AI-driven automated software development with our streamlined, dependency-free workflow system.
+Welcome to Claude Code Workflow (CCW) v6.2! This guide will help you get up and running in 5 minutes and experience AI-driven automated software development with native CodexLens code intelligence and intelligent CLI orchestration.
 
 **Project Repository**: [catlog22/Claude-Code-Workflow](https://github.com/catlog22/Claude-Code-Workflow)
 
-> **🎉 What's New in v5.0**: Less is more! We've removed external MCP dependencies and simplified workflows. CCW now uses standard tools (ripgrep/find) for better stability and performance. The brainstorming workflow focuses on role analysis for clearer planning.
+> **🎉 What's New in v6.2**:
+> - 🔍 **Native CodexLens**: Full-Text + Semantic + Hybrid search with HNSW vector index
+> - 🖥️ **New Dashboard Views**: CLAUDE.md Manager, Skills Manager, Graph Explorer, Core Memory
+> - 💻 **CLI Refactor**: `ccw cli -p` for multi-model execution (Gemini/Qwen/Codex)
+> - 🧠 **Session Clustering**: Intelligent memory management with visualization
+> - 📘 **TypeScript Migration**: Full backend modernization
 
 ---
 

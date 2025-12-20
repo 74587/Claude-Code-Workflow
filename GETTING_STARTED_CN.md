@@ -1,11 +1,16 @@
 
 # 🚀 Claude Code Workflow (CCW) - 快速上手指南
 
-欢迎来到 Claude Code Workflow (CCW) v5.0！本指南将帮助您在 5 分钟内快速入门，体验由 AI 驱动的自动化软件开发流程，以及我们全新的精简化、零外部依赖的工作流系统。
+欢迎来到 Claude Code Workflow (CCW) v6.2！本指南将帮助您在 5 分钟内快速入门，体验由 AI 驱动的自动化软件开发流程，原生 CodexLens 代码智能和智能 CLI 编排。
 
 **项目地址**：[catlog22/Claude-Code-Workflow](https://github.com/catlog22/Claude-Code-Workflow)
 
-> **🎉 v5.0 新特性：少即是多**！我们移除了外部 MCP 依赖，简化了工作流程。CCW 现在使用标准工具（ripgrep/find）以获得更好的稳定性和性能。头脑风暴工作流专注于角色分析，使规划更加清晰。
+> **🎉 v6.2 新特性**:
+> - 🔍 **原生 CodexLens**: 全文搜索 + 语义搜索 + 混合搜索，支持 HNSW 向量索引
+> - 🖥️ **新 Dashboard 视图**: CLAUDE.md 管理器、技能管理器、图浏览器、核心记忆
+> - 💻 **CLI 重构**: `ccw cli -p` 支持多模型执行 (Gemini/Qwen/Codex)
+> - 🧠 **会话聚类**: 智能记忆管理与可视化
+> - 📘 **TypeScript 迁移**: 后端全面现代化
 
 ---
 

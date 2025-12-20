@@ -1,6 +1,6 @@
 {
   "name": "ccw",
-  "version": "6.1.4",
+  "version": "6.2.0",
   "description": "Claude Code Workflow CLI - Dashboard viewer for workflow sessions and reviews",
   "type": "module",
   "main": "dist/index.js",

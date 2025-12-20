@@ -15,7 +15,7 @@
         "ccw-mcp"
       ],
       "env": {
-        "CCW_ENABLED_TOOLS": "write_file,edit_file,smart_search"
+        "CCW_ENABLED_TOOLS": "write_file,edit_file,smart_search,core_memory"
       }
     }
   }

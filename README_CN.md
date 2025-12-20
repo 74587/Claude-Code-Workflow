@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v6.1.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v6.2.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![npm](https://img.shields.io/npm/v/claude-code-workflow.svg)](https://www.npmjs.com/package/claude-code-workflow)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
@@ -15,15 +15,20 @@
 
 **Claude Code Workflow (CCW)** 将 AI 开发从简单的提示词链接转变为一个强大的、上下文优先的编排系统。它通过结构化规划、确定性执行和智能多模型编排，解决了执行不确定性和误差累积的问题。
 
-> **🎉 版本 6.1.0: 仪表盘图标统一 & CCW 工具系统**
+> **🎉 版本 6.2.0: 原生 CodexLens 与 Dashboard 革新**
 >
-> **核心改进**:
-> - 🎨 **仪表盘图标统一** - 全面迁移至 Lucide Icons 图标库
-> - 🛠️ **CCW Tool Exec 系统** - 新增 `ccw tool exec` 命令，支持 JSON 参数执行工具
-> - 🚀 **Explorer 增强** - 异步任务执行、CLI 选择器改进、WebSocket 帧处理
-> - ✨ **智能服务器识别** - 智能工作空间切换和 MCP 多源配置
+> **破坏性变更**:
+> - ⚠️ CLI 命令重构: `ccw cli exec` → `ccw cli -p`
+> - ⚠️ Code Index MCP 替换为原生 CodexLens
+> - ⚠️ 知识图谱替换为会话聚类系统
 >
-> 详见 [CHANGELOG.md](CHANGELOG.md)。
+> **核心功能**:
+> - 🔍 **原生 CodexLens**: 全文搜索 + 语义搜索 + HNSW 向量索引
+> - 🖥️ **新 Dashboard 视图**: CLAUDE.md 管理器、技能管理器、图浏览器、核心记忆
+> - 📘 **TypeScript 迁移**: 后端全面现代化
+> - 🧠 **会话聚类**: 智能记忆管理与聚类可视化
+>
+> 详见 [CHANGELOG.md](CHANGELOG.md) 获取完整详情和迁移指南。
 
 > 📚 **第一次使用 CCW？** 查看 [**快速上手指南**](GETTING_STARTED_CN.md) 获取新手友好的 5 分钟教程！
 
@@ -64,6 +69,62 @@ bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflo
 /workflow:session:list
 ```
 如果斜杠命令（例如 `/workflow:*`）被识别，则表示安装成功。
+
+---
+
+## 🖥️ CCW CLI 工具
+
+`ccw` 命令提供了强大的 CLI 来管理您的 Claude Code Workflow 安装：
+
+### **命令**
+
+| 命令 | 描述 |
+|---------|-------------|
+| `ccw install` | 安装工作流文件到全局 (~/.claude) 或指定路径 |
+| `ccw upgrade` | 升级现有安装到当前包版本 |
+| `ccw uninstall` | 从安装中移除工作流文件 |
+| `ccw view` | 在浏览器中打开工作流仪表板 |
+| `ccw serve` | 启动仪表板服务器而不打开浏览器 |
+| `ccw list` | 列出所有管理的安装 |
+| `ccw cli -p "..."` | 使用提示词执行 CLI 工具 (Gemini/Qwen/Codex) |
+| `ccw core-memory` | 管理会话聚类和记忆 |
+
+### **使用示例**
+
+```bash
+# 全局安装
+ccw install -m Global
+
+# 安装到指定项目
+ccw install -m Path -p ./my-project
+
+# 打开仪表板
+ccw view
+
+# 在自定义端口启动仪表板服务器
+ccw serve -p 8080
+
+# 升级所有安装
+ccw upgrade -a
+
+# 列出安装
+ccw list
+```
+
+### **Dashboard 功能**
+
+CCW Dashboard (`ccw view`) 提供：
+- 📊 **会话概览**: 查看所有工作流会话的状态和进度
+- 📋 **任务管理**: 跟踪任务执行和完成情况
+- 🔍 **CodexLens 管理器**: 原生代码索引，支持 FTS + 语义 + 混合搜索
+- 🧠 **核心记忆**: 会话聚类可视化与聚类管理
+- 📄 **CLAUDE.md 管理器**: 配置管理的文件树查看器
+- 🎯 **技能管理器**: 查看和管理 Claude Code 技能
+- 🕸️ **图浏览器**: 交互式代码关系可视化 (Cytoscape.js)
+- ⚙️ **MCP 管理器**: 配置和监控 MCP 服务器
+- 🪝 **Hook 管理器**: 管理 Claude Code Hooks
+- ❓ **帮助视图**: 国际化帮助文档
+- 💻 **CLI 管理器**: CLI 执行历史与会话恢复
 
 ---
 

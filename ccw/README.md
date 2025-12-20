@@ -1,6 +1,8 @@
 # CCW - Claude Code Workflow CLI
 
-A command-line tool for viewing workflow sessions and code review results from the Claude Code Workflow system.
+[![Version](https://img.shields.io/badge/version-v6.2.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+
+A powerful command-line tool for managing Claude Code Workflow with native CodexLens code intelligence, multi-model CLI orchestration, and interactive dashboard.
 
 ## Installation
 
@@ -34,11 +36,33 @@ ccw view -o report.html
 
 ## Features
 
-### Workflow Dashboard
-- **Active Sessions**: View all active workflow sessions with task progress
-- **Archived Sessions**: Browse completed/archived sessions
-- **Task Tracking**: See individual task status (pending/in_progress/completed)
-- **Progress Bars**: Visual progress indicators for each session
+### 🔍 Native CodexLens (v6.2)
+- **Full-Text Search (FTS)**: SQLite-based fast keyword search with symbol extraction
+- **Semantic Search**: Embedding-based similarity search with vector store
+- **Hybrid Search**: RRF (Reciprocal Rank Fusion) combining FTS and semantic results
+- **HNSW Index**: Approximate Nearest Neighbor index for significantly faster vector search
+
+### 💻 CLI Tools Integration
+- **Multi-Model Support**: Execute prompts with Gemini, Qwen, or Codex
+- **Session Resume**: Resume from last session or merge multiple sessions
+- **SQLite History**: Persistent execution history with conversation tracking
+- **Custom IDs**: Support for custom execution IDs and multi-turn conversations
+
+### 🧠 Core Memory & Clustering
+- **Session Clustering**: Intelligent grouping of related sessions
+- **Cluster Visualization**: Interactive display with Cytoscape.js
+- **Cluster Management**: Delete, merge, and deduplicate operations
+
+### 🖥️ Dashboard Views
+- **Workflow Dashboard**: Active/archived sessions with task progress
+- **CodexLens Manager**: Index management with real-time progress bar
+- **Core Memory**: Session clustering visualization
+- **CLAUDE.md Manager**: File tree viewer for configuration
+- **Skills Manager**: View and manage Claude Code skills
+- **Graph Explorer**: Interactive code relationship visualization
+- **MCP Manager**: Configure and monitor MCP servers
+- **Hook Manager**: Manage Claude Code hooks
+- **Help View**: Internationalized help documentation
 
 ### Review Integration
 - **Code Review Findings**: View results from `review-module-cycle`

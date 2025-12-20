@@ -5,6 +5,162 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.2.0] - 2025-12-20
+
+### 🎯 Native CodexLens & Dashboard Revolution | 原生CodexLens与Dashboard革新
+
+This major release replaces external Code Index MCP with native CodexLens, introduces multiple new Dashboard views, migrates backend to TypeScript, and implements session clustering for intelligent memory management.
+
+本次重大版本将外部Code Index MCP替换为原生CodexLens，新增多个Dashboard视图，后端迁移至TypeScript，并实现会话聚类智能记忆管理。
+
+#### 🚨 Breaking Changes | 破坏性变更
+
+**CLI Command Structure Refactor | CLI命令结构重构**
+- **Changed**: `ccw cli exec --prompt "..."` → `ccw cli -p "..."`
+- 命令行执行方式简化，所有使用旧命令的脚本需要更新
+- *Ref: `8dd4a51`*
+
+**Native CodexLens Replacement | 原生CodexLens替换**
+- **Removed**: External "Code Index MCP" dependency
+- **Added**: Native CCW CodexLens implementation with full local code intelligence
+- 底层代码索引引擎完全替换，API和数据结构不向后兼容
+- *Ref: `d4499cc`, `a393601`*
+
+**Session Clustering System | 会话聚类系统**
+- **Replaced**: Knowledge Graph memory model → Session Clustering system
+- 移除知识图谱记忆模型，采用更轻量高效的会话聚类系统
+- *Ref: `68f9de0`*
+
+**LLM Enhancement Removal | LLM增强功能移除**
+- **Removed**: Experimental LLM-based prompt enhancement features
+- 为简化系统聚焦核心能力，移除实验性LLM增强功能
+- *Ref: `b702791`*
+
+#### ✨ New Features | 新功能
+
+**Native CodexLens Platform | 原生CodexLens平台**
+- 🔍 **Full-Text Search (FTS)** | 全文搜索: SQLite-based fast keyword search with symbol extraction
+- 🧠 **Semantic Search** | 语义搜索: Embedding-based similarity search with vector store
+- 🔀 **Hybrid Search** | 混合搜索: RRF (Reciprocal Rank Fusion) combining FTS and semantic results
+- ⚡ **HNSW Index** | HNSW索引: Approximate Nearest Neighbor index for significantly faster vector search
+- 📊 **Search Result Grouping** | 结果分组: Automatic grouping by similarity score
+- *Ref: `a393601`, `5e91ba6`, `7adde91`, `3428642`*
+
+**Dashboard New Views | Dashboard新视图**
+- 📄 **CLAUDE.md Manager** | 配置管理器: File tree viewer with metadata actions (`d91477a`)
+- 🎯 **Skills Manager** | 技能管理器: View and manage Claude Code skills (`ac43cf8`)
+- 🕸️ **Graph Explorer** | 图浏览器: Interactive code relationship visualization with Cytoscape.js (`894b93e`)
+- 🧠 **Core Memory View** | 核心记忆视图: Session clustering visualization with cluster management (`9f6e685`)
+- ❓ **Help View** | 帮助视图: Internationalization support with dynamic help content (`154a928`, `17af615`)
+- 📊 **CodexLens Manager** | CodexLens管理器: Index management with real-time progress bar (`d5d6f1f`, `51a61be`)
+- ⚙️ **MCP Manager** | MCP管理器: Configure and monitor MCP servers (`8b927f3`)
+- 🪝 **Hook Manager** | Hook管理器: Manage Claude Code hooks configuration (`c7ced2b`)
+- 💻 **CLI Manager** | CLI管理器: CLI execution history with conversation tracking (`93d3df1`)
+
+**Session & CLI Enhancements | 会话与CLI增强**
+- 🔄 **Multi-Session Resume** | 多会话恢复: Resume from last session or merge multiple sessions (`440314c`)
+- 💾 **SQLite History Storage** | SQLite历史存储: Persistent CLI execution history with conversation tracking (`029384c`)
+- 🆔 **Custom Execution IDs** | 自定义执行ID: Support for custom IDs and multi-turn conversations (`c780544`)
+- 📋 **Task Queue Sidebar** | 任务队列侧边栏: Real-time task progress with resume functionality (`93d3df1`)
+
+**Core Memory & Clustering | 核心记忆与聚类**
+- 📊 **Session Clustering** | 会话聚类: Intelligent grouping of related sessions (`68f9de0`)
+- 🎨 **Cluster Visualization** | 聚类可视化: Interactive cluster display with Cytoscape.js (`9f6e685`)
+- 🔢 **Count-Based Updates** | 计数更新策略: Memory update strategy based on session count (`c7ced2b`)
+- 🗑️ **Cluster Management** | 聚类管理: Delete, merge, and deduplicate cluster commands (`ea284d7`)
+
+#### 🔄 Improvements | 改进
+
+**Backend & Architecture | 后端与架构**
+- 📘 **TypeScript Migration** | TypeScript迁移: Full backend migration from JavaScript to TypeScript | 后端代码从JavaScript完全迁移至TypeScript (`25ac862`)
+- 🔌 **CCW MCP Server** | CCW MCP服务器: Native MCP server with integrated tools | 原生MCP服务器集成多种工具 (`d4e5977`)
+- 📦 **Storage Manager** | 存储管理器: Centralized storage management with cleanup | 集中式存储管理与清理 (`97640a5`)
+- 🗄️ **Database Migrations** | 数据库迁移: Migration framework for schema updates | 数据库模式更新迁移框架 (`0529b57`)
+
+**Search & Indexing | 搜索与索引**
+- ⚡ **Batch Symbol Fetching** | 批量符号获取: Optimized FTS with batch database queries | 优化FTS批量数据库查询 (`3428642`)
+- 📏 **Complete Method Blocks** | 完整方法块: FTS returns full method/function bodies | FTS返回完整方法/函数体 (`69049e3`)
+- 🔧 **Embeddings Coverage** | 嵌入覆盖率: Fixed embeddings generation to achieve 100% coverage | 修复嵌入生成达到100%覆盖 (`74a8306`)
+- ⏱️ **Indexing Timeout** | 索引超时: Increased to 30 minutes for large codebases | 大型代码库超时增至30分钟 (`ae07df6`)
+- 📊 **Progress Bar** | 进度条: Real-time floating progress bar for indexing operations | 索引操作实时浮动进度条 (`d5d6f1f`, `b9d068d`)
+
+**Performance | 性能优化**
+- ⚡ **I/O Caching** | I/O缓存: Optimized I/O operations with caching layer | 通过缓存层优化I/O操作 (`7e70e4c`)
+- 🔄 **Vectorized Operations** | 向量化操作: Optimized search performance | 优化搜索性能 (`08dc0a0`)
+- 🎯 **Positive Caching** | 正向缓存: Only cache positive tool availability results | 仅缓存工具可用的正向结果 (`1c9716e`)
+
+#### 🐛 Bug Fixes | 问题修复
+
+- **MCP Installation** | MCP安装: Resolved installation issues and enhanced path resolution | 解决安装问题并增强路径解析 (`b22839c`)
+- **MCP Manager** | MCP管理器: Fixed 13 critical issues in MCP Manager panel | 修复MCP管理器面板13个关键问题 (`8b927f3`)
+- **Session Location** | 会话位置: Fixed session management location inference | 修复会话管理位置推断 (`c16da75`)
+- **Settings Protection** | 设置保护: Prevent settings.json fields from being overwritten by hooks | 防止settings.json字段被hook覆盖 (`8d542b8`)
+- **CLI Exception Handling** | CLI异常处理: Refined exception handling with specific error types | 细化异常处理使用特定错误类型 (`ac9060a`)
+- **Template Paths** | 模板路径: Corrected template paths for TypeScript build | 修正TypeScript构建的模板路径 (`335f5e9`)
+- **Obsolete Cleanup** | 过时文件清理: Added cleanup of obsolete files during reinstallation | 重装时添加过时文件清理 (`48ac43d`)
+
+#### 📝 Documentation | 文档
+
+- **Comprehensive Workflows** | 工作流文档: Added CLI tools usage, coding philosophy, context requirements guides | 添加CLI工具使用、编码哲学、上下文要求指南 (`d06a3ca`)
+- **Hooks Integration** | Hooks集成: Added hooks configuration documentation | 添加Hooks配置文档 (`9f6e685`)
+- **Windows Platform** | Windows平台: Updated platform-specific documentation | 更新平台特定文档 (`2f0cce0`)
+
+#### 🧹 Technical Debt | 技术债务清理
+
+- **Architecture Simplification** | 架构简化: Replaced external MCP with native CodexLens | 将外部MCP替换为原生CodexLens
+- **Codebase Modernization** | 代码库现代化: TypeScript migration for type safety | TypeScript迁移提升类型安全
+- **Removed Redundancy** | 移除冗余: Cleaned up unused LLM enhancement code | 清理未使用的LLM增强代码
+- **Test Coverage** | 测试覆盖: Added comprehensive tests for vector search, parsing, and migrations | 添加向量搜索、解析和迁移的全面测试
+
+#### 📊 Statistics | 统计
+
+- **Total Commits**: 90 commits (2025-12-11 to 2025-12-20)
+- **Features**: 46 new features
+- **Fixes**: 10 bug fixes
+- **Refactors**: 7 code refactors
+- **Performance**: 2 performance optimizations
+
+#### 🔗 Migration Guide | 迁移指南
+
+**CLI Commands**:
+```bash
+# Old (deprecated)
+ccw cli exec --prompt "analyze code"
+
+# New
+ccw cli -p "analyze code"
+
+# With resume
+ccw cli -p "continue analysis" --resume
+ccw cli -p "merge findings" --resume <id1>,<id2>
+```
+
+**CodexLens Index**:
+```bash
+# Initialize index (in ccw view dashboard)
+# Navigate to CodexLens Manager → Click "Create Index"
+
+# Or via MCP tool
+smart_search(action="init", path=".")
+```
+
+**Session Clustering**:
+```bash
+# View all clusters
+ccw core-memory clusters
+
+# Auto-create clusters from sessions
+ccw core-memory cluster --auto
+
+# Merge clusters (move sessions from source clusters to target)
+ccw core-memory cluster <target-id> --merge <source-id1>,<source-id2>
+
+# Deduplicate similar clusters
+ccw core-memory cluster --dedup
+```
+
+---
+
 ## [6.1.3] - 2025-12-09
 
 ### 🔧 CLI Tool Simplification

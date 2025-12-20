@@ -1,14 +1,14 @@
 
 # Claude Code Workflow (CCW) - Command Specification
 
-**Version**: 5.0.0
-**Updated**: 2025年10月24日星期六
+**Version**: 6.2.0
+**Updated**: 2025-12-20
 
 ## 1. Introduction
 
 This document provides a detailed technical specification for every command available in the Claude Code Workflow (CCW) system. It is intended for advanced users and developers who wish to understand the inner workings of CCW, customize commands, or build new workflows.
 
-> **Version 5.0 Changes**: Removed MCP code-index dependency, streamlined TDD workflow with conflict resolution, and refocused brainstorming on role analysis instead of synthesis documents.
+> **Version 6.2.0 Changes**: Native CodexLens replaces Code Index MCP (FTS + Semantic + HNSW), CLI refactored to `ccw cli -p`, session clustering replaces knowledge graph, new Dashboard views (CLAUDE.md Manager, Skills Manager, Graph Explorer, Core Memory), TypeScript backend migration.
 
 For a user-friendly overview, please see [COMMAND_REFERENCE.md](COMMAND_REFERENCE.md).
 

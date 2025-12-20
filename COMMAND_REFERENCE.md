@@ -2,7 +2,7 @@
 
 This document provides a comprehensive reference for all commands available in the Claude Code Workflow (CCW) system.
 
-> **Version 5.9.6 Update**: Enhanced review cycle with dashboards, optimized lite-plan with parallel execution, and added lite-fix workflow for intelligent bug diagnosis.
+> **Version 6.2.0 Update**: Native CodexLens code intelligence (FTS + Semantic + HNSW), new Dashboard views (CLAUDE.md Manager, Skills Manager, Graph Explorer, Core Memory), CLI refactored to `ccw cli -p`, session clustering for intelligent memory, TypeScript backend migration.
 
 ## CLI Commands (`/cli:*`)
 

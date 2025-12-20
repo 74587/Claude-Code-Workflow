@@ -4,7 +4,7 @@
 
 Claude Code Agent 工作流协调和分布式内存系统的交互式安装指南。
 
-> **版本 5.0：精简化安装** - 移除了外部 MCP 依赖，安装更简单、更稳定。使用标准工具（ripgrep/find）提供更好的性能和兼容性。
+> **版本 6.2：原生 CodexLens 与 Dashboard 革新** - 内置代码索引引擎（FTS + 语义搜索 + HNSW 向量索引），全新 Dashboard 视图，TypeScript 后端，会话聚类智能记忆管理。
 
 ## ⚡ 一键远程安装（推荐）
 
