@@ -1291,8 +1291,27 @@ const i18n = {
     'coreMemory.clusterUpdateError': 'Failed to update cluster',
     'coreMemory.memberRemoved': 'Member removed',
     'coreMemory.memberRemoveError': 'Failed to remove member',
+    'coreMemory.favorites': 'Favorites',
+    'coreMemory.totalFavorites': 'Total Favorites',
+    'coreMemory.noFavorites': 'No favorites yet',
+    'coreMemory.toggleFavorite': 'Toggle Favorite',
+    'coreMemory.addedToFavorites': 'Added to favorites',
+    'coreMemory.removedFromFavorites': 'Removed from favorites',
+    'coreMemory.favoriteError': 'Failed to update favorite',
+    'coreMemory.relations': 'Relations',
+    'coreMemory.showRelations': 'Show Relations',
+    'coreMemory.relationsFor': 'Relations',
+    'coreMemory.noRelations': 'No cluster relations found',
+    'coreMemory.noRelationsHint': 'Use Auto Cluster in the Clusters tab to create relations',
+    'coreMemory.belongsToClusters': 'Belongs to Clusters',
+    'coreMemory.relationsError': 'Failed to load relations',
+
+    // Common additions
+    'common.copyId': 'Copy ID',
+    'common.copied': 'Copied!',
+    'common.copyError': 'Failed to copy',
   },
-  
+
   zh: {
     // App title and brand
     'app.title': 'CCW 控制面板',
@@ -1589,13 +1608,13 @@ const i18n = {
     'index.projects': '项目数',
     'index.totalSize': '总大小',
     'index.vectorIndexes': '向量',
-    'index.ftsIndexes': '全文',
+    'index.ftsIndexes': 'FTS',
     'index.projectId': '项目 ID',
     'index.size': '大小',
     'index.type': '类型',
     'index.lastModified': '修改时间',
     'index.vector': '向量',
-    'index.fts': '全文',
+    'index.fts': 'FTS',
     'index.noIndexes': '暂无索引',
     'index.notConfigured': '未配置',
     'index.initCurrent': '索引当前项目',
@@ -1608,7 +1627,7 @@ const i18n = {
     'index.cleanAllConfirm': '确定要清理所有索引吗？此操作无法撤销。',
     'index.cleanAllSuccess': '所有索引已清理',
     'index.vectorIndex': '向量索引',
-    'index.normalIndex': '全文索引',
+    'index.normalIndex': 'FTS索引',
     'index.vectorDesc': '语义搜索（含嵌入向量）',
     'index.normalDesc': '快速全文搜索',
 
@@ -2585,6 +2604,25 @@ const i18n = {
     'coreMemory.clusterUpdateError': '更新聚类失败',
     'coreMemory.memberRemoved': '成员已移除',
     'coreMemory.memberRemoveError': '移除成员失败',
+    'coreMemory.favorites': '收藏',
+    'coreMemory.totalFavorites': '收藏总数',
+    'coreMemory.noFavorites': '暂无收藏',
+    'coreMemory.toggleFavorite': '切换收藏',
+    'coreMemory.addedToFavorites': '已添加到收藏',
+    'coreMemory.removedFromFavorites': '已从收藏移除',
+    'coreMemory.favoriteError': '更新收藏失败',
+    'coreMemory.relations': '关联',
+    'coreMemory.showRelations': '显示关联',
+    'coreMemory.relationsFor': '关联关系',
+    'coreMemory.noRelations': '未找到聚类关联',
+    'coreMemory.noRelationsHint': '在聚类 Tab 中使用自动聚类来创建关联',
+    'coreMemory.belongsToClusters': '所属聚类',
+    'coreMemory.relationsError': '加载关联失败',
+
+    // Common additions
+    'common.copyId': '复制 ID',
+    'common.copied': '已复制！',
+    'common.copyError': '复制失败',
   }
 };
 

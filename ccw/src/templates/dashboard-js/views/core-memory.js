@@ -66,6 +66,10 @@ async function renderCoreMemoryView() {
             <i data-lucide="brain"></i>
             ${t('coreMemory.memories')}
           </button>
+          <button class="tab-btn" id="favoritesViewBtn" onclick="showFavoritesView()">
+            <i data-lucide="star"></i>
+            ${t('coreMemory.favorites') || 'Favorites'}
+          </button>
           <button class="tab-btn" id="clustersViewBtn" onclick="showClustersView()">
             <i data-lucide="folder-tree"></i>
             ${t('coreMemory.clusters')}
@@ -103,6 +107,22 @@ async function renderCoreMemoryView() {
                </div>`
             : memories.map(memory => renderMemoryCard(memory)).join('')
           }
+        </div>
+      </div>
+
+      <!-- Favorites Tab Content (hidden by default) -->
+      <div class="cm-tab-panel" id="favoritesGrid" style="display: none;">
+        <div class="memory-stats">
+          <div class="stat-item">
+            <span class="stat-label">${t('coreMemory.totalFavorites') || 'Total Favorites'}</span>
+            <span class="stat-value" id="totalFavoritesCount">0</span>
+          </div>
+        </div>
+        <div class="memories-grid" id="favoritesGridContent">
+          <div class="empty-state">
+            <i data-lucide="star"></i>
+            <p>${t('coreMemory.noFavorites') || 'No favorites yet'}</p>
+          </div>
         </div>
       </div>
 
@@ -213,20 +233,20 @@ function renderMemoryCard(memory) {
   const priority = metadata.priority || 'medium';
 
   return `
-    <div class="memory-card ${isArchived ? 'archived' : ''}" data-memory-id="${memory.id}">
+    <div class="memory-card ${isArchived ? 'archived' : ''}" data-memory-id="${memory.id}" onclick="viewMemoryDetail('${memory.id}')">
       <div class="memory-card-header">
         <div class="memory-id">
-          <i data-lucide="bookmark"></i>
+          ${metadata.favorite ? '<i data-lucide="star"></i>' : ''}
           <span>${memory.id}</span>
           ${isArchived ? `<span class="badge badge-archived">${t('common.archived')}</span>` : ''}
           ${priority !== 'medium' ? `<span class="badge badge-priority-${priority}">${priority}</span>` : ''}
         </div>
-        <div class="memory-actions">
-          <button class="icon-btn" onclick="viewMemoryDetail('${memory.id}')" title="${t('common.view')}">
-            <i data-lucide="eye"></i>
-          </button>
+        <div class="memory-actions" onclick="event.stopPropagation()">
           <button class="icon-btn" onclick="editMemory('${memory.id}')" title="${t('common.edit')}">
             <i data-lucide="edit"></i>
+          </button>
+          <button class="icon-btn ${metadata.favorite ? 'favorite-active' : ''}" onclick="toggleFavorite('${memory.id}')" title="${t('coreMemory.toggleFavorite') || 'Toggle Favorite'}">
+            <i data-lucide="star"></i>
           </button>
           ${!isArchived
             ? `<button class="icon-btn" onclick="archiveMemory('${memory.id}')" title="${t('common.archive')}">
@@ -270,10 +290,18 @@ function renderMemoryCard(memory) {
             : ''
           }
         </div>
-        <div class="memory-features">
+        <div class="memory-features" onclick="event.stopPropagation()">
           <button class="feature-btn" onclick="generateMemorySummary('${memory.id}')" title="${t('coreMemory.generateSummary')}">
             <i data-lucide="sparkles"></i>
             ${t('coreMemory.summary')}
+          </button>
+          <button class="feature-btn" onclick="copyMemoryId('${memory.id}')" title="${t('common.copyId') || 'Copy ID'}">
+            <i data-lucide="copy"></i>
+            ${t('common.copyId') || 'Copy ID'}
+          </button>
+          <button class="feature-btn" onclick="showMemoryRelations('${memory.id}')" title="${t('coreMemory.showRelations') || 'Show Relations'}">
+            <i data-lucide="git-branch"></i>
+            ${t('coreMemory.relations') || 'Relations'}
           </button>
         </div>
       </div>
@@ -565,18 +593,44 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+async function copyMemoryId(memoryId) {
+  try {
+    await navigator.clipboard.writeText(memoryId);
+    showNotification(t('common.copied') || 'Copied!', 'success');
+  } catch (error) {
+    console.error('Failed to copy:', error);
+    showNotification(t('common.copyError') || 'Failed to copy', 'error');
+  }
+}
+
 // View Toggle Functions
 function showMemoriesView() {
   document.getElementById('memoriesGrid').style.display = '';
+  document.getElementById('favoritesGrid').style.display = 'none';
   document.getElementById('clustersContainer').style.display = 'none';
   document.getElementById('memoriesViewBtn').classList.add('active');
+  document.getElementById('favoritesViewBtn').classList.remove('active');
   document.getElementById('clustersViewBtn').classList.remove('active');
+}
+
+async function showFavoritesView() {
+  document.getElementById('memoriesGrid').style.display = 'none';
+  document.getElementById('favoritesGrid').style.display = '';
+  document.getElementById('clustersContainer').style.display = 'none';
+  document.getElementById('memoriesViewBtn').classList.remove('active');
+  document.getElementById('favoritesViewBtn').classList.add('active');
+  document.getElementById('clustersViewBtn').classList.remove('active');
+
+  // Load favorites
+  await refreshFavorites();
 }
 
 function showClustersView() {
   document.getElementById('memoriesGrid').style.display = 'none';
+  document.getElementById('favoritesGrid').style.display = 'none';
   document.getElementById('clustersContainer').style.display = '';
   document.getElementById('memoriesViewBtn').classList.remove('active');
+  document.getElementById('favoritesViewBtn').classList.remove('active');
   document.getElementById('clustersViewBtn').classList.add('active');
 
   // Load clusters from core-memory-clusters.js
@@ -584,5 +638,145 @@ function showClustersView() {
     loadClusters();
   } else {
     console.error('loadClusters is not available. Make sure core-memory-clusters.js is loaded.');
+  }
+}
+
+// Favorites Functions
+async function refreshFavorites() {
+  const allMemories = await fetchCoreMemories(false);
+  const favorites = allMemories.filter(m => m.metadata && m.metadata.favorite);
+
+  const countEl = document.getElementById('totalFavoritesCount');
+  const gridEl = document.getElementById('favoritesGridContent');
+
+  if (countEl) countEl.textContent = favorites.length;
+
+  if (gridEl) {
+    if (favorites.length === 0) {
+      gridEl.innerHTML = `
+        <div class="empty-state">
+          <i data-lucide="star"></i>
+          <p>${t('coreMemory.noFavorites') || 'No favorites yet'}</p>
+        </div>
+      `;
+    } else {
+      gridEl.innerHTML = favorites.map(memory => renderMemoryCard(memory)).join('');
+    }
+  }
+
+  lucide.createIcons();
+}
+
+async function showMemoryRelations(memoryId) {
+  try {
+    // Fetch all clusters
+    const response = await fetch(`/api/core-memory/clusters?path=${encodeURIComponent(projectPath)}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const result = await response.json();
+    const clusters = result.clusters || [];
+
+    // Find clusters containing this memory
+    const relatedClusters = [];
+    for (const cluster of clusters) {
+      const detailRes = await fetch(`/api/core-memory/clusters/${cluster.id}?path=${encodeURIComponent(projectPath)}`);
+      if (detailRes.ok) {
+        const detail = await detailRes.json();
+        const members = detail.members || [];
+        if (members.some(m => m.session_id === memoryId || m.id === memoryId)) {
+          relatedClusters.push({
+            ...cluster,
+            relations: detail.relations || []
+          });
+        }
+      }
+    }
+
+    // Show in modal
+    const modal = document.getElementById('memoryDetailModal');
+    document.getElementById('memoryDetailTitle').textContent = t('coreMemory.relationsFor') || `Relations: ${memoryId}`;
+
+    const body = document.getElementById('memoryDetailBody');
+    if (relatedClusters.length === 0) {
+      body.innerHTML = `
+        <div class="empty-state">
+          <i data-lucide="git-branch"></i>
+          <p>${t('coreMemory.noRelations') || 'No cluster relations found'}</p>
+          <p class="text-muted">${t('coreMemory.noRelationsHint') || 'Use Auto Cluster in the Clusters tab to create relations'}</p>
+        </div>
+      `;
+    } else {
+      body.innerHTML = `
+        <div class="relations-detail">
+          <h4>${t('coreMemory.belongsToClusters') || 'Belongs to Clusters'}</h4>
+          <div class="clusters-list">
+            ${relatedClusters.map(cluster => `
+              <div class="relation-cluster-item">
+                <div class="relation-cluster-header">
+                  <i data-lucide="folder"></i>
+                  <span class="cluster-name">${escapeHtml(cluster.name)}</span>
+                  <span class="badge badge-${cluster.status}">${cluster.status}</span>
+                </div>
+                ${cluster.relations && cluster.relations.length > 0 ? `
+                  <div class="cluster-relations-list">
+                    <span class="relations-label">${t('coreMemory.relatedClusters')}:</span>
+                    ${cluster.relations.map(rel => `
+                      <span class="relation-tag">
+                        <i data-lucide="link"></i>
+                        ${escapeHtml(rel.target_name || rel.target_id)}
+                        <span class="relation-type">${rel.relation_type}</span>
+                      </span>
+                    `).join('')}
+                  </div>
+                ` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    modal.style.display = 'flex';
+    lucide.createIcons();
+  } catch (error) {
+    console.error('Failed to load relations:', error);
+    showNotification(t('coreMemory.relationsError') || 'Failed to load relations', 'error');
+  }
+}
+
+async function toggleFavorite(memoryId) {
+  try {
+    const memory = await fetchMemoryById(memoryId);
+    if (!memory) return;
+
+    const metadata = memory.metadata || {};
+    metadata.favorite = !metadata.favorite;
+
+    const response = await fetch('/api/core-memory/memories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...memory, metadata, path: projectPath })
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    showNotification(
+      metadata.favorite
+        ? (t('coreMemory.addedToFavorites') || 'Added to favorites')
+        : (t('coreMemory.removedFromFavorites') || 'Removed from favorites'),
+      'success'
+    );
+
+    // Refresh current view
+    await refreshCoreMemories();
+
+    // Also refresh favorites if visible
+    const favoritesGrid = document.getElementById('favoritesGrid');
+    if (favoritesGrid && favoritesGrid.style.display !== 'none') {
+      await refreshFavorites();
+    }
+  } catch (error) {
+    console.error('Failed to toggle favorite:', error);
+    showNotification(t('coreMemory.favoriteError') || 'Failed to update favorite', 'error');
   }
 }

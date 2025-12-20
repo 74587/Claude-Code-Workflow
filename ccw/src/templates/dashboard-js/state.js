@@ -10,6 +10,11 @@ let workflowData = {{WORKFLOW_DATA}};
 let projectPath = '{{PROJECT_PATH}}';
 let recentPaths = {{RECENT_PATHS}};
 
+// Platform detection for cross-platform MCP command generation
+// 'win32' for Windows, 'darwin' for macOS, 'linux' for Linux
+const serverPlatform = '{{SERVER_PLATFORM}}';
+const isWindowsPlatform = serverPlatform === 'win32';
+
 // ========== Application State ==========
 // Current filter for session list view ('all', 'active', 'archived')
 let currentFilter = 'all';

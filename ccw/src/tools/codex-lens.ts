@@ -11,7 +11,7 @@
 
 import { z } from 'zod';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
-import { spawn, execSync } from 'child_process';
+import { spawn, execSync, exec } from 'child_process';
 import { existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
@@ -443,22 +443,44 @@ async function executeCodexLens(args: string[], options: ExecuteOptions = {}): P
   }
 
   return new Promise((resolve) => {
-    const child = spawn(VENV_PYTHON, ['-m', 'codexlens', ...args], {
-      cwd,
-      stdio: ['ignore', 'pipe', 'pipe'],
+    // Build command string - quote paths for shell execution
+    const quotedPython = `"${VENV_PYTHON}"`;
+    const cmdArgs = args.map(arg => {
+      // Quote arguments that contain spaces or special characters
+      if (arg.includes(' ') || arg.includes('\\')) {
+        return `"${arg}"`;
+      }
+      return arg;
     });
 
-    let stdout = '';
-    let stderr = '';
-    let timedOut = false;
+    // Build full command - on Windows, prepend cd to handle different drives
+    let fullCmd: string;
+    if (process.platform === 'win32' && cwd) {
+      // Use cd /d to change drive and directory, then run command
+      fullCmd = `cd /d "${cwd}" && ${quotedPython} -m codexlens ${cmdArgs.join(' ')}`;
+    } else {
+      fullCmd = `${quotedPython} -m codexlens ${cmdArgs.join(' ')}`;
+    }
 
-    child.stdout.on('data', (data) => {
-      const chunk = data.toString();
-      stdout += chunk;
+    // Use exec with shell option for cross-platform compatibility
+    exec(fullCmd, {
+      cwd: process.platform === 'win32' ? undefined : cwd, // Don't use cwd on Windows, use cd command instead
+      timeout,
+      maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large outputs
+      shell: process.platform === 'win32' ? process.env.ComSpec : undefined,
+    }, (error, stdout, stderr) => {
+      if (error) {
+        if (error.killed) {
+          resolve({ success: false, error: 'Command timed out' });
+        } else {
+          resolve({ success: false, error: stderr || error.message });
+        }
+        return;
+      }
 
-      // Report progress if callback provided
-      if (onProgress) {
-        const lines = chunk.split('\n');
+      // Report final progress if callback provided
+      if (onProgress && stdout) {
+        const lines = stdout.split('\n');
         for (const line of lines) {
           const progress = parseProgressLine(line.trim());
           if (progress) {
@@ -466,44 +488,8 @@ async function executeCodexLens(args: string[], options: ExecuteOptions = {}): P
           }
         }
       }
-    });
 
-    child.stderr.on('data', (data) => {
-      const chunk = data.toString();
-      stderr += chunk;
-
-      // Also check stderr for progress (some tools output there)
-      if (onProgress) {
-        const lines = chunk.split('\n');
-        for (const line of lines) {
-          const progress = parseProgressLine(line.trim());
-          if (progress) {
-            onProgress(progress);
-          }
-        }
-      }
-    });
-
-    const timeoutId = setTimeout(() => {
-      timedOut = true;
-      child.kill('SIGTERM');
-    }, timeout);
-
-    child.on('close', (code) => {
-      clearTimeout(timeoutId);
-
-      if (timedOut) {
-        resolve({ success: false, error: 'Command timed out' });
-      } else if (code === 0) {
-        resolve({ success: true, output: stdout.trim() });
-      } else {
-        resolve({ success: false, error: stderr || `Exit code: ${code}` });
-      }
-    });
-
-    child.on('error', (err) => {
-      clearTimeout(timeoutId);
-      resolve({ success: false, error: `Spawn failed: ${err.message}` });
+      resolve({ success: true, output: stdout.trim() });
     });
   });
 }

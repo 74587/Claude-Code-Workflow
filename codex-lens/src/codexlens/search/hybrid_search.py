@@ -257,7 +257,7 @@ class HybridSearchEngine:
                 return []
 
             # Initialize embedder and vector store
-            from codexlens.semantic.embedder import Embedder
+            from codexlens.semantic.embedder import get_embedder
             from codexlens.semantic.vector_store import VectorStore
 
             vector_store = VectorStore(index_path)
@@ -285,7 +285,8 @@ class HybridSearchEngine:
             else:
                 profile = "code"  # Default fallback
 
-            embedder = Embedder(profile=profile)
+            # Use cached embedder (singleton) for performance
+            embedder = get_embedder(profile=profile)
 
             # Generate query embedding
             query_embedding = embedder.embed_single(query)

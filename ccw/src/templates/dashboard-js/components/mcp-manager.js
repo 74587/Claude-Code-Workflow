@@ -928,11 +928,19 @@ function selectCcwTools(type) {
 }
 
 // Build CCW Tools config with selected tools
+// Uses isWindowsPlatform from state.js to generate platform-appropriate commands
 function buildCcwToolsConfig(selectedTools) {
-  const config = {
-    command: "cmd",
-    args: ["/c", "npx", "-y", "ccw-mcp"]
-  };
+  // Windows requires 'cmd /c' wrapper to execute npx
+  // Other platforms (macOS, Linux) can run npx directly
+  const config = isWindowsPlatform
+    ? {
+        command: "cmd",
+        args: ["/c", "npx", "-y", "ccw-mcp"]
+      }
+    : {
+        command: "npx",
+        args: ["-y", "ccw-mcp"]
+      };
 
   // Add env if not all tools or not default 4 core tools
   const coreTools = ['write_file', 'edit_file', 'codex_lens', 'smart_search'];

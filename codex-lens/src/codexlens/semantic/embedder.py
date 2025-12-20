@@ -2,9 +2,55 @@
 
 from __future__ import annotations
 
-from typing import Iterable, List
+import threading
+from typing import Dict, Iterable, List, Optional
 
 from . import SEMANTIC_AVAILABLE
+
+
+# Global embedder cache for singleton pattern
+_embedder_cache: Dict[str, "Embedder"] = {}
+_cache_lock = threading.Lock()
+
+
+def get_embedder(profile: str = "code") -> "Embedder":
+    """Get or create a cached Embedder instance (thread-safe singleton).
+
+    This function provides significant performance improvement by reusing
+    Embedder instances across multiple searches, avoiding repeated model
+    loading overhead (~0.8s per load).
+
+    Args:
+        profile: Model profile ("fast", "code", "multilingual", "balanced")
+
+    Returns:
+        Cached Embedder instance for the given profile
+    """
+    global _embedder_cache
+
+    # Fast path: check cache without lock
+    if profile in _embedder_cache:
+        return _embedder_cache[profile]
+
+    # Slow path: acquire lock for initialization
+    with _cache_lock:
+        # Double-check after acquiring lock
+        if profile in _embedder_cache:
+            return _embedder_cache[profile]
+
+        # Create new embedder and cache it
+        embedder = Embedder(profile=profile)
+        # Pre-load model to ensure it's ready
+        embedder._load_model()
+        _embedder_cache[profile] = embedder
+        return embedder
+
+
+def clear_embedder_cache() -> None:
+    """Clear the embedder cache (useful for testing or memory management)."""
+    global _embedder_cache
+    with _cache_lock:
+        _embedder_cache.clear()
 
 
 class Embedder:

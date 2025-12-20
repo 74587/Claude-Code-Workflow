@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 try:
     from codexlens.semantic import SEMANTIC_AVAILABLE
     if SEMANTIC_AVAILABLE:
-        from codexlens.semantic.embedder import Embedder
+        from codexlens.semantic.embedder import Embedder, get_embedder
         from codexlens.semantic.vector_store import VectorStore
         from codexlens.semantic.chunker import Chunker, ChunkConfig
 except ImportError:
@@ -167,7 +167,8 @@ def generate_embeddings(
 
     # Initialize components
     try:
-        embedder = Embedder(profile=model_profile)
+        # Use cached embedder (singleton) for performance
+        embedder = get_embedder(profile=model_profile)
         vector_store = VectorStore(index_path)
         chunker = Chunker(config=ChunkConfig(max_chunk_size=chunk_size))
 
@@ -201,10 +202,16 @@ def generate_embeddings(
     if progress_callback:
         progress_callback(f"Processing {len(files)} files...")
 
-    # Process each file
-    total_chunks = 0
-    failed_files = []
+    # Process all files using batch operations for optimal performance
     start_time = time.time()
+    failed_files = []
+
+    # --- OPTIMIZATION Step 1: Collect all chunks from all files ---
+    if progress_callback:
+        progress_callback(f"Step 1/4: Chunking {len(files)} files...")
+
+    all_chunks_with_paths = []  # List of (chunk, file_path) tuples
+    files_with_chunks = set()
 
     for idx, file_row in enumerate(files, 1):
         file_path = file_row["full_path"]
@@ -212,31 +219,80 @@ def generate_embeddings(
         language = file_row["language"] or "python"
 
         try:
-            # Create chunks
             chunks = chunker.chunk_sliding_window(
                 content,
                 file_path=file_path,
                 language=language
             )
-
-            if not chunks:
-                continue
-
-            # Generate embeddings
-            for chunk in chunks:
-                embedding = embedder.embed_single(chunk.content)
-                chunk.embedding = embedding
-
-            # Store chunks
-            vector_store.add_chunks(chunks, file_path)
-            total_chunks += len(chunks)
-
-            if progress_callback:
-                progress_callback(f"[{idx}/{len(files)}] {file_path}: {len(chunks)} chunks")
-
+            if chunks:
+                for chunk in chunks:
+                    all_chunks_with_paths.append((chunk, file_path))
+                files_with_chunks.add(file_path)
         except Exception as e:
-            logger.error(f"Failed to process {file_path}: {e}")
+            logger.error(f"Failed to chunk {file_path}: {e}")
             failed_files.append((file_path, str(e)))
+
+    if not all_chunks_with_paths:
+        elapsed_time = time.time() - start_time
+        return {
+            "success": True,
+            "result": {
+                "chunks_created": 0,
+                "files_processed": len(files) - len(failed_files),
+                "files_failed": len(failed_files),
+                "elapsed_time": elapsed_time,
+                "model_profile": model_profile,
+                "model_name": embedder.model_name,
+                "failed_files": failed_files[:5],
+                "index_path": str(index_path),
+            },
+        }
+
+    total_chunks = len(all_chunks_with_paths)
+
+    # --- OPTIMIZATION Step 2: Batch generate embeddings with memory-safe batching ---
+    # Use smaller batches to avoid OOM errors while still benefiting from batch processing
+    # jina-embeddings-v2-base-code with long chunks needs small batches
+    BATCH_SIZE = 8  # Conservative batch size for memory efficiency
+
+    if progress_callback:
+        num_batches = (total_chunks + BATCH_SIZE - 1) // BATCH_SIZE
+        progress_callback(f"Step 2/4: Generating embeddings for {total_chunks} chunks ({num_batches} batches)...")
+
+    try:
+        all_embeddings = []
+        for batch_start in range(0, total_chunks, BATCH_SIZE):
+            batch_end = min(batch_start + BATCH_SIZE, total_chunks)
+            batch_contents = [chunk.content for chunk, _ in all_chunks_with_paths[batch_start:batch_end]]
+            batch_embeddings = embedder.embed(batch_contents)
+            all_embeddings.extend(batch_embeddings)
+
+            if progress_callback and total_chunks > BATCH_SIZE:
+                progress_callback(f"  Batch {batch_start // BATCH_SIZE + 1}/{(total_chunks + BATCH_SIZE - 1) // BATCH_SIZE}: {len(batch_embeddings)} embeddings")
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Failed to generate embeddings: {str(e)}",
+        }
+
+    # --- OPTIMIZATION Step 3: Assign embeddings back to chunks ---
+    if progress_callback:
+        progress_callback(f"Step 3/4: Assigning {len(all_embeddings)} embeddings...")
+
+    for (chunk, _), embedding in zip(all_chunks_with_paths, all_embeddings):
+        chunk.embedding = embedding
+
+    # --- OPTIMIZATION Step 4: Batch store all chunks in single transaction ---
+    if progress_callback:
+        progress_callback(f"Step 4/4: Storing {total_chunks} chunks to database...")
+
+    try:
+        vector_store.add_chunks_batch(all_chunks_with_paths)
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Failed to store chunks: {str(e)}",
+        }
 
     elapsed_time = time.time() - start_time
 
@@ -244,7 +300,7 @@ def generate_embeddings(
         "success": True,
         "result": {
             "chunks_created": total_chunks,
-            "files_processed": len(files) - len(failed_files),
+            "files_processed": len(files_with_chunks),
             "files_failed": len(failed_files),
             "elapsed_time": elapsed_time,
             "model_profile": model_profile,

@@ -392,7 +392,8 @@ function renderToolsSection() {
     '<div class="tool-item-right">' +
       (codexLensStatus.ready
         ? '<span class="tool-status-text success"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> v' + (codexLensStatus.version || 'installed') + '</span>' +
-          '<button class="btn-sm btn-outline" onclick="event.stopPropagation(); initCodexLensIndex()"><i data-lucide="database" class="w-3 h-3"></i> ' + t('cli.initIndex') + '</button>' +
+          '<button class="btn-sm btn-outline" onclick="event.stopPropagation(); initCodexLensIndex(\'vector\')" title="' + (t('index.vectorDesc') || 'Semantic search with embeddings') + '"><i data-lucide="sparkles" class="w-3 h-3"></i> ' + (t('index.vectorIndex') || 'Vector') + '</button>' +
+          '<button class="btn-sm btn-outline" onclick="event.stopPropagation(); initCodexLensIndex(\'normal\')" title="' + (t('index.normalDesc') || 'Fast full-text search only') + '"><i data-lucide="file-text" class="w-3 h-3"></i> ' + (t('index.normalIndex') || 'FTS') + '</button>' +
           '<button class="btn-sm btn-outline btn-danger" onclick="event.stopPropagation(); uninstallCodexLens()"><i data-lucide="trash-2" class="w-3 h-3"></i> ' + t('cli.uninstall') + '</button>'
         : '<span class="tool-status-text muted"><i data-lucide="circle-dashed" class="w-3.5 h-3.5"></i> ' + t('cli.notInstalled') + '</span>' +
           '<button class="btn-sm btn-primary" onclick="event.stopPropagation(); installCodexLens()"><i data-lucide="download" class="w-3 h-3"></i> ' + t('cli.install') + '</button>') +

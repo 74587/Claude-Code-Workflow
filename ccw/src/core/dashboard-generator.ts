@@ -173,6 +173,10 @@ function generateFromUnifiedTemplate(data: unknown): string {
   jsContent = jsContent.replace(/\{\{PROJECT_PATH\}\}/g, projectPath.replace(/\\/g, '/'));
   jsContent = jsContent.replace('{{RECENT_PATHS}}', JSON.stringify(recentPaths));
 
+  // Inject platform information for cross-platform MCP command generation
+  // 'win32' for Windows, 'darwin' for macOS, 'linux' for Linux
+  jsContent = jsContent.replace(/\{\{SERVER_PLATFORM\}\}/g, process.platform);
+
   // Inject JS and CSS into HTML template
   html = html.replace('{{JS_CONTENT}}', jsContent);
   html = html.replace('{{CSS_CONTENT}}', cssContent);

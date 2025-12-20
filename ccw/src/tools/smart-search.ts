@@ -27,26 +27,21 @@ import type { ProgressInfo } from './codex-lens.js';
 const ParamsSchema = z.object({
   action: z.enum(['init', 'search', 'search_files', 'status']).default('search'),
   query: z.string().optional(),
-  mode: z.enum(['auto', 'hybrid', 'exact', 'ripgrep', 'parallel']).default('auto'),
+  mode: z.enum(['auto', 'hybrid', 'exact', 'ripgrep', 'priority']).default('auto'),
   output_mode: z.enum(['full', 'files_only', 'count']).default('full'),
   path: z.string().optional(),
   paths: z.array(z.string()).default([]),
   contextLines: z.number().default(0),
-  maxResults: z.number().default(100),
+  maxResults: z.number().default(10),
   includeHidden: z.boolean().default(false),
   languages: z.array(z.string()).optional(),
-  limit: z.number().default(100),
-  parallelWeights: z.object({
-    hybrid: z.number().default(0.5),
-    exact: z.number().default(0.3),
-    ripgrep: z.number().default(0.2),
-  }).optional(),
+  limit: z.number().default(10),
 });
 
 type Params = z.infer<typeof ParamsSchema>;
 
 // Search mode constants
-const SEARCH_MODES = ['auto', 'hybrid', 'exact', 'ripgrep', 'parallel'] as const;
+const SEARCH_MODES = ['auto', 'hybrid', 'exact', 'ripgrep', 'priority'] as const;
 
 // Classification confidence threshold
 const CONFIDENCE_THRESHOLD = 0.7;
@@ -89,6 +84,7 @@ interface SearchMetadata {
   warning?: string;
   note?: string;
   index_status?: 'indexed' | 'not_indexed' | 'partial';
+  fallback_history?: string[];
   // Init action specific
   action?: string;
   path?: string;
@@ -121,6 +117,13 @@ interface IndexStatus {
 }
 
 /**
+ * Strip ANSI color codes from string (for JSON parsing)
+ */
+function stripAnsi(str: string): string {
+  return str.replace(/\x1b\[[0-9;]*m/g, '');
+}
+
+/**
  * Check if CodexLens index exists for current directory
  * @param path - Directory path to check
  * @returns Index status
@@ -140,7 +143,7 @@ async function checkIndexStatus(path: string = '.'): Promise<IndexStatus> {
     // Parse status output
     try {
       // Strip ANSI color codes from JSON output
-      const cleanOutput = (result.output || '{}').replace(/\x1b\[[0-9;]*m/g, '');
+      const cleanOutput = stripAnsi(result.output || '{}');
       const parsed = JSON.parse(cleanOutput);
       // Handle both direct and nested response formats (status returns {success, result: {...}})
       const status = parsed.result || parsed;
@@ -293,7 +296,7 @@ function buildRipgrepCommand(params: {
   maxResults: number;
   includeHidden: boolean;
 }): { command: string; args: string[] } {
-  const { query, paths = ['.'], contextLines = 0, maxResults = 100, includeHidden = false } = params;
+  const { query, paths = ['.'], contextLines = 0, maxResults = 10, includeHidden = false } = params;
 
   const args = [
     '-n', // Show line numbers
@@ -478,7 +481,7 @@ async function executeAutoMode(params: Params): Promise<SearchResult> {
  * No index required, fallback to CodexLens if ripgrep unavailable
  */
 async function executeRipgrepMode(params: Params): Promise<SearchResult> {
-  const { query, paths = [], contextLines = 0, maxResults = 100, includeHidden = false, path = '.' } = params;
+  const { query, paths = [], contextLines = 0, maxResults = 10, includeHidden = false, path = '.' } = params;
 
   if (!query) {
     return {
@@ -520,8 +523,8 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
     // Parse results
     let results: SemanticMatch[] = [];
     try {
-      const parsed = JSON.parse(result.output || '{}');
-      const data = parsed.results || parsed;
+      const parsed = JSON.parse(stripAnsi(result.output || '{}'));
+      const data = parsed.result?.results || parsed.results || parsed;
       results = (Array.isArray(data) ? data : []).map((item: any) => ({
         file: item.path || item.file,
         score: item.score || 0,
@@ -632,7 +635,7 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
  * Requires index
  */
 async function executeCodexLensExactMode(params: Params): Promise<SearchResult> {
-  const { query, path = '.', limit = 100 } = params;
+  const { query, path = '.', maxResults = 10 } = params;
 
   if (!query) {
     return {
@@ -653,7 +656,7 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
   // Check index status
   const indexStatus = await checkIndexStatus(path);
 
-  const args = ['search', query, '--limit', limit.toString(), '--mode', 'exact', '--json'];
+  const args = ['search', query, '--limit', maxResults.toString(), '--mode', 'exact', '--json'];
   const result = await executeCodexLens(args, { cwd: path });
 
   if (!result.success) {
@@ -673,8 +676,8 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
   // Parse results
   let results: SemanticMatch[] = [];
   try {
-    const parsed = JSON.parse(result.output || '{}');
-    const data = parsed.results || parsed;
+    const parsed = JSON.parse(stripAnsi(result.output || '{}'));
+    const data = parsed.result?.results || parsed.results || parsed;
     results = (Array.isArray(data) ? data : []).map((item: any) => ({
       file: item.path || item.file,
       score: item.score || 0,
@@ -704,7 +707,7 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
  * Requires index with embeddings
  */
 async function executeHybridMode(params: Params): Promise<SearchResult> {
-  const { query, path = '.', limit = 100 } = params;
+  const { query, path = '.', maxResults = 10 } = params;
 
   if (!query) {
     return {
@@ -725,7 +728,7 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
   // Check index status
   const indexStatus = await checkIndexStatus(path);
 
-  const args = ['search', query, '--limit', limit.toString(), '--mode', 'hybrid', '--json'];
+  const args = ['search', query, '--limit', maxResults.toString(), '--mode', 'hybrid', '--json'];
   const result = await executeCodexLens(args, { cwd: path });
 
   if (!result.success) {
@@ -745,8 +748,8 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
   // Parse results
   let results: SemanticMatch[] = [];
   try {
-    const parsed = JSON.parse(result.output || '{}');
-    const data = parsed.results || parsed;
+    const parsed = JSON.parse(stripAnsi(result.output || '{}'));
+    const data = parsed.result?.results || parsed.results || parsed;
     results = (Array.isArray(data) ? data : []).map((item: any) => ({
       file: item.path || item.file,
       score: item.score || 0,
@@ -828,94 +831,114 @@ function applyRRFFusion(
 }
 
 /**
- * Mode: parallel - Run all backends simultaneously with RRF fusion
- * Returns best results from hybrid + exact + ripgrep combined
+ * Promise wrapper with timeout support
+ * @param promise - The promise to wrap
+ * @param ms - Timeout in milliseconds
+ * @param modeName - Name of the mode for error message
+ * @returns A new promise that rejects on timeout
  */
-async function executeParallelMode(params: Params): Promise<SearchResult> {
-  const { query, path = '.', limit = 100, parallelWeights } = params;
+function withTimeout<T>(promise: Promise<T>, ms: number, modeName: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`'${modeName}' search timed out after ${ms}ms`));
+    }, ms);
+
+    promise
+      .then(resolve)
+      .catch(reject)
+      .finally(() => clearTimeout(timer));
+  });
+}
+
+/**
+ * Mode: priority - Fallback search strategy: hybrid -> exact -> ripgrep
+ * Returns results from the first backend that succeeds and provides results.
+ * More efficient than parallel mode - stops as soon as valid results are found.
+ */
+async function executePriorityFallbackMode(params: Params): Promise<SearchResult> {
+  const { query, path = '.' } = params;
+  const fallbackHistory: string[] = [];
 
   if (!query) {
+    return { success: false, error: 'Query is required for search' };
+  }
+
+  // Check index status first
+  const indexStatus = await checkIndexStatus(path);
+
+  // 1. Try Hybrid search (highest priority) - 90s timeout for large indexes
+  if (indexStatus.indexed && indexStatus.has_embeddings) {
+    try {
+      const hybridResult = await withTimeout(executeHybridMode(params), 90000, 'hybrid');
+      if (hybridResult.success && hybridResult.results && (hybridResult.results as any[]).length > 0) {
+        fallbackHistory.push('hybrid: success');
+        return {
+          ...hybridResult,
+          metadata: {
+            ...hybridResult.metadata,
+            mode: 'priority',
+            note: 'Result from hybrid search (semantic + vector).',
+            fallback_history: fallbackHistory,
+          },
+        };
+      }
+      fallbackHistory.push('hybrid: no results');
+    } catch (error) {
+      fallbackHistory.push(`hybrid: ${(error as Error).message}`);
+    }
+  } else {
+    fallbackHistory.push(`hybrid: skipped (${!indexStatus.indexed ? 'no index' : 'no embeddings'})`);
+  }
+
+  // 2. Fallback to Exact search - 10s timeout
+  if (indexStatus.indexed) {
+    try {
+      const exactResult = await withTimeout(executeCodexLensExactMode(params), 10000, 'exact');
+      if (exactResult.success && exactResult.results && (exactResult.results as any[]).length > 0) {
+        fallbackHistory.push('exact: success');
+        return {
+          ...exactResult,
+          metadata: {
+            ...exactResult.metadata,
+            mode: 'priority',
+            note: 'Result from exact/FTS search (fallback from hybrid).',
+            fallback_history: fallbackHistory,
+          },
+        };
+      }
+      fallbackHistory.push('exact: no results');
+    } catch (error) {
+      fallbackHistory.push(`exact: ${(error as Error).message}`);
+    }
+  } else {
+    fallbackHistory.push('exact: skipped (no index)');
+  }
+
+  // 3. Final fallback to Ripgrep - 5s timeout
+  try {
+    const ripgrepResult = await withTimeout(executeRipgrepMode(params), 5000, 'ripgrep');
+    fallbackHistory.push(ripgrepResult.success ? 'ripgrep: success' : 'ripgrep: failed');
     return {
-      success: false,
-      error: 'Query is required for search',
-    };
-  }
-
-  // Default weights if not provided
-  const weights = parallelWeights || {
-    hybrid: 0.5,
-    exact: 0.3,
-    ripgrep: 0.2,
-  };
-
-  // Run all backends in parallel
-  const [hybridResult, exactResult, ripgrepResult] = await Promise.allSettled([
-    executeHybridMode(params),
-    executeCodexLensExactMode(params),
-    executeRipgrepMode(params),
-  ]);
-
-  // Collect successful results
-  const resultsMap = new Map<string, any[]>();
-  const backendStatus: Record<string, string> = {};
-
-  if (hybridResult.status === 'fulfilled' && hybridResult.value.success) {
-    resultsMap.set('hybrid', hybridResult.value.results as any[]);
-    backendStatus.hybrid = 'success';
-  } else {
-    backendStatus.hybrid = hybridResult.status === 'rejected'
-      ? `error: ${hybridResult.reason}`
-      : `failed: ${(hybridResult as PromiseFulfilledResult<SearchResult>).value.error}`;
-  }
-
-  if (exactResult.status === 'fulfilled' && exactResult.value.success) {
-    resultsMap.set('exact', exactResult.value.results as any[]);
-    backendStatus.exact = 'success';
-  } else {
-    backendStatus.exact = exactResult.status === 'rejected'
-      ? `error: ${exactResult.reason}`
-      : `failed: ${(exactResult as PromiseFulfilledResult<SearchResult>).value.error}`;
-  }
-
-  if (ripgrepResult.status === 'fulfilled' && ripgrepResult.value.success) {
-    resultsMap.set('ripgrep', ripgrepResult.value.results as any[]);
-    backendStatus.ripgrep = 'success';
-  } else {
-    backendStatus.ripgrep = ripgrepResult.status === 'rejected'
-      ? `error: ${ripgrepResult.reason}`
-      : `failed: ${(ripgrepResult as PromiseFulfilledResult<SearchResult>).value.error}`;
-  }
-
-  // If no results from any backend
-  if (resultsMap.size === 0) {
-    return {
-      success: false,
-      error: 'All search backends failed',
+      ...ripgrepResult,
       metadata: {
-        mode: 'parallel',
-        backend: 'multi-backend',
-        count: 0,
-        query,
-        backend_status: backendStatus,
-      } as any,
+        ...ripgrepResult.metadata,
+        mode: 'priority',
+        note: 'Result from ripgrep search (final fallback).',
+        fallback_history: fallbackHistory,
+      },
     };
+  } catch (error) {
+    fallbackHistory.push(`ripgrep: ${(error as Error).message}`);
   }
 
-  // Apply RRF fusion
-  const fusedResults = applyRRFFusion(resultsMap, weights, limit);
-
+  // All modes failed
   return {
-    success: true,
-    results: fusedResults,
+    success: false,
+    error: 'All search backends in priority mode failed or returned no results.',
     metadata: {
-      mode: 'parallel',
-      backend: 'multi-backend',
-      count: fusedResults.length,
+      mode: 'priority',
       query,
-      backends_used: Array.from(resultsMap.keys()),
-      backend_status: backendStatus,
-      weights,
-      note: 'Parallel mode runs hybrid + exact + ripgrep simultaneously with RRF fusion',
+      fallback_history: fallbackHistory,
     } as any,
   };
 }
@@ -923,11 +946,11 @@ async function executeParallelMode(params: Params): Promise<SearchResult> {
 // Tool schema for MCP
 export const schema: ToolSchema = {
   name: 'smart_search',
-  description: `Intelligent code search with five modes: auto, hybrid, exact, ripgrep, parallel.
+  description: `Intelligent code search with five modes: auto, hybrid, exact, ripgrep, priority.
 
 **Quick Start:**
   smart_search(query="authentication logic")           # Auto mode (intelligent routing)
-  smart_search(action="init", path=".")                # Initialize FTS index (fast, no embeddings)
+  smart_search(action="init", path=".")                # Initialize index (required for hybrid)
   smart_search(action="status")                        # Check index status
 
 **Five Modes:**
@@ -938,7 +961,7 @@ export const schema: ToolSchema = {
 
   2. hybrid: CodexLens RRF fusion (exact + fuzzy + vector)
      - Best quality, semantic understanding
-     - Requires index with embeddings (create via "ccw view" dashboard)
+     - Requires index with embeddings
 
   3. exact: CodexLens FTS (full-text search)
      - Precise keyword matching
@@ -948,20 +971,21 @@ export const schema: ToolSchema = {
      - Fast, no index required
      - Literal string matching
 
-  5. parallel: Run all backends simultaneously
-     - Highest recall, runs hybrid + exact + ripgrep in parallel
-     - Results merged using RRF fusion with configurable weights
+  5. priority: Fallback strategy for best balance of speed and recall
+     - Tries searches in order: hybrid -> exact -> ripgrep
+     - Returns results from the first successful search with results
+     - More efficient than running all backends in parallel
 
 **Actions:**
   - search (default): Intelligent search with auto routing
-  - init: Create FTS index only (no embeddings, faster). For vector/semantic search, use "ccw view" dashboard
+  - init: Create CodexLens index
   - status: Check index and embedding availability
   - search_files: Return file paths only
 
 **Workflow:**
-  1. Run action="init" to create FTS index (fast)
-  2. For semantic search: create vector index via "ccw view" dashboard or "codexlens init <path>"
-  3. Use auto mode - it routes to hybrid for NL queries, exact for simple queries`,
+  1. Run action="init" to create index
+  2. Use auto mode - it routes to hybrid for NL queries, exact for simple queries
+  3. Use priority mode for comprehensive fallback search`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -978,7 +1002,7 @@ export const schema: ToolSchema = {
       mode: {
         type: 'string',
         enum: SEARCH_MODES,
-        description: 'Search mode: auto (default), hybrid (best quality), exact (CodexLens FTS), ripgrep (fast, no index), parallel (all backends with RRF fusion)',
+        description: 'Search mode: auto (default), hybrid (best quality), exact (CodexLens FTS), ripgrep (fast, no index), priority (fallback: hybrid->exact->ripgrep)',
         default: 'auto',
       },
       output_mode: {
@@ -1006,13 +1030,13 @@ export const schema: ToolSchema = {
       },
       maxResults: {
         type: 'number',
-        description: 'Maximum number of results (default: 100)',
-        default: 100,
+        description: 'Maximum number of results (default: 10)',
+        default: 10,
       },
       limit: {
         type: 'number',
         description: 'Alias for maxResults',
-        default: 100,
+        default: 10,
       },
       includeHidden: {
         type: 'boolean',
@@ -1023,15 +1047,6 @@ export const schema: ToolSchema = {
         type: 'array',
         items: { type: 'string' },
         description: 'Languages to index (for init action). Example: ["javascript", "typescript"]',
-      },
-      parallelWeights: {
-        type: 'object',
-        properties: {
-          hybrid: { type: 'number', default: 0.5 },
-          exact: { type: 'number', default: 0.3 },
-          ripgrep: { type: 'number', default: 0.2 },
-        },
-        description: 'RRF weights for parallel mode. Weights should sum to 1.0. Default: {hybrid: 0.5, exact: 0.3, ripgrep: 0.2}',
       },
     },
     required: [],
@@ -1082,12 +1097,13 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
     return { success: false, error: `Invalid params: ${parsed.error.message}` };
   }
 
-  const { action, mode, output_mode, limit, maxResults } = parsed.data;
+  const { action, mode, output_mode } = parsed.data;
 
-  // Use limit if maxResults not provided
-  if (limit && !maxResults) {
-    parsed.data.maxResults = limit;
-  }
+  // Sync limit and maxResults - use the larger of the two if both provided
+  // This ensures user-provided values take precedence over defaults
+  const effectiveLimit = Math.max(parsed.data.limit || 10, parsed.data.maxResults || 10);
+  parsed.data.maxResults = effectiveLimit;
+  parsed.data.limit = effectiveLimit;
 
   try {
     let result: SearchResult;
@@ -1109,7 +1125,7 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
 
       case 'search':
       default:
-        // Handle search modes: auto | hybrid | exact | ripgrep | parallel
+        // Handle search modes: auto | hybrid | exact | ripgrep | priority
         switch (mode) {
           case 'auto':
             result = await executeAutoMode(parsed.data);
@@ -1123,11 +1139,11 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
           case 'ripgrep':
             result = await executeRipgrepMode(parsed.data);
             break;
-          case 'parallel':
-            result = await executeParallelMode(parsed.data);
+          case 'priority':
+            result = await executePriorityFallbackMode(parsed.data);
             break;
           default:
-            throw new Error(`Unsupported mode: ${mode}. Use: auto, hybrid, exact, ripgrep, or parallel`);
+            throw new Error(`Unsupported mode: ${mode}. Use: auto, hybrid, exact, ripgrep, or priority`);
         }
         break;
     }

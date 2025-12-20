@@ -6,6 +6,37 @@
 // ========== HTML/Text Processing ==========
 
 /**
+ * Encode JSON config data to Base64 for safe HTML attribute storage
+ * @param {Object} config - Configuration object to encode
+ * @returns {string} Base64 encoded JSON string
+ */
+function encodeConfigData(config) {
+  try {
+    const jsonStr = JSON.stringify(config);
+    return btoa(encodeURIComponent(jsonStr));
+  } catch (err) {
+    console.error('[Utils] Error encoding config data:', err);
+    return '';
+  }
+}
+
+/**
+ * Decode Base64 config data back to JSON object
+ * @param {string} encoded - Base64 encoded string
+ * @returns {Object|null} Decoded configuration object or null on error
+ */
+function decodeConfigData(encoded) {
+  try {
+    if (!encoded) return null;
+    const jsonStr = decodeURIComponent(atob(encoded));
+    return JSON.parse(jsonStr);
+  } catch (err) {
+    console.error('[Utils] Error decoding config data:', err);
+    return null;
+  }
+}
+
+/**
  * Escape HTML special characters to prevent XSS attacks
  * @param {string} str - String to escape
  * @returns {string} Escaped string safe for HTML insertion

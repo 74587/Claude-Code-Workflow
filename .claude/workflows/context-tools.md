@@ -10,7 +10,7 @@
 smart_search(query="authentication logic")
 
 // Step 2: Only if search warns "No CodexLens index found", then init
-smart_search(action="init", path=".")                  // Creates FTS index only
+smart_search(action="init", path=".")   // Creates FTS index only
 
 // Note: For semantic/vector search, use "ccw view" dashboard to create vector index
 ```

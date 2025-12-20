@@ -324,7 +324,7 @@ async function renderMcpManager() {
                     <button class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
                             data-action="copy-to-codex"
                             data-server-name="${escapeHtml(serverName)}"
-                            data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
+                            data-server-config="${encodeConfigData(serverConfig)}"
                             title="${t('mcp.codex.copyToCodex')}">
                       <i data-lucide="arrow-right" class="w-3.5 h-3.5 inline"></i> Codex
                     </button>
@@ -684,7 +684,7 @@ async function renderMcpManager() {
                     <button class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
                             data-action="copy-codex-to-claude"
                             data-server-name="${escapeHtml(serverName)}"
-                            data-server-config='${JSON.stringify(serverConfig).replace(/'/g, "&#39;")}'
+                            data-server-config="${encodeConfigData(serverConfig)}"
                             title="${t('mcp.claude.copyToClaude')}">
                       <i data-lucide="arrow-right" class="w-3.5 h-3.5 inline"></i> Claude
                     </button>
@@ -823,7 +823,7 @@ function renderProjectAvailableServerCard(entry) {
   return `
     <div class="mcp-server-card bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer ${canToggle && !isEnabled ? 'opacity-60' : ''}"
          data-server-name="${escapeHtml(name)}"
-         data-server-config="${escapeHtml(JSON.stringify(config))}"
+         data-server-config="${encodeConfigData(config)}"
          data-server-source="${source}"
          data-action="view-details"
          title="${t('mcp.clickToViewDetails')}">
@@ -867,7 +867,7 @@ function renderProjectAvailableServerCard(entry) {
         <div class="flex items-center gap-2">
           <button class="text-xs text-success hover:text-success/80 transition-colors flex items-center gap-1"
                   data-server-name="${escapeHtml(name)}"
-                  data-server-config="${escapeHtml(JSON.stringify(config))}"
+                  data-server-config="${encodeConfigData(config)}"
                   data-action="save-as-template"
                   onclick="event.stopPropagation()"
                   title="${t('mcp.saveAsTemplate')}">
@@ -898,7 +898,7 @@ function renderGlobalManagementCard(serverName, serverConfig) {
   return `
     <div class="mcp-server-card mcp-server-global bg-card border border-success/30 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer"
          data-server-name="${escapeHtml(serverName)}"
-         data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
+         data-server-config="${encodeConfigData(serverConfig)}"
          data-server-source="global"
          data-action="view-details"
          title="${t('mcp.clickToEdit')}">
@@ -976,7 +976,7 @@ function renderAvailableServerCard(serverName, serverInfo) {
           <button class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
                   data-server-name="${escapeHtml(originalName)}"
                   data-server-key="${escapeHtml(serverName)}"
-                  data-server-config='${JSON.stringify(serverConfig).replace(/'/g, "&#39;")}'
+                  data-server-config="${encodeConfigData(serverConfig)}"
                   data-scope="project"
                   data-action="add-from-other"
                   title="${t('mcp.installToProject')}">
@@ -985,7 +985,7 @@ function renderAvailableServerCard(serverName, serverInfo) {
           <button class="px-3 py-1 text-xs bg-success text-success-foreground rounded hover:opacity-90 transition-opacity"
                   data-server-name="${escapeHtml(originalName)}"
                   data-server-key="${escapeHtml(serverName)}"
-                  data-server-config='${JSON.stringify(serverConfig).replace(/'/g, "&#39;")}'
+                  data-server-config="${encodeConfigData(serverConfig)}"
                   data-scope="global"
                   data-action="add-from-other"
                   title="${t('mcp.installToGlobal')}">
@@ -1014,7 +1014,7 @@ function renderAvailableServerCard(serverName, serverInfo) {
       <div class="mt-3 pt-3 border-t border-border flex items-center gap-2">
         <button class="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
                 data-server-name="${escapeHtml(originalName)}"
-                data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
+                data-server-config="${encodeConfigData(serverConfig)}"
                 data-action="install-to-project"
                 title="${t('mcp.installToProject')}">
           <i data-lucide="download" class="w-3 h-3"></i>
@@ -1022,7 +1022,7 @@ function renderAvailableServerCard(serverName, serverInfo) {
         </button>
         <button class="text-xs text-success hover:text-success/80 transition-colors flex items-center gap-1"
                 data-server-name="${escapeHtml(originalName)}"
-                data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
+                data-server-config="${encodeConfigData(serverConfig)}"
                 data-action="install-to-global"
                 title="${t('mcp.installToGlobal')}">
           <i data-lucide="globe" class="w-3 h-3"></i>
@@ -1072,7 +1072,7 @@ function renderAvailableServerCardForCodex(serverName, serverInfo) {
           <button class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
                   data-action="copy-to-codex"
                   data-server-name="${escapeHtml(originalName)}"
-                  data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
+                  data-server-config="${encodeConfigData(serverConfig)}"
                   title="${t('mcp.codex.copyToCodex')}">
             <i data-lucide="arrow-right" class="w-3.5 h-3.5 inline"></i> Codex
           </button>
@@ -1100,7 +1100,7 @@ function renderAvailableServerCardForCodex(serverName, serverInfo) {
         <button class="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
                 data-action="copy-to-codex"
                 data-server-name="${escapeHtml(originalName)}"
-                data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
+                data-server-config="${encodeConfigData(serverConfig)}"
                 title="${t('mcp.codex.copyToCodex')}">
           <i data-lucide="download" class="w-3 h-3"></i>
           ${t('mcp.codex.install')}
@@ -1130,7 +1130,7 @@ function renderCodexServerCard(serverName, serverConfig) {
   return `
     <div class="mcp-server-card bg-card border border-primary/20 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer ${!isEnabled ? 'opacity-60' : ''}"
          data-server-name="${escapeHtml(serverName)}"
-         data-server-config="${escapeHtml(JSON.stringify(serverConfig))}"
+         data-server-config="${encodeConfigData(serverConfig)}"
          data-cli-type="codex"
          data-action="view-details-codex"
          title="${t('mcp.clickToEdit')}">
@@ -1180,7 +1180,7 @@ function renderCodexServerCard(serverName, serverConfig) {
           <button class="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
                   data-action="copy-codex-to-claude"
                   data-server-name="${escapeHtml(serverName)}"
-                  data-server-config='${JSON.stringify(serverConfig).replace(/'/g, "&#39;")}'
+                  data-server-config="${encodeConfigData(serverConfig)}"
                   title="${t('mcp.codex.copyToClaude')}">
             <i data-lucide="copy" class="w-3 h-3"></i>
             ${t('mcp.codex.copyToClaude')}
@@ -1250,7 +1250,7 @@ function renderCrossCliServerCard(server, isClaude) {
         <button class="w-full px-3 py-2 text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors flex items-center justify-center gap-1.5"
                 data-action="copy-cross-cli"
                 data-server-name="${escapeHtml(name)}"
-                data-server-config='${JSON.stringify(config).replace(/'/g, "&#39;")}'
+                data-server-config="${encodeConfigData(config)}"
                 data-from-cli="${fromCli}"
                 data-target-cli="${targetCli}">
           <i data-lucide="copy" class="w-4 h-4"></i>
@@ -1357,14 +1357,18 @@ function attachMcpEventListeners() {
   // Add from other projects (with scope selection)
   document.querySelectorAll('.mcp-server-card button[data-action="add-from-other"]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
-      const serverName = btn.dataset.serverName;
-      const serverConfig = JSON.parse(btn.dataset.serverConfig);
-      const scope = btn.dataset.scope; // 'project' or 'global'
+      try {
+        const serverName = btn.dataset.serverName;
+        const serverConfig = decodeConfigData(btn.dataset.serverConfig);
+        const scope = btn.dataset.scope; // 'project' or 'global'
 
-      if (scope === 'global') {
-        await addGlobalMcpServer(serverName, serverConfig);
-      } else {
-        await copyMcpServerToProject(serverName, serverConfig);
+        if (scope === 'global') {
+          await addGlobalMcpServer(serverName, serverConfig);
+        } else {
+          await copyMcpServerToProject(serverName, serverConfig);
+        }
+      } catch (err) {
+        console.error('[MCP] Error adding server from other project:', err);
       }
     });
   });
@@ -1392,27 +1396,39 @@ function attachMcpEventListeners() {
   // Install to project buttons
   document.querySelectorAll('.mcp-server-card button[data-action="install-to-project"]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
-      const serverName = btn.dataset.serverName;
-      const serverConfig = JSON.parse(btn.dataset.serverConfig);
-      await copyMcpServerToProject(serverName, serverConfig);
+      try {
+        const serverName = btn.dataset.serverName;
+        const serverConfig = decodeConfigData(btn.dataset.serverConfig);
+        await copyMcpServerToProject(serverName, serverConfig);
+      } catch (err) {
+        console.error('[MCP] Error installing to project:', err);
+      }
     });
   });
 
   // Install to global buttons
   document.querySelectorAll('.mcp-server-card button[data-action="install-to-global"]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
-      const serverName = btn.dataset.serverName;
-      const serverConfig = JSON.parse(btn.dataset.serverConfig);
-      await addGlobalMcpServer(serverName, serverConfig);
+      try {
+        const serverName = btn.dataset.serverName;
+        const serverConfig = decodeConfigData(btn.dataset.serverConfig);
+        await addGlobalMcpServer(serverName, serverConfig);
+      } catch (err) {
+        console.error('[MCP] Error installing to global:', err);
+      }
     });
   });
 
   // Save as template buttons
   document.querySelectorAll('.mcp-server-card button[data-action="save-as-template"]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
-      const serverName = btn.dataset.serverName;
-      const serverConfig = JSON.parse(btn.dataset.serverConfig);
-      await saveMcpAsTemplate(serverName, serverConfig);
+      try {
+        const serverName = btn.dataset.serverName;
+        const serverConfig = decodeConfigData(btn.dataset.serverConfig);
+        await saveMcpAsTemplate(serverName, serverConfig);
+      } catch (err) {
+        console.error('[MCP] Error saving as template:', err);
+      }
     });
   });
 
@@ -1507,10 +1523,14 @@ function attachMcpEventListeners() {
   document.querySelectorAll('button[data-action="copy-to-codex"]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
-      const serverName = btn.dataset.serverName;
-      const serverConfig = JSON.parse(btn.dataset.serverConfig);
-      console.log('[MCP] Copying to Codex:', serverName);
-      await copyClaudeServerToCodex(serverName, serverConfig);
+      try {
+        const serverName = btn.dataset.serverName;
+        const serverConfig = decodeConfigData(btn.dataset.serverConfig);
+        console.log('[MCP] Copying to Codex:', serverName);
+        await copyClaudeServerToCodex(serverName, serverConfig);
+      } catch (err) {
+        console.error('[MCP] Error copying to Codex:', err);
+      }
     });
   });
 
@@ -1522,7 +1542,7 @@ function attachMcpEventListeners() {
       const serverName = btn.dataset.serverName;
       let serverConfig;
       try {
-        serverConfig = JSON.parse(btn.dataset.serverConfig);
+        serverConfig = decodeConfigData(btn.dataset.serverConfig);
       } catch (err) {
         console.error('[MCP] JSON Parse Error:', err);
         if (typeof showRefreshToast === 'function') {
@@ -1543,7 +1563,7 @@ function attachMcpEventListeners() {
       const serverName = btn.dataset.serverName;
       let serverConfig;
       try {
-        serverConfig = JSON.parse(btn.dataset.serverConfig);
+        serverConfig = decodeConfigData(btn.dataset.serverConfig);
       } catch (err) {
         console.error('[MCP] JSON Parse Error:', err);
         if (typeof showRefreshToast === 'function') {
@@ -1567,14 +1587,21 @@ function attachMcpEventListeners() {
       }
       try {
         const serverName = card.dataset.serverName;
-        // Decode HTML entities before parsing JSON
-        const configStr = unescapeHtml(card.dataset.serverConfig);
-        const serverConfig = JSON.parse(configStr);
+        const configData = card.dataset.serverConfig;
+        if (!configData) {
+          console.error('[MCP] Missing server config for:', serverName);
+          return;
+        }
+        const serverConfig = decodeConfigData(configData);
+        if (!serverConfig) {
+          console.error('[MCP] Failed to decode server config for:', serverName);
+          return;
+        }
         const serverSource = card.dataset.serverSource;
         console.log('[MCP] Card clicked:', serverName, serverSource);
         showMcpEditModal(serverName, serverConfig, serverSource, 'claude');
       } catch (err) {
-        console.error('[MCP] Error handling card click:', err, card.dataset.serverConfig);
+        console.error('[MCP] Error handling card click:', err);
       }
     });
   });
@@ -1588,13 +1615,20 @@ function attachMcpEventListeners() {
       }
       try {
         const serverName = card.dataset.serverName;
-        // Decode HTML entities before parsing JSON
-        const configStr = unescapeHtml(card.dataset.serverConfig);
-        const serverConfig = JSON.parse(configStr);
+        const configData = card.dataset.serverConfig;
+        if (!configData) {
+          console.error('[MCP] Missing server config for:', serverName);
+          return;
+        }
+        const serverConfig = decodeConfigData(configData);
+        if (!serverConfig) {
+          console.error('[MCP] Failed to decode server config for:', serverName);
+          return;
+        }
         console.log('[MCP] Codex card clicked:', serverName);
         showMcpEditModal(serverName, serverConfig, 'codex', 'codex');
       } catch (err) {
-        console.error('[MCP] Error handling Codex card click:', err, card.dataset.serverConfig);
+        console.error('[MCP] Error handling Codex card click:', err);
       }
     });
   });
