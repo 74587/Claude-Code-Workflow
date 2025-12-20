@@ -246,8 +246,8 @@ export class CoreMemoryStore {
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
     const ms = String(now.getMilliseconds()).padStart(3, '0');
-    // Add random 2-digit suffix to ensure uniqueness
-    const random = String(Math.floor(Math.random() * 100)).padStart(2, '0');
+    // Add random 4-digit suffix to ensure uniqueness (10000 combinations)
+    const random = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
     return `CLST-${year}${month}${day}-${hours}${minutes}${seconds}${ms}${random}`;
   }
 

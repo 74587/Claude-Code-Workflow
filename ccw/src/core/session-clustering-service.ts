@@ -17,8 +17,8 @@ const WEIGHTS = {
   intentAlignment: 0.2,
 };
 
-// Clustering threshold
-const CLUSTER_THRESHOLD = 0.6;
+// Clustering threshold (0.4 = moderate similarity required)
+const CLUSTER_THRESHOLD = 0.4;
 
 export interface ClusteringOptions {
   scope?: 'all' | 'recent' | 'unclustered';
@@ -357,40 +357,60 @@ export class SessionClusteringService {
    * Optimized to prevent duplicate clusters by checking existing clusters first
    */
   async autocluster(options?: ClusteringOptions): Promise<ClusteringResult> {
-    // 1. Collect only unclustered sessions to prevent re-clustering
-    const sessions = await this.collectSessions({ ...options, scope: 'unclustered' });
-    console.log(`[Clustering] Collected ${sessions.length} unclustered sessions`);
+    // 1. Collect sessions based on user-specified scope (default: 'recent')
+    const allSessions = await this.collectSessions(options);
+    console.log(`[Clustering] Collected ${allSessions.length} sessions (scope: ${options?.scope || 'recent'})`);
 
-    // 2. Update metadata cache
+    // 2. Filter out already-clustered sessions to prevent duplicates
+    const sessions = allSessions.filter(s => {
+      const clusters = this.coreMemoryStore.getSessionClusters(s.session_id);
+      return clusters.length === 0;
+    });
+    console.log(`[Clustering] ${sessions.length} unclustered sessions after filtering`);
+
+    // 3. Update metadata cache
     for (const session of sessions) {
       this.coreMemoryStore.upsertSessionMetadata(session);
     }
 
-    // 3. Calculate relevance matrix
+    // 4. Calculate relevance matrix
     const n = sessions.length;
     const relevanceMatrix: number[][] = Array(n).fill(0).map(() => Array(n).fill(0));
+
+    let maxScore = 0;
+    let avgScore = 0;
+    let pairCount = 0;
 
     for (let i = 0; i < n; i++) {
       for (let j = i + 1; j < n; j++) {
         const score = this.calculateRelevance(sessions[i], sessions[j]);
         relevanceMatrix[i][j] = score;
         relevanceMatrix[j][i] = score;
+
+        if (score > maxScore) maxScore = score;
+        avgScore += score;
+        pairCount++;
       }
     }
 
-    // 4. Agglomerative clustering
+    if (pairCount > 0) {
+      avgScore = avgScore / pairCount;
+      console.log(`[Clustering] Relevance stats: max=${maxScore.toFixed(3)}, avg=${avgScore.toFixed(3)}, pairs=${pairCount}, threshold=${CLUSTER_THRESHOLD}`);
+    }
+
+    // 5. Agglomerative clustering
     const minClusterSize = options?.minClusterSize || 2;
 
     // Early return if not enough sessions
     if (sessions.length < minClusterSize) {
       console.log('[Clustering] Not enough unclustered sessions to form new clusters');
-      return { clustersCreated: 0, sessionsProcessed: sessions.length, sessionsClustered: 0 };
+      return { clustersCreated: 0, sessionsProcessed: allSessions.length, sessionsClustered: 0 };
     }
 
     const newPotentialClusters = this.agglomerativeClustering(sessions, relevanceMatrix, CLUSTER_THRESHOLD);
     console.log(`[Clustering] Generated ${newPotentialClusters.length} potential clusters`);
 
-    // 5. Process clusters: create new or merge with existing
+    // 6. Process clusters: create new or merge with existing
     let clustersCreated = 0;
     let clustersMerged = 0;
     let sessionsClustered = 0;
@@ -459,11 +479,11 @@ export class SessionClusteringService {
       }
     }
 
-    console.log(`[Clustering] Summary: ${clustersCreated} created, ${clustersMerged} merged`);
+    console.log(`[Clustering] Summary: ${clustersCreated} created, ${clustersMerged} merged, ${allSessions.length - sessions.length} already clustered`);
 
     return {
       clustersCreated,
-      sessionsProcessed: sessions.length,
+      sessionsProcessed: allSessions.length,
       sessionsClustered
     };
   }

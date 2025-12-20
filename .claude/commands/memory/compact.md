@@ -233,6 +233,16 @@ mcp__ccw-tools__core_memory({
 })
 ```
 
+Or via CLI (pipe structured text to import):
+
+```bash
+# Write structured text to temp file, then import
+echo "$structuredText" | ccw core-memory import
+
+# Or from a file
+ccw core-memory import --file /path/to/session-memory.md
+```
+
 **Response Format**:
 ```json
 {
@@ -247,41 +257,17 @@ mcp__ccw-tools__core_memory({
 After successful import, **clearly display the Recovery ID** to the user:
 
 ```
-╔══════════════════════════════════════════════════════════════╗
-║  ✓ Session Memory Saved                                      ║
-║                                                              ║
-║  Recovery ID: CMEM-YYYYMMDD-HHMMSS                          ║
-║                                                              ║
-║  To restore this session in a new conversation:              ║
-║  > Use MCP: core_memory(operation="export", id="<ID>")      ║
-║  > Or CLI:  ccw core-memory export --id <ID>                ║
-╚══════════════════════════════════════════════════════════════╝
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ✓ Session Memory Saved                                                    ║
+║                                                                            ║
+║  Recovery ID: CMEM-YYYYMMDD-HHMMSS                                         ║
+║                                                                            ║
+║  To restore: "Please import memory <ID>"                                   ║
+║  (MCP: core_memory export | CLI: ccw core-memory export --id <ID>)         ║
+╚════════════════════════════════════════════════════════════════════════════╝
 ```
 
-## 7. Recovery Usage
-
-When starting a new session, load previous context using MCP tools:
-
-```javascript
-// List available memories
-mcp__ccw-tools__core_memory({ operation: "list" })
-
-// Export and read previous session
-mcp__ccw-tools__core_memory({ operation: "export", id: "CMEM-20251218-150322" })
-
-// Or generate AI summary for quick context
-mcp__ccw-tools__core_memory({ operation: "summary", id: "CMEM-20251218-150322" })
-```
-
-Or via CLI:
-
-```bash 
-ccw core-memory list
-ccw core-memory export --id CMEM-20251218-150322
-ccw core-memory summary --id CMEM-20251218-150322
-```
-
-## 8. Quality Checklist
+## 6. Quality Checklist
 
 Before generating:
 - [ ] Session ID captured if workflow session active (WFS-*)
@@ -298,7 +284,7 @@ Before generating:
 - [ ] Known Issues separates deferred from forgotten bugs
 - [ ] Notes preserve debugging hypotheses if any
 
-## 9. Path Resolution Rules
+## 7. Path Resolution Rules
 
 ### Project Root Detection
 1. Check current working directory from environment
@@ -325,7 +311,7 @@ const toAbsolutePath = (relativePath, projectRoot) => {
 | Test Files | Corresponding test files for modified code | Medium |
 | Documentation | `README.md`, `ARCHITECTURE.md` | Low |
 
-## 10. Plan Detection (Priority Order)
+## 8. Plan Detection (Priority Order)
 
 ### Priority 1: Workflow Session (IMPL_PLAN.md)
 ```javascript
@@ -388,7 +374,7 @@ if (inferredPlan) {
 }
 ```
 
-## 11. Notes
+## 9. Notes
 
 - **Timing**: Execute at task completion or before context switch
 - **Frequency**: Once per independent task or milestone

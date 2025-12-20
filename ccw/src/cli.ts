@@ -209,6 +209,13 @@ export function run(argv: string[]): void {
     .option('--json', 'Output as JSON')
     .option('--force', 'Skip confirmation')
     .option('--tool <tool>', 'Tool to use for summary: gemini, qwen', 'gemini')
+    .option('--auto', 'Run auto-clustering')
+    .option('--scope <scope>', 'Auto-cluster scope: all, recent, unclustered', 'recent')
+    .option('--create', 'Create new cluster')
+    .option('--name <name>', 'Cluster name')
+    .option('--members <ids>', 'Cluster member IDs (comma-separated)')
+    .option('--status <status>', 'Cluster status filter')
+    .option('--level <level>', 'Context level: metadata, keyFiles, full')
     .action((subcommand, args, options) => coreMemoryCommand(subcommand, args, options));
 
   program.parse(argv);
