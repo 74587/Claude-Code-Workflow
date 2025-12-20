@@ -5,12 +5,30 @@
 // Global state
 var clusterList = [];
 var selectedCluster = null;
+var embeddingStatus = null;
+
+/**
+ * Check embedding status for better clustering
+ */
+async function checkEmbeddingStatus() {
+  try {
+    const response = await fetch(`/api/core-memory/embed-status?path=${encodeURIComponent(projectPath)}`);
+    if (response.ok) {
+      embeddingStatus = await response.json();
+    }
+  } catch (error) {
+    console.log('Embedding status check skipped:', error.message);
+  }
+}
 
 /**
  * Fetch and render cluster list
  */
 async function loadClusters() {
   try {
+    // Check embedding status first
+    await checkEmbeddingStatus();
+
     const response = await fetch(`/api/core-memory/clusters?path=${encodeURIComponent(projectPath)}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
@@ -24,14 +42,78 @@ async function loadClusters() {
 }
 
 /**
+ * Render embedding status hint
+ */
+function renderEmbeddingHint() {
+  if (!embeddingStatus) {
+    return `
+      <div class="embedding-hint warning">
+        <i data-lucide="alert-triangle"></i>
+        <span>${t('coreMemory.embeddingNotAvailable')}</span>
+        <a href="#" onclick="window.open('https://github.com/anthropics/claude-code', '_blank'); return false;" class="hint-link">
+          ${t('coreMemory.installGuide')}
+        </a>
+      </div>
+    `;
+  }
+
+  if (embeddingStatus.pending_chunks > 0) {
+    const pct = Math.round((embeddingStatus.embedded_chunks / embeddingStatus.total_chunks) * 100);
+    return `
+      <div class="embedding-hint info">
+        <i data-lucide="cpu"></i>
+        <span>${t('coreMemory.embeddingProgress', { pct, pending: embeddingStatus.pending_chunks })}</span>
+        <button class="btn btn-xs" onclick="triggerEmbedding()">
+          ${t('coreMemory.generateEmbeddings')}
+        </button>
+      </div>
+    `;
+  }
+
+  if (embeddingStatus.total_chunks === 0) {
+    return `
+      <div class="embedding-hint info">
+        <i data-lucide="info"></i>
+        <span>${t('coreMemory.noChunksYet')}</span>
+      </div>
+    `;
+  }
+
+  return '';
+}
+
+/**
+ * Trigger embedding generation
+ */
+async function triggerEmbedding() {
+  try {
+    showNotification(t('coreMemory.embeddingInProgress'), 'info');
+    const response = await fetch(`/api/core-memory/embed?path=${encodeURIComponent(projectPath)}`, {
+      method: 'POST'
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const result = await response.json();
+    showNotification(t('coreMemory.embeddingComplete', { count: result.chunks_processed }), 'success');
+    await loadClusters();
+  } catch (error) {
+    console.error('Embedding failed:', error);
+    showNotification(t('coreMemory.embeddingError'), 'error');
+  }
+}
+
+/**
  * Render cluster list in sidebar
  */
 function renderClusterList() {
   const container = document.getElementById('clusterListContainer');
   if (!container) return;
 
+  // Add embedding status hint at top
+  const embeddingHint = renderEmbeddingHint();
+
   if (clusterList.length === 0) {
     container.innerHTML = `
+      ${embeddingHint}
       <div class="empty-state">
         <i data-lucide="folder-tree"></i>
         <p>${t('coreMemory.noClusters')}</p>
@@ -45,7 +127,7 @@ function renderClusterList() {
     return;
   }
 
-  container.innerHTML = clusterList.map(cluster => `
+  container.innerHTML = embeddingHint + clusterList.map(cluster => `
     <div class="cluster-item ${selectedCluster?.id === cluster.id ? 'active' : ''}"
          onclick="selectCluster('${cluster.id}')">
       <div class="cluster-icon">

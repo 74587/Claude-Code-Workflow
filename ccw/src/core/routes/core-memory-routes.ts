@@ -2,6 +2,9 @@ import * as http from 'http';
 import { URL } from 'url';
 import { getCoreMemoryStore } from '../core-memory-store.js';
 import type { CoreMemory, SessionCluster, ClusterMember, ClusterRelation } from '../core-memory-store.js';
+import { getEmbeddingStatus, generateEmbeddings, isEmbedderAvailable } from '../memory-embedder-bridge.js';
+import { StoragePaths } from '../../config/storage-paths.js';
+import { join } from 'path';
 
 /**
  * Route context interface
@@ -293,6 +296,62 @@ export async function handleCoreMemoryRoutes(ctx: RouteContext): Promise<boolean
         return {
           success: true,
           ...result
+        };
+      } catch (error: unknown) {
+        return { error: (error as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // API: Get embedding status
+  if (pathname === '/api/core-memory/embed-status' && req.method === 'GET') {
+    const projectPath = url.searchParams.get('path') || initialPath;
+
+    try {
+      if (!isEmbedderAvailable()) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(null));
+        return true;
+      }
+
+      const paths = StoragePaths.project(projectPath);
+      const dbPath = join(paths.root, 'core-memory', 'core_memory.db');
+      const status = await getEmbeddingStatus(dbPath);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(status));
+    } catch (error: unknown) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (error as Error).message }));
+    }
+    return true;
+  }
+
+  // API: Generate embeddings
+  if (pathname === '/api/core-memory/embed' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { sourceId, force, batchSize, path: projectPath } = body;
+      const basePath = projectPath || initialPath;
+
+      try {
+        if (!isEmbedderAvailable()) {
+          return { error: 'Embedder not available. Install CodexLens first.', status: 503 };
+        }
+
+        const paths = StoragePaths.project(basePath);
+        const dbPath = join(paths.root, 'core-memory', 'core_memory.db');
+
+        const result = await generateEmbeddings(dbPath, {
+          sourceId,
+          force: force || false,
+          batchSize: batchSize || 8
+        });
+
+        return {
+          success: result.success,
+          chunks_processed: result.chunks_processed,
+          elapsed_time: result.elapsed_time
         };
       } catch (error: unknown) {
         return { error: (error as Error).message, status: 500 };
