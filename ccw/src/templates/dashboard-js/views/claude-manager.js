@@ -37,11 +37,10 @@ async function renderClaudeManager() {
     '<p>' + t('common.loading') + '</p>' +
     '</div>';
 
-  // Load data
+  // Load file data first (fast operation)
   await loadClaudeFiles();
-  await loadFreshnessData();
 
-  // Render layout
+  // Render layout immediately without waiting for freshness data
   container.innerHTML = '<div class="claude-manager-view">' +
     '<div class="claude-manager-header">' +
     '<div class="claude-manager-header-left">' +
@@ -64,13 +63,34 @@ async function renderClaudeManager() {
     '</div>' +
     '</div>';
 
-  // Render each column
+  // Render each column immediately (without freshness data)
   renderFileTree();
   renderFileViewer();
   renderFileMetadata();
 
   // Initialize Lucide icons
   if (window.lucide) lucide.createIcons();
+
+  // Load freshness data asynchronously in the background (non-blocking)
+  loadFreshnessDataAsync();
+}
+
+// Async freshness loader - loads in background and updates UI when ready
+function loadFreshnessDataAsync() {
+  // Use setTimeout to ensure UI is rendered first
+  setTimeout(async function() {
+    try {
+      await loadFreshnessData();
+      // Re-render file tree and metadata with freshness data
+      renderFileTree();
+      if (selectedFile) {
+        renderFileMetadata();
+      }
+      if (window.lucide) lucide.createIcons();
+    } catch (error) {
+      console.error('Error loading freshness data in background:', error);
+    }
+  }, 100);
 }
 
 // ========== Data Loading ==========
@@ -88,9 +108,14 @@ async function loadClaudeFiles() {
 
 async function refreshClaudeFiles() {
   await loadClaudeFiles();
-  await loadFreshnessData();
-  await renderClaudeManager();
+  // Re-render file tree immediately
+  renderFileTree();
+  renderFileViewer();
+  renderFileMetadata();
+  if (window.lucide) lucide.createIcons();
   addGlobalNotification('success', t('claudeManager.refreshed'), null, 'CLAUDE.md');
+  // Load freshness data in background
+  loadFreshnessDataAsync();
 }
 
 // ========== Freshness Data Loading ==========
@@ -241,6 +266,9 @@ function renderFileTreeItem(file, indentLevel) {
   var freshnessClass = '';
   var freshnessBadge = '';
 
+  // Check if freshness data is loaded (freshnessSummary is set after load)
+  var freshnessLoaded = freshnessSummary !== null || Object.keys(freshnessData).length > 0;
+
   if (fd) {
     if (fd.freshness >= 75) {
       freshnessClass = ' freshness-good';
@@ -252,6 +280,9 @@ function renderFileTreeItem(file, indentLevel) {
       freshnessClass = ' freshness-stale';
       freshnessBadge = '<span class="freshness-badge stale">' + fd.freshness + '%</span>';
     }
+  } else if (!freshnessLoaded) {
+    // Show loading badge while freshness data is being fetched
+    freshnessBadge = '<span class="freshness-badge loading">...</span>';
   }
 
   return '<div class="file-tree-item' + freshnessClass + (isSelected ? ' selected' : '') + '" ' +
@@ -520,6 +551,8 @@ function renderFileMetadata() {
 
   // Freshness section
   var fd = freshnessData[selectedFile.path];
+  var freshnessLoaded = freshnessSummary !== null || Object.keys(freshnessData).length > 0;
+
   if (fd) {
     var freshnessBarClass = fd.freshness >= 75 ? 'good' : fd.freshness >= 50 ? 'warn' : 'stale';
     html += '<div class="metadata-section freshness-section">' +
@@ -547,6 +580,15 @@ function renderFileMetadata() {
     html += '<button class="btn btn-sm btn-secondary full-width" onclick="markFileAsUpdated()">' +
       '<i data-lucide="check-circle" class="w-4 h-4"></i> ' + (t('claudeManager.markAsUpdated') || 'Mark as Updated') +
       '</button>' +
+      '</div>';
+  } else if (!freshnessLoaded) {
+    // Show loading state while freshness data is being fetched
+    html += '<div class="metadata-section freshness-section">' +
+      '<h4><i data-lucide="activity" class="w-4 h-4"></i> ' + (t('claudeManager.freshness') || 'Freshness') + '</h4>' +
+      '<div class="freshness-loading">' +
+      '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>' +
+      '<span>' + (t('claudeManager.loadingFreshness') || 'Loading freshness data...') + '</span>' +
+      '</div>' +
       '</div>';
   }
 

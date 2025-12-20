@@ -90,7 +90,9 @@
   display: grid;
   grid-template-columns: 1fr 400px;
   gap: 1.5rem;
-  align-items: start;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 
 @media (max-width: 1200px) {
