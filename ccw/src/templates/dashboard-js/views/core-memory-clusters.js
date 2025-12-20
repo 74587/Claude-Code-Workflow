@@ -45,20 +45,29 @@ async function loadClusters() {
  * Render embedding status hint
  */
 function renderEmbeddingHint() {
+  // No status data - API call failed
   if (!embeddingStatus) {
+    return '';
+  }
+
+  // Embedder not available - show install hint linking to status page
+  if (embeddingStatus.available === false) {
     return `
       <div class="embedding-hint warning">
         <i data-lucide="alert-triangle"></i>
         <span>${t('coreMemory.embeddingNotAvailable')}</span>
-        <a href="#" onclick="window.open('https://github.com/anthropics/claude-code', '_blank'); return false;" class="hint-link">
+        <a href="#" onclick="switchToSemanticStatus(); return false;" class="hint-link">
           ${t('coreMemory.installGuide')}
         </a>
       </div>
     `;
   }
 
+  // Has pending chunks - show progress
   if (embeddingStatus.pending_chunks > 0) {
-    const pct = Math.round((embeddingStatus.embedded_chunks / embeddingStatus.total_chunks) * 100);
+    const pct = embeddingStatus.total_chunks > 0
+      ? Math.round((embeddingStatus.embedded_chunks / embeddingStatus.total_chunks) * 100)
+      : 0;
     return `
       <div class="embedding-hint info">
         <i data-lucide="cpu"></i>
@@ -70,16 +79,40 @@ function renderEmbeddingHint() {
     `;
   }
 
+  // No chunks yet - show hint to run embed
   if (embeddingStatus.total_chunks === 0) {
     return `
       <div class="embedding-hint info">
         <i data-lucide="info"></i>
         <span>${t('coreMemory.noChunksYet')}</span>
+        <button class="btn btn-xs" onclick="triggerEmbedding()">
+          ${t('coreMemory.generateEmbeddings')}
+        </button>
       </div>
     `;
   }
 
+  // All embedded - no hint needed
   return '';
+}
+
+/**
+ * Switch to CLI Manager and show semantic install hint
+ */
+function switchToSemanticStatus() {
+  // Navigate to CLI Manager view (which contains the Semantic Search section)
+  const navItem = document.querySelector('[data-view="cli-manager"]');
+  if (navItem) {
+    navItem.click();
+    // Open CodexLens config modal after navigation
+    setTimeout(() => {
+      if (typeof openCodexLensConfig === 'function') {
+        openCodexLensConfig();
+      }
+    }, 300);
+  } else {
+    showNotification(t('coreMemory.goToSemanticStatus'), 'info');
+  }
 }
 
 /**

@@ -2,7 +2,8 @@ import * as http from 'http';
 import { URL } from 'url';
 import { getCoreMemoryStore } from '../core-memory-store.js';
 import type { CoreMemory, SessionCluster, ClusterMember, ClusterRelation } from '../core-memory-store.js';
-import { getEmbeddingStatus, generateEmbeddings, isEmbedderAvailable } from '../memory-embedder-bridge.js';
+import { getEmbeddingStatus, generateEmbeddings } from '../memory-embedder-bridge.js';
+import { checkSemanticStatus } from '../../tools/codex-lens.js';
 import { StoragePaths } from '../../config/storage-paths.js';
 import { join } from 'path';
 
@@ -309,9 +310,19 @@ export async function handleCoreMemoryRoutes(ctx: RouteContext): Promise<boolean
     const projectPath = url.searchParams.get('path') || initialPath;
 
     try {
-      if (!isEmbedderAvailable()) {
+      // Check semantic status using CodexLens's check (same as status page)
+      const semanticStatus = await checkSemanticStatus();
+
+      if (!semanticStatus.available) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(null));
+        res.end(JSON.stringify({
+          available: false,
+          total_chunks: 0,
+          embedded_chunks: 0,
+          pending_chunks: 0,
+          by_type: {},
+          error: semanticStatus.error
+        }));
         return true;
       }
 
@@ -320,10 +331,18 @@ export async function handleCoreMemoryRoutes(ctx: RouteContext): Promise<boolean
       const status = await getEmbeddingStatus(dbPath);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(status));
+      res.end(JSON.stringify({ ...status, available: true }));
     } catch (error: unknown) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: (error as Error).message }));
+      // Return status with available=true even on error (embedder exists but query failed)
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        available: true,
+        total_chunks: 0,
+        embedded_chunks: 0,
+        pending_chunks: 0,
+        by_type: {},
+        error: (error as Error).message
+      }));
     }
     return true;
   }
@@ -335,8 +354,10 @@ export async function handleCoreMemoryRoutes(ctx: RouteContext): Promise<boolean
       const basePath = projectPath || initialPath;
 
       try {
-        if (!isEmbedderAvailable()) {
-          return { error: 'Embedder not available. Install CodexLens first.', status: 503 };
+        // Check semantic status using CodexLens's check
+        const semanticStatus = await checkSemanticStatus();
+        if (!semanticStatus.available) {
+          return { error: semanticStatus.error || 'Semantic search not available. Install it from CLI > CodexLens > Semantic page.', status: 503 };
         }
 
         const paths = StoragePaths.project(basePath);

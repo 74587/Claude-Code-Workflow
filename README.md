@@ -110,7 +110,7 @@ ccw install -m Path -p ./my-project
 ccw view
 
 # Start dashboard server on custom port
-ccw serve -p 8080
+ccw serve --port 8080
 
 # Upgrade all installations
 ccw upgrade -a

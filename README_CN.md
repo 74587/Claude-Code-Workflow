@@ -102,7 +102,7 @@ ccw install -m Path -p ./my-project
 ccw view
 
 # 在自定义端口启动仪表板服务器
-ccw serve -p 8080
+ccw serve --port 8080
 
 # 升级所有安装
 ccw upgrade -a
