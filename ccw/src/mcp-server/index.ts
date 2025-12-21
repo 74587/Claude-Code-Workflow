@@ -12,9 +12,14 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { getAllToolSchemas, executeTool, executeToolWithProgress } from '../tools/index.js';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
+import { getProjectRoot, getAllowedDirectories } from '../utils/path-validator.js';
 
 const SERVER_NAME = 'ccw-tools';
 const SERVER_VERSION = '6.2.0';
+
+// Environment variable names for documentation
+const ENV_PROJECT_ROOT = 'CCW_PROJECT_ROOT';
+const ENV_ALLOWED_DIRS = 'CCW_ALLOWED_DIRS';
 
 // Default enabled tools (core set)
 const DEFAULT_TOOLS: string[] = ['write_file', 'edit_file', 'read_file', 'smart_search', 'core_memory'];
@@ -162,7 +167,15 @@ async function main(): Promise<void> {
   });
 
   // Log server start (to stderr to not interfere with stdio protocol)
+  const projectRoot = getProjectRoot();
+  const allowedDirs = getAllowedDirectories();
   console.error(`${SERVER_NAME} v${SERVER_VERSION} started`);
+  console.error(`Project root: ${projectRoot}`);
+  console.error(`Allowed directories: ${allowedDirs.join(', ')}`);
+  if (!process.env[ENV_PROJECT_ROOT]) {
+    console.error(`[Warning] ${ENV_PROJECT_ROOT} not set, using process.cwd()`);
+    console.error(`[Tip] Set ${ENV_PROJECT_ROOT} in your MCP config to specify project directory`);
+  }
 }
 
 // Run server

@@ -9,6 +9,7 @@ import { getCoreMemoryStore, findMemoryAcrossProjects } from '../core/core-memor
 import * as MemoryEmbedder from '../core/memory-embedder-bridge.js';
 import { StoragePaths } from '../config/storage-paths.js';
 import { join } from 'path';
+import { getProjectRoot } from '../utils/path-validator.js';
 
 // Zod schemas
 const OperationEnum = z.enum(['list', 'import', 'export', 'summary', 'embed', 'search', 'embed_status']);
@@ -108,7 +109,7 @@ type OperationResult = ListResult | ImportResult | ExportResult | SummaryResult 
  * Get project path from current working directory
  */
 function getProjectPath(): string {
-  return process.cwd();
+  return getProjectRoot();
 }
 
 /**

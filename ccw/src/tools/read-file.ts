@@ -13,6 +13,7 @@ import { z } from 'zod';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
 import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { resolve, isAbsolute, join, relative, extname } from 'path';
+import { validatePath, getProjectRoot } from '../utils/path-validator.js';
 
 // Max content per file (truncate if larger)
 const MAX_CONTENT_LENGTH = 5000;
@@ -233,7 +234,7 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
     maxFiles,
   } = parsed.data;
 
-  const cwd = process.cwd();
+  const cwd = getProjectRoot();
 
   // Normalize paths to array
   const inputPaths = Array.isArray(paths) ? paths : [paths];
@@ -242,7 +243,7 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
   const allFiles: string[] = [];
 
   for (const inputPath of inputPaths) {
-    const resolvedPath = isAbsolute(inputPath) ? inputPath : resolve(cwd, inputPath);
+    const resolvedPath = await validatePath(inputPath);
 
     if (!existsSync(resolvedPath)) {
       continue; // Skip non-existent paths

@@ -40,6 +40,22 @@ function getCcwEnabledToolsCodex() {
   return CCW_MCP_TOOLS.filter(t => t.core).map(t => t.name);
 }
 
+// Get current CCW_PROJECT_ROOT from config
+function getCcwProjectRoot() {
+  const currentPath = projectPath;
+  const projectData = mcpAllProjects[currentPath] || {};
+  const ccwConfig = projectData.mcpServers?.['ccw-tools'];
+  return ccwConfig?.env?.CCW_PROJECT_ROOT || '';
+}
+
+// Get current CCW_ALLOWED_DIRS from config
+function getCcwAllowedDirs() {
+  const currentPath = projectPath;
+  const projectData = mcpAllProjects[currentPath] || {};
+  const ccwConfig = projectData.mcpServers?.['ccw-tools'];
+  return ccwConfig?.env?.CCW_ALLOWED_DIRS || '';
+}
+
 async function renderMcpManager() {
   const container = document.getElementById('mainContent');
   if (!container) return;
@@ -232,6 +248,34 @@ async function renderMcpManager() {
                   <button class="text-primary hover:underline" onclick="selectCcwToolsCodex('all')">All</button>
                   <button class="text-muted-foreground hover:underline" onclick="selectCcwToolsCodex('none')">None</button>
                 </div>
+                <!-- Path Settings -->
+                <div class="ccw-path-settings mt-3 pt-3 border-t border-border/50">
+                  <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="folder-root" class="w-4 h-4 text-muted-foreground"></i>
+                    <span class="text-xs font-medium text-muted-foreground">${t('mcp.pathSettings')}</span>
+                  </div>
+                  <div class="grid grid-cols-1 gap-2">
+                    <div class="flex items-center gap-2">
+                      <label class="text-xs text-muted-foreground w-28 shrink-0">CCW_PROJECT_ROOT</label>
+                      <input type="text"
+                             class="ccw-project-root-input flex-1 px-2 py-1 text-xs bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                             placeholder="${projectPath || t('mcp.useCurrentDir')}"
+                             value="${getCcwProjectRoot()}">
+                      <button class="p-1 text-muted-foreground hover:text-foreground"
+                              onclick="setCcwProjectRootToCurrent()"
+                              title="${t('mcp.useCurrentProject')}">
+                        <i data-lucide="locate-fixed" class="w-4 h-4"></i>
+                      </button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <label class="text-xs text-muted-foreground w-28 shrink-0">CCW_ALLOWED_DIRS</label>
+                      <input type="text"
+                             class="ccw-allowed-dirs-input flex-1 px-2 py-1 text-xs bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                             placeholder="${t('mcp.allowedDirsPlaceholder')}"
+                             value="${getCcwAllowedDirs()}">
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="shrink-0">
@@ -417,6 +461,34 @@ async function renderMcpManager() {
                   <button class="text-primary hover:underline" onclick="selectCcwTools('core')">Core only</button>
                   <button class="text-primary hover:underline" onclick="selectCcwTools('all')">All</button>
                   <button class="text-muted-foreground hover:underline" onclick="selectCcwTools('none')">None</button>
+                </div>
+                <!-- Path Settings -->
+                <div class="ccw-path-settings mt-3 pt-3 border-t border-border/50">
+                  <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="folder-root" class="w-4 h-4 text-muted-foreground"></i>
+                    <span class="text-xs font-medium text-muted-foreground">${t('mcp.pathSettings')}</span>
+                  </div>
+                  <div class="grid grid-cols-1 gap-2">
+                    <div class="flex items-center gap-2">
+                      <label class="text-xs text-muted-foreground w-28 shrink-0">CCW_PROJECT_ROOT</label>
+                      <input type="text"
+                             class="ccw-project-root-input flex-1 px-2 py-1 text-xs bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                             placeholder="${projectPath || t('mcp.useCurrentDir')}"
+                             value="${getCcwProjectRoot()}">
+                      <button class="p-1 text-muted-foreground hover:text-foreground"
+                              onclick="setCcwProjectRootToCurrent()"
+                              title="${t('mcp.useCurrentProject')}">
+                        <i data-lucide="locate-fixed" class="w-4 h-4"></i>
+                      </button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <label class="text-xs text-muted-foreground w-28 shrink-0">CCW_ALLOWED_DIRS</label>
+                      <input type="text"
+                             class="ccw-allowed-dirs-input flex-1 px-2 py-1 text-xs bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                             placeholder="${t('mcp.allowedDirsPlaceholder')}"
+                             value="${getCcwAllowedDirs()}">
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

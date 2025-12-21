@@ -12,6 +12,7 @@ import { z } from 'zod';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
 import { writeFileSync, readFileSync, existsSync, mkdirSync, renameSync, statSync } from 'fs';
 import { resolve, isAbsolute, dirname, basename } from 'path';
+import { validatePath } from '../utils/path-validator.js';
 
 // Define Zod schema for validation
 const ParamsSchema = z.object({
@@ -153,8 +154,8 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
     encoding,
   } = parsed.data;
 
-  // Resolve path
-  const resolvedPath = isAbsolute(filePath) ? filePath : resolve(process.cwd(), filePath);
+  // Validate and resolve path
+  const resolvedPath = await validatePath(filePath);
   const fileExists = existsSync(resolvedPath);
 
   // Create parent directories if needed

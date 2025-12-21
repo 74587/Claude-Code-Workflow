@@ -15,6 +15,7 @@ import { z } from 'zod';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolve, isAbsolute, dirname } from 'path';
+import { validatePath } from '../utils/path-validator.js';
 
 // Define Zod schemas for validation
 const EditItemSchema = z.object({
@@ -71,8 +72,8 @@ interface LineModeResult {
  * @param filePath - Path to file
  * @returns Resolved path and content
  */
-function readFile(filePath: string): { resolvedPath: string; content: string } {
-  const resolvedPath = isAbsolute(filePath) ? filePath : resolve(process.cwd(), filePath);
+async function readFile(filePath: string): Promise<{ resolvedPath: string; content: string }> {
+  const resolvedPath = await validatePath(filePath, { mustExist: true });
 
   if (!existsSync(resolvedPath)) {
     throw new Error(`File not found: ${resolvedPath}`);
@@ -524,7 +525,7 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
   const { path: filePath, mode = 'update', dryRun = false } = parsed.data;
 
   try {
-    const { resolvedPath, content } = readFile(filePath);
+    const { resolvedPath, content } = await readFile(filePath);
 
     let result: UpdateModeResult | LineModeResult;
     switch (mode) {

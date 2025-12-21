@@ -927,9 +927,28 @@ function selectCcwTools(type) {
   });
 }
 
+// Get CCW path settings from input fields
+function getCcwPathConfig() {
+  const projectRootInput = document.querySelector('.ccw-project-root-input');
+  const allowedDirsInput = document.querySelector('.ccw-allowed-dirs-input');
+  return {
+    projectRoot: projectRootInput?.value || '',
+    allowedDirs: allowedDirsInput?.value || ''
+  };
+}
+
+// Set CCW_PROJECT_ROOT to current project path
+function setCcwProjectRootToCurrent() {
+  const input = document.querySelector('.ccw-project-root-input');
+  if (input && projectPath) {
+    input.value = projectPath;
+  }
+}
+
 // Build CCW Tools config with selected tools
 // Uses isWindowsPlatform from state.js to generate platform-appropriate commands
-function buildCcwToolsConfig(selectedTools) {
+function buildCcwToolsConfig(selectedTools, pathConfig = {}) {
+  const { projectRoot, allowedDirs } = pathConfig;
   // Windows requires 'cmd /c' wrapper to execute npx
   // Other platforms (macOS, Linux) can run npx directly
   const config = isWindowsPlatform
@@ -948,10 +967,28 @@ function buildCcwToolsConfig(selectedTools) {
     coreTools.every(t => selectedTools.includes(t)) &&
     selectedTools.every(t => coreTools.includes(t));
 
+  // Initialize env if needed
   if (selectedTools.length === 15) {
     config.env = { CCW_ENABLED_TOOLS: 'all' };
   } else if (!isDefault && selectedTools.length > 0) {
     config.env = { CCW_ENABLED_TOOLS: selectedTools.join(',') };
+  }
+
+  // Add path settings if provided
+  if (!config.env) {
+    config.env = {};
+  }
+
+  if (projectRoot && projectRoot.trim()) {
+    config.env.CCW_PROJECT_ROOT = projectRoot.trim();
+  }
+  if (allowedDirs && allowedDirs.trim()) {
+    config.env.CCW_ALLOWED_DIRS = allowedDirs.trim();
+  }
+
+  // Remove env object if empty
+  if (config.env && Object.keys(config.env).length === 0) {
+    delete config.env;
   }
 
   return config;
@@ -965,7 +1002,8 @@ async function installCcwToolsMcp(scope = 'workspace') {
     return;
   }
 
-  const ccwToolsConfig = buildCcwToolsConfig(selectedTools);
+  const pathConfig = getCcwPathConfig();
+  const ccwToolsConfig = buildCcwToolsConfig(selectedTools, pathConfig);
 
   try {
     const scopeLabel = scope === 'global' ? 'globally' : 'to workspace';
@@ -1032,7 +1070,8 @@ async function updateCcwToolsMcp(scope = 'workspace') {
     return;
   }
 
-  const ccwToolsConfig = buildCcwToolsConfig(selectedTools);
+  const pathConfig = getCcwPathConfig();
+  const ccwToolsConfig = buildCcwToolsConfig(selectedTools, pathConfig);
 
   try {
     const scopeLabel = scope === 'global' ? 'globally' : 'in workspace';
@@ -1126,7 +1165,8 @@ async function installCcwToolsMcpToCodex() {
     return;
   }
 
-  const ccwToolsConfig = buildCcwToolsConfig(selectedTools);
+  const pathConfig = getCcwPathConfig();
+  const ccwToolsConfig = buildCcwToolsConfig(selectedTools, pathConfig);
 
   try {
     const isUpdate = codexMcpServers && codexMcpServers['ccw-tools'];
@@ -1176,3 +1216,4 @@ window.openMcpCreateModal = openMcpCreateModal;
 window.toggleProjectConfigType = toggleProjectConfigType;
 window.getPreferredProjectConfigType = getPreferredProjectConfigType;
 window.setPreferredProjectConfigType = setPreferredProjectConfigType;
+window.setCcwProjectRootToCurrent = setCcwProjectRootToCurrent;

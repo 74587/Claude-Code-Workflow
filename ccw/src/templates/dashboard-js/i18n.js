@@ -290,6 +290,8 @@ const i18n = {
     'codexlens.modelDeleted': 'Model deleted',
     'codexlens.modelDeleteFailed': 'Model deletion failed',
     'codexlens.deleteModelConfirm': 'Are you sure you want to delete model',
+    'codexlens.modelListError': 'Failed to load models',
+    'codexlens.noModelsAvailable': 'No models available',
 
     // CodexLens Indexing Progress
     'codexlens.indexing': 'Indexing',
@@ -608,6 +610,12 @@ const i18n = {
     'mcp.cliMode': 'CLI Mode',
     'mcp.claudeMode': 'Claude Mode',
     'mcp.codexMode': 'Codex Mode',
+
+    // CCW Tools Path Settings
+    'mcp.pathSettings': 'Path Settings',
+    'mcp.useCurrentDir': 'Use current directory',
+    'mcp.useCurrentProject': 'Use current project',
+    'mcp.allowedDirsPlaceholder': 'Comma-separated paths (optional)',
 
     // Codex MCP
     'mcp.codex.globalServers': 'Codex Global MCP Servers',
@@ -1617,6 +1625,8 @@ const i18n = {
     'codexlens.modelDeleted': '模型已删除',
     'codexlens.modelDeleteFailed': '模型删除失败',
     'codexlens.deleteModelConfirm': '确定要删除模型',
+    'codexlens.modelListError': '加载模型列表失败',
+    'codexlens.noModelsAvailable': '没有可用模型',
 
     // CodexLens 索引进度
     'codexlens.indexing': '索引中',
@@ -1913,6 +1923,12 @@ const i18n = {
     'mcp.cliMode': 'CLI 模式',
     'mcp.claudeMode': 'Claude 模式',
     'mcp.codexMode': 'Codex 模式',
+
+    // CCW Tools Path Settings
+    'mcp.pathSettings': '路径设置',
+    'mcp.useCurrentDir': '使用当前目录',
+    'mcp.useCurrentProject': '使用当前项目',
+    'mcp.allowedDirsPlaceholder': '逗号分隔的路径列表（可选）',
 
     // Codex MCP
     'mcp.codex.globalServers': 'Codex 全局 MCP 服务器',

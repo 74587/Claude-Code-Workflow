@@ -415,9 +415,23 @@ async function loadModelList() {
     var response = await fetch('/api/codexlens/models');
     var result = await response.json();
 
-    if (!result.success || !result.result || !result.result.models) {
+    if (!result.success) {
+      // Check if the error is specifically about fastembed not being installed
+      var errorMsg = result.error || '';
+      if (errorMsg.includes('fastembed not installed') || errorMsg.includes('Semantic')) {
+        container.innerHTML =
+          '<div class="text-sm text-muted-foreground">' + t('codexlens.semanticNotInstalled') + '</div>';
+      } else {
+        // Show actual error message for other failures
+        container.innerHTML =
+          '<div class="text-sm text-error">' + t('codexlens.modelListError') + ': ' + (errorMsg || t('common.unknownError')) + '</div>';
+      }
+      return;
+    }
+
+    if (!result.result || !result.result.models) {
       container.innerHTML =
-        '<div class="text-sm text-muted-foreground">' + t('codexlens.semanticNotInstalled') + '</div>';
+        '<div class="text-sm text-muted-foreground">' + t('codexlens.noModelsAvailable') + '</div>';
       return;
     }
 

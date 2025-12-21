@@ -22,6 +22,7 @@ import {
   executeCodexLens,
 } from './codex-lens.js';
 import type { ProgressInfo } from './codex-lens.js';
+import { getProjectRoot } from '../utils/path-validator.js';
 
 // Define Zod schema for validation
 const ParamsSchema = z.object({
@@ -659,7 +660,7 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
 
   return new Promise((resolve) => {
     const child = spawn(command, args, {
-      cwd: path || process.cwd(),
+      cwd: path || getProjectRoot(),
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
@@ -1518,7 +1519,7 @@ async function executeFindFilesAction(params: Params): Promise<SearchResult> {
     }
 
     const child = spawn('rg', args, {
-      cwd: path || process.cwd(),
+      cwd: path || getProjectRoot(),
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
