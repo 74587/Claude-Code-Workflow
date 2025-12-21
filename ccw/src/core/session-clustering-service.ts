@@ -165,20 +165,46 @@ export class SessionClusteringService {
       keywords.add(match[1]);
     }
 
-    // 3. Technical terms (common frameworks/libraries)
+    // 3. Technical terms (common frameworks/libraries/concepts)
     const techTerms = [
+      // Frameworks
       'react', 'vue', 'angular', 'typescript', 'javascript', 'node', 'express',
+      // Auth
       'auth', 'authentication', 'jwt', 'oauth', 'session', 'token',
+      // Data
       'api', 'rest', 'graphql', 'database', 'sql', 'mongodb', 'redis',
+      // Testing
       'test', 'testing', 'jest', 'mocha', 'vitest',
+      // Development
       'refactor', 'refactoring', 'optimization', 'performance',
-      'bug', 'fix', 'error', 'issue', 'debug'
+      'bug', 'fix', 'error', 'issue', 'debug',
+      // CCW-specific terms
+      'cluster', 'clustering', 'memory', 'hook', 'service', 'context',
+      'workflow', 'skill', 'prompt', 'embedding', 'vector', 'semantic',
+      'dashboard', 'view', 'route', 'command', 'cli', 'mcp'
     ];
 
     const lowerContent = content.toLowerCase();
     for (const term of techTerms) {
       if (lowerContent.includes(term)) {
         keywords.add(term);
+      }
+    }
+
+    // 4. Generic word extraction (words >= 4 chars, not stopwords)
+    const stopwords = new Set([
+      'the', 'and', 'for', 'that', 'this', 'with', 'from', 'have', 'will',
+      'are', 'was', 'were', 'been', 'being', 'what', 'when', 'where', 'which',
+      'there', 'their', 'they', 'them', 'then', 'than', 'into', 'some', 'such',
+      'only', 'also', 'just', 'more', 'most', 'other', 'after', 'before'
+    ]);
+
+    const wordRegex = /\b([a-z]{4,})\b/g;
+    let wordMatch;
+    while ((wordMatch = wordRegex.exec(lowerContent)) !== null) {
+      const word = wordMatch[1];
+      if (!stopwords.has(word)) {
+        keywords.add(word);
       }
     }
 

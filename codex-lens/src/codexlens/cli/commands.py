@@ -151,10 +151,21 @@ def init(
                     if not json_mode:
                         console.print("\n[bold]Generating embeddings...[/bold]")
                         console.print(f"Model: [cyan]{embedding_model}[/cyan]")
+                    else:
+                        # Output progress message for JSON mode (parsed by Node.js)
+                        print("Generating embeddings...", flush=True)
 
-                    # Progress callback for non-json mode
+                    # Progress callback - outputs progress for both json and non-json modes
+                    # Node.js parseProgressLine() expects formats like:
+                    # - "Batch X: N files, M chunks"
+                    # - "Processing N files"
+                    # - "Finalizing index"
                     def progress_update(msg: str):
-                        if not json_mode and verbose:
+                        if json_mode:
+                            # Output without prefix so Node.js can parse it
+                            # Strip leading spaces that embedding_manager adds
+                            print(msg.strip(), flush=True)
+                        elif verbose:
                             console.print(f"  {msg}")
 
                     embed_result = generate_embeddings_recursive(
@@ -162,12 +173,16 @@ def init(
                         model_profile=embedding_model,
                         force=False,  # Don't force regenerate during init
                         chunk_size=2000,
-                        progress_callback=progress_update if not json_mode else None,
+                        progress_callback=progress_update,  # Always use callback
                     )
 
                     if embed_result["success"]:
                         embed_data = embed_result["result"]
-                        
+
+                        # Output completion message for Node.js to parse
+                        if json_mode:
+                            print(f"Embeddings complete: {embed_data['total_chunks_created']} chunks", flush=True)
+
                         # Get comprehensive coverage statistics
                         status_result = get_embeddings_status(index_root)
                         if status_result["success"]:

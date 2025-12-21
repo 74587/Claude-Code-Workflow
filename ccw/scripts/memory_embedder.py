@@ -26,7 +26,7 @@ except ImportError:
     sys.exit(1)
 
 try:
-    from codexlens.semantic.embedder import get_embedder
+    from codexlens.semantic.embedder import get_embedder, clear_embedder_cache
 except ImportError:
     print("Error: CodexLens not found. Install with: pip install codexlens[semantic]", file=sys.stderr)
     sys.exit(1)
@@ -46,8 +46,15 @@ class MemoryEmbedder:
         self.conn = sqlite3.connect(str(self.db_path))
         self.conn.row_factory = sqlite3.Row
 
-        # Initialize embedder (uses cached singleton)
-        self.embedder = get_embedder(profile="code")
+        # Lazy-load embedder to avoid ~0.8s model loading for status command
+        self._embedder = None
+
+    @property
+    def embedder(self):
+        """Lazy-load the embedder on first access."""
+        if self._embedder is None:
+            self._embedder = get_embedder(profile="code")
+        return self._embedder
 
     def close(self):
         """Close database connection."""
@@ -348,9 +355,21 @@ def main():
 
         # Exit with error code if operation failed
         if "success" in result and not result["success"]:
+            # Clean up ONNX resources before exit
+            clear_embedder_cache()
             sys.exit(1)
 
+        # Clean up ONNX resources to ensure process can exit cleanly
+        # This releases fastembed/ONNX Runtime threads that would otherwise
+        # prevent the Python interpreter from shutting down
+        clear_embedder_cache()
+
     except Exception as e:
+        # Clean up ONNX resources even on error
+        try:
+            clear_embedder_cache()
+        except Exception:
+            pass
         print(json.dumps({
             "success": False,
             "error": str(e)

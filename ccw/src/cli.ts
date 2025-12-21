@@ -11,6 +11,7 @@ import { sessionCommand } from './commands/session.js';
 import { cliCommand } from './commands/cli.js';
 import { memoryCommand } from './commands/memory.js';
 import { coreMemoryCommand } from './commands/core-memory.js';
+import { hookCommand } from './commands/hook.js';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -228,6 +229,16 @@ export function run(argv: string[]): void {
     .option('--overwrite', 'Overwrite existing memories when importing')
     .option('--prefix <prefix>', 'Add prefix to imported memory IDs')
     .action((subcommand, args, options) => coreMemoryCommand(subcommand, args, options));
+
+  // Hook command - CLI endpoint for Claude Code hooks
+  program
+    .command('hook [subcommand] [args...]')
+    .description('CLI endpoint for Claude Code hooks (session-context, notify)')
+    .option('--stdin', 'Read input from stdin (for Claude Code hooks)')
+    .option('--session-id <id>', 'Session ID')
+    .option('--prompt <text>', 'Prompt text')
+    .option('--type <type>', 'Context type: session-start, context')
+    .action((subcommand, args, options) => hookCommand(subcommand, args, options));
 
   program.parse(argv);
 }

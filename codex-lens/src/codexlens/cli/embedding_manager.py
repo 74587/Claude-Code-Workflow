@@ -235,7 +235,8 @@ def generate_embeddings(
                         return {"success": False, "error": "No files found in index"}
 
                     if progress_callback:
-                        progress_callback(f"Processing {total_files} files in batches of {FILE_BATCH_SIZE}...")
+                        # Format must match Node.js parseProgressLine: "Processing N files" with 'embed' keyword
+                        progress_callback(f"Processing {total_files} files for embeddings in batches of {FILE_BATCH_SIZE}...")
 
                     cursor = conn.execute(f"SELECT {path_column}, content, language FROM files")
                     batch_number = 0
@@ -325,9 +326,23 @@ def generate_embeddings(
                     progress_callback(f"Finalizing index... Building ANN index for {total_chunks_created} chunks")
 
     except Exception as e:
+        # Cleanup on error to prevent process hanging
+        try:
+            clear_embedder_cache()
+            gc.collect()
+        except Exception:
+            pass
         return {"success": False, "error": f"Failed to read or process files: {str(e)}"}
 
     elapsed_time = time.time() - start_time
+
+    # Final cleanup: release ONNX resources to allow process exit
+    # This is critical - without it, ONNX Runtime threads prevent Python from exiting
+    try:
+        clear_embedder_cache()
+        gc.collect()
+    except Exception:
+        pass
 
     return {
         "success": True,
@@ -418,7 +433,8 @@ def generate_embeddings_recursive(
                 rel_path = index_path.relative_to(index_root)
             except ValueError:
                 rel_path = index_path
-            progress_callback(f"[{idx}/{len(index_files)}] Processing {rel_path}")
+            # Format: "Processing file X/Y: path" to match Node.js parseProgressLine
+            progress_callback(f"Processing file {idx}/{len(index_files)}: {rel_path}")
 
         result = generate_embeddings(
             index_path,
@@ -442,6 +458,15 @@ def generate_embeddings_recursive(
             total_files_failed += data["files_failed"]
 
     successful = sum(1 for r in all_results if r["success"])
+
+    # Final cleanup after processing all indexes
+    # Each generate_embeddings() call does its own cleanup, but do a final one to be safe
+    try:
+        if SEMANTIC_AVAILABLE:
+            clear_embedder_cache()
+            gc.collect()
+    except Exception:
+        pass
 
     return {
         "success": successful > 0,

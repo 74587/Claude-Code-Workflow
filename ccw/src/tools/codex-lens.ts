@@ -450,6 +450,16 @@ function parseProgressLine(line: string): ProgressInfo | null {
     return { stage: 'finalizing', message: 'Finalizing vector index...', percent: 90 };
   }
 
+  // Parse embeddings complete message
+  const embedCompleteMatch = line.match(/Embeddings complete:\s*(\d+)\s*chunks/i);
+  if (embedCompleteMatch) {
+    return {
+      stage: 'embeddings_complete',
+      message: `Embeddings complete: ${embedCompleteMatch[1]} chunks`,
+      percent: 95,
+    };
+  }
+
   return null;
 }
 
