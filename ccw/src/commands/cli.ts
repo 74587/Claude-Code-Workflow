@@ -43,6 +43,7 @@ function notifyDashboard(data: Record<string, unknown>): void {
     port: Number(DASHBOARD_PORT),
     path: '/api/hook',
     method: 'POST',
+    timeout: 2000, // 2 second timeout to prevent hanging
     headers: {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(payload)
@@ -52,6 +53,10 @@ function notifyDashboard(data: Record<string, unknown>): void {
   // Fire and forget - log errors only in debug mode
   req.on('error', (err) => {
     if (process.env.DEBUG) console.error('[Dashboard] CLI notification failed:', err.message);
+  });
+  req.on('timeout', () => {
+    req.destroy();
+    if (process.env.DEBUG) console.error('[Dashboard] CLI notification timed out');
   });
   req.write(payload);
   req.end();

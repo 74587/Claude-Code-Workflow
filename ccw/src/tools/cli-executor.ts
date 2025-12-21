@@ -796,7 +796,7 @@ async function executeCliTool(
     });
 
     // Handle completion
-    child.on('close', (code) => {
+    child.on('close', async (code) => {
       const endTime = Date.now();
       const duration = endTime - startTime;
 
@@ -942,29 +942,28 @@ async function executeCliTool(
         }
       }
 
-      // Track native session after execution (async, non-blocking)
+      // Track native session after execution (awaited to prevent process hang)
       // Pass prompt for precise matching in parallel execution scenarios
-      trackNewSession(tool, new Date(startTime), workingDir, prompt)
-        .then((nativeSession) => {
-          if (nativeSession) {
-            // Save native session mapping
-            try {
-              store.saveNativeSessionMapping({
-                ccw_id: conversationId,
-                tool,
-                native_session_id: nativeSession.sessionId,
-                native_session_path: nativeSession.filePath,
-                project_hash: nativeSession.projectHash,
-                created_at: new Date().toISOString()
-              });
-            } catch (err) {
-              console.error('[CLI Executor] Failed to save native session mapping:', (err as Error).message);
-            }
+      try {
+        const nativeSession = await trackNewSession(tool, new Date(startTime), workingDir, prompt);
+        if (nativeSession) {
+          // Save native session mapping
+          try {
+            store.saveNativeSessionMapping({
+              ccw_id: conversationId,
+              tool,
+              native_session_id: nativeSession.sessionId,
+              native_session_path: nativeSession.filePath,
+              project_hash: nativeSession.projectHash,
+              created_at: new Date().toISOString()
+            });
+          } catch (err) {
+            console.error('[CLI Executor] Failed to save native session mapping:', (err as Error).message);
           }
-        })
-        .catch((err) => {
-          console.error('[CLI Executor] Failed to track native session:', (err as Error).message);
-        });
+        }
+      } catch (err) {
+        console.error('[CLI Executor] Failed to track native session:', (err as Error).message);
+      }
 
       // Create legacy execution record for backward compatibility
       const execution: ExecutionRecord = {
