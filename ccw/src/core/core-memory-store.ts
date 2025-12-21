@@ -1384,6 +1384,55 @@ export function getMemoriesFromProject(projectId: string): CoreMemory[] {
 }
 
 /**
+ * Find a memory by ID across all projects
+ * Searches through all project databases to locate a specific memory
+ */
+export function findMemoryAcrossProjects(memoryId: string): { memory: CoreMemory; projectId: string } | null {
+  const projectsDir = join(getCCWHome(), 'projects');
+
+  if (!existsSync(projectsDir)) {
+    return null;
+  }
+
+  const entries = readdirSync(projectsDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+
+    const projectId = entry.name;
+    const coreMemoryDb = join(projectsDir, projectId, 'core-memory', 'core_memory.db');
+
+    if (!existsSync(coreMemoryDb)) continue;
+
+    try {
+      const db = new Database(coreMemoryDb, { readonly: true });
+      const row = db.prepare('SELECT * FROM memories WHERE id = ?').get(memoryId) as any;
+      db.close();
+
+      if (row) {
+        return {
+          memory: {
+            id: row.id,
+            content: row.content,
+            summary: row.summary || '',
+            raw_output: row.raw_output,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            archived: Boolean(row.archived),
+            metadata: row.metadata
+          },
+          projectId
+        };
+      }
+    } catch {
+      // Database might be locked or corrupted, skip
+    }
+  }
+
+  return null;
+}
+
+/**
  * Export memories to a JSON file
  */
 export function exportMemories(

@@ -5,7 +5,7 @@
 
 import { z } from 'zod';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
-import { getCoreMemoryStore } from '../core/core-memory-store.js';
+import { getCoreMemoryStore, findMemoryAcrossProjects } from '../core/core-memory-store.js';
 import * as MemoryEmbedder from '../core/memory-embedder-bridge.js';
 import { StoragePaths } from '../config/storage-paths.js';
 import { join } from 'path';
@@ -41,9 +41,17 @@ interface CoreMemory {
   updated_at: string;
 }
 
+/** Compact memory info for list operation */
+interface CoreMemoryCompact {
+  id: string;
+  preview: string;  // Truncated content/summary preview
+  archived: boolean;
+  updated_at: string;
+}
+
 interface ListResult {
   operation: 'list';
-  memories: CoreMemory[];
+  memories: CoreMemoryCompact[];
   total: number;
 }
 
@@ -112,18 +120,36 @@ function getDatabasePath(): string {
   return join(paths.root, 'core-memory', 'core_memory.db');
 }
 
+/** Max preview length for list operation */
+const PREVIEW_MAX_LENGTH = 100;
+
 /**
  * Operation: list
- * List all memories
+ * List all memories with compact output
  */
 function executeList(params: Params): ListResult {
   const { limit } = params;
   const store = getCoreMemoryStore(getProjectPath());
   const memories = store.getMemories({ limit }) as CoreMemory[];
 
+  // Convert to compact format with truncated preview
+  const compactMemories: CoreMemoryCompact[] = memories.map((m) => {
+    const source = m.summary || m.content;
+    const preview = source.length > PREVIEW_MAX_LENGTH
+      ? source.substring(0, PREVIEW_MAX_LENGTH) + '...'
+      : source;
+
+    return {
+      id: m.id,
+      preview,
+      archived: m.archived,
+      updated_at: m.updated_at,
+    };
+  });
+
   return {
     operation: 'list',
-    memories,
+    memories: compactMemories,
     total: memories.length,
   };
 }
@@ -154,6 +180,7 @@ function executeImport(params: Params): ImportResult {
 /**
  * Operation: export
  * Export a memory as plain text
+ * Searches current project first, then all projects if not found
  */
 function executeExport(params: Params): ExportResult {
   const { id } = params;
@@ -162,11 +189,20 @@ function executeExport(params: Params): ExportResult {
     throw new Error('Parameter "id" is required for export operation');
   }
 
+  // Try current project first
   const store = getCoreMemoryStore(getProjectPath());
-  const memory = store.getMemory(id);
+  let memory = store.getMemory(id);
+
+  // If not found, search across all projects
+  if (!memory) {
+    const result = findMemoryAcrossProjects(id);
+    if (result) {
+      memory = result.memory;
+    }
+  }
 
   if (!memory) {
-    throw new Error(`Memory "${id}" not found`);
+    throw new Error(`Memory "${id}" not found in any project`);
   }
 
   return {
