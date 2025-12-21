@@ -1,5 +1,5 @@
 ---
-name: tech-research
+name: tech-research-rules
 description: "3-phase orchestrator: extract tech stack → Exa research → generate path-conditional rules (auto-loaded by Claude Code)"
 argument-hint: "[session-id | tech-stack-name] [--regenerate] [--tool <gemini|qwen>]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Bash(*), Read(*), Write(*), Task(*)
@@ -10,10 +10,6 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Bash(*), Read(*), Write(*), Task(*
 ## Overview
 
 **Purpose**: Generate multi-layered, path-conditional rules that Claude Code automatically loads based on file context.
-
-**Key Difference from SKILL Memory**:
-- **SKILL**: Manual loading via `Skill(command: "tech-name")`
-- **Rules**: Automatic loading when working with matching file paths
 
 **Output Structure**:
 ```
