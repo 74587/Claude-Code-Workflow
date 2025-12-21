@@ -195,14 +195,15 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
               totalProjects: status.result.projects_count || indexes.length,
               totalFiles: status.result.total_files || 0,
               totalDirs: status.result.total_dirs || 0,
-              indexSizeBytes: status.result.index_size_bytes || totalSize,
-              indexSizeMb: status.result.index_size_mb || 0,
-              embeddings: status.result.embeddings || {}
+              // Keep calculated totalSize for consistency with per-project sizes
+              // status.index_size_bytes includes shared resources (models, cache)
+              indexSizeBytes: totalSize,
+              indexSizeMb: totalSize / (1024 * 1024),
+              embeddings: status.result.embeddings || {},
+              // Store full index dir size separately for reference
+              fullIndexDirSize: status.result.index_size_bytes || 0,
+              fullIndexDirSizeFormatted: formatSize(status.result.index_size_bytes || 0)
             };
-            // Use status total size if available
-            if (status.result.index_size_bytes) {
-              totalSize = status.result.index_size_bytes;
-            }
           }
         } catch (e) {
           console.error('[CodexLens] Failed to parse status:', e.message);
