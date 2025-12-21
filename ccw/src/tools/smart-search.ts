@@ -45,6 +45,7 @@ const ParamsSchema = z.object({
   // Search modifiers for ripgrep mode
   regex: z.boolean().default(true),            // Use regex pattern matching (default: enabled)
   caseSensitive: z.boolean().default(true),    // Case sensitivity (default: case-sensitive)
+  tokenize: z.boolean().default(true),         // Tokenize multi-word queries for OR matching (default: enabled)
   // Fuzzy matching is implicit in hybrid mode (RRF fusion)
 });
 
@@ -96,6 +97,87 @@ function buildExcludeArgs(): string[] {
   return args;
 }
 
+/**
+ * Tokenize query for multi-word OR matching
+ * Splits on whitespace and common delimiters, filters stop words and short tokens
+ * @param query - The search query
+ * @returns Array of tokens
+ */
+function tokenizeQuery(query: string): string[] {
+  // Stop words for filtering (common English + programming keywords)
+  const stopWords = new Set([
+    'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+    'should', 'may', 'might', 'must', 'can', 'to', 'of', 'in', 'for', 'on',
+    'with', 'at', 'by', 'from', 'as', 'into', 'through', 'and', 'but', 'if',
+    'or', 'not', 'this', 'that', 'these', 'those', 'it', 'its', 'how', 'what',
+    'where', 'when', 'why', 'which', 'who', 'whom',
+  ]);
+
+  // Split on whitespace and common delimiters, keep meaningful tokens
+  const tokens = query
+    .split(/[\s,;:]+/)
+    .map(token => token.trim())
+    .filter(token => {
+      // Keep tokens that are:
+      // - At least 2 characters long
+      // - Not a stop word (case-insensitive)
+      // - Or look like identifiers (contain underscore/camelCase)
+      if (token.length < 2) return false;
+      if (stopWords.has(token.toLowerCase()) && !token.includes('_') && !/[A-Z]/.test(token)) {
+        return false;
+      }
+      return true;
+    });
+
+  return tokens;
+}
+
+/**
+ * Score results based on token match count for ranking
+ * @param results - Search results
+ * @param tokens - Query tokens
+ * @returns Results with match scores
+ */
+function scoreByTokenMatch(results: ExactMatch[], tokens: string[]): ExactMatch[] {
+  if (tokens.length <= 1) return results;
+
+  // Create case-insensitive patterns for each token
+  const tokenPatterns = tokens.map(t => {
+    const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(escaped, 'i');
+  });
+
+  return results.map(r => {
+    const content = r.content || '';
+    const file = r.file || '';
+    const searchText = `${file} ${content}`;
+
+    // Count how many tokens match
+    let matchCount = 0;
+    for (const pattern of tokenPatterns) {
+      if (pattern.test(searchText)) {
+        matchCount++;
+      }
+    }
+
+    // Calculate match ratio (0 to 1)
+    const matchRatio = matchCount / tokens.length;
+
+    return {
+      ...r,
+      matchScore: matchRatio,
+      matchCount,
+    };
+  }).sort((a, b) => {
+    // Sort by match ratio (descending), then by line number
+    if (b.matchScore !== a.matchScore) {
+      return b.matchScore - a.matchScore;
+    }
+    return (a.line || 0) - (b.line || 0);
+  });
+}
+
 interface Classification {
   mode: string;
   confidence: number;
@@ -107,6 +189,8 @@ interface ExactMatch {
   line: number;
   column: number;
   content: string;
+  matchScore?: number;  // Token match ratio (0-1) for multi-word queries
+  matchCount?: number;  // Number of tokens matched
 }
 
 interface RelationshipInfo {
@@ -162,6 +246,9 @@ interface SearchMetadata {
   index_status?: 'indexed' | 'not_indexed' | 'partial';
   fallback_history?: string[];
   suggested_weights?: Record<string, number>;
+  // Tokenization metadata (ripgrep mode)
+  tokens?: string[];   // Query tokens used for multi-word search
+  tokenized?: boolean; // Whether tokenization was applied
   // Pagination metadata
   pagination?: PaginationInfo;
   // Init action specific
@@ -373,8 +460,9 @@ function checkToolAvailability(toolName: string): boolean {
 
 /**
  * Build ripgrep command arguments
+ * Supports tokenized multi-word queries with OR matching
  * @param params - Search parameters
- * @returns Command and arguments
+ * @returns Command, arguments, and tokens used
  */
 function buildRipgrepCommand(params: {
   query: string;
@@ -384,8 +472,9 @@ function buildRipgrepCommand(params: {
   includeHidden: boolean;
   regex?: boolean;
   caseSensitive?: boolean;
-}): { command: string; args: string[] } {
-  const { query, paths = ['.'], contextLines = 0, maxResults = 10, includeHidden = false, regex = false, caseSensitive = true } = params;
+  tokenize?: boolean;
+}): { command: string; args: string[]; tokens: string[] } {
+  const { query, paths = ['.'], contextLines = 0, maxResults = 10, includeHidden = false, regex = false, caseSensitive = true, tokenize = true } = params;
 
   const args = [
     '-n',
@@ -415,16 +504,33 @@ function buildRipgrepCommand(params: {
     args.push('--hidden');
   }
 
-  // Regex mode (-e) vs fixed string mode (-F)
-  if (regex) {
-    args.push('-e', query);
+  // Tokenize query for multi-word OR matching
+  const tokens = tokenize ? tokenizeQuery(query) : [query];
+
+  if (tokens.length > 1) {
+    // Multi-token: use multiple -e patterns (OR matching)
+    // Each token is escaped for regex safety unless regex mode is enabled
+    for (const token of tokens) {
+      if (regex) {
+        args.push('-e', token);
+      } else {
+        // Escape regex special chars for literal matching
+        const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        args.push('-e', escaped);
+      }
+    }
   } else {
-    args.push('-F', query);
+    // Single token or no tokenization: use original behavior
+    if (regex) {
+      args.push('-e', query);
+    } else {
+      args.push('-F', query);
+    }
   }
 
   args.push(...paths);
 
-  return { command: 'rg', args };
+  return { command: 'rg', args, tokens };
 }
 
 /**
@@ -578,9 +684,10 @@ async function executeAutoMode(params: Params): Promise<SearchResult> {
 /**
  * Mode: ripgrep - Fast literal string matching using ripgrep
  * No index required, fallback to CodexLens if ripgrep unavailable
+ * Supports tokenized multi-word queries with OR matching and result ranking
  */
 async function executeRipgrepMode(params: Params): Promise<SearchResult> {
-  const { query, paths = [], contextLines = 0, maxResults = 10, includeHidden = false, path = '.', regex = true, caseSensitive = true } = params;
+  const { query, paths = [], contextLines = 0, maxResults = 10, includeHidden = false, path = '.', regex = true, caseSensitive = true, tokenize = true } = params;
 
   if (!query) {
     return {
@@ -648,7 +755,7 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
   }
 
   // Use ripgrep
-  const { command, args } = buildRipgrepCommand({
+  const { command, args, tokens } = buildRipgrepCommand({
     query,
     paths: paths.length > 0 ? paths : [path],
     contextLines,
@@ -656,6 +763,7 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
     includeHidden,
     regex,
     caseSensitive,
+    tokenize,
   });
 
   return new Promise((resolve) => {
@@ -704,15 +812,21 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
       // If we have results despite the error, return them as partial success
       const isWindowsDeviceError = stderr.includes('os error 1') || stderr.includes('函数不正确');
 
-      if (code === 0 || code === 1 || (isWindowsDeviceError && results.length > 0)) {
+      // Apply token-based scoring and sorting for multi-word queries
+      // Results matching more tokens are ranked higher (exact matches first)
+      const scoredResults = tokens.length > 1 ? scoreByTokenMatch(results, tokens) : results;
+
+      if (code === 0 || code === 1 || (isWindowsDeviceError && scoredResults.length > 0)) {
         resolve({
           success: true,
-          results,
+          results: scoredResults,
           metadata: {
             mode: 'ripgrep',
             backend: 'ripgrep',
-            count: results.length,
+            count: scoredResults.length,
             query,
+            tokens: tokens.length > 1 ? tokens : undefined,  // Include tokens in metadata for debugging
+            tokenized: tokens.length > 1,
             ...(isWindowsDeviceError && { warning: 'Some Windows device files were skipped' }),
           },
         });
@@ -1310,12 +1424,17 @@ export const schema: ToolSchema = {
   smart_search(query="auth", limit=10, offset=0)    # first page
   smart_search(query="auth", limit=10, offset=10)   # second page
 
+**Multi-Word Search (ripgrep mode with tokenization):**
+  smart_search(query="CCW_PROJECT_ROOT CCW_ALLOWED_DIRS", mode="ripgrep")  # tokenized OR matching
+  smart_search(query="auth login user", mode="ripgrep")   # matches any token, ranks by match count
+  smart_search(query="exact phrase", mode="ripgrep", tokenize=false)  # disable tokenization
+
 **Regex Search (ripgrep mode):**
   smart_search(query="class.*Builder")              # auto-detects regex pattern
   smart_search(query="def.*\\(.*\\):")              # find function definitions
   smart_search(query="import.*from", caseSensitive=false)  # case-insensitive
 
-**Modes:** auto (intelligent routing), hybrid (semantic+fuzzy), exact (FTS), ripgrep (fast), priority (fallback chain)`,
+**Modes:** auto (intelligent routing), hybrid (semantic+fuzzy), exact (FTS), ripgrep (fast with tokenization), priority (fallback chain)`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -1400,6 +1519,11 @@ export const schema: ToolSchema = {
       caseSensitive: {
         type: 'boolean',
         description: 'Case-sensitive search (default: true). Set to false for case-insensitive matching.',
+        default: true,
+      },
+      tokenize: {
+        type: 'boolean',
+        description: 'Tokenize multi-word queries for OR matching (ripgrep mode). Default: true. Results are ranked by token match count (exact matches first).',
         default: true,
       },
     },

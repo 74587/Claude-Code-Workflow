@@ -256,7 +256,7 @@ async function renderMcpManager() {
                   </div>
                   <div class="grid grid-cols-1 gap-2">
                     <div class="flex items-center gap-2">
-                      <label class="text-xs text-muted-foreground w-28 shrink-0">CCW_PROJECT_ROOT</label>
+                      <label class="text-xs text-muted-foreground w-36 shrink-0">CCW_PROJECT_ROOT</label>
                       <input type="text"
                              class="ccw-project-root-input flex-1 px-2 py-1 text-xs bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
                              placeholder="${projectPath || t('mcp.useCurrentDir')}"
@@ -268,7 +268,7 @@ async function renderMcpManager() {
                       </button>
                     </div>
                     <div class="flex items-center gap-2">
-                      <label class="text-xs text-muted-foreground w-28 shrink-0">CCW_ALLOWED_DIRS</label>
+                      <label class="text-xs text-muted-foreground w-36 shrink-0">CCW_ALLOWED_DIRS</label>
                       <input type="text"
                              class="ccw-allowed-dirs-input flex-1 px-2 py-1 text-xs bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
                              placeholder="${t('mcp.allowedDirsPlaceholder')}"
@@ -470,7 +470,7 @@ async function renderMcpManager() {
                   </div>
                   <div class="grid grid-cols-1 gap-2">
                     <div class="flex items-center gap-2">
-                      <label class="text-xs text-muted-foreground w-28 shrink-0">CCW_PROJECT_ROOT</label>
+                      <label class="text-xs text-muted-foreground w-36 shrink-0">CCW_PROJECT_ROOT</label>
                       <input type="text"
                              class="ccw-project-root-input flex-1 px-2 py-1 text-xs bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
                              placeholder="${projectPath || t('mcp.useCurrentDir')}"
@@ -482,7 +482,7 @@ async function renderMcpManager() {
                       </button>
                     </div>
                     <div class="flex items-center gap-2">
-                      <label class="text-xs text-muted-foreground w-28 shrink-0">CCW_ALLOWED_DIRS</label>
+                      <label class="text-xs text-muted-foreground w-36 shrink-0">CCW_ALLOWED_DIRS</label>
                       <input type="text"
                              class="ccw-allowed-dirs-input flex-1 px-2 py-1 text-xs bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
                              placeholder="${t('mcp.allowedDirsPlaceholder')}"

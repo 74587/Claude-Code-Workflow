@@ -30,6 +30,8 @@ const ParamsSchema = z.object({
   maxDepth: z.number().default(3).describe('Max directory depth to traverse'),
   includeContent: z.boolean().default(true).describe('Include file content in result'),
   maxFiles: z.number().default(MAX_FILES).describe('Max number of files to return'),
+  offset: z.number().min(0).optional().describe('Line offset to start reading from (0-based, for single file only)'),
+  limit: z.number().min(1).optional().describe('Number of lines to read (for single file only)'),
 });
 
 type Params = z.infer<typeof ParamsSchema>;
@@ -40,6 +42,8 @@ interface FileEntry {
   content?: string;
   truncated?: boolean;
   matches?: string[];
+  totalLines?: number;
+  lineRange?: { start: number; end: number };
 }
 
 interface ReadResult {
@@ -123,23 +127,69 @@ function collectFiles(
   return files;
 }
 
+interface ReadContentOptions {
+  maxLength: number;
+  offset?: number;
+  limit?: number;
+}
+
+interface ReadContentResult {
+  content: string;
+  truncated: boolean;
+  totalLines?: number;
+  lineRange?: { start: number; end: number };
+}
+
 /**
- * Read file content with truncation
+ * Read file content with truncation and optional line-based pagination
  */
-function readFileContent(filePath: string, maxLength: number): { content: string; truncated: boolean } {
+function readFileContent(filePath: string, options: ReadContentOptions): ReadContentResult {
+  const { maxLength, offset, limit } = options;
+
   if (isBinaryFile(filePath)) {
     return { content: '[Binary file]', truncated: false };
   }
 
   try {
     const content = readFileSync(filePath, 'utf8');
+    const lines = content.split('\n');
+    const totalLines = lines.length;
+
+    // If offset/limit specified, use line-based pagination
+    if (offset !== undefined || limit !== undefined) {
+      const startLine = Math.min(offset ?? 0, totalLines);
+      const endLine = limit !== undefined ? Math.min(startLine + limit, totalLines) : totalLines;
+      const selectedLines = lines.slice(startLine, endLine);
+      const selectedContent = selectedLines.join('\n');
+
+      const actualEnd = endLine;
+      const hasMore = actualEnd < totalLines;
+
+      let finalContent = selectedContent;
+      if (selectedContent.length > maxLength) {
+        finalContent = selectedContent.substring(0, maxLength) + `\n... (+${selectedContent.length - maxLength} chars)`;
+      }
+
+      // Calculate actual line range (handle empty selection)
+      const actualLineEnd = selectedLines.length > 0 ? startLine + selectedLines.length - 1 : startLine;
+
+      return {
+        content: finalContent,
+        truncated: hasMore || selectedContent.length > maxLength,
+        totalLines,
+        lineRange: { start: startLine, end: actualLineEnd },
+      };
+    }
+
+    // Default behavior: truncate by character length
     if (content.length > maxLength) {
       return {
         content: content.substring(0, maxLength) + `\n... (+${content.length - maxLength} chars)`,
-        truncated: true
+        truncated: true,
+        totalLines,
       };
     }
-    return { content, truncated: false };
+    return { content, truncated: false, totalLines };
   } catch (error) {
     return { content: `[Error: ${(error as Error).message}]`, truncated: false };
   }
@@ -171,15 +221,17 @@ function findMatches(content: string, pattern: string): string[] {
 // Tool schema for MCP
 export const schema: ToolSchema = {
   name: 'read_file',
-  description: `Read files with multi-file, directory, and regex support.
+  description: `Read files with multi-file, directory, regex support, and line-based pagination.
 
 Usage:
-  read_file(paths="file.ts")                    # Single file
-  read_file(paths=["a.ts", "b.ts"])             # Multiple files
-  read_file(paths="src/", pattern="*.ts")       # Directory with pattern
-  read_file(paths="src/", contentPattern="TODO")  # Search content
+  read_file(paths="file.ts")                              # Single file (full content)
+  read_file(paths="file.ts", offset=100, limit=50)        # Lines 100-149 (0-based)
+  read_file(paths=["a.ts", "b.ts"])                       # Multiple files
+  read_file(paths="src/", pattern="*.ts")                 # Directory with pattern
+  read_file(paths="src/", contentPattern="TODO")          # Search content
 
-Returns compact file list with optional content.`,
+Supports both absolute and relative paths. Relative paths are resolved from project root.
+Returns compact file list with optional content. Use offset/limit for large file pagination.`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -213,6 +265,16 @@ Returns compact file list with optional content.`,
         description: `Max number of files to return (default: ${MAX_FILES})`,
         default: MAX_FILES,
       },
+      offset: {
+        type: 'number',
+        description: 'Line offset to start reading from (0-based, for single file only)',
+        minimum: 0,
+      },
+      limit: {
+        type: 'number',
+        description: 'Number of lines to read (for single file only)',
+        minimum: 1,
+      },
     },
     required: ['paths'],
   },
@@ -232,6 +294,8 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
     maxDepth,
     includeContent,
     maxFiles,
+    offset,
+    limit,
   } = parsed.data;
 
   const cwd = getProjectRoot();
@@ -271,6 +335,10 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
   const files: FileEntry[] = [];
   let totalContent = 0;
 
+  // Only apply offset/limit for single file mode
+  const isSingleFile = limitedFiles.length === 1;
+  const useLinePagination = isSingleFile && (offset !== undefined || limit !== undefined);
+
   for (const filePath of limitedFiles) {
     if (totalContent >= MAX_TOTAL_CONTENT) break;
 
@@ -283,7 +351,15 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
     if (includeContent) {
       const remainingSpace = MAX_TOTAL_CONTENT - totalContent;
       const maxLen = Math.min(MAX_CONTENT_LENGTH, remainingSpace);
-      const { content, truncated } = readFileContent(filePath, maxLen);
+
+      // Pass offset/limit only for single file mode
+      const readOptions: ReadContentOptions = { maxLength: maxLen };
+      if (useLinePagination) {
+        if (offset !== undefined) readOptions.offset = offset;
+        if (limit !== undefined) readOptions.limit = limit;
+      }
+
+      const { content, truncated, totalLines, lineRange } = readFileContent(filePath, readOptions);
 
       // If contentPattern provided, only include files with matches
       if (contentPattern) {
@@ -292,6 +368,8 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
           entry.matches = matches;
           entry.content = content;
           entry.truncated = truncated;
+          entry.totalLines = totalLines;
+          entry.lineRange = lineRange;
           totalContent += content.length;
         } else {
           continue; // Skip files without matches
@@ -299,6 +377,8 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
       } else {
         entry.content = content;
         entry.truncated = truncated;
+        entry.totalLines = totalLines;
+        entry.lineRange = lineRange;
         totalContent += content.length;
       }
     }
@@ -310,6 +390,10 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
   let message = `Read ${files.length} file(s)`;
   if (totalFiles > maxFiles) {
     message += ` (showing ${maxFiles} of ${totalFiles})`;
+  }
+  if (useLinePagination && files.length > 0 && files[0].lineRange) {
+    const { start, end } = files[0].lineRange;
+    message += ` [lines ${start}-${end} of ${files[0].totalLines}]`;
   }
   if (contentPattern) {
     message += ` matching "${contentPattern}"`;
