@@ -47,6 +47,15 @@ class SymbolExtractor:
         self.db_conn = sqlite3.connect(str(self.db_path))
         self._ensure_tables()
 
+    def __enter__(self) -> "SymbolExtractor":
+        """Context manager entry: connect to database."""
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Context manager exit: close database connection."""
+        self.close()
+
     def _ensure_tables(self) -> None:
         """Create symbols and relationships tables if they don't exist."""
         if not self.db_conn:

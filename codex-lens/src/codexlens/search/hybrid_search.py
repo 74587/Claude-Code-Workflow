@@ -241,12 +241,15 @@ class HybridSearchEngine:
         try:
             # Check if semantic chunks table exists
             import sqlite3
-            conn = sqlite3.connect(index_path)
-            cursor = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_chunks'"
-            )
-            has_semantic_table = cursor.fetchone() is not None
-            conn.close()
+            try:
+                with sqlite3.connect(index_path) as conn:
+                    cursor = conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_chunks'"
+                    )
+                    has_semantic_table = cursor.fetchone() is not None
+            except sqlite3.Error as e:
+                self.logger.error("Database check failed in vector search: %s", e)
+                return []
 
             if not has_semantic_table:
                 self.logger.info(
