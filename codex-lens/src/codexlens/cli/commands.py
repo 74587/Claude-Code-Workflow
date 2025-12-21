@@ -1546,26 +1546,25 @@ def model_delete(
     Example:
         codexlens model-delete fast  # Delete fast model
     """
-    try:
-        from codexlens.cli.model_manager import delete_model
+    from codexlens.cli.model_manager import delete_model
 
-        if not json_mode:
-            console.print(f"[bold yellow]Deleting model:[/bold yellow] {profile}")
+    if not json_mode:
+        console.print(f"[bold yellow]Deleting model:[/bold yellow] {profile}")
 
-        result = delete_model(profile)
+    result = delete_model(profile)
 
-        if json_mode:
-            print_json(**result)
-        else:
-            if not result["success"]:
-                console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
-                raise typer.Exit(code=1)
+    if json_mode:
+        print_json(**result)
+    else:
+        if not result["success"]:
+            console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+            raise typer.Exit(code=1)
 
-            data = result["result"]
-            console.print(f"[green]✓[/green] Model deleted successfully!")
-            console.print(f"  Profile: {data['profile']}")
-            console.print(f"  Model: {data['model_name']}")
-            console.print(f"  Freed space: {data['deleted_size_mb']:.1f} MB")
+        data = result["result"]
+        console.print(f"[green]✓[/green] Model deleted successfully!")
+        console.print(f"  Profile: {data['profile']}")
+        console.print(f"  Model: {data['model_name']}")
+        console.print(f"  Freed space: {data['deleted_size_mb']:.1f} MB")
 
 
 @app.command(name="model-info")
@@ -1578,30 +1577,29 @@ def model_info(
     Example:
         codexlens model-info code  # Get code model details
     """
-    try:
-        from codexlens.cli.model_manager import get_model_info
+    from codexlens.cli.model_manager import get_model_info
 
-        result = get_model_info(profile)
+    result = get_model_info(profile)
 
-        if json_mode:
-            print_json(**result)
+    if json_mode:
+        print_json(**result)
+    else:
+        if not result["success"]:
+            console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+            raise typer.Exit(code=1)
+
+        data = result["result"]
+        console.print(f"[bold]Model Profile:[/bold] {data['profile']}")
+        console.print(f"  Model name: {data['model_name']}")
+        console.print(f"  Dimensions: {data['dimensions']}")
+        console.print(f"  Status: {'[green]Installed[/green]' if data['installed'] else '[dim]Not installed[/dim]'}")
+        if data['installed'] and data['actual_size_mb']:
+            console.print(f"  Cache size: {data['actual_size_mb']:.1f} MB")
+            console.print(f"  Location: [dim]{data['cache_path']}[/dim]")
         else:
-            if not result["success"]:
-                console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
-                raise typer.Exit(code=1)
-
-            data = result["result"]
-            console.print(f"[bold]Model Profile:[/bold] {data['profile']}")
-            console.print(f"  Model name: {data['model_name']}")
-            console.print(f"  Dimensions: {data['dimensions']}")
-            console.print(f"  Status: {'[green]Installed[/green]' if data['installed'] else '[dim]Not installed[/dim]'}")
-            if data['installed'] and data['actual_size_mb']:
-                console.print(f"  Cache size: {data['actual_size_mb']:.1f} MB")
-                console.print(f"  Location: [dim]{data['cache_path']}[/dim]")
-            else:
-                console.print(f"  Estimated size: ~{data['estimated_size_mb']} MB")
-            console.print(f"\n  Description: {data['description']}")
-            console.print(f"  Use case: {data['use_case']}")
+            console.print(f"  Estimated size: ~{data['estimated_size_mb']} MB")
+        console.print(f"\n  Description: {data['description']}")
+        console.print(f"  Use case: {data['use_case']}")
 
 
 # ==================== Embedding Management Commands ====================
@@ -1627,113 +1625,112 @@ def embeddings_status(
         codexlens embeddings-status ~/.codexlens/indexes/project/_index.db  # Check specific index
         codexlens embeddings-status ~/projects/my-app                  # Check project (auto-finds index)
     """
-    try:
-        from codexlens.cli.embedding_manager import check_index_embeddings, get_embedding_stats_summary
+    from codexlens.cli.embedding_manager import check_index_embeddings, get_embedding_stats_summary
 
-        # Determine what to check
-        if path is None:
-            # Check all indexes in default root
-            index_root = _get_index_root()
-            result = get_embedding_stats_summary(index_root)
+    # Determine what to check
+    if path is None:
+        # Check all indexes in default root
+        index_root = _get_index_root()
+        result = get_embedding_stats_summary(index_root)
 
-            if json_mode:
-                print_json(**result)
-            else:
-                if not result["success"]:
-                    console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
-                    raise typer.Exit(code=1)
-
-                data = result["result"]
-                total = data["total_indexes"]
-                with_emb = data["indexes_with_embeddings"]
-                total_chunks = data["total_chunks"]
-
-                console.print(f"[bold]Embedding Status Summary[/bold]")
-                console.print(f"Index root: [dim]{index_root}[/dim]\n")
-                console.print(f"Total indexes: {total}")
-                console.print(f"Indexes with embeddings: [{'green' if with_emb > 0 else 'yellow'}]{with_emb}[/]/{total}")
-                console.print(f"Total chunks: {total_chunks:,}\n")
-
-                if data["indexes"]:
-                    table = Table(show_header=True, header_style="bold")
-                    table.add_column("Project", style="cyan")
-                    table.add_column("Files", justify="right")
-                    table.add_column("Chunks", justify="right")
-                    table.add_column("Coverage", justify="right")
-                    table.add_column("Status", justify="center")
-
-                    for idx_stat in data["indexes"]:
-                        status_icon = "[green]✓[/green]" if idx_stat["has_embeddings"] else "[dim]—[/dim]"
-                        coverage = f"{idx_stat['coverage_percent']:.1f}%" if idx_stat["has_embeddings"] else "—"
-
-                        table.add_row(
-                            idx_stat["project"],
-                            str(idx_stat["total_files"]),
-                            f"{idx_stat['total_chunks']:,}" if idx_stat["has_embeddings"] else "0",
-                            coverage,
-                            status_icon,
-                        )
-
-                    console.print(table)
-
+        if json_mode:
+            print_json(**result)
         else:
-            # Check specific index or find index for project
-            target_path = path.expanduser().resolve()
-
-            if target_path.is_file() and target_path.name == "_index.db":
-                # Direct index file
-                index_path = target_path
-            elif target_path.is_dir():
-                # Try to find index for this project
-                registry = RegistryStore()
-                try:
-                    registry.initialize()
-                    mapper = PathMapper()
-                    index_path = mapper.source_to_index_db(target_path)
-
-                    if not index_path.exists():
-                        console.print(f"[red]Error:[/red] No index found for {target_path}")
-                        console.print("Run 'codexlens init' first to create an index")
-                        raise typer.Exit(code=1)
-                finally:
-                    registry.close()
-            else:
-                console.print(f"[red]Error:[/red] Path must be _index.db file or directory")
+            if not result["success"]:
+                console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
                 raise typer.Exit(code=1)
 
-            result = check_index_embeddings(index_path)
+            data = result["result"]
+            total = data["total_indexes"]
+            with_emb = data["indexes_with_embeddings"]
+            total_chunks = data["total_chunks"]
 
-            if json_mode:
-                print_json(**result)
-            else:
-                if not result["success"]:
-                    console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+            console.print(f"[bold]Embedding Status Summary[/bold]")
+            console.print(f"Index root: [dim]{index_root}[/dim]\n")
+            console.print(f"Total indexes: {total}")
+            console.print(f"Indexes with embeddings: [{'green' if with_emb > 0 else 'yellow'}]{with_emb}[/]/{total}")
+            console.print(f"Total chunks: {total_chunks:,}\n")
+
+            if data["indexes"]:
+                table = Table(show_header=True, header_style="bold")
+                table.add_column("Project", style="cyan")
+                table.add_column("Files", justify="right")
+                table.add_column("Chunks", justify="right")
+                table.add_column("Coverage", justify="right")
+                table.add_column("Status", justify="center")
+
+                for idx_stat in data["indexes"]:
+                    status_icon = "[green]✓[/green]" if idx_stat["has_embeddings"] else "[dim]—[/dim]"
+                    coverage = f"{idx_stat['coverage_percent']:.1f}%" if idx_stat["has_embeddings"] else "—"
+
+                    table.add_row(
+                        idx_stat["project"],
+                        str(idx_stat["total_files"]),
+                        f"{idx_stat['total_chunks']:,}" if idx_stat["has_embeddings"] else "0",
+                        coverage,
+                        status_icon,
+                    )
+
+                console.print(table)
+
+    else:
+        # Check specific index or find index for project
+        target_path = path.expanduser().resolve()
+
+        if target_path.is_file() and target_path.name == "_index.db":
+            # Direct index file
+            index_path = target_path
+        elif target_path.is_dir():
+            # Try to find index for this project
+            registry = RegistryStore()
+            try:
+                registry.initialize()
+                mapper = PathMapper()
+                index_path = mapper.source_to_index_db(target_path)
+
+                if not index_path.exists():
+                    console.print(f"[red]Error:[/red] No index found for {target_path}")
+                    console.print("Run 'codexlens init' first to create an index")
                     raise typer.Exit(code=1)
+            finally:
+                registry.close()
+        else:
+            console.print(f"[red]Error:[/red] Path must be _index.db file or directory")
+            raise typer.Exit(code=1)
 
-                data = result["result"]
-                has_emb = data["has_embeddings"]
+        result = check_index_embeddings(index_path)
 
-                console.print(f"[bold]Embedding Status[/bold]")
-                console.print(f"Index: [dim]{data['index_path']}[/dim]\n")
+        if json_mode:
+            print_json(**result)
+        else:
+            if not result["success"]:
+                console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+                raise typer.Exit(code=1)
 
-                if has_emb:
-                    console.print(f"[green]✓[/green] Embeddings available")
-                    console.print(f"  Total chunks: {data['total_chunks']:,}")
-                    console.print(f"  Total files: {data['total_files']:,}")
-                    console.print(f"  Files with embeddings: {data['files_with_chunks']:,}/{data['total_files']}")
-                    console.print(f"  Coverage: {data['coverage_percent']:.1f}%")
+            data = result["result"]
+            has_emb = data["has_embeddings"]
 
-                    if data["files_without_chunks"] > 0:
-                        console.print(f"\n[yellow]Warning:[/yellow] {data['files_without_chunks']} files missing embeddings")
-                        if data["missing_files_sample"]:
-                            console.print("  Sample missing files:")
-                            for file in data["missing_files_sample"]:
-                                console.print(f"    [dim]{file}[/dim]")
-                else:
-                    console.print(f"[yellow]—[/yellow] No embeddings found")
-                    console.print(f"  Total files indexed: {data['total_files']:,}")
-                    console.print("\n[dim]Generate embeddings with:[/dim]")
-                    console.print(f"  [cyan]codexlens embeddings-generate {index_path}[/cyan]")
+            console.print(f"[bold]Embedding Status[/bold]")
+            console.print(f"Index: [dim]{data['index_path']}[/dim]\n")
+
+            if has_emb:
+                console.print(f"[green]✓[/green] Embeddings available")
+                console.print(f"  Total chunks: {data['total_chunks']:,}")
+                console.print(f"  Total files: {data['total_files']:,}")
+                console.print(f"  Files with embeddings: {data['files_with_chunks']:,}/{data['total_files']}")
+                console.print(f"  Coverage: {data['coverage_percent']:.1f}%")
+
+                if data["files_without_chunks"] > 0:
+                    console.print(f"\n[yellow]Warning:[/yellow] {data['files_without_chunks']} files missing embeddings")
+                    if data["missing_files_sample"]:
+                        console.print("  Sample missing files:")
+                        for file in data["missing_files_sample"]:
+                            console.print(f"    [dim]{file}[/dim]")
+            else:
+                console.print(f"[yellow]—[/yellow] No embeddings found")
+                console.print(f"  Total files indexed: {data['total_files']:,}")
+                console.print("\n[dim]Generate embeddings with:[/dim]")
+                console.print(f"  [cyan]codexlens embeddings-generate {index_path}[/cyan]")
 
 
 @app.command(name="embeddings-generate")
@@ -1788,133 +1785,132 @@ def embeddings_generate(
     """
     _configure_logging(verbose)
 
-    try:
-        from codexlens.cli.embedding_manager import generate_embeddings, generate_embeddings_recursive
+    from codexlens.cli.embedding_manager import generate_embeddings, generate_embeddings_recursive
 
-        # Resolve path
-        target_path = path.expanduser().resolve()
+    # Resolve path
+    target_path = path.expanduser().resolve()
 
-        # Determine if we should use recursive mode
-        use_recursive = False
-        index_path = None
-        index_root = None
+    # Determine if we should use recursive mode
+    use_recursive = False
+    index_path = None
+    index_root = None
 
-        if target_path.is_file() and target_path.name == "_index.db":
-            # Direct index file
-            index_path = target_path
-            if recursive:
-                # Use parent directory for recursive processing
-                use_recursive = True
-                index_root = target_path.parent
-        elif target_path.is_dir():
-            if recursive:
-                # Recursive mode: process all _index.db files in directory tree
-                use_recursive = True
-                index_root = target_path
-            else:
-                # Non-recursive: Try to find index for this project
-                registry = RegistryStore()
-                try:
-                    registry.initialize()
-                    mapper = PathMapper()
-                    index_path = mapper.source_to_index_db(target_path)
-
-                    if not index_path.exists():
-                        console.print(f"[red]Error:[/red] No index found for {target_path}")
-                        console.print("Run 'codexlens init' first to create an index")
-                        raise typer.Exit(code=1)
-                finally:
-                    registry.close()
+    if target_path.is_file() and target_path.name == "_index.db":
+        # Direct index file
+        index_path = target_path
+        if recursive:
+            # Use parent directory for recursive processing
+            use_recursive = True
+            index_root = target_path.parent
+    elif target_path.is_dir():
+        if recursive:
+            # Recursive mode: process all _index.db files in directory tree
+            use_recursive = True
+            index_root = target_path
         else:
-            console.print(f"[red]Error:[/red] Path must be _index.db file or directory")
+            # Non-recursive: Try to find index for this project
+            registry = RegistryStore()
+            try:
+                registry.initialize()
+                mapper = PathMapper()
+                index_path = mapper.source_to_index_db(target_path)
+
+                if not index_path.exists():
+                    console.print(f"[red]Error:[/red] No index found for {target_path}")
+                    console.print("Run 'codexlens init' first to create an index")
+                    raise typer.Exit(code=1)
+            finally:
+                registry.close()
+    else:
+        console.print(f"[red]Error:[/red] Path must be _index.db file or directory")
+        raise typer.Exit(code=1)
+
+    # Progress callback
+    def progress_update(msg: str):
+        if not json_mode and verbose:
+            console.print(f"  {msg}")
+
+    console.print(f"[bold]Generating embeddings[/bold]")
+    if use_recursive:
+        console.print(f"Index root: [dim]{index_root}[/dim]")
+        console.print(f"Mode: [yellow]Recursive[/yellow]")
+    else:
+        console.print(f"Index: [dim]{index_path}[/dim]")
+    console.print(f"Model: [cyan]{model}[/cyan]\n")
+
+    if use_recursive:
+        result = generate_embeddings_recursive(
+            index_root,
+            model_profile=model,
+            force=force,
+            chunk_size=chunk_size,
+            progress_callback=progress_update,
+        )
+    else:
+        result = generate_embeddings(
+            index_path,
+            model_profile=model,
+            force=force,
+            chunk_size=chunk_size,
+            progress_callback=progress_update,
+        )
+
+    if json_mode:
+        print_json(**result)
+    else:
+        if not result["success"]:
+            error_msg = result.get("error", "Unknown error")
+            console.print(f"[red]Error:[/red] {error_msg}")
+
+            # Provide helpful hints
+            if "already has" in error_msg:
+                console.print("\n[dim]Use --force to regenerate existing embeddings[/dim]")
+            elif "Semantic search not available" in error_msg:
+                console.print("\n[dim]Install semantic dependencies:[/dim]")
+                console.print("  [cyan]pip install codexlens[semantic][/cyan]")
+
             raise typer.Exit(code=1)
 
-        # Progress callback
-        def progress_update(msg: str):
-            if not json_mode and verbose:
-                console.print(f"  {msg}")
-
-        console.print(f"[bold]Generating embeddings[/bold]")
-        if use_recursive:
-            console.print(f"Index root: [dim]{index_root}[/dim]")
-            console.print(f"Mode: [yellow]Recursive[/yellow]")
-        else:
-            console.print(f"Index: [dim]{index_path}[/dim]")
-        console.print(f"Model: [cyan]{model}[/cyan]\n")
+        data = result["result"]
 
         if use_recursive:
-            result = generate_embeddings_recursive(
-                index_root,
-                model_profile=model,
-                force=force,
-                chunk_size=chunk_size,
-                progress_callback=progress_update,
-            )
+            # Recursive mode output
+            console.print(f"[green]✓[/green] Recursive embeddings generation complete!")
+            console.print(f"  Indexes processed: {data['indexes_processed']}")
+            console.print(f"  Indexes successful: {data['indexes_successful']}")
+            if data['indexes_failed'] > 0:
+                console.print(f"  [yellow]Indexes failed: {data['indexes_failed']}[/yellow]")
+            console.print(f"  Total chunks created: {data['total_chunks_created']:,}")
+            console.print(f"  Total files processed: {data['total_files_processed']}")
+            if data['total_files_failed'] > 0:
+                console.print(f"  [yellow]Total files failed: {data['total_files_failed']}[/yellow]")
+            console.print(f"  Model profile: {data['model_profile']}")
+
+            # Show details if verbose
+            if verbose and data.get('details'):
+                console.print("\n[dim]Index details:[/dim]")
+                for detail in data['details']:
+                    status_icon = "[green]✓[/green]" if detail['success'] else "[red]✗[/red]"
+                    console.print(f"  {status_icon} {detail['path']}")
+                    if not detail['success'] and detail.get('error'):
+                        console.print(f"    [dim]Error: {detail['error']}[/dim]")
         else:
-            result = generate_embeddings(
-                index_path,
-                model_profile=model,
-                force=force,
-                chunk_size=chunk_size,
-                progress_callback=progress_update,
-            )
+            # Single index mode output
+            elapsed = data["elapsed_time"]
 
-        if json_mode:
-            print_json(**result)
-        else:
-            if not result["success"]:
-                error_msg = result.get("error", "Unknown error")
-                console.print(f"[red]Error:[/red] {error_msg}")
+            console.print(f"[green]✓[/green] Embeddings generated successfully!")
+            console.print(f"  Model: {data['model_name']}")
+            console.print(f"  Chunks created: {data['chunks_created']:,}")
+            console.print(f"  Files processed: {data['files_processed']}")
 
-                # Provide helpful hints
-                if "already has" in error_msg:
-                    console.print("\n[dim]Use --force to regenerate existing embeddings[/dim]")
-                elif "Semantic search not available" in error_msg:
-                    console.print("\n[dim]Install semantic dependencies:[/dim]")
-                    console.print("  [cyan]pip install codexlens[semantic][/cyan]")
+            if data["files_failed"] > 0:
+                console.print(f"  [yellow]Files failed: {data['files_failed']}[/yellow]")
+                if data["failed_files"]:
+                    console.print("  [dim]First failures:[/dim]")
+                    for file_path, error in data["failed_files"]:
+                        console.print(f"    [dim]{file_path}: {error}[/dim]")
 
-                raise typer.Exit(code=1)
+            console.print(f"  Time: {elapsed:.1f}s")
 
-            data = result["result"]
-
-            if use_recursive:
-                # Recursive mode output
-                console.print(f"[green]✓[/green] Recursive embeddings generation complete!")
-                console.print(f"  Indexes processed: {data['indexes_processed']}")
-                console.print(f"  Indexes successful: {data['indexes_successful']}")
-                if data['indexes_failed'] > 0:
-                    console.print(f"  [yellow]Indexes failed: {data['indexes_failed']}[/yellow]")
-                console.print(f"  Total chunks created: {data['total_chunks_created']:,}")
-                console.print(f"  Total files processed: {data['total_files_processed']}")
-                if data['total_files_failed'] > 0:
-                    console.print(f"  [yellow]Total files failed: {data['total_files_failed']}[/yellow]")
-                console.print(f"  Model profile: {data['model_profile']}")
-
-                # Show details if verbose
-                if verbose and data.get('details'):
-                    console.print("\n[dim]Index details:[/dim]")
-                    for detail in data['details']:
-                        status_icon = "[green]✓[/green]" if detail['success'] else "[red]✗[/red]"
-                        console.print(f"  {status_icon} {detail['path']}")
-                        if not detail['success'] and detail.get('error'):
-                            console.print(f"    [dim]Error: {detail['error']}[/dim]")
-            else:
-                # Single index mode output
-                elapsed = data["elapsed_time"]
-
-                console.print(f"[green]✓[/green] Embeddings generated successfully!")
-                console.print(f"  Model: {data['model_name']}")
-                console.print(f"  Chunks created: {data['chunks_created']:,}")
-                console.print(f"  Files processed: {data['files_processed']}")
-
-                if data["files_failed"] > 0:
-                    console.print(f"  [yellow]Files failed: {data['files_failed']}[/yellow]")
-                    if data["failed_files"]:
-                        console.print("  [dim]First failures:[/dim]")
-                        for file_path, error in data["failed_files"]:
-                            console.print(f"    [dim]{file_path}: {error}[/dim]")
-
-                console.print(f"  Time: {elapsed:.1f}s")
-
-            console.print("\n[dim]Use vector search with:[/dim]")
-            console.print("  [cyan]codexlens search 'your query' --mode pure-vector[/cyan]")
+        console.print("\n[dim]Use vector search with:[/dim]")
+        console.print("  [cyan]codexlens search 'your query' --mode pure-vector[/cyan]")
