@@ -410,9 +410,8 @@ function parseProgressLine(line: string): ProgressInfo | null {
   if (line.includes('Generating embeddings') || line.includes('Creating embeddings')) {
     return { stage: 'embeddings', message: 'Generating embeddings...', percent: 70 };
   }
-  if (line.includes('Finalizing') || line.includes('Complete')) {
-    return { stage: 'complete', message: 'Finalizing...', percent: 95 };
-  }
+  // Note: "Finalizing index" and "Building ANN" are handled separately below
+  // Only match generic "Complete" here (not "Finalizing" which has specific handlers)
 
   // Parse indexed count: "Indexed X files" - FTS complete, but embeddings may follow
   const indexedMatch = line.match(/Indexed (\d+) files/i);
@@ -458,6 +457,11 @@ function parseProgressLine(line: string): ProgressInfo | null {
       message: `Embeddings complete: ${embedCompleteMatch[1]} chunks`,
       percent: 95,
     };
+  }
+
+  // Parse generic completion (but not "Embeddings complete" which is handled above)
+  if (line.includes('Complete') && !line.toLowerCase().includes('embeddings complete')) {
+    return { stage: 'complete', message: 'Complete', percent: 98 };
   }
 
   return null;

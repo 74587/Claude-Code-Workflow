@@ -18,8 +18,9 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Periodic embedder recreation interval to prevent memory accumulation
-EMBEDDER_RECREATION_INTERVAL = 10  # Recreate embedder every N batches
+# Embedding batch size - larger values improve throughput on modern hardware
+# Default 64 balances memory usage and GPU/CPU utilization
+EMBEDDING_BATCH_SIZE = 64  # Increased from 8 for better performance
 
 
 def _get_path_column(conn: sqlite3.Connection) -> str:
@@ -196,13 +197,12 @@ def generate_embeddings(
 
     # Initialize components
     try:
-        # Initialize embedder (will be periodically recreated to prevent memory leaks)
+        # Initialize embedder (singleton, reused throughout the function)
         embedder = get_embedder(profile=model_profile)
         chunker = Chunker(config=ChunkConfig(max_chunk_size=chunk_size))
 
         if progress_callback:
             progress_callback(f"Using model: {embedder.model_name} ({embedder.embedding_dim} dimensions)")
-            progress_callback(f"Memory optimization: Embedder will be recreated every {EMBEDDER_RECREATION_INTERVAL} batches")
 
     except Exception as e:
         return {
@@ -210,15 +210,14 @@ def generate_embeddings(
             "error": f"Failed to initialize components: {str(e)}",
         }
 
-    # --- MEMORY-OPTIMIZED STREAMING PROCESSING ---
-    # Process files in small batches to control memory usage
-    # This keeps peak memory under 2GB regardless of project size
+    # --- STREAMING PROCESSING ---
+    # Process files in batches to control memory usage
     start_time = time.time()
     failed_files = []
     total_chunks_created = 0
     total_files_processed = 0
     FILE_BATCH_SIZE = 100  # Process 100 files at a time
-    EMBEDDING_BATCH_SIZE = 8  # jina-embeddings-v2-base-code needs small batches
+    # EMBEDDING_BATCH_SIZE is defined at module level (default: 64)
 
     try:
         with VectorStore(index_path) as vector_store:
@@ -250,14 +249,6 @@ def generate_embeddings(
                         batch_number += 1
                         batch_chunks_with_paths = []
                         files_in_batch_with_chunks = set()
-
-                        # Periodic embedder recreation to prevent memory accumulation
-                        if batch_number % EMBEDDER_RECREATION_INTERVAL == 0:
-                            if progress_callback:
-                                progress_callback(f"  [Memory optimization] Recreating embedder at batch {batch_number}")
-                            clear_embedder_cache()
-                            embedder = get_embedder(profile=model_profile)
-                            gc.collect()
 
                         # Step 1: Chunking for the current file batch
                         for file_row in file_batch:
@@ -317,9 +308,8 @@ def generate_embeddings(
                             logger.error(f"Failed to store batch {batch_number}: {str(e)}")
                             failed_files.extend([(file_row[path_column], str(e)) for file_row in file_batch])
 
-                        # Explicit memory cleanup after each batch
+                        # Release batch references (let Python GC handle cleanup naturally)
                         del batch_chunks_with_paths, batch_embeddings
-                        gc.collect()
 
                 # Notify before ANN index finalization (happens when bulk_insert context exits)
                 if progress_callback:
