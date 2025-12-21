@@ -16,7 +16,6 @@ from typing import Dict, List, Optional, Set
 
 from codexlens.config import Config
 from codexlens.parsers.factory import ParserFactory
-from codexlens.semantic.graph_analyzer import GraphAnalyzer
 from codexlens.storage.dir_index import DirIndexStore
 from codexlens.storage.path_mapper import PathMapper
 from codexlens.storage.registry import ProjectInfo, RegistryStore
@@ -525,16 +524,6 @@ class IndexTreeBuilder:
                         symbols=indexed_file.symbols,
                     )
 
-                    # Extract and store code relationships for graph visualization
-                    if language_id in {"python", "javascript", "typescript"}:
-                        graph_analyzer = GraphAnalyzer(language_id)
-                        if graph_analyzer.is_available():
-                            relationships = graph_analyzer.analyze_with_symbols(
-                                text, file_path, indexed_file.symbols
-                            )
-                            if relationships:
-                                store.add_relationships(file_path, relationships)
-
                     files_count += 1
                     symbols_count += len(indexed_file.symbols)
 
@@ -741,16 +730,6 @@ def _build_dir_worker(args: tuple) -> DirBuildResult:
                     language=language_id,
                     symbols=indexed_file.symbols,
                 )
-
-                # Extract and store code relationships for graph visualization
-                if language_id in {"python", "javascript", "typescript"}:
-                    graph_analyzer = GraphAnalyzer(language_id)
-                    if graph_analyzer.is_available():
-                        relationships = graph_analyzer.analyze_with_symbols(
-                            text, item, indexed_file.symbols
-                        )
-                        if relationships:
-                            store.add_relationships(item, relationships)
 
                 files_count += 1
                 symbols_count += len(indexed_file.symbols)

@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from codexlens.entities import CodeRelationship, SearchResult, Symbol
+from codexlens.entities import SearchResult, Symbol
 from codexlens.errors import StorageError
 
 
@@ -236,116 +236,6 @@ class DirIndexStore:
             except sqlite3.DatabaseError as exc:
                 conn.rollback()
                 raise StorageError(f"Failed to add file {name}: {exc}") from exc
-
-    def add_relationships(
-        self,
-        file_path: str | Path,
-        relationships: List[CodeRelationship],
-    ) -> int:
-        """Store code relationships for a file.
-
-        Args:
-            file_path: Path to the source file
-            relationships: List of CodeRelationship objects to store
-
-        Returns:
-            Number of relationships stored
-
-        Raises:
-            StorageError: If database operations fail
-        """
-        if not relationships:
-            return 0
-
-        with self._lock:
-            conn = self._get_connection()
-            file_path_str = str(Path(file_path).resolve())
-
-            try:
-                # Get file_id
-                row = conn.execute(
-                    "SELECT id FROM files WHERE full_path=?", (file_path_str,)
-                ).fetchone()
-                if not row:
-                    return 0
-
-                file_id = int(row["id"])
-
-                # Delete existing relationships for symbols in this file
-                conn.execute(
-                    """
-                    DELETE FROM code_relationships
-                    WHERE source_symbol_id IN (
-                        SELECT id FROM symbols WHERE file_id=?
-                    )
-                    """,
-                    (file_id,),
-                )
-
-                # Insert new relationships
-                relationship_rows = []
-                skipped_relationships = []
-                for rel in relationships:
-                    # Extract simple name from fully qualified name (e.g., "MyClass.my_method" -> "my_method")
-                    # This handles cases where GraphAnalyzer generates qualified names but symbols table stores simple names
-                    source_symbol_simple = rel.source_symbol.split(".")[-1] if "." in rel.source_symbol else rel.source_symbol
-
-                    # Find symbol_id by name and file
-                    symbol_row = conn.execute(
-                        """
-                        SELECT id FROM symbols
-                        WHERE file_id=? AND name=? AND start_line<=? AND end_line>=?
-                        LIMIT 1
-                        """,
-                        (file_id, source_symbol_simple, rel.source_line, rel.source_line),
-                    ).fetchone()
-
-                    if not symbol_row:
-                        # Try matching by simple name only
-                        symbol_row = conn.execute(
-                            "SELECT id FROM symbols WHERE file_id=? AND name=? LIMIT 1",
-                            (file_id, source_symbol_simple),
-                        ).fetchone()
-
-                    if symbol_row:
-                        relationship_rows.append((
-                            int(symbol_row["id"]),
-                            rel.target_symbol,
-                            rel.relationship_type,
-                            rel.source_line,
-                            rel.target_file,
-                        ))
-                    else:
-                        # Log warning when symbol lookup fails
-                        skipped_relationships.append(rel.source_symbol)
-
-                # Log skipped relationships for debugging
-                if skipped_relationships:
-                    self.logger.warning(
-                        "Failed to find source symbol IDs for %d relationships in %s: %s",
-                        len(skipped_relationships),
-                        file_path_str,
-                        ", ".join(set(skipped_relationships))
-                    )
-
-                if relationship_rows:
-                    conn.executemany(
-                        """
-                        INSERT INTO code_relationships(
-                            source_symbol_id, target_qualified_name, relationship_type,
-                            source_line, target_file
-                        )
-                        VALUES(?, ?, ?, ?, ?)
-                        """,
-                        relationship_rows,
-                    )
-
-                conn.commit()
-                return len(relationship_rows)
-
-            except sqlite3.DatabaseError as exc:
-                conn.rollback()
-                raise StorageError(f"Failed to add relationships: {exc}") from exc
 
     def add_files_batch(
         self, files: List[Tuple[str, Path, str, str, Optional[List[Symbol]]]]

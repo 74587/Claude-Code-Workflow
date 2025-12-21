@@ -14,8 +14,6 @@ class Symbol(BaseModel):
     kind: str = Field(..., min_length=1)
     range: Tuple[int, int] = Field(..., description="(start_line, end_line), 1-based inclusive")
     file: Optional[str] = Field(default=None, description="Full path to the file containing this symbol")
-    token_count: Optional[int] = Field(default=None, description="Token count for symbol content")
-    symbol_type: Optional[str] = Field(default=None, description="Extended symbol type for filtering")
 
     @field_validator("range")
     @classmethod
@@ -27,13 +25,6 @@ class Symbol(BaseModel):
             raise ValueError("range lines must be >= 1")
         if end_line < start_line:
             raise ValueError("end_line must be >= start_line")
-        return value
-
-    @field_validator("token_count")
-    @classmethod
-    def validate_token_count(cls, value: Optional[int]) -> Optional[int]:
-        if value is not None and value < 0:
-            raise ValueError("token_count must be >= 0")
         return value
 
 

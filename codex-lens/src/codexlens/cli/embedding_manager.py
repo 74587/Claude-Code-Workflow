@@ -194,7 +194,6 @@ def generate_embeddings(
     try:
         # Use cached embedder (singleton) for performance
         embedder = get_embedder(profile=model_profile)
-        vector_store = VectorStore(index_path)
         chunker = Chunker(config=ChunkConfig(max_chunk_size=chunk_size))
 
         if progress_callback:
@@ -217,85 +216,86 @@ def generate_embeddings(
     EMBEDDING_BATCH_SIZE = 8  # jina-embeddings-v2-base-code needs small batches
 
     try:
-        with sqlite3.connect(index_path) as conn:
-            conn.row_factory = sqlite3.Row
-            path_column = _get_path_column(conn)
+        with VectorStore(index_path) as vector_store:
+            with sqlite3.connect(index_path) as conn:
+                conn.row_factory = sqlite3.Row
+                path_column = _get_path_column(conn)
 
-            # Get total file count for progress reporting
-            total_files = conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
-            if total_files == 0:
-                return {"success": False, "error": "No files found in index"}
+                # Get total file count for progress reporting
+                total_files = conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
+                if total_files == 0:
+                    return {"success": False, "error": "No files found in index"}
 
-            if progress_callback:
-                progress_callback(f"Processing {total_files} files in batches of {FILE_BATCH_SIZE}...")
-
-            cursor = conn.execute(f"SELECT {path_column}, content, language FROM files")
-            batch_number = 0
-
-            while True:
-                # Fetch a batch of files (streaming, not fetchall)
-                file_batch = cursor.fetchmany(FILE_BATCH_SIZE)
-                if not file_batch:
-                    break
-
-                batch_number += 1
-                batch_chunks_with_paths = []
-                files_in_batch_with_chunks = set()
-
-                # Step 1: Chunking for the current file batch
-                for file_row in file_batch:
-                    file_path = file_row[path_column]
-                    content = file_row["content"]
-                    language = file_row["language"] or "python"
-
-                    try:
-                        chunks = chunker.chunk_sliding_window(
-                            content,
-                            file_path=file_path,
-                            language=language
-                        )
-                        if chunks:
-                            for chunk in chunks:
-                                batch_chunks_with_paths.append((chunk, file_path))
-                            files_in_batch_with_chunks.add(file_path)
-                    except Exception as e:
-                        logger.error(f"Failed to chunk {file_path}: {e}")
-                        failed_files.append((file_path, str(e)))
-
-                if not batch_chunks_with_paths:
-                    continue
-
-                batch_chunk_count = len(batch_chunks_with_paths)
                 if progress_callback:
-                    progress_callback(f"  Batch {batch_number}: {len(file_batch)} files, {batch_chunk_count} chunks")
+                    progress_callback(f"Processing {total_files} files in batches of {FILE_BATCH_SIZE}...")
 
-                # Step 2: Generate embeddings for this batch
-                batch_embeddings = []
-                try:
-                    for i in range(0, batch_chunk_count, EMBEDDING_BATCH_SIZE):
-                        batch_end = min(i + EMBEDDING_BATCH_SIZE, batch_chunk_count)
-                        batch_contents = [chunk.content for chunk, _ in batch_chunks_with_paths[i:batch_end]]
-                        embeddings = embedder.embed(batch_contents)
-                        batch_embeddings.extend(embeddings)
-                except Exception as e:
-                    logger.error(f"Failed to generate embeddings for batch {batch_number}: {str(e)}")
-                    failed_files.extend([(file_row[path_column], str(e)) for file_row in file_batch])
-                    continue
+                cursor = conn.execute(f"SELECT {path_column}, content, language FROM files")
+                batch_number = 0
 
-                # Step 3: Assign embeddings to chunks
-                for (chunk, _), embedding in zip(batch_chunks_with_paths, batch_embeddings):
-                    chunk.embedding = embedding
+                while True:
+                    # Fetch a batch of files (streaming, not fetchall)
+                    file_batch = cursor.fetchmany(FILE_BATCH_SIZE)
+                    if not file_batch:
+                        break
 
-                # Step 4: Store this batch to database immediately (releases memory)
-                try:
-                    vector_store.add_chunks_batch(batch_chunks_with_paths)
-                    total_chunks_created += batch_chunk_count
-                    total_files_processed += len(files_in_batch_with_chunks)
-                except Exception as e:
-                    logger.error(f"Failed to store batch {batch_number}: {str(e)}")
-                    failed_files.extend([(file_row[path_column], str(e)) for file_row in file_batch])
+                    batch_number += 1
+                    batch_chunks_with_paths = []
+                    files_in_batch_with_chunks = set()
 
-                # Memory is released here as batch_chunks_with_paths and batch_embeddings go out of scope
+                    # Step 1: Chunking for the current file batch
+                    for file_row in file_batch:
+                        file_path = file_row[path_column]
+                        content = file_row["content"]
+                        language = file_row["language"] or "python"
+
+                        try:
+                            chunks = chunker.chunk_sliding_window(
+                                content,
+                                file_path=file_path,
+                                language=language
+                            )
+                            if chunks:
+                                for chunk in chunks:
+                                    batch_chunks_with_paths.append((chunk, file_path))
+                                files_in_batch_with_chunks.add(file_path)
+                        except Exception as e:
+                            logger.error(f"Failed to chunk {file_path}: {e}")
+                            failed_files.append((file_path, str(e)))
+
+                    if not batch_chunks_with_paths:
+                        continue
+
+                    batch_chunk_count = len(batch_chunks_with_paths)
+                    if progress_callback:
+                        progress_callback(f"  Batch {batch_number}: {len(file_batch)} files, {batch_chunk_count} chunks")
+
+                    # Step 2: Generate embeddings for this batch
+                    batch_embeddings = []
+                    try:
+                        for i in range(0, batch_chunk_count, EMBEDDING_BATCH_SIZE):
+                            batch_end = min(i + EMBEDDING_BATCH_SIZE, batch_chunk_count)
+                            batch_contents = [chunk.content for chunk, _ in batch_chunks_with_paths[i:batch_end]]
+                            embeddings = embedder.embed(batch_contents)
+                            batch_embeddings.extend(embeddings)
+                    except Exception as e:
+                        logger.error(f"Failed to generate embeddings for batch {batch_number}: {str(e)}")
+                        failed_files.extend([(file_row[path_column], str(e)) for file_row in file_batch])
+                        continue
+
+                    # Step 3: Assign embeddings to chunks
+                    for (chunk, _), embedding in zip(batch_chunks_with_paths, batch_embeddings):
+                        chunk.embedding = embedding
+
+                    # Step 4: Store this batch to database immediately (releases memory)
+                    try:
+                        vector_store.add_chunks_batch(batch_chunks_with_paths)
+                        total_chunks_created += batch_chunk_count
+                        total_files_processed += len(files_in_batch_with_chunks)
+                    except Exception as e:
+                        logger.error(f"Failed to store batch {batch_number}: {str(e)}")
+                        failed_files.extend([(file_row[path_column], str(e)) for file_row in file_batch])
+
+                    # Memory is released here as batch_chunks_with_paths and batch_embeddings go out of scope
 
     except Exception as e:
         return {"success": False, "error": f"Failed to read or process files: {str(e)}"}

@@ -268,7 +268,6 @@ def search(
     files_only: bool = typer.Option(False, "--files-only", "-f", help="Return only file paths without content snippets."),
     mode: str = typer.Option("auto", "--mode", "-m", help="Search mode: auto, exact, fuzzy, hybrid, vector, pure-vector."),
     weights: Optional[str] = typer.Option(None, "--weights", help="Custom RRF weights as 'exact,fuzzy,vector' (e.g., '0.5,0.3,0.2')."),
-    enrich: bool = typer.Option(False, "--enrich", help="Enrich results with code graph relationships (calls, imports)."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
 ) -> None:
@@ -423,30 +422,10 @@ def search(
                 for r in result.results
             ]
 
-            # Enrich results with relationship data if requested
-            enriched = False
-            if enrich:
-                try:
-                    from codexlens.search.enrichment import RelationshipEnricher
-
-                    # Find index path for the search path
-                    project_record = registry.find_by_source_path(str(search_path))
-                    if project_record:
-                        index_path = Path(project_record["index_root"]) / "_index.db"
-                        if index_path.exists():
-                            with RelationshipEnricher(index_path) as enricher:
-                                results_list = enricher.enrich(results_list, limit=limit)
-                            enriched = True
-                except Exception as e:
-                    # Enrichment failure should not break search
-                    if verbose:
-                        console.print(f"[yellow]Warning: Enrichment failed: {e}[/yellow]")
-
             payload = {
                 "query": query,
                 "mode": actual_mode,
                 "count": len(results_list),
-                "enriched": enriched,
                 "results": results_list,
                 "stats": {
                     "dirs_searched": result.stats.dirs_searched,
@@ -458,8 +437,7 @@ def search(
                 print_json(success=True, result=payload)
             else:
                 render_search_results(result.results, verbose=verbose)
-                enrich_status = " | [green]Enriched[/green]" if enriched else ""
-                console.print(f"[dim]Mode: {actual_mode} | Searched {result.stats.dirs_searched} directories in {result.stats.time_ms:.1f}ms{enrich_status}[/dim]")
+                console.print(f"[dim]Mode: {actual_mode} | Searched {result.stats.dirs_searched} directories in {result.stats.time_ms:.1f}ms[/dim]")
 
     except SearchError as exc:
         if json_mode:
@@ -1374,103 +1352,6 @@ def clean(
         else:
             console.print(f"[red]Clean failed (unexpected):[/red] {exc}")
             raise typer.Exit(code=1)
-
-
-@app.command()
-def graph(
-    query_type: str = typer.Argument(..., help="Query type: callers, callees, or inheritance"),
-    symbol: str = typer.Argument(..., help="Symbol name to query"),
-    path: Path = typer.Option(Path("."), "--path", "-p", help="Directory to search from."),
-    limit: int = typer.Option(50, "--limit", "-n", min=1, max=500, help="Max results."),
-    depth: int = typer.Option(-1, "--depth", "-d", help="Search depth (-1 = unlimited)."),
-    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
-) -> None:
-    """Query semantic graph for code relationships.
-
-    Supported query types:
-    - callers: Find all functions/methods that call the given symbol
-    - callees: Find all functions/methods called by the given symbol
-    - inheritance: Find inheritance relationships for the given class
-
-    Examples:
-        codex-lens graph callers my_function
-        codex-lens graph callees MyClass.method --path src/
-        codex-lens graph inheritance BaseClass
-    """
-    _configure_logging(verbose)
-    search_path = path.expanduser().resolve()
-
-    # Validate query type
-    valid_types = ["callers", "callees", "inheritance"]
-    if query_type not in valid_types:
-        if json_mode:
-            print_json(success=False, error=f"Invalid query type: {query_type}. Must be one of: {', '.join(valid_types)}")
-        else:
-            console.print(f"[red]Invalid query type:[/red] {query_type}")
-            console.print(f"[dim]Valid types: {', '.join(valid_types)}[/dim]")
-            raise typer.Exit(code=1)
-
-    registry: RegistryStore | None = None
-    try:
-        registry = RegistryStore()
-        registry.initialize()
-        mapper = PathMapper()
-
-        engine = ChainSearchEngine(registry, mapper)
-        options = SearchOptions(depth=depth, total_limit=limit)
-
-        # Execute graph query based on type
-        if query_type == "callers":
-            results = engine.search_callers(symbol, search_path, options=options)
-            result_type = "callers"
-        elif query_type == "callees":
-            results = engine.search_callees(symbol, search_path, options=options)
-            result_type = "callees"
-        else:  # inheritance
-            results = engine.search_inheritance(symbol, search_path, options=options)
-            result_type = "inheritance"
-
-        payload = {
-            "query_type": query_type,
-            "symbol": symbol,
-            "count": len(results),
-            "relationships": results
-        }
-
-        if json_mode:
-            print_json(success=True, result=payload)
-        else:
-            from .output import render_graph_results
-            render_graph_results(results, query_type=query_type, symbol=symbol)
-
-    except SearchError as exc:
-        if json_mode:
-            print_json(success=False, error=f"Graph search error: {exc}")
-        else:
-            console.print(f"[red]Graph query failed (search):[/red] {exc}")
-            raise typer.Exit(code=1)
-    except StorageError as exc:
-        if json_mode:
-            print_json(success=False, error=f"Storage error: {exc}")
-        else:
-            console.print(f"[red]Graph query failed (storage):[/red] {exc}")
-            raise typer.Exit(code=1)
-    except CodexLensError as exc:
-        if json_mode:
-            print_json(success=False, error=str(exc))
-        else:
-            console.print(f"[red]Graph query failed:[/red] {exc}")
-            raise typer.Exit(code=1)
-    except Exception as exc:
-        if json_mode:
-            print_json(success=False, error=f"Unexpected error: {exc}")
-        else:
-            console.print(f"[red]Graph query failed (unexpected):[/red] {exc}")
-            raise typer.Exit(code=1)
-    finally:
-        if registry is not None:
-            registry.close()
 
 
 @app.command("semantic-list")

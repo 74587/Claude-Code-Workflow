@@ -204,8 +204,6 @@ class TestEntitySerialization:
             "kind": "function",
             "range": (1, 10),
             "file": None,
-            "token_count": None,
-            "symbol_type": None,
         }
 
     def test_indexed_file_model_dump(self):

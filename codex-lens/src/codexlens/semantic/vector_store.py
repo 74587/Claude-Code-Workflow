@@ -602,6 +602,12 @@ class VectorStore:
         Returns:
             List of SearchResult ordered by similarity (highest first)
         """
+        logger.warning(
+            "Using brute-force vector search (hnswlib not available). "
+            "This may cause high memory usage for large indexes. "
+            "Install hnswlib for better performance: pip install hnswlib"
+        )
+
         with self._cache_lock:
             # Refresh cache if needed
             if self._embedding_matrix is None:
