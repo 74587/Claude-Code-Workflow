@@ -50,7 +50,10 @@ function notifyDashboard(data: Record<string, unknown>): void {
     }
   });
 
-  // Fire and forget - log errors only in debug mode
+  // Fire and forget - don't block process exit
+  req.on('socket', (socket) => {
+    socket.unref(); // Allow process to exit even if socket is open
+  });
   req.on('error', (err) => {
     if (process.env.DEBUG) console.error('[Dashboard] CLI notification failed:', err.message);
   });
@@ -505,6 +508,9 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
         duration_ms: result.execution.duration_ms,
         turn_count: result.conversation.turn_count
       });
+
+      // Ensure clean exit after successful execution
+      process.exit(0);
     } else {
       console.log(chalk.red(`  ✗ Failed (${result.execution.status})`));
       console.log(chalk.gray(`  ID: ${result.execution.id}`));

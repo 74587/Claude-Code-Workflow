@@ -59,6 +59,17 @@ body {
   padding: 10px 0;
 }
 
+/* Nav item indent for hierarchy visibility */
+.nav-item {
+  margin-left: 20px;  /* Increased from mx-2 (8px) for clearer hierarchy */
+  margin-right: 8px;  /* Keep original right margin */
+}
+
+.sidebar.collapsed .nav-item {
+  margin-left: 0;
+  margin-right: 0;
+}
+
 /* Nav item active state */
 .nav-item.active {
   background-color: hsl(var(--accent));
