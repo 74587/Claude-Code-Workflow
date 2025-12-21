@@ -414,15 +414,40 @@ function parseProgressLine(line: string): ProgressInfo | null {
     return { stage: 'complete', message: 'Finalizing...', percent: 95 };
   }
 
-  // Parse indexed count: "Indexed X files"
+  // Parse indexed count: "Indexed X files" - FTS complete, but embeddings may follow
   const indexedMatch = line.match(/Indexed (\d+) files/i);
   if (indexedMatch) {
     return {
-      stage: 'complete',
-      message: `Indexed ${indexedMatch[1]} files`,
-      percent: 100,
+      stage: 'fts_complete',  // Not 'complete' - embeddings generation may still be pending
+      message: `Indexed ${indexedMatch[1]} files, generating embeddings...`,
+      percent: 60,  // FTS done, embeddings starting
       filesProcessed: parseInt(indexedMatch[1], 10),
     };
+  }
+
+  // Parse embedding batch progress: "Batch X: N files, M chunks"
+  const batchMatch = line.match(/Batch (\d+):\s*(\d+) files,\s*(\d+) chunks/i);
+  if (batchMatch) {
+    return {
+      stage: 'embeddings',
+      message: `Embedding batch ${batchMatch[1]}: ${batchMatch[3]} chunks`,
+      percent: 70,  // Stay at 70% during embedding batches
+    };
+  }
+
+  // Parse embedding progress with file count
+  const embedProgressMatch = line.match(/Processing (\d+) files/i);
+  if (embedProgressMatch && line.toLowerCase().includes('embed')) {
+    return {
+      stage: 'embeddings',
+      message: `Processing ${embedProgressMatch[1]} files for embeddings`,
+      percent: 75,
+    };
+  }
+
+  // Parse finalizing ANN index
+  if (line.includes('Finalizing index') || line.includes('Building ANN')) {
+    return { stage: 'finalizing', message: 'Finalizing vector index...', percent: 90 };
   }
 
   return null;
