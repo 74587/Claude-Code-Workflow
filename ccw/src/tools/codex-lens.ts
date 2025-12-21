@@ -33,6 +33,10 @@ const VENV_PYTHON =
 let bootstrapChecked = false;
 let bootstrapReady = false;
 
+// Track running indexing process for cancellation
+let currentIndexingProcess: ReturnType<typeof spawn> | null = null;
+let currentIndexingAborted = false;
+
 // Define Zod schema for validation
 const ParamsSchema = z.object({
   action: z.enum([
@@ -510,6 +514,13 @@ async function executeCodexLens(args: string[], options: ExecuteOptions = {}): P
       timeout,
     });
 
+    // Track indexing process for cancellation (only for init commands)
+    const isIndexingCommand = args.includes('init');
+    if (isIndexingCommand) {
+      currentIndexingProcess = child;
+      currentIndexingAborted = false;
+    }
+
     let stdout = '';
     let stderr = '';
     let stdoutLineBuffer = '';
@@ -524,6 +535,10 @@ async function executeCodexLens(args: string[], options: ExecuteOptions = {}): P
       if (timeoutHandle) {
         clearTimeout(timeoutHandle);
         timeoutHandle = null;
+      }
+      // Clear indexing process tracking
+      if (isIndexingCommand) {
+        currentIndexingProcess = null;
       }
       resolve(result);
     };
@@ -1055,11 +1070,63 @@ async function uninstallCodexLens(): Promise<BootstrapResult> {
   }
 }
 
+/**
+ * Cancel the currently running indexing process
+ * @returns Result indicating if cancellation was successful
+ */
+function cancelIndexing(): { success: boolean; message?: string; error?: string } {
+  if (!currentIndexingProcess) {
+    return { success: false, error: 'No indexing process is currently running' };
+  }
+
+  if (currentIndexingAborted) {
+    return { success: false, error: 'Indexing process is already being cancelled' };
+  }
+
+  try {
+    currentIndexingAborted = true;
+
+    // Send SIGTERM first for graceful shutdown
+    if (process.platform === 'win32') {
+      // On Windows, use taskkill to kill the process tree
+      const { execSync } = require('child_process');
+      try {
+        execSync(`taskkill /pid ${currentIndexingProcess.pid} /T /F`, { stdio: 'ignore' });
+      } catch {
+        // Process may have already exited
+      }
+    } else {
+      // On Unix, send SIGTERM
+      currentIndexingProcess.kill('SIGTERM');
+
+      // Force kill after 3 seconds if still running
+      setTimeout(() => {
+        if (currentIndexingProcess) {
+          currentIndexingProcess.kill('SIGKILL');
+        }
+      }, 3000);
+    }
+
+    console.log('[CodexLens] Indexing process cancelled');
+    return { success: true, message: 'Indexing cancelled successfully' };
+  } catch (err) {
+    return { success: false, error: `Failed to cancel indexing: ${(err as Error).message}` };
+  }
+}
+
+/**
+ * Check if an indexing process is currently running
+ * @returns True if indexing is in progress
+ */
+function isIndexingInProgress(): boolean {
+  return currentIndexingProcess !== null && !currentIndexingAborted;
+}
+
 // Export types
 export type { ProgressInfo, ExecuteOptions };
 
 // Export for direct usage
-export { ensureReady, executeCodexLens, checkVenvStatus, bootstrapVenv, checkSemanticStatus, installSemantic, uninstallCodexLens };
+export { ensureReady, executeCodexLens, checkVenvStatus, bootstrapVenv, checkSemanticStatus, installSemantic, uninstallCodexLens, cancelIndexing, isIndexingInProgress };
 
 // Backward-compatible export for tests
 export const codexLensTool = {

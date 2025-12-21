@@ -10,7 +10,9 @@ import {
   executeCodexLens,
   checkSemanticStatus,
   installSemantic,
-  uninstallCodexLens
+  uninstallCodexLens,
+  cancelIndexing,
+  isIndexingInProgress
 } from '../../tools/codex-lens.js';
 import type { ProgressInfo } from '../../tools/codex-lens.js';
 
@@ -446,6 +448,31 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         return { success: false, error: err.message, status: 500 };
       }
     });
+    return true;
+  }
+
+  // API: Cancel CodexLens Indexing
+  if (pathname === '/api/codexlens/cancel' && req.method === 'POST') {
+    const result = cancelIndexing();
+
+    // Broadcast cancellation event
+    if (result.success) {
+      broadcastToClients({
+        type: 'CODEXLENS_INDEX_PROGRESS',
+        payload: { stage: 'cancelled', message: 'Indexing cancelled by user', percent: 0 }
+      });
+    }
+
+    res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result));
+    return true;
+  }
+
+  // API: Check if indexing is in progress
+  if (pathname === '/api/codexlens/indexing-status') {
+    const inProgress = isIndexingInProgress();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, inProgress }));
     return true;
   }
 

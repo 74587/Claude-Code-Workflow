@@ -660,6 +660,9 @@ async function initCodexLensIndex(indexType, embeddingModel) {
             '<div id="codexlensIndexProgressBar" class="h-full bg-primary transition-all duration-300 ease-out" style="width: 0%"></div>' +
           '</div>' +
         '</div>' +
+        '<button id="codexlensIndexCancelBtn" class="px-2 py-1 text-xs bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-md transition-colors flex-shrink-0" onclick="cancelCodexLensIndexing()" title="' + t('common.cancel') + '">' +
+          t('common.cancel') +
+        '</button>' +
         '<button class="p-1.5 hover:bg-muted rounded-md transition-colors flex-shrink-0" onclick="closeCodexLensIndexModal()" title="' + t('common.close') + '">' +
           '<i data-lucide="x" class="w-4 h-4"></i>' +
         '</button>' +
@@ -813,6 +816,61 @@ function closeCodexLensIndexModal() {
   // Unregister WebSocket handler
   if (typeof unregisterWsEventHandler === 'function' && window.codexlensIndexProgressHandler) {
     unregisterWsEventHandler('CODEXLENS_INDEX_PROGRESS', window.codexlensIndexProgressHandler);
+  }
+}
+
+/**
+ * Cancel the running indexing process
+ */
+async function cancelCodexLensIndexing() {
+  var cancelBtn = document.getElementById('codexlensIndexCancelBtn');
+  var statusText = document.getElementById('codexlensIndexStatus');
+
+  // Disable button to prevent double-click
+  if (cancelBtn) {
+    cancelBtn.disabled = true;
+    cancelBtn.textContent = t('common.canceling') || 'Canceling...';
+  }
+
+  try {
+    var response = await fetch('/api/codexlens/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      if (statusText) statusText.textContent = t('codexlens.indexCanceled') || 'Indexing canceled';
+      showRefreshToast(t('codexlens.indexCanceled') || 'Indexing canceled', 'info');
+
+      // Close the modal after a short delay
+      setTimeout(function() {
+        closeCodexLensIndexModal();
+        // Refresh status
+        if (typeof loadCodexLensStatus === 'function') {
+          loadCodexLensStatus().then(function() {
+            renderToolsSection();
+            if (window.lucide) lucide.createIcons();
+          });
+        }
+      }, 1000);
+    } else {
+      showRefreshToast(t('codexlens.cancelFailed') + ': ' + result.error, 'error');
+      // Re-enable button on failure
+      if (cancelBtn) {
+        cancelBtn.disabled = false;
+        cancelBtn.textContent = t('common.cancel');
+      }
+    }
+  } catch (err) {
+    console.error('[CodexLens] Cancel error:', err);
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+    // Re-enable button on error
+    if (cancelBtn) {
+      cancelBtn.disabled = false;
+      cancelBtn.textContent = t('common.cancel');
+    }
   }
 }
 
