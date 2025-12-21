@@ -1,5 +1,6 @@
 """Embedding Manager - Manage semantic embeddings for code indexes."""
 
+import gc
 import logging
 import sqlite3
 import time
@@ -9,13 +10,16 @@ from typing import Dict, List, Optional
 try:
     from codexlens.semantic import SEMANTIC_AVAILABLE
     if SEMANTIC_AVAILABLE:
-        from codexlens.semantic.embedder import Embedder, get_embedder
+        from codexlens.semantic.embedder import Embedder, get_embedder, clear_embedder_cache
         from codexlens.semantic.vector_store import VectorStore
         from codexlens.semantic.chunker import Chunker, ChunkConfig
 except ImportError:
     SEMANTIC_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
+
+# Periodic embedder recreation interval to prevent memory accumulation
+EMBEDDER_RECREATION_INTERVAL = 10  # Recreate embedder every N batches
 
 
 def _get_path_column(conn: sqlite3.Connection) -> str:
@@ -192,12 +196,13 @@ def generate_embeddings(
 
     # Initialize components
     try:
-        # Use cached embedder (singleton) for performance
+        # Initialize embedder (will be periodically recreated to prevent memory leaks)
         embedder = get_embedder(profile=model_profile)
         chunker = Chunker(config=ChunkConfig(max_chunk_size=chunk_size))
 
         if progress_callback:
             progress_callback(f"Using model: {embedder.model_name} ({embedder.embedding_dim} dimensions)")
+            progress_callback(f"Memory optimization: Embedder will be recreated every {EMBEDDER_RECREATION_INTERVAL} batches")
 
     except Exception as e:
         return {
@@ -242,6 +247,14 @@ def generate_embeddings(
                     batch_chunks_with_paths = []
                     files_in_batch_with_chunks = set()
 
+                    # Periodic embedder recreation to prevent memory accumulation
+                    if batch_number % EMBEDDER_RECREATION_INTERVAL == 0:
+                        if progress_callback:
+                            progress_callback(f"  [Memory optimization] Recreating embedder at batch {batch_number}")
+                        clear_embedder_cache()
+                        embedder = get_embedder(profile=model_profile)
+                        gc.collect()
+
                     # Step 1: Chunking for the current file batch
                     for file_row in file_batch:
                         file_path = file_row[path_column]
@@ -269,14 +282,19 @@ def generate_embeddings(
                     if progress_callback:
                         progress_callback(f"  Batch {batch_number}: {len(file_batch)} files, {batch_chunk_count} chunks")
 
-                    # Step 2: Generate embeddings for this batch
+                    # Step 2: Generate embeddings for this batch (use memory-efficient numpy method)
                     batch_embeddings = []
                     try:
                         for i in range(0, batch_chunk_count, EMBEDDING_BATCH_SIZE):
                             batch_end = min(i + EMBEDDING_BATCH_SIZE, batch_chunk_count)
                             batch_contents = [chunk.content for chunk, _ in batch_chunks_with_paths[i:batch_end]]
-                            embeddings = embedder.embed(batch_contents)
+                            # Use embed_to_numpy() to avoid unnecessary list conversion
+                            embeddings_numpy = embedder.embed_to_numpy(batch_contents)
+                            # Convert to list only for storage (VectorStore expects list format)
+                            embeddings = [emb.tolist() for emb in embeddings_numpy]
                             batch_embeddings.extend(embeddings)
+                            # Explicit cleanup of intermediate data
+                            del batch_contents, embeddings_numpy
                     except Exception as e:
                         logger.error(f"Failed to generate embeddings for batch {batch_number}: {str(e)}")
                         failed_files.extend([(file_row[path_column], str(e)) for file_row in file_batch])
@@ -295,7 +313,9 @@ def generate_embeddings(
                         logger.error(f"Failed to store batch {batch_number}: {str(e)}")
                         failed_files.extend([(file_row[path_column], str(e)) for file_row in file_batch])
 
-                    # Memory is released here as batch_chunks_with_paths and batch_embeddings go out of scope
+                    # Explicit memory cleanup after each batch
+                    del batch_chunks_with_paths, batch_embeddings
+                    gc.collect()
 
     except Exception as e:
         return {"success": False, "error": f"Failed to read or process files: {str(e)}"}

@@ -13,6 +13,7 @@ Key features:
 
 from __future__ import annotations
 
+import logging
 import threading
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -23,6 +24,8 @@ from . import SEMANTIC_AVAILABLE
 
 if SEMANTIC_AVAILABLE:
     import numpy as np
+
+logger = logging.getLogger(__name__)
 
 # Try to import hnswlib (optional dependency)
 try:
@@ -48,16 +51,26 @@ class ANNIndex:
     - ef: 50 (search width during query - higher = better recall)
     """
 
-    def __init__(self, index_path: Path, dim: int) -> None:
+    def __init__(
+        self,
+        index_path: Path,
+        dim: int,
+        initial_capacity: int = 50000,
+        auto_save: bool = False,
+        expansion_threshold: float = 0.8,
+    ) -> None:
         """Initialize ANN index.
 
         Args:
             index_path: Path to SQLite database (index will be saved as _vectors.hnsw)
             dim: Dimension of embedding vectors
+            initial_capacity: Initial maximum elements capacity (default: 50000)
+            auto_save: Whether to automatically save index after operations (default: False)
+            expansion_threshold: Capacity threshold to trigger auto-expansion (default: 0.8)
 
         Raises:
             ImportError: If required dependencies are not available
-            ValueError: If dimension is invalid
+            ValueError: If dimension or capacity is invalid
         """
         if not SEMANTIC_AVAILABLE:
             raise ImportError(
@@ -74,6 +87,14 @@ class ANNIndex:
         if dim <= 0:
             raise ValueError(f"Invalid dimension: {dim}")
 
+        if initial_capacity <= 0:
+            raise ValueError(f"Invalid initial capacity: {initial_capacity}")
+
+        if not 0.0 < expansion_threshold < 1.0:
+            raise ValueError(
+                f"Invalid expansion threshold: {expansion_threshold}. Must be between 0 and 1."
+            )
+
         self.index_path = Path(index_path)
         self.dim = dim
 
@@ -89,13 +110,22 @@ class ANNIndex:
         self.ef_construction = 200  # Build-time search width (higher = better quality)
         self.ef = 50  # Query-time search width (higher = better recall)
 
+        # Memory management parameters
+        self._auto_save = auto_save
+        self._expansion_threshold = expansion_threshold
+
         # Thread safety
         self._lock = threading.RLock()
 
         # HNSW index instance
         self._index: Optional[hnswlib.Index] = None
-        self._max_elements = 1000000  # Initial capacity (auto-resizes)
+        self._max_elements = initial_capacity  # Initial capacity (reduced from 1M to 50K)
         self._current_count = 0  # Track number of vectors
+
+        logger.info(
+            f"Initialized ANNIndex with capacity={initial_capacity}, "
+            f"auto_save={auto_save}, expansion_threshold={expansion_threshold}"
+        )
 
     def _ensure_index(self) -> None:
         """Ensure HNSW index is initialized (lazy initialization)."""
@@ -108,6 +138,33 @@ class ANNIndex:
             )
             self._index.set_ef(self.ef)
             self._current_count = 0
+            logger.debug(f"Created new HNSW index with capacity {self._max_elements}")
+
+    def _auto_expand_if_needed(self, additional_count: int) -> None:
+        """Auto-expand index capacity if threshold is reached.
+
+        Args:
+            additional_count: Number of vectors to be added
+
+        Note:
+            This is called internally by add_vectors and is thread-safe.
+        """
+        usage_ratio = (self._current_count + additional_count) / self._max_elements
+
+        if usage_ratio >= self._expansion_threshold:
+            # Calculate new capacity (2x current or enough to fit new vectors)
+            new_capacity = max(
+                self._max_elements * 2,
+                self._current_count + additional_count,
+            )
+
+            logger.info(
+                f"Expanding index capacity: {self._max_elements} -> {new_capacity} "
+                f"(usage: {usage_ratio:.1%}, threshold: {self._expansion_threshold:.1%})"
+            )
+
+            self._index.resize_index(new_capacity)
+            self._max_elements = new_capacity
 
     def add_vectors(self, ids: List[int], vectors: np.ndarray) -> None:
         """Add vectors to the index.
@@ -137,14 +194,8 @@ class ANNIndex:
             try:
                 self._ensure_index()
 
-                # Resize index if needed
-                if self._current_count + len(ids) > self._max_elements:
-                    new_max = max(
-                        self._max_elements * 2,
-                        self._current_count + len(ids)
-                    )
-                    self._index.resize_index(new_max)
-                    self._max_elements = new_max
+                # Auto-expand if threshold reached
+                self._auto_expand_if_needed(len(ids))
 
                 # Ensure vectors are C-contiguous float32 (hnswlib requirement)
                 if not vectors.flags['C_CONTIGUOUS'] or vectors.dtype != np.float32:
@@ -153,6 +204,15 @@ class ANNIndex:
                 # Add vectors to index
                 self._index.add_items(vectors, ids)
                 self._current_count += len(ids)
+
+                logger.debug(
+                    f"Added {len(ids)} vectors to index "
+                    f"(total: {self._current_count}/{self._max_elements})"
+                )
+
+                # Auto-save if enabled
+                if self._auto_save:
+                    self.save()
 
             except Exception as e:
                 raise StorageError(f"Failed to add vectors to ANN index: {e}")
@@ -178,12 +238,20 @@ class ANNIndex:
                     return  # Nothing to remove
 
                 # Mark vectors as deleted
+                deleted_count = 0
                 for vec_id in ids:
                     try:
                         self._index.mark_deleted(vec_id)
+                        deleted_count += 1
                     except RuntimeError:
                         # ID not found - ignore (idempotent deletion)
                         pass
+
+                logger.debug(f"Marked {deleted_count}/{len(ids)} vectors as deleted")
+
+                # Auto-save if enabled
+                if self._auto_save and deleted_count > 0:
+                    self.save()
 
             except Exception as e:
                 raise StorageError(f"Failed to remove vectors from ANN index: {e}")
@@ -248,6 +316,7 @@ class ANNIndex:
         with self._lock:
             try:
                 if self._index is None or self._current_count == 0:
+                    logger.debug("Skipping save: index is empty")
                     return  # Nothing to save
 
                 # Ensure parent directory exists
@@ -255,6 +324,11 @@ class ANNIndex:
 
                 # Save index
                 self._index.save_index(str(self.hnsw_path))
+
+                logger.debug(
+                    f"Saved index to {self.hnsw_path} "
+                    f"({self._current_count} vectors, capacity: {self._max_elements})"
+                )
 
             except Exception as e:
                 raise StorageError(f"Failed to save ANN index: {e}")
@@ -271,19 +345,27 @@ class ANNIndex:
         with self._lock:
             try:
                 if not self.hnsw_path.exists():
+                    logger.debug(f"Index file not found: {self.hnsw_path}")
                     return False  # Index file doesn't exist (not an error)
 
                 # Create fresh index object for loading (don't call init_index first)
                 self._index = hnswlib.Index(space=self.space, dim=self.dim)
 
                 # Load index from disk
+                # Note: max_elements here is just for initial allocation, can expand later
                 self._index.load_index(str(self.hnsw_path), max_elements=self._max_elements)
 
-                # Update count from loaded index
+                # Update count and capacity from loaded index
                 self._current_count = self._index.get_current_count()
+                self._max_elements = self._index.get_max_elements()
 
                 # Set query-time ef parameter
                 self._index.set_ef(self.ef)
+
+                logger.info(
+                    f"Loaded index from {self.hnsw_path} "
+                    f"({self._current_count} vectors, capacity: {self._max_elements})"
+                )
 
                 return True
 
@@ -298,6 +380,28 @@ class ANNIndex:
         """
         with self._lock:
             return self._current_count
+
+    @property
+    def capacity(self) -> int:
+        """Get current maximum capacity of the index.
+
+        Returns:
+            Maximum number of vectors the index can hold before expansion
+        """
+        with self._lock:
+            return self._max_elements
+
+    @property
+    def usage_ratio(self) -> float:
+        """Get current usage ratio (count / capacity).
+
+        Returns:
+            Usage ratio between 0.0 and 1.0
+        """
+        with self._lock:
+            if self._max_elements == 0:
+                return 0.0
+            return self._current_count / self._max_elements
 
     @property
     def is_loaded(self) -> bool:

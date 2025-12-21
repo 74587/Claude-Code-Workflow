@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import gc
 import threading
 from typing import Dict, Iterable, List, Optional
+
+import numpy as np
 
 from . import SEMANTIC_AVAILABLE
 
@@ -47,10 +50,20 @@ def get_embedder(profile: str = "code") -> "Embedder":
 
 
 def clear_embedder_cache() -> None:
-    """Clear the embedder cache (useful for testing or memory management)."""
+    """Clear the embedder cache and release ONNX resources.
+
+    This method ensures proper cleanup of ONNX model resources to prevent
+    memory leaks when embedders are no longer needed.
+    """
     global _embedder_cache
     with _cache_lock:
+        # Release ONNX resources before clearing cache
+        for embedder in _embedder_cache.values():
+            if embedder._model is not None:
+                del embedder._model
+                embedder._model = None
         _embedder_cache.clear()
+        gc.collect()
 
 
 class Embedder:
@@ -128,6 +141,10 @@ class Embedder:
 
         Returns:
             List of embedding vectors (each is a list of floats).
+
+        Note:
+            This method converts numpy arrays to Python lists for backward compatibility.
+            For memory-efficient processing, use embed_to_numpy() instead.
         """
         self._load_model()
 
@@ -138,6 +155,30 @@ class Embedder:
 
         embeddings = list(self._model.embed(texts))
         return [emb.tolist() for emb in embeddings]
+
+    def embed_to_numpy(self, texts: str | Iterable[str]) -> np.ndarray:
+        """Generate embeddings for one or more texts (returns numpy arrays).
+
+        This method is more memory-efficient than embed() as it avoids converting
+        numpy arrays to Python lists, which can significantly reduce memory usage
+        during batch processing.
+
+        Args:
+            texts: Single text or iterable of texts to embed.
+
+        Returns:
+            numpy.ndarray of shape (n_texts, embedding_dim) containing embeddings.
+        """
+        self._load_model()
+
+        if isinstance(texts, str):
+            texts = [texts]
+        else:
+            texts = list(texts)
+
+        # Return embeddings as numpy array directly (no .tolist() conversion)
+        embeddings = list(self._model.embed(texts))
+        return np.array(embeddings)
 
     def embed_single(self, text: str) -> List[float]:
         """Generate embedding for a single text."""

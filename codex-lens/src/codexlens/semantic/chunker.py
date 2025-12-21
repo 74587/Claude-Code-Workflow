@@ -1,4 +1,29 @@
-"""Code chunking strategies for semantic search."""
+"""Code chunking strategies for semantic search.
+
+This module provides various chunking strategies for breaking down source code
+into semantic chunks suitable for embedding and search.
+
+Lightweight Mode:
+    The ChunkConfig supports a `skip_token_count` option for performance optimization.
+    When enabled, token counting uses a fast character-based estimation (char/4)
+    instead of expensive tiktoken encoding.
+
+    Use cases for lightweight mode:
+    - Large-scale indexing where speed is critical
+    - Scenarios where approximate token counts are acceptable
+    - Memory-constrained environments
+    - Initial prototyping and development
+
+    Example:
+        # Default mode (accurate tiktoken encoding)
+        config = ChunkConfig()
+        chunker = Chunker(config)
+
+        # Lightweight mode (fast char/4 estimation)
+        config = ChunkConfig(skip_token_count=True)
+        chunker = Chunker(config)
+        chunks = chunker.chunk_file(content, symbols, path, language)
+"""
 
 from __future__ import annotations
 
@@ -17,6 +42,7 @@ class ChunkConfig:
     overlap: int = 100  # Overlap for sliding window
     strategy: str = "auto"  # Chunking strategy: auto, symbol, sliding_window, hybrid
     min_chunk_size: int = 50  # Minimum chunk size
+    skip_token_count: bool = False  # Skip expensive token counting (use char/4 estimate)
 
 
 class Chunker:
@@ -25,6 +51,23 @@ class Chunker:
     def __init__(self, config: ChunkConfig | None = None) -> None:
         self.config = config or ChunkConfig()
         self._tokenizer = get_default_tokenizer()
+
+    def _estimate_token_count(self, text: str) -> int:
+        """Estimate token count based on config.
+
+        If skip_token_count is True, uses character-based estimation (char/4).
+        Otherwise, uses accurate tiktoken encoding.
+
+        Args:
+            text: Text to count tokens for
+
+        Returns:
+            Estimated token count
+        """
+        if self.config.skip_token_count:
+            # Fast character-based estimation: ~4 chars per token
+            return max(1, len(text) // 4)
+        return self._tokenizer.count_tokens(text)
 
     def chunk_by_symbol(
         self,
@@ -63,7 +106,7 @@ class Chunker:
             if symbol_token_counts and symbol.name in symbol_token_counts:
                 token_count = symbol_token_counts[symbol.name]
             else:
-                token_count = self._tokenizer.count_tokens(chunk_content)
+                token_count = self._estimate_token_count(chunk_content)
 
             chunks.append(SemanticChunk(
                 content=chunk_content,
@@ -122,7 +165,7 @@ class Chunker:
             chunk_content = "".join(lines[start:end])
 
             if len(chunk_content.strip()) >= self.config.min_chunk_size:
-                token_count = self._tokenizer.count_tokens(chunk_content)
+                token_count = self._estimate_token_count(chunk_content)
 
                 # Calculate correct line numbers
                 if line_mapping:
@@ -346,14 +389,14 @@ class HybridChunker:
             symbol_token_counts: Optional dict mapping symbol names to token counts
         """
         chunks: List[SemanticChunk] = []
-        tokenizer = get_default_tokenizer()
 
         # Step 1: Extract docstrings as dedicated chunks
         docstrings = self.docstring_extractor.extract_docstrings(content, language)
 
         for docstring_content, start_line, end_line in docstrings:
             if len(docstring_content.strip()) >= self.config.min_chunk_size:
-                token_count = tokenizer.count_tokens(docstring_content)
+                # Use base chunker's token estimation method
+                token_count = self.base_chunker._estimate_token_count(docstring_content)
                 chunks.append(SemanticChunk(
                     content=docstring_content,
                     embedding=None,

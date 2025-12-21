@@ -61,6 +61,7 @@ class VectorStore:
     - NumPy vectorized operations instead of Python loops (fallback)
     - Lazy content loading - only fetch full content for top-k results
     - Thread-safe cache invalidation
+    - Bulk insert mode for efficient batch operations
     """
 
     # Default embedding dimension (used when creating new index)
@@ -87,6 +88,11 @@ class VectorStore:
         self._ann_index: Optional[ANNIndex] = None
         self._ann_dim: Optional[int] = None
         self._ann_write_lock = threading.Lock()  # Protects ANN index modifications
+
+        # Bulk insert mode tracking
+        self._bulk_insert_mode: bool = False
+        self._bulk_insert_ids: List[int] = []
+        self._bulk_insert_embeddings: List[np.ndarray] = []
 
         self._init_schema()
         self._init_ann_index()
@@ -395,7 +401,10 @@ class VectorStore:
         return ids
 
     def add_chunks_batch(
-        self, chunks_with_paths: List[Tuple[SemanticChunk, str]]
+        self,
+        chunks_with_paths: List[Tuple[SemanticChunk, str]],
+        update_ann: bool = True,
+        auto_save_ann: bool = True,
     ) -> List[int]:
         """Batch insert chunks from multiple files in a single transaction.
 
@@ -403,6 +412,9 @@ class VectorStore:
 
         Args:
             chunks_with_paths: List of (chunk, file_path) tuples
+            update_ann: If True, update ANN index with new vectors (default: True)
+            auto_save_ann: If True, save ANN index after update (default: True).
+                          Set to False for bulk inserts to reduce I/O overhead.
 
         Returns:
             List of inserted chunk IDs
@@ -416,7 +428,11 @@ class VectorStore:
         for chunk, file_path in chunks_with_paths:
             if chunk.embedding is None:
                 raise ValueError("All chunks must have embeddings")
-            embedding_arr = np.array(chunk.embedding, dtype=np.float32)
+            # Optimize: avoid repeated np.array() if already numpy
+            if isinstance(chunk.embedding, np.ndarray):
+                embedding_arr = chunk.embedding.astype(np.float32)
+            else:
+                embedding_arr = np.array(chunk.embedding, dtype=np.float32)
             embedding_blob = embedding_arr.tobytes()
             metadata_json = json.dumps(chunk.metadata) if chunk.metadata else None
             batch_data.append((file_path, chunk.content, embedding_blob, metadata_json))
@@ -439,19 +455,181 @@ class VectorStore:
             # Calculate inserted IDs based on starting ID
             ids = list(range(start_id, start_id + len(chunks_with_paths)))
 
-        # Add to ANN index
-        if embeddings_list and self._ensure_ann_index(len(embeddings_list[0])):
-            with self._ann_write_lock:
-                try:
-                    embeddings_matrix = np.vstack(embeddings_list)
-                    self._ann_index.add_vectors(ids, embeddings_matrix)
-                    self._ann_index.save()
-                except Exception as e:
-                    logger.warning("Failed to add batch to ANN index: %s", e)
+        # Handle ANN index updates
+        if embeddings_list and update_ann and self._ensure_ann_index(len(embeddings_list[0])):
+            # In bulk insert mode, accumulate for later batch update
+            if self._bulk_insert_mode:
+                self._bulk_insert_ids.extend(ids)
+                self._bulk_insert_embeddings.extend(embeddings_list)
+            else:
+                # Normal mode: update immediately
+                with self._ann_write_lock:
+                    try:
+                        embeddings_matrix = np.vstack(embeddings_list)
+                        self._ann_index.add_vectors(ids, embeddings_matrix)
+                        if auto_save_ann:
+                            self._ann_index.save()
+                    except Exception as e:
+                        logger.warning("Failed to add batch to ANN index: %s", e)
 
         # Invalidate cache after modification
         self._invalidate_cache()
         return ids
+
+    def add_chunks_batch_numpy(
+        self,
+        chunks_with_paths: List[Tuple[SemanticChunk, str]],
+        embeddings_matrix: np.ndarray,
+        update_ann: bool = True,
+        auto_save_ann: bool = True,
+    ) -> List[int]:
+        """Batch insert chunks with pre-computed numpy embeddings matrix.
+
+        This method accepts embeddings as a numpy matrix to avoid list->array conversions.
+        Useful when embeddings are already in numpy format from batch encoding.
+
+        Args:
+            chunks_with_paths: List of (chunk, file_path) tuples (embeddings can be None)
+            embeddings_matrix: Pre-computed embeddings as (N, D) numpy array
+            update_ann: If True, update ANN index with new vectors (default: True)
+            auto_save_ann: If True, save ANN index after update (default: True)
+
+        Returns:
+            List of inserted chunk IDs
+        """
+        if not chunks_with_paths:
+            return []
+
+        if len(chunks_with_paths) != embeddings_matrix.shape[0]:
+            raise ValueError(
+                f"Mismatch: {len(chunks_with_paths)} chunks but "
+                f"{embeddings_matrix.shape[0]} embeddings"
+            )
+
+        # Ensure float32 format
+        embeddings_matrix = embeddings_matrix.astype(np.float32)
+
+        # Prepare batch data
+        batch_data = []
+        for i, (chunk, file_path) in enumerate(chunks_with_paths):
+            embedding_arr = embeddings_matrix[i]
+            embedding_blob = embedding_arr.tobytes()
+            metadata_json = json.dumps(chunk.metadata) if chunk.metadata else None
+            batch_data.append((file_path, chunk.content, embedding_blob, metadata_json))
+
+        # Batch insert to SQLite in single transaction
+        with sqlite3.connect(self.db_path) as conn:
+            # Get starting ID before insert
+            row = conn.execute("SELECT MAX(id) FROM semantic_chunks").fetchone()
+            start_id = (row[0] or 0) + 1
+
+            conn.executemany(
+                """
+                INSERT INTO semantic_chunks (file_path, content, embedding, metadata)
+                VALUES (?, ?, ?, ?)
+                """,
+                batch_data
+            )
+            conn.commit()
+            # Calculate inserted IDs based on starting ID
+            ids = list(range(start_id, start_id + len(chunks_with_paths)))
+
+        # Handle ANN index updates
+        if update_ann and self._ensure_ann_index(embeddings_matrix.shape[1]):
+            # In bulk insert mode, accumulate for later batch update
+            if self._bulk_insert_mode:
+                self._bulk_insert_ids.extend(ids)
+                # Split matrix into individual arrays for accumulation
+                self._bulk_insert_embeddings.extend([embeddings_matrix[i] for i in range(len(ids))])
+            else:
+                # Normal mode: update immediately
+                with self._ann_write_lock:
+                    try:
+                        self._ann_index.add_vectors(ids, embeddings_matrix)
+                        if auto_save_ann:
+                            self._ann_index.save()
+                    except Exception as e:
+                        logger.warning("Failed to add batch to ANN index: %s", e)
+
+        # Invalidate cache after modification
+        self._invalidate_cache()
+        return ids
+
+    def begin_bulk_insert(self) -> None:
+        """Begin bulk insert mode - disable ANN auto-update for better performance.
+
+        Usage:
+            store.begin_bulk_insert()
+            try:
+                for batch in batches:
+                    store.add_chunks_batch(batch, auto_save_ann=False)
+            finally:
+                store.end_bulk_insert()
+
+        Or use context manager:
+            with store.bulk_insert():
+                for batch in batches:
+                    store.add_chunks_batch(batch)
+        """
+        self._bulk_insert_mode = True
+        self._bulk_insert_ids.clear()
+        self._bulk_insert_embeddings.clear()
+        logger.debug("Entered bulk insert mode")
+
+    def end_bulk_insert(self) -> None:
+        """End bulk insert mode and rebuild ANN index from accumulated data.
+
+        This method should be called after all bulk inserts are complete to
+        update the ANN index in a single batch operation.
+        """
+        if not self._bulk_insert_mode:
+            logger.warning("end_bulk_insert called but not in bulk insert mode")
+            return
+
+        self._bulk_insert_mode = False
+
+        # Update ANN index with all accumulated data
+        if self._bulk_insert_ids and self._bulk_insert_embeddings:
+            if self._ensure_ann_index(len(self._bulk_insert_embeddings[0])):
+                with self._ann_write_lock:
+                    try:
+                        embeddings_matrix = np.vstack(self._bulk_insert_embeddings)
+                        self._ann_index.add_vectors(self._bulk_insert_ids, embeddings_matrix)
+                        self._ann_index.save()
+                        logger.info(
+                            "Bulk insert complete: added %d vectors to ANN index",
+                            len(self._bulk_insert_ids)
+                        )
+                    except Exception as e:
+                        logger.error("Failed to update ANN index after bulk insert: %s", e)
+
+        # Clear accumulated data
+        self._bulk_insert_ids.clear()
+        self._bulk_insert_embeddings.clear()
+        logger.debug("Exited bulk insert mode")
+
+    class BulkInsertContext:
+        """Context manager for bulk insert operations."""
+
+        def __init__(self, store: "VectorStore") -> None:
+            self.store = store
+
+        def __enter__(self) -> "VectorStore":
+            self.store.begin_bulk_insert()
+            return self.store
+
+        def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+            self.store.end_bulk_insert()
+
+    def bulk_insert(self) -> "VectorStore.BulkInsertContext":
+        """Return a context manager for bulk insert operations.
+
+        Usage:
+            with store.bulk_insert():
+                for batch in batches:
+                    store.add_chunks_batch(batch)
+        """
+        return self.BulkInsertContext(self)
 
     def delete_file_chunks(self, file_path: str) -> int:
         """Delete all chunks for a file.
