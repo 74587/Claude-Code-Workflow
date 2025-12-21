@@ -248,12 +248,6 @@ def init(
         else:
             console.print(f"[red]Init failed:[/red] {exc}")
             raise typer.Exit(code=1)
-    except Exception as exc:
-        if json_mode:
-            print_json(success=False, error=f"Unexpected error: {exc}")
-        else:
-            console.print(f"[red]Init failed (unexpected):[/red] {exc}")
-            raise typer.Exit(code=1)
     finally:
         if registry is not None:
             registry.close()
@@ -457,12 +451,6 @@ def search(
         else:
             console.print(f"[red]Search failed:[/red] {exc}")
             raise typer.Exit(code=1)
-    except Exception as exc:
-        if json_mode:
-            print_json(success=False, error=f"Unexpected error: {exc}")
-        else:
-            console.print(f"[red]Search failed (unexpected):[/red] {exc}")
-            raise typer.Exit(code=1)
     finally:
         if registry is not None:
             registry.close()
@@ -522,12 +510,6 @@ def symbol(
         else:
             console.print(f"[red]Symbol lookup failed:[/red] {exc}")
             raise typer.Exit(code=1)
-    except Exception as exc:
-        if json_mode:
-            print_json(success=False, error=f"Unexpected error: {exc}")
-        else:
-            console.print(f"[red]Symbol lookup failed (unexpected):[/red] {exc}")
-            raise typer.Exit(code=1)
     finally:
         if registry is not None:
             registry.close()
@@ -582,12 +564,6 @@ def inspect(
             print_json(success=False, error=str(exc))
         else:
             console.print(f"[red]Inspect failed:[/red] {exc}")
-            raise typer.Exit(code=1)
-    except Exception as exc:
-        if json_mode:
-            print_json(success=False, error=f"Unexpected error: {exc}")
-        else:
-            console.print(f"[red]Inspect failed (unexpected):[/red] {exc}")
             raise typer.Exit(code=1)
 
 
@@ -726,12 +702,6 @@ def status(
             print_json(success=False, error=str(exc))
         else:
             console.print(f"[red]Status failed:[/red] {exc}")
-            raise typer.Exit(code=1)
-    except Exception as exc:
-        if json_mode:
-            print_json(success=False, error=f"Unexpected error: {exc}")
-        else:
-            console.print(f"[red]Status failed (unexpected):[/red] {exc}")
             raise typer.Exit(code=1)
     finally:
         if registry is not None:
@@ -883,12 +853,6 @@ def projects(
             print_json(success=False, error=str(exc))
         else:
             console.print(f"[red]Projects command failed:[/red] {exc}")
-            raise typer.Exit(code=1)
-    except Exception as exc:
-        if json_mode:
-            print_json(success=False, error=f"Unexpected error: {exc}")
-        else:
-            console.print(f"[red]Projects command failed (unexpected):[/red] {exc}")
             raise typer.Exit(code=1)
     finally:
         if registry is not None:
@@ -1060,12 +1024,6 @@ def config(
         else:
             console.print(f"[red]Config command failed:[/red] {exc}")
             raise typer.Exit(code=1)
-    except Exception as exc:
-        if json_mode:
-            print_json(success=False, error=f"Unexpected error: {exc}")
-        else:
-            console.print(f"[red]Config command failed (unexpected):[/red] {exc}")
-            raise typer.Exit(code=1)
 
 
 @app.command()
@@ -1191,12 +1149,6 @@ def migrate(
             print_json(success=False, error=str(exc))
         else:
             console.print(f"[red]Migration failed:[/red] {exc}")
-            raise typer.Exit(code=1)
-    except Exception as exc:
-        if json_mode:
-            print_json(success=False, error=f"Unexpected error: {exc}")
-        else:
-            console.print(f"[red]Migration failed (unexpected):[/red] {exc}")
             raise typer.Exit(code=1)
     finally:
         if registry is not None:
@@ -1346,12 +1298,6 @@ def clean(
         else:
             console.print(f"[red]Clean failed:[/red] {exc}")
             raise typer.Exit(code=1)
-    except Exception as exc:
-        if json_mode:
-            print_json(success=False, error=f"Unexpected error: {exc}")
-        else:
-            console.print(f"[red]Clean failed (unexpected):[/red] {exc}")
-            raise typer.Exit(code=1)
 
 
 @app.command("semantic-list")
@@ -1472,12 +1418,6 @@ def semantic_list(
         else:
             console.print(f"[red]Semantic-list failed:[/red] {exc}")
             raise typer.Exit(code=1)
-    except Exception as exc:
-        if json_mode:
-            print_json(success=False, error=f"Unexpected error: {exc}")
-        else:
-            console.print(f"[red]Semantic-list failed (unexpected):[/red] {exc}")
-            raise typer.Exit(code=1)
     finally:
         if registry is not None:
             registry.close()
@@ -1549,12 +1489,6 @@ def model_list(
             console.print("[red]Error:[/red] fastembed not installed")
             console.print("[yellow]Install with:[/yellow] pip install codexlens[semantic]")
             raise typer.Exit(code=1)
-    except Exception as exc:
-        if json_mode:
-            print_json(success=False, error=str(exc))
-        else:
-            console.print(f"[red]Model-list failed:[/red] {exc}")
-            raise typer.Exit(code=1)
 
 
 @app.command(name="model-download")
@@ -1600,12 +1534,6 @@ def model_download(
             console.print("[red]Error:[/red] fastembed not installed")
             console.print("[yellow]Install with:[/yellow] pip install codexlens[semantic]")
             raise typer.Exit(code=1)
-    except Exception as exc:
-        if json_mode:
-            print_json(success=False, error=str(exc))
-        else:
-            console.print(f"[red]Model-download failed:[/red] {exc}")
-            raise typer.Exit(code=1)
 
 
 @app.command(name="model-delete")
@@ -1638,13 +1566,6 @@ def model_delete(
             console.print(f"  Profile: {data['profile']}")
             console.print(f"  Model: {data['model_name']}")
             console.print(f"  Freed space: {data['deleted_size_mb']:.1f} MB")
-
-    except Exception as exc:
-        if json_mode:
-            print_json(success=False, error=str(exc))
-        else:
-            console.print(f"[red]Model-delete failed:[/red] {exc}")
-            raise typer.Exit(code=1)
 
 
 @app.command(name="model-info")
@@ -1681,13 +1602,6 @@ def model_info(
                 console.print(f"  Estimated size: ~{data['estimated_size_mb']} MB")
             console.print(f"\n  Description: {data['description']}")
             console.print(f"  Use case: {data['use_case']}")
-
-    except Exception as exc:
-        if json_mode:
-            print_json(success=False, error=str(exc))
-        else:
-            console.print(f"[red]Model-info failed:[/red] {exc}")
-            raise typer.Exit(code=1)
 
 
 # ==================== Embedding Management Commands ====================
@@ -1820,13 +1734,6 @@ def embeddings_status(
                     console.print(f"  Total files indexed: {data['total_files']:,}")
                     console.print("\n[dim]Generate embeddings with:[/dim]")
                     console.print(f"  [cyan]codexlens embeddings-generate {index_path}[/cyan]")
-
-    except Exception as exc:
-        if json_mode:
-            print_json(success=False, error=str(exc))
-        else:
-            console.print(f"[red]Embeddings-status failed:[/red] {exc}")
-            raise typer.Exit(code=1)
 
 
 @app.command(name="embeddings-generate")
@@ -2011,10 +1918,3 @@ def embeddings_generate(
 
             console.print("\n[dim]Use vector search with:[/dim]")
             console.print("  [cyan]codexlens search 'your query' --mode pure-vector[/cyan]")
-
-    except Exception as exc:
-        if json_mode:
-            print_json(success=False, error=str(exc))
-        else:
-            console.print(f"[red]Embeddings-generate failed:[/red] {exc}")
-            raise typer.Exit(code=1)

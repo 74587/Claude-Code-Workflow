@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from functools import cached_property
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -96,17 +97,17 @@ class Config:
         except Exception as exc:
             raise ConfigError(f"Failed to initialize data_dir at {self.data_dir}: {exc}") from exc
 
-    @property
+    @cached_property
     def cache_dir(self) -> Path:
         """Directory for transient caches."""
         return self.data_dir / "cache"
 
-    @property
+    @cached_property
     def index_dir(self) -> Path:
         """Directory where index artifacts are stored."""
         return self.data_dir / "index"
 
-    @property
+    @cached_property
     def db_path(self) -> Path:
         """Default SQLite index path."""
         return self.index_dir / "codexlens.db"

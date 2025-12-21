@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field, field_validator
@@ -62,23 +63,22 @@ class IndexedFile(BaseModel):
         return cleaned
 
 
+class RelationshipType(str, Enum):
+    """Types of code relationships."""
+    CALL = "call"
+    INHERITS = "inherits"
+    IMPORTS = "imports"
+
+
 class CodeRelationship(BaseModel):
     """A relationship between code symbols (e.g., function calls, inheritance)."""
 
     source_symbol: str = Field(..., min_length=1, description="Name of source symbol")
     target_symbol: str = Field(..., min_length=1, description="Name of target symbol")
-    relationship_type: str = Field(..., min_length=1, description="Type of relationship (call, inherits, etc.)")
+    relationship_type: RelationshipType = Field(..., description="Type of relationship (call, inherits, etc.)")
     source_file: str = Field(..., min_length=1, description="File path containing source symbol")
     target_file: Optional[str] = Field(default=None, description="File path containing target (None if same file)")
     source_line: int = Field(..., ge=1, description="Line number where relationship occurs (1-based)")
-
-    @field_validator("relationship_type")
-    @classmethod
-    def validate_relationship_type(cls, value: str) -> str:
-        allowed_types = {"call", "inherits", "imports"}
-        if value not in allowed_types:
-            raise ValueError(f"relationship_type must be one of {allowed_types}")
-        return value
 
 
 class AdditionalLocation(BaseModel):
