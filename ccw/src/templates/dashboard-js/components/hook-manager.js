@@ -590,8 +590,8 @@ async function openHookWizardModal(wizardId) {
     wizardConfig.selectedOptions = [];
   }
 
-  // Ensure available skills are loaded for SKILL context wizard
-  if (wizardId === 'skill-context' && typeof window.availableSkills === 'undefined') {
+  // Always refresh available skills when opening SKILL context wizard
+  if (wizardId === 'skill-context') {
     await loadAvailableSkills();
   }
 
@@ -862,7 +862,8 @@ function renderSkillContextConfig() {
 
   if (selectedOption === 'auto') {
     let skillBadges = '';
-    if (typeof window.availableSkills === 'undefined') {
+    let isLoading = typeof window.availableSkills === 'undefined' || window.skillsLoading;
+    if (isLoading) {
       // Still loading
       skillBadges = '<span class="px-1.5 py-0.5 bg-muted text-muted-foreground rounded text-xs">' + t('common.loading') + '...</span>';
     } else if (availableSkills.length === 0) {
@@ -875,12 +876,22 @@ function renderSkillContextConfig() {
       }).join(' ');
     }
     return '<div class="bg-muted/30 rounded-lg p-4 text-sm text-muted-foreground">' +
-      '<div class="flex items-center gap-2 mb-2">' +
-        '<i data-lucide="info" class="w-4 h-4"></i>' +
-        '<span class="font-medium">' + t('hook.wizard.autoDetectionMode') + '</span>' +
+      '<div class="flex items-center justify-between mb-2">' +
+        '<div class="flex items-center gap-2">' +
+          '<i data-lucide="info" class="w-4 h-4"></i>' +
+          '<span class="font-medium">' + t('hook.wizard.autoDetectionMode') + '</span>' +
+        '</div>' +
+        '<button type="button" onclick="refreshAvailableSkills()" ' +
+                'class="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors" ' +
+                'title="' + t('common.refresh') + '">' +
+          '<i data-lucide="refresh-cw" class="w-4 h-4' + (isLoading ? ' animate-spin' : '') + '"></i>' +
+        '</button>' +
       '</div>' +
       '<p>' + t('hook.wizard.autoDetectionInfo') + '</p>' +
-      '<p class="mt-2">' + t('hook.wizard.availableSkills') + ' ' + skillBadges + '</p>' +
+      '<div class="mt-2 flex items-center gap-2 flex-wrap">' +
+        '<span>' + t('hook.wizard.availableSkills') + '</span>' +
+        skillBadges +
+      '</div>' +
     '</div>';
   }
 
@@ -926,25 +937,57 @@ function renderSkillContextConfig() {
     }).join('');
   }
 
-  var noSkillsWarning = '';
-  if (availableSkills.length === 0) {
-    noSkillsWarning = '<div class="text-xs text-amber-500 flex items-center gap-1">' +
+  var isLoading = typeof window.availableSkills === 'undefined' || window.skillsLoading;
+  var skillsStatusHtml = '';
+  if (isLoading) {
+    skillsStatusHtml = '<span class="text-xs text-muted-foreground flex items-center gap-1">' +
+      '<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i>' +
+      t('common.loading') +
+    '</span>';
+  } else if (availableSkills.length === 0) {
+    skillsStatusHtml = '<span class="text-xs text-amber-500 flex items-center gap-1">' +
       '<i data-lucide="alert-triangle" class="w-3 h-3"></i>' +
       t('hook.wizard.noSkillsFound') +
-    '</div>';
+    '</span>';
+  } else {
+    skillsStatusHtml = '<span class="text-xs text-muted-foreground">' +
+      availableSkills.length + ' ' + t('skills.skillsCount') +
+    '</span>';
   }
 
   return '<div class="space-y-4">' +
     '<div class="flex items-center justify-between">' +
-      '<span class="text-sm font-medium text-foreground">' + t('hook.wizard.configureSkills') + '</span>' +
+      '<div class="flex items-center gap-2">' +
+        '<span class="text-sm font-medium text-foreground">' + t('hook.wizard.configureSkills') + '</span>' +
+        skillsStatusHtml +
+        '<button type="button" onclick="refreshAvailableSkills()" ' +
+                'class="p-1 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors" ' +
+                'title="' + t('common.refresh') + '">' +
+          '<i data-lucide="refresh-cw" class="w-3 h-3' + (isLoading ? ' animate-spin' : '') + '"></i>' +
+        '</button>' +
+      '</div>' +
       '<button type="button" onclick="addSkillConfig()" ' +
               'class="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-lg hover:opacity-90 flex items-center gap-1">' +
         '<i data-lucide="plus" class="w-3 h-3"></i> ' + t('hook.wizard.addSkill') +
       '</button>' +
     '</div>' +
     '<div id="skillConfigsList" class="space-y-3">' + configListHtml + '</div>' +
-    noSkillsWarning +
   '</div>';
+}
+
+async function refreshAvailableSkills() {
+  // Set loading state
+  window.skillsLoading = true;
+  renderWizardModalContent();
+
+  try {
+    await loadAvailableSkills();
+  } finally {
+    window.skillsLoading = false;
+    renderWizardModalContent();
+    // Refresh Lucide icons
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
 }
 
 function addSkillConfig() {

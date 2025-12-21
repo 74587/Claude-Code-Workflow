@@ -4,10 +4,15 @@
 .prompt-history-view {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 120px);
+  min-height: 0;
 }
 
 .prompt-history-header {
   margin-bottom: 1.5rem;
+  flex-shrink: 0;
 }
 
 /* Stats Grid */
@@ -107,6 +112,9 @@
   border: 1px solid hsl(var(--border));
   border-radius: 0.75rem;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .prompt-timeline-header {
@@ -118,6 +126,7 @@
   background: hsl(var(--muted) / 0.3);
   gap: 1rem;
   flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .prompt-timeline-header h3 {
@@ -190,9 +199,10 @@
 
 /* Timeline List */
 .prompt-timeline-list {
-  max-height: 600px;
+  flex: 1;
   overflow-y: auto;
   padding: 0.5rem;
+  min-height: 0;
 }
 
 /* Session Groups */
@@ -428,6 +438,9 @@
   border: 1px solid hsl(var(--border));
   border-radius: 0.75rem;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .insights-panel-header {
@@ -437,6 +450,7 @@
   padding: 1rem;
   border-bottom: 1px solid hsl(var(--border));
   background: hsl(var(--muted) / 0.3);
+  flex-shrink: 0;
 }
 
 .insights-panel-header h3 {
@@ -496,6 +510,8 @@
   justify-content: center;
   padding: 3rem 1.5rem;
   text-align: center;
+  flex: 1;
+  min-height: 200px;
 }
 
 .insights-empty-state i {
@@ -514,9 +530,10 @@
 }
 
 .insights-list {
-  max-height: 600px;
+  flex: 1;
   overflow-y: auto;
   padding: 0.5rem;
+  min-height: 0;
 }
 
 .insights-section {
@@ -729,6 +746,8 @@
   justify-content: center;
   padding: 3rem 1.5rem;
   text-align: center;
+  flex: 1;
+  min-height: 200px;
 }
 
 .prompt-empty-state i {
@@ -752,8 +771,9 @@
 /* ========== Insights History Cards ========== */
 .insights-history-container {
   padding: 0.75rem;
-  max-height: calc(100vh - 300px);
+  flex: 1;
   overflow-y: auto;
+  min-height: 0;
 }
 
 .insights-history-cards {
