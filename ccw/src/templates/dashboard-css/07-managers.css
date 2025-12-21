@@ -514,6 +514,13 @@
   overflow: hidden;
 }
 
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* Highlight pulse effect */
 .highlight-pulse {
   animation: highlightPulse 0.5s ease-out 2;

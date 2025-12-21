@@ -153,10 +153,18 @@ function parseTomlValue(value: string): any {
 
 /**
  * Serialize object to TOML format for Codex config
+ *
+ * Handles mixed objects containing both simple values and sub-objects.
+ * For example: { command: "cmd", args: [...], env: { KEY: "value" } }
+ * becomes:
+ *   [section]
+ *   command = "cmd"
+ *   args = [...]
+ *   [section.env]
+ *   KEY = "value"
  */
 function serializeToml(obj: Record<string, any>, prefix: string = ''): string {
   let result = '';
-  const sections: string[] = [];
 
   for (const [key, value] of Object.entries(obj)) {
     if (value === null || value === undefined) continue;
@@ -164,22 +172,57 @@ function serializeToml(obj: Record<string, any>, prefix: string = ''): string {
     if (typeof value === 'object' && !Array.isArray(value)) {
       // Handle nested sections (like mcp_servers.server_name)
       const sectionKey = prefix ? `${prefix}.${key}` : key;
-      sections.push(sectionKey);
 
-      // Check if this is a section with sub-sections or direct values
-      const hasSubSections = Object.values(value).some(v => typeof v === 'object' && !Array.isArray(v));
+      // Separate simple values from sub-objects
+      const simpleEntries: [string, any][] = [];
+      const objectEntries: [string, any][] = [];
 
-      if (hasSubSections) {
-        // This section has sub-sections, recurse without header
-        result += serializeToml(value, sectionKey);
-      } else {
-        // This section has direct values, add header and values
+      for (const [subKey, subValue] of Object.entries(value)) {
+        if (subValue === null || subValue === undefined) continue;
+        if (typeof subValue === 'object' && !Array.isArray(subValue)) {
+          objectEntries.push([subKey, subValue]);
+        } else {
+          simpleEntries.push([subKey, subValue]);
+        }
+      }
+
+      // Write section header if there are simple values
+      if (simpleEntries.length > 0) {
         result += `\n[${sectionKey}]\n`;
-        for (const [subKey, subValue] of Object.entries(value)) {
-          if (subValue !== null && subValue !== undefined) {
-            result += `${subKey} = ${serializeTomlValue(subValue)}\n`;
+        for (const [subKey, subValue] of simpleEntries) {
+          result += `${subKey} = ${serializeTomlValue(subValue)}\n`;
+        }
+      }
+
+      // Recursively handle sub-objects
+      if (objectEntries.length > 0) {
+        for (const [subKey, subValue] of objectEntries) {
+          const subSectionKey = `${sectionKey}.${subKey}`;
+
+          // Check if sub-object has nested objects
+          const hasNestedObjects = Object.values(subValue).some(
+            v => typeof v === 'object' && v !== null && !Array.isArray(v)
+          );
+
+          if (hasNestedObjects) {
+            // Recursively process nested objects
+            result += serializeToml({ [subKey]: subValue }, sectionKey);
+          } else {
+            // Write sub-section with simple values
+            result += `\n[${subSectionKey}]\n`;
+            for (const [nestedKey, nestedValue] of Object.entries(subValue)) {
+              if (nestedValue !== null && nestedValue !== undefined) {
+                result += `${nestedKey} = ${serializeTomlValue(nestedValue)}\n`;
+              }
+            }
           }
         }
+      }
+
+      // If no simple values but has object entries, still need to process
+      if (simpleEntries.length === 0 && objectEntries.length === 0) {
+        // Empty section - write header only
+        result += `\n[${sectionKey}]\n`;
       }
     } else if (!prefix) {
       // Top-level simple values

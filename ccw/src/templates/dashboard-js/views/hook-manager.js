@@ -371,9 +371,9 @@ function renderHooksByEvent(hooks, scope) {
               <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">matcher</span>
               <span class="text-muted-foreground">${escapeHtml(matcher)}</span>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-start gap-2">
               <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">command</span>
-              <span class="font-mono text-xs text-foreground">${escapeHtml(command)}</span>
+              <span class="font-mono text-xs text-foreground break-all line-clamp-3 overflow-hidden" title="${escapeHtml(command)}">${escapeHtml(command)}</span>
             </div>
             ${args.length > 0 ? `
               <div class="flex items-start gap-2">
@@ -570,13 +570,36 @@ function attachHookEventListeners() {
       const hook = hookList[index];
 
       if (hook) {
+        // Support both Claude Code format (hooks[0].command) and legacy format (command + args)
+        let command = '';
+        let args = [];
+
+        if (hook.hooks && hook.hooks[0]) {
+          // Claude Code format: { hooks: [{ type: "command", command: "bash -c '...'" }] }
+          const fullCommand = hook.hooks[0].command || '';
+          // Try to split command and args for bash -c commands
+          const bashMatch = fullCommand.match(/^(bash|sh|cmd)\s+(-c)\s+(.+)$/s);
+          if (bashMatch) {
+            command = bashMatch[1];
+            args = [bashMatch[2], bashMatch[3]];
+          } else {
+            // For other commands, put the whole thing as command
+            command = fullCommand;
+            args = [];
+          }
+        } else {
+          // Legacy format: { command: "bash", args: ["-c", "..."] }
+          command = hook.command || '';
+          args = hook.args || [];
+        }
+
         openHookCreateModal({
           scope: scope,
           event: event,
           index: index,
           matcher: hook.matcher || '',
-          command: hook.command,
-          args: hook.args || []
+          command: command,
+          args: args
         });
       }
     });

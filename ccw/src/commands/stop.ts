@@ -72,7 +72,7 @@ export async function stopCommand(options: StopOptions): Promise<void> {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       console.log(chalk.green.bold('\n  Server stopped successfully!\n'));
-      return;
+      process.exit(0);
     }
 
     // No CCW server responding, check if port is in use
@@ -80,7 +80,7 @@ export async function stopCommand(options: StopOptions): Promise<void> {
 
     if (!pid) {
       console.log(chalk.yellow(`  No server running on port ${port}\n`));
-      return;
+      process.exit(0);
     }
 
     // Port is in use by another process
@@ -92,16 +92,20 @@ export async function stopCommand(options: StopOptions): Promise<void> {
 
       if (killed) {
         console.log(chalk.green.bold('\n  Process killed successfully!\n'));
+        process.exit(0);
       } else {
         console.log(chalk.red('\n  Failed to kill process. Try running as administrator.\n'));
+        process.exit(1);
       }
     } else {
       console.log(chalk.gray(`\n  This is not a CCW server. Use --force to kill it:`));
       console.log(chalk.white(`  ccw stop --force\n`));
+      process.exit(0);
     }
 
   } catch (err) {
     const error = err as Error;
     console.error(chalk.red(`\n  Error: ${error.message}\n`));
+    process.exit(1);
   }
 }
