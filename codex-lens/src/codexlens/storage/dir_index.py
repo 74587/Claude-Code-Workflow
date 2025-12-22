@@ -1651,16 +1651,17 @@ class DirIndexStore:
             from codexlens.storage.sqlite_utils import check_trigram_support
 
             has_trigram = check_trigram_support(conn)
-            fuzzy_tokenizer = "trigram" if has_trigram else "unicode61 tokenchars '_-'"
+            fuzzy_tokenizer = "trigram" if has_trigram else "unicode61 tokenchars '_-.'"
 
             # Exact FTS table with unicode61 tokenizer
+            # Note: tokenchars includes '.' to properly tokenize qualified names like PortRole.FLOW
             conn.execute(
                 """
                 CREATE VIRTUAL TABLE IF NOT EXISTS files_fts_exact USING fts5(
                     name, full_path UNINDEXED, content,
                     content='files',
                     content_rowid='id',
-                    tokenize="unicode61 tokenchars '_-'"
+                    tokenize="unicode61 tokenchars '_-.'"
                 )
                 """
             )

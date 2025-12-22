@@ -45,7 +45,7 @@ def upgrade(db_conn: Connection):
                 f"Trigram tokenizer not available (requires SQLite >= 3.34), "
                 f"using extended unicode61 tokenizer for fuzzy matching"
             )
-            fuzzy_tokenizer = "unicode61 tokenchars '_-'"
+            fuzzy_tokenizer = "unicode61 tokenchars '_-.'"
 
         # Start transaction
         cursor.execute("BEGIN TRANSACTION")
@@ -122,7 +122,8 @@ def upgrade(db_conn: Connection):
         # Drop old FTS table
         cursor.execute("DROP TABLE IF EXISTS files_fts")
 
-        # Create exact FTS table (unicode61 with underscores/hyphens as token chars)
+        # Create exact FTS table (unicode61 with underscores/hyphens/dots as token chars)
+        # Note: tokenchars includes '.' to properly tokenize qualified names like PortRole.FLOW
         log.info("Creating files_fts_exact table with unicode61 tokenizer...")
         cursor.execute(
             """
@@ -130,7 +131,7 @@ def upgrade(db_conn: Connection):
                 name, full_path UNINDEXED, content,
                 content='files',
                 content_rowid='id',
-                tokenize="unicode61 tokenchars '_-'"
+                tokenize="unicode61 tokenchars '_-.'"
             )
             """
         )

@@ -774,6 +774,7 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
 
     let stdout = '';
     let stderr = '';
+    let resultLimitReached = false;
 
     child.stdout.on('data', (data) => {
       stdout += data.toString();
@@ -786,8 +787,16 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
     child.on('close', (code) => {
       const results: ExactMatch[] = [];
       const lines = stdout.split('\n').filter((line) => line.trim());
+      // Limit total results to prevent memory overflow (--max-count only limits per-file)
+      const effectiveLimit = maxResults > 0 ? maxResults : 500;
 
       for (const line of lines) {
+        // Stop collecting if we've reached the limit
+        if (results.length >= effectiveLimit) {
+          resultLimitReached = true;
+          break;
+        }
+
         try {
           const item = JSON.parse(line);
 
@@ -817,6 +826,15 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
       const scoredResults = tokens.length > 1 ? scoreByTokenMatch(results, tokens) : results;
 
       if (code === 0 || code === 1 || (isWindowsDeviceError && scoredResults.length > 0)) {
+        // Build warning message for various conditions
+        const warnings: string[] = [];
+        if (resultLimitReached) {
+          warnings.push(`Result limit reached (${effectiveLimit}). Use a more specific query or increase limit.`);
+        }
+        if (isWindowsDeviceError) {
+          warnings.push('Some Windows device files were skipped');
+        }
+
         resolve({
           success: true,
           results: scoredResults,
@@ -827,7 +845,7 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
             query,
             tokens: tokens.length > 1 ? tokens : undefined,  // Include tokens in metadata for debugging
             tokenized: tokens.length > 1,
-            ...(isWindowsDeviceError && { warning: 'Some Windows device files were skipped' }),
+            ...(warnings.length > 0 && { warning: warnings.join('; ') }),
           },
         });
       } else if (isWindowsDeviceError && results.length === 0) {
@@ -921,6 +939,46 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
     }));
   } catch {
     // Keep empty results
+  }
+
+  // Fallback to fuzzy mode if exact returns no results
+  if (results.length === 0) {
+    const fuzzyArgs = ['search', query, '--limit', maxResults.toString(), '--mode', 'fuzzy', '--json'];
+    if (enrich) {
+      fuzzyArgs.push('--enrich');
+    }
+    const fuzzyResult = await executeCodexLens(fuzzyArgs, { cwd: path });
+
+    if (fuzzyResult.success) {
+      try {
+        const parsed = JSON.parse(stripAnsi(fuzzyResult.output || '{}'));
+        const data = parsed.result?.results || parsed.results || parsed;
+        results = (Array.isArray(data) ? data : []).map((item: any) => ({
+          file: item.path || item.file,
+          score: item.score || 0,
+          content: item.excerpt || item.content || '',
+          symbol: item.symbol || null,
+        }));
+      } catch {
+        // Keep empty results
+      }
+
+      if (results.length > 0) {
+        return {
+          success: true,
+          results,
+          metadata: {
+            mode: 'exact',
+            backend: 'codexlens',
+            count: results.length,
+            query,
+            warning: indexStatus.warning,
+            note: 'No exact matches found, showing fuzzy results',
+            fallback: 'fuzzy',
+          },
+        };
+      }
+    }
   }
 
   return {
