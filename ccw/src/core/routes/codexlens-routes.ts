@@ -10,11 +10,12 @@ import {
   executeCodexLens,
   checkSemanticStatus,
   installSemantic,
+  detectGpuSupport,
   uninstallCodexLens,
   cancelIndexing,
   isIndexingInProgress
 } from '../../tools/codex-lens.js';
-import type { ProgressInfo } from '../../tools/codex-lens.js';
+import type { ProgressInfo, GpuMode } from '../../tools/codex-lens.js';
 
 export interface RouteContext {
   pathname: string;
@@ -343,7 +344,7 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
       }
 
       try {
-        const result = await executeCodexLens(['config-set', '--key', 'index_dir', '--value', index_dir, '--json']);
+        const result = await executeCodexLens(['config', 'set', 'index_dir', index_dir, '--json']);
         if (result.success) {
           return { success: true, message: 'Configuration updated successfully' };
         } else {
@@ -668,16 +669,43 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
   }
 
 
-  // API: CodexLens Semantic Search Install (fastembed, ONNX-based, ~200MB)
+  // API: Detect GPU support for semantic search
+  if (pathname === '/api/codexlens/gpu/detect' && req.method === 'GET') {
+    try {
+      const gpuInfo = await detectGpuSupport();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, ...gpuInfo }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+    return true;
+  }
+
+  // API: CodexLens Semantic Search Install (with GPU mode support)
   if (pathname === '/api/codexlens/semantic/install' && req.method === 'POST') {
-    handlePostRequest(req, res, async () => {
+    handlePostRequest(req, res, async (body) => {
       try {
-        const result = await installSemantic();
+        // Get GPU mode from request body, default to 'cpu'
+        const gpuMode: GpuMode = body?.gpuMode || 'cpu';
+        const validModes: GpuMode[] = ['cpu', 'cuda', 'directml'];
+
+        if (!validModes.includes(gpuMode)) {
+          return { success: false, error: `Invalid GPU mode: ${gpuMode}. Valid modes: ${validModes.join(', ')}`, status: 400 };
+        }
+
+        const result = await installSemantic(gpuMode);
         if (result.success) {
           const status = await checkSemanticStatus();
+          const modeDescriptions = {
+            cpu: 'CPU (ONNX Runtime)',
+            cuda: 'NVIDIA CUDA GPU',
+            directml: 'Windows DirectML GPU'
+          };
           return {
             success: true,
-            message: 'Semantic search installed successfully (fastembed)',
+            message: `Semantic search installed successfully with ${modeDescriptions[gpuMode]}`,
+            gpuMode,
             ...status
           };
         } else {

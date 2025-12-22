@@ -946,20 +946,15 @@ function setCcwProjectRootToCurrent() {
 }
 
 // Build CCW Tools config with selected tools
-// Uses isWindowsPlatform from state.js to generate platform-appropriate commands
+// Uses globally installed ccw-mcp command (from claude-code-workflow package)
 function buildCcwToolsConfig(selectedTools, pathConfig = {}) {
   const { projectRoot, allowedDirs } = pathConfig;
-  // Windows requires 'cmd /c' wrapper to execute npx
-  // Other platforms (macOS, Linux) can run npx directly
-  const config = isWindowsPlatform
-    ? {
-        command: "cmd",
-        args: ["/c", "npx", "-y", "ccw-mcp"]
-      }
-    : {
-        command: "npx",
-        args: ["-y", "ccw-mcp"]
-      };
+  // Use globally installed ccw-mcp command directly
+  // Requires: npm install -g claude-code-workflow
+  const config = {
+    command: "ccw-mcp",
+    args: []
+  };
 
   // Add env if not all tools or not default 4 core tools
   const coreTools = ['write_file', 'edit_file', 'codex_lens', 'smart_search'];

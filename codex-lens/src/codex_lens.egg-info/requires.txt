@@ -15,4 +15,17 @@ tiktoken>=0.5.0
 
 [semantic]
 numpy>=1.24
-fastembed>=0.2
+fastembed>=0.5
+hnswlib>=0.8.0
+
+[semantic-directml]
+numpy>=1.24
+fastembed>=0.5
+hnswlib>=0.8.0
+onnxruntime-directml>=1.18.0
+
+[semantic-gpu]
+numpy>=1.24
+fastembed>=0.5
+hnswlib>=0.8.0
+onnxruntime-gpu>=1.18.0

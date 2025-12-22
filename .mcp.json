@@ -9,11 +9,8 @@
       "env": {}
     },
     "ccw-tools": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "ccw-mcp"
-      ],
+      "command": "ccw-mcp",
+      "args": [],
       "env": {
         "CCW_ENABLED_TOOLS": "write_file,edit_file,smart_search,core_memory"
       }

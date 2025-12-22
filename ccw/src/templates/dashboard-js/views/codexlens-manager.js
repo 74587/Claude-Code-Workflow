@@ -126,10 +126,10 @@ function buildCodexLensConfigContent(config) {
               '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-background hover:bg-muted/50 transition-colors" onclick="cleanCodexLensIndexes()">' +
                 '<i data-lucide="trash" class="w-3.5 h-3.5"></i> ' + t('codexlens.cleanAllIndexes') +
               '</button>' +
-              '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-destructive/30 bg-destructive/5 text-destructive hover:bg-destructive/10 transition-colors" onclick="uninstallCodexLens()">' +
+              '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-destructive/30 bg-destructive/5 text-destructive hover:bg-destructive/10 transition-colors" onclick="uninstallCodexLensFromManager()">' +
                 '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i> ' + t('cli.uninstall') +
               '</button>'
-            : '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors" onclick="installCodexLens()">' +
+            : '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors" onclick="installCodexLensFromManager()">' +
                 '<i data-lucide="download" class="w-3.5 h-3.5"></i> ' + t('codexlens.installCodexLens') +
               '</button>') +
         '</div>' +
@@ -335,6 +335,26 @@ function initCodexLensConfigEvents(currentConfig) {
 // SEMANTIC DEPENDENCIES MANAGEMENT
 // ============================================================
 
+// Store detected GPU info
+var detectedGpuInfo = null;
+
+/**
+ * Detect GPU support
+ */
+async function detectGpuSupport() {
+  try {
+    var response = await fetch('/api/codexlens/gpu/detect');
+    var result = await response.json();
+    if (result.success) {
+      detectedGpuInfo = result;
+      return result;
+    }
+  } catch (err) {
+    console.error('GPU detection failed:', err);
+  }
+  return { mode: 'cpu', available: ['cpu'], info: 'CPU only' };
+}
+
 /**
  * Load semantic dependencies status
  */
@@ -343,24 +363,58 @@ async function loadSemanticDepsStatus() {
   if (!container) return;
 
   try {
+    // Detect GPU support in parallel
+    var gpuPromise = detectGpuSupport();
     var response = await fetch('/api/codexlens/semantic/status');
     var result = await response.json();
+    var gpuInfo = await gpuPromise;
 
     if (result.available) {
-      container.innerHTML =
-        '<div class="flex items-center gap-2 text-sm">' +
-          '<i data-lucide="check-circle" class="w-4 h-4 text-success"></i>' +
-          '<span>' + t('codexlens.semanticInstalled') + '</span>' +
-          '<span class="text-muted-foreground">(' + (result.backend || 'fastembed') + ')</span>' +
-        '</div>';
-    } else {
+      // Build accelerator badge
+      var accelerator = result.accelerator || 'CPU';
+      var acceleratorIcon = 'cpu';
+      var acceleratorClass = 'bg-muted text-muted-foreground';
+
+      if (accelerator === 'CUDA') {
+        acceleratorIcon = 'zap';
+        acceleratorClass = 'bg-green-500/20 text-green-600';
+      } else if (accelerator === 'DirectML') {
+        acceleratorIcon = 'gpu-card';
+        acceleratorClass = 'bg-blue-500/20 text-blue-600';
+      } else if (accelerator === 'ROCm') {
+        acceleratorIcon = 'flame';
+        acceleratorClass = 'bg-red-500/20 text-red-600';
+      }
+
       container.innerHTML =
         '<div class="space-y-2">' +
+          '<div class="flex items-center gap-2 text-sm">' +
+            '<i data-lucide="check-circle" class="w-4 h-4 text-success"></i>' +
+            '<span>' + t('codexlens.semanticInstalled') + '</span>' +
+            '<span class="text-muted-foreground">(' + (result.backend || 'fastembed') + ')</span>' +
+          '</div>' +
+          '<div class="flex items-center gap-2">' +
+            '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ' + acceleratorClass + '">' +
+              '<i data-lucide="' + acceleratorIcon + '" class="w-3 h-3"></i>' +
+              accelerator +
+            '</span>' +
+            (result.providers && result.providers.length > 0
+              ? '<span class="text-xs text-muted-foreground">' + result.providers.join(', ') + '</span>'
+              : '') +
+          '</div>' +
+        '</div>';
+    } else {
+      // Build GPU mode options
+      var gpuOptions = buildGpuModeSelector(gpuInfo);
+
+      container.innerHTML =
+        '<div class="space-y-3">' +
           '<div class="flex items-center gap-2 text-sm text-muted-foreground">' +
             '<i data-lucide="alert-circle" class="w-4 h-4"></i>' +
             '<span>' + t('codexlens.semanticNotInstalled') + '</span>' +
           '</div>' +
-          '<button class="btn-sm btn-outline" onclick="installSemanticDeps()">' +
+          gpuOptions +
+          '<button class="btn-sm btn-primary w-full" onclick="installSemanticDepsWithGpu()">' +
             '<i data-lucide="download" class="w-3 h-3"></i> ' + t('codexlens.installDeps') +
           '</button>' +
         '</div>';
@@ -373,21 +427,120 @@ async function loadSemanticDepsStatus() {
 }
 
 /**
- * Install semantic dependencies
+ * Build GPU mode selector HTML
  */
-async function installSemanticDeps() {
+function buildGpuModeSelector(gpuInfo) {
+  var modes = [
+    {
+      id: 'cpu',
+      label: 'CPU',
+      desc: t('codexlens.cpuModeDesc') || 'Standard CPU processing',
+      icon: 'cpu',
+      available: true
+    },
+    {
+      id: 'directml',
+      label: 'DirectML',
+      desc: t('codexlens.directmlModeDesc') || 'Windows GPU (NVIDIA/AMD/Intel)',
+      icon: 'gpu-card',
+      available: gpuInfo.available.includes('directml'),
+      recommended: gpuInfo.mode === 'directml'
+    },
+    {
+      id: 'cuda',
+      label: 'CUDA',
+      desc: t('codexlens.cudaModeDesc') || 'NVIDIA GPU (requires CUDA Toolkit)',
+      icon: 'zap',
+      available: gpuInfo.available.includes('cuda'),
+      recommended: gpuInfo.mode === 'cuda'
+    }
+  ];
+
+  var html =
+    '<div class="space-y-2">' +
+      '<div class="text-xs font-medium text-muted-foreground flex items-center gap-1">' +
+        '<i data-lucide="settings" class="w-3 h-3"></i>' +
+        (t('codexlens.selectGpuMode') || 'Select acceleration mode') +
+      '</div>' +
+      '<div class="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1">' +
+        '<i data-lucide="info" class="w-3 h-3 inline"></i> ' + gpuInfo.info +
+      '</div>' +
+      '<div class="space-y-1">';
+
+  modes.forEach(function(mode) {
+    var isDisabled = !mode.available;
+    var isRecommended = mode.recommended;
+    var isDefault = mode.id === gpuInfo.mode;
+
+    html +=
+      '<label class="flex items-center gap-3 p-2 rounded border cursor-pointer hover:bg-muted/50 transition-colors ' +
+        (isDisabled ? 'opacity-50 cursor-not-allowed' : '') + '">' +
+        '<input type="radio" name="gpuMode" value="' + mode.id + '" ' +
+          (isDefault ? 'checked' : '') +
+          (isDisabled ? ' disabled' : '') +
+          ' class="accent-primary">' +
+        '<div class="flex-1">' +
+          '<div class="flex items-center gap-2">' +
+            '<i data-lucide="' + mode.icon + '" class="w-4 h-4"></i>' +
+            '<span class="font-medium text-sm">' + mode.label + '</span>' +
+            (isRecommended ? '<span class="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded">' + (t('common.recommended') || 'Recommended') + '</span>' : '') +
+            (isDisabled ? '<span class="text-xs text-muted-foreground">(' + (t('common.unavailable') || 'Unavailable') + ')</span>' : '') +
+          '</div>' +
+          '<div class="text-xs text-muted-foreground">' + mode.desc + '</div>' +
+        '</div>' +
+      '</label>';
+  });
+
+  html +=
+      '</div>' +
+    '</div>';
+
+  return html;
+}
+
+/**
+ * Get selected GPU mode
+ */
+function getSelectedGpuMode() {
+  var selected = document.querySelector('input[name="gpuMode"]:checked');
+  return selected ? selected.value : 'cpu';
+}
+
+/**
+ * Install semantic dependencies with GPU mode
+ */
+async function installSemanticDepsWithGpu() {
   var container = document.getElementById('semanticDepsStatus');
   if (!container) return;
 
+  var gpuMode = getSelectedGpuMode();
+  var modeLabels = {
+    cpu: 'CPU',
+    cuda: 'NVIDIA CUDA',
+    directml: 'DirectML'
+  };
+
   container.innerHTML =
-    '<div class="text-sm text-muted-foreground animate-pulse">' + t('codexlens.installingDeps') + '</div>';
+    '<div class="space-y-2">' +
+      '<div class="flex items-center gap-2 text-sm text-muted-foreground">' +
+        '<div class="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div>' +
+        '<span>' + t('codexlens.installingDeps') + '</span>' +
+      '</div>' +
+      '<div class="text-xs text-muted-foreground">' +
+        (t('codexlens.installingMode') || 'Installing with') + ': ' + modeLabels[gpuMode] +
+      '</div>' +
+    '</div>';
 
   try {
-    var response = await fetch('/api/codexlens/semantic/install', { method: 'POST' });
+    var response = await fetch('/api/codexlens/semantic/install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gpuMode: gpuMode })
+    });
     var result = await response.json();
 
     if (result.success) {
-      showRefreshToast(t('codexlens.depsInstalled'), 'success');
+      showRefreshToast(t('codexlens.depsInstalled') + ' (' + modeLabels[gpuMode] + ')', 'success');
       await loadSemanticDepsStatus();
       await loadModelList();
     } else {
@@ -400,9 +553,163 @@ async function installSemanticDeps() {
   }
 }
 
+/**
+ * Install semantic dependencies (legacy, defaults to CPU)
+ */
+async function installSemanticDeps() {
+  await installSemanticDepsWithGpu();
+}
+
 // ============================================================
 // MODEL MANAGEMENT
 // ============================================================
+
+/**
+ * Build manual download guide HTML
+ */
+function buildManualDownloadGuide() {
+  var modelData = [
+    { profile: 'code', name: 'jinaai/jina-embeddings-v2-base-code', size: '~150 MB' },
+    { profile: 'fast', name: 'BAAI/bge-small-en-v1.5', size: '~80 MB' },
+    { profile: 'balanced', name: 'mixedbread-ai/mxbai-embed-large-v1', size: '~600 MB' },
+    { profile: 'multilingual', name: 'intfloat/multilingual-e5-large', size: '~1 GB' }
+  ];
+
+  var html =
+    '<div class="mt-4 border-t pt-4">' +
+      '<button class="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground w-full" onclick="toggleManualDownloadGuide()" id="manualDownloadToggle">' +
+        '<i data-lucide="chevron-right" class="w-4 h-4 transition-transform" id="manualDownloadChevron"></i>' +
+        '<i data-lucide="terminal" class="w-4 h-4"></i>' +
+        '<span>' + (t('codexlens.manualDownloadGuide') || 'Manual Download Guide') + '</span>' +
+      '</button>' +
+      '<div id="manualDownloadContent" class="hidden mt-3 space-y-3">' +
+        // Method 1: CLI
+        '<div class="bg-muted/50 rounded-lg p-3 space-y-2">' +
+          '<div class="flex items-center gap-2 text-sm font-medium">' +
+            '<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/20 text-primary text-xs">1</span>' +
+            '<span>' + (t('codexlens.cliMethod') || 'Command Line (Recommended)') + '</span>' +
+          '</div>' +
+          '<div class="text-xs text-muted-foreground mb-2">' +
+            (t('codexlens.cliMethodDesc') || 'Run in terminal with progress display:') +
+          '</div>' +
+          '<div class="space-y-1">';
+
+  modelData.forEach(function(m) {
+    html +=
+          '<div class="flex items-center justify-between bg-background rounded px-2 py-1.5">' +
+            '<code class="text-xs font-mono">codexlens model-download ' + m.profile + '</code>' +
+            '<button class="text-xs text-primary hover:underline" onclick="copyToClipboard(\'codexlens model-download ' + m.profile + '\')">' +
+              '<i data-lucide="copy" class="w-3 h-3"></i>' +
+            '</button>' +
+          '</div>';
+  });
+
+  html +=
+          '</div>' +
+        '</div>' +
+
+        // Method 2: Python
+        '<div class="bg-muted/50 rounded-lg p-3 space-y-2">' +
+          '<div class="flex items-center gap-2 text-sm font-medium">' +
+            '<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/20 text-primary text-xs">2</span>' +
+            '<span>' + (t('codexlens.pythonMethod') || 'Python Script') + '</span>' +
+          '</div>' +
+          '<div class="text-xs text-muted-foreground mb-2">' +
+            (t('codexlens.pythonMethodDesc') || 'Pre-download model using Python:') +
+          '</div>' +
+          '<div class="bg-background rounded p-2">' +
+            '<pre class="text-xs font-mono whitespace-pre-wrap">' +
+'# Install fastembed first\n' +
+'pip install fastembed\n\n' +
+'# Download model (choose one)\n' +
+'from fastembed import TextEmbedding\n\n' +
+'# Code model (recommended for code search)\n' +
+'model = TextEmbedding("jinaai/jina-embeddings-v2-base-code")\n\n' +
+'# Fast model (lightweight)\n' +
+'# model = TextEmbedding("BAAI/bge-small-en-v1.5")' +
+            '</pre>' +
+          '</div>' +
+        '</div>' +
+
+        // Method 3: Hugging Face Hub
+        '<div class="bg-muted/50 rounded-lg p-3 space-y-2">' +
+          '<div class="flex items-center gap-2 text-sm font-medium">' +
+            '<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/20 text-primary text-xs">3</span>' +
+            '<span>' + (t('codexlens.hfHubMethod') || 'Hugging Face Hub CLI') + '</span>' +
+          '</div>' +
+          '<div class="text-xs text-muted-foreground mb-2">' +
+            (t('codexlens.hfHubMethodDesc') || 'Download using huggingface-cli with resume support:') +
+          '</div>' +
+          '<div class="bg-background rounded p-2 space-y-2">' +
+            '<pre class="text-xs font-mono whitespace-pre-wrap">' +
+'# Install huggingface_hub\n' +
+'pip install huggingface_hub\n\n' +
+'# Download model (supports resume on failure)\n' +
+'huggingface-cli download jinaai/jina-embeddings-v2-base-code' +
+            '</pre>' +
+          '</div>' +
+        '</div>' +
+
+        // Model Links
+        '<div class="bg-muted/50 rounded-lg p-3 space-y-2">' +
+          '<div class="flex items-center gap-2 text-sm font-medium">' +
+            '<i data-lucide="external-link" class="w-4 h-4"></i>' +
+            '<span>' + (t('codexlens.modelLinks') || 'Direct Model Links') + '</span>' +
+          '</div>' +
+          '<div class="grid grid-cols-2 gap-2">';
+
+  modelData.forEach(function(m) {
+    html +=
+            '<a href="https://huggingface.co/' + m.name + '" target="_blank" class="flex items-center justify-between bg-background rounded px-2 py-1.5 hover:bg-muted transition-colors">' +
+              '<span class="text-xs font-medium">' + m.profile + '</span>' +
+              '<span class="text-xs text-muted-foreground">' + m.size + '</span>' +
+            '</a>';
+  });
+
+  html +=
+          '</div>' +
+        '</div>' +
+
+        // Cache location info
+        '<div class="text-xs text-muted-foreground bg-muted/30 rounded p-2">' +
+          '<div class="flex items-start gap-1.5">' +
+            '<i data-lucide="info" class="w-3.5 h-3.5 mt-0.5 flex-shrink-0"></i>' +
+            '<div>' +
+              '<strong>' + (t('codexlens.cacheLocation') || 'Cache Location') + ':</strong><br>' +
+              '<code class="text-xs">Windows: %LOCALAPPDATA%\\Temp\\fastembed_cache</code><br>' +
+              '<code class="text-xs">Linux/Mac: ~/.cache/fastembed</code>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  return html;
+}
+
+/**
+ * Toggle manual download guide visibility
+ */
+function toggleManualDownloadGuide() {
+  var content = document.getElementById('manualDownloadContent');
+  var chevron = document.getElementById('manualDownloadChevron');
+
+  if (content && chevron) {
+    content.classList.toggle('hidden');
+    chevron.style.transform = content.classList.contains('hidden') ? '' : 'rotate(90deg)';
+  }
+}
+
+/**
+ * Copy text to clipboard
+ */
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(function() {
+    showRefreshToast(t('common.copied') || 'Copied to clipboard', 'success');
+  }).catch(function(err) {
+    console.error('Failed to copy:', err);
+  });
+}
 
 /**
  * Load model list
@@ -476,6 +783,10 @@ async function loadModelList() {
     });
 
     html += '</div>';
+
+    // Add manual download guide section
+    html += buildManualDownloadGuide();
+
     container.innerHTML = html;
     if (window.lucide) lucide.createIcons();
   } catch (err) {
@@ -485,17 +796,93 @@ async function loadModelList() {
 }
 
 /**
- * Download model
+ * Download model with progress simulation and manual download info
  */
 async function downloadModel(profile) {
   var modelCard = document.getElementById('model-' + profile);
   if (!modelCard) return;
 
   var originalHTML = modelCard.innerHTML;
+
+  // Get model info for size estimation
+  var modelSizes = {
+    'fast': { size: 80, time: '1-2' },
+    'code': { size: 150, time: '2-5' },
+    'multilingual': { size: 1000, time: '5-15' },
+    'balanced': { size: 600, time: '3-10' }
+  };
+
+  var modelInfo = modelSizes[profile] || { size: 100, time: '2-5' };
+
+  // Show detailed download UI with progress simulation
   modelCard.innerHTML =
-    '<div class="flex items-center justify-center p-3">' +
-      '<span class="text-sm text-muted-foreground animate-pulse">' + t('codexlens.downloading') + '</span>' +
+    '<div class="p-3 space-y-3">' +
+      '<div class="flex items-center gap-2">' +
+        '<div class="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full flex-shrink-0"></div>' +
+        '<span class="text-sm font-medium">' + (t('codexlens.downloadingModel') || 'Downloading') + ' ' + profile + '</span>' +
+      '</div>' +
+      '<div class="space-y-1">' +
+        '<div class="h-2 bg-muted rounded-full overflow-hidden">' +
+          '<div id="model-progress-' + profile + '" class="h-full bg-primary transition-all duration-1000 ease-out model-download-progress" style="width: 0%"></div>' +
+        '</div>' +
+        '<div class="flex justify-between text-xs text-muted-foreground">' +
+          '<span id="model-status-' + profile + '">' + (t('codexlens.connectingToHuggingFace') || 'Connecting to Hugging Face...') + '</span>' +
+          '<span>~' + modelInfo.size + ' MB</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="text-xs text-muted-foreground bg-muted/50 rounded p-2 space-y-1">' +
+        '<div class="flex items-start gap-1">' +
+          '<i data-lucide="info" class="w-3 h-3 mt-0.5 flex-shrink-0"></i>' +
+          '<span>' + (t('codexlens.downloadTimeEstimate') || 'Estimated time') + ': ' + modelInfo.time + ' ' + (t('common.minutes') || 'minutes') + '</span>' +
+        '</div>' +
+        '<div class="flex items-start gap-1">' +
+          '<i data-lucide="terminal" class="w-3 h-3 mt-0.5 flex-shrink-0"></i>' +
+          '<span>' + (t('codexlens.manualDownloadHint') || 'Manual download') + ': <code class="bg-background px-1 rounded">codexlens model-download ' + profile + '</code></span>' +
+        '</div>' +
+      '</div>' +
+      '<button class="text-xs text-muted-foreground hover:text-foreground underline" onclick="cancelModelDownload(\'' + profile + '\')">' +
+        (t('common.cancel') || 'Cancel') +
+      '</button>' +
     '</div>';
+
+  if (window.lucide) lucide.createIcons();
+
+  // Start progress simulation
+  var progressBar = document.getElementById('model-progress-' + profile);
+  var statusText = document.getElementById('model-status-' + profile);
+  var simulatedProgress = 0;
+  var progressInterval = null;
+  var downloadAborted = false;
+
+  // Store abort controller for cancellation
+  window['modelDownloadAbort_' + profile] = function() {
+    downloadAborted = true;
+    if (progressInterval) clearInterval(progressInterval);
+  };
+
+  // Simulate progress based on model size
+  var progressStages = [
+    { percent: 10, msg: t('codexlens.downloadingModelFiles') || 'Downloading model files...' },
+    { percent: 30, msg: t('codexlens.downloadingWeights') || 'Downloading model weights...' },
+    { percent: 60, msg: t('codexlens.downloadingTokenizer') || 'Downloading tokenizer...' },
+    { percent: 80, msg: t('codexlens.verifyingModel') || 'Verifying model...' },
+    { percent: 95, msg: t('codexlens.finalizingDownload') || 'Finalizing...' }
+  ];
+
+  var stageIndex = 0;
+  var baseInterval = Math.max(2000, modelInfo.size * 30); // Slower for larger models
+
+  progressInterval = setInterval(function() {
+    if (downloadAborted) return;
+
+    if (stageIndex < progressStages.length) {
+      var stage = progressStages[stageIndex];
+      simulatedProgress = stage.percent;
+      if (progressBar) progressBar.style.width = simulatedProgress + '%';
+      if (statusText) statusText.textContent = stage.msg;
+      stageIndex++;
+    }
+  }, baseInterval);
 
   try {
     var response = await fetch('/api/codexlens/models/download', {
@@ -504,20 +891,99 @@ async function downloadModel(profile) {
       body: JSON.stringify({ profile: profile })
     });
 
+    // Clear simulation
+    if (progressInterval) clearInterval(progressInterval);
+
+    if (downloadAborted) {
+      modelCard.innerHTML = originalHTML;
+      if (window.lucide) lucide.createIcons();
+      return;
+    }
+
     var result = await response.json();
 
     if (result.success) {
+      // Show completion
+      if (progressBar) progressBar.style.width = '100%';
+      if (statusText) statusText.textContent = t('codexlens.downloadComplete') || 'Download complete!';
+
       showRefreshToast(t('codexlens.modelDownloaded') + ': ' + profile, 'success');
-      await loadModelList();
+
+      // Refresh model list after short delay
+      setTimeout(function() {
+        loadModelList();
+      }, 500);
     } else {
       showRefreshToast(t('codexlens.modelDownloadFailed') + ': ' + result.error, 'error');
-      modelCard.innerHTML = originalHTML;
-      if (window.lucide) lucide.createIcons();
+      showModelDownloadError(modelCard, profile, result.error, originalHTML);
     }
   } catch (err) {
+    if (progressInterval) clearInterval(progressInterval);
     showRefreshToast(t('common.error') + ': ' + err.message, 'error');
-    modelCard.innerHTML = originalHTML;
-    if (window.lucide) lucide.createIcons();
+    showModelDownloadError(modelCard, profile, err.message, originalHTML);
+  }
+
+  // Cleanup abort function
+  delete window['modelDownloadAbort_' + profile];
+}
+
+/**
+ * Show model download error with manual download instructions
+ */
+function showModelDownloadError(modelCard, profile, error, originalHTML) {
+  var modelNames = {
+    'fast': 'BAAI/bge-small-en-v1.5',
+    'code': 'jinaai/jina-embeddings-v2-base-code',
+    'multilingual': 'intfloat/multilingual-e5-large',
+    'balanced': 'mixedbread-ai/mxbai-embed-large-v1'
+  };
+
+  var modelName = modelNames[profile] || profile;
+  var hfUrl = 'https://huggingface.co/' + modelName;
+
+  modelCard.innerHTML =
+    '<div class="p-3 space-y-3">' +
+      '<div class="flex items-start gap-2 text-destructive">' +
+        '<i data-lucide="alert-circle" class="w-4 h-4 mt-0.5 flex-shrink-0"></i>' +
+        '<div class="text-sm">' +
+          '<div class="font-medium">' + (t('codexlens.downloadFailed') || 'Download failed') + '</div>' +
+          '<div class="text-xs text-muted-foreground mt-1">' + error + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="bg-muted/50 rounded p-2 space-y-2 text-xs">' +
+        '<div class="font-medium">' + (t('codexlens.manualDownloadOptions') || 'Manual download options') + ':</div>' +
+        '<div class="space-y-1.5">' +
+          '<div class="flex items-start gap-1">' +
+            '<span class="text-muted-foreground">1.</span>' +
+            '<span>' + (t('codexlens.cliDownload') || 'CLI') + ': <code class="bg-background px-1 rounded">codexlens model-download ' + profile + '</code></span>' +
+          '</div>' +
+          '<div class="flex items-start gap-1">' +
+            '<span class="text-muted-foreground">2.</span>' +
+            '<span>' + (t('codexlens.huggingfaceDownload') || 'Hugging Face') + ': <a href="' + hfUrl + '" target="_blank" class="text-primary hover:underline">' + modelName + '</a></span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="flex gap-2">' +
+        '<button class="btn-sm btn-outline flex-1" onclick="loadModelList()">' +
+          '<i data-lucide="refresh-cw" class="w-3 h-3"></i> ' + (t('common.refresh') || 'Refresh') +
+        '</button>' +
+        '<button class="btn-sm btn-primary flex-1" onclick="downloadModel(\'' + profile + '\')">' +
+          '<i data-lucide="download" class="w-3 h-3"></i> ' + (t('common.retry') || 'Retry') +
+        '</button>' +
+      '</div>' +
+    '</div>';
+
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Cancel model download
+ */
+function cancelModelDownload(profile) {
+  if (window['modelDownloadAbort_' + profile]) {
+    window['modelDownloadAbort_' + profile]();
+    showRefreshToast(t('codexlens.downloadCanceled') || 'Download canceled', 'info');
+    loadModelList();
   }
 }
 
@@ -876,16 +1342,315 @@ async function cancelCodexLensIndexing() {
 
 /**
  * Install CodexLens
+ * Note: Uses CodexLens-specific install wizard from cli-status.js
+ * which calls /api/codexlens/bootstrap (Python venv), not the generic
+ * CLI install that uses npm install -g (NPM packages)
  */
-function installCodexLens() {
-  openCliInstallWizard('codexlens');
+function installCodexLensFromManager() {
+  // Use the CodexLens-specific install wizard from cli-status.js
+  if (typeof openCodexLensInstallWizard === 'function') {
+    openCodexLensInstallWizard();
+  } else {
+    // Fallback: inline install wizard if cli-status.js not loaded
+    showCodexLensInstallDialog();
+  }
+}
+
+/**
+ * Fallback install dialog when cli-status.js is not loaded
+ */
+function showCodexLensInstallDialog() {
+  var modal = document.createElement('div');
+  modal.id = 'codexlensInstallModalFallback';
+  modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+  modal.innerHTML =
+    '<div class="bg-card rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">' +
+      '<div class="p-6">' +
+        '<div class="flex items-center gap-3 mb-4">' +
+          '<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">' +
+            '<i data-lucide="database" class="w-5 h-5 text-primary"></i>' +
+          '</div>' +
+          '<div>' +
+            '<h3 class="text-lg font-semibold">' + t('codexlens.installCodexLens') + '</h3>' +
+            '<p class="text-sm text-muted-foreground">' + t('codexlens.installDesc') + '</p>' +
+          '</div>' +
+        '</div>' +
+        '<div class="space-y-4">' +
+          '<div class="bg-muted/50 rounded-lg p-4">' +
+            '<h4 class="font-medium mb-2">' + t('codexlens.whatWillBeInstalled') + '</h4>' +
+            '<ul class="text-sm space-y-2 text-muted-foreground">' +
+              '<li class="flex items-start gap-2">' +
+                '<i data-lucide="check" class="w-4 h-4 text-success mt-0.5"></i>' +
+                '<span><strong>' + t('codexlens.pythonVenv') + '</strong> - ' + t('codexlens.pythonVenvDesc') + '</span>' +
+              '</li>' +
+              '<li class="flex items-start gap-2">' +
+                '<i data-lucide="check" class="w-4 h-4 text-success mt-0.5"></i>' +
+                '<span><strong>' + t('codexlens.codexlensPackage') + '</strong> - ' + t('codexlens.codexlensPackageDesc') + '</span>' +
+              '</li>' +
+              '<li class="flex items-start gap-2">' +
+                '<i data-lucide="check" class="w-4 h-4 text-success mt-0.5"></i>' +
+                '<span><strong>SQLite FTS5</strong> - ' + t('codexlens.sqliteFtsDesc') + '</span>' +
+              '</li>' +
+            '</ul>' +
+          '</div>' +
+          '<div class="bg-primary/5 border border-primary/20 rounded-lg p-3">' +
+            '<div class="flex items-start gap-2">' +
+              '<i data-lucide="info" class="w-4 h-4 text-primary mt-0.5"></i>' +
+              '<div class="text-sm text-muted-foreground">' +
+                '<p class="font-medium text-foreground">' + t('codexlens.installLocation') + '</p>' +
+                '<p class="mt-1"><code class="bg-muted px-1 rounded">~/.codexlens/venv</code></p>' +
+                '<p class="mt-1">' + t('codexlens.installTime') + '</p>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div id="codexlensInstallProgressFallback" class="hidden">' +
+            '<div class="flex items-center gap-3">' +
+              '<div class="animate-spin w-5 h-5 border-2 border-primary border-t-transparent rounded-full"></div>' +
+              '<span class="text-sm" id="codexlensInstallStatusFallback">' + t('codexlens.startingInstall') + '</span>' +
+            '</div>' +
+            '<div class="mt-2 h-2 bg-muted rounded-full overflow-hidden">' +
+              '<div id="codexlensInstallProgressBarFallback" class="h-full bg-primary transition-all duration-300" style="width: 0%"></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="border-t border-border p-4 flex justify-end gap-3 bg-muted/30">' +
+        '<button class="btn-outline px-4 py-2" onclick="closeCodexLensInstallDialogFallback()">' + t('common.cancel') + '</button>' +
+        '<button id="codexlensInstallBtnFallback" class="btn-primary px-4 py-2" onclick="startCodexLensInstallFallback()">' +
+          '<i data-lucide="download" class="w-4 h-4 mr-2"></i>' +
+          t('codexlens.installNow') +
+        '</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(modal);
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeCodexLensInstallDialogFallback() {
+  var modal = document.getElementById('codexlensInstallModalFallback');
+  if (modal) modal.remove();
+}
+
+async function startCodexLensInstallFallback() {
+  var progressDiv = document.getElementById('codexlensInstallProgressFallback');
+  var installBtn = document.getElementById('codexlensInstallBtnFallback');
+  var statusText = document.getElementById('codexlensInstallStatusFallback');
+  var progressBar = document.getElementById('codexlensInstallProgressBarFallback');
+
+  progressDiv.classList.remove('hidden');
+  installBtn.disabled = true;
+  installBtn.innerHTML = '<span class="animate-pulse">' + t('codexlens.installing') + '</span>';
+
+  var stages = [
+    { progress: 10, text: t('codexlens.creatingVenv') },
+    { progress: 30, text: t('codexlens.installingPip') },
+    { progress: 50, text: t('codexlens.installingPackage') },
+    { progress: 70, text: t('codexlens.settingUpDeps') },
+    { progress: 90, text: t('codexlens.finalizing') }
+  ];
+
+  var currentStage = 0;
+  var progressInterval = setInterval(function() {
+    if (currentStage < stages.length) {
+      statusText.textContent = stages[currentStage].text;
+      progressBar.style.width = stages[currentStage].progress + '%';
+      currentStage++;
+    }
+  }, 1500);
+
+  try {
+    var response = await fetch('/api/codexlens/bootstrap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+
+    clearInterval(progressInterval);
+    var result = await response.json();
+
+    if (result.success) {
+      progressBar.style.width = '100%';
+      statusText.textContent = t('codexlens.installComplete');
+
+      setTimeout(function() {
+        closeCodexLensInstallDialogFallback();
+        showRefreshToast(t('codexlens.installSuccess'), 'success');
+        // Refresh the page to update status
+        if (typeof loadCodexLensStatus === 'function') {
+          loadCodexLensStatus().then(function() {
+            if (typeof renderCodexLensManager === 'function') renderCodexLensManager();
+          });
+        } else {
+          location.reload();
+        }
+      }, 1000);
+    } else {
+      statusText.textContent = t('common.error') + ': ' + result.error;
+      progressBar.classList.add('bg-destructive');
+      installBtn.disabled = false;
+      installBtn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> ' + t('common.retry');
+      if (window.lucide) lucide.createIcons();
+    }
+  } catch (err) {
+    clearInterval(progressInterval);
+    statusText.textContent = t('common.error') + ': ' + err.message;
+    progressBar.classList.add('bg-destructive');
+    installBtn.disabled = false;
+    installBtn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> ' + t('common.retry');
+    if (window.lucide) lucide.createIcons();
+  }
 }
 
 /**
  * Uninstall CodexLens
+ * Note: Uses CodexLens-specific uninstall wizard from cli-status.js
+ * which calls /api/codexlens/uninstall (Python venv), not the generic
+ * CLI uninstall that uses /api/cli/uninstall (NPM packages)
  */
-function uninstallCodexLens() {
-  openCliUninstallWizard('codexlens');
+function uninstallCodexLensFromManager() {
+  // Use the CodexLens-specific uninstall wizard from cli-status.js
+  if (typeof openCodexLensUninstallWizard === 'function') {
+    openCodexLensUninstallWizard();
+  } else {
+    // Fallback: inline uninstall wizard if cli-status.js not loaded
+    showCodexLensUninstallDialog();
+  }
+}
+
+/**
+ * Fallback uninstall dialog when cli-status.js is not loaded
+ */
+function showCodexLensUninstallDialog() {
+  var modal = document.createElement('div');
+  modal.id = 'codexlensUninstallModalFallback';
+  modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+  modal.innerHTML =
+    '<div class="bg-card rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">' +
+      '<div class="p-6">' +
+        '<div class="flex items-center gap-3 mb-4">' +
+          '<div class="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">' +
+            '<i data-lucide="trash-2" class="w-5 h-5 text-destructive"></i>' +
+          '</div>' +
+          '<div>' +
+            '<h3 class="text-lg font-semibold">' + t('codexlens.uninstall') + '</h3>' +
+            '<p class="text-sm text-muted-foreground">' + t('codexlens.uninstallDesc') + '</p>' +
+          '</div>' +
+        '</div>' +
+        '<div class="space-y-4">' +
+          '<div class="bg-destructive/5 border border-destructive/20 rounded-lg p-4">' +
+            '<h4 class="font-medium text-destructive mb-2">' + t('codexlens.whatWillBeRemoved') + '</h4>' +
+            '<ul class="text-sm space-y-2 text-muted-foreground">' +
+              '<li class="flex items-start gap-2">' +
+                '<i data-lucide="x" class="w-4 h-4 text-destructive mt-0.5"></i>' +
+                '<span>' + t('codexlens.removeVenv') + '</span>' +
+              '</li>' +
+              '<li class="flex items-start gap-2">' +
+                '<i data-lucide="x" class="w-4 h-4 text-destructive mt-0.5"></i>' +
+                '<span>' + t('codexlens.removeData') + '</span>' +
+              '</li>' +
+              '<li class="flex items-start gap-2">' +
+                '<i data-lucide="x" class="w-4 h-4 text-destructive mt-0.5"></i>' +
+                '<span>' + t('codexlens.removeConfig') + '</span>' +
+              '</li>' +
+            '</ul>' +
+          '</div>' +
+          '<div id="codexlensUninstallProgressFallback" class="hidden">' +
+            '<div class="flex items-center gap-3">' +
+              '<div class="animate-spin w-5 h-5 border-2 border-destructive border-t-transparent rounded-full"></div>' +
+              '<span class="text-sm" id="codexlensUninstallStatusFallback">' + t('codexlens.removing') + '</span>' +
+            '</div>' +
+            '<div class="mt-2 h-2 bg-muted rounded-full overflow-hidden">' +
+              '<div id="codexlensUninstallProgressBarFallback" class="h-full bg-destructive transition-all duration-300" style="width: 0%"></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="border-t border-border p-4 flex justify-end gap-3 bg-muted/30">' +
+        '<button class="btn-outline px-4 py-2" onclick="closeCodexLensUninstallDialogFallback()">' + t('common.cancel') + '</button>' +
+        '<button id="codexlensUninstallBtnFallback" class="btn-destructive px-4 py-2" onclick="startCodexLensUninstallFallback()">' +
+          '<i data-lucide="trash-2" class="w-4 h-4 mr-2"></i>' +
+          t('codexlens.uninstall') +
+        '</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(modal);
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeCodexLensUninstallDialogFallback() {
+  var modal = document.getElementById('codexlensUninstallModalFallback');
+  if (modal) modal.remove();
+}
+
+async function startCodexLensUninstallFallback() {
+  var progressDiv = document.getElementById('codexlensUninstallProgressFallback');
+  var uninstallBtn = document.getElementById('codexlensUninstallBtnFallback');
+  var statusText = document.getElementById('codexlensUninstallStatusFallback');
+  var progressBar = document.getElementById('codexlensUninstallProgressBarFallback');
+
+  progressDiv.classList.remove('hidden');
+  uninstallBtn.disabled = true;
+  uninstallBtn.innerHTML = '<span class="animate-pulse">' + t('codexlens.uninstalling') + '</span>';
+
+  var stages = [
+    { progress: 25, text: t('codexlens.removingVenv') },
+    { progress: 50, text: t('codexlens.removingData') },
+    { progress: 75, text: t('codexlens.removingConfig') },
+    { progress: 90, text: t('codexlens.finalizing') }
+  ];
+
+  var currentStage = 0;
+  var progressInterval = setInterval(function() {
+    if (currentStage < stages.length) {
+      statusText.textContent = stages[currentStage].text;
+      progressBar.style.width = stages[currentStage].progress + '%';
+      currentStage++;
+    }
+  }, 500);
+
+  try {
+    var response = await fetch('/api/codexlens/uninstall', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+
+    clearInterval(progressInterval);
+    var result = await response.json();
+
+    if (result.success) {
+      progressBar.style.width = '100%';
+      statusText.textContent = t('codexlens.uninstallComplete');
+
+      setTimeout(function() {
+        closeCodexLensUninstallDialogFallback();
+        showRefreshToast(t('codexlens.uninstallSuccess'), 'success');
+        // Refresh the page to update status
+        if (typeof loadCodexLensStatus === 'function') {
+          loadCodexLensStatus().then(function() {
+            if (typeof renderCodexLensManager === 'function') renderCodexLensManager();
+          });
+        } else {
+          location.reload();
+        }
+      }, 1000);
+    } else {
+      statusText.textContent = t('common.error') + ': ' + result.error;
+      progressBar.classList.add('bg-destructive');
+      uninstallBtn.disabled = false;
+      uninstallBtn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> ' + t('common.retry');
+      if (window.lucide) lucide.createIcons();
+    }
+  } catch (err) {
+    clearInterval(progressInterval);
+    statusText.textContent = t('common.error') + ': ' + err.message;
+    progressBar.classList.add('bg-destructive');
+    uninstallBtn.disabled = false;
+    uninstallBtn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> ' + t('common.retry');
+    if (window.lucide) lucide.createIcons();
+  }
 }
 
 /**

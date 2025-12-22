@@ -75,6 +75,8 @@ interface ReadyStatus {
 interface SemanticStatus {
   available: boolean;
   backend?: string;
+  accelerator?: string;
+  providers?: string[];
   error?: string;
 }
 
@@ -190,18 +192,39 @@ async function checkSemanticStatus(): Promise<SemanticStatus> {
     return { available: false, error: 'CodexLens not installed' };
   }
 
-  // Check semantic module availability
+  // Check semantic module availability and accelerator info
   return new Promise((resolve) => {
     const checkCode = `
 import sys
+import json
 try:
     from codexlens.semantic import SEMANTIC_AVAILABLE, SEMANTIC_BACKEND
-    if SEMANTIC_AVAILABLE:
-        print(f"available:{SEMANTIC_BACKEND}")
-    else:
-        print("unavailable")
+    result = {"available": SEMANTIC_AVAILABLE, "backend": SEMANTIC_BACKEND if SEMANTIC_AVAILABLE else None}
+
+    # Get ONNX providers for accelerator info
+    try:
+        import onnxruntime
+        providers = onnxruntime.get_available_providers()
+        result["providers"] = providers
+
+        # Determine accelerator type
+        if "CUDAExecutionProvider" in providers or "TensorrtExecutionProvider" in providers:
+            result["accelerator"] = "CUDA"
+        elif "DmlExecutionProvider" in providers:
+            result["accelerator"] = "DirectML"
+        elif "CoreMLExecutionProvider" in providers:
+            result["accelerator"] = "CoreML"
+        elif "ROCMExecutionProvider" in providers:
+            result["accelerator"] = "ROCm"
+        else:
+            result["accelerator"] = "CPU"
+    except:
+        result["providers"] = []
+        result["accelerator"] = "CPU"
+
+    print(json.dumps(result))
 except Exception as e:
-    print(f"error:{e}")
+    print(json.dumps({"available": False, "error": str(e)}))
 `;
     const child = spawn(VENV_PYTHON, ['-c', checkCode], {
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -220,12 +243,16 @@ except Exception as e:
 
     child.on('close', (code) => {
       const output = stdout.trim();
-      if (output.startsWith('available:')) {
-        const backend = output.split(':')[1];
-        resolve({ available: true, backend });
-      } else if (output === 'unavailable') {
-        resolve({ available: false, error: 'Semantic dependencies not installed' });
-      } else {
+      try {
+        const result = JSON.parse(output);
+        resolve({
+          available: result.available || false,
+          backend: result.backend,
+          accelerator: result.accelerator || 'CPU',
+          providers: result.providers || [],
+          error: result.error
+        });
+      } catch {
         resolve({ available: false, error: output || stderr || 'Unknown error' });
       }
     });
@@ -237,10 +264,66 @@ except Exception as e:
 }
 
 /**
- * Install semantic search dependencies (fastembed, ONNX-based, ~200MB)
+ * GPU acceleration mode for semantic search
+ */
+type GpuMode = 'cpu' | 'cuda' | 'directml';
+
+/**
+ * Detect available GPU acceleration
+ * @returns Detected GPU mode and info
+ */
+async function detectGpuSupport(): Promise<{ mode: GpuMode; available: GpuMode[]; info: string }> {
+  const available: GpuMode[] = ['cpu'];
+  let detectedInfo = 'CPU only';
+
+  // Check for NVIDIA GPU (CUDA)
+  try {
+    if (process.platform === 'win32') {
+      execSync('nvidia-smi', { stdio: 'pipe' });
+      available.push('cuda');
+      detectedInfo = 'NVIDIA GPU detected (CUDA available)';
+    } else {
+      execSync('which nvidia-smi', { stdio: 'pipe' });
+      available.push('cuda');
+      detectedInfo = 'NVIDIA GPU detected (CUDA available)';
+    }
+  } catch {
+    // NVIDIA not available
+  }
+
+  // On Windows, DirectML is always available if DirectX 12 is supported
+  if (process.platform === 'win32') {
+    try {
+      // Check for DirectX 12 support via dxdiag or registry
+      // DirectML works on most modern Windows 10/11 systems
+      available.push('directml');
+      if (available.includes('cuda')) {
+        detectedInfo = 'NVIDIA GPU detected (CUDA & DirectML available)';
+      } else {
+        detectedInfo = 'DirectML available (Windows GPU acceleration)';
+      }
+    } catch {
+      // DirectML check failed
+    }
+  }
+
+  // Recommend best available mode
+  let recommendedMode: GpuMode = 'cpu';
+  if (process.platform === 'win32' && available.includes('directml')) {
+    recommendedMode = 'directml'; // DirectML is easier on Windows (no CUDA toolkit needed)
+  } else if (available.includes('cuda')) {
+    recommendedMode = 'cuda';
+  }
+
+  return { mode: recommendedMode, available, info: detectedInfo };
+}
+
+/**
+ * Install semantic search dependencies with optional GPU acceleration
+ * @param gpuMode - GPU acceleration mode: 'cpu', 'cuda', or 'directml'
  * @returns Bootstrap result
  */
-async function installSemantic(): Promise<BootstrapResult> {
+async function installSemantic(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResult> {
   // First ensure CodexLens is installed
   const venvStatus = await checkVenvStatus();
   if (!venvStatus.ready) {
@@ -252,42 +335,106 @@ async function installSemantic(): Promise<BootstrapResult> {
       ? join(CODEXLENS_VENV, 'Scripts', 'pip.exe')
       : join(CODEXLENS_VENV, 'bin', 'pip');
 
-  return new Promise((resolve) => {
-    console.log('[CodexLens] Installing semantic search dependencies (fastembed)...');
-    console.log('[CodexLens] Using ONNX-based fastembed backend (~200MB)');
+  // IMPORTANT: Uninstall all onnxruntime variants first to prevent conflicts
+  // Having multiple onnxruntime packages causes provider detection issues
+  const onnxVariants = ['onnxruntime', 'onnxruntime-gpu', 'onnxruntime-directml'];
+  console.log(`[CodexLens] Cleaning up existing ONNX Runtime packages...`);
 
-    const child = spawn(pipPath, ['install', 'numpy>=1.24', 'fastembed>=0.2'], {
+  for (const pkg of onnxVariants) {
+    try {
+      execSync(`"${pipPath}" uninstall ${pkg} -y`, { stdio: 'pipe' });
+      console.log(`[CodexLens] Removed ${pkg}`);
+    } catch {
+      // Package not installed, ignore
+    }
+  }
+
+  // Build package list based on GPU mode
+  const packages = ['numpy>=1.24', 'fastembed>=0.5', 'hnswlib>=0.8.0'];
+
+  let modeDescription = 'CPU (ONNX Runtime)';
+  let onnxPackage = 'onnxruntime>=1.18.0'; // Default CPU
+
+  if (gpuMode === 'cuda') {
+    onnxPackage = 'onnxruntime-gpu>=1.18.0';
+    modeDescription = 'NVIDIA CUDA GPU acceleration';
+  } else if (gpuMode === 'directml') {
+    onnxPackage = 'onnxruntime-directml>=1.18.0';
+    modeDescription = 'Windows DirectML GPU acceleration';
+  }
+
+  return new Promise((resolve) => {
+    console.log(`[CodexLens] Installing semantic search dependencies...`);
+    console.log(`[CodexLens] Mode: ${modeDescription}`);
+    console.log(`[CodexLens] ONNX Runtime: ${onnxPackage}`);
+    console.log(`[CodexLens] Packages: ${packages.join(', ')}`);
+
+    // Install ONNX Runtime first with force-reinstall to ensure clean state
+    const installOnnx = spawn(pipPath, ['install', '--force-reinstall', onnxPackage], {
       stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 600000, // 10 minutes for potential model download
+      timeout: 600000, // 10 minutes for GPU packages
     });
 
-    let stdout = '';
-    let stderr = '';
+    let onnxStdout = '';
+    let onnxStderr = '';
 
-    child.stdout.on('data', (data) => {
-      stdout += data.toString();
-      // Log progress
+    installOnnx.stdout.on('data', (data) => {
+      onnxStdout += data.toString();
       const line = data.toString().trim();
-      if (line.includes('Downloading') || line.includes('Installing') || line.includes('Collecting')) {
+      if (line.includes('Downloading') || line.includes('Installing')) {
         console.log(`[CodexLens] ${line}`);
       }
     });
 
-    child.stderr.on('data', (data) => {
-      stderr += data.toString();
+    installOnnx.stderr.on('data', (data) => {
+      onnxStderr += data.toString();
     });
 
-    child.on('close', (code) => {
-      if (code === 0) {
-        console.log('[CodexLens] Semantic dependencies installed successfully');
-        resolve({ success: true });
-      } else {
-        resolve({ success: false, error: `Installation failed: ${stderr || stdout}` });
+    installOnnx.on('close', (onnxCode) => {
+      if (onnxCode !== 0) {
+        resolve({ success: false, error: `Failed to install ${onnxPackage}: ${onnxStderr || onnxStdout}` });
+        return;
       }
+
+      console.log(`[CodexLens] ${onnxPackage} installed successfully`);
+
+      // Now install remaining packages
+      const child = spawn(pipPath, ['install', ...packages], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 600000,
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      child.stdout.on('data', (data) => {
+        stdout += data.toString();
+        const line = data.toString().trim();
+        if (line.includes('Downloading') || line.includes('Installing') || line.includes('Collecting')) {
+          console.log(`[CodexLens] ${line}`);
+        }
+      });
+
+      child.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      child.on('close', (code) => {
+        if (code === 0) {
+          console.log(`[CodexLens] Semantic dependencies installed successfully (${gpuMode} mode)`);
+          resolve({ success: true, message: `Installed with ${modeDescription}` });
+        } else {
+          resolve({ success: false, error: `Installation failed: ${stderr || stdout}` });
+        }
+      });
+
+      child.on('error', (err) => {
+        resolve({ success: false, error: `Failed to run pip: ${err.message}` });
+      });
     });
 
-    child.on('error', (err) => {
-      resolve({ success: false, error: `Failed to run pip: ${err.message}` });
+    installOnnx.on('error', (err) => {
+      resolve({ success: false, error: `Failed to install ONNX Runtime: ${err.message}` });
     });
   });
 }
@@ -1126,7 +1273,8 @@ function isIndexingInProgress(): boolean {
 export type { ProgressInfo, ExecuteOptions };
 
 // Export for direct usage
-export { ensureReady, executeCodexLens, checkVenvStatus, bootstrapVenv, checkSemanticStatus, installSemantic, uninstallCodexLens, cancelIndexing, isIndexingInProgress };
+export { ensureReady, executeCodexLens, checkVenvStatus, bootstrapVenv, checkSemanticStatus, installSemantic, detectGpuSupport, uninstallCodexLens, cancelIndexing, isIndexingInProgress };
+export type { GpuMode };
 
 // Backward-compatible export for tests
 export const codexLensTool = {
