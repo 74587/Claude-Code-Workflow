@@ -4,7 +4,7 @@
  * Handles all CLAUDE.md memory rules management endpoints
  */
 import type { IncomingMessage, ServerResponse } from 'http';
-import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, unlinkSync, mkdirSync } from 'fs';
 import { join, relative } from 'path';
 import { homedir } from 'os';
 
@@ -453,8 +453,7 @@ function deleteClaudeFile(filePath: string): { success: boolean; error?: string 
     writeFileSync(backupPath, content, 'utf8');
 
     // Delete original file
-    const fs = require('fs');
-    fs.unlinkSync(filePath);
+    unlinkSync(filePath);
 
     return { success: true };
   } catch (error) {
@@ -500,9 +499,8 @@ function createNewClaudeFile(level: 'user' | 'project' | 'module', template: str
 
     // Ensure directory exists
     const dir = filePath.substring(0, filePath.lastIndexOf('/') || filePath.lastIndexOf('\\'));
-    const fs = require('fs');
     if (!existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+      mkdirSync(dir, { recursive: true });
     }
 
     // Write file

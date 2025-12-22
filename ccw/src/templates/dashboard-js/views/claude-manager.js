@@ -102,6 +102,7 @@ async function loadClaudeFiles() {
     updateClaudeBadge(); // Update navigation badge
   } catch (error) {
     console.error('Error loading CLAUDE.md files:', error);
+    showRefreshToast(t('claudeManager.loadError') || 'Failed to load files', 'error');
     addGlobalNotification('error', t('claudeManager.loadError'), null, 'CLAUDE.md');
   }
 }
@@ -113,6 +114,7 @@ async function refreshClaudeFiles() {
   renderFileViewer();
   renderFileMetadata();
   if (window.lucide) lucide.createIcons();
+  showRefreshToast(t('claudeManager.refreshed') || 'Files refreshed', 'success');
   addGlobalNotification('success', t('claudeManager.refreshed'), null, 'CLAUDE.md');
   // Load freshness data in background
   loadFreshnessDataAsync();
@@ -155,6 +157,7 @@ async function markFileAsUpdated() {
 
     if (!res.ok) throw new Error('Failed to mark file as updated');
 
+    showRefreshToast(t('claudeManager.markedAsUpdated') || 'Marked as updated', 'success');
     addGlobalNotification('success', t('claudeManager.markedAsUpdated') || 'Marked as updated', null, 'CLAUDE.md');
 
     // Reload freshness data
@@ -163,6 +166,7 @@ async function markFileAsUpdated() {
     renderFileMetadata();
   } catch (error) {
     console.error('Error marking file as updated:', error);
+    showRefreshToast(t('claudeManager.markUpdateError') || 'Failed to mark as updated', 'error');
     addGlobalNotification('error', t('claudeManager.markUpdateError') || 'Failed to mark as updated', null, 'CLAUDE.md');
   }
 }
@@ -481,10 +485,12 @@ async function saveClaudeFile() {
     selectedFile.stats = calculateFileStats(newContent);
     isDirty = false;
 
+    showRefreshToast(t('claudeManager.saved') || 'File saved', 'success');
     addGlobalNotification('success', t('claudeManager.saved'), null, 'CLAUDE.md');
     renderFileMetadata();
   } catch (error) {
     console.error('Error saving file:', error);
+    showRefreshToast(t('claudeManager.saveError') || 'Save failed', 'error');
     addGlobalNotification('error', t('claudeManager.saveError'), null, 'CLAUDE.md');
   }
 }
@@ -733,12 +739,13 @@ async function loadFileContent(filePath) {
 }
 
 function showClaudeNotification(type, message) {
-  // Use global notification system if available
+  // Show toast for immediate feedback
+  if (typeof showRefreshToast === 'function') {
+    showRefreshToast(message, type);
+  }
+  // Also add to global notification system if available
   if (typeof addGlobalNotification === 'function') {
     addGlobalNotification(type, message, null, 'CLAUDE.md');
-  } else {
-    // Fallback to simple alert
-    alert(message);
   }
 }
 
@@ -822,6 +829,7 @@ async function createNewFile() {
   var modulePath = document.getElementById('modulePath').value;
 
   if (level === 'module' && !modulePath) {
+    showRefreshToast(t('claude.modulePathRequired') || 'Module path is required', 'error');
     addGlobalNotification('error', t('claude.modulePathRequired') || 'Module path is required', null, 'CLAUDE.md');
     return;
   }
@@ -841,12 +849,14 @@ async function createNewFile() {
 
     var result = await res.json();
     closeCreateDialog();
+    showRefreshToast(t('claude.fileCreated') || 'File created successfully', 'success');
     addGlobalNotification('success', t('claude.fileCreated') || 'File created successfully', null, 'CLAUDE.md');
 
     // Refresh file tree
     await refreshClaudeFiles();
   } catch (error) {
     console.error('Error creating file:', error);
+    showRefreshToast(t('claude.createFileError') || 'Failed to create file', 'error');
     addGlobalNotification('error', t('claude.createFileError') || 'Failed to create file', null, 'CLAUDE.md');
   }
 }
@@ -870,6 +880,7 @@ async function confirmDeleteFile() {
 
     if (!res.ok) throw new Error('Failed to delete file');
 
+    showRefreshToast(t('claude.fileDeleted') || 'File deleted successfully', 'success');
     addGlobalNotification('success', t('claude.fileDeleted') || 'File deleted successfully', null, 'CLAUDE.md');
     selectedFile = null;
 
@@ -877,6 +888,7 @@ async function confirmDeleteFile() {
     await refreshClaudeFiles();
   } catch (error) {
     console.error('Error deleting file:', error);
+    showRefreshToast(t('claude.deleteFileError') || 'Failed to delete file', 'error');
     addGlobalNotification('error', t('claude.deleteFileError') || 'Failed to delete file', null, 'CLAUDE.md');
   }
 }
@@ -886,9 +898,11 @@ function copyFileContent() {
   if (!selectedFile || !selectedFile.content) return;
 
   navigator.clipboard.writeText(selectedFile.content).then(function() {
+    showRefreshToast(t('claude.contentCopied') || 'Content copied to clipboard', 'success');
     addGlobalNotification('success', t('claude.contentCopied') || 'Content copied to clipboard', null, 'CLAUDE.md');
   }).catch(function(error) {
     console.error('Error copying content:', error);
+    showRefreshToast(t('claude.copyError') || 'Failed to copy content', 'error');
     addGlobalNotification('error', t('claude.copyError') || 'Failed to copy content', null, 'CLAUDE.md');
   });
 }

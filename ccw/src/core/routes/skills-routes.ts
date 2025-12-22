@@ -123,6 +123,7 @@ function getSkillsConfig(projectPath) {
 
             result.projectSkills.push({
               name: parsed.name || skill.name,
+              folderName: skill.name,  // Actual folder name for API queries
               description: parsed.description,
               version: parsed.version,
               allowedTools: parsed.allowedTools,
@@ -152,6 +153,7 @@ function getSkillsConfig(projectPath) {
 
             result.userSkills.push({
               name: parsed.name || skill.name,
+              folderName: skill.name,  // Actual folder name for API queries
               description: parsed.description,
               version: parsed.version,
               allowedTools: parsed.allowedTools,
@@ -197,6 +199,7 @@ function getSkillDetail(skillName, location, projectPath) {
     return {
       skill: {
         name: parsed.name || skillName,
+        folderName: skillName,  // Actual folder name for API queries
         description: parsed.description,
         version: parsed.version,
         allowedTools: parsed.allowedTools,
@@ -390,7 +393,7 @@ async function importSkill(sourcePath, location, projectPath, customName) {
 }
 
 /**
- * Generate skill via CLI tool (Gemini)
+ * Generate skill via CLI tool (Claude)
  * @param {Object} params - Generation parameters
  * @param {string} params.generationType - 'description' or 'template'
  * @param {string} params.description - Skill description from user
@@ -455,9 +458,9 @@ REQUIREMENTS:
 3. If the skill requires supporting files (e.g., templates, scripts), create them in the skill folder
 4. Ensure all files are properly formatted and follow best practices`;
 
-    // Execute CLI tool (Gemini) with write mode
+    // Execute CLI tool (Claude) with write mode
     const result = await executeCliTool({
-      tool: 'gemini',
+      tool: 'claude',
       prompt,
       mode: 'write',
       cd: baseDir,
@@ -515,8 +518,143 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
-  // API: Get single skill detail
-  if (pathname.startsWith('/api/skills/') && req.method === 'GET' && !pathname.endsWith('/skills/')) {
+  // API: List skill directory contents
+  if (pathname.match(/^\/api\/skills\/[^/]+\/dir$/) && req.method === 'GET') {
+    const pathParts = pathname.split('/');
+    const skillName = decodeURIComponent(pathParts[3]);
+    const subPath = url.searchParams.get('subpath') || '';
+    const location = url.searchParams.get('location') || 'project';
+    const projectPathParam = url.searchParams.get('path') || initialPath;
+
+    const baseDir = location === 'project'
+      ? join(projectPathParam, '.claude', 'skills')
+      : join(homedir(), '.claude', 'skills');
+
+    const dirPath = subPath
+      ? join(baseDir, skillName, subPath)
+      : join(baseDir, skillName);
+
+    // Security check: ensure path is within skill folder
+    if (!dirPath.startsWith(join(baseDir, skillName))) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Access denied' }));
+      return true;
+    }
+
+    if (!existsSync(dirPath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Directory not found' }));
+      return true;
+    }
+
+    try {
+      const stat = statSync(dirPath);
+      if (!stat.isDirectory()) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Path is not a directory' }));
+        return true;
+      }
+
+      const entries = readdirSync(dirPath, { withFileTypes: true });
+      const files = entries.map(entry => ({
+        name: entry.name,
+        isDirectory: entry.isDirectory(),
+        path: subPath ? `${subPath}/${entry.name}` : entry.name
+      }));
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ files, subPath, skillName }));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (error as Error).message }));
+    }
+    return true;
+  }
+
+  // API: Read skill file content
+  if (pathname.match(/^\/api\/skills\/[^/]+\/file$/) && req.method === 'GET') {
+    const pathParts = pathname.split('/');
+    const skillName = decodeURIComponent(pathParts[3]);
+    const fileName = url.searchParams.get('filename');
+    const location = url.searchParams.get('location') || 'project';
+    const projectPathParam = url.searchParams.get('path') || initialPath;
+
+    if (!fileName) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'filename parameter is required' }));
+      return true;
+    }
+
+    const baseDir = location === 'project'
+      ? join(projectPathParam, '.claude', 'skills')
+      : join(homedir(), '.claude', 'skills');
+
+    const filePath = join(baseDir, skillName, fileName);
+
+    // Security check: ensure file is within skill folder
+    if (!filePath.startsWith(join(baseDir, skillName))) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Access denied' }));
+      return true;
+    }
+
+    if (!existsSync(filePath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'File not found' }));
+      return true;
+    }
+
+    try {
+      const content = readFileSync(filePath, 'utf8');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ content, fileName, path: filePath }));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (error as Error).message }));
+    }
+    return true;
+  }
+
+  // API: Write skill file content
+  if (pathname.match(/^\/api\/skills\/[^/]+\/file$/) && req.method === 'POST') {
+    const pathParts = pathname.split('/');
+    const skillName = decodeURIComponent(pathParts[3]);
+
+    handlePostRequest(req, res, async (body) => {
+      const { fileName, content, location, projectPath: projectPathParam } = body;
+
+      if (!fileName) {
+        return { error: 'fileName is required' };
+      }
+
+      if (content === undefined) {
+        return { error: 'content is required' };
+      }
+
+      const baseDir = location === 'project'
+        ? join(projectPathParam || initialPath, '.claude', 'skills')
+        : join(homedir(), '.claude', 'skills');
+
+      const filePath = join(baseDir, skillName, fileName);
+
+      // Security check: ensure file is within skill folder
+      if (!filePath.startsWith(join(baseDir, skillName))) {
+        return { error: 'Access denied' };
+      }
+
+      try {
+        await fsPromises.writeFile(filePath, content, 'utf8');
+        return { success: true, fileName, path: filePath };
+      } catch (error) {
+        return { error: (error as Error).message };
+      }
+    });
+    return true;
+  }
+
+  // API: Get single skill detail (exclude /dir and /file sub-routes)
+  if (pathname.startsWith('/api/skills/') && req.method === 'GET' &&
+      !pathname.endsWith('/skills/') && !pathname.endsWith('/dir') && !pathname.endsWith('/file')) {
     const skillName = decodeURIComponent(pathname.replace('/api/skills/', ''));
     const location = url.searchParams.get('location') || 'project';
     const projectPathParam = url.searchParams.get('path') || initialPath;
@@ -576,7 +714,7 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
 
         return await importSkill(sourcePath, location, projectPath, skillName);
       } else if (mode === 'cli-generate') {
-        // CLI generate mode: use Gemini to generate skill
+        // CLI generate mode: use Claude to generate skill
         if (!skillName) {
           return { error: 'Skill name is required for CLI generation mode' };
         }

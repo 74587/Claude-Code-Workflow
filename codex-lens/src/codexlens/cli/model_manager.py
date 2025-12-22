@@ -14,6 +14,8 @@ except ImportError:
 
 
 # Model profiles with metadata
+# Note: 768d is max recommended dimension for optimal performance/quality balance
+# 1024d models are available but not recommended due to higher resource usage
 MODEL_PROFILES = {
     "fast": {
         "model_name": "BAAI/bge-small-en-v1.5",
@@ -21,6 +23,15 @@ MODEL_PROFILES = {
         "size_mb": 80,
         "description": "Fast, lightweight, English-optimized",
         "use_case": "Quick prototyping, resource-constrained environments",
+        "recommended": True,
+    },
+    "base": {
+        "model_name": "BAAI/bge-base-en-v1.5",
+        "dimensions": 768,
+        "size_mb": 220,
+        "description": "General purpose, good balance of speed and quality",
+        "use_case": "General text search, documentation",
+        "recommended": True,
     },
     "code": {
         "model_name": "jinaai/jina-embeddings-v2-base-code",
@@ -28,20 +39,31 @@ MODEL_PROFILES = {
         "size_mb": 150,
         "description": "Code-optimized, best for programming languages",
         "use_case": "Open source projects, code semantic search",
+        "recommended": True,
+    },
+    "minilm": {
+        "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+        "dimensions": 384,
+        "size_mb": 90,
+        "description": "Popular lightweight model, good quality",
+        "use_case": "General purpose, low resource environments",
+        "recommended": True,
     },
     "multilingual": {
         "model_name": "intfloat/multilingual-e5-large",
         "dimensions": 1024,
         "size_mb": 1000,
-        "description": "Multilingual + code support",
+        "description": "Multilingual + code support (high resource usage)",
         "use_case": "Enterprise multilingual projects",
+        "recommended": False,  # 1024d not recommended
     },
     "balanced": {
         "model_name": "mixedbread-ai/mxbai-embed-large-v1",
         "dimensions": 1024,
         "size_mb": 600,
-        "description": "High accuracy, general purpose",
+        "description": "High accuracy, general purpose (high resource usage)",
         "use_case": "High-quality semantic search, balanced performance",
+        "recommended": False,  # 1024d not recommended
     },
 }
 

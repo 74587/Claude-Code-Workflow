@@ -362,8 +362,9 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
     const status = url.searchParams.get('status') || null;
     const category = url.searchParams.get('category') as 'user' | 'internal' | 'insight' | null;
     const search = url.searchParams.get('search') || null;
+    const recursive = url.searchParams.get('recursive') !== 'false';
 
-    getHistoryWithNativeInfo(projectPath, { limit, tool, status, category, search })
+    getHistoryWithNativeInfo(projectPath, { limit, tool, status, category, search, recursive })
       .then(history => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(history));

@@ -411,9 +411,12 @@ const i18n = {
     'index.fullDesc': 'FTS + Semantic search (recommended)',
     'index.selectModel': 'Select embedding model',
     'index.modelCode': 'Code (768d)',
+    'index.modelBase': 'Base (768d)',
     'index.modelFast': 'Fast (384d)',
-    'index.modelMultilingual': 'Multilingual (1024d)',
-    'index.modelBalanced': 'Balanced (1024d)',
+    'index.modelMinilm': 'MiniLM (384d)',
+    'index.modelMultilingual': 'Multilingual (1024d) ⚠️',
+    'index.modelBalanced': 'Balanced (1024d) ⚠️',
+    'index.dimensionWarning': '1024d models require more resources',
 
     // Semantic Search Configuration
     'semantic.settings': 'Semantic Search Settings',
@@ -1824,9 +1827,12 @@ const i18n = {
     'index.fullDesc': 'FTS + 语义搜索（推荐）',
     'index.selectModel': '选择嵌入模型',
     'index.modelCode': '代码优化 (768维)',
+    'index.modelBase': '通用基础 (768维)',
     'index.modelFast': '快速轻量 (384维)',
-    'index.modelMultilingual': '多语言 (1024维)',
-    'index.modelBalanced': '高精度 (1024维)',
+    'index.modelMinilm': 'MiniLM (384维)',
+    'index.modelMultilingual': '多语言 (1024维) ⚠️',
+    'index.modelBalanced': '高精度 (1024维) ⚠️',
+    'index.dimensionWarning': '1024维模型需要更多资源',
 
     // Semantic Search 配置
     'semantic.settings': '语义搜索设置',

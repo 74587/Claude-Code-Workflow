@@ -638,9 +638,26 @@ function addRulePath() {
 
 function removeRulePath(index) {
   ruleCreateState.paths.splice(index, 1);
-  // Re-render paths list
-  closeRuleCreateModal();
-  openRuleCreateModal();
+
+  // Re-render paths list without closing modal
+  const pathsList = document.getElementById('rulePathsList');
+  if (pathsList) {
+    pathsList.innerHTML = ruleCreateState.paths.map((path, idx) => `
+      <div class="flex gap-2">
+        <input type="text" class="rule-path-input flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+               placeholder="src/**/*.ts"
+               value="${path}"
+               data-index="${idx}">
+        ${idx > 0 ? `
+          <button class="px-3 py-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                  onclick="removeRulePath(${idx})">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        ` : ''}
+      </div>
+    `).join('');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
 }
 
 function switchRuleCreateMode(mode) {
@@ -674,9 +691,21 @@ function switchRuleCreateMode(mode) {
     if (contentSection) contentSection.style.display = 'block';
   }
 
-  // Re-render modal to update button states
-  closeRuleCreateModal();
-  openRuleCreateModal();
+  // Update mode button styles without re-rendering
+  const modeButtons = document.querySelectorAll('#ruleCreateModal .mode-btn');
+  modeButtons.forEach(btn => {
+    const btnText = btn.querySelector('.font-medium')?.textContent || '';
+    const isInput = btnText.includes(t('rules.manualInput'));
+    const isCliGenerate = btnText.includes(t('rules.cliGenerate'));
+
+    if ((isInput && mode === 'input') || (isCliGenerate && mode === 'cli-generate')) {
+      btn.classList.remove('border-border', 'hover:border-primary/50');
+      btn.classList.add('border-primary', 'bg-primary/10');
+    } else {
+      btn.classList.remove('border-primary', 'bg-primary/10');
+      btn.classList.add('border-border', 'hover:border-primary/50');
+    }
+  });
 }
 
 function switchRuleGenerationType(type) {

@@ -284,8 +284,12 @@ function normalizeTask(task: unknown): NormalizedTask | null {
   const implementation = taskObj.implementation as unknown[] | undefined;
   const modificationPoints = taskObj.modification_points as Array<{ file?: string }> | undefined;
 
+  // Ensure id is always a string (handle numeric IDs from JSON)
+  const rawId = taskObj.id ?? taskObj.task_id;
+  const stringId = rawId != null ? String(rawId) : 'unknown';
+
   return {
-    id: (taskObj.id as string) || (taskObj.task_id as string) || 'unknown',
+    id: stringId,
     title: (taskObj.title as string) || (taskObj.name as string) || (taskObj.summary as string) || 'Untitled Task',
     status: (status as string).toLowerCase(),
     // Preserve original fields for flexible rendering

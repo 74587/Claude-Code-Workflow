@@ -291,13 +291,14 @@ FOCUS AREAS: ${extractFocus || 'naming conventions, error handling, code structu
       return { error: `Unknown generation type: ${generationType}` };
     }
 
-    // Execute CLI tool (Gemini) with at least 10 minutes timeout
+    // Execute CLI tool (Claude) with at least 10 minutes timeout
     const result = await executeCliTool({
-      tool: 'gemini',
+      tool: 'claude',
       prompt,
       mode,
       cd: workingDir,
-      timeout: 600000 // 10 minutes
+      timeout: 600000, // 10 minutes
+      category: 'internal'
     });
 
     if (!result.success) {

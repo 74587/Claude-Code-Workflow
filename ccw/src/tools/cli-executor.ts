@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
+import type { HistoryIndexEntry } from './cli-history-store.js';
 import { spawn, ChildProcess } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
@@ -1982,6 +1983,7 @@ export async function getEnrichedConversation(baseDir: string, ccwId: string) {
 
 /**
  * Get history with native session info
+ * Supports recursive querying of child projects
  */
 export async function getHistoryWithNativeInfo(baseDir: string, options?: {
   limit?: number;
@@ -1990,9 +1992,75 @@ export async function getHistoryWithNativeInfo(baseDir: string, options?: {
   status?: string | null;
   category?: ExecutionCategory | null;
   search?: string | null;
+  recursive?: boolean;
 }) {
-  const store = await getSqliteStore(baseDir);
-  return store.getHistoryWithNativeInfo(options || {});
+  const { limit = 50, recursive = false, ...queryOptions } = options || {};
+
+  // Non-recursive mode: query single project
+  if (!recursive) {
+    const store = await getSqliteStore(baseDir);
+    return store.getHistoryWithNativeInfo({ limit, ...queryOptions });
+  }
+
+  // Recursive mode: aggregate data from parent and all child projects
+  const { scanChildProjectsAsync } = await import('../config/storage-paths.js');
+  const childProjects = await scanChildProjectsAsync(baseDir);
+
+  // Use the same type as store.getHistoryWithNativeInfo returns
+  type ExecutionWithNativeAndSource = HistoryIndexEntry & {
+    hasNativeSession: boolean;
+    nativeSessionId?: string;
+    nativeSessionPath?: string;
+  };
+
+  const allExecutions: ExecutionWithNativeAndSource[] = [];
+  let totalCount = 0;
+
+  // Query parent project
+  try {
+    const parentStore = await getSqliteStore(baseDir);
+    const parentResult = parentStore.getHistoryWithNativeInfo({ limit, ...queryOptions });
+    totalCount += parentResult.total;
+
+    for (const exec of parentResult.executions) {
+      allExecutions.push({ ...exec, sourceDir: baseDir });
+    }
+  } catch (error) {
+    if (process.env.DEBUG) {
+      console.error(`[CLI History] Failed to query parent project ${baseDir}:`, error);
+    }
+  }
+
+  // Query all child projects
+  for (const child of childProjects) {
+    try {
+      const childStore = await getSqliteStore(child.projectPath);
+      const childResult = childStore.getHistoryWithNativeInfo({ limit, ...queryOptions });
+      totalCount += childResult.total;
+
+      for (const exec of childResult.executions) {
+        allExecutions.push({ ...exec, sourceDir: child.projectPath });
+      }
+    } catch (error) {
+      if (process.env.DEBUG) {
+        console.error(`[CLI History] Failed to query child project ${child.projectPath}:`, error);
+      }
+    }
+  }
+
+  // Sort by updated_at descending and apply limit
+  allExecutions.sort((a, b) => {
+    const timeA = a.updated_at ? new Date(a.updated_at).getTime() : new Date(a.timestamp).getTime();
+    const timeB = b.updated_at ? new Date(b.updated_at).getTime() : new Date(b.timestamp).getTime();
+    return timeB - timeA;
+  });
+  const limitedExecutions = allExecutions.slice(0, limit);
+
+  return {
+    total: totalCount,
+    count: limitedExecutions.length,
+    executions: limitedExecutions
+  };
 }
 
 // Export types
