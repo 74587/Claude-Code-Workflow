@@ -1,6 +1,6 @@
 {
   "name": "claude-code-workflow",
-  "version": "6.2.0",
+  "version": "6.2.2",
   "description": "JSON-driven multi-agent development framework with intelligent CLI orchestration (Gemini/Qwen/Codex), context-first architecture, and automated workflow execution",
   "type": "module",
   "main": "ccw/src/index.js",
@@ -40,6 +40,7 @@
   },
   "files": [
     "ccw/bin/",
+    "ccw/dist/",
     "ccw/src/",
     "ccw/package.json",
     ".claude/agents/",

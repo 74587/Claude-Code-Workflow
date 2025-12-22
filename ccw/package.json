@@ -1,6 +1,6 @@
 {
   "name": "claude-code-workflow",
-  "version": "6.2.1",
+  "version": "6.2.2",
   "description": "Claude Code Workflow CLI - Dashboard viewer for workflow sessions and reviews",
   "type": "module",
   "main": "dist/index.js",
