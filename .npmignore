@@ -49,3 +49,22 @@ install-remote.ps1
 ccw/package.json
 ccw/node_modules/
 ccw/*.md
+
+# Python development files
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.pytest_cache/
+*.egg-info/
+.coverage
+
+# codex-lens development files
+codex-lens/.venv/
+codex-lens/.pytest_cache/
+codex-lens/tests/
+codex-lens/docs/
+codex-lens/.coverage
+codex-lens/*.db
+codex-lens/_*.txt
+codex-lens/.workflow/

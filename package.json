@@ -53,6 +53,8 @@
     ".codex/",
     ".gemini/",
     ".qwen/",
+    "codex-lens/src/codexlens/",
+    "codex-lens/pyproject.toml",
     "CLAUDE.md",
     "README.md"
   ],
