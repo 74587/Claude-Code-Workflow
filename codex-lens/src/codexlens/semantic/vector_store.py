@@ -116,6 +116,17 @@ class VectorStore:
                 CREATE INDEX IF NOT EXISTS idx_chunks_file
                 ON semantic_chunks(file_path)
             """)
+            # Model configuration table - tracks which model generated the embeddings
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS embeddings_config (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    model_profile TEXT NOT NULL,
+                    model_name TEXT NOT NULL,
+                    embedding_dim INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
             conn.commit()
 
     def _init_ann_index(self) -> None:
@@ -931,6 +942,92 @@ class VectorStore:
         if self._ann_index is not None:
             return self._ann_index.count()
         return 0
+
+    def get_model_config(self) -> Optional[Dict[str, Any]]:
+        """Get the model configuration used for embeddings in this store.
+
+        Returns:
+            Dictionary with model_profile, model_name, embedding_dim, or None if not set.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT model_profile, model_name, embedding_dim, created_at, updated_at "
+                "FROM embeddings_config WHERE id = 1"
+            ).fetchone()
+            if row:
+                return {
+                    "model_profile": row[0],
+                    "model_name": row[1],
+                    "embedding_dim": row[2],
+                    "created_at": row[3],
+                    "updated_at": row[4],
+                }
+        return None
+
+    def set_model_config(
+        self, model_profile: str, model_name: str, embedding_dim: int
+    ) -> None:
+        """Set the model configuration for embeddings in this store.
+
+        This should be called when generating new embeddings. If a different
+        model was previously used, this will update the configuration.
+
+        Args:
+            model_profile: Model profile name (fast, code, minilm, etc.)
+            model_name: Full model name (e.g., jinaai/jina-embeddings-v2-base-code)
+            embedding_dim: Embedding dimension (e.g., 768)
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO embeddings_config (id, model_profile, model_name, embedding_dim)
+                VALUES (1, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    model_profile = excluded.model_profile,
+                    model_name = excluded.model_name,
+                    embedding_dim = excluded.embedding_dim,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (model_profile, model_name, embedding_dim)
+            )
+            conn.commit()
+
+    def check_model_compatibility(
+        self, model_profile: str, model_name: str, embedding_dim: int
+    ) -> Tuple[bool, Optional[str]]:
+        """Check if the given model is compatible with existing embeddings.
+
+        Args:
+            model_profile: Model profile to check
+            model_name: Model name to check
+            embedding_dim: Embedding dimension to check
+
+        Returns:
+            Tuple of (is_compatible, warning_message).
+            is_compatible is True if no existing config or configs match.
+            warning_message is a user-friendly message if incompatible.
+        """
+        existing = self.get_model_config()
+        if existing is None:
+            return True, None
+
+        # Check dimension first (most critical)
+        if existing["embedding_dim"] != embedding_dim:
+            return False, (
+                f"Dimension mismatch: existing embeddings use {existing['embedding_dim']}d "
+                f"({existing['model_profile']}), but requested model uses {embedding_dim}d "
+                f"({model_profile}). Use --force to regenerate all embeddings."
+            )
+
+        # Check model (different models with same dimension may have different semantic spaces)
+        if existing["model_profile"] != model_profile:
+            return False, (
+                f"Model mismatch: existing embeddings use '{existing['model_profile']}' "
+                f"({existing['model_name']}), but requested '{model_profile}' "
+                f"({model_name}). Use --force to regenerate all embeddings."
+            )
+
+        return True, None
 
     def close(self) -> None:
         """Close the vector store and release resources.

@@ -35,8 +35,17 @@ from .output import (
 app = typer.Typer(help="CodexLens CLI — local code indexing and search.")
 
 
-def _configure_logging(verbose: bool) -> None:
-    level = logging.DEBUG if verbose else logging.INFO
+def _configure_logging(verbose: bool, json_mode: bool = False) -> None:
+    """Configure logging level.
+
+    In JSON mode, suppress INFO logs to keep stderr clean for error parsing.
+    Only WARNING and above are shown to avoid mixing logs with JSON output.
+    """
+    if json_mode and not verbose:
+        # In JSON mode, suppress INFO logs to keep stderr clean
+        level = logging.WARNING
+    else:
+        level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(level=level, format="%(levelname)s %(message)s")
 
 
@@ -95,7 +104,7 @@ def init(
     If semantic search dependencies are installed, automatically generates embeddings
     after indexing completes. Use --no-embeddings to skip this step.
     """
-    _configure_logging(verbose)
+    _configure_logging(verbose, json_mode)
     config = Config()
     languages = _parse_languages(language)
     base_path = path.expanduser().resolve()
@@ -314,7 +323,7 @@ def search(
       # Force hybrid mode
       codexlens search "authentication" --mode hybrid
     """
-    _configure_logging(verbose)
+    _configure_logging(verbose, json_mode)
     search_path = path.expanduser().resolve()
 
     # Validate mode
@@ -487,7 +496,7 @@ def symbol(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
 ) -> None:
     """Look up symbols by name and optional kind."""
-    _configure_logging(verbose)
+    _configure_logging(verbose, json_mode)
     search_path = path.expanduser().resolve()
 
     registry: RegistryStore | None = None
@@ -538,7 +547,7 @@ def inspect(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
 ) -> None:
     """Analyze a single file and display symbols."""
-    _configure_logging(verbose)
+    _configure_logging(verbose, json_mode)
     config = Config()
     factory = ParserFactory(config)
 
@@ -588,7 +597,7 @@ def status(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
 ) -> None:
     """Show index status and configuration."""
-    _configure_logging(verbose)
+    _configure_logging(verbose, json_mode)
 
     registry: RegistryStore | None = None
     try:
@@ -648,7 +657,7 @@ def status(
             # Embedding manager not available
             pass
         except Exception as e:
-            logger.debug(f"Failed to get embeddings status: {e}")
+            logging.debug(f"Failed to get embeddings status: {e}")
 
         stats = {
             "index_root": str(index_root),
@@ -737,7 +746,7 @@ def projects(
     - show <path>: Show details for a specific project
     - remove <path>: Remove a project from the registry
     """
-    _configure_logging(verbose)
+    _configure_logging(verbose, json_mode)
 
     registry: RegistryStore | None = None
     try:
@@ -892,7 +901,7 @@ def config(
     Config keys:
     - index_dir: Directory to store indexes (default: ~/.codexlens/indexes)
     """
-    _configure_logging(verbose)
+    _configure_logging(verbose, json_mode)
 
     config_file = Path.home() / ".codexlens" / "config.json"
 
@@ -1057,7 +1066,7 @@ def migrate(
     This is a safe operation that preserves all existing data.
     Progress is shown during migration.
     """
-    _configure_logging(verbose)
+    _configure_logging(verbose, json_mode)
     base_path = path.expanduser().resolve()
 
     registry: RegistryStore | None = None
@@ -1183,7 +1192,7 @@ def clean(
     With path, removes that project's indexes.
     With --all, removes all indexes (use with caution).
     """
-    _configure_logging(verbose)
+    _configure_logging(verbose, json_mode)
 
     try:
         mapper = PathMapper()
@@ -1329,7 +1338,7 @@ def semantic_list(
     Shows files that have LLM-generated summaries and keywords.
     Results are aggregated from all index databases in the project.
     """
-    _configure_logging(verbose)
+    _configure_logging(verbose, json_mode)
     base_path = path.expanduser().resolve()
 
     registry: Optional[RegistryStore] = None
@@ -1798,7 +1807,7 @@ def embeddings_generate(
         codexlens embeddings-generate ~/.codexlens/indexes/project/_index.db  # Specific index
         codexlens embeddings-generate ~/projects/my-app --model fast --force  # Regenerate with fast model
     """
-    _configure_logging(verbose)
+    _configure_logging(verbose, json_mode)
 
     from codexlens.cli.embedding_manager import generate_embeddings, generate_embeddings_recursive
 

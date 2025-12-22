@@ -279,6 +279,21 @@ def generate_embeddings(
 
     try:
         with VectorStore(index_path) as vector_store:
+            # Check model compatibility with existing embeddings
+            if not force:
+                is_compatible, warning = vector_store.check_model_compatibility(
+                    model_profile, embedder.model_name, embedder.embedding_dim
+                )
+                if not is_compatible:
+                    return {
+                        "success": False,
+                        "error": warning,
+                    }
+
+            # Set/update model configuration for this index
+            vector_store.set_model_config(
+                model_profile, embedder.model_name, embedder.embedding_dim
+            )
             # Use bulk insert mode for efficient batch ANN index building
             # This defers ANN updates until end_bulk_insert() is called
             with vector_store.bulk_insert():

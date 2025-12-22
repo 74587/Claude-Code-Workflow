@@ -98,15 +98,17 @@ async function loadCodexLensStatus() {
     }
     window.cliToolsStatus.codexlens = {
       installed: data.ready || false,
-      version: data.version || null
+      version: data.version || null,
+      installedModels: []  // Will be populated by loadSemanticStatus
     };
 
     // Update CodexLens badge
     updateCodexLensBadge();
 
-    // If CodexLens is ready, also check semantic status
+    // If CodexLens is ready, also check semantic status and models
     if (data.ready) {
       await loadSemanticStatus();
+      await loadInstalledModels();
     }
 
     return data;
@@ -129,6 +131,37 @@ async function loadSemanticStatus() {
   } catch (err) {
     console.error('Failed to load semantic status:', err);
     return null;
+  }
+}
+
+/**
+ * Load installed embedding models
+ */
+async function loadInstalledModels() {
+  try {
+    const response = await fetch('/api/codexlens/models');
+    if (!response.ok) throw new Error('Failed to load models');
+    const data = await response.json();
+    
+    if (data.success && data.result && data.result.models) {
+      // Filter to only installed models
+      const installedModels = data.result.models
+        .filter(m => m.installed)
+        .map(m => m.profile);
+      
+      // Update window.cliToolsStatus
+      if (window.cliToolsStatus && window.cliToolsStatus.codexlens) {
+        window.cliToolsStatus.codexlens.installedModels = installedModels;
+        window.cliToolsStatus.codexlens.allModels = data.result.models;
+      }
+      
+      console.log('[CLI Status] Installed models:', installedModels);
+      return installedModels;
+    }
+    return [];
+  } catch (err) {
+    console.error('Failed to load installed models:', err);
+    return [];
   }
 }
 

@@ -396,7 +396,20 @@ class ChainSearchEngine:
         all_results = []
         stats = SearchStats()
 
-        executor = self._get_executor(options.max_workers)
+        # Force single-threaded execution for vector/hybrid search to avoid GPU crashes
+        # DirectML/ONNX have threading issues when multiple threads access GPU resources
+        effective_workers = options.max_workers
+        if options.enable_vector or options.hybrid_mode:
+            effective_workers = 1
+            self.logger.debug("Using single-threaded mode for vector search (GPU safety)")
+            # Pre-load embedder to avoid initialization overhead per-search
+            try:
+                from codexlens.semantic.embedder import get_embedder
+                get_embedder(profile="code", use_gpu=True)
+            except Exception:
+                pass  # Ignore pre-load failures
+
+        executor = self._get_executor(effective_workers)
         # Submit all search tasks
         future_to_path = {
             executor.submit(

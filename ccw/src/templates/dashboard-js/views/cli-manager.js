@@ -349,6 +349,50 @@ function getSelectedModel() {
   return select ? select.value : 'code';
 }
 
+/**
+ * Build model select options HTML, showing only installed models
+ * @returns {string} HTML string for select options
+ */
+function buildModelSelectOptions() {
+  var installedModels = window.cliToolsStatus?.codexlens?.installedModels || [];
+  var allModels = window.cliToolsStatus?.codexlens?.allModels || [];
+  
+  // Model display configuration
+  var modelConfig = {
+    'code': { label: t('index.modelCode') || 'Code (768d)', star: true },
+    'base': { label: t('index.modelBase') || 'Base (768d)', star: false },
+    'fast': { label: t('index.modelFast') || 'Fast (384d)', star: false },
+    'minilm': { label: t('index.modelMinilm') || 'MiniLM (384d)', star: false },
+    'multilingual': { label: t('index.modelMultilingual') || 'Multilingual (1024d)', warn: true },
+    'balanced': { label: t('index.modelBalanced') || 'Balanced (1024d)', warn: true }
+  };
+  
+  // If no models installed, show placeholder
+  if (installedModels.length === 0) {
+    return '<option value="" disabled selected>' + (t('index.noModelsInstalled') || 'No models installed') + '</option>';
+  }
+  
+  // Build options for installed models only
+  var options = '';
+  var firstInstalled = null;
+  
+  // Preferred order: code, fast, minilm, base, multilingual, balanced
+  var preferredOrder = ['code', 'fast', 'minilm', 'base', 'multilingual', 'balanced'];
+  
+  preferredOrder.forEach(function(profile) {
+    if (installedModels.includes(profile) && modelConfig[profile]) {
+      var config = modelConfig[profile];
+      var style = config.warn ? ' style="color: var(--muted-foreground)"' : '';
+      var suffix = config.star ? ' ⭐' : (config.warn ? ' ⚠️' : '');
+      var selected = !firstInstalled ? ' selected' : '';
+      if (!firstInstalled) firstInstalled = profile;
+      options += '<option value="' + profile + '"' + style + selected + '>' + config.label + suffix + '</option>';
+    }
+  });
+  
+  return options;
+}
+
 // ========== Tools Section (Left Column) ==========
 function renderToolsSection() {
   var container = document.getElementById('tools-section');
@@ -404,12 +448,7 @@ function renderToolsSection() {
       (codexLensStatus.ready
         ? '<span class="tool-status-text success"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> v' + (codexLensStatus.version || 'installed') + '</span>' +
           '<select id="codexlensModelSelect" class="btn-sm bg-muted border border-border rounded text-xs" onclick="event.stopPropagation()" title="' + (t('index.selectModel') || 'Select embedding model') + '">' +
-            '<option value="code">' + (t('index.modelCode') || 'Code (768d)') + ' ⭐</option>' +
-            '<option value="base">' + (t('index.modelBase') || 'Base (768d)') + '</option>' +
-            '<option value="fast">' + (t('index.modelFast') || 'Fast (384d)') + '</option>' +
-            '<option value="minilm">' + (t('index.modelMinilm') || 'MiniLM (384d)') + '</option>' +
-            '<option value="multilingual" style="color: var(--muted-foreground)">' + (t('index.modelMultilingual') || 'Multilingual (1024d)') + ' ⚠️</option>' +
-            '<option value="balanced" style="color: var(--muted-foreground)">' + (t('index.modelBalanced') || 'Balanced (1024d)') + ' ⚠️</option>' +
+            buildModelSelectOptions() +
           '</select>' +
           '<button class="btn-sm btn-primary" onclick="event.stopPropagation(); initCodexLensIndex(\'full\', getSelectedModel())" title="' + (t('index.fullDesc') || 'FTS + Semantic search (recommended)') + '"><i data-lucide="layers" class="w-3 h-3"></i> ' + (t('index.fullIndex') || '全部索引') + '</button>' +
           '<button class="btn-sm btn-outline" onclick="event.stopPropagation(); initCodexLensIndex(\'vector\', getSelectedModel())" title="' + (t('index.vectorDesc') || 'Semantic search with embeddings') + '"><i data-lucide="sparkles" class="w-3 h-3"></i> ' + (t('index.vectorIndex') || '向量索引') + '</button>' +

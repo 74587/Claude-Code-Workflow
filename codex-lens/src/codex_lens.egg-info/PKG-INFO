@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: codex-lens
-Version: 0.2.0
+Version: 0.1.0
 Summary: CodexLens multi-modal code analysis platform
 Author: CodexLens contributors
 License: MIT
@@ -17,18 +17,18 @@ Requires-Dist: tree-sitter-typescript>=0.23
 Requires-Dist: pathspec>=0.11
 Provides-Extra: semantic
 Requires-Dist: numpy>=1.24; extra == "semantic"
-Requires-Dist: fastembed>=0.5; extra == "semantic"
+Requires-Dist: fastembed>=0.2; extra == "semantic"
 Requires-Dist: hnswlib>=0.8.0; extra == "semantic"
 Provides-Extra: semantic-gpu
 Requires-Dist: numpy>=1.24; extra == "semantic-gpu"
-Requires-Dist: fastembed>=0.5; extra == "semantic-gpu"
+Requires-Dist: fastembed>=0.2; extra == "semantic-gpu"
 Requires-Dist: hnswlib>=0.8.0; extra == "semantic-gpu"
-Requires-Dist: onnxruntime-gpu>=1.18.0; extra == "semantic-gpu"
+Requires-Dist: onnxruntime-gpu>=1.15.0; extra == "semantic-gpu"
 Provides-Extra: semantic-directml
 Requires-Dist: numpy>=1.24; extra == "semantic-directml"
-Requires-Dist: fastembed>=0.5; extra == "semantic-directml"
+Requires-Dist: fastembed>=0.2; extra == "semantic-directml"
 Requires-Dist: hnswlib>=0.8.0; extra == "semantic-directml"
-Requires-Dist: onnxruntime-directml>=1.18.0; extra == "semantic-directml"
+Requires-Dist: onnxruntime-directml>=1.15.0; extra == "semantic-directml"
 Provides-Extra: encoding
 Requires-Dist: chardet>=5.0; extra == "encoding"
 Provides-Extra: full

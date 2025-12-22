@@ -274,19 +274,32 @@ class HybridSearchEngine:
                 )
                 return []
 
-            # Auto-detect embedding dimension and select appropriate profile
-            detected_dim = vector_store.dimension
-            if detected_dim is None:
-                self.logger.info("Vector store dimension unknown, using default profile")
-                profile = "code"  # Default fallback
-            elif detected_dim == 384:
-                profile = "fast"
-            elif detected_dim == 768:
-                profile = "code"
-            elif detected_dim == 1024:
-                profile = "multilingual"  # or balanced, both are 1024
+            # Get stored model configuration (preferred) or auto-detect from dimension
+            model_config = vector_store.get_model_config()
+            if model_config:
+                profile = model_config["model_profile"]
+                self.logger.debug(
+                    "Using stored model config: %s (%s, %dd)",
+                    profile, model_config["model_name"], model_config["embedding_dim"]
+                )
             else:
-                profile = "code"  # Default fallback
+                # Fallback: auto-detect from embedding dimension
+                detected_dim = vector_store.dimension
+                if detected_dim is None:
+                    self.logger.info("Vector store dimension unknown, using default profile")
+                    profile = "code"  # Default fallback
+                elif detected_dim == 384:
+                    profile = "fast"
+                elif detected_dim == 768:
+                    profile = "code"
+                elif detected_dim == 1024:
+                    profile = "multilingual"  # or balanced, both are 1024
+                else:
+                    profile = "code"  # Default fallback
+                self.logger.debug(
+                    "No stored model config, auto-detected profile '%s' from dimension %s",
+                    profile, detected_dim
+                )
 
             # Use cached embedder (singleton) for performance
             embedder = get_embedder(profile=profile)

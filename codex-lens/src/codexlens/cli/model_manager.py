@@ -16,9 +16,11 @@ except ImportError:
 # Model profiles with metadata
 # Note: 768d is max recommended dimension for optimal performance/quality balance
 # 1024d models are available but not recommended due to higher resource usage
+# cache_name: The actual Hugging Face repo name used by fastembed for ONNX caching
 MODEL_PROFILES = {
     "fast": {
         "model_name": "BAAI/bge-small-en-v1.5",
+        "cache_name": "qdrant/bge-small-en-v1.5-onnx-q",  # fastembed uses ONNX version
         "dimensions": 384,
         "size_mb": 80,
         "description": "Fast, lightweight, English-optimized",
@@ -27,6 +29,7 @@ MODEL_PROFILES = {
     },
     "base": {
         "model_name": "BAAI/bge-base-en-v1.5",
+        "cache_name": "qdrant/bge-base-en-v1.5-onnx-q",  # fastembed uses ONNX version
         "dimensions": 768,
         "size_mb": 220,
         "description": "General purpose, good balance of speed and quality",
@@ -35,6 +38,7 @@ MODEL_PROFILES = {
     },
     "code": {
         "model_name": "jinaai/jina-embeddings-v2-base-code",
+        "cache_name": "jinaai/jina-embeddings-v2-base-code",  # Uses original name
         "dimensions": 768,
         "size_mb": 150,
         "description": "Code-optimized, best for programming languages",
@@ -43,6 +47,7 @@ MODEL_PROFILES = {
     },
     "minilm": {
         "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+        "cache_name": "qdrant/all-MiniLM-L6-v2-onnx",  # fastembed uses ONNX version
         "dimensions": 384,
         "size_mb": 90,
         "description": "Popular lightweight model, good quality",
@@ -51,6 +56,7 @@ MODEL_PROFILES = {
     },
     "multilingual": {
         "model_name": "intfloat/multilingual-e5-large",
+        "cache_name": "qdrant/multilingual-e5-large-onnx",  # fastembed uses ONNX version
         "dimensions": 1024,
         "size_mb": 1000,
         "description": "Multilingual + code support (high resource usage)",
@@ -59,6 +65,7 @@ MODEL_PROFILES = {
     },
     "balanced": {
         "model_name": "mixedbread-ai/mxbai-embed-large-v1",
+        "cache_name": "mixedbread-ai/mxbai-embed-large-v1",  # Uses original name
         "dimensions": 1024,
         "size_mb": 600,
         "description": "High accuracy, general purpose (high resource usage)",
@@ -87,6 +94,23 @@ def get_cache_dir() -> Path:
     return cache_dir
 
 
+def _get_model_cache_path(cache_dir: Path, info: Dict) -> Path:
+    """Get the actual cache path for a model.
+
+    fastembed uses ONNX versions of models with different names than the original.
+    This function returns the correct path based on the cache_name field.
+
+    Args:
+        cache_dir: The fastembed cache directory
+        info: Model profile info dictionary
+
+    Returns:
+        Path to the model cache directory
+    """
+    cache_name = info.get("cache_name", info["model_name"])
+    return cache_dir / f"models--{cache_name.replace('/', '--')}"
+
+
 def list_models() -> Dict[str, any]:
     """List available model profiles and their installation status.
 
@@ -106,13 +130,13 @@ def list_models() -> Dict[str, any]:
     for profile, info in MODEL_PROFILES.items():
         model_name = info["model_name"]
 
-        # Check if model is cached
+        # Check if model is cached using the actual cache name
         installed = False
         cache_size_mb = 0
 
         if cache_exists:
-            # Check for model directory in cache
-            model_cache_path = cache_dir / f"models--{model_name.replace('/', '--')}"
+            # Check for model directory in cache using correct cache_name
+            model_cache_path = _get_model_cache_path(cache_dir, info)
             if model_cache_path.exists():
                 installed = True
                 # Calculate cache size
@@ -166,7 +190,8 @@ def download_model(profile: str, progress_callback: Optional[callable] = None) -
             "error": f"Unknown profile: {profile}. Available: {', '.join(MODEL_PROFILES.keys())}",
         }
 
-    model_name = MODEL_PROFILES[profile]["model_name"]
+    info = MODEL_PROFILES[profile]
+    model_name = info["model_name"]
 
     try:
         # Download model by instantiating TextEmbedding
@@ -179,9 +204,9 @@ def download_model(profile: str, progress_callback: Optional[callable] = None) -
         if progress_callback:
             progress_callback(f"Model {model_name} downloaded successfully")
 
-        # Get cache info
+        # Get cache info using correct cache_name
         cache_dir = get_cache_dir()
-        model_cache_path = cache_dir / f"models--{model_name.replace('/', '--')}"
+        model_cache_path = _get_model_cache_path(cache_dir, info)
 
         cache_size = 0
         if model_cache_path.exists():
@@ -224,9 +249,10 @@ def delete_model(profile: str) -> Dict[str, any]:
             "error": f"Unknown profile: {profile}. Available: {', '.join(MODEL_PROFILES.keys())}",
         }
 
-    model_name = MODEL_PROFILES[profile]["model_name"]
+    info = MODEL_PROFILES[profile]
+    model_name = info["model_name"]
     cache_dir = get_cache_dir()
-    model_cache_path = cache_dir / f"models--{model_name.replace('/', '--')}"
+    model_cache_path = _get_model_cache_path(cache_dir, info)
 
     if not model_cache_path.exists():
         return {
@@ -281,9 +307,9 @@ def get_model_info(profile: str) -> Dict[str, any]:
     info = MODEL_PROFILES[profile]
     model_name = info["model_name"]
 
-    # Check installation status
+    # Check installation status using correct cache_name
     cache_dir = get_cache_dir()
-    model_cache_path = cache_dir / f"models--{model_name.replace('/', '--')}"
+    model_cache_path = _get_model_cache_path(cache_dir, info)
     installed = model_cache_path.exists()
 
     cache_size_mb = None
