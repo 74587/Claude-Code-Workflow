@@ -1,0 +1,15 @@
+# npm ignore file - overrides .gitignore for npm publish
+# dist/ is NOT excluded here so it gets published
+
+# Development files
+node_modules/
+*.log
+*.tmp
+
+# Test files
+tests/
+*.test.js
+*.spec.js
+
+# TypeScript source maps (optional, can keep for debugging)
+# *.map
