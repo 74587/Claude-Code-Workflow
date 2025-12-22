@@ -42,17 +42,41 @@ function getCcwEnabledToolsCodex() {
 
 // Get current CCW_PROJECT_ROOT from config
 function getCcwProjectRoot() {
+  // Try project config first, then global config
   const currentPath = projectPath;
   const projectData = mcpAllProjects[currentPath] || {};
-  const ccwConfig = projectData.mcpServers?.['ccw-tools'];
-  return ccwConfig?.env?.CCW_PROJECT_ROOT || '';
+  const projectCcwConfig = projectData.mcpServers?.['ccw-tools'];
+  if (projectCcwConfig?.env?.CCW_PROJECT_ROOT) {
+    return projectCcwConfig.env.CCW_PROJECT_ROOT;
+  }
+  // Fallback to global config
+  const globalCcwConfig = mcpUserServers?.['ccw-tools'];
+  return globalCcwConfig?.env?.CCW_PROJECT_ROOT || '';
 }
 
 // Get current CCW_ALLOWED_DIRS from config
 function getCcwAllowedDirs() {
+  // Try project config first, then global config
   const currentPath = projectPath;
   const projectData = mcpAllProjects[currentPath] || {};
-  const ccwConfig = projectData.mcpServers?.['ccw-tools'];
+  const projectCcwConfig = projectData.mcpServers?.['ccw-tools'];
+  if (projectCcwConfig?.env?.CCW_ALLOWED_DIRS) {
+    return projectCcwConfig.env.CCW_ALLOWED_DIRS;
+  }
+  // Fallback to global config
+  const globalCcwConfig = mcpUserServers?.['ccw-tools'];
+  return globalCcwConfig?.env?.CCW_ALLOWED_DIRS || '';
+}
+
+// Get current CCW_PROJECT_ROOT from Codex config
+function getCcwProjectRootCodex() {
+  const ccwConfig = codexMcpServers?.['ccw-tools'];
+  return ccwConfig?.env?.CCW_PROJECT_ROOT || '';
+}
+
+// Get current CCW_ALLOWED_DIRS from Codex config
+function getCcwAllowedDirsCodex() {
+  const ccwConfig = codexMcpServers?.['ccw-tools'];
   return ccwConfig?.env?.CCW_ALLOWED_DIRS || '';
 }
 
@@ -260,7 +284,7 @@ async function renderMcpManager() {
                       <input type="text"
                              class="ccw-project-root-input flex-1 px-2 py-1 text-xs bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
                              placeholder="${projectPath || t('mcp.useCurrentDir')}"
-                             value="${getCcwProjectRoot()}">
+                             value="${getCcwProjectRootCodex()}">
                       <button class="p-1 text-muted-foreground hover:text-foreground"
                               onclick="setCcwProjectRootToCurrent()"
                               title="${t('mcp.useCurrentProject')}">
@@ -272,7 +296,7 @@ async function renderMcpManager() {
                       <input type="text"
                              class="ccw-allowed-dirs-input flex-1 px-2 py-1 text-xs bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
                              placeholder="${t('mcp.allowedDirsPlaceholder')}"
-                             value="${getCcwAllowedDirs()}">
+                             value="${getCcwAllowedDirsCodex()}">
                     </div>
                   </div>
                 </div>
