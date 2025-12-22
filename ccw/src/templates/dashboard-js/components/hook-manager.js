@@ -138,14 +138,14 @@ const HOOK_TEMPLATES = {
     category: 'memory',
     timeout: 5000
   },
-  // Session Context - Fires once per session at startup
-  // Uses state file to detect first prompt, only fires once
+  // Session Context - Progressive disclosure based on session state
+  // First prompt: returns cluster overview, subsequent: intent-matched sessions
   'session-context': {
     event: 'UserPromptSubmit',
     matcher: '',
-    command: 'bash',
-    args: ['-c', 'STATE_FILE="/tmp/.ccw-session-$CLAUDE_SESSION_ID"; [ -f "$STATE_FILE" ] && exit 0; touch "$STATE_FILE"; curl -s -X POST -H "Content-Type: application/json" -d "{\\"sessionId\\":\\"$CLAUDE_SESSION_ID\\"}" http://localhost:3456/api/hook/session-context 2>/dev/null | jq -r ".content // empty"'],
-    description: 'Load session context once at startup (cluster overview)',
+    command: 'ccw',
+    args: ['hook', 'session-context', '--stdin'],
+    description: 'Progressive session context (cluster overview → intent matching)',
     category: 'context',
     timeout: 5000
   }

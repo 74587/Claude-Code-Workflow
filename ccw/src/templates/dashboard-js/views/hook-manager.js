@@ -449,8 +449,23 @@ function isHookTemplateInstalled(templateId) {
   const template = HOOK_TEMPLATES[templateId];
   if (!template) return false;
 
-  // Build expected command string
-  const templateCmd = template.command + (template.args ? ' ' + template.args.join(' ') : '');
+  // Define unique patterns for each template type (more specific than just command)
+  const uniquePatterns = {
+    'session-context': 'hook session-context',
+    'codexlens-update': 'codexlens update',
+    'ccw-notify': 'api/hook',
+    'log-tool': 'tool-usage.log',
+    'lint-check': 'eslint',
+    'git-add': 'git add',
+    'memory-file-read': 'memory track --type file --action read',
+    'memory-file-write': 'memory track --type file --action write',
+    'memory-prompt-track': 'memory track --type topic',
+    'skill-context-auto': 'skill-context-auto'
+  };
+
+  // Use unique pattern if defined, otherwise fall back to command + args
+  const searchPattern = uniquePatterns[templateId] ||
+    (template.command + (template.args ? ' ' + template.args.join(' ') : ''));
 
   // Check project hooks
   const projectHooks = hookConfig.project?.hooks?.[template.event];
@@ -459,7 +474,7 @@ function isHookTemplateInstalled(templateId) {
     if (hookList.some(h => {
       // Check both old format (h.command) and new format (h.hooks[0].command)
       const cmd = h.hooks?.[0]?.command || h.command || '';
-      return cmd.includes(template.command);
+      return cmd.includes(searchPattern);
     })) return true;
   }
 
@@ -469,7 +484,7 @@ function isHookTemplateInstalled(templateId) {
     const hookList = Array.isArray(globalHooks) ? globalHooks : [globalHooks];
     if (hookList.some(h => {
       const cmd = h.hooks?.[0]?.command || h.command || '';
-      return cmd.includes(template.command);
+      return cmd.includes(searchPattern);
     })) return true;
   }
 
@@ -512,7 +527,7 @@ async function uninstallHookTemplate(templateId) {
 
   // Define unique patterns for each template type
   const uniquePatterns = {
-    'session-context': 'api/hook/session-context',
+    'session-context': 'hook session-context',
     'codexlens-update': 'codexlens update',
     'ccw-notify': 'api/hook',
     'log-tool': 'tool-usage.log',

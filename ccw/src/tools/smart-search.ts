@@ -244,6 +244,7 @@ interface SearchMetadata {
   warning?: string;
   note?: string;
   index_status?: 'indexed' | 'not_indexed' | 'partial';
+  fallback?: string;  // Fallback mode used (e.g., 'fuzzy')
   fallback_history?: string[];
   suggested_weights?: Record<string, number>;
   // Tokenization metadata (ripgrep mode)
