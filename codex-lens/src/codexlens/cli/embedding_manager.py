@@ -20,8 +20,8 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # Embedding batch size - larger values improve throughput on modern hardware
-# Default 64 balances memory usage and GPU/CPU utilization
-EMBEDDING_BATCH_SIZE = 64  # Increased from 8 for better performance
+# Benchmark: 256 gives ~2.35x speedup over 64 with DirectML GPU acceleration
+EMBEDDING_BATCH_SIZE = 256  # Optimized from 64 based on batch size benchmarks
 
 
 def _generate_chunks_from_cursor(
@@ -275,7 +275,7 @@ def generate_embeddings(
     total_chunks_created = 0
     total_files_processed = 0
     FILE_BATCH_SIZE = 100  # Process 100 files at a time
-    # EMBEDDING_BATCH_SIZE is defined at module level (default: 64)
+    # EMBEDDING_BATCH_SIZE is defined at module level (default: 256)
 
     try:
         with VectorStore(index_path) as vector_store:
