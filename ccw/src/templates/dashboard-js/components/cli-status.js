@@ -5,6 +5,7 @@
 let cliToolStatus = { gemini: {}, qwen: {}, codex: {}, claude: {} };
 let codexLensStatus = { ready: false };
 let semanticStatus = { available: false };
+let ccwInstallStatus = { installed: true, workflowsInstalled: true, missingFiles: [], installPath: '' };
 let defaultCliTool = 'gemini';
 let promptConcatFormat = localStorage.getItem('ccw-prompt-format') || 'plain'; // plain, yaml, json
 
@@ -38,10 +39,12 @@ async function loadAllStatuses() {
     cliToolStatus = data.cli || { gemini: {}, qwen: {}, codex: {}, claude: {} };
     codexLensStatus = data.codexLens || { ready: false };
     semanticStatus = data.semantic || { available: false };
+    ccwInstallStatus = data.ccwInstall || { installed: true, workflowsInstalled: true, missingFiles: [], installPath: '' };
 
     // Update badges
     updateCliBadge();
     updateCodexLensBadge();
+    updateCcwInstallBadge();
 
     return data;
   } catch (err) {
@@ -187,6 +190,25 @@ function updateCodexLensBadge() {
   }
 }
 
+function updateCcwInstallBadge() {
+  const badge = document.getElementById('badgeCcwInstall');
+  if (badge) {
+    if (ccwInstallStatus.installed) {
+      badge.textContent = t('status.installed');
+      badge.classList.add('text-success');
+      badge.classList.remove('text-warning', 'text-destructive');
+    } else if (ccwInstallStatus.workflowsInstalled === false) {
+      badge.textContent = t('status.incomplete');
+      badge.classList.add('text-warning');
+      badge.classList.remove('text-success', 'text-destructive');
+    } else {
+      badge.textContent = t('status.notInstalled');
+      badge.classList.add('text-destructive');
+      badge.classList.remove('text-success', 'text-warning');
+    }
+  }
+}
+
 // ========== Rendering ==========
 function renderCliStatus() {
   const container = document.getElementById('cli-status-panel');
@@ -310,6 +332,39 @@ function renderCliStatus() {
     </div>
   ` : '';
 
+  // CCW Installation Status card (show warning if not fully installed)
+  const ccwInstallHtml = !ccwInstallStatus.installed ? `
+    <div class="cli-tool-card tool-ccw-install unavailable" style="border: 1px solid var(--warning); background: rgba(var(--warning-rgb), 0.05);">
+      <div class="cli-tool-header">
+        <span class="cli-tool-status status-unavailable" style="background: var(--warning);"></span>
+        <span class="cli-tool-name">${t('status.ccwInstall')}</span>
+        <span class="badge px-1.5 py-0.5 text-xs rounded bg-warning/20 text-warning">${t('status.required')}</span>
+      </div>
+      <div class="cli-tool-desc text-xs text-muted-foreground mt-1">
+        ${t('status.ccwInstallDesc')}
+      </div>
+      <div class="cli-tool-info mt-2">
+        <span class="text-warning flex items-center gap-1">
+          <i data-lucide="alert-triangle" class="w-3 h-3"></i>
+          ${ccwInstallStatus.missingFiles.length} ${t('status.filesMissing')}
+        </span>
+      </div>
+      <div class="cli-tool-actions flex flex-col gap-2 mt-3">
+        <div class="text-xs text-muted-foreground">
+          <p class="mb-1">${t('status.missingFiles')}:</p>
+          <ul class="list-disc list-inside text-xs opacity-70">
+            ${ccwInstallStatus.missingFiles.slice(0, 3).map(f => `<li>${f}</li>`).join('')}
+            ${ccwInstallStatus.missingFiles.length > 3 ? `<li>+${ccwInstallStatus.missingFiles.length - 3} more...</li>` : ''}
+          </ul>
+        </div>
+        <div class="bg-muted/50 rounded p-2 mt-2">
+          <p class="text-xs font-medium mb-1">${t('status.runToFix')}:</p>
+          <code class="text-xs bg-background px-2 py-1 rounded block">ccw install</code>
+        </div>
+      </div>
+    </div>
+  ` : '';
+
   // CLI Settings section
   const settingsHtml = `
     <div class="cli-settings-section">
@@ -392,6 +447,7 @@ function renderCliStatus() {
         <i data-lucide="refresh-cw" class="w-4 h-4"></i>
       </button>
     </div>
+    ${ccwInstallHtml}
     <div class="cli-tools-grid">
       ${toolsHtml}
       ${codexLensHtml}

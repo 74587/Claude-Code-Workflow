@@ -1,10 +1,5 @@
 # Write Mode Protocol
 
-## Mode Definition
-
-**Mode**: `write` (FILE OPERATIONS) / `auto` (FULL OPERATIONS)
-**Tools**: Codex (auto), Gemini/Qwen (write)
-
 ## Operation Boundaries
 
 ### MODE: write
@@ -14,12 +9,6 @@
 - **DELETE**: Files when explicitly required
 
 **Restrictions**: Follow project conventions, cannot break existing functionality
-
-### MODE: auto (Codex only)
-- All `write` mode operations
-- Run tests and builds
-- Commit code incrementally
-- Full autonomous development
 
 **Constraint**: Must test every change
 
@@ -32,16 +21,6 @@
 4. **Execute** requested file operations
 5. **Validate** changes
 6. **Report** file changes
-
-### MODE: auto
-1. **Parse** all 6 fields
-2. **Analyze** CONTEXT files - find 3+ similar patterns
-3. **Plan** implementation following RULES
-4. **Generate** code with tests
-5. **Run** tests continuously
-6. **Commit** working code incrementally
-7. **Validate** EXPECTED deliverables
-8. **Report** results
 
 ## Core Requirements
 

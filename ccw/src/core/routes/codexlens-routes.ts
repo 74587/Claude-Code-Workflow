@@ -80,6 +80,13 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
   // API: CodexLens Index List - Get all indexed projects with details
   if (pathname === '/api/codexlens/indexes') {
     try {
+      // Check if CodexLens is installed first (without auto-installing)
+      const venvStatus = await checkVenvStatus();
+      if (!venvStatus.ready) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, indexes: [], totalSize: 0, totalSizeFormatted: '0 B' }));
+        return true;
+      }
       // Get config for index directory path
       const configResult = await executeCodexLens(['config', '--json']);
       let indexDir = '';
@@ -290,13 +297,23 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
   // API: CodexLens Config - GET (Get current configuration with index count)
   if (pathname === '/api/codexlens/config' && req.method === 'GET') {
     try {
+      // Check if CodexLens is installed first (without auto-installing)
+      const venvStatus = await checkVenvStatus();
+
+      let responseData = { index_dir: '~/.codexlens/indexes', index_count: 0 };
+
+      // If not installed, return default config without executing CodexLens
+      if (!venvStatus.ready) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(responseData));
+        return true;
+      }
+
       // Fetch both config and status to merge index_count
       const [configResult, statusResult] = await Promise.all([
         executeCodexLens(['config', '--json']),
         executeCodexLens(['status', '--json'])
       ]);
-
-      let responseData = { index_dir: '~/.codexlens/indexes', index_count: 0 };
 
       // Parse config (extract JSON from output that may contain log messages)
       if (configResult.success) {
@@ -682,6 +699,87 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
     return true;
   }
 
+  // API: List available GPU devices for selection
+  if (pathname === '/api/codexlens/gpu/list' && req.method === 'GET') {
+    try {
+      // Check if CodexLens is installed first (without auto-installing)
+      const venvStatus = await checkVenvStatus();
+      if (!venvStatus.ready) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, devices: [], selected_device_id: null }));
+        return true;
+      }
+      const result = await executeCodexLens(['gpu-list', '--json']);
+      if (result.success) {
+        try {
+          const parsed = extractJSON(result.output);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(parsed));
+        } catch {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, devices: [], output: result.output }));
+        }
+      } else {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: result.error }));
+      }
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+    return true;
+  }
+
+  // API: Select GPU device for embedding
+  if (pathname === '/api/codexlens/gpu/select' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { device_id } = body;
+
+      if (device_id === undefined || device_id === null) {
+        return { success: false, error: 'device_id is required', status: 400 };
+      }
+
+      try {
+        const result = await executeCodexLens(['gpu-select', String(device_id), '--json']);
+        if (result.success) {
+          try {
+            const parsed = extractJSON(result.output);
+            return parsed;
+          } catch {
+            return { success: true, message: 'GPU selected', output: result.output };
+          }
+        } else {
+          return { success: false, error: result.error, status: 500 };
+        }
+      } catch (err) {
+        return { success: false, error: err.message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // API: Reset GPU selection to auto-detection
+  if (pathname === '/api/codexlens/gpu/reset' && req.method === 'POST') {
+    handlePostRequest(req, res, async () => {
+      try {
+        const result = await executeCodexLens(['gpu-reset', '--json']);
+        if (result.success) {
+          try {
+            const parsed = extractJSON(result.output);
+            return parsed;
+          } catch {
+            return { success: true, message: 'GPU selection reset', output: result.output };
+          }
+        } else {
+          return { success: false, error: result.error, status: 500 };
+        }
+      } catch (err) {
+        return { success: false, error: err.message, status: 500 };
+      }
+    });
+    return true;
+  }
+
   // API: CodexLens Semantic Search Install (with GPU mode support)
   if (pathname === '/api/codexlens/semantic/install' && req.method === 'POST') {
     handlePostRequest(req, res, async (body) => {
@@ -721,6 +819,13 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
   // API: CodexLens Model List (list available embedding models)
   if (pathname === '/api/codexlens/models' && req.method === 'GET') {
     try {
+      // Check if CodexLens is installed first (without auto-installing)
+      const venvStatus = await checkVenvStatus();
+      if (!venvStatus.ready) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'CodexLens not installed' }));
+        return true;
+      }
       const result = await executeCodexLens(['model-list', '--json']);
       if (result.success) {
         try {

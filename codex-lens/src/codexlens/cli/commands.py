@@ -1955,3 +1955,178 @@ def embeddings_generate(
 
         console.print("\n[dim]Use vector search with:[/dim]")
         console.print("  [cyan]codexlens search 'your query' --mode pure-vector[/cyan]")
+
+
+# ==================== GPU Management Commands ====================
+
+@app.command(name="gpu-list")
+def gpu_list(
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+) -> None:
+    """List available GPU devices for embedding acceleration.
+
+    Shows all detected GPU devices with their capabilities and selection status.
+    Discrete GPUs (NVIDIA, AMD) are automatically preferred over integrated GPUs.
+
+    Examples:
+        codexlens gpu-list                    # List all GPUs
+        codexlens gpu-list --json             # JSON output for scripting
+    """
+    from codexlens.semantic.gpu_support import get_gpu_devices, detect_gpu, get_selected_device_id
+
+    gpu_info = detect_gpu()
+    devices = get_gpu_devices()
+    selected_id = get_selected_device_id()
+
+    if json_mode:
+        print_json(
+            success=True,
+            result={
+                "devices": devices,
+                "selected_device_id": selected_id,
+                "gpu_available": gpu_info.gpu_available,
+                "providers": gpu_info.onnx_providers,
+            }
+        )
+    else:
+        if not devices:
+            console.print("[yellow]No GPU devices detected[/yellow]")
+            console.print(f"ONNX Providers: [dim]{', '.join(gpu_info.onnx_providers)}[/dim]")
+            return
+
+        console.print("[bold]Available GPU Devices[/bold]\n")
+
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("ID", justify="center")
+        table.add_column("Name")
+        table.add_column("Vendor", justify="center")
+        table.add_column("Type", justify="center")
+        table.add_column("Status", justify="center")
+
+        for dev in devices:
+            type_str = "[green]Discrete[/green]" if dev["is_discrete"] else "[dim]Integrated[/dim]"
+            vendor_color = {
+                "nvidia": "green",
+                "amd": "red",
+                "intel": "blue"
+            }.get(dev["vendor"], "white")
+            vendor_str = f"[{vendor_color}]{dev['vendor'].upper()}[/{vendor_color}]"
+
+            status_parts = []
+            if dev["is_preferred"]:
+                status_parts.append("[cyan]Auto[/cyan]")
+            if dev["is_selected"]:
+                status_parts.append("[green]✓ Selected[/green]")
+
+            status_str = " ".join(status_parts) if status_parts else "[dim]—[/dim]"
+
+            table.add_row(
+                str(dev["device_id"]),
+                dev["name"],
+                vendor_str,
+                type_str,
+                status_str,
+            )
+
+        console.print(table)
+        console.print(f"\nONNX Providers: [dim]{', '.join(gpu_info.onnx_providers)}[/dim]")
+        console.print("\n[dim]Select GPU with:[/dim]")
+        console.print("  [cyan]codexlens gpu-select <device_id>[/cyan]")
+
+
+@app.command(name="gpu-select")
+def gpu_select(
+    device_id: int = typer.Argument(
+        ...,
+        help="GPU device ID to use for embeddings. Use 'codexlens gpu-list' to see available IDs.",
+    ),
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+) -> None:
+    """Select a specific GPU device for embedding generation.
+
+    By default, CodexLens automatically selects the most powerful GPU (discrete over integrated).
+    Use this command to override the selection.
+
+    Examples:
+        codexlens gpu-select 1                # Use GPU device 1
+        codexlens gpu-select 0 --json         # Select GPU 0 with JSON output
+    """
+    from codexlens.semantic.gpu_support import set_selected_device_id, get_gpu_devices
+    from codexlens.semantic.embedder import clear_embedder_cache
+
+    devices = get_gpu_devices()
+    valid_ids = [dev["device_id"] for dev in devices]
+
+    if device_id not in valid_ids:
+        if json_mode:
+            print_json(success=False, error=f"Invalid device_id {device_id}. Valid IDs: {valid_ids}")
+        else:
+            console.print(f"[red]Error:[/red] Invalid device_id {device_id}")
+            console.print(f"Valid IDs: {valid_ids}")
+            console.print("\n[dim]Use 'codexlens gpu-list' to see available devices[/dim]")
+        raise typer.Exit(code=1)
+
+    success = set_selected_device_id(device_id)
+
+    if success:
+        # Clear embedder cache to force reload with new GPU
+        clear_embedder_cache()
+
+        device_name = next((dev["name"] for dev in devices if dev["device_id"] == device_id), "Unknown")
+
+        if json_mode:
+            print_json(
+                success=True,
+                result={
+                    "device_id": device_id,
+                    "device_name": device_name,
+                    "message": f"GPU selection set to device {device_id}: {device_name}",
+                }
+            )
+        else:
+            console.print(f"[green]✓[/green] GPU selection updated")
+            console.print(f"  Device ID: {device_id}")
+            console.print(f"  Device: [cyan]{device_name}[/cyan]")
+            console.print("\n[dim]New embeddings will use this GPU[/dim]")
+    else:
+        if json_mode:
+            print_json(success=False, error="Failed to set GPU selection")
+        else:
+            console.print("[red]Error:[/red] Failed to set GPU selection")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="gpu-reset")
+def gpu_reset(
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+) -> None:
+    """Reset GPU selection to automatic detection.
+
+    Clears any manual GPU selection and returns to automatic selection
+    (discrete GPU preferred over integrated).
+
+    Examples:
+        codexlens gpu-reset                   # Reset to auto-detection
+    """
+    from codexlens.semantic.gpu_support import set_selected_device_id, detect_gpu
+    from codexlens.semantic.embedder import clear_embedder_cache
+
+    set_selected_device_id(None)
+    clear_embedder_cache()
+
+    gpu_info = detect_gpu(force_refresh=True)
+
+    if json_mode:
+        print_json(
+            success=True,
+            result={
+                "message": "GPU selection reset to auto-detection",
+                "preferred_device_id": gpu_info.preferred_device_id,
+                "preferred_device_name": gpu_info.gpu_name,
+            }
+        )
+    else:
+        console.print("[green]✓[/green] GPU selection reset to auto-detection")
+        if gpu_info.preferred_device_id is not None:
+            console.print(f"  Auto-selected device: {gpu_info.preferred_device_id}")
+            console.print(f"  Device: [cyan]{gpu_info.gpu_name}[/cyan]")

@@ -4,8 +4,55 @@
  * Aggregated status endpoint for faster dashboard loading
  */
 import type { IncomingMessage, ServerResponse } from 'http';
+import { existsSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
 import { getCliToolsStatus } from '../../tools/cli-executor.js';
 import { checkVenvStatus, checkSemanticStatus } from '../../tools/codex-lens.js';
+
+/**
+ * Check CCW installation status
+ * Verifies that required workflow files are installed in user's home directory
+ */
+function checkCcwInstallStatus(): {
+  installed: boolean;
+  workflowsInstalled: boolean;
+  missingFiles: string[];
+  installPath: string;
+} {
+  const claudeDir = join(homedir(), '.claude');
+  const workflowsDir = join(claudeDir, 'workflows');
+
+  // Required workflow files for full functionality
+  const requiredFiles = [
+    'chinese-response.md',
+    'windows-platform.md',
+    'cli-tools-usage.md',
+    'coding-philosophy.md',
+    'context-tools.md',
+    'file-modification.md'
+  ];
+
+  const missingFiles: string[] = [];
+
+  // Check each required file
+  for (const file of requiredFiles) {
+    const filePath = join(workflowsDir, file);
+    if (!existsSync(filePath)) {
+      missingFiles.push(file);
+    }
+  }
+
+  const workflowsInstalled = existsSync(workflowsDir) && missingFiles.length === 0;
+  const installed = existsSync(claudeDir) && workflowsInstalled;
+
+  return {
+    installed,
+    workflowsInstalled,
+    missingFiles,
+    installPath: claudeDir
+  };
+}
 
 export interface RouteContext {
   pathname: string;
@@ -27,6 +74,9 @@ export async function handleStatusRoutes(ctx: RouteContext): Promise<boolean> {
   // API: Aggregated Status (all statuses in one call)
   if (pathname === '/api/status/all') {
     try {
+      // Check CCW installation status (sync, fast)
+      const ccwInstallStatus = checkCcwInstallStatus();
+
       // Execute all status checks in parallel
       const [cliStatus, codexLensStatus, semanticStatus] = await Promise.all([
         getCliToolsStatus(),
@@ -39,6 +89,7 @@ export async function handleStatusRoutes(ctx: RouteContext): Promise<boolean> {
         cli: cliStatus,
         codexLens: codexLensStatus,
         semantic: semanticStatus,
+        ccwInstall: ccwInstallStatus,
         timestamp: new Date().toISOString()
       };
 

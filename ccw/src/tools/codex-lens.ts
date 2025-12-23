@@ -421,6 +421,17 @@ async function installSemantic(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResul
 
       child.on('close', (code) => {
         if (code === 0) {
+          // IMPORTANT: fastembed installs onnxruntime (CPU) as dependency, which conflicts
+          // with onnxruntime-directml/gpu. Reinstall the GPU version to ensure it takes precedence.
+          if (gpuMode !== 'cpu') {
+            try {
+              console.log(`[CodexLens] Reinstalling ${onnxPackage} to ensure GPU provider works...`);
+              execSync(`"${pipPath}" install --force-reinstall ${onnxPackage}`, { stdio: 'pipe', timeout: 300000 });
+              console.log(`[CodexLens] ${onnxPackage} reinstalled successfully`);
+            } catch (e) {
+              console.warn(`[CodexLens] Warning: Failed to reinstall ${onnxPackage}: ${(e as Error).message}`);
+            }
+          }
           console.log(`[CodexLens] Semantic dependencies installed successfully (${gpuMode} mode)`);
           resolve({ success: true, message: `Installed with ${modeDescription}` });
         } else {

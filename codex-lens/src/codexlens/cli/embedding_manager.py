@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Embedding batch size - larger values improve throughput on modern hardware
 # Benchmark: 256 gives ~2.35x speedup over 64 with DirectML GPU acceleration
-EMBEDDING_BATCH_SIZE = 256  # Optimized from 64 based on batch size benchmarks
+EMBEDDING_BATCH_SIZE = 256
 
 
 def _generate_chunks_from_cursor(
@@ -337,7 +337,8 @@ def generate_embeddings(
                         # Generate embeddings directly to numpy (no tolist() conversion)
                         try:
                             batch_contents = [chunk.content for chunk, _ in chunk_batch]
-                            embeddings_numpy = embedder.embed_to_numpy(batch_contents)
+                            # Pass batch_size to fastembed for optimal GPU utilization
+                            embeddings_numpy = embedder.embed_to_numpy(batch_contents, batch_size=EMBEDDING_BATCH_SIZE)
 
                             # Use add_chunks_batch_numpy to avoid numpy->list->numpy roundtrip
                             vector_store.add_chunks_batch_numpy(chunk_batch, embeddings_numpy)

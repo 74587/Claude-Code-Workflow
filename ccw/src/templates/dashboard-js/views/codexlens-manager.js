@@ -337,6 +337,8 @@ function initCodexLensConfigEvents(currentConfig) {
 
 // Store detected GPU info
 var detectedGpuInfo = null;
+// Store available GPU devices
+var availableGpuDevices = null;
 
 /**
  * Detect GPU support
@@ -363,11 +365,13 @@ async function loadSemanticDepsStatus() {
   if (!container) return;
 
   try {
-    // Detect GPU support in parallel
+    // Detect GPU support and load GPU devices in parallel
     var gpuPromise = detectGpuSupport();
+    var gpuDevicesPromise = loadGpuDevices();
     var response = await fetch('/api/codexlens/semantic/status');
     var result = await response.json();
     var gpuInfo = await gpuPromise;
+    var gpuDevices = await gpuDevicesPromise;
 
     if (result.available) {
       // Build accelerator badge
@@ -386,6 +390,9 @@ async function loadSemanticDepsStatus() {
         acceleratorClass = 'bg-red-500/20 text-red-600';
       }
 
+      // Build GPU device selector if multiple GPUs available
+      var gpuDeviceSelector = buildGpuDeviceSelector(gpuDevices);
+
       container.innerHTML =
         '<div class="space-y-2">' +
           '<div class="flex items-center gap-2 text-sm">' +
@@ -402,6 +409,7 @@ async function loadSemanticDepsStatus() {
               ? '<span class="text-xs text-muted-foreground">' + result.providers.join(', ') + '</span>'
               : '') +
           '</div>' +
+          gpuDeviceSelector +
         '</div>';
     } else {
       // Build GPU mode options
@@ -507,6 +515,134 @@ function getSelectedGpuMode() {
 }
 
 /**
+ * Load available GPU devices
+ */
+async function loadGpuDevices() {
+  try {
+    var response = await fetch('/api/codexlens/gpu/list');
+    var result = await response.json();
+    if (result.success && result.result) {
+      availableGpuDevices = result.result;
+      return result.result;
+    }
+  } catch (err) {
+    console.error('GPU devices load failed:', err);
+  }
+  return { devices: [], selected_device_id: null };
+}
+
+/**
+ * Build GPU device selector HTML
+ */
+function buildGpuDeviceSelector(gpuDevices) {
+  if (!gpuDevices || !gpuDevices.devices || gpuDevices.devices.length === 0) {
+    return '';
+  }
+
+  // Only show selector if there are multiple GPUs
+  if (gpuDevices.devices.length < 2) {
+    return '';
+  }
+
+  var html =
+    '<div class="mt-3 p-3 bg-muted/30 rounded-lg border border-border">' +
+      '<div class="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-2">' +
+        '<i data-lucide="cpu" class="w-3 h-3"></i>' +
+        (t('codexlens.selectGpuDevice') || 'Select GPU Device') +
+      '</div>' +
+      '<div class="space-y-1">';
+
+  gpuDevices.devices.forEach(function(device) {
+    var isSelected = device.is_selected;
+    var vendorIcon = device.vendor === 'nvidia' ? 'zap' : (device.vendor === 'amd' ? 'flame' : 'cpu');
+    var vendorColor = device.vendor === 'nvidia' ? 'text-green-500' : (device.vendor === 'amd' ? 'text-red-500' : 'text-blue-500');
+    var typeLabel = device.is_discrete ? (t('codexlens.discrete') || 'Discrete') : (t('codexlens.integrated') || 'Integrated');
+
+    html +=
+      '<label class="flex items-center gap-3 p-2 rounded border cursor-pointer hover:bg-muted/50 transition-colors ' +
+        (isSelected ? 'border-primary bg-primary/5' : 'border-transparent') + '">' +
+        '<input type="radio" name="gpuDevice" value="' + device.device_id + '" ' +
+          (isSelected ? 'checked' : '') +
+          ' class="accent-primary" onchange="selectGpuDevice(' + device.device_id + ')">' +
+        '<div class="flex-1">' +
+          '<div class="flex items-center gap-2">' +
+            '<i data-lucide="' + vendorIcon + '" class="w-4 h-4 ' + vendorColor + '"></i>' +
+            '<span class="font-medium text-sm">' + device.name + '</span>' +
+          '</div>' +
+          '<div class="flex items-center gap-2 mt-0.5">' +
+            '<span class="text-xs text-muted-foreground">' + device.vendor.toUpperCase() + '</span>' +
+            '<span class="text-xs px-1.5 py-0.5 rounded ' +
+              (device.is_discrete ? 'bg-green-500/20 text-green-600' : 'bg-muted text-muted-foreground') + '">' +
+              typeLabel +
+            '</span>' +
+            (device.is_preferred ? '<span class="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded">' + (t('common.auto') || 'Auto') + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+      '</label>';
+  });
+
+  html +=
+      '</div>' +
+      '<button class="btn-xs text-muted-foreground hover:text-foreground mt-2" onclick="resetGpuDevice()">' +
+        '<i data-lucide="rotate-ccw" class="w-3 h-3"></i> ' + (t('codexlens.resetToAuto') || 'Reset to Auto') +
+      '</button>' +
+    '</div>';
+
+  return html;
+}
+
+/**
+ * Select a GPU device
+ */
+async function selectGpuDevice(deviceId) {
+  try {
+    showRefreshToast(t('codexlens.selectingGpu') || 'Selecting GPU...', 'info');
+
+    var response = await fetch('/api/codexlens/gpu/select', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId })
+    });
+
+    var result = await response.json();
+    if (result.success) {
+      showRefreshToast(t('codexlens.gpuSelected') || 'GPU selected', 'success');
+      // Reload semantic status to reflect change
+      loadSemanticDepsStatus();
+    } else {
+      showRefreshToast(result.error || 'Failed to select GPU', 'error');
+    }
+  } catch (err) {
+    showRefreshToast(err.message, 'error');
+  }
+}
+
+/**
+ * Reset GPU device selection to auto
+ */
+async function resetGpuDevice() {
+  try {
+    showRefreshToast(t('codexlens.resettingGpu') || 'Resetting GPU selection...', 'info');
+
+    var response = await fetch('/api/codexlens/gpu/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    var result = await response.json();
+    if (result.success) {
+      showRefreshToast(t('codexlens.gpuReset') || 'GPU selection reset to auto', 'success');
+      // Reload semantic status to reflect change
+      loadSemanticDepsStatus();
+    } else {
+      showRefreshToast(result.error || 'Failed to reset GPU', 'error');
+    }
+  } catch (err) {
+    showRefreshToast(err.message, 'error');
+  }
+}
+
+/**
  * Install semantic dependencies with GPU mode
  */
 async function installSemanticDepsWithGpu() {
@@ -570,9 +706,7 @@ async function installSemanticDeps() {
 function buildManualDownloadGuide() {
   var modelData = [
     { profile: 'code', name: 'jinaai/jina-embeddings-v2-base-code', size: '~150 MB' },
-    { profile: 'fast', name: 'BAAI/bge-small-en-v1.5', size: '~80 MB' },
-    { profile: 'balanced', name: 'mixedbread-ai/mxbai-embed-large-v1', size: '~600 MB' },
-    { profile: 'multilingual', name: 'intfloat/multilingual-e5-large', size: '~1 GB' }
+    { profile: 'fast', name: 'BAAI/bge-small-en-v1.5', size: '~80 MB' }
   ];
 
   var html =
@@ -807,9 +941,7 @@ async function downloadModel(profile) {
   // Get model info for size estimation
   var modelSizes = {
     'fast': { size: 80, time: '1-2' },
-    'code': { size: 150, time: '2-5' },
-    'multilingual': { size: 1000, time: '5-15' },
-    'balanced': { size: 600, time: '3-10' }
+    'code': { size: 150, time: '2-5' }
   };
 
   var modelInfo = modelSizes[profile] || { size: 100, time: '2-5' };
@@ -933,9 +1065,7 @@ async function downloadModel(profile) {
 function showModelDownloadError(modelCard, profile, error, originalHTML) {
   var modelNames = {
     'fast': 'BAAI/bge-small-en-v1.5',
-    'code': 'jinaai/jina-embeddings-v2-base-code',
-    'multilingual': 'intfloat/multilingual-e5-large',
-    'balanced': 'mixedbread-ai/mxbai-embed-large-v1'
+    'code': 'jinaai/jina-embeddings-v2-base-code'
   };
 
   var modelName = modelNames[profile] || profile;
@@ -1035,7 +1165,7 @@ async function deleteModel(profile) {
 /**
  * Initialize CodexLens index with bottom floating progress bar
  * @param {string} indexType - 'vector' (with embeddings), 'normal' (FTS only), or 'full' (FTS + Vector)
- * @param {string} embeddingModel - Model profile: 'code', 'fast', 'multilingual', 'balanced'
+ * @param {string} embeddingModel - Model profile: 'code', 'fast'
  */
 async function initCodexLensIndex(indexType, embeddingModel) {
   indexType = indexType || 'vector';
@@ -1104,7 +1234,7 @@ async function initCodexLensIndex(indexType, embeddingModel) {
   // Add model info for vector indexes
   var modelLabel = '';
   if (indexType !== 'normal') {
-    var modelNames = { code: 'Code', fast: 'Fast', multilingual: 'Multi', balanced: 'Balanced' };
+    var modelNames = { code: 'Code', fast: 'Fast' };
     modelLabel = ' [' + (modelNames[embeddingModel] || embeddingModel) + ']';
   }
 
@@ -1148,7 +1278,7 @@ async function initCodexLensIndex(indexType, embeddingModel) {
 /**
  * Start the indexing process
  * @param {string} indexType - 'vector' or 'normal'
- * @param {string} embeddingModel - Model profile: 'code', 'fast', 'multilingual', 'balanced'
+ * @param {string} embeddingModel - Model profile: 'code', 'fast'
  */
 async function startCodexLensIndexing(indexType, embeddingModel) {
   indexType = indexType || 'vector';
@@ -1725,5 +1855,548 @@ async function cleanCodexLensIndexes() {
     }
   } catch (err) {
     showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
+}
+
+// ============================================================
+// CODEXLENS MANAGER PAGE (Independent View)
+// ============================================================
+
+/**
+ * Render CodexLens Manager as an independent page view
+ */
+async function renderCodexLensManager() {
+  var container = document.getElementById('mainContent');
+  if (!container) return;
+
+  // Hide stats grid and search
+  var statsGrid = document.getElementById('statsGrid');
+  var searchContainer = document.querySelector('.search-container');
+  if (statsGrid) statsGrid.style.display = 'none';
+  if (searchContainer) searchContainer.style.display = 'none';
+
+  container.innerHTML = '<div class="flex items-center justify-center py-12"><div class="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full"></div><span class="ml-3">' + t('common.loading') + '</span></div>';
+
+  try {
+    // Load CodexLens status first to populate window.cliToolsStatus.codexlens
+    if (typeof loadCodexLensStatus === 'function') {
+      await loadCodexLensStatus();
+    }
+
+    var response = await fetch('/api/codexlens/config');
+    var config = await response.json();
+
+    container.innerHTML = buildCodexLensManagerPage(config);
+    if (window.lucide) lucide.createIcons();
+    initCodexLensManagerPageEvents(config);
+    loadSemanticDepsStatus();
+    loadModelList();
+    // Load index stats for the Index Manager section
+    if (window.cliToolsStatus?.codexlens?.installed) {
+      loadIndexStatsForPage();
+    }
+  } catch (err) {
+    container.innerHTML = '<div class="text-center py-12 text-destructive"><i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2"></i><p>' + t('common.error') + ': ' + err.message + '</p></div>';
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+/**
+ * Build CodexLens Manager page content
+ */
+function buildCodexLensManagerPage(config) {
+  var indexDir = config.index_dir || '~/.codexlens/indexes';
+  var indexCount = config.index_count || 0;
+  var isInstalled = window.cliToolsStatus?.codexlens?.installed || false;
+
+  // Build model options for vector indexing
+  var modelOptions = buildModelSelectOptionsForPage();
+
+  return '<div class="codexlens-manager-page space-y-6">' +
+    // Header with status
+    '<div class="bg-card border border-border rounded-lg p-6">' +
+      '<div class="flex items-center justify-between flex-wrap gap-4">' +
+        '<div class="flex items-center gap-4">' +
+          '<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">' +
+            '<i data-lucide="database" class="w-6 h-6 text-primary"></i>' +
+          '</div>' +
+          '<div>' +
+            '<h2 class="text-xl font-bold">' + t('codexlens.config') + '</h2>' +
+            '<p class="text-sm text-muted-foreground">' + t('codexlens.configDesc') + '</p>' +
+          '</div>' +
+        '</div>' +
+        '<div class="flex items-center gap-4">' +
+          (isInstalled
+            ? '<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-success/10 text-success border border-success/20"><i data-lucide="check-circle" class="w-4 h-4"></i> ' + t('codexlens.installed') + '</span>'
+            : '<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-muted text-muted-foreground border border-border"><i data-lucide="circle" class="w-4 h-4"></i> ' + t('codexlens.notInstalled') + '</span>') +
+          '<div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/5 border border-primary/20">' +
+            '<span class="text-sm text-muted-foreground">' + t('codexlens.indexes') + ':</span>' +
+            '<span class="text-lg font-bold text-primary">' + indexCount + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+
+    (isInstalled
+      ? // Installed: Show full management UI
+        '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">' +
+          // Left Column
+          '<div class="space-y-6">' +
+            // Create Index Section
+            '<div class="bg-card border border-border rounded-lg p-5">' +
+              '<h4 class="text-lg font-semibold mb-4 flex items-center gap-2"><i data-lucide="layers" class="w-5 h-5 text-primary"></i> ' + t('codexlens.createIndex') + '</h4>' +
+              '<div class="space-y-4">' +
+                // Model selector
+                '<div>' +
+                  '<label class="block text-sm font-medium mb-1.5">' + t('codexlens.embeddingModel') + '</label>' +
+                  '<select id="pageModelSelect" class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm">' +
+                    modelOptions +
+                  '</select>' +
+                  '<p class="text-xs text-muted-foreground mt-1">' + t('codexlens.modelHint') + '</p>' +
+                '</div>' +
+                // Index buttons - two modes: full (FTS + Vector) or FTS only
+                '<div class="grid grid-cols-2 gap-3">' +
+                  '<button class="btn btn-primary flex items-center justify-center gap-2 py-3" onclick="initCodexLensIndexFromPage(\'full\')" title="' + t('codexlens.fullIndexDesc') + '">' +
+                    '<i data-lucide="layers" class="w-4 h-4"></i>' +
+                    '<span>' + t('codexlens.fullIndex') + '</span>' +
+                  '</button>' +
+                  '<button class="btn btn-outline flex items-center justify-center gap-2 py-3" onclick="initCodexLensIndexFromPage(\'normal\')" title="' + t('codexlens.ftsIndexDesc') + '">' +
+                    '<i data-lucide="file-text" class="w-4 h-4"></i>' +
+                    '<span>' + t('codexlens.ftsIndex') + '</span>' +
+                  '</button>' +
+                '</div>' +
+                '<p class="text-xs text-muted-foreground">' + t('codexlens.indexTypeHint') + '</p>' +
+              '</div>' +
+            '</div>' +
+            // Storage Path Section
+            '<div class="bg-card border border-border rounded-lg p-5">' +
+              '<h4 class="text-lg font-semibold mb-4 flex items-center gap-2"><i data-lucide="folder" class="w-5 h-5 text-primary"></i> ' + t('codexlens.indexStoragePath') + '</h4>' +
+              '<div class="space-y-3">' +
+                '<div>' +
+                  '<label class="block text-sm font-medium mb-1.5">' + t('codexlens.currentPath') + '</label>' +
+                  '<div class="text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2 font-mono border border-border truncate" title="' + indexDir + '">' + indexDir + '</div>' +
+                '</div>' +
+                '<div>' +
+                  '<label class="block text-sm font-medium mb-1.5">' + t('codexlens.newStoragePath') + '</label>' +
+                  '<div class="flex gap-2">' +
+                    '<input type="text" id="indexDirInput" value="' + indexDir + '" class="flex-1 px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm" />' +
+                    '<button class="btn-sm btn-primary" id="saveIndexPathBtn"><i data-lucide="save" class="w-3.5 h-3.5"></i></button>' +
+                  '</div>' +
+                  '<p class="text-xs text-muted-foreground mt-1">' + t('codexlens.pathInfo') + '</p>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            // Maintenance Section
+            '<div class="bg-card border border-border rounded-lg p-5">' +
+              '<h4 class="text-lg font-semibold mb-4 flex items-center gap-2"><i data-lucide="settings" class="w-5 h-5 text-primary"></i> ' + t('codexlens.maintenance') + '</h4>' +
+              '<div class="flex flex-wrap gap-2">' +
+                '<button class="btn-sm btn-outline" onclick="cleanCurrentWorkspaceIndex()"><i data-lucide="folder-x" class="w-3.5 h-3.5"></i> ' + t('codexlens.cleanCurrentWorkspace') + '</button>' +
+                '<button class="btn-sm btn-outline" onclick="cleanCodexLensIndexes()"><i data-lucide="trash" class="w-3.5 h-3.5"></i> ' + t('codexlens.cleanAllIndexes') + '</button>' +
+                '<button class="btn-sm btn-destructive" onclick="uninstallCodexLensFromManager()"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i> ' + t('cli.uninstall') + '</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          // Right Column
+          '<div class="space-y-6">' +
+            // Semantic Dependencies
+            '<div class="bg-card border border-border rounded-lg p-5">' +
+              '<h4 class="text-lg font-semibold mb-4 flex items-center gap-2"><i data-lucide="cpu" class="w-5 h-5 text-primary"></i> ' + t('codexlens.semanticDeps') + '</h4>' +
+              '<div id="semanticDepsStatus" class="space-y-3">' +
+                '<div class="flex items-center gap-2 text-sm text-muted-foreground">' +
+                  '<div class="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div> ' + t('codexlens.checkingDeps') +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            // Model Management
+            '<div class="bg-card border border-border rounded-lg p-5">' +
+              '<h4 class="text-lg font-semibold mb-4 flex items-center gap-2"><i data-lucide="box" class="w-5 h-5 text-primary"></i> ' + t('codexlens.modelManagement') + '</h4>' +
+              '<div id="modelListContainer" class="space-y-3">' +
+                '<div class="flex items-center gap-2 text-sm text-muted-foreground">' +
+                  '<div class="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div> ' + t('codexlens.loadingModels') +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        // Index Manager Section
+        '<div class="bg-card border border-border rounded-lg overflow-hidden" id="indexManagerSection">' +
+          '<div class="bg-muted/30 border-b border-border px-4 py-3 flex items-center justify-between">' +
+            '<div class="flex items-center gap-2">' +
+              '<i data-lucide="database" class="w-4 h-4 text-primary"></i>' +
+              '<span class="font-medium text-foreground">' + t('index.manager') + '</span>' +
+              '<span class="text-xs px-2 py-0.5 bg-muted rounded-full text-muted-foreground" id="indexTotalSize">-</span>' +
+            '</div>' +
+            '<div class="flex items-center gap-2">' +
+              '<button onclick="loadIndexStatsForPage()" class="text-xs px-2 py-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors" title="' + t('common.refresh') + '">' +
+                '<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>' +
+              '</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="p-4">' +
+            '<div class="flex items-center gap-2 mb-3 text-xs text-muted-foreground">' +
+              '<i data-lucide="folder" class="w-3.5 h-3.5"></i>' +
+              '<span class="font-mono truncate" id="indexDirDisplay" title="' + indexDir + '">' + indexDir + '</span>' +
+            '</div>' +
+            '<div class="grid grid-cols-4 gap-3 mb-4">' +
+              '<div class="bg-muted/30 rounded-lg p-3 text-center">' +
+                '<div class="text-lg font-semibold text-foreground" id="indexProjectCount">-</div>' +
+                '<div class="text-xs text-muted-foreground">' + t('index.projects') + '</div>' +
+              '</div>' +
+              '<div class="bg-muted/30 rounded-lg p-3 text-center">' +
+                '<div class="text-lg font-semibold text-foreground" id="indexTotalSizeVal">-</div>' +
+                '<div class="text-xs text-muted-foreground">' + t('index.totalSize') + '</div>' +
+              '</div>' +
+              '<div class="bg-muted/30 rounded-lg p-3 text-center">' +
+                '<div class="text-lg font-semibold text-foreground" id="indexVectorCount">-</div>' +
+                '<div class="text-xs text-muted-foreground">' + t('index.vectorIndexes') + '</div>' +
+              '</div>' +
+              '<div class="bg-muted/30 rounded-lg p-3 text-center">' +
+                '<div class="text-lg font-semibold text-foreground" id="indexFtsCount">-</div>' +
+                '<div class="text-xs text-muted-foreground">' + t('index.ftsIndexes') + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="border border-border rounded-lg overflow-hidden">' +
+              '<table class="w-full text-sm">' +
+                '<thead class="bg-muted/50">' +
+                  '<tr class="text-xs text-muted-foreground">' +
+                    '<th class="py-2 px-2 text-left font-medium">' + t('index.projectId') + '</th>' +
+                    '<th class="py-2 px-2 text-right font-medium">' + t('index.size') + '</th>' +
+                    '<th class="py-2 px-2 text-center font-medium">' + t('index.type') + '</th>' +
+                    '<th class="py-2 px-2 text-right font-medium">' + t('index.lastModified') + '</th>' +
+                    '<th class="py-2 px-1 w-8"></th>' +
+                  '</tr>' +
+                '</thead>' +
+                '<tbody id="indexTableBody">' +
+                  '<tr><td colspan="5" class="py-4 text-center text-muted-foreground text-sm">' + t('common.loading') + '</td></tr>' +
+                '</tbody>' +
+              '</table>' +
+            '</div>' +
+            '<div class="mt-4 flex justify-end">' +
+              '<button onclick="cleanAllIndexesFromPage()" class="text-xs px-3 py-1.5 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded transition-colors flex items-center gap-1.5">' +
+                '<i data-lucide="trash" class="w-3.5 h-3.5"></i>' +
+                t('index.cleanAll') +
+              '</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        // Test Search Section
+        '<div class="bg-card border border-border rounded-lg p-5">' +
+          '<h4 class="text-lg font-semibold mb-4 flex items-center gap-2"><i data-lucide="search" class="w-5 h-5 text-primary"></i> ' + t('codexlens.testSearch') + '</h4>' +
+          '<div class="space-y-4">' +
+            '<div class="flex gap-3">' +
+              '<select id="searchTypeSelect" class="flex-1 px-3 py-2 border border-border rounded-lg bg-background text-sm">' +
+                '<option value="search">' + t('codexlens.textSearch') + '</option>' +
+                '<option value="search_files">' + t('codexlens.fileSearch') + '</option>' +
+                '<option value="symbol">' + t('codexlens.symbolSearch') + '</option>' +
+              '</select>' +
+              '<select id="searchModeSelect" class="flex-1 px-3 py-2 border border-border rounded-lg bg-background text-sm">' +
+                '<option value="exact">' + t('codexlens.exactMode') + '</option>' +
+                '<option value="fuzzy">' + t('codexlens.fuzzyMode') + '</option>' +
+                '<option value="hybrid">' + t('codexlens.hybridMode') + '</option>' +
+                '<option value="vector">' + t('codexlens.vectorMode') + '</option>' +
+              '</select>' +
+            '</div>' +
+            '<div class="flex gap-3">' +
+              '<input type="text" id="searchQueryInput" class="flex-1 px-3 py-2 border border-border rounded-lg bg-background text-sm" placeholder="' + t('codexlens.searchPlaceholder') + '" />' +
+              '<button class="btn-sm btn-primary" id="runSearchBtn"><i data-lucide="search" class="w-3.5 h-3.5"></i> ' + t('codexlens.runSearch') + '</button>' +
+            '</div>' +
+            '<div id="searchResults" class="hidden">' +
+              '<div class="flex items-center justify-between mb-2">' +
+                '<span class="text-sm font-medium">' + t('codexlens.results') + ':</span>' +
+                '<span id="searchResultCount" class="text-xs text-muted-foreground"></span>' +
+              '</div>' +
+              '<pre id="searchResultContent" class="bg-muted/50 border border-border p-3 rounded-lg text-xs overflow-auto max-h-64 font-mono"></pre>' +
+            '</div>' +
+          '</div>' +
+        '</div>'
+
+      : // Not installed: Show install prompt
+        '<div class="bg-card border border-border rounded-lg p-8">' +
+          '<div class="text-center max-w-md mx-auto">' +
+            '<div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">' +
+              '<i data-lucide="database" class="w-8 h-8 text-primary"></i>' +
+            '</div>' +
+            '<h3 class="text-lg font-semibold mb-2">' + t('codexlens.installCodexLens') + '</h3>' +
+            '<p class="text-sm text-muted-foreground mb-6">' + t('codexlens.installFirst') + '</p>' +
+            '<button class="btn btn-primary" onclick="installCodexLensFromManager()">' +
+              '<i data-lucide="download" class="w-4 h-4"></i> ' + t('codexlens.installCodexLens') +
+            '</button>' +
+          '</div>' +
+        '</div>'
+    ) +
+  '</div>';
+}
+
+/**
+ * Build model select options for the page
+ */
+function buildModelSelectOptionsForPage() {
+  var installedModels = window.cliToolsStatus?.codexlens?.installedModels || [];
+  var allModels = window.cliToolsStatus?.codexlens?.allModels || [];
+
+  if (allModels.length === 0) {
+    // Fallback to default models if not loaded
+    return '<option value="code">code (default)</option>' +
+           '<option value="fast">fast</option>';
+  }
+
+  var options = '';
+  allModels.forEach(function(model) {
+    var isInstalled = model.installed || installedModels.includes(model.profile);
+    var label = model.profile + (isInstalled ? ' ✓' : '');
+    var selected = model.profile === 'code' ? ' selected' : '';
+    options += '<option value="' + model.profile + '"' + selected + '>' + label + '</option>';
+  });
+  return options;
+}
+
+/**
+ * Initialize index from page with selected model
+ */
+function initCodexLensIndexFromPage(indexType) {
+  var modelSelect = document.getElementById('pageModelSelect');
+  var selectedModel = modelSelect ? modelSelect.value : 'code';
+
+  // For FTS-only index, model is not needed
+  if (indexType === 'normal') {
+    initCodexLensIndex(indexType);
+  } else {
+    initCodexLensIndex(indexType, selectedModel);
+  }
+}
+
+/**
+ * Initialize CodexLens Manager page event handlers
+ */
+function initCodexLensManagerPageEvents(currentConfig) {
+  var saveBtn = document.getElementById('saveIndexPathBtn');
+  if (saveBtn) {
+    saveBtn.onclick = async function() {
+      var indexDirInput = document.getElementById('indexDirInput');
+      var newIndexDir = indexDirInput ? indexDirInput.value.trim() : '';
+      if (!newIndexDir) { showRefreshToast(t('codexlens.pathEmpty'), 'error'); return; }
+      if (newIndexDir === currentConfig.index_dir) { showRefreshToast(t('codexlens.pathUnchanged'), 'info'); return; }
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="animate-pulse">' + t('common.saving') + '</span>';
+      try {
+        var response = await fetch('/api/codexlens/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index_dir: newIndexDir }) });
+        var result = await response.json();
+        if (result.success) { showRefreshToast(t('codexlens.configSaved'), 'success'); renderCodexLensManager(); }
+        else { showRefreshToast(t('common.saveFailed') + ': ' + result.error, 'error'); }
+      } catch (err) { showRefreshToast(t('common.error') + ': ' + err.message, 'error'); }
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = '<i data-lucide="save" class="w-3.5 h-3.5"></i> ' + t('codexlens.saveConfig');
+      if (window.lucide) lucide.createIcons();
+    };
+  }
+
+  var runSearchBtn = document.getElementById('runSearchBtn');
+  if (runSearchBtn) {
+    runSearchBtn.onclick = async function() {
+      var searchType = document.getElementById('searchTypeSelect').value;
+      var searchMode = document.getElementById('searchModeSelect').value;
+      var query = document.getElementById('searchQueryInput').value.trim();
+      var resultsDiv = document.getElementById('searchResults');
+      var resultCount = document.getElementById('searchResultCount');
+      var resultContent = document.getElementById('searchResultContent');
+      if (!query) { showRefreshToast(t('codexlens.enterQuery'), 'warning'); return; }
+      runSearchBtn.disabled = true;
+      runSearchBtn.innerHTML = '<span class="animate-pulse">' + t('codexlens.searching') + '</span>';
+      resultsDiv.classList.add('hidden');
+      try {
+        var endpoint = '/api/codexlens/' + searchType;
+        var params = new URLSearchParams({ query: query, limit: '20' });
+        if (searchType === 'search' || searchType === 'search_files') { params.append('mode', searchMode); }
+        var response = await fetch(endpoint + '?' + params.toString());
+        var result = await response.json();
+        if (result.success) {
+          var results = result.results || result.files || [];
+          resultCount.textContent = results.length + ' ' + t('codexlens.resultsCount');
+          resultContent.textContent = JSON.stringify(results, null, 2);
+          resultsDiv.classList.remove('hidden');
+        } else {
+          resultContent.textContent = t('common.error') + ': ' + (result.error || t('common.unknownError'));
+          resultsDiv.classList.remove('hidden');
+        }
+      } catch (err) {
+        resultContent.textContent = t('common.exception') + ': ' + err.message;
+        resultsDiv.classList.remove('hidden');
+      }
+      runSearchBtn.disabled = false;
+      runSearchBtn.innerHTML = '<i data-lucide="search" class="w-3.5 h-3.5"></i> ' + t('codexlens.runSearch');
+      if (window.lucide) lucide.createIcons();
+    };
+  }
+
+  var searchInput = document.getElementById('searchQueryInput');
+  if (searchInput) { searchInput.onkeypress = function(e) { if (e.key === 'Enter' && runSearchBtn) { runSearchBtn.click(); } }; }
+}
+
+/**
+ * Show index initialization modal
+ */
+function showIndexInitModal() {
+  // Use initCodexLensIndex with default settings
+  initCodexLensIndex('vector', 'code');
+}
+
+/**
+ * Load index stats for the CodexLens Manager page
+ */
+async function loadIndexStatsForPage() {
+  try {
+    var response = await fetch('/api/codexlens/indexes');
+    if (!response.ok) throw new Error('Failed to load index stats');
+    var data = await response.json();
+    renderIndexStatsForPage(data);
+  } catch (err) {
+    console.error('[CodexLens] Failed to load index stats:', err);
+    var tbody = document.getElementById('indexTableBody');
+    if (tbody) {
+      tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-destructive text-sm">' + err.message + '</td></tr>';
+    }
+  }
+}
+
+/**
+ * Render index stats in the CodexLens Manager page
+ */
+function renderIndexStatsForPage(data) {
+  var summary = data.summary || {};
+  var indexes = data.indexes || [];
+  var indexDir = data.indexDir || '';
+
+  // Update summary stats
+  var totalSizeEl = document.getElementById('indexTotalSize');
+  var projectCountEl = document.getElementById('indexProjectCount');
+  var totalSizeValEl = document.getElementById('indexTotalSizeVal');
+  var vectorCountEl = document.getElementById('indexVectorCount');
+  var ftsCountEl = document.getElementById('indexFtsCount');
+  var indexDirEl = document.getElementById('indexDirDisplay');
+
+  if (totalSizeEl) totalSizeEl.textContent = summary.totalSizeFormatted || '0 B';
+  if (projectCountEl) projectCountEl.textContent = summary.totalProjects || 0;
+  if (totalSizeValEl) totalSizeValEl.textContent = summary.totalSizeFormatted || '0 B';
+  if (vectorCountEl) vectorCountEl.textContent = summary.vectorIndexCount || 0;
+  if (ftsCountEl) ftsCountEl.textContent = summary.normalIndexCount || 0;
+  if (indexDirEl && indexDir) {
+    indexDirEl.textContent = indexDir;
+    indexDirEl.title = indexDir;
+  }
+
+  // Render table rows
+  var tbody = document.getElementById('indexTableBody');
+  if (!tbody) return;
+
+  if (indexes.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-muted-foreground text-sm">' + (t('index.noIndexes') || 'No indexes yet') + '</td></tr>';
+    return;
+  }
+
+  var rows = '';
+  indexes.forEach(function(idx) {
+    var vectorBadge = idx.hasVectorIndex
+      ? '<span class="text-xs px-1.5 py-0.5 bg-primary/10 text-primary rounded">' + (t('index.vector') || 'Vector') + '</span>'
+      : '';
+    var normalBadge = idx.hasNormalIndex
+      ? '<span class="text-xs px-1.5 py-0.5 bg-muted text-muted-foreground rounded">' + (t('index.fts') || 'FTS') + '</span>'
+      : '';
+
+    rows += '<tr class="border-t border-border hover:bg-muted/30 transition-colors">' +
+      '<td class="py-2 px-2 text-foreground">' +
+        '<span class="font-mono text-xs truncate max-w-[250px] inline-block" title="' + escapeHtml(idx.id) + '">' + escapeHtml(idx.id) + '</span>' +
+      '</td>' +
+      '<td class="py-2 px-2 text-right text-muted-foreground">' + (idx.sizeFormatted || '-') + '</td>' +
+      '<td class="py-2 px-2 text-center"><div class="flex items-center justify-center gap-1">' + vectorBadge + normalBadge + '</div></td>' +
+      '<td class="py-2 px-2 text-right text-muted-foreground">' + formatTimeAgoSimple(idx.lastModified) + '</td>' +
+      '<td class="py-2 px-1 text-center">' +
+        '<button onclick="cleanIndexProjectFromPage(\'' + escapeHtml(idx.id) + '\')" ' +
+          'class="text-destructive/70 hover:text-destructive p-1 rounded hover:bg-destructive/10 transition-colors" ' +
+          'title="' + (t('index.cleanProject') || 'Clean Index') + '">' +
+          '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i>' +
+        '</button>' +
+      '</td>' +
+    '</tr>';
+  });
+
+  tbody.innerHTML = rows;
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Simple time ago formatter
+ */
+function formatTimeAgoSimple(isoString) {
+  if (!isoString) return t('common.never') || 'Never';
+  var date = new Date(isoString);
+  var now = new Date();
+  var diffMs = now - date;
+  var diffMins = Math.floor(diffMs / 60000);
+  var diffHours = Math.floor(diffMins / 60);
+  var diffDays = Math.floor(diffHours / 24);
+  if (diffMins < 1) return t('common.justNow') || 'Just now';
+  if (diffMins < 60) return diffMins + 'm ' + (t('common.ago') || 'ago');
+  if (diffHours < 24) return diffHours + 'h ' + (t('common.ago') || 'ago');
+  if (diffDays < 30) return diffDays + 'd ' + (t('common.ago') || 'ago');
+  return date.toLocaleDateString();
+}
+
+/**
+ * Clean a specific project's index from the page
+ */
+async function cleanIndexProjectFromPage(projectId) {
+  if (!confirm((t('index.cleanProjectConfirm') || 'Clean index for') + ' ' + projectId + '?')) {
+    return;
+  }
+
+  try {
+    showRefreshToast(t('index.cleaning') || 'Cleaning index...', 'info');
+
+    var response = await fetch('/api/codexlens/clean', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId: projectId })
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast(t('index.cleanSuccess') || 'Index cleaned successfully', 'success');
+      await loadIndexStatsForPage();
+    } else {
+      showRefreshToast((t('index.cleanFailed') || 'Clean failed') + ': ' + result.error, 'error');
+    }
+  } catch (err) {
+    showRefreshToast((t('common.error') || 'Error') + ': ' + err.message, 'error');
+  }
+}
+
+/**
+ * Clean all indexes from the page
+ */
+async function cleanAllIndexesFromPage() {
+  if (!confirm(t('index.cleanAllConfirm') || 'Are you sure you want to clean ALL indexes? This cannot be undone.')) {
+    return;
+  }
+
+  try {
+    showRefreshToast(t('index.cleaning') || 'Cleaning indexes...', 'info');
+
+    var response = await fetch('/api/codexlens/clean', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ all: true })
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast(t('index.cleanAllSuccess') || 'All indexes cleaned', 'success');
+      await loadIndexStatsForPage();
+    } else {
+      showRefreshToast((t('index.cleanFailed') || 'Clean failed') + ': ' + result.error, 'error');
+    }
+  } catch (err) {
+    showRefreshToast((t('common.error') || 'Error') + ': ' + err.message, 'error');
   }
 }

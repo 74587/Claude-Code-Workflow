@@ -14,7 +14,7 @@ from typing import Dict, Iterable, List, Optional
 import numpy as np
 
 from . import SEMANTIC_AVAILABLE
-from .gpu_support import get_optimal_providers, is_gpu_available, get_gpu_summary
+from .gpu_support import get_optimal_providers, is_gpu_available, get_gpu_summary, get_selected_device_id
 
 logger = logging.getLogger(__name__)
 
@@ -144,11 +144,12 @@ class Embedder:
         else:
             self.model_name = self.DEFAULT_MODEL
 
-        # Configure ONNX execution providers
+        # Configure ONNX execution providers with device_id options for GPU selection
+        # Using with_device_options=True ensures DirectML/CUDA device_id is passed correctly
         if providers is not None:
             self._providers = providers
         else:
-            self._providers = get_optimal_providers(use_gpu=use_gpu)
+            self._providers = get_optimal_providers(use_gpu=use_gpu, with_device_options=True)
 
         self._use_gpu = use_gpu
         self._model = None
@@ -168,7 +169,12 @@ class Embedder:
         """Check if GPU acceleration is enabled for this embedder."""
         gpu_providers = {"CUDAExecutionProvider", "TensorrtExecutionProvider",
                         "DmlExecutionProvider", "ROCMExecutionProvider", "CoreMLExecutionProvider"}
-        return any(p in gpu_providers for p in self._providers)
+        # Handle both string providers and tuple providers (name, options)
+        for p in self._providers:
+            provider_name = p[0] if isinstance(p, tuple) else p
+            if provider_name in gpu_providers:
+                return True
+        return False
 
     def _load_model(self) -> None:
         """Lazy load the embedding model with configured providers."""
@@ -177,7 +183,9 @@ class Embedder:
 
         from fastembed import TextEmbedding
 
-        # fastembed supports 'providers' parameter for ONNX execution providers
+        # providers already include device_id options via get_optimal_providers(with_device_options=True)
+        # DO NOT pass device_ids separately - fastembed ignores it when providers is specified
+        # See: fastembed/text/onnx_embedding.py - device_ids is only used with cuda=True
         try:
             self._model = TextEmbedding(
                 model_name=self.model_name,
@@ -215,7 +223,7 @@ class Embedder:
         embeddings = list(self._model.embed(texts))
         return [emb.tolist() for emb in embeddings]
 
-    def embed_to_numpy(self, texts: str | Iterable[str]) -> np.ndarray:
+    def embed_to_numpy(self, texts: str | Iterable[str], batch_size: Optional[int] = None) -> np.ndarray:
         """Generate embeddings for one or more texts (returns numpy arrays).
 
         This method is more memory-efficient than embed() as it avoids converting
@@ -224,6 +232,8 @@ class Embedder:
 
         Args:
             texts: Single text or iterable of texts to embed.
+            batch_size: Optional batch size for fastembed processing.
+                       Larger values improve GPU utilization but use more memory.
 
         Returns:
             numpy.ndarray of shape (n_texts, embedding_dim) containing embeddings.
@@ -235,8 +245,12 @@ class Embedder:
         else:
             texts = list(texts)
 
-        # Return embeddings as numpy array directly (no .tolist() conversion)
-        embeddings = list(self._model.embed(texts))
+        # Pass batch_size to fastembed for optimal GPU utilization
+        # Default batch_size in fastembed is 256, but larger values can improve throughput
+        if batch_size is not None:
+            embeddings = list(self._model.embed(texts, batch_size=batch_size))
+        else:
+            embeddings = list(self._model.embed(texts))
         return np.array(embeddings)
 
     def embed_single(self, text: str) -> List[float]:

@@ -1,9 +1,7 @@
 # Analysis Mode Protocol
 
 ## Mode Definition
-
 **Mode**: `analysis` (READ-ONLY)
-**Tools**: Gemini, Qwen (default mode)
 
 ## Operation Boundaries
 
@@ -27,8 +25,8 @@
 2. **Read** and analyze CONTEXT files thoroughly
 3. **Identify** patterns, issues, and dependencies
 4. **Generate** insights and recommendations
-5. **Output** structured analysis (text response only)
-6. **Validate** EXPECTED deliverables met
+5. **Validate** EXPECTED deliverables met
+6. **Output** structured analysis (text response only)
 
 ## Core Requirements
 

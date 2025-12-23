@@ -9,6 +9,26 @@ var ccwEndpointTools = [];
 var cliToolConfig = null;  // Store loaded CLI config
 var predefinedModels = {}; // Store predefined models per tool
 
+// ========== Navigation Helpers ==========
+
+/**
+ * Navigate to CodexLens Manager page
+ */
+function navigateToCodexLensManager() {
+  var navItem = document.querySelector('.nav-item[data-view="codexlens-manager"]');
+  if (navItem) {
+    navItem.click();
+  } else {
+    // Fallback: try to render directly
+    if (typeof renderCodexLensManager === 'function') {
+      currentView = 'codexlens-manager';
+      renderCodexLensManager();
+    } else {
+      showRefreshToast(t('common.error') + ': CodexLens Manager not available', 'error');
+    }
+  }
+}
+
 // ========== CCW Installations ==========
 async function loadCcwInstallations() {
   try {
@@ -314,8 +334,7 @@ async function renderCliManager() {
     '<div class="cli-settings-section" id="cli-settings-section" style="margin-top: 1.5rem;"></div>' +
     '<div class="cli-section" id="ccw-endpoint-tools-section" style="margin-top: 1.5rem;"></div>' +
     '</div>' +
-    '<section id="storageCard" class="mb-6"></section>' +
-    '<section id="indexCard" class="mb-6"></section>';
+    '<section id="storageCard" class="mb-6"></section>';
 
   // Render sub-panels
   renderToolsSection();
@@ -327,11 +346,6 @@ async function renderCliManager() {
   // Initialize storage manager card
   if (typeof initStorageManager === 'function') {
     initStorageManager();
-  }
-
-  // Initialize index manager card
-  if (typeof initIndexManager === 'function') {
-    initIndexManager();
   }
 
   // Initialize Lucide icons
@@ -434,28 +448,22 @@ function renderToolsSection() {
     '</div>';
   }).join('');
 
-  // CodexLens item
-  var codexLensHtml = '<div class="tool-item clickable ' + (codexLensStatus.ready ? 'available' : 'unavailable') + '" onclick="showCodexLensConfigModal()">' +
+  // CodexLens item - simplified view with link to manager page
+  var codexLensHtml = '<div class="tool-item clickable ' + (codexLensStatus.ready ? 'available' : 'unavailable') + '" onclick="navigateToCodexLensManager()">' +
     '<div class="tool-item-left">' +
       '<span class="tool-status-dot ' + (codexLensStatus.ready ? 'status-available' : 'status-unavailable') + '"></span>' +
       '<div class="tool-item-info">' +
         '<div class="tool-item-name">CodexLens <span class="tool-type-badge">Index</span>' +
-          '<i data-lucide="settings" class="w-3 h-3 tool-config-icon"></i></div>' +
+          '<i data-lucide="external-link" class="w-3 h-3 tool-config-icon"></i></div>' +
         '<div class="tool-item-desc">' + (codexLensStatus.ready ? t('cli.codexLensDesc') : t('cli.codexLensDescFull')) + '</div>' +
       '</div>' +
     '</div>' +
     '<div class="tool-item-right">' +
       (codexLensStatus.ready
         ? '<span class="tool-status-text success"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> v' + (codexLensStatus.version || 'installed') + '</span>' +
-          '<select id="codexlensModelSelect" class="btn-sm bg-muted border border-border rounded text-xs" onclick="event.stopPropagation()" title="' + (t('index.selectModel') || 'Select embedding model') + '">' +
-            buildModelSelectOptions() +
-          '</select>' +
-          '<button class="btn-sm btn-primary" onclick="event.stopPropagation(); initCodexLensIndex(\'full\', getSelectedModel())" title="' + (t('index.fullDesc') || 'FTS + Semantic search (recommended)') + '"><i data-lucide="layers" class="w-3 h-3"></i> ' + (t('index.fullIndex') || '全部索引') + '</button>' +
-          '<button class="btn-sm btn-outline" onclick="event.stopPropagation(); initCodexLensIndex(\'vector\', getSelectedModel())" title="' + (t('index.vectorDesc') || 'Semantic search with embeddings') + '"><i data-lucide="sparkles" class="w-3 h-3"></i> ' + (t('index.vectorIndex') || '向量索引') + '</button>' +
-          '<button class="btn-sm btn-outline" onclick="event.stopPropagation(); initCodexLensIndex(\'normal\')" title="' + (t('index.normalDesc') || 'Fast full-text search only') + '"><i data-lucide="file-text" class="w-3 h-3"></i> ' + (t('index.normalIndex') || 'FTS索引') + '</button>' +
-          '<button class="btn-sm btn-outline btn-danger" onclick="event.stopPropagation(); uninstallCodexLens()"><i data-lucide="trash-2" class="w-3 h-3"></i> ' + t('cli.uninstall') + '</button>'
+          '<button class="btn-sm btn-primary" onclick="event.stopPropagation(); navigateToCodexLensManager()"><i data-lucide="settings" class="w-3 h-3"></i> ' + t('cli.openManager') + '</button>'
         : '<span class="tool-status-text muted"><i data-lucide="circle-dashed" class="w-3.5 h-3.5"></i> ' + t('cli.notInstalled') + '</span>' +
-          '<button class="btn-sm btn-primary" onclick="event.stopPropagation(); installCodexLens()"><i data-lucide="download" class="w-3 h-3"></i> ' + t('cli.install') + '</button>') +
+          '<button class="btn-sm btn-primary" onclick="event.stopPropagation(); navigateToCodexLensManager()"><i data-lucide="settings" class="w-3 h-3"></i> ' + t('cli.openManager') + '</button>') +
     '</div>' +
   '</div>';
 
@@ -606,6 +614,16 @@ async function loadWindowsPlatformSettings() {
 
 async function toggleChineseResponse(enabled) {
   if (chineseResponseLoading) return;
+
+  // Pre-check: verify CCW workflows are installed (only when enabling)
+  if (enabled && typeof ccwInstallStatus !== 'undefined' && !ccwInstallStatus.installed) {
+    var missingFile = ccwInstallStatus.missingFiles.find(function(f) { return f === 'chinese-response.md'; });
+    if (missingFile) {
+      showRefreshToast(t('lang.installRequired'), 'warning');
+      return;
+    }
+  }
+
   chineseResponseLoading = true;
 
   try {
@@ -617,7 +635,14 @@ async function toggleChineseResponse(enabled) {
 
     if (!response.ok) {
       var errData = await response.json();
-      throw new Error(errData.error || 'Failed to update setting');
+      // Show specific error message from backend
+      var errorMsg = errData.error || 'Failed to update setting';
+      if (errorMsg.includes('not found')) {
+        showRefreshToast(t('lang.installRequired'), 'warning');
+      } else {
+        showRefreshToast((enabled ? t('lang.enableFailed') : t('lang.disableFailed')) + ': ' + errorMsg, 'error');
+      }
+      throw new Error(errorMsg);
     }
 
     var data = await response.json();
@@ -630,7 +655,7 @@ async function toggleChineseResponse(enabled) {
     showRefreshToast(enabled ? t('lang.enableSuccess') : t('lang.disableSuccess'), 'success');
   } catch (err) {
     console.error('Failed to toggle Chinese response:', err);
-    showRefreshToast(enabled ? t('lang.enableFailed') : t('lang.disableFailed'), 'error');
+    // Error already shown in the !response.ok block
   } finally {
     chineseResponseLoading = false;
   }
@@ -638,6 +663,16 @@ async function toggleChineseResponse(enabled) {
 
 async function toggleWindowsPlatform(enabled) {
   if (windowsPlatformLoading) return;
+
+  // Pre-check: verify CCW workflows are installed (only when enabling)
+  if (enabled && typeof ccwInstallStatus !== 'undefined' && !ccwInstallStatus.installed) {
+    var missingFile = ccwInstallStatus.missingFiles.find(function(f) { return f === 'windows-platform.md'; });
+    if (missingFile) {
+      showRefreshToast(t('lang.installRequired'), 'warning');
+      return;
+    }
+  }
+
   windowsPlatformLoading = true;
 
   try {
@@ -649,7 +684,14 @@ async function toggleWindowsPlatform(enabled) {
 
     if (!response.ok) {
       var errData = await response.json();
-      throw new Error(errData.error || 'Failed to update setting');
+      // Show specific error message from backend
+      var errorMsg = errData.error || 'Failed to update setting';
+      if (errorMsg.includes('not found')) {
+        showRefreshToast(t('lang.installRequired'), 'warning');
+      } else {
+        showRefreshToast((enabled ? t('lang.windowsEnableFailed') : t('lang.windowsDisableFailed')) + ': ' + errorMsg, 'error');
+      }
+      throw new Error(errorMsg);
     }
 
     var data = await response.json();
@@ -662,7 +704,7 @@ async function toggleWindowsPlatform(enabled) {
     showRefreshToast(enabled ? t('lang.windowsEnableSuccess') : t('lang.windowsDisableSuccess'), 'success');
   } catch (err) {
     console.error('Failed to toggle Windows platform:', err);
-    showRefreshToast(enabled ? t('lang.windowsEnableFailed') : t('lang.windowsDisableFailed'), 'error');
+    // Error already shown in the !response.ok block
   } finally {
     windowsPlatformLoading = false;
   }

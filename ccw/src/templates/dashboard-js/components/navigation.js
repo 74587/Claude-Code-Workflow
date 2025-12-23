@@ -143,6 +143,12 @@ function initNavigation() {
         } else {
           console.error('renderCoreMemoryView not defined - please refresh the page');
         }
+      } else if (currentView === 'codexlens-manager') {
+        if (typeof renderCodexLensManager === 'function') {
+          renderCodexLensManager();
+        } else {
+          console.error('renderCodexLensManager not defined - please refresh the page');
+        }
       }
     });
   });
@@ -183,6 +189,8 @@ function updateContentTitle() {
     titleEl.textContent = t('title.helpGuide');
   } else if (currentView === 'core-memory') {
     titleEl.textContent = t('title.coreMemory');
+  } else if (currentView === 'codexlens-manager') {
+    titleEl.textContent = t('title.codexLensManager');
   } else if (currentView === 'liteTasks') {
     const names = { 'lite-plan': t('title.litePlanSessions'), 'lite-fix': t('title.liteFixSessions') };
     titleEl.textContent = names[currentLiteType] || t('title.liteTasks');
