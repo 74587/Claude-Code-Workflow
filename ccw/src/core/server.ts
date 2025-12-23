@@ -85,7 +85,8 @@ const MODULE_CSS_FILES = [
   '27-graph-explorer.css',
   '28-mcp-manager.css',
   '29-help.css',
-  '30-core-memory.css'
+  '30-core-memory.css',
+  '31-api-settings.css'
 ];
 
 // Modular JS files in dependency order
@@ -139,6 +140,7 @@ const MODULE_FILES = [
   'views/skills-manager.js',
   'views/rules-manager.js',
   'views/claude-manager.js',
+  'views/api-settings.js',
   'views/help.js',
   'main.js'
 ];
