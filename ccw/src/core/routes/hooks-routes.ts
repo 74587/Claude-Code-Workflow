@@ -31,8 +31,8 @@ const GLOBAL_SETTINGS_PATH = join(homedir(), '.claude', 'settings.json');
  * @returns {string}
  */
 function getProjectSettingsPath(projectPath) {
-  const normalizedPath = projectPath.replace(/\//g, '\\').replace(/^\\([a-zA-Z])\\/, '$1:\\');
-  return join(normalizedPath, '.claude', 'settings.json');
+  // path.join automatically handles cross-platform path separators
+  return join(projectPath, '.claude', 'settings.json');
 }
 
 /**

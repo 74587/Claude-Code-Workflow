@@ -79,36 +79,37 @@ def get_cache_dir() -> Path:
     """Get fastembed cache directory.
 
     Returns:
-        Path to cache directory (usually ~/.cache/fastembed or %LOCALAPPDATA%\\Temp\\fastembed_cache)
+        Path to cache directory (~/.cache/huggingface or custom path)
     """
     # Check HF_HOME environment variable first
     if "HF_HOME" in os.environ:
         return Path(os.environ["HF_HOME"])
 
-    # Default cache locations
-    if os.name == "nt":  # Windows
-        cache_dir = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "Temp" / "fastembed_cache"
-    else:  # Unix-like
-        cache_dir = Path.home() / ".cache" / "fastembed"
-
-    return cache_dir
+    # fastembed 0.7.4+ uses HuggingFace cache when cache_dir is specified
+    # Models are stored directly under the cache directory
+    return Path.home() / ".cache" / "huggingface"
 
 
 def _get_model_cache_path(cache_dir: Path, info: Dict) -> Path:
     """Get the actual cache path for a model.
 
-    fastembed uses ONNX versions of models with different names than the original.
-    This function returns the correct path based on the cache_name field.
+    fastembed 0.7.4+ uses HuggingFace Hub's naming convention:
+    - Prefix: 'models--'
+    - Replace '/' with '--' in model name
+    Example: jinaai/jina-embeddings-v2-base-code
+             -> models--jinaai--jina-embeddings-v2-base-code
 
     Args:
-        cache_dir: The fastembed cache directory
+        cache_dir: The fastembed cache directory (HuggingFace hub path)
         info: Model profile info dictionary
 
     Returns:
         Path to the model cache directory
     """
-    cache_name = info.get("cache_name", info["model_name"])
-    return cache_dir / f"models--{cache_name.replace('/', '--')}"
+    # HuggingFace Hub naming: models--{org}--{model}
+    model_name = info["model_name"]
+    sanitized_name = f"models--{model_name.replace('/', '--')}"
+    return cache_dir / sanitized_name
 
 
 def list_models() -> Dict[str, any]:
@@ -194,18 +195,29 @@ def download_model(profile: str, progress_callback: Optional[callable] = None) -
     model_name = info["model_name"]
 
     try:
-        # Download model by instantiating TextEmbedding
-        # This will automatically download to cache if not present
+        # Get cache directory
+        cache_dir = get_cache_dir()
+
+        # Download model by instantiating TextEmbedding with explicit cache_dir
+        # This ensures fastembed uses the correct HuggingFace Hub cache location
         if progress_callback:
             progress_callback(f"Downloading {model_name}...")
 
-        embedder = TextEmbedding(model_name=model_name)
+        # CRITICAL: Must specify cache_dir to use HuggingFace cache
+        # and call embed() to trigger actual download
+        embedder = TextEmbedding(model_name=model_name, cache_dir=str(cache_dir))
+
+        # Trigger actual download by calling embed
+        # TextEmbedding.__init__ alone doesn't download files
+        if progress_callback:
+            progress_callback(f"Initializing {model_name}...")
+
+        list(embedder.embed(["test"]))  # Trigger download
 
         if progress_callback:
             progress_callback(f"Model {model_name} downloaded successfully")
 
-        # Get cache info using correct cache_name
-        cache_dir = get_cache_dir()
+        # Get cache info using correct HuggingFace Hub path
         model_cache_path = _get_model_cache_path(cache_dir, info)
 
         cache_size = 0
