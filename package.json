@@ -9,9 +9,10 @@
     "ccw-mcp": "./ccw/bin/ccw-mcp.js"
   },
   "scripts": {
+    "build": "tsc -p ccw/tsconfig.json",
     "start": "node ccw/bin/ccw.js",
     "test": "node --test",
-    "prepublishOnly": "echo 'Ready to publish @dyw/claude-code-workflow'"
+    "prepublishOnly": "npm run build && echo 'Ready to publish @dyw/claude-code-workflow'"
   },
   "keywords": [
     "claude",
@@ -69,5 +70,12 @@
   "bugs": {
     "url": "https://github.com/catlog22/Claude-Code-Workflow/issues"
   },
-  "homepage": "https://github.com/catlog22/Claude-Code-Workflow#readme"
+  "homepage": "https://github.com/catlog22/Claude-Code-Workflow#readme",
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/gradient-string": "^1.1.6",
+    "@types/inquirer": "^9.0.9",
+    "@types/node": "^25.0.1",
+    "typescript": "^5.9.3"
+  }
 }

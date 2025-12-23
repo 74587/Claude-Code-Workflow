@@ -28,20 +28,32 @@ interface PackageInfo {
 
 /**
  * Load package.json with error handling
+ * Tries root package.json first (../../package.json from dist),
+ * then falls back to ccw package.json (../package.json from dist)
  * @returns Package info with version
  */
 function loadPackageInfo(): PackageInfo {
-  const pkgPath = join(__dirname, '../package.json');
+  // First try root package.json (parent of ccw directory)
+  const rootPkgPath = join(__dirname, '../../package.json');
+  // Fallback to ccw package.json
+  const ccwPkgPath = join(__dirname, '../package.json');
 
   try {
-    if (!existsSync(pkgPath)) {
-      console.error('Fatal Error: package.json not found.');
-      console.error(`Expected location: ${pkgPath}`);
-      process.exit(1);
+    // Try root package.json first
+    if (existsSync(rootPkgPath)) {
+      const content = readFileSync(rootPkgPath, 'utf8');
+      return JSON.parse(content) as PackageInfo;
     }
 
-    const content = readFileSync(pkgPath, 'utf8');
-    return JSON.parse(content) as PackageInfo;
+    // Fallback to ccw package.json
+    if (existsSync(ccwPkgPath)) {
+      const content = readFileSync(ccwPkgPath, 'utf8');
+      return JSON.parse(content) as PackageInfo;
+    }
+
+    console.error('Fatal Error: package.json not found.');
+    console.error(`Tried locations:\n  - ${rootPkgPath}\n  - ${ccwPkgPath}`);
+    process.exit(1);
   } catch (error) {
     if (error instanceof SyntaxError) {
       console.error('Fatal Error: package.json contains invalid JSON.');

@@ -14,9 +14,35 @@ Storage Structure:
                     └── _index.db      # src/ directory index
 """
 
+import json
+import os
 import platform
 from pathlib import Path
 from typing import Optional
+
+
+def _get_configured_index_root() -> Path:
+    """Get the index root from environment or config file.
+
+    Priority order:
+    1. CODEXLENS_INDEX_DIR environment variable
+    2. index_dir from ~/.codexlens/config.json
+    3. Default: ~/.codexlens/indexes
+    """
+    env_override = os.getenv("CODEXLENS_INDEX_DIR")
+    if env_override:
+        return Path(env_override).expanduser().resolve()
+
+    config_file = Path.home() / ".codexlens" / "config.json"
+    if config_file.exists():
+        try:
+            cfg = json.loads(config_file.read_text(encoding="utf-8"))
+            if "index_dir" in cfg:
+                return Path(cfg["index_dir"]).expanduser().resolve()
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    return Path.home() / ".codexlens" / "indexes"
 
 
 class PathMapper:
@@ -31,7 +57,7 @@ class PathMapper:
         index_root: Configured index root directory
     """
 
-    DEFAULT_INDEX_ROOT = Path.home() / ".codexlens" / "indexes"
+    DEFAULT_INDEX_ROOT = _get_configured_index_root()
     INDEX_DB_NAME = "_index.db"
 
     def __init__(self, index_root: Optional[Path] = None):

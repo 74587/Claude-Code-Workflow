@@ -62,10 +62,27 @@ def _parse_languages(raw: Optional[List[str]]) -> Optional[List[str]]:
 
 
 def _get_index_root() -> Path:
-    """Get the index root directory from config or default."""
+    """Get the index root directory from config or default.
+
+    Priority order:
+    1. CODEXLENS_INDEX_DIR environment variable
+    2. index_dir from ~/.codexlens/config.json
+    3. Default: ~/.codexlens/indexes
+    """
     env_override = os.getenv("CODEXLENS_INDEX_DIR")
     if env_override:
         return Path(env_override).expanduser().resolve()
+
+    # Read from config.json
+    config_file = Path.home() / ".codexlens" / "config.json"
+    if config_file.exists():
+        try:
+            cfg = json.loads(config_file.read_text(encoding="utf-8"))
+            if "index_dir" in cfg:
+                return Path(cfg["index_dir"]).expanduser().resolve()
+        except (json.JSONDecodeError, OSError):
+            pass  # Fall through to default
+
     return Path.home() / ".codexlens" / "indexes"
 
 
