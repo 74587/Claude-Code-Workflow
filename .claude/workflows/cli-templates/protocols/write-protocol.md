@@ -1,5 +1,14 @@
 # Write Mode Protocol
+## Prompt Structure
 
+```
+PURPOSE: [development goal]
+TASK: [specific implementation task]
+MODE: [auto|write]
+CONTEXT: [file patterns]
+EXPECTED: [deliverables]
+RULES: [templates | additional constraints]
+```
 ## Operation Boundaries
 
 ### MODE: write
