@@ -49,7 +49,7 @@ const VERSION_CHECK_CACHE_TTL = 3600000; // 1 hour
  */
 function getCurrentVersion(): string {
   try {
-    const packageJsonPath = join(import.meta.dirname, '../../../package.json');
+    const packageJsonPath = join(import.meta.dirname, '../../../../package.json');
     if (existsSync(packageJsonPath)) {
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
       return pkg.version || '0.0.0';

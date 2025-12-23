@@ -46,7 +46,6 @@ Install-Claude.ps1
 install-remote.ps1
 *.mcp.json
 # ccw internal files
-ccw/package.json
 ccw/node_modules/
 ccw/*.md
 
