@@ -78,6 +78,14 @@ interface CliExecOptions {
   resume?: string | boolean; // true = last, string = execution ID, comma-separated for merge
   id?: string; // Custom execution ID (e.g., IMPL-001-step1)
   noNative?: boolean; // Force prompt concatenation instead of native resume
+  cache?: string | boolean; // Cache: true = auto from CONTEXT, string = comma-separated patterns/content
+  injectMode?: 'none' | 'full' | 'progressive'; // Inject mode for cached content
+}
+
+/** Cache configuration parsed from --cache */
+interface CacheConfig {
+  patterns?: string[];       // @patterns to pack (items starting with @)
+  content?: string;          // Additional text content (items not starting with @)
 }
 
 interface HistoryOptions {
@@ -91,7 +99,7 @@ interface StorageOptions {
   project?: string;
   cliHistory?: boolean;
   memory?: boolean;
-  cache?: boolean;
+  storageCache?: boolean;
   config?: boolean;
   force?: boolean;
 }
@@ -173,15 +181,15 @@ async function showStorageInfo(): Promise<void> {
  * Clean storage
  */
 async function cleanStorage(options: StorageOptions): Promise<void> {
-  const { all, project, force, cliHistory, memory, cache, config } = options;
+  const { all, project, force, cliHistory, memory, storageCache, config } = options;
 
   // Determine what to clean
   const cleanTypes = {
-    cliHistory: cliHistory || (!cliHistory && !memory && !cache && !config),
-    memory: memory || (!cliHistory && !memory && !cache && !config),
-    cache: cache || (!cliHistory && !memory && !cache && !config),
+    cliHistory: cliHistory || (!cliHistory && !memory && !storageCache && !config),
+    memory: memory || (!cliHistory && !memory && !storageCache && !config),
+    cache: storageCache || (!cliHistory && !memory && !storageCache && !config),
     config: config || false, // Config requires explicit flag
-    all: !cliHistory && !memory && !cache && !config
+    all: !cliHistory && !memory && !storageCache && !config
   };
 
   if (project) {
@@ -383,7 +391,7 @@ async function statusAction(): Promise<void> {
  * @param {Object} options - CLI options
  */
 async function execAction(positionalPrompt: string | undefined, options: CliExecOptions): Promise<void> {
-  const { prompt: optionPrompt, file, tool = 'gemini', mode = 'analysis', model, cd, includeDirs, timeout, noStream, resume, id, noNative } = options;
+  const { prompt: optionPrompt, file, tool = 'gemini', mode = 'analysis', model, cd, includeDirs, timeout, noStream, resume, id, noNative, cache, injectMode } = options;
 
   // Priority: 1. --file, 2. --prompt/-p option, 3. positional argument
   let finalPrompt: string | undefined;
@@ -420,6 +428,128 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
   }
 
   const prompt_to_use = finalPrompt || '';
+
+  // Handle cache option: pack @patterns and/or content
+  let cacheSessionId: string | undefined;
+  let actualPrompt = prompt_to_use;
+
+  if (cache) {
+    const { handler: contextCacheHandler } = await import('../tools/context-cache.js');
+
+    // Parse cache config from comma-separated string
+    // Items starting with @ are patterns, others are text content
+    let cacheConfig: CacheConfig = {};
+
+    if (cache === true) {
+      // --cache without value: auto-extract from CONTEXT field
+      const contextMatch = prompt_to_use.match(/CONTEXT:\s*([^\n]+)/i);
+      if (contextMatch) {
+        const contextLine = contextMatch[1];
+        const patternMatches = contextLine.matchAll(/@[^\s|]+/g);
+        cacheConfig.patterns = Array.from(patternMatches).map(m => m[0]);
+      }
+    } else if (typeof cache === 'string') {
+      // Parse comma-separated items: @patterns and text content
+      const items = cache.split(',').map(s => s.trim()).filter(Boolean);
+      const patterns: string[] = [];
+      const contentParts: string[] = [];
+
+      for (const item of items) {
+        if (item.startsWith('@')) {
+          patterns.push(item);
+        } else {
+          contentParts.push(item);
+        }
+      }
+
+      if (patterns.length > 0) {
+        cacheConfig.patterns = patterns;
+      }
+      if (contentParts.length > 0) {
+        cacheConfig.content = contentParts.join('\n');
+      }
+    }
+
+    // Also extract patterns from CONTEXT if not provided
+    if ((!cacheConfig.patterns || cacheConfig.patterns.length === 0) && prompt_to_use) {
+      const contextMatch = prompt_to_use.match(/CONTEXT:\s*([^\n]+)/i);
+      if (contextMatch) {
+        const contextLine = contextMatch[1];
+        const patternMatches = contextLine.matchAll(/@[^\s|]+/g);
+        cacheConfig.patterns = Array.from(patternMatches).map(m => m[0]);
+      }
+    }
+
+    // Pack if we have patterns or content
+    if ((cacheConfig.patterns && cacheConfig.patterns.length > 0) || cacheConfig.content) {
+      const patternCount = cacheConfig.patterns?.length || 0;
+      const hasContent = !!cacheConfig.content;
+      console.log(chalk.gray(`  Caching: ${patternCount} pattern(s)${hasContent ? ' + text content' : ''}...`));
+
+      const cacheResult = await contextCacheHandler({
+        operation: 'pack',
+        patterns: cacheConfig.patterns,
+        content: cacheConfig.content,
+        cwd: cd || process.cwd(),
+        include_dirs: includeDirs ? includeDirs.split(',') : undefined,
+      });
+
+      if (cacheResult.success && cacheResult.result) {
+        const packResult = cacheResult.result as { session_id: string; files_packed: number; total_bytes: number };
+        cacheSessionId = packResult.session_id;
+        console.log(chalk.gray(`  Cached: ${packResult.files_packed} files, ${packResult.total_bytes} bytes`));
+        console.log(chalk.gray(`  Session: ${cacheSessionId}`));
+
+        // Determine inject mode:
+        // --inject-mode explicitly set > tool default (codex=full, others=none)
+        const effectiveInjectMode = injectMode ?? (tool === 'codex' ? 'full' : 'none');
+
+        if (effectiveInjectMode !== 'none' && cacheSessionId) {
+          if (effectiveInjectMode === 'full') {
+            // Read full cache content
+            const readResult = await contextCacheHandler({
+              operation: 'read',
+              session_id: cacheSessionId,
+              offset: 0,
+              limit: 1024 * 1024, // 1MB max
+            });
+
+            if (readResult.success && readResult.result) {
+              const { content: cachedContent, total_bytes } = readResult.result as { content: string; total_bytes: number };
+              console.log(chalk.gray(`  Injecting ${total_bytes} bytes (full mode)...`));
+              actualPrompt = `=== CACHED CONTEXT (${packResult.files_packed} files) ===\n${cachedContent}\n\n=== USER PROMPT ===\n${prompt_to_use}`;
+            }
+          } else if (effectiveInjectMode === 'progressive') {
+            // Progressive mode: read first page only (64KB default)
+            const pageLimit = 65536;
+            const readResult = await contextCacheHandler({
+              operation: 'read',
+              session_id: cacheSessionId,
+              offset: 0,
+              limit: pageLimit,
+            });
+
+            if (readResult.success && readResult.result) {
+              const { content: cachedContent, total_bytes, has_more, next_offset } = readResult.result as {
+                content: string; total_bytes: number; has_more: boolean; next_offset: number | null
+              };
+              console.log(chalk.gray(`  Injecting ${cachedContent.length}/${total_bytes} bytes (progressive mode)...`));
+
+              const moreInfo = has_more
+                ? `\n[... ${total_bytes - cachedContent.length} more bytes available via: context_cache(operation="read", session_id="${cacheSessionId}", offset=${next_offset}) ...]`
+                : '';
+
+              actualPrompt = `=== CACHED CONTEXT (${packResult.files_packed} files, progressive) ===\n${cachedContent}${moreInfo}\n\n=== USER PROMPT ===\n${prompt_to_use}`;
+            }
+          }
+        }
+
+        console.log();
+      } else {
+        console.log(chalk.yellow(`  Cache warning: ${cacheResult.error}`));
+      }
+    }
+  }
 
   // Parse resume IDs for merge scenario
   const resumeIds = resume && typeof resume === 'string' ? resume.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -462,7 +592,7 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
   try {
     const result = await cliExecutorTool.execute({
       tool,
-      prompt: prompt_to_use,
+      prompt: actualPrompt,
       mode,
       model,
       cd,
@@ -727,12 +857,26 @@ export async function cliCommand(
         console.log(chalk.gray('    --includeDirs <dirs>  Additional directories'));
         console.log(chalk.gray('    --timeout <ms>      Timeout (default: 300000)'));
         console.log(chalk.gray('    --resume [id]       Resume previous session'));
+        console.log(chalk.gray('    --cache <items>     Cache: comma-separated @patterns and text'));
+        console.log(chalk.gray('    --inject-mode <m>   Inject mode: none, full, progressive'));
+        console.log();
+        console.log('  Cache format:');
+        console.log(chalk.gray('    --cache "@src/**/*.ts,@CLAUDE.md"     # @patterns to pack'));
+        console.log(chalk.gray('    --cache "@src/**/*,extra context"     # patterns + text content'));
+        console.log(chalk.gray('    --cache                               # auto from CONTEXT field'));
+        console.log();
+        console.log('  Inject modes:');
+        console.log(chalk.gray('    none:        cache only, no injection (default for gemini/qwen)'));
+        console.log(chalk.gray('    full:        inject all cached content (default for codex)'));
+        console.log(chalk.gray('    progressive: inject first 64KB with MCP continuation hint'));
         console.log();
         console.log('  Examples:');
         console.log(chalk.gray('    ccw cli -p "Analyze auth module" --tool gemini'));
         console.log(chalk.gray('    ccw cli -f prompt.txt --tool codex --mode write'));
         console.log(chalk.gray('    ccw cli -p "$(cat template.md)" --tool gemini'));
         console.log(chalk.gray('    ccw cli --resume --tool gemini'));
+        console.log(chalk.gray('    ccw cli -p "..." --cache "@src/**/*.ts" --tool codex'));
+        console.log(chalk.gray('    ccw cli -p "..." --cache "@src/**/*" --inject-mode progressive --tool gemini'));
         console.log();
       }
     }

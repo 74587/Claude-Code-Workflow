@@ -22,7 +22,7 @@ const ENV_PROJECT_ROOT = 'CCW_PROJECT_ROOT';
 const ENV_ALLOWED_DIRS = 'CCW_ALLOWED_DIRS';
 
 // Default enabled tools (core set)
-const DEFAULT_TOOLS: string[] = ['write_file', 'edit_file', 'read_file', 'smart_search', 'core_memory'];
+const DEFAULT_TOOLS: string[] = ['write_file', 'edit_file', 'read_file', 'smart_search', 'core_memory', 'context_cache'];
 
 /**
  * Get list of enabled tools from environment or defaults

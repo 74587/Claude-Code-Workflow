@@ -181,12 +181,14 @@ export function run(argv: string[]): void {
     .option('--resume [id]', 'Resume previous session (empty=last, or execution ID, or comma-separated IDs for merge)')
     .option('--id <id>', 'Custom execution ID (e.g., IMPL-001-step1)')
     .option('--no-native', 'Force prompt concatenation instead of native resume')
+    .option('--cache [items]', 'Cache: comma-separated @patterns and text content')
+    .option('--inject-mode <mode>', 'Inject mode: none, full, progressive (default: codex=full, others=none)')
     // Storage options
     .option('--project <path>', 'Project path for storage operations')
     .option('--force', 'Confirm destructive operations')
     .option('--cli-history', 'Target CLI history storage')
     .option('--memory', 'Target memory storage')
-    .option('--cache', 'Target cache storage')
+    .option('--storage-cache', 'Target cache storage')
     .option('--config', 'Target config storage')
     .action((subcommand, args, options) => cliCommand(subcommand, args, options));
 
