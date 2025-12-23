@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync, unlinkSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { StoragePaths, ensureStorageDir } from '../config/storage-paths.js';
 
@@ -118,8 +118,7 @@ export class CacheManager<T> {
   invalidate(): void {
     try {
       if (existsSync(this.cacheFile)) {
-        const fs = require('fs');
-        fs.unlinkSync(this.cacheFile);
+        unlinkSync(this.cacheFile);
       }
     } catch (err) {
       console.warn(`Cache invalidation error for ${this.cacheFile}:`, (err as Error).message);
@@ -180,8 +179,7 @@ export class CacheManager<T> {
     if (depth > 3) return; // Limit recursion depth
 
     try {
-      const fs = require('fs');
-      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      const entries = readdirSync(dirPath, { withFileTypes: true });
 
       for (const entry of entries) {
         const fullPath = join(dirPath, entry.name);
