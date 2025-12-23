@@ -10,6 +10,10 @@ import { spawn, ChildProcess } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 
+// LiteLLM integration
+import { executeLiteLLMEndpoint } from './litellm-executor.js';
+import { findEndpointById } from '../config/litellm-api-config-manager.js';
+
 // Native resume support
 import {
   trackNewSession,
@@ -591,6 +595,66 @@ async function executeCliTool(
   // Determine working directory early (needed for conversation lookup)
   const workingDir = cd || process.cwd();
   ensureHistoryDir(workingDir); // Ensure history directory exists
+
+  // NEW: Check if model is a custom LiteLLM endpoint ID
+  if (model && !['gemini', 'qwen', 'codex'].includes(tool)) {
+    const endpoint = findEndpointById(workingDir, model);
+    if (endpoint) {
+      // Route to LiteLLM executor
+      if (onOutput) {
+        onOutput({ type: 'stderr', data: `[Routing to LiteLLM endpoint: ${model}]\n` });
+      }
+
+      const result = await executeLiteLLMEndpoint({
+        prompt,
+        endpointId: model,
+        baseDir: workingDir,
+        cwd: cd,
+        includeDirs: includeDirs ? includeDirs.split(',').map(d => d.trim()) : undefined,
+        enableCache: true,
+        onOutput: onOutput || undefined,
+      });
+
+      // Convert LiteLLM result to ExecutionOutput format
+      const startTime = Date.now();
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+
+      const execution: ExecutionRecord = {
+        id: customId || `${Date.now()}-litellm`,
+        timestamp: new Date(startTime).toISOString(),
+        tool: 'litellm',
+        model: result.model,
+        mode,
+        prompt,
+        status: result.success ? 'success' : 'error',
+        exit_code: result.success ? 0 : 1,
+        duration_ms: duration,
+        output: {
+          stdout: result.output,
+          stderr: result.error || '',
+          truncated: false,
+        },
+      };
+
+      const conversation = convertToConversation(execution);
+
+      // Try to save to history
+      try {
+        saveConversation(workingDir, conversation);
+      } catch (err) {
+        console.error('[CLI Executor] Failed to save LiteLLM history:', (err as Error).message);
+      }
+
+      return {
+        success: result.success,
+        execution,
+        conversation,
+        stdout: result.output,
+        stderr: result.error || '',
+      };
+    }
+  }
 
   // Get SQLite store for native session lookup
   const store = await getSqliteStore(workingDir);

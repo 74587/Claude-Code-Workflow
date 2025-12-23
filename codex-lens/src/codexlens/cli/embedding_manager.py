@@ -191,6 +191,7 @@ def check_index_embeddings(index_path: Path) -> Dict[str, any]:
 
 def generate_embeddings(
     index_path: Path,
+    embedding_backend: str = "fastembed",
     model_profile: str = "code",
     force: bool = False,
     chunk_size: int = 2000,
@@ -203,7 +204,9 @@ def generate_embeddings(
 
     Args:
         index_path: Path to _index.db file
-        model_profile: Model profile (fast, code, multilingual, balanced)
+        embedding_backend: Embedding backend to use (fastembed or litellm)
+        model_profile: Model profile for fastembed (fast, code, multilingual, balanced)
+                      or model name for litellm (e.g., text-embedding-3-small)
         force: If True, regenerate even if embeddings exist
         chunk_size: Maximum chunk size in characters
         progress_callback: Optional callback for progress updates
@@ -253,8 +256,22 @@ def generate_embeddings(
 
     # Initialize components
     try:
-        # Initialize embedder (singleton, reused throughout the function)
-        embedder = get_embedder(profile=model_profile)
+        # Import factory function to support both backends
+        from codexlens.semantic.factory import get_embedder as get_embedder_factory
+
+        # Initialize embedder using factory (supports both fastembed and litellm)
+        # For fastembed: model_profile is a profile name (fast/code/multilingual/balanced)
+        # For litellm: model_profile is a model name (e.g., text-embedding-3-small)
+        if embedding_backend == "fastembed":
+            embedder = get_embedder_factory(backend="fastembed", profile=model_profile, use_gpu=True)
+        elif embedding_backend == "litellm":
+            embedder = get_embedder_factory(backend="litellm", model=model_profile)
+        else:
+            return {
+                "success": False,
+                "error": f"Invalid embedding backend: {embedding_backend}. Must be 'fastembed' or 'litellm'.",
+            }
+
         # skip_token_count=True: Use fast estimation (len/4) instead of expensive tiktoken
         # This significantly reduces CPU usage with minimal impact on metadata accuracy
         chunker = Chunker(config=ChunkConfig(max_chunk_size=chunk_size, skip_token_count=True))
@@ -428,6 +445,7 @@ def find_all_indexes(scan_dir: Path) -> List[Path]:
 
 def generate_embeddings_recursive(
     index_root: Path,
+    embedding_backend: str = "fastembed",
     model_profile: str = "code",
     force: bool = False,
     chunk_size: int = 2000,
@@ -437,7 +455,9 @@ def generate_embeddings_recursive(
 
     Args:
         index_root: Root index directory containing _index.db files
-        model_profile: Model profile (fast, code, multilingual, balanced)
+        embedding_backend: Embedding backend to use (fastembed or litellm)
+        model_profile: Model profile for fastembed (fast, code, multilingual, balanced)
+                      or model name for litellm (e.g., text-embedding-3-small)
         force: If True, regenerate even if embeddings exist
         chunk_size: Maximum chunk size in characters
         progress_callback: Optional callback for progress updates
@@ -474,6 +494,7 @@ def generate_embeddings_recursive(
 
         result = generate_embeddings(
             index_path,
+            embedding_backend=embedding_backend,
             model_profile=model_profile,
             force=force,
             chunk_size=chunk_size,

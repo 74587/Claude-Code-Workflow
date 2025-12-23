@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ccw-litellm"
+version = "0.1.0"
+description = "Unified LiteLLM interface layer shared by ccw and codex-lens"
+requires-python = ">=3.10"
+authors = [{ name = "ccw-litellm contributors" }]
+dependencies = [
+  "litellm>=1.0.0",
+  "pyyaml",
+  "numpy",
+  "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+]
+
+[project.scripts]
+ccw-litellm = "ccw_litellm.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["ccw_litellm*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

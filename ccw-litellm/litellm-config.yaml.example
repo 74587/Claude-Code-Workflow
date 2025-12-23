@@ -1,0 +1,53 @@
+# LiteLLM Unified Configuration
+# Copy to ~/.ccw/config/litellm-config.yaml
+
+version: 1
+
+# Default provider for LLM calls
+default_provider: openai
+
+# Provider configurations
+providers:
+  openai:
+    api_key: ${OPENAI_API_KEY}
+    api_base: https://api.openai.com/v1
+    
+  anthropic:
+    api_key: ${ANTHROPIC_API_KEY}
+    
+  ollama:
+    api_base: http://localhost:11434
+    
+  azure:
+    api_key: ${AZURE_API_KEY}
+    api_base: ${AZURE_API_BASE}
+
+# LLM model configurations
+llm_models:
+  default:
+    provider: openai
+    model: gpt-4o
+  fast:
+    provider: openai
+    model: gpt-4o-mini
+  claude:
+    provider: anthropic
+    model: claude-sonnet-4-20250514
+  local:
+    provider: ollama
+    model: llama3.2
+
+# Embedding model configurations
+embedding_models:
+  default:
+    provider: openai
+    model: text-embedding-3-small
+    dimensions: 1536
+  large:
+    provider: openai
+    model: text-embedding-3-large
+    dimensions: 3072
+  ada:
+    provider: openai
+    model: text-embedding-ada-002
+    dimensions: 1536

@@ -22,6 +22,8 @@ import { handleSessionRoutes } from './routes/session-routes.js';
 import { handleCcwRoutes } from './routes/ccw-routes.js';
 import { handleClaudeRoutes } from './routes/claude-routes.js';
 import { handleHelpRoutes } from './routes/help-routes.js';
+import { handleLiteLLMRoutes } from './routes/litellm-routes.js';
+import { handleLiteLLMApiRoutes } from './routes/litellm-api-routes.js';
 
 // Import WebSocket handling
 import { handleWebSocketUpgrade, broadcastToClients } from './websocket.js';
@@ -309,6 +311,16 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // CodexLens routes (/api/codexlens/*)
       if (pathname.startsWith('/api/codexlens/')) {
         if (await handleCodexLensRoutes(routeContext)) return;
+      }
+
+      // LiteLLM routes (/api/litellm/*)
+      if (pathname.startsWith('/api/litellm/')) {
+        if (await handleLiteLLMRoutes(routeContext)) return;
+      }
+
+      // LiteLLM API routes (/api/litellm-api/*)
+      if (pathname.startsWith('/api/litellm-api/')) {
+        if (await handleLiteLLMApiRoutes(routeContext)) return;
       }
 
       // Graph routes (/api/graph/*)

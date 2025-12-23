@@ -106,7 +106,8 @@ def init(
     workers: Optional[int] = typer.Option(None, "--workers", "-w", min=1, max=16, help="Parallel worker processes (default: auto-detect based on CPU count, max 16)."),
     force: bool = typer.Option(False, "--force", "-f", help="Force full reindex (skip incremental mode)."),
     no_embeddings: bool = typer.Option(False, "--no-embeddings", help="Skip automatic embedding generation (if semantic deps installed)."),
-    embedding_model: str = typer.Option("code", "--embedding-model", help="Embedding model profile: fast, code, multilingual, balanced."),
+    embedding_backend: str = typer.Option("fastembed", "--embedding-backend", help="Embedding backend: fastembed (local) or litellm (remote API)."),
+    embedding_model: str = typer.Option("code", "--embedding-model", help="Embedding model: profile name for fastembed (fast/code/multilingual/balanced) or model name for litellm (e.g. text-embedding-3-small)."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
 ) -> None:
@@ -120,6 +121,14 @@ def init(
 
     If semantic search dependencies are installed, automatically generates embeddings
     after indexing completes. Use --no-embeddings to skip this step.
+
+    Embedding Backend Options:
+      - fastembed: Local ONNX-based embeddings (default, no API calls)
+      - litellm: Remote API embeddings via ccw-litellm (requires API keys)
+
+    Embedding Model Options:
+      - For fastembed backend: Use profile names (fast, code, multilingual, balanced)
+      - For litellm backend: Use model names (e.g., text-embedding-3-small, text-embedding-ada-002)
     """
     _configure_logging(verbose, json_mode)
     config = Config()
@@ -171,11 +180,22 @@ def init(
                 from codexlens.cli.embedding_manager import generate_embeddings_recursive, get_embeddings_status
 
                 if SEMANTIC_AVAILABLE:
+                    # Validate embedding backend
+                    valid_backends = ["fastembed", "litellm"]
+                    if embedding_backend not in valid_backends:
+                        error_msg = f"Invalid embedding backend: {embedding_backend}. Must be one of: {', '.join(valid_backends)}"
+                        if json_mode:
+                            print_json(success=False, error=error_msg)
+                        else:
+                            console.print(f"[red]Error:[/red] {error_msg}")
+                        raise typer.Exit(code=1)
+
                     # Use the index root directory (not the _index.db file)
                     index_root = Path(build_result.index_root)
 
                     if not json_mode:
                         console.print("\n[bold]Generating embeddings...[/bold]")
+                        console.print(f"Backend: [cyan]{embedding_backend}[/cyan]")
                         console.print(f"Model: [cyan]{embedding_model}[/cyan]")
                     else:
                         # Output progress message for JSON mode (parsed by Node.js)
@@ -196,6 +216,7 @@ def init(
 
                     embed_result = generate_embeddings_recursive(
                         index_root,
+                        embedding_backend=embedding_backend,
                         model_profile=embedding_model,
                         force=False,  # Don't force regenerate during init
                         chunk_size=2000,
@@ -1781,11 +1802,17 @@ def embeddings_generate(
         exists=True,
         help="Path to _index.db file or project directory.",
     ),
+    backend: str = typer.Option(
+        "fastembed",
+        "--backend",
+        "-b",
+        help="Embedding backend: fastembed (local) or litellm (remote API).",
+    ),
     model: str = typer.Option(
         "code",
         "--model",
         "-m",
-        help="Model profile: fast, code, multilingual, balanced.",
+        help="Model: profile name for fastembed (fast/code/multilingual/balanced) or model name for litellm (e.g. text-embedding-3-small).",
     ),
     force: bool = typer.Option(
         False,
@@ -1813,20 +1840,42 @@ def embeddings_generate(
     semantic search capabilities. Embeddings are stored in the same
     database as the FTS index.
 
-    Model Profiles:
-      - fast: BAAI/bge-small-en-v1.5 (384 dims, ~80MB)
-      - code: jinaai/jina-embeddings-v2-base-code (768 dims, ~150MB) [recommended]
-      - multilingual: intfloat/multilingual-e5-large (1024 dims, ~1GB)
-      - balanced: mixedbread-ai/mxbai-embed-large-v1 (1024 dims, ~600MB)
+    Embedding Backend Options:
+      - fastembed: Local ONNX-based embeddings (default, no API calls)
+      - litellm: Remote API embeddings via ccw-litellm (requires API keys)
+
+    Model Options:
+      For fastembed backend (profiles):
+        - fast: BAAI/bge-small-en-v1.5 (384 dims, ~80MB)
+        - code: jinaai/jina-embeddings-v2-base-code (768 dims, ~150MB) [recommended]
+        - multilingual: intfloat/multilingual-e5-large (1024 dims, ~1GB)
+        - balanced: mixedbread-ai/mxbai-embed-large-v1 (1024 dims, ~600MB)
+
+      For litellm backend (model names):
+        - text-embedding-3-small, text-embedding-3-large (OpenAI)
+        - text-embedding-ada-002 (OpenAI legacy)
+        - Any model supported by ccw-litellm
 
     Examples:
-        codexlens embeddings-generate ~/projects/my-app              # Auto-find index for project
+        codexlens embeddings-generate ~/projects/my-app              # Auto-find index (fastembed, code profile)
         codexlens embeddings-generate ~/.codexlens/indexes/project/_index.db  # Specific index
-        codexlens embeddings-generate ~/projects/my-app --model fast --force  # Regenerate with fast model
+        codexlens embeddings-generate ~/projects/my-app --backend litellm --model text-embedding-3-small  # Use LiteLLM
+        codexlens embeddings-generate ~/projects/my-app --model fast --force  # Regenerate with fast profile
     """
     _configure_logging(verbose, json_mode)
 
     from codexlens.cli.embedding_manager import generate_embeddings, generate_embeddings_recursive
+
+    # Validate backend
+    valid_backends = ["fastembed", "litellm"]
+    if backend not in valid_backends:
+        error_msg = f"Invalid backend: {backend}. Must be one of: {', '.join(valid_backends)}"
+        if json_mode:
+            print_json(success=False, error=error_msg)
+        else:
+            console.print(f"[red]Error:[/red] {error_msg}")
+            console.print(f"[dim]Valid backends: {', '.join(valid_backends)}[/dim]")
+        raise typer.Exit(code=1)
 
     # Resolve path
     target_path = path.expanduser().resolve()
@@ -1877,11 +1926,13 @@ def embeddings_generate(
         console.print(f"Mode: [yellow]Recursive[/yellow]")
     else:
         console.print(f"Index: [dim]{index_path}[/dim]")
+    console.print(f"Backend: [cyan]{backend}[/cyan]")
     console.print(f"Model: [cyan]{model}[/cyan]\n")
 
     if use_recursive:
         result = generate_embeddings_recursive(
             index_root,
+            embedding_backend=backend,
             model_profile=model,
             force=force,
             chunk_size=chunk_size,
@@ -1890,6 +1941,7 @@ def embeddings_generate(
     else:
         result = generate_embeddings(
             index_path,
+            embedding_backend=backend,
             model_profile=model,
             force=force,
             chunk_size=chunk_size,

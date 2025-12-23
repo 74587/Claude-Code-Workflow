@@ -14,6 +14,7 @@ from typing import Dict, Iterable, List, Optional
 import numpy as np
 
 from . import SEMANTIC_AVAILABLE
+from .base import BaseEmbedder
 from .gpu_support import get_optimal_providers, is_gpu_available, get_gpu_summary, get_selected_device_id
 
 logger = logging.getLogger(__name__)
@@ -84,7 +85,7 @@ def clear_embedder_cache() -> None:
         gc.collect()
 
 
-class Embedder:
+class Embedder(BaseEmbedder):
     """Generate embeddings for code chunks using fastembed (ONNX-based).
 
     Supported Model Profiles:
@@ -138,11 +139,11 @@ class Embedder:
 
         # Resolve model name from profile or use explicit name
         if model_name:
-            self.model_name = model_name
+            self._model_name = model_name
         elif profile and profile in self.MODELS:
-            self.model_name = self.MODELS[profile]
+            self._model_name = self.MODELS[profile]
         else:
-            self.model_name = self.DEFAULT_MODEL
+            self._model_name = self.DEFAULT_MODEL
 
         # Configure ONNX execution providers with device_id options for GPU selection
         # Using with_device_options=True ensures DirectML/CUDA device_id is passed correctly
@@ -155,9 +156,14 @@ class Embedder:
         self._model = None
 
     @property
+    def model_name(self) -> str:
+        """Get model name."""
+        return self._model_name
+
+    @property
     def embedding_dim(self) -> int:
         """Get embedding dimension for current model."""
-        return self.MODEL_DIMS.get(self.model_name, 768)  # Default to 768 if unknown
+        return self.MODEL_DIMS.get(self._model_name, 768)  # Default to 768 if unknown
 
     @property
     def providers(self) -> List[str]:

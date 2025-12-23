@@ -67,10 +67,29 @@ def check_gpu_available() -> tuple[bool, str]:
         return False, "GPU support module not available"
 
 
+# Export embedder components
+# BaseEmbedder is always available (abstract base class)
+from .base import BaseEmbedder
+
+# Factory function for creating embedders
+from .factory import get_embedder as get_embedder_factory
+
+# Optional: LiteLLMEmbedderWrapper (only if ccw-litellm is installed)
+try:
+    from .litellm_embedder import LiteLLMEmbedderWrapper
+    _LITELLM_AVAILABLE = True
+except ImportError:
+    LiteLLMEmbedderWrapper = None
+    _LITELLM_AVAILABLE = False
+
+
 __all__ = [
     "SEMANTIC_AVAILABLE",
     "SEMANTIC_BACKEND",
     "GPU_AVAILABLE",
     "check_semantic_available",
     "check_gpu_available",
+    "BaseEmbedder",
+    "get_embedder_factory",
+    "LiteLLMEmbedderWrapper",
 ]
