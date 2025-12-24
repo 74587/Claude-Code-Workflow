@@ -102,18 +102,75 @@ class LiteLLMEmbedder(AbstractEmbedder):
         """Embedding vector size."""
         return self._model_config.dimensions
 
+    def _estimate_tokens(self, text: str) -> int:
+        """Estimate token count for a text using fast heuristic.
+
+        Args:
+            text: Text to estimate tokens for
+
+        Returns:
+            Estimated token count (len/4 is a reasonable approximation)
+        """
+        return len(text) // 4
+
+    def _create_batches(
+        self,
+        texts: list[str],
+        max_tokens: int = 30000
+    ) -> list[list[str]]:
+        """Split texts into batches that fit within token limits.
+
+        Args:
+            texts: List of texts to batch
+            max_tokens: Maximum tokens per batch (default: 30000, safe margin for 40960 limit)
+
+        Returns:
+            List of text batches
+        """
+        batches = []
+        current_batch = []
+        current_tokens = 0
+
+        for text in texts:
+            text_tokens = self._estimate_tokens(text)
+
+            # If single text exceeds limit, truncate it
+            if text_tokens > max_tokens:
+                logger.warning(f"Text with {text_tokens} estimated tokens exceeds limit, truncating")
+                # Truncate to fit (rough estimate: 4 chars per token)
+                max_chars = max_tokens * 4
+                text = text[:max_chars]
+                text_tokens = self._estimate_tokens(text)
+
+            # Start new batch if current would exceed limit
+            if current_tokens + text_tokens > max_tokens and current_batch:
+                batches.append(current_batch)
+                current_batch = []
+                current_tokens = 0
+
+            current_batch.append(text)
+            current_tokens += text_tokens
+
+        # Add final batch
+        if current_batch:
+            batches.append(current_batch)
+
+        return batches
+
     def embed(
         self,
         texts: str | Sequence[str],
         *,
         batch_size: int | None = None,
+        max_tokens_per_batch: int = 30000,
         **kwargs: Any,
     ) -> NDArray[np.floating]:
         """Embed one or more texts.
 
         Args:
             texts: Single text or sequence of texts
-            batch_size: Batch size for processing (currently unused, LiteLLM handles batching)
+            batch_size: Batch size for processing (deprecated, use max_tokens_per_batch)
+            max_tokens_per_batch: Maximum estimated tokens per API call (default: 30000)
             **kwargs: Additional arguments for litellm.embedding()
 
         Returns:
@@ -125,10 +182,8 @@ class LiteLLMEmbedder(AbstractEmbedder):
         # Normalize input to list
         if isinstance(texts, str):
             text_list = [texts]
-            single_input = True
         else:
             text_list = list(texts)
-            single_input = False
 
         if not text_list:
             # Return empty array with correct shape
@@ -137,36 +192,53 @@ class LiteLLMEmbedder(AbstractEmbedder):
         # Merge kwargs
         embedding_kwargs = {**self._litellm_kwargs, **kwargs}
 
-        try:
-            # For OpenAI-compatible endpoints, ensure encoding_format is set
-            if self._provider_config.api_base and "encoding_format" not in embedding_kwargs:
-                embedding_kwargs["encoding_format"] = "float"
+        # For OpenAI-compatible endpoints, ensure encoding_format is set
+        if self._provider_config.api_base and "encoding_format" not in embedding_kwargs:
+            embedding_kwargs["encoding_format"] = "float"
 
-            # Call LiteLLM embedding
-            response = litellm.embedding(
-                model=self._format_model_name(),
-                input=text_list,
-                **embedding_kwargs,
-            )
+        # Split into token-aware batches
+        batches = self._create_batches(text_list, max_tokens_per_batch)
 
-            # Extract embeddings
-            embeddings = [item["embedding"] for item in response.data]
+        if len(batches) > 1:
+            logger.info(f"Split {len(text_list)} texts into {len(batches)} batches for embedding")
 
-            # Convert to numpy array
-            result = np.array(embeddings, dtype=np.float32)
+        all_embeddings = []
 
-            # Validate dimensions
-            if result.shape[1] != self.dimensions:
-                logger.warning(
-                    f"Expected {self.dimensions} dimensions, got {result.shape[1]}. "
-                    f"Configuration may be incorrect."
+        for batch_idx, batch in enumerate(batches):
+            try:
+                # Build call kwargs with explicit api_base
+                call_kwargs = {**embedding_kwargs}
+                if self._provider_config.api_base:
+                    call_kwargs["api_base"] = self._provider_config.api_base
+                if self._provider_config.api_key:
+                    call_kwargs["api_key"] = self._provider_config.api_key
+
+                # Call LiteLLM embedding for this batch
+                response = litellm.embedding(
+                    model=self._format_model_name(),
+                    input=batch,
+                    **call_kwargs,
                 )
 
-            return result
+                # Extract embeddings
+                batch_embeddings = [item["embedding"] for item in response.data]
+                all_embeddings.extend(batch_embeddings)
 
-        except Exception as e:
-            logger.error(f"LiteLLM embedding failed: {e}")
-            raise
+            except Exception as e:
+                logger.error(f"LiteLLM embedding failed for batch {batch_idx + 1}/{len(batches)}: {e}")
+                raise
+
+        # Convert to numpy array
+        result = np.array(all_embeddings, dtype=np.float32)
+
+        # Validate dimensions
+        if result.shape[1] != self.dimensions:
+            logger.warning(
+                f"Expected {self.dimensions} dimensions, got {result.shape[1]}. "
+                f"Configuration may be incorrect."
+            )
+
+        return result
 
     @property
     def model_name(self) -> str:

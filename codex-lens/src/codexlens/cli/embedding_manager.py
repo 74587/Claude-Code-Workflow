@@ -7,7 +7,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import islice
 from pathlib import Path
-from threading import Lock
 from typing import Dict, Generator, List, Optional, Tuple
 
 try:
@@ -441,82 +440,133 @@ def generate_embeddings(
                     batch_number = 0
                     files_seen = set()
 
-                    # Thread-safe counters for concurrent processing
-                    counter_lock = Lock()
-
-                    def process_batch(batch_data: Tuple[int, List[Tuple]]) -> Tuple[int, set, Optional[str]]:
-                        """Process a single batch: generate embeddings and store.
+                    def compute_embeddings_only(batch_data: Tuple[int, List[Tuple]]):
+                        """Compute embeddings for a batch (no DB write).
 
                         Args:
                             batch_data: Tuple of (batch_number, chunk_batch)
 
                         Returns:
-                            Tuple of (chunks_created, files_in_batch, error_message)
+                            Tuple of (batch_num, chunk_batch, embeddings_numpy, batch_files, error)
                         """
                         batch_num, chunk_batch = batch_data
                         batch_files = set()
 
                         try:
-                            # Track files in this batch
                             for _, file_path in chunk_batch:
                                 batch_files.add(file_path)
 
-                            # Generate embeddings
                             batch_contents = [chunk.content for chunk, _ in chunk_batch]
                             embeddings_numpy = embedder.embed_to_numpy(batch_contents, batch_size=EMBEDDING_BATCH_SIZE)
 
-                            # Store embeddings (thread-safe via SQLite's serialized mode)
-                            vector_store.add_chunks_batch_numpy(chunk_batch, embeddings_numpy)
-
-                            return len(chunk_batch), batch_files, None
+                            return batch_num, chunk_batch, embeddings_numpy, batch_files, None
 
                         except Exception as e:
                             error_msg = f"Batch {batch_num}: {str(e)}"
-                            logger.error(f"Failed to process embedding batch {batch_num}: {str(e)}")
-                            return 0, batch_files, error_msg
+                            logger.error(f"Failed to compute embeddings for batch {batch_num}: {str(e)}")
+                            return batch_num, chunk_batch, None, batch_files, error_msg
 
-                    # Collect batches for concurrent processing
-                    all_batches = []
-                    for chunk_batch in batch_generator:
-                        batch_number += 1
-                        all_batches.append((batch_number, chunk_batch))
-
-                    # Process batches (sequential or concurrent based on max_workers)
+                    # Process batches based on max_workers setting
                     if max_workers <= 1:
-                        # Sequential processing (original behavior)
-                        for batch_num, chunk_batch in all_batches:
-                            chunks_created, batch_files, error = process_batch((batch_num, chunk_batch))
-                            files_seen.update(batch_files)
-                            total_chunks_created += chunks_created
-                            total_files_processed = len(files_seen)
+                        # Sequential processing - stream directly from generator (no pre-materialization)
+                        for chunk_batch in batch_generator:
+                            batch_number += 1
 
-                            if progress_callback and batch_num % 10 == 0:
-                                progress_callback(f"  Batch {batch_num}: {total_chunks_created} chunks, {total_files_processed} files")
+                            # Track files in this batch
+                            batch_files = set()
+                            for _, file_path in chunk_batch:
+                                batch_files.add(file_path)
+
+                            try:
+                                # Generate embeddings
+                                batch_contents = [chunk.content for chunk, _ in chunk_batch]
+                                embeddings_numpy = embedder.embed_to_numpy(batch_contents, batch_size=EMBEDDING_BATCH_SIZE)
+
+                                # Store embeddings
+                                vector_store.add_chunks_batch_numpy(chunk_batch, embeddings_numpy)
+
+                                files_seen.update(batch_files)
+                                total_chunks_created += len(chunk_batch)
+                                total_files_processed = len(files_seen)
+
+                                if progress_callback and batch_number % 10 == 0:
+                                    progress_callback(f"  Batch {batch_number}: {total_chunks_created} chunks, {total_files_processed} files")
+
+                            except Exception as e:
+                                logger.error(f"Failed to process batch {batch_number}: {str(e)}")
+                                files_seen.update(batch_files)
                     else:
-                        # Concurrent processing for API backends
+                        # Concurrent processing with producer-consumer pattern
+                        # Workers compute embeddings (parallel), main thread writes to DB (serial)
+                        from queue import Queue
+                        from threading import Thread
+
+                        result_queue = Queue(maxsize=max_workers * 2)  # Bounded queue to limit memory
+                        batch_counter = [0]  # Mutable counter for producer thread
+                        producer_done = [False]
+
+                        def producer():
+                            """Submit batches to executor, put results in queue."""
+                            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                                pending_futures = []
+
+                                for chunk_batch in batch_generator:
+                                    batch_counter[0] += 1
+                                    batch_num = batch_counter[0]
+
+                                    # Submit compute task
+                                    future = executor.submit(compute_embeddings_only, (batch_num, chunk_batch))
+                                    pending_futures.append(future)
+
+                                    # Check for completed futures and add to queue
+                                    for f in list(pending_futures):
+                                        if f.done():
+                                            try:
+                                                result_queue.put(f.result())
+                                            except Exception as e:
+                                                logger.error(f"Future raised exception: {e}")
+                                            pending_futures.remove(f)
+
+                                # Wait for remaining futures
+                                for future in as_completed(pending_futures):
+                                    try:
+                                        result_queue.put(future.result())
+                                    except Exception as e:
+                                        logger.error(f"Future raised exception: {e}")
+
+                            producer_done[0] = True
+                            result_queue.put(None)  # Sentinel to signal completion
+
+                        # Start producer thread
+                        producer_thread = Thread(target=producer, daemon=True)
+                        producer_thread.start()
+
                         if progress_callback:
-                            progress_callback(f"Processing {len(all_batches)} batches with {max_workers} concurrent workers...")
+                            progress_callback(f"Processing with {max_workers} concurrent embedding workers...")
 
-                        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                            futures = {executor.submit(process_batch, batch): batch[0] for batch in all_batches}
+                        # Consumer: main thread writes to DB (serial, no contention)
+                        completed = 0
+                        while True:
+                            result = result_queue.get()
+                            if result is None:  # Sentinel
+                                break
 
-                            completed = 0
-                            for future in as_completed(futures):
-                                batch_num = futures[future]
-                                try:
-                                    chunks_created, batch_files, error = future.result()
+                            batch_num, chunk_batch, embeddings_numpy, batch_files, error = result
 
-                                    with counter_lock:
-                                        files_seen.update(batch_files)
-                                        total_chunks_created += chunks_created
-                                        total_files_processed = len(files_seen)
-                                        completed += 1
+                            if embeddings_numpy is not None and error is None:
+                                # Write to DB in main thread (no contention)
+                                vector_store.add_chunks_batch_numpy(chunk_batch, embeddings_numpy)
+                                total_chunks_created += len(chunk_batch)
 
-                                    if progress_callback and completed % 10 == 0:
-                                        progress_callback(f"  Completed {completed}/{len(all_batches)} batches: {total_chunks_created} chunks")
+                            files_seen.update(batch_files)
+                            total_files_processed = len(files_seen)
+                            completed += 1
 
-                                except Exception as e:
-                                    logger.error(f"Batch {batch_num} raised exception: {str(e)}")
+                            if progress_callback and completed % 10 == 0:
+                                progress_callback(f"  Completed {completed} batches: {total_chunks_created} chunks")
+
+                        producer_thread.join()
+                        batch_number = batch_counter[0]
 
                 # Notify before ANN index finalization (happens when bulk_insert context exits)
                 if progress_callback:
@@ -718,7 +768,7 @@ def get_embeddings_status(index_root: Path) -> Dict[str, any]:
         index_root: Root index directory
 
     Returns:
-        Aggregated status with coverage statistics
+        Aggregated status with coverage statistics, model info, and timestamps
     """
     index_files = discover_all_index_dbs(index_root)
 
@@ -734,6 +784,7 @@ def get_embeddings_status(index_root: Path) -> Dict[str, any]:
                 "coverage_percent": 0.0,
                 "indexes_with_embeddings": 0,
                 "indexes_without_embeddings": 0,
+                "model_info": None,
             },
         }
 
@@ -741,6 +792,8 @@ def get_embeddings_status(index_root: Path) -> Dict[str, any]:
     files_with_embeddings = 0
     total_chunks = 0
     indexes_with_embeddings = 0
+    model_info = None
+    latest_updated_at = None
 
     for index_path in index_files:
         status = check_index_embeddings(index_path)
@@ -751,6 +804,40 @@ def get_embeddings_status(index_root: Path) -> Dict[str, any]:
             total_chunks += result["total_chunks"]
             if result["has_embeddings"]:
                 indexes_with_embeddings += 1
+
+                # Get model config from first index with embeddings (they should all match)
+                if model_info is None:
+                    try:
+                        from codexlens.semantic.vector_store import VectorStore
+                        with VectorStore(index_path) as vs:
+                            config = vs.get_model_config()
+                            if config:
+                                model_info = {
+                                    "model_profile": config.get("model_profile"),
+                                    "model_name": config.get("model_name"),
+                                    "embedding_dim": config.get("embedding_dim"),
+                                    "backend": config.get("backend"),
+                                    "created_at": config.get("created_at"),
+                                    "updated_at": config.get("updated_at"),
+                                }
+                                latest_updated_at = config.get("updated_at")
+                    except Exception:
+                        pass
+                else:
+                    # Track the latest updated_at across all indexes
+                    try:
+                        from codexlens.semantic.vector_store import VectorStore
+                        with VectorStore(index_path) as vs:
+                            config = vs.get_model_config()
+                            if config and config.get("updated_at"):
+                                if latest_updated_at is None or config["updated_at"] > latest_updated_at:
+                                    latest_updated_at = config["updated_at"]
+                    except Exception:
+                        pass
+
+    # Update model_info with latest timestamp
+    if model_info and latest_updated_at:
+        model_info["updated_at"] = latest_updated_at
 
     return {
         "success": True,
@@ -763,6 +850,7 @@ def get_embeddings_status(index_root: Path) -> Dict[str, any]:
             "coverage_percent": round((files_with_embeddings / total_files * 100) if total_files > 0 else 0, 1),
             "indexes_with_embeddings": indexes_with_embeddings,
             "indexes_without_embeddings": len(index_files) - indexes_with_embeddings,
+            "model_info": model_info,
         },
     }
 

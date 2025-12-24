@@ -33,9 +33,13 @@ async function loadCliHistory(options = {}) {
 }
 
 // Load native session content for a specific execution
-async function loadNativeSessionContent(executionId) {
+async function loadNativeSessionContent(executionId, sourceDir) {
   try {
-    const url = `/api/cli/native-session?path=${encodeURIComponent(projectPath)}&id=${encodeURIComponent(executionId)}`;
+    // If sourceDir provided, use it to build the correct path
+    const basePath = sourceDir && sourceDir !== '.'
+      ? projectPath + '/' + sourceDir
+      : projectPath;
+    const url = `/api/cli/native-session?path=${encodeURIComponent(basePath)}&id=${encodeURIComponent(executionId)}`;
     const response = await fetch(url);
     if (!response.ok) return null;
     return await response.json();
@@ -133,9 +137,12 @@ function renderCliHistory() {
              </span>`
           : '';
 
+        // Escape sourceDir for use in onclick
+        const sourceDirEscaped = exec.sourceDir ? exec.sourceDir.replace(/'/g, "\\'") : '';
+
         return `
           <div class="cli-history-item ${hasNative ? 'has-native' : ''}">
-            <div class="cli-history-item-content" onclick="showExecutionDetail('${exec.id}')">
+            <div class="cli-history-item-content" onclick="showExecutionDetail('${exec.id}', '${sourceDirEscaped}')">
               <div class="cli-history-item-header">
                 <span class="cli-tool-tag cli-tool-${exec.tool}">${exec.tool.toUpperCase()}</span>
                 <span class="cli-mode-tag">${exec.mode || 'analysis'}</span>
@@ -154,14 +161,14 @@ function renderCliHistory() {
             </div>
             <div class="cli-history-actions">
               ${hasNative ? `
-                <button class="btn-icon" onclick="event.stopPropagation(); showNativeSessionDetail('${exec.id}')" title="View Native Session">
+                <button class="btn-icon" onclick="event.stopPropagation(); showNativeSessionDetail('${exec.id}', '${sourceDirEscaped}')" title="View Native Session">
                   <i data-lucide="file-json" class="w-3.5 h-3.5"></i>
                 </button>
               ` : ''}
-              <button class="btn-icon" onclick="event.stopPropagation(); showExecutionDetail('${exec.id}')" title="View Details">
+              <button class="btn-icon" onclick="event.stopPropagation(); showExecutionDetail('${exec.id}', '${sourceDirEscaped}')" title="View Details">
                 <i data-lucide="eye" class="w-3.5 h-3.5"></i>
               </button>
-              <button class="btn-icon btn-danger" onclick="event.stopPropagation(); confirmDeleteExecution('${exec.id}')" title="Delete">
+              <button class="btn-icon btn-danger" onclick="event.stopPropagation(); confirmDeleteExecution('${exec.id}', '${sourceDirEscaped}')" title="Delete">
                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
               </button>
             </div>
@@ -650,9 +657,9 @@ async function copyConcatenatedPrompt(executionId) {
 /**
  * Show native session detail modal with full conversation content
  */
-async function showNativeSessionDetail(executionId) {
+async function showNativeSessionDetail(executionId, sourceDir) {
   // Load native session content
-  const nativeSession = await loadNativeSessionContent(executionId);
+  const nativeSession = await loadNativeSessionContent(executionId, sourceDir);
 
   if (!nativeSession) {
     showRefreshToast('Native session not found', 'error');

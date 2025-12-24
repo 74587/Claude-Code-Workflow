@@ -275,11 +275,22 @@ interface SearchResult {
   message?: string;
 }
 
+interface ModelInfo {
+  model_profile?: string;
+  model_name?: string;
+  embedding_dim?: number;
+  backend?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 interface IndexStatus {
   indexed: boolean;
   has_embeddings: boolean;
   file_count?: number;
   embeddings_coverage_percent?: number;
+  total_chunks?: number;
+  model_info?: ModelInfo;
   warning?: string;
 }
 
@@ -320,6 +331,18 @@ async function checkIndexStatus(path: string = '.'): Promise<IndexStatus> {
       const embeddingsData = status.embeddings || {};
       const embeddingsCoverage = embeddingsData.coverage_percent || 0;
       const has_embeddings = embeddingsCoverage >= 50; // Threshold: 50%
+      const totalChunks = embeddingsData.total_chunks || 0;
+
+      // Extract model info if available
+      const modelInfoData = embeddingsData.model_info;
+      const modelInfo: ModelInfo | undefined = modelInfoData ? {
+        model_profile: modelInfoData.model_profile,
+        model_name: modelInfoData.model_name,
+        embedding_dim: modelInfoData.embedding_dim,
+        backend: modelInfoData.backend,
+        created_at: modelInfoData.created_at,
+        updated_at: modelInfoData.updated_at,
+      } : undefined;
 
       let warning: string | undefined;
       if (!indexed) {
@@ -335,6 +358,8 @@ async function checkIndexStatus(path: string = '.'): Promise<IndexStatus> {
         has_embeddings,
         file_count: status.total_files,
         embeddings_coverage_percent: embeddingsCoverage,
+        total_chunks: totalChunks,
+        model_info: modelInfo,
         warning,
       };
     } catch {

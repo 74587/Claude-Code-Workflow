@@ -383,7 +383,7 @@ async function loadSemanticDepsStatus() {
         acceleratorIcon = 'zap';
         acceleratorClass = 'bg-green-500/20 text-green-600';
       } else if (accelerator === 'DirectML') {
-        acceleratorIcon = 'gpu-card';
+        acceleratorIcon = 'cpu';
         acceleratorClass = 'bg-blue-500/20 text-blue-600';
       } else if (accelerator === 'ROCm') {
         acceleratorIcon = 'flame';
@@ -450,7 +450,7 @@ function buildGpuModeSelector(gpuInfo) {
       id: 'directml',
       label: 'DirectML',
       desc: t('codexlens.directmlModeDesc') || 'Windows GPU (NVIDIA/AMD/Intel)',
-      icon: 'gpu-card',
+      icon: 'cpu',
       available: gpuInfo.available.includes('directml'),
       recommended: gpuInfo.mode === 'directml'
     },
@@ -1331,7 +1331,15 @@ async function startCodexLensIndexing(indexType, embeddingModel, embeddingBacken
 
     // Check if completed successfully (WebSocket might have already reported)
     if (result.success) {
-      handleIndexComplete(true, t('codexlens.indexComplete'));
+      // For vector index, check if embeddings were actually generated
+      var embeddingsResult = result.result && result.result.embeddings;
+      if (indexType === 'vector' && embeddingsResult && !embeddingsResult.generated) {
+        // FTS succeeded but embeddings failed - show partial success
+        var errorMsg = embeddingsResult.error || t('codexlens.embeddingsFailed');
+        handleIndexComplete(false, t('codexlens.ftsSuccessEmbeddingsFailed') || 'FTS index created, but embeddings failed: ' + errorMsg);
+      } else {
+        handleIndexComplete(true, t('codexlens.indexComplete'));
+      }
     } else if (!result.success) {
       handleIndexComplete(false, result.error || t('common.unknownError'));
     }

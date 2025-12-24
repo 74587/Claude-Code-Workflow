@@ -529,27 +529,38 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
   // GET /api/litellm-api/ccw-litellm/status - Check ccw-litellm installation status
   if (pathname === '/api/litellm-api/ccw-litellm/status' && req.method === 'GET') {
     try {
-      const { spawn } = await import('child_process');
-      const result = await new Promise<{ installed: boolean; version?: string }>((resolve) => {
-        const proc = spawn('python', ['-c', 'import ccw_litellm; print(ccw_litellm.__version__ if hasattr(ccw_litellm, "__version__") else "installed")'], {
-          shell: true,
-          timeout: 10000
-        });
+      const { execSync } = await import('child_process');
 
-        let output = '';
-        proc.stdout?.on('data', (data) => { output += data.toString(); });
-        proc.on('close', (code) => {
-          if (code === 0) {
-            resolve({ installed: true, version: output.trim() || 'unknown' });
-          } else {
-            resolve({ installed: false });
+      // Try multiple Python executables
+      const pythonExecutables = ['python', 'python3', 'py'];
+      // Use single quotes inside Python code for Windows compatibility
+      const pythonCode = "import ccw_litellm; print(getattr(ccw_litellm, '__version__', 'installed'))";
+
+      let installed = false;
+      let version = '';
+      let lastError = '';
+
+      for (const pythonExe of pythonExecutables) {
+        try {
+          const output = execSync(`${pythonExe} -c "${pythonCode}"`, {
+            encoding: 'utf-8',
+            timeout: 10000,
+            windowsHide: true
+          });
+          version = output.trim();
+          if (version) {
+            installed = true;
+            console.log(`[ccw-litellm status] Found with ${pythonExe}: ${version}`);
+            break;
           }
-        });
-        proc.on('error', () => resolve({ installed: false }));
-      });
+        } catch (err) {
+          lastError = (err as Error).message;
+          console.log(`[ccw-litellm status] ${pythonExe} failed:`, lastError.substring(0, 100));
+        }
+      }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
+      res.end(JSON.stringify(installed ? { installed: true, version } : { installed: false, error: lastError }));
     } catch (err) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ installed: false, error: (err as Error).message }));

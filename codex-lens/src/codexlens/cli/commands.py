@@ -1831,6 +1831,14 @@ def embeddings_generate(
         "-r",
         help="Recursively process all _index.db files in directory tree.",
     ),
+    max_workers: int = typer.Option(
+        1,
+        "--max-workers",
+        "-w",
+        min=1,
+        max=16,
+        help="Max concurrent API calls. Recommended: 4-8 for litellm backend. Default: 1 (sequential).",
+    ),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output."),
 ) -> None:
@@ -1927,7 +1935,10 @@ def embeddings_generate(
     else:
         console.print(f"Index: [dim]{index_path}[/dim]")
     console.print(f"Backend: [cyan]{backend}[/cyan]")
-    console.print(f"Model: [cyan]{model}[/cyan]\n")
+    console.print(f"Model: [cyan]{model}[/cyan]")
+    if max_workers > 1:
+        console.print(f"Concurrency: [cyan]{max_workers} workers[/cyan]")
+    console.print()
 
     if use_recursive:
         result = generate_embeddings_recursive(
@@ -1937,6 +1948,7 @@ def embeddings_generate(
             force=force,
             chunk_size=chunk_size,
             progress_callback=progress_update,
+            max_workers=max_workers,
         )
     else:
         result = generate_embeddings(
@@ -1946,6 +1958,7 @@ def embeddings_generate(
             force=force,
             chunk_size=chunk_size,
             progress_callback=progress_update,
+            max_workers=max_workers,
         )
 
     if json_mode:

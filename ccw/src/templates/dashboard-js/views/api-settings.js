@@ -2739,8 +2739,11 @@ function toggleKeyVisibility(btn) {
  */
 async function checkCcwLitellmStatus() {
   try {
+    console.log('[API Settings] Checking ccw-litellm status...');
     var response = await fetch('/api/litellm-api/ccw-litellm/status');
+    console.log('[API Settings] Status response:', response.status);
     var status = await response.json();
+    console.log('[API Settings] ccw-litellm status:', status);
     window.ccwLitellmStatus = status;
     return status;
   } catch (e) {

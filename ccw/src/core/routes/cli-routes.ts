@@ -38,7 +38,9 @@ import {
   saveClaudeCliTools,
   updateClaudeToolEnabled,
   updateClaudeCacheSettings,
-  getClaudeCliToolsInfo
+  getClaudeCliToolsInfo,
+  addClaudeCustomEndpoint,
+  removeClaudeCustomEndpoint
 } from '../../tools/claude-cli-tools.js';
 
 export interface RouteContext {
@@ -209,6 +211,93 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
       });
       return true;
     }
+  }
+
+  // API: Get all custom endpoints
+  if (pathname === '/api/cli/endpoints' && req.method === 'GET') {
+    try {
+      const config = loadClaudeCliTools(initialPath);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ endpoints: config.customEndpoints || [] }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // API: Add/Update custom endpoint
+  if (pathname === '/api/cli/endpoints' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body: unknown) => {
+      try {
+        const { id, name, enabled } = body as { id: string; name: string; enabled: boolean };
+        if (!id || !name) {
+          return { error: 'id and name are required', status: 400 };
+        }
+        const config = addClaudeCustomEndpoint(initialPath, { id, name, enabled: enabled !== false });
+
+        broadcastToClients({
+          type: 'CLI_ENDPOINT_UPDATED',
+          payload: { endpoint: { id, name, enabled }, timestamp: new Date().toISOString() }
+        });
+
+        return { success: true, endpoints: config.customEndpoints };
+      } catch (err) {
+        return { error: (err as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // API: Update custom endpoint enabled status
+  if (pathname.match(/^\/api\/cli\/endpoints\/[^/]+$/) && req.method === 'PUT') {
+    const endpointId = pathname.split('/').pop() || '';
+    handlePostRequest(req, res, async (body: unknown) => {
+      try {
+        const { enabled, name } = body as { enabled?: boolean; name?: string };
+        const config = loadClaudeCliTools(initialPath);
+        const endpoint = config.customEndpoints.find(e => e.id === endpointId);
+
+        if (!endpoint) {
+          return { error: 'Endpoint not found', status: 404 };
+        }
+
+        if (typeof enabled === 'boolean') endpoint.enabled = enabled;
+        if (name) endpoint.name = name;
+
+        saveClaudeCliTools(initialPath, config);
+
+        broadcastToClients({
+          type: 'CLI_ENDPOINT_UPDATED',
+          payload: { endpoint, timestamp: new Date().toISOString() }
+        });
+
+        return { success: true, endpoint };
+      } catch (err) {
+        return { error: (err as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // API: Delete custom endpoint
+  if (pathname.match(/^\/api\/cli\/endpoints\/[^/]+$/) && req.method === 'DELETE') {
+    const endpointId = pathname.split('/').pop() || '';
+    try {
+      const config = removeClaudeCustomEndpoint(initialPath, endpointId);
+
+      broadcastToClients({
+        type: 'CLI_ENDPOINT_DELETED',
+        payload: { endpointId, timestamp: new Date().toISOString() }
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, endpoints: config.customEndpoints }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
   }
 
   // API: CLI Execution History

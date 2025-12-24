@@ -59,6 +59,91 @@ async function loadCcwEndpointTools() {
   }
 }
 
+// ========== LiteLLM API Endpoints ==========
+var litellmApiEndpoints = [];
+var cliCustomEndpoints = [];
+
+async function loadLitellmApiEndpoints() {
+  try {
+    var response = await fetch('/api/litellm-api/config');
+    if (!response.ok) throw new Error('Failed to load LiteLLM endpoints');
+    var data = await response.json();
+    litellmApiEndpoints = data.endpoints || [];
+    window.litellmApiConfig = data;
+    return litellmApiEndpoints;
+  } catch (err) {
+    console.error('Failed to load LiteLLM endpoints:', err);
+    litellmApiEndpoints = [];
+    return [];
+  }
+}
+
+async function loadCliCustomEndpoints() {
+  try {
+    var response = await fetch('/api/cli/endpoints');
+    if (!response.ok) throw new Error('Failed to load CLI custom endpoints');
+    var data = await response.json();
+    cliCustomEndpoints = data.endpoints || [];
+    return cliCustomEndpoints;
+  } catch (err) {
+    console.error('Failed to load CLI custom endpoints:', err);
+    cliCustomEndpoints = [];
+    return [];
+  }
+}
+
+async function toggleEndpointEnabled(endpointId, enabled) {
+  try {
+    var response = await fetch('/api/cli/endpoints/' + endpointId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: enabled })
+    });
+    if (!response.ok) throw new Error('Failed to update endpoint');
+    var data = await response.json();
+    if (data.success) {
+      // Update local state
+      var idx = cliCustomEndpoints.findIndex(function(e) { return e.id === endpointId; });
+      if (idx >= 0) {
+        cliCustomEndpoints[idx].enabled = enabled;
+      }
+      showRefreshToast((enabled ? 'Enabled' : 'Disabled') + ' endpoint: ' + endpointId, 'success');
+    }
+    return data;
+  } catch (err) {
+    showRefreshToast('Failed to update endpoint: ' + err.message, 'error');
+    throw err;
+  }
+}
+
+async function syncEndpointToCliTools(endpoint) {
+  try {
+    var response = await fetch('/api/cli/endpoints', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: endpoint.id,
+        name: endpoint.name,
+        enabled: true
+      })
+    });
+    if (!response.ok) throw new Error('Failed to sync endpoint');
+    var data = await response.json();
+    if (data.success) {
+      cliCustomEndpoints = data.endpoints;
+      showRefreshToast('Endpoint synced to CLI tools: ' + endpoint.id, 'success');
+      renderToolsSection();
+    }
+    return data;
+  } catch (err) {
+    showRefreshToast('Failed to sync endpoint: ' + err.message, 'error');
+    throw err;
+  }
+}
+
+window.toggleEndpointEnabled = toggleEndpointEnabled;
+window.syncEndpointToCliTools = syncEndpointToCliTools;
+
 // ========== CLI Tool Configuration ==========
 async function loadCliToolConfig() {
   try {
@@ -322,7 +407,9 @@ async function renderCliManager() {
     loadCliToolStatus(),
     loadCodexLensStatus(),
     loadCcwInstallations(),
-    loadCcwEndpointTools()
+    loadCcwEndpointTools(),
+    loadLitellmApiEndpoints(),
+    loadCliCustomEndpoints()
   ]);
 
   container.innerHTML = '<div class="status-manager">' +
@@ -487,6 +574,51 @@ function renderToolsSection() {
     '</div>';
   }
 
+  // API Endpoints section
+  var apiEndpointsHtml = '';
+  if (litellmApiEndpoints.length > 0) {
+    var endpointItems = litellmApiEndpoints.map(function(endpoint) {
+      // Check if endpoint is synced to CLI tools
+      var cliEndpoint = cliCustomEndpoints.find(function(e) { return e.id === endpoint.id; });
+      var isSynced = !!cliEndpoint;
+      var isEnabled = cliEndpoint ? cliEndpoint.enabled : false;
+
+      // Find provider info
+      var provider = (window.litellmApiConfig?.providers || []).find(function(p) { return p.id === endpoint.providerId; });
+      var providerName = provider ? provider.name : endpoint.providerId;
+
+      return '<div class="tool-item ' + (isSynced && isEnabled ? 'available' : 'unavailable') + '">' +
+        '<div class="tool-item-left">' +
+          '<span class="tool-status-dot ' + (isSynced && isEnabled ? 'status-available' : 'status-unavailable') + '"></span>' +
+          '<div class="tool-item-info">' +
+            '<div class="tool-item-name">' + endpoint.id + ' <span class="tool-type-badge">API</span></div>' +
+            '<div class="tool-item-desc">' + endpoint.model + ' (' + providerName + ')</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="tool-item-right">' +
+          (isSynced
+            ? '<label class="toggle-switch" onclick="event.stopPropagation()">' +
+                '<input type="checkbox" ' + (isEnabled ? 'checked' : '') + ' onchange="toggleEndpointEnabled(\'' + endpoint.id + '\', this.checked); renderToolsSection();">' +
+                '<span class="toggle-slider"></span>' +
+              '</label>'
+            : '<button class="btn-sm btn-primary" onclick="event.stopPropagation(); syncEndpointToCliTools({id: \'' + endpoint.id + '\', name: \'' + endpoint.name + '\'})">' +
+                '<i data-lucide="plus" class="w-3 h-3"></i> ' + (t('cli.addToCli') || 'Add to CLI') +
+              '</button>') +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    apiEndpointsHtml = '<div class="tools-subsection" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">' +
+      '<div class="section-header-left" style="margin-bottom: 0.5rem;">' +
+        '<h4 style="font-size: 0.875rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">' +
+          '<i data-lucide="cloud" class="w-4 h-4"></i> ' + (t('cli.apiEndpoints') || 'API Endpoints') +
+        '</h4>' +
+        '<span class="section-count">' + litellmApiEndpoints.length + ' ' + (t('cli.configured') || 'configured') + '</span>' +
+      '</div>' +
+      '<div class="tools-list">' + endpointItems + '</div>' +
+    '</div>';
+  }
+
   container.innerHTML = '<div class="section-header">' +
       '<div class="section-header-left">' +
         '<h3><i data-lucide="terminal" class="w-4 h-4"></i> ' + t('cli.tools') + '</h3>' +
@@ -500,7 +632,8 @@ function renderToolsSection() {
       toolsHtml +
       codexLensHtml +
       semanticHtml +
-    '</div>';
+    '</div>' +
+    apiEndpointsHtml;
 
   if (window.lucide) lucide.createIcons();
 }

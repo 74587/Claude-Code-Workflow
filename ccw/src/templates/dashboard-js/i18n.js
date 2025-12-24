@@ -228,6 +228,11 @@ const i18n = {
     'cli.codexLensDescFull': 'Full-text code search engine',
     'cli.semanticDesc': 'AI-powered code understanding',
     'cli.semanticDescFull': 'Natural language code search',
+    'cli.apiEndpoints': 'API Endpoints',
+    'cli.configured': 'configured',
+    'cli.addToCli': 'Add to CLI',
+    'cli.enabled': 'Enabled',
+    'cli.disabled': 'Disabled',
 
     // CodexLens Configuration
     'codexlens.config': 'CodexLens Configuration',
@@ -378,6 +383,8 @@ const i18n = {
     'codexlens.indexComplete': 'Index complete',
     'codexlens.indexSuccess': 'Index created successfully',
     'codexlens.indexFailed': 'Indexing failed',
+    'codexlens.embeddingsFailed': 'Embeddings generation failed',
+    'codexlens.ftsSuccessEmbeddingsFailed': 'FTS index created, but embeddings failed',
 
     // CodexLens Install
     'codexlens.installDesc': 'Python-based code indexing engine',
@@ -1880,6 +1887,11 @@ const i18n = {
     'cli.codexLensDescFull': '全文代码搜索引擎',
     'cli.semanticDesc': 'AI 驱动的代码理解',
     'cli.semanticDescFull': '自然语言代码搜索',
+    'cli.apiEndpoints': 'API 端点',
+    'cli.configured': '已配置',
+    'cli.addToCli': '添加到 CLI',
+    'cli.enabled': '已启用',
+    'cli.disabled': '已禁用',
 
     // CodexLens 配置
     'codexlens.config': 'CodexLens 配置',
@@ -2031,6 +2043,8 @@ const i18n = {
     'codexlens.indexComplete': '索引完成',
     'codexlens.indexSuccess': '索引创建成功',
     'codexlens.indexFailed': '索引失败',
+    'codexlens.embeddingsFailed': '嵌入生成失败',
+    'codexlens.ftsSuccessEmbeddingsFailed': 'FTS 索引已创建，但嵌入生成失败',
 
     // CodexLens 安装
     'codexlens.installDesc': '基于 Python 的代码索引引擎',

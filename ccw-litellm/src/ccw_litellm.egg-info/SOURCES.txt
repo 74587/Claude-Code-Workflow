@@ -1,8 +1,11 @@
+README.md
 pyproject.toml
 src/ccw_litellm/__init__.py
+src/ccw_litellm/cli.py
 src/ccw_litellm.egg-info/PKG-INFO
 src/ccw_litellm.egg-info/SOURCES.txt
 src/ccw_litellm.egg-info/dependency_links.txt
+src/ccw_litellm.egg-info/entry_points.txt
 src/ccw_litellm.egg-info/requires.txt
 src/ccw_litellm.egg-info/top_level.txt
 src/ccw_litellm/clients/__init__.py
