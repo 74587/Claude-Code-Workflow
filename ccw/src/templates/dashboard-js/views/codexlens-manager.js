@@ -1890,9 +1890,15 @@ async function renderCodexLensManager() {
 
     // Load LiteLLM API config for embedding backend options
     try {
+      console.log('[CodexLens] Loading LiteLLM config...');
       var litellmResponse = await fetch('/api/litellm-api/config');
+      console.log('[CodexLens] LiteLLM response status:', litellmResponse.status);
       if (litellmResponse.ok) {
         window.litellmApiConfig = await litellmResponse.json();
+        console.log('[CodexLens] LiteLLM config loaded:', window.litellmApiConfig);
+        console.log('[CodexLens] Providers:', window.litellmApiConfig?.providers?.length || 0);
+      } else {
+        console.warn('[CodexLens] LiteLLM config response not ok:', litellmResponse.status);
       }
     } catch (e) {
       console.warn('[CodexLens] Could not load LiteLLM config:', e);
@@ -2180,13 +2186,21 @@ function buildModelSelectOptionsForPage() {
 function onEmbeddingBackendChange() {
   var backendSelect = document.getElementById('pageBackendSelect');
   var modelSelect = document.getElementById('pageModelSelect');
-  if (!backendSelect || !modelSelect) return;
-  
+  if (!backendSelect || !modelSelect) {
+    console.warn('[CodexLens] Backend or model select not found');
+    return;
+  }
+
   var backend = backendSelect.value;
-  
+  console.log('[CodexLens] Backend changed to:', backend);
+  console.log('[CodexLens] Current litellmApiConfig:', window.litellmApiConfig);
+
   if (backend === 'litellm') {
     // Load LiteLLM embedding models
-    modelSelect.innerHTML = buildLiteLLMModelOptions();
+    console.log('[CodexLens] Building LiteLLM model options...');
+    var options = buildLiteLLMModelOptions();
+    console.log('[CodexLens] Built options HTML:', options);
+    modelSelect.innerHTML = options;
   } else {
     // Load local fastembed models
     modelSelect.innerHTML = buildModelSelectOptionsForPage();
@@ -2198,24 +2212,39 @@ function onEmbeddingBackendChange() {
  */
 function buildLiteLLMModelOptions() {
   var litellmConfig = window.litellmApiConfig || {};
+  console.log('[CodexLens] litellmApiConfig:', litellmConfig);
+
   var providers = litellmConfig.providers || [];
+  console.log('[CodexLens] providers count:', providers.length);
+
   var options = '';
-  
+
   providers.forEach(function(provider) {
+    console.log('[CodexLens] Processing provider:', provider.id, 'enabled:', provider.enabled);
     if (!provider.enabled) return;
-    var models = provider.models || [];
+
+    // Check embeddingModels array (config structure)
+    var models = provider.embeddingModels || provider.models || [];
+    console.log('[CodexLens] Provider', provider.id, 'embeddingModels:', models.length, models);
+
     models.forEach(function(model) {
-      if (model.type !== 'embedding' || !model.enabled) return;
+      console.log('[CodexLens] Processing model:', model.id, 'type:', model.type, 'enabled:', model.enabled);
+      // Accept embedding type or models from embeddingModels array
+      if (model.type && model.type !== 'embedding') return;
+      if (!model.enabled) return;
       var label = model.name || model.id;
+      var providerName = provider.name || provider.id;
       var selected = options === '' ? ' selected' : '';
-      options += '<option value="' + model.id + '"' + selected + '>' + label + '</option>';
+      options += '<option value="' + model.id + '"' + selected + '>' + label + ' (' + providerName + ')</option>';
+      console.log('[CodexLens] Added option:', label, 'from', providerName);
     });
   });
-  
+
   if (options === '') {
+    console.warn('[CodexLens] No embedding models found in LiteLLM config');
     options = '<option value="" disabled selected>' + (t('codexlens.noApiModels') || 'No API embedding models configured') + '</option>';
   }
-  
+
   return options;
 }
 
