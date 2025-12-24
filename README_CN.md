@@ -1,5 +1,8 @@
 # 🚀 Claude Code Workflow (CCW)
 
+[![Run in Smithery](https://smithery.ai/badge/skills/catlog22)](https://smithery.ai/skills?ns=catlog22&utm_source=github&utm_medium=badge)
+
+
 <div align="center">
 
 [![Version](https://img.shields.io/badge/version-v6.2.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
@@ -13,7 +16,7 @@
 
 ---
 
-**Claude Code Workflow (CCW)** 将 AI 开发从简单的提示词链接转变为一个强大的、上下文优先的编排系统。它通过结构化规划、确定性执行和智能多模型编排，解决了执行不确定性和误差累积的问题。
+**Claude Code Workflow (CCW)** 是一个 JSON 驱动的多智能体开发框架，具有智能 CLI 编排（Gemini/Qwen/Codex）、上下文优先架构和自动化工作流执行。它将 AI 开发从简单的提示词链接转变为一个强大的编排系统。
 
 > **🎉 版本 6.2.0: 原生 CodexLens 与 Dashboard 革新**
 >
@@ -38,8 +41,8 @@
 
 CCW 构建在一系列核心原则之上，这些原则使其与传统的 AI 开发方法区别开来：
 
-- **上下文优先架构**: 通过预定义的上下文收集，消除了执行过程中的不确定性，确保智能体在实现*之前*就拥有正确的信息。
-- **JSON 优先的状态管理**: 任务状态完全存储在 `.task/IMPL-*.json` 文件中，作为唯一的事实来源，实现了无需状态漂移的程序化编排。
+- **上下文优先架构**: 通过预定义的上下文收集消除执行过程中的不确定性，确保智能体在实现*之前*就拥有正确的信息。
+- **JSON 优先的状态管理**: 任务状态完全存储在 `.task/IMPL-*.json` 文件中作为唯一的事实来源，实现无状态漂移的程序化编排。
 - **自主多阶段编排**: 命令链式调用专门的子命令和智能体，以零用户干预的方式自动化复杂的工作流。
 - **多模型策略**: 充分利用不同 AI 模型（如 Gemini 用于分析，Codex 用于实现）的独特优势，以获得更优越的结果。
 - **分层内存系统**: 一个 4 层文档系统，在适当的抽象级别上提供上下文，防止信息过载。
@@ -49,18 +52,23 @@ CCW 构建在一系列核心原则之上，这些原则使其与传统的 AI 开
 
 ## ⚙️ 安装
 
-有关详细的安装说明，请参阅 [**INSTALL_CN.md**](INSTALL_CN.md) 指南。
+### **📦 npm 安装（推荐）**
 
-### **🚀 一键快速安装**
-
-**Windows (PowerShell):**
-```powershell
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
+通过 npm 全局安装：
+```bash
+npm install -g claude-code-workflow
 ```
 
-**Linux/macOS (Bash/Zsh):**
+然后将工作流文件安装到您的系统：
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.sh)
+# 交互式安装
+ccw install
+
+# 全局安装（到 ~/.claude）
+ccw install -m Global
+
+# 项目特定安装
+ccw install -m Path -p /path/to/project
 ```
 
 ### **✅ 验证安装**
