@@ -2,9 +2,16 @@
 // Manages LiteLLM API providers, custom endpoints, and cache settings
 
 // ========== State Management ==========
-var apiSettingsData = null;
-var providerModels = {};
-var currentModal = null;
+let apiSettingsData = null;
+const providerModels = {};
+let currentModal = null;
+
+// New state for split layout
+let selectedProviderId = null;
+let providerSearchQuery = '';
+let activeModelTab = 'llm';
+let expandedModelGroups = new Set();
+let activeSidebarTab = 'providers'; // 'providers' | 'endpoints' | 'cache'
 
 // ========== Data Loading ==========
 
@@ -13,7 +20,7 @@ var currentModal = null;
  */
 async function loadApiSettings() {
   try {
-    var response = await fetch('/api/litellm-api/config');
+    const response = await fetch('/api/litellm-api/config');
     if (!response.ok) throw new Error('Failed to load API settings');
     apiSettingsData = await response.json();
     return apiSettingsData;
@@ -29,9 +36,9 @@ async function loadApiSettings() {
  */
 async function loadProviderModels(providerType) {
   try {
-    var response = await fetch('/api/litellm-api/models/' + providerType);
+    const response = await fetch('/api/litellm-api/models/' + providerType);
     if (!response.ok) throw new Error('Failed to load models');
-    var data = await response.json();
+    const data = await response.json();
     providerModels[providerType] = data.models || [];
     return data.models;
   } catch (err) {
@@ -45,7 +52,7 @@ async function loadProviderModels(providerType) {
  */
 async function loadCacheStats() {
   try {
-    var response = await fetch('/api/litellm-api/cache/stats');
+    const response = await fetch('/api/litellm-api/cache/stats');
     if (!response.ok) throw new Error('Failed to load cache stats');
     return await response.json();
   } catch (err) {
@@ -60,7 +67,7 @@ async function loadCacheStats() {
  * Show add provider modal
  */
 async function showAddProviderModal() {
-  var modalHtml = '<div class="generic-modal-overlay active" id="providerModal">' +
+  const modalHtml = '<div class="generic-modal-overlay active" id="providerModal">' +
     '<div class="generic-modal">' +
     '<div class="generic-modal-header">' +
     '<h3 class="generic-modal-title">' + t('apiSettings.addProvider') + '</h3>' +
@@ -69,17 +76,13 @@ async function showAddProviderModal() {
     '<div class="generic-modal-body">' +
     '<form id="providerForm" class="api-settings-form">' +
     '<div class="form-group">' +
-    '<label for="provider-type">' + t('apiSettings.providerType') + '</label>' +
-    '<select id="provider-type" class="cli-input" required>' +
-    '<option value="openai">OpenAI</option>' +
+    '<label for="provider-type">' + t('apiSettings.apiFormat') + '</label>' +
+    '<select id="provider-type" class="cli-input" onchange="updateProviderSpecificFields()" required>' +
+    '<option value="openai">OpenAI ' + t('apiSettings.compatible') + '</option>' +
     '<option value="anthropic">Anthropic</option>' +
-    '<option value="google">Google</option>' +
-    '<option value="ollama">Ollama</option>' +
-    '<option value="azure">Azure</option>' +
-    '<option value="mistral">Mistral AI</option>' +
-    '<option value="deepseek">DeepSeek</option>' +
-    '<option value="custom">Custom</option>' +
+    '<option value="custom">' + t('apiSettings.customFormat') + '</option>' +
     '</select>' +
+    '<small class="form-hint">' + t('apiSettings.apiFormatHint') + '</small>' +
     '</div>' +
     '<div class="form-group">' +
     '<label for="provider-name">' + t('apiSettings.displayName') + '</label>' +
@@ -109,6 +112,60 @@ async function showAddProviderModal() {
     t('apiSettings.enableProvider') +
     '</label>' +
     '</div>' +
+    // Advanced Settings Collapsible Panel
+    '<fieldset class="advanced-settings-fieldset">' +
+    '<legend class="advanced-settings-legend" onclick="toggleAdvancedSettings()">' +
+    '<i data-lucide="chevron-right" class="advanced-toggle-icon"></i> ' +
+    t('apiSettings.advancedSettings') +
+    '</legend>' +
+    '<div id="advanced-settings-content" class="advanced-settings-content collapsed">' +
+    // Timeout
+    '<div class="form-group">' +
+    '<label for="provider-timeout">' + t('apiSettings.timeout') + ' <span class="text-muted">(' + t('common.optional') + ')</span></label>' +
+    '<input type="number" id="provider-timeout" class="cli-input" placeholder="300" min="1" max="3600" />' +
+    '<small class="form-hint">' + t('apiSettings.timeoutHint') + '</small>' +
+    '</div>' +
+    // Max Retries
+    '<div class="form-group">' +
+    '<label for="provider-max-retries">' + t('apiSettings.maxRetries') + ' <span class="text-muted">(' + t('common.optional') + ')</span></label>' +
+    '<input type="number" id="provider-max-retries" class="cli-input" placeholder="3" min="0" max="10" />' +
+    '</div>' +
+    // Organization (OpenAI only)
+    '<div class="form-group provider-specific openai-only" style="display:none;">' +
+    '<label for="provider-organization">' + t('apiSettings.organization') + ' <span class="text-muted">(' + t('common.optional') + ')</span></label>' +
+    '<input type="text" id="provider-organization" class="cli-input" placeholder="org-..." />' +
+    '<small class="form-hint">' + t('apiSettings.organizationHint') + '</small>' +
+    '</div>' +
+    // API Version (Azure only)
+    '<div class="form-group provider-specific azure-only" style="display:none;">' +
+    '<label for="provider-api-version">' + t('apiSettings.apiVersion') + ' <span class="text-muted">(' + t('common.optional') + ')</span></label>' +
+    '<input type="text" id="provider-api-version" class="cli-input" placeholder="2024-02-01" />' +
+    '<small class="form-hint">' + t('apiSettings.apiVersionHint') + '</small>' +
+    '</div>' +
+    // Rate Limiting (side by side)
+    '<div class="form-row">' +
+    '<div class="form-group form-group-half">' +
+    '<label for="provider-rpm">' + t('apiSettings.rpm') + ' <span class="text-muted">(' + t('common.optional') + ')</span></label>' +
+    '<input type="number" id="provider-rpm" class="cli-input" placeholder="' + t('apiSettings.unlimited') + '" min="0" />' +
+    '</div>' +
+    '<div class="form-group form-group-half">' +
+    '<label for="provider-tpm">' + t('apiSettings.tpm') + ' <span class="text-muted">(' + t('common.optional') + ')</span></label>' +
+    '<input type="number" id="provider-tpm" class="cli-input" placeholder="' + t('apiSettings.unlimited') + '" min="0" />' +
+    '</div>' +
+    '</div>' +
+    // Proxy
+    '<div class="form-group">' +
+    '<label for="provider-proxy">' + t('apiSettings.proxy') + ' <span class="text-muted">(' + t('common.optional') + ')</span></label>' +
+    '<input type="text" id="provider-proxy" class="cli-input" placeholder="http://proxy.example.com:8080" />' +
+    '</div>' +
+    // Custom Headers
+    '<div class="form-group">' +
+    '<label for="provider-custom-headers">' + t('apiSettings.customHeaders') + ' <span class="text-muted">(' + t('common.optional') + ')</span></label>' +
+    '<textarea id="provider-custom-headers" class="cli-input cli-textarea" rows="3" placeholder=\'{"X-Custom-Header": "value"}\'></textarea>' +
+    '<small class="form-hint">' + t('apiSettings.customHeadersHint') + '</small>' +
+    '</div>' +
+    '</div>' +
+    '</fieldset>' +
     '<div class="modal-actions">' +
     '<button type="button" class="btn btn-secondary" onclick="testProviderConnection()">' +
     '<i data-lucide="wifi"></i> ' + t('apiSettings.testConnection') +
@@ -139,7 +196,7 @@ async function showAddProviderModal() {
 async function showEditProviderModal(providerId) {
   if (!apiSettingsData) return;
 
-  var provider = apiSettingsData.providers?.find(function(p) { return p.id === providerId; });
+  const provider = apiSettingsData.providers?.find(function(p) { return p.id === providerId; });
   if (!provider) return;
 
   await showAddProviderModal();
@@ -156,6 +213,45 @@ async function showEditProviderModal(providerId) {
   }
   document.getElementById('provider-enabled').checked = provider.enabled !== false;
 
+  // Populate advanced settings if they exist
+  if (provider.advancedSettings) {
+    var settings = provider.advancedSettings;
+
+    if (settings.timeout) {
+      document.getElementById('provider-timeout').value = settings.timeout;
+    }
+    if (settings.maxRetries !== undefined) {
+      document.getElementById('provider-max-retries').value = settings.maxRetries;
+    }
+    if (settings.organization) {
+      document.getElementById('provider-organization').value = settings.organization;
+    }
+    if (settings.apiVersion) {
+      document.getElementById('provider-api-version').value = settings.apiVersion;
+    }
+    if (settings.rpm) {
+      document.getElementById('provider-rpm').value = settings.rpm;
+    }
+    if (settings.tpm) {
+      document.getElementById('provider-tpm').value = settings.tpm;
+    }
+    if (settings.proxy) {
+      document.getElementById('provider-proxy').value = settings.proxy;
+    }
+    if (settings.customHeaders) {
+      document.getElementById('provider-custom-headers').value =
+        JSON.stringify(settings.customHeaders, null, 2);
+    }
+
+    // Expand advanced settings if any values exist
+    if (Object.keys(settings).length > 0) {
+      toggleAdvancedSettings();
+    }
+  }
+
+  // Update provider-specific field visibility
+  updateProviderSpecificFields();
+
   // Store provider ID for update
   document.getElementById('providerForm').dataset.providerId = providerId;
 }
@@ -164,29 +260,64 @@ async function showEditProviderModal(providerId) {
  * Save provider (create or update)
  */
 async function saveProvider() {
-  var form = document.getElementById('providerForm');
-  var providerId = form.dataset.providerId;
+  const form = document.getElementById('providerForm');
+  const providerId = form.dataset.providerId;
 
-  var useEnvVar = document.getElementById('use-env-var').checked;
-  var apiKey = useEnvVar
+  const useEnvVar = document.getElementById('use-env-var').checked;
+  const apiKey = useEnvVar
     ? '${' + document.getElementById('env-var-name').value + '}'
     : document.getElementById('provider-apikey').value;
 
-  var providerData = {
+  // Collect advanced settings
+  var advancedSettings = {};
+
+  var timeout = document.getElementById('provider-timeout').value;
+  if (timeout) advancedSettings.timeout = parseInt(timeout);
+
+  var maxRetries = document.getElementById('provider-max-retries').value;
+  if (maxRetries) advancedSettings.maxRetries = parseInt(maxRetries);
+
+  var organization = document.getElementById('provider-organization').value;
+  if (organization) advancedSettings.organization = organization;
+
+  var apiVersion = document.getElementById('provider-api-version').value;
+  if (apiVersion) advancedSettings.apiVersion = apiVersion;
+
+  var rpm = document.getElementById('provider-rpm').value;
+  if (rpm) advancedSettings.rpm = parseInt(rpm);
+
+  var tpm = document.getElementById('provider-tpm').value;
+  if (tpm) advancedSettings.tpm = parseInt(tpm);
+
+  var proxy = document.getElementById('provider-proxy').value;
+  if (proxy) advancedSettings.proxy = proxy;
+
+  var customHeadersJson = document.getElementById('provider-custom-headers').value;
+  if (customHeadersJson) {
+    try {
+      advancedSettings.customHeaders = JSON.parse(customHeadersJson);
+    } catch (e) {
+      showRefreshToast(t('apiSettings.invalidJsonHeaders'), 'error');
+      return;
+    }
+  }
+
+  const providerData = {
     type: document.getElementById('provider-type').value,
     name: document.getElementById('provider-name').value,
     apiKey: apiKey,
     apiBase: document.getElementById('provider-apibase').value || undefined,
-    enabled: document.getElementById('provider-enabled').checked
+    enabled: document.getElementById('provider-enabled').checked,
+    advancedSettings: Object.keys(advancedSettings).length > 0 ? advancedSettings : undefined
   };
 
   try {
-    var url = providerId
+    const url = providerId
       ? '/api/litellm-api/providers/' + providerId
       : '/api/litellm-api/providers';
-    var method = providerId ? 'PUT' : 'POST';
+    const method = providerId ? 'PUT' : 'POST';
 
-    var response = await fetch(url, {
+    const response = await fetch(url, {
       method: method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(providerData)
@@ -194,7 +325,7 @@ async function saveProvider() {
 
     if (!response.ok) throw new Error('Failed to save provider');
 
-    var result = await response.json();
+    const result = await response.json();
     showRefreshToast(t('apiSettings.providerSaved'), 'success');
 
     closeProviderModal();
@@ -212,7 +343,7 @@ async function deleteProvider(providerId) {
   if (!confirm(t('apiSettings.confirmDeleteProvider'))) return;
 
   try {
-    var response = await fetch('/api/litellm-api/providers/' + providerId, {
+    const response = await fetch('/api/litellm-api/providers/' + providerId, {
       method: 'DELETE'
     });
 
@@ -230,8 +361,8 @@ async function deleteProvider(providerId) {
  * Test provider connection
  */
 async function testProviderConnection() {
-  var form = document.getElementById('providerForm');
-  var providerId = form.dataset.providerId;
+  const form = document.getElementById('providerForm');
+  const providerId = form.dataset.providerId;
 
   if (!providerId) {
     showRefreshToast(t('apiSettings.saveProviderFirst'), 'warning');
@@ -239,13 +370,13 @@ async function testProviderConnection() {
   }
 
   try {
-    var response = await fetch('/api/litellm-api/providers/' + providerId + '/test', {
+    const response = await fetch('/api/litellm-api/providers/' + providerId + '/test', {
       method: 'POST'
     });
 
     if (!response.ok) throw new Error('Failed to test provider');
 
-    var result = await response.json();
+    const result = await response.json();
 
     if (result.success) {
       showRefreshToast(t('apiSettings.connectionSuccess'), 'success');
@@ -262,7 +393,7 @@ async function testProviderConnection() {
  * Close provider modal
  */
 function closeProviderModal() {
-  var modal = document.getElementById('providerModal');
+  const modal = document.getElementById('providerModal');
   if (modal) modal.remove();
 }
 
@@ -270,8 +401,8 @@ function closeProviderModal() {
  * Toggle API key visibility
  */
 function toggleApiKeyVisibility(inputId) {
-  var input = document.getElementById(inputId);
-  var icon = event.target.closest('button').querySelector('i');
+  const input = document.getElementById(inputId);
+  const icon = event.target.closest('button').querySelector('i');
 
   if (input.type === 'password') {
     input.type = 'text';
@@ -288,9 +419,9 @@ function toggleApiKeyVisibility(inputId) {
  * Toggle environment variable input
  */
 function toggleEnvVarInput() {
-  var useEnvVar = document.getElementById('use-env-var').checked;
-  var apiKeyInput = document.getElementById('provider-apikey');
-  var envVarInput = document.getElementById('env-var-name');
+  const useEnvVar = document.getElementById('use-env-var').checked;
+  const apiKeyInput = document.getElementById('provider-apikey');
+  const envVarInput = document.getElementById('env-var-name');
 
   if (useEnvVar) {
     apiKeyInput.style.display = 'none';
@@ -305,6 +436,54 @@ function toggleEnvVarInput() {
   }
 }
 
+/**
+ * Toggle advanced settings visibility
+ */
+function toggleAdvancedSettings() {
+  var content = document.getElementById('advanced-settings-content');
+  var legend = document.querySelector('.advanced-settings-legend');
+  var isCollapsed = content.classList.contains('collapsed');
+
+  content.classList.toggle('collapsed');
+  legend.classList.toggle('expanded');
+
+  // Update icon
+  var icon = legend.querySelector('.advanced-toggle-icon');
+  if (icon) {
+    icon.setAttribute('data-lucide', isCollapsed ? 'chevron-down' : 'chevron-right');
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+/**
+ * Update provider-specific fields visibility based on provider type
+ */
+function updateProviderSpecificFields() {
+  var providerType = document.getElementById('provider-type').value;
+
+  // Hide all provider-specific fields first
+  var specificFields = document.querySelectorAll('.provider-specific');
+  specificFields.forEach(function(el) {
+    el.style.display = 'none';
+  });
+
+  // Show OpenAI-specific fields
+  if (providerType === 'openai') {
+    var openaiFields = document.querySelectorAll('.openai-only');
+    openaiFields.forEach(function(el) {
+      el.style.display = 'block';
+    });
+  }
+
+  // Show Azure-specific fields
+  if (providerType === 'azure') {
+    var azureFields = document.querySelectorAll('.azure-only');
+    azureFields.forEach(function(el) {
+      el.style.display = 'block';
+    });
+  }
+}
+
 // ========== Endpoint Management ==========
 
 /**
@@ -316,14 +495,14 @@ async function showAddEndpointModal() {
     return;
   }
 
-  var providerOptions = apiSettingsData.providers
+  const providerOptions = apiSettingsData.providers
     .filter(function(p) { return p.enabled !== false; })
     .map(function(p) {
       return '<option value="' + p.id + '">' + p.name + ' (' + p.type + ')</option>';
     })
     .join('');
 
-  var modalHtml = '<div class="generic-modal-overlay active" id="endpointModal">' +
+  const modalHtml = '<div class="generic-modal-overlay active" id="endpointModal">' +
     '<div class="generic-modal">' +
     '<div class="generic-modal-header">' +
     '<h3 class="generic-modal-title">' + t('apiSettings.addEndpoint') + '</h3>' +
@@ -403,7 +582,7 @@ async function showAddEndpointModal() {
 async function showEditEndpointModal(endpointId) {
   if (!apiSettingsData) return;
 
-  var endpoint = apiSettingsData.endpoints?.find(function(e) { return e.id === endpointId; });
+  const endpoint = apiSettingsData.endpoints?.find(function(e) { return e.id === endpointId; });
   if (!endpoint) return;
 
   await showAddEndpointModal();
@@ -438,11 +617,11 @@ async function showEditEndpointModal(endpointId) {
  * Save endpoint (create or update)
  */
 async function saveEndpoint() {
-  var form = document.getElementById('endpointForm');
-  var endpointId = form.dataset.endpointId || document.getElementById('endpoint-id').value;
+  const form = document.getElementById('endpointForm');
+  const endpointId = form.dataset.endpointId || document.getElementById('endpoint-id').value;
 
-  var cacheEnabled = document.getElementById('cache-enabled').checked;
-  var cacheStrategy = cacheEnabled ? {
+  const cacheEnabled = document.getElementById('cache-enabled').checked;
+  const cacheStrategy = cacheEnabled ? {
     enabled: true,
     ttlMinutes: parseInt(document.getElementById('cache-ttl').value) || 60,
     maxSizeKB: parseInt(document.getElementById('cache-maxsize').value) || 512,
@@ -452,7 +631,7 @@ async function saveEndpoint() {
       .filter(function(p) { return p; })
   } : { enabled: false };
 
-  var endpointData = {
+  const endpointData = {
     id: endpointId,
     name: document.getElementById('endpoint-name').value,
     providerId: document.getElementById('endpoint-provider').value,
@@ -461,12 +640,12 @@ async function saveEndpoint() {
   };
 
   try {
-    var url = form.dataset.endpointId
+    const url = form.dataset.endpointId
       ? '/api/litellm-api/endpoints/' + form.dataset.endpointId
       : '/api/litellm-api/endpoints';
-    var method = form.dataset.endpointId ? 'PUT' : 'POST';
+    const method = form.dataset.endpointId ? 'PUT' : 'POST';
 
-    var response = await fetch(url, {
+    const response = await fetch(url, {
       method: method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(endpointData)
@@ -474,7 +653,7 @@ async function saveEndpoint() {
 
     if (!response.ok) throw new Error('Failed to save endpoint');
 
-    var result = await response.json();
+    const result = await response.json();
     showRefreshToast(t('apiSettings.endpointSaved'), 'success');
 
     closeEndpointModal();
@@ -492,7 +671,7 @@ async function deleteEndpoint(endpointId) {
   if (!confirm(t('apiSettings.confirmDeleteEndpoint'))) return;
 
   try {
-    var response = await fetch('/api/litellm-api/endpoints/' + endpointId, {
+    const response = await fetch('/api/litellm-api/endpoints/' + endpointId, {
       method: 'DELETE'
     });
 
@@ -510,7 +689,7 @@ async function deleteEndpoint(endpointId) {
  * Close endpoint modal
  */
 function closeEndpointModal() {
-  var modal = document.getElementById('endpointModal');
+  const modal = document.getElementById('endpointModal');
   if (modal) modal.remove();
 }
 
@@ -518,23 +697,30 @@ function closeEndpointModal() {
  * Load models for selected provider
  */
 async function loadModelsForProvider() {
-  var providerSelect = document.getElementById('endpoint-provider');
-  var modelSelect = document.getElementById('endpoint-model');
+  const providerSelect = document.getElementById('endpoint-provider');
+  const modelSelect = document.getElementById('endpoint-model');
 
   if (!providerSelect || !modelSelect) return;
 
-  var providerId = providerSelect.value;
-  var provider = apiSettingsData.providers.find(function(p) { return p.id === providerId; });
+  const providerId = providerSelect.value;
+  const provider = apiSettingsData.providers.find(function(p) { return p.id === providerId; });
 
   if (!provider) return;
 
-  // Load models for provider type
-  var models = await loadProviderModels(provider.type);
+  // Use LLM models configured for this provider (not static presets)
+  const models = provider.llmModels || [];
+
+  if (models.length === 0) {
+    modelSelect.innerHTML = '<option value="">' + t('apiSettings.noModelsConfigured') + '</option>';
+    return;
+  }
 
   modelSelect.innerHTML = '<option value="">' + t('apiSettings.selectModel') + '</option>' +
-    models.map(function(m) {
-      var desc = m.description ? ' - ' + m.description : '';
-      return '<option value="' + m.id + '">' + m.name + desc + '</option>';
+    models.filter(function(m) { return m.enabled; }).map(function(m) {
+      const contextInfo = m.capabilities && m.capabilities.contextWindow 
+        ? ' (' + Math.round(m.capabilities.contextWindow / 1000) + 'K)' 
+        : '';
+      return '<option value="' + m.id + '">' + m.name + contextInfo + '</option>';
     }).join('');
 }
 
@@ -542,8 +728,8 @@ async function loadModelsForProvider() {
  * Toggle cache settings visibility
  */
 function toggleCacheSettings() {
-  var enabled = document.getElementById('cache-enabled').checked;
-  var settings = document.getElementById('cache-settings');
+  const enabled = document.getElementById('cache-enabled').checked;
+  const settings = document.getElementById('cache-settings');
   settings.style.display = enabled ? 'block' : 'none';
 }
 
@@ -556,13 +742,13 @@ async function clearCache() {
   if (!confirm(t('apiSettings.confirmClearCache'))) return;
 
   try {
-    var response = await fetch('/api/litellm-api/cache/clear', {
+    const response = await fetch('/api/litellm-api/cache/clear', {
       method: 'POST'
     });
 
     if (!response.ok) throw new Error('Failed to clear cache');
 
-    var result = await response.json();
+    const result = await response.json();
     showRefreshToast(t('apiSettings.cacheCleared') + ' (' + result.removed + ' entries)', 'success');
 
     await renderApiSettings();
@@ -576,10 +762,10 @@ async function clearCache() {
  * Toggle global cache
  */
 async function toggleGlobalCache() {
-  var enabled = document.getElementById('global-cache-enabled').checked;
+  const enabled = document.getElementById('global-cache-enabled').checked;
 
   try {
-    var response = await fetch('/api/litellm-api/config/cache', {
+    const response = await fetch('/api/litellm-api/config/cache', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: enabled })
@@ -599,7 +785,7 @@ async function toggleGlobalCache() {
 // ========== Rendering ==========
 
 /**
- * Render API Settings page
+ * Render API Settings page - Split Layout
  */
 async function renderApiSettings() {
   var container = document.getElementById('mainContent');
@@ -613,7 +799,6 @@ async function renderApiSettings() {
 
   // Load data
   await loadApiSettings();
-  var cacheStats = await loadCacheStats();
 
   if (!apiSettingsData) {
     container.innerHTML = '<div class="api-settings-container">' +
@@ -622,82 +807,1147 @@ async function renderApiSettings() {
     return;
   }
 
-  container.innerHTML = '<div class="api-settings-container">' +
-    '<div class="api-settings-section">' +
-    '<div class="section-header">' +
-    '<h3>' + t('apiSettings.providers') + '</h3>' +
-    '<button class="btn btn-primary" onclick="showAddProviderModal()">' +
-    '<i data-lucide="plus"></i> ' + t('apiSettings.addProvider') +
+  // Build sidebar tabs HTML
+  var sidebarTabsHtml = '<div class="sidebar-tabs">' +
+    '<button class="sidebar-tab' + (activeSidebarTab === 'providers' ? ' active' : '') + '" onclick="switchSidebarTab(\'providers\')">' +
+    '<i data-lucide="server"></i> ' + t('apiSettings.providers') +
+    '</button>' +
+    '<button class="sidebar-tab' + (activeSidebarTab === 'endpoints' ? ' active' : '') + '" onclick="switchSidebarTab(\'endpoints\')">' +
+    '<i data-lucide="link"></i> ' + t('apiSettings.endpoints') +
+    '</button>' +
+    '<button class="sidebar-tab' + (activeSidebarTab === 'cache' ? ' active' : '') + '" onclick="switchSidebarTab(\'cache\')">' +
+    '<i data-lucide="database"></i> ' + t('apiSettings.cache') +
+    '</button>' +
+    '</div>';
+
+  // Build sidebar content based on active tab
+  var sidebarContentHtml = '';
+  var addButtonHtml = '';
+  
+  if (activeSidebarTab === 'providers') {
+    sidebarContentHtml = '<div class="provider-search">' +
+      '<i data-lucide="search" class="search-icon"></i>' +
+      '<input type="text" class="cli-input" id="provider-search-input" placeholder="' + t('apiSettings.searchProviders') + '" oninput="filterProviders(this.value)" />' +
+      '</div>' +
+      '<div class="provider-list" id="provider-list"></div>';
+    addButtonHtml = '<button class="btn btn-primary btn-full" onclick="showAddProviderModal()">' +
+      '<i data-lucide="plus"></i> ' + t('apiSettings.addProvider') +
+      '</button>';
+  } else if (activeSidebarTab === 'endpoints') {
+    sidebarContentHtml = '<div class="endpoints-list" id="endpoints-list"></div>';
+    addButtonHtml = '<button class="btn btn-primary btn-full" onclick="showAddEndpointModal()">' +
+      '<i data-lucide="plus"></i> ' + t('apiSettings.addEndpoint') +
+      '</button>';
+  } else if (activeSidebarTab === 'cache') {
+    sidebarContentHtml = '<div class="cache-sidebar-info" style="padding: 1rem; color: var(--text-secondary); font-size: 0.875rem;">' +
+      '<p>' + t('apiSettings.cacheTabHint') + '</p>' +
+      '</div>';
+  }
+
+  // Build split layout
+  container.innerHTML = '<div class="api-settings-container api-settings-split">' +
+    // Left Sidebar
+    '<aside class="api-settings-sidebar">' +
+    sidebarTabsHtml +
+    sidebarContentHtml +
+    '<div class="provider-list-footer">' +
+    addButtonHtml +
+    '</div>' +
+    '</aside>' +
+    // Right Main Panel
+    '<main class="api-settings-main" id="provider-detail-panel"></main>' +
+    '</div>' +
+    // Cache Panel Overlay
+    '<div class="cache-panel-overlay" id="cache-panel-overlay" onclick="closeCachePanelOverlay(event)"></div>';
+
+  // Render content based on active tab
+  if (activeSidebarTab === 'providers') {
+    renderProviderList();
+    // Auto-select first provider if exists
+    if (!selectedProviderId && apiSettingsData.providers && apiSettingsData.providers.length > 0) {
+      selectProvider(apiSettingsData.providers[0].id);
+    } else if (selectedProviderId) {
+      renderProviderDetail(selectedProviderId);
+    } else {
+      renderProviderEmptyState();
+    }
+  } else if (activeSidebarTab === 'endpoints') {
+    renderEndpointsList();
+    renderEndpointsMainPanel();
+  } else if (activeSidebarTab === 'cache') {
+    renderCacheMainPanel();
+  }
+
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Render provider list in sidebar
+ */
+function renderProviderList() {
+  var container = document.getElementById('provider-list');
+  if (!container) return;
+
+  var providers = apiSettingsData.providers || [];
+  var query = providerSearchQuery.toLowerCase();
+
+  // Filter providers
+  if (query) {
+    providers = providers.filter(function(p) {
+      return p.name.toLowerCase().includes(query) || p.type.toLowerCase().includes(query);
+    });
+  }
+
+  if (providers.length === 0) {
+    container.innerHTML = '<div class="provider-list-empty">' +
+      '<p>' + (query ? t('apiSettings.noProvidersFound') : t('apiSettings.noProviders')) + '</p>' +
+      '</div>';
+    return;
+  }
+
+  var html = '';
+  providers.forEach(function(provider) {
+    var isSelected = provider.id === selectedProviderId;
+    var iconClass = getProviderIconClass(provider.type);
+    var iconLetter = provider.type.charAt(0).toUpperCase();
+
+    html += '<div class="provider-list-item' + (isSelected ? ' selected' : '') + '" ' +
+      'data-provider-id="' + provider.id + '" onclick="selectProvider(\'' + provider.id + '\')">' +
+      '<div class="provider-item-icon ' + iconClass + '">' + iconLetter + '</div>' +
+      '<div class="provider-item-info">' +
+      '<span class="provider-item-name">' + escapeHtml(provider.name) + '</span>' +
+      '<span class="provider-item-type">' + provider.type + '</span>' +
+      '</div>' +
+      '<span class="status-badge ' + (provider.enabled ? 'status-enabled' : 'status-disabled') + '">' +
+      (provider.enabled ? 'ON' : 'OFF') +
+      '</span>' +
+      '</div>';
+  });
+
+  container.innerHTML = html;
+}
+
+/**
+ * Filter providers by search query
+ */
+function filterProviders(query) {
+  providerSearchQuery = query;
+  renderProviderList();
+}
+
+/**
+ * Switch sidebar tab
+ */
+function switchSidebarTab(tab) {
+  activeSidebarTab = tab;
+  renderApiSettings();
+}
+
+/**
+ * Select a provider
+ */
+function selectProvider(providerId) {
+  selectedProviderId = providerId;
+  renderProviderList();
+  renderProviderDetail(providerId);
+}
+
+/**
+ * Render provider detail panel
+ */
+function renderProviderDetail(providerId) {
+  var container = document.getElementById('provider-detail-panel');
+  if (!container) return;
+
+  var provider = apiSettingsData.providers.find(function(p) { return p.id === providerId; });
+  if (!provider) {
+    renderProviderEmptyState();
+    return;
+  }
+
+  var maskedKey = provider.apiKey ? '••••••••••••••••' + provider.apiKey.slice(-4) : '••••••••';
+  var apiBasePreview = (provider.apiBase || getDefaultApiBase(provider.type)) + '/chat/completions';
+
+  var html = '<div class="provider-detail-header">' +
+    '<div class="provider-detail-title">' +
+    '<div class="provider-item-icon ' + getProviderIconClass(provider.type) + '">' +
+    provider.type.charAt(0).toUpperCase() +
+    '</div>' +
+    '<h2>' + escapeHtml(provider.name) + '</h2>' +
+    '<button class="btn-icon-sm" onclick="showEditProviderModal(\'' + providerId + '\')" title="' + t('common.settings') + '">' +
+    '<i data-lucide="settings"></i>' +
+    '</button>' +
+    '<button class="btn-icon-sm text-destructive" onclick="deleteProviderWithConfirm(\'' + providerId + '\')" title="' + t('apiSettings.deleteProvider') + '">' +
+    '<i data-lucide="trash-2"></i>' +
     '</button>' +
     '</div>' +
-    '<div id="providers-list" class="api-settings-list"></div>' +
+    '<div class="provider-detail-actions">' +
+    '<label class="toggle-switch">' +
+    '<input type="checkbox" ' + (provider.enabled ? 'checked' : '') + ' onchange="toggleProviderEnabled(\'' + providerId + '\', this.checked)" />' +
+    '<span class="toggle-track"><span class="toggle-thumb"></span></span>' +
+    '</label>' +
     '</div>' +
-    '<div class="api-settings-section">' +
-    '<div class="section-header">' +
-    '<h3>' + t('apiSettings.customEndpoints') + '</h3>' +
-    '<button class="btn btn-primary" onclick="showAddEndpointModal()">' +
-    '<i data-lucide="plus"></i> ' + t('apiSettings.addEndpoint') +
+    '</div>' +
+    '<div class="provider-detail-content">' +
+    // API Key field
+    '<div class="field-group">' +
+    '<div class="field-label">' +
+    '<span>' + t('apiSettings.apiKey') + '</span>' +
+    '<div class="field-label-actions">' +
+    '<button class="btn-icon-sm" onclick="copyProviderApiKey(\'' + providerId + '\')" title="' + t('common.copy') + '">' +
+    '<i data-lucide="copy"></i>' +
     '</button>' +
     '</div>' +
-    '<div id="endpoints-list" class="api-settings-list"></div>' +
     '</div>' +
-    '<div class="api-settings-section">' +
-    '<div class="section-header">' +
-    '<h3>' + t('apiSettings.cacheSettings') + '</h3>' +
+    '<div class="field-input-group">' +
+    '<input type="password" class="cli-input" id="provider-detail-apikey" value="' + escapeHtml(provider.apiKey) + '" readonly />' +
+    '<button class="btn-icon" onclick="toggleApiKeyVisibility(\'provider-detail-apikey\')">' +
+    '<i data-lucide="eye"></i>' +
+    '</button>' +
+    '<button class="btn btn-secondary" onclick="testProviderConnection()">' + t('apiSettings.testConnection') + '</button>' +
     '</div>' +
-    '<div id="cache-settings-panel" class="cache-settings-panel"></div>' +
+    '</div>' +
+    // API Base URL field
+    '<div class="field-group">' +
+    '<div class="field-label">' +
+    '<span>' + t('apiSettings.apiBaseUrl') + '</span>' +
+    '</div>' +
+    '<input type="text" class="cli-input" value="' + escapeHtml(provider.apiBase || getDefaultApiBase(provider.type)) + '" readonly />' +
+    '<span class="field-hint">' + t('apiSettings.preview') + ': ' + apiBasePreview + '</span>' +
+    '</div>' +
+    // Model Section
+    '<div class="model-section">' +
+    '<div class="model-section-header">' +
+    '<div class="model-tabs">' +
+    '<button class="model-tab' + (activeModelTab === 'llm' ? ' active' : '') + '" onclick="switchModelTab(\'llm\')">' +
+    t('apiSettings.llmModels') +
+    '</button>' +
+    '<button class="model-tab' + (activeModelTab === 'embedding' ? ' active' : '') + '" onclick="switchModelTab(\'embedding\')">' +
+    t('apiSettings.embeddingModels') +
+    '</button>' +
+    '</div>' +
+    '<div class="model-section-actions">' +
+    '<button class="btn btn-secondary" onclick="showManageModelsModal(\'' + providerId + '\')">' +
+    '<i data-lucide="list"></i> ' + t('apiSettings.manageModels') +
+    '</button>' +
+    '<button class="btn btn-primary" onclick="showAddModelModal(\'' + providerId + '\')">' +
+    '<i data-lucide="plus"></i> ' + t('apiSettings.addModel') +
+    '</button>' +
+    '</div>' +
+    '</div>' +
+    '<div class="model-tree" id="model-tree"></div>' +
+    '</div>' +
+    // Multi-key settings button
+    '<div class="multi-key-trigger">' +
+    '<button class="btn btn-secondary multi-key-btn" onclick="showMultiKeyModal(\'' + providerId + '\')">' +
+    '<i data-lucide="key-round"></i> ' + t('apiSettings.multiKeySettings') +
+    '</button>' +
     '</div>' +
     '</div>';
 
-  renderProvidersList();
-  renderEndpointsList();
-  renderCacheSettings(cacheStats);
+  container.innerHTML = html;
+  renderModelTree(provider);
 
   if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Render provider empty state
+ */
+function renderProviderEmptyState() {
+  var container = document.getElementById('provider-detail-panel');
+  if (!container) return;
+
+  container.innerHTML = '<div class="provider-empty-state">' +
+    '<i data-lucide="database" class="provider-empty-state-icon"></i>' +
+    '<h3>' + t('apiSettings.selectProvider') + '</h3>' +
+    '<p>' + t('apiSettings.selectProviderHint') + '</p>' +
+    '</div>';
+
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Render model tree
+ */
+function renderModelTree(provider) {
+  var container = document.getElementById('model-tree');
+  if (!container) return;
+
+  var models = activeModelTab === 'llm'
+    ? (provider.llmModels || [])
+    : (provider.embeddingModels || []);
+
+  if (models.length === 0) {
+    container.innerHTML = '<div class="model-tree-empty">' +
+      '<i data-lucide="package" class="model-tree-empty-icon"></i>' +
+      '<p>' + t('apiSettings.noModels') + '</p>' +
+      '</div>';
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  // Group models by series
+  var groups = groupModelsBySeries(models);
+
+  var html = '';
+  groups.forEach(function(group) {
+    var isExpanded = expandedModelGroups.has(group.series);
+
+    html += '<div class="model-group' + (isExpanded ? ' expanded' : '') + '" data-series="' + escapeHtml(group.series) + '">' +
+      '<div class="model-group-header" onclick="toggleModelGroup(\'' + escapeHtml(group.series) + '\')">' +
+      '<i data-lucide="chevron-right" class="model-group-toggle"></i>' +
+      '<span class="model-group-name">' + escapeHtml(group.series) + '</span>' +
+      '<span class="model-group-count">' + group.models.length + '</span>' +
+      '</div>' +
+      '<div class="model-group-children">';
+
+    group.models.forEach(function(model) {
+      var badge = model.capabilities && model.capabilities.contextWindow
+        ? formatContextWindow(model.capabilities.contextWindow)
+        : '';
+
+      html += '<div class="model-item" data-model-id="' + model.id + '">' +
+        '<i data-lucide="' + (activeModelTab === 'llm' ? 'sparkles' : 'box') + '" class="model-item-icon"></i>' +
+        '<span class="model-item-name">' + escapeHtml(model.name) + '</span>' +
+        (badge ? '<span class="model-item-badge">' + badge + '</span>' : '') +
+        '<div class="model-item-actions">' +
+        '<button class="btn-icon-sm" onclick="previewModel(\'' + model.id + '\')" title="' + t('apiSettings.previewModel') + '">' +
+        '<i data-lucide="eye"></i>' +
+        '</button>' +
+        '<button class="btn-icon-sm" onclick="showModelSettingsModal(\'' + model.id + '\')" title="' + t('apiSettings.modelSettings') + '">' +
+        '<i data-lucide="settings"></i>' +
+        '</button>' +
+        '<button class="btn-icon-sm text-destructive" onclick="deleteModel(\'' + model.id + '\')" title="' + t('apiSettings.deleteModel') + '">' +
+        '<i data-lucide="trash-2"></i>' +
+        '</button>' +
+        '</div>' +
+        '</div>';
+    });
+
+    html += '</div></div>';
+  });
+
+  container.innerHTML = html;
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Group models by series
+ */
+function groupModelsBySeries(models) {
+  var seriesMap = {};
+
+  models.forEach(function(model) {
+    var series = model.series || 'Other';
+    if (!seriesMap[series]) {
+      seriesMap[series] = [];
+    }
+    seriesMap[series].push(model);
+  });
+
+  return Object.keys(seriesMap).map(function(series) {
+    return { series: series, models: seriesMap[series] };
+  }).sort(function(a, b) {
+    return a.series.localeCompare(b.series);
+  });
+}
+
+/**
+ * Toggle model group expand/collapse
+ */
+function toggleModelGroup(series) {
+  if (expandedModelGroups.has(series)) {
+    expandedModelGroups.delete(series);
+  } else {
+    expandedModelGroups.add(series);
+  }
+
+  var provider = apiSettingsData.providers.find(function(p) { return p.id === selectedProviderId; });
+  if (provider) {
+    renderModelTree(provider);
+  }
+}
+
+/**
+ * Switch model tab (LLM / Embedding)
+ */
+function switchModelTab(tab) {
+  activeModelTab = tab;
+  expandedModelGroups.clear();
+
+  var provider = apiSettingsData.providers.find(function(p) { return p.id === selectedProviderId; });
+  if (provider) {
+    renderProviderDetail(selectedProviderId);
+  }
+}
+
+/**
+ * Format context window for display
+ */
+function formatContextWindow(tokens) {
+  if (tokens >= 1000000) return Math.round(tokens / 1000000) + 'M';
+  if (tokens >= 1000) return Math.round(tokens / 1000) + 'K';
+  return tokens.toString();
+}
+
+/**
+ * Get default API base URL for provider type
+ */
+function getDefaultApiBase(type) {
+  var defaults = {
+    'openai': 'https://api.openai.com/v1',
+    'anthropic': 'https://api.anthropic.com/v1'
+  };
+  return defaults[type] || 'https://api.example.com/v1';
+}
+
+/**
+ * Toggle provider enabled status
+ */
+async function toggleProviderEnabled(providerId, enabled) {
+  try {
+    var response = await fetch('/api/litellm-api/providers/' + providerId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: enabled })
+    });
+    if (!response.ok) throw new Error('Failed to update provider');
+
+    // Update local data
+    var provider = apiSettingsData.providers.find(function(p) { return p.id === providerId; });
+    if (provider) provider.enabled = enabled;
+
+    renderProviderList();
+    showRefreshToast(t('apiSettings.providerUpdated'), 'success');
+  } catch (err) {
+    console.error('Failed to toggle provider:', err);
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
+}
+
+/**
+ * Show cache panel
+ */
+async function showCachePanel() {
+  var overlay = document.getElementById('cache-panel-overlay');
+  if (!overlay) return;
+
+  var cacheStats = await loadCacheStats();
+  var usedMB = (cacheStats.totalSize / 1048576).toFixed(1);
+  var maxMB = (cacheStats.maxSize / 1048576).toFixed(0);
+  var usagePercent = cacheStats.maxSize > 0 ? Math.round((cacheStats.totalSize / cacheStats.maxSize) * 100) : 0;
+
+  overlay.innerHTML = '<div class="cache-panel-content" onclick="event.stopPropagation()">' +
+    '<div class="cache-header">' +
+    '<div class="section-title-group">' +
+    '<h3>' + t('apiSettings.cacheSettings') + '</h3>' +
+    '</div>' +
+    '<button class="btn-icon-sm" onclick="closeCachePanel()">' +
+    '<i data-lucide="x"></i>' +
+    '</button>' +
+    '</div>' +
+    '<div class="cache-content">' +
+    '<label class="toggle-switch">' +
+    '<input type="checkbox" id="global-cache-enabled" ' + (cacheStats.enabled ? 'checked' : '') + ' onchange="toggleGlobalCache(this.checked)" />' +
+    '<span class="toggle-track"><span class="toggle-thumb"></span></span>' +
+    '<span class="toggle-label">' + t('apiSettings.enableGlobalCaching') + '</span>' +
+    '</label>' +
+    '<div class="cache-visual">' +
+    '<div class="cache-bars">' +
+    '<div class="cache-bar-fill" style="width: ' + usagePercent + '%"></div>' +
+    '</div>' +
+    '<div class="cache-legend">' +
+    '<span>' + usedMB + ' MB ' + t('apiSettings.used') + '</span>' +
+    '<span>' + maxMB + ' MB ' + t('apiSettings.total') + '</span>' +
+    '</div>' +
+    '</div>' +
+    '<div class="stat-grid">' +
+    '<div class="stat-card">' +
+    '<span class="stat-value">' + usagePercent + '%</span>' +
+    '<span class="stat-desc">' + t('apiSettings.cacheUsage') + '</span>' +
+    '</div>' +
+    '<div class="stat-card">' +
+    '<span class="stat-value">' + cacheStats.entries + '</span>' +
+    '<span class="stat-desc">' + t('apiSettings.cacheEntries') + '</span>' +
+    '</div>' +
+    '</div>' +
+    '<button class="btn btn-secondary btn-full" onclick="clearCache()">' +
+    '<i data-lucide="trash-2"></i> ' + t('apiSettings.clearCache') +
+    '</button>' +
+    '</div>' +
+    '</div>';
+
+  overlay.classList.add('active');
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Close cache panel
+ */
+function closeCachePanel() {
+  var overlay = document.getElementById('cache-panel-overlay');
+  if (overlay) {
+    overlay.classList.remove('active');
+  }
+}
+
+/**
+ * Close cache panel when clicking overlay
+ */
+function closeCachePanelOverlay(event) {
+  if (event.target.id === 'cache-panel-overlay') {
+    closeCachePanel();
+  }
+}
+
+/**
+ * Escape HTML special characters
+ */
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// ========== Model Management ==========
+
+/**
+ * Show add model modal
+ */
+function showAddModelModal(providerId, modelType) {
+  // Default to active tab if no modelType provided
+  if (!modelType) {
+    modelType = activeModelTab;
+  }
+
+  // Get provider to know which presets to show
+  const provider = apiSettingsData.providers.find(function(p) { return p.id === providerId; });
+  if (!provider) return;
+
+  const isLlm = modelType === 'llm';
+  const title = isLlm ? t('apiSettings.addLlmModel') : t('apiSettings.addEmbeddingModel');
+
+  // Get model presets based on provider type
+  const presets = isLlm ? getLlmPresetsForType(provider.type) : getEmbeddingPresetsForType(provider.type);
+
+  // Group presets by series
+  const groupedPresets = groupPresetsBySeries(presets);
+
+  const modalHtml = '<div class="generic-modal-overlay active" id="add-model-modal">' +
+    '<div class="generic-modal" style="max-width: 600px;">' +
+    '<div class="generic-modal-header">' +
+    '<h3 class="generic-modal-title">' + title + '</h3>' +
+    '<button class="generic-modal-close" onclick="closeAddModelModal()">&times;</button>' +
+    '</div>' +
+    '<div class="generic-modal-body">' +
+    '<form id="add-model-form" class="api-settings-form" onsubmit="saveNewModel(event, \'' + providerId + '\', \'' + modelType + '\')">' +
+
+    // Preset Selection
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.selectFromPresets') + '</label>' +
+    '<select id="model-preset" class="cli-input" onchange="fillModelFromPreset(this.value, \'' + modelType + '\')">' +
+    '<option value="">' + t('apiSettings.customModel') + '</option>' +
+    Object.keys(groupedPresets).map(function(series) {
+      return '<optgroup label="' + series + '">' +
+        groupedPresets[series].map(function(m) {
+          return '<option value="' + m.id + '">' + m.name + ' ' +
+            (isLlm ? '(' + (m.contextWindow/1000) + 'K)' : '(' + m.dimensions + 'D)') +
+            '</option>';
+        }).join('') +
+        '</optgroup>';
+    }).join('') +
+    '</select>' +
+    '</div>' +
+
+    // Model ID
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.modelId') + ' *</label>' +
+    '<input type="text" id="model-id" class="cli-input" required placeholder="e.g., gpt-4o" />' +
+    '</div>' +
+
+    // Display Name
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.modelName') + ' *</label>' +
+    '<input type="text" id="model-name" class="cli-input" required placeholder="e.g., GPT-4o" />' +
+    '</div>' +
+
+    // Series
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.modelSeries') + ' *</label>' +
+    '<input type="text" id="model-series" class="cli-input" required placeholder="e.g., GPT-4" />' +
+    '</div>' +
+
+    // Capabilities based on model type
+    (isLlm ?
+      '<div class="form-group">' +
+      '<label>' + t('apiSettings.contextWindow') + '</label>' +
+      '<input type="number" id="model-context-window" class="cli-input" value="128000" min="1000" />' +
+      '</div>' +
+      '<div class="form-group capabilities-checkboxes">' +
+      '<label style="display: block; margin-bottom: 0.5rem;">' + t('apiSettings.capabilities') + '</label>' +
+      '<label class="checkbox-label">' +
+      '<input type="checkbox" id="cap-streaming" checked /> ' + t('apiSettings.streaming') +
+      '</label>' +
+      '<label class="checkbox-label">' +
+      '<input type="checkbox" id="cap-function-calling" /> ' + t('apiSettings.functionCalling') +
+      '</label>' +
+      '<label class="checkbox-label">' +
+      '<input type="checkbox" id="cap-vision" /> ' + t('apiSettings.vision') +
+      '</label>' +
+      '</div>'
+    :
+      '<div class="form-group">' +
+      '<label>' + t('apiSettings.embeddingDimensions') + ' *</label>' +
+      '<input type="number" id="model-dimensions" class="cli-input" value="1536" min="64" required />' +
+      '</div>' +
+      '<div class="form-group">' +
+      '<label>' + t('apiSettings.embeddingMaxTokens') + '</label>' +
+      '<input type="number" id="model-max-tokens" class="cli-input" value="8192" min="128" />' +
+      '</div>'
+    ) +
+
+    // Description
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.description') + '</label>' +
+    '<textarea id="model-description" class="cli-input" rows="2" placeholder="' + t('apiSettings.optional') + '"></textarea>' +
+    '</div>' +
+
+    '<div class="modal-actions">' +
+    '<button type="button" class="btn btn-secondary" onclick="closeAddModelModal()">' + t('common.cancel') + '</button>' +
+    '<button type="submit" class="btn btn-primary">' + t('common.save') + '</button>' +
+    '</div>' +
+    '</form>' +
+    '</div>' +
+    '</div>' +
+    '</div>';
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Close add model modal
+ */
+function closeAddModelModal() {
+  const modal = document.getElementById('add-model-modal');
+  if (modal) modal.remove();
+}
+
+/**
+ * Get LLM presets for provider type
+ */
+function getLlmPresetsForType(providerType) {
+  const presets = {
+    openai: [
+      { id: 'gpt-4o', name: 'GPT-4o', series: 'GPT-4', contextWindow: 128000 },
+      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', series: 'GPT-4', contextWindow: 128000 },
+      { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', series: 'GPT-4', contextWindow: 128000 },
+      { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', series: 'GPT-3.5', contextWindow: 16385 },
+      { id: 'o1', name: 'O1', series: 'O1', contextWindow: 200000 },
+      { id: 'o1-mini', name: 'O1 Mini', series: 'O1', contextWindow: 128000 },
+      { id: 'deepseek-chat', name: 'DeepSeek Chat', series: 'DeepSeek', contextWindow: 64000 },
+      { id: 'deepseek-coder', name: 'DeepSeek Coder', series: 'DeepSeek', contextWindow: 64000 }
+    ],
+    anthropic: [
+      { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', series: 'Claude 4', contextWindow: 200000 },
+      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', series: 'Claude 3.5', contextWindow: 200000 },
+      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', series: 'Claude 3.5', contextWindow: 200000 },
+      { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', series: 'Claude 3', contextWindow: 200000 }
+    ],
+    custom: [
+      { id: 'custom-model', name: 'Custom Model', series: 'Custom', contextWindow: 128000 }
+    ]
+  };
+  return presets[providerType] || presets.custom;
+}
+
+/**
+ * Get Embedding presets for provider type
+ */
+function getEmbeddingPresetsForType(providerType) {
+  const presets = {
+    openai: [
+      { id: 'text-embedding-3-small', name: 'Text Embedding 3 Small', series: 'Embedding V3', dimensions: 1536, maxTokens: 8191 },
+      { id: 'text-embedding-3-large', name: 'Text Embedding 3 Large', series: 'Embedding V3', dimensions: 3072, maxTokens: 8191 },
+      { id: 'text-embedding-ada-002', name: 'Ada 002', series: 'Embedding V2', dimensions: 1536, maxTokens: 8191 }
+    ],
+    anthropic: [],  // Anthropic doesn't have embedding models
+    custom: [
+      { id: 'custom-embedding', name: 'Custom Embedding', series: 'Custom', dimensions: 1536, maxTokens: 8192 }
+    ]
+  };
+  return presets[providerType] || presets.custom;
+}
+
+/**
+ * Group presets by series
+ */
+function groupPresetsBySeries(presets) {
+  const grouped = {};
+  presets.forEach(function(preset) {
+    if (!grouped[preset.series]) {
+      grouped[preset.series] = [];
+    }
+    grouped[preset.series].push(preset);
+  });
+  return grouped;
+}
+
+/**
+ * Fill model form from preset
+ */
+function fillModelFromPreset(presetId, modelType) {
+  if (!presetId) {
+    // Clear fields for custom model
+    document.getElementById('model-id').value = '';
+    document.getElementById('model-name').value = '';
+    document.getElementById('model-series').value = '';
+    return;
+  }
+
+  const provider = apiSettingsData.providers.find(function(p) { return p.id === selectedProviderId; });
+  if (!provider) return;
+
+  const isLlm = modelType === 'llm';
+  const presets = isLlm ? getLlmPresetsForType(provider.type) : getEmbeddingPresetsForType(provider.type);
+  const preset = presets.find(function(p) { return p.id === presetId; });
+
+  if (preset) {
+    document.getElementById('model-id').value = preset.id;
+    document.getElementById('model-name').value = preset.name;
+    document.getElementById('model-series').value = preset.series;
+
+    if (isLlm && preset.contextWindow) {
+      document.getElementById('model-context-window').value = preset.contextWindow;
+    }
+    if (!isLlm && preset.dimensions) {
+      document.getElementById('model-dimensions').value = preset.dimensions;
+      if (preset.maxTokens) {
+        document.getElementById('model-max-tokens').value = preset.maxTokens;
+      }
+    }
+  }
+}
+
+/**
+ * Save new model
+ */
+function saveNewModel(event, providerId, modelType) {
+  event.preventDefault();
+
+  const isLlm = modelType === 'llm';
+  const now = new Date().toISOString();
+
+  const newModel = {
+    id: document.getElementById('model-id').value.trim(),
+    name: document.getElementById('model-name').value.trim(),
+    type: modelType,
+    series: document.getElementById('model-series').value.trim(),
+    enabled: true,
+    description: document.getElementById('model-description').value.trim() || undefined,
+    createdAt: now,
+    updatedAt: now
+  };
+
+  // Add capabilities based on model type
+  if (isLlm) {
+    newModel.capabilities = {
+      contextWindow: parseInt(document.getElementById('model-context-window').value) || 128000,
+      streaming: document.getElementById('cap-streaming').checked,
+      functionCalling: document.getElementById('cap-function-calling').checked,
+      vision: document.getElementById('cap-vision').checked
+    };
+  } else {
+    newModel.capabilities = {
+      embeddingDimension: parseInt(document.getElementById('model-dimensions').value) || 1536,
+      contextWindow: parseInt(document.getElementById('model-max-tokens').value) || 8192
+    };
+  }
+
+  // Save to provider
+  fetch('/api/litellm-api/providers/' + providerId)
+    .then(function(res) { return res.json(); })
+    .then(function(provider) {
+      const modelsKey = isLlm ? 'llmModels' : 'embeddingModels';
+      const models = provider[modelsKey] || [];
+
+      // Check for duplicate ID
+      if (models.some(function(m) { return m.id === newModel.id; })) {
+        showRefreshToast(t('apiSettings.modelIdExists'), 'error');
+        return Promise.reject('Duplicate ID');
+      }
+
+      models.push(newModel);
+      return fetch('/api/litellm-api/providers/' + providerId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [modelsKey]: models })
+      });
+    })
+    .then(function() {
+      closeAddModelModal();
+      return loadApiSettings();
+    })
+    .then(function() {
+      if (selectedProviderId === providerId) {
+        selectProvider(providerId);
+      }
+      showRefreshToast(t('common.saveSuccess'), 'success');
+    })
+    .catch(function(err) {
+      if (err !== 'Duplicate ID') {
+        console.error('Failed to save model:', err);
+        showRefreshToast(t('common.saveFailed'), 'error');
+      }
+    });
+}
+
+function showManageModelsModal(providerId) {
+  // For now, show a helpful message
+  showRefreshToast(t('apiSettings.useModelTreeToManage'), 'info');
+}
+
+function showModelSettingsModal(providerId, modelId, modelType) {
+  var provider = apiSettingsData.providers.find(function(p) { return p.id === providerId; });
+  if (!provider) return;
+
+  var isLlm = modelType === 'llm';
+  var models = isLlm ? (provider.llmModels || []) : (provider.embeddingModels || []);
+  var model = models.find(function(m) { return m.id === modelId; });
+  if (!model) return;
+
+  var capabilities = model.capabilities || {};
+  var endpointSettings = model.endpointSettings || {};
+
+  var modalHtml = '<div class="modal-overlay" id="model-settings-modal">' +
+    '<div class="modal-content" style="max-width: 550px;">' +
+    '<div class="modal-header">' +
+    '<h3>' + t('apiSettings.modelSettings') + ': ' + model.name + '</h3>' +
+    '<button class="modal-close" onclick="closeModelSettingsModal()">&times;</button>' +
+    '</div>' +
+    '<div class="modal-body">' +
+    '<form id="model-settings-form" onsubmit="saveModelSettings(event, \'' + providerId + '\', \'' + modelId + '\', \'' + modelType + '\')">' +
+
+    // Basic Info
+    '<div class="form-section">' +
+    '<h4>' + t('apiSettings.basicInfo') + '</h4>' +
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.modelName') + '</label>' +
+    '<input type="text" id="model-settings-name" class="cli-input" value="' + (model.name || '') + '" required>' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.modelSeries') + '</label>' +
+    '<input type="text" id="model-settings-series" class="cli-input" value="' + (model.series || '') + '" required>' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.description') + '</label>' +
+    '<textarea id="model-settings-description" class="cli-input" rows="2">' + (model.description || '') + '</textarea>' +
+    '</div>' +
+    '</div>' +
+
+    // Capabilities
+    '<div class="form-section">' +
+    '<h4>' + t('apiSettings.capabilities') + '</h4>' +
+    (isLlm ? (
+      '<div class="form-group">' +
+      '<label>' + t('apiSettings.contextWindow') + '</label>' +
+      '<input type="number" id="model-settings-context" class="cli-input" value="' + (capabilities.contextWindow || 128000) + '" min="1000">' +
+      '</div>' +
+      '<div class="form-group capabilities-checkboxes">' +
+      '<label class="checkbox-label"><input type="checkbox" id="model-settings-streaming"' + (capabilities.streaming ? ' checked' : '') + '> ' + t('apiSettings.streaming') + '</label>' +
+      '<label class="checkbox-label"><input type="checkbox" id="model-settings-function-calling"' + (capabilities.functionCalling ? ' checked' : '') + '> ' + t('apiSettings.functionCalling') + '</label>' +
+      '<label class="checkbox-label"><input type="checkbox" id="model-settings-vision"' + (capabilities.vision ? ' checked' : '') + '> ' + t('apiSettings.vision') + '</label>' +
+      '</div>'
+    ) : (
+      '<div class="form-group">' +
+      '<label>' + t('apiSettings.embeddingDimensions') + '</label>' +
+      '<input type="number" id="model-settings-dimensions" class="cli-input" value="' + (capabilities.embeddingDimension || 1536) + '" min="64">' +
+      '</div>' +
+      '<div class="form-group">' +
+      '<label>' + t('apiSettings.embeddingMaxTokens') + '</label>' +
+      '<input type="number" id="model-settings-max-tokens" class="cli-input" value="' + (capabilities.contextWindow || 8192) + '" min="128">' +
+      '</div>'
+    )) +
+    '</div>' +
+
+    // Endpoint Settings
+    '<div class="form-section">' +
+    '<h4>' + t('apiSettings.endpointSettings') + '</h4>' +
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.timeout') + ' (' + t('apiSettings.seconds') + ')</label>' +
+    '<input type="number" id="model-settings-timeout" class="cli-input" value="' + (endpointSettings.timeout || 300) + '" min="10" max="3600">' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.maxRetries') + '</label>' +
+    '<input type="number" id="model-settings-retries" class="cli-input" value="' + (endpointSettings.maxRetries || 3) + '" min="0" max="10">' +
+    '</div>' +
+    '</div>' +
+
+    '<div class="modal-actions">' +
+    '<button type="button" class="btn-secondary" onclick="closeModelSettingsModal()">' + t('common.cancel') + '</button>' +
+    '<button type="submit" class="btn-primary">' + t('common.save') + '</button>' +
+    '</div>' +
+    '</form>' +
+    '</div>' +
+    '</div>' +
+    '</div>';
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeModelSettingsModal() {
+  var modal = document.getElementById('model-settings-modal');
+  if (modal) modal.remove();
+}
+
+function saveModelSettings(event, providerId, modelId, modelType) {
+  event.preventDefault();
+
+  var isLlm = modelType === 'llm';
+  var modelsKey = isLlm ? 'llmModels' : 'embeddingModels';
+
+  fetch('/api/litellm-api/providers/' + providerId)
+    .then(function(res) { return res.json(); })
+    .then(function(provider) {
+      var models = provider[modelsKey] || [];
+      var modelIndex = models.findIndex(function(m) { return m.id === modelId; });
+
+      if (modelIndex === -1) {
+        throw new Error('Model not found');
+      }
+
+      // Update model fields
+      models[modelIndex].name = document.getElementById('model-settings-name').value.trim();
+      models[modelIndex].series = document.getElementById('model-settings-series').value.trim();
+      models[modelIndex].description = document.getElementById('model-settings-description').value.trim() || undefined;
+      models[modelIndex].updatedAt = new Date().toISOString();
+
+      // Update capabilities
+      if (isLlm) {
+        models[modelIndex].capabilities = {
+          contextWindow: parseInt(document.getElementById('model-settings-context').value) || 128000,
+          streaming: document.getElementById('model-settings-streaming').checked,
+          functionCalling: document.getElementById('model-settings-function-calling').checked,
+          vision: document.getElementById('model-settings-vision').checked
+        };
+      } else {
+        models[modelIndex].capabilities = {
+          embeddingDimension: parseInt(document.getElementById('model-settings-dimensions').value) || 1536,
+          contextWindow: parseInt(document.getElementById('model-settings-max-tokens').value) || 8192
+        };
+      }
+
+      // Update endpoint settings
+      models[modelIndex].endpointSettings = {
+        timeout: parseInt(document.getElementById('model-settings-timeout').value) || 300,
+        maxRetries: parseInt(document.getElementById('model-settings-retries').value) || 3
+      };
+
+      var updateData = {};
+      updateData[modelsKey] = models;
+
+      return fetch('/api/litellm-api/providers/' + providerId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      });
+    })
+    .then(function() {
+      closeModelSettingsModal();
+      return loadApiSettings();
+    })
+    .then(function() {
+      if (selectedProviderId === providerId) {
+        selectProvider(providerId);
+      }
+      showRefreshToast(t('common.saveSuccess'), 'success');
+    })
+    .catch(function(err) {
+      console.error('Failed to save model settings:', err);
+      showRefreshToast(t('common.saveFailed'), 'error');
+    });
+}
+
+function previewModel(providerId, modelId, modelType) {
+  // Just open the settings modal in read mode for now
+  showModelSettingsModal(providerId, modelId, modelType);
+}
+
+function deleteModel(providerId, modelId, modelType) {
+  if (!confirm(t('common.confirmDelete'))) return;
+
+  var isLlm = modelType === 'llm';
+  var modelsKey = isLlm ? 'llmModels' : 'embeddingModels';
+
+  fetch('/api/litellm-api/providers/' + providerId)
+    .then(function(res) { return res.json(); })
+    .then(function(provider) {
+      var models = provider[modelsKey] || [];
+      var updatedModels = models.filter(function(m) { return m.id !== modelId; });
+
+      var updateData = {};
+      updateData[modelsKey] = updatedModels;
+
+      return fetch('/api/litellm-api/providers/' + providerId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      });
+    })
+    .then(function() {
+      return loadApiSettings();
+    })
+    .then(function() {
+      if (selectedProviderId === providerId) {
+        selectProvider(providerId);
+      }
+      showRefreshToast(t('common.deleteSuccess'), 'success');
+    })
+    .catch(function(err) {
+      console.error('Failed to delete model:', err);
+      showRefreshToast(t('common.deleteFailed'), 'error');
+    });
+}
+
+function copyProviderApiKey(providerId) {
+  var provider = apiSettingsData.providers.find(function(p) { return p.id === providerId; });
+  if (provider && provider.apiKey) {
+    navigator.clipboard.writeText(provider.apiKey);
+    showRefreshToast(t('common.copied'), 'success');
+  }
+}
+
+/**
+ * Delete provider with confirmation
+ */
+async function deleteProviderWithConfirm(providerId) {
+  if (!confirm(t('apiSettings.confirmDeleteProvider'))) return;
+
+  try {
+    var response = await fetch('/api/litellm-api/providers/' + providerId, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) throw new Error('Failed to delete provider');
+
+    // Remove from local data
+    apiSettingsData.providers = apiSettingsData.providers.filter(function(p) {
+      return p.id !== providerId;
+    });
+
+    // Clear selection if deleted provider was selected
+    if (selectedProviderId === providerId) {
+      selectedProviderId = null;
+      if (apiSettingsData.providers.length > 0) {
+        selectProvider(apiSettingsData.providers[0].id);
+      } else {
+        renderProviderEmptyState();
+      }
+    }
+
+    renderProviderList();
+    showRefreshToast(t('apiSettings.providerDeleted'), 'success');
+  } catch (err) {
+    console.error('Failed to delete provider:', err);
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
+}
+
+/**
+ * Get provider icon class based on type
+ */
+function getProviderIconClass(type) {
+  var iconMap = {
+    'openai': 'provider-icon-openai',
+    'anthropic': 'provider-icon-anthropic'
+  };
+  return iconMap[type] || 'provider-icon-custom';
+}
+
+/**
+ * Get provider icon name based on type
+ */
+function getProviderIcon(type) {
+  const iconMap = {
+    'openai': 'sparkles',
+    'anthropic': 'brain',
+    'google': 'cloud',
+    'azure': 'cloud-cog',
+    'ollama': 'server',
+    'mistral': 'wind',
+    'deepseek': 'search'
+  };
+  return iconMap[type] || 'settings';
 }
 
 /**
  * Render providers list
  */
 function renderProvidersList() {
-  var container = document.getElementById('providers-list');
+  const container = document.getElementById('providers-list');
   if (!container) return;
 
-  var providers = apiSettingsData.providers || [];
+  const providers = apiSettingsData.providers || [];
 
   if (providers.length === 0) {
     container.innerHTML = '<div class="empty-state">' +
-      '<i data-lucide="cloud-off" class="empty-icon"></i>' +
-      '<p>' + t('apiSettings.noProviders') + '</p>' +
+      '<div class="empty-icon-wrapper">' +
+      '<i data-lucide="cloud-off"></i>' +
+      '</div>' +
+      '<h4>' + t('apiSettings.noProviders') + '</h4>' +
+      '<p>' + t('apiSettings.noProvidersHint') + '</p>' +
       '</div>';
     if (window.lucide) lucide.createIcons();
     return;
   }
 
   container.innerHTML = providers.map(function(provider) {
-    var statusClass = provider.enabled === false ? 'disabled' : 'enabled';
-    var statusText = provider.enabled === false ? t('apiSettings.disabled') : t('apiSettings.enabled');
+    const statusClass = provider.enabled === false ? 'disabled' : 'enabled';
+    const statusText = provider.enabled === false ? t('apiSettings.disabled') : t('apiSettings.enabled');
+    const iconClass = getProviderIconClass(provider.type);
+    const iconName = getProviderIcon(provider.type);
 
-    return '<div class="api-settings-card provider-card ' + statusClass + '">' +
+    return '<div class="api-card' + (provider.enabled === false ? ' disabled' : '') + '">' +
       '<div class="card-header">' +
+      '<div class="card-title-group">' +
+      '<div class="card-icon ' + iconClass + '">' +
+      '<i data-lucide="' + iconName + '"></i>' +
+      '</div>' +
       '<div class="card-info">' +
-      '<h4>' + provider.name + '</h4>' +
-      '<span class="provider-type-badge">' + provider.type + '</span>' +
+      '<h4 class="card-title">' + provider.name + '</h4>' +
+      '<span class="card-subtitle"><span class="provider-type-badge">' + provider.type + '</span></span>' +
+      '</div>' +
       '</div>' +
       '<div class="card-actions">' +
-      '<button class="btn-icon" onclick="showEditProviderModal(\'' + provider.id + '\')" title="' + t('common.edit') + '">' +
-      '<i data-lucide="edit"></i>' +
+      '<button class="btn-icon-sm" onclick="showEditProviderModal(\'' + provider.id + '\')" title="' + t('common.edit') + '">' +
+      '<i data-lucide="pencil"></i>' +
       '</button>' +
-      '<button class="btn-icon btn-danger" onclick="deleteProvider(\'' + provider.id + '\')" title="' + t('common.delete') + '">' +
+      '<button class="btn-icon-sm text-destructive" onclick="deleteProvider(\'' + provider.id + '\')" title="' + t('common.delete') + '">' +
       '<i data-lucide="trash-2"></i>' +
       '</button>' +
       '</div>' +
       '</div>' +
       '<div class="card-body">' +
-      '<div class="card-meta">' +
-      '<span><i data-lucide="key"></i> ' + maskApiKey(provider.apiKey) + '</span>' +
-      (provider.apiBase ? '<span><i data-lucide="globe"></i> ' + provider.apiBase + '</span>' : '') +
+      '<div class="card-meta-grid">' +
+      '<div class="meta-item">' +
+      '<span class="meta-label">' + t('apiSettings.apiKey') + '</span>' +
+      '<span class="meta-value">' + maskApiKey(provider.apiKey) + '</span>' +
+      '</div>' +
+      '<div class="meta-item">' +
+      '<span class="meta-label">' + t('common.status') + '</span>' +
       '<span class="status-badge status-' + statusClass + '">' + statusText + '</span>' +
+      '</div>' +
+      (provider.apiBase ?
+        '<div class="meta-item" style="grid-column: span 2;">' +
+        '<span class="meta-label">' + t('apiSettings.apiBaseUrl') + '</span>' +
+        '<span class="meta-value">' + provider.apiBase + '</span>' +
+        '</div>' : '') +
       '</div>' +
       '</div>' +
       '</div>';
@@ -710,51 +1960,74 @@ function renderProvidersList() {
  * Render endpoints list
  */
 function renderEndpointsList() {
-  var container = document.getElementById('endpoints-list');
+  const container = document.getElementById('endpoints-list');
   if (!container) return;
 
-  var endpoints = apiSettingsData.endpoints || [];
+  const endpoints = apiSettingsData.endpoints || [];
 
   if (endpoints.length === 0) {
     container.innerHTML = '<div class="empty-state">' +
-      '<i data-lucide="layers-off" class="empty-icon"></i>' +
-      '<p>' + t('apiSettings.noEndpoints') + '</p>' +
+      '<div class="empty-icon-wrapper">' +
+      '<i data-lucide="layers"></i>' +
+      '</div>' +
+      '<h4>' + t('apiSettings.noEndpoints') + '</h4>' +
+      '<p>' + t('apiSettings.noEndpointsHint') + '</p>' +
       '</div>';
     if (window.lucide) lucide.createIcons();
     return;
   }
 
   container.innerHTML = endpoints.map(function(endpoint) {
-    var provider = apiSettingsData.providers.find(function(p) { return p.id === endpoint.providerId; });
-    var providerName = provider ? provider.name : endpoint.providerId;
+    const provider = apiSettingsData.providers.find(function(p) { return p.id === endpoint.providerId; });
+    const providerName = provider ? provider.name : endpoint.providerId;
+    const providerType = provider ? provider.type : 'custom';
+    const iconClass = getProviderIconClass(providerType);
+    const iconName = getProviderIcon(providerType);
 
-    var cacheStatus = endpoint.cacheStrategy?.enabled
-      ? t('apiSettings.cacheEnabled') + ' (' + endpoint.cacheStrategy.ttlMinutes + ' min)'
-      : t('apiSettings.cacheDisabled');
+    const cacheEnabled = endpoint.cacheStrategy?.enabled;
+    const cacheStatus = cacheEnabled
+      ? endpoint.cacheStrategy.ttlMinutes + ' min'
+      : t('apiSettings.off');
 
-    return '<div class="api-settings-card endpoint-card">' +
+    return '<div class="api-card">' +
       '<div class="card-header">' +
+      '<div class="card-title-group">' +
+      '<div class="card-icon ' + iconClass + '">' +
+      '<i data-lucide="' + iconName + '"></i>' +
+      '</div>' +
       '<div class="card-info">' +
-      '<h4>' + endpoint.name + '</h4>' +
+      '<h4 class="card-title">' + endpoint.name + '</h4>' +
       '<code class="endpoint-id">' + endpoint.id + '</code>' +
       '</div>' +
+      '</div>' +
       '<div class="card-actions">' +
-      '<button class="btn-icon" onclick="showEditEndpointModal(\'' + endpoint.id + '\')" title="' + t('common.edit') + '">' +
-      '<i data-lucide="edit"></i>' +
+      '<button class="btn-icon-sm" onclick="showEditEndpointModal(\'' + endpoint.id + '\')" title="' + t('common.edit') + '">' +
+      '<i data-lucide="pencil"></i>' +
       '</button>' +
-      '<button class="btn-icon btn-danger" onclick="deleteEndpoint(\'' + endpoint.id + '\')" title="' + t('common.delete') + '">' +
+      '<button class="btn-icon-sm text-destructive" onclick="deleteEndpoint(\'' + endpoint.id + '\')" title="' + t('common.delete') + '">' +
       '<i data-lucide="trash-2"></i>' +
       '</button>' +
       '</div>' +
       '</div>' +
       '<div class="card-body">' +
-      '<div class="card-meta">' +
-      '<span><i data-lucide="server"></i> ' + providerName + '</span>' +
-      '<span><i data-lucide="cpu"></i> ' + endpoint.model + '</span>' +
-      '<span><i data-lucide="database"></i> ' + cacheStatus + '</span>' +
+      '<div class="card-meta-grid">' +
+      '<div class="meta-item">' +
+      '<span class="meta-label">' + t('apiSettings.provider') + '</span>' +
+      '<span class="meta-value">' + providerName + '</span>' +
+      '</div>' +
+      '<div class="meta-item">' +
+      '<span class="meta-label">' + t('apiSettings.model') + '</span>' +
+      '<span class="meta-value">' + endpoint.model + '</span>' +
+      '</div>' +
+      '<div class="meta-item">' +
+      '<span class="meta-label">' + t('apiSettings.cache') + '</span>' +
+      '<span class="badge ' + (cacheEnabled ? 'badge-success' : 'badge-outline') + '">' +
+      (cacheEnabled ? '<i data-lucide="database" style="width:12px;height:12px;margin-right:4px;"></i>' : '') +
+      cacheStatus + '</span>' +
+      '</div>' +
       '</div>' +
       '<div class="usage-hint">' +
-      '<i data-lucide="terminal"></i> ' +
+      '<i data-lucide="terminal"></i>' +
       '<code>ccw cli -p "..." --model ' + endpoint.id + '</code>' +
       '</div>' +
       '</div>' +
@@ -765,42 +2038,545 @@ function renderEndpointsList() {
 }
 
 /**
+ * Render endpoints main panel
+ */
+function renderEndpointsMainPanel() {
+  var container = document.getElementById('provider-detail-panel');
+  if (!container) return;
+
+  var endpoints = apiSettingsData.endpoints || [];
+  
+  var html = '<div class="endpoints-main-panel">' +
+    '<div class="panel-header">' +
+    '<h2>' + t('apiSettings.endpoints') + '</h2>' +
+    '<p class="panel-subtitle">' + t('apiSettings.endpointsDescription') + '</p>' +
+    '</div>' +
+    '<div class="endpoints-stats">' +
+    '<div class="stat-card">' +
+    '<div class="stat-value">' + endpoints.length + '</div>' +
+    '<div class="stat-label">' + t('apiSettings.totalEndpoints') + '</div>' +
+    '</div>' +
+    '<div class="stat-card">' +
+    '<div class="stat-value">' + endpoints.filter(function(e) { return e.cacheStrategy?.enabled; }).length + '</div>' +
+    '<div class="stat-label">' + t('apiSettings.cachedEndpoints') + '</div>' +
+    '</div>' +
+    '</div>' +
+    '</div>';
+
+  container.innerHTML = html;
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Render cache main panel
+ */
+async function renderCacheMainPanel() {
+  var container = document.getElementById('provider-detail-panel');
+  if (!container) return;
+
+  // Load cache stats
+  var stats = await loadCacheStats();
+  if (!stats) {
+    stats = { totalSize: 0, maxSize: 104857600, entries: 0 };
+  }
+
+  var globalSettings = apiSettingsData.globalCache || { enabled: false };
+  var totalSize = stats.totalSize || 0;
+  var maxSize = stats.maxSize || 104857600; // Default 100MB
+  var usedMB = (totalSize / 1024 / 1024).toFixed(2);
+  var maxMB = (maxSize / 1024 / 1024).toFixed(0);
+  var usagePercent = maxSize > 0 ? ((totalSize / maxSize) * 100).toFixed(1) : 0;
+
+  var html = '<div class="cache-main-panel">' +
+    '<div class="panel-header">' +
+    '<h2>' + t('apiSettings.cacheSettings') + '</h2>' +
+    '<p class="panel-subtitle">' + t('apiSettings.cacheDescription') + '</p>' +
+    '</div>' +
+    // Global Cache Settings
+    '<div class="settings-section">' +
+    '<div class="section-header">' +
+    '<h3>' + t('apiSettings.globalCache') + '</h3>' +
+    '<label class="toggle-switch">' +
+    '<input type="checkbox" id="global-cache-enabled" ' + (globalSettings.enabled ? 'checked' : '') + ' onchange="updateGlobalCacheEnabled(this.checked)" />' +
+    '<span class="toggle-track"><span class="toggle-thumb"></span></span>' +
+    '</label>' +
+    '</div>' +
+    '</div>' +
+    // Cache Statistics
+    '<div class="settings-section">' +
+    '<h3>' + t('apiSettings.cacheStatistics') + '</h3>' +
+    '<div class="cache-stats-grid">' +
+    '<div class="stat-card">' +
+    '<div class="stat-icon"><i data-lucide="database"></i></div>' +
+    '<div class="stat-info">' +
+    '<div class="stat-value">' + (stats.entries || 0) + '</div>' +
+    '<div class="stat-label">' + t('apiSettings.cachedEntries') + '</div>' +
+    '</div>' +
+    '</div>' +
+    '<div class="stat-card">' +
+    '<div class="stat-icon"><i data-lucide="hard-drive"></i></div>' +
+    '<div class="stat-info">' +
+    '<div class="stat-value">' + usedMB + ' MB</div>' +
+    '<div class="stat-label">' + t('apiSettings.storageUsed') + '</div>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    '<div class="storage-bar-container">' +
+    '<div class="storage-bar">' +
+    '<div class="storage-bar-fill" style="width: ' + usagePercent + '%"></div>' +
+    '</div>' +
+    '<div class="storage-label">' + usedMB + ' MB / ' + maxMB + ' MB (' + usagePercent + '%)</div>' +
+    '</div>' +
+    '</div>' +
+    // Cache Actions
+    '<div class="settings-section">' +
+    '<h3>' + t('apiSettings.cacheActions') + '</h3>' +
+    '<button class="btn btn-destructive" onclick="clearCache()">' +
+    '<i data-lucide="trash-2"></i> ' + t('apiSettings.clearCache') +
+    '</button>' +
+    '</div>' +
+    '</div>';
+
+  container.innerHTML = html;
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
  * Render cache settings panel
  */
 function renderCacheSettings(stats) {
-  var container = document.getElementById('cache-settings-panel');
+  const container = document.getElementById('cache-settings-panel');
   if (!container) return;
 
-  var globalSettings = apiSettingsData.globalCache || { enabled: false };
-  var usedMB = (stats.totalSize / 1024 / 1024).toFixed(2);
-  var maxMB = (stats.maxSize / 1024 / 1024).toFixed(0);
-  var usagePercent = stats.maxSize > 0 ? ((stats.totalSize / stats.maxSize) * 100).toFixed(1) : 0;
+  const globalSettings = apiSettingsData.globalCache || { enabled: false };
+  const totalSize = stats.totalSize || 0;
+  const maxSize = stats.maxSize || 104857600; // Default 100MB
+  const usedMB = (totalSize / 1024 / 1024).toFixed(2);
+  const maxMB = (maxSize / 1024 / 1024).toFixed(0);
+  const usagePercent = maxSize > 0 ? ((totalSize / maxSize) * 100).toFixed(1) : 0;
 
-  container.innerHTML = '<div class="cache-settings-content">' +
-    '<label class="checkbox-label">' +
-    '<input type="checkbox" id="global-cache-enabled" ' + (globalSettings.enabled ? 'checked' : '') + ' onchange="toggleGlobalCache()" /> ' +
-    t('apiSettings.enableGlobalCaching') +
+  container.innerHTML = '<div class="cache-panel">' +
+    // Cache Header
+    '<div class="cache-header">' +
+    '<div class="section-title-group">' +
+    '<h3>' + t('apiSettings.cacheSettings') + '</h3>' +
+    '</div>' +
+    '<label class="toggle-switch">' +
+    '<input type="checkbox" id="global-cache-enabled" ' + (globalSettings.enabled ? 'checked' : '') + ' onchange="toggleGlobalCache()" />' +
+    '<span class="toggle-track"><span class="toggle-thumb"></span></span>' +
+    '<span class="toggle-label">' + t('apiSettings.enableGlobalCaching') + '</span>' +
     '</label>' +
-    '<div class="cache-stats">' +
-    '<div class="stat-item">' +
-    '<span class="stat-label">' + t('apiSettings.cacheUsed') + '</span>' +
-    '<span class="stat-value">' + usedMB + ' MB / ' + maxMB + ' MB (' + usagePercent + '%)</span>' +
     '</div>' +
-    '<div class="stat-item">' +
-    '<span class="stat-label">' + t('apiSettings.cacheEntries') + '</span>' +
-    '<span class="stat-value">' + stats.entries + '</span>' +
+    // Cache Content
+    '<div class="cache-content">' +
+    // Visual Bar
+    '<div class="cache-visual">' +
+    '<div class="cache-bars">' +
+    '<div class="cache-bar-fill" style="width: ' + usagePercent + '%"></div>' +
     '</div>' +
-    '<div class="progress-bar">' +
-    '<div class="progress-fill" style="width: ' + usagePercent + '%"></div>' +
+    '<div class="cache-legend">' +
+    '<span>' + usedMB + ' MB ' + t('apiSettings.used') + '</span>' +
+    '<span>' + maxMB + ' MB ' + t('apiSettings.total') + '</span>' +
     '</div>' +
     '</div>' +
-    '<button class="btn btn-secondary" onclick="clearCache()">' +
+    // Stats Grid
+    '<div class="stat-grid">' +
+    '<div class="stat-card">' +
+    '<span class="stat-value">' + usagePercent + '%</span>' +
+    '<span class="stat-desc">' + t('apiSettings.cacheUsage') + '</span>' +
+    '</div>' +
+    '<div class="stat-card">' +
+    '<span class="stat-value">' + (stats.entries || 0) + '</span>' +
+    '<span class="stat-desc">' + t('apiSettings.cacheEntries') + '</span>' +
+    '</div>' +
+    '<div class="stat-card">' +
+    '<span class="stat-value">' + usedMB + ' MB</span>' +
+    '<span class="stat-desc">' + t('apiSettings.cacheSize') + '</span>' +
+    '</div>' +
+    '</div>' +
+    // Clear Button
+    '<button class="btn btn-secondary" onclick="clearCache()" style="align-self: flex-start;">' +
     '<i data-lucide="trash-2"></i> ' + t('apiSettings.clearCache') +
     '</button>' +
+    '</div>' +
     '</div>';
 
   if (window.lucide) lucide.createIcons();
 }
+
+// ========== Multi-Key Management ==========
+
+/**
+ * Generate unique ID for API keys
+ */
+function generateKeyId() {
+  return 'key-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+}
+
+/**
+ * Render API keys section
+ */
+function renderApiKeysSection(provider) {
+  const keys = provider.apiKeys || [];
+  const hasMultipleKeys = keys.length > 0;
+
+  let keysHtml = '';
+  if (hasMultipleKeys) {
+    keysHtml = keys.map(function(key, index) {
+      return '<div class="api-key-item" data-key-id="' + key.id + '">' +
+        '<input type="text" class="cli-input key-label" ' +
+        'value="' + (key.label || '') + '" ' +
+        'placeholder="' + t('apiSettings.keyLabel') + '" ' +
+        'onchange="updateApiKeyField(\'' + provider.id + '\', \'' + key.id + '\', \'label\', this.value)">' +
+        '<div class="key-value-wrapper" style="display: flex; gap: 0.5rem;">' +
+        '<input type="password" class="cli-input key-value" ' +
+        'value="' + key.key + '" ' +
+        'placeholder="' + t('apiSettings.keyValue') + '" ' +
+        'onchange="updateApiKeyField(\'' + provider.id + '\', \'' + key.id + '\', \'key\', this.value)">' +
+        '<button type="button" class="btn-icon" onclick="toggleKeyVisibility(this)">👁️</button>' +
+        '</div>' +
+        '<input type="number" class="cli-input key-weight" ' +
+        'value="' + (key.weight || 1) + '" min="1" max="100" ' +
+        'placeholder="' + t('apiSettings.keyWeight') + '" ' +
+        'onchange="updateApiKeyField(\'' + provider.id + '\', \'' + key.id + '\', \'weight\', parseInt(this.value))">' +
+        '<div class="key-status">' +
+        '<span class="key-status-indicator ' + (key.healthStatus || 'unknown') + '"></span>' +
+        '<span class="key-status-text">' + t('apiSettings.' + (key.healthStatus || 'unknown')) + '</span>' +
+        '</div>' +
+        '<div class="api-key-actions">' +
+        '<button type="button" class="test-key-btn" onclick="testApiKey(\'' + provider.id + '\', \'' + key.id + '\')">' +
+        t('apiSettings.testKey') +
+        '</button>' +
+        '<button type="button" class="btn-danger btn-sm" onclick="removeApiKey(\'' + provider.id + '\', \'' + key.id + '\')">' +
+        t('apiSettings.removeKey') +
+        '</button>' +
+        '</div>' +
+        '</div>';
+    }).join('');
+  } else {
+    keysHtml = '<div class="no-keys-message">' + t('apiSettings.noKeys') + '</div>';
+  }
+
+  return '<div class="api-keys-section">' +
+    '<div class="api-keys-header">' +
+    '<h4>' + t('apiSettings.apiKeys') + '</h4>' +
+    '<button type="button" class="add-key-btn btn-secondary" onclick="addApiKey(\'' + provider.id + '\')">' +
+    '+ ' + t('apiSettings.addKey') +
+    '</button>' +
+    '</div>' +
+    '<div class="api-key-list" id="api-key-list-' + provider.id + '">' +
+    keysHtml +
+    '</div>' +
+    '</div>';
+}
+
+/**
+ * Render routing strategy section
+ */
+function renderRoutingSection(provider) {
+  const strategy = provider.routingStrategy || 'simple-shuffle';
+
+  return '<div class="routing-section">' +
+    '<label>' + t('apiSettings.routingStrategy') + '</label>' +
+    '<select class="cli-input" onchange="updateProviderRouting(\'' + provider.id + '\', this.value)">' +
+    '<option value="simple-shuffle"' + (strategy === 'simple-shuffle' ? ' selected' : '') + '>' + t('apiSettings.simpleShuffleRouting') + '</option>' +
+    '<option value="weighted"' + (strategy === 'weighted' ? ' selected' : '') + '>' + t('apiSettings.weightedRouting') + '</option>' +
+    '<option value="latency-based"' + (strategy === 'latency-based' ? ' selected' : '') + '>' + t('apiSettings.latencyRouting') + '</option>' +
+    '<option value="cost-based"' + (strategy === 'cost-based' ? ' selected' : '') + '>' + t('apiSettings.costRouting') + '</option>' +
+    '<option value="least-busy"' + (strategy === 'least-busy' ? ' selected' : '') + '>' + t('apiSettings.leastBusyRouting') + '</option>' +
+    '</select>' +
+    '<div class="routing-hint">' + t('apiSettings.routingHint') + '</div>' +
+    '</div>';
+}
+
+/**
+ * Render health check section
+ */
+function renderHealthCheckSection(provider) {
+  const health = provider.healthCheck || { enabled: false, intervalSeconds: 300, cooldownSeconds: 5, failureThreshold: 3 };
+
+  return '<div class="health-check-section">' +
+    '<div class="health-check-header">' +
+    '<h5>' + t('apiSettings.healthCheck') + '</h5>' +
+    '<label class="toggle-switch">' +
+    '<input type="checkbox"' + (health.enabled ? ' checked' : '') + ' ' +
+    'onchange="updateHealthCheckEnabled(\'' + provider.id + '\', this.checked)">' +
+    '<span class="toggle-slider"></span>' +
+    '</label>' +
+    '</div>' +
+    '<div class="health-check-grid" style="' + (health.enabled ? '' : 'opacity: 0.5; pointer-events: none;') + '">' +
+    '<div class="health-check-field">' +
+    '<label>' + t('apiSettings.healthInterval') + '</label>' +
+    '<input type="number" class="cli-input" value="' + health.intervalSeconds + '" min="60" max="3600" ' +
+    'onchange="updateHealthCheckField(\'' + provider.id + '\', \'intervalSeconds\', parseInt(this.value))">' +
+    '</div>' +
+    '<div class="health-check-field">' +
+    '<label>' + t('apiSettings.healthCooldown') + '</label>' +
+    '<input type="number" class="cli-input" value="' + health.cooldownSeconds + '" min="1" max="60" ' +
+    'onchange="updateHealthCheckField(\'' + provider.id + '\', \'cooldownSeconds\', parseInt(this.value))">' +
+    '</div>' +
+    '<div class="health-check-field">' +
+    '<label>' + t('apiSettings.failureThreshold') + '</label>' +
+    '<input type="number" class="cli-input" value="' + health.failureThreshold + '" min="1" max="10" ' +
+    'onchange="updateHealthCheckField(\'' + provider.id + '\', \'failureThreshold\', parseInt(this.value))">' +
+    '</div>' +
+    '</div>' +
+    '</div>';
+}
+
+/**
+ * Show multi-key settings modal
+ */
+function showMultiKeyModal(providerId) {
+  const provider = apiSettingsData.providers.find(function(p) { return p.id === providerId; });
+  if (!provider) return;
+
+  const modalHtml = '<div class="modal-overlay" id="multi-key-modal">' +
+    '<div class="modal-content" style="max-width: 700px; max-height: 85vh; overflow-y: auto;">' +
+    '<div class="modal-header">' +
+    '<h3>' + t('apiSettings.multiKeySettings') + '</h3>' +
+    '<button class="modal-close" onclick="closeMultiKeyModal()">&times;</button>' +
+    '</div>' +
+    '<div class="modal-body">' +
+    renderApiKeysSection(provider) +
+    renderRoutingSection(provider) +
+    renderHealthCheckSection(provider) +
+    '</div>' +
+    '<div class="modal-actions">' +
+    '<button type="button" class="btn-primary" onclick="closeMultiKeyModal()">' + t('common.close') + '</button>' +
+    '</div>' +
+    '</div>' +
+    '</div>';
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Close multi-key settings modal
+ */
+function closeMultiKeyModal() {
+  const modal = document.getElementById('multi-key-modal');
+  if (modal) modal.remove();
+}
+
+/**
+ * Refresh multi-key modal content
+ */
+function refreshMultiKeyModal(providerId) {
+  const modal = document.getElementById('multi-key-modal');
+  if (!modal) return;
+  
+  const provider = apiSettingsData.providers.find(function(p) { return p.id === providerId; });
+  if (!provider) return;
+  
+  const modalBody = modal.querySelector('.modal-body');
+  if (modalBody) {
+    modalBody.innerHTML = 
+      renderApiKeysSection(provider) +
+      renderRoutingSection(provider) +
+      renderHealthCheckSection(provider);
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+/**
+ * Add API key to provider
+ */
+function addApiKey(providerId) {
+  const newKey = {
+    id: generateKeyId(),
+    key: '',
+    label: '',
+    weight: 1,
+    enabled: true,
+    healthStatus: 'unknown'
+  };
+
+  fetch('/api/litellm-api/providers/' + providerId)
+    .then(function(res) { return res.json(); })
+    .then(function(provider) {
+      const apiKeys = provider.apiKeys || [];
+      apiKeys.push(newKey);
+      return fetch('/api/litellm-api/providers/' + providerId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKeys: apiKeys })
+      });
+    })
+    .then(function() {
+      loadApiSettings().then(function() {
+        refreshMultiKeyModal(providerId);
+      });
+    })
+    .catch(function(err) {
+      console.error('Failed to add API key:', err);
+    });
+}
+
+/**
+ * Remove API key from provider
+ */
+function removeApiKey(providerId, keyId) {
+  if (!confirm(t('common.confirmDelete'))) return;
+
+  fetch('/api/litellm-api/providers/' + providerId)
+    .then(function(res) { return res.json(); })
+    .then(function(provider) {
+      const apiKeys = (provider.apiKeys || []).filter(function(k) { return k.id !== keyId; });
+      return fetch('/api/litellm-api/providers/' + providerId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKeys: apiKeys })
+      });
+    })
+    .then(function() {
+      loadApiSettings().then(function() {
+        refreshMultiKeyModal(providerId);
+      });
+    })
+    .catch(function(err) {
+      console.error('Failed to remove API key:', err);
+    });
+}
+
+/**
+ * Update API key field
+ */
+function updateApiKeyField(providerId, keyId, field, value) {
+  fetch('/api/litellm-api/providers/' + providerId)
+    .then(function(res) { return res.json(); })
+    .then(function(provider) {
+      const apiKeys = provider.apiKeys || [];
+      const keyIndex = apiKeys.findIndex(function(k) { return k.id === keyId; });
+      if (keyIndex >= 0) {
+        apiKeys[keyIndex][field] = value;
+      }
+      return fetch('/api/litellm-api/providers/' + providerId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKeys: apiKeys })
+      });
+    })
+    .catch(function(err) {
+      console.error('Failed to update API key:', err);
+    });
+}
+
+/**
+ * Update provider routing strategy
+ */
+function updateProviderRouting(providerId, strategy) {
+  fetch('/api/litellm-api/providers/' + providerId, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ routingStrategy: strategy })
+  }).catch(function(err) {
+    console.error('Failed to update routing:', err);
+  });
+}
+
+/**
+ * Update health check enabled status
+ */
+function updateHealthCheckEnabled(providerId, enabled) {
+  fetch('/api/litellm-api/providers/' + providerId)
+    .then(function(res) { return res.json(); })
+    .then(function(provider) {
+      const healthCheck = provider.healthCheck || { intervalSeconds: 300, cooldownSeconds: 5, failureThreshold: 3 };
+      healthCheck.enabled = enabled;
+      return fetch('/api/litellm-api/providers/' + providerId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ healthCheck: healthCheck })
+      });
+    })
+    .then(function() {
+      loadApiSettings().then(function() {
+        refreshMultiKeyModal(providerId);
+      });
+    })
+    .catch(function(err) {
+      console.error('Failed to update health check:', err);
+    });
+}
+
+/**
+ * Update health check field
+ */
+function updateHealthCheckField(providerId, field, value) {
+  fetch('/api/litellm-api/providers/' + providerId)
+    .then(function(res) { return res.json(); })
+    .then(function(provider) {
+      const healthCheck = provider.healthCheck || { enabled: false, intervalSeconds: 300, cooldownSeconds: 5, failureThreshold: 3 };
+      healthCheck[field] = value;
+      return fetch('/api/litellm-api/providers/' + providerId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ healthCheck: healthCheck })
+      });
+    })
+    .catch(function(err) {
+      console.error('Failed to update health check:', err);
+    });
+}
+
+/**
+ * Test API key
+ */
+function testApiKey(providerId, keyId) {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.classList.add('testing');
+  btn.textContent = t('apiSettings.testingKey');
+
+  fetch('/api/litellm-api/providers/' + providerId + '/test-key', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ keyId: keyId })
+  })
+    .then(function(res) { return res.json(); })
+    .then(function(result) {
+      btn.disabled = false;
+      btn.classList.remove('testing');
+      btn.textContent = t('apiSettings.testKey');
+
+      const keyItem = btn.closest('.api-key-item');
+      const statusIndicator = keyItem.querySelector('.key-status-indicator');
+      const statusText = keyItem.querySelector('.key-status-text');
+
+      if (result.valid) {
+        statusIndicator.className = 'key-status-indicator healthy';
+        statusText.textContent = t('apiSettings.healthy');
+        showToast(t('apiSettings.keyValid'), 'success');
+      } else {
+        statusIndicator.className = 'key-status-indicator unhealthy';
+        statusText.textContent = t('apiSettings.unhealthy');
+        showToast(t('apiSettings.keyInvalid') + ': ' + (result.error || ''), 'error');
+      }
+    })
+    .catch(function(err) {
+      btn.disabled = false;
+      btn.classList.remove('testing');
+      btn.textContent = t('apiSettings.testKey');
+      showToast('Test failed: ' + err.message, 'error');
+    });
+}
+
+/**
+ * Toggle key visibility
+ */
+function toggleKeyVisibility(btn) {
+  const input = btn.previousElementSibling;
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🔒';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁️';
+  }
+}
+
 
 // ========== Utility Functions ==========
 

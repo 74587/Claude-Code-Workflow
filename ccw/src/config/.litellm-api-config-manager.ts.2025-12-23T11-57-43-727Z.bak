@@ -1,0 +1,441 @@
+/**
+ * LiteLLM API Config Manager
+ * Manages provider credentials, endpoint configurations, and model discovery
+ */
+
+import { join } from 'path';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { homedir } from 'os';
+
+// ===========================
+// Type Definitions
+// ===========================
+
+export type ProviderType =
+  | 'openai'
+  | 'anthropic'
+  | 'google'
+  | 'cohere'
+  | 'azure'
+  | 'bedrock'
+  | 'vertexai'
+  | 'huggingface'
+  | 'ollama'
+  | 'custom';
+
+export interface ProviderCredential {
+  id: string;
+  name: string;
+  type: ProviderType;
+  apiKey?: string;
+  baseUrl?: string;
+  apiVersion?: string;
+  region?: string;
+  projectId?: string;
+  organizationId?: string;
+  enabled: boolean;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EndpointConfig {
+  id: string;
+  name: string;
+  providerId: string;
+  model: string;
+  alias?: string;
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  enabled: boolean;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ModelInfo {
+  id: string;
+  name: string;
+  provider: ProviderType;
+  contextWindow: number;
+  supportsFunctions: boolean;
+  supportsStreaming: boolean;
+  inputCostPer1k?: number;
+  outputCostPer1k?: number;
+}
+
+export interface LiteLLMApiConfig {
+  version: string;
+  providers: ProviderCredential[];
+  endpoints: EndpointConfig[];
+}
+
+// ===========================
+// Model Definitions
+// ===========================
+
+export const PROVIDER_MODELS: Record<ProviderType, ModelInfo[]> = {
+  openai: [
+    {
+      id: 'gpt-4-turbo',
+      name: 'GPT-4 Turbo',
+      provider: 'openai',
+      contextWindow: 128000,
+      supportsFunctions: true,
+      supportsStreaming: true,
+      inputCostPer1k: 0.01,
+      outputCostPer1k: 0.03,
+    },
+    {
+      id: 'gpt-4',
+      name: 'GPT-4',
+      provider: 'openai',
+      contextWindow: 8192,
+      supportsFunctions: true,
+      supportsStreaming: true,
+      inputCostPer1k: 0.03,
+      outputCostPer1k: 0.06,
+    },
+    {
+      id: 'gpt-3.5-turbo',
+      name: 'GPT-3.5 Turbo',
+      provider: 'openai',
+      contextWindow: 16385,
+      supportsFunctions: true,
+      supportsStreaming: true,
+      inputCostPer1k: 0.0005,
+      outputCostPer1k: 0.0015,
+    },
+  ],
+  anthropic: [
+    {
+      id: 'claude-3-opus-20240229',
+      name: 'Claude 3 Opus',
+      provider: 'anthropic',
+      contextWindow: 200000,
+      supportsFunctions: true,
+      supportsStreaming: true,
+      inputCostPer1k: 0.015,
+      outputCostPer1k: 0.075,
+    },
+    {
+      id: 'claude-3-sonnet-20240229',
+      name: 'Claude 3 Sonnet',
+      provider: 'anthropic',
+      contextWindow: 200000,
+      supportsFunctions: true,
+      supportsStreaming: true,
+      inputCostPer1k: 0.003,
+      outputCostPer1k: 0.015,
+    },
+    {
+      id: 'claude-3-haiku-20240307',
+      name: 'Claude 3 Haiku',
+      provider: 'anthropic',
+      contextWindow: 200000,
+      supportsFunctions: true,
+      supportsStreaming: true,
+      inputCostPer1k: 0.00025,
+      outputCostPer1k: 0.00125,
+    },
+  ],
+  google: [
+    {
+      id: 'gemini-pro',
+      name: 'Gemini Pro',
+      provider: 'google',
+      contextWindow: 32768,
+      supportsFunctions: true,
+      supportsStreaming: true,
+    },
+    {
+      id: 'gemini-pro-vision',
+      name: 'Gemini Pro Vision',
+      provider: 'google',
+      contextWindow: 16384,
+      supportsFunctions: false,
+      supportsStreaming: true,
+    },
+  ],
+  cohere: [
+    {
+      id: 'command',
+      name: 'Command',
+      provider: 'cohere',
+      contextWindow: 4096,
+      supportsFunctions: false,
+      supportsStreaming: true,
+    },
+    {
+      id: 'command-light',
+      name: 'Command Light',
+      provider: 'cohere',
+      contextWindow: 4096,
+      supportsFunctions: false,
+      supportsStreaming: true,
+    },
+  ],
+  azure: [],
+  bedrock: [],
+  vertexai: [],
+  huggingface: [],
+  ollama: [],
+  custom: [],
+};
+
+// ===========================
+// Config File Management
+// ===========================
+
+const CONFIG_DIR = join(homedir(), '.claude', 'litellm');
+const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
+
+function ensureConfigDir(): void {
+  if (!existsSync(CONFIG_DIR)) {
+    mkdirSync(CONFIG_DIR, { recursive: true });
+  }
+}
+
+function loadConfig(): LiteLLMApiConfig {
+  ensureConfigDir();
+
+  if (!existsSync(CONFIG_FILE)) {
+    const defaultConfig: LiteLLMApiConfig = {
+      version: '1.0.0',
+      providers: [],
+      endpoints: [],
+    };
+    saveConfig(defaultConfig);
+    return defaultConfig;
+  }
+
+  try {
+    const content = readFileSync(CONFIG_FILE, 'utf-8');
+    return JSON.parse(content);
+  } catch (err) {
+    throw new Error(`Failed to load config: ${(err as Error).message}`);
+  }
+}
+
+function saveConfig(config: LiteLLMApiConfig): void {
+  ensureConfigDir();
+
+  try {
+    writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
+  } catch (err) {
+    throw new Error(`Failed to save config: ${(err as Error).message}`);
+  }
+}
+
+// ===========================
+// Provider Management
+// ===========================
+
+export function getAllProviders(): ProviderCredential[] {
+  const config = loadConfig();
+  return config.providers;
+}
+
+export function getProvider(id: string): ProviderCredential | null {
+  const config = loadConfig();
+  return config.providers.find((p) => p.id === id) || null;
+}
+
+export function createProvider(
+  data: Omit<ProviderCredential, 'id' | 'createdAt' | 'updatedAt'>
+): ProviderCredential {
+  const config = loadConfig();
+
+  const now = new Date().toISOString();
+  const provider: ProviderCredential = {
+    ...data,
+    id: `provider-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  config.providers.push(provider);
+  saveConfig(config);
+
+  return provider;
+}
+
+export function updateProvider(
+  id: string,
+  updates: Partial<ProviderCredential>
+): ProviderCredential | null {
+  const config = loadConfig();
+
+  const index = config.providers.findIndex((p) => p.id === id);
+  if (index === -1) {
+    return null;
+  }
+
+  const updated: ProviderCredential = {
+    ...config.providers[index],
+    ...updates,
+    id,
+    updatedAt: new Date().toISOString(),
+  };
+
+  config.providers[index] = updated;
+  saveConfig(config);
+
+  return updated;
+}
+
+export function deleteProvider(id: string): { success: boolean } {
+  const config = loadConfig();
+
+  const index = config.providers.findIndex((p) => p.id === id);
+  if (index === -1) {
+    return { success: false };
+  }
+
+  config.providers.splice(index, 1);
+
+  // Also delete endpoints using this provider
+  config.endpoints = config.endpoints.filter((e) => e.providerId !== id);
+
+  saveConfig(config);
+
+  return { success: true };
+}
+
+export async function testProviderConnection(
+  providerId: string
+): Promise<{ success: boolean; error?: string }> {
+  const provider = getProvider(providerId);
+
+  if (!provider) {
+    return { success: false, error: 'Provider not found' };
+  }
+
+  if (!provider.enabled) {
+    return { success: false, error: 'Provider is disabled' };
+  }
+
+  // Basic validation
+  if (!provider.apiKey && provider.type !== 'ollama' && provider.type !== 'custom') {
+    return { success: false, error: 'API key is required for this provider type' };
+  }
+
+  // TODO: Implement actual provider connection testing using litellm-client
+  // For now, just validate the configuration
+  return { success: true };
+}
+
+// ===========================
+// Endpoint Management
+// ===========================
+
+export function getAllEndpoints(): EndpointConfig[] {
+  const config = loadConfig();
+  return config.endpoints;
+}
+
+export function getEndpoint(id: string): EndpointConfig | null {
+  const config = loadConfig();
+  return config.endpoints.find((e) => e.id === id) || null;
+}
+
+export function createEndpoint(
+  data: Omit<EndpointConfig, 'id' | 'createdAt' | 'updatedAt'>
+): EndpointConfig {
+  const config = loadConfig();
+
+  // Validate provider exists
+  const provider = config.providers.find((p) => p.id === data.providerId);
+  if (!provider) {
+    throw new Error('Provider not found');
+  }
+
+  const now = new Date().toISOString();
+  const endpoint: EndpointConfig = {
+    ...data,
+    id: `endpoint-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  config.endpoints.push(endpoint);
+  saveConfig(config);
+
+  return endpoint;
+}
+
+export function updateEndpoint(
+  id: string,
+  updates: Partial<EndpointConfig>
+): EndpointConfig | null {
+  const config = loadConfig();
+
+  const index = config.endpoints.findIndex((e) => e.id === id);
+  if (index === -1) {
+    return null;
+  }
+
+  // Validate provider if being updated
+  if (updates.providerId) {
+    const provider = config.providers.find((p) => p.id === updates.providerId);
+    if (!provider) {
+      throw new Error('Provider not found');
+    }
+  }
+
+  const updated: EndpointConfig = {
+    ...config.endpoints[index],
+    ...updates,
+    id,
+    updatedAt: new Date().toISOString(),
+  };
+
+  config.endpoints[index] = updated;
+  saveConfig(config);
+
+  return updated;
+}
+
+export function deleteEndpoint(id: string): { success: boolean } {
+  const config = loadConfig();
+
+  const index = config.endpoints.findIndex((e) => e.id === id);
+  if (index === -1) {
+    return { success: false };
+  }
+
+  config.endpoints.splice(index, 1);
+  saveConfig(config);
+
+  return { success: true };
+}
+
+// ===========================
+// Model Discovery
+// ===========================
+
+export function getModelsForProviderType(providerType: ProviderType): ModelInfo[] | null {
+  return PROVIDER_MODELS[providerType] || null;
+}
+
+export function getAllModels(): Record<ProviderType, ModelInfo[]> {
+  return PROVIDER_MODELS;
+}
+
+// ===========================
+// Config Access
+// ===========================
+
+export function getFullConfig(): LiteLLMApiConfig {
+  return loadConfig();
+}
+
+export function resetConfig(): void {
+  const defaultConfig: LiteLLMApiConfig = {
+    version: '1.0.0',
+    providers: [],
+    endpoints: [],
+  };
+  saveConfig(defaultConfig);
+}

@@ -362,10 +362,6 @@ ccw cli -p "RULES: \$(cat ~/.claude/workflows/cli-templates/protocols/analysis-p
   - Description: Additional directories (comma-separated)
   - Default: none
 
-- **`--timeout <ms>`**
-  - Description: Timeout in milliseconds
-  - Default: 300000
-
 - **`--resume [id]`**
   - Description: Resume previous session
   - Default: -
@@ -423,73 +419,80 @@ CCW automatically maps to tool-specific syntax:
 
 **Analysis Task** (Security Audit):
 ```bash
-ccw cli -p "
+timeout 600 ccw cli -p "
 PURPOSE: Identify OWASP Top 10 vulnerabilities in authentication module to pass security audit; success = all critical/high issues documented with remediation
 TASK: • Scan for injection flaws (SQL, command, LDAP) • Check authentication bypass vectors • Evaluate session management • Assess sensitive data exposure
 MODE: analysis
 CONTEXT: @src/auth/**/* @src/middleware/auth.ts | Memory: Using bcrypt for passwords, JWT for sessions
 EXPECTED: Security report with: severity matrix, file:line references, CVE mappings where applicable, remediation code snippets prioritized by risk
 RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/analysis/03-assess-security-risks.txt) | Focus on authentication | Ignore test files
-" --tool gemini --cd src/auth --timeout 600000
+" --tool gemini --mode analysis --cd src/auth
 ```
 
 **Implementation Task** (New Feature):
 ```bash
-ccw cli -p "
+timeout 1800 ccw cli -p "
 PURPOSE: Implement rate limiting for API endpoints to prevent abuse; must be configurable per-endpoint; backward compatible with existing clients
 TASK: • Create rate limiter middleware with sliding window • Implement per-route configuration • Add Redis backend for distributed state • Include bypass for internal services
 MODE: write
 CONTEXT: @src/middleware/**/* @src/config/**/* | Memory: Using Express.js, Redis already configured, existing middleware pattern in auth.ts
 EXPECTED: Production-ready code with: TypeScript types, unit tests, integration test, configuration example, migration guide
 RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | Follow existing middleware patterns | No breaking changes
-" --tool codex --mode write --timeout 1800000
+" --tool codex --mode write
 ```
 
 **Bug Fix Task**:
 ```bash
-ccw cli -p "
+timeout 900 ccw cli -p "
 PURPOSE: Fix memory leak in WebSocket connection handler causing server OOM after 24h; root cause must be identified before any fix
 TASK: • Trace connection lifecycle from open to close • Identify event listener accumulation • Check cleanup on disconnect • Verify garbage collection eligibility
 MODE: analysis
 CONTEXT: @src/websocket/**/* @src/services/connection-manager.ts | Memory: Using ws library, ~5000 concurrent connections in production
 EXPECTED: Root cause analysis with: memory profile, leak source (file:line), fix recommendation with code, verification steps
 RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt) | Focus on resource cleanup
-" --tool gemini --cd src --timeout 900000
+" --tool gemini --mode analysis --cd src
 ```
 
 **Refactoring Task**:
 ```bash
-ccw cli -p "
+timeout 1200 ccw cli -p "
 PURPOSE: Refactor payment processing to use strategy pattern for multi-gateway support; no functional changes; all existing tests must pass
 TASK: • Extract gateway interface from current implementation • Create strategy classes for Stripe, PayPal • Implement factory for gateway selection • Migrate existing code to use strategies
 MODE: write
 CONTEXT: @src/payments/**/* @src/types/payment.ts | Memory: Currently only Stripe, adding PayPal next sprint, must support future gateways
 EXPECTED: Refactored code with: strategy interface, concrete implementations, factory class, updated tests, migration checklist
 RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/development/02-refactor-codebase.txt) | Preserve all existing behavior | Tests must pass
-" --tool gemini --mode write --timeout 1200000
+" --tool gemini --mode write
 ```
 ---
 
 ## Configuration
 
-### Timeout Allocation
+### Timeout Allocation (Bash)
 
-**Minimum**: 5 minutes (300000ms)
+CLI internal timeout is disabled; controlled by external bash `timeout` command:
 
-- **Simple**: 5-10min (300000-600000ms)
-  - Examples: Analysis, search
+```bash
+# Syntax: timeout <seconds> ccw cli ...
+timeout 600 ccw cli -p "..." --tool gemini --mode analysis   # 10 minutes
+timeout 1800 ccw cli -p "..." --tool codex --mode write      # 30 minutes
+```
 
-- **Medium**: 10-20min (600000-1200000ms)
-  - Examples: Refactoring, documentation
+**Recommended Time Allocation**:
 
-- **Complex**: 20-60min (1200000-3600000ms)
-  - Examples: Implementation, migration
+- **Simple** (5-10min): Analysis, search
+  - `timeout 300` ~ `timeout 600`
 
-- **Heavy**: 60-120min (3600000-7200000ms)
-  - Examples: Large codebase, multi-file
+- **Medium** (10-20min): Refactoring, documentation
+  - `timeout 600` ~ `timeout 1200`
 
-**Codex Multiplier**: 3x allocated time (minimum 15min / 900000ms)
+- **Complex** (20-60min): Implementation, migration
+  - `timeout 1200` ~ `timeout 3600`
 
+- **Heavy** (60-120min): Large codebase, multi-file
+  - `timeout 3600` ~ `timeout 7200`
+
+**Codex Multiplier**: 3x allocated time (minimum 15min / 900s)
 
 ### Permission Framework
 
@@ -523,4 +526,3 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 - [ ] **Tool selected** - `--tool gemini|qwen|codex`
 - [ ] **Template applied (REQUIRED)** - Use specific or universal fallback template
 - [ ] **Constraints specified** - Scope, requirements
-- [ ] **Timeout configured** - Based on complexity

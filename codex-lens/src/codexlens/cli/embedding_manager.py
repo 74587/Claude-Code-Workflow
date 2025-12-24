@@ -309,7 +309,7 @@ def generate_embeddings(
 
             # Set/update model configuration for this index
             vector_store.set_model_config(
-                model_profile, embedder.model_name, embedder.embedding_dim
+                model_profile, embedder.model_name, embedder.embedding_dim, backend=embedding_backend
             )
             # Use bulk insert mode for efficient batch ANN index building
             # This defers ANN updates until end_bulk_insert() is called

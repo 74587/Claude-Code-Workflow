@@ -810,8 +810,8 @@ function buildManualDownloadGuide() {
             '<i data-lucide="info" class="w-3.5 h-3.5 mt-0.5 flex-shrink-0"></i>' +
             '<div>' +
               '<strong>' + (t('codexlens.cacheLocation') || 'Cache Location') + ':</strong><br>' +
-              '<code class="text-xs">Windows: %LOCALAPPDATA%\\Temp\\fastembed_cache</code><br>' +
-              '<code class="text-xs">Linux/Mac: ~/.cache/fastembed</code>' +
+              '<code class="text-xs">Default: ~/.cache/huggingface</code><br>' +
+              '<code class="text-xs text-muted-foreground">(Check HF_HOME env var if set)</code>' +
             '</div>' +
           '</div>' +
         '</div>' +

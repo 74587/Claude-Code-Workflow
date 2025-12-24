@@ -6,7 +6,7 @@
 import chalk from 'chalk';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { tmpdir } from 'os';
+import { homedir } from 'os';
 
 interface HookOptions {
   stdin?: boolean;
@@ -53,9 +53,10 @@ async function readStdin(): Promise<string> {
 
 /**
  * Get session state file path
+ * Uses ~/.claude/.ccw-sessions/ for reliable persistence across sessions
  */
 function getSessionStateFile(sessionId: string): string {
-  const stateDir = join(tmpdir(), '.ccw-sessions');
+  const stateDir = join(homedir(), '.claude', '.ccw-sessions');
   if (!existsSync(stateDir)) {
     mkdirSync(stateDir, { recursive: true });
   }

@@ -855,7 +855,7 @@ export async function cliCommand(
         console.log(chalk.gray('    --model <model>     Model override'));
         console.log(chalk.gray('    --cd <path>         Working directory'));
         console.log(chalk.gray('    --includeDirs <dirs>  Additional directories'));
-        console.log(chalk.gray('    --timeout <ms>      Timeout (default: 300000)'));
+        console.log(chalk.gray('    --timeout <ms>      Timeout (default: 0=disabled)'));
         console.log(chalk.gray('    --resume [id]       Resume previous session'));
         console.log(chalk.gray('    --cache <items>     Cache: comma-separated @patterns and text'));
         console.log(chalk.gray('    --inject-mode <m>   Inject mode: none, full, progressive'));

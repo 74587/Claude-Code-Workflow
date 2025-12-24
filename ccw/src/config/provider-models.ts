@@ -25,10 +25,33 @@ export interface ModelInfo {
 }
 
 /**
- * Predefined models for each provider
+ * Embedding model information metadata
+ */
+export interface EmbeddingModelInfo {
+  /** Model identifier (used in API calls) */
+  id: string;
+
+  /** Human-readable display name */
+  name: string;
+
+  /** Embedding dimensions */
+  dimensions: number;
+
+  /** Maximum input tokens */
+  maxTokens: number;
+
+  /** Provider identifier */
+  provider: string;
+}
+
+
+/**
+ * Predefined models for each API format
  * Used for UI selection and validation
+ * Note: Most providers use OpenAI-compatible format
  */
 export const PROVIDER_MODELS: Record<ProviderType, ModelInfo[]> = {
+  // OpenAI-compatible format (used by OpenAI, DeepSeek, Ollama, etc.)
   openai: [
     {
       id: 'gpt-4o',
@@ -49,19 +72,32 @@ export const PROVIDER_MODELS: Record<ProviderType, ModelInfo[]> = {
       supportsCaching: true
     },
     {
-      id: 'o1-mini',
-      name: 'O1 Mini',
-      contextWindow: 128000,
-      supportsCaching: true
+      id: 'deepseek-chat',
+      name: 'DeepSeek Chat',
+      contextWindow: 64000,
+      supportsCaching: false
     },
     {
-      id: 'gpt-4-turbo',
-      name: 'GPT-4 Turbo',
+      id: 'deepseek-coder',
+      name: 'DeepSeek Coder',
+      contextWindow: 64000,
+      supportsCaching: false
+    },
+    {
+      id: 'llama3.2',
+      name: 'Llama 3.2',
       contextWindow: 128000,
+      supportsCaching: false
+    },
+    {
+      id: 'qwen2.5-coder',
+      name: 'Qwen 2.5 Coder',
+      contextWindow: 32000,
       supportsCaching: false
     }
   ],
 
+  // Anthropic format
   anthropic: [
     {
       id: 'claude-sonnet-4-20250514',
@@ -89,135 +125,7 @@ export const PROVIDER_MODELS: Record<ProviderType, ModelInfo[]> = {
     }
   ],
 
-  ollama: [
-    {
-      id: 'llama3.2',
-      name: 'Llama 3.2',
-      contextWindow: 128000,
-      supportsCaching: false
-    },
-    {
-      id: 'llama3.1',
-      name: 'Llama 3.1',
-      contextWindow: 128000,
-      supportsCaching: false
-    },
-    {
-      id: 'qwen2.5-coder',
-      name: 'Qwen 2.5 Coder',
-      contextWindow: 32000,
-      supportsCaching: false
-    },
-    {
-      id: 'codellama',
-      name: 'Code Llama',
-      contextWindow: 16000,
-      supportsCaching: false
-    },
-    {
-      id: 'mistral',
-      name: 'Mistral',
-      contextWindow: 32000,
-      supportsCaching: false
-    }
-  ],
-
-  azure: [
-    {
-      id: 'gpt-4o',
-      name: 'GPT-4o (Azure)',
-      contextWindow: 128000,
-      supportsCaching: true
-    },
-    {
-      id: 'gpt-4o-mini',
-      name: 'GPT-4o Mini (Azure)',
-      contextWindow: 128000,
-      supportsCaching: true
-    },
-    {
-      id: 'gpt-4-turbo',
-      name: 'GPT-4 Turbo (Azure)',
-      contextWindow: 128000,
-      supportsCaching: false
-    },
-    {
-      id: 'gpt-35-turbo',
-      name: 'GPT-3.5 Turbo (Azure)',
-      contextWindow: 16000,
-      supportsCaching: false
-    }
-  ],
-
-  google: [
-    {
-      id: 'gemini-2.0-flash-exp',
-      name: 'Gemini 2.0 Flash Experimental',
-      contextWindow: 1048576,
-      supportsCaching: true
-    },
-    {
-      id: 'gemini-1.5-pro',
-      name: 'Gemini 1.5 Pro',
-      contextWindow: 2097152,
-      supportsCaching: true
-    },
-    {
-      id: 'gemini-1.5-flash',
-      name: 'Gemini 1.5 Flash',
-      contextWindow: 1048576,
-      supportsCaching: true
-    },
-    {
-      id: 'gemini-1.0-pro',
-      name: 'Gemini 1.0 Pro',
-      contextWindow: 32000,
-      supportsCaching: false
-    }
-  ],
-
-  mistral: [
-    {
-      id: 'mistral-large-latest',
-      name: 'Mistral Large',
-      contextWindow: 128000,
-      supportsCaching: false
-    },
-    {
-      id: 'mistral-medium-latest',
-      name: 'Mistral Medium',
-      contextWindow: 32000,
-      supportsCaching: false
-    },
-    {
-      id: 'mistral-small-latest',
-      name: 'Mistral Small',
-      contextWindow: 32000,
-      supportsCaching: false
-    },
-    {
-      id: 'codestral-latest',
-      name: 'Codestral',
-      contextWindow: 32000,
-      supportsCaching: false
-    }
-  ],
-
-  deepseek: [
-    {
-      id: 'deepseek-chat',
-      name: 'DeepSeek Chat',
-      contextWindow: 64000,
-      supportsCaching: false
-    },
-    {
-      id: 'deepseek-coder',
-      name: 'DeepSeek Coder',
-      contextWindow: 64000,
-      supportsCaching: false
-    }
-  ],
-
+  // Custom format
   custom: [
     {
       id: 'custom-model',
@@ -236,6 +144,61 @@ export const PROVIDER_MODELS: Record<ProviderType, ModelInfo[]> = {
 export function getModelsForProvider(providerType: ProviderType): ModelInfo[] {
   return PROVIDER_MODELS[providerType] || [];
 }
+
+/**
+ * Predefined embedding models for each API format
+ * Used for UI selection and validation
+ */
+export const EMBEDDING_MODELS: Record<ProviderType, EmbeddingModelInfo[]> = {
+  // OpenAI embedding models
+  openai: [
+    {
+      id: 'text-embedding-3-small',
+      name: 'Text Embedding 3 Small',
+      dimensions: 1536,
+      maxTokens: 8191,
+      provider: 'openai'
+    },
+    {
+      id: 'text-embedding-3-large',
+      name: 'Text Embedding 3 Large',
+      dimensions: 3072,
+      maxTokens: 8191,
+      provider: 'openai'
+    },
+    {
+      id: 'text-embedding-ada-002',
+      name: 'Ada 002',
+      dimensions: 1536,
+      maxTokens: 8191,
+      provider: 'openai'
+    }
+  ],
+
+  // Anthropic doesn't have embedding models
+  anthropic: [],
+
+  // Custom embedding models
+  custom: [
+    {
+      id: 'custom-embedding',
+      name: 'Custom Embedding',
+      dimensions: 1536,
+      maxTokens: 8192,
+      provider: 'custom'
+    }
+  ]
+};
+
+/**
+ * Get embedding models for a specific provider
+ * @param providerType - Provider type to get embedding models for
+ * @returns Array of embedding model information
+ */
+export function getEmbeddingModelsForProvider(providerType: ProviderType): EmbeddingModelInfo[] {
+  return EMBEDDING_MODELS[providerType] || [];
+}
+
 
 /**
  * Get model information by ID within a provider

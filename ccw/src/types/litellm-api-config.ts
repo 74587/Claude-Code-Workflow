@@ -6,17 +6,184 @@
  */
 
 /**
- * Supported LLM provider types
+ * API format types (simplified)
+ * Most providers use OpenAI-compatible format
  */
 export type ProviderType =
-  | 'openai'
-  | 'anthropic'
-  | 'ollama'
-  | 'azure'
-  | 'google'
-  | 'mistral'
-  | 'deepseek'
-  | 'custom';
+  | 'openai'      // OpenAI-compatible format (most providers)
+  | 'anthropic'   // Anthropic format
+  | 'custom';     // Custom format
+
+/**
+ * Advanced provider settings for LiteLLM compatibility
+ * Maps to LiteLLM's provider configuration options
+ */
+export interface ProviderAdvancedSettings {
+  /** Request timeout in seconds (default: 300) */
+  timeout?: number;
+
+  /** Maximum retry attempts on failure (default: 3) */
+  maxRetries?: number;
+
+  /** Organization ID (OpenAI-specific) */
+  organization?: string;
+
+  /** API version string (Azure-specific, e.g., "2024-02-01") */
+  apiVersion?: string;
+
+  /** Custom HTTP headers as JSON object */
+  customHeaders?: Record<string, string>;
+
+  /** Requests per minute rate limit */
+  rpm?: number;
+
+  /** Tokens per minute rate limit */
+  tpm?: number;
+
+  /** Proxy server URL (e.g., "http://proxy.example.com:8080") */
+  proxy?: string;
+}
+
+/**
+ * Model type classification
+ */
+export type ModelType = 'llm' | 'embedding';
+
+/**
+ * Model capability metadata
+ */
+export interface ModelCapabilities {
+  /** Whether the model supports streaming responses */
+  streaming?: boolean;
+
+  /** Whether the model supports function/tool calling */
+  functionCalling?: boolean;
+
+  /** Whether the model supports vision/image input */
+  vision?: boolean;
+
+  /** Context window size in tokens */
+  contextWindow?: number;
+
+  /** Embedding dimension (for embedding models only) */
+  embeddingDimension?: number;
+
+  /** Maximum output tokens */
+  maxOutputTokens?: number;
+}
+
+/**
+ * Routing strategy for load balancing across multiple keys
+ */
+export type RoutingStrategy = 
+  | 'simple-shuffle'    // Random selection (default, recommended)
+  | 'weighted'          // Weight-based distribution
+  | 'latency-based'     // Route to lowest latency
+  | 'cost-based'        // Route to lowest cost
+  | 'least-busy';       // Route to least concurrent
+
+/**
+ * Individual API key configuration with optional weight
+ */
+export interface ApiKeyEntry {
+  /** Unique identifier */
+  id: string;
+
+  /** API key value or env var reference */
+  key: string;
+
+  /** Display label for this key */
+  label?: string;
+
+  /** Weight for weighted routing (default: 1) */
+  weight?: number;
+
+  /** Whether this key is enabled */
+  enabled: boolean;
+
+  /** Last health check status */
+  healthStatus?: 'healthy' | 'unhealthy' | 'unknown';
+
+  /** Last health check timestamp */
+  lastHealthCheck?: string;
+
+  /** Error message if unhealthy */
+  lastError?: string;
+}
+
+/**
+ * Health check configuration
+ */
+export interface HealthCheckConfig {
+  /** Enable automatic health checks */
+  enabled: boolean;
+
+  /** Check interval in seconds (default: 300) */
+  intervalSeconds: number;
+
+  /** Cooldown period after failure in seconds (default: 5) */
+  cooldownSeconds: number;
+
+  /** Number of failures before marking unhealthy (default: 3) */
+  failureThreshold: number;
+}
+
+
+/**
+ * Model-specific endpoint settings
+ * Allows per-model configuration overrides
+ */
+export interface ModelEndpointSettings {
+  /** Override base URL for this model */
+  baseUrl?: string;
+
+  /** Override timeout for this model */
+  timeout?: number;
+
+  /** Override max retries for this model */
+  maxRetries?: number;
+
+  /** Custom headers for this model */
+  customHeaders?: Record<string, string>;
+
+  /** Cache strategy for this model */
+  cacheStrategy?: CacheStrategy;
+}
+
+/**
+ * Model definition with type and grouping
+ */
+export interface ModelDefinition {
+  /** Unique identifier for this model */
+  id: string;
+
+  /** Display name for UI */
+  name: string;
+
+  /** Model type: LLM or Embedding */
+  type: ModelType;
+
+  /** Model series for grouping (e.g., "GPT-4", "Claude-3") */
+  series: string;
+
+  /** Whether this model is enabled */
+  enabled: boolean;
+
+  /** Model capabilities */
+  capabilities?: ModelCapabilities;
+
+  /** Model-specific endpoint settings */
+  endpointSettings?: ModelEndpointSettings;
+
+  /** Optional description */
+  description?: string;
+
+  /** Creation timestamp (ISO 8601) */
+  createdAt: string;
+
+  /** Last update timestamp (ISO 8601) */
+  updatedAt: string;
+}
 
 /**
  * Provider credential configuration
@@ -40,6 +207,24 @@ export interface ProviderCredential {
 
   /** Whether this provider is enabled */
   enabled: boolean;
+
+  /** Advanced provider settings (optional) */
+  advancedSettings?: ProviderAdvancedSettings;
+
+  /** Multiple API keys for load balancing */
+  apiKeys?: ApiKeyEntry[];
+
+  /** Routing strategy for multi-key load balancing */
+  routingStrategy?: RoutingStrategy;
+
+  /** Health check configuration */
+  healthCheck?: HealthCheckConfig;
+
+  /** LLM models configured for this provider */
+  llmModels?: ModelDefinition[];
+
+  /** Embedding models configured for this provider */
+  embeddingModels?: ModelDefinition[];
 
   /** Creation timestamp (ISO 8601) */
   createdAt: string;

@@ -107,8 +107,9 @@ def _get_model_cache_path(cache_dir: Path, info: Dict) -> Path:
         Path to the model cache directory
     """
     # HuggingFace Hub naming: models--{org}--{model}
-    model_name = info["model_name"]
-    sanitized_name = f"models--{model_name.replace('/', '--')}"
+    # Use cache_name if available (for mapped ONNX models), else model_name
+    target_name = info.get("cache_name", info["model_name"])
+    sanitized_name = f"models--{target_name.replace('/', '--')}"
     return cache_dir / sanitized_name
 
 

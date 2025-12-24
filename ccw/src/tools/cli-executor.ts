@@ -67,7 +67,7 @@ const ParamsSchema = z.object({
   model: z.string().optional(),
   cd: z.string().optional(),
   includeDirs: z.string().optional(),
-  timeout: z.number().default(300000),
+  timeout: z.number().default(0), // 0 = no internal timeout, controlled by external caller (e.g., bash timeout)
   resume: z.union([z.boolean(), z.string()]).optional(), // true = last, string = single ID or comma-separated IDs
   id: z.string().optional(), // Custom execution ID (e.g., IMPL-001-step1)
   noNative: z.boolean().optional(), // Force prompt concatenation instead of native resume
@@ -1058,19 +1058,24 @@ async function executeCliTool(
       reject(new Error(`Failed to spawn ${tool}: ${error.message}`));
     });
 
-    // Timeout handling
-    const timeoutId = setTimeout(() => {
-      timedOut = true;
-      child.kill('SIGTERM');
-      setTimeout(() => {
-        if (!child.killed) {
-          child.kill('SIGKILL');
-        }
-      }, 5000);
-    }, timeout);
+    // Timeout handling (timeout=0 disables internal timeout, controlled by external caller)
+    let timeoutId: NodeJS.Timeout | null = null;
+    if (timeout > 0) {
+      timeoutId = setTimeout(() => {
+        timedOut = true;
+        child.kill('SIGTERM');
+        setTimeout(() => {
+          if (!child.killed) {
+            child.kill('SIGKILL');
+          }
+        }, 5000);
+      }, timeout);
+    }
 
     child.on('close', () => {
-      clearTimeout(timeoutId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     });
   });
 }
@@ -1115,8 +1120,8 @@ Modes:
       },
       timeout: {
         type: 'number',
-        description: 'Timeout in milliseconds (default: 300000 = 5 minutes)',
-        default: 300000
+        description: 'Timeout in milliseconds (default: 0 = disabled, controlled by external caller)',
+        default: 0
       }
     },
     required: ['tool', 'prompt']

@@ -181,29 +181,13 @@ function deleteHookFromSettings(projectPath, scope, event, hookIndex) {
 }
 
 // ========================================
-// Session State Tracking (for progressive disclosure)
+// Session State Tracking
 // ========================================
-
-// Track sessions that have received startup context
-// Key: sessionId, Value: timestamp of first context load
-const sessionContextState = new Map<string, {
-  firstLoad: string;
-  loadCount: number;
-  lastPrompt?: string;
-}>();
-
-// Cleanup old sessions (older than 24 hours)
-function cleanupOldSessions() {
-  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-  for (const [sessionId, state] of sessionContextState.entries()) {
-    if (new Date(state.firstLoad).getTime() < cutoff) {
-      sessionContextState.delete(sessionId);
-    }
-  }
-}
-
-// Run cleanup every hour
-setInterval(cleanupOldSessions, 60 * 60 * 1000);
+// NOTE: Session state is managed by the CLI command (src/commands/hook.ts)
+// using file-based persistence (~/.claude/.ccw-sessions/).
+// This ensures consistent state tracking across all invocation methods.
+// The /api/hook endpoint delegates to SessionClusteringService without
+// managing its own state, as the authoritative state lives in the CLI layer.
 
 // ========================================
 // Route Handler
@@ -286,7 +270,8 @@ export async function handleHooksRoutes(ctx: RouteContext): Promise<boolean> {
   }
 
   // API: Unified Session Context endpoint (Progressive Disclosure)
-  // Automatically detects first prompt vs subsequent prompts
+  // DEPRECATED: Use CLI command `ccw hook session-context --stdin` instead.
+  // This endpoint now uses file-based state (shared with CLI) for consistency.
   // - First prompt: returns cluster-based session overview
   // - Subsequent prompts: returns intent-matched sessions based on prompt
   if (pathname === '/api/hook/session-context' && req.method === 'POST') {
@@ -306,21 +291,30 @@ export async function handleHooksRoutes(ctx: RouteContext): Promise<boolean> {
         const { SessionClusteringService } = await import('../session-clustering-service.js');
         const clusteringService = new SessionClusteringService(projectPath);
 
-        // Check if this is the first prompt for this session
-        const existingState = sessionContextState.get(sessionId);
+        // Use file-based session state (shared with CLI hook.ts)
+        const sessionStateDir = join(homedir(), '.claude', '.ccw-sessions');
+        const sessionStateFile = join(sessionStateDir, `session-${sessionId}.json`);
+        
+        let existingState: { firstLoad: string; loadCount: number; lastPrompt?: string } | null = null;
+        if (existsSync(sessionStateFile)) {
+          try {
+            existingState = JSON.parse(readFileSync(sessionStateFile, 'utf-8'));
+          } catch {
+            existingState = null;
+          }
+        }
+        
         const isFirstPrompt = !existingState;
 
-        // Update session state
-        if (isFirstPrompt) {
-          sessionContextState.set(sessionId, {
-            firstLoad: new Date().toISOString(),
-            loadCount: 1,
-            lastPrompt: prompt
-          });
-        } else {
-          existingState.loadCount++;
-          existingState.lastPrompt = prompt;
+        // Update session state (file-based)
+        const newState = isFirstPrompt
+          ? { firstLoad: new Date().toISOString(), loadCount: 1, lastPrompt: prompt }
+          : { ...existingState!, loadCount: existingState!.loadCount + 1, lastPrompt: prompt };
+        
+        if (!existsSync(sessionStateDir)) {
+          mkdirSync(sessionStateDir, { recursive: true });
         }
+        writeFileSync(sessionStateFile, JSON.stringify(newState, null, 2));
 
         // Determine which type of context to return
         let contextType: 'session-start' | 'context';
@@ -351,7 +345,7 @@ export async function handleHooksRoutes(ctx: RouteContext): Promise<boolean> {
           success: true,
           type: contextType,
           isFirstPrompt,
-          loadCount: sessionContextState.get(sessionId)?.loadCount || 1,
+          loadCount: newState.loadCount,
           content,
           sessionId
         };

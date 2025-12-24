@@ -21,7 +21,10 @@
 - Graceful degradation
 - Don't expose sensitive info
 
+
+
 ## Core Principles
+
 
 **Incremental Progress**:
 - Small, testable changes
@@ -43,11 +46,58 @@
 - Maintain established patterns
 - Test integration between subtasks
 
+
+## System Optimization
+
+**Direct Binary Calls**: Always call binaries directly in `functions.shell`, set `workdir`, avoid shell wrappers (`bash -lc`, `cmd /c`, etc.)
+
+**Text Editing Priority**:
+1. Use `apply_patch` tool for all routine text edits
+2. Fall back to `sed` for single-line substitutions if unavailable
+3. Avoid Python editing scripts unless both fail
+
+**apply_patch invocation**:
+```json
+{
+  "command": ["apply_patch", "*** Begin Patch\n*** Update File: path/to/file\n@@\n- old\n+ new\n*** End Patch\n"],
+  "workdir": "<workdir>",
+  "justification": "Brief reason"
+}
+```
+
+**Windows UTF-8 Encoding** (before commands):
+```powershell
+[Console]::InputEncoding  = [Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+chcp 65001 > $null
+```
+
+## Context Acquisition (MCP Tools Priority)
+
+**For task context gathering and analysis, ALWAYS prefer MCP tools**:
+
+1. **smart_search** - First choice for code discovery
+   - Use `smart_search(query="...")` for semantic/keyword search
+   - Use `smart_search(action="find_files", pattern="*.ts")` for file discovery
+   - Supports modes: `auto`, `hybrid`, `exact`, `ripgrep`
+
+2. **read_file** - Batch file reading
+   - Read multiple files in parallel: `read_file(path="file1.ts")`, `read_file(path="file2.ts")`
+   - Supports glob patterns: `read_file(path="src/**/*.config.ts")`
+
+**Priority Order**:
+```
+smart_search (discovery) → read_file (batch read) → shell commands (fallback)
+```
+
+**NEVER** use shell commands (`cat`, `find`, `grep`) when MCP tools are available.
+
 ## Execution Checklist
 
 **Before**:
 - [ ] Understand PURPOSE and TASK clearly
-- [ ] Review CONTEXT files, find 3+ patterns
+- [ ] Use smart_search to discover relevant files
+- [ ] Use read_file to batch read context files, find 3+ patterns
 - [ ] Check RULES templates and constraints
 
 **During**:

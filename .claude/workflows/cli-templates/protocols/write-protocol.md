@@ -49,17 +49,6 @@ RULES: [templates | additional constraints]
 - Break backward compatibility
 - Exceed 3 failed attempts without stopping
 
-## Multi-Task Execution (Resume)
-
-**First subtask**: Standard execution flow
-**Subsequent subtasks** (via `resume`):
-- Recall context from previous subtasks
-- Build on previous work
-- Maintain consistency
-- Test integration
-- Report context for next subtask
-
-## Error Handling
 
 **Three-Attempt Rule**: On 3rd failure, stop and report what attempted, what failed, root cause
 
@@ -80,7 +69,7 @@ RULES: [templates | additional constraints]
 
 **If template has no format** → Use default format below
 
-### Single Task Implementation
+### Task Implementation
 
 ```markdown
 # Implementation: [TASK Title]
@@ -110,48 +99,6 @@ RULES: [templates | additional constraints]
 
 ## Next Steps
 [Recommendations if any]
-```
-
-### Multi-Task (First Subtask)
-
-```markdown
-# Subtask 1/N: [TASK Title]
-
-## Changes
-[List of file changes]
-
-## Implementation
-[Details with code references]
-
-## Testing
-✅ Tests: X passing
-
-## Context for Next Subtask
-- Key decisions: [established patterns]
-- Files created: [paths and purposes]
-- Integration points: [where next subtask should connect]
-```
-
-### Multi-Task (Subsequent Subtasks)
-
-```markdown
-# Subtask N/M: [TASK Title]
-
-## Changes
-[List of file changes]
-
-## Integration Notes
-✅ Compatible with previous subtask
-✅ Maintains established patterns
-
-## Implementation
-[Details with code references]
-
-## Testing
-✅ Tests: X passing
-
-## Context for Next Subtask
-[If not final, provide context]
 ```
 
 ### Partial Completion

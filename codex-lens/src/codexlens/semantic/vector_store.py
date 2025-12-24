@@ -123,11 +123,33 @@ class VectorStore:
                     model_profile TEXT NOT NULL,
                     model_name TEXT NOT NULL,
                     embedding_dim INTEGER NOT NULL,
+                    backend TEXT NOT NULL DEFAULT 'fastembed',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+
+            # Migration: Add backend column to existing tables
+            self._migrate_backend_column(conn)
+
             conn.commit()
+
+    def _migrate_backend_column(self, conn: sqlite3.Connection) -> None:
+        """Add backend column to existing embeddings_config table if not present.
+
+        Args:
+            conn: Active SQLite connection
+        """
+        # Check if backend column exists
+        cursor = conn.execute("PRAGMA table_info(embeddings_config)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+        if 'backend' not in columns:
+            logger.info("Migrating embeddings_config table: adding backend column")
+            conn.execute("""
+                ALTER TABLE embeddings_config
+                ADD COLUMN backend TEXT NOT NULL DEFAULT 'fastembed'
+            """)
 
     def _init_ann_index(self) -> None:
         """Initialize ANN index (lazy loading from existing data)."""
@@ -947,11 +969,11 @@ class VectorStore:
         """Get the model configuration used for embeddings in this store.
 
         Returns:
-            Dictionary with model_profile, model_name, embedding_dim, or None if not set.
+            Dictionary with model_profile, model_name, embedding_dim, backend, or None if not set.
         """
         with sqlite3.connect(self.db_path) as conn:
             row = conn.execute(
-                "SELECT model_profile, model_name, embedding_dim, created_at, updated_at "
+                "SELECT model_profile, model_name, embedding_dim, backend, created_at, updated_at "
                 "FROM embeddings_config WHERE id = 1"
             ).fetchone()
             if row:
@@ -959,13 +981,14 @@ class VectorStore:
                     "model_profile": row[0],
                     "model_name": row[1],
                     "embedding_dim": row[2],
-                    "created_at": row[3],
-                    "updated_at": row[4],
+                    "backend": row[3],
+                    "created_at": row[4],
+                    "updated_at": row[5],
                 }
         return None
 
     def set_model_config(
-        self, model_profile: str, model_name: str, embedding_dim: int
+        self, model_profile: str, model_name: str, embedding_dim: int, backend: str = 'fastembed'
     ) -> None:
         """Set the model configuration for embeddings in this store.
 
@@ -976,19 +999,21 @@ class VectorStore:
             model_profile: Model profile name (fast, code, minilm, etc.)
             model_name: Full model name (e.g., jinaai/jina-embeddings-v2-base-code)
             embedding_dim: Embedding dimension (e.g., 768)
+            backend: Backend used for embeddings (fastembed or litellm, default: fastembed)
         """
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 """
-                INSERT INTO embeddings_config (id, model_profile, model_name, embedding_dim)
-                VALUES (1, ?, ?, ?)
+                INSERT INTO embeddings_config (id, model_profile, model_name, embedding_dim, backend)
+                VALUES (1, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     model_profile = excluded.model_profile,
                     model_name = excluded.model_name,
                     embedding_dim = excluded.embedding_dim,
+                    backend = excluded.backend,
                     updated_at = CURRENT_TIMESTAMP
                 """,
-                (model_profile, model_name, embedding_dim)
+                (model_profile, model_name, embedding_dim, backend)
             )
             conn.commit()
 

@@ -260,7 +260,7 @@ class HybridSearchEngine:
                 return []
 
             # Initialize embedder and vector store
-            from codexlens.semantic.embedder import get_embedder
+            from codexlens.semantic.factory import get_embedder
             from codexlens.semantic.vector_store import VectorStore
 
             vector_store = VectorStore(index_path)
@@ -277,32 +277,51 @@ class HybridSearchEngine:
             # Get stored model configuration (preferred) or auto-detect from dimension
             model_config = vector_store.get_model_config()
             if model_config:
-                profile = model_config["model_profile"]
+                backend = model_config.get("backend", "fastembed")
+                model_name = model_config["model_name"]
+                model_profile = model_config["model_profile"]
                 self.logger.debug(
-                    "Using stored model config: %s (%s, %dd)",
-                    profile, model_config["model_name"], model_config["embedding_dim"]
+                    "Using stored model config: %s backend, %s (%s, %dd)",
+                    backend, model_profile, model_name, model_config["embedding_dim"]
                 )
+                
+                # Get embedder based on backend
+                if backend == "litellm":
+                    embedder = get_embedder(backend="litellm", model=model_name)
+                else:
+                    embedder = get_embedder(backend="fastembed", profile=model_profile)
             else:
                 # Fallback: auto-detect from embedding dimension
                 detected_dim = vector_store.dimension
                 if detected_dim is None:
                     self.logger.info("Vector store dimension unknown, using default profile")
-                    profile = "code"  # Default fallback
+                    embedder = get_embedder(backend="fastembed", profile="code")
                 elif detected_dim == 384:
-                    profile = "fast"
+                    embedder = get_embedder(backend="fastembed", profile="fast")
                 elif detected_dim == 768:
-                    profile = "code"
+                    embedder = get_embedder(backend="fastembed", profile="code")
                 elif detected_dim == 1024:
-                    profile = "multilingual"  # or balanced, both are 1024
+                    embedder = get_embedder(backend="fastembed", profile="multilingual")
+                elif detected_dim == 1536:
+                    # Likely OpenAI text-embedding-3-small or ada-002
+                    self.logger.info(
+                        "Detected 1536-dim embeddings (likely OpenAI), using litellm backend with text-embedding-3-small"
+                    )
+                    embedder = get_embedder(backend="litellm", model="text-embedding-3-small")
+                elif detected_dim == 3072:
+                    # Likely OpenAI text-embedding-3-large
+                    self.logger.info(
+                        "Detected 3072-dim embeddings (likely OpenAI), using litellm backend with text-embedding-3-large"
+                    )
+                    embedder = get_embedder(backend="litellm", model="text-embedding-3-large")
                 else:
-                    profile = "code"  # Default fallback
-                self.logger.debug(
-                    "No stored model config, auto-detected profile '%s' from dimension %s",
-                    profile, detected_dim
-                )
+                    self.logger.debug(
+                        "Unknown dimension %s, using default fastembed profile 'code'",
+                        detected_dim
+                    )
+                    embedder = get_embedder(backend="fastembed", profile="code")
 
-            # Use cached embedder (singleton) for performance
-            embedder = get_embedder(profile=profile)
+
 
             # Generate query embedding
             query_embedding = embedder.embed_single(query)
