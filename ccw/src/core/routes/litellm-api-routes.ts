@@ -20,6 +20,8 @@ import {
   getGlobalCacheSettings,
   updateGlobalCacheSettings,
   loadLiteLLMApiConfig,
+  saveLiteLLMYamlConfig,
+  generateLiteLLMYamlConfig,
   type ProviderCredential,
   type CustomEndpoint,
   type ProviderType,
@@ -476,6 +478,151 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
         return { success: true, defaultEndpoint };
       } catch (err) {
         return { error: (err as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // ===========================
+  // Config Sync Routes
+  // ===========================
+
+  // POST /api/litellm-api/config/sync - Sync UI config to ccw_litellm YAML config
+  if (pathname === '/api/litellm-api/config/sync' && req.method === 'POST') {
+    try {
+      const yamlPath = saveLiteLLMYamlConfig(initialPath);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        message: 'Config synced to ccw_litellm',
+        yamlPath,
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // GET /api/litellm-api/config/yaml-preview - Preview YAML config without saving
+  if (pathname === '/api/litellm-api/config/yaml-preview' && req.method === 'GET') {
+    try {
+      const yamlConfig = generateLiteLLMYamlConfig(initialPath);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        config: yamlConfig,
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // ===========================
+  // CCW-LiteLLM Package Management
+  // ===========================
+
+  // GET /api/litellm-api/ccw-litellm/status - Check ccw-litellm installation status
+  if (pathname === '/api/litellm-api/ccw-litellm/status' && req.method === 'GET') {
+    try {
+      const { spawn } = await import('child_process');
+      const result = await new Promise<{ installed: boolean; version?: string }>((resolve) => {
+        const proc = spawn('python', ['-c', 'import ccw_litellm; print(ccw_litellm.__version__ if hasattr(ccw_litellm, "__version__") else "installed")'], {
+          shell: true,
+          timeout: 10000
+        });
+
+        let output = '';
+        proc.stdout?.on('data', (data) => { output += data.toString(); });
+        proc.on('close', (code) => {
+          if (code === 0) {
+            resolve({ installed: true, version: output.trim() || 'unknown' });
+          } else {
+            resolve({ installed: false });
+          }
+        });
+        proc.on('error', () => resolve({ installed: false }));
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ installed: false, error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // POST /api/litellm-api/ccw-litellm/install - Install ccw-litellm package
+  if (pathname === '/api/litellm-api/ccw-litellm/install' && req.method === 'POST') {
+    handlePostRequest(req, res, async () => {
+      try {
+        const { spawn } = await import('child_process');
+        const path = await import('path');
+        const fs = await import('fs');
+
+        // Try to find ccw-litellm package in distribution
+        const possiblePaths = [
+          path.join(initialPath, 'ccw-litellm'),
+          path.join(initialPath, '..', 'ccw-litellm'),
+          path.join(process.cwd(), 'ccw-litellm'),
+        ];
+
+        let packagePath = '';
+        for (const p of possiblePaths) {
+          const pyproject = path.join(p, 'pyproject.toml');
+          if (fs.existsSync(pyproject)) {
+            packagePath = p;
+            break;
+          }
+        }
+
+        if (!packagePath) {
+          // Try pip install from PyPI as fallback
+          return new Promise((resolve) => {
+            const proc = spawn('pip', ['install', 'ccw-litellm'], { shell: true, timeout: 300000 });
+            let output = '';
+            let error = '';
+            proc.stdout?.on('data', (data) => { output += data.toString(); });
+            proc.stderr?.on('data', (data) => { error += data.toString(); });
+            proc.on('close', (code) => {
+              if (code === 0) {
+                resolve({ success: true, message: 'ccw-litellm installed from PyPI' });
+              } else {
+                resolve({ success: false, error: error || 'Installation failed' });
+              }
+            });
+            proc.on('error', (err) => resolve({ success: false, error: err.message }));
+          });
+        }
+
+        // Install from local package
+        return new Promise((resolve) => {
+          const proc = spawn('pip', ['install', '-e', packagePath], { shell: true, timeout: 300000 });
+          let output = '';
+          let error = '';
+          proc.stdout?.on('data', (data) => { output += data.toString(); });
+          proc.stderr?.on('data', (data) => { error += data.toString(); });
+          proc.on('close', (code) => {
+            if (code === 0) {
+              // Broadcast installation event
+              broadcastToClients({
+                type: 'CCW_LITELLM_INSTALLED',
+                payload: { timestamp: new Date().toISOString() }
+              });
+              resolve({ success: true, message: 'ccw-litellm installed successfully', path: packagePath });
+            } else {
+              resolve({ success: false, error: error || output || 'Installation failed' });
+            }
+          });
+          proc.on('error', (err) => resolve({ success: false, error: err.message }));
+        });
+      } catch (err) {
+        return { success: false, error: (err as Error).message };
       }
     });
     return true;

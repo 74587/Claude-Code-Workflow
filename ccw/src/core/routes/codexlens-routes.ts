@@ -405,7 +405,7 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
   // API: CodexLens Init (Initialize workspace index)
   if (pathname === '/api/codexlens/init' && req.method === 'POST') {
     handlePostRequest(req, res, async (body) => {
-      const { path: projectPath, indexType = 'vector', embeddingModel = 'code' } = body;
+      const { path: projectPath, indexType = 'vector', embeddingModel = 'code', embeddingBackend = 'fastembed' } = body;
       const targetPath = projectPath || initialPath;
 
       // Build CLI arguments based on index type
@@ -415,6 +415,10 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
       } else {
         // Add embedding model selection for vector index
         args.push('--embedding-model', embeddingModel);
+        // Add embedding backend if not using default fastembed
+        if (embeddingBackend && embeddingBackend !== 'fastembed') {
+          args.push('--embedding-backend', embeddingBackend);
+        }
       }
 
       // Broadcast start event

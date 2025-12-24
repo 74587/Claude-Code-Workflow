@@ -60,6 +60,8 @@
     ".qwen/",
     "codex-lens/src/codexlens/",
     "codex-lens/pyproject.toml",
+    "ccw-litellm/src/ccw_litellm/",
+    "ccw-litellm/pyproject.toml",
     "CLAUDE.md",
     "README.md"
   ],

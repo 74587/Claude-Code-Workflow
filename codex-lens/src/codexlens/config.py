@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass, field
 from functools import cached_property
@@ -13,6 +14,9 @@ from .errors import ConfigError
 
 # Workspace-local directory name
 WORKSPACE_DIR_NAME = ".codexlens"
+
+# Settings file name
+SETTINGS_FILE_NAME = "settings.json"
 
 
 def _default_global_dir() -> Path:
@@ -89,6 +93,13 @@ class Config:
     # Hybrid chunker configuration
     hybrid_max_chunk_size: int = 2000  # Max characters per chunk before LLM refinement
     hybrid_llm_refinement: bool = False  # Enable LLM-based semantic boundary refinement
+
+    # Embedding configuration
+    embedding_backend: str = "fastembed"  # "fastembed" (local) or "litellm" (API)
+    embedding_model: str = "code"  # For fastembed: profile (fast/code/multilingual/balanced)
+                                   # For litellm: model name from config (e.g., "qwen3-embedding")
+    embedding_use_gpu: bool = True  # For fastembed: whether to use GPU acceleration
+
     def __post_init__(self) -> None:
         try:
             self.data_dir = self.data_dir.expanduser().resolve()
@@ -132,6 +143,67 @@ class Config:
     def rules_for_language(self, language_id: str) -> Dict[str, Any]:
         """Get parsing rules for a specific language, falling back to defaults."""
         return {**self.parsing_rules.get("default", {}), **self.parsing_rules.get(language_id, {})}
+
+    @cached_property
+    def settings_path(self) -> Path:
+        """Path to the settings file."""
+        return self.data_dir / SETTINGS_FILE_NAME
+
+    def save_settings(self) -> None:
+        """Save embedding and other settings to file."""
+        settings = {
+            "embedding": {
+                "backend": self.embedding_backend,
+                "model": self.embedding_model,
+                "use_gpu": self.embedding_use_gpu,
+            },
+            "llm": {
+                "enabled": self.llm_enabled,
+                "tool": self.llm_tool,
+                "timeout_ms": self.llm_timeout_ms,
+                "batch_size": self.llm_batch_size,
+            },
+        }
+        with open(self.settings_path, "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=2)
+
+    def load_settings(self) -> None:
+        """Load settings from file if exists."""
+        if not self.settings_path.exists():
+            return
+
+        try:
+            with open(self.settings_path, "r", encoding="utf-8") as f:
+                settings = json.load(f)
+
+            # Load embedding settings
+            embedding = settings.get("embedding", {})
+            if "backend" in embedding:
+                self.embedding_backend = embedding["backend"]
+            if "model" in embedding:
+                self.embedding_model = embedding["model"]
+            if "use_gpu" in embedding:
+                self.embedding_use_gpu = embedding["use_gpu"]
+
+            # Load LLM settings
+            llm = settings.get("llm", {})
+            if "enabled" in llm:
+                self.llm_enabled = llm["enabled"]
+            if "tool" in llm:
+                self.llm_tool = llm["tool"]
+            if "timeout_ms" in llm:
+                self.llm_timeout_ms = llm["timeout_ms"]
+            if "batch_size" in llm:
+                self.llm_batch_size = llm["batch_size"]
+        except Exception:
+            pass  # Silently ignore errors
+
+    @classmethod
+    def load(cls) -> "Config":
+        """Load config with settings from file."""
+        config = cls()
+        config.load_settings()
+        return config
 
 
 @dataclass

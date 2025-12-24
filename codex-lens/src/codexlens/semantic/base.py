@@ -38,6 +38,16 @@ class BaseEmbedder(ABC):
         """
         ...
 
+    @property
+    def max_tokens(self) -> int:
+        """Return maximum token limit for embeddings.
+
+        Returns:
+            int: Maximum number of tokens that can be embedded at once.
+                Default is 8192 if not overridden by implementation.
+        """
+        return 8192
+
     @abstractmethod
     def embed_to_numpy(self, texts: str | Iterable[str]) -> np.ndarray:
         """Embed texts to numpy array.

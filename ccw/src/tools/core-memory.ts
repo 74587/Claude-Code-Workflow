@@ -16,6 +16,8 @@ const OperationEnum = z.enum(['list', 'import', 'export', 'summary', 'embed', 's
 
 const ParamsSchema = z.object({
   operation: OperationEnum,
+  // Path parameter - highest priority for project resolution
+  path: z.string().optional(),
   text: z.string().optional(),
   id: z.string().optional(),
   tool: z.enum(['gemini', 'qwen']).optional().default('gemini'),
@@ -106,17 +108,21 @@ interface EmbedStatusResult {
 type OperationResult = ListResult | ImportResult | ExportResult | SummaryResult | EmbedResult | SearchResult | EmbedStatusResult;
 
 /**
- * Get project path from current working directory
+ * Get project path - uses explicit path if provided, otherwise falls back to current working directory
+ * Priority: path parameter > getProjectRoot()
  */
-function getProjectPath(): string {
+function getProjectPath(explicitPath?: string): string {
+  if (explicitPath) {
+    return explicitPath;
+  }
   return getProjectRoot();
 }
 
 /**
- * Get database path for current project
+ * Get database path for project
  */
-function getDatabasePath(): string {
-  const projectPath = getProjectPath();
+function getDatabasePath(explicitPath?: string): string {
+  const projectPath = getProjectPath(explicitPath);
   const paths = StoragePaths.project(projectPath);
   return join(paths.root, 'core-memory', 'core_memory.db');
 }
@@ -129,8 +135,8 @@ const PREVIEW_MAX_LENGTH = 100;
  * List all memories with compact output
  */
 function executeList(params: Params): ListResult {
-  const { limit } = params;
-  const store = getCoreMemoryStore(getProjectPath());
+  const { limit, path } = params;
+  const store = getCoreMemoryStore(getProjectPath(path));
   const memories = store.getMemories({ limit }) as CoreMemory[];
 
   // Convert to compact format with truncated preview
@@ -160,13 +166,13 @@ function executeList(params: Params): ListResult {
  * Import text as a new memory
  */
 function executeImport(params: Params): ImportResult {
-  const { text } = params;
+  const { text, path } = params;
 
   if (!text || text.trim() === '') {
     throw new Error('Parameter "text" is required for import operation');
   }
 
-  const store = getCoreMemoryStore(getProjectPath());
+  const store = getCoreMemoryStore(getProjectPath(path));
   const memory = store.upsertMemory({
     content: text.trim(),
   });
@@ -184,14 +190,14 @@ function executeImport(params: Params): ImportResult {
  * Searches current project first, then all projects if not found
  */
 function executeExport(params: Params): ExportResult {
-  const { id } = params;
+  const { id, path } = params;
 
   if (!id) {
     throw new Error('Parameter "id" is required for export operation');
   }
 
-  // Try current project first
-  const store = getCoreMemoryStore(getProjectPath());
+  // Try current project first (or explicit path if provided)
+  const store = getCoreMemoryStore(getProjectPath(path));
   let memory = store.getMemory(id);
 
   // If not found, search across all projects
@@ -218,13 +224,13 @@ function executeExport(params: Params): ExportResult {
  * Generate AI summary for a memory
  */
 async function executeSummary(params: Params): Promise<SummaryResult> {
-  const { id, tool = 'gemini' } = params;
+  const { id, tool = 'gemini', path } = params;
 
   if (!id) {
     throw new Error('Parameter "id" is required for summary operation');
   }
 
-  const store = getCoreMemoryStore(getProjectPath());
+  const store = getCoreMemoryStore(getProjectPath(path));
   const memory = store.getMemory(id);
 
   if (!memory) {
@@ -245,8 +251,8 @@ async function executeSummary(params: Params): Promise<SummaryResult> {
  * Generate embeddings for memory chunks
  */
 async function executeEmbed(params: Params): Promise<EmbedResult> {
-  const { source_id, batch_size = 8, force = false } = params;
-  const dbPath = getDatabasePath();
+  const { source_id, batch_size = 8, force = false, path } = params;
+  const dbPath = getDatabasePath(path);
 
   const result = await MemoryEmbedder.generateEmbeddings(dbPath, {
     sourceId: source_id,
@@ -272,13 +278,13 @@ async function executeEmbed(params: Params): Promise<EmbedResult> {
  * Search memory chunks using semantic search
  */
 async function executeSearch(params: Params): Promise<SearchResult> {
-  const { query, top_k = 10, min_score = 0.3, source_type } = params;
+  const { query, top_k = 10, min_score = 0.3, source_type, path } = params;
 
   if (!query) {
     throw new Error('Parameter "query" is required for search operation');
   }
 
-  const dbPath = getDatabasePath();
+  const dbPath = getDatabasePath(path);
 
   const result = await MemoryEmbedder.searchMemories(dbPath, query, {
     topK: top_k,
@@ -309,7 +315,8 @@ async function executeSearch(params: Params): Promise<SearchResult> {
  * Get embedding status statistics
  */
 async function executeEmbedStatus(params: Params): Promise<EmbedStatusResult> {
-  const dbPath = getDatabasePath();
+  const { path } = params;
+  const dbPath = getDatabasePath(path);
 
   const result = await MemoryEmbedder.getEmbeddingStatus(dbPath);
 
@@ -368,6 +375,9 @@ Usage:
   core_memory(operation="search", query="authentication")    # Search memories semantically
   core_memory(operation="embed_status")                      # Check embedding status
 
+Path parameter (highest priority):
+  core_memory(operation="list", path="/path/to/project")     # Use specific project path
+
 Memory IDs use format: CMEM-YYYYMMDD-HHMMSS`,
   inputSchema: {
     type: 'object',
@@ -376,6 +386,10 @@ Memory IDs use format: CMEM-YYYYMMDD-HHMMSS`,
         type: 'string',
         enum: ['list', 'import', 'export', 'summary', 'embed', 'search', 'embed_status'],
         description: 'Operation to perform',
+      },
+      path: {
+        type: 'string',
+        description: 'Project path (highest priority - overrides auto-detected project root)',
       },
       text: {
         type: 'string',

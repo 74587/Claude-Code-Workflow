@@ -166,6 +166,33 @@ class Embedder(BaseEmbedder):
         return self.MODEL_DIMS.get(self._model_name, 768)  # Default to 768 if unknown
 
     @property
+    def max_tokens(self) -> int:
+        """Get maximum token limit for current model.
+
+        Returns:
+            int: Maximum number of tokens based on model profile.
+                - fast: 512 (lightweight, optimized for speed)
+                - code: 8192 (code-optimized, larger context)
+                - multilingual: 512 (standard multilingual model)
+                - balanced: 512 (general purpose)
+        """
+        # Determine profile from model name
+        profile = None
+        for prof, model in self.MODELS.items():
+            if model == self._model_name:
+                profile = prof
+                break
+
+        # Return token limit based on profile
+        if profile == "code":
+            return 8192
+        elif profile in ("fast", "multilingual", "balanced"):
+            return 512
+        else:
+            # Default for unknown models
+            return 512
+
+    @property
     def providers(self) -> List[str]:
         """Get configured ONNX execution providers."""
         return self._providers

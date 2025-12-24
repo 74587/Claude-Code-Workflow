@@ -5,7 +5,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { StoragePaths, ensureStorageDir } from './storage-paths.js';
+import { StoragePaths, GlobalPaths, ensureStorageDir } from './storage-paths.js';
 import type {
   LiteLLMApiConfig,
   ProviderCredential,
@@ -32,12 +32,12 @@ function getDefaultConfig(): LiteLLMApiConfig {
 }
 
 /**
- * Get config file path for a project
+ * Get config file path (global, shared across all projects)
  */
-function getConfigPath(baseDir: string): string {
-  const paths = StoragePaths.project(baseDir);
-  ensureStorageDir(paths.config);
-  return join(paths.config, 'litellm-api-config.json');
+function getConfigPath(_baseDir?: string): string {
+  const configDir = GlobalPaths.config();
+  ensureStorageDir(configDir);
+  return join(configDir, 'litellm-api-config.json');
 }
 
 /**
@@ -354,6 +354,167 @@ export function updateGlobalCacheSettings(
   };
 
   saveConfig(baseDir, config);
+}
+
+// ===========================
+// YAML Config Generation for ccw_litellm
+// ===========================
+
+/**
+ * Convert UI config (JSON) to ccw_litellm config (YAML format object)
+ * This allows CodexLens to use UI-configured providers
+ */
+export function generateLiteLLMYamlConfig(baseDir: string): Record<string, unknown> {
+  const config = loadLiteLLMApiConfig(baseDir);
+
+  // Build providers object
+  const providers: Record<string, unknown> = {};
+  for (const provider of config.providers) {
+    if (!provider.enabled) continue;
+
+    providers[provider.id] = {
+      api_key: provider.apiKey,
+      api_base: provider.apiBase || getDefaultApiBaseForType(provider.type),
+    };
+  }
+
+  // Build embedding_models object from providers' embeddingModels
+  const embeddingModels: Record<string, unknown> = {};
+  for (const provider of config.providers) {
+    if (!provider.enabled || !provider.embeddingModels) continue;
+
+    for (const model of provider.embeddingModels) {
+      if (!model.enabled) continue;
+
+      embeddingModels[model.id] = {
+        provider: provider.id,
+        model: model.name,
+        dimensions: model.capabilities?.embeddingDimension || 1536,
+        // Use model-specific base URL if set, otherwise use provider's
+        ...(model.endpointSettings?.baseUrl && {
+          api_base: model.endpointSettings.baseUrl,
+        }),
+      };
+    }
+  }
+
+  // Build llm_models object from providers' llmModels
+  const llmModels: Record<string, unknown> = {};
+  for (const provider of config.providers) {
+    if (!provider.enabled || !provider.llmModels) continue;
+
+    for (const model of provider.llmModels) {
+      if (!model.enabled) continue;
+
+      llmModels[model.id] = {
+        provider: provider.id,
+        model: model.name,
+        ...(model.endpointSettings?.baseUrl && {
+          api_base: model.endpointSettings.baseUrl,
+        }),
+      };
+    }
+  }
+
+  // Find default provider
+  const defaultProvider = config.providers.find((p) => p.enabled)?.id || 'openai';
+
+  return {
+    version: 1,
+    default_provider: defaultProvider,
+    providers,
+    embedding_models: Object.keys(embeddingModels).length > 0 ? embeddingModels : {
+      default: {
+        provider: defaultProvider,
+        model: 'text-embedding-3-small',
+        dimensions: 1536,
+      },
+    },
+    llm_models: Object.keys(llmModels).length > 0 ? llmModels : {
+      default: {
+        provider: defaultProvider,
+        model: 'gpt-4',
+      },
+    },
+  };
+}
+
+/**
+ * Get default API base URL for provider type
+ */
+function getDefaultApiBaseForType(type: ProviderType): string {
+  const defaults: Record<string, string> = {
+    openai: 'https://api.openai.com/v1',
+    anthropic: 'https://api.anthropic.com/v1',
+    custom: 'https://api.example.com/v1',
+  };
+  return defaults[type] || 'https://api.openai.com/v1';
+}
+
+/**
+ * Save ccw_litellm YAML config file
+ * Writes to ~/.ccw/config/litellm-config.yaml
+ */
+export function saveLiteLLMYamlConfig(baseDir: string): string {
+  const yamlConfig = generateLiteLLMYamlConfig(baseDir);
+
+  // Convert to YAML manually (simple format)
+  const yamlContent = objectToYaml(yamlConfig);
+
+  // Write to ~/.ccw/config/litellm-config.yaml
+  const homePath = process.env.HOME || process.env.USERPROFILE || '';
+  const yamlPath = join(homePath, '.ccw', 'config', 'litellm-config.yaml');
+
+  // Ensure directory exists
+  const configDir = join(homePath, '.ccw', 'config');
+  ensureStorageDir(configDir);
+
+  writeFileSync(yamlPath, yamlContent, 'utf-8');
+  return yamlPath;
+}
+
+/**
+ * Simple object to YAML converter
+ */
+function objectToYaml(obj: unknown, indent: number = 0): string {
+  const spaces = '  '.repeat(indent);
+
+  if (obj === null || obj === undefined) {
+    return 'null';
+  }
+
+  if (typeof obj === 'string') {
+    // Quote strings that contain special characters
+    if (obj.includes(':') || obj.includes('#') || obj.includes('\n') || obj.startsWith('$')) {
+      return `"${obj.replace(/"/g, '\\"')}"`;
+    }
+    return obj;
+  }
+
+  if (typeof obj === 'number' || typeof obj === 'boolean') {
+    return String(obj);
+  }
+
+  if (Array.isArray(obj)) {
+    if (obj.length === 0) return '[]';
+    return obj.map((item) => `${spaces}- ${objectToYaml(item, indent + 1).trimStart()}`).join('\n');
+  }
+
+  if (typeof obj === 'object') {
+    const entries = Object.entries(obj as Record<string, unknown>);
+    if (entries.length === 0) return '{}';
+
+    return entries
+      .map(([key, value]) => {
+        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+          return `${spaces}${key}:\n${objectToYaml(value, indent + 1)}`;
+        }
+        return `${spaces}${key}: ${objectToYaml(value, indent)}`;
+      })
+      .join('\n');
+  }
+
+  return String(obj);
 }
 
 // Re-export types

@@ -8,6 +8,8 @@ let semanticStatus = { available: false };
 let ccwInstallStatus = { installed: true, workflowsInstalled: true, missingFiles: [], installPath: '' };
 let defaultCliTool = 'gemini';
 let promptConcatFormat = localStorage.getItem('ccw-prompt-format') || 'plain'; // plain, yaml, json
+let cliToolsConfig = {}; // CLI tools enable/disable config
+let apiEndpoints = []; // API endpoints from LiteLLM config
 
 // Smart Context settings
 let smartContextEnabled = localStorage.getItem('ccw-smart-context') === 'true';
@@ -40,6 +42,12 @@ async function loadAllStatuses() {
     codexLensStatus = data.codexLens || { ready: false };
     semanticStatus = data.semantic || { available: false };
     ccwInstallStatus = data.ccwInstall || { installed: true, workflowsInstalled: true, missingFiles: [], installPath: '' };
+
+    // Load CLI tools config and API endpoints
+    await Promise.all([
+      loadCliToolsConfig(),
+      loadApiEndpoints()
+    ]);
 
     // Update badges
     updateCliBadge();
@@ -168,6 +176,67 @@ async function loadInstalledModels() {
   }
 }
 
+/**
+ * Load CLI tools config from .claude/cli-tools.json (project or global fallback)
+ */
+async function loadCliToolsConfig() {
+  try {
+    const response = await fetch('/api/cli/tools-config');
+    if (!response.ok) return null;
+    const data = await response.json();
+    // Store full config and extract tools for backward compatibility
+    cliToolsConfig = data.tools || {};
+    window.claudeCliToolsConfig = data; // Full config available globally
+
+    // Load default tool from config
+    if (data.defaultTool) {
+      defaultCliTool = data.defaultTool;
+    }
+
+    console.log('[CLI Config] Loaded from:', data._configInfo?.source || 'unknown', '| Default:', data.defaultTool);
+    return data;
+  } catch (err) {
+    console.error('Failed to load CLI tools config:', err);
+    return null;
+  }
+}
+
+/**
+ * Update CLI tool enabled status
+ */
+async function updateCliToolEnabled(tool, enabled) {
+  try {
+    const response = await fetch('/api/cli/tools-config/' + tool, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: enabled })
+    });
+    if (!response.ok) throw new Error('Failed to update');
+    showRefreshToast(tool + (enabled ? ' enabled' : ' disabled'), 'success');
+    return await response.json();
+  } catch (err) {
+    console.error('Failed to update CLI tool:', err);
+    showRefreshToast('Failed to update ' + tool, 'error');
+    return null;
+  }
+}
+
+/**
+ * Load API endpoints from LiteLLM config
+ */
+async function loadApiEndpoints() {
+  try {
+    const response = await fetch('/api/litellm-api/endpoints');
+    if (!response.ok) return [];
+    const data = await response.json();
+    apiEndpoints = data.endpoints || [];
+    return apiEndpoints;
+  } catch (err) {
+    console.error('Failed to load API endpoints:', err);
+    return [];
+  }
+}
+
 // ========== Badge Update ==========
 function updateCliBadge() {
   const badge = document.getElementById('badgeCliTools');
@@ -234,25 +303,41 @@ function renderCliStatus() {
     const status = cliToolStatus[tool] || {};
     const isAvailable = status.available;
     const isDefault = defaultCliTool === tool;
+    const config = cliToolsConfig[tool] || { enabled: true };
+    const isEnabled = config.enabled !== false;
+    const canSetDefault = isAvailable && isEnabled && !isDefault;
 
     return `
-      <div class="cli-tool-card tool-${tool} ${isAvailable ? 'available' : 'unavailable'}">
+      <div class="cli-tool-card tool-${tool} ${isAvailable ? 'available' : 'unavailable'} ${!isEnabled ? 'disabled' : ''}">
         <div class="cli-tool-header">
-          <span class="cli-tool-status ${isAvailable ? 'status-available' : 'status-unavailable'}"></span>
+          <span class="cli-tool-status ${isAvailable && isEnabled ? 'status-available' : 'status-unavailable'}"></span>
           <span class="cli-tool-name">${tool.charAt(0).toUpperCase() + tool.slice(1)}</span>
           ${isDefault ? '<span class="cli-tool-badge">Default</span>' : ''}
+          ${!isEnabled && isAvailable ? '<span class="cli-tool-badge-disabled">Disabled</span>' : ''}
         </div>
         <div class="cli-tool-desc text-xs text-muted-foreground mt-1">
           ${toolDescriptions[tool]}
         </div>
-        <div class="cli-tool-info mt-2">
-          ${isAvailable
-            ? `<span class="text-success flex items-center gap-1"><i data-lucide="check-circle" class="w-3 h-3"></i> Ready</span>`
-            : `<span class="text-muted-foreground flex items-center gap-1"><i data-lucide="circle-dashed" class="w-3 h-3"></i> Not Installed</span>`
-          }
+        <div class="cli-tool-info mt-2 flex items-center justify-between">
+          <div>
+            ${isAvailable
+              ? (isEnabled
+                  ? `<span class="text-success flex items-center gap-1"><i data-lucide="check-circle" class="w-3 h-3"></i> Ready</span>`
+                  : `<span class="text-warning flex items-center gap-1"><i data-lucide="pause-circle" class="w-3 h-3"></i> Disabled</span>`)
+              : `<span class="text-muted-foreground flex items-center gap-1"><i data-lucide="circle-dashed" class="w-3 h-3"></i> Not Installed</span>`
+            }
+          </div>
         </div>
-        <div class="cli-tool-actions mt-3">
-          ${isAvailable && !isDefault
+        <div class="cli-tool-actions mt-3 flex gap-2">
+          ${isAvailable ? (isEnabled
+            ? `<button class="btn-sm btn-outline-warning flex items-center gap-1" onclick="toggleCliTool('${tool}', false)">
+                <i data-lucide="pause" class="w-3 h-3"></i> Disable
+              </button>`
+            : `<button class="btn-sm btn-outline-success flex items-center gap-1" onclick="toggleCliTool('${tool}', true)">
+                <i data-lucide="play" class="w-3 h-3"></i> Enable
+              </button>`
+          ) : ''}
+          ${canSetDefault
             ? `<button class="btn-sm btn-outline flex items-center gap-1" onclick="setDefaultCliTool('${tool}')">
                 <i data-lucide="star" class="w-3 h-3"></i> Set Default
               </button>`
@@ -365,11 +450,42 @@ function renderCliStatus() {
     </div>
   ` : '';
 
+  // API Endpoints section
+  const apiEndpointsHtml = apiEndpoints.length > 0 ? `
+    <div class="cli-api-endpoints-section" style="margin-top: 1.5rem;">
+      <div class="cli-section-header" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+        <h4 style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600; margin: 0;">
+          <i data-lucide="link" class="w-4 h-4"></i> API Endpoints
+        </h4>
+        <span class="badge" style="padding: 0.125rem 0.5rem; font-size: 0.75rem; border-radius: 0.25rem; background: var(--muted); color: var(--muted-foreground);">${apiEndpoints.length}</span>
+      </div>
+      <div class="cli-endpoints-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0.75rem;">
+        ${apiEndpoints.map(ep => `
+          <div class="cli-endpoint-card ${ep.enabled ? 'available' : 'unavailable'}" style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--card);">
+            <div class="cli-endpoint-header" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+              <span class="cli-tool-status ${ep.enabled ? 'status-available' : 'status-unavailable'}" style="width: 8px; height: 8px; border-radius: 50%; background: ${ep.enabled ? 'var(--success)' : 'var(--muted-foreground)'}; flex-shrink: 0;"></span>
+              <span class="cli-endpoint-id" style="font-weight: 500; font-size: 0.875rem;">${ep.id}</span>
+            </div>
+            <div class="cli-endpoint-info" style="margin-top: 0.25rem;">
+              <span class="text-xs text-muted-foreground" style="font-size: 0.75rem; color: var(--muted-foreground);">${ep.model}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  // Config source info
+  const configInfo = window.claudeCliToolsConfig?._configInfo || {};
+  const configSourceLabel = configInfo.source === 'project' ? 'Project' : configInfo.source === 'global' ? 'Global' : 'Default';
+  const configSourceClass = configInfo.source === 'project' ? 'text-success' : configInfo.source === 'global' ? 'text-primary' : 'text-muted-foreground';
+
   // CLI Settings section
   const settingsHtml = `
     <div class="cli-settings-section">
       <div class="cli-settings-header">
         <h4><i data-lucide="settings" class="w-3.5 h-3.5"></i> Settings</h4>
+        <span class="badge text-xs ${configSourceClass}" title="${configInfo.activePath || ''}">${configSourceLabel}</span>
       </div>
       <div class="cli-settings-grid">
         <div class="cli-setting-item">
@@ -436,6 +552,20 @@ function renderCliStatus() {
           </div>
           <p class="cli-setting-desc">Maximum files to include in smart context</p>
         </div>
+        <div class="cli-setting-item">
+          <label class="cli-setting-label">
+            <i data-lucide="hard-drive" class="w-3 h-3"></i>
+            Cache Injection
+          </label>
+          <div class="cli-setting-control">
+            <select class="cli-setting-select" onchange="setCacheInjectionMode(this.value)">
+              <option value="auto" ${getCacheInjectionMode() === 'auto' ? 'selected' : ''}>Auto</option>
+              <option value="manual" ${getCacheInjectionMode() === 'manual' ? 'selected' : ''}>Manual</option>
+              <option value="disabled" ${getCacheInjectionMode() === 'disabled' ? 'selected' : ''}>Disabled</option>
+            </select>
+          </div>
+          <p class="cli-setting-desc">Cache prefix/suffix injection mode for prompts</p>
+        </div>
       </div>
     </div>
   `;
@@ -453,6 +583,7 @@ function renderCliStatus() {
       ${codexLensHtml}
       ${semanticHtml}
     </div>
+    ${apiEndpointsHtml}
     ${settingsHtml}
   `;
 
@@ -464,7 +595,30 @@ function renderCliStatus() {
 
 // ========== Actions ==========
 function setDefaultCliTool(tool) {
+  // Validate: tool must be available and enabled
+  const status = cliToolStatus[tool] || {};
+  const config = cliToolsConfig[tool] || { enabled: true };
+
+  if (!status.available) {
+    showRefreshToast(`Cannot set ${tool} as default: not installed`, 'error');
+    return;
+  }
+
+  if (config.enabled === false) {
+    showRefreshToast(`Cannot set ${tool} as default: tool is disabled`, 'error');
+    return;
+  }
+
   defaultCliTool = tool;
+  // Save to config
+  if (window.claudeCliToolsConfig) {
+    window.claudeCliToolsConfig.defaultTool = tool;
+    fetch('/api/cli/tools-config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ defaultTool: tool })
+    }).catch(err => console.error('Failed to save default tool:', err));
+  }
   renderCliStatus();
   showRefreshToast(`Default CLI tool set to ${tool}`, 'success');
 }
@@ -505,7 +659,63 @@ function setRecursiveQueryEnabled(enabled) {
   showRefreshToast(`Recursive Query ${enabled ? 'enabled' : 'disabled'}`, 'success');
 }
 
+function getCacheInjectionMode() {
+  if (window.claudeCliToolsConfig && window.claudeCliToolsConfig.settings) {
+    return window.claudeCliToolsConfig.settings.cache?.injectionMode || 'auto';
+  }
+  return localStorage.getItem('ccw-cache-injection-mode') || 'auto';
+}
+
+async function setCacheInjectionMode(mode) {
+  try {
+    const response = await fetch('/api/cli/tools-config/cache', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ injectionMode: mode })
+    });
+    if (response.ok) {
+      localStorage.setItem('ccw-cache-injection-mode', mode);
+      if (window.claudeCliToolsConfig) {
+        window.claudeCliToolsConfig.settings.cache.injectionMode = mode;
+      }
+      showRefreshToast(`Cache injection mode set to ${mode}`, 'success');
+    } else {
+      showRefreshToast('Failed to update cache settings', 'error');
+    }
+  } catch (err) {
+    console.error('Failed to update cache settings:', err);
+    showRefreshToast('Failed to update cache settings', 'error');
+  }
+}
+
 async function refreshAllCliStatus() {
+  await loadAllStatuses();
+  renderCliStatus();
+}
+
+async function toggleCliTool(tool, enabled) {
+  // If disabling the current default tool, switch to another available+enabled tool
+  if (!enabled && defaultCliTool === tool) {
+    const tools = ['gemini', 'qwen', 'codex', 'claude'];
+    const newDefault = tools.find(t => {
+      if (t === tool) return false;
+      const status = cliToolStatus[t] || {};
+      const config = cliToolsConfig[t] || { enabled: true };
+      return status.available && config.enabled !== false;
+    });
+
+    if (newDefault) {
+      defaultCliTool = newDefault;
+      if (window.claudeCliToolsConfig) {
+        window.claudeCliToolsConfig.defaultTool = newDefault;
+      }
+      showRefreshToast(`Default tool switched to ${newDefault}`, 'info');
+    } else {
+      showRefreshToast(`Warning: No other enabled tool available for default`, 'warning');
+    }
+  }
+
+  await updateCliToolEnabled(tool, enabled);
   await loadAllStatuses();
   renderCliStatus();
 }

@@ -63,11 +63,39 @@ class LiteLLMEmbedderWrapper(BaseEmbedder):
         """
         return self._embedder.model_name
 
-    def embed_to_numpy(self, texts: str | Iterable[str]) -> np.ndarray:
+    @property
+    def max_tokens(self) -> int:
+        """Return maximum token limit for the embedding model.
+
+        Returns:
+            int: Maximum number of tokens that can be embedded at once.
+                Inferred from model config or model name patterns.
+        """
+        # Try to get from LiteLLM config first
+        if hasattr(self._embedder, 'max_input_tokens') and self._embedder.max_input_tokens:
+            return self._embedder.max_input_tokens
+
+        # Infer from model name
+        model_name_lower = self.model_name.lower()
+
+        # Large models (8B or "large" in name)
+        if '8b' in model_name_lower or 'large' in model_name_lower:
+            return 32768
+
+        # OpenAI text-embedding-3-* models
+        if 'text-embedding-3' in model_name_lower:
+            return 8191
+
+        # Default fallback
+        return 8192
+
+    def embed_to_numpy(self, texts: str | Iterable[str], **kwargs) -> np.ndarray:
         """Embed texts to numpy array using LiteLLMEmbedder.
 
         Args:
             texts: Single text or iterable of texts to embed.
+            **kwargs: Additional arguments (ignored for LiteLLM backend).
+                      Accepts batch_size for API compatibility with fastembed.
 
         Returns:
             numpy.ndarray: Array of shape (n_texts, embedding_dim) containing embeddings.
@@ -76,4 +104,5 @@ class LiteLLMEmbedderWrapper(BaseEmbedder):
             texts = [texts]
         else:
             texts = list(texts)
+        # LiteLLM handles batching internally, ignore batch_size parameter
         return self._embedder.embed(texts)

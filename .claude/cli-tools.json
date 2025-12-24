@@ -1,0 +1,46 @@
+{
+  "$schema": "./cli-tools.schema.json",
+  "version": "1.0.0",
+  "tools": {
+    "gemini": {
+      "enabled": true,
+      "isBuiltin": true,
+      "command": "gemini",
+      "description": "Google AI for code analysis"
+    },
+    "qwen": {
+      "enabled": true,
+      "isBuiltin": true,
+      "command": "qwen",
+      "description": "Alibaba AI assistant"
+    },
+    "codex": {
+      "enabled": true,
+      "isBuiltin": true,
+      "command": "codex",
+      "description": "OpenAI code generation"
+    },
+    "claude": {
+      "enabled": true,
+      "isBuiltin": true,
+      "command": "claude",
+      "description": "Anthropic AI assistant"
+    }
+  },
+  "customEndpoints": [],
+  "defaultTool": "gemini",
+  "settings": {
+    "promptFormat": "plain",
+    "smartContext": {
+      "enabled": false,
+      "maxFiles": 10
+    },
+    "nativeResume": true,
+    "recursiveQuery": true,
+    "cache": {
+      "injectionMode": "auto",
+      "defaultPrefix": "",
+      "defaultSuffix": ""
+    }
+  }
+}

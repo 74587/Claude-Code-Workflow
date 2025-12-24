@@ -81,7 +81,7 @@ class LiteLLMEmbedder(AbstractEmbedder):
         """Format model name for LiteLLM.
 
         Returns:
-            Formatted model name (e.g., "text-embedding-3-small")
+            Formatted model name (e.g., "openai/text-embedding-3-small")
         """
         provider = self._model_config.provider
         model = self._model_config.model
@@ -89,6 +89,11 @@ class LiteLLMEmbedder(AbstractEmbedder):
         # For some providers, LiteLLM expects explicit prefix
         if provider in ["azure", "vertex_ai", "bedrock"]:
             return f"{provider}/{model}"
+
+        # For providers with custom api_base (OpenAI-compatible endpoints),
+        # use openai/ prefix to tell LiteLLM to use OpenAI API format
+        if self._provider_config.api_base and provider not in ["openai", "anthropic"]:
+            return f"openai/{model}"
 
         return model
 
@@ -133,6 +138,10 @@ class LiteLLMEmbedder(AbstractEmbedder):
         embedding_kwargs = {**self._litellm_kwargs, **kwargs}
 
         try:
+            # For OpenAI-compatible endpoints, ensure encoding_format is set
+            if self._provider_config.api_base and "encoding_format" not in embedding_kwargs:
+                embedding_kwargs["encoding_format"] = "float"
+
             # Call LiteLLM embedding
             response = litellm.embedding(
                 model=self._format_model_name(),

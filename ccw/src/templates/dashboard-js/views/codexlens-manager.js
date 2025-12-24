@@ -1166,10 +1166,12 @@ async function deleteModel(profile) {
  * Initialize CodexLens index with bottom floating progress bar
  * @param {string} indexType - 'vector' (with embeddings), 'normal' (FTS only), or 'full' (FTS + Vector)
  * @param {string} embeddingModel - Model profile: 'code', 'fast'
+ * @param {string} embeddingBackend - Backend: 'fastembed' (local) or 'litellm' (API)
  */
-async function initCodexLensIndex(indexType, embeddingModel) {
+async function initCodexLensIndex(indexType, embeddingModel, embeddingBackend) {
   indexType = indexType || 'vector';
   embeddingModel = embeddingModel || 'code';
+  embeddingBackend = embeddingBackend || 'fastembed';
 
   // For vector or full index, check if semantic dependencies are available
   if (indexType === 'vector' || indexType === 'full') {
@@ -1235,7 +1237,8 @@ async function initCodexLensIndex(indexType, embeddingModel) {
   var modelLabel = '';
   if (indexType !== 'normal') {
     var modelNames = { code: 'Code', fast: 'Fast' };
-    modelLabel = ' [' + (modelNames[embeddingModel] || embeddingModel) + ']';
+    var backendLabel = embeddingBackend === 'litellm' ? 'API: ' : '';
+    modelLabel = ' [' + backendLabel + (modelNames[embeddingModel] || embeddingModel) + ']';
   }
 
   progressBar.innerHTML =
@@ -1272,17 +1275,19 @@ async function initCodexLensIndex(indexType, embeddingModel) {
   var apiIndexType = (indexType === 'full') ? 'vector' : indexType;
 
   // Start indexing with specified type and model
-  startCodexLensIndexing(apiIndexType, embeddingModel);
+  startCodexLensIndexing(apiIndexType, embeddingModel, embeddingBackend);
 }
 
 /**
  * Start the indexing process
  * @param {string} indexType - 'vector' or 'normal'
  * @param {string} embeddingModel - Model profile: 'code', 'fast'
+ * @param {string} embeddingBackend - Backend: 'fastembed' (local) or 'litellm' (API)
  */
-async function startCodexLensIndexing(indexType, embeddingModel) {
+async function startCodexLensIndexing(indexType, embeddingModel, embeddingBackend) {
   indexType = indexType || 'vector';
   embeddingModel = embeddingModel || 'code';
+  embeddingBackend = embeddingBackend || 'fastembed';
   var statusText = document.getElementById('codexlensIndexStatus');
   var progressBar = document.getElementById('codexlensIndexProgressBar');
   var percentText = document.getElementById('codexlensIndexPercent');
@@ -1314,11 +1319,11 @@ async function startCodexLensIndexing(indexType, embeddingModel) {
   }
 
   try {
-    console.log('[CodexLens] Starting index for:', projectPath, 'type:', indexType, 'model:', embeddingModel);
+    console.log('[CodexLens] Starting index for:', projectPath, 'type:', indexType, 'model:', embeddingModel, 'backend:', embeddingBackend);
     var response = await fetch('/api/codexlens/init', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: projectPath, indexType: indexType, embeddingModel: embeddingModel })
+      body: JSON.stringify({ path: projectPath, indexType: indexType, embeddingModel: embeddingModel, embeddingBackend: embeddingBackend })
     });
 
     var result = await response.json();
@@ -1883,6 +1888,16 @@ async function renderCodexLensManager() {
       await loadCodexLensStatus();
     }
 
+    // Load LiteLLM API config for embedding backend options
+    try {
+      var litellmResponse = await fetch('/api/litellm-api/config');
+      if (litellmResponse.ok) {
+        window.litellmApiConfig = await litellmResponse.json();
+      }
+    } catch (e) {
+      console.warn('[CodexLens] Could not load LiteLLM config:', e);
+    }
+
     var response = await fetch('/api/codexlens/config');
     var config = await response.json();
 
@@ -1946,6 +1961,15 @@ function buildCodexLensManagerPage(config) {
             '<div class="bg-card border border-border rounded-lg p-5">' +
               '<h4 class="text-lg font-semibold mb-4 flex items-center gap-2"><i data-lucide="layers" class="w-5 h-5 text-primary"></i> ' + t('codexlens.createIndex') + '</h4>' +
               '<div class="space-y-4">' +
+                // Backend selector (fastembed local or litellm API)
+                '<div class="mb-4">' +
+                  '<label class="block text-sm font-medium mb-1.5">' + (t('codexlens.embeddingBackend') || 'Embedding Backend') + '</label>' +
+                  '<select id="pageBackendSelect" class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm" onchange="onEmbeddingBackendChange()">' +
+                    '<option value="fastembed">' + (t('codexlens.localFastembed') || 'Local (FastEmbed)') + '</option>' +
+                    '<option value="litellm">' + (t('codexlens.apiLitellm') || 'API (LiteLLM)') + '</option>' +
+                  '</select>' +
+                  '<p class="text-xs text-muted-foreground mt-1">' + (t('codexlens.backendHint') || 'Select local model or remote API endpoint') + '</p>' +
+                '</div>' +
                 // Model selector
                 '<div>' +
                   '<label class="block text-sm font-medium mb-1.5">' + t('codexlens.embeddingModel') + '</label>' +
@@ -2151,17 +2175,67 @@ function buildModelSelectOptionsForPage() {
 }
 
 /**
+ * Handle embedding backend change
+ */
+function onEmbeddingBackendChange() {
+  var backendSelect = document.getElementById('pageBackendSelect');
+  var modelSelect = document.getElementById('pageModelSelect');
+  if (!backendSelect || !modelSelect) return;
+  
+  var backend = backendSelect.value;
+  
+  if (backend === 'litellm') {
+    // Load LiteLLM embedding models
+    modelSelect.innerHTML = buildLiteLLMModelOptions();
+  } else {
+    // Load local fastembed models
+    modelSelect.innerHTML = buildModelSelectOptionsForPage();
+  }
+}
+
+/**
+ * Build LiteLLM model options from config
+ */
+function buildLiteLLMModelOptions() {
+  var litellmConfig = window.litellmApiConfig || {};
+  var providers = litellmConfig.providers || [];
+  var options = '';
+  
+  providers.forEach(function(provider) {
+    if (!provider.enabled) return;
+    var models = provider.models || [];
+    models.forEach(function(model) {
+      if (model.type !== 'embedding' || !model.enabled) return;
+      var label = model.name || model.id;
+      var selected = options === '' ? ' selected' : '';
+      options += '<option value="' + model.id + '"' + selected + '>' + label + '</option>';
+    });
+  });
+  
+  if (options === '') {
+    options = '<option value="" disabled selected>' + (t('codexlens.noApiModels') || 'No API embedding models configured') + '</option>';
+  }
+  
+  return options;
+}
+
+// Make functions globally accessible
+window.onEmbeddingBackendChange = onEmbeddingBackendChange;
+
+/**
  * Initialize index from page with selected model
  */
 function initCodexLensIndexFromPage(indexType) {
+  var backendSelect = document.getElementById('pageBackendSelect');
   var modelSelect = document.getElementById('pageModelSelect');
+  var selectedBackend = backendSelect ? backendSelect.value : 'fastembed';
   var selectedModel = modelSelect ? modelSelect.value : 'code';
 
   // For FTS-only index, model is not needed
   if (indexType === 'normal') {
     initCodexLensIndex(indexType);
   } else {
-    initCodexLensIndex(indexType, selectedModel);
+    initCodexLensIndex(indexType, selectedModel, selectedBackend);
   }
 }
 

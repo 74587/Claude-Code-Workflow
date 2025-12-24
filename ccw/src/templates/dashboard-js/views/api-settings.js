@@ -359,10 +359,20 @@ async function deleteProvider(providerId) {
 
 /**
  * Test provider connection
+ * @param {string} [providerIdParam] - Optional provider ID. If not provided, uses form context or selectedProviderId
  */
-async function testProviderConnection() {
-  const form = document.getElementById('providerForm');
-  const providerId = form.dataset.providerId;
+async function testProviderConnection(providerIdParam) {
+  var providerId = providerIdParam;
+
+  // Try to get providerId from different sources
+  if (!providerId) {
+    var form = document.getElementById('providerForm');
+    if (form && form.dataset.providerId) {
+      providerId = form.dataset.providerId;
+    } else if (selectedProviderId) {
+      providerId = selectedProviderId;
+    }
+  }
 
   if (!providerId) {
     showRefreshToast(t('apiSettings.saveProviderFirst'), 'warning');
@@ -553,9 +563,9 @@ async function showAddEndpointModal() {
     '</div>' +
     '</fieldset>' +
     '<div class="modal-actions">' +
-    '<button type="button" class="btn btn-secondary" onclick="closeEndpointModal()">' + t('common.cancel') + '</button>' +
+    '<button type="button" class="btn btn-secondary" onclick="closeEndpointModal()"><i data-lucide="x"></i> ' + t('common.cancel') + '</button>' +
     '<button type="submit" class="btn btn-primary">' +
-    '<i data-lucide="save"></i> ' + t('common.save') +
+    '<i data-lucide="check"></i> ' + t('common.save') +
     '</button>' +
     '</div>' +
     '</form>' +
@@ -845,7 +855,10 @@ async function renderApiSettings() {
   }
 
   // Build split layout
-  container.innerHTML = '<div class="api-settings-container api-settings-split">' +
+  container.innerHTML =
+    // CCW-LiteLLM Status Container
+    '<div id="ccwLitellmStatusContainer" class="mb-4"></div>' +
+    '<div class="api-settings-container api-settings-split">' +
     // Left Sidebar
     '<aside class="api-settings-sidebar">' +
     sidebarTabsHtml +
@@ -877,6 +890,9 @@ async function renderApiSettings() {
   } else if (activeSidebarTab === 'cache') {
     renderCacheMainPanel();
   }
+
+  // Check and render ccw-litellm status
+  checkCcwLitellmStatus().then(renderCcwLitellmStatusCard);
 
   if (window.lucide) lucide.createIcons();
 }
@@ -966,7 +982,10 @@ function renderProviderDetail(providerId) {
   }
 
   var maskedKey = provider.apiKey ? '••••••••••••••••' + provider.apiKey.slice(-4) : '••••••••';
-  var apiBasePreview = (provider.apiBase || getDefaultApiBase(provider.type)) + '/chat/completions';
+  var currentApiBase = provider.apiBase || getDefaultApiBase(provider.type);
+  // Show full endpoint URL preview based on active model tab
+  var endpointPath = activeModelTab === 'embedding' ? '/embeddings' : '/chat/completions';
+  var apiBasePreview = currentApiBase + endpointPath;
 
   var html = '<div class="provider-detail-header">' +
     '<div class="provider-detail-title">' +
@@ -1007,13 +1026,18 @@ function renderProviderDetail(providerId) {
     '<button class="btn btn-secondary" onclick="testProviderConnection()">' + t('apiSettings.testConnection') + '</button>' +
     '</div>' +
     '</div>' +
-    // API Base URL field
+    // API Base URL field - editable
     '<div class="field-group">' +
     '<div class="field-label">' +
     '<span>' + t('apiSettings.apiBaseUrl') + '</span>' +
     '</div>' +
-    '<input type="text" class="cli-input" value="' + escapeHtml(provider.apiBase || getDefaultApiBase(provider.type)) + '" readonly />' +
-    '<span class="field-hint">' + t('apiSettings.preview') + ': ' + apiBasePreview + '</span>' +
+    '<div class="field-input-group">' +
+    '<input type="text" class="cli-input" id="provider-detail-apibase" value="' + escapeHtml(currentApiBase) + '" placeholder="https://api.openai.com/v1" oninput="updateApiBasePreview(this.value)" />' +
+    '<button class="btn btn-secondary" onclick="saveProviderApiBase(\'' + providerId + '\')">' +
+    '<i data-lucide="save"></i> ' + t('common.save') +
+    '</button>' +
+    '</div>' +
+    '<span class="field-hint" id="api-base-preview">' + t('apiSettings.preview') + ': ' + escapeHtml(apiBasePreview) + '</span>' +
     '</div>' +
     // Model Section
     '<div class="model-section">' +
@@ -1037,10 +1061,13 @@ function renderProviderDetail(providerId) {
     '</div>' +
     '<div class="model-tree" id="model-tree"></div>' +
     '</div>' +
-    // Multi-key settings button
+    // Multi-key and sync buttons
     '<div class="multi-key-trigger">' +
     '<button class="btn btn-secondary multi-key-btn" onclick="showMultiKeyModal(\'' + providerId + '\')">' +
     '<i data-lucide="key-round"></i> ' + t('apiSettings.multiKeySettings') +
+    '</button>' +
+    '<button class="btn btn-secondary" onclick="syncConfigToCodexLens()">' +
+    '<i data-lucide="refresh-cw"></i> ' + t('apiSettings.syncToCodexLens') +
     '</button>' +
     '</div>' +
     '</div>';
@@ -1107,18 +1134,21 @@ function renderModelTree(provider) {
         ? formatContextWindow(model.capabilities.contextWindow)
         : '';
 
+      // Badge for embedding models shows dimension instead of context window
+      var embeddingBadge = model.capabilities && model.capabilities.embeddingDimension
+        ? model.capabilities.embeddingDimension + 'd'
+        : '';
+      var displayBadge = activeModelTab === 'llm' ? badge : embeddingBadge;
+
       html += '<div class="model-item" data-model-id="' + model.id + '">' +
         '<i data-lucide="' + (activeModelTab === 'llm' ? 'sparkles' : 'box') + '" class="model-item-icon"></i>' +
         '<span class="model-item-name">' + escapeHtml(model.name) + '</span>' +
-        (badge ? '<span class="model-item-badge">' + badge + '</span>' : '') +
+        (displayBadge ? '<span class="model-item-badge">' + displayBadge + '</span>' : '') +
         '<div class="model-item-actions">' +
-        '<button class="btn-icon-sm" onclick="previewModel(\'' + model.id + '\')" title="' + t('apiSettings.previewModel') + '">' +
-        '<i data-lucide="eye"></i>' +
-        '</button>' +
-        '<button class="btn-icon-sm" onclick="showModelSettingsModal(\'' + model.id + '\')" title="' + t('apiSettings.modelSettings') + '">' +
+        '<button class="btn-icon-sm" onclick="showModelSettingsModal(\'' + selectedProviderId + '\', \'' + model.id + '\', \'' + activeModelTab + '\')" title="' + t('apiSettings.modelSettings') + '">' +
         '<i data-lucide="settings"></i>' +
         '</button>' +
-        '<button class="btn-icon-sm text-destructive" onclick="deleteModel(\'' + model.id + '\')" title="' + t('apiSettings.deleteModel') + '">' +
+        '<button class="btn-icon-sm text-destructive" onclick="deleteModel(\'' + selectedProviderId + '\', \'' + model.id + '\', \'' + activeModelTab + '\')" title="' + t('apiSettings.deleteModel') + '">' +
         '<i data-lucide="trash-2"></i>' +
         '</button>' +
         '</div>' +
@@ -1418,8 +1448,8 @@ function showAddModelModal(providerId, modelType) {
     '</div>' +
 
     '<div class="modal-actions">' +
-    '<button type="button" class="btn btn-secondary" onclick="closeAddModelModal()">' + t('common.cancel') + '</button>' +
-    '<button type="submit" class="btn btn-primary">' + t('common.save') + '</button>' +
+    '<button type="button" class="btn btn-secondary" onclick="closeAddModelModal()"><i data-lucide="x"></i> ' + t('common.cancel') + '</button>' +
+    '<button type="submit" class="btn btn-primary"><i data-lucide="check"></i> ' + t('common.save') + '</button>' +
     '</div>' +
     '</form>' +
     '</div>' +
@@ -1624,29 +1654,51 @@ function showModelSettingsModal(providerId, modelId, modelType) {
   var capabilities = model.capabilities || {};
   var endpointSettings = model.endpointSettings || {};
 
+  // Calculate endpoint preview URL
+  var providerBase = provider.apiBase || getDefaultApiBase(provider.type);
+  var modelBaseUrl = endpointSettings.baseUrl || providerBase;
+  var endpointPath = isLlm ? '/chat/completions' : '/embeddings';
+  var endpointPreview = modelBaseUrl + endpointPath;
+
   var modalHtml = '<div class="modal-overlay" id="model-settings-modal">' +
-    '<div class="modal-content" style="max-width: 550px;">' +
+    '<div class="modal-content" style="max-width: 600px;">' +
     '<div class="modal-header">' +
-    '<h3>' + t('apiSettings.modelSettings') + ': ' + model.name + '</h3>' +
+    '<h3>' + t('apiSettings.modelSettings') + ': ' + escapeHtml(model.name) + '</h3>' +
     '<button class="modal-close" onclick="closeModelSettingsModal()">&times;</button>' +
     '</div>' +
     '<div class="modal-body">' +
     '<form id="model-settings-form" onsubmit="saveModelSettings(event, \'' + providerId + '\', \'' + modelId + '\', \'' + modelType + '\')">' +
+
+    // Endpoint Preview Section (combined view + settings)
+    '<div class="form-section endpoint-preview-section">' +
+    '<h4><i data-lucide="' + (isLlm ? 'message-square' : 'box') + '"></i> ' + t('apiSettings.endpointPreview') + '</h4>' +
+    '<div class="endpoint-preview-box">' +
+    '<code id="model-endpoint-preview">' + escapeHtml(endpointPreview) + '</code>' +
+    '<button type="button" class="btn-icon-sm" onclick="copyModelEndpoint()" title="' + t('common.copy') + '">' +
+    '<i data-lucide="copy"></i>' +
+    '</button>' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.modelBaseUrlOverride') + ' <span class="text-muted">(' + t('common.optional') + ')</span></label>' +
+    '<input type="text" id="model-settings-baseurl" class="cli-input" value="' + escapeHtml(endpointSettings.baseUrl || '') + '" placeholder="' + escapeHtml(providerBase) + '" oninput="updateModelEndpointPreview(\'' + (isLlm ? 'chat/completions' : 'embeddings') + '\', \'' + escapeHtml(providerBase) + '\')">' +
+    '<small class="form-hint">' + t('apiSettings.modelBaseUrlHint') + '</small>' +
+    '</div>' +
+    '</div>' +
 
     // Basic Info
     '<div class="form-section">' +
     '<h4>' + t('apiSettings.basicInfo') + '</h4>' +
     '<div class="form-group">' +
     '<label>' + t('apiSettings.modelName') + '</label>' +
-    '<input type="text" id="model-settings-name" class="cli-input" value="' + (model.name || '') + '" required>' +
+    '<input type="text" id="model-settings-name" class="cli-input" value="' + escapeHtml(model.name || '') + '" required>' +
     '</div>' +
     '<div class="form-group">' +
     '<label>' + t('apiSettings.modelSeries') + '</label>' +
-    '<input type="text" id="model-settings-series" class="cli-input" value="' + (model.series || '') + '" required>' +
+    '<input type="text" id="model-settings-series" class="cli-input" value="' + escapeHtml(model.series || '') + '" required>' +
     '</div>' +
     '<div class="form-group">' +
     '<label>' + t('apiSettings.description') + '</label>' +
-    '<textarea id="model-settings-description" class="cli-input" rows="2">' + (model.description || '') + '</textarea>' +
+    '<textarea id="model-settings-description" class="cli-input" rows="2">' + escapeHtml(model.description || '') + '</textarea>' +
     '</div>' +
     '</div>' +
 
@@ -1678,19 +1730,21 @@ function showModelSettingsModal(providerId, modelId, modelType) {
     // Endpoint Settings
     '<div class="form-section">' +
     '<h4>' + t('apiSettings.endpointSettings') + '</h4>' +
-    '<div class="form-group">' +
+    '<div class="form-row">' +
+    '<div class="form-group form-group-half">' +
     '<label>' + t('apiSettings.timeout') + ' (' + t('apiSettings.seconds') + ')</label>' +
     '<input type="number" id="model-settings-timeout" class="cli-input" value="' + (endpointSettings.timeout || 300) + '" min="10" max="3600">' +
     '</div>' +
-    '<div class="form-group">' +
+    '<div class="form-group form-group-half">' +
     '<label>' + t('apiSettings.maxRetries') + '</label>' +
     '<input type="number" id="model-settings-retries" class="cli-input" value="' + (endpointSettings.maxRetries || 3) + '" min="0" max="10">' +
     '</div>' +
     '</div>' +
+    '</div>' +
 
     '<div class="modal-actions">' +
-    '<button type="button" class="btn-secondary" onclick="closeModelSettingsModal()">' + t('common.cancel') + '</button>' +
-    '<button type="submit" class="btn-primary">' + t('common.save') + '</button>' +
+    '<button type="button" class="btn-secondary" onclick="closeModelSettingsModal()"><i data-lucide="x"></i> ' + t('common.cancel') + '</button>' +
+    '<button type="submit" class="btn-primary"><i data-lucide="check"></i> ' + t('common.save') + '</button>' +
     '</div>' +
     '</form>' +
     '</div>' +
@@ -1699,6 +1753,33 @@ function showModelSettingsModal(providerId, modelId, modelType) {
 
   document.body.insertAdjacentHTML('beforeend', modalHtml);
   if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Update model endpoint preview when base URL changes
+ */
+function updateModelEndpointPreview(endpointPath, defaultBase) {
+  var baseUrlInput = document.getElementById('model-settings-baseurl');
+  var previewElement = document.getElementById('model-endpoint-preview');
+  if (!baseUrlInput || !previewElement) return;
+
+  var baseUrl = baseUrlInput.value.trim() || defaultBase;
+  // Remove trailing slash if present
+  if (baseUrl.endsWith('/')) {
+    baseUrl = baseUrl.slice(0, -1);
+  }
+  previewElement.textContent = baseUrl + '/' + endpointPath;
+}
+
+/**
+ * Copy model endpoint URL to clipboard
+ */
+function copyModelEndpoint() {
+  var previewElement = document.getElementById('model-endpoint-preview');
+  if (previewElement) {
+    navigator.clipboard.writeText(previewElement.textContent);
+    showRefreshToast(t('common.copied'), 'success');
+  }
 }
 
 function closeModelSettingsModal() {
@@ -1744,7 +1825,13 @@ function saveModelSettings(event, providerId, modelId, modelType) {
       }
 
       // Update endpoint settings
+      var baseUrlOverride = document.getElementById('model-settings-baseurl').value.trim();
+      // Remove trailing slash if present
+      if (baseUrlOverride && baseUrlOverride.endsWith('/')) {
+        baseUrlOverride = baseUrlOverride.slice(0, -1);
+      }
       models[modelIndex].endpointSettings = {
+        baseUrl: baseUrlOverride || undefined,
         timeout: parseInt(document.getElementById('model-settings-timeout').value) || 300,
         maxRetries: parseInt(document.getElementById('model-settings-retries').value) || 3
       };
@@ -1772,11 +1859,6 @@ function saveModelSettings(event, providerId, modelId, modelType) {
       console.error('Failed to save model settings:', err);
       showRefreshToast(t('common.saveFailed'), 'error');
     });
-}
-
-function previewModel(providerId, modelId, modelType) {
-  // Just open the settings modal in read mode for now
-  showModelSettingsModal(providerId, modelId, modelType);
 }
 
 function deleteModel(providerId, modelId, modelType) {
@@ -1824,6 +1906,59 @@ function copyProviderApiKey(providerId) {
 }
 
 /**
+ * Save provider API base URL
+ */
+async function saveProviderApiBase(providerId) {
+  var input = document.getElementById('provider-detail-apibase');
+  if (!input) return;
+
+  var newApiBase = input.value.trim();
+  // Remove trailing slash if present
+  if (newApiBase.endsWith('/')) {
+    newApiBase = newApiBase.slice(0, -1);
+  }
+
+  try {
+    var response = await fetch('/api/litellm-api/providers/' + providerId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiBase: newApiBase || undefined })
+    });
+
+    if (!response.ok) throw new Error('Failed to update API base');
+
+    // Update local data
+    var provider = apiSettingsData.providers.find(function(p) { return p.id === providerId; });
+    if (provider) {
+      provider.apiBase = newApiBase || undefined;
+    }
+
+    // Update preview
+    updateApiBasePreview(newApiBase);
+    showRefreshToast(t('apiSettings.apiBaseUpdated'), 'success');
+  } catch (err) {
+    console.error('Failed to save API base:', err);
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
+}
+
+/**
+ * Update API base preview text showing full endpoint URL
+ */
+function updateApiBasePreview(apiBase) {
+  var preview = document.getElementById('api-base-preview');
+  if (!preview) return;
+
+  var base = apiBase || getDefaultApiBase('openai');
+  // Remove trailing slash if present
+  if (base.endsWith('/')) {
+    base = base.slice(0, -1);
+  }
+  var endpointPath = activeModelTab === 'embedding' ? '/embeddings' : '/chat/completions';
+  preview.textContent = t('apiSettings.preview') + ': ' + base + endpointPath;
+}
+
+/**
  * Delete provider with confirmation
  */
 async function deleteProviderWithConfirm(providerId) {
@@ -1855,6 +1990,25 @@ async function deleteProviderWithConfirm(providerId) {
     showRefreshToast(t('apiSettings.providerDeleted'), 'success');
   } catch (err) {
     console.error('Failed to delete provider:', err);
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
+}
+
+/**
+ * Sync config to CodexLens (generate YAML config for ccw_litellm)
+ */
+async function syncConfigToCodexLens() {
+  try {
+    var response = await fetch('/api/litellm-api/config/sync', {
+      method: 'POST'
+    });
+
+    if (!response.ok) throw new Error('Failed to sync config');
+
+    var result = await response.json();
+    showRefreshToast(t('apiSettings.configSynced') + ' (' + result.yamlPath + ')', 'success');
+  } catch (err) {
+    console.error('Failed to sync config:', err);
     showRefreshToast(t('common.error') + ': ' + err.message, 'error');
   }
 }
@@ -2343,7 +2497,7 @@ function showMultiKeyModal(providerId) {
     renderHealthCheckSection(provider) +
     '</div>' +
     '<div class="modal-actions">' +
-    '<button type="button" class="btn-primary" onclick="closeMultiKeyModal()">' + t('common.close') + '</button>' +
+    '<button type="button" class="btn-primary" onclick="closeMultiKeyModal()"><i data-lucide="check"></i> ' + t('common.close') + '</button>' +
     '</div>' +
     '</div>' +
     '</div>';
@@ -2576,6 +2730,99 @@ function toggleKeyVisibility(btn) {
     btn.textContent = '👁️';
   }
 }
+
+
+// ========== CCW-LiteLLM Management ==========
+
+/**
+ * Check ccw-litellm installation status
+ */
+async function checkCcwLitellmStatus() {
+  try {
+    var response = await fetch('/api/litellm-api/ccw-litellm/status');
+    var status = await response.json();
+    window.ccwLitellmStatus = status;
+    return status;
+  } catch (e) {
+    console.warn('[API Settings] Could not check ccw-litellm status:', e);
+    return { installed: false };
+  }
+}
+
+/**
+ * Render ccw-litellm status card
+ */
+function renderCcwLitellmStatusCard() {
+  var container = document.getElementById('ccwLitellmStatusContainer');
+  if (!container) return;
+
+  var status = window.ccwLitellmStatus || { installed: false };
+
+  if (status.installed) {
+    container.innerHTML =
+      '<div class="flex items-center gap-2 text-sm">' +
+        '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success/10 text-success border border-success/20">' +
+          '<i data-lucide="check-circle" class="w-3.5 h-3.5"></i>' +
+          'ccw-litellm ' + (status.version || '') +
+        '</span>' +
+      '</div>';
+  } else {
+    container.innerHTML =
+      '<div class="flex items-center gap-2">' +
+        '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-muted-foreground border border-border text-sm">' +
+          '<i data-lucide="circle" class="w-3.5 h-3.5"></i>' +
+          'ccw-litellm not installed' +
+        '</span>' +
+        '<button class="btn-sm btn-primary" onclick="installCcwLitellm()">' +
+          '<i data-lucide="download" class="w-3.5 h-3.5"></i> Install' +
+        '</button>' +
+      '</div>';
+  }
+
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Install ccw-litellm package
+ */
+async function installCcwLitellm() {
+  var container = document.getElementById('ccwLitellmStatusContainer');
+  if (container) {
+    container.innerHTML =
+      '<div class="flex items-center gap-2 text-sm text-muted-foreground">' +
+        '<div class="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div>' +
+        'Installing ccw-litellm...' +
+      '</div>';
+  }
+
+  try {
+    var response = await fetch('/api/litellm-api/ccw-litellm/install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast('ccw-litellm installed successfully!', 'success');
+      // Refresh status
+      await checkCcwLitellmStatus();
+      renderCcwLitellmStatusCard();
+    } else {
+      showRefreshToast('Failed to install ccw-litellm: ' + result.error, 'error');
+      renderCcwLitellmStatusCard();
+    }
+  } catch (e) {
+    showRefreshToast('Installation error: ' + e.message, 'error');
+    renderCcwLitellmStatusCard();
+  }
+}
+
+// Make functions globally accessible
+window.checkCcwLitellmStatus = checkCcwLitellmStatus;
+window.renderCcwLitellmStatusCard = renderCcwLitellmStatusCard;
+window.installCcwLitellm = installCcwLitellm;
 
 
 // ========== Utility Functions ==========

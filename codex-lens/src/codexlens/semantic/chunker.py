@@ -39,7 +39,7 @@ from codexlens.parsers.tokenizer import get_default_tokenizer
 class ChunkConfig:
     """Configuration for chunking strategies."""
     max_chunk_size: int = 1000  # Max characters per chunk
-    overlap: int = 100  # Overlap for sliding window
+    overlap: int = 200  # Overlap for sliding window (increased from 100 for better context)
     strategy: str = "auto"  # Chunking strategy: auto, symbol, sliding_window, hybrid
     min_chunk_size: int = 50  # Minimum chunk size
     skip_token_count: bool = False  # Skip expensive token counting (use char/4 estimate)
@@ -80,6 +80,7 @@ class Chunker:
         """Chunk code by extracted symbols (functions, classes).
 
         Each symbol becomes one chunk with its full content.
+        Large symbols exceeding max_chunk_size are recursively split using sliding window.
 
         Args:
             content: Source code content
@@ -101,27 +102,49 @@ class Chunker:
             if len(chunk_content.strip()) < self.config.min_chunk_size:
                 continue
 
-            # Calculate token count if not provided
-            token_count = None
-            if symbol_token_counts and symbol.name in symbol_token_counts:
-                token_count = symbol_token_counts[symbol.name]
-            else:
-                token_count = self._estimate_token_count(chunk_content)
+            # Check if symbol content exceeds max_chunk_size
+            if len(chunk_content) > self.config.max_chunk_size:
+                # Create line mapping for correct line number tracking
+                line_mapping = list(range(start_line, end_line + 1))
 
-            chunks.append(SemanticChunk(
-                content=chunk_content,
-                embedding=None,
-                metadata={
-                    "file": str(file_path),
-                    "language": language,
-                    "symbol_name": symbol.name,
-                    "symbol_kind": symbol.kind,
-                    "start_line": start_line,
-                    "end_line": end_line,
-                    "strategy": "symbol",
-                    "token_count": token_count,
-                }
-            ))
+                # Use sliding window to split large symbol
+                sub_chunks = self.chunk_sliding_window(
+                    chunk_content,
+                    file_path=file_path,
+                    language=language,
+                    line_mapping=line_mapping
+                )
+
+                # Update sub_chunks with parent symbol metadata
+                for sub_chunk in sub_chunks:
+                    sub_chunk.metadata["symbol_name"] = symbol.name
+                    sub_chunk.metadata["symbol_kind"] = symbol.kind
+                    sub_chunk.metadata["strategy"] = "symbol_split"
+                    sub_chunk.metadata["parent_symbol_range"] = (start_line, end_line)
+
+                chunks.extend(sub_chunks)
+            else:
+                # Calculate token count if not provided
+                token_count = None
+                if symbol_token_counts and symbol.name in symbol_token_counts:
+                    token_count = symbol_token_counts[symbol.name]
+                else:
+                    token_count = self._estimate_token_count(chunk_content)
+
+                chunks.append(SemanticChunk(
+                    content=chunk_content,
+                    embedding=None,
+                    metadata={
+                        "file": str(file_path),
+                        "language": language,
+                        "symbol_name": symbol.name,
+                        "symbol_kind": symbol.kind,
+                        "start_line": start_line,
+                        "end_line": end_line,
+                        "strategy": "symbol",
+                        "token_count": token_count,
+                    }
+                ))
 
         return chunks
 
