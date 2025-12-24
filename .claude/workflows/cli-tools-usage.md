@@ -419,7 +419,7 @@ CCW automatically maps to tool-specific syntax:
 
 **Analysis Task** (Security Audit):
 ```bash
-timeout 600 ccw cli -p "
+ccw cli -p "
 PURPOSE: Identify OWASP Top 10 vulnerabilities in authentication module to pass security audit; success = all critical/high issues documented with remediation
 TASK: • Scan for injection flaws (SQL, command, LDAP) • Check authentication bypass vectors • Evaluate session management • Assess sensitive data exposure
 MODE: analysis
@@ -431,7 +431,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $
 
 **Implementation Task** (New Feature):
 ```bash
-timeout 1800 ccw cli -p "
+ccw cli -p "
 PURPOSE: Implement rate limiting for API endpoints to prevent abuse; must be configurable per-endpoint; backward compatible with existing clients
 TASK: • Create rate limiter middleware with sliding window • Implement per-route configuration • Add Redis backend for distributed state • Include bypass for internal services
 MODE: write
@@ -443,7 +443,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 
 **Bug Fix Task**:
 ```bash
-timeout 900 ccw cli -p "
+ccw cli -p "
 PURPOSE: Fix memory leak in WebSocket connection handler causing server OOM after 24h; root cause must be identified before any fix
 TASK: • Trace connection lifecycle from open to close • Identify event listener accumulation • Check cleanup on disconnect • Verify garbage collection eligibility
 MODE: analysis
@@ -455,7 +455,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $
 
 **Refactoring Task**:
 ```bash
-timeout 1200 ccw cli -p "
+ccw cli -p "
 PURPOSE: Refactor payment processing to use strategy pattern for multi-gateway support; no functional changes; all existing tests must pass
 TASK: • Extract gateway interface from current implementation • Create strategy classes for Stripe, PayPal • Implement factory for gateway selection • Migrate existing code to use strategies
 MODE: write
@@ -470,13 +470,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 
 ### Timeout Allocation (Bash)
 
-CLI internal timeout is disabled; controlled by external bash `timeout` command:
-
-```bash
-# Syntax: timeout <seconds> ccw cli ...
-timeout 600 ccw cli -p "..." --tool gemini --mode analysis   # 10 minutes
-timeout 1800 ccw cli -p "..." --tool codex --mode write      # 30 minutes
-```
+controlled by external bash `timeout` command:
 
 **Recommended Time Allocation**:
 

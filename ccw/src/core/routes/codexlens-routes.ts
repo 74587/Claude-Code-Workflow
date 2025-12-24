@@ -9,6 +9,7 @@ import {
   bootstrapVenv,
   executeCodexLens,
   checkSemanticStatus,
+  ensureLiteLLMEmbedderReady,
   installSemantic,
   detectGpuSupport,
   uninstallCodexLens,
@@ -405,8 +406,16 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
   // API: CodexLens Init (Initialize workspace index)
   if (pathname === '/api/codexlens/init' && req.method === 'POST') {
     handlePostRequest(req, res, async (body) => {
-      const { path: projectPath, indexType = 'vector', embeddingModel = 'code', embeddingBackend = 'fastembed' } = body;
+      const { path: projectPath, indexType = 'vector', embeddingModel = 'code', embeddingBackend = 'fastembed', maxWorkers = 1 } = body;
       const targetPath = projectPath || initialPath;
+
+      // Ensure LiteLLM backend dependencies are installed before running the CLI
+      if (indexType !== 'normal' && embeddingBackend === 'litellm') {
+        const installResult = await ensureLiteLLMEmbedderReady();
+        if (!installResult.success) {
+          return { success: false, error: installResult.error || 'Failed to prepare LiteLLM embedder', status: 500 };
+        }
+      }
 
       // Build CLI arguments based on index type
       const args = ['init', targetPath, '--json'];
@@ -418,6 +427,10 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         // Add embedding backend if not using default fastembed
         if (embeddingBackend && embeddingBackend !== 'fastembed') {
           args.push('--embedding-backend', embeddingBackend);
+        }
+        // Add max workers for concurrent API calls (useful for litellm backend)
+        if (maxWorkers && maxWorkers > 1) {
+          args.push('--max-workers', String(maxWorkers));
         }
       }
 

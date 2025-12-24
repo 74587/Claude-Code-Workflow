@@ -1167,14 +1167,17 @@ async function deleteModel(profile) {
  * @param {string} indexType - 'vector' (with embeddings), 'normal' (FTS only), or 'full' (FTS + Vector)
  * @param {string} embeddingModel - Model profile: 'code', 'fast'
  * @param {string} embeddingBackend - Backend: 'fastembed' (local) or 'litellm' (API)
+ * @param {number} maxWorkers - Max concurrent API calls for embedding generation (default: 1)
  */
-async function initCodexLensIndex(indexType, embeddingModel, embeddingBackend) {
+async function initCodexLensIndex(indexType, embeddingModel, embeddingBackend, maxWorkers) {
   indexType = indexType || 'vector';
   embeddingModel = embeddingModel || 'code';
   embeddingBackend = embeddingBackend || 'fastembed';
+  maxWorkers = maxWorkers || 1;
 
-  // For vector or full index, check if semantic dependencies are available
-  if (indexType === 'vector' || indexType === 'full') {
+  // For vector/full index with local backend, check if semantic dependencies are available
+  // LiteLLM backend uses remote embeddings and does not require fastembed/ONNX deps.
+  if ((indexType === 'vector' || indexType === 'full') && embeddingBackend !== 'litellm') {
     try {
       var semanticResponse = await fetch('/api/codexlens/semantic/status');
       var semanticStatus = await semanticResponse.json();
@@ -1275,7 +1278,7 @@ async function initCodexLensIndex(indexType, embeddingModel, embeddingBackend) {
   var apiIndexType = (indexType === 'full') ? 'vector' : indexType;
 
   // Start indexing with specified type and model
-  startCodexLensIndexing(apiIndexType, embeddingModel, embeddingBackend);
+  startCodexLensIndexing(apiIndexType, embeddingModel, embeddingBackend, maxWorkers);
 }
 
 /**
@@ -1283,11 +1286,13 @@ async function initCodexLensIndex(indexType, embeddingModel, embeddingBackend) {
  * @param {string} indexType - 'vector' or 'normal'
  * @param {string} embeddingModel - Model profile: 'code', 'fast'
  * @param {string} embeddingBackend - Backend: 'fastembed' (local) or 'litellm' (API)
+ * @param {number} maxWorkers - Max concurrent API calls for embedding generation (default: 1)
  */
-async function startCodexLensIndexing(indexType, embeddingModel, embeddingBackend) {
+async function startCodexLensIndexing(indexType, embeddingModel, embeddingBackend, maxWorkers) {
   indexType = indexType || 'vector';
   embeddingModel = embeddingModel || 'code';
   embeddingBackend = embeddingBackend || 'fastembed';
+  maxWorkers = maxWorkers || 1;
   var statusText = document.getElementById('codexlensIndexStatus');
   var progressBar = document.getElementById('codexlensIndexProgressBar');
   var percentText = document.getElementById('codexlensIndexPercent');
@@ -1319,11 +1324,11 @@ async function startCodexLensIndexing(indexType, embeddingModel, embeddingBacken
   }
 
   try {
-    console.log('[CodexLens] Starting index for:', projectPath, 'type:', indexType, 'model:', embeddingModel, 'backend:', embeddingBackend);
+    console.log('[CodexLens] Starting index for:', projectPath, 'type:', indexType, 'model:', embeddingModel, 'backend:', embeddingBackend, 'maxWorkers:', maxWorkers);
     var response = await fetch('/api/codexlens/init', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: projectPath, indexType: indexType, embeddingModel: embeddingModel, embeddingBackend: embeddingBackend })
+      body: JSON.stringify({ path: projectPath, indexType: indexType, embeddingModel: embeddingModel, embeddingBackend: embeddingBackend, maxWorkers: maxWorkers })
     });
 
     var result = await response.json();
@@ -1992,6 +1997,17 @@ function buildCodexLensManagerPage(config) {
                   '</select>' +
                   '<p class="text-xs text-muted-foreground mt-1">' + t('codexlens.modelHint') + '</p>' +
                 '</div>' +
+                // Concurrency selector (only for LiteLLM backend)
+                '<div id="concurrencySelector" class="hidden">' +
+                  '<label class="block text-sm font-medium mb-1.5">' + (t('codexlens.concurrency') || 'API Concurrency') + '</label>' +
+                  '<select id="pageConcurrencySelect" class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm">' +
+                    '<option value="1">1 (Sequential)</option>' +
+                    '<option value="2">2 workers</option>' +
+                    '<option value="4" selected>4 workers (Recommended)</option>' +
+                    '<option value="8">8 workers</option>' +
+                  '</select>' +
+                  '<p class="text-xs text-muted-foreground mt-1">' + (t('codexlens.concurrencyHint') || 'Number of parallel API calls for embedding generation') + '</p>' +
+                '</div>' +
                 // Index buttons - two modes: full (FTS + Vector) or FTS only
                 '<div class="grid grid-cols-2 gap-3">' +
                   '<button class="btn btn-primary flex items-center justify-center gap-2 py-3" onclick="initCodexLensIndexFromPage(\'full\')" title="' + t('codexlens.fullIndexDesc') + '">' +
@@ -2194,6 +2210,7 @@ function buildModelSelectOptionsForPage() {
 function onEmbeddingBackendChange() {
   var backendSelect = document.getElementById('pageBackendSelect');
   var modelSelect = document.getElementById('pageModelSelect');
+  var concurrencySelector = document.getElementById('concurrencySelector');
   if (!backendSelect || !modelSelect) {
     console.warn('[CodexLens] Backend or model select not found');
     return;
@@ -2209,9 +2226,17 @@ function onEmbeddingBackendChange() {
     var options = buildLiteLLMModelOptions();
     console.log('[CodexLens] Built options HTML:', options);
     modelSelect.innerHTML = options;
+    // Show concurrency selector for API backend
+    if (concurrencySelector) {
+      concurrencySelector.classList.remove('hidden');
+    }
   } else {
     // Load local fastembed models
     modelSelect.innerHTML = buildModelSelectOptionsForPage();
+    // Hide concurrency selector for local backend
+    if (concurrencySelector) {
+      concurrencySelector.classList.add('hidden');
+    }
   }
 }
 
@@ -2265,14 +2290,18 @@ window.onEmbeddingBackendChange = onEmbeddingBackendChange;
 function initCodexLensIndexFromPage(indexType) {
   var backendSelect = document.getElementById('pageBackendSelect');
   var modelSelect = document.getElementById('pageModelSelect');
+  var concurrencySelect = document.getElementById('pageConcurrencySelect');
   var selectedBackend = backendSelect ? backendSelect.value : 'fastembed';
   var selectedModel = modelSelect ? modelSelect.value : 'code';
+  var selectedConcurrency = concurrencySelect ? parseInt(concurrencySelect.value, 10) : 1;
 
   // For FTS-only index, model is not needed
   if (indexType === 'normal') {
     initCodexLensIndex(indexType);
   } else {
-    initCodexLensIndex(indexType, selectedModel, selectedBackend);
+    // Pass concurrency only for litellm backend
+    var maxWorkers = selectedBackend === 'litellm' ? selectedConcurrency : 1;
+    initCodexLensIndex(indexType, selectedModel, selectedBackend, maxWorkers);
   }
 }
 

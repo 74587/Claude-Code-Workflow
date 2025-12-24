@@ -77,6 +77,7 @@ interface SemanticStatus {
   backend?: string;
   accelerator?: string;
   providers?: string[];
+  litellmAvailable?: boolean;
   error?: string;
 }
 
@@ -195,11 +196,18 @@ async function checkSemanticStatus(): Promise<SemanticStatus> {
   // Check semantic module availability and accelerator info
   return new Promise((resolve) => {
     const checkCode = `
-import sys
-import json
-try:
-    from codexlens.semantic import SEMANTIC_AVAILABLE, SEMANTIC_BACKEND
-    result = {"available": SEMANTIC_AVAILABLE, "backend": SEMANTIC_BACKEND if SEMANTIC_AVAILABLE else None}
+ import sys
+ import json
+ try:
+    import codexlens.semantic as semantic
+    SEMANTIC_AVAILABLE = bool(getattr(semantic, "SEMANTIC_AVAILABLE", False))
+    SEMANTIC_BACKEND = getattr(semantic, "SEMANTIC_BACKEND", None)
+    LITELLM_AVAILABLE = bool(getattr(semantic, "LITELLM_AVAILABLE", False))
+    result = {
+        "available": SEMANTIC_AVAILABLE,
+        "backend": SEMANTIC_BACKEND if SEMANTIC_AVAILABLE else None,
+        "litellm_available": LITELLM_AVAILABLE,
+    }
 
     # Get ONNX providers for accelerator info
     try:
@@ -250,6 +258,7 @@ except Exception as e:
           backend: result.backend,
           accelerator: result.accelerator || 'CPU',
           providers: result.providers || [],
+          litellmAvailable: result.litellm_available || false,
           error: result.error
         });
       } catch {
@@ -261,6 +270,77 @@ except Exception as e:
       resolve({ available: false, error: `Check failed: ${err.message}` });
     });
   });
+}
+
+/**
+ * Ensure LiteLLM embedder dependencies are available in the CodexLens venv.
+ * Installs ccw-litellm into the venv if needed.
+ */
+async function ensureLiteLLMEmbedderReady(): Promise<BootstrapResult> {
+  // Ensure CodexLens venv exists and CodexLens is installed.
+  const readyStatus = await ensureReady();
+  if (!readyStatus.ready) {
+    return { success: false, error: readyStatus.error || 'CodexLens not ready' };
+  }
+
+  // Check if ccw_litellm can be imported
+  const importStatus = await new Promise<{ ok: boolean; error?: string }>((resolve) => {
+    const child = spawn(VENV_PYTHON, ['-c', 'import ccw_litellm; print("OK")'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 15000,
+    });
+
+    let stderr = '';
+    child.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    child.on('close', (code) => {
+      resolve({ ok: code === 0, error: stderr.trim() || undefined });
+    });
+
+    child.on('error', (err) => {
+      resolve({ ok: false, error: err.message });
+    });
+  });
+
+  if (importStatus.ok) {
+    return { success: true };
+  }
+
+  const pipPath =
+    process.platform === 'win32'
+      ? join(CODEXLENS_VENV, 'Scripts', 'pip.exe')
+      : join(CODEXLENS_VENV, 'bin', 'pip');
+
+  try {
+    console.log('[CodexLens] Installing ccw-litellm for LiteLLM embedding backend...');
+
+    const possiblePaths = [
+      join(process.cwd(), 'ccw-litellm'),
+      join(__dirname, '..', '..', '..', 'ccw-litellm'), // ccw/src/tools -> project root
+      join(homedir(), 'ccw-litellm'),
+    ];
+
+    let installed = false;
+    for (const localPath of possiblePaths) {
+      if (existsSync(join(localPath, 'pyproject.toml'))) {
+        console.log(`[CodexLens] Installing ccw-litellm from local path: ${localPath}`);
+        execSync(`"${pipPath}" install -e "${localPath}"`, { stdio: 'inherit' });
+        installed = true;
+        break;
+      }
+    }
+
+    if (!installed) {
+      console.log('[CodexLens] Installing ccw-litellm from PyPI...');
+      execSync(`"${pipPath}" install ccw-litellm`, { stdio: 'inherit' });
+    }
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: `Failed to install ccw-litellm: ${(err as Error).message}` };
+  }
 }
 
 /**
@@ -1284,7 +1364,19 @@ function isIndexingInProgress(): boolean {
 export type { ProgressInfo, ExecuteOptions };
 
 // Export for direct usage
-export { ensureReady, executeCodexLens, checkVenvStatus, bootstrapVenv, checkSemanticStatus, installSemantic, detectGpuSupport, uninstallCodexLens, cancelIndexing, isIndexingInProgress };
+export {
+  ensureReady,
+  executeCodexLens,
+  checkVenvStatus,
+  bootstrapVenv,
+  checkSemanticStatus,
+  ensureLiteLLMEmbedderReady,
+  installSemantic,
+  detectGpuSupport,
+  uninstallCodexLens,
+  cancelIndexing,
+  isIndexingInProgress,
+};
 export type { GpuMode };
 
 // Backward-compatible export for tests

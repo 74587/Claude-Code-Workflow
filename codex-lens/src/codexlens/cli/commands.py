@@ -108,6 +108,7 @@ def init(
     no_embeddings: bool = typer.Option(False, "--no-embeddings", help="Skip automatic embedding generation (if semantic deps installed)."),
     embedding_backend: str = typer.Option("fastembed", "--embedding-backend", help="Embedding backend: fastembed (local) or litellm (remote API)."),
     embedding_model: str = typer.Option("code", "--embedding-model", help="Embedding model: profile name for fastembed (fast/code/multilingual/balanced) or model name for litellm (e.g. text-embedding-3-small)."),
+    max_workers: int = typer.Option(1, "--max-workers", min=1, max=16, help="Max concurrent API calls for embedding generation. Recommended: 4-8 for litellm backend."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
 ) -> None:
@@ -165,31 +166,31 @@ def init(
             "errors": len(build_result.errors),
         }
 
-        if json_mode:
-            print_json(success=True, result=result)
-        else:
+        if not json_mode:
             console.print(f"[green]OK[/green] Indexed [bold]{build_result.total_files}[/bold] files in [bold]{build_result.total_dirs}[/bold] directories")
             console.print(f"  Index root: {build_result.index_root}")
             if build_result.errors:
                 console.print(f"  [yellow]Warnings:[/yellow] {len(build_result.errors)} errors")
 
-        # Auto-generate embeddings if semantic search is available
+        # Auto-generate embeddings if the requested backend is available
         if not no_embeddings:
             try:
-                from codexlens.semantic import SEMANTIC_AVAILABLE
+                from codexlens.semantic import is_embedding_backend_available
                 from codexlens.cli.embedding_manager import generate_embeddings_recursive, get_embeddings_status
 
-                if SEMANTIC_AVAILABLE:
-                    # Validate embedding backend
-                    valid_backends = ["fastembed", "litellm"]
-                    if embedding_backend not in valid_backends:
-                        error_msg = f"Invalid embedding backend: {embedding_backend}. Must be one of: {', '.join(valid_backends)}"
-                        if json_mode:
-                            print_json(success=False, error=error_msg)
-                        else:
-                            console.print(f"[red]Error:[/red] {error_msg}")
-                        raise typer.Exit(code=1)
+                # Validate embedding backend
+                valid_backends = ["fastembed", "litellm"]
+                if embedding_backend not in valid_backends:
+                    error_msg = f"Invalid embedding backend: {embedding_backend}. Must be one of: {', '.join(valid_backends)}"
+                    if json_mode:
+                        print_json(success=False, error=error_msg)
+                    else:
+                        console.print(f"[red]Error:[/red] {error_msg}")
+                    raise typer.Exit(code=1)
 
+                backend_available, backend_error = is_embedding_backend_available(embedding_backend)
+
+                if backend_available:
                     # Use the index root directory (not the _index.db file)
                     index_root = Path(build_result.index_root)
 
@@ -221,6 +222,7 @@ def init(
                         force=False,  # Don't force regenerate during init
                         chunk_size=2000,
                         progress_callback=progress_update,  # Always use callback
+                        max_workers=max_workers,
                     )
 
                     if embed_result["success"]:
@@ -262,10 +264,10 @@ def init(
                         }
                 else:
                     if not json_mode and verbose:
-                        console.print("[dim]Semantic search not available. Skipping embeddings.[/dim]")
+                        console.print(f"[dim]Embedding backend '{embedding_backend}' not available. Skipping embeddings.[/dim]")
                     result["embeddings"] = {
                         "generated": False,
-                        "error": "Semantic dependencies not installed",
+                        "error": backend_error or "Embedding backend not available",
                     }
             except Exception as e:
                 if not json_mode and verbose:
@@ -279,6 +281,10 @@ def init(
                 "generated": False,
                 "error": "Skipped (--no-embeddings)",
             }
+
+        # Output final JSON result with embeddings status
+        if json_mode:
+            print_json(success=True, result=result)
 
     except StorageError as exc:
         if json_mode:
@@ -1971,9 +1977,12 @@ def embeddings_generate(
             # Provide helpful hints
             if "already has" in error_msg:
                 console.print("\n[dim]Use --force to regenerate existing embeddings[/dim]")
-            elif "Semantic search not available" in error_msg:
+            elif "fastembed not available" in error_msg or "Semantic search not available" in error_msg:
                 console.print("\n[dim]Install semantic dependencies:[/dim]")
                 console.print("  [cyan]pip install codexlens[semantic][/cyan]")
+            elif "ccw-litellm not available" in error_msg:
+                console.print("\n[dim]Install LiteLLM backend dependencies:[/dim]")
+                console.print("  [cyan]pip install ccw-litellm[/cyan]")
 
             raise typer.Exit(code=1)
 

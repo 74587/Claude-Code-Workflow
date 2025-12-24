@@ -14,6 +14,7 @@ from __future__ import annotations
 SEMANTIC_AVAILABLE = False
 SEMANTIC_BACKEND: str | None = None
 GPU_AVAILABLE = False
+LITELLM_AVAILABLE = False
 _import_error: str | None = None
 
 
@@ -76,18 +77,40 @@ from .factory import get_embedder as get_embedder_factory
 
 # Optional: LiteLLMEmbedderWrapper (only if ccw-litellm is installed)
 try:
+    import ccw_litellm  # noqa: F401
     from .litellm_embedder import LiteLLMEmbedderWrapper
-    _LITELLM_AVAILABLE = True
+    LITELLM_AVAILABLE = True
 except ImportError:
     LiteLLMEmbedderWrapper = None
-    _LITELLM_AVAILABLE = False
+    LITELLM_AVAILABLE = False
+
+
+def is_embedding_backend_available(backend: str) -> tuple[bool, str | None]:
+    """Check whether a specific embedding backend can be used.
+
+    Notes:
+    - "fastembed" requires the optional semantic deps (pip install codexlens[semantic]).
+    - "litellm" requires ccw-litellm to be installed in the same environment.
+    """
+    backend = (backend or "").strip().lower()
+    if backend == "fastembed":
+        if SEMANTIC_AVAILABLE:
+            return True, None
+        return False, _import_error or "fastembed not available. Install with: pip install codexlens[semantic]"
+    if backend == "litellm":
+        if LITELLM_AVAILABLE:
+            return True, None
+        return False, "ccw-litellm not available. Install with: pip install ccw-litellm"
+    return False, f"Invalid embedding backend: {backend}. Must be 'fastembed' or 'litellm'."
 
 
 __all__ = [
     "SEMANTIC_AVAILABLE",
     "SEMANTIC_BACKEND",
     "GPU_AVAILABLE",
+    "LITELLM_AVAILABLE",
     "check_semantic_available",
+    "is_embedding_backend_available",
     "check_gpu_available",
     "BaseEmbedder",
     "get_embedder_factory",
