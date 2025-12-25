@@ -11,11 +11,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 import logging
+import os
 import time
 
 from codexlens.entities import SearchResult, Symbol
+from codexlens.config import Config
 from codexlens.storage.registry import RegistryStore, DirMapping
 from codexlens.storage.dir_index import DirIndexStore, SubdirLink
+from codexlens.storage.global_index import GlobalSymbolIndex
 from codexlens.storage.path_mapper import PathMapper
 from codexlens.storage.sqlite_store import SQLiteStore
 from codexlens.search.hybrid_search import HybridSearchEngine
@@ -107,7 +110,8 @@ class ChainSearchEngine:
     def __init__(self,
                  registry: RegistryStore,
                  mapper: PathMapper,
-                 max_workers: int = 8):
+                 max_workers: int = 8,
+                 config: Config | None = None):
         """Initialize chain search engine.
 
         Args:
@@ -120,6 +124,7 @@ class ChainSearchEngine:
         self.logger = logging.getLogger(__name__)
         self._max_workers = max_workers
         self._executor: Optional[ThreadPoolExecutor] = None
+        self._config = config
 
     def _get_executor(self, max_workers: Optional[int] = None) -> ThreadPoolExecutor:
         """Get or create the shared thread pool executor.
@@ -293,6 +298,71 @@ class ChainSearchEngine:
         if not start_index:
             self.logger.warning(f"No index found for {source_path}")
             return []
+
+        # Fast path: project-wide global symbol index (avoids chain traversal).
+        if self._config is None or getattr(self._config, "global_symbol_index_enabled", True):
+            try:
+                # Avoid relying on index_to_source() here; use the same logic as _find_start_index
+                # to determine the effective search root directory.
+                search_root = source_path.resolve()
+                exact_index = self.mapper.source_to_index_db(search_root)
+                if not exact_index.exists():
+                    nearest = self.registry.find_nearest_index(search_root)
+                    if nearest:
+                        search_root = nearest.source_path
+
+                project = self.registry.find_by_source_path(str(search_root))
+                if project:
+                    global_db_path = Path(project["index_root"]) / GlobalSymbolIndex.DEFAULT_DB_NAME
+                    if global_db_path.exists():
+                        query_limit = max(int(options.total_limit) * 10, int(options.total_limit))
+                        with GlobalSymbolIndex(global_db_path, project_id=int(project["id"])) as global_index:
+                            candidates = global_index.search(name=name, kind=kind, limit=query_limit)
+
+                        # Apply depth constraint relative to the start index directory.
+                        filtered: List[Symbol] = []
+                        for sym in candidates:
+                            if not sym.file:
+                                continue
+                            try:
+                                root_str = str(search_root)
+                                file_dir_str = str(Path(sym.file).parent)
+
+                                # Normalize Windows long-path prefix (\\?\) if present.
+                                if root_str.startswith("\\\\?\\"):
+                                    root_str = root_str[4:]
+                                if file_dir_str.startswith("\\\\?\\"):
+                                    file_dir_str = file_dir_str[4:]
+
+                                root_cmp = root_str.lower().rstrip("\\/")
+                                dir_cmp = file_dir_str.lower().rstrip("\\/")
+
+                                if os.path.commonpath([root_cmp, dir_cmp]) != root_cmp:
+                                    continue
+
+                                rel = os.path.relpath(dir_cmp, root_cmp)
+                                rel_depth = 0 if rel == "." else len(rel.split(os.sep))
+                            except Exception:
+                                continue
+
+                            if options.depth >= 0 and rel_depth > options.depth:
+                                continue
+                            filtered.append(sym)
+
+                        if filtered:
+                            # Match existing semantics: dedupe by (name, kind, range), sort by name.
+                            seen = set()
+                            unique_symbols: List[Symbol] = []
+                            for sym in filtered:
+                                key = (sym.name, sym.kind, sym.range)
+                                if key in seen:
+                                    continue
+                                seen.add(key)
+                                unique_symbols.append(sym)
+                            unique_symbols.sort(key=lambda s: s.name)
+                            return unique_symbols[: options.total_limit]
+            except Exception as exc:
+                self.logger.debug("Global symbol index fast path failed: %s", exc)
 
         index_paths = self._collect_index_paths(start_index, options.depth)
         if not index_paths:

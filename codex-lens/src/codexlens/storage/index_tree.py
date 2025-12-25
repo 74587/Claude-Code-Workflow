@@ -17,6 +17,7 @@ from typing import Dict, List, Optional, Set
 from codexlens.config import Config
 from codexlens.parsers.factory import ParserFactory
 from codexlens.storage.dir_index import DirIndexStore
+from codexlens.storage.global_index import GlobalSymbolIndex
 from codexlens.storage.path_mapper import PathMapper
 from codexlens.storage.registry import ProjectInfo, RegistryStore
 
@@ -141,6 +142,12 @@ class IndexTreeBuilder:
         # Register project
         index_root = self.mapper.source_to_index_dir(source_root)
         project_info = self.registry.register_project(source_root, index_root)
+        global_index_db_path = index_root / GlobalSymbolIndex.DEFAULT_DB_NAME
+
+        global_index: GlobalSymbolIndex | None = None
+        if self.config.global_symbol_index_enabled:
+            global_index = GlobalSymbolIndex(global_index_db_path, project_id=project_info.id)
+            global_index.initialize()
 
         # Report progress: discovering files (5%)
         print("Discovering files...", flush=True)
@@ -150,6 +157,8 @@ class IndexTreeBuilder:
 
         if not dirs_by_depth:
             self.logger.warning("No indexable directories found in %s", source_root)
+            if global_index is not None:
+                global_index.close()
             return BuildResult(
                 project_id=project_info.id,
                 source_root=source_root,
@@ -181,7 +190,13 @@ class IndexTreeBuilder:
             self.logger.info("Building %d directories at depth %d", len(dirs), depth)
 
             # Build directories at this level in parallel
-            results = self._build_level_parallel(dirs, languages, workers)
+            results = self._build_level_parallel(
+                dirs,
+                languages,
+                workers,
+                project_id=project_info.id,
+                global_index_db_path=global_index_db_path,
+            )
             all_results.extend(results)
 
             # Process results
@@ -230,7 +245,7 @@ class IndexTreeBuilder:
                 if result.error:
                     continue
                 try:
-                    with DirIndexStore(result.index_path) as store:
+                    with DirIndexStore(result.index_path, config=self.config, global_index=global_index) as store:
                         deleted_count = store.cleanup_deleted_files(result.source_path)
                         total_deleted += deleted_count
                         if deleted_count > 0:
@@ -256,6 +271,9 @@ class IndexTreeBuilder:
             total_dirs,
             len(all_errors),
         )
+
+        if global_index is not None:
+            global_index.close()
 
         return BuildResult(
             project_id=project_info.id,
@@ -315,7 +333,18 @@ class IndexTreeBuilder:
         """
         source_path = source_path.resolve()
         self.logger.info("Rebuilding directory %s", source_path)
-        return self._build_single_dir(source_path)
+        project_root = self.mapper.get_project_root(source_path)
+        project_info = self.registry.get_project(project_root)
+        if not project_info:
+            raise ValueError(f"Directory not indexed: {source_path}")
+
+        global_index_db_path = project_info.index_root / GlobalSymbolIndex.DEFAULT_DB_NAME
+        return self._build_single_dir(
+            source_path,
+            languages=None,
+            project_id=project_info.id,
+            global_index_db_path=global_index_db_path,
+        )
 
     # === Internal Methods ===
 
@@ -396,7 +425,13 @@ class IndexTreeBuilder:
         return len(source_files) > 0
 
     def _build_level_parallel(
-        self, dirs: List[Path], languages: List[str], workers: int
+        self,
+        dirs: List[Path],
+        languages: List[str],
+        workers: int,
+        *,
+        project_id: int,
+        global_index_db_path: Path,
     ) -> List[DirBuildResult]:
         """Build multiple directories in parallel.
 
@@ -419,7 +454,12 @@ class IndexTreeBuilder:
 
         # For single directory, avoid overhead of process pool
         if len(dirs) == 1:
-            result = self._build_single_dir(dirs[0], languages)
+            result = self._build_single_dir(
+                dirs[0],
+                languages,
+                project_id=project_id,
+                global_index_db_path=global_index_db_path,
+            )
             return [result]
 
         # Prepare arguments for worker processes
@@ -427,6 +467,7 @@ class IndexTreeBuilder:
             "data_dir": str(self.config.data_dir),
             "supported_languages": self.config.supported_languages,
             "parsing_rules": self.config.parsing_rules,
+            "global_symbol_index_enabled": self.config.global_symbol_index_enabled,
         }
 
         worker_args = [
@@ -435,6 +476,8 @@ class IndexTreeBuilder:
                 self.mapper.source_to_index_db(dir_path),
                 languages,
                 config_dict,
+                int(project_id),
+                str(global_index_db_path),
             )
             for dir_path in dirs
         ]
@@ -467,7 +510,12 @@ class IndexTreeBuilder:
         return results
 
     def _build_single_dir(
-        self, dir_path: Path, languages: List[str] = None
+        self,
+        dir_path: Path,
+        languages: List[str] = None,
+        *,
+        project_id: int,
+        global_index_db_path: Path,
     ) -> DirBuildResult:
         """Build index for a single directory.
 
@@ -484,12 +532,17 @@ class IndexTreeBuilder:
         dir_path = dir_path.resolve()
         index_db_path = self.mapper.source_to_index_db(dir_path)
 
+        global_index: GlobalSymbolIndex | None = None
         try:
             # Ensure index directory exists
             index_db_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Create directory index
-            store = DirIndexStore(index_db_path)
+            if self.config.global_symbol_index_enabled:
+                global_index = GlobalSymbolIndex(global_index_db_path, project_id=project_id)
+                global_index.initialize()
+
+            store = DirIndexStore(index_db_path, config=self.config, global_index=global_index)
             store.initialize()
 
             # Get source files in this directory only
@@ -541,6 +594,8 @@ class IndexTreeBuilder:
             ]
 
             store.close()
+            if global_index is not None:
+                global_index.close()
 
             if skipped_count > 0:
                 self.logger.debug(
@@ -570,6 +625,11 @@ class IndexTreeBuilder:
 
         except Exception as exc:
             self.logger.error("Failed to build directory %s: %s", dir_path, exc)
+            if global_index is not None:
+                try:
+                    global_index.close()
+                except Exception:
+                    pass
             return DirBuildResult(
                 source_path=dir_path,
                 index_path=index_db_path,
@@ -676,28 +736,34 @@ def _build_dir_worker(args: tuple) -> DirBuildResult:
     Reconstructs necessary objects from serializable arguments.
 
     Args:
-        args: Tuple of (dir_path, index_db_path, languages, config_dict)
+        args: Tuple of (dir_path, index_db_path, languages, config_dict, project_id, global_index_db_path)
 
     Returns:
         DirBuildResult for the directory
     """
-    dir_path, index_db_path, languages, config_dict = args
+    dir_path, index_db_path, languages, config_dict, project_id, global_index_db_path = args
 
     # Reconstruct config
     config = Config(
         data_dir=Path(config_dict["data_dir"]),
         supported_languages=config_dict["supported_languages"],
         parsing_rules=config_dict["parsing_rules"],
+        global_symbol_index_enabled=bool(config_dict.get("global_symbol_index_enabled", True)),
     )
 
     parser_factory = ParserFactory(config)
 
+    global_index: GlobalSymbolIndex | None = None
     try:
         # Ensure index directory exists
         index_db_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Create directory index
-        store = DirIndexStore(index_db_path)
+        if config.global_symbol_index_enabled and global_index_db_path:
+            global_index = GlobalSymbolIndex(Path(global_index_db_path), project_id=int(project_id))
+            global_index.initialize()
+
+        store = DirIndexStore(index_db_path, config=config, global_index=global_index)
         store.initialize()
 
         files_count = 0
@@ -756,6 +822,8 @@ def _build_dir_worker(args: tuple) -> DirBuildResult:
         ]
 
         store.close()
+        if global_index is not None:
+            global_index.close()
 
         return DirBuildResult(
             source_path=dir_path,
@@ -766,6 +834,11 @@ def _build_dir_worker(args: tuple) -> DirBuildResult:
         )
 
     except Exception as exc:
+        if global_index is not None:
+            try:
+                global_index.close()
+            except Exception:
+                pass
         return DirBuildResult(
             source_path=dir_path,
             index_path=index_db_path,

@@ -100,6 +100,9 @@ class Config:
                                    # For litellm: model name from config (e.g., "qwen3-embedding")
     embedding_use_gpu: bool = True  # For fastembed: whether to use GPU acceleration
 
+    # Indexing/search optimizations
+    global_symbol_index_enabled: bool = True  # Enable project-wide symbol index fast path
+
     # Multi-endpoint configuration for litellm backend
     embedding_endpoints: List[Dict[str, Any]] = field(default_factory=list)
     # List of endpoint configs: [{"model": "...", "api_key": "...", "api_base": "...", "weight": 1.0}]

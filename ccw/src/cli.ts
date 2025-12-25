@@ -174,7 +174,7 @@ export function run(argv: string[]): void {
     .option('--cd <path>', 'Working directory')
     .option('--includeDirs <dirs>', 'Additional directories (--include-directories for gemini/qwen, --add-dir for codex/claude)')
     .option('--timeout <ms>', 'Timeout in milliseconds', '300000')
-    .option('--no-stream', 'Disable streaming output')
+    .option('--stream', 'Enable streaming output (default: non-streaming with caching)')
     .option('--limit <n>', 'History limit')
     .option('--status <status>', 'Filter by status')
     .option('--category <category>', 'Execution category: user, internal, insight', 'user')
@@ -190,6 +190,11 @@ export function run(argv: string[]): void {
     .option('--memory', 'Target memory storage')
     .option('--storage-cache', 'Target cache storage')
     .option('--config', 'Target config storage')
+    // Cache subcommand options
+    .option('--offset <n>', 'Character offset for cache pagination', '0')
+    .option('--output-type <type>', 'Output type: stdout, stderr, both', 'both')
+    .option('--turn <n>', 'Turn number for cache (default: latest)')
+    .option('--raw', 'Raw output only (no formatting)')
     .action((subcommand, args, options) => cliCommand(subcommand, args, options));
 
   // Memory command

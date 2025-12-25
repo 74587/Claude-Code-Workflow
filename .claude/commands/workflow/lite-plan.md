@@ -38,7 +38,7 @@ Phase 1: Task Analysis & Exploration
    ├─ Parse input (description or .md file)
    ├─ intelligent complexity assessment (Low/Medium/High)
    ├─ Exploration decision (auto-detect or --explore flag)
-   ├─ ⚠️ Context protection: If file reading ≥50k chars → force cli-explore-agent
+   ├─ Context protection: If file reading ≥50k chars → force cli-explore-agent
    └─ Decision:
       ├─ needsExploration=true → Launch parallel cli-explore-agents (1-4 based on complexity)
       └─ needsExploration=false → Skip to Phase 2/3

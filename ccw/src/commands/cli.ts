@@ -24,6 +24,7 @@ import {
   projectExists,
   getStorageLocationInstructions
 } from '../tools/storage-manager.js';
+import { getHistoryStore } from '../tools/cli-history-store.js';
 
 // Dashboard notification settings
 const DASHBOARD_PORT = process.env.CCW_PORT || 3456;
@@ -74,7 +75,7 @@ interface CliExecOptions {
   cd?: string;
   includeDirs?: string;
   timeout?: string;
-  noStream?: boolean;
+  stream?: boolean; // Enable streaming (default: false, caches output)
   resume?: string | boolean; // true = last, string = execution ID, comma-separated for merge
   id?: string; // Custom execution ID (e.g., IMPL-001-step1)
   noNative?: boolean; // Force prompt concatenation instead of native resume
@@ -102,6 +103,14 @@ interface StorageOptions {
   storageCache?: boolean;
   config?: boolean;
   force?: boolean;
+}
+
+interface OutputViewOptions {
+  offset?: string;
+  limit?: string;
+  outputType?: 'stdout' | 'stderr' | 'both';
+  turn?: string;
+  raw?: boolean;
 }
 
 /**
@@ -288,6 +297,71 @@ function showStorageHelp(): void {
 }
 
 /**
+ * Show cached output for a conversation with pagination
+ */
+async function outputAction(conversationId: string | undefined, options: OutputViewOptions): Promise<void> {
+  if (!conversationId) {
+    console.error(chalk.red('Error: Conversation ID is required'));
+    console.error(chalk.gray('Usage: ccw cli output <conversation-id> [--offset N] [--limit N]'));
+    process.exit(1);
+  }
+
+  const store = getHistoryStore(process.cwd());
+  const result = store.getCachedOutput(
+    conversationId,
+    options.turn ? parseInt(options.turn) : undefined,
+    {
+      offset: parseInt(options.offset || '0'),
+      limit: parseInt(options.limit || '10000'),
+      outputType: options.outputType || 'both'
+    }
+  );
+
+  if (!result) {
+    console.error(chalk.red(`Error: Execution not found: ${conversationId}`));
+    process.exit(1);
+  }
+
+  if (options.raw) {
+    // Raw output only (for piping)
+    if (result.stdout) console.log(result.stdout.content);
+    return;
+  }
+
+  // Formatted output
+  console.log(chalk.bold.cyan('Execution Output\n'));
+  console.log(`  ${chalk.gray('ID:')}        ${result.conversationId}`);
+  console.log(`  ${chalk.gray('Turn:')}      ${result.turnNumber}`);
+  console.log(`  ${chalk.gray('Cached:')}    ${result.cached ? chalk.green('Yes') : chalk.yellow('No')}`);
+  console.log(`  ${chalk.gray('Status:')}    ${result.status}`);
+  console.log(`  ${chalk.gray('Time:')}      ${result.timestamp}`);
+  console.log();
+
+  if (result.stdout) {
+    console.log(`  ${chalk.gray('Stdout:')} (${result.stdout.totalBytes} bytes, offset ${result.stdout.offset})`);
+    console.log(chalk.gray('  ' + '-'.repeat(60)));
+    console.log(result.stdout.content);
+    console.log(chalk.gray('  ' + '-'.repeat(60)));
+    if (result.stdout.hasMore) {
+      console.log(chalk.yellow(`  ... ${result.stdout.totalBytes - result.stdout.offset - result.stdout.content.length} more bytes available`));
+      console.log(chalk.gray(`  Use --offset ${result.stdout.offset + result.stdout.content.length} to continue`));
+    }
+    console.log();
+  }
+
+  if (result.stderr && result.stderr.content) {
+    console.log(`  ${chalk.gray('Stderr:')} (${result.stderr.totalBytes} bytes, offset ${result.stderr.offset})`);
+    console.log(chalk.gray('  ' + '-'.repeat(60)));
+    console.log(result.stderr.content);
+    console.log(chalk.gray('  ' + '-'.repeat(60)));
+    if (result.stderr.hasMore) {
+      console.log(chalk.yellow(`  ... ${result.stderr.totalBytes - result.stderr.offset - result.stderr.content.length} more bytes available`));
+    }
+    console.log();
+  }
+}
+
+/**
  * Test endpoint for debugging multi-line prompt parsing
  * Shows exactly how Commander.js parsed the arguments
  */
@@ -391,7 +465,7 @@ async function statusAction(): Promise<void> {
  * @param {Object} options - CLI options
  */
 async function execAction(positionalPrompt: string | undefined, options: CliExecOptions): Promise<void> {
-  const { prompt: optionPrompt, file, tool = 'gemini', mode = 'analysis', model, cd, includeDirs, timeout, noStream, resume, id, noNative, cache, injectMode } = options;
+  const { prompt: optionPrompt, file, tool = 'gemini', mode = 'analysis', model, cd, includeDirs, timeout, stream, resume, id, noNative, cache, injectMode } = options;
 
   // Priority: 1. --file, 2. --prompt/-p option, 3. positional argument
   let finalPrompt: string | undefined;
@@ -584,10 +658,10 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
     custom_id: id || null
   });
 
-  // Streaming output handler
-  const onOutput = noStream ? null : (chunk: any) => {
+  // Streaming output handler - only active when --stream flag is passed
+  const onOutput = stream ? (chunk: any) => {
     process.stdout.write(chunk.data);
-  };
+  } : null;
 
   try {
     const result = await cliExecutorTool.execute({
@@ -600,11 +674,12 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       timeout: timeout ? parseInt(timeout, 10) : 300000,
       resume,
       id, // custom execution ID
-      noNative
+      noNative,
+      stream: !!stream // stream=true → streaming enabled, stream=false/undefined → cache output
     }, onOutput);
 
-    // If not streaming, print output now
-    if (noStream && result.stdout) {
+    // If not streaming (default), print output now
+    if (!stream && result.stdout) {
       console.log(result.stdout);
     }
 
@@ -815,6 +890,10 @@ export async function cliCommand(
       await storageAction(argsArray[0], options as unknown as StorageOptions);
       break;
 
+    case 'output':
+      await outputAction(argsArray[0], options as unknown as OutputViewOptions);
+      break;
+
     case 'test-parse':
       // Test endpoint to debug multi-line prompt parsing
       testParseAction(argsArray, options as CliExecOptions);
@@ -845,6 +924,7 @@ export async function cliCommand(
         console.log(chalk.gray('    storage [cmd]       Manage CCW storage (info/clean/config)'));
         console.log(chalk.gray('    history             Show execution history'));
         console.log(chalk.gray('    detail <id>         Show execution detail'));
+        console.log(chalk.gray('    output <id>         Show execution output with pagination'));
         console.log(chalk.gray('    test-parse [args]   Debug CLI argument parsing'));
         console.log();
         console.log('  Options:');

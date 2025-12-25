@@ -65,13 +65,13 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/[mode]-protocol.md) $(c
 ccw cli -p "<PROMPT>" --tool <gemini|qwen|codex> --mode <analysis|write>
 ```
 
-**⚠️ CRITICAL**: `--mode` parameter is **MANDATORY** for all CLI executions. No defaults are assumed.
+**Note**: `--mode` defaults to `analysis` if not specified. Explicitly specify `--mode write` for file operations.
 
 ### Core Principles
 
 - **Use tools early and often** - Tools are faster and more thorough
 - **Unified CLI** - Always use `ccw cli -p` for consistent parameter handling
-- **Mode is MANDATORY** - ALWAYS explicitly specify `--mode analysis|write` (no implicit defaults)
+- **Default mode is analysis** - Omit `--mode` for read-only operations, explicitly use `--mode write` for file modifications
 - **One template required** - ALWAYS reference exactly ONE template in RULES (use universal fallback if no specific match)
 - **Write protection** - Require EXPLICIT `--mode write` for file operations
 - **Use double quotes for shell expansion** - Always wrap prompts in double quotes `"..."` to enable `$(cat ...)` command substitution; NEVER use single quotes or escape characters (`\$`, `\"`, `\'`)
@@ -182,6 +182,33 @@ ASSISTANT RESPONSE: [Previous output]
 ```
 
 **Tool Behavior**: Codex uses native `codex resume`; Gemini/Qwen assembles context as single prompt
+
+### Streaming vs Caching
+
+**Default behavior**: Non-streaming with full output caching (can retrieve later via `output` subcommand)
+
+```bash
+ccw cli -p "..." --tool gemini                   # Default: output cached, no streaming
+ccw cli -p "..." --tool gemini --stream          # Streaming: real-time output, no caching
+```
+
+| Mode | Flag | Output | Cached |
+|------|------|--------|--------|
+| Non-streaming (default) | (none) | After completion | ✅ Yes |
+| Streaming | `--stream` | Real-time | ❌ No |
+
+### Output Viewing
+
+View cached execution output with pagination:
+
+```bash
+ccw cli output <execution-id>                    # View full output
+ccw cli output <id> --offset 0 --limit 10000     # Paginated view
+ccw cli output <id> --output-type stdout         # Stdout only
+ccw cli output <id> --raw                        # Raw content (for piping)
+```
+
+**Note**: `output` subcommand views execution results. `--cache` parameter injects context into prompt - different concepts.
 
 ---
 

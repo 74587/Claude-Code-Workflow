@@ -15,10 +15,19 @@ Available CLI endpoints are dynamically defined by the config file:
 - Custom API endpoints registered via the Dashboard
 - Managed through the CCW Dashboard Status page
 
-## Agent Execution
+## Tool Execution
 
+### Agent Calls
 - **Always use `run_in_background: false`** for Task tool agent calls: `Task({ subagent_type: "xxx", prompt: "...", run_in_background: false })` to ensure synchronous execution and immediate result visibility
 - **TaskOutput usage**: Only use `TaskOutput({ task_id: "xxx", block: false })` + sleep loop to poll completion status. NEVER read intermediate output during agent/CLI execution - wait for final result only
+
+### CLI Tool Calls (ccw cli)
+- **Always use `run_in_background: true`** for Bash tool when calling ccw cli:
+  ```
+  Bash({ command: "ccw cli -p '...' --tool gemini", run_in_background: true })
+  ```
+- **After CLI call**: Stop immediately - let CLI execute in background, do NOT poll with TaskOutput
+- **View output later**: Use `ccw cli output <id>` to view cached execution results
 
 ## Code Diagnostics
 

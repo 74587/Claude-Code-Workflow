@@ -17,8 +17,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from codexlens.config import Config
 from codexlens.entities import SearchResult, Symbol
 from codexlens.errors import StorageError
+from codexlens.storage.global_index import GlobalSymbolIndex
 
 
 @dataclass
@@ -60,7 +62,13 @@ class DirIndexStore:
     # Increment this when schema changes require migration
     SCHEMA_VERSION = 5
 
-    def __init__(self, db_path: str | Path) -> None:
+    def __init__(
+        self,
+        db_path: str | Path,
+        *,
+        config: Config | None = None,
+        global_index: GlobalSymbolIndex | None = None,
+    ) -> None:
         """Initialize directory index store.
 
         Args:
@@ -70,6 +78,8 @@ class DirIndexStore:
         self._lock = threading.RLock()
         self._conn: Optional[sqlite3.Connection] = None
         self.logger = logging.getLogger(__name__)
+        self._config = config
+        self._global_index = global_index
 
     def initialize(self) -> None:
         """Create database and schema if not exists."""
@@ -231,6 +241,7 @@ class DirIndexStore:
                     )
 
                 conn.commit()
+                self._maybe_update_global_symbols(full_path_str, symbols or [])
                 return file_id
 
             except sqlite3.DatabaseError as exc:
@@ -328,6 +339,7 @@ class DirIndexStore:
             file_id = int(row["id"])
             conn.execute("DELETE FROM files WHERE id=?", (file_id,))
             conn.commit()
+            self._maybe_delete_global_symbols(full_path_str)
             return True
 
     def get_file(self, full_path: str | Path) -> Optional[FileEntry]:
@@ -483,6 +495,7 @@ class DirIndexStore:
                 for deleted_path in deleted_paths:
                     conn.execute("DELETE FROM files WHERE full_path=?", (deleted_path,))
                     deleted_count += 1
+                    self._maybe_delete_global_symbols(deleted_path)
 
                 if deleted_count > 0:
                     conn.commit()
@@ -1592,6 +1605,31 @@ class DirIndexStore:
             # Memory-mapped I/O for faster reads (30GB limit)
             self._conn.execute("PRAGMA mmap_size=30000000000")
         return self._conn
+
+    def _maybe_update_global_symbols(self, file_path: str, symbols: List[Symbol]) -> None:
+        if self._global_index is None:
+            return
+        if self._config is not None and not getattr(self._config, "global_symbol_index_enabled", True):
+            return
+        try:
+            self._global_index.update_file_symbols(
+                file_path=file_path,
+                symbols=symbols,
+                index_path=str(self.db_path),
+            )
+        except Exception as exc:
+            # Global index is an optimization; local directory index remains authoritative.
+            self.logger.debug("Global symbol index update failed for %s: %s", file_path, exc)
+
+    def _maybe_delete_global_symbols(self, file_path: str) -> None:
+        if self._global_index is None:
+            return
+        if self._config is not None and not getattr(self._config, "global_symbol_index_enabled", True):
+            return
+        try:
+            self._global_index.delete_file_symbols(file_path)
+        except Exception as exc:
+            self.logger.debug("Global symbol index delete failed for %s: %s", file_path, exc)
 
     def _create_schema(self, conn: sqlite3.Connection) -> None:
         """Create database schema.

@@ -73,6 +73,7 @@ const ParamsSchema = z.object({
   noNative: z.boolean().optional(), // Force prompt concatenation instead of native resume
   category: z.enum(['user', 'internal', 'insight']).default('user'), // Execution category for tracking
   parentExecutionId: z.string().optional(), // Parent execution ID for fork/retry scenarios
+  stream: z.boolean().default(false), // false = cache full output (default), true = stream output via callback
 });
 
 // Execution category types
@@ -863,24 +864,36 @@ async function executeCliTool(
       const endTime = Date.now();
       const duration = endTime - startTime;
 
-      // Determine status
+      // Determine status - prioritize output content over exit code
       let status: 'success' | 'error' | 'timeout' = 'success';
       if (timedOut) {
         status = 'timeout';
       } else if (code !== 0) {
-        // Check if HTTP 429 but results exist (Gemini quirk)
-        if (stderr.includes('429') && stdout.trim()) {
+        // Non-zero exit code doesn't always mean failure
+        // Check if there's valid output (AI response) - treat as success
+        const hasValidOutput = stdout.trim().length > 0;
+        const hasFatalError = stderr.includes('FATAL') ||
+                              stderr.includes('Authentication failed') ||
+                              stderr.includes('API key') ||
+                              stderr.includes('rate limit exceeded');
+
+        if (hasValidOutput && !hasFatalError) {
+          // Has output and no fatal errors - treat as success despite exit code
           status = 'success';
         } else {
           status = 'error';
         }
       }
 
-      // Create new turn
+      // Create new turn - cache full output when not streaming (default)
+      const shouldCache = !parsed.data.stream;
       const newTurnOutput = {
-        stdout: stdout.substring(0, 10240), // Truncate to 10KB
-        stderr: stderr.substring(0, 2048),  // Truncate to 2KB
-        truncated: stdout.length > 10240 || stderr.length > 2048
+        stdout: stdout.substring(0, 10240), // Truncate preview to 10KB
+        stderr: stderr.substring(0, 2048),  // Truncate preview to 2KB
+        truncated: stdout.length > 10240 || stderr.length > 2048,
+        cached: shouldCache,
+        stdout_full: shouldCache ? stdout : undefined,
+        stderr_full: shouldCache ? stderr : undefined
       };
 
       // Determine base turn number for merge scenarios

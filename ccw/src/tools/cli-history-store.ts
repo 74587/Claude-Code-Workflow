@@ -23,6 +23,9 @@ export interface ConversationTurn {
     stdout: string;
     stderr: string;
     truncated: boolean;
+    cached?: boolean;
+    stdout_full?: string;
+    stderr_full?: string;
   };
 }
 
@@ -315,6 +318,28 @@ export class CliHistoryStore {
       } catch (indexErr) {
         console.warn('[CLI History] Turns timestamp index creation warning:', (indexErr as Error).message);
       }
+
+      // Add cached output columns to turns table for non-streaming mode
+      const turnsInfo = this.db.prepare('PRAGMA table_info(turns)').all() as Array<{ name: string }>;
+      const hasCached = turnsInfo.some(col => col.name === 'cached');
+      const hasStdoutFull = turnsInfo.some(col => col.name === 'stdout_full');
+      const hasStderrFull = turnsInfo.some(col => col.name === 'stderr_full');
+
+      if (!hasCached) {
+        console.log('[CLI History] Migrating database: adding cached column to turns table...');
+        this.db.exec('ALTER TABLE turns ADD COLUMN cached INTEGER DEFAULT 0;');
+        console.log('[CLI History] Migration complete: cached column added');
+      }
+      if (!hasStdoutFull) {
+        console.log('[CLI History] Migrating database: adding stdout_full column to turns table...');
+        this.db.exec('ALTER TABLE turns ADD COLUMN stdout_full TEXT;');
+        console.log('[CLI History] Migration complete: stdout_full column added');
+      }
+      if (!hasStderrFull) {
+        console.log('[CLI History] Migrating database: adding stderr_full column to turns table...');
+        this.db.exec('ALTER TABLE turns ADD COLUMN stderr_full TEXT;');
+        console.log('[CLI History] Migration complete: stderr_full column added');
+      }
     } catch (err) {
       console.error('[CLI History] Migration error:', (err as Error).message);
       // Don't throw - allow the store to continue working with existing schema
@@ -421,8 +446,8 @@ export class CliHistoryStore {
     `);
 
     const upsertTurn = this.db.prepare(`
-      INSERT INTO turns (conversation_id, turn_number, timestamp, prompt, duration_ms, status, exit_code, stdout, stderr, truncated)
-      VALUES (@conversation_id, @turn_number, @timestamp, @prompt, @duration_ms, @status, @exit_code, @stdout, @stderr, @truncated)
+      INSERT INTO turns (conversation_id, turn_number, timestamp, prompt, duration_ms, status, exit_code, stdout, stderr, truncated, cached, stdout_full, stderr_full)
+      VALUES (@conversation_id, @turn_number, @timestamp, @prompt, @duration_ms, @status, @exit_code, @stdout, @stderr, @truncated, @cached, @stdout_full, @stderr_full)
       ON CONFLICT(conversation_id, turn_number) DO UPDATE SET
         timestamp = @timestamp,
         prompt = @prompt,
@@ -431,7 +456,10 @@ export class CliHistoryStore {
         exit_code = @exit_code,
         stdout = @stdout,
         stderr = @stderr,
-        truncated = @truncated
+        truncated = @truncated,
+        cached = @cached,
+        stdout_full = @stdout_full,
+        stderr_full = @stderr_full
     `);
 
     const transaction = this.db.transaction(() => {
@@ -463,7 +491,10 @@ export class CliHistoryStore {
           exit_code: turn.exit_code,
           stdout: turn.output.stdout,
           stderr: turn.output.stderr,
-          truncated: turn.output.truncated ? 1 : 0
+          truncated: turn.output.truncated ? 1 : 0,
+          cached: turn.output.cached ? 1 : 0,
+          stdout_full: turn.output.stdout_full || null,
+          stderr_full: turn.output.stderr_full || null
         });
       }
     });
@@ -507,7 +538,10 @@ export class CliHistoryStore {
         output: {
           stdout: t.stdout || '',
           stderr: t.stderr || '',
-          truncated: !!t.truncated
+          truncated: !!t.truncated,
+          cached: !!t.cached,
+          stdout_full: t.stdout_full || undefined,
+          stderr_full: t.stderr_full || undefined
         }
       }))
     };
@@ -531,6 +565,92 @@ export class CliHistoryStore {
       nativeSessionId: mapping?.native_session_id,
       nativeSessionPath: mapping?.native_session_path
     };
+  }
+
+  /**
+   * Get paginated cached output for a conversation turn
+   * @param conversationId - Conversation ID
+   * @param turnNumber - Turn number (default: latest turn)
+   * @param options - Pagination options
+   */
+  getCachedOutput(
+    conversationId: string,
+    turnNumber?: number,
+    options: {
+      offset?: number;      // Character offset (default: 0)
+      limit?: number;       // Max characters to return (default: 10000)
+      outputType?: 'stdout' | 'stderr' | 'both';  // Which output to fetch
+    } = {}
+  ): {
+    conversationId: string;
+    turnNumber: number;
+    stdout?: { content: string; totalBytes: number; offset: number; hasMore: boolean };
+    stderr?: { content: string; totalBytes: number; offset: number; hasMore: boolean };
+    cached: boolean;
+    prompt: string;
+    status: string;
+    timestamp: string;
+  } | null {
+    const { offset = 0, limit = 10000, outputType = 'both' } = options;
+
+    // Get turn (latest if not specified)
+    let turn;
+    if (turnNumber !== undefined) {
+      turn = this.db.prepare(`
+        SELECT * FROM turns WHERE conversation_id = ? AND turn_number = ?
+      `).get(conversationId, turnNumber) as any;
+    } else {
+      turn = this.db.prepare(`
+        SELECT * FROM turns WHERE conversation_id = ? ORDER BY turn_number DESC LIMIT 1
+      `).get(conversationId) as any;
+    }
+
+    if (!turn) return null;
+
+    const result: {
+      conversationId: string;
+      turnNumber: number;
+      stdout?: { content: string; totalBytes: number; offset: number; hasMore: boolean };
+      stderr?: { content: string; totalBytes: number; offset: number; hasMore: boolean };
+      cached: boolean;
+      prompt: string;
+      status: string;
+      timestamp: string;
+    } = {
+      conversationId,
+      turnNumber: turn.turn_number,
+      cached: !!turn.cached,
+      prompt: turn.prompt,
+      status: turn.status,
+      timestamp: turn.timestamp
+    };
+
+    // Use full output if cached, otherwise use truncated
+    if (outputType === 'stdout' || outputType === 'both') {
+      const fullStdout = turn.cached ? (turn.stdout_full || '') : (turn.stdout || '');
+      const totalBytes = fullStdout.length;
+      const content = fullStdout.substring(offset, offset + limit);
+      result.stdout = {
+        content,
+        totalBytes,
+        offset,
+        hasMore: offset + limit < totalBytes
+      };
+    }
+
+    if (outputType === 'stderr' || outputType === 'both') {
+      const fullStderr = turn.cached ? (turn.stderr_full || '') : (turn.stderr || '');
+      const totalBytes = fullStderr.length;
+      const content = fullStderr.substring(offset, offset + limit);
+      result.stderr = {
+        content,
+        totalBytes,
+        offset,
+        hasMore: offset + limit < totalBytes
+      };
+    }
+
+    return result;
   }
 
   /**
