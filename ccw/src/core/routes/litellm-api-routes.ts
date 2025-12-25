@@ -22,9 +22,14 @@ import {
   loadLiteLLMApiConfig,
   saveLiteLLMYamlConfig,
   generateLiteLLMYamlConfig,
+  getCodexLensEmbeddingRotation,
+  updateCodexLensEmbeddingRotation,
+  getEmbeddingProvidersForRotation,
+  generateRotationEndpoints,
   type ProviderCredential,
   type CustomEndpoint,
   type ProviderType,
+  type CodexLensEmbeddingRotation,
 } from '../../config/litellm-api-config-manager.js';
 import { getContextCacheStore } from '../../tools/context-cache-store.js';
 import { getLiteLLMClient } from '../../tools/litellm-client.js';
@@ -564,6 +569,66 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
     } catch (err) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ installed: false, error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // ===========================
+  // CodexLens Embedding Rotation Routes
+  // ===========================
+
+  // GET /api/litellm-api/codexlens/rotation - Get rotation config
+  if (pathname === '/api/litellm-api/codexlens/rotation' && req.method === 'GET') {
+    try {
+      const rotationConfig = getCodexLensEmbeddingRotation(initialPath);
+      const availableProviders = getEmbeddingProvidersForRotation(initialPath);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        rotationConfig: rotationConfig || null,
+        availableProviders,
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // PUT /api/litellm-api/codexlens/rotation - Update rotation config
+  if (pathname === '/api/litellm-api/codexlens/rotation' && req.method === 'PUT') {
+    handlePostRequest(req, res, async (body: unknown) => {
+      const rotationConfig = body as CodexLensEmbeddingRotation | null;
+
+      try {
+        updateCodexLensEmbeddingRotation(initialPath, rotationConfig || undefined);
+
+        broadcastToClients({
+          type: 'CODEXLENS_ROTATION_UPDATED',
+          payload: { rotationConfig, timestamp: new Date().toISOString() }
+        });
+
+        return { success: true, rotationConfig };
+      } catch (err) {
+        return { error: (err as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // GET /api/litellm-api/codexlens/rotation/endpoints - Get generated rotation endpoints
+  if (pathname === '/api/litellm-api/codexlens/rotation/endpoints' && req.method === 'GET') {
+    try {
+      const endpoints = generateRotationEndpoints(initialPath);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        endpoints,
+        count: endpoints.length,
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
     }
     return true;
   }

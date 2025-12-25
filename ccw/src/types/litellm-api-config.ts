@@ -300,6 +300,54 @@ export interface GlobalCacheSettings {
 }
 
 /**
+ * CodexLens embedding provider selection for rotation
+ * Aggregates provider + model + all API keys
+ */
+export interface CodexLensEmbeddingProvider {
+  /** Reference to provider credential ID */
+  providerId: string;
+
+  /** Embedding model ID from the provider */
+  modelId: string;
+
+  /** Whether to use all API keys from this provider (default: true) */
+  useAllKeys: boolean;
+
+  /** Specific API key IDs to use (if useAllKeys is false) */
+  selectedKeyIds?: string[];
+
+  /** Weight for weighted routing (default: 1.0, applies to all keys from this provider) */
+  weight: number;
+
+  /** Maximum concurrent requests per key (default: 4) */
+  maxConcurrentPerKey: number;
+
+  /** Whether this provider is enabled for rotation */
+  enabled: boolean;
+}
+
+/**
+ * CodexLens multi-provider embedding rotation configuration
+ * Aggregates multiple providers with same model for parallel rotation
+ */
+export interface CodexLensEmbeddingRotation {
+  /** Whether multi-provider rotation is enabled */
+  enabled: boolean;
+
+  /** Selection strategy: round_robin, latency_aware, weighted_random */
+  strategy: 'round_robin' | 'latency_aware' | 'weighted_random';
+
+  /** Default cooldown seconds for rate-limited endpoints (default: 60) */
+  defaultCooldown: number;
+
+  /** Target model name that all providers should support (e.g., "qwen3-embedding") */
+  targetModel: string;
+
+  /** List of providers to aggregate for rotation */
+  providers: CodexLensEmbeddingProvider[];
+}
+
+/**
  * Complete LiteLLM API configuration
  * Root configuration object stored in JSON file
  */
@@ -318,4 +366,7 @@ export interface LiteLLMApiConfig {
 
   /** Global cache settings */
   globalCacheSettings: GlobalCacheSettings;
+
+  /** CodexLens multi-provider embedding rotation config */
+  codexlensEmbeddingRotation?: CodexLensEmbeddingRotation;
 }

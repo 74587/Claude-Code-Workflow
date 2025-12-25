@@ -331,7 +331,7 @@ def generate_embeddings(
     if max_workers is None:
         if embedding_backend == "litellm":
             if endpoint_count > 1:
-                max_workers = min(endpoint_count * 2, 16)  # Cap at 16 workers
+                max_workers = min(endpoint_count * 2, 32)  # Cap at 32 workers
             else:
                 max_workers = 4
         else:
@@ -806,7 +806,7 @@ def generate_embeddings_recursive(
     if max_workers is None:
         if embedding_backend == "litellm":
             if endpoint_count > 1:
-                max_workers = min(endpoint_count * 2, 16)
+                max_workers = min(endpoint_count * 2, 32)
             else:
                 max_workers = 4
         else:

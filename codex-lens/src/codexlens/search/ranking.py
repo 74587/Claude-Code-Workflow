@@ -25,7 +25,7 @@ def reciprocal_rank_fusion(
         results_map: Dictionary mapping source name to list of SearchResult objects
                      Sources: 'exact', 'fuzzy', 'vector'
         weights: Dictionary mapping source name to weight (default: equal weights)
-                 Example: {'exact': 0.4, 'fuzzy': 0.3, 'vector': 0.3}
+                 Example: {'exact': 0.3, 'fuzzy': 0.1, 'vector': 0.6}
         k: Constant to avoid division by zero and control rank influence (default 60)
 
     Returns:

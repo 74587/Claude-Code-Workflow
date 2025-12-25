@@ -27,11 +27,11 @@ class HybridSearchEngine:
         default_weights: Default RRF weights for each source
     """
 
-    # Default RRF weights (exact: 40%, fuzzy: 30%, vector: 30%)
+    # Default RRF weights (vector: 60%, exact: 30%, fuzzy: 10%)
     DEFAULT_WEIGHTS = {
-        "exact": 0.4,
-        "fuzzy": 0.3,
-        "vector": 0.3,
+        "exact": 0.3,
+        "fuzzy": 0.1,
+        "vector": 0.6,
     }
 
     def __init__(self, weights: Optional[Dict[str, float]] = None):

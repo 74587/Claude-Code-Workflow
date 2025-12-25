@@ -13,6 +13,8 @@ import type {
   GlobalCacheSettings,
   ProviderType,
   CacheStrategy,
+  CodexLensEmbeddingRotation,
+  CodexLensEmbeddingProvider,
 } from '../types/litellm-api-config.js';
 
 /**
@@ -357,6 +359,199 @@ export function updateGlobalCacheSettings(
 }
 
 // ===========================
+// CodexLens Embedding Rotation Management
+// ===========================
+
+/**
+ * Get CodexLens embedding rotation config
+ */
+export function getCodexLensEmbeddingRotation(baseDir: string): CodexLensEmbeddingRotation | undefined {
+  const config = loadLiteLLMApiConfig(baseDir);
+  return config.codexlensEmbeddingRotation;
+}
+
+/**
+ * Update CodexLens embedding rotation config
+ */
+export function updateCodexLensEmbeddingRotation(
+  baseDir: string,
+  rotationConfig: CodexLensEmbeddingRotation | undefined
+): void {
+  const config = loadLiteLLMApiConfig(baseDir);
+
+  if (rotationConfig) {
+    config.codexlensEmbeddingRotation = rotationConfig;
+  } else {
+    delete config.codexlensEmbeddingRotation;
+  }
+
+  saveConfig(baseDir, config);
+}
+
+/**
+ * Get all enabled embedding providers with their API keys for rotation
+ * This aggregates all providers that have embedding models configured
+ */
+export function getEmbeddingProvidersForRotation(baseDir: string): Array<{
+  providerId: string;
+  providerName: string;
+  apiBase: string;
+  embeddingModels: Array<{
+    modelId: string;
+    modelName: string;
+    dimensions: number;
+  }>;
+  apiKeys: Array<{
+    keyId: string;
+    keyLabel: string;
+    enabled: boolean;
+  }>;
+}> {
+  const config = loadLiteLLMApiConfig(baseDir);
+  const result: Array<{
+    providerId: string;
+    providerName: string;
+    apiBase: string;
+    embeddingModels: Array<{
+      modelId: string;
+      modelName: string;
+      dimensions: number;
+    }>;
+    apiKeys: Array<{
+      keyId: string;
+      keyLabel: string;
+      enabled: boolean;
+    }>;
+  }> = [];
+
+  for (const provider of config.providers) {
+    if (!provider.enabled) continue;
+
+    // Check if provider has embedding models
+    const embeddingModels = (provider.embeddingModels || [])
+      .filter(m => m.enabled)
+      .map(m => ({
+        modelId: m.id,
+        modelName: m.name,
+        dimensions: m.capabilities?.embeddingDimension || 1536,
+      }));
+
+    if (embeddingModels.length === 0) continue;
+
+    // Get API keys (single key or multiple from apiKeys array)
+    const apiKeys: Array<{ keyId: string; keyLabel: string; enabled: boolean }> = [];
+
+    if (provider.apiKeys && provider.apiKeys.length > 0) {
+      // Use multi-key configuration
+      for (const keyEntry of provider.apiKeys) {
+        apiKeys.push({
+          keyId: keyEntry.id,
+          keyLabel: keyEntry.label || keyEntry.id,
+          enabled: keyEntry.enabled,
+        });
+      }
+    } else if (provider.apiKey) {
+      // Single key fallback
+      apiKeys.push({
+        keyId: 'default',
+        keyLabel: 'Default Key',
+        enabled: true,
+      });
+    }
+
+    result.push({
+      providerId: provider.id,
+      providerName: provider.name,
+      apiBase: provider.apiBase || getDefaultApiBaseForType(provider.type),
+      embeddingModels,
+      apiKeys,
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Generate rotation endpoints for ccw_litellm
+ * Creates endpoint list from rotation config for parallel embedding
+ */
+export function generateRotationEndpoints(baseDir: string): Array<{
+  name: string;
+  api_key: string;
+  api_base: string;
+  model: string;
+  weight: number;
+  max_concurrent: number;
+}> {
+  const config = loadLiteLLMApiConfig(baseDir);
+  const rotationConfig = config.codexlensEmbeddingRotation;
+
+  if (!rotationConfig || !rotationConfig.enabled) {
+    return [];
+  }
+
+  const endpoints: Array<{
+    name: string;
+    api_key: string;
+    api_base: string;
+    model: string;
+    weight: number;
+    max_concurrent: number;
+  }> = [];
+
+  for (const rotationProvider of rotationConfig.providers) {
+    if (!rotationProvider.enabled) continue;
+
+    // Find the provider config
+    const provider = config.providers.find(p => p.id === rotationProvider.providerId);
+    if (!provider || !provider.enabled) continue;
+
+    // Find the embedding model
+    const embeddingModel = provider.embeddingModels?.find(m => m.id === rotationProvider.modelId);
+    if (!embeddingModel || !embeddingModel.enabled) continue;
+
+    // Get API base (model-specific or provider default)
+    const apiBase = embeddingModel.endpointSettings?.baseUrl ||
+                    provider.apiBase ||
+                    getDefaultApiBaseForType(provider.type);
+
+    // Get API keys to use
+    let keysToUse: Array<{ id: string; key: string; label: string }> = [];
+
+    if (provider.apiKeys && provider.apiKeys.length > 0) {
+      if (rotationProvider.useAllKeys) {
+        // Use all enabled keys
+        keysToUse = provider.apiKeys
+          .filter(k => k.enabled)
+          .map(k => ({ id: k.id, key: k.key, label: k.label || k.id }));
+      } else if (rotationProvider.selectedKeyIds && rotationProvider.selectedKeyIds.length > 0) {
+        // Use only selected keys
+        keysToUse = provider.apiKeys
+          .filter(k => k.enabled && rotationProvider.selectedKeyIds!.includes(k.id))
+          .map(k => ({ id: k.id, key: k.key, label: k.label || k.id }));
+      }
+    } else if (provider.apiKey) {
+      // Single key fallback
+      keysToUse = [{ id: 'default', key: provider.apiKey, label: 'Default' }];
+    }
+
+    // Create endpoint for each key
+    for (const keyInfo of keysToUse) {
+      endpoints.push({
+        name: `${provider.name}-${keyInfo.label}`,
+        api_key: resolveEnvVar(keyInfo.key),
+        api_base: apiBase,
+        model: embeddingModel.name,
+        weight: rotationProvider.weight,
+        max_concurrent: rotationProvider.maxConcurrentPerKey,
+      });
+    }
+  }
+
+  return endpoints;
+}
+
+// ===========================
 // YAML Config Generation for ccw_litellm
 // ===========================
 
@@ -518,4 +713,4 @@ function objectToYaml(obj: unknown, indent: number = 0): string {
 }
 
 // Re-export types
-export type { ProviderCredential, CustomEndpoint, ProviderType, CacheStrategy };
+export type { ProviderCredential, CustomEndpoint, ProviderType, CacheStrategy, CodexLensEmbeddingRotation, CodexLensEmbeddingProvider };

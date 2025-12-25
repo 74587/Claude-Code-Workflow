@@ -45,9 +45,9 @@ class TestHybridSearchBasics:
         """Test HybridSearchEngine initializes with default weights."""
         engine = HybridSearchEngine()
         assert engine.weights == HybridSearchEngine.DEFAULT_WEIGHTS
-        assert engine.weights["exact"] == 0.4
-        assert engine.weights["fuzzy"] == 0.3
-        assert engine.weights["vector"] == 0.3
+        assert engine.weights["exact"] == 0.3
+        assert engine.weights["fuzzy"] == 0.1
+        assert engine.weights["vector"] == 0.6
 
     def test_engine_custom_weights(self):
         """Test HybridSearchEngine accepts custom weights."""

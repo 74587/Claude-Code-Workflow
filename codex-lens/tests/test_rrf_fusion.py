@@ -230,16 +230,16 @@ class TestRRFSyntheticRankings:
         vector = [SearchResult(path="c.py", score=8.0, excerpt="...")]
 
         results_map = {"exact": exact, "fuzzy": fuzzy, "vector": vector}
-        weights = {"exact": 0.4, "fuzzy": 0.3, "vector": 0.3}
+        weights = {"exact": 0.3, "fuzzy": 0.1, "vector": 0.6}
 
         fused = reciprocal_rank_fusion(results_map, weights=weights)
 
         assert len(fused) == 3
         # Each appears in one source only, so scores differ by weights
-        # a.py: 0.4/61 ≈ 0.0066
-        # b.py: 0.3/61 ≈ 0.0049
-        # c.py: 0.3/61 ≈ 0.0049
-        assert fused[0].path == "a.py", "Exact (higher weight) should rank first"
+        # c.py: 0.6/61 ≈ 0.0098 (vector, highest weight)
+        # a.py: 0.3/61 ≈ 0.0049 (exact)
+        # b.py: 0.1/61 ≈ 0.0016 (fuzzy)
+        assert fused[0].path == "c.py", "Vector (higher weight) should rank first"
 
 
 class TestNormalizeBM25Score:

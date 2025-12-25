@@ -2009,6 +2009,28 @@ function buildCodexLensManagerPage(config) {
                   '</div>' +
                   '<p class="text-xs text-muted-foreground mt-1">' + t('codexlens.concurrencyHint') + '</p>' +
                 '</div>' +
+                // Multi-Provider Rotation (only for LiteLLM backend)
+                '<div id="rotationSection" class="hidden">' +
+                  '<div class="border border-border rounded-lg p-3 bg-muted/30">' +
+                    '<div class="flex items-center justify-between mb-2">' +
+                      '<div class="flex items-center gap-2">' +
+                        '<i data-lucide="rotate-cw" class="w-4 h-4 text-primary"></i>' +
+                        '<span class="text-sm font-medium">' + t('codexlens.rotation') + '</span>' +
+                      '</div>' +
+                      '<div id="rotationStatusBadge" class="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">' +
+                        t('common.disabled') +
+                      '</div>' +
+                    '</div>' +
+                    '<p class="text-xs text-muted-foreground mb-3">' + t('codexlens.rotationDesc') + '</p>' +
+                    '<div class="flex items-center gap-2">' +
+                      '<button class="btn-sm btn-outline flex items-center gap-1.5" onclick="showRotationConfigModal()">' +
+                        '<i data-lucide="settings" class="w-3.5 h-3.5"></i>' +
+                        t('codexlens.configureRotation') +
+                      '</button>' +
+                      '<span id="rotationEndpointCount" class="text-xs text-muted-foreground"></span>' +
+                    '</div>' +
+                  '</div>' +
+                '</div>' +
                 // Index buttons - two modes: full (FTS + Vector) or FTS only
                 '<div class="grid grid-cols-2 gap-3">' +
                   '<button class="btn btn-primary flex items-center justify-center gap-2 py-3" onclick="initCodexLensIndexFromPage(\'full\')" title="' + t('codexlens.fullIndexDesc') + '">' +
@@ -2224,6 +2246,7 @@ function onEmbeddingBackendChange() {
   var backendSelect = document.getElementById('pageBackendSelect');
   var modelSelect = document.getElementById('pageModelSelect');
   var concurrencySelector = document.getElementById('concurrencySelector');
+  var rotationSection = document.getElementById('rotationSection');
   if (!backendSelect || !modelSelect) {
     console.warn('[CodexLens] Backend or model select not found');
     return;
@@ -2243,12 +2266,21 @@ function onEmbeddingBackendChange() {
     if (concurrencySelector) {
       concurrencySelector.classList.remove('hidden');
     }
+    // Show rotation section and load status
+    if (rotationSection) {
+      rotationSection.classList.remove('hidden');
+      loadRotationStatus();
+    }
   } else {
     // Load local fastembed models
     modelSelect.innerHTML = buildModelSelectOptionsForPage();
     // Hide concurrency selector for local backend
     if (concurrencySelector) {
       concurrencySelector.classList.add('hidden');
+    }
+    // Hide rotation section for local backend
+    if (rotationSection) {
+      rotationSection.classList.add('hidden');
     }
   }
 }
@@ -2551,5 +2583,310 @@ async function cleanAllIndexesFromPage() {
     }
   } catch (err) {
     showRefreshToast((t('common.error') || 'Error') + ': ' + err.message, 'error');
+  }
+}
+
+// ============================================================
+// MULTI-PROVIDER ROTATION CONFIGURATION
+// ============================================================
+
+/**
+ * Load and display rotation status in the page
+ */
+async function loadRotationStatus() {
+  try {
+    var response = await fetch('/api/litellm-api/codexlens/rotation');
+    if (!response.ok) {
+      console.warn('[CodexLens] Failed to load rotation config:', response.status);
+      return;
+    }
+    var data = await response.json();
+    window.rotationConfig = data.rotationConfig;
+    window.availableRotationProviders = data.availableProviders;
+    updateRotationStatusDisplay(data.rotationConfig);
+  } catch (err) {
+    console.error('[CodexLens] Error loading rotation status:', err);
+  }
+}
+
+/**
+ * Update the rotation status display in the page
+ */
+function updateRotationStatusDisplay(rotationConfig) {
+  var badge = document.getElementById('rotationStatusBadge');
+  var countEl = document.getElementById('rotationEndpointCount');
+
+  if (!badge) return;
+
+  if (rotationConfig && rotationConfig.enabled) {
+    badge.textContent = t('common.enabled');
+    badge.className = 'text-xs px-2 py-0.5 rounded-full bg-success/10 text-success';
+
+    // Show endpoint count
+    if (countEl && rotationConfig.providers) {
+      var totalEndpoints = 0;
+      rotationConfig.providers.forEach(function(p) {
+        if (p.enabled) totalEndpoints += (p.useAllKeys ? 4 : 1); // Estimate
+      });
+      countEl.textContent = '~' + totalEndpoints + ' ' + t('codexlens.totalEndpoints').toLowerCase();
+    }
+  } else {
+    badge.textContent = t('common.disabled');
+    badge.className = 'text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground';
+    if (countEl) countEl.textContent = '';
+  }
+}
+
+/**
+ * Show the rotation configuration modal
+ */
+async function showRotationConfigModal() {
+  try {
+    // Load current config if not already loaded
+    if (!window.rotationConfig) {
+      await loadRotationStatus();
+    }
+
+    var rotationConfig = window.rotationConfig || {
+      enabled: false,
+      strategy: 'round_robin',
+      defaultCooldown: 60,
+      targetModel: 'qwen3-embedding',
+      providers: []
+    };
+    var availableProviders = window.availableRotationProviders || [];
+
+    var modalHtml = buildRotationConfigModal(rotationConfig, availableProviders);
+
+    var tempContainer = document.createElement('div');
+    tempContainer.innerHTML = modalHtml;
+    var modal = tempContainer.firstElementChild;
+    document.body.appendChild(modal);
+
+    if (window.lucide) lucide.createIcons();
+    initRotationConfigEvents(rotationConfig, availableProviders);
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
+}
+
+/**
+ * Build the rotation configuration modal HTML
+ */
+function buildRotationConfigModal(rotationConfig, availableProviders) {
+  var isEnabled = rotationConfig.enabled || false;
+  var strategy = rotationConfig.strategy || 'round_robin';
+  var cooldown = rotationConfig.defaultCooldown || 60;
+  var targetModel = rotationConfig.targetModel || 'qwen3-embedding';
+  var configuredProviders = rotationConfig.providers || [];
+
+  // Build provider list HTML
+  var providerListHtml = '';
+  if (availableProviders.length === 0) {
+    providerListHtml = '<div class="text-sm text-muted-foreground py-4 text-center">' + t('codexlens.noRotationProviders') + '</div>';
+  } else {
+    availableProviders.forEach(function(provider, index) {
+      // Find if this provider is already configured
+      var configured = configuredProviders.find(function(p) { return p.providerId === provider.providerId; });
+      var isProviderEnabled = configured ? configured.enabled : false;
+      var weight = configured ? configured.weight : 1;
+      var maxConcurrent = configured ? configured.maxConcurrentPerKey : 4;
+      var useAllKeys = configured ? configured.useAllKeys : true;
+
+      // Get model options
+      var modelOptions = provider.embeddingModels.map(function(m) {
+        var selected = configured && configured.modelId === m.modelId ? 'selected' : '';
+        return '<option value="' + m.modelId + '" ' + selected + '>' + m.modelName + ' (' + m.dimensions + 'd)</option>';
+      }).join('');
+
+      // Get key count
+      var keyCount = provider.apiKeys.filter(function(k) { return k.enabled; }).length;
+
+      providerListHtml +=
+        '<div class="border border-border rounded-lg p-3 ' + (isProviderEnabled ? 'bg-success/5 border-success/30' : 'bg-muted/30') + '" data-provider-id="' + provider.providerId + '">' +
+          '<div class="flex items-center justify-between mb-2">' +
+            '<div class="flex items-center gap-2">' +
+              '<input type="checkbox" id="rotationProvider_' + index + '" ' + (isProviderEnabled ? 'checked' : '') +
+                ' class="rotation-provider-toggle" data-provider-id="' + provider.providerId + '" />' +
+              '<label for="rotationProvider_' + index + '" class="font-medium text-sm">' + provider.providerName + '</label>' +
+              '<span class="text-xs px-1.5 py-0.5 bg-muted rounded text-muted-foreground">' + keyCount + ' keys</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="grid grid-cols-2 gap-2 text-xs">' +
+            '<div>' +
+              '<label class="text-muted-foreground">Model</label>' +
+              '<select class="w-full px-2 py-1 border border-border rounded bg-background text-sm rotation-model-select" data-provider-id="' + provider.providerId + '">' +
+                modelOptions +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label class="text-muted-foreground">' + t('codexlens.providerWeight') + '</label>' +
+              '<input type="number" min="0.1" max="10" step="0.1" value="' + weight + '" ' +
+                'class="w-full px-2 py-1 border border-border rounded bg-background text-sm rotation-weight-input" data-provider-id="' + provider.providerId + '" />' +
+            '</div>' +
+            '<div>' +
+              '<label class="text-muted-foreground">' + t('codexlens.maxConcurrentPerKey') + '</label>' +
+              '<input type="number" min="1" max="16" value="' + maxConcurrent + '" ' +
+                'class="w-full px-2 py-1 border border-border rounded bg-background text-sm rotation-concurrent-input" data-provider-id="' + provider.providerId + '" />' +
+            '</div>' +
+            '<div class="flex items-center gap-1">' +
+              '<input type="checkbox" id="useAllKeys_' + index + '" ' + (useAllKeys ? 'checked' : '') +
+                ' class="rotation-use-all-keys" data-provider-id="' + provider.providerId + '" />' +
+              '<label for="useAllKeys_' + index + '" class="text-muted-foreground">' + t('codexlens.useAllKeys') + '</label>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+    });
+  }
+
+  return '<div class="modal-backdrop" id="rotationConfigModal">' +
+    '<div class="modal-container max-w-2xl">' +
+      '<div class="modal-header">' +
+        '<div class="flex items-center gap-3">' +
+          '<div class="modal-icon">' +
+            '<i data-lucide="rotate-cw" class="w-5 h-5"></i>' +
+          '</div>' +
+          '<div>' +
+            '<h2 class="text-lg font-bold">' + t('codexlens.rotation') + '</h2>' +
+            '<p class="text-xs text-muted-foreground">' + t('codexlens.rotationDesc') + '</p>' +
+          '</div>' +
+        '</div>' +
+        '<button onclick="closeRotationModal()" class="text-muted-foreground hover:text-foreground">' +
+          '<i data-lucide="x" class="w-5 h-5"></i>' +
+        '</button>' +
+      '</div>' +
+      '<div class="modal-body space-y-4">' +
+        // Enable toggle
+        '<div class="flex items-center justify-between p-3 bg-muted/30 rounded-lg">' +
+          '<div class="flex items-center gap-2">' +
+            '<i data-lucide="power" class="w-4 h-4 text-primary"></i>' +
+            '<span class="font-medium">' + t('codexlens.rotationEnabled') + '</span>' +
+          '</div>' +
+          '<label class="relative inline-flex items-center cursor-pointer">' +
+            '<input type="checkbox" id="rotationEnabledToggle" ' + (isEnabled ? 'checked' : '') + ' class="sr-only peer" />' +
+            '<div class="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[\'\'] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>' +
+          '</label>' +
+        '</div>' +
+        // Strategy and settings
+        '<div class="grid grid-cols-2 gap-4">' +
+          '<div>' +
+            '<label class="block text-sm font-medium mb-1.5">' + t('codexlens.rotationStrategy') + '</label>' +
+            '<select id="rotationStrategy" class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm">' +
+              '<option value="round_robin" ' + (strategy === 'round_robin' ? 'selected' : '') + '>' + t('codexlens.strategyRoundRobin') + '</option>' +
+              '<option value="latency_aware" ' + (strategy === 'latency_aware' ? 'selected' : '') + '>' + t('codexlens.strategyLatencyAware') + '</option>' +
+              '<option value="weighted_random" ' + (strategy === 'weighted_random' ? 'selected' : '') + '>' + t('codexlens.strategyWeightedRandom') + '</option>' +
+            '</select>' +
+          '</div>' +
+          '<div>' +
+            '<label class="block text-sm font-medium mb-1.5">' + t('codexlens.cooldownSeconds') + '</label>' +
+            '<input type="number" id="rotationCooldown" min="1" max="300" value="' + cooldown + '" ' +
+              'class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm" />' +
+            '<p class="text-xs text-muted-foreground mt-1">' + t('codexlens.cooldownHint') + '</p>' +
+          '</div>' +
+        '</div>' +
+        // Target model
+        '<div>' +
+          '<label class="block text-sm font-medium mb-1.5">' + t('codexlens.targetModel') + '</label>' +
+          '<input type="text" id="rotationTargetModel" value="' + targetModel + '" ' +
+            'class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm" placeholder="qwen3-embedding" />' +
+          '<p class="text-xs text-muted-foreground mt-1">' + t('codexlens.targetModelHint') + '</p>' +
+        '</div>' +
+        // Provider list
+        '<div>' +
+          '<label class="block text-sm font-medium mb-1.5">' + t('codexlens.rotationProviders') + '</label>' +
+          '<div class="space-y-2 max-h-64 overflow-y-auto" id="rotationProviderList">' +
+            providerListHtml +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="modal-footer">' +
+        '<button onclick="closeRotationModal()" class="btn btn-outline">' + t('common.cancel') + '</button>' +
+        '<button onclick="saveRotationConfig()" class="btn btn-primary">' +
+          '<i data-lucide="save" class="w-4 h-4"></i> ' + t('common.save') +
+        '</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+/**
+ * Initialize rotation config modal events
+ */
+function initRotationConfigEvents(rotationConfig, availableProviders) {
+  // Store in window for save function
+  window._rotationAvailableProviders = availableProviders;
+}
+
+/**
+ * Close the rotation config modal
+ */
+function closeRotationModal() {
+  var modal = document.getElementById('rotationConfigModal');
+  if (modal) modal.remove();
+}
+
+/**
+ * Save the rotation configuration
+ */
+async function saveRotationConfig() {
+  try {
+    var enabledToggle = document.getElementById('rotationEnabledToggle');
+    var strategySelect = document.getElementById('rotationStrategy');
+    var cooldownInput = document.getElementById('rotationCooldown');
+    var targetModelInput = document.getElementById('rotationTargetModel');
+
+    var enabled = enabledToggle ? enabledToggle.checked : false;
+    var strategy = strategySelect ? strategySelect.value : 'round_robin';
+    var cooldown = cooldownInput ? parseInt(cooldownInput.value, 10) : 60;
+    var targetModel = targetModelInput ? targetModelInput.value.trim() : 'qwen3-embedding';
+
+    // Collect provider configurations
+    var providers = [];
+    var providerToggles = document.querySelectorAll('.rotation-provider-toggle');
+    providerToggles.forEach(function(toggle) {
+      var providerId = toggle.getAttribute('data-provider-id');
+      var isEnabled = toggle.checked;
+
+      var modelSelect = document.querySelector('.rotation-model-select[data-provider-id="' + providerId + '"]');
+      var weightInput = document.querySelector('.rotation-weight-input[data-provider-id="' + providerId + '"]');
+      var concurrentInput = document.querySelector('.rotation-concurrent-input[data-provider-id="' + providerId + '"]');
+      var useAllKeysToggle = document.querySelector('.rotation-use-all-keys[data-provider-id="' + providerId + '"]');
+
+      providers.push({
+        providerId: providerId,
+        modelId: modelSelect ? modelSelect.value : '',
+        weight: weightInput ? parseFloat(weightInput.value) || 1 : 1,
+        maxConcurrentPerKey: concurrentInput ? parseInt(concurrentInput.value, 10) || 4 : 4,
+        useAllKeys: useAllKeysToggle ? useAllKeysToggle.checked : true,
+        enabled: isEnabled
+      });
+    });
+
+    var rotationConfig = {
+      enabled: enabled,
+      strategy: strategy,
+      defaultCooldown: cooldown,
+      targetModel: targetModel,
+      providers: providers
+    };
+
+    var response = await fetch('/api/litellm-api/codexlens/rotation', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rotationConfig)
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast(t('codexlens.rotationSaved'), 'success');
+      window.rotationConfig = rotationConfig;
+      updateRotationStatusDisplay(rotationConfig);
+      closeRotationModal();
+    } else {
+      showRefreshToast(t('common.saveFailed') + ': ' + result.error, 'error');
+    }
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
   }
 }
