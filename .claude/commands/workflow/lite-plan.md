@@ -15,7 +15,7 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 - Intelligent task analysis with automatic exploration detection
 - Dynamic code exploration (cli-explore-agent) when codebase understanding needed
 - Interactive clarification after exploration to gather missing information
-- Adaptive planning strategy (direct Claude vs cli-lite-planning-agent) based on complexity
+- Adaptive planning: Low complexity → Direct Claude; Medium/High → cli-lite-planning-agent
 - Two-step confirmation: plan display → multi-dimensional input collection
 - Execution dispatch with complete context handoff to lite-execute
 
