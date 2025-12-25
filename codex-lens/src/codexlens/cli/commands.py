@@ -103,12 +103,12 @@ def init(
         "-l",
         help="Limit indexing to specific languages (repeat or comma-separated).",
     ),
-    workers: Optional[int] = typer.Option(None, "--workers", "-w", min=1, max=32, help="Parallel worker processes (default: auto-detect based on CPU count, max 32)."),
+    workers: Optional[int] = typer.Option(None, "--workers", "-w", min=1, help="Parallel worker processes (default: auto-detect based on CPU count)."),
     force: bool = typer.Option(False, "--force", "-f", help="Force full reindex (skip incremental mode)."),
     no_embeddings: bool = typer.Option(False, "--no-embeddings", help="Skip automatic embedding generation (if semantic deps installed)."),
     embedding_backend: str = typer.Option("fastembed", "--embedding-backend", help="Embedding backend: fastembed (local) or litellm (remote API)."),
     embedding_model: str = typer.Option("code", "--embedding-model", help="Embedding model: profile name for fastembed (fast/code/multilingual/balanced) or model name for litellm (e.g. text-embedding-3-small)."),
-    max_workers: int = typer.Option(1, "--max-workers", min=1, max=32, help="Max concurrent API calls for embedding generation. Recommended: 4-8 for litellm backend."),
+    max_workers: int = typer.Option(1, "--max-workers", min=1, help="Max concurrent API calls for embedding generation. Recommended: 4-8 for litellm backend."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
 ) -> None:
@@ -478,6 +478,7 @@ def search(
                     "path": r.path,
                     "score": r.score,
                     "excerpt": r.excerpt,
+                    "content": r.content,  # Full function/class body
                     "source": getattr(r, "search_source", None),
                     "symbol": getattr(r, "symbol", None),
                 }
@@ -1852,7 +1853,6 @@ def embeddings_generate(
         "--max-workers",
         "-w",
         min=1,
-        max=32,
         help="Max concurrent API calls. Recommended: 4-8 for litellm backend. Default: 1 (sequential).",
     ),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),

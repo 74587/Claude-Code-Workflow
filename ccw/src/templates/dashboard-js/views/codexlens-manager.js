@@ -271,6 +271,9 @@ function initCodexLensConfigEvents(currentConfig) {
       var searchType = document.getElementById('searchTypeSelect').value;
       var searchMode = document.getElementById('searchModeSelect').value;
       var query = document.getElementById('searchQueryInput').value.trim();
+      var searchLimit = document.getElementById('searchLimitInput')?.value || '5';
+      var contentLength = document.getElementById('contentLengthInput')?.value || '200';
+      var extraFiles = document.getElementById('extraFilesInput')?.value || '10';
       var resultsDiv = document.getElementById('searchResults');
       var resultCount = document.getElementById('searchResultCount');
       var resultContent = document.getElementById('searchResultContent');
@@ -286,7 +289,12 @@ function initCodexLensConfigEvents(currentConfig) {
 
       try {
         var endpoint = '/api/codexlens/' + searchType;
-        var params = new URLSearchParams({ query: query, limit: '20' });
+        var params = new URLSearchParams({
+          query: query,
+          limit: searchLimit,
+          max_content_length: contentLength,
+          extra_files_count: extraFiles
+        });
         // Add mode parameter for search and search_files (not for symbol search)
         if (searchType === 'search' || searchType === 'search_files') {
           params.append('mode', searchMode);
@@ -2001,7 +2009,7 @@ function buildCodexLensManagerPage(config) {
                 '<div id="concurrencySelector" class="hidden">' +
                   '<label class="block text-sm font-medium mb-1.5">' + t('codexlens.concurrency') + '</label>' +
                   '<div class="flex items-center gap-2">' +
-                    '<input type="number" id="pageConcurrencyInput" min="1" max="32" value="4" ' +
+                    '<input type="number" id="pageConcurrencyInput" min="1" value="4" ' +
                       'class="w-24 px-3 py-2 border border-border rounded-lg bg-background text-sm" ' +
                       'onchange="validateConcurrencyInput(this)" />' +
                     '<span class="text-sm text-muted-foreground">workers</span>' +
@@ -2173,6 +2181,20 @@ function buildCodexLensManagerPage(config) {
                 '<option value="vector">' + t('codexlens.vectorMode') + '</option>' +
               '</select>' +
             '</div>' +
+            '<div class="flex gap-3 items-center">' +
+              '<div class="flex items-center gap-2">' +
+                '<label class="text-xs text-muted-foreground whitespace-nowrap">' + t('codexlens.resultLimit') + '</label>' +
+                '<input type="number" id="searchLimitInput" class="w-16 px-2 py-1.5 border border-border rounded-lg bg-background text-sm text-center" value="5" min="1" max="50" />' +
+              '</div>' +
+              '<div class="flex items-center gap-2">' +
+                '<label class="text-xs text-muted-foreground whitespace-nowrap">' + t('codexlens.contentLength') + '</label>' +
+                '<input type="number" id="contentLengthInput" class="w-20 px-2 py-1.5 border border-border rounded-lg bg-background text-sm text-center" value="200" min="50" max="2000" />' +
+              '</div>' +
+              '<div class="flex items-center gap-2">' +
+                '<label class="text-xs text-muted-foreground whitespace-nowrap">' + t('codexlens.extraFiles') + '</label>' +
+                '<input type="number" id="extraFilesInput" class="w-16 px-2 py-1.5 border border-border rounded-lg bg-background text-sm text-center" value="10" min="0" max="50" />' +
+              '</div>' +
+            '</div>' +
             '<div class="flex gap-3">' +
               '<input type="text" id="searchQueryInput" class="flex-1 px-3 py-2 border border-border rounded-lg bg-background text-sm" placeholder="' + t('codexlens.searchPlaceholder') + '" />' +
               '<button class="btn-sm btn-primary" id="runSearchBtn"><i data-lucide="search" class="w-3.5 h-3.5"></i> ' + t('codexlens.runSearch') + '</button>' +
@@ -2228,14 +2250,12 @@ function buildModelSelectOptionsForPage() {
 }
 
 /**
- * Validate concurrency input value (1-32)
+ * Validate concurrency input value (min 1, no max limit)
  */
 function validateConcurrencyInput(input) {
   var value = parseInt(input.value, 10);
   if (isNaN(value) || value < 1) {
     input.value = 1;
-  } else if (value > 32) {
-    input.value = 32;
   }
 }
 
@@ -2338,7 +2358,7 @@ function initCodexLensIndexFromPage(indexType) {
   var concurrencyInput = document.getElementById('pageConcurrencyInput');
   var selectedBackend = backendSelect ? backendSelect.value : 'fastembed';
   var selectedModel = modelSelect ? modelSelect.value : 'code';
-  var selectedConcurrency = concurrencyInput ? Math.min(32, Math.max(1, parseInt(concurrencyInput.value, 10) || 4)) : 4;
+  var selectedConcurrency = concurrencyInput ? Math.max(1, parseInt(concurrencyInput.value, 10) || 4) : 4;
 
   // For FTS-only index, model is not needed
   if (indexType === 'normal') {
@@ -2879,7 +2899,16 @@ async function saveRotationConfig() {
     var result = await response.json();
 
     if (result.success) {
-      showRefreshToast(t('codexlens.rotationSaved'), 'success');
+      // Show sync result in toast
+      var syncMsg = '';
+      if (result.syncResult) {
+        if (result.syncResult.success) {
+          syncMsg = ' (' + result.syncResult.endpointCount + ' ' + t('codexlens.endpointsSynced') + ')';
+        } else {
+          syncMsg = ' (' + t('codexlens.syncFailed') + ': ' + result.syncResult.message + ')';
+        }
+      }
+      showRefreshToast(t('codexlens.rotationSaved') + syncMsg, 'success');
       window.rotationConfig = rotationConfig;
       updateRotationStatusDisplay(rotationConfig);
       closeRotationModal();

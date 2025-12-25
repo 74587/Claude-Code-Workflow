@@ -11,7 +11,12 @@ let selectedProviderId = null;
 let providerSearchQuery = '';
 let activeModelTab = 'llm';
 let expandedModelGroups = new Set();
-let activeSidebarTab = 'providers'; // 'providers' | 'endpoints' | 'cache'
+let activeSidebarTab = 'providers'; // 'providers' | 'endpoints' | 'cache' | 'embedding-pool'
+
+// Embedding Pool state
+let embeddingPoolConfig = null;
+let embeddingPoolAvailableModels = [];
+let embeddingPoolDiscoveredProviders = [];
 
 // ========== Data Loading ==========
 
@@ -59,6 +64,112 @@ async function loadCacheStats() {
     console.error('Failed to load cache stats:', err);
     return { enabled: false, totalSize: 0, maxSize: 104857600, entries: 0 };
   }
+}
+
+/**
+ * Load embedding pool configuration and available models
+ */
+async function loadEmbeddingPoolConfig() {
+  try {
+    const response = await fetch('/api/litellm-api/embedding-pool');
+    if (!response.ok) throw new Error('Failed to load embedding pool config');
+    const data = await response.json();
+    embeddingPoolConfig = data.poolConfig;
+    embeddingPoolAvailableModels = data.availableModels || [];
+
+    // If pool is enabled and has a target model, discover providers
+    if (embeddingPoolConfig && embeddingPoolConfig.enabled && embeddingPoolConfig.targetModel) {
+      await discoverProvidersForTargetModel(embeddingPoolConfig.targetModel);
+    }
+
+    return data;
+  } catch (err) {
+    console.error('Failed to load embedding pool config:', err);
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+    return null;
+  }
+}
+
+/**
+ * Discover providers for a specific target model
+ */
+async function discoverProvidersForTargetModel(targetModel) {
+  try {
+    const response = await fetch('/api/litellm-api/embedding-pool/discover/' + encodeURIComponent(targetModel));
+    if (!response.ok) throw new Error('Failed to discover providers');
+    const data = await response.json();
+    embeddingPoolDiscoveredProviders = data.discovered || [];
+    return data;
+  } catch (err) {
+    console.error('Failed to discover providers:', err);
+    embeddingPoolDiscoveredProviders = [];
+    return null;
+  }
+}
+
+/**
+ * Save embedding pool configuration
+ */
+async function saveEmbeddingPoolConfig() {
+  try {
+    const enabled = document.getElementById('embedding-pool-enabled')?.checked || false;
+    const targetModel = document.getElementById('embedding-pool-target-model')?.value || '';
+    const strategy = document.getElementById('embedding-pool-strategy')?.value || 'round_robin';
+    const defaultCooldown = parseInt(document.getElementById('embedding-pool-cooldown')?.value || '60');
+    const defaultMaxConcurrentPerKey = parseInt(document.getElementById('embedding-pool-concurrent')?.value || '4');
+
+    const poolConfig = enabled ? {
+      enabled: true,
+      targetModel: targetModel,
+      strategy: strategy,
+      autoDiscover: true,
+      excludedProviderIds: embeddingPoolConfig?.excludedProviderIds || [],
+      defaultCooldown: defaultCooldown,
+      defaultMaxConcurrentPerKey: defaultMaxConcurrentPerKey
+    } : null;
+
+    const response = await fetch('/api/litellm-api/embedding-pool', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(poolConfig)
+    });
+
+    if (!response.ok) throw new Error('Failed to save embedding pool config');
+
+    const result = await response.json();
+    embeddingPoolConfig = result.poolConfig;
+
+    const syncCount = result.syncResult?.syncedEndpoints?.length || 0;
+    showRefreshToast(t('apiSettings.poolSaved') + (syncCount > 0 ? ' (' + syncCount + ' endpoints synced)' : ''), 'success');
+
+    // Reload the embedding pool section
+    await renderEmbeddingPoolMainPanel();
+
+  } catch (err) {
+    console.error('Failed to save embedding pool config:', err);
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
+}
+
+/**
+ * Toggle provider exclusion in embedding pool
+ */
+async function toggleProviderExclusion(providerId) {
+  if (!embeddingPoolConfig) return;
+
+  const excludedIds = embeddingPoolConfig.excludedProviderIds || [];
+  const index = excludedIds.indexOf(providerId);
+
+  if (index > -1) {
+    excludedIds.splice(index, 1);
+  } else {
+    excludedIds.push(providerId);
+  }
+
+  embeddingPoolConfig.excludedProviderIds = excludedIds;
+
+  // Re-render the discovered providers section
+  renderDiscoveredProviders();
 }
 
 // ========== Provider Management ==========
@@ -825,6 +936,9 @@ async function renderApiSettings() {
     '<button class="sidebar-tab' + (activeSidebarTab === 'endpoints' ? ' active' : '') + '" onclick="switchSidebarTab(\'endpoints\')">' +
     '<i data-lucide="link"></i> ' + t('apiSettings.endpoints') +
     '</button>' +
+    '<button class="sidebar-tab' + (activeSidebarTab === 'embedding-pool' ? ' active' : '') + '" onclick="switchSidebarTab(\'embedding-pool\')">' +
+    '<i data-lucide="repeat"></i> ' + t('apiSettings.embeddingPool') +
+    '</button>' +
     '<button class="sidebar-tab' + (activeSidebarTab === 'cache' ? ' active' : '') + '" onclick="switchSidebarTab(\'cache\')">' +
     '<i data-lucide="database"></i> ' + t('apiSettings.cache') +
     '</button>' +
@@ -833,7 +947,7 @@ async function renderApiSettings() {
   // Build sidebar content based on active tab
   var sidebarContentHtml = '';
   var addButtonHtml = '';
-  
+
   if (activeSidebarTab === 'providers') {
     sidebarContentHtml = '<div class="provider-search">' +
       '<i data-lucide="search" class="search-icon"></i>' +
@@ -848,6 +962,10 @@ async function renderApiSettings() {
     addButtonHtml = '<button class="btn btn-primary btn-full" onclick="showAddEndpointModal()">' +
       '<i data-lucide="plus"></i> ' + t('apiSettings.addEndpoint') +
       '</button>';
+  } else if (activeSidebarTab === 'embedding-pool') {
+    sidebarContentHtml = '<div class="embedding-pool-sidebar-info" style="padding: 1rem; color: var(--text-secondary); font-size: 0.875rem;">' +
+      '<p>' + t('apiSettings.embeddingPoolDesc') + '</p>' +
+      '</div>';
   } else if (activeSidebarTab === 'cache') {
     sidebarContentHtml = '<div class="cache-sidebar-info" style="padding: 1rem; color: var(--text-secondary); font-size: 0.875rem;">' +
       '<p>' + t('apiSettings.cacheTabHint') + '</p>' +
@@ -887,6 +1005,8 @@ async function renderApiSettings() {
   } else if (activeSidebarTab === 'endpoints') {
     renderEndpointsList();
     renderEndpointsMainPanel();
+  } else if (activeSidebarTab === 'embedding-pool') {
+    renderEmbeddingPoolMainPanel();
   } else if (activeSidebarTab === 'cache') {
     renderCacheMainPanel();
   }
@@ -2365,6 +2485,174 @@ function renderCacheSettings(stats) {
  */
 function generateKeyId() {
   return 'key-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+}
+
+// ========== Embedding Pool Management ==========
+
+/**
+ * Render embedding pool main panel
+ */
+async function renderEmbeddingPoolMainPanel() {
+  var container = document.getElementById('provider-detail-panel');
+  if (!container) return;
+
+  // Load embedding pool config if not already loaded
+  if (!embeddingPoolConfig) {
+    await loadEmbeddingPoolConfig();
+  }
+
+  const enabled = embeddingPoolConfig?.enabled || false;
+  const targetModel = embeddingPoolConfig?.targetModel || '';
+  const strategy = embeddingPoolConfig?.strategy || 'round_robin';
+  const defaultCooldown = embeddingPoolConfig?.defaultCooldown || 60;
+  const defaultMaxConcurrentPerKey = embeddingPoolConfig?.defaultMaxConcurrentPerKey || 4;
+
+  // Build model dropdown options
+  let modelOptionsHtml = '<option value="">' + t('apiSettings.selectTargetModel') + '</option>';
+  embeddingPoolAvailableModels.forEach(function(model) {
+    const providerCount = model.providers.length;
+    const selected = model.modelId === targetModel ? ' selected' : '';
+    modelOptionsHtml += '<option value="' + model.modelId + '"' + selected + '>' +
+      model.modelName + ' (' + providerCount + ' providers)' +
+      '</option>';
+  });
+
+  var html = '<div class="embedding-pool-main-panel">' +
+    '<div class="panel-header">' +
+    '<h2><i data-lucide="repeat"></i> ' + t('apiSettings.embeddingPool') + '</h2>' +
+    '<p class="panel-subtitle">' + t('apiSettings.embeddingPoolDesc') + '</p>' +
+    '</div>' +
+
+    // Enable/Disable Toggle
+    '<div class="settings-section">' +
+    '<div class="section-header">' +
+    '<h3>' + t('apiSettings.poolEnabled') + '</h3>' +
+    '<label class="toggle-switch">' +
+    '<input type="checkbox" id="embedding-pool-enabled" ' + (enabled ? 'checked' : '') + ' onchange="onEmbeddingPoolEnabledChange(this.checked)" />' +
+    '<span class="toggle-track"><span class="toggle-thumb"></span></span>' +
+    '</label>' +
+    '</div>' +
+    '</div>' +
+
+    // Configuration Form
+    '<div class="settings-section" id="embedding-pool-config" style="' + (enabled ? '' : 'display: none;') + '">' +
+    '<div class="form-group">' +
+    '<label for="embedding-pool-target-model">' + t('apiSettings.targetModel') + '</label>' +
+    '<select id="embedding-pool-target-model" class="cli-input" onchange="onTargetModelChange(this.value)">' +
+    modelOptionsHtml +
+    '</select>' +
+    '</div>' +
+
+    '<div class="form-group">' +
+    '<label for="embedding-pool-strategy">' + t('apiSettings.strategy') + '</label>' +
+    '<select id="embedding-pool-strategy" class="cli-input">' +
+    '<option value="round_robin"' + (strategy === 'round_robin' ? ' selected' : '') + '>Round Robin</option>' +
+    '<option value="latency_aware"' + (strategy === 'latency_aware' ? ' selected' : '') + '>Latency Aware</option>' +
+    '<option value="weighted_random"' + (strategy === 'weighted_random' ? ' selected' : '') + '>Weighted Random</option>' +
+    '</select>' +
+    '</div>' +
+
+    '<div class="form-group">' +
+    '<label for="embedding-pool-cooldown">' + t('apiSettings.defaultCooldown') + '</label>' +
+    '<input type="number" id="embedding-pool-cooldown" class="cli-input" value="' + defaultCooldown + '" min="1" />' +
+    '</div>' +
+
+    '<div class="form-group">' +
+    '<label for="embedding-pool-concurrent">' + t('apiSettings.defaultConcurrent') + '</label>' +
+    '<input type="number" id="embedding-pool-concurrent" class="cli-input" value="' + defaultMaxConcurrentPerKey + '" min="1" />' +
+    '</div>' +
+
+    // Discovered Providers Section
+    '<div id="discovered-providers-section"></div>' +
+
+    '<div class="form-actions">' +
+    '<button class="btn btn-primary" onclick="saveEmbeddingPoolConfig()">' +
+    '<i data-lucide="save"></i> ' + t('common.save') +
+    '</button>' +
+    '</div>' +
+    '</div>' +
+    '</div>';
+
+  container.innerHTML = html;
+  if (window.lucide) lucide.createIcons();
+
+  // Render discovered providers if we have a target model
+  if (enabled && targetModel) {
+    renderDiscoveredProviders();
+  }
+}
+
+/**
+ * Handle embedding pool enabled/disabled toggle
+ */
+function onEmbeddingPoolEnabledChange(enabled) {
+  const configSection = document.getElementById('embedding-pool-config');
+  if (configSection) {
+    configSection.style.display = enabled ? '' : 'none';
+  }
+}
+
+/**
+ * Handle target model selection change
+ */
+async function onTargetModelChange(modelId) {
+  if (!modelId) {
+    embeddingPoolDiscoveredProviders = [];
+    renderDiscoveredProviders();
+    return;
+  }
+
+  // Discover providers for this model
+  await discoverProvidersForTargetModel(modelId);
+  renderDiscoveredProviders();
+}
+
+/**
+ * Render discovered providers list
+ */
+function renderDiscoveredProviders() {
+  const container = document.getElementById('discovered-providers-section');
+  if (!container) return;
+
+  if (embeddingPoolDiscoveredProviders.length === 0) {
+    container.innerHTML = '<div class="info-message" style="margin-top: 1rem;">' +
+      '<i data-lucide="info"></i> ' + t('apiSettings.noProvidersFound') +
+      '</div>';
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  const excludedIds = embeddingPoolConfig?.excludedProviderIds || [];
+  let totalProviders = 0;
+  let totalKeys = 0;
+
+  embeddingPoolDiscoveredProviders.forEach(function(p) {
+    totalProviders++;
+    totalKeys += p.keyCount || 1;
+  });
+
+  let providersHtml = '<div class="discovered-providers-box" style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">' +
+    '<h4>' + t('apiSettings.discoveredProviders') + ' (' + totalProviders + ' providers, ' + totalKeys + ' ' + t('apiSettings.providerKeys') + ')</h4>' +
+    '<div class="providers-list" style="margin-top: 0.75rem;">';
+
+  embeddingPoolDiscoveredProviders.forEach(function(provider) {
+    const isExcluded = excludedIds.indexOf(provider.providerId) > -1;
+    const icon = isExcluded ? 'x-circle' : 'check-circle';
+    const statusClass = isExcluded ? 'text-error' : 'text-success';
+    const keyInfo = provider.keyCount > 1 ? ' (' + provider.keyCount + ' ' + t('apiSettings.providerKeys') + ')' : '';
+
+    providersHtml += '<div class="provider-item" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; border-bottom: 1px solid var(--border-color);">' +
+      '<i data-lucide="' + icon + '" class="' + statusClass + '"></i>' +
+      '<span style="flex: 1;">' + provider.providerName + keyInfo + '</span>' +
+      '<button class="btn btn-sm ' + (isExcluded ? 'btn-secondary' : 'btn-outline') + '" onclick="toggleProviderExclusion(\'' + provider.providerId + '\')">' +
+      (isExcluded ? t('common.include') : t('apiSettings.excludeProvider')) +
+      '</button>' +
+      '</div>';
+  });
+
+  providersHtml += '</div></div>';
+  container.innerHTML = providersHtml;
+  if (window.lucide) lucide.createIcons();
 }
 
 /**

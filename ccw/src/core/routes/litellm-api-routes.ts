@@ -26,13 +26,35 @@ import {
   updateCodexLensEmbeddingRotation,
   getEmbeddingProvidersForRotation,
   generateRotationEndpoints,
+  syncCodexLensConfig,
+  getEmbeddingPoolConfig,
+  updateEmbeddingPoolConfig,
+  discoverProvidersForModel,
   type ProviderCredential,
   type CustomEndpoint,
   type ProviderType,
   type CodexLensEmbeddingRotation,
+  type EmbeddingPoolConfig,
 } from '../../config/litellm-api-config-manager.js';
 import { getContextCacheStore } from '../../tools/context-cache-store.js';
 import { getLiteLLMClient } from '../../tools/litellm-client.js';
+
+// Cache for ccw-litellm status check
+let ccwLitellmStatusCache: {
+  data: { installed: boolean; version?: string; error?: string } | null;
+  timestamp: number;
+  ttl: number;
+} = {
+  data: null,
+  timestamp: 0,
+  ttl: 5 * 60 * 1000, // 5 minutes
+};
+
+// Clear cache (call after install)
+export function clearCcwLitellmStatusCache() {
+  ccwLitellmStatusCache.data = null;
+  ccwLitellmStatusCache.timestamp = 0;
+}
 
 export interface RouteContext {
   pathname: string;
@@ -533,42 +555,56 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
 
   // GET /api/litellm-api/ccw-litellm/status - Check ccw-litellm installation status
   if (pathname === '/api/litellm-api/ccw-litellm/status' && req.method === 'GET') {
-    try {
-      const { execSync } = await import('child_process');
+    // Check cache first
+    if (ccwLitellmStatusCache.data &&
+        Date.now() - ccwLitellmStatusCache.timestamp < ccwLitellmStatusCache.ttl) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(ccwLitellmStatusCache.data));
+      return true;
+    }
 
-      // Try multiple Python executables
+    // Async check
+    try {
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
+
       const pythonExecutables = ['python', 'python3', 'py'];
-      // Use single quotes inside Python code for Windows compatibility
       const pythonCode = "import ccw_litellm; print(getattr(ccw_litellm, '__version__', 'installed'))";
 
-      let installed = false;
-      let version = '';
-      let lastError = '';
+      let result: { installed: boolean; version?: string; error?: string } = { installed: false };
 
       for (const pythonExe of pythonExecutables) {
         try {
-          const output = execSync(`${pythonExe} -c "${pythonCode}"`, {
-            encoding: 'utf-8',
-            timeout: 10000,
+          const { stdout } = await execAsync(`${pythonExe} -c "${pythonCode}"`, {
+            timeout: 5000,
             windowsHide: true
           });
-          version = output.trim();
+          const version = stdout.trim();
           if (version) {
-            installed = true;
+            result = { installed: true, version };
             console.log(`[ccw-litellm status] Found with ${pythonExe}: ${version}`);
             break;
           }
         } catch (err) {
-          lastError = (err as Error).message;
-          console.log(`[ccw-litellm status] ${pythonExe} failed:`, lastError.substring(0, 100));
+          result.error = (err as Error).message;
+          console.log(`[ccw-litellm status] ${pythonExe} failed:`, result.error.substring(0, 100));
         }
       }
 
+      // Update cache
+      ccwLitellmStatusCache = {
+        data: result,
+        timestamp: Date.now(),
+        ttl: 5 * 60 * 1000,
+      };
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(installed ? { installed: true, version } : { installed: false, error: lastError }));
+      res.end(JSON.stringify(result));
     } catch (err) {
+      const errorResult = { installed: false, error: (err as Error).message };
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ installed: false, error: (err as Error).message }));
+      res.end(JSON.stringify(errorResult));
     }
     return true;
   }
@@ -601,14 +637,14 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
       const rotationConfig = body as CodexLensEmbeddingRotation | null;
 
       try {
-        updateCodexLensEmbeddingRotation(initialPath, rotationConfig || undefined);
+        const { syncResult } = updateCodexLensEmbeddingRotation(initialPath, rotationConfig || undefined);
 
         broadcastToClients({
           type: 'CODEXLENS_ROTATION_UPDATED',
-          payload: { rotationConfig, timestamp: new Date().toISOString() }
+          payload: { rotationConfig, syncResult, timestamp: new Date().toISOString() }
         });
 
-        return { success: true, rotationConfig };
+        return { success: true, rotationConfig, syncResult };
       } catch (err) {
         return { error: (err as Error).message, status: 500 };
       }
@@ -625,6 +661,116 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
       res.end(JSON.stringify({
         endpoints,
         count: endpoints.length,
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // POST /api/litellm-api/codexlens/rotation/sync - Manually sync rotation config to CodexLens
+  if (pathname === '/api/litellm-api/codexlens/rotation/sync' && req.method === 'POST') {
+    try {
+      const syncResult = syncCodexLensConfig(initialPath);
+
+      if (syncResult.success) {
+        broadcastToClients({
+          type: 'CODEXLENS_CONFIG_SYNCED',
+          payload: { ...syncResult, timestamp: new Date().toISOString() }
+        });
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(syncResult));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, message: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // ===========================
+  // Embedding Pool Routes (New Generic API)
+  // ===========================
+
+  // GET /api/litellm-api/embedding-pool - Get pool config and available models
+  if (pathname === '/api/litellm-api/embedding-pool' && req.method === 'GET') {
+    try {
+      const poolConfig = getEmbeddingPoolConfig(initialPath);
+
+      // Get list of all available embedding models from all providers
+      const config = loadLiteLLMApiConfig(initialPath);
+      const availableModels: Array<{ modelId: string; modelName: string; providers: string[] }> = [];
+      const modelMap = new Map<string, { modelId: string; modelName: string; providers: string[] }>();
+
+      for (const provider of config.providers) {
+        if (!provider.enabled || !provider.embeddingModels) continue;
+
+        for (const model of provider.embeddingModels) {
+          if (!model.enabled) continue;
+
+          const key = model.id;
+          if (modelMap.has(key)) {
+            modelMap.get(key)!.providers.push(provider.name);
+          } else {
+            modelMap.set(key, {
+              modelId: model.id,
+              modelName: model.name,
+              providers: [provider.name],
+            });
+          }
+        }
+      }
+
+      availableModels.push(...Array.from(modelMap.values()));
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        poolConfig: poolConfig || null,
+        availableModels,
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // PUT /api/litellm-api/embedding-pool - Update pool config
+  if (pathname === '/api/litellm-api/embedding-pool' && req.method === 'PUT') {
+    handlePostRequest(req, res, async (body: unknown) => {
+      const poolConfig = body as EmbeddingPoolConfig | null;
+
+      try {
+        const { syncResult } = updateEmbeddingPoolConfig(initialPath, poolConfig || undefined);
+
+        broadcastToClients({
+          type: 'EMBEDDING_POOL_UPDATED',
+          payload: { poolConfig, syncResult, timestamp: new Date().toISOString() }
+        });
+
+        return { success: true, poolConfig, syncResult };
+      } catch (err) {
+        return { error: (err as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // GET /api/litellm-api/embedding-pool/discover/:model - Preview auto-discovery results
+  const discoverMatch = pathname.match(/^\/api\/litellm-api\/embedding-pool\/discover\/([^/]+)$/);
+  if (discoverMatch && req.method === 'GET') {
+    const targetModel = decodeURIComponent(discoverMatch[1]);
+
+    try {
+      const discovered = discoverProvidersForModel(initialPath, targetModel);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        targetModel,
+        discovered,
+        count: discovered.length,
       }));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -667,6 +813,8 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
             proc.stderr?.on('data', (data) => { error += data.toString(); });
             proc.on('close', (code) => {
               if (code === 0) {
+                // Clear status cache after successful installation
+                clearCcwLitellmStatusCache();
                 resolve({ success: true, message: 'ccw-litellm installed from PyPI' });
               } else {
                 resolve({ success: false, error: error || 'Installation failed' });
@@ -685,6 +833,9 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
           proc.stderr?.on('data', (data) => { error += data.toString(); });
           proc.on('close', (code) => {
             if (code === 0) {
+              // Clear status cache after successful installation
+              clearCcwLitellmStatusCache();
+
               // Broadcast installation event
               broadcastToClients({
                 type: 'CCW_LITELLM_INSTALLED',

@@ -348,6 +348,33 @@ export interface CodexLensEmbeddingRotation {
 }
 
 /**
+ * Generic embedding pool configuration (refactored from CodexLensEmbeddingRotation)
+ * Supports automatic discovery of all providers offering a specific model
+ */
+export interface EmbeddingPoolConfig {
+  /** Whether embedding pool is enabled */
+  enabled: boolean;
+
+  /** Target embedding model name (e.g., "text-embedding-3-small") */
+  targetModel: string;
+
+  /** Selection strategy: round_robin, latency_aware, weighted_random */
+  strategy: 'round_robin' | 'latency_aware' | 'weighted_random';
+
+  /** Whether to automatically discover all providers offering targetModel */
+  autoDiscover: boolean;
+
+  /** Provider IDs to exclude from auto-discovery (optional) */
+  excludedProviderIds?: string[];
+
+  /** Default cooldown seconds for rate-limited endpoints (default: 60) */
+  defaultCooldown: number;
+
+  /** Default maximum concurrent requests per key (default: 4) */
+  defaultMaxConcurrentPerKey: number;
+}
+
+/**
  * Complete LiteLLM API configuration
  * Root configuration object stored in JSON file
  */
@@ -367,6 +394,9 @@ export interface LiteLLMApiConfig {
   /** Global cache settings */
   globalCacheSettings: GlobalCacheSettings;
 
-  /** CodexLens multi-provider embedding rotation config */
+  /** CodexLens multi-provider embedding rotation config (deprecated, use embeddingPoolConfig) */
   codexlensEmbeddingRotation?: CodexLensEmbeddingRotation;
+
+  /** Generic embedding pool configuration with auto-discovery support */
+  embeddingPoolConfig?: EmbeddingPoolConfig;
 }

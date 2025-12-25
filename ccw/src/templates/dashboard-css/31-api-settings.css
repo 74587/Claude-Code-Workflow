@@ -958,8 +958,8 @@ select.cli-input {
 
 /* Left Sidebar */
 .api-settings-sidebar {
-  width: 280px;
-  min-width: 240px;
+  width: 320px;
+  min-width: 280px;
   border-right: 1px solid hsl(var(--border));
   display: flex;
   flex-direction: column;

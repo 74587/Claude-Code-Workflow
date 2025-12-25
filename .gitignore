@@ -29,3 +29,4 @@ COMMAND_TEMPLATE_ORCHESTRATOR.md
 settings.json
 *.mcp.json
 .mcp.json
+.ace-tool/
