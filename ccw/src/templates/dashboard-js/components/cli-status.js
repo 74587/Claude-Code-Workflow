@@ -776,7 +776,9 @@ async function setCodeIndexMcpProvider(provider) {
         window.claudeCliToolsConfig.settings.codeIndexMcp = provider;
       }
       showRefreshToast(`Code Index MCP switched to ${provider === 'ace' ? 'ACE (Augment)' : 'CodexLens'}`, 'success');
-      renderCliStatus();
+      // Re-render both CLI status and settings section
+      if (typeof renderCliStatus === 'function') renderCliStatus();
+      if (typeof renderCliSettingsSection === 'function') renderCliSettingsSection();
     } else {
       const data = await response.json();
       showRefreshToast(`Failed to switch Code Index MCP: ${data.error}`, 'error');

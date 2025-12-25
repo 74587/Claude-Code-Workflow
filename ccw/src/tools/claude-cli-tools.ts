@@ -303,6 +303,8 @@ export function getClaudeCliToolsInfo(projectDir: string): {
 
 /**
  * Update Code Index MCP provider and switch CLAUDE.md reference
+ * Strategy: Only modify global user-level CLAUDE.md (~/.claude/CLAUDE.md)
+ * This is consistent with Chinese response and Windows platform settings
  */
 export function updateCodeIndexMcp(
   projectDir: string,
@@ -314,36 +316,30 @@ export function updateCodeIndexMcp(
     config.settings.codeIndexMcp = provider;
     saveClaudeCliTools(projectDir, config);
 
-    // Update CLAUDE.md reference
-    const claudeMdPath = path.join(projectDir, '.claude', 'CLAUDE.md');
-    if (fs.existsSync(claudeMdPath)) {
-      let content = fs.readFileSync(claudeMdPath, 'utf-8');
-
-      // Define the file patterns
-      const codexlensPattern = /@~\/\.claude\/workflows\/context-tools\.md/g;
-      const acePattern = /@~\/\.claude\/workflows\/context-tools-ace\.md/g;
-
-      // Also handle project-level references
-      const codexlensPatternProject = /@\.claude\/workflows\/context-tools\.md/g;
-      const acePatternProject = /@\.claude\/workflows\/context-tools-ace\.md/g;
-
-      if (provider === 'ace') {
-        // Switch to ACE
-        content = content.replace(codexlensPattern, '@~/.claude/workflows/context-tools-ace.md');
-        content = content.replace(codexlensPatternProject, '@.claude/workflows/context-tools-ace.md');
-      } else {
-        // Switch to CodexLens
-        content = content.replace(acePattern, '@~/.claude/workflows/context-tools.md');
-        content = content.replace(acePatternProject, '@.claude/workflows/context-tools.md');
-      }
-
-      fs.writeFileSync(claudeMdPath, content, 'utf-8');
-      console.log(`[claude-cli-tools] Updated CLAUDE.md to use ${provider}`);
-    }
-
-    // Also update global CLAUDE.md if it exists
+    // Only update global CLAUDE.md (consistent with Chinese response / Windows platform)
     const globalClaudeMdPath = path.join(os.homedir(), '.claude', 'CLAUDE.md');
-    if (fs.existsSync(globalClaudeMdPath)) {
+
+    if (!fs.existsSync(globalClaudeMdPath)) {
+      // If global CLAUDE.md doesn't exist, check project-level
+      const projectClaudeMdPath = path.join(projectDir, '.claude', 'CLAUDE.md');
+      if (fs.existsSync(projectClaudeMdPath)) {
+        let content = fs.readFileSync(projectClaudeMdPath, 'utf-8');
+
+        // Define patterns for both formats
+        const codexlensPattern = /@~\/\.claude\/workflows\/context-tools\.md/g;
+        const acePattern = /@~\/\.claude\/workflows\/context-tools-ace\.md/g;
+
+        if (provider === 'ace') {
+          content = content.replace(codexlensPattern, '@~/.claude/workflows/context-tools-ace.md');
+        } else {
+          content = content.replace(acePattern, '@~/.claude/workflows/context-tools.md');
+        }
+
+        fs.writeFileSync(projectClaudeMdPath, content, 'utf-8');
+        console.log(`[claude-cli-tools] Updated project CLAUDE.md to use ${provider} (no global CLAUDE.md found)`);
+      }
+    } else {
+      // Update global CLAUDE.md (primary target)
       let content = fs.readFileSync(globalClaudeMdPath, 'utf-8');
 
       const codexlensPattern = /@~\/\.claude\/workflows\/context-tools\.md/g;

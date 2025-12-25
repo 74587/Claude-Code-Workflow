@@ -1,5 +1,4 @@
 {
-  "$schema": "./cli-tools.schema.json",
   "version": "1.0.0",
   "tools": {
     "gemini": {
@@ -41,6 +40,8 @@
       "injectionMode": "auto",
       "defaultPrefix": "",
       "defaultSuffix": ""
-    }
-  }
+    },
+    "codeIndexMcp": "ace"
+  },
+  "$schema": "./cli-tools.schema.json"
 }
