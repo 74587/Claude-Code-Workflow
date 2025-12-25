@@ -993,14 +993,10 @@ function renderCliSettingsSection() {
           t('cli.codeIndexMcp') +
         '</label>' +
         '<div class="cli-setting-control">' +
-          '<div class="flex items-center bg-muted rounded-lg p-0.5">' +
-            '<button class="code-mcp-btn px-3 py-1.5 text-xs font-medium rounded-md transition-all ' + (codeIndexMcpProvider === 'codexlens' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground') + '" onclick="setCodeIndexMcpProvider(\'codexlens\')">' +
-              'CodexLens' +
-            '</button>' +
-            '<button class="code-mcp-btn px-3 py-1.5 text-xs font-medium rounded-md transition-all ' + (codeIndexMcpProvider === 'ace' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground') + '" onclick="setCodeIndexMcpProvider(\'ace\')">' +
-              'ACE' +
-            '</button>' +
-          '</div>' +
+          '<select class="cli-setting-select" onchange="setCodeIndexMcpProvider(this.value)">' +
+            '<option value="codexlens"' + (codeIndexMcpProvider === 'codexlens' ? ' selected' : '') + '>CodexLens</option>' +
+            '<option value="ace"' + (codeIndexMcpProvider === 'ace' ? ' selected' : '') + '>ACE (Augment)</option>' +
+          '</select>' +
         '</div>' +
         '<p class="cli-setting-desc">' + t('cli.codeIndexMcpDesc') + '</p>' +
       '</div>' +
