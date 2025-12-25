@@ -566,33 +566,50 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
       return true;
     }
 
-    // Async check
+    // Async check - use pip show for more reliable detection
     try {
       const { exec } = await import('child_process');
       const { promisify } = await import('util');
       const execAsync = promisify(exec);
 
-      const pythonExecutables = ['python', 'python3', 'py'];
-      const pythonCode = "import ccw_litellm; print(getattr(ccw_litellm, '__version__', 'installed'))";
-
       let result: { installed: boolean; version?: string; error?: string } = { installed: false };
 
-      for (const pythonExe of pythonExecutables) {
-        try {
-          const { stdout } = await execAsync(`${pythonExe} -c "${pythonCode}"`, {
-            timeout: 5000,
-            windowsHide: true,
-            shell: true,  // Required for Windows PATH resolution
-          });
-          const version = stdout.trim();
-          if (version) {
-            result = { installed: true, version };
-            console.log(`[ccw-litellm status] Found with ${pythonExe}: ${version}`);
-            break;
+      // Method 1: Try pip show ccw-litellm (most reliable)
+      try {
+        const { stdout } = await execAsync('pip show ccw-litellm', {
+          timeout: 10000,
+          windowsHide: true,
+          shell: true,
+        });
+        // Parse version from pip show output
+        const versionMatch = stdout.match(/Version:\s*(.+)/i);
+        if (versionMatch) {
+          result = { installed: true, version: versionMatch[1].trim() };
+          console.log(`[ccw-litellm status] Found via pip show: ${result.version}`);
+        }
+      } catch (pipErr) {
+        console.log('[ccw-litellm status] pip show failed, trying python import...');
+
+        // Method 2: Fallback to Python import
+        const pythonExecutables = ['python', 'python3', 'py'];
+        for (const pythonExe of pythonExecutables) {
+          try {
+            // Use simpler Python code without complex quotes
+            const { stdout } = await execAsync(`${pythonExe} -c "import ccw_litellm; print(ccw_litellm.__version__)"`, {
+              timeout: 5000,
+              windowsHide: true,
+              shell: true,
+            });
+            const version = stdout.trim();
+            if (version) {
+              result = { installed: true, version };
+              console.log(`[ccw-litellm status] Found with ${pythonExe}: ${version}`);
+              break;
+            }
+          } catch (err) {
+            result.error = (err as Error).message;
+            console.log(`[ccw-litellm status] ${pythonExe} failed:`, result.error.substring(0, 100));
           }
-        } catch (err) {
-          result.error = (err as Error).message;
-          console.log(`[ccw-litellm status] ${pythonExe} failed:`, result.error.substring(0, 100));
         }
       }
 
