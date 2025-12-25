@@ -2615,7 +2615,7 @@ function renderDiscoveredProviders() {
   if (!container) return;
 
   if (embeddingPoolDiscoveredProviders.length === 0) {
-    container.innerHTML = '<div class="info-message" style="margin-top: 1rem;">' +
+    container.innerHTML = '<div class="info-message">' +
       '<i data-lucide="info"></i> ' + t('apiSettings.noProvidersFound') +
       '</div>';
     if (window.lucide) lucide.createIcons();
@@ -2628,29 +2628,38 @@ function renderDiscoveredProviders() {
 
   embeddingPoolDiscoveredProviders.forEach(function(p) {
     totalProviders++;
-    totalKeys += p.keyCount || 1;
+    totalKeys += p.apiKeys?.length || 1;
   });
 
-  let providersHtml = '<div class="discovered-providers-box" style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">' +
-    '<h4>' + t('apiSettings.discoveredProviders') + ' (' + totalProviders + ' providers, ' + totalKeys + ' ' + t('apiSettings.providerKeys') + ')</h4>' +
-    '<div class="providers-list" style="margin-top: 0.75rem;">';
+  let providersHtml = '<div class="discovered-providers-list">' +
+    '<div class="discovered-providers-header">' +
+    '<h4>' + t('apiSettings.discoveredProviders') + '</h4>' +
+    '<span class="provider-count">' + totalProviders + ' providers, ' + totalKeys + ' keys</span>' +
+    '</div>';
 
   embeddingPoolDiscoveredProviders.forEach(function(provider) {
     const isExcluded = excludedIds.indexOf(provider.providerId) > -1;
     const icon = isExcluded ? 'x-circle' : 'check-circle';
-    const statusClass = isExcluded ? 'text-error' : 'text-success';
-    const keyInfo = provider.keyCount > 1 ? ' (' + provider.keyCount + ' ' + t('apiSettings.providerKeys') + ')' : '';
+    const keyCount = provider.apiKeys?.length || 1;
+    const keyInfo = keyCount > 1 ? ' (' + keyCount + ' keys)' : '';
 
-    providersHtml += '<div class="provider-item" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; border-bottom: 1px solid var(--border-color);">' +
-      '<i data-lucide="' + icon + '" class="' + statusClass + '"></i>' +
-      '<span style="flex: 1;">' + provider.providerName + keyInfo + '</span>' +
-      '<button class="btn btn-sm ' + (isExcluded ? 'btn-secondary' : 'btn-outline') + '" onclick="toggleProviderExclusion(\'' + provider.providerId + '\')">' +
+    providersHtml += '<div class="discovered-provider-item' + (isExcluded ? ' excluded' : '') + '">' +
+      '<div class="discovered-provider-info">' +
+      '<i data-lucide="' + icon + '" class="provider-icon' + (isExcluded ? ' excluded' : '') + '"></i>' +
+      '<div>' +
+      '<div class="discovered-provider-name">' + escapeHtml(provider.providerName) + '</div>' +
+      '<div class="discovered-provider-keys">' + provider.modelName + keyInfo + '</div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="discovered-provider-actions">' +
+      '<button class="btn btn-sm ' + (isExcluded ? 'btn-primary' : 'btn-outline') + '" onclick="toggleProviderExclusion(\'' + provider.providerId + '\')">' +
       (isExcluded ? t('common.include') : t('apiSettings.excludeProvider')) +
       '</button>' +
+      '</div>' +
       '</div>';
   });
 
-  providersHtml += '</div></div>';
+  providersHtml += '</div>';
   container.innerHTML = providersHtml;
   if (window.lucide) lucide.createIcons();
 }
