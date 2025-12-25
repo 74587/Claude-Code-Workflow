@@ -1904,43 +1904,84 @@ async function renderCodexLensManager() {
   container.innerHTML = '<div class="flex items-center justify-center py-12"><div class="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full"></div><span class="ml-3">' + t('common.loading') + '</span></div>';
 
   try {
-    // Load CodexLens status first to populate window.cliToolsStatus.codexlens
-    if (typeof loadCodexLensStatus === 'function') {
-      await loadCodexLensStatus();
-    }
+    // Use aggregated endpoint for faster page load (single API call)
+    var dashboardData = null;
+    var config = { index_dir: '~/.codexlens/indexes', index_count: 0 };
 
-    // Load LiteLLM API config for embedding backend options
-    try {
-      console.log('[CodexLens] Loading LiteLLM config...');
-      var litellmResponse = await fetch('/api/litellm-api/config');
-      console.log('[CodexLens] LiteLLM response status:', litellmResponse.status);
-      if (litellmResponse.ok) {
-        window.litellmApiConfig = await litellmResponse.json();
-        console.log('[CodexLens] LiteLLM config loaded:', window.litellmApiConfig);
-        console.log('[CodexLens] Providers:', window.litellmApiConfig?.providers?.length || 0);
-      } else {
-        console.warn('[CodexLens] LiteLLM config response not ok:', litellmResponse.status);
+    if (typeof loadCodexLensDashboardInit === 'function') {
+      console.log('[CodexLens] Using aggregated dashboard-init endpoint...');
+      dashboardData = await loadCodexLensDashboardInit();
+      if (dashboardData && dashboardData.config) {
+        config = dashboardData.config;
+        console.log('[CodexLens] Dashboard init loaded, config:', config);
       }
-    } catch (e) {
-      console.warn('[CodexLens] Could not load LiteLLM config:', e);
+    } else if (typeof loadCodexLensStatus === 'function') {
+      // Fallback to legacy individual calls
+      console.log('[CodexLens] Fallback to legacy loadCodexLensStatus...');
+      await loadCodexLensStatus();
+      var response = await fetch('/api/codexlens/config');
+      config = await response.json();
     }
 
-    var response = await fetch('/api/codexlens/config');
-    var config = await response.json();
+    // Load LiteLLM API config for embedding backend options (parallel with page render)
+    var litellmPromise = (async () => {
+      try {
+        console.log('[CodexLens] Loading LiteLLM config...');
+        var litellmResponse = await fetch('/api/litellm-api/config');
+        if (litellmResponse.ok) {
+          window.litellmApiConfig = await litellmResponse.json();
+          console.log('[CodexLens] LiteLLM config loaded, providers:', window.litellmApiConfig?.providers?.length || 0);
+        }
+      } catch (e) {
+        console.warn('[CodexLens] Could not load LiteLLM config:', e);
+      }
+    })();
 
     container.innerHTML = buildCodexLensManagerPage(config);
     if (window.lucide) lucide.createIcons();
     initCodexLensManagerPageEvents(config);
-    loadSemanticDepsStatus();
+
+    // Load additional data in parallel (non-blocking)
+    var isInstalled = window.cliToolsStatus?.codexlens?.installed || dashboardData?.installed;
+
+    // Wait for LiteLLM config before loading semantic deps (it may need provider info)
+    await litellmPromise;
+
+    // Load semantic deps status (skip if we already have it from dashboard-init)
+    if (!dashboardData?.semantic) {
+      loadSemanticDepsStatus();
+    } else {
+      // Use cached semantic status from dashboard-init
+      var semanticContainer = document.getElementById('semanticDepsStatus');
+      if (semanticContainer && dashboardData.semantic) {
+        updateSemanticDepsUI(semanticContainer, dashboardData.semantic);
+      }
+    }
+
     loadModelList();
+
     // Load index stats for the Index Manager section
-    if (window.cliToolsStatus?.codexlens?.installed) {
+    if (isInstalled) {
       loadIndexStatsForPage();
     }
   } catch (err) {
     container.innerHTML = '<div class="text-center py-12 text-destructive"><i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2"></i><p>' + t('common.error') + ': ' + err.message + '</p></div>';
     if (window.lucide) lucide.createIcons();
   }
+}
+
+/**
+ * Update semantic deps UI from cached data
+ */
+function updateSemanticDepsUI(container, semanticData) {
+  if (!container) return;
+
+  if (semanticData.available) {
+    container.innerHTML = '<div class="flex items-center gap-2 text-success"><i data-lucide="check-circle" class="w-4 h-4"></i><span>' + (semanticData.backend || 'Ready') + '</span></div>';
+  } else {
+    container.innerHTML = '<div class="flex items-center gap-2 text-muted-foreground"><i data-lucide="circle-dashed" class="w-4 h-4"></i><span>' + t('codexlens.notInstalled') + '</span></div>';
+  }
+  if (window.lucide) lucide.createIcons();
 }
 
 /**

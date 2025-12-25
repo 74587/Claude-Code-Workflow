@@ -130,6 +130,54 @@ async function loadCodexLensStatus() {
 }
 
 /**
+ * Load CodexLens dashboard data using aggregated endpoint (single API call)
+ * This is optimized for the CodexLens Manager page initialization
+ * @returns {Promise<object|null>} Dashboard init data or null on error
+ */
+async function loadCodexLensDashboardInit() {
+  try {
+    const response = await fetch('/api/codexlens/dashboard-init');
+    if (!response.ok) throw new Error('Failed to load CodexLens dashboard init');
+    const data = await response.json();
+
+    // Update status variables from aggregated response
+    codexLensStatus = data.status || { ready: false };
+    semanticStatus = data.semantic || { available: false };
+
+    // Expose to window for other modules
+    if (!window.cliToolsStatus) {
+      window.cliToolsStatus = {};
+    }
+    window.cliToolsStatus.codexlens = {
+      installed: data.installed || false,
+      version: data.status?.version || null,
+      installedModels: [],
+      config: data.config || {},
+      semantic: data.semantic || {}
+    };
+
+    // Store config globally for easy access
+    window.codexLensConfig = data.config || {};
+    window.codexLensStatusData = data.statusData || {};
+
+    // Update badges
+    updateCodexLensBadge();
+
+    console.log('[CLI Status] CodexLens dashboard init loaded:', {
+      installed: data.installed,
+      version: data.status?.version,
+      semanticAvailable: data.semantic?.available
+    });
+
+    return data;
+  } catch (err) {
+    console.error('Failed to load CodexLens dashboard init:', err);
+    // Fallback to individual calls
+    return await loadCodexLensStatus();
+  }
+}
+
+/**
  * Legacy: Load semantic status individually
  */
 async function loadSemanticStatus() {
