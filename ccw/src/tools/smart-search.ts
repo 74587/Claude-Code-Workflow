@@ -290,7 +290,7 @@ interface IndexStatus {
   file_count?: number;
   embeddings_coverage_percent?: number;
   total_chunks?: number;
-  model_info?: ModelInfo;
+  model_info?: ModelInfo | null;
   warning?: string;
 }
 
@@ -359,7 +359,8 @@ async function checkIndexStatus(path: string = '.'): Promise<IndexStatus> {
         file_count: status.total_files,
         embeddings_coverage_percent: embeddingsCoverage,
         total_chunks: totalChunks,
-        model_info: modelInfo,
+        // Ensure model_info is null instead of undefined so it's included in JSON
+        model_info: modelInfo ?? null,
         warning,
       };
     } catch {

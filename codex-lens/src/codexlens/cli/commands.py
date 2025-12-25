@@ -759,6 +759,16 @@ def status(
                 console.print(f"  Coverage: {embeddings_info['coverage_percent']:.1f}%")
                 console.print(f"  Total Chunks: {embeddings_info['total_chunks']}")
 
+                # Display model information if available
+                model_info = embeddings_info.get('model_info')
+                if model_info:
+                    console.print("\n[bold]Embedding Model:[/bold]")
+                    console.print(f"  Backend: [cyan]{model_info.get('backend', 'unknown')}[/cyan]")
+                    console.print(f"  Model: [cyan]{model_info.get('model_profile', 'unknown')}[/cyan] ({model_info.get('model_name', '')})")
+                    console.print(f"  Dimensions: {model_info.get('embedding_dim', 'unknown')}")
+                    if model_info.get('updated_at'):
+                        console.print(f"  Last Updated: {model_info['updated_at']}")
+
     except StorageError as exc:
         if json_mode:
             print_json(success=False, error=f"Storage error: {exc}")
@@ -1878,7 +1888,7 @@ def embeddings_generate(
     """
     _configure_logging(verbose, json_mode)
 
-    from codexlens.cli.embedding_manager import generate_embeddings, generate_embeddings_recursive
+    from codexlens.cli.embedding_manager import generate_embeddings, generate_embeddings_recursive, scan_for_model_conflicts
 
     # Validate backend
     valid_backends = ["fastembed", "litellm"]
@@ -1945,6 +1955,50 @@ def embeddings_generate(
     if max_workers > 1:
         console.print(f"Concurrency: [cyan]{max_workers} workers[/cyan]")
     console.print()
+
+    # Pre-check for model conflicts (only if not forcing)
+    if not force:
+        # Determine the index root for conflict scanning
+        scan_root = index_root if use_recursive else (index_path.parent if index_path else None)
+
+        if scan_root:
+            conflict_result = scan_for_model_conflicts(scan_root, backend, model)
+
+            if conflict_result["has_conflict"]:
+                existing = conflict_result["existing_config"]
+                conflict_count = len(conflict_result["conflicts"])
+
+                if json_mode:
+                    # JSON mode: return structured error for UI handling
+                    print_json(
+                        success=False,
+                        error="Model conflict detected",
+                        code="MODEL_CONFLICT",
+                        existing_config=existing,
+                        target_config=conflict_result["target_config"],
+                        conflict_count=conflict_count,
+                        conflicts=conflict_result["conflicts"][:5],  # Show first 5 conflicts
+                        hint="Use --force to overwrite existing embeddings with the new model",
+                    )
+                    raise typer.Exit(code=1)
+                else:
+                    # Interactive mode: show warning and ask for confirmation
+                    console.print("[yellow]⚠ Model Conflict Detected[/yellow]")
+                    console.print(f"  Existing: [red]{existing['backend']}/{existing['model']}[/red] ({existing.get('embedding_dim', '?')} dim)")
+                    console.print(f"  Requested: [green]{backend}/{model}[/green]")
+                    console.print(f"  Affected indexes: [yellow]{conflict_count}[/yellow]")
+                    console.print()
+                    console.print("[dim]Mixing different embedding models in the same index is not supported.[/dim]")
+                    console.print("[dim]Overwriting will delete all existing embeddings and regenerate with the new model.[/dim]")
+                    console.print()
+
+                    # Ask for confirmation
+                    if typer.confirm("Overwrite existing embeddings with the new model?", default=False):
+                        force = True
+                        console.print("[green]Confirmed.[/green] Proceeding with overwrite...\n")
+                    else:
+                        console.print("[yellow]Cancelled.[/yellow] Use --force to skip this prompt.")
+                        raise typer.Exit(code=0)
 
     if use_recursive:
         result = generate_embeddings_recursive(

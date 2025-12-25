@@ -100,6 +100,12 @@ class Config:
                                    # For litellm: model name from config (e.g., "qwen3-embedding")
     embedding_use_gpu: bool = True  # For fastembed: whether to use GPU acceleration
 
+    # Multi-endpoint configuration for litellm backend
+    embedding_endpoints: List[Dict[str, Any]] = field(default_factory=list)
+    # List of endpoint configs: [{"model": "...", "api_key": "...", "api_base": "...", "weight": 1.0}]
+    embedding_strategy: str = "latency_aware"  # round_robin, latency_aware, weighted_random
+    embedding_cooldown: float = 60.0  # Default cooldown seconds for rate-limited endpoints
+
     def __post_init__(self) -> None:
         try:
             self.data_dir = self.data_dir.expanduser().resolve()
@@ -151,12 +157,19 @@ class Config:
 
     def save_settings(self) -> None:
         """Save embedding and other settings to file."""
+        embedding_config = {
+            "backend": self.embedding_backend,
+            "model": self.embedding_model,
+            "use_gpu": self.embedding_use_gpu,
+        }
+        # Include multi-endpoint config if present
+        if self.embedding_endpoints:
+            embedding_config["endpoints"] = self.embedding_endpoints
+            embedding_config["strategy"] = self.embedding_strategy
+            embedding_config["cooldown"] = self.embedding_cooldown
+
         settings = {
-            "embedding": {
-                "backend": self.embedding_backend,
-                "model": self.embedding_model,
-                "use_gpu": self.embedding_use_gpu,
-            },
+            "embedding": embedding_config,
             "llm": {
                 "enabled": self.llm_enabled,
                 "tool": self.llm_tool,
@@ -184,6 +197,14 @@ class Config:
                 self.embedding_model = embedding["model"]
             if "use_gpu" in embedding:
                 self.embedding_use_gpu = embedding["use_gpu"]
+
+            # Load multi-endpoint configuration
+            if "endpoints" in embedding:
+                self.embedding_endpoints = embedding["endpoints"]
+            if "strategy" in embedding:
+                self.embedding_strategy = embedding["strategy"]
+            if "cooldown" in embedding:
+                self.embedding_cooldown = embedding["cooldown"]
 
             # Load LLM settings
             llm = settings.get("llm", {})

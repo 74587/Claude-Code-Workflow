@@ -35,12 +35,23 @@ def _to_jsonable(value: Any) -> Any:
     return value
 
 
-def print_json(*, success: bool, result: Any = None, error: str | None = None) -> None:
+def print_json(*, success: bool, result: Any = None, error: str | None = None, **kwargs: Any) -> None:
+    """Print JSON output with optional additional fields.
+
+    Args:
+        success: Whether the operation succeeded
+        result: Result data (used when success=True)
+        error: Error message (used when success=False)
+        **kwargs: Additional fields to include in the payload (e.g., code, details)
+    """
     payload: dict[str, Any] = {"success": success}
     if success:
         payload["result"] = _to_jsonable(result)
     else:
         payload["error"] = error or "Unknown error"
+        # Include additional error details if provided
+        for key, value in kwargs.items():
+            payload[key] = _to_jsonable(value)
     console.print_json(json.dumps(payload, ensure_ascii=False))
 
 
