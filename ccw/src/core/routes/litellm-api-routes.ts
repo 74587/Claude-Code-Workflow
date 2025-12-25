@@ -4,6 +4,15 @@
  * Handles LiteLLM provider management, endpoint configuration, and cache management
  */
 import type { IncomingMessage, ServerResponse } from 'http';
+import { fileURLToPath } from 'url';
+import { dirname, join as pathJoin } from 'path';
+
+// Get current module path for package-relative lookups
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+// Package root: routes -> core -> src -> ccw -> package root
+const PACKAGE_ROOT = pathJoin(__dirname, '..', '..', '..', '..');
+
 import {
   getAllProviders,
   getProvider,
@@ -813,6 +822,7 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
           path.join(initialPath, 'ccw-litellm'),
           path.join(initialPath, '..', 'ccw-litellm'),
           path.join(process.cwd(), 'ccw-litellm'),
+          path.join(PACKAGE_ROOT, 'ccw-litellm'), // npm package internal path
         ];
 
         let packagePath = '';
@@ -865,6 +875,46 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
               resolve({ success: true, message: 'ccw-litellm installed successfully', path: packagePath });
             } else {
               resolve({ success: false, error: error || output || 'Installation failed' });
+            }
+          });
+          proc.on('error', (err) => resolve({ success: false, error: err.message }));
+        });
+      } catch (err) {
+        return { success: false, error: (err as Error).message };
+      }
+    });
+    return true;
+  }
+
+  // POST /api/litellm-api/ccw-litellm/uninstall - Uninstall ccw-litellm package
+  if (pathname === '/api/litellm-api/ccw-litellm/uninstall' && req.method === 'POST') {
+    handlePostRequest(req, res, async () => {
+      try {
+        const { spawn } = await import('child_process');
+
+        return new Promise((resolve) => {
+          const proc = spawn('pip', ['uninstall', '-y', 'ccw-litellm'], { shell: true, timeout: 120000 });
+          let output = '';
+          let error = '';
+          proc.stdout?.on('data', (data) => { output += data.toString(); });
+          proc.stderr?.on('data', (data) => { error += data.toString(); });
+          proc.on('close', (code) => {
+            // Clear status cache after uninstallation attempt
+            clearCcwLitellmStatusCache();
+
+            if (code === 0) {
+              broadcastToClients({
+                type: 'CCW_LITELLM_UNINSTALLED',
+                payload: { timestamp: new Date().toISOString() }
+              });
+              resolve({ success: true, message: 'ccw-litellm uninstalled successfully' });
+            } else {
+              // Check if package was not installed
+              if (error.includes('not installed') || output.includes('not installed')) {
+                resolve({ success: true, message: 'ccw-litellm was not installed' });
+              } else {
+                resolve({ success: false, error: error || output || 'Uninstallation failed' });
+              }
             }
           });
           proc.on('error', (err) => resolve({ success: false, error: err.message }));

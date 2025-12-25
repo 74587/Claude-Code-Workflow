@@ -3245,6 +3245,9 @@ function renderCcwLitellmStatusCard() {
           '<i data-lucide="check-circle" class="w-3.5 h-3.5"></i>' +
           'ccw-litellm ' + (status.version || '') +
         '</span>' +
+        '<button class="btn-sm btn-outline-danger" onclick="uninstallCcwLitellm()" title="Uninstall ccw-litellm">' +
+          '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i>' +
+        '</button>' +
       '</div>';
   } else {
     container.innerHTML =
@@ -3299,10 +3302,51 @@ async function installCcwLitellm() {
   }
 }
 
+/**
+ * Uninstall ccw-litellm package
+ */
+async function uninstallCcwLitellm() {
+  if (!confirm('Are you sure you want to uninstall ccw-litellm? This will disable LiteLLM features.')) {
+    return;
+  }
+
+  var container = document.getElementById('ccwLitellmStatusContainer');
+  if (container) {
+    container.innerHTML =
+      '<div class="flex items-center gap-2 text-sm text-muted-foreground">' +
+        '<div class="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div>' +
+        'Uninstalling ccw-litellm...' +
+      '</div>';
+  }
+
+  try {
+    var response = await fetch('/api/litellm-api/ccw-litellm/uninstall', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast('ccw-litellm uninstalled successfully!', 'success');
+      await checkCcwLitellmStatus(true);
+      renderCcwLitellmStatusCard();
+    } else {
+      showRefreshToast('Failed to uninstall ccw-litellm: ' + result.error, 'error');
+      renderCcwLitellmStatusCard();
+    }
+  } catch (e) {
+    showRefreshToast('Uninstall error: ' + e.message, 'error');
+    renderCcwLitellmStatusCard();
+  }
+}
+
 // Make functions globally accessible
 window.checkCcwLitellmStatus = checkCcwLitellmStatus;
 window.renderCcwLitellmStatusCard = renderCcwLitellmStatusCard;
 window.installCcwLitellm = installCcwLitellm;
+window.uninstallCcwLitellm = uninstallCcwLitellm;
 
 
 // ========== Utility Functions ==========
