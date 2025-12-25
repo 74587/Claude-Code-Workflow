@@ -1008,6 +1008,10 @@ async function renderApiSettings() {
       '<i data-lucide="plus"></i> ' + t('apiSettings.addEndpoint') +
       '</button>';
   } else if (activeSidebarTab === 'embedding-pool') {
+    // Load embedding pool config first if not already loaded
+    if (!embeddingPoolConfig) {
+      await loadEmbeddingPoolConfig();
+    }
     sidebarContentHtml = renderEmbeddingPoolSidebar();
   } else if (activeSidebarTab === 'cache') {
     sidebarContentHtml = '<div class="cache-sidebar-info" style="padding: 1rem; color: var(--text-secondary); font-size: 0.875rem;">' +
