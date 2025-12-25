@@ -581,7 +581,8 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
         try {
           const { stdout } = await execAsync(`${pythonExe} -c "${pythonCode}"`, {
             timeout: 5000,
-            windowsHide: true
+            windowsHide: true,
+            shell: true,  // Required for Windows PATH resolution
           });
           const version = stdout.trim();
           if (version) {
