@@ -189,6 +189,13 @@ async function toggleProviderExclusion(providerId) {
 
   // Re-render the discovered providers section
   renderDiscoveredProviders();
+  
+  // Update sidebar summary
+  const sidebarContainer = document.querySelector('.api-settings-sidebar .embedding-pool-sidebar-summary');
+  if (sidebarContainer && sidebarContainer.parentElement) {
+    sidebarContainer.parentElement.innerHTML = renderEmbeddingPoolSidebar();
+    if (window.lucide) lucide.createIcons();
+  }
 }
 
 // ========== Provider Management ==========
@@ -991,9 +998,7 @@ async function renderApiSettings() {
       '<i data-lucide="plus"></i> ' + t('apiSettings.addEndpoint') +
       '</button>';
   } else if (activeSidebarTab === 'embedding-pool') {
-    sidebarContentHtml = '<div class="embedding-pool-sidebar-info" style="padding: 1rem; color: var(--text-secondary); font-size: 0.875rem;">' +
-      '<p>' + t('apiSettings.embeddingPoolDesc') + '</p>' +
-      '</div>';
+    sidebarContentHtml = renderEmbeddingPoolSidebar();
   } else if (activeSidebarTab === 'cache') {
     sidebarContentHtml = '<div class="cache-sidebar-info" style="padding: 1rem; color: var(--text-secondary); font-size: 0.875rem;">' +
       '<p>' + t('apiSettings.cacheTabHint') + '</p>' +
@@ -2534,6 +2539,72 @@ function generateKeyId() {
 // ========== Embedding Pool Management ==========
 
 /**
+ * Render embedding pool sidebar summary
+ */
+function renderEmbeddingPoolSidebar() {
+  if (!embeddingPoolConfig) {
+    return '<div class="embedding-pool-sidebar-info" style="padding: 1rem;">' +
+      '<div style="text-align: center; color: hsl(var(--muted-foreground)); font-size: 0.875rem;">' +
+      '<p>' + t('apiSettings.embeddingPoolDesc') + '</p>' +
+      '</div>' +
+      '</div>';
+  }
+
+  const enabled = embeddingPoolConfig.enabled || false;
+  const targetModel = embeddingPoolConfig.targetModel || '';
+  const strategy = embeddingPoolConfig.strategy || 'round_robin';
+  const excludedIds = embeddingPoolConfig.excludedProviderIds || [];
+
+  // Count total providers/keys
+  let totalProviders = embeddingPoolDiscoveredProviders.length;
+  let totalKeys = 0;
+  let activeProviders = 0;
+
+  embeddingPoolDiscoveredProviders.forEach(function(p) {
+    totalKeys += p.apiKeys?.length || 1;
+    if (excludedIds.indexOf(p.providerId) === -1) {
+      activeProviders++;
+    }
+  });
+
+  const strategyLabels = {
+    'round_robin': t('codexlens.strategyRoundRobin') || 'Round Robin',
+    'latency_aware': t('codexlens.strategyLatency') || 'Latency-Aware',
+    'weighted_random': t('codexlens.strategyWeighted') || 'Weighted Random'
+  };
+
+  return '<div class="embedding-pool-sidebar-summary" style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem;">' +
+    '<div style="padding: 1rem; background: hsl(var(--muted) / 0.3); border-radius: 0.5rem;">' +
+      '<h4 style="margin: 0 0 0.75rem 0; font-size: 0.875rem; font-weight: 600; color: hsl(var(--foreground));">' +
+        t('apiSettings.embeddingPool') +
+      '</h4>' +
+      '<div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.75rem; color: hsl(var(--muted-foreground));">' +
+        '<div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0; border-bottom: 1px solid hsl(var(--border));">' +
+          '<i data-lucide="' + (enabled ? 'check-circle' : 'x-circle') + '" style="width: 14px; height: 14px; color: ' + (enabled ? 'hsl(var(--success))' : 'hsl(var(--muted-foreground))') + ';"></i>' +
+          '<span>' + (enabled ? (t('common.enabled') || 'Enabled') : (t('common.disabled') || 'Disabled')) + '</span>' +
+        '</div>' +
+        (enabled && targetModel ?
+          '<div style="display: flex; flex-direction: column; gap: 0.25rem; padding: 0.375rem 0; border-bottom: 1px solid hsl(var(--border));">' +
+            '<span style="font-weight: 500; color: hsl(var(--foreground));">' + t('apiSettings.targetModel') + '</span>' +
+            '<code style="font-size: 0.6875rem; color: hsl(var(--primary)); word-break: break-all;">' + targetModel + '</code>' +
+          '</div>' : '') +
+        (enabled ?
+          '<div style="display: flex; flex-direction: column; gap: 0.25rem; padding: 0.375rem 0; border-bottom: 1px solid hsl(var(--border));">' +
+            '<span style="font-weight: 500; color: hsl(var(--foreground));">' + t('apiSettings.strategy') + '</span>' +
+            '<span>' + (strategyLabels[strategy] || strategy) + '</span>' +
+          '</div>' : '') +
+        (enabled && totalProviders > 0 ?
+          '<div style="display: flex; flex-direction: column; gap: 0.25rem; padding: 0.375rem 0;">' +
+            '<span style="font-weight: 500; color: hsl(var(--foreground));">' + t('apiSettings.discoveredProviders') + '</span>' +
+            '<span>' + activeProviders + ' / ' + totalProviders + ' providers (' + totalKeys + ' keys)</span>' +
+          '</div>' : '') +
+      '</div>' +
+    '</div>' +
+    '</div>';
+}
+
+
+/**
  * Render embedding pool main panel
  */
 async function renderEmbeddingPoolMainPanel() {
@@ -2567,10 +2638,13 @@ async function renderEmbeddingPoolMainPanel() {
     '<p class="panel-subtitle">' + t('apiSettings.embeddingPoolDesc') + '</p>' +
     '</div>' +
 
-    // Enable/Disable Toggle
-    '<div class="settings-section">' +
-    '<div class="section-header">' +
-    '<h3>' + t('apiSettings.poolEnabled') + '</h3>' +
+    // Enable/Disable Toggle Card
+    '<div class="settings-section" style="padding: 1.25rem; background: hsl(var(--muted) / 0.3); border-radius: 0.75rem;">' +
+    '<div class="section-header" style="border: none; padding: 0;">' +
+    '<div style="display: flex; align-items: center; gap: 0.5rem;">' +
+      '<i data-lucide="power" style="width: 1rem; height: 1rem; color: hsl(var(--primary));"></i>' +
+      '<h3 style="margin: 0;">' + t('apiSettings.poolEnabled') + '</h3>' +
+    '</div>' +
     '<label class="toggle-switch">' +
     '<input type="checkbox" id="embedding-pool-enabled" ' + (enabled ? 'checked' : '') + ' onchange="onEmbeddingPoolEnabledChange(this.checked)" />' +
     '<span class="toggle-track"><span class="toggle-thumb"></span></span>' +
@@ -2578,36 +2652,42 @@ async function renderEmbeddingPoolMainPanel() {
     '</div>' +
     '</div>' +
 
-    // Configuration Form
+    // Configuration Form Card
     '<div class="settings-section" id="embedding-pool-config" style="' + (enabled ? '' : 'display: none;') + '">' +
-    '<div class="form-group">' +
-    '<label for="embedding-pool-target-model">' + t('apiSettings.targetModel') + '</label>' +
-    '<select id="embedding-pool-target-model" class="cli-input" onchange="onTargetModelChange(this.value)">' +
-    modelOptionsHtml +
-    '</select>' +
+    '<h3 style="margin: 0 0 1rem 0; font-size: 1rem; font-weight: 600;">' + t('apiSettings.configuration') || 'Configuration' + '</h3>' +
+    
+    // Model and Strategy in Grid
+    '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">' +
+      '<div class="form-group" style="margin: 0;">' +
+      '<label for="embedding-pool-target-model">' + t('apiSettings.targetModel') + '</label>' +
+      '<select id="embedding-pool-target-model" class="cli-input" onchange="onTargetModelChange(this.value)">' +
+      modelOptionsHtml +
+      '</select>' +
+      '</div>' +
+      '<div class="form-group" style="margin: 0;">' +
+      '<label for="embedding-pool-strategy">' + t('apiSettings.strategy') + '</label>' +
+      '<select id="embedding-pool-strategy" class="cli-input">' +
+      '<option value="round_robin"' + (strategy === 'round_robin' ? ' selected' : '') + '>Round Robin</option>' +
+      '<option value="latency_aware"' + (strategy === 'latency_aware' ? ' selected' : '') + '>Latency Aware</option>' +
+      '<option value="weighted_random"' + (strategy === 'weighted_random' ? ' selected' : '') + '>Weighted Random</option>' +
+      '</select>' +
+      '</div>' +
     '</div>' +
 
-    '<div class="form-group">' +
-    '<label for="embedding-pool-strategy">' + t('apiSettings.strategy') + '</label>' +
-    '<select id="embedding-pool-strategy" class="cli-input">' +
-    '<option value="round_robin"' + (strategy === 'round_robin' ? ' selected' : '') + '>Round Robin</option>' +
-    '<option value="latency_aware"' + (strategy === 'latency_aware' ? ' selected' : '') + '>Latency Aware</option>' +
-    '<option value="weighted_random"' + (strategy === 'weighted_random' ? ' selected' : '') + '>Weighted Random</option>' +
-    '</select>' +
-    '</div>' +
-
-    '<div class="form-group">' +
-    '<label for="embedding-pool-cooldown">' + t('apiSettings.defaultCooldown') + '</label>' +
-    '<input type="number" id="embedding-pool-cooldown" class="cli-input" value="' + defaultCooldown + '" min="1" />' +
-    '</div>' +
-
-    '<div class="form-group">' +
-    '<label for="embedding-pool-concurrent">' + t('apiSettings.defaultConcurrent') + '</label>' +
-    '<input type="number" id="embedding-pool-concurrent" class="cli-input" value="' + defaultMaxConcurrentPerKey + '" min="1" />' +
+    // Cooldown and Concurrent in Grid
+    '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">' +
+      '<div class="form-group" style="margin: 0;">' +
+      '<label for="embedding-pool-cooldown">' + t('apiSettings.defaultCooldown') + ' (s)</label>' +
+      '<input type="number" id="embedding-pool-cooldown" class="cli-input" value="' + defaultCooldown + '" min="1" />' +
+      '</div>' +
+      '<div class="form-group" style="margin: 0;">' +
+      '<label for="embedding-pool-concurrent">' + t('apiSettings.defaultConcurrent') + '</label>' +
+      '<input type="number" id="embedding-pool-concurrent" class="cli-input" value="' + defaultMaxConcurrentPerKey + '" min="1" />' +
+      '</div>' +
     '</div>' +
 
     // Discovered Providers Section
-    '<div id="discovered-providers-section"></div>' +
+    '<div id="discovered-providers-section" style="margin-top: 1.5rem;"></div>' +
 
     '<div class="form-actions">' +
     '<button class="btn btn-primary" onclick="saveEmbeddingPoolConfig()">' +
@@ -2675,32 +2755,43 @@ function renderDiscoveredProviders() {
     totalKeys += p.apiKeys?.length || 1;
   });
 
-  let providersHtml = '<div class="discovered-providers-list">' +
-    '<div class="discovered-providers-header">' +
-    '<h4>' + t('apiSettings.discoveredProviders') + '</h4>' +
-    '<span class="provider-count">' + totalProviders + ' providers, ' + totalKeys + ' keys</span>' +
-    '</div>';
+  let providersHtml = '<div>' +
+    '<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">' +
+    '<h4 style="margin: 0; font-size: 0.9375rem; font-weight: 600;">' + t('apiSettings.discoveredProviders') + '</h4>' +
+    '<span style="font-size: 0.75rem; color: hsl(var(--muted-foreground)); padding: 0.25rem 0.625rem; background: hsl(var(--muted) / 0.5); border-radius: 9999px;">' + 
+      totalProviders + ' providers, ' + totalKeys + ' keys' +
+    '</span>' +
+    '</div>' +
+    '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
 
-  embeddingPoolDiscoveredProviders.forEach(function(provider) {
+  embeddingPoolDiscoveredProviders.forEach(function(provider, index) {
     const isExcluded = excludedIds.indexOf(provider.providerId) > -1;
-    const icon = isExcluded ? 'x-circle' : 'check-circle';
     const keyCount = provider.apiKeys?.length || 1;
-    const keyInfo = keyCount > 1 ? ' (' + keyCount + ' keys)' : '';
-
-    providersHtml += '<div class="discovered-provider-item' + (isExcluded ? ' excluded' : '') + '">' +
-      '<div class="discovered-provider-info">' +
-      '<i data-lucide="' + icon + '" class="provider-icon' + (isExcluded ? ' excluded' : '') + '"></i>' +
-      '<div>' +
-      '<div class="discovered-provider-name">' + escapeHtml(provider.providerName) + '</div>' +
-      '<div class="discovered-provider-keys">' + provider.modelName + keyInfo + '</div>' +
+    
+    // Get provider icon
+    let providerIcon = 'server';
+    if (provider.providerName.toLowerCase().includes('openai')) providerIcon = 'brain';
+    else if (provider.providerName.toLowerCase().includes('modelscope')) providerIcon = 'cpu';
+    else if (provider.providerName.toLowerCase().includes('azure')) providerIcon = 'cloud';
+    
+    providersHtml += '<div style="border: 1px solid hsl(var(--border)); border-radius: 0.5rem; padding: 1rem; ' + 
+      (isExcluded ? 'opacity: 0.5; background: hsl(var(--muted) / 0.3);' : 'background: hsl(var(--card));') + '">' +
+      '<div style="display: flex; align-items: center; justify-between; margin-bottom: 0.75rem;">' +
+        '<div style="display: flex; align-items: center; gap: 0.75rem;">' +
+          '<div style="width: 2rem; height: 2rem; border-radius: 0.375rem; background: ' + (isExcluded ? 'hsl(var(--muted))' : 'hsl(var(--success) / 0.1)') + '; color: ' + (isExcluded ? 'hsl(var(--muted-foreground))' : 'hsl(var(--success))') + '; display: flex; align-items: center; justify-content: center;">' +
+            '<i data-lucide="' + providerIcon + '" style="width: 1.125rem; height: 1.125rem;"></i>' +
+          '</div>' +
+          '<div>' +
+            '<div style="font-weight: 500; font-size: 0.875rem; color: hsl(var(--foreground));">' + escapeHtml(provider.providerName) + '</div>' +
+            '<div style="font-size: 0.75rem; color: hsl(var(--muted-foreground));">' + provider.modelName + ' · ' + keyCount + ' key' + (keyCount > 1 ? 's' : '') + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<button class="btn btn-sm ' + (isExcluded ? 'btn-primary' : 'btn-outline') + '" onclick="toggleProviderExclusion(\'' + provider.providerId + '\')" style="flex-shrink: 0;">' +
+        '<i data-lucide="' + (isExcluded ? 'plus' : 'x') + '" style="width: 0.875rem; height: 0.875rem;"></i> ' +
+        (isExcluded ? t('common.include') : t('apiSettings.excludeProvider')) +
+        '</button>' +
       '</div>' +
-      '</div>' +
-      '<div class="discovered-provider-actions">' +
-      '<button class="btn btn-sm ' + (isExcluded ? 'btn-primary' : 'btn-outline') + '" onclick="toggleProviderExclusion(\'' + provider.providerId + '\')">' +
-      (isExcluded ? t('common.include') : t('apiSettings.excludeProvider')) +
-      '</button>' +
-      '</div>' +
-      '</div>';
+    '</div>';
   });
 
   providersHtml += '</div>';

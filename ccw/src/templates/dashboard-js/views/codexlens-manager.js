@@ -1947,16 +1947,9 @@ async function renderCodexLensManager() {
     // Wait for LiteLLM config before loading semantic deps (it may need provider info)
     await litellmPromise;
 
-    // Load semantic deps status (skip if we already have it from dashboard-init)
-    if (!dashboardData?.semantic) {
-      loadSemanticDepsStatus();
-    } else {
-      // Use cached semantic status from dashboard-init
-      var semanticContainer = document.getElementById('semanticDepsStatus');
-      if (semanticContainer && dashboardData.semantic) {
-        updateSemanticDepsUI(semanticContainer, dashboardData.semantic);
-      }
-    }
+    // Always load semantic deps status - it needs GPU detection and device list
+    // which are not included in the aggregated endpoint
+    loadSemanticDepsStatus();
 
     loadModelList();
 
@@ -1968,20 +1961,6 @@ async function renderCodexLensManager() {
     container.innerHTML = '<div class="text-center py-12 text-destructive"><i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2"></i><p>' + t('common.error') + ': ' + err.message + '</p></div>';
     if (window.lucide) lucide.createIcons();
   }
-}
-
-/**
- * Update semantic deps UI from cached data
- */
-function updateSemanticDepsUI(container, semanticData) {
-  if (!container) return;
-
-  if (semanticData.available) {
-    container.innerHTML = '<div class="flex items-center gap-2 text-success"><i data-lucide="check-circle" class="w-4 h-4"></i><span>' + (semanticData.backend || 'Ready') + '</span></div>';
-  } else {
-    container.innerHTML = '<div class="flex items-center gap-2 text-muted-foreground"><i data-lucide="circle-dashed" class="w-4 h-4"></i><span>' + t('codexlens.notInstalled') + '</span></div>';
-  }
-  if (window.lucide) lucide.createIcons();
 }
 
 /**
