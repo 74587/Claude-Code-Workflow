@@ -512,8 +512,8 @@ def generate_embeddings(
                         for _, file_path in chunk_batch:
                             batch_files.add(file_path)
 
-                        max_retries = 3
-                        base_delay = 1.0
+                        max_retries = 5
+                        base_delay = 2.0
 
                         for attempt in range(max_retries + 1):
                             try:
@@ -523,10 +523,13 @@ def generate_embeddings(
 
                             except Exception as e:
                                 error_str = str(e).lower()
-                                # Check for retryable errors (rate limit, connection issues)
+                                # Check for retryable errors (rate limit, connection, backend issues)
+                                # Note: Some backends (e.g., ModelScope) return 400 with nested 500 errors
                                 is_retryable = any(x in error_str for x in [
                                     "429", "rate limit", "connection", "timeout",
-                                    "502", "503", "504", "service unavailable"
+                                    "502", "503", "504", "service unavailable",
+                                    "500", "400", "badrequesterror", "internal server error",
+                                    "11434"  # Ollama port - indicates backend routing issue
                                 ])
 
                                 if attempt < max_retries and is_retryable:
@@ -554,24 +557,50 @@ def generate_embeddings(
                             for _, file_path in chunk_batch:
                                 batch_files.add(file_path)
 
-                            try:
-                                # Generate embeddings
-                                batch_contents = [chunk.content for chunk, _ in chunk_batch]
-                                embeddings_numpy = embedder.embed_to_numpy(batch_contents, batch_size=EMBEDDING_BATCH_SIZE)
+                            # Retry logic for transient backend errors
+                            max_retries = 5
+                            base_delay = 2.0
+                            success = False
 
-                                # Store embeddings
-                                vector_store.add_chunks_batch_numpy(chunk_batch, embeddings_numpy)
+                            for attempt in range(max_retries + 1):
+                                try:
+                                    # Generate embeddings
+                                    batch_contents = [chunk.content for chunk, _ in chunk_batch]
+                                    embeddings_numpy = embedder.embed_to_numpy(batch_contents, batch_size=EMBEDDING_BATCH_SIZE)
 
-                                files_seen.update(batch_files)
-                                total_chunks_created += len(chunk_batch)
-                                total_files_processed = len(files_seen)
+                                    # Store embeddings
+                                    vector_store.add_chunks_batch_numpy(chunk_batch, embeddings_numpy)
 
-                                if progress_callback and batch_number % 10 == 0:
-                                    progress_callback(f"  Batch {batch_number}: {total_chunks_created} chunks, {total_files_processed} files")
+                                    files_seen.update(batch_files)
+                                    total_chunks_created += len(chunk_batch)
+                                    total_files_processed = len(files_seen)
+                                    success = True
+                                    break
 
-                            except Exception as e:
-                                logger.error(f"Failed to process batch {batch_number}: {str(e)}")
-                                files_seen.update(batch_files)
+                                except Exception as e:
+                                    error_str = str(e).lower()
+                                    # Check for retryable errors (rate limit, connection, backend issues)
+                                    is_retryable = any(x in error_str for x in [
+                                        "429", "rate limit", "connection", "timeout",
+                                        "502", "503", "504", "service unavailable",
+                                        "500", "400", "badrequesterror", "internal server error",
+                                        "11434"  # Ollama port - indicates backend routing issue
+                                    ])
+
+                                    if attempt < max_retries and is_retryable:
+                                        import random
+                                        sleep_time = base_delay * (2 ** attempt) + random.uniform(0, 0.5)
+                                        logger.warning(f"Batch {batch_number} failed (attempt {attempt+1}/{max_retries+1}). "
+                                                       f"Retrying in {sleep_time:.1f}s. Error: {e}")
+                                        time.sleep(sleep_time)
+                                        continue
+
+                                    logger.error(f"Failed to process batch {batch_number}: {str(e)}")
+                                    files_seen.update(batch_files)
+                                    break
+
+                            if success and progress_callback and batch_number % 10 == 0:
+                                progress_callback(f"  Batch {batch_number}: {total_chunks_created} chunks, {total_files_processed} files")
                     else:
                         # Concurrent processing - main thread iterates batches (SQLite safe),
                         # workers compute embeddings (parallel), main thread writes to DB (serial)

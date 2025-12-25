@@ -2073,6 +2073,10 @@ def embeddings_generate(
 
         data = result["result"]
 
+        # Set global model lock after successful generation
+        # This prevents using different models for future indexes
+        set_locked_model_config(backend, model)
+
         if use_recursive:
             # Recursive mode output
             console.print(f"[green]✓[/green] Recursive embeddings generation complete!")

@@ -89,6 +89,23 @@ class LiteLLMEmbedderWrapper(BaseEmbedder):
         # Default fallback
         return 8192
 
+    def _sanitize_text(self, text: str) -> str:
+        """Sanitize text to work around ModelScope API routing bug.
+
+        ModelScope incorrectly routes text starting with lowercase 'import'
+        to an Ollama endpoint, causing failures. This adds a leading space
+        to work around the issue without affecting embedding quality.
+
+        Args:
+            text: Text to sanitize.
+
+        Returns:
+            Sanitized text safe for embedding API.
+        """
+        if text.startswith('import'):
+            return ' ' + text
+        return text
+
     def embed_to_numpy(self, texts: str | Iterable[str], **kwargs) -> np.ndarray:
         """Embed texts to numpy array using LiteLLMEmbedder.
 
@@ -104,5 +121,9 @@ class LiteLLMEmbedderWrapper(BaseEmbedder):
             texts = [texts]
         else:
             texts = list(texts)
+
+        # Sanitize texts to avoid ModelScope routing bug
+        texts = [self._sanitize_text(t) for t in texts]
+
         # LiteLLM handles batching internally, ignore batch_size parameter
         return self._embedder.embed(texts)
