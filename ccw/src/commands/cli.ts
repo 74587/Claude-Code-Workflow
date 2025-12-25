@@ -702,6 +702,9 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
         console.log(chalk.gray(`  Total: ${result.conversation.turn_count} turns, ${(result.conversation.total_duration_ms / 1000).toFixed(1)}s`));
       }
       console.log(chalk.dim(`  Continue: ccw cli -p "..." --resume ${result.execution.id}`));
+      if (!stream) {
+        console.log(chalk.dim(`  Output (optional): ccw cli output ${result.execution.id}`));
+      }
 
       // Notify dashboard: execution completed
       notifyDashboard({
