@@ -18,13 +18,26 @@ let embeddingPoolConfig = null;
 let embeddingPoolAvailableModels = [];
 let embeddingPoolDiscoveredProviders = [];
 
+// Cache for ccw-litellm status (frontend cache with TTL)
+let ccwLitellmStatusCache = null;
+let ccwLitellmStatusCacheTime = 0;
+const CCW_LITELLM_STATUS_CACHE_TTL = 60000; // 60 seconds
+
 // ========== Data Loading ==========
 
 /**
  * Load API configuration
+ * @param {boolean} forceRefresh - Force refresh from server, bypass cache
  */
-async function loadApiSettings() {
+async function loadApiSettings(forceRefresh = false) {
+  // If not forcing refresh and data already exists, return cached data
+  if (!forceRefresh && apiSettingsData && apiSettingsData.providers) {
+    console.log('[API Settings] Using cached API settings data');
+    return apiSettingsData;
+  }
+
   try {
+    console.log('[API Settings] Fetching API settings from server...');
     const response = await fetch('/api/litellm-api/config');
     if (!response.ok) throw new Error('Failed to load API settings');
     apiSettingsData = await response.json();
@@ -141,6 +154,9 @@ async function saveEmbeddingPoolConfig() {
 
     const syncCount = result.syncResult?.syncedEndpoints?.length || 0;
     showRefreshToast(t('apiSettings.poolSaved') + (syncCount > 0 ? ' (' + syncCount + ' endpoints synced)' : ''), 'success');
+
+    // Invalidate API settings cache since endpoints may have been synced
+    apiSettingsData = null;
 
     // Reload the embedding pool section
     await renderEmbeddingPoolMainPanel();
@@ -440,6 +456,8 @@ async function saveProvider() {
     showRefreshToast(t('apiSettings.providerSaved'), 'success');
 
     closeProviderModal();
+    // Force refresh data after saving
+    apiSettingsData = null;
     await renderApiSettings();
   } catch (err) {
     console.error('Failed to save provider:', err);
@@ -461,6 +479,8 @@ async function deleteProvider(providerId) {
     if (!response.ok) throw new Error('Failed to delete provider');
 
     showRefreshToast(t('apiSettings.providerDeleted'), 'success');
+    // Force refresh data after deleting
+    apiSettingsData = null;
     await renderApiSettings();
   } catch (err) {
     console.error('Failed to delete provider:', err);
@@ -778,6 +798,8 @@ async function saveEndpoint() {
     showRefreshToast(t('apiSettings.endpointSaved'), 'success');
 
     closeEndpointModal();
+    // Force refresh data after saving
+    apiSettingsData = null;
     await renderApiSettings();
   } catch (err) {
     console.error('Failed to save endpoint:', err);
@@ -799,6 +821,8 @@ async function deleteEndpoint(endpointId) {
     if (!response.ok) throw new Error('Failed to delete endpoint');
 
     showRefreshToast(t('apiSettings.endpointDeleted'), 'success');
+    // Force refresh data after deleting
+    apiSettingsData = null;
     await renderApiSettings();
   } catch (err) {
     console.error('Failed to delete endpoint:', err);
@@ -872,6 +896,7 @@ async function clearCache() {
     const result = await response.json();
     showRefreshToast(t('apiSettings.cacheCleared') + ' (' + result.removed + ' entries)', 'success');
 
+    // Cache stats might have changed, but apiSettingsData doesn't need refresh
     await renderApiSettings();
   } catch (err) {
     console.error('Failed to clear cache:', err);
@@ -918,8 +943,8 @@ async function renderApiSettings() {
   if (statsGrid) statsGrid.style.display = 'none';
   if (searchInput) searchInput.parentElement.style.display = 'none';
 
-  // Load data
-  await loadApiSettings();
+  // Load data (use cache by default, forceRefresh=false)
+  await loadApiSettings(false);
 
   if (!apiSettingsData) {
     container.innerHTML = '<div class="api-settings-container">' +
@@ -1011,8 +1036,8 @@ async function renderApiSettings() {
     renderCacheMainPanel();
   }
 
-  // Check and render ccw-litellm status
-  checkCcwLitellmStatus().then(renderCcwLitellmStatusCard);
+  // Check and render ccw-litellm status (use cache by default)
+  checkCcwLitellmStatus(false).then(renderCcwLitellmStatusCard);
 
   if (window.lucide) lucide.createIcons();
 }
@@ -1364,12 +1389,17 @@ async function toggleProviderEnabled(providerId, enabled) {
     });
     if (!response.ok) throw new Error('Failed to update provider');
 
-    // Update local data
+    // Update local data (for instant UI feedback)
     var provider = apiSettingsData.providers.find(function(p) { return p.id === providerId; });
     if (provider) provider.enabled = enabled;
 
     renderProviderList();
     showRefreshToast(t('apiSettings.providerUpdated'), 'success');
+
+    // Invalidate cache for next render
+    setTimeout(function() {
+      apiSettingsData = null;
+    }, 100);
   } catch (err) {
     console.error('Failed to toggle provider:', err);
     showRefreshToast(t('common.error') + ': ' + err.message, 'error');
@@ -2047,7 +2077,7 @@ async function saveProviderApiBase(providerId) {
 
     if (!response.ok) throw new Error('Failed to update API base');
 
-    // Update local data
+    // Update local data (for instant UI feedback)
     var provider = apiSettingsData.providers.find(function(p) { return p.id === providerId; });
     if (provider) {
       provider.apiBase = newApiBase || undefined;
@@ -2056,6 +2086,12 @@ async function saveProviderApiBase(providerId) {
     // Update preview
     updateApiBasePreview(newApiBase);
     showRefreshToast(t('apiSettings.apiBaseUpdated'), 'success');
+
+    // Invalidate cache for next render (but keep current data for immediate UI)
+    // This ensures next tab switch or page refresh gets fresh data
+    setTimeout(function() {
+      apiSettingsData = null;
+    }, 100);
   } catch (err) {
     console.error('Failed to save API base:', err);
     showRefreshToast(t('common.error') + ': ' + err.message, 'error');
@@ -3033,19 +3069,39 @@ function toggleKeyVisibility(btn) {
 
 /**
  * Check ccw-litellm installation status
+ * @param {boolean} forceRefresh - Force refresh from server, bypass cache
  */
-async function checkCcwLitellmStatus() {
+async function checkCcwLitellmStatus(forceRefresh = false) {
+  // Check if cache is valid and not forcing refresh
+  if (!forceRefresh && ccwLitellmStatusCache &&
+      (Date.now() - ccwLitellmStatusCacheTime < CCW_LITELLM_STATUS_CACHE_TTL)) {
+    console.log('[API Settings] Using cached ccw-litellm status');
+    window.ccwLitellmStatus = ccwLitellmStatusCache;
+    return ccwLitellmStatusCache;
+  }
+
   try {
-    console.log('[API Settings] Checking ccw-litellm status...');
+    console.log('[API Settings] Checking ccw-litellm status from server...');
     var response = await fetch('/api/litellm-api/ccw-litellm/status');
     console.log('[API Settings] Status response:', response.status);
     var status = await response.json();
     console.log('[API Settings] ccw-litellm status:', status);
+
+    // Update cache
+    ccwLitellmStatusCache = status;
+    ccwLitellmStatusCacheTime = Date.now();
     window.ccwLitellmStatus = status;
+
     return status;
   } catch (e) {
     console.warn('[API Settings] Could not check ccw-litellm status:', e);
-    return { installed: false };
+    var fallbackStatus = { installed: false };
+
+    // Cache the fallback result too
+    ccwLitellmStatusCache = fallbackStatus;
+    ccwLitellmStatusCacheTime = Date.now();
+
+    return fallbackStatus;
   }
 }
 
@@ -3106,8 +3162,8 @@ async function installCcwLitellm() {
 
     if (result.success) {
       showRefreshToast('ccw-litellm installed successfully!', 'success');
-      // Refresh status
-      await checkCcwLitellmStatus();
+      // Refresh status (force refresh after installation)
+      await checkCcwLitellmStatus(true);
       renderCcwLitellmStatusCard();
     } else {
       showRefreshToast('Failed to install ccw-litellm: ' + result.error, 'error');
