@@ -33,6 +33,14 @@ const VENV_PYTHON =
 let bootstrapChecked = false;
 let bootstrapReady = false;
 
+// Venv status cache with TTL
+interface VenvStatusCache {
+  status: ReadyStatus;
+  timestamp: number;
+}
+let venvStatusCache: VenvStatusCache | null = null;
+const VENV_STATUS_TTL = 5 * 60 * 1000; // 5 minutes TTL
+
 // Track running indexing process for cancellation
 let currentIndexingProcess: ReturnType<typeof spawn> | null = null;
 let currentIndexingAborted = false;
@@ -117,6 +125,13 @@ interface ProgressInfo {
 }
 
 /**
+ * Clear venv status cache (call after install/uninstall operations)
+ */
+function clearVenvStatusCache(): void {
+  venvStatusCache = null;
+}
+
+/**
  * Detect available Python 3 executable
  * @returns Python executable command
  */
@@ -138,17 +153,27 @@ function getSystemPython(): string {
 
 /**
  * Check if CodexLens venv exists and has required packages
+ * @param force - Force refresh cache (default: false)
  * @returns Ready status
  */
-async function checkVenvStatus(): Promise<ReadyStatus> {
+async function checkVenvStatus(force = false): Promise<ReadyStatus> {
+  // Use cached result if available and not expired
+  if (!force && venvStatusCache && (Date.now() - venvStatusCache.timestamp < VENV_STATUS_TTL)) {
+    return venvStatusCache.status;
+  }
+
   // Check venv exists
   if (!existsSync(CODEXLENS_VENV)) {
-    return { ready: false, error: 'Venv not found' };
+    const result = { ready: false, error: 'Venv not found' };
+    venvStatusCache = { status: result, timestamp: Date.now() };
+    return result;
   }
 
   // Check python executable exists
   if (!existsSync(VENV_PYTHON)) {
-    return { ready: false, error: 'Python executable not found in venv' };
+    const result = { ready: false, error: 'Python executable not found in venv' };
+    venvStatusCache = { status: result, timestamp: Date.now() };
+    return result;
   }
 
   // Check codexlens is importable
@@ -169,15 +194,21 @@ async function checkVenvStatus(): Promise<ReadyStatus> {
     });
 
     child.on('close', (code) => {
+      let result: ReadyStatus;
       if (code === 0) {
-        resolve({ ready: true, version: stdout.trim() });
+        result = { ready: true, version: stdout.trim() };
       } else {
-        resolve({ ready: false, error: `CodexLens not installed: ${stderr}` });
+        result = { ready: false, error: `CodexLens not installed: ${stderr}` };
       }
+      // Cache the result
+      venvStatusCache = { status: result, timestamp: Date.now() };
+      resolve(result);
     });
 
     child.on('error', (err) => {
-      resolve({ ready: false, error: `Failed to check venv: ${err.message}` });
+      const result = { ready: false, error: `Failed to check venv: ${err.message}` };
+      venvStatusCache = { status: result, timestamp: Date.now() };
+      resolve(result);
     });
   });
 }
@@ -581,6 +612,8 @@ async function bootstrapVenv(): Promise<BootstrapResult> {
       execSync(`"${pipPath}" install codexlens`, { stdio: 'inherit' });
     }
 
+    // Clear cache after successful installation
+    clearVenvStatusCache();
     return { success: true };
   } catch (err) {
     return { success: false, error: `Failed to install codexlens: ${(err as Error).message}` };
@@ -1300,6 +1333,7 @@ async function uninstallCodexLens(): Promise<BootstrapResult> {
     // Reset bootstrap cache
     bootstrapChecked = false;
     bootstrapReady = false;
+    clearVenvStatusCache();
 
     console.log('[CodexLens] CodexLens uninstalled successfully');
     return { success: true, message: 'CodexLens uninstalled successfully' };

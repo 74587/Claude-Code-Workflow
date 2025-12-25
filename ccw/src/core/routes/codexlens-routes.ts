@@ -88,10 +88,15 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         res.end(JSON.stringify({ success: true, indexes: [], totalSize: 0, totalSizeFormatted: '0 B' }));
         return true;
       }
-      // Get config for index directory path
-      const configResult = await executeCodexLens(['config', '--json']);
+      
+      // Execute all CLI commands in parallel
+      const [configResult, projectsResult, statusResult] = await Promise.all([
+        executeCodexLens(['config', '--json']),
+        executeCodexLens(['projects', 'list', '--json']),
+        executeCodexLens(['status', '--json'])
+      ]);
+      
       let indexDir = '';
-
       if (configResult.success) {
         try {
           const config = extractJSON(configResult.output);
@@ -104,8 +109,6 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         }
       }
 
-      // Get project list using 'projects list' command
-      const projectsResult = await executeCodexLens(['projects', 'list', '--json']);
       let indexes: any[] = [];
       let totalSize = 0;
       let vectorIndexCount = 0;
@@ -115,7 +118,8 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         try {
           const projectsData = extractJSON(projectsResult.output);
           if (projectsData.success && Array.isArray(projectsData.result)) {
-            const { statSync, existsSync } = await import('fs');
+            const { stat, readdir } = await import('fs/promises');
+            const { existsSync } = await import('fs');
             const { basename, join } = await import('path');
 
             for (const project of projectsData.result) {
@@ -136,15 +140,14 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
               // Try to get actual index size from index_root
               if (project.index_root && existsSync(project.index_root)) {
                 try {
-                  const { readdirSync } = await import('fs');
-                  const files = readdirSync(project.index_root);
+                  const files = await readdir(project.index_root);
                   for (const file of files) {
                     try {
                       const filePath = join(project.index_root, file);
-                      const stat = statSync(filePath);
-                      projectSize += stat.size;
-                      if (!lastModified || stat.mtime > lastModified) {
-                        lastModified = stat.mtime;
+                      const fileStat = await stat(filePath);
+                      projectSize += fileStat.size;
+                      if (!lastModified || fileStat.mtime > lastModified) {
+                        lastModified = fileStat.mtime;
                       }
                       // Check for vector/embedding files
                       if (file.includes('vector') || file.includes('embedding') ||
@@ -194,8 +197,7 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         }
       }
 
-      // Also get summary stats from status command
-      const statusResult = await executeCodexLens(['status', '--json']);
+      // Parse summary stats from status command (already fetched in parallel)
       let statusSummary: any = {};
 
       if (statusResult.success) {
@@ -247,6 +249,71 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
     const status = await checkVenvStatus();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(status));
+    return true;
+  }
+
+  // API: CodexLens Dashboard Init - Aggregated endpoint for page initialization
+  if (pathname === '/api/codexlens/dashboard-init') {
+    try {
+      const venvStatus = await checkVenvStatus();
+      
+      if (!venvStatus.ready) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          installed: false,
+          status: venvStatus,
+          config: { index_dir: '~/.codexlens/indexes', index_count: 0 },
+          semantic: { available: false }
+        }));
+        return true;
+      }
+      
+      // Parallel fetch all initialization data
+      const [configResult, statusResult, semanticStatus] = await Promise.all([
+        executeCodexLens(['config', '--json']),
+        executeCodexLens(['status', '--json']),
+        checkSemanticStatus()
+      ]);
+      
+      // Parse config
+      let config = { index_dir: '~/.codexlens/indexes', index_count: 0 };
+      if (configResult.success) {
+        try {
+          const configData = extractJSON(configResult.output);
+          if (configData.success && configData.result) {
+            config.index_dir = configData.result.index_dir || configData.result.index_root || config.index_dir;
+          }
+        } catch (e) {
+          console.error('[CodexLens] Failed to parse config for dashboard init:', e.message);
+        }
+      }
+      
+      // Parse status
+      let statusData: any = {};
+      if (statusResult.success) {
+        try {
+          const status = extractJSON(statusResult.output);
+          if (status.success && status.result) {
+            config.index_count = status.result.projects_count || 0;
+            statusData = status.result;
+          }
+        } catch (e) {
+          console.error('[CodexLens] Failed to parse status for dashboard init:', e.message);
+        }
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        installed: true,
+        status: venvStatus,
+        config,
+        semantic: semanticStatus,
+        statusData
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
     return true;
   }
 
