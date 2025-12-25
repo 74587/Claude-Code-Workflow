@@ -196,9 +196,9 @@ async function checkSemanticStatus(): Promise<SemanticStatus> {
   // Check semantic module availability and accelerator info
   return new Promise((resolve) => {
     const checkCode = `
- import sys
- import json
- try:
+import sys
+import json
+try:
     import codexlens.semantic as semantic
     SEMANTIC_AVAILABLE = bool(getattr(semantic, "SEMANTIC_AVAILABLE", False))
     SEMANTIC_BACKEND = getattr(semantic, "SEMANTIC_BACKEND", None)
