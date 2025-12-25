@@ -2058,7 +2058,7 @@ function buildCodexLensManagerPage(config) {
                   '</div>' +
                   '<p class="text-xs text-muted-foreground mt-1">' + t('codexlens.concurrencyHint') + '</p>' +
                 '</div>' +
-                // Multi-Provider Rotation (only for LiteLLM backend)
+                // Multi-Provider Rotation (only for LiteLLM backend) - Simplified, config in API Settings
                 '<div id="rotationSection" class="hidden">' +
                   '<div class="border border-border rounded-lg p-3 bg-muted/30">' +
                     '<div class="flex items-center justify-between mb-2">' +
@@ -2070,13 +2070,15 @@ function buildCodexLensManagerPage(config) {
                         t('common.disabled') +
                       '</div>' +
                     '</div>' +
-                    '<p class="text-xs text-muted-foreground mb-3">' + t('codexlens.rotationDesc') + '</p>' +
+                    '<p class="text-xs text-muted-foreground mb-2">' + t('codexlens.rotationDesc') + '</p>' +
+                    '<div id="rotationDetails" class="text-xs text-muted-foreground mb-3 hidden">' +
+                      '<span id="rotationModelName"></span> · <span id="rotationEndpointCount"></span>' +
+                    '</div>' +
                     '<div class="flex items-center gap-2">' +
-                      '<button class="btn-sm btn-outline flex items-center gap-1.5" onclick="showRotationConfigModal()">' +
-                        '<i data-lucide="settings" class="w-3.5 h-3.5"></i>' +
-                        t('codexlens.configureRotation') +
-                      '</button>' +
-                      '<span id="rotationEndpointCount" class="text-xs text-muted-foreground"></span>' +
+                      '<a href="#" class="btn-sm btn-outline flex items-center gap-1.5" onclick="navigateToApiSettingsEmbeddingPool(); return false;">' +
+                        '<i data-lucide="external-link" class="w-3.5 h-3.5"></i>' +
+                        t('codexlens.configureInApiSettings') +
+                      '</a>' +
                     '</div>' +
                   '</div>' +
                 '</div>' +
@@ -2656,15 +2658,21 @@ async function cleanAllIndexesFromPage() {
  */
 async function loadRotationStatus() {
   try {
-    var response = await fetch('/api/litellm-api/codexlens/rotation');
+    // Load from unified embedding-pool API (handles both new and legacy config)
+    var response = await fetch('/api/litellm-api/embedding-pool');
     if (!response.ok) {
-      console.warn('[CodexLens] Failed to load rotation config:', response.status);
+      console.warn('[CodexLens] Failed to load embedding pool config:', response.status);
       return;
     }
     var data = await response.json();
-    window.rotationConfig = data.rotationConfig;
-    window.availableRotationProviders = data.availableProviders;
-    updateRotationStatusDisplay(data.rotationConfig);
+    window.embeddingPoolConfig = data.poolConfig;
+    window.embeddingPoolAvailableModels = data.availableModels || [];
+
+    // Also get endpoint count
+    var endpointsResponse = await fetch('/api/litellm-api/codexlens/rotation/endpoints');
+    var endpointsData = endpointsResponse.ok ? await endpointsResponse.json() : { count: 0 };
+
+    updateRotationStatusDisplay(data.poolConfig, endpointsData.count);
   } catch (err) {
     console.error('[CodexLens] Error loading rotation status:', err);
   }
@@ -2672,29 +2680,47 @@ async function loadRotationStatus() {
 
 /**
  * Update the rotation status display in the page
+ * @param {Object} poolConfig - The embedding pool configuration
+ * @param {number} endpointCount - Number of active endpoints
  */
-function updateRotationStatusDisplay(rotationConfig) {
+function updateRotationStatusDisplay(poolConfig, endpointCount) {
   var badge = document.getElementById('rotationStatusBadge');
+  var detailsEl = document.getElementById('rotationDetails');
+  var modelNameEl = document.getElementById('rotationModelName');
   var countEl = document.getElementById('rotationEndpointCount');
 
   if (!badge) return;
 
-  if (rotationConfig && rotationConfig.enabled) {
+  if (poolConfig && poolConfig.enabled) {
     badge.textContent = t('common.enabled');
     badge.className = 'text-xs px-2 py-0.5 rounded-full bg-success/10 text-success';
 
-    // Show endpoint count
-    if (countEl && rotationConfig.providers) {
-      var totalEndpoints = 0;
-      rotationConfig.providers.forEach(function(p) {
-        if (p.enabled) totalEndpoints += (p.useAllKeys ? 4 : 1); // Estimate
-      });
-      countEl.textContent = '~' + totalEndpoints + ' ' + t('codexlens.totalEndpoints').toLowerCase();
+    // Show details
+    if (detailsEl) {
+      detailsEl.classList.remove('hidden');
+      if (modelNameEl) modelNameEl.textContent = poolConfig.targetModel || '';
+      if (countEl) countEl.textContent = (endpointCount || 0) + ' ' + t('codexlens.totalEndpoints').toLowerCase();
     }
   } else {
     badge.textContent = t('common.disabled');
     badge.className = 'text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground';
-    if (countEl) countEl.textContent = '';
+    if (detailsEl) detailsEl.classList.add('hidden');
+  }
+}
+
+/**
+ * Navigate to API Settings Embedding Pool tab
+ */
+function navigateToApiSettingsEmbeddingPool() {
+  // Navigate to API Settings page with embedding-pool tab
+  if (typeof switchView === 'function') {
+    switchView('api-settings');
+    // Give time for page to render, then switch to embedding-pool tab
+    setTimeout(function() {
+      if (typeof switchSidebarTab === 'function') {
+        switchSidebarTab('embedding-pool');
+      }
+    }, 100);
   }
 }
 
