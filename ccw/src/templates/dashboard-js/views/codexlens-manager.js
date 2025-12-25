@@ -1999,14 +1999,15 @@ function buildCodexLensManagerPage(config) {
                 '</div>' +
                 // Concurrency selector (only for LiteLLM backend)
                 '<div id="concurrencySelector" class="hidden">' +
-                  '<label class="block text-sm font-medium mb-1.5">' + (t('codexlens.concurrency') || 'API Concurrency') + '</label>' +
-                  '<select id="pageConcurrencySelect" class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm">' +
-                    '<option value="1">1 (Sequential)</option>' +
-                    '<option value="2">2 workers</option>' +
-                    '<option value="4" selected>4 workers (Recommended)</option>' +
-                    '<option value="8">8 workers</option>' +
-                  '</select>' +
-                  '<p class="text-xs text-muted-foreground mt-1">' + (t('codexlens.concurrencyHint') || 'Number of parallel API calls for embedding generation') + '</p>' +
+                  '<label class="block text-sm font-medium mb-1.5">' + t('codexlens.concurrency') + '</label>' +
+                  '<div class="flex items-center gap-2">' +
+                    '<input type="number" id="pageConcurrencyInput" min="1" max="32" value="4" ' +
+                      'class="w-24 px-3 py-2 border border-border rounded-lg bg-background text-sm" ' +
+                      'onchange="validateConcurrencyInput(this)" />' +
+                    '<span class="text-sm text-muted-foreground">workers</span>' +
+                    '<span class="text-xs text-primary ml-2">(4 = recommended)</span>' +
+                  '</div>' +
+                  '<p class="text-xs text-muted-foreground mt-1">' + t('codexlens.concurrencyHint') + '</p>' +
                 '</div>' +
                 // Index buttons - two modes: full (FTS + Vector) or FTS only
                 '<div class="grid grid-cols-2 gap-3">' +
@@ -2205,6 +2206,18 @@ function buildModelSelectOptionsForPage() {
 }
 
 /**
+ * Validate concurrency input value (1-32)
+ */
+function validateConcurrencyInput(input) {
+  var value = parseInt(input.value, 10);
+  if (isNaN(value) || value < 1) {
+    input.value = 1;
+  } else if (value > 32) {
+    input.value = 32;
+  }
+}
+
+/**
  * Handle embedding backend change
  */
 function onEmbeddingBackendChange() {
@@ -2290,10 +2303,10 @@ window.onEmbeddingBackendChange = onEmbeddingBackendChange;
 function initCodexLensIndexFromPage(indexType) {
   var backendSelect = document.getElementById('pageBackendSelect');
   var modelSelect = document.getElementById('pageModelSelect');
-  var concurrencySelect = document.getElementById('pageConcurrencySelect');
+  var concurrencyInput = document.getElementById('pageConcurrencyInput');
   var selectedBackend = backendSelect ? backendSelect.value : 'fastembed';
   var selectedModel = modelSelect ? modelSelect.value : 'code';
-  var selectedConcurrency = concurrencySelect ? parseInt(concurrencySelect.value, 10) : 1;
+  var selectedConcurrency = concurrencyInput ? Math.min(32, Math.max(1, parseInt(concurrencyInput.value, 10) || 4)) : 4;
 
   // For FTS-only index, model is not needed
   if (indexType === 'normal') {
