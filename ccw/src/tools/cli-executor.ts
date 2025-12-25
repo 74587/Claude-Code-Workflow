@@ -337,9 +337,8 @@ function buildCommand(params: {
           args.push(nativeResume.sessionId);
         }
         // Codex resume still supports additional flags
-        if (dir) {
-          args.push('-C', dir);
-        }
+        // Note: -C is NOT used because spawn's cwd already sets the working directory
+        // Using both would cause path to be applied twice (e.g., codex-lens/codex-lens)
         // Permission configuration based on mode:
         // - analysis: --full-auto (read-only sandbox, no prompts) - safer for read operations
         // - write/auto: --dangerously-bypass-approvals-and-sandbox (full access for modifications)
@@ -362,9 +361,8 @@ function buildCommand(params: {
       } else {
         // Standard exec mode
         args.push('exec');
-        if (dir) {
-          args.push('-C', dir);
-        }
+        // Note: -C is NOT used because spawn's cwd already sets the working directory
+        // Using both would cause path to be applied twice (e.g., codex-lens/codex-lens)
         // Permission configuration based on mode:
         // - analysis: --full-auto (read-only sandbox, no prompts) - safer for read operations
         // - write/auto: --dangerously-bypass-approvals-and-sandbox (full access for modifications)

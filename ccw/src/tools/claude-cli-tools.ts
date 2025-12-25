@@ -42,6 +42,7 @@ export interface ClaudeCliToolsConfig {
     nativeResume: boolean;
     recursiveQuery: boolean;
     cache: ClaudeCacheSettings;
+    codeIndexMcp: 'codexlens' | 'ace';  // Code Index MCP provider
   };
 }
 
@@ -89,7 +90,8 @@ const DEFAULT_CONFIG: ClaudeCliToolsConfig = {
       injectionMode: 'auto',
       defaultPrefix: '',
       defaultSuffix: ''
-    }
+    },
+    codeIndexMcp: 'codexlens'  // Default to CodexLens
   }
 };
 
@@ -297,4 +299,77 @@ export function getClaudeCliToolsInfo(projectDir: string): {
     activePath: resolved.path,
     source: resolved.source
   };
+}
+
+/**
+ * Update Code Index MCP provider and switch CLAUDE.md reference
+ */
+export function updateCodeIndexMcp(
+  projectDir: string,
+  provider: 'codexlens' | 'ace'
+): { success: boolean; error?: string; config?: ClaudeCliToolsConfig } {
+  try {
+    // Update config
+    const config = loadClaudeCliTools(projectDir);
+    config.settings.codeIndexMcp = provider;
+    saveClaudeCliTools(projectDir, config);
+
+    // Update CLAUDE.md reference
+    const claudeMdPath = path.join(projectDir, '.claude', 'CLAUDE.md');
+    if (fs.existsSync(claudeMdPath)) {
+      let content = fs.readFileSync(claudeMdPath, 'utf-8');
+
+      // Define the file patterns
+      const codexlensPattern = /@~\/\.claude\/workflows\/context-tools\.md/g;
+      const acePattern = /@~\/\.claude\/workflows\/context-tools-ace\.md/g;
+
+      // Also handle project-level references
+      const codexlensPatternProject = /@\.claude\/workflows\/context-tools\.md/g;
+      const acePatternProject = /@\.claude\/workflows\/context-tools-ace\.md/g;
+
+      if (provider === 'ace') {
+        // Switch to ACE
+        content = content.replace(codexlensPattern, '@~/.claude/workflows/context-tools-ace.md');
+        content = content.replace(codexlensPatternProject, '@.claude/workflows/context-tools-ace.md');
+      } else {
+        // Switch to CodexLens
+        content = content.replace(acePattern, '@~/.claude/workflows/context-tools.md');
+        content = content.replace(acePatternProject, '@.claude/workflows/context-tools.md');
+      }
+
+      fs.writeFileSync(claudeMdPath, content, 'utf-8');
+      console.log(`[claude-cli-tools] Updated CLAUDE.md to use ${provider}`);
+    }
+
+    // Also update global CLAUDE.md if it exists
+    const globalClaudeMdPath = path.join(os.homedir(), '.claude', 'CLAUDE.md');
+    if (fs.existsSync(globalClaudeMdPath)) {
+      let content = fs.readFileSync(globalClaudeMdPath, 'utf-8');
+
+      const codexlensPattern = /@~\/\.claude\/workflows\/context-tools\.md/g;
+      const acePattern = /@~\/\.claude\/workflows\/context-tools-ace\.md/g;
+
+      if (provider === 'ace') {
+        content = content.replace(codexlensPattern, '@~/.claude/workflows/context-tools-ace.md');
+      } else {
+        content = content.replace(acePattern, '@~/.claude/workflows/context-tools.md');
+      }
+
+      fs.writeFileSync(globalClaudeMdPath, content, 'utf-8');
+      console.log(`[claude-cli-tools] Updated global CLAUDE.md to use ${provider}`);
+    }
+
+    return { success: true, config };
+  } catch (err) {
+    console.error('[claude-cli-tools] Error updating Code Index MCP:', err);
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+/**
+ * Get current Code Index MCP provider
+ */
+export function getCodeIndexMcp(projectDir: string): 'codexlens' | 'ace' {
+  const config = loadClaudeCliTools(projectDir);
+  return config.settings.codeIndexMcp || 'codexlens';
 }

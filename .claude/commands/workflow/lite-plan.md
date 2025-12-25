@@ -140,11 +140,17 @@ function selectAngles(taskDescription, count) {
 
 const selectedAngles = selectAngles(task_description, complexity === 'High' ? 4 : (complexity === 'Medium' ? 3 : 1))
 
+// Planning strategy determination
+const planningStrategy = complexity === 'Low'
+  ? 'Direct Claude Planning'
+  : 'cli-lite-planning-agent'
+
 console.log(`
 ## Exploration Plan
 
 Task Complexity: ${complexity}
 Selected Angles: ${selectedAngles.join(', ')}
+Planning Strategy: ${planningStrategy}
 
 Launching ${selectedAngles.length} parallel explorations...
 `)
@@ -358,10 +364,7 @@ if (dedupedClarifications.length > 0) {
 ```javascript
 // 分配规则（优先级从高到低）：
 // 1. 用户明确指定："用 gemini 分析..." → gemini, "codex 实现..." → codex
-// 2. 任务类型推断：
-//    - 分析|审查|评估|探索 → gemini
-//    - 实现|创建|修改|修复 → codex (复杂) 或 agent (简单)
-// 3. 默认 → agent
+// 2. 默认 → agent
 
 const executorAssignments = {}  // { taskId: { executor: 'gemini'|'codex'|'agent', reason: string } }
 plan.tasks.forEach(task => {

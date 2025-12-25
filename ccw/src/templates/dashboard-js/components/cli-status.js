@@ -21,6 +21,9 @@ let nativeResumeEnabled = localStorage.getItem('ccw-native-resume') !== 'false';
 // Recursive Query settings (for hierarchical storage aggregation)
 let recursiveQueryEnabled = localStorage.getItem('ccw-recursive-query') !== 'false'; // default true
 
+// Code Index MCP provider (codexlens or ace)
+let codeIndexMcpProvider = 'codexlens';
+
 // ========== Initialization ==========
 function initCliStatus() {
   // Load all statuses in one call using aggregated endpoint
@@ -241,7 +244,12 @@ async function loadCliToolsConfig() {
       defaultCliTool = data.defaultTool;
     }
 
-    console.log('[CLI Config] Loaded from:', data._configInfo?.source || 'unknown', '| Default:', data.defaultTool);
+    // Load Code Index MCP provider from config
+    if (data.settings?.codeIndexMcp) {
+      codeIndexMcpProvider = data.settings.codeIndexMcp;
+    }
+
+    console.log('[CLI Config] Loaded from:', data._configInfo?.source || 'unknown', '| Default:', data.defaultTool, '| CodeIndexMCP:', codeIndexMcpProvider);
     return data;
   } catch (err) {
     console.error('Failed to load CLI tools config:', err);
@@ -614,6 +622,25 @@ function renderCliStatus() {
           </div>
           <p class="cli-setting-desc">Cache prefix/suffix injection mode for prompts</p>
         </div>
+        <div class="cli-setting-item">
+          <label class="cli-setting-label">
+            <i data-lucide="search" class="w-3 h-3"></i>
+            Code Index MCP
+          </label>
+          <div class="cli-setting-control">
+            <div class="flex items-center bg-muted rounded-lg p-0.5">
+              <button class="code-mcp-btn px-3 py-1.5 text-xs font-medium rounded-md transition-all ${codeIndexMcpProvider === 'codexlens' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+                      onclick="setCodeIndexMcpProvider('codexlens')">
+                CodexLens
+              </button>
+              <button class="code-mcp-btn px-3 py-1.5 text-xs font-medium rounded-md transition-all ${codeIndexMcpProvider === 'ace' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+                      onclick="setCodeIndexMcpProvider('ace')">
+                ACE
+              </button>
+            </div>
+          </div>
+          <p class="cli-setting-desc">Code search provider (updates CLAUDE.md context-tools reference)</p>
+        </div>
       </div>
     </div>
   `;
@@ -733,6 +760,30 @@ async function setCacheInjectionMode(mode) {
   } catch (err) {
     console.error('Failed to update cache settings:', err);
     showRefreshToast('Failed to update cache settings', 'error');
+  }
+}
+
+async function setCodeIndexMcpProvider(provider) {
+  try {
+    const response = await fetch('/api/cli/code-index-mcp', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: provider })
+    });
+    if (response.ok) {
+      codeIndexMcpProvider = provider;
+      if (window.claudeCliToolsConfig && window.claudeCliToolsConfig.settings) {
+        window.claudeCliToolsConfig.settings.codeIndexMcp = provider;
+      }
+      showRefreshToast(`Code Index MCP switched to ${provider === 'ace' ? 'ACE (Augment)' : 'CodexLens'}`, 'success');
+      renderCliStatus();
+    } else {
+      const data = await response.json();
+      showRefreshToast(`Failed to switch Code Index MCP: ${data.error}`, 'error');
+    }
+  } catch (err) {
+    console.error('Failed to switch Code Index MCP:', err);
+    showRefreshToast('Failed to switch Code Index MCP', 'error');
   }
 }
 

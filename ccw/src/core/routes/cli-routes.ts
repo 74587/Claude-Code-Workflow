@@ -40,7 +40,9 @@ import {
   updateClaudeCacheSettings,
   getClaudeCliToolsInfo,
   addClaudeCustomEndpoint,
-  removeClaudeCustomEndpoint
+  removeClaudeCustomEndpoint,
+  updateCodeIndexMcp,
+  getCodeIndexMcp
 } from '../../tools/claude-cli-tools.js';
 
 export interface RouteContext {
@@ -743,6 +745,46 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
         });
 
         return { success: true, config };
+      } catch (err) {
+        return { error: (err as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // API: Get Code Index MCP provider
+  if (pathname === '/api/cli/code-index-mcp' && req.method === 'GET') {
+    try {
+      const provider = getCodeIndexMcp(initialPath);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ provider }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // API: Update Code Index MCP provider
+  if (pathname === '/api/cli/code-index-mcp' && req.method === 'PUT') {
+    handlePostRequest(req, res, async (body: unknown) => {
+      try {
+        const { provider } = body as { provider: 'codexlens' | 'ace' };
+        if (!provider || !['codexlens', 'ace'].includes(provider)) {
+          return { error: 'Invalid provider. Must be "codexlens" or "ace"', status: 400 };
+        }
+
+        const result = updateCodeIndexMcp(initialPath, provider);
+
+        if (result.success) {
+          broadcastToClients({
+            type: 'CODE_INDEX_MCP_UPDATED',
+            payload: { provider, timestamp: new Date().toISOString() }
+          });
+          return { success: true, provider };
+        } else {
+          return { error: result.error, status: 500 };
+        }
       } catch (err) {
         return { error: (err as Error).message, status: 500 };
       }
