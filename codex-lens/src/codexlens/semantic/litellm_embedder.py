@@ -127,3 +127,18 @@ class LiteLLMEmbedderWrapper(BaseEmbedder):
 
         # LiteLLM handles batching internally, ignore batch_size parameter
         return self._embedder.embed(texts)
+
+    def embed_single(self, text: str) -> list[float]:
+        """Generate embedding for a single text.
+
+        Args:
+            text: Text to embed.
+
+        Returns:
+            list[float]: Embedding vector as a list of floats.
+        """
+        # Sanitize text before embedding
+        sanitized = self._sanitize_text(text)
+        embedding = self._embedder.embed([sanitized])
+        return embedding[0].tolist()
+

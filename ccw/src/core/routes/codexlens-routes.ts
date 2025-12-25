@@ -586,6 +586,8 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
     const query = url.searchParams.get('query') || '';
     const limit = parseInt(url.searchParams.get('limit') || '20', 10);
     const mode = url.searchParams.get('mode') || 'exact';  // exact, fuzzy, hybrid, vector
+    const maxContentLength = parseInt(url.searchParams.get('max_content_length') || '200', 10);
+    const extraFilesCount = parseInt(url.searchParams.get('extra_files_count') || '10', 10);
     const projectPath = url.searchParams.get('path') || initialPath;
 
     if (!query) {
@@ -595,15 +597,46 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
     }
 
     try {
-      const args = ['search', query, '--path', projectPath, '--limit', limit.toString(), '--mode', mode, '--json'];
+      // Request more results to support split (full content + extra files)
+      const totalToFetch = limit + extraFilesCount;
+      const args = ['search', query, '--path', projectPath, '--limit', totalToFetch.toString(), '--mode', mode, '--json'];
 
       const result = await executeCodexLens(args, { cwd: projectPath });
 
       if (result.success) {
         try {
           const parsed = extractJSON(result.output);
+          const allResults = parsed.result?.results || [];
+
+          // Truncate content and split results
+          const truncateContent = (content: string | null | undefined): string => {
+            if (!content) return '';
+            if (content.length <= maxContentLength) return content;
+            return content.slice(0, maxContentLength) + '...';
+          };
+
+          // Split results: first N with full content, rest as file paths only
+          const resultsWithContent = allResults.slice(0, limit).map((r: any) => ({
+            ...r,
+            content: truncateContent(r.content || r.excerpt),
+            excerpt: truncateContent(r.excerpt || r.content),
+          }));
+
+          const extraResults = allResults.slice(limit, limit + extraFilesCount);
+          const extraFiles = [...new Set(extraResults.map((r: any) => r.path || r.file))];
+
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true, ...parsed.result }));
+          res.end(JSON.stringify({
+            success: true,
+            results: resultsWithContent,
+            extra_files: extraFiles.length > 0 ? extraFiles : undefined,
+            metadata: {
+              total: allResults.length,
+              limit,
+              max_content_length: maxContentLength,
+              extra_files_count: extraFilesCount,
+            },
+          }));
         } catch {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, results: [], output: result.output }));

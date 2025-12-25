@@ -36,10 +36,12 @@ const ParamsSchema = z.object({
   path: z.string().optional(),
   paths: z.array(z.string()).default([]),
   contextLines: z.number().default(0),
-  maxResults: z.number().default(20),  // Increased default
+  maxResults: z.number().default(5),  // Default 5 with full content
   includeHidden: z.boolean().default(false),
   languages: z.array(z.string()).optional(),
-  limit: z.number().default(20),  // Increased default
+  limit: z.number().default(5),  // Default 5 with full content
+  extraFilesCount: z.number().default(10),  // Additional file-only results
+  maxContentLength: z.number().default(200),  // Max content length for truncation (50-2000)
   offset: z.number().default(0),  // NEW: Pagination offset (start_index)
   enrich: z.boolean().default(false),
   // Search modifiers for ripgrep mode
@@ -268,6 +270,7 @@ interface SearchMetadata {
 interface SearchResult {
   success: boolean;
   results?: ExactMatch[] | SemanticMatch[] | GraphMatch[] | FileMatch[] | unknown;
+  extra_files?: string[];  // Additional file paths without content
   output?: string;
   metadata?: SearchMetadata;
   error?: string;
@@ -299,6 +302,42 @@ interface IndexStatus {
  */
 function stripAnsi(str: string): string {
   return str.replace(/\x1b\[[0-9;]*m/g, '');
+}
+
+/** Default maximum content length to return (avoid excessive output) */
+const DEFAULT_MAX_CONTENT_LENGTH = 200;
+
+/**
+ * Truncate content to specified length with ellipsis
+ * @param content - The content to truncate
+ * @param maxLength - Maximum length (default: 200)
+ */
+function truncateContent(content: string | null | undefined, maxLength: number = DEFAULT_MAX_CONTENT_LENGTH): string {
+  if (!content) return '';
+  if (content.length <= maxLength) return content;
+  return content.slice(0, maxLength) + '...';
+}
+
+/**
+ * Split results into full content results and extra file-only results
+ * Generic function supporting both SemanticMatch and ExactMatch types
+ * @param allResults - All search results (must have 'file' property)
+ * @param fullContentLimit - Number of results with full content (default: 5)
+ * @param extraFilesCount - Number of additional file-only results (default: 10)
+ */
+function splitResultsWithExtraFiles<T extends { file: string }>(
+  allResults: T[],
+  fullContentLimit: number = 5,
+  extraFilesCount: number = 10
+): { results: T[]; extra_files: string[] } {
+  // First N results with full content
+  const results = allResults.slice(0, fullContentLimit);
+
+  // Next M results as file paths only (deduplicated)
+  const extraResults = allResults.slice(fullContentLimit, fullContentLimit + extraFilesCount);
+  const extra_files = [...new Set(extraResults.map(r => r.file))];
+
+  return { results, extra_files };
 }
 
 /**
@@ -714,7 +753,7 @@ async function executeAutoMode(params: Params): Promise<SearchResult> {
  * Supports tokenized multi-word queries with OR matching and result ranking
  */
 async function executeRipgrepMode(params: Params): Promise<SearchResult> {
-  const { query, paths = [], contextLines = 0, maxResults = 10, includeHidden = false, path = '.', regex = true, caseSensitive = true, tokenize = true } = params;
+  const { query, paths = [], contextLines = 0, maxResults = 5, extraFilesCount = 10, maxContentLength = 200, includeHidden = false, path = '.', regex = true, caseSensitive = true, tokenize = true } = params;
 
   if (!query) {
     return {
@@ -725,6 +764,9 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
 
   // Check if ripgrep is available
   const hasRipgrep = checkToolAvailability('rg');
+
+  // Calculate total to fetch for split (full content + extra files)
+  const totalToFetch = maxResults + extraFilesCount;
 
   // If ripgrep not available, fall back to CodexLens exact mode
   if (!hasRipgrep) {
@@ -737,7 +779,7 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
     }
 
     // Use CodexLens exact mode as fallback
-    const args = ['search', query, '--limit', maxResults.toString(), '--mode', 'exact', '--json'];
+    const args = ['search', query, '--limit', totalToFetch.toString(), '--mode', 'exact', '--json'];
     const result = await executeCodexLens(args, { cwd: path });
 
     if (!result.success) {
@@ -754,23 +796,27 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
     }
 
     // Parse results
-    let results: SemanticMatch[] = [];
+    let allResults: SemanticMatch[] = [];
     try {
       const parsed = JSON.parse(stripAnsi(result.output || '{}'));
       const data = parsed.result?.results || parsed.results || parsed;
-      results = (Array.isArray(data) ? data : []).map((item: any) => ({
+      allResults = (Array.isArray(data) ? data : []).map((item: any) => ({
         file: item.path || item.file,
         score: item.score || 0,
-        content: item.excerpt || item.content || '',
+        content: truncateContent(item.content || item.excerpt, maxContentLength),
         symbol: item.symbol || null,
       }));
     } catch {
       // Keep empty results
     }
 
+    // Split results: first N with full content, rest as file paths only
+    const { results, extra_files } = splitResultsWithExtraFiles(allResults, maxResults, extraFilesCount);
+
     return {
       success: true,
       results,
+      extra_files: extra_files.length > 0 ? extra_files : undefined,
       metadata: {
         mode: 'ripgrep',
         backend: 'codexlens-fallback',
@@ -781,12 +827,12 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
     };
   }
 
-  // Use ripgrep
+  // Use ripgrep - request more results to support split
   const { command, args, tokens } = buildRipgrepCommand({
     query,
     paths: paths.length > 0 ? paths : [path],
     contextLines,
-    maxResults,
+    maxResults: totalToFetch,  // Fetch more to support split
     includeHidden,
     regex,
     caseSensitive,
@@ -812,14 +858,14 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
     });
 
     child.on('close', (code) => {
-      const results: ExactMatch[] = [];
+      const allResults: ExactMatch[] = [];
       const lines = stdout.split('\n').filter((line) => line.trim());
       // Limit total results to prevent memory overflow (--max-count only limits per-file)
-      const effectiveLimit = maxResults > 0 ? maxResults : 500;
+      const effectiveLimit = totalToFetch > 0 ? totalToFetch : 500;
 
       for (const line of lines) {
         // Stop collecting if we've reached the limit
-        if (results.length >= effectiveLimit) {
+        if (allResults.length >= effectiveLimit) {
           resultLimitReached = true;
           break;
         }
@@ -837,7 +883,7 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
                   : 1,
               content: item.data.lines.text.trim(),
             };
-            results.push(match);
+            allResults.push(match);
           }
         } catch {
           continue;
@@ -850,9 +896,12 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
 
       // Apply token-based scoring and sorting for multi-word queries
       // Results matching more tokens are ranked higher (exact matches first)
-      const scoredResults = tokens.length > 1 ? scoreByTokenMatch(results, tokens) : results;
+      const scoredResults = tokens.length > 1 ? scoreByTokenMatch(allResults, tokens) : allResults;
 
       if (code === 0 || code === 1 || (isWindowsDeviceError && scoredResults.length > 0)) {
+        // Split results: first N with full content, rest as file paths only
+        const { results, extra_files } = splitResultsWithExtraFiles(scoredResults, maxResults, extraFilesCount);
+
         // Build warning message for various conditions
         const warnings: string[] = [];
         if (resultLimitReached) {
@@ -864,18 +913,19 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
 
         resolve({
           success: true,
-          results: scoredResults,
+          results,
+          extra_files: extra_files.length > 0 ? extra_files : undefined,
           metadata: {
             mode: 'ripgrep',
             backend: 'ripgrep',
-            count: scoredResults.length,
+            count: results.length,
             query,
             tokens: tokens.length > 1 ? tokens : undefined,  // Include tokens in metadata for debugging
             tokenized: tokens.length > 1,
             ...(warnings.length > 0 && { warning: warnings.join('; ') }),
           },
         });
-      } else if (isWindowsDeviceError && results.length === 0) {
+      } else if (isWindowsDeviceError && allResults.length === 0) {
         // Windows device error but no results - might be the only issue
         resolve({
           success: true,
@@ -912,7 +962,7 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
  * Requires index
  */
 async function executeCodexLensExactMode(params: Params): Promise<SearchResult> {
-  const { query, path = '.', maxResults = 10, enrich = false } = params;
+  const { query, path = '.', maxResults = 5, extraFilesCount = 10, maxContentLength = 200, enrich = false } = params;
 
   if (!query) {
     return {
@@ -933,7 +983,9 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
   // Check index status
   const indexStatus = await checkIndexStatus(path);
 
-  const args = ['search', query, '--limit', maxResults.toString(), '--mode', 'exact', '--json'];
+  // Request more results to support split (full content + extra files)
+  const totalToFetch = maxResults + extraFilesCount;
+  const args = ['search', query, '--limit', totalToFetch.toString(), '--mode', 'exact', '--json'];
   if (enrich) {
     args.push('--enrich');
   }
@@ -954,14 +1006,14 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
   }
 
   // Parse results
-  let results: SemanticMatch[] = [];
+  let allResults: SemanticMatch[] = [];
   try {
     const parsed = JSON.parse(stripAnsi(result.output || '{}'));
     const data = parsed.result?.results || parsed.results || parsed;
-    results = (Array.isArray(data) ? data : []).map((item: any) => ({
+    allResults = (Array.isArray(data) ? data : []).map((item: any) => ({
       file: item.path || item.file,
       score: item.score || 0,
-      content: item.excerpt || item.content || '',
+      content: truncateContent(item.content || item.excerpt, maxContentLength),
       symbol: item.symbol || null,
     }));
   } catch {
@@ -969,8 +1021,8 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
   }
 
   // Fallback to fuzzy mode if exact returns no results
-  if (results.length === 0) {
-    const fuzzyArgs = ['search', query, '--limit', maxResults.toString(), '--mode', 'fuzzy', '--json'];
+  if (allResults.length === 0) {
+    const fuzzyArgs = ['search', query, '--limit', totalToFetch.toString(), '--mode', 'fuzzy', '--json'];
     if (enrich) {
       fuzzyArgs.push('--enrich');
     }
@@ -980,20 +1032,23 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
       try {
         const parsed = JSON.parse(stripAnsi(fuzzyResult.output || '{}'));
         const data = parsed.result?.results || parsed.results || parsed;
-        results = (Array.isArray(data) ? data : []).map((item: any) => ({
+        allResults = (Array.isArray(data) ? data : []).map((item: any) => ({
           file: item.path || item.file,
           score: item.score || 0,
-          content: item.excerpt || item.content || '',
+          content: truncateContent(item.content || item.excerpt, maxContentLength),
           symbol: item.symbol || null,
         }));
       } catch {
         // Keep empty results
       }
 
-      if (results.length > 0) {
+      if (allResults.length > 0) {
+        // Split results: first N with full content, rest as file paths only
+        const { results, extra_files } = splitResultsWithExtraFiles(allResults, maxResults, extraFilesCount);
         return {
           success: true,
           results,
+          extra_files: extra_files.length > 0 ? extra_files : undefined,
           metadata: {
             mode: 'exact',
             backend: 'codexlens',
@@ -1008,9 +1063,13 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
     }
   }
 
+  // Split results: first N with full content, rest as file paths only
+  const { results, extra_files } = splitResultsWithExtraFiles(allResults, maxResults, extraFilesCount);
+
   return {
     success: true,
     results,
+    extra_files: extra_files.length > 0 ? extra_files : undefined,
     metadata: {
       mode: 'exact',
       backend: 'codexlens',
@@ -1027,7 +1086,7 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
  * Requires index with embeddings
  */
 async function executeHybridMode(params: Params): Promise<SearchResult> {
-  const { query, path = '.', maxResults = 10, enrich = false } = params;
+  const { query, path = '.', maxResults = 5, extraFilesCount = 10, maxContentLength = 200, enrich = false } = params;
 
   if (!query) {
     return {
@@ -1048,7 +1107,9 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
   // Check index status
   const indexStatus = await checkIndexStatus(path);
 
-  const args = ['search', query, '--limit', maxResults.toString(), '--mode', 'hybrid', '--json'];
+  // Request more results to support split (full content + extra files)
+  const totalToFetch = maxResults + extraFilesCount;
+  const args = ['search', query, '--limit', totalToFetch.toString(), '--mode', 'hybrid', '--json'];
   if (enrich) {
     args.push('--enrich');
   }
@@ -1069,14 +1130,14 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
   }
 
   // Parse results
-  let results: SemanticMatch[] = [];
+  let allResults: SemanticMatch[] = [];
   let baselineInfo: { score: number; count: number } | null = null;
   let initialCount = 0;
 
   try {
     const parsed = JSON.parse(stripAnsi(result.output || '{}'));
     const data = parsed.result?.results || parsed.results || parsed;
-    results = (Array.isArray(data) ? data : []).map((item: any) => {
+    allResults = (Array.isArray(data) ? data : []).map((item: any) => {
       const rawScore = item.score || 0;
       // Hybrid mode returns distance scores (lower is better).
       // Convert to similarity scores (higher is better) for consistency.
@@ -1085,27 +1146,27 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
       return {
         file: item.path || item.file,
         score: similarityScore,
-        content: item.excerpt || item.content || '',
+        content: truncateContent(item.content || item.excerpt, maxContentLength),
         symbol: item.symbol || null,
       };
     });
 
-    initialCount = results.length;
+    initialCount = allResults.length;
 
     // Post-processing pipeline to improve semantic search quality
     // 0. Filter dominant baseline scores (hot spot detection)
-    const baselineResult = filterDominantBaselineScores(results);
-    results = baselineResult.filteredResults;
+    const baselineResult = filterDominantBaselineScores(allResults);
+    allResults = baselineResult.filteredResults;
     baselineInfo = baselineResult.baselineInfo;
 
     // 1. Filter noisy files (coverage, node_modules, etc.)
-    results = filterNoisyFiles(results);
+    allResults = filterNoisyFiles(allResults);
     // 2. Boost results containing query keywords
-    results = applyKeywordBoosting(results, query);
+    allResults = applyKeywordBoosting(allResults, query);
     // 3. Enforce score diversity (penalize identical scores)
-    results = enforceScoreDiversity(results);
+    allResults = enforceScoreDiversity(allResults);
     // 4. Re-sort by adjusted scores
-    results.sort((a, b) => b.score - a.score);
+    allResults.sort((a, b) => b.score - a.score);
   } catch {
     return {
       success: true,
@@ -1121,15 +1182,19 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
     };
   }
 
+  // Split results: first N with full content, rest as file paths only
+  const { results, extra_files } = splitResultsWithExtraFiles(allResults, maxResults, extraFilesCount);
+
   // Build metadata with baseline info if detected
   let note = 'Hybrid mode uses RRF fusion (exact + fuzzy + vector) for best results';
   if (baselineInfo) {
-    note += ` | Filtered ${initialCount - results.length} hot-spot results with baseline score ~${baselineInfo.score.toFixed(4)}`;
+    note += ` | Filtered ${initialCount - allResults.length} hot-spot results with baseline score ~${baselineInfo.score.toFixed(4)}`;
   }
 
   return {
     success: true,
     results,
+    extra_files: extra_files.length > 0 ? extra_files : undefined,
     metadata: {
       mode: 'hybrid',
       backend: 'codexlens',
@@ -1540,7 +1605,7 @@ export const schema: ToolSchema = {
       mode: {
         type: 'string',
         enum: SEARCH_MODES,
-        description: 'Search mode: auto (default), hybrid (best quality), exact (CodexLens FTS), ripgrep (fast, no index), priority (fallback: hybrid->exact->ripgrep)',
+        description: 'Search mode: auto, hybrid (best quality), exact (CodexLens FTS), ripgrep (fast, no index), priority (fallback chain)',
         default: 'auto',
       },
       output_mode: {
@@ -1575,6 +1640,16 @@ export const schema: ToolSchema = {
         type: 'number',
         description: 'Alias for maxResults (default: 20)',
         default: 20,
+      },
+      extraFilesCount: {
+        type: 'number',
+        description: 'Number of additional file-only results (paths without content)',
+        default: 10,
+      },
+      maxContentLength: {
+        type: 'number',
+        description: 'Maximum content length for truncation (50-2000)',
+        default: 200,
       },
       offset: {
         type: 'number',

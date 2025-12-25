@@ -200,7 +200,9 @@ class HybridSearchEngine:
         """
         try:
             with DirIndexStore(index_path) as store:
-                return store.search_fts_exact(query, limit=limit)
+                return store.search_fts_exact(
+                    query, limit=limit, return_full_content=True
+                )
         except Exception as exc:
             self.logger.debug("Exact search error: %s", exc)
             return []
@@ -220,7 +222,9 @@ class HybridSearchEngine:
         """
         try:
             with DirIndexStore(index_path) as store:
-                return store.search_fts_fuzzy(query, limit=limit)
+                return store.search_fts_fuzzy(
+                    query, limit=limit, return_full_content=True
+                )
         except Exception as exc:
             self.logger.debug("Fuzzy search error: %s", exc)
             return []

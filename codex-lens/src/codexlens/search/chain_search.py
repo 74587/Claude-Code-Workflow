@@ -494,9 +494,13 @@ class ChainSearchEngine:
                     else:
                         # Use fuzzy FTS if enable_fuzzy=True (mode="fuzzy"), otherwise exact FTS
                         if enable_fuzzy:
-                            fts_results = store.search_fts_fuzzy(query, limit=limit)
+                            fts_results = store.search_fts_fuzzy(
+                                query, limit=limit, return_full_content=True
+                            )
                         else:
-                            fts_results = store.search_fts(query, limit=limit)
+                            fts_results = store.search_fts_exact(
+                                query, limit=limit, return_full_content=True
+                            )
 
                     # Optionally add semantic keyword results
                     if include_semantic:

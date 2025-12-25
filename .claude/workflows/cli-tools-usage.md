@@ -466,27 +466,21 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 ```
 ---
 
-## Configuration
+## ⚙️ Execution Configuration
 
-### Timeout Allocation (Bash)
+### Dynamic Timeout Allocation
 
-controlled by external bash `timeout` command:
+**Minimum timeout: 5 minutes (300000ms)** - Never set below this threshold.
 
-**Recommended Time Allocation**:
+**Timeout Ranges**:
+- **Simple** (analysis, search): 5-10min (300000-600000ms)
+- **Medium** (refactoring, documentation): 10-20min (600000-1200000ms)
+- **Complex** (implementation, migration): 20-60min (1200000-3600000ms)
+- **Heavy** (large codebase, multi-file): 60-120min (3600000-7200000ms)
 
-- **Simple** (5-10min): Analysis, search
-  - `timeout 300` ~ `timeout 600`
+**Codex Multiplier**: 3x of allocated time (minimum 15min / 900000ms)
 
-- **Medium** (10-20min): Refactoring, documentation
-  - `timeout 600` ~ `timeout 1200`
-
-- **Complex** (20-60min): Implementation, migration
-  - `timeout 1200` ~ `timeout 3600`
-
-- **Heavy** (60-120min): Large codebase, multi-file
-  - `timeout 3600` ~ `timeout 7200`
-
-**Codex Multiplier**: 3x allocated time (minimum 15min / 900s)
+**Auto-detection**: Analyze PURPOSE and TASK fields to determine timeout
 
 ### Permission Framework
 
