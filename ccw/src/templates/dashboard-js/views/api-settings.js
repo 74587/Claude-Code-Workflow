@@ -163,6 +163,16 @@ async function saveEmbeddingPoolConfig() {
 
     // Reload the embedding pool section
     await renderEmbeddingPoolMainPanel();
+    
+    // Update sidebar summary
+    const sidebarContainer = document.querySelector('.api-settings-sidebar');
+    if (sidebarContainer) {
+      const contentArea = sidebarContainer.querySelector('.provider-list, .endpoints-list, .embedding-pool-sidebar-info, .embedding-pool-sidebar-summary, .cache-sidebar-info');
+      if (contentArea && contentArea.parentElement) {
+        contentArea.parentElement.innerHTML = renderEmbeddingPoolSidebar();
+        if (window.lucide) lucide.createIcons();
+      }
+    }
 
   } catch (err) {
     console.error('Failed to save embedding pool config:', err);
@@ -2729,6 +2739,16 @@ async function onTargetModelChange(modelId) {
   // Discover providers for this model
   await discoverProvidersForTargetModel(modelId);
   renderDiscoveredProviders();
+  
+  // Update sidebar summary
+  const sidebarContainer = document.querySelector('.api-settings-sidebar');
+  if (sidebarContainer) {
+    const contentArea = sidebarContainer.querySelector('.provider-list, .endpoints-list, .embedding-pool-sidebar-info, .embedding-pool-sidebar-summary, .cache-sidebar-info');
+    if (contentArea && contentArea.parentElement) {
+      contentArea.parentElement.innerHTML = renderEmbeddingPoolSidebar();
+      if (window.lucide) lucide.createIcons();
+    }
+  }
 }
 
 /**
