@@ -1888,7 +1888,13 @@ def embeddings_generate(
     """
     _configure_logging(verbose, json_mode)
 
-    from codexlens.cli.embedding_manager import generate_embeddings, generate_embeddings_recursive, scan_for_model_conflicts
+    from codexlens.cli.embedding_manager import (
+        generate_embeddings,
+        generate_embeddings_recursive,
+        scan_for_model_conflicts,
+        check_global_model_lock,
+        set_locked_model_config,
+    )
 
     # Validate backend
     valid_backends = ["fastembed", "litellm"]
@@ -1955,6 +1961,31 @@ def embeddings_generate(
     if max_workers > 1:
         console.print(f"Concurrency: [cyan]{max_workers} workers[/cyan]")
     console.print()
+
+    # Check global model lock (prevents mixing different models)
+    if not force:
+        lock_result = check_global_model_lock(backend, model)
+        if lock_result["has_conflict"]:
+            locked = lock_result["locked_config"]
+            if json_mode:
+                print_json(
+                    success=False,
+                    error="Global model lock conflict",
+                    code="MODEL_LOCKED",
+                    locked_config=locked,
+                    target_config=lock_result["target_config"],
+                    hint="Use --force to override the lock and switch to a different model (will regenerate all embeddings)",
+                )
+                raise typer.Exit(code=1)
+            else:
+                console.print("[red]⛔ Global Model Lock Active[/red]")
+                console.print(f"  Locked model: [cyan]{locked['backend']}/{locked['model']}[/cyan]")
+                console.print(f"  Requested: [yellow]{backend}/{model}[/yellow]")
+                console.print(f"  Locked at: {locked.get('locked_at', 'unknown')}")
+                console.print()
+                console.print("[dim]All indexes must use the same embedding model.[/dim]")
+                console.print("[dim]Use --force to switch models (will regenerate all embeddings).[/dim]")
+                raise typer.Exit(code=1)
 
     # Pre-check for model conflicts (only if not forcing)
     if not force:

@@ -1,13 +1,14 @@
 """Embedding Manager - Manage semantic embeddings for code indexes."""
 
 import gc
+import json
 import logging
 import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import islice
 from pathlib import Path
-from typing import Dict, Generator, List, Optional, Tuple
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 try:
     from codexlens.semantic import SEMANTIC_AVAILABLE, is_embedding_backend_available
@@ -1097,4 +1098,113 @@ def scan_for_model_conflicts(
         "target_config": {"backend": target_backend, "model": target_model},
         "conflicts": conflicts,
         "indexes_with_embeddings": indexes_with_embeddings,
+    }
+
+
+def _get_global_settings_path() -> Path:
+    """Get the path to global embedding settings file."""
+    return Path.home() / ".codexlens" / "embedding_lock.json"
+
+
+def get_locked_model_config() -> Optional[Dict[str, Any]]:
+    """Get the globally locked embedding model configuration.
+
+    Returns:
+        Dictionary with backend and model if locked, None otherwise.
+    """
+    settings_path = _get_global_settings_path()
+    if not settings_path.exists():
+        return None
+
+    try:
+        with open(settings_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if data.get("locked"):
+                return {
+                    "backend": data.get("backend"),
+                    "model": data.get("model"),
+                    "locked_at": data.get("locked_at"),
+                }
+    except (json.JSONDecodeError, OSError):
+        pass
+
+    return None
+
+
+def set_locked_model_config(backend: str, model: str) -> None:
+    """Set the globally locked embedding model configuration.
+
+    This is called after the first successful embedding generation
+    to lock the model for all future operations.
+
+    Args:
+        backend: Embedding backend (fastembed or litellm)
+        model: Model profile/name
+    """
+    import datetime
+
+    settings_path = _get_global_settings_path()
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+
+    data = {
+        "locked": True,
+        "backend": backend,
+        "model": model,
+        "locked_at": datetime.datetime.now().isoformat(),
+    }
+
+    with open(settings_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+
+def clear_locked_model_config() -> bool:
+    """Clear the globally locked embedding model configuration.
+
+    Returns:
+        True if lock was cleared, False if no lock existed.
+    """
+    settings_path = _get_global_settings_path()
+    if settings_path.exists():
+        settings_path.unlink()
+        return True
+    return False
+
+
+def check_global_model_lock(
+    target_backend: str,
+    target_model: str,
+) -> Dict[str, Any]:
+    """Check if the target model conflicts with the global lock.
+
+    Args:
+        target_backend: Requested embedding backend
+        target_model: Requested model profile/name
+
+    Returns:
+        Dictionary with:
+        - is_locked: True if a global lock exists
+        - has_conflict: True if target differs from locked config
+        - locked_config: The locked configuration (if any)
+        - target_config: The requested configuration
+    """
+    locked_config = get_locked_model_config()
+
+    if locked_config is None:
+        return {
+            "is_locked": False,
+            "has_conflict": False,
+            "locked_config": None,
+            "target_config": {"backend": target_backend, "model": target_model},
+        }
+
+    has_conflict = (
+        locked_config["backend"] != target_backend or
+        locked_config["model"] != target_model
+    )
+
+    return {
+        "is_locked": True,
+        "has_conflict": has_conflict,
+        "locked_config": locked_config,
+        "target_config": {"backend": target_backend, "model": target_model},
     }
