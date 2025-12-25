@@ -2664,8 +2664,7 @@ async function renderEmbeddingPoolMainPanel() {
 
     // Configuration Form Card
     '<div class="settings-section" id="embedding-pool-config" style="' + (enabled ? '' : 'display: none;') + '">' +
-    '<h3 style="margin: 0 0 1rem 0; font-size: 1rem; font-weight: 600;">' + t('apiSettings.configuration') || 'Configuration' + '</h3>' +
-    
+
     // Model and Strategy in Grid
     '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">' +
       '<div class="form-group" style="margin: 0;">' +
