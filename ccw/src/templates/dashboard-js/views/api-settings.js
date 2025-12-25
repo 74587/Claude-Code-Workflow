@@ -23,6 +23,9 @@ let ccwLitellmStatusCache = null;
 let ccwLitellmStatusCacheTime = 0;
 const CCW_LITELLM_STATUS_CACHE_TTL = 60000; // 60 seconds
 
+// Track if this is the first render (force refresh on first load)
+let isFirstApiSettingsRender = true;
+
 // ========== Data Loading ==========
 
 /**
@@ -1036,8 +1039,13 @@ async function renderApiSettings() {
     renderCacheMainPanel();
   }
 
-  // Check and render ccw-litellm status (use cache by default)
-  checkCcwLitellmStatus(false).then(renderCcwLitellmStatusCard);
+  // Check and render ccw-litellm status
+  // Force refresh on first load, use cache on subsequent renders
+  const forceStatusRefresh = isFirstApiSettingsRender;
+  if (isFirstApiSettingsRender) {
+    isFirstApiSettingsRender = false;
+  }
+  checkCcwLitellmStatus(forceStatusRefresh).then(renderCcwLitellmStatusCard);
 
   if (window.lucide) lucide.createIcons();
 }
@@ -3082,7 +3090,9 @@ async function checkCcwLitellmStatus(forceRefresh = false) {
 
   try {
     console.log('[API Settings] Checking ccw-litellm status from server...');
-    var response = await fetch('/api/litellm-api/ccw-litellm/status');
+    // Add refresh=true to bypass backend cache when forceRefresh is true
+    var statusUrl = '/api/litellm-api/ccw-litellm/status' + (forceRefresh ? '?refresh=true' : '');
+    var response = await fetch(statusUrl);
     console.log('[API Settings] Status response:', response.status);
     var status = await response.json();
     console.log('[API Settings] ccw-litellm status:', status);

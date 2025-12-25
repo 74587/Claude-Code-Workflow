@@ -554,9 +554,12 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
   // ===========================
 
   // GET /api/litellm-api/ccw-litellm/status - Check ccw-litellm installation status
+  // Supports ?refresh=true to bypass cache
   if (pathname === '/api/litellm-api/ccw-litellm/status' && req.method === 'GET') {
-    // Check cache first
-    if (ccwLitellmStatusCache.data &&
+    const forceRefresh = url.searchParams.get('refresh') === 'true';
+
+    // Check cache first (unless force refresh)
+    if (!forceRefresh && ccwLitellmStatusCache.data &&
         Date.now() - ccwLitellmStatusCache.timestamp < ccwLitellmStatusCache.ttl) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(ccwLitellmStatusCache.data));
