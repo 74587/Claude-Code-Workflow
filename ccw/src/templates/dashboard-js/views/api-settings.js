@@ -2799,7 +2799,7 @@ function renderDiscoveredProviders() {
     
     providersHtml += '<div style="border: 1px solid hsl(var(--border)); border-radius: 0.5rem; padding: 1rem; ' + 
       (isExcluded ? 'opacity: 0.5; background: hsl(var(--muted) / 0.3);' : 'background: hsl(var(--card));') + '">' +
-      '<div style="display: flex; align-items: center; justify-between; margin-bottom: 0.75rem;">' +
+      '<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">' +
         '<div style="display: flex; align-items: center; gap: 0.75rem;">' +
           '<div style="width: 2rem; height: 2rem; border-radius: 0.375rem; background: ' + (isExcluded ? 'hsl(var(--muted))' : 'hsl(var(--success) / 0.1)') + '; color: ' + (isExcluded ? 'hsl(var(--muted-foreground))' : 'hsl(var(--success))') + '; display: flex; align-items: center; justify-content: center;">' +
             '<i data-lucide="' + providerIcon + '" style="width: 1.125rem; height: 1.125rem;"></i>' +

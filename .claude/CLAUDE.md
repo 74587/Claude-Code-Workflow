@@ -17,10 +17,9 @@ Available CLI endpoints are dynamically defined by the config file:
 
 ## Agent Execution
 
-- **Always use `run_in_background = false`** for Task tool agent calls to ensure synchronous execution and immediate result visibility
+- **Always use `run_in_background: false`** for Task tool agent calls: `Task({ subagent_type: "xxx", prompt: "...", run_in_background: false })` to ensure synchronous execution and immediate result visibility
+- **TaskOutput usage**: Only use `TaskOutput({ task_id: "xxx", block: false })` + sleep loop to poll completion status. NEVER read intermediate output during agent/CLI execution - wait for final result only
 
 ## Code Diagnostics
 
 - **Prefer `mcp__ide__getDiagnostics`** for code error checking over shell-based TypeScript compilation
-- Usage: `mcp__ide__getDiagnostics({ uri: "file:///path/to/file.ts" })` for specific file or omit uri for all files
-- Benefits: Works across platforms, no shell environment issues, real-time IDE integration
