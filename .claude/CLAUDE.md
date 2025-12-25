@@ -27,7 +27,6 @@ Available CLI endpoints are dynamically defined by the config file:
   Bash({ command: "ccw cli -p '...' --tool gemini", run_in_background: true })
   ```
 - **After CLI call**: Stop immediately - let CLI execute in background, do NOT poll with TaskOutput
-- **View output later**: Use `ccw cli output <id>` to view cached execution results
 
 ## Code Diagnostics
 

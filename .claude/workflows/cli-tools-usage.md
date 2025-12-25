@@ -183,34 +183,6 @@ ASSISTANT RESPONSE: [Previous output]
 
 **Tool Behavior**: Codex uses native `codex resume`; Gemini/Qwen assembles context as single prompt
 
-### Streaming vs Caching
-
-**Default behavior**: Non-streaming with full output caching (can retrieve later via `output` subcommand)
-
-```bash
-ccw cli -p "..." --tool gemini                   # Default: output cached, no streaming
-ccw cli -p "..." --tool gemini --stream          # Streaming: real-time output, no caching
-```
-
-| Mode | Flag | Output | Cached |
-|------|------|--------|--------|
-| Non-streaming (default) | (none) | After completion | ✅ Yes |
-| Streaming | `--stream` | Real-time | ❌ No |
-
-### Output Viewing
-
-View cached execution output with pagination:
-
-```bash
-ccw cli output <execution-id>                    # View full output
-ccw cli output <id> --offset 0 --limit 10000     # Paginated view
-ccw cli output <id> --output-type stdout         # Stdout only
-ccw cli output <id> --raw                        # Raw content (for piping)
-```
-
-**Note**: `output` subcommand views execution results. `--cache` parameter injects context into prompt - different concepts.
-
----
 
 ## Prompt Template
 
