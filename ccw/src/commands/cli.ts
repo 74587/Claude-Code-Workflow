@@ -788,8 +788,15 @@ async function historyAction(options: HistoryOptions): Promise<void> {
     return;
   }
 
-  // Compact table header
-  console.log(chalk.gray(`  Total: ${history.total} | Showing: ${history.executions.length}\n`));
+  // Count by tool
+  const toolCounts: Record<string, number> = {};
+  for (const exec of history.executions) {
+    toolCounts[exec.tool] = (toolCounts[exec.tool] || 0) + 1;
+  }
+  const toolSummary = Object.entries(toolCounts).map(([t, c]) => `${t}:${c}`).join(' ');
+
+  // Compact table header with tool breakdown
+  console.log(chalk.gray(`  Total: ${history.total} | Showing: ${history.executions.length} (${toolSummary})\n`));
   console.log(chalk.gray('  Status  Tool      Time         Duration   ID'));
   console.log(chalk.gray('  ' + '─'.repeat(70)));
 
@@ -813,7 +820,8 @@ async function historyAction(options: HistoryOptions): Promise<void> {
   // Usage hint
   console.log();
   console.log(chalk.gray('  ' + '─'.repeat(70)));
-  console.log(chalk.dim('  View output: ccw cli output <id> --final'));
+  console.log(chalk.dim('  Filter: ccw cli history --tool <gemini|codex|qwen> --limit <n>'));
+  console.log(chalk.dim('  Output: ccw cli output <id> --final'));
   console.log();
 }
 

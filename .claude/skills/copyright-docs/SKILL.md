@@ -87,13 +87,13 @@ Generate CPCC-compliant software design specification documents (软件设计说
 ## Directory Setup
 
 ```javascript
-// 跨平台目录创建
-const timestamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15);
+// 生成时间戳目录名
+const timestamp = new Date().toISOString().slice(0,19).replace(/[-:T]/g, '');
 const dir = `.workflow/.scratchpad/copyright-${timestamp}`;
 
-// Windows
-Bash(`if not exist "${dir}\\sections" mkdir "${dir}\\sections"`);
-Bash(`if not exist "${dir}\\iterations" mkdir "${dir}\\iterations"`);
+// Windows (cmd)
+Bash(`mkdir "${dir}\\sections"`);
+Bash(`mkdir "${dir}\\iterations"`);
 
 // Unix/macOS
 // Bash(`mkdir -p "${dir}/sections" "${dir}/iterations"`);
