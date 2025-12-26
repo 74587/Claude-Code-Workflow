@@ -806,8 +806,6 @@ Use `analysis_results.complexity` or task count to determine structure:
 **Examples**:
 - GOOD: `"Implement 5 commands: [cmd1, cmd2, cmd3, cmd4, cmd5]"`
 - BAD: `"Implement new commands"`
-- GOOD: `"5 files created: verify by ls .claude/commands/*.md | wc -l = 5"`
-- BAD: `"All commands implemented successfully"`
 
 ### 3.2 Planning & Organization Standards
 

@@ -14,8 +14,6 @@ allowed-tools: Task(*), Read(*), Glob(*)
 
 Orchestrator command that invokes `test-context-search-agent` to gather comprehensive test coverage context for test generation workflows. Generates standardized `test-context-package.json` with coverage analysis, framework detection, and source implementation context.
 
-**Agent**: `test-context-search-agent` (`.claude/agents/test-context-search-agent.md`)
-
 ## Core Philosophy
 
 - **Agent Delegation**: Delegate all test coverage analysis to `test-context-search-agent` for autonomous execution
@@ -88,7 +86,6 @@ Task(
   subagent_type="test-context-search-agent",
   description="Gather test coverage context",
   prompt=`
-You are executing as test-context-search-agent (.claude/agents/test-context-search-agent.md).
 
 ## Execution Mode
 **PLAN MODE** (Comprehensive) - Full Phase 1-3 execution
@@ -228,7 +225,7 @@ Refer to `test-context-search-agent.md` Phase 3.2 for complete `test-context-pac
 ## Notes
 
 - **Detection-first**: Always check for existing test-context-package before invoking agent
-- **Agent autonomy**: Agent handles all coverage analysis logic per `.claude/agents/test-context-search-agent.md`
+
 - **No redundancy**: This command is a thin orchestrator, all logic in agent
 - **Framework agnostic**: Supports Jest, Mocha, pytest, RSpec, Go testing, etc.
 - **Coverage focus**: Primary goal is identifying implementation files without tests

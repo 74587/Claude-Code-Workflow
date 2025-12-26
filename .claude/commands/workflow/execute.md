@@ -410,7 +410,6 @@ Task(subagent_type="{meta.agent}",
      1. Read complete task JSON: {session.task_json_path}
      2. Load context package: {session.context_package_path}
 
-     Follow complete execution guidelines in @.claude/agents/{meta.agent}.md
 
      **Session Paths**:
      - Workflow Dir: {session.workflow_dir}

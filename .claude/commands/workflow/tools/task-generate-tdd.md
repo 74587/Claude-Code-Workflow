@@ -239,15 +239,6 @@ If conflict_risk was medium/high, modifications have been applied to:
 
 **Agent Configuration Reference**: All TDD task generation rules, quantification requirements, Red-Green-Refactor cycle structure, quality standards, and execution details are defined in action-planning-agent.
 
-Refer to: @.claude/agents/action-planning-agent.md for:
-- TDD Task Decomposition Standards
-- Red-Green-Refactor Cycle Requirements
-- Quantification Requirements (MANDATORY)
-- 5-Field Task JSON Schema
-- IMPL_PLAN.md Structure (TDD variant)
-- TODO_LIST.md Format
-- TDD Execution Flow & Quality Validation
-
 ### TDD-Specific Requirements Summary
 
 #### Task Structure Philosophy

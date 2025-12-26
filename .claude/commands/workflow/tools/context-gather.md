@@ -15,7 +15,6 @@ allowed-tools: Task(*), Read(*), Glob(*)
 
 Orchestrator command that invokes `context-search-agent` to gather comprehensive project context for implementation planning. Generates standardized `context-package.json` with codebase analysis, dependencies, and conflict detection.
 
-**Agent**: `context-search-agent` (`.claude/agents/context-search-agent.md`)
 
 ## Core Philosophy
 
@@ -431,6 +430,5 @@ if (historicalConflicts.length > 0 && currentRisk === "low") {
 
 - **Detection-first**: Always check for existing package before invoking agent
 - **Project.json integration**: Agent reads `.workflow/project.json` as primary source for project context, avoiding redundant analysis
-- **Agent autonomy**: Agent handles all discovery logic per `.claude/agents/context-search-agent.md`
 - **No redundancy**: This command is a thin orchestrator, all logic in agent
 - **Plan-specific**: Use this for implementation planning; brainstorm mode uses direct agent call

@@ -107,8 +107,6 @@ CRITICAL:
 - Follow the progressive loading strategy defined in your agent specification (load context incrementally from memory-first approach)
 
 ## AGENT CONFIGURATION REFERENCE
-All test task generation rules, schemas, and quality standards are defined in your agent specification:
-@.claude/agents/action-planning-agent.md
 
 Refer to your specification for:
 - Test Task JSON Schema (6-field structure with test-specific metadata)

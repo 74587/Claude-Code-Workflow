@@ -5,16 +5,176 @@
 > **规范参考**: [../specs/quality-standards.md](../specs/quality-standards.md)
 > **写作风格**: [../specs/writing-style.md](../specs/writing-style.md)
 
-## Agent 执行前置条件
+## Exploration → Agent 自动分配
 
-**每个 Agent 必须首先读取以下规范文件**：
+根据 Phase 2 生成的 exploration 文件名自动分配对应的 analysis agent。
+
+### 映射规则
 
 ```javascript
-// Agent 启动时的第一步操作
-const specs = {
-  quality: Read(`${skillRoot}/specs/quality-standards.md`),
-  style: Read(`${skillRoot}/specs/writing-style.md`)
+// Exploration 角度 → Agent 映射（基于文件名识别，不读取内容）
+const EXPLORATION_TO_AGENT = {
+  // Architecture Report 角度
+  'layer-structure': 'layers',
+  'module-dependencies': 'dependencies',
+  'entry-points': 'entrypoints',
+  'data-flow': 'dataflow',
+
+  // Design Report 角度
+  'design-patterns': 'patterns',
+  'class-relationships': 'classes',
+  'interface-contracts': 'interfaces',
+  'state-management': 'state',
+
+  // Methods Report 角度
+  'core-algorithms': 'algorithms',
+  'critical-paths': 'paths',
+  'public-apis': 'apis',
+  'complex-logic': 'logic',
+
+  // Comprehensive 角度
+  'architecture': 'overview',
+  'patterns': 'patterns',
+  'dependencies': 'dependencies',
+  'integration-points': 'entrypoints'
 };
+
+// 从文件名提取角度
+function extractAngle(filename) {
+  // exploration-layer-structure.json → layer-structure
+  const match = filename.match(/exploration-(.+)\.json$/);
+  return match ? match[1] : null;
+}
+
+// 分配 agent
+function assignAgent(explorationFile) {
+  const angle = extractAngle(path.basename(explorationFile));
+  return EXPLORATION_TO_AGENT[angle] || null;
+}
+
+// Agent 配置（用于 buildAgentPrompt）
+const AGENT_CONFIGS = {
+  overview: {
+    role: '首席系统架构师',
+    task: '基于代码库全貌，撰写"总体架构"章节，洞察核心价值主张和顶层技术决策',
+    focus: '领域边界与定位、架构范式、核心技术决策、顶层模块划分',
+    constraint: '避免罗列目录结构，重点阐述设计意图，包含至少1个 Mermaid 架构图'
+  },
+  layers: {
+    role: '资深软件设计师',
+    task: '分析系统逻辑分层结构，撰写"逻辑视点与分层架构"章节',
+    focus: '职责分配体系、数据流向与约束、边界隔离策略、异常处理流',
+    constraint: '不要列举具体文件名，关注层级间契约和隔离艺术'
+  },
+  dependencies: {
+    role: '集成架构专家',
+    task: '审视系统外部连接与内部耦合，撰写"依赖管理与生态集成"章节',
+    focus: '外部集成拓扑、核心依赖分析、依赖注入与控制反转、供应链安全',
+    constraint: '禁止简单列出依赖配置，必须分析集成策略和风险控制模型'
+  },
+  dataflow: {
+    role: '数据架构师',
+    task: '追踪系统数据流转机制，撰写"数据流与状态管理"章节',
+    focus: '数据入口与出口、数据转换管道、持久化策略、一致性保障',
+    constraint: '关注数据生命周期和形态演变，不要罗列数据库表结构'
+  },
+  entrypoints: {
+    role: '系统边界分析师',
+    task: '识别系统入口设计和关键路径，撰写"系统入口与调用链"章节',
+    focus: '入口类型与职责、请求处理管道、关键业务路径、异常与边界处理',
+    constraint: '关注入口设计哲学，不要逐个列举所有端点'
+  },
+  patterns: {
+    role: '核心开发规范制定者',
+    task: '挖掘代码中的复用机制和标准化实践，撰写"设计模式与工程规范"章节',
+    focus: '架构级模式、通信与并发模式、横切关注点实现、抽象与复用策略',
+    constraint: '避免教科书式解释，必须结合项目上下文说明应用场景'
+  },
+  classes: {
+    role: '领域模型设计师',
+    task: '分析系统类型体系和领域模型，撰写"类型体系与领域建模"章节',
+    focus: '领域模型设计、继承与组合策略、职责分配原则、类型安全与约束',
+    constraint: '关注建模思想，用 UML 类图辅助说明核心关系'
+  },
+  interfaces: {
+    role: '契约设计专家',
+    task: '分析系统接口设计和抽象层次，撰写"接口契约与抽象设计"章节',
+    focus: '抽象层次设计、契约与实现分离、扩展点设计、版本演进策略',
+    constraint: '关注接口设计哲学，不要逐个列举接口方法签名'
+  },
+  state: {
+    role: '状态管理架构师',
+    task: '分析系统状态管理机制，撰写"状态管理与生命周期"章节',
+    focus: '状态模型设计、状态生命周期、并发与一致性、状态恢复与容错',
+    constraint: '关注状态管理设计决策，不要列举具体变量名'
+  },
+  algorithms: {
+    role: '算法架构师',
+    task: '分析系统核心算法设计，撰写"核心算法与计算模型"章节',
+    focus: '算法选型与权衡、计算模型设计、性能与可扩展性、正确性保障',
+    constraint: '关注算法思想，用流程图辅助说明复杂逻辑'
+  },
+  paths: {
+    role: '性能架构师',
+    task: '分析系统关键执行路径，撰写"关键路径与性能设计"章节',
+    focus: '关键业务路径、性能敏感区域、瓶颈识别与缓解、降级与熔断',
+    constraint: '关注路径设计战略考量，不要罗列所有代码执行步骤'
+  },
+  apis: {
+    role: 'API 设计规范专家',
+    task: '分析系统对外接口设计规范，撰写"API 设计与规范"章节',
+    focus: 'API 设计风格、命名与结构规范、版本管理策略、错误处理规范',
+    constraint: '关注设计规范和一致性，不要逐个列举所有 API 端点'
+  },
+  logic: {
+    role: '业务逻辑架构师',
+    task: '分析系统业务逻辑建模，撰写"业务逻辑与规则引擎"章节',
+    focus: '业务规则建模、决策点设计、边界条件处理、业务流程编排',
+    constraint: '关注业务逻辑组织方式，不要逐行解释代码逻辑'
+  }
+};
+```
+
+### 自动发现与分配流程
+
+```javascript
+// 1. 发现所有 exploration 文件（仅看文件名）
+const explorationFiles = bash(`find ${sessionFolder} -name "exploration-*.json" -type f`)
+  .split('\n')
+  .filter(f => f.trim());
+
+// 2. 按文件名自动分配 agent
+const agentAssignments = explorationFiles.map(file => {
+  const angle = extractAngle(path.basename(file));
+  const agentName = EXPLORATION_TO_AGENT[angle];
+  return {
+    exploration_file: file,
+    angle: angle,
+    agent: agentName,
+    output_file: `section-${agentName}.md`
+  };
+}).filter(a => a.agent);  // 过滤未映射的角度
+
+console.log(`
+## Agent Auto-Assignment
+
+Found ${explorationFiles.length} exploration files:
+${agentAssignments.map(a => `- ${a.angle} → ${a.agent} agent`).join('\n')}
+`);
+```
+
+---
+
+## Agent 执行前置条件
+
+**每个 Agent 接收 exploration 文件路径，自行读取内容**：
+
+```javascript
+// Agent prompt 中包含文件路径
+// Agent 启动后的操作顺序：
+// 1. Read exploration 文件（上下文输入）
+// 2. Read 规范文件
+// 3. 执行分析任务
 ```
 
 规范文件路径（相对于 skill 根目录）：
@@ -617,15 +777,30 @@ Task({
 ## 执行流程
 
 ```javascript
-// 1. 根据报告类型选择 Agent 配置
-const agentConfigs = getAgentConfigs(config.type);
+// 1. 发现 exploration 文件并自动分配 agent
+const explorationFiles = bash(`find ${sessionFolder} -name "exploration-*.json" -type f`)
+  .split('\n')
+  .filter(f => f.trim());
+
+const agentAssignments = explorationFiles.map(file => {
+  const angle = extractAngle(path.basename(file));
+  const agentName = EXPLORATION_TO_AGENT[angle];
+  return { exploration_file: file, angle, agent: agentName };
+}).filter(a => a.agent);
 
 // 2. 准备目录
 Bash(`mkdir "${outputDir}\\sections"`);
 
-// 3. 并行启动所有 Agent
+// 3. 并行启动所有 Agent（传递 exploration 文件路径）
 const results = await Promise.all(
-  agentConfigs.map(agent => launchAgent(agent, config, outputDir))
+  agentAssignments.map(assignment =>
+    Task({
+      subagent_type: "cli-explore-agent",
+      run_in_background: false,
+      description: `Analyze: ${assignment.agent}`,
+      prompt: buildAgentPrompt(assignment, config, outputDir)
+    })
+  )
 );
 
 // 4. 收集简要返回信息
@@ -633,6 +808,45 @@ const summaries = results.map(r => JSON.parse(r));
 
 // 5. 传递给 Phase 3.5 汇总 Agent
 return { summaries, cross_notes: summaries.flatMap(s => s.cross_module_notes) };
+```
+
+### Agent Prompt 构建
+
+```javascript
+function buildAgentPrompt(assignment, config, outputDir) {
+  const agentConfig = AGENT_CONFIGS[assignment.agent];
+  return `
+[CONTEXT]
+**Exploration 文件**: ${assignment.exploration_file}
+首先读取此文件获取 ${assignment.angle} 探索结果作为分析上下文。
+
+[SPEC]
+读取规范文件：
+- Read: ${skillRoot}/specs/quality-standards.md
+- Read: ${skillRoot}/specs/writing-style.md
+
+[ROLE] ${agentConfig.role}
+
+[TASK]
+${agentConfig.task}
+输出: ${outputDir}/sections/section-${assignment.agent}.md
+
+[STYLE]
+- 严谨专业的中文技术写作，专业术语保留英文
+- 完全客观的第三人称视角，严禁"我们"、"开发者"
+- 段落式叙述，采用"论点-论据-结论"结构
+- 善用逻辑连接词体现设计推演过程
+
+[FOCUS]
+${agentConfig.focus}
+
+[CONSTRAINT]
+${agentConfig.constraint}
+
+[RETURN JSON]
+{"status":"completed","output_file":"section-${assignment.agent}.md","summary":"<50字>","cross_module_notes":[],"stats":{}}
+`;
+}
 ```
 
 ## Output
