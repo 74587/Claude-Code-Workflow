@@ -803,9 +803,11 @@ async function historyAction(options: HistoryOptions): Promise<void> {
     const timeAgo = getTimeAgo(new Date(exec.updated_at || exec.timestamp));
     const turnInfo = exec.turn_count && exec.turn_count > 1 ? chalk.cyan(`[${exec.turn_count}t]`) : '    ';
 
-    // Compact single-line format: status tool time duration [turns] id
-    const shortId = exec.id.length > 25 ? exec.id.substring(0, 22) + '...' : exec.id;
-    console.log(`  ${statusIcon}     ${chalk.bold.white(exec.tool.padEnd(8))}  ${chalk.gray(timeAgo.padEnd(11))}  ${chalk.gray(duration.padEnd(8))} ${turnInfo} ${chalk.dim(shortId)}`);
+    // Compact format: status tool time duration [turns] + id on same line (no truncation)
+    // Truncate prompt preview to 50 chars for compact display
+    const shortPrompt = exec.prompt_preview.replace(/\n/g, ' ').substring(0, 50).trim();
+    console.log(`  ${statusIcon}     ${chalk.bold.white(exec.tool.padEnd(8))}  ${chalk.gray(timeAgo.padEnd(11))}  ${chalk.gray(duration.padEnd(8))} ${turnInfo} ${chalk.dim(exec.id)}`);
+    console.log(chalk.gray(`        ${shortPrompt}${exec.prompt_preview.length > 50 ? '...' : ''}`));
   }
 
   // Usage hint
