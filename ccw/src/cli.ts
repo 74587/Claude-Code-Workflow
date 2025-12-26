@@ -12,6 +12,7 @@ import { cliCommand } from './commands/cli.js';
 import { memoryCommand } from './commands/memory.js';
 import { coreMemoryCommand } from './commands/core-memory.js';
 import { hookCommand } from './commands/hook.js';
+import { issueCommand } from './commands/issue.js';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -259,6 +260,25 @@ export function run(argv: string[]): void {
     .option('--prompt <text>', 'Prompt text')
     .option('--type <type>', 'Context type: session-start, context')
     .action((subcommand, args, options) => hookCommand(subcommand, args, options));
+
+  // Issue command - Issue lifecycle management with JSONL task tracking
+  program
+    .command('issue [subcommand] [args...]')
+    .description('Issue lifecycle management with JSONL task tracking')
+    .option('--title <title>', 'Task title')
+    .option('--type <type>', 'Task type: feature, bug, refactor, test, chore, docs')
+    .option('--status <status>', 'Task status')
+    .option('--phase <phase>', 'Execution phase')
+    .option('--description <desc>', 'Task description')
+    .option('--depends-on <ids>', 'Comma-separated dependency task IDs')
+    .option('--delivery-criteria <items>', 'Pipe-separated delivery criteria')
+    .option('--pause-criteria <items>', 'Pipe-separated pause criteria')
+    .option('--executor <type>', 'Executor: agent, codex, gemini, auto')
+    .option('--priority <n>', 'Task priority (1-5)')
+    .option('--format <fmt>', 'Output format: json, markdown')
+    .option('--json', 'Output as JSON')
+    .option('--force', 'Force operation')
+    .action((subcommand, args, options) => issueCommand(subcommand, args, options));
 
   program.parse(argv);
 }
