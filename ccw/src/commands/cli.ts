@@ -788,7 +788,10 @@ async function historyAction(options: HistoryOptions): Promise<void> {
     return;
   }
 
-  console.log(chalk.gray(`  Total executions: ${history.total}\n`));
+  // Compact table header
+  console.log(chalk.gray(`  Total: ${history.total} | Showing: ${history.executions.length}\n`));
+  console.log(chalk.gray('  Status  Tool      Time         Duration   ID'));
+  console.log(chalk.gray('  ' + '─'.repeat(70)));
 
   for (const exec of history.executions) {
     const statusIcon = exec.status === 'success' ? chalk.green('●') :
@@ -798,13 +801,18 @@ async function historyAction(options: HistoryOptions): Promise<void> {
       : `${exec.duration_ms}ms`;
 
     const timeAgo = getTimeAgo(new Date(exec.updated_at || exec.timestamp));
-    const turnInfo = exec.turn_count && exec.turn_count > 1 ? chalk.cyan(` [${exec.turn_count} turns]`) : '';
+    const turnInfo = exec.turn_count && exec.turn_count > 1 ? chalk.cyan(`[${exec.turn_count}t]`) : '    ';
 
-    console.log(`  ${statusIcon} ${chalk.bold.white(exec.tool.padEnd(8))} ${chalk.gray(timeAgo.padEnd(12))} ${chalk.gray(duration.padEnd(8))}${turnInfo}`);
-    console.log(chalk.gray(`    ${exec.prompt_preview}`));
-    console.log(chalk.dim(`    ID: ${exec.id}`));
-    console.log();
+    // Compact single-line format: status tool time duration [turns] id
+    const shortId = exec.id.length > 25 ? exec.id.substring(0, 22) + '...' : exec.id;
+    console.log(`  ${statusIcon}     ${chalk.bold.white(exec.tool.padEnd(8))}  ${chalk.gray(timeAgo.padEnd(11))}  ${chalk.gray(duration.padEnd(8))} ${turnInfo} ${chalk.dim(shortId)}`);
   }
+
+  // Usage hint
+  console.log();
+  console.log(chalk.gray('  ' + '─'.repeat(70)));
+  console.log(chalk.dim('  View output: ccw cli output <id> --final'));
+  console.log();
 }
 
 /**

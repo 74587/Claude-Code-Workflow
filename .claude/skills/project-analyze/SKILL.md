@@ -116,11 +116,17 @@ Generate comprehensive project analysis reports through multi-phase iterative wo
 
 ## Directory Setup
 
-```bash
-timestamp=$(date +%Y%m%d-%H%M%S)
-dir=".workflow/.scratchpad/analyze-$timestamp"
-mkdir -p "$dir/sections" "$dir/iterations"
-echo "$dir"
+```javascript
+// 跨平台目录创建
+const timestamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15);
+const dir = `.workflow/.scratchpad/analyze-${timestamp}`;
+
+// Windows
+Bash(`if not exist "${dir}\\sections" mkdir "${dir}\\sections"`);
+Bash(`if not exist "${dir}\\iterations" mkdir "${dir}\\iterations"`);
+
+// Unix/macOS
+// Bash(`mkdir -p "${dir}/sections" "${dir}/iterations"`);
 ```
 
 ## Output Structure

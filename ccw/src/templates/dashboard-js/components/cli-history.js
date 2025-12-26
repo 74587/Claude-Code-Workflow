@@ -145,8 +145,9 @@ function renderCliHistory() {
              </span>`
           : '';
 
-        // Escape sourceDir for use in onclick
-        const sourceDirEscaped = exec.sourceDir ? exec.sourceDir.replace(/'/g, "\\'") : '';
+        // Normalize and escape sourceDir for use in onclick
+        // Convert backslashes to forward slashes to prevent JS escape issues in onclick
+        const sourceDirEscaped = exec.sourceDir ? exec.sourceDir.replace(/\\/g, '/').replace(/'/g, "\\'") : '';
 
         return `
           <div class="cli-history-item ${hasNative ? 'has-native' : ''}">

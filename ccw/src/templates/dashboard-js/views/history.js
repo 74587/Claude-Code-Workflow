@@ -96,10 +96,10 @@ async function renderCliHistoryView() {
           '<button class="btn-icon" onclick="event.stopPropagation(); copyExecutionId(\'' + exec.id + '\')" title="Copy ID">' +
             '<i data-lucide="copy" class="w-4 h-4"></i>' +
           '</button>' +
-          '<button class="btn-icon" onclick="event.stopPropagation(); showExecutionDetail(\'' + exec.id + '\', \'' + (exec.sourceDir || '').replace(/'/g, "\\'") + '\')" title="View Details">' +
+          '<button class="btn-icon" onclick="event.stopPropagation(); showExecutionDetail(\'' + exec.id + '\', \'' + normalizedSourceDir.replace(/'/g, "\\'") + '\')" title="View Details">' +
             '<i data-lucide="eye" class="w-4 h-4"></i>' +
           '</button>' +
-          '<button class="btn-icon btn-danger" onclick="event.stopPropagation(); confirmDeleteExecution(\'' + exec.id + '\', \'' + (exec.sourceDir || '').replace(/'/g, "\\'") + '\')" title="Delete">' +
+          '<button class="btn-icon btn-danger" onclick="event.stopPropagation(); confirmDeleteExecution(\'' + exec.id + '\', \'' + normalizedSourceDir.replace(/'/g, "\\'") + '\')" title="Delete">' +
             '<i data-lucide="trash-2" class="w-4 h-4"></i>' +
           '</button>' +
         '</div>' +
