@@ -124,6 +124,9 @@ Task(subagent_type="cli-execution-agent", run_in_background=false, prompt=`
 
   ## Analysis Steps
 
+  ### 0. Load Output Schema (MANDATORY)
+  Execute: cat ~/.claude/workflows/cli-templates/schemas/conflict-resolution-schema.json
+
   ### 1. Load Context
   - Read existing files from conflict_detection.existing_files
   - Load plan from .workflow/active/{session_id}/.process/context-package.json
@@ -171,123 +174,14 @@ Task(subagent_type="cli-execution-agent", run_in_background=false, prompt=`
 
   ⚠️ Output to conflict-resolution.json (generated in Phase 4)
 
-  Return JSON format for programmatic processing:
+  **Schema Reference**: Execute \`cat ~/.claude/workflows/cli-templates/schemas/conflict-resolution-schema.json\` to get full schema
 
-  \`\`\`json
-  {
-    "conflicts": [
-      {
-        "id": "CON-001",
-        "brief": "一行中文冲突摘要",
-        "severity": "Critical|High|Medium",
-        "category": "Architecture|API|Data|Dependency|ModuleOverlap",
-        "affected_files": [
-          ".workflow/active/{session}/.brainstorm/guidance-specification.md",
-          ".workflow/active/{session}/.brainstorm/system-architect/analysis.md"
-        ],
-        "description": "详细描述冲突 - 什么不兼容",
-        "impact": {
-          "scope": "影响的模块/组件",
-          "compatibility": "Yes|No|Partial",
-          "migration_required": true|false,
-          "estimated_effort": "人天估计"
-        },
-        "overlap_analysis": {
-          "// NOTE": "仅当 category=ModuleOverlap 时需要此字段",
-          "new_module": {
-            "name": "新模块名称",
-            "scenarios": ["场景1", "场景2", "场景3"],
-            "responsibilities": "职责描述"
-          },
-          "existing_modules": [
-            {
-              "file": "src/existing/module.ts",
-              "name": "现有模块名称",
-              "scenarios": ["场景A", "场景B"],
-              "overlap_scenarios": ["重叠场景1", "重叠场景2"],
-              "responsibilities": "现有模块职责"
-            }
-          ]
-        },
-        "strategies": [
-          {
-            "name": "策略名称（中文）",
-            "approach": "实现方法简述",
-            "complexity": "Low|Medium|High",
-            "risk": "Low|Medium|High",
-            "effort": "时间估计",
-            "pros": ["优点1", "优点2"],
-            "cons": ["缺点1", "缺点2"],
-            "clarification_needed": [
-              "// NOTE: 仅当需要用户进一步澄清时需要此字段（尤其是 ModuleOverlap）",
-              "新模块的核心职责边界是什么？",
-              "如何与现有模块 X 协作？",
-              "哪些场景应该由新模块处理？"
-            ],
-            "modifications": [
-              {
-                "file": ".workflow/active/{session}/.brainstorm/guidance-specification.md",
-                "section": "## 2. System Architect Decisions",
-                "change_type": "update",
-                "old_content": "原始内容片段（用于定位）",
-                "new_content": "修改后的内容",
-                "rationale": "为什么这样改"
-              },
-              {
-                "file": ".workflow/active/{session}/.brainstorm/system-architect/analysis.md",
-                "section": "## Design Decisions",
-                "change_type": "update",
-                "old_content": "原始内容片段",
-                "new_content": "修改后的内容",
-                "rationale": "修改理由"
-              }
-            ]
-          },
-          {
-            "name": "策略2名称",
-            "approach": "...",
-            "complexity": "Medium",
-            "risk": "Low",
-            "effort": "1-2天",
-            "pros": ["优点"],
-            "cons": ["缺点"],
-            "modifications": [...]
-          }
-        ],
-        "recommended": 0,
-        "modification_suggestions": [
-          "建议1：具体的修改方向或注意事项",
-          "建议2：可能需要考虑的边界情况",
-          "建议3：相关的最佳实践或模式"
-        ]
-      }
-    ],
-    "summary": {
-      "total": 2,
-      "critical": 1,
-      "high": 1,
-      "medium": 0
-    }
-  }
-  \`\`\`
-
-  ⚠️ CRITICAL Requirements for modifications field:
-  - old_content: Must be exact text from target file (20-100 chars for unique match)
-  - new_content: Complete replacement text (maintains formatting)
-  - change_type: "update" (replace), "add" (insert), "remove" (delete)
-  - file: Full path relative to project root
-  - section: Markdown heading for context (helps locate position)
+  Return JSON following the schema above. Key requirements:
   - Minimum 2 strategies per conflict, max 4
-  - All text in Chinese for user-facing fields (brief, name, pros, cons)
-  - modification_suggestions: 2-5 actionable suggestions for custom handling (Chinese)
-
-  Quality Standards:
-  - Each strategy must have actionable modifications
-  - old_content must be precise enough for Edit tool matching
-  - new_content preserves markdown formatting and structure
-  - Recommended strategy (index) based on lowest complexity + risk
-  - modification_suggestions must be specific, actionable, and context-aware
-  - Each suggestion should address a specific aspect (compatibility, migration, testing, etc.)
+  - All text in Chinese for user-facing fields (brief, name, pros, cons, modification_suggestions)
+  - modifications.old_content: 20-100 chars for unique Edit tool matching
+  - modifications.new_content: preserves markdown formatting
+  - modification_suggestions: 2-5 actionable suggestions for custom handling
 `)
 ```
 
@@ -312,143 +206,85 @@ Task(subagent_type="cli-execution-agent", run_in_background=false, prompt=`
 8. Return execution log path
 ```
 
-### Phase 3: Iterative User Interaction with Clarification Loop
+### Phase 3: User Interaction Loop
 
-**Execution Flow**:
-```
-FOR each conflict (逐个处理，无数量限制):
-  clarified = false
-  round = 0
-  userClarifications = []
+```javascript
+FOR each conflict:
+  round = 0, clarified = false, userClarifications = []
 
-  WHILE (!clarified && round < 10):
-    round++
+  WHILE (!clarified && round++ < 10):
+    // 1. Display conflict info (text output for context)
+    displayConflictSummary(conflict)  // id, brief, severity, overlap_analysis if ModuleOverlap
 
-    // 1. Display conflict (包含所有关键字段)
-    - category, id, brief, severity, description
-    - IF ModuleOverlap: 展示 overlap_analysis
-      * new_module: {name, scenarios, responsibilities}
-      * existing_modules[]: {file, name, scenarios, overlap_scenarios, responsibilities}
+    // 2. Strategy selection via AskUserQuestion
+    AskUserQuestion({
+      questions: [{
+        question: formatStrategiesForDisplay(conflict.strategies),
+        header: "策略选择",
+        multiSelect: false,
+        options: [
+          ...conflict.strategies.map((s, i) => ({
+            label: `${s.name}${i === conflict.recommended ? ' (推荐)' : ''}`,
+            description: `${s.complexity}复杂度 | ${s.risk}风险${s.clarification_needed?.length ? ' | ⚠️需澄清' : ''}`
+          })),
+          { label: "自定义修改", description: `建议: ${conflict.modification_suggestions?.slice(0,2).join('; ')}` }
+        ]
+      }]
+    })
 
-    // 2. Display strategies (2-4个策略 + 自定义选项)
-    - FOR each strategy: {name, approach, complexity, risk, effort, pros, cons}
-      * IF clarification_needed: 展示待澄清问题列表
-    - 自定义选项: {suggestions: modification_suggestions[]}
+    // 3. Handle selection
+    if (userChoice === "自定义修改") {
+      customConflicts.push({ id, brief, category, suggestions, overlap_analysis })
+      break
+    }
 
-    // 3. User selects strategy
-    userChoice = readInput()
+    selectedStrategy = findStrategyByName(userChoice)
 
-    IF userChoice == "自定义":
-      customConflicts.push({id, brief, category, suggestions, overlap_analysis})
-      clarified = true
-      BREAK
+    // 4. Clarification (if needed) - batched max 4 per call
+    if (selectedStrategy.clarification_needed?.length > 0) {
+      for (batch of chunk(selectedStrategy.clarification_needed, 4)) {
+        AskUserQuestion({
+          questions: batch.map((q, i) => ({
+            question: q, header: `澄清${i+1}`, multiSelect: false,
+            options: [{ label: "详细说明", description: "提供答案" }]
+          }))
+        })
+        userClarifications.push(...collectAnswers(batch))
+      }
 
-    selectedStrategy = strategies[userChoice]
-
-    // 4. Clarification loop
-    IF selectedStrategy.clarification_needed.length > 0:
-      // 收集澄清答案
-      FOR each question:
-        answer = readInput()
-        userClarifications.push({question, answer})
-
-      // Agent 重新分析
-      reanalysisResult = Task(cli-execution-agent, prompt={
-        冲突信息: {id, brief, category, 策略}
-        用户澄清: userClarifications[]
-        场景分析: overlap_analysis (if ModuleOverlap)
-
-        输出: {
-          uniqueness_confirmed: bool,
-          rationale: string,
-          updated_strategy: {name, approach, complexity, risk, effort, modifications[]},
-          remaining_questions: [] (如果仍有歧义)
-        }
+      // 5. Agent re-analysis
+      reanalysisResult = Task({
+        subagent_type: "cli-execution-agent",
+        run_in_background: false,
+        prompt: `Conflict: ${conflict.id}, Strategy: ${selectedStrategy.name}
+User Clarifications: ${JSON.stringify(userClarifications)}
+Output: { uniqueness_confirmed, rationale, updated_strategy, remaining_questions }`
       })
 
-      IF reanalysisResult.uniqueness_confirmed:
-        selectedStrategy = updated_strategy
-        selectedStrategy.clarifications = userClarifications
+      if (reanalysisResult.uniqueness_confirmed) {
+        selectedStrategy = { ...reanalysisResult.updated_strategy, clarifications: userClarifications }
         clarified = true
-      ELSE:
-        // 更新澄清问题，继续下一轮
-        selectedStrategy.clarification_needed = remaining_questions
-    ELSE:
+      } else {
+        selectedStrategy.clarification_needed = reanalysisResult.remaining_questions
+      }
+    } else {
       clarified = true
+    }
 
-    resolvedConflicts.push({conflict, strategy: selectedStrategy})
+    if (clarified) resolvedConflicts.push({ conflict, strategy: selectedStrategy })
   END WHILE
 END FOR
 
-// Build output
 selectedStrategies = resolvedConflicts.map(r => ({
-  conflict_id, strategy, clarifications[]
+  conflict_id: r.conflict.id, strategy: r.strategy, clarifications: r.strategy.clarifications || []
 }))
 ```
 
-**Key Data Structures**:
-
-```javascript
-// Custom conflict tracking
-customConflicts[] = {
-  id, brief, category,
-  suggestions: modification_suggestions[],
-  overlap_analysis: { new_module{}, existing_modules[] }  // ModuleOverlap only
-}
-
-// Agent re-analysis prompt output
-{
-  uniqueness_confirmed: bool,
-  rationale: string,
-  updated_strategy: {
-    name, approach, complexity, risk, effort,
-    modifications: [{file, section, change_type, old_content, new_content, rationale}]
-  },
-  remaining_questions: string[]
-}
-```
-
-**Text Output Example** (展示关键字段):
-
-```markdown
-============================================================
-冲突 1/3 - 第 1 轮
-============================================================
-【ModuleOverlap】CON-001: 新增用户认证服务与现有模块功能重叠
-严重程度: High | 描述: 计划中的 UserAuthService 与现有 AuthManager 场景重叠
-
---- 场景重叠分析 ---
-新模块: UserAuthService | 场景: 登录, Token验证, 权限, MFA
-现有模块: AuthManager (src/auth/AuthManager.ts) | 重叠: 登录, Token验证
-
---- 解决策略 ---
-1) 合并 (Low复杂度 | Low风险 | 2-3天)
-   ⚠️ 需澄清: AuthManager是否能承担MFA？
-
-2) 拆分边界 (Medium复杂度 | Medium风险 | 4-5天)
-   ⚠️ 需澄清: 基础/高级认证边界? Token验证归谁?
-
-3) 自定义修改
-   建议: 评估扩展性; 策略模式分离; 定义接口边界
-
-请选择 (1-3): > 2
-
---- 澄清问答 (第1轮) ---
-Q: 基础/高级认证边界?
-A: 基础=密码登录+token验证, 高级=MFA+OAuth+SSO
-
-Q: Token验证归谁?
-A: 统一由 AuthManager 负责
-
-🔄 重新分析...
-✅ 唯一性已确认 | 理由: 边界清晰 - AuthManager(基础+token), UserAuthService(MFA+OAuth+SSO)
-
-============================================================
-冲突 2/3 - 第 1 轮 [下一个冲突]
-============================================================
-```
-
-**Loop Characteristics**: 逐个处理 | 无限轮次(max 10) | 动态问题生成 | Agent重新分析判断唯一性 | ModuleOverlap场景边界澄清
+**Key Points**:
+- AskUserQuestion: max 4 questions/call, batch if more
+- Strategy options: 2-4 strategies + "自定义修改"
+- Clarification loop: max 10 rounds, agent判断 uniqueness_confirmed
+- Custom conflicts: 记录 overlap_analysis 供后续手动处理
 
 ### Phase 4: Apply Modifications
 
