@@ -354,19 +354,20 @@ Generate task JSON files for ${module.name} module within workflow session
 IMPORTANT: This is PLANNING ONLY - generate task JSONs, NOT implementing code.
 IMPORTANT: Generate Task JSONs ONLY. IMPL_PLAN.md and TODO_LIST.md by Phase 3 Coordinator.
 
-CRITICAL: Follow progressive loading strategy in agent specification
+CRITICAL: Follow the progressive loading strategy defined in agent specification (load analysis.md files incrementally due to file size)
 
 ## MODULE SCOPE
 - Module: ${module.name} (${module.type})
 - Focus Paths: ${module.paths.join(', ')}
 - Task ID Prefix: IMPL-${module.prefix}
-- Task Limit: ≤9 tasks
-- Other Modules: ${otherModules.join(', ')}
+- Task Limit: ≤9 tasks (hard limit for this module)
+- Other Modules: ${otherModules.join(', ')} (reference only, do NOT generate tasks for them)
 
 ## SESSION PATHS
 Input:
   - Session Metadata: .workflow/active/{session-id}/workflow-session.json
   - Context Package: .workflow/active/{session-id}/.process/context-package.json
+
 Output:
   - Task Dir: .workflow/active/{session-id}/.task/
 
@@ -374,21 +375,93 @@ Output:
 Session ID: {session-id}
 MCP Capabilities: {exa_code, exa_web, code_index}
 
+## USER CONFIGURATION (from Phase 0)
+Execution Method: ${userConfig.executionMethod}  // agent|hybrid|cli
+Preferred CLI Tool: ${userConfig.preferredCliTool}  // codex|gemini|qwen|auto
+Supplementary Materials: ${userConfig.supplementaryMaterials}
+
+## CLI TOOL SELECTION
+Based on userConfig.executionMethod:
+- "agent": No command field in implementation_approach steps
+- "hybrid": Add command field to complex steps only (agent handles simple steps)
+- "cli": Add command field to ALL implementation_approach steps
+
+CLI Resume Support (MANDATORY for all CLI commands):
+- Use --resume parameter to continue from previous task execution
+- Read previous task's cliExecutionId from session state
+- Format: ccw cli -p "[prompt]" --resume ${previousCliId} --tool ${tool} --mode write
+
+## EXPLORATION CONTEXT (from context-package.exploration_results)
+- Load exploration_results from context-package.json
+- Filter for ${module.name} module: Use aggregated_insights.critical_files matching ${module.paths.join(', ')}
+- Apply module-relevant constraints from aggregated_insights.constraints
+- Reference aggregated_insights.all_patterns applicable to ${module.name}
+- Use aggregated_insights.all_integration_points for precise modification locations within module scope
+- Use conflict_indicators for risk-aware task sequencing
+
+## CONFLICT RESOLUTION CONTEXT (if exists)
+- Check context-package.conflict_detection.resolution_file for conflict-resolution.json path
+- If exists, load .process/conflict-resolution.json:
+  - Apply planning_constraints relevant to ${module.name} as task constraints
+  - Reference resolved_conflicts affecting ${module.name} for implementation approach alignment
+  - Handle custom_conflicts with explicit task notes
+
 ## CROSS-MODULE DEPENDENCIES
-- Use placeholder: depends_on: ["CROSS::{module}::{pattern}"]
-- Example: depends_on: ["CROSS::B::api-endpoint"]
+- For dependencies ON other modules: Use placeholder depends_on: ["CROSS::{module}::{pattern}"]
+- Example: depends_on: ["CROSS::B::api-endpoint"] (this module depends on B's api-endpoint task)
 - Phase 3 Coordinator resolves to actual task IDs
+- For dependencies FROM other modules: Document in task context as "provides_for" annotation
 
 ## EXPECTED DELIVERABLES
 Task JSON Files (.task/IMPL-${module.prefix}*.json):
-  - 6-field schema per agent specification
+  - 6-field schema (id, title, status, context_package_path, meta, context, flow_control)
   - Task ID format: IMPL-${module.prefix}1, IMPL-${module.prefix}2, ...
+  - Quantified requirements with explicit counts
+  - Artifacts integration from context package (filtered for ${module.name})
+  - **focus_paths enhanced with exploration critical_files (module-scoped)**
+  - Flow control with pre_analysis steps (include exploration integration_points analysis)
+  - **CLI Execution IDs and strategies (MANDATORY)**
   - Focus ONLY on ${module.name} module scope
+
+## CLI EXECUTION ID REQUIREMENTS (MANDATORY)
+Each task JSON MUST include:
+- **cli_execution_id**: Unique ID for CLI execution (format: `{session_id}-IMPL-${module.prefix}{seq}`)
+- **cli_execution**: Strategy object based on depends_on:
+  - No deps → `{ "strategy": "new" }`
+  - 1 dep (single child) → `{ "strategy": "resume", "resume_from": "parent-cli-id" }`
+  - 1 dep (multiple children) → `{ "strategy": "fork", "resume_from": "parent-cli-id" }`
+  - N deps → `{ "strategy": "merge_fork", "merge_from": ["id1", "id2", ...] }`
+  - Cross-module dep → `{ "strategy": "cross_module_fork", "resume_from": "CROSS::{module}::{pattern}" }`
+
+**CLI Execution Strategy Rules**:
+1. **new**: Task has no dependencies - starts fresh CLI conversation
+2. **resume**: Task has 1 parent AND that parent has only this child - continues same conversation
+3. **fork**: Task has 1 parent BUT parent has multiple children - creates new branch with parent context
+4. **merge_fork**: Task has multiple parents - merges all parent contexts into new conversation
+5. **cross_module_fork**: Task depends on task from another module - Phase 3 resolves placeholder
+
+**Execution Command Patterns**:
+- new: `ccw cli -p "[prompt]" --tool [tool] --mode write --id [cli_execution_id]`
+- resume: `ccw cli -p "[prompt]" --resume [resume_from] --tool [tool] --mode write`
+- fork: `ccw cli -p "[prompt]" --resume [resume_from] --id [cli_execution_id] --tool [tool] --mode write`
+- merge_fork: `ccw cli -p "[prompt]" --resume [merge_from.join(',')] --id [cli_execution_id] --tool [tool] --mode write`
+- cross_module_fork: (Phase 3 resolves placeholder, then uses fork pattern)
+
+## QUALITY STANDARDS
+Hard Constraints:
+  - Task count <= 9 for this module (hard limit - coordinate with Phase 3 if exceeded)
+  - All requirements quantified (explicit counts and enumerated lists)
+  - Acceptance criteria measurable (include verification commands)
+  - Artifact references mapped from context package (module-scoped filter)
+  - Focus paths use absolute paths or clear relative paths from project root
+  - Cross-module dependencies use CROSS:: placeholder format
 
 ## SUCCESS CRITERIA
 - Task JSONs saved to .task/ with IMPL-${module.prefix}* naming
-- Cross-module dependencies use CROSS:: placeholder format
-- Return task count and brief summary
+- All task JSONs include cli_execution_id and cli_execution strategy
+- Cross-module dependencies use CROSS:: placeholder format consistently
+- Focus paths scoped to ${module.paths.join(', ')} only
+- Return: task count, task IDs, dependency summary (internal + cross-module)
     `
   )
 );
