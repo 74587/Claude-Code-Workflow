@@ -7,8 +7,12 @@ import pytest
 
 from codexlens.entities import SearchResult
 from codexlens.search.ranking import (
+    apply_symbol_boost,
+    QueryIntent,
+    detect_query_intent,
     normalize_bm25_score,
     reciprocal_rank_fusion,
+    rerank_results,
     tag_search_source,
 )
 
@@ -342,6 +346,62 @@ class TestTagSearchSource:
         assert tagged[0].symbol_kind == "function"
 
 
+class TestSymbolBoost:
+    """Tests for apply_symbol_boost function."""
+
+    def test_symbol_boost(self):
+        results = [
+            SearchResult(path="a.py", score=0.2, excerpt="...", symbol_name="foo"),
+            SearchResult(path="b.py", score=0.21, excerpt="..."),
+        ]
+
+        boosted = apply_symbol_boost(results, boost_factor=1.5)
+
+        assert boosted[0].path == "a.py"
+        assert boosted[0].score == pytest.approx(0.2 * 1.5)
+        assert boosted[0].metadata["boosted"] is True
+        assert boosted[0].metadata["original_fusion_score"] == pytest.approx(0.2)
+
+        assert boosted[1].path == "b.py"
+        assert boosted[1].score == pytest.approx(0.21)
+        assert "boosted" not in boosted[1].metadata
+
+
+class TestEmbeddingReranking:
+    """Tests for rerank_results embedding-based similarity."""
+
+    def test_rerank_embedding_similarity(self):
+        class DummyEmbedder:
+            def embed(self, texts):
+                if isinstance(texts, str):
+                    texts = [texts]
+                mapping = {
+                    "query": [1.0, 0.0],
+                    "doc1": [1.0, 0.0],
+                    "doc2": [0.0, 1.0],
+                }
+                return [mapping[t] for t in texts]
+
+        results = [
+            SearchResult(path="a.py", score=0.2, excerpt="doc1"),
+            SearchResult(path="b.py", score=0.9, excerpt="doc2"),
+        ]
+
+        reranked = rerank_results("query", results, DummyEmbedder(), top_k=2)
+
+        assert reranked[0].path == "a.py"
+        assert reranked[0].metadata["reranked"] is True
+        assert reranked[0].metadata["rrf_score"] == pytest.approx(0.2)
+        assert reranked[0].metadata["cosine_similarity"] == pytest.approx(1.0)
+        assert reranked[0].score == pytest.approx(0.5 * 0.2 + 0.5 * 1.0)
+
+        assert reranked[1].path == "b.py"
+        assert reranked[1].metadata["reranked"] is True
+        assert reranked[1].metadata["rrf_score"] == pytest.approx(0.9)
+        assert reranked[1].metadata["cosine_similarity"] == pytest.approx(0.0)
+        assert reranked[1].score == pytest.approx(0.5 * 0.9 + 0.5 * 0.0)
+
+
 @pytest.mark.parametrize("k_value", [30, 60, 100])
 class TestRRFParameterized:
     """Parameterized tests for RRF with different k values."""
@@ -419,3 +479,41 @@ class TestRRFEdgeCases:
         # Should work with normalization
         assert len(fused) == 1  # Deduplicated
         assert fused[0].score > 0
+
+
+class TestSymbolBoostAndIntentV1:
+    """Tests for symbol boosting and query intent detection (v1.0)."""
+
+    def test_symbol_boost_application(self):
+        """Results with symbol_name receive a multiplicative boost (default 1.5x)."""
+        results = [
+            SearchResult(path="a.py", score=0.4, excerpt="...", symbol_name="AuthManager"),
+            SearchResult(path="b.py", score=0.41, excerpt="..."),
+        ]
+
+        boosted = apply_symbol_boost(results, boost_factor=1.5)
+
+        assert boosted[0].score == pytest.approx(0.4 * 1.5)
+        assert boosted[0].metadata["boosted"] is True
+        assert boosted[0].metadata["original_fusion_score"] == pytest.approx(0.4)
+        assert boosted[1].score == pytest.approx(0.41)
+        assert "boosted" not in boosted[1].metadata
+
+    @pytest.mark.parametrize(
+        ("query", "expected"),
+        [
+            ("def authenticate", QueryIntent.KEYWORD),
+            ("MyClass", QueryIntent.KEYWORD),
+            ("user_id", QueryIntent.KEYWORD),
+            ("UserService::authenticate", QueryIntent.KEYWORD),
+            ("ptr->next", QueryIntent.KEYWORD),
+            ("how to handle user login", QueryIntent.SEMANTIC),
+            ("what is authentication?", QueryIntent.SEMANTIC),
+            ("where is this used?", QueryIntent.SEMANTIC),
+            ("why does FooBar crash?", QueryIntent.MIXED),
+            ("how to use user_id in query", QueryIntent.MIXED),
+        ],
+    )
+    def test_query_intent_detection(self, query, expected):
+        """Detect intent for representative queries (Python/TypeScript parity)."""
+        assert detect_query_intent(query) == expected

@@ -1,8 +1,15 @@
 # Phase 4: Document Assembly
 
-合并所有章节文件，生成最终 CPCC 合规文档。
+生成索引式文档，通过 markdown 链接引用章节文件。
 
 > **规范参考**: [../specs/cpcc-requirements.md](../specs/cpcc-requirements.md)
+
+## 设计原则
+
+1. **引用而非嵌入**：主文档通过链接引用章节，不复制内容
+2. **索引 + 综述**：主文档提供导航和软件概述
+3. **CPCC 合规**：保持章节编号符合软著申请要求
+4. **独立可读**：各章节文件可单独阅读
 
 ## 输入
 
@@ -11,6 +18,12 @@ interface AssemblyInput {
   output_dir: string;
   metadata: ProjectMetadata;
   consolidation: {
+    synthesis: string;           // 跨章节综合分析
+    section_summaries: Array<{
+      file: string;
+      title: string;
+      summary: string;
+    }>;
     issues: { errors: Issue[], warnings: Issue[], info: Issue[] };
     stats: { total_sections: number, total_diagrams: number };
   };
@@ -22,8 +35,7 @@ interface AssemblyInput {
 ```javascript
 // 1. 检查是否有阻塞性问题
 if (consolidation.issues.errors.length > 0) {
-  // 阻止装配，先修复
-  return AskUserQuestion({
+  const response = await AskUserQuestion({
     questions: [{
       question: `发现 ${consolidation.issues.errors.length} 个严重问题，如何处理？`,
       header: "阻塞问题",
@@ -35,33 +47,26 @@ if (consolidation.issues.errors.length > 0) {
       ]
     }]
   });
+
+  if (response === "查看并修复") {
+    return { action: "fix_required", errors: consolidation.issues.errors };
+  }
+  if (response === "终止") {
+    return { action: "abort" };
+  }
 }
 
-// 2. 读取章节文件
-const sections = [
-  Read(`${outputDir}/sections/section-2-architecture.md`),
-  Read(`${outputDir}/sections/section-3-functions.md`),
-  Read(`${outputDir}/sections/section-4-algorithms.md`),
-  Read(`${outputDir}/sections/section-5-data-structures.md`),
-  Read(`${outputDir}/sections/section-6-interfaces.md`),
-  Read(`${outputDir}/sections/section-7-exceptions.md`)
-];
+// 2. 生成索引式文档（不读取章节内容）
+const doc = generateIndexDocument(metadata, consolidation);
 
-// 3. 读取汇总报告
-const crossModuleSummary = Read(`${outputDir}/cross-module-summary.md`);
-
-// 4. 装配文档
-const finalDoc = assembleDocument(metadata, sections, crossModuleSummary);
-
-// 5. 写入最终文件
-Write(`${outputDir}/${metadata.software_name}-软件设计说明书.md`, finalDoc);
+// 3. 写入最终文件
+Write(`${outputDir}/${metadata.software_name}-软件设计说明书.md`, doc);
 ```
 
-## 文档结构
+## 文档模板
 
 ```markdown
 <!-- 页眉：{软件名称} - 版本号：{版本号} -->
-<!-- 注：最终文档页码位于每页右上角 -->
 
 # {软件名称} 软件设计说明书
 
@@ -78,109 +83,56 @@ Write(`${outputDir}/${metadata.software_name}-软件设计说明书.md`, finalDo
 ## 1. 软件概述
 
 ### 1.1 软件背景与用途
-{从 metadata 生成}
+
+[从 metadata 生成的软件背景描述]
 
 ### 1.2 开发目标与特点
-{从 metadata 生成}
+
+[从 metadata 生成的目标和特点]
 
 ### 1.3 运行环境与技术架构
-{从 metadata.tech_stack 生成}
+
+[从 metadata.tech_stack 生成]
 
 ---
 
-<!-- 以下章节直接引用 Agent 产出 -->
+## 文档导航
 
-{section-2-architecture.md 内容}
+{consolidation.synthesis - 软件整体设计思路综述}
 
----
-
-{section-3-functions.md 内容}
-
----
-
-{section-4-algorithms.md 内容}
-
----
-
-{section-5-data-structures.md 内容}
+| 章节 | 说明 | 详情 |
+|------|------|------|
+| 2. 系统架构设计 | {summary} | [查看](./sections/section-2-architecture.md) |
+| 3. 功能模块设计 | {summary} | [查看](./sections/section-3-functions.md) |
+| 4. 核心算法与流程 | {summary} | [查看](./sections/section-4-algorithms.md) |
+| 5. 数据结构设计 | {summary} | [查看](./sections/section-5-data-structures.md) |
+| 6. 接口设计 | {summary} | [查看](./sections/section-6-interfaces.md) |
+| 7. 异常处理设计 | {summary} | [查看](./sections/section-7-exceptions.md) |
 
 ---
 
-{section-6-interfaces.md 内容}
+## 附录
 
----
-
-{section-7-exceptions.md 内容}
-
----
-
-## 附录A：跨模块分析
-
-{cross-module-summary.md 的问题列表和关联图}
-
----
-
-## 附录B：文档统计
-
-| 章节 | 图表数 | 字数 |
-|------|--------|------|
-| ... | ... | ... |
+- [跨模块分析报告](./cross-module-summary.md)
+- [章节文件目录](./sections/)
 
 ---
 
 <!-- 页脚：生成时间 {timestamp} -->
 ```
 
-## Section 1 生成
+## 生成函数
 
 ```javascript
-function generateSection1(metadata) {
-  const categoryDescriptions = {
-    "命令行工具 (CLI)": "提供命令行界面，用户通过终端命令与系统交互",
-    "后端服务/API": "提供 RESTful/GraphQL API 接口，支持前端或其他服务调用",
-    "SDK/库": "提供可复用的代码库，供其他项目集成使用",
-    "数据处理系统": "处理数据导入、转换、分析和导出",
-    "自动化脚本": "自动执行重复性任务，提高工作效率"
-  };
+function generateIndexDocument(metadata, consolidation) {
+  const date = new Date().toLocaleDateString('zh-CN');
 
-  return `
-## 1. 软件概述
+  // 章节导航表格
+  const sectionTable = consolidation.section_summaries
+    .map(s => `| ${s.title} | ${s.summary} | [查看](./sections/${s.file}) |`)
+    .join('\n');
 
-### 1.1 软件背景与用途
-
-${metadata.software_name}是一款${metadata.category}软件。${categoryDescriptions[metadata.category]}
-
-本软件基于${metadata.tech_stack.language}语言开发，运行于${metadata.tech_stack.runtime}环境，采用${metadata.tech_stack.framework || '原生'}框架实现核心功能。
-
-### 1.2 开发目标与特点
-
-**开发目标**：
-${generateObjectives(metadata)}
-
-**技术特点**：
-${generateFeatures(metadata)}
-
-### 1.3 运行环境与技术架构
-
-**运行环境**：
-- 操作系统：${metadata.os || 'Windows/Linux/macOS'}
-- 运行时：${metadata.tech_stack.runtime}
-- 依赖环境：${metadata.tech_stack.dependencies?.join(', ') || '无'}
-
-**技术架构**：
-- 架构模式：${metadata.architecture_pattern || '分层架构'}
-- 核心框架：${metadata.tech_stack.framework || '原生实现'}
-- 主要模块：${metadata.main_modules?.join(', ') || '见第2章'}
-`;
-}
-```
-
-## 装配函数
-
-```javascript
-function assembleDocument(metadata, sections, crossModuleSummary) {
-  const header = `<!-- 页眉：${metadata.software_name} - 版本号：${metadata.version} -->
-<!-- 注：最终文档页码位于每页右上角 -->
+  return `<!-- 页眉：${metadata.software_name} - 版本号：${metadata.version} -->
 
 # ${metadata.software_name} 软件设计说明书
 
@@ -190,87 +142,120 @@ function assembleDocument(metadata, sections, crossModuleSummary) {
 |------|------|
 | 软件名称 | ${metadata.software_name} |
 | 版本号 | ${metadata.version} |
-| 生成日期 | ${new Date().toLocaleDateString('zh-CN')} |
+| 生成日期 | ${date} |
 
 ---
 
-`;
+## 1. 软件概述
 
-  const section1 = generateSection1(metadata);
+### 1.1 软件背景与用途
 
-  // 合并章节 (sections 已经是完整的 MD 内容)
-  const mainContent = sections.join('\n\n---\n\n');
+${generateBackground(metadata)}
 
-  // 提取跨模块问题作为附录
-  const appendixA = extractAppendixA(crossModuleSummary);
+### 1.2 开发目标与特点
 
-  // 生成统计
-  const appendixB = generateStats(sections);
+${generateObjectives(metadata)}
 
-  const footer = `
+### 1.3 运行环境与技术架构
+
+${generateTechStack(metadata)}
+
+---
+
+## 设计综述
+
+${consolidation.synthesis}
+
+---
+
+## 文档导航
+
+| 章节 | 说明 | 详情 |
+|------|------|------|
+${sectionTable}
+
+---
+
+## 附录
+
+- [跨模块分析报告](./cross-module-summary.md)
+- [章节文件目录](./sections/)
+
 ---
 
 <!-- 页脚：生成时间 ${new Date().toISOString()} -->
 `;
+}
 
-  return header + section1 + '\n\n---\n\n' + mainContent + '\n\n' + appendixA + '\n\n' + appendixB + footer;
+function generateBackground(metadata) {
+  const categoryDescriptions = {
+    "命令行工具 (CLI)": "提供命令行界面，用户通过终端命令与系统交互",
+    "后端服务/API": "提供 RESTful/GraphQL API 接口，支持前端或其他服务调用",
+    "SDK/库": "提供可复用的代码库，供其他项目集成使用",
+    "数据处理系统": "处理数据导入、转换、分析和导出",
+    "自动化脚本": "自动执行重复性任务，提高工作效率"
+  };
+
+  return `${metadata.software_name}是一款${metadata.category}软件。${categoryDescriptions[metadata.category] || ''}
+
+本软件基于${metadata.tech_stack.language}语言开发，运行于${metadata.tech_stack.runtime}环境，采用${metadata.tech_stack.framework || '原生'}框架实现核心功能。`;
+}
+
+function generateObjectives(metadata) {
+  return `本软件旨在${metadata.purpose || '解决特定领域的技术问题'}。
+
+主要技术特点包括${metadata.tech_stack.framework ? `采用 ${metadata.tech_stack.framework} 框架` : '模块化设计'}，具备良好的可扩展性和可维护性。`;
+}
+
+function generateTechStack(metadata) {
+  return `**运行环境**
+
+- 操作系统：${metadata.os || 'Windows/Linux/macOS'}
+- 运行时：${metadata.tech_stack.runtime}
+- 依赖环境：${metadata.tech_stack.dependencies?.join(', ') || '无特殊依赖'}
+
+**技术架构**
+
+- 架构模式：${metadata.architecture_pattern || '分层架构'}
+- 核心框架：${metadata.tech_stack.framework || '原生实现'}
+- 主要模块：详见第2章系统架构设计`;
 }
 ```
 
-## 附录生成
+## 输出结构
 
-### 附录A：跨模块分析
+```
+.workflow/.scratchpad/copyright-{timestamp}/
+├── sections/                           # 独立章节（Phase 2 产出）
+│   ├── section-2-architecture.md
+│   ├── section-3-functions.md
+│   └── ...
+├── cross-module-summary.md             # 跨模块报告（Phase 2.5 产出）
+└── {软件名称}-软件设计说明书.md         # 索引文档（本阶段产出）
+```
 
-```javascript
-function extractAppendixA(crossModuleSummary) {
-  // 从 cross-module-summary.md 提取关键内容
-  return `
-## 附录A：跨模块分析
+## 与 Phase 2.5 的协作
 
-本附录汇总了文档生成过程中发现的跨模块问题和关联关系。
+Phase 2.5 consolidation agent 需要提供：
 
-${extractSection(crossModuleSummary, '## 2. 发现的问题')}
-
-${extractSection(crossModuleSummary, '## 3. 跨模块关联图')}
-`;
+```typescript
+interface ConsolidationOutput {
+  synthesis: string;           // 设计思路综述（2-3 段落）
+  section_summaries: Array<{
+    file: string;              // 文件名
+    title: string;             // 章节标题（如"2. 系统架构设计"）
+    summary: string;           // 一句话说明
+  }>;
+  issues: {...};
+  stats: {...};
 }
 ```
 
-### 附录B：文档统计
+## 关键变更
 
-```javascript
-function generateStats(sections) {
-  const stats = sections.map((content, idx) => {
-    const diagrams = (content.match(/```mermaid/g) || []).length;
-    const words = content.length;
-    const sectionNames = ['系统架构图', '功能模块设计', '核心算法与流程',
-                          '数据结构设计', '接口设计', '异常处理设计'];
-    return { name: sectionNames[idx], diagrams, words };
-  });
-
-  let table = `
-## 附录B：文档统计
-
-| 章节 | 图表数 | 字数 |
-|------|--------|------|
-`;
-
-  stats.forEach(s => {
-    table += `| ${s.name} | ${s.diagrams} | ${s.words} |\n`;
-  });
-
-  const total = stats.reduce((acc, s) => ({
-    diagrams: acc.diagrams + s.diagrams,
-    words: acc.words + s.words
-  }), { diagrams: 0, words: 0 });
-
-  table += `| **总计** | **${total.diagrams}** | **${total.words}** |\n`;
-
-  return table;
-}
-```
-
-## 输出
-
-- 最终文档: `{软件名称}-软件设计说明书.md`
-- 保留原始章节文件供追溯
+| 原设计 | 新设计 |
+|--------|--------|
+| 读取章节内容并拼接 | 链接引用，不读取内容 |
+| 嵌入完整章节 | 仅提供导航索引 |
+| 重复生成统计 | 引用 cross-module-summary.md |
+| 大文件 | 精简索引文档 |

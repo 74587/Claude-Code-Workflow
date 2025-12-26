@@ -466,7 +466,18 @@ class TestDiagnostics:
 
         yield db_path
         if db_path.exists():
-            db_path.unlink()
+            for attempt in range(5):
+                try:
+                    db_path.unlink()
+                    break
+                except PermissionError:
+                    time.sleep(0.05 * (attempt + 1))
+            else:
+                # Best-effort cleanup (Windows SQLite locks can linger briefly).
+                try:
+                    db_path.unlink(missing_ok=True)
+                except (PermissionError, OSError):
+                    pass
 
     def test_diagnose_empty_database(self, empty_db):
         """Diagnose behavior with empty database."""

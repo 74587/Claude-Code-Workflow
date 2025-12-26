@@ -24,6 +24,39 @@ import {
 import type { ProgressInfo } from './codex-lens.js';
 import { getProjectRoot } from '../utils/path-validator.js';
 
+// Timing utilities for performance analysis
+const TIMING_ENABLED = process.env.SMART_SEARCH_TIMING === '1' || process.env.DEBUG?.includes('timing');
+
+interface TimingData {
+  [key: string]: number;
+}
+
+function createTimer(): { mark: (name: string) => void; getTimings: () => TimingData; log: () => void } {
+  const startTime = performance.now();
+  const marks: { name: string; time: number }[] = [];
+  let lastMark = startTime;
+
+  return {
+    mark(name: string) {
+      const now = performance.now();
+      marks.push({ name, time: now - lastMark });
+      lastMark = now;
+    },
+    getTimings(): TimingData {
+      const timings: TimingData = {};
+      marks.forEach(m => { timings[m.name] = Math.round(m.time * 100) / 100; });
+      timings['_total'] = Math.round((performance.now() - startTime) * 100) / 100;
+      return timings;
+    },
+    log() {
+      if (TIMING_ENABLED) {
+        const timings = this.getTimings();
+        console.error(`[TIMING] smart-search: ${JSON.stringify(timings)}`);
+      }
+    }
+  };
+}
+
 // Define Zod schema for validation
 const ParamsSchema = z.object({
   // Action: search (content), find_files (path/name pattern), init, status
@@ -48,6 +81,9 @@ const ParamsSchema = z.object({
   regex: z.boolean().default(true),            // Use regex pattern matching (default: enabled)
   caseSensitive: z.boolean().default(true),    // Case sensitivity (default: case-sensitive)
   tokenize: z.boolean().default(true),         // Tokenize multi-word queries for OR matching (default: enabled)
+  // File type filtering
+  excludeExtensions: z.array(z.string()).optional().describe('File extensions to exclude from results (e.g., ["md", "txt"])'),
+  codeOnly: z.boolean().default(false).describe('Only return code files (excludes md, txt, json, yaml, xml, etc.)'),
   // Fuzzy matching is implicit in hybrid mode (RRF fusion)
 });
 
@@ -254,6 +290,8 @@ interface SearchMetadata {
   tokenized?: boolean; // Whether tokenization was applied
   // Pagination metadata
   pagination?: PaginationInfo;
+  // Performance timing data (when SMART_SEARCH_TIMING=1 or DEBUG includes 'timing')
+  timing?: TimingData;
   // Init action specific
   action?: string;
   path?: string;
@@ -1086,7 +1124,8 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
  * Requires index with embeddings
  */
 async function executeHybridMode(params: Params): Promise<SearchResult> {
-  const { query, path = '.', maxResults = 5, extraFilesCount = 10, maxContentLength = 200, enrich = false } = params;
+  const timer = createTimer();
+  const { query, path = '.', maxResults = 5, extraFilesCount = 10, maxContentLength = 200, enrich = false, excludeExtensions, codeOnly = false } = params;
 
   if (!query) {
     return {
@@ -1097,6 +1136,7 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
 
   // Check CodexLens availability
   const readyStatus = await ensureCodexLensReady();
+  timer.mark('codexlens_ready_check');
   if (!readyStatus.ready) {
     return {
       success: false,
@@ -1106,6 +1146,7 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
 
   // Check index status
   const indexStatus = await checkIndexStatus(path);
+  timer.mark('index_status_check');
 
   // Request more results to support split (full content + extra files)
   const totalToFetch = maxResults + extraFilesCount;
@@ -1114,8 +1155,10 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
     args.push('--enrich');
   }
   const result = await executeCodexLens(args, { cwd: path });
+  timer.mark('codexlens_search');
 
   if (!result.success) {
+    timer.log();
     return {
       success: false,
       error: result.error,
@@ -1150,6 +1193,7 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
         symbol: item.symbol || null,
       };
     });
+    timer.mark('parse_results');
 
     initialCount = allResults.length;
 
@@ -1159,14 +1203,15 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
     allResults = baselineResult.filteredResults;
     baselineInfo = baselineResult.baselineInfo;
 
-    // 1. Filter noisy files (coverage, node_modules, etc.)
-    allResults = filterNoisyFiles(allResults);
+    // 1. Filter noisy files (coverage, node_modules, etc.) and excluded extensions
+    allResults = filterNoisyFiles(allResults, { excludeExtensions, codeOnly });
     // 2. Boost results containing query keywords
     allResults = applyKeywordBoosting(allResults, query);
     // 3. Enforce score diversity (penalize identical scores)
     allResults = enforceScoreDiversity(allResults);
     // 4. Re-sort by adjusted scores
     allResults.sort((a, b) => b.score - a.score);
+    timer.mark('post_processing');
   } catch {
     return {
       success: true,
@@ -1184,12 +1229,17 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
 
   // Split results: first N with full content, rest as file paths only
   const { results, extra_files } = splitResultsWithExtraFiles(allResults, maxResults, extraFilesCount);
+  timer.mark('split_results');
 
   // Build metadata with baseline info if detected
   let note = 'Hybrid mode uses RRF fusion (exact + fuzzy + vector) for best results';
   if (baselineInfo) {
     note += ` | Filtered ${initialCount - allResults.length} hot-spot results with baseline score ~${baselineInfo.score.toFixed(4)}`;
   }
+
+  // Log timing data
+  timer.log();
+  const timings = timer.getTimings();
 
   return {
     success: true,
@@ -1203,22 +1253,82 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
       note,
       warning: indexStatus.warning,
       suggested_weights: getRRFWeights(query),
+      timing: TIMING_ENABLED ? timings : undefined,
     },
   };
 }
 
-const RRF_WEIGHTS = {
-  code: { exact: 0.7, fuzzy: 0.2, vector: 0.1 },
-  natural: { exact: 0.4, fuzzy: 0.2, vector: 0.4 },
-  default: { exact: 0.5, fuzzy: 0.2, vector: 0.3 },
-};
+/**
+ * Query intent used to adapt RRF weights (Python parity).
+ *
+ * Keep this logic aligned with CodexLens Python hybrid search:
+ * `codex-lens/src/codexlens/search/hybrid_search.py`
+ */
+export type QueryIntent = 'keyword' | 'semantic' | 'mixed';
 
-function getRRFWeights(query: string): Record<string, number> {
-  const isCode = looksLikeCodeQuery(query);
-  const isNatural = detectNaturalLanguage(query);
-  if (isCode) return RRF_WEIGHTS.code;
-  if (isNatural) return RRF_WEIGHTS.natural;
-  return RRF_WEIGHTS.default;
+// Python default: vector 60%, exact 30%, fuzzy 10%
+const DEFAULT_RRF_WEIGHTS = {
+  exact: 0.3,
+  fuzzy: 0.1,
+  vector: 0.6,
+} as const;
+
+function normalizeWeights(weights: Record<string, number>): Record<string, number> {
+  const sum = Object.values(weights).reduce((acc, v) => acc + v, 0);
+  if (!Number.isFinite(sum) || sum <= 0) return { ...weights };
+  return Object.fromEntries(Object.entries(weights).map(([k, v]) => [k, v / sum]));
+}
+
+/**
+ * Detect query intent using the same heuristic signals as Python:
+ * - Code patterns: `.`, `::`, `->`, CamelCase, snake_case, common code keywords
+ * - Natural language patterns: >5 words, question marks, interrogatives, common verbs
+ */
+export function detectQueryIntent(query: string): QueryIntent {
+  const trimmed = query.trim();
+  if (!trimmed) return 'mixed';
+
+  const lower = trimmed.toLowerCase();
+  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+
+  const hasCodeSignals =
+    /(::|->|\.)/.test(trimmed) ||
+    /[A-Z][a-z]+[A-Z]/.test(trimmed) ||
+    /\b\w+_\w+\b/.test(trimmed) ||
+    /\b(def|class|function|const|let|var|import|from|return|async|await|interface|type)\b/i.test(lower);
+
+  const hasNaturalSignals =
+    wordCount > 5 ||
+    /\?/.test(trimmed) ||
+    /\b(how|what|why|when|where)\b/i.test(trimmed) ||
+    /\b(handle|explain|fix|implement|create|build|use|find|search|convert|parse|generate|support)\b/i.test(trimmed);
+
+  if (hasCodeSignals && hasNaturalSignals) return 'mixed';
+  if (hasCodeSignals) return 'keyword';
+  if (hasNaturalSignals) return 'semantic';
+  return 'mixed';
+}
+
+/**
+ * Intent → weights mapping (Python parity).
+ * - keyword: exact-heavy
+ * - semantic: vector-heavy
+ * - mixed: keep defaults
+ */
+export function adjustWeightsByIntent(
+  intent: QueryIntent,
+  baseWeights: Record<string, number>,
+): Record<string, number> {
+  if (intent === 'keyword') return normalizeWeights({ exact: 0.5, fuzzy: 0.1, vector: 0.4 });
+  if (intent === 'semantic') return normalizeWeights({ exact: 0.2, fuzzy: 0.1, vector: 0.7 });
+  return normalizeWeights({ ...baseWeights });
+}
+
+export function getRRFWeights(
+  query: string,
+  baseWeights: Record<string, number> = DEFAULT_RRF_WEIGHTS,
+): Record<string, number> {
+  return adjustWeightsByIntent(detectQueryIntent(query), baseWeights);
 }
 
 /**
@@ -1231,7 +1341,29 @@ const FILE_EXCLUDE_REGEXES = [...FILTER_CONFIG.exclude_files].map(pattern =>
   new RegExp('^' + pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*') + '$')
 );
 
-function filterNoisyFiles(results: SemanticMatch[]): SemanticMatch[] {
+// Non-code file extensions (for codeOnly filter)
+const NON_CODE_EXTENSIONS = new Set([
+  'md', 'txt', 'json', 'yaml', 'yml', 'xml', 'csv', 'log',
+  'ini', 'cfg', 'conf', 'toml', 'env', 'properties',
+  'html', 'htm', 'svg', 'png', 'jpg', 'jpeg', 'gif', 'ico', 'webp',
+  'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+  'lock', 'sum', 'mod',
+]);
+
+interface FilterOptions {
+  excludeExtensions?: string[];
+  codeOnly?: boolean;
+}
+
+function filterNoisyFiles(results: SemanticMatch[], options: FilterOptions = {}): SemanticMatch[] {
+  const { excludeExtensions = [], codeOnly = false } = options;
+
+  // Build extension filter set
+  const excludedExtSet = new Set(excludeExtensions.map(ext => ext.toLowerCase().replace(/^\./, '')));
+  if (codeOnly) {
+    NON_CODE_EXTENSIONS.forEach(ext => excludedExtSet.add(ext));
+  }
+
   return results.filter(r => {
     const filePath = r.file || '';
     if (!filePath) return true;
@@ -1247,6 +1379,14 @@ function filterNoisyFiles(results: SemanticMatch[]): SemanticMatch[] {
     const filename = segments.pop() || '';
     if (FILE_EXCLUDE_REGEXES.some(regex => regex.test(filename))) {
       return false;
+    }
+
+    // Extension filter check
+    if (excludedExtSet.size > 0) {
+      const ext = filename.split('.').pop()?.toLowerCase() || '';
+      if (excludedExtSet.has(ext)) {
+        return false;
+      }
     }
 
     return true;
@@ -1396,10 +1536,11 @@ function filterDominantBaselineScores(
  */
 function applyRRFFusion(
   resultsMap: Map<string, any[]>,
-  weights: Record<string, number>,
+  weightsOrQuery: Record<string, number> | string,
   limit: number,
   k: number = 60,
 ): any[] {
+  const weights = typeof weightsOrQuery === 'string' ? getRRFWeights(weightsOrQuery) : weightsOrQuery;
   const pathScores = new Map<string, { score: number; result: any; sources: string[] }>();
 
   resultsMap.forEach((results, source) => {

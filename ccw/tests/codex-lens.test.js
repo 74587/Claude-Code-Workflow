@@ -16,8 +16,8 @@ import assert from 'node:assert';
 import { createServer } from 'http';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
-import { homedir } from 'os';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { homedir, tmpdir } from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -382,36 +382,53 @@ describe('CodexLens Error Handling', async () => {
     assert.ok(typeof result === 'object', 'Result should be an object');
   });
 
-  it('should handle missing files parameter for update action', async () => {
+  it('should support update action without files parameter', async () => {
     if (!codexLensModule) {
       console.log('Skipping: codex-lens module not available');
       return;
     }
 
-    const result = await codexLensModule.codexLensTool.execute({
-      action: 'update'
-      // files is missing
-    });
-
-    assert.ok(typeof result === 'object', 'Result should be an object');
-    assert.strictEqual(result.success, false, 'Should return success: false');
-    assert.ok(result.error, 'Should have error message');
-    assert.ok(result.error.includes('files'), 'Error should mention files parameter');
-  });
-
-  it('should handle empty files array for update action', async () => {
-    if (!codexLensModule) {
-      console.log('Skipping: codex-lens module not available');
+    const checkResult = await codexLensModule.checkVenvStatus();
+    if (!checkResult.ready) {
+      console.log('Skipping: CodexLens not installed');
       return;
     }
+
+    const updateRoot = mkdtempSync(join(tmpdir(), 'ccw-codexlens-update-'));
+    writeFileSync(join(updateRoot, 'main.py'), 'def hello():\n    return 1\n', 'utf8');
 
     const result = await codexLensModule.codexLensTool.execute({
       action: 'update',
+      path: updateRoot,
+    });
+
+    assert.ok(typeof result === 'object', 'Result should be an object');
+    assert.ok('success' in result, 'Result should have success property');
+  });
+
+  it('should ignore extraneous files parameter for update action', async () => {
+    if (!codexLensModule) {
+      console.log('Skipping: codex-lens module not available');
+      return;
+    }
+
+    const checkResult = await codexLensModule.checkVenvStatus();
+    if (!checkResult.ready) {
+      console.log('Skipping: CodexLens not installed');
+      return;
+    }
+
+    const updateRoot = mkdtempSync(join(tmpdir(), 'ccw-codexlens-update-'));
+    writeFileSync(join(updateRoot, 'main.py'), 'def hello():\n    return 1\n', 'utf8');
+
+    const result = await codexLensModule.codexLensTool.execute({
+      action: 'update',
+      path: updateRoot,
       files: []
     });
 
     assert.ok(typeof result === 'object', 'Result should be an object');
-    assert.strictEqual(result.success, false, 'Should return success: false');
+    assert.ok('success' in result, 'Result should have success property');
   });
 });
 

@@ -3,6 +3,7 @@
 import pytest
 import sqlite3
 import tempfile
+import time
 from pathlib import Path
 
 from codexlens.search.hybrid_search import HybridSearchEngine
@@ -14,6 +15,22 @@ try:
     SEMANTIC_DEPS_AVAILABLE = SEMANTIC_AVAILABLE
 except ImportError:
     SEMANTIC_DEPS_AVAILABLE = False
+
+
+def _safe_unlink(path: Path, retries: int = 5, delay_s: float = 0.05) -> None:
+    """Best-effort unlink for Windows where SQLite can keep files locked briefly."""
+    for attempt in range(retries):
+        try:
+            path.unlink()
+            return
+        except FileNotFoundError:
+            return
+        except PermissionError:
+            time.sleep(delay_s * (attempt + 1))
+    try:
+        path.unlink(missing_ok=True)
+    except (PermissionError, OSError):
+        pass
 
 
 class TestPureVectorSearch:
@@ -48,7 +65,7 @@ class TestPureVectorSearch:
         store.close()
 
         if db_path.exists():
-            db_path.unlink()
+            _safe_unlink(db_path)
 
     def test_pure_vector_without_embeddings(self, sample_db):
         """Test pure_vector mode returns empty when no embeddings exist."""
@@ -200,12 +217,8 @@ def login_handler(credentials: dict) -> bool:
         yield db_path
         store.close()
 
-        # Ignore file deletion errors on Windows (SQLite file lock)
-        try:
-            if db_path.exists():
-                db_path.unlink()
-        except PermissionError:
-            pass  # Ignore Windows file lock errors
+        if db_path.exists():
+            _safe_unlink(db_path)
 
     def test_pure_vector_with_embeddings(self, db_with_embeddings):
         """Test pure vector search returns results when embeddings exist."""
@@ -289,7 +302,7 @@ class TestSearchModeComparison:
         store.close()
 
         if db_path.exists():
-            db_path.unlink()
+            _safe_unlink(db_path)
 
     def test_mode_comparison_without_embeddings(self, comparison_db):
         """Compare all search modes without embeddings."""

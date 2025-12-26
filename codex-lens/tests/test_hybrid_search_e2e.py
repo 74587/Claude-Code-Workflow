@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from codexlens.config import Config
 from codexlens.entities import SearchResult
 from codexlens.search.hybrid_search import HybridSearchEngine
 from codexlens.storage.dir_index import DirIndexStore
@@ -774,3 +775,97 @@ class TestHybridSearchWithVectorMock:
                 assert hasattr(result, 'score')
                 assert result.score > 0  # RRF fusion scores are positive
 
+
+class TestHybridSearchAdaptiveWeights:
+    """Integration tests for adaptive RRF weights + reranking gating."""
+
+    def test_adaptive_weights_code_query(self):
+        """Exact weight should dominate for code-like queries."""
+        from unittest.mock import patch
+
+        engine = HybridSearchEngine()
+
+        results_map = {
+            "exact": [SearchResult(path="a.py", score=10.0, excerpt="a")],
+            "fuzzy": [SearchResult(path="b.py", score=9.0, excerpt="b")],
+            "vector": [SearchResult(path="c.py", score=0.9, excerpt="c")],
+        }
+
+        captured = {}
+        from codexlens.search import ranking as ranking_module
+
+        def capture_rrf(map_in, weights_in, k=60):
+            captured["weights"] = dict(weights_in)
+            return ranking_module.reciprocal_rank_fusion(map_in, weights_in, k=k)
+
+        with patch.object(HybridSearchEngine, "_search_parallel", return_value=results_map), patch(
+            "codexlens.search.hybrid_search.reciprocal_rank_fusion",
+            side_effect=capture_rrf,
+        ):
+            engine.search(Path("dummy.db"), "def authenticate", enable_vector=True)
+
+        assert captured["weights"]["exact"] > 0.4
+
+    def test_adaptive_weights_nl_query(self):
+        """Vector weight should dominate for natural-language queries."""
+        from unittest.mock import patch
+
+        engine = HybridSearchEngine()
+
+        results_map = {
+            "exact": [SearchResult(path="a.py", score=10.0, excerpt="a")],
+            "fuzzy": [SearchResult(path="b.py", score=9.0, excerpt="b")],
+            "vector": [SearchResult(path="c.py", score=0.9, excerpt="c")],
+        }
+
+        captured = {}
+        from codexlens.search import ranking as ranking_module
+
+        def capture_rrf(map_in, weights_in, k=60):
+            captured["weights"] = dict(weights_in)
+            return ranking_module.reciprocal_rank_fusion(map_in, weights_in, k=k)
+
+        with patch.object(HybridSearchEngine, "_search_parallel", return_value=results_map), patch(
+            "codexlens.search.hybrid_search.reciprocal_rank_fusion",
+            side_effect=capture_rrf,
+        ):
+            engine.search(Path("dummy.db"), "how to handle user login", enable_vector=True)
+
+        assert captured["weights"]["vector"] > 0.6
+
+    def test_reranking_enabled(self, tmp_path):
+        """Reranking runs only when explicitly enabled via config."""
+        from unittest.mock import patch
+
+        results_map = {
+            "exact": [SearchResult(path="a.py", score=10.0, excerpt="a")],
+            "fuzzy": [SearchResult(path="b.py", score=9.0, excerpt="b")],
+            "vector": [SearchResult(path="c.py", score=0.9, excerpt="c")],
+        }
+
+        class DummyEmbedder:
+            def embed(self, texts):
+                if isinstance(texts, str):
+                    texts = [texts]
+                return [[1.0, 0.0] for _ in texts]
+
+        # Disabled: should not invoke rerank_results
+        config_off = Config(data_dir=tmp_path / "off", enable_reranking=False)
+        engine_off = HybridSearchEngine(config=config_off, embedder=DummyEmbedder())
+
+        with patch.object(HybridSearchEngine, "_search_parallel", return_value=results_map), patch(
+            "codexlens.search.hybrid_search.rerank_results"
+        ) as rerank_mock:
+            engine_off.search(Path("dummy.db"), "query", enable_vector=True)
+            rerank_mock.assert_not_called()
+
+        # Enabled: should invoke rerank_results once
+        config_on = Config(data_dir=tmp_path / "on", enable_reranking=True, reranking_top_k=10)
+        engine_on = HybridSearchEngine(config=config_on, embedder=DummyEmbedder())
+
+        with patch.object(HybridSearchEngine, "_search_parallel", return_value=results_map), patch(
+            "codexlens.search.hybrid_search.rerank_results",
+            side_effect=lambda q, r, e, top_k=50: r,
+        ) as rerank_mock:
+            engine_on.search(Path("dummy.db"), "query", enable_vector=True)
+            assert rerank_mock.call_count == 1

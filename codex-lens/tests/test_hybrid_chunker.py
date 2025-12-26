@@ -551,3 +551,72 @@ class UserProfile:
         # Verify <15% overhead (reasonable threshold for performance tests with system variance)
         assert overhead < 15.0, f"Overhead {overhead:.2f}% exceeds 15% threshold (base={base_time:.4f}s, hybrid={hybrid_time:.4f}s)"
 
+
+class TestHybridChunkerV1Optimizations:
+    """Tests for v1.0 optimization behaviors (parent metadata + determinism)."""
+
+    def test_merged_docstring_metadata(self):
+        """Docstring chunks include parent_symbol metadata when applicable."""
+        config = ChunkConfig(min_chunk_size=1)
+        chunker = HybridChunker(config=config)
+
+        content = '''"""Module docstring."""
+
+def hello():
+    """Function docstring."""
+    return 1
+'''
+        symbols = [Symbol(name="hello", kind="function", range=(3, 5))]
+
+        chunks = chunker.chunk_file(content, symbols, "m.py", "python")
+        func_doc_chunks = [
+            c for c in chunks
+            if c.metadata.get("chunk_type") == "docstring" and c.metadata.get("start_line") == 4
+        ]
+        assert len(func_doc_chunks) == 1
+        assert func_doc_chunks[0].metadata.get("parent_symbol") == "hello"
+        assert func_doc_chunks[0].metadata.get("parent_symbol_kind") == "function"
+
+    def test_deterministic_chunk_boundaries(self):
+        """Chunk boundaries are stable across repeated runs on identical input."""
+        config = ChunkConfig(max_chunk_size=80, overlap=10, min_chunk_size=1)
+        chunker = HybridChunker(config=config)
+
+        # No docstrings, no symbols -> sliding window path.
+        content = "\n".join([f"line {i}: x = {i}" for i in range(1, 200)]) + "\n"
+
+        boundaries = []
+        for _ in range(3):
+            chunks = chunker.chunk_file(content, [], "deterministic.py", "python")
+            boundaries.append([
+                (c.metadata.get("start_line"), c.metadata.get("end_line"))
+                for c in chunks
+                if c.metadata.get("chunk_type") == "code"
+            ])
+
+        assert boundaries[0] == boundaries[1] == boundaries[2]
+
+    def test_orphan_docstrings(self):
+        """Module-level docstrings remain standalone (no parent_symbol assigned)."""
+        config = ChunkConfig(min_chunk_size=1)
+        chunker = HybridChunker(config=config)
+
+        content = '''"""Module-level docstring."""
+
+def hello():
+    """Function docstring."""
+    return 1
+'''
+        symbols = [Symbol(name="hello", kind="function", range=(3, 5))]
+        chunks = chunker.chunk_file(content, symbols, "orphan.py", "python")
+
+        module_doc = [
+            c for c in chunks
+            if c.metadata.get("chunk_type") == "docstring" and c.metadata.get("start_line") == 1
+        ]
+        assert len(module_doc) == 1
+        assert module_doc[0].metadata.get("parent_symbol") is None
+
+        code_chunks = [c for c in chunks if c.metadata.get("chunk_type") == "code"]
+        assert code_chunks, "Expected at least one code chunk"
+        assert all("Module-level docstring" not in c.content for c in code_chunks)

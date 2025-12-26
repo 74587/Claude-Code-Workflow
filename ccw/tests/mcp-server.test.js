@@ -77,7 +77,7 @@ describe('MCP Server', () => {
     const toolNames = response.result.tools.map(t => t.name);
     assert(toolNames.includes('edit_file'));
     assert(toolNames.includes('write_file'));
-    assert(toolNames.includes('codex_lens'));
+    assert(toolNames.includes('smart_search'));
   });
 
   it('should respond to tools/call request', async () => {

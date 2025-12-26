@@ -37,6 +37,7 @@ Generate comprehensive project analysis reports through multi-phase iterative wo
 2. **简要返回**: Agent 只返回路径+摘要，不返回完整内容
 3. **汇总 Agent**: 独立 Agent 负责跨章节问题检测和质量评分
 4. **引用合并**: Phase 4 读取文件合并，不在上下文中传递
+5. **段落式描述**: 禁止清单罗列，层层递进，客观学术表达
 
 ## Execution Flow
 
@@ -157,4 +158,5 @@ Bash(`mkdir "${dir}\\iterations"`);
 | [phases/04-report-generation.md](phases/04-report-generation.md) | Report assembly |
 | [phases/05-iterative-refinement.md](phases/05-iterative-refinement.md) | Quality refinement |
 | [specs/quality-standards.md](specs/quality-standards.md) | Quality gates, standards |
+| [specs/writing-style.md](specs/writing-style.md) | 段落式学术写作规范 |
 | [../_shared/mermaid-utils.md](../_shared/mermaid-utils.md) | Shared Mermaid utilities |

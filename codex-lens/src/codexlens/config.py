@@ -103,6 +103,11 @@ class Config:
     # Indexing/search optimizations
     global_symbol_index_enabled: bool = True  # Enable project-wide symbol index fast path
 
+    # Optional search reranking (disabled by default)
+    enable_reranking: bool = False
+    reranking_top_k: int = 50
+    symbol_boost_factor: float = 1.5
+
     # Multi-endpoint configuration for litellm backend
     embedding_endpoints: List[Dict[str, Any]] = field(default_factory=list)
     # List of endpoint configs: [{"model": "...", "api_key": "...", "api_base": "...", "weight": 1.0}]

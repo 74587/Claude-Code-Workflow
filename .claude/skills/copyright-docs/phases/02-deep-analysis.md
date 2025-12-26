@@ -5,6 +5,22 @@
 > **模板参考**: [../templates/agent-base.md](../templates/agent-base.md)
 > **规范参考**: [../specs/cpcc-requirements.md](../specs/cpcc-requirements.md)
 
+## Agent 执行前置条件
+
+**每个 Agent 必须首先读取以下规范文件**：
+
+```javascript
+// Agent 启动时的第一步操作
+const specs = {
+  cpcc: Read(`${skillRoot}/specs/cpcc-requirements.md`)
+};
+```
+
+规范文件路径（相对于 skill 根目录）：
+- `specs/cpcc-requirements.md` - CPCC 软著申请规范要求
+
+---
+
 ## Agent 配置
 
 | Agent | 输出文件 | 章节 |
@@ -60,7 +76,13 @@ return { summaries, cross_notes: summaries.flatMap(s => s.cross_module_notes) };
 ```javascript
 Task({
   subagent_type: "cli-explore-agent",
+  run_in_background: false,
   prompt: `
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/cpcc-requirements.md
+严格遵循 CPCC 软著申请规范要求。
+
 [ROLE] 系统架构师，专注于分层设计和模块依赖。
 
 [TASK]
@@ -113,7 +135,13 @@ graph TD
 ```javascript
 Task({
   subagent_type: "cli-explore-agent",
+  run_in_background: false,
   prompt: `
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/cpcc-requirements.md
+严格遵循 CPCC 软著申请规范要求。
+
 [ROLE] 功能分析师，专注于功能点识别和交互。
 
 [TASK]
@@ -167,7 +195,13 @@ flowchart TD
 ```javascript
 Task({
   subagent_type: "cli-explore-agent",
+  run_in_background: false,
   prompt: `
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/cpcc-requirements.md
+严格遵循 CPCC 软著申请规范要求。
+
 [ROLE] 算法工程师，专注于核心逻辑和复杂度分析。
 
 [TASK]
@@ -226,7 +260,13 @@ flowchart TD
 ```javascript
 Task({
   subagent_type: "cli-explore-agent",
+  run_in_background: false,
   prompt: `
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/cpcc-requirements.md
+严格遵循 CPCC 软著申请规范要求。
+
 [ROLE] 数据建模师，专注于实体关系和类型定义。
 
 [TASK]
@@ -280,7 +320,13 @@ classDiagram
 ```javascript
 Task({
   subagent_type: "cli-explore-agent",
+  run_in_background: false,
   prompt: `
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/cpcc-requirements.md
+严格遵循 CPCC 软著申请规范要求。
+
 [ROLE] API设计师，专注于接口契约和协议。
 
 [TASK]
@@ -343,7 +389,13 @@ sequenceDiagram
 ```javascript
 Task({
   subagent_type: "cli-explore-agent",
+  run_in_background: false,
   prompt: `
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/cpcc-requirements.md
+严格遵循 CPCC 软著申请规范要求。
+
 [ROLE] 可靠性工程师，专注于异常处理和恢复策略。
 
 [TASK]

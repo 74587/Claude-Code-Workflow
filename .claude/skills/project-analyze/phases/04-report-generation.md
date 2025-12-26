@@ -1,8 +1,15 @@
 # Phase 4: Report Generation
 
-合并所有章节文件，生成最终分析报告。
+生成索引式报告，通过 markdown 链接引用章节文件。
 
 > **规范参考**: [../specs/quality-standards.md](../specs/quality-standards.md)
+
+## 设计原则
+
+1. **引用而非嵌入**：主报告通过链接引用章节，不复制内容
+2. **索引 + 综述**：主报告提供导航和高阶分析
+3. **避免重复**：综述来自 consolidation，不重新生成
+4. **独立可读**：各章节文件可单独阅读
 
 ## 输入
 
@@ -14,6 +21,8 @@ interface ReportInput {
     quality_score: QualityScore;
     issues: { errors: Issue[], warnings: Issue[], info: Issue[] };
     stats: Stats;
+    synthesis: string;  // consolidation agent 的综合分析
+    section_summaries: Array<{file: string, summary: string}>;
   };
 }
 ```
@@ -21,7 +30,7 @@ interface ReportInput {
 ## 执行流程
 
 ```javascript
-// 1. 检查质量门禁
+// 1. 质量门禁检查
 if (consolidation.issues.errors.length > 0) {
   const response = await AskUserQuestion({
     questions: [{
@@ -44,259 +53,165 @@ if (consolidation.issues.errors.length > 0) {
   }
 }
 
-// 2. 读取章节文件
-const sectionFiles = Glob(`${outputDir}/sections/section-*.md`);
-const sections = sectionFiles.map(f => Read(f));
+// 2. 生成索引式报告（不读取章节内容）
+const report = generateIndexReport(config, consolidation);
 
-// 3. 读取汇总报告
-const summary = Read(`${outputDir}/consolidation-summary.md`);
-
-// 4. 装配报告
-const report = assembleReport(config, sections, summary);
-
-// 5. 写入最终文件
+// 3. 写入最终文件
 const fileName = `${config.type.toUpperCase()}-REPORT.md`;
 Write(`${outputDir}/${fileName}`, report);
 ```
 
-## 报告结构
+## 报告模板
 
-### Architecture Report
-
-```markdown
-# Architecture Report
-
-> Generated: {date}
-> Scope: {config.scope}
-> Quality Score: {overall}%
-
-## Executive Summary
-
-{3-5 key takeaways from consolidation-summary}
-
----
-
-{section-overview.md 内容}
-
----
-
-{section-layers.md 内容}
-
----
-
-{section-dependencies.md 内容}
-
----
-
-{section-dataflow.md 内容}
-
----
-
-{section-entrypoints.md 内容}
-
----
-
-## Recommendations
-
-{从各章节汇总的建议}
-
----
-
-## Appendix: Quality Report
-
-{consolidation-summary.md 的质量评分和问题列表}
-```
-
-### Design Report
+### 通用结构
 
 ```markdown
-# Design Report
+# {报告标题}
 
-> Generated: {date}
-> Scope: {config.scope}
-> Quality Score: {overall}%
-
-## Executive Summary
-
-{3-5 key takeaways}
+> 生成日期：{date}
+> 分析范围：{scope}
+> 分析深度：{depth}
+> 质量评分：{overall}%
 
 ---
 
-{section-patterns.md 内容}
+## 报告综述
+
+{consolidation.synthesis - 来自汇总 Agent 的跨章节综合分析}
 
 ---
 
-{section-classes.md 内容}
+## 章节索引
+
+| 章节 | 核心发现 | 详情 |
+|------|----------|------|
+{section_summaries 生成的表格行}
 
 ---
 
-{section-interfaces.md 内容}
+## 架构洞察
+
+{从 consolidation 提取的跨模块关联分析}
 
 ---
 
-{section-state.md 内容}
+## 建议与展望
+
+{consolidation.recommendations - 优先级排序的综合建议}
 
 ---
 
-## Design Recommendations
+**附录**
 
-{汇总的设计建议}
-
----
-
-## Appendix: Quality Report
-
-{质量评分}
+- [质量报告](./consolidation-summary.md)
+- [章节文件目录](./sections/)
 ```
 
-### Methods Report
+### 报告标题映射
 
-```markdown
-# Key Methods Report
+| 类型 | 标题 |
+|------|------|
+| architecture | 项目架构设计报告 |
+| design | 项目设计模式报告 |
+| methods | 项目核心方法报告 |
+| comprehensive | 项目综合分析报告 |
 
-> Generated: {date}
-> Scope: {config.scope}
-> Quality Score: {overall}%
-
-## Executive Summary
-
-{3-5 key takeaways}
-
----
-
-{section-algorithms.md 内容}
-
----
-
-{section-paths.md 内容}
-
----
-
-{section-apis.md 内容}
-
----
-
-{section-logic.md 内容}
-
----
-
-## Optimization Suggestions
-
-{汇总的优化建议}
-
----
-
-## Appendix: Quality Report
-
-{质量评分}
-```
-
-## 装配函数
+## 生成函数
 
 ```javascript
-function assembleReport(config, sections, summary) {
-  const reportTitles = {
-    architecture: "Architecture Report",
-    design: "Design Report",
-    methods: "Key Methods Report",
-    comprehensive: "Comprehensive Project Analysis"
+function generateIndexReport(config, consolidation) {
+  const titles = {
+    architecture: "项目架构设计报告",
+    design: "项目设计模式报告",
+    methods: "项目核心方法报告",
+    comprehensive: "项目综合分析报告"
   };
 
-  const header = `# ${reportTitles[config.type]}
+  const date = new Date().toLocaleDateString('zh-CN');
 
-> Generated: ${new Date().toLocaleDateString('zh-CN')}
-> Scope: ${config.scope}
-> Depth: ${config.depth}
-> Quality Score: ${summary.quality_score?.overall || 'N/A'}%
+  // 章节索引表格
+  const sectionTable = consolidation.section_summaries
+    .map(s => `| ${s.title} | ${s.summary} | [查看详情](./sections/${s.file}) |`)
+    .join('\n');
 
+  return `# ${titles[config.type]}
+
+> 生成日期：${date}
+> 分析范围：${config.scope}
+> 分析深度：${config.depth}
+> 质量评分：${consolidation.quality_score.overall}%
+
+---
+
+## 报告综述
+
+${consolidation.synthesis}
+
+---
+
+## 章节索引
+
+| 章节 | 核心发现 | 详情 |
+|------|----------|------|
+${sectionTable}
+
+---
+
+## 架构洞察
+
+${consolidation.cross_analysis || '详见各章节分析。'}
+
+---
+
+## 建议与展望
+
+${consolidation.recommendations || '详见质量报告中的改进建议。'}
+
+---
+
+**附录**
+
+- [质量报告](./consolidation-summary.md)
+- [章节文件目录](./sections/)
 `;
-
-  // Executive Summary from consolidation
-  const execSummary = generateExecutiveSummary(summary, config.type);
-
-  // Merge sections
-  const mainContent = sections.join('\n\n---\n\n');
-
-  // Recommendations from sections
-  const recommendations = extractRecommendations(sections, config.type);
-
-  // Quality appendix
-  const appendix = generateQualityAppendix(summary);
-
-  return header + execSummary + '\n\n---\n\n' + mainContent + '\n\n' + recommendations + '\n\n' + appendix;
-}
-
-function generateExecutiveSummary(summary, type) {
-  return `## Executive Summary
-
-### Key Findings
-${summary.key_findings?.map(f => `- ${f}`).join('\n') || '- See detailed sections below'}
-
-### Quality Overview
-| Dimension | Score |
-|-----------|-------|
-| Completeness | ${summary.quality_score?.completeness || 'N/A'}% |
-| Consistency | ${summary.quality_score?.consistency || 'N/A'}% |
-| Depth | ${summary.quality_score?.depth || 'N/A'}% |
-
-### Issues Summary
-- Errors: ${summary.issues?.errors?.length || 0}
-- Warnings: ${summary.issues?.warnings?.length || 0}
-- Suggestions: ${summary.issues?.info?.length || 0}
-`;
-}
-
-function extractRecommendations(sections, type) {
-  const recommendationTitles = {
-    architecture: "## Architectural Recommendations",
-    design: "## Design Recommendations",
-    methods: "## Optimization Suggestions",
-    comprehensive: "## Recommendations & Next Steps"
-  };
-
-  // Extract recommendation sections from each section file
-  let recommendations = `${recommendationTitles[type]}\n\n`;
-
-  // Aggregate from sections
-  recommendations += "Based on the analysis, the following recommendations are prioritized:\n\n";
-  recommendations += "1. **High Priority**: Address critical issues identified in the quality report\n";
-  recommendations += "2. **Medium Priority**: Resolve warnings to improve code quality\n";
-  recommendations += "3. **Low Priority**: Consider enhancement suggestions for future iterations\n";
-
-  return recommendations;
-}
-
-function generateQualityAppendix(summary) {
-  return `---
-
-## Appendix: Quality Report
-
-### Overall Score: ${summary.quality_score?.overall || 'N/A'}%
-
-| Dimension | Score | Status |
-|-----------|-------|--------|
-| Completeness | ${summary.quality_score?.completeness || 'N/A'}% | ${getStatus(summary.quality_score?.completeness)} |
-| Consistency | ${summary.quality_score?.consistency || 'N/A'}% | ${getStatus(summary.quality_score?.consistency)} |
-| Depth | ${summary.quality_score?.depth || 'N/A'}% | ${getStatus(summary.quality_score?.depth)} |
-| Readability | ${summary.quality_score?.readability || 'N/A'}% | ${getStatus(summary.quality_score?.readability)} |
-
-### Statistics
-- Total Sections: ${summary.stats?.total_sections || 'N/A'}
-- Total Diagrams: ${summary.stats?.total_diagrams || 'N/A'}
-- Total Code References: ${summary.stats?.total_code_refs || 'N/A'}
-- Total Words: ${summary.stats?.total_words || 'N/A'}
-`;
-}
-
-function getStatus(score) {
-  if (!score) return '?';
-  if (score >= 90) return 'PASS';
-  if (score >= 70) return 'WARNING';
-  return 'FAIL';
 }
 ```
 
-## Output
+## 输出结构
 
-- 最终报告: `{TYPE}-REPORT.md`
-- 保留原始章节文件供追溯
+```
+.workflow/.scratchpad/analyze-{timestamp}/
+├── sections/                    # 独立章节（Phase 3 产出）
+│   ├── section-overview.md
+│   ├── section-layers.md
+│   └── ...
+├── consolidation-summary.md     # 质量报告（Phase 3.5 产出）
+└── {TYPE}-REPORT.md             # 索引报告（本阶段产出）
+```
+
+## 与 Phase 3.5 的协作
+
+Phase 3.5 consolidation agent 需要提供：
+
+```typescript
+interface ConsolidationOutput {
+  // ... 原有字段
+  synthesis: string;           // 跨章节综合分析（2-3 段落）
+  cross_analysis: string;      // 架构级关联洞察
+  recommendations: string;     // 优先级排序的建议
+  section_summaries: Array<{
+    file: string;              // 文件名
+    title: string;             // 章节标题
+    summary: string;           // 一句话核心发现
+  }>;
+}
+```
+
+## 关键变更
+
+| 原设计 | 新设计 |
+|--------|--------|
+| 读取章节内容并拼接 | 链接引用，不读取内容 |
+| 重新生成 Executive Summary | 直接使用 consolidation.synthesis |
+| 嵌入质量评分表格 | 链接引用 consolidation-summary.md |
+| 主报告包含全部内容 | 主报告仅为索引 + 综述 |

@@ -392,6 +392,22 @@ class HybridChunker:
                 filtered.append(symbol)
         return filtered
 
+    def _find_parent_symbol(
+        self,
+        start_line: int,
+        end_line: int,
+        symbols: List[Symbol],
+    ) -> Optional[Symbol]:
+        """Find the smallest symbol range that fully contains a docstring span."""
+        candidates: List[Symbol] = []
+        for symbol in symbols:
+            sym_start, sym_end = symbol.range
+            if sym_start <= start_line and end_line <= sym_end:
+                candidates.append(symbol)
+        if not candidates:
+            return None
+        return min(candidates, key=lambda s: (s.range[1] - s.range[0], s.range[0]))
+
     def chunk_file(
         self,
         content: str,
@@ -414,24 +430,53 @@ class HybridChunker:
         chunks: List[SemanticChunk] = []
 
         # Step 1: Extract docstrings as dedicated chunks
-        docstrings = self.docstring_extractor.extract_docstrings(content, language)
+        docstrings: List[Tuple[str, int, int]] = []
+        if language == "python":
+            # Fast path: avoid expensive docstring extraction if delimiters are absent.
+            if '"""' in content or "'''" in content:
+                docstrings = self.docstring_extractor.extract_docstrings(content, language)
+        elif language in {"javascript", "typescript"}:
+            if "/**" in content:
+                docstrings = self.docstring_extractor.extract_docstrings(content, language)
+        else:
+            docstrings = self.docstring_extractor.extract_docstrings(content, language)
+
+        # Fast path: no docstrings -> delegate to base chunker directly.
+        if not docstrings:
+            if symbols:
+                base_chunks = self.base_chunker.chunk_by_symbol(
+                    content, symbols, file_path, language, symbol_token_counts
+                )
+            else:
+                base_chunks = self.base_chunker.chunk_sliding_window(content, file_path, language)
+
+            for chunk in base_chunks:
+                chunk.metadata["strategy"] = "hybrid"
+                chunk.metadata["chunk_type"] = "code"
+            return base_chunks
 
         for docstring_content, start_line, end_line in docstrings:
             if len(docstring_content.strip()) >= self.config.min_chunk_size:
+                parent_symbol = self._find_parent_symbol(start_line, end_line, symbols)
                 # Use base chunker's token estimation method
                 token_count = self.base_chunker._estimate_token_count(docstring_content)
+                metadata = {
+                    "file": str(file_path),
+                    "language": language,
+                    "chunk_type": "docstring",
+                    "start_line": start_line,
+                    "end_line": end_line,
+                    "strategy": "hybrid",
+                    "token_count": token_count,
+                }
+                if parent_symbol is not None:
+                    metadata["parent_symbol"] = parent_symbol.name
+                    metadata["parent_symbol_kind"] = parent_symbol.kind
+                    metadata["parent_symbol_range"] = parent_symbol.range
                 chunks.append(SemanticChunk(
                     content=docstring_content,
                     embedding=None,
-                    metadata={
-                        "file": str(file_path),
-                        "language": language,
-                        "chunk_type": "docstring",
-                        "start_line": start_line,
-                        "end_line": end_line,
-                        "strategy": "hybrid",
-                        "token_count": token_count,
-                    }
+                    metadata=metadata
                 ))
 
         # Step 2: Get line ranges occupied by docstrings

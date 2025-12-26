@@ -13,7 +13,7 @@ class TestChunkConfig:
         """Test default configuration values."""
         config = ChunkConfig()
         assert config.max_chunk_size == 1000
-        assert config.overlap == 100
+        assert config.overlap == 200
         assert config.min_chunk_size == 50
 
     def test_custom_config(self):

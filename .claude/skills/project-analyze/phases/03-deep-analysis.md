@@ -1,44 +1,77 @@
 # Phase 3: Deep Analysis
 
-并行 Agent 直接写入 MD 章节文件，返回简要信息。
+并行 Agent 撰写设计报告章节，返回简要信息。
 
 > **规范参考**: [../specs/quality-standards.md](../specs/quality-standards.md)
+> **写作风格**: [../specs/writing-style.md](../specs/writing-style.md)
 
-## Agent 配置
+## Agent 执行前置条件
 
-根据报告类型，使用不同的 Agent 配置：
+**每个 Agent 必须首先读取以下规范文件**：
 
-### Architecture Report Agents
+```javascript
+// Agent 启动时的第一步操作
+const specs = {
+  quality: Read(`${skillRoot}/specs/quality-standards.md`),
+  style: Read(`${skillRoot}/specs/writing-style.md`)
+};
+```
 
-| Agent | 输出文件 | 章节 |
-|-------|----------|------|
-| overview | sections/section-overview.md | System Overview |
-| layers | sections/section-layers.md | Layer Analysis |
-| dependencies | sections/section-dependencies.md | Module Dependencies |
-| dataflow | sections/section-dataflow.md | Data Flow |
-| entrypoints | sections/section-entrypoints.md | Entry Points & Critical Paths |
-
-### Design Report Agents
-
-| Agent | 输出文件 | 章节 |
-|-------|----------|------|
-| patterns | sections/section-patterns.md | Design Patterns Used |
-| classes | sections/section-classes.md | Class Relationships |
-| interfaces | sections/section-interfaces.md | Interface Contracts |
-| state | sections/section-state.md | State Management |
-
-### Methods Report Agents
-
-| Agent | 输出文件 | 章节 |
-|-------|----------|------|
-| algorithms | sections/section-algorithms.md | Core Algorithms |
-| paths | sections/section-paths.md | Critical Code Paths |
-| apis | sections/section-apis.md | Public API Reference |
-| logic | sections/section-logic.md | Complex Logic Breakdown |
+规范文件路径（相对于 skill 根目录）：
+- `specs/quality-standards.md` - 质量标准和检查清单
+- `specs/writing-style.md` - 段落式写作规范
 
 ---
 
-## 通用 Agent 返回格式
+## 通用写作规范（所有 Agent 共用）
+
+```
+[STYLE]
+- **语言规范**：使用严谨、专业的中文进行技术写作。仅专业术语（如 Singleton, Middleware, ORM）保留英文原文。
+- **叙述视角**：采用完全客观的第三人称视角（"上帝视角"）。严禁使用"我们"、"开发者"、"用户"、"你"或"我"。主语应为"系统"、"模块"、"设计"、"架构"或"该层"。
+- **段落结构**：
+    - 禁止使用无序列表作为主要叙述方式，必须将观点融合在连贯的段落中。
+    - 采用"论点-论据-结论"的逻辑结构。
+    - 善用逻辑连接词（"因此"、"然而"、"鉴于"、"进而"）来体现设计思路的推演过程。
+- **内容深度**：
+    - 抽象化：描述"做什么"和"为什么这么做"，而不是"怎么写的"。
+    - 方法论：强调设计模式、架构原则（如 SOLID、高内聚低耦合）的应用。
+    - 非代码化：除非定义关键接口，否则不直接引用代码。文件引用仅作为括号内的来源标注 (参考: path/to/file)。
+```
+
+## Agent 配置
+
+### Architecture Report Agents
+
+| Agent | 输出文件 | 关注点 |
+|-------|----------|--------|
+| overview | section-overview.md | 顶层架构、技术决策、设计哲学 |
+| layers | section-layers.md | 逻辑分层、职责边界、隔离策略 |
+| dependencies | section-dependencies.md | 依赖治理、集成拓扑、风险控制 |
+| dataflow | section-dataflow.md | 数据流向、转换机制、一致性保障 |
+| entrypoints | section-entrypoints.md | 入口设计、调用链、异常传播 |
+
+### Design Report Agents
+
+| Agent | 输出文件 | 关注点 |
+|-------|----------|--------|
+| patterns | section-patterns.md | 架构模式、通信机制、横切关注点 |
+| classes | section-classes.md | 类型体系、继承策略、职责划分 |
+| interfaces | section-interfaces.md | 契约设计、抽象层次、扩展机制 |
+| state | section-state.md | 状态模型、生命周期、并发控制 |
+
+### Methods Report Agents
+
+| Agent | 输出文件 | 关注点 |
+|-------|----------|--------|
+| algorithms | section-algorithms.md | 核心算法思想、复杂度权衡、优化策略 |
+| paths | section-paths.md | 关键路径设计、性能敏感点、瓶颈分析 |
+| apis | section-apis.md | API 设计规范、版本策略、兼容性 |
+| logic | section-logic.md | 业务逻辑建模、决策机制、边界处理 |
+
+---
+
+## Agent 返回格式
 
 ```typescript
 interface AgentReturn {
@@ -46,111 +79,92 @@ interface AgentReturn {
   output_file: string;
   summary: string;               // 50字以内
   cross_module_notes: string[];  // 跨模块发现
-  stats: {
-    diagrams: number;
-    code_refs: number;
-  };
+  stats: { diagrams: number; };
 }
 ```
 
 ---
 
-## Agent 提示词模板
+## Agent 提示词
 
-### Overview Agent (Architecture)
+### Overview Agent
 
 ```javascript
 Task({
   subagent_type: "cli-explore-agent",
+  run_in_background: false,
   prompt: `
-[ROLE] 系统架构师，专注于系统全貌和核心组件。
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/quality-standards.md
+- Read: ${skillRoot}/specs/writing-style.md
+严格遵循规范中的质量标准和段落式写作要求。
+
+[ROLE] 首席系统架构师
 
 [TASK]
-分析 ${config.scope}，生成 System Overview 章节。
+基于代码库的全貌，撰写《系统架构设计报告》的"总体架构"章节。透过代码表象，洞察系统的核心价值主张和顶层技术决策。
 输出: ${outDir}/sections/section-overview.md
 
-[QUALITY_SPEC]
-- 内容基于代码分析，无臆测
-- 代码引用格式: \`file:line\`
-- 每个子章节 ≥100字
-- 包含至少1个 Mermaid 图表
-
-[TEMPLATE]
-## System Overview
-
-### Project Summary
-{项目概述，技术栈，核心功能}
-
-### Architecture Diagram
-\`\`\`mermaid
-graph TD
-    subgraph Core["核心层"]
-        A[组件A]
-    end
-\`\`\`
-
-### Key Components
-| 组件 | 职责 | 文件 |
-|------|------|------|
-
-### Technology Stack
-| 技术 | 用途 | 版本 |
-|------|------|------|
+[STYLE]
+- 严谨专业的中文技术写作，专业术语保留英文
+- 完全客观的第三人称视角，严禁"我们"、"开发者"
+- 段落式叙述，采用"论点-论据-结论"结构
+- 善用逻辑连接词体现设计推演过程
+- 描述"做什么"和"为什么"，非"怎么写的"
+- 不直接引用代码，文件仅作来源标注
 
 [FOCUS]
-1. 项目定位和核心功能
-2. 技术栈和依赖
-3. 核心组件及职责
-4. 整体架构模式
+- 领域边界与定位：系统旨在解决什么核心业务问题？其在更大的技术生态中处于什么位置？
+- 架构范式：采用何种架构风格（分层、六边形、微服务、事件驱动等）？选择该范式的根本原因是什么？
+- 核心技术决策：关键技术栈的选型依据，这些选型如何支撑系统的非功能性需求（性能、扩展性、维护性）
+- 顶层模块划分：系统在最高层级被划分为哪些逻辑单元？它们之间的高层协作机制是怎样的？
+
+[CONSTRAINT]
+- 避免罗列目录结构
+- 重点阐述"设计意图"而非"现有功能"
+- 包含至少1个 Mermaid 架构图辅助说明
 
 [RETURN JSON]
-{"status":"completed","output_file":"section-overview.md","summary":"<50字>","cross_module_notes":[],"stats":{"diagrams":1,"code_refs":5}}
+{"status":"completed","output_file":"section-overview.md","summary":"<50字>","cross_module_notes":[],"stats":{"diagrams":1}}
 `
 })
 ```
 
-### Layers Agent (Architecture)
+### Layers Agent
 
 ```javascript
 Task({
   subagent_type: "cli-explore-agent",
+  run_in_background: false,
   prompt: `
-[ROLE] 架构分析师，专注于分层结构。
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/quality-standards.md
+- Read: ${skillRoot}/specs/writing-style.md
+严格遵循规范中的质量标准和段落式写作要求。
+
+[ROLE] 资深软件设计师
 
 [TASK]
-分析 ${config.scope}，生成 Layer Analysis 章节。
+分析系统的逻辑分层结构，撰写《系统架构设计报告》的"逻辑视点与分层架构"章节。重点揭示系统如何通过分层来隔离关注点。
 输出: ${outDir}/sections/section-layers.md
 
-[QUALITY_SPEC]
-- 内容基于代码分析，无臆测
-- 代码引用格式: \`file:line\`
-- 每个子章节 ≥100字
-
-[TEMPLATE]
-## Layer Analysis
-
-### Layer Overview
-\`\`\`mermaid
-graph TD
-    L1[表现层] --> L2[业务层]
-    L2 --> L3[数据层]
-\`\`\`
-
-### Layer Details
-| 层级 | 目录 | 职责 | 组件数 |
-|------|------|------|--------|
-
-### Layer Interactions
-{层间交互说明}
-
-### Violations & Recommendations
-{违反分层的情况和建议}
+[STYLE]
+- 严谨专业的中文技术写作
+- 客观第三人称视角，主语为"系统"、"该层"、"设计"
+- 段落式叙述，禁止无序列表作为主体
+- 强调方法论和架构原则的应用
 
 [FOCUS]
-1. 识别代码分层（按目录/命名空间）
-2. 每层职责和边界
-3. 层间依赖方向
-4. 违反分层原则的情况
+- 职责分配体系：系统被划分为哪几个逻辑层级？每一层的核心职责和输入输出是什么？
+- 数据流向与约束：数据在各层之间是如何流动的？是否存在严格的单向依赖规则？
+- 边界隔离策略：各层之间通过何种方式解耦（接口抽象、DTO转换、依赖注入）？如何防止下层实现细节泄露到上层？
+- 异常处理流：异常信息如何在分层结构中传递和转化？
+
+[CONSTRAINT]
+- 不要列举具体的文件名列表
+- 关注"层级间的契约"和"隔离的艺术"
 
 [RETURN JSON]
 {"status":"completed","output_file":"section-layers.md","summary":"<50字>","cross_module_notes":[],"stats":{}}
@@ -158,90 +172,79 @@ graph TD
 })
 ```
 
-### Dependencies Agent (Architecture)
+### Dependencies Agent
 
 ```javascript
 Task({
   subagent_type: "cli-explore-agent",
+  run_in_background: false,
   prompt: `
-[ROLE] 依赖分析师，专注于模块依赖关系。
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/quality-standards.md
+- Read: ${skillRoot}/specs/writing-style.md
+严格遵循规范中的质量标准和段落式写作要求。
+
+[ROLE] 集成架构专家
 
 [TASK]
-分析 ${config.scope}，生成 Module Dependencies 章节。
+审视系统的外部连接与内部耦合情况，撰写《系统架构设计报告》的"依赖管理与生态集成"章节。
 输出: ${outDir}/sections/section-dependencies.md
 
-[TEMPLATE]
-## Module Dependencies
-
-### Dependency Graph
-\`\`\`mermaid
-graph LR
-    A[ModuleA] --> B[ModuleB]
-    A --> C[ModuleC]
-    B --> D[ModuleD]
-\`\`\`
-
-### Module List
-| 模块 | 路径 | 依赖数 | 被依赖数 |
-|------|------|--------|----------|
-
-### Critical Dependencies
-{核心依赖说明}
-
-### Circular Dependencies
-{循环依赖检测结果}
+[STYLE]
+- 严谨专业的中文技术写作
+- 客观第三人称视角
+- 段落式叙述，逻辑连贯
 
 [FOCUS]
-1. 模块间依赖关系
-2. 依赖方向（单向/双向）
-3. 循环依赖检测
-4. 核心模块识别
+- 外部集成拓扑：系统如何与外部世界（第三方API、数据库、中间件）交互？采用了何种适配器或防腐层设计来隔离外部变化？
+- 核心依赖分析：区分"核心业务依赖"与"基础设施依赖"。系统对关键框架的依赖程度如何？是否存在被锁定的风险？
+- 依赖注入与控制反转：系统内部模块间的组装方式是什么？是否实现了依赖倒置原则以支持可测试性？
+- 供应链安全与治理：对于复杂的依赖树，系统采用了何种策略来管理版本和兼容性？
+
+[CONSTRAINT]
+- 禁止简单列出依赖配置文件的内容
+- 必须分析依赖背后的"集成策略"和"风险控制模型"
 
 [RETURN JSON]
-{"status":"completed","output_file":"section-dependencies.md","summary":"<50字>","cross_module_notes":["发现循环依赖: A <-> B"],"stats":{}}
+{"status":"completed","output_file":"section-dependencies.md","summary":"<50字>","cross_module_notes":[],"stats":{}}
 `
 })
 ```
 
-### Patterns Agent (Design)
+### Patterns Agent
 
 ```javascript
 Task({
   subagent_type: "cli-explore-agent",
+  run_in_background: false,
   prompt: `
-[ROLE] 设计模式专家，专注于识别和分析设计模式。
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/quality-standards.md
+- Read: ${skillRoot}/specs/writing-style.md
+严格遵循规范中的质量标准和段落式写作要求。
+
+[ROLE] 核心开发规范制定者
 
 [TASK]
-分析 ${config.scope}，生成 Design Patterns 章节。
+挖掘代码中的复用机制和标准化实践，撰写《系统架构设计报告》的"设计模式与工程规范"章节。
 输出: ${outDir}/sections/section-patterns.md
 
-[TEMPLATE]
-## Design Patterns Used
-
-### Pattern Summary
-| 模式 | 类型 | 实现位置 | 说明 |
-|------|------|----------|------|
-
-### Pattern Details
-
-#### Singleton Pattern
-**位置**: \`src/core/config.ts:15\`
-**说明**: {实现说明}
-\`\`\`mermaid
-classDiagram
-    class Singleton {
-        -instance: Singleton
-        +getInstance()
-    }
-\`\`\`
-
-### Pattern Recommendations
-{模式使用建议}
+[STYLE]
+- 严谨专业的中文技术写作
+- 客观第三人称视角
+- 段落式叙述，结合项目上下文
 
 [FOCUS]
-1. 识别使用的设计模式（GoF 23种 + 其他）
-2. 模式实现质量评估
-3. 模式使用建议
+- 架构级模式：识别系统中广泛使用的架构模式（CQRS、Event Sourcing、Repository Pattern、Unit of Work）。阐述引入这些模式解决了什么特定难题
+- 通信与并发模式：分析组件间的通信机制（同步/异步、观察者模式、发布订阅）以及并发控制策略
+- 横切关注点实现：系统如何统一处理日志、鉴权、缓存、事务管理等横切逻辑（AOP、中间件管道、装饰器）？
+- 抽象与复用策略：分析基类、泛型、工具类的设计思想，系统如何通过抽象来减少重复代码并提高一致性？
+
+[CONSTRAINT]
+- 避免教科书式地解释设计模式定义，必须结合当前项目上下文说明其应用场景
+- 关注"解决类问题的通用机制"
 
 [RETURN JSON]
 {"status":"completed","output_file":"section-patterns.md","summary":"<50字>","cross_module_notes":[],"stats":{}}
@@ -249,50 +252,362 @@ classDiagram
 })
 ```
 
-### Algorithms Agent (Methods)
+### DataFlow Agent
 
 ```javascript
 Task({
   subagent_type: "cli-explore-agent",
+  run_in_background: false,
   prompt: `
-[ROLE] 算法分析师，专注于核心算法和复杂度。
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/quality-standards.md
+- Read: ${skillRoot}/specs/writing-style.md
+严格遵循规范中的质量标准和段落式写作要求。
+
+[ROLE] 数据架构师
 
 [TASK]
-分析 ${config.scope}，生成 Core Algorithms 章节。
-输出: ${outDir}/sections/section-algorithms.md
+追踪系统的数据流转机制，撰写《系统架构设计报告》的"数据流与状态管理"章节。
+输出: ${outDir}/sections/section-dataflow.md
 
-[TEMPLATE]
-## Core Algorithms
-
-### Algorithm Inventory
-| 算法 | 文件 | 复杂度 | 说明 |
-|------|------|--------|------|
-
-### Algorithm Details
-
-#### {算法名称}
-**位置**: \`src/algo/xxx.ts:42\`
-**复杂度**: 时间 O(n log n), 空间 O(n)
-
-\`\`\`mermaid
-flowchart TD
-    Start([开始]) --> Process[处理]
-    Process --> End([结束])
-\`\`\`
-
-**说明**: {算法说明，≥100字}
-
-### Optimization Suggestions
-{优化建议}
+[STYLE]
+- 严谨专业的中文技术写作
+- 客观第三人称视角
+- 段落式叙述
 
 [FOCUS]
-1. 核心业务算法
-2. 复杂度分析
-3. 算法流程图
-4. 优化建议
+- 数据入口与出口：数据从何处进入系统，最终流向何处？边界处的数据校验和转换策略是什么？
+- 数据转换管道：数据在各层/模块间经历了怎样的形态变化？DTO、Entity、VO 等数据对象的职责边界如何划分？
+- 持久化策略：系统如何设计数据存储方案？采用了何种 ORM 策略或数据访问模式？
+- 一致性保障：系统如何处理事务边界？分布式场景下如何保证数据一致性？
+
+[CONSTRAINT]
+- 关注数据的"生命周期"和"形态演变"
+- 不要罗列数据库表结构
+
+[RETURN JSON]
+{"status":"completed","output_file":"section-dataflow.md","summary":"<50字>","cross_module_notes":[],"stats":{}}
+`
+})
+```
+
+### EntryPoints Agent
+
+```javascript
+Task({
+  subagent_type: "cli-explore-agent",
+  run_in_background: false,
+  prompt: `
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/quality-standards.md
+- Read: ${skillRoot}/specs/writing-style.md
+严格遵循规范中的质量标准和段落式写作要求。
+
+[ROLE] 系统边界分析师
+
+[TASK]
+识别系统的入口设计和关键路径，撰写《系统架构设计报告》的"系统入口与调用链"章节。
+输出: ${outDir}/sections/section-entrypoints.md
+
+[STYLE]
+- 严谨专业的中文技术写作
+- 客观第三人称视角
+- 段落式叙述
+
+[FOCUS]
+- 入口类型与职责：系统提供了哪些类型的入口（REST API、CLI、消息队列消费者、定时任务）？各入口的设计目的和适用场景是什么？
+- 请求处理管道：从入口到核心逻辑，请求经过了怎样的处理管道？中间件/拦截器的编排逻辑是什么？
+- 关键业务路径：最重要的几条业务流程的调用链是怎样的？关键节点的设计考量是什么？
+- 异常与边界处理：系统如何统一处理异常？异常信息如何传播和转化？
+
+[CONSTRAINT]
+- 关注"入口的设计哲学"而非 API 清单
+- 不要逐个列举所有端点
+
+[RETURN JSON]
+{"status":"completed","output_file":"section-entrypoints.md","summary":"<50字>","cross_module_notes":[],"stats":{}}
+`
+})
+```
+
+### Classes Agent
+
+```javascript
+Task({
+  subagent_type: "cli-explore-agent",
+  run_in_background: false,
+  prompt: `
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/quality-standards.md
+- Read: ${skillRoot}/specs/writing-style.md
+严格遵循规范中的质量标准和段落式写作要求。
+
+[ROLE] 领域模型设计师
+
+[TASK]
+分析系统的类型体系和领域模型，撰写《系统架构设计报告》的"类型体系与领域建模"章节。
+输出: ${outDir}/sections/section-classes.md
+
+[STYLE]
+- 严谨专业的中文技术写作
+- 客观第三人称视角
+- 段落式叙述
+
+[FOCUS]
+- 领域模型设计：系统的核心领域概念有哪些？它们之间的关系如何建模（聚合、实体、值对象）？
+- 继承与组合策略：系统倾向于使用继承还是组合？基类/接口的设计意图是什么？
+- 职责分配原则：类的职责划分遵循了什么原则？是否体现了单一职责原则？
+- 类型安全与约束：系统如何利用类型系统来表达业务约束和不变量？
+
+[CONSTRAINT]
+- 关注"建模思想"而非类的属性列表
+- 用 UML 类图辅助说明核心关系
+
+[RETURN JSON]
+{"status":"completed","output_file":"section-classes.md","summary":"<50字>","cross_module_notes":[],"stats":{}}
+`
+})
+```
+
+### Interfaces Agent
+
+```javascript
+Task({
+  subagent_type: "cli-explore-agent",
+  run_in_background: false,
+  prompt: `
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/quality-standards.md
+- Read: ${skillRoot}/specs/writing-style.md
+严格遵循规范中的质量标准和段落式写作要求。
+
+[ROLE] 契约设计专家
+
+[TASK]
+分析系统的接口设计和抽象层次，撰写《系统架构设计报告》的"接口契约与抽象设计"章节。
+输出: ${outDir}/sections/section-interfaces.md
+
+[STYLE]
+- 严谨专业的中文技术写作
+- 客观第三人称视角
+- 段落式叙述
+
+[FOCUS]
+- 抽象层次设计：系统定义了哪些核心接口/抽象类？这些抽象的设计意图和职责边界是什么？
+- 契约与实现分离：接口如何隔离契约与实现？多态机制如何被运用？
+- 扩展点设计：系统预留了哪些扩展点？如何在不修改核心代码的情况下扩展功能？
+- 版本演进策略：接口如何支持版本演进？向后兼容性如何保障？
+
+[CONSTRAINT]
+- 关注"接口的设计哲学"
+- 不要逐个列举接口方法签名
+
+[RETURN JSON]
+{"status":"completed","output_file":"section-interfaces.md","summary":"<50字>","cross_module_notes":[],"stats":{}}
+`
+})
+```
+
+### State Agent
+
+```javascript
+Task({
+  subagent_type: "cli-explore-agent",
+  run_in_background: false,
+  prompt: `
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/quality-standards.md
+- Read: ${skillRoot}/specs/writing-style.md
+严格遵循规范中的质量标准和段落式写作要求。
+
+[ROLE] 状态管理架构师
+
+[TASK]
+分析系统的状态管理机制，撰写《系统架构设计报告》的"状态管理与生命周期"章节。
+输出: ${outDir}/sections/section-state.md
+
+[STYLE]
+- 严谨专业的中文技术写作
+- 客观第三人称视角
+- 段落式叙述
+
+[FOCUS]
+- 状态模型设计：系统需要管理哪些类型的状态（会话状态、应用状态、领域状态）？状态的存储位置和作用域是什么？
+- 状态生命周期：状态如何创建、更新、销毁？生命周期管理的机制是什么？
+- 并发与一致性：多线程/多实例场景下，状态如何保持一致？采用了何种并发控制策略？
+- 状态恢复与容错：系统如何处理状态丢失或损坏？是否有状态恢复机制？
+
+[CONSTRAINT]
+- 关注"状态管理的设计决策"
+- 不要列举具体的变量名
+
+[RETURN JSON]
+{"status":"completed","output_file":"section-state.md","summary":"<50字>","cross_module_notes":[],"stats":{}}
+`
+})
+```
+
+### Algorithms Agent
+
+```javascript
+Task({
+  subagent_type: "cli-explore-agent",
+  run_in_background: false,
+  prompt: `
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/quality-standards.md
+- Read: ${skillRoot}/specs/writing-style.md
+严格遵循规范中的质量标准和段落式写作要求。
+
+[ROLE] 算法架构师
+
+[TASK]
+分析系统的核心算法设计，撰写《系统架构设计报告》的"核心算法与计算模型"章节。
+输出: ${outDir}/sections/section-algorithms.md
+
+[STYLE]
+- 严谨专业的中文技术写作
+- 客观第三人称视角
+- 段落式叙述
+
+[FOCUS]
+- 算法选型与权衡：系统的核心业务逻辑采用了哪些关键算法？选择这些算法的考量因素是什么（时间复杂度、空间复杂度、可维护性）？
+- 计算模型设计：复杂计算如何被分解和组织？是否采用了流水线、Map-Reduce 等计算模式？
+- 性能与可扩展性：算法设计如何考虑性能和可扩展性？是否有针对大数据量的优化策略？
+- 正确性保障：关键算法的正确性如何保障？是否有边界条件的特殊处理？
+
+[CONSTRAINT]
+- 关注"算法思想"而非具体实现代码
+- 用流程图辅助说明复杂逻辑
 
 [RETURN JSON]
 {"status":"completed","output_file":"section-algorithms.md","summary":"<50字>","cross_module_notes":[],"stats":{}}
+`
+})
+```
+
+### Paths Agent
+
+```javascript
+Task({
+  subagent_type: "cli-explore-agent",
+  run_in_background: false,
+  prompt: `
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/quality-standards.md
+- Read: ${skillRoot}/specs/writing-style.md
+严格遵循规范中的质量标准和段落式写作要求。
+
+[ROLE] 性能架构师
+
+[TASK]
+分析系统的关键执行路径，撰写《系统架构设计报告》的"关键路径与性能设计"章节。
+输出: ${outDir}/sections/section-paths.md
+
+[STYLE]
+- 严谨专业的中文技术写作
+- 客观第三人称视角
+- 段落式叙述
+
+[FOCUS]
+- 关键业务路径：系统中最重要的几条业务执行路径是什么？这些路径的设计目标和约束是什么？
+- 性能敏感区域：哪些环节是性能敏感的？系统采用了何种优化策略（缓存、异步、批处理）？
+- 瓶颈识别与缓解：潜在的性能瓶颈在哪里？设计中是否预留了扩展空间？
+- 降级与熔断：在高负载或故障场景下，系统如何保护关键路径？
+
+[CONSTRAINT]
+- 关注"路径设计的战略考量"
+- 不要罗列所有代码执行步骤
+
+[RETURN JSON]
+{"status":"completed","output_file":"section-paths.md","summary":"<50字>","cross_module_notes":[],"stats":{}}
+`
+})
+```
+
+### APIs Agent
+
+```javascript
+Task({
+  subagent_type: "cli-explore-agent",
+  run_in_background: false,
+  prompt: `
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/quality-standards.md
+- Read: ${skillRoot}/specs/writing-style.md
+严格遵循规范中的质量标准和段落式写作要求。
+
+[ROLE] API 设计规范专家
+
+[TASK]
+分析系统的对外接口设计规范，撰写《系统架构设计报告》的"API 设计与规范"章节。
+输出: ${outDir}/sections/section-apis.md
+
+[STYLE]
+- 严谨专业的中文技术写作
+- 客观第三人称视角
+- 段落式叙述
+
+[FOCUS]
+- API 设计风格：系统采用了何种 API 设计风格（RESTful、GraphQL、RPC）？选择该风格的原因是什么？
+- 命名与结构规范：API 的命名、路径结构、参数设计遵循了什么规范？是否有一致性保障机制？
+- 版本管理策略：API 如何支持版本演进？向后兼容性策略是什么？
+- 错误处理规范：API 错误响应的设计规范是什么？错误码体系如何组织？
+
+[CONSTRAINT]
+- 关注"设计规范和一致性"
+- 不要逐个列举所有 API 端点
+
+[RETURN JSON]
+{"status":"completed","output_file":"section-apis.md","summary":"<50字>","cross_module_notes":[],"stats":{}}
+`
+})
+```
+
+### Logic Agent
+
+```javascript
+Task({
+  subagent_type: "cli-explore-agent",
+  run_in_background: false,
+  prompt: `
+[SPEC]
+首先读取规范文件：
+- Read: ${skillRoot}/specs/quality-standards.md
+- Read: ${skillRoot}/specs/writing-style.md
+严格遵循规范中的质量标准和段落式写作要求。
+
+[ROLE] 业务逻辑架构师
+
+[TASK]
+分析系统的业务逻辑建模，撰写《系统架构设计报告》的"业务逻辑与规则引擎"章节。
+输出: ${outDir}/sections/section-logic.md
+
+[STYLE]
+- 严谨专业的中文技术写作
+- 客观第三人称视角
+- 段落式叙述
+
+[FOCUS]
+- 业务规则建模：核心业务规则如何被表达和组织？是否采用了规则引擎或策略模式？
+- 决策点设计：系统中的关键决策点有哪些？决策逻辑如何被封装和测试？
+- 边界条件处理：系统如何处理边界条件和异常情况？是否有防御性编程措施？
+- 业务流程编排：复杂业务流程如何被编排？是否采用了工作流引擎或状态机？
+
+[CONSTRAINT]
+- 关注"业务逻辑的组织方式"
+- 不要逐行解释代码逻辑
+
+[RETURN JSON]
+{"status":"completed","output_file":"section-logic.md","summary":"<50字>","cross_module_notes":[],"stats":{}}
 `
 })
 ```
@@ -306,7 +621,7 @@ flowchart TD
 const agentConfigs = getAgentConfigs(config.type);
 
 // 2. 准备目录
-Bash(`mkdir -p ${outputDir}/sections`);
+Bash(`mkdir "${outputDir}\\sections"`);
 
 // 3. 并行启动所有 Agent
 const results = await Promise.all(
@@ -317,10 +632,7 @@ const results = await Promise.all(
 const summaries = results.map(r => JSON.parse(r));
 
 // 5. 传递给 Phase 3.5 汇总 Agent
-return {
-  summaries,
-  cross_notes: summaries.flatMap(s => s.cross_module_notes)
-};
+return { summaries, cross_notes: summaries.flatMap(s => s.cross_module_notes) };
 ```
 
 ## Output
