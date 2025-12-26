@@ -111,6 +111,7 @@ interface OutputViewOptions {
   outputType?: 'stdout' | 'stderr' | 'both';
   turn?: string;
   raw?: boolean;
+  final?: boolean; // Only output final result with usage hint
 }
 
 /**
@@ -325,6 +326,21 @@ async function outputAction(conversationId: string | undefined, options: OutputV
   if (options.raw) {
     // Raw output only (for piping)
     if (result.stdout) console.log(result.stdout.content);
+    return;
+  }
+
+  if (options.final) {
+    // Final result only with usage hint
+    if (result.stdout) {
+      console.log(result.stdout.content);
+    }
+    console.log();
+    console.log(chalk.gray('─'.repeat(60)));
+    console.log(chalk.dim(`Usage: ccw cli output ${conversationId} [options]`));
+    console.log(chalk.dim('  --raw           Raw output (no hint)'));
+    console.log(chalk.dim('  --offset <n>    Start from byte offset'));
+    console.log(chalk.dim('  --limit <n>     Limit output bytes'));
+    console.log(chalk.dim(`  --resume        ccw cli -p "..." --resume ${conversationId}`));
     return;
   }
 
@@ -764,7 +780,8 @@ async function historyAction(options: HistoryOptions): Promise<void> {
 
   console.log(chalk.bold.cyan('\n  CLI Execution History\n'));
 
-  const history = await getExecutionHistoryAsync(process.cwd(), { limit: parseInt(limit, 10), tool, status });
+  // Use recursive: true to aggregate history from parent and child projects (matches Dashboard behavior)
+  const history = await getExecutionHistoryAsync(process.cwd(), { limit: parseInt(limit, 10), tool, status, recursive: true });
 
   if (history.executions.length === 0) {
     console.log(chalk.gray('  No executions found.\n'));
@@ -953,6 +970,12 @@ export async function cliCommand(
         console.log(chalk.gray('    full:        inject all cached content (default for codex)'));
         console.log(chalk.gray('    progressive: inject first 64KB with MCP continuation hint'));
         console.log();
+        console.log('  Output options (ccw cli output <id>):');
+        console.log(chalk.gray('    --final      Final result only with usage hint'));
+        console.log(chalk.gray('    --raw        Raw output only (no formatting, for piping)'));
+        console.log(chalk.gray('    --offset <n> Start from byte offset'));
+        console.log(chalk.gray('    --limit <n>  Limit output bytes'));
+        console.log();
         console.log('  Examples:');
         console.log(chalk.gray('    ccw cli -p "Analyze auth module" --tool gemini'));
         console.log(chalk.gray('    ccw cli -f prompt.txt --tool codex --mode write'));
@@ -960,6 +983,7 @@ export async function cliCommand(
         console.log(chalk.gray('    ccw cli --resume --tool gemini'));
         console.log(chalk.gray('    ccw cli -p "..." --cache "@src/**/*.ts" --tool codex'));
         console.log(chalk.gray('    ccw cli -p "..." --cache "@src/**/*" --inject-mode progressive --tool gemini'));
+        console.log(chalk.gray('    ccw cli output <id> --final      # View result with usage hint'));
         console.log();
       }
     }

@@ -8,56 +8,108 @@ allowed-tools: Task, AskUserQuestion, Read, Bash, Glob, Grep, Write
 
 Generate CPCC-compliant software design specification documents (软件设计说明书) through multi-phase code analysis.
 
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Context-Optimized Architecture                                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Phase 1: Metadata        → project-metadata.json               │
+│           ↓                                                      │
+│  Phase 2: 6 Parallel      → sections/section-N.md (直接写MD)    │
+│           Agents              ↓ 返回简要JSON                     │
+│           ↓                                                      │
+│  Phase 2.5: Consolidation → cross-module-summary.md             │
+│           Agent               ↓ 返回问题列表                     │
+│           ↓                                                      │
+│  Phase 4: Assembly        → 合并MD + 跨模块总结                  │
+│           ↓                                                      │
+│  Phase 5: Refinement      → 最终文档                             │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Key Design Principles
+
+1. **Agent 直接输出 MD**: 避免 JSON → MD 转换的上下文开销
+2. **简要返回**: Agent 只返回路径+摘要，不返回完整内容
+3. **汇总 Agent**: 独立 Agent 负责跨模块问题检测
+4. **引用合并**: Phase 4 读取文件合并，不在上下文中传递
+
 ## Execution Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Phase 1: Metadata Collection                                   │
-│  → Read: phases/01-metadata-collection.md                       │
-│  → Collect: software name, version, category, scope             │
+│  Phase 1: Metadata Collection                                    │
+│  → Read: phases/01-metadata-collection.md                        │
+│  → Collect: software name, version, category, scope              │
+│  → Output: project-metadata.json                                 │
 ├─────────────────────────────────────────────────────────────────┤
-│  Phase 2: Deep Code Analysis                                    │
-│  → Read: phases/02-deep-analysis.md                             │
-│  → Launch: 6 parallel agents (architecture, functions,          │
-│            algorithms, data_structures, interfaces, exceptions) │
+│  Phase 2: Deep Code Analysis (6 Parallel Agents)                 │
+│  → Read: phases/02-deep-analysis.md                              │
+│  → Reference: specs/cpcc-requirements.md                         │
+│  → Each Agent: 分析代码 → 直接写 sections/section-N.md           │
+│  → Return: {"status", "output_file", "summary", "cross_notes"}   │
 ├─────────────────────────────────────────────────────────────────┤
-│  Phase 3: Diagram Generation                                    │
-│  → Read: phases/03-diagram-generation.md                        │
-│  → Reference: ../_shared/mermaid-utils.md                       │
-│  → Generate: Mermaid diagrams for all 7 sections                │
+│  Phase 2.5: Consolidation (New!)                                 │
+│  → Read: phases/02.5-consolidation.md                            │
+│  → Input: Agent 返回的简要信息 + cross_module_notes              │
+│  → Analyze: 一致性/完整性/关联性/质量检查                         │
+│  → Output: cross-module-summary.md                               │
+│  → Return: {"issues": {errors, warnings, info}, "stats"}         │
 ├─────────────────────────────────────────────────────────────────┤
-│  Phase 4: Document Assembly                                     │
-│  → Read: phases/04-document-assembly.md                         │
-│  → Reference: specs/cpcc-requirements.md                        │
-│  → Assemble: 7-section CPCC-compliant document                  │
+│  Phase 4: Document Assembly                                      │
+│  → Read: phases/04-document-assembly.md                          │
+│  → Check: 如有 errors，提示用户处理                               │
+│  → Merge: Section 1 + sections/*.md + 跨模块附录                  │
+│  → Output: {软件名称}-软件设计说明书.md                            │
 ├─────────────────────────────────────────────────────────────────┤
-│  Phase 5: Compliance Review & Refinement                        │
-│  → Read: phases/05-compliance-refinement.md                     │
-│  → Reference: specs/cpcc-requirements.md (Compliance Checklist) │
-│  → Validate: run CPCC compliance checks before each iteration   │
-│  → Loop: discovery-driven questions until all checks pass       │
+│  Phase 5: Compliance Review & Refinement                         │
+│  → Read: phases/05-compliance-refinement.md                      │
+│  → Reference: specs/cpcc-requirements.md                         │
+│  → Loop: 发现问题 → 提问 → 修复 → 重新检查                        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Document Sections (7 Required)
 
-| Section | Title | Diagram |
-|---------|-------|---------|
-| 1 | 软件概述 | - |
-| 2 | 系统架构图 | graph TD |
-| 3 | 功能模块设计 | flowchart TD |
-| 4 | 核心算法与流程 | flowchart TD |
-| 5 | 数据结构设计 | classDiagram |
-| 6 | 接口设计 | sequenceDiagram |
-| 7 | 异常处理设计 | flowchart TD |
+| Section | Title | Diagram | Agent |
+|---------|-------|---------|-------|
+| 1 | 软件概述 | - | Phase 4 生成 |
+| 2 | 系统架构图 | graph TD | architecture |
+| 3 | 功能模块设计 | flowchart TD | functions |
+| 4 | 核心算法与流程 | flowchart TD | algorithms |
+| 5 | 数据结构设计 | classDiagram | data_structures |
+| 6 | 接口设计 | sequenceDiagram | interfaces |
+| 7 | 异常处理设计 | flowchart TD | exceptions |
 
 ## Directory Setup
 
 ```bash
 timestamp=$(date +%Y%m%d-%H%M%S)
 dir=".workflow/.scratchpad/copyright-$timestamp"
-mkdir -p "$dir/diagrams" "$dir/iterations"
+mkdir -p "$dir/sections" "$dir/iterations"
 echo "$dir"
+```
+
+## Output Structure
+
+```
+.workflow/.scratchpad/copyright-{timestamp}/
+├── project-metadata.json          # Phase 1
+├── sections/                      # Phase 2 (Agent 直接写入)
+│   ├── section-2-architecture.md
+│   ├── section-3-functions.md
+│   ├── section-4-algorithms.md
+│   ├── section-5-data-structures.md
+│   ├── section-6-interfaces.md
+│   └── section-7-exceptions.md
+├── cross-module-summary.md        # Phase 2.5
+├── iterations/                    # Phase 5
+│   ├── v1.md
+│   └── v2.md
+└── {软件名称}-软件设计说明书.md     # Final Output
 ```
 
 ## Reference Documents
@@ -66,30 +118,9 @@ echo "$dir"
 |----------|---------|
 | [phases/01-metadata-collection.md](phases/01-metadata-collection.md) | Software info collection |
 | [phases/02-deep-analysis.md](phases/02-deep-analysis.md) | 6-agent parallel analysis |
-| [phases/03-diagram-generation.md](phases/03-diagram-generation.md) | Mermaid diagram generation |
-| [phases/04-document-assembly.md](phases/04-document-assembly.md) | Document structure assembly |
+| [phases/02.5-consolidation.md](phases/02.5-consolidation.md) | Cross-module consolidation |
+| [phases/04-document-assembly.md](phases/04-document-assembly.md) | Document merge & assembly |
 | [phases/05-compliance-refinement.md](phases/05-compliance-refinement.md) | Iterative refinement loop |
 | [specs/cpcc-requirements.md](specs/cpcc-requirements.md) | CPCC compliance checklist |
+| [templates/agent-base.md](templates/agent-base.md) | Agent prompt templates |
 | [../_shared/mermaid-utils.md](../_shared/mermaid-utils.md) | Shared Mermaid utilities |
-
-## Output Structure
-
-```
-.workflow/.scratchpad/copyright-{timestamp}/
-├── project-metadata.json
-├── analysis-architecture.json
-├── analysis-functions.json
-├── analysis-algorithms.json
-├── analysis-data_structures.json
-├── analysis-interfaces.json
-├── analysis-exceptions.json
-├── diagrams/
-│   ├── manifest.json
-│   ├── architecture.mmd
-│   ├── functions.mmd
-│   ├── class-diagram.mmd
-│   ├── algorithm-*.mmd
-│   └── sequence-*.mmd
-├── iterations/
-└── {软件名称}-软件设计说明书.md
-```

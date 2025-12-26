@@ -69,8 +69,10 @@ async function renderCliHistoryView() {
           '</div>'
         : '';
 
+      // Normalize sourceDir: convert backslashes to forward slashes for safe onclick handling
+      var normalizedSourceDir = (exec.sourceDir || '').replace(/\\/g, '/');
       historyHtml += '<div class="history-item' + (isSelected ? ' history-item-selected' : '') + '" ' +
-        'onclick="' + (isMultiSelectMode ? 'toggleExecutionSelection(\'' + exec.id + '\')' : 'showExecutionDetail(\'' + exec.id + '\', \'' + (exec.sourceDir || '').replace(/\'/g, "\\'") + '\')') + '">' +
+        'onclick="' + (isMultiSelectMode ? 'toggleExecutionSelection(\'' + exec.id + '\')' : 'showExecutionDetail(\'' + exec.id + '\', \'' + normalizedSourceDir.replace(/'/g, "\\'") + '\')') + '">' +
         checkboxHtml +
         '<div class="history-item-main">' +
           '<div class="history-item-header">' +
@@ -182,6 +184,16 @@ async function renderCliHistoryView() {
 }
 
 // ========== Actions ==========
+async function copyExecutionId(executionId) {
+  try {
+    await navigator.clipboard.writeText(executionId);
+    showRefreshToast('ID copied: ' + executionId, 'success');
+  } catch (err) {
+    console.error('Failed to copy ID:', err);
+    showRefreshToast('Failed to copy ID', 'error');
+  }
+}
+
 async function filterCliHistoryView(tool) {
   cliHistoryFilter = tool || null;
   await loadCliHistory();

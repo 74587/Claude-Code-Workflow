@@ -15,7 +15,9 @@ async function loadCliHistory(options = {}) {
     const { limit = cliHistoryLimit, tool = cliHistoryFilter, status = null } = options;
 
     // Use history-native endpoint to get native session info
-    let url = `/api/cli/history-native?path=${encodeURIComponent(projectPath)}&limit=${limit}`;
+    // Use recursiveQueryEnabled setting (from cli-status.js) to control recursive query
+    const recursive = typeof recursiveQueryEnabled !== 'undefined' ? recursiveQueryEnabled : true;
+    let url = `/api/cli/history-native?path=${encodeURIComponent(projectPath)}&limit=${limit}&recursive=${recursive}`;
     if (tool) url += `&tool=${tool}`;
     if (status) url += `&status=${status}`;
     if (cliHistorySearch) url += `&search=${encodeURIComponent(cliHistorySearch)}`;
@@ -36,9 +38,12 @@ async function loadCliHistory(options = {}) {
 async function loadNativeSessionContent(executionId, sourceDir) {
   try {
     // If sourceDir provided, use it to build the correct path
-    const basePath = sourceDir && sourceDir !== '.'
-      ? projectPath + '/' + sourceDir
-      : projectPath;
+    // Check if sourceDir is absolute path (contains : or starts with /)
+    let basePath = projectPath;
+    if (sourceDir && sourceDir !== '.') {
+      const isAbsolute = sourceDir.includes(':') || sourceDir.startsWith('/');
+      basePath = isAbsolute ? sourceDir : projectPath + '/' + sourceDir;
+    }
     const url = `/api/cli/native-session?path=${encodeURIComponent(basePath)}&id=${encodeURIComponent(executionId)}`;
     const response = await fetch(url);
     if (!response.ok) return null;
@@ -65,9 +70,12 @@ async function loadEnrichedConversation(executionId) {
 async function loadExecutionDetail(executionId, sourceDir) {
   try {
     // If sourceDir provided, use it to build the correct path
-    const basePath = sourceDir && sourceDir !== '.' 
-      ? projectPath + '/' + sourceDir 
-      : projectPath;
+    // Check if sourceDir is absolute path (contains : or starts with /)
+    let basePath = projectPath;
+    if (sourceDir && sourceDir !== '.') {
+      const isAbsolute = sourceDir.includes(':') || sourceDir.startsWith('/');
+      basePath = isAbsolute ? sourceDir : projectPath + '/' + sourceDir;
+    }
     const url = `/api/cli/execution?path=${encodeURIComponent(basePath)}&id=${encodeURIComponent(executionId)}`;
     const response = await fetch(url);
     if (!response.ok) throw new Error('Execution not found');
@@ -155,11 +163,14 @@ function renderCliHistory() {
               <div class="cli-history-meta">
                 <span><i data-lucide="clock" class="w-3 h-3"></i> ${timeAgo}</span>
                 <span><i data-lucide="timer" class="w-3 h-3"></i> ${duration}</span>
-                <span><i data-lucide="hash" class="w-3 h-3"></i> ${exec.id.split('-')[0]}</span>
+                <span title="${exec.id}"><i data-lucide="hash" class="w-3 h-3"></i> ${exec.id.substring(0, 13)}...${exec.id.split('-').pop()}</span>
                 ${turnBadge}
               </div>
             </div>
             <div class="cli-history-actions">
+              <button class="btn-icon" onclick="event.stopPropagation(); copyCliExecutionId('${exec.id}')" title="Copy ID">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              </button>
               ${hasNative ? `
                 <button class="btn-icon" onclick="event.stopPropagation(); showNativeSessionDetail('${exec.id}', '${sourceDirEscaped}')" title="View Native Session">
                   <i data-lucide="file-json" class="w-3.5 h-3.5"></i>
@@ -431,9 +442,12 @@ function confirmDeleteExecution(executionId, sourceDir) {
 async function deleteExecution(executionId, sourceDir) {
   try {
     // Build correct path - use sourceDir if provided for recursive items
-    const basePath = sourceDir && sourceDir !== '.' 
-      ? projectPath + '/' + sourceDir 
-      : projectPath;
+    // Check if sourceDir is absolute path (contains : or starts with /)
+    let basePath = projectPath;
+    if (sourceDir && sourceDir !== '.') {
+      const isAbsolute = sourceDir.includes(':') || sourceDir.startsWith('/');
+      basePath = isAbsolute ? sourceDir : projectPath + '/' + sourceDir;
+    }
     
     const response = await fetch(`/api/cli/execution?path=${encodeURIComponent(basePath)}&id=${encodeURIComponent(executionId)}`, {
       method: 'DELETE'
@@ -461,6 +475,18 @@ async function deleteExecution(executionId, sourceDir) {
 }
 
 // ========== Copy Functions ==========
+async function copyCliExecutionId(executionId) {
+  if (navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(executionId);
+      showRefreshToast('ID copied: ' + executionId, 'success');
+    } catch (err) {
+      console.error('Failed to copy ID:', err);
+      showRefreshToast('Failed to copy ID', 'error');
+    }
+  }
+}
+
 async function copyExecutionPrompt(executionId) {
   const detail = await loadExecutionDetail(executionId);
   if (!detail) {
