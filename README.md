@@ -5,7 +5,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v6.2.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v6.3.4-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![npm](https://img.shields.io/npm/v/claude-code-workflow.svg)](https://www.npmjs.com/package/claude-code-workflow)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
@@ -51,6 +51,16 @@ CCW is built on a set of core principles that distinguish it from traditional AI
 ---
 
 ## ⚙️ Installation
+
+### **📋 Requirements**
+
+| Platform | Node.js | Additional |
+|----------|---------|------------|
+| Windows | 20.x or 22.x LTS (recommended) | Node 23+ requires [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) |
+| macOS | 18.x+ | Xcode Command Line Tools |
+| Linux | 18.x+ | build-essential |
+
+> **Note**: The `better-sqlite3` dependency requires native compilation. Using Node.js LTS versions avoids build issues.
 
 ### **📦 npm Install (Recommended)**
 
