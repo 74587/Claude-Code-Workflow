@@ -769,9 +769,9 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
   if (pathname === '/api/cli/code-index-mcp' && req.method === 'PUT') {
     handlePostRequest(req, res, async (body: unknown) => {
       try {
-        const { provider } = body as { provider: 'codexlens' | 'ace' };
-        if (!provider || !['codexlens', 'ace'].includes(provider)) {
-          return { error: 'Invalid provider. Must be "codexlens" or "ace"', status: 400 };
+        const { provider } = body as { provider: 'codexlens' | 'ace' | 'none' };
+        if (!provider || !['codexlens', 'ace', 'none'].includes(provider)) {
+          return { error: 'Invalid provider. Must be "codexlens", "ace", or "none"', status: 400 };
         }
 
         const result = updateCodeIndexMcp(initialPath, provider);

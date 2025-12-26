@@ -5,7 +5,7 @@ argument-hint: "[--dry-run] [\"focus area\"]"
 allowed-tools: TodoWrite(*), Task(*), AskUserQuestion(*), Read(*), Glob(*), Bash(*), Write(*)
 ---
 
-# Clean Command (/clean)
+# Clean Command (/workflow:clean)
 
 ## Overview
 
@@ -20,9 +20,9 @@ Intelligent cleanup command that explores the codebase to identify the developme
 ## Usage
 
 ```bash
-/clean                          # Full intelligent cleanup (explore → analyze → confirm → execute)
-/clean --dry-run                # Explore and analyze only, no execution
-/clean "auth module"            # Focus cleanup on specific area
+/workflow:clean                          # Full intelligent cleanup (explore → analyze → confirm → execute)
+/workflow:clean --dry-run                # Explore and analyze only, no execution
+/workflow:clean "auth module"            # Focus cleanup on specific area
 ```
 
 ## Execution Process
@@ -321,7 +321,7 @@ if (flags.includes('--dry-run')) {
 **Dry-run mode**: No changes made.
 Manifest saved to: ${sessionFolder}/cleanup-manifest.json
 
-To execute cleanup: /clean
+To execute cleanup: /workflow:clean
 `)
   return
 }

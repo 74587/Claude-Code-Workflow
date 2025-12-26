@@ -21,8 +21,23 @@ let nativeResumeEnabled = localStorage.getItem('ccw-native-resume') !== 'false';
 // Recursive Query settings (for hierarchical storage aggregation)
 let recursiveQueryEnabled = localStorage.getItem('ccw-recursive-query') !== 'false'; // default true
 
-// Code Index MCP provider (codexlens or ace)
+// Code Index MCP provider (codexlens, ace, or none)
 let codeIndexMcpProvider = 'codexlens';
+
+// ========== Helper Functions ==========
+/**
+ * Get the context-tools filename based on provider
+ */
+function getContextToolsFileName(provider) {
+  switch (provider) {
+    case 'ace':
+      return 'context-tools-ace.md';
+    case 'none':
+      return 'context-tools-none.md';
+    default:
+      return 'context-tools.md';
+  }
+}
 
 // ========== Initialization ==========
 function initCliStatus() {
@@ -637,9 +652,17 @@ function renderCliStatus() {
                       onclick="setCodeIndexMcpProvider('ace')">
                 ACE
               </button>
+              <button class="code-mcp-btn px-3 py-1.5 text-xs font-medium rounded-md transition-all ${codeIndexMcpProvider === 'none' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+                      onclick="setCodeIndexMcpProvider('none')">
+                None
+              </button>
             </div>
           </div>
           <p class="cli-setting-desc">Code search provider (updates CLAUDE.md context-tools reference)</p>
+          <p class="cli-setting-desc text-xs text-muted-foreground mt-1">
+            <i data-lucide="file-text" class="w-3 h-3 inline-block mr-1"></i>
+            Current: <code class="bg-muted px-1 rounded">${getContextToolsFileName(codeIndexMcpProvider)}</code>
+          </p>
         </div>
       </div>
     </div>
@@ -775,7 +798,8 @@ async function setCodeIndexMcpProvider(provider) {
       if (window.claudeCliToolsConfig && window.claudeCliToolsConfig.settings) {
         window.claudeCliToolsConfig.settings.codeIndexMcp = provider;
       }
-      showRefreshToast(`Code Index MCP switched to ${provider === 'ace' ? 'ACE (Augment)' : 'CodexLens'}`, 'success');
+      const providerName = provider === 'ace' ? 'ACE (Augment)' : provider === 'none' ? 'None (Built-in only)' : 'CodexLens';
+      showRefreshToast(`Code Index MCP switched to ${providerName}`, 'success');
       // Re-render both CLI status and settings section
       if (typeof renderCliStatus === 'function') renderCliStatus();
       if (typeof renderCliSettingsSection === 'function') renderCliSettingsSection();

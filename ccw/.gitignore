@@ -1,3 +1,4 @@
 
 # TypeScript build output
 dist/
+.ace-tool/

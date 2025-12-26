@@ -70,7 +70,7 @@ async function renderCliHistoryView() {
         : '';
 
       historyHtml += '<div class="history-item' + (isSelected ? ' history-item-selected' : '') + '" ' +
-        'onclick="' + (isMultiSelectMode ? 'toggleExecutionSelection(\'' + exec.id + '\')' : 'showExecutionDetail(\'' + exec.id + (exec.sourceDir ? '\',\'' + escapeHtml(exec.sourceDir) : '') + '\')') + '">' +
+        'onclick="' + (isMultiSelectMode ? 'toggleExecutionSelection(\'' + exec.id + '\')' : 'showExecutionDetail(\'' + exec.id + '\', \'' + (exec.sourceDir || '').replace(/\'/g, "\\'") + '\')') + '">' +
         checkboxHtml +
         '<div class="history-item-main">' +
           '<div class="history-item-header">' +
@@ -87,14 +87,17 @@ async function renderCliHistoryView() {
           '<div class="history-item-meta">' +
             '<span class="history-time"><i data-lucide="clock" class="w-3 h-3"></i> ' + timeAgo + '</span>' +
             '<span class="history-duration"><i data-lucide="timer" class="w-3 h-3"></i> ' + duration + '</span>' +
-            '<span class="history-id"><i data-lucide="hash" class="w-3 h-3"></i> ' + exec.id.split('-')[0] + '</span>' +
+            '<span class="history-id" title="' + exec.id + '"><i data-lucide="hash" class="w-3 h-3"></i> ' + exec.id.substring(0, 13) + '...' + exec.id.split('-').pop() + '</span>' +
           '</div>' +
         '</div>' +
         '<div class="history-item-actions">' +
-          '<button class="btn-icon" onclick="event.stopPropagation(); showExecutionDetail(\'' + exec.id + '\')" title="View Details">' +
+          '<button class="btn-icon" onclick="event.stopPropagation(); copyExecutionId(\'' + exec.id + '\')" title="Copy ID">' +
+            '<i data-lucide="copy" class="w-4 h-4"></i>' +
+          '</button>' +
+          '<button class="btn-icon" onclick="event.stopPropagation(); showExecutionDetail(\'' + exec.id + '\', \'' + (exec.sourceDir || '').replace(/'/g, "\\'") + '\')" title="View Details">' +
             '<i data-lucide="eye" class="w-4 h-4"></i>' +
           '</button>' +
-          '<button class="btn-icon btn-danger" onclick="event.stopPropagation(); confirmDeleteExecution(\'' + exec.id + (exec.sourceDir ? '\',\'' + escapeHtml(exec.sourceDir) : '') + '\')" title="Delete">' +
+          '<button class="btn-icon btn-danger" onclick="event.stopPropagation(); confirmDeleteExecution(\'' + exec.id + '\', \'' + (exec.sourceDir || '').replace(/'/g, "\\'") + '\')" title="Delete">' +
             '<i data-lucide="trash-2" class="w-4 h-4"></i>' +
           '</button>' +
         '</div>' +

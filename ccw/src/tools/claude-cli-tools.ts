@@ -42,7 +42,7 @@ export interface ClaudeCliToolsConfig {
     nativeResume: boolean;
     recursiveQuery: boolean;
     cache: ClaudeCacheSettings;
-    codeIndexMcp: 'codexlens' | 'ace';  // Code Index MCP provider
+    codeIndexMcp: 'codexlens' | 'ace' | 'none';  // Code Index MCP provider
   };
 }
 
@@ -308,7 +308,7 @@ export function getClaudeCliToolsInfo(projectDir: string): {
  */
 export function updateCodeIndexMcp(
   projectDir: string,
-  provider: 'codexlens' | 'ace'
+  provider: 'codexlens' | 'ace' | 'none'
 ): { success: boolean; error?: string; config?: ClaudeCliToolsConfig } {
   try {
     // Update config
@@ -319,21 +319,28 @@ export function updateCodeIndexMcp(
     // Only update global CLAUDE.md (consistent with Chinese response / Windows platform)
     const globalClaudeMdPath = path.join(os.homedir(), '.claude', 'CLAUDE.md');
 
+    // Define patterns for all formats
+    const codexlensPattern = /@~\/\.claude\/workflows\/context-tools\.md/g;
+    const acePattern = /@~\/\.claude\/workflows\/context-tools-ace\.md/g;
+    const nonePattern = /@~\/\.claude\/workflows\/context-tools-none\.md/g;
+
+    // Determine target file based on provider
+    const targetFile = provider === 'ace'
+      ? '@~/.claude/workflows/context-tools-ace.md'
+      : provider === 'none'
+        ? '@~/.claude/workflows/context-tools-none.md'
+        : '@~/.claude/workflows/context-tools.md';
+
     if (!fs.existsSync(globalClaudeMdPath)) {
       // If global CLAUDE.md doesn't exist, check project-level
       const projectClaudeMdPath = path.join(projectDir, '.claude', 'CLAUDE.md');
       if (fs.existsSync(projectClaudeMdPath)) {
         let content = fs.readFileSync(projectClaudeMdPath, 'utf-8');
 
-        // Define patterns for both formats
-        const codexlensPattern = /@~\/\.claude\/workflows\/context-tools\.md/g;
-        const acePattern = /@~\/\.claude\/workflows\/context-tools-ace\.md/g;
-
-        if (provider === 'ace') {
-          content = content.replace(codexlensPattern, '@~/.claude/workflows/context-tools-ace.md');
-        } else {
-          content = content.replace(acePattern, '@~/.claude/workflows/context-tools.md');
-        }
+        // Replace any existing pattern with the target
+        content = content.replace(codexlensPattern, targetFile);
+        content = content.replace(acePattern, targetFile);
+        content = content.replace(nonePattern, targetFile);
 
         fs.writeFileSync(projectClaudeMdPath, content, 'utf-8');
         console.log(`[claude-cli-tools] Updated project CLAUDE.md to use ${provider} (no global CLAUDE.md found)`);
@@ -342,14 +349,10 @@ export function updateCodeIndexMcp(
       // Update global CLAUDE.md (primary target)
       let content = fs.readFileSync(globalClaudeMdPath, 'utf-8');
 
-      const codexlensPattern = /@~\/\.claude\/workflows\/context-tools\.md/g;
-      const acePattern = /@~\/\.claude\/workflows\/context-tools-ace\.md/g;
-
-      if (provider === 'ace') {
-        content = content.replace(codexlensPattern, '@~/.claude/workflows/context-tools-ace.md');
-      } else {
-        content = content.replace(acePattern, '@~/.claude/workflows/context-tools.md');
-      }
+      // Replace any existing pattern with the target
+      content = content.replace(codexlensPattern, targetFile);
+      content = content.replace(acePattern, targetFile);
+      content = content.replace(nonePattern, targetFile);
 
       fs.writeFileSync(globalClaudeMdPath, content, 'utf-8');
       console.log(`[claude-cli-tools] Updated global CLAUDE.md to use ${provider}`);
@@ -365,7 +368,21 @@ export function updateCodeIndexMcp(
 /**
  * Get current Code Index MCP provider
  */
-export function getCodeIndexMcp(projectDir: string): 'codexlens' | 'ace' {
+export function getCodeIndexMcp(projectDir: string): 'codexlens' | 'ace' | 'none' {
   const config = loadClaudeCliTools(projectDir);
   return config.settings.codeIndexMcp || 'codexlens';
+}
+
+/**
+ * Get the context-tools file path based on provider
+ */
+export function getContextToolsPath(provider: 'codexlens' | 'ace' | 'none'): string {
+  switch (provider) {
+    case 'ace':
+      return 'context-tools-ace.md';
+    case 'none':
+      return 'context-tools-none.md';
+    default:
+      return 'context-tools.md';
+  }
 }
