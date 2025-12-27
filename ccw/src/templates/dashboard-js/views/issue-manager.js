@@ -367,6 +367,12 @@ function renderQueueSection() {
   if (queueItems.length === 0) {
     return `
       <div class="queue-empty-container">
+        <div class="queue-empty-toolbar">
+          <button class="btn-secondary" onclick="showQueueHistoryModal()" title="${t('issues.queueHistory') || 'Queue History'}">
+            <i data-lucide="history" class="w-4 h-4"></i>
+            <span>${t('issues.history') || 'History'}</span>
+          </button>
+        </div>
         <div class="queue-empty">
           <i data-lucide="git-branch" class="w-16 h-16"></i>
           <p class="queue-empty-title">${t('issues.queueEmpty') || 'Queue is empty'}</p>
