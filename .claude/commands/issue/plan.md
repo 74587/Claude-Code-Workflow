@@ -9,13 +9,35 @@ allowed-tools: TodoWrite(*), Task(*), SlashCommand(*), AskUserQuestion(*), Bash(
 
 ## Overview
 
-Unified planning command using **issue-plan-agent** that combines exploration and planning into a single closed-loop workflow. The agent handles ACE semantic search, solution generation, and task breakdown.
+Unified planning command using **issue-plan-agent** that combines exploration and planning into a single closed-loop workflow.
 
-**Core capabilities:**
+## Output Requirements
+
+**Generate Files:**
+1. `.workflow/issues/solutions/{issue-id}.jsonl` - Solution with tasks for each issue
+
+**Return Summary:**
+```json
+{
+  "bound": [{ "issue_id": "...", "solution_id": "...", "task_count": N }],
+  "pending_selection": [{ "issue_id": "...", "solutions": [...] }],
+  "conflicts": [{ "file": "...", "issues": [...] }]
+}
+```
+
+**Completion Criteria:**
+- [ ] Solution file generated for each issue
+- [ ] Single solution → auto-bound via `ccw issue bind`
+- [ ] Multiple solutions → returned for user selection
+- [ ] Tasks conform to schema: `cat .claude/workflows/cli-templates/schemas/issue-task-jsonl-schema.json`
+- [ ] Each task has quantified `delivery_criteria`
+
+## Core Capabilities
+
 - **Closed-loop agent**: issue-plan-agent combines explore + plan
 - Batch processing: 1 agent processes 1-3 issues
 - ACE semantic search integrated into planning
-- Solution with executable tasks and acceptance criteria
+- Solution with executable tasks and delivery criteria
 - Automatic solution registration and binding
 
 ## Storage Structure (Flat JSONL)
@@ -123,96 +145,39 @@ TodoWrite({
 ### Phase 2: Unified Explore + Plan (issue-plan-agent)
 
 ```javascript
-// Ensure solutions directory exists
 Bash(`mkdir -p .workflow/issues/solutions`);
+const pendingSelections = [];  // Collect multi-solution issues for user selection
 
 for (const [batchIndex, batch] of batches.entries()) {
   updateTodo(`Plan batch ${batchIndex + 1}`, 'in_progress');
 
-  // Build issue prompt for agent - pass IDs only, agent fetches details
+  // Build minimal prompt - agent handles exploration, planning, and binding
   const issuePrompt = `
-## Issues to Plan (Closed-Loop Tasks Required)
+## Plan Issues
 
 **Issue IDs**: ${batch.join(', ')}
+**Project Root**: ${process.cwd()}
 
-### Step 1: Fetch Issue Details
-For each issue ID, use CLI to get full details:
-\`\`\`bash
-ccw issue status <issue-id> --json
-\`\`\`
+### Steps
+1. Fetch: \`ccw issue status <id> --json\`
+2. Explore (ACE) → Plan solution
+3. Register & bind: \`ccw issue bind <id> --solution <file>\`
 
-Returns:
+### Generate Files
+\`.workflow/issues/solutions/{issue-id}.jsonl\` - Solution with tasks (schema: cat .claude/workflows/cli-templates/schemas/issue-task-jsonl-schema.json)
+
+### Binding Rules
+- **Single solution**: Auto-bind via \`ccw issue bind <id> --solution <file>\`
+- **Multiple solutions**: Register only, return for user selection
+
+### Return Summary
 \`\`\`json
 {
-  "issue": { "id", "title", "context", "affected_components", "lifecycle_requirements", ... },
-  "solutions": [...],
-  "bound": null
+  "bound": [{ "issue_id": "...", "solution_id": "...", "task_count": N }],
+  "pending_selection": [{ "issue_id": "...", "solutions": [{ "id": "...", "description": "...", "task_count": N }] }],
+  "conflicts": [{ "file": "...", "issues": [...] }]
 }
 \`\`\`
-
-## Project Root
-${process.cwd()}
-
-## Output Requirements
-
-**IMPORTANT**: Register solutions via CLI, do NOT write files directly.
-
-### 1. Register Solutions via CLI
-For each issue, save solution to temp file and register via CLI:
-\`\`\`bash
-# Write solution JSON to temp file
-echo '<solution-json>' > /tmp/sol-{issue-id}.json
-
-# Register solution via CLI (generates SOL-xxx ID automatically)
-ccw issue bind {issue-id} --solution /tmp/sol-{issue-id}.json
-\`\`\`
-- Solution must include all closed-loop task fields (see Solution Format below)
-
-### 2. Return Summary Only
-After registering solutions, return ONLY a brief JSON summary:
-\`\`\`json
-{
-  "planned": [
-    { "issue_id": "XXX", "solution_id": "SOL-xxx", "task_count": 3, "description": "Brief description" }
-  ],
-  "conflicts": [
-    { "file": "path/to/file", "issues": ["ID1", "ID2"], "suggested_order": ["ID1", "ID2"] }
-  ]
-}
-\`\`\`
-
-## Closed-Loop Task Requirements
-
-Each task MUST include ALL lifecycle phases:
-
-### 1. Implementation
-- implementation: string[] (2-7 concrete steps)
-- modification_points: { file, target, change }[]
-
-### 2. Test
-- test.unit: string[] (unit test requirements)
-- test.integration: string[] (integration test requirements if needed)
-- test.commands: string[] (actual test commands to run)
-- test.coverage_target: number (minimum coverage %)
-
-### 3. Regression
-- regression: string[] (commands to run for regression check)
-
-### 4. Acceptance
-- acceptance.criteria: string[] (testable acceptance criteria)
-- acceptance.verification: string[] (how to verify each criterion)
-
-### 5. Commit
-- commit.type: feat|fix|refactor|test|docs|chore
-- commit.scope: string (module name)
-- commit.message_template: string (full commit message)
-- commit.breaking: boolean
-
-## Additional Requirements
-1. Use ACE semantic search (mcp__ace-tool__search_context) for exploration
-2. Detect file conflicts if multiple issues
-3. Generate executable test commands based on project's test framework
-4. Infer commit scope from affected files
 `;
 
   // Launch issue-plan-agent - agent writes solutions directly
@@ -223,78 +188,51 @@ Each task MUST include ALL lifecycle phases:
     prompt=issuePrompt
   );
 
-  // Parse brief summary from agent
+  // Parse summary from agent
   const summary = JSON.parse(result);
 
-  // Display planning results
-  for (const item of summary.planned || []) {
-    console.log(`✓ ${item.issue_id}: ${item.solution_id} (${item.task_count} tasks) - ${item.description}`);
+  // Display auto-bound solutions
+  for (const item of summary.bound || []) {
+    console.log(`✓ ${item.issue_id}: ${item.solution_id} (${item.task_count} tasks)`);
   }
 
-  // Handle conflicts if any
+  // Collect pending selections for Phase 3
+  pendingSelections.push(...(summary.pending_selection || []));
+
+  // Show conflicts
   if (summary.conflicts?.length > 0) {
-    console.log(`\n⚠ File conflicts detected:`);
-    summary.conflicts.forEach(c => {
-      console.log(`  ${c.file}: ${c.issues.join(', ')} → suggested: ${c.suggested_order.join(' → ')}`);
-    });
+    console.log(`⚠ Conflicts: ${summary.conflicts.map(c => c.file).join(', ')}`);
   }
 
   updateTodo(`Plan batch ${batchIndex + 1}`, 'completed');
 }
 ```
 
-### Phase 3: Solution Binding
+### Phase 3: Multi-Solution Selection
 
 ```javascript
-// Collect issues needing user selection (multiple solutions)
-const needSelection = [];
-
-for (const issueId of issueIds) {
-  // Get solutions via CLI
-  const statusJson = Bash(`ccw issue status ${issueId} --json 2>/dev/null || echo '{}'`).trim();
-  const status = JSON.parse(statusJson);
-  const solutions = status.solutions || [];
-
-  if (solutions.length === 0) continue; // No solutions - skip silently (agent already reported)
-
-  if (solutions.length === 1) {
-    // Auto-bind single solution
-    bindSolution(issueId, solutions[0].id);
-  } else {
-    // Multiple solutions - collect for batch selection
-    const options = solutions.map(s => ({
-      id: s.id,
-      description: s.description,
-      task_count: (s.tasks || []).length
-    }));
-    needSelection.push({ issueId, options });
-  }
-}
-
-// Batch ask user for multiple-solution issues
-if (needSelection.length > 0) {
+// Only handle issues where agent generated multiple solutions
+if (pendingSelections.length > 0) {
   const answer = AskUserQuestion({
-    questions: needSelection.map(({ issueId, options }) => ({
-      question: `Select solution for ${issueId}:`,
-      header: issueId,
+    questions: pendingSelections.map(({ issue_id, solutions }) => ({
+      question: `Select solution for ${issue_id}:`,
+      header: issue_id,
       multiSelect: false,
-      options: options.map(s => ({
+      options: solutions.map(s => ({
         label: `${s.id} (${s.task_count} tasks)`,
-        description: s.description || 'Solution'
+        description: s.description
       }))
     }))
   });
 
-  // Bind selected solutions
-  for (const { issueId } of needSelection) {
-    const selectedSolId = extractSelectedSolutionId(answer, issueId);
-    if (selectedSolId) bindSolution(issueId, selectedSolId);
+  // Bind user-selected solutions
+  for (const { issue_id } of pendingSelections) {
+    const selectedId = extractSelectedSolutionId(answer, issue_id);
+    if (selectedId) {
+      Bash(`ccw issue bind ${issue_id} ${selectedId}`);
+      console.log(`✓ ${issue_id}: ${selectedId} bound`);
+    }
   }
-}
-
-// Helper: bind solution to issue (using CLI for safety)
-function bindSolution(issueId, solutionId) {
-  Bash(`ccw issue bind ${issueId} ${solutionId}`);
 }
 ```
 
@@ -312,86 +250,6 @@ Next: \`/issue:queue\` → \`/issue:execute\`
 `);
 ```
 
-## Solution Format (Closed-Loop Tasks)
-
-Each solution line in `solutions/{issue-id}.jsonl`:
-
-```json
-{
-  "id": "SOL-20251226-001",
-  "description": "Direct Implementation",
-  "tasks": [
-    {
-      "id": "T1",
-      "title": "Create auth middleware",
-      "scope": "src/middleware/",
-      "action": "Create",
-      "description": "Create JWT validation middleware",
-      "modification_points": [
-        { "file": "src/middleware/auth.ts", "target": "new file", "change": "Create middleware" }
-      ],
-
-      "implementation": [
-        "Create auth.ts file in src/middleware/",
-        "Implement JWT token validation using jsonwebtoken",
-        "Add error handling for invalid/expired tokens",
-        "Export middleware function"
-      ],
-
-      "test": {
-        "unit": [
-          "Test valid token passes through",
-          "Test invalid token returns 401",
-          "Test expired token returns 401",
-          "Test missing token returns 401"
-        ],
-        "commands": [
-          "npm test -- --grep 'auth middleware'",
-          "npm run test:coverage -- src/middleware/auth.ts"
-        ],
-        "coverage_target": 80
-      },
-
-      "regression": [
-        "npm test -- --grep 'protected routes'",
-        "npm run test:integration -- auth"
-      ],
-
-      "acceptance": {
-        "criteria": [
-          "Middleware validates JWT tokens successfully",
-          "Returns 401 for invalid or missing tokens",
-          "Passes decoded token to request context"
-        ],
-        "verification": [
-          "curl -H 'Authorization: Bearer valid_token' /api/protected → 200",
-          "curl /api/protected → 401",
-          "curl -H 'Authorization: Bearer invalid' /api/protected → 401"
-        ]
-      },
-
-      "commit": {
-        "type": "feat",
-        "scope": "auth",
-        "message_template": "feat(auth): add JWT validation middleware\n\n- Implement token validation\n- Add error handling for invalid tokens\n- Export for route protection",
-        "breaking": false
-      },
-
-      "depends_on": [],
-      "estimated_minutes": 30,
-      "executor": "codex"
-    }
-  ],
-  "exploration_context": {
-    "relevant_files": ["src/config/auth.ts"],
-    "patterns": "Follow existing middleware pattern"
-  },
-  "is_bound": true,
-  "created_at": "2025-12-26T10:00:00Z",
-  "bound_at": "2025-12-26T10:05:00Z"
-}
-```
-
 ## Error Handling
 
 | Error | Resolution |
@@ -401,17 +259,6 @@ Each solution line in `solutions/{issue-id}.jsonl`:
 | No solutions generated | Display error, suggest manual planning |
 | User cancels selection | Skip issue, continue with others |
 | File conflicts | Agent detects and suggests resolution order |
-
-## Agent Integration
-
-The command uses `issue-plan-agent` which:
-1. Performs ACE semantic search per issue
-2. Identifies modification points and patterns
-3. Generates task breakdown with dependencies
-4. Detects cross-issue file conflicts
-5. Outputs solution JSON for registration
-
-See `.claude/agents/issue-plan-agent.md` for agent specification.
 
 ## Related Commands
 

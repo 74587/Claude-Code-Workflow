@@ -51,51 +51,18 @@ interface Issue {
 }
 ```
 
-## Task Lifecycle (Each Task is Closed-Loop)
+## Lifecycle Requirements
 
-When `/issue:plan` generates tasks, each task MUST include:
+The `lifecycle_requirements` field guides downstream commands (`/issue:plan`, `/issue:execute`):
 
-```typescript
-interface SolutionTask {
-  id: string;
-  title: string;
-  scope: string;
-  action: string;
+| Field | Options | Purpose |
+|-------|---------|---------|
+| `test_strategy` | `unit`, `integration`, `e2e`, `manual`, `auto` | Which test types to generate |
+| `regression_scope` | `affected`, `related`, `full` | Which tests to run for regression |
+| `acceptance_type` | `automated`, `manual`, `both` | How to verify completion |
+| `commit_strategy` | `per-task`, `squash`, `atomic` | Commit granularity |
 
-  // Phase 1: Implementation
-  implementation: string[];     // Step-by-step implementation
-  modification_points: { file: string; target: string; change: string }[];
-
-  // Phase 2: Testing
-  test: {
-    unit?: string[];            // Unit test requirements
-    integration?: string[];     // Integration test requirements
-    commands?: string[];        // Test commands to run
-    coverage_target?: number;   // Minimum coverage %
-  };
-
-  // Phase 3: Regression
-  regression: string[];         // Regression check commands/points
-
-  // Phase 4: Acceptance
-  acceptance: {
-    criteria: string[];         // Testable acceptance criteria
-    verification: string[];     // How to verify each criterion
-    manual_checks?: string[];   // Manual verification if needed
-  };
-
-  // Phase 5: Commit
-  commit: {
-    type: 'feat' | 'fix' | 'refactor' | 'test' | 'docs' | 'chore';
-    scope: string;              // e.g., "auth", "api"
-    message_template: string;   // Commit message template
-    breaking?: boolean;
-  };
-
-  depends_on: string[];
-  executor: 'codex' | 'gemini' | 'agent' | 'auto';
-}
-```
+> **Note**: Task structure (SolutionTask) is defined in `/issue:plan` - see `.claude/commands/issue/plan.md`
 
 ## Usage
 
