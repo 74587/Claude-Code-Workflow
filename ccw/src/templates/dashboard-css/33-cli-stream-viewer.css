@@ -1,0 +1,467 @@
+/**
+ * CLI Stream Viewer Styles
+ * Right-side popup panel for viewing CLI streaming output
+ */
+
+/* ===== Overlay ===== */
+.cli-stream-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.3);
+  z-index: 1050;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.cli-stream-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ===== Main Panel ===== */
+.cli-stream-viewer {
+  position: fixed;
+  top: 60px;
+  right: 16px;
+  width: 650px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 80px);
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.2);
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(calc(100% + 20px));
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cli-stream-viewer.open {
+  transform: translateX(0);
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ===== Header ===== */
+.cli-stream-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.3);
+}
+
+.cli-stream-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.cli-stream-title svg,
+.cli-stream-title i {
+  width: 18px;
+  height: 18px;
+  color: hsl(var(--primary));
+}
+
+.cli-stream-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  border-radius: 10px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.cli-stream-count-badge.has-running {
+  background: hsl(var(--warning));
+  color: hsl(var(--warning-foreground, white));
+}
+
+.cli-stream-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cli-stream-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid hsl(var(--border));
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.cli-stream-action-btn:hover {
+  background: hsl(var(--hover));
+  color: hsl(var(--foreground));
+}
+
+.cli-stream-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  font-size: 1.25rem;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.cli-stream-close-btn:hover {
+  background: hsl(var(--destructive) / 0.1);
+  color: hsl(var(--destructive));
+}
+
+/* ===== Tab Bar ===== */
+.cli-stream-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 12px;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.2);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.cli-stream-tabs::-webkit-scrollbar {
+  height: 4px;
+}
+
+.cli-stream-tabs::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 2px;
+}
+
+.cli-stream-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.cli-stream-tab:hover {
+  background: hsl(var(--hover));
+  color: hsl(var(--foreground));
+}
+
+.cli-stream-tab.active {
+  background: hsl(var(--card));
+  border-color: hsl(var(--primary));
+  color: hsl(var(--foreground));
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+}
+
+.cli-stream-tab-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cli-stream-tab-status.running {
+  background: hsl(var(--warning));
+  animation: streamStatusPulse 1.5s ease-in-out infinite;
+}
+
+.cli-stream-tab-status.completed {
+  background: hsl(var(--success));
+}
+
+.cli-stream-tab-status.error {
+  background: hsl(var(--destructive));
+}
+
+@keyframes streamStatusPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.2); }
+}
+
+.cli-stream-tab-tool {
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.cli-stream-tab-mode {
+  font-size: 0.625rem;
+  padding: 1px 4px;
+  background: hsl(var(--muted));
+  border-radius: 3px;
+  color: hsl(var(--muted-foreground));
+}
+
+.cli-stream-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s;
+}
+
+.cli-stream-tab:hover .cli-stream-tab-close {
+  opacity: 1;
+}
+
+.cli-stream-tab-close:hover {
+  background: hsl(var(--destructive) / 0.2);
+  color: hsl(var(--destructive));
+}
+
+.cli-stream-tab-close.disabled {
+  cursor: not-allowed;
+  opacity: 0.3 !important;
+}
+
+/* ===== Empty State ===== */
+.cli-stream-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  color: hsl(var(--muted-foreground));
+  text-align: center;
+}
+
+.cli-stream-empty svg,
+.cli-stream-empty i {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.cli-stream-empty-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.cli-stream-empty-hint {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+/* ===== Terminal Content ===== */
+.cli-stream-content {
+  flex: 1;
+  min-height: 300px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding: 12px 16px;
+  background: hsl(220 13% 8%);
+  font-family: var(--font-mono, 'Consolas', 'Monaco', 'Courier New', monospace);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  scrollbar-width: thin;
+}
+
+.cli-stream-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cli-stream-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cli-stream-content::-webkit-scrollbar-thumb {
+  background: hsl(0 0% 40%);
+  border-radius: 4px;
+}
+
+.cli-stream-line {
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+  padding: 0;
+}
+
+.cli-stream-line.stdout {
+  color: hsl(0 0% 85%);
+}
+
+.cli-stream-line.stderr {
+  color: hsl(8 75% 65%);
+}
+
+.cli-stream-line.system {
+  color: hsl(210 80% 65%);
+  font-style: italic;
+}
+
+.cli-stream-line.info {
+  color: hsl(200 80% 70%);
+}
+
+/* Auto-scroll indicator */
+.cli-stream-scroll-btn {
+  position: sticky;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  background: hsl(var(--primary));
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.625rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.cli-stream-content.has-new-content .cli-stream-scroll-btn {
+  opacity: 1;
+}
+
+/* ===== Status Bar ===== */
+.cli-stream-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-top: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.3);
+  font-size: 0.6875rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.cli-stream-status-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cli-stream-status-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cli-stream-status-item svg,
+.cli-stream-status-item i {
+  width: 12px;
+  height: 12px;
+}
+
+.cli-stream-status-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cli-stream-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid hsl(var(--border));
+  border-radius: 3px;
+  font-size: 0.625rem;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.cli-stream-toggle-btn:hover {
+  background: hsl(var(--hover));
+}
+
+.cli-stream-toggle-btn.active {
+  background: hsl(var(--primary) / 0.1);
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
+}
+
+/* ===== Header Button & Badge ===== */
+.cli-stream-btn {
+  position: relative;
+}
+
+.cli-stream-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+  background: hsl(var(--warning));
+  color: white;
+  border-radius: 7px;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.cli-stream-badge.has-running {
+  display: flex;
+  animation: streamBadgePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes streamBadgePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+  .cli-stream-viewer {
+    top: 56px;
+    right: 8px;
+    left: 8px;
+    width: auto;
+    max-height: calc(100vh - 72px);
+  }
+  
+  .cli-stream-content {
+    min-height: 200px;
+    max-height: 350px;
+  }
+}

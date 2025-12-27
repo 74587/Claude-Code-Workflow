@@ -1,10 +1,11 @@
 /**
- * Issue Command - Issue lifecycle management with JSONL task tracking
- * Supports: init, list, add, update, status, export, retry, clean
+ * Issue Command - Unified JSONL storage with CLI & API compatibility
+ * Storage: issues.jsonl + solutions/{issue-id}.jsonl + queue.json
+ * Commands: init, list, status, task, bind, queue, next, done, retry
  */
 
 import chalk from 'chalk';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 
 // Handle EPIPE errors gracefully
@@ -15,57 +16,104 @@ process.stdout.on('error', (err: NodeJS.ErrnoException) => {
   throw err;
 });
 
-interface IssueTask {
+// ============ Interfaces ============
+
+interface Issue {
   id: string;
   title: string;
-  type: 'feature' | 'bug' | 'refactor' | 'test' | 'chore' | 'docs';
-  description: string;
-  file_context: string[];
-  depends_on: string[];
-  delivery_criteria: string[];
-  pause_criteria: string[];
-  status: 'pending' | 'ready' | 'in_progress' | 'completed' | 'failed' | 'paused' | 'skipped';
-  current_phase: 'analyze' | 'implement' | 'test' | 'optimize' | 'commit' | 'done';
-  executor: 'agent' | 'codex' | 'gemini' | 'auto';
+  status: 'registered' | 'planning' | 'planned' | 'queued' | 'executing' | 'completed' | 'failed' | 'paused';
   priority: number;
-  phase_results?: Record<string, any>;
+  context: string;
+  bound_solution_id: string | null;
+  solution_count: number;
+  source?: string;
+  source_url?: string;
+  labels?: string[];
   created_at: string;
   updated_at: string;
+  planned_at?: string;
+  queued_at?: string;
+  completed_at?: string;
 }
 
-interface IssueState {
-  issue_id: string;
+interface SolutionTask {
+  id: string;
   title: string;
-  status: 'planned' | 'in_progress' | 'completed' | 'paused' | 'failed';
+  scope: string;
+  action: string;
+  description?: string;
+  modification_points?: { file: string; target: string; change: string }[];
+  implementation: string[];
+  acceptance: string[];
+  depends_on: string[];
+  estimated_minutes?: number;
+  executor: 'codex' | 'gemini' | 'agent' | 'auto';
+  status?: string;
+  priority?: number;
+}
+
+interface Solution {
+  id: string;
+  description?: string;
+  tasks: SolutionTask[];
+  exploration_context?: Record<string, any>;
+  analysis?: { risk?: string; impact?: string; complexity?: string };
+  score?: number;
+  is_bound: boolean;
   created_at: string;
-  updated_at: string;
-  task_count: number;
-  completed_count: number;
-  current_task: string | null;
-  executor_default: string;
+  bound_at?: string;
+}
+
+interface QueueItem {
+  queue_id: string;
+  issue_id: string;
+  solution_id: string;
+  task_id: string;
+  status: 'pending' | 'ready' | 'executing' | 'completed' | 'failed' | 'blocked';
+  execution_order: number;
+  execution_group: string;
+  depends_on: string[];
+  semantic_priority: number;
+  assigned_executor: 'codex' | 'gemini' | 'agent';
+  queued_at: string;
+  started_at?: string;
+  completed_at?: string;
+  result?: Record<string, any>;
+  failure_reason?: string;
+}
+
+interface Queue {
+  queue: QueueItem[];
+  conflicts: any[];
+  _metadata: {
+    version: string;
+    total_tasks: number;
+    pending_count: number;
+    executing_count: number;
+    completed_count: number;
+    failed_count: number;
+    last_updated: string;
+  };
 }
 
 interface IssueOptions {
   status?: string;
-  phase?: string;
   title?: string;
-  type?: string;
   description?: string;
-  dependsOn?: string;
-  deliveryCriteria?: string;
-  pauseCriteria?: string;
   executor?: string;
   priority?: string;
-  format?: string;
-  force?: boolean;
+  solution?: string;
+  result?: string;
+  reason?: string;
   json?: boolean;
+  force?: boolean;
+  fail?: boolean;
 }
 
 const ISSUES_DIR = '.workflow/issues';
 
-/**
- * Get project root (where .workflow exists or should be created)
- */
+// ============ Storage Layer (JSONL) ============
+
 function getProjectRoot(): string {
   let dir = process.cwd();
   while (dir !== resolve(dir, '..')) {
@@ -77,70 +125,134 @@ function getProjectRoot(): string {
   return process.cwd();
 }
 
-/**
- * Get issues directory path
- */
 function getIssuesDir(): string {
-  const projectRoot = getProjectRoot();
-  return join(projectRoot, ISSUES_DIR);
+  return join(getProjectRoot(), ISSUES_DIR);
 }
 
-/**
- * Get issue directory path
- */
-function getIssueDir(issueId: string): string {
-  return join(getIssuesDir(), issueId);
+function ensureIssuesDir(): void {
+  const dir = getIssuesDir();
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
 }
 
-/**
- * Read JSONL file into array of tasks
- */
-function readJsonl(filePath: string): IssueTask[] {
-  if (!existsSync(filePath)) return [];
-  const content = readFileSync(filePath, 'utf-8');
-  return content.split('\n')
-    .filter(line => line.trim())
-    .map(line => JSON.parse(line));
+// ============ Issues JSONL ============
+
+function readIssues(): Issue[] {
+  const path = join(getIssuesDir(), 'issues.jsonl');
+  if (!existsSync(path)) return [];
+  try {
+    return readFileSync(path, 'utf-8')
+      .split('\n')
+      .filter(line => line.trim())
+      .map(line => JSON.parse(line));
+  } catch {
+    return [];
+  }
 }
 
-/**
- * Write tasks to JSONL file
- */
-function writeJsonl(filePath: string, tasks: IssueTask[]): void {
-  const content = tasks.map(t => JSON.stringify(t)).join('\n');
-  writeFileSync(filePath, content, 'utf-8');
+function writeIssues(issues: Issue[]): void {
+  ensureIssuesDir();
+  const path = join(getIssuesDir(), 'issues.jsonl');
+  writeFileSync(path, issues.map(i => JSON.stringify(i)).join('\n'), 'utf-8');
 }
 
-/**
- * Read issue state
- */
-function readState(issueId: string): IssueState | null {
-  const statePath = join(getIssueDir(issueId), 'state.json');
-  if (!existsSync(statePath)) return null;
-  return JSON.parse(readFileSync(statePath, 'utf-8'));
+function findIssue(issueId: string): Issue | undefined {
+  return readIssues().find(i => i.id === issueId);
 }
 
-/**
- * Write issue state
- */
-function writeState(issueId: string, state: IssueState): void {
-  const statePath = join(getIssueDir(issueId), 'state.json');
-  writeFileSync(statePath, JSON.stringify(state, null, 2), 'utf-8');
+function updateIssue(issueId: string, updates: Partial<Issue>): boolean {
+  const issues = readIssues();
+  const idx = issues.findIndex(i => i.id === issueId);
+  if (idx === -1) return false;
+  issues[idx] = { ...issues[idx], ...updates, updated_at: new Date().toISOString() };
+  writeIssues(issues);
+  return true;
 }
 
-/**
- * Generate next task ID
- */
-function generateTaskId(tasks: IssueTask[]): string {
-  const maxNum = tasks.reduce((max, t) => {
-    const match = t.id.match(/^TASK-(\d+)$/);
+// ============ Solutions JSONL ============
+
+function getSolutionsPath(issueId: string): string {
+  return join(getIssuesDir(), 'solutions', `${issueId}.jsonl`);
+}
+
+function readSolutions(issueId: string): Solution[] {
+  const path = getSolutionsPath(issueId);
+  if (!existsSync(path)) return [];
+  try {
+    return readFileSync(path, 'utf-8')
+      .split('\n')
+      .filter(line => line.trim())
+      .map(line => JSON.parse(line));
+  } catch {
+    return [];
+  }
+}
+
+function writeSolutions(issueId: string, solutions: Solution[]): void {
+  const dir = join(getIssuesDir(), 'solutions');
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(getSolutionsPath(issueId), solutions.map(s => JSON.stringify(s)).join('\n'), 'utf-8');
+}
+
+function findSolution(issueId: string, solutionId: string): Solution | undefined {
+  return readSolutions(issueId).find(s => s.id === solutionId);
+}
+
+function getBoundSolution(issueId: string): Solution | undefined {
+  return readSolutions(issueId).find(s => s.is_bound);
+}
+
+function generateSolutionId(): string {
+  const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  return `SOL-${ts}`;
+}
+
+// ============ Queue JSON ============
+
+function readQueue(): Queue {
+  const path = join(getIssuesDir(), 'queue.json');
+  if (!existsSync(path)) {
+    return {
+      queue: [],
+      conflicts: [],
+      _metadata: {
+        version: '2.0',
+        total_tasks: 0,
+        pending_count: 0,
+        executing_count: 0,
+        completed_count: 0,
+        failed_count: 0,
+        last_updated: new Date().toISOString()
+      }
+    };
+  }
+  return JSON.parse(readFileSync(path, 'utf-8'));
+}
+
+function writeQueue(queue: Queue): void {
+  ensureIssuesDir();
+  queue._metadata.total_tasks = queue.queue.length;
+  queue._metadata.pending_count = queue.queue.filter(q => q.status === 'pending').length;
+  queue._metadata.executing_count = queue.queue.filter(q => q.status === 'executing').length;
+  queue._metadata.completed_count = queue.queue.filter(q => q.status === 'completed').length;
+  queue._metadata.failed_count = queue.queue.filter(q => q.status === 'failed').length;
+  queue._metadata.last_updated = new Date().toISOString();
+  writeFileSync(join(getIssuesDir(), 'queue.json'), JSON.stringify(queue, null, 2), 'utf-8');
+}
+
+function generateQueueId(queue: Queue): string {
+  const maxNum = queue.queue.reduce((max, q) => {
+    const match = q.queue_id.match(/^Q-(\d+)$/);
     return match ? Math.max(max, parseInt(match[1])) : max;
   }, 0);
-  return `TASK-${String(maxNum + 1).padStart(3, '0')}`;
+  return `Q-${String(maxNum + 1).padStart(3, '0')}`;
 }
 
+// ============ Commands ============
+
 /**
- * Initialize a new issue
+ * init - Initialize a new issue
  */
 async function initAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
   if (!issueId) {
@@ -149,455 +261,550 @@ async function initAction(issueId: string | undefined, options: IssueOptions): P
     process.exit(1);
   }
 
-  const issueDir = getIssueDir(issueId);
-
-  if (existsSync(issueDir) && !options.force) {
+  const existing = findIssue(issueId);
+  if (existing && !options.force) {
     console.error(chalk.red(`Issue "${issueId}" already exists`));
     console.error(chalk.gray('Use --force to reinitialize'));
     process.exit(1);
   }
 
-  // Create directory
-  mkdirSync(issueDir, { recursive: true });
-
-  // Initialize state
-  const state: IssueState = {
-    issue_id: issueId,
+  const issues = readIssues().filter(i => i.id !== issueId);
+  const newIssue: Issue = {
+    id: issueId,
     title: options.title || issueId,
-    status: 'planned',
+    status: 'registered',
+    priority: options.priority ? parseInt(options.priority) : 3,
+    context: options.description || '',
+    bound_solution_id: null,
+    solution_count: 0,
     created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    task_count: 0,
-    completed_count: 0,
-    current_task: null,
-    executor_default: options.executor || 'auto'
+    updated_at: new Date().toISOString()
   };
 
-  writeState(issueId, state);
-
-  // Create empty tasks.jsonl
-  writeFileSync(join(issueDir, 'tasks.jsonl'), '', 'utf-8');
-
-  // Create context.md placeholder
-  writeFileSync(join(issueDir, 'context.md'), `# ${options.title || issueId}\n\n<!-- Issue context will be added here -->\n`, 'utf-8');
+  issues.push(newIssue);
+  writeIssues(issues);
 
   console.log(chalk.green(`✓ Issue "${issueId}" initialized`));
-  console.log(chalk.gray(`  Location: ${issueDir}`));
-  console.log(chalk.gray(`  Next: ccw issue add ${issueId} --title "Task title"`));
+  console.log(chalk.gray(`  Next: ccw issue task ${issueId} --title "Task title"`));
 }
 
 /**
- * List issues or tasks within an issue
+ * list - List issues or tasks
  */
 async function listAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
-  const issuesDir = getIssuesDir();
-
   if (!issueId) {
     // List all issues
-    if (!existsSync(issuesDir)) {
-      console.log(chalk.yellow('No issues found'));
-      console.log(chalk.gray('Create one with: ccw issue init <issue-id>'));
-      return;
-    }
-
-    const issues = readdirSync(issuesDir, { withFileTypes: true })
-      .filter(d => d.isDirectory())
-      .map(d => {
-        const state = readState(d.name);
-        return state || { issue_id: d.name, status: 'unknown', task_count: 0, completed_count: 0 };
-      });
+    const issues = readIssues();
 
     if (options.json) {
       console.log(JSON.stringify(issues, null, 2));
       return;
     }
 
+    if (issues.length === 0) {
+      console.log(chalk.yellow('No issues found'));
+      console.log(chalk.gray('Create one with: ccw issue init <issue-id>'));
+      return;
+    }
+
     console.log(chalk.bold.cyan('\nIssues\n'));
-    console.log(chalk.gray('ID'.padEnd(20) + 'Status'.padEnd(15) + 'Progress'.padEnd(15) + 'Title'));
+    console.log(chalk.gray('ID'.padEnd(20) + 'Status'.padEnd(15) + 'Solutions'.padEnd(12) + 'Title'));
     console.log(chalk.gray('-'.repeat(70)));
 
     for (const issue of issues) {
       const statusColor = {
-        'planned': chalk.blue,
-        'in_progress': chalk.yellow,
+        'registered': chalk.gray,
+        'planning': chalk.blue,
+        'planned': chalk.cyan,
+        'queued': chalk.yellow,
+        'executing': chalk.yellow,
         'completed': chalk.green,
-        'paused': chalk.magenta,
-        'failed': chalk.red
-      }[issue.status as string] || chalk.gray;
+        'failed': chalk.red,
+        'paused': chalk.magenta
+      }[issue.status] || chalk.white;
 
-      const progress = `${issue.completed_count}/${issue.task_count}`;
+      const bound = issue.bound_solution_id ? `[${issue.bound_solution_id}]` : `${issue.solution_count}`;
       console.log(
-        issue.issue_id.padEnd(20) +
+        issue.id.padEnd(20) +
         statusColor(issue.status.padEnd(15)) +
-        progress.padEnd(15) +
-        ((issue as IssueState).title || '')
+        bound.padEnd(12) +
+        (issue.title || '').substring(0, 30)
       );
     }
     return;
   }
 
-  // List tasks within an issue
-  const issueDir = getIssueDir(issueId);
-  if (!existsSync(issueDir)) {
+  // List tasks in bound solution
+  const issue = findIssue(issueId);
+  if (!issue) {
     console.error(chalk.red(`Issue "${issueId}" not found`));
     process.exit(1);
   }
 
-  const tasks = readJsonl(join(issueDir, 'tasks.jsonl'));
-  const state = readState(issueId);
+  const solution = getBoundSolution(issueId);
+  const tasks = solution?.tasks || [];
 
   if (options.json) {
-    console.log(JSON.stringify({ state, tasks }, null, 2));
+    console.log(JSON.stringify({ issue, solution, tasks }, null, 2));
     return;
   }
-
-  // Filter by status if specified
-  const filteredTasks = options.status
-    ? tasks.filter(t => t.status === options.status)
-    : tasks;
 
   console.log(chalk.bold.cyan(`\nIssue: ${issueId}\n`));
-  if (state) {
-    console.log(chalk.gray(`Status: ${state.status} | Progress: ${state.completed_count}/${state.task_count}`));
-  }
+  console.log(`Title: ${issue.title}`);
+  console.log(`Status: ${issue.status}`);
+  console.log(`Bound: ${issue.bound_solution_id || 'none'}`);
   console.log();
 
-  if (filteredTasks.length === 0) {
-    console.log(chalk.yellow('No tasks found'));
+  if (tasks.length === 0) {
+    console.log(chalk.yellow('No tasks (bind a solution first)'));
     return;
   }
 
-  console.log(chalk.gray('ID'.padEnd(12) + 'Status'.padEnd(12) + 'Phase'.padEnd(12) + 'Deps'.padEnd(10) + 'Title'));
-  console.log(chalk.gray('-'.repeat(80)));
+  console.log(chalk.gray('ID'.padEnd(8) + 'Action'.padEnd(12) + 'Scope'.padEnd(20) + 'Title'));
+  console.log(chalk.gray('-'.repeat(70)));
 
-  for (const task of filteredTasks) {
-    const statusColor = {
-      'pending': chalk.gray,
-      'ready': chalk.blue,
-      'in_progress': chalk.yellow,
-      'completed': chalk.green,
-      'failed': chalk.red,
-      'paused': chalk.magenta,
-      'skipped': chalk.gray
-    }[task.status] || chalk.white;
-
-    const deps = task.depends_on.length > 0 ? task.depends_on.join(',') : '-';
+  for (const task of tasks) {
     console.log(
-      task.id.padEnd(12) +
-      statusColor(task.status.padEnd(12)) +
-      task.current_phase.padEnd(12) +
-      deps.padEnd(10) +
-      task.title.substring(0, 40)
+      task.id.padEnd(8) +
+      task.action.padEnd(12) +
+      task.scope.substring(0, 18).padEnd(20) +
+      task.title.substring(0, 30)
     );
   }
 }
 
 /**
- * Add a new task to an issue
+ * status - Show detailed status
  */
-async function addAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
+async function statusAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
   if (!issueId) {
-    console.error(chalk.red('Issue ID is required'));
-    console.error(chalk.gray('Usage: ccw issue add <issue-id> --title "..." [--depends-on "TASK-001,TASK-002"]'));
-    process.exit(1);
-  }
-
-  if (!options.title) {
-    console.error(chalk.red('Task title is required (--title)'));
-    process.exit(1);
-  }
-
-  const issueDir = getIssueDir(issueId);
-  if (!existsSync(issueDir)) {
-    console.error(chalk.red(`Issue "${issueId}" not found. Run: ccw issue init ${issueId}`));
-    process.exit(1);
-  }
-
-  const tasksPath = join(issueDir, 'tasks.jsonl');
-  const tasks = readJsonl(tasksPath);
-
-  // Parse options
-  const dependsOn = options.dependsOn ? options.dependsOn.split(',').map(s => s.trim()) : [];
-  const deliveryCriteria = options.deliveryCriteria ? options.deliveryCriteria.split('|').map(s => s.trim()) : ['Task completed successfully'];
-  const pauseCriteria = options.pauseCriteria ? options.pauseCriteria.split('|').map(s => s.trim()) : [];
-
-  // Validate dependencies
-  const taskIds = new Set(tasks.map(t => t.id));
-  for (const dep of dependsOn) {
-    if (!taskIds.has(dep)) {
-      console.error(chalk.red(`Dependency "${dep}" not found`));
-      process.exit(1);
-    }
-  }
-
-  const newTask: IssueTask = {
-    id: generateTaskId(tasks),
-    title: options.title,
-    type: (options.type as IssueTask['type']) || 'feature',
-    description: options.description || options.title,
-    file_context: [],
-    depends_on: dependsOn,
-    delivery_criteria: deliveryCriteria,
-    pause_criteria: pauseCriteria,
-    status: 'pending',
-    current_phase: 'analyze',
-    executor: (options.executor as IssueTask['executor']) || 'auto',
-    priority: options.priority ? parseInt(options.priority) : 3,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
-
-  tasks.push(newTask);
-  writeJsonl(tasksPath, tasks);
-
-  // Update state
-  const state = readState(issueId);
-  if (state) {
-    state.task_count = tasks.length;
-    state.updated_at = new Date().toISOString();
-    writeState(issueId, state);
-  }
-
-  console.log(chalk.green(`✓ Task ${newTask.id} added to ${issueId}`));
-  console.log(chalk.gray(`  Title: ${newTask.title}`));
-  if (dependsOn.length > 0) {
-    console.log(chalk.gray(`  Depends on: ${dependsOn.join(', ')}`));
-  }
-}
-
-/**
- * Update task status or properties
- */
-async function updateAction(issueId: string | undefined, taskId: string | undefined, options: IssueOptions): Promise<void> {
-  if (!issueId || !taskId) {
-    console.error(chalk.red('Issue ID and Task ID are required'));
-    console.error(chalk.gray('Usage: ccw issue update <issue-id> <task-id> --status completed'));
-    process.exit(1);
-  }
-
-  const tasksPath = join(getIssueDir(issueId), 'tasks.jsonl');
-  if (!existsSync(tasksPath)) {
-    console.error(chalk.red(`Issue "${issueId}" not found`));
-    process.exit(1);
-  }
-
-  const tasks = readJsonl(tasksPath);
-  const taskIndex = tasks.findIndex(t => t.id === taskId);
-
-  if (taskIndex === -1) {
-    console.error(chalk.red(`Task "${taskId}" not found in issue "${issueId}"`));
-    process.exit(1);
-  }
-
-  const task = tasks[taskIndex];
-  const updates: string[] = [];
-
-  if (options.status) {
-    task.status = options.status as IssueTask['status'];
-    updates.push(`status → ${options.status}`);
-  }
-  if (options.phase) {
-    task.current_phase = options.phase as IssueTask['current_phase'];
-    updates.push(`phase → ${options.phase}`);
-  }
-  if (options.title) {
-    task.title = options.title;
-    updates.push(`title → ${options.title}`);
-  }
-  if (options.executor) {
-    task.executor = options.executor as IssueTask['executor'];
-    updates.push(`executor → ${options.executor}`);
-  }
-
-  task.updated_at = new Date().toISOString();
-  tasks[taskIndex] = task;
-  writeJsonl(tasksPath, tasks);
-
-  // Update state
-  const state = readState(issueId);
-  if (state) {
-    state.completed_count = tasks.filter(t => t.status === 'completed').length;
-    state.current_task = task.status === 'in_progress' ? taskId : state.current_task;
-    state.updated_at = new Date().toISOString();
-    writeState(issueId, state);
-  }
-
-  console.log(chalk.green(`✓ Task ${taskId} updated`));
-  updates.forEach(u => console.log(chalk.gray(`  ${u}`)));
-}
-
-/**
- * Show detailed issue/task status
- */
-async function statusAction(issueId: string | undefined, taskId: string | undefined, options: IssueOptions): Promise<void> {
-  if (!issueId) {
-    console.error(chalk.red('Issue ID is required'));
-    console.error(chalk.gray('Usage: ccw issue status <issue-id> [task-id]'));
-    process.exit(1);
-  }
-
-  const issueDir = getIssueDir(issueId);
-  if (!existsSync(issueDir)) {
-    console.error(chalk.red(`Issue "${issueId}" not found`));
-    process.exit(1);
-  }
-
-  const state = readState(issueId);
-  const tasks = readJsonl(join(issueDir, 'tasks.jsonl'));
-
-  if (taskId) {
-    // Show specific task
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) {
-      console.error(chalk.red(`Task "${taskId}" not found`));
-      process.exit(1);
-    }
+    // Show queue status
+    const queue = readQueue();
+    const issues = readIssues();
 
     if (options.json) {
-      console.log(JSON.stringify(task, null, 2));
+      console.log(JSON.stringify({ queue: queue._metadata, issues: issues.length }, null, 2));
       return;
     }
 
-    console.log(chalk.bold.cyan(`\nTask: ${task.id}\n`));
-    console.log(`Title: ${task.title}`);
-    console.log(`Type: ${task.type}`);
-    console.log(`Status: ${task.status}`);
-    console.log(`Phase: ${task.current_phase}`);
-    console.log(`Executor: ${task.executor}`);
-    console.log(`Priority: ${task.priority}`);
-    console.log();
-    console.log(chalk.bold('Description:'));
-    console.log(task.description);
-    console.log();
-    console.log(chalk.bold('Delivery Criteria:'));
-    task.delivery_criteria.forEach((c, i) => console.log(`  ${i + 1}. ${c}`));
-    if (task.pause_criteria.length > 0) {
-      console.log();
-      console.log(chalk.bold('Pause Criteria:'));
-      task.pause_criteria.forEach((c, i) => console.log(`  ${i + 1}. ${c}`));
-    }
-    if (task.depends_on.length > 0) {
-      console.log();
-      console.log(chalk.bold('Dependencies:'));
-      task.depends_on.forEach(d => console.log(`  - ${d}`));
-    }
-    if (task.phase_results) {
-      console.log();
-      console.log(chalk.bold('Phase Results:'));
-      console.log(JSON.stringify(task.phase_results, null, 2));
-    }
+    console.log(chalk.bold.cyan('\nSystem Status\n'));
+    console.log(`Issues: ${issues.length}`);
+    console.log(`Queue: ${queue._metadata.total_tasks} tasks`);
+    console.log(`  Pending: ${queue._metadata.pending_count}`);
+    console.log(`  Executing: ${queue._metadata.executing_count}`);
+    console.log(`  Completed: ${queue._metadata.completed_count}`);
+    console.log(`  Failed: ${queue._metadata.failed_count}`);
     return;
   }
 
-  // Show issue overview
+  const issue = findIssue(issueId);
+  if (!issue) {
+    console.error(chalk.red(`Issue "${issueId}" not found`));
+    process.exit(1);
+  }
+
+  const solutions = readSolutions(issueId);
+  const boundSol = solutions.find(s => s.is_bound);
+
   if (options.json) {
-    console.log(JSON.stringify({ state, tasks }, null, 2));
+    console.log(JSON.stringify({ issue, solutions, bound: boundSol }, null, 2));
     return;
   }
 
   console.log(chalk.bold.cyan(`\nIssue: ${issueId}\n`));
-  if (state) {
-    console.log(`Title: ${state.title}`);
-    console.log(`Status: ${state.status}`);
-    console.log(`Progress: ${state.completed_count}/${state.task_count} tasks`);
-    console.log(`Current: ${state.current_task || 'none'}`);
-    console.log(`Created: ${state.created_at}`);
-    console.log(`Updated: ${state.updated_at}`);
-  }
+  console.log(`Title: ${issue.title}`);
+  console.log(`Status: ${issue.status}`);
+  console.log(`Priority: ${issue.priority}`);
+  console.log(`Created: ${issue.created_at}`);
+  console.log(`Updated: ${issue.updated_at}`);
 
-  // Task summary by status
-  const byStatus: Record<string, number> = {};
-  tasks.forEach(t => {
-    byStatus[t.status] = (byStatus[t.status] || 0) + 1;
-  });
+  if (issue.context) {
+    console.log();
+    console.log(chalk.bold('Context:'));
+    console.log(issue.context.substring(0, 200));
+  }
 
   console.log();
-  console.log(chalk.bold('Task Summary:'));
-  Object.entries(byStatus).forEach(([status, count]) => {
-    console.log(`  ${status}: ${count}`);
+  console.log(chalk.bold(`Solutions (${solutions.length}):`));
+  for (const sol of solutions) {
+    const marker = sol.is_bound ? chalk.green('◉') : chalk.gray('○');
+    console.log(`  ${marker} ${sol.id}: ${sol.tasks.length} tasks`);
+  }
+}
+
+/**
+ * task - Add or update task (simplified - mainly for manual task management)
+ */
+async function taskAction(issueId: string | undefined, taskId: string | undefined, options: IssueOptions): Promise<void> {
+  if (!issueId) {
+    console.error(chalk.red('Issue ID is required'));
+    console.error(chalk.gray('Usage: ccw issue task <issue-id> [task-id] --title "..."'));
+    process.exit(1);
+  }
+
+  const issue = findIssue(issueId);
+  if (!issue) {
+    console.error(chalk.red(`Issue "${issueId}" not found`));
+    process.exit(1);
+  }
+
+  const solutions = readSolutions(issueId);
+  let boundIdx = solutions.findIndex(s => s.is_bound);
+
+  // Create default solution if none bound
+  if (boundIdx === -1) {
+    const newSol: Solution = {
+      id: generateSolutionId(),
+      description: 'Manual tasks',
+      tasks: [],
+      is_bound: true,
+      created_at: new Date().toISOString(),
+      bound_at: new Date().toISOString()
+    };
+    solutions.push(newSol);
+    boundIdx = solutions.length - 1;
+    updateIssue(issueId, { bound_solution_id: newSol.id, status: 'planned' });
+  }
+
+  const solution = solutions[boundIdx];
+
+  if (taskId) {
+    // Update existing task
+    const taskIdx = solution.tasks.findIndex(t => t.id === taskId);
+    if (taskIdx === -1) {
+      console.error(chalk.red(`Task "${taskId}" not found`));
+      process.exit(1);
+    }
+
+    if (options.title) solution.tasks[taskIdx].title = options.title;
+    if (options.status) solution.tasks[taskIdx].status = options.status;
+    if (options.executor) solution.tasks[taskIdx].executor = options.executor as any;
+
+    writeSolutions(issueId, solutions);
+    console.log(chalk.green(`✓ Task ${taskId} updated`));
+  } else {
+    // Add new task
+    if (!options.title) {
+      console.error(chalk.red('Task title is required (--title)'));
+      process.exit(1);
+    }
+
+    const newTaskId = `T${solution.tasks.length + 1}`;
+    const newTask: SolutionTask = {
+      id: newTaskId,
+      title: options.title,
+      scope: '',
+      action: 'Implement',
+      description: options.description || options.title,
+      implementation: [],
+      acceptance: ['Task completed successfully'],
+      depends_on: [],
+      executor: (options.executor as any) || 'auto'
+    };
+
+    solution.tasks.push(newTask);
+    writeSolutions(issueId, solutions);
+    console.log(chalk.green(`✓ Task ${newTaskId} added to ${issueId}`));
+  }
+}
+
+/**
+ * bind - Register and/or bind a solution
+ */
+async function bindAction(issueId: string | undefined, solutionId: string | undefined, options: IssueOptions): Promise<void> {
+  if (!issueId) {
+    console.error(chalk.red('Issue ID is required'));
+    console.error(chalk.gray('Usage: ccw issue bind <issue-id> [solution-id] [--solution <path>]'));
+    process.exit(1);
+  }
+
+  const issue = findIssue(issueId);
+  if (!issue) {
+    console.error(chalk.red(`Issue "${issueId}" not found`));
+    process.exit(1);
+  }
+
+  let solutions = readSolutions(issueId);
+
+  // Register new solution from file if provided
+  if (options.solution) {
+    try {
+      const content = readFileSync(options.solution, 'utf-8');
+      const data = JSON.parse(content);
+      const newSol: Solution = {
+        id: solutionId || generateSolutionId(),
+        description: data.description || data.approach_name || 'Imported solution',
+        tasks: data.tasks || [],
+        exploration_context: data.exploration_context,
+        analysis: data.analysis,
+        score: data.score,
+        is_bound: false,
+        created_at: new Date().toISOString()
+      };
+      solutions.push(newSol);
+      solutionId = newSol.id;
+      console.log(chalk.green(`✓ Solution ${solutionId} registered (${newSol.tasks.length} tasks)`));
+    } catch (e) {
+      console.error(chalk.red(`Failed to read solution file: ${options.solution}`));
+      process.exit(1);
+    }
+  }
+
+  if (!solutionId) {
+    // List available solutions
+    if (solutions.length === 0) {
+      console.log(chalk.yellow('No solutions available'));
+      console.log(chalk.gray('Register one: ccw issue bind <issue-id> --solution <path>'));
+      return;
+    }
+
+    console.log(chalk.bold.cyan(`\nSolutions for ${issueId}:\n`));
+    for (const sol of solutions) {
+      const marker = sol.is_bound ? chalk.green('◉') : chalk.gray('○');
+      console.log(`  ${marker} ${sol.id}: ${sol.tasks.length} tasks - ${sol.description || ''}`);
+    }
+    return;
+  }
+
+  // Bind the specified solution
+  const solIdx = solutions.findIndex(s => s.id === solutionId);
+  if (solIdx === -1) {
+    console.error(chalk.red(`Solution "${solutionId}" not found`));
+    process.exit(1);
+  }
+
+  // Unbind all, bind selected
+  solutions = solutions.map(s => ({ ...s, is_bound: false }));
+  solutions[solIdx].is_bound = true;
+  solutions[solIdx].bound_at = new Date().toISOString();
+
+  writeSolutions(issueId, solutions);
+  updateIssue(issueId, {
+    bound_solution_id: solutionId,
+    solution_count: solutions.length,
+    status: 'planned',
+    planned_at: new Date().toISOString()
   });
 
-  // Dependency graph
-  const readyTasks = tasks.filter(t =>
-    t.status === 'pending' &&
-    t.depends_on.every(dep => tasks.find(tt => tt.id === dep)?.status === 'completed')
-  );
+  console.log(chalk.green(`✓ Solution ${solutionId} bound to ${issueId}`));
+}
 
-  if (readyTasks.length > 0) {
-    console.log();
-    console.log(chalk.bold('Ready to Execute:'));
-    readyTasks.forEach(t => console.log(`  ${t.id}: ${t.title}`));
+/**
+ * queue - Queue management (list / add)
+ */
+async function queueAction(subAction: string | undefined, issueId: string | undefined, options: IssueOptions): Promise<void> {
+  const queue = readQueue();
+
+  if (subAction === 'add' && issueId) {
+    // Add issue tasks to queue
+    const issue = findIssue(issueId);
+    if (!issue) {
+      console.error(chalk.red(`Issue "${issueId}" not found`));
+      process.exit(1);
+    }
+
+    const solution = getBoundSolution(issueId);
+    if (!solution) {
+      console.error(chalk.red(`No bound solution for "${issueId}"`));
+      console.error(chalk.gray('First bind a solution: ccw issue bind <issue-id> <solution-id>'));
+      process.exit(1);
+    }
+
+    let added = 0;
+    for (const task of solution.tasks) {
+      const exists = queue.queue.some(q => q.issue_id === issueId && q.task_id === task.id);
+      if (exists) continue;
+
+      queue.queue.push({
+        queue_id: generateQueueId(queue),
+        issue_id: issueId,
+        solution_id: solution.id,
+        task_id: task.id,
+        status: 'pending',
+        execution_order: queue.queue.length + 1,
+        execution_group: 'P1',
+        depends_on: task.depends_on.map(dep => {
+          const depItem = queue.queue.find(q => q.task_id === dep && q.issue_id === issueId);
+          return depItem?.queue_id || dep;
+        }),
+        semantic_priority: 0.5,
+        assigned_executor: task.executor === 'auto' ? 'codex' : task.executor as any,
+        queued_at: new Date().toISOString()
+      });
+      added++;
+    }
+
+    writeQueue(queue);
+    updateIssue(issueId, { status: 'queued', queued_at: new Date().toISOString() });
+
+    console.log(chalk.green(`✓ Added ${added} tasks to queue from ${solution.id}`));
+    return;
+  }
+
+  // List queue
+  if (options.json) {
+    console.log(JSON.stringify(queue, null, 2));
+    return;
+  }
+
+  console.log(chalk.bold.cyan('\nExecution Queue\n'));
+  console.log(chalk.gray(`Total: ${queue._metadata.total_tasks} | Pending: ${queue._metadata.pending_count} | Executing: ${queue._metadata.executing_count} | Completed: ${queue._metadata.completed_count}`));
+  console.log();
+
+  if (queue.queue.length === 0) {
+    console.log(chalk.yellow('Queue is empty'));
+    console.log(chalk.gray('Add tasks: ccw issue queue add <issue-id>'));
+    return;
+  }
+
+  console.log(chalk.gray('QueueID'.padEnd(10) + 'Issue'.padEnd(15) + 'Task'.padEnd(8) + 'Status'.padEnd(12) + 'Executor'));
+  console.log(chalk.gray('-'.repeat(60)));
+
+  for (const item of queue.queue) {
+    const statusColor = {
+      'pending': chalk.gray,
+      'executing': chalk.yellow,
+      'completed': chalk.green,
+      'failed': chalk.red
+    }[item.status] || chalk.white;
+
+    console.log(
+      item.queue_id.padEnd(10) +
+      item.issue_id.substring(0, 13).padEnd(15) +
+      item.task_id.padEnd(8) +
+      statusColor(item.status.padEnd(12)) +
+      item.assigned_executor
+    );
   }
 }
 
 /**
- * Export issue to markdown
+ * next - Get next ready task for execution (JSON output)
  */
-async function exportAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
-  if (!issueId) {
-    console.error(chalk.red('Issue ID is required'));
-    console.error(chalk.gray('Usage: ccw issue export <issue-id>'));
+async function nextAction(options: IssueOptions): Promise<void> {
+  const queue = readQueue();
+
+  // Find ready tasks
+  const readyTasks = queue.queue.filter(item => {
+    if (item.status !== 'pending') return false;
+    return item.depends_on.every(depId => {
+      const dep = queue.queue.find(q => q.queue_id === depId);
+      return !dep || dep.status === 'completed';
+    });
+  });
+
+  if (readyTasks.length === 0) {
+    console.log(JSON.stringify({
+      status: 'empty',
+      message: 'No ready tasks',
+      queue_status: queue._metadata
+    }, null, 2));
+    return;
+  }
+
+  // Sort by execution order
+  readyTasks.sort((a, b) => a.execution_order - b.execution_order);
+  const nextItem = readyTasks[0];
+
+  // Load task definition
+  const solution = findSolution(nextItem.issue_id, nextItem.solution_id);
+  const taskDef = solution?.tasks.find(t => t.id === nextItem.task_id);
+
+  if (!taskDef) {
+    console.log(JSON.stringify({ status: 'error', message: 'Task definition not found' }));
     process.exit(1);
   }
 
-  const issueDir = getIssueDir(issueId);
-  if (!existsSync(issueDir)) {
-    console.error(chalk.red(`Issue "${issueId}" not found`));
+  // Mark as executing
+  const idx = queue.queue.findIndex(q => q.queue_id === nextItem.queue_id);
+  queue.queue[idx].status = 'executing';
+  queue.queue[idx].started_at = new Date().toISOString();
+  writeQueue(queue);
+
+  // Update issue status
+  updateIssue(nextItem.issue_id, { status: 'executing' });
+
+  console.log(JSON.stringify({
+    queue_id: nextItem.queue_id,
+    issue_id: nextItem.issue_id,
+    solution_id: nextItem.solution_id,
+    task: taskDef,
+    context: solution?.exploration_context || {},
+    execution_hints: {
+      executor: nextItem.assigned_executor,
+      estimated_minutes: taskDef.estimated_minutes || 30
+    }
+  }, null, 2));
+}
+
+/**
+ * done - Mark task completed or failed
+ */
+async function doneAction(queueId: string | undefined, options: IssueOptions): Promise<void> {
+  if (!queueId) {
+    console.error(chalk.red('Queue ID is required'));
+    console.error(chalk.gray('Usage: ccw issue done <queue-id> [--fail] [--reason "..."]'));
     process.exit(1);
   }
 
-  const state = readState(issueId);
-  const tasks = readJsonl(join(issueDir, 'tasks.jsonl'));
+  const queue = readQueue();
+  const idx = queue.queue.findIndex(q => q.queue_id === queueId);
 
-  const markdown = `# ${state?.title || issueId}
+  if (idx === -1) {
+    console.error(chalk.red(`Queue item "${queueId}" not found`));
+    process.exit(1);
+  }
 
-## Progress: ${state?.completed_count || 0}/${state?.task_count || 0}
+  const isFail = options.fail;
+  queue.queue[idx].status = isFail ? 'failed' : 'completed';
+  queue.queue[idx].completed_at = new Date().toISOString();
 
-## Tasks
+  if (isFail) {
+    queue.queue[idx].failure_reason = options.reason || 'Unknown failure';
+  } else if (options.result) {
+    try {
+      queue.queue[idx].result = JSON.parse(options.result);
+    } catch {
+      console.warn(chalk.yellow('Warning: Could not parse result JSON'));
+    }
+  }
 
-${tasks.map(t => {
-  const checkbox = t.status === 'completed' ? '[x]' : '[ ]';
-  const deps = t.depends_on.length > 0 ? ` (after: ${t.depends_on.join(', ')})` : '';
-  return `- ${checkbox} **${t.id}**: ${t.title}${deps}
-  - Criteria: ${t.delivery_criteria.join('; ')}`;
-}).join('\n')}
+  writeQueue(queue);
 
----
-*Generated by CCW Issue Tracker*
-`;
+  // Check if all issue tasks are complete
+  const issueId = queue.queue[idx].issue_id;
+  const issueTasks = queue.queue.filter(q => q.issue_id === issueId);
+  const allComplete = issueTasks.every(q => q.status === 'completed');
+  const anyFailed = issueTasks.some(q => q.status === 'failed');
 
-  if (options.format === 'json') {
-    console.log(JSON.stringify({ state, tasks }, null, 2));
+  if (allComplete) {
+    updateIssue(issueId, { status: 'completed', completed_at: new Date().toISOString() });
+    console.log(chalk.green(`✓ ${queueId} completed`));
+    console.log(chalk.green(`✓ Issue ${issueId} completed (all tasks done)`));
+  } else if (anyFailed) {
+    updateIssue(issueId, { status: 'failed' });
+    console.log(chalk.red(`✗ ${queueId} failed`));
   } else {
-    console.log(markdown);
+    console.log(isFail ? chalk.red(`✗ ${queueId} failed`) : chalk.green(`✓ ${queueId} completed`));
   }
 }
 
 /**
- * Retry failed tasks
+ * retry - Retry failed tasks
  */
-async function retryAction(issueId: string | undefined, taskId: string | undefined, options: IssueOptions): Promise<void> {
-  if (!issueId) {
-    console.error(chalk.red('Issue ID is required'));
-    console.error(chalk.gray('Usage: ccw issue retry <issue-id> [task-id]'));
-    process.exit(1);
-  }
-
-  const tasksPath = join(getIssueDir(issueId), 'tasks.jsonl');
-  if (!existsSync(tasksPath)) {
-    console.error(chalk.red(`Issue "${issueId}" not found`));
-    process.exit(1);
-  }
-
-  const tasks = readJsonl(tasksPath);
+async function retryAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
+  const queue = readQueue();
   let updated = 0;
 
-  for (const task of tasks) {
-    if ((taskId && task.id === taskId) || (!taskId && task.status === 'failed')) {
-      task.status = 'pending';
-      task.current_phase = 'analyze';
-      task.updated_at = new Date().toISOString();
-      updated++;
+  for (const item of queue.queue) {
+    if (item.status === 'failed') {
+      if (!issueId || item.issue_id === issueId) {
+        item.status = 'pending';
+        item.failure_reason = undefined;
+        item.started_at = undefined;
+        item.completed_at = undefined;
+        updated++;
+      }
     }
   }
 
@@ -606,55 +813,17 @@ async function retryAction(issueId: string | undefined, taskId: string | undefin
     return;
   }
 
-  writeJsonl(tasksPath, tasks);
+  writeQueue(queue);
 
-  // Update state
-  const state = readState(issueId);
-  if (state) {
-    state.updated_at = new Date().toISOString();
-    writeState(issueId, state);
+  if (issueId) {
+    updateIssue(issueId, { status: 'queued' });
   }
 
   console.log(chalk.green(`✓ Reset ${updated} task(s) to pending`));
 }
 
-/**
- * Clean completed issues
- */
-async function cleanAction(options: IssueOptions): Promise<void> {
-  const issuesDir = getIssuesDir();
-  if (!existsSync(issuesDir)) {
-    console.log(chalk.yellow('No issues to clean'));
-    return;
-  }
+// ============ Main Entry ============
 
-  const issues = readdirSync(issuesDir, { withFileTypes: true })
-    .filter(d => d.isDirectory());
-
-  let cleaned = 0;
-  for (const issue of issues) {
-    const state = readState(issue.name);
-    if (state?.status === 'completed') {
-      if (!options.force) {
-        console.log(chalk.gray(`Would remove: ${issue.name}`));
-      } else {
-        // Actually remove (implement if needed)
-        console.log(chalk.green(`✓ Cleaned: ${issue.name}`));
-      }
-      cleaned++;
-    }
-  }
-
-  if (cleaned === 0) {
-    console.log(chalk.yellow('No completed issues to clean'));
-  } else if (!options.force) {
-    console.log(chalk.gray(`\nUse --force to actually remove ${cleaned} issue(s)`));
-  }
-}
-
-/**
- * Issue command entry point
- */
 export async function issueCommand(
   subcommand: string,
   args: string | string[],
@@ -669,54 +838,68 @@ export async function issueCommand(
     case 'list':
       await listAction(argsArray[0], options);
       break;
-    case 'add':
-      await addAction(argsArray[0], options);
-      break;
-    case 'update':
-      await updateAction(argsArray[0], argsArray[1], options);
-      break;
     case 'status':
-      await statusAction(argsArray[0], argsArray[1], options);
+      await statusAction(argsArray[0], options);
       break;
-    case 'export':
-      await exportAction(argsArray[0], options);
+    case 'task':
+      await taskAction(argsArray[0], argsArray[1], options);
+      break;
+    case 'bind':
+      await bindAction(argsArray[0], argsArray[1], options);
+      break;
+    case 'queue':
+      await queueAction(argsArray[0], argsArray[1], options);
+      break;
+    case 'next':
+      await nextAction(options);
+      break;
+    case 'done':
+      await doneAction(argsArray[0], options);
       break;
     case 'retry':
-      await retryAction(argsArray[0], argsArray[1], options);
+      await retryAction(argsArray[0], options);
       break;
-    case 'clean':
-      await cleanAction(options);
+    // Legacy aliases
+    case 'register':
+      console.log(chalk.yellow('Deprecated: use "ccw issue bind <issue-id> --solution <path>"'));
+      await bindAction(argsArray[0], undefined, options);
+      break;
+    case 'complete':
+      await doneAction(argsArray[0], options);
+      break;
+    case 'fail':
+      await doneAction(argsArray[0], { ...options, fail: true });
       break;
     default:
-      console.log(chalk.bold.cyan('\nCCW Issue Management\n'));
-      console.log('Commands:');
+      console.log(chalk.bold.cyan('\nCCW Issue Management (v2.0 - Unified JSONL)\n'));
+      console.log(chalk.bold('Core Commands:'));
       console.log(chalk.gray('  init <issue-id>                    Initialize new issue'));
       console.log(chalk.gray('  list [issue-id]                    List issues or tasks'));
-      console.log(chalk.gray('  add <issue-id> --title "..."       Add task to issue'));
-      console.log(chalk.gray('  update <issue-id> <task-id>        Update task properties'));
-      console.log(chalk.gray('  status <issue-id> [task-id]        Show detailed status'));
-      console.log(chalk.gray('  export <issue-id>                  Export to markdown'));
-      console.log(chalk.gray('  retry <issue-id> [task-id]         Retry failed tasks'));
-      console.log(chalk.gray('  clean                              Clean completed issues'));
+      console.log(chalk.gray('  status [issue-id]                  Show detailed status'));
+      console.log(chalk.gray('  task <issue-id> [task-id]          Add or update task'));
+      console.log(chalk.gray('  bind <issue-id> [sol-id]           Bind solution (--solution <path> to register)'));
       console.log();
-      console.log('Options:');
-      console.log(chalk.gray('  --title <title>                    Task title'));
-      console.log(chalk.gray('  --type <type>                      Task type (feature|bug|refactor|test|chore|docs)'));
-      console.log(chalk.gray('  --status <status>                  Task status'));
-      console.log(chalk.gray('  --phase <phase>                    Execution phase'));
-      console.log(chalk.gray('  --depends-on <ids>                 Comma-separated dependency IDs'));
-      console.log(chalk.gray('  --delivery-criteria <items>        Pipe-separated criteria'));
-      console.log(chalk.gray('  --pause-criteria <items>           Pipe-separated pause conditions'));
-      console.log(chalk.gray('  --executor <type>                  Executor (agent|codex|gemini|auto)'));
-      console.log(chalk.gray('  --json                             Output as JSON'));
+      console.log(chalk.bold('Queue Commands:'));
+      console.log(chalk.gray('  queue [list]                       Show execution queue'));
+      console.log(chalk.gray('  queue add <issue-id>               Add bound solution tasks to queue'));
+      console.log(chalk.gray('  retry [issue-id]                   Retry failed tasks'));
+      console.log();
+      console.log(chalk.bold('Execution Endpoints:'));
+      console.log(chalk.gray('  next                               Get next ready task (JSON)'));
+      console.log(chalk.gray('  done <queue-id>                    Mark task completed'));
+      console.log(chalk.gray('  done <queue-id> --fail             Mark task failed'));
+      console.log();
+      console.log(chalk.bold('Options:'));
+      console.log(chalk.gray('  --title <title>                    Issue/task title'));
+      console.log(chalk.gray('  --solution <path>                  Solution JSON file'));
+      console.log(chalk.gray('  --result <json>                    Execution result'));
+      console.log(chalk.gray('  --reason <text>                    Failure reason'));
+      console.log(chalk.gray('  --json                             JSON output'));
       console.log(chalk.gray('  --force                            Force operation'));
       console.log();
-      console.log('Examples:');
-      console.log(chalk.gray('  ccw issue init GH-123 --title "Add authentication"'));
-      console.log(chalk.gray('  ccw issue add GH-123 --title "Setup JWT middleware" --type feature'));
-      console.log(chalk.gray('  ccw issue add GH-123 --title "Protect routes" --depends-on TASK-001'));
-      console.log(chalk.gray('  ccw issue list GH-123'));
-      console.log(chalk.gray('  ccw issue status GH-123 TASK-001'));
-      console.log(chalk.gray('  ccw issue update GH-123 TASK-001 --status completed'));
+      console.log(chalk.bold('Storage:'));
+      console.log(chalk.gray('  .workflow/issues/issues.jsonl      All issues'));
+      console.log(chalk.gray('  .workflow/issues/solutions/*.jsonl Solutions per issue'));
+      console.log(chalk.gray('  .workflow/issues/queue.json        Execution queue'));
   }
 }

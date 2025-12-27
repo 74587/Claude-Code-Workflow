@@ -155,6 +155,12 @@ function initNavigation() {
         } else {
           console.error('renderApiSettings not defined - please refresh the page');
         }
+      } else if (currentView === 'issue-manager') {
+        if (typeof renderIssueManager === 'function') {
+          renderIssueManager();
+        } else {
+          console.error('renderIssueManager not defined - please refresh the page');
+        }
       }
     });
   });
@@ -199,6 +205,8 @@ function updateContentTitle() {
     titleEl.textContent = t('title.codexLensManager');
   } else if (currentView === 'api-settings') {
     titleEl.textContent = t('title.apiSettings');
+  } else if (currentView === 'issue-manager') {
+    titleEl.textContent = t('title.issueManager');
   } else if (currentView === 'liteTasks') {
     const names = { 'lite-plan': t('title.litePlanSessions'), 'lite-fix': t('title.liteFixSessions') };
     titleEl.textContent = names[currentLiteType] || t('title.liteTasks');

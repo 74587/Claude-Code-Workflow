@@ -1,7 +1,7 @@
 ---
 name: plan
-description: Plan issue resolution with JSONL task generation, delivery/pause criteria, and dependency graph
-argument-hint: "\"issue description\"|github-url|file.md"
+description: Batch plan issue resolution using issue-plan-agent (explore + plan closed-loop)
+argument-hint: "<issue-id>[,<issue-id>,...] [--batch-size 3]"
 allowed-tools: TodoWrite(*), Task(*), SlashCommand(*), AskUserQuestion(*), Bash(*), Read(*), Write(*)
 ---
 
@@ -9,339 +9,317 @@ allowed-tools: TodoWrite(*), Task(*), SlashCommand(*), AskUserQuestion(*), Bash(
 
 ## Overview
 
-Generate a JSONL-based task plan from a GitHub issue or description. Each task includes delivery criteria, pause criteria, and dependency relationships. The plan is designed for progressive execution with the `/issue:execute` command.
+Unified planning command using **issue-plan-agent** that combines exploration and planning into a single closed-loop workflow. The agent handles ACE semantic search, solution generation, and task breakdown.
 
 **Core capabilities:**
-- Parse issue from URL, text description, or markdown file
-- Analyze codebase context for accurate task breakdown
-- Generate JSONL task file with DAG (Directed Acyclic Graph) dependencies
-- Define clear delivery criteria (what marks a task complete)
-- Define pause criteria (conditions to halt execution)
-- Interactive confirmation before finalizing
+- **Closed-loop agent**: issue-plan-agent combines explore + plan
+- Batch processing: 1 agent processes 1-3 issues
+- ACE semantic search integrated into planning
+- Solution with executable tasks and acceptance criteria
+- Automatic solution registration and binding
+
+## Storage Structure (Flat JSONL)
+
+```
+.workflow/issues/
+├── issues.jsonl              # All issues (one per line)
+├── queue.json                # Execution queue
+└── solutions/
+    ├── {issue-id}.jsonl      # Solutions for issue (one per line)
+    └── ...
+```
 
 ## Usage
 
 ```bash
-/issue:plan [FLAGS] <INPUT>
+/issue:plan <issue-id>[,<issue-id>,...] [FLAGS]
 
-# Input Formats
-<issue-url>           GitHub issue URL (e.g., https://github.com/owner/repo/issues/123)
-<description>         Text description of the issue
-<file.md>             Markdown file with issue details
+# Examples
+/issue:plan GH-123                    # Single issue
+/issue:plan GH-123,GH-124,GH-125      # Batch (up to 3)
+/issue:plan --all-pending             # All pending issues
 
 # Flags
--e, --explore         Force code exploration phase
---executor <type>     Default executor: agent|codex|gemini|auto (default: auto)
+--batch-size <n>      Max issues per agent batch (default: 3)
 ```
 
 ## Execution Process
 
 ```
-Phase 1: Input Parsing & Context
-   ├─ Parse input (URL → fetch issue, text → use directly, file → read content)
-   ├─ Extract: title, description, labels, acceptance criteria
-   └─ Store as issueContext
+Phase 1: Issue Loading
+   ├─ Parse input (single, comma-separated, or --all-pending)
+   ├─ Load issues from .workflow/issues/issues.jsonl
+   ├─ Validate issues exist (create if needed)
+   └─ Group into batches (max 3 per batch)
 
-Phase 2: Exploration (if needed)
-   ├─ Complexity assessment (Low/Medium/High)
-   ├─ Launch cli-explore-agent for codebase understanding
-   └─ Identify: relevant files, patterns, integration points
+Phase 2: Unified Explore + Plan (issue-plan-agent)
+   ├─ Launch issue-plan-agent per batch
+   ├─ Agent performs:
+   │   ├─ ACE semantic search for each issue
+   │   ├─ Codebase exploration (files, patterns, dependencies)
+   │   ├─ Solution generation with task breakdown
+   │   └─ Conflict detection across issues
+   └─ Output: solution JSON per issue
 
-Phase 3: Task Breakdown
-   ├─ Agent generates JSONL task list
-   ├─ Each task includes:
-   │   ├─ delivery_criteria (completion checklist)
-   │   ├─ pause_criteria (halt conditions)
-   │   └─ depends_on (dependency graph)
-   └─ Validate DAG (no circular dependencies)
+Phase 3: Solution Registration & Binding
+   ├─ Append solutions to solutions/{issue-id}.jsonl
+   ├─ Single solution per issue → auto-bind
+   ├─ Multiple candidates → AskUserQuestion to select
+   └─ Update issues.jsonl with bound_solution_id
 
-Phase 4: User Confirmation
-   ├─ Display task summary table
-   ├─ Show dependency graph
-   └─ AskUserQuestion: Approve / Refine / Cancel
-
-Phase 5: Persistence
-   ├─ Write tasks.jsonl to .workflow/issues/{issue-id}/
-   ├─ Initialize state.json for status tracking
-   └─ Return summary and next steps
+Phase 4: Summary
+   ├─ Display bound solutions
+   ├─ Show task counts per issue
+   └─ Display next steps (/issue:queue)
 ```
 
 ## Implementation
 
-### Phase 1: Input Parsing
+### Phase 1: Issue Loading
 
 ```javascript
-// Helper: Get UTC+8 ISO string
-const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
+// Parse input
+const issueIds = userInput.includes(',')
+  ? userInput.split(',').map(s => s.trim())
+  : [userInput.trim()];
 
-// Parse input type
-function parseInput(input) {
-  if (input.startsWith('https://github.com/')) {
-    const match = input.match(/github\.com\/(.+?)\/(.+?)\/issues\/(\d+)/)
-    if (match) {
-      return { type: 'github', owner: match[1], repo: match[2], number: match[3] }
-    }
+// Read issues.jsonl
+const issuesPath = '.workflow/issues/issues.jsonl';
+const allIssues = Bash(`cat "${issuesPath}" 2>/dev/null || echo ''`)
+  .split('\n')
+  .filter(line => line.trim())
+  .map(line => JSON.parse(line));
+
+// Load and validate issues
+const issues = [];
+for (const id of issueIds) {
+  let issue = allIssues.find(i => i.id === id);
+
+  if (!issue) {
+    console.log(`Issue ${id} not found. Creating...`);
+    issue = {
+      id,
+      title: `Issue ${id}`,
+      status: 'registered',
+      priority: 3,
+      context: '',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    // Append to issues.jsonl
+    Bash(`echo '${JSON.stringify(issue)}' >> "${issuesPath}"`);
   }
-  if (input.endsWith('.md') && fileExists(input)) {
-    return { type: 'file', path: input }
-  }
-  return { type: 'text', content: input }
+
+  issues.push(issue);
 }
 
-// Generate issue ID
-const inputType = parseInput(userInput)
-let issueId, issueTitle, issueContent
-
-if (inputType.type === 'github') {
-  // Fetch via gh CLI
-  const issueData = Bash(`gh issue view ${inputType.number} --repo ${inputType.owner}/${inputType.repo} --json title,body,labels`)
-  const parsed = JSON.parse(issueData)
-  issueId = `GH-${inputType.number}`
-  issueTitle = parsed.title
-  issueContent = parsed.body
-} else if (inputType.type === 'file') {
-  issueContent = Read(inputType.path)
-  issueId = `FILE-${Date.now()}`
-  issueTitle = extractTitle(issueContent) // First # heading
-} else {
-  issueContent = inputType.content
-  issueId = `TEXT-${Date.now()}`
-  issueTitle = issueContent.substring(0, 50)
+// Group into batches
+const batchSize = flags.batchSize || 3;
+const batches = [];
+for (let i = 0; i < issues.length; i += batchSize) {
+  batches.push(issues.slice(i, i + batchSize));
 }
 
-// Create issue directory
-const issueDir = `.workflow/issues/${issueId}`
-Bash(`mkdir -p ${issueDir}`)
-
-// Save issue context
-Write(`${issueDir}/context.md`, `# ${issueTitle}\n\n${issueContent}`)
+TodoWrite({
+  todos: batches.flatMap((batch, i) => [
+    { content: `Plan batch ${i+1}`, status: 'pending', activeForm: `Planning batch ${i+1}` }
+  ])
+});
 ```
 
-### Phase 2: Exploration
+### Phase 2: Unified Explore + Plan (issue-plan-agent)
 
 ```javascript
-// Complexity assessment
-const complexity = analyzeComplexity(issueContent)
-// Low: Single file change, isolated
-// Medium: Multiple files, some dependencies
-// High: Cross-module, architectural
+for (const [batchIndex, batch] of batches.entries()) {
+  updateTodo(`Plan batch ${batchIndex + 1}`, 'in_progress');
 
-const needsExploration = (
-  flags.includes('--explore') ||
-  complexity !== 'Low' ||
-  issueContent.mentions_specific_files
-)
+  // Build issue prompt for agent
+  const issuePrompt = `
+## Issues to Plan
 
-if (needsExploration) {
-  Task(
-    subagent_type="cli-explore-agent",
-    run_in_background=false,
-    description="Explore codebase for issue context",
-    prompt=`
-## Task Objective
-Analyze codebase to understand context for issue resolution.
+${batch.map((issue, i) => `
+### Issue ${i + 1}: ${issue.id}
+**Title**: ${issue.title}
+**Context**: ${issue.context || 'No context provided'}
+`).join('\n')}
 
-## Issue Context
-Title: ${issueTitle}
-Content: ${issueContent}
-
-## Required Analysis
-1. Identify files that need modification
-2. Find relevant patterns and conventions
-3. Map dependencies and integration points
-4. Identify potential risks or blockers
-
-## Output
-Write exploration results to: ${issueDir}/exploration.json
-`
-  )
-}
-```
-
-### Phase 3: Task Breakdown
-
-```javascript
-// Load schema reference
-const schema = Read('~/.claude/workflows/cli-templates/schemas/issue-task-jsonl-schema.json')
-
-// Generate tasks via CLI
-Task(
-  subagent_type="cli-lite-planning-agent",
-  run_in_background=false,
-  description="Generate JSONL task breakdown",
-  prompt=`
-## Objective
-Break down the issue into executable tasks in JSONL format.
-
-## Issue Context
-ID: ${issueId}
-Title: ${issueTitle}
-Content: ${issueContent}
-
-## Exploration Results
-${explorationResults || 'No exploration performed'}
-
-## Task Schema
-${schema}
+## Project Root
+${process.cwd()}
 
 ## Requirements
-1. Generate 2-10 tasks depending on complexity
-2. Each task MUST include:
-   - delivery_criteria: Specific, verifiable conditions for completion (2-5 items)
-   - pause_criteria: Conditions that should halt execution (0-3 items)
-   - depends_on: Task IDs that must complete first (ensure DAG)
-3. Task execution phases: analyze → implement → test → optimize → commit
-4. Assign executor based on task nature (analysis=gemini, implementation=codex)
+1. Use ACE semantic search (mcp__ace-tool__search_context) for exploration
+2. Generate complete solution with task breakdown
+3. Each task must have:
+   - implementation steps (2-7 steps)
+   - acceptance criteria (1-4 testable criteria)
+   - modification_points (exact file locations)
+   - depends_on (task dependencies)
+4. Detect file conflicts if multiple issues
+`;
 
-## Delivery Criteria Examples
-Good: "User login endpoint returns JWT token with 24h expiry"
-Bad: "Authentication works" (too vague)
+  // Launch issue-plan-agent (combines explore + plan)
+  const result = Task(
+    subagent_type="issue-plan-agent",
+    run_in_background=false,
+    description=`Explore & plan ${batch.length} issues`,
+    prompt=issuePrompt
+  );
 
-## Pause Criteria Examples
-- "API spec for external service unclear"
-- "Database schema migration required"
-- "Security review needed before implementation"
+  // Parse agent output
+  const agentOutput = JSON.parse(result);
 
-## Output Format
-Write JSONL file (one JSON object per line):
-${issueDir}/tasks.jsonl
+  // Register solutions for each issue (append to solutions/{issue-id}.jsonl)
+  for (const item of agentOutput.solutions) {
+    const solutionPath = `.workflow/issues/solutions/${item.issue_id}.jsonl`;
 
-## Validation
-- Ensure no circular dependencies
-- Ensure all depends_on references exist
-- Ensure at least one task has empty depends_on (entry point)
-`
-)
+    // Ensure solutions directory exists
+    Bash(`mkdir -p .workflow/issues/solutions`);
 
-// Validate DAG
-const tasks = readJsonl(`${issueDir}/tasks.jsonl`)
-validateDAG(tasks) // Throws if circular dependency detected
-```
+    // Append solution as new line
+    Bash(`echo '${JSON.stringify(item.solution)}' >> "${solutionPath}"`);
+  }
 
-### Phase 4: User Confirmation
+  // Handle conflicts if any
+  if (agentOutput.conflicts?.length > 0) {
+    console.log(`\n⚠ File conflicts detected:`);
+    agentOutput.conflicts.forEach(c => {
+      console.log(`  ${c.file}: ${c.issues.join(', ')} → suggested: ${c.suggested_order.join(' → ')}`);
+    });
+  }
 
-```javascript
-// Display task summary
-const tasks = readJsonl(`${issueDir}/tasks.jsonl`)
-
-console.log(`
-## Issue Plan: ${issueId}
-
-**Title**: ${issueTitle}
-**Tasks**: ${tasks.length}
-**Complexity**: ${complexity}
-
-### Task Breakdown
-
-| ID | Title | Type | Dependencies | Delivery Criteria |
-|----|-------|------|--------------|-------------------|
-${tasks.map(t => `| ${t.id} | ${t.title} | ${t.type} | ${t.depends_on.join(', ') || '-'} | ${t.delivery_criteria.length} items |`).join('\n')}
-
-### Dependency Graph
-${generateDependencyGraph(tasks)}
-`)
-
-// User confirmation
-AskUserQuestion({
-  questions: [
-    {
-      question: `Approve issue plan? (${tasks.length} tasks)`,
-      header: "Confirm",
-      multiSelect: false,
-      options: [
-        { label: "Approve", description: "Proceed with this plan" },
-        { label: "Refine", description: "Modify tasks before proceeding" },
-        { label: "Cancel", description: "Discard plan" }
-      ]
-    }
-  ]
-})
-
-if (answer === "Refine") {
-  // Allow editing specific tasks
-  AskUserQuestion({
-    questions: [
-      {
-        question: "What would you like to refine?",
-        header: "Refine",
-        multiSelect: true,
-        options: [
-          { label: "Add Task", description: "Add a new task" },
-          { label: "Remove Task", description: "Remove an existing task" },
-          { label: "Modify Dependencies", description: "Change task dependencies" },
-          { label: "Regenerate", description: "Regenerate entire plan" }
-        ]
-      }
-    ]
-  })
+  updateTodo(`Plan batch ${batchIndex + 1}`, 'completed');
 }
 ```
 
-### Phase 5: Persistence
+### Phase 3: Solution Binding
 
 ```javascript
-// Initialize state.json for status tracking
-const state = {
-  issue_id: issueId,
-  title: issueTitle,
-  status: 'planned',
-  created_at: getUtc8ISOString(),
-  updated_at: getUtc8ISOString(),
-  task_count: tasks.length,
-  completed_count: 0,
-  current_task: null,
-  executor_default: flags.executor || 'auto'
+// Re-read issues.jsonl
+let allIssuesUpdated = Bash(`cat "${issuesPath}"`)
+  .split('\n')
+  .filter(line => line.trim())
+  .map(line => JSON.parse(line));
+
+for (const issue of issues) {
+  const solPath = `.workflow/issues/solutions/${issue.id}.jsonl`;
+  const solutions = Bash(`cat "${solPath}" 2>/dev/null || echo ''`)
+    .split('\n')
+    .filter(line => line.trim())
+    .map(line => JSON.parse(line));
+
+  if (solutions.length === 0) {
+    console.log(`⚠ No solutions for ${issue.id}`);
+    continue;
+  }
+
+  let selectedSolId;
+
+  if (solutions.length === 1) {
+    // Auto-bind single solution
+    selectedSolId = solutions[0].id;
+    console.log(`✓ Auto-bound ${selectedSolId} to ${issue.id} (${solutions[0].tasks?.length || 0} tasks)`);
+  } else {
+    // Multiple solutions - ask user
+    const answer = AskUserQuestion({
+      questions: [{
+        question: `Select solution for ${issue.id}:`,
+        header: issue.id,
+        multiSelect: false,
+        options: solutions.map(s => ({
+          label: `${s.id}: ${s.description || 'Solution'}`,
+          description: `${s.tasks?.length || 0} tasks`
+        }))
+      }]
+    });
+
+    selectedSolId = extractSelectedSolutionId(answer);
+    console.log(`✓ Bound ${selectedSolId} to ${issue.id}`);
+  }
+
+  // Update issue in allIssuesUpdated
+  const issueIndex = allIssuesUpdated.findIndex(i => i.id === issue.id);
+  if (issueIndex !== -1) {
+    allIssuesUpdated[issueIndex].bound_solution_id = selectedSolId;
+    allIssuesUpdated[issueIndex].status = 'planned';
+    allIssuesUpdated[issueIndex].planned_at = new Date().toISOString();
+    allIssuesUpdated[issueIndex].updated_at = new Date().toISOString();
+  }
+
+  // Mark solution as bound in solutions file
+  const updatedSolutions = solutions.map(s => ({
+    ...s,
+    is_bound: s.id === selectedSolId,
+    bound_at: s.id === selectedSolId ? new Date().toISOString() : s.bound_at
+  }));
+  Write(solPath, updatedSolutions.map(s => JSON.stringify(s)).join('\n'));
 }
 
-Write(`${issueDir}/state.json`, JSON.stringify(state, null, 2))
+// Write updated issues.jsonl
+Write(issuesPath, allIssuesUpdated.map(i => JSON.stringify(i)).join('\n'));
+```
 
+### Phase 4: Summary
+
+```javascript
 console.log(`
-## Plan Created
+## Planning Complete
 
-**Issue**: ${issueId}
-**Location**: ${issueDir}/
-**Tasks**: ${tasks.length}
+**Issues Planned**: ${issues.length}
 
-### Files Created
-- tasks.jsonl (task definitions)
-- state.json (execution state)
-- context.md (issue context)
-${explorationResults ? '- exploration.json (codebase analysis)' : ''}
+### Bound Solutions
+${issues.map(i => {
+  const issue = allIssuesUpdated.find(a => a.id === i.id);
+  return issue?.bound_solution_id
+    ? `✓ ${i.id}: ${issue.bound_solution_id}`
+    : `○ ${i.id}: No solution bound`;
+}).join('\n')}
 
 ### Next Steps
-1. Review: \`ccw issue list ${issueId}\`
-2. Execute: \`/issue:execute ${issueId}\`
-3. Monitor: \`ccw issue status ${issueId}\`
-`)
+1. Review: \`ccw issue status <issue-id>\`
+2. Form queue: \`/issue:queue\`
+3. Execute: \`/issue:execute\`
+`);
 ```
 
-## JSONL Task Format
+## Solution Format
 
-Each line in `tasks.jsonl` is a complete JSON object:
+Each solution line in `solutions/{issue-id}.jsonl`:
 
 ```json
-{"id":"TASK-001","title":"Setup auth middleware","type":"feature","description":"Implement JWT verification middleware","file_context":["src/middleware/","src/config/auth.ts"],"depends_on":[],"delivery_criteria":["Middleware validates JWT tokens","Returns 401 for invalid tokens","Passes existing auth tests"],"pause_criteria":["JWT secret configuration unclear"],"status":"pending","current_phase":"analyze","executor":"auto","priority":1,"created_at":"2025-12-26T10:00:00Z","updated_at":"2025-12-26T10:00:00Z"}
-{"id":"TASK-002","title":"Protect API routes","type":"feature","description":"Apply auth middleware to /api/v1/* routes","file_context":["src/routes/api/"],"depends_on":["TASK-001"],"delivery_criteria":["All /api/v1/* routes require auth","Public routes excluded","Integration tests pass"],"pause_criteria":[],"status":"pending","current_phase":"analyze","executor":"auto","priority":2,"created_at":"2025-12-26T10:00:00Z","updated_at":"2025-12-26T10:00:00Z"}
-```
-
-## Progressive Loading Algorithm
-
-For large task lists, only load tasks with satisfied dependencies:
-
-```javascript
-function getReadyTasks(tasks, completedIds) {
-  return tasks.filter(task =>
-    task.status === 'pending' &&
-    task.depends_on.every(dep => completedIds.has(dep))
-  )
-}
-
-// Stream JSONL line-by-line for memory efficiency
-function* streamJsonl(filePath) {
-  const lines = readLines(filePath)
-  for (const line of lines) {
-    if (line.trim()) yield JSON.parse(line)
-  }
+{
+  "id": "SOL-20251226-001",
+  "description": "Direct Implementation",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Create auth middleware",
+      "scope": "src/middleware/",
+      "action": "Create",
+      "description": "Create JWT validation middleware",
+      "modification_points": [
+        { "file": "src/middleware/auth.ts", "target": "new file", "change": "Create middleware" }
+      ],
+      "implementation": [
+        "Create auth.ts file",
+        "Implement JWT validation",
+        "Add error handling",
+        "Export middleware"
+      ],
+      "acceptance": [
+        "Middleware validates JWT tokens",
+        "Returns 401 for invalid tokens"
+      ],
+      "depends_on": [],
+      "estimated_minutes": 30
+    }
+  ],
+  "exploration_context": {
+    "relevant_files": ["src/config/auth.ts"],
+    "patterns": "Follow existing middleware pattern"
+  },
+  "is_bound": true,
+  "created_at": "2025-12-26T10:00:00Z",
+  "bound_at": "2025-12-26T10:05:00Z"
 }
 ```
 
@@ -349,13 +327,26 @@ function* streamJsonl(filePath) {
 
 | Error | Resolution |
 |-------|------------|
-| Invalid GitHub URL | Display correct format, ask for valid URL |
-| Circular dependency | List cycle, ask user to resolve |
-| No tasks generated | Suggest simpler breakdown or manual entry |
-| Exploration timeout | Proceed without exploration, warn user |
+| Issue not found | Auto-create in issues.jsonl |
+| ACE search fails | Agent falls back to ripgrep |
+| No solutions generated | Display error, suggest manual planning |
+| User cancels selection | Skip issue, continue with others |
+| File conflicts | Agent detects and suggests resolution order |
+
+## Agent Integration
+
+The command uses `issue-plan-agent` which:
+1. Performs ACE semantic search per issue
+2. Identifies modification points and patterns
+3. Generates task breakdown with dependencies
+4. Detects cross-issue file conflicts
+5. Outputs solution JSON for registration
+
+See `.claude/agents/issue-plan-agent.md` for agent specification.
 
 ## Related Commands
 
-- `/issue:execute` - Execute planned tasks with closed-loop methodology
-- `ccw issue list` - List all issues and their status
-- `ccw issue status` - Show detailed issue status
+- `/issue:queue` - Form execution queue from bound solutions
+- `/issue:execute` - Execute queue with codex
+- `ccw issue list` - List all issues
+- `ccw issue status` - View issue and solution details

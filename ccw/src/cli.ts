@@ -278,6 +278,11 @@ export function run(argv: string[]): void {
     .option('--format <fmt>', 'Output format: json, markdown')
     .option('--json', 'Output as JSON')
     .option('--force', 'Force operation')
+    // New options for solution/queue management
+    .option('--solution <path>', 'Solution JSON file path')
+    .option('--solution-id <id>', 'Solution ID')
+    .option('--result <json>', 'Execution result JSON')
+    .option('--reason <text>', 'Failure reason')
     .action((subcommand, args, options) => issueCommand(subcommand, args, options));
 
   program.parse(argv);

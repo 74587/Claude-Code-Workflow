@@ -217,11 +217,19 @@ function handleNotification(data) {
       if (typeof handleCliExecutionStarted === 'function') {
         handleCliExecutionStarted(payload);
       }
+      // Route to CLI Stream Viewer
+      if (typeof handleCliStreamStarted === 'function') {
+        handleCliStreamStarted(payload);
+      }
       break;
 
     case 'CLI_OUTPUT':
       if (typeof handleCliOutput === 'function') {
         handleCliOutput(payload);
+      }
+      // Route to CLI Stream Viewer
+      if (typeof handleCliStreamOutput === 'function') {
+        handleCliStreamOutput(payload);
       }
       break;
 
@@ -229,11 +237,19 @@ function handleNotification(data) {
       if (typeof handleCliExecutionCompleted === 'function') {
         handleCliExecutionCompleted(payload);
       }
+      // Route to CLI Stream Viewer
+      if (typeof handleCliStreamCompleted === 'function') {
+        handleCliStreamCompleted(payload);
+      }
       break;
 
     case 'CLI_EXECUTION_ERROR':
       if (typeof handleCliExecutionError === 'function') {
         handleCliExecutionError(payload);
+      }
+      // Route to CLI Stream Viewer
+      if (typeof handleCliStreamError === 'function') {
+        handleCliStreamError(payload);
       }
       break;
 

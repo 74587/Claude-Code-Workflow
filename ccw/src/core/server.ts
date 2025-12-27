@@ -17,6 +17,7 @@ import { handleGraphRoutes } from './routes/graph-routes.js';
 import { handleSystemRoutes } from './routes/system-routes.js';
 import { handleFilesRoutes } from './routes/files-routes.js';
 import { handleSkillsRoutes } from './routes/skills-routes.js';
+import { handleIssueRoutes } from './routes/issue-routes.js';
 import { handleRulesRoutes } from './routes/rules-routes.js';
 import { handleSessionRoutes } from './routes/session-routes.js';
 import { handleCcwRoutes } from './routes/ccw-routes.js';
@@ -86,7 +87,8 @@ const MODULE_CSS_FILES = [
   '28-mcp-manager.css',
   '29-help.css',
   '30-core-memory.css',
-  '31-api-settings.css'
+  '31-api-settings.css',
+  '32-issue-manager.css'
 ];
 
 // Modular JS files in dependency order
@@ -142,6 +144,7 @@ const MODULE_FILES = [
   'views/claude-manager.js',
   'views/api-settings.js',
   'views/help.js',
+  'views/issue-manager.js',
   'main.js'
 ];
 
@@ -244,7 +247,7 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
 
     // CORS headers for API requests
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
@@ -338,6 +341,16 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // Skills routes (/api/skills*)
       if (pathname.startsWith('/api/skills')) {
         if (await handleSkillsRoutes(routeContext)) return;
+      }
+
+      // Queue routes (/api/queue*) - top-level queue API
+      if (pathname.startsWith('/api/queue')) {
+        if (await handleIssueRoutes(routeContext)) return;
+      }
+
+      // Issue routes (/api/issues*)
+      if (pathname.startsWith('/api/issues')) {
+        if (await handleIssueRoutes(routeContext)) return;
       }
 
       // Rules routes (/api/rules*)

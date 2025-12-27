@@ -275,6 +275,18 @@
               </div>
             </div>
           </div>
+          <!-- CLI Stream Viewer Button -->
+          <button class="cli-stream-btn p-1.5 text-muted-foreground hover:text-foreground hover:bg-hover rounded relative"
+                  id="cliStreamBtn"
+                  onclick="toggleCliStreamViewer()"
+                  data-i18n-title="header.cliStream"
+                  title="CLI Stream Viewer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="4 17 10 11 4 5"/>
+              <line x1="12" y1="19" x2="20" y2="19"/>
+            </svg>
+            <span class="cli-stream-badge" id="cliStreamBadge"></span>
+          </button>
           <!-- Refresh Button -->
           <button class="refresh-btn p-1.5 text-muted-foreground hover:text-foreground hover:bg-hover rounded" id="refreshWorkspace" data-i18n-title="header.refreshWorkspace" title="Refresh workspace">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -390,6 +402,21 @@
                 <i data-lucide="wrench" class="nav-icon text-orange"></i>
                 <span class="nav-text flex-1" data-i18n="nav.liteFix">Lite Fix</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-light text-orange" id="badgeLiteFix">0</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Issues Section -->
+          <div class="mb-2" id="issuesNav">
+            <div class="flex items-center px-4 py-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              <i data-lucide="clipboard-list" class="nav-section-icon mr-2"></i>
+              <span class="nav-section-title" data-i18n="nav.issues">Issues</span>
+            </div>
+            <ul class="space-y-0.5">
+              <li class="nav-item flex items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="issue-manager" data-tooltip="Issue Manager">
+                <i data-lucide="list-checks" class="nav-icon"></i>
+                <span class="nav-text flex-1" data-i18n="nav.issueManager">Manager</span>
+                <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeIssues">0</span>
               </li>
             </ul>
           </div>
@@ -577,6 +604,34 @@
     </div>
     <div class="drawer-overlay hidden fixed inset-0 bg-black/50 z-40" id="drawerOverlay" onclick="closeTaskDrawer()"></div>
   </div>
+
+  <!-- CLI Stream Viewer Panel -->
+  <div class="cli-stream-viewer" id="cliStreamViewer">
+    <div class="cli-stream-header">
+      <div class="cli-stream-title">
+        <i data-lucide="terminal"></i>
+        <span data-i18n="cliStream.title">CLI Stream</span>
+        <span class="cli-stream-count-badge" id="cliStreamCountBadge">0</span>
+      </div>
+      <div class="cli-stream-actions">
+        <button class="cli-stream-action-btn" onclick="clearCompletedStreams()" data-i18n="cliStream.clearCompleted">
+          <i data-lucide="trash-2"></i>
+          <span>Clear</span>
+        </button>
+        <button class="cli-stream-close-btn" onclick="toggleCliStreamViewer()" title="Close">&times;</button>
+      </div>
+    </div>
+    <div class="cli-stream-tabs" id="cliStreamTabs">
+      <!-- Dynamic tabs -->
+    </div>
+    <div class="cli-stream-content" id="cliStreamContent">
+      <!-- Terminal output -->
+    </div>
+    <div class="cli-stream-status" id="cliStreamStatus">
+      <!-- Status bar -->
+    </div>
+  </div>
+  <div class="cli-stream-overlay" id="cliStreamOverlay" onclick="toggleCliStreamViewer()"></div>
 
   <!-- Markdown Preview Modal -->
   <div id="markdownModal" class="markdown-modal hidden fixed inset-0 z-[100] flex items-center justify-center">

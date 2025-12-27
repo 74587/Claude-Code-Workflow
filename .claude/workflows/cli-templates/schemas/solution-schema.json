@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Issue Solution Schema",
+  "description": "Schema for solution registered to an issue",
+  "type": "object",
+  "required": ["id", "issue_id", "tasks", "status", "created_at"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique solution identifier",
+      "pattern": "^SOL-[0-9]+$"
+    },
+    "issue_id": {
+      "type": "string",
+      "description": "Parent issue ID"
+    },
+    "plan_session_id": {
+      "type": "string",
+      "description": "Planning session that created this solution"
+    },
+    "tasks": {
+      "type": "array",
+      "description": "Task breakdown for this solution",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "scope", "action", "acceptance"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^T[0-9]+$"
+          },
+          "title": {
+            "type": "string",
+            "description": "Action verb + target"
+          },
+          "scope": {
+            "type": "string",
+            "description": "Module path or feature area"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["Create", "Update", "Implement", "Refactor", "Add", "Delete", "Configure", "Test", "Fix"]
+          },
+          "description": {
+            "type": "string",
+            "description": "1-2 sentences describing what to implement"
+          },
+          "modification_points": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "file": { "type": "string" },
+                "target": { "type": "string" },
+                "change": { "type": "string" }
+              }
+            }
+          },
+          "implementation": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Step-by-step implementation guide"
+          },
+          "acceptance": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Quantified completion criteria"
+          },
+          "depends_on": {
+            "type": "array",
+            "items": { "type": "string" },
+            "default": [],
+            "description": "Task IDs this task depends on"
+          },
+          "estimated_minutes": {
+            "type": "integer",
+            "description": "Estimated time to complete"
+          },
+          "executor": {
+            "type": "string",
+            "enum": ["codex", "gemini", "agent", "auto"],
+            "default": "auto"
+          }
+        }
+      }
+    },
+    "exploration_context": {
+      "type": "object",
+      "description": "ACE exploration results",
+      "properties": {
+        "project_structure": { "type": "string" },
+        "relevant_files": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "patterns": { "type": "string" },
+        "integration_points": { "type": "string" }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "candidate", "bound", "queued", "executing", "completed", "failed"],
+      "default": "draft"
+    },
+    "is_bound": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this solution is bound to the issue"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "bound_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this solution was bound to the issue"
+    }
+  }
+}

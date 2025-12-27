@@ -1,0 +1,136 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Issue Execution Queue Schema",
+  "description": "Global execution queue for all issue tasks",
+  "type": "object",
+  "properties": {
+    "queue": {
+      "type": "array",
+      "description": "Ordered list of tasks to execute",
+      "items": {
+        "type": "object",
+        "required": ["queue_id", "issue_id", "solution_id", "task_id", "status"],
+        "properties": {
+          "queue_id": {
+            "type": "string",
+            "pattern": "^Q-[0-9]+$",
+            "description": "Unique queue item identifier"
+          },
+          "issue_id": {
+            "type": "string",
+            "description": "Source issue ID"
+          },
+          "solution_id": {
+            "type": "string",
+            "description": "Source solution ID"
+          },
+          "task_id": {
+            "type": "string",
+            "description": "Task ID within solution"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "ready", "executing", "completed", "failed", "blocked"],
+            "default": "pending"
+          },
+          "execution_order": {
+            "type": "integer",
+            "description": "Order in execution sequence"
+          },
+          "execution_group": {
+            "type": "string",
+            "description": "Parallel execution group ID (e.g., P1, S1)"
+          },
+          "depends_on": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Queue IDs this task depends on"
+          },
+          "semantic_priority": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Semantic importance score (0.0-1.0)"
+          },
+          "assigned_executor": {
+            "type": "string",
+            "enum": ["codex", "gemini", "agent"]
+          },
+          "queued_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "result": {
+            "type": "object",
+            "description": "Execution result",
+            "properties": {
+              "files_modified": { "type": "array", "items": { "type": "string" } },
+              "files_created": { "type": "array", "items": { "type": "string" } },
+              "summary": { "type": "string" },
+              "commit_hash": { "type": "string" }
+            }
+          },
+          "failure_reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "description": "Detected conflicts between tasks",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["file_conflict", "dependency_conflict", "resource_conflict"]
+          },
+          "tasks": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Queue IDs involved in conflict"
+          },
+          "file": {
+            "type": "string",
+            "description": "Conflicting file path"
+          },
+          "resolution": {
+            "type": "string",
+            "enum": ["sequential", "merge", "manual"]
+          },
+          "resolution_order": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "resolved": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      }
+    },
+    "_metadata": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "string", "default": "1.0" },
+        "total_items": { "type": "integer" },
+        "pending_count": { "type": "integer" },
+        "ready_count": { "type": "integer" },
+        "executing_count": { "type": "integer" },
+        "completed_count": { "type": "integer" },
+        "failed_count": { "type": "integer" },
+        "last_queue_formation": { "type": "string", "format": "date-time" },
+        "last_updated": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

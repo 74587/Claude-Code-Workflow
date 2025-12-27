@@ -1,552 +1,384 @@
 ---
 name: execute
-description: Execute issue tasks with closed-loop methodology (analyze→implement→test→optimize→commit)
-argument-hint: "<issue-id> [--task <task-id>] [--batch <n>]"
-allowed-tools: TodoWrite(*), Task(*), Bash(*), Read(*), Write(*), Edit(*), AskUserQuestion(*)
+description: Execute queue with codex using endpoint-driven task fetching (single task per codex instance)
+argument-hint: "[--parallel <n>] [--executor codex|gemini]"
+allowed-tools: TodoWrite(*), Bash(*), Read(*), AskUserQuestion(*)
 ---
 
 # Issue Execute Command (/issue:execute)
 
 ## Overview
 
-Execute tasks from a planned issue using closed-loop methodology. Each task goes through 5 phases: **Analyze → Implement → Test → Optimize → Commit**. Tasks are loaded progressively based on dependency satisfaction.
+Execution orchestrator that coordinates codex instances. Each task is executed by an independent codex instance that fetches its task via CLI endpoint. **Codex does NOT read task files** - it calls `ccw issue next` to get task data dynamically.
 
-**Core capabilities:**
-- Progressive task loading (only load ready tasks)
-- Closed-loop execution with 5 phases per task
-- Automatic retry on test failures (up to 3 attempts)
-- Pause on defined pause_criteria conditions
-- Delivery criteria verification before completion
-- Automatic git commit per task
+**Core design:**
+- Single task per codex instance (not loop mode)
+- Endpoint-driven: `ccw issue next` → execute → `ccw issue complete`
+- No file reading in codex
+- Orchestrator manages parallelism
+
+## Storage Structure (Flat JSONL)
+
+```
+.workflow/issues/
+├── issues.jsonl              # All issues (one per line)
+├── queue.json                # Execution queue
+└── solutions/
+    ├── {issue-id}.jsonl      # Solutions for issue
+    └── ...
+```
 
 ## Usage
 
 ```bash
-/issue:execute <ISSUE_ID> [FLAGS]
+/issue:execute [FLAGS]
 
-# Arguments
-<issue-id>            Issue ID (e.g., GH-123, TEXT-1735200000)
+# Examples
+/issue:execute                    # Execute all ready tasks
+/issue:execute --parallel 3       # Execute up to 3 tasks in parallel
+/issue:execute --executor codex   # Force codex executor
 
 # Flags
---task <id>           Execute specific task only
---batch <n>           Max concurrent tasks (default: 1)
---skip-commit         Skip git commit phase
---dry-run             Simulate execution without changes
---continue            Continue from paused/failed state
+--parallel <n>        Max parallel codex instances (default: 1)
+--executor <type>     Force executor: codex|gemini|agent
+--dry-run             Show what would execute without running
 ```
 
 ## Execution Process
 
 ```
-Initialization:
-   ├─ Load state.json and tasks.jsonl
-   ├─ Build completed task index
-   └─ Identify ready tasks (dependencies satisfied)
+Phase 1: Queue Loading
+   ├─ Load queue.json
+   ├─ Count pending/ready tasks
+   └─ Initialize TodoWrite tracking
 
-Task Loop:
-   └─ For each ready task:
-       ├─ Phase 1: ANALYZE
-       │   ├─ Verify task requirements
-       │   ├─ Check file existence
-       │   ├─ Validate preconditions
-       │   └─ Check pause_criteria (halt if triggered)
-       │
-       ├─ Phase 2: IMPLEMENT
-       │   ├─ Execute code changes
-       │   ├─ Write/modify files
-       │   └─ Track modified files
-       │
-       ├─ Phase 3: TEST
-       │   ├─ Run relevant tests
-       │   ├─ Verify functionality
-       │   └─ Retry loop (max 3) on failure → back to IMPLEMENT
-       │
-       ├─ Phase 4: OPTIMIZE
-       │   ├─ Code quality check
-       │   ├─ Lint/format verification
-       │   └─ Apply minor improvements
-       │
-       ├─ Phase 5: COMMIT
-       │   ├─ Stage modified files
-       │   ├─ Create commit with task reference
-       │   └─ Update task status to 'completed'
-       │
-       └─ Update state.json
+Phase 2: Ready Task Detection
+   ├─ Find tasks with satisfied dependencies
+   ├─ Group by execution_group (parallel batches)
+   └─ Determine execution order
 
-Completion:
-   └─ Return execution summary
+Phase 3: Codex Coordination
+   ├─ For each ready task:
+   │   ├─ Launch independent codex instance
+   │   ├─ Codex calls: ccw issue next
+   │   ├─ Codex receives task data (NOT file)
+   │   ├─ Codex executes task
+   │   ├─ Codex calls: ccw issue complete <queue-id>
+   │   └─ Update TodoWrite
+   └─ Parallel execution based on --parallel flag
+
+Phase 4: Completion
+   ├─ Generate execution summary
+   ├─ Update issue statuses in issues.jsonl
+   └─ Display results
 ```
 
 ## Implementation
 
-### Initialization
+### Phase 1: Queue Loading
 
 ```javascript
-// Load issue context
-const issueDir = `.workflow/issues/${issueId}`
-const state = JSON.parse(Read(`${issueDir}/state.json`))
-const tasks = readJsonl(`${issueDir}/tasks.jsonl`)
+// Load queue
+const queuePath = '.workflow/issues/queue.json';
+if (!Bash(`test -f "${queuePath}" && echo exists`).includes('exists')) {
+  console.log('No queue found. Run /issue:queue first.');
+  return;
+}
 
-// Build completed index
-const completedIds = new Set(
-  tasks.filter(t => t.status === 'completed').map(t => t.id)
-)
+const queue = JSON.parse(Read(queuePath));
 
-// Get ready tasks (dependencies satisfied)
+// Count by status
+const pending = queue.queue.filter(q => q.status === 'pending');
+const executing = queue.queue.filter(q => q.status === 'executing');
+const completed = queue.queue.filter(q => q.status === 'completed');
+
+console.log(`
+## Execution Queue Status
+
+- Pending: ${pending.length}
+- Executing: ${executing.length}
+- Completed: ${completed.length}
+- Total: ${queue.queue.length}
+`);
+
+if (pending.length === 0 && executing.length === 0) {
+  console.log('All tasks completed!');
+  return;
+}
+```
+
+### Phase 2: Ready Task Detection
+
+```javascript
+// Find ready tasks (dependencies satisfied)
 function getReadyTasks() {
-  return tasks.filter(task =>
-    task.status === 'pending' &&
-    task.depends_on.every(dep => completedIds.has(dep))
-  )
+  const completedIds = new Set(
+    queue.queue.filter(q => q.status === 'completed').map(q => q.queue_id)
+  );
+
+  return queue.queue.filter(item => {
+    if (item.status !== 'pending') return false;
+    return item.depends_on.every(depId => completedIds.has(depId));
+  });
 }
 
-let readyTasks = getReadyTasks()
+const readyTasks = getReadyTasks();
+
 if (readyTasks.length === 0) {
-  if (tasks.every(t => t.status === 'completed')) {
-    console.log('✓ All tasks completed!')
-    return
-  }
-  console.log('⚠ No ready tasks. Check dependencies or blocked tasks.')
-  return
-}
-
-// Initialize TodoWrite for tracking
-TodoWrite({
-  todos: readyTasks.slice(0, batchSize).map(t => ({
-    content: `[${t.id}] ${t.title}`,
-    status: 'pending',
-    activeForm: `Executing ${t.id}`
-  }))
-})
-```
-
-### Task Execution Loop
-
-```javascript
-for (const task of readyTasks.slice(0, batchSize)) {
-  console.log(`\n## Executing: ${task.id} - ${task.title}`)
-
-  // Update state
-  updateTaskStatus(task.id, 'in_progress', 'analyze')
-
-  try {
-    // Phase 1: ANALYZE
-    const analyzeResult = await executePhase_Analyze(task)
-    if (analyzeResult.paused) {
-      console.log(`⏸ Task paused: ${analyzeResult.reason}`)
-      updateTaskStatus(task.id, 'paused', 'analyze')
-      continue
-    }
-
-    // Phase 2-5: Closed Loop
-    let implementRetries = 0
-    const maxRetries = 3
-
-    while (implementRetries < maxRetries) {
-      // Phase 2: IMPLEMENT
-      const implementResult = await executePhase_Implement(task, analyzeResult)
-      updateTaskStatus(task.id, 'in_progress', 'test')
-
-      // Phase 3: TEST
-      const testResult = await executePhase_Test(task, implementResult)
-
-      if (testResult.passed) {
-        // Phase 4: OPTIMIZE
-        await executePhase_Optimize(task, implementResult)
-
-        // Phase 5: COMMIT
-        if (!flags.skipCommit) {
-          await executePhase_Commit(task, implementResult)
-        }
-
-        // Mark completed
-        updateTaskStatus(task.id, 'completed', 'done')
-        completedIds.add(task.id)
-        break
-      } else {
-        implementRetries++
-        console.log(`⚠ Test failed, retry ${implementRetries}/${maxRetries}`)
-        if (implementRetries >= maxRetries) {
-          updateTaskStatus(task.id, 'failed', 'test')
-          console.log(`✗ Task failed after ${maxRetries} retries`)
-        }
-      }
-    }
-  } catch (error) {
-    updateTaskStatus(task.id, 'failed', task.current_phase)
-    console.log(`✗ Task failed: ${error.message}`)
-  }
-}
-```
-
-### Phase 1: ANALYZE
-
-```javascript
-async function executePhase_Analyze(task) {
-  console.log('### Phase 1: ANALYZE')
-
-  // Check pause criteria first
-  for (const criterion of task.pause_criteria || []) {
-    const shouldPause = await evaluatePauseCriterion(criterion, task)
-    if (shouldPause) {
-      return { paused: true, reason: criterion }
-    }
-  }
-
-  // Execute analysis via CLI
-  const analysisResult = await Task(
-    subagent_type="cli-explore-agent",
-    run_in_background=false,
-    description=`Analyze: ${task.id}`,
-    prompt=`
-## Analysis Task
-ID: ${task.id}
-Title: ${task.title}
-Description: ${task.description}
-
-## File Context
-${task.file_context.join('\n')}
-
-## Delivery Criteria (to be achieved)
-${task.delivery_criteria.map((c, i) => `${i+1}. ${c}`).join('\n')}
-
-## Required Analysis
-1. Verify all referenced files exist
-2. Identify exact modification points
-3. Check for potential conflicts
-4. Validate approach feasibility
-
-## Output
-Return JSON:
-{
-  "files_to_modify": ["path1", "path2"],
-  "integration_points": [...],
-  "potential_risks": [...],
-  "implementation_notes": "..."
-}
-`
-  )
-
-  // Parse and return
-  const analysis = JSON.parse(analysisResult)
-
-  // Update phase results
-  updatePhaseResult(task.id, 'analyze', {
-    status: 'completed',
-    findings: analysis.potential_risks,
-    timestamp: new Date().toISOString()
-  })
-
-  return { paused: false, analysis }
-}
-```
-
-### Phase 2: IMPLEMENT
-
-```javascript
-async function executePhase_Implement(task, analyzeResult) {
-  console.log('### Phase 2: IMPLEMENT')
-
-  updateTaskStatus(task.id, 'in_progress', 'implement')
-
-  // Determine executor
-  const executor = task.executor === 'auto'
-    ? (task.type === 'test' ? 'agent' : 'codex')
-    : task.executor
-
-  // Build implementation prompt
-  const prompt = `
-## Implementation Task
-ID: ${task.id}
-Title: ${task.title}
-Type: ${task.type}
-
-## Description
-${task.description}
-
-## Analysis Results
-${JSON.stringify(analyzeResult.analysis, null, 2)}
-
-## Files to Modify
-${analyzeResult.analysis.files_to_modify.join('\n')}
-
-## Delivery Criteria (MUST achieve all)
-${task.delivery_criteria.map((c, i) => `- [ ] ${c}`).join('\n')}
-
-## Implementation Notes
-${analyzeResult.analysis.implementation_notes}
-
-## Rules
-- Follow existing code patterns
-- Maintain backward compatibility
-- Add appropriate error handling
-- Document significant changes
-`
-
-  let result
-  if (executor === 'codex') {
-    result = Bash(
-      `ccw cli -p "${escapePrompt(prompt)}" --tool codex --mode write`,
-      timeout=3600000
-    )
-  } else if (executor === 'gemini') {
-    result = Bash(
-      `ccw cli -p "${escapePrompt(prompt)}" --tool gemini --mode write`,
-      timeout=1800000
-    )
+  if (executing.length > 0) {
+    console.log('Tasks are currently executing. Wait for completion.');
   } else {
-    result = await Task(
+    console.log('No ready tasks. Check for blocked dependencies.');
+  }
+  return;
+}
+
+console.log(`Found ${readyTasks.length} ready tasks`);
+
+// Sort by execution order
+readyTasks.sort((a, b) => a.execution_order - b.execution_order);
+
+// Initialize TodoWrite
+TodoWrite({
+  todos: readyTasks.slice(0, parallelLimit).map(t => ({
+    content: `[${t.queue_id}] ${t.issue_id}:${t.task_id}`,
+    status: 'pending',
+    activeForm: `Executing ${t.queue_id}`
+  }))
+});
+```
+
+### Phase 3: Codex Coordination (Single Task Mode)
+
+```javascript
+// Execute tasks - single codex instance per task
+async function executeTask(queueItem) {
+  const codexPrompt = `
+## Single Task Execution
+
+You are executing ONE task from the issue queue. Follow these steps exactly:
+
+### Step 1: Fetch Task
+Run this command to get your task:
+\`\`\`bash
+ccw issue next
+\`\`\`
+
+This returns JSON with:
+- queue_id: Queue item ID
+- task: Task definition with implementation steps
+- context: Exploration context
+- execution_hints: Executor and time estimate
+
+### Step 2: Execute Task
+Read the returned task object and:
+1. Follow task.implementation steps in order
+2. Meet all task.acceptance criteria
+3. Use provided context.relevant_files for reference
+4. Use context.patterns for code style
+
+### Step 3: Report Completion
+When done, run:
+\`\`\`bash
+ccw issue complete <queue_id> --result '{"files_modified": ["path1", "path2"], "summary": "What was done"}'
+\`\`\`
+
+If task fails, run:
+\`\`\`bash
+ccw issue fail <queue_id> --reason "Why it failed"
+\`\`\`
+
+### Rules
+- NEVER read task files directly - use ccw issue next
+- Execute the FULL task before marking complete
+- Do NOT loop - execute ONE task only
+- Report accurate files_modified in result
+
+### Start Now
+Begin by running: ccw issue next
+`;
+
+  // Execute codex
+  const executor = queueItem.assigned_executor || flags.executor || 'codex';
+
+  if (executor === 'codex') {
+    Bash(
+      `ccw cli -p "${escapePrompt(codexPrompt)}" --tool codex --mode write --id exec-${queueItem.queue_id}`,
+      timeout=3600000  // 1 hour timeout
+    );
+  } else if (executor === 'gemini') {
+    Bash(
+      `ccw cli -p "${escapePrompt(codexPrompt)}" --tool gemini --mode write --id exec-${queueItem.queue_id}`,
+      timeout=1800000  // 30 min timeout
+    );
+  } else {
+    // Agent execution
+    Task(
       subagent_type="code-developer",
       run_in_background=false,
-      description=`Implement: ${task.id}`,
-      prompt=prompt
-    )
+      description=`Execute ${queueItem.queue_id}`,
+      prompt=codexPrompt
+    );
   }
-
-  // Track modified files
-  const modifiedFiles = extractModifiedFiles(result)
-
-  updatePhaseResult(task.id, 'implement', {
-    status: 'completed',
-    files_modified: modifiedFiles,
-    timestamp: new Date().toISOString()
-  })
-
-  return { modifiedFiles, output: result }
 }
-```
 
-### Phase 3: TEST
+// Execute with parallelism
+const parallelLimit = flags.parallel || 1;
 
-```javascript
-async function executePhase_Test(task, implementResult) {
-  console.log('### Phase 3: TEST')
+for (let i = 0; i < readyTasks.length; i += parallelLimit) {
+  const batch = readyTasks.slice(i, i + parallelLimit);
 
-  updateTaskStatus(task.id, 'in_progress', 'test')
+  console.log(`\n### Executing Batch ${Math.floor(i / parallelLimit) + 1}`);
+  console.log(batch.map(t => `- ${t.queue_id}: ${t.issue_id}:${t.task_id}`).join('\n'));
 
-  // Determine test command based on project
-  const testCommand = detectTestCommand(task.file_context)
-  // e.g., 'npm test', 'pytest', 'go test', etc.
-
-  // Run tests
-  const testResult = Bash(testCommand, timeout=300000)
-  const passed = testResult.exitCode === 0
-
-  // Verify delivery criteria
-  let criteriaVerified = passed
-  if (passed) {
-    for (const criterion of task.delivery_criteria) {
-      const verified = await verifyCriterion(criterion, implementResult)
-      if (!verified) {
-        criteriaVerified = false
-        console.log(`⚠ Criterion not met: ${criterion}`)
-      }
+  if (parallelLimit === 1) {
+    // Sequential execution
+    for (const task of batch) {
+      updateTodo(task.queue_id, 'in_progress');
+      await executeTask(task);
+      updateTodo(task.queue_id, 'completed');
     }
+  } else {
+    // Parallel execution - launch all at once
+    const executions = batch.map(task => {
+      updateTodo(task.queue_id, 'in_progress');
+      return executeTask(task);
+    });
+    await Promise.all(executions);
+    batch.forEach(task => updateTodo(task.queue_id, 'completed'));
   }
 
-  updatePhaseResult(task.id, 'test', {
-    status: passed && criteriaVerified ? 'passed' : 'failed',
-    test_results: testResult.output.substring(0, 1000),
-    retry_count: implementResult.retryCount || 0,
-    timestamp: new Date().toISOString()
-  })
-
-  return { passed: passed && criteriaVerified, output: testResult }
-}
-```
-
-### Phase 4: OPTIMIZE
-
-```javascript
-async function executePhase_Optimize(task, implementResult) {
-  console.log('### Phase 4: OPTIMIZE')
-
-  updateTaskStatus(task.id, 'in_progress', 'optimize')
-
-  // Run linting/formatting
-  const lintResult = Bash('npm run lint:fix || true', timeout=60000)
-
-  // Quick code review
-  const reviewResult = await Task(
-    subagent_type="universal-executor",
-    run_in_background=false,
-    description=`Review: ${task.id}`,
-    prompt=`
-Quick code review for task ${task.id}
-
-## Modified Files
-${implementResult.modifiedFiles.join('\n')}
-
-## Check
-1. Code follows project conventions
-2. No obvious security issues
-3. Error handling is appropriate
-4. No dead code or console.logs
-
-## Output
-If issues found, apply fixes directly. Otherwise confirm OK.
-`
-  )
-
-  updatePhaseResult(task.id, 'optimize', {
-    status: 'completed',
-    improvements: extractImprovements(reviewResult),
-    timestamp: new Date().toISOString()
-  })
-
-  return { lintResult, reviewResult }
-}
-```
-
-### Phase 5: COMMIT
-
-```javascript
-async function executePhase_Commit(task, implementResult) {
-  console.log('### Phase 5: COMMIT')
-
-  updateTaskStatus(task.id, 'in_progress', 'commit')
-
-  // Stage modified files
-  for (const file of implementResult.modifiedFiles) {
-    Bash(`git add "${file}"`)
-  }
-
-  // Create commit message
-  const typePrefix = {
-    'feature': 'feat',
-    'bug': 'fix',
-    'refactor': 'refactor',
-    'test': 'test',
-    'chore': 'chore',
-    'docs': 'docs'
-  }[task.type] || 'feat'
-
-  const commitMessage = `${typePrefix}(${task.id}): ${task.title}
-
-${task.description.substring(0, 200)}
-
-Delivery Criteria:
-${task.delivery_criteria.map(c => `- [x] ${c}`).join('\n')}
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>`
-
-  // Commit
-  const commitResult = Bash(`git commit -m "$(cat <<'EOF'
-${commitMessage}
-EOF
-)"`)
-
-  // Get commit hash
-  const commitHash = Bash('git rev-parse HEAD').trim()
-
-  updatePhaseResult(task.id, 'commit', {
-    status: 'completed',
-    commit_hash: commitHash,
-    message: `${typePrefix}(${task.id}): ${task.title}`,
-    timestamp: new Date().toISOString()
-  })
-
-  console.log(`✓ Committed: ${commitHash.substring(0, 7)}`)
-
-  return { commitHash }
-}
-```
-
-### State Management
-
-```javascript
-// Update task status in JSONL (append-style with compaction)
-function updateTaskStatus(taskId, status, phase) {
-  const tasks = readJsonl(`${issueDir}/tasks.jsonl`)
-  const taskIndex = tasks.findIndex(t => t.id === taskId)
-
-  if (taskIndex >= 0) {
-    tasks[taskIndex].status = status
-    tasks[taskIndex].current_phase = phase
-    tasks[taskIndex].updated_at = new Date().toISOString()
-
-    // Rewrite JSONL (compact)
-    const jsonlContent = tasks.map(t => JSON.stringify(t)).join('\n')
-    Write(`${issueDir}/tasks.jsonl`, jsonlContent)
-  }
-
-  // Update state.json
-  const state = JSON.parse(Read(`${issueDir}/state.json`))
-  state.current_task = status === 'in_progress' ? taskId : null
-  state.completed_count = tasks.filter(t => t.status === 'completed').length
-  state.updated_at = new Date().toISOString()
-  Write(`${issueDir}/state.json`, JSON.stringify(state, null, 2))
-}
-
-// Update phase result
-function updatePhaseResult(taskId, phase, result) {
-  const tasks = readJsonl(`${issueDir}/tasks.jsonl`)
-  const taskIndex = tasks.findIndex(t => t.id === taskId)
-
-  if (taskIndex >= 0) {
-    tasks[taskIndex].phase_results = tasks[taskIndex].phase_results || {}
-    tasks[taskIndex].phase_results[phase] = result
-
-    const jsonlContent = tasks.map(t => JSON.stringify(t)).join('\n')
-    Write(`${issueDir}/tasks.jsonl`, jsonlContent)
+  // Refresh ready tasks after batch
+  const newReady = getReadyTasks();
+  if (newReady.length > 0) {
+    console.log(`${newReady.length} more tasks now ready`);
   }
 }
 ```
 
-## Progressive Loading
+### Codex Task Fetch Response
 
-For memory efficiency with large task lists:
+When codex calls `ccw issue next`, it receives:
+
+```json
+{
+  "queue_id": "Q-001",
+  "issue_id": "GH-123",
+  "solution_id": "SOL-001",
+  "task": {
+    "id": "T1",
+    "title": "Create auth middleware",
+    "scope": "src/middleware/",
+    "action": "Create",
+    "description": "Create JWT validation middleware",
+    "modification_points": [
+      { "file": "src/middleware/auth.ts", "target": "new file", "change": "Create middleware" }
+    ],
+    "implementation": [
+      "Create auth.ts file in src/middleware/",
+      "Implement JWT token validation using jsonwebtoken",
+      "Add error handling for invalid/expired tokens",
+      "Export middleware function"
+    ],
+    "acceptance": [
+      "Middleware validates JWT tokens successfully",
+      "Returns 401 for invalid or missing tokens",
+      "Passes token payload to request context"
+    ]
+  },
+  "context": {
+    "relevant_files": ["src/config/auth.ts", "src/types/auth.d.ts"],
+    "patterns": "Follow existing middleware pattern in src/middleware/logger.ts"
+  },
+  "execution_hints": {
+    "executor": "codex",
+    "estimated_minutes": 30
+  }
+}
+```
+
+### Phase 4: Completion Summary
 
 ```javascript
-// Stream JSONL and only load ready tasks
-function* getReadyTasksStream(issueDir, completedIds) {
-  const filePath = `${issueDir}/tasks.jsonl`
-  const lines = readFileLines(filePath)
+// Reload queue for final status
+const finalQueue = JSON.parse(Read(queuePath));
 
-  for (const line of lines) {
-    if (!line.trim()) continue
-    const task = JSON.parse(line)
+const summary = {
+  completed: finalQueue.queue.filter(q => q.status === 'completed').length,
+  failed: finalQueue.queue.filter(q => q.status === 'failed').length,
+  pending: finalQueue.queue.filter(q => q.status === 'pending').length,
+  total: finalQueue.queue.length
+};
 
-    if (task.status === 'pending' &&
-        task.depends_on.every(dep => completedIds.has(dep))) {
-      yield task
+console.log(`
+## Execution Complete
+
+**Completed**: ${summary.completed}/${summary.total}
+**Failed**: ${summary.failed}
+**Pending**: ${summary.pending}
+
+### Task Results
+${finalQueue.queue.map(q => {
+  const icon = q.status === 'completed' ? '✓' :
+               q.status === 'failed' ? '✗' :
+               q.status === 'executing' ? '⟳' : '○';
+  return `${icon} ${q.queue_id} [${q.issue_id}:${q.task_id}] - ${q.status}`;
+}).join('\n')}
+`);
+
+// Update issue statuses in issues.jsonl
+const issuesPath = '.workflow/issues/issues.jsonl';
+const allIssues = Bash(`cat "${issuesPath}"`)
+  .split('\n')
+  .filter(line => line.trim())
+  .map(line => JSON.parse(line));
+
+const issueIds = [...new Set(finalQueue.queue.map(q => q.issue_id))];
+for (const issueId of issueIds) {
+  const issueTasks = finalQueue.queue.filter(q => q.issue_id === issueId);
+
+  if (issueTasks.every(q => q.status === 'completed')) {
+    console.log(`\n✓ Issue ${issueId} fully completed!`);
+
+    // Update issue status
+    const issueIndex = allIssues.findIndex(i => i.id === issueId);
+    if (issueIndex !== -1) {
+      allIssues[issueIndex].status = 'completed';
+      allIssues[issueIndex].completed_at = new Date().toISOString();
+      allIssues[issueIndex].updated_at = new Date().toISOString();
     }
   }
 }
 
-// Usage: Only load what's needed
-const iterator = getReadyTasksStream(issueDir, completedIds)
-const batch = []
-for (let i = 0; i < batchSize; i++) {
-  const { value, done } = iterator.next()
-  if (done) break
-  batch.push(value)
+// Write updated issues.jsonl
+Write(issuesPath, allIssues.map(i => JSON.stringify(i)).join('\n'));
+
+if (summary.pending > 0) {
+  console.log(`
+### Continue Execution
+Run \`/issue:execute\` again to execute remaining tasks.
+`);
 }
 ```
 
-## Pause Criteria Evaluation
+## Dry Run Mode
 
 ```javascript
-async function evaluatePauseCriterion(criterion, task) {
-  // Pattern matching for common pause conditions
-  const patterns = [
-    { match: /unclear|undefined|missing/i, action: 'ask_user' },
-    { match: /security review/i, action: 'require_approval' },
-    { match: /migration required/i, action: 'check_migration' },
-    { match: /external (api|service)/i, action: 'verify_external' }
-  ]
+if (flags.dryRun) {
+  console.log(`
+## Dry Run - Would Execute
 
-  for (const pattern of patterns) {
-    if (pattern.match.test(criterion)) {
-      // Check if condition is resolved
-      const resolved = await checkCondition(pattern.action, criterion, task)
-      if (!resolved) return true // Pause
-    }
-  }
+${readyTasks.map((t, i) => `
+${i + 1}. ${t.queue_id}
+   Issue: ${t.issue_id}
+   Task: ${t.task_id}
+   Executor: ${t.assigned_executor}
+   Group: ${t.execution_group}
+`).join('')}
 
-  return false // Don't pause
+No changes made. Remove --dry-run to execute.
+`);
+  return;
 }
 ```
 
@@ -554,38 +386,32 @@ async function evaluatePauseCriterion(criterion, task) {
 
 | Error | Resolution |
 |-------|------------|
-| Task not found | List available tasks, suggest correct ID |
-| Dependencies unsatisfied | Show blocking tasks, suggest running those first |
-| Test failure (3x) | Mark failed, save state, suggest manual intervention |
-| Pause triggered | Save state, display pause reason, await user action |
-| Commit conflict | Stash changes, report conflict, await resolution |
+| Queue not found | Display message, suggest /issue:queue |
+| No ready tasks | Check dependencies, show blocked tasks |
+| Codex timeout | Mark as failed, allow retry |
+| ccw issue next empty | All tasks done or blocked |
+| Task execution failure | Marked via ccw issue fail |
 
-## Output
+## Endpoint Contract
 
-```
-## Execution Complete
+### `ccw issue next`
+- Returns next ready task as JSON
+- Marks task as 'executing'
+- Returns `{ status: 'empty' }` when no tasks
 
-**Issue**: GH-123
-**Tasks Executed**: 3/5
-**Completed**: 3
-**Failed**: 0
-**Pending**: 2 (dependencies not met)
+### `ccw issue complete <queue-id>`
+- Marks task as 'completed'
+- Updates queue.json
+- Checks if issue is fully complete
 
-### Task Status
-| ID | Title | Status | Phase | Commit |
-|----|-------|--------|-------|--------|
-| TASK-001 | Setup auth middleware | ✓ | done | a1b2c3d |
-| TASK-002 | Protect API routes | ✓ | done | e4f5g6h |
-| TASK-003 | Add login endpoint | ✓ | done | i7j8k9l |
-| TASK-004 | Add logout endpoint | ⏳ | pending | - |
-| TASK-005 | Integration tests | ⏳ | pending | - |
-
-### Next Steps
-Run `/issue:execute GH-123` to continue with remaining tasks.
-```
+### `ccw issue fail <queue-id>`
+- Marks task as 'failed'
+- Records failure reason
+- Allows retry via /issue:execute
 
 ## Related Commands
 
-- `/issue:plan` - Create issue plan with JSONL tasks
-- `ccw issue status` - Check issue execution status
+- `/issue:plan` - Plan issues with solutions
+- `/issue:queue` - Form execution queue
+- `ccw issue queue list` - View queue status
 - `ccw issue retry` - Retry failed tasks
