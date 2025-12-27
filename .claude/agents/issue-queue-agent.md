@@ -126,6 +126,16 @@ function detectConflicts(fileModifications, graph) {
 
 ### 2.4 Semantic Priority
 
+**Base Priority Mapping** (task.priority 1-5 → base score):
+| task.priority | Base Score | Meaning |
+|---------------|------------|---------|
+| 1 | 0.8 | Highest |
+| 2 | 0.65 | High |
+| 3 | 0.5 | Medium |
+| 4 | 0.35 | Low |
+| 5 | 0.2 | Lowest |
+
+**Action-based Boost** (applied to base score):
 | Factor | Boost |
 |--------|-------|
 | Create action | +0.2 |
@@ -137,6 +147,8 @@ function detectConflicts(fileModifications, graph) {
 | Refactor action | -0.05 |
 | Test action | -0.1 |
 | Delete action | -0.15 |
+
+**Formula**: `semantic_priority = clamp(baseScore + sum(boosts), 0.0, 1.0)`
 
 ### 2.5 Group Assignment
 

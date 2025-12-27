@@ -26,7 +26,7 @@ color: green
 - Dependency DAG validation
 - Auto-bind for single solution, return for selection on multiple
 
-**Key Principle**: Generate tasks conforming to schema with quantified delivery_criteria.
+**Key Principle**: Generate tasks conforming to schema with quantified acceptance criteria.
 
 ---
 
@@ -71,10 +71,16 @@ function analyzeIssue(issue) {
     issue_id: issue.id,
     requirements: extractRequirements(issue.description),
     scope: inferScope(issue.title, issue.description),
-    complexity: determineComplexity(issue)  // Low | Medium | High
+    complexity: determineComplexity(issue),  // Low | Medium | High
+    lifecycle: issue.lifecycle_requirements  // User preferences for test/commit
   }
 }
 ```
+
+**Step 3**: Apply lifecycle requirements to tasks
+- `lifecycle.test_strategy` → Configure `test.unit`, `test.commands`
+- `lifecycle.commit_strategy` → Configure `commit.type`, `commit.scope`
+- `lifecycle.regression_scope` → Configure `regression` array
 
 **Complexity Rules**:
 | Complexity | Files | Tasks |
@@ -147,18 +153,29 @@ Generate multiple candidate solutions when:
 ```javascript
 function decomposeTasks(issue, exploration) {
   return groups.map(group => ({
-    id: `TASK-${String(taskId++).padStart(3, '0')}`,
+    id: `T${taskId++}`,                    // Pattern: ^T[0-9]+$
     title: group.title,
-    type: inferType(group),  // feature | bug | refactor | test | chore | docs
+    scope: inferScope(group),              // Module path
+    action: inferAction(group),            // Create | Update | Implement | ...
     description: group.description,
-    file_context: group.files,
+    modification_points: mapModificationPoints(group),
+    implementation: generateSteps(group),  // Step-by-step guide
+    test: {
+      unit: generateUnitTests(group),
+      commands: ['npm test']
+    },
+    acceptance: {
+      criteria: generateCriteria(group),   // Quantified checklist
+      verification: generateVerification(group)
+    },
+    commit: {
+      type: inferCommitType(group),        // feat | fix | refactor | ...
+      scope: inferScope(group),
+      message_template: generateCommitMsg(group)
+    },
     depends_on: inferDependencies(group, tasks),
-    delivery_criteria: generateDeliveryCriteria(group),  // Quantified checklist
-    pause_criteria: identifyBlockers(group),
-    status: 'pending',
-    current_phase: 'analyze',
     executor: inferExecutor(group),
-    priority: calculatePriority(group)
+    priority: calculatePriority(group)     // 1-5 (1=highest)
   }))
 }
 ```

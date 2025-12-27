@@ -70,9 +70,9 @@ Unified planning command using **issue-plan-agent** that combines exploration an
 ```
 Phase 1: Issue Loading
    ├─ Parse input (single, comma-separated, or --all-pending)
-   ├─ Load issues from .workflow/issues/issues.jsonl
+   ├─ Fetch issue metadata (ID, title, tags)
    ├─ Validate issues exist (create if needed)
-   └─ Group into batches (max 3 per batch)
+   └─ Group by similarity (shared tags or title keywords, max 3 per batch)
 
 Phase 2: Unified Explore + Plan (issue-plan-agent)
    ├─ Launch issue-plan-agent per batch
@@ -97,41 +97,71 @@ Phase 4: Summary
 
 ## Implementation
 
-### Phase 1: Issue Loading (IDs Only)
+### Phase 1: Issue Loading (ID + Title + Tags)
 
 ```javascript
 const batchSize = flags.batchSize || 3;
-let issueIds = [];
+let issues = [];  // {id, title, tags}
 
 if (flags.allPending) {
-  // Get pending issue IDs directly via CLI
-  const ids = Bash(`ccw issue list --status pending,registered --ids`).trim();
-  issueIds = ids ? ids.split('\n').filter(Boolean) : [];
+  // Get pending issues with metadata via CLI (JSON output)
+  const result = Bash(`ccw issue list --status pending,registered --json`).trim();
+  const parsed = result ? JSON.parse(result) : [];
+  issues = parsed.map(i => ({ id: i.id, title: i.title || '', tags: i.tags || [] }));
 
-  if (issueIds.length === 0) {
+  if (issues.length === 0) {
     console.log('No pending issues found.');
     return;
   }
-  console.log(`Found ${issueIds.length} pending issues`);
+  console.log(`Found ${issues.length} pending issues`);
 } else {
-  // Parse comma-separated issue IDs
-  issueIds = userInput.includes(',')
+  // Parse comma-separated issue IDs, fetch metadata
+  const ids = userInput.includes(',')
     ? userInput.split(',').map(s => s.trim())
     : [userInput.trim()];
 
-  // Create if not exists
-  for (const id of issueIds) {
+  for (const id of ids) {
     Bash(`ccw issue init ${id} --title "Issue ${id}" 2>/dev/null || true`);
+    const info = Bash(`ccw issue status ${id} --json`).trim();
+    const parsed = info ? JSON.parse(info) : {};
+    issues.push({ id, title: parsed.title || '', tags: parsed.tags || [] });
   }
 }
 
-// Group into batches
-const batches = [];
-for (let i = 0; i < issueIds.length; i += batchSize) {
-  batches.push(issueIds.slice(i, i + batchSize));
+// Intelligent grouping by similarity (tags → title keywords)
+function groupBySimilarity(issues, maxSize) {
+  const batches = [];
+  const used = new Set();
+
+  for (const issue of issues) {
+    if (used.has(issue.id)) continue;
+
+    const batch = [issue];
+    used.add(issue.id);
+    const issueTags = new Set(issue.tags);
+    const issueWords = new Set(issue.title.toLowerCase().split(/\s+/));
+
+    // Find similar issues
+    for (const other of issues) {
+      if (used.has(other.id) || batch.length >= maxSize) continue;
+
+      // Similarity: shared tags or shared title keywords
+      const sharedTags = other.tags.filter(t => issueTags.has(t)).length;
+      const otherWords = other.title.toLowerCase().split(/\s+/);
+      const sharedWords = otherWords.filter(w => issueWords.has(w) && w.length > 3).length;
+
+      if (sharedTags > 0 || sharedWords >= 2) {
+        batch.push(other);
+        used.add(other.id);
+      }
+    }
+    batches.push(batch);
+  }
+  return batches;
 }
 
-console.log(`Processing ${issueIds.length} issues in ${batches.length} batch(es)`);
+const batches = groupBySimilarity(issues, batchSize);
+console.log(`Processing ${issues.length} issues in ${batches.length} batch(es) (grouped by similarity)`);
 
 TodoWrite({
   todos: batches.map((_, i) => ({
@@ -151,11 +181,16 @@ const pendingSelections = [];  // Collect multi-solution issues for user selecti
 for (const [batchIndex, batch] of batches.entries()) {
   updateTodo(`Plan batch ${batchIndex + 1}`, 'in_progress');
 
+  // Build issue list with metadata for agent context
+  const issueList = batch.map(i => `- ${i.id}: ${i.title}${i.tags.length ? ` [${i.tags.join(', ')}]` : ''}`).join('\n');
+
   // Build minimal prompt - agent handles exploration, planning, and binding
   const issuePrompt = `
 ## Plan Issues
 
-**Issue IDs**: ${batch.join(', ')}
+**Issues** (grouped by similarity):
+${issueList}
+
 **Project Root**: ${process.cwd()}
 
 ### Steps
@@ -181,10 +216,11 @@ for (const [batchIndex, batch] of batches.entries()) {
 `;
 
   // Launch issue-plan-agent - agent writes solutions directly
+  const batchIds = batch.map(i => i.id);
   const result = Task(
     subagent_type="issue-plan-agent",
     run_in_background=false,
-    description=`Explore & plan ${batch.length} issues`,
+    description=`Explore & plan ${batch.length} issues: ${batchIds.join(', ')}`,
     prompt=issuePrompt
   );
 
@@ -244,7 +280,7 @@ const plannedIds = Bash(`ccw issue list --status planned --ids`).trim();
 const plannedCount = plannedIds ? plannedIds.split('\n').length : 0;
 
 console.log(`
-## Done: ${issueIds.length} issues → ${plannedCount} planned
+## Done: ${issues.length} issues → ${plannedCount} planned
 
 Next: \`/issue:queue\` → \`/issue:execute\`
 `);
