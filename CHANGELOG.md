@@ -5,6 +5,29 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.3.9] - 2025-12-27
+
+### 🔧 Issue System Consistency | Issue系统一致性修复
+
+#### Schema Unification | Schema统一
+- **Upgraded**: `solution-schema.json` to Rich Plan model with full lifecycle fields
+- **Added**: `test`, `regression`, `commit`, `lifecycle_status` objects to task schema
+- **Changed**: `acceptance` from string[] to object `{criteria[], verification[]}`
+- **Added**: `analysis` and `score` fields for multi-solution evaluation
+- **Removed**: Redundant `issue-task-jsonl-schema.json` and `solutions-jsonl-schema.json`
+- **Fixed**: `queue-schema.json` field naming (`queue_id` → `item_id`)
+
+#### Agent Updates | Agent更新
+- **Added**: Multi-solution generation support based on complexity
+- **Added**: Search tool fallback chain (ACE → smart_search → Grep → rg → Glob)
+- **Added**: `lifecycle_requirements` propagation from issue to tasks
+- **Added**: Priority mapping formula (1-5 → 0.0-1.0 semantic priority)
+- **Fixed**: Task decomposition to match Rich Plan schema
+
+#### Type Safety | 类型安全
+- **Added**: `QueueConflict` and `ExecutionGroup` interfaces to `issue.ts`
+- **Fixed**: `conflicts` array typing (from `any[]` to `QueueConflict[]`)
+
 ## [6.2.0] - 2025-12-21
 
 ### 🎯 Native CodexLens & Dashboard Revolution | 原生CodexLens与Dashboard革新
