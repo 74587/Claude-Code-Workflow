@@ -423,6 +423,10 @@ function renderQueueSection() {
           <button class="btn-secondary" onclick="refreshQueue()" title="${t('issues.refreshQueue') || 'Refresh'}">
             <i data-lucide="refresh-cw" class="w-4 h-4"></i>
           </button>
+          <button class="btn-secondary" onclick="showQueueHistoryModal()" title="${t('issues.queueHistory') || 'Queue History'}">
+            <i data-lucide="history" class="w-4 h-4"></i>
+            <span>${t('issues.history') || 'History'}</span>
+          </button>
           <button class="btn-secondary" onclick="createExecutionQueue()" title="${t('issues.regenerateQueue') || 'Regenerate Queue'}">
             <i data-lucide="rotate-cw" class="w-4 h-4"></i>
             <span>${t('issues.regenerate') || 'Regenerate'}</span>
@@ -1526,6 +1530,240 @@ function hideQueueCommandModal() {
   const modal = document.getElementById('queueCommandModal');
   if (modal) {
     modal.classList.add('hidden');
+  }
+}
+
+// ========== Queue History Modal ==========
+async function showQueueHistoryModal() {
+  // Create modal if not exists
+  let modal = document.getElementById('queueHistoryModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'queueHistoryModal';
+    modal.className = 'issue-modal';
+    document.body.appendChild(modal);
+  }
+
+  // Show loading state
+  modal.innerHTML = `
+    <div class="issue-modal-backdrop" onclick="hideQueueHistoryModal()"></div>
+    <div class="issue-modal-content" style="max-width: 700px; max-height: 80vh;">
+      <div class="issue-modal-header">
+        <h3><i data-lucide="history" class="w-5 h-5 inline mr-2"></i>${t('issues.queueHistory') || 'Queue History'}</h3>
+        <button class="btn-icon" onclick="hideQueueHistoryModal()">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="issue-modal-body" style="overflow-y: auto; max-height: calc(80vh - 120px);">
+        <div class="flex items-center justify-center py-8">
+          <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i>
+          <span class="ml-2">${t('common.loading') || 'Loading...'}</span>
+        </div>
+      </div>
+    </div>
+  `;
+  modal.classList.remove('hidden');
+  lucide.createIcons();
+
+  // Fetch queue history
+  try {
+    const response = await fetch(`/api/queue/history?path=${encodeURIComponent(projectPath)}`);
+    const data = await response.json();
+
+    const queues = data.queues || [];
+    const activeQueueId = data.active_queue_id;
+
+    // Render queue list
+    const queueListHtml = queues.length === 0
+      ? `<div class="text-center py-8 text-muted-foreground">
+           <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+           <p>${t('issues.noQueueHistory') || 'No queue history found'}</p>
+         </div>`
+      : `<div class="queue-history-list">
+           ${queues.map(q => `
+             <div class="queue-history-item ${q.id === activeQueueId ? 'active' : ''}" onclick="viewQueueDetail('${q.id}')">
+               <div class="queue-history-header">
+                 <span class="queue-history-id font-mono">${q.id}</span>
+                 ${q.id === activeQueueId ? '<span class="queue-active-badge">Active</span>' : ''}
+                 <span class="queue-history-status ${q.status || ''}">${q.status || 'unknown'}</span>
+               </div>
+               <div class="queue-history-meta">
+                 <span class="text-xs text-muted-foreground">
+                   <i data-lucide="layers" class="w-3 h-3 inline"></i>
+                   ${q.issue_ids?.length || 0} issues
+                 </span>
+                 <span class="text-xs text-muted-foreground">
+                   <i data-lucide="check-circle" class="w-3 h-3 inline"></i>
+                   ${q.completed_tasks || 0}/${q.total_tasks || 0} tasks
+                 </span>
+                 <span class="text-xs text-muted-foreground">
+                   <i data-lucide="calendar" class="w-3 h-3 inline"></i>
+                   ${q.created_at ? new Date(q.created_at).toLocaleDateString() : 'N/A'}
+                 </span>
+               </div>
+               <div class="queue-history-actions">
+                 ${q.id !== activeQueueId ? `
+                   <button class="btn-sm btn-primary" onclick="event.stopPropagation(); switchToQueue('${q.id}')">
+                     <i data-lucide="arrow-right-circle" class="w-3 h-3"></i>
+                     ${t('issues.switchTo') || 'Switch'}
+                   </button>
+                 ` : ''}
+                 <button class="btn-sm btn-secondary" onclick="event.stopPropagation(); viewQueueDetail('${q.id}')">
+                   <i data-lucide="eye" class="w-3 h-3"></i>
+                   ${t('issues.view') || 'View'}
+                 </button>
+               </div>
+             </div>
+           `).join('')}
+         </div>`;
+
+    modal.querySelector('.issue-modal-body').innerHTML = queueListHtml;
+    lucide.createIcons();
+
+  } catch (err) {
+    console.error('Failed to load queue history:', err);
+    modal.querySelector('.issue-modal-body').innerHTML = `
+      <div class="text-center py-8 text-red-500">
+        <i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2"></i>
+        <p>${t('errors.loadFailed') || 'Failed to load queue history'}</p>
+      </div>
+    `;
+    lucide.createIcons();
+  }
+}
+
+function hideQueueHistoryModal() {
+  const modal = document.getElementById('queueHistoryModal');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+}
+
+async function switchToQueue(queueId) {
+  try {
+    const response = await fetch(`/api/queue/switch?path=${encodeURIComponent(projectPath)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ queueId })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      showNotification(t('issues.queueSwitched') || 'Switched to queue: ' + queueId, 'success');
+      hideQueueHistoryModal();
+      await loadQueueData();
+      renderIssueView();
+    } else {
+      showNotification(result.error || 'Failed to switch queue', 'error');
+    }
+  } catch (err) {
+    console.error('Failed to switch queue:', err);
+    showNotification('Failed to switch queue', 'error');
+  }
+}
+
+async function viewQueueDetail(queueId) {
+  const modal = document.getElementById('queueHistoryModal');
+  if (!modal) return;
+
+  // Show loading
+  modal.querySelector('.issue-modal-body').innerHTML = `
+    <div class="flex items-center justify-center py-8">
+      <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i>
+      <span class="ml-2">${t('common.loading') || 'Loading...'}</span>
+    </div>
+  `;
+  lucide.createIcons();
+
+  try {
+    const response = await fetch(`/api/queue/${queueId}?path=${encodeURIComponent(projectPath)}`);
+    const queue = await response.json();
+
+    if (queue.error) {
+      throw new Error(queue.error);
+    }
+
+    const tasks = queue.tasks || [];
+    const metadata = queue._metadata || {};
+
+    // Group by execution_group
+    const grouped = {};
+    tasks.forEach(task => {
+      const group = task.execution_group || 'ungrouped';
+      if (!grouped[group]) grouped[group] = [];
+      grouped[group].push(task);
+    });
+
+    const detailHtml = `
+      <div class="queue-detail-view">
+        <div class="queue-detail-header mb-4">
+          <button class="btn-sm btn-secondary" onclick="showQueueHistoryModal()">
+            <i data-lucide="arrow-left" class="w-3 h-3"></i>
+            ${t('common.back') || 'Back'}
+          </button>
+          <h4 class="text-lg font-semibold ml-4">${queue.id || queueId}</h4>
+        </div>
+
+        <div class="queue-detail-stats mb-4">
+          <div class="stat-item">
+            <span class="stat-value">${tasks.length}</span>
+            <span class="stat-label">${t('issues.totalTasks') || 'Total'}</span>
+          </div>
+          <div class="stat-item completed">
+            <span class="stat-value">${tasks.filter(t => t.status === 'completed').length}</span>
+            <span class="stat-label">${t('issues.completed') || 'Completed'}</span>
+          </div>
+          <div class="stat-item pending">
+            <span class="stat-value">${tasks.filter(t => t.status === 'pending').length}</span>
+            <span class="stat-label">${t('issues.pending') || 'Pending'}</span>
+          </div>
+          <div class="stat-item failed">
+            <span class="stat-value">${tasks.filter(t => t.status === 'failed').length}</span>
+            <span class="stat-label">${t('issues.failed') || 'Failed'}</span>
+          </div>
+        </div>
+
+        <div class="queue-detail-groups">
+          ${Object.entries(grouped).map(([groupId, items]) => `
+            <div class="queue-group-section">
+              <div class="queue-group-header">
+                <i data-lucide="folder" class="w-4 h-4"></i>
+                <span>${groupId}</span>
+                <span class="text-xs text-muted-foreground">(${items.length} tasks)</span>
+              </div>
+              <div class="queue-group-items">
+                ${items.map(item => `
+                  <div class="queue-detail-item ${item.status || ''}">
+                    <span class="item-id font-mono text-xs">${item.item_id || item.task_id}</span>
+                    <span class="item-issue text-xs">${item.issue_id}</span>
+                    <span class="item-status ${item.status || ''}">${item.status || 'unknown'}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+
+    modal.querySelector('.issue-modal-body').innerHTML = detailHtml;
+    lucide.createIcons();
+
+  } catch (err) {
+    console.error('Failed to load queue detail:', err);
+    modal.querySelector('.issue-modal-body').innerHTML = `
+      <div class="text-center py-8">
+        <button class="btn-sm btn-secondary mb-4" onclick="showQueueHistoryModal()">
+          <i data-lucide="arrow-left" class="w-3 h-3"></i>
+          ${t('common.back') || 'Back'}
+        </button>
+        <div class="text-red-500">
+          <i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2"></i>
+          <p>${t('errors.loadFailed') || 'Failed to load queue detail'}</p>
+        </div>
+      </div>
+    `;
+    lucide.createIcons();
   }
 }
 

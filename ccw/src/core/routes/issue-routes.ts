@@ -236,6 +236,82 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
+  // GET /api/queue/history - Get queue history (all queues from index)
+  if (pathname === '/api/queue/history' && req.method === 'GET') {
+    const queuesDir = join(issuesDir, 'queues');
+    const indexPath = join(queuesDir, 'index.json');
+
+    if (!existsSync(indexPath)) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ queues: [], active_queue_id: null }));
+      return true;
+    }
+
+    try {
+      const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(index));
+    } catch {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ queues: [], active_queue_id: null }));
+    }
+    return true;
+  }
+
+  // GET /api/queue/:id - Get specific queue by ID
+  const queueDetailMatch = pathname.match(/^\/api\/queue\/([^/]+)$/);
+  if (queueDetailMatch && req.method === 'GET' && queueDetailMatch[1] !== 'history' && queueDetailMatch[1] !== 'reorder') {
+    const queueId = queueDetailMatch[1];
+    const queuesDir = join(issuesDir, 'queues');
+    const queueFilePath = join(queuesDir, `${queueId}.json`);
+
+    if (!existsSync(queueFilePath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `Queue ${queueId} not found` }));
+      return true;
+    }
+
+    try {
+      const queue = JSON.parse(readFileSync(queueFilePath, 'utf8'));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(groupQueueByExecutionGroup(queue)));
+    } catch {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to read queue' }));
+    }
+    return true;
+  }
+
+  // POST /api/queue/switch - Switch active queue
+  if (pathname === '/api/queue/switch' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body: any) => {
+      const { queueId } = body;
+      if (!queueId) return { error: 'queueId required' };
+
+      const queuesDir = join(issuesDir, 'queues');
+      const indexPath = join(queuesDir, 'index.json');
+      const queueFilePath = join(queuesDir, `${queueId}.json`);
+
+      if (!existsSync(queueFilePath)) {
+        return { error: `Queue ${queueId} not found` };
+      }
+
+      try {
+        const index = existsSync(indexPath)
+          ? JSON.parse(readFileSync(indexPath, 'utf8'))
+          : { active_queue_id: null, queues: [] };
+
+        index.active_queue_id = queueId;
+        writeFileSync(indexPath, JSON.stringify(index, null, 2));
+
+        return { success: true, active_queue_id: queueId };
+      } catch (err) {
+        return { error: 'Failed to switch queue' };
+      }
+    });
+    return true;
+  }
+
   // POST /api/queue/reorder - Reorder queue items
   if (pathname === '/api/queue/reorder' && req.method === 'POST') {
     handlePostRequest(req, res, async (body: any) => {
