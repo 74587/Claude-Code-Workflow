@@ -149,6 +149,7 @@ interface Queue {
 }
 
 interface QueueIndex {
+  active_queue_id: string | null;
   active_item_id: string | null;
   queues: {
     id: string;
@@ -290,7 +291,7 @@ function ensureQueuesDir(): void {
 function readQueueIndex(): QueueIndex {
   const path = join(getQueuesDir(), 'index.json');
   if (!existsSync(path)) {
-    return { active_item_id: null, queues: [] };
+    return { active_queue_id: null, active_item_id: null, queues: [] };
   }
   return JSON.parse(readFileSync(path, 'utf-8'));
 }
