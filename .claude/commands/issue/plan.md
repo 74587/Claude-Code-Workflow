@@ -30,7 +30,7 @@ Unified planning command using **issue-plan-agent** that combines exploration an
 - [ ] Single solution → auto-bound via `ccw issue bind`
 - [ ] Multiple solutions → returned for user selection
 - [ ] Tasks conform to schema: `cat .claude/workflows/cli-templates/schemas/solution-schema.json`
-- [ ] Each task has quantified `delivery_criteria`
+- [ ] Each task has quantified `acceptance.criteria`
 
 ## Core Capabilities
 
