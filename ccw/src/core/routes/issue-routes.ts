@@ -5,7 +5,9 @@
  * Storage Structure:
  * .workflow/issues/
  * ├── issues.jsonl              # All issues (one per line)
- * ├── queue.json                # Execution queue
+ * ├── queues/                   # Queue history directory
+ * │   ├── index.json            # Queue index (active + history)
+ * │   └── {queue-id}.json       # Individual queue files
  * └── solutions/
  *     ├── {issue-id}.jsonl      # Solutions for issue (one per line)
  *     └── ...
@@ -102,12 +104,12 @@ function readQueue(issuesDir: string) {
     }
   }
 
-  return { queue: [], conflicts: [], execution_groups: [], _metadata: { version: '1.0', total_tasks: 0 } };
+  return { tasks: [], conflicts: [], execution_groups: [], _metadata: { version: '1.0', total_tasks: 0 } };
 }
 
 function writeQueue(issuesDir: string, queue: any) {
   if (!existsSync(issuesDir)) mkdirSync(issuesDir, { recursive: true });
-  queue._metadata = { ...queue._metadata, updated_at: new Date().toISOString(), total_tasks: queue.queue?.length || 0 };
+  queue._metadata = { ...queue._metadata, updated_at: new Date().toISOString(), total_tasks: queue.tasks?.length || 0 };
 
   // Check if using new multi-queue structure
   const queuesDir = join(issuesDir, 'queues');
@@ -123,8 +125,8 @@ function writeQueue(issuesDir: string, queue: any) {
       const index = JSON.parse(readFileSync(indexPath, 'utf8'));
       const queueEntry = index.queues?.find((q: any) => q.id === queue.id);
       if (queueEntry) {
-        queueEntry.total_tasks = queue.queue?.length || 0;
-        queueEntry.completed_tasks = queue.queue?.filter((i: any) => i.status === 'completed').length || 0;
+        queueEntry.total_tasks = queue.tasks?.length || 0;
+        queueEntry.completed_tasks = queue.tasks?.filter((i: any) => i.status === 'completed').length || 0;
         writeFileSync(indexPath, JSON.stringify(index, null, 2));
       }
     } catch {
@@ -151,15 +153,29 @@ function getIssueDetail(issuesDir: string, issueId: string) {
 }
 
 function enrichIssues(issues: any[], issuesDir: string) {
-  return issues.map(issue => ({
-    ...issue,
-    solution_count: readSolutionsJsonl(issuesDir, issue.id).length
-  }));
+  return issues.map(issue => {
+    const solutions = readSolutionsJsonl(issuesDir, issue.id);
+    let taskCount = 0;
+
+    // Get task count from bound solution
+    if (issue.bound_solution_id) {
+      const boundSol = solutions.find(s => s.id === issue.bound_solution_id);
+      if (boundSol?.tasks) {
+        taskCount = boundSol.tasks.length;
+      }
+    }
+
+    return {
+      ...issue,
+      solution_count: solutions.length,
+      task_count: taskCount
+    };
+  });
 }
 
 function groupQueueByExecutionGroup(queue: any) {
   const groups: { [key: string]: any[] } = {};
-  for (const item of queue.queue || []) {
+  for (const item of queue.tasks || []) {
     const groupId = item.execution_group || 'ungrouped';
     if (!groups[groupId]) groups[groupId] = [];
     groups[groupId].push(item);
@@ -171,7 +187,7 @@ function groupQueueByExecutionGroup(queue: any) {
     id,
     type: id.startsWith('P') ? 'parallel' : id.startsWith('S') ? 'sequential' : 'unknown',
     task_count: items.length,
-    tasks: items.map(i => i.queue_id)
+    tasks: items.map(i => i.item_id)
   })).sort((a, b) => {
     const aFirst = groups[a.id]?.[0]?.execution_order || 0;
     const bFirst = groups[b.id]?.[0]?.execution_order || 0;
@@ -229,20 +245,20 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
       }
 
       const queue = readQueue(issuesDir);
-      const groupItems = queue.queue.filter((item: any) => item.execution_group === groupId);
-      const otherItems = queue.queue.filter((item: any) => item.execution_group !== groupId);
+      const groupItems = queue.tasks.filter((item: any) => item.execution_group === groupId);
+      const otherItems = queue.tasks.filter((item: any) => item.execution_group !== groupId);
 
       if (groupItems.length === 0) return { error: `No items in group ${groupId}` };
 
-      const groupQueueIds = new Set(groupItems.map((i: any) => i.queue_id));
-      if (groupQueueIds.size !== new Set(newOrder).size) {
+      const groupItemIds = new Set(groupItems.map((i: any) => i.item_id));
+      if (groupItemIds.size !== new Set(newOrder).size) {
         return { error: 'newOrder must contain all group items' };
       }
       for (const id of newOrder) {
-        if (!groupQueueIds.has(id)) return { error: `Invalid queue_id: ${id}` };
+        if (!groupItemIds.has(id)) return { error: `Invalid item_id: ${id}` };
       }
 
-      const itemMap = new Map(groupItems.map((i: any) => [i.queue_id, i]));
+      const itemMap = new Map(groupItems.map((i: any) => [i.item_id, i]));
       const reorderedItems = newOrder.map((qid: string, idx: number) => ({ ...itemMap.get(qid), _idx: idx }));
       const newQueue = [...otherItems, ...reorderedItems].sort((a, b) => {
         const aGroup = parseInt(a.execution_group?.match(/\d+/)?.[0] || '999');
@@ -255,7 +271,7 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
       });
 
       newQueue.forEach((item, idx) => { item.execution_order = idx + 1; delete item._idx; });
-      queue.queue = newQueue;
+      queue.tasks = newQueue;
       writeQueue(issuesDir, queue);
 
       return { success: true, groupId, reordered: newOrder.length };

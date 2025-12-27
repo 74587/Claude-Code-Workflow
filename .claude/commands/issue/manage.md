@@ -30,7 +30,7 @@ ccw issue task <id> --title "..." # Add task
 ccw issue queue                   # List queue
 ccw issue queue add <id>          # Add to queue
 ccw issue next                    # Get next task
-ccw issue done <queue-id>         # Complete task
+ccw issue complete <item-id>      # Complete task
 ```
 
 ## Usage
@@ -561,7 +561,7 @@ async function deleteIssueInteractive(issueId) {
   const queuePath = '.workflow/issues/queue.json';
   if (Bash(`test -f "${queuePath}" && echo exists`) === 'exists') {
     const queue = JSON.parse(Bash(`cat "${queuePath}"`));
-    queue.queue = queue.queue.filter(q => q.issue_id !== issueId);
+    queue.tasks = queue.tasks.filter(q => q.issue_id !== issueId);
     Write(queuePath, JSON.stringify(queue, null, 2));
   }
   

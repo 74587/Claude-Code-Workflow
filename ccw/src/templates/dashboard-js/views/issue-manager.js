@@ -6,7 +6,7 @@
 // ========== Issue State ==========
 var issueData = {
   issues: [],
-  queue: { queue: [], conflicts: [], execution_groups: [], grouped_items: {} },
+  queue: { tasks: [], conflicts: [], execution_groups: [], grouped_items: {} },
   selectedIssue: null,
   selectedSolution: null,
   selectedSolutionIssueId: null,
@@ -65,7 +65,7 @@ async function loadQueueData() {
     issueData.queue = await response.json();
   } catch (err) {
     console.error('Failed to load queue:', err);
-    issueData.queue = { queue: [], conflicts: [], execution_groups: [], grouped_items: {} };
+    issueData.queue = { tasks: [], conflicts: [], execution_groups: [], grouped_items: {} };
   }
 }
 
@@ -360,7 +360,7 @@ function filterIssuesByStatus(status) {
 // ========== Queue Section ==========
 function renderQueueSection() {
   const queue = issueData.queue;
-  const queueItems = queue.queue || [];
+  const queueItems = queue.tasks || [];
   const metadata = queue._metadata || {};
 
   // Check if queue is empty
@@ -530,10 +530,10 @@ function renderQueueItem(item, index, total) {
   return `
     <div class="queue-item ${statusColors[item.status] || ''}"
          draggable="true"
-         data-queue-id="${item.queue_id}"
+         data-item-id="${item.item_id}"
          data-group-id="${item.execution_group}"
-         onclick="openQueueItemDetail('${item.queue_id}')">
-      <span class="queue-item-id font-mono text-xs">${item.queue_id}</span>
+         onclick="openQueueItemDetail('${item.item_id}')">
+      <span class="queue-item-id font-mono text-xs">${item.item_id}</span>
       <span class="queue-item-issue text-xs text-muted-foreground">${item.issue_id}</span>
       <span class="queue-item-task text-sm">${item.task_id}</span>
       <span class="queue-item-priority" style="opacity: ${item.semantic_priority || 0.5}">
@@ -586,12 +586,12 @@ function handleIssueDragStart(e) {
   const item = e.target.closest('.queue-item');
   if (!item) return;
 
-  issueDragState.dragging = item.dataset.queueId;
+  issueDragState.dragging = item.dataset.itemId;
   issueDragState.groupId = item.dataset.groupId;
 
   item.classList.add('dragging');
   e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', item.dataset.queueId);
+  e.dataTransfer.setData('text/plain', item.dataset.itemId);
 }
 
 function handleIssueDragEnd(e) {
@@ -610,7 +610,7 @@ function handleIssueDragOver(e) {
   e.preventDefault();
 
   const target = e.target.closest('.queue-item');
-  if (!target || target.dataset.queueId === issueDragState.dragging) return;
+  if (!target || target.dataset.itemId === issueDragState.dragging) return;
 
   // Only allow drag within same group
   if (target.dataset.groupId !== issueDragState.groupId) {
@@ -635,7 +635,7 @@ function handleIssueDrop(e) {
 
   // Get new order
   const items = Array.from(container.querySelectorAll('.queue-item'));
-  const draggedItem = items.find(i => i.dataset.queueId === issueDragState.dragging);
+  const draggedItem = items.find(i => i.dataset.itemId === issueDragState.dragging);
   const targetIndex = items.indexOf(target);
   const draggedIndex = items.indexOf(draggedItem);
 
@@ -649,7 +649,7 @@ function handleIssueDrop(e) {
   }
 
   // Get new order and save
-  const newOrder = Array.from(container.querySelectorAll('.queue-item')).map(i => i.dataset.queueId);
+  const newOrder = Array.from(container.querySelectorAll('.queue-item')).map(i => i.dataset.itemId);
   saveQueueOrder(issueDragState.groupId, newOrder);
 }
 
@@ -767,7 +767,7 @@ function renderIssueDetailPanel(issue) {
               <div class="flex items-center justify-between">
                 <span class="font-mono text-sm">${task.id}</span>
                 <select class="task-status-select" onchange="updateTaskStatus('${issue.id}', '${task.id}', this.value)">
-                  ${['pending', 'ready', 'in_progress', 'completed', 'failed', 'paused', 'skipped'].map(s =>
+                  ${['pending', 'ready', 'executing', 'completed', 'failed', 'blocked', 'paused', 'skipped'].map(s =>
                     `<option value="${s}" ${task.status === s ? 'selected' : ''}>${s}</option>`
                   ).join('')}
                 </select>
@@ -1145,8 +1145,8 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function openQueueItemDetail(queueId) {
-  const item = issueData.queue.queue?.find(q => q.queue_id === queueId);
+function openQueueItemDetail(itemId) {
+  const item = issueData.queue.tasks?.find(q => q.item_id === itemId);
   if (item) {
     openIssueDetail(item.issue_id);
   }

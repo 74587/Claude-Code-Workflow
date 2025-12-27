@@ -17,12 +17,14 @@ Execution orchestrator that coordinates codex instances. Each task is executed b
 - No file reading in codex
 - Orchestrator manages parallelism
 
-## Storage Structure (Flat JSONL)
+## Storage Structure (Queue History)
 
 ```
 .workflow/issues/
 ├── issues.jsonl              # All issues (one per line)
-├── queue.json                # Execution queue
+├── queues/                   # Queue history directory
+│   ├── index.json            # Queue index (active + history)
+│   └── {queue-id}.json       # Individual queue files
 └── solutions/
     ├── {issue-id}.jsonl      # Solutions for issue
     └── ...
@@ -78,19 +80,19 @@ Phase 4: Completion
 ### Phase 1: Queue Loading
 
 ```javascript
-// Load queue
-const queuePath = '.workflow/issues/queue.json';
-if (!Bash(`test -f "${queuePath}" && echo exists`).includes('exists')) {
-  console.log('No queue found. Run /issue:queue first.');
+// Load active queue via CLI endpoint
+const queueJson = Bash(`ccw issue status --json 2>/dev/null || echo '{}'`);
+const queue = JSON.parse(queueJson);
+
+if (!queue.id || queue.tasks?.length === 0) {
+  console.log('No active queue found. Run /issue:queue first.');
   return;
 }
 
-const queue = JSON.parse(Read(queuePath));
-
 // Count by status
-const pending = queue.queue.filter(q => q.status === 'pending');
-const executing = queue.queue.filter(q => q.status === 'executing');
-const completed = queue.queue.filter(q => q.status === 'completed');
+const pending = queue.tasks.filter(q => q.status === 'pending');
+const executing = queue.tasks.filter(q => q.status === 'executing');
+const completed = queue.tasks.filter(q => q.status === 'completed');
 
 console.log(`
 ## Execution Queue Status
@@ -98,7 +100,7 @@ console.log(`
 - Pending: ${pending.length}
 - Executing: ${executing.length}
 - Completed: ${completed.length}
-- Total: ${queue.queue.length}
+- Total: ${queue.tasks.length}
 `);
 
 if (pending.length === 0 && executing.length === 0) {
@@ -113,10 +115,10 @@ if (pending.length === 0 && executing.length === 0) {
 // Find ready tasks (dependencies satisfied)
 function getReadyTasks() {
   const completedIds = new Set(
-    queue.queue.filter(q => q.status === 'completed').map(q => q.queue_id)
+    queue.tasks.filter(q => q.status === 'completed').map(q => q.item_id)
   );
 
-  return queue.queue.filter(item => {
+  return queue.tasks.filter(item => {
     if (item.status !== 'pending') return false;
     return item.depends_on.every(depId => completedIds.has(depId));
   });
@@ -141,9 +143,9 @@ readyTasks.sort((a, b) => a.execution_order - b.execution_order);
 // Initialize TodoWrite
 TodoWrite({
   todos: readyTasks.slice(0, parallelLimit).map(t => ({
-    content: `[${t.queue_id}] ${t.issue_id}:${t.task_id}`,
+    content: `[${t.item_id}] ${t.issue_id}:${t.task_id}`,
     status: 'pending',
-    activeForm: `Executing ${t.queue_id}`
+    activeForm: `Executing ${t.item_id}`
   }))
 });
 ```
@@ -207,7 +209,7 @@ This returns JSON with full lifecycle definition:
 ### Step 3: Report Completion
 When ALL phases complete successfully:
 \`\`\`bash
-ccw issue complete <queue_id> --result '{
+ccw issue complete <item_id> --result '{
   "files_modified": ["path1", "path2"],
   "tests_passed": true,
   "regression_passed": true,
@@ -220,7 +222,7 @@ ccw issue complete <queue_id> --result '{
 
 If any phase fails and cannot be fixed:
 \`\`\`bash
-ccw issue fail <queue_id> --reason "Phase X failed: <details>"
+ccw issue fail <item_id> --reason "Phase X failed: <details>"
 \`\`\`
 
 ### Rules
@@ -239,12 +241,12 @@ Begin by running: ccw issue next
 
   if (executor === 'codex') {
     Bash(
-      `ccw cli -p "${escapePrompt(codexPrompt)}" --tool codex --mode write --id exec-${queueItem.queue_id}`,
+      `ccw cli -p "${escapePrompt(codexPrompt)}" --tool codex --mode write --id exec-${queueItem.item_id}`,
       timeout=3600000  // 1 hour timeout
     );
   } else if (executor === 'gemini') {
     Bash(
-      `ccw cli -p "${escapePrompt(codexPrompt)}" --tool gemini --mode write --id exec-${queueItem.queue_id}`,
+      `ccw cli -p "${escapePrompt(codexPrompt)}" --tool gemini --mode write --id exec-${queueItem.item_id}`,
       timeout=1800000  // 30 min timeout
     );
   } else {
@@ -252,7 +254,7 @@ Begin by running: ccw issue next
     Task(
       subagent_type="code-developer",
       run_in_background=false,
-      description=`Execute ${queueItem.queue_id}`,
+      description=`Execute ${queueItem.item_id}`,
       prompt=codexPrompt
     );
   }
@@ -265,23 +267,23 @@ for (let i = 0; i < readyTasks.length; i += parallelLimit) {
   const batch = readyTasks.slice(i, i + parallelLimit);
 
   console.log(`\n### Executing Batch ${Math.floor(i / parallelLimit) + 1}`);
-  console.log(batch.map(t => `- ${t.queue_id}: ${t.issue_id}:${t.task_id}`).join('\n'));
+  console.log(batch.map(t => `- ${t.item_id}: ${t.issue_id}:${t.task_id}`).join('\n'));
 
   if (parallelLimit === 1) {
     // Sequential execution
     for (const task of batch) {
-      updateTodo(task.queue_id, 'in_progress');
+      updateTodo(task.item_id, 'in_progress');
       await executeTask(task);
-      updateTodo(task.queue_id, 'completed');
+      updateTodo(task.item_id, 'completed');
     }
   } else {
     // Parallel execution - launch all at once
     const executions = batch.map(task => {
-      updateTodo(task.queue_id, 'in_progress');
+      updateTodo(task.item_id, 'in_progress');
       return executeTask(task);
     });
     await Promise.all(executions);
-    batch.forEach(task => updateTodo(task.queue_id, 'completed'));
+    batch.forEach(task => updateTodo(task.item_id, 'completed'));
   }
 
   // Refresh ready tasks after batch
@@ -298,7 +300,7 @@ When codex calls `ccw issue next`, it receives:
 
 ```json
 {
-  "queue_id": "Q-001",
+  "item_id": "T-1",
   "issue_id": "GH-123",
   "solution_id": "SOL-001",
   "task": {
@@ -336,60 +338,38 @@ When codex calls `ccw issue next`, it receives:
 ### Phase 4: Completion Summary
 
 ```javascript
-// Reload queue for final status
-const finalQueue = JSON.parse(Read(queuePath));
+// Reload queue for final status via CLI
+const finalQueueJson = Bash(`ccw issue status --json 2>/dev/null || echo '{}'`);
+const finalQueue = JSON.parse(finalQueueJson);
 
-const summary = {
-  completed: finalQueue.queue.filter(q => q.status === 'completed').length,
-  failed: finalQueue.queue.filter(q => q.status === 'failed').length,
-  pending: finalQueue.queue.filter(q => q.status === 'pending').length,
-  total: finalQueue.queue.length
+// Use queue._metadata for summary (already calculated by CLI)
+const summary = finalQueue._metadata || {
+  completed_count: 0,
+  failed_count: 0,
+  pending_count: 0,
+  total_tasks: 0
 };
 
 console.log(`
 ## Execution Complete
 
-**Completed**: ${summary.completed}/${summary.total}
-**Failed**: ${summary.failed}
-**Pending**: ${summary.pending}
+**Completed**: ${summary.completed_count}/${summary.total_tasks}
+**Failed**: ${summary.failed_count}
+**Pending**: ${summary.pending_count}
 
 ### Task Results
-${finalQueue.queue.map(q => {
+${(finalQueue.tasks || []).map(q => {
   const icon = q.status === 'completed' ? '✓' :
                q.status === 'failed' ? '✗' :
                q.status === 'executing' ? '⟳' : '○';
-  return `${icon} ${q.queue_id} [${q.issue_id}:${q.task_id}] - ${q.status}`;
+  return `${icon} ${q.item_id} [${q.issue_id}:${q.task_id}] - ${q.status}`;
 }).join('\n')}
 `);
 
-// Update issue statuses in issues.jsonl
-const issuesPath = '.workflow/issues/issues.jsonl';
-const allIssues = Bash(`cat "${issuesPath}"`)
-  .split('\n')
-  .filter(line => line.trim())
-  .map(line => JSON.parse(line));
+// Issue status updates are handled by ccw issue complete/fail endpoints
+// No need to manually update issues.jsonl here
 
-const issueIds = [...new Set(finalQueue.queue.map(q => q.issue_id))];
-for (const issueId of issueIds) {
-  const issueTasks = finalQueue.queue.filter(q => q.issue_id === issueId);
-
-  if (issueTasks.every(q => q.status === 'completed')) {
-    console.log(`\n✓ Issue ${issueId} fully completed!`);
-
-    // Update issue status
-    const issueIndex = allIssues.findIndex(i => i.id === issueId);
-    if (issueIndex !== -1) {
-      allIssues[issueIndex].status = 'completed';
-      allIssues[issueIndex].completed_at = new Date().toISOString();
-      allIssues[issueIndex].updated_at = new Date().toISOString();
-    }
-  }
-}
-
-// Write updated issues.jsonl
-Write(issuesPath, allIssues.map(i => JSON.stringify(i)).join('\n'));
-
-if (summary.pending > 0) {
+if (summary.pending_count > 0) {
   console.log(`
 ### Continue Execution
 Run \`/issue:execute\` again to execute remaining tasks.
@@ -405,7 +385,7 @@ if (flags.dryRun) {
 ## Dry Run - Would Execute
 
 ${readyTasks.map((t, i) => `
-${i + 1}. ${t.queue_id}
+${i + 1}. ${t.item_id}
    Issue: ${t.issue_id}
    Task: ${t.task_id}
    Executor: ${t.assigned_executor}
@@ -426,7 +406,32 @@ No changes made. Remove --dry-run to execute.
 | No ready tasks | Check dependencies, show blocked tasks |
 | Codex timeout | Mark as failed, allow retry |
 | ccw issue next empty | All tasks done or blocked |
-| Task execution failure | Marked via ccw issue fail |
+| Task execution failure | Marked via ccw issue fail, use `ccw issue retry` to reset |
+
+## Troubleshooting
+
+### Interrupted Tasks
+
+If execution was interrupted (crashed/stopped), `ccw issue next` will automatically resume:
+
+```bash
+# Automatically returns the executing task for resumption
+ccw issue next
+```
+
+Tasks in `executing` status are prioritized and returned first, no manual reset needed.
+
+### Failed Tasks
+
+If a task failed and you want to retry:
+
+```bash
+# Reset all failed tasks to pending
+ccw issue retry
+
+# Reset failed tasks for specific issue
+ccw issue retry <issue-id>
+```
 
 ## Endpoint Contract
 
@@ -435,15 +440,19 @@ No changes made. Remove --dry-run to execute.
 - Marks task as 'executing'
 - Returns `{ status: 'empty' }` when no tasks
 
-### `ccw issue complete <queue-id>`
+### `ccw issue complete <item-id>`
 - Marks task as 'completed'
 - Updates queue.json
 - Checks if issue is fully complete
 
-### `ccw issue fail <queue-id>`
+### `ccw issue fail <item-id>`
 - Marks task as 'failed'
 - Records failure reason
 - Allows retry via /issue:execute
+
+### `ccw issue retry [issue-id]`
+- Resets failed tasks to 'pending'
+- Allows re-execution via `ccw issue next`
 
 ## Related Commands
 

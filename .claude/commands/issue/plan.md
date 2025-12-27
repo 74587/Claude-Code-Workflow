@@ -75,26 +75,16 @@ Phase 4: Summary
 
 ## Implementation
 
-### Phase 1: Issue Loading
+### Phase 1: Issue Loading (IDs Only)
 
 ```javascript
-// Parse input and flags
-const issuesPath = '.workflow/issues/issues.jsonl';
 const batchSize = flags.batchSize || 3;
-
-// Key fields for planning (avoid loading full issue data)
-const PLAN_FIELDS = 'id,title,status,context,affected_components,lifecycle_requirements,priority,bound_solution_id';
-
 let issueIds = [];
 
 if (flags.allPending) {
-  // Use jq to filter pending/registered issues - extract only IDs
-  const pendingIds = Bash(`
-    cat "${issuesPath}" 2>/dev/null | \\
-    jq -r 'select(.status == "pending" or .status == "registered") | .id' 2>/dev/null || echo ''
-  `).trim();
-
-  issueIds = pendingIds ? pendingIds.split('\n').filter(Boolean) : [];
+  // Get pending issue IDs directly via CLI
+  const ids = Bash(`ccw issue list --status pending,registered --ids`).trim();
+  issueIds = ids ? ids.split('\n').filter(Boolean) : [];
 
   if (issueIds.length === 0) {
     console.log('No pending issues found.');
@@ -106,50 +96,27 @@ if (flags.allPending) {
   issueIds = userInput.includes(',')
     ? userInput.split(',').map(s => s.trim())
     : [userInput.trim()];
-}
 
-// Load issues using jq to extract only key fields
-const issues = [];
-for (const id of issueIds) {
-  // Use jq to find issue by ID and extract only needed fields
-  const issueJson = Bash(`
-    cat "${issuesPath}" 2>/dev/null | \\
-    jq -c 'select(.id == "${id}") | {${PLAN_FIELDS}}' 2>/dev/null | head -1
-  `).trim();
-
-  let issue;
-  if (issueJson) {
-    issue = JSON.parse(issueJson);
-  } else {
-    console.log(`Issue ${id} not found. Creating...`);
-    issue = {
-      id,
-      title: `Issue ${id}`,
-      status: 'registered',
-      priority: 3,
-      context: '',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    // Append to issues.jsonl
-    Bash(`echo '${JSON.stringify(issue)}' >> "${issuesPath}"`);
+  // Create if not exists
+  for (const id of issueIds) {
+    Bash(`ccw issue init ${id} --title "Issue ${id}" 2>/dev/null || true`);
   }
-
-  issues.push(issue);
 }
 
 // Group into batches
 const batches = [];
-for (let i = 0; i < issues.length; i += batchSize) {
-  batches.push(issues.slice(i, i + batchSize));
+for (let i = 0; i < issueIds.length; i += batchSize) {
+  batches.push(issueIds.slice(i, i + batchSize));
 }
 
-console.log(`Processing ${issues.length} issues in ${batches.length} batch(es)`);
+console.log(`Processing ${issueIds.length} issues in ${batches.length} batch(es)`);
 
 TodoWrite({
-  todos: batches.flatMap((batch, i) => [
-    { content: `Plan batch ${i+1}`, status: 'pending', activeForm: `Planning batch ${i+1}` }
-  ])
+  todos: batches.map((_, i) => ({
+    content: `Plan batch ${i+1}`,
+    status: 'pending',
+    activeForm: `Planning batch ${i+1}`
+  }))
 });
 ```
 
@@ -162,36 +129,47 @@ Bash(`mkdir -p .workflow/issues/solutions`);
 for (const [batchIndex, batch] of batches.entries()) {
   updateTodo(`Plan batch ${batchIndex + 1}`, 'in_progress');
 
-  // Build issue prompt for agent - agent writes solutions directly
+  // Build issue prompt for agent - pass IDs only, agent fetches details
   const issuePrompt = `
 ## Issues to Plan (Closed-Loop Tasks Required)
 
-${batch.map((issue, i) => `
-### Issue ${i + 1}: ${issue.id}
-**Title**: ${issue.title}
-**Context**: ${issue.context || 'No context provided'}
-**Affected Components**: ${issue.affected_components?.join(', ') || 'Not specified'}
+**Issue IDs**: ${batch.join(', ')}
 
-**Lifecycle Requirements**:
-- Test Strategy: ${issue.lifecycle_requirements?.test_strategy || 'auto'}
-- Regression Scope: ${issue.lifecycle_requirements?.regression_scope || 'affected'}
-- Commit Strategy: ${issue.lifecycle_requirements?.commit_strategy || 'per-task'}
-`).join('\n')}
+### Step 1: Fetch Issue Details
+For each issue ID, use CLI to get full details:
+\`\`\`bash
+ccw issue status <issue-id> --json
+\`\`\`
+
+Returns:
+\`\`\`json
+{
+  "issue": { "id", "title", "context", "affected_components", "lifecycle_requirements", ... },
+  "solutions": [...],
+  "bound": null
+}
+\`\`\`
 
 ## Project Root
 ${process.cwd()}
 
 ## Output Requirements
 
-**IMPORTANT**: Write solutions DIRECTLY to files, do NOT return full solution content.
+**IMPORTANT**: Register solutions via CLI, do NOT write files directly.
 
-### 1. Write Solution Files
-For each issue, write solution to: \`.workflow/issues/solutions/{issue-id}.jsonl\`
-- Append one JSON line per solution
+### 1. Register Solutions via CLI
+For each issue, save solution to temp file and register via CLI:
+\`\`\`bash
+# Write solution JSON to temp file
+echo '<solution-json>' > /tmp/sol-{issue-id}.json
+
+# Register solution via CLI (generates SOL-xxx ID automatically)
+ccw issue bind {issue-id} --solution /tmp/sol-{issue-id}.json
+\`\`\`
 - Solution must include all closed-loop task fields (see Solution Format below)
 
 ### 2. Return Summary Only
-After writing solutions, return ONLY a brief JSON summary:
+After registering solutions, return ONLY a brief JSON summary:
 \`\`\`json
 {
   "planned": [
@@ -271,31 +249,34 @@ Each task MUST include ALL lifecycle phases:
 // Collect issues needing user selection (multiple solutions)
 const needSelection = [];
 
-for (const issue of issues) {
-  const solPath = `.workflow/issues/solutions/${issue.id}.jsonl`;
+for (const issueId of issueIds) {
+  // Get solutions via CLI
+  const statusJson = Bash(`ccw issue status ${issueId} --json 2>/dev/null || echo '{}'`).trim();
+  const status = JSON.parse(statusJson);
+  const solutions = status.solutions || [];
 
-  // Use jq to count solutions
-  const count = parseInt(Bash(`cat "${solPath}" 2>/dev/null | jq -s 'length' 2>/dev/null || echo '0'`).trim()) || 0;
+  if (solutions.length === 0) continue; // No solutions - skip silently (agent already reported)
 
-  if (count === 0) continue; // No solutions - skip silently (agent already reported)
-
-  if (count === 1) {
+  if (solutions.length === 1) {
     // Auto-bind single solution
-    const solId = Bash(`cat "${solPath}" | jq -r '.id' | head -1`).trim();
-    bindSolution(issue.id, solId);
+    bindSolution(issueId, solutions[0].id);
   } else {
     // Multiple solutions - collect for batch selection
-    const options = Bash(`cat "${solPath}" | jq -c '{id, description, task_count: (.tasks | length)}'`).trim();
-    needSelection.push({ issue, options: options.split('\n').map(s => JSON.parse(s)) });
+    const options = solutions.map(s => ({
+      id: s.id,
+      description: s.description,
+      task_count: (s.tasks || []).length
+    }));
+    needSelection.push({ issueId, options });
   }
 }
 
 // Batch ask user for multiple-solution issues
 if (needSelection.length > 0) {
   const answer = AskUserQuestion({
-    questions: needSelection.map(({ issue, options }) => ({
-      question: `Select solution for ${issue.id}:`,
-      header: issue.id,
+    questions: needSelection.map(({ issueId, options }) => ({
+      question: `Select solution for ${issueId}:`,
+      header: issueId,
       multiSelect: false,
       options: options.map(s => ({
         label: `${s.id} (${s.task_count} tasks)`,
@@ -305,47 +286,27 @@ if (needSelection.length > 0) {
   });
 
   // Bind selected solutions
-  for (const { issue } of needSelection) {
-    const selectedSolId = extractSelectedSolutionId(answer, issue.id);
-    if (selectedSolId) bindSolution(issue.id, selectedSolId);
+  for (const { issueId } of needSelection) {
+    const selectedSolId = extractSelectedSolutionId(answer, issueId);
+    if (selectedSolId) bindSolution(issueId, selectedSolId);
   }
 }
 
-// Helper: bind solution to issue
+// Helper: bind solution to issue (using CLI for safety)
 function bindSolution(issueId, solutionId) {
-  const now = new Date().toISOString();
-  const solPath = `.workflow/issues/solutions/${issueId}.jsonl`;
-
-  // Update issue status
-  Bash(`
-    tmpfile=$(mktemp) && \\
-    cat "${issuesPath}" | jq -c 'if .id == "${issueId}" then . + {
-      bound_solution_id: "${solutionId}", status: "planned",
-      planned_at: "${now}", updated_at: "${now}"
-    } else . end' > "$tmpfile" && mv "$tmpfile" "${issuesPath}"
-  `);
-
-  // Mark solution as bound
-  Bash(`
-    tmpfile=$(mktemp) && \\
-    cat "${solPath}" | jq -c 'if .id == "${solutionId}" then . + {
-      is_bound: true, bound_at: "${now}"
-    } else . + {is_bound: false} end' > "$tmpfile" && mv "$tmpfile" "${solPath}"
-  `);
+  Bash(`ccw issue bind ${issueId} ${solutionId}`);
 }
 ```
 
 ### Phase 4: Summary
 
 ```javascript
-// Brief summary using jq
-const stats = Bash(`
-  cat "${issuesPath}" 2>/dev/null | \\
-  jq -s '[.[] | select(.status == "planned")] | length' 2>/dev/null || echo '0'
-`).trim();
+// Count planned issues via CLI
+const plannedIds = Bash(`ccw issue list --status planned --ids`).trim();
+const plannedCount = plannedIds ? plannedIds.split('\n').length : 0;
 
 console.log(`
-## Done: ${issues.length} issues → ${stats} planned
+## Done: ${issueIds.length} issues → ${plannedCount} planned
 
 Next: \`/issue:queue\` → \`/issue:execute\`
 `);

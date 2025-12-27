@@ -21,7 +21,7 @@ WHILE task exists:
      - TEST: Run task.test commands
      - VERIFY: Check task.acceptance criteria
      - COMMIT: Stage files, commit with task.commit.message_template
-  3. Report completion via ccw issue complete <queue_id>
+  3. Report completion via ccw issue complete <item_id>
   4. Fetch next task via ccw issue next
 
 WHEN queue empty:
@@ -37,7 +37,7 @@ ccw issue next
 ```
 
 This returns JSON with the full task definition:
-- `queue_id`: Unique ID for queue tracking (e.g., "Q-001")
+- `item_id`: Unique task identifier in queue (e.g., "T-1")
 - `issue_id`: Parent issue ID (e.g., "ISSUE-20251227-001")
 - `task`: Full task definition with implementation steps
 - `context`: Relevant files and patterns
@@ -51,7 +51,7 @@ Expected task structure:
 
 ```json
 {
-  "queue_id": "Q-001",
+  "item_id": "T-1",
   "issue_id": "ISSUE-20251227-001",
   "solution_id": "SOL-001",
   "task": {
@@ -159,7 +159,7 @@ git add path/to/file1.ts path/to/file2.ts ...
 git commit -m "$(cat <<'EOF'
 [task.commit.message_template]
 
-Queue-ID: [queue_id]
+Item-ID: [item_id]
 Issue-ID: [issue_id]
 Task-ID: [task.id]
 EOF
@@ -180,7 +180,7 @@ EOF
 After commit succeeds, report to queue system:
 
 ```bash
-ccw issue complete [queue_id] --result '{
+ccw issue complete [item_id] --result '{
   "files_modified": ["path1", "path2"],
   "tests_passed": true,
   "acceptance_passed": true,
@@ -193,7 +193,7 @@ ccw issue complete [queue_id] --result '{
 **If task failed and cannot be fixed:**
 
 ```bash
-ccw issue fail [queue_id] --reason "Phase [X] failed: [details]"
+ccw issue fail [item_id] --reason "Phase [X] failed: [details]"
 ```
 
 ## Step 5: Continue to Next Task
@@ -206,7 +206,7 @@ ccw issue next
 
 **Output progress:**
 ```
-✓ [N/M] Completed: [queue_id] - [task.title]
+✓ [N/M] Completed: [item_id] - [task.title]
 → Fetching next task...
 ```
 
@@ -221,10 +221,10 @@ When `ccw issue next` returns `{ "status": "empty" }`:
 
 **Total Tasks Executed**: N
 **All Commits**:
-| # | Queue ID | Task | Commit |
-|---|----------|------|--------|
-| 1 | Q-001 | Task title | abc123 |
-| 2 | Q-002 | Task title | def456 |
+| # | Item ID | Task | Commit |
+|---|---------|------|--------|
+| 1 | T-1 | Task title | abc123 |
+| 2 | T-2 | Task title | def456 |
 
 **Files Modified**:
 - path/to/file1.ts

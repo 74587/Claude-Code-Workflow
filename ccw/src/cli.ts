@@ -277,6 +277,7 @@ export function run(argv: string[]): void {
     .option('--priority <n>', 'Task priority (1-5)')
     .option('--format <fmt>', 'Output format: json, markdown')
     .option('--json', 'Output as JSON')
+    .option('--ids', 'List only IDs (one per line, for scripting)')
     .option('--force', 'Force operation')
     // New options for solution/queue management
     .option('--solution <path>', 'Solution JSON file path')

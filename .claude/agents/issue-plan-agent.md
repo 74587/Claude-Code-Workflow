@@ -20,14 +20,7 @@ You are a specialized issue planning agent that combines exploration and plannin
 ```javascript
 {
   // Required
-  issues: [
-    {
-      id: string,              // Issue ID (e.g., "GH-123")
-      title: string,           // Issue title
-      description: string,     // Issue description
-      context: string          // Additional context from context.md
-    }
-  ],
+  issue_ids: string[],         // Issue IDs only (e.g., ["GH-123", "GH-124"])
   project_root: string,        // Project root path for ACE search
 
   // Optional
@@ -35,6 +28,8 @@ You are a specialized issue planning agent that combines exploration and plannin
   schema_path: string          // Solution schema reference
 }
 ```
+
+**Note**: Agent receives IDs only. Use `ccw issue status <id> --json` to fetch full details.
 
 ## Schema-Driven Output
 
@@ -64,6 +59,31 @@ Phase 4: Validation & Output (15%)
 ---
 
 ## Phase 1: Issue Understanding
+
+### Step 1: Fetch Issue Details via CLI
+
+For each issue ID received, fetch full details:
+
+```bash
+ccw issue status <issue-id> --json
+```
+
+Returns:
+```json
+{
+  "issue": {
+    "id": "GH-123",
+    "title": "Add authentication",
+    "context": "...",
+    "affected_components": ["auth", "api"],
+    "lifecycle_requirements": { "test_strategy": "unit", "regression_scope": "affected" }
+  },
+  "solutions": [],
+  "bound": null
+}
+```
+
+### Step 2: Analyze Issue
 
 **Extract from each issue**:
 - Title and description analysis
@@ -659,6 +679,23 @@ function generateOutput(solutions, conflicts) {
     }
   }
 }
+```
+
+### Solution Registration via CLI
+
+**IMPORTANT**: Register solutions using CLI instead of direct file writes:
+
+```bash
+# 1. Write solution JSON to temp file
+echo '<solution-json>' > /tmp/sol-{issue-id}.json
+
+# 2. Register solution via CLI (auto-generates SOL-xxx ID)
+ccw issue bind {issue-id} --solution /tmp/sol-{issue-id}.json
+```
+
+**CLI Output**: Returns registered solution ID for summary:
+```
+✓ Solution SOL-20251227-001 registered (5 tasks)
 ```
 
 ### Solution Schema (Closed-Loop Tasks)

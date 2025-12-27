@@ -500,35 +500,35 @@ function canRunParallel(taskKey, groupTasks, taskGraph, conflicts) {
 ```javascript
 function generateQueueItems(orderedTasks, taskGraph, conflicts) {
   const queueItems = []
-  let queueIdCounter = 1
+  let itemIdCounter = 1
 
   for (const key of orderedTasks) {
     const node = taskGraph.get(key)
 
     queueItems.push({
-      queue_id: `Q-${String(queueIdCounter++).padStart(3, '0')}`,
+      item_id: `T-${itemIdCounter++}`,
       issue_id: node.issue_id,
       solution_id: node.solution_id,
       task_id: node.task.id,
       status: 'pending',
       execution_order: node.execution_order,
       execution_group: node.execution_group,
-      depends_on: mapDependenciesToQueueIds(node, queueItems),
+      depends_on: mapDependenciesToItemIds(node, queueItems),
       semantic_priority: node.semantic_priority,
-      queued_at: new Date().toISOString()
+      assigned_executor: node.task.executor || 'codex'
     })
   }
 
   return queueItems
 }
 
-function mapDependenciesToQueueIds(node, queueItems) {
+function mapDependenciesToItemIds(node, queueItems) {
   return (node.task.depends_on || []).map(dep => {
     const depKey = `${node.issue_id}:${dep}`
     const queueItem = queueItems.find(q =>
       q.issue_id === node.issue_id && q.task_id === dep
     )
-    return queueItem?.queue_id || dep
+    return queueItem?.item_id || dep
   })
 }
 ```
@@ -538,7 +538,7 @@ function mapDependenciesToQueueIds(node, queueItems) {
 ```javascript
 function generateOutput(queueItems, conflicts, groups) {
   return {
-    queue: queueItems,
+    tasks: queueItems,
     conflicts: conflicts.map(c => ({
       type: c.type,
       file: c.file,
@@ -652,10 +652,10 @@ function validateOrdering(queueItems, taskGraph) {
     const node = taskGraph.get(key)
 
     // Check dependencies come before
-    for (const depQueueId of item.depends_on) {
-      const depItem = queueItems.find(q => q.queue_id === depQueueId)
+    for (const depItemId of item.depends_on) {
+      const depItem = queueItems.find(q => q.item_id === depItemId)
       if (depItem && depItem.execution_order >= item.execution_order) {
-        errors.push(`${item.queue_id} ordered before dependency ${depQueueId}`)
+        errors.push(`${item.item_id} ordered before dependency ${depItemId}`)
       }
     }
   }
@@ -690,7 +690,7 @@ function validateOrdering(queueItems, taskGraph) {
 5. Calculate semantic priority for all tasks
 6. Validate ordering before output
 7. Include rationale for conflict resolutions
-8. Map depends_on to queue_ids in output
+8. Map depends_on to item_ids in output
 
 **NEVER**:
 1. Execute tasks (ordering only)

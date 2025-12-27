@@ -77,10 +77,12 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
 # Flags
 --issue <id>          Form queue for specific issue only
 --append <id>         Append issue to active queue (don't create new)
---list                List all queues with status
---switch <queue-id>   Switch active queue
---archive             Archive current queue (mark completed)
---clear <queue-id>    Delete a queue from history
+
+# CLI subcommands (ccw issue queue ...)
+ccw issue queue list                  List all queues with status
+ccw issue queue switch <queue-id>     Switch active queue
+ccw issue queue archive               Archive current queue
+ccw issue queue delete <queue-id>     Delete queue from history
 ```
 
 ## Execution Process
@@ -234,7 +236,7 @@ Write(issuesPath, updatedIssues.map(i => JSON.stringify(i)).join('\n'));
 console.log(`
 ## Queue Formed
 
-**Total Tasks**: ${queueOutput.queue.length}
+**Total Tasks**: ${queueOutput.tasks.length}
 **Issues**: ${plannedIssues.length}
 **Conflicts**: ${queueOutput.conflicts?.length || 0} (${queueOutput._metadata?.resolved_conflicts || 0} resolved)
 
@@ -256,14 +258,13 @@ Output `queues/{queue-id}.json`:
 
 ```json
 {
-  "id": "QUE-20251227-143000",
   "name": "Auth Feature Queue",
   "status": "active",
   "issue_ids": ["GH-123", "GH-124"],
 
-  "queue": [
+  "tasks": [
     {
-      "queue_id": "Q-001",
+      "item_id": "T-1",
       "issue_id": "GH-123",
       "solution_id": "SOL-001",
       "task_id": "T1",
@@ -271,8 +272,7 @@ Output `queues/{queue-id}.json`:
       "execution_order": 1,
       "execution_group": "P1",
       "depends_on": [],
-      "semantic_priority": 0.7,
-      "queued_at": "2025-12-26T10:00:00Z"
+      "semantic_priority": 0.7
     }
   ],
 
@@ -289,17 +289,16 @@ Output `queues/{queue-id}.json`:
   ],
 
   "execution_groups": [
-    { "id": "P1", "type": "parallel", "task_count": 3, "tasks": ["GH-123:T1", "GH-124:T1", "GH-125:T1"] },
-    { "id": "S2", "type": "sequential", "task_count": 2, "tasks": ["GH-123:T2", "GH-124:T2"] }
+    { "id": "P1", "type": "parallel", "task_count": 3, "tasks": ["T-1", "T-2", "T-3"] },
+    { "id": "S2", "type": "sequential", "task_count": 2, "tasks": ["T-4", "T-5"] }
   ],
 
   "_metadata": {
-    "version": "2.0",
+    "version": "2.1-optimized",
     "total_tasks": 5,
     "pending_count": 3,
     "completed_count": 2,
     "failed_count": 0,
-    "created_at": "2025-12-26T10:00:00Z",
     "updated_at": "2025-12-26T11:00:00Z",
     "source": "issue-queue-agent"
   }
