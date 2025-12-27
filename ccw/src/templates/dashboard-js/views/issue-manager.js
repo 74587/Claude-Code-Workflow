@@ -1555,7 +1555,7 @@ async function showQueueHistoryModal() {
     <div class="issue-modal-backdrop" onclick="hideQueueHistoryModal()"></div>
     <div class="issue-modal-content" style="max-width: 700px; max-height: 80vh;">
       <div class="issue-modal-header">
-        <h3><i data-lucide="history" class="w-5 h-5 inline mr-2"></i>${t('issues.queueHistory') || 'Queue History'}</h3>
+        <h3><i data-lucide="history" class="w-5 h-5 inline mr-2"></i>Queue History</h3>
         <button class="btn-icon" onclick="hideQueueHistoryModal()">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
@@ -1563,7 +1563,7 @@ async function showQueueHistoryModal() {
       <div class="issue-modal-body" style="overflow-y: auto; max-height: calc(80vh - 120px);">
         <div class="flex items-center justify-center py-8">
           <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i>
-          <span class="ml-2">${t('common.loading') || 'Loading...'}</span>
+          <span class="ml-2">Loading...</span>
         </div>
       </div>
     </div>
@@ -1583,7 +1583,7 @@ async function showQueueHistoryModal() {
     const queueListHtml = queues.length === 0
       ? `<div class="text-center py-8 text-muted-foreground">
            <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
-           <p>${t('issues.noQueueHistory') || 'No queue history found'}</p>
+           <p>No queue history found</p>
          </div>`
       : `<div class="queue-history-list">
            ${queues.map(q => `
@@ -1611,12 +1611,12 @@ async function showQueueHistoryModal() {
                  ${q.id !== activeQueueId ? `
                    <button class="btn-sm btn-primary" onclick="event.stopPropagation(); switchToQueue('${q.id}')">
                      <i data-lucide="arrow-right-circle" class="w-3 h-3"></i>
-                     ${t('issues.switchTo') || 'Switch'}
+                     Switch
                    </button>
                  ` : ''}
                  <button class="btn-sm btn-secondary" onclick="event.stopPropagation(); viewQueueDetail('${q.id}')">
                    <i data-lucide="eye" class="w-3 h-3"></i>
-                   ${t('issues.view') || 'View'}
+                   View
                  </button>
                </div>
              </div>
@@ -1631,7 +1631,7 @@ async function showQueueHistoryModal() {
     modal.querySelector('.issue-modal-body').innerHTML = `
       <div class="text-center py-8 text-red-500">
         <i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2"></i>
-        <p>${t('errors.loadFailed') || 'Failed to load queue history'}</p>
+        <p>Failed to load queue history</p>
       </div>
     `;
     lucide.createIcons();
@@ -1689,7 +1689,7 @@ async function viewQueueDetail(queueId) {
       throw new Error(queue.error);
     }
 
-    const tasks = queue.tasks || [];
+    const tasks = queue.queue || [];
     const metadata = queue._metadata || {};
 
     // Group by execution_group
@@ -1705,27 +1705,30 @@ async function viewQueueDetail(queueId) {
         <div class="queue-detail-header mb-4">
           <button class="btn-sm btn-secondary" onclick="showQueueHistoryModal()">
             <i data-lucide="arrow-left" class="w-3 h-3"></i>
-            ${t('common.back') || 'Back'}
+            Back
           </button>
-          <h4 class="text-lg font-semibold ml-4">${queue.id || queueId}</h4>
+          <div class="ml-4">
+            <h4 class="text-lg font-semibold">${queue.name || queue.id || queueId}</h4>
+            ${queue.name ? `<span class="text-xs text-muted-foreground font-mono">${queue.id}</span>` : ''}
+          </div>
         </div>
 
         <div class="queue-detail-stats mb-4">
           <div class="stat-item">
             <span class="stat-value">${tasks.length}</span>
-            <span class="stat-label">${t('issues.totalTasks') || 'Total'}</span>
+            <span class="stat-label">Total</span>
           </div>
           <div class="stat-item completed">
             <span class="stat-value">${tasks.filter(t => t.status === 'completed').length}</span>
-            <span class="stat-label">${t('issues.completed') || 'Completed'}</span>
+            <span class="stat-label">Completed</span>
           </div>
           <div class="stat-item pending">
             <span class="stat-value">${tasks.filter(t => t.status === 'pending').length}</span>
-            <span class="stat-label">${t('issues.pending') || 'Pending'}</span>
+            <span class="stat-label">Pending</span>
           </div>
           <div class="stat-item failed">
             <span class="stat-value">${tasks.filter(t => t.status === 'failed').length}</span>
-            <span class="stat-label">${t('issues.failed') || 'Failed'}</span>
+            <span class="stat-label">Failed</span>
           </div>
         </div>
 
@@ -1740,9 +1743,14 @@ async function viewQueueDetail(queueId) {
               <div class="queue-group-items">
                 ${items.map(item => `
                   <div class="queue-detail-item ${item.status || ''}">
-                    <span class="item-id font-mono text-xs">${item.item_id || item.task_id}</span>
-                    <span class="item-issue text-xs">${item.issue_id}</span>
-                    <span class="item-status ${item.status || ''}">${item.status || 'unknown'}</span>
+                    <div class="item-main">
+                      <span class="item-id font-mono text-xs">${item.queue_id || item.task_id || 'N/A'}</span>
+                      <span class="item-title text-sm">${item.title || item.action || 'Untitled'}</span>
+                    </div>
+                    <div class="item-meta">
+                      <span class="item-issue text-xs">${item.issue_id || ''}</span>
+                      <span class="item-status ${item.status || ''}">${item.status || 'unknown'}</span>
+                    </div>
                   </div>
                 `).join('')}
               </div>
@@ -1761,11 +1769,11 @@ async function viewQueueDetail(queueId) {
       <div class="text-center py-8">
         <button class="btn-sm btn-secondary mb-4" onclick="showQueueHistoryModal()">
           <i data-lucide="arrow-left" class="w-3 h-3"></i>
-          ${t('common.back') || 'Back'}
+          Back
         </button>
         <div class="text-red-500">
           <i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2"></i>
-          <p>${t('errors.loadFailed') || 'Failed to load queue detail'}</p>
+          <p>Failed to load queue detail</p>
         </div>
       </div>
     `;

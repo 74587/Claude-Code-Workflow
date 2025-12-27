@@ -9,11 +9,11 @@
       "description": "Ordered list of tasks to execute",
       "items": {
         "type": "object",
-        "required": ["queue_id", "issue_id", "solution_id", "task_id", "status"],
+        "required": ["item_id", "issue_id", "solution_id", "task_id", "status"],
         "properties": {
-          "queue_id": {
+          "item_id": {
             "type": "string",
-            "pattern": "^Q-[0-9]+$",
+            "pattern": "^T-[0-9]+$",
             "description": "Unique queue item identifier"
           },
           "issue_id": {

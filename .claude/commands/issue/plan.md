@@ -1,7 +1,7 @@
 ---
 name: plan
 description: Batch plan issue resolution using issue-plan-agent (explore + plan closed-loop)
-argument-hint: "<issue-id>[,<issue-id>,...] [--batch-size 3] --all-pending"
+argument-hint: "--all-pending <issue-id>[,<issue-id>,...] [--batch-size 3] "
 allowed-tools: TodoWrite(*), Task(*), SlashCommand(*), AskUserQuestion(*), Bash(*), Read(*), Write(*)
 ---
 
@@ -29,7 +29,7 @@ Unified planning command using **issue-plan-agent** that combines exploration an
 - [ ] Solution file generated for each issue
 - [ ] Single solution → auto-bound via `ccw issue bind`
 - [ ] Multiple solutions → returned for user selection
-- [ ] Tasks conform to schema: `cat .claude/workflows/cli-templates/schemas/issue-task-jsonl-schema.json`
+- [ ] Tasks conform to schema: `cat .claude/workflows/cli-templates/schemas/solution-schema.json`
 - [ ] Each task has quantified `delivery_criteria`
 
 ## Core Capabilities
@@ -164,7 +164,7 @@ for (const [batchIndex, batch] of batches.entries()) {
 3. Register & bind: \`ccw issue bind <id> --solution <file>\`
 
 ### Generate Files
-\`.workflow/issues/solutions/{issue-id}.jsonl\` - Solution with tasks (schema: cat .claude/workflows/cli-templates/schemas/issue-task-jsonl-schema.json)
+\`.workflow/issues/solutions/{issue-id}.jsonl\` - Solution with tasks (schema: cat .claude/workflows/cli-templates/schemas/solution-schema.json)
 
 ### Binding Rules
 - **Single solution**: Auto-bind via \`ccw issue bind <id> --solution <file>\`

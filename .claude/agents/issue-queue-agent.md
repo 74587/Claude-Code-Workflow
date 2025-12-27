@@ -36,20 +36,20 @@ color: orange
 ```javascript
 {
   tasks: [{
+    key: string,           // e.g., "GH-123:TASK-001"
     issue_id: string,      // e.g., "GH-123"
     solution_id: string,   // e.g., "SOL-001"
-    task: {
-      id: string,          // e.g., "TASK-001"
-      title: string,
-      type: string,
-      file_context: string[],
-      depends_on: string[]
-    }
+    task_id: string,       // e.g., "TASK-001"
+    type: string,          // feature | bug | refactor | test | chore | docs
+    file_context: string[],
+    depends_on: string[]   // composite keys, e.g., ["GH-123:TASK-001"]
   }],
   project_root?: string,
   rebuild?: boolean
 }
 ```
+
+**Note**: Agent generates unique `item_id` (pattern: `T-{N}`) for queue output.
 
 ### 1.2 Execution Flow
 
@@ -76,19 +76,17 @@ function buildDependencyGraph(tasks) {
   const fileModifications = new Map()
 
   for (const item of tasks) {
-    const key = `${item.issue_id}:${item.task.id}`
-    graph.set(key, { ...item, key, inDegree: 0, outEdges: [] })
+    graph.set(item.key, { ...item, inDegree: 0, outEdges: [] })
 
-    for (const file of item.task.file_context || []) {
+    for (const file of item.file_context || []) {
       if (!fileModifications.has(file)) fileModifications.set(file, [])
-      fileModifications.get(file).push(key)
+      fileModifications.get(file).push(item.key)
     }
   }
 
   // Add dependency edges
   for (const [key, node] of graph) {
-    for (const dep of node.task.depends_on || []) {
-      const depKey = `${node.issue_id}:${dep}`
+    for (const depKey of node.depends_on || []) {
       if (graph.has(depKey)) {
         graph.get(depKey).outEdges.push(key)
         node.inDegree++
@@ -147,48 +145,29 @@ function detectConflicts(fileModifications, graph) {
 
 ---
 
-## 3. Output Specifications
+## 3. Output Requirements
 
-### 3.1 Queue Schema
+### 3.1 Generate Files (Primary)
 
-Read schema before output:
-```bash
-cat .claude/workflows/cli-templates/schemas/queue-schema.json
+**Queue files**:
+```
+.workflow/issues/queues/{queue-id}.json   # Full queue with tasks, conflicts, groups
+.workflow/issues/queues/index.json        # Update with new queue entry
 ```
 
-### 3.2 Output Format
+Queue ID format: `QUE-YYYYMMDD-HHMMSS` (UTC timestamp)
+
+Schema: `cat .claude/workflows/cli-templates/schemas/queue-schema.json`
+
+### 3.2 Return Summary
 
 ```json
 {
-  "tasks": [{
-    "item_id": "T-1",
-    "issue_id": "GH-123",
-    "solution_id": "SOL-001",
-    "task_id": "TASK-001",
-    "status": "pending",
-    "execution_order": 1,
-    "execution_group": "P1",
-    "depends_on": [],
-    "semantic_priority": 0.7
-  }],
-  "conflicts": [{
-    "file": "src/auth.ts",
-    "tasks": ["GH-123:TASK-001", "GH-124:TASK-002"],
-    "resolution": "sequential",
-    "resolution_order": ["GH-123:TASK-001", "GH-124:TASK-002"],
-    "rationale": "TASK-001 creates file before TASK-002 updates",
-    "resolved": true
-  }],
-  "execution_groups": [
-    { "id": "P1", "type": "parallel", "task_count": 3, "tasks": ["T-1", "T-2", "T-3"] },
-    { "id": "S2", "type": "sequential", "task_count": 2, "tasks": ["T-4", "T-5"] }
-  ],
-  "_metadata": {
-    "total_tasks": 5,
-    "total_conflicts": 1,
-    "resolved_conflicts": 1,
-    "timestamp": "2025-12-27T10:00:00Z"
-  }
+  "queue_id": "QUE-20251227-143000",
+  "total_tasks": N,
+  "execution_groups": [{ "id": "P1", "type": "parallel", "count": N }],
+  "conflicts_resolved": N,
+  "issues_queued": ["GH-123", "GH-124"]
 }
 ```
 
@@ -231,5 +210,6 @@ cat .claude/workflows/cli-templates/schemas/queue-schema.json
 5. Merge conflicting tasks in parallel group
 
 **OUTPUT**:
-1. Write queue via `ccw issue queue` CLI
-2. Return JSON with `tasks`, `conflicts`, `execution_groups`, `_metadata`
+1. Write `.workflow/issues/queues/{queue-id}.json`
+2. Update `.workflow/issues/queues/index.json`
+3. Return summary with `queue_id`, `total_tasks`, `execution_groups`, `conflicts_resolved`, `issues_queued`

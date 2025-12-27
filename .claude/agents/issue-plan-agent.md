@@ -100,9 +100,48 @@ mcp__ace-tool__search_context({
 - [ ] Discover dependencies
 - [ ] Locate test patterns
 
-**Fallback**: ACE → ripgrep → Glob
+**Fallback Chain**: ACE → smart_search → Grep → rg → Glob
+
+| Tool | When to Use |
+|------|-------------|
+| `mcp__ace-tool__search_context` | Semantic search (primary) |
+| `mcp__ccw-tools__smart_search` | Symbol/pattern search |
+| `Grep` | Exact regex matching |
+| `rg` / `grep` | CLI fallback |
+| `Glob` | File path discovery |
 
 #### Phase 3: Solution Planning
+
+**Multi-Solution Generation**:
+
+Generate multiple candidate solutions when:
+- Issue complexity is HIGH
+- Multiple valid implementation approaches exist
+- Trade-offs between approaches (performance vs simplicity, etc.)
+
+| Condition | Solutions |
+|-----------|-----------|
+| Low complexity, single approach | 1 solution, auto-bind |
+| Medium complexity, clear path | 1-2 solutions |
+| High complexity, multiple approaches | 2-3 solutions, user selection |
+
+**Solution Evaluation** (for each candidate):
+```javascript
+{
+  analysis: {
+    risk: "low|medium|high",      // Implementation risk
+    impact: "low|medium|high",    // Scope of changes
+    complexity: "low|medium|high" // Technical complexity
+  },
+  score: 0.0-1.0  // Overall quality score (higher = recommended)
+}
+```
+
+**Selection Flow**:
+1. Generate all candidate solutions
+2. Evaluate and score each
+3. Single solution → auto-bind
+4. Multiple solutions → return `pending_selection` for user choice
 
 **Task Decomposition** following schema:
 ```javascript
@@ -139,56 +178,33 @@ ccw issue bind <issue-id> --solution /tmp/sol.json
 
 ---
 
-## 2. Output Specifications
+## 2. Output Requirements
 
-### 2.1 Return Format
+### 2.1 Generate Files (Primary)
 
-```json
-{
-  "bound": [{ "issue_id": "...", "solution_id": "...", "task_count": N }],
-  "pending_selection": [{ "issue_id": "...", "solutions": [{ "id": "...", "description": "...", "task_count": N }] }],
-  "conflicts": [{ "file": "...", "issues": [...] }]
-}
-```
-
-### 2.2 Binding Rules
-
-| Scenario | Action |
-|----------|--------|
-| Single solution | Register AND auto-bind |
-| Multiple solutions | Register only, return for user selection |
-
-### 2.3 Task Schema
-
-**Schema-Driven Output**: Read schema before generating tasks:
-```bash
-cat .claude/workflows/cli-templates/schemas/issue-task-jsonl-schema.json
-```
-
-**Required Fields**:
-- `id`: Task ID (pattern: `TASK-NNN`)
-- `title`: Short summary (max 100 chars)
-- `type`: feature | bug | refactor | test | chore | docs
-- `description`: Detailed instructions
-- `depends_on`: Array of prerequisite task IDs
-- `delivery_criteria`: Checklist items defining completion
-- `status`: pending | ready | in_progress | completed | failed | paused | skipped
-- `current_phase`: analyze | implement | test | optimize | commit | done
-- `executor`: agent | codex | gemini | auto
-
-**Optional Fields**:
-- `file_context`: Relevant files/globs
-- `pause_criteria`: Conditions to halt execution
-- `priority`: 1-5 (1=highest)
-- `phase_results`: Results from each execution phase
-
-### 2.4 Solution File Structure
-
+**Solution file per issue**:
 ```
 .workflow/issues/solutions/{issue-id}.jsonl
 ```
 
-Each line is a complete solution JSON.
+Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cli-templates/schemas/solution-schema.json`
+
+### 2.2 Binding
+
+| Scenario | Action |
+|----------|--------|
+| Single solution | `ccw issue bind <id> --solution <file>` (auto) |
+| Multiple solutions | Register only, return for selection |
+
+### 2.3 Return Summary
+
+```json
+{
+  "bound": [{ "issue_id": "...", "solution_id": "...", "task_count": N }],
+  "pending_selection": [{ "issue_id": "...", "solutions": [{ "id": "SOL-001", "description": "...", "task_count": N }] }],
+  "conflicts": [{ "file": "...", "issues": [...] }]
+}
+```
 
 ---
 
@@ -215,12 +231,14 @@ Each line is a complete solution JSON.
 ### 3.3 Guidelines
 
 **ALWAYS**:
-1. Read schema first: `cat .claude/workflows/cli-templates/schemas/issue-task-jsonl-schema.json`
+1. Read schema first: `cat .claude/workflows/cli-templates/schemas/solution-schema.json`
 2. Use ACE semantic search as PRIMARY exploration tool
 3. Fetch issue details via `ccw issue status <id> --json`
-4. Quantify delivery_criteria with testable conditions
+4. Quantify acceptance.criteria with testable conditions
 5. Validate DAG before output
-6. Single solution → auto-bind; Multiple → return for selection
+6. Evaluate each solution with `analysis` and `score`
+7. Single solution → auto-bind; Multiple → return `pending_selection`
+8. For HIGH complexity: generate 2-3 candidate solutions
 
 **NEVER**:
 1. Execute implementation (return plan only)

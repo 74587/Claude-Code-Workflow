@@ -129,14 +129,31 @@ interface QueueItem {
   failure_reason?: string;
 }
 
+interface QueueConflict {
+  type: 'file_conflict' | 'dependency_conflict' | 'resource_conflict';
+  tasks: string[];               // Item IDs involved in conflict
+  file?: string;                 // Conflicting file path
+  resolution: 'sequential' | 'merge' | 'manual';
+  resolution_order?: string[];
+  rationale?: string;
+  resolved: boolean;
+}
+
+interface ExecutionGroup {
+  id: string;                    // Group ID: P1, S1, etc.
+  type: 'parallel' | 'sequential';
+  task_count: number;
+  tasks: string[];               // Item IDs in this group
+}
+
 interface Queue {
   id: string;                    // Queue unique ID: QUE-YYYYMMDD-HHMMSS (derived from filename)
   name?: string;                 // Optional queue name
   status: 'active' | 'completed' | 'archived' | 'failed';
   issue_ids: string[];           // Issues in this queue
   tasks: QueueItem[];            // Task items (formerly 'queue')
-  conflicts: any[];
-  execution_groups?: any[];
+  conflicts: QueueConflict[];
+  execution_groups?: ExecutionGroup[];
   _metadata: {
     version: string;
     total_tasks: number;

@@ -23,7 +23,7 @@
       "description": "Task breakdown for this solution",
       "items": {
         "type": "object",
-        "required": ["id", "title", "scope", "action", "acceptance"],
+        "required": ["id", "title", "scope", "action", "implementation", "acceptance"],
         "properties": {
           "id": {
             "type": "string",
@@ -61,10 +61,40 @@
             "items": { "type": "string" },
             "description": "Step-by-step implementation guide"
           },
-          "acceptance": {
+          "test": {
+            "type": "object",
+            "description": "Test requirements",
+            "properties": {
+              "unit": { "type": "array", "items": { "type": "string" } },
+              "integration": { "type": "array", "items": { "type": "string" } },
+              "commands": { "type": "array", "items": { "type": "string" } },
+              "coverage_target": { "type": "number" }
+            }
+          },
+          "regression": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "Quantified completion criteria"
+            "description": "Regression check points"
+          },
+          "acceptance": {
+            "type": "object",
+            "description": "Acceptance criteria & verification",
+            "required": ["criteria", "verification"],
+            "properties": {
+              "criteria": { "type": "array", "items": { "type": "string" } },
+              "verification": { "type": "array", "items": { "type": "string" } },
+              "manual_checks": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "commit": {
+            "type": "object",
+            "description": "Commit specification",
+            "properties": {
+              "type": { "type": "string", "enum": ["feat", "fix", "refactor", "test", "docs", "chore"] },
+              "scope": { "type": "string" },
+              "message_template": { "type": "string" },
+              "breaking": { "type": "boolean" }
+            }
           },
           "depends_on": {
             "type": "array",
@@ -80,6 +110,28 @@
             "type": "string",
             "enum": ["codex", "gemini", "agent", "auto"],
             "default": "auto"
+          },
+          "lifecycle_status": {
+            "type": "object",
+            "description": "Lifecycle phase tracking",
+            "properties": {
+              "implemented": { "type": "boolean" },
+              "tested": { "type": "boolean" },
+              "regression_passed": { "type": "boolean" },
+              "accepted": { "type": "boolean" },
+              "committed": { "type": "boolean" }
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "ready", "executing", "completed", "failed", "blocked"],
+            "default": "pending"
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5,
+            "default": 3
           }
         }
       }
@@ -96,6 +148,21 @@
         "patterns": { "type": "string" },
         "integration_points": { "type": "string" }
       }
+    },
+    "analysis": {
+      "type": "object",
+      "description": "Solution risk assessment",
+      "properties": {
+        "risk": { "type": "string", "enum": ["low", "medium", "high"] },
+        "impact": { "type": "string", "enum": ["low", "medium", "high"] },
+        "complexity": { "type": "string", "enum": ["low", "medium", "high"] }
+      }
+    },
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Solution quality score (0.0-1.0)"
     },
     "status": {
       "type": "string",
