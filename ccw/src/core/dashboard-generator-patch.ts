@@ -21,6 +21,7 @@ const MODULE_FILES = [
   'dashboard-js/components/tabs-other.js',
   'dashboard-js/components/carousel.js',
   'dashboard-js/components/notifications.js',
+  'dashboard-js/components/cli-stream-viewer.js',
   'dashboard-js/components/global-notifications.js',
   'dashboard-js/components/cli-status.js',
   'dashboard-js/components/cli-history.js',

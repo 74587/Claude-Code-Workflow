@@ -10,6 +10,7 @@ var issueData = {
   selectedIssue: null,
   selectedSolution: null,
   statusFilter: 'all',
+  searchQuery: '',
   viewMode: 'issues' // 'issues' | 'queue'
 };
 var issueLoading = false;
@@ -91,9 +92,19 @@ function renderIssueView() {
   if (!container) return;
 
   const issues = issueData.issues || [];
-  const filteredIssues = issueData.statusFilter === 'all'
+  // Apply both status and search filters
+  let filteredIssues = issueData.statusFilter === 'all'
     ? issues
     : issues.filter(i => i.status === issueData.statusFilter);
+
+  if (issueData.searchQuery) {
+    const query = issueData.searchQuery.toLowerCase();
+    filteredIssues = filteredIssues.filter(i =>
+      i.id.toLowerCase().includes(query) ||
+      (i.title && i.title.toLowerCase().includes(query)) ||
+      (i.context && i.context.toLowerCase().includes(query))
+    );
+  }
 
   container.innerHTML = `
     <div class="issue-manager">
@@ -110,16 +121,24 @@ function renderIssueView() {
             </div>
           </div>
 
-          <!-- View Toggle -->
-          <div class="issue-view-toggle">
-            <button class="${issueData.viewMode === 'issues' ? 'active' : ''}" onclick="switchIssueView('issues')">
-              <i data-lucide="list" class="w-4 h-4 mr-1"></i>
-              ${t('issues.viewIssues') || 'Issues'}
+          <div class="flex items-center gap-3">
+            <!-- Create Button -->
+            <button class="issue-create-btn" onclick="showCreateIssueModal()">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span>${t('issues.create') || 'Create'}</span>
             </button>
-            <button class="${issueData.viewMode === 'queue' ? 'active' : ''}" onclick="switchIssueView('queue')">
-              <i data-lucide="git-branch" class="w-4 h-4 mr-1"></i>
-              ${t('issues.viewQueue') || 'Queue'}
-            </button>
+
+            <!-- View Toggle -->
+            <div class="issue-view-toggle">
+              <button class="${issueData.viewMode === 'issues' ? 'active' : ''}" onclick="switchIssueView('issues')">
+                <i data-lucide="list" class="w-4 h-4 mr-1"></i>
+                ${t('issues.viewIssues') || 'Issues'}
+              </button>
+              <button class="${issueData.viewMode === 'queue' ? 'active' : ''}" onclick="switchIssueView('queue')">
+                <i data-lucide="git-branch" class="w-4 h-4 mr-1"></i>
+                ${t('issues.viewQueue') || 'Queue'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -128,6 +147,47 @@ function renderIssueView() {
 
       <!-- Detail Panel -->
       <div id="issueDetailPanel" class="issue-detail-panel hidden"></div>
+
+      <!-- Create Issue Modal -->
+      <div id="createIssueModal" class="issue-modal hidden">
+        <div class="issue-modal-backdrop" onclick="hideCreateIssueModal()"></div>
+        <div class="issue-modal-content">
+          <div class="issue-modal-header">
+            <h3>${t('issues.createTitle') || 'Create New Issue'}</h3>
+            <button class="btn-icon" onclick="hideCreateIssueModal()">
+              <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+          </div>
+          <div class="issue-modal-body">
+            <div class="form-group">
+              <label>${t('issues.issueId') || 'Issue ID'}</label>
+              <input type="text" id="newIssueId" placeholder="e.g., GH-123 or TASK-001" />
+            </div>
+            <div class="form-group">
+              <label>${t('issues.issueTitle') || 'Title'}</label>
+              <input type="text" id="newIssueTitle" placeholder="${t('issues.titlePlaceholder') || 'Brief description of the issue'}" />
+            </div>
+            <div class="form-group">
+              <label>${t('issues.issueContext') || 'Context'} (${t('common.optional') || 'optional'})</label>
+              <textarea id="newIssueContext" rows="4" placeholder="${t('issues.contextPlaceholder') || 'Detailed description, requirements, etc.'}"></textarea>
+            </div>
+            <div class="form-group">
+              <label>${t('issues.issuePriority') || 'Priority'}</label>
+              <select id="newIssuePriority">
+                <option value="1">1 - ${t('issues.priorityLowest') || 'Lowest'}</option>
+                <option value="2">2 - ${t('issues.priorityLow') || 'Low'}</option>
+                <option value="3" selected>3 - ${t('issues.priorityMedium') || 'Medium'}</option>
+                <option value="4">4 - ${t('issues.priorityHigh') || 'High'}</option>
+                <option value="5">5 - ${t('issues.priorityCritical') || 'Critical'}</option>
+              </select>
+            </div>
+          </div>
+          <div class="issue-modal-footer">
+            <button class="btn-secondary" onclick="hideCreateIssueModal()">${t('common.cancel') || 'Cancel'}</button>
+            <button class="btn-primary" onclick="createIssue()">${t('issues.create') || 'Create'}</button>
+          </div>
+        </div>
+      </div>
     </div>
   `;
 
@@ -147,11 +207,26 @@ function switchIssueView(mode) {
 // ========== Issue List Section ==========
 function renderIssueListSection(issues) {
   const statuses = ['all', 'registered', 'planning', 'planned', 'queued', 'executing', 'completed', 'failed'];
+  const totalIssues = issueData.issues?.length || 0;
 
   return `
-    <!-- Filters -->
-    <div class="issue-filters mb-4">
-      <div class="flex items-center gap-2 flex-wrap">
+    <!-- Toolbar: Search + Filters -->
+    <div class="issue-toolbar mb-4">
+      <div class="issue-search">
+        <i data-lucide="search" class="w-4 h-4"></i>
+        <input type="text"
+               id="issueSearchInput"
+               placeholder="${t('issues.searchPlaceholder') || 'Search issues...'}"
+               value="${issueData.searchQuery}"
+               oninput="handleIssueSearch(this.value)" />
+        ${issueData.searchQuery ? `
+          <button class="issue-search-clear" onclick="clearIssueSearch()">
+            <i data-lucide="x" class="w-3 h-3"></i>
+          </button>
+        ` : ''}
+      </div>
+
+      <div class="issue-filters">
         <span class="text-sm text-muted-foreground">${t('issues.filterStatus') || 'Status'}:</span>
         ${statuses.map(status => `
           <button class="issue-filter-btn ${issueData.statusFilter === status ? 'active' : ''}"
@@ -162,13 +237,30 @@ function renderIssueListSection(issues) {
       </div>
     </div>
 
+    <!-- Issues Stats -->
+    <div class="issue-stats mb-4">
+      <span class="text-sm text-muted-foreground">
+        ${t('issues.showing') || 'Showing'} <strong>${issues.length}</strong> ${t('issues.of') || 'of'} <strong>${totalIssues}</strong> ${t('issues.issues') || 'issues'}
+      </span>
+    </div>
+
     <!-- Issues Grid -->
     <div class="issues-grid">
       ${issues.length === 0 ? `
-        <div class="issue-empty">
-          <i data-lucide="inbox" class="w-12 h-12 text-muted-foreground mb-4"></i>
-          <p class="text-muted-foreground">${t('issues.noIssues') || 'No issues found'}</p>
-          <p class="text-sm text-muted-foreground mt-2">${t('issues.createHint') || 'Create issues using: ccw issue init <id>'}</p>
+        <div class="issue-empty-container">
+          <div class="issue-empty">
+            <i data-lucide="inbox" class="w-16 h-16"></i>
+            <p class="issue-empty-title">${t('issues.noIssues') || 'No issues found'}</p>
+            <p class="issue-empty-hint">${issueData.searchQuery || issueData.statusFilter !== 'all'
+              ? (t('issues.tryDifferentFilter') || 'Try adjusting your search or filters')
+              : (t('issues.createHint') || 'Click "Create" to add your first issue')}</p>
+            ${!issueData.searchQuery && issueData.statusFilter === 'all' ? `
+              <button class="issue-empty-btn" onclick="showCreateIssueModal()">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                ${t('issues.createFirst') || 'Create First Issue'}
+              </button>
+            ` : ''}
+          </div>
         </div>
       ` : issues.map(issue => renderIssueCard(issue)).join('')}
     </div>
@@ -700,5 +792,124 @@ async function updateTaskStatus(issueId, taskId, status) {
     showNotification('Task status updated', 'success');
   } catch (err) {
     showNotification('Failed to update task status', 'error');
+  }
+}
+
+// ========== Search Functions ==========
+function handleIssueSearch(value) {
+  issueData.searchQuery = value;
+  renderIssueView();
+}
+
+function clearIssueSearch() {
+  issueData.searchQuery = '';
+  renderIssueView();
+}
+
+// ========== Create Issue Modal ==========
+function showCreateIssueModal() {
+  const modal = document.getElementById('createIssueModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    lucide.createIcons();
+    // Focus on first input
+    setTimeout(() => {
+      document.getElementById('newIssueId')?.focus();
+    }, 100);
+  }
+}
+
+function hideCreateIssueModal() {
+  const modal = document.getElementById('createIssueModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    // Clear form
+    const idInput = document.getElementById('newIssueId');
+    const titleInput = document.getElementById('newIssueTitle');
+    const contextInput = document.getElementById('newIssueContext');
+    const prioritySelect = document.getElementById('newIssuePriority');
+    if (idInput) idInput.value = '';
+    if (titleInput) titleInput.value = '';
+    if (contextInput) contextInput.value = '';
+    if (prioritySelect) prioritySelect.value = '3';
+  }
+}
+
+async function createIssue() {
+  const idInput = document.getElementById('newIssueId');
+  const titleInput = document.getElementById('newIssueTitle');
+  const contextInput = document.getElementById('newIssueContext');
+  const prioritySelect = document.getElementById('newIssuePriority');
+
+  const issueId = idInput?.value?.trim();
+  const title = titleInput?.value?.trim();
+  const context = contextInput?.value?.trim();
+  const priority = parseInt(prioritySelect?.value || '3');
+
+  if (!issueId) {
+    showNotification(t('issues.idRequired') || 'Issue ID is required', 'error');
+    idInput?.focus();
+    return;
+  }
+
+  if (!title) {
+    showNotification(t('issues.titleRequired') || 'Title is required', 'error');
+    titleInput?.focus();
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/issues?path=' + encodeURIComponent(projectPath), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: issueId,
+        title: title,
+        context: context,
+        priority: priority,
+        source: 'dashboard'
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || result.error) {
+      showNotification(result.error || 'Failed to create issue', 'error');
+      return;
+    }
+
+    showNotification(t('issues.created') || 'Issue created successfully', 'success');
+    hideCreateIssueModal();
+
+    // Reload data and refresh view
+    await loadIssueData();
+    renderIssueView();
+  } catch (err) {
+    console.error('Failed to create issue:', err);
+    showNotification('Failed to create issue', 'error');
+  }
+}
+
+// ========== Delete Issue ==========
+async function deleteIssue(issueId) {
+  if (!confirm(t('issues.confirmDelete') || 'Are you sure you want to delete this issue?')) {
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/issues/' + encodeURIComponent(issueId) + '?path=' + encodeURIComponent(projectPath), {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) throw new Error('Failed to delete');
+
+    showNotification(t('issues.deleted') || 'Issue deleted', 'success');
+    closeIssueDetail();
+
+    // Reload data and refresh view
+    await loadIssueData();
+    renderIssueView();
+  } catch (err) {
+    showNotification('Failed to delete issue', 'error');
   }
 }

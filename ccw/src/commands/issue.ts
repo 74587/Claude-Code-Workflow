@@ -663,9 +663,11 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
   for (const item of queue.queue) {
     const statusColor = {
       'pending': chalk.gray,
+      'ready': chalk.cyan,
       'executing': chalk.yellow,
       'completed': chalk.green,
-      'failed': chalk.red
+      'failed': chalk.red,
+      'blocked': chalk.magenta
     }[item.status] || chalk.white;
 
     console.log(

@@ -16,6 +16,11 @@
   color: hsl(var(--muted-foreground));
 }
 
+/* Issue Header */
+.issue-header {
+  margin-bottom: 1.5rem;
+}
+
 /* View Toggle (Issues/Queue) */
 .issue-view-toggle {
   display: inline-flex;
@@ -60,17 +65,59 @@
   width: 100%;
 }
 
-.issues-empty-state {
+.issues-empty-state,
+.issue-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 160px;
+  min-height: 200px;
+  text-align: center;
+  color: hsl(var(--muted-foreground));
+}
+
+.issue-empty svg {
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+/* Issue Filters */
+.issue-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.issue-filter-btn {
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted));
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.issue-filter-btn:hover {
+  background: hsl(var(--muted) / 0.8);
+  color: hsl(var(--foreground));
+}
+
+.issue-filter-btn.active {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
 }
 
 /* Issue Card */
 .issue-card {
   position: relative;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  padding: 1rem;
   transition: all 0.2s ease;
   cursor: pointer;
 }
@@ -78,6 +125,7 @@
 .issue-card:hover {
   border-color: hsl(var(--primary));
   transform: translateY(-2px);
+  box-shadow: 0 4px 12px hsl(var(--foreground) / 0.08);
 }
 
 .issue-card-header {
@@ -93,14 +141,16 @@
   color: hsl(var(--muted-foreground));
 }
 
-.issue-card-title {
+.issue-card-title,
+.issue-title {
   font-weight: 600;
   font-size: 0.9375rem;
   line-height: 1.4;
   margin-top: 0.25rem;
 }
 
-.issue-card-meta {
+.issue-card-meta,
+.issue-meta {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -139,6 +189,11 @@
 .issue-status.registered {
   background: hsl(var(--muted));
   color: hsl(var(--muted-foreground));
+}
+
+.issue-status.planning {
+  background: hsl(38 92% 50% / 0.15);
+  color: hsl(38 92% 50%);
 }
 
 .issue-status.planned {
@@ -210,13 +265,30 @@
   gap: 1.5rem;
 }
 
-.queue-empty-state {
+.queue-empty-state,
+.queue-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 200px;
   text-align: center;
+  color: hsl(var(--muted-foreground));
+}
+
+.queue-empty svg {
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+/* Issue ID */
+.issue-id {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted));
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
 }
 
 /* Execution Group */
@@ -976,4 +1048,714 @@
 .queue-item .badge {
   font-size: 0.75rem;
   font-weight: 500;
+}
+
+/* ==========================================
+   TOOLBAR & SEARCH
+   ========================================== */
+
+.issue-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.75rem;
+  background: hsl(var(--muted) / 0.3);
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--border));
+}
+
+.issue-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 200px;
+  max-width: 320px;
+}
+
+.issue-search > i:first-child {
+  position: absolute;
+  left: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+}
+
+.issue-search input {
+  width: 100%;
+  padding: 0.5rem 2rem 0.5rem 2.25rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.375rem;
+  background: hsl(var(--background));
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+  transition: border-color 0.15s ease;
+}
+
+.issue-search input:focus {
+  outline: none;
+  border-color: hsl(var(--primary));
+}
+
+.issue-search input::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+.issue-search-clear {
+  position: absolute;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: none;
+  border-radius: 9999px;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.issue-search-clear:hover {
+  background: hsl(var(--destructive) / 0.1);
+  color: hsl(var(--destructive));
+}
+
+/* ==========================================
+   CREATE BUTTON
+   ========================================== */
+
+.issue-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.issue-create-btn:hover {
+  background: hsl(var(--primary) / 0.9);
+  transform: translateY(-1px);
+}
+
+.issue-create-btn:active {
+  transform: translateY(0);
+}
+
+/* ==========================================
+   ISSUE STATS
+   ========================================== */
+
+.issue-stats {
+  padding: 0.5rem 0;
+}
+
+/* ==========================================
+   EMPTY STATE (CENTERED)
+   ========================================== */
+
+.issue-empty-container {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.issue-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+}
+
+.issue-empty > i,
+.issue-empty > svg {
+  color: hsl(var(--muted-foreground));
+  opacity: 0.5;
+  margin-bottom: 1rem;
+}
+
+.issue-empty-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin-bottom: 0.5rem;
+}
+
+.issue-empty-hint {
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 1.5rem;
+}
+
+.issue-empty-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.625rem 1.25rem;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.issue-empty-btn:hover {
+  background: hsl(var(--primary) / 0.9);
+}
+
+/* ==========================================
+   MODAL STYLES
+   ========================================== */
+
+.issue-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.issue-modal.hidden {
+  display: none;
+}
+
+.issue-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: hsl(var(--foreground) / 0.5);
+  animation: fadeIn 0.15s ease-out;
+}
+
+.issue-modal-content {
+  position: relative;
+  width: 90%;
+  max-width: 480px;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  box-shadow: 0 20px 40px hsl(var(--foreground) / 0.15);
+  animation: modalSlideIn 0.2s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.issue-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.issue-modal-header h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.issue-modal-body {
+  padding: 1.25rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.issue-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.3);
+}
+
+/* ==========================================
+   FORM STYLES
+   ========================================== */
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  margin-bottom: 0.375rem;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.375rem;
+  background: hsl(var(--background));
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+  transition: border-color 0.15s ease;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: hsl(var(--primary));
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-group select {
+  cursor: pointer;
+}
+
+/* ==========================================
+   BUTTON STYLES
+   ========================================== */
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-primary:hover {
+  background: hsl(var(--primary) / 0.9);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-secondary:hover {
+  background: hsl(var(--muted) / 0.8);
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-icon:hover {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
+/* ==========================================
+   DETAIL PANEL ENHANCEMENTS
+   ========================================== */
+
+.issue-detail-content {
+  padding: 1.25rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.detail-section {
+  margin-bottom: 1.5rem;
+}
+
+.detail-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 0.5rem;
+}
+
+.detail-editable {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.detail-value {
+  flex: 1;
+  font-size: 1rem;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+}
+
+.detail-context {
+  position: relative;
+}
+
+.detail-pre {
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: hsl(var(--foreground));
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 0.75rem;
+  background: hsl(var(--muted) / 0.3);
+  border-radius: 0.375rem;
+}
+
+.btn-edit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-edit:hover {
+  background: hsl(var(--muted));
+  color: hsl(var(--primary));
+}
+
+/* Solutions List */
+.solutions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.solution-item {
+  padding: 0.75rem;
+  background: hsl(var(--muted) / 0.3);
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.solution-item:hover {
+  border-color: hsl(var(--primary) / 0.5);
+}
+
+.solution-item.bound {
+  border-color: hsl(var(--success));
+  background: hsl(var(--success) / 0.05);
+}
+
+.solution-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.solution-id {
+  color: hsl(var(--muted-foreground));
+}
+
+.solution-bound-badge {
+  display: inline-flex;
+  padding: 0.125rem 0.375rem;
+  background: hsl(var(--success) / 0.15);
+  color: hsl(var(--success));
+  font-size: 0.6875rem;
+  font-weight: 500;
+  border-radius: 0.25rem;
+}
+
+.solution-tasks {
+  margin-left: auto;
+  color: hsl(var(--muted-foreground));
+}
+
+.solution-tasks-list {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid hsl(var(--border) / 0.5);
+}
+
+/* Tasks List */
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.task-item-detail {
+  padding: 0.75rem;
+  background: hsl(var(--muted) / 0.3);
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.375rem;
+}
+
+.task-title-detail {
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+  margin-top: 0.375rem;
+}
+
+/* Edit Mode */
+.edit-input,
+.edit-textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid hsl(var(--primary));
+  border-radius: 0.375rem;
+  background: hsl(var(--background));
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+}
+
+.edit-input:focus,
+.edit-textarea:focus {
+  outline: none;
+}
+
+.edit-textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.btn-save,
+.btn-cancel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-save {
+  background: hsl(var(--success) / 0.15);
+  color: hsl(var(--success));
+}
+
+.btn-save:hover {
+  background: hsl(var(--success) / 0.25);
+}
+
+.btn-cancel {
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+}
+
+.btn-cancel:hover {
+  background: hsl(var(--destructive) / 0.1);
+  color: hsl(var(--destructive));
+}
+
+/* ==========================================
+   QUEUE ENHANCEMENTS
+   ========================================== */
+
+.queue-info {
+  padding: 0.5rem 0;
+}
+
+.queue-items {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.queue-items.parallel {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.queue-items.parallel .queue-item {
+  flex: 1;
+  min-width: 200px;
+}
+
+.queue-group-type {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.queue-group-type.parallel {
+  color: hsl(142 71% 45%);
+}
+
+.queue-group-type.sequential {
+  color: hsl(262 83% 58%);
+}
+
+/* Queue Item Status Colors */
+.queue-item.ready {
+  border-color: hsl(199 89% 48%);
+}
+
+.queue-item.executing {
+  border-color: hsl(45 93% 47%);
+  background: hsl(45 93% 47% / 0.05);
+}
+
+.queue-item.completed {
+  border-color: hsl(var(--success));
+  background: hsl(var(--success) / 0.05);
+}
+
+.queue-item.failed {
+  border-color: hsl(var(--destructive));
+  background: hsl(var(--destructive) / 0.05);
+}
+
+.queue-item.blocked {
+  border-color: hsl(262 83% 58%);
+  opacity: 0.7;
+}
+
+/* Priority indicator */
+.issue-priority {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+/* Conflicts list */
+.conflicts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.conflict-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: hsl(45 93% 47% / 0.1);
+  border: 1px solid hsl(45 93% 47% / 0.3);
+  border-radius: 0.375rem;
+}
+
+.conflict-file {
+  color: hsl(var(--primary));
+}
+
+.conflict-tasks {
+  flex: 1;
+}
+
+.conflict-status {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+}
+
+.conflict-status.pending {
+  background: hsl(45 93% 47% / 0.15);
+  color: hsl(45 93% 47%);
+}
+
+.conflict-status.resolved {
+  background: hsl(var(--success) / 0.15);
+  color: hsl(var(--success));
+}
+
+/* ==========================================
+   RESPONSIVE TOOLBAR
+   ========================================== */
+
+@media (max-width: 640px) {
+  .issue-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .issue-search {
+    max-width: none;
+  }
+
+  .issue-filters {
+    justify-content: flex-start;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }

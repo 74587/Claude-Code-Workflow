@@ -88,7 +88,8 @@ const MODULE_CSS_FILES = [
   '29-help.css',
   '30-core-memory.css',
   '31-api-settings.css',
-  '32-issue-manager.css'
+  '32-issue-manager.css',
+  '33-cli-stream-viewer.css'
 ];
 
 // Modular JS files in dependency order
@@ -109,6 +110,7 @@ const MODULE_FILES = [
   'components/flowchart.js',
   'components/carousel.js',
   'components/notifications.js',
+  'components/cli-stream-viewer.js',
   'components/global-notifications.js',
   'components/task-queue-sidebar.js',
   'components/cli-status.js',

@@ -212,7 +212,7 @@ function renderStreamTabs() {
         <span class="cli-stream-tab-mode">${exec.mode}</span>
         <button class="cli-stream-tab-close ${canClose ? '' : 'disabled'}" 
                 onclick="event.stopPropagation(); closeStream('${id}')"
-                title="${canClose ? t('cliStream.close') : t('cliStream.cannotCloseRunning')}"
+                title="${canClose ? _streamT('cliStream.close') : _streamT('cliStream.cannotCloseRunning')}"
                 ${canClose ? '' : 'disabled'}>×</button>
       </div>
     `;
@@ -238,8 +238,8 @@ function renderStreamContent(executionId) {
     contentContainer.innerHTML = `
       <div class="cli-stream-empty">
         <i data-lucide="terminal"></i>
-        <div class="cli-stream-empty-title" data-i18n="cliStream.noStreams">${t('cliStream.noStreams')}</div>
-        <div class="cli-stream-empty-hint" data-i18n="cliStream.noStreamsHint">${t('cliStream.noStreamsHint')}</div>
+        <div class="cli-stream-empty-title" data-i18n="cliStream.noStreams">${_streamT('cliStream.noStreams')}</div>
+        <div class="cli-stream-empty-hint" data-i18n="cliStream.noStreamsHint">${_streamT('cliStream.noStreamsHint')}</div>
       </div>
     `;
     if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -279,10 +279,10 @@ function renderStreamStatus(executionId) {
     : formatDuration(Date.now() - exec.startTime);
   
   const statusLabel = exec.status === 'running' 
-    ? t('cliStream.running')
+    ? _streamT('cliStream.running')
     : exec.status === 'completed'
-      ? t('cliStream.completed')
-      : t('cliStream.error');
+      ? _streamT('cliStream.completed')
+      : _streamT('cliStream.error');
   
   statusContainer.innerHTML = `
     <div class="cli-stream-status-info">
@@ -296,15 +296,15 @@ function renderStreamStatus(executionId) {
       </div>
       <div class="cli-stream-status-item">
         <i data-lucide="file-text"></i>
-        <span>${exec.output.length} ${t('cliStream.lines') || 'lines'}</span>
+        <span>${exec.output.length} ${_streamT('cliStream.lines') || 'lines'}</span>
       </div>
     </div>
     <div class="cli-stream-status-actions">
       <button class="cli-stream-toggle-btn ${autoScrollEnabled ? 'active' : ''}" 
               onclick="toggleAutoScroll()" 
-              title="${t('cliStream.autoScroll')}">
+              title="${_streamT('cliStream.autoScroll')}">
         <i data-lucide="arrow-down-to-line"></i>
-        <span data-i18n="cliStream.autoScroll">${t('cliStream.autoScroll')}</span>
+        <span data-i18n="cliStream.autoScroll">${_streamT('cliStream.autoScroll')}</span>
       </button>
     </div>
   `;
@@ -428,10 +428,15 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// Translation helper with fallback
-function t(key) {
-  if (typeof window.t === 'function') {
-    return window.t(key);
+// Translation helper with fallback (uses global t from i18n.js)
+function _streamT(key) {
+  // First try global t() from i18n.js
+  if (typeof t === 'function' && t !== _streamT) {
+    try {
+      return t(key);
+    } catch (e) {
+      // Fall through to fallbacks
+    }
   }
   // Fallback values
   const fallbacks = {
