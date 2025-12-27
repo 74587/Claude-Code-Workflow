@@ -936,14 +936,20 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
 async function nextAction(options: IssueOptions): Promise<void> {
   const queue = readActiveQueue();
 
-  // Find ready tasks
-  const readyTasks = queue.queue.filter(item => {
+  // Priority 1: Resume executing tasks (interrupted/crashed)
+  const executingTasks = queue.queue.filter(item => item.status === 'executing');
+
+  // Priority 2: Find pending tasks with satisfied dependencies
+  const pendingTasks = queue.queue.filter(item => {
     if (item.status !== 'pending') return false;
     return item.depends_on.every(depId => {
       const dep = queue.queue.find(q => q.queue_id === depId);
       return !dep || dep.status === 'completed';
     });
   });
+
+  // Combine: executing first, then pending
+  const readyTasks = [...executingTasks, ...pendingTasks];
 
   if (readyTasks.length === 0) {
     console.log(JSON.stringify({
@@ -957,6 +963,7 @@ async function nextAction(options: IssueOptions): Promise<void> {
   // Sort by execution order
   readyTasks.sort((a, b) => a.execution_order - b.execution_order);
   const nextItem = readyTasks[0];
+  const isResume = nextItem.status === 'executing';
 
   // Load task definition
   const solution = findSolution(nextItem.issue_id, nextItem.solution_id);
@@ -967,14 +974,24 @@ async function nextAction(options: IssueOptions): Promise<void> {
     process.exit(1);
   }
 
-  // Mark as executing
-  const idx = queue.queue.findIndex(q => q.queue_id === nextItem.queue_id);
-  queue.queue[idx].status = 'executing';
-  queue.queue[idx].started_at = new Date().toISOString();
-  writeQueue(queue);
+  // Only update status if not already executing (new task)
+  if (!isResume) {
+    const idx = queue.queue.findIndex(q => q.queue_id === nextItem.queue_id);
+    queue.queue[idx].status = 'executing';
+    queue.queue[idx].started_at = new Date().toISOString();
+    writeQueue(queue);
+    updateIssue(nextItem.issue_id, { status: 'executing' });
+  }
 
-  // Update issue status
-  updateIssue(nextItem.issue_id, { status: 'executing' });
+  // Calculate queue stats for context
+  const stats = {
+    total: queue.queue.length,
+    completed: queue.queue.filter(q => q.status === 'completed').length,
+    failed: queue.queue.filter(q => q.status === 'failed').length,
+    executing: executingTasks.length,
+    pending: pendingTasks.length
+  };
+  const remaining = stats.pending + stats.executing;
 
   console.log(JSON.stringify({
     queue_id: nextItem.queue_id,
@@ -982,9 +999,17 @@ async function nextAction(options: IssueOptions): Promise<void> {
     solution_id: nextItem.solution_id,
     task: taskDef,
     context: solution?.exploration_context || {},
+    resumed: isResume,
+    resume_note: isResume ? `Resuming interrupted task (started: ${nextItem.started_at})` : undefined,
     execution_hints: {
       executor: nextItem.assigned_executor,
       estimated_minutes: taskDef.estimated_minutes || 30
+    },
+    queue_progress: {
+      completed: stats.completed,
+      remaining: remaining,
+      total: stats.total,
+      progress: `${stats.completed}/${stats.total}`
     }
   }, null, 2));
 }
@@ -1054,7 +1079,7 @@ async function doneAction(queueId: string | undefined, options: IssueOptions): P
 }
 
 /**
- * retry - Retry failed tasks
+ * retry - Retry failed tasks, or reset stuck executing tasks (--force)
  */
 async function retryAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
   const queue = readActiveQueue();
@@ -1066,7 +1091,12 @@ async function retryAction(issueId: string | undefined, options: IssueOptions): 
 
   let updated = 0;
 
+  // Check for stuck executing tasks (started > 30 min ago with no completion)
+  const stuckThreshold = 30 * 60 * 1000; // 30 minutes
+  const now = Date.now();
+
   for (const item of queue.queue) {
+    // Retry failed tasks
     if (item.status === 'failed') {
       if (!issueId || item.issue_id === issueId) {
         item.status = 'pending';
@@ -1076,10 +1106,23 @@ async function retryAction(issueId: string | undefined, options: IssueOptions): 
         updated++;
       }
     }
+    // Reset stuck executing tasks (optional: use --force or --reset-stuck)
+    else if (item.status === 'executing' && options.force) {
+      const startedAt = item.started_at ? new Date(item.started_at).getTime() : 0;
+      if (now - startedAt > stuckThreshold) {
+        if (!issueId || item.issue_id === issueId) {
+          console.log(chalk.yellow(`Resetting stuck task: ${item.queue_id} (started ${Math.round((now - startedAt) / 60000)} min ago)`));
+          item.status = 'pending';
+          item.started_at = undefined;
+          updated++;
+        }
+      }
+    }
   }
 
   if (updated === 0) {
-    console.log(chalk.yellow('No failed tasks to retry'));
+    console.log(chalk.yellow('No failed/stuck tasks to retry'));
+    console.log(chalk.gray('Use --force to reset stuck executing tasks (>30 min)'));
     return;
   }
 
@@ -1160,7 +1203,7 @@ export async function issueCommand(
       console.log(chalk.gray('  queue add <issue-id>               Add issue to active queue (or create new)'));
       console.log(chalk.gray('  queue switch <queue-id>            Switch active queue'));
       console.log(chalk.gray('  queue archive                      Archive current queue'));
-      console.log(chalk.gray('  retry [issue-id]                   Retry failed tasks'));
+      console.log(chalk.gray('  retry [issue-id] [--force]         Retry failed/stuck tasks'));
       console.log();
       console.log(chalk.bold('Execution Endpoints:'));
       console.log(chalk.gray('  next                               Get next ready task (JSON)'));

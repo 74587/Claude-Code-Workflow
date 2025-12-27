@@ -1,7 +1,7 @@
 ---
 name: plan
 description: Batch plan issue resolution using issue-plan-agent (explore + plan closed-loop)
-argument-hint: "<issue-id>[,<issue-id>,...] [--batch-size 3]"
+argument-hint: "<issue-id>[,<issue-id>,...] [--batch-size 3] --all-pending"
 allowed-tools: TodoWrite(*), Task(*), SlashCommand(*), AskUserQuestion(*), Bash(*), Read(*), Write(*)
 ---
 
@@ -78,24 +78,49 @@ Phase 4: Summary
 ### Phase 1: Issue Loading
 
 ```javascript
-// Parse input
-const issueIds = userInput.includes(',')
-  ? userInput.split(',').map(s => s.trim())
-  : [userInput.trim()];
-
-// Read issues.jsonl
+// Parse input and flags
 const issuesPath = '.workflow/issues/issues.jsonl';
-const allIssues = Bash(`cat "${issuesPath}" 2>/dev/null || echo ''`)
-  .split('\n')
-  .filter(line => line.trim())
-  .map(line => JSON.parse(line));
+const batchSize = flags.batchSize || 3;
 
-// Load and validate issues
+// Key fields for planning (avoid loading full issue data)
+const PLAN_FIELDS = 'id,title,status,context,affected_components,lifecycle_requirements,priority,bound_solution_id';
+
+let issueIds = [];
+
+if (flags.allPending) {
+  // Use jq to filter pending/registered issues - extract only IDs
+  const pendingIds = Bash(`
+    cat "${issuesPath}" 2>/dev/null | \\
+    jq -r 'select(.status == "pending" or .status == "registered") | .id' 2>/dev/null || echo ''
+  `).trim();
+
+  issueIds = pendingIds ? pendingIds.split('\n').filter(Boolean) : [];
+
+  if (issueIds.length === 0) {
+    console.log('No pending issues found.');
+    return;
+  }
+  console.log(`Found ${issueIds.length} pending issues`);
+} else {
+  // Parse comma-separated issue IDs
+  issueIds = userInput.includes(',')
+    ? userInput.split(',').map(s => s.trim())
+    : [userInput.trim()];
+}
+
+// Load issues using jq to extract only key fields
 const issues = [];
 for (const id of issueIds) {
-  let issue = allIssues.find(i => i.id === id);
+  // Use jq to find issue by ID and extract only needed fields
+  const issueJson = Bash(`
+    cat "${issuesPath}" 2>/dev/null | \\
+    jq -c 'select(.id == "${id}") | {${PLAN_FIELDS}}' 2>/dev/null | head -1
+  `).trim();
 
-  if (!issue) {
+  let issue;
+  if (issueJson) {
+    issue = JSON.parse(issueJson);
+  } else {
     console.log(`Issue ${id} not found. Creating...`);
     issue = {
       id,
@@ -114,11 +139,12 @@ for (const id of issueIds) {
 }
 
 // Group into batches
-const batchSize = flags.batchSize || 3;
 const batches = [];
 for (let i = 0; i < issues.length; i += batchSize) {
   batches.push(issues.slice(i, i + batchSize));
 }
+
+console.log(`Processing ${issues.length} issues in ${batches.length} batch(es)`);
 
 TodoWrite({
   todos: batches.flatMap((batch, i) => [
@@ -130,10 +156,13 @@ TodoWrite({
 ### Phase 2: Unified Explore + Plan (issue-plan-agent)
 
 ```javascript
+// Ensure solutions directory exists
+Bash(`mkdir -p .workflow/issues/solutions`);
+
 for (const [batchIndex, batch] of batches.entries()) {
   updateTodo(`Plan batch ${batchIndex + 1}`, 'in_progress');
 
-  // Build issue prompt for agent with lifecycle requirements
+  // Build issue prompt for agent - agent writes solutions directly
   const issuePrompt = `
 ## Issues to Plan (Closed-Loop Tasks Required)
 
@@ -152,7 +181,29 @@ ${batch.map((issue, i) => `
 ## Project Root
 ${process.cwd()}
 
-## Requirements - CLOSED-LOOP TASKS
+## Output Requirements
+
+**IMPORTANT**: Write solutions DIRECTLY to files, do NOT return full solution content.
+
+### 1. Write Solution Files
+For each issue, write solution to: \`.workflow/issues/solutions/{issue-id}.jsonl\`
+- Append one JSON line per solution
+- Solution must include all closed-loop task fields (see Solution Format below)
+
+### 2. Return Summary Only
+After writing solutions, return ONLY a brief JSON summary:
+\`\`\`json
+{
+  "planned": [
+    { "issue_id": "XXX", "solution_id": "SOL-xxx", "task_count": 3, "description": "Brief description" }
+  ],
+  "conflicts": [
+    { "file": "path/to/file", "issues": ["ID1", "ID2"], "suggested_order": ["ID1", "ID2"] }
+  ]
+}
+\`\`\`
+
+## Closed-Loop Task Requirements
 
 Each task MUST include ALL lifecycle phases:
 
@@ -168,12 +219,10 @@ Each task MUST include ALL lifecycle phases:
 
 ### 3. Regression
 - regression: string[] (commands to run for regression check)
-- Based on issue's regression_scope setting
 
 ### 4. Acceptance
 - acceptance.criteria: string[] (testable acceptance criteria)
 - acceptance.verification: string[] (how to verify each criterion)
-- acceptance.manual_checks: string[] (manual checks if needed)
 
 ### 5. Commit
 - commit.type: feat|fix|refactor|test|docs|chore
@@ -188,7 +237,7 @@ Each task MUST include ALL lifecycle phases:
 4. Infer commit scope from affected files
 `;
 
-  // Launch issue-plan-agent (combines explore + plan)
+  // Launch issue-plan-agent - agent writes solutions directly
   const result = Task(
     subagent_type="issue-plan-agent",
     run_in_background=false,
@@ -196,24 +245,18 @@ Each task MUST include ALL lifecycle phases:
     prompt=issuePrompt
   );
 
-  // Parse agent output
-  const agentOutput = JSON.parse(result);
+  // Parse brief summary from agent
+  const summary = JSON.parse(result);
 
-  // Register solutions for each issue (append to solutions/{issue-id}.jsonl)
-  for (const item of agentOutput.solutions) {
-    const solutionPath = `.workflow/issues/solutions/${item.issue_id}.jsonl`;
-
-    // Ensure solutions directory exists
-    Bash(`mkdir -p .workflow/issues/solutions`);
-
-    // Append solution as new line
-    Bash(`echo '${JSON.stringify(item.solution)}' >> "${solutionPath}"`);
+  // Display planning results
+  for (const item of summary.planned || []) {
+    console.log(`✓ ${item.issue_id}: ${item.solution_id} (${item.task_count} tasks) - ${item.description}`);
   }
 
   // Handle conflicts if any
-  if (agentOutput.conflicts?.length > 0) {
+  if (summary.conflicts?.length > 0) {
     console.log(`\n⚠ File conflicts detected:`);
-    agentOutput.conflicts.forEach(c => {
+    summary.conflicts.forEach(c => {
       console.log(`  ${c.file}: ${c.issues.join(', ')} → suggested: ${c.suggested_order.join(' → ')}`);
     });
   }
@@ -225,90 +268,86 @@ Each task MUST include ALL lifecycle phases:
 ### Phase 3: Solution Binding
 
 ```javascript
-// Re-read issues.jsonl
-let allIssuesUpdated = Bash(`cat "${issuesPath}"`)
-  .split('\n')
-  .filter(line => line.trim())
-  .map(line => JSON.parse(line));
+// Collect issues needing user selection (multiple solutions)
+const needSelection = [];
 
 for (const issue of issues) {
   const solPath = `.workflow/issues/solutions/${issue.id}.jsonl`;
-  const solutions = Bash(`cat "${solPath}" 2>/dev/null || echo ''`)
-    .split('\n')
-    .filter(line => line.trim())
-    .map(line => JSON.parse(line));
 
-  if (solutions.length === 0) {
-    console.log(`⚠ No solutions for ${issue.id}`);
-    continue;
-  }
+  // Use jq to count solutions
+  const count = parseInt(Bash(`cat "${solPath}" 2>/dev/null | jq -s 'length' 2>/dev/null || echo '0'`).trim()) || 0;
 
-  let selectedSolId;
+  if (count === 0) continue; // No solutions - skip silently (agent already reported)
 
-  if (solutions.length === 1) {
+  if (count === 1) {
     // Auto-bind single solution
-    selectedSolId = solutions[0].id;
-    console.log(`✓ Auto-bound ${selectedSolId} to ${issue.id} (${solutions[0].tasks?.length || 0} tasks)`);
+    const solId = Bash(`cat "${solPath}" | jq -r '.id' | head -1`).trim();
+    bindSolution(issue.id, solId);
   } else {
-    // Multiple solutions - ask user
-    const answer = AskUserQuestion({
-      questions: [{
-        question: `Select solution for ${issue.id}:`,
-        header: issue.id,
-        multiSelect: false,
-        options: solutions.map(s => ({
-          label: `${s.id}: ${s.description || 'Solution'}`,
-          description: `${s.tasks?.length || 0} tasks`
-        }))
-      }]
-    });
-
-    selectedSolId = extractSelectedSolutionId(answer);
-    console.log(`✓ Bound ${selectedSolId} to ${issue.id}`);
+    // Multiple solutions - collect for batch selection
+    const options = Bash(`cat "${solPath}" | jq -c '{id, description, task_count: (.tasks | length)}'`).trim();
+    needSelection.push({ issue, options: options.split('\n').map(s => JSON.parse(s)) });
   }
-
-  // Update issue in allIssuesUpdated
-  const issueIndex = allIssuesUpdated.findIndex(i => i.id === issue.id);
-  if (issueIndex !== -1) {
-    allIssuesUpdated[issueIndex].bound_solution_id = selectedSolId;
-    allIssuesUpdated[issueIndex].status = 'planned';
-    allIssuesUpdated[issueIndex].planned_at = new Date().toISOString();
-    allIssuesUpdated[issueIndex].updated_at = new Date().toISOString();
-  }
-
-  // Mark solution as bound in solutions file
-  const updatedSolutions = solutions.map(s => ({
-    ...s,
-    is_bound: s.id === selectedSolId,
-    bound_at: s.id === selectedSolId ? new Date().toISOString() : s.bound_at
-  }));
-  Write(solPath, updatedSolutions.map(s => JSON.stringify(s)).join('\n'));
 }
 
-// Write updated issues.jsonl
-Write(issuesPath, allIssuesUpdated.map(i => JSON.stringify(i)).join('\n'));
+// Batch ask user for multiple-solution issues
+if (needSelection.length > 0) {
+  const answer = AskUserQuestion({
+    questions: needSelection.map(({ issue, options }) => ({
+      question: `Select solution for ${issue.id}:`,
+      header: issue.id,
+      multiSelect: false,
+      options: options.map(s => ({
+        label: `${s.id} (${s.task_count} tasks)`,
+        description: s.description || 'Solution'
+      }))
+    }))
+  });
+
+  // Bind selected solutions
+  for (const { issue } of needSelection) {
+    const selectedSolId = extractSelectedSolutionId(answer, issue.id);
+    if (selectedSolId) bindSolution(issue.id, selectedSolId);
+  }
+}
+
+// Helper: bind solution to issue
+function bindSolution(issueId, solutionId) {
+  const now = new Date().toISOString();
+  const solPath = `.workflow/issues/solutions/${issueId}.jsonl`;
+
+  // Update issue status
+  Bash(`
+    tmpfile=$(mktemp) && \\
+    cat "${issuesPath}" | jq -c 'if .id == "${issueId}" then . + {
+      bound_solution_id: "${solutionId}", status: "planned",
+      planned_at: "${now}", updated_at: "${now}"
+    } else . end' > "$tmpfile" && mv "$tmpfile" "${issuesPath}"
+  `);
+
+  // Mark solution as bound
+  Bash(`
+    tmpfile=$(mktemp) && \\
+    cat "${solPath}" | jq -c 'if .id == "${solutionId}" then . + {
+      is_bound: true, bound_at: "${now}"
+    } else . + {is_bound: false} end' > "$tmpfile" && mv "$tmpfile" "${solPath}"
+  `);
+}
 ```
 
 ### Phase 4: Summary
 
 ```javascript
+// Brief summary using jq
+const stats = Bash(`
+  cat "${issuesPath}" 2>/dev/null | \\
+  jq -s '[.[] | select(.status == "planned")] | length' 2>/dev/null || echo '0'
+`).trim();
+
 console.log(`
-## Planning Complete
+## Done: ${issues.length} issues → ${stats} planned
 
-**Issues Planned**: ${issues.length}
-
-### Bound Solutions
-${issues.map(i => {
-  const issue = allIssuesUpdated.find(a => a.id === i.id);
-  return issue?.bound_solution_id
-    ? `✓ ${i.id}: ${issue.bound_solution_id}`
-    : `○ ${i.id}: No solution bound`;
-}).join('\n')}
-
-### Next Steps
-1. Review: \`ccw issue status <issue-id>\`
-2. Form queue: \`/issue:queue\`
-3. Execute: \`/issue:execute\`
+Next: \`/issue:queue\` → \`/issue:execute\`
 `);
 ```
 
