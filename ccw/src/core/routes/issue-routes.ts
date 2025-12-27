@@ -72,21 +72,68 @@ function writeSolutionsJsonl(issuesDir: string, issueId: string, solutions: any[
 }
 
 function readQueue(issuesDir: string) {
-  const queuePath = join(issuesDir, 'queue.json');
-  if (!existsSync(queuePath)) {
-    return { queue: [], conflicts: [], execution_groups: [], _metadata: { version: '1.0', total_tasks: 0 } };
+  // Try new multi-queue structure first
+  const queuesDir = join(issuesDir, 'queues');
+  const indexPath = join(queuesDir, 'index.json');
+
+  if (existsSync(indexPath)) {
+    try {
+      const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+      const activeQueueId = index.active_queue_id;
+
+      if (activeQueueId) {
+        const queueFilePath = join(queuesDir, `${activeQueueId}.json`);
+        if (existsSync(queueFilePath)) {
+          return JSON.parse(readFileSync(queueFilePath, 'utf8'));
+        }
+      }
+    } catch {
+      // Fall through to legacy check
+    }
   }
-  try {
-    return JSON.parse(readFileSync(queuePath, 'utf8'));
-  } catch {
-    return { queue: [], conflicts: [], execution_groups: [], _metadata: { version: '1.0', total_tasks: 0 } };
+
+  // Fallback to legacy queue.json
+  const legacyQueuePath = join(issuesDir, 'queue.json');
+  if (existsSync(legacyQueuePath)) {
+    try {
+      return JSON.parse(readFileSync(legacyQueuePath, 'utf8'));
+    } catch {
+      // Return empty queue
+    }
   }
+
+  return { queue: [], conflicts: [], execution_groups: [], _metadata: { version: '1.0', total_tasks: 0 } };
 }
 
 function writeQueue(issuesDir: string, queue: any) {
   if (!existsSync(issuesDir)) mkdirSync(issuesDir, { recursive: true });
-  queue._metadata = { ...queue._metadata, last_updated: new Date().toISOString(), total_tasks: queue.queue?.length || 0 };
-  writeFileSync(join(issuesDir, 'queue.json'), JSON.stringify(queue, null, 2));
+  queue._metadata = { ...queue._metadata, updated_at: new Date().toISOString(), total_tasks: queue.queue?.length || 0 };
+
+  // Check if using new multi-queue structure
+  const queuesDir = join(issuesDir, 'queues');
+  const indexPath = join(queuesDir, 'index.json');
+
+  if (existsSync(indexPath) && queue.id) {
+    // Write to new structure
+    const queueFilePath = join(queuesDir, `${queue.id}.json`);
+    writeFileSync(queueFilePath, JSON.stringify(queue, null, 2));
+
+    // Update index metadata
+    try {
+      const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+      const queueEntry = index.queues?.find((q: any) => q.id === queue.id);
+      if (queueEntry) {
+        queueEntry.total_tasks = queue.queue?.length || 0;
+        queueEntry.completed_tasks = queue.queue?.filter((i: any) => i.status === 'completed').length || 0;
+        writeFileSync(indexPath, JSON.stringify(index, null, 2));
+      }
+    } catch {
+      // Ignore index update errors
+    }
+  } else {
+    // Fallback to legacy queue.json
+    writeFileSync(join(issuesDir, 'queue.json'), JSON.stringify(queue, null, 2));
+  }
 }
 
 function getIssueDetail(issuesDir: string, issueId: string) {

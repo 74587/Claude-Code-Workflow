@@ -199,7 +199,7 @@ async function ripgrepFallback(issue, projectRoot) {
 
 ## Phase 3: Solution Planning
 
-### Task Decomposition
+### Task Decomposition (Closed-Loop)
 
 ```javascript
 function decomposeTasks(issue, exploration) {
@@ -217,14 +217,103 @@ function decomposeTasks(issue, exploration) {
       action: inferAction(group),
       description: group.description,
       modification_points: group.points,
+
+      // Phase 1: Implementation
       implementation: generateImplementationSteps(group, exploration),
+
+      // Phase 2: Test
+      test: generateTestRequirements(group, exploration, issue.lifecycle_requirements),
+
+      // Phase 3: Regression
+      regression: generateRegressionChecks(group, issue.lifecycle_requirements),
+
+      // Phase 4: Acceptance
       acceptance: generateAcceptanceCriteria(group),
+
+      // Phase 5: Commit
+      commit: generateCommitSpec(group, issue),
+
       depends_on: inferDependencies(group, tasks),
-      estimated_minutes: estimateTime(group)
+      estimated_minutes: estimateTime(group),
+      executor: inferExecutor(group)
     })
   }
 
   return tasks
+}
+
+function generateTestRequirements(group, exploration, lifecycle) {
+  const test = {
+    unit: [],
+    integration: [],
+    commands: [],
+    coverage_target: 80
+  }
+
+  // Generate unit test requirements based on action
+  if (group.action === 'Create' || group.action === 'Implement') {
+    test.unit.push(`Test ${group.title} happy path`)
+    test.unit.push(`Test ${group.title} error cases`)
+  }
+
+  // Generate test commands based on project patterns
+  if (exploration.test_patterns?.includes('jest')) {
+    test.commands.push(`npm test -- --grep '${group.scope}'`)
+  } else if (exploration.test_patterns?.includes('vitest')) {
+    test.commands.push(`npx vitest run ${group.scope}`)
+  } else {
+    test.commands.push(`npm test`)
+  }
+
+  // Add integration tests if needed
+  if (lifecycle?.test_strategy === 'integration' || lifecycle?.test_strategy === 'e2e') {
+    test.integration.push(`Integration test for ${group.title}`)
+  }
+
+  return test
+}
+
+function generateRegressionChecks(group, lifecycle) {
+  const regression = []
+
+  switch (lifecycle?.regression_scope) {
+    case 'full':
+      regression.push('npm test')
+      regression.push('npm run test:integration')
+      break
+    case 'related':
+      regression.push(`npm test -- --grep '${group.scope}'`)
+      regression.push(`npm test -- --changed`)
+      break
+    case 'affected':
+    default:
+      regression.push(`npm test -- --findRelatedTests ${group.points[0]?.file}`)
+      break
+  }
+
+  return regression
+}
+
+function generateCommitSpec(group, issue) {
+  const typeMap = {
+    'Create': 'feat',
+    'Implement': 'feat',
+    'Update': 'feat',
+    'Fix': 'fix',
+    'Refactor': 'refactor',
+    'Test': 'test',
+    'Configure': 'chore',
+    'Delete': 'chore'
+  }
+
+  const scope = group.scope.split('/').pop()?.replace(/\..*$/, '') || 'core'
+
+  return {
+    type: typeMap[group.action] || 'feat',
+    scope: scope,
+    message_template: `${typeMap[group.action] || 'feat'}(${scope}): ${group.title.toLowerCase()}\n\n${group.description || ''}`,
+    breaking: false
+  }
 }
 ```
 
@@ -347,11 +436,15 @@ function generateImplementationSteps(group, exploration) {
 }
 ```
 
-### Acceptance Criteria Generation
+### Acceptance Criteria Generation (Closed-Loop)
 
 ```javascript
 function generateAcceptanceCriteria(task) {
-  const criteria = []
+  const acceptance = {
+    criteria: [],
+    verification: [],
+    manual_checks: []
+  }
 
   // Action-specific criteria
   const actionCriteria = {
@@ -363,14 +456,41 @@ function generateAcceptanceCriteria(task) {
     'Configure': [`Configuration applied correctly`]
   }
 
-  criteria.push(...(actionCriteria[task.action] || []))
+  acceptance.criteria.push(...(actionCriteria[task.action] || []))
 
   // Add quantified criteria
   if (task.modification_points.length > 0) {
-    criteria.push(`${task.modification_points.length} file(s) modified correctly`)
+    acceptance.criteria.push(`${task.modification_points.length} file(s) modified correctly`)
   }
 
-  return criteria.slice(0, 4)  // Max 4 criteria
+  // Generate verification steps for each criterion
+  for (const criterion of acceptance.criteria) {
+    acceptance.verification.push(generateVerificationStep(criterion, task))
+  }
+
+  // Limit to reasonable counts
+  acceptance.criteria = acceptance.criteria.slice(0, 4)
+  acceptance.verification = acceptance.verification.slice(0, 4)
+
+  return acceptance
+}
+
+function generateVerificationStep(criterion, task) {
+  // Generate executable verification for criterion
+  if (criterion.includes('file created')) {
+    return `ls -la ${task.modification_points[0]?.file} && head -20 ${task.modification_points[0]?.file}`
+  }
+  if (criterion.includes('test')) {
+    return `npm test -- --grep '${task.scope}'`
+  }
+  if (criterion.includes('export')) {
+    return `node -e "console.log(require('./${task.modification_points[0]?.file}'))"`
+  }
+  if (criterion.includes('API') || criterion.includes('endpoint')) {
+    return `curl -X GET http://localhost:3000/${task.scope} -v`
+  }
+  // Default: describe manual check
+  return `Manually verify: ${criterion}`
 }
 ```
 
@@ -413,20 +533,61 @@ function validateSolution(solution) {
 function validateTask(task) {
   const errors = []
 
+  // Basic fields
   if (!/^T\d+$/.test(task.id)) errors.push('Invalid task ID format')
   if (!task.title?.trim()) errors.push('Missing title')
   if (!task.scope?.trim()) errors.push('Missing scope')
   if (!['Create', 'Update', 'Implement', 'Refactor', 'Configure', 'Test', 'Fix', 'Delete'].includes(task.action)) {
     errors.push('Invalid action type')
   }
+
+  // Phase 1: Implementation
   if (!task.implementation || task.implementation.length < 2) {
     errors.push('Need 2+ implementation steps')
   }
-  if (!task.acceptance || task.acceptance.length < 1) {
-    errors.push('Need 1+ acceptance criteria')
+
+  // Phase 2: Test
+  if (!task.test) {
+    errors.push('Missing test phase')
+  } else {
+    if (!task.test.commands || task.test.commands.length < 1) {
+      errors.push('Need 1+ test commands')
+    }
   }
-  if (task.acceptance?.some(a => /works correctly|good performance|properly/i.test(a))) {
-    errors.push('Vague acceptance criteria')
+
+  // Phase 3: Regression
+  if (!task.regression || task.regression.length < 1) {
+    errors.push('Need 1+ regression checks')
+  }
+
+  // Phase 4: Acceptance
+  if (!task.acceptance) {
+    errors.push('Missing acceptance phase')
+  } else {
+    if (!task.acceptance.criteria || task.acceptance.criteria.length < 1) {
+      errors.push('Need 1+ acceptance criteria')
+    }
+    if (!task.acceptance.verification || task.acceptance.verification.length < 1) {
+      errors.push('Need 1+ verification steps')
+    }
+    if (task.acceptance.criteria?.some(a => /works correctly|good performance|properly/i.test(a))) {
+      errors.push('Vague acceptance criteria')
+    }
+  }
+
+  // Phase 5: Commit
+  if (!task.commit) {
+    errors.push('Missing commit phase')
+  } else {
+    if (!['feat', 'fix', 'refactor', 'test', 'docs', 'chore'].includes(task.commit.type)) {
+      errors.push('Invalid commit type')
+    }
+    if (!task.commit.scope?.trim()) {
+      errors.push('Missing commit scope')
+    }
+    if (!task.commit.message_template?.trim()) {
+      errors.push('Missing commit message template')
+    }
   }
 
   return errors
@@ -500,7 +661,9 @@ function generateOutput(solutions, conflicts) {
 }
 ```
 
-### Solution Schema
+### Solution Schema (Closed-Loop Tasks)
+
+Each task MUST include ALL 5 lifecycle phases:
 
 ```json
 {
@@ -517,10 +680,62 @@ function generateOutput(solutions, conflicts) {
       "modification_points": [
         { "file": "src/middleware/auth.ts", "target": "new file", "change": "Create middleware" }
       ],
-      "implementation": ["Step 1", "Step 2", "..."],
-      "acceptance": ["Criterion 1", "Criterion 2"],
+
+      "implementation": [
+        "Create auth.ts file in src/middleware/",
+        "Implement JWT token extraction from Authorization header",
+        "Add token validation using jsonwebtoken library",
+        "Handle error cases (missing, invalid, expired tokens)",
+        "Export middleware function"
+      ],
+
+      "test": {
+        "unit": [
+          "Test valid token passes through",
+          "Test invalid token returns 401",
+          "Test expired token returns 401",
+          "Test missing token returns 401"
+        ],
+        "integration": [
+          "Protected route returns 401 without token",
+          "Protected route returns 200 with valid token"
+        ],
+        "commands": [
+          "npm test -- --grep 'auth middleware'",
+          "npm run test:coverage -- src/middleware/auth.ts"
+        ],
+        "coverage_target": 80
+      },
+
+      "regression": [
+        "npm test -- --grep 'existing routes'",
+        "npm run test:integration"
+      ],
+
+      "acceptance": {
+        "criteria": [
+          "Middleware validates JWT tokens successfully",
+          "Returns 401 with appropriate error for invalid tokens",
+          "Passes decoded user payload to request context"
+        ],
+        "verification": [
+          "curl -H 'Authorization: Bearer <valid>' /api/protected → 200",
+          "curl /api/protected → 401 {error: 'No token'}",
+          "curl -H 'Authorization: Bearer invalid' /api/protected → 401"
+        ],
+        "manual_checks": []
+      },
+
+      "commit": {
+        "type": "feat",
+        "scope": "auth",
+        "message_template": "feat(auth): add JWT validation middleware\n\n- Implement token extraction and validation\n- Add error handling for invalid/expired tokens\n- Export middleware for route protection",
+        "breaking": false
+      },
+
       "depends_on": [],
-      "estimated_minutes": 30
+      "estimated_minutes": 30,
+      "executor": "codex"
     }
   ],
   "exploration_context": {
@@ -622,6 +837,14 @@ Before outputting solution:
 6. Include file:line references in modification_points where possible
 7. Detect and report cross-issue file conflicts in batch mode
 8. Include exploration_context with patterns and relevant_files
+9. **Generate ALL 5 lifecycle phases for each task**:
+   - `implementation`: 2-7 concrete steps
+   - `test`: unit tests, commands, coverage target
+   - `regression`: regression check commands
+   - `acceptance`: criteria + verification steps
+   - `commit`: type, scope, message template
+10. Infer test commands from project's test framework
+11. Generate commit message following conventional commits
 
 **NEVER**:
 1. Execute implementation (return plan only)
@@ -632,3 +855,5 @@ Before outputting solution:
 6. Assume file exists without verification
 7. Generate more than 10 tasks per issue
 8. Skip ACE search (unless fallback triggered)
+9. **Omit any of the 5 lifecycle phases** (test, regression, acceptance, commit)
+10. Skip verification steps in acceptance criteria

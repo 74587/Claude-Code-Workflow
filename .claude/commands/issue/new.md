@@ -15,7 +15,7 @@ Creates a new structured issue from either:
 
 Outputs a well-formed issue entry to `.workflow/issues/issues.jsonl`.
 
-## Issue Structure
+## Issue Structure (Closed-Loop)
 
 ```typescript
 interface Issue {
@@ -27,19 +27,73 @@ interface Issue {
   source: 'github' | 'text';     // Input source type
   source_url?: string;           // GitHub URL if applicable
   labels?: string[];             // Categorization labels
-  
+
   // Structured extraction
   problem_statement: string;     // What is the problem?
   expected_behavior?: string;    // What should happen?
   actual_behavior?: string;      // What actually happens?
   affected_components?: string[];// Files/modules affected
   reproduction_steps?: string[]; // Steps to reproduce
-  
+
+  // Closed-loop requirements (guide plan generation)
+  lifecycle_requirements: {
+    test_strategy: 'unit' | 'integration' | 'e2e' | 'manual' | 'auto';
+    regression_scope: 'affected' | 'related' | 'full';  // Which tests to run
+    acceptance_type: 'automated' | 'manual' | 'both';   // How to verify
+    commit_strategy: 'per-task' | 'squash' | 'atomic';  // Commit granularity
+  };
+
   // Metadata
   bound_solution_id: null;
   solution_count: 0;
   created_at: string;
   updated_at: string;
+}
+```
+
+## Task Lifecycle (Each Task is Closed-Loop)
+
+When `/issue:plan` generates tasks, each task MUST include:
+
+```typescript
+interface SolutionTask {
+  id: string;
+  title: string;
+  scope: string;
+  action: string;
+
+  // Phase 1: Implementation
+  implementation: string[];     // Step-by-step implementation
+  modification_points: { file: string; target: string; change: string }[];
+
+  // Phase 2: Testing
+  test: {
+    unit?: string[];            // Unit test requirements
+    integration?: string[];     // Integration test requirements
+    commands?: string[];        // Test commands to run
+    coverage_target?: number;   // Minimum coverage %
+  };
+
+  // Phase 3: Regression
+  regression: string[];         // Regression check commands/points
+
+  // Phase 4: Acceptance
+  acceptance: {
+    criteria: string[];         // Testable acceptance criteria
+    verification: string[];     // How to verify each criterion
+    manual_checks?: string[];   // Manual verification if needed
+  };
+
+  // Phase 5: Commit
+  commit: {
+    type: 'feat' | 'fix' | 'refactor' | 'test' | 'docs' | 'chore';
+    scope: string;              // e.g., "auth", "api"
+    message_template: string;   // Commit message template
+    breaking?: boolean;
+  };
+
+  depends_on: string[];
+  executor: 'codex' | 'gemini' | 'agent' | 'auto';
 }
 ```
 
@@ -206,7 +260,58 @@ async function parseTextDescription(text) {
 }
 ```
 
-### Phase 4: User Confirmation
+### Phase 4: Lifecycle Configuration
+
+```javascript
+// Ask for lifecycle requirements (or use smart defaults)
+const lifecycleAnswer = AskUserQuestion({
+  questions: [
+    {
+      question: 'Test strategy for this issue?',
+      header: 'Test',
+      multiSelect: false,
+      options: [
+        { label: 'auto', description: 'Auto-detect based on affected files (Recommended)' },
+        { label: 'unit', description: 'Unit tests only' },
+        { label: 'integration', description: 'Integration tests' },
+        { label: 'e2e', description: 'End-to-end tests' },
+        { label: 'manual', description: 'Manual testing only' }
+      ]
+    },
+    {
+      question: 'Regression scope?',
+      header: 'Regression',
+      multiSelect: false,
+      options: [
+        { label: 'affected', description: 'Only affected module tests (Recommended)' },
+        { label: 'related', description: 'Affected + dependent modules' },
+        { label: 'full', description: 'Full test suite' }
+      ]
+    },
+    {
+      question: 'Commit strategy?',
+      header: 'Commit',
+      multiSelect: false,
+      options: [
+        { label: 'per-task', description: 'One commit per task (Recommended)' },
+        { label: 'atomic', description: 'Single commit for entire issue' },
+        { label: 'squash', description: 'Squash at the end' }
+      ]
+    }
+  ]
+});
+
+const lifecycle = {
+  test_strategy: lifecycleAnswer.test || 'auto',
+  regression_scope: lifecycleAnswer.regression || 'affected',
+  acceptance_type: 'automated',
+  commit_strategy: lifecycleAnswer.commit || 'per-task'
+};
+
+issueData.lifecycle_requirements = lifecycle;
+```
+
+### Phase 5: User Confirmation
 
 ```javascript
 // Show parsed data and ask for confirmation
@@ -224,6 +329,11 @@ ${issueData.expected_behavior ? `### Expected Behavior\n${issueData.expected_beh
 ${issueData.actual_behavior ? `### Actual Behavior\n${issueData.actual_behavior}\n` : ''}
 ${issueData.affected_components?.length ? `### Affected Components\n${issueData.affected_components.map(c => `- ${c}`).join('\n')}\n` : ''}
 ${issueData.reproduction_steps?.length ? `### Reproduction Steps\n${issueData.reproduction_steps.map((s, i) => `${i+1}. ${s}`).join('\n')}\n` : ''}
+
+### Lifecycle Configuration
+- **Test Strategy**: ${lifecycle.test_strategy}
+- **Regression Scope**: ${lifecycle.regression_scope}
+- **Commit Strategy**: ${lifecycle.commit_strategy}
 `);
 
 // Ask user to confirm or edit
@@ -264,7 +374,7 @@ if (answer.includes('Edit Title')) {
 }
 ```
 
-### Phase 5: Write to JSONL
+### Phase 6: Write to JSONL
 
 ```javascript
 // Construct final issue object
@@ -280,14 +390,22 @@ const newIssue = {
   source: issueData.source,
   source_url: issueData.source_url || null,
   labels: [...(issueData.labels || []), ...labels],
-  
+
   // Structured fields
   problem_statement: issueData.problem_statement,
   expected_behavior: issueData.expected_behavior || null,
   actual_behavior: issueData.actual_behavior || null,
   affected_components: issueData.affected_components || [],
   reproduction_steps: issueData.reproduction_steps || [],
-  
+
+  // Closed-loop lifecycle requirements
+  lifecycle_requirements: issueData.lifecycle_requirements || {
+    test_strategy: 'auto',
+    regression_scope: 'affected',
+    acceptance_type: 'automated',
+    commit_strategy: 'per-task'
+  },
+
   // Metadata
   bound_solution_id: null,
   solution_count: 0,

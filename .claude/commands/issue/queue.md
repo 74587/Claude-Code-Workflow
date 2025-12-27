@@ -20,15 +20,45 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
 - Parallel/Sequential group assignment
 - Output global queue.json
 
-## Storage Structure (Flat JSONL)
+## Storage Structure (Queue History)
 
 ```
 .workflow/issues/
 ├── issues.jsonl              # All issues (one per line)
-├── queue.json                # Execution queue (output)
+├── queues/                   # Queue history directory
+│   ├── index.json            # Queue index (active + history)
+│   ├── {queue-id}.json       # Individual queue files
+│   └── ...
 └── solutions/
     ├── {issue-id}.jsonl      # Solutions for issue
     └── ...
+```
+
+### Queue Index Schema
+
+```json
+{
+  "active_queue_id": "QUE-20251227-143000",
+  "queues": [
+    {
+      "id": "QUE-20251227-143000",
+      "status": "active",
+      "issue_ids": ["GH-123", "GH-124"],
+      "total_tasks": 8,
+      "completed_tasks": 3,
+      "created_at": "2025-12-27T14:30:00Z"
+    },
+    {
+      "id": "QUE-20251226-100000",
+      "status": "completed",
+      "issue_ids": ["GH-120"],
+      "total_tasks": 5,
+      "completed_tasks": 5,
+      "created_at": "2025-12-26T10:00:00Z",
+      "completed_at": "2025-12-26T12:30:00Z"
+    }
+  ]
+}
 ```
 
 ## Usage
@@ -37,13 +67,20 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
 /issue:queue [FLAGS]
 
 # Examples
-/issue:queue                  # Form queue from all bound solutions
-/issue:queue --rebuild        # Rebuild queue (clear and regenerate)
-/issue:queue --issue GH-123   # Add only specific issue to queue
+/issue:queue                      # Form NEW queue from all bound solutions
+/issue:queue --issue GH-123       # Form queue for specific issue only
+/issue:queue --append GH-124      # Append to active queue
+/issue:queue --list               # List all queues (history)
+/issue:queue --switch QUE-xxx     # Switch active queue
+/issue:queue --archive            # Archive completed active queue
 
 # Flags
---rebuild         Clear existing queue and regenerate
---issue <id>      Add only specific issue's tasks
+--issue <id>          Form queue for specific issue only
+--append <id>         Append issue to active queue (don't create new)
+--list                List all queues with status
+--switch <queue-id>   Switch active queue
+--archive             Archive current queue (mark completed)
+--clear <queue-id>    Delete a queue from history
 ```
 
 ## Execution Process
@@ -215,10 +252,15 @@ ${(queueOutput.execution_groups || []).map(g => {
 
 ## Queue Schema
 
-Output `queue.json`:
+Output `queues/{queue-id}.json`:
 
 ```json
 {
+  "id": "QUE-20251227-143000",
+  "name": "Auth Feature Queue",
+  "status": "active",
+  "issue_ids": ["GH-123", "GH-124"],
+
   "queue": [
     {
       "queue_id": "Q-001",
@@ -233,6 +275,7 @@ Output `queue.json`:
       "queued_at": "2025-12-26T10:00:00Z"
     }
   ],
+
   "conflicts": [
     {
       "type": "file_conflict",
@@ -244,22 +287,30 @@ Output `queue.json`:
       "resolved": true
     }
   ],
+
   "execution_groups": [
     { "id": "P1", "type": "parallel", "task_count": 3, "tasks": ["GH-123:T1", "GH-124:T1", "GH-125:T1"] },
     { "id": "S2", "type": "sequential", "task_count": 2, "tasks": ["GH-123:T2", "GH-124:T2"] }
   ],
+
   "_metadata": {
     "version": "2.0",
-    "storage": "jsonl",
     "total_tasks": 5,
-    "total_conflicts": 1,
-    "resolved_conflicts": 1,
-    "parallel_groups": 1,
-    "sequential_groups": 1,
-    "timestamp": "2025-12-26T10:00:00Z",
+    "pending_count": 3,
+    "completed_count": 2,
+    "failed_count": 0,
+    "created_at": "2025-12-26T10:00:00Z",
+    "updated_at": "2025-12-26T11:00:00Z",
     "source": "issue-queue-agent"
   }
 }
+```
+
+### Queue ID Format
+
+```
+QUE-YYYYMMDD-HHMMSS
+例如: QUE-20251227-143052
 ```
 
 ## Semantic Priority Rules

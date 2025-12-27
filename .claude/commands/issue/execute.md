@@ -148,15 +148,15 @@ TodoWrite({
 });
 ```
 
-### Phase 3: Codex Coordination (Single Task Mode)
+### Phase 3: Codex Coordination (Single Task Mode - Full Lifecycle)
 
 ```javascript
-// Execute tasks - single codex instance per task
+// Execute tasks - single codex instance per task with full lifecycle
 async function executeTask(queueItem) {
   const codexPrompt = `
-## Single Task Execution
+## Single Task Execution - CLOSED-LOOP LIFECYCLE
 
-You are executing ONE task from the issue queue. Follow these steps exactly:
+You are executing ONE task from the issue queue. Each task has 5 phases that MUST ALL complete successfully.
 
 ### Step 1: Fetch Task
 Run this command to get your task:
@@ -164,35 +164,71 @@ Run this command to get your task:
 ccw issue next
 \`\`\`
 
-This returns JSON with:
-- queue_id: Queue item ID
-- task: Task definition with implementation steps
-- context: Exploration context
-- execution_hints: Executor and time estimate
+This returns JSON with full lifecycle definition:
+- task.implementation: Implementation steps
+- task.test: Test requirements and commands
+- task.regression: Regression check commands
+- task.acceptance: Acceptance criteria and verification
+- task.commit: Commit specification
 
-### Step 2: Execute Task
-Read the returned task object and:
+### Step 2: Execute Full Lifecycle
+
+**Phase 1: IMPLEMENT**
 1. Follow task.implementation steps in order
-2. Meet all task.acceptance criteria
-3. Use provided context.relevant_files for reference
+2. Modify files specified in modification_points
+3. Use context.relevant_files for reference
 4. Use context.patterns for code style
 
+**Phase 2: TEST**
+1. Run test commands from task.test.commands
+2. Ensure all unit tests pass (task.test.unit)
+3. Run integration tests if specified (task.test.integration)
+4. Verify coverage meets task.test.coverage_target if specified
+5. If tests fail → fix code and re-run, do NOT proceed until tests pass
+
+**Phase 3: REGRESSION**
+1. Run all commands in task.regression
+2. Ensure no existing tests are broken
+3. If regression fails → fix and re-run
+
+**Phase 4: ACCEPTANCE**
+1. Verify each criterion in task.acceptance.criteria
+2. Execute verification steps in task.acceptance.verification
+3. Complete any manual_checks if specified
+4. All criteria MUST pass before proceeding
+
+**Phase 5: COMMIT**
+1. Stage all modified files
+2. Use task.commit.message_template as commit message
+3. Commit with: git commit -m "$(cat <<'EOF'\n<message>\nEOF\n)"
+4. If commit_strategy is 'per-task', commit now
+5. If commit_strategy is 'atomic' or 'squash', stage but don't commit
+
 ### Step 3: Report Completion
-When done, run:
+When ALL phases complete successfully:
 \`\`\`bash
-ccw issue complete <queue_id> --result '{"files_modified": ["path1", "path2"], "summary": "What was done"}'
+ccw issue complete <queue_id> --result '{
+  "files_modified": ["path1", "path2"],
+  "tests_passed": true,
+  "regression_passed": true,
+  "acceptance_passed": true,
+  "committed": true,
+  "commit_hash": "<hash>",
+  "summary": "What was done"
+}'
 \`\`\`
 
-If task fails, run:
+If any phase fails and cannot be fixed:
 \`\`\`bash
-ccw issue fail <queue_id> --reason "Why it failed"
+ccw issue fail <queue_id> --reason "Phase X failed: <details>"
 \`\`\`
 
 ### Rules
-- NEVER read task files directly - use ccw issue next
-- Execute the FULL task before marking complete
-- Do NOT loop - execute ONE task only
-- Report accurate files_modified in result
+- NEVER skip any lifecycle phase
+- Tests MUST pass before proceeding to acceptance
+- Regression MUST pass before commit
+- ALL acceptance criteria MUST be verified
+- Report accurate lifecycle status in result
 
 ### Start Now
 Begin by running: ccw issue next

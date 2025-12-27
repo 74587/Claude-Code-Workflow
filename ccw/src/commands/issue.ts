@@ -36,6 +36,26 @@ interface Issue {
   completed_at?: string;
 }
 
+interface TaskTest {
+  unit?: string[];              // Unit test requirements
+  integration?: string[];       // Integration test requirements
+  commands?: string[];          // Test commands to run
+  coverage_target?: number;     // Minimum coverage % (optional)
+}
+
+interface TaskAcceptance {
+  criteria: string[];           // Acceptance criteria (testable)
+  verification: string[];       // How to verify each criterion
+  manual_checks?: string[];     // Manual verification steps if needed
+}
+
+interface TaskCommit {
+  type: 'feat' | 'fix' | 'refactor' | 'test' | 'docs' | 'chore';
+  scope: string;                // Commit scope (e.g., "auth", "api")
+  message_template: string;     // Commit message template
+  breaking?: boolean;           // Breaking change flag
+}
+
 interface SolutionTask {
   id: string;
   title: string;
@@ -43,11 +63,26 @@ interface SolutionTask {
   action: string;
   description?: string;
   modification_points?: { file: string; target: string; change: string }[];
-  implementation: string[];
-  acceptance: string[];
+
+  // Lifecycle phases (closed-loop)
+  implementation: string[];     // Implementation steps
+  test: TaskTest;               // Test requirements
+  regression: string[];         // Regression check points
+  acceptance: TaskAcceptance;   // Acceptance criteria & verification
+  commit: TaskCommit;           // Commit specification
+
   depends_on: string[];
   estimated_minutes?: number;
   executor: 'codex' | 'gemini' | 'agent' | 'auto';
+
+  // Lifecycle status tracking
+  lifecycle_status?: {
+    implemented: boolean;
+    tested: boolean;
+    regression_passed: boolean;
+    accepted: boolean;
+    committed: boolean;
+  };
   status?: string;
   priority?: number;
 }
@@ -83,8 +118,13 @@ interface QueueItem {
 }
 
 interface Queue {
+  id: string;                    // Queue unique ID: QUE-YYYYMMDD-HHMMSS
+  name?: string;                 // Optional queue name
+  status: 'active' | 'completed' | 'archived' | 'failed';
+  issue_ids: string[];           // Issues in this queue
   queue: QueueItem[];
   conflicts: any[];
+  execution_groups?: any[];
   _metadata: {
     version: string;
     total_tasks: number;
@@ -92,8 +132,22 @@ interface Queue {
     executing_count: number;
     completed_count: number;
     failed_count: number;
-    last_updated: string;
+    created_at: string;
+    updated_at: string;
   };
+}
+
+interface QueueIndex {
+  active_queue_id: string | null;
+  queues: {
+    id: string;
+    status: string;
+    issue_ids: string[];
+    total_tasks: number;
+    completed_tasks: number;
+    created_at: string;
+    completed_at?: string;
+  }[];
 }
 
 interface IssueOptions {
@@ -208,40 +262,121 @@ function generateSolutionId(): string {
   return `SOL-${ts}`;
 }
 
-// ============ Queue JSON ============
+// ============ Queue Management (Multi-Queue) ============
 
-function readQueue(): Queue {
-  const path = join(getIssuesDir(), 'queue.json');
+function getQueuesDir(): string {
+  return join(getIssuesDir(), 'queues');
+}
+
+function ensureQueuesDir(): void {
+  const dir = getQueuesDir();
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+}
+
+function readQueueIndex(): QueueIndex {
+  const path = join(getQueuesDir(), 'index.json');
   if (!existsSync(path)) {
-    return {
-      queue: [],
-      conflicts: [],
-      _metadata: {
-        version: '2.0',
-        total_tasks: 0,
-        pending_count: 0,
-        executing_count: 0,
-        completed_count: 0,
-        failed_count: 0,
-        last_updated: new Date().toISOString()
-      }
-    };
+    return { active_queue_id: null, queues: [] };
   }
   return JSON.parse(readFileSync(path, 'utf-8'));
 }
 
+function writeQueueIndex(index: QueueIndex): void {
+  ensureQueuesDir();
+  writeFileSync(join(getQueuesDir(), 'index.json'), JSON.stringify(index, null, 2), 'utf-8');
+}
+
+function generateQueueFileId(): string {
+  const now = new Date();
+  const ts = now.toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  return `QUE-${ts}`;
+}
+
+function readQueue(queueId?: string): Queue | null {
+  const index = readQueueIndex();
+  const targetId = queueId || index.active_queue_id;
+
+  if (!targetId) return null;
+
+  const path = join(getQueuesDir(), `${targetId}.json`);
+  if (!existsSync(path)) return null;
+
+  return JSON.parse(readFileSync(path, 'utf-8'));
+}
+
+function readActiveQueue(): Queue {
+  const queue = readQueue();
+  if (queue) return queue;
+
+  // Return empty queue structure if no active queue
+  return createEmptyQueue();
+}
+
+function createEmptyQueue(): Queue {
+  return {
+    id: generateQueueFileId(),
+    status: 'active',
+    issue_ids: [],
+    queue: [],
+    conflicts: [],
+    _metadata: {
+      version: '2.0',
+      total_tasks: 0,
+      pending_count: 0,
+      executing_count: 0,
+      completed_count: 0,
+      failed_count: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+  };
+}
+
 function writeQueue(queue: Queue): void {
-  ensureIssuesDir();
+  ensureQueuesDir();
+
+  // Update metadata counts
   queue._metadata.total_tasks = queue.queue.length;
   queue._metadata.pending_count = queue.queue.filter(q => q.status === 'pending').length;
   queue._metadata.executing_count = queue.queue.filter(q => q.status === 'executing').length;
   queue._metadata.completed_count = queue.queue.filter(q => q.status === 'completed').length;
   queue._metadata.failed_count = queue.queue.filter(q => q.status === 'failed').length;
-  queue._metadata.last_updated = new Date().toISOString();
-  writeFileSync(join(getIssuesDir(), 'queue.json'), JSON.stringify(queue, null, 2), 'utf-8');
+  queue._metadata.updated_at = new Date().toISOString();
+
+  // Write queue file
+  const path = join(getQueuesDir(), `${queue.id}.json`);
+  writeFileSync(path, JSON.stringify(queue, null, 2), 'utf-8');
+
+  // Update index
+  const index = readQueueIndex();
+  const existingIdx = index.queues.findIndex(q => q.id === queue.id);
+
+  const indexEntry = {
+    id: queue.id,
+    status: queue.status,
+    issue_ids: queue.issue_ids,
+    total_tasks: queue._metadata.total_tasks,
+    completed_tasks: queue._metadata.completed_count,
+    created_at: queue._metadata.created_at,
+    completed_at: queue.status === 'completed' ? new Date().toISOString() : undefined
+  };
+
+  if (existingIdx >= 0) {
+    index.queues[existingIdx] = indexEntry;
+  } else {
+    index.queues.unshift(indexEntry);
+  }
+
+  if (queue.status === 'active') {
+    index.active_queue_id = queue.id;
+  }
+
+  writeQueueIndex(index);
 }
 
-function generateQueueId(queue: Queue): string {
+function generateQueueItemId(queue: Queue): string {
   const maxNum = queue.queue.reduce((max, q) => {
     const match = q.queue_id.match(/^Q-(\d+)$/);
     return match ? Math.max(max, parseInt(match[1])) : max;
@@ -379,17 +514,19 @@ async function listAction(issueId: string | undefined, options: IssueOptions): P
 async function statusAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
   if (!issueId) {
     // Show queue status
-    const queue = readQueue();
+    const queue = readActiveQueue();
     const issues = readIssues();
+    const index = readQueueIndex();
 
     if (options.json) {
-      console.log(JSON.stringify({ queue: queue._metadata, issues: issues.length }, null, 2));
+      console.log(JSON.stringify({ queue: queue._metadata, issues: issues.length, queues: index.queues.length }, null, 2));
       return;
     }
 
     console.log(chalk.bold.cyan('\nSystem Status\n'));
     console.log(`Issues: ${issues.length}`);
-    console.log(`Queue: ${queue._metadata.total_tasks} tasks`);
+    console.log(`Queues: ${index.queues.length} (Active: ${index.active_queue_id || 'none'})`);
+    console.log(`Active Queue: ${queue._metadata.total_tasks} tasks`);
     console.log(`  Pending: ${queue._metadata.pending_count}`);
     console.log(`  Executing: ${queue._metadata.executing_count}`);
     console.log(`  Completed: ${queue._metadata.completed_count}`);
@@ -497,7 +634,20 @@ async function taskAction(issueId: string | undefined, taskId: string | undefine
       action: 'Implement',
       description: options.description || options.title,
       implementation: [],
-      acceptance: ['Task completed successfully'],
+      test: {
+        unit: [],
+        commands: ['npm test']
+      },
+      regression: ['npm test'],
+      acceptance: {
+        criteria: ['Task completed successfully'],
+        verification: ['Manual verification']
+      },
+      commit: {
+        type: 'feat',
+        scope: 'core',
+        message_template: `feat(core): ${options.title}`
+      },
       depends_on: [],
       executor: (options.executor as any) || 'auto'
     };
@@ -590,13 +740,90 @@ async function bindAction(issueId: string | undefined, solutionId: string | unde
 }
 
 /**
- * queue - Queue management (list / add)
+ * queue - Queue management (list / add / history)
  */
 async function queueAction(subAction: string | undefined, issueId: string | undefined, options: IssueOptions): Promise<void> {
-  const queue = readQueue();
+  // List all queues (history)
+  if (subAction === 'list' || subAction === 'history') {
+    const index = readQueueIndex();
 
+    if (options.json) {
+      console.log(JSON.stringify(index, null, 2));
+      return;
+    }
+
+    console.log(chalk.bold.cyan('\nQueue History\n'));
+    console.log(chalk.gray(`Active: ${index.active_queue_id || 'none'}`));
+    console.log();
+
+    if (index.queues.length === 0) {
+      console.log(chalk.yellow('No queues found'));
+      console.log(chalk.gray('Create one: ccw issue queue add <issue-id>'));
+      return;
+    }
+
+    console.log(chalk.gray('ID'.padEnd(22) + 'Status'.padEnd(12) + 'Tasks'.padEnd(10) + 'Issues'));
+    console.log(chalk.gray('-'.repeat(70)));
+
+    for (const q of index.queues) {
+      const statusColor = {
+        'active': chalk.green,
+        'completed': chalk.cyan,
+        'archived': chalk.gray,
+        'failed': chalk.red
+      }[q.status] || chalk.white;
+
+      const marker = q.id === index.active_queue_id ? '→ ' : '  ';
+      console.log(
+        marker +
+        q.id.padEnd(20) +
+        statusColor(q.status.padEnd(12)) +
+        `${q.completed_tasks}/${q.total_tasks}`.padEnd(10) +
+        q.issue_ids.join(', ')
+      );
+    }
+    return;
+  }
+
+  // Switch active queue
+  if (subAction === 'switch' && issueId) {
+    const queueId = issueId; // issueId is actually queue ID here
+    const targetQueue = readQueue(queueId);
+
+    if (!targetQueue) {
+      console.error(chalk.red(`Queue "${queueId}" not found`));
+      process.exit(1);
+    }
+
+    const index = readQueueIndex();
+    index.active_queue_id = queueId;
+    writeQueueIndex(index);
+
+    console.log(chalk.green(`✓ Switched to queue ${queueId}`));
+    return;
+  }
+
+  // Archive current queue
+  if (subAction === 'archive') {
+    const queue = readActiveQueue();
+    if (!queue.id || queue.queue.length === 0) {
+      console.log(chalk.yellow('No active queue to archive'));
+      return;
+    }
+
+    queue.status = 'archived';
+    writeQueue(queue);
+
+    const index = readQueueIndex();
+    index.active_queue_id = null;
+    writeQueueIndex(index);
+
+    console.log(chalk.green(`✓ Archived queue ${queue.id}`));
+    return;
+  }
+
+  // Add issue tasks to queue
   if (subAction === 'add' && issueId) {
-    // Add issue tasks to queue
     const issue = findIssue(issueId);
     if (!issue) {
       console.error(chalk.red(`Issue "${issueId}" not found`));
@@ -610,13 +837,27 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
       process.exit(1);
     }
 
+    // Get or create active queue (create new if current is completed/archived)
+    let queue = readActiveQueue();
+    const isNewQueue = queue.queue.length === 0 || queue.status !== 'active';
+
+    if (queue.status !== 'active') {
+      // Create new queue if current is not active
+      queue = createEmptyQueue();
+    }
+
+    // Add issue to queue's issue list
+    if (!queue.issue_ids.includes(issueId)) {
+      queue.issue_ids.push(issueId);
+    }
+
     let added = 0;
     for (const task of solution.tasks) {
       const exists = queue.queue.some(q => q.issue_id === issueId && q.task_id === task.id);
       if (exists) continue;
 
       queue.queue.push({
-        queue_id: generateQueueId(queue),
+        queue_id: generateQueueItemId(queue),
         issue_id: issueId,
         solution_id: solution.id,
         task_id: task.id,
@@ -637,25 +878,34 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
     writeQueue(queue);
     updateIssue(issueId, { status: 'queued', queued_at: new Date().toISOString() });
 
-    console.log(chalk.green(`✓ Added ${added} tasks to queue from ${solution.id}`));
+    if (isNewQueue) {
+      console.log(chalk.green(`✓ Created queue ${queue.id}`));
+    }
+    console.log(chalk.green(`✓ Added ${added} tasks from ${solution.id}`));
     return;
   }
 
-  // List queue
+  // Show current queue
+  const queue = readActiveQueue();
+
   if (options.json) {
     console.log(JSON.stringify(queue, null, 2));
     return;
   }
 
-  console.log(chalk.bold.cyan('\nExecution Queue\n'));
-  console.log(chalk.gray(`Total: ${queue._metadata.total_tasks} | Pending: ${queue._metadata.pending_count} | Executing: ${queue._metadata.executing_count} | Completed: ${queue._metadata.completed_count}`));
-  console.log();
+  console.log(chalk.bold.cyan('\nActive Queue\n'));
 
-  if (queue.queue.length === 0) {
-    console.log(chalk.yellow('Queue is empty'));
-    console.log(chalk.gray('Add tasks: ccw issue queue add <issue-id>'));
+  if (!queue.id || queue.queue.length === 0) {
+    console.log(chalk.yellow('No active queue'));
+    console.log(chalk.gray('Create one: ccw issue queue add <issue-id>'));
+    console.log(chalk.gray('Or list history: ccw issue queue list'));
     return;
   }
+
+  console.log(chalk.gray(`Queue: ${queue.id}`));
+  console.log(chalk.gray(`Issues: ${queue.issue_ids.join(', ')}`));
+  console.log(chalk.gray(`Total: ${queue._metadata.total_tasks} | Pending: ${queue._metadata.pending_count} | Executing: ${queue._metadata.executing_count} | Completed: ${queue._metadata.completed_count}`));
+  console.log();
 
   console.log(chalk.gray('QueueID'.padEnd(10) + 'Issue'.padEnd(15) + 'Task'.padEnd(8) + 'Status'.padEnd(12) + 'Executor'));
   console.log(chalk.gray('-'.repeat(60)));
@@ -684,7 +934,7 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
  * next - Get next ready task for execution (JSON output)
  */
 async function nextAction(options: IssueOptions): Promise<void> {
-  const queue = readQueue();
+  const queue = readActiveQueue();
 
   // Find ready tasks
   const readyTasks = queue.queue.filter(item => {
@@ -749,7 +999,7 @@ async function doneAction(queueId: string | undefined, options: IssueOptions): P
     process.exit(1);
   }
 
-  const queue = readQueue();
+  const queue = readActiveQueue();
   const idx = queue.queue.findIndex(q => q.queue_id === queueId);
 
   if (idx === -1) {
@@ -771,31 +1021,49 @@ async function doneAction(queueId: string | undefined, options: IssueOptions): P
     }
   }
 
-  writeQueue(queue);
-
   // Check if all issue tasks are complete
   const issueId = queue.queue[idx].issue_id;
   const issueTasks = queue.queue.filter(q => q.issue_id === issueId);
-  const allComplete = issueTasks.every(q => q.status === 'completed');
-  const anyFailed = issueTasks.some(q => q.status === 'failed');
+  const allIssueComplete = issueTasks.every(q => q.status === 'completed');
+  const anyIssueFailed = issueTasks.some(q => q.status === 'failed');
 
-  if (allComplete) {
+  if (allIssueComplete) {
     updateIssue(issueId, { status: 'completed', completed_at: new Date().toISOString() });
     console.log(chalk.green(`✓ ${queueId} completed`));
     console.log(chalk.green(`✓ Issue ${issueId} completed (all tasks done)`));
-  } else if (anyFailed) {
+  } else if (anyIssueFailed) {
     updateIssue(issueId, { status: 'failed' });
     console.log(chalk.red(`✗ ${queueId} failed`));
   } else {
     console.log(isFail ? chalk.red(`✗ ${queueId} failed`) : chalk.green(`✓ ${queueId} completed`));
   }
+
+  // Check if entire queue is complete
+  const allQueueComplete = queue.queue.every(q => q.status === 'completed');
+  const anyQueueFailed = queue.queue.some(q => q.status === 'failed');
+
+  if (allQueueComplete) {
+    queue.status = 'completed';
+    console.log(chalk.green(`\n✓ Queue ${queue.id} completed (all tasks done)`));
+  } else if (anyQueueFailed && queue.queue.every(q => q.status === 'completed' || q.status === 'failed')) {
+    queue.status = 'failed';
+    console.log(chalk.yellow(`\n⚠ Queue ${queue.id} has failed tasks`));
+  }
+
+  writeQueue(queue);
 }
 
 /**
  * retry - Retry failed tasks
  */
 async function retryAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
-  const queue = readQueue();
+  const queue = readActiveQueue();
+
+  if (!queue.id || queue.queue.length === 0) {
+    console.log(chalk.yellow('No active queue'));
+    return;
+  }
+
   let updated = 0;
 
   for (const item of queue.queue) {
@@ -813,6 +1081,11 @@ async function retryAction(issueId: string | undefined, options: IssueOptions): 
   if (updated === 0) {
     console.log(chalk.yellow('No failed tasks to retry'));
     return;
+  }
+
+  // Reset queue status if it was failed
+  if (queue.status === 'failed') {
+    queue.status = 'active';
   }
 
   writeQueue(queue);
@@ -873,7 +1146,7 @@ export async function issueCommand(
       await doneAction(argsArray[0], { ...options, fail: true });
       break;
     default:
-      console.log(chalk.bold.cyan('\nCCW Issue Management (v2.0 - Unified JSONL)\n'));
+      console.log(chalk.bold.cyan('\nCCW Issue Management (v3.0 - Multi-Queue + Lifecycle)\n'));
       console.log(chalk.bold('Core Commands:'));
       console.log(chalk.gray('  init <issue-id>                    Initialize new issue'));
       console.log(chalk.gray('  list [issue-id]                    List issues or tasks'));
@@ -882,8 +1155,11 @@ export async function issueCommand(
       console.log(chalk.gray('  bind <issue-id> [sol-id]           Bind solution (--solution <path> to register)'));
       console.log();
       console.log(chalk.bold('Queue Commands:'));
-      console.log(chalk.gray('  queue [list]                       Show execution queue'));
-      console.log(chalk.gray('  queue add <issue-id>               Add bound solution tasks to queue'));
+      console.log(chalk.gray('  queue                              Show active queue'));
+      console.log(chalk.gray('  queue list                         List all queues (history)'));
+      console.log(chalk.gray('  queue add <issue-id>               Add issue to active queue (or create new)'));
+      console.log(chalk.gray('  queue switch <queue-id>            Switch active queue'));
+      console.log(chalk.gray('  queue archive                      Archive current queue'));
       console.log(chalk.gray('  retry [issue-id]                   Retry failed tasks'));
       console.log();
       console.log(chalk.bold('Execution Endpoints:'));
@@ -902,6 +1178,7 @@ export async function issueCommand(
       console.log(chalk.bold('Storage:'));
       console.log(chalk.gray('  .workflow/issues/issues.jsonl      All issues'));
       console.log(chalk.gray('  .workflow/issues/solutions/*.jsonl Solutions per issue'));
-      console.log(chalk.gray('  .workflow/issues/queue.json        Execution queue'));
+      console.log(chalk.gray('  .workflow/issues/queues/           Queue files (multi-queue)'));
+      console.log(chalk.gray('  .workflow/issues/queues/index.json Queue index'));
   }
 }

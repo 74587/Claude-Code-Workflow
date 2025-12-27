@@ -168,16 +168,22 @@ async function loadAvailableSkills() {
     if (!response.ok) throw new Error('Failed to load skills');
     const data = await response.json();
 
+    // Combine project and user skills (API returns { projectSkills: [], userSkills: [] })
+    const allSkills = [
+      ...(data.projectSkills || []).map(s => ({ ...s, scope: 'project' })),
+      ...(data.userSkills || []).map(s => ({ ...s, scope: 'user' }))
+    ];
+
     const container = document.getElementById('skill-discovery-skill-context');
-    if (container && data.skills) {
-      if (data.skills.length === 0) {
+    if (container) {
+      if (allSkills.length === 0) {
         container.innerHTML = `
           <span class="font-mono bg-muted px-1.5 py-0.5 rounded">${t('hook.wizard.availableSkills')}</span>
           <span class="text-muted-foreground ml-2">${t('hook.wizard.noSkillsFound').split('.')[0]}</span>
         `;
       } else {
-        const skillBadges = data.skills.map(skill => `
-          <span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded" title="${escapeHtml(skill.description)}">${escapeHtml(skill.name)}</span>
+        const skillBadges = allSkills.map(skill => `
+          <span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded" title="${escapeHtml(skill.description || '')}">${escapeHtml(skill.name)}</span>
         `).join('');
         container.innerHTML = `
           <span class="font-mono bg-muted px-1.5 py-0.5 rounded">${t('hook.wizard.availableSkills')}</span>
@@ -187,7 +193,7 @@ async function loadAvailableSkills() {
     }
 
     // Store skills for wizard use
-    window.availableSkills = data.skills || [];
+    window.availableSkills = allSkills;
   } catch (err) {
     console.error('Failed to load skills:', err);
     const container = document.getElementById('skill-discovery-skill-context');

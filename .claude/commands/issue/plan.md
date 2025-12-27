@@ -133,28 +133,59 @@ TodoWrite({
 for (const [batchIndex, batch] of batches.entries()) {
   updateTodo(`Plan batch ${batchIndex + 1}`, 'in_progress');
 
-  // Build issue prompt for agent
+  // Build issue prompt for agent with lifecycle requirements
   const issuePrompt = `
-## Issues to Plan
+## Issues to Plan (Closed-Loop Tasks Required)
 
 ${batch.map((issue, i) => `
 ### Issue ${i + 1}: ${issue.id}
 **Title**: ${issue.title}
 **Context**: ${issue.context || 'No context provided'}
+**Affected Components**: ${issue.affected_components?.join(', ') || 'Not specified'}
+
+**Lifecycle Requirements**:
+- Test Strategy: ${issue.lifecycle_requirements?.test_strategy || 'auto'}
+- Regression Scope: ${issue.lifecycle_requirements?.regression_scope || 'affected'}
+- Commit Strategy: ${issue.lifecycle_requirements?.commit_strategy || 'per-task'}
 `).join('\n')}
 
 ## Project Root
 ${process.cwd()}
 
-## Requirements
+## Requirements - CLOSED-LOOP TASKS
+
+Each task MUST include ALL lifecycle phases:
+
+### 1. Implementation
+- implementation: string[] (2-7 concrete steps)
+- modification_points: { file, target, change }[]
+
+### 2. Test
+- test.unit: string[] (unit test requirements)
+- test.integration: string[] (integration test requirements if needed)
+- test.commands: string[] (actual test commands to run)
+- test.coverage_target: number (minimum coverage %)
+
+### 3. Regression
+- regression: string[] (commands to run for regression check)
+- Based on issue's regression_scope setting
+
+### 4. Acceptance
+- acceptance.criteria: string[] (testable acceptance criteria)
+- acceptance.verification: string[] (how to verify each criterion)
+- acceptance.manual_checks: string[] (manual checks if needed)
+
+### 5. Commit
+- commit.type: feat|fix|refactor|test|docs|chore
+- commit.scope: string (module name)
+- commit.message_template: string (full commit message)
+- commit.breaking: boolean
+
+## Additional Requirements
 1. Use ACE semantic search (mcp__ace-tool__search_context) for exploration
-2. Generate complete solution with task breakdown
-3. Each task must have:
-   - implementation steps (2-7 steps)
-   - acceptance criteria (1-4 testable criteria)
-   - modification_points (exact file locations)
-   - depends_on (task dependencies)
-4. Detect file conflicts if multiple issues
+2. Detect file conflicts if multiple issues
+3. Generate executable test commands based on project's test framework
+4. Infer commit scope from affected files
 `;
 
   // Launch issue-plan-agent (combines explore + plan)
@@ -281,7 +312,7 @@ ${issues.map(i => {
 `);
 ```
 
-## Solution Format
+## Solution Format (Closed-Loop Tasks)
 
 Each solution line in `solutions/{issue-id}.jsonl`:
 
@@ -299,18 +330,56 @@ Each solution line in `solutions/{issue-id}.jsonl`:
       "modification_points": [
         { "file": "src/middleware/auth.ts", "target": "new file", "change": "Create middleware" }
       ],
+
       "implementation": [
-        "Create auth.ts file",
-        "Implement JWT validation",
-        "Add error handling",
-        "Export middleware"
+        "Create auth.ts file in src/middleware/",
+        "Implement JWT token validation using jsonwebtoken",
+        "Add error handling for invalid/expired tokens",
+        "Export middleware function"
       ],
-      "acceptance": [
-        "Middleware validates JWT tokens",
-        "Returns 401 for invalid tokens"
+
+      "test": {
+        "unit": [
+          "Test valid token passes through",
+          "Test invalid token returns 401",
+          "Test expired token returns 401",
+          "Test missing token returns 401"
+        ],
+        "commands": [
+          "npm test -- --grep 'auth middleware'",
+          "npm run test:coverage -- src/middleware/auth.ts"
+        ],
+        "coverage_target": 80
+      },
+
+      "regression": [
+        "npm test -- --grep 'protected routes'",
+        "npm run test:integration -- auth"
       ],
+
+      "acceptance": {
+        "criteria": [
+          "Middleware validates JWT tokens successfully",
+          "Returns 401 for invalid or missing tokens",
+          "Passes decoded token to request context"
+        ],
+        "verification": [
+          "curl -H 'Authorization: Bearer valid_token' /api/protected → 200",
+          "curl /api/protected → 401",
+          "curl -H 'Authorization: Bearer invalid' /api/protected → 401"
+        ]
+      },
+
+      "commit": {
+        "type": "feat",
+        "scope": "auth",
+        "message_template": "feat(auth): add JWT validation middleware\n\n- Implement token validation\n- Add error handling for invalid tokens\n- Export for route protection",
+        "breaking": false
+      },
+
       "depends_on": [],
-      "estimated_minutes": 30
+      "estimated_minutes": 30,
+      "executor": "codex"
     }
   ],
   "exploration_context": {
