@@ -618,6 +618,16 @@
         <span data-i18n="cliStream.title">CLI Stream</span>
         <span class="cli-stream-count-badge" id="cliStreamCountBadge">0</span>
       </div>
+      <div class="cli-stream-search">
+        <i data-lucide="search" class="cli-stream-search-icon"></i>
+        <input type="text"
+               id="cliStreamSearchInput"
+               class="cli-stream-search-input"
+               placeholder="Search output..."
+               oninput="handleSearchInput(event)"
+               data-i18n-placeholder="cliStream.searchPlaceholder">
+        <button class="cli-stream-search-clear" onclick="clearSearch()" title="Clear search">&times;</button>
+      </div>
       <div class="cli-stream-actions">
         <button class="cli-stream-action-btn" onclick="clearCompletedStreams()" data-i18n="cliStream.clearCompleted">
           <i data-lucide="trash-2"></i>

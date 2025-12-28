@@ -55,6 +55,8 @@ const i18n = {
     'cliStream.close': 'Close',
     'cliStream.cannotCloseRunning': 'Cannot close running execution',
     'cliStream.lines': 'lines',
+    'cliStream.searchPlaceholder': 'Search output...',
+    'cliStream.filterResults': 'results',
 
     // Sidebar - Project section
     'nav.project': 'Project',
@@ -1975,6 +1977,8 @@ const i18n = {
     'cliStream.close': '关闭',
     'cliStream.cannotCloseRunning': '无法关闭运行中的执行',
     'cliStream.lines': '行',
+    'cliStream.searchPlaceholder': '搜索输出...',
+    'cliStream.filterResults': '条结果',
 
     // Sidebar - Project section
     'nav.project': '项目',

@@ -17,10 +17,23 @@ function initCliStreamViewer() {
   // Initialize keyboard shortcuts
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' && isCliStreamViewerOpen) {
-      toggleCliStreamViewer();
+      if (searchFilter) {
+        clearSearch();
+      } else {
+        toggleCliStreamViewer();
+      }
+    }
+    // Ctrl+F to focus search when viewer is open
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f' && isCliStreamViewerOpen) {
+      e.preventDefault();
+      const searchInput = document.getElementById('cliStreamSearchInput');
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
     }
   });
-  
+
   // Initialize scroll detection for auto-scroll
   const content = document.getElementById('cliStreamContent');
   if (content) {
@@ -491,7 +504,9 @@ function _streamT(key) {
     'cliStream.autoScroll': 'Auto-scroll',
     'cliStream.close': 'Close',
     'cliStream.cannotCloseRunning': 'Cannot close running execution',
-    'cliStream.lines': 'lines'
+    'cliStream.lines': 'lines',
+    'cliStream.searchPlaceholder': 'Search output...',
+    'cliStream.filterResults': 'results'
   };
   return fallbacks[key] || key;
 }
