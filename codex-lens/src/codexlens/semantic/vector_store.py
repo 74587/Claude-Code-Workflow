@@ -36,6 +36,9 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Epsilon used to guard against floating point precision edge cases (e.g., near-zero norms).
+EPSILON = 1e-10
+
 
 def _cosine_similarity(a: List[float], b: List[float]) -> float:
     """Compute cosine similarity between two vectors."""
@@ -48,7 +51,6 @@ def _cosine_similarity(a: List[float], b: List[float]) -> float:
     norm_a = np.linalg.norm(a_arr)
     norm_b = np.linalg.norm(b_arr)
 
-    EPSILON = 1e-10
     # Use epsilon tolerance to avoid division by (near-)zero due to floating point precision.
     if norm_a < EPSILON or norm_b < EPSILON:
         return 0.0
@@ -313,7 +315,7 @@ class VectorStore:
             )
             # Avoid division by zero
             self._embedding_norms = np.where(
-                self._embedding_norms == 0, 1e-10, self._embedding_norms
+                self._embedding_norms == 0, EPSILON, self._embedding_norms
             )
 
             return True
