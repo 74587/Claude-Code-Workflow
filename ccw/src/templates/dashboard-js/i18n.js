@@ -560,8 +560,6 @@ const i18n = {
     'cli.recursiveQueryDesc': 'Aggregate CLI history and memory data from parent and child projects',
     'cli.maxContextFiles': 'Max Context Files',
     'cli.maxContextFilesDesc': 'Maximum files to include in smart context',
-    'cli.codeIndexMcp': 'Code Index MCP',
-    'cli.codeIndexMcpDesc': 'Code search provider (updates CLAUDE.md context-tools reference)',
 
     // CCW Install
     'ccw.install': 'CCW Install',
@@ -2414,8 +2412,6 @@ const i18n = {
     'cli.recursiveQueryDesc': '聚合显示父项目和子项目的 CLI 历史与内存数据',
     'cli.maxContextFiles': '最大上下文文件数',
     'cli.maxContextFilesDesc': '智能上下文包含的最大文件数',
-    'cli.codeIndexMcp': '代码索引 MCP',
-    'cli.codeIndexMcpDesc': '代码搜索提供者 (更新 CLAUDE.md 的 context-tools 引用)',
 
     // CCW Install
     'ccw.install': 'CCW 安装',

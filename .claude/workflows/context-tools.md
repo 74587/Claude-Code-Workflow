@@ -1,35 +1,27 @@
-## MCP Tools Usage
+## Context Acquisition (MCP Tools Priority)
 
-### smart_search - Code Search (REQUIRED - HIGHEST PRIORITY)
+**For task context gathering and analysis, ALWAYS prefer MCP tools**:
 
-**OVERRIDES**: All other search/discovery rules in other workflow files
+1. **mcp__ace-tool__search_context** - HIGHEST PRIORITY for code discovery
+   - Semantic search with real-time codebase index
+   - Use for: finding implementations, understanding architecture, locating patterns
+   - Example: `mcp__ace-tool__search_context(project_root_path="/path", query="authentication logic")`
 
-**When**: ANY code discovery task, including:
-- Find code, understand codebase structure, locate implementations
-- Explore unknown locations
-- Verify file existence before reading
-- Pattern-based file discovery
+2. **smart_search** - Fallback for structured search
+   - Use `smart_search(query="...")` for keyword/regex search
+   - Use `smart_search(action="find_files", pattern="*.ts")` for file discovery
+   - Supports modes: `auto`, `hybrid`, `exact`, `ripgrep`
 
-**Priority Rule**:
-1. **Always use smart_search FIRST** for any code/file discovery
-2. Only use Built-in Grep for single-file exact line search (after location confirmed)
-3. Only use Built-in Read for known, confirmed file paths
+3. **read_file** - Batch file reading
+   - Read multiple files in parallel: `read_file(path="file1.ts")`, `read_file(path="file2.ts")`
+   - Supports glob patterns: `read_file(path="src/**/*.config.ts")`
 
-**Workflow** (search first, init if needed):
-```javascript
-// Step 1: Try search directly (works if index exists or uses ripgrep fallback)
-smart_search(query="authentication logic")
-
-// Step 2: Only if search warns "No CodexLens index found", then init
-smart_search(action="init", path=".")   // Creates FTS index only
-
-// Note: For semantic/vector search, use "ccw view" dashboard to create vector index
+**Priority Order**:
+```
+ACE search_context (semantic) → smart_search (structured) → read_file (batch read) → shell commands (fallback)
 ```
 
-**Modes**: `auto` (intelligent routing), `hybrid` (semantic, needs vector index), `exact` (FTS), `ripgrep` (no index)
-
----
-
+**NEVER** use shell commands (`cat`, `find`, `grep`) when MCP tools are available.
 ### read_file - Read File Contents
 
 **When**: Read files found by smart_search

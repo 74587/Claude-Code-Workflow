@@ -987,24 +987,6 @@ function renderCliSettingsSection() {
         '</div>' +
         '<p class="cli-setting-desc">' + t('cli.maxContextFilesDesc') + '</p>' +
       '</div>' +
-      '<div class="cli-setting-item">' +
-        '<label class="cli-setting-label">' +
-          '<i data-lucide="search" class="w-3 h-3"></i>' +
-          t('cli.codeIndexMcp') +
-        '</label>' +
-        '<div class="cli-setting-control">' +
-          '<select class="cli-setting-select" onchange="setCodeIndexMcpProvider(this.value)">' +
-            '<option value="codexlens"' + (codeIndexMcpProvider === 'codexlens' ? ' selected' : '') + '>CodexLens</option>' +
-            '<option value="ace"' + (codeIndexMcpProvider === 'ace' ? ' selected' : '') + '>ACE (Augment)</option>' +
-            '<option value="none"' + (codeIndexMcpProvider === 'none' ? ' selected' : '') + '>None (Built-in)</option>' +
-          '</select>' +
-        '</div>' +
-        '<p class="cli-setting-desc">' + t('cli.codeIndexMcpDesc') + '</p>' +
-        '<p class="cli-setting-desc text-xs text-muted-foreground">' +
-          '<i data-lucide="file-text" class="w-3 h-3 inline-block mr-1"></i>' +
-          'Current: <code class="bg-muted px-1 rounded">' + getContextToolsFileName(codeIndexMcpProvider) + '</code>' +
-        '</p>' +
-      '</div>' +
     '</div>';
 
   container.innerHTML = settingsHtml;
