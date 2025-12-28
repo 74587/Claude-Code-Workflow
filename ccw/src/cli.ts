@@ -284,6 +284,7 @@ export function run(argv: string[]): void {
     .option('--solution-id <id>', 'Solution ID')
     .option('--result <json>', 'Execution result JSON')
     .option('--reason <text>', 'Failure reason')
+    .option('--fail', 'Mark task as failed')
     .action((subcommand, args, options) => issueCommand(subcommand, args, options));
 
   program.parse(argv);
