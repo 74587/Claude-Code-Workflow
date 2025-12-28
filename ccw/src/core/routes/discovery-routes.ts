@@ -1,0 +1,454 @@
+// @ts-nocheck
+/**
+ * Discovery Routes Module
+ *
+ * Storage Structure:
+ * .workflow/issues/discoveries/
+ * ├── index.json                    # Discovery session index
+ * └── {discovery-id}/
+ *     ├── discovery-state.json      # State machine
+ *     ├── discovery-progress.json   # Real-time progress
+ *     ├── perspectives/             # Per-perspective results
+ *     │   ├── bug.json
+ *     │   └── ...
+ *     ├── external-research.json    # Exa research results
+ *     ├── discovery-issues.jsonl    # Generated candidate issues
+ *     └── reports/
+ *
+ * API Endpoints:
+ * - GET    /api/discoveries              - List all discovery sessions
+ * - GET    /api/discoveries/:id          - Get discovery session detail
+ * - GET    /api/discoveries/:id/findings - Get all findings
+ * - GET    /api/discoveries/:id/progress - Get real-time progress
+ * - POST   /api/discoveries/:id/export   - Export findings as issues
+ * - PATCH  /api/discoveries/:id/findings/:fid - Update finding status
+ * - DELETE /api/discoveries/:id          - Delete discovery session
+ */
+import type { IncomingMessage, ServerResponse } from 'http';
+import { readFileSync, existsSync, writeFileSync, mkdirSync, readdirSync, rmSync } from 'fs';
+import { join } from 'path';
+
+export interface RouteContext {
+  pathname: string;
+  url: URL;
+  req: IncomingMessage;
+  res: ServerResponse;
+  initialPath: string;
+  handlePostRequest: (req: IncomingMessage, res: ServerResponse, handler: (body: unknown) => Promise<any>) => void;
+  broadcastToClients: (data: unknown) => void;
+}
+
+// ========== Helper Functions ==========
+
+function getDiscoveriesDir(projectPath: string): string {
+  return join(projectPath, '.workflow', 'issues', 'discoveries');
+}
+
+function readDiscoveryIndex(discoveriesDir: string): { discoveries: any[]; total: number } {
+  const indexPath = join(discoveriesDir, 'index.json');
+  if (!existsSync(indexPath)) {
+    return { discoveries: [], total: 0 };
+  }
+  try {
+    return JSON.parse(readFileSync(indexPath, 'utf8'));
+  } catch {
+    return { discoveries: [], total: 0 };
+  }
+}
+
+function writeDiscoveryIndex(discoveriesDir: string, index: any) {
+  if (!existsSync(discoveriesDir)) {
+    mkdirSync(discoveriesDir, { recursive: true });
+  }
+  writeFileSync(join(discoveriesDir, 'index.json'), JSON.stringify(index, null, 2));
+}
+
+function readDiscoveryState(discoveriesDir: string, discoveryId: string): any | null {
+  const statePath = join(discoveriesDir, discoveryId, 'discovery-state.json');
+  if (!existsSync(statePath)) return null;
+  try {
+    return JSON.parse(readFileSync(statePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function readDiscoveryProgress(discoveriesDir: string, discoveryId: string): any | null {
+  const progressPath = join(discoveriesDir, discoveryId, 'discovery-progress.json');
+  if (!existsSync(progressPath)) return null;
+  try {
+    return JSON.parse(readFileSync(progressPath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function readPerspectiveFindings(discoveriesDir: string, discoveryId: string): any[] {
+  const perspectivesDir = join(discoveriesDir, discoveryId, 'perspectives');
+  if (!existsSync(perspectivesDir)) return [];
+
+  const allFindings: any[] = [];
+  const files = readdirSync(perspectivesDir).filter(f => f.endsWith('.json'));
+
+  for (const file of files) {
+    try {
+      const content = JSON.parse(readFileSync(join(perspectivesDir, file), 'utf8'));
+      const perspective = file.replace('.json', '');
+
+      if (content.findings && Array.isArray(content.findings)) {
+        allFindings.push({
+          perspective,
+          summary: content.summary || {},
+          findings: content.findings.map((f: any) => ({
+            ...f,
+            perspective: f.perspective || perspective
+          }))
+        });
+      }
+    } catch {
+      // Skip invalid files
+    }
+  }
+
+  return allFindings;
+}
+
+function readDiscoveryIssues(discoveriesDir: string, discoveryId: string): any[] {
+  const issuesPath = join(discoveriesDir, discoveryId, 'discovery-issues.jsonl');
+  if (!existsSync(issuesPath)) return [];
+  try {
+    const content = readFileSync(issuesPath, 'utf8');
+    return content.split('\n').filter(line => line.trim()).map(line => JSON.parse(line));
+  } catch {
+    return [];
+  }
+}
+
+function writeDiscoveryIssues(discoveriesDir: string, discoveryId: string, issues: any[]) {
+  const issuesPath = join(discoveriesDir, discoveryId, 'discovery-issues.jsonl');
+  writeFileSync(issuesPath, issues.map(i => JSON.stringify(i)).join('\n'));
+}
+
+function flattenFindings(perspectiveResults: any[]): any[] {
+  const allFindings: any[] = [];
+  for (const result of perspectiveResults) {
+    if (result.findings) {
+      allFindings.push(...result.findings);
+    }
+  }
+  return allFindings;
+}
+
+function appendToIssuesJsonl(projectPath: string, issues: any[]) {
+  const issuesDir = join(projectPath, '.workflow', 'issues');
+  const issuesPath = join(issuesDir, 'issues.jsonl');
+
+  if (!existsSync(issuesDir)) {
+    mkdirSync(issuesDir, { recursive: true });
+  }
+
+  // Read existing issues
+  let existingIssues: any[] = [];
+  if (existsSync(issuesPath)) {
+    try {
+      const content = readFileSync(issuesPath, 'utf8');
+      existingIssues = content.split('\n').filter(line => line.trim()).map(line => JSON.parse(line));
+    } catch {
+      // Start fresh
+    }
+  }
+
+  // Convert discovery issues to standard format and append
+  const newIssues = issues.map(di => ({
+    id: di.id,
+    title: di.title,
+    status: 'registered',
+    priority: di.priority || 3,
+    context: di.context || di.description || '',
+    source: 'discovery',
+    source_discovery_id: di.source_discovery_id,
+    labels: di.labels || [],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }));
+
+  const allIssues = [...existingIssues, ...newIssues];
+  writeFileSync(issuesPath, allIssues.map(i => JSON.stringify(i)).join('\n'));
+
+  return newIssues.length;
+}
+
+// ========== Route Handler ==========
+
+export async function handleDiscoveryRoutes(ctx: RouteContext): Promise<boolean> {
+  const { pathname, url, req, res, initialPath, handlePostRequest } = ctx;
+  const projectPath = url.searchParams.get('path') || initialPath;
+  const discoveriesDir = getDiscoveriesDir(projectPath);
+
+  // GET /api/discoveries - List all discovery sessions
+  if (pathname === '/api/discoveries' && req.method === 'GET') {
+    const index = readDiscoveryIndex(discoveriesDir);
+
+    // Enrich with state info
+    const enrichedDiscoveries = index.discoveries.map((d: any) => {
+      const state = readDiscoveryState(discoveriesDir, d.discovery_id);
+      const progress = readDiscoveryProgress(discoveriesDir, d.discovery_id);
+      return {
+        ...d,
+        phase: state?.phase || 'unknown',
+        total_findings: state?.total_findings || 0,
+        issues_generated: state?.issues_generated || 0,
+        priority_distribution: state?.priority_distribution || {},
+        progress: progress?.progress || null
+      };
+    });
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      discoveries: enrichedDiscoveries,
+      total: enrichedDiscoveries.length,
+      _metadata: { updated_at: new Date().toISOString() }
+    }));
+    return true;
+  }
+
+  // GET /api/discoveries/:id - Get discovery detail
+  const detailMatch = pathname.match(/^\/api\/discoveries\/([^/]+)$/);
+  if (detailMatch && req.method === 'GET') {
+    const discoveryId = detailMatch[1];
+    const state = readDiscoveryState(discoveriesDir, discoveryId);
+
+    if (!state) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `Discovery ${discoveryId} not found` }));
+      return true;
+    }
+
+    const progress = readDiscoveryProgress(discoveriesDir, discoveryId);
+    const perspectiveResults = readPerspectiveFindings(discoveriesDir, discoveryId);
+    const discoveryIssues = readDiscoveryIssues(discoveriesDir, discoveryId);
+
+    // Read external research if exists
+    let externalResearch = null;
+    const externalPath = join(discoveriesDir, discoveryId, 'external-research.json');
+    if (existsSync(externalPath)) {
+      try {
+        externalResearch = JSON.parse(readFileSync(externalPath, 'utf8'));
+      } catch {
+        // Ignore
+      }
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      ...state,
+      progress: progress?.progress || null,
+      perspectives: perspectiveResults,
+      external_research: externalResearch,
+      discovery_issues: discoveryIssues
+    }));
+    return true;
+  }
+
+  // GET /api/discoveries/:id/findings - Get all findings
+  const findingsMatch = pathname.match(/^\/api\/discoveries\/([^/]+)\/findings$/);
+  if (findingsMatch && req.method === 'GET') {
+    const discoveryId = findingsMatch[1];
+
+    if (!existsSync(join(discoveriesDir, discoveryId))) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `Discovery ${discoveryId} not found` }));
+      return true;
+    }
+
+    const perspectiveResults = readPerspectiveFindings(discoveriesDir, discoveryId);
+    const allFindings = flattenFindings(perspectiveResults);
+
+    // Support filtering
+    const perspectiveFilter = url.searchParams.get('perspective');
+    const priorityFilter = url.searchParams.get('priority');
+
+    let filtered = allFindings;
+    if (perspectiveFilter) {
+      filtered = filtered.filter(f => f.perspective === perspectiveFilter);
+    }
+    if (priorityFilter) {
+      filtered = filtered.filter(f => f.priority === priorityFilter);
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      findings: filtered,
+      total: filtered.length,
+      perspectives: [...new Set(allFindings.map(f => f.perspective))],
+      _metadata: { discovery_id: discoveryId }
+    }));
+    return true;
+  }
+
+  // GET /api/discoveries/:id/progress - Get real-time progress
+  const progressMatch = pathname.match(/^\/api\/discoveries\/([^/]+)\/progress$/);
+  if (progressMatch && req.method === 'GET') {
+    const discoveryId = progressMatch[1];
+    const progress = readDiscoveryProgress(discoveriesDir, discoveryId);
+
+    if (!progress) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `Progress for ${discoveryId} not found` }));
+      return true;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(progress));
+    return true;
+  }
+
+  // POST /api/discoveries/:id/export - Export findings as issues
+  const exportMatch = pathname.match(/^\/api\/discoveries\/([^/]+)\/export$/);
+  if (exportMatch && req.method === 'POST') {
+    handlePostRequest(req, res, async (body: any) => {
+      const discoveryId = exportMatch[1];
+      const { finding_ids, export_all } = body as { finding_ids?: string[]; export_all?: boolean };
+
+      if (!existsSync(join(discoveriesDir, discoveryId))) {
+        return { error: `Discovery ${discoveryId} not found` };
+      }
+
+      const perspectiveResults = readPerspectiveFindings(discoveriesDir, discoveryId);
+      const allFindings = flattenFindings(perspectiveResults);
+
+      let toExport: any[];
+      if (export_all) {
+        toExport = allFindings;
+      } else if (finding_ids && finding_ids.length > 0) {
+        toExport = allFindings.filter(f => finding_ids.includes(f.id));
+      } else {
+        return { error: 'Either finding_ids or export_all required' };
+      }
+
+      if (toExport.length === 0) {
+        return { error: 'No findings to export' };
+      }
+
+      // Convert findings to issue format
+      const issuesToExport = toExport.map((f, idx) => {
+        const suggestedIssue = f.suggested_issue || {};
+        return {
+          id: `ISS-${Date.now()}-${idx}`,
+          title: suggestedIssue.title || f.title,
+          priority: suggestedIssue.priority || 3,
+          context: f.description || '',
+          source: 'discovery',
+          source_discovery_id: discoveryId,
+          perspective: f.perspective,
+          file: f.file,
+          line: f.line,
+          labels: suggestedIssue.labels || [f.perspective]
+        };
+      });
+
+      // Append to main issues.jsonl
+      const exportedCount = appendToIssuesJsonl(projectPath, issuesToExport);
+
+      // Update discovery state
+      const state = readDiscoveryState(discoveriesDir, discoveryId);
+      if (state) {
+        state.issues_generated = (state.issues_generated || 0) + exportedCount;
+        writeFileSync(
+          join(discoveriesDir, discoveryId, 'discovery-state.json'),
+          JSON.stringify(state, null, 2)
+        );
+      }
+
+      return {
+        success: true,
+        exported_count: exportedCount,
+        issue_ids: issuesToExport.map(i => i.id)
+      };
+    });
+    return true;
+  }
+
+  // PATCH /api/discoveries/:id/findings/:fid - Update finding status
+  const updateFindingMatch = pathname.match(/^\/api\/discoveries\/([^/]+)\/findings\/([^/]+)$/);
+  if (updateFindingMatch && req.method === 'PATCH') {
+    handlePostRequest(req, res, async (body: any) => {
+      const [, discoveryId, findingId] = updateFindingMatch;
+      const { status, dismissed } = body as { status?: string; dismissed?: boolean };
+
+      const perspectivesDir = join(discoveriesDir, discoveryId, 'perspectives');
+      if (!existsSync(perspectivesDir)) {
+        return { error: `Discovery ${discoveryId} not found` };
+      }
+
+      // Find and update the finding
+      const files = readdirSync(perspectivesDir).filter(f => f.endsWith('.json'));
+      let updated = false;
+
+      for (const file of files) {
+        const filePath = join(perspectivesDir, file);
+        try {
+          const content = JSON.parse(readFileSync(filePath, 'utf8'));
+          if (content.findings) {
+            const findingIndex = content.findings.findIndex((f: any) => f.id === findingId);
+            if (findingIndex !== -1) {
+              if (status !== undefined) {
+                content.findings[findingIndex].status = status;
+              }
+              if (dismissed !== undefined) {
+                content.findings[findingIndex].dismissed = dismissed;
+              }
+              content.findings[findingIndex].updated_at = new Date().toISOString();
+              writeFileSync(filePath, JSON.stringify(content, null, 2));
+              updated = true;
+              break;
+            }
+          }
+        } catch {
+          // Skip invalid files
+        }
+      }
+
+      if (!updated) {
+        return { error: `Finding ${findingId} not found` };
+      }
+
+      return { success: true, finding_id: findingId };
+    });
+    return true;
+  }
+
+  // DELETE /api/discoveries/:id - Delete discovery session
+  const deleteMatch = pathname.match(/^\/api\/discoveries\/([^/]+)$/);
+  if (deleteMatch && req.method === 'DELETE') {
+    const discoveryId = deleteMatch[1];
+    const discoveryPath = join(discoveriesDir, discoveryId);
+
+    if (!existsSync(discoveryPath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `Discovery ${discoveryId} not found` }));
+      return true;
+    }
+
+    try {
+      // Remove directory
+      rmSync(discoveryPath, { recursive: true, force: true });
+
+      // Update index
+      const index = readDiscoveryIndex(discoveriesDir);
+      index.discoveries = index.discoveries.filter((d: any) => d.discovery_id !== discoveryId);
+      index.total = index.discoveries.length;
+      writeDiscoveryIndex(discoveriesDir, index);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, deleted: discoveryId }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to delete discovery' }));
+    }
+    return true;
+  }
+
+  // Not handled
+  return false;
+}

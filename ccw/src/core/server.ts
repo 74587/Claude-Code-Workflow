@@ -18,6 +18,7 @@ import { handleSystemRoutes } from './routes/system-routes.js';
 import { handleFilesRoutes } from './routes/files-routes.js';
 import { handleSkillsRoutes } from './routes/skills-routes.js';
 import { handleIssueRoutes } from './routes/issue-routes.js';
+import { handleDiscoveryRoutes } from './routes/discovery-routes.js';
 import { handleRulesRoutes } from './routes/rules-routes.js';
 import { handleSessionRoutes } from './routes/session-routes.js';
 import { handleCcwRoutes } from './routes/ccw-routes.js';
@@ -89,7 +90,8 @@ const MODULE_CSS_FILES = [
   '30-core-memory.css',
   '31-api-settings.css',
   '32-issue-manager.css',
-  '33-cli-stream-viewer.css'
+  '33-cli-stream-viewer.css',
+  '34-discovery.css'
 ];
 
 // Modular JS files in dependency order
@@ -147,6 +149,7 @@ const MODULE_FILES = [
   'views/api-settings.js',
   'views/help.js',
   'views/issue-manager.js',
+  'views/issue-discovery.js',
   'main.js'
 ];
 
@@ -353,6 +356,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // Issue routes (/api/issues*)
       if (pathname.startsWith('/api/issues')) {
         if (await handleIssueRoutes(routeContext)) return;
+      }
+
+      // Discovery routes (/api/discoveries*)
+      if (pathname.startsWith('/api/discoveries')) {
+        if (await handleDiscoveryRoutes(routeContext)) return;
       }
 
       // Rules routes (/api/rules*)
