@@ -1059,7 +1059,8 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
   // Archive current queue
   if (subAction === 'archive') {
     const queue = readActiveQueue();
-    if (!queue.id || queue.tasks.length === 0) {
+    const items = queue.solutions || queue.tasks || [];
+    if (!queue.id || items.length === 0) {
       console.log(chalk.yellow('No active queue to archive'));
       return;
     }
