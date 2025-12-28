@@ -41,6 +41,7 @@ src/codexlens/semantic/vector_store.py
 src/codexlens/storage/__init__.py
 src/codexlens/storage/dir_index.py
 src/codexlens/storage/file_cache.py
+src/codexlens/storage/global_index.py
 src/codexlens/storage/index_tree.py
 src/codexlens/storage/migration_manager.py
 src/codexlens/storage/path_mapper.py
@@ -64,6 +65,8 @@ tests/test_enrichment.py
 tests/test_entities.py
 tests/test_errors.py
 tests/test_file_cache.py
+tests/test_global_index.py
+tests/test_global_symbol_index.py
 tests/test_hybrid_chunker.py
 tests/test_hybrid_search_e2e.py
 tests/test_incremental_indexing.py

@@ -169,6 +169,9 @@ function renderProjectOverview() {
       ${renderDevelopmentIndex(project.developmentIndex)}
     </div>
 
+    <!-- Project Guidelines -->
+    ${renderProjectGuidelines(project.guidelines)}
+
     <!-- Statistics -->
     <div class="bg-card border border-border rounded-lg p-6">
       <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -245,6 +248,156 @@ function renderDevelopmentIndex(devIndex) {
           </div>
         `;
       }).join('')}
+    </div>
+  `;
+}
+
+function renderProjectGuidelines(guidelines) {
+  if (!guidelines) {
+    return `
+      <div class="bg-card border border-border rounded-lg p-6 mb-6">
+        <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <i data-lucide="scroll-text" class="w-5 h-5"></i> Project Guidelines
+        </h3>
+        <p class="text-muted-foreground text-sm">
+          No guidelines configured. Run <code class="px-2 py-1 bg-muted rounded text-xs font-mono">/session:solidify</code> to add project constraints and conventions.
+        </p>
+      </div>
+    `;
+  }
+
+  // Count total items
+  const conventionCount = Object.values(guidelines.conventions || {}).flat().length;
+  const constraintCount = Object.values(guidelines.constraints || {}).flat().length;
+  const rulesCount = (guidelines.quality_rules || []).length;
+  const learningsCount = (guidelines.learnings || []).length;
+  const totalCount = conventionCount + constraintCount + rulesCount + learningsCount;
+
+  if (totalCount === 0) {
+    return `
+      <div class="bg-card border border-border rounded-lg p-6 mb-6">
+        <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <i data-lucide="scroll-text" class="w-5 h-5"></i> Project Guidelines
+        </h3>
+        <p class="text-muted-foreground text-sm">
+          Guidelines file exists but is empty. Run <code class="px-2 py-1 bg-muted rounded text-xs font-mono">/session:solidify</code> to add project constraints and conventions.
+        </p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="bg-card border border-border rounded-lg p-6 mb-6">
+      <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+        <i data-lucide="scroll-text" class="w-5 h-5"></i> Project Guidelines
+        <span class="text-xs px-2 py-0.5 bg-primary-light text-primary rounded-full">${totalCount} items</span>
+      </h3>
+
+      <div class="space-y-6">
+        <!-- Conventions -->
+        ${renderGuidelinesSection('Conventions', guidelines.conventions, 'book-marked', 'bg-success-light text-success', [
+          { key: 'coding_style', label: 'Coding Style' },
+          { key: 'naming_patterns', label: 'Naming Patterns' },
+          { key: 'file_structure', label: 'File Structure' },
+          { key: 'documentation', label: 'Documentation' }
+        ])}
+
+        <!-- Constraints -->
+        ${renderGuidelinesSection('Constraints', guidelines.constraints, 'shield-alert', 'bg-destructive/10 text-destructive', [
+          { key: 'architecture', label: 'Architecture' },
+          { key: 'tech_stack', label: 'Tech Stack' },
+          { key: 'performance', label: 'Performance' },
+          { key: 'security', label: 'Security' }
+        ])}
+
+        <!-- Quality Rules -->
+        ${renderQualityRules(guidelines.quality_rules)}
+
+        <!-- Learnings -->
+        ${renderLearnings(guidelines.learnings)}
+      </div>
+    </div>
+  `;
+}
+
+function renderGuidelinesSection(title, data, icon, badgeClass, categories) {
+  if (!data) return '';
+
+  const items = categories.flatMap(cat => (data[cat.key] || []).map(item => ({ category: cat.label, value: item })));
+  if (items.length === 0) return '';
+
+  return `
+    <div>
+      <h4 class="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+        <i data-lucide="${icon}" class="w-4 h-4"></i>
+        <span>${title}</span>
+        <span class="text-xs px-2 py-0.5 ${badgeClass} rounded-full">${items.length}</span>
+      </h4>
+      <div class="space-y-2">
+        ${items.slice(0, 8).map(item => `
+          <div class="flex items-start gap-3 p-3 bg-background border border-border rounded-lg">
+            <span class="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded whitespace-nowrap">${escapeHtml(item.category)}</span>
+            <span class="text-sm text-foreground">${escapeHtml(item.value)}</span>
+          </div>
+        `).join('')}
+        ${items.length > 8 ? `<div class="text-sm text-muted-foreground text-center py-2">... and ${items.length - 8} more</div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderQualityRules(rules) {
+  if (!rules || rules.length === 0) return '';
+
+  return `
+    <div>
+      <h4 class="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+        <i data-lucide="check-square" class="w-4 h-4"></i>
+        <span>Quality Rules</span>
+        <span class="text-xs px-2 py-0.5 bg-warning-light text-warning rounded-full">${rules.length}</span>
+      </h4>
+      <div class="space-y-2">
+        ${rules.slice(0, 6).map(rule => `
+          <div class="p-3 bg-background border border-border rounded-lg">
+            <div class="flex items-start justify-between mb-1">
+              <span class="text-sm text-foreground font-medium">${escapeHtml(rule.rule)}</span>
+              ${rule.enforced_by ? `<span class="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded">${escapeHtml(rule.enforced_by)}</span>` : ''}
+            </div>
+            <span class="text-xs text-muted-foreground">Scope: ${escapeHtml(rule.scope)}</span>
+          </div>
+        `).join('')}
+        ${rules.length > 6 ? `<div class="text-sm text-muted-foreground text-center py-2">... and ${rules.length - 6} more</div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderLearnings(learnings) {
+  if (!learnings || learnings.length === 0) return '';
+
+  return `
+    <div>
+      <h4 class="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+        <i data-lucide="lightbulb" class="w-4 h-4"></i>
+        <span>Session Learnings</span>
+        <span class="text-xs px-2 py-0.5 bg-accent text-accent-foreground rounded-full">${learnings.length}</span>
+      </h4>
+      <div class="space-y-2">
+        ${learnings.slice(0, 5).map(learning => `
+          <div class="p-3 bg-background border border-border rounded-lg border-l-4 border-l-primary">
+            <div class="flex items-start justify-between mb-2">
+              <span class="text-sm text-foreground">${escapeHtml(learning.insight)}</span>
+              <span class="text-xs text-muted-foreground whitespace-nowrap ml-2">${formatDate(learning.date)}</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              ${learning.category ? `<span class="px-2 py-0.5 bg-muted text-muted-foreground rounded">${escapeHtml(learning.category)}</span>` : ''}
+              ${learning.session_id ? `<span class="px-2 py-0.5 bg-primary-light text-primary rounded font-mono">${escapeHtml(learning.session_id)}</span>` : ''}
+            </div>
+            ${learning.context ? `<p class="text-xs text-muted-foreground mt-2">${escapeHtml(learning.context)}</p>` : ''}
+          </div>
+        `).join('')}
+        ${learnings.length > 5 ? `<div class="text-sm text-muted-foreground text-center py-2">... and ${learnings.length - 5} more</div>` : ''}
+      </div>
     </div>
   `;
 }

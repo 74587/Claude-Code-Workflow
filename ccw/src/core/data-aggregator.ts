@@ -110,6 +110,34 @@ interface SessionReviewData {
   findings: Array<Finding & { dimension: string }>;
 }
 
+interface ProjectGuidelines {
+  conventions: {
+    coding_style: string[];
+    naming_patterns: string[];
+    file_structure: string[];
+    documentation: string[];
+  };
+  constraints: {
+    architecture: string[];
+    tech_stack: string[];
+    performance: string[];
+    security: string[];
+  };
+  quality_rules: Array<{ rule: string; scope: string; enforced_by?: string }>;
+  learnings: Array<{
+    date: string;
+    session_id?: string;
+    insight: string;
+    context?: string;
+    category?: string;
+  }>;
+  _metadata?: {
+    created_at: string;
+    updated_at?: string;
+    version: string;
+  };
+}
+
 interface ProjectOverview {
   projectName: string;
   description: string;
@@ -144,6 +172,7 @@ interface ProjectOverview {
     analysis_timestamp: string | null;
     analysis_mode: string;
   };
+  guidelines: ProjectGuidelines | null;
 }
 
 /**
@@ -156,11 +185,13 @@ export async function aggregateData(sessions: ScanSessionsResult, workflowDir: s
   // Initialize cache manager
   const cache = createDashboardCache(workflowDir);
 
-  // Prepare paths to watch for changes
+  // Prepare paths to watch for changes (includes both new dual files and legacy)
   const watchPaths = [
     join(workflowDir, 'active'),
     join(workflowDir, 'archives'),
-    join(workflowDir, 'project.json'),
+    join(workflowDir, 'project-tech.json'),
+    join(workflowDir, 'project-guidelines.json'),
+    join(workflowDir, 'project.json'),  // Legacy support
     ...sessions.active.map(s => s.path),
     ...sessions.archived.map(s => s.path)
   ];
@@ -516,12 +547,19 @@ function sortTaskIds(a: string, b: string): number {
 }
 
 /**
- * Load project overview from project.json
+ * Load project overview from project-tech.json and project-guidelines.json
+ * Supports dual file structure with backward compatibility for legacy project.json
  * @param workflowDir - Path to .workflow directory
  * @returns Project overview data or null if not found
  */
 function loadProjectOverview(workflowDir: string): ProjectOverview | null {
-  const projectFile = join(workflowDir, 'project.json');
+  const techFile = join(workflowDir, 'project-tech.json');
+  const guidelinesFile = join(workflowDir, 'project-guidelines.json');
+  const legacyFile = join(workflowDir, 'project.json');
+
+  // Check for new dual file structure first, fallback to legacy
+  const useLegacy = !existsSync(techFile) && existsSync(legacyFile);
+  const projectFile = useLegacy ? legacyFile : techFile;
 
   if (!existsSync(projectFile)) {
     console.log(`Project file not found at: ${projectFile}`);
@@ -532,14 +570,58 @@ function loadProjectOverview(workflowDir: string): ProjectOverview | null {
     const fileContent = readFileSync(projectFile, 'utf8');
     const projectData = JSON.parse(fileContent) as Record<string, unknown>;
 
-    console.log(`Successfully loaded project overview: ${projectData.project_name || 'Unknown'}`);
+    console.log(`Successfully loaded project overview: ${projectData.project_name || 'Unknown'} (${useLegacy ? 'legacy' : 'tech'})`);
 
+    // Parse tech data (compatible with both legacy and new structure)
     const overview = projectData.overview as Record<string, unknown> | undefined;
-    const technologyStack = overview?.technology_stack as Record<string, unknown[]> | undefined;
-    const architecture = overview?.architecture as Record<string, unknown> | undefined;
-    const developmentIndex = projectData.development_index as Record<string, unknown[]> | undefined;
-    const statistics = projectData.statistics as Record<string, unknown> | undefined;
+    const technologyAnalysis = projectData.technology_analysis as Record<string, unknown> | undefined;
+    const developmentStatus = projectData.development_status as Record<string, unknown> | undefined;
+
+    // Support both old and new schema field names
+    const technologyStack = (overview?.technology_stack || technologyAnalysis?.technology_stack) as Record<string, unknown[]> | undefined;
+    const architecture = (overview?.architecture || technologyAnalysis?.architecture) as Record<string, unknown> | undefined;
+    const developmentIndex = (projectData.development_index || developmentStatus?.development_index) as Record<string, unknown[]> | undefined;
+    const statistics = (projectData.statistics || developmentStatus?.statistics) as Record<string, unknown> | undefined;
     const metadata = projectData._metadata as Record<string, unknown> | undefined;
+
+    // Load guidelines from separate file if exists
+    let guidelines: ProjectGuidelines | null = null;
+    if (existsSync(guidelinesFile)) {
+      try {
+        const guidelinesContent = readFileSync(guidelinesFile, 'utf8');
+        const guidelinesData = JSON.parse(guidelinesContent) as Record<string, unknown>;
+
+        const conventions = guidelinesData.conventions as Record<string, string[]> | undefined;
+        const constraints = guidelinesData.constraints as Record<string, string[]> | undefined;
+
+        guidelines = {
+          conventions: {
+            coding_style: conventions?.coding_style || [],
+            naming_patterns: conventions?.naming_patterns || [],
+            file_structure: conventions?.file_structure || [],
+            documentation: conventions?.documentation || []
+          },
+          constraints: {
+            architecture: constraints?.architecture || [],
+            tech_stack: constraints?.tech_stack || [],
+            performance: constraints?.performance || [],
+            security: constraints?.security || []
+          },
+          quality_rules: (guidelinesData.quality_rules as Array<{ rule: string; scope: string; enforced_by?: string }>) || [],
+          learnings: (guidelinesData.learnings as Array<{
+            date: string;
+            session_id?: string;
+            insight: string;
+            context?: string;
+            category?: string;
+          }>) || [],
+          _metadata: guidelinesData._metadata as ProjectGuidelines['_metadata'] | undefined
+        };
+        console.log(`Successfully loaded project guidelines`);
+      } catch (guidelinesErr) {
+        console.error(`Failed to parse project-guidelines.json:`, (guidelinesErr as Error).message);
+      }
+    }
 
     return {
       projectName: (projectData.project_name as string) || 'Unknown',
@@ -574,10 +656,11 @@ function loadProjectOverview(workflowDir: string): ProjectOverview | null {
         initialized_by: (metadata?.initialized_by as string) || 'unknown',
         analysis_timestamp: (metadata?.analysis_timestamp as string) || null,
         analysis_mode: (metadata?.analysis_mode as string) || 'unknown'
-      }
+      },
+      guidelines
     };
   } catch (err) {
-    console.error(`Failed to parse project.json at ${projectFile}:`, (err as Error).message);
+    console.error(`Failed to parse project file at ${projectFile}:`, (err as Error).message);
     console.error('Error stack:', (err as Error).stack);
     return null;
   }
