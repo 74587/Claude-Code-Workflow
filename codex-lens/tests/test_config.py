@@ -1,5 +1,8 @@
 """Tests for CodexLens configuration system."""
 
+import builtins
+import json
+import logging
 import os
 import tempfile
 from pathlib import Path
@@ -222,6 +225,99 @@ class TestConfig:
                 assert "overlap_lines" in rules
             finally:
                 del os.environ["CODEXLENS_DATA_DIR"]
+
+
+class TestConfigLoadSettings:
+    """Tests for Config.load_settings behavior and logging."""
+
+    def test_load_settings_logs_warning_on_malformed_json(self, caplog):
+        """Malformed JSON in settings file should trigger warning log."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = Config(data_dir=Path(tmpdir))
+            config.settings_path.write_text("{", encoding="utf-8")
+
+            with caplog.at_level(logging.WARNING):
+                config.load_settings()
+
+            records = [r for r in caplog.records if r.name == "codexlens.config"]
+            assert any("Failed to load settings from" in r.message for r in records)
+            assert any("JSONDecodeError" in r.message for r in records)
+            assert any(str(config.settings_path) in r.message for r in records)
+
+    def test_load_settings_logs_warning_on_permission_error(self, monkeypatch, caplog):
+        """Permission errors opening settings file should trigger warning log."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = Config(data_dir=Path(tmpdir))
+            config.settings_path.write_text("{}", encoding="utf-8")
+
+            real_open = builtins.open
+
+            def guarded_open(path, mode="r", *args, **kwargs):
+                if Path(path) == config.settings_path and "r" in mode:
+                    raise PermissionError("Permission denied")
+                return real_open(path, mode, *args, **kwargs)
+
+            monkeypatch.setattr(builtins, "open", guarded_open)
+
+            with caplog.at_level(logging.WARNING):
+                config.load_settings()
+
+            records = [r for r in caplog.records if r.name == "codexlens.config"]
+            assert any("Failed to load settings from" in r.message for r in records)
+            assert any("PermissionError" in r.message for r in records)
+
+    def test_load_settings_loads_valid_settings_without_warning(self, caplog):
+        """Valid settings should load without warning logs."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = Config(data_dir=Path(tmpdir))
+            config.settings_path.write_text(
+                json.dumps(
+                    {
+                        "embedding": {
+                            "backend": "fastembed",
+                            "model": "multilingual",
+                            "use_gpu": False,
+                        },
+                        "llm": {
+                            "enabled": True,
+                            "tool": "gemini",
+                            "timeout_ms": 1234,
+                            "batch_size": 7,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with caplog.at_level(logging.WARNING):
+                config.load_settings()
+
+            records = [r for r in caplog.records if r.name == "codexlens.config"]
+            assert not records
+            assert config.embedding_backend == "fastembed"
+            assert config.embedding_model == "multilingual"
+            assert config.embedding_use_gpu is False
+            assert config.llm_enabled is True
+            assert config.llm_tool == "gemini"
+            assert config.llm_timeout_ms == 1234
+            assert config.llm_batch_size == 7
+
+    def test_load_settings_logs_warning_on_invalid_embedding_backend(self, caplog):
+        """Invalid embedding backend should trigger warning log and keep default."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = Config(data_dir=Path(tmpdir))
+            default_backend = config.embedding_backend
+            config.settings_path.write_text(
+                json.dumps({"embedding": {"backend": "invalid-backend"}}),
+                encoding="utf-8",
+            )
+
+            with caplog.at_level(logging.WARNING):
+                config.load_settings()
+
+            records = [r for r in caplog.records if r.name == "codexlens.config"]
+            assert any("Invalid embedding backend in" in r.message for r in records)
+            assert config.embedding_backend == default_backend
 
 
 class TestWorkspaceConfig:

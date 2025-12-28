@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass, field
 from functools import cached_property
@@ -17,6 +18,8 @@ WORKSPACE_DIR_NAME = ".codexlens"
 
 # Settings file name
 SETTINGS_FILE_NAME = "settings.json"
+
+log = logging.getLogger(__name__)
 
 
 def _default_global_dir() -> Path:
@@ -200,7 +203,15 @@ class Config:
             # Load embedding settings
             embedding = settings.get("embedding", {})
             if "backend" in embedding:
-                self.embedding_backend = embedding["backend"]
+                backend = embedding["backend"]
+                if backend in {"fastembed", "litellm"}:
+                    self.embedding_backend = backend
+                else:
+                    log.warning(
+                        "Invalid embedding backend in %s: %r (expected 'fastembed' or 'litellm')",
+                        self.settings_path,
+                        backend,
+                    )
             if "model" in embedding:
                 self.embedding_model = embedding["model"]
             if "use_gpu" in embedding:
@@ -224,8 +235,13 @@ class Config:
                 self.llm_timeout_ms = llm["timeout_ms"]
             if "batch_size" in llm:
                 self.llm_batch_size = llm["batch_size"]
-        except Exception:
-            pass  # Silently ignore errors
+        except Exception as exc:
+            log.warning(
+                "Failed to load settings from %s (%s): %s",
+                self.settings_path,
+                type(exc).__name__,
+                exc,
+            )
 
     @classmethod
     def load(cls) -> "Config":
