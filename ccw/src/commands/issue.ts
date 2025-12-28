@@ -350,12 +350,30 @@ function createEmptyQueue(): Queue {
 function writeQueue(queue: Queue): void {
   ensureQueuesDir();
 
+  // Support both old (tasks) and new (solutions) queue format
+  const items = queue.solutions || queue.tasks || [];
+  const isSolutionQueue = !!queue.solutions;
+
+  // Ensure _metadata exists (support queues with 'metadata' field from external sources)
+  if (!queue._metadata) {
+    const extMeta = (queue as any).metadata;
+    queue._metadata = {
+      version: '2.0',
+      total_tasks: extMeta?.total_tasks || items.length,
+      pending_count: items.filter(q => q.status === 'pending').length,
+      executing_count: items.filter(q => q.status === 'executing').length,
+      completed_count: items.filter(q => q.status === 'completed').length,
+      failed_count: items.filter(q => q.status === 'failed').length,
+      updated_at: new Date().toISOString()
+    };
+  }
+
   // Update metadata counts
-  queue._metadata.total_tasks = queue.tasks.length;
-  queue._metadata.pending_count = queue.tasks.filter(q => q.status === 'pending').length;
-  queue._metadata.executing_count = queue.tasks.filter(q => q.status === 'executing').length;
-  queue._metadata.completed_count = queue.tasks.filter(q => q.status === 'completed').length;
-  queue._metadata.failed_count = queue.tasks.filter(q => q.status === 'failed').length;
+  queue._metadata.total_tasks = items.length;
+  queue._metadata.pending_count = items.filter(q => q.status === 'pending').length;
+  queue._metadata.executing_count = items.filter(q => q.status === 'executing').length;
+  queue._metadata.completed_count = items.filter(q => q.status === 'completed').length;
+  queue._metadata.failed_count = items.filter(q => q.status === 'failed').length;
   queue._metadata.updated_at = new Date().toISOString();
 
   // Write queue file
@@ -366,15 +384,27 @@ function writeQueue(queue: Queue): void {
   const index = readQueueIndex();
   const existingIdx = index.queues.findIndex(q => q.id === queue.id);
 
-  const indexEntry = {
+  // Derive issue_ids from solutions if not present
+  const issueIds = queue.issue_ids || (isSolutionQueue
+    ? [...new Set(items.map(item => item.issue_id))]
+    : []);
+
+  const indexEntry: QueueIndex['queues'][0] = {
     id: queue.id,
     status: queue.status,
-    issue_ids: queue.issue_ids,
-    total_tasks: queue._metadata.total_tasks,
-    completed_tasks: queue._metadata.completed_count,
+    issue_ids: issueIds,
     created_at: queue.id.replace('QUE-', '').replace(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6Z'), // Derive from ID
     completed_at: queue.status === 'completed' ? new Date().toISOString() : undefined
   };
+
+  // Add format-specific counts
+  if (isSolutionQueue) {
+    indexEntry.total_solutions = items.length;
+    indexEntry.completed_solutions = queue._metadata.completed_count;
+  } else {
+    indexEntry.total_tasks = items.length;
+    indexEntry.completed_tasks = queue._metadata.completed_count;
+  }
 
   if (existingIdx >= 0) {
     index.queues[existingIdx] = indexEntry;

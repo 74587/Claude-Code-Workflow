@@ -5,6 +5,29 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.3.11] - 2025-12-28
+
+### 🔧 Issue System Enhancements | Issue系统增强
+
+#### CLI Improvements | CLI改进
+- **Added**: `ccw issue update <id> --status <status>` command for pure field updates
+- **Added**: Support for `--priority`, `--title`, `--description` in update command
+- **Added**: Auto-timestamp setting based on status (planned_at, queued_at, completed_at)
+
+#### Issue Plan Command | Issue Plan命令
+- **Changed**: Agent execution from sequential to parallel (max 10 concurrent)
+- **Added**: Multi-solution user selection prompt with clear notification
+- **Added**: Explicit binding check (`solutions.length === 1`) before auto-bind
+
+#### Issue Queue Command | Issue Queue命令
+- **Fixed**: Queue ID generation moved from agent to command (avoid duplicate IDs)
+- **Fixed**: Strict output file control (exactly 2 files per execution)
+- **Added**: Clear documentation for `update` vs `done`/`queue add` usage
+
+#### Discovery System | Discovery系统
+- **Enhanced**: Discovery progress reading with new schema support
+- **Enhanced**: Discovery index reading and issue exporting
+
 ## [6.3.9] - 2025-12-27
 
 ### 🔧 Issue System Consistency | Issue系统一致性修复
