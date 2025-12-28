@@ -236,7 +236,10 @@ Task(
 Execute complete context-search-agent workflow for implementation planning:
 
 ### Phase 1: Initialization & Pre-Analysis
-1. **Project State Loading**: Read and parse `.workflow/project.json`. Use its `overview` section as the foundational `project_context`. This is your primary source for architecture, tech stack, and key components. If file doesn't exist, proceed with fresh analysis.
+1. **Project State Loading**:
+   - Read and parse `.workflow/project-tech.json`. Use its `technology_analysis` section as the foundational `project_context`. This is your primary source for architecture, tech stack, and key components.
+   - Read and parse `.workflow/project-guidelines.json`. Load `conventions`, `constraints`, and `learnings` into a `project_guidelines` section.
+   - If files don't exist, proceed with fresh analysis.
 2. **Detection**: Check for existing context-package (early exit if valid)
 3. **Foundation**: Initialize CodexLens, get project structure, load docs
 4. **Analysis**: Extract keywords, determine scope, classify complexity based on task description and project state
@@ -251,17 +254,19 @@ Execute all discovery tracks:
 
 ### Phase 3: Synthesis, Assessment & Packaging
 1. Apply relevance scoring and build dependency graph
-2. **Synthesize 4-source data**: Merge findings from all sources (archive > docs > code > web). **Prioritize the context from `project.json`** for architecture and tech stack unless code analysis reveals it's outdated.
-3. **Populate `project_context`**: Directly use the `overview` from `project.json` to fill the `project_context` section of the output `context-package.json`. Include description, technology_stack, architecture, and key_components.
-4. Integrate brainstorm artifacts (if .brainstorming/ exists, read content)
-5. Perform conflict detection with risk assessment
-6. **Inject historical conflicts** from archive analysis into conflict_detection
-7. Generate and validate context-package.json
+2. **Synthesize 4-source data**: Merge findings from all sources (archive > docs > code > web). **Prioritize the context from `project-tech.json`** for architecture and tech stack unless code analysis reveals it's outdated.
+3. **Populate `project_context`**: Directly use the `technology_analysis` from `project-tech.json` to fill the `project_context` section. Include description, technology_stack, architecture, and key_components.
+4. **Populate `project_guidelines`**: Load conventions, constraints, and learnings from `project-guidelines.json` into a dedicated section.
+5. Integrate brainstorm artifacts (if .brainstorming/ exists, read content)
+6. Perform conflict detection with risk assessment
+7. **Inject historical conflicts** from archive analysis into conflict_detection
+8. Generate and validate context-package.json
 
 ## Output Requirements
 Complete context-package.json with:
 - **metadata**: task_description, keywords, complexity, tech_stack, session_id
-- **project_context**: description, technology_stack, architecture, key_components (sourced from `project.json` overview)
+- **project_context**: description, technology_stack, architecture, key_components (sourced from `project-tech.json`)
+- **project_guidelines**: {conventions, constraints, quality_rules, learnings} (sourced from `project-guidelines.json`)
 - **assets**: {documentation[], source_code[], config[], tests[]} with relevance scores
 - **dependencies**: {internal[], external[]} with dependency graph
 - **brainstorm_artifacts**: {guidance_specification, role_analyses[], synthesis_output} with content
@@ -314,7 +319,8 @@ Refer to `context-search-agent.md` Phase 3.7 for complete `context-package.json`
 
 **Key Sections**:
 - **metadata**: Session info, keywords, complexity, tech stack
-- **project_context**: Architecture patterns, conventions, tech stack (populated from `project.json` overview)
+- **project_context**: Architecture patterns, conventions, tech stack (populated from `project-tech.json`)
+- **project_guidelines**: Conventions, constraints, quality rules, learnings (populated from `project-guidelines.json`)
 - **assets**: Categorized files with relevance scores (documentation, source_code, config, tests)
 - **dependencies**: Internal and external dependency graphs
 - **brainstorm_artifacts**: Brainstorm documents with full content (if exists)
@@ -429,6 +435,7 @@ if (historicalConflicts.length > 0 && currentRisk === "low") {
 ## Notes
 
 - **Detection-first**: Always check for existing package before invoking agent
-- **Project.json integration**: Agent reads `.workflow/project.json` as primary source for project context, avoiding redundant analysis
+- **Dual project file integration**: Agent reads both `.workflow/project-tech.json` (tech analysis) and `.workflow/project-guidelines.json` (user constraints) as primary sources
+- **Guidelines injection**: Project guidelines are included in context-package to ensure task generation respects user-defined constraints
 - **No redundancy**: This command is a thin orchestrator, all logic in agent
 - **Plan-specific**: Use this for implementation planning; brainstorm mode uses direct agent call

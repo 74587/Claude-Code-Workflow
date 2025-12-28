@@ -409,6 +409,8 @@ Task(
     2. Get target files: Read resolved_files from review-state.json
     3. Validate file access: bash(ls -la ${targetFiles.join(' ')})
     4. Execute: cat ~/.claude/workflows/cli-templates/schemas/review-dimension-results-schema.json (get output schema reference)
+    5. Read: .workflow/project-tech.json (technology stack and architecture context)
+    6. Read: .workflow/project-guidelines.json (user-defined constraints and conventions to validate against)
 
     ## Review Context
     - Review Type: module (independent)
@@ -511,6 +513,8 @@ Task(
     3. Identify related code: bash(grep -r "import.*${basename(file)}" ${projectDir}/src --include="*.ts")
     4. Read test files: bash(find ${projectDir}/tests -name "*${basename(file, '.ts')}*" -type f)
     5. Execute: cat ~/.claude/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
+    6. Read: .workflow/project-tech.json (technology stack and architecture context)
+    7. Read: .workflow/project-guidelines.json (user-defined constraints for remediation compliance)
 
     ## CLI Configuration
     - Tool Priority: gemini → qwen → codex

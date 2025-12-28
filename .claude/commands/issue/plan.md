@@ -193,10 +193,17 @@ ${issueList}
 
 **Project Root**: ${process.cwd()}
 
+### Project Context (MANDATORY - Read Both Files First)
+1. Read: .workflow/project-tech.json (technology stack, architecture, key components)
+2. Read: .workflow/project-guidelines.json (user-defined constraints and conventions)
+
+**CRITICAL**: All solution tasks MUST comply with constraints in project-guidelines.json
+
 ### Steps
 1. Fetch: \`ccw issue status <id> --json\`
-2. Explore (ACE) → Plan solution
-3. Register & bind: \`ccw issue bind <id> --solution <file>\`
+2. Load project context (project-tech.json + project-guidelines.json)
+3. Explore (ACE) → Plan solution (respecting guidelines)
+4. Register & bind: \`ccw issue bind <id> --solution <file>\`
 
 ### Generate Files
 \`.workflow/issues/solutions/{issue-id}.jsonl\` - Solution with tasks (schema: cat .claude/workflows/cli-templates/schemas/solution-schema.json)

@@ -420,6 +420,8 @@ Task(
     3. Get changed files: bash(cd ${workflowDir} && git log --since="${sessionCreatedAt}" --name-only --pretty=format: | sort -u)
     4. Read review state: ${reviewStateJsonPath}
     5. Execute: cat ~/.claude/workflows/cli-templates/schemas/review-dimension-results-schema.json (get output schema reference)
+    6. Read: .workflow/project-tech.json (technology stack and architecture context)
+    7. Read: .workflow/project-guidelines.json (user-defined constraints and conventions to validate against)
 
     ## Session Context
     - Session ID: ${sessionId}
@@ -522,6 +524,8 @@ Task(
     3. Identify related code: bash(grep -r "import.*${basename(file)}" ${workflowDir}/src --include="*.ts")
     4. Read test files: bash(find ${workflowDir}/tests -name "*${basename(file, '.ts')}*" -type f)
     5. Execute: cat ~/.claude/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
+    6. Read: .workflow/project-tech.json (technology stack and architecture context)
+    7. Read: .workflow/project-guidelines.json (user-defined constraints for remediation compliance)
 
     ## CLI Configuration
     - Tool Priority: gemini → qwen → codex

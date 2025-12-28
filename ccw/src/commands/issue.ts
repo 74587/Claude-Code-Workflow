@@ -1193,6 +1193,48 @@ async function nextAction(itemId: string | undefined, options: IssueOptions): Pr
 }
 
 /**
+ * detail - Get task details by item_id (READ-ONLY, does NOT change status)
+ * Used for parallel execution: orchestrator gets dag, then dispatches with detail <id>
+ */
+async function detailAction(itemId: string | undefined, options: IssueOptions): Promise<void> {
+  if (!itemId) {
+    console.log(JSON.stringify({ status: 'error', message: 'item_id is required' }));
+    return;
+  }
+
+  const queue = readActiveQueue();
+  const queueItem = queue.tasks.find(t => t.item_id === itemId);
+
+  if (!queueItem) {
+    console.log(JSON.stringify({ status: 'error', message: `Task ${itemId} not found` }));
+    return;
+  }
+
+  // Load task definition from solution
+  const solution = findSolution(queueItem.issue_id, queueItem.solution_id);
+  const taskDef = solution?.tasks.find(t => t.id === queueItem.task_id);
+
+  if (!taskDef) {
+    console.log(JSON.stringify({ status: 'error', message: 'Task definition not found in solution' }));
+    return;
+  }
+
+  // Return full task info (READ-ONLY - no status update)
+  console.log(JSON.stringify({
+    item_id: queueItem.item_id,
+    issue_id: queueItem.issue_id,
+    solution_id: queueItem.solution_id,
+    status: queueItem.status,
+    task: taskDef,
+    context: solution?.exploration_context || {},
+    execution_hints: {
+      executor: queueItem.assigned_executor,
+      estimated_minutes: taskDef.estimated_minutes || 30
+    }
+  }, null, 2));
+}
+
+/**
  * done - Mark task completed or failed
  */
 async function doneAction(queueId: string | undefined, options: IssueOptions): Promise<void> {
@@ -1333,6 +1375,9 @@ export async function issueCommand(
     case 'next':
       await nextAction(argsArray[0], options);
       break;
+    case 'detail':
+      await detailAction(argsArray[0], options);
+      break;
     case 'done':
       await doneAction(argsArray[0], options);
       break;
@@ -1370,7 +1415,8 @@ export async function issueCommand(
       console.log(chalk.gray('  retry [issue-id]                   Retry failed tasks'));
       console.log();
       console.log(chalk.bold('Execution Endpoints:'));
-      console.log(chalk.gray('  next [item-id]                     Get task by ID or next ready task (JSON)'));
+      console.log(chalk.gray('  next [item-id]                     Get & mark task executing (JSON)'));
+      console.log(chalk.gray('  detail <item-id>                   Get task details (READ-ONLY, for parallel)'));
       console.log(chalk.gray('  done <item-id>                     Mark task completed'));
       console.log(chalk.gray('  done <item-id> --fail              Mark task failed'));
       console.log();

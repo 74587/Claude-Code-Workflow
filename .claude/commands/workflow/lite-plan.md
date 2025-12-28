@@ -184,6 +184,8 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 1. Run: ccw tool exec get_modules_by_depth '{}' (project structure)
 2. Run: rg -l "{keyword_from_task}" --type ts (locate relevant files)
 3. Execute: cat ~/.claude/workflows/cli-templates/schemas/explore-json-schema.json (get output schema reference)
+4. Read: .workflow/project-tech.json (technology stack and architecture context)
+5. Read: .workflow/project-guidelines.json (user-defined constraints and conventions)
 
 ## Exploration Strategy (${angle} focus)
 
@@ -415,6 +417,12 @@ Generate implementation plan and write plan.json.
 
 ## Output Schema Reference
 Execute: cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json (get schema reference before generating plan)
+
+## Project Context (MANDATORY - Read Both Files)
+1. Read: .workflow/project-tech.json (technology stack, architecture, key components)
+2. Read: .workflow/project-guidelines.json (user-defined constraints and conventions)
+
+**CRITICAL**: All generated tasks MUST comply with constraints in project-guidelines.json
 
 ## Task Description
 ${task_description}

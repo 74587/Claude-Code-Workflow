@@ -10,7 +10,11 @@ examples:
 # Workflow Init Command (/workflow:init)
 
 ## Overview
-Initialize `.workflow/project.json` with comprehensive project understanding by delegating analysis to **cli-explore-agent**.
+Initialize `.workflow/project-tech.json` and `.workflow/project-guidelines.json` with comprehensive project understanding by delegating analysis to **cli-explore-agent**.
+
+**Dual File System**:
+- `project-tech.json`: Auto-generated technical analysis (stack, architecture, components)
+- `project-guidelines.json`: User-maintained rules and constraints (created as scaffold)
 
 **Note**: This command may be called by other workflow commands. Upon completion, return immediately to continue the calling workflow without interrupting the task flow.
 
@@ -27,7 +31,7 @@ Input Parsing:
    └─ Parse --regenerate flag → regenerate = true | false
 
 Decision:
-   ├─ EXISTS + no --regenerate → Exit: "Already initialized"
+   ├─ BOTH_EXIST + no --regenerate → Exit: "Already initialized"
    ├─ EXISTS + --regenerate → Backup existing → Continue analysis
    └─ NOT_FOUND → Continue analysis
 
@@ -37,11 +41,14 @@ Analysis Flow:
    │   ├─ Structural scan (get_modules_by_depth.sh, find, wc)
    │   ├─ Semantic analysis (Gemini CLI)
    │   ├─ Synthesis and merge
-   │   └─ Write .workflow/project.json
+   │   └─ Write .workflow/project-tech.json
+   ├─ Create guidelines scaffold (if not exists)
+   │   └─ Write .workflow/project-guidelines.json (empty structure)
    └─ Display summary
 
 Output:
-   └─ .workflow/project.json (+ .backup if regenerate)
+   ├─ .workflow/project-tech.json (+ .backup if regenerate)
+   └─ .workflow/project-guidelines.json (scaffold if new)
 ```
 
 ## Implementation
@@ -56,13 +63,18 @@ const regenerate = $ARGUMENTS.includes('--regenerate')
 **Check existing state**:
 
 ```bash
-bash(test -f .workflow/project.json && echo "EXISTS" || echo "NOT_FOUND")
+bash(test -f .workflow/project-tech.json && echo "TECH_EXISTS" || echo "TECH_NOT_FOUND")
+bash(test -f .workflow/project-guidelines.json && echo "GUIDELINES_EXISTS" || echo "GUIDELINES_NOT_FOUND")
 ```
 
-**If EXISTS and no --regenerate**: Exit early
+**If BOTH_EXIST and no --regenerate**: Exit early
 ```
-Project already initialized at .workflow/project.json
-Use /workflow:init --regenerate to rebuild
+Project already initialized:
+- Tech analysis: .workflow/project-tech.json
+- Guidelines: .workflow/project-guidelines.json
+
+Use /workflow:init --regenerate to rebuild tech analysis
+Use /workflow:session:solidify to add guidelines
 Use /workflow:status --project to view state
 ```
 
@@ -78,7 +90,7 @@ bash(mkdir -p .workflow)
 
 **For --regenerate**: Backup and preserve existing data
 ```bash
-bash(cp .workflow/project.json .workflow/project.json.backup)
+bash(cp .workflow/project-tech.json .workflow/project-tech.json.backup)
 ```
 
 **Delegate analysis to agent**:
@@ -89,20 +101,17 @@ Task(
   run_in_background=false,
   description="Deep project analysis",
   prompt=`
-Analyze project for workflow initialization and generate .workflow/project.json.
+Analyze project for workflow initialization and generate .workflow/project-tech.json.
 
 ## MANDATORY FIRST STEPS
-1. Execute: cat ~/.claude/workflows/cli-templates/schemas/project-json-schema.json (get schema reference)
+1. Execute: cat ~/.claude/workflows/cli-templates/schemas/project-tech-schema.json (get schema reference)
 2. Execute: ccw tool exec get_modules_by_depth '{}' (get project structure)
 
 ## Task
-Generate complete project.json with:
-- project_name: ${projectName}
-- initialized_at: current ISO timestamp
-- overview: {description, technology_stack, architecture, key_components}
-- features: ${regenerate ? 'preserve from backup' : '[] (empty)'}
-- development_index: ${regenerate ? 'preserve from backup' : '{feature: [], enhancement: [], bugfix: [], refactor: [], docs: []}'}
-- statistics: ${regenerate ? 'preserve from backup' : '{total_features: 0, total_sessions: 0, last_updated}'}
+Generate complete project-tech.json with:
+- project_metadata: {name: ${projectName}, root_path: ${projectRoot}, initialized_at, updated_at}
+- technology_analysis: {description, languages, frameworks, build_tools, test_frameworks, architecture, key_components, dependencies}
+- development_status: ${regenerate ? 'preserve from backup' : '{completed_features: [], development_index: {feature: [], enhancement: [], bugfix: [], refactor: [], docs: []}, statistics: {total_features: 0, total_sessions: 0, last_updated}}'}
 - _metadata: {initialized_by: "cli-explore-agent", analysis_timestamp, analysis_mode}
 
 ## Analysis Requirements
@@ -123,8 +132,8 @@ Generate complete project.json with:
 1. Structural scan: get_modules_by_depth.sh, find, wc -l
 2. Semantic analysis: Gemini for patterns/architecture
 3. Synthesis: Merge findings
-4. ${regenerate ? 'Merge with preserved features/development_index/statistics from .workflow/project.json.backup' : ''}
-5. Write JSON: Write('.workflow/project.json', jsonContent)
+4. ${regenerate ? 'Merge with preserved development_status from .workflow/project-tech.json.backup' : ''}
+5. Write JSON: Write('.workflow/project-tech.json', jsonContent)
 6. Report: Return brief completion summary
 
 Project root: ${projectRoot}
@@ -132,29 +141,66 @@ Project root: ${projectRoot}
 )
 ```
 
+### Step 3.5: Create Guidelines Scaffold (if not exists)
+
+```javascript
+// Only create if not exists (never overwrite user guidelines)
+if (!file_exists('.workflow/project-guidelines.json')) {
+  const guidelinesScaffold = {
+    conventions: {
+      coding_style: [],
+      naming_patterns: [],
+      file_structure: [],
+      documentation: []
+    },
+    constraints: {
+      architecture: [],
+      tech_stack: [],
+      performance: [],
+      security: []
+    },
+    quality_rules: [],
+    learnings: [],
+    _metadata: {
+      created_at: new Date().toISOString(),
+      version: "1.0.0"
+    }
+  };
+
+  Write('.workflow/project-guidelines.json', JSON.stringify(guidelinesScaffold, null, 2));
+}
+```
+
 ### Step 4: Display Summary
 
 ```javascript
-const projectJson = JSON.parse(Read('.workflow/project.json'));
+const projectTech = JSON.parse(Read('.workflow/project-tech.json'));
+const guidelinesExists = file_exists('.workflow/project-guidelines.json');
 
 console.log(`
 ✓ Project initialized successfully
 
 ## Project Overview
-Name: ${projectJson.project_name}
-Description: ${projectJson.overview.description}
+Name: ${projectTech.project_metadata.name}
+Description: ${projectTech.technology_analysis.description}
 
 ### Technology Stack
-Languages: ${projectJson.overview.technology_stack.languages.map(l => l.name).join(', ')}
-Frameworks: ${projectJson.overview.technology_stack.frameworks.join(', ')}
+Languages: ${projectTech.technology_analysis.languages.map(l => l.name).join(', ')}
+Frameworks: ${projectTech.technology_analysis.frameworks.join(', ')}
 
 ### Architecture
-Style: ${projectJson.overview.architecture.style}
-Components: ${projectJson.overview.key_components.length} core modules
+Style: ${projectTech.technology_analysis.architecture.style}
+Components: ${projectTech.technology_analysis.key_components.length} core modules
 
 ---
-Project state: .workflow/project.json
-${regenerate ? 'Backup: .workflow/project.json.backup' : ''}
+Files created:
+- Tech analysis: .workflow/project-tech.json
+- Guidelines: .workflow/project-guidelines.json ${guidelinesExists ? '(scaffold)' : ''}
+${regenerate ? '- Backup: .workflow/project-tech.json.backup' : ''}
+
+Next steps:
+- Use /workflow:session:solidify to add project guidelines
+- Use /workflow:plan to start planning
 `);
 ```
 

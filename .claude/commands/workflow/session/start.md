@@ -38,26 +38,29 @@ ERROR: Invalid session type. Valid types: workflow, review, tdd, test, docs
 
 ## Step 0: Initialize Project State (First-time Only)
 
-**Executed before all modes** - Ensures project-level state file exists by calling `/workflow:init`.
+**Executed before all modes** - Ensures project-level state files exist by calling `/workflow:init`.
 
 ### Check and Initialize
 ```bash
-# Check if project state exists
-bash(test -f .workflow/project.json && echo "EXISTS" || echo "NOT_FOUND")
+# Check if project state exists (both files required)
+bash(test -f .workflow/project-tech.json && echo "TECH_EXISTS" || echo "TECH_NOT_FOUND")
+bash(test -f .workflow/project-guidelines.json && echo "GUIDELINES_EXISTS" || echo "GUIDELINES_NOT_FOUND")
 ```
 
-**If NOT_FOUND**, delegate to `/workflow:init`:
+**If either NOT_FOUND**, delegate to `/workflow:init`:
 ```javascript
 // Call workflow:init for intelligent project analysis
 SlashCommand({command: "/workflow:init"});
 
 // Wait for init completion
-// project.json will be created with comprehensive project overview
+// project-tech.json and project-guidelines.json will be created
 ```
 
 **Output**:
-- If EXISTS: `PROJECT_STATE: initialized`
-- If NOT_FOUND: Calls `/workflow:init` → creates `.workflow/project.json` with full project analysis
+- If BOTH_EXIST: `PROJECT_STATE: initialized`
+- If NOT_FOUND: Calls `/workflow:init` → creates:
+  - `.workflow/project-tech.json` with full technical analysis
+  - `.workflow/project-guidelines.json` with empty scaffold
 
 **Note**: `/workflow:init` uses cli-explore-agent to build comprehensive project understanding (technology stack, architecture, key components). This step runs once per project. Subsequent executions skip initialization.
 

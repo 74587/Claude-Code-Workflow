@@ -181,6 +181,8 @@ Execute **${angle}** diagnosis for bug root cause analysis. Analyze codebase fro
 1. Run: ccw tool exec get_modules_by_depth '{}' (project structure)
 2. Run: rg -l "{error_keyword_from_bug}" --type ts (locate relevant files)
 3. Execute: cat ~/.claude/workflows/cli-templates/schemas/diagnosis-json-schema.json (get output schema reference)
+4. Read: .workflow/project-tech.json (technology stack and architecture context)
+5. Read: .workflow/project-guidelines.json (user-defined constraints and conventions)
 
 ## Diagnosis Strategy (${angle} focus)
 
@@ -408,6 +410,12 @@ Generate fix plan and write fix-plan.json.
 
 ## Output Schema Reference
 Execute: cat ~/.claude/workflows/cli-templates/schemas/fix-plan-json-schema.json (get schema reference before generating plan)
+
+## Project Context (MANDATORY - Read Both Files)
+1. Read: .workflow/project-tech.json (technology stack, architecture, key components)
+2. Read: .workflow/project-guidelines.json (user-defined constraints and conventions)
+
+**CRITICAL**: All fix tasks MUST comply with constraints in project-guidelines.json
 
 ## Bug Description
 ${bug_description}
