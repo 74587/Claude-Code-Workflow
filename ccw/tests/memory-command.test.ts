@@ -220,6 +220,27 @@ describe('memory command module', async () => {
     assert.ok(logs.some((l) => l.includes('Nothing to prune') || l.includes('No memory database found')));
   });
 
+  it('prune validates age format', async () => {
+    stubHttpRequest();
+
+    const errors: string[] = [];
+    mock.method(console, 'log', () => {});
+    mock.method(console, 'error', (...args: any[]) => {
+      errors.push(args.map(String).join(' '));
+    });
+
+    mock.method(process as any, 'exit', (code?: number) => {
+      throw new ExitError(code);
+    });
+
+    await assert.rejects(
+      memoryModule.memoryCommand('prune', [], { olderThan: 'not-an-age', dryRun: true }),
+      (err: any) => err instanceof ExitError && err.code === 1,
+    );
+
+    assert.ok(errors.some((e) => e.includes('Invalid age format')));
+  });
+
   it('embed/embed-status/semantic-search fail fast without core-memory database', async () => {
     stubHttpRequest();
 
@@ -258,4 +279,3 @@ describe('memory command module', async () => {
     );
   });
 });
-
