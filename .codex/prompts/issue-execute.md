@@ -112,9 +112,40 @@ Expected solution structure:
 }
 ```
 
+## Step 2.5: Initialize Todo Tracking
+
+After parsing solution, create todo list to track each task:
+
+```javascript
+// Create todos for all tasks in current solution
+TodoWrite({
+  todos: solution.tasks.map(task => ({
+    content: `${task.id}: ${task.title}`,
+    activeForm: `Executing ${task.id}: ${task.title}`,
+    status: "pending"
+  }))
+})
+```
+
 ## Step 3: Execute Tasks Sequentially
 
-Iterate through `solution.tasks` array and execute each task:
+Iterate through `solution.tasks` array and execute each task.
+
+**Before starting each task**, mark it as in_progress:
+```javascript
+// Update current task status to in_progress
+TodoWrite({ todos: [...existingTodos.map(t =>
+  t.content.startsWith(currentTask.id) ? {...t, status: "in_progress"} : t
+)] })
+```
+
+**After completing each task** (commit done), mark it as completed:
+```javascript
+// Update completed task status
+TodoWrite({ todos: [...existingTodos.map(t =>
+  t.content.startsWith(completedTask.id) ? {...t, status: "completed"} : t
+)] })
+```
 
 ### Phase A: IMPLEMENT
 
@@ -237,7 +268,14 @@ ccw issue done <item_id> --fail --reason "Task [task.id] failed: [details]"
 
 ## Step 5: Continue to Next Solution
 
-Immediately fetch the next solution:
+Clear current todo list and fetch next solution:
+
+```javascript
+// Reset todos for next solution
+TodoWrite({ todos: [] })
+```
+
+Then fetch next solution:
 
 ```bash
 ccw issue next
@@ -286,6 +324,7 @@ When `ccw issue next` returns `{ "status": "empty" }`:
 6. **Self-verify** - All acceptance criteria must pass before commit
 7. **Report accurately** - Use `ccw issue done` after each solution
 8. **Handle failures gracefully** - If a solution fails, report via `ccw issue done --fail` and continue to next
+9. **Track with todos** - Use TodoWrite to track task progress within each solution
 
 ## Error Handling
 
