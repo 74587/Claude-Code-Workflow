@@ -22,12 +22,23 @@ class QueryIntent(str, Enum):
     MIXED = "mixed"
 
 
-def normalize_weights(weights: Dict[str, float]) -> Dict[str, float]:
+def normalize_weights(weights: Dict[str, float | None]) -> Dict[str, float | None]:
     """Normalize weights to sum to 1.0 (best-effort)."""
     total = sum(float(v) for v in weights.values() if v is not None)
-    if not math.isfinite(total) or total <= 0:
-        return {k: float(v) for k, v in weights.items()}
-    return {k: float(v) / total for k, v in weights.items()}
+
+    # NaN total: do not attempt to normalize (division would propagate NaNs).
+    if math.isnan(total):
+        return dict(weights)
+
+    # Infinite total: do not attempt to normalize (division yields 0 or NaN).
+    if not math.isfinite(total):
+        return dict(weights)
+
+    # Zero/negative total: do not attempt to normalize (invalid denominator).
+    if total <= 0:
+        return dict(weights)
+
+    return {k: (float(v) / total if v is not None else None) for k, v in weights.items()}
 
 
 def detect_query_intent(query: str) -> QueryIntent:
