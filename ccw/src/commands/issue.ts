@@ -389,12 +389,16 @@ function writeQueue(queue: Queue): void {
   writeQueueIndex(index);
 }
 
-function generateQueueItemId(queue: Queue): string {
-  const maxNum = queue.tasks.reduce((max, q) => {
-    const match = q.item_id.match(/^T-(\d+)$/);
+function generateQueueItemId(queue: Queue, level: 'solution' | 'task' = 'solution'): string {
+  const prefix = level === 'solution' ? 'S' : 'T';
+  const items = level === 'solution' ? (queue.solutions || []) : (queue.tasks || []);
+  const pattern = new RegExp(`^${prefix}-(\\d+)$`);
+
+  const maxNum = items.reduce((max, q) => {
+    const match = q.item_id.match(pattern);
     return match ? Math.max(max, parseInt(match[1])) : max;
   }, 0);
-  return `T-${maxNum + 1}`;
+  return `${prefix}-${maxNum + 1}`;
 }
 
 // ============ Commands ============
@@ -1003,7 +1007,7 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
     return;
   }
 
-  // Add issue tasks to queue
+  // Add issue solution to queue (solution-level granularity)
   if (subAction === 'add' && issueId) {
     const issue = findIssue(issueId);
     if (!issue) {
@@ -1020,11 +1024,24 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
 
     // Get or create active queue (create new if current is completed/archived)
     let queue = readActiveQueue();
-    const isNewQueue = queue.tasks.length === 0 || queue.status !== 'active';
+    const items = queue.solutions || [];
+    const isNewQueue = items.length === 0 || queue.status !== 'active';
 
     if (queue.status !== 'active') {
       // Create new queue if current is not active
       queue = createEmptyQueue();
+    }
+
+    // Ensure solutions array exists
+    if (!queue.solutions) {
+      queue.solutions = [];
+    }
+
+    // Check if solution already in queue
+    const exists = queue.solutions.some(q => q.issue_id === issueId && q.solution_id === solution.id);
+    if (exists) {
+      console.log(chalk.yellow(`Solution ${solution.id} already in queue`));
+      return;
     }
 
     // Add issue to queue's issue list
@@ -1032,28 +1049,28 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
       queue.issue_ids.push(issueId);
     }
 
-    let added = 0;
-    for (const task of solution.tasks) {
-      const exists = queue.tasks.some(q => q.issue_id === issueId && q.task_id === task.id);
-      if (exists) continue;
-
-      queue.tasks.push({
-        item_id: generateQueueItemId(queue),
-        issue_id: issueId,
-        solution_id: solution.id,
-        task_id: task.id,
-        status: 'pending',
-        execution_order: queue.tasks.length + 1,
-        execution_group: 'P1',
-        depends_on: task.depends_on.map(dep => {
-          const depItem = queue.tasks.find(q => q.task_id === dep && q.issue_id === issueId);
-          return depItem?.item_id || dep;
-        }),
-        semantic_priority: 0.5,
-        assigned_executor: 'codex'
-      });
-      added++;
+    // Collect all files touched by this solution
+    const filesTouched = new Set<string>();
+    for (const task of solution.tasks || []) {
+      for (const mp of task.modification_points || []) {
+        filesTouched.add(mp.file);
+      }
     }
+
+    // Create solution-level queue item (S-N)
+    queue.solutions.push({
+      item_id: generateQueueItemId(queue, 'solution'),
+      issue_id: issueId,
+      solution_id: solution.id,
+      status: 'pending',
+      execution_order: queue.solutions.length + 1,
+      execution_group: 'P1',
+      depends_on: [],
+      semantic_priority: 0.5,
+      assigned_executor: 'codex',
+      task_count: solution.tasks?.length || 0,
+      files_touched: Array.from(filesTouched)
+    });
 
     writeQueue(queue);
     updateIssue(issueId, { status: 'queued', queued_at: new Date().toISOString() });
@@ -1061,7 +1078,7 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
     if (isNewQueue) {
       console.log(chalk.green(`✓ Created queue ${queue.id}`));
     }
-    console.log(chalk.green(`✓ Added ${added} tasks from ${solution.id}`));
+    console.log(chalk.green(`✓ Added solution ${solution.id} (${solution.tasks?.length || 0} tasks) to queue`));
     return;
   }
 
@@ -1075,7 +1092,11 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
 
   console.log(chalk.bold.cyan('\nActive Queue\n'));
 
-  if (!queue.id || queue.tasks.length === 0) {
+  // Support both solution-level and task-level queues
+  const items = queue.solutions || queue.tasks || [];
+  const isSolutionLevel = !!(queue.solutions && queue.solutions.length > 0);
+
+  if (!queue.id || items.length === 0) {
     console.log(chalk.yellow('No active queue'));
     console.log(chalk.gray('Create one: ccw issue queue add <issue-id>'));
     console.log(chalk.gray('Or list history: ccw issue queue list'));
@@ -1084,13 +1105,17 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
 
   console.log(chalk.gray(`Queue: ${queue.id}`));
   console.log(chalk.gray(`Issues: ${queue.issue_ids.join(', ')}`));
-  console.log(chalk.gray(`Total: ${queue._metadata.total_tasks} | Pending: ${queue._metadata.pending_count} | Executing: ${queue._metadata.executing_count} | Completed: ${queue._metadata.completed_count}`));
+  console.log(chalk.gray(`Total: ${items.length} | Pending: ${items.filter(i => i.status === 'pending').length} | Executing: ${items.filter(i => i.status === 'executing').length} | Completed: ${items.filter(i => i.status === 'completed').length}`));
   console.log();
 
-  console.log(chalk.gray('QueueID'.padEnd(10) + 'Issue'.padEnd(15) + 'Task'.padEnd(8) + 'Status'.padEnd(12) + 'Executor'));
+  if (isSolutionLevel) {
+    console.log(chalk.gray('ItemID'.padEnd(10) + 'Issue'.padEnd(15) + 'Tasks'.padEnd(8) + 'Status'.padEnd(12) + 'Executor'));
+  } else {
+    console.log(chalk.gray('ItemID'.padEnd(10) + 'Issue'.padEnd(15) + 'Task'.padEnd(8) + 'Status'.padEnd(12) + 'Executor'));
+  }
   console.log(chalk.gray('-'.repeat(60)));
 
-  for (const item of queue.tasks) {
+  for (const item of items) {
     const statusColor = {
       'pending': chalk.gray,
       'ready': chalk.cyan,
@@ -1100,10 +1125,14 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
       'blocked': chalk.magenta
     }[item.status] || chalk.white;
 
+    const thirdCol = isSolutionLevel
+      ? String(item.task_count || 0).padEnd(8)
+      : (item.task_id || '-').padEnd(8);
+
     console.log(
       item.item_id.padEnd(10) +
       item.issue_id.substring(0, 13).padEnd(15) +
-      (item.task_id || '-').padEnd(8) +
+      thirdCol +
       statusColor(item.status.padEnd(12)) +
       item.assigned_executor
     );

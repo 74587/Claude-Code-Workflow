@@ -76,18 +76,23 @@ chcp 65001 > $null
 
 **For task context gathering and analysis, ALWAYS prefer MCP tools**:
 
-1. **smart_search** - First choice for code discovery
-   - Use `smart_search(query="...")` for semantic/keyword search
+1. **mcp__ace-tool__search_context** - HIGHEST PRIORITY for code discovery
+   - Semantic search with real-time codebase index
+   - Use for: finding implementations, understanding architecture, locating patterns
+   - Example: `mcp__ace-tool__search_context(project_root_path="/path", query="authentication logic")`
+
+2. **smart_search** - Fallback for structured search
+   - Use `smart_search(query="...")` for keyword/regex search
    - Use `smart_search(action="find_files", pattern="*.ts")` for file discovery
    - Supports modes: `auto`, `hybrid`, `exact`, `ripgrep`
 
-2. **read_file** - Batch file reading
+3. **read_file** - Batch file reading
    - Read multiple files in parallel: `read_file(path="file1.ts")`, `read_file(path="file2.ts")`
    - Supports glob patterns: `read_file(path="src/**/*.config.ts")`
 
 **Priority Order**:
 ```
-smart_search (discovery) → read_file (batch read) → shell commands (fallback)
+ACE search_context (semantic) → smart_search (structured) → read_file (batch read) → shell commands (fallback)
 ```
 
 **NEVER** use shell commands (`cat`, `find`, `grep`) when MCP tools are available.
@@ -96,7 +101,7 @@ smart_search (discovery) → read_file (batch read) → shell commands (fallback
 
 **Before**:
 - [ ] Understand PURPOSE and TASK clearly
-- [ ] Use smart_search to discover relevant files
+- [ ] Use ACE search_context first, fallback to smart_search for discovery
 - [ ] Use read_file to batch read context files, find 3+ patterns
 - [ ] Check RULES templates and constraints
 
