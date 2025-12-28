@@ -3,6 +3,8 @@
 Tests RRF fusion logic, score computation, weight handling, and result ranking.
 """
 
+import math
+
 import pytest
 
 from codexlens.entities import SearchResult
@@ -11,6 +13,7 @@ from codexlens.search.ranking import (
     QueryIntent,
     detect_query_intent,
     normalize_bm25_score,
+    normalize_weights,
     reciprocal_rank_fusion,
     rerank_results,
     tag_search_source,
@@ -278,6 +281,50 @@ class TestNormalizeBM25Score:
         normalized = normalize_bm25_score(5.0)
         # Should still be in valid range
         assert 0.0 <= normalized <= 1.0
+
+
+class TestNormalizeWeights:
+    """Tests for normalize_weights function."""
+
+    def test_normalize_weights_with_nan(self):
+        """NaN total returns unchanged weights without division."""
+        weights = {"exact": float("nan"), "fuzzy": None}
+
+        normalized = normalize_weights(weights)
+
+        assert normalized is not weights
+        assert set(normalized.keys()) == set(weights.keys())
+        assert math.isnan(normalized["exact"])
+        assert normalized["fuzzy"] is None
+
+    def test_normalize_weights_with_infinity(self):
+        """Infinity total returns unchanged weights without division."""
+        weights = {"exact": float("inf"), "fuzzy": None}
+
+        normalized = normalize_weights(weights)
+
+        assert normalized is not weights
+        assert normalized == weights
+
+    def test_normalize_weights_with_all_none(self):
+        """All-None weights return unchanged weights without division."""
+        weights = {"exact": None, "fuzzy": None}
+
+        normalized = normalize_weights(weights)
+
+        assert normalized is not weights
+        assert normalized == weights
+
+    def test_normalize_weights_valid_total_normalizes(self):
+        """Valid finite positive total performs normalization correctly."""
+        weights = {"exact": 2.0, "fuzzy": 1.0}
+
+        normalized = normalize_weights(weights)
+
+        assert normalized is not weights
+        assert normalized["exact"] == pytest.approx(2.0 / 3.0)
+        assert normalized["fuzzy"] == pytest.approx(1.0 / 3.0)
+        assert (normalized["exact"] + normalized["fuzzy"]) == pytest.approx(1.0)
 
 
 class TestTagSearchSource:
