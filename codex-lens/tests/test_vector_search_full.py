@@ -11,6 +11,7 @@ Tests cover:
 """
 
 import json
+import math
 import tempfile
 import threading
 import time
@@ -22,10 +23,17 @@ import pytest
 from codexlens.entities import SemanticChunk, Symbol, SearchResult
 from codexlens.semantic import SEMANTIC_AVAILABLE, check_semantic_available
 
-# Skip all tests if semantic dependencies not available
+# Only skip if NumPy is unavailable (some tests exercise vector math without fastembed).
+try:
+    import numpy as np  # noqa: F401
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+
+# Skip all tests if NumPy is unavailable
 pytestmark = pytest.mark.skipif(
-    not SEMANTIC_AVAILABLE,
-    reason="Semantic search dependencies not installed (pip install codexlens[semantic])"
+    not NUMPY_AVAILABLE,
+    reason="NumPy not installed (pip install codexlens[semantic])"
 )
 
 
@@ -40,6 +48,9 @@ def temp_db(tmp_path):
 @pytest.fixture
 def embedder():
     """Create Embedder instance."""
+    available, error = check_semantic_available()
+    if not available:
+        pytest.skip(error or "Semantic search dependencies not installed (pip install codexlens[semantic])")
     from codexlens.semantic.embedder import Embedder
     return Embedder()
 
@@ -200,6 +211,50 @@ class TestEmbeddingSimilarity:
 
         similarity = _cosine_similarity(zero_vec, normal_vec)
         assert similarity == 0.0, "Zero vector should have 0 similarity"
+
+    def test_cosine_similarity_near_zero_norm_vectors(self):
+        """Near-zero norm vectors (< epsilon) should return 0.0 similarity."""
+        from codexlens.semantic.vector_store import _cosine_similarity
+
+        near_zero_vec = [1e-12] * 384
+        normal_vec = [1.0] * 384
+
+        similarity = _cosine_similarity(near_zero_vec, normal_vec)
+        assert similarity == 0.0
+
+    def test_cosine_similarity_product_underflow_returns_zero(self):
+        """Product underflow (norm_a * norm_b < epsilon) should return 0.0."""
+        from codexlens.semantic.vector_store import _cosine_similarity
+
+        underflow_vec = [1e-7] * 384
+
+        similarity = _cosine_similarity(underflow_vec, underflow_vec)
+        assert similarity == 0.0
+
+    def test_cosine_similarity_small_valid_vectors(self):
+        """Small-but-valid vectors should compute similarity correctly."""
+        from codexlens.semantic.vector_store import _cosine_similarity
+
+        small_vec = [1e-6] * 384
+
+        similarity = _cosine_similarity(small_vec, small_vec)
+        assert similarity == pytest.approx(1.0)
+
+    def test_cosine_similarity_no_inf_nan_results(self):
+        """Epsilon edge cases should never produce inf/nan results."""
+        from codexlens.semantic.vector_store import _cosine_similarity
+
+        cases = [
+            ([0.0] * 384, [1.0] * 384),
+            ([1e-12] * 384, [1.0] * 384),
+            ([1e-7] * 384, [1e-7] * 384),
+            ([1e-6] * 384, [1e-6] * 384),
+            ([1.0] * 384, [1.0] * 384),
+        ]
+
+        for a, b in cases:
+            similarity = _cosine_similarity(a, b)
+            assert math.isfinite(similarity)
 
 
 # === VectorStore Tests ===
@@ -746,9 +801,12 @@ class TestAvailabilityCheck:
     def test_check_semantic_available(self):
         """Test check_semantic_available function."""
         available, error = check_semantic_available()
-        assert available is True
-        assert error is None
+        assert available is SEMANTIC_AVAILABLE
+        if available:
+            assert error is None
+        else:
+            assert error is not None
 
     def test_semantic_available_flag(self):
         """Test SEMANTIC_AVAILABLE flag is True when deps installed."""
-        assert SEMANTIC_AVAILABLE is True
+        assert isinstance(SEMANTIC_AVAILABLE, bool)

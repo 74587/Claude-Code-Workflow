@@ -19,10 +19,12 @@ from typing import Any, Dict, List, Optional, Tuple
 from codexlens.entities import SearchResult, SemanticChunk
 from codexlens.errors import StorageError
 
-from . import SEMANTIC_AVAILABLE
-
-if SEMANTIC_AVAILABLE:
+try:
     import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    np = None  # type: ignore[assignment]
+    NUMPY_AVAILABLE = False
 
 # Try to import ANN index (optional hnswlib dependency)
 try:
@@ -37,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 def _cosine_similarity(a: List[float], b: List[float]) -> float:
     """Compute cosine similarity between two vectors."""
-    if not SEMANTIC_AVAILABLE:
+    if not NUMPY_AVAILABLE:
         raise ImportError("numpy required for vector operations")
 
     a_arr = np.array(a)
@@ -74,7 +76,7 @@ class VectorStore:
     DEFAULT_DIM = 768
 
     def __init__(self, db_path: str | Path) -> None:
-        if not SEMANTIC_AVAILABLE:
+        if not NUMPY_AVAILABLE:
             raise ImportError(
                 "Semantic search dependencies not available. "
                 "Install with: pip install codexlens[semantic]"
