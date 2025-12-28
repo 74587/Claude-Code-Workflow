@@ -8,6 +8,7 @@ let cliStreamExecutions = {};  // { executionId: { tool, mode, output, status, s
 let activeStreamTab = null;
 let autoScrollEnabled = true;
 let isCliStreamViewerOpen = false;
+let searchFilter = '';  // Search filter for output content
 
 const MAX_OUTPUT_LINES = 5000;  // Prevent memory issues
 
@@ -230,9 +231,9 @@ function renderStreamTabs() {
 function renderStreamContent(executionId) {
   const contentContainer = document.getElementById('cliStreamContent');
   if (!contentContainer) return;
-  
+
   const exec = executionId ? cliStreamExecutions[executionId] : null;
-  
+
   if (!exec) {
     // Show empty state
     contentContainer.innerHTML = `
@@ -245,20 +246,43 @@ function renderStreamContent(executionId) {
     if (typeof lucide !== 'undefined') lucide.createIcons();
     return;
   }
-  
+
   // Check if should auto-scroll
   const wasAtBottom = contentContainer.scrollHeight - contentContainer.scrollTop <= contentContainer.clientHeight + 50;
-  
-  // Render output lines
-  contentContainer.innerHTML = exec.output.map(line => 
-    `<div class="cli-stream-line ${line.type}">${escapeHtml(line.content)}</div>`
-  ).join('');
-  
+
+  // Filter output lines based on search
+  let filteredOutput = exec.output;
+  if (searchFilter.trim()) {
+    const searchLower = searchFilter.toLowerCase();
+    filteredOutput = exec.output.filter(line =>
+      line.content.toLowerCase().includes(searchLower)
+    );
+  }
+
+  // Render output lines with search highlighting
+  contentContainer.innerHTML = filteredOutput.map(line => {
+    let content = escapeHtml(line.content);
+    // Highlight search matches
+    if (searchFilter.trim()) {
+      const searchRegex = new RegExp(`(${escapeRegex(searchFilter)})`, 'gi');
+      content = content.replace(searchRegex, '<mark class="cli-stream-highlight">$1</mark>');
+    }
+    return `<div class="cli-stream-line ${line.type}">${content}</div>`;
+  }).join('');
+
+  // Show filter result count if filtering
+  if (searchFilter.trim() && filteredOutput.length !== exec.output.length) {
+    const filterInfo = document.createElement('div');
+    filterInfo.className = 'cli-stream-filter-info';
+    filterInfo.textContent = `${filteredOutput.length} / ${exec.output.length} lines`;
+    contentContainer.insertBefore(filterInfo, contentContainer.firstChild);
+  }
+
   // Auto-scroll if enabled and was at bottom
   if (autoScrollEnabled && wasAtBottom) {
     contentContainer.scrollTop = contentContainer.scrollHeight;
   }
-  
+
   // Update status bar
   renderStreamStatus(executionId);
 }
@@ -408,14 +432,14 @@ function handleStreamContentScroll() {
 // ===== Helper Functions =====
 function formatDuration(ms) {
   if (ms < 1000) return `${ms}ms`;
-  
+
   const seconds = Math.floor(ms / 1000);
   if (seconds < 60) return `${seconds}s`;
-  
+
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
   if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
-  
+
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   return `${hours}h ${remainingMinutes}m`;
@@ -426,6 +450,25 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+function escapeRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// ===== Search Functions =====
+function handleSearchInput(event) {
+  searchFilter = event.target.value;
+  renderStreamContent(activeStreamTab);
+}
+
+function clearSearch() {
+  searchFilter = '';
+  const searchInput = document.getElementById('cliStreamSearchInput');
+  if (searchInput) {
+    searchInput.value = '';
+  }
+  renderStreamContent(activeStreamTab);
 }
 
 // Translation helper with fallback (uses global t from i18n.js)
@@ -459,3 +502,16 @@ if (document.readyState === 'loading') {
 } else {
   initCliStreamViewer();
 }
+
+// ===== Global Exposure =====
+window.toggleCliStreamViewer = toggleCliStreamViewer;
+window.handleCliStreamStarted = handleCliStreamStarted;
+window.handleCliStreamOutput = handleCliStreamOutput;
+window.handleCliStreamCompleted = handleCliStreamCompleted;
+window.handleCliStreamError = handleCliStreamError;
+window.switchStreamTab = switchStreamTab;
+window.closeStream = closeStream;
+window.clearCompletedStreams = clearCompletedStreams;
+window.toggleAutoScroll = toggleAutoScroll;
+window.handleSearchInput = handleSearchInput;
+window.clearSearch = clearSearch;

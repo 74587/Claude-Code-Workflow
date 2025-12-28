@@ -91,6 +91,71 @@
   color: hsl(var(--warning-foreground, white));
 }
 
+/* ===== Search Box ===== */
+.cli-stream-search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.cli-stream-search:focus-within {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.1);
+}
+
+.cli-stream-search-input {
+  width: 140px;
+  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 0.75rem;
+  color: hsl(var(--foreground));
+}
+
+.cli-stream-search-input::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+.cli-stream-search-icon {
+  width: 14px;
+  height: 14px;
+  color: hsl(var(--muted-foreground));
+  flex-shrink: 0;
+}
+
+.cli-stream-search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s;
+}
+
+.cli-stream-search:focus-within .cli-stream-search-clear,
+.cli-stream-search-input:not(:placeholder-shown) + .cli-stream-search-clear {
+  opacity: 1;
+}
+
+.cli-stream-search-clear:hover {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
 .cli-stream-actions {
   display: flex;
   align-items: center;
@@ -332,6 +397,26 @@
 
 .cli-stream-line.info {
   color: hsl(200 80% 70%);
+}
+
+/* Search highlight */
+.cli-stream-highlight {
+  background: hsl(50 100% 50% / 0.4);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* Filter result info */
+.cli-stream-filter-info {
+  display: inline-block;
+  padding: 4px 10px;
+  margin-bottom: 8px;
+  background: hsl(var(--primary) / 0.15);
+  color: hsl(var(--primary));
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-weight: 500;
 }
 
 /* Auto-scroll indicator */
