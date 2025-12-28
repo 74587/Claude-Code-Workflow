@@ -46,10 +46,16 @@ def _cosine_similarity(a: List[float], b: List[float]) -> float:
     norm_a = np.linalg.norm(a_arr)
     norm_b = np.linalg.norm(b_arr)
 
-    if norm_a == 0 or norm_b == 0:
+    EPSILON = 1e-10
+    # Use epsilon tolerance to avoid division by (near-)zero due to floating point precision.
+    if norm_a < EPSILON or norm_b < EPSILON:
         return 0.0
 
-    return float(np.dot(a_arr, b_arr) / (norm_a * norm_b))
+    denom = norm_a * norm_b
+    if denom < EPSILON:
+        return 0.0
+
+    return float(np.dot(a_arr, b_arr) / denom)
 
 
 class VectorStore:
