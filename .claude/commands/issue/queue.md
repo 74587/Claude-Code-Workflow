@@ -332,102 +332,30 @@ const summary = JSON.parse(result);
 ### Phase 5: Validation & Status Update
 
 ```javascript
-// ============ VALIDATION: Prevent "next returns empty" issues ============
+const queuePath = `.workflow/issues/queues/${queueId}.json`;
 
-const queuesDir = '.workflow/issues/queues';
-const indexPath = `${queuesDir}/index.json`;
-const queuePath = `${queuesDir}/${queueId}.json`;
-
-// 1. Validate index.json has active_queue_id
-const indexContent = Bash(`cat "${indexPath}" 2>/dev/null || echo '{}'`);
-const index = JSON.parse(indexContent);
-
-if (index.active_queue_id !== queueId) {
-  console.log(`⚠ Fixing: index.json active_queue_id not set to ${queueId}`);
-  index.active_queue_id = queueId;
-  // Ensure queue entry exists in index
-  if (!index.queues) index.queues = [];
-  const existing = index.queues.find(q => q.id === queueId);
-  if (!existing) {
-    index.queues.unshift({
-      id: queueId,
-      status: 'active',
-      issue_ids: summary.issues_queued,
-      total_solutions: summary.total_solutions,
-      completed_solutions: 0,
-      created_at: new Date().toISOString()
-    });
-  }
-  Bash(`echo '${JSON.stringify(index, null, 2)}' > "${indexPath}"`);
-  console.log(`✓ Fixed: index.json updated with active_queue_id: ${queueId}`);
-}
-
-// 2. Validate queue file exists and has correct structure
-const queueContent = Bash(`cat "${queuePath}" 2>/dev/null || echo '{}'`);
-const queue = JSON.parse(queueContent);
-
-if (!queue.solutions || queue.solutions.length === 0) {
-  console.error(`✗ ERROR: Queue file ${queuePath} has no solutions array`);
-  console.error('  Agent did not generate queue correctly. Aborting.');
+// 1. Validate queue has solutions
+const solCount = Bash(`jq ".solutions | length" "${queuePath}"`).trim();
+if (!solCount || solCount === '0') {
+  console.error(`✗ Queue has no solutions. Aborting.`);
   return;
 }
 
-// 3. Validate all solutions have status: "pending" (not "queued" or other)
-let statusFixed = 0;
-for (const sol of queue.solutions) {
-  if (sol.status !== 'pending' && sol.status !== 'executing' && sol.status !== 'completed') {
-    console.log(`⚠ Fixing: ${sol.item_id} status "${sol.status}" → "pending"`);
-    sol.status = 'pending';
-    statusFixed++;
-  }
+// 2. Update issue statuses
+for (const id of summary.issues_queued) {
+  Bash(`ccw issue update ${id} --status queued`);
 }
 
-// 4. Validate at least one item has no dependencies (DAG entry point)
-const entryPoints = queue.solutions.filter(s =>
-  s.status === 'pending' && (!s.depends_on || s.depends_on.length === 0)
-);
-
-if (entryPoints.length === 0) {
-  console.error(`✗ ERROR: No entry points found (all items have dependencies)`);
-  console.error('  This will cause "ccw issue next" to return empty.');
-  console.error('  Check depends_on fields for circular dependencies.');
-  // Try to fix by clearing first item's dependencies
-  if (queue.solutions.length > 0) {
-    console.log(`⚠ Fixing: Clearing depends_on for first item ${queue.solutions[0].item_id}`);
-    queue.solutions[0].depends_on = [];
-  }
-}
-
-// Write back fixed queue if any changes made
-if (statusFixed > 0 || entryPoints.length === 0) {
-  Bash(`echo '${JSON.stringify(queue, null, 2)}' > "${queuePath}"`);
-  console.log(`✓ Queue file updated with ${statusFixed} status fixes`);
-}
-
-// ============ OUTPUT SUMMARY ============
-
+// 3. Summary
 console.log(`
-## Queue Formed: ${summary.queue_id}
+## Queue: ${summary.queue_id}
 
-**Solutions**: ${summary.total_solutions}
-**Tasks**: ${summary.total_tasks}
-**Issues**: ${summary.issues_queued.join(', ')}
-**Groups**: ${summary.execution_groups.map(g => `${g.id}(${g.count})`).join(', ')}
-**Conflicts Resolved**: ${summary.conflicts_resolved}
-**Entry Points**: ${entryPoints.length} (items ready for immediate execution)
+- Solutions: ${summary.total_solutions}
+- Tasks: ${summary.total_tasks}
+- Issues: ${summary.issues_queued.join(', ')}
 
-Next: \`/issue:execute\` or \`ccw issue next\`
+Next: /issue:execute
 `);
-
-// Update issue statuses via CLI
-for (const issueId of summary.issues_queued) {
-  Bash(`ccw issue update ${issueId} --status queued`);
-}
-
-// Final verification
-const verifyResult = Bash(`ccw issue queue dag 2>/dev/null | head -20`);
-console.log('\n### Verification (DAG Preview):');
-console.log(verifyResult);
 ```
 
 ## Error Handling
