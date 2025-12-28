@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import platform
 import sqlite3
 import threading
 import time
@@ -153,6 +154,17 @@ class RegistryStore:
         except sqlite3.DatabaseError as exc:
             raise StorageError(f"Failed to initialize registry schema: {exc}") from exc
 
+    def _normalize_path_for_comparison(self, path: Path) -> str:
+        """Normalize paths for comparisons and storage.
+
+        Windows paths are treated as case-insensitive, so normalize to lowercase.
+        Unix platforms preserve case sensitivity.
+        """
+        path_str = str(path)
+        if platform.system() == "Windows":
+            return path_str.lower()
+        return path_str
+
     # === Project Operations ===
 
     def register_project(self, source_root: Path, index_root: Path) -> ProjectInfo:
@@ -167,7 +179,7 @@ class RegistryStore:
         """
         with self._lock:
             conn = self._get_connection()
-            source_root_str = str(source_root.resolve())
+            source_root_str = self._normalize_path_for_comparison(source_root.resolve())
             index_root_str = str(index_root.resolve())
             now = time.time()
 
@@ -205,7 +217,7 @@ class RegistryStore:
         """
         with self._lock:
             conn = self._get_connection()
-            source_root_str = str(source_root.resolve())
+            source_root_str = self._normalize_path_for_comparison(source_root.resolve())
 
             row = conn.execute(
                 "SELECT id FROM projects WHERE source_root=?", (source_root_str,)
@@ -229,7 +241,7 @@ class RegistryStore:
         """
         with self._lock:
             conn = self._get_connection()
-            source_root_str = str(source_root.resolve())
+            source_root_str = self._normalize_path_for_comparison(source_root.resolve())
 
             row = conn.execute(
                 "SELECT * FROM projects WHERE source_root=?", (source_root_str,)
@@ -291,7 +303,7 @@ class RegistryStore:
         """
         with self._lock:
             conn = self._get_connection()
-            source_root_str = str(source_root.resolve())
+            source_root_str = self._normalize_path_for_comparison(source_root.resolve())
 
             conn.execute(
                 """
@@ -312,7 +324,7 @@ class RegistryStore:
         """
         with self._lock:
             conn = self._get_connection()
-            source_root_str = str(source_root.resolve())
+            source_root_str = self._normalize_path_for_comparison(source_root.resolve())
 
             conn.execute(
                 "UPDATE projects SET status=? WHERE source_root=?",
@@ -344,7 +356,7 @@ class RegistryStore:
         """
         with self._lock:
             conn = self._get_connection()
-            source_path_str = str(source_path.resolve())
+            source_path_str = self._normalize_path_for_comparison(source_path.resolve())
             index_path_str = str(index_path.resolve())
             now = time.time()
 
@@ -385,7 +397,7 @@ class RegistryStore:
         """
         with self._lock:
             conn = self._get_connection()
-            source_path_str = str(source_path.resolve())
+            source_path_str = self._normalize_path_for_comparison(source_path.resolve())
 
             row = conn.execute(
                 "SELECT id FROM dir_mapping WHERE source_path=?", (source_path_str,)
@@ -409,7 +421,7 @@ class RegistryStore:
         """
         with self._lock:
             conn = self._get_connection()
-            source_path_str = str(source_path.resolve())
+            source_path_str = self._normalize_path_for_comparison(source_path.resolve())
 
             row = conn.execute(
                 "SELECT index_path FROM dir_mapping WHERE source_path=?",
@@ -441,7 +453,7 @@ class RegistryStore:
             paths_to_check = []
             current = source_path_resolved
             while True:
-                paths_to_check.append(str(current))
+                paths_to_check.append(self._normalize_path_for_comparison(current))
                 parent = current.parent
                 if parent == current:  # Reached filesystem root
                     break
@@ -476,7 +488,8 @@ class RegistryStore:
         """
         with self._lock:
             conn = self._get_connection()
-            source_path_resolved = str(Path(source_path).resolve())
+            resolved_path = Path(source_path).resolve()
+            source_path_resolved = self._normalize_path_for_comparison(resolved_path)
 
             # First try exact match on projects table
             row = conn.execute(
@@ -494,9 +507,9 @@ class RegistryStore:
             # Try finding project that contains this path
             # Build list of all parent paths
             paths_to_check = []
-            current = Path(source_path_resolved)
+            current = resolved_path
             while True:
-                paths_to_check.append(str(current))
+                paths_to_check.append(self._normalize_path_for_comparison(current))
                 parent = current.parent
                 if parent == current:
                     break
@@ -552,7 +565,7 @@ class RegistryStore:
         """
         with self._lock:
             conn = self._get_connection()
-            source_path_str = str(source_path.resolve())
+            source_path_str = self._normalize_path_for_comparison(source_path.resolve())
 
             # First get the parent's depth
             parent_row = conn.execute(
@@ -587,7 +600,7 @@ class RegistryStore:
         """
         with self._lock:
             conn = self._get_connection()
-            source_path_str = str(source_path.resolve())
+            source_path_str = self._normalize_path_for_comparison(source_path.resolve())
 
             conn.execute(
                 """
