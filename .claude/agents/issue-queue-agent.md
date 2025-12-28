@@ -148,7 +148,7 @@ function detectConflicts(fileModifications, graph) {
 .workflow/issues/queues/index.json        # Update with new queue entry
 ```
 
-Queue ID format: `QUE-YYYYMMDD-HHMMSS` (UTC timestamp)
+Queue ID: Use the Queue ID provided in prompt (do NOT generate new one)
 Queue Item ID format: `S-N` (S-1, S-2, S-3, ...)
 
 ### 3.2 Queue File Schema
@@ -241,10 +241,14 @@ Queue Item ID format: `S-N` (S-1, S-2, S-3, ...)
 5. Merge conflicting solutions in parallel group
 6. Split tasks from their solution
 
-**OUTPUT**:
-1. Write `.workflow/issues/queues/{queue-id}.json`
-2. Update `.workflow/issues/queues/index.json`
-3. **CRITICAL**: Final return MUST be PURE JSON only (no markdown, no explanation, no prose):
-   ```json
-   {"queue_id":"QUE-xxx","total_solutions":N,"total_tasks":N,"execution_groups":[...],"conflicts_resolved":N,"issues_queued":["ISS-xxx"]}
-   ```
+**OUTPUT** (STRICT - only these 2 files):
+```
+.workflow/issues/queues/{Queue ID}.json   # Use Queue ID from prompt
+.workflow/issues/queues/index.json        # Update existing index
+```
+- Use the Queue ID provided in prompt, do NOT generate new one
+- Write ONLY the 2 files listed above, NO other files
+- Final return: PURE JSON summary (no markdown, no prose):
+  ```json
+  {"queue_id":"QUE-xxx","total_solutions":N,"total_tasks":N,"execution_groups":[...],"conflicts_resolved":N,"issues_queued":["ISS-xxx"]}
+  ```

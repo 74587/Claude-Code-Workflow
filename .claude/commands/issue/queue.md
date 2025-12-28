@@ -260,10 +260,15 @@ console.log(`Loaded ${allSolutions.length} solutions from ${plannedIssues.length
 ### Phase 2-4: Agent-Driven Queue Formation
 
 ```javascript
+// Generate queue-id ONCE here, pass to agent
+const now = new Date();
+const queueId = `QUE-${now.toISOString().replace(/[-:T]/g, '').slice(0, 14)}`;
+
 // Build minimal prompt - agent orders SOLUTIONS, not tasks
 const agentPrompt = `
 ## Order Solutions
 
+**Queue ID**: ${queueId}
 **Solutions**: ${allSolutions.length} from ${plannedIssues.length} issues
 **Project Root**: ${process.cwd()}
 
@@ -293,11 +298,13 @@ ${JSON.stringify(allSolutions, null, 2)}
   3. More tasks = higher priority (larger impact)
 - **Parallel Safety**: Solutions in same parallel group must have NO file overlaps
 - **Queue Item ID Format**: \`S-N\` (S-1, S-2, S-3, ...)
-- **Queue ID Format**: \`QUE-YYYYMMDD-HHMMSS\` (UTC timestamp)
+- **Queue ID**: Use the provided Queue ID (passed above), do NOT generate new one
 
-### Generate Files
-1. \`.workflow/issues/queues/\${queueId}.json\` - Full queue with solutions array
-2. \`.workflow/issues/queues/index.json\` - Update with new entry
+### Generate Files (STRICT - only these 2)
+1. \`.workflow/issues/queues/{Queue ID}.json\` - Use Queue ID from above
+2. \`.workflow/issues/queues/index.json\` - Update existing index
+
+Write ONLY these 2 files, using the provided Queue ID.
 
 ### Return Summary
 \`\`\`json
