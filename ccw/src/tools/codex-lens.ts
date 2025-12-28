@@ -380,10 +380,62 @@ async function ensureLiteLLMEmbedderReady(): Promise<BootstrapResult> {
 type GpuMode = 'cpu' | 'cuda' | 'directml';
 
 /**
+ * Python environment info for compatibility checks
+ */
+interface PythonEnvInfo {
+  version: string;        // e.g., "3.11.5"
+  majorMinor: string;     // e.g., "3.11"
+  architecture: number;   // 32 or 64
+  compatible: boolean;    // true if 64-bit and Python 3.8-3.12
+  error?: string;
+}
+
+/**
+ * Check Python environment in venv for DirectML compatibility
+ * DirectML requires: 64-bit Python, version 3.8-3.12
+ */
+async function checkPythonEnvForDirectML(): Promise<PythonEnvInfo> {
+  const pythonPath =
+    process.platform === 'win32'
+      ? join(CODEXLENS_VENV, 'Scripts', 'python.exe')
+      : join(CODEXLENS_VENV, 'bin', 'python');
+
+  if (!existsSync(pythonPath)) {
+    return { version: '', majorMinor: '', architecture: 0, compatible: false, error: 'Python not found in venv' };
+  }
+
+  try {
+    // Get Python version and architecture in one call
+    const checkScript = `import sys, struct; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}|{struct.calcsize('P') * 8}")`;
+    const result = execSync(`"${pythonPath}" -c "${checkScript}"`, { encoding: 'utf-8', timeout: 10000 }).trim();
+    const [version, archStr] = result.split('|');
+    const architecture = parseInt(archStr, 10);
+    const [major, minor] = version.split('.').map(Number);
+    const majorMinor = `${major}.${minor}`;
+
+    // DirectML wheels available for Python 3.8-3.12, 64-bit only
+    const versionCompatible = major === 3 && minor >= 8 && minor <= 12;
+    const archCompatible = architecture === 64;
+    const compatible = versionCompatible && archCompatible;
+
+    let error: string | undefined;
+    if (!archCompatible) {
+      error = `Python is ${architecture}-bit. onnxruntime-directml requires 64-bit Python. Please reinstall Python as 64-bit.`;
+    } else if (!versionCompatible) {
+      error = `Python ${majorMinor} is not supported. onnxruntime-directml requires Python 3.8-3.12.`;
+    }
+
+    return { version, majorMinor, architecture, compatible, error };
+  } catch (e) {
+    return { version: '', majorMinor: '', architecture: 0, compatible: false, error: `Failed to check Python: ${(e as Error).message}` };
+  }
+}
+
+/**
  * Detect available GPU acceleration
  * @returns Detected GPU mode and info
  */
-async function detectGpuSupport(): Promise<{ mode: GpuMode; available: GpuMode[]; info: string }> {
+async function detectGpuSupport(): Promise<{ mode: GpuMode; available: GpuMode[]; info: string; pythonEnv?: PythonEnvInfo }> {
   const available: GpuMode[] = ['cpu'];
   let detectedInfo = 'CPU only';
 
@@ -402,19 +454,20 @@ async function detectGpuSupport(): Promise<{ mode: GpuMode; available: GpuMode[]
     // NVIDIA not available
   }
 
-  // On Windows, DirectML is always available if DirectX 12 is supported
+  // On Windows, DirectML requires 64-bit Python 3.8-3.12
+  let pythonEnv: PythonEnvInfo | undefined;
   if (process.platform === 'win32') {
-    try {
-      // Check for DirectX 12 support via dxdiag or registry
-      // DirectML works on most modern Windows 10/11 systems
+    pythonEnv = await checkPythonEnvForDirectML();
+    if (pythonEnv.compatible) {
       available.push('directml');
       if (available.includes('cuda')) {
         detectedInfo = 'NVIDIA GPU detected (CUDA & DirectML available)';
       } else {
         detectedInfo = 'DirectML available (Windows GPU acceleration)';
       }
-    } catch {
-      // DirectML check failed
+    } else if (pythonEnv.error) {
+      // DirectML not available due to Python environment
+      console.log(`[CodexLens] DirectML unavailable: ${pythonEnv.error}`);
     }
   }
 
@@ -426,7 +479,7 @@ async function detectGpuSupport(): Promise<{ mode: GpuMode; available: GpuMode[]
     recommendedMode = 'cuda';
   }
 
-  return { mode: recommendedMode, available, info: detectedInfo };
+  return { mode: recommendedMode, available, info: detectedInfo, pythonEnv };
 }
 
 /**
@@ -439,6 +492,19 @@ async function installSemantic(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResul
   const venvStatus = await checkVenvStatus();
   if (!venvStatus.ready) {
     return { success: false, error: 'CodexLens not installed. Install CodexLens first.' };
+  }
+
+  // Check Python environment compatibility for DirectML
+  if (gpuMode === 'directml') {
+    const pythonEnv = await checkPythonEnvForDirectML();
+    if (!pythonEnv.compatible) {
+      const errorDetails = pythonEnv.error || 'Unknown compatibility issue';
+      return {
+        success: false,
+        error: `DirectML installation failed: ${errorDetails}\n\nTo fix this:\n1. Uninstall current Python\n2. Install 64-bit Python 3.10, 3.11, or 3.12 from python.org\n3. Delete ~/.codexlens/venv folder\n4. Reinstall CodexLens`
+      };
+    }
+    console.log(`[CodexLens] Python ${pythonEnv.version} (${pythonEnv.architecture}-bit) - DirectML compatible`);
   }
 
   const pipPath =
@@ -1411,7 +1477,7 @@ export {
   cancelIndexing,
   isIndexingInProgress,
 };
-export type { GpuMode };
+export type { GpuMode, PythonEnvInfo };
 
 // Backward-compatible export for tests
 export const codexLensTool = {

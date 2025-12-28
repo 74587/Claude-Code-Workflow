@@ -446,6 +446,12 @@ async function loadSemanticDepsStatus() {
  * Build GPU mode selector HTML
  */
 function buildGpuModeSelector(gpuInfo) {
+  // Check if DirectML is unavailable due to Python environment
+  var directmlUnavailableReason = null;
+  if (!gpuInfo.available.includes('directml') && gpuInfo.pythonEnv && gpuInfo.pythonEnv.error) {
+    directmlUnavailableReason = gpuInfo.pythonEnv.error;
+  }
+
   var modes = [
     {
       id: 'cpu',
@@ -457,10 +463,13 @@ function buildGpuModeSelector(gpuInfo) {
     {
       id: 'directml',
       label: 'DirectML',
-      desc: t('codexlens.directmlModeDesc') || 'Windows GPU (NVIDIA/AMD/Intel)',
+      desc: directmlUnavailableReason
+        ? directmlUnavailableReason
+        : (t('codexlens.directmlModeDesc') || 'Windows GPU (NVIDIA/AMD/Intel)'),
       icon: 'cpu',
       available: gpuInfo.available.includes('directml'),
-      recommended: gpuInfo.mode === 'directml'
+      recommended: gpuInfo.mode === 'directml',
+      warning: directmlUnavailableReason
     },
     {
       id: 'cuda',
@@ -487,6 +496,7 @@ function buildGpuModeSelector(gpuInfo) {
     var isDisabled = !mode.available;
     var isRecommended = mode.recommended;
     var isDefault = mode.id === gpuInfo.mode;
+    var hasWarning = mode.warning;
 
     html +=
       '<label class="flex items-center gap-3 p-2 rounded border cursor-pointer hover:bg-muted/50 transition-colors ' +
@@ -502,7 +512,7 @@ function buildGpuModeSelector(gpuInfo) {
             (isRecommended ? '<span class="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded">' + (t('common.recommended') || 'Recommended') + '</span>' : '') +
             (isDisabled ? '<span class="text-xs text-muted-foreground">(' + (t('common.unavailable') || 'Unavailable') + ')</span>' : '') +
           '</div>' +
-          '<div class="text-xs text-muted-foreground">' + mode.desc + '</div>' +
+          '<div class="text-xs ' + (hasWarning ? 'text-warning' : 'text-muted-foreground') + '">' + mode.desc + '</div>' +
         '</div>' +
       '</label>';
   });
