@@ -244,4 +244,7 @@ Queue Item ID format: `S-N` (S-1, S-2, S-3, ...)
 **OUTPUT**:
 1. Write `.workflow/issues/queues/{queue-id}.json`
 2. Update `.workflow/issues/queues/index.json`
-3. Return summary with `queue_id`, `total_solutions`, `total_tasks`, `execution_groups`, `conflicts_resolved`, `issues_queued`
+3. **CRITICAL**: Final return MUST be PURE JSON only (no markdown, no explanation, no prose):
+   ```json
+   {"queue_id":"QUE-xxx","total_solutions":N,"total_tasks":N,"execution_groups":[...],"conflicts_resolved":N,"issues_queued":["ISS-xxx"]}
+   ```

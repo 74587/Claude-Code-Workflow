@@ -180,10 +180,23 @@ function decomposeTasks(issue, exploration) {
 - Task validation (all 5 phases present)
 - Conflict detection (cross-issue file modifications)
 
-**Solution Registration**:
-```bash
-# Write solution and register via CLI
-ccw issue bind <issue-id> --solution /tmp/sol.json
+**Solution Registration** (CRITICAL: check solution count first):
+```javascript
+for (const issue of issues) {
+  const solutions = generatedSolutions[issue.id];
+
+  if (solutions.length === 1) {
+    // Single solution → auto-bind
+    Bash(`ccw issue bind ${issue.id} --solution ${solutions[0].file}`);
+    bound.push({ issue_id: issue.id, solution_id: solutions[0].id, task_count: solutions[0].tasks.length });
+  } else {
+    // Multiple solutions → DO NOT BIND, return for user selection
+    pending_selection.push({
+      issue_id: issue.id,
+      solutions: solutions.map(s => ({ id: s.id, description: s.description, task_count: s.tasks.length }))
+    });
+  }
+}
 ```
 
 ---
@@ -255,7 +268,7 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 2. Use vague criteria ("works correctly", "good performance")
 3. Create circular dependencies
 4. Generate more than 10 tasks per issue
-5. Bind when multiple solutions exist
+5. **Bind when multiple solutions exist** - MUST check `solutions.length === 1` before calling `ccw issue bind`
 
 **OUTPUT**:
 1. Register solutions via `ccw issue bind <id> --solution <file>`

@@ -252,7 +252,11 @@ for (let i = 0; i < agentTasks.length; i += MAX_PARALLEL) {
     for (const item of summary.bound || []) {
       console.log(`✓ ${item.issue_id}: ${item.solution_id} (${item.task_count} tasks)`);
     }
-    pendingSelections.push(...(summary.pending_selection || []));
+    // Collect and notify pending selections
+    for (const pending of summary.pending_selection || []) {
+      console.log(`⏳ ${pending.issue_id}: ${pending.solutions.length} solutions → awaiting selection`);
+      pendingSelections.push(pending);
+    }
     if (summary.conflicts?.length > 0) {
       console.log(`⚠ Conflicts: ${summary.conflicts.map(c => c.file).join(', ')}`);
     }
@@ -261,11 +265,13 @@ for (let i = 0; i < agentTasks.length; i += MAX_PARALLEL) {
 }
 ```
 
-### Phase 3: Multi-Solution Selection
+### Phase 3: Multi-Solution Selection (MANDATORY when pendingSelections > 0)
 
 ```javascript
-// Only handle issues where agent generated multiple solutions
+// MUST trigger user selection when multiple solutions exist
 if (pendingSelections.length > 0) {
+  console.log(`\n## User Selection Required: ${pendingSelections.length} issue(s) have multiple solutions\n`);
+
   const answer = AskUserQuestion({
     questions: pendingSelections.map(({ issue_id, solutions }) => ({
       question: `Select solution for ${issue_id}:`,

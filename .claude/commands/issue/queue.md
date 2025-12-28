@@ -199,6 +199,8 @@ Phase 5: Queue Output
 
 ### Phase 1: Solution Loading
 
+**NOTE**: Execute code directly. DO NOT pre-read solution files - Bash cat handles all reading.
+
 ```javascript
 // Load issues.jsonl
 const issuesPath = '.workflow/issues/issues.jsonl';
