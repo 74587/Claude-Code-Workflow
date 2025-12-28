@@ -687,6 +687,69 @@ async function taskAction(issueId: string | undefined, taskId: string | undefine
 }
 
 /**
+ * update - Update issue fields (status, priority, title, etc.)
+ */
+async function updateAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
+  if (!issueId) {
+    console.error(chalk.red('Issue ID is required'));
+    console.error(chalk.gray('Usage: ccw issue update <issue-id> --status <status> [--priority <n>] [--title "..."]'));
+    process.exit(1);
+  }
+
+  const issue = findIssue(issueId);
+  if (!issue) {
+    console.error(chalk.red(`Issue "${issueId}" not found`));
+    process.exit(1);
+  }
+
+  const updates: Partial<Issue> = {};
+
+  if (options.status) {
+    const validStatuses = ['registered', 'planning', 'planned', 'queued', 'executing', 'completed', 'failed', 'paused'];
+    if (!validStatuses.includes(options.status)) {
+      console.error(chalk.red(`Invalid status: ${options.status}`));
+      console.error(chalk.gray(`Valid: ${validStatuses.join(', ')}`));
+      process.exit(1);
+    }
+    updates.status = options.status as Issue['status'];
+
+    // Auto-set timestamps based on status
+    if (options.status === 'planned') updates.planned_at = new Date().toISOString();
+    if (options.status === 'queued') updates.queued_at = new Date().toISOString();
+    if (options.status === 'completed') updates.completed_at = new Date().toISOString();
+  }
+
+  if (options.priority) {
+    updates.priority = parseInt(options.priority);
+  }
+
+  if (options.title) {
+    updates.title = options.title;
+  }
+
+  if (options.description) {
+    updates.context = options.description;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    console.error(chalk.yellow('No updates specified'));
+    console.error(chalk.gray('Use --status, --priority, --title, or --description'));
+    return;
+  }
+
+  updateIssue(issueId, updates);
+
+  if (options.json) {
+    console.log(JSON.stringify({ success: true, issue_id: issueId, updates }));
+  } else {
+    console.log(chalk.green(`✓ Issue "${issueId}" updated`));
+    Object.entries(updates).forEach(([k, v]) => {
+      console.log(chalk.gray(`  ${k}: ${v}`));
+    });
+  }
+}
+
+/**
  * bind - Register and/or bind a solution
  */
 async function bindAction(issueId: string | undefined, solutionId: string | undefined, options: IssueOptions): Promise<void> {
@@ -1453,6 +1516,9 @@ export async function issueCommand(
     case 'bind':
       await bindAction(argsArray[0], argsArray[1], options);
       break;
+    case 'update':
+      await updateAction(argsArray[0], options);
+      break;
     case 'queue':
       await queueAction(argsArray[0], argsArray[1], options);
       break;
@@ -1487,6 +1553,7 @@ export async function issueCommand(
       console.log(chalk.gray('  status [issue-id]                  Show detailed status'));
       console.log(chalk.gray('  task <issue-id> [task-id]          Add or update task'));
       console.log(chalk.gray('  bind <issue-id> [sol-id]           Bind solution (--solution <path> to register)'));
+      console.log(chalk.gray('  update <issue-id>                  Update issue (--status, --priority, --title)'));
       console.log();
       console.log(chalk.bold('Queue Commands:'));
       console.log(chalk.gray('  queue                              Show active queue'));

@@ -338,7 +338,8 @@ console.log(`
 Next: \`/issue:execute\`
 `);
 
-// Update issue statuses via CLI
+// Update issue statuses via CLI (use `update` for pure field changes)
+// Note: `queue add` has its own logic; here we only need status update
 for (const issueId of summary.issues_queued) {
   Bash(`ccw issue update ${issueId} --status queued`);
 }
