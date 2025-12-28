@@ -18,6 +18,28 @@ var discoveryData = {
 var discoveryLoading = false;
 var discoveryPollingInterval = null;
 
+// ========== Helper Functions ==========
+function getFilteredFindings() {
+  const findings = discoveryData.findings || [];
+  let filtered = findings;
+
+  if (discoveryData.perspectiveFilter !== 'all') {
+    filtered = filtered.filter(f => f.perspective === discoveryData.perspectiveFilter);
+  }
+  if (discoveryData.priorityFilter !== 'all') {
+    filtered = filtered.filter(f => f.priority === discoveryData.priorityFilter);
+  }
+  if (discoveryData.searchQuery) {
+    const q = discoveryData.searchQuery.toLowerCase();
+    filtered = filtered.filter(f =>
+      (f.title && f.title.toLowerCase().includes(q)) ||
+      (f.file && f.file.toLowerCase().includes(q)) ||
+      (f.description && f.description.toLowerCase().includes(q))
+    );
+  }
+  return filtered;
+}
+
 // ========== Main Render Function ==========
 async function renderIssueDiscovery() {
   const container = document.getElementById('mainContent');
@@ -258,23 +280,7 @@ function renderDiscoveryDetailSection() {
 
   const findings = discoveryData.findings || [];
   const perspectives = [...new Set(findings.map(f => f.perspective))];
-
-  // Filter findings
-  let filteredFindings = findings;
-  if (discoveryData.perspectiveFilter !== 'all') {
-    filteredFindings = filteredFindings.filter(f => f.perspective === discoveryData.perspectiveFilter);
-  }
-  if (discoveryData.priorityFilter !== 'all') {
-    filteredFindings = filteredFindings.filter(f => f.priority === discoveryData.priorityFilter);
-  }
-  if (discoveryData.searchQuery) {
-    const q = discoveryData.searchQuery.toLowerCase();
-    filteredFindings = filteredFindings.filter(f =>
-      (f.title && f.title.toLowerCase().includes(q)) ||
-      (f.file && f.file.toLowerCase().includes(q)) ||
-      (f.description && f.description.toLowerCase().includes(q))
-    );
-  }
+  const filteredFindings = getFilteredFindings();
 
   return `
     <div class="discovery-detail-container">
@@ -305,10 +311,22 @@ function renderDiscoveryDetailSection() {
 
         <!-- Findings Count -->
         <div class="findings-count">
-          <span>${filteredFindings.length} ${t('discovery.findings') || 'findings'}</span>
-          ${discoveryData.selectedFindings.size > 0 ? `
-            <span class="selected-count">(${discoveryData.selectedFindings.size} selected)</span>
-          ` : ''}
+          <div class="findings-count-left">
+            <span>${filteredFindings.length} ${t('discovery.findings') || 'findings'}</span>
+            ${discoveryData.selectedFindings.size > 0 ? `
+              <span class="selected-count">(${discoveryData.selectedFindings.size} selected)</span>
+            ` : ''}
+          </div>
+          <div class="findings-count-actions">
+            <button class="select-action-btn" onclick="selectAllFindings()">
+              <i data-lucide="check-square" class="w-3 h-3"></i>
+              <span>${t('discovery.selectAll') || 'Select All'}</span>
+            </button>
+            <button class="select-action-btn" onclick="deselectAllFindings()">
+              <i data-lucide="square" class="w-3 h-3"></i>
+              <span>${t('discovery.deselectAll') || 'Deselect All'}</span>
+            </button>
+          </div>
         </div>
 
         <!-- Findings List -->
@@ -353,17 +371,19 @@ function renderDiscoveryDetailSection() {
 function renderFindingItem(finding) {
   const isSelected = discoveryData.selectedFindings.has(finding.id);
   const isActive = discoveryData.selectedFinding?.id === finding.id;
+  const isExported = finding.exported === true;
 
   return `
-    <div class="finding-item ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''} ${finding.dismissed ? 'dismissed' : ''}"
+    <div class="finding-item ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''} ${finding.dismissed ? 'dismissed' : ''} ${isExported ? 'exported' : ''}"
          onclick="selectFinding('${finding.id}')">
       <div class="finding-checkbox" onclick="event.stopPropagation(); toggleFindingSelection('${finding.id}')">
-        <input type="checkbox" ${isSelected ? 'checked' : ''}>
+        <input type="checkbox" ${isSelected ? 'checked' : ''} ${isExported ? 'disabled' : ''}>
       </div>
       <div class="finding-content">
         <div class="finding-header">
           <span class="perspective-badge ${finding.perspective}">${finding.perspective}</span>
           <span class="priority-badge ${finding.priority}">${finding.priority}</span>
+          ${isExported ? '<span class="exported-badge">' + (t('discovery.exported') || 'Exported') + '</span>' : ''}
         </div>
         <div class="finding-title">${finding.title || 'Untitled'}</div>
         <div class="finding-location">
@@ -509,6 +529,23 @@ function toggleFindingSelection(findingId) {
   renderDiscoveryView();
 }
 
+function selectAllFindings() {
+  // Get filtered findings (respecting current filters)
+  const filteredFindings = getFilteredFindings();
+  // Select only non-exported findings
+  for (const finding of filteredFindings) {
+    if (!finding.exported) {
+      discoveryData.selectedFindings.add(finding.id);
+    }
+  }
+  renderDiscoveryView();
+}
+
+function deselectAllFindings() {
+  discoveryData.selectedFindings.clear();
+  renderDiscoveryView();
+}
+
 function filterDiscoveryByPerspective(perspective) {
   discoveryData.perspectiveFilter = perspective;
   renderDiscoveryView();
@@ -539,11 +576,19 @@ async function exportSelectedFindings() {
 
     const result = await response.json();
     if (result.success) {
-      showNotification('success', `Exported ${result.exported_count} issues`);
+      // Show detailed message if duplicates were skipped
+      const msg = result.skipped_count > 0
+        ? `Exported ${result.exported_count} issues, skipped ${result.skipped_count} duplicates`
+        : `Exported ${result.exported_count} issues`;
+      showNotification('success', msg);
       discoveryData.selectedFindings.clear();
-      // Reload discovery data
+      // Reload discovery data to reflect exported status
       await loadDiscoveryData();
-      renderDiscoveryView();
+      if (discoveryData.selectedDiscovery) {
+        await viewDiscoveryDetail(discoveryData.selectedDiscovery.discovery_id);
+      } else {
+        renderDiscoveryView();
+      }
     } else {
       showNotification('error', result.error || 'Export failed');
     }

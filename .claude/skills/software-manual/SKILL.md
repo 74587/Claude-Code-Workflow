@@ -38,9 +38,9 @@ Generate comprehensive, interactive software manuals in TiddlyWiki-style single-
 1. **主 Agent 编排，子 Agent 执行**: 所有繁重计算委托给 `universal-executor` 子 Agent
 2. **Brief Returns**: Agents return path + summary, not full content (avoid context overflow)
 3. **System Agents**: 使用 `cli-explore-agent` (探索) 和 `universal-executor` (执行)
-4. **Chrome MCP Integration**: Batch screenshot capture with Base64 embedding
+4. **成熟库内嵌**: marked.js (MD 解析) + highlight.js (语法高亮)，无 CDN 依赖
 5. **Single-File HTML**: TiddlyWiki-style interactive document with embedded resources
-6. **User-Friendly Writing**: Clear, step-by-step guides with difficulty levels
+6. **动态标签**: 根据实际章节自动生成导航标签
 
 ## Execution Flow
 
@@ -53,6 +53,10 @@ Generate comprehensive, interactive software manuals in TiddlyWiki-style single-
 │  Phase 2: Project Exploration (cli-explore-agent × N)           │
 │  → 并行探索: architecture, ui-routes, api-endpoints, config     │
 │  → Output: exploration-*.json                                   │
+├─────────────────────────────────────────────────────────────────┤
+│  Phase 2.5: API Extraction (extract_apis.py)                    │
+│  → 自动提取: FastAPI/TypeDoc/pdoc                                │
+│  → Output: api-docs/{backend,frontend,modules}/*.md             │
 ├─────────────────────────────────────────────────────────────────┤
 │  Phase 3: Parallel Analysis (universal-executor × 6)            │
 │  → 6 个子 Agent 并行: overview, ui-guide, api-docs, config,     │
@@ -161,17 +165,20 @@ Bash(`mkdir "${dir}\\sections" && mkdir "${dir}\\screenshots" && mkdir "${dir}\\
 
 | Document | Purpose |
 |----------|---------|
-| [phases/01-requirements-discovery.md](phases/01-requirements-discovery.md) | User config collection |
-| [phases/02-project-exploration.md](phases/02-project-exploration.md) | Project type detection |
-| [phases/03-parallel-analysis.md](phases/03-parallel-analysis.md) | 6 Agent orchestration |
-| [phases/03.5-consolidation.md](phases/03.5-consolidation.md) | Cross-section synthesis |
-| [phases/04-screenshot-capture.md](phases/04-screenshot-capture.md) | Chrome MCP integration |
-| [phases/05-html-assembly.md](phases/05-html-assembly.md) | HTML generation |
-| [phases/06-iterative-refinement.md](phases/06-iterative-refinement.md) | Quality iteration |
-| [specs/quality-standards.md](specs/quality-standards.md) | Quality gates |
-| [specs/writing-style.md](specs/writing-style.md) | User-friendly writing |
-| [specs/html-template.md](specs/html-template.md) | HTML template spec |
-| [templates/tiddlywiki-shell.html](templates/tiddlywiki-shell.html) | HTML template |
-| [scripts/typedoc-runner.md](scripts/typedoc-runner.md) | TypeDoc execution |
-| [scripts/swagger-runner.md](scripts/swagger-runner.md) | Swagger/OpenAPI |
-| [scripts/screenshot-helper.md](scripts/screenshot-helper.md) | Chrome MCP guide |
+| [phases/01-requirements-discovery.md](phases/01-requirements-discovery.md) | 用户配置收集 |
+| [phases/02-project-exploration.md](phases/02-project-exploration.md) | 项目类型检测 |
+| [phases/02.5-api-extraction.md](phases/02.5-api-extraction.md) | API 自动提取 |
+| [phases/03-parallel-analysis.md](phases/03-parallel-analysis.md) | 6 Agent 并行分析 |
+| [phases/03.5-consolidation.md](phases/03.5-consolidation.md) | 整合与质量检查 |
+| [phases/04-screenshot-capture.md](phases/04-screenshot-capture.md) | Chrome MCP 截图 |
+| [phases/05-html-assembly.md](phases/05-html-assembly.md) | HTML 组装 |
+| [phases/06-iterative-refinement.md](phases/06-iterative-refinement.md) | 迭代优化 |
+| [specs/quality-standards.md](specs/quality-standards.md) | 质量标准 |
+| [specs/writing-style.md](specs/writing-style.md) | 写作风格 |
+| [templates/tiddlywiki-shell.html](templates/tiddlywiki-shell.html) | HTML 模板 |
+| [templates/css/wiki-base.css](templates/css/wiki-base.css) | 基础样式 |
+| [templates/css/wiki-dark.css](templates/css/wiki-dark.css) | 暗色主题 |
+| [scripts/bundle-libraries.md](scripts/bundle-libraries.md) | 库文件打包 |
+| [scripts/api-extractor.md](scripts/api-extractor.md) | API 提取说明 |
+| [scripts/extract_apis.py](scripts/extract_apis.py) | API 提取脚本 |
+| [scripts/screenshot-helper.md](scripts/screenshot-helper.md) | 截图辅助 |

@@ -202,8 +202,9 @@ ${issueList}
 ### Steps
 1. Fetch: \`ccw issue status <id> --json\`
 2. Load project context (project-tech.json + project-guidelines.json)
-3. Explore (ACE) → Plan solution (respecting guidelines)
-4. Register & bind: \`ccw issue bind <id> --solution <file>\`
+3. **If source=discovery**: Use discovery_context (file, line, snippet, suggested_fix) as planning hints
+4. Explore (ACE) → Plan solution (respecting guidelines)
+5. Register & bind: \`ccw issue bind <id> --solution <file>\`
 
 ### Generate Files
 \`.workflow/issues/solutions/{issue-id}.jsonl\` - Solution with tasks (schema: cat .claude/workflows/cli-templates/schemas/solution-schema.json)

@@ -358,15 +358,50 @@
 }
 
 .findings-count {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 0.5rem 1rem;
   font-size: 0.75rem;
   color: hsl(var(--muted-foreground));
   border-bottom: 1px solid hsl(var(--border));
 }
 
+.findings-count-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .findings-count .selected-count {
   color: hsl(var(--primary));
   font-weight: 500;
+}
+
+.findings-count-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.select-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  background: transparent;
+  border: 1px solid hsl(var(--border));
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.select-action-btn:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted));
+  border-color: hsl(var(--primary) / 0.3);
 }
 
 /* Findings List */
@@ -411,6 +446,35 @@
 
 .finding-item.dismissed {
   opacity: 0.5;
+}
+
+.finding-item.exported {
+  opacity: 0.6;
+  background: hsl(var(--success) / 0.05);
+  border: 1px solid hsl(var(--success) / 0.2);
+}
+
+.finding-item.exported:hover {
+  background: hsl(var(--success) / 0.08);
+}
+
+/* Exported Badge */
+.exported-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: hsl(var(--success) / 0.1);
+  color: hsl(var(--success));
+}
+
+.finding-checkbox input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .finding-checkbox {

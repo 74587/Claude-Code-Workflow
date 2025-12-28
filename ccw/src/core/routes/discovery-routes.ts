@@ -46,11 +46,53 @@ function getDiscoveriesDir(projectPath: string): string {
 
 function readDiscoveryIndex(discoveriesDir: string): { discoveries: any[]; total: number } {
   const indexPath = join(discoveriesDir, 'index.json');
-  if (!existsSync(indexPath)) {
+
+  // Try to read index.json first
+  if (existsSync(indexPath)) {
+    try {
+      return JSON.parse(readFileSync(indexPath, 'utf8'));
+    } catch {
+      // Fall through to scan
+    }
+  }
+
+  // Fallback: scan directory for discovery folders
+  if (!existsSync(discoveriesDir)) {
     return { discoveries: [], total: 0 };
   }
+
   try {
-    return JSON.parse(readFileSync(indexPath, 'utf8'));
+    const entries = readdirSync(discoveriesDir, { withFileTypes: true });
+    const discoveries: any[] = [];
+
+    for (const entry of entries) {
+      if (entry.isDirectory() && entry.name.startsWith('DSC-')) {
+        const statePath = join(discoveriesDir, entry.name, 'discovery-state.json');
+        if (existsSync(statePath)) {
+          try {
+            const state = JSON.parse(readFileSync(statePath, 'utf8'));
+            discoveries.push({
+              discovery_id: entry.name,
+              target_pattern: state.target_pattern,
+              perspectives: state.metadata?.perspectives || [],
+              created_at: state.metadata?.created_at,
+              completed_at: state.completed_at
+            });
+          } catch {
+            // Skip invalid entries
+          }
+        }
+      }
+    }
+
+    // Sort by creation time descending
+    discoveries.sort((a, b) => {
+      const timeA = new Date(a.created_at || 0).getTime();
+      const timeB = new Date(b.created_at || 0).getTime();
+      return timeB - timeA;
+    });
+
+    return { discoveries, total: discoveries.length };
   } catch {
     return { discoveries: [], total: 0 };
   }
@@ -139,7 +181,7 @@ function flattenFindings(perspectiveResults: any[]): any[] {
   return allFindings;
 }
 
-function appendToIssuesJsonl(projectPath: string, issues: any[]) {
+function appendToIssuesJsonl(projectPath: string, issues: any[]): { added: number; skipped: number; skippedIds: string[] } {
   const issuesDir = join(projectPath, '.workflow', 'issues');
   const issuesPath = join(issuesDir, 'issues.jsonl');
 
@@ -158,24 +200,56 @@ function appendToIssuesJsonl(projectPath: string, issues: any[]) {
     }
   }
 
-  // Convert discovery issues to standard format and append
-  const newIssues = issues.map(di => ({
-    id: di.id,
-    title: di.title,
-    status: 'registered',
-    priority: di.priority || 3,
-    context: di.context || di.description || '',
-    source: 'discovery',
-    source_discovery_id: di.source_discovery_id,
-    labels: di.labels || [],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  }));
+  // Build set of existing IDs and source_finding combinations for deduplication
+  const existingIds = new Set(existingIssues.map(i => i.id));
+  const existingSourceFindings = new Set(
+    existingIssues
+      .filter(i => i.source === 'discovery' && i.source_finding_id)
+      .map(i => `${i.source_discovery_id}:${i.source_finding_id}`)
+  );
 
-  const allIssues = [...existingIssues, ...newIssues];
-  writeFileSync(issuesPath, allIssues.map(i => JSON.stringify(i)).join('\n'));
+  // Convert and filter duplicates
+  const skippedIds: string[] = [];
+  const newIssues: any[] = [];
 
-  return newIssues.length;
+  for (const di of issues) {
+    // Check for duplicate by ID
+    if (existingIds.has(di.id)) {
+      skippedIds.push(di.id);
+      continue;
+    }
+
+    // Check for duplicate by source_discovery_id + source_finding_id
+    const sourceKey = `${di.source_discovery_id}:${di.source_finding_id}`;
+    if (di.source_finding_id && existingSourceFindings.has(sourceKey)) {
+      skippedIds.push(di.id);
+      continue;
+    }
+
+    newIssues.push({
+      id: di.id,
+      title: di.title,
+      status: 'registered',
+      priority: di.priority || 3,
+      context: di.context || di.description || '',
+      source: 'discovery',
+      source_discovery_id: di.source_discovery_id,
+      source_finding_id: di.source_finding_id,
+      perspective: di.perspective,
+      file: di.file,
+      line: di.line,
+      labels: di.labels || [],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    });
+  }
+
+  if (newIssues.length > 0) {
+    const allIssues = [...existingIssues, ...newIssues];
+    writeFileSync(issuesPath, allIssues.map(i => JSON.stringify(i)).join('\n'));
+  }
+
+  return { added: newIssues.length, skipped: skippedIds.length, skippedIds };
 }
 
 // ========== Route Handler ==========
@@ -340,6 +414,7 @@ export async function handleDiscoveryRoutes(ctx: RouteContext): Promise<boolean>
           context: f.description || '',
           source: 'discovery',
           source_discovery_id: discoveryId,
+          source_finding_id: f.id, // Track original finding ID for deduplication
           perspective: f.perspective,
           file: f.file,
           line: f.line,
@@ -347,13 +422,49 @@ export async function handleDiscoveryRoutes(ctx: RouteContext): Promise<boolean>
         };
       });
 
-      // Append to main issues.jsonl
-      const exportedCount = appendToIssuesJsonl(projectPath, issuesToExport);
+      // Append to main issues.jsonl (with deduplication)
+      const result = appendToIssuesJsonl(projectPath, issuesToExport);
+
+      // Mark exported findings in perspective files
+      if (result.added > 0) {
+        const exportedFindingIds = new Set(
+          issuesToExport
+            .filter((_, idx) => !result.skippedIds.includes(issuesToExport[idx].id))
+            .map(i => i.source_finding_id)
+        );
+
+        // Update each perspective file to mark findings as exported
+        const perspectivesDir = join(discoveriesDir, discoveryId, 'perspectives');
+        if (existsSync(perspectivesDir)) {
+          const files = readdirSync(perspectivesDir).filter(f => f.endsWith('.json'));
+          for (const file of files) {
+            const filePath = join(perspectivesDir, file);
+            try {
+              const content = JSON.parse(readFileSync(filePath, 'utf8'));
+              if (content.findings) {
+                let modified = false;
+                for (const finding of content.findings) {
+                  if (exportedFindingIds.has(finding.id) && !finding.exported) {
+                    finding.exported = true;
+                    finding.exported_at = new Date().toISOString();
+                    modified = true;
+                  }
+                }
+                if (modified) {
+                  writeFileSync(filePath, JSON.stringify(content, null, 2));
+                }
+              }
+            } catch {
+              // Skip invalid files
+            }
+          }
+        }
+      }
 
       // Update discovery state
       const state = readDiscoveryState(discoveriesDir, discoveryId);
       if (state) {
-        state.issues_generated = (state.issues_generated || 0) + exportedCount;
+        state.issues_generated = (state.issues_generated || 0) + result.added;
         writeFileSync(
           join(discoveriesDir, discoveryId, 'discovery-state.json'),
           JSON.stringify(state, null, 2)
@@ -362,8 +473,12 @@ export async function handleDiscoveryRoutes(ctx: RouteContext): Promise<boolean>
 
       return {
         success: true,
-        exported_count: exportedCount,
-        issue_ids: issuesToExport.map(i => i.id)
+        exported_count: result.added,
+        skipped_count: result.skipped,
+        skipped_ids: result.skippedIds,
+        message: result.skipped > 0
+          ? `Exported ${result.added} issues, skipped ${result.skipped} duplicates`
+          : `Exported ${result.added} issues`
       };
     });
     return true;

@@ -59,19 +59,20 @@ Phase 2: Interactive Perspective Selection
 Phase 3: Parallel Perspective Analysis
    ├─ Launch N @cli-explore-agent instances (one per perspective)
    ├─ Security & Best-Practices auto-trigger Exa research
-   ├─ Generate perspective JSON + markdown reports
+   ├─ Agent writes perspective JSON, returns summary
    └─ Update discovery-progress.json
 
 Phase 4: Aggregation & Prioritization
-   ├─ Load all perspective JSON files
+   ├─ Collect agent return summaries
+   ├─ Load perspective JSON files
    ├─ Merge findings, deduplicate by file+line
-   ├─ Calculate priority scores based on impact/urgency
-   └─ Generate candidate issue list
+   └─ Calculate priority scores
 
-Phase 5: Issue Generation
+Phase 5: Issue Generation & Summary
    ├─ Convert high-priority discoveries to issue format
-   ├─ Write to discovery-issues.jsonl (preview)
-   └─ Generate summary report
+   ├─ Write to discovery-issues.jsonl
+   ├─ Generate single summary.md from agent returns
+   └─ Update discovery-state.json to complete
 ```
 
 ## Perspectives
@@ -96,18 +97,14 @@ When no `--perspectives` flag is provided, the command uses AskUserQuestion:
 ```javascript
 AskUserQuestion({
   questions: [{
-    question: "Select discovery perspectives (multi-select)",
-    header: "Perspectives",
-    multiSelect: true,
+    question: "Select primary discovery focus:",
+    header: "Focus",
+    multiSelect: false,
     options: [
-      { label: "bug", description: "Potential bugs (edge cases, null checks, resource leaks)" },
-      { label: "ux", description: "User experience (error messages, loading states, accessibility)" },
-      { label: "test", description: "Test coverage (missing tests, edge cases, integration gaps)" },
-      { label: "quality", description: "Code quality (complexity, duplication, naming)" },
-      { label: "security", description: "Security issues (auto-enables Exa research)" },
-      { label: "performance", description: "Performance (N+1 queries, memory, caching)" },
-      { label: "maintainability", description: "Maintainability (coupling, tech debt, extensibility)" },
-      { label: "best-practices", description: "Best practices (auto-enables Exa research)" }
+      { label: "Bug + Test + Quality", description: "Quick scan: potential bugs, test gaps, code quality (Recommended)" },
+      { label: "Security + Performance", description: "System audit: security issues, performance bottlenecks" },
+      { label: "Maintainability + Best-practices", description: "Long-term health: coupling, tech debt, conventions" },
+      { label: "Full analysis", description: "All 7 perspectives (comprehensive, takes longer)" }
     ]
   }]
 })
@@ -138,37 +135,18 @@ const discoveryId = `DSC-${formatDate(new Date(), 'YYYYMMDD-HHmmss')}`;
 const outputDir = `.workflow/issues/discoveries/${discoveryId}`;
 await mkdir(outputDir, { recursive: true });
 await mkdir(`${outputDir}/perspectives`, { recursive: true });
-await mkdir(`${outputDir}/reports`, { recursive: true });
 
-// Step 4: Initialize discovery state
+// Step 4: Initialize unified discovery state (merged state+progress)
 await writeJson(`${outputDir}/discovery-state.json`, {
   discovery_id: discoveryId,
   target_pattern: targetPattern,
-  metadata: {
-    created_at: new Date().toISOString(),
-    resolved_files: resolvedFiles,
-    perspectives: [],  // filled after selection
-    external_research_enabled: false
-  },
   phase: "initialization",
-  perspectives_completed: [],
-  total_findings: 0,
-  priority_distribution: { critical: 0, high: 0, medium: 0, low: 0 },
-  issues_generated: 0
-});
-
-// Step 5: Initialize progress tracking
-await writeJson(`${outputDir}/discovery-progress.json`, {
-  discovery_id: discoveryId,
-  last_update: new Date().toISOString(),
-  phase: "initialization",
-  progress: {
-    perspective_analysis: { total: 0, completed: 0, in_progress: 0, percent_complete: 0 },
-    external_research: { enabled: false, completed: false },
-    aggregation: { completed: false },
-    issue_generation: { completed: false }
-  },
-  agent_status: []
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  target: { files_count: { total: resolvedFiles.length }, project: {} },
+  perspectives: [],  // filled after selection: [{name, status, findings}]
+  external_research: { enabled: false, completed: false },
+  results: { total_findings: 0, issues_generated: 0, priority_distribution: {} }
 });
 ```
 
@@ -182,34 +160,13 @@ if (args.perspectives) {
   selectedPerspectives = args.perspectives.split(',').map(p => p.trim());
 } else {
   // Interactive selection via AskUserQuestion
-  const response = await AskUserQuestion({
-    questions: [{
-      question: "Select discovery perspectives to analyze:",
-      header: "Perspectives",
-      multiSelect: true,
-      options: PERSPECTIVE_OPTIONS
-    }]
-  });
+  const response = await AskUserQuestion({...});
   selectedPerspectives = parseSelectedPerspectives(response);
 }
 
-// Validate perspectives
-const validPerspectives = ['bug', 'ux', 'test', 'quality', 'security', 'performance', 'maintainability', 'best-practices'];
-for (const p of selectedPerspectives) {
-  if (!validPerspectives.includes(p)) {
-    throw new Error(`Invalid perspective: ${p}`);
-  }
-}
-
-// Determine if Exa is needed
-const exaEnabled = selectedPerspectives.includes('security') ||
-                   selectedPerspectives.includes('best-practices') ||
-                   args.external;
-
-// Update state
+// Validate and update state
 await updateDiscoveryState(outputDir, {
   'metadata.perspectives': selectedPerspectives,
-  'metadata.external_research_enabled': exaEnabled,
   phase: 'parallel'
 });
 ```
@@ -219,40 +176,25 @@ await updateDiscoveryState(outputDir, {
 Launch N agents in parallel (one per selected perspective):
 
 ```javascript
-// Launch agents in parallel
+// Launch agents in parallel - agents write JSON and return summary
 const agentPromises = selectedPerspectives.map(perspective =>
   Task({
     subagent_type: "cli-explore-agent",
     run_in_background: false,
-    description: `Discover ${perspective} issues via Deep Scan`,
+    description: `Discover ${perspective} issues`,
     prompt: buildPerspectivePrompt(perspective, discoveryId, resolvedFiles, outputDir)
   })
 );
 
-// For perspectives with Exa enabled, add external research
-if (exaEnabled) {
-  for (const perspective of ['security', 'best-practices']) {
-    if (selectedPerspectives.includes(perspective)) {
-      agentPromises.push(
-        Task({
-          subagent_type: "cli-explore-agent",
-          run_in_background: false,
-          description: `External research for ${perspective} via Exa`,
-          prompt: buildExaResearchPrompt(perspective, projectTech, outputDir)
-        })
-      );
-    }
-  }
-}
-
-// Wait for all agents
+// Wait for all agents - collect their return summaries
 const results = await Promise.all(agentPromises);
+// results contain agent summaries for final report
 ```
 
 **Phase 4: Aggregation & Prioritization**
 
 ```javascript
-// Load all perspective results
+// Load all perspective JSON files written by agents
 const allFindings = [];
 for (const perspective of selectedPerspectives) {
   const jsonPath = `${outputDir}/perspectives/${perspective}.json`;
@@ -262,66 +204,37 @@ for (const perspective of selectedPerspectives) {
   }
 }
 
-// Deduplicate by file+line
-const uniqueFindings = deduplicateFindings(allFindings);
+// Deduplicate and prioritize
+const prioritizedFindings = deduplicateAndPrioritize(allFindings);
 
-// Calculate priority scores
-const prioritizedFindings = uniqueFindings.map(finding => ({
-  ...finding,
-  priority_score: calculatePriorityScore(finding)
-})).sort((a, b) => b.priority_score - a.priority_score);
-
-// Update state with aggregation results
+// Update unified state
 await updateDiscoveryState(outputDir, {
   phase: 'aggregation',
-  total_findings: prioritizedFindings.length,
-  priority_distribution: countByPriority(prioritizedFindings)
+  'results.total_findings': prioritizedFindings.length,
+  'results.priority_distribution': countByPriority(prioritizedFindings)
 });
 ```
 
-**Phase 5: Issue Generation**
+**Phase 5: Issue Generation & Summary**
 
 ```javascript
-// Filter high-priority findings for issue generation
+// Convert high-priority findings to issues
 const issueWorthy = prioritizedFindings.filter(f =>
   f.priority === 'critical' || f.priority === 'high' || f.priority_score >= 0.7
 );
 
-// Convert to issue format
-const issues = issueWorthy.map((finding, idx) => ({
-  id: `DSC-${String(idx + 1).padStart(3, '0')}`,
-  title: finding.suggested_issue?.title || finding.title,
-  status: 'discovered',
-  priority: mapPriorityToNumber(finding.priority),
-  source: 'discovery',
-  source_discovery_id: discoveryId,
-  perspective: finding.perspective,
-  context: finding.description,
-  labels: [finding.perspective, ...(finding.labels || [])],
-  file: finding.file,
-  line: finding.line,
-  created_at: new Date().toISOString()
-}));
-
-// Write discovery issues (preview, not committed to main issues.jsonl)
+// Write discovery-issues.jsonl
 await writeJsonl(`${outputDir}/discovery-issues.jsonl`, issues);
 
-// Generate summary report
-await generateSummaryReport(outputDir, prioritizedFindings, issues);
+// Generate single summary.md from agent return summaries
+// Orchestrator briefly summarizes what agents returned (NO detailed reports)
+await writeSummaryFromAgentReturns(outputDir, results, prioritizedFindings, issues);
 
 // Update final state
 await updateDiscoveryState(outputDir, {
   phase: 'complete',
-  issues_generated: issues.length
-});
-
-// Update index
-await updateDiscoveryIndex(outputDir, discoveryId, {
-  target_pattern: targetPattern,
-  perspectives: selectedPerspectives,
-  total_findings: prioritizedFindings.length,
-  issues_generated: issues.length,
-  completed_at: new Date().toISOString()
+  updated_at: new Date().toISOString(),
+  'results.issues_generated': issues.length
 });
 ```
 
@@ -331,23 +244,12 @@ await updateDiscoveryIndex(outputDir, discoveryId, {
 .workflow/issues/discoveries/
 ├── index.json                           # Discovery session index
 └── {discovery-id}/
-    ├── discovery-state.json             # State machine
-    ├── discovery-progress.json          # Real-time progress (dashboard polling)
+    ├── discovery-state.json             # Unified state (merged state+progress)
     ├── perspectives/
-    │   ├── bug.json
-    │   ├── ux.json
-    │   ├── test.json
-    │   ├── quality.json
-    │   ├── security.json
-    │   ├── performance.json
-    │   ├── maintainability.json
-    │   └── best-practices.json
-    ├── external-research.json           # Exa research results
+    │   └── {perspective}.json           # Per-perspective findings
+    ├── external-research.json           # Exa research results (if enabled)
     ├── discovery-issues.jsonl           # Generated candidate issues
-    └── reports/
-        ├── summary.md
-        ├── bug-report.md
-        └── {perspective}-report.md
+    └── summary.md                       # Single summary (from agent returns)
 ```
 
 ### Schema References
@@ -359,12 +261,6 @@ await updateDiscoveryIndex(outputDir, discoveryId, {
 | **Discovery State** | `~/.claude/workflows/cli-templates/schemas/discovery-state-schema.json` | Session state machine |
 | **Discovery Finding** | `~/.claude/workflows/cli-templates/schemas/discovery-finding-schema.json` | Perspective analysis results |
 
-**Agent Schema Loading Protocol**:
-```bash
-# Agent MUST read schema before generating any JSON output
-cat ~/.claude/workflows/cli-templates/schemas/discovery-finding-schema.json
-```
-
 ### Agent Invocation Template
 
 **Perspective Analysis Agent**:
@@ -373,23 +269,10 @@ cat ~/.claude/workflows/cli-templates/schemas/discovery-finding-schema.json
 Task({
   subagent_type: "cli-explore-agent",
   run_in_background: false,
-  description: `Discover ${perspective} issues via Deep Scan`,
+  description: `Discover ${perspective} issues`,
   prompt: `
     ## Task Objective
-    Discover potential ${perspective} issues in specified module files using Deep Scan mode (Bash + Gemini dual-source strategy)
-
-    ## Analysis Mode
-    Use **Deep Scan mode** for this discovery:
-    - Phase 1: Bash structural scan for standard patterns
-    - Phase 2: Gemini semantic analysis for ${perspective}-specific concerns
-    - Phase 3: Synthesis with attribution
-
-    ## MANDATORY FIRST STEPS
-    1. Read discovery state: ${discoveryStateJsonPath}
-    2. Get target files from discovery-state.json
-    3. Validate file access: bash(ls -la ${targetFiles.join(' ')})
-    4. **CRITICAL**: Read schema FIRST: cat ~/.claude/workflows/cli-templates/schemas/discovery-finding-schema.json
-    5. Read: .workflow/project-tech.json (technology stack)
+    Discover potential ${perspective} issues in specified module files.
 
     ## Discovery Context
     - Discovery ID: ${discoveryId}
@@ -398,59 +281,30 @@ Task({
     - Resolved Files: ${resolvedFiles.length} files
     - Output Directory: ${outputDir}
 
-    ## CLI Configuration
-    - Tool Priority: gemini → qwen → codex
-    - Mode: analysis (READ-ONLY for code analysis, WRITE for output files)
-    - Context Pattern: ${targetFiles.map(f => `@${f}`).join(' ')}
+    ## MANDATORY FIRST STEPS
+    1. Read discovery state: ${outputDir}/discovery-state.json
+    2. Read schema: ~/.claude/workflows/cli-templates/schemas/discovery-finding-schema.json
+    3. Analyze target files for ${perspective} concerns
 
-    ## ⚠️ CRITICAL OUTPUT GUIDELINES
+    ## Output Requirements
 
-    **Agent MUST write JSON files directly - DO NOT return JSON to orchestrator**:
+    **1. Write JSON file**: ${outputDir}/perspectives/${perspective}.json
+    - Follow discovery-finding-schema.json exactly
+    - Each finding: id, title, priority, category, description, file, line, snippet, suggested_issue, confidence
 
-    1. **Schema Compliance**: Read and strictly follow discovery-finding-schema.json
-       - All required fields MUST be present
-       - Use exact enum values (lowercase priority: critical/high/medium/low)
-       - ID format: dsc-{perspective}-{seq}-{uuid8}
-
-    2. **Direct File Output**: Agent writes files using Write/mcp__ccw-tools__write_file:
-       - JSON: ${outputDir}/perspectives/${perspective}.json
-       - Report: ${outputDir}/reports/${perspective}-report.md
-       - DO NOT return raw JSON in response - write to file
-
-    3. **Validation Before Write**:
-       - Validate JSON against schema structure
-       - Ensure all findings have required fields
-       - Verify file paths are relative to project root
-
-    4. **Progress Update**: After writing, update discovery-progress.json:
-       - Set perspective status to "completed"
-       - Update findings_count
-       - Update completed_at timestamp
-
-    ## Expected Deliverables
-
-    1. Perspective Results JSON: ${outputDir}/perspectives/${perspective}.json
-       - Follow discovery-finding-schema.json exactly
-       - Root structure MUST be object with findings array
-       - Each finding MUST include: id, title, priority, category, description, file, line, snippet, suggested_issue, confidence
-
-    2. Discovery Report: ${outputDir}/reports/${perspective}-report.md
-       - Human-readable summary
-       - Grouped by priority
-       - Include file:line references
+    **2. Return summary** (DO NOT write report file):
+    - Return a brief text summary of findings
+    - Include: total findings, priority breakdown, key issues
+    - This summary will be used by orchestrator for final report
 
     ## Perspective-Specific Guidance
     ${getPerspectiveGuidance(perspective)}
 
     ## Success Criteria
-    - [ ] Schema read and understood before analysis
-    - [ ] All target files analyzed for ${perspective} concerns
-    - [ ] JSON written directly to ${outputDir}/perspectives/${perspective}.json
-    - [ ] Report written to ${outputDir}/reports/${perspective}-report.md
+    - [ ] JSON written to ${outputDir}/perspectives/${perspective}.json
+    - [ ] Summary returned with findings count and key issues
     - [ ] Each finding includes actionable suggested_issue
-    - [ ] Priority assessment is accurate (lowercase enum values)
-    - [ ] Recommendations are specific and implementable
-    - [ ] discovery-progress.json updated with completion status
+    - [ ] Priority uses lowercase enum: critical/high/medium/low
   `
 })
 ```
@@ -464,66 +318,26 @@ Task({
   description: `External research for ${perspective} via Exa`,
   prompt: `
     ## Task Objective
-    Research industry best practices and common patterns for ${perspective} using Exa search
-
-    ## MANDATORY FIRST STEPS
-    1. Read project tech stack: .workflow/project-tech.json
-    2. Read external research schema structure (if exists)
-    3. Identify key technologies (e.g., Node.js, React, Express)
+    Research industry best practices for ${perspective} using Exa search
 
     ## Research Steps
-    1. Use Exa to search for:
-       - "${technology} ${perspective} best practices 2025"
-       - "${technology} common ${perspective} issues"
-       - "${technology} ${perspective} checklist"
-    2. Synthesize findings relevant to this project
+    1. Read project tech stack: .workflow/project-tech.json
+    2. Use Exa to search for best practices
+    3. Synthesize findings relevant to this project
 
-    ## ⚠️ CRITICAL OUTPUT GUIDELINES
+    ## Output Requirements
 
-    **Agent MUST write files directly - DO NOT return content to orchestrator**:
+    **1. Write JSON file**: ${outputDir}/external-research.json
+    - Include sources, key_findings, gap_analysis, recommendations
 
-    1. **Direct File Output**: Agent writes files using Write/mcp__ccw-tools__write_file:
-       - JSON: ${outputDir}/external-research.json
-       - Report: ${outputDir}/reports/${perspective}-external.md
-       - DO NOT return raw content in response - write to file
-
-    2. **JSON Structure for external-research.json**:
-       \`\`\`json
-       {
-         "discovery_id": "${discoveryId}",
-         "perspective": "${perspective}",
-         "research_timestamp": "ISO8601",
-         "sources": [
-           { "title": "...", "url": "...", "relevance": "..." }
-         ],
-         "key_findings": [...],
-         "gap_analysis": [...],
-         "recommendations": [...]
-       }
-       \`\`\`
-
-    3. **Progress Update**: After writing, update discovery-progress.json:
-       - Set external_research.completed to true
-
-    ## Expected Deliverables
-
-    1. External Research JSON: ${outputDir}/external-research.json
-       - Sources with URLs
-       - Key findings
-       - Relevance to current codebase
-
-    2. Comparison report in ${outputDir}/reports/${perspective}-external.md
-       - Industry standards vs current implementation
-       - Gap analysis
-       - Prioritized recommendations
+    **2. Return summary** (DO NOT write report file):
+    - Brief summary of external research findings
+    - Key recommendations for the project
 
     ## Success Criteria
-    - [ ] At least 3 authoritative sources consulted
-    - [ ] JSON written directly to ${outputDir}/external-research.json
-    - [ ] Report written to ${outputDir}/reports/${perspective}-external.md
+    - [ ] JSON written to ${outputDir}/external-research.json
+    - [ ] Summary returned with key recommendations
     - [ ] Findings are relevant to project's tech stack
-    - [ ] Recommendations are actionable
-    - [ ] discovery-progress.json updated
   `
 })
 ```
@@ -534,127 +348,38 @@ Task({
 function getPerspectiveGuidance(perspective) {
   const guidance = {
     bug: `
-      Focus Areas:
-      - Null/undefined checks before property access
-      - Edge cases in conditionals (empty arrays, 0 values, empty strings)
-      - Resource leaks (unclosed connections, streams, file handles)
-      - Race conditions in async code
-      - Boundary conditions (array indices, date ranges)
-      - Exception handling gaps (missing try-catch, swallowed errors)
-
-      Priority Criteria:
-      - Critical: Data corruption, security bypass, system crash
-      - High: Feature malfunction, data loss potential
-      - Medium: Unexpected behavior in edge cases
-      - Low: Minor inconsistencies, cosmetic issues
+      Focus: Null checks, edge cases, resource leaks, race conditions, boundary conditions, exception handling
+      Priority: Critical=data corruption/crash, High=malfunction, Medium=edge case issues, Low=minor
     `,
     ux: `
-      Focus Areas:
-      - Error messages (are they user-friendly and actionable?)
-      - Loading states (are long operations indicated?)
-      - Feedback (do users know their action succeeded?)
-      - Accessibility (keyboard navigation, screen readers, color contrast)
-      - Interaction patterns (consistent behavior across the app)
-      - Form validation (immediate feedback, clear requirements)
-
-      Priority Criteria:
-      - Critical: Inaccessible features, misleading feedback
-      - High: Confusing error messages, missing loading states
-      - Medium: Inconsistent patterns, minor feedback issues
-      - Low: Cosmetic improvements, nice-to-haves
+      Focus: Error messages, loading states, feedback, accessibility, interaction patterns, form validation
+      Priority: Critical=inaccessible, High=confusing, Medium=inconsistent, Low=cosmetic
     `,
     test: `
-      Focus Areas:
-      - Missing unit tests for public functions
-      - Edge case coverage (null, empty, boundary values)
-      - Integration test gaps (API endpoints, database operations)
-      - Coverage holes in critical paths (auth, payment, data mutation)
-      - Assertion quality (are tests actually verifying behavior?)
-      - Test isolation (do tests depend on each other?)
-
-      Priority Criteria:
-      - Critical: No tests for security-critical code
-      - High: Missing tests for core business logic
-      - Medium: Edge cases not covered, weak assertions
-      - Low: Minor coverage gaps, test organization issues
+      Focus: Missing unit tests, edge case coverage, integration gaps, assertion quality, test isolation
+      Priority: Critical=no security tests, High=no core logic tests, Medium=weak coverage, Low=minor gaps
     `,
     quality: `
-      Focus Areas:
-      - Cyclomatic complexity (deeply nested conditionals)
-      - Code duplication (copy-pasted logic)
-      - Naming (unclear variable/function names)
-      - Documentation (missing JSDoc for public APIs)
-      - Code smells (long functions, large files, magic numbers)
-      - Readability (overly clever code, unclear intent)
-
-      Priority Criteria:
-      - Critical: Unmaintainable complexity blocking changes
-      - High: Significant duplication, confusing logic
-      - Medium: Naming issues, missing documentation
-      - Low: Minor refactoring opportunities
+      Focus: Complexity, duplication, naming, documentation, code smells, readability
+      Priority: Critical=unmaintainable, High=significant issues, Medium=naming/docs, Low=minor refactoring
     `,
     security: `
-      Focus Areas:
-      - Input validation and sanitization
-      - Authentication and authorization mechanisms
-      - SQL/NoSQL injection vulnerabilities
-      - XSS, CSRF vulnerabilities
-      - Sensitive data exposure (logs, errors, responses)
-      - Access control gaps
-
-      Priority Criteria:
-      - Critical: Authentication bypass, injection, RCE
-      - High: Missing authorization, exposed secrets
-      - Medium: Missing input validation, weak encryption
-      - Low: Security headers, verbose errors
+      Focus: Input validation, auth/authz, injection, XSS/CSRF, data exposure, access control
+      Priority: Critical=auth bypass/injection, High=missing authz, Medium=weak validation, Low=headers
     `,
     performance: `
-      Focus Areas:
-      - N+1 query problems in ORM usage
-      - Memory usage patterns (large objects, memory leaks)
-      - Caching opportunities (repeated computations, API calls)
-      - Algorithm efficiency (O(n²) where O(n log n) possible)
-      - Blocking operations on main thread
-      - Resource usage (CPU, network, disk I/O)
-
-      Priority Criteria:
-      - Critical: Memory leaks, blocking main thread
-      - High: N+1 queries, inefficient algorithms in hot paths
-      - Medium: Missing caching, suboptimal data structures
-      - Low: Minor optimization opportunities
+      Focus: N+1 queries, memory leaks, caching, algorithm efficiency, blocking operations
+      Priority: Critical=memory leaks, High=N+1/inefficient, Medium=missing cache, Low=minor optimization
     `,
     maintainability: `
-      Focus Areas:
-      - Module coupling (tight dependencies between unrelated modules)
-      - Interface design (unclear contracts, leaky abstractions)
-      - Technical debt indicators (TODOs, FIXMEs, temporary solutions)
-      - Extensibility (hard to add new features without touching core)
-      - Module boundaries (unclear separation of responsibilities)
-      - Configuration management (hardcoded values, environment handling)
-
-      Priority Criteria:
-      - Critical: Changes require touching unrelated code
-      - High: Unclear module boundaries, significant tech debt
-      - Medium: Minor coupling issues, configuration problems
-      - Low: Refactoring opportunities, documentation gaps
+      Focus: Coupling, interface design, tech debt, extensibility, module boundaries, configuration
+      Priority: Critical=unrelated code changes, High=unclear boundaries, Medium=coupling, Low=refactoring
     `,
     'best-practices': `
-      Focus Areas:
-      - Framework conventions (are we using the framework idiomatically?)
-      - Language patterns (modern JS/TS features, async/await usage)
-      - Anti-patterns (god objects, callback hell, mutation of shared state)
-      - Deprecated API usage (using old APIs when new ones available)
-      - Industry standards (OWASP for security, WCAG for accessibility)
-      - Coding standards (consistent style, ESLint/Prettier compliance)
-
-      Priority Criteria:
-      - Critical: Anti-patterns causing bugs, deprecated security APIs
-      - High: Major convention violations, poor patterns
-      - Medium: Minor style issues, suboptimal patterns
-      - Low: Cosmetic improvements
+      Focus: Framework conventions, language patterns, anti-patterns, deprecated APIs, coding standards
+      Priority: Critical=anti-patterns causing bugs, High=convention violations, Medium=style, Low=cosmetic
     `
   };
-
   return guidance[perspective] || 'General code discovery analysis';
 }
 ```
@@ -674,7 +399,6 @@ Navigate to **Issues > Discovery** to:
 - Filter findings by perspective and priority
 - Preview finding details
 - Select and export findings as issues
-- Dismiss irrelevant findings
 
 ### Exporting to Issues
 

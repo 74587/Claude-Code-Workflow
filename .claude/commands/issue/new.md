@@ -24,7 +24,7 @@ interface Issue {
   status: 'registered';          // Initial status
   priority: number;              // 1 (critical) to 5 (low)
   context: string;               // Problem description
-  source: 'github' | 'text';     // Input source type
+  source: 'github' | 'text' | 'discovery';  // Input source type
   source_url?: string;           // GitHub URL if applicable
   labels?: string[];             // Categorization labels
 
@@ -34,6 +34,18 @@ interface Issue {
   actual_behavior?: string;      // What actually happens?
   affected_components?: string[];// Files/modules affected
   reproduction_steps?: string[]; // Steps to reproduce
+
+  // Discovery context (when source='discovery')
+  discovery_context?: {
+    discovery_id: string;        // Source discovery session
+    perspective: string;         // bug, test, quality, etc.
+    category: string;            // Finding category
+    file: string;                // Primary affected file
+    line: number;                // Line number
+    snippet?: string;            // Code snippet
+    confidence: number;          // Agent confidence (0-1)
+    suggested_fix?: string;      // Suggested remediation
+  };
 
   // Closed-loop requirements (guide plan generation)
   lifecycle_requirements: {

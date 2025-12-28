@@ -11,51 +11,66 @@ const AGENT_CONFIGS = {
     output: 'section-overview.md',
     task: '撰写产品概览、核心功能、快速入门指南',
     focus: '产品定位、目标用户、5步快速入门、系统要求',
-    input: ['exploration-architecture.json', 'README.md', 'package.json']
+    input: ['exploration-architecture.json', 'README.md', 'package.json'],
+    tag: 'getting-started'
   },
-  'ui-guide': {
-    role: 'UX Expert',
-    output: 'section-ui-guide.md',
-    task: '撰写界面操作指南，标注所有需要截图的 UI 元素',
-    focus: '界面布局、导航流程、功能操作、快捷键',
-    input: ['exploration-ui-routes.json', 'pages/**', 'views/**'],
+  'interface-guide': {
+    role: 'Product Designer',
+    output: 'section-interface.md',
+    task: '撰写界面或交互指南（Web 截图、CLI 命令交互、桌面应用操作）',
+    focus: '视觉布局、交互流程、命令行参数、输入/输出示例',
+    input: ['exploration-ui-routes.json', 'src/**', 'pages/**', 'views/**', 'components/**', 'src/commands/**'],
+    tag: 'interface',
     screenshot_rules: `
-每个关键 UI 交互点必须插入截图标记:
-<!-- SCREENSHOT: id="ss-{功能}-{状态}" url="{路由}" selector="{CSS选择器}" wait_for="{等待元素}" description="{描述}" -->
+根据项目类型标注交互点:
 
-示例:
-- 页面全貌: <!-- SCREENSHOT: id="ss-dashboard-overview" url="/dashboard" description="仪表盘主界面" -->
-- 特定组件: <!-- SCREENSHOT: id="ss-login-form" url="/login" selector=".login-form" description="登录表单" -->
-- 交互状态: <!-- SCREENSHOT: id="ss-modal-open" url="/settings" selector=".modal" wait_for=".modal.show" description="设置弹窗" -->
+[Web] <!-- SCREENSHOT: id="ss-{功能}" url="{路由}" selector="{CSS选择器}" description="{描述}" -->
+[CLI] 使用代码块展示命令交互:
+\`\`\`bash
+$ command --flag value
+Expected output here
+\`\`\`
+[Desktop] <!-- SCREENSHOT: id="ss-{功能}" description="{描述}" -->
 `
   },
-  'api-docs': {
-    role: 'API Architect',
-    output: 'section-api-reference.md',
-    task: '撰写 REST API 和前端 API 参考文档',
-    focus: 'API 概览、端点分类、请求/响应示例、错误码',
-    input: ['exploration-api-endpoints.json', 'controllers/**', 'routes/**']
+  'api-reference': {
+    role: 'Technical Architect',
+    output: 'section-reference.md',
+    task: '撰写接口参考文档（REST API / 函数库 / CLI 命令）',
+    focus: '函数签名、端点定义、参数说明、返回值、错误代码',
+    pre_extract: 'python .claude/skills/software-manual/scripts/extract_apis.py -o ${workDir}',
+    input: [
+      '${workDir}/api-docs/backend/openapi.json',     // FastAPI OpenAPI
+      '${workDir}/api-docs/backend/API_SUMMARY.md',   // Backend summary
+      '${workDir}/api-docs/frontend/**/*.md',         // TypeDoc output
+      '${workDir}/api-docs/hydro_generator/**/*.md',  // Python module
+      '${workDir}/api-docs/multiphysics/**/*.md'      // Python module
+    ],
+    tag: 'api'
   },
   config: {
     role: 'DevOps Engineer',
     output: 'section-configuration.md',
     task: '撰写配置指南，涵盖环境变量、配置文件、部署设置',
     focus: '环境变量表格、配置文件格式、部署选项、安全设置',
-    input: ['exploration-config.json', '.env.example', 'config/**']
+    input: ['exploration-config.json', '.env.example', 'config/**', '*.config.*'],
+    tag: 'config'
   },
   troubleshooting: {
     role: 'Support Engineer',
     output: 'section-troubleshooting.md',
     task: '撰写故障排查指南，涵盖常见问题、错误码、FAQ',
     focus: '常见问题与解决方案、错误码参考、FAQ、获取帮助',
-    input: ['all exploration files', 'error handling code']
+    input: ['docs/troubleshooting.md', 'src/**/errors.*', 'src/**/exceptions.*', 'TROUBLESHOOTING.md'],
+    tag: 'troubleshooting'
   },
   'code-examples': {
     role: 'Developer Advocate',
     output: 'section-examples.md',
     task: '撰写多难度级别代码示例（入门40%/进阶40%/高级20%）',
     focus: '完整可运行代码、分步解释、预期输出、最佳实践',
-    input: ['all exploration files', 'examples/**', 'tests/**']
+    input: ['examples/**', 'tests/**', 'demo/**', 'samples/**'],
+    tag: 'examples'
   }
 };
 ```
@@ -65,7 +80,16 @@ const AGENT_CONFIGS = {
 ```javascript
 const config = JSON.parse(Read(`${workDir}/manual-config.json`));
 
-// 并行启动 6 个 universal-executor
+// 1. 预提取 API 文档（如有 pre_extract 配置）
+for (const [name, cfg] of Object.entries(AGENT_CONFIGS)) {
+  if (cfg.pre_extract) {
+    const cmd = cfg.pre_extract.replace(/\$\{workDir\}/g, workDir);
+    console.log(`[Pre-extract] ${name}: ${cmd}`);
+    Bash({ command: cmd });
+  }
+}
+
+// 2. 并行启动 6 个 universal-executor
 const tasks = Object.entries(AGENT_CONFIGS).map(([name, cfg]) =>
   Task({
     subagent_type: 'universal-executor',
@@ -83,35 +107,51 @@ const results = await Promise.all(tasks);
 function buildAgentPrompt(name, cfg, config, workDir) {
   const screenshotSection = cfg.screenshot_rules
     ? `\n[SCREENSHOT RULES]\n${cfg.screenshot_rules}`
-    : '\n[SCREENSHOT]\n截图标记: <!-- SCREENSHOT: id="ss-xxx" url="/path" description="xxx" -->';
+    : '';
 
   return `
 [ROLE] ${cfg.role}
+
+[PROJECT CONTEXT]
+项目类型: ${config.software.type} (web/cli/sdk/desktop)
+语言: ${config.software.language || 'auto-detect'}
+名称: ${config.software.name}
 
 [TASK]
 ${cfg.task}
 输出: ${workDir}/sections/${cfg.output}
 
 [INPUT]
-- Read: ${workDir}/manual-config.json
-- Read: ${cfg.input.map(f => `${workDir}/exploration/${f}`).join(', ')}
+- 配置: ${workDir}/manual-config.json
+- 探索结果: ${workDir}/exploration/
+- 扫描路径: ${cfg.input.join(', ')}
 
-[STYLE]
-- 用户友好语言，避免技术术语
-- 步骤编号清晰
-- 代码块标注语言
+[CONTENT REQUIREMENTS]
+- 标题层级: # ## ### (最多3级)
+- 代码块: \`\`\`language ... \`\`\` (必须标注语言)
+- 表格: | col1 | col2 | 格式
+- 列表: 有序 1. 2. 3. / 无序 - - -
+- 内联代码: \`code\`
+- 链接: [text](url)
 ${screenshotSection}
 
 [FOCUS]
 ${cfg.focus}
+
+[OUTPUT FORMAT]
+Markdown 文件，包含:
+- 清晰的章节结构
+- 具体的代码示例
+- 参数/配置表格
+- 常见用例说明
 
 [RETURN JSON]
 {
   "status": "completed",
   "output_file": "sections/${cfg.output}",
   "summary": "<50字>",
-  "screenshots_needed": [{ "id": "ss-xxx", "url": "/path", "selector": ".class", "description": "..." }],
-  "cross_references": []
+  "tag": "${cfg.tag}",
+  "screenshots_needed": []
 }
 `;
 }

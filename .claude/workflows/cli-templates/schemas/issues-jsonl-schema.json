@@ -7,7 +7,7 @@
   "properties": {
     "id": {
       "type": "string",
-      "description": "Issue ID (e.g., GH-123, TEXT-xxx)"
+      "description": "Issue ID (GH-123, ISS-xxx, DSC-001)"
     },
     "title": {
       "type": "string"
@@ -21,24 +21,16 @@
       "type": "integer",
       "minimum": 1,
       "maximum": 5,
-      "default": 3
+      "default": 3,
+      "description": "1=critical, 2=high, 3=medium, 4=low, 5=trivial"
     },
     "context": {
       "type": "string",
       "description": "Issue context/description (markdown)"
     },
-    "bound_solution_id": {
-      "type": "string",
-      "description": "ID of the bound solution (null if none bound)"
-    },
-    "solution_count": {
-      "type": "integer",
-      "default": 0,
-      "description": "Number of candidate solutions in solutions/{id}.jsonl"
-    },
     "source": {
       "type": "string",
-      "enum": ["github", "text", "file"],
+      "enum": ["github", "text", "discovery"],
       "description": "Source of the issue"
     },
     "source_url": {
@@ -49,6 +41,81 @@
       "type": "array",
       "items": { "type": "string" },
       "description": "Issue labels/tags"
+    },
+    "discovery_context": {
+      "type": "object",
+      "description": "Enriched context from issue:discover (only when source=discovery)",
+      "properties": {
+        "discovery_id": {
+          "type": "string",
+          "description": "Source discovery session ID"
+        },
+        "perspective": {
+          "type": "string",
+          "enum": ["bug", "ux", "test", "quality", "security", "performance", "maintainability", "best-practices"]
+        },
+        "category": {
+          "type": "string",
+          "description": "Finding category (e.g., edge-case, race-condition)"
+        },
+        "file": {
+          "type": "string",
+          "description": "Primary affected file"
+        },
+        "line": {
+          "type": "integer",
+          "description": "Line number in primary file"
+        },
+        "snippet": {
+          "type": "string",
+          "description": "Code snippet showing the issue"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Agent confidence score"
+        },
+        "suggested_fix": {
+          "type": "string",
+          "description": "Suggested remediation from discovery"
+        }
+      }
+    },
+    "affected_components": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Files/modules affected"
+    },
+    "lifecycle_requirements": {
+      "type": "object",
+      "properties": {
+        "test_strategy": {
+          "type": "string",
+          "enum": ["unit", "integration", "e2e", "manual", "auto"]
+        },
+        "regression_scope": {
+          "type": "string",
+          "enum": ["affected", "related", "full"]
+        },
+        "acceptance_type": {
+          "type": "string",
+          "enum": ["automated", "manual", "both"]
+        },
+        "commit_strategy": {
+          "type": "string",
+          "enum": ["per-task", "squash", "atomic"]
+        }
+      }
+    },
+    "bound_solution_id": {
+      "type": "string",
+      "description": "ID of the bound solution (null if none bound)"
+    },
+    "solution_count": {
+      "type": "integer",
+      "default": 0,
+      "description": "Number of candidate solutions"
     },
     "created_at": {
       "type": "string",
@@ -62,13 +129,40 @@
       "type": "string",
       "format": "date-time"
     },
-    "queued_at": {
-      "type": "string",
-      "format": "date-time"
-    },
     "completed_at": {
       "type": "string",
       "format": "date-time"
     }
-  }
+  },
+  "examples": [
+    {
+      "id": "DSC-001",
+      "title": "Fix: SQLite connection pool memory leak",
+      "status": "registered",
+      "priority": 1,
+      "context": "Connection pool cleanup only happens when MAX_POOL_SIZE is reached...",
+      "source": "discovery",
+      "labels": ["bug", "resource-leak", "critical"],
+      "discovery_context": {
+        "discovery_id": "DSC-20251228-182237",
+        "perspective": "bug",
+        "category": "resource-leak",
+        "file": "storage/sqlite_store.py",
+        "line": 59,
+        "snippet": "if len(self._pool) >= self.MAX_POOL_SIZE:\n    self._cleanup_stale_connections()",
+        "confidence": 0.85,
+        "suggested_fix": "Implement periodic cleanup or weak references"
+      },
+      "affected_components": ["storage/sqlite_store.py"],
+      "lifecycle_requirements": {
+        "test_strategy": "unit",
+        "regression_scope": "affected",
+        "acceptance_type": "automated",
+        "commit_strategy": "per-task"
+      },
+      "bound_solution_id": null,
+      "solution_count": 0,
+      "created_at": "2025-12-28T18:22:37Z"
+    }
+  ]
 }
