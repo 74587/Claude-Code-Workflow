@@ -102,6 +102,7 @@ interface SolutionTask {
 interface Solution {
   id: string;
   description?: string;
+  approach?: string;             // Solution approach description
   tasks: SolutionTask[];
   exploration_context?: Record<string, any>;
   analysis?: { risk?: string; impact?: string; complexity?: string };
@@ -112,10 +113,10 @@ interface Solution {
 }
 
 interface QueueItem {
-  item_id: string;               // Task item ID in queue: T-1, T-2, ... (formerly queue_id)
+  item_id: string;               // Item ID in queue: T-1, T-2, ... (task-level) or S-1, S-2, ... (solution-level)
   issue_id: string;
   solution_id: string;
-  task_id: string;
+  task_id?: string;              // Only for task-level queues
   title?: string;
   status: 'pending' | 'ready' | 'executing' | 'completed' | 'failed' | 'blocked';
   execution_order: number;
@@ -123,6 +124,8 @@ interface QueueItem {
   depends_on: string[];
   semantic_priority: number;
   assigned_executor: 'codex' | 'gemini' | 'agent';
+  task_count?: number;           // For solution-level queues
+  files_touched?: string[];      // For solution-level queues
   started_at?: string;
   completed_at?: string;
   result?: Record<string, any>;
@@ -142,8 +145,10 @@ interface QueueConflict {
 interface ExecutionGroup {
   id: string;                    // Group ID: P1, S1, etc.
   type: 'parallel' | 'sequential';
-  task_count: number;
-  tasks: string[];               // Item IDs in this group
+  task_count?: number;           // For task-level queues
+  solution_count?: number;       // For solution-level queues
+  tasks?: string[];              // Task IDs in this group (task-level)
+  solutions?: string[];          // Solution IDs in this group (solution-level)
 }
 
 interface Queue {
@@ -151,7 +156,8 @@ interface Queue {
   name?: string;                 // Optional queue name
   status: 'active' | 'completed' | 'archived' | 'failed';
   issue_ids: string[];           // Issues in this queue
-  tasks: QueueItem[];            // Task items (formerly 'queue')
+  tasks: QueueItem[];            // Task items (task-level queue)
+  solutions?: QueueItem[];       // Solution items (solution-level queue)
   conflicts: QueueConflict[];
   execution_groups?: ExecutionGroup[];
   _metadata: {
@@ -172,8 +178,10 @@ interface QueueIndex {
     id: string;
     status: string;
     issue_ids: string[];
-    total_tasks: number;
-    completed_tasks: number;
+    total_tasks?: number;          // For task-level queues
+    total_solutions?: number;      // For solution-level queues
+    completed_tasks?: number;      // For task-level queues
+    completed_solutions?: number;  // For solution-level queues
     created_at: string;
     completed_at?: string;
   }[];
@@ -845,92 +853,129 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
     return;
   }
 
-  // DAG - Return dependency graph for parallel execution planning
+  // DAG - Return dependency graph for parallel execution planning (solution-level)
   if (subAction === 'dag') {
     const queue = readActiveQueue();
 
-    if (!queue.id || queue.tasks.length === 0) {
+    // Support both old (tasks) and new (solutions) queue format
+    const items = queue.solutions || queue.tasks || [];
+    if (!queue.id || items.length === 0) {
       console.log(JSON.stringify({ error: 'No active queue', nodes: [], edges: [], groups: [] }));
       return;
     }
 
-    // Build DAG nodes
-    const completedIds = new Set(queue.tasks.filter(t => t.status === 'completed').map(t => t.item_id));
-    const failedIds = new Set(queue.tasks.filter(t => t.status === 'failed').map(t => t.item_id));
+    // Build DAG nodes (solution-level)
+    const completedIds = new Set(items.filter(t => t.status === 'completed').map(t => t.item_id));
+    const failedIds = new Set(items.filter(t => t.status === 'failed').map(t => t.item_id));
 
-    const nodes = queue.tasks.map(task => ({
-      id: task.item_id,
-      issue_id: task.issue_id,
-      task_id: task.task_id,
-      status: task.status,
-      executor: task.assigned_executor,
-      priority: task.semantic_priority,
-      depends_on: task.depends_on,
+    const nodes = items.map(item => ({
+      id: item.item_id,
+      issue_id: item.issue_id,
+      solution_id: item.solution_id,
+      status: item.status,
+      executor: item.assigned_executor,
+      priority: item.semantic_priority,
+      depends_on: item.depends_on || [],
+      task_count: item.task_count || 1,
+      files_touched: item.files_touched || [],
       // Calculate if ready (dependencies satisfied)
-      ready: task.status === 'pending' && task.depends_on.every(d => completedIds.has(d)),
-      blocked_by: task.depends_on.filter(d => !completedIds.has(d) && !failedIds.has(d))
+      ready: item.status === 'pending' && (item.depends_on || []).every(d => completedIds.has(d)),
+      blocked_by: (item.depends_on || []).filter(d => !completedIds.has(d) && !failedIds.has(d))
     }));
 
     // Build edges for visualization
-    const edges = queue.tasks.flatMap(task =>
-      task.depends_on.map(dep => ({ from: dep, to: task.item_id }))
+    const edges = items.flatMap(item =>
+      (item.depends_on || []).map(dep => ({ from: dep, to: item.item_id }))
     );
 
-    // Group ready tasks by execution_group for parallel execution
-    const readyTasks = nodes.filter(n => n.ready || n.status === 'executing');
+    // Group ready items by execution_group
+    const readyItems = nodes.filter(n => n.ready || n.status === 'executing');
     const groups: Record<string, string[]> = {};
 
-    for (const task of queue.tasks) {
-      if (readyTasks.some(r => r.id === task.item_id)) {
-        const group = task.execution_group || 'P1';
+    for (const item of items) {
+      if (readyItems.some(r => r.id === item.item_id)) {
+        const group = item.execution_group || 'P1';
         if (!groups[group]) groups[group] = [];
-        groups[group].push(task.item_id);
+        groups[group].push(item.item_id);
       }
     }
 
-    // Calculate parallel batches (tasks with no dependencies on each other)
+    // Calculate parallel batches - prefer execution_groups from queue if available
     const parallelBatches: string[][] = [];
-    const remainingReady = new Set(readyTasks.map(t => t.id));
+    const readyItemIds = new Set(readyItems.map(t => t.id));
 
-    while (remainingReady.size > 0) {
-      const batch: string[] = [];
-      const batchFiles = new Set<string>();
-
-      for (const taskId of remainingReady) {
-        const task = queue.tasks.find(t => t.item_id === taskId);
-        if (!task) continue;
-
-        // Check for file conflicts with already-batched tasks
-        const solution = findSolution(task.issue_id, task.solution_id);
-        const taskDef = solution?.tasks.find(t => t.id === task.task_id);
-        const taskFiles = taskDef?.modification_points?.map(mp => mp.file) || [];
-
-        const hasConflict = taskFiles.some(f => batchFiles.has(f));
-
-        if (!hasConflict) {
-          batch.push(taskId);
-          taskFiles.forEach(f => batchFiles.add(f));
+    // Check if queue has pre-assigned execution_groups
+    if (queue.execution_groups && queue.execution_groups.length > 0) {
+      // Use agent-assigned execution groups
+      for (const group of queue.execution_groups) {
+        const groupItems = (group.solutions || group.tasks || [])
+          .filter((id: string) => readyItemIds.has(id));
+        if (groupItems.length > 0) {
+          if (group.type === 'parallel') {
+            // All items in parallel group can run together
+            parallelBatches.push(groupItems);
+          } else {
+            // Sequential group: each item is its own batch
+            for (const itemId of groupItems) {
+              parallelBatches.push([itemId]);
+            }
+          }
         }
       }
+    } else {
+      // Fallback: calculate parallel batches from file conflicts
+      const remainingReady = new Set(readyItemIds);
 
-      if (batch.length === 0) {
-        // Fallback: take one at a time if all conflict
-        const first = Array.from(remainingReady)[0];
-        batch.push(first);
+      while (remainingReady.size > 0) {
+        const batch: string[] = [];
+        const batchFiles = new Set<string>();
+
+        for (const itemId of Array.from(remainingReady)) {
+          const item = items.find(t => t.item_id === itemId);
+          if (!item) continue;
+
+          // Get all files touched by this solution
+          let solutionFiles: string[] = item.files_touched || [];
+
+          // If not in queue item, fetch from solution definition
+          if (solutionFiles.length === 0) {
+            const solution = findSolution(item.issue_id, item.solution_id);
+            if (solution?.tasks) {
+              for (const task of solution.tasks) {
+                for (const mp of task.modification_points || []) {
+                  solutionFiles.push(mp.file);
+                }
+              }
+            }
+          }
+
+          const hasConflict = solutionFiles.some(f => batchFiles.has(f));
+
+          if (!hasConflict) {
+            batch.push(itemId);
+            solutionFiles.forEach(f => batchFiles.add(f));
+          }
+        }
+
+        if (batch.length === 0) {
+          // Fallback: take one at a time if all conflict
+          const first = Array.from(remainingReady)[0];
+          batch.push(first);
+        }
+
+        parallelBatches.push(batch);
+        batch.forEach(id => remainingReady.delete(id));
       }
-
-      parallelBatches.push(batch);
-      batch.forEach(id => remainingReady.delete(id));
     }
 
     console.log(JSON.stringify({
       queue_id: queue.id,
       total: nodes.length,
-      ready_count: readyTasks.length,
+      ready_count: readyItems.length,
       completed_count: completedIds.size,
       nodes,
       edges,
-      groups: Object.entries(groups).map(([id, tasks]) => ({ id, tasks })),
+      groups: Object.entries(groups).map(([id, solutions]) => ({ id, solutions })),
       parallel_batches: parallelBatches,
       _summary: {
         can_parallel: parallelBatches[0]?.length || 0,
@@ -1084,7 +1129,7 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
     console.log(
       item.item_id.padEnd(10) +
       item.issue_id.substring(0, 13).padEnd(15) +
-      item.task_id.padEnd(8) +
+      (item.task_id || '-').padEnd(8) +
       statusColor(item.status.padEnd(12)) +
       item.assigned_executor
     );
@@ -1097,91 +1142,107 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
  */
 async function nextAction(itemId: string | undefined, options: IssueOptions): Promise<void> {
   const queue = readActiveQueue();
-  let nextItem: typeof queue.tasks[0] | undefined;
+  // Support both old (tasks) and new (solutions) queue format
+  const items = queue.solutions || queue.tasks || [];
+  let nextItem: typeof items[0] | undefined;
   let isResume = false;
 
-  // If specific item_id provided, fetch that task directly
+  // If specific item_id provided, fetch that item directly
   if (itemId) {
-    nextItem = queue.tasks.find(t => t.item_id === itemId);
+    nextItem = items.find(t => t.item_id === itemId);
     if (!nextItem) {
-      console.log(JSON.stringify({ status: 'error', message: `Task ${itemId} not found` }));
+      console.log(JSON.stringify({ status: 'error', message: `Item ${itemId} not found` }));
       return;
     }
     if (nextItem.status === 'completed') {
-      console.log(JSON.stringify({ status: 'completed', message: `Task ${itemId} already completed` }));
+      console.log(JSON.stringify({ status: 'completed', message: `Item ${itemId} already completed` }));
       return;
     }
     if (nextItem.status === 'failed') {
-      console.log(JSON.stringify({ status: 'failed', message: `Task ${itemId} failed, use retry to reset` }));
+      console.log(JSON.stringify({ status: 'failed', message: `Item ${itemId} failed, use retry to reset` }));
       return;
     }
     isResume = nextItem.status === 'executing';
   } else {
     // Auto-select: Priority 1 - executing, Priority 2 - ready pending
-    const executingTasks = queue.tasks.filter(item => item.status === 'executing');
-    const pendingTasks = queue.tasks.filter(item => {
+    const executingItems = items.filter(item => item.status === 'executing');
+    const pendingItems = items.filter(item => {
       if (item.status !== 'pending') return false;
-      return item.depends_on.every(depId => {
-        const dep = queue.tasks.find(q => q.item_id === depId);
+      return (item.depends_on || []).every(depId => {
+        const dep = items.find(q => q.item_id === depId);
         return !dep || dep.status === 'completed';
       });
     });
 
-    const readyTasks = [...executingTasks, ...pendingTasks];
+    const readyItems = [...executingItems, ...pendingItems];
 
-    if (readyTasks.length === 0) {
+    if (readyItems.length === 0) {
       console.log(JSON.stringify({
         status: 'empty',
-        message: 'No ready tasks',
+        message: 'No ready items',
         queue_status: queue._metadata
       }, null, 2));
       return;
     }
 
-    readyTasks.sort((a, b) => a.execution_order - b.execution_order);
-    nextItem = readyTasks[0];
+    readyItems.sort((a, b) => a.execution_order - b.execution_order);
+    nextItem = readyItems[0];
     isResume = nextItem.status === 'executing';
   }
 
-  // Load task definition
+  // Load FULL solution with all tasks
   const solution = findSolution(nextItem.issue_id, nextItem.solution_id);
-  const taskDef = solution?.tasks.find(t => t.id === nextItem.task_id);
 
-  if (!taskDef) {
-    console.log(JSON.stringify({ status: 'error', message: 'Task definition not found' }));
+  if (!solution) {
+    console.log(JSON.stringify({ status: 'error', message: 'Solution not found' }));
     process.exit(1);
   }
 
-  // Only update status if not already executing (new task)
+  // Only update status if not already executing
   if (!isResume) {
-    const idx = queue.tasks.findIndex(q => q.item_id === nextItem.item_id);
-    queue.tasks[idx].status = 'executing';
-    queue.tasks[idx].started_at = new Date().toISOString();
+    const idx = items.findIndex(q => q.item_id === nextItem.item_id);
+    items[idx].status = 'executing';
+    items[idx].started_at = new Date().toISOString();
+    // Write back to correct array
+    if (queue.solutions) {
+      queue.solutions = items;
+    } else {
+      queue.tasks = items;
+    }
     writeQueue(queue);
     updateIssue(nextItem.issue_id, { status: 'executing' });
   }
 
-  // Calculate queue stats for context
+  // Calculate queue stats
   const stats = {
-    total: queue.tasks.length,
-    completed: queue.tasks.filter(q => q.status === 'completed').length,
-    failed: queue.tasks.filter(q => q.status === 'failed').length,
-    executing: queue.tasks.filter(q => q.status === 'executing').length,
-    pending: queue.tasks.filter(q => q.status === 'pending').length
+    total: items.length,
+    completed: items.filter(q => q.status === 'completed').length,
+    failed: items.filter(q => q.status === 'failed').length,
+    executing: items.filter(q => q.status === 'executing').length,
+    pending: items.filter(q => q.status === 'pending').length
   };
   const remaining = stats.pending + stats.executing;
+
+  // Calculate total estimated time for all tasks
+  const totalMinutes = solution.tasks?.reduce((sum, t) => sum + (t.estimated_minutes || 30), 0) || 30;
 
   console.log(JSON.stringify({
     item_id: nextItem.item_id,
     issue_id: nextItem.issue_id,
     solution_id: nextItem.solution_id,
-    task: taskDef,
-    context: solution?.exploration_context || {},
+    // Return full solution object with all tasks
+    solution: {
+      id: solution.id,
+      approach: solution.approach,
+      tasks: solution.tasks || [],
+      exploration_context: solution.exploration_context || {}
+    },
     resumed: isResume,
-    resume_note: isResume ? `Resuming interrupted task (started: ${nextItem.started_at})` : undefined,
+    resume_note: isResume ? `Resuming interrupted item (started: ${nextItem.started_at})` : undefined,
     execution_hints: {
       executor: nextItem.assigned_executor,
-      estimated_minutes: taskDef.estimated_minutes || 30
+      task_count: solution.tasks?.length || 0,
+      estimated_minutes: totalMinutes
     },
     queue_progress: {
       completed: stats.completed,
@@ -1203,33 +1264,43 @@ async function detailAction(itemId: string | undefined, options: IssueOptions): 
   }
 
   const queue = readActiveQueue();
-  const queueItem = queue.tasks.find(t => t.item_id === itemId);
+  // Support both old (tasks) and new (solutions) queue format
+  const items = queue.solutions || queue.tasks || [];
+  const queueItem = items.find(t => t.item_id === itemId);
 
   if (!queueItem) {
-    console.log(JSON.stringify({ status: 'error', message: `Task ${itemId} not found` }));
+    console.log(JSON.stringify({ status: 'error', message: `Item ${itemId} not found` }));
     return;
   }
 
-  // Load task definition from solution
+  // Load FULL solution with all tasks
   const solution = findSolution(queueItem.issue_id, queueItem.solution_id);
-  const taskDef = solution?.tasks.find(t => t.id === queueItem.task_id);
 
-  if (!taskDef) {
-    console.log(JSON.stringify({ status: 'error', message: 'Task definition not found in solution' }));
+  if (!solution) {
+    console.log(JSON.stringify({ status: 'error', message: 'Solution not found' }));
     return;
   }
 
-  // Return full task info (READ-ONLY - no status update)
+  // Calculate total estimated time for all tasks
+  const totalMinutes = solution.tasks?.reduce((sum, t) => sum + (t.estimated_minutes || 30), 0) || 30;
+
+  // Return FULL SOLUTION with all tasks (READ-ONLY - no status update)
   console.log(JSON.stringify({
     item_id: queueItem.item_id,
     issue_id: queueItem.issue_id,
     solution_id: queueItem.solution_id,
     status: queueItem.status,
-    task: taskDef,
-    context: solution?.exploration_context || {},
+    // Return full solution object with all tasks
+    solution: {
+      id: solution.id,
+      approach: solution.approach,
+      tasks: solution.tasks || [],
+      exploration_context: solution.exploration_context || {}
+    },
     execution_hints: {
       executor: queueItem.assigned_executor,
-      estimated_minutes: taskDef.estimated_minutes || 30
+      task_count: solution.tasks?.length || 0,
+      estimated_minutes: totalMinutes
     }
   }, null, 2));
 }
@@ -1239,13 +1310,15 @@ async function detailAction(itemId: string | undefined, options: IssueOptions): 
  */
 async function doneAction(queueId: string | undefined, options: IssueOptions): Promise<void> {
   if (!queueId) {
-    console.error(chalk.red('Queue ID is required'));
-    console.error(chalk.gray('Usage: ccw issue done <queue-id> [--fail] [--reason "..."]'));
+    console.error(chalk.red('Item ID is required'));
+    console.error(chalk.gray('Usage: ccw issue done <item-id> [--fail] [--reason "..."]'));
     process.exit(1);
   }
 
   const queue = readActiveQueue();
-  const idx = queue.tasks.findIndex(q => q.item_id === queueId);
+  // Support both old (tasks) and new (solutions) queue format
+  const items = queue.solutions || queue.tasks || [];
+  const idx = items.findIndex(q => q.item_id === queueId);
 
   if (idx === -1) {
     console.error(chalk.red(`Queue item "${queueId}" not found`));
@@ -1253,66 +1326,69 @@ async function doneAction(queueId: string | undefined, options: IssueOptions): P
   }
 
   const isFail = options.fail;
-  queue.tasks[idx].status = isFail ? 'failed' : 'completed';
-  queue.tasks[idx].completed_at = new Date().toISOString();
+  items[idx].status = isFail ? 'failed' : 'completed';
+  items[idx].completed_at = new Date().toISOString();
 
   if (isFail) {
-    queue.tasks[idx].failure_reason = options.reason || 'Unknown failure';
+    items[idx].failure_reason = options.reason || 'Unknown failure';
   } else if (options.result) {
     try {
-      queue.tasks[idx].result = JSON.parse(options.result);
+      items[idx].result = JSON.parse(options.result);
     } catch {
       console.warn(chalk.yellow('Warning: Could not parse result JSON'));
     }
   }
 
-  // Check if all issue tasks are complete
-  const issueId = queue.tasks[idx].issue_id;
-  const issueTasks = queue.tasks.filter(q => q.issue_id === issueId);
-  const allIssueComplete = issueTasks.every(q => q.status === 'completed');
-  const anyIssueFailed = issueTasks.some(q => q.status === 'failed');
+  // Update issue status (solution = issue in new model)
+  const issueId = items[idx].issue_id;
 
-  if (allIssueComplete) {
-    updateIssue(issueId, { status: 'completed', completed_at: new Date().toISOString() });
-    console.log(chalk.green(`✓ ${queueId} completed`));
-    console.log(chalk.green(`✓ Issue ${issueId} completed (all tasks done)`));
-  } else if (anyIssueFailed) {
+  if (isFail) {
     updateIssue(issueId, { status: 'failed' });
     console.log(chalk.red(`✗ ${queueId} failed`));
   } else {
-    console.log(isFail ? chalk.red(`✗ ${queueId} failed`) : chalk.green(`✓ ${queueId} completed`));
+    updateIssue(issueId, { status: 'completed', completed_at: new Date().toISOString() });
+    console.log(chalk.green(`✓ ${queueId} completed`));
+    console.log(chalk.green(`✓ Issue ${issueId} completed`));
   }
 
   // Check if entire queue is complete
-  const allQueueComplete = queue.tasks.every(q => q.status === 'completed');
-  const anyQueueFailed = queue.tasks.some(q => q.status === 'failed');
+  const allQueueComplete = items.every(q => q.status === 'completed');
+  const anyQueueFailed = items.some(q => q.status === 'failed');
 
   if (allQueueComplete) {
     queue.status = 'completed';
-    console.log(chalk.green(`\n✓ Queue ${queue.id} completed (all tasks done)`));
-  } else if (anyQueueFailed && queue.tasks.every(q => q.status === 'completed' || q.status === 'failed')) {
+    console.log(chalk.green(`\n✓ Queue ${queue.id} completed (all solutions done)`));
+  } else if (anyQueueFailed && items.every(q => q.status === 'completed' || q.status === 'failed')) {
     queue.status = 'failed';
-    console.log(chalk.yellow(`\n⚠ Queue ${queue.id} has failed tasks`));
+    console.log(chalk.yellow(`\n⚠ Queue ${queue.id} has failed solutions`));
   }
 
+  // Write back to queue (update the correct array)
+  if (queue.solutions) {
+    queue.solutions = items;
+  } else {
+    queue.tasks = items;
+  }
   writeQueue(queue);
 }
 
 /**
- * retry - Reset failed tasks to pending for re-execution
+ * retry - Reset failed items to pending for re-execution
  */
 async function retryAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
   const queue = readActiveQueue();
+  // Support both old (tasks) and new (solutions) queue format
+  const items = queue.solutions || queue.tasks || [];
 
-  if (!queue.id || queue.tasks.length === 0) {
+  if (!queue.id || items.length === 0) {
     console.log(chalk.yellow('No active queue'));
     return;
   }
 
   let updated = 0;
 
-  for (const item of queue.tasks) {
-    // Retry failed tasks only
+  for (const item of items) {
+    // Retry failed items only
     if (item.status === 'failed') {
       if (!issueId || item.issue_id === issueId) {
         item.status = 'pending';
@@ -1325,8 +1401,7 @@ async function retryAction(issueId: string | undefined, options: IssueOptions): 
   }
 
   if (updated === 0) {
-    console.log(chalk.yellow('No failed tasks to retry'));
-    console.log(chalk.gray('Note: Interrupted (executing) tasks are auto-resumed by "ccw issue next"'));
+    console.log(chalk.yellow('No failed items to retry'));
     return;
   }
 
@@ -1335,13 +1410,19 @@ async function retryAction(issueId: string | undefined, options: IssueOptions): 
     queue.status = 'active';
   }
 
+  // Write back to queue
+  if (queue.solutions) {
+    queue.solutions = items;
+  } else {
+    queue.tasks = items;
+  }
   writeQueue(queue);
 
   if (issueId) {
     updateIssue(issueId, { status: 'queued' });
   }
 
-  console.log(chalk.green(`✓ Reset ${updated} task(s) to pending`));
+  console.log(chalk.green(`✓ Reset ${updated} item(s) to pending`));
 }
 
 // ============ Main Entry ============

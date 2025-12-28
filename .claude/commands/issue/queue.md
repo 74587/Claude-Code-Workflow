@@ -1,6 +1,6 @@
 ---
 name: queue
-description: Form execution queue from bound solutions using issue-queue-agent
+description: Form execution queue from bound solutions using issue-queue-agent (solution-level)
 argument-hint: "[--rebuild] [--issue <id>]"
 allowed-tools: TodoWrite(*), Task(*), Bash(*), Read(*), Write(*)
 ---
@@ -9,39 +9,43 @@ allowed-tools: TodoWrite(*), Task(*), Bash(*), Read(*), Write(*)
 
 ## Overview
 
-Queue formation command using **issue-queue-agent** that analyzes all bound solutions, resolves conflicts, and creates an ordered execution queue.
+Queue formation command using **issue-queue-agent** that analyzes all bound solutions, resolves **inter-solution** conflicts, and creates an ordered execution queue at **solution level**.
+
+**Design Principle**: Queue items are **solutions**, not individual tasks. Each executor receives a complete solution with all its tasks.
 
 ## Output Requirements
 
 **Generate Files:**
-1. `.workflow/issues/queues/{queue-id}.json` - Full queue with tasks, conflicts, groups
+1. `.workflow/issues/queues/{queue-id}.json` - Full queue with solutions, conflicts, groups
 2. `.workflow/issues/queues/index.json` - Update with new queue entry
 
 **Return Summary:**
 ```json
 {
   "queue_id": "QUE-20251227-143000",
+  "total_solutions": N,
   "total_tasks": N,
   "execution_groups": [{ "id": "P1", "type": "parallel", "count": N }],
   "conflicts_resolved": N,
-  "issues_queued": ["GH-123", "GH-124"]
+  "issues_queued": ["ISS-xxx", "ISS-yyy"]
 }
 ```
 
 **Completion Criteria:**
-- [ ] Queue JSON generated with valid DAG (no cycles)
-- [ ] All file conflicts resolved with rationale
-- [ ] Semantic priority calculated for all tasks
+- [ ] Queue JSON generated with valid DAG (no cycles between solutions)
+- [ ] All inter-solution file conflicts resolved with rationale
+- [ ] Semantic priority calculated for each solution
 - [ ] Execution groups assigned (parallel P* / sequential S*)
 - [ ] Issue statuses updated to `queued` via `ccw issue update`
 
 ## Core Capabilities
 
 - **Agent-driven**: issue-queue-agent handles all ordering logic
-- Dependency DAG construction and cycle detection
-- File conflict detection and resolution
-- Semantic priority calculation (0.0-1.0)
-- Parallel/Sequential group assignment
+- **Solution-level granularity**: Queue items are solutions, not tasks
+- Inter-solution dependency DAG (based on file conflicts)
+- File conflict detection between solutions
+- Semantic priority calculation per solution (0.0-1.0)
+- Parallel/Sequential group assignment for solutions
 
 ## Storage Structure (Queue History)
 
@@ -66,20 +70,75 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
     {
       "id": "QUE-20251227-143000",
       "status": "active",
-      "issue_ids": ["GH-123", "GH-124"],
-      "total_tasks": 8,
-      "completed_tasks": 3,
+      "issue_ids": ["ISS-xxx", "ISS-yyy"],
+      "total_solutions": 3,
+      "completed_solutions": 1,
       "created_at": "2025-12-27T14:30:00Z"
+    }
+  ]
+}
+```
+
+### Queue File Schema (Solution-Level)
+
+```json
+{
+  "id": "QUE-20251227-143000",
+  "status": "active",
+  "solutions": [
+    {
+      "item_id": "S-1",
+      "issue_id": "ISS-20251227-003",
+      "solution_id": "SOL-20251227-003",
+      "status": "pending",
+      "execution_order": 1,
+      "execution_group": "P1",
+      "depends_on": [],
+      "semantic_priority": 0.8,
+      "assigned_executor": "codex",
+      "files_touched": ["src/auth.ts", "src/utils.ts"],
+      "task_count": 3
     },
     {
-      "id": "QUE-20251226-100000",
-      "status": "completed",
-      "issue_ids": ["GH-120"],
-      "total_tasks": 5,
-      "completed_tasks": 5,
-      "created_at": "2025-12-26T10:00:00Z",
-      "completed_at": "2025-12-26T12:30:00Z"
+      "item_id": "S-2",
+      "issue_id": "ISS-20251227-001",
+      "solution_id": "SOL-20251227-001",
+      "status": "pending",
+      "execution_order": 2,
+      "execution_group": "P1",
+      "depends_on": [],
+      "semantic_priority": 0.7,
+      "assigned_executor": "codex",
+      "files_touched": ["src/api.ts"],
+      "task_count": 2
+    },
+    {
+      "item_id": "S-3",
+      "issue_id": "ISS-20251227-002",
+      "solution_id": "SOL-20251227-002",
+      "status": "pending",
+      "execution_order": 3,
+      "execution_group": "S2",
+      "depends_on": ["S-1"],
+      "semantic_priority": 0.5,
+      "assigned_executor": "codex",
+      "files_touched": ["src/auth.ts"],
+      "task_count": 4
     }
+  ],
+  "conflicts": [
+    {
+      "type": "file_conflict",
+      "file": "src/auth.ts",
+      "solutions": ["S-1", "S-3"],
+      "resolution": "sequential",
+      "resolution_order": ["S-1", "S-3"],
+      "rationale": "S-1 creates auth module, S-3 extends it"
+    }
+  ],
+  "execution_groups": [
+    { "id": "P1", "type": "parallel", "solutions": ["S-1", "S-2"] },
+    { "id": "S2", "type": "sequential", "solutions": ["S-3"] }
   ]
 }
 ```
@@ -116,21 +175,22 @@ Phase 1: Solution Loading
    ├─ Filter issues with bound_solution_id
    ├─ Read solutions/{issue-id}.jsonl for each issue
    ├─ Find bound solution by ID
-   └─ Extract tasks from bound solutions
+   ├─ Collect files_touched from all tasks in solution
+   └─ Build solution objects (NOT individual tasks)
 
 Phase 2-4: Agent-Driven Queue Formation (issue-queue-agent)
-   ├─ Launch issue-queue-agent with all tasks
+   ├─ Launch issue-queue-agent with all solutions
    ├─ Agent performs:
-   │   ├─ Build dependency DAG from depends_on
+   │   ├─ Detect file overlaps between solutions
+   │   ├─ Build dependency DAG from file conflicts
    │   ├─ Detect circular dependencies
-   │   ├─ Identify file modification conflicts
-   │   ├─ Resolve conflicts using ordering rules
-   │   ├─ Calculate semantic priority (0.0-1.0)
+   │   ├─ Resolve conflicts using priority rules
+   │   ├─ Calculate semantic priority per solution
    │   └─ Assign execution groups (parallel/sequential)
-   └─ Output: queue JSON with ordered tasks
+   └─ Output: queue JSON with ordered solutions (S-1, S-2, ...)
 
 Phase 5: Queue Output
-   ├─ Write queue.json
+   ├─ Write queue.json with solutions array
    ├─ Update issue statuses in issues.jsonl
    └─ Display queue summary
 ```
@@ -158,8 +218,8 @@ if (plannedIssues.length === 0) {
   return;
 }
 
-// Load all tasks from bound solutions
-const allTasks = [];
+// Load bound solutions (not individual tasks)
+const allSolutions = [];
 for (const issue of plannedIssues) {
   const solPath = `.workflow/issues/solutions/${issue.id}.jsonl`;
   const solutions = Bash(`cat "${solPath}" 2>/dev/null || echo ''`)
@@ -175,74 +235,77 @@ for (const issue of plannedIssues) {
     continue;
   }
 
+  // Collect all files touched by this solution
+  const filesTouched = new Set();
   for (const task of boundSol.tasks || []) {
-    allTasks.push({
-      issue_id: issue.id,
-      solution_id: issue.bound_solution_id,
-      task,
-      exploration_context: boundSol.exploration_context
-    });
+    for (const mp of task.modification_points || []) {
+      filesTouched.add(mp.file);
+    }
   }
+
+  allSolutions.push({
+    issue_id: issue.id,
+    solution_id: issue.bound_solution_id,
+    task_count: boundSol.tasks?.length || 0,
+    files_touched: Array.from(filesTouched),
+    priority: issue.priority || 'medium'
+  });
 }
 
-console.log(`Loaded ${allTasks.length} tasks from ${plannedIssues.length} issues`);
+console.log(`Loaded ${allSolutions.length} solutions from ${plannedIssues.length} issues`);
 ```
 
 ### Phase 2-4: Agent-Driven Queue Formation
 
 ```javascript
-// Build minimal prompt - agent reads schema and handles ordering
+// Build minimal prompt - agent orders SOLUTIONS, not tasks
 const agentPrompt = `
-## Order Tasks
+## Order Solutions
 
-**Tasks**: ${allTasks.length} from ${plannedIssues.length} issues
+**Solutions**: ${allSolutions.length} from ${plannedIssues.length} issues
 **Project Root**: ${process.cwd()}
 
-### Input
+### Input (Solution-Level)
 \`\`\`json
-${JSON.stringify(allTasks.map(t => ({
-  key: \`\${t.issue_id}:\${t.task.id}\`,
-  type: t.task.type,
-  file_context: t.task.file_context,
-  depends_on: t.task.depends_on
-})), null, 2)}
+${JSON.stringify(allSolutions, null, 2)}
 \`\`\`
 
 ### Steps
-1. Parse tasks: Extract task keys, types, file contexts, dependencies
-2. Build DAG: Construct dependency graph from depends_on references
-3. Detect cycles: Verify no circular dependencies exist (abort if found)
-4. Detect conflicts: Identify file modification conflicts across issues
-5. Resolve conflicts: Apply ordering rules (Create→Update→Delete, config→src→tests)
-6. Calculate priority: Compute semantic priority (0.0-1.0) for each task
-7. Assign groups: Assign parallel (P*) or sequential (S*) execution groups
-8. Generate queue: Write queue JSON with ordered tasks
+1. Parse solutions: Extract solution IDs, files_touched, task_count, priority
+2. Detect conflicts: Find file overlaps between solutions (files_touched intersection)
+3. Build DAG: Create dependency edges where solutions share files
+4. Detect cycles: Verify no circular dependencies (abort if found)
+5. Resolve conflicts: Apply ordering rules based on action types
+6. Calculate priority: Compute semantic priority (0.0-1.0) per solution
+7. Assign groups: Parallel (P*) for no-conflict, Sequential (S*) for conflicts
+8. Generate queue: Write queue JSON with ordered solutions
 9. Update index: Update queues/index.json with new queue entry
 
 ### Rules
+- **Solution Granularity**: Queue items are solutions, NOT individual tasks
 - **DAG Validity**: Output must be valid DAG with no circular dependencies
-- **Conflict Resolution**: All file conflicts must be resolved with rationale
+- **Conflict Detection**: Two solutions conflict if files_touched intersect
 - **Ordering Priority**:
-  1. Create before Update (files must exist before modification)
-  2. Foundation before integration (config/ → src/)
-  3. Types before implementation (types/ → components/)
-  4. Core before tests (src/ → __tests__/)
-  5. Delete last (preserve dependencies until no longer needed)
-- **Parallel Safety**: Tasks in same parallel group must have no file conflicts
+  1. Higher issue priority first (critical > high > medium > low)
+  2. Fewer dependencies first (foundation solutions)
+  3. More tasks = higher priority (larger impact)
+- **Parallel Safety**: Solutions in same parallel group must have NO file overlaps
+- **Queue Item ID Format**: \`S-N\` (S-1, S-2, S-3, ...)
 - **Queue ID Format**: \`QUE-YYYYMMDD-HHMMSS\` (UTC timestamp)
 
 ### Generate Files
-1. \`.workflow/issues/queues/\${queueId}.json\` - Full queue (schema: cat .claude/workflows/cli-templates/schemas/queue-schema.json)
+1. \`.workflow/issues/queues/\${queueId}.json\` - Full queue with solutions array
 2. \`.workflow/issues/queues/index.json\` - Update with new entry
 
 ### Return Summary
 \`\`\`json
 {
   "queue_id": "QUE-YYYYMMDD-HHMMSS",
+  "total_solutions": N,
   "total_tasks": N,
   "execution_groups": [{ "id": "P1", "type": "parallel", "count": N }],
   "conflicts_resolved": N,
-  "issues_queued": ["GH-123"]
+  "issues_queued": ["ISS-xxx"]
 }
 \`\`\`
 `;
@@ -250,7 +313,7 @@ ${JSON.stringify(allTasks.map(t => ({
 const result = Task(
   subagent_type="issue-queue-agent",
   run_in_background=false,
-  description=`Order ${allTasks.length} tasks`,
+  description=`Order ${allSolutions.length} solutions`,
   prompt=agentPrompt
 );
 
@@ -264,6 +327,7 @@ const summary = JSON.parse(result);
 console.log(`
 ## Queue Formed: ${summary.queue_id}
 
+**Solutions**: ${summary.total_solutions}
 **Tasks**: ${summary.total_tasks}
 **Issues**: ${summary.issues_queued.join(', ')}
 **Groups**: ${summary.execution_groups.map(g => `${g.id}(${g.count})`).join(', ')}

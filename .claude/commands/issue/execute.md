@@ -1,6 +1,6 @@
 ---
 name: execute
-description: Execute queue with codex using DAG-based parallel orchestration (read-only task fetch)
+description: Execute queue with codex using DAG-based parallel orchestration (solution-level)
 argument-hint: "[--parallel <n>] [--executor codex|gemini|agent]"
 allowed-tools: TodoWrite(*), Bash(*), Read(*), AskUserQuestion(*)
 ---
@@ -9,13 +9,14 @@ allowed-tools: TodoWrite(*), Bash(*), Read(*), AskUserQuestion(*)
 
 ## Overview
 
-Minimal orchestrator that dispatches task IDs to executors. Uses read-only `detail` command for parallel-safe task fetching.
+Minimal orchestrator that dispatches **solution IDs** to executors. Each executor receives a complete solution with all its tasks.
 
 **Design Principles:**
-- `queue dag` → returns parallel batches with task IDs
-- `detail <id>` → READ-ONLY task fetch (no status modification)
-- `done <id>` → update completion status
+- `queue dag` → returns parallel batches with solution IDs (S-1, S-2, ...)
+- `detail <id>` → READ-ONLY solution fetch (returns full solution with all tasks)
+- `done <id>` → update solution completion status
 - No race conditions: status changes only via `done`
+- **Executor handles all tasks within a solution sequentially**
 
 ## Usage
 
@@ -37,18 +38,19 @@ Minimal orchestrator that dispatches task IDs to executors. Uses read-only `deta
 
 ```
 Phase 1: Get DAG
-   └─ ccw issue queue dag → { parallel_batches: [["T-1","T-2","T-3"], ...] }
+   └─ ccw issue queue dag → { parallel_batches: [["S-1","S-2"], ["S-3"]] }
 
 Phase 2: Dispatch Parallel Batch
-   ├─ For each ID in batch (parallel):
+   ├─ For each solution ID in batch (parallel):
    │   ├─ Executor calls: ccw issue detail <id>  (READ-ONLY)
-   │   ├─ Executor gets full task definition
-   │   ├─ Executor implements + tests + commits
+   │   ├─ Executor gets FULL SOLUTION with all tasks
+   │   ├─ Executor implements all tasks sequentially (T1 → T2 → T3)
+   │   ├─ Executor tests + commits per task
    │   └─ Executor calls: ccw issue done <id>
    └─ Wait for batch completion
 
 Phase 3: Next Batch
-   └─ ccw issue queue dag → check for newly-ready tasks
+   └─ ccw issue queue dag → check for newly-ready solutions
 ```
 
 ## Implementation
@@ -61,15 +63,15 @@ const dagJson = Bash(`ccw issue queue dag`).trim();
 const dag = JSON.parse(dagJson);
 
 if (dag.error || dag.ready_count === 0) {
-  console.log(dag.error || 'No tasks ready for execution');
+  console.log(dag.error || 'No solutions ready for execution');
   console.log('Use /issue:queue to form a queue first');
   return;
 }
 
 console.log(`
-## Queue DAG
+## Queue DAG (Solution-Level)
 
-- Total: ${dag.total}
+- Total Solutions: ${dag.total}
 - Ready: ${dag.ready_count}
 - Completed: ${dag.completed_count}
 - Parallel in batch 1: ${dag.parallel_batches[0]?.length || 0}
@@ -91,15 +93,15 @@ if (flags.dryRun) {
 const parallelLimit = flags.parallel || 3;
 const executor = flags.executor || 'codex';
 
-// Process first batch (all can run in parallel)
+// Process first batch (all solutions can run in parallel)
 const batch = dag.parallel_batches[0] || [];
 
 // Initialize TodoWrite
 TodoWrite({
   todos: batch.map(id => ({
-    content: `Execute ${id}`,
+    content: `Execute solution ${id}`,
     status: 'pending',
-    activeForm: `Executing ${id}`
+    activeForm: `Executing solution ${id}`
   }))
 });
 
@@ -110,12 +112,12 @@ for (let i = 0; i < batch.length; i += parallelLimit) {
 }
 
 for (const chunk of chunks) {
-  console.log(`\n### Executing: ${chunk.join(', ')}`);
+  console.log(`\n### Executing Solutions: ${chunk.join(', ')}`);
 
   // Launch all in parallel
-  const executions = chunk.map(itemId => {
-    updateTodo(itemId, 'in_progress');
-    return dispatchExecutor(itemId, executor);
+  const executions = chunk.map(solutionId => {
+    updateTodo(solutionId, 'in_progress');
+    return dispatchExecutor(solutionId, executor);
   });
 
   await Promise.all(executions);
@@ -126,51 +128,55 @@ for (const chunk of chunks) {
 ### Executor Dispatch
 
 ```javascript
-function dispatchExecutor(itemId, executorType) {
-  // Executor fetches task via READ-ONLY detail command
+function dispatchExecutor(solutionId, executorType) {
+  // Executor fetches FULL SOLUTION via READ-ONLY detail command
+  // Executor handles all tasks within solution sequentially
   // Then reports completion via done command
   const prompt = `
-## Execute Task ${itemId}
+## Execute Solution ${solutionId}
 
-### Step 1: Get Task (read-only)
+### Step 1: Get Solution (read-only)
 \`\`\`bash
-ccw issue detail ${itemId}
+ccw issue detail ${solutionId}
 \`\`\`
 
-### Step 2: Execute
-Follow the task definition returned above:
-- task.implementation: Implementation steps
-- task.test: Test commands
-- task.acceptance: Acceptance criteria
-- task.commit: Commit specification
+### Step 2: Execute All Tasks Sequentially
+The detail command returns a FULL SOLUTION with all tasks.
+Execute each task in order (T1 → T2 → T3 → ...):
+
+For each task:
+1. Follow task.implementation steps
+2. Run task.test commands
+3. Verify task.acceptance criteria
+4. Commit using task.commit specification
 
 ### Step 3: Report Completion
-When done:
+When ALL tasks in solution are done:
 \`\`\`bash
-ccw issue done ${itemId} --result '{"summary": "...", "files_modified": [...]}'
+ccw issue done ${solutionId} --result '{"summary": "...", "files_modified": [...], "tasks_completed": N}'
 \`\`\`
 
-If failed:
+If any task failed:
 \`\`\`bash
-ccw issue done ${itemId} --fail --reason "..."
+ccw issue done ${solutionId} --fail --reason "Task TX failed: ..."
 \`\`\`
 `;
 
   if (executorType === 'codex') {
     return Bash(
-      `ccw cli -p "${escapePrompt(prompt)}" --tool codex --mode write --id exec-${itemId}`,
-      { timeout: 3600000, run_in_background: true }
+      `ccw cli -p "${escapePrompt(prompt)}" --tool codex --mode write --id exec-${solutionId}`,
+      { timeout: 7200000, run_in_background: true }  // 2hr for full solution
     );
   } else if (executorType === 'gemini') {
     return Bash(
-      `ccw cli -p "${escapePrompt(prompt)}" --tool gemini --mode write --id exec-${itemId}`,
-      { timeout: 1800000, run_in_background: true }
+      `ccw cli -p "${escapePrompt(prompt)}" --tool gemini --mode write --id exec-${solutionId}`,
+      { timeout: 3600000, run_in_background: true }
     );
   } else {
     return Task({
       subagent_type: 'code-developer',
       run_in_background: false,
-      description: `Execute ${itemId}`,
+      description: `Execute solution ${solutionId}`,
       prompt: prompt
     });
   }
@@ -186,7 +192,7 @@ const refreshedDag = JSON.parse(Bash(`ccw issue queue dag`).trim());
 console.log(`
 ## Batch Complete
 
-- Completed: ${refreshedDag.completed_count}/${refreshedDag.total}
+- Solutions Completed: ${refreshedDag.completed_count}/${refreshedDag.total}
 - Next ready: ${refreshedDag.ready_count}
 `);
 
@@ -198,68 +204,86 @@ if (refreshedDag.ready_count > 0) {
 ## Parallel Execution Model
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│ Orchestrator                                            │
-├─────────────────────────────────────────────────────────┤
-│ 1. ccw issue queue dag                                  │
-│    → { parallel_batches: [["T-1","T-2","T-3"], ["T-4"]] │
-│                                                         │
-│ 2. Dispatch batch 1 (parallel):                        │
-│    ┌────────────────┐ ┌────────────────┐ ┌────────────┐│
-│    │ Executor 1     │ │ Executor 2     │ │ Executor 3 ││
-│    │ detail T-1     │ │ detail T-2     │ │ detail T-3 ││
-│    │ [work]         │ │ [work]         │ │ [work]     ││
-│    │ done T-1       │ │ done T-2       │ │ done T-3   ││
-│    └────────────────┘ └────────────────┘ └────────────┘│
-│                                                         │
-│ 3. ccw issue queue dag (refresh)                       │
-│    → T-4 now ready (dependencies T-1,T-2 completed)    │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ Orchestrator                                                │
+├─────────────────────────────────────────────────────────────┤
+│ 1. ccw issue queue dag                                      │
+│    → { parallel_batches: [["S-1","S-2"], ["S-3"]] }        │
+│                                                             │
+│ 2. Dispatch batch 1 (parallel):                            │
+│    ┌──────────────────────┐ ┌──────────────────────┐       │
+│    │ Executor 1           │ │ Executor 2           │       │
+│    │ detail S-1           │ │ detail S-2           │       │
+│    │ → gets full solution │ │ → gets full solution │       │
+│    │ [T1→T2→T3 sequential]│ │ [T1→T2 sequential]   │       │
+│    │ done S-1             │ │ done S-2             │       │
+│    └──────────────────────┘ └──────────────────────┘       │
+│                                                             │
+│ 3. ccw issue queue dag (refresh)                           │
+│    → S-3 now ready (S-1 completed, file conflict resolved) │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 **Why this works for parallel:**
 - `detail <id>` is READ-ONLY → no race conditions
-- `done <id>` updates only its own task status
-- `queue dag` recalculates ready tasks after each batch
+- Each executor handles **all tasks within a solution** sequentially
+- `done <id>` updates only its own solution status
+- `queue dag` recalculates ready solutions after each batch
+- Solutions in same batch have NO file conflicts
 
 ## CLI Endpoint Contract
 
 ### `ccw issue queue dag`
-Returns dependency graph with parallel batches:
+Returns dependency graph with parallel batches (solution-level):
 ```json
 {
   "queue_id": "QUE-...",
-  "total": 10,
-  "ready_count": 3,
-  "completed_count": 2,
-  "nodes": [{ "id": "T-1", "status": "pending", "ready": true, ... }],
-  "parallel_batches": [["T-1", "T-2", "T-3"], ["T-4", "T-5"]]
+  "total": 3,
+  "ready_count": 2,
+  "completed_count": 0,
+  "nodes": [
+    { "id": "S-1", "issue_id": "ISS-xxx", "status": "pending", "ready": true, "task_count": 3 },
+    { "id": "S-2", "issue_id": "ISS-yyy", "status": "pending", "ready": true, "task_count": 2 },
+    { "id": "S-3", "issue_id": "ISS-zzz", "status": "pending", "ready": false, "depends_on": ["S-1"] }
+  ],
+  "parallel_batches": [["S-1", "S-2"], ["S-3"]]
 }
 ```
 
 ### `ccw issue detail <item_id>`
-Returns full task definition (READ-ONLY):
+Returns FULL SOLUTION with all tasks (READ-ONLY):
 ```json
 {
-  "item_id": "T-1",
-  "issue_id": "GH-123",
+  "item_id": "S-1",
+  "issue_id": "ISS-xxx",
+  "solution_id": "SOL-xxx",
   "status": "pending",
-  "task": { "id": "T1", "implementation": [...], "test": {...}, ... },
-  "context": { "relevant_files": [...] }
+  "solution": {
+    "id": "SOL-xxx",
+    "approach": "...",
+    "tasks": [
+      { "id": "T1", "title": "...", "implementation": [...], "test": {...} },
+      { "id": "T2", "title": "...", "implementation": [...], "test": {...} },
+      { "id": "T3", "title": "...", "implementation": [...], "test": {...} }
+    ],
+    "exploration_context": { "relevant_files": [...] }
+  },
+  "execution_hints": { "executor": "codex", "estimated_minutes": 180 }
 }
 ```
 
 ### `ccw issue done <item_id>`
-Marks task completed/failed, updates queue state, checks for queue completion.
+Marks solution completed/failed, updates queue state, checks for queue completion.
 
 ## Error Handling
 
 | Error | Resolution |
 |-------|------------|
 | No queue | Run /issue:queue first |
-| No ready tasks | Dependencies blocked, check DAG |
-| Executor timeout | Task not marked done, can retry |
-| Task failure | Use `ccw issue retry` to reset |
+| No ready solutions | Dependencies blocked, check DAG |
+| Executor timeout | Solution not marked done, can retry |
+| Solution failure | Use `ccw issue retry` to reset |
+| Partial task failure | Executor reports which task failed via `done --fail` |
 
 ## Related Commands
 

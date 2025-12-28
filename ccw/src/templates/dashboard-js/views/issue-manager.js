@@ -6,7 +6,7 @@
 // ========== Issue State ==========
 var issueData = {
   issues: [],
-  queue: { tasks: [], conflicts: [], execution_groups: [], grouped_items: {} },
+  queue: { tasks: [], solutions: [], conflicts: [], execution_groups: [], grouped_items: {} },
   selectedIssue: null,
   selectedSolution: null,
   selectedSolutionIssueId: null,
@@ -65,7 +65,7 @@ async function loadQueueData() {
     issueData.queue = await response.json();
   } catch (err) {
     console.error('Failed to load queue:', err);
-    issueData.queue = { tasks: [], conflicts: [], execution_groups: [], grouped_items: {} };
+    issueData.queue = { tasks: [], solutions: [], conflicts: [], execution_groups: [], grouped_items: {} };
   }
 }
 
@@ -360,7 +360,9 @@ function filterIssuesByStatus(status) {
 // ========== Queue Section ==========
 function renderQueueSection() {
   const queue = issueData.queue;
-  const queueItems = queue.tasks || [];
+  // Support both solution-level and task-level queues
+  const queueItems = queue.solutions || queue.tasks || [];
+  const isSolutionLevel = !!(queue.solutions && queue.solutions.length > 0);
   const metadata = queue._metadata || {};
 
   // Check if queue is empty
@@ -443,8 +445,8 @@ function renderQueueSection() {
       <!-- Queue Stats -->
       <div class="queue-stats-grid mb-4">
         <div class="queue-stat-card">
-          <span class="queue-stat-value">${metadata.total_tasks || queueItems.length}</span>
-          <span class="queue-stat-label">${t('issues.totalTasks') || 'Total'}</span>
+          <span class="queue-stat-value">${isSolutionLevel ? (metadata.total_solutions || queueItems.length) : (metadata.total_tasks || queueItems.length)}</span>
+          <span class="queue-stat-label">${isSolutionLevel ? (t('issues.totalSolutions') || 'Solutions') : (t('issues.totalTasks') || 'Total')}</span>
         </div>
         <div class="queue-stat-card pending">
           <span class="queue-stat-value">${metadata.pending_count || queueItems.filter(i => i.status === 'pending').length}</span>
@@ -510,6 +512,9 @@ function renderQueueSection() {
 
 function renderQueueGroup(group, items) {
   const isParallel = group.type === 'parallel';
+  // Support both solution-level (solution_count) and task-level (task_count)
+  const itemCount = group.solution_count || group.task_count || items.length;
+  const itemLabel = group.solution_count ? 'solutions' : 'tasks';
 
   return `
     <div class="queue-group" data-group-id="${group.id}">
@@ -518,7 +523,7 @@ function renderQueueGroup(group, items) {
           <i data-lucide="${isParallel ? 'git-merge' : 'arrow-right'}" class="w-4 h-4"></i>
           ${group.id} (${isParallel ? t('issues.parallelGroup') || 'Parallel' : t('issues.sequentialGroup') || 'Sequential'})
         </div>
-        <span class="text-sm text-muted-foreground">${group.task_count} tasks</span>
+        <span class="text-sm text-muted-foreground">${itemCount} ${itemLabel}</span>
       </div>
       <div class="queue-items ${isParallel ? 'parallel' : 'sequential'}">
         ${items.map((item, idx) => renderQueueItem(item, idx, items.length)).join('')}
@@ -537,6 +542,9 @@ function renderQueueItem(item, index, total) {
     blocked: 'blocked'
   };
 
+  // Check if this is a solution-level item (has task_count) or task-level (has task_id)
+  const isSolutionItem = item.task_count !== undefined;
+
   return `
     <div class="queue-item ${statusColors[item.status] || ''}"
          draggable="true"
@@ -545,7 +553,20 @@ function renderQueueItem(item, index, total) {
          onclick="openQueueItemDetail('${item.item_id}')">
       <span class="queue-item-id font-mono text-xs">${item.item_id}</span>
       <span class="queue-item-issue text-xs text-muted-foreground">${item.issue_id}</span>
-      <span class="queue-item-task text-sm">${item.task_id}</span>
+      ${isSolutionItem ? `
+        <span class="queue-item-solution text-sm" title="${item.solution_id || ''}">
+          <i data-lucide="package" class="w-3 h-3 inline mr-1"></i>
+          ${item.task_count} ${t('issues.tasks') || 'tasks'}
+        </span>
+        ${item.files_touched && item.files_touched.length > 0 ? `
+          <span class="queue-item-files text-xs text-muted-foreground" title="${item.files_touched.join(', ')}">
+            <i data-lucide="file" class="w-3 h-3"></i>
+            ${item.files_touched.length}
+          </span>
+        ` : ''}
+      ` : `
+        <span class="queue-item-task text-sm">${item.task_id || '-'}</span>
+      `}
       <span class="queue-item-priority" style="opacity: ${item.semantic_priority || 0.5}">
         <i data-lucide="arrow-up" class="w-3 h-3"></i>
       </span>
@@ -569,9 +590,12 @@ function renderConflictsSection(conflicts) {
         ${conflicts.map(c => `
           <div class="conflict-item">
             <span class="conflict-file font-mono text-xs">${c.file}</span>
-            <span class="conflict-tasks text-xs text-muted-foreground">${c.tasks.join(' → ')}</span>
-            <span class="conflict-status ${c.resolved ? 'resolved' : 'pending'}">
-              ${c.resolved ? 'Resolved' : 'Pending'}
+            <span class="conflict-items text-xs text-muted-foreground">${(c.solutions || c.tasks || []).join(' → ')}</span>
+            ${c.rationale ? `<span class="conflict-rationale text-xs text-muted-foreground" title="${c.rationale}">
+              <i data-lucide="info" class="w-3 h-3"></i>
+            </span>` : ''}
+            <span class="conflict-status ${c.resolved || c.resolution ? 'resolved' : 'pending'}">
+              ${c.resolved || c.resolution ? 'Resolved' : 'Pending'}
             </span>
           </div>
         `).join('')}
@@ -1156,7 +1180,9 @@ function escapeHtml(text) {
 }
 
 function openQueueItemDetail(itemId) {
-  const item = issueData.queue.tasks?.find(q => q.item_id === itemId);
+  // Support both solution-level and task-level queues
+  const items = issueData.queue.solutions || issueData.queue.tasks || [];
+  const item = items.find(q => q.item_id === itemId);
   if (item) {
     openIssueDetail(item.issue_id);
   }
@@ -1600,7 +1626,7 @@ async function showQueueHistoryModal() {
                  </span>
                  <span class="text-xs text-muted-foreground">
                    <i data-lucide="check-circle" class="w-3 h-3 inline"></i>
-                   ${q.completed_tasks || 0}/${q.total_tasks || 0} tasks
+                   ${q.completed_solutions || q.completed_tasks || 0}/${q.total_solutions || q.total_tasks || 0} ${q.total_solutions ? 'solutions' : 'tasks'}
                  </span>
                  <span class="text-xs text-muted-foreground">
                    <i data-lucide="calendar" class="w-3 h-3 inline"></i>
@@ -1689,16 +1715,20 @@ async function viewQueueDetail(queueId) {
       throw new Error(queue.error);
     }
 
-    const tasks = queue.queue || [];
+    // Support both solution-level and task-level queues
+    const items = queue.solutions || queue.queue || queue.tasks || [];
+    const isSolutionLevel = !!(queue.solutions && queue.solutions.length > 0);
     const metadata = queue._metadata || {};
 
     // Group by execution_group
     const grouped = {};
-    tasks.forEach(task => {
-      const group = task.execution_group || 'ungrouped';
+    items.forEach(item => {
+      const group = item.execution_group || 'ungrouped';
       if (!grouped[group]) grouped[group] = [];
-      grouped[group].push(task);
+      grouped[group].push(item);
     });
+
+    const itemLabel = isSolutionLevel ? 'solutions' : 'tasks';
 
     const detailHtml = `
       <div class="queue-detail-view">
@@ -1715,40 +1745,41 @@ async function viewQueueDetail(queueId) {
 
         <div class="queue-detail-stats mb-4">
           <div class="stat-item">
-            <span class="stat-value">${tasks.length}</span>
-            <span class="stat-label">Total</span>
+            <span class="stat-value">${items.length}</span>
+            <span class="stat-label">${isSolutionLevel ? 'Solutions' : 'Total'}</span>
           </div>
           <div class="stat-item completed">
-            <span class="stat-value">${tasks.filter(t => t.status === 'completed').length}</span>
+            <span class="stat-value">${items.filter(t => t.status === 'completed').length}</span>
             <span class="stat-label">Completed</span>
           </div>
           <div class="stat-item pending">
-            <span class="stat-value">${tasks.filter(t => t.status === 'pending').length}</span>
+            <span class="stat-value">${items.filter(t => t.status === 'pending').length}</span>
             <span class="stat-label">Pending</span>
           </div>
           <div class="stat-item failed">
-            <span class="stat-value">${tasks.filter(t => t.status === 'failed').length}</span>
+            <span class="stat-value">${items.filter(t => t.status === 'failed').length}</span>
             <span class="stat-label">Failed</span>
           </div>
         </div>
 
         <div class="queue-detail-groups">
-          ${Object.entries(grouped).map(([groupId, items]) => `
+          ${Object.entries(grouped).map(([groupId, groupItems]) => `
             <div class="queue-group-section">
               <div class="queue-group-header">
                 <i data-lucide="folder" class="w-4 h-4"></i>
                 <span>${groupId}</span>
-                <span class="text-xs text-muted-foreground">(${items.length} tasks)</span>
+                <span class="text-xs text-muted-foreground">(${groupItems.length} ${itemLabel})</span>
               </div>
               <div class="queue-group-items">
-                ${items.map(item => `
+                ${groupItems.map(item => `
                   <div class="queue-detail-item ${item.status || ''}">
                     <div class="item-main">
-                      <span class="item-id font-mono text-xs">${item.queue_id || item.task_id || 'N/A'}</span>
-                      <span class="item-title text-sm">${item.title || item.action || 'Untitled'}</span>
+                      <span class="item-id font-mono text-xs">${item.item_id || item.queue_id || item.task_id || 'N/A'}</span>
+                      <span class="item-title text-sm">${isSolutionLevel ? (item.task_count + ' tasks') : (item.title || item.action || 'Untitled')}</span>
                     </div>
                     <div class="item-meta">
                       <span class="item-issue text-xs">${item.issue_id || ''}</span>
+                      ${isSolutionLevel && item.files_touched ? `<span class="item-files text-xs">${item.files_touched.length} files</span>` : ''}
                       <span class="item-status ${item.status || ''}">${item.status || 'unknown'}</span>
                     </div>
                   </div>
