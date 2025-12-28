@@ -16,9 +16,18 @@ const AGENT_CONFIGS = {
   'ui-guide': {
     role: 'UX Expert',
     output: 'section-ui-guide.md',
-    task: '撰写界面操作指南，分步骤说明各功能使用方法',
+    task: '撰写界面操作指南，标注所有需要截图的 UI 元素',
     focus: '界面布局、导航流程、功能操作、快捷键',
-    input: ['exploration-ui-routes.json', 'pages/**', 'views/**']
+    input: ['exploration-ui-routes.json', 'pages/**', 'views/**'],
+    screenshot_rules: `
+每个关键 UI 交互点必须插入截图标记:
+<!-- SCREENSHOT: id="ss-{功能}-{状态}" url="{路由}" selector="{CSS选择器}" wait_for="{等待元素}" description="{描述}" -->
+
+示例:
+- 页面全貌: <!-- SCREENSHOT: id="ss-dashboard-overview" url="/dashboard" description="仪表盘主界面" -->
+- 特定组件: <!-- SCREENSHOT: id="ss-login-form" url="/login" selector=".login-form" description="登录表单" -->
+- 交互状态: <!-- SCREENSHOT: id="ss-modal-open" url="/settings" selector=".modal" wait_for=".modal.show" description="设置弹窗" -->
+`
   },
   'api-docs': {
     role: 'API Architect',
@@ -72,6 +81,10 @@ const results = await Promise.all(tasks);
 
 ```javascript
 function buildAgentPrompt(name, cfg, config, workDir) {
+  const screenshotSection = cfg.screenshot_rules
+    ? `\n[SCREENSHOT RULES]\n${cfg.screenshot_rules}`
+    : '\n[SCREENSHOT]\n截图标记: <!-- SCREENSHOT: id="ss-xxx" url="/path" description="xxx" -->';
+
   return `
 [ROLE] ${cfg.role}
 
@@ -87,7 +100,7 @@ ${cfg.task}
 - 用户友好语言，避免技术术语
 - 步骤编号清晰
 - 代码块标注语言
-- 截图标记: <!-- SCREENSHOT: id="ss-xxx" url="/path" description="xxx" -->
+${screenshotSection}
 
 [FOCUS]
 ${cfg.focus}
@@ -97,7 +110,7 @@ ${cfg.focus}
   "status": "completed",
   "output_file": "sections/${cfg.output}",
   "summary": "<50字>",
-  "screenshots_needed": [],
+  "screenshots_needed": [{ "id": "ss-xxx", "url": "/path", "selector": ".class", "description": "..." }],
   "cross_references": []
 }
 `;

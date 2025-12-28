@@ -63,8 +63,8 @@ Generate comprehensive, interactive software manuals in TiddlyWiki-style single-
 │  → 质量检查: 一致性、交叉引用、截图标记                          │
 │  → Output: consolidation-summary.md, screenshots-list.json      │
 ├─────────────────────────────────────────────────────────────────┤
-│  Phase 4: Screenshot Capture (主 Agent + Chrome MCP)            │
-│  → 批量截图: 根据 screenshots-list.json                         │
+│  Phase 4: Screenshot Capture (universal-executor + Chrome MCP)  │
+│  → 批量截图: 调用 mcp__chrome__screenshot                        │
 │  → Output: screenshots/*.png + manifest.json                    │
 ├─────────────────────────────────────────────────────────────────┤
 │  Phase 5: HTML Assembly (universal-executor)                    │
