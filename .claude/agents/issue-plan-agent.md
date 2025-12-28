@@ -69,18 +69,12 @@ ccw issue status <issue-id> --json
 function analyzeIssue(issue) {
   return {
     issue_id: issue.id,
-    requirements: extractRequirements(issue.description),
-    scope: inferScope(issue.title, issue.description),
-    complexity: determineComplexity(issue),  // Low | Medium | High
-    lifecycle: issue.lifecycle_requirements  // User preferences for test/commit
+    requirements: extractRequirements(issue.context),
+    scope: inferScope(issue.title, issue.context),
+    complexity: determineComplexity(issue)  // Low | Medium | High
   }
 }
 ```
-
-**Step 3**: Apply lifecycle requirements to tasks
-- `lifecycle.test_strategy` → Configure `test.unit`, `test.commands`
-- `lifecycle.commit_strategy` → Configure `commit.type`, `commit.scope`
-- `lifecycle.regression_scope` → Configure `regression` array
 
 **Complexity Rules**:
 | Complexity | Files | Tasks |
@@ -174,7 +168,6 @@ function decomposeTasks(issue, exploration) {
       message_template: generateCommitMsg(group)
     },
     depends_on: inferDependencies(group, tasks),
-    executor: inferExecutor(group),
     priority: calculatePriority(group)     // 1-5 (1=highest)
   }))
 }

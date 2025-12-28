@@ -26,20 +26,6 @@ interface Issue {
   context: string;
   bound_solution_id: string | null;
   solution_count: number;
-  source?: string;
-  source_url?: string;
-  labels?: string[];
-  // Agent workflow fields
-  affected_components?: string[];
-  lifecycle_requirements?: {
-    test_strategy?: 'unit' | 'integration' | 'e2e' | 'auto';
-    regression_scope?: 'full' | 'related' | 'affected';
-    commit_strategy?: 'per-task' | 'atomic' | 'squash';
-  };
-  problem_statement?: string;
-  expected_behavior?: string;
-  actual_behavior?: string;
-  reproduction_steps?: string[];
   // Timestamps
   created_at: string;
   updated_at: string;
@@ -85,16 +71,6 @@ interface SolutionTask {
 
   depends_on: string[];
   estimated_minutes?: number;
-  executor: 'codex' | 'gemini' | 'agent' | 'auto';
-
-  // Lifecycle status tracking
-  lifecycle_status?: {
-    implemented: boolean;
-    tested: boolean;
-    regression_passed: boolean;
-    accepted: boolean;
-    committed: boolean;
-  };
   status?: string;
   priority?: number;
 }
@@ -117,7 +93,6 @@ interface QueueItem {
   issue_id: string;
   solution_id: string;
   task_id?: string;              // Only for task-level queues
-  title?: string;
   status: 'pending' | 'ready' | 'executing' | 'completed' | 'failed' | 'blocked';
   execution_order: number;
   execution_group: string;
@@ -126,6 +101,7 @@ interface QueueItem {
   assigned_executor: 'codex' | 'gemini' | 'agent';
   task_count?: number;           // For solution-level queues
   files_touched?: string[];      // For solution-level queues
+  queued_at?: string;
   started_at?: string;
   completed_at?: string;
   result?: Record<string, any>;
@@ -134,7 +110,8 @@ interface QueueItem {
 
 interface QueueConflict {
   type: 'file_conflict' | 'dependency_conflict' | 'resource_conflict';
-  tasks: string[];               // Item IDs involved in conflict
+  tasks?: string[];              // Task IDs involved (task-level queues)
+  solutions?: string[];          // Solution IDs involved (solution-level queues)
   file?: string;                 // Conflicting file path
   resolution: 'sequential' | 'merge' | 'manual';
   resolution_order?: string[];
@@ -173,7 +150,6 @@ interface Queue {
 
 interface QueueIndex {
   active_queue_id: string | null;
-  active_item_id: string | null;
   queues: {
     id: string;
     status: string;
@@ -316,7 +292,7 @@ function ensureQueuesDir(): void {
 function readQueueIndex(): QueueIndex {
   const path = join(getQueuesDir(), 'index.json');
   if (!existsSync(path)) {
-    return { active_queue_id: null, active_item_id: null, queues: [] };
+    return { active_queue_id: null, queues: [] };
   }
   return JSON.parse(readFileSync(path, 'utf-8'));
 }
@@ -665,7 +641,6 @@ async function taskAction(issueId: string | undefined, taskId: string | undefine
 
     if (options.title) solution.tasks[taskIdx].title = options.title;
     if (options.status) solution.tasks[taskIdx].status = options.status;
-    if (options.executor) solution.tasks[taskIdx].executor = options.executor as any;
 
     writeSolutions(issueId, solutions);
     console.log(chalk.green(`✓ Task ${taskId} updated`));
@@ -698,8 +673,7 @@ async function taskAction(issueId: string | undefined, taskId: string | undefine
         scope: 'core',
         message_template: `feat(core): ${options.title}`
       },
-      depends_on: [],
-      executor: (options.executor as any) || 'auto'
+      depends_on: []
     };
 
     solution.tasks.push(newTask);
@@ -1076,7 +1050,7 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
           return depItem?.item_id || dep;
         }),
         semantic_priority: 0.5,
-        assigned_executor: task.executor === 'auto' ? 'codex' : task.executor as any
+        assigned_executor: 'codex'
       });
       added++;
     }
