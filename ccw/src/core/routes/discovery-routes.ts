@@ -116,13 +116,51 @@ function readDiscoveryState(discoveriesDir: string, discoveryId: string): any | 
 }
 
 function readDiscoveryProgress(discoveriesDir: string, discoveryId: string): any | null {
-  const progressPath = join(discoveriesDir, discoveryId, 'discovery-progress.json');
-  if (!existsSync(progressPath)) return null;
-  try {
-    return JSON.parse(readFileSync(progressPath, 'utf8'));
-  } catch {
-    return null;
+  // Try merged state first (new schema)
+  const statePath = join(discoveriesDir, discoveryId, 'discovery-state.json');
+  if (existsSync(statePath)) {
+    try {
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      // New merged schema: perspectives array + results object
+      if (state.perspectives && Array.isArray(state.perspectives)) {
+        const completed = state.perspectives.filter((p: any) => p.status === 'completed').length;
+        const total = state.perspectives.length;
+        return {
+          discovery_id: discoveryId,
+          phase: state.phase,
+          last_update: state.updated_at || state.created_at,
+          progress: {
+            perspective_analysis: {
+              total,
+              completed,
+              in_progress: state.perspectives.filter((p: any) => p.status === 'in_progress').length,
+              percent_complete: total > 0 ? Math.round((completed / total) * 100) : 0
+            },
+            external_research: state.external_research || { enabled: false, completed: false },
+            aggregation: { completed: state.phase === 'aggregation' || state.phase === 'complete' },
+            issue_generation: { completed: state.phase === 'complete', issues_count: state.results?.issues_generated || 0 }
+          },
+          agent_status: state.perspectives
+        };
+      }
+      // Old schema: metadata.perspectives (backward compat)
+      if (state.metadata?.perspectives) {
+        return {
+          discovery_id: discoveryId,
+          phase: state.phase,
+          progress: { perspective_analysis: { total: state.metadata.perspectives.length, completed: state.perspectives_completed?.length || 0 } }
+        };
+      }
+    } catch {
+      // Fall through
+    }
   }
+  // Fallback: try legacy progress file
+  const progressPath = join(discoveriesDir, discoveryId, 'discovery-progress.json');
+  if (existsSync(progressPath)) {
+    try { return JSON.parse(readFileSync(progressPath, 'utf8')); } catch { return null; }
+  }
+  return null;
 }
 
 function readPerspectiveFindings(discoveriesDir: string, discoveryId: string): any[] {

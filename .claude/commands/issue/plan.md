@@ -172,19 +172,17 @@ TodoWrite({
 });
 ```
 
-### Phase 2: Unified Explore + Plan (issue-plan-agent)
+### Phase 2: Unified Explore + Plan (issue-plan-agent) - PARALLEL
 
 ```javascript
 Bash(`mkdir -p .workflow/issues/solutions`);
 const pendingSelections = [];  // Collect multi-solution issues for user selection
 
-for (const [batchIndex, batch] of batches.entries()) {
-  updateTodo(`Plan batch ${batchIndex + 1}`, 'in_progress');
-
-  // Build issue list with metadata for agent context
+// Build prompts for all batches
+const agentTasks = batches.map((batch, batchIndex) => {
   const issueList = batch.map(i => `- ${i.id}: ${i.title}${i.tags.length ? ` [${i.tags.join(', ')}]` : ''}`).join('\n');
+  const batchIds = batch.map(i => i.id);
 
-  // Build minimal prompt - agent handles exploration, planning, and binding
   const issuePrompt = `
 ## Plan Issues
 
@@ -223,32 +221,43 @@ ${issueList}
 \`\`\`
 `;
 
-  // Launch issue-plan-agent - agent writes solutions directly
-  const batchIds = batch.map(i => i.id);
-  const result = Task(
-    subagent_type="issue-plan-agent",
-    run_in_background=false,
-    description=`Explore & plan ${batch.length} issues: ${batchIds.join(', ')}`,
-    prompt=issuePrompt
-  );
+  return { batchIndex, batchIds, issuePrompt, batch };
+});
 
-  // Parse summary from agent
-  const summary = JSON.parse(result);
+// Launch agents in parallel (max 10 concurrent)
+const MAX_PARALLEL = 10;
+for (let i = 0; i < agentTasks.length; i += MAX_PARALLEL) {
+  const chunk = agentTasks.slice(i, i + MAX_PARALLEL);
+  const taskIds = [];
 
-  // Display auto-bound solutions
-  for (const item of summary.bound || []) {
-    console.log(`✓ ${item.issue_id}: ${item.solution_id} (${item.task_count} tasks)`);
+  // Launch chunk in parallel
+  for (const { batchIndex, batchIds, issuePrompt, batch } of chunk) {
+    updateTodo(`Plan batch ${batchIndex + 1}`, 'in_progress');
+    const taskId = Task(
+      subagent_type="issue-plan-agent",
+      run_in_background=true,
+      description=`Explore & plan ${batch.length} issues: ${batchIds.join(', ')}`,
+      prompt=issuePrompt
+    );
+    taskIds.push({ taskId, batchIndex });
   }
 
-  // Collect pending selections for Phase 3
-  pendingSelections.push(...(summary.pending_selection || []));
+  console.log(`Launched ${taskIds.length} agents (batch ${i/MAX_PARALLEL + 1}/${Math.ceil(agentTasks.length/MAX_PARALLEL)})...`);
 
-  // Show conflicts
-  if (summary.conflicts?.length > 0) {
-    console.log(`⚠ Conflicts: ${summary.conflicts.map(c => c.file).join(', ')}`);
+  // Collect results from this chunk
+  for (const { taskId, batchIndex } of taskIds) {
+    const result = TaskOutput(task_id=taskId, block=true);
+    const summary = JSON.parse(result);
+
+    for (const item of summary.bound || []) {
+      console.log(`✓ ${item.issue_id}: ${item.solution_id} (${item.task_count} tasks)`);
+    }
+    pendingSelections.push(...(summary.pending_selection || []));
+    if (summary.conflicts?.length > 0) {
+      console.log(`⚠ Conflicts: ${summary.conflicts.map(c => c.file).join(', ')}`);
+    }
+    updateTodo(`Plan batch ${batchIndex + 1}`, 'completed');
   }
-
-  updateTodo(`Plan batch ${batchIndex + 1}`, 'completed');
 }
 ```
 
