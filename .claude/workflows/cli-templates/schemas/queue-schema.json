@@ -120,10 +120,6 @@
           "maximum": 1,
           "description": "Semantic importance score (0.0-1.0)"
         },
-        "assigned_executor": {
-          "type": "string",
-          "enum": ["codex", "gemini", "agent"]
-        },
         "queued_at": { "type": "string", "format": "date-time" },
         "started_at": { "type": "string", "format": "date-time" },
         "completed_at": { "type": "string", "format": "date-time" },
@@ -160,7 +156,6 @@
         "execution_group": { "type": "string" },
         "depends_on": { "type": "array", "items": { "type": "string" } },
         "semantic_priority": { "type": "number", "minimum": 0, "maximum": 1 },
-        "assigned_executor": { "type": "string", "enum": ["codex", "gemini", "agent"] },
         "queued_at": { "type": "string", "format": "date-time" },
         "started_at": { "type": "string", "format": "date-time" },
         "completed_at": { "type": "string", "format": "date-time" },
