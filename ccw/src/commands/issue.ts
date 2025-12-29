@@ -118,7 +118,6 @@ interface QueueItem {
   execution_group: string;
   depends_on: string[];
   semantic_priority: number;
-  assigned_executor: 'codex' | 'gemini' | 'agent';
   task_count?: number;           // For solution-level queues
   files_touched?: string[];      // For solution-level queues
   queued_at?: string;
@@ -978,7 +977,6 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
       issue_id: item.issue_id,
       solution_id: item.solution_id,
       status: item.status,
-      executor: item.assigned_executor,
       priority: item.semantic_priority,
       depends_on: item.depends_on || [],
       task_count: item.task_count || 1,
@@ -1195,7 +1193,6 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
       execution_group: 'P1',
       depends_on: [],
       semantic_priority: 0.5,
-      assigned_executor: 'codex',
       task_count: solution.tasks?.length || 0,
       files_touched: Array.from(filesTouched)
     });
@@ -1237,11 +1234,11 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
   console.log();
 
   if (isSolutionLevel) {
-    console.log(chalk.gray('ItemID'.padEnd(10) + 'Issue'.padEnd(15) + 'Tasks'.padEnd(8) + 'Status'.padEnd(12) + 'Executor'));
+    console.log(chalk.gray('ItemID'.padEnd(10) + 'Issue'.padEnd(15) + 'Tasks'.padEnd(8) + 'Status'));
   } else {
-    console.log(chalk.gray('ItemID'.padEnd(10) + 'Issue'.padEnd(15) + 'Task'.padEnd(8) + 'Status'.padEnd(12) + 'Executor'));
+    console.log(chalk.gray('ItemID'.padEnd(10) + 'Issue'.padEnd(15) + 'Task'.padEnd(8) + 'Status'));
   }
-  console.log(chalk.gray('-'.repeat(60)));
+  console.log(chalk.gray('-'.repeat(48)));
 
   for (const item of items) {
     const statusColor = {
@@ -1261,8 +1258,7 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
       item.item_id.padEnd(10) +
       item.issue_id.substring(0, 13).padEnd(15) +
       thirdCol +
-      statusColor(item.status.padEnd(12)) +
-      item.assigned_executor
+      statusColor(item.status)
     );
   }
 }
@@ -1371,7 +1367,6 @@ async function nextAction(itemId: string | undefined, options: IssueOptions): Pr
     resumed: isResume,
     resume_note: isResume ? `Resuming interrupted item (started: ${nextItem.started_at})` : undefined,
     execution_hints: {
-      executor: nextItem.assigned_executor,
       task_count: solution.tasks?.length || 0,
       estimated_minutes: totalMinutes
     },
@@ -1429,7 +1424,6 @@ async function detailAction(itemId: string | undefined, options: IssueOptions): 
       exploration_context: solution.exploration_context || {}
     },
     execution_hints: {
-      executor: queueItem.assigned_executor,
       task_count: solution.tasks?.length || 0,
       estimated_minutes: totalMinutes
     }
