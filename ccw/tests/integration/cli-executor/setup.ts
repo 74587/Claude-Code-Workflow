@@ -220,7 +220,6 @@ export function assertPathWithin(rootDir: string, targetPath: string): void {
 export async function closeCliHistoryStores(): Promise<void> {
   try {
     const url = new URL('../../../dist/tools/cli-history-store.js', import.meta.url);
-    url.searchParams.set('t', String(Date.now()));
     const historyStoreMod: any = await import(url.href);
     historyStoreMod?.closeAllStores?.();
   } catch {
