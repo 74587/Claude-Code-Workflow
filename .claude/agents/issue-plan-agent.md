@@ -182,46 +182,24 @@ function decomposeTasks(issue, exploration) {
 - Task validation (all 5 phases present)
 - Conflict detection (cross-issue file modifications)
 
-**Solution Registration** (TWO-STEP: Write first, then bind):
-```javascript
-for (const issue of issues) {
-  const solutions = generatedSolutions[issue.id];
-  const solPath = `.workflow/issues/solutions/${issue.id}.jsonl`;
+**Solution Registration** (via CLI endpoint):
 
-  // Step 1: ALWAYS write ALL solutions to JSONL (append mode)
-  // Each solution on a new line, preserving existing solutions
-  for (const sol of solutions) {
-    // Ensure Solution ID format: SOL-{issue-id}-{seq}
-    const solutionJson = JSON.stringify({
-      id: sol.id,  // e.g., SOL-GH-123-1, SOL-GH-123-2
-      description: sol.description,
-      approach: sol.approach,
-      tasks: sol.tasks,
-      exploration_context: sol.exploration_context,
-      analysis: sol.analysis,
-      score: sol.score,
-      is_bound: false,
-      created_at: new Date().toISOString()
-    });
-    // Escape single quotes for shell safety: ' → '\''
-    const safeJson = solutionJson.replace(/'/g, "'\\''");
-    Bash(`echo '${safeJson}' >> "${solPath}"`);
-  }
-
-  // Step 2: Bind decision based on solution count
-  if (solutions.length === 1) {
-    // Single solution → auto-bind by ID (NOT --solution flag)
-    Bash(`ccw issue bind ${issue.id} ${solutions[0].id}`);
-    bound.push({ issue_id: issue.id, solution_id: solutions[0].id, task_count: solutions[0].tasks.length });
-  } else {
-    // Multiple solutions → already written, return for user selection
-    pending_selection.push({
-      issue_id: issue.id,
-      solutions: solutions.map(s => ({ id: s.id, description: s.description, task_count: s.tasks.length }))
-    });
-  }
-}
+**Step 1: Create solutions**
+```bash
+ccw issue solution <issue-id> --data '{"description":"...", "approach":"...", "tasks":[...]}'
+# Output: {"id":"SOL-{issue-id}-1", ...}
 ```
+
+**CLI Features:**
+| Feature | Description |
+|---------|-------------|
+| Auto-increment ID | `SOL-{issue-id}-{seq}` (e.g., `SOL-GH-123-1`) |
+| Multi-solution | Appends to existing JSONL, supports multiple per issue |
+| Trailing newline | Proper JSONL format, no corruption |
+
+**Step 2: Bind decision**
+- **Single solution** → Auto-bind: `ccw issue bind <issue-id> <solution-id>`
+- **Multiple solutions** → Return for user selection (no bind)
 
 #### Phase 5: Conflict Analysis (Gemini CLI)
 

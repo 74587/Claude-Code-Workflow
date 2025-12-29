@@ -135,7 +135,6 @@ Group assignment:
       "execution_group": "P1",
       "depends_on": [],
       "semantic_priority": 0.8,
-      "assigned_executor": "codex",
       "files_touched": ["src/auth.ts"],
       "task_count": 3
     }

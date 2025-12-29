@@ -71,25 +71,22 @@ Task rules (from schema):
 
 ### Step 5: Register & bind solutions via CLI
 
-Create an import JSON file per solution (NOT JSONL), then bind it:
+**Create solution** (via CLI endpoint):
+```bash
+ccw issue solution <issue-id> --data '{"description":"...", "approach":"...", "tasks":[...]}'
+# Output: {"id":"SOL-{issue-id}-1", ...}
+```
 
-1. Write a file (example path):
-   - `.workflow/issues/solutions/_imports/<issue-id>-<timestamp>.json`
-2. File contents shape (minimum):
-   ```json
-   {
-     "description": "High-level summary",
-     "approach": "Technical approach",
-     "tasks": []
-   }
-   ```
-3. Register+bind in one step:
-   - `ccw issue bind <issue-id> --solution <import-file>`
+**CLI Features:**
+| Feature | Description |
+|---------|-------------|
+| Auto-increment ID | `SOL-{issue-id}-{seq}` (e.g., `SOL-GH-123-1`) |
+| Multi-solution | Appends to existing JSONL, supports multiple per issue |
+| Trailing newline | Proper JSONL format, no corruption |
 
-If you intentionally generated multiple solutions for the same issue:
-- Register each via `ccw issue bind <issue-id> <solution-id> --solution <import-file>` (do NOT bind yet).
-- Present the alternatives in `pending_selection` and stop for user choice.
-- Bind chosen solution with: `ccw issue bind <issue-id> <solution-id>`.
+**Binding:**
+- **Single solution**: Auto-bind: `ccw issue bind <issue-id> <solution-id>`
+- **Multiple solutions**: Present alternatives in `pending_selection`, wait for user choice
 
 ### Step 6: Detect cross-issue file conflicts (best-effort)
 
