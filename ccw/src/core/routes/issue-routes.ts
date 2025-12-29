@@ -120,7 +120,18 @@ function readQueue(issuesDir: string) {
 
 function writeQueue(issuesDir: string, queue: any) {
   if (!existsSync(issuesDir)) mkdirSync(issuesDir, { recursive: true });
-  queue._metadata = { ...queue._metadata, updated_at: new Date().toISOString(), total_tasks: queue.tasks?.length || 0 };
+
+  // Support both solution-based and task-based queues
+  const items = queue.solutions || queue.tasks || [];
+  const isSolutionBased = Array.isArray(queue.solutions) && queue.solutions.length > 0;
+
+  queue._metadata = {
+    ...queue._metadata,
+    updated_at: new Date().toISOString(),
+    ...(isSolutionBased
+      ? { total_solutions: items.length }
+      : { total_tasks: items.length })
+  };
 
   // Check if using new multi-queue structure
   const queuesDir = join(issuesDir, 'queues');
@@ -136,8 +147,13 @@ function writeQueue(issuesDir: string, queue: any) {
       const index = JSON.parse(readFileSync(indexPath, 'utf8'));
       const queueEntry = index.queues?.find((q: any) => q.id === queue.id);
       if (queueEntry) {
-        queueEntry.total_tasks = queue.tasks?.length || 0;
-        queueEntry.completed_tasks = queue.tasks?.filter((i: any) => i.status === 'completed').length || 0;
+        if (isSolutionBased) {
+          queueEntry.total_solutions = items.length;
+          queueEntry.completed_solutions = items.filter((i: any) => i.status === 'completed').length;
+        } else {
+          queueEntry.total_tasks = items.length;
+          queueEntry.completed_tasks = items.filter((i: any) => i.status === 'completed').length;
+        }
         writeFileSync(indexPath, JSON.stringify(index, null, 2));
       }
     } catch {
@@ -184,9 +200,26 @@ function enrichIssues(issues: any[], issuesDir: string) {
   });
 }
 
+/**
+ * Get queue items (supports both solution-based and task-based queues)
+ */
+function getQueueItems(queue: any): any[] {
+  return queue.solutions || queue.tasks || [];
+}
+
+/**
+ * Check if queue is solution-based
+ */
+function isSolutionBasedQueue(queue: any): boolean {
+  return Array.isArray(queue.solutions) && queue.solutions.length > 0;
+}
+
 function groupQueueByExecutionGroup(queue: any) {
   const groups: { [key: string]: any[] } = {};
-  for (const item of queue.tasks || []) {
+  const items = getQueueItems(queue);
+  const isSolutionBased = isSolutionBasedQueue(queue);
+
+  for (const item of items) {
     const groupId = item.execution_group || 'ungrouped';
     if (!groups[groupId]) groups[groupId] = [];
     groups[groupId].push(item);
@@ -194,11 +227,13 @@ function groupQueueByExecutionGroup(queue: any) {
   for (const groupId of Object.keys(groups)) {
     groups[groupId].sort((a, b) => (a.execution_order || 0) - (b.execution_order || 0));
   }
-  const executionGroups = Object.entries(groups).map(([id, items]) => ({
+  const executionGroups = Object.entries(groups).map(([id, groupItems]) => ({
     id,
     type: id.startsWith('P') ? 'parallel' : id.startsWith('S') ? 'sequential' : 'unknown',
-    task_count: items.length,
-    tasks: items.map(i => i.item_id)
+    // Use appropriate count field based on queue type
+    ...(isSolutionBased
+      ? { solution_count: groupItems.length, solutions: groupItems.map(i => i.item_id) }
+      : { task_count: groupItems.length, tasks: groupItems.map(i => i.item_id) })
   })).sort((a, b) => {
     const aFirst = groups[a.id]?.[0]?.execution_order || 0;
     const bFirst = groups[b.id]?.[0]?.execution_order || 0;
@@ -323,7 +358,7 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
-  // POST /api/queue/reorder - Reorder queue items
+  // POST /api/queue/reorder - Reorder queue items (supports both solutions and tasks)
   if (pathname === '/api/queue/reorder' && req.method === 'POST') {
     handlePostRequest(req, res, async (body: any) => {
       const { groupId, newOrder } = body;
@@ -332,8 +367,11 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
       }
 
       const queue = readQueue(issuesDir);
-      const groupItems = queue.tasks.filter((item: any) => item.execution_group === groupId);
-      const otherItems = queue.tasks.filter((item: any) => item.execution_group !== groupId);
+      const items = getQueueItems(queue);
+      const isSolutionBased = isSolutionBasedQueue(queue);
+
+      const groupItems = items.filter((item: any) => item.execution_group === groupId);
+      const otherItems = items.filter((item: any) => item.execution_group !== groupId);
 
       if (groupItems.length === 0) return { error: `No items in group ${groupId}` };
 
@@ -347,7 +385,7 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
 
       const itemMap = new Map(groupItems.map((i: any) => [i.item_id, i]));
       const reorderedItems = newOrder.map((qid: string, idx: number) => ({ ...itemMap.get(qid), _idx: idx }));
-      const newQueue = [...otherItems, ...reorderedItems].sort((a, b) => {
+      const newQueueItems = [...otherItems, ...reorderedItems].sort((a, b) => {
         const aGroup = parseInt(a.execution_group?.match(/\d+/)?.[0] || '999');
         const bGroup = parseInt(b.execution_group?.match(/\d+/)?.[0] || '999');
         if (aGroup !== bGroup) return aGroup - bGroup;
@@ -357,8 +395,14 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
         return (a.execution_order || 0) - (b.execution_order || 0);
       });
 
-      newQueue.forEach((item, idx) => { item.execution_order = idx + 1; delete item._idx; });
-      queue.tasks = newQueue;
+      newQueueItems.forEach((item, idx) => { item.execution_order = idx + 1; delete item._idx; });
+
+      // Write back to appropriate array based on queue type
+      if (isSolutionBased) {
+        queue.solutions = newQueueItems;
+      } else {
+        queue.tasks = newQueueItems;
+      }
       writeQueue(issuesDir, queue);
 
       return { success: true, groupId, reordered: newOrder.length };

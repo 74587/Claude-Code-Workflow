@@ -172,20 +172,47 @@ function decomposeTasks(issue, exploration) {
 - Task validation (all 5 phases present)
 - File isolation check (ensure minimal overlap across issues in batch)
 
-**Solution Registration** (via CLI endpoint):
+**Solution Registration** (via file write):
 
-**Step 1: Create solutions**
-```bash
-ccw issue solution <issue-id> --data '{"description":"...", "approach":"...", "tasks":[...]}'
-# Output: {"id":"SOL-{issue-id}-1", ...}
+**Step 1: Create solution files**
+
+Write solution JSON to JSONL file (one line per solution):
+
+```
+.workflow/issues/solutions/{issue-id}.jsonl
 ```
 
-**CLI Features:**
-| Feature | Description |
-|---------|-------------|
-| Auto-increment ID | `SOL-{issue-id}-{seq}` (e.g., `SOL-GH-123-1`) |
-| Multi-solution | Appends to existing JSONL, supports multiple per issue |
-| Trailing newline | Proper JSONL format, no corruption |
+**File Format** (JSONL - each line is a complete solution):
+```
+{"id":"SOL-GH-123-1","description":"...","approach":"...","analysis":{...},"score":0.85,"tasks":[...]}
+{"id":"SOL-GH-123-2","description":"...","approach":"...","analysis":{...},"score":0.75,"tasks":[...]}
+```
+
+**Solution Schema** (must match CLI `Solution` interface):
+```typescript
+{
+  id: string;                    // Format: SOL-{issue-id}-{N}
+  description?: string;
+  approach?: string;
+  tasks: SolutionTask[];
+  analysis?: { risk, impact, complexity };
+  score?: number;
+  // Note: is_bound, created_at are added by CLI on read
+}
+```
+
+**Write Operation**:
+```javascript
+// Append solution to JSONL file (one line per solution)
+const solutionId = `SOL-${issueId}-${seq}`;
+const solutionLine = JSON.stringify({ id: solutionId, ...solution });
+
+// Read existing, append new line, write back
+const filePath = `.workflow/issues/solutions/${issueId}.jsonl`;
+const existing = existsSync(filePath) ? readFileSync(filePath) : '';
+const newContent = existing.trimEnd() + (existing ? '\n' : '') + solutionLine + '\n';
+Write({ file_path: filePath, content: newContent })
+```
 
 **Step 2: Bind decision**
 - **Single solution** → Auto-bind: `ccw issue bind <issue-id> <solution-id>`
@@ -251,9 +278,9 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 4. Quantify acceptance.criteria with testable conditions
 5. Validate DAG before output
 6. Evaluate each solution with `analysis` and `score`
-7. Use CLI endpoint: `ccw issue solution <issue-id> --data '{...}'`
+7. Write solutions to `.workflow/issues/solutions/{issue-id}.jsonl` (append mode)
 8. For HIGH complexity: generate 2-3 candidate solutions
-9. **Solution ID format**: `SOL-{issue-id}-{seq}` (e.g., `SOL-GH-123-1`, `SOL-GH-123-2`)
+9. **Solution ID format**: `SOL-{issue-id}-{N}` (e.g., `SOL-GH-123-1`, `SOL-GH-123-2`)
 
 **CONFLICT AVOIDANCE** (for batch processing of similar issues):
 1. **File isolation**: Each issue's solution should target distinct files when possible
@@ -270,6 +297,6 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 5. **Bind when multiple solutions exist** - MUST check `solutions.length === 1` before calling `ccw issue bind`
 
 **OUTPUT**:
-1. Create solutions via CLI: `ccw issue solution <issue-id> --data '{...}'`
+1. Write solutions to `.workflow/issues/solutions/{issue-id}.jsonl` (JSONL format)
 2. Single solution → `ccw issue bind <issue-id> <solution-id>`; Multiple → return only
 3. Return JSON with `bound`, `pending_selection`
