@@ -225,7 +225,13 @@ ${issueList}
 {
   "bound": [{ "issue_id": "...", "solution_id": "...", "task_count": N }],
   "pending_selection": [{ "issue_id": "...", "solutions": [{ "id": "...", "description": "...", "task_count": N }] }],
-  "conflicts": [{ "file": "...", "issues": [...] }]
+  "conflicts": [{
+    "type": "file_conflict|api_conflict|data_conflict|dependency_conflict|architecture_conflict",
+    "severity": "high|medium|low",
+    "summary": "brief description",
+    "recommended_resolution": "auto-resolution for low/medium",
+    "resolution_options": [{ "strategy": "...", "rationale": "..." }]
+  }]
 }
 \`\`\`
 `;
@@ -288,6 +294,17 @@ for (let i = 0; i < agentTasks.length; i += MAX_PARALLEL) {
 ### Phase 3: Conflict Resolution & Solution Selection
 
 ```javascript
+// Helper: Extract selected solution ID from AskUserQuestion answer
+function extractSelectedSolutionId(answer, issueId) {
+  // answer format: { [header]: selectedLabel } or { answers: { [question]: label } }
+  const key = Object.keys(answer).find(k => k.includes(issueId));
+  if (!key) return null;
+  const selected = answer[key];
+  // Label format: "SOL-xxx (N tasks)" - extract solution ID
+  const match = selected.match(/^(SOL-[^\s]+)/);
+  return match ? match[1] : null;
+}
+
 // Phase 3a: Aggregate and resolve conflicts from all agents
 const allConflicts = [];
 for (const result of agentResults) {
