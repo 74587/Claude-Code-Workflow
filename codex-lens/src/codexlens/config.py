@@ -122,8 +122,21 @@ class Config:
             self.data_dir = self.data_dir.expanduser().resolve()
             self.venv_path = self.venv_path.expanduser().resolve()
             self.data_dir.mkdir(parents=True, exist_ok=True)
+        except PermissionError as exc:
+            raise ConfigError(
+                f"Permission denied initializing paths (data_dir={self.data_dir}, venv_path={self.venv_path}) "
+                f"[{type(exc).__name__}]: {exc}"
+            ) from exc
+        except OSError as exc:
+            raise ConfigError(
+                f"Filesystem error initializing paths (data_dir={self.data_dir}, venv_path={self.venv_path}) "
+                f"[{type(exc).__name__}]: {exc}"
+            ) from exc
         except Exception as exc:
-            raise ConfigError(f"Failed to initialize data_dir at {self.data_dir}: {exc}") from exc
+            raise ConfigError(
+                f"Unexpected error initializing paths (data_dir={self.data_dir}, venv_path={self.venv_path}) "
+                f"[{type(exc).__name__}]: {exc}"
+            ) from exc
 
     @cached_property
     def cache_dir(self) -> Path:
@@ -145,8 +158,18 @@ class Config:
         for directory in (self.cache_dir, self.index_dir):
             try:
                 directory.mkdir(parents=True, exist_ok=True)
+            except PermissionError as exc:
+                raise ConfigError(
+                    f"Permission denied creating directory {directory} [{type(exc).__name__}]: {exc}"
+                ) from exc
+            except OSError as exc:
+                raise ConfigError(
+                    f"Filesystem error creating directory {directory} [{type(exc).__name__}]: {exc}"
+                ) from exc
             except Exception as exc:
-                raise ConfigError(f"Failed to create directory {directory}: {exc}") from exc
+                raise ConfigError(
+                    f"Unexpected error creating directory {directory} [{type(exc).__name__}]: {exc}"
+                ) from exc
 
     def language_for_path(self, path: str | Path) -> str | None:
         """Infer a supported language ID from a file path."""

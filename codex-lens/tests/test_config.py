@@ -118,6 +118,57 @@ class TestConfig:
             config = Config(data_dir=data_dir)
             assert data_dir.exists()
 
+    def test_post_init_permission_error_includes_path_and_cause(self, monkeypatch):
+        """PermissionError during __post_init__ should raise ConfigError with context."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir) / "blocked"
+            venv_path = Path(tmpdir) / "venv"
+            expected_data_dir = data_dir.expanduser().resolve()
+
+            real_mkdir = Path.mkdir
+
+            def guarded_mkdir(self, *args, **kwargs):
+                if self == expected_data_dir:
+                    raise PermissionError("Permission denied")
+                return real_mkdir(self, *args, **kwargs)
+
+            monkeypatch.setattr(Path, "mkdir", guarded_mkdir)
+
+            with pytest.raises(ConfigError) as excinfo:
+                Config(data_dir=data_dir, venv_path=venv_path)
+
+            message = str(excinfo.value)
+            assert str(expected_data_dir) in message
+            assert "permission" in message.lower()
+            assert "PermissionError" in message
+            assert isinstance(excinfo.value.__cause__, PermissionError)
+
+    def test_post_init_os_error_includes_path_and_cause(self, monkeypatch):
+        """OSError during __post_init__ should raise ConfigError with context."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir) / "invalid"
+            venv_path = Path(tmpdir) / "venv"
+            expected_data_dir = data_dir.expanduser().resolve()
+
+            real_mkdir = Path.mkdir
+
+            def guarded_mkdir(self, *args, **kwargs):
+                if self == expected_data_dir:
+                    raise OSError("Invalid path")
+                return real_mkdir(self, *args, **kwargs)
+
+            monkeypatch.setattr(Path, "mkdir", guarded_mkdir)
+
+            with pytest.raises(ConfigError) as excinfo:
+                Config(data_dir=data_dir, venv_path=venv_path)
+
+            message = str(excinfo.value)
+            assert str(expected_data_dir) in message
+            assert "permission" not in message.lower()
+            assert "filesystem" in message.lower()
+            assert "OSError" in message
+            assert isinstance(excinfo.value.__cause__, OSError)
+
     def test_supported_languages(self):
         """Test default supported languages."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -157,6 +208,55 @@ class TestConfig:
             config.ensure_runtime_dirs()
             assert config.cache_dir.exists()
             assert config.index_dir.exists()
+
+    def test_ensure_runtime_dirs_permission_error_includes_path_and_cause(self, monkeypatch):
+        """PermissionError during ensure_runtime_dirs should raise ConfigError with context."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = Config(data_dir=Path(tmpdir))
+            target_dir = config.cache_dir
+
+            real_mkdir = Path.mkdir
+
+            def guarded_mkdir(self, *args, **kwargs):
+                if self == target_dir:
+                    raise PermissionError("Permission denied")
+                return real_mkdir(self, *args, **kwargs)
+
+            monkeypatch.setattr(Path, "mkdir", guarded_mkdir)
+
+            with pytest.raises(ConfigError) as excinfo:
+                config.ensure_runtime_dirs()
+
+            message = str(excinfo.value)
+            assert str(target_dir) in message
+            assert "permission" in message.lower()
+            assert "PermissionError" in message
+            assert isinstance(excinfo.value.__cause__, PermissionError)
+
+    def test_ensure_runtime_dirs_os_error_includes_path_and_cause(self, monkeypatch):
+        """OSError during ensure_runtime_dirs should raise ConfigError with context."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = Config(data_dir=Path(tmpdir))
+            target_dir = config.cache_dir
+
+            real_mkdir = Path.mkdir
+
+            def guarded_mkdir(self, *args, **kwargs):
+                if self == target_dir:
+                    raise OSError("Invalid path")
+                return real_mkdir(self, *args, **kwargs)
+
+            monkeypatch.setattr(Path, "mkdir", guarded_mkdir)
+
+            with pytest.raises(ConfigError) as excinfo:
+                config.ensure_runtime_dirs()
+
+            message = str(excinfo.value)
+            assert str(target_dir) in message
+            assert "permission" not in message.lower()
+            assert "filesystem" in message.lower()
+            assert "OSError" in message
+            assert isinstance(excinfo.value.__cause__, OSError)
 
     def test_language_for_path_python(self):
         """Test language detection for Python files."""
