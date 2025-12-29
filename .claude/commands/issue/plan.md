@@ -93,19 +93,19 @@ if (flags.allPending) {
   }
 }
 
-// Semantic grouping via Gemini CLI (max 6 issues per group)
+// Semantic grouping via Gemini CLI (max 4 issues per group)
 async function groupBySimilarityGemini(issues) {
   const issueSummaries = issues.map(i => ({
     id: i.id, title: i.title, tags: i.tags
   }));
 
   const prompt = `
-PURPOSE: Group similar issues by semantic similarity for batch processing; maximize within-group coherence; max 6 issues per group
+PURPOSE: Group similar issues by semantic similarity for batch processing; maximize within-group coherence; max 4 issues per group
 TASK: • Analyze issue titles/tags semantically • Identify functional/architectural clusters • Assign each issue to one group
 MODE: analysis
 CONTEXT: Issue metadata only
-EXPECTED: JSON with groups array, each containing max 6 issue_ids, theme, rationale
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) | Each issue in exactly one group | Max 6 issues per group | Balance group sizes
+EXPECTED: JSON with groups array, each containing max 4 issue_ids, theme, rationale
+RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) | Each issue in exactly one group | Max 4 issues per group | Balance group sizes
 
 INPUT:
 ${JSON.stringify(issueSummaries, null, 2)}
@@ -132,7 +132,7 @@ OUTPUT FORMAT:
 }
 
 const batches = await groupBySimilarityGemini(issues);
-console.log(`Processing ${issues.length} issues in ${batches.length} batch(es) (Gemini semantic grouping, max 6 issues/agent)`);
+console.log(`Processing ${issues.length} issues in ${batches.length} batch(es) (max 4 issues/agent)`);
 
 TodoWrite({
   todos: batches.map((_, i) => ({
@@ -170,11 +170,11 @@ ${issueList}
 **CRITICAL**: All solution tasks MUST comply with constraints in project-guidelines.json
 
 ### Steps
-1. Fetch: \`ccw issue status <id> --json\`
+1. Fetch issue: \`ccw issue status <id> --json\`
 2. Load project context (project-tech.json + project-guidelines.json)
-3. **If extended_context exists**: Use extended_context (location, suggested_fix, notes) as planning hints
-4. Explore (ACE) → Plan solution (respecting guidelines)
-5. Register & bind: \`ccw issue bind <id> --solution <file>\`
+3. Explore codebase (ACE semantic search)
+4. Plan solution with tasks (see issue-plan-agent.md for details)
+5. Write solutions to JSONL, bind if single solution
 
 ### Generate Files
 \`.workflow/issues/solutions/{issue-id}.jsonl\` - Solution with tasks (schema: cat .claude/workflows/cli-templates/schemas/solution-schema.json)
@@ -258,99 +258,17 @@ for (let i = 0; i < agentTasks.length; i += MAX_PARALLEL) {
 
 ### Phase 3: Conflict Resolution & Solution Selection
 
-```javascript
-// Helper: Extract selected solution ID from AskUserQuestion answer
-function extractSelectedSolutionId(answer, issueId) {
-  // answer format: { [header]: selectedLabel } or { answers: { [question]: label } }
-  const key = Object.keys(answer).find(k => k.includes(issueId));
-  if (!key) return null;
-  const selected = answer[key];
-  // Label format: "SOL-xxx (N tasks)" - extract solution ID
-  const match = selected.match(/^(SOL-[^\s]+)/);
-  return match ? match[1] : null;
-}
+**Conflict Handling:**
+- Collect `conflicts` from all agent results
+- Low/Medium severity → auto-resolve with `recommended_resolution`
+- High severity → use `AskUserQuestion` to let user choose resolution
 
-// Phase 3a: Aggregate and resolve conflicts from all agents
-const allConflicts = [];
-for (const result of agentResults) {
-  if (result.conflicts?.length > 0) {
-    allConflicts.push(...result.conflicts);
-  }
-}
-
-if (allConflicts.length > 0) {
-  console.log(`\n## Resolving ${allConflicts.length} conflict(s) detected by agents\n`);
-
-  // ALWAYS confirm high-severity conflicts (per user preference)
-  const highSeverity = allConflicts.filter(c => c.severity === 'high');
-  const lowMedium = allConflicts.filter(c => c.severity !== 'high');
-
-  // Auto-resolve low/medium severity
-  for (const conflict of lowMedium) {
-    console.log(`  Auto-resolved: ${conflict.summary} → ${conflict.recommended_resolution}`);
-  }
-
-  // ALWAYS require user confirmation for high severity
-  if (highSeverity.length > 0) {
-    const conflictAnswer = AskUserQuestion({
-      questions: highSeverity.slice(0, 4).map(conflict => ({
-        question: `${conflict.type}: ${conflict.summary}. How to resolve?`,
-        header: conflict.type.replace('_conflict', ''),
-        multiSelect: false,
-        options: conflict.resolution_options.map(opt => ({
-          label: opt.strategy,
-          description: opt.rationale
-        }))
-      }))
-    });
-    // Apply user-selected resolutions
-    console.log('Applied user-selected conflict resolutions');
-  }
-}
-
-// Phase 3b: Multi-Solution Selection (MANDATORY when pendingSelections > 0)
-if (pendingSelections.length > 0) {
-  console.log(`\n## User Selection Required: ${pendingSelections.length} issue(s) have multiple solutions\n`);
-
-  const answer = AskUserQuestion({
-    questions: pendingSelections.map(({ issue_id, solutions }) => ({
-      question: `Select solution for ${issue_id}:`,
-      header: issue_id,
-      multiSelect: false,
-      options: solutions.map(s => ({
-        label: `${s.id} (${s.task_count} tasks)`,
-        description: s.description
-      }))
-    }))
-  });
-
-  // Bind user-selected solutions (with file validation)
-  for (const { issue_id, solutions } of pendingSelections) {
-    const selectedId = extractSelectedSolutionId(answer, issue_id);
-    if (selectedId) {
-      // Verify solution file exists and contains the selected ID
-      const solPath = `.workflow/issues/solutions/${issue_id}.jsonl`;
-      const fileExists = Bash(`test -f "${solPath}" && echo "yes" || echo "no"`).trim() === 'yes';
-
-      if (!fileExists) {
-        console.log(`⚠ ${issue_id}: Solution file missing, attempting recovery...`);
-        // Recovery: write solution from pending_selection payload
-        const selectedSol = solutions.find(s => s.id === selectedId);
-        if (selectedSol) {
-          Bash(`mkdir -p .workflow/issues/solutions`);
-          const solJson = JSON.stringify({ id: selectedId, ...selectedSol, is_bound: false, created_at: new Date().toISOString() });
-          Bash(`echo '${solJson}' >> "${solPath}"`);
-          console.log(`  Recovered ${selectedId} to ${solPath}`);
-        }
-      }
-
-      // Now bind
-      Bash(`ccw issue bind ${issue_id} ${selectedId}`);
-      console.log(`✓ ${issue_id}: ${selectedId} bound`);
-    }
-  }
-}
-```
+**Multi-Solution Selection:**
+- If `pending_selection` contains issues with multiple solutions:
+  - Use `AskUserQuestion` to present options (solution ID + task count + description)
+  - Extract selected solution ID from user response
+  - Verify solution file exists, recover from payload if missing
+  - Bind selected solution via `ccw issue bind <issue-id> <solution-id>`
 
 ### Phase 4: Summary
 
