@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Global embedder cache for singleton pattern
 _embedder_cache: Dict[str, "Embedder"] = {}
-_cache_lock = threading.Lock()
+_cache_lock = threading.RLock()
 
 
 def get_embedder(profile: str = "code", use_gpu: bool = True) -> "Embedder":
@@ -43,15 +43,12 @@ def get_embedder(profile: str = "code", use_gpu: bool = True) -> "Embedder":
     # Cache key includes GPU preference to support mixed configurations
     cache_key = f"{profile}:{'gpu' if use_gpu else 'cpu'}"
 
-    # Fast path: check cache without lock
-    if cache_key in _embedder_cache:
-        return _embedder_cache[cache_key]
-
-    # Slow path: acquire lock for initialization
+    # All cache access is protected by _cache_lock to avoid races with
+    # clear_embedder_cache() during concurrent access.
     with _cache_lock:
-        # Double-check after acquiring lock
-        if cache_key in _embedder_cache:
-            return _embedder_cache[cache_key]
+        embedder = _embedder_cache.get(cache_key)
+        if embedder is not None:
+            return embedder
 
         # Create new embedder and cache it
         embedder = Embedder(profile=profile, use_gpu=use_gpu)
