@@ -12,6 +12,7 @@
     "build": "tsc -p ccw/tsconfig.json",
     "start": "node ccw/bin/ccw.js",
     "test": "node --experimental-strip-types --test ccw/tests/*.test.js",
+    "test:visual": "node --experimental-strip-types --test ccw/tests/visual/**/*.visual.test.ts",
     "prepublishOnly": "npm run build && echo 'Ready to publish @dyw/claude-code-workflow'"
   },
   "keywords": [

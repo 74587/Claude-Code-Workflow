@@ -9,6 +9,7 @@
 [![npm](https://img.shields.io/npm/v/claude-code-workflow.svg)](https://www.npmjs.com/package/claude-code-workflow)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
+[![Visual Tests](https://github.com/catlog22/Claude-Code-Workflow/actions/workflows/visual-tests.yml/badge.svg)](https://github.com/catlog22/Claude-Code-Workflow/actions/workflows/visual-tests.yml)
 
 **Languages:** [English](README.md) | [中文](README_CN.md)
 
