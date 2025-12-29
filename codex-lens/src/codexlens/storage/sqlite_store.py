@@ -330,8 +330,14 @@ class SQLiteStore:
                         )
                 
                 conn.commit()
-            except Exception:
-                conn.rollback()
+            except Exception as exc:
+                try:
+                    conn.rollback()
+                except Exception as rollback_exc:
+                    logger.error(
+                        "Rollback failed after add_files() error (%s): %s", exc, rollback_exc
+                    )
+                    raise exc.with_traceback(exc.__traceback__) from rollback_exc
                 raise
 
     def remove_file(self, path: str | Path) -> bool:
@@ -619,11 +625,14 @@ class SQLiteStore:
             conn.execute("INSERT INTO files_fts(files_fts) VALUES('rebuild')")
             conn.execute("DROP TABLE files_fts_legacy")
             conn.commit()
-        except sqlite3.DatabaseError:
+        except sqlite3.DatabaseError as exc:
             try:
                 conn.rollback()
-            except Exception:
-                pass
+            except Exception as rollback_exc:
+                logger.error(
+                    "Rollback failed during FTS schema migration (%s): %s", exc, rollback_exc
+                )
+                raise exc.with_traceback(exc.__traceback__) from rollback_exc
 
             try:
                 conn.execute("DROP TABLE IF EXISTS files_fts")
