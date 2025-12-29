@@ -195,6 +195,7 @@ interface IssueOptions {
   force?: boolean;
   fail?: boolean;
   ids?: boolean;        // List only IDs (one per line)
+  data?: string;        // JSON data for create
 }
 
 const ISSUES_DIR = '.workflow/issues';
@@ -241,7 +242,9 @@ function readIssues(): Issue[] {
 function writeIssues(issues: Issue[]): void {
   ensureIssuesDir();
   const path = join(getIssuesDir(), 'issues.jsonl');
-  writeFileSync(path, issues.map(i => JSON.stringify(i)).join('\n'), 'utf-8');
+  // Always add trailing newline for proper JSONL format
+  const content = issues.map(i => JSON.stringify(i)).join('\n');
+  writeFileSync(path, content ? content + '\n' : '', 'utf-8');
 }
 
 function findIssue(issueId: string): Issue | undefined {
@@ -255,6 +258,57 @@ function updateIssue(issueId: string, updates: Partial<Issue>): boolean {
   issues[idx] = { ...issues[idx], ...updates, updated_at: new Date().toISOString() };
   writeIssues(issues);
   return true;
+}
+
+/**
+ * Generate auto-increment issue ID: ISS-YYYYMMDD-NNN
+ */
+function generateIssueId(existingIssues: Issue[] = []): string {
+  const today = new Date();
+  const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+  const prefix = `ISS-${dateStr}-`;
+  const todayPattern = new RegExp(`^ISS-${dateStr}-(\\d{3})$`);
+  let maxSeq = 0;
+  for (const issue of existingIssues) {
+    const match = issue.id.match(todayPattern);
+    if (match) maxSeq = Math.max(maxSeq, parseInt(match[1], 10));
+  }
+  return `${prefix}${String(maxSeq + 1).padStart(3, '0')}`;
+}
+
+/**
+ * Create a new issue with proper JSONL handling
+ * Auto-generates ID if not provided
+ */
+function createIssue(data: Partial<Issue>): Issue {
+  const issues = readIssues();
+  const issueId = data.id || generateIssueId(issues);
+
+  if (issues.some(i => i.id === issueId)) {
+    throw new Error(`Issue "${issueId}" already exists`);
+  }
+
+  const newIssue: Issue = {
+    id: issueId,
+    title: data.title || issueId,
+    status: data.status || 'registered',
+    priority: data.priority || 3,
+    context: data.context || '',
+    source: data.source,
+    source_url: data.source_url,
+    labels: data.labels,
+    expected_behavior: data.expected_behavior,
+    actual_behavior: data.actual_behavior,
+    affected_components: data.affected_components,
+    feedback: data.feedback,
+    bound_solution_id: data.bound_solution_id || null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  issues.push(newIssue);
+  writeIssues(issues);
+  return newIssue;
 }
 
 // ============ Solutions JSONL ============
@@ -467,7 +521,29 @@ function generateQueueItemId(queue: Queue, level: 'solution' | 'task' = 'solutio
 // ============ Commands ============
 
 /**
- * init - Initialize a new issue
+ * create - Create issue from JSON data
+ * Usage: ccw issue create --data '{"title":"...", "context":"..."}'
+ * Output: JSON with created issue (includes auto-generated ID)
+ */
+async function createAction(options: IssueOptions): Promise<void> {
+  if (!options.data) {
+    console.error(chalk.red('JSON data required'));
+    console.error(chalk.gray('Usage: ccw issue create --data \'{"title":"...", "context":"..."}\''));
+    process.exit(1);
+  }
+
+  try {
+    const data = JSON.parse(options.data);
+    const issue = createIssue(data);
+    console.log(JSON.stringify(issue, null, 2));
+  } catch (err) {
+    console.error(chalk.red((err as Error).message));
+    process.exit(1);
+  }
+}
+
+/**
+ * init - Initialize a new issue (manual ID)
  */
 async function initAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
   if (!issueId) {
@@ -1560,6 +1636,9 @@ export async function issueCommand(
   const argsArray = Array.isArray(args) ? args : (args ? [args] : []);
 
   switch (subcommand) {
+    case 'create':
+      await createAction(options);
+      break;
     case 'init':
       await initAction(argsArray[0], options);
       break;
