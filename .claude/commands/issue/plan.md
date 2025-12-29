@@ -11,20 +11,10 @@ allowed-tools: TodoWrite(*), Task(*), SlashCommand(*), AskUserQuestion(*), Bash(
 
 Unified planning command using **issue-plan-agent** that combines exploration and planning into a single closed-loop workflow.
 
-## Command Output
-
-```json
-{
-  "bound": [{ "issue_id": "...", "solution_id": "...", "task_count": N }],
-  "pending_selection": [{ "issue_id": "...", "solutions": [...] }],
-  "conflicts": [{ "type": "...", "summary": "..." }]
-}
-```
-
 **Behavior:**
 - Single solution per issue → auto-bind
 - Multiple solutions → return for user selection
-- Agent handles file generation (see `issue-plan-agent.md`)
+- Agent handles file generation 
 
 ## Usage
 
@@ -385,6 +375,18 @@ Next: \`/issue:queue\` → \`/issue:execute\`
 | No solutions generated | Display error, suggest manual planning |
 | User cancels selection | Skip issue, continue with others |
 | File conflicts | Agent detects and suggests resolution order |
+
+## Quality Checklist
+
+Before completing, verify:
+
+- [ ] All input issues have solutions in `solutions/{issue-id}.jsonl`
+- [ ] Single solution issues are auto-bound (`bound_solution_id` set)
+- [ ] Multi-solution issues returned in `pending_selection` for user choice
+- [ ] Each solution has executable tasks with `modification_points`
+- [ ] Task acceptance criteria are quantified (not vague)
+- [ ] Conflicts detected and reported (if multiple issues touch same files)
+- [ ] Issue status updated to `planned` after binding
 
 ## Related Commands
 
