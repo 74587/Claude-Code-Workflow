@@ -174,3 +174,80 @@ def test_search_similar(monkeypatch: pytest.MonkeyPatch, temp_db: Path) -> None:
     assert [r.path for r in results] == ["a.py", "b.py"]
     assert results[0].score == pytest.approx(1.0)
     assert results[1].score == pytest.approx(0.0)
+
+
+def test_search_with_ann_null_results(monkeypatch: pytest.MonkeyPatch, temp_db: Path) -> None:
+    """_search_with_ann should return [] when ANN search returns null results."""
+    monkeypatch.setattr(vector_store_module, "HNSWLIB_AVAILABLE", False)
+    store = VectorStore(temp_db)
+
+    class DummyAnn:
+        def count(self) -> int:
+            return 1
+
+        def search(self, query_vec: np.ndarray, top_k: int):
+            return None, None
+
+    store._ann_index = DummyAnn()
+
+    results = store._search_with_ann(np.array([1.0, 0.0, 0.0], dtype=np.float32), top_k=10, min_score=0.0, return_full_content=False)
+    assert results == []
+
+
+def test_search_with_ann_empty_results(monkeypatch: pytest.MonkeyPatch, temp_db: Path) -> None:
+    """_search_with_ann should return [] when ANN search returns empty results."""
+    monkeypatch.setattr(vector_store_module, "HNSWLIB_AVAILABLE", False)
+    store = VectorStore(temp_db)
+
+    class DummyAnn:
+        def count(self) -> int:
+            return 1
+
+        def search(self, query_vec: np.ndarray, top_k: int):
+            return [], []
+
+    store._ann_index = DummyAnn()
+
+    results = store._search_with_ann(np.array([1.0, 0.0, 0.0], dtype=np.float32), top_k=10, min_score=0.0, return_full_content=False)
+    assert results == []
+
+
+def test_search_with_ann_mismatched_results(monkeypatch: pytest.MonkeyPatch, temp_db: Path) -> None:
+    """_search_with_ann should return [] when ANN search returns mismatched results."""
+    monkeypatch.setattr(vector_store_module, "HNSWLIB_AVAILABLE", False)
+    store = VectorStore(temp_db)
+
+    class DummyAnn:
+        def count(self) -> int:
+            return 2
+
+        def search(self, query_vec: np.ndarray, top_k: int):
+            return [1, 2], [0.5]
+
+    store._ann_index = DummyAnn()
+
+    results = store._search_with_ann(np.array([1.0, 0.0, 0.0], dtype=np.float32), top_k=10, min_score=0.0, return_full_content=False)
+    assert results == []
+
+
+def test_search_with_ann_valid_results(monkeypatch: pytest.MonkeyPatch, temp_db: Path) -> None:
+    """_search_with_ann should return results for valid ANN outputs."""
+    monkeypatch.setattr(vector_store_module, "HNSWLIB_AVAILABLE", False)
+    store = VectorStore(temp_db)
+
+    chunk = SemanticChunk(content="chunk A", metadata={})
+    chunk.embedding = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+    chunk_id = store.add_chunk(chunk, "a.py")
+
+    class DummyAnn:
+        def count(self) -> int:
+            return 1
+
+        def search(self, query_vec: np.ndarray, top_k: int):
+            return [chunk_id], [0.0]
+
+    store._ann_index = DummyAnn()
+
+    results = store._search_with_ann(np.array([1.0, 0.0, 0.0], dtype=np.float32), top_k=10, min_score=0.0, return_full_content=False)
+    assert [r.path for r in results] == ["a.py"]
+    assert results[0].score == pytest.approx(1.0)

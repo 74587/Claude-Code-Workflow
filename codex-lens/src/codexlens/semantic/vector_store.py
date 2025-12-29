@@ -791,7 +791,28 @@ class VectorStore:
         # For cosine space: distance = 1 - similarity
         ids, distances = self._ann_index.search(query_vec, effective_top_k)
 
-        if not ids:
+        if ids is None or distances is None:
+            logger.debug(
+                "ANN search returned null results (ids=%s, distances=%s)",
+                ids,
+                distances,
+            )
+            return []
+
+        if len(ids) == 0 or len(distances) == 0:
+            logger.debug(
+                "ANN search returned empty results (ids=%s, distances=%s)",
+                ids,
+                distances,
+            )
+            return []
+
+        if len(ids) != len(distances):
+            logger.warning(
+                "ANN search returned mismatched result lengths (%d ids, %d distances)",
+                len(ids),
+                len(distances),
+            )
             return []
 
         # Convert distances to similarity scores
