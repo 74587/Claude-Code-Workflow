@@ -89,7 +89,7 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
     {
       "item_id": "S-1",
       "issue_id": "ISS-20251227-003",
-      "solution_id": "SOL-20251227-003",
+      "solution_id": "SOL-ISS-20251227-003-1",
       "status": "pending",
       "execution_order": 1,
       "execution_group": "P1",
@@ -102,7 +102,7 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
     {
       "item_id": "S-2",
       "issue_id": "ISS-20251227-001",
-      "solution_id": "SOL-20251227-001",
+      "solution_id": "SOL-ISS-20251227-001-1",
       "status": "pending",
       "execution_order": 2,
       "execution_group": "P1",
@@ -115,7 +115,7 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
     {
       "item_id": "S-3",
       "issue_id": "ISS-20251227-002",
-      "solution_id": "SOL-20251227-002",
+      "solution_id": "SOL-ISS-20251227-002-1",
       "status": "pending",
       "execution_order": 3,
       "execution_group": "S2",

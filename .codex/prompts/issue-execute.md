@@ -40,7 +40,7 @@ ccw issue next
 This returns JSON with the full solution definition:
 - `item_id`: Solution identifier in queue (e.g., "S-1")
 - `issue_id`: Parent issue ID (e.g., "ISS-20251227-001")
-- `solution_id`: Solution ID (e.g., "SOL-20251227-001")
+- `solution_id`: Solution ID (e.g., "SOL-ISS-20251227-001-1")
 - `solution`: Full solution with all tasks
 - `execution_hints`: Timing and executor hints
 
@@ -54,10 +54,10 @@ Expected solution structure:
 {
   "item_id": "S-1",
   "issue_id": "ISS-20251227-001",
-  "solution_id": "SOL-20251227-001",
+  "solution_id": "SOL-ISS-20251227-001-1",
   "status": "pending",
   "solution": {
-    "id": "SOL-20251227-001",
+    "id": "SOL-ISS-20251227-001-1",
     "description": "Description of solution approach",
     "tasks": [
       {

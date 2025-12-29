@@ -214,6 +214,8 @@ ${issueList}
 ### Generate Files
 \`.workflow/issues/solutions/{issue-id}.jsonl\` - Solution with tasks (schema: cat .claude/workflows/cli-templates/schemas/solution-schema.json)
 
+**Solution ID Format**: \`SOL-{issue-id}-{seq}\` (e.g., \`SOL-GH-123-1\`, \`SOL-ISS-20251229-1\`)
+
 ### Binding Rules
 - **Single solution**: Auto-bind via \`ccw issue bind <id> --solution <file>\`
 - **Multiple solutions**: Register only, return for user selection
@@ -254,7 +256,17 @@ for (let i = 0; i < agentTasks.length; i += MAX_PARALLEL) {
   // Collect results from this chunk
   for (const { taskId, batchIndex } of taskIds) {
     const result = TaskOutput(task_id=taskId, block=true);
-    const summary = JSON.parse(result);
+
+    // Extract JSON from potential markdown code blocks (agent may wrap in ```json...```)
+    const jsonText = extractJsonFromMarkdown(result);
+    let summary;
+    try {
+      summary = JSON.parse(jsonText);
+    } catch (e) {
+      console.log(`⚠ Batch ${batchIndex + 1}: Failed to parse agent result, skipping`);
+      updateTodo(`Plan batch ${batchIndex + 1}`, 'completed');
+      continue;
+    }
     agentResults.push(summary);  // Store for Phase 3 conflict aggregation
 
     for (const item of summary.bound || []) {

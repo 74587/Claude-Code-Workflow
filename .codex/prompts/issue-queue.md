@@ -78,8 +78,8 @@ Build a file → solutions mapping:
 
 ```javascript
 fileModifications = {
-  "src/auth.ts": ["SOL-001", "SOL-003"],
-  "src/api.ts": ["SOL-002"]
+  "src/auth.ts": ["SOL-ISS-001-1", "SOL-ISS-003-1"],
+  "src/api.ts": ["SOL-ISS-002-1"]
 }
 ```
 
@@ -129,7 +129,7 @@ Group assignment:
     {
       "item_id": "S-1",
       "issue_id": "ISS-001",
-      "solution_id": "SOL-001",
+      "solution_id": "SOL-ISS-001-1",
       "status": "pending",
       "execution_order": 1,
       "execution_group": "P1",

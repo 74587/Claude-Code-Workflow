@@ -241,13 +241,13 @@ OUTPUT FORMAT:
   "conflicts": [{
     "type": "file_conflict|api_conflict|data_conflict|dependency_conflict|architecture_conflict",
     "severity": "high|medium|low",
-    "solutions_affected": ["SOL-001", "SOL-002"],
+    "solutions_affected": ["SOL-GH-123-1", "SOL-GH-123-2"],
     "summary": "brief description",
     "resolution_strategy": "sequential|parallel_with_coordination|refactor_merge",
-    "recommended_order": ["SOL-001", "SOL-002"],
+    "recommended_order": ["SOL-GH-123-1", "SOL-GH-123-2"],
     "rationale": "why this order"
   }],
-  "safe_parallel": [["SOL-003", "SOL-004"]]
+  "safe_parallel": [["SOL-GH-124-1", "SOL-GH-125-1"]]
 }
 `;
 
@@ -287,15 +287,15 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 ```json
 {
   "bound": [{ "issue_id": "...", "solution_id": "...", "task_count": N }],
-  "pending_selection": [{ "issue_id": "...", "solutions": [{ "id": "SOL-001", "description": "...", "task_count": N }] }],
+  "pending_selection": [{ "issue_id": "GH-123", "solutions": [{ "id": "SOL-GH-123-1", "description": "...", "task_count": N }] }],
   "conflicts": [{
     "type": "file_conflict|api_conflict|data_conflict|dependency_conflict|architecture_conflict",
     "severity": "high|medium|low",
-    "solutions_affected": ["SOL-001", "SOL-002"],
+    "solutions_affected": ["SOL-GH-123-1", "SOL-GH-123-2"],
     "summary": "brief description",
     "resolution_strategy": "sequential|parallel_with_coordination",
-    "recommended_order": ["SOL-001", "SOL-002"],
-    "recommended_resolution": "Use sequential execution: SOL-001 first",
+    "recommended_order": ["SOL-GH-123-1", "SOL-GH-123-2"],
+    "recommended_resolution": "Use sequential execution: SOL-GH-123-1 first",
     "resolution_options": [{ "strategy": "...", "rationale": "..." }]
   }]
 }
