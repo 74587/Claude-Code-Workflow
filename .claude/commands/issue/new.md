@@ -221,47 +221,30 @@ if (proceed) {
 }
 ```
 
-## Decision Flow
+## Execution Flow
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                   /issue:new <input>                    │
-└─────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-              ┌────────────────────────┐
-              │   Clarity Detection    │
-              │   (GitHub? Structure?) │
-              └────────────────────────┘
-                           │
-           ┌───────────────┼───────────────┐
-           │               │               │
-           ▼               ▼               ▼
-      [Score 3]       [Score 1-2]      [Score 0]
-      GitHub URL    Structured Text   Vague Input
-           │               │               │
-           ▼               ▼               ▼
-        Parse          Parse +        AskUserQuestion
-        Direct       ACE (quick)       (1 question)
-           │               │               │
-           │          max 3 files         │
-           │          max 3 keywords      │
-           │               │               │
-           └───────────────┼───────────────┘
-                           │
-                           ▼
-              ┌────────────────────────┐
-              │  Auto-detect Lifecycle │
-              │    (NO questions)      │
-              └────────────────────────┘
-                           │
-                           ▼
-              ┌────────────────────────┐
-              │      Create Issue      │
-              │  (confirm only if <2)  │
-              └────────────────────────┘
+Phase 1: Input Analysis
+   └─ Detect clarity score (GitHub URL? Structured text? Keywords?)
 
-Note: Deep exploration → /issue:plan (not here)
+Phase 2: Data Extraction (branched by clarity)
+   ┌────────────┬─────────────────┬──────────────┐
+   │  Score 3   │   Score 1-2     │   Score 0    │
+   │  GitHub    │   Text + ACE    │   Vague      │
+   ├────────────┼─────────────────┼──────────────┤
+   │  gh CLI    │  Parse struct   │ AskQuestion  │
+   │  → parse   │  + quick hint   │ (1 question) │
+   │            │  (3 files max)  │              │
+   └────────────┴─────────────────┴──────────────┘
+
+Phase 3: Lifecycle Auto-Detection
+   └─ Infer test_strategy from affected files (NO questions)
+
+Phase 4: Create Issue
+   ├─ Score ≥ 2: Direct creation
+   └─ Score < 2: Confirm first → Create
+
+Note: Deep exploration deferred to /issue:plan
 ```
 
 ## Helper Functions
