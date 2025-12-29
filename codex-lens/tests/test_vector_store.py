@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from codexlens.entities import SemanticChunk
+import codexlens.semantic.vector_store as vector_store_module
 from codexlens.semantic.vector_store import VectorStore
 
 
@@ -129,3 +130,47 @@ def test_bulk_insert_mode_transitions(monkeypatch: pytest.MonkeyPatch, temp_db: 
     assert store._bulk_insert_ids == []
     assert store._bulk_insert_embeddings == []
     assert dummy_ann.total_added == store.count_chunks()
+
+
+def test_search_similar_min_score_validation(monkeypatch: pytest.MonkeyPatch, temp_db: Path) -> None:
+    """search_similar should validate min_score is within [0.0, 1.0]."""
+    monkeypatch.setattr(vector_store_module, "HNSWLIB_AVAILABLE", False)
+    store = VectorStore(temp_db)
+
+    chunk_a = SemanticChunk(content="chunk A", metadata={})
+    chunk_a.embedding = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+    chunk_b = SemanticChunk(content="chunk B", metadata={})
+    chunk_b.embedding = np.array([0.0, 1.0, 0.0], dtype=np.float32)
+    store.add_chunks_batch([(chunk_a, "a.py"), (chunk_b, "b.py")])
+
+    query = [1.0, 0.0, 0.0]
+
+    with pytest.raises(ValueError, match=r"min_score.*\[0\.0, 1\.0\].*cosine"):
+        store.search_similar(query, min_score=-0.5)
+
+    with pytest.raises(ValueError, match=r"min_score.*\[0\.0, 1\.0\].*cosine"):
+        store.search_similar(query, min_score=1.5)
+
+    store.search_similar(query, min_score=0.0)
+    store.search_similar(query, min_score=1.0)
+
+    results = store.search_similar(query, min_score=0.5, return_full_content=False)
+    assert [r.path for r in results] == ["a.py"]
+
+
+def test_search_similar(monkeypatch: pytest.MonkeyPatch, temp_db: Path) -> None:
+    """search_similar returns results ordered by descending similarity."""
+    monkeypatch.setattr(vector_store_module, "HNSWLIB_AVAILABLE", False)
+    store = VectorStore(temp_db)
+
+    chunk_a = SemanticChunk(content="chunk A", metadata={})
+    chunk_a.embedding = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+    chunk_b = SemanticChunk(content="chunk B", metadata={})
+    chunk_b.embedding = np.array([0.0, 1.0, 0.0], dtype=np.float32)
+    store.add_chunks_batch([(chunk_a, "a.py"), (chunk_b, "b.py")])
+
+    results = store.search_similar([1.0, 0.0, 0.0], top_k=10, min_score=0.0, return_full_content=False)
+
+    assert [r.path for r in results] == ["a.py", "b.py"]
+    assert results[0].score == pytest.approx(1.0)
+    assert results[1].score == pytest.approx(0.0)

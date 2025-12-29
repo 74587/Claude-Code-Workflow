@@ -730,13 +730,18 @@ class VectorStore:
         Args:
             query_embedding: Query vector.
             top_k: Maximum results to return.
-            min_score: Minimum similarity score (0-1).
+            min_score: Minimum cosine similarity score in [0.0, 1.0].
             return_full_content: If True, return full code block content.
 
         Returns:
             List of SearchResult ordered by similarity (highest first).
         """
         query_vec = np.array(query_embedding, dtype=np.float32)
+
+        if not 0.0 <= min_score <= 1.0:
+            raise ValueError(
+                f"Invalid min_score: {min_score}. Must be within [0.0, 1.0] for cosine similarity."
+            )
 
         # Try HNSW search first (O(log N))
         if (
@@ -769,7 +774,7 @@ class VectorStore:
         Args:
             query_vec: Query vector as numpy array
             top_k: Maximum results to return
-            min_score: Minimum similarity score (0-1)
+            min_score: Minimum cosine similarity score in [0.0, 1.0]
             return_full_content: If True, return full code block content
 
         Returns:
@@ -820,7 +825,7 @@ class VectorStore:
         Args:
             query_vec: Query vector as numpy array
             top_k: Maximum results to return
-            min_score: Minimum similarity score (0-1)
+            min_score: Minimum cosine similarity score in [0.0, 1.0]
             return_full_content: If True, return full code block content
 
         Returns:
