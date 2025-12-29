@@ -24,6 +24,8 @@ class SQLiteStore:
     MAX_POOL_SIZE = 32
     # Idle timeout in seconds (10 minutes)
     IDLE_TIMEOUT = 600
+    # Periodic cleanup interval in seconds (5 minutes)
+    CLEANUP_INTERVAL = 300
 
     def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)
@@ -33,6 +35,9 @@ class SQLiteStore:
         # Pool stores (connection, last_access_time) tuples
         self._pool: Dict[int, Tuple[sqlite3.Connection, float]] = {}
         self._pool_generation = 0
+        self._cleanup_timer: threading.Timer | None = None
+        self._cleanup_stop_event = threading.Event()
+        self._start_cleanup_timer()
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get or create a thread-local database connection."""
@@ -95,9 +100,44 @@ class SQLiteStore:
                 pass
             del self._pool[tid]
 
+    def _start_cleanup_timer(self) -> None:
+        if self.CLEANUP_INTERVAL <= 0:
+            return
+
+        self._cleanup_stop_event.clear()
+
+        def tick() -> None:
+            if self._cleanup_stop_event.is_set():
+                return
+
+            try:
+                with self._pool_lock:
+                    self._cleanup_stale_connections()
+            finally:
+                with self._pool_lock:
+                    if self._cleanup_stop_event.is_set():
+                        self._cleanup_timer = None
+                        return
+
+                    self._cleanup_timer = threading.Timer(self.CLEANUP_INTERVAL, tick)
+                    self._cleanup_timer.daemon = True
+                    self._cleanup_timer.start()
+
+        self._cleanup_timer = threading.Timer(self.CLEANUP_INTERVAL, tick)
+        self._cleanup_timer.daemon = True
+        self._cleanup_timer.start()
+
+    def _stop_cleanup_timer(self) -> None:
+        self._cleanup_stop_event.set()
+        with self._pool_lock:
+            if self._cleanup_timer is not None:
+                self._cleanup_timer.cancel()
+                self._cleanup_timer = None
+
     def close(self) -> None:
         """Close all pooled connections."""
         with self._lock:
+            self._stop_cleanup_timer()
             with self._pool_lock:
                 for conn, _ in self._pool.values():
                     conn.close()
