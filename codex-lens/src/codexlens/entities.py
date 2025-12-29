@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -43,6 +44,10 @@ class SemanticChunk(BaseModel):
             return value
         if not value:
             raise ValueError("embedding cannot be empty when provided")
+        norm = math.sqrt(sum(x * x for x in value))
+        epsilon = 1e-10
+        if norm < epsilon:
+            raise ValueError("embedding cannot be a zero vector")
         return value
 
 
@@ -118,4 +123,3 @@ class SearchResult(BaseModel):
         default_factory=list,
         description="Other locations for grouped results with similar scores and content."
     )
-
