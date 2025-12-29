@@ -13,31 +13,6 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
 
 **Design Principle**: Queue items are **solutions**, not individual tasks. Each executor receives a complete solution with all its tasks.
 
-## Output Requirements
-
-**Generate Files:**
-1. `.workflow/issues/queues/{queue-id}.json` - Full queue with solutions, conflicts, groups
-2. `.workflow/issues/queues/index.json` - Update with new queue entry
-
-**Return Summary:**
-```json
-{
-  "queue_id": "QUE-20251227-143000",
-  "total_solutions": N,
-  "total_tasks": N,
-  "execution_groups": [{ "id": "P1", "type": "parallel", "count": N }],
-  "conflicts_resolved": N,
-  "issues_queued": ["ISS-xxx", "ISS-yyy"]
-}
-```
-
-**Completion Criteria:**
-- [ ] Queue JSON generated with valid DAG (no cycles between solutions)
-- [ ] All inter-solution file conflicts resolved with rationale
-- [ ] Semantic priority calculated for each solution
-- [ ] Execution groups assigned (parallel P* / sequential S*)
-- [ ] Issue statuses updated to `queued` via `ccw issue update`
-
 ## Core Capabilities
 
 - **Agent-driven**: issue-queue-agent handles all ordering logic
@@ -47,98 +22,7 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
 - Semantic priority calculation per solution (0.0-1.0)
 - Parallel/Sequential group assignment for solutions
 
-## Storage Structure (Queue History)
 
-```
-.workflow/issues/
-├── issues.jsonl              # All issues (one per line)
-├── queues/                   # Queue history directory
-│   ├── index.json            # Queue index (active + history)
-│   ├── {queue-id}.json       # Individual queue files
-│   └── ...
-└── solutions/
-    ├── {issue-id}.jsonl      # Solutions for issue
-    └── ...
-```
-
-### Queue Index Schema
-
-```json
-{
-  "active_queue_id": "QUE-20251227-143000",
-  "queues": [
-    {
-      "id": "QUE-20251227-143000",
-      "status": "active",
-      "issue_ids": ["ISS-xxx", "ISS-yyy"],
-      "total_solutions": 3,
-      "completed_solutions": 1,
-      "created_at": "2025-12-27T14:30:00Z"
-    }
-  ]
-}
-```
-
-### Queue File Schema (Solution-Level)
-
-```json
-{
-  "id": "QUE-20251227-143000",
-  "status": "active",
-  "solutions": [
-    {
-      "item_id": "S-1",
-      "issue_id": "ISS-20251227-003",
-      "solution_id": "SOL-ISS-20251227-003-1",
-      "status": "pending",
-      "execution_order": 1,
-      "execution_group": "P1",
-      "depends_on": [],
-      "semantic_priority": 0.8,
-      "files_touched": ["src/auth.ts", "src/utils.ts"],
-      "task_count": 3
-    },
-    {
-      "item_id": "S-2",
-      "issue_id": "ISS-20251227-001",
-      "solution_id": "SOL-ISS-20251227-001-1",
-      "status": "pending",
-      "execution_order": 2,
-      "execution_group": "P1",
-      "depends_on": [],
-      "semantic_priority": 0.7,
-      "files_touched": ["src/api.ts"],
-      "task_count": 2
-    },
-    {
-      "item_id": "S-3",
-      "issue_id": "ISS-20251227-002",
-      "solution_id": "SOL-ISS-20251227-002-1",
-      "status": "pending",
-      "execution_order": 3,
-      "execution_group": "S2",
-      "depends_on": ["S-1"],
-      "semantic_priority": 0.5,
-      "files_touched": ["src/auth.ts"],
-      "task_count": 4
-    }
-  ],
-  "conflicts": [
-    {
-      "type": "file_conflict",
-      "file": "src/auth.ts",
-      "solutions": ["S-1", "S-3"],
-      "resolution": "sequential",
-      "resolution_order": ["S-1", "S-3"],
-      "rationale": "S-1 creates auth module, S-3 extends it"
-    }
-  ],
-  "execution_groups": [
-    { "id": "P1", "type": "parallel", "solutions": ["S-1", "S-2"] },
-    { "id": "S2", "type": "sequential", "solutions": ["S-3"] }
-  ]
-}
-```
 
 ## Usage
 
@@ -304,6 +188,99 @@ const summary = JSON.parse(result);
 - Display queue ID, solution count, task count, issue IDs
 - Show next step: `/issue:execute`
 
+
+## Storage Structure (Queue History)
+
+```
+.workflow/issues/
+├── issues.jsonl              # All issues (one per line)
+├── queues/                   # Queue history directory
+│   ├── index.json            # Queue index (active + history)
+│   ├── {queue-id}.json       # Individual queue files
+│   └── ...
+└── solutions/
+    ├── {issue-id}.jsonl      # Solutions for issue
+    └── ...
+```
+
+### Queue Index Schema
+
+```json
+{
+  "active_queue_id": "QUE-20251227-143000",
+  "queues": [
+    {
+      "id": "QUE-20251227-143000",
+      "status": "active",
+      "issue_ids": ["ISS-xxx", "ISS-yyy"],
+      "total_solutions": 3,
+      "completed_solutions": 1,
+      "created_at": "2025-12-27T14:30:00Z"
+    }
+  ]
+}
+```
+
+### Queue File Schema (Solution-Level)
+
+```json
+{
+  "id": "QUE-20251227-143000",
+  "status": "active",
+  "solutions": [
+    {
+      "item_id": "S-1",
+      "issue_id": "ISS-20251227-003",
+      "solution_id": "SOL-ISS-20251227-003-1",
+      "status": "pending",
+      "execution_order": 1,
+      "execution_group": "P1",
+      "depends_on": [],
+      "semantic_priority": 0.8,
+      "files_touched": ["src/auth.ts", "src/utils.ts"],
+      "task_count": 3
+    },
+    {
+      "item_id": "S-2",
+      "issue_id": "ISS-20251227-001",
+      "solution_id": "SOL-ISS-20251227-001-1",
+      "status": "pending",
+      "execution_order": 2,
+      "execution_group": "P1",
+      "depends_on": [],
+      "semantic_priority": 0.7,
+      "files_touched": ["src/api.ts"],
+      "task_count": 2
+    },
+    {
+      "item_id": "S-3",
+      "issue_id": "ISS-20251227-002",
+      "solution_id": "SOL-ISS-20251227-002-1",
+      "status": "pending",
+      "execution_order": 3,
+      "execution_group": "S2",
+      "depends_on": ["S-1"],
+      "semantic_priority": 0.5,
+      "files_touched": ["src/auth.ts"],
+      "task_count": 4
+    }
+  ],
+  "conflicts": [
+    {
+      "type": "file_conflict",
+      "file": "src/auth.ts",
+      "solutions": ["S-1", "S-3"],
+      "resolution": "sequential",
+      "resolution_order": ["S-1", "S-3"],
+      "rationale": "S-1 creates auth module, S-3 extends it"
+    }
+  ],
+  "execution_groups": [
+    { "id": "P1", "type": "parallel", "solutions": ["S-1", "S-2"] },
+    { "id": "S2", "type": "sequential", "solutions": ["S-3"] }
+  ]
+}
+```
 ## Error Handling
 
 | Error | Resolution |
