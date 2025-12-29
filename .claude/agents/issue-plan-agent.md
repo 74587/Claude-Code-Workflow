@@ -203,7 +203,9 @@ for (const issue of issues) {
       is_bound: false,
       created_at: new Date().toISOString()
     });
-    Bash(`echo '${solutionJson}' >> "${solPath}"`);
+    // Escape single quotes for shell safety: ' → '\''
+    const safeJson = solutionJson.replace(/'/g, "'\\''");
+    Bash(`echo '${safeJson}' >> "${solPath}"`);
   }
 
   // Step 2: Bind decision based on solution count
