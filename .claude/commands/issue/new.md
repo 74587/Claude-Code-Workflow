@@ -1,565 +1,331 @@
 ---
 name: new
-description: Create structured issue from GitHub URL or text description, extracting key elements into issues.jsonl
-argument-hint: "<github-url | text-description> [--priority 1-5] [--labels label1,label2]"
-allowed-tools: TodoWrite(*), Bash(*), Read(*), Write(*), WebFetch(*), AskUserQuestion(*)
+description: Create structured issue from GitHub URL or text description
+argument-hint: "<github-url | text-description> [--priority 1-5]"
+allowed-tools: TodoWrite(*), Bash(*), Read(*), AskUserQuestion(*), mcp__ace-tool__search_context(*)
 ---
 
 # Issue New Command (/issue:new)
 
-## Overview
+## Core Principle
 
-Creates a new structured issue from either:
-1. **GitHub Issue URL** - Fetches and parses issue content via `gh` CLI
-2. **Text Description** - Parses natural language into structured fields
+**Requirement Clarity Detection** → Ask only when needed
 
-Outputs a well-formed issue entry to `.workflow/issues/issues.jsonl`.
-
-## Issue Structure (Closed-Loop)
-
-```typescript
-interface Issue {
-  id: string;                    // GH-123 or ISS-YYYYMMDD-HHMMSS
-  title: string;                 // Issue title (clear, concise)
-  status: 'registered';          // Initial status
-  priority: number;              // 1 (critical) to 5 (low)
-  context: string;               // Problem description
-  source: 'github' | 'text' | 'discovery';  // Input source type
-  source_url?: string;           // GitHub URL if applicable
-  labels?: string[];             // Categorization labels
-
-  // Structured extraction
-  problem_statement: string;     // What is the problem?
-  expected_behavior?: string;    // What should happen?
-  actual_behavior?: string;      // What actually happens?
-  affected_components?: string[];// Files/modules affected
-  reproduction_steps?: string[]; // Steps to reproduce
-
-  // Extended context (minimal, for planning hints)
-  extended_context?: {
-    location?: string;           // file:line when specific line matters
-    suggested_fix?: string;      // Suggested remediation
-    notes?: string;              // Additional notes (user clarifications or discovery hints)
-  };
-
-  // Closed-loop requirements (guide plan generation)
-  lifecycle_requirements: {
-    test_strategy: 'unit' | 'integration' | 'e2e' | 'manual' | 'auto';
-    regression_scope: 'affected' | 'related' | 'full';  // Which tests to run
-    acceptance_type: 'automated' | 'manual' | 'both';   // How to verify
-    commit_strategy: 'per-task' | 'squash' | 'atomic';  // Commit granularity
-  };
-
-  // Metadata
-  bound_solution_id: null;
-  solution_count: 0;
-  created_at: string;
-  updated_at: string;
-}
+```
+Clear Input (GitHub URL, structured text)  → Direct creation
+Unclear Input (vague description)          → Minimal clarifying questions
 ```
 
-## Lifecycle Requirements
-
-The `lifecycle_requirements` field guides downstream commands (`/issue:plan`, `/issue:execute`):
-
-| Field | Options | Purpose |
-|-------|---------|---------|
-| `test_strategy` | `unit`, `integration`, `e2e`, `manual`, `auto` | Which test types to generate |
-| `regression_scope` | `affected`, `related`, `full` | Which tests to run for regression |
-| `acceptance_type` | `automated`, `manual`, `both` | How to verify completion |
-| `commit_strategy` | `per-task`, `squash`, `atomic` | Commit granularity |
-
-> **Note**: Task structure (SolutionTask) is defined in `/issue:plan` - see `.claude/commands/issue/plan.md`
-
-## Usage
+## Quick Reference
 
 ```bash
-# From GitHub URL
+# Clear inputs - direct creation
 /issue:new https://github.com/owner/repo/issues/123
+/issue:new "Login fails with special chars. Expected: success. Actual: 500 error"
 
-# From text description
-/issue:new "Login fails when password contains special characters. Expected: successful login. Actual: 500 error. Affects src/auth/*"
-
-# With options
-/issue:new <url-or-text> --priority 2 --labels "bug,auth"
+# Vague input - will ask clarifying questions
+/issue:new "something wrong with auth"
 ```
 
 ## Implementation
 
-### Phase 1: Input Detection
+### Phase 1: Input Analysis & Clarity Detection
 
 ```javascript
 const input = userInput.trim();
-const flags = parseFlags(userInput);  // --priority, --labels
+const flags = parseFlags(userInput);  // --priority
 
-// Detect input type
+// Detect input type and clarity
 const isGitHubUrl = input.match(/github\.com\/[\w-]+\/[\w-]+\/issues\/\d+/);
-const isGitHubShort = input.match(/^#(\d+)$/);  // #123 format
+const isGitHubShort = input.match(/^#(\d+)$/);
+const hasStructure = input.match(/(expected|actual|affects|steps):/i);
+
+// Clarity score: 0-3
+let clarityScore = 0;
+if (isGitHubUrl || isGitHubShort) clarityScore = 3;  // GitHub = fully clear
+else if (hasStructure) clarityScore = 2;             // Structured text = clear
+else if (input.length > 50) clarityScore = 1;        // Long text = somewhat clear
+else clarityScore = 0;                               // Vague
 
 let issueData = {};
+```
 
+### Phase 2: Data Extraction (GitHub or Text)
+
+```javascript
 if (isGitHubUrl || isGitHubShort) {
-  // GitHub issue - fetch via gh CLI
-  issueData = await fetchGitHubIssue(input);
-} else {
-  // Text description - parse structure
-  issueData = await parseTextDescription(input);
-}
-```
-
-### Phase 2: GitHub Issue Fetching
-
-```javascript
-async function fetchGitHubIssue(urlOrNumber) {
-  let issueRef;
-  
-  if (urlOrNumber.startsWith('http')) {
-    // Extract owner/repo/number from URL
-    const match = urlOrNumber.match(/github\.com\/([\w-]+)\/([\w-]+)\/issues\/(\d+)/);
-    if (!match) throw new Error('Invalid GitHub URL');
-    issueRef = `${match[1]}/${match[2]}#${match[3]}`;
-  } else {
-    // #123 format - use current repo
-    issueRef = urlOrNumber.replace('#', '');
-  }
-  
-  // Fetch via gh CLI
-  const result = Bash(`gh issue view ${issueRef} --json number,title,body,labels,state,url`);
-  const ghIssue = JSON.parse(result);
-  
-  // Parse body for structure
-  const parsed = parseIssueBody(ghIssue.body);
-  
-  return {
-    id: `GH-${ghIssue.number}`,
-    title: ghIssue.title,
+  // GitHub - fetch via gh CLI
+  const result = Bash(`gh issue view ${extractIssueRef(input)} --json number,title,body,labels,url`);
+  const gh = JSON.parse(result);
+  issueData = {
+    id: `GH-${gh.number}`,
+    title: gh.title,
     source: 'github',
-    source_url: ghIssue.url,
-    labels: ghIssue.labels.map(l => l.name),
-    context: ghIssue.body,
-    ...parsed
+    source_url: gh.url,
+    labels: gh.labels.map(l => l.name),
+    problem_statement: gh.body?.substring(0, 500) || gh.title,
+    ...parseMarkdownBody(gh.body)
   };
-}
-
-function parseIssueBody(body) {
-  // Extract structured sections from markdown body
-  const sections = {};
-  
-  // Problem/Description
-  const problemMatch = body.match(/##?\s*(problem|description|issue)[:\s]*([\s\S]*?)(?=##|$)/i);
-  if (problemMatch) sections.problem_statement = problemMatch[2].trim();
-  
-  // Expected behavior
-  const expectedMatch = body.match(/##?\s*(expected|should)[:\s]*([\s\S]*?)(?=##|$)/i);
-  if (expectedMatch) sections.expected_behavior = expectedMatch[2].trim();
-  
-  // Actual behavior
-  const actualMatch = body.match(/##?\s*(actual|current)[:\s]*([\s\S]*?)(?=##|$)/i);
-  if (actualMatch) sections.actual_behavior = actualMatch[2].trim();
-  
-  // Steps to reproduce
-  const stepsMatch = body.match(/##?\s*(steps|reproduce)[:\s]*([\s\S]*?)(?=##|$)/i);
-  if (stepsMatch) {
-    const stepsText = stepsMatch[2].trim();
-    sections.reproduction_steps = stepsText
-      .split('\n')
-      .filter(line => line.match(/^\s*[\d\-\*]/))
-      .map(line => line.replace(/^\s*[\d\.\-\*]\s*/, '').trim());
-  }
-  
-  // Affected components (from file references)
-  const fileMatches = body.match(/`[^`]*\.(ts|js|tsx|jsx|py|go|rs)[^`]*`/g);
-  if (fileMatches) {
-    sections.affected_components = [...new Set(fileMatches.map(f => f.replace(/`/g, '')))];
-  }
-  
-  // Fallback: use entire body as problem statement
-  if (!sections.problem_statement) {
-    sections.problem_statement = body.substring(0, 500);
-  }
-  
-  return sections;
-}
-```
-
-### Phase 3: Text Description Parsing
-
-```javascript
-async function parseTextDescription(text) {
-  // Generate unique ID
-  const id = `ISS-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}`;
-  
-  // Extract structured elements using patterns
-  const result = {
-    id,
+} else {
+  // Text description
+  issueData = {
+    id: `ISS-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}`,
     source: 'text',
-    title: '',
-    problem_statement: '',
-    expected_behavior: null,
-    actual_behavior: null,
-    affected_components: [],
-    reproduction_steps: []
+    ...parseTextDescription(input)
   };
-  
-  // Pattern: "Title. Description. Expected: X. Actual: Y. Affects: files"
-  const sentences = text.split(/\.(?=\s|$)/);
-  
-  // First sentence as title
-  result.title = sentences[0]?.trim() || 'Untitled Issue';
-  
-  // Look for keywords
-  for (const sentence of sentences) {
-    const s = sentence.trim();
-    
-    if (s.match(/^expected:?\s*/i)) {
-      result.expected_behavior = s.replace(/^expected:?\s*/i, '');
-    } else if (s.match(/^actual:?\s*/i)) {
-      result.actual_behavior = s.replace(/^actual:?\s*/i, '');
-    } else if (s.match(/^affects?:?\s*/i)) {
-      const components = s.replace(/^affects?:?\s*/i, '').split(/[,\s]+/);
-      result.affected_components = components.filter(c => c.includes('/') || c.includes('.'));
-    } else if (s.match(/^steps?:?\s*/i)) {
-      result.reproduction_steps = s.replace(/^steps?:?\s*/i, '').split(/[,;]/);
-    } else if (!result.problem_statement && s.length > 10) {
-      result.problem_statement = s;
-    }
-  }
-  
-  // Fallback problem statement
-  if (!result.problem_statement) {
-    result.problem_statement = text.substring(0, 300);
-  }
-  
-  return result;
 }
 ```
 
-### Phase 4: Lifecycle Configuration
+### Phase 3: Smart Context Discovery (ACE)
 
 ```javascript
-// Ask for lifecycle requirements (or use smart defaults)
-const lifecycleAnswer = AskUserQuestion({
-  questions: [
-    {
-      question: 'Test strategy for this issue?',
-      header: 'Test',
-      multiSelect: false,
-      options: [
-        { label: 'auto', description: 'Auto-detect based on affected files (Recommended)' },
-        { label: 'unit', description: 'Unit tests only' },
-        { label: 'integration', description: 'Integration tests' },
-        { label: 'e2e', description: 'End-to-end tests' },
-        { label: 'manual', description: 'Manual testing only' }
-      ]
-    },
-    {
-      question: 'Regression scope?',
-      header: 'Regression',
-      multiSelect: false,
-      options: [
-        { label: 'affected', description: 'Only affected module tests (Recommended)' },
-        { label: 'related', description: 'Affected + dependent modules' },
-        { label: 'full', description: 'Full test suite' }
-      ]
-    },
-    {
-      question: 'Commit strategy?',
-      header: 'Commit',
-      multiSelect: false,
-      options: [
-        { label: 'per-task', description: 'One commit per task (Recommended)' },
-        { label: 'atomic', description: 'Single commit for entire issue' },
-        { label: 'squash', description: 'Squash at the end' }
-      ]
-    }
-  ]
-});
+// Use ACE to find affected components if not specified
+if (!issueData.affected_components?.length && issueData.problem_statement) {
+  const keywords = extractKeywords(issueData.problem_statement);
 
-const lifecycle = {
-  test_strategy: lifecycleAnswer.test || 'auto',
-  regression_scope: lifecycleAnswer.regression || 'affected',
-  acceptance_type: 'automated',
-  commit_strategy: lifecycleAnswer.commit || 'per-task'
-};
+  if (keywords.length > 0) {
+    const aceResult = mcp__ace-tool__search_context({
+      project_root_path: process.cwd(),
+      query: `Find code related to: ${keywords.join(', ')}`
+    });
 
-issueData.lifecycle_requirements = lifecycle;
+    // Extract file paths from ACE results
+    issueData.affected_components = aceResult.files?.slice(0, 5) || [];
+    issueData.extended_context = { ace_suggestions: aceResult.summary };
+  }
+}
 ```
 
-### Phase 4.5: Follow-up Questions (Intelligent Suggestions)
+### Phase 4: Conditional Clarification (Only if Unclear)
 
 ```javascript
-// Analyze parsed data and suggest follow-up questions for missing/unclear fields
-const suggestions = [];
+// ONLY ask questions if clarity is low
+if (clarityScore < 2) {
+  const missingFields = [];
 
-// Check for missing critical fields
-if (!issueData.expected_behavior) {
-  suggestions.push({
-    field: 'expected_behavior',
-    question: 'What is the expected behavior?',
-    hint: 'Describe what should happen when working correctly'
-  });
-}
+  if (!issueData.title || issueData.title.length < 10) {
+    missingFields.push('title');
+  }
+  if (!issueData.problem_statement || issueData.problem_statement.length < 20) {
+    missingFields.push('problem');
+  }
 
-if (!issueData.actual_behavior && issueData.source !== 'discovery') {
-  suggestions.push({
-    field: 'actual_behavior',
-    question: 'What is the actual behavior?',
-    hint: 'Describe what currently happens (error message, wrong output, etc.)'
-  });
-}
-
-if (!issueData.affected_components?.length) {
-  suggestions.push({
-    field: 'affected_components',
-    question: 'Which files or modules are affected?',
-    hint: 'e.g., src/auth/login.ts, src/api/users.ts'
-  });
-}
-
-if (!issueData.reproduction_steps?.length && issueData.source === 'text') {
-  suggestions.push({
-    field: 'reproduction_steps',
-    question: 'How can this issue be reproduced?',
-    hint: 'Step-by-step instructions to trigger the issue'
-  });
-}
-
-// Ask follow-up questions if any suggestions exist
-let userNotes = '';
-if (suggestions.length > 0) {
-  console.log(`
-## Suggested Clarifications
-
-The following information would help with issue resolution:
-${suggestions.map((s, i) => `${i+1}. **${s.question}** - ${s.hint}`).join('\n')}
-`);
-
-  const followUpAnswer = AskUserQuestion({
-    questions: [{
-      question: 'Would you like to provide additional details?',
-      header: 'Clarify',
-      multiSelect: false,
-      options: [
-        { label: 'Add details', description: 'Provide clarifications for suggested questions' },
-        { label: 'Skip', description: 'Continue without additional details (Recommended)' }
-      ]
-    }]
-  });
-
-  if (followUpAnswer.includes('Add details')) {
-    // Collect additional notes via "Other" input
-    const notesAnswer = AskUserQuestion({
+  if (missingFields.length > 0) {
+    const answer = AskUserQuestion({
       questions: [{
-        question: 'Enter additional details (address any of the suggested questions):',
-        header: 'Details',
+        question: `Input unclear. What is the issue about?`,
+        header: 'Clarify',
         multiSelect: false,
         options: [
-          { label: 'Use template', description: 'Expected: ... | Actual: ... | Files: ...' }
+          { label: 'Bug fix', description: 'Something is broken' },
+          { label: 'New feature', description: 'Add new functionality' },
+          { label: 'Improvement', description: 'Enhance existing feature' },
+          { label: 'Other', description: 'Provide more details' }
         ]
       }]
     });
 
-    if (notesAnswer.customText) {
-      userNotes = notesAnswer.customText;
-
-      // Parse structured input if provided
-      const expectedMatch = userNotes.match(/expected:\s*([^|]+)/i);
-      const actualMatch = userNotes.match(/actual:\s*([^|]+)/i);
-      const filesMatch = userNotes.match(/files?:\s*([^|]+)/i);
-
-      if (expectedMatch && !issueData.expected_behavior) {
-        issueData.expected_behavior = expectedMatch[1].trim();
-      }
-      if (actualMatch && !issueData.actual_behavior) {
-        issueData.actual_behavior = actualMatch[1].trim();
-      }
-      if (filesMatch && !issueData.affected_components?.length) {
-        issueData.affected_components = filesMatch[1].split(/[,\s]+/).filter(f => f.includes('/') || f.includes('.'));
-      }
+    // Use answer to enrich issue data
+    if (answer.customText) {
+      issueData.problem_statement = answer.customText;
+      issueData.title = answer.customText.split('.')[0].substring(0, 60);
     }
   }
 }
-
-// Store user notes in extended context
-issueData.extended_context = {
-  ...(issueData.extended_context || {}),
-  notes: userNotes || null
-};
 ```
 
-### Phase 5: User Confirmation
+### Phase 5: Auto-Detect Lifecycle (No Questions)
 
 ```javascript
-// Show parsed data and ask for confirmation
-console.log(`
-## Parsed Issue
+// Smart defaults based on affected files - NO USER QUESTIONS
+function detectLifecycle(components) {
+  const hasTests = components.some(c => c.includes('test') || c.includes('spec'));
+  const hasApi = components.some(c => c.includes('api') || c.includes('route'));
+  const hasUi = components.some(c => c.includes('component') || c.match(/\.(tsx|jsx)$/));
 
-**ID**: ${issueData.id}
-**Title**: ${issueData.title}
-**Source**: ${issueData.source}${issueData.source_url ? ` (${issueData.source_url})` : ''}
-
-### Problem Statement
-${issueData.problem_statement}
-
-${issueData.expected_behavior ? `### Expected Behavior\n${issueData.expected_behavior}\n` : ''}
-${issueData.actual_behavior ? `### Actual Behavior\n${issueData.actual_behavior}\n` : ''}
-${issueData.affected_components?.length ? `### Affected Components\n${issueData.affected_components.map(c => `- ${c}`).join('\n')}\n` : ''}
-${issueData.reproduction_steps?.length ? `### Reproduction Steps\n${issueData.reproduction_steps.map((s, i) => `${i+1}. ${s}`).join('\n')}\n` : ''}
-
-### Lifecycle Configuration
-- **Test Strategy**: ${lifecycle.test_strategy}
-- **Regression Scope**: ${lifecycle.regression_scope}
-- **Commit Strategy**: ${lifecycle.commit_strategy}
-`);
-
-// Ask user to confirm or edit
-const answer = AskUserQuestion({
-  questions: [{
-    question: 'Create this issue?',
-    header: 'Confirm',
-    multiSelect: false,
-    options: [
-      { label: 'Create', description: 'Save issue to issues.jsonl' },
-      { label: 'Edit Title', description: 'Modify the issue title' },
-      { label: 'Edit Priority', description: 'Change priority (1-5)' },
-      { label: 'Cancel', description: 'Discard and exit' }
-    ]
-  }]
-});
-
-if (answer.includes('Cancel')) {
-  console.log('Issue creation cancelled.');
-  return;
-}
-
-if (answer.includes('Edit Title')) {
-  const titleAnswer = AskUserQuestion({
-    questions: [{
-      question: 'Enter new title:',
-      header: 'Title',
-      multiSelect: false,
-      options: [
-        { label: issueData.title.substring(0, 40), description: 'Keep current' }
-      ]
-    }]
-  });
-  // Handle custom input via "Other"
-  if (titleAnswer.customText) {
-    issueData.title = titleAnswer.customText;
-  }
-}
-```
-
-### Phase 6: Write to JSONL
-
-```javascript
-// Construct final issue object
-const priority = flags.priority ? parseInt(flags.priority) : 3;
-const labels = flags.labels ? flags.labels.split(',').map(l => l.trim()) : [];
-
-const newIssue = {
-  id: issueData.id,
-  title: issueData.title,
-  status: 'registered',
-  priority,
-  context: issueData.problem_statement,
-  source: issueData.source,
-  source_url: issueData.source_url || null,
-  labels: [...(issueData.labels || []), ...labels],
-
-  // Structured fields
-  problem_statement: issueData.problem_statement,
-  expected_behavior: issueData.expected_behavior || null,
-  actual_behavior: issueData.actual_behavior || null,
-  affected_components: issueData.affected_components || [],
-  reproduction_steps: issueData.reproduction_steps || [],
-
-  // Extended context (universal)
-  extended_context: issueData.extended_context || null,
-
-  // Closed-loop lifecycle requirements
-  lifecycle_requirements: issueData.lifecycle_requirements || {
-    test_strategy: 'auto',
+  return {
+    test_strategy: hasTests ? 'unit' : (hasApi ? 'integration' : 'auto'),
     regression_scope: 'affected',
     acceptance_type: 'automated',
     commit_strategy: 'per-task'
-  },
+  };
+}
 
-  // Metadata
-  bound_solution_id: null,
-  solution_count: 0,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString()
-};
+issueData.lifecycle_requirements = detectLifecycle(issueData.affected_components || []);
+```
 
-// Ensure directory exists
-Bash('mkdir -p .workflow/issues');
+### Phase 6: Create Issue (Minimal Confirmation)
 
-// Append to issues.jsonl with proper newline handling
-const issuesPath = '.workflow/issues/issues.jsonl';
-const jsonLine = JSON.stringify(newIssue);
-// Ensure file ends with newline before appending, then append with trailing newline
-Bash(`[ -s "${issuesPath}" ] && [ -n "$(tail -c 1 "${issuesPath}")" ] && printf '\\n' >> "${issuesPath}"; printf '%s\\n' '${jsonLine}' >> "${issuesPath}"`);
-
+```javascript
+// Show summary and create
 console.log(`
-## Issue Created
+## Creating Issue
 
-**ID**: ${newIssue.id}
-**Title**: ${newIssue.title}
-**Priority**: ${newIssue.priority}
-**Labels**: ${newIssue.labels.join(', ') || 'none'}
-**Source**: ${newIssue.source}
-
-### Next Steps
-1. Plan solution: \`/issue:plan ${newIssue.id}\`
-2. View details: \`ccw issue status ${newIssue.id}\`
-3. Manage issues: \`/issue:manage\`
+**ID**: ${issueData.id}
+**Title**: ${issueData.title}
+**Source**: ${issueData.source}
+${issueData.affected_components?.length ? `**Files**: ${issueData.affected_components.slice(0, 3).join(', ')}` : ''}
 `);
+
+// Quick confirm only for vague inputs
+let proceed = true;
+if (clarityScore < 2) {
+  const confirm = AskUserQuestion({
+    questions: [{
+      question: 'Create this issue?',
+      header: 'Confirm',
+      multiSelect: false,
+      options: [
+        { label: 'Create', description: 'Save to issues.jsonl (Recommended)' },
+        { label: 'Cancel', description: 'Discard' }
+      ]
+    }]
+  });
+  proceed = !confirm.includes('Cancel');
+}
+
+if (proceed) {
+  // Construct and save
+  const newIssue = {
+    id: issueData.id,
+    title: issueData.title || 'Untitled Issue',
+    status: 'registered',
+    priority: flags.priority ? parseInt(flags.priority) : 3,
+    context: issueData.problem_statement,
+    source: issueData.source,
+    source_url: issueData.source_url || null,
+    labels: issueData.labels || [],
+    problem_statement: issueData.problem_statement,
+    expected_behavior: issueData.expected_behavior || null,
+    actual_behavior: issueData.actual_behavior || null,
+    affected_components: issueData.affected_components || [],
+    extended_context: issueData.extended_context || null,
+    lifecycle_requirements: issueData.lifecycle_requirements,
+    bound_solution_id: null,
+    solution_count: 0,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  Bash('mkdir -p .workflow/issues');
+  const jsonLine = JSON.stringify(newIssue).replace(/'/g, "'\\''");
+  Bash(`echo '${jsonLine}' >> .workflow/issues/issues.jsonl`);
+
+  console.log(`✓ Issue ${newIssue.id} created. Next: /issue:plan ${newIssue.id}`);
+}
+```
+
+## Decision Flow
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   /issue:new <input>                    │
+└─────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+              ┌────────────────────────┐
+              │   Clarity Detection    │
+              │   (GitHub? Structure?) │
+              └────────────────────────┘
+                           │
+           ┌───────────────┼───────────────┐
+           │               │               │
+           ▼               ▼               ▼
+      [Score 3]       [Score 1-2]      [Score 0]
+      GitHub URL    Structured Text   Vague Input
+           │               │               │
+           ▼               ▼               ▼
+        Parse           Parse         AskUserQuestion
+        Direct         + ACE           (1 question)
+           │               │               │
+           └───────────────┼───────────────┘
+                           │
+                           ▼
+              ┌────────────────────────┐
+              │  Auto-detect Lifecycle │
+              │    (NO questions)      │
+              └────────────────────────┘
+                           │
+                           ▼
+              ┌────────────────────────┐
+              │      Create Issue      │
+              │  (confirm only if <2)  │
+              └────────────────────────┘
+```
+
+## Helper Functions
+
+```javascript
+function extractKeywords(text) {
+  // Extract meaningful keywords for ACE search
+  const stopWords = new Set(['the', 'a', 'an', 'is', 'are', 'was', 'were', 'not', 'with']);
+  return text
+    .toLowerCase()
+    .split(/\W+/)
+    .filter(w => w.length > 3 && !stopWords.has(w))
+    .slice(0, 5);
+}
+
+function parseTextDescription(text) {
+  const result = { title: '', problem_statement: '' };
+  const sentences = text.split(/\.(?=\s|$)/);
+
+  result.title = sentences[0]?.trim().substring(0, 60) || 'Untitled';
+  result.problem_statement = text.substring(0, 500);
+
+  // Extract structured fields if present
+  const expected = text.match(/expected:?\s*([^.]+)/i);
+  const actual = text.match(/actual:?\s*([^.]+)/i);
+  const affects = text.match(/affects?:?\s*([^.]+)/i);
+
+  if (expected) result.expected_behavior = expected[1].trim();
+  if (actual) result.actual_behavior = actual[1].trim();
+  if (affects) {
+    result.affected_components = affects[1].split(/[,\s]+/).filter(c => c.includes('/') || c.includes('.'));
+  }
+
+  return result;
+}
+
+function parseMarkdownBody(body) {
+  if (!body) return {};
+  const result = {};
+
+  // Extract sections
+  const problem = body.match(/##?\s*(problem|description)[:\s]*([\s\S]*?)(?=##|$)/i);
+  const expected = body.match(/##?\s*expected[:\s]*([\s\S]*?)(?=##|$)/i);
+  const actual = body.match(/##?\s*actual[:\s]*([\s\S]*?)(?=##|$)/i);
+
+  if (problem) result.problem_statement = problem[2].trim().substring(0, 500);
+  if (expected) result.expected_behavior = expected[2].trim();
+  if (actual) result.actual_behavior = actual[2].trim();
+
+  return result;
+}
 ```
 
 ## Examples
 
-### GitHub Issue
+### Clear Input (No Questions)
 
 ```bash
-/issue:new https://github.com/myorg/myrepo/issues/42 --priority 2
+/issue:new https://github.com/org/repo/issues/42
+# → Fetches, parses, creates immediately
 
-# Output:
-## Issue Created
-**ID**: GH-42
-**Title**: Fix memory leak in WebSocket handler
-**Priority**: 2
-**Labels**: bug, performance
-**Source**: github (https://github.com/myorg/myrepo/issues/42)
+/issue:new "Login fails with special chars. Expected: success. Actual: 500"
+# → Parses structure, creates immediately
 ```
 
-### Text Description
+### Vague Input (1 Question)
 
 ```bash
-/issue:new "API rate limiting not working. Expected: 429 after 100 requests. Actual: No limit. Affects src/middleware/rate-limit.ts"
-
-# Output:
-## Issue Created
-**ID**: ISS-20251227-142530
-**Title**: API rate limiting not working
-**Priority**: 3
-**Labels**: none
-**Source**: text
+/issue:new "auth broken"
+# → Asks: "Input unclear. What is the issue about?"
+# → User selects "Bug fix" or provides details
+# → Creates issue
 ```
-
-## Error Handling
-
-| Error | Resolution |
-|-------|------------|
-| Invalid GitHub URL | Show format hint, ask for correction |
-| gh CLI not available | Fall back to WebFetch for public issues |
-| Empty description | Prompt user for required fields |
-| Duplicate issue ID | Auto-increment or suggest merge |
-| Parse failure | Show raw input, ask for manual structuring |
 
 ## Related Commands
 
 - `/issue:plan` - Plan solution for issue
 - `/issue:manage` - Interactive issue management
-- `ccw issue list` - List all issues
-- `ccw issue status <id>` - View issue details
