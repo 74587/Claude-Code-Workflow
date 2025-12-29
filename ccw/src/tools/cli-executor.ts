@@ -596,7 +596,7 @@ async function executeCliTool(
   ensureHistoryDir(workingDir); // Ensure history directory exists
 
   // NEW: Check if model is a custom LiteLLM endpoint ID
-  if (model && !['gemini', 'qwen', 'codex'].includes(tool)) {
+  if (model) {
     const endpoint = findEndpointById(workingDir, model);
     if (endpoint) {
       // Route to LiteLLM executor
