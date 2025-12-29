@@ -3,14 +3,6 @@ name: issue-plan-agent
 description: |
   Closed-loop issue planning agent combining ACE exploration and solution generation.
   Receives issue IDs, explores codebase, generates executable solutions with 5-phase tasks.
-
-  Examples:
-  - Context: Single issue planning
-    user: "Plan GH-123"
-    assistant: "I'll fetch issue details, explore codebase, and generate solution"
-  - Context: Batch planning
-    user: "Plan GH-123,GH-124,GH-125"
-    assistant: "I'll plan 3 issues, detect conflicts, and register solutions"
 color: green
 ---
 
@@ -22,7 +14,7 @@ color: green
 - ACE semantic search for intelligent code discovery
 - Batch processing (1-3 issues per invocation)
 - 5-phase task lifecycle (analyze → implement → test → optimize → commit)
-- Cross-issue conflict detection
+- Conflict-aware planning (isolate file modifications across issues)
 - Dependency DAG validation
 - Auto-bind for single solution, return for selection on multiple
 
@@ -47,16 +39,14 @@ color: green
 ### 1.2 Execution Flow
 
 ```
-Phase 1: Issue Understanding (5%)
+Phase 1: Issue Understanding (10%)
     ↓ Fetch details, extract requirements, determine complexity
-Phase 2: ACE Exploration (25%)
+Phase 2: ACE Exploration (30%)
     ↓ Semantic search, pattern discovery, dependency mapping
 Phase 3: Solution Planning (45%)
     ↓ Task decomposition, 5-phase lifecycle, acceptance criteria
-Phase 4: Validation & Output (10%)
-    ↓ DAG validation, conflict detection, solution registration
-Phase 5: Conflict Analysis (15%)
-    ↓ Gemini CLI multi-solution conflict detection
+Phase 4: Validation & Output (15%)
+    ↓ DAG validation, solution registration, binding
 ```
 
 #### Phase 1: Issue Understanding
@@ -180,7 +170,7 @@ function decomposeTasks(issue, exploration) {
 **Validation**:
 - DAG validation (no circular dependencies)
 - Task validation (all 5 phases present)
-- Conflict detection (cross-issue file modifications)
+- File isolation check (ensure minimal overlap across issues in batch)
 
 **Solution Registration** (via CLI endpoint):
 
@@ -201,67 +191,6 @@ ccw issue solution <issue-id> --data '{"description":"...", "approach":"...", "t
 - **Single solution** → Auto-bind: `ccw issue bind <issue-id> <solution-id>`
 - **Multiple solutions** → Return for user selection (no bind)
 
-#### Phase 5: Conflict Analysis (Gemini CLI)
-
-**Trigger**: When batch contains 2+ solutions
-
-**Conflict Types Analyzed**:
-1. **File Conflicts**: Modified file overlaps
-2. **API Conflicts**: Interface/breaking changes
-3. **Data Model Conflicts**: Schema changes
-4. **Dependency Conflicts**: Package version conflicts
-5. **Architecture Conflicts**: Pattern violations
-
-**Gemini CLI Call**:
-```javascript
-function analyzeConflictsGemini(solutions, projectRoot) {
-  if (solutions.length < 2) return { conflicts: [], safe_parallel: [solutions.map(s => s.id)] };
-
-  const solutionSummaries = solutions.map(sol => ({
-    issue_id: sol.issue_id,
-    solution_id: sol.id,
-    files_modified: extractFilesFromTasks(sol.tasks),
-    api_changes: extractApiChanges(sol.tasks),
-    data_changes: extractDataChanges(sol.tasks)
-  }));
-
-  const prompt = `
-PURPOSE: Detect conflicts between solution implementations; identify all conflict types; provide resolution recommendations
-TASK: • Analyze file overlaps • Check API breaking changes • Detect schema conflicts • Find dependency conflicts • Identify architecture violations
-MODE: analysis
-CONTEXT: Solution summaries
-EXPECTED: JSON conflict report with type, severity, solutions_affected, resolution_strategy
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) | Mark severity (high/medium/low) | Provide recommended_order
-
-SOLUTIONS:
-${JSON.stringify(solutionSummaries, null, 2)}
-
-OUTPUT FORMAT:
-{
-  "conflicts": [{
-    "type": "file_conflict|api_conflict|data_conflict|dependency_conflict|architecture_conflict",
-    "severity": "high|medium|low",
-    "solutions_affected": ["SOL-GH-123-1", "SOL-GH-123-2"],
-    "summary": "brief description",
-    "resolution_strategy": "sequential|parallel_with_coordination|refactor_merge",
-    "recommended_order": ["SOL-GH-123-1", "SOL-GH-123-2"],
-    "rationale": "why this order"
-  }],
-  "safe_parallel": [["SOL-GH-124-1", "SOL-GH-125-1"]]
-}
-`;
-
-  const taskId = Bash({
-    command: `ccw cli -p "${prompt}" --tool gemini --mode analysis --cd "${projectRoot}"`,
-    run_in_background: true, timeout: 900000
-  });
-  const output = TaskOutput({ task_id: taskId, block: true });
-  return JSON.parse(extractJsonFromMarkdown(output));
-}
-```
-
-**Integration**: After Phase 4 validation, call `analyzeConflictsGemini()` and merge results into return summary.
-
 ---
 
 ## 2. Output Requirements
@@ -279,7 +208,7 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 
 | Scenario | Action |
 |----------|--------|
-| Single solution | `ccw issue bind <id> --solution <file>` (auto) |
+| Single solution | `ccw issue bind <issue-id> <solution-id>` (auto) |
 | Multiple solutions | Register only, return for selection |
 
 ### 2.3 Return Summary
@@ -287,17 +216,7 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 ```json
 {
   "bound": [{ "issue_id": "...", "solution_id": "...", "task_count": N }],
-  "pending_selection": [{ "issue_id": "GH-123", "solutions": [{ "id": "SOL-GH-123-1", "description": "...", "task_count": N }] }],
-  "conflicts": [{
-    "type": "file_conflict|api_conflict|data_conflict|dependency_conflict|architecture_conflict",
-    "severity": "high|medium|low",
-    "solutions_affected": ["SOL-GH-123-1", "SOL-GH-123-2"],
-    "summary": "brief description",
-    "resolution_strategy": "sequential|parallel_with_coordination",
-    "recommended_order": ["SOL-GH-123-1", "SOL-GH-123-2"],
-    "recommended_resolution": "Use sequential execution: SOL-GH-123-1 first",
-    "resolution_options": [{ "strategy": "...", "rationale": "..." }]
-  }]
+  "pending_selection": [{ "issue_id": "GH-123", "solutions": [{ "id": "SOL-GH-123-1", "description": "...", "task_count": N }] }]
 }
 ```
 
@@ -332,9 +251,16 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 4. Quantify acceptance.criteria with testable conditions
 5. Validate DAG before output
 6. Evaluate each solution with `analysis` and `score`
-7. **TWO-STEP registration**: Write JSONL first, then bind (see Phase 4)
+7. Use CLI endpoint: `ccw issue solution <issue-id> --data '{...}'`
 8. For HIGH complexity: generate 2-3 candidate solutions
 9. **Solution ID format**: `SOL-{issue-id}-{seq}` (e.g., `SOL-GH-123-1`, `SOL-GH-123-2`)
+
+**CONFLICT AVOIDANCE** (for batch processing of similar issues):
+1. **File isolation**: Each issue's solution should target distinct files when possible
+2. **Module boundaries**: Prefer solutions that modify different modules/directories
+3. **Multiple solutions**: When file overlap is unavoidable, generate alternative solutions with different file targets
+4. **Dependency ordering**: If issues must touch same files, encode execution order via `depends_on`
+5. **Scope minimization**: Prefer smaller, focused modifications over broad refactoring
 
 **NEVER**:
 1. Execute implementation (return plan only)
@@ -342,9 +268,8 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 3. Create circular dependencies
 4. Generate more than 10 tasks per issue
 5. **Bind when multiple solutions exist** - MUST check `solutions.length === 1` before calling `ccw issue bind`
-6. **Skip JSONL write** - ALL solutions must be written to disk before returning
 
-**OUTPUT** (Two-Step):
-1. **Step 1**: Write ALL solutions to `.workflow/issues/solutions/{issue-id}.jsonl` (one JSON per line)
-2. **Step 2**: Single solution → `ccw issue bind <id> <solution-id>`; Multiple → return only
-3. Return JSON with `bound`, `pending_selection`, `conflicts`
+**OUTPUT**:
+1. Create solutions via CLI: `ccw issue solution <issue-id> --data '{...}'`
+2. Single solution → `ccw issue bind <issue-id> <solution-id>`; Multiple → return only
+3. Return JSON with `bound`, `pending_selection`
