@@ -52,11 +52,13 @@ color: orange
 ### 1.2 Execution Flow
 
 ```
-Phase 1: Solution Analysis (20%)
+Phase 1: Solution Analysis (15%)
     | Parse solutions, collect files_touched, build DAG
-Phase 2: Conflict Detection (30%)
-    | Identify file overlaps between solutions
-Phase 3: Conflict Resolution (25%)
+Phase 2: Conflict Detection (25%)
+    | Identify all conflict types (file, API, data, dependency, architecture)
+Phase 2.5: Clarification (15%)
+    | Surface ambiguous dependencies, BLOCK until resolved
+Phase 3: Conflict Resolution (20%)
     | Apply ordering rules, update DAG
 Phase 4: Ordering & Grouping (25%)
     | Topological sort, assign parallel/sequential groups
@@ -86,21 +88,105 @@ function buildDependencyGraph(solutions) {
 }
 ```
 
-### 2.2 Conflict Detection
+### 2.2 Conflict Detection (5 Types)
 
-Conflict when multiple solutions modify same file:
+Detect all conflict types between solutions:
 ```javascript
-function detectConflicts(fileModifications, graph) {
-  return [...fileModifications.entries()]
-    .filter(([_, solutions]) => solutions.length > 1)
-    .map(([file, solutions]) => ({
-      type: 'file_conflict',
-      file,
-      solutions,
-      resolved: false
-    }))
+function detectConflicts(solutions, graph) {
+  const conflicts = [];
+  const fileModifications = buildFileModificationMap(solutions);
+
+  // 1. File conflicts (multiple solutions modify same file)
+  for (const [file, solIds] of fileModifications.entries()) {
+    if (solIds.length > 1) {
+      conflicts.push({
+        type: 'file_conflict', severity: 'medium',
+        file, solutions: solIds, resolved: false
+      });
+    }
+  }
+
+  // 2. API conflicts (breaking interface changes)
+  const apiChanges = extractApiChangesFromAllSolutions(solutions);
+  for (const [api, changes] of apiChanges.entries()) {
+    if (changes.some(c => c.breaking)) {
+      conflicts.push({
+        type: 'api_conflict', severity: 'high',
+        api, solutions: changes.map(c => c.solution_id), resolved: false
+      });
+    }
+  }
+
+  // 3. Data model conflicts (schema changes to same model)
+  const dataChanges = extractDataChangesFromAllSolutions(solutions);
+  for (const [model, changes] of dataChanges.entries()) {
+    if (changes.length > 1) {
+      conflicts.push({
+        type: 'data_conflict', severity: 'high',
+        model, solutions: changes.map(c => c.solution_id), resolved: false
+      });
+    }
+  }
+
+  // 4. Dependency conflicts (package version conflicts)
+  const depChanges = extractDependencyChanges(solutions);
+  for (const [pkg, versions] of depChanges.entries()) {
+    if (versions.length > 1 && !versionsCompatible(versions)) {
+      conflicts.push({
+        type: 'dependency_conflict', severity: 'medium',
+        package: pkg, solutions: versions.map(v => v.solution_id), resolved: false
+      });
+    }
+  }
+
+  // 5. Architecture conflicts (pattern violations)
+  const archIssues = detectArchitectureViolations(solutions);
+  conflicts.push(...archIssues.map(issue => ({
+    type: 'architecture_conflict', severity: 'low',
+    pattern: issue.pattern, solutions: issue.solutions, resolved: false
+  })));
+
+  return conflicts;
 }
 ```
+
+### 2.2.5 Clarification (BLOCKING)
+
+**Purpose**: Surface ambiguous dependencies for user/system clarification
+
+**Trigger Conditions**:
+- High severity conflicts with no clear resolution order
+- Circular dependencies detected
+- Multiple valid resolution strategies
+
+**Clarification Logic**:
+```javascript
+function generateClarifications(conflicts, solutions) {
+  const clarifications = [];
+
+  for (const conflict of conflicts) {
+    if (conflict.severity === 'high' && !conflict.recommended_order) {
+      clarifications.push({
+        conflict_id: `CFT-${clarifications.length + 1}`,
+        question: `${conflict.type}: Which solution should execute first?`,
+        options: conflict.solutions.map(solId => ({
+          value: solId,
+          label: getSolutionSummary(solId, solutions)
+        })),
+        requires_user_input: true
+      });
+    }
+  }
+
+  return clarifications;
+}
+```
+
+**Blocking Behavior**: Agent BLOCKS execution until clarifications are resolved
+- Return `clarifications` array in output
+- Main agent presents to user via AskUserQuestion
+- Agent waits for response before proceeding to Phase 3
+- No best-guess fallback - explicit user decision required
 
 ### 2.3 Resolution Rules
 
@@ -189,7 +275,9 @@ Queue Item ID format: `S-N` (S-1, S-2, S-3, ...)
 }
 ```
 
-### 3.3 Return Summary
+### 3.3 Return Summary (Brief)
+
+Return brief summaries; full conflict details in separate files:
 
 ```json
 {
@@ -197,10 +285,26 @@ Queue Item ID format: `S-N` (S-1, S-2, S-3, ...)
   "total_solutions": N,
   "total_tasks": N,
   "execution_groups": [{ "id": "P1", "type": "parallel", "count": N }],
+  "conflicts_summary": [{
+    "id": "CFT-001",
+    "type": "api_conflict",
+    "severity": "high",
+    "summary": "Brief 1-line description",
+    "resolution": "sequential",
+    "details_path": ".workflow/issues/conflicts/CFT-001.json"
+  }],
+  "clarifications": [{
+    "conflict_id": "CFT-002",
+    "question": "Which solution should execute first?",
+    "options": [{ "value": "S-1", "label": "Solution summary" }],
+    "requires_user_input": true
+  }],
   "conflicts_resolved": N,
   "issues_queued": ["ISS-xxx", "ISS-yyy"]
 }
 ```
+
+**Full Conflict Details**: Write to `.workflow/issues/conflicts/{conflict-id}.json`
 
 ---
 

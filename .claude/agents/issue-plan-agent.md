@@ -49,12 +49,14 @@ color: green
 ```
 Phase 1: Issue Understanding (5%)
     ↓ Fetch details, extract requirements, determine complexity
-Phase 2: ACE Exploration (30%)
+Phase 2: ACE Exploration (25%)
     ↓ Semantic search, pattern discovery, dependency mapping
-Phase 3: Solution Planning (50%)
+Phase 3: Solution Planning (45%)
     ↓ Task decomposition, 5-phase lifecycle, acceptance criteria
-Phase 4: Validation & Output (15%)
+Phase 4: Validation & Output (10%)
     ↓ DAG validation, conflict detection, solution registration
+Phase 5: Conflict Analysis (15%)
+    ↓ Gemini CLI multi-solution conflict detection
 ```
 
 #### Phase 1: Issue Understanding
@@ -199,6 +201,67 @@ for (const issue of issues) {
 }
 ```
 
+#### Phase 5: Conflict Analysis (Gemini CLI)
+
+**Trigger**: When batch contains 2+ solutions
+
+**Conflict Types Analyzed**:
+1. **File Conflicts**: Modified file overlaps
+2. **API Conflicts**: Interface/breaking changes
+3. **Data Model Conflicts**: Schema changes
+4. **Dependency Conflicts**: Package version conflicts
+5. **Architecture Conflicts**: Pattern violations
+
+**Gemini CLI Call**:
+```javascript
+function analyzeConflictsGemini(solutions, projectRoot) {
+  if (solutions.length < 2) return { conflicts: [], safe_parallel: [solutions.map(s => s.id)] };
+
+  const solutionSummaries = solutions.map(sol => ({
+    issue_id: sol.issue_id,
+    solution_id: sol.id,
+    files_modified: extractFilesFromTasks(sol.tasks),
+    api_changes: extractApiChanges(sol.tasks),
+    data_changes: extractDataChanges(sol.tasks)
+  }));
+
+  const prompt = `
+PURPOSE: Detect conflicts between solution implementations; identify all conflict types; provide resolution recommendations
+TASK: • Analyze file overlaps • Check API breaking changes • Detect schema conflicts • Find dependency conflicts • Identify architecture violations
+MODE: analysis
+CONTEXT: Solution summaries
+EXPECTED: JSON conflict report with type, severity, solutions_affected, resolution_strategy
+RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) | Mark severity (high/medium/low) | Provide recommended_order
+
+SOLUTIONS:
+${JSON.stringify(solutionSummaries, null, 2)}
+
+OUTPUT FORMAT:
+{
+  "conflicts": [{
+    "type": "file_conflict|api_conflict|data_conflict|dependency_conflict|architecture_conflict",
+    "severity": "high|medium|low",
+    "solutions_affected": ["SOL-001", "SOL-002"],
+    "summary": "brief description",
+    "resolution_strategy": "sequential|parallel_with_coordination|refactor_merge",
+    "recommended_order": ["SOL-001", "SOL-002"],
+    "rationale": "why this order"
+  }],
+  "safe_parallel": [["SOL-003", "SOL-004"]]
+}
+`;
+
+  const taskId = Bash({
+    command: `ccw cli -p "${prompt}" --tool gemini --mode analysis --cd "${projectRoot}"`,
+    run_in_background: true, timeout: 900000
+  });
+  const output = TaskOutput({ task_id: taskId, block: true });
+  return JSON.parse(extractJsonFromMarkdown(output));
+}
+```
+
+**Integration**: After Phase 4 validation, call `analyzeConflictsGemini()` and merge results into return summary.
+
 ---
 
 ## 2. Output Requirements
@@ -225,7 +288,16 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 {
   "bound": [{ "issue_id": "...", "solution_id": "...", "task_count": N }],
   "pending_selection": [{ "issue_id": "...", "solutions": [{ "id": "SOL-001", "description": "...", "task_count": N }] }],
-  "conflicts": [{ "file": "...", "issues": [...] }]
+  "conflicts": [{
+    "type": "file_conflict|api_conflict|data_conflict|dependency_conflict|architecture_conflict",
+    "severity": "high|medium|low",
+    "solutions_affected": ["SOL-001", "SOL-002"],
+    "summary": "brief description",
+    "resolution_strategy": "sequential|parallel_with_coordination",
+    "recommended_order": ["SOL-001", "SOL-002"],
+    "recommended_resolution": "Use sequential execution: SOL-001 first",
+    "resolution_options": [{ "strategy": "...", "rationale": "..." }]
+  }]
 }
 ```
 

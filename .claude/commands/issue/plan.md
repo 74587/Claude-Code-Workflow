@@ -128,40 +128,46 @@ if (flags.allPending) {
   }
 }
 
-// Intelligent grouping by similarity (tags → title keywords)
-function groupBySimilarity(issues, maxSize) {
-  const batches = [];
-  const used = new Set();
+// Semantic grouping via Gemini CLI (max 6 issues per group)
+async function groupBySimilarityGemini(issues) {
+  const issueSummaries = issues.map(i => ({
+    id: i.id, title: i.title, tags: i.tags
+  }));
 
-  for (const issue of issues) {
-    if (used.has(issue.id)) continue;
+  const prompt = `
+PURPOSE: Group similar issues by semantic similarity for batch processing; maximize within-group coherence; max 6 issues per group
+TASK: • Analyze issue titles/tags semantically • Identify functional/architectural clusters • Assign each issue to one group
+MODE: analysis
+CONTEXT: Issue metadata only
+EXPECTED: JSON with groups array, each containing max 6 issue_ids, theme, rationale
+RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) | Each issue in exactly one group | Max 6 issues per group | Balance group sizes
 
-    const batch = [issue];
-    used.add(issue.id);
-    const issueTags = new Set(issue.tags);
-    const issueWords = new Set(issue.title.toLowerCase().split(/\s+/));
+INPUT:
+${JSON.stringify(issueSummaries, null, 2)}
 
-    // Find similar issues
-    for (const other of issues) {
-      if (used.has(other.id) || batch.length >= maxSize) continue;
+OUTPUT FORMAT:
+{"groups":[{"group_id":1,"theme":"...","issue_ids":["..."],"rationale":"..."}],"ungrouped":[]}
+`;
 
-      // Similarity: shared tags or shared title keywords
-      const sharedTags = other.tags.filter(t => issueTags.has(t)).length;
-      const otherWords = other.title.toLowerCase().split(/\s+/);
-      const sharedWords = otherWords.filter(w => issueWords.has(w) && w.length > 3).length;
+  const taskId = Bash({
+    command: `ccw cli -p "${prompt}" --tool gemini --mode analysis`,
+    run_in_background: true, timeout: 600000
+  });
+  const output = TaskOutput({ task_id: taskId, block: true });
 
-      if (sharedTags > 0 || sharedWords >= 2) {
-        batch.push(other);
-        used.add(other.id);
-      }
-    }
-    batches.push(batch);
+  // Extract JSON from potential markdown code blocks
+  function extractJsonFromMarkdown(text) {
+    const jsonMatch = text.match(/```json\s*\n([\s\S]*?)\n```/) ||
+                      text.match(/```\s*\n([\s\S]*?)\n```/);
+    return jsonMatch ? jsonMatch[1] : text;
   }
-  return batches;
+
+  const result = JSON.parse(extractJsonFromMarkdown(output));
+  return result.groups.map(g => g.issue_ids.map(id => issues.find(i => i.id === id)));
 }
 
-const batches = groupBySimilarity(issues, batchSize);
-console.log(`Processing ${issues.length} issues in ${batches.length} batch(es) (grouped by similarity)`);
+const batches = await groupBySimilarityGemini(issues);
+console.log(`Processing ${issues.length} issues in ${batches.length} batch(es) (Gemini semantic grouping, max 6 issues/agent)`);
 
 TodoWrite({
   todos: batches.map((_, i) => ({
@@ -177,6 +183,7 @@ TodoWrite({
 ```javascript
 Bash(`mkdir -p .workflow/issues/solutions`);
 const pendingSelections = [];  // Collect multi-solution issues for user selection
+const agentResults = [];       // Collect all agent results for conflict aggregation
 
 // Build prompts for all batches
 const agentTasks = batches.map((batch, batchIndex) => {
@@ -248,6 +255,7 @@ for (let i = 0; i < agentTasks.length; i += MAX_PARALLEL) {
   for (const { taskId, batchIndex } of taskIds) {
     const result = TaskOutput(task_id=taskId, block=true);
     const summary = JSON.parse(result);
+    agentResults.push(summary);  // Store for Phase 3 conflict aggregation
 
     for (const item of summary.bound || []) {
       console.log(`✓ ${item.issue_id}: ${item.solution_id} (${item.task_count} tasks)`);
@@ -258,17 +266,55 @@ for (let i = 0; i < agentTasks.length; i += MAX_PARALLEL) {
       pendingSelections.push(pending);
     }
     if (summary.conflicts?.length > 0) {
-      console.log(`⚠ Conflicts: ${summary.conflicts.map(c => c.file).join(', ')}`);
+      console.log(`⚠ Conflicts: ${summary.conflicts.length} detected (will resolve in Phase 3)`);
     }
     updateTodo(`Plan batch ${batchIndex + 1}`, 'completed');
   }
 }
 ```
 
-### Phase 3: Multi-Solution Selection (MANDATORY when pendingSelections > 0)
+### Phase 3: Conflict Resolution & Solution Selection
 
 ```javascript
-// MUST trigger user selection when multiple solutions exist
+// Phase 3a: Aggregate and resolve conflicts from all agents
+const allConflicts = [];
+for (const result of agentResults) {
+  if (result.conflicts?.length > 0) {
+    allConflicts.push(...result.conflicts);
+  }
+}
+
+if (allConflicts.length > 0) {
+  console.log(`\n## Resolving ${allConflicts.length} conflict(s) detected by agents\n`);
+
+  // ALWAYS confirm high-severity conflicts (per user preference)
+  const highSeverity = allConflicts.filter(c => c.severity === 'high');
+  const lowMedium = allConflicts.filter(c => c.severity !== 'high');
+
+  // Auto-resolve low/medium severity
+  for (const conflict of lowMedium) {
+    console.log(`  Auto-resolved: ${conflict.summary} → ${conflict.recommended_resolution}`);
+  }
+
+  // ALWAYS require user confirmation for high severity
+  if (highSeverity.length > 0) {
+    const conflictAnswer = AskUserQuestion({
+      questions: highSeverity.slice(0, 4).map(conflict => ({
+        question: `${conflict.type}: ${conflict.summary}. How to resolve?`,
+        header: conflict.type.replace('_conflict', ''),
+        multiSelect: false,
+        options: conflict.resolution_options.map(opt => ({
+          label: opt.strategy,
+          description: opt.rationale
+        }))
+      }))
+    });
+    // Apply user-selected resolutions
+    console.log('Applied user-selected conflict resolutions');
+  }
+}
+
+// Phase 3b: Multi-Solution Selection (MANDATORY when pendingSelections > 0)
 if (pendingSelections.length > 0) {
   console.log(`\n## User Selection Required: ${pendingSelections.length} issue(s) have multiple solutions\n`);
 
