@@ -1,3 +1,5 @@
+import sqlite3
+import sys
 import tempfile
 import threading
 import time
@@ -251,3 +253,67 @@ def test_search_with_ann_valid_results(monkeypatch: pytest.MonkeyPatch, temp_db:
     results = store._search_with_ann(np.array([1.0, 0.0, 0.0], dtype=np.float32), top_k=10, min_score=0.0, return_full_content=False)
     assert [r.path for r in results] == ["a.py"]
     assert results[0].score == pytest.approx(1.0)
+
+
+def test_add_chunks_batch_overflow(monkeypatch: pytest.MonkeyPatch, temp_db: Path) -> None:
+    """add_chunks_batch should fail fast when generated IDs would exceed SQLite/sys bounds."""
+    monkeypatch.setattr(vector_store_module, "HNSWLIB_AVAILABLE", False)
+    store = VectorStore(temp_db)
+
+    seed_embedding = np.array([1.0, 0.0, 0.0], dtype=np.float32).tobytes()
+    with sqlite3.connect(store.db_path) as conn:
+        conn.execute(
+            "INSERT INTO semantic_chunks (id, file_path, content, embedding, metadata) VALUES (?, ?, ?, ?, ?)",
+            (sys.maxsize - 5, "seed.py", "seed", seed_embedding, None),
+        )
+        conn.commit()
+
+    chunks_with_paths: list[tuple[SemanticChunk, str]] = []
+    for i in range(10):
+        chunks_with_paths.append(
+            (
+                SemanticChunk(content=f"chunk {i}", metadata={}, embedding=[1.0, 0.0, 0.0]),
+                f"file_{i}.py",
+            )
+        )
+
+    with pytest.raises(ValueError, match=r"Chunk ID range overflow"):
+        store.add_chunks_batch(chunks_with_paths)
+
+
+def test_add_chunks_batch_generates_sequential_ids(monkeypatch: pytest.MonkeyPatch, temp_db: Path) -> None:
+    """add_chunks_batch should return sequential IDs for a fresh store."""
+    monkeypatch.setattr(vector_store_module, "HNSWLIB_AVAILABLE", False)
+    store = VectorStore(temp_db)
+
+    chunks_with_paths = [
+        (SemanticChunk(content="chunk A", metadata={}, embedding=[1.0, 0.0, 0.0]), "a.py"),
+        (SemanticChunk(content="chunk B", metadata={}, embedding=[0.0, 1.0, 0.0]), "b.py"),
+    ]
+
+    ids = store.add_chunks_batch(chunks_with_paths, update_ann=False)
+    assert ids == [1, 2]
+    assert store.count_chunks() == 2
+
+
+def test_add_chunks_batch_numpy_overflow(monkeypatch: pytest.MonkeyPatch, temp_db: Path) -> None:
+    """add_chunks_batch_numpy should fail fast when generated IDs would exceed SQLite/sys bounds."""
+    monkeypatch.setattr(vector_store_module, "HNSWLIB_AVAILABLE", False)
+    store = VectorStore(temp_db)
+
+    seed_embedding = np.array([1.0, 0.0, 0.0], dtype=np.float32).tobytes()
+    with sqlite3.connect(store.db_path) as conn:
+        conn.execute(
+            "INSERT INTO semantic_chunks (id, file_path, content, embedding, metadata) VALUES (?, ?, ?, ?, ?)",
+            (sys.maxsize - 5, "seed.py", "seed", seed_embedding, None),
+        )
+        conn.commit()
+
+    chunks_with_paths = [
+        (SemanticChunk(content=f"chunk {i}", metadata={}), f"file_{i}.py")
+        for i in range(10)
+    ]
+    embeddings = np.random.randn(10, 3).astype(np.float32)
+
+    with pytest.raises(ValueError, match=r"Chunk ID range overflow"):
+        store.add_chunks_batch_numpy(chunks_with_paths, embeddings)

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 import sqlite3
 import threading
 from pathlib import Path
@@ -38,6 +39,24 @@ logger = logging.getLogger(__name__)
 
 # Epsilon used to guard against floating point precision edge cases (e.g., near-zero norms).
 EPSILON = 1e-10
+
+# SQLite INTEGER PRIMARY KEY uses signed 64-bit rowids.
+SQLITE_INTEGER_MAX = (1 << 63) - 1
+
+
+def _validate_chunk_id_range(start_id: int, count: int) -> None:
+    """Validate that a batch insert can safely generate sequential chunk IDs."""
+    if count <= 0:
+        return
+
+    last_id = start_id + count - 1
+    if last_id > sys.maxsize or last_id > SQLITE_INTEGER_MAX:
+        raise ValueError(
+            "Chunk ID range overflow: "
+            f"start_id={start_id}, count={count} would allocate up to {last_id}, "
+            f"exceeding limits (sys.maxsize={sys.maxsize}, sqlite_max={SQLITE_INTEGER_MAX}). "
+            "Consider cleaning up the index database or creating a new index database."
+        )
 
 
 def _cosine_similarity(a: List[float], b: List[float]) -> float:
@@ -465,6 +484,8 @@ class VectorStore:
         if not chunks_with_paths:
             return []
 
+        batch_size = len(chunks_with_paths)
+
         # Prepare batch data
         batch_data = []
         embeddings_list = []
@@ -487,6 +508,8 @@ class VectorStore:
             row = conn.execute("SELECT MAX(id) FROM semantic_chunks").fetchone()
             start_id = (row[0] or 0) + 1
 
+            _validate_chunk_id_range(start_id, batch_size)
+
             conn.executemany(
                 """
                 INSERT INTO semantic_chunks (file_path, content, embedding, metadata)
@@ -496,7 +519,7 @@ class VectorStore:
             )
             conn.commit()
             # Calculate inserted IDs based on starting ID
-            ids = list(range(start_id, start_id + len(chunks_with_paths)))
+            ids = list(range(start_id, start_id + batch_size))
 
         # Handle ANN index updates
         if embeddings_list and update_ann and self._ensure_ann_index(len(embeddings_list[0])):
@@ -543,6 +566,8 @@ class VectorStore:
         if not chunks_with_paths:
             return []
 
+        batch_size = len(chunks_with_paths)
+
         if len(chunks_with_paths) != embeddings_matrix.shape[0]:
             raise ValueError(
                 f"Mismatch: {len(chunks_with_paths)} chunks but "
@@ -566,6 +591,8 @@ class VectorStore:
             row = conn.execute("SELECT MAX(id) FROM semantic_chunks").fetchone()
             start_id = (row[0] or 0) + 1
 
+            _validate_chunk_id_range(start_id, batch_size)
+
             conn.executemany(
                 """
                 INSERT INTO semantic_chunks (file_path, content, embedding, metadata)
@@ -575,7 +602,7 @@ class VectorStore:
             )
             conn.commit()
             # Calculate inserted IDs based on starting ID
-            ids = list(range(start_id, start_id + len(chunks_with_paths)))
+            ids = list(range(start_id, start_id + batch_size))
 
         # Handle ANN index updates
         if update_ann and self._ensure_ann_index(embeddings_matrix.shape[1]):
