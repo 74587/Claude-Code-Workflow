@@ -500,13 +500,13 @@ class VectorStore:
 
         # Handle ANN index updates
         if embeddings_list and update_ann and self._ensure_ann_index(len(embeddings_list[0])):
-            # In bulk insert mode, accumulate for later batch update
-            if self._bulk_insert_mode:
-                self._bulk_insert_ids.extend(ids)
-                self._bulk_insert_embeddings.extend(embeddings_list)
-            else:
-                # Normal mode: update immediately
-                with self._ann_write_lock:
+            with self._ann_write_lock:
+                # In bulk insert mode, accumulate for later batch update
+                if self._bulk_insert_mode:
+                    self._bulk_insert_ids.extend(ids)
+                    self._bulk_insert_embeddings.extend(embeddings_list)
+                else:
+                    # Normal mode: update immediately
                     try:
                         embeddings_matrix = np.vstack(embeddings_list)
                         self._ann_index.add_vectors(ids, embeddings_matrix)
@@ -579,14 +579,14 @@ class VectorStore:
 
         # Handle ANN index updates
         if update_ann and self._ensure_ann_index(embeddings_matrix.shape[1]):
-            # In bulk insert mode, accumulate for later batch update
-            if self._bulk_insert_mode:
-                self._bulk_insert_ids.extend(ids)
-                # Split matrix into individual arrays for accumulation
-                self._bulk_insert_embeddings.extend([embeddings_matrix[i] for i in range(len(ids))])
-            else:
-                # Normal mode: update immediately
-                with self._ann_write_lock:
+            with self._ann_write_lock:
+                # In bulk insert mode, accumulate for later batch update
+                if self._bulk_insert_mode:
+                    self._bulk_insert_ids.extend(ids)
+                    # Split matrix into individual arrays for accumulation
+                    self._bulk_insert_embeddings.extend([embeddings_matrix[i] for i in range(len(ids))])
+                else:
+                    # Normal mode: update immediately
                     try:
                         self._ann_index.add_vectors(ids, embeddings_matrix)
                         if auto_save_ann:
