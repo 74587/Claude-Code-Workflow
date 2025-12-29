@@ -714,14 +714,14 @@ async function listAction(issueId: string | undefined, options: IssueOptions): P
       issues = issues.filter(i => statuses.includes(i.status));
     }
 
-    // Brief mode: minimal fields only (id, title, status, priority, tags, bound_solution_id)
+    // Brief mode: minimal fields only (id, title, status, priority, labels, bound_solution_id)
     if (options.brief) {
       const briefIssues = issues.map(i => ({
         id: i.id,
         title: i.title,
         status: i.status,
         priority: i.priority,
-        tags: i.tags || [],
+        labels: i.labels || [],
         bound_solution_id: i.bound_solution_id
       }));
       console.log(JSON.stringify(briefIssues, null, 2));
@@ -812,9 +812,15 @@ async function listAction(issueId: string | undefined, options: IssueOptions): P
 async function historyAction(options: IssueOptions): Promise<void> {
   const history = readIssueHistory();
 
-  // IDs only mode
-  if (options.ids) {
-    history.forEach(i => console.log(i.id));
+  // Brief mode: minimal fields only
+  if (options.brief) {
+    const briefHistory = history.map(i => ({
+      id: i.id,
+      title: i.title,
+      status: i.status,
+      completed_at: i.completed_at
+    }));
+    console.log(JSON.stringify(briefHistory, null, 2));
     return;
   }
 
