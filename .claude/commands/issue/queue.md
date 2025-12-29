@@ -199,63 +199,28 @@ Phase 5: Queue Output
 
 ### Phase 1: Solution Loading
 
-**NOTE**: Execute code directly. DO NOT pre-read solution files - Bash cat handles all reading.
+**Data Loading:**
+- Load `issues.jsonl` and filter issues with `status === 'planned'` and `bound_solution_id`
+- If no planned issues found → display message, suggest `/issue:plan`
 
-```javascript
-// Load issues.jsonl
-const issuesPath = '.workflow/issues/issues.jsonl';
-const allIssues = Bash(`cat "${issuesPath}" 2>/dev/null || echo ''`)
-  .split('\n')
-  .filter(line => line.trim())
-  .map(line => JSON.parse(line));
+**Solution Collection** (for each planned issue):
+- Read `solutions/{issue-id}.jsonl`
+- Find bound solution by `bound_solution_id`
+- If bound solution not found → warn and skip issue
+- Extract `files_touched` from all task `modification_points`
 
-// Filter issues with bound solutions
-const plannedIssues = allIssues.filter(i =>
-  i.status === 'planned' && i.bound_solution_id
-);
-
-if (plannedIssues.length === 0) {
-  console.log('No issues with bound solutions found.');
-  console.log('Run /issue:plan first to create and bind solutions.');
-  return;
+**Build Solution Objects:**
+```json
+{
+  "issue_id": "ISS-xxx",
+  "solution_id": "SOL-ISS-xxx-1",
+  "task_count": 3,
+  "files_touched": ["src/auth.ts", "src/utils.ts"],
+  "priority": "medium"
 }
-
-// Load bound solutions (not individual tasks)
-const allSolutions = [];
-for (const issue of plannedIssues) {
-  const solPath = `.workflow/issues/solutions/${issue.id}.jsonl`;
-  const solutions = Bash(`cat "${solPath}" 2>/dev/null || echo ''`)
-    .split('\n')
-    .filter(line => line.trim())
-    .map(line => JSON.parse(line));
-
-  // Find bound solution
-  const boundSol = solutions.find(s => s.id === issue.bound_solution_id);
-
-  if (!boundSol) {
-    console.log(`⚠ Bound solution ${issue.bound_solution_id} not found for ${issue.id}`);
-    continue;
-  }
-
-  // Collect all files touched by this solution
-  const filesTouched = new Set();
-  for (const task of boundSol.tasks || []) {
-    for (const mp of task.modification_points || []) {
-      filesTouched.add(mp.file);
-    }
-  }
-
-  allSolutions.push({
-    issue_id: issue.id,
-    solution_id: issue.bound_solution_id,
-    task_count: boundSol.tasks?.length || 0,
-    files_touched: Array.from(filesTouched),
-    priority: issue.priority || 'medium'
-  });
-}
-
-console.log(`Loaded ${allSolutions.length} solutions from ${plannedIssues.length} issues`);
 ```
+
+**Output:** Array of solution objects ready for agent processing
 
 ### Phase 2-4: Agent-Driven Queue Formation
 
@@ -331,32 +296,16 @@ const summary = JSON.parse(result);
 
 ### Phase 5: Validation & Status Update
 
-```javascript
-const queuePath = `.workflow/issues/queues/${queueId}.json`;
+**Validation:**
+- Verify queue file exists at `queues/{queue-id}.json`
+- Check `solutions` array is non-empty → abort if empty
 
-// 1. Validate queue has solutions
-const solCount = Bash(`jq ".solutions | length" "${queuePath}"`).trim();
-if (!solCount || solCount === '0') {
-  console.error(`✗ Queue has no solutions. Aborting.`);
-  return;
-}
+**Status Update:**
+- Update each queued issue status to `queued` via `ccw issue update <id> --status queued`
 
-// 2. Update issue statuses
-for (const id of summary.issues_queued) {
-  Bash(`ccw issue update ${id} --status queued`);
-}
-
-// 3. Summary
-console.log(`
-## Queue: ${summary.queue_id}
-
-- Solutions: ${summary.total_solutions}
-- Tasks: ${summary.total_tasks}
-- Issues: ${summary.issues_queued.join(', ')}
-
-Next: /issue:execute
-`);
-```
+**Summary Output:**
+- Display queue ID, solution count, task count, issue IDs
+- Show next step: `/issue:execute`
 
 ## Error Handling
 
@@ -370,6 +319,18 @@ Next: /issue:execute
 | **Wrong status value** | Auto-fix: Convert non-pending status to "pending" |
 | **No entry points (all have deps)** | Auto-fix: Clear depends_on for first item |
 | **Queue file missing solutions** | Abort with error, agent must regenerate |
+
+## Quality Checklist
+
+Before completing, verify:
+
+- [ ] All planned issues with `bound_solution_id` are included
+- [ ] Queue JSON written to `queues/{queue-id}.json`
+- [ ] Index updated in `queues/index.json` with `active_queue_id`
+- [ ] No circular dependencies in solution DAG
+- [ ] File conflicts resolved with rationale
+- [ ] Parallel groups have no file overlaps
+- [ ] Issue statuses updated to `queued`
 
 ## Related Commands
 
