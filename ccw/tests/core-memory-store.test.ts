@@ -77,6 +77,8 @@ describe('CoreMemoryStore', async () => {
     assert.equal(created.content, 'Hello world');
     assert.equal(created.archived, false);
 
+    assert.equal(store.getMemory('CMEM-MISSING'), null);
+
     const fetched = store.getMemory('CMEM-TEST-1');
     assert.ok(fetched);
     assert.equal(fetched?.summary, 'Greeting');
@@ -176,4 +178,3 @@ describe('CoreMemoryStore', async () => {
     assert.equal(mod.findMemoryAcrossProjects('CMEM-NOT-THERE'), null);
   });
 });
-

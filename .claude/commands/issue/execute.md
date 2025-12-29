@@ -1,7 +1,7 @@
 ---
 name: execute
 description: Execute queue with codex using DAG-based parallel orchestration (solution-level)
-argument-hint: "[--parallel <n>] [--executor codex|gemini|agent]"
+argument-hint: ""
 allowed-tools: TodoWrite(*), Bash(*), Read(*), AskUserQuestion(*)
 ---
 
@@ -21,27 +21,22 @@ Minimal orchestrator that dispatches **solution IDs** to executors. Each executo
 ## Usage
 
 ```bash
-/issue:execute [FLAGS]
-
-# Examples
-/issue:execute                    # Execute with default parallelism
-/issue:execute --parallel 4       # Execute up to 4 tasks in parallel
-/issue:execute --executor agent   # Use agent instead of codex
-
-# Flags
---parallel <n>        Max parallel executors (default: 3)
---executor <type>     Force executor: codex|gemini|agent (default: codex)
---dry-run             Show DAG and batches without executing
+/issue:execute
 ```
+
+**Parallelism**: Determined automatically by task dependency DAG (no manual control)
+**Executor & Dry-run**: Selected via interactive prompt (AskUserQuestion)
 
 ## Execution Flow
 
 ```
-Phase 1: Get DAG
-   └─ ccw issue queue dag → { parallel_batches: [["S-1","S-2"], ["S-3"]] }
+Phase 1: Get DAG & User Selection
+   ├─ ccw issue queue dag → { parallel_batches: [["S-1","S-2"], ["S-3"]] }
+   └─ AskUserQuestion → executor type (codex|gemini|agent), dry-run mode
 
-Phase 2: Dispatch Parallel Batch
-   ├─ For each solution ID in batch (parallel):
+Phase 2: Dispatch Parallel Batch (DAG-driven)
+   ├─ Parallelism determined by DAG (no manual limit)
+   ├─ For each solution ID in batch (parallel - all at once):
    │   ├─ Executor calls: ccw issue detail <id>  (READ-ONLY)
    │   ├─ Executor gets FULL SOLUTION with all tasks
    │   ├─ Executor implements all tasks sequentially (T1 → T2 → T3)
@@ -55,7 +50,7 @@ Phase 3: Next Batch
 
 ## Implementation
 
-### Phase 1: Get DAG
+### Phase 1: Get DAG & User Selection
 
 ```javascript
 // Get dependency graph and parallel batches
@@ -77,9 +72,37 @@ console.log(`
 - Parallel in batch 1: ${dag.parallel_batches[0]?.length || 0}
 `);
 
+// Interactive selection via AskUserQuestion
+const answer = AskUserQuestion({
+  questions: [
+    {
+      question: 'Select executor type:',
+      header: 'Executor',
+      multiSelect: false,
+      options: [
+        { label: 'Codex (Recommended)', description: 'Autonomous coding with full write access' },
+        { label: 'Gemini', description: 'Large context analysis and implementation' },
+        { label: 'Agent', description: 'Claude Code sub-agent for complex tasks' }
+      ]
+    },
+    {
+      question: 'Execution mode:',
+      header: 'Mode',
+      multiSelect: false,
+      options: [
+        { label: 'Execute (Recommended)', description: 'Run all ready solutions' },
+        { label: 'Dry-run', description: 'Show DAG and batches without executing' }
+      ]
+    }
+  ]
+});
+
+const executor = answer['Executor'].toLowerCase().split(' ')[0];  // codex|gemini|agent
+const isDryRun = answer['Mode'].includes('Dry-run');
+
 // Dry run mode
-if (flags.dryRun) {
-  console.log('### Parallel Batches:\n');
+if (isDryRun) {
+  console.log('### Parallel Batches (Dry-run):\n');
   dag.parallel_batches.forEach((batch, i) => {
     console.log(`Batch ${i + 1}: ${batch.join(', ')}`);
   });
@@ -87,13 +110,11 @@ if (flags.dryRun) {
 }
 ```
 
-### Phase 2: Dispatch Parallel Batch
+### Phase 2: Dispatch Parallel Batch (DAG-driven)
 
 ```javascript
-const parallelLimit = flags.parallel || 3;
-const executor = flags.executor || 'codex';
-
-// Process first batch (all solutions can run in parallel)
+// Parallelism determined by DAG - no manual limit
+// All solutions in same batch have NO file conflicts and can run in parallel
 const batch = dag.parallel_batches[0] || [];
 
 // Initialize TodoWrite
@@ -105,24 +126,16 @@ TodoWrite({
   }))
 });
 
-// Dispatch all in parallel (up to limit)
-const chunks = [];
-for (let i = 0; i < batch.length; i += parallelLimit) {
-  chunks.push(batch.slice(i, i + parallelLimit));
-}
+console.log(`\n### Executing Solutions (DAG batch 1): ${batch.join(', ')}`);
 
-for (const chunk of chunks) {
-  console.log(`\n### Executing Solutions: ${chunk.join(', ')}`);
+// Launch ALL solutions in batch in parallel (DAG guarantees no conflicts)
+const executions = batch.map(solutionId => {
+  updateTodo(solutionId, 'in_progress');
+  return dispatchExecutor(solutionId, executor);
+});
 
-  // Launch all in parallel
-  const executions = chunk.map(solutionId => {
-    updateTodo(solutionId, 'in_progress');
-    return dispatchExecutor(solutionId, executor);
-  });
-
-  await Promise.all(executions);
-  chunk.forEach(id => updateTodo(id, 'completed'));
-}
+await Promise.all(executions);
+batch.forEach(id => updateTodo(id, 'completed'));
 ```
 
 ### Executor Dispatch
