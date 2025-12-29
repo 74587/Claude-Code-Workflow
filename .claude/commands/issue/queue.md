@@ -95,7 +95,6 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
       "execution_group": "P1",
       "depends_on": [],
       "semantic_priority": 0.8,
-      "assigned_executor": "codex",
       "files_touched": ["src/auth.ts", "src/utils.ts"],
       "task_count": 3
     },
@@ -108,7 +107,6 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
       "execution_group": "P1",
       "depends_on": [],
       "semantic_priority": 0.7,
-      "assigned_executor": "codex",
       "files_touched": ["src/api.ts"],
       "task_count": 2
     },
@@ -121,7 +119,6 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
       "execution_group": "S2",
       "depends_on": ["S-1"],
       "semantic_priority": 0.5,
-      "assigned_executor": "codex",
       "files_touched": ["src/auth.ts"],
       "task_count": 4
     }
