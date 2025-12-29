@@ -84,6 +84,24 @@ class TestSemanticChunk:
         chunk = SemanticChunk(content="code", embedding=embedding)
         assert chunk.embedding == embedding
 
+    def test_chunk_zero_vector_validation(self):
+        """Test that zero vector embeddings are rejected."""
+        with pytest.raises(ValidationError) as exc:
+            SemanticChunk(content="code", embedding=[0.0, 0.0, 0.0, 0.0])
+        assert "zero vector" in str(exc.value).lower()
+
+    def test_chunk_near_zero_vector_validation(self):
+        """Test that near-zero vector embeddings are rejected."""
+        with pytest.raises(ValidationError) as exc:
+            SemanticChunk(content="code", embedding=[1e-11, 1e-11, 1e-11])
+        assert "zero vector" in str(exc.value).lower()
+
+    def test_chunk_small_nonzero_vector_validation(self):
+        """Test that small but non-zero embeddings are allowed."""
+        embedding = [0.001, 0.001, 0.001]
+        chunk = SemanticChunk(content="code", embedding=embedding)
+        assert chunk.embedding == embedding
+
 
 class TestIndexedFile:
     """Tests for IndexedFile entity."""
