@@ -11,45 +11,20 @@ allowed-tools: TodoWrite(*), Task(*), SlashCommand(*), AskUserQuestion(*), Bash(
 
 Unified planning command using **issue-plan-agent** that combines exploration and planning into a single closed-loop workflow.
 
-## Output Requirements
+## Command Output
 
-**Generate Files:**
-1. `.workflow/issues/solutions/{issue-id}.jsonl` - Solution with tasks for each issue
-
-**Return Summary:**
 ```json
 {
   "bound": [{ "issue_id": "...", "solution_id": "...", "task_count": N }],
   "pending_selection": [{ "issue_id": "...", "solutions": [...] }],
-  "conflicts": [{ "file": "...", "issues": [...] }]
+  "conflicts": [{ "type": "...", "summary": "..." }]
 }
 ```
 
-**Completion Criteria:**
-- [ ] Solution file generated for each issue
-- [ ] Single solution → auto-bound via `ccw issue bind`
-- [ ] Multiple solutions → returned for user selection
-- [ ] Tasks conform to schema: `cat .claude/workflows/cli-templates/schemas/solution-schema.json`
-- [ ] Each task has quantified `acceptance.criteria`
-
-## Core Capabilities
-
-- **Closed-loop agent**: issue-plan-agent combines explore + plan
-- Batch processing: 1 agent processes 1-3 issues
-- ACE semantic search integrated into planning
-- Solution with executable tasks and delivery criteria
-- Automatic solution registration and binding
-
-## Storage Structure (Flat JSONL)
-
-```
-.workflow/issues/
-├── issues.jsonl              # All issues (one per line)
-├── queue.json                # Execution queue
-└── solutions/
-    ├── {issue-id}.jsonl      # Solutions for issue (one per line)
-    └── ...
-```
+**Behavior:**
+- Single solution per issue → auto-bind
+- Multiple solutions → return for user selection
+- Agent handles file generation (see `issue-plan-agent.md`)
 
 ## Usage
 
