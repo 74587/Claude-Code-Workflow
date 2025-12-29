@@ -17,8 +17,7 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
 
 - **Agent-driven**: issue-queue-agent handles all ordering logic
 - **Solution-level granularity**: Queue items are solutions, not tasks
-- Inter-solution dependency DAG (based on file conflicts)
-- File conflict detection between solutions
+- **Conflict clarification**: High-severity conflicts prompt user decision
 - Semantic priority calculation per solution (0.0-1.0)
 - Parallel/Sequential group assignment for solutions
 
@@ -52,28 +51,29 @@ ccw issue queue delete <queue-id>     Delete queue from history
 
 ```
 Phase 1: Solution Loading
-   ├─ Load issues.jsonl
-   ├─ Filter issues with bound_solution_id
-   ├─ Read solutions/{issue-id}.jsonl for each issue
-   ├─ Find bound solution by ID
-   ├─ Collect files_touched from all tasks in solution
-   └─ Build solution objects (NOT individual tasks)
+   ├─ Load issues.jsonl, filter by status='planned' + bound_solution_id
+   ├─ Read solutions/{issue-id}.jsonl, find bound solution
+   ├─ Extract files_touched from task modification_points
+   └─ Build solution objects array
 
 Phase 2-4: Agent-Driven Queue Formation (issue-queue-agent)
-   ├─ Launch issue-queue-agent with all solutions
+   ├─ Launch issue-queue-agent with solutions array
    ├─ Agent performs:
-   │   ├─ Detect file overlaps between solutions
-   │   ├─ Build dependency DAG from file conflicts
-   │   ├─ Detect circular dependencies
-   │   ├─ Resolve conflicts using priority rules
+   │   ├─ Conflict analysis (5 types via Gemini CLI)
+   │   ├─ Build dependency DAG from conflicts
    │   ├─ Calculate semantic priority per solution
    │   └─ Assign execution groups (parallel/sequential)
-   └─ Output: queue JSON with ordered solutions (S-1, S-2, ...)
+   └─ Agent writes: queue JSON + index update
 
-Phase 5: Queue Output
-   ├─ Write queue.json with solutions array
-   ├─ Update issue statuses in issues.jsonl
-   └─ Display queue summary
+Phase 5: Conflict Clarification (if needed)
+   ├─ Check agent return for `clarifications` array
+   ├─ If clarifications exist → AskUserQuestion
+   ├─ Pass user decisions back to agent (resume)
+   └─ Agent updates queue with resolved conflicts
+
+Phase 6: Status Update & Summary
+   ├─ Update issue statuses to 'queued'
+   └─ Display queue summary, next step: /issue:execute
 ```
 
 ## Implementation
@@ -105,87 +105,133 @@ Phase 5: Queue Output
 
 ### Phase 2-4: Agent-Driven Queue Formation
 
+**Generate Queue ID** (command layer, pass to agent):
 ```javascript
-// Generate queue-id ONCE here, pass to agent
-const now = new Date();
-const queueId = `QUE-${now.toISOString().replace(/[-:T]/g, '').slice(0, 14)}`;
-
-// Build minimal prompt - agent orders SOLUTIONS, not tasks
-const agentPrompt = `
-## Order Solutions
-
-**Queue ID**: ${queueId}
-**Solutions**: ${allSolutions.length} from ${plannedIssues.length} issues
-**Project Root**: ${process.cwd()}
-
-### Input (Solution-Level)
-\`\`\`json
-${JSON.stringify(allSolutions, null, 2)}
-\`\`\`
-
-### Steps
-1. Parse solutions: Extract solution IDs, files_touched, task_count, priority
-2. Detect conflicts: Find file overlaps between solutions (files_touched intersection)
-3. Build DAG: Create dependency edges where solutions share files
-4. Detect cycles: Verify no circular dependencies (abort if found)
-5. Resolve conflicts: Apply ordering rules based on action types
-6. Calculate priority: Compute semantic priority (0.0-1.0) per solution
-7. Assign groups: Parallel (P*) for no-conflict, Sequential (S*) for conflicts
-8. Generate queue: Write queue JSON with ordered solutions
-9. Update index: Update queues/index.json with new queue entry
-
-### Rules
-- **Solution Granularity**: Queue items are solutions, NOT individual tasks
-- **DAG Validity**: Output must be valid DAG with no circular dependencies
-- **Conflict Detection**: Two solutions conflict if files_touched intersect
-- **Ordering Priority**:
-  1. Higher issue priority first (critical > high > medium > low)
-  2. Fewer dependencies first (foundation solutions)
-  3. More tasks = higher priority (larger impact)
-- **Parallel Safety**: Solutions in same parallel group must have NO file overlaps
-- **Queue Item ID Format**: \`S-N\` (S-1, S-2, S-3, ...)
-- **Queue ID**: Use the provided Queue ID (passed above), do NOT generate new one
-
-### Generate Files (STRICT - only these 2)
-1. \`.workflow/issues/queues/{Queue ID}.json\` - Use Queue ID from above
-2. \`.workflow/issues/queues/index.json\` - Update existing index
-
-Write ONLY these 2 files, using the provided Queue ID.
-
-### Return Summary
-\`\`\`json
-{
-  "queue_id": "QUE-YYYYMMDD-HHMMSS",
-  "total_solutions": N,
-  "total_tasks": N,
-  "execution_groups": [{ "id": "P1", "type": "parallel", "count": N }],
-  "conflicts_resolved": N,
-  "issues_queued": ["ISS-xxx"]
-}
-\`\`\`
-`;
-
-const result = Task(
-  subagent_type="issue-queue-agent",
-  run_in_background=false,
-  description=`Order ${allSolutions.length} solutions`,
-  prompt=agentPrompt
-);
-
-const summary = JSON.parse(result);
+const queueId = `QUE-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}`;
 ```
 
-### Phase 5: Validation & Status Update
+**Agent Prompt**:
+```
+## Order Solutions into Execution Queue
 
-**Validation:**
-- Verify queue file exists at `queues/{queue-id}.json`
-- Check `solutions` array is non-empty → abort if empty
+**Queue ID**: ${queueId}
+**Solutions**: ${solutions.length} from ${issues.length} issues
+**Project Root**: ${cwd}
 
-**Status Update:**
-- Update each queued issue status to `queued` via `ccw issue update <id> --status queued`
+### Input
+${JSON.stringify(solutions)}
+
+### Workflow
+
+Step 1: Build dependency graph from solutions (nodes=solutions, edges=file conflicts)
+Step 2: Use Gemini CLI for conflict analysis (5 types: file, API, data, dependency, architecture)
+Step 3: For high-severity conflicts without clear resolution → add to `clarifications`
+Step 4: Calculate semantic priority (base from issue priority + task_count boost)
+Step 5: Assign execution groups: P* (parallel, no overlaps) / S* (sequential, shared files)
+Step 6: Write queue JSON + update index
+
+### Output Requirements
+
+**Write files** (exactly 2):
+- `.workflow/issues/queues/${queueId}.json` - Full queue with solutions, conflicts, groups
+- `.workflow/issues/queues/index.json` - Update with new queue entry
+
+**Return JSON**:
+\`\`\`json
+{
+  "queue_id": "${queueId}",
+  "total_solutions": N,
+  "total_tasks": N,
+  "execution_groups": [{"id": "P1", "type": "parallel", "count": N}],
+  "issues_queued": ["ISS-xxx"],
+  "clarifications": [{"conflict_id": "CFT-1", "question": "...", "options": [...]}]
+}
+\`\`\`
+
+### Rules
+- Solution granularity (NOT individual tasks)
+- Queue Item ID format: S-1, S-2, S-3, ...
+- Use provided Queue ID (do NOT generate new)
+- `clarifications` only present if high-severity unresolved conflicts exist
+
+### Done Criteria
+- [ ] Queue JSON written with all solutions ordered
+- [ ] Index updated with active_queue_id
+- [ ] No circular dependencies
+- [ ] Parallel groups have no file overlaps
+- [ ] Return JSON matches required shape
+```
+
+**Launch Agent**:
+```javascript
+const result = Task(
+  subagent_type="issue-queue-agent",
+  prompt=agentPrompt,
+  description=`Order ${solutions.length} solutions`
+);
+```
+
+### Phase 5: Conflict Clarification
+
+**Check Agent Return:**
+- Parse agent result JSON
+- If `clarifications` array exists and non-empty → user decision required
+
+**Clarification Flow:**
+```javascript
+if (result.clarifications?.length > 0) {
+  for (const clarification of result.clarifications) {
+    // Present to user via AskUserQuestion
+    const answer = AskUserQuestion({
+      questions: [{
+        question: clarification.question,
+        header: clarification.conflict_id,
+        options: clarification.options,
+        multiSelect: false
+      }]
+    });
+
+    // Resume agent with user decision
+    Task(
+      subagent_type="issue-queue-agent",
+      resume=agentId,
+      prompt=`Conflict ${clarification.conflict_id} resolved: ${answer.selected}`
+    );
+  }
+}
+```
+
+### Phase 6: Status Update & Summary
+
+**Status Update** (single command):
+```bash
+ccw issue update --from-queue [queue-id] --json
+
+# Examples
+ccw issue update --from-queue --json              # Use active queue
+ccw issue update --from-queue QUE-xxx --json      # Use specific queue
+```
+
+**Output** (JSON):
+```json
+{
+  "success": true,
+  "queue_id": "QUE-xxx",
+  "queued": ["ISS-001", "ISS-002"],
+  "queued_count": 2,
+  "unplanned": ["ISS-003"],
+  "unplanned_count": 1
+}
+```
+
+**Behavior:**
+- Updates issues in queue to `status: 'queued'` (skips already queued/executing/completed)
+- Identifies planned issues with `bound_solution_id` NOT in queue → `unplanned` array
+- Optional `queue-id`: defaults to active queue if omitted
 
 **Summary Output:**
-- Display queue ID, solution count, task count, issue IDs
+- Display queue ID, solution count, task count
+- Show unplanned issues (planned but NOT in queue)
 - Show next step: `/issue:execute`
 
 
@@ -221,77 +267,16 @@ const summary = JSON.parse(result);
 }
 ```
 
-### Queue File Schema (Solution-Level)
-
-```json
-{
-  "id": "QUE-20251227-143000",
-  "status": "active",
-  "solutions": [
-    {
-      "item_id": "S-1",
-      "issue_id": "ISS-20251227-003",
-      "solution_id": "SOL-ISS-20251227-003-1",
-      "status": "pending",
-      "execution_order": 1,
-      "execution_group": "P1",
-      "depends_on": [],
-      "semantic_priority": 0.8,
-      "files_touched": ["src/auth.ts", "src/utils.ts"],
-      "task_count": 3
-    },
-    {
-      "item_id": "S-2",
-      "issue_id": "ISS-20251227-001",
-      "solution_id": "SOL-ISS-20251227-001-1",
-      "status": "pending",
-      "execution_order": 2,
-      "execution_group": "P1",
-      "depends_on": [],
-      "semantic_priority": 0.7,
-      "files_touched": ["src/api.ts"],
-      "task_count": 2
-    },
-    {
-      "item_id": "S-3",
-      "issue_id": "ISS-20251227-002",
-      "solution_id": "SOL-ISS-20251227-002-1",
-      "status": "pending",
-      "execution_order": 3,
-      "execution_group": "S2",
-      "depends_on": ["S-1"],
-      "semantic_priority": 0.5,
-      "files_touched": ["src/auth.ts"],
-      "task_count": 4
-    }
-  ],
-  "conflicts": [
-    {
-      "type": "file_conflict",
-      "file": "src/auth.ts",
-      "solutions": ["S-1", "S-3"],
-      "resolution": "sequential",
-      "resolution_order": ["S-1", "S-3"],
-      "rationale": "S-1 creates auth module, S-3 extends it"
-    }
-  ],
-  "execution_groups": [
-    { "id": "P1", "type": "parallel", "solutions": ["S-1", "S-2"] },
-    { "id": "S2", "type": "sequential", "solutions": ["S-3"] }
-  ]
-}
-```
+**Note**: Queue file schema is produced by `issue-queue-agent`. See agent documentation for details.
 ## Error Handling
 
 | Error | Resolution |
 |-------|------------|
 | No bound solutions | Display message, suggest /issue:plan |
 | Circular dependency | List cycles, abort queue formation |
-| Unresolved conflicts | Agent resolves using ordering rules |
-| Invalid task reference | Skip and warn |
+| High-severity conflict | Return `clarifications`, prompt user decision |
+| User cancels clarification | Abort queue formation |
 | **index.json not updated** | Auto-fix: Set active_queue_id to new queue |
-| **Wrong status value** | Auto-fix: Convert non-pending status to "pending" |
-| **No entry points (all have deps)** | Auto-fix: Clear depends_on for first item |
 | **Queue file missing solutions** | Abort with error, agent must regenerate |
 
 ## Quality Checklist
@@ -302,7 +287,7 @@ Before completing, verify:
 - [ ] Queue JSON written to `queues/{queue-id}.json`
 - [ ] Index updated in `queues/index.json` with `active_queue_id`
 - [ ] No circular dependencies in solution DAG
-- [ ] File conflicts resolved with rationale
+- [ ] All conflicts resolved (auto or via user clarification)
 - [ ] Parallel groups have no file overlaps
 - [ ] Issue statuses updated to `queued`
 
@@ -311,3 +296,4 @@ Before completing, verify:
 - `/issue:plan` - Plan issues and bind solutions
 - `/issue:execute` - Execute queue with codex
 - `ccw issue queue list` - View current queue
+- `ccw issue update --from-queue [queue-id]` - Sync issue statuses from queue

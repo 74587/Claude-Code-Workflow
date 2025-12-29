@@ -163,51 +163,26 @@ ${issueList}
 
 **Project Root**: ${process.cwd()}
 
-### Project Context (MANDATORY - Read Both Files First)
-1. Read: .workflow/project-tech.json (technology stack, architecture, key components)
-2. Read: .workflow/project-guidelines.json (user-defined constraints and conventions)
+### Project Context (MANDATORY)
+1. Read: .workflow/project-tech.json (technology stack, architecture)
+2. Read: .workflow/project-guidelines.json (constraints and conventions)
 
-**CRITICAL**: All solution tasks MUST comply with constraints in project-guidelines.json
-
-### Steps
-1. Fetch issue: \`ccw issue status <id> --json\`
-2. Load project context (project-tech.json + project-guidelines.json)
+### Workflow
+1. Fetch issue details: ccw issue status <id> --json
+2. Load project context files
 3. Explore codebase (ACE semantic search)
-4. Plan solution with tasks (see issue-plan-agent.md for details)
-5. Write solutions to JSONL, bind if single solution
+4. Plan solution with tasks (schema: solution-schema.json)
+5. Create solution: ccw issue solution <issue-id> --data '{...}'
+6. Single solution → auto-bind; Multiple → return for selection
 
-### Solution Creation (via CLI endpoint)
-```bash
-ccw issue solution <issue-id> --data '{"description":"...", "approach":"...", "tasks":[...]}'
-```
-
-**CLI Endpoint Features:**
-| Feature | Description |
-|---------|-------------|
-| Auto-increment ID | `SOL-{issue-id}-{seq}` (e.g., `SOL-GH-123-1`) |
-| Multi-solution | Appends to existing JSONL, supports multiple per issue |
-| JSON output | Returns created solution with ID |
-
-**Schema Reference:** `cat .claude/workflows/cli-templates/schemas/solution-schema.json`
-
-### Binding Rules
-- **Single solution**: Auto-bind via `ccw issue bind <issue-id> <solution-id>`
-- **Multiple solutions**: Register only, return for user selection
+### Rules
+- Solution ID format: SOL-{issue-id}-{seq}
+- Single solution per issue → auto-bind via ccw issue bind
+- Multiple solutions → register only, return pending_selection
+- Tasks must have quantified acceptance.criteria
 
 ### Return Summary
-\`\`\`json
-{
-  "bound": [{ "issue_id": "...", "solution_id": "...", "task_count": N }],
-  "pending_selection": [{ "issue_id": "...", "solutions": [{ "id": "...", "description": "...", "task_count": N }] }],
-  "conflicts": [{
-    "type": "file_conflict|api_conflict|data_conflict|dependency_conflict|architecture_conflict",
-    "severity": "high|medium|low",
-    "summary": "brief description",
-    "recommended_resolution": "auto-resolution for low/medium",
-    "resolution_options": [{ "strategy": "...", "rationale": "..." }]
-  }]
-}
-\`\`\`
+{"bound":[{"issue_id":"...","solution_id":"...","task_count":N}],"pending_selection":[{"issue_id":"...","solutions":[{"id":"...","description":"...","task_count":N}]}]}
 `;
 
   return { batchIndex, batchIds, issuePrompt, batch };

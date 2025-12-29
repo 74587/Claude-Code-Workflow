@@ -67,6 +67,17 @@ function readSolutionsJsonl(issuesDir: string, issueId: string): any[] {
   }
 }
 
+function readIssueHistoryJsonl(issuesDir: string): any[] {
+  const historyPath = join(issuesDir, 'issue-history.jsonl');
+  if (!existsSync(historyPath)) return [];
+  try {
+    const content = readFileSync(historyPath, 'utf8');
+    return content.split('\n').filter(line => line.trim()).map(line => JSON.parse(line));
+  } catch {
+    return [];
+  }
+}
+
 function writeSolutionsJsonl(issuesDir: string, issueId: string, solutions: any[]) {
   const solutionsDir = join(issuesDir, 'solutions');
   if (!existsSync(solutionsDir)) mkdirSync(solutionsDir, { recursive: true });
@@ -372,6 +383,17 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
     res.end(JSON.stringify({
       issues,
       _metadata: { version: '2.0', storage: 'jsonl', total_issues: issues.length, last_updated: new Date().toISOString() }
+    }));
+    return true;
+  }
+
+  // GET /api/issues/history - List completed issues from history
+  if (pathname === '/api/issues/history' && req.method === 'GET') {
+    const history = readIssueHistoryJsonl(issuesDir);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      issues: history,
+      _metadata: { version: '1.0', storage: 'jsonl', total_issues: history.length, last_updated: new Date().toISOString() }
     }));
     return true;
   }

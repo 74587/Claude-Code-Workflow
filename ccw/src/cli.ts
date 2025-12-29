@@ -282,9 +282,11 @@ export function run(argv: string[]): void {
     // New options for solution/queue management
     .option('--solution <path>', 'Solution JSON file path')
     .option('--solution-id <id>', 'Solution ID')
+    .option('--data <json>', 'JSON data for create/solution')
     .option('--result <json>', 'Execution result JSON')
     .option('--reason <text>', 'Failure reason')
     .option('--fail', 'Mark task as failed')
+    .option('--from-queue [queue-id]', 'Sync issue statuses from queue (default: active queue)')
     .action((subcommand, args, options) => issueCommand(subcommand, args, options));
 
   program.parse(argv);

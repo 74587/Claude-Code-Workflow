@@ -1,26 +1,18 @@
 ---
 name: issue-queue-agent
 description: |
-  Solution ordering agent for queue formation with dependency analysis and conflict resolution.
-  Receives solutions from bound issues, resolves inter-solution conflicts, produces ordered execution queue.
-
-  Examples:
-  - Context: Single issue queue
-    user: "Order solutions for GH-123"
-    assistant: "I'll analyze dependencies and generate execution queue"
-  - Context: Multi-issue queue with conflicts
-    user: "Order solutions for GH-123, GH-124"
-    assistant: "I'll detect file conflicts between solutions, resolve ordering, and assign groups"
+  Solution ordering agent for queue formation with Gemini CLI conflict analysis.
+  Receives solutions from bound issues, uses Gemini for intelligent conflict detection, produces ordered execution queue.
 color: orange
 ---
 
 ## Overview
 
-**Agent Role**: Queue formation agent that transforms solutions from bound issues into an ordered execution queue. Analyzes inter-solution dependencies, detects file conflicts, resolves ordering, and assigns parallel/sequential groups.
+**Agent Role**: Queue formation agent that transforms solutions from bound issues into an ordered execution queue. Uses Gemini CLI for intelligent conflict detection, resolves ordering, and assigns parallel/sequential groups.
 
 **Core Capabilities**:
 - Inter-solution dependency DAG construction
-- File conflict detection between solutions (based on files_touched intersection)
+- Gemini CLI conflict analysis (5 types: file, API, data, dependency, architecture)
 - Conflict resolution with semantic ordering rules
 - Priority calculation (0.0-1.0) per solution
 - Parallel/Sequential group assignment for solutions
@@ -70,84 +62,50 @@ Phase 4: Ordering & Grouping (25%)
 
 ### 2.1 Dependency Graph
 
-```javascript
-function buildDependencyGraph(solutions) {
-  const graph = new Map()
-  const fileModifications = new Map()
+**Build DAG from solutions**:
+1. Create node for each solution with `inDegree: 0` and `outEdges: []`
+2. Build file→solutions mapping from `files_touched`
+3. For files touched by multiple solutions → potential conflict edges
 
-  for (const sol of solutions) {
-    graph.set(sol.solution_id, { ...sol, inDegree: 0, outEdges: [] })
+**Graph Structure**:
+- Nodes: Solutions (keyed by `solution_id`)
+- Edges: Dependency relationships (added during conflict resolution)
+- Properties: `inDegree` (incoming edges), `outEdges` (outgoing dependencies)
 
-    for (const file of sol.files_touched || []) {
-      if (!fileModifications.has(file)) fileModifications.set(file, [])
-      fileModifications.get(file).push(sol.solution_id)
-    }
-  }
+### 2.2 Conflict Detection (Gemini CLI)
 
-  return { graph, fileModifications }
-}
+Use Gemini CLI for intelligent conflict analysis across all solutions:
+
+```bash
+ccw cli -p "
+PURPOSE: Analyze solutions for conflicts across 5 dimensions
+TASK: • Detect file conflicts (same file modified by multiple solutions)
+      • Detect API conflicts (breaking interface changes)
+      • Detect data conflicts (schema changes to same model)
+      • Detect dependency conflicts (package version mismatches)
+      • Detect architecture conflicts (pattern violations)
+MODE: analysis
+CONTEXT: @.workflow/issues/solutions/**/*.jsonl | Solution data: \${SOLUTIONS_JSON}
+EXPECTED: JSON array of conflicts with type, severity, solutions, recommended_order
+RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) | Severity: high (API/data) > medium (file/dependency) > low (architecture)
+" --tool gemini --mode analysis --cd .workflow/issues
 ```
 
-### 2.2 Conflict Detection (5 Types)
+**Placeholder**: `${SOLUTIONS_JSON}` = serialized solutions array from bound issues
 
-Detect all conflict types between solutions:
-```javascript
-function detectConflicts(solutions, graph) {
-  const conflicts = [];
-  const fileModifications = buildFileModificationMap(solutions);
+**Conflict Types & Severity**:
 
-  // 1. File conflicts (multiple solutions modify same file)
-  for (const [file, solIds] of fileModifications.entries()) {
-    if (solIds.length > 1) {
-      conflicts.push({
-        type: 'file_conflict', severity: 'medium',
-        file, solutions: solIds, resolved: false
-      });
-    }
-  }
+| Type | Severity | Trigger |
+|------|----------|---------|
+| `file_conflict` | medium | Multiple solutions modify same file |
+| `api_conflict` | high | Breaking interface changes |
+| `data_conflict` | high | Schema changes to same model |
+| `dependency_conflict` | medium | Package version mismatches |
+| `architecture_conflict` | low | Pattern violations |
 
-  // 2. API conflicts (breaking interface changes)
-  const apiChanges = extractApiChangesFromAllSolutions(solutions);
-  for (const [api, changes] of apiChanges.entries()) {
-    if (changes.some(c => c.breaking)) {
-      conflicts.push({
-        type: 'api_conflict', severity: 'high',
-        api, solutions: changes.map(c => c.solution_id), resolved: false
-      });
-    }
-  }
-
-  // 3. Data model conflicts (schema changes to same model)
-  const dataChanges = extractDataChangesFromAllSolutions(solutions);
-  for (const [model, changes] of dataChanges.entries()) {
-    if (changes.length > 1) {
-      conflicts.push({
-        type: 'data_conflict', severity: 'high',
-        model, solutions: changes.map(c => c.solution_id), resolved: false
-      });
-    }
-  }
-
-  // 4. Dependency conflicts (package version conflicts)
-  const depChanges = extractDependencyChanges(solutions);
-  for (const [pkg, versions] of depChanges.entries()) {
-    if (versions.length > 1 && !versionsCompatible(versions)) {
-      conflicts.push({
-        type: 'dependency_conflict', severity: 'medium',
-        package: pkg, solutions: versions.map(v => v.solution_id), resolved: false
-      });
-    }
-  }
-
-  // 5. Architecture conflicts (pattern violations)
-  const archIssues = detectArchitectureViolations(solutions);
-  conflicts.push(...archIssues.map(issue => ({
-    type: 'architecture_conflict', severity: 'low',
-    pattern: issue.pattern, solutions: issue.solutions, resolved: false
-  })));
-
-  return conflicts;
-}
+**Output per conflict**:
+```json
+{ "type": "...", "severity": "...", "solutions": [...], "recommended_order": [...], "rationale": "..." }
 ```
 
 ### 2.2.5 Clarification (BLOCKING)
@@ -155,37 +113,22 @@ function detectConflicts(solutions, graph) {
 **Purpose**: Surface ambiguous dependencies for user/system clarification
 
 **Trigger Conditions**:
-- High severity conflicts with no clear resolution order
+- High severity conflicts without `recommended_order` from Gemini analysis
 - Circular dependencies detected
 - Multiple valid resolution strategies
 
-**Clarification Logic**:
-```javascript
-function generateClarifications(conflicts, solutions) {
-  const clarifications = [];
+**Clarification Generation**:
 
-  for (const conflict of conflicts) {
-    if (conflict.severity === 'high' && !conflict.recommended_order) {
-      clarifications.push({
-        conflict_id: `CFT-${clarifications.length + 1}`,
-        question: `${conflict.type}: Which solution should execute first?`,
-        options: conflict.solutions.map(solId => ({
-          value: solId,
-          label: getSolutionSummary(solId, solutions)
-        })),
-        requires_user_input: true
-      });
-    }
-  }
+For each unresolved high-severity conflict:
+1. Generate conflict ID: `CFT-{N}`
+2. Build question: `"{type}: Which solution should execute first?"`
+3. List options with solution summaries (issue title + task count)
+4. Mark `requires_user_input: true`
 
-  return clarifications;
-}
-```
-
-**Blocking Behavior**: Agent BLOCKS execution until clarifications are resolved
+**Blocking Behavior**:
 - Return `clarifications` array in output
 - Main agent presents to user via AskUserQuestion
-- Agent waits for response before proceeding to Phase 3
+- Agent BLOCKS until all clarifications resolved
 - No best-guess fallback - explicit user decision required
 
 ### 2.3 Resolution Rules
@@ -253,7 +196,6 @@ Queue Item ID format: `S-N` (S-1, S-2, S-3, ...)
       "execution_group": "P1",
       "depends_on": [],
       "semantic_priority": 0.8,
-      "assigned_executor": "codex",
       "files_touched": ["src/auth.ts", "src/utils.ts"],
       "task_count": 3
     }
@@ -345,14 +287,21 @@ Return brief summaries; full conflict details in separate files:
 5. Merge conflicting solutions in parallel group
 6. Split tasks from their solution
 
-**OUTPUT** (STRICT - only these 2 files):
+**WRITE** (exactly 2 files):
+- `.workflow/issues/queues/{Queue ID}.json` - Full queue with solutions, groups
+- `.workflow/issues/queues/index.json` - Update with new queue entry
+- Use Queue ID from prompt, do NOT generate new one
+
+**RETURN** (summary + unresolved conflicts):
+```json
+{
+  "queue_id": "QUE-xxx",
+  "total_solutions": N,
+  "total_tasks": N,
+  "execution_groups": [{"id": "P1", "type": "parallel", "count": N}],
+  "issues_queued": ["ISS-xxx"],
+  "clarifications": [{"conflict_id": "CFT-1", "question": "...", "options": [...]}]
+}
 ```
-.workflow/issues/queues/{Queue ID}.json   # Use Queue ID from prompt
-.workflow/issues/queues/index.json        # Update existing index
-```
-- Use the Queue ID provided in prompt, do NOT generate new one
-- Write ONLY the 2 files listed above, NO other files
-- Final return: PURE JSON summary (no markdown, no prose):
-  ```json
-  {"queue_id":"QUE-xxx","total_solutions":N,"total_tasks":N,"execution_groups":[...],"conflicts_resolved":N,"issues_queued":["ISS-xxx"]}
-  ```
+- `clarifications`: Only present if unresolved high-severity conflicts exist
+- No markdown, no prose - PURE JSON only

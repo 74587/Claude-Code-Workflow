@@ -196,6 +196,7 @@ interface IssueOptions {
   fail?: boolean;
   ids?: boolean;        // List only IDs (one per line)
   data?: string;        // JSON data for create
+  fromQueue?: boolean | string;  // Sync statuses from queue (true=active, string=specific queue ID)
 }
 
 const ISSUES_DIR = '.workflow/issues';
@@ -251,12 +252,69 @@ function findIssue(issueId: string): Issue | undefined {
   return readIssues().find(i => i.id === issueId);
 }
 
+// ============ Issue History JSONL ============
+
+function readIssueHistory(): Issue[] {
+  const path = join(getIssuesDir(), 'issue-history.jsonl');
+  if (!existsSync(path)) return [];
+  try {
+    return readFileSync(path, 'utf-8')
+      .split('\n')
+      .filter(line => line.trim())
+      .map(line => JSON.parse(line));
+  } catch {
+    return [];
+  }
+}
+
+function appendIssueHistory(issue: Issue): void {
+  ensureIssuesDir();
+  const path = join(getIssuesDir(), 'issue-history.jsonl');
+  const line = JSON.stringify(issue) + '\n';
+  // Append to history file
+  if (existsSync(path)) {
+    const content = readFileSync(path, 'utf-8');
+    // Ensure proper newline before appending
+    const needsNewline = content.length > 0 && !content.endsWith('\n');
+    writeFileSync(path, (needsNewline ? '\n' : '') + line, { flag: 'a' });
+  } else {
+    writeFileSync(path, line, 'utf-8');
+  }
+}
+
+/**
+ * Move completed issue from issues.jsonl to issue-history.jsonl
+ */
+function moveIssueToHistory(issueId: string): boolean {
+  const issues = readIssues();
+  const idx = issues.findIndex(i => i.id === issueId);
+  if (idx === -1) return false;
+
+  const issue = issues[idx];
+  if (issue.status !== 'completed') return false;
+
+  // Append to history
+  appendIssueHistory(issue);
+
+  // Remove from active issues
+  issues.splice(idx, 1);
+  writeIssues(issues);
+
+  return true;
+}
+
 function updateIssue(issueId: string, updates: Partial<Issue>): boolean {
   const issues = readIssues();
   const idx = issues.findIndex(i => i.id === issueId);
   if (idx === -1) return false;
   issues[idx] = { ...issues[idx], ...updates, updated_at: new Date().toISOString() };
   writeIssues(issues);
+
+  // Auto-move to history when completed
+  if (updates.status === 'completed') {
+    moveIssueToHistory(issueId);
+  }
+
   return true;
 }
 
@@ -741,6 +799,46 @@ async function listAction(issueId: string | undefined, options: IssueOptions): P
 }
 
 /**
+ * history - List completed issues from history
+ */
+async function historyAction(options: IssueOptions): Promise<void> {
+  const history = readIssueHistory();
+
+  // IDs only mode
+  if (options.ids) {
+    history.forEach(i => console.log(i.id));
+    return;
+  }
+
+  if (options.json) {
+    console.log(JSON.stringify(history, null, 2));
+    return;
+  }
+
+  if (history.length === 0) {
+    console.log(chalk.yellow('No completed issues in history'));
+    return;
+  }
+
+  console.log(chalk.bold.cyan('\nIssue History (Completed)\n'));
+  console.log(chalk.gray('ID'.padEnd(25) + 'Completed At'.padEnd(22) + 'Title'));
+  console.log(chalk.gray('-'.repeat(80)));
+
+  for (const issue of history) {
+    const completedAt = issue.completed_at
+      ? new Date(issue.completed_at).toLocaleString()
+      : 'N/A';
+    console.log(
+      chalk.green(issue.id.padEnd(25)) +
+      completedAt.padEnd(22) +
+      (issue.title || '').substring(0, 35)
+    );
+  }
+
+  console.log(chalk.gray(`\nTotal: ${history.length} completed issues`));
+}
+
+/**
  * status - Show detailed status
  */
 async function statusAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
@@ -891,11 +989,88 @@ async function taskAction(issueId: string | undefined, taskId: string | undefine
 
 /**
  * update - Update issue fields (status, priority, title, etc.)
+ * --from-queue: Sync statuses from active queue (auto-update queued issues)
  */
 async function updateAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
+  // Handle --from-queue: Sync statuses from queue
+  if (options.fromQueue) {
+    // Determine queue ID: string value = specific queue, true = active queue
+    const queueId = typeof options.fromQueue === 'string' ? options.fromQueue : undefined;
+    const queue = queueId ? readQueue(queueId) : readActiveQueue();
+
+    if (!queue) {
+      if (options.json) {
+        console.log(JSON.stringify({ success: false, message: `Queue not found: ${queueId}`, queued: [], unplanned: [] }));
+      } else {
+        console.log(chalk.red(`Queue not found: ${queueId}`));
+      }
+      return;
+    }
+
+    const items = queue.solutions || queue.tasks || [];
+    const allIssues = readIssues();
+
+    if (!queue.id || items.length === 0) {
+      if (options.json) {
+        console.log(JSON.stringify({ success: false, message: 'No active queue', queued: [], unplanned: [] }));
+      } else {
+        console.log(chalk.yellow('No active queue to sync from'));
+      }
+      return;
+    }
+
+    // Get issue IDs from queue
+    const queuedIssueIds = new Set(items.map(item => item.issue_id));
+    const now = new Date().toISOString();
+
+    // Track updates
+    const updated: string[] = [];
+    const unplanned: string[] = [];
+
+    // Update queued issues
+    for (const issueId of queuedIssueIds) {
+      const issue = allIssues.find(i => i.id === issueId);
+      if (issue && issue.status !== 'queued' && issue.status !== 'executing' && issue.status !== 'completed') {
+        updateIssue(issueId, { status: 'queued', queued_at: now });
+        updated.push(issueId);
+      }
+    }
+
+    // Find planned issues NOT in queue
+    for (const issue of allIssues) {
+      if (issue.status === 'planned' && issue.bound_solution_id && !queuedIssueIds.has(issue.id)) {
+        unplanned.push(issue.id);
+      }
+    }
+
+    if (options.json) {
+      console.log(JSON.stringify({
+        success: true,
+        queue_id: queue.id,
+        queued: updated,
+        queued_count: updated.length,
+        unplanned: unplanned,
+        unplanned_count: unplanned.length
+      }, null, 2));
+    } else {
+      console.log(chalk.green(`✓ Synced from queue ${queue.id}`));
+      console.log(chalk.gray(`  Updated to 'queued': ${updated.length} issues`));
+      if (updated.length > 0) {
+        updated.forEach(id => console.log(chalk.gray(`    - ${id}`)));
+      }
+      if (unplanned.length > 0) {
+        console.log(chalk.yellow(`  Planned but NOT in queue: ${unplanned.length} issues`));
+        unplanned.forEach(id => console.log(chalk.yellow(`    - ${id}`)));
+      }
+    }
+    return;
+  }
+
+  // Standard single-issue update
   if (!issueId) {
     console.error(chalk.red('Issue ID is required'));
-    console.error(chalk.gray('Usage: ccw issue update <issue-id> --status <status> [--priority <n>] [--title "..."]'));
+    console.error(chalk.gray('Usage: ccw issue update <issue-id> --status <status>'));
+    console.error(chalk.gray('       ccw issue update --from-queue [queue-id]  (sync from queue)'));
     process.exit(1);
   }
 
@@ -1712,6 +1887,9 @@ export async function issueCommand(
     case 'list':
       await listAction(argsArray[0], options);
       break;
+    case 'history':
+      await historyAction(options);
+      break;
     case 'status':
       await statusAction(argsArray[0], options);
       break;
@@ -1753,12 +1931,15 @@ export async function issueCommand(
     default:
       console.log(chalk.bold.cyan('\nCCW Issue Management (v3.0 - Multi-Queue + Lifecycle)\n'));
       console.log(chalk.bold('Core Commands:'));
-      console.log(chalk.gray('  init <issue-id>                    Initialize new issue'));
+      console.log(chalk.gray('  create --data \'{"title":"..."}\'    Create issue (auto-generates ID)'));
+      console.log(chalk.gray('  init <issue-id>                    Initialize new issue (manual ID)'));
       console.log(chalk.gray('  list [issue-id]                    List issues or tasks'));
+      console.log(chalk.gray('  history                            List completed issues (from history)'));
       console.log(chalk.gray('  status [issue-id]                  Show detailed status'));
-      console.log(chalk.gray('  task <issue-id> [task-id]          Add or update task'));
-      console.log(chalk.gray('  bind <issue-id> [sol-id]           Bind solution (--solution <path> to register)'));
-      console.log(chalk.gray('  update <issue-id>                  Update issue (--status, --priority, --title)'));
+      console.log(chalk.gray('  solution <id> --data \'{...}\'       Create solution (auto-generates ID)'));
+      console.log(chalk.gray('  bind <issue-id> [sol-id]           Bind solution'));
+      console.log(chalk.gray('  update <issue-id> --status <s>     Update issue status'));
+      console.log(chalk.gray('  update --from-queue [queue-id]     Sync statuses from queue (default: active)'));
       console.log();
       console.log(chalk.bold('Queue Commands:'));
       console.log(chalk.gray('  queue                              Show active queue'));
@@ -1787,7 +1968,8 @@ export async function issueCommand(
       console.log(chalk.gray('  --force                            Force operation'));
       console.log();
       console.log(chalk.bold('Storage:'));
-      console.log(chalk.gray('  .workflow/issues/issues.jsonl      All issues'));
+      console.log(chalk.gray('  .workflow/issues/issues.jsonl         Active issues'));
+      console.log(chalk.gray('  .workflow/issues/issue-history.jsonl  Completed issues'));
       console.log(chalk.gray('  .workflow/issues/solutions/*.jsonl Solutions per issue'));
       console.log(chalk.gray('  .workflow/issues/queues/           Queue files (multi-queue)'));
       console.log(chalk.gray('  .workflow/issues/queues/index.json Queue index'));
