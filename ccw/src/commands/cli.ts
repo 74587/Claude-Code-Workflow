@@ -738,11 +738,39 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
     } else {
       console.log(chalk.red(`  ✗ Failed (${result.execution.status})`));
       console.log(chalk.gray(`  ID: ${result.execution.id}`));
+      console.log(chalk.gray(`  Duration: ${(result.execution.duration_ms / 1000).toFixed(1)}s`));
+      console.log(chalk.gray(`  Exit Code: ${result.execution.exit_code}`));
+
+      // Show stderr with better formatting
       if (result.stderr) {
-        console.error(chalk.red(result.stderr));
+        console.log();
+        console.log(chalk.red.bold('  Error Output:'));
+        console.log(chalk.gray('  ' + '─'.repeat(60)));
+        // Indent stderr for better readability
+        const stderrLines = result.stderr.split('\n');
+        for (const line of stderrLines.slice(0, 30)) { // Limit to 30 lines
+          console.error(chalk.red(`  ${line}`));
+        }
+        if (stderrLines.length > 30) {
+          console.log(chalk.yellow(`  ... ${stderrLines.length - 30} more lines`));
+        }
+        console.log(chalk.gray('  ' + '─'.repeat(60)));
       }
 
-      // Notify dashboard: execution failccw cli -p
+      // Show troubleshooting hints
+      console.log();
+      console.log(chalk.yellow.bold('  Troubleshooting:'));
+      console.log(chalk.gray(`    • Check if ${tool} is properly installed: ccw cli status`));
+      console.log(chalk.gray(`    • Enable debug mode: DEBUG=true ccw cli -p "..."  or  set DEBUG=true && ccw cli -p "..."`));
+      console.log(chalk.gray(`    • View full output: ccw cli output ${result.execution.id}`));
+      if (result.stderr?.includes('API key') || result.stderr?.includes('Authentication')) {
+        console.log(chalk.gray(`    • Check API key configuration for ${tool}`));
+      }
+      if (result.stderr?.includes('rate limit')) {
+        console.log(chalk.gray(`    • Wait and retry - rate limit exceeded`));
+      }
+
+      // Notify dashboard: execution failed
       notifyDashboard({
         event: 'completed',
         tool,
@@ -757,7 +785,23 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
     }
   } catch (error) {
     const err = error as Error;
-    console.error(chalk.red(`  Error: ${err.message}`));
+    console.error(chalk.red.bold(`\n  ✗ Execution Error\n`));
+    console.error(chalk.red(`  ${err.message}`));
+
+    // Parse error message for additional context
+    if (err.message.includes('Failed to spawn')) {
+      console.log();
+      console.log(chalk.yellow.bold('  Troubleshooting:'));
+      console.log(chalk.gray(`    • Check if ${tool} is installed: npm ls -g @google/gemini-cli (or qwen/codex)`));
+      console.log(chalk.gray(`    • Verify PATH includes npm global bin directory`));
+      console.log(chalk.gray(`    • Run: ccw cli status`));
+      console.log(chalk.gray(`    • Enable debug mode: DEBUG=true ccw cli -p "..."`));
+    } else if (err.message.includes('not available')) {
+      console.log();
+      console.log(chalk.yellow.bold('  Troubleshooting:'));
+      console.log(chalk.gray(`    • Install the tool: npm install -g <package-name>`));
+      console.log(chalk.gray(`    • Run: ccw cli status`));
+    }
 
     // Notify dashboard: execution error
     notifyDashboard({

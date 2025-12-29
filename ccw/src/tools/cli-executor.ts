@@ -10,6 +10,37 @@ import { spawn, ChildProcess } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 
+// Debug logging utility
+const DEBUG = process.env.DEBUG === 'true' || process.env.DEBUG === '1' || process.env.CCW_DEBUG === 'true';
+
+function debugLog(category: string, message: string, data?: Record<string, unknown>): void {
+  if (!DEBUG) return;
+  const timestamp = new Date().toISOString();
+  const prefix = `[${timestamp}] [CLI-DEBUG] [${category}]`;
+  if (data) {
+    console.error(`${prefix} ${message}`, JSON.stringify(data, null, 2));
+  } else {
+    console.error(`${prefix} ${message}`);
+  }
+}
+
+function errorLog(category: string, message: string, error?: Error | unknown, context?: Record<string, unknown>): void {
+  const timestamp = new Date().toISOString();
+  const prefix = `[${timestamp}] [CLI-ERROR] [${category}]`;
+  console.error(`${prefix} ${message}`);
+  if (error instanceof Error) {
+    console.error(`${prefix} Error: ${error.message}`);
+    if (DEBUG && error.stack) {
+      console.error(`${prefix} Stack: ${error.stack}`);
+    }
+  } else if (error) {
+    console.error(`${prefix} Error: ${String(error)}`);
+  }
+  if (context) {
+    console.error(`${prefix} Context:`, JSON.stringify(context, null, 2));
+  }
+}
+
 // LiteLLM integration
 import { executeLiteLLMEndpoint } from './litellm-executor.js';
 import { findEndpointById } from '../config/litellm-api-config-manager.js';
@@ -205,9 +236,12 @@ interface ExecutionOutput {
  * Check if a CLI tool is available (with caching)
  */
 async function checkToolAvailability(tool: string): Promise<ToolAvailability> {
+  debugLog('TOOL_CHECK', `Checking availability for tool: ${tool}`);
+
   // Check cache first
   const cached = toolAvailabilityCache.get(tool);
   if (cached && isCacheValid(cached)) {
+    debugLog('TOOL_CHECK', `Cache hit for ${tool}`, { available: cached.result.available, path: cached.result.path });
     return cached.result;
   }
 
@@ -219,6 +253,8 @@ async function checkToolAvailability(tool: string): Promise<ToolAvailability> {
     const isWindows = process.platform === 'win32';
     const command = isWindows ? 'where' : 'which';
 
+    debugLog('TOOL_CHECK', `Running ${command} ${tool}`, { platform: process.platform });
+
     // Direct spawn - where/which are system commands that don't need shell wrapper
     const child = spawn(command, [tool], {
       shell: false,
@@ -226,25 +262,31 @@ async function checkToolAvailability(tool: string): Promise<ToolAvailability> {
     });
 
     let stdout = '';
+    let stderr = '';
     child.stdout!.on('data', (data) => { stdout += data.toString(); });
+    child.stderr?.on('data', (data) => { stderr += data.toString(); });
 
     child.on('close', (code) => {
       const result: ToolAvailability = code === 0 && stdout.trim()
         ? { available: true, path: stdout.trim().split('\n')[0] }
         : { available: false, path: null };
 
-      // Only cache positive results to avoid caching transient failures
       if (result.available) {
+        debugLog('TOOL_CHECK', `Tool ${tool} found`, { path: result.path });
+        // Only cache positive results to avoid caching transient failures
         toolAvailabilityCache.set(tool, {
           result,
           timestamp: Date.now()
         });
+      } else {
+        debugLog('TOOL_CHECK', `Tool ${tool} not found`, { exitCode: code, stderr: stderr.trim() || '(empty)' });
       }
 
       resolve(result);
     });
 
-    child.on('error', () => {
+    child.on('error', (error) => {
+      errorLog('TOOL_CHECK', `Failed to check tool availability: ${tool}`, error, { command, tool });
       // Don't cache errors - they may be transient
       resolve({ available: false, path: null });
     });
@@ -252,6 +294,7 @@ async function checkToolAvailability(tool: string): Promise<ToolAvailability> {
     // Timeout after 5 seconds
     setTimeout(() => {
       child.kill();
+      debugLog('TOOL_CHECK', `Timeout checking tool ${tool} (5s)`);
       // Don't cache timeouts - they may be transient
       resolve({ available: false, path: null });
     }, 5000);
@@ -278,6 +321,15 @@ function buildCommand(params: {
   nativeResume?: NativeResumeConfig;
 }): { command: string; args: string[]; useStdin: boolean } {
   const { tool, prompt, mode = 'analysis', model, dir, include, nativeResume } = params;
+
+  debugLog('BUILD_CMD', `Building command for tool: ${tool}`, {
+    mode,
+    model: model || '(default)',
+    dir: dir || '(cwd)',
+    include: include || '(none)',
+    nativeResume: nativeResume ? { enabled: nativeResume.enabled, isLatest: nativeResume.isLatest, sessionId: nativeResume.sessionId } : '(none)',
+    promptLength: prompt.length
+  });
 
   let command = tool;
   let args: string[] = [];
@@ -418,8 +470,16 @@ function buildCommand(params: {
       break;
 
     default:
+      errorLog('BUILD_CMD', `Unknown CLI tool: ${tool}`);
       throw new Error(`Unknown CLI tool: ${tool}`);
   }
+
+  debugLog('BUILD_CMD', `Command built successfully`, {
+    command,
+    args,
+    useStdin,
+    fullCommand: `${command} ${args.join(' ')}${useStdin ? ' (stdin)' : ''}`
+  });
 
   return { command, args, useStdin };
 }
@@ -821,18 +881,42 @@ async function executeCliTool(
 
   const startTime = Date.now();
 
+  debugLog('EXEC', `Starting CLI execution`, {
+    tool,
+    mode,
+    workingDir,
+    conversationId,
+    promptLength: finalPrompt.length,
+    hasResume: !!resume,
+    hasCustomId: !!customId
+  });
+
   return new Promise((resolve, reject) => {
     // Windows requires shell: true for npm global commands (.cmd files)
     // Unix-like systems can use shell: false for direct execution
     const isWindows = process.platform === 'win32';
+
+    debugLog('SPAWN', `Spawning process`, {
+      command,
+      args,
+      cwd: workingDir,
+      shell: isWindows,
+      useStdin,
+      platform: process.platform,
+      fullCommand: `${command} ${args.join(' ')}`
+    });
+
     const child = spawn(command, args, {
       cwd: workingDir,
       shell: isWindows,  // Enable shell on Windows for .cmd files
       stdio: [useStdin ? 'pipe' : 'ignore', 'pipe', 'pipe']
     });
 
+    debugLog('SPAWN', `Process spawned`, { pid: child.pid });
+
     // Write prompt to stdin if using stdin mode (for gemini/qwen)
     if (useStdin && child.stdin) {
+      debugLog('STDIN', `Writing prompt to stdin (${finalPrompt.length} bytes)`);
       child.stdin.write(finalPrompt);
       child.stdin.end();
     }
@@ -864,10 +948,19 @@ async function executeCliTool(
       const endTime = Date.now();
       const duration = endTime - startTime;
 
+      debugLog('CLOSE', `Process closed`, {
+        exitCode: code,
+        duration: `${duration}ms`,
+        timedOut,
+        stdoutLength: stdout.length,
+        stderrLength: stderr.length
+      });
+
       // Determine status - prioritize output content over exit code
       let status: 'success' | 'error' | 'timeout' = 'success';
       if (timedOut) {
         status = 'timeout';
+        debugLog('STATUS', `Execution timed out after ${duration}ms`);
       } else if (code !== 0) {
         // Non-zero exit code doesn't always mean failure
         // Check if there's valid output (AI response) - treat as success
@@ -877,12 +970,31 @@ async function executeCliTool(
                               stderr.includes('API key') ||
                               stderr.includes('rate limit exceeded');
 
+        debugLog('STATUS', `Non-zero exit code analysis`, {
+          exitCode: code,
+          hasValidOutput,
+          hasFatalError,
+          stderrPreview: stderr.substring(0, 500)
+        });
+
         if (hasValidOutput && !hasFatalError) {
           // Has output and no fatal errors - treat as success despite exit code
           status = 'success';
+          debugLog('STATUS', `Treating as success (has valid output, no fatal errors)`);
         } else {
           status = 'error';
+          errorLog('EXEC', `CLI execution failed`, undefined, {
+            exitCode: code,
+            tool,
+            command,
+            args,
+            workingDir,
+            stderrFull: stderr,
+            stdoutPreview: stdout.substring(0, 200)
+          });
         }
+      } else {
+        debugLog('STATUS', `Execution successful (exit code 0)`);
       }
 
       // Create new turn - cache full output when not streaming (default)
@@ -1066,7 +1178,16 @@ async function executeCliTool(
 
     // Handle errors
     child.on('error', (error) => {
-      reject(new Error(`Failed to spawn ${tool}: ${error.message}`));
+      errorLog('SPAWN', `Failed to spawn process`, error, {
+        tool,
+        command,
+        args,
+        workingDir,
+        fullCommand: `${command} ${args.join(' ')}`,
+        platform: process.platform,
+        path: process.env.PATH?.split(process.platform === 'win32' ? ';' : ':').slice(0, 10).join('\n  ') + '...'
+      });
+      reject(new Error(`Failed to spawn ${tool}: ${error.message}\n  Command: ${command} ${args.join(' ')}\n  Working Dir: ${workingDir}`));
     });
 
     // Timeout handling (timeout=0 disables internal timeout, controlled by external caller)
