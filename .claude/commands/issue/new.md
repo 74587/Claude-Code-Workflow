@@ -138,36 +138,29 @@ if (clarityScore >= 1 && clarityScore <= 2 && !issueData.affected_components?.le
 ### Phase 4: Conditional Clarification (Only if Unclear)
 
 ```javascript
-// ONLY ask questions if clarity is low
-if (clarityScore < 2) {
-  if (!issueData.title || issueData.title.length < 10 ||
-      !issueData.context || issueData.context.length < 20) {
+// ONLY ask questions if clarity is low - simple open-ended prompt
+if (clarityScore < 2 && (!issueData.context || issueData.context.length < 20)) {
+  const answer = AskUserQuestion({
+    questions: [{
+      question: 'Please describe the issue in more detail:',
+      header: 'Clarify',
+      multiSelect: false,
+      options: [
+        { label: 'Provide details', description: 'Describe what, where, and expected behavior' }
+      ]
+    }]
+  });
 
-    const answer = AskUserQuestion({
-      questions: [{
-        question: `Input unclear. What is the issue about?`,
-        header: 'Clarify',
-        multiSelect: false,
-        options: [
-          { label: 'Bug fix', description: 'Something is broken' },
-          { label: 'New feature', description: 'Add new functionality' },
-          { label: 'Improvement', description: 'Enhance existing feature' },
-          { label: 'Other', description: 'Provide more details' }
-        ]
-      }]
-    });
-
-    // Save clarification as feedback
-    if (answer.customText) {
-      issueData.context = answer.customText;
-      issueData.title = answer.customText.split('.')[0].substring(0, 60);
-      issueData.feedback = [{
-        type: 'clarification',
-        stage: 'new',
-        content: answer.customText,
-        created_at: new Date().toISOString()
-      }];
-    }
+  // Use custom text input (via "Other")
+  if (answer.customText) {
+    issueData.context = answer.customText;
+    issueData.title = answer.customText.split(/[.\n]/)[0].substring(0, 60);
+    issueData.feedback = [{
+      type: 'clarification',
+      stage: 'new',
+      content: answer.customText,
+      created_at: new Date().toISOString()
+    }];
   }
 }
 ```
