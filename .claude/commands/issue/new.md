@@ -16,7 +16,7 @@ Clear Input (GitHub URL, structured text)  → Direct creation
 Unclear Input (vague description)          → Minimal clarifying questions
 ```
 
-## Issue Structure (Simplified)
+## Issue Structure 
 
 ```typescript
 interface Issue {

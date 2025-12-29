@@ -14,17 +14,39 @@ Unified planning command using **issue-plan-agent** that combines exploration an
 **Behavior:**
 - Single solution per issue → auto-bind
 - Multiple solutions → return for user selection
-- Agent handles file generation 
+- Agent handles file generation
+
+## Core Guidelines
+
+**⚠️ Data Access Principle**: Issues and solutions files can grow very large. To avoid context overflow:
+
+| Operation | Correct | Incorrect |
+|-----------|---------|-----------|
+| List issues (brief) | `ccw issue list --status pending --brief` | `Read('issues.jsonl')` |
+| Read issue details | `ccw issue status <id> --json` | `Read('issues.jsonl')` |
+| Update status | `ccw issue update <id> --status ...` | Direct file edit |
+| Bind solution | `ccw issue bind <id> <sol-id>` | Direct file edit |
+
+**Output Options**:
+- `--brief`: JSON with minimal fields (id, title, status, priority, tags)
+- `--json`: Full JSON (agent use only)
+
+**Orchestration vs Execution**:
+- **Command (orchestrator)**: Use `--brief` for minimal context
+- **Agent (executor)**: Fetch full details → `ccw issue status <id> --json`
+
+**ALWAYS** use CLI commands for CRUD operations. **NEVER** read entire `issues.jsonl` or `solutions/*.jsonl` directly. 
 
 ## Usage
 
 ```bash
-/issue:plan <issue-id>[,<issue-id>,...] [FLAGS]
+/issue:plan [<issue-id>[,<issue-id>,...]] [FLAGS]
 
 # Examples
+/issue:plan                           # Default: --all-pending
 /issue:plan GH-123                    # Single issue
 /issue:plan GH-123,GH-124,GH-125      # Batch (up to 3)
-/issue:plan --all-pending             # All pending issues
+/issue:plan --all-pending             # All pending issues (explicit)
 
 # Flags
 --batch-size <n>      Max issues per agent batch (default: 3)
@@ -62,14 +84,17 @@ Phase 4: Summary
 
 ## Implementation
 
-### Phase 1: Issue Loading (ID + Title + Tags)
+### Phase 1: Issue Loading (Brief Info Only)
 
 ```javascript
 const batchSize = flags.batchSize || 3;
-let issues = [];  // {id, title, tags}
+let issues = [];  // {id, title, tags} - brief info for grouping only
 
-if (flags.allPending) {
-  // Get pending issues with metadata via CLI (JSON output)
+// Default to --all-pending if no input provided
+const useAllPending = flags.allPending || !userInput || userInput.trim() === '';
+
+if (useAllPending) {
+  // Get pending issues with brief metadata via CLI
   const result = Bash(`ccw issue list --status pending,registered --json`).trim();
   const parsed = result ? JSON.parse(result) : [];
   issues = parsed.map(i => ({ id: i.id, title: i.title || '', tags: i.tags || [] }));
@@ -80,7 +105,7 @@ if (flags.allPending) {
   }
   console.log(`Found ${issues.length} pending issues`);
 } else {
-  // Parse comma-separated issue IDs, fetch metadata
+  // Parse comma-separated issue IDs, fetch brief metadata
   const ids = userInput.includes(',')
     ? userInput.split(',').map(s => s.trim())
     : [userInput.trim()];
@@ -92,6 +117,7 @@ if (flags.allPending) {
     issues.push({ id, title: parsed.title || '', tags: parsed.tags || [] });
   }
 }
+// Note: Agent fetches full issue content via `ccw issue status <id> --json`
 
 // Semantic grouping via Gemini CLI (max 4 issues per group)
 async function groupBySimilarityGemini(issues) {
@@ -172,7 +198,7 @@ ${issueList}
 2. Load project context files
 3. Explore codebase (ACE semantic search)
 4. Plan solution with tasks (schema: solution-schema.json)
-5. Create solution: ccw issue solution <issue-id> --data '{...}'
+5. Write solution to: .workflow/issues/solutions/{issue-id}.jsonl
 6. Single solution → auto-bind; Multiple → return for selection
 
 ### Rules
@@ -258,8 +284,8 @@ for (let i = 0; i < agentTasks.length; i += MAX_PARALLEL) {
 
 ```javascript
 // Count planned issues via CLI
-const plannedIds = Bash(`ccw issue list --status planned --ids`).trim();
-const plannedCount = plannedIds ? plannedIds.split('\n').length : 0;
+const planned = JSON.parse(Bash(`ccw issue list --status planned --brief`) || '[]');
+const plannedCount = planned.length;
 
 console.log(`
 ## Done: ${issues.length} issues → ${plannedCount} planned

@@ -194,7 +194,7 @@ interface IssueOptions {
   json?: boolean;
   force?: boolean;
   fail?: boolean;
-  ids?: boolean;        // List only IDs (one per line)
+  brief?: boolean;      // List brief info only (id, title, status, priority, tags) - JSON format
   data?: string;        // JSON data for create
   fromQueue?: boolean | string;  // Sync statuses from queue (true=active, string=specific queue ID)
 }
@@ -714,9 +714,17 @@ async function listAction(issueId: string | undefined, options: IssueOptions): P
       issues = issues.filter(i => statuses.includes(i.status));
     }
 
-    // IDs only mode (one per line, for scripting)
-    if (options.ids) {
-      issues.forEach(i => console.log(i.id));
+    // Brief mode: minimal fields only (id, title, status, priority, tags, bound_solution_id)
+    if (options.brief) {
+      const briefIssues = issues.map(i => ({
+        id: i.id,
+        title: i.title,
+        status: i.status,
+        priority: i.priority,
+        tags: i.tags || [],
+        bound_solution_id: i.bound_solution_id
+      }));
+      console.log(JSON.stringify(briefIssues, null, 2));
       return;
     }
 
@@ -1216,6 +1224,22 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
   if (subAction === 'list' || subAction === 'history') {
     const index = readQueueIndex();
 
+    // Brief mode: minimal queue index info
+    if (options.brief) {
+      const briefIndex = {
+        active_queue_id: index.active_queue_id,
+        queues: index.queues.map(q => ({
+          id: q.id,
+          status: q.status,
+          issue_ids: q.issue_ids,
+          total_solutions: q.total_solutions,
+          completed_solutions: q.completed_solutions
+        }))
+      };
+      console.log(JSON.stringify(briefIndex, null, 2));
+      return;
+    }
+
     if (options.json) {
       console.log(JSON.stringify(index, null, 2));
       return;
@@ -1524,6 +1548,28 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
 
   // Show current queue
   const queue = readActiveQueue();
+
+  // Brief mode: minimal queue info (id, issue_ids, item summaries)
+  if (options.brief) {
+    const items = queue.solutions || queue.tasks || [];
+    const briefQueue = {
+      id: queue.id,
+      issue_ids: queue.issue_ids || [],
+      total: items.length,
+      pending: items.filter(i => i.status === 'pending').length,
+      executing: items.filter(i => i.status === 'executing').length,
+      completed: items.filter(i => i.status === 'completed').length,
+      items: items.map(i => ({
+        item_id: i.item_id,
+        issue_id: i.issue_id,
+        solution_id: i.solution_id,
+        status: i.status,
+        task_count: i.task_count
+      }))
+    };
+    console.log(JSON.stringify(briefQueue, null, 2));
+    return;
+  }
 
   if (options.json) {
     console.log(JSON.stringify(queue, null, 2));
@@ -1960,7 +2006,7 @@ export async function issueCommand(
       console.log(chalk.bold('Options:'));
       console.log(chalk.gray('  --title <title>                    Issue/task title'));
       console.log(chalk.gray('  --status <status>                  Filter by status (comma-separated)'));
-      console.log(chalk.gray('  --ids                              List only IDs (one per line)'));
+      console.log(chalk.gray('  --brief                            Brief JSON output (minimal fields)'));
       console.log(chalk.gray('  --solution <path>                  Solution JSON file'));
       console.log(chalk.gray('  --result <json>                    Execution result'));
       console.log(chalk.gray('  --reason <text>                    Failure reason'));

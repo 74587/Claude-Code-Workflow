@@ -21,6 +21,29 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
 - Semantic priority calculation per solution (0.0-1.0)
 - Parallel/Sequential group assignment for solutions
 
+## Core Guidelines
+
+**⚠️ Data Access Principle**: Issues and queue files can grow very large. To avoid context overflow:
+
+| Operation | Correct | Incorrect |
+|-----------|---------|-----------|
+| List issues (brief) | `ccw issue list --status planned --brief` | `Read('issues.jsonl')` |
+| List queue (brief) | `ccw issue queue --brief` | `Read('queues/*.json')` |
+| Read issue details | `ccw issue status <id> --json` | `Read('issues.jsonl')` |
+| Get next item | `ccw issue next --json` | `Read('queues/*.json')` |
+| Update status | `ccw issue update <id> --status ...` | Direct file edit |
+| Sync from queue | `ccw issue update --from-queue` | Direct file edit |
+
+**Output Options**:
+- `--brief`: JSON with minimal fields (id, status, counts)
+- `--json`: Full JSON (agent use only)
+
+**Orchestration vs Execution**:
+- **Command (orchestrator)**: Use `--brief` for minimal context
+- **Agent (executor)**: Fetch full details → `ccw issue status <id> --json`
+
+**ALWAYS** use CLI commands for CRUD operations. **NEVER** read entire `issues.jsonl` or `queues/*.json` directly.
+
 
 
 ## Usage
@@ -203,14 +226,19 @@ if (result.clarifications?.length > 0) {
 
 ### Phase 6: Status Update & Summary
 
-**Status Update** (single command):
-```bash
-ccw issue update --from-queue [queue-id] --json
+**Status Update** (MUST use CLI command, NOT direct file operations):
 
-# Examples
+```bash
+# Option 1: Batch update from queue (recommended)
+ccw issue update --from-queue [queue-id] --json
 ccw issue update --from-queue --json              # Use active queue
 ccw issue update --from-queue QUE-xxx --json      # Use specific queue
+
+# Option 2: Individual issue update
+ccw issue update <issue-id> --status queued
 ```
+
+**⚠️ IMPORTANT**: Do NOT directly modify `issues.jsonl`. Always use CLI command to ensure proper validation and history tracking.
 
 **Output** (JSON):
 ```json
