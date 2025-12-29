@@ -337,12 +337,41 @@ class ChainSearchEngine:
                                 root_cmp = root_str.lower().rstrip("\\/")
                                 dir_cmp = file_dir_str.lower().rstrip("\\/")
 
+                                # Guard against Windows cross-drive comparisons (ValueError).
+                                if os.name == "nt":
+                                    root_drive, _ = os.path.splitdrive(root_cmp)
+                                    dir_drive, _ = os.path.splitdrive(dir_cmp)
+                                    if root_drive and dir_drive and root_drive != dir_drive:
+                                        self.logger.debug(
+                                            "Skipping symbol due to cross-drive path (root=%s file=%s name=%s)",
+                                            root_cmp,
+                                            sym.file,
+                                            sym.name,
+                                        )
+                                        continue
+
                                 if os.path.commonpath([root_cmp, dir_cmp]) != root_cmp:
                                     continue
 
                                 rel = os.path.relpath(dir_cmp, root_cmp)
                                 rel_depth = 0 if rel == "." else len(rel.split(os.sep))
-                            except Exception:
+                            except ValueError as exc:
+                                self.logger.debug(
+                                    "Skipping symbol due to path operation failure (root=%s file=%s name=%s): %s",
+                                    str(search_root),
+                                    sym.file,
+                                    sym.name,
+                                    exc,
+                                )
+                                continue
+                            except Exception as exc:
+                                self.logger.debug(
+                                    "Skipping symbol due to unexpected path error (root=%s file=%s name=%s): %s",
+                                    str(search_root),
+                                    sym.file,
+                                    sym.name,
+                                    exc,
+                                )
                                 continue
 
                             if options.depth >= 0 and rel_depth > options.depth:
