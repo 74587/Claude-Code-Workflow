@@ -271,6 +271,11 @@ function getBoundSolution(issueId: string): Solution | undefined {
   return readSolutions(issueId).find(s => s.is_bound);
 }
 
+/**
+ * Generate fallback solution ID (timestamp-based).
+ * Note: Prefer agent-generated IDs in format `SOL-{issue-id}-{seq}` (e.g., SOL-GH-123-1).
+ * This function is only used when no ID is provided via CLI or file content.
+ */
 function generateSolutionId(): string {
   const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
   return `SOL-${ts}`;
@@ -802,8 +807,10 @@ async function bindAction(issueId: string | undefined, solutionId: string | unde
     try {
       const content = readFileSync(options.solution, 'utf-8');
       const data = JSON.parse(content);
+      // Priority: CLI arg > file content ID > generate new
+      // This ensures agent-generated IDs (SOL-{issue-id}-{seq}) are preserved
       const newSol: Solution = {
-        id: solutionId || generateSolutionId(),
+        id: solutionId || data.id || generateSolutionId(),
         description: data.description || data.approach_name || 'Imported solution',
         tasks: data.tasks || [],
         exploration_context: data.exploration_context,

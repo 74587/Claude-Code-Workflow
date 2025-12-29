@@ -359,10 +359,27 @@ if (pendingSelections.length > 0) {
     }))
   });
 
-  // Bind user-selected solutions
-  for (const { issue_id } of pendingSelections) {
+  // Bind user-selected solutions (with file validation)
+  for (const { issue_id, solutions } of pendingSelections) {
     const selectedId = extractSelectedSolutionId(answer, issue_id);
     if (selectedId) {
+      // Verify solution file exists and contains the selected ID
+      const solPath = `.workflow/issues/solutions/${issue_id}.jsonl`;
+      const fileExists = Bash(`test -f "${solPath}" && echo "yes" || echo "no"`).trim() === 'yes';
+
+      if (!fileExists) {
+        console.log(`⚠ ${issue_id}: Solution file missing, attempting recovery...`);
+        // Recovery: write solution from pending_selection payload
+        const selectedSol = solutions.find(s => s.id === selectedId);
+        if (selectedSol) {
+          Bash(`mkdir -p .workflow/issues/solutions`);
+          const solJson = JSON.stringify({ id: selectedId, ...selectedSol, is_bound: false, created_at: new Date().toISOString() });
+          Bash(`echo '${solJson}' >> "${solPath}"`);
+          console.log(`  Recovered ${selectedId} to ${solPath}`);
+        }
+      }
+
+      // Now bind
       Bash(`ccw issue bind ${issue_id} ${selectedId}`);
       console.log(`✓ ${issue_id}: ${selectedId} bound`);
     }

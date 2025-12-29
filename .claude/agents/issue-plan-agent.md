@@ -182,17 +182,37 @@ function decomposeTasks(issue, exploration) {
 - Task validation (all 5 phases present)
 - Conflict detection (cross-issue file modifications)
 
-**Solution Registration** (CRITICAL: check solution count first):
+**Solution Registration** (TWO-STEP: Write first, then bind):
 ```javascript
 for (const issue of issues) {
   const solutions = generatedSolutions[issue.id];
+  const solPath = `.workflow/issues/solutions/${issue.id}.jsonl`;
 
+  // Step 1: ALWAYS write ALL solutions to JSONL (append mode)
+  // Each solution on a new line, preserving existing solutions
+  for (const sol of solutions) {
+    // Ensure Solution ID format: SOL-{issue-id}-{seq}
+    const solutionJson = JSON.stringify({
+      id: sol.id,  // e.g., SOL-GH-123-1, SOL-GH-123-2
+      description: sol.description,
+      approach: sol.approach,
+      tasks: sol.tasks,
+      exploration_context: sol.exploration_context,
+      analysis: sol.analysis,
+      score: sol.score,
+      is_bound: false,
+      created_at: new Date().toISOString()
+    });
+    Bash(`echo '${solutionJson}' >> "${solPath}"`);
+  }
+
+  // Step 2: Bind decision based on solution count
   if (solutions.length === 1) {
-    // Single solution → auto-bind
-    Bash(`ccw issue bind ${issue.id} --solution ${solutions[0].file}`);
+    // Single solution → auto-bind by ID (NOT --solution flag)
+    Bash(`ccw issue bind ${issue.id} ${solutions[0].id}`);
     bound.push({ issue_id: issue.id, solution_id: solutions[0].id, task_count: solutions[0].tasks.length });
   } else {
-    // Multiple solutions → DO NOT BIND, return for user selection
+    // Multiple solutions → already written, return for user selection
     pending_selection.push({
       issue_id: issue.id,
       solutions: solutions.map(s => ({ id: s.id, description: s.description, task_count: s.tasks.length }))
@@ -332,8 +352,9 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 4. Quantify acceptance.criteria with testable conditions
 5. Validate DAG before output
 6. Evaluate each solution with `analysis` and `score`
-7. Single solution → auto-bind; Multiple → return `pending_selection`
+7. **TWO-STEP registration**: Write JSONL first, then bind (see Phase 4)
 8. For HIGH complexity: generate 2-3 candidate solutions
+9. **Solution ID format**: `SOL-{issue-id}-{seq}` (e.g., `SOL-GH-123-1`, `SOL-GH-123-2`)
 
 **NEVER**:
 1. Execute implementation (return plan only)
@@ -341,8 +362,9 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 3. Create circular dependencies
 4. Generate more than 10 tasks per issue
 5. **Bind when multiple solutions exist** - MUST check `solutions.length === 1` before calling `ccw issue bind`
+6. **Skip JSONL write** - ALL solutions must be written to disk before returning
 
-**OUTPUT**:
-1. Register solutions via `ccw issue bind <id> --solution <file>`
-2. Return JSON with `bound`, `pending_selection`, `conflicts`
-3. Solutions written to `.workflow/issues/solutions/{issue-id}.jsonl`
+**OUTPUT** (Two-Step):
+1. **Step 1**: Write ALL solutions to `.workflow/issues/solutions/{issue-id}.jsonl` (one JSON per line)
+2. **Step 2**: Single solution → `ccw issue bind <id> <solution-id>`; Multiple → return only
+3. Return JSON with `bound`, `pending_selection`, `conflicts`
