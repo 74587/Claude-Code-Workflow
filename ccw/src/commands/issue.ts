@@ -33,7 +33,7 @@ interface Issue {
   context: string;             // Problem description (single source of truth)
   source?: 'github' | 'text' | 'discovery';
   source_url?: string;
-  labels?: string[];
+  tags?: string[];
 
   // Optional structured fields
   expected_behavior?: string;
@@ -354,7 +354,7 @@ function createIssue(data: Partial<Issue>): Issue {
     context: data.context || '',
     source: data.source,
     source_url: data.source_url,
-    labels: data.labels,
+    tags: data.tags,
     expected_behavior: data.expected_behavior,
     actual_behavior: data.actual_behavior,
     affected_components: data.affected_components,
@@ -714,14 +714,14 @@ async function listAction(issueId: string | undefined, options: IssueOptions): P
       issues = issues.filter(i => statuses.includes(i.status));
     }
 
-    // Brief mode: minimal fields only (id, title, status, priority, labels, bound_solution_id)
+    // Brief mode: minimal fields only (id, title, status, priority, tags, bound_solution_id)
     if (options.brief) {
       const briefIssues = issues.map(i => ({
         id: i.id,
         title: i.title,
         status: i.status,
         priority: i.priority,
-        labels: i.labels || [],
+        tags: i.tags || [],
         bound_solution_id: i.bound_solution_id
       }));
       console.log(JSON.stringify(briefIssues, null, 2));

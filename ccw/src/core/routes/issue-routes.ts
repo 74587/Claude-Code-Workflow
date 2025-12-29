@@ -458,7 +458,7 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
         context: body.context || '',
         source: body.source || 'text',
         source_url: body.source_url || null,
-        labels: body.labels || [],
+        tags: body.tags || [],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -517,7 +517,7 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
       }
 
       // Update other fields
-      for (const field of ['title', 'context', 'status', 'priority', 'labels']) {
+      for (const field of ['title', 'context', 'status', 'priority', 'tags']) {
         if (body[field] !== undefined) {
           issues[issueIndex][field] = body[field];
           updates.push(field);
@@ -699,7 +699,7 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
       if (issueIndex === -1) return { error: 'Issue not found' };
 
       const updates: string[] = [];
-      for (const field of ['title', 'context', 'status', 'priority', 'bound_solution_id', 'labels']) {
+      for (const field of ['title', 'context', 'status', 'priority', 'bound_solution_id', 'tags']) {
         if (body[field] !== undefined) {
           issues[issueIndex][field] = body[field];
           updates.push(field);

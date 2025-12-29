@@ -118,10 +118,10 @@
                 "maximum": 5,
                 "description": "Priority 1-5 (1=critical, 5=low)"
               },
-              "labels": {
+              "tags": {
                 "type": "array",
                 "items": { "type": "string" },
-                "description": "Suggested labels for the issue"
+                "description": "Suggested tags for the issue"
               }
             },
             "description": "Pre-filled issue suggestion for export"
@@ -205,7 +205,7 @@
             "title": "Add null check in user validation",
             "type": "bug",
             "priority": 2,
-            "labels": ["bug", "auth"]
+            "tags": ["bug", "auth"]
           },
           "external_reference": null,
           "confidence": 0.85,
