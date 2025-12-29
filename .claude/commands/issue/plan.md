@@ -176,13 +176,22 @@ ${issueList}
 4. Plan solution with tasks (see issue-plan-agent.md for details)
 5. Write solutions to JSONL, bind if single solution
 
-### Generate Files
-\`.workflow/issues/solutions/{issue-id}.jsonl\` - Solution with tasks (schema: cat .claude/workflows/cli-templates/schemas/solution-schema.json)
+### Solution Creation (via CLI endpoint)
+```bash
+ccw issue solution <issue-id> --data '{"description":"...", "approach":"...", "tasks":[...]}'
+```
 
-**Solution ID Format**: \`SOL-{issue-id}-{seq}\` (e.g., \`SOL-GH-123-1\`, \`SOL-ISS-20251229-1\`)
+**CLI Endpoint Features:**
+| Feature | Description |
+|---------|-------------|
+| Auto-increment ID | `SOL-{issue-id}-{seq}` (e.g., `SOL-GH-123-1`) |
+| Multi-solution | Appends to existing JSONL, supports multiple per issue |
+| JSON output | Returns created solution with ID |
+
+**Schema Reference:** `cat .claude/workflows/cli-templates/schemas/solution-schema.json`
 
 ### Binding Rules
-- **Single solution**: Auto-bind via \`ccw issue bind <id> --solution <file>\`
+- **Single solution**: Auto-bind via `ccw issue bind <issue-id> <solution-id>`
 - **Multiple solutions**: Register only, return for user selection
 
 ### Return Summary

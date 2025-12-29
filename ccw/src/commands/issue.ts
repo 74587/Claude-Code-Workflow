@@ -333,7 +333,9 @@ function readSolutions(issueId: string): Solution[] {
 function writeSolutions(issueId: string, solutions: Solution[]): void {
   const dir = join(getIssuesDir(), 'solutions');
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(getSolutionsPath(issueId), solutions.map(s => JSON.stringify(s)).join('\n'), 'utf-8');
+  // Always add trailing newline for proper JSONL format
+  const content = solutions.map(s => JSON.stringify(s)).join('\n');
+  writeFileSync(getSolutionsPath(issueId), content ? content + '\n' : '', 'utf-8');
 }
 
 function findSolution(issueId: string, solutionId: string): Solution | undefined {
@@ -361,6 +363,40 @@ function generateSolutionId(issueId: string, existingSolutions: Solution[] = [])
     }
   }
   return `SOL-${issueId}-${maxSeq + 1}`;
+}
+
+/**
+ * Create a new solution with proper JSONL handling
+ * Auto-generates ID if not provided
+ */
+function createSolution(issueId: string, data: Partial<Solution>): Solution {
+  const issue = findIssue(issueId);
+  if (!issue) {
+    throw new Error(`Issue "${issueId}" not found`);
+  }
+
+  const solutions = readSolutions(issueId);
+  const solutionId = data.id || generateSolutionId(issueId, solutions);
+
+  if (solutions.some(s => s.id === solutionId)) {
+    throw new Error(`Solution "${solutionId}" already exists`);
+  }
+
+  const newSolution: Solution = {
+    id: solutionId,
+    description: data.description || '',
+    approach: data.approach || '',
+    tasks: data.tasks || [],
+    exploration_context: data.exploration_context,
+    analysis: data.analysis,
+    score: data.score,
+    is_bound: false,
+    created_at: new Date().toISOString()
+  };
+
+  solutions.push(newSolution);
+  writeSolutions(issueId, solutions);
+  return newSolution;
 }
 
 // ============ Queue Management (Multi-Queue) ============
@@ -536,6 +572,34 @@ async function createAction(options: IssueOptions): Promise<void> {
     const data = JSON.parse(options.data);
     const issue = createIssue(data);
     console.log(JSON.stringify(issue, null, 2));
+  } catch (err) {
+    console.error(chalk.red((err as Error).message));
+    process.exit(1);
+  }
+}
+
+/**
+ * solution - Create solution from JSON data
+ * Usage: ccw issue solution <issue-id> --data '{"tasks":[...]}'
+ * Output: JSON with created solution (includes auto-generated ID)
+ */
+async function solutionAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
+  if (!issueId) {
+    console.error(chalk.red('Issue ID required'));
+    console.error(chalk.gray('Usage: ccw issue solution <issue-id> --data \'{"tasks":[...]}\''));
+    process.exit(1);
+  }
+
+  if (!options.data) {
+    console.error(chalk.red('JSON data required'));
+    console.error(chalk.gray('Usage: ccw issue solution <issue-id> --data \'{"tasks":[...]}\''));
+    process.exit(1);
+  }
+
+  try {
+    const data = JSON.parse(options.data);
+    const solution = createSolution(issueId, data);
+    console.log(JSON.stringify(solution, null, 2));
   } catch (err) {
     console.error(chalk.red((err as Error).message));
     process.exit(1);
@@ -1638,6 +1702,9 @@ export async function issueCommand(
   switch (subcommand) {
     case 'create':
       await createAction(options);
+      break;
+    case 'solution':
+      await solutionAction(argsArray[0], options);
       break;
     case 'init':
       await initAction(argsArray[0], options);
