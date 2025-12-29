@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import threading
 import time
@@ -12,6 +13,8 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from codexlens.entities import IndexedFile, SearchResult, Symbol
 from codexlens.errors import StorageError
+
+logger = logging.getLogger(__name__)
 
 
 class SQLiteStore:
@@ -47,11 +50,16 @@ class SQLiteStore:
         if getattr(self._local, "generation", None) == self._pool_generation:
             conn = getattr(self._local, "conn", None)
             if conn is not None:
-                # Update last access time
                 with self._pool_lock:
-                    if thread_id in self._pool:
-                        self._pool[thread_id] = (conn, current_time)
-                return conn
+                    pool_entry = self._pool.get(thread_id)
+                    if pool_entry is not None:
+                        pooled_conn, _ = pool_entry
+                        self._pool[thread_id] = (pooled_conn, current_time)
+                        self._local.conn = pooled_conn
+                        return pooled_conn
+
+                # Thread-local connection is stale (e.g., cleaned up by timer).
+                self._local.conn = None
 
         with self._pool_lock:
             pool_entry = self._pool.get(thread_id)
@@ -84,21 +92,40 @@ class SQLiteStore:
         active_threads = {t.ident for t in threading.enumerate() if t.ident is not None}
 
         # Find connections to remove: dead threads or idle timeout exceeded
-        stale_ids = []
+        stale_ids: list[tuple[int, str]] = []
         for tid, (conn, last_access) in list(self._pool.items()):
-            is_dead_thread = tid not in active_threads
-            is_idle = (current_time - last_access) > self.IDLE_TIMEOUT
-            if is_dead_thread or is_idle:
-                stale_ids.append(tid)
+            try:
+                is_dead_thread = tid not in active_threads
+                is_idle = (current_time - last_access) > self.IDLE_TIMEOUT
+
+                is_invalid_connection = False
+                if not is_dead_thread and not is_idle:
+                    try:
+                        conn.execute("SELECT 1").fetchone()
+                    except sqlite3.ProgrammingError:
+                        is_invalid_connection = True
+                    except sqlite3.Error:
+                        is_invalid_connection = True
+
+                if is_invalid_connection:
+                    stale_ids.append((tid, "invalid_connection"))
+                elif is_dead_thread:
+                    stale_ids.append((tid, "dead_thread"))
+                elif is_idle:
+                    stale_ids.append((tid, "idle_timeout"))
+            except Exception:
+                # Never break cleanup for a single bad entry.
+                continue
 
         # Close and remove stale connections
-        for tid in stale_ids:
+        for tid, reason in stale_ids:
             try:
                 conn, _ = self._pool[tid]
                 conn.close()
             except Exception:
                 pass
             del self._pool[tid]
+            logger.debug("Cleaned SQLiteStore connection for thread_id=%s (%s)", tid, reason)
 
     def _start_cleanup_timer(self) -> None:
         if self.CLEANUP_INTERVAL <= 0:
