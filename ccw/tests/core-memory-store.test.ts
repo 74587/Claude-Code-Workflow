@@ -153,6 +153,10 @@ describe('CoreMemoryStore', async () => {
     const cluster = store.createCluster({ name: 'Cluster B', description: 'Testing clusters' });
     assert.ok(cluster);
 
+    const activeClusters = store.listClusters('active');
+    assert.ok(activeClusters.some((c: any) => c.id === cluster.id));
+    assert.equal(store.listClusters('archived').length, 0);
+
     store.addClusterMember({
       cluster_id: cluster.id,
       session_id: 'WFS-TEST-1',
