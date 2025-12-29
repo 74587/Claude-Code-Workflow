@@ -19,6 +19,10 @@ export interface LiteLLMExecutionOptions {
   includeDirs?: string[]; // Additional directories for @patterns
   enableCache?: boolean; // Override endpoint cache setting
   onOutput?: (data: { type: string; data: string }) => void;
+  /** Number of retries after the initial attempt (default: 0) */
+  maxRetries?: number;
+  /** Base delay for exponential backoff in milliseconds (default: 1000) */
+  retryBaseDelayMs?: number;
 }
 
 export interface LiteLLMExecutionResult {
@@ -180,7 +184,15 @@ export async function executeLiteLLMEndpoint(
     }
 
     // Use litellm-client to call chat
-    const response = await client.chat(finalPrompt, endpoint.model);
+    const response = await callWithRetries(
+      () => client.chat(finalPrompt, endpoint.model),
+      {
+        maxRetries: options.maxRetries ?? 0,
+        baseDelayMs: options.retryBaseDelayMs ?? 1000,
+        onOutput,
+        rateLimitKey: `${provider.type}:${endpoint.model}`,
+      },
+    );
 
     if (onOutput) {
       onOutput({ type: 'stdout', data: response });
@@ -238,4 +250,75 @@ function getProviderBaseUrlEnvVarName(providerType: string): string | null {
   };
 
   return envVarMap[providerType] || null;
+}
+
+const rateLimitRetryQueueNextAt = new Map<string, number>();
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRateLimitError(errorMessage: string): boolean {
+  return /429|rate limit|too many requests/i.test(errorMessage);
+}
+
+function isRetryableError(errorMessage: string): boolean {
+  // Never retry auth/config errors
+  if (/401|403|unauthorized|forbidden/i.test(errorMessage)) {
+    return false;
+  }
+
+  // Retry rate limits, transient server errors, and network timeouts
+  return /(429|500|502|503|504|timeout|timed out|econnreset|enotfound|econnrefused|socket hang up)/i.test(
+    errorMessage,
+  );
+}
+
+async function callWithRetries(
+  call: () => Promise<string>,
+  options: {
+    maxRetries: number;
+    baseDelayMs: number;
+    onOutput?: (data: { type: string; data: string }) => void;
+    rateLimitKey: string;
+  },
+): Promise<string> {
+  const { maxRetries, baseDelayMs, onOutput, rateLimitKey } = options;
+  let attempt = 0;
+
+  while (true) {
+    try {
+      return await call();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+
+      if (attempt >= maxRetries || !isRetryableError(errorMessage)) {
+        throw err;
+      }
+
+      const delayMs = baseDelayMs * 2 ** attempt;
+
+      if (onOutput) {
+        onOutput({
+          type: 'stderr',
+          data: `[LiteLLM retry ${attempt + 1}/${maxRetries}: waiting ${delayMs}ms] ${errorMessage}\n`,
+        });
+      }
+
+      attempt += 1;
+
+      if (isRateLimitError(errorMessage)) {
+        const now = Date.now();
+        const earliestAt = now + delayMs;
+        const queuedAt = rateLimitRetryQueueNextAt.get(rateLimitKey) ?? 0;
+        const scheduledAt = Math.max(queuedAt, earliestAt);
+        rateLimitRetryQueueNextAt.set(rateLimitKey, scheduledAt + delayMs);
+
+        await sleep(scheduledAt - now);
+        continue;
+      }
+
+      await sleep(delayMs);
+    }
+  }
 }
