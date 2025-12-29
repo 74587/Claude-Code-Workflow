@@ -614,9 +614,10 @@ class VectorStore:
                 for batch in batches:
                     store.add_chunks_batch(batch)
         """
-        self._bulk_insert_mode = True
-        self._bulk_insert_ids.clear()
-        self._bulk_insert_embeddings.clear()
+        with self._ann_write_lock:
+            self._bulk_insert_mode = True
+            self._bulk_insert_ids.clear()
+            self._bulk_insert_embeddings.clear()
         logger.debug("Entered bulk insert mode")
 
     def end_bulk_insert(self) -> None:
@@ -625,30 +626,32 @@ class VectorStore:
         This method should be called after all bulk inserts are complete to
         update the ANN index in a single batch operation.
         """
-        if not self._bulk_insert_mode:
-            logger.warning("end_bulk_insert called but not in bulk insert mode")
-            return
+        with self._ann_write_lock:
+            if not self._bulk_insert_mode:
+                logger.warning("end_bulk_insert called but not in bulk insert mode")
+                return
 
-        self._bulk_insert_mode = False
+            self._bulk_insert_mode = False
+            bulk_ids = list(self._bulk_insert_ids)
+            bulk_embeddings = list(self._bulk_insert_embeddings)
+            self._bulk_insert_ids.clear()
+            self._bulk_insert_embeddings.clear()
 
-        # Update ANN index with all accumulated data
-        if self._bulk_insert_ids and self._bulk_insert_embeddings:
-            if self._ensure_ann_index(len(self._bulk_insert_embeddings[0])):
+        # Update ANN index with accumulated data.
+        if bulk_ids and bulk_embeddings:
+            if self._ensure_ann_index(len(bulk_embeddings[0])):
                 with self._ann_write_lock:
                     try:
-                        embeddings_matrix = np.vstack(self._bulk_insert_embeddings)
-                        self._ann_index.add_vectors(self._bulk_insert_ids, embeddings_matrix)
+                        embeddings_matrix = np.vstack(bulk_embeddings)
+                        self._ann_index.add_vectors(bulk_ids, embeddings_matrix)
                         self._ann_index.save()
                         logger.info(
                             "Bulk insert complete: added %d vectors to ANN index",
-                            len(self._bulk_insert_ids)
+                            len(bulk_ids),
                         )
                     except Exception as e:
                         logger.error("Failed to update ANN index after bulk insert: %s", e)
 
-        # Clear accumulated data
-        self._bulk_insert_ids.clear()
-        self._bulk_insert_embeddings.clear()
         logger.debug("Exited bulk insert mode")
 
     class BulkInsertContext:
