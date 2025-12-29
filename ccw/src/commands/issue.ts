@@ -272,13 +272,22 @@ function getBoundSolution(issueId: string): Solution | undefined {
 }
 
 /**
- * Generate fallback solution ID (timestamp-based).
- * Note: Prefer agent-generated IDs in format `SOL-{issue-id}-{seq}` (e.g., SOL-GH-123-1).
- * This function is only used when no ID is provided via CLI or file content.
+ * Generate solution ID in format: SOL-{issue-id}-{seq}
+ * @param issueId - The issue ID to include in the solution ID
+ * @param existingSolutions - Existing solutions to calculate next sequence number
+ * @returns Solution ID like "SOL-GH-123-1" or "SOL-ISS-20251229-001-2"
  */
-function generateSolutionId(): string {
-  const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
-  return `SOL-${ts}`;
+function generateSolutionId(issueId: string, existingSolutions: Solution[] = []): string {
+  // Find the highest existing sequence number for this issue
+  const pattern = new RegExp(`^SOL-${issueId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-(\\d+)$`);
+  let maxSeq = 0;
+  for (const sol of existingSolutions) {
+    const match = sol.id.match(pattern);
+    if (match) {
+      maxSeq = Math.max(maxSeq, parseInt(match[1], 10));
+    }
+  }
+  return `SOL-${issueId}-${maxSeq + 1}`;
 }
 
 // ============ Queue Management (Multi-Queue) ============
@@ -656,7 +665,7 @@ async function taskAction(issueId: string | undefined, taskId: string | undefine
   // Create default solution if none bound
   if (boundIdx === -1) {
     const newSol: Solution = {
-      id: generateSolutionId(),
+      id: generateSolutionId(issueId, solutions),
       description: 'Manual tasks',
       tasks: [],
       is_bound: true,
@@ -807,10 +816,9 @@ async function bindAction(issueId: string | undefined, solutionId: string | unde
     try {
       const content = readFileSync(options.solution, 'utf-8');
       const data = JSON.parse(content);
-      // Priority: CLI arg > file content ID > generate new
-      // This ensures agent-generated IDs (SOL-{issue-id}-{seq}) are preserved
+      // Priority: CLI arg > file content ID > generate new (SOL-{issue-id}-{seq})
       const newSol: Solution = {
-        id: solutionId || data.id || generateSolutionId(),
+        id: solutionId || data.id || generateSolutionId(issueId, solutions),
         description: data.description || data.approach_name || 'Imported solution',
         tasks: data.tasks || [],
         exploration_context: data.exploration_context,
