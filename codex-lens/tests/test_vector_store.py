@@ -317,3 +317,70 @@ def test_add_chunks_batch_numpy_overflow(monkeypatch: pytest.MonkeyPatch, temp_d
 
     with pytest.raises(ValueError, match=r"Chunk ID range overflow"):
         store.add_chunks_batch_numpy(chunks_with_paths, embeddings)
+
+
+def test_fetch_results_by_ids(monkeypatch: pytest.MonkeyPatch, temp_db: Path) -> None:
+    """_fetch_results_by_ids should use parameterized IN queries and return ordered results."""
+    store = VectorStore(temp_db)
+
+    calls: list[tuple[str, str, object]] = []
+    rows = [
+        (1, "a.py", "content A", None),
+        (2, "b.py", "content B", None),
+    ]
+
+    class DummyCursor:
+        def __init__(self, result_rows):
+            self._rows = result_rows
+
+        def fetchall(self):
+            return self._rows
+
+    class DummyConn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, query, params=None):
+            if isinstance(query, str) and query.strip().upper().startswith("PRAGMA"):
+                calls.append(("pragma", query, params))
+                return DummyCursor([])
+            calls.append(("query", query, params))
+            return DummyCursor(rows)
+
+    monkeypatch.setattr(vector_store_module.sqlite3, "connect", lambda _: DummyConn())
+
+    chunk_ids = [1, 2]
+    scores = [0.9, 0.8]
+    results = store._fetch_results_by_ids(chunk_ids, scores, return_full_content=False)
+
+    assert [r.path for r in results] == ["a.py", "b.py"]
+    assert [r.score for r in results] == scores
+    assert all(r.content is None for r in results)
+
+    assert any(kind == "pragma" for kind, _, _ in calls)
+    _, query, params = next((c for c in calls if c[0] == "query"), ("", "", None))
+    expected_query = """
+            SELECT id, file_path, content, metadata
+            FROM semantic_chunks
+            WHERE id IN ({placeholders})
+        """.format(placeholders=",".join("?" * len(chunk_ids)))
+    assert query == expected_query
+    assert params == chunk_ids
+
+    assert store._fetch_results_by_ids([], [], return_full_content=False) == []
+
+
+def test_fetch_results_sql_safety() -> None:
+    """Placeholder generation and validation should prevent unsafe SQL interpolation."""
+    for count in (0, 1, 10, 100):
+        placeholders = ",".join("?" * count)
+        vector_store_module._validate_sql_placeholders(placeholders, count)
+
+    with pytest.raises(ValueError):
+        vector_store_module._validate_sql_placeholders("?,?); DROP TABLE semantic_chunks;--", 2)
+
+    with pytest.raises(ValueError):
+        vector_store_module._validate_sql_placeholders("?,?", 3)

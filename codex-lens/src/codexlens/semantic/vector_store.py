@@ -59,6 +59,16 @@ def _validate_chunk_id_range(start_id: int, count: int) -> None:
         )
 
 
+def _validate_sql_placeholders(placeholders: str, expected_count: int) -> None:
+    """Validate the placeholder string used for a parameterized SQL IN clause."""
+    expected = ",".join("?" * expected_count)
+    if placeholders != expected:
+        raise ValueError(
+            "Invalid SQL placeholders for IN clause. "
+            f"Expected {expected_count} '?' placeholders."
+        )
+
+
 def _cosine_similarity(a: List[float], b: List[float]) -> float:
     """Compute cosine similarity between two vectors."""
     if not NUMPY_AVAILABLE:
@@ -946,11 +956,16 @@ class VectorStore:
 
         # Build parameterized query for IN clause
         placeholders = ",".join("?" * len(chunk_ids))
-        query = f"""
+        _validate_sql_placeholders(placeholders, len(chunk_ids))
+
+        # SQL injection prevention:
+        # - Only a validated placeholders string (commas + '?') is interpolated into the query.
+        # - User-provided values are passed separately via sqlite3 parameters.
+        query = """
             SELECT id, file_path, content, metadata
             FROM semantic_chunks
             WHERE id IN ({placeholders})
-        """
+        """.format(placeholders=placeholders)
 
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("PRAGMA mmap_size = 30000000000")
