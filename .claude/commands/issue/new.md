@@ -76,22 +76,28 @@ if (isGitHubUrl || isGitHubShort) {
 }
 ```
 
-### Phase 3: Smart Context Discovery (ACE)
+### Phase 3: Lightweight Context Hint (Conditional)
 
 ```javascript
-// Use ACE to find affected components if not specified
-if (!issueData.affected_components?.length && issueData.problem_statement) {
+// ACE search ONLY for medium clarity (1-2) AND missing components
+// Skip for: GitHub (has context), vague (needs clarification first)
+// Note: Deep exploration happens in /issue:plan, this is just a quick hint
+
+if (clarityScore >= 1 && clarityScore <= 2 && !issueData.affected_components?.length) {
   const keywords = extractKeywords(issueData.problem_statement);
 
-  if (keywords.length > 0) {
-    const aceResult = mcp__ace-tool__search_context({
-      project_root_path: process.cwd(),
-      query: `Find code related to: ${keywords.join(', ')}`
-    });
+  if (keywords.length >= 2) {  // Need at least 2 keywords for meaningful search
+    try {
+      const aceResult = mcp__ace-tool__search_context({
+        project_root_path: process.cwd(),
+        query: keywords.slice(0, 3).join(' ')  // Quick search, max 3 keywords
+      });
 
-    // Extract file paths from ACE results
-    issueData.affected_components = aceResult.files?.slice(0, 5) || [];
-    issueData.extended_context = { ace_suggestions: aceResult.summary };
+      // Only take top 3 files as hints
+      issueData.affected_components = aceResult.files?.slice(0, 3) || [];
+    } catch {
+      // ACE failure is non-blocking, continue without hints
+    }
   }
 }
 ```
@@ -235,8 +241,11 @@ if (proceed) {
       GitHub URL    Structured Text   Vague Input
            │               │               │
            ▼               ▼               ▼
-        Parse           Parse         AskUserQuestion
-        Direct         + ACE           (1 question)
+        Parse          Parse +        AskUserQuestion
+        Direct       ACE (quick)       (1 question)
+           │               │               │
+           │          max 3 files         │
+           │          max 3 keywords      │
            │               │               │
            └───────────────┼───────────────┘
                            │
@@ -251,6 +260,8 @@ if (proceed) {
               │      Create Issue      │
               │  (confirm only if <2)  │
               └────────────────────────┘
+
+Note: Deep exploration → /issue:plan (not here)
 ```
 
 ## Helper Functions
