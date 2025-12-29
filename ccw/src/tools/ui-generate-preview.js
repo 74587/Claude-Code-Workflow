@@ -247,7 +247,13 @@ function generatePreviewMd(metadata) {
  * Main execute function
  */
 async function execute(params) {
-  const { prototypesDir = '.', template: templatePath } = params;
+  const {
+    prototypesDir = '.',
+    template: templatePath,
+    runId: runIdParam,
+    sessionId: sessionIdParam,
+    timestamp: timestampParam,
+  } = params;
 
   const targetPath = resolve(process.cwd(), prototypesDir);
 
@@ -262,11 +268,16 @@ async function execute(params) {
     throw new Error('No prototype files found matching pattern {target}-style-{s}-layout-{l}.html');
   }
 
+  const now = new Date();
+  const runId = runIdParam || `run-${now.toISOString().replace(/[:.]/g, '-').slice(0, -5)}`;
+  const sessionId = sessionIdParam || 'standalone';
+  const timestamp = timestampParam || now.toISOString();
+
   // Generate metadata
   const metadata = {
-    runId: `run-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)}`,
-    sessionId: 'standalone',
-    timestamp: new Date().toISOString(),
+    runId,
+    sessionId,
+    timestamp,
     styles,
     layouts,
     targets
@@ -319,6 +330,18 @@ Auto-detects matrix dimensions from file pattern: {target}-style-{s}-layout-{l}.
       template: {
         type: 'string',
         description: 'Optional path to compare.html template'
+      },
+      runId: {
+        type: 'string',
+        description: 'Optional run identifier to inject into compare.html (defaults to generated timestamp-based run id)'
+      },
+      sessionId: {
+        type: 'string',
+        description: 'Optional session identifier to inject into compare.html (default: standalone)'
+      },
+      timestamp: {
+        type: 'string',
+        description: 'Optional ISO timestamp to inject into compare.html (defaults to current time)'
       }
     },
     required: []

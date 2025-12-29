@@ -53,10 +53,15 @@ function getSnapshotPaths(name: string): { baseline: string; current: string; di
 }
 
 type CaptureOptions = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  browser?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  page?: any;
   viewport?: { width: number; height: number };
   fullPage?: boolean;
   timeoutMs?: number;
   waitForMs?: number;
+  skipGoto?: boolean;
 };
 
 export async function captureSnapshot(
@@ -66,11 +71,32 @@ export async function captureSnapshot(
   options?: CaptureOptions
 ): Promise<string> {
   const { current } = getSnapshotPaths(name);
-  const browser = await chromium.launch();
+  const timeoutMs = options?.timeoutMs ?? 30_000;
+  const fullPage = options?.fullPage ?? true;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let browser: any = options?.browser;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let page: any = options?.page;
+  let ownsBrowser = false;
+  let ownsPage = false;
+
+  if (!page) {
+    if (!browser) {
+      browser = await chromium.launch();
+      ownsBrowser = true;
+    }
+
+    page = await browser.newPage({ viewport: options?.viewport });
+    ownsPage = true;
+  } else if (options?.viewport) {
+    await page.setViewportSize(options.viewport);
+  }
 
   try {
-    const page = await browser.newPage({ viewport: options?.viewport });
-    await page.goto(url, { waitUntil: 'load', timeout: options?.timeoutMs ?? 30_000 });
+    if (!options?.skipGoto) {
+      await page.goto(url, { waitUntil: 'load', timeout: timeoutMs });
+    }
 
     if (options?.waitForMs) {
       await page.waitForTimeout(options.waitForMs);
@@ -78,12 +104,17 @@ export async function captureSnapshot(
 
     const screenshot = selector
       ? await page.locator(selector).screenshot()
-      : await page.screenshot({ fullPage: options?.fullPage ?? true });
+      : await page.screenshot({ fullPage });
 
     writeFileSync(current, screenshot);
     return current;
   } finally {
-    await browser.close();
+    if (ownsPage) {
+      await page.close();
+    }
+    if (ownsBrowser) {
+      await browser.close();
+    }
   }
 }
 
