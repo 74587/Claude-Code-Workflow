@@ -18,14 +18,34 @@ process.stdout.on('error', (err: NodeJS.ErrnoException) => {
 
 // ============ Interfaces ============
 
+interface IssueFeedback {
+  type: 'failure' | 'clarification' | 'rejection';
+  stage: string;               // new/plan/execute
+  content: string;
+  created_at: string;
+}
+
 interface Issue {
   id: string;
   title: string;
   status: 'registered' | 'planning' | 'planned' | 'queued' | 'executing' | 'completed' | 'failed' | 'paused';
   priority: number;
-  context: string;
+  context: string;             // Problem description (single source of truth)
+  source?: 'github' | 'text' | 'discovery';
+  source_url?: string;
+  labels?: string[];
+
+  // Optional structured fields
+  expected_behavior?: string;
+  actual_behavior?: string;
+  affected_components?: string[];
+
+  // Feedback history (failures + human clarifications)
+  feedback?: IssueFeedback[];
+
+  // Solution binding
   bound_solution_id: string | null;
-  solution_count: number;
+
   // Timestamps
   created_at: string;
   updated_at: string;
@@ -472,7 +492,6 @@ async function initAction(issueId: string | undefined, options: IssueOptions): P
     priority: options.priority ? parseInt(options.priority) : 3,
     context: options.description || '',
     bound_solution_id: null,
-    solution_count: 0,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
@@ -531,7 +550,8 @@ async function listAction(issueId: string | undefined, options: IssueOptions): P
         'paused': chalk.magenta
       }[issue.status] || chalk.white;
 
-      const bound = issue.bound_solution_id ? `[${issue.bound_solution_id}]` : `${issue.solution_count}`;
+      const solutionCount = readSolutions(issue.id).length;
+      const bound = issue.bound_solution_id ? `[${issue.bound_solution_id}]` : `${solutionCount}`;
       console.log(
         issue.id.padEnd(20) +
         statusColor(issue.status.padEnd(15)) +
@@ -867,7 +887,6 @@ async function bindAction(issueId: string | undefined, solutionId: string | unde
   writeSolutions(issueId, solutions);
   updateIssue(issueId, {
     bound_solution_id: solutionId,
-    solution_count: solutions.length,
     status: 'planned',
     planned_at: new Date().toISOString()
   });

@@ -16,6 +16,41 @@ Clear Input (GitHub URL, structured text)  → Direct creation
 Unclear Input (vague description)          → Minimal clarifying questions
 ```
 
+## Issue Structure (Simplified)
+
+```typescript
+interface Issue {
+  id: string;                    // GH-123 or ISS-YYYYMMDD-HHMMSS
+  title: string;
+  status: 'registered' | 'planned' | 'queued' | 'in_progress' | 'completed' | 'failed';
+  priority: number;              // 1 (critical) to 5 (low)
+  context: string;               // Problem description (single source of truth)
+  source: 'github' | 'text' | 'discovery';
+  source_url?: string;
+  labels?: string[];
+
+  // Optional structured fields
+  expected_behavior?: string;
+  actual_behavior?: string;
+  affected_components?: string[];
+
+  // Feedback history (failures + human clarifications)
+  feedback?: {
+    type: 'failure' | 'clarification' | 'rejection';
+    stage: string;               // new/plan/execute
+    content: string;
+    created_at: string;
+  }[];
+
+  // Solution binding
+  bound_solution_id: string | null;
+
+  // Timestamps
+  created_at: string;
+  updated_at: string;
+}
+```
+
 ## Quick Reference
 
 ```bash
@@ -63,7 +98,7 @@ if (isGitHubUrl || isGitHubShort) {
     source: 'github',
     source_url: gh.url,
     labels: gh.labels.map(l => l.name),
-    problem_statement: gh.body?.substring(0, 500) || gh.title,
+    context: gh.body?.substring(0, 500) || gh.title,
     ...parseMarkdownBody(gh.body)
   };
 } else {
@@ -84,19 +119,17 @@ if (isGitHubUrl || isGitHubShort) {
 // Note: Deep exploration happens in /issue:plan, this is just a quick hint
 
 if (clarityScore >= 1 && clarityScore <= 2 && !issueData.affected_components?.length) {
-  const keywords = extractKeywords(issueData.problem_statement);
+  const keywords = extractKeywords(issueData.context);
 
-  if (keywords.length >= 2) {  // Need at least 2 keywords for meaningful search
+  if (keywords.length >= 2) {
     try {
       const aceResult = mcp__ace-tool__search_context({
         project_root_path: process.cwd(),
-        query: keywords.slice(0, 3).join(' ')  // Quick search, max 3 keywords
+        query: keywords.slice(0, 3).join(' ')
       });
-
-      // Only take top 3 files as hints
       issueData.affected_components = aceResult.files?.slice(0, 3) || [];
     } catch {
-      // ACE failure is non-blocking, continue without hints
+      // ACE failure is non-blocking
     }
   }
 }
@@ -107,16 +140,9 @@ if (clarityScore >= 1 && clarityScore <= 2 && !issueData.affected_components?.le
 ```javascript
 // ONLY ask questions if clarity is low
 if (clarityScore < 2) {
-  const missingFields = [];
+  if (!issueData.title || issueData.title.length < 10 ||
+      !issueData.context || issueData.context.length < 20) {
 
-  if (!issueData.title || issueData.title.length < 10) {
-    missingFields.push('title');
-  }
-  if (!issueData.problem_statement || issueData.problem_statement.length < 20) {
-    missingFields.push('problem');
-  }
-
-  if (missingFields.length > 0) {
     const answer = AskUserQuestion({
       questions: [{
         question: `Input unclear. What is the issue about?`,
@@ -131,36 +157,22 @@ if (clarityScore < 2) {
       }]
     });
 
-    // Use answer to enrich issue data
+    // Save clarification as feedback
     if (answer.customText) {
-      issueData.problem_statement = answer.customText;
+      issueData.context = answer.customText;
       issueData.title = answer.customText.split('.')[0].substring(0, 60);
+      issueData.feedback = [{
+        type: 'clarification',
+        stage: 'new',
+        content: answer.customText,
+        created_at: new Date().toISOString()
+      }];
     }
   }
 }
 ```
 
-### Phase 5: Auto-Detect Lifecycle (No Questions)
-
-```javascript
-// Smart defaults based on affected files - NO USER QUESTIONS
-function detectLifecycle(components) {
-  const hasTests = components.some(c => c.includes('test') || c.includes('spec'));
-  const hasApi = components.some(c => c.includes('api') || c.includes('route'));
-  const hasUi = components.some(c => c.includes('component') || c.match(/\.(tsx|jsx)$/));
-
-  return {
-    test_strategy: hasTests ? 'unit' : (hasApi ? 'integration' : 'auto'),
-    regression_scope: 'affected',
-    acceptance_type: 'automated',
-    commit_strategy: 'per-task'
-  };
-}
-
-issueData.lifecycle_requirements = detectLifecycle(issueData.affected_components || []);
-```
-
-### Phase 6: Create Issue (Minimal Confirmation)
+### Phase 5: Create Issue
 
 ```javascript
 // Show summary and create
@@ -191,24 +203,20 @@ if (clarityScore < 2) {
 }
 
 if (proceed) {
-  // Construct and save
   const newIssue = {
     id: issueData.id,
     title: issueData.title || 'Untitled Issue',
     status: 'registered',
     priority: flags.priority ? parseInt(flags.priority) : 3,
-    context: issueData.problem_statement,
+    context: issueData.context,
     source: issueData.source,
     source_url: issueData.source_url || null,
     labels: issueData.labels || [],
-    problem_statement: issueData.problem_statement,
     expected_behavior: issueData.expected_behavior || null,
     actual_behavior: issueData.actual_behavior || null,
     affected_components: issueData.affected_components || [],
-    extended_context: issueData.extended_context || null,
-    lifecycle_requirements: issueData.lifecycle_requirements,
+    feedback: issueData.feedback || [],
     bound_solution_id: null,
-    solution_count: 0,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
@@ -234,24 +242,20 @@ Phase 2: Data Extraction (branched by clarity)
    ├────────────┼─────────────────┼──────────────┤
    │  gh CLI    │  Parse struct   │ AskQuestion  │
    │  → parse   │  + quick hint   │ (1 question) │
-   │            │  (3 files max)  │              │
+   │            │  (3 files max)  │  → feedback  │
    └────────────┴─────────────────┴──────────────┘
 
-Phase 3: Lifecycle Auto-Detection
-   └─ Infer test_strategy from affected files (NO questions)
-
-Phase 4: Create Issue
+Phase 3: Create Issue
    ├─ Score ≥ 2: Direct creation
    └─ Score < 2: Confirm first → Create
 
-Note: Deep exploration deferred to /issue:plan
+Note: Deep exploration & lifecycle deferred to /issue:plan
 ```
 
 ## Helper Functions
 
 ```javascript
 function extractKeywords(text) {
-  // Extract meaningful keywords for ACE search
   const stopWords = new Set(['the', 'a', 'an', 'is', 'are', 'was', 'were', 'not', 'with']);
   return text
     .toLowerCase()
@@ -261,11 +265,11 @@ function extractKeywords(text) {
 }
 
 function parseTextDescription(text) {
-  const result = { title: '', problem_statement: '' };
+  const result = { title: '', context: '' };
   const sentences = text.split(/\.(?=\s|$)/);
 
   result.title = sentences[0]?.trim().substring(0, 60) || 'Untitled';
-  result.problem_statement = text.substring(0, 500);
+  result.context = text.substring(0, 500);
 
   // Extract structured fields if present
   const expected = text.match(/expected:?\s*([^.]+)/i);
@@ -285,12 +289,11 @@ function parseMarkdownBody(body) {
   if (!body) return {};
   const result = {};
 
-  // Extract sections
   const problem = body.match(/##?\s*(problem|description)[:\s]*([\s\S]*?)(?=##|$)/i);
   const expected = body.match(/##?\s*expected[:\s]*([\s\S]*?)(?=##|$)/i);
   const actual = body.match(/##?\s*actual[:\s]*([\s\S]*?)(?=##|$)/i);
 
-  if (problem) result.problem_statement = problem[2].trim().substring(0, 500);
+  if (problem) result.context = problem[2].trim().substring(0, 500);
   if (expected) result.expected_behavior = expected[2].trim();
   if (actual) result.actual_behavior = actual[2].trim();
 
@@ -315,7 +318,7 @@ function parseMarkdownBody(body) {
 ```bash
 /issue:new "auth broken"
 # → Asks: "Input unclear. What is the issue about?"
-# → User selects "Bug fix" or provides details
+# → User provides details → saved to feedback[]
 # → Creates issue
 ```
 
