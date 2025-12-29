@@ -171,6 +171,7 @@ export function run(argv: string[]): void {
     .option('-f, --file <file>', 'Read prompt from file (best for multi-line prompts)')
     .option('--tool <tool>', 'CLI tool to use', 'gemini')
     .option('--mode <mode>', 'Execution mode: analysis, write, auto', 'analysis')
+    .option('-d, --debug', 'Enable debug logging for troubleshooting')
     .option('--model <model>', 'Model override')
     .option('--cd <path>', 'Working directory')
     .option('--includeDirs <dirs>', 'Additional directories (--include-directories for gemini/qwen, --add-dir for codex/claude)')

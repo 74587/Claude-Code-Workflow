@@ -81,6 +81,7 @@ interface CliExecOptions {
   noNative?: boolean; // Force prompt concatenation instead of native resume
   cache?: string | boolean; // Cache: true = auto from CONTEXT, string = comma-separated patterns/content
   injectMode?: 'none' | 'full' | 'progressive'; // Inject mode for cached content
+  debug?: boolean; // Enable debug logging
 }
 
 /** Cache configuration parsed from --cache */
@@ -457,7 +458,13 @@ function testParseAction(args: string[], options: CliExecOptions): void {
 /**
  * Show CLI tool status
  */
-async function statusAction(): Promise<void> {
+async function statusAction(debug?: boolean): Promise<void> {
+  // Enable debug mode if --debug flag is set
+  if (debug) {
+    process.env.DEBUG = 'true';
+    console.log(chalk.yellow('  Debug mode enabled\n'));
+  }
+
   console.log(chalk.bold.cyan('\n  CLI Tools Status\n'));
 
   const status = await getCliToolsStatus();
@@ -481,7 +488,13 @@ async function statusAction(): Promise<void> {
  * @param {Object} options - CLI options
  */
 async function execAction(positionalPrompt: string | undefined, options: CliExecOptions): Promise<void> {
-  const { prompt: optionPrompt, file, tool = 'gemini', mode = 'analysis', model, cd, includeDirs, timeout, stream, resume, id, noNative, cache, injectMode } = options;
+  const { prompt: optionPrompt, file, tool = 'gemini', mode = 'analysis', model, cd, includeDirs, timeout, stream, resume, id, noNative, cache, injectMode, debug } = options;
+
+  // Enable debug mode if --debug flag is set
+  if (debug) {
+    process.env.DEBUG = 'true';
+    console.log(chalk.yellow('  Debug mode enabled\n'));
+  }
 
   // Priority: 1. --file, 2. --prompt/-p option, 3. positional argument
   let finalPrompt: string | undefined;
@@ -957,7 +970,7 @@ export async function cliCommand(
 
   switch (subcommand) {
     case 'status':
-      await statusAction();
+      await statusAction((options as CliExecOptions).debug);
       break;
 
     case 'history':
@@ -1014,6 +1027,7 @@ export async function cliCommand(
         console.log(chalk.gray('    -f, --file <file>   Read prompt from file'));
         console.log(chalk.gray('    --tool <tool>       Tool: gemini, qwen, codex (default: gemini)'));
         console.log(chalk.gray('    --mode <mode>       Mode: analysis, write, auto (default: analysis)'));
+        console.log(chalk.gray('    -d, --debug         Enable debug logging for troubleshooting'));
         console.log(chalk.gray('    --model <model>     Model override'));
         console.log(chalk.gray('    --cd <path>         Working directory'));
         console.log(chalk.gray('    --includeDirs <dirs>  Additional directories'));

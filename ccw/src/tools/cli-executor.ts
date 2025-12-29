@@ -10,11 +10,13 @@ import { spawn, ChildProcess } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 
-// Debug logging utility
-const DEBUG = process.env.DEBUG === 'true' || process.env.DEBUG === '1' || process.env.CCW_DEBUG === 'true';
+// Debug logging utility - check env at runtime for --debug flag support
+function isDebugEnabled(): boolean {
+  return process.env.DEBUG === 'true' || process.env.DEBUG === '1' || process.env.CCW_DEBUG === 'true';
+}
 
 function debugLog(category: string, message: string, data?: Record<string, unknown>): void {
-  if (!DEBUG) return;
+  if (!isDebugEnabled()) return;
   const timestamp = new Date().toISOString();
   const prefix = `[${timestamp}] [CLI-DEBUG] [${category}]`;
   if (data) {
@@ -30,7 +32,7 @@ function errorLog(category: string, message: string, error?: Error | unknown, co
   console.error(`${prefix} ${message}`);
   if (error instanceof Error) {
     console.error(`${prefix} Error: ${error.message}`);
-    if (DEBUG && error.stack) {
+    if (isDebugEnabled() && error.stack) {
       console.error(`${prefix} Stack: ${error.stack}`);
     }
   } else if (error) {
