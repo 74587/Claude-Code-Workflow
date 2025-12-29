@@ -74,10 +74,14 @@
   },
   "homepage": "https://github.com/catlog22/Claude-Code-Workflow#readme",
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@types/better-sqlite3": "^7.6.12",
     "@types/gradient-string": "^1.1.6",
     "@types/inquirer": "^9.0.9",
     "@types/node": "^25.0.1",
+    "pixelmatch": "^7.1.0",
+    "playwright": "^1.57.0",
+    "pngjs": "^7.0.0",
     "typescript": "^5.9.3"
   }
 }
