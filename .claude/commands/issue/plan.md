@@ -207,7 +207,7 @@ ${issueList}
 ### Steps
 1. Fetch: \`ccw issue status <id> --json\`
 2. Load project context (project-tech.json + project-guidelines.json)
-3. **If source=discovery**: Use discovery_context (file, line, snippet, suggested_fix) as planning hints
+3. **If extended_context exists**: Use extended_context (location, suggested_fix, notes) as planning hints
 4. Explore (ACE) → Plan solution (respecting guidelines)
 5. Register & bind: \`ccw issue bind <id> --solution <file>\`
 

@@ -35,16 +35,11 @@ interface Issue {
   affected_components?: string[];// Files/modules affected
   reproduction_steps?: string[]; // Steps to reproduce
 
-  // Discovery context (when source='discovery')
-  discovery_context?: {
-    discovery_id: string;        // Source discovery session
-    perspective: string;         // bug, test, quality, etc.
-    category: string;            // Finding category
-    file: string;                // Primary affected file
-    line: number;                // Line number
-    snippet?: string;            // Code snippet
-    confidence: number;          // Agent confidence (0-1)
+  // Extended context (minimal, for planning hints)
+  extended_context?: {
+    location?: string;           // file:line when specific line matters
     suggested_fix?: string;      // Suggested remediation
+    notes?: string;              // Additional notes (user clarifications or discovery hints)
   };
 
   // Closed-loop requirements (guide plan generation)
@@ -290,6 +285,108 @@ const lifecycle = {
 issueData.lifecycle_requirements = lifecycle;
 ```
 
+### Phase 4.5: Follow-up Questions (Intelligent Suggestions)
+
+```javascript
+// Analyze parsed data and suggest follow-up questions for missing/unclear fields
+const suggestions = [];
+
+// Check for missing critical fields
+if (!issueData.expected_behavior) {
+  suggestions.push({
+    field: 'expected_behavior',
+    question: 'What is the expected behavior?',
+    hint: 'Describe what should happen when working correctly'
+  });
+}
+
+if (!issueData.actual_behavior && issueData.source !== 'discovery') {
+  suggestions.push({
+    field: 'actual_behavior',
+    question: 'What is the actual behavior?',
+    hint: 'Describe what currently happens (error message, wrong output, etc.)'
+  });
+}
+
+if (!issueData.affected_components?.length) {
+  suggestions.push({
+    field: 'affected_components',
+    question: 'Which files or modules are affected?',
+    hint: 'e.g., src/auth/login.ts, src/api/users.ts'
+  });
+}
+
+if (!issueData.reproduction_steps?.length && issueData.source === 'text') {
+  suggestions.push({
+    field: 'reproduction_steps',
+    question: 'How can this issue be reproduced?',
+    hint: 'Step-by-step instructions to trigger the issue'
+  });
+}
+
+// Ask follow-up questions if any suggestions exist
+let userNotes = '';
+if (suggestions.length > 0) {
+  console.log(`
+## Suggested Clarifications
+
+The following information would help with issue resolution:
+${suggestions.map((s, i) => `${i+1}. **${s.question}** - ${s.hint}`).join('\n')}
+`);
+
+  const followUpAnswer = AskUserQuestion({
+    questions: [{
+      question: 'Would you like to provide additional details?',
+      header: 'Clarify',
+      multiSelect: false,
+      options: [
+        { label: 'Add details', description: 'Provide clarifications for suggested questions' },
+        { label: 'Skip', description: 'Continue without additional details (Recommended)' }
+      ]
+    }]
+  });
+
+  if (followUpAnswer.includes('Add details')) {
+    // Collect additional notes via "Other" input
+    const notesAnswer = AskUserQuestion({
+      questions: [{
+        question: 'Enter additional details (address any of the suggested questions):',
+        header: 'Details',
+        multiSelect: false,
+        options: [
+          { label: 'Use template', description: 'Expected: ... | Actual: ... | Files: ...' }
+        ]
+      }]
+    });
+
+    if (notesAnswer.customText) {
+      userNotes = notesAnswer.customText;
+
+      // Parse structured input if provided
+      const expectedMatch = userNotes.match(/expected:\s*([^|]+)/i);
+      const actualMatch = userNotes.match(/actual:\s*([^|]+)/i);
+      const filesMatch = userNotes.match(/files?:\s*([^|]+)/i);
+
+      if (expectedMatch && !issueData.expected_behavior) {
+        issueData.expected_behavior = expectedMatch[1].trim();
+      }
+      if (actualMatch && !issueData.actual_behavior) {
+        issueData.actual_behavior = actualMatch[1].trim();
+      }
+      if (filesMatch && !issueData.affected_components?.length) {
+        issueData.affected_components = filesMatch[1].split(/[,\s]+/).filter(f => f.includes('/') || f.includes('.'));
+      }
+    }
+  }
+}
+
+// Store user notes in extended context
+issueData.extended_context = {
+  ...(issueData.extended_context || {}),
+  notes: userNotes || null
+};
+```
+
 ### Phase 5: User Confirmation
 
 ```javascript
@@ -377,6 +474,9 @@ const newIssue = {
   affected_components: issueData.affected_components || [],
   reproduction_steps: issueData.reproduction_steps || [],
 
+  // Extended context (universal)
+  extended_context: issueData.extended_context || null,
+
   // Closed-loop lifecycle requirements
   lifecycle_requirements: issueData.lifecycle_requirements || {
     test_strategy: 'auto',
@@ -395,9 +495,11 @@ const newIssue = {
 // Ensure directory exists
 Bash('mkdir -p .workflow/issues');
 
-// Append to issues.jsonl
+// Append to issues.jsonl with proper newline handling
 const issuesPath = '.workflow/issues/issues.jsonl';
-Bash(`echo '${JSON.stringify(newIssue)}' >> "${issuesPath}"`);
+const jsonLine = JSON.stringify(newIssue);
+// Ensure file ends with newline before appending, then append with trailing newline
+Bash(`[ -s "${issuesPath}" ] && [ -n "$(tail -c 1 "${issuesPath}")" ] && printf '\\n' >> "${issuesPath}"; printf '%s\\n' '${jsonLine}' >> "${issuesPath}"`);
 
 console.log(`
 ## Issue Created

@@ -42,43 +42,21 @@
       "items": { "type": "string" },
       "description": "Issue labels/tags"
     },
-    "discovery_context": {
+    "extended_context": {
       "type": "object",
-      "description": "Enriched context from issue:discover (only when source=discovery)",
+      "description": "Minimal extended context for planning hints",
       "properties": {
-        "discovery_id": {
+        "location": {
           "type": "string",
-          "description": "Source discovery session ID"
-        },
-        "perspective": {
-          "type": "string",
-          "enum": ["bug", "ux", "test", "quality", "security", "performance", "maintainability", "best-practices"]
-        },
-        "category": {
-          "type": "string",
-          "description": "Finding category (e.g., edge-case, race-condition)"
-        },
-        "file": {
-          "type": "string",
-          "description": "Primary affected file"
-        },
-        "line": {
-          "type": "integer",
-          "description": "Line number in primary file"
-        },
-        "snippet": {
-          "type": "string",
-          "description": "Code snippet showing the issue"
-        },
-        "confidence": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1,
-          "description": "Agent confidence score"
+          "description": "file:line format (e.g., 'src/auth.ts:42')"
         },
         "suggested_fix": {
           "type": "string",
-          "description": "Suggested remediation from discovery"
+          "description": "Suggested remediation"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes (user clarifications or discovery hints)"
         }
       }
     },
@@ -143,15 +121,10 @@
       "context": "Connection pool cleanup only happens when MAX_POOL_SIZE is reached...",
       "source": "discovery",
       "labels": ["bug", "resource-leak", "critical"],
-      "discovery_context": {
-        "discovery_id": "DSC-20251228-182237",
-        "perspective": "bug",
-        "category": "resource-leak",
-        "file": "storage/sqlite_store.py",
-        "line": 59,
-        "snippet": "if len(self._pool) >= self.MAX_POOL_SIZE:\n    self._cleanup_stale_connections()",
-        "confidence": 0.85,
-        "suggested_fix": "Implement periodic cleanup or weak references"
+      "extended_context": {
+        "location": "storage/sqlite_store.py:59",
+        "suggested_fix": "Implement periodic cleanup or weak references",
+        "notes": null
       },
       "affected_components": ["storage/sqlite_store.py"],
       "lifecycle_requirements": {
