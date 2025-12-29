@@ -167,60 +167,48 @@ if (clarityScore < 2 && (!issueData.context || issueData.context.length < 20)) {
 
 ### Phase 5: Create Issue
 
-```javascript
-// Show summary and create
-console.log(`
-## Creating Issue
+**Summary Display:**
+- Show ID, title, source, affected files (if any)
 
-**ID**: ${issueData.id}
-**Title**: ${issueData.title}
-**Source**: ${issueData.source}
-${issueData.affected_components?.length ? `**Files**: ${issueData.affected_components.slice(0, 3).join(', ')}` : ''}
-`);
+**Confirmation** (only for vague inputs, clarityScore < 2):
+- Use `AskUserQuestion` to confirm before creation
 
-// Quick confirm only for vague inputs
-let proceed = true;
-if (clarityScore < 2) {
-  const confirm = AskUserQuestion({
-    questions: [{
-      question: 'Create this issue?',
-      header: 'Confirm',
-      multiSelect: false,
-      options: [
-        { label: 'Create', description: 'Save to issues.jsonl (Recommended)' },
-        { label: 'Cancel', description: 'Discard' }
-      ]
-    }]
-  });
-  proceed = !confirm.includes('Cancel');
-}
+**Issue Creation** (via CLI endpoint):
+```bash
+ccw issue create --data '{"title":"...", "context":"...", "priority":3, ...}'
+```
 
-if (proceed) {
-  const newIssue = {
-    id: issueData.id,
-    title: issueData.title || 'Untitled Issue',
-    status: 'registered',
-    priority: flags.priority ? parseInt(flags.priority) : 3,
-    context: issueData.context,
-    source: issueData.source,
-    source_url: issueData.source_url || null,
-    labels: issueData.labels || [],
-    expected_behavior: issueData.expected_behavior || null,
-    actual_behavior: issueData.actual_behavior || null,
-    affected_components: issueData.affected_components || [],
-    feedback: issueData.feedback || [],
-    bound_solution_id: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
+**CLI Endpoint Features:**
+| Feature | Description |
+|---------|-------------|
+| Auto-increment ID | `ISS-YYYYMMDD-NNN` (e.g., `ISS-20251229-001`) |
+| Trailing newline | Proper JSONL format, no corruption |
+| JSON output | Returns created issue with all fields |
 
-  Bash('mkdir -p .workflow/issues');
-  const jsonLine = JSON.stringify(newIssue).replace(/'/g, "'\\''");
-  Bash(`echo '${jsonLine}' >> .workflow/issues/issues.jsonl`);
+**Example:**
+```bash
+# Create issue via CLI
+ccw issue create --data '{
+  "title": "Login fails with special chars",
+  "context": "500 error when password contains quotes",
+  "priority": 2,
+  "source": "text",
+  "expected_behavior": "Login succeeds",
+  "actual_behavior": "500 Internal Server Error"
+}'
 
-  console.log(`✓ Issue ${newIssue.id} created. Next: /issue:plan ${newIssue.id}`);
+# Output (JSON)
+{
+  "id": "ISS-20251229-001",
+  "title": "Login fails with special chars",
+  "status": "registered",
+  ...
 }
 ```
+
+**Completion:**
+- Display created issue ID
+- Show next step: `/issue:plan <id>`
 
 ## Execution Flow
 
