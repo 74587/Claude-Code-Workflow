@@ -130,7 +130,16 @@ async function main() {
   const args = process.argv.slice(3).map(String);
   const prompt = await readStdin();
 
-  const directives = parseDirectives(prompt) || {};
+  const baseDirectives = parseDirectives(prompt) || {};
+  const overrides =
+    baseDirectives.tool_overrides &&
+    typeof baseDirectives.tool_overrides === 'object' &&
+    baseDirectives.tool_overrides[tool] &&
+    typeof baseDirectives.tool_overrides[tool] === 'object'
+      ? baseDirectives.tool_overrides[tool]
+      : {};
+  const directives = { ...baseDirectives, ...overrides };
+
   const resolvedFiles = directives.resolve_patterns ? resolvePatterns(prompt, tool, args) : [];
   const wroteFiles = directives.write_files ? safeWriteFiles(directives.write_files) : [];
 
@@ -163,4 +172,3 @@ main().catch((err) => {
   process.stderr.write(String(err?.stack || err?.message || err));
   process.exit(1);
 });
-
