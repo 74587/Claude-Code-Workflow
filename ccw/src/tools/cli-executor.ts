@@ -10,6 +10,28 @@ import { spawn, ChildProcess } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 
+// Track current running child process for cleanup on interruption
+let currentChildProcess: ChildProcess | null = null;
+
+/**
+ * Kill the current running CLI child process
+ * Called when parent process receives SIGINT/SIGTERM
+ */
+export function killCurrentCliProcess(): boolean {
+  if (currentChildProcess && !currentChildProcess.killed) {
+    debugLog('KILL', 'Killing current child process', { pid: currentChildProcess.pid });
+    currentChildProcess.kill('SIGTERM');
+    // Force kill after 2 seconds if still running
+    setTimeout(() => {
+      if (currentChildProcess && !currentChildProcess.killed) {
+        currentChildProcess.kill('SIGKILL');
+      }
+    }, 2000);
+    return true;
+  }
+  return false;
+}
+
 // Debug logging utility - check env at runtime for --debug flag support
 function isDebugEnabled(): boolean {
   return process.env.DEBUG === 'true' || process.env.DEBUG === '1' || process.env.CCW_DEBUG === 'true';
@@ -914,6 +936,9 @@ async function executeCliTool(
       stdio: [useStdin ? 'pipe' : 'ignore', 'pipe', 'pipe']
     });
 
+    // Track current child process for cleanup on interruption
+    currentChildProcess = child;
+
     debugLog('SPAWN', `Process spawned`, { pid: child.pid });
 
     // Write prompt to stdin if using stdin mode (for gemini/qwen)
@@ -947,6 +972,9 @@ async function executeCliTool(
 
     // Handle completion
     child.on('close', async (code) => {
+      // Clear current child process reference
+      currentChildProcess = null;
+
       const endTime = Date.now();
       const duration = endTime - startTime;
 

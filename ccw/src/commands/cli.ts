@@ -11,7 +11,8 @@ import {
   getExecutionHistory,
   getExecutionHistoryAsync,
   getExecutionDetail,
-  getConversationDetail
+  getConversationDetail,
+  killCurrentCliProcess
 } from '../tools/cli-executor.js';
 import {
   getStorageStats,
@@ -63,6 +64,43 @@ function notifyDashboard(data: Record<string, unknown>): void {
     if (process.env.DEBUG) console.error('[Dashboard] CLI notification timed out');
   });
   req.write(payload);
+  req.end();
+}
+
+/**
+ * Broadcast WebSocket event to Dashboard for real-time streaming
+ * Uses specific event types that match frontend handlers
+ */
+function broadcastStreamEvent(eventType: string, payload: Record<string, unknown>): void {
+  const data = JSON.stringify({
+    type: eventType,
+    ...payload,
+    timestamp: new Date().toISOString()
+  });
+
+  const req = http.request({
+    hostname: 'localhost',
+    port: Number(DASHBOARD_PORT),
+    path: '/api/hook',
+    method: 'POST',
+    timeout: 1000, // Short timeout for streaming
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(data)
+    }
+  });
+
+  // Fire and forget - don't block streaming
+  req.on('socket', (socket) => {
+    socket.unref();
+  });
+  req.on('error', () => {
+    // Silently ignore errors for streaming events
+  });
+  req.on('timeout', () => {
+    req.destroy();
+  });
+  req.write(data);
   req.end();
 }
 
@@ -678,7 +716,34 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
     console.log();
   }
 
-  // Notify dashboard: execution started
+  // Generate execution ID for streaming (use custom ID or timestamp-based)
+  const executionId = id || `${Date.now()}-${tool}`;
+  const startTime = Date.now();
+
+  // Handle process interruption (SIGINT/SIGTERM) to notify dashboard
+  const handleInterrupt = (signal: string) => {
+    const duration = Date.now() - startTime;
+    console.log(chalk.yellow(`\n  Interrupted by ${signal}`));
+
+    // Kill child process (gemini/codex/qwen CLI) if running
+    killCurrentCliProcess();
+
+    // Broadcast interruption to dashboard
+    broadcastStreamEvent('CLI_EXECUTION_COMPLETED', {
+      executionId,
+      success: false,
+      duration,
+      interrupted: true
+    });
+
+    // Give time for the event to be sent before exiting
+    setTimeout(() => process.exit(130), 100);
+  };
+
+  process.on('SIGINT', () => handleInterrupt('SIGINT'));
+  process.on('SIGTERM', () => handleInterrupt('SIGTERM'));
+
+  // Notify dashboard: execution started (legacy)
   notifyDashboard({
     event: 'started',
     tool,
@@ -687,10 +752,28 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
     custom_id: id || null
   });
 
-  // Streaming output handler - only active when --stream flag is passed
-  const onOutput = stream ? (chunk: any) => {
-    process.stdout.write(chunk.data);
-  } : null;
+  // Broadcast CLI_EXECUTION_STARTED for real-time streaming viewer
+  // Note: /api/hook wraps extraData into payload, so send fields directly
+  broadcastStreamEvent('CLI_EXECUTION_STARTED', {
+    executionId,
+    tool,
+    mode
+  });
+
+  // Streaming output handler - broadcasts to dashboard AND writes to stdout
+  const onOutput = (chunk: any) => {
+    // Always broadcast to dashboard for real-time viewing
+    // Note: /api/hook wraps extraData into payload, so send fields directly
+    broadcastStreamEvent('CLI_OUTPUT', {
+      executionId,
+      chunkType: chunk.type,
+      data: chunk.data
+    });
+    // Write to terminal only when --stream flag is passed
+    if (stream) {
+      process.stdout.write(chunk.data);
+    }
+  };
 
   try {
     const result = await cliExecutorTool.execute({
@@ -704,8 +787,8 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       resume,
       id, // custom execution ID
       noNative,
-      stream: !!stream // stream=true → streaming enabled, stream=false/undefined → cache output
-    }, onOutput);
+      stream: !!stream // stream=true → streaming enabled (no cache), stream=false → cache output (default)
+    }, onOutput); // Always pass onOutput for real-time dashboard streaming
 
     // If not streaming (default), print output now
     if (!stream && result.stdout) {
@@ -735,7 +818,7 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
         console.log(chalk.dim(`  Output (optional): ccw cli output ${result.execution.id}`));
       }
 
-      // Notify dashboard: execution completed
+      // Notify dashboard: execution completed (legacy)
       notifyDashboard({
         event: 'completed',
         tool,
@@ -746,8 +829,16 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
         turn_count: result.conversation.turn_count
       });
 
+      // Broadcast CLI_EXECUTION_COMPLETED for real-time streaming viewer
+      broadcastStreamEvent('CLI_EXECUTION_COMPLETED', {
+        executionId,  // Use the same executionId as started event
+        success: true,
+        duration: result.execution.duration_ms
+      });
+
       // Ensure clean exit after successful execution
-      process.exit(0);
+      // Delay to allow HTTP request to complete
+      setTimeout(() => process.exit(0), 150);
     } else {
       console.log(chalk.red(`  ✗ Failed (${result.execution.status})`));
       console.log(chalk.gray(`  ID: ${result.execution.id}`));
@@ -783,7 +874,7 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
         console.log(chalk.gray(`    • Wait and retry - rate limit exceeded`));
       }
 
-      // Notify dashboard: execution failed
+      // Notify dashboard: execution failed (legacy)
       notifyDashboard({
         event: 'completed',
         tool,
@@ -794,7 +885,15 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
         duration_ms: result.execution.duration_ms
       });
 
-      process.exit(1);
+      // Broadcast CLI_EXECUTION_COMPLETED for real-time streaming viewer
+      broadcastStreamEvent('CLI_EXECUTION_COMPLETED', {
+        executionId,  // Use the same executionId as started event
+        success: false,
+        duration: result.execution.duration_ms
+      });
+
+      // Delay to allow HTTP request to complete
+      setTimeout(() => process.exit(1), 150);
     }
   } catch (error) {
     const err = error as Error;
@@ -816,7 +915,7 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       console.log(chalk.gray(`    • Run: ccw cli status`));
     }
 
-    // Notify dashboard: execution error
+    // Notify dashboard: execution error (legacy)
     notifyDashboard({
       event: 'error',
       tool,
@@ -824,7 +923,14 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       error: err.message
     });
 
-    process.exit(1);
+    // Broadcast CLI_EXECUTION_ERROR for real-time streaming viewer
+    broadcastStreamEvent('CLI_EXECUTION_ERROR', {
+      executionId,
+      error: err.message
+    });
+
+    // Delay to allow HTTP request to complete
+    setTimeout(() => process.exit(1), 150);
   }
 }
 
