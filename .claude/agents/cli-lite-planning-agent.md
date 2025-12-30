@@ -437,6 +437,9 @@ function validateTask(task) {
 - Generate flow_control from dependencies
 - Handle CLI errors with fallback chain
 
+**Bash Tool**:
+- Use `run_in_background=false` for all Bash/CLI calls to ensure foreground execution
+
 **NEVER**:
 - Execute implementation (return plan only)
 - Use vague acceptance criteria

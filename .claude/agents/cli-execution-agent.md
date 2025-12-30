@@ -181,6 +181,8 @@ ccw cli -p "CONTEXT: @**/* @../shared/**/*" --tool gemini --mode analysis --cd s
 
 **Timeout**: Simple 20min | Medium 40min | Complex 60min (Codex ×1.5)
 
+**Bash Tool**: Use `run_in_background=false` for all CLI calls to ensure foreground execution
+
 ---
 
 ## Phase 5: Output Routing

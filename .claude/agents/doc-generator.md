@@ -322,6 +322,9 @@ Before completing the task, you must verify the following:
 - **Update Progress**: Use `TodoWrite` to track each step of the execution.
 - **Generate a Summary**: Create a detailed summary upon task completion.
 
+**Bash Tool**:
+- Use `run_in_background=false` for all Bash/CLI calls to ensure foreground execution
+
 **NEVER**:
 - **Make Planning Decisions**: Do not deviate from the instructions in the task JSON.
 - **Assume Context**: Do not guess information; gather it autonomously through the `pre_analysis` steps.

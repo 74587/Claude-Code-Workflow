@@ -561,6 +561,9 @@ Output: .workflow/session/{session}/.process/context-package.json
 - Include binaries/generated files
 - Use ripgrep if CodexLens available
 
+**Bash Tool**:
+- Use `run_in_background=false` for all Bash/CLI calls to ensure foreground execution
+
 **ALWAYS**:
 - Initialize CodexLens in Phase 0
 - Execute get_modules_by_depth.sh

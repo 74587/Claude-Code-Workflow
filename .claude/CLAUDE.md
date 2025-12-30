@@ -22,11 +22,11 @@ Available CLI endpoints are dynamically defined by the config file:
 - **TaskOutput usage**: Only use `TaskOutput({ task_id: "xxx", block: false })` + sleep loop to poll completion status. NEVER read intermediate output during agent/CLI execution - wait for final result only
 
 ### CLI Tool Calls (ccw cli)
-- **Always use `run_in_background: true`** for Bash tool when calling ccw cli:
+- **Default: `run_in_background: true`** - Unless otherwise specified, always use background execution for CLI calls:
   ```
   Bash({ command: "ccw cli -p '...' --tool gemini", run_in_background: true })
   ```
-- **After CLI call**: If no other tasks, stop immediately - let CLI execute in background, do NOT poll with TaskOutput
+- **After CLI call**: Stop immediately - let CLI execute in background, do NOT poll with TaskOutput
 
 ## Code Diagnostics
 

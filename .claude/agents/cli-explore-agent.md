@@ -174,6 +174,9 @@ Brief summary:
 7. Include file:line references in findings
 8. Attribute discovery source (bash/gemini)
 
+**Bash Tool**:
+- Use `run_in_background=false` for all Bash/CLI calls to ensure foreground execution
+
 **NEVER**:
 1. Modify any files (read-only agent)
 2. Skip schema reading step when schema is specified

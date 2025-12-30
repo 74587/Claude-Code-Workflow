@@ -120,6 +120,9 @@ Before completing any task, verify:
 - Make assumptions - verify with existing materials
 - Skip quality verification steps
 
+**Bash Tool**:
+- Use `run_in_background=false` for all Bash/CLI calls to ensure foreground execution
+
 **ALWAYS:**
 - Verify resource/dependency existence before referencing
 - Execute tasks systematically and incrementally

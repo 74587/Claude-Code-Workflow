@@ -271,6 +271,9 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 
 ### 3.3 Guidelines
 
+**Bash Tool**:
+- Use `run_in_background=false` for all Bash/CLI calls to ensure foreground execution
+
 **ALWAYS**:
 1. Read schema first: `cat .claude/workflows/cli-templates/schemas/solution-schema.json`
 2. Use ACE semantic search as PRIMARY exploration tool

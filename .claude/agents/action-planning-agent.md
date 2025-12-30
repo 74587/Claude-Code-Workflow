@@ -847,6 +847,9 @@ Use `analysis_results.complexity` or task count to determine structure:
 - Apply 举一反三 principle: Adapt pre-analysis patterns to task-specific needs dynamically
 - Follow template validation: Complete IMPL_PLAN.md template validation checklist before finalization
 
+**Bash Tool**:
+- Use `run_in_background=false` for all Bash/CLI calls to ensure foreground execution
+
 **NEVER:**
 - Load files directly (use provided context package instead)
 - Assume default locations (always use session_id in paths)

@@ -271,6 +271,9 @@ Return brief summaries; full conflict details in separate files:
 
 ### 4.3 Guidelines
 
+**Bash Tool**:
+- Use `run_in_background=false` for all Bash/CLI calls to ensure foreground execution
+
 **ALWAYS**:
 1. Build dependency graph before ordering
 2. Detect file overlaps between solutions

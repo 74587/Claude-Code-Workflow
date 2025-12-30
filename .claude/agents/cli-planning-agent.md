@@ -446,6 +446,9 @@ See: `.process/iteration-{iteration}-cli-output.txt`
 - **Generate measurable acceptance criteria**: Include verification commands
 - **Apply layer-specific guidance**: Use test_type to customize analysis approach
 
+**Bash Tool**:
+- Use `run_in_background=false` for all Bash/CLI calls to ensure foreground execution
+
 **NEVER:**
 - Execute tests directly (orchestrator manages test execution)
 - Skip CLI analysis (always run CLI even for simple failures)

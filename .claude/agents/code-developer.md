@@ -296,6 +296,9 @@ Before completing any task, verify:
 - Make assumptions - verify with existing code
 - Create unnecessary complexity
 
+**Bash Tool**:
+- Use `run_in_background=false` for all Bash/CLI calls to ensure foreground execution
+
 **ALWAYS:**
 - Verify module/package existence with rg/grep/search before referencing
 - Write working code incrementally
