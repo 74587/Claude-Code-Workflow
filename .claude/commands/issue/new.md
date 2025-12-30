@@ -175,7 +175,16 @@ if (clarityScore < 2 && (!issueData.context || issueData.context.length < 20)) {
 
 **Issue Creation** (via CLI endpoint):
 ```bash
-ccw issue create --data '{"title":"...", "context":"...", "priority":3, ...}'
+# Option 1: Pipe input (recommended for complex JSON - avoids shell escaping)
+echo '{"title":"...", "context":"...", "priority":3}' | ccw issue create
+
+# Option 2: Heredoc (for multi-line JSON)
+ccw issue create << 'EOF'
+{"title":"...", "context":"含\"引号\"的内容", "priority":3}
+EOF
+
+# Option 3: --data parameter (simple cases only)
+ccw issue create --data '{"title":"...", "priority":3}'
 ```
 
 **CLI Endpoint Features:**
@@ -187,15 +196,20 @@ ccw issue create --data '{"title":"...", "context":"...", "priority":3, ...}'
 
 **Example:**
 ```bash
-# Create issue via CLI
-ccw issue create --data '{
+# Create issue via pipe (recommended)
+echo '{"title": "Login fails with special chars", "context": "500 error when password contains quotes", "priority": 2}' | ccw issue create
+
+# Or with heredoc for complex JSON
+ccw issue create << 'EOF'
+{
   "title": "Login fails with special chars",
-  "context": "500 error when password contains quotes",
+  "context": "500 error when password contains \"quotes\"",
   "priority": 2,
   "source": "text",
   "expected_behavior": "Login succeeds",
   "actual_behavior": "500 Internal Server Error"
-}'
+}
+EOF
 
 # Output (JSON)
 {

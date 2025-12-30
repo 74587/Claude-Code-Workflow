@@ -617,17 +617,30 @@ function generateQueueItemId(queue: Queue, level: 'solution' | 'task' = 'solutio
 /**
  * create - Create issue from JSON data
  * Usage: ccw issue create --data '{"title":"...", "context":"..."}'
+ *        echo '{"title":"..."}' | ccw issue create
  * Output: JSON with created issue (includes auto-generated ID)
  */
 async function createAction(options: IssueOptions): Promise<void> {
-  if (!options.data) {
+  let jsonData: string | undefined = options.data;
+
+  // Support stdin pipe input (avoids shell escaping issues)
+  if (!jsonData && !process.stdin.isTTY) {
+    try {
+      jsonData = readFileSync(0, 'utf-8').trim();
+    } catch {
+      // stdin not available or empty
+    }
+  }
+
+  if (!jsonData) {
     console.error(chalk.red('JSON data required'));
     console.error(chalk.gray('Usage: ccw issue create --data \'{"title":"...", "context":"..."}\''));
+    console.error(chalk.gray('       echo \'{"title":"..."}\' | ccw issue create'));
     process.exit(1);
   }
 
   try {
-    const data = JSON.parse(options.data);
+    const data = JSON.parse(jsonData);
     const issue = createIssue(data);
     console.log(JSON.stringify(issue, null, 2));
   } catch (err) {
@@ -639,23 +652,37 @@ async function createAction(options: IssueOptions): Promise<void> {
 /**
  * solution - Create solution from JSON data
  * Usage: ccw issue solution <issue-id> --data '{"tasks":[...]}'
+ *        echo '{"tasks":[...]}' | ccw issue solution <issue-id>
  * Output: JSON with created solution (includes auto-generated ID)
  */
 async function solutionAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
   if (!issueId) {
     console.error(chalk.red('Issue ID required'));
     console.error(chalk.gray('Usage: ccw issue solution <issue-id> --data \'{"tasks":[...]}\''));
+    console.error(chalk.gray('       echo \'{"tasks":[...]}\' | ccw issue solution <issue-id>'));
     process.exit(1);
   }
 
-  if (!options.data) {
+  let jsonData: string | undefined = options.data;
+
+  // Support stdin pipe input (avoids shell escaping issues)
+  if (!jsonData && !process.stdin.isTTY) {
+    try {
+      jsonData = readFileSync(0, 'utf-8').trim();
+    } catch {
+      // stdin not available or empty
+    }
+  }
+
+  if (!jsonData) {
     console.error(chalk.red('JSON data required'));
     console.error(chalk.gray('Usage: ccw issue solution <issue-id> --data \'{"tasks":[...]}\''));
+    console.error(chalk.gray('       echo \'{"tasks":[...]}\' | ccw issue solution <issue-id>'));
     process.exit(1);
   }
 
   try {
-    const data = JSON.parse(options.data);
+    const data = JSON.parse(jsonData);
     const solution = createSolution(issueId, data);
     console.log(JSON.stringify(solution, null, 2));
   } catch (err) {
