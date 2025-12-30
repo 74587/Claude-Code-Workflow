@@ -16,6 +16,7 @@ import { existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 import { fileURLToPath } from 'url';
+import { getSystemPython } from '../utils/python-utils.js';
 
 // Get directory of this module
 const __filename = fileURLToPath(import.meta.url);
@@ -131,25 +132,7 @@ function clearVenvStatusCache(): void {
   venvStatusCache = null;
 }
 
-/**
- * Detect available Python 3 executable
- * @returns Python executable command
- */
-function getSystemPython(): string {
-  const commands = process.platform === 'win32' ? ['python', 'py', 'python3'] : ['python3', 'python'];
-
-  for (const cmd of commands) {
-    try {
-      const version = execSync(`${cmd} --version 2>&1`, { encoding: 'utf8' });
-      if (version.includes('Python 3')) {
-        return cmd;
-      }
-    } catch {
-      // Try next command
-    }
-  }
-  throw new Error('Python 3 not found. Please install Python 3 and ensure it is in PATH.');
-}
+// Python detection functions imported from ../utils/python-utils.js
 
 /**
  * Check if CodexLens venv exists and has required packages

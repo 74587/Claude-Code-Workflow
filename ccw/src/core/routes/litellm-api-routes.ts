@@ -6,6 +6,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import { fileURLToPath } from 'url';
 import { dirname, join as pathJoin } from 'path';
+import { getSystemPython } from '../../utils/python-utils.js';
 
 // Get current module path for package-relative lookups
 const __filename = fileURLToPath(import.meta.url);
@@ -834,10 +835,13 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
           }
         }
 
+        // Use shared Python detection for consistent cross-platform behavior
+        const pythonCmd = getSystemPython();
+
         if (!packagePath) {
           // Try pip install from PyPI as fallback
           return new Promise((resolve) => {
-            const proc = spawn('pip', ['install', 'ccw-litellm'], { shell: true, timeout: 300000 });
+            const proc = spawn(pythonCmd, ['-m', 'pip', 'install', 'ccw-litellm'], { shell: true, timeout: 300000 });
             let output = '';
             let error = '';
             proc.stdout?.on('data', (data) => { output += data.toString(); });
@@ -857,7 +861,7 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
 
         // Install from local package
         return new Promise((resolve) => {
-          const proc = spawn('pip', ['install', '-e', packagePath], { shell: true, timeout: 300000 });
+          const proc = spawn(pythonCmd, ['-m', 'pip', 'install', '-e', packagePath], { shell: true, timeout: 300000 });
           let output = '';
           let error = '';
           proc.stdout?.on('data', (data) => { output += data.toString(); });
@@ -892,8 +896,11 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
       try {
         const { spawn } = await import('child_process');
 
+        // Use shared Python detection for consistent cross-platform behavior
+        const pythonCmd = getSystemPython();
+
         return new Promise((resolve) => {
-          const proc = spawn('pip', ['uninstall', '-y', 'ccw-litellm'], { shell: true, timeout: 120000 });
+          const proc = spawn(pythonCmd, ['-m', 'pip', 'uninstall', '-y', 'ccw-litellm'], { shell: true, timeout: 120000 });
           let output = '';
           let error = '';
           proc.stdout?.on('data', (data) => { output += data.toString(); });
