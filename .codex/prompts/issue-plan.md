@@ -11,6 +11,23 @@ Create executable solution(s) for issue(s) and bind the selected solution to eac
 
 This workflow is **planning + registration** (no implementation): it explores the codebase just enough to produce a high-quality task breakdown that can be executed later (e.g., by `issue-execute.md`).
 
+## Core Guidelines
+
+**⚠️ Data Access Principle**: Issues and solutions files can grow very large. To avoid context overflow:
+
+| Operation | Correct | Incorrect |
+|-----------|---------|-----------|
+| List issues (brief) | `ccw issue list --status pending --brief` | `Read('issues.jsonl')` |
+| Read issue details | `ccw issue status <id> --json` | `Read('issues.jsonl')` |
+| Update status | `ccw issue update <id> --status ...` | Direct file edit |
+| Bind solution | `ccw issue bind <id> <sol-id>` | Direct file edit |
+
+**Output Options**:
+- `--brief`: JSON with minimal fields (id, title, status, priority, tags)
+- `--json`: Full JSON (for detailed processing)
+
+**ALWAYS** use CLI commands for CRUD operations. **NEVER** read entire `issues.jsonl` or `solutions/*.jsonl` directly.
+
 ## Inputs
 
 - **Explicit issues**: comma-separated IDs, e.g. `ISS-123,ISS-124`
@@ -91,9 +108,37 @@ ccw issue solution <issue-id> --data '{"description":"...", "approach":"...", "t
 ### Step 6: Detect cross-issue file conflicts (best-effort)
 
 Across the issues planned in this run:
-- Build a set of touched files from each solution’s `modification_points.file` (and/or task `scope` when explicit files are missing).
+- Build a set of touched files from each solution's `modification_points.file` (and/or task `scope` when explicit files are missing).
 - If the same file appears in multiple issues, add it to `conflicts` with all involved issue IDs.
 - Recommend a safe execution order (sequential) when conflicts exist.
+
+### Step 7: Update issue status
+
+After binding, update issue status to `planned`:
+```bash
+ccw issue update <issue-id> --status planned
+```
+
+## Quality Checklist
+
+Before completing, verify:
+
+- [ ] All input issues have solutions in `solutions/{issue-id}.jsonl`
+- [ ] Single solution issues are auto-bound (`bound_solution_id` set)
+- [ ] Multi-solution issues returned in `pending_selection` for user choice
+- [ ] Each solution has executable tasks with `modification_points`
+- [ ] Task acceptance criteria are quantified (not vague)
+- [ ] Conflicts detected and reported (if multiple issues touch same files)
+- [ ] Issue status updated to `planned` after binding
+
+## Error Handling
+
+| Error | Resolution |
+|-------|------------|
+| Issue not found | Auto-create via `ccw issue init` |
+| No solutions generated | Display error, suggest manual planning |
+| User cancels selection | Skip issue, continue with others |
+| File conflicts | Detect and suggest resolution order |
 
 ## Done Criteria
 

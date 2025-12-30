@@ -1,6 +1,6 @@
 ---
 description: Form execution queue from bound solutions (orders solutions, detects conflicts, assigns groups)
-argument-hint: "[--issue <id>]"
+argument-hint: "[--issue <id>] [--append <id>]"
 ---
 
 # Issue Queue (Codex Version)
@@ -11,10 +11,32 @@ Create an ordered execution queue from all bound solutions. Analyze inter-soluti
 
 This workflow is **ordering only** (no execution): it reads bound solutions, detects conflicts, and produces a queue file that `issue-execute.md` can consume.
 
+**Design Principle**: Queue items are **solutions**, not individual tasks. Each executor receives a complete solution with all its tasks.
+
+## Core Guidelines
+
+**⚠️ Data Access Principle**: Issues and queue files can grow very large. To avoid context overflow:
+
+| Operation | Correct | Incorrect |
+|-----------|---------|-----------|
+| List issues (brief) | `ccw issue list --status planned --brief` | `Read('issues.jsonl')` |
+| List queue (brief) | `ccw issue queue --brief` | `Read('queues/*.json')` |
+| Read issue details | `ccw issue status <id> --json` | `Read('issues.jsonl')` |
+| Get next item | `ccw issue next --json` | `Read('queues/*.json')` |
+| Update status | `ccw issue update <id> --status ...` | Direct file edit |
+| Sync from queue | `ccw issue update --from-queue` | Direct file edit |
+
+**Output Options**:
+- `--brief`: JSON with minimal fields (id, status, counts)
+- `--json`: Full JSON (for detailed processing)
+
+**ALWAYS** use CLI commands for CRUD operations. **NEVER** read entire `issues.jsonl` or `queues/*.json` directly.
+
 ## Inputs
 
 - **All planned**: Default behavior → queue all issues with `planned` status and bound solutions
 - **Specific issue**: `--issue <id>` → queue only that issue's solution
+- **Append mode**: `--append <id>` → append issue to active queue (don't create new)
 
 ## Output Requirements
 
@@ -176,18 +198,27 @@ Group assignment:
 
 ### Step 7: Update Issue Statuses
 
-For each queued issue, update status to `queued`:
+**MUST use CLI command** (NOT direct file operations):
 
 ```bash
+# Option 1: Batch update from queue (recommended)
+ccw issue update --from-queue              # Use active queue
+ccw issue update --from-queue QUE-xxx      # Use specific queue
+
+# Option 2: Individual issue update
 ccw issue update <issue-id> --status queued
 ```
+
+**⚠️ IMPORTANT**: Do NOT directly modify `issues.jsonl`. Always use CLI command to ensure proper validation and history tracking.
 
 ## Queue Item ID Format
 
 - Solution items: `S-1`, `S-2`, `S-3`, ...
 - Sequential numbering starting from 1
 
-## Done Criteria
+## Quality Checklist
+
+Before completing, verify:
 
 - [ ] Exactly 2 files generated: queue JSON + index update
 - [ ] Queue has valid DAG (no circular dependencies)
@@ -212,6 +243,16 @@ ccw issue update <issue-id> --status queued
 | Circular dependency detected | Abort, report cycle details |
 | Missing solution file | Skip issue, log warning |
 | Index file missing | Create new index |
+| Index not updated | Auto-fix: Set active_queue_id to new queue |
+
+## Done Criteria
+
+- [ ] All planned issues with `bound_solution_id` are included
+- [ ] Queue JSON written to `queues/{queue-id}.json`
+- [ ] Index updated in `queues/index.json` with `active_queue_id`
+- [ ] No circular dependencies in solution DAG
+- [ ] Parallel groups have no file overlaps
+- [ ] Issue statuses updated to `queued`
 
 ## Start Execution
 
@@ -222,3 +263,4 @@ ccw issue list --status planned --json
 ```
 
 Then follow the workflow to generate the queue.
+
