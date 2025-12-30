@@ -46,6 +46,12 @@
 - Maintain established patterns
 - Test integration between subtasks
 
+**Git Operations** (Parallel Task Safety):
+- Only stage/commit files directly produced by current task
+- Never touch unrelated changes or other task outputs
+- Use `git add <specific-files>` instead of `git add .`
+- Verify staged files before commit to avoid cross-task conflicts
+
 
 ## System Optimization
 
