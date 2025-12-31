@@ -58,6 +58,7 @@ class IndexedFile(BaseModel):
     language: str = Field(..., min_length=1)
     symbols: List[Symbol] = Field(default_factory=list)
     chunks: List[SemanticChunk] = Field(default_factory=list)
+    relationships: List["CodeRelationship"] = Field(default_factory=list)
 
     @field_validator("path", "language")
     @classmethod
@@ -70,7 +71,7 @@ class IndexedFile(BaseModel):
 
 class RelationshipType(str, Enum):
     """Types of code relationships."""
-    CALL = "call"
+    CALL = "calls"
     INHERITS = "inherits"
     IMPORTS = "imports"
 

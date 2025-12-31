@@ -34,6 +34,7 @@ from codexlens.config import Config
 from codexlens.entities import SearchResult
 from codexlens.search.ranking import (
     apply_symbol_boost,
+    cross_encoder_rerank,
     get_rrf_weights,
     reciprocal_rank_fusion,
     rerank_results,
@@ -77,6 +78,7 @@ class HybridSearchEngine:
         self.weights = weights or self.DEFAULT_WEIGHTS.copy()
         self._config = config
         self.embedder = embedder
+        self.reranker: Any = None
 
     def search(
         self,
@@ -112,6 +114,14 @@ class HybridSearchEngine:
             >>> for r in results[:5]:
             ...     print(f"{r.path}: {r.score:.3f}")
         """
+        # Defensive: avoid creating/locking an index database when callers pass
+        # an empty placeholder file (common in tests and misconfigured callers).
+        try:
+            if index_path.exists() and index_path.stat().st_size == 0:
+                return []
+        except OSError:
+            return []
+
         # Determine which backends to use
         backends = {}
 
@@ -180,8 +190,29 @@ class HybridSearchEngine:
                     query,
                     fused_results[:100],
                     self.embedder,
-                    top_k=self._config.reranking_top_k,
+                    top_k=(
+                        100
+                        if self._config.enable_cross_encoder_rerank
+                        else self._config.reranking_top_k
+                    ),
                 )
+
+        # Optional: cross-encoder reranking as a second stage
+        if (
+            self._config is not None
+            and self._config.enable_reranking
+            and self._config.enable_cross_encoder_rerank
+        ):
+            with timer("cross_encoder_rerank", self.logger):
+                if self.reranker is None:
+                    self.reranker = self._get_cross_encoder_reranker()
+                if self.reranker is not None:
+                    fused_results = cross_encoder_rerank(
+                        query,
+                        fused_results,
+                        self.reranker,
+                        top_k=self._config.reranker_top_k,
+                    )
 
         # Apply final limit
         return fused_results[:limit]
@@ -221,6 +252,27 @@ class HybridSearchEngine:
             self._config.embedding_backend,
         )
         return None
+
+    def _get_cross_encoder_reranker(self) -> Any:
+        if self._config is None:
+            return None
+
+        try:
+            from codexlens.semantic.reranker import CrossEncoderReranker, check_cross_encoder_available
+        except Exception as exc:
+            self.logger.debug("Cross-encoder reranker unavailable: %s", exc)
+            return None
+
+        ok, err = check_cross_encoder_available()
+        if not ok:
+            self.logger.debug("Cross-encoder reranker unavailable: %s", err)
+            return None
+
+        try:
+            return CrossEncoderReranker(model_name=self._config.reranker_model)
+        except Exception as exc:
+            self.logger.debug("Failed to initialize cross-encoder reranker: %s", exc)
+            return None
 
     def _search_parallel(
         self,

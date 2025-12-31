@@ -83,6 +83,7 @@ class ChainSearchResult:
     Attributes:
         query: Original search query
         results: List of SearchResult objects
+        related_results: Expanded results from graph neighbors (optional)
         symbols: List of Symbol objects (if include_symbols=True)
         stats: SearchStats with execution metrics
     """
@@ -90,6 +91,7 @@ class ChainSearchResult:
     results: List[SearchResult]
     symbols: List[Symbol]
     stats: SearchStats
+    related_results: List[SearchResult] = field(default_factory=list)
 
 
 class ChainSearchEngine:
@@ -236,13 +238,26 @@ class ChainSearchEngine:
                 index_paths, query, None, options.total_limit
             )
 
+        # Optional: graph expansion using precomputed neighbors
+        related_results: List[SearchResult] = []
+        if self._config is not None and getattr(self._config, "enable_graph_expansion", False):
+            try:
+                from codexlens.search.enrichment import SearchEnrichmentPipeline
+
+                pipeline = SearchEnrichmentPipeline(self.mapper, config=self._config)
+                related_results = pipeline.expand_related_results(final_results)
+            except Exception as exc:
+                self.logger.debug("Graph expansion failed: %s", exc)
+                related_results = []
+
         stats.time_ms = (time.time() - start_time) * 1000
 
         return ChainSearchResult(
             query=query,
             results=final_results,
             symbols=symbols,
-            stats=stats
+            stats=stats,
+            related_results=related_results,
         )
 
     def search_files_only(self, query: str,

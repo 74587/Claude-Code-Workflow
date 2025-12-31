@@ -19,7 +19,7 @@ from codexlens.entities import Symbol
 
 
 class TestSchemaCleanupMigration:
-    """Test schema cleanup migration (v4 -> v5)."""
+    """Test schema cleanup migration (v4 -> latest)."""
 
     def test_migration_from_v4_to_v5(self):
         """Test that migration successfully removes deprecated fields."""
@@ -129,10 +129,12 @@ class TestSchemaCleanupMigration:
             # Now initialize store - this should trigger migration
             store.initialize()
 
-            # Verify schema version is now 5
+            # Verify schema version is now the latest
             conn = store._get_connection()
             version_row = conn.execute("PRAGMA user_version").fetchone()
-            assert version_row[0] == 5, f"Expected schema version 5, got {version_row[0]}"
+            assert version_row[0] == DirIndexStore.SCHEMA_VERSION, (
+                f"Expected schema version {DirIndexStore.SCHEMA_VERSION}, got {version_row[0]}"
+            )
 
             # Check that deprecated columns are removed
             # 1. Check semantic_metadata doesn't have keywords column
@@ -166,7 +168,7 @@ class TestSchemaCleanupMigration:
             store.close()
 
     def test_new_database_has_clean_schema(self):
-        """Test that new databases are created with clean schema (v5)."""
+        """Test that new databases are created with clean schema (latest)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "_index.db"
             store = DirIndexStore(db_path)
@@ -174,9 +176,9 @@ class TestSchemaCleanupMigration:
 
             conn = store._get_connection()
 
-            # Verify schema version is 5
+            # Verify schema version is the latest
             version_row = conn.execute("PRAGMA user_version").fetchone()
-            assert version_row[0] == 5
+            assert version_row[0] == DirIndexStore.SCHEMA_VERSION
 
             # Check that new schema doesn't have deprecated columns
             cursor = conn.execute("PRAGMA table_info(semantic_metadata)")

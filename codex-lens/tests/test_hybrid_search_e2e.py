@@ -869,3 +869,47 @@ class TestHybridSearchAdaptiveWeights:
         ) as rerank_mock:
             engine_on.search(Path("dummy.db"), "query", enable_vector=True)
             assert rerank_mock.call_count == 1
+
+    def test_cross_encoder_reranking_enabled(self, tmp_path):
+        """Cross-encoder stage runs only when explicitly enabled via config."""
+        from unittest.mock import patch
+
+        results_map = {
+            "exact": [SearchResult(path="a.py", score=10.0, excerpt="a")],
+            "fuzzy": [SearchResult(path="b.py", score=9.0, excerpt="b")],
+            "vector": [SearchResult(path="c.py", score=0.9, excerpt="c")],
+        }
+
+        class DummyEmbedder:
+            def embed(self, texts):
+                if isinstance(texts, str):
+                    texts = [texts]
+                return [[1.0, 0.0] for _ in texts]
+
+        class DummyReranker:
+            def score_pairs(self, pairs, batch_size=32):
+                return [0.0 for _ in pairs]
+
+        config = Config(
+            data_dir=tmp_path / "ce",
+            enable_reranking=True,
+            enable_cross_encoder_rerank=True,
+            reranker_top_k=10,
+        )
+        engine = HybridSearchEngine(config=config, embedder=DummyEmbedder())
+
+        with patch.object(HybridSearchEngine, "_search_parallel", return_value=results_map), patch(
+            "codexlens.search.hybrid_search.rerank_results",
+            side_effect=lambda q, r, e, top_k=50: r,
+        ) as rerank_mock, patch.object(
+            HybridSearchEngine,
+            "_get_cross_encoder_reranker",
+            return_value=DummyReranker(),
+        ) as get_ce_mock, patch(
+            "codexlens.search.hybrid_search.cross_encoder_rerank",
+            side_effect=lambda q, r, ce, top_k=50: r,
+        ) as ce_mock:
+            engine.search(Path("dummy.db"), "query", enable_vector=True)
+            assert rerank_mock.call_count == 1
+            assert get_ce_mock.call_count == 1
+            assert ce_mock.call_count == 1

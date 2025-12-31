@@ -10,15 +10,17 @@ Each directory maintains its own _index.db with:
 from __future__ import annotations
 
 import logging
+import hashlib
 import re
 import sqlite3
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from codexlens.config import Config
-from codexlens.entities import SearchResult, Symbol
+from codexlens.entities import CodeRelationship, SearchResult, Symbol
 from codexlens.errors import StorageError
 from codexlens.storage.global_index import GlobalSymbolIndex
 
@@ -60,7 +62,7 @@ class DirIndexStore:
 
     # Schema version for migration tracking
     # Increment this when schema changes require migration
-    SCHEMA_VERSION = 5
+    SCHEMA_VERSION = 8
 
     def __init__(
         self,
@@ -150,6 +152,21 @@ class DirIndexStore:
             from codexlens.storage.migrations.migration_005_cleanup_unused_fields import upgrade
             upgrade(conn)
 
+        # Migration v5 -> v6: Ensure relationship tables/indexes exist
+        if from_version < 6:
+            from codexlens.storage.migrations.migration_006_enhance_relationships import upgrade
+            upgrade(conn)
+
+        # Migration v6 -> v7: Add graph neighbor cache for search expansion
+        if from_version < 7:
+            from codexlens.storage.migrations.migration_007_add_graph_neighbors import upgrade
+            upgrade(conn)
+
+        # Migration v7 -> v8: Add Merkle hashes for incremental change detection
+        if from_version < 8:
+            from codexlens.storage.migrations.migration_008_add_merkle_hashes import upgrade
+            upgrade(conn)
+
     def close(self) -> None:
         """Close database connection."""
         with self._lock:
@@ -179,6 +196,7 @@ class DirIndexStore:
         content: str,
         language: str,
         symbols: Optional[List[Symbol]] = None,
+        relationships: Optional[List[CodeRelationship]] = None,
     ) -> int:
         """Add or update a file in the current directory index.
 
@@ -188,6 +206,7 @@ class DirIndexStore:
             content: File content for indexing
             language: Programming language identifier
             symbols: List of Symbol objects from the file
+            relationships: Optional list of CodeRelationship edges from this file
 
         Returns:
             Database file_id
@@ -240,6 +259,8 @@ class DirIndexStore:
                         symbol_rows,
                     )
 
+                self._save_merkle_hash(conn, file_id=file_id, content=content)
+                self._save_relationships(conn, file_id=file_id, relationships=relationships)
                 conn.commit()
                 self._maybe_update_global_symbols(full_path_str, symbols or [])
                 return file_id
@@ -247,6 +268,96 @@ class DirIndexStore:
             except sqlite3.DatabaseError as exc:
                 conn.rollback()
                 raise StorageError(f"Failed to add file {name}: {exc}") from exc
+
+    def save_relationships(self, file_id: int, relationships: List[CodeRelationship]) -> None:
+        """Save relationships for an already-indexed file.
+
+        Args:
+            file_id: Database file id
+            relationships: Relationship edges to persist
+        """
+        if not relationships:
+            return
+        with self._lock:
+            conn = self._get_connection()
+            self._save_relationships(conn, file_id=file_id, relationships=relationships)
+            conn.commit()
+
+    def _save_relationships(
+        self,
+        conn: sqlite3.Connection,
+        file_id: int,
+        relationships: Optional[List[CodeRelationship]],
+    ) -> None:
+        if not relationships:
+            return
+
+        rows = conn.execute(
+            "SELECT id, name FROM symbols WHERE file_id=? ORDER BY start_line, id",
+            (file_id,),
+        ).fetchall()
+
+        name_to_id: Dict[str, int] = {}
+        for row in rows:
+            name = row["name"]
+            if name not in name_to_id:
+                name_to_id[name] = int(row["id"])
+
+        if not name_to_id:
+            return
+
+        rel_rows: List[Tuple[int, str, str, int, Optional[str]]] = []
+        seen: set[tuple[int, str, str, int, Optional[str]]] = set()
+
+        for rel in relationships:
+            source_id = name_to_id.get(rel.source_symbol)
+            if source_id is None:
+                continue
+
+            target = (rel.target_symbol or "").strip()
+            if not target:
+                continue
+
+            rel_type = rel.relationship_type.value
+            source_line = int(rel.source_line)
+            key = (source_id, target, rel_type, source_line, rel.target_file)
+            if key in seen:
+                continue
+            seen.add(key)
+
+            rel_rows.append((source_id, target, rel_type, source_line, rel.target_file))
+
+        if not rel_rows:
+            return
+
+        conn.executemany(
+            """
+            INSERT INTO code_relationships(
+                source_symbol_id, target_qualified_name,
+                relationship_type, source_line, target_file
+            )
+            VALUES(?, ?, ?, ?, ?)
+            """,
+            rel_rows,
+        )
+
+    def _save_merkle_hash(self, conn: sqlite3.Connection, file_id: int, content: str) -> None:
+        """Upsert a SHA-256 content hash for the given file_id (best-effort)."""
+        try:
+            digest = hashlib.sha256(content.encode("utf-8", errors="ignore")).hexdigest()
+            now = time.time()
+            conn.execute(
+                """
+                INSERT INTO merkle_hashes(file_id, sha256, updated_at)
+                VALUES(?, ?, ?)
+                ON CONFLICT(file_id) DO UPDATE SET
+                    sha256=excluded.sha256,
+                    updated_at=excluded.updated_at
+                """,
+                (file_id, digest, now),
+            )
+        except sqlite3.Error:
+            return
 
     def add_files_batch(
         self, files: List[Tuple[str, Path, str, str, Optional[List[Symbol]]]]
@@ -311,6 +422,8 @@ class DirIndexStore:
                             """,
                             symbol_rows,
                         )
+
+                    self._save_merkle_hash(conn, file_id=file_id, content=content)
 
                 conn.commit()
                 return count
@@ -395,9 +508,13 @@ class DirIndexStore:
             return float(row["mtime"]) if row and row["mtime"] else None
 
     def needs_reindex(self, full_path: str | Path) -> bool:
-        """Check if a file needs reindexing based on mtime comparison.
+        """Check if a file needs reindexing.
 
-        Uses 1ms tolerance to handle filesystem timestamp precision variations.
+        Default behavior uses mtime comparison (with 1ms tolerance).
+
+        When `Config.enable_merkle_detection` is enabled and Merkle metadata is
+        available, uses SHA-256 content hash comparison (with mtime as a fast
+        path to avoid hashing unchanged files).
 
         Args:
             full_path: Complete source file path
@@ -415,16 +532,154 @@ class DirIndexStore:
         except OSError:
             return False  # Can't read file stats, skip
 
-        # Get stored mtime from database
-        stored_mtime = self.get_file_mtime(full_path_obj)
+        MTIME_TOLERANCE = 0.001
 
-        # File not in index, needs indexing
-        if stored_mtime is None:
+        # Fast path: mtime-only mode (default / backward-compatible)
+        if self._config is None or not getattr(self._config, "enable_merkle_detection", False):
+            stored_mtime = self.get_file_mtime(full_path_obj)
+            if stored_mtime is None:
+                return True
+            return abs(current_mtime - stored_mtime) > MTIME_TOLERANCE
+
+        full_path_str = str(full_path_obj)
+
+        # Hash-based change detection (best-effort, falls back to mtime when metadata missing)
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                row = conn.execute(
+                    """
+                    SELECT f.id AS file_id, f.mtime AS mtime, mh.sha256 AS sha256
+                    FROM files f
+                    LEFT JOIN merkle_hashes mh ON mh.file_id = f.id
+                    WHERE f.full_path=?
+                    """,
+                    (full_path_str,),
+                ).fetchone()
+            except sqlite3.Error:
+                row = None
+
+        if row is None:
             return True
 
-        # Compare with 1ms tolerance for floating point precision
-        MTIME_TOLERANCE = 0.001
-        return abs(current_mtime - stored_mtime) > MTIME_TOLERANCE
+        stored_mtime = float(row["mtime"]) if row["mtime"] else None
+        stored_hash = row["sha256"] if row["sha256"] else None
+        file_id = int(row["file_id"])
+
+        # Missing Merkle data: fall back to mtime
+        if stored_hash is None:
+            if stored_mtime is None:
+                return True
+            return abs(current_mtime - stored_mtime) > MTIME_TOLERANCE
+
+        # If mtime is unchanged within tolerance, assume unchanged without hashing.
+        if stored_mtime is not None and abs(current_mtime - stored_mtime) <= MTIME_TOLERANCE:
+            return False
+
+        try:
+            current_text = full_path_obj.read_text(encoding="utf-8", errors="ignore")
+            current_hash = hashlib.sha256(current_text.encode("utf-8", errors="ignore")).hexdigest()
+        except OSError:
+            return False
+
+        if current_hash == stored_hash:
+            # Content unchanged, but mtime drifted: update stored mtime to avoid repeated hashing.
+            with self._lock:
+                conn = self._get_connection()
+                conn.execute("UPDATE files SET mtime=? WHERE id=?", (current_mtime, file_id))
+                conn.commit()
+            return False
+
+        return True
+
+    def get_merkle_root_hash(self) -> Optional[str]:
+        """Return the stored Merkle root hash for this directory index (if present)."""
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                row = conn.execute(
+                    "SELECT root_hash FROM merkle_state WHERE id=1"
+                ).fetchone()
+            except sqlite3.Error:
+                return None
+
+            return row["root_hash"] if row and row["root_hash"] else None
+
+    def update_merkle_root(self) -> Optional[str]:
+        """Compute and persist the Merkle root hash for this directory index.
+
+        The root hash includes:
+        - Direct file hashes from `merkle_hashes`
+        - Direct subdirectory root hashes (read from child `_index.db` files)
+        """
+        if self._config is None or not getattr(self._config, "enable_merkle_detection", False):
+            return None
+
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                file_rows = conn.execute(
+                    """
+                    SELECT f.name AS name, mh.sha256 AS sha256
+                    FROM files f
+                    LEFT JOIN merkle_hashes mh ON mh.file_id = f.id
+                    ORDER BY f.name
+                    """
+                ).fetchall()
+
+                subdir_rows = conn.execute(
+                    "SELECT name, index_path FROM subdirs ORDER BY name"
+                ).fetchall()
+            except sqlite3.Error as exc:
+                self.logger.debug("Failed to compute merkle root: %s", exc)
+                return None
+
+        items: List[str] = []
+
+        for row in file_rows:
+            name = row["name"]
+            sha = (row["sha256"] or "").strip()
+            items.append(f"f:{name}:{sha}")
+
+        def read_child_root(index_path: str) -> str:
+            try:
+                with sqlite3.connect(index_path) as child_conn:
+                    child_conn.row_factory = sqlite3.Row
+                    child_row = child_conn.execute(
+                        "SELECT root_hash FROM merkle_state WHERE id=1"
+                    ).fetchone()
+                    return child_row["root_hash"] if child_row and child_row["root_hash"] else ""
+            except Exception:
+                return ""
+
+        for row in subdir_rows:
+            name = row["name"]
+            index_path = row["index_path"]
+            child_hash = read_child_root(index_path) if index_path else ""
+            items.append(f"d:{name}:{child_hash}")
+
+        root_hash = hashlib.sha256("\n".join(items).encode("utf-8", errors="ignore")).hexdigest()
+        now = time.time()
+
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO merkle_state(id, root_hash, updated_at)
+                    VALUES(1, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        root_hash=excluded.root_hash,
+                        updated_at=excluded.updated_at
+                    """,
+                    (root_hash, now),
+                )
+                conn.commit()
+            except sqlite3.Error as exc:
+                self.logger.debug("Failed to persist merkle root: %s", exc)
+                return None
+
+        return root_hash
 
     def add_file_incremental(
         self,
@@ -433,6 +688,7 @@ class DirIndexStore:
         content: str,
         language: str,
         symbols: Optional[List[Symbol]] = None,
+        relationships: Optional[List[CodeRelationship]] = None,
     ) -> Optional[int]:
         """Add or update a file only if it has changed (incremental indexing).
 
@@ -444,6 +700,7 @@ class DirIndexStore:
             content: File content for indexing
             language: Programming language identifier
             symbols: List of Symbol objects from the file
+            relationships: Optional list of CodeRelationship edges from this file
 
         Returns:
             Database file_id if indexed, None if skipped (unchanged)
@@ -456,7 +713,7 @@ class DirIndexStore:
             return None  # Skip unchanged file
 
         # File changed or new, perform full indexing
-        return self.add_file(name, full_path, content, language, symbols)
+        return self.add_file(name, full_path, content, language, symbols, relationships)
 
     def cleanup_deleted_files(self, source_dir: Path) -> int:
         """Remove indexed files that no longer exist in the source directory.
@@ -1767,6 +2024,39 @@ class DirIndexStore:
                 """
             )
 
+            # Precomputed graph neighbors cache for search expansion (v7)
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS graph_neighbors (
+                    source_symbol_id INTEGER NOT NULL REFERENCES symbols(id) ON DELETE CASCADE,
+                    neighbor_symbol_id INTEGER NOT NULL REFERENCES symbols(id) ON DELETE CASCADE,
+                    relationship_depth INTEGER NOT NULL,
+                    PRIMARY KEY (source_symbol_id, neighbor_symbol_id)
+                )
+                """
+            )
+
+            # Merkle hashes for incremental change detection (v8)
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS merkle_hashes (
+                    file_id INTEGER PRIMARY KEY REFERENCES files(id) ON DELETE CASCADE,
+                    sha256 TEXT NOT NULL,
+                    updated_at REAL
+                )
+                """
+            )
+
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS merkle_state (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    root_hash TEXT,
+                    updated_at REAL
+                )
+                """
+            )
+
             # Indexes (v5: removed idx_symbols_type)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_files_name ON files(name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_files_path ON files(full_path)")
@@ -1780,6 +2070,14 @@ class DirIndexStore:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_rel_source ON code_relationships(source_symbol_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_rel_target ON code_relationships(target_qualified_name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_rel_type ON code_relationships(relationship_type)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_graph_neighbors_source_depth "
+                "ON graph_neighbors(source_symbol_id, relationship_depth)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_graph_neighbors_neighbor "
+                "ON graph_neighbors(neighbor_symbol_id)"
+            )
 
         except sqlite3.DatabaseError as exc:
             raise StorageError(f"Failed to create schema: {exc}") from exc

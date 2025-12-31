@@ -582,6 +582,7 @@ class TestChainSearchResult:
         )
         assert result.query == "test"
         assert result.results == []
+        assert result.related_results == []
         assert result.symbols == []
         assert result.stats.dirs_searched == 0
 

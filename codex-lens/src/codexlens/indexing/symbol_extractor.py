@@ -4,6 +4,11 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+try:
+    from codexlens.parsers.treesitter_parser import TreeSitterSymbolParser
+except Exception:  # pragma: no cover - optional dependency / platform variance
+    TreeSitterSymbolParser = None  # type: ignore[assignment]
+
 
 class SymbolExtractor:
     """Extract symbols and relationships from source code using regex patterns."""
@@ -118,7 +123,7 @@ class SymbolExtractor:
 
         patterns = self.PATTERNS[lang]
         symbols = []
-        relationships = []
+        relationships: List[Dict] = []
         lines = content.split('\n')
 
         current_scope = None
@@ -141,33 +146,62 @@ class SymbolExtractor:
                         })
                         current_scope = name
 
-            # Extract imports
-            if 'import' in patterns:
-                match = re.search(patterns['import'], line)
-                if match:
-                    import_target = match.group(1) or match.group(2) if match.lastindex >= 2 else match.group(1)
-                    if import_target and current_scope:
-                        relationships.append({
-                            'source_scope': current_scope,
-                            'target': import_target.strip(),
-                            'type': 'imports',
-                            'file_path': str(file_path),
-                            'line': line_num,
-                        })
+        if TreeSitterSymbolParser is not None:
+            try:
+                ts_parser = TreeSitterSymbolParser(lang, file_path)
+                if ts_parser.is_available():
+                    indexed = ts_parser.parse(content, file_path)
+                    if indexed is not None and indexed.relationships:
+                        relationships = [
+                            {
+                                "source_scope": r.source_symbol,
+                                "target": r.target_symbol,
+                                "type": r.relationship_type.value,
+                                "file_path": str(file_path),
+                                "line": r.source_line,
+                            }
+                            for r in indexed.relationships
+                        ]
+            except Exception:
+                relationships = []
 
-            # Extract function calls (simplified)
-            if 'call' in patterns and current_scope:
-                for match in re.finditer(patterns['call'], line):
-                    call_name = match.group(1)
-                    # Skip common keywords and the current function
-                    if call_name not in ['if', 'for', 'while', 'return', 'print', 'len', 'str', 'int', 'float', 'list', 'dict', 'set', 'tuple', current_scope]:
-                        relationships.append({
-                            'source_scope': current_scope,
-                            'target': call_name,
-                            'type': 'calls',
-                            'file_path': str(file_path),
-                            'line': line_num,
-                        })
+        # Regex fallback for relationships (when tree-sitter is unavailable)
+        if not relationships:
+            current_scope = None
+            for line_num, line in enumerate(lines, 1):
+                for kind in ['function', 'class']:
+                    if kind in patterns:
+                        match = re.search(patterns[kind], line)
+                        if match:
+                            current_scope = match.group(1)
+
+                # Extract imports
+                if 'import' in patterns:
+                    match = re.search(patterns['import'], line)
+                    if match:
+                        import_target = match.group(1) or match.group(2) if match.lastindex >= 2 else match.group(1)
+                        if import_target and current_scope:
+                            relationships.append({
+                                'source_scope': current_scope,
+                                'target': import_target.strip(),
+                                'type': 'imports',
+                                'file_path': str(file_path),
+                                'line': line_num,
+                            })
+
+                # Extract function calls (simplified)
+                if 'call' in patterns and current_scope:
+                    for match in re.finditer(patterns['call'], line):
+                        call_name = match.group(1)
+                        # Skip common keywords and the current function
+                        if call_name not in ['if', 'for', 'while', 'return', 'print', 'len', 'str', 'int', 'float', 'list', 'dict', 'set', 'tuple', current_scope]:
+                            relationships.append({
+                                'source_scope': current_scope,
+                                'target': call_name,
+                                'type': 'calls',
+                                'file_path': str(file_path),
+                                'line': line_num,
+                            })
 
         return symbols, relationships
 

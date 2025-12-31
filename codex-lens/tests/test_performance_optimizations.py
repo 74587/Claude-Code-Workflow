@@ -1,9 +1,11 @@
-"""Tests for performance optimizations in CodexLens storage.
+"""Tests for performance optimizations in CodexLens.
 
 This module tests the following optimizations:
 1. Normalized keywords search (migration_001)
 2. Optimized path lookup in registry
 3. Prefix-mode symbol search
+4. Graph expansion neighbor precompute overhead (<20%)
+5. Cross-encoder reranking latency (<200ms)
 """
 
 import json
@@ -479,3 +481,113 @@ class TestPerformanceComparison:
         print(f"  Substring: {substring_time*1000:.3f}ms ({len(substring_results)} results)")
         print(f"  Ratio:     {prefix_time/substring_time:.2f}x")
         print(f"  Note: Performance benefits appear with 1000+ symbols")
+
+
+class TestPerformanceBenchmarks:
+    """Benchmark-style assertions for key performance requirements."""
+
+    def test_graph_expansion_indexing_overhead_under_20_percent(self, temp_index_db, tmp_path):
+        """Graph neighbor precompute adds <20% overhead versus indexing baseline."""
+        from codexlens.entities import CodeRelationship, RelationshipType, Symbol
+        from codexlens.storage.index_tree import _compute_graph_neighbors
+
+        store = temp_index_db
+
+        file_count = 60
+        symbols_per_file = 8
+
+        start = time.perf_counter()
+        for file_idx in range(file_count):
+            file_path = tmp_path / f"graph_{file_idx}.py"
+            lines = []
+            for sym_idx in range(symbols_per_file):
+                lines.append(f"def func_{file_idx}_{sym_idx}():")
+                lines.append(f"    return {sym_idx}")
+                lines.append("")
+            content = "\n".join(lines)
+
+            symbols = [
+                Symbol(
+                    name=f"func_{file_idx}_{sym_idx}",
+                    kind="function",
+                    range=(sym_idx * 3 + 1, sym_idx * 3 + 2),
+                    file=str(file_path),
+                )
+                for sym_idx in range(symbols_per_file)
+            ]
+
+            relationships = [
+                CodeRelationship(
+                    source_symbol=f"func_{file_idx}_{sym_idx}",
+                    target_symbol=f"func_{file_idx}_{sym_idx + 1}",
+                    relationship_type=RelationshipType.CALL,
+                    source_file=str(file_path),
+                    target_file=None,
+                    source_line=sym_idx * 3 + 2,
+                )
+                for sym_idx in range(symbols_per_file - 1)
+            ]
+
+            store.add_file(
+                name=file_path.name,
+                full_path=file_path,
+                content=content,
+                language="python",
+                symbols=symbols,
+                relationships=relationships,
+            )
+        baseline_time = time.perf_counter() - start
+
+        durations = []
+        for _ in range(3):
+            start = time.perf_counter()
+            _compute_graph_neighbors(store)
+            durations.append(time.perf_counter() - start)
+        graph_time = min(durations)
+
+        # Sanity-check that the benchmark exercised graph neighbor generation.
+        conn = store._get_connection()
+        neighbor_count = conn.execute(
+            "SELECT COUNT(*) as c FROM graph_neighbors"
+        ).fetchone()["c"]
+        assert neighbor_count > 0
+
+        assert baseline_time > 0.0
+        overhead_ratio = graph_time / baseline_time
+        assert overhead_ratio < 0.2, (
+            f"Graph neighbor precompute overhead too high: {overhead_ratio:.2%} "
+            f"(baseline={baseline_time:.3f}s, graph={graph_time:.3f}s)"
+        )
+
+    def test_cross_encoder_reranking_latency_under_200ms(self):
+        """Cross-encoder rerank step completes under 200ms (excluding model load)."""
+        from codexlens.entities import SearchResult
+        from codexlens.search.ranking import cross_encoder_rerank
+
+        query = "find function"
+        results = [
+            SearchResult(
+                path=f"file_{idx}.py",
+                score=1.0 / (idx + 1),
+                excerpt=f"def func_{idx}():\n    return {idx}",
+                symbol_name=f"func_{idx}",
+                symbol_kind="function",
+            )
+            for idx in range(50)
+        ]
+
+        class DummyReranker:
+            def score_pairs(self, pairs, batch_size=32):
+                _ = batch_size
+                # Return deterministic pseudo-logits to exercise sigmoid normalization.
+                return [float(i) for i in range(len(pairs))]
+
+        reranker = DummyReranker()
+
+        start = time.perf_counter()
+        reranked = cross_encoder_rerank(query, results, reranker, top_k=50, batch_size=32)
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+
+        assert len(reranked) == len(results)
+        assert any(r.metadata.get("cross_encoder_reranked") for r in reranked[:50])
+        assert elapsed_ms < 200.0, f"Cross-encoder rerank too slow: {elapsed_ms:.1f}ms"

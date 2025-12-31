@@ -407,7 +407,7 @@ def search(
         registry.initialize()
         mapper = PathMapper()
 
-        engine = ChainSearchEngine(registry, mapper)
+        engine = ChainSearchEngine(registry, mapper, config=config)
 
         # Auto-detect mode if set to "auto"
         actual_mode = mode
@@ -550,7 +550,7 @@ def symbol(
         registry.initialize()
         mapper = PathMapper()
 
-        engine = ChainSearchEngine(registry, mapper)
+        engine = ChainSearchEngine(registry, mapper, config=config)
         options = SearchOptions(depth=depth, total_limit=limit)
 
         syms = engine.search_symbols(name, search_path, kind=kind, options=options)

@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import logging
 import os
+import re
+import sqlite3
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 from codexlens.config import Config
 from codexlens.parsers.factory import ParserFactory
@@ -247,6 +249,9 @@ class IndexTreeBuilder:
                 try:
                     with DirIndexStore(result.index_path, config=self.config, global_index=global_index) as store:
                         deleted_count = store.cleanup_deleted_files(result.source_path)
+                        if deleted_count > 0:
+                            _compute_graph_neighbors(store, logger=self.logger)
+                        store.update_merkle_root()
                         total_deleted += deleted_count
                         if deleted_count > 0:
                             self.logger.debug("Removed %d deleted files from %s", deleted_count, result.source_path)
@@ -575,6 +580,7 @@ class IndexTreeBuilder:
                         content=text,
                         language=language_id,
                         symbols=indexed_file.symbols,
+                        relationships=indexed_file.relationships,
                     )
 
                     files_count += 1
@@ -583,6 +589,9 @@ class IndexTreeBuilder:
                 except Exception as exc:
                     self.logger.debug("Failed to index %s: %s", file_path, exc)
                     continue
+
+            if files_count > 0:
+                _compute_graph_neighbors(store, logger=self.logger)
 
             # Get list of subdirectories
             subdirs = [
@@ -593,6 +602,7 @@ class IndexTreeBuilder:
                 and not d.name.startswith(".")
             ]
 
+            store.update_merkle_root()
             store.close()
             if global_index is not None:
                 global_index.close()
@@ -654,31 +664,29 @@ class IndexTreeBuilder:
         parent_index_db = self.mapper.source_to_index_db(parent_path)
 
         try:
-            store = DirIndexStore(parent_index_db)
-            store.initialize()
+            with DirIndexStore(parent_index_db, config=self.config) as store:
+                for result in all_results:
+                    # Only register direct children (parent is one level up)
+                    if result.source_path.parent != parent_path:
+                        continue
 
-            for result in all_results:
-                # Only register direct children (parent is one level up)
-                if result.source_path.parent != parent_path:
-                    continue
+                    if result.error:
+                        continue
 
-                if result.error:
-                    continue
+                    # Register subdirectory link
+                    store.register_subdir(
+                        name=result.source_path.name,
+                        index_path=result.index_path,
+                        files_count=result.files_count,
+                        direct_files=result.files_count,
+                    )
+                    self.logger.debug(
+                        "Linked %s to parent %s",
+                        result.source_path.name,
+                        parent_path,
+                    )
 
-                # Register subdirectory link
-                store.register_subdir(
-                    name=result.source_path.name,
-                    index_path=result.index_path,
-                    files_count=result.files_count,
-                    direct_files=result.files_count,
-                )
-                self.logger.debug(
-                    "Linked %s to parent %s",
-                    result.source_path.name,
-                    parent_path,
-                )
-
-            store.close()
+                store.update_merkle_root()
 
         except Exception as exc:
             self.logger.error(
@@ -724,6 +732,164 @@ class IndexTreeBuilder:
             files.append(item)
 
         return files
+
+
+def _normalize_relationship_target(target: str) -> str:
+    """Best-effort normalization of a relationship target into a local symbol name."""
+    target = (target or "").strip()
+    if not target:
+        return ""
+
+    # Drop trailing call parentheses when present (e.g., "foo()" -> "foo").
+    if target.endswith("()"):
+        target = target[:-2]
+
+    # Keep the leaf identifier for common qualified formats.
+    for sep in ("::", ".", "#"):
+        if sep in target:
+            target = target.split(sep)[-1]
+
+    # Strip non-identifier suffix/prefix noise.
+    target = re.sub(r"^[^A-Za-z0-9_]+", "", target)
+    target = re.sub(r"[^A-Za-z0-9_]+$", "", target)
+    return target
+
+
+def _compute_graph_neighbors(
+    store: DirIndexStore,
+    *,
+    max_depth: int = 2,
+    logger: Optional[logging.Logger] = None,
+) -> None:
+    """Compute and persist N-hop neighbors for all symbols in a directory index."""
+    if max_depth <= 0:
+        return
+
+    log = logger or logging.getLogger(__name__)
+
+    with store._lock:
+        conn = store._get_connection()
+        conn.row_factory = sqlite3.Row
+
+        # Ensure schema exists even for older databases pinned to the same user_version.
+        try:
+            from codexlens.storage.migrations.migration_007_add_graph_neighbors import upgrade
+
+            upgrade(conn)
+        except Exception as exc:
+            log.debug("Graph neighbor schema ensure failed: %s", exc)
+
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("DELETE FROM graph_neighbors")
+        except sqlite3.Error:
+            # Table missing or schema mismatch; skip gracefully.
+            return
+
+        try:
+            symbol_rows = cursor.execute(
+                "SELECT id, file_id, name FROM symbols"
+            ).fetchall()
+            rel_rows = cursor.execute(
+                "SELECT source_symbol_id, target_qualified_name FROM code_relationships"
+            ).fetchall()
+        except sqlite3.Error:
+            return
+
+        if not symbol_rows or not rel_rows:
+            try:
+                conn.commit()
+            except sqlite3.Error:
+                pass
+            return
+
+        symbol_file_by_id: Dict[int, int] = {}
+        symbols_by_file_and_name: Dict[Tuple[int, str], List[int]] = {}
+        symbols_by_name: Dict[str, List[int]] = {}
+
+        for row in symbol_rows:
+            symbol_id = int(row["id"])
+            file_id = int(row["file_id"])
+            name = str(row["name"])
+            symbol_file_by_id[symbol_id] = file_id
+            symbols_by_file_and_name.setdefault((file_id, name), []).append(symbol_id)
+            symbols_by_name.setdefault(name, []).append(symbol_id)
+
+        adjacency: Dict[int, Set[int]] = {}
+
+        for row in rel_rows:
+            source_id = int(row["source_symbol_id"])
+            target_raw = str(row["target_qualified_name"] or "")
+            target_name = _normalize_relationship_target(target_raw)
+            if not target_name:
+                continue
+
+            source_file_id = symbol_file_by_id.get(source_id)
+            if source_file_id is None:
+                continue
+
+            candidate_ids = symbols_by_file_and_name.get((source_file_id, target_name))
+            if not candidate_ids:
+                global_candidates = symbols_by_name.get(target_name, [])
+                # Only resolve cross-file by name when unambiguous.
+                candidate_ids = global_candidates if len(global_candidates) == 1 else []
+
+            for target_id in candidate_ids:
+                if target_id == source_id:
+                    continue
+                adjacency.setdefault(source_id, set()).add(target_id)
+                adjacency.setdefault(target_id, set()).add(source_id)
+
+        if not adjacency:
+            try:
+                conn.commit()
+            except sqlite3.Error:
+                pass
+            return
+
+        insert_rows: List[Tuple[int, int, int]] = []
+        max_depth = min(int(max_depth), 2)
+
+        for source_id, first_hop in adjacency.items():
+            if not first_hop:
+                continue
+            for neighbor_id in first_hop:
+                insert_rows.append((source_id, neighbor_id, 1))
+
+            if max_depth < 2:
+                continue
+
+            second_hop: Set[int] = set()
+            for neighbor_id in first_hop:
+                second_hop.update(adjacency.get(neighbor_id, set()))
+
+            second_hop.discard(source_id)
+            second_hop.difference_update(first_hop)
+
+            for neighbor_id in second_hop:
+                insert_rows.append((source_id, neighbor_id, 2))
+
+        if not insert_rows:
+            try:
+                conn.commit()
+            except sqlite3.Error:
+                pass
+            return
+
+        try:
+            cursor.executemany(
+                """
+                INSERT INTO graph_neighbors(
+                    source_symbol_id, neighbor_symbol_id, relationship_depth
+                )
+                VALUES(?, ?, ?)
+                """,
+                insert_rows,
+            )
+            conn.commit()
+        except sqlite3.Error:
+            return
 
 
 # === Worker Function for ProcessPoolExecutor ===
@@ -795,6 +961,7 @@ def _build_dir_worker(args: tuple) -> DirBuildResult:
                     content=text,
                     language=language_id,
                     symbols=indexed_file.symbols,
+                    relationships=indexed_file.relationships,
                 )
 
                 files_count += 1
@@ -802,6 +969,9 @@ def _build_dir_worker(args: tuple) -> DirBuildResult:
 
             except Exception:
                 continue
+
+        if files_count > 0:
+            _compute_graph_neighbors(store)
 
         # Get subdirectories
         ignore_dirs = {
@@ -821,6 +991,7 @@ def _build_dir_worker(args: tuple) -> DirBuildResult:
             if d.is_dir() and d.name not in ignore_dirs and not d.name.startswith(".")
         ]
 
+        store.update_merkle_root()
         store.close()
         if global_index is not None:
             global_index.close()

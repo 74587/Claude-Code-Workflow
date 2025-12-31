@@ -1173,6 +1173,7 @@ class TestChainSearchResultExtended:
         assert result.query == "test query"
         assert len(result.results) == 1
         assert len(result.symbols) == 1
+        assert result.related_results == []
         assert result.stats.dirs_searched == 5
 
     def test_result_with_empty_collections(self):
@@ -1186,5 +1187,6 @@ class TestChainSearchResultExtended:
 
         assert result.query == "no matches"
         assert result.results == []
+        assert result.related_results == []
         assert result.symbols == []
         assert result.stats.dirs_searched == 0

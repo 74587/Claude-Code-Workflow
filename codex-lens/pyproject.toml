@@ -49,6 +49,12 @@ semantic-directml = [
     "onnxruntime-directml>=1.15.0",  # DirectML support
 ]
 
+# Cross-encoder reranking (second-stage, optional)
+# Install with: pip install codexlens[reranker]
+reranker = [
+    "sentence-transformers>=2.2",
+]
+
 # Encoding detection for non-UTF8 files
 encoding = [
     "chardet>=5.0",

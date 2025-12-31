@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Protocol
 
 from codexlens.config import Config
-from codexlens.entities import IndexedFile, Symbol
+from codexlens.entities import CodeRelationship, IndexedFile, RelationshipType, Symbol
 from codexlens.parsers.treesitter_parser import TreeSitterSymbolParser
 
 
@@ -30,36 +30,39 @@ class SimpleRegexParser:
         if self.language_id in {"python", "javascript", "typescript"}:
             ts_parser = TreeSitterSymbolParser(self.language_id, path)
             if ts_parser.is_available():
-                symbols = ts_parser.parse_symbols(text)
-                if symbols is not None:
-                    return IndexedFile(
-                        path=str(path.resolve()),
-                        language=self.language_id,
-                        symbols=symbols,
-                        chunks=[],
-                    )
+                indexed = ts_parser.parse(text, path)
+                if indexed is not None:
+                    return indexed
 
         # Fallback to regex parsing
         if self.language_id == "python":
             symbols = _parse_python_symbols_regex(text)
+            relationships = _parse_python_relationships_regex(text, path)
         elif self.language_id in {"javascript", "typescript"}:
             symbols = _parse_js_ts_symbols_regex(text)
+            relationships = _parse_js_ts_relationships_regex(text, path)
         elif self.language_id == "java":
             symbols = _parse_java_symbols(text)
+            relationships = []
         elif self.language_id == "go":
             symbols = _parse_go_symbols(text)
+            relationships = []
         elif self.language_id == "markdown":
             symbols = _parse_markdown_symbols(text)
+            relationships = []
         elif self.language_id == "text":
             symbols = _parse_text_symbols(text)
+            relationships = []
         else:
             symbols = _parse_generic_symbols(text)
+            relationships = []
 
         return IndexedFile(
             path=str(path.resolve()),
             language=self.language_id,
             symbols=symbols,
             chunks=[],
+            relationships=relationships,
         )
 
 
@@ -77,6 +80,9 @@ class ParserFactory:
 # Regex-based fallback parsers
 _PY_CLASS_RE = re.compile(r"^\s*class\s+([A-Za-z_]\w*)\b")
 _PY_DEF_RE = re.compile(r"^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)\s*\(")
+
+_PY_IMPORT_RE = re.compile(r"^(?:from\s+([\w.]+)\s+)?import\s+([\w.,\s]+)")
+_PY_CALL_RE = re.compile(r"(?<![.\w])(\w+)\s*\(")
 
 
 
@@ -127,12 +133,81 @@ def _parse_python_symbols_regex(text: str) -> List[Symbol]:
     return symbols
 
 
+def _parse_python_relationships_regex(text: str, path: Path) -> List[CodeRelationship]:
+    relationships: List[CodeRelationship] = []
+    current_scope: str | None = None
+    source_file = str(path.resolve())
+
+    for line_num, line in enumerate(text.splitlines(), start=1):
+        class_match = _PY_CLASS_RE.match(line)
+        if class_match:
+            current_scope = class_match.group(1)
+            continue
+
+        def_match = _PY_DEF_RE.match(line)
+        if def_match:
+            current_scope = def_match.group(1)
+            continue
+
+        if current_scope is None:
+            continue
+
+        import_match = _PY_IMPORT_RE.search(line)
+        if import_match:
+            import_target = import_match.group(1) or import_match.group(2)
+            if import_target:
+                relationships.append(
+                    CodeRelationship(
+                        source_symbol=current_scope,
+                        target_symbol=import_target.strip(),
+                        relationship_type=RelationshipType.IMPORTS,
+                        source_file=source_file,
+                        target_file=None,
+                        source_line=line_num,
+                    )
+                )
+
+        for call_match in _PY_CALL_RE.finditer(line):
+            call_name = call_match.group(1)
+            if call_name in {
+                "if",
+                "for",
+                "while",
+                "return",
+                "print",
+                "len",
+                "str",
+                "int",
+                "float",
+                "list",
+                "dict",
+                "set",
+                "tuple",
+                current_scope,
+            }:
+                continue
+            relationships.append(
+                CodeRelationship(
+                    source_symbol=current_scope,
+                    target_symbol=call_name,
+                    relationship_type=RelationshipType.CALL,
+                    source_file=source_file,
+                    target_file=None,
+                    source_line=line_num,
+                )
+            )
+
+    return relationships
+
+
 _JS_FUNC_RE = re.compile(r"^\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(")
 _JS_CLASS_RE = re.compile(r"^\s*(?:export\s+)?class\s+([A-Za-z_$][\w$]*)\b")
 _JS_ARROW_RE = re.compile(
     r"^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\(?[^)]*\)?\s*=>"
 )
 _JS_METHOD_RE = re.compile(r"^\s+(?:async\s+)?([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{")
+_JS_IMPORT_RE = re.compile(r"import\s+.*\s+from\s+['\"]([^'\"]+)['\"]")
+_JS_CALL_RE = re.compile(r"(?<![.\w])(\w+)\s*\(")
 
 
 def _parse_js_ts_symbols_regex(text: str) -> List[Symbol]:
@@ -172,6 +247,61 @@ def _parse_js_ts_symbols_regex(text: str) -> List[Symbol]:
                     symbols.append(Symbol(name=name, kind="method", range=(i, i)))
 
     return symbols
+
+
+def _parse_js_ts_relationships_regex(text: str, path: Path) -> List[CodeRelationship]:
+    relationships: List[CodeRelationship] = []
+    current_scope: str | None = None
+    source_file = str(path.resolve())
+
+    for line_num, line in enumerate(text.splitlines(), start=1):
+        class_match = _JS_CLASS_RE.match(line)
+        if class_match:
+            current_scope = class_match.group(1)
+            continue
+
+        func_match = _JS_FUNC_RE.match(line)
+        if func_match:
+            current_scope = func_match.group(1)
+            continue
+
+        arrow_match = _JS_ARROW_RE.match(line)
+        if arrow_match:
+            current_scope = arrow_match.group(1)
+            continue
+
+        if current_scope is None:
+            continue
+
+        import_match = _JS_IMPORT_RE.search(line)
+        if import_match:
+            relationships.append(
+                CodeRelationship(
+                    source_symbol=current_scope,
+                    target_symbol=import_match.group(1),
+                    relationship_type=RelationshipType.IMPORTS,
+                    source_file=source_file,
+                    target_file=None,
+                    source_line=line_num,
+                )
+            )
+
+        for call_match in _JS_CALL_RE.finditer(line):
+            call_name = call_match.group(1)
+            if call_name in {current_scope}:
+                continue
+            relationships.append(
+                CodeRelationship(
+                    source_symbol=current_scope,
+                    target_symbol=call_name,
+                    relationship_type=RelationshipType.CALL,
+                    source_file=source_file,
+                    target_file=None,
+                    source_line=line_num,
+                )
+            )
+
+    return relationships
 
 
 _JAVA_CLASS_RE = re.compile(r"^\s*(?:public\s+)?class\s+([A-Za-z_]\w*)\b")
@@ -253,4 +383,3 @@ def _parse_text_symbols(text: str) -> List[Symbol]:
     # Text files don't have structured symbols, return empty list
     # The file content will still be indexed for FTS search
     return []
-

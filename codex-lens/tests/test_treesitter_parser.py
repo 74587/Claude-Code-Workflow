@@ -110,6 +110,37 @@ class DataProcessor:
         assert result is not None
         assert len(result.symbols) == 0
 
+    def test_extracts_relationships_with_alias_resolution(self):
+        parser = TreeSitterSymbolParser("python")
+        code = """
+import os.path as osp
+from math import sqrt as sq
+
+class Base:
+    pass
+
+class Child(Base):
+    pass
+
+def main():
+    osp.join("a", "b")
+    sq(4)
+"""
+        result = parser.parse(code, Path("test.py"))
+
+        assert result is not None
+
+        rels = [r for r in result.relationships if r.source_symbol == "main"]
+        targets = {r.target_symbol for r in rels if r.relationship_type.value == "calls"}
+        assert "os.path.join" in targets
+        assert "math.sqrt" in targets
+
+        inherits = [
+            r for r in result.relationships
+            if r.source_symbol == "Child" and r.relationship_type.value == "inherits"
+        ]
+        assert any(r.target_symbol == "Base" for r in inherits)
+
 
 @pytest.mark.skipif(not TREE_SITTER_AVAILABLE, reason="tree-sitter not installed")
 class TestTreeSitterJavaScriptParser:
@@ -174,6 +205,22 @@ export const arrowFunc = () => {}
         names = [s.name for s in result.symbols]
         assert "exported" in names
         assert "arrowFunc" in names
+
+    def test_extracts_relationships_with_import_alias(self):
+        parser = TreeSitterSymbolParser("javascript")
+        code = """
+import { readFile as rf } from "fs";
+
+function main() {
+  rf("a");
+}
+"""
+        result = parser.parse(code, Path("test.js"))
+
+        assert result is not None
+        rels = [r for r in result.relationships if r.source_symbol == "main"]
+        targets = {r.target_symbol for r in rels if r.relationship_type.value == "calls"}
+        assert "fs.readFile" in targets
 
 
 @pytest.mark.skipif(not TREE_SITTER_AVAILABLE, reason="tree-sitter not installed")

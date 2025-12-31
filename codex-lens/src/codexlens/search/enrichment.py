@@ -4,6 +4,11 @@ import sqlite3
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
+from codexlens.config import Config
+from codexlens.entities import SearchResult
+from codexlens.search.graph_expander import GraphExpander
+from codexlens.storage.path_mapper import PathMapper
+
 
 class RelationshipEnricher:
     """Enriches search results with code graph relationships."""
@@ -148,3 +153,19 @@ class RelationshipEnricher:
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.close()
+
+
+class SearchEnrichmentPipeline:
+    """Search post-processing pipeline (optional enrichments)."""
+
+    def __init__(self, mapper: PathMapper, *, config: Optional[Config] = None) -> None:
+        self._config = config
+        self._graph_expander = GraphExpander(mapper, config=config)
+
+    def expand_related_results(self, results: List[SearchResult]) -> List[SearchResult]:
+        """Expand base results with related symbols when enabled in config."""
+        if self._config is None or not getattr(self._config, "enable_graph_expansion", False):
+            return []
+
+        depth = int(getattr(self._config, "graph_expansion_depth", 2) or 2)
+        return self._graph_expander.expand(results, depth=depth)

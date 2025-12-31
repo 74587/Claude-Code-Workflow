@@ -105,11 +105,21 @@ class Config:
 
     # Indexing/search optimizations
     global_symbol_index_enabled: bool = True  # Enable project-wide symbol index fast path
+    enable_merkle_detection: bool = True  # Enable content-hash based incremental indexing
+
+    # Graph expansion (search-time, uses precomputed neighbors)
+    enable_graph_expansion: bool = False
+    graph_expansion_depth: int = 2
 
     # Optional search reranking (disabled by default)
     enable_reranking: bool = False
     reranking_top_k: int = 50
     symbol_boost_factor: float = 1.5
+
+    # Optional cross-encoder reranking (second stage, requires codexlens[reranker])
+    enable_cross_encoder_rerank: bool = False
+    reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    reranker_top_k: int = 50
 
     # Multi-endpoint configuration for litellm backend
     embedding_endpoints: List[Dict[str, Any]] = field(default_factory=list)
