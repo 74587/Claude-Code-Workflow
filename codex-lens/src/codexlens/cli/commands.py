@@ -415,11 +415,20 @@ def search(
     depth: int = typer.Option(-1, "--depth", "-d", help="Search depth (-1 = unlimited, 0 = current only)."),
     files_only: bool = typer.Option(False, "--files-only", "-f", help="Return only file paths without content snippets."),
     mode: str = typer.Option("auto", "--mode", "-m", help="Search mode: auto, exact, fuzzy, hybrid, vector, pure-vector."),
-    weights: Optional[str] = typer.Option(None, "--weights", help="Custom RRF weights as 'exact,fuzzy,vector' (e.g., '0.5,0.3,0.2')."),
+    weights: Optional[str] = typer.Option(
+        None,
+        "--weights", "-w",
+        help="RRF weights as key=value pairs (e.g., 'splade=0.4,vector=0.6' or 'exact=0.3,fuzzy=0.1,vector=0.6'). Default: auto-detect based on available backends."
+    ),
+    use_fts: bool = typer.Option(
+        False,
+        "--use-fts",
+        help="Use FTS (exact+fuzzy) instead of SPLADE for sparse retrieval"
+    ),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
 ) -> None:
-    """Search indexed file contents using SQLite FTS5 or semantic vectors.
+    """Search indexed file contents using hybrid retrieval.
 
     Uses chain search across directory indexes.
     Use --depth to limit search recursion (0 = current dir only).
@@ -428,17 +437,27 @@ def search(
       - auto: Auto-detect (hybrid if embeddings exist, exact otherwise) [default]
       - exact: Exact FTS using unicode61 tokenizer - for code identifiers
       - fuzzy: Fuzzy FTS using trigram tokenizer - for typo-tolerant search
-      - hybrid: RRF fusion of exact + fuzzy + vector (recommended) - best recall
-      - vector: Vector search with exact FTS fallback - semantic + keyword
+      - hybrid: RRF fusion of sparse + dense search (recommended) - best recall
+      - vector: Vector search with sparse fallback - semantic + keyword
       - pure-vector: Pure semantic vector search only - natural language queries
+
+    SPLADE Mode:
+      When SPLADE is available (pip install codex-lens[splade]), it automatically
+      replaces FTS (exact+fuzzy) as the sparse retrieval backend. SPLADE provides
+      semantic term expansion for better synonym handling.
+      
+      Use --use-fts to force FTS mode instead of SPLADE.
 
     Vector Search Requirements:
       Vector search modes require pre-generated embeddings.
       Use 'codexlens embeddings-generate' to create embeddings first.
 
-    Hybrid Mode:
-      Default weights: exact=0.3, fuzzy=0.1, vector=0.6
-      Use --weights to customize (e.g., --weights 0.5,0.3,0.2)
+    Hybrid Mode Weights:
+      Use --weights to adjust RRF fusion weights:
+      - SPLADE mode: 'splade=0.4,vector=0.6' (default)
+      - FTS mode: 'exact=0.3,fuzzy=0.1,vector=0.6' (default)
+      
+      Legacy format also supported: '0.3,0.1,0.6' (exact,fuzzy,vector)
 
     Examples:
       # Auto-detect mode (uses hybrid if embeddings available)
@@ -450,11 +469,19 @@ def search(
       # Semantic search (requires embeddings)
       codexlens search "how to verify user credentials" --mode pure-vector
 
-      # Force hybrid mode
-      codexlens search "authentication" --mode hybrid
+      # Force hybrid mode with custom weights
+      codexlens search "authentication" --mode hybrid --weights splade=0.5,vector=0.5
+      
+      # Force FTS instead of SPLADE
+      codexlens search "authentication" --use-fts
     """
     _configure_logging(verbose, json_mode)
     search_path = path.expanduser().resolve()
+    
+    # Configure search with FTS fallback if requested
+    config = Config()
+    if use_fts:
+        config.use_fts_fallback = True
 
     # Validate mode
     valid_modes = ["auto", "exact", "fuzzy", "hybrid", "vector", "pure-vector"]
@@ -470,22 +497,56 @@ def search(
     hybrid_weights = None
     if weights:
         try:
-            weight_parts = [float(w.strip()) for w in weights.split(",")]
-            if len(weight_parts) == 3:
-                weight_sum = sum(weight_parts)
+            # Check if using key=value format (new) or legacy comma-separated format
+            if "=" in weights:
+                # New format: splade=0.4,vector=0.6 or exact=0.3,fuzzy=0.1,vector=0.6
+                weight_dict = {}
+                for pair in weights.split(","):
+                    if "=" in pair:
+                        key, val = pair.split("=", 1)
+                        weight_dict[key.strip()] = float(val.strip())
+                    else:
+                        raise ValueError("Mixed format not supported - use all key=value pairs")
+                
+                # Validate and normalize weights
+                weight_sum = sum(weight_dict.values())
                 if abs(weight_sum - 1.0) > 0.01:
-                    console.print(f"[yellow]Warning: Weights sum to {weight_sum:.2f}, should sum to 1.0. Normalizing...[/yellow]")
-                    # Normalize weights
-                    weight_parts = [w / weight_sum for w in weight_parts]
-                hybrid_weights = {
-                    "exact": weight_parts[0],
-                    "fuzzy": weight_parts[1],
-                    "vector": weight_parts[2],
-                }
+                    if not json_mode:
+                        console.print(f"[yellow]Warning: Weights sum to {weight_sum:.2f}, should sum to 1.0. Normalizing...[/yellow]")
+                    weight_dict = {k: v / weight_sum for k, v in weight_dict.items()}
+                
+                hybrid_weights = weight_dict
             else:
-                console.print("[yellow]Warning: Invalid weights format (need 3 values). Using defaults.[/yellow]")
-        except ValueError:
-            console.print("[yellow]Warning: Invalid weights format. Using defaults.[/yellow]")
+                # Legacy format: 0.3,0.1,0.6 (exact,fuzzy,vector)
+                weight_parts = [float(w.strip()) for w in weights.split(",")]
+                if len(weight_parts) == 3:
+                    weight_sum = sum(weight_parts)
+                    if abs(weight_sum - 1.0) > 0.01:
+                        if not json_mode:
+                            console.print(f"[yellow]Warning: Weights sum to {weight_sum:.2f}, should sum to 1.0. Normalizing...[/yellow]")
+                        weight_parts = [w / weight_sum for w in weight_parts]
+                    hybrid_weights = {
+                        "exact": weight_parts[0],
+                        "fuzzy": weight_parts[1],
+                        "vector": weight_parts[2],
+                    }
+                elif len(weight_parts) == 2:
+                    # Two values: assume splade,vector
+                    weight_sum = sum(weight_parts)
+                    if abs(weight_sum - 1.0) > 0.01:
+                        if not json_mode:
+                            console.print(f"[yellow]Warning: Weights sum to {weight_sum:.2f}, should sum to 1.0. Normalizing...[/yellow]")
+                        weight_parts = [w / weight_sum for w in weight_parts]
+                    hybrid_weights = {
+                        "splade": weight_parts[0],
+                        "vector": weight_parts[1],
+                    }
+                else:
+                    if not json_mode:
+                        console.print("[yellow]Warning: Invalid weights format. Using defaults.[/yellow]")
+        except ValueError as e:
+            if not json_mode:
+                console.print(f"[yellow]Warning: Invalid weights format ({e}). Using defaults.[/yellow]")
 
     registry: RegistryStore | None = None
     try:
@@ -2379,6 +2440,188 @@ def gpu_reset(
         if gpu_info.preferred_device_id is not None:
             console.print(f"  Auto-selected device: {gpu_info.preferred_device_id}")
             console.print(f"  Device: [cyan]{gpu_info.gpu_name}[/cyan]")
+
+
+
+# ==================== SPLADE Commands ====================
+
+@app.command("splade-index")
+def splade_index_command(
+    path: Path = typer.Argument(..., help="Project path to index"),
+    rebuild: bool = typer.Option(False, "--rebuild", "-r", help="Force rebuild SPLADE index"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output."),
+) -> None:
+    """Generate SPLADE sparse index for existing codebase.
+
+    Encodes all semantic chunks with SPLADE model and builds inverted index
+    for efficient sparse retrieval.
+
+    Examples:
+        codexlens splade-index ~/projects/my-app
+        codexlens splade-index . --rebuild
+    """
+    _configure_logging(verbose)
+
+    from codexlens.semantic.splade_encoder import get_splade_encoder, check_splade_available
+    from codexlens.storage.splade_index import SpladeIndex
+    from codexlens.semantic.vector_store import VectorStore
+
+    # Check SPLADE availability
+    ok, err = check_splade_available()
+    if not ok:
+        console.print(f"[red]SPLADE not available: {err}[/red]")
+        console.print("[dim]Install with: pip install transformers torch[/dim]")
+        raise typer.Exit(1)
+
+    # Find index database
+    target_path = path.expanduser().resolve()
+
+    # Try to find _index.db
+    if target_path.is_file() and target_path.name == "_index.db":
+        index_db = target_path
+    elif target_path.is_dir():
+        # Check for local .codexlens/_index.db
+        local_index = target_path / ".codexlens" / "_index.db"
+        if local_index.exists():
+            index_db = local_index
+        else:
+            # Try to find via registry
+            registry = RegistryStore()
+            try:
+                registry.initialize()
+                mapper = PathMapper()
+                index_db = mapper.source_to_index_db(target_path)
+                if not index_db.exists():
+                    console.print(f"[red]Error:[/red] No index found for {target_path}")
+                    console.print("Run 'codexlens init' first to create an index")
+                    raise typer.Exit(1)
+            finally:
+                registry.close()
+    else:
+        console.print(f"[red]Error:[/red] Path must be _index.db file or indexed directory")
+        raise typer.Exit(1)
+
+    splade_db = index_db.parent / "_splade.db"
+
+    if splade_db.exists() and not rebuild:
+        console.print("[yellow]SPLADE index exists. Use --rebuild to regenerate.[/yellow]")
+        return
+
+    # Load chunks from vector store
+    console.print(f"[blue]Loading chunks from {index_db.name}...[/blue]")
+    vector_store = VectorStore(index_db)
+    chunks = vector_store.get_all_chunks()
+
+    if not chunks:
+        console.print("[yellow]No chunks found in vector store[/yellow]")
+        console.print("[dim]Generate embeddings first with 'codexlens embeddings-generate'[/dim]")
+        raise typer.Exit(1)
+
+    console.print(f"[blue]Encoding {len(chunks)} chunks with SPLADE...[/blue]")
+
+    # Initialize SPLADE
+    encoder = get_splade_encoder()
+    splade_index = SpladeIndex(splade_db)
+    splade_index.create_tables()
+
+    # Encode in batches with progress bar
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Encoding...", total=len(chunks))
+        for chunk in chunks:
+            sparse_vec = encoder.encode_text(chunk.content)
+            splade_index.add_posting(chunk.id, sparse_vec)
+            progress.advance(task)
+
+    # Set metadata
+    splade_index.set_metadata(
+        model_name=encoder.model_name,
+        vocab_size=encoder.vocab_size
+    )
+
+    stats = splade_index.get_stats()
+    console.print(f"[green]✓[/green] SPLADE index built: {stats['unique_chunks']} chunks, {stats['total_postings']} postings")
+    console.print(f"  Database: [dim]{splade_db}[/dim]")
+
+
+@app.command("splade-status")
+def splade_status_command(
+    path: Path = typer.Argument(..., help="Project path"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output."),
+) -> None:
+    """Show SPLADE index status and statistics.
+
+    Examples:
+        codexlens splade-status ~/projects/my-app
+        codexlens splade-status .
+    """
+    _configure_logging(verbose)
+
+    from codexlens.storage.splade_index import SpladeIndex
+    from codexlens.semantic.splade_encoder import check_splade_available
+
+    # Find index database
+    target_path = path.expanduser().resolve()
+
+    if target_path.is_file() and target_path.name == "_index.db":
+        splade_db = target_path.parent / "_splade.db"
+    elif target_path.is_dir():
+        # Check for local .codexlens/_splade.db
+        local_splade = target_path / ".codexlens" / "_splade.db"
+        if local_splade.exists():
+            splade_db = local_splade
+        else:
+            # Try to find via registry
+            registry = RegistryStore()
+            try:
+                registry.initialize()
+                mapper = PathMapper()
+                index_db = mapper.source_to_index_db(target_path)
+                splade_db = index_db.parent / "_splade.db"
+            finally:
+                registry.close()
+    else:
+        console.print(f"[red]Error:[/red] Path must be _index.db file or indexed directory")
+        raise typer.Exit(1)
+
+    if not splade_db.exists():
+        console.print("[yellow]No SPLADE index found[/yellow]")
+        console.print(f"[dim]Run 'codexlens splade-index {path}' to create one[/dim]")
+        return
+
+    splade_index = SpladeIndex(splade_db)
+
+    if not splade_index.has_index():
+        console.print("[yellow]SPLADE tables not initialized[/yellow]")
+        return
+
+    metadata = splade_index.get_metadata()
+    stats = splade_index.get_stats()
+
+    # Create status table
+    table = Table(title="SPLADE Index Status", show_header=False)
+    table.add_column("Property", style="cyan")
+    table.add_column("Value")
+
+    table.add_row("Database", str(splade_db))
+    if metadata:
+        table.add_row("Model", metadata['model_name'])
+        table.add_row("Vocab Size", str(metadata['vocab_size']))
+    table.add_row("Chunks", str(stats['unique_chunks']))
+    table.add_row("Unique Tokens", str(stats['unique_tokens']))
+    table.add_row("Total Postings", str(stats['total_postings']))
+
+    ok, err = check_splade_available()
+    status_text = "[green]Yes[/green]" if ok else f"[red]No[/red] - {err}"
+    table.add_row("SPLADE Available", status_text)
+
+    console.print(table)
 
 
 # ==================== Watch Command ====================

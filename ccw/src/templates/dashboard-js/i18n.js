@@ -366,6 +366,25 @@ const i18n = {
     'codexlens.depsInstalled': 'Dependencies installed successfully',
     'codexlens.depsInstallFailed': 'Failed to install dependencies',
 
+    // SPLADE Dependencies
+    'codexlens.spladeDeps': 'SPLADE Sparse Retrieval',
+    'codexlens.spladeInstalled': 'SPLADE Available',
+    'codexlens.spladeNotInstalled': 'SPLADE Not Installed',
+    'codexlens.spladeInstallHint': 'Install for improved synonym matching in code search',
+    'codexlens.installingSpladePackage': 'Installing SPLADE package',
+    'codexlens.spladeInstallSuccess': 'SPLADE installed successfully',
+    'codexlens.spladeInstallFailed': 'SPLADE installation failed',
+    'codexlens.spladeModel': 'Model',
+    'codexlens.spladeIndexStatus': 'SPLADE Index',
+    'codexlens.spladeIndexExists': 'Index available',
+    'codexlens.spladeIndexMissing': 'No SPLADE index',
+    'codexlens.spladeRebuild': 'Rebuild SPLADE Index',
+    'codexlens.spladeRebuilding': 'Rebuilding SPLADE index...',
+    'codexlens.spladeRebuildSuccess': 'SPLADE index rebuilt',
+    'codexlens.spladeRebuildFailed': 'SPLADE index rebuild failed',
+    'codexlens.spladeChunks': 'Chunks',
+    'codexlens.spladePostings': 'Postings',
+
     // GPU Mode Selection
     'codexlens.selectGpuMode': 'Select acceleration mode',
     'codexlens.cpuModeDesc': 'Standard CPU processing',
@@ -2287,6 +2306,25 @@ const i18n = {
     'codexlens.installingMode': '正在安装',
     'codexlens.depsInstalled': '依赖安装成功',
     'codexlens.depsInstallFailed': '依赖安装失败',
+
+    // SPLADE 依赖
+    'codexlens.spladeDeps': 'SPLADE 稀疏检索',
+    'codexlens.spladeInstalled': 'SPLADE 已安装',
+    'codexlens.spladeNotInstalled': 'SPLADE 未安装',
+    'codexlens.spladeInstallHint': '安装后可改进代码搜索的同义词匹配',
+    'codexlens.installingSpladePackage': '正在安装 SPLADE 包',
+    'codexlens.spladeInstallSuccess': 'SPLADE 安装成功',
+    'codexlens.spladeInstallFailed': 'SPLADE 安装失败',
+    'codexlens.spladeModel': '模型',
+    'codexlens.spladeIndexStatus': 'SPLADE 索引',
+    'codexlens.spladeIndexExists': '索引可用',
+    'codexlens.spladeIndexMissing': '无 SPLADE 索引',
+    'codexlens.spladeRebuild': '重建 SPLADE 索引',
+    'codexlens.spladeRebuilding': '正在重建 SPLADE 索引...',
+    'codexlens.spladeRebuildSuccess': 'SPLADE 索引重建完成',
+    'codexlens.spladeRebuildFailed': 'SPLADE 索引重建失败',
+    'codexlens.spladeChunks': '分块数',
+    'codexlens.spladePostings': '词条数',
 
     // GPU 模式选择
     'codexlens.selectGpuMode': '选择加速模式',

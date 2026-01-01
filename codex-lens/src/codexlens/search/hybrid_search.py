@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError, as_completed
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -33,6 +33,8 @@ def timer(name: str, logger: logging.Logger, level: int = logging.DEBUG):
 from codexlens.config import Config
 from codexlens.entities import SearchResult
 from codexlens.search.ranking import (
+    DEFAULT_WEIGHTS,
+    FTS_FALLBACK_WEIGHTS,
     apply_symbol_boost,
     cross_encoder_rerank,
     get_rrf_weights,
@@ -54,12 +56,9 @@ class HybridSearchEngine:
         default_weights: Default RRF weights for each source
     """
 
-    # Default RRF weights (vector: 60%, exact: 30%, fuzzy: 10%)
-    DEFAULT_WEIGHTS = {
-        "exact": 0.3,
-        "fuzzy": 0.1,
-        "vector": 0.6,
-    }
+    # NOTE: DEFAULT_WEIGHTS imported from ranking.py - single source of truth
+    # Default RRF weights: SPLADE-based hybrid (splade: 0.4, vector: 0.6)
+    # FTS fallback mode uses FTS_FALLBACK_WEIGHTS (exact: 0.3, fuzzy: 0.1, vector: 0.6)
 
     def __init__(
         self,
@@ -75,10 +74,11 @@ class HybridSearchEngine:
             embedder: Optional embedder instance for embedding-based reranking
         """
         self.logger = logging.getLogger(__name__)
-        self.weights = weights or self.DEFAULT_WEIGHTS.copy()
+        self.weights = weights or DEFAULT_WEIGHTS.copy()
         self._config = config
         self.embedder = embedder
         self.reranker: Any = None
+        self._use_gpu = config.embedding_use_gpu if config else True
 
     def search(
         self,
@@ -124,6 +124,26 @@ class HybridSearchEngine:
 
         # Determine which backends to use
         backends = {}
+        
+        # Check if SPLADE is available
+        splade_available = False
+        # Respect config.enable_splade flag and use_fts_fallback flag
+        if self._config and getattr(self._config, 'use_fts_fallback', False):
+            # Config explicitly requests FTS fallback - disable SPLADE
+            splade_available = False
+        elif self._config and not getattr(self._config, 'enable_splade', True):
+            # Config explicitly disabled SPLADE
+            splade_available = False
+        else:
+            # Check if SPLADE dependencies are available
+            try:
+                from codexlens.semantic.splade_encoder import check_splade_available
+                ok, _ = check_splade_available()
+                if ok:
+                    # SPLADE tables are in main index database, will check table existence in _search_splade
+                    splade_available = True
+            except Exception:
+                pass
 
         if pure_vector:
             # Pure vector mode: only use vector search, no FTS fallback
@@ -138,12 +158,19 @@ class HybridSearchEngine:
                 )
                 backends["exact"] = True
         else:
-            # Hybrid mode: always include exact search as baseline
-            backends["exact"] = True
-            if enable_fuzzy:
-                backends["fuzzy"] = True
-            if enable_vector:
-                backends["vector"] = True
+            # Hybrid mode: default to SPLADE if available, otherwise use FTS
+            if splade_available:
+                # Default: enable SPLADE, disable exact and fuzzy
+                backends["splade"] = True
+                if enable_vector:
+                    backends["vector"] = True
+            else:
+                # Fallback mode: enable exact+fuzzy when SPLADE unavailable
+                backends["exact"] = True
+                if enable_fuzzy:
+                    backends["fuzzy"] = True
+                if enable_vector:
+                    backends["vector"] = True
 
         # Execute parallel searches
         with timer("parallel_search_total", self.logger):
@@ -354,23 +381,40 @@ class HybridSearchEngine:
                 )
                 future_to_source[future] = "vector"
 
-            # Collect results as they complete
-            for future in as_completed(future_to_source):
-                source = future_to_source[future]
-                elapsed_ms = (time.perf_counter() - submit_times[source]) * 1000
-                timing_data[source] = elapsed_ms
-                try:
-                    results = future.result()
-                    # Tag results with source for debugging
-                    tagged_results = tag_search_source(results, source)
-                    results_map[source] = tagged_results
-                    self.logger.debug(
-                        "[TIMING] %s_search: %.2fms (%d results)",
-                        source, elapsed_ms, len(results)
-                    )
-                except Exception as exc:
-                    self.logger.error("Search failed for %s: %s", source, exc)
-                    results_map[source] = []
+            if backends.get("splade"):
+                submit_times["splade"] = time.perf_counter()
+                future = executor.submit(
+                    self._search_splade, index_path, query, limit
+                )
+                future_to_source[future] = "splade"
+
+            # Collect results as they complete with timeout protection
+            try:
+                for future in as_completed(future_to_source, timeout=30.0):
+                    source = future_to_source[future]
+                    elapsed_ms = (time.perf_counter() - submit_times[source]) * 1000
+                    timing_data[source] = elapsed_ms
+                    try:
+                        results = future.result(timeout=10.0)
+                        # Tag results with source for debugging
+                        tagged_results = tag_search_source(results, source)
+                        results_map[source] = tagged_results
+                        self.logger.debug(
+                            "[TIMING] %s_search: %.2fms (%d results)",
+                            source, elapsed_ms, len(results)
+                        )
+                    except (Exception, FuturesTimeoutError) as exc:
+                        self.logger.error("Search failed for %s: %s", source, exc)
+                        results_map[source] = []
+            except FuturesTimeoutError:
+                self.logger.warning("Search timeout: some backends did not respond in time")
+                # Cancel remaining futures
+                for future in future_to_source:
+                    future.cancel()
+                # Set empty results for sources that didn't complete
+                for source in backends:
+                    if source not in results_map:
+                        results_map[source] = []
 
         # Log timing summary
         if timing_data:
@@ -563,4 +607,114 @@ class HybridSearchEngine:
             return []
         except Exception as exc:
             self.logger.error("Vector search error: %s", exc)
+            return []
+
+    def _search_splade(
+        self, index_path: Path, query: str, limit: int
+    ) -> List[SearchResult]:
+        """SPLADE sparse retrieval via inverted index.
+        
+        Args:
+            index_path: Path to _index.db file
+            query: Natural language query string
+            limit: Maximum results
+        
+        Returns:
+            List of SearchResult ordered by SPLADE score
+        """
+        try:
+            from codexlens.semantic.splade_encoder import get_splade_encoder, check_splade_available
+            from codexlens.storage.splade_index import SpladeIndex
+            import sqlite3
+            import json
+            
+            # Check dependencies
+            ok, err = check_splade_available()
+            if not ok:
+                self.logger.debug("SPLADE not available: %s", err)
+                return []
+            
+            # Use main index database (SPLADE tables are in _index.db, not separate _splade.db)
+            splade_index = SpladeIndex(index_path)
+            if not splade_index.has_index():
+                self.logger.debug("SPLADE index not initialized")
+                return []
+            
+            # Encode query to sparse vector
+            encoder = get_splade_encoder(use_gpu=self._use_gpu)
+            query_sparse = encoder.encode_text(query)
+            
+            # Search inverted index for top matches
+            raw_results = splade_index.search(query_sparse, limit=limit, min_score=0.0)
+            
+            if not raw_results:
+                return []
+            
+            # Fetch chunk details from main index database
+            chunk_ids = [chunk_id for chunk_id, _ in raw_results]
+            score_map = {chunk_id: score for chunk_id, score in raw_results}
+            
+            # Query semantic_chunks table for full details
+            placeholders = ",".join("?" * len(chunk_ids))
+            with sqlite3.connect(index_path) as conn:
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute(
+                    f"""
+                    SELECT id, file_path, content, metadata
+                    FROM semantic_chunks
+                    WHERE id IN ({placeholders})
+                    """,
+                    chunk_ids
+                ).fetchall()
+            
+            # Build SearchResult objects
+            results = []
+            for row in rows:
+                chunk_id = row["id"]
+                file_path = row["file_path"]
+                content = row["content"]
+                metadata_json = row["metadata"]
+                metadata = json.loads(metadata_json) if metadata_json else {}
+                
+                score = score_map.get(chunk_id, 0.0)
+                
+                # Build excerpt (short preview)
+                excerpt = content[:200] + "..." if len(content) > 200 else content
+                
+                # Extract symbol information from metadata
+                symbol_name = metadata.get("symbol_name")
+                symbol_kind = metadata.get("symbol_kind")
+                start_line = metadata.get("start_line")
+                end_line = metadata.get("end_line")
+                
+                # Build Symbol object if we have symbol info
+                symbol = None
+                if symbol_name and symbol_kind and start_line and end_line:
+                    try:
+                        from codexlens.entities import Symbol
+                        symbol = Symbol(
+                            name=symbol_name,
+                            kind=symbol_kind,
+                            range=(start_line, end_line)
+                        )
+                    except Exception:
+                        pass
+                
+                results.append(SearchResult(
+                    path=file_path,
+                    score=score,
+                    excerpt=excerpt,
+                    content=content,
+                    symbol=symbol,
+                    metadata=metadata,
+                    start_line=start_line,
+                    end_line=end_line,
+                    symbol_name=symbol_name,
+                    symbol_kind=symbol_kind,
+                ))
+            
+            return results
+            
+        except Exception as exc:
+            self.logger.debug("SPLADE search error: %s", exc)
             return []

@@ -120,6 +120,12 @@ function buildCodexLensConfigContent(config) {
             ? '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors" onclick="initCodexLensIndex()">' +
                 '<i data-lucide="database" class="w-3.5 h-3.5"></i> ' + t('codexlens.initializeIndex') +
               '</button>' +
+              '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors" onclick="showRerankerConfigModal()">' +
+                '<i data-lucide="layers" class="w-3.5 h-3.5"></i> ' + (t('codexlens.rerankerConfig') || 'Reranker Config') +
+              '</button>' +
+              '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors" onclick="showWatcherControlModal()">' +
+                '<i data-lucide="eye" class="w-3.5 h-3.5"></i> ' + (t('codexlens.watcherControl') || 'File Watcher') +
+              '</button>' +
               '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-background hover:bg-muted/50 transition-colors" onclick="cleanCurrentWorkspaceIndex()">' +
                 '<i data-lucide="folder-x" class="w-3.5 h-3.5"></i> ' + t('codexlens.cleanCurrentWorkspace') +
               '</button>' +
@@ -144,6 +150,17 @@ function buildCodexLensConfigContent(config) {
             '</div>' +
           '</div>'
         : '') +
+
+      // SPLADE Section
+      (isInstalled
+        ? '<div class="tool-config-section">' +
+            '<h4>' + t('codexlens.spladeDeps') + '</h4>' +
+            '<div id="spladeStatus" class="space-y-2">' +
+              '<div class="text-sm text-muted-foreground">' + t('common.loading') + '</div>' +
+            '</div>' +
+          '</div>'
+        : '') +
+
 
       // Model Management Section
       (isInstalled
@@ -334,6 +351,9 @@ function initCodexLensConfigEvents(currentConfig) {
 
   // Load semantic dependencies status
   loadSemanticDepsStatus();
+
+  // Load SPLADE status
+  loadSpladeStatus();
 
   // Load model list
   loadModelList();
@@ -713,6 +733,95 @@ async function installSemanticDepsWithGpu() {
 async function installSemanticDeps() {
   await installSemanticDepsWithGpu();
 }
+
+// ============================================================
+// SPLADE MANAGEMENT
+// ============================================================
+
+/**
+ * Load SPLADE status
+ */
+async function loadSpladeStatus() {
+  var container = document.getElementById('spladeStatus');
+  if (!container) return;
+
+  try {
+    var response = await fetch('/api/codexlens/splade/status');
+    var status = await response.json();
+
+    if (status.available) {
+      container.innerHTML =
+        '<div class="flex items-center justify-between p-3 border border-success/30 rounded-lg bg-success/5">' +
+          '<div class="flex items-center gap-3">' +
+            '<i data-lucide="check-circle" class="w-5 h-5 text-success"></i>' +
+            '<div>' +
+              '<span class="font-medium">' + t('codexlens.spladeInstalled') + '</span>' +
+              '<div class="text-xs text-muted-foreground">' + status.model + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+    } else {
+      container.innerHTML =
+        '<div class="flex items-center justify-between p-3 border border-border rounded-lg">' +
+          '<div class="flex items-center gap-3">' +
+            '<i data-lucide="alert-circle" class="w-5 h-5 text-muted-foreground"></i>' +
+            '<div>' +
+              '<span class="font-medium">' + t('codexlens.spladeNotInstalled') + '</span>' +
+              '<div class="text-xs text-muted-foreground">' + (status.error || t('codexlens.spladeInstallHint')) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="flex gap-2">' +
+            '<button class="btn-sm btn-outline" onclick="installSplade(false)">' +
+              '<i data-lucide="download" class="w-3.5 h-3.5 mr-1"></i>CPU' +
+            '</button>' +
+            '<button class="btn-sm btn-primary" onclick="installSplade(true)">' +
+              '<i data-lucide="zap" class="w-3.5 h-3.5 mr-1"></i>GPU' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+    }
+
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    container.innerHTML = '<div class="text-sm text-error">' + err.message + '</div>';
+  }
+}
+
+/**
+ * Install SPLADE package
+ */
+async function installSplade(gpu) {
+  var container = document.getElementById('spladeStatus');
+  if (!container) return;
+
+  container.innerHTML =
+    '<div class="flex items-center gap-3 p-3 border border-primary/30 rounded-lg">' +
+      '<div class="animate-spin"><i data-lucide="loader-2" class="w-5 h-5 text-primary"></i></div>' +
+      '<span>' + t('codexlens.installingSpladePackage') + (gpu ? ' (GPU)' : ' (CPU)') + '...</span>' +
+    '</div>';
+  if (window.lucide) lucide.createIcons();
+
+  try {
+    var response = await fetch('/api/codexlens/splade/install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gpu: gpu })
+    });
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast(t('codexlens.spladeInstallSuccess'), 'success');
+      loadSpladeStatus();
+    } else {
+      showRefreshToast(t('codexlens.spladeInstallFailed') + ': ' + result.error, 'error');
+      loadSpladeStatus();
+    }
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+    loadSpladeStatus();
+  }
+}
+
 
 // ============================================================
 // MODEL MANAGEMENT
@@ -2974,4 +3083,547 @@ async function saveRotationConfig() {
   } catch (err) {
     showRefreshToast(t('common.error') + ': ' + err.message, 'error');
   }
+}
+
+// ============================================================
+// RERANKER CONFIGURATION MODAL
+// ============================================================
+
+/**
+ * Show Reranker configuration modal
+ */
+async function showRerankerConfigModal() {
+  try {
+    showRefreshToast(t('codexlens.loadingRerankerConfig') || 'Loading reranker configuration...', 'info');
+
+    // Fetch current reranker config
+    const response = await fetch('/api/codexlens/reranker/config');
+    const config = await response.json();
+
+    if (!config.success) {
+      showRefreshToast(t('common.error') + ': ' + (config.error || 'Failed to load config'), 'error');
+      return;
+    }
+
+    const modalHtml = buildRerankerConfigContent(config);
+
+    // Create and show modal
+    const tempContainer = document.createElement('div');
+    tempContainer.innerHTML = modalHtml;
+    const modal = tempContainer.firstElementChild;
+    document.body.appendChild(modal);
+
+    // Initialize icons
+    if (window.lucide) lucide.createIcons();
+
+    // Initialize event handlers
+    initRerankerConfigEvents(config);
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
+}
+
+/**
+ * Build Reranker configuration modal content
+ */
+function buildRerankerConfigContent(config) {
+  const backend = config.backend || 'onnx';
+  const modelName = config.model_name || '';
+  const apiProvider = config.api_provider || 'siliconflow';
+  const apiKeySet = config.api_key_set || false;
+  const availableBackends = config.available_backends || ['onnx', 'api', 'litellm', 'legacy'];
+  const apiProviders = config.api_providers || ['siliconflow', 'cohere', 'jina'];
+  const litellmEndpoints = config.litellm_endpoints || [];
+
+  // ONNX models
+  const onnxModels = [
+    'cross-encoder/ms-marco-MiniLM-L-6-v2',
+    'cross-encoder/ms-marco-TinyBERT-L-2-v2',
+    'BAAI/bge-reranker-base',
+    'BAAI/bge-reranker-large'
+  ];
+
+  // Build backend options
+  const backendOptions = availableBackends.map(function(b) {
+    const labels = {
+      'onnx': 'ONNX (Local, Optimum)',
+      'api': 'API (SiliconFlow/Cohere/Jina)',
+      'litellm': 'LiteLLM (Custom Endpoint)',
+      'legacy': 'Legacy (SentenceTransformers)'
+    };
+    return '<option value="' + b + '" ' + (backend === b ? 'selected' : '') + '>' + (labels[b] || b) + '</option>';
+  }).join('');
+
+  // Build API provider options
+  const providerOptions = apiProviders.map(function(p) {
+    return '<option value="' + p + '" ' + (apiProvider === p ? 'selected' : '') + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
+  }).join('');
+
+  // Build ONNX model options
+  const onnxModelOptions = onnxModels.map(function(m) {
+    return '<option value="' + m + '" ' + (modelName === m ? 'selected' : '') + '>' + m + '</option>';
+  }).join('');
+
+  // Build LiteLLM endpoint options
+  const litellmOptions = litellmEndpoints.length > 0
+    ? litellmEndpoints.map(function(ep) {
+        return '<option value="' + ep + '">' + ep + '</option>';
+      }).join('')
+    : '<option value="" disabled>No endpoints configured</option>';
+
+  return '<div class="modal-backdrop" id="rerankerConfigModal">' +
+    '<div class="modal-container max-w-xl">' +
+      '<div class="modal-header">' +
+        '<div class="flex items-center gap-3">' +
+          '<div class="modal-icon">' +
+            '<i data-lucide="layers" class="w-5 h-5"></i>' +
+          '</div>' +
+          '<div>' +
+            '<h2 class="text-lg font-bold">' + (t('codexlens.rerankerConfig') || 'Reranker Configuration') + '</h2>' +
+            '<p class="text-xs text-muted-foreground">' + (t('codexlens.rerankerConfigDesc') || 'Configure cross-encoder reranking for semantic search') + '</p>' +
+          '</div>' +
+        '</div>' +
+        '<button onclick="closeRerankerModal()" class="text-muted-foreground hover:text-foreground">' +
+          '<i data-lucide="x" class="w-5 h-5"></i>' +
+        '</button>' +
+      '</div>' +
+
+      '<div class="modal-body space-y-4">' +
+        // Backend Selection
+        '<div class="tool-config-section">' +
+          '<h4>' + (t('codexlens.rerankerBackend') || 'Backend') + '</h4>' +
+          '<select id="rerankerBackend" class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm" onchange="toggleRerankerSections()">' +
+            backendOptions +
+          '</select>' +
+          '<p class="text-xs text-muted-foreground mt-1">' + (t('codexlens.rerankerBackendHint') || 'Select reranking backend based on your needs') + '</p>' +
+        '</div>' +
+
+        // ONNX Section (visible when backend=onnx)
+        '<div id="rerankerOnnxSection" class="tool-config-section" style="display:' + (backend === 'onnx' ? 'block' : 'none') + '">' +
+          '<h4>' + (t('codexlens.onnxModel') || 'ONNX Model') + '</h4>' +
+          '<select id="rerankerOnnxModel" class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm">' +
+            onnxModelOptions +
+            '<option value="custom">Custom model...</option>' +
+          '</select>' +
+          '<input type="text" id="rerankerCustomModel" value="' + (onnxModels.includes(modelName) ? '' : modelName) + '" ' +
+            'placeholder="Enter custom model name" ' +
+            'class="w-full mt-2 px-3 py-2 border border-border rounded-lg bg-background text-sm" style="display:' + (onnxModels.includes(modelName) ? 'none' : 'block') + '" />' +
+        '</div>' +
+
+        // API Section (visible when backend=api)
+        '<div id="rerankerApiSection" class="tool-config-section" style="display:' + (backend === 'api' ? 'block' : 'none') + '">' +
+          '<h4>' + (t('codexlens.apiConfig') || 'API Configuration') + '</h4>' +
+          '<div class="space-y-3">' +
+            '<div>' +
+              '<label class="block text-sm font-medium mb-1.5">' + (t('codexlens.apiProvider') || 'Provider') + '</label>' +
+              '<select id="rerankerApiProvider" class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm">' +
+                providerOptions +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label class="block text-sm font-medium mb-1.5">' + (t('codexlens.apiKey') || 'API Key') + '</label>' +
+              '<div class="flex items-center gap-2">' +
+                '<input type="password" id="rerankerApiKey" placeholder="' + (apiKeySet ? '••••••••' : 'Enter API key') + '" ' +
+                  'class="flex-1 px-3 py-2 border border-border rounded-lg bg-background text-sm" />' +
+                (apiKeySet ? '<span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-success/10 text-success border border-success/20"><i data-lucide="check" class="w-3 h-3"></i>Set</span>' : '') +
+              '</div>' +
+            '</div>' +
+            '<div>' +
+              '<label class="block text-sm font-medium mb-1.5">' + (t('codexlens.modelName') || 'Model Name') + '</label>' +
+              '<input type="text" id="rerankerApiModel" value="' + modelName + '" ' +
+                'placeholder="e.g., BAAI/bge-reranker-v2-m3" ' +
+                'class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm" />' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        // LiteLLM Section (visible when backend=litellm)
+        '<div id="rerankerLitellmSection" class="tool-config-section" style="display:' + (backend === 'litellm' ? 'block' : 'none') + '">' +
+          '<h4>' + (t('codexlens.litellmEndpoint') || 'LiteLLM Endpoint') + '</h4>' +
+          '<select id="rerankerLitellmEndpoint" class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm">' +
+            litellmOptions +
+          '</select>' +
+          (litellmEndpoints.length === 0
+            ? '<p class="text-xs text-warning mt-1">' + (t('codexlens.noEndpointsHint') || 'Configure LiteLLM endpoints in API Settings first') + '</p>'
+            : '') +
+        '</div>' +
+
+        // Legacy Section (visible when backend=legacy)
+        '<div id="rerankerLegacySection" class="tool-config-section" style="display:' + (backend === 'legacy' ? 'block' : 'none') + '">' +
+          '<div class="flex items-start gap-2 bg-warning/10 border border-warning/30 rounded-lg p-3">' +
+            '<i data-lucide="alert-triangle" class="w-4 h-4 text-warning mt-0.5"></i>' +
+            '<div class="text-sm">' +
+              '<p class="font-medium text-warning">' + (t('codexlens.legacyWarning') || 'Legacy Backend') + '</p>' +
+              '<p class="text-muted-foreground mt-1">' + (t('codexlens.legacyWarningDesc') || 'Uses SentenceTransformers CrossEncoder. Consider using ONNX for better performance.') + '</p>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="modal-footer">' +
+        '<button onclick="resetRerankerConfig()" class="btn btn-outline">' +
+          '<i data-lucide="rotate-ccw" class="w-4 h-4"></i> ' + (t('common.reset') || 'Reset') +
+        '</button>' +
+        '<button onclick="closeRerankerModal()" class="btn btn-outline">' + t('common.cancel') + '</button>' +
+        '<button onclick="saveRerankerConfig()" class="btn btn-primary">' +
+          '<i data-lucide="save" class="w-4 h-4"></i> ' + t('common.save') +
+        '</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+/**
+ * Toggle reranker configuration sections based on selected backend
+ */
+function toggleRerankerSections() {
+  var backend = document.getElementById('rerankerBackend').value;
+
+  document.getElementById('rerankerOnnxSection').style.display = backend === 'onnx' ? 'block' : 'none';
+  document.getElementById('rerankerApiSection').style.display = backend === 'api' ? 'block' : 'none';
+  document.getElementById('rerankerLitellmSection').style.display = backend === 'litellm' ? 'block' : 'none';
+  document.getElementById('rerankerLegacySection').style.display = backend === 'legacy' ? 'block' : 'none';
+}
+
+/**
+ * Initialize reranker config modal events
+ */
+function initRerankerConfigEvents(config) {
+  // Handle ONNX model custom input toggle
+  var onnxModelSelect = document.getElementById('rerankerOnnxModel');
+  var customModelInput = document.getElementById('rerankerCustomModel');
+
+  if (onnxModelSelect && customModelInput) {
+    onnxModelSelect.addEventListener('change', function() {
+      customModelInput.style.display = this.value === 'custom' ? 'block' : 'none';
+    });
+  }
+
+  // Store original config for reset
+  window._rerankerOriginalConfig = config;
+}
+
+/**
+ * Close the reranker config modal
+ */
+function closeRerankerModal() {
+  var modal = document.getElementById('rerankerConfigModal');
+  if (modal) modal.remove();
+}
+
+/**
+ * Reset reranker config to original values
+ */
+function resetRerankerConfig() {
+  var config = window._rerankerOriginalConfig;
+  if (!config) return;
+
+  document.getElementById('rerankerBackend').value = config.backend || 'onnx';
+  toggleRerankerSections();
+
+  // Reset ONNX section
+  var onnxModels = [
+    'cross-encoder/ms-marco-MiniLM-L-6-v2',
+    'cross-encoder/ms-marco-TinyBERT-L-2-v2',
+    'BAAI/bge-reranker-base',
+    'BAAI/bge-reranker-large'
+  ];
+  if (onnxModels.includes(config.model_name)) {
+    document.getElementById('rerankerOnnxModel').value = config.model_name;
+    document.getElementById('rerankerCustomModel').style.display = 'none';
+  } else {
+    document.getElementById('rerankerOnnxModel').value = 'custom';
+    document.getElementById('rerankerCustomModel').value = config.model_name || '';
+    document.getElementById('rerankerCustomModel').style.display = 'block';
+  }
+
+  // Reset API section
+  document.getElementById('rerankerApiProvider').value = config.api_provider || 'siliconflow';
+  document.getElementById('rerankerApiKey').value = '';
+  document.getElementById('rerankerApiModel').value = config.model_name || '';
+
+  showRefreshToast(t('common.reset') || 'Reset to original values', 'info');
+}
+
+/**
+ * Save reranker configuration
+ */
+async function saveRerankerConfig() {
+  try {
+    var backend = document.getElementById('rerankerBackend').value;
+    var payload = { backend: backend };
+
+    // Collect model name based on backend
+    if (backend === 'onnx') {
+      var onnxModel = document.getElementById('rerankerOnnxModel').value;
+      if (onnxModel === 'custom') {
+        payload.model_name = document.getElementById('rerankerCustomModel').value.trim();
+      } else {
+        payload.model_name = onnxModel;
+      }
+    } else if (backend === 'api') {
+      payload.api_provider = document.getElementById('rerankerApiProvider').value;
+      payload.model_name = document.getElementById('rerankerApiModel').value.trim();
+      var apiKey = document.getElementById('rerankerApiKey').value.trim();
+      if (apiKey) {
+        payload.api_key = apiKey;
+      }
+    } else if (backend === 'litellm') {
+      payload.litellm_endpoint = document.getElementById('rerankerLitellmEndpoint').value;
+    }
+
+    var response = await fetch('/api/codexlens/reranker/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast((t('codexlens.rerankerConfigSaved') || 'Reranker configuration saved') + ': ' + result.message, 'success');
+      closeRerankerModal();
+    } else {
+      showRefreshToast(t('common.saveFailed') + ': ' + result.error, 'error');
+    }
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
+}
+
+// ============================================================
+// FILE WATCHER CONTROL
+// ============================================================
+
+/**
+ * Show File Watcher control modal
+ */
+async function showWatcherControlModal() {
+  try {
+    showRefreshToast(t('codexlens.loadingWatcherStatus') || 'Loading watcher status...', 'info');
+
+    // Fetch current watcher status
+    const response = await fetch('/api/codexlens/watch/status');
+    const status = await response.json();
+
+    const modalHtml = buildWatcherControlContent(status);
+
+    // Create and show modal
+    const tempContainer = document.createElement('div');
+    tempContainer.innerHTML = modalHtml;
+    const modal = tempContainer.firstElementChild;
+    document.body.appendChild(modal);
+
+    // Initialize icons
+    if (window.lucide) lucide.createIcons();
+
+    // Start polling if watcher is running
+    if (status.running) {
+      startWatcherStatusPolling();
+    }
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
+}
+
+/**
+ * Build File Watcher control modal content
+ */
+function buildWatcherControlContent(status) {
+  const running = status.running || false;
+  const rootPath = status.root_path || '';
+  const eventsProcessed = status.events_processed || 0;
+  const uptimeSeconds = status.uptime_seconds || 0;
+
+  // Format uptime
+  const formatUptime = function(seconds) {
+    if (seconds < 60) return seconds + 's';
+    if (seconds < 3600) return Math.floor(seconds / 60) + 'm ' + (seconds % 60) + 's';
+    return Math.floor(seconds / 3600) + 'h ' + Math.floor((seconds % 3600) / 60) + 'm';
+  };
+
+  return '<div class="modal-backdrop" id="watcherControlModal">' +
+    '<div class="modal-container max-w-lg">' +
+      '<div class="modal-header">' +
+        '<div class="flex items-center gap-3">' +
+          '<div class="modal-icon">' +
+            '<i data-lucide="eye" class="w-5 h-5"></i>' +
+          '</div>' +
+          '<div>' +
+            '<h2 class="text-lg font-bold">' + (t('codexlens.watcherControl') || 'File Watcher') + '</h2>' +
+            '<p class="text-xs text-muted-foreground">' + (t('codexlens.watcherControlDesc') || 'Real-time incremental index updates') + '</p>' +
+          '</div>' +
+        '</div>' +
+        '<button onclick="closeWatcherModal()" class="text-muted-foreground hover:text-foreground">' +
+          '<i data-lucide="x" class="w-5 h-5"></i>' +
+        '</button>' +
+      '</div>' +
+
+      '<div class="modal-body space-y-4">' +
+        // Status and Toggle
+        '<div class="flex items-center justify-between p-4 bg-muted/30 rounded-lg">' +
+          '<div class="flex items-center gap-3">' +
+            '<div class="w-3 h-3 rounded-full ' + (running ? 'bg-success animate-pulse' : 'bg-muted-foreground') + '"></div>' +
+            '<div>' +
+              '<span class="font-medium">' + (running ? (t('codexlens.watcherRunning') || 'Watcher Running') : (t('codexlens.watcherStopped') || 'Watcher Stopped')) + '</span>' +
+              (running ? '<p class="text-xs text-muted-foreground">' + rootPath + '</p>' : '') +
+            '</div>' +
+          '</div>' +
+          '<label class="relative inline-flex items-center cursor-pointer">' +
+            '<input type="checkbox" id="watcherToggle" ' + (running ? 'checked' : '') + ' onchange="toggleWatcher()" class="sr-only peer" />' +
+            '<div class="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[\'\'] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>' +
+          '</label>' +
+        '</div>' +
+
+        // Statistics (shown when running)
+        '<div id="watcherStats" class="tool-config-section" style="display:' + (running ? 'block' : 'none') + '">' +
+          '<h4>' + (t('codexlens.watcherStats') || 'Statistics') + '</h4>' +
+          '<div class="grid grid-cols-2 gap-4">' +
+            '<div class="p-3 bg-muted/20 rounded-lg">' +
+              '<div class="text-2xl font-bold text-primary" id="watcherEventsCount">' + eventsProcessed + '</div>' +
+              '<div class="text-xs text-muted-foreground">' + (t('codexlens.eventsProcessed') || 'Events Processed') + '</div>' +
+            '</div>' +
+            '<div class="p-3 bg-muted/20 rounded-lg">' +
+              '<div class="text-2xl font-bold text-primary" id="watcherUptime">' + formatUptime(uptimeSeconds) + '</div>' +
+              '<div class="text-xs text-muted-foreground">' + (t('codexlens.uptime') || 'Uptime') + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        // Start Configuration (shown when not running)
+        '<div id="watcherStartConfig" class="tool-config-section" style="display:' + (running ? 'none' : 'block') + '">' +
+          '<h4>' + (t('codexlens.watcherConfig') || 'Configuration') + '</h4>' +
+          '<div class="space-y-3">' +
+            '<div>' +
+              '<label class="block text-sm font-medium mb-1.5">' + (t('codexlens.watchPath') || 'Watch Path') + '</label>' +
+              '<input type="text" id="watcherPath" value="" placeholder="Leave empty for current workspace" ' +
+                'class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm" />' +
+            '</div>' +
+            '<div>' +
+              '<label class="block text-sm font-medium mb-1.5">' + (t('codexlens.debounceMs') || 'Debounce (ms)') + '</label>' +
+              '<input type="number" id="watcherDebounce" value="1000" min="100" max="10000" step="100" ' +
+                'class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm" />' +
+              '<p class="text-xs text-muted-foreground mt-1">' + (t('codexlens.debounceHint') || 'Time to wait before processing file changes') + '</p>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        // Info box
+        '<div class="flex items-start gap-2 bg-primary/10 border border-primary/30 rounded-lg p-3">' +
+          '<i data-lucide="info" class="w-4 h-4 text-primary mt-0.5"></i>' +
+          '<div class="text-sm text-muted-foreground">' +
+            (t('codexlens.watcherInfo') || 'The file watcher monitors your codebase for changes and automatically updates the search index in real-time.') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="modal-footer">' +
+        '<button onclick="closeWatcherModal()" class="btn btn-outline">' + t('common.close') + '</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+/**
+ * Toggle file watcher on/off
+ */
+async function toggleWatcher() {
+  var toggle = document.getElementById('watcherToggle');
+  var shouldRun = toggle.checked;
+
+  try {
+    if (shouldRun) {
+      // Start watcher
+      var watchPath = document.getElementById('watcherPath').value.trim();
+      var debounceMs = parseInt(document.getElementById('watcherDebounce').value, 10) || 1000;
+
+      var response = await fetch('/api/codexlens/watch/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: watchPath || undefined, debounce_ms: debounceMs })
+      });
+
+      var result = await response.json();
+
+      if (result.success) {
+        showRefreshToast((t('codexlens.watcherStarted') || 'Watcher started') + ': ' + result.path, 'success');
+        document.getElementById('watcherStats').style.display = 'block';
+        document.getElementById('watcherStartConfig').style.display = 'none';
+        startWatcherStatusPolling();
+      } else {
+        toggle.checked = false;
+        showRefreshToast(t('common.error') + ': ' + result.error, 'error');
+      }
+    } else {
+      // Stop watcher
+      var response = await fetch('/api/codexlens/watch/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      var result = await response.json();
+
+      if (result.success) {
+        showRefreshToast((t('codexlens.watcherStopped') || 'Watcher stopped') + ': ' + result.events_processed + ' events processed', 'success');
+        document.getElementById('watcherStats').style.display = 'none';
+        document.getElementById('watcherStartConfig').style.display = 'block';
+        stopWatcherStatusPolling();
+      } else {
+        toggle.checked = true;
+        showRefreshToast(t('common.error') + ': ' + result.error, 'error');
+      }
+    }
+  } catch (err) {
+    toggle.checked = !shouldRun;
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
+}
+
+// Watcher status polling
+var watcherPollingInterval = null;
+
+function startWatcherStatusPolling() {
+  if (watcherPollingInterval) return;
+
+  watcherPollingInterval = setInterval(async function() {
+    try {
+      var response = await fetch('/api/codexlens/watch/status');
+      var status = await response.json();
+
+      if (status.running) {
+        document.getElementById('watcherEventsCount').textContent = status.events_processed || 0;
+
+        // Format uptime
+        var seconds = status.uptime_seconds || 0;
+        var formatted = seconds < 60 ? seconds + 's' :
+          seconds < 3600 ? Math.floor(seconds / 60) + 'm ' + (seconds % 60) + 's' :
+          Math.floor(seconds / 3600) + 'h ' + Math.floor((seconds % 3600) / 60) + 'm';
+        document.getElementById('watcherUptime').textContent = formatted;
+      } else {
+        // Watcher stopped externally
+        stopWatcherStatusPolling();
+        document.getElementById('watcherToggle').checked = false;
+        document.getElementById('watcherStats').style.display = 'none';
+        document.getElementById('watcherStartConfig').style.display = 'block';
+      }
+    } catch (err) {
+      console.error('Failed to poll watcher status:', err);
+    }
+  }, 2000);
+}
+
+function stopWatcherStatusPolling() {
+  if (watcherPollingInterval) {
+    clearInterval(watcherPollingInterval);
+    watcherPollingInterval = null;
+  }
+}
+
+/**
+ * Close the watcher control modal
+ */
+function closeWatcherModal() {
+  stopWatcherStatusPolling();
+  var modal = document.getElementById('watcherControlModal');
+  if (modal) modal.remove();
 }

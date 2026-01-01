@@ -80,6 +80,18 @@ reranker = [
     "transformers>=4.36",
 ]
 
+# SPLADE sparse retrieval
+splade = [
+    "transformers>=4.36",
+    "optimum[onnxruntime]>=1.16",
+]
+
+# SPLADE with GPU acceleration (CUDA)
+splade-gpu = [
+    "transformers>=4.36",
+    "optimum[onnxruntime-gpu]>=1.16",
+]
+
 # Encoding detection for non-UTF8 files
 encoding = [
     "chardet>=5.0",

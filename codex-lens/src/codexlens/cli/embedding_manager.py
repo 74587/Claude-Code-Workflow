@@ -33,6 +33,15 @@ def _cleanup_fastembed_resources() -> None:
         pass
 
 
+def _cleanup_splade_resources() -> None:
+    """Release SPLADE encoder ONNX resources."""
+    try:
+        from codexlens.semantic.splade_encoder import clear_splade_cache
+        clear_splade_cache()
+    except Exception:
+        pass
+
+
 def _generate_chunks_from_cursor(
     cursor,
     chunker,
@@ -675,10 +684,96 @@ def generate_embeddings(
                 if progress_callback:
                     progress_callback(f"Finalizing index... Building ANN index for {total_chunks_created} chunks")
 
+            # --- SPLADE SPARSE ENCODING (after dense embeddings) ---
+            # Add SPLADE encoding if enabled in config
+            splade_success = False
+            splade_error = None
+
+            try:
+                from codexlens.config import Config
+                config = Config.load()
+
+                if config.enable_splade:
+                    from codexlens.semantic.splade_encoder import check_splade_available, get_splade_encoder
+                    from codexlens.storage.splade_index import SpladeIndex
+
+                    ok, err = check_splade_available()
+                    if ok:
+                        if progress_callback:
+                            progress_callback(f"Generating SPLADE sparse vectors for {total_chunks_created} chunks...")
+
+                        # Initialize SPLADE encoder and index
+                        splade_encoder = get_splade_encoder(use_gpu=use_gpu)
+                        # Use main index database for SPLADE (not separate _splade.db)
+                        splade_index = SpladeIndex(index_path)
+                        splade_index.create_tables()
+
+                        # Retrieve all chunks from database for SPLADE encoding
+                        with sqlite3.connect(index_path) as conn:
+                            conn.row_factory = sqlite3.Row
+                            cursor = conn.execute("SELECT id, content FROM semantic_chunks ORDER BY id")
+
+                            # Batch encode for efficiency
+                            SPLADE_BATCH_SIZE = 32
+                            batch_postings = []
+                            chunk_batch = []
+                            chunk_ids = []
+
+                            for row in cursor:
+                                chunk_id = row["id"]
+                                content = row["content"]
+
+                                chunk_ids.append(chunk_id)
+                                chunk_batch.append(content)
+
+                                # Process batch when full
+                                if len(chunk_batch) >= SPLADE_BATCH_SIZE:
+                                    sparse_vecs = splade_encoder.encode_batch(chunk_batch, batch_size=SPLADE_BATCH_SIZE)
+                                    for cid, sparse_vec in zip(chunk_ids, sparse_vecs):
+                                        batch_postings.append((cid, sparse_vec))
+
+                                    chunk_batch = []
+                                    chunk_ids = []
+
+                            # Process remaining chunks
+                            if chunk_batch:
+                                sparse_vecs = splade_encoder.encode_batch(chunk_batch, batch_size=SPLADE_BATCH_SIZE)
+                                for cid, sparse_vec in zip(chunk_ids, sparse_vecs):
+                                    batch_postings.append((cid, sparse_vec))
+
+                            # Batch insert all postings
+                            if batch_postings:
+                                splade_index.add_postings_batch(batch_postings)
+
+                                # Set metadata
+                                splade_index.set_metadata(
+                                    model_name=splade_encoder.model_name,
+                                    vocab_size=splade_encoder.vocab_size
+                                )
+
+                                splade_success = True
+                                if progress_callback:
+                                    stats = splade_index.get_stats()
+                                    progress_callback(
+                                        f"SPLADE index created: {stats['total_postings']} postings, "
+                                        f"{stats['unique_tokens']} unique tokens"
+                                    )
+                    else:
+                        logger.debug("SPLADE not available: %s", err)
+                        splade_error = f"SPLADE not available: {err}"
+            except Exception as e:
+                splade_error = str(e)
+                logger.warning("SPLADE encoding failed: %s", e)
+
+            # Report SPLADE status after processing
+            if progress_callback and not splade_success and splade_error:
+                progress_callback(f"SPLADE index: FAILED - {splade_error}")
+
     except Exception as e:
         # Cleanup on error to prevent process hanging
         try:
             _cleanup_fastembed_resources()
+            _cleanup_splade_resources()
             gc.collect()
         except Exception:
             pass
@@ -690,6 +785,7 @@ def generate_embeddings(
     # This is critical - without it, ONNX Runtime threads prevent Python from exiting
     try:
         _cleanup_fastembed_resources()
+        _cleanup_splade_resources()
         gc.collect()
     except Exception:
         pass
@@ -874,6 +970,7 @@ def generate_embeddings_recursive(
     # Each generate_embeddings() call does its own cleanup, but do a final one to be safe
     try:
         _cleanup_fastembed_resources()
+        _cleanup_splade_resources()
         gc.collect()
     except Exception:
         pass
