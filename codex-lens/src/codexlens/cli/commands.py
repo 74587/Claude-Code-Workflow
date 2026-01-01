@@ -22,6 +22,7 @@ from codexlens.storage.registry import RegistryStore, ProjectInfo
 from codexlens.storage.index_tree import IndexTreeBuilder
 from codexlens.storage.dir_index import DirIndexStore
 from codexlens.search.chain_search import ChainSearchEngine, SearchOptions
+from codexlens.watcher import WatcherManager, WatcherConfig
 
 from .output import (
     console,
@@ -319,6 +320,91 @@ def init(
     finally:
         if registry is not None:
             registry.close()
+
+
+@app.command()
+def watch(
+    path: Path = typer.Argument(Path("."), exists=True, file_okay=False, dir_okay=True, help="Project root to watch."),
+    language: Optional[List[str]] = typer.Option(
+        None,
+        "--language",
+        "-l",
+        help="Limit watching to specific languages (repeat or comma-separated).",
+    ),
+    debounce: int = typer.Option(1000, "--debounce", "-d", min=100, max=10000, help="Debounce interval in milliseconds."),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging."),
+) -> None:
+    """Watch directory for changes and update index incrementally.
+
+    Monitors filesystem events and automatically updates the index
+    when files are created, modified, or deleted.
+
+    The directory must already be indexed (run 'codexlens init' first).
+
+    Press Ctrl+C to stop watching.
+
+    Examples:
+        codexlens watch .
+        codexlens watch /path/to/project --debounce 500 --verbose
+        codexlens watch . --language python,typescript
+    """
+    _configure_logging(verbose)
+
+    from codexlens.watcher.events import IndexResult
+
+    base_path = path.expanduser().resolve()
+
+    # Check if path is indexed
+    mapper = PathMapper()
+    index_db = mapper.source_to_index_db(base_path)
+    if not index_db.exists():
+        console.print(f"[red]Error:[/red] Directory not indexed: {base_path}")
+        console.print("Run 'codexlens init' first to create the index.")
+        raise typer.Exit(code=1)
+
+    # Parse languages
+    languages = _parse_languages(language)
+
+    # Create watcher config
+    watcher_config = WatcherConfig(
+        debounce_ms=debounce,
+        languages=languages,
+    )
+
+    # Callback for indexed files
+    def on_indexed(result: IndexResult) -> None:
+        if result.files_indexed > 0:
+            console.print(f"  [green]Indexed:[/green] {result.files_indexed} files ({result.symbols_added} symbols)")
+        if result.files_removed > 0:
+            console.print(f"  [yellow]Removed:[/yellow] {result.files_removed} files")
+        if result.errors:
+            for error in result.errors[:3]:  # Show first 3 errors
+                console.print(f"  [red]Error:[/red] {error}")
+
+    console.print(f"[bold]Watching:[/bold] {base_path}")
+    console.print(f"  Debounce: {debounce}ms")
+    if languages:
+        console.print(f"  Languages: {', '.join(languages)}")
+    console.print("  Press Ctrl+C to stop.\n")
+
+    manager: WatcherManager | None = None
+    try:
+        manager = WatcherManager(
+            root_path=base_path,
+            watcher_config=watcher_config,
+            on_indexed=on_indexed,
+        )
+        manager.start()
+        manager.wait()
+    except KeyboardInterrupt:
+        pass
+    except Exception as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(code=1)
+    finally:
+        if manager is not None:
+            manager.stop()
+        console.print("\n[dim]Watcher stopped.[/dim]")
 
 
 @app.command()
@@ -2293,3 +2379,102 @@ def gpu_reset(
         if gpu_info.preferred_device_id is not None:
             console.print(f"  Auto-selected device: {gpu_info.preferred_device_id}")
             console.print(f"  Device: [cyan]{gpu_info.gpu_name}[/cyan]")
+
+
+# ==================== Watch Command ====================
+
+@app.command()
+def watch(
+    path: Path = typer.Argument(Path("."), exists=True, file_okay=False, dir_okay=True, help="Project root to watch."),
+    language: Optional[List[str]] = typer.Option(None, "--language", "-l", help="Languages to watch (comma-separated)."),
+    debounce: int = typer.Option(1000, "--debounce", "-d", min=100, max=10000, help="Debounce interval in milliseconds."),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
+) -> None:
+    """Watch a directory for file changes and incrementally update the index.
+
+    Monitors the specified directory for file system changes (create, modify, delete)
+    and automatically updates the CodexLens index. The directory must already be indexed
+    using 'codexlens init' before watching.
+
+    Examples:
+      # Watch current directory
+      codexlens watch .
+
+      # Watch with custom debounce interval
+      codexlens watch . --debounce 2000
+
+      # Watch only Python and JavaScript files
+      codexlens watch . --language python,javascript
+
+    Press Ctrl+C to stop watching.
+    """
+    _configure_logging(verbose)
+    watch_path = path.expanduser().resolve()
+
+    registry: RegistryStore | None = None
+    try:
+        # Validate that path is indexed
+        registry = RegistryStore()
+        registry.initialize()
+        mapper = PathMapper()
+
+        project_record = registry.find_by_source_path(str(watch_path))
+        if not project_record:
+            console.print(f"[red]Error:[/red] Directory is not indexed: {watch_path}")
+            console.print("[dim]Run 'codexlens init' first to create an index.[/dim]")
+            raise typer.Exit(code=1)
+
+        # Parse languages
+        languages = _parse_languages(language)
+
+        # Create watcher config
+        watcher_config = WatcherConfig(
+            debounce_ms=debounce,
+            languages=languages,
+        )
+
+        # Display startup message
+        console.print(f"[green]Starting watcher for:[/green] {watch_path}")
+        console.print(f"[dim]Debounce interval: {debounce}ms[/dim]")
+        if languages:
+            console.print(f"[dim]Watching languages: {', '.join(languages)}[/dim]")
+        console.print("[dim]Press Ctrl+C to stop[/dim]\n")
+
+        # Create and start watcher manager
+        manager = WatcherManager(
+            root_path=watch_path,
+            watcher_config=watcher_config,
+            on_indexed=lambda result: _display_index_result(result),
+        )
+
+        manager.start()
+        manager.wait()
+
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Stopping watcher...[/yellow]")
+    except CodexLensError as exc:
+        console.print(f"[red]Watch failed:[/red] {exc}")
+        raise typer.Exit(code=1)
+    except Exception as exc:
+        console.print(f"[red]Unexpected error:[/red] {exc}")
+        raise typer.Exit(code=1)
+    finally:
+        if registry is not None:
+            registry.close()
+
+
+def _display_index_result(result) -> None:
+    """Display indexing result in real-time."""
+    if result.files_indexed > 0 or result.files_removed > 0:
+        parts = []
+        if result.files_indexed > 0:
+            parts.append(f"[green]✓ Indexed {result.files_indexed} file(s)[/green]")
+        if result.files_removed > 0:
+            parts.append(f"[yellow]✗ Removed {result.files_removed} file(s)[/yellow]")
+        console.print(" | ".join(parts))
+
+        if result.errors:
+            for error in result.errors[:3]:  # Show max 3 errors
+                console.print(f"  [red]Error:[/red] {error}")
+            if len(result.errors) > 3:
+                console.print(f"  [dim]... and {len(result.errors) - 3} more errors[/dim]")

@@ -258,20 +258,52 @@ class HybridSearchEngine:
             return None
 
         try:
-            from codexlens.semantic.reranker import CrossEncoderReranker, check_cross_encoder_available
+            from codexlens.semantic.reranker import (
+                check_reranker_available,
+                get_reranker,
+            )
         except Exception as exc:
-            self.logger.debug("Cross-encoder reranker unavailable: %s", exc)
+            self.logger.debug("Reranker factory unavailable: %s", exc)
             return None
 
-        ok, err = check_cross_encoder_available()
+        backend = (getattr(self._config, "reranker_backend", "") or "").strip().lower() or "onnx"
+
+        ok, err = check_reranker_available(backend)
         if not ok:
-            self.logger.debug("Cross-encoder reranker unavailable: %s", err)
+            self.logger.debug(
+                "Reranker backend unavailable (backend=%s): %s",
+                backend,
+                err,
+            )
             return None
 
         try:
-            return CrossEncoderReranker(model_name=self._config.reranker_model)
+            model_name = (getattr(self._config, "reranker_model", "") or "").strip() or None
+
+            if backend != "legacy" and model_name == "cross-encoder/ms-marco-MiniLM-L-6-v2":
+                model_name = None
+
+            device: str | None = None
+            kwargs: dict[str, Any] = {}
+
+            if backend == "onnx":
+                kwargs["use_gpu"] = bool(getattr(self._config, "embedding_use_gpu", True))
+            elif backend == "legacy":
+                if not bool(getattr(self._config, "embedding_use_gpu", True)):
+                    device = "cpu"
+
+            return get_reranker(
+                backend=backend,
+                model_name=model_name,
+                device=device,
+                **kwargs,
+            )
         except Exception as exc:
-            self.logger.debug("Failed to initialize cross-encoder reranker: %s", exc)
+            self.logger.debug(
+                "Failed to initialize reranker (backend=%s): %s",
+                backend,
+                exc,
+            )
             return None
 
     def _search_parallel(

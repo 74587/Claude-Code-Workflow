@@ -116,8 +116,9 @@ class Config:
     reranking_top_k: int = 50
     symbol_boost_factor: float = 1.5
 
-    # Optional cross-encoder reranking (second stage, requires codexlens[reranker])
+    # Optional cross-encoder reranking (second stage; requires optional reranker deps)
     enable_cross_encoder_rerank: bool = False
+    reranker_backend: str = "onnx"
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     reranker_top_k: int = 50
 
@@ -311,6 +312,35 @@ class WorkspaceConfig:
         """Cache directory for this workspace."""
         return self.codexlens_dir / "cache"
 
+    @property
+    def env_path(self) -> Path:
+        """Path to workspace .env file."""
+        return self.codexlens_dir / ".env"
+
+    def load_env(self, *, override: bool = False) -> int:
+        """Load .env file and apply to os.environ.
+
+        Args:
+            override: If True, override existing environment variables
+
+        Returns:
+            Number of variables applied
+        """
+        from .env_config import apply_workspace_env
+        return apply_workspace_env(self.workspace_root, override=override)
+
+    def get_api_config(self, prefix: str) -> dict:
+        """Get API configuration from environment.
+
+        Args:
+            prefix: Environment variable prefix (e.g., "RERANKER", "EMBEDDING")
+
+        Returns:
+            Dictionary with api_key, api_base, model, etc.
+        """
+        from .env_config import get_api_config
+        return get_api_config(prefix, workspace_root=self.workspace_root)
+
     def initialize(self) -> None:
         """Create the .codexlens directory structure."""
         try:
@@ -324,6 +354,7 @@ class WorkspaceConfig:
                     "# CodexLens workspace data\n"
                     "cache/\n"
                     "*.log\n"
+                    ".env\n"  # Exclude .env from git
                 )
         except Exception as exc:
             raise ConfigError(f"Failed to initialize workspace at {self.codexlens_dir}: {exc}") from exc

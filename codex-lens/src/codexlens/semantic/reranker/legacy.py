@@ -1,6 +1,6 @@
-"""Optional cross-encoder reranker for second-stage search ranking.
+"""Legacy sentence-transformers cross-encoder reranker.
 
-Install with: pip install codexlens[reranker]
+Install with: pip install codexlens[reranker-legacy]
 """
 
 from __future__ import annotations
@@ -8,6 +8,8 @@ from __future__ import annotations
 import logging
 import threading
 from typing import List, Sequence, Tuple
+
+from .base import BaseReranker
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +27,14 @@ except ImportError as exc:  # pragma: no cover - optional dependency
 def check_cross_encoder_available() -> tuple[bool, str | None]:
     if CROSS_ENCODER_AVAILABLE:
         return True, None
-    return False, _import_error or "sentence-transformers not available. Install with: pip install codexlens[reranker]"
+    return (
+        False,
+        _import_error
+        or "sentence-transformers not available. Install with: pip install codexlens[reranker-legacy]",
+    )
 
 
-class CrossEncoderReranker:
+class CrossEncoderReranker(BaseReranker):
     """Cross-encoder reranker with lazy model loading."""
 
     def __init__(self, model_name: str, *, device: str | None = None) -> None:
@@ -83,4 +89,3 @@ class CrossEncoderReranker:
         bs = int(batch_size) if batch_size and int(batch_size) > 0 else 32
         scores = self._model.predict(list(pairs), batch_size=bs)  # type: ignore[union-attr]
         return [float(s) for s in scores]
-
