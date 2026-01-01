@@ -40,15 +40,25 @@ class SpladeIndex:
         self._local = threading.local()
         
     def _get_connection(self) -> sqlite3.Connection:
-        """Get or create a thread-local database connection."""
+        """Get or create a thread-local database connection.
+
+        Each thread gets its own connection to ensure thread safety.
+        Connections are stored in thread-local storage.
+        """
         conn = getattr(self._local, "conn", None)
         if conn is None:
-            conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            # Thread-local connection - each thread has its own
+            conn = sqlite3.connect(
+                self.db_path,
+                timeout=30.0,  # Wait up to 30s for locks
+                check_same_thread=True,  # Enforce thread safety
+            )
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
             conn.execute("PRAGMA foreign_keys=ON")
-            conn.execute("PRAGMA mmap_size=30000000000")  # 30GB limit
+            # Limit mmap to 1GB to avoid OOM on smaller systems
+            conn.execute("PRAGMA mmap_size=1073741824")
             self._local.conn = conn
         return conn
     
