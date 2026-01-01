@@ -307,6 +307,60 @@ for (const call of sequential) {
 }
 ```
 
+### Unified Task Prompt Builder
+
+**Task Formatting Principle**: Each task is a self-contained checklist. The executor only needs to know what THIS task requires. Same template for Agent and CLI.
+
+```javascript
+function buildExecutionPrompt(batch) {
+  // Task template (4 parts: Modification Points → How → Reference → Done)
+  const formatTask = (t) => `
+## ${t.title}
+
+**Scope**: \`${t.scope}\`  |  **Action**: ${t.action}
+
+### Modification Points
+${t.modification_points.map(p => `- **${p.file}** → \`${p.target}\`: ${p.change}`).join('\n')}
+
+### How to do it
+${t.description}
+
+${t.implementation.map(step => `- ${step}`).join('\n')}
+
+### Reference
+- Pattern: ${t.reference?.pattern || 'N/A'}
+- Files: ${t.reference?.files?.join(', ') || 'N/A'}
+${t.reference?.examples ? `- Notes: ${t.reference.examples}` : ''}
+
+### Done when
+${t.acceptance.map(c => `- [ ] ${c}`).join('\n')}`
+
+  // Build prompt
+  const sections = []
+
+  if (originalUserInput) sections.push(`## Goal\n${originalUserInput}`)
+
+  sections.push(`## Tasks\n${batch.tasks.map(formatTask).join('\n\n---\n')}`)
+
+  // Context (reference only)
+  const context = []
+  if (previousExecutionResults.length > 0) {
+    context.push(`### Previous Work\n${previousExecutionResults.map(r => `- ${r.tasksSummary}: ${r.status}`).join('\n')}`)
+  }
+  if (clarificationContext) {
+    context.push(`### Clarifications\n${Object.entries(clarificationContext).map(([q, a]) => `- ${q}: ${a}`).join('\n')}`)
+  }
+  if (executionContext?.session?.artifacts?.plan) {
+    context.push(`### Artifacts\nPlan: ${executionContext.session.artifacts.plan}`)
+  }
+  if (context.length > 0) sections.push(`## Context\n${context.join('\n\n')}`)
+
+  sections.push(`Complete each task according to its "Done when" checklist.`)
+
+  return sections.join('\n\n')
+}
+```
+
 **Option A: Agent Execution**
 
 When to use:
@@ -314,113 +368,13 @@ When to use:
 - 或 `executionMethod = "Agent"` (全局 fallback)
 - 或 `executionMethod = "Auto" AND complexity = "Low"` (全局 fallback)
 
-**Task Formatting Principle**: Each task is a self-contained checklist. The agent only needs to know what THIS task requires, not its position or relation to other tasks.
-
-Agent call format:
 ```javascript
-// Format single task as self-contained checklist
-function formatTaskChecklist(task) {
-  return `
-## ${task.title}
-
-**Target**: \`${task.file}\`
-**Action**: ${task.action}
-
-### What to do
-${task.description}
-
-### How to do it
-${task.implementation.map(step => `- ${step}`).join('\n')}
-
-### Reference
-- Pattern: ${task.reference.pattern}
-- Examples: ${task.reference.files.join(', ')}
-- Notes: ${task.reference.examples}
-
-### Done when
-${task.acceptance.map(c => `- [ ] ${c}`).join('\n')}
-`
-}
-
-// For batch execution: aggregate tasks without numbering
-function formatBatchPrompt(batch) {
-  const tasksSection = batch.tasks.map(t => formatTaskChecklist(t)).join('\n---\n')
-
-  return `
-${originalUserInput ? `## Goal\n${originalUserInput}\n` : ''}
-
-## Tasks
-
-${tasksSection}
-
-${batch.context ? `## Context\n${batch.context}` : ''}
-
-Complete each task according to its "Done when" checklist.
-`
-}
-
 Task(
   subagent_type="code-developer",
   run_in_background=false,
   description=batch.taskSummary,
-  prompt=formatBatchPrompt({
-    tasks: batch.tasks,
-    context: buildRelevantContext(batch.tasks)
-  })
+  prompt=buildExecutionPrompt(batch)
 )
-
-// Helper: Build relevant context for batch
-// Context serves as REFERENCE ONLY - helps agent understand existing state
-function buildRelevantContext(tasks) {
-  const sections = []
-
-  // 1. Previous work completion - what's already done (reference for continuity)
-  if (previousExecutionResults.length > 0) {
-    sections.push(`### Previous Work (Reference)
-Use this to understand what's already completed. Avoid duplicating work.
-
-${previousExecutionResults.map(r => `**${r.tasksSummary}**
-- Status: ${r.status}
-- Outputs: ${r.keyOutputs || 'See git diff'}
-${r.notes ? `- Notes: ${r.notes}` : ''}`
-    ).join('\n\n')}`)
-  }
-
-  // 2. Related files - files that may need to be read/referenced
-  const relatedFiles = extractRelatedFiles(tasks)
-  if (relatedFiles.length > 0) {
-    sections.push(`### Related Files (Reference)
-These files may contain patterns, types, or utilities relevant to your tasks:
-
-${relatedFiles.map(f => `- \`${f}\``).join('\n')}`)
-  }
-
-  // 3. Clarifications from user
-  if (clarificationContext) {
-    sections.push(`### User Clarifications
-${Object.entries(clarificationContext).map(([q, a]) => `- **${q}**: ${a}`).join('\n')}`)
-  }
-
-  // 4. Artifact files (for deeper context if needed)
-  if (executionContext?.session?.artifacts?.plan) {
-    sections.push(`### Artifacts
-For detailed planning context, read: ${executionContext.session.artifacts.plan}`)
-  }
-
-  return sections.join('\n\n')
-}
-
-// Extract related files from task references
-function extractRelatedFiles(tasks) {
-  const files = new Set()
-  tasks.forEach(task => {
-    // Add reference example files
-    if (task.reference?.files) {
-      task.reference.files.forEach(f => files.add(f))
-    }
-  })
-  return [...files]
-}
 ```
 
 **Result Collection**: After completion, collect result following `executionResult` structure (see Data Structures section)
@@ -432,78 +386,8 @@ When to use:
 - 或 `executionMethod = "Codex"` (全局 fallback)
 - 或 `executionMethod = "Auto" AND complexity = "Medium/High"` (全局 fallback)
 
-**Task Formatting Principle**: Same as Agent - each task is a self-contained checklist. No task numbering or position awareness.
-
-Command format:
 ```bash
-// Format single task as compact checklist for CLI
-function formatTaskForCLI(task) {
-  return `
-## ${task.title}
-File: ${task.file}
-Action: ${task.action}
-
-What: ${task.description}
-
-How:
-${task.implementation.map(step => `- ${step}`).join('\n')}
-
-Reference: ${task.reference.pattern} (see ${task.reference.files.join(', ')})
-Notes: ${task.reference.examples}
-
-Done when:
-${task.acceptance.map(c => `- [ ] ${c}`).join('\n')}
-`
-}
-
-// Build CLI prompt for batch
-// Context provides REFERENCE information - not requirements to fulfill
-function buildCLIPrompt(batch) {
-  const tasksSection = batch.tasks.map(t => formatTaskForCLI(t)).join('\n---\n')
-
-  let prompt = `${originalUserInput ? `## Goal\n${originalUserInput}\n\n` : ''}`
-  prompt += `## Tasks\n\n${tasksSection}\n`
-
-  // Context section - reference information only
-  const contextSections = []
-
-  // 1. Previous work - what's already completed
-  if (previousExecutionResults.length > 0) {
-    contextSections.push(`### Previous Work (Reference)
-Already completed - avoid duplicating:
-${previousExecutionResults.map(r => `- ${r.tasksSummary}: ${r.status}${r.keyOutputs ? ` (${r.keyOutputs})` : ''}`).join('\n')}`)
-  }
-
-  // 2. Related files from task references
-  const relatedFiles = [...new Set(batch.tasks.flatMap(t => t.reference?.files || []))]
-  if (relatedFiles.length > 0) {
-    contextSections.push(`### Related Files (Reference)
-Patterns and examples to follow:
-${relatedFiles.map(f => `- ${f}`).join('\n')}`)
-  }
-
-  // 3. User clarifications
-  if (clarificationContext) {
-    contextSections.push(`### Clarifications
-${Object.entries(clarificationContext).map(([q, a]) => `- ${q}: ${a}`).join('\n')}`)
-  }
-
-  // 4. Plan artifact for deeper context
-  if (executionContext?.session?.artifacts?.plan) {
-    contextSections.push(`### Artifacts
-Detailed plan: ${executionContext.session.artifacts.plan}`)
-  }
-
-  if (contextSections.length > 0) {
-    prompt += `\n## Context\n${contextSections.join('\n\n')}\n`
-  }
-
-  prompt += `\nComplete each task according to its "Done when" checklist.`
-
-  return prompt
-}
-
-ccw cli -p "${buildCLIPrompt(batch)}" --tool codex --mode write
+ccw cli -p "${buildExecutionPrompt(batch)}" --tool codex --mode write
 ```
 
 **Execution with fixed IDs** (predictable ID pattern):
@@ -526,8 +410,8 @@ const previousCliId = batch.resumeFromCliId || null
 
 // Build command with fixed ID (and optional resume for continuation)
 const cli_command = previousCliId
-  ? `ccw cli -p "${buildCLIPrompt(batch)}" --tool codex --mode write --id ${fixedExecutionId} --resume ${previousCliId}`
-  : `ccw cli -p "${buildCLIPrompt(batch)}" --tool codex --mode write --id ${fixedExecutionId}`
+  ? `ccw cli -p "${buildExecutionPrompt(batch)}" --tool codex --mode write --id ${fixedExecutionId} --resume ${previousCliId}`
+  : `ccw cli -p "${buildExecutionPrompt(batch)}" --tool codex --mode write --id ${fixedExecutionId}`
 
 bash_result = Bash(
   command=cli_command,
@@ -564,8 +448,8 @@ if (bash_result.status === 'failed' || bash_result.status === 'timeout') {
 When to use: `getTaskExecutor(task) === "gemini"` (分析类任务)
 
 ```bash
-# 使用与 Option B 相同的 formatBatchPrompt，切换 tool 和 mode
-ccw cli -p "${formatBatchPrompt(batch)}" --tool gemini --mode analysis --id ${sessionId}-${batch.groupId}
+# 使用统一的 buildExecutionPrompt，切换 tool 和 mode
+ccw cli -p "${buildExecutionPrompt(batch)}" --tool gemini --mode analysis --id ${sessionId}-${batch.groupId}
 ```
 
 ### Step 4: Progress Tracking

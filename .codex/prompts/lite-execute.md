@@ -63,22 +63,29 @@ For current task, perform:
 ```markdown
 ## Executing: [task.title]
 
-**Target**: `[task.file]`
+**Scope**: `[task.scope]` (module/feature level)
 **Action**: [task.action]
+
+### Modification Points
+For each point in task.modification_points:
+- **File**: [point.file]
+- **Target**: [point.target] (function/class/line range)
+- **Change**: [point.change]
 
 ### Implementation
 [Follow task.implementation steps]
 
 ### Reference Pattern
 - Pattern: [task.reference.pattern]
-- Examples: [task.reference.files]
+- Files: [task.reference.files]
+- Examples: [task.reference.examples]
 
 ### Acceptance Criteria
 - [ ] [criterion 1]
 - [ ] [criterion 2]
 ```
 
-**Execute all implementation steps. Verify all acceptance criteria.**
+**Execute all modification points. Verify all acceptance criteria.**
 
 ### Step 4: Mark Completed
 
@@ -104,21 +111,39 @@ Output progress:
 
 ```json
 {
-  "id": "task-1",
-  "title": "Task Title",
-  "file": "path/to/file.ts",
-  "action": "create|modify|refactor",
-  "description": "What to do",
-  "implementation": ["step 1", "step 2"],
+  "id": "T1",
+  "title": "Implement auth validation",
+  "scope": "src/auth/",
+  "action": "Create|Update|Implement|Refactor|Add|Delete|Configure|Test|Fix",
+  "description": "What to implement (1-2 sentences)",
+  "modification_points": [
+    {
+      "file": "src/auth/validator.ts",
+      "target": "validateToken:45-60",
+      "change": "Add expiry check"
+    },
+    {
+      "file": "src/auth/middleware.ts",
+      "target": "authMiddleware",
+      "change": "Call new validator"
+    }
+  ],
+  "implementation": ["step 1", "step 2", "...max 7 steps"],
   "reference": {
     "pattern": "pattern name",
-    "files": ["example1.ts", "example2.ts"]
+    "files": ["example1.ts"],
+    "examples": "specific guidance"
   },
   "acceptance": ["criterion 1", "criterion 2"],
-  "depends_on": ["task-0"],
+  "depends_on": ["T0"],
   "status": "pending|completed"
 }
 ```
+
+**Key Fields**:
+- `scope`: Module/feature level path (prefer over single file)
+- `modification_points[]`: All files to modify with precise targets
+- `target`: Function/class/line range (e.g., `validateToken:45-60`)
 
 ## Execution Rules
 
