@@ -201,3 +201,244 @@ def test_add_files_rollback_failure_is_chained(
         assert "boom" in caplog.text
     finally:
         store.close()
+
+
+class TestMultiVectorChunks:
+    """Tests for multi-vector chunk storage operations."""
+
+    def test_add_chunks_basic(self, tmp_path: Path) -> None:
+        """Basic chunk insertion without embeddings."""
+        store = SQLiteStore(tmp_path / "chunks_basic.db")
+        store.initialize()
+
+        try:
+            chunks_data = [
+                {"content": "def hello(): pass", "metadata": {"type": "function"}},
+                {"content": "class World: pass", "metadata": {"type": "class"}},
+            ]
+
+            ids = store.add_chunks("test.py", chunks_data)
+
+            assert len(ids) == 2
+            assert ids == [1, 2]
+            assert store.count_chunks() == 2
+        finally:
+            store.close()
+
+    def test_add_chunks_with_binary_embeddings(self, tmp_path: Path) -> None:
+        """Chunk insertion with binary embeddings for coarse ranking."""
+        store = SQLiteStore(tmp_path / "chunks_binary.db")
+        store.initialize()
+
+        try:
+            chunks_data = [
+                {"content": "content1"},
+                {"content": "content2"},
+            ]
+            # 256-bit binary = 32 bytes
+            binary_embs = [b"\x00" * 32, b"\xff" * 32]
+
+            ids = store.add_chunks(
+                "test.py", chunks_data, embedding_binary=binary_embs
+            )
+
+            assert len(ids) == 2
+
+            retrieved = store.get_binary_embeddings(ids)
+            assert len(retrieved) == 2
+            assert retrieved[ids[0]] == b"\x00" * 32
+            assert retrieved[ids[1]] == b"\xff" * 32
+        finally:
+            store.close()
+
+    def test_add_chunks_with_dense_embeddings(self, tmp_path: Path) -> None:
+        """Chunk insertion with dense embeddings for fine ranking."""
+        store = SQLiteStore(tmp_path / "chunks_dense.db")
+        store.initialize()
+
+        try:
+            chunks_data = [{"content": "content1"}, {"content": "content2"}]
+            # 2048 floats = 8192 bytes
+            dense_embs = [b"\x00" * 8192, b"\xff" * 8192]
+
+            ids = store.add_chunks(
+                "test.py", chunks_data, embedding_dense=dense_embs
+            )
+
+            assert len(ids) == 2
+
+            retrieved = store.get_dense_embeddings(ids)
+            assert len(retrieved) == 2
+            assert retrieved[ids[0]] == b"\x00" * 8192
+            assert retrieved[ids[1]] == b"\xff" * 8192
+        finally:
+            store.close()
+
+    def test_add_chunks_with_all_embeddings(self, tmp_path: Path) -> None:
+        """Chunk insertion with all embedding types."""
+        store = SQLiteStore(tmp_path / "chunks_all.db")
+        store.initialize()
+
+        try:
+            chunks_data = [{"content": "full test"}]
+            embedding = [[0.1, 0.2, 0.3]]
+            binary_embs = [b"\xab" * 32]
+            dense_embs = [b"\xcd" * 8192]
+
+            ids = store.add_chunks(
+                "test.py",
+                chunks_data,
+                embedding=embedding,
+                embedding_binary=binary_embs,
+                embedding_dense=dense_embs,
+            )
+
+            assert len(ids) == 1
+
+            binary = store.get_binary_embeddings(ids)
+            dense = store.get_dense_embeddings(ids)
+
+            assert binary[ids[0]] == b"\xab" * 32
+            assert dense[ids[0]] == b"\xcd" * 8192
+        finally:
+            store.close()
+
+    def test_add_chunks_length_mismatch_raises(self, tmp_path: Path) -> None:
+        """Mismatched embedding length should raise ValueError."""
+        store = SQLiteStore(tmp_path / "chunks_mismatch.db")
+        store.initialize()
+
+        try:
+            chunks_data = [{"content": "a"}, {"content": "b"}]
+
+            with pytest.raises(ValueError, match="embedding_binary length"):
+                store.add_chunks(
+                    "test.py", chunks_data, embedding_binary=[b"\x00" * 32]
+                )
+
+            with pytest.raises(ValueError, match="embedding_dense length"):
+                store.add_chunks(
+                    "test.py", chunks_data, embedding_dense=[b"\x00" * 8192]
+                )
+
+            with pytest.raises(ValueError, match="embedding length"):
+                store.add_chunks(
+                    "test.py", chunks_data, embedding=[[0.1]]
+                )
+        finally:
+            store.close()
+
+    def test_get_chunks_by_ids(self, tmp_path: Path) -> None:
+        """Retrieve chunk data by IDs."""
+        store = SQLiteStore(tmp_path / "chunks_get.db")
+        store.initialize()
+
+        try:
+            chunks_data = [
+                {"content": "def foo(): pass", "metadata": {"line": 1}},
+                {"content": "def bar(): pass", "metadata": {"line": 5}},
+            ]
+
+            ids = store.add_chunks("test.py", chunks_data)
+            retrieved = store.get_chunks_by_ids(ids)
+
+            assert len(retrieved) == 2
+            assert retrieved[0]["content"] == "def foo(): pass"
+            assert retrieved[0]["metadata"]["line"] == 1
+            assert retrieved[1]["content"] == "def bar(): pass"
+            assert retrieved[1]["file_path"] == "test.py"
+        finally:
+            store.close()
+
+    def test_delete_chunks_by_file(self, tmp_path: Path) -> None:
+        """Delete all chunks for a file."""
+        store = SQLiteStore(tmp_path / "chunks_delete.db")
+        store.initialize()
+
+        try:
+            store.add_chunks("a.py", [{"content": "a1"}, {"content": "a2"}])
+            store.add_chunks("b.py", [{"content": "b1"}])
+
+            assert store.count_chunks() == 3
+
+            deleted = store.delete_chunks_by_file("a.py")
+            assert deleted == 2
+            assert store.count_chunks() == 1
+
+            deleted = store.delete_chunks_by_file("nonexistent.py")
+            assert deleted == 0
+        finally:
+            store.close()
+
+    def test_get_embeddings_empty_list(self, tmp_path: Path) -> None:
+        """Empty chunk ID list returns empty dict."""
+        store = SQLiteStore(tmp_path / "chunks_empty.db")
+        store.initialize()
+
+        try:
+            assert store.get_binary_embeddings([]) == {}
+            assert store.get_dense_embeddings([]) == {}
+            assert store.get_chunks_by_ids([]) == []
+        finally:
+            store.close()
+
+    def test_add_chunks_empty_list(self, tmp_path: Path) -> None:
+        """Empty chunks list returns empty IDs."""
+        store = SQLiteStore(tmp_path / "chunks_empty_add.db")
+        store.initialize()
+
+        try:
+            ids = store.add_chunks("test.py", [])
+            assert ids == []
+            assert store.count_chunks() == 0
+        finally:
+            store.close()
+
+    def test_chunks_table_migration(self, tmp_path: Path) -> None:
+        """Existing chunks table gets new columns via migration."""
+        db_path = tmp_path / "chunks_migration.db"
+
+        # Create old schema without multi-vector columns
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            """
+            CREATE TABLE chunks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_path TEXT NOT NULL,
+                content TEXT NOT NULL,
+                embedding BLOB,
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute("CREATE INDEX idx_chunks_file_path ON chunks(file_path)")
+        conn.execute(
+            "INSERT INTO chunks (file_path, content) VALUES ('old.py', 'old content')"
+        )
+        conn.commit()
+        conn.close()
+
+        # Open with SQLiteStore - should migrate
+        store = SQLiteStore(db_path)
+        store.initialize()
+
+        try:
+            # Verify new columns exist by using them
+            ids = store.add_chunks(
+                "new.py",
+                [{"content": "new content"}],
+                embedding_binary=[b"\x00" * 32],
+                embedding_dense=[b"\x00" * 8192],
+            )
+
+            assert len(ids) == 1
+
+            # Old data should still be accessible
+            assert store.count_chunks() == 2
+
+            # New embeddings should work
+            binary = store.get_binary_embeddings(ids)
+            assert binary[ids[0]] == b"\x00" * 32
+        finally:
+            store.close()

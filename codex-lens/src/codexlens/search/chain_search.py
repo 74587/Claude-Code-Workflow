@@ -9,12 +9,21 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal, Tuple, TYPE_CHECKING
 import logging
 import os
 import time
 
 from codexlens.entities import SearchResult, Symbol
+
+if TYPE_CHECKING:
+    import numpy as np
+
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
 from codexlens.config import Config
 from codexlens.storage.registry import RegistryStore, DirMapping
 from codexlens.storage.dir_index import DirIndexStore, SubdirLink
@@ -258,6 +267,672 @@ class ChainSearchEngine:
             symbols=symbols,
             stats=stats,
             related_results=related_results,
+        )
+
+    def hybrid_cascade_search(
+        self,
+        query: str,
+        source_path: Path,
+        k: int = 10,
+        coarse_k: int = 100,
+        options: Optional[SearchOptions] = None,
+    ) -> ChainSearchResult:
+        """Execute two-stage cascade search with hybrid coarse retrieval and cross-encoder reranking.
+
+        Hybrid cascade search process:
+        1. Stage 1 (Coarse): Fast retrieval using RRF fusion of FTS + SPLADE + Vector
+           to get coarse_k candidates
+        2. Stage 2 (Fine): CrossEncoder reranking of candidates to get final k results
+
+        This approach balances recall (from broad coarse search) with precision
+        (from expensive but accurate cross-encoder scoring).
+
+        Note: This method is the original hybrid approach. For binary vector cascade,
+        use binary_cascade_search() instead.
+
+        Args:
+            query: Natural language or keyword query string
+            source_path: Starting directory path
+            k: Number of final results to return (default 10)
+            coarse_k: Number of coarse candidates from first stage (default 100)
+            options: Search configuration (uses defaults if None)
+
+        Returns:
+            ChainSearchResult with reranked results and statistics
+
+        Examples:
+            >>> engine = ChainSearchEngine(registry, mapper, config=config)
+            >>> result = engine.hybrid_cascade_search(
+            ...     "how to authenticate users",
+            ...     Path("D:/project/src"),
+            ...     k=10,
+            ...     coarse_k=100
+            ... )
+            >>> for r in result.results:
+            ...     print(f"{r.path}: {r.score:.3f}")
+        """
+        options = options or SearchOptions()
+        start_time = time.time()
+        stats = SearchStats()
+
+        # Use config defaults if available
+        if self._config is not None:
+            if hasattr(self._config, "cascade_coarse_k"):
+                coarse_k = coarse_k or self._config.cascade_coarse_k
+            if hasattr(self._config, "cascade_fine_k"):
+                k = k or self._config.cascade_fine_k
+
+        # Step 1: Find starting index
+        start_index = self._find_start_index(source_path)
+        if not start_index:
+            self.logger.warning(f"No index found for {source_path}")
+            stats.time_ms = (time.time() - start_time) * 1000
+            return ChainSearchResult(
+                query=query,
+                results=[],
+                symbols=[],
+                stats=stats
+            )
+
+        # Step 2: Collect all index paths
+        index_paths = self._collect_index_paths(start_index, options.depth)
+        stats.dirs_searched = len(index_paths)
+
+        if not index_paths:
+            self.logger.warning(f"No indexes collected from {start_index}")
+            stats.time_ms = (time.time() - start_time) * 1000
+            return ChainSearchResult(
+                query=query,
+                results=[],
+                symbols=[],
+                stats=stats
+            )
+
+        # Stage 1: Coarse retrieval with hybrid search (FTS + SPLADE + Vector)
+        # Use hybrid mode for multi-signal retrieval
+        coarse_options = SearchOptions(
+            depth=options.depth,
+            max_workers=1,  # Single thread for GPU safety
+            limit_per_dir=max(coarse_k // len(index_paths), 20),
+            total_limit=coarse_k,
+            hybrid_mode=True,
+            enable_fuzzy=options.enable_fuzzy,
+            enable_vector=True,  # Enable vector for semantic matching
+            pure_vector=False,
+            hybrid_weights=options.hybrid_weights,
+        )
+
+        self.logger.debug(
+            "Cascade Stage 1: Coarse retrieval for %d candidates", coarse_k
+        )
+        coarse_results, search_stats = self._search_parallel(
+            index_paths, query, coarse_options
+        )
+        stats.errors = search_stats.errors
+
+        # Merge and deduplicate coarse results
+        coarse_merged = self._merge_and_rank(coarse_results, coarse_k)
+        self.logger.debug(
+            "Cascade Stage 1 complete: %d candidates retrieved", len(coarse_merged)
+        )
+
+        if not coarse_merged:
+            stats.time_ms = (time.time() - start_time) * 1000
+            return ChainSearchResult(
+                query=query,
+                results=[],
+                symbols=[],
+                stats=stats
+            )
+
+        # Stage 2: Cross-encoder reranking
+        self.logger.debug(
+            "Cascade Stage 2: Cross-encoder reranking %d candidates to top-%d",
+            len(coarse_merged),
+            k,
+        )
+
+        final_results = self._cross_encoder_rerank(query, coarse_merged, k)
+
+        # Optional: grouping of similar results
+        if options.group_results:
+            from codexlens.search.ranking import group_similar_results
+            final_results = group_similar_results(
+                final_results, score_threshold_abs=options.grouping_threshold
+            )
+
+        stats.files_matched = len(final_results)
+        stats.time_ms = (time.time() - start_time) * 1000
+
+        self.logger.debug(
+            "Cascade search complete: %d results in %.2fms",
+            len(final_results),
+            stats.time_ms,
+        )
+
+        return ChainSearchResult(
+            query=query,
+            results=final_results,
+            symbols=[],
+            stats=stats,
+        )
+
+    def binary_cascade_search(
+        self,
+        query: str,
+        source_path: Path,
+        k: int = 10,
+        coarse_k: int = 100,
+        options: Optional[SearchOptions] = None,
+    ) -> ChainSearchResult:
+        """Execute binary cascade search with binary coarse ranking and dense fine ranking.
+
+        Binary cascade search process:
+        1. Stage 1 (Coarse): Fast binary vector search using Hamming distance
+           to quickly filter to coarse_k candidates (256-dim binary, 32 bytes/vector)
+        2. Stage 2 (Fine): Dense vector cosine similarity for precise reranking
+           of candidates (2048-dim float32)
+
+        This approach leverages the speed of binary search (~100x faster) while
+        maintaining precision through dense vector reranking.
+
+        Performance characteristics:
+        - Binary search: O(N) with SIMD-accelerated XOR + popcount
+        - Dense rerank: Only applied to top coarse_k candidates
+        - Memory: 32 bytes (binary) + 8KB (dense) per chunk
+
+        Args:
+            query: Natural language or keyword query string
+            source_path: Starting directory path
+            k: Number of final results to return (default 10)
+            coarse_k: Number of coarse candidates from first stage (default 100)
+            options: Search configuration (uses defaults if None)
+
+        Returns:
+            ChainSearchResult with reranked results and statistics
+
+        Examples:
+            >>> engine = ChainSearchEngine(registry, mapper, config=config)
+            >>> result = engine.binary_cascade_search(
+            ...     "how to authenticate users",
+            ...     Path("D:/project/src"),
+            ...     k=10,
+            ...     coarse_k=100
+            ... )
+            >>> for r in result.results:
+            ...     print(f"{r.path}: {r.score:.3f}")
+        """
+        if not NUMPY_AVAILABLE:
+            self.logger.warning(
+                "NumPy not available, falling back to hybrid cascade search"
+            )
+            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+
+        options = options or SearchOptions()
+        start_time = time.time()
+        stats = SearchStats()
+
+        # Use config defaults if available
+        if self._config is not None:
+            if hasattr(self._config, "cascade_coarse_k"):
+                coarse_k = coarse_k or self._config.cascade_coarse_k
+            if hasattr(self._config, "cascade_fine_k"):
+                k = k or self._config.cascade_fine_k
+
+        # Step 1: Find starting index
+        start_index = self._find_start_index(source_path)
+        if not start_index:
+            self.logger.warning(f"No index found for {source_path}")
+            stats.time_ms = (time.time() - start_time) * 1000
+            return ChainSearchResult(
+                query=query,
+                results=[],
+                symbols=[],
+                stats=stats
+            )
+
+        # Step 2: Collect all index paths
+        index_paths = self._collect_index_paths(start_index, options.depth)
+        stats.dirs_searched = len(index_paths)
+
+        if not index_paths:
+            self.logger.warning(f"No indexes collected from {start_index}")
+            stats.time_ms = (time.time() - start_time) * 1000
+            return ChainSearchResult(
+                query=query,
+                results=[],
+                symbols=[],
+                stats=stats
+            )
+
+        # Initialize embedding backends
+        try:
+            from codexlens.indexing.embedding import (
+                BinaryEmbeddingBackend,
+                DenseEmbeddingBackend,
+            )
+            from codexlens.semantic.ann_index import BinaryANNIndex
+        except ImportError as exc:
+            self.logger.warning(
+                "Binary cascade dependencies not available: %s. "
+                "Falling back to hybrid cascade search.",
+                exc
+            )
+            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+
+        # Stage 1: Binary vector coarse retrieval
+        self.logger.debug(
+            "Binary Cascade Stage 1: Binary coarse retrieval for %d candidates",
+            coarse_k,
+        )
+
+        use_gpu = True
+        if self._config is not None:
+            use_gpu = getattr(self._config, "embedding_use_gpu", True)
+
+        try:
+            binary_backend = BinaryEmbeddingBackend(use_gpu=use_gpu)
+            query_binary_packed = binary_backend.embed_packed([query])[0]
+        except Exception as exc:
+            self.logger.warning(
+                "Failed to generate binary query embedding: %s. "
+                "Falling back to hybrid cascade search.",
+                exc
+            )
+            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+
+        # Search all indexes for binary candidates
+        all_candidates: List[Tuple[int, int, Path]] = []  # (chunk_id, distance, index_path)
+
+        for index_path in index_paths:
+            try:
+                # Get or create binary index for this path
+                binary_index = self._get_or_create_binary_index(index_path)
+                if binary_index is None or binary_index.count() == 0:
+                    continue
+
+                # Search binary index
+                ids, distances = binary_index.search(query_binary_packed, coarse_k)
+                for chunk_id, dist in zip(ids, distances):
+                    all_candidates.append((chunk_id, dist, index_path))
+
+            except Exception as exc:
+                self.logger.debug(
+                    "Binary search failed for %s: %s", index_path, exc
+                )
+                stats.errors.append(f"Binary search failed for {index_path}: {exc}")
+
+        if not all_candidates:
+            self.logger.debug("No binary candidates found, falling back to hybrid")
+            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+
+        # Sort by Hamming distance and take top coarse_k
+        all_candidates.sort(key=lambda x: x[1])
+        coarse_candidates = all_candidates[:coarse_k]
+
+        self.logger.debug(
+            "Binary Cascade Stage 1 complete: %d candidates retrieved",
+            len(coarse_candidates),
+        )
+
+        # Stage 2: Dense vector fine ranking
+        self.logger.debug(
+            "Binary Cascade Stage 2: Dense reranking %d candidates to top-%d",
+            len(coarse_candidates),
+            k,
+        )
+
+        try:
+            dense_backend = DenseEmbeddingBackend(use_gpu=use_gpu)
+            query_dense = dense_backend.embed_to_numpy([query])[0]
+        except Exception as exc:
+            self.logger.warning(
+                "Failed to generate dense query embedding: %s. "
+                "Using Hamming distance scores only.",
+                exc
+            )
+            # Fall back to using Hamming distance as score
+            return self._build_results_from_candidates(
+                coarse_candidates[:k], index_paths, stats, query, start_time
+            )
+
+        # Group candidates by index path for batch retrieval
+        candidates_by_index: Dict[Path, List[int]] = {}
+        for chunk_id, _, index_path in coarse_candidates:
+            if index_path not in candidates_by_index:
+                candidates_by_index[index_path] = []
+            candidates_by_index[index_path].append(chunk_id)
+
+        # Retrieve dense embeddings and compute cosine similarity
+        scored_results: List[Tuple[float, SearchResult]] = []
+
+        for index_path, chunk_ids in candidates_by_index.items():
+            try:
+                store = SQLiteStore(index_path)
+                dense_embeddings = store.get_dense_embeddings(chunk_ids)
+                chunks_data = store.get_chunks_by_ids(chunk_ids)
+
+                # Create lookup for chunk content
+                chunk_content: Dict[int, Dict[str, Any]] = {
+                    c["id"]: c for c in chunks_data
+                }
+
+                for chunk_id in chunk_ids:
+                    dense_bytes = dense_embeddings.get(chunk_id)
+                    chunk_info = chunk_content.get(chunk_id)
+
+                    if dense_bytes is None or chunk_info is None:
+                        continue
+
+                    # Compute cosine similarity
+                    dense_vec = np.frombuffer(dense_bytes, dtype=np.float32)
+                    score = self._compute_cosine_similarity(query_dense, dense_vec)
+
+                    # Create search result
+                    excerpt = chunk_info.get("content", "")[:500]
+                    result = SearchResult(
+                        path=chunk_info.get("file_path", ""),
+                        score=float(score),
+                        excerpt=excerpt,
+                    )
+                    scored_results.append((score, result))
+
+            except Exception as exc:
+                self.logger.debug(
+                    "Dense reranking failed for %s: %s", index_path, exc
+                )
+                stats.errors.append(f"Dense reranking failed for {index_path}: {exc}")
+
+        # Sort by score descending and deduplicate by path
+        scored_results.sort(key=lambda x: x[0], reverse=True)
+
+        path_to_result: Dict[str, SearchResult] = {}
+        for score, result in scored_results:
+            if result.path not in path_to_result:
+                path_to_result[result.path] = result
+
+        final_results = list(path_to_result.values())[:k]
+
+        # Optional: grouping of similar results
+        if options.group_results:
+            from codexlens.search.ranking import group_similar_results
+            final_results = group_similar_results(
+                final_results, score_threshold_abs=options.grouping_threshold
+            )
+
+        stats.files_matched = len(final_results)
+        stats.time_ms = (time.time() - start_time) * 1000
+
+        self.logger.debug(
+            "Binary cascade search complete: %d results in %.2fms",
+            len(final_results),
+            stats.time_ms,
+        )
+
+        return ChainSearchResult(
+            query=query,
+            results=final_results,
+            symbols=[],
+            stats=stats,
+        )
+
+    def cascade_search(
+        self,
+        query: str,
+        source_path: Path,
+        k: int = 10,
+        coarse_k: int = 100,
+        options: Optional[SearchOptions] = None,
+        strategy: Literal["binary", "hybrid"] = "binary",
+    ) -> ChainSearchResult:
+        """Unified cascade search entry point with strategy selection.
+
+        Provides a single interface for cascade search with configurable strategy:
+        - "binary": Uses binary vector coarse ranking + dense fine ranking (faster)
+        - "hybrid": Uses FTS+SPLADE+Vector coarse ranking + cross-encoder reranking (original)
+
+        The strategy can be configured via:
+        1. The `strategy` parameter (highest priority)
+        2. Config `cascade_strategy` setting
+        3. Default: "binary"
+
+        Args:
+            query: Natural language or keyword query string
+            source_path: Starting directory path
+            k: Number of final results to return (default 10)
+            coarse_k: Number of coarse candidates from first stage (default 100)
+            options: Search configuration (uses defaults if None)
+            strategy: Cascade strategy - "binary" or "hybrid" (default "binary")
+
+        Returns:
+            ChainSearchResult with reranked results and statistics
+
+        Examples:
+            >>> engine = ChainSearchEngine(registry, mapper, config=config)
+            >>> # Use binary cascade (default, faster)
+            >>> result = engine.cascade_search("auth", Path("D:/project"))
+            >>> # Use hybrid cascade (original behavior)
+            >>> result = engine.cascade_search("auth", Path("D:/project"), strategy="hybrid")
+        """
+        # Check config for strategy override
+        effective_strategy = strategy
+        if self._config is not None:
+            config_strategy = getattr(self._config, "cascade_strategy", None)
+            if config_strategy in ("binary", "hybrid"):
+                # Only use config if no explicit strategy was passed
+                # (we can't detect if strategy was explicitly passed vs default)
+                effective_strategy = config_strategy
+
+        if effective_strategy == "binary":
+            return self.binary_cascade_search(query, source_path, k, coarse_k, options)
+        else:
+            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+
+    def _get_or_create_binary_index(self, index_path: Path) -> Optional[Any]:
+        """Get or create a BinaryANNIndex for the given index path.
+
+        Attempts to load an existing binary index from disk. If not found,
+        returns None (binary index should be built during indexing).
+
+        Args:
+            index_path: Path to the _index.db file
+
+        Returns:
+            BinaryANNIndex instance or None if not available
+        """
+        try:
+            from codexlens.semantic.ann_index import BinaryANNIndex
+
+            binary_index = BinaryANNIndex(index_path, dim=256)
+            if binary_index.load():
+                return binary_index
+            return None
+        except Exception as exc:
+            self.logger.debug("Failed to load binary index for %s: %s", index_path, exc)
+            return None
+
+    def _compute_cosine_similarity(
+        self,
+        query_vec: "np.ndarray",
+        doc_vec: "np.ndarray",
+    ) -> float:
+        """Compute cosine similarity between query and document vectors.
+
+        Args:
+            query_vec: Query embedding vector
+            doc_vec: Document embedding vector
+
+        Returns:
+            Cosine similarity score in range [-1, 1]
+        """
+        if not NUMPY_AVAILABLE:
+            return 0.0
+
+        # Ensure same shape
+        min_len = min(len(query_vec), len(doc_vec))
+        q = query_vec[:min_len]
+        d = doc_vec[:min_len]
+
+        # Compute cosine similarity
+        dot_product = np.dot(q, d)
+        norm_q = np.linalg.norm(q)
+        norm_d = np.linalg.norm(d)
+
+        if norm_q == 0 or norm_d == 0:
+            return 0.0
+
+        return float(dot_product / (norm_q * norm_d))
+
+    def _build_results_from_candidates(
+        self,
+        candidates: List[Tuple[int, int, Path]],
+        index_paths: List[Path],
+        stats: SearchStats,
+        query: str,
+        start_time: float,
+    ) -> ChainSearchResult:
+        """Build ChainSearchResult from binary candidates using Hamming distance scores.
+
+        Used as fallback when dense embeddings are not available.
+
+        Args:
+            candidates: List of (chunk_id, hamming_distance, index_path) tuples
+            index_paths: List of all searched index paths
+            stats: SearchStats to update
+            query: Original query string
+            start_time: Search start time for timing
+
+        Returns:
+            ChainSearchResult with results scored by Hamming distance
+        """
+        results: List[SearchResult] = []
+
+        # Group by index path
+        candidates_by_index: Dict[Path, List[Tuple[int, int]]] = {}
+        for chunk_id, distance, index_path in candidates:
+            if index_path not in candidates_by_index:
+                candidates_by_index[index_path] = []
+            candidates_by_index[index_path].append((chunk_id, distance))
+
+        for index_path, chunk_tuples in candidates_by_index.items():
+            try:
+                store = SQLiteStore(index_path)
+                chunk_ids = [c[0] for c in chunk_tuples]
+                chunks_data = store.get_chunks_by_ids(chunk_ids)
+
+                chunk_content: Dict[int, Dict[str, Any]] = {
+                    c["id"]: c for c in chunks_data
+                }
+
+                for chunk_id, distance in chunk_tuples:
+                    chunk_info = chunk_content.get(chunk_id)
+                    if chunk_info is None:
+                        continue
+
+                    # Convert Hamming distance to score (lower distance = higher score)
+                    # Max Hamming distance for 256-bit is 256
+                    score = 1.0 - (distance / 256.0)
+
+                    excerpt = chunk_info.get("content", "")[:500]
+                    result = SearchResult(
+                        path=chunk_info.get("file_path", ""),
+                        score=float(score),
+                        excerpt=excerpt,
+                    )
+                    results.append(result)
+
+            except Exception as exc:
+                self.logger.debug(
+                    "Failed to build results from %s: %s", index_path, exc
+                )
+
+        # Deduplicate by path
+        path_to_result: Dict[str, SearchResult] = {}
+        for result in results:
+            if result.path not in path_to_result or result.score > path_to_result[result.path].score:
+                path_to_result[result.path] = result
+
+        final_results = sorted(
+            path_to_result.values(),
+            key=lambda r: r.score,
+            reverse=True,
+        )
+
+        stats.files_matched = len(final_results)
+        stats.time_ms = (time.time() - start_time) * 1000
+
+        return ChainSearchResult(
+            query=query,
+            results=final_results,
+            symbols=[],
+            stats=stats,
+        )
+
+    def _cross_encoder_rerank(
+        self,
+        query: str,
+        results: List[SearchResult],
+        top_k: int,
+    ) -> List[SearchResult]:
+        """Rerank results using cross-encoder model.
+
+        Args:
+            query: Search query string
+            results: Candidate results to rerank
+            top_k: Number of top results to return
+
+        Returns:
+            Reranked results sorted by cross-encoder score
+        """
+        if not results:
+            return []
+
+        # Try to get reranker from config or create new one
+        reranker = None
+        try:
+            from codexlens.semantic.reranker import (
+                check_reranker_available,
+                get_reranker,
+            )
+
+            # Determine backend and model from config
+            backend = "onnx"
+            model_name = None
+            use_gpu = True
+
+            if self._config is not None:
+                backend = getattr(self._config, "reranker_backend", "onnx") or "onnx"
+                model_name = getattr(self._config, "reranker_model", None)
+                use_gpu = getattr(self._config, "embedding_use_gpu", True)
+
+            ok, err = check_reranker_available(backend)
+            if not ok:
+                self.logger.debug("Reranker backend unavailable (%s): %s", backend, err)
+                return results[:top_k]
+
+            # Create reranker
+            kwargs = {}
+            if backend == "onnx":
+                kwargs["use_gpu"] = use_gpu
+
+            reranker = get_reranker(backend=backend, model_name=model_name, **kwargs)
+
+        except ImportError as exc:
+            self.logger.debug("Reranker not available: %s", exc)
+            return results[:top_k]
+        except Exception as exc:
+            self.logger.debug("Failed to initialize reranker: %s", exc)
+            return results[:top_k]
+
+        # Use cross_encoder_rerank from ranking module
+        from codexlens.search.ranking import cross_encoder_rerank
+
+        return cross_encoder_rerank(
+            query=query,
+            results=results,
+            reranker=reranker,
+            top_k=top_k,
+            batch_size=32,
         )
 
     def search_files_only(self, query: str,

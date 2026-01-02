@@ -131,6 +131,16 @@ class Config:
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     reranker_top_k: int = 50
 
+    # Cascade search configuration (two-stage retrieval)
+    enable_cascade_search: bool = False  # Enable cascade search (coarse + fine ranking)
+    cascade_coarse_k: int = 100  # Number of coarse candidates from first stage
+    cascade_fine_k: int = 10  # Number of final results after reranking
+    cascade_strategy: str = "binary"  # "binary" (fast binary+dense) or "hybrid" (FTS+SPLADE+Vector+CrossEncoder)
+
+    # RRF fusion configuration
+    fusion_method: str = "rrf"  # "simple" (weighted sum) or "rrf" (reciprocal rank fusion)
+    rrf_k: int = 60  # RRF constant (default 60)
+
     # Multi-endpoint configuration for litellm backend
     embedding_endpoints: List[Dict[str, Any]] = field(default_factory=list)
     # List of endpoint configs: [{"model": "...", "api_key": "...", "api_base": "...", "weight": 1.0}]

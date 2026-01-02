@@ -40,9 +40,18 @@ from codexlens.search.ranking import (
     get_rrf_weights,
     reciprocal_rank_fusion,
     rerank_results,
+    simple_weighted_fusion,
     tag_search_source,
 )
 from codexlens.storage.dir_index import DirIndexStore
+
+
+# Three-way fusion weights (FTS + Vector + SPLADE)
+THREE_WAY_WEIGHTS = {
+    "exact": 0.2,
+    "splade": 0.3,
+    "vector": 0.5,
+}
 
 
 class HybridSearchEngine:
@@ -193,9 +202,22 @@ class HybridSearchEngine:
             if source in results_map
         }
 
-        with timer("rrf_fusion", self.logger):
+        # Determine fusion method from config (default: rrf)
+        fusion_method = "rrf"
+        rrf_k = 60
+        if self._config is not None:
+            fusion_method = getattr(self._config, "fusion_method", "rrf") or "rrf"
+            rrf_k = getattr(self._config, "rrf_k", 60) or 60
+
+        with timer("fusion", self.logger):
             adaptive_weights = get_rrf_weights(query, active_weights)
-            fused_results = reciprocal_rank_fusion(results_map, adaptive_weights)
+            if fusion_method == "simple":
+                fused_results = simple_weighted_fusion(results_map, adaptive_weights)
+            else:
+                # Default to RRF
+                fused_results = reciprocal_rank_fusion(
+                    results_map, adaptive_weights, k=rrf_k
+                )
 
         # Optional: boost results that include explicit symbol matches
         boost_factor = (

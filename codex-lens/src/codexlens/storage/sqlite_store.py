@@ -539,6 +539,27 @@ class SQLiteStore:
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_rel_target ON code_relationships(target_qualified_name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_rel_source ON code_relationships(source_symbol_id)")
+            # Chunks table for multi-vector storage (cascade retrieval architecture)
+            # - embedding: Original embedding for backward compatibility
+            # - embedding_binary: 256-dim binary vector for coarse ranking
+            # - embedding_dense: 2048-dim dense vector for fine ranking
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS chunks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    file_path TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    embedding BLOB,
+                    embedding_binary BLOB,
+                    embedding_dense BLOB,
+                    metadata TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_chunks_file_path ON chunks(file_path)")
+            # Run migration for existing databases
+            self._migrate_chunks_table(conn)
             conn.commit()
         except sqlite3.DatabaseError as exc:
             raise StorageError(f"Failed to initialize database schema: {exc}") from exc
@@ -650,3 +671,306 @@ class SQLiteStore:
             conn.execute("VACUUM")
         except sqlite3.DatabaseError:
             pass
+
+    def _migrate_chunks_table(self, conn: sqlite3.Connection) -> None:
+        """Migrate existing chunks table to add multi-vector columns if needed.
+
+        This handles upgrading existing databases that may have the chunks table
+        without the embedding_binary and embedding_dense columns.
+        """
+        # Check if chunks table exists
+        table_exists = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='chunks'"
+        ).fetchone()
+
+        if not table_exists:
+            # Table doesn't exist yet, nothing to migrate
+            return
+
+        # Check existing columns
+        cursor = conn.execute("PRAGMA table_info(chunks)")
+        columns = {row[1] for row in cursor.fetchall()}
+
+        # Add embedding_binary column if missing
+        if "embedding_binary" not in columns:
+            logger.info("Migrating chunks table: adding embedding_binary column")
+            conn.execute(
+                "ALTER TABLE chunks ADD COLUMN embedding_binary BLOB"
+            )
+
+        # Add embedding_dense column if missing
+        if "embedding_dense" not in columns:
+            logger.info("Migrating chunks table: adding embedding_dense column")
+            conn.execute(
+                "ALTER TABLE chunks ADD COLUMN embedding_dense BLOB"
+            )
+
+    def add_chunks(
+        self,
+        file_path: str,
+        chunks_data: List[Dict[str, Any]],
+        *,
+        embedding: Optional[List[List[float]]] = None,
+        embedding_binary: Optional[List[bytes]] = None,
+        embedding_dense: Optional[List[bytes]] = None,
+    ) -> List[int]:
+        """Add multiple chunks with multi-vector embeddings support.
+
+        This method supports the cascade retrieval architecture with three embedding types:
+        - embedding: Original dense embedding for backward compatibility
+        - embedding_binary: 256-dim binary vector for fast coarse ranking
+        - embedding_dense: 2048-dim dense vector for precise fine ranking
+
+        Args:
+            file_path: Path to the source file for all chunks.
+            chunks_data: List of dicts with 'content' and optional 'metadata' keys.
+            embedding: Optional list of dense embeddings (one per chunk).
+            embedding_binary: Optional list of binary embeddings as bytes (one per chunk).
+            embedding_dense: Optional list of dense embeddings as bytes (one per chunk).
+
+        Returns:
+            List of inserted chunk IDs.
+
+        Raises:
+            ValueError: If embedding list lengths don't match chunks_data length.
+            StorageError: If database operation fails.
+        """
+        if not chunks_data:
+            return []
+
+        n_chunks = len(chunks_data)
+
+        # Validate embedding lengths
+        if embedding is not None and len(embedding) != n_chunks:
+            raise ValueError(
+                f"embedding length ({len(embedding)}) != chunks_data length ({n_chunks})"
+            )
+        if embedding_binary is not None and len(embedding_binary) != n_chunks:
+            raise ValueError(
+                f"embedding_binary length ({len(embedding_binary)}) != chunks_data length ({n_chunks})"
+            )
+        if embedding_dense is not None and len(embedding_dense) != n_chunks:
+            raise ValueError(
+                f"embedding_dense length ({len(embedding_dense)}) != chunks_data length ({n_chunks})"
+            )
+
+        # Prepare batch data
+        batch_data = []
+        for i, chunk in enumerate(chunks_data):
+            content = chunk.get("content", "")
+            metadata = chunk.get("metadata")
+            metadata_json = json.dumps(metadata) if metadata else None
+
+            # Convert embeddings to bytes if needed
+            emb_blob = None
+            if embedding is not None:
+                import struct
+                emb_blob = struct.pack(f"{len(embedding[i])}f", *embedding[i])
+
+            emb_binary_blob = embedding_binary[i] if embedding_binary is not None else None
+            emb_dense_blob = embedding_dense[i] if embedding_dense is not None else None
+
+            batch_data.append((
+                file_path, content, emb_blob, emb_binary_blob, emb_dense_blob, metadata_json
+            ))
+
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                # Get starting ID before insert
+                row = conn.execute("SELECT MAX(id) FROM chunks").fetchone()
+                start_id = (row[0] or 0) + 1
+
+                conn.executemany(
+                    """
+                    INSERT INTO chunks (
+                        file_path, content, embedding, embedding_binary,
+                        embedding_dense, metadata
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    batch_data
+                )
+                conn.commit()
+
+                # Calculate inserted IDs
+                return list(range(start_id, start_id + n_chunks))
+
+            except sqlite3.DatabaseError as exc:
+                raise StorageError(
+                    f"Failed to add chunks: {exc}",
+                    db_path=str(self.db_path),
+                    operation="add_chunks",
+                ) from exc
+
+    def get_binary_embeddings(
+        self, chunk_ids: List[int]
+    ) -> Dict[int, Optional[bytes]]:
+        """Get binary embeddings for specified chunk IDs.
+
+        Used for coarse ranking in cascade retrieval architecture.
+        Binary embeddings (256-dim) enable fast approximate similarity search.
+
+        Args:
+            chunk_ids: List of chunk IDs to retrieve embeddings for.
+
+        Returns:
+            Dictionary mapping chunk_id to embedding_binary bytes (or None if not set).
+
+        Raises:
+            StorageError: If database query fails.
+        """
+        if not chunk_ids:
+            return {}
+
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                placeholders = ",".join("?" * len(chunk_ids))
+                rows = conn.execute(
+                    f"SELECT id, embedding_binary FROM chunks WHERE id IN ({placeholders})",
+                    chunk_ids
+                ).fetchall()
+
+                return {row["id"]: row["embedding_binary"] for row in rows}
+
+            except sqlite3.DatabaseError as exc:
+                raise StorageError(
+                    f"Failed to get binary embeddings: {exc}",
+                    db_path=str(self.db_path),
+                    operation="get_binary_embeddings",
+                ) from exc
+
+    def get_dense_embeddings(
+        self, chunk_ids: List[int]
+    ) -> Dict[int, Optional[bytes]]:
+        """Get dense embeddings for specified chunk IDs.
+
+        Used for fine ranking in cascade retrieval architecture.
+        Dense embeddings (2048-dim) provide high-precision similarity scoring.
+
+        Args:
+            chunk_ids: List of chunk IDs to retrieve embeddings for.
+
+        Returns:
+            Dictionary mapping chunk_id to embedding_dense bytes (or None if not set).
+
+        Raises:
+            StorageError: If database query fails.
+        """
+        if not chunk_ids:
+            return {}
+
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                placeholders = ",".join("?" * len(chunk_ids))
+                rows = conn.execute(
+                    f"SELECT id, embedding_dense FROM chunks WHERE id IN ({placeholders})",
+                    chunk_ids
+                ).fetchall()
+
+                return {row["id"]: row["embedding_dense"] for row in rows}
+
+            except sqlite3.DatabaseError as exc:
+                raise StorageError(
+                    f"Failed to get dense embeddings: {exc}",
+                    db_path=str(self.db_path),
+                    operation="get_dense_embeddings",
+                ) from exc
+
+    def get_chunks_by_ids(
+        self, chunk_ids: List[int]
+    ) -> List[Dict[str, Any]]:
+        """Get chunk data for specified IDs.
+
+        Args:
+            chunk_ids: List of chunk IDs to retrieve.
+
+        Returns:
+            List of chunk dictionaries with id, file_path, content, metadata.
+
+        Raises:
+            StorageError: If database query fails.
+        """
+        if not chunk_ids:
+            return []
+
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                placeholders = ",".join("?" * len(chunk_ids))
+                rows = conn.execute(
+                    f"""
+                    SELECT id, file_path, content, metadata, created_at
+                    FROM chunks
+                    WHERE id IN ({placeholders})
+                    """,
+                    chunk_ids
+                ).fetchall()
+
+                results = []
+                for row in rows:
+                    metadata = None
+                    if row["metadata"]:
+                        try:
+                            metadata = json.loads(row["metadata"])
+                        except json.JSONDecodeError:
+                            pass
+
+                    results.append({
+                        "id": row["id"],
+                        "file_path": row["file_path"],
+                        "content": row["content"],
+                        "metadata": metadata,
+                        "created_at": row["created_at"],
+                    })
+
+                return results
+
+            except sqlite3.DatabaseError as exc:
+                raise StorageError(
+                    f"Failed to get chunks: {exc}",
+                    db_path=str(self.db_path),
+                    operation="get_chunks_by_ids",
+                ) from exc
+
+    def delete_chunks_by_file(self, file_path: str) -> int:
+        """Delete all chunks for a given file path.
+
+        Args:
+            file_path: Path to the source file.
+
+        Returns:
+            Number of deleted chunks.
+
+        Raises:
+            StorageError: If database operation fails.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.execute(
+                    "DELETE FROM chunks WHERE file_path = ?",
+                    (file_path,)
+                )
+                conn.commit()
+                return cursor.rowcount
+
+            except sqlite3.DatabaseError as exc:
+                raise StorageError(
+                    f"Failed to delete chunks: {exc}",
+                    db_path=str(self.db_path),
+                    operation="delete_chunks_by_file",
+                ) from exc
+
+    def count_chunks(self) -> int:
+        """Count total chunks in store.
+
+        Returns:
+            Total number of chunks.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            row = conn.execute("SELECT COUNT(*) AS c FROM chunks").fetchone()
+            return int(row["c"]) if row else 0

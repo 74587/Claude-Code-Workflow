@@ -421,3 +421,323 @@ class TestSearchAccuracy:
         recall = overlap / len(bf_chunk_ids) if bf_chunk_ids else 1.0
 
         assert recall >= 0.8, f"ANN recall too low: {recall} (overlap: {overlap}, bf: {bf_chunk_ids}, ann: {ann_chunk_ids})"
+
+
+
+class TestBinaryANNIndex:
+    """Test suite for BinaryANNIndex class (Hamming distance-based search)."""
+
+    @pytest.fixture
+    def temp_db(self):
+        """Create a temporary database file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir) / "_index.db"
+
+    @pytest.fixture
+    def sample_binary_vectors(self):
+        """Generate sample binary vectors for testing."""
+        import numpy as np
+        np.random.seed(42)
+        # 100 binary vectors of dimension 256 (packed as 32 bytes each)
+        binary_unpacked = (np.random.rand(100, 256) > 0.5).astype(np.uint8)
+        packed = [np.packbits(v).tobytes() for v in binary_unpacked]
+        return packed, binary_unpacked
+
+    @pytest.fixture
+    def sample_ids(self):
+        """Generate sample IDs."""
+        return list(range(1, 101))
+
+    def test_create_binary_index(self, temp_db):
+        """Test creating a new Binary ANN index."""
+        from codexlens.semantic.ann_index import BinaryANNIndex
+
+        index = BinaryANNIndex(temp_db, dim=256)
+        assert index.dim == 256
+        assert index.packed_dim == 32
+        assert index.count() == 0
+        assert not index.is_loaded
+
+    def test_invalid_dimension(self, temp_db):
+        """Test that invalid dimensions are rejected."""
+        from codexlens.semantic.ann_index import BinaryANNIndex
+
+        # Dimension must be divisible by 8
+        with pytest.raises(ValueError, match="divisible by 8"):
+            BinaryANNIndex(temp_db, dim=255)
+
+        with pytest.raises(ValueError, match="positive"):
+            BinaryANNIndex(temp_db, dim=0)
+
+    def test_add_packed_vectors(self, temp_db, sample_binary_vectors, sample_ids):
+        """Test adding packed binary vectors to the index."""
+        from codexlens.semantic.ann_index import BinaryANNIndex
+
+        packed, _ = sample_binary_vectors
+        index = BinaryANNIndex(temp_db, dim=256)
+        index.add_vectors(sample_ids, packed)
+
+        assert index.count() == 100
+        assert index.is_loaded
+
+    def test_add_numpy_vectors(self, temp_db, sample_binary_vectors, sample_ids):
+        """Test adding unpacked numpy binary vectors."""
+        from codexlens.semantic.ann_index import BinaryANNIndex
+        import numpy as np
+
+        _, unpacked = sample_binary_vectors
+        index = BinaryANNIndex(temp_db, dim=256)
+        index.add_vectors_numpy(sample_ids, unpacked)
+
+        assert index.count() == 100
+
+    def test_search_packed(self, temp_db, sample_binary_vectors, sample_ids):
+        """Test searching with packed binary query."""
+        from codexlens.semantic.ann_index import BinaryANNIndex
+
+        packed, _ = sample_binary_vectors
+        index = BinaryANNIndex(temp_db, dim=256)
+        index.add_vectors(sample_ids, packed)
+
+        # Search for the first vector - should find itself with distance 0
+        query = packed[0]
+        ids, distances = index.search(query, top_k=5)
+
+        assert len(ids) == 5
+        assert len(distances) == 5
+        # First result should be the query vector itself
+        assert ids[0] == 1
+        assert distances[0] == 0  # Hamming distance of 0 (identical)
+
+    def test_search_numpy(self, temp_db, sample_binary_vectors, sample_ids):
+        """Test searching with unpacked numpy query."""
+        from codexlens.semantic.ann_index import BinaryANNIndex
+
+        packed, unpacked = sample_binary_vectors
+        index = BinaryANNIndex(temp_db, dim=256)
+        index.add_vectors(sample_ids, packed)
+
+        # Search for the first vector using numpy interface
+        query = unpacked[0]
+        ids, distances = index.search_numpy(query, top_k=5)
+
+        assert len(ids) == 5
+        assert ids[0] == 1
+        assert distances[0] == 0
+
+    def test_search_batch(self, temp_db, sample_binary_vectors, sample_ids):
+        """Test batch search with multiple queries."""
+        from codexlens.semantic.ann_index import BinaryANNIndex
+
+        packed, _ = sample_binary_vectors
+        index = BinaryANNIndex(temp_db, dim=256)
+        index.add_vectors(sample_ids, packed)
+
+        # Search for first 3 vectors
+        queries = packed[:3]
+        results = index.search_batch(queries, top_k=5)
+
+        assert len(results) == 3
+        # Each result should find itself first
+        for i, (ids, dists) in enumerate(results):
+            assert ids[0] == i + 1
+            assert dists[0] == 0
+
+    def test_hamming_distance_ordering(self, temp_db):
+        """Test that results are ordered by Hamming distance."""
+        from codexlens.semantic.ann_index import BinaryANNIndex
+        import numpy as np
+
+        index = BinaryANNIndex(temp_db, dim=256)
+
+        # Create vectors with known Hamming distances from a query
+        query = np.zeros(256, dtype=np.uint8)  # All zeros
+        v1 = np.zeros(256, dtype=np.uint8)  # Distance 0
+        v2 = np.zeros(256, dtype=np.uint8); v2[:10] = 1  # Distance 10
+        v3 = np.zeros(256, dtype=np.uint8); v3[:50] = 1  # Distance 50
+        v4 = np.ones(256, dtype=np.uint8)  # Distance 256
+
+        index.add_vectors_numpy([1, 2, 3, 4], np.array([v1, v2, v3, v4]))
+
+        query_packed = np.packbits(query).tobytes()
+        ids, distances = index.search(query_packed, top_k=4)
+
+        assert ids == [1, 2, 3, 4]
+        assert distances == [0, 10, 50, 256]
+
+    def test_save_and_load(self, temp_db, sample_binary_vectors, sample_ids):
+        """Test saving and loading binary index from disk."""
+        from codexlens.semantic.ann_index import BinaryANNIndex
+
+        packed, _ = sample_binary_vectors
+
+        # Create and save index
+        index1 = BinaryANNIndex(temp_db, dim=256)
+        index1.add_vectors(sample_ids, packed)
+        index1.save()
+
+        # Check that file was created
+        binary_path = temp_db.parent / f"{temp_db.stem}_binary_vectors.bin"
+        assert binary_path.exists()
+
+        # Load in new instance
+        index2 = BinaryANNIndex(temp_db, dim=256)
+        loaded = index2.load()
+
+        assert loaded is True
+        assert index2.count() == 100
+        assert index2.is_loaded
+
+        # Verify search still works
+        query = packed[0]
+        ids, distances = index2.search(query, top_k=5)
+        assert ids[0] == 1
+        assert distances[0] == 0
+
+    def test_load_nonexistent(self, temp_db):
+        """Test loading when index file doesn't exist."""
+        from codexlens.semantic.ann_index import BinaryANNIndex
+
+        index = BinaryANNIndex(temp_db, dim=256)
+        loaded = index.load()
+
+        assert loaded is False
+        assert not index.is_loaded
+
+    def test_remove_vectors(self, temp_db, sample_binary_vectors, sample_ids):
+        """Test removing vectors from the index."""
+        from codexlens.semantic.ann_index import BinaryANNIndex
+
+        packed, _ = sample_binary_vectors
+        index = BinaryANNIndex(temp_db, dim=256)
+        index.add_vectors(sample_ids, packed)
+
+        # Remove first 10 vectors
+        index.remove_vectors(list(range(1, 11)))
+
+        assert index.count() == 90
+
+        # Removed vectors should not be findable
+        query = packed[0]
+        ids, _ = index.search(query, top_k=100)
+        for removed_id in range(1, 11):
+            assert removed_id not in ids
+
+    def test_get_vector(self, temp_db, sample_binary_vectors, sample_ids):
+        """Test retrieving a specific vector by ID."""
+        from codexlens.semantic.ann_index import BinaryANNIndex
+
+        packed, _ = sample_binary_vectors
+        index = BinaryANNIndex(temp_db, dim=256)
+        index.add_vectors(sample_ids, packed)
+
+        # Get existing vector
+        vec = index.get_vector(1)
+        assert vec == packed[0]
+
+        # Get non-existing vector
+        vec = index.get_vector(9999)
+        assert vec is None
+
+    def test_clear(self, temp_db, sample_binary_vectors, sample_ids):
+        """Test clearing all vectors from the index."""
+        from codexlens.semantic.ann_index import BinaryANNIndex
+
+        packed, _ = sample_binary_vectors
+        index = BinaryANNIndex(temp_db, dim=256)
+        index.add_vectors(sample_ids, packed)
+        assert index.count() == 100
+
+        index.clear()
+        assert index.count() == 0
+        assert not index.is_loaded
+
+    def test_search_empty_index(self, temp_db):
+        """Test searching an empty index."""
+        from codexlens.semantic.ann_index import BinaryANNIndex
+        import numpy as np
+
+        index = BinaryANNIndex(temp_db, dim=256)
+        query = np.packbits(np.zeros(256, dtype=np.uint8)).tobytes()
+
+        ids, distances = index.search(query, top_k=5)
+
+        assert ids == []
+        assert distances == []
+
+    def test_update_existing_vector(self, temp_db):
+        """Test updating an existing vector with new data."""
+        from codexlens.semantic.ann_index import BinaryANNIndex
+        import numpy as np
+
+        index = BinaryANNIndex(temp_db, dim=256)
+
+        # Add initial vector
+        v1 = np.zeros(256, dtype=np.uint8)
+        index.add_vectors_numpy([1], v1.reshape(1, -1))
+
+        # Update with different vector
+        v2 = np.ones(256, dtype=np.uint8)
+        index.add_vectors_numpy([1], v2.reshape(1, -1))
+
+        # Count should still be 1
+        assert index.count() == 1
+
+        # Retrieved vector should be the updated one
+        stored = index.get_vector(1)
+        expected = np.packbits(v2).tobytes()
+        assert stored == expected
+
+
+class TestCreateAnnIndexFactory:
+    """Test suite for create_ann_index factory function."""
+
+    @pytest.fixture
+    def temp_db(self):
+        """Create a temporary database file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir) / "_index.db"
+
+    @pytest.mark.skipif(
+        not _hnswlib_available(),
+        reason="hnswlib not installed"
+    )
+    def test_create_hnsw_index(self, temp_db):
+        """Test creating HNSW index via factory."""
+        from codexlens.semantic.ann_index import create_ann_index, ANNIndex
+
+        index = create_ann_index(temp_db, index_type="hnsw", dim=384)
+        assert isinstance(index, ANNIndex)
+        assert index.dim == 384
+
+    def test_create_binary_index(self, temp_db):
+        """Test creating binary index via factory."""
+        from codexlens.semantic.ann_index import create_ann_index, BinaryANNIndex
+
+        index = create_ann_index(temp_db, index_type="binary", dim=256)
+        assert isinstance(index, BinaryANNIndex)
+        assert index.dim == 256
+
+    def test_create_binary_index_default_dim(self, temp_db):
+        """Test that binary index defaults to 256 dim when dense default is used."""
+        from codexlens.semantic.ann_index import create_ann_index, BinaryANNIndex
+
+        # When dim=2048 (dense default) is passed with binary type,
+        # it should auto-adjust to 256
+        index = create_ann_index(temp_db, index_type="binary")
+        assert isinstance(index, BinaryANNIndex)
+        assert index.dim == 256
+
+    def test_invalid_index_type(self, temp_db):
+        """Test that invalid index type raises error."""
+        from codexlens.semantic.ann_index import create_ann_index
+
+        with pytest.raises(ValueError, match="Invalid index_type"):
+            create_ann_index(temp_db, index_type="invalid")
+
+    def test_case_insensitive_index_type(self, temp_db):
+        """Test that index_type is case-insensitive."""
+        from codexlens.semantic.ann_index import create_ann_index, BinaryANNIndex
+
+        index = create_ann_index(temp_db, index_type="BINARY", dim=256)
+        assert isinstance(index, BinaryANNIndex)

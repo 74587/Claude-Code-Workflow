@@ -132,6 +132,116 @@ def get_rrf_weights(
     return adjust_weights_by_intent(detect_query_intent(query), base_weights)
 
 
+def simple_weighted_fusion(
+    results_map: Dict[str, List[SearchResult]],
+    weights: Dict[str, float] = None,
+) -> List[SearchResult]:
+    """Combine search results using simple weighted sum of normalized scores.
+
+    This is an alternative to RRF that preserves score magnitude information.
+    Scores are min-max normalized per source before weighted combination.
+
+    Formula: score(d) = Σ weight_source * normalized_score_source(d)
+
+    Args:
+        results_map: Dictionary mapping source name to list of SearchResult objects
+                     Sources: 'exact', 'fuzzy', 'vector', 'splade'
+        weights: Dictionary mapping source name to weight (default: equal weights)
+                 Example: {'exact': 0.3, 'fuzzy': 0.1, 'vector': 0.6}
+
+    Returns:
+        List of SearchResult objects sorted by fused score (descending)
+
+    Examples:
+        >>> fts_results = [SearchResult(path="a.py", score=10.0, excerpt="...")]
+        >>> vector_results = [SearchResult(path="b.py", score=0.85, excerpt="...")]
+        >>> results_map = {'exact': fts_results, 'vector': vector_results}
+        >>> fused = simple_weighted_fusion(results_map)
+    """
+    if not results_map:
+        return []
+
+    # Default equal weights if not provided
+    if weights is None:
+        num_sources = len(results_map)
+        weights = {source: 1.0 / num_sources for source in results_map}
+
+    # Normalize weights to sum to 1.0
+    weight_sum = sum(weights.values())
+    if not math.isclose(weight_sum, 1.0, abs_tol=0.01) and weight_sum > 0:
+        weights = {source: w / weight_sum for source, w in weights.items()}
+
+    # Compute min-max normalization parameters per source
+    source_stats: Dict[str, tuple] = {}
+    for source_name, results in results_map.items():
+        if not results:
+            continue
+        scores = [r.score for r in results]
+        min_s, max_s = min(scores), max(scores)
+        source_stats[source_name] = (min_s, max_s)
+
+    def normalize_score(score: float, source: str) -> float:
+        """Normalize score to [0, 1] range using min-max scaling."""
+        if source not in source_stats:
+            return 0.0
+        min_s, max_s = source_stats[source]
+        if max_s == min_s:
+            return 1.0 if score >= min_s else 0.0
+        return (score - min_s) / (max_s - min_s)
+
+    # Build unified result set with weighted scores
+    path_to_result: Dict[str, SearchResult] = {}
+    path_to_fusion_score: Dict[str, float] = {}
+    path_to_source_scores: Dict[str, Dict[str, float]] = {}
+
+    for source_name, results in results_map.items():
+        weight = weights.get(source_name, 0.0)
+        if weight == 0:
+            continue
+
+        for result in results:
+            path = result.path
+            normalized = normalize_score(result.score, source_name)
+            contribution = weight * normalized
+
+            if path not in path_to_fusion_score:
+                path_to_fusion_score[path] = 0.0
+                path_to_result[path] = result
+                path_to_source_scores[path] = {}
+
+            path_to_fusion_score[path] += contribution
+            path_to_source_scores[path][source_name] = normalized
+
+    # Create final results with fusion scores
+    fused_results = []
+    for path, base_result in path_to_result.items():
+        fusion_score = path_to_fusion_score[path]
+
+        fused_result = SearchResult(
+            path=base_result.path,
+            score=fusion_score,
+            excerpt=base_result.excerpt,
+            content=base_result.content,
+            symbol=base_result.symbol,
+            chunk=base_result.chunk,
+            metadata={
+                **base_result.metadata,
+                "fusion_method": "simple_weighted",
+                "fusion_score": fusion_score,
+                "original_score": base_result.score,
+                "source_scores": path_to_source_scores[path],
+            },
+            start_line=base_result.start_line,
+            end_line=base_result.end_line,
+            symbol_name=base_result.symbol_name,
+            symbol_kind=base_result.symbol_kind,
+        )
+        fused_results.append(fused_result)
+
+    fused_results.sort(key=lambda r: r.score, reverse=True)
+    return fused_results
+
+
 def reciprocal_rank_fusion(
     results_map: Dict[str, List[SearchResult]],
     weights: Dict[str, float] = None,
@@ -141,11 +251,14 @@ def reciprocal_rank_fusion(
 
     RRF formula: score(d) = Σ weight_source / (k + rank_source(d))
 
+    Supports three-way fusion with FTS, Vector, and SPLADE sources.
+
     Args:
         results_map: Dictionary mapping source name to list of SearchResult objects
-                     Sources: 'exact', 'fuzzy', 'vector'
+                     Sources: 'exact', 'fuzzy', 'vector', 'splade'
         weights: Dictionary mapping source name to weight (default: equal weights)
                  Example: {'exact': 0.3, 'fuzzy': 0.1, 'vector': 0.6}
+                 Or: {'splade': 0.4, 'vector': 0.6}
         k: Constant to avoid division by zero and control rank influence (default 60)
 
     Returns:
@@ -156,6 +269,14 @@ def reciprocal_rank_fusion(
         >>> fuzzy_results = [SearchResult(path="b.py", score=8.0, excerpt="...")]
         >>> results_map = {'exact': exact_results, 'fuzzy': fuzzy_results}
         >>> fused = reciprocal_rank_fusion(results_map)
+
+        # Three-way fusion with SPLADE
+        >>> results_map = {
+        ...     'exact': exact_results,
+        ...     'vector': vector_results,
+        ...     'splade': splade_results
+        ... }
+        >>> fused = reciprocal_rank_fusion(results_map, k=60)
     """
     if not results_map:
         return []
@@ -174,6 +295,7 @@ def reciprocal_rank_fusion(
     # Build unified result set with RRF scores
     path_to_result: Dict[str, SearchResult] = {}
     path_to_fusion_score: Dict[str, float] = {}
+    path_to_source_ranks: Dict[str, Dict[str, int]] = {}
 
     for source_name, results in results_map.items():
         weight = weights.get(source_name, 0.0)
@@ -188,8 +310,10 @@ def reciprocal_rank_fusion(
             if path not in path_to_fusion_score:
                 path_to_fusion_score[path] = 0.0
                 path_to_result[path] = result
+                path_to_source_ranks[path] = {}
 
             path_to_fusion_score[path] += rrf_contribution
+            path_to_source_ranks[path][source_name] = rank
 
     # Create final results with fusion scores
     fused_results = []
@@ -206,8 +330,11 @@ def reciprocal_rank_fusion(
             chunk=base_result.chunk,
             metadata={
                 **base_result.metadata,
+                "fusion_method": "rrf",
                 "fusion_score": fusion_score,
                 "original_score": base_result.score,
+                "rrf_k": k,
+                "source_ranks": path_to_source_ranks[path],
             },
             start_line=base_result.start_line,
             end_line=base_result.end_line,

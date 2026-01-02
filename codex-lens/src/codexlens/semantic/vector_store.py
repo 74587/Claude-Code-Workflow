@@ -29,10 +29,17 @@ except ImportError:
 
 # Try to import ANN index (optional hnswlib dependency)
 try:
-    from codexlens.semantic.ann_index import ANNIndex, HNSWLIB_AVAILABLE
+    from codexlens.semantic.ann_index import (
+        ANNIndex,
+        BinaryANNIndex,
+        create_ann_index,
+        HNSWLIB_AVAILABLE,
+    )
 except ImportError:
     HNSWLIB_AVAILABLE = False
     ANNIndex = None
+    BinaryANNIndex = None
+    create_ann_index = None
 
 
 logger = logging.getLogger(__name__)
