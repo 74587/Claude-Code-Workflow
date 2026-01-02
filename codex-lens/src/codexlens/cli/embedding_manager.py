@@ -18,6 +18,11 @@ except ImportError:
         return False, "codexlens.semantic not available"
 
 try:
+    from codexlens.config import VECTORS_META_DB_NAME
+except ImportError:
+    VECTORS_META_DB_NAME = "_vectors_meta.db"
+
+try:
     from codexlens.search.ranking import get_file_category
 except ImportError:
     def get_file_category(path: str):  # type: ignore[no-redef]
@@ -1277,10 +1282,38 @@ def generate_dense_embeddings_centralized(
             }
 
     # Store chunk metadata in a centralized metadata database
-    vectors_meta_path = index_root / "VECTORS_META_DB_NAME"
-    # Note: The metadata is already stored in individual _index.db semantic_chunks tables
-    # For now, we rely on the existing per-index storage for metadata lookup
-    # A future enhancement could consolidate metadata into _vectors_meta.db
+    vectors_meta_path = index_root / VECTORS_META_DB_NAME
+    if chunk_id_to_info:
+        if progress_callback:
+            progress_callback(f"Storing {len(chunk_id_to_info)} chunk metadata records...")
+
+        try:
+            from codexlens.storage.vector_meta_store import VectorMetadataStore
+
+            with VectorMetadataStore(vectors_meta_path) as meta_store:
+                # Convert chunk_id_to_info dict to list of dicts for batch insert
+                chunks_to_store = []
+                for cid, info in chunk_id_to_info.items():
+                    metadata = info.get("metadata", {})
+                    chunks_to_store.append({
+                        "chunk_id": cid,
+                        "file_path": info["file_path"],
+                        "content": info["content"],
+                        "start_line": metadata.get("start_line"),
+                        "end_line": metadata.get("end_line"),
+                        "category": info.get("category"),
+                        "metadata": metadata,
+                        "source_index_db": None,  # Not tracked per-chunk currently
+                    })
+
+                meta_store.add_chunks(chunks_to_store)
+
+            if progress_callback:
+                progress_callback(f"Saved metadata to {vectors_meta_path}")
+
+        except Exception as e:
+            logger.warning("Failed to store vector metadata: %s", e)
+            # Non-fatal: continue without centralized metadata
 
     elapsed_time = time.time() - start_time
 

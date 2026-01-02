@@ -7,6 +7,7 @@ from .path_mapper import PathMapper
 from .registry import RegistryStore, ProjectInfo, DirMapping
 from .dir_index import DirIndexStore, SubdirLink, FileEntry
 from .index_tree import IndexTreeBuilder, BuildResult, DirBuildResult
+from .vector_meta_store import VectorMetadataStore
 
 __all__ = [
     # Legacy (workspace-local)
@@ -25,5 +26,7 @@ __all__ = [
     "IndexTreeBuilder",
     "BuildResult",
     "DirBuildResult",
+    # Vector metadata
+    "VectorMetadataStore",
 ]
 

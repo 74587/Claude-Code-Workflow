@@ -2005,12 +2005,22 @@ def embeddings_generate(
     ),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output."),
+    centralized: bool = typer.Option(
+        False,
+        "--centralized",
+        "-c",
+        help="Use centralized vector storage (single HNSW index at project root).",
+    ),
 ) -> None:
     """Generate semantic embeddings for code search.
 
     Creates vector embeddings for all files in an index to enable
     semantic search capabilities. Embeddings are stored in the same
     database as the FTS index.
+
+    Storage Modes:
+      - Default: Per-directory HNSW indexes alongside _index.db files
+      - Centralized: Single HNSW index at project root (_vectors.hnsw)
 
     Embedding Backend Options:
       - fastembed: Local ONNX-based embeddings (default, no API calls)
@@ -2033,12 +2043,14 @@ def embeddings_generate(
         codexlens embeddings-generate ~/.codexlens/indexes/project/_index.db  # Specific index
         codexlens embeddings-generate ~/projects/my-app --backend litellm --model text-embedding-3-small  # Use LiteLLM
         codexlens embeddings-generate ~/projects/my-app --model fast --force  # Regenerate with fast profile
+        codexlens embeddings-generate ~/projects/my-app --centralized  # Centralized vector storage
     """
     _configure_logging(verbose, json_mode)
 
     from codexlens.cli.embedding_manager import (
         generate_embeddings,
         generate_embeddings_recursive,
+        generate_dense_embeddings_centralized,
         scan_for_model_conflicts,
         check_global_model_lock,
         set_locked_model_config,
@@ -2099,7 +2111,11 @@ def embeddings_generate(
             console.print(f"  {msg}")
 
     console.print(f"[bold]Generating embeddings[/bold]")
-    if use_recursive:
+    if centralized:
+        effective_root = index_root if index_root else (index_path.parent if index_path else target_path)
+        console.print(f"Index root: [dim]{effective_root}[/dim]")
+        console.print(f"Mode: [green]Centralized[/green]")
+    elif use_recursive:
         console.print(f"Index root: [dim]{index_root}[/dim]")
         console.print(f"Mode: [yellow]Recursive[/yellow]")
     else:
@@ -2179,7 +2195,20 @@ def embeddings_generate(
                         console.print("[yellow]Cancelled.[/yellow] Use --force to skip this prompt.")
                         raise typer.Exit(code=0)
 
-    if use_recursive:
+    if centralized:
+        # Centralized mode: single HNSW index at project root
+        if not index_root:
+            index_root = index_path.parent if index_path else target_path
+        result = generate_dense_embeddings_centralized(
+            index_root,
+            embedding_backend=backend,
+            model_profile=model,
+            force=force,
+            chunk_size=chunk_size,
+            progress_callback=progress_update,
+            max_workers=max_workers,
+        )
+    elif use_recursive:
         result = generate_embeddings_recursive(
             index_root,
             embedding_backend=backend,
@@ -2225,7 +2254,18 @@ def embeddings_generate(
         # This prevents using different models for future indexes
         set_locked_model_config(backend, model)
 
-        if use_recursive:
+        if centralized:
+            # Centralized mode output
+            elapsed = data.get("elapsed_time", 0)
+            console.print(f"[green]✓[/green] Centralized embeddings generated successfully!")
+            console.print(f"  Model: {data.get('model_name', model)}")
+            console.print(f"  Chunks created: {data['chunks_created']:,}")
+            console.print(f"  Files processed: {data['files_processed']}")
+            if data.get("files_failed", 0) > 0:
+                console.print(f"  [yellow]Files failed: {data['files_failed']}[/yellow]")
+            console.print(f"  Central index: {data.get('central_index_path', 'N/A')}")
+            console.print(f"  Time: {elapsed:.1f}s")
+        elif use_recursive:
             # Recursive mode output
             console.print(f"[green]✓[/green] Recursive embeddings generation complete!")
             console.print(f"  Indexes processed: {data['indexes_processed']}")

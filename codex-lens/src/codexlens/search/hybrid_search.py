@@ -664,10 +664,15 @@ class HybridSearchEngine:
         scores: List[float],
         category: Optional[str] = None,
     ) -> List[SearchResult]:
-        """Fetch chunk metadata from all _index.db files for centralized search.
+        """Fetch chunk metadata from centralized _vectors_meta.db for fast lookup.
+
+        This method uses the centralized VectorMetadataStore for O(1) lookup
+        instead of traversing all _index.db files (O(n) where n = number of indexes).
+
+        Falls back to the legacy per-index lookup if centralized metadata is unavailable.
 
         Args:
-            index_root: Root directory containing _index.db files
+            index_root: Root directory containing _vectors_meta.db
             chunk_ids: List of chunk IDs from ANN search
             scores: Corresponding similarity scores
             category: Optional category filter
@@ -675,11 +680,122 @@ class HybridSearchEngine:
         Returns:
             List of SearchResult objects
         """
-        import sqlite3
-        import json
+        from codexlens.config import VECTORS_META_DB_NAME
 
         # Build score map
         score_map = {cid: score for cid, score in zip(chunk_ids, scores)}
+
+        # Try centralized metadata store first (fast path)
+        vectors_meta_path = index_root / VECTORS_META_DB_NAME
+        if vectors_meta_path.exists():
+            try:
+                return self._fetch_from_vector_meta_store(
+                    vectors_meta_path, chunk_ids, score_map, category
+                )
+            except Exception as e:
+                self.logger.debug(
+                    "Centralized metadata lookup failed, falling back: %s", e
+                )
+
+        # Fallback: traverse _index.db files (legacy path)
+        return self._fetch_chunks_by_ids_legacy(
+            index_root, chunk_ids, score_map, category
+        )
+
+    def _fetch_from_vector_meta_store(
+        self,
+        meta_db_path: Path,
+        chunk_ids: List[int],
+        score_map: Dict[int, float],
+        category: Optional[str] = None,
+    ) -> List[SearchResult]:
+        """Fetch chunks from centralized VectorMetadataStore.
+
+        Args:
+            meta_db_path: Path to _vectors_meta.db
+            chunk_ids: List of chunk IDs to fetch
+            score_map: Mapping of chunk_id to score
+            category: Optional category filter
+
+        Returns:
+            List of SearchResult objects
+        """
+        from codexlens.storage.vector_meta_store import VectorMetadataStore
+
+        results = []
+
+        with VectorMetadataStore(meta_db_path) as meta_store:
+            rows = meta_store.get_chunks_by_ids(chunk_ids, category=category)
+
+            for row in rows:
+                chunk_id = row["chunk_id"]
+                file_path = row["file_path"]
+                content = row["content"] or ""
+                metadata = row.get("metadata") or {}
+                start_line = row.get("start_line")
+                end_line = row.get("end_line")
+
+                score = score_map.get(chunk_id, 0.0)
+
+                # Build excerpt
+                excerpt = content[:200] + "..." if len(content) > 200 else content
+
+                # Extract symbol information
+                symbol_name = metadata.get("symbol_name")
+                symbol_kind = metadata.get("symbol_kind")
+
+                # Build Symbol object if available
+                symbol = None
+                if symbol_name and symbol_kind and start_line and end_line:
+                    try:
+                        from codexlens.entities import Symbol
+                        symbol = Symbol(
+                            name=symbol_name,
+                            kind=symbol_kind,
+                            range=(start_line, end_line)
+                        )
+                    except Exception:
+                        pass
+
+                results.append(SearchResult(
+                    path=file_path,
+                    score=score,
+                    excerpt=excerpt,
+                    content=content,
+                    symbol=symbol,
+                    metadata=metadata,
+                    start_line=start_line,
+                    end_line=end_line,
+                    symbol_name=symbol_name,
+                    symbol_kind=symbol_kind,
+                ))
+
+        # Sort by score descending
+        results.sort(key=lambda r: r.score, reverse=True)
+        return results
+
+    def _fetch_chunks_by_ids_legacy(
+        self,
+        index_root: Path,
+        chunk_ids: List[int],
+        score_map: Dict[int, float],
+        category: Optional[str] = None,
+    ) -> List[SearchResult]:
+        """Legacy fallback: fetch chunk metadata by traversing all _index.db files.
+
+        This is the O(n) fallback path used when centralized metadata is unavailable.
+
+        Args:
+            index_root: Root directory containing _index.db files
+            chunk_ids: List of chunk IDs from ANN search
+            score_map: Mapping of chunk_id to score
+            category: Optional category filter
+
+        Returns:
+            List of SearchResult objects
+        """
+        import sqlite3
+        import json
 
         # Find all _index.db files
         index_files = list(index_root.rglob("_index.db"))
