@@ -1,0 +1,406 @@
+{
+  "storage_analysis": {
+    "tables": {
+      "code_relationships": {
+        "row_count": 0,
+        "columns": [
+          "id",
+          "source_symbol_id",
+          "target_qualified_name",
+          "relationship_type",
+          "source_line",
+          "target_file"
+        ]
+      },
+      "embeddings_config": {
+        "row_count": 1,
+        "columns": [
+          "id",
+          "model_profile",
+          "model_name",
+          "embedding_dim",
+          "backend",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "file_keywords": {
+        "row_count": 0,
+        "columns": [
+          "file_id",
+          "keyword_id"
+        ]
+      },
+      "files": {
+        "row_count": 0,
+        "columns": [
+          "id",
+          "name",
+          "full_path",
+          "language",
+          "content",
+          "mtime",
+          "line_count"
+        ]
+      },
+      "files_fts_exact": {
+        "row_count": 0,
+        "columns": [
+          "name",
+          "full_path",
+          "content"
+        ]
+      },
+      "files_fts_exact_config": {
+        "row_count": 1,
+        "columns": [
+          "k",
+          "v"
+        ]
+      },
+      "files_fts_exact_data": {
+        "row_count": 2,
+        "columns": [
+          "id",
+          "block"
+        ]
+      },
+      "files_fts_exact_docsize": {
+        "row_count": 0,
+        "columns": [
+          "id",
+          "sz"
+        ]
+      },
+      "files_fts_exact_idx": {
+        "row_count": 0,
+        "columns": [
+          "segid",
+          "term",
+          "pgno"
+        ]
+      },
+      "files_fts_fuzzy": {
+        "row_count": 0,
+        "columns": [
+          "name",
+          "full_path",
+          "content"
+        ]
+      },
+      "files_fts_fuzzy_config": {
+        "row_count": 1,
+        "columns": [
+          "k",
+          "v"
+        ]
+      },
+      "files_fts_fuzzy_data": {
+        "row_count": 2,
+        "columns": [
+          "id",
+          "block"
+        ]
+      },
+      "files_fts_fuzzy_docsize": {
+        "row_count": 0,
+        "columns": [
+          "id",
+          "sz"
+        ]
+      },
+      "files_fts_fuzzy_idx": {
+        "row_count": 0,
+        "columns": [
+          "segid",
+          "term",
+          "pgno"
+        ]
+      },
+      "graph_neighbors": {
+        "row_count": 0,
+        "columns": [
+          "source_symbol_id",
+          "neighbor_symbol_id",
+          "relationship_depth"
+        ]
+      },
+      "keywords": {
+        "row_count": 0,
+        "columns": [
+          "id",
+          "keyword"
+        ]
+      },
+      "merkle_hashes": {
+        "row_count": 0,
+        "columns": [
+          "file_id",
+          "sha256",
+          "updated_at"
+        ]
+      },
+      "merkle_state": {
+        "row_count": 1,
+        "columns": [
+          "id",
+          "root_hash",
+          "updated_at"
+        ]
+      },
+      "semantic_chunks": {
+        "row_count": 0,
+        "columns": [
+          "id",
+          "file_path",
+          "content",
+          "embedding",
+          "metadata",
+          "created_at",
+          "embedding_binary",
+          "embedding_dense"
+        ]
+      },
+      "semantic_metadata": {
+        "row_count": 0,
+        "columns": [
+          "id",
+          "file_id",
+          "summary",
+          "purpose",
+          "llm_tool",
+          "generated_at"
+        ]
+      },
+      "sqlite_sequence": {
+        "row_count": 0,
+        "columns": [
+          "name",
+          "seq"
+        ]
+      },
+      "subdirs": {
+        "row_count": 2,
+        "columns": [
+          "id",
+          "name",
+          "index_path",
+          "files_count",
+          "last_updated"
+        ]
+      },
+      "symbols": {
+        "row_count": 0,
+        "columns": [
+          "id",
+          "file_id",
+          "name",
+          "kind",
+          "start_line",
+          "end_line"
+        ]
+      }
+    },
+    "conflicts": [],
+    "recommendations": [
+      "Found 10 FTS tables: ['files_fts_exact', 'files_fts_exact_config', 'files_fts_exact_data', 'files_fts_exact_docsize', 'files_fts_exact_idx', 'files_fts_fuzzy', 'files_fts_fuzzy_config', 'files_fts_fuzzy_data', 'files_fts_fuzzy_docsize', 'files_fts_fuzzy_idx']. Dual FTS (exact + fuzzy) is properly configured."
+    ]
+  },
+  "contribution_analysis": {
+    "per_query": [
+      {
+        "query": "binary quantization",
+        "methods": {
+          "fts_exact": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          },
+          "fts_fuzzy": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          },
+          "vector": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          },
+          "splade": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          }
+        },
+        "fusion_analysis": {},
+        "overlaps": {}
+      },
+      {
+        "query": "hamming distance search",
+        "methods": {
+          "fts_exact": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          },
+          "fts_fuzzy": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          },
+          "vector": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          },
+          "splade": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          }
+        },
+        "fusion_analysis": {},
+        "overlaps": {}
+      },
+      {
+        "query": "embeddings generation",
+        "methods": {
+          "fts_exact": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          },
+          "fts_fuzzy": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          },
+          "vector": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          },
+          "splade": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          }
+        },
+        "fusion_analysis": {},
+        "overlaps": {}
+      },
+      {
+        "query": "reranking algorithm",
+        "methods": {
+          "fts_exact": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          },
+          "fts_fuzzy": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          },
+          "vector": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          },
+          "splade": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          }
+        },
+        "fusion_analysis": {},
+        "overlaps": {}
+      },
+      {
+        "query": "database connection handling",
+        "methods": {
+          "fts_exact": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          },
+          "fts_fuzzy": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          },
+          "vector": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          },
+          "splade": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'",
+            "count": 0
+          }
+        },
+        "fusion_analysis": {},
+        "overlaps": {}
+      }
+    ],
+    "summary": {
+      "fts_exact": {
+        "avg_count": 0.0,
+        "avg_latency_ms": 0
+      },
+      "fts_fuzzy": {
+        "avg_count": 0.0,
+        "avg_latency_ms": 0
+      },
+      "vector": {
+        "avg_count": 0.0,
+        "avg_latency_ms": 0
+      },
+      "splade": {
+        "avg_count": 0.0,
+        "avg_latency_ms": 0
+      }
+    }
+  },
+  "fusion_experiment": {
+    "per_query": [
+      {
+        "query": "binary quantization",
+        "strategies": {
+          "standard_hybrid": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'"
+          },
+          "fts_rerank_fusion": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'"
+          }
+        }
+      },
+      {
+        "query": "hamming distance search",
+        "strategies": {
+          "standard_hybrid": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'"
+          },
+          "fts_rerank_fusion": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'"
+          }
+        }
+      },
+      {
+        "query": "embeddings generation",
+        "strategies": {
+          "standard_hybrid": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'"
+          },
+          "fts_rerank_fusion": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'"
+          }
+        }
+      },
+      {
+        "query": "reranking algorithm",
+        "strategies": {
+          "standard_hybrid": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'"
+          },
+          "fts_rerank_fusion": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'"
+          }
+        }
+      },
+      {
+        "query": "database connection handling",
+        "strategies": {
+          "standard_hybrid": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'"
+          },
+          "fts_rerank_fusion": {
+            "error": "'obj' object has no attribute 'symbol_boost_factor'"
+          }
+        }
+      }
+    ],
+    "summary": {}
+  }
+}

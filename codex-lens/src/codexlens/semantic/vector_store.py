@@ -1033,6 +1033,28 @@ class VectorStore:
             row = conn.execute("SELECT COUNT(*) FROM semantic_chunks").fetchone()
             return row[0] if row else 0
 
+    def get_all_chunks(self) -> List[SemanticChunk]:
+        """Get all chunks from the store.
+
+        Returns:
+            List of SemanticChunk objects with id and content.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT id, file_path, content, metadata FROM semantic_chunks"
+            ).fetchall()
+
+            chunks = []
+            for row in rows:
+                chunks.append(SemanticChunk(
+                    id=row["id"],
+                    content=row["content"],
+                    file_path=row["file_path"],
+                    metadata=json.loads(row["metadata"]) if row["metadata"] else None,
+                ))
+            return chunks
+
     def clear_cache(self) -> None:
         """Manually clear the embedding cache."""
         self._invalidate_cache()
