@@ -2456,6 +2456,9 @@ def splade_index_command(
     Encodes all semantic chunks with SPLADE model and builds inverted index
     for efficient sparse retrieval.
 
+    This command discovers all _index.db files recursively in the project's
+    index directory and builds SPLADE encodings for chunks across all of them.
+
     Examples:
         codexlens splade-index ~/projects/my-app
         codexlens splade-index . --rebuild
@@ -2473,17 +2476,17 @@ def splade_index_command(
         console.print("[dim]Install with: pip install transformers torch[/dim]")
         raise typer.Exit(1)
 
-    # Find index database
+    # Find index root directory
     target_path = path.expanduser().resolve()
 
-    # Try to find _index.db
+    # Determine index root directory (containing _index.db files)
     if target_path.is_file() and target_path.name == "_index.db":
-        index_db = target_path
+        index_root = target_path.parent
     elif target_path.is_dir():
         # Check for local .codexlens/_index.db
         local_index = target_path / ".codexlens" / "_index.db"
         if local_index.exists():
-            index_db = local_index
+            index_root = local_index.parent
         else:
             # Try to find via registry
             registry = RegistryStore()
@@ -2495,29 +2498,66 @@ def splade_index_command(
                     console.print(f"[red]Error:[/red] No index found for {target_path}")
                     console.print("Run 'codexlens init' first to create an index")
                     raise typer.Exit(1)
+                index_root = index_db.parent
             finally:
                 registry.close()
     else:
         console.print(f"[red]Error:[/red] Path must be _index.db file or indexed directory")
         raise typer.Exit(1)
 
-    splade_db = index_db.parent / "_splade.db"
+    # Discover all _index.db files recursively
+    all_index_dbs = sorted(index_root.rglob("_index.db"))
+    if not all_index_dbs:
+        console.print(f"[red]Error:[/red] No _index.db files found in {index_root}")
+        raise typer.Exit(1)
+
+    console.print(f"[blue]Discovered {len(all_index_dbs)} index databases[/blue]")
+
+    # SPLADE index is stored alongside the root _index.db
+    splade_db = index_root / "_splade.db"
 
     if splade_db.exists() and not rebuild:
         console.print("[yellow]SPLADE index exists. Use --rebuild to regenerate.[/yellow]")
         return
 
-    # Load chunks from vector store
-    console.print(f"[blue]Loading chunks from {index_db.name}...[/blue]")
-    vector_store = VectorStore(index_db)
-    chunks = vector_store.get_all_chunks()
+    # If rebuild, delete existing splade database
+    if splade_db.exists() and rebuild:
+        splade_db.unlink()
 
-    if not chunks:
-        console.print("[yellow]No chunks found in vector store[/yellow]")
-        console.print("[dim]Generate embeddings first with 'codexlens embeddings-generate'[/dim]")
+    # Collect all chunks from all distributed index databases
+    # Assign globally unique IDs to avoid collisions (each DB starts with ID 1)
+    console.print(f"[blue]Loading chunks from {len(all_index_dbs)} distributed indexes...[/blue]")
+    all_chunks = []  # (global_id, chunk) pairs
+    total_files_checked = 0
+    indexes_with_chunks = 0
+    global_id = 0  # Sequential global ID across all databases
+
+    for index_db in all_index_dbs:
+        total_files_checked += 1
+        try:
+            vector_store = VectorStore(index_db)
+            chunks = vector_store.get_all_chunks()
+            if chunks:
+                indexes_with_chunks += 1
+                # Assign sequential global IDs to avoid collisions
+                for chunk in chunks:
+                    global_id += 1
+                    all_chunks.append((global_id, chunk, index_db))
+                if verbose:
+                    console.print(f"  [dim]{index_db.parent.name}: {len(chunks)} chunks[/dim]")
+            vector_store.close()
+        except Exception as e:
+            if verbose:
+                console.print(f"  [yellow]Warning: Failed to read {index_db}: {e}[/yellow]")
+
+    if not all_chunks:
+        console.print("[yellow]No chunks found in any index database[/yellow]")
+        console.print(f"[dim]Checked {total_files_checked} index files, found 0 chunks[/dim]")
+        console.print("[dim]Generate embeddings first with 'codexlens embeddings-generate --recursive'[/dim]")
         raise typer.Exit(1)
 
-    console.print(f"[blue]Encoding {len(chunks)} chunks with SPLADE...[/blue]")
+    console.print(f"[blue]Found {len(all_chunks)} chunks across {indexes_with_chunks} indexes[/blue]")
+    console.print(f"[blue]Encoding with SPLADE...[/blue]")
 
     # Initialize SPLADE
     encoder = get_splade_encoder()
@@ -2525,6 +2565,7 @@ def splade_index_command(
     splade_index.create_tables()
 
     # Encode in batches with progress bar
+    chunk_metadata_batch = []
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -2533,11 +2574,30 @@ def splade_index_command(
         TimeElapsedColumn(),
         console=console,
     ) as progress:
-        task = progress.add_task("Encoding...", total=len(chunks))
-        for chunk in chunks:
+        task = progress.add_task("Encoding...", total=len(all_chunks))
+        for global_id, chunk, source_db_path in all_chunks:
             sparse_vec = encoder.encode_text(chunk.content)
-            splade_index.add_posting(chunk.id, sparse_vec)
+            splade_index.add_posting(global_id, sparse_vec)
+            # Store chunk metadata for self-contained search
+            # Serialize metadata dict to JSON string
+            metadata_str = None
+            if hasattr(chunk, 'metadata') and chunk.metadata:
+                try:
+                    metadata_str = json.dumps(chunk.metadata) if isinstance(chunk.metadata, dict) else chunk.metadata
+                except Exception:
+                    pass
+            chunk_metadata_batch.append((
+                global_id,
+                chunk.file_path or "",
+                chunk.content,
+                metadata_str,
+                str(source_db_path)
+            ))
             progress.advance(task)
+
+    # Batch insert chunk metadata
+    if chunk_metadata_batch:
+        splade_index.add_chunks_metadata_batch(chunk_metadata_batch)
 
     # Set metadata
     splade_index.set_metadata(
@@ -2546,7 +2606,8 @@ def splade_index_command(
     )
 
     stats = splade_index.get_stats()
-    console.print(f"[green]✓[/green] SPLADE index built: {stats['unique_chunks']} chunks, {stats['total_postings']} postings")
+    console.print(f"[green]OK[/green] SPLADE index built: {stats['unique_chunks']} chunks, {stats['total_postings']} postings")
+    console.print(f"  Source indexes: {indexes_with_chunks}")
     console.print(f"  Database: [dim]{splade_db}[/dim]")
 
 

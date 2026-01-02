@@ -102,21 +102,22 @@ class SpladeIndex:
     def create_tables(self) -> None:
         """Create SPLADE schema if not exists.
         
-        Note: The splade_posting_list table has a FOREIGN KEY constraint
-        referencing semantic_chunks(id). Ensure VectorStore.create_tables()
-        is called first to create the semantic_chunks table.
+        Note: When used with distributed indexes (multiple _index.db files),
+        the SPLADE database stores chunk IDs from multiple sources. In this case,
+        foreign key constraints are not enforced to allow cross-database references.
         """
         with self._lock:
             conn = self._get_connection()
             try:
                 # Inverted index for sparse vectors
+                # Note: No FOREIGN KEY constraint to support distributed index architecture
+                # where chunks may come from multiple _index.db files
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS splade_posting_list (
                         token_id INTEGER NOT NULL,
                         chunk_id INTEGER NOT NULL,
                         weight REAL NOT NULL,
-                        PRIMARY KEY (token_id, chunk_id),
-                        FOREIGN KEY (chunk_id) REFERENCES semantic_chunks(id) ON DELETE CASCADE
+                        PRIMARY KEY (token_id, chunk_id)
                     )
                 """)
                 
@@ -138,6 +139,18 @@ class SpladeIndex:
                         vocab_size INTEGER NOT NULL,
                         onnx_path TEXT,
                         created_at REAL
+                    )
+                """)
+
+                # Chunk metadata for self-contained search results
+                # Stores all chunk info needed to build SearchResult without querying _index.db
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS splade_chunks (
+                        id INTEGER PRIMARY KEY,
+                        file_path TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        metadata TEXT,
+                        source_db TEXT
                     )
                 """)
                 
@@ -233,6 +246,113 @@ class SpladeIndex:
                     db_path=str(self.db_path),
                     operation="add_postings_batch"
                 ) from e
+
+    def add_chunk_metadata(
+        self,
+        chunk_id: int,
+        file_path: str,
+        content: str,
+        metadata: Optional[str] = None,
+        source_db: Optional[str] = None
+    ) -> None:
+        """Store chunk metadata for self-contained search results.
+
+        Args:
+            chunk_id: Global chunk ID.
+            file_path: Path to source file.
+            content: Chunk text content.
+            metadata: JSON metadata string.
+            source_db: Path to source _index.db.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO splade_chunks
+                    (id, file_path, content, metadata, source_db)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (chunk_id, file_path, content, metadata, source_db)
+                )
+                conn.commit()
+            except sqlite3.Error as e:
+                raise StorageError(
+                    f"Failed to add chunk metadata for chunk_id={chunk_id}: {e}",
+                    db_path=str(self.db_path),
+                    operation="add_chunk_metadata"
+                ) from e
+
+    def add_chunks_metadata_batch(
+        self,
+        chunks: List[Tuple[int, str, str, Optional[str], Optional[str]]]
+    ) -> None:
+        """Batch insert chunk metadata.
+
+        Args:
+            chunks: List of (chunk_id, file_path, content, metadata, source_db) tuples.
+        """
+        if not chunks:
+            return
+
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                conn.executemany(
+                    """
+                    INSERT OR REPLACE INTO splade_chunks
+                    (id, file_path, content, metadata, source_db)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    chunks
+                )
+                conn.commit()
+                logger.debug("Batch inserted %d chunk metadata records", len(chunks))
+            except sqlite3.Error as e:
+                raise StorageError(
+                    f"Failed to batch insert chunk metadata: {e}",
+                    db_path=str(self.db_path),
+                    operation="add_chunks_metadata_batch"
+                ) from e
+
+    def get_chunks_by_ids(self, chunk_ids: List[int]) -> List[Dict]:
+        """Get chunk metadata by IDs.
+
+        Args:
+            chunk_ids: List of chunk IDs to retrieve.
+
+        Returns:
+            List of dicts with id, file_path, content, metadata, source_db.
+        """
+        if not chunk_ids:
+            return []
+
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                placeholders = ",".join("?" * len(chunk_ids))
+                rows = conn.execute(
+                    f"""
+                    SELECT id, file_path, content, metadata, source_db
+                    FROM splade_chunks
+                    WHERE id IN ({placeholders})
+                    """,
+                    chunk_ids
+                ).fetchall()
+
+                return [
+                    {
+                        "id": row["id"],
+                        "file_path": row["file_path"],
+                        "content": row["content"],
+                        "metadata": row["metadata"],
+                        "source_db": row["source_db"]
+                    }
+                    for row in rows
+                ]
+            except sqlite3.Error as e:
+                logger.error("Failed to get chunks by IDs: %s", e)
+                return []
     
     def remove_chunk(self, chunk_id: int) -> int:
         """Remove all postings for a chunk.

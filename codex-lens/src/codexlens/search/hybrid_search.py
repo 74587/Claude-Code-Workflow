@@ -655,9 +655,26 @@ class HybridSearchEngine:
             if not ok:
                 self.logger.debug("SPLADE not available: %s", err)
                 return []
-            
-            # Use main index database (SPLADE tables are in _index.db, not separate _splade.db)
-            splade_index = SpladeIndex(index_path)
+
+            # SPLADE index is stored in _splade.db at the project index root
+            # Traverse up from the current index to find the root _splade.db
+            current_dir = index_path.parent
+            splade_db_path = None
+            for _ in range(10):  # Limit search depth
+                candidate = current_dir / "_splade.db"
+                if candidate.exists():
+                    splade_db_path = candidate
+                    break
+                parent = current_dir.parent
+                if parent == current_dir:  # Reached root
+                    break
+                current_dir = parent
+
+            if not splade_db_path:
+                self.logger.debug("SPLADE index not found in ancestor directories of %s", index_path)
+                return []
+
+            splade_index = SpladeIndex(splade_db_path)
             if not splade_index.has_index():
                 self.logger.debug("SPLADE index not initialized")
                 return []
@@ -671,24 +688,14 @@ class HybridSearchEngine:
             
             if not raw_results:
                 return []
-            
-            # Fetch chunk details from main index database
+
+            # Fetch chunk details from splade_chunks table (self-contained)
             chunk_ids = [chunk_id for chunk_id, _ in raw_results]
             score_map = {chunk_id: score for chunk_id, score in raw_results}
-            
-            # Query semantic_chunks table for full details
-            placeholders = ",".join("?" * len(chunk_ids))
-            with sqlite3.connect(index_path) as conn:
-                conn.row_factory = sqlite3.Row
-                rows = conn.execute(
-                    f"""
-                    SELECT id, file_path, content, metadata
-                    FROM semantic_chunks
-                    WHERE id IN ({placeholders})
-                    """,
-                    chunk_ids
-                ).fetchall()
-            
+
+            # Get chunk metadata from SPLADE database
+            rows = splade_index.get_chunks_by_ids(chunk_ids)
+
             # Build SearchResult objects
             results = []
             for row in rows:
@@ -697,7 +704,7 @@ class HybridSearchEngine:
                 content = row["content"]
                 metadata_json = row["metadata"]
                 metadata = json.loads(metadata_json) if metadata_json else {}
-                
+
                 score = score_map.get(chunk_id, 0.0)
                 
                 # Build excerpt (short preview)

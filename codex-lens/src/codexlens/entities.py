@@ -36,6 +36,8 @@ class SemanticChunk(BaseModel):
     content: str = Field(..., min_length=1)
     embedding: Optional[List[float]] = Field(default=None, description="Vector embedding for semantic search")
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    id: Optional[int] = Field(default=None, description="Database row ID")
+    file_path: Optional[str] = Field(default=None, description="Source file path")
 
     @field_validator("embedding")
     @classmethod
