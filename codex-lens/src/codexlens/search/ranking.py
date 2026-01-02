@@ -9,7 +9,8 @@ from __future__ import annotations
 import re
 import math
 from enum import Enum
-from typing import Any, Dict, List
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from codexlens.entities import SearchResult, AdditionalLocation
 
@@ -130,6 +131,83 @@ def get_rrf_weights(
 ) -> Dict[str, float]:
     """Compute adaptive RRF weights from query intent."""
     return adjust_weights_by_intent(detect_query_intent(query), base_weights)
+
+
+# File extensions to category mapping for fast lookup
+_EXT_TO_CATEGORY: Dict[str, str] = {
+    # Code extensions
+    ".py": "code", ".js": "code", ".jsx": "code", ".ts": "code", ".tsx": "code",
+    ".java": "code", ".go": "code", ".zig": "code", ".m": "code", ".mm": "code",
+    ".c": "code", ".h": "code", ".cc": "code", ".cpp": "code", ".hpp": "code", ".cxx": "code",
+    ".rs": "code",
+    # Doc extensions
+    ".md": "doc", ".mdx": "doc", ".txt": "doc", ".rst": "doc",
+}
+
+
+def get_file_category(path: str) -> Optional[str]:
+    """Get file category ('code' or 'doc') from path extension.
+
+    Args:
+        path: File path string
+
+    Returns:
+        'code', 'doc', or None if unknown
+    """
+    ext = Path(path).suffix.lower()
+    return _EXT_TO_CATEGORY.get(ext)
+
+
+def filter_results_by_category(
+    results: List[SearchResult],
+    intent: QueryIntent,
+    allow_mixed: bool = True,
+) -> List[SearchResult]:
+    """Filter results by category based on query intent.
+
+    Strategy:
+    - KEYWORD (code intent): Only return code files
+    - SEMANTIC (doc intent): Prefer docs, but allow code if allow_mixed=True
+    - MIXED: Return all results
+
+    Args:
+        results: List of SearchResult objects
+        intent: Query intent from detect_query_intent()
+        allow_mixed: If True, SEMANTIC intent includes code files with lower priority
+
+    Returns:
+        Filtered and re-ranked list of SearchResult objects
+    """
+    if not results or intent == QueryIntent.MIXED:
+        return results
+
+    code_results = []
+    doc_results = []
+    unknown_results = []
+
+    for r in results:
+        category = get_file_category(r.path)
+        if category == "code":
+            code_results.append(r)
+        elif category == "doc":
+            doc_results.append(r)
+        else:
+            unknown_results.append(r)
+
+    if intent == QueryIntent.KEYWORD:
+        # Code intent: return only code files + unknown (might be code)
+        filtered = code_results + unknown_results
+    elif intent == QueryIntent.SEMANTIC:
+        if allow_mixed:
+            # Semantic intent with mixed: docs first, then code
+            filtered = doc_results + code_results + unknown_results
+        else:
+            # Semantic intent strict: only docs
+            filtered = doc_results + unknown_results
+    else:
+        filtered = results
+
+    return filtered
 
 
 def simple_weighted_fusion(

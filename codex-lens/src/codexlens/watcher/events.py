@@ -30,8 +30,22 @@ class WatcherConfig:
     """Configuration for file watcher."""
     debounce_ms: int = 1000
     ignored_patterns: Set[str] = field(default_factory=lambda: {
-        ".git", ".venv", "venv", "node_modules",
-        "__pycache__", ".codexlens", ".idea", ".vscode",
+        # Version control
+        ".git", ".svn", ".hg",
+        # Python environments & cache
+        ".venv", "venv", "env", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache",
+        # Node.js
+        "node_modules", "bower_components", ".npm", ".yarn",
+        # Build artifacts
+        "dist", "build", "out", "target", "bin", "obj", "_build", "coverage", "htmlcov",
+        # IDE & Editor
+        ".idea", ".vscode", ".vs", ".eclipse",
+        # CodexLens internal
+        ".codexlens",
+        # Package manager caches
+        ".cache", ".parcel-cache", ".turbo", ".next", ".nuxt",
+        # Logs & temp
+        "logs", "tmp", "temp",
     })
     languages: Optional[List[str]] = None  # None = all supported
 

@@ -35,8 +35,11 @@ from codexlens.entities import SearchResult
 from codexlens.search.ranking import (
     DEFAULT_WEIGHTS,
     FTS_FALLBACK_WEIGHTS,
+    QueryIntent,
     apply_symbol_boost,
     cross_encoder_rerank,
+    detect_query_intent,
+    filter_results_by_category,
     get_rrf_weights,
     reciprocal_rank_fusion,
     rerank_results,
@@ -131,6 +134,16 @@ class HybridSearchEngine:
         except OSError:
             return []
 
+        # Detect query intent early for category filtering at index level
+        query_intent = detect_query_intent(query)
+        # Map intent to category for vector search:
+        # - KEYWORD (code intent) -> filter to 'code' only
+        # - SEMANTIC (doc intent) -> no filter (allow docs to surface)
+        # - MIXED -> no filter (allow all)
+        vector_category: Optional[str] = None
+        if query_intent == QueryIntent.KEYWORD:
+            vector_category = "code"
+
         # Determine which backends to use
         backends = {}
         
@@ -183,7 +196,7 @@ class HybridSearchEngine:
 
         # Execute parallel searches
         with timer("parallel_search_total", self.logger):
-            results_map = self._search_parallel(index_path, query, backends, limit)
+            results_map = self._search_parallel(index_path, query, backends, limit, vector_category)
 
         # Provide helpful message if pure-vector mode returns no results
         if pure_vector and enable_vector and len(results_map.get("vector", [])) == 0:
@@ -262,6 +275,19 @@ class HybridSearchEngine:
                         self.reranker,
                         top_k=self._config.reranker_top_k,
                     )
+
+        # Apply category filtering to avoid code/doc pollution
+        # This ensures KEYWORD queries return code files, SEMANTIC queries prefer docs
+        enable_category_filter = (
+            self._config is None
+            or getattr(self._config, 'enable_category_filter', True)
+        )
+        if enable_category_filter and not pure_vector:
+            with timer("category_filter", self.logger):
+                query_intent = detect_query_intent(query)
+                fused_results = filter_results_by_category(
+                    fused_results, query_intent, allow_mixed=True
+                )
 
         # Apply final limit
         return fused_results[:limit]
@@ -361,6 +387,7 @@ class HybridSearchEngine:
         query: str,
         backends: Dict[str, bool],
         limit: int,
+        category: Optional[str] = None,
     ) -> Dict[str, List[SearchResult]]:
         """Execute parallel searches across enabled backends.
 
@@ -369,6 +396,7 @@ class HybridSearchEngine:
             query: FTS5 query string
             backends: Dictionary of backend name to enabled flag
             limit: Results limit per backend
+            category: Optional category filter for vector search ('code' or 'doc')
 
         Returns:
             Dictionary mapping source name to results list
@@ -399,7 +427,7 @@ class HybridSearchEngine:
             if backends.get("vector"):
                 submit_times["vector"] = time.perf_counter()
                 future = executor.submit(
-                    self._search_vector, index_path, query, limit
+                    self._search_vector, index_path, query, limit, category
                 )
                 future_to_source[future] = "vector"
 
@@ -490,7 +518,7 @@ class HybridSearchEngine:
             return []
 
     def _search_vector(
-        self, index_path: Path, query: str, limit: int
+        self, index_path: Path, query: str, limit: int, category: Optional[str] = None
     ) -> List[SearchResult]:
         """Execute vector similarity search using semantic embeddings.
 
@@ -498,6 +526,7 @@ class HybridSearchEngine:
             index_path: Path to _index.db file
             query: Natural language query string
             limit: Maximum results
+            category: Optional category filter ('code' or 'doc')
 
         Returns:
             List of SearchResult objects ordered by semantic similarity
@@ -616,6 +645,7 @@ class HybridSearchEngine:
                 top_k=limit,
                 min_score=0.0,  # Return all results, let RRF handle filtering
                 return_full_content=True,
+                category=category,
             )
             self.logger.debug(
                 "[TIMING] vector_similarity_search: %.2fms (%d results)",

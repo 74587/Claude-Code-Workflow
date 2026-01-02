@@ -155,12 +155,17 @@ class VectorStore:
                     content TEXT NOT NULL,
                     embedding BLOB NOT NULL,
                     metadata TEXT,
+                    category TEXT DEFAULT 'code',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_chunks_file
                 ON semantic_chunks(file_path)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_chunks_category
+                ON semantic_chunks(category)
             """)
             # Model configuration table - tracks which model generated the embeddings
             conn.execute("""
@@ -177,6 +182,8 @@ class VectorStore:
 
             # Migration: Add backend column to existing tables
             self._migrate_backend_column(conn)
+            # Migration: Add category column
+            self._migrate_category_column(conn)
 
             conn.commit()
 
@@ -195,6 +202,28 @@ class VectorStore:
             conn.execute("""
                 ALTER TABLE embeddings_config
                 ADD COLUMN backend TEXT NOT NULL DEFAULT 'fastembed'
+            """)
+
+    def _migrate_category_column(self, conn: sqlite3.Connection) -> None:
+        """Add category column to existing semantic_chunks table if not present.
+
+        Args:
+            conn: Active SQLite connection
+        """
+        # Check if category column exists
+        cursor = conn.execute("PRAGMA table_info(semantic_chunks)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+        if 'category' not in columns:
+            logger.info("Migrating semantic_chunks table: adding category column")
+            conn.execute("""
+                ALTER TABLE semantic_chunks
+                ADD COLUMN category TEXT DEFAULT 'code'
+            """)
+            # Create index for fast category filtering
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_chunks_category
+                ON semantic_chunks(category)
             """)
 
     def _init_ann_index(self) -> None:
@@ -390,8 +419,15 @@ class VectorStore:
                 self._ann_index = None
                 return False
 
-    def add_chunk(self, chunk: SemanticChunk, file_path: str) -> int:
+    def add_chunk(
+        self, chunk: SemanticChunk, file_path: str, category: str = "code"
+    ) -> int:
         """Add a single chunk with its embedding.
+
+        Args:
+            chunk: SemanticChunk with embedding
+            file_path: Path to the source file
+            category: File category ('code' or 'doc'), default 'code'
 
         Returns:
             The inserted chunk ID.
@@ -406,10 +442,10 @@ class VectorStore:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
                 """
-                INSERT INTO semantic_chunks (file_path, content, embedding, metadata)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO semantic_chunks (file_path, content, embedding, metadata, category)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (file_path, chunk.content, embedding_blob, metadata_json)
+                (file_path, chunk.content, embedding_blob, metadata_json, category)
             )
             conn.commit()
             chunk_id = cursor.lastrowid or 0
@@ -427,8 +463,15 @@ class VectorStore:
         self._invalidate_cache()
         return chunk_id
 
-    def add_chunks(self, chunks: List[SemanticChunk], file_path: str) -> List[int]:
+    def add_chunks(
+        self, chunks: List[SemanticChunk], file_path: str, category: str = "code"
+    ) -> List[int]:
         """Add multiple chunks with embeddings (batch insert).
+
+        Args:
+            chunks: List of SemanticChunk objects with embeddings
+            file_path: Path to the source file
+            category: File category ('code' or 'doc'), default 'code'
 
         Returns:
             List of inserted chunk IDs.
@@ -445,7 +488,7 @@ class VectorStore:
             embedding_arr = np.array(chunk.embedding, dtype=np.float32)
             embedding_blob = embedding_arr.tobytes()
             metadata_json = json.dumps(chunk.metadata) if chunk.metadata else None
-            batch_data.append((file_path, chunk.content, embedding_blob, metadata_json))
+            batch_data.append((file_path, chunk.content, embedding_blob, metadata_json, category))
             embeddings_list.append(embedding_arr)
 
         # Batch insert to SQLite
@@ -456,8 +499,8 @@ class VectorStore:
 
             conn.executemany(
                 """
-                INSERT INTO semantic_chunks (file_path, content, embedding, metadata)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO semantic_chunks (file_path, content, embedding, metadata, category)
+                VALUES (?, ?, ?, ?, ?)
                 """,
                 batch_data
             )
@@ -484,6 +527,7 @@ class VectorStore:
         chunks_with_paths: List[Tuple[SemanticChunk, str]],
         update_ann: bool = True,
         auto_save_ann: bool = True,
+        categories: Optional[List[str]] = None,
     ) -> List[int]:
         """Batch insert chunks from multiple files in a single transaction.
 
@@ -494,6 +538,8 @@ class VectorStore:
             update_ann: If True, update ANN index with new vectors (default: True)
             auto_save_ann: If True, save ANN index after update (default: True).
                           Set to False for bulk inserts to reduce I/O overhead.
+            categories: Optional list of categories per chunk. If None, defaults to 'code'.
+                       If provided, must match length of chunks_with_paths.
 
         Returns:
             List of inserted chunk IDs
@@ -503,10 +549,17 @@ class VectorStore:
 
         batch_size = len(chunks_with_paths)
 
+        # Validate categories if provided
+        if categories is not None and len(categories) != batch_size:
+            raise ValueError(
+                f"categories length ({len(categories)}) must match "
+                f"chunks_with_paths length ({batch_size})"
+            )
+
         # Prepare batch data
         batch_data = []
         embeddings_list = []
-        for chunk, file_path in chunks_with_paths:
+        for i, (chunk, file_path) in enumerate(chunks_with_paths):
             if chunk.embedding is None:
                 raise ValueError("All chunks must have embeddings")
             # Optimize: avoid repeated np.array() if already numpy
@@ -516,7 +569,8 @@ class VectorStore:
                 embedding_arr = np.array(chunk.embedding, dtype=np.float32)
             embedding_blob = embedding_arr.tobytes()
             metadata_json = json.dumps(chunk.metadata) if chunk.metadata else None
-            batch_data.append((file_path, chunk.content, embedding_blob, metadata_json))
+            category = categories[i] if categories else "code"
+            batch_data.append((file_path, chunk.content, embedding_blob, metadata_json, category))
             embeddings_list.append(embedding_arr)
 
         # Batch insert to SQLite in single transaction
@@ -529,8 +583,8 @@ class VectorStore:
 
             conn.executemany(
                 """
-                INSERT INTO semantic_chunks (file_path, content, embedding, metadata)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO semantic_chunks (file_path, content, embedding, metadata, category)
+                VALUES (?, ?, ?, ?, ?)
                 """,
                 batch_data
             )
@@ -565,6 +619,7 @@ class VectorStore:
         embeddings_matrix: np.ndarray,
         update_ann: bool = True,
         auto_save_ann: bool = True,
+        categories: Optional[List[str]] = None,
     ) -> List[int]:
         """Batch insert chunks with pre-computed numpy embeddings matrix.
 
@@ -576,6 +631,7 @@ class VectorStore:
             embeddings_matrix: Pre-computed embeddings as (N, D) numpy array
             update_ann: If True, update ANN index with new vectors (default: True)
             auto_save_ann: If True, save ANN index after update (default: True)
+            categories: Optional list of categories per chunk. If None, defaults to 'code'.
 
         Returns:
             List of inserted chunk IDs
@@ -591,6 +647,13 @@ class VectorStore:
                 f"{embeddings_matrix.shape[0]} embeddings"
             )
 
+        # Validate categories if provided
+        if categories is not None and len(categories) != batch_size:
+            raise ValueError(
+                f"categories length ({len(categories)}) must match "
+                f"chunks_with_paths length ({batch_size})"
+            )
+
         # Ensure float32 format
         embeddings_matrix = embeddings_matrix.astype(np.float32)
 
@@ -600,7 +663,8 @@ class VectorStore:
             embedding_arr = embeddings_matrix[i]
             embedding_blob = embedding_arr.tobytes()
             metadata_json = json.dumps(chunk.metadata) if chunk.metadata else None
-            batch_data.append((file_path, chunk.content, embedding_blob, metadata_json))
+            category = categories[i] if categories else "code"
+            batch_data.append((file_path, chunk.content, embedding_blob, metadata_json, category))
 
         # Batch insert to SQLite in single transaction
         with sqlite3.connect(self.db_path) as conn:
@@ -612,8 +676,8 @@ class VectorStore:
 
             conn.executemany(
                 """
-                INSERT INTO semantic_chunks (file_path, content, embedding, metadata)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO semantic_chunks (file_path, content, embedding, metadata, category)
+                VALUES (?, ?, ?, ?, ?)
                 """,
                 batch_data
             )
@@ -765,6 +829,7 @@ class VectorStore:
         top_k: int = 10,
         min_score: float = 0.0,
         return_full_content: bool = True,
+        category: Optional[str] = None,
     ) -> List[SearchResult]:
         """Find chunks most similar to query embedding.
 
@@ -776,6 +841,7 @@ class VectorStore:
             top_k: Maximum results to return.
             min_score: Minimum cosine similarity score in [0.0, 1.0].
             return_full_content: If True, return full code block content.
+            category: Optional category filter ('code' or 'doc'). If None, returns all.
 
         Returns:
             List of SearchResult ordered by similarity (highest first).
@@ -796,14 +862,14 @@ class VectorStore:
         ):
             try:
                 return self._search_with_ann(
-                    query_vec, top_k, min_score, return_full_content
+                    query_vec, top_k, min_score, return_full_content, category
                 )
             except Exception as e:
                 logger.warning("ANN search failed, falling back to brute-force: %s", e)
 
         # Fallback to brute-force search (O(N))
         return self._search_brute_force(
-            query_vec, top_k, min_score, return_full_content
+            query_vec, top_k, min_score, return_full_content, category
         )
 
     def _search_with_ann(
@@ -812,6 +878,7 @@ class VectorStore:
         top_k: int,
         min_score: float,
         return_full_content: bool,
+        category: Optional[str] = None,
     ) -> List[SearchResult]:
         """Search using HNSW index (O(log N)).
 
@@ -820,13 +887,16 @@ class VectorStore:
             top_k: Maximum results to return
             min_score: Minimum cosine similarity score in [0.0, 1.0]
             return_full_content: If True, return full code block content
+            category: Optional category filter ('code' or 'doc')
 
         Returns:
             List of SearchResult ordered by similarity (highest first)
         """
         # Limit top_k to available vectors to prevent hnswlib error
         ann_count = self._ann_index.count()
-        effective_top_k = min(top_k, ann_count) if ann_count > 0 else 0
+        # When category filtering, fetch more candidates to compensate for filtering
+        fetch_k = top_k * 3 if category else top_k
+        effective_top_k = min(fetch_k, ann_count) if ann_count > 0 else 0
 
         if effective_top_k == 0:
             return []
@@ -875,8 +945,12 @@ class VectorStore:
         top_ids = [f[0] for f in filtered]
         top_scores = [f[1] for f in filtered]
 
-        # Fetch content from SQLite
-        return self._fetch_results_by_ids(top_ids, top_scores, return_full_content)
+        # Fetch content from SQLite with category filtering
+        results = self._fetch_results_by_ids(
+            top_ids, top_scores, return_full_content, category
+        )
+        # Apply final limit after category filtering
+        return results[:top_k]
 
     def _search_brute_force(
         self,
@@ -884,6 +958,7 @@ class VectorStore:
         top_k: int,
         min_score: float,
         return_full_content: bool,
+        category: Optional[str] = None,
     ) -> List[SearchResult]:
         """Brute-force search using NumPy (O(N) fallback).
 
@@ -892,6 +967,7 @@ class VectorStore:
             top_k: Maximum results to return
             min_score: Minimum cosine similarity score in [0.0, 1.0]
             return_full_content: If True, return full code block content
+            category: Optional category filter ('code' or 'doc')
 
         Returns:
             List of SearchResult ordered by similarity (highest first)
@@ -926,27 +1002,31 @@ class VectorStore:
             if len(valid_indices) == 0:
                 return []
 
-            # Sort by score descending and take top_k
+            # When category filtering, fetch more candidates to compensate for filtering
+            fetch_k = top_k * 3 if category else top_k
+
+            # Sort by score descending and take top candidates
             valid_scores = scores[valid_indices]
-            sorted_order = np.argsort(valid_scores)[::-1][:top_k]
+            sorted_order = np.argsort(valid_scores)[::-1][:fetch_k]
             top_indices = valid_indices[sorted_order]
             top_scores = valid_scores[sorted_order]
 
             # Get chunk IDs for top results
             top_ids = [self._chunk_ids[i] for i in top_indices]
 
-        # Fetch content only for top-k results (lazy loading)
+        # Fetch content only for top-k results (lazy loading) with category filtering
         results = self._fetch_results_by_ids(
-            top_ids, top_scores.tolist(), return_full_content
+            top_ids, top_scores.tolist(), return_full_content, category
         )
-
-        return results
+        # Apply final limit after category filtering
+        return results[:top_k]
 
     def _fetch_results_by_ids(
         self,
         chunk_ids: List[int],
         scores: List[float],
         return_full_content: bool,
+        category: Optional[str] = None,
     ) -> List[SearchResult]:
         """Fetch full result data for specific chunk IDs.
 
@@ -954,6 +1034,7 @@ class VectorStore:
             chunk_ids: List of chunk IDs to fetch.
             scores: Corresponding similarity scores.
             return_full_content: Whether to include full content.
+            category: Optional category filter ('code' or 'doc').
 
         Returns:
             List of SearchResult objects.
@@ -968,15 +1049,25 @@ class VectorStore:
         # SQL injection prevention:
         # - Only a validated placeholders string (commas + '?') is interpolated into the query.
         # - User-provided values are passed separately via sqlite3 parameters.
-        query = """
-            SELECT id, file_path, content, metadata
-            FROM semantic_chunks
-            WHERE id IN ({placeholders})
-        """.format(placeholders=placeholders)
+        # - Category filter is added as a separate parameter
+        if category:
+            query = """
+                SELECT id, file_path, content, metadata
+                FROM semantic_chunks
+                WHERE id IN ({placeholders}) AND category = ?
+            """.format(placeholders=placeholders)
+            params = list(chunk_ids) + [category]
+        else:
+            query = """
+                SELECT id, file_path, content, metadata
+                FROM semantic_chunks
+                WHERE id IN ({placeholders})
+            """.format(placeholders=placeholders)
+            params = chunk_ids
 
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("PRAGMA mmap_size = 30000000000")
-            rows = conn.execute(query, chunk_ids).fetchall()
+            rows = conn.execute(query, params).fetchall()
 
         # Build ID -> row mapping
         id_to_row = {r[0]: r for r in rows}

@@ -17,11 +17,41 @@ except ImportError:
     def is_embedding_backend_available(_backend: str):  # type: ignore[no-redef]
         return False, "codexlens.semantic not available"
 
+try:
+    from codexlens.search.ranking import get_file_category
+except ImportError:
+    def get_file_category(path: str):  # type: ignore[no-redef]
+        """Fallback: map common extensions to category."""
+        ext = Path(path).suffix.lower()
+        code_exts = {".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".go", ".c", ".cpp", ".rs"}
+        doc_exts = {".md", ".mdx", ".txt", ".rst"}
+        if ext in code_exts:
+            return "code"
+        elif ext in doc_exts:
+            return "doc"
+        return None
+
 logger = logging.getLogger(__name__)
 
 # Embedding batch size - larger values improve throughput on modern hardware
 # Benchmark: 256 gives ~2.35x speedup over 64 with DirectML GPU acceleration
 EMBEDDING_BATCH_SIZE = 256
+
+
+def _build_categories_from_batch(chunk_batch: List[Tuple[Any, str]]) -> List[str]:
+    """Build categories list from chunk batch for index-level category filtering.
+
+    Args:
+        chunk_batch: List of (chunk, file_path) tuples
+
+    Returns:
+        List of category strings ('code' or 'doc'), defaulting to 'code' for unknown
+    """
+    categories = []
+    for _, file_path in chunk_batch:
+        cat = get_file_category(file_path)
+        categories.append(cat if cat else "code")  # Default to 'code' for unknown extensions
+    return categories
 
 
 def _cleanup_fastembed_resources() -> None:
@@ -577,8 +607,9 @@ def generate_embeddings(
                                     batch_contents = [chunk.content for chunk, _ in chunk_batch]
                                     embeddings_numpy = embedder.embed_to_numpy(batch_contents, batch_size=EMBEDDING_BATCH_SIZE)
 
-                                    # Store embeddings
-                                    vector_store.add_chunks_batch_numpy(chunk_batch, embeddings_numpy)
+                                    # Store embeddings with category
+                                    categories = _build_categories_from_batch(chunk_batch)
+                                    vector_store.add_chunks_batch_numpy(chunk_batch, embeddings_numpy, categories=categories)
 
                                     files_seen.update(batch_files)
                                     total_chunks_created += len(chunk_batch)
@@ -630,7 +661,8 @@ def generate_embeddings(
                                         batch_num, chunk_batch, embeddings_numpy, batch_files, error = f.result()
                                         if embeddings_numpy is not None and error is None:
                                             # Write to DB in main thread (no contention)
-                                            vector_store.add_chunks_batch_numpy(chunk_batch, embeddings_numpy)
+                                            categories = _build_categories_from_batch(chunk_batch)
+                                            vector_store.add_chunks_batch_numpy(chunk_batch, embeddings_numpy, categories=categories)
                                             total_chunks_created += len(chunk_batch)
                                         files_seen.update(batch_files)
                                         total_files_processed = len(files_seen)
@@ -667,7 +699,8 @@ def generate_embeddings(
                                 try:
                                     batch_num, chunk_batch, embeddings_numpy, batch_files, error = future.result()
                                     if embeddings_numpy is not None and error is None:
-                                        vector_store.add_chunks_batch_numpy(chunk_batch, embeddings_numpy)
+                                        categories = _build_categories_from_batch(chunk_batch)
+                                        vector_store.add_chunks_batch_numpy(chunk_batch, embeddings_numpy, categories=categories)
                                         total_chunks_created += len(chunk_batch)
                                     files_seen.update(batch_files)
                                     total_files_processed = len(files_seen)

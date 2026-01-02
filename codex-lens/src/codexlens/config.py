@@ -67,15 +67,21 @@ class Config:
     venv_path: Path = field(default_factory=lambda: _default_global_dir() / "venv")
     supported_languages: Dict[str, Dict[str, Any]] = field(
         default_factory=lambda: {
-            "python": {"extensions": [".py"], "tree_sitter_language": "python"},
-            "javascript": {"extensions": [".js", ".jsx"], "tree_sitter_language": "javascript"},
-            "typescript": {"extensions": [".ts", ".tsx"], "tree_sitter_language": "typescript"},
-            "java": {"extensions": [".java"], "tree_sitter_language": "java"},
-            "go": {"extensions": [".go"], "tree_sitter_language": "go"},
-            "zig": {"extensions": [".zig"], "tree_sitter_language": "zig"},
-            "objective-c": {"extensions": [".m", ".mm"], "tree_sitter_language": "objc"},
-            "markdown": {"extensions": [".md", ".mdx"], "tree_sitter_language": None},
-            "text": {"extensions": [".txt"], "tree_sitter_language": None},
+            # Source code languages (category: "code")
+            "python": {"extensions": [".py"], "tree_sitter_language": "python", "category": "code"},
+            "javascript": {"extensions": [".js", ".jsx"], "tree_sitter_language": "javascript", "category": "code"},
+            "typescript": {"extensions": [".ts", ".tsx"], "tree_sitter_language": "typescript", "category": "code"},
+            "java": {"extensions": [".java"], "tree_sitter_language": "java", "category": "code"},
+            "go": {"extensions": [".go"], "tree_sitter_language": "go", "category": "code"},
+            "zig": {"extensions": [".zig"], "tree_sitter_language": "zig", "category": "code"},
+            "objective-c": {"extensions": [".m", ".mm"], "tree_sitter_language": "objc", "category": "code"},
+            "c": {"extensions": [".c", ".h"], "tree_sitter_language": "c", "category": "code"},
+            "cpp": {"extensions": [".cc", ".cpp", ".hpp", ".cxx"], "tree_sitter_language": "cpp", "category": "code"},
+            "rust": {"extensions": [".rs"], "tree_sitter_language": "rust", "category": "code"},
+            # Documentation languages (category: "doc")
+            "markdown": {"extensions": [".md", ".mdx"], "tree_sitter_language": None, "category": "doc"},
+            "text": {"extensions": [".txt"], "tree_sitter_language": None, "category": "doc"},
+            "rst": {"extensions": [".rst"], "tree_sitter_language": None, "category": "doc"},
         }
     )
     parsing_rules: Dict[str, Dict[str, Any]] = field(
@@ -140,6 +146,9 @@ class Config:
     # RRF fusion configuration
     fusion_method: str = "rrf"  # "simple" (weighted sum) or "rrf" (reciprocal rank fusion)
     rrf_k: int = 60  # RRF constant (default 60)
+
+    # Category-based filtering to separate code/doc results
+    enable_category_filter: bool = True  # Enable code/doc result separation
 
     # Multi-endpoint configuration for litellm backend
     embedding_endpoints: List[Dict[str, Any]] = field(default_factory=list)
@@ -209,6 +218,14 @@ class Config:
             if extension in extensions:
                 return language_id
         return None
+
+    def category_for_path(self, path: str | Path) -> str | None:
+        """Get file category ('code' or 'doc') from a file path."""
+        language = self.language_for_path(path)
+        if language is None:
+            return None
+        spec = self.supported_languages.get(language, {})
+        return spec.get("category")
 
     def rules_for_language(self, language_id: str) -> Dict[str, Any]:
         """Get parsing rules for a specific language, falling back to defaults."""
