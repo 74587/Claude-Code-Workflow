@@ -693,8 +693,10 @@ class HybridSearchEngine:
                     vectors_meta_path, chunk_ids, score_map, category
                 )
             except Exception as e:
-                self.logger.debug(
-                    "Centralized metadata lookup failed, falling back: %s", e
+                self.logger.warning(
+                    "Centralized metadata lookup failed, falling back to legacy traversal: %s. "
+                    "Consider regenerating embeddings with: codexlens embeddings-generate --centralized",
+                    e
                 )
 
         # Fallback: traverse _index.db files (legacy path)

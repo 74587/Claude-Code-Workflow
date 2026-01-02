@@ -1990,12 +1990,6 @@ def embeddings_generate(
         "--chunk-size",
         help="Maximum chunk size in characters.",
     ),
-    recursive: bool = typer.Option(
-        False,
-        "--recursive",
-        "-r",
-        help="Recursively process all _index.db files in directory tree.",
-    ),
     max_workers: int = typer.Option(
         1,
         "--max-workers",
@@ -2049,7 +2043,6 @@ def embeddings_generate(
 
     from codexlens.cli.embedding_manager import (
         generate_embeddings,
-        generate_embeddings_recursive,
         generate_dense_embeddings_centralized,
         scan_for_model_conflicts,
         check_global_model_lock,
@@ -2070,25 +2063,21 @@ def embeddings_generate(
     # Resolve path
     target_path = path.expanduser().resolve()
 
-    # Determine if we should use recursive mode
-    use_recursive = False
+    # Determine index path or root for centralized mode
     index_path = None
     index_root = None
 
     if target_path.is_file() and target_path.name == "_index.db":
         # Direct index file
         index_path = target_path
-        if recursive:
-            # Use parent directory for recursive processing
-            use_recursive = True
-            index_root = target_path.parent
+        index_root = target_path.parent
     elif target_path.is_dir():
-        if recursive:
-            # Recursive mode: process all _index.db files in directory tree
-            use_recursive = True
+        # Directory: Try to find index for this project
+        if centralized:
+            # Centralized mode uses directory as root
             index_root = target_path
         else:
-            # Non-recursive: Try to find index for this project
+            # Single index mode: find the specific index
             registry = RegistryStore()
             try:
                 registry.initialize()
@@ -2099,6 +2088,7 @@ def embeddings_generate(
                     console.print(f"[red]Error:[/red] No index found for {target_path}")
                     console.print("Run 'codexlens init' first to create an index")
                     raise typer.Exit(code=1)
+                index_root = index_path.parent
             finally:
                 registry.close()
     else:
@@ -2115,9 +2105,6 @@ def embeddings_generate(
         effective_root = index_root if index_root else (index_path.parent if index_path else target_path)
         console.print(f"Index root: [dim]{effective_root}[/dim]")
         console.print(f"Mode: [green]Centralized[/green]")
-    elif use_recursive:
-        console.print(f"Index root: [dim]{index_root}[/dim]")
-        console.print(f"Mode: [yellow]Recursive[/yellow]")
     else:
         console.print(f"Index: [dim]{index_path}[/dim]")
     console.print(f"Backend: [cyan]{backend}[/cyan]")
@@ -2154,7 +2141,7 @@ def embeddings_generate(
     # Pre-check for model conflicts (only if not forcing)
     if not force:
         # Determine the index root for conflict scanning
-        scan_root = index_root if use_recursive else (index_path.parent if index_path else None)
+        scan_root = index_root if index_root else (index_path.parent if index_path else None)
 
         if scan_root:
             conflict_result = scan_for_model_conflicts(scan_root, backend, model)
@@ -2208,16 +2195,6 @@ def embeddings_generate(
             progress_callback=progress_update,
             max_workers=max_workers,
         )
-    elif use_recursive:
-        result = generate_embeddings_recursive(
-            index_root,
-            embedding_backend=backend,
-            model_profile=model,
-            force=force,
-            chunk_size=chunk_size,
-            progress_callback=progress_update,
-            max_workers=max_workers,
-        )
     else:
         result = generate_embeddings(
             index_path,
@@ -2257,7 +2234,7 @@ def embeddings_generate(
         if centralized:
             # Centralized mode output
             elapsed = data.get("elapsed_time", 0)
-            console.print(f"[green]✓[/green] Centralized embeddings generated successfully!")
+            console.print(f"[green]v[/green] Centralized embeddings generated successfully!")
             console.print(f"  Model: {data.get('model_name', model)}")
             console.print(f"  Chunks created: {data['chunks_created']:,}")
             console.print(f"  Files processed: {data['files_processed']}")
@@ -2265,32 +2242,11 @@ def embeddings_generate(
                 console.print(f"  [yellow]Files failed: {data['files_failed']}[/yellow]")
             console.print(f"  Central index: {data.get('central_index_path', 'N/A')}")
             console.print(f"  Time: {elapsed:.1f}s")
-        elif use_recursive:
-            # Recursive mode output
-            console.print(f"[green]✓[/green] Recursive embeddings generation complete!")
-            console.print(f"  Indexes processed: {data['indexes_processed']}")
-            console.print(f"  Indexes successful: {data['indexes_successful']}")
-            if data['indexes_failed'] > 0:
-                console.print(f"  [yellow]Indexes failed: {data['indexes_failed']}[/yellow]")
-            console.print(f"  Total chunks created: {data['total_chunks_created']:,}")
-            console.print(f"  Total files processed: {data['total_files_processed']}")
-            if data['total_files_failed'] > 0:
-                console.print(f"  [yellow]Total files failed: {data['total_files_failed']}[/yellow]")
-            console.print(f"  Model profile: {data['model_profile']}")
-
-            # Show details if verbose
-            if verbose and data.get('details'):
-                console.print("\n[dim]Index details:[/dim]")
-                for detail in data['details']:
-                    status_icon = "[green]✓[/green]" if detail['success'] else "[red]✗[/red]"
-                    console.print(f"  {status_icon} {detail['path']}")
-                    if not detail['success'] and detail.get('error'):
-                        console.print(f"    [dim]Error: {detail['error']}[/dim]")
         else:
             # Single index mode output
             elapsed = data["elapsed_time"]
 
-            console.print(f"[green]✓[/green] Embeddings generated successfully!")
+            console.print(f"[green]v[/green] Embeddings generated successfully!")
             console.print(f"  Model: {data['model_name']}")
             console.print(f"  Chunks created: {data['chunks_created']:,}")
             console.print(f"  Files processed: {data['files_processed']}")

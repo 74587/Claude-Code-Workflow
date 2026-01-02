@@ -17,8 +17,8 @@ Usage:
     # Use specific embedding model
     python generate_embeddings.py /path/to/_index.db --model code
 
-    # Generate embeddings for all indexes in a directory
-    python generate_embeddings.py --scan ~/.codexlens/indexes
+    # Generate centralized embeddings for all indexes in a directory
+    python generate_embeddings.py --centralized ~/.codexlens/indexes
 
     # Force regeneration
     python generate_embeddings.py /path/to/_index.db --force
@@ -27,8 +27,8 @@ Usage:
 import argparse
 import logging
 import sys
+import warnings
 from pathlib import Path
-from typing import List
 
 # Configure logging
 logging.basicConfig(
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 try:
     from codexlens.cli.embedding_manager import (
         generate_embeddings,
-        generate_embeddings_recursive,
+        generate_dense_embeddings_centralized,
     )
     from codexlens.semantic import SEMANTIC_AVAILABLE
 except ImportError as exc:
@@ -135,13 +135,20 @@ def main():
     parser.add_argument(
         "index_path",
         type=Path,
-        help="Path to _index.db file or directory to scan"
+        help="Path to _index.db file or directory for centralized mode"
+    )
+
+    parser.add_argument(
+        "--centralized",
+        "-c",
+        action="store_true",
+        help="Use centralized vector storage (single HNSW index at project root)"
     )
 
     parser.add_argument(
         "--scan",
         action="store_true",
-        help="Scan directory tree for all _index.db files"
+        help="(Deprecated) Use --centralized instead"
     )
 
     parser.add_argument(
@@ -203,14 +210,25 @@ def main():
         logger.error(f"Path not found: {index_path}")
         sys.exit(1)
 
-    # Determine if scanning or single file
-    if args.scan or index_path.is_dir():
-        # Scan mode - use recursive implementation
+    # Handle deprecated --scan flag
+    use_centralized = args.centralized
+    if args.scan:
+        warnings.warn(
+            "--scan is deprecated, use --centralized instead",
+            DeprecationWarning
+        )
+        logger.warning("--scan is deprecated. Use --centralized instead.")
+        use_centralized = True
+
+    # Determine if using centralized mode or single file
+    if use_centralized or index_path.is_dir():
+        # Centralized mode - single HNSW index at project root
         if index_path.is_file():
-            logger.error("--scan requires a directory path")
+            logger.error("--centralized requires a directory path")
             sys.exit(1)
 
-        result = generate_embeddings_recursive(
+        logger.info(f"Generating centralized embeddings for: {index_path}")
+        result = generate_dense_embeddings_centralized(
             index_root=index_path,
             model_profile=args.model,
             force=args.force,
@@ -225,13 +243,14 @@ def main():
         # Log summary
         data = result["result"]
         logger.info(f"\n{'='*60}")
-        logger.info("BATCH PROCESSING COMPLETE")
+        logger.info("CENTRALIZED EMBEDDING COMPLETE")
         logger.info(f"{'='*60}")
-        logger.info(f"Indexes processed: {data['indexes_successful']}/{data['indexes_processed']}")
-        logger.info(f"Total chunks created: {data['total_chunks_created']}")
-        logger.info(f"Total files processed: {data['total_files_processed']}")
-        if data['total_files_failed'] > 0:
-            logger.warning(f"Total files failed: {data['total_files_failed']}")
+        logger.info(f"Total chunks created: {data['chunks_created']}")
+        logger.info(f"Total files processed: {data['files_processed']}")
+        if data.get('files_failed', 0) > 0:
+            logger.warning(f"Total files failed: {data['files_failed']}")
+        logger.info(f"Central index: {data.get('central_index_path', 'N/A')}")
+        logger.info(f"Time: {data.get('elapsed_time', 0):.1f}s")
 
     else:
         # Single index mode
@@ -250,7 +269,7 @@ def main():
             logger.error(f"Failed: {result.get('error', 'Unknown error')}")
             sys.exit(1)
 
-    logger.info("\n✓ Embeddings generation complete!")
+    logger.info("\nv Embeddings generation complete!")
     logger.info("\nYou can now use vector search:")
     logger.info("  codexlens search 'your query' --mode pure-vector")
 

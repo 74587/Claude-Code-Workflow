@@ -282,10 +282,27 @@ def get_optimal_providers(use_gpu: bool = True, with_device_options: bool = Fals
         return ["CPUExecutionProvider"]
 
     gpu_info = detect_gpu()
-    
+
+    # Check if GPU was requested but not available - log warning
+    if not gpu_info.gpu_available:
+        try:
+            import onnxruntime as ort
+            available_providers = ort.get_available_providers()
+        except ImportError:
+            available_providers = []
+        logger.warning(
+            "GPU acceleration was requested, but no supported GPU provider (CUDA, DirectML) "
+            f"was found. Available providers: {available_providers}. Falling back to CPU."
+        )
+    else:
+        # Log which GPU provider is being used
+        gpu_providers = [p for p in gpu_info.onnx_providers if p != "CPUExecutionProvider"]
+        if gpu_providers:
+            logger.info(f"Using {gpu_providers[0]} for ONNX GPU acceleration")
+
     if not with_device_options:
         return gpu_info.onnx_providers
-    
+
     # Build providers with device_id options for GPU providers
     device_id = get_selected_device_id()
     providers = []

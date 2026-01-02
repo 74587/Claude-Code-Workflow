@@ -232,55 +232,55 @@ class VectorMetadataStore:
         if not chunk_ids:
             return []
 
-        with self._lock:
-            conn = self._get_connection()
-            try:
-                placeholders = ",".join("?" * len(chunk_ids))
+        # No lock needed for reads: WAL mode + thread-local connections ensure safety
+        conn = self._get_connection()
+        try:
+            placeholders = ",".join("?" * len(chunk_ids))
 
-                if category:
-                    query = f'''
-                        SELECT chunk_id, file_path, content, start_line, end_line,
-                               category, metadata, source_index_db
-                        FROM chunk_metadata
-                        WHERE chunk_id IN ({placeholders}) AND category = ?
-                    '''
-                    params = list(chunk_ids) + [category]
-                else:
-                    query = f'''
-                        SELECT chunk_id, file_path, content, start_line, end_line,
-                               category, metadata, source_index_db
-                        FROM chunk_metadata
-                        WHERE chunk_id IN ({placeholders})
-                    '''
-                    params = list(chunk_ids)
+            if category:
+                query = f'''
+                    SELECT chunk_id, file_path, content, start_line, end_line,
+                           category, metadata, source_index_db
+                    FROM chunk_metadata
+                    WHERE chunk_id IN ({placeholders}) AND category = ?
+                '''
+                params = list(chunk_ids) + [category]
+            else:
+                query = f'''
+                    SELECT chunk_id, file_path, content, start_line, end_line,
+                           category, metadata, source_index_db
+                    FROM chunk_metadata
+                    WHERE chunk_id IN ({placeholders})
+                '''
+                params = list(chunk_ids)
 
-                rows = conn.execute(query, params).fetchall()
+            rows = conn.execute(query, params).fetchall()
 
-                results = []
-                for row in rows:
-                    metadata = None
-                    if row["metadata"]:
-                        try:
-                            metadata = json.loads(row["metadata"])
-                        except json.JSONDecodeError:
-                            metadata = {}
+            results = []
+            for row in rows:
+                metadata = None
+                if row["metadata"]:
+                    try:
+                        metadata = json.loads(row["metadata"])
+                    except json.JSONDecodeError:
+                        metadata = {}
 
-                    results.append({
-                        "chunk_id": row["chunk_id"],
-                        "file_path": row["file_path"],
-                        "content": row["content"],
-                        "start_line": row["start_line"],
-                        "end_line": row["end_line"],
-                        "category": row["category"],
-                        "metadata": metadata or {},
-                        "source_index_db": row["source_index_db"],
-                    })
+                results.append({
+                    "chunk_id": row["chunk_id"],
+                    "file_path": row["file_path"],
+                    "content": row["content"],
+                    "start_line": row["start_line"],
+                    "end_line": row["end_line"],
+                    "category": row["category"],
+                    "metadata": metadata or {},
+                    "source_index_db": row["source_index_db"],
+                })
 
-                return results
+            return results
 
-            except sqlite3.Error as e:
-                logger.error("Failed to get chunks by IDs: %s", e)
-                return []
+        except sqlite3.Error as e:
+            logger.error("Failed to get chunks by IDs: %s", e)
+            return []
 
     def get_chunk_count(self) -> int:
         """Get total number of chunks in store.
@@ -288,15 +288,15 @@ class VectorMetadataStore:
         Returns:
             Total chunk count.
         """
-        with self._lock:
-            conn = self._get_connection()
-            try:
-                row = conn.execute(
-                    "SELECT COUNT(*) FROM chunk_metadata"
-                ).fetchone()
-                return row[0] if row else 0
-            except sqlite3.Error:
-                return 0
+        # No lock needed for reads: WAL mode + thread-local connections ensure safety
+        conn = self._get_connection()
+        try:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM chunk_metadata"
+            ).fetchone()
+            return row[0] if row else 0
+        except sqlite3.Error:
+            return 0
 
     def clear(self) -> None:
         """Clear all metadata."""

@@ -848,8 +848,10 @@ def generate_embeddings(
     }
 
 
-def discover_all_index_dbs(index_root: Path) -> List[Path]:
-    """Recursively find all _index.db files in an index tree.
+def _discover_index_dbs_internal(index_root: Path) -> List[Path]:
+    """Internal helper to find all _index.db files (no deprecation warning).
+
+    Used internally by generate_dense_embeddings_centralized.
 
     Args:
         index_root: Root directory to scan for _index.db files
@@ -861,6 +863,30 @@ def discover_all_index_dbs(index_root: Path) -> List[Path]:
         return []
 
     return sorted(index_root.rglob("_index.db"))
+
+
+def discover_all_index_dbs(index_root: Path) -> List[Path]:
+    """Recursively find all _index.db files in an index tree.
+
+    .. deprecated::
+        This function is deprecated. Use centralized indexing with
+        ``generate_dense_embeddings_centralized`` instead, which handles
+        index discovery internally.
+
+    Args:
+        index_root: Root directory to scan for _index.db files
+
+    Returns:
+        Sorted list of paths to _index.db files
+    """
+    import warnings
+    warnings.warn(
+        "discover_all_index_dbs is deprecated. Use centralized indexing with "
+        "generate_dense_embeddings_centralized instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return _discover_index_dbs_internal(index_root)
 
 
 def find_all_indexes(scan_dir: Path) -> List[Path]:
@@ -896,6 +922,11 @@ def generate_embeddings_recursive(
 ) -> Dict[str, any]:
     """Generate embeddings for all index databases in a project recursively.
 
+    .. deprecated::
+        This function is deprecated. Use ``generate_dense_embeddings_centralized``
+        instead, which creates a single centralized vector index for the entire project
+        rather than per-directory indexes.
+
     Args:
         index_root: Root index directory containing _index.db files
         embedding_backend: Embedding backend to use (fastembed or litellm).
@@ -921,6 +952,14 @@ def generate_embeddings_recursive(
     Returns:
         Aggregated result dictionary with generation statistics
     """
+    import warnings
+    warnings.warn(
+        "generate_embeddings_recursive is deprecated. Use "
+        "generate_dense_embeddings_centralized instead for centralized indexing.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+
     # Get defaults from config if not specified
     (default_backend, default_model, default_gpu,
      default_endpoints, default_strategy, default_cooldown) = _get_embedding_defaults()
@@ -951,8 +990,8 @@ def generate_embeddings_recursive(
         else:
             max_workers = 1
 
-    # Discover all _index.db files
-    index_files = discover_all_index_dbs(index_root)
+    # Discover all _index.db files (using internal helper to avoid double deprecation warning)
+    index_files = _discover_index_dbs_internal(index_root)
 
     if not index_files:
         return {
@@ -1120,7 +1159,7 @@ def generate_dense_embeddings_centralized(
         return {"success": False, "error": backend_error or "Embedding backend not available"}
 
     # Discover all _index.db files
-    index_files = discover_all_index_dbs(index_root)
+    index_files = _discover_index_dbs_internal(index_root)
 
     if not index_files:
         return {
@@ -1197,6 +1236,8 @@ def generate_dense_embeddings_centralized(
     # Track chunk ID to file_path mapping for metadata
     chunk_id_to_info: Dict[int, Dict[str, Any]] = {}
     next_chunk_id = 1
+    # Track current index_path for source_index_db field
+    current_index_path: Optional[str] = None
 
     for idx, index_path in enumerate(index_files, 1):
         if progress_callback:
@@ -1205,6 +1246,9 @@ def generate_dense_embeddings_centralized(
             except ValueError:
                 rel_path = index_path
             progress_callback(f"Processing {idx}/{len(index_files)}: {rel_path}")
+
+        # Track current index_path for source_index_db
+        current_index_path = str(index_path)
 
         try:
             with sqlite3.connect(index_path) as conn:
@@ -1250,6 +1294,7 @@ def generate_dense_embeddings_centralized(
                                 "content": chunk.content,
                                 "metadata": chunk.metadata,
                                 "category": get_file_category(file_path) or "code",
+                                "source_index_db": current_index_path,
                             }
                             total_chunks_created += 1
 
@@ -1303,7 +1348,7 @@ def generate_dense_embeddings_centralized(
                         "end_line": metadata.get("end_line"),
                         "category": info.get("category"),
                         "metadata": metadata,
-                        "source_index_db": None,  # Not tracked per-chunk currently
+                        "source_index_db": info.get("source_index_db"),
                     })
 
                 meta_store.add_chunks(chunks_to_store)
@@ -1348,7 +1393,7 @@ def get_embeddings_status(index_root: Path) -> Dict[str, any]:
     Returns:
         Aggregated status with coverage statistics, model info, and timestamps
     """
-    index_files = discover_all_index_dbs(index_root)
+    index_files = _discover_index_dbs_internal(index_root)
 
     if not index_files:
         return {
@@ -1517,7 +1562,7 @@ def scan_for_model_conflicts(
         - conflicts: List of conflicting index paths with their configs
         - indexes_with_embeddings: Count of indexes that have embeddings
     """
-    index_files = discover_all_index_dbs(index_root)
+    index_files = _discover_index_dbs_internal(index_root)
 
     if not index_files:
         return {
