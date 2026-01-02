@@ -608,31 +608,43 @@ class ChainSearchEngine:
 
         for index_path, chunk_ids in candidates_by_index.items():
             try:
-                store = SQLiteStore(index_path)
-                dense_embeddings = store.get_dense_embeddings(chunk_ids)
-                chunks_data = store.get_chunks_by_ids(chunk_ids)
+                # Read directly from semantic_chunks table (where cascade-index stores data)
+                import sqlite3
+                conn = sqlite3.connect(str(index_path))
+                conn.row_factory = sqlite3.Row
 
-                # Create lookup for chunk content
-                chunk_content: Dict[int, Dict[str, Any]] = {
-                    c["id"]: c for c in chunks_data
-                }
+                placeholders = ",".join("?" * len(chunk_ids))
+                rows = conn.execute(
+                    f"SELECT id, file_path, content, embedding_dense FROM semantic_chunks WHERE id IN ({placeholders})",
+                    chunk_ids
+                ).fetchall()
+                conn.close()
 
-                for chunk_id in chunk_ids:
-                    dense_bytes = dense_embeddings.get(chunk_id)
-                    chunk_info = chunk_content.get(chunk_id)
+                # Batch processing: collect all valid embeddings first
+                valid_rows = []
+                dense_vectors = []
+                for row in rows:
+                    dense_bytes = row["embedding_dense"]
+                    if dense_bytes is not None:
+                        valid_rows.append(row)
+                        dense_vectors.append(np.frombuffer(dense_bytes, dtype=np.float32))
 
-                    if dense_bytes is None or chunk_info is None:
-                        continue
+                if not dense_vectors:
+                    continue
 
-                    # Compute cosine similarity
-                    dense_vec = np.frombuffer(dense_bytes, dtype=np.float32)
-                    score = self._compute_cosine_similarity(query_dense, dense_vec)
+                # Stack into matrix for batch computation
+                doc_matrix = np.vstack(dense_vectors)
 
-                    # Create search result
-                    excerpt = chunk_info.get("content", "")[:500]
+                # Batch compute cosine similarities
+                scores = self._compute_cosine_similarity_batch(query_dense, doc_matrix)
+
+                # Create search results
+                for i, row in enumerate(valid_rows):
+                    score = float(scores[i])
+                    excerpt = (row["content"] or "")[:500]
                     result = SearchResult(
-                        path=chunk_info.get("file_path", ""),
-                        score=float(score),
+                        path=row["file_path"] or "",
+                        score=score,
                         excerpt=excerpt,
                     )
                     scored_results.append((score, result))
@@ -782,6 +794,58 @@ class ChainSearchEngine:
             return 0.0
 
         return float(dot_product / (norm_q * norm_d))
+
+    def _compute_cosine_similarity_batch(
+        self,
+        query_vec: "np.ndarray",
+        doc_matrix: "np.ndarray",
+    ) -> "np.ndarray":
+        """Compute cosine similarity between query and multiple document vectors.
+
+        Uses vectorized matrix operations for efficient batch computation.
+
+        Args:
+            query_vec: Query embedding vector of shape (dim,)
+            doc_matrix: Document embeddings matrix of shape (n_docs, dim)
+
+        Returns:
+            Array of cosine similarity scores of shape (n_docs,)
+        """
+        if not NUMPY_AVAILABLE:
+            return np.zeros(doc_matrix.shape[0])
+
+        # Ensure query is 1D
+        if query_vec.ndim > 1:
+            query_vec = query_vec.flatten()
+
+        # Handle dimension mismatch by truncating to smaller dimension
+        min_dim = min(len(query_vec), doc_matrix.shape[1])
+        q = query_vec[:min_dim]
+        docs = doc_matrix[:, :min_dim]
+
+        # Compute query norm once
+        norm_q = np.linalg.norm(q)
+        if norm_q == 0:
+            return np.zeros(docs.shape[0])
+
+        # Normalize query
+        q_normalized = q / norm_q
+
+        # Compute document norms (vectorized)
+        doc_norms = np.linalg.norm(docs, axis=1)
+
+        # Avoid division by zero
+        nonzero_mask = doc_norms > 0
+        scores = np.zeros(docs.shape[0], dtype=np.float32)
+
+        if np.any(nonzero_mask):
+            # Normalize documents with non-zero norms
+            docs_normalized = docs[nonzero_mask] / doc_norms[nonzero_mask, np.newaxis]
+
+            # Batch dot product: (n_docs, dim) @ (dim,) = (n_docs,)
+            scores[nonzero_mask] = docs_normalized @ q_normalized
+
+        return scores
 
     def _build_results_from_candidates(
         self,
