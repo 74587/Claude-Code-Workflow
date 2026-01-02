@@ -220,12 +220,16 @@ class SpladeEncoder:
             from transformers import AutoTokenizer
 
             if self.providers is None:
-                from .gpu_support import get_optimal_providers
+                from .gpu_support import get_optimal_providers, get_selected_device_id
 
-                # Include device_id options for DirectML/CUDA selection when available
+                # Get providers as pure string list (cache-friendly)
+                # NOTE: with_device_options=False to avoid tuple-based providers
+                # which break optimum's caching mechanism
                 self.providers = get_optimal_providers(
-                    use_gpu=self.use_gpu, with_device_options=True
+                    use_gpu=self.use_gpu, with_device_options=False
                 )
+                # Get device_id separately for provider_options
+                self._device_id = get_selected_device_id() if self.use_gpu else None
 
             # Some Optimum versions accept `providers`, others accept a single `provider`
             # Prefer passing the full providers list, with a conservative fallback
@@ -234,6 +238,15 @@ class SpladeEncoder:
                 params = signature(ORTModelForMaskedLM.from_pretrained).parameters
                 if "providers" in params:
                     model_kwargs["providers"] = self.providers
+                    # Pass device_id via provider_options for GPU selection
+                    if "provider_options" in params and hasattr(self, '_device_id') and self._device_id is not None:
+                        # Build provider_options dict for each GPU provider
+                        provider_options = {}
+                        for p in self.providers:
+                            if p in ("DmlExecutionProvider", "CUDAExecutionProvider", "ROCMExecutionProvider"):
+                                provider_options[p] = {"device_id": self._device_id}
+                        if provider_options:
+                            model_kwargs["provider_options"] = provider_options
                 elif "provider" in params:
                     provider_name = "CPUExecutionProvider"
                     if self.providers:
@@ -368,6 +381,21 @@ class SpladeEncoder:
         }
 
         return sparse_dict
+
+    def warmup(self, text: str = "warmup query") -> None:
+        """Warmup the encoder by running a dummy inference.
+
+        First-time model inference includes initialization overhead.
+        Call this method once before the first real search to avoid
+        latency spikes.
+
+        Args:
+            text: Dummy text for warmup (default: "warmup query")
+        """
+        logger.info("Warming up SPLADE encoder...")
+        # Trigger model loading and first inference
+        _ = self.encode_text(text)
+        logger.info("SPLADE encoder warmup complete")
 
     def encode_text(self, text: str) -> Dict[int, float]:
         """Encode text to sparse vector {token_id: weight}.

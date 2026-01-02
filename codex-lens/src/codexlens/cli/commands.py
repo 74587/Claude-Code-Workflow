@@ -36,6 +36,27 @@ from .output import (
 
 app = typer.Typer(help="CodexLens CLI — local code indexing and search.")
 
+# Index subcommand group for reorganized commands
+index_app = typer.Typer(help="Index management commands (embeddings, SPLADE, migrations).")
+app.add_typer(index_app, name="index")
+
+
+def _deprecated_command_warning(old_name: str, new_name: str) -> None:
+    """Display deprecation warning for renamed commands.
+
+    Args:
+        old_name: The old command name being deprecated
+        new_name: The new command name to use instead
+    """
+    console.print(
+        f"[yellow]Warning:[/yellow] '{old_name}' is deprecated. "
+        f"Use '{new_name}' instead."
+    )
+
+# Index management subcommand group
+index_app = typer.Typer(help="Index management commands (init, embeddings, splade, binary, status, migrate, all)")
+app.add_typer(index_app, name="index")
+
 
 def _configure_logging(verbose: bool, json_mode: bool = False) -> None:
     """Configure logging level.
@@ -96,8 +117,8 @@ def _get_registry_path() -> Path:
     return Path.home() / ".codexlens" / "registry.db"
 
 
-@app.command()
-def init(
+@index_app.command("init")
+def index_init(
     path: Path = typer.Argument(Path("."), exists=True, file_okay=False, dir_okay=True, help="Project root to index."),
     language: Optional[List[str]] = typer.Option(
         None,
@@ -108,8 +129,8 @@ def init(
     workers: Optional[int] = typer.Option(None, "--workers", "-w", min=1, help="Parallel worker processes (default: auto-detect based on CPU count)."),
     force: bool = typer.Option(False, "--force", "-f", help="Force full reindex (skip incremental mode)."),
     no_embeddings: bool = typer.Option(False, "--no-embeddings", help="Skip automatic embedding generation (if semantic deps installed)."),
-    embedding_backend: str = typer.Option("fastembed", "--embedding-backend", help="Embedding backend: fastembed (local) or litellm (remote API)."),
-    embedding_model: str = typer.Option("code", "--embedding-model", help="Embedding model: profile name for fastembed (fast/code/multilingual/balanced) or model name for litellm (e.g. text-embedding-3-small)."),
+    backend: str = typer.Option("fastembed", "--backend", "-b", help="Embedding backend: fastembed (local) or litellm (remote API)."),
+    model: str = typer.Option("code", "--model", "-m", help="Embedding model: profile name for fastembed (fast/code/multilingual/balanced) or model name for litellm (e.g. text-embedding-3-small)."),
     max_workers: int = typer.Option(1, "--max-workers", min=1, help="Max concurrent API calls for embedding generation. Recommended: 4-8 for litellm backend."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
@@ -125,11 +146,11 @@ def init(
     If semantic search dependencies are installed, automatically generates embeddings
     after indexing completes. Use --no-embeddings to skip this step.
 
-    Embedding Backend Options:
+    Backend Options (--backend):
       - fastembed: Local ONNX-based embeddings (default, no API calls)
       - litellm: Remote API embeddings via ccw-litellm (requires API keys)
 
-    Embedding Model Options:
+    Model Options (--model):
       - For fastembed backend: Use profile names (fast, code, multilingual, balanced)
       - For litellm backend: Use model names (e.g., text-embedding-3-small, text-embedding-ada-002)
     """
@@ -182,15 +203,15 @@ def init(
 
                 # Validate embedding backend
                 valid_backends = ["fastembed", "litellm"]
-                if embedding_backend not in valid_backends:
-                    error_msg = f"Invalid embedding backend: {embedding_backend}. Must be one of: {', '.join(valid_backends)}"
+                if backend not in valid_backends:
+                    error_msg = f"Invalid embedding backend: {backend}. Must be one of: {', '.join(valid_backends)}"
                     if json_mode:
                         print_json(success=False, error=error_msg)
                     else:
                         console.print(f"[red]Error:[/red] {error_msg}")
                     raise typer.Exit(code=1)
 
-                backend_available, backend_error = is_embedding_backend_available(embedding_backend)
+                backend_available, backend_error = is_embedding_backend_available(backend)
 
                 if backend_available:
                     # Use the index root directory (not the _index.db file)
@@ -198,8 +219,8 @@ def init(
 
                     if not json_mode:
                         console.print("\n[bold]Generating embeddings...[/bold]")
-                        console.print(f"Backend: [cyan]{embedding_backend}[/cyan]")
-                        console.print(f"Model: [cyan]{embedding_model}[/cyan]")
+                        console.print(f"Backend: [cyan]{backend}[/cyan]")
+                        console.print(f"Model: [cyan]{model}[/cyan]")
                     else:
                         # Output progress message for JSON mode (parsed by Node.js)
                         print("Generating embeddings...", flush=True)
@@ -219,8 +240,8 @@ def init(
 
                     embed_result = generate_embeddings_recursive(
                         index_root,
-                        embedding_backend=embedding_backend,
-                        model_profile=embedding_model,
+                        embedding_backend=backend,
+                        model_profile=model,
                         force=False,  # Don't force regenerate during init
                         chunk_size=2000,
                         progress_callback=progress_update,  # Always use callback
@@ -266,7 +287,7 @@ def init(
                         }
                 else:
                     if not json_mode and verbose:
-                        console.print(f"[dim]Embedding backend '{embedding_backend}' not available. Skipping embeddings.[/dim]")
+                        console.print(f"[dim]Embedding backend '{backend}' not available. Skipping embeddings.[/dim]")
                     result["embeddings"] = {
                         "generated": False,
                         "error": backend_error or "Embedding backend not available",
@@ -410,22 +431,20 @@ def watch(
 
 @app.command()
 def search(
-    query: str = typer.Argument(..., help="FTS query to run."),
+    query: str = typer.Argument(..., help="Search query."),
     path: Path = typer.Option(Path("."), "--path", "-p", help="Directory to search from."),
     limit: int = typer.Option(20, "--limit", "-n", min=1, max=500, help="Max results."),
     depth: int = typer.Option(-1, "--depth", "-d", help="Search depth (-1 = unlimited, 0 = current only)."),
     files_only: bool = typer.Option(False, "--files-only", "-f", help="Return only file paths without content snippets."),
-    mode: str = typer.Option("auto", "--mode", "-m", help="Search mode: auto, exact, fuzzy, hybrid, vector, pure-vector."),
+    method: str = typer.Option("hybrid", "--method", "-m", help="Search method: fts, vector, splade, hybrid, cascade."),
+    use_fuzzy: bool = typer.Option(False, "--use-fuzzy", help="Enable fuzzy matching in FTS method."),
     weights: Optional[str] = typer.Option(
         None,
         "--weights", "-w",
-        help="RRF weights as key=value pairs (e.g., 'splade=0.4,vector=0.6' or 'exact=0.3,fuzzy=0.1,vector=0.6'). Default: auto-detect based on available backends."
+        help="RRF weights as key=value pairs (e.g., 'splade=0.4,vector=0.6' or 'fts=0.4,vector=0.6'). Default: auto-detect based on available backends."
     ),
-    use_fts: bool = typer.Option(
-        False,
-        "--use-fts",
-        help="Use FTS (exact+fuzzy) instead of SPLADE for sparse retrieval"
-    ),
+    # Hidden deprecated parameter for backward compatibility
+    mode: Optional[str] = typer.Option(None, "--mode", hidden=True, help="[DEPRECATED] Use --method instead."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
 ) -> None:
@@ -434,64 +453,95 @@ def search(
     Uses chain search across directory indexes.
     Use --depth to limit search recursion (0 = current dir only).
 
-    Search Modes:
-      - auto: Auto-detect (hybrid if embeddings exist, exact otherwise) [default]
-      - exact: Exact FTS using unicode61 tokenizer - for code identifiers
-      - fuzzy: Fuzzy FTS using trigram tokenizer - for typo-tolerant search
-      - hybrid: RRF fusion of sparse + dense search (recommended) - best recall
-      - vector: Vector search with sparse fallback - semantic + keyword
-      - pure-vector: Pure semantic vector search only - natural language queries
+    Search Methods:
+      - fts: Full-text search using FTS5 (unicode61 tokenizer). Use --use-fuzzy for typo tolerance.
+      - vector: Pure semantic vector search - for natural language queries.
+      - splade: SPLADE sparse neural search - semantic term expansion.
+      - hybrid: RRF fusion of sparse + dense search (default) - best recall.
+      - cascade: Two-stage retrieval (binary coarse + dense rerank) - fast + accurate.
 
-    SPLADE Mode:
-      When SPLADE is available (pip install codex-lens[splade]), it automatically
-      replaces FTS (exact+fuzzy) as the sparse retrieval backend. SPLADE provides
-      semantic term expansion for better synonym handling.
-      
-      Use --use-fts to force FTS mode instead of SPLADE.
+    Method Selection Guide:
+      - Code identifiers (function/class names): fts
+      - Natural language queries: vector or hybrid
+      - Typo-tolerant search: fts --use-fuzzy
+      - Best overall quality: hybrid (default)
+      - Large codebase performance: cascade
 
     Vector Search Requirements:
-      Vector search modes require pre-generated embeddings.
+      Vector, hybrid, and cascade methods require pre-generated embeddings.
       Use 'codexlens embeddings-generate' to create embeddings first.
 
     Hybrid Mode Weights:
       Use --weights to adjust RRF fusion weights:
       - SPLADE mode: 'splade=0.4,vector=0.6' (default)
-      - FTS mode: 'exact=0.3,fuzzy=0.1,vector=0.6' (default)
-      
-      Legacy format also supported: '0.3,0.1,0.6' (exact,fuzzy,vector)
+      - FTS mode: 'fts=0.4,vector=0.6' (default)
 
     Examples:
-      # Auto-detect mode (uses hybrid if embeddings available)
+      # Default hybrid search
       codexlens search "authentication"
 
-      # Explicit exact code search
-      codexlens search "authenticate_user" --mode exact
+      # Exact code identifier search
+      codexlens search "authenticate_user" --method fts
 
-      # Semantic search (requires embeddings)
-      codexlens search "how to verify user credentials" --mode pure-vector
+      # Typo-tolerant fuzzy search
+      codexlens search "authentcate" --method fts --use-fuzzy
 
-      # Force hybrid mode with custom weights
-      codexlens search "authentication" --mode hybrid --weights splade=0.5,vector=0.5
-      
-      # Force FTS instead of SPLADE
-      codexlens search "authentication" --use-fts
+      # Pure semantic search
+      codexlens search "how to verify user credentials" --method vector
+
+      # SPLADE sparse neural search
+      codexlens search "user login flow" --method splade
+
+      # Fast cascade retrieval for large codebases
+      codexlens search "authentication" --method cascade
+
+      # Hybrid with custom weights
+      codexlens search "authentication" --method hybrid --weights splade=0.5,vector=0.5
     """
     _configure_logging(verbose, json_mode)
     search_path = path.expanduser().resolve()
-    
-    # Configure search with FTS fallback if requested
-    config = Config()
-    if use_fts:
-        config.use_fts_fallback = True
 
-    # Validate mode
-    valid_modes = ["auto", "exact", "fuzzy", "hybrid", "vector", "pure-vector"]
-    if mode not in valid_modes:
-        if json_mode:
-            print_json(success=False, error=f"Invalid mode: {mode}. Must be one of: {', '.join(valid_modes)}")
+    # Handle deprecated --mode parameter
+    actual_method = method
+    if mode is not None:
+        # Show deprecation warning
+        if not json_mode:
+            console.print("[yellow]Warning: --mode is deprecated, use --method instead.[/yellow]")
+
+        # Map old mode values to new method values
+        mode_to_method = {
+            "auto": "hybrid",
+            "exact": "fts",
+            "fuzzy": "fts",  # with use_fuzzy=True
+            "hybrid": "hybrid",
+            "vector": "vector",
+            "pure-vector": "vector",
+        }
+
+        if mode in mode_to_method:
+            actual_method = mode_to_method[mode]
+            # Enable fuzzy for old fuzzy mode
+            if mode == "fuzzy":
+                use_fuzzy = True
         else:
-            console.print(f"[red]Invalid mode:[/red] {mode}")
-            console.print(f"[dim]Valid modes: {', '.join(valid_modes)}[/dim]")
+            if json_mode:
+                print_json(success=False, error=f"Invalid deprecated mode: {mode}. Use --method instead.")
+            else:
+                console.print(f"[red]Invalid deprecated mode:[/red] {mode}")
+                console.print("[dim]Use --method with: fts, vector, splade, hybrid, cascade[/dim]")
+            raise typer.Exit(code=1)
+
+    # Configure search
+    config = Config()
+
+    # Validate method
+    valid_methods = ["fts", "vector", "splade", "hybrid", "cascade"]
+    if actual_method not in valid_methods:
+        if json_mode:
+            print_json(success=False, error=f"Invalid method: {actual_method}. Must be one of: {', '.join(valid_methods)}")
+        else:
+            console.print(f"[red]Invalid method:[/red] {actual_method}")
+            console.print(f"[dim]Valid methods: {', '.join(valid_methods)}[/dim]")
         raise typer.Exit(code=1)
 
     # Parse custom weights if provided
@@ -557,48 +607,49 @@ def search(
 
         engine = ChainSearchEngine(registry, mapper, config=config)
 
-        # Auto-detect mode if set to "auto"
-        actual_mode = mode
-        if mode == "auto":
-            # Check if embeddings are available by looking for project in registry
-            project_record = registry.find_by_source_path(str(search_path))
-            has_embeddings = False
-
-            if project_record:
-                # Check if index has embeddings
-                index_path = Path(project_record["index_root"]) / "_index.db"
-                try:
-                    from codexlens.cli.embedding_manager import check_embeddings_status
-                    embed_status = check_embeddings_status(index_path)
-                    if embed_status["success"]:
-                        embed_data = embed_status["result"]
-                        has_embeddings = embed_data["has_embeddings"] and embed_data["chunks_count"] > 0
-                except Exception:
-                    pass
-
-            # Choose mode based on embedding availability
-            if has_embeddings:
-                actual_mode = "hybrid"
-                if not json_mode and verbose:
-                    console.print("[dim]Auto-detected mode: hybrid (embeddings available)[/dim]")
-            else:
-                actual_mode = "exact"
-                if not json_mode and verbose:
-                    console.print("[dim]Auto-detected mode: exact (no embeddings)[/dim]")
-
-        # Map mode to options
-        if actual_mode == "exact":
-            hybrid_mode, enable_fuzzy, enable_vector, pure_vector = False, False, False, False
-        elif actual_mode == "fuzzy":
-            hybrid_mode, enable_fuzzy, enable_vector, pure_vector = False, True, False, False
-        elif actual_mode == "vector":
-            hybrid_mode, enable_fuzzy, enable_vector, pure_vector = True, False, True, False  # Vector + exact fallback
-        elif actual_mode == "pure-vector":
-            hybrid_mode, enable_fuzzy, enable_vector, pure_vector = True, False, True, True  # Pure vector only
-        elif actual_mode == "hybrid":
-            hybrid_mode, enable_fuzzy, enable_vector, pure_vector = True, True, True, False
+        # Map method to SearchOptions flags
+        # fts: FTS-only search (optionally with fuzzy)
+        # vector: Pure vector semantic search
+        # splade: SPLADE sparse neural search
+        # hybrid: RRF fusion of sparse + dense
+        # cascade: Two-stage binary + dense retrieval
+        if actual_method == "fts":
+            hybrid_mode = False
+            enable_fuzzy = use_fuzzy
+            enable_vector = False
+            pure_vector = False
+            enable_splade = False
+            enable_cascade = False
+        elif actual_method == "vector":
+            hybrid_mode = True
+            enable_fuzzy = False
+            enable_vector = True
+            pure_vector = True
+            enable_splade = False
+            enable_cascade = False
+        elif actual_method == "splade":
+            hybrid_mode = True
+            enable_fuzzy = False
+            enable_vector = False
+            pure_vector = False
+            enable_splade = True
+            enable_cascade = False
+        elif actual_method == "hybrid":
+            hybrid_mode = True
+            enable_fuzzy = use_fuzzy
+            enable_vector = True
+            pure_vector = False
+            enable_splade = True  # SPLADE is preferred sparse in hybrid
+            enable_cascade = False
+        elif actual_method == "cascade":
+            hybrid_mode = True
+            enable_fuzzy = False
+            enable_vector = True
+            pure_vector = False
+            enable_splade = False
+            enable_cascade = True
         else:
-            raise ValueError(f"Invalid mode: {actual_mode}")
+            raise ValueError(f"Invalid method: {actual_method}")
 
         options = SearchOptions(
             depth=depth,
@@ -1960,8 +2011,8 @@ def embeddings_status(
                 console.print(f"  [cyan]codexlens embeddings-generate {index_path}[/cyan]")
 
 
-@app.command(name="embeddings-generate")
-def embeddings_generate(
+@index_app.command("embeddings")
+def index_embeddings(
     path: Path = typer.Argument(
         ...,
         exists=True,
@@ -2000,10 +2051,10 @@ def embeddings_generate(
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output."),
     centralized: bool = typer.Option(
-        False,
-        "--centralized",
-        "-c",
-        help="Use centralized vector storage (single HNSW index at project root).",
+        True,
+        "--centralized/--distributed",
+        "-c/-d",
+        help="Use centralized vector storage (default) or distributed per-directory indexes.",
     ),
 ) -> None:
     """Generate semantic embeddings for code search.
@@ -2033,11 +2084,11 @@ def embeddings_generate(
         - Any model supported by ccw-litellm
 
     Examples:
-        codexlens embeddings-generate ~/projects/my-app              # Auto-find index (fastembed, code profile)
-        codexlens embeddings-generate ~/.codexlens/indexes/project/_index.db  # Specific index
-        codexlens embeddings-generate ~/projects/my-app --backend litellm --model text-embedding-3-small  # Use LiteLLM
-        codexlens embeddings-generate ~/projects/my-app --model fast --force  # Regenerate with fast profile
-        codexlens embeddings-generate ~/projects/my-app --centralized  # Centralized vector storage
+        codexlens index embeddings ~/projects/my-app              # Auto-find index (fastembed, code profile)
+        codexlens index embeddings ~/.codexlens/indexes/project/_index.db  # Specific index
+        codexlens index embeddings ~/projects/my-app --backend litellm --model text-embedding-3-small  # Use LiteLLM
+        codexlens index embeddings ~/projects/my-app --model fast --force  # Regenerate with fast profile
+        codexlens index embeddings ~/projects/my-app --centralized  # Centralized vector storage
     """
     _configure_logging(verbose, json_mode)
 
@@ -2072,25 +2123,20 @@ def embeddings_generate(
         index_path = target_path
         index_root = target_path.parent
     elif target_path.is_dir():
-        # Directory: Try to find index for this project
-        if centralized:
-            # Centralized mode uses directory as root
-            index_root = target_path
-        else:
-            # Single index mode: find the specific index
-            registry = RegistryStore()
-            try:
-                registry.initialize()
-                mapper = PathMapper()
-                index_path = mapper.source_to_index_db(target_path)
+        # Directory: Find index location from registry
+        registry = RegistryStore()
+        try:
+            registry.initialize()
+            mapper = PathMapper()
+            index_path = mapper.source_to_index_db(target_path)
 
-                if not index_path.exists():
-                    console.print(f"[red]Error:[/red] No index found for {target_path}")
-                    console.print("Run 'codexlens init' first to create an index")
-                    raise typer.Exit(code=1)
-                index_root = index_path.parent
-            finally:
-                registry.close()
+            if not index_path.exists():
+                console.print(f"[red]Error:[/red] No index found for {target_path}")
+                console.print("Run 'codexlens init' first to create an index")
+                raise typer.Exit(code=1)
+            index_root = index_path.parent  # Use index directory for both modes
+        finally:
+            registry.close()
     else:
         console.print(f"[red]Error:[/red] Path must be _index.db file or directory")
         raise typer.Exit(code=1)
@@ -2442,8 +2488,8 @@ def gpu_reset(
 
 # ==================== SPLADE Commands ====================
 
-@app.command("splade-index")
-def splade_index_command(
+@index_app.command("splade")
+def index_splade(
     path: Path = typer.Argument(..., help="Project path to index"),
     rebuild: bool = typer.Option(False, "--rebuild", "-r", help="Force rebuild SPLADE index"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output."),
@@ -2457,8 +2503,8 @@ def splade_index_command(
     index directory and builds SPLADE encodings for chunks across all of them.
 
     Examples:
-        codexlens splade-index ~/projects/my-app
-        codexlens splade-index . --rebuild
+        codexlens index splade ~/projects/my-app
+        codexlens index splade . --rebuild
     """
     _configure_logging(verbose)
 

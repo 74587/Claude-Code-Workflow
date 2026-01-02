@@ -25,6 +25,7 @@ SPLADE_DB_NAME = "_splade.db"
 # Dense vector storage names (centralized storage)
 VECTORS_HNSW_NAME = "_vectors.hnsw"
 VECTORS_META_DB_NAME = "_vectors_meta.db"
+BINARY_VECTORS_MMAP_NAME = "_binary_vectors.mmap"
 
 log = logging.getLogger(__name__)
 

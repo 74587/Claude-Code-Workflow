@@ -541,26 +541,55 @@ class ChainSearchEngine:
             )
             return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
 
-        # Search all indexes for binary candidates
+        # Try centralized BinarySearcher first (preferred for mmap indexes)
+        # The index root is the parent of the first index path
+        index_root = index_paths[0].parent if index_paths else None
         all_candidates: List[Tuple[int, int, Path]] = []  # (chunk_id, distance, index_path)
+        used_centralized = False
 
-        for index_path in index_paths:
-            try:
-                # Get or create binary index for this path
-                binary_index = self._get_or_create_binary_index(index_path)
-                if binary_index is None or binary_index.count() == 0:
-                    continue
+        if index_root:
+            centralized_searcher = self._get_centralized_binary_searcher(index_root)
+            if centralized_searcher is not None:
+                try:
+                    # BinarySearcher expects dense vector, not packed binary
+                    from codexlens.semantic.embedder import Embedder
+                    embedder = Embedder()
+                    query_dense = embedder.embed_to_numpy([query])[0]
 
-                # Search binary index
-                ids, distances = binary_index.search(query_binary_packed, coarse_k)
-                for chunk_id, dist in zip(ids, distances):
-                    all_candidates.append((chunk_id, dist, index_path))
+                    # Centralized search - returns (chunk_id, hamming_distance) tuples
+                    results = centralized_searcher.search(query_dense, top_k=coarse_k)
+                    for chunk_id, dist in results:
+                        all_candidates.append((chunk_id, dist, index_root))
+                    used_centralized = True
+                    self.logger.debug(
+                        "Centralized binary search found %d candidates", len(results)
+                    )
+                except Exception as exc:
+                    self.logger.debug(
+                        "Centralized binary search failed: %s, falling back to per-directory",
+                        exc
+                    )
+                    centralized_searcher.clear()
 
-            except Exception as exc:
-                self.logger.debug(
-                    "Binary search failed for %s: %s", index_path, exc
-                )
-                stats.errors.append(f"Binary search failed for {index_path}: {exc}")
+        # Fallback: Search per-directory indexes with legacy BinaryANNIndex
+        if not used_centralized:
+            for index_path in index_paths:
+                try:
+                    # Get or create binary index for this path (uses deprecated BinaryANNIndex)
+                    binary_index = self._get_or_create_binary_index(index_path)
+                    if binary_index is None or binary_index.count() == 0:
+                        continue
+
+                    # Search binary index
+                    ids, distances = binary_index.search(query_binary_packed, coarse_k)
+                    for chunk_id, dist in zip(ids, distances):
+                        all_candidates.append((chunk_id, dist, index_path))
+
+                except Exception as exc:
+                    self.logger.debug(
+                        "Binary search failed for %s: %s", index_path, exc
+                    )
+                    stats.errors.append(f"Binary search failed for {index_path}: {exc}")
 
         if not all_candidates:
             self.logger.debug("No binary candidates found, falling back to hybrid")
@@ -743,6 +772,10 @@ class ChainSearchEngine:
     def _get_or_create_binary_index(self, index_path: Path) -> Optional[Any]:
         """Get or create a BinaryANNIndex for the given index path.
 
+        .. deprecated::
+            This method uses the deprecated BinaryANNIndex. For centralized indexes,
+            use _get_centralized_binary_searcher() instead.
+
         Attempts to load an existing binary index from disk. If not found,
         returns None (binary index should be built during indexing).
 
@@ -753,14 +786,46 @@ class ChainSearchEngine:
             BinaryANNIndex instance or None if not available
         """
         try:
-            from codexlens.semantic.ann_index import BinaryANNIndex
+            import warnings
+            # Suppress deprecation warning since we're using it intentionally for legacy support
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=DeprecationWarning)
+                from codexlens.semantic.ann_index import BinaryANNIndex
 
-            binary_index = BinaryANNIndex(index_path, dim=256)
-            if binary_index.load():
-                return binary_index
+                binary_index = BinaryANNIndex(index_path, dim=256)
+                if binary_index.load():
+                    return binary_index
             return None
         except Exception as exc:
             self.logger.debug("Failed to load binary index for %s: %s", index_path, exc)
+            return None
+
+    def _get_centralized_binary_searcher(self, index_root: Path) -> Optional[Any]:
+        """Get centralized BinarySearcher for memory-mapped binary vectors.
+
+        This is the preferred method for centralized indexes, providing faster
+        search via memory-mapped files.
+
+        Args:
+            index_root: Root directory containing centralized index files
+
+        Returns:
+            BinarySearcher instance or None if not available
+        """
+        try:
+            from codexlens.search.binary_searcher import BinarySearcher
+
+            binary_searcher = BinarySearcher(index_root)
+            if binary_searcher.load():
+                self.logger.debug(
+                    "Using centralized BinarySearcher with %d vectors (mmap=%s)",
+                    binary_searcher.vector_count,
+                    binary_searcher.is_memmap
+                )
+                return binary_searcher
+            return None
+        except Exception as exc:
+            self.logger.debug("Failed to load centralized binary searcher: %s", exc)
             return None
 
     def _compute_cosine_similarity(

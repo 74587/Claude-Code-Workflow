@@ -59,6 +59,8 @@ class SpladeIndex:
             conn.execute("PRAGMA foreign_keys=ON")
             # Limit mmap to 1GB to avoid OOM on smaller systems
             conn.execute("PRAGMA mmap_size=1073741824")
+            # Increase cache size for better query performance (20MB = -20000 pages)
+            conn.execute("PRAGMA cache_size=-20000")
             self._local.conn = conn
         return conn
     
@@ -385,25 +387,29 @@ class SpladeIndex:
         self,
         query_sparse: Dict[int, float],
         limit: int = 50,
-        min_score: float = 0.0
+        min_score: float = 0.0,
+        max_query_terms: int = 64
     ) -> List[Tuple[int, float]]:
         """Search for similar chunks using dot-product scoring.
-        
+
         Implements efficient sparse dot-product via SQL JOIN:
         score(q, d) = sum(q[t] * d[t]) for all tokens t
-        
+
         Args:
             query_sparse: Query sparse vector as {token_id: weight}.
             limit: Maximum number of results.
             min_score: Minimum score threshold.
-            
+            max_query_terms: Maximum query terms to use (default: 64).
+                Pruning to top-K terms reduces search time with minimal impact on quality.
+                Set to 0 or negative to disable pruning (use all terms).
+
         Returns:
             List of (chunk_id, score) tuples, ordered by score descending.
         """
         if not query_sparse:
             logger.warning("Empty query sparse vector")
             return []
-        
+
         with self._lock:
             conn = self._get_connection()
             try:
@@ -414,10 +420,20 @@ class SpladeIndex:
                     for token_id, weight in query_sparse.items()
                     if weight > 0
                 ]
-                
+
                 if not query_terms:
                     logger.warning("No non-zero query terms")
                     return []
+
+                # Query pruning: keep only top-K terms by weight
+                # max_query_terms <= 0 means no limit (use all terms)
+                if max_query_terms > 0 and len(query_terms) > max_query_terms:
+                    query_terms = sorted(query_terms, key=lambda x: x[1], reverse=True)[:max_query_terms]
+                    logger.debug(
+                        "Query pruned from %d to %d terms",
+                        len(query_sparse),
+                        len(query_terms)
+                    )
                 
                 # Create CTE for query terms using parameterized VALUES
                 # Build placeholders and params to prevent SQL injection

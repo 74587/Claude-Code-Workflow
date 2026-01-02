@@ -508,6 +508,10 @@ class ANNIndex:
 class BinaryANNIndex:
     """Binary vector ANN index using Hamming distance for fast coarse retrieval.
 
+    .. deprecated::
+        This class is deprecated. Use :class:`codexlens.search.binary_searcher.BinarySearcher`
+        instead, which provides faster memory-mapped search with centralized storage.
+
     Optimized for binary vectors (256-bit / 32 bytes per vector).
     Uses packed binary representation for memory efficiency.
 
@@ -552,6 +556,14 @@ class BinaryANNIndex:
                 "Semantic search dependencies not available. "
                 "Install with: pip install codexlens[semantic]"
             )
+
+        import warnings
+        warnings.warn(
+            "BinaryANNIndex is deprecated. Use codexlens.search.binary_searcher.BinarySearcher "
+            "instead for faster memory-mapped search with centralized storage.",
+            DeprecationWarning,
+            stacklevel=2
+        )
 
         if dim <= 0 or dim % 8 != 0:
             raise ValueError(

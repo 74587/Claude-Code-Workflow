@@ -96,6 +96,13 @@ class VectorMetadataStore:
                     'CREATE INDEX IF NOT EXISTS idx_chunk_category '
                     'ON chunk_metadata(category)'
                 )
+                # Binary vectors table for cascade search
+                conn.execute('''
+                    CREATE TABLE IF NOT EXISTS binary_vectors (
+                        chunk_id INTEGER PRIMARY KEY,
+                        vector BLOB NOT NULL
+                    )
+                ''')
                 conn.commit()
                 logger.debug("VectorMetadataStore schema created/verified")
             except sqlite3.Error as e:
@@ -329,3 +336,80 @@ class VectorMetadataStore:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Context manager exit."""
         self.close()
+
+    # ============= Binary Vector Methods for Cascade Search =============
+
+    def add_binary_vectors(
+        self, chunk_ids: List[int], binary_vectors: List[bytes]
+    ) -> None:
+        """Batch insert binary vectors for cascade search.
+
+        Args:
+            chunk_ids: List of chunk IDs.
+            binary_vectors: List of packed binary vectors (as bytes).
+        """
+        if not chunk_ids or len(chunk_ids) != len(binary_vectors):
+            return
+
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                data = list(zip(chunk_ids, binary_vectors))
+                conn.executemany(
+                    "INSERT OR REPLACE INTO binary_vectors (chunk_id, vector) VALUES (?, ?)",
+                    data
+                )
+                conn.commit()
+                logger.debug("Added %d binary vectors", len(chunk_ids))
+            except sqlite3.Error as e:
+                raise StorageError(
+                    f"Failed to add binary vectors: {e}",
+                    db_path=str(self.db_path),
+                    operation="add_binary_vectors"
+                ) from e
+
+    def get_all_binary_vectors(self) -> List[tuple]:
+        """Get all binary vectors for cascade search.
+
+        Returns:
+            List of (chunk_id, vector_bytes) tuples.
+        """
+        conn = self._get_connection()
+        try:
+            rows = conn.execute(
+                "SELECT chunk_id, vector FROM binary_vectors"
+            ).fetchall()
+            return [(row[0], row[1]) for row in rows]
+        except sqlite3.Error as e:
+            logger.error("Failed to get binary vectors: %s", e)
+            return []
+
+    def get_binary_vector_count(self) -> int:
+        """Get total number of binary vectors.
+
+        Returns:
+            Binary vector count.
+        """
+        conn = self._get_connection()
+        try:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM binary_vectors"
+            ).fetchone()
+            return row[0] if row else 0
+        except sqlite3.Error:
+            return 0
+
+    def clear_binary_vectors(self) -> None:
+        """Clear all binary vectors."""
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                conn.execute("DELETE FROM binary_vectors")
+                conn.commit()
+                logger.info("Cleared all binary vectors")
+            except sqlite3.Error as e:
+                raise StorageError(
+                    f"Failed to clear binary vectors: {e}",
+                    db_path=str(self.db_path),
+                    operation="clear_binary_vectors"
+                ) from e
