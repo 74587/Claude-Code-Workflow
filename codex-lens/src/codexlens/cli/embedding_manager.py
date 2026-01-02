@@ -310,6 +310,7 @@ def generate_embeddings(
     endpoints: Optional[List] = None,
     strategy: Optional[str] = None,
     cooldown: Optional[float] = None,
+    splade_db_path: Optional[Path] = None,
 ) -> Dict[str, any]:
     """Generate embeddings for an index using memory-efficient batch processing.
 
@@ -339,6 +340,9 @@ def generate_embeddings(
                   Each dict has keys: model, api_key, api_base, weight.
         strategy: Selection strategy for multi-endpoint mode (round_robin, latency_aware).
         cooldown: Default cooldown seconds for rate-limited endpoints.
+        splade_db_path: Optional path to centralized SPLADE database. If None, SPLADE
+                       is written to index_path (legacy behavior). Use index_root / SPLADE_DB_NAME
+                       for centralized storage.
 
     Returns:
         Result dictionary with generation statistics
@@ -723,7 +727,7 @@ def generate_embeddings(
             splade_error = None
 
             try:
-                from codexlens.config import Config
+                from codexlens.config import Config, SPLADE_DB_NAME
                 config = Config.load()
 
                 if config.enable_splade:
@@ -737,8 +741,9 @@ def generate_embeddings(
 
                         # Initialize SPLADE encoder and index
                         splade_encoder = get_splade_encoder(use_gpu=use_gpu)
-                        # Use main index database for SPLADE (not separate _splade.db)
-                        splade_index = SpladeIndex(index_path)
+                        # Use centralized SPLADE database if provided, otherwise fallback to index_path
+                        effective_splade_path = splade_db_path if splade_db_path else index_path
+                        splade_index = SpladeIndex(effective_splade_path)
                         splade_index.create_tables()
 
                         # Retrieve all chunks from database for SPLADE encoding
@@ -953,6 +958,10 @@ def generate_embeddings_recursive(
     if progress_callback:
         progress_callback(f"Found {len(index_files)} index databases to process")
 
+    # Calculate centralized SPLADE database path
+    from codexlens.config import SPLADE_DB_NAME
+    splade_db_path = index_root / SPLADE_DB_NAME
+
     # Process each index database
     all_results = []
     total_chunks = 0
@@ -982,6 +991,7 @@ def generate_embeddings_recursive(
             endpoints=endpoints,
             strategy=strategy,
             cooldown=cooldown,
+            splade_db_path=splade_db_path,  # Use centralized SPLADE storage
         )
 
         all_results.append({
@@ -1019,6 +1029,279 @@ def generate_embeddings_recursive(
             "total_files_failed": total_files_failed,
             "model_profile": model_profile,
             "details": all_results,
+        },
+    }
+
+
+def generate_dense_embeddings_centralized(
+    index_root: Path,
+    embedding_backend: Optional[str] = None,
+    model_profile: Optional[str] = None,
+    force: bool = False,
+    chunk_size: int = 2000,
+    overlap: int = 200,
+    progress_callback: Optional[callable] = None,
+    use_gpu: Optional[bool] = None,
+    max_tokens_per_batch: Optional[int] = None,
+    max_workers: Optional[int] = None,
+    endpoints: Optional[List] = None,
+    strategy: Optional[str] = None,
+    cooldown: Optional[float] = None,
+) -> Dict[str, any]:
+    """Generate dense embeddings with centralized vector storage.
+
+    This function creates a single HNSW index at the project root instead of
+    per-directory indexes. All chunks from all _index.db files are combined
+    into one central _vectors.hnsw file.
+
+    Target architecture:
+        <index_root>/
+        |-- _vectors.hnsw         # Centralized dense vector ANN index
+        |-- _splade.db            # Centralized sparse vector index
+        |-- src/
+            |-- _index.db         # No longer contains .hnsw file
+
+    Args:
+        index_root: Root index directory containing _index.db files
+        embedding_backend: Embedding backend (fastembed or litellm)
+        model_profile: Model profile or name
+        force: If True, regenerate even if embeddings exist
+        chunk_size: Maximum chunk size in characters
+        overlap: Overlap size in characters
+        progress_callback: Optional callback for progress updates
+        use_gpu: Whether to use GPU acceleration
+        max_tokens_per_batch: Maximum tokens per batch
+        max_workers: Maximum concurrent workers
+        endpoints: Multi-endpoint configurations
+        strategy: Endpoint selection strategy
+        cooldown: Rate-limit cooldown seconds
+
+    Returns:
+        Result dictionary with generation statistics
+    """
+    from codexlens.config import VECTORS_HNSW_NAME, SPLADE_DB_NAME
+
+    # Get defaults from config if not specified
+    (default_backend, default_model, default_gpu,
+     default_endpoints, default_strategy, default_cooldown) = _get_embedding_defaults()
+
+    if embedding_backend is None:
+        embedding_backend = default_backend
+    if model_profile is None:
+        model_profile = default_model
+    if use_gpu is None:
+        use_gpu = default_gpu
+    if endpoints is None:
+        endpoints = default_endpoints
+    if strategy is None:
+        strategy = default_strategy
+    if cooldown is None:
+        cooldown = default_cooldown
+
+    # Calculate endpoint count for worker scaling
+    endpoint_count = len(endpoints) if endpoints else 1
+
+    if max_workers is None:
+        if embedding_backend == "litellm":
+            if endpoint_count > 1:
+                max_workers = endpoint_count * 2
+            else:
+                max_workers = 4
+        else:
+            max_workers = 1
+
+    backend_available, backend_error = is_embedding_backend_available(embedding_backend)
+    if not backend_available:
+        return {"success": False, "error": backend_error or "Embedding backend not available"}
+
+    # Discover all _index.db files
+    index_files = discover_all_index_dbs(index_root)
+
+    if not index_files:
+        return {
+            "success": False,
+            "error": f"No index databases found in {index_root}",
+        }
+
+    if progress_callback:
+        progress_callback(f"Found {len(index_files)} index databases for centralized embedding")
+
+    # Check for existing centralized index
+    central_hnsw_path = index_root / VECTORS_HNSW_NAME
+    if central_hnsw_path.exists() and not force:
+        return {
+            "success": False,
+            "error": f"Centralized vector index already exists at {central_hnsw_path}. Use --force to regenerate.",
+        }
+
+    # Initialize embedder
+    try:
+        from codexlens.semantic.factory import get_embedder as get_embedder_factory
+        from codexlens.semantic.chunker import Chunker, ChunkConfig
+        from codexlens.semantic.ann_index import ANNIndex
+
+        if embedding_backend == "fastembed":
+            embedder = get_embedder_factory(backend="fastembed", profile=model_profile, use_gpu=use_gpu)
+        elif embedding_backend == "litellm":
+            embedder = get_embedder_factory(
+                backend="litellm",
+                model=model_profile,
+                endpoints=endpoints if endpoints else None,
+                strategy=strategy,
+                cooldown=cooldown,
+            )
+        else:
+            return {
+                "success": False,
+                "error": f"Invalid embedding backend: {embedding_backend}",
+            }
+
+        chunker = Chunker(config=ChunkConfig(
+            max_chunk_size=chunk_size,
+            overlap=overlap,
+            skip_token_count=True
+        ))
+
+        if progress_callback:
+            if endpoint_count > 1:
+                progress_callback(f"Using {endpoint_count} API endpoints with {strategy} strategy")
+            progress_callback(f"Using model: {embedder.model_name} ({embedder.embedding_dim} dimensions)")
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Failed to initialize components: {str(e)}",
+        }
+
+    # Create centralized ANN index
+    central_ann_index = ANNIndex.create_central(
+        index_root=index_root,
+        dim=embedder.embedding_dim,
+        initial_capacity=100000,  # Larger capacity for centralized index
+        auto_save=False,
+    )
+
+    # Process all index databases
+    start_time = time.time()
+    failed_files = []
+    total_chunks_created = 0
+    total_files_processed = 0
+    all_chunk_ids = []
+    all_embeddings = []
+
+    # Track chunk ID to file_path mapping for metadata
+    chunk_id_to_info: Dict[int, Dict[str, Any]] = {}
+    next_chunk_id = 1
+
+    for idx, index_path in enumerate(index_files, 1):
+        if progress_callback:
+            try:
+                rel_path = index_path.relative_to(index_root)
+            except ValueError:
+                rel_path = index_path
+            progress_callback(f"Processing {idx}/{len(index_files)}: {rel_path}")
+
+        try:
+            with sqlite3.connect(index_path) as conn:
+                conn.row_factory = sqlite3.Row
+                path_column = _get_path_column(conn)
+
+                # Get files from this index
+                cursor = conn.execute(f"SELECT {path_column}, content, language FROM files")
+                file_rows = cursor.fetchall()
+
+                for file_row in file_rows:
+                    file_path = file_row[path_column]
+                    content = file_row["content"]
+                    language = file_row["language"] or "python"
+
+                    try:
+                        chunks = chunker.chunk_sliding_window(
+                            content,
+                            file_path=file_path,
+                            language=language
+                        )
+
+                        if not chunks:
+                            continue
+
+                        total_files_processed += 1
+
+                        # Generate embeddings for this file's chunks
+                        batch_contents = [chunk.content for chunk in chunks]
+                        embeddings_numpy = embedder.embed_to_numpy(batch_contents, batch_size=EMBEDDING_BATCH_SIZE)
+
+                        # Assign chunk IDs and store embeddings
+                        for i, chunk in enumerate(chunks):
+                            chunk_id = next_chunk_id
+                            next_chunk_id += 1
+
+                            all_chunk_ids.append(chunk_id)
+                            all_embeddings.append(embeddings_numpy[i])
+
+                            # Store metadata for later retrieval
+                            chunk_id_to_info[chunk_id] = {
+                                "file_path": file_path,
+                                "content": chunk.content,
+                                "metadata": chunk.metadata,
+                                "category": get_file_category(file_path) or "code",
+                            }
+                            total_chunks_created += 1
+
+                    except Exception as e:
+                        logger.error(f"Failed to process {file_path}: {e}")
+                        failed_files.append((file_path, str(e)))
+
+        except Exception as e:
+            logger.error(f"Failed to read index {index_path}: {e}")
+            failed_files.append((str(index_path), str(e)))
+
+    # Add all embeddings to centralized ANN index
+    if all_embeddings:
+        if progress_callback:
+            progress_callback(f"Building centralized ANN index with {len(all_embeddings)} vectors...")
+
+        try:
+            import numpy as np
+            embeddings_matrix = np.vstack(all_embeddings)
+            central_ann_index.add_vectors(all_chunk_ids, embeddings_matrix)
+            central_ann_index.save()
+
+            if progress_callback:
+                progress_callback(f"Saved centralized index to {central_hnsw_path}")
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to build centralized ANN index: {str(e)}",
+            }
+
+    # Store chunk metadata in a centralized metadata database
+    vectors_meta_path = index_root / "VECTORS_META_DB_NAME"
+    # Note: The metadata is already stored in individual _index.db semantic_chunks tables
+    # For now, we rely on the existing per-index storage for metadata lookup
+    # A future enhancement could consolidate metadata into _vectors_meta.db
+
+    elapsed_time = time.time() - start_time
+
+    # Cleanup
+    try:
+        _cleanup_fastembed_resources()
+        gc.collect()
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "result": {
+            "chunks_created": total_chunks_created,
+            "files_processed": total_files_processed,
+            "files_failed": len(failed_files),
+            "elapsed_time": elapsed_time,
+            "model_profile": model_profile,
+            "model_name": embedder.model_name,
+            "central_index_path": str(central_hnsw_path),
+            "failed_files": failed_files[:5],
         },
     }
 

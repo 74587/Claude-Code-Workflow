@@ -31,6 +31,7 @@ def timer(name: str, logger: logging.Logger, level: int = logging.DEBUG):
         logger.log(level, "[TIMING] %s: %.2fms", name, elapsed_ms)
 
 from codexlens.config import Config
+from codexlens.config import VECTORS_HNSW_NAME
 from codexlens.entities import SearchResult
 from codexlens.search.ranking import (
     DEFAULT_WEIGHTS,
@@ -517,10 +518,274 @@ class HybridSearchEngine:
             self.logger.debug("Fuzzy search error: %s", exc)
             return []
 
+    def _find_vectors_hnsw(self, index_path: Path) -> Optional[Path]:
+        """Find the centralized _vectors.hnsw file by traversing up from index_path.
+
+        Similar to _search_splade's approach, this method searches for the
+        centralized dense vector index file in parent directories.
+
+        Args:
+            index_path: Path to the current _index.db file
+
+        Returns:
+            Path to _vectors.hnsw if found, None otherwise
+        """
+        current_dir = index_path.parent
+        for _ in range(10):  # Limit search depth
+            candidate = current_dir / VECTORS_HNSW_NAME
+            if candidate.exists():
+                return candidate
+            parent = current_dir.parent
+            if parent == current_dir:  # Reached root
+                break
+            current_dir = parent
+        return None
+
+    def _search_vector_centralized(
+        self,
+        index_path: Path,
+        hnsw_path: Path,
+        query: str,
+        limit: int,
+        category: Optional[str] = None,
+    ) -> List[SearchResult]:
+        """Search using centralized vector index.
+
+        Args:
+            index_path: Path to _index.db file (for metadata lookup)
+            hnsw_path: Path to centralized _vectors.hnsw file
+            query: Natural language query string
+            limit: Maximum results
+            category: Optional category filter ('code' or 'doc')
+
+        Returns:
+            List of SearchResult objects ordered by semantic similarity
+        """
+        try:
+            import sqlite3
+            import json
+            from codexlens.semantic.factory import get_embedder
+            from codexlens.semantic.ann_index import ANNIndex
+
+            # Get model config from the first index database we can find
+            # (all indexes should use the same embedding model)
+            index_root = hnsw_path.parent
+            model_config = None
+
+            # Try to get model config from the provided index_path first
+            try:
+                from codexlens.semantic.vector_store import VectorStore
+                with VectorStore(index_path) as vs:
+                    model_config = vs.get_model_config()
+            except Exception:
+                pass
+
+            # Detect dimension from HNSW file if model config not found
+            if model_config is None:
+                self.logger.debug("Model config not found, will detect from HNSW index")
+                # Create a temporary ANNIndex to load and detect dimension
+                # We need to know the dimension to properly load the index
+
+            # Get embedder based on model config or default
+            if model_config:
+                backend = model_config.get("backend", "fastembed")
+                model_name = model_config["model_name"]
+                model_profile = model_config["model_profile"]
+                embedding_dim = model_config["embedding_dim"]
+
+                if backend == "litellm":
+                    embedder = get_embedder(backend="litellm", model=model_name)
+                else:
+                    embedder = get_embedder(backend="fastembed", profile=model_profile)
+            else:
+                # Default to code profile
+                embedder = get_embedder(backend="fastembed", profile="code")
+                embedding_dim = embedder.embedding_dim
+
+            # Load centralized ANN index
+            start_load = time.perf_counter()
+            ann_index = ANNIndex.create_central(
+                index_root=index_root,
+                dim=embedding_dim,
+            )
+            if not ann_index.load():
+                self.logger.warning("Failed to load centralized vector index from %s", hnsw_path)
+                return []
+            self.logger.debug(
+                "[TIMING] central_ann_load: %.2fms (%d vectors)",
+                (time.perf_counter() - start_load) * 1000,
+                ann_index.count()
+            )
+
+            # Generate query embedding
+            start_embed = time.perf_counter()
+            query_embedding = embedder.embed_single(query)
+            self.logger.debug(
+                "[TIMING] query_embedding: %.2fms",
+                (time.perf_counter() - start_embed) * 1000
+            )
+
+            # Search ANN index
+            start_search = time.perf_counter()
+            import numpy as np
+            query_vec = np.array(query_embedding, dtype=np.float32)
+            ids, distances = ann_index.search(query_vec, top_k=limit * 2)  # Fetch extra for filtering
+            self.logger.debug(
+                "[TIMING] central_ann_search: %.2fms (%d results)",
+                (time.perf_counter() - start_search) * 1000,
+                len(ids) if ids else 0
+            )
+
+            if not ids:
+                return []
+
+            # Convert distances to similarity scores (for cosine: score = 1 - distance)
+            scores = [1.0 - d for d in distances]
+
+            # Fetch chunk metadata from semantic_chunks tables
+            # We need to search across all _index.db files in the project
+            results = self._fetch_chunks_by_ids_centralized(
+                index_root, ids, scores, category
+            )
+
+            return results[:limit]
+
+        except ImportError as exc:
+            self.logger.debug("Semantic dependencies not available: %s", exc)
+            return []
+        except Exception as exc:
+            self.logger.error("Centralized vector search error: %s", exc)
+            return []
+
+    def _fetch_chunks_by_ids_centralized(
+        self,
+        index_root: Path,
+        chunk_ids: List[int],
+        scores: List[float],
+        category: Optional[str] = None,
+    ) -> List[SearchResult]:
+        """Fetch chunk metadata from all _index.db files for centralized search.
+
+        Args:
+            index_root: Root directory containing _index.db files
+            chunk_ids: List of chunk IDs from ANN search
+            scores: Corresponding similarity scores
+            category: Optional category filter
+
+        Returns:
+            List of SearchResult objects
+        """
+        import sqlite3
+        import json
+
+        # Build score map
+        score_map = {cid: score for cid, score in zip(chunk_ids, scores)}
+
+        # Find all _index.db files
+        index_files = list(index_root.rglob("_index.db"))
+
+        results = []
+        found_ids = set()
+
+        for index_path in index_files:
+            try:
+                with sqlite3.connect(index_path) as conn:
+                    conn.row_factory = sqlite3.Row
+
+                    # Check if semantic_chunks table exists
+                    cursor = conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_chunks'"
+                    )
+                    if cursor.fetchone() is None:
+                        continue
+
+                    # Build query for chunk IDs we haven't found yet
+                    remaining_ids = [cid for cid in chunk_ids if cid not in found_ids]
+                    if not remaining_ids:
+                        break
+
+                    placeholders = ",".join("?" * len(remaining_ids))
+
+                    if category:
+                        query = f"""
+                            SELECT id, file_path, content, metadata
+                            FROM semantic_chunks
+                            WHERE id IN ({placeholders}) AND category = ?
+                        """
+                        params = remaining_ids + [category]
+                    else:
+                        query = f"""
+                            SELECT id, file_path, content, metadata
+                            FROM semantic_chunks
+                            WHERE id IN ({placeholders})
+                        """
+                        params = remaining_ids
+
+                    rows = conn.execute(query, params).fetchall()
+
+                    for row in rows:
+                        chunk_id = row["id"]
+                        if chunk_id in found_ids:
+                            continue
+                        found_ids.add(chunk_id)
+
+                        file_path = row["file_path"]
+                        content = row["content"]
+                        metadata_json = row["metadata"]
+                        metadata = json.loads(metadata_json) if metadata_json else {}
+
+                        score = score_map.get(chunk_id, 0.0)
+
+                        # Build excerpt
+                        excerpt = content[:200] + "..." if len(content) > 200 else content
+
+                        # Extract symbol information
+                        symbol_name = metadata.get("symbol_name")
+                        symbol_kind = metadata.get("symbol_kind")
+                        start_line = metadata.get("start_line")
+                        end_line = metadata.get("end_line")
+
+                        # Build Symbol object if available
+                        symbol = None
+                        if symbol_name and symbol_kind and start_line and end_line:
+                            try:
+                                from codexlens.entities import Symbol
+                                symbol = Symbol(
+                                    name=symbol_name,
+                                    kind=symbol_kind,
+                                    range=(start_line, end_line)
+                                )
+                            except Exception:
+                                pass
+
+                        results.append(SearchResult(
+                            path=file_path,
+                            score=score,
+                            excerpt=excerpt,
+                            content=content,
+                            symbol=symbol,
+                            metadata=metadata,
+                            start_line=start_line,
+                            end_line=end_line,
+                            symbol_name=symbol_name,
+                            symbol_kind=symbol_kind,
+                        ))
+
+            except Exception as e:
+                self.logger.debug("Failed to fetch chunks from %s: %s", index_path, e)
+                continue
+
+        # Sort by score descending
+        results.sort(key=lambda r: r.score, reverse=True)
+        return results
+
     def _search_vector(
         self, index_path: Path, query: str, limit: int, category: Optional[str] = None
     ) -> List[SearchResult]:
         """Execute vector similarity search using semantic embeddings.
+
+        Supports both centralized vector storage (single _vectors.hnsw at project root)
+        and distributed storage (per-directory .hnsw files).
 
         Args:
             index_path: Path to _index.db file
@@ -532,6 +797,15 @@ class HybridSearchEngine:
             List of SearchResult objects ordered by semantic similarity
         """
         try:
+            # First, check for centralized vector index
+            central_hnsw_path = self._find_vectors_hnsw(index_path)
+            if central_hnsw_path is not None:
+                self.logger.debug("Found centralized vector index at %s", central_hnsw_path)
+                return self._search_vector_centralized(
+                    index_path, central_hnsw_path, query, limit, category
+                )
+
+            # Fallback to distributed (per-index) vector storage
             # Check if semantic chunks table exists
             import sqlite3
 
@@ -677,9 +951,10 @@ class HybridSearchEngine:
         try:
             from codexlens.semantic.splade_encoder import get_splade_encoder, check_splade_available
             from codexlens.storage.splade_index import SpladeIndex
+            from codexlens.config import SPLADE_DB_NAME
             import sqlite3
             import json
-            
+
             # Check dependencies
             ok, err = check_splade_available()
             if not ok:
@@ -691,7 +966,7 @@ class HybridSearchEngine:
             current_dir = index_path.parent
             splade_db_path = None
             for _ in range(10):  # Limit search depth
-                candidate = current_dir / "_splade.db"
+                candidate = current_dir / SPLADE_DB_NAME
                 if candidate.exists():
                     splade_db_path = candidate
                     break

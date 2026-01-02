@@ -19,6 +19,13 @@ WORKSPACE_DIR_NAME = ".codexlens"
 # Settings file name
 SETTINGS_FILE_NAME = "settings.json"
 
+# SPLADE index database name (centralized storage)
+SPLADE_DB_NAME = "_splade.db"
+
+# Dense vector storage names (centralized storage)
+VECTORS_HNSW_NAME = "_vectors.hnsw"
+VECTORS_META_DB_NAME = "_vectors_meta.db"
+
 log = logging.getLogger(__name__)
 
 

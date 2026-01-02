@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import shutil
+import sqlite3
 from pathlib import Path
 from typing import Annotated, Any, Dict, Iterable, List, Optional
 
@@ -2514,7 +2515,8 @@ def splade_index_command(
     console.print(f"[blue]Discovered {len(all_index_dbs)} index databases[/blue]")
 
     # SPLADE index is stored alongside the root _index.db
-    splade_db = index_root / "_splade.db"
+    from codexlens.config import SPLADE_DB_NAME
+    splade_db = index_root / SPLADE_DB_NAME
 
     if splade_db.exists() and not rebuild:
         console.print("[yellow]SPLADE index exists. Use --rebuild to regenerate.[/yellow]")
@@ -2626,15 +2628,16 @@ def splade_status_command(
 
     from codexlens.storage.splade_index import SpladeIndex
     from codexlens.semantic.splade_encoder import check_splade_available
+    from codexlens.config import SPLADE_DB_NAME
 
     # Find index database
     target_path = path.expanduser().resolve()
 
     if target_path.is_file() and target_path.name == "_index.db":
-        splade_db = target_path.parent / "_splade.db"
+        splade_db = target_path.parent / SPLADE_DB_NAME
     elif target_path.is_dir():
         # Check for local .codexlens/_splade.db
-        local_splade = target_path / ".codexlens" / "_splade.db"
+        local_splade = target_path / ".codexlens" / SPLADE_DB_NAME
         if local_splade.exists():
             splade_db = local_splade
         else:
@@ -2644,7 +2647,7 @@ def splade_status_command(
                 registry.initialize()
                 mapper = PathMapper()
                 index_db = mapper.source_to_index_db(target_path)
-                splade_db = index_db.parent / "_splade.db"
+                splade_db = index_db.parent / SPLADE_DB_NAME
             finally:
                 registry.close()
     else:
@@ -3084,3 +3087,387 @@ def cascade_index(
                 console.print(f"    [dim]{err}[/dim]")
             if len(errors_list) > 3:
                 console.print(f"    [dim]... and {len(errors_list) - 3} more[/dim]")
+
+
+# ==================== Index Migration Commands ====================
+
+# Index version for migration tracking (file-based version marker)
+INDEX_FORMAT_VERSION = "2.0"
+INDEX_VERSION_FILE = "_index_version.txt"
+
+
+def _get_index_version(index_root: Path) -> Optional[str]:
+    """Read index format version from version marker file.
+
+    Args:
+        index_root: Root directory of the index
+
+    Returns:
+        Version string if file exists, None otherwise
+    """
+    version_file = index_root / INDEX_VERSION_FILE
+    if version_file.exists():
+        try:
+            return version_file.read_text(encoding="utf-8").strip()
+        except Exception:
+            return None
+    return None
+
+
+def _set_index_version(index_root: Path, version: str) -> None:
+    """Write index format version to version marker file.
+
+    Args:
+        index_root: Root directory of the index
+        version: Version string to write
+    """
+    version_file = index_root / INDEX_VERSION_FILE
+    version_file.write_text(version, encoding="utf-8")
+
+
+def _discover_distributed_splade(index_root: Path) -> List[Dict[str, Any]]:
+    """Discover distributed SPLADE data in _index.db files.
+
+    Scans all _index.db files for embedded splade_postings tables.
+    This is the old distributed format that needs migration.
+
+    Args:
+        index_root: Root directory to scan
+
+    Returns:
+        List of dicts with db_path, posting_count, chunk_count
+    """
+    results = []
+
+    for db_path in index_root.rglob("_index.db"):
+        try:
+            conn = sqlite3.connect(db_path, timeout=5.0)
+            conn.row_factory = sqlite3.Row
+
+            # Check if splade_postings table exists (old embedded format)
+            cursor = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='splade_postings'"
+            )
+            if cursor.fetchone():
+                # Count postings and chunks
+                try:
+                    row = conn.execute(
+                        "SELECT COUNT(*) as postings, COUNT(DISTINCT chunk_id) as chunks FROM splade_postings"
+                    ).fetchone()
+                    results.append({
+                        "db_path": db_path,
+                        "posting_count": row["postings"] if row else 0,
+                        "chunk_count": row["chunks"] if row else 0,
+                    })
+                except Exception:
+                    pass
+
+            conn.close()
+        except Exception:
+            pass
+
+    return results
+
+
+def _discover_distributed_hnsw(index_root: Path) -> List[Dict[str, Any]]:
+    """Discover distributed HNSW index files.
+
+    Scans for .hnsw files that are stored alongside _index.db files.
+    This is the old distributed format that needs migration.
+
+    Args:
+        index_root: Root directory to scan
+
+    Returns:
+        List of dicts with hnsw_path, size_bytes
+    """
+    results = []
+
+    for hnsw_path in index_root.rglob("*.hnsw"):
+        try:
+            size = hnsw_path.stat().st_size
+            results.append({
+                "hnsw_path": hnsw_path,
+                "size_bytes": size,
+            })
+        except Exception:
+            pass
+
+    return results
+
+
+def _check_centralized_storage(index_root: Path) -> Dict[str, Any]:
+    """Check for centralized storage files.
+
+    Args:
+        index_root: Root directory to check
+
+    Returns:
+        Dict with has_splade, has_vectors, splade_stats, vector_stats
+    """
+    from codexlens.config import SPLADE_DB_NAME, VECTORS_HNSW_NAME
+
+    splade_db = index_root / SPLADE_DB_NAME
+    vectors_hnsw = index_root / VECTORS_HNSW_NAME
+
+    result = {
+        "has_splade": splade_db.exists(),
+        "has_vectors": vectors_hnsw.exists(),
+        "splade_path": str(splade_db) if splade_db.exists() else None,
+        "vectors_path": str(vectors_hnsw) if vectors_hnsw.exists() else None,
+        "splade_stats": None,
+        "vector_stats": None,
+    }
+
+    # Get SPLADE stats if exists
+    if splade_db.exists():
+        try:
+            from codexlens.storage.splade_index import SpladeIndex
+            splade = SpladeIndex(splade_db)
+            if splade.has_index():
+                result["splade_stats"] = splade.get_stats()
+            splade.close()
+        except Exception:
+            pass
+
+    # Get vector stats if exists
+    if vectors_hnsw.exists():
+        try:
+            result["vector_stats"] = {
+                "size_bytes": vectors_hnsw.stat().st_size,
+            }
+        except Exception:
+            pass
+
+    return result
+
+
+@app.command(name="index-migrate")
+def index_migrate(
+    path: Annotated[Optional[str], typer.Argument(help="Project path to migrate")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would be migrated without making changes")] = False,
+    force: Annotated[bool, typer.Option("--force", help="Force migration even if already migrated")] = False,
+    json_mode: Annotated[bool, typer.Option("--json", help="Output JSON response")] = False,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Enable verbose output")] = False,
+) -> None:
+    """Migrate old distributed index to new centralized architecture.
+
+    This command upgrades indexes from the old distributed storage format
+    (where SPLADE/vectors were stored in each _index.db) to the new centralized
+    format (single _splade.db and _vectors.hnsw at index root).
+
+    Migration Steps:
+      1. Detect if migration is needed (check version marker)
+      2. Discover distributed SPLADE data in _index.db files
+      3. Discover distributed .hnsw files
+      4. Report current status
+      5. Create version marker (unless --dry-run)
+
+    Use --dry-run to preview what would be migrated without making changes.
+    Use --force to re-run migration even if version marker exists.
+
+    Note: For full data migration (SPLADE/vectors consolidation), run:
+      codexlens splade-index <path> --rebuild
+      codexlens embeddings-generate <path> --recursive --force
+
+    Examples:
+        codexlens index-migrate ~/projects/my-app --dry-run
+        codexlens index-migrate . --force
+        codexlens index-migrate --json
+    """
+    _configure_logging(verbose, json_mode)
+
+    # Resolve target path
+    if path:
+        target_path = Path(path).expanduser().resolve()
+    else:
+        target_path = Path.cwd()
+
+    if not target_path.exists():
+        if json_mode:
+            print_json(success=False, error=f"Path does not exist: {target_path}")
+        else:
+            console.print(f"[red]Error:[/red] Path does not exist: {target_path}")
+        raise typer.Exit(code=1)
+
+    # Find index root
+    registry: RegistryStore | None = None
+    index_root: Optional[Path] = None
+
+    try:
+        registry = RegistryStore()
+        registry.initialize()
+        mapper = PathMapper()
+
+        # Check if path is a project with an index
+        project_info = registry.get_project(target_path)
+        if project_info:
+            index_root = Path(project_info.index_root)
+        else:
+            # Try to find index via mapper
+            index_db = mapper.source_to_index_db(target_path)
+            if index_db.exists():
+                index_root = index_db.parent
+    finally:
+        if registry:
+            registry.close()
+
+    if not index_root or not index_root.exists():
+        if json_mode:
+            print_json(success=False, error=f"No index found for: {target_path}")
+        else:
+            console.print(f"[red]Error:[/red] No index found for: {target_path}")
+            console.print("[dim]Run 'codexlens init' first to create an index.[/dim]")
+        raise typer.Exit(code=1)
+
+    if not json_mode:
+        console.print(f"[bold]Index Migration Check[/bold]")
+        console.print(f"Source path: [dim]{target_path}[/dim]")
+        console.print(f"Index root: [dim]{index_root}[/dim]")
+        if dry_run:
+            console.print("[yellow]Mode: DRY RUN (no changes will be made)[/yellow]")
+        console.print()
+
+    # Check current version
+    current_version = _get_index_version(index_root)
+    needs_migration = current_version is None or (force and current_version != INDEX_FORMAT_VERSION)
+
+    if current_version and current_version >= INDEX_FORMAT_VERSION and not force:
+        result = {
+            "path": str(target_path),
+            "index_root": str(index_root),
+            "current_version": current_version,
+            "target_version": INDEX_FORMAT_VERSION,
+            "needs_migration": False,
+            "message": "Index is already at the latest version",
+        }
+
+        if json_mode:
+            print_json(success=True, result=result)
+        else:
+            console.print(f"[green]OK[/green] Index is already at version {current_version}")
+            console.print("[dim]No migration needed. Use --force to re-run migration.[/dim]")
+        return
+
+    # Discover distributed data
+    distributed_splade = _discover_distributed_splade(index_root)
+    distributed_hnsw = _discover_distributed_hnsw(index_root)
+    centralized = _check_centralized_storage(index_root)
+
+    # Count all _index.db files
+    all_index_dbs = list(index_root.rglob("_index.db"))
+
+    # Build migration report
+    migration_report = {
+        "path": str(target_path),
+        "index_root": str(index_root),
+        "dry_run": dry_run,
+        "current_version": current_version,
+        "target_version": INDEX_FORMAT_VERSION,
+        "needs_migration": needs_migration,
+        "discovery": {
+            "total_index_dbs": len(all_index_dbs),
+            "distributed_splade_count": len(distributed_splade),
+            "distributed_splade_total_postings": sum(d["posting_count"] for d in distributed_splade),
+            "distributed_hnsw_count": len(distributed_hnsw),
+            "distributed_hnsw_total_bytes": sum(d["size_bytes"] for d in distributed_hnsw),
+        },
+        "centralized": centralized,
+        "recommendations": [],
+    }
+
+    # Generate recommendations
+    if distributed_splade and not centralized["has_splade"]:
+        migration_report["recommendations"].append(
+            f"Run 'codexlens splade-index {target_path} --rebuild' to consolidate SPLADE data"
+        )
+
+    if distributed_hnsw and not centralized["has_vectors"]:
+        migration_report["recommendations"].append(
+            f"Run 'codexlens embeddings-generate {target_path} --recursive --force' to consolidate vector data"
+        )
+
+    if not distributed_splade and not distributed_hnsw:
+        migration_report["recommendations"].append(
+            "No distributed data found. Index may already be using centralized storage."
+        )
+
+    if json_mode:
+        # Perform migration action (set version marker) unless dry-run
+        if not dry_run and needs_migration:
+            _set_index_version(index_root, INDEX_FORMAT_VERSION)
+            migration_report["migrated"] = True
+            migration_report["new_version"] = INDEX_FORMAT_VERSION
+        else:
+            migration_report["migrated"] = False
+
+        print_json(success=True, result=migration_report)
+    else:
+        # Display discovery results
+        console.print("[bold]Discovery Results:[/bold]")
+        console.print(f"  Total _index.db files: {len(all_index_dbs)}")
+        console.print()
+
+        # Distributed SPLADE
+        console.print("[bold]Distributed SPLADE Data:[/bold]")
+        if distributed_splade:
+            total_postings = sum(d["posting_count"] for d in distributed_splade)
+            total_chunks = sum(d["chunk_count"] for d in distributed_splade)
+            console.print(f"  Found in {len(distributed_splade)} _index.db files")
+            console.print(f"  Total postings: {total_postings:,}")
+            console.print(f"  Total chunks: {total_chunks:,}")
+            if verbose:
+                for d in distributed_splade[:5]:
+                    console.print(f"    [dim]{d['db_path'].parent.name}: {d['posting_count']} postings[/dim]")
+                if len(distributed_splade) > 5:
+                    console.print(f"    [dim]... and {len(distributed_splade) - 5} more[/dim]")
+        else:
+            console.print("  [dim]None found (already centralized or not generated)[/dim]")
+        console.print()
+
+        # Distributed HNSW
+        console.print("[bold]Distributed HNSW Files:[/bold]")
+        if distributed_hnsw:
+            total_size = sum(d["size_bytes"] for d in distributed_hnsw)
+            console.print(f"  Found {len(distributed_hnsw)} .hnsw files")
+            console.print(f"  Total size: {total_size / (1024 * 1024):.1f} MB")
+            if verbose:
+                for d in distributed_hnsw[:5]:
+                    console.print(f"    [dim]{d['hnsw_path'].name}: {d['size_bytes'] / 1024:.1f} KB[/dim]")
+                if len(distributed_hnsw) > 5:
+                    console.print(f"    [dim]... and {len(distributed_hnsw) - 5} more[/dim]")
+        else:
+            console.print("  [dim]None found (already centralized or not generated)[/dim]")
+        console.print()
+
+        # Centralized storage status
+        console.print("[bold]Centralized Storage:[/bold]")
+        if centralized["has_splade"]:
+            stats = centralized.get("splade_stats") or {}
+            console.print(f"  [green]OK[/green] _splade.db exists")
+            if stats:
+                console.print(f"    Chunks: {stats.get('unique_chunks', 0):,}")
+                console.print(f"    Postings: {stats.get('total_postings', 0):,}")
+        else:
+            console.print(f"  [yellow]--[/yellow] _splade.db not found")
+
+        if centralized["has_vectors"]:
+            stats = centralized.get("vector_stats") or {}
+            size_mb = stats.get("size_bytes", 0) / (1024 * 1024)
+            console.print(f"  [green]OK[/green] _vectors.hnsw exists ({size_mb:.1f} MB)")
+        else:
+            console.print(f"  [yellow]--[/yellow] _vectors.hnsw not found")
+        console.print()
+
+        # Migration action
+        if not dry_run and needs_migration:
+            _set_index_version(index_root, INDEX_FORMAT_VERSION)
+            console.print(f"[green]OK[/green] Version marker created: {INDEX_FORMAT_VERSION}")
+        elif dry_run:
+            console.print(f"[yellow]DRY RUN:[/yellow] Would create version marker: {INDEX_FORMAT_VERSION}")
+
+        # Recommendations
+        if migration_report["recommendations"]:
+            console.print("\n[bold]Recommendations:[/bold]")
+            for rec in migration_report["recommendations"]:
+                console.print(f"  [cyan]>[/cyan] {rec}")

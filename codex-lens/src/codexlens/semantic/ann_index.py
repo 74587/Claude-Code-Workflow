@@ -9,6 +9,7 @@ Key features:
 - Incremental vector addition and deletion
 - Thread-safe operations
 - Cosine similarity metric
+- Support for centralized storage mode (single index at project root)
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from codexlens.errors import StorageError
+from codexlens.config import VECTORS_HNSW_NAME
 
 from . import SEMANTIC_AVAILABLE
 
@@ -126,6 +128,94 @@ class ANNIndex:
             f"Initialized ANNIndex with capacity={initial_capacity}, "
             f"auto_save={auto_save}, expansion_threshold={expansion_threshold}"
         )
+
+    @classmethod
+    def create_central(
+        cls,
+        index_root: Path,
+        dim: int,
+        initial_capacity: int = 50000,
+        auto_save: bool = False,
+        expansion_threshold: float = 0.8,
+    ) -> "ANNIndex":
+        """Create a centralized ANN index at the project index root.
+
+        This method creates a single shared HNSW index file at the project root,
+        rather than per-directory indexes. Use this for projects that want all
+        dense vectors stored in one central location.
+
+        Args:
+            index_root: Root directory for the index (e.g., .codexlens/<project_hash>/)
+            dim: Dimension of embedding vectors
+            initial_capacity: Initial maximum elements capacity (default: 50000)
+            auto_save: Whether to automatically save index after operations (default: False)
+            expansion_threshold: Capacity threshold to trigger auto-expansion (default: 0.8)
+
+        Returns:
+            ANNIndex instance configured for centralized storage
+
+        Example:
+            >>> index = ANNIndex.create_central(Path(".codexlens/abc123"), dim=768)
+            >>> index.hnsw_path  # Returns: .codexlens/abc123/_vectors.hnsw
+        """
+        # Create a dummy index_path that will result in the central hnsw_path
+        # The index_path is used to derive hnsw_path, so we create a virtual path
+        # such that self.hnsw_path = index_root / VECTORS_HNSW_NAME
+        instance = cls.__new__(cls)
+
+        if not SEMANTIC_AVAILABLE:
+            raise ImportError(
+                "Semantic search dependencies not available. "
+                "Install with: pip install codexlens[semantic]"
+            )
+
+        if not HNSWLIB_AVAILABLE:
+            raise ImportError(
+                "hnswlib is required for ANN index. "
+                "Install with: pip install hnswlib"
+            )
+
+        if dim <= 0:
+            raise ValueError(f"Invalid dimension: {dim}")
+
+        if initial_capacity <= 0:
+            raise ValueError(f"Invalid initial capacity: {initial_capacity}")
+
+        if not 0.0 < expansion_threshold < 1.0:
+            raise ValueError(
+                f"Invalid expansion threshold: {expansion_threshold}. Must be between 0 and 1."
+            )
+
+        instance.index_path = index_root
+        instance.dim = dim
+
+        # Centralized mode: use VECTORS_HNSW_NAME directly at index_root
+        instance.hnsw_path = index_root / VECTORS_HNSW_NAME
+
+        # HNSW parameters
+        instance.space = "cosine"
+        instance.M = 16
+        instance.ef_construction = 200
+        instance.ef = 50
+
+        # Memory management parameters
+        instance._auto_save = auto_save
+        instance._expansion_threshold = expansion_threshold
+
+        # Thread safety
+        instance._lock = threading.RLock()
+
+        # HNSW index instance
+        instance._index: Optional[hnswlib.Index] = None
+        instance._max_elements = initial_capacity
+        instance._current_count = 0
+
+        logger.info(
+            f"Initialized centralized ANNIndex at {instance.hnsw_path} with "
+            f"capacity={initial_capacity}, auto_save={auto_save}"
+        )
+
+        return instance
 
     def _ensure_index(self) -> None:
         """Ensure HNSW index is initialized (lazy initialization)."""
