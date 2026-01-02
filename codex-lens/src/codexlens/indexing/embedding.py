@@ -265,8 +265,8 @@ class DenseEmbeddingBackend(BaseEmbedder):
     Model: BAAI/bge-large-en-v1.5 (1024 dim) with optional expansion
     """
 
-    DEFAULT_MODEL = "BAAI/bge-large-en-v1.5"  # 1024 dim, high quality
-    TARGET_DIM = 2048
+    DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"  # 384 dim, use small for testing
+    TARGET_DIM = 768  # Reduced target for faster testing
 
     def __init__(
         self,

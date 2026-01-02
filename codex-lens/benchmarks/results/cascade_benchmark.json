@@ -1,0 +1,277 @@
+{
+  "timestamp": "2026-01-02 11:22:34",
+  "summaries": {
+    "binary": {
+      "strategy": "binary",
+      "total_queries": 15,
+      "successful_queries": 15,
+      "avg_latency_ms": 850.328753333209,
+      "min_latency_ms": 750.9617999967304,
+      "max_latency_ms": 1015.733200001705,
+      "p50_latency_ms": 847.9711999971187,
+      "p95_latency_ms": 976.768470002571,
+      "p99_latency_ms": 1007.9402540018782,
+      "avg_results": 0,
+      "errors": []
+    },
+    "hybrid": {
+      "strategy": "hybrid",
+      "total_queries": 15,
+      "successful_queries": 15,
+      "avg_latency_ms": 821.3745733330143,
+      "min_latency_ms": 720.5589000004693,
+      "max_latency_ms": 943.0299999949057,
+      "p50_latency_ms": 819.5875000019441,
+      "p95_latency_ms": 916.3381599981221,
+      "p99_latency_ms": 937.691631995549,
+      "avg_results": 0,
+      "errors": []
+    }
+  },
+  "details": {
+    "binary": [
+      {
+        "strategy": "binary",
+        "query": "def search",
+        "latency_ms": 862.7266999974381,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "binary",
+        "query": "class Engine",
+        "latency_ms": 773.8472999990336,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "binary",
+        "query": "import numpy",
+        "latency_ms": 858.1023000006098,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "binary",
+        "query": "async def",
+        "latency_ms": 877.2815999982413,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "binary",
+        "query": "raise ValueError",
+        "latency_ms": 824.3320999972639,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "binary",
+        "query": "how to parse json",
+        "latency_ms": 948.0362000031164,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "binary",
+        "query": "database connection",
+        "latency_ms": 789.3126000053599,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "binary",
+        "query": "error handling",
+        "latency_ms": 960.0693000029423,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "binary",
+        "query": "authentication logic",
+        "latency_ms": 757.247900000948,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "binary",
+        "query": "file read write",
+        "latency_ms": 750.9617999967304,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "binary",
+        "query": "embedding vector",
+        "latency_ms": 871.1426000008942,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "binary",
+        "query": "cosine similarity",
+        "latency_ms": 817.1380999992834,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "binary",
+        "query": "binary quantization",
+        "latency_ms": 1015.733200001705,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "binary",
+        "query": "hamming distance",
+        "latency_ms": 847.9711999971187,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "binary",
+        "query": "reranking",
+        "latency_ms": 801.028399997449,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      }
+    ],
+    "hybrid": [
+      {
+        "strategy": "hybrid",
+        "query": "def search",
+        "latency_ms": 720.5589000004693,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "hybrid",
+        "query": "class Engine",
+        "latency_ms": 792.9914000051212,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "hybrid",
+        "query": "import numpy",
+        "latency_ms": 943.0299999949057,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "hybrid",
+        "query": "async def",
+        "latency_ms": 819.5875000019441,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "hybrid",
+        "query": "raise ValueError",
+        "latency_ms": 835.5114000005415,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "hybrid",
+        "query": "how to parse json",
+        "latency_ms": 867.8118999960134,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "hybrid",
+        "query": "database connection",
+        "latency_ms": 824.6361999990768,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "hybrid",
+        "query": "error handling",
+        "latency_ms": 742.638600000646,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "hybrid",
+        "query": "authentication logic",
+        "latency_ms": 840.4286999939359,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "hybrid",
+        "query": "file read write",
+        "latency_ms": 810.9049000049708,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "hybrid",
+        "query": "embedding vector",
+        "latency_ms": 876.5335000061896,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "hybrid",
+        "query": "cosine similarity",
+        "latency_ms": 797.3090999948909,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "hybrid",
+        "query": "binary quantization",
+        "latency_ms": 767.9803999999422,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "hybrid",
+        "query": "hamming distance",
+        "latency_ms": 775.7972999970661,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      },
+      {
+        "strategy": "hybrid",
+        "query": "reranking",
+        "latency_ms": 904.8987999995006,
+        "num_results": 0,
+        "top_result": null,
+        "error": null
+      }
+    ]
+  }
+}
