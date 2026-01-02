@@ -85,8 +85,19 @@ class HybridSearchEngine:
             weights: Optional custom RRF weights (default: DEFAULT_WEIGHTS)
             config: Optional runtime config (enables optional reranking features)
             embedder: Optional embedder instance for embedding-based reranking
+
+        Raises:
+            TypeError: If weights is not a dict (e.g., if a Path is passed)
         """
         self.logger = logging.getLogger(__name__)
+
+        # Validate weights type to catch common usage errors
+        if weights is not None and not isinstance(weights, dict):
+            raise TypeError(
+                f"weights must be a dict, got {type(weights).__name__}. "
+                f"Did you mean to pass index_path to search() instead of __init__()?"
+            )
+
         self.weights = weights or DEFAULT_WEIGHTS.copy()
         self._config = config
         self.embedder = embedder
