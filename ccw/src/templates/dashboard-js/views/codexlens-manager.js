@@ -4783,3 +4783,33 @@ function closeWatcherModal() {
   var modal = document.getElementById('watcherControlModal');
   if (modal) modal.remove();
 }
+
+/**
+ * Handle watcher status update from WebSocket
+ * @param {Object} payload - { running: boolean, path?: string, error?: string }
+ */
+function handleWatcherStatusUpdate(payload) {
+  var toggle = document.getElementById('watcherToggle');
+  var statsDiv = document.getElementById('watcherStats');
+  var configDiv = document.getElementById('watcherStartConfig');
+
+  if (payload.error) {
+    // Watcher failed - update UI to show stopped state
+    if (toggle) toggle.checked = false;
+    if (statsDiv) statsDiv.style.display = 'none';
+    if (configDiv) configDiv.style.display = 'block';
+    stopWatcherStatusPolling();
+  } else if (payload.running) {
+    // Watcher started
+    if (toggle) toggle.checked = true;
+    if (statsDiv) statsDiv.style.display = 'block';
+    if (configDiv) configDiv.style.display = 'none';
+    startWatcherStatusPolling();
+  } else {
+    // Watcher stopped normally
+    if (toggle) toggle.checked = false;
+    if (statsDiv) statsDiv.style.display = 'none';
+    if (configDiv) configDiv.style.display = 'block';
+    stopWatcherStatusPolling();
+  }
+}

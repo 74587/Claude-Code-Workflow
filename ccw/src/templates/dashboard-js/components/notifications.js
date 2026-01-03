@@ -455,6 +455,23 @@ function handleNotification(data) {
       console.log('[CodexLens] Index progress:', payload.stage, payload.percent + '%');
       break;
 
+    case 'CODEXLENS_WATCHER_STATUS':
+      // Handle CodexLens file watcher status updates
+      if (typeof handleWatcherStatusUpdate === 'function') {
+        handleWatcherStatusUpdate(payload);
+      }
+      if (payload.error) {
+        console.error('[CodexLens] Watcher error:', payload.error);
+        if (typeof showRefreshToast === 'function') {
+          showRefreshToast('Watcher error: ' + payload.error, 'error');
+        }
+      } else if (payload.running) {
+        console.log('[CodexLens] Watcher running:', payload.path);
+      } else {
+        console.log('[CodexLens] Watcher stopped');
+      }
+      break;
+
     default:
       console.log('[WS] Unknown notification type:', type);
   }

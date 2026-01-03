@@ -1374,6 +1374,19 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
           start_time: new Date()
         };
 
+        // Capture stderr for error messages (capped at 4KB to prevent memory leak)
+        const MAX_STDERR_SIZE = 4096;
+        let stderrBuffer = '';
+        if (watcherProcess.stderr) {
+          watcherProcess.stderr.on('data', (data: Buffer) => {
+            stderrBuffer += data.toString();
+            // Cap buffer size to prevent memory leak in long-running watchers
+            if (stderrBuffer.length > MAX_STDERR_SIZE) {
+              stderrBuffer = stderrBuffer.slice(-MAX_STDERR_SIZE);
+            }
+          });
+        }
+
         // Handle process output for event counting
         if (watcherProcess.stdout) {
           watcherProcess.stdout.on('data', (data: Buffer) => {
@@ -1386,11 +1399,38 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
           });
         }
 
+        // Handle spawn errors (e.g., ENOENT)
+        watcherProcess.on('error', (err: Error) => {
+          console.error(`[CodexLens] Watcher spawn error: ${err.message}`);
+          watcherStats.running = false;
+          watcherProcess = null;
+          broadcastToClients({
+            type: 'CODEXLENS_WATCHER_STATUS',
+            payload: { running: false, error: `Spawn error: ${err.message}` }
+          });
+        });
+
         // Handle process exit
         watcherProcess.on('exit', (code: number) => {
           watcherStats.running = false;
           watcherProcess = null;
           console.log(`[CodexLens] Watcher exited with code ${code}`);
+
+          // Broadcast error if exited with non-zero code
+          if (code !== 0) {
+            const errorMsg = stderrBuffer.trim() || `Exited with code ${code}`;
+            // Use stripAnsiCodes helper for consistent ANSI cleanup
+            const cleanError = stripAnsiCodes(errorMsg);
+            broadcastToClients({
+              type: 'CODEXLENS_WATCHER_STATUS',
+              payload: { running: false, error: cleanError }
+            });
+          } else {
+            broadcastToClients({
+              type: 'CODEXLENS_WATCHER_STATUS',
+              payload: { running: false }
+            });
+          }
         });
 
         // Broadcast watcher started
