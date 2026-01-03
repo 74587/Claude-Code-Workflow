@@ -1,7 +1,7 @@
 ---
 name: queue
 description: Form execution queue from bound solutions using issue-queue-agent (solution-level)
-argument-hint: "[--rebuild] [--issue <id>]"
+argument-hint: "[--queues <n>] [--issue <id>]"
 allowed-tools: TodoWrite(*), Task(*), Bash(*), Read(*), Write(*)
 ---
 
@@ -53,6 +53,7 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
 
 # Examples
 /issue:queue                      # Form NEW queue from all bound solutions
+/issue:queue --queues 3           # Form 3 parallel queues (solutions distributed)
 /issue:queue --issue GH-123       # Form queue for specific issue only
 /issue:queue --append GH-124      # Append to active queue
 /issue:queue --list               # List all queues (history)
@@ -60,6 +61,7 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
 /issue:queue --archive            # Archive completed active queue
 
 # Flags
+--queues <n>          Number of parallel queues (default: 1)
 --issue <id>          Form queue for specific issue only
 --append <id>         Append issue to active queue (don't create new)
 
@@ -73,35 +75,38 @@ ccw issue queue delete <queue-id>     Delete queue from history
 ## Execution Process
 
 ```
-Phase 1: Solution Loading
+Phase 1: Solution Loading & Distribution
    ├─ Load issues.jsonl, filter by status='planned' + bound_solution_id
    ├─ Read solutions/{issue-id}.jsonl, find bound solution
    ├─ Extract files_touched from task modification_points
-   └─ Build solution objects array
+   ├─ Build solution objects array
+   └─ If --queues > 1: Partition solutions into N groups (minimize cross-group file conflicts)
 
 Phase 2-4: Agent-Driven Queue Formation (issue-queue-agent)
-   ├─ Launch issue-queue-agent with solutions array
-   ├─ Agent performs:
+   ├─ Generate N queue IDs (QUE-xxx-1, QUE-xxx-2, ...)
+   ├─ If --queues == 1: Launch single issue-queue-agent
+   ├─ If --queues > 1: Launch N issue-queue-agents IN PARALLEL
+   ├─ Each agent performs:
    │   ├─ Conflict analysis (5 types via Gemini CLI)
    │   ├─ Build dependency DAG from conflicts
    │   ├─ Calculate semantic priority per solution
    │   └─ Assign execution groups (parallel/sequential)
-   └─ Agent writes: queue JSON + index update
+   └─ Each agent writes: queue JSON + index update
 
 Phase 5: Conflict Clarification (if needed)
-   ├─ Check agent return for `clarifications` array
-   ├─ If clarifications exist → AskUserQuestion
-   ├─ Pass user decisions back to agent (resume)
-   └─ Agent updates queue with resolved conflicts
+   ├─ Collect `clarifications` arrays from all agents
+   ├─ If clarifications exist → AskUserQuestion (batched)
+   ├─ Pass user decisions back to respective agents (resume)
+   └─ Agents update queues with resolved conflicts
 
 Phase 6: Status Update & Summary
    ├─ Update issue statuses to 'queued'
-   └─ Display queue summary, next step: /issue:execute
+   └─ Display queue summary (N queues), next step: /issue:execute
 ```
 
 ## Implementation
 
-### Phase 1: Solution Loading
+### Phase 1: Solution Loading & Distribution
 
 **Data Loading:**
 - Load `issues.jsonl` and filter issues with `status === 'planned'` and `bound_solution_id`
@@ -124,22 +129,42 @@ Phase 6: Status Update & Summary
 }
 ```
 
-**Output:** Array of solution objects ready for agent processing
+**Multi-Queue Distribution** (if `--queues > 1`):
+```javascript
+const numQueues = args.queues || 1;
+if (numQueues > 1) {
+  // Partition solutions to minimize cross-group file conflicts
+  const groups = partitionByFileOverlap(solutions, numQueues);
+  // groups = [[sol1, sol2], [sol3, sol4], [sol5]]
+}
+```
+
+**Partitioning Strategy:**
+- Group solutions with overlapping `files_touched` into same queue
+- Use greedy assignment: assign each solution to queue with most file overlap
+- If no overlap, assign to queue with fewest solutions (balance load)
+
+**Output:** Array of solution objects (or N arrays if multi-queue)
 
 ### Phase 2-4: Agent-Driven Queue Formation
 
-**Generate Queue ID** (command layer, pass to agent):
+**Generate Queue IDs** (command layer, pass to agent):
 ```javascript
-const queueId = `QUE-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}`;
+const timestamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+const numQueues = args.queues || 1;
+const queueIds = numQueues === 1
+  ? [`QUE-${timestamp}`]
+  : Array.from({length: numQueues}, (_, i) => `QUE-${timestamp}-${i + 1}`);
 ```
 
-**Agent Prompt**:
+**Agent Prompt** (same for each queue, with assigned solutions):
 ```
 ## Order Solutions into Execution Queue
 
 **Queue ID**: ${queueId}
 **Solutions**: ${solutions.length} from ${issues.length} issues
 **Project Root**: ${cwd}
+**Queue Index**: ${queueIndex} of ${numQueues}
 
 ### Input
 ${JSON.stringify(solutions)}
@@ -185,39 +210,66 @@ Step 6: Write queue JSON + update index
 - [ ] Return JSON matches required shape
 ```
 
-**Launch Agent**:
+**Launch Agents** (parallel if multi-queue):
 ```javascript
-const result = Task(
-  subagent_type="issue-queue-agent",
-  prompt=agentPrompt,
-  description=`Order ${solutions.length} solutions`
-);
+const numQueues = args.queues || 1;
+
+if (numQueues === 1) {
+  // Single queue: single agent call
+  const result = Task(
+    subagent_type="issue-queue-agent",
+    prompt=buildPrompt(queueIds[0], solutions),
+    description=`Order ${solutions.length} solutions`
+  );
+} else {
+  // Multi-queue: parallel agent calls (single message with N Task calls)
+  const agentPromises = solutionGroups.map((group, i) =>
+    Task(
+      subagent_type="issue-queue-agent",
+      prompt=buildPrompt(queueIds[i], group, i + 1, numQueues),
+      description=`Queue ${i + 1}/${numQueues}: ${group.length} solutions`
+    )
+  );
+  // All agents launched in parallel via single message with multiple Task tool calls
+}
 ```
+
+**Multi-Queue Index Update:**
+- First queue sets `active_queue_id`
+- All queues added to `queues` array with `queue_group` field linking them
 
 ### Phase 5: Conflict Clarification
 
+**Collect Agent Results** (multi-queue):
+```javascript
+// Collect clarifications from all agents
+const allClarifications = results.flatMap((r, i) =>
+  (r.clarifications || []).map(c => ({ ...c, queue_id: queueIds[i], agent_id: agentIds[i] }))
+);
+```
+
 **Check Agent Return:**
-- Parse agent result JSON
-- If `clarifications` array exists and non-empty → user decision required
+- Parse agent result JSON (or all results if multi-queue)
+- If any `clarifications` array exists and non-empty → user decision required
 
 **Clarification Flow:**
 ```javascript
-if (result.clarifications?.length > 0) {
-  for (const clarification of result.clarifications) {
+if (allClarifications.length > 0) {
+  for (const clarification of allClarifications) {
     // Present to user via AskUserQuestion
     const answer = AskUserQuestion({
       questions: [{
-        question: clarification.question,
+        question: `[${clarification.queue_id}] ${clarification.question}`,
         header: clarification.conflict_id,
         options: clarification.options,
         multiSelect: false
       }]
     });
 
-    // Resume agent with user decision
+    // Resume respective agent with user decision
     Task(
       subagent_type="issue-queue-agent",
-      resume=agentId,
+      resume=clarification.agent_id,
       prompt=`Conflict ${clarification.conflict_id} resolved: ${answer.selected}`
     );
   }
@@ -282,9 +334,13 @@ ccw issue update <issue-id> --status queued
 ```json
 {
   "active_queue_id": "QUE-20251227-143000",
+  "active_queue_group": "QGR-20251227-143000",
   "queues": [
     {
-      "id": "QUE-20251227-143000",
+      "id": "QUE-20251227-143000-1",
+      "queue_group": "QGR-20251227-143000",
+      "queue_index": 1,
+      "total_queues": 3,
       "status": "active",
       "issue_ids": ["ISS-xxx", "ISS-yyy"],
       "total_solutions": 3,
@@ -294,6 +350,12 @@ ccw issue update <issue-id> --status queued
   ]
 }
 ```
+
+**Multi-Queue Fields:**
+- `queue_group`: Links queues created in same batch (format: `QGR-{timestamp}`)
+- `queue_index`: Position in group (1-based)
+- `total_queues`: Total queues in group
+- `active_queue_group`: Current active group (for multi-queue execution)
 
 **Note**: Queue file schema is produced by `issue-queue-agent`. See agent documentation for details.
 ## Error Handling
@@ -312,11 +374,13 @@ ccw issue update <issue-id> --status queued
 Before completing, verify:
 
 - [ ] All planned issues with `bound_solution_id` are included
-- [ ] Queue JSON written to `queues/{queue-id}.json`
+- [ ] Queue JSON written to `queues/{queue-id}.json` (N files if multi-queue)
 - [ ] Index updated in `queues/index.json` with `active_queue_id`
+- [ ] Multi-queue: All queues share same `queue_group`
 - [ ] No circular dependencies in solution DAG
 - [ ] All conflicts resolved (auto or via user clarification)
 - [ ] Parallel groups have no file overlaps
+- [ ] Cross-queue: No file overlaps between queues
 - [ ] Issue statuses updated to `queued`
 
 ## Related Commands
