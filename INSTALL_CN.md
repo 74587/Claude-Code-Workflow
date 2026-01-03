@@ -4,7 +4,7 @@
 
 Claude Code Agent 工作流协调和分布式内存系统的交互式安装指南。
 
-> **版本 6.2：原生 CodexLens 与 Dashboard 革新** - 内置代码索引引擎（FTS + 语义搜索 + HNSW 向量索引），全新 Dashboard 视图，TypeScript 后端，会话聚类智能记忆管理。
+> **版本 6.3.18：原生 CodexLens 与 Dashboard 革新** - 内置代码索引引擎（FTS + 语义搜索 + HNSW 向量索引），全新 Dashboard 视图，TypeScript 后端，会话聚类智能记忆管理。
 
 ## ⚡ 一键远程安装（推荐）
 
@@ -156,8 +156,8 @@ iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/m
 # macOS：brew install powershell
 
 # 2. 下载 Claude Code 工作流系统
-git clone https://github.com/catlog22/Claude-CCW.git
-cd Dmsflow
+git clone https://github.com/catlog22/Claude-Code-Workflow.git
+cd Claude-Code-Workflow
 
 # 3. 全局安装（交互式）
 .\Install-Claude.ps1 -Global
@@ -299,6 +299,6 @@ A：默认情况下，卸载只删除我们安装的文件，保留您的个人�
 
 ## 支持
 
-- **问题**：[GitHub Issues](https://github.com/catlog22/Claude-CCW/issues)
-- **文档**：[主 README](README_CN.md)
+- **问题**：[GitHub Issues](https://github.com/catlog22/Claude-Code-Workflow/issues)
+- **文档**：[主 README](README.md) | [中文 README](README_CN.md)
 - **工作流文档**：[.claude/commands/workflow.md](.claude/commands/workflow.md)

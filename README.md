@@ -5,7 +5,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v6.3.4-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v6.3.18-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![npm](https://img.shields.io/npm/v/claude-code-workflow.svg)](https://www.npmjs.com/package/claude-code-workflow)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
@@ -19,7 +19,7 @@
 
 **Claude Code Workflow (CCW)** is a JSON-driven multi-agent development framework with intelligent CLI orchestration (Gemini/Qwen/Codex), context-first architecture, and automated workflow execution. It transforms AI development from simple prompt chaining into a powerful orchestration system.
 
-> **🎉 Version 6.2.0: Native CodexLens & Dashboard Revolution**
+> **🎉 Version 6.3.18: Native CodexLens & Dashboard Revolution**
 >
 > **Breaking Changes**:
 > - ⚠️ CLI command refactored: `ccw cli exec` → `ccw cli -p`

@@ -22,28 +22,28 @@ After running the installation command, you'll see an interactive menu with real
 
 ```
 Detecting latest release and commits...
-Latest stable: v4.6.0 (2025-10-19 04:27 UTC)
-Latest commit: cdea58f (2025-10-19 08:15 UTC)
+Latest stable: v6.3.18 (2026-01-03 UTC)
+Latest commit: bab5625 (2026-01-03 UTC)
 
 ====================================================
             Version Selection Menu
 ====================================================
 
 1) Latest Stable Release (Recommended)
-   |-- Version: v4.6.0
-   |-- Released: 2025-10-19 04:27 UTC
+   |-- Version: v6.3.18
+   |-- Released: 2026-01-03 UTC
    \-- Production-ready
 
 2) Latest Development Version
    |-- Branch: main
-   |-- Commit: cdea58f
-   |-- Updated: 2025-10-19 08:15 UTC
+   |-- Commit: bab5625
+   |-- Updated: 2026-01-03 UTC
    |-- Cutting-edge features
    \-- May contain experimental changes
 
 3) Specific Release Version
    |-- Install a specific tagged release
-   \-- Recent: v4.6.0, v4.5.0, v4.4.0
+   \-- Recent: v6.3.18, v6.3.0, v6.2.0
 
 ====================================================
 

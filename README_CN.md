@@ -5,7 +5,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v6.2.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v6.3.18-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![npm](https://img.shields.io/npm/v/claude-code-workflow.svg)](https://www.npmjs.com/package/claude-code-workflow)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
@@ -18,7 +18,7 @@
 
 **Claude Code Workflow (CCW)** 是一个 JSON 驱动的多智能体开发框架，具有智能 CLI 编排（Gemini/Qwen/Codex）、上下文优先架构和自动化工作流执行。它将 AI 开发从简单的提示词链接转变为一个强大的编排系统。
 
-> **🎉 版本 6.2.0: 原生 CodexLens 与 Dashboard 革新**
+> **🎉 版本 6.3.18: 原生 CodexLens 与 Dashboard 革新**
 >
 > **破坏性变更**:
 > - ⚠️ CLI 命令重构: `ccw cli exec` → `ccw cli -p`
