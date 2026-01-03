@@ -32,14 +32,56 @@ cd "${WORKTREE_PATH}"
 - Main working directory stays clean
 - Easy cleanup after execution
 
-**Cleanup after completion:**
-```bash
-# Return to main repo
-cd -
+**Completion - User Choice:**
 
-# Remove worktree
+When all solutions are complete, ask user what to do with the worktree branch:
+
+```javascript
+AskUserQuestion({
+  questions: [{
+    question: "All solutions completed in worktree. What would you like to do with the changes?",
+    header: "Merge",
+    multiSelect: false,
+    options: [
+      {
+        label: "Merge to main",
+        description: "Merge worktree branch into main branch and cleanup"
+      },
+      {
+        label: "Create PR",
+        description: "Push branch and create a pull request for review"
+      },
+      {
+        label: "Keep branch",
+        description: "Keep the branch for manual handling, cleanup worktree only"
+      }
+    ]
+  }]
+})
+```
+
+**Based on user selection:**
+
+```bash
+# Return to main repo first
+MAIN_REPO=$(git worktree list | head -1 | awk '{print $1}')
+cd "${MAIN_REPO}"
+
+# Option 1: Merge to main
+git merge "${WORKTREE_NAME}" --no-ff -m "Merge issue queue execution: ${WORKTREE_NAME}"
 git worktree remove "${WORKTREE_PATH}"
 git branch -d "${WORKTREE_NAME}"
+
+# Option 2: Create PR
+git push -u origin "${WORKTREE_NAME}"
+gh pr create --title "Issue Queue: ${WORKTREE_NAME}" --body "Automated issue queue execution"
+git worktree remove "${WORKTREE_PATH}"
+# Branch kept on remote
+
+# Option 3: Keep branch
+git worktree remove "${WORKTREE_PATH}"
+# Branch kept locally for manual handling
+echo "Branch '${WORKTREE_NAME}' kept. Merge manually when ready."
 ```
 
 ## Execution Flow
@@ -325,6 +367,8 @@ ccw issue next
 ## Final Summary
 
 When `ccw issue next` returns `{ "status": "empty" }`:
+
+**If running in worktree mode**: Prompt user for merge/PR/keep choice (see "Completion - User Choice" above) before outputting summary.
 
 ```markdown
 ## Issue Queue Execution Complete
