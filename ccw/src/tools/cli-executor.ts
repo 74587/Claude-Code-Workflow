@@ -9,6 +9,7 @@ import type { HistoryIndexEntry } from './cli-history-store.js';
 import { spawn, ChildProcess } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
+import { validatePath } from '../utils/path-resolver.js';
 
 // Track current running child process for cleanup on interruption
 let currentChildProcess: ChildProcess | null = null;
@@ -675,8 +676,17 @@ async function executeCliTool(
 
   const { tool, prompt, mode, format, model, cd, includeDirs, timeout, resume, id: customId, noNative, category, parentExecutionId } = parsed.data;
 
-  // Determine working directory early (needed for conversation lookup)
-  const workingDir = cd || process.cwd();
+  // Validate and determine working directory early (needed for conversation lookup)
+  let workingDir: string;
+  if (cd) {
+    const validation = validatePath(cd, { mustExist: true });
+    if (!validation.valid) {
+      throw new Error(`Invalid working directory (--cd): ${validation.error}. Path: ${cd}`);
+    }
+    workingDir = validation.path!;
+  } else {
+    workingDir = process.cwd();
+  }
   ensureHistoryDir(workingDir); // Ensure history directory exists
 
   // NEW: Check if model is a custom LiteLLM endpoint ID
