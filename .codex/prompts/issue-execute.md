@@ -15,17 +15,39 @@ When `--worktree` is specified, create a separate git worktree to isolate work:
 
 ```bash
 # Step 0: Setup worktree before starting
+
+# Use absolute paths to avoid issues when running from subdirectories
+REPO_ROOT=$(git rev-parse --show-toplevel)
+WORKTREE_BASE="${REPO_ROOT}/.ccw/worktrees"
 WORKTREE_NAME="issue-exec-$(date +%Y%m%d-%H%M%S)"
-WORKTREE_PATH="../.worktrees/${WORKTREE_NAME}"
+WORKTREE_PATH="${WORKTREE_BASE}/${WORKTREE_NAME}"
+
+# Ensure worktree base directory exists (gitignored)
+mkdir -p "${WORKTREE_BASE}"
+
+# Prune stale worktrees from previous interrupted executions
+git worktree prune
 
 # Create worktree from current branch
 git worktree add "${WORKTREE_PATH}" -b "${WORKTREE_NAME}"
+
+# Setup cleanup trap for graceful failure handling
+cleanup_worktree() {
+  echo "Cleaning up worktree due to interruption..."
+  cd "${REPO_ROOT}" 2>/dev/null || true
+  git worktree remove "${WORKTREE_PATH}" --force 2>/dev/null || true
+  # Keep branch for debugging failed executions
+  echo "Worktree removed. Branch '${WORKTREE_NAME}' kept for inspection."
+}
+trap cleanup_worktree EXIT INT TERM
 
 # Change to worktree directory
 cd "${WORKTREE_PATH}"
 
 # Now execute in isolated worktree...
 ```
+
+**Note**: Add `.ccw/worktrees/` to `.gitignore` to prevent tracking worktree contents.
 
 **Benefits:**
 - Parallel executors don't conflict with each other
@@ -63,16 +85,35 @@ AskUserQuestion({
 **Based on user selection:**
 
 ```bash
-# Return to main repo first
-MAIN_REPO=$(git worktree list | head -1 | awk '{print $1}')
-cd "${MAIN_REPO}"
+# Disable cleanup trap before intentional cleanup
+trap - EXIT INT TERM
 
-# Option 1: Merge to main
-git merge "${WORKTREE_NAME}" --no-ff -m "Merge issue queue execution: ${WORKTREE_NAME}"
-git worktree remove "${WORKTREE_PATH}"
-git branch -d "${WORKTREE_NAME}"
+# Return to main repo first (use REPO_ROOT from setup)
+cd "${REPO_ROOT}"
 
-# Option 2: Create PR
+# Validate main repo state before merge (prevents conflicts)
+validate_main_clean() {
+  if [[ -n $(git status --porcelain) ]]; then
+    echo "⚠️ Warning: Main repo has uncommitted changes."
+    echo "Cannot auto-merge. Falling back to 'Create PR' option."
+    return 1
+  fi
+  return 0
+}
+
+# Option 1: Merge to main (only if main is clean)
+if validate_main_clean; then
+  git merge "${WORKTREE_NAME}" --no-ff -m "Merge issue queue execution: ${WORKTREE_NAME}"
+  git worktree remove "${WORKTREE_PATH}"
+  git branch -d "${WORKTREE_NAME}"
+else
+  # Fallback to PR if main is dirty
+  git push -u origin "${WORKTREE_NAME}"
+  gh pr create --title "Issue Queue: ${WORKTREE_NAME}" --body "Automated issue queue execution (main had uncommitted changes)"
+  git worktree remove "${WORKTREE_PATH}"
+fi
+
+# Option 2: Create PR (Recommended for parallel execution)
 git push -u origin "${WORKTREE_NAME}"
 gh pr create --title "Issue Queue: ${WORKTREE_NAME}" --body "Automated issue queue execution"
 git worktree remove "${WORKTREE_PATH}"
@@ -83,6 +124,8 @@ git worktree remove "${WORKTREE_PATH}"
 # Branch kept locally for manual handling
 echo "Branch '${WORKTREE_NAME}' kept. Merge manually when ready."
 ```
+
+**Parallel Execution Safety**: For parallel executors, "Create PR" is the safest option as it avoids race conditions during merge. Multiple PRs can be reviewed and merged sequentially.
 
 ## Execution Flow
 

@@ -148,9 +148,14 @@ TodoWrite({
 
 console.log(`\n### Executing Solutions (DAG batch 1): ${batch.join(', ')}`);
 
-// Setup worktree base directory if needed
+// Setup worktree base directory if needed (using absolute paths)
 if (useWorktree) {
-  Bash('mkdir -p ../.worktrees');
+  // Use absolute paths to avoid issues when running from subdirectories
+  const repoRoot = Bash('git rev-parse --show-toplevel').trim();
+  const worktreeBase = `${repoRoot}/.ccw/worktrees`;
+  Bash(`mkdir -p "${worktreeBase}"`);
+  // Prune stale worktrees from previous interrupted executions
+  Bash('git worktree prune');
 }
 
 // Launch ALL solutions in batch in parallel (DAG guarantees no conflicts)
@@ -167,13 +172,34 @@ batch.forEach(id => updateTodo(id, 'completed'));
 
 ```javascript
 function dispatchExecutor(solutionId, executorType, useWorktree = false) {
-  // Worktree setup commands (if enabled)
+  // Worktree setup commands (if enabled) - using absolute paths
   const worktreeSetup = useWorktree ? `
 ### Step 0: Setup Isolated Worktree
 \`\`\`bash
+# Use absolute paths to avoid issues when running from subdirectories
+REPO_ROOT=$(git rev-parse --show-toplevel)
+WORKTREE_BASE="\${REPO_ROOT}/.ccw/worktrees"
 WORKTREE_NAME="exec-${solutionId}-$(date +%H%M%S)"
-WORKTREE_PATH="../.worktrees/\${WORKTREE_NAME}"
+WORKTREE_PATH="\${WORKTREE_BASE}/\${WORKTREE_NAME}"
+
+# Ensure worktree base exists
+mkdir -p "\${WORKTREE_BASE}"
+
+# Prune stale worktrees
+git worktree prune
+
+# Create worktree
 git worktree add "\${WORKTREE_PATH}" -b "\${WORKTREE_NAME}"
+
+# Setup cleanup trap for graceful failure handling
+cleanup_worktree() {
+  echo "Cleaning up worktree due to interruption..."
+  cd "\${REPO_ROOT}" 2>/dev/null || true
+  git worktree remove "\${WORKTREE_PATH}" --force 2>/dev/null || true
+  echo "Worktree removed. Branch '\${WORKTREE_NAME}' kept for inspection."
+}
+trap cleanup_worktree EXIT INT TERM
+
 cd "\${WORKTREE_PATH}"
 \`\`\`
 ` : '';
@@ -190,8 +216,8 @@ AskUserQuestion({
     header: "Merge",
     multiSelect: false,
     options: [
-      { label: "Merge to main", description: "Merge branch and cleanup worktree" },
-      { label: "Create PR", description: "Push branch and create pull request" },
+      { label: "Create PR (Recommended)", description: "Push branch and create pull request - safest for parallel execution" },
+      { label: "Merge to main", description: "Merge branch and cleanup worktree (requires clean main)" },
       { label: "Keep branch", description: "Cleanup worktree, keep branch for manual handling" }
     ]
   }]
@@ -200,22 +226,44 @@ AskUserQuestion({
 
 **Based on selection:**
 \`\`\`bash
-MAIN_REPO=$(git worktree list | head -1 | awk '{print $1}')
-cd "\${MAIN_REPO}"
+# Disable cleanup trap before intentional cleanup
+trap - EXIT INT TERM
 
-# Merge to main:
-git merge --no-ff "\${WORKTREE_NAME}" -m "Merge solution ${solutionId}"
-git worktree remove "\${WORKTREE_PATH}" && git branch -d "\${WORKTREE_NAME}"
+# Return to repo root (use REPO_ROOT from setup)
+cd "\${REPO_ROOT}"
 
-# Create PR:
+# Validate main repo state before merge
+validate_main_clean() {
+  if [[ -n \$(git status --porcelain) ]]; then
+    echo "⚠️ Warning: Main repo has uncommitted changes."
+    echo "Cannot auto-merge. Falling back to 'Create PR' option."
+    return 1
+  fi
+  return 0
+}
+
+# Create PR (Recommended for parallel execution):
 git push -u origin "\${WORKTREE_NAME}"
 gh pr create --title "Solution ${solutionId}" --body "Issue queue execution"
 git worktree remove "\${WORKTREE_PATH}"
+
+# Merge to main (only if main is clean):
+if validate_main_clean; then
+  git merge --no-ff "\${WORKTREE_NAME}" -m "Merge solution ${solutionId}"
+  git worktree remove "\${WORKTREE_PATH}" && git branch -d "\${WORKTREE_NAME}"
+else
+  # Fallback to PR if main is dirty
+  git push -u origin "\${WORKTREE_NAME}"
+  gh pr create --title "Solution ${solutionId}" --body "Issue queue execution (main had uncommitted changes)"
+  git worktree remove "\${WORKTREE_PATH}"
+fi
 
 # Keep branch:
 git worktree remove "\${WORKTREE_PATH}"
 echo "Branch \${WORKTREE_NAME} kept for manual handling"
 \`\`\`
+
+**Parallel Execution Safety**: "Create PR" is the default and safest option for parallel executors, avoiding merge race conditions.
 ` : '';
 
   const prompt = `
