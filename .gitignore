@@ -30,3 +30,6 @@ settings.json
 *.mcp.json
 .mcp.json
 .ace-tool/
+
+# CCW worktrees for parallel execution
+.ccw/worktrees/
