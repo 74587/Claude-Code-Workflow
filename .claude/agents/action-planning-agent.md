@@ -780,6 +780,8 @@ Generate at `.workflow/active/{session_id}/TODO_LIST.md`:
 
 ### 2.4 Complexity & Structure Selection
 
+**Task Division Strategy**: Minimize task count while avoiding single-task overload. Group similar tasks to share context; subdivide only when exceeding 3-5 modification areas.
+
 Use `analysis_results.complexity` or task count to determine structure:
 
 **Single Module Mode**:

@@ -312,3 +312,11 @@ Optional Review (when needed):
 - Regular development (tests are sufficient)
 - Simple bug fixes (test-fix-agent handles it)
 - Minor changes (update-memory-related is enough)
+
+## Post-Review Action
+
+After review completion, prompt user:
+```
+Review complete. Would you like to complete and archive this session?
+→ Run /workflow:session:complete to archive with lessons learned
+```
