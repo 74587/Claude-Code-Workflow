@@ -797,7 +797,7 @@ class ChainSearchEngine:
         k: int = 10,
         coarse_k: int = 100,
         options: Optional[SearchOptions] = None,
-        strategy: Literal["binary", "hybrid"] = "binary",
+        strategy: Optional[Literal["binary", "hybrid"]] = None,
     ) -> ChainSearchResult:
         """Unified cascade search entry point with strategy selection.
 
@@ -805,9 +805,9 @@ class ChainSearchEngine:
         - "binary": Uses binary vector coarse ranking + dense fine ranking (faster)
         - "hybrid": Uses FTS+SPLADE+Vector coarse ranking + cross-encoder reranking (original)
 
-        The strategy can be configured via:
-        1. The `strategy` parameter (highest priority)
-        2. Config `cascade_strategy` setting
+        The strategy is determined with the following priority:
+        1. The `strategy` parameter (e.g., from CLI --cascade-strategy option)
+        2. Config `cascade_strategy` setting from settings.json
         3. Default: "binary"
 
         Args:
@@ -816,7 +816,7 @@ class ChainSearchEngine:
             k: Number of final results to return (default 10)
             coarse_k: Number of coarse candidates from first stage (default 100)
             options: Search configuration (uses defaults if None)
-            strategy: Cascade strategy - "binary" or "hybrid" (default "binary")
+            strategy: Cascade strategy - "binary" or "hybrid". Overrides config if provided.
 
         Returns:
             ChainSearchResult with reranked results and statistics
@@ -828,14 +828,18 @@ class ChainSearchEngine:
             >>> # Use hybrid cascade (original behavior)
             >>> result = engine.cascade_search("auth", Path("D:/project"), strategy="hybrid")
         """
-        # Check config for strategy override
+        # Strategy priority: parameter > config > default
         effective_strategy = strategy
-        if self._config is not None:
-            config_strategy = getattr(self._config, "cascade_strategy", None)
-            if config_strategy in ("binary", "hybrid"):
-                # Only use config if no explicit strategy was passed
-                # (we can't detect if strategy was explicitly passed vs default)
-                effective_strategy = config_strategy
+        if effective_strategy is None:
+            # Not passed via parameter, check config
+            if self._config is not None:
+                config_strategy = getattr(self._config, "cascade_strategy", None)
+                if config_strategy in ("binary", "hybrid"):
+                    effective_strategy = config_strategy
+
+        # If still not set, apply default
+        if effective_strategy not in ("binary", "hybrid"):
+            effective_strategy = "binary"
 
         if effective_strategy == "binary":
             return self.binary_cascade_search(query, source_path, k, coarse_k, options)

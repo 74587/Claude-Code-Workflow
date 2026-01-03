@@ -271,6 +271,11 @@ class Config:
                 "model": self.reranker_model,
                 "top_k": self.reranker_top_k,
             },
+            "cascade": {
+                "strategy": self.cascade_strategy,
+                "coarse_k": self.cascade_coarse_k,
+                "fine_k": self.cascade_fine_k,
+            },
         }
         with open(self.settings_path, "w", encoding="utf-8") as f:
             json.dump(settings, f, indent=2)
@@ -338,6 +343,23 @@ class Config:
                 self.reranker_model = reranker["model"]
             if "top_k" in reranker:
                 self.reranker_top_k = reranker["top_k"]
+
+            # Load cascade settings
+            cascade = settings.get("cascade", {})
+            if "strategy" in cascade:
+                strategy = cascade["strategy"]
+                if strategy in {"binary", "hybrid"}:
+                    self.cascade_strategy = strategy
+                else:
+                    log.warning(
+                        "Invalid cascade strategy in %s: %r (expected 'binary' or 'hybrid')",
+                        self.settings_path,
+                        strategy,
+                    )
+            if "coarse_k" in cascade:
+                self.cascade_coarse_k = cascade["coarse_k"]
+            if "fine_k" in cascade:
+                self.cascade_fine_k = cascade["fine_k"]
         except Exception as exc:
             log.warning(
                 "Failed to load settings from %s (%s): %s",

@@ -439,6 +439,11 @@ def search(
         "--weights", "-w",
         help="RRF weights as key=value pairs (e.g., 'splade=0.4,vector=0.6' or 'fts=0.4,vector=0.6'). Default: auto-detect based on available backends."
     ),
+    cascade_strategy: Optional[str] = typer.Option(
+        None,
+        "--cascade-strategy",
+        help="Cascade search strategy: 'binary' (fast binary+dense) or 'hybrid' (FTS+cross-encoder). Only used with --method cascade."
+    ),
     # Hidden deprecated parameter for backward compatibility
     mode: Optional[str] = typer.Option(None, "--mode", hidden=True, help="[DEPRECATED] Use --method instead."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
@@ -488,8 +493,11 @@ def search(
       # SPLADE sparse neural search
       codexlens search "user login flow" --method splade
 
-      # Fast cascade retrieval for large codebases
+      # Fast cascade retrieval for large codebases (binary strategy)
       codexlens search "authentication" --method cascade
+
+      # Cascade with cross-encoder reranking (hybrid strategy)
+      codexlens search "authentication" --method cascade --cascade-strategy hybrid
 
       # Hybrid with custom weights
       codexlens search "authentication" --method hybrid --weights splade=0.5,vector=0.5
@@ -539,6 +547,20 @@ def search(
             console.print(f"[red]Invalid method:[/red] {actual_method}")
             console.print(f"[dim]Valid methods: {', '.join(valid_methods)}[/dim]")
         raise typer.Exit(code=1)
+
+    # Validate cascade_strategy if provided
+    if cascade_strategy is not None:
+        valid_strategies = ["binary", "hybrid"]
+        if cascade_strategy not in valid_strategies:
+            if json_mode:
+                print_json(success=False, error=f"Invalid cascade strategy: {cascade_strategy}. Must be one of: {', '.join(valid_strategies)}")
+            else:
+                console.print(f"[red]Invalid cascade strategy:[/red] {cascade_strategy}")
+                console.print(f"[dim]Valid strategies: {', '.join(valid_strategies)}[/dim]")
+            raise typer.Exit(code=1)
+        # Warn if using cascade_strategy with non-cascade method
+        if actual_method != "cascade" and not json_mode:
+            console.print(f"[yellow]Warning: --cascade-strategy is only effective with --method cascade[/yellow]")
 
     # Parse custom weights if provided
     hybrid_weights = None
@@ -671,7 +693,7 @@ def search(
         else:
             # Dispatch to cascade_search for cascade method
             if actual_method == "cascade":
-                result = engine.cascade_search(query, search_path, k=limit, options=options)
+                result = engine.cascade_search(query, search_path, k=limit, options=options, strategy=cascade_strategy)
             else:
                 result = engine.search(query, search_path, options)
             results_list = [
