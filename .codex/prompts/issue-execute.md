@@ -164,10 +164,14 @@ WHEN queue empty:
 
 ## Step 1: Fetch First Solution
 
-Run this command to get your first solution:
+Run this command to get your first solution (**must run from main repo**):
 
-```bash
-ccw issue next
+```javascript
+// Fetch solution from main repo (not worktree)
+const result = shell_command({
+  command: "ccw issue next",
+  workdir: REPO_ROOT  // Main repo path, NOT worktree
+})
 ```
 
 This returns JSON with the full solution definition:
@@ -249,35 +253,60 @@ Expected solution structure:
 
 After parsing solution, use `update_plan` to track each task:
 
-```
-# Add tasks to plan for tracking
-update_plan("Add task tracking for solution ${item_id}:
-- [ ] ${task.id}: ${task.title}
-- [ ] ${task.id}: ${task.title}
-...")
+```javascript
+// Initialize plan with all tasks from solution
+update_plan({
+  explanation: `Starting solution ${item_id}`,
+  plan: solution.tasks.map(task => ({
+    step: `${task.id}: ${task.title}`,
+    status: "pending"
+  }))
+})
 ```
 
-**Note**: Codex uses `update_plan` tool instead of TodoWrite for task tracking.
+**Note**: Codex uses `update_plan` tool for task tracking (not TodoWrite).
 
 ## Step 3: Execute Tasks Sequentially
 
 Iterate through `solution.tasks` array and execute each task.
 
 **Before starting each task**, mark it as in_progress:
-```
-# Update task status
-update_plan("Mark ${task.id} as in-progress: 🔄 ${task.title}")
+```javascript
+// Update current task status
+update_plan({
+  explanation: `Working on ${task.id}: ${task.title}`,
+  plan: tasks.map(t => ({
+    step: `${t.id}: ${t.title}`,
+    status: t.id === task.id ? "in_progress" : (t.completed ? "completed" : "pending")
+  }))
+})
 ```
 
 **After completing each task** (commit done), mark it as completed:
-```
-# Update completed task
-update_plan("Mark ${task.id} as completed: ✅ ${task.title}")
+```javascript
+// Mark task as completed
+update_plan({
+  explanation: `Completed ${task.id}: ${task.title}`,
+  plan: tasks.map(t => ({
+    step: `${t.id}: ${t.title}`,
+    status: t.id === task.id ? "completed" : t.status
+  }))
+})
 ```
 
 ### Phase A: IMPLEMENT
 
-1. Read all `solution.exploration_context.relevant_files` to understand existing patterns
+1. **Read context files in parallel** using `multi_tool_use.parallel`:
+```javascript
+// Read all relevant files in parallel for context
+multi_tool_use.parallel({
+  tool_uses: solution.exploration_context.relevant_files.map(file => ({
+    recipient_name: "functions.read_file",
+    parameters: { path: file }
+  }))
+})
+```
+
 2. Follow `task.implementation` steps in order
 3. Apply changes to `task.modification_points` files
 4. Follow `solution.exploration_context.patterns` for code style consistency
@@ -372,42 +401,46 @@ Continue to next task in `solution.tasks` array until all tasks are complete.
 
 ## Step 4: Report Completion
 
-After ALL tasks in the solution are complete, **return to main repo** and report to queue system:
+After ALL tasks in the solution are complete, report to queue system (**must run from main repo**):
 
-```bash
-# Return to main repo for ccw commands (worktree mode)
-cd "${REPO_ROOT}"
-
-ccw issue done <item_id> --result '{
-  "files_modified": ["path1", "path2"],
-  "tests_passed": true,
-  "acceptance_passed": true,
-  "committed": true,
-  "commits": [
-    { "task_id": "T1", "hash": "abc123" },
-    { "task_id": "T2", "hash": "def456" }
-  ],
-  "summary": "[What was accomplished]"
-}'
+```javascript
+// Report completion from main repo (not worktree)
+shell_command({
+  command: `ccw issue done ${item_id} --result '${JSON.stringify({
+    files_modified: ["path1", "path2"],
+    tests_passed: true,
+    acceptance_passed: true,
+    committed: true,
+    commits: [
+      { task_id: "T1", hash: "abc123" },
+      { task_id: "T2", hash: "def456" }
+    ],
+    summary: "[What was accomplished]"
+  })}'`,
+  workdir: REPO_ROOT  // Main repo path, NOT worktree
+})
 ```
 
 **If solution failed and cannot be fixed:**
 
-```bash
-ccw issue done <item_id> --fail --reason "Task [task.id] failed: [details]"
+```javascript
+// Report failure from main repo
+shell_command({
+  command: `ccw issue done ${item_id} --fail --reason '{"task_id": "TX", "error_type": "test_failure", "message": "..."}'`,
+  workdir: REPO_ROOT
+})
 ```
 
 ## Step 5: Continue to Next Solution
 
-**⚠️ WORKTREE MODE**: Return to main repo before running `ccw issue next`:
-```bash
-cd "${REPO_ROOT}"  # Return to main repo for ccw commands
-```
+Fetch next solution (**must run from main repo**):
 
-Then fetch next solution:
-
-```bash
-ccw issue next
+```javascript
+// Fetch next solution from main repo
+const result = shell_command({
+  command: "ccw issue next",
+  workdir: REPO_ROOT
+})
 ```
 
 **Output progress:**
