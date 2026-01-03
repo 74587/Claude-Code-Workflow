@@ -1,7 +1,7 @@
 ---
 name: review
 description: Post-implementation review with specialized types (security/architecture/action-items/quality) using analysis agents and Gemini
-argument-hint: "[--type=security|architecture|action-items|quality] [optional: session-id]"
+argument-hint: "[--type=security|architecture|action-items|quality] [--archived] [optional: session-id]"
 ---
 
 ## Command Overview: /workflow:review
@@ -34,15 +34,17 @@ argument-hint: "[--type=security|architecture|action-items|quality] [optional: s
 ```
 Input Parsing:
    ├─ Parse --type flag (default: quality)
+   ├─ Parse --archived flag (search in archives)
    └─ Parse session-id argument (optional)
 
 Step 1: Session Resolution
    └─ Decision:
-      ├─ session-id provided → Use provided session
+      ├─ session-id provided + --archived → Search .workflow/archives/
+      ├─ session-id provided → Search .workflow/active/ first, then archives
       └─ Not provided → Auto-detect from .workflow/active/
 
 Step 2: Validation
-   ├─ Check session directory exists
+   ├─ Check session directory exists (active or archived)
    └─ Check for completed implementation (.summaries/IMPL-*.md exists)
 
 Step 3: Type Check
@@ -68,21 +70,29 @@ Step 5: Generate Report
 #!/bin/bash
 # Optional specialized review for completed implementation
 
-# Step 1: Session ID resolution
+# Step 1: Session ID resolution and location detection
 if [ -n "$SESSION_ARG" ]; then
     sessionId="$SESSION_ARG"
 else
     sessionId=$(find .workflow/active/ -name "WFS-*" -type d | head -1 | xargs basename)
 fi
 
-# Step 2: Validation
-if [ ! -d ".workflow/active/${sessionId}" ]; then
-    echo "Session ${sessionId} not found"
+# Step 2: Resolve session path (active or archived)
+# Priority: --archived flag → active → archives
+if [ -n "$ARCHIVED_FLAG" ]; then
+    sessionPath=".workflow/archives/${sessionId}"
+elif [ -d ".workflow/active/${sessionId}" ]; then
+    sessionPath=".workflow/active/${sessionId}"
+elif [ -d ".workflow/archives/${sessionId}" ]; then
+    sessionPath=".workflow/archives/${sessionId}"
+    echo "Note: Session found in archives, running review on archived session"
+else
+    echo "Session ${sessionId} not found in active or archives"
     exit 1
 fi
 
 # Check for completed tasks
-if [ ! -d ".workflow/active/${sessionId}/.summaries" ] || [ -z "$(find .workflow/active/${sessionId}/.summaries/ -name "IMPL-*.md" -type f 2>/dev/null)" ]; then
+if [ ! -d "${sessionPath}/.summaries" ] || [ -z "$(find ${sessionPath}/.summaries/ -name "IMPL-*.md" -type f 2>/dev/null)" ]; then
     echo "No completed implementation found. Complete implementation first"
     exit 1
 fi
@@ -113,17 +123,17 @@ After bash validation, the model takes control to:
 1. **Load Context**: Read completed task summaries and changed files
    ```bash
    # Load implementation summaries (iterate through .summaries/ directory)
-   for summary in .workflow/active/${sessionId}/.summaries/*.md; do
+   for summary in ${sessionPath}/.summaries/*.md; do
      cat "$summary"
    done
 
    # Load test results (if available)
-   for test_summary in .workflow/active/${sessionId}/.summaries/TEST-FIX-*.md 2>/dev/null; do
+   for test_summary in ${sessionPath}/.summaries/TEST-FIX-*.md 2>/dev/null; do
      cat "$test_summary"
    done
 
    # Get changed files
-   git log --since="$(cat .workflow/active/${sessionId}/workflow-session.json | jq -r .created_at)" --name-only --pretty=format: | sort -u
+   git log --since="$(cat ${sessionPath}/workflow-session.json | jq -r .created_at)" --name-only --pretty=format: | sort -u
    ```
 
 2. **Perform Specialized Review**: Based on `review_type`
@@ -142,7 +152,7 @@ After bash validation, the model takes control to:
      CONTEXT: @.summaries/IMPL-*.md,../.. @../../project-tech.json @../../project-guidelines.json
      EXPECTED: Security findings report with severity levels
      RULES: Focus on OWASP Top 10, authentication, authorization, data validation, injection risks
-     " --tool gemini --mode write --cd .workflow/active/${sessionId}
+     " --tool gemini --mode write --cd ${sessionPath}
      ```
 
    **Architecture Review** (`--type=architecture`):
@@ -154,7 +164,7 @@ After bash validation, the model takes control to:
      CONTEXT: @.summaries/IMPL-*.md,../.. @../../project-tech.json @../../project-guidelines.json
      EXPECTED: Architecture assessment with recommendations
      RULES: Check for patterns, separation of concerns, modularity, scalability
-     " --tool qwen --mode write --cd .workflow/active/${sessionId}
+     " --tool qwen --mode write --cd ${sessionPath}
      ```
 
    **Quality Review** (`--type=quality`):
@@ -166,14 +176,14 @@ After bash validation, the model takes control to:
      CONTEXT: @.summaries/IMPL-*.md,../.. @../../project-tech.json @../../project-guidelines.json
      EXPECTED: Quality assessment with improvement suggestions
      RULES: Check for code smells, duplication, complexity, naming conventions
-     " --tool gemini --mode write --cd .workflow/active/${sessionId}
+     " --tool gemini --mode write --cd ${sessionPath}
      ```
 
    **Action Items Review** (`--type=action-items`):
    - Verify all requirements and acceptance criteria met:
      ```bash
      # Load task requirements and acceptance criteria
-     for task_file in .workflow/active/${sessionId}/.task/*.json; do
+     for task_file in ${sessionPath}/.task/*.json; do
        cat "$task_file" | jq -r '
          "Task: " + .id + "\n" +
          "Requirements: " + (.context.requirements | join(", ")) + "\n" +
@@ -196,7 +206,7 @@ After bash validation, the model takes control to:
      - Verify all acceptance criteria are met
      - Flag any incomplete or missing action items
      - Assess deployment readiness
-     " --tool gemini --mode write --cd .workflow/active/${sessionId}
+     " --tool gemini --mode write --cd ${sessionPath}
      ```
 
 
@@ -234,7 +244,7 @@ After bash validation, the model takes control to:
 4. **Output Files**:
    ```bash
    # Save review report
-   Write(.workflow/active/${sessionId}/REVIEW-${review_type}.md)
+   Write(${sessionPath}/REVIEW-${review_type}.md)
 
    # Update session metadata
    # (optional) Update workflow-session.json with review status
@@ -261,6 +271,12 @@ After bash validation, the model takes control to:
 # Architecture review for specific session
 /workflow:review --type=architecture WFS-payment-integration
 
+# Review an archived session (auto-detects if not in active)
+/workflow:review --type=security WFS-old-feature
+
+# Explicitly review archived session
+/workflow:review --archived --type=quality WFS-completed-feature
+
 # Documentation review
 /workflow:review --type=docs
 ```
@@ -270,6 +286,7 @@ After bash validation, the model takes control to:
 - **Simple Validation**: Check session exists and has completed tasks
 - **No Complex Orchestration**: Direct analysis, no multi-phase pipeline
 - **Specialized Reviews**: Different prompts and tools for different review types
+- **Archived Session Support**: Review archived sessions with `--archived` flag or auto-detection
 - **MCP Integration**: Fast code search for security and architecture patterns
 - **CLI Tool Integration**: Gemini for analysis, Qwen for architecture
 - **Structured Output**: Markdown reports with severity levels and action items
