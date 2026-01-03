@@ -112,6 +112,7 @@ class HybridSearchEngine:
         enable_fuzzy: bool = True,
         enable_vector: bool = False,
         pure_vector: bool = False,
+        enable_splade: bool = False,
     ) -> List[SearchResult]:
         """Execute hybrid search with parallel retrieval and RRF fusion.
 
@@ -122,6 +123,7 @@ class HybridSearchEngine:
             enable_fuzzy: Enable fuzzy FTS search (default True)
             enable_vector: Enable vector search (default False)
             pure_vector: If True, only use vector search without FTS fallback (default False)
+            enable_splade: If True, force SPLADE sparse neural search (default False)
 
         Returns:
             List of SearchResult objects sorted by fusion score
@@ -135,6 +137,9 @@ class HybridSearchEngine:
             >>> results = engine.search(Path("project/_index.db"),
             ...                         "how to authenticate users",
             ...                         enable_vector=True, pure_vector=True)
+            >>> # SPLADE sparse neural search
+            >>> results = engine.search(Path("project/_index.db"), "auth flow",
+            ...                         enable_splade=True, enable_vector=True)
             >>> for r in results[:5]:
             ...     print(f"{r.path}: {r.score:.3f}")
         """
@@ -158,7 +163,7 @@ class HybridSearchEngine:
 
         # Determine which backends to use
         backends = {}
-        
+
         # Check if SPLADE is available
         splade_available = False
         # Respect config.enable_splade flag and use_fts_fallback flag
@@ -191,6 +196,23 @@ class HybridSearchEngine:
                     "To use pure vector search, enable vector search mode."
                 )
                 backends["exact"] = True
+        elif enable_splade:
+            # Explicit SPLADE mode requested via CLI --method splade
+            if splade_available:
+                backends["splade"] = True
+                if enable_vector:
+                    backends["vector"] = True
+            else:
+                # SPLADE requested but not available - warn and fallback
+                self.logger.warning(
+                    "SPLADE search requested but not available. "
+                    "Falling back to FTS. Run 'codexlens index splade' to enable."
+                )
+                backends["exact"] = True
+                if enable_fuzzy:
+                    backends["fuzzy"] = True
+                if enable_vector:
+                    backends["vector"] = True
         else:
             # Hybrid mode: default to SPLADE if available, otherwise use FTS
             if splade_available:

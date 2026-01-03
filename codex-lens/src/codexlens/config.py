@@ -118,13 +118,13 @@ class Config:
     embedding_use_gpu: bool = True  # For fastembed: whether to use GPU acceleration
 
     # SPLADE sparse retrieval configuration
-    enable_splade: bool = True  # Enable SPLADE as default sparse backend
+    enable_splade: bool = False  # Disable SPLADE by default (slow ~360ms, use FTS instead)
     splade_model: str = "naver/splade-cocondenser-ensembledistil"
     splade_threshold: float = 0.01  # Min weight to store in index
     splade_onnx_path: Optional[str] = None  # Custom ONNX model path
 
     # FTS fallback (disabled by default, available via --use-fts)
-    use_fts_fallback: bool = False  # Use FTS instead of SPLADE
+    use_fts_fallback: bool = True  # Use FTS for sparse search (fast, SPLADE disabled)
 
     # Indexing/search optimizations
     global_symbol_index_enabled: bool = True  # Enable project-wide symbol index fast path
