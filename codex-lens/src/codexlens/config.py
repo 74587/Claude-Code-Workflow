@@ -265,6 +265,12 @@ class Config:
                 "timeout_ms": self.llm_timeout_ms,
                 "batch_size": self.llm_batch_size,
             },
+            "reranker": {
+                "enabled": self.enable_cross_encoder_rerank,
+                "backend": self.reranker_backend,
+                "model": self.reranker_model,
+                "top_k": self.reranker_top_k,
+            },
         }
         with open(self.settings_path, "w", encoding="utf-8") as f:
             json.dump(settings, f, indent=2)
@@ -313,6 +319,25 @@ class Config:
                 self.llm_timeout_ms = llm["timeout_ms"]
             if "batch_size" in llm:
                 self.llm_batch_size = llm["batch_size"]
+
+            # Load reranker settings
+            reranker = settings.get("reranker", {})
+            if "enabled" in reranker:
+                self.enable_cross_encoder_rerank = reranker["enabled"]
+            if "backend" in reranker:
+                backend = reranker["backend"]
+                if backend in {"onnx", "api", "litellm", "legacy"}:
+                    self.reranker_backend = backend
+                else:
+                    log.warning(
+                        "Invalid reranker backend in %s: %r (expected 'onnx', 'api', 'litellm', or 'legacy')",
+                        self.settings_path,
+                        backend,
+                    )
+            if "model" in reranker:
+                self.reranker_model = reranker["model"]
+            if "top_k" in reranker:
+                self.reranker_top_k = reranker["top_k"]
         except Exception as exc:
             log.warning(
                 "Failed to load settings from %s (%s): %s",

@@ -95,39 +95,68 @@ def load_env_file(env_path: Path) -> Dict[str, str]:
     return env_vars
 
 
+def _get_global_data_dir() -> Path:
+    """Get global CodexLens data directory."""
+    env_override = os.environ.get("CODEXLENS_DATA_DIR")
+    if env_override:
+        return Path(env_override).expanduser().resolve()
+    return (Path.home() / ".codexlens").resolve()
+
+
+def load_global_env() -> Dict[str, str]:
+    """Load environment variables from global ~/.codexlens/.env file.
+
+    Returns:
+        Dictionary of environment variables from global config
+    """
+    global_env_path = _get_global_data_dir() / ".env"
+    if global_env_path.is_file():
+        env_vars = load_env_file(global_env_path)
+        log.debug("Loaded %d vars from global %s", len(env_vars), global_env_path)
+        return env_vars
+    return {}
+
+
 def load_workspace_env(workspace_root: Path | None = None) -> Dict[str, str]:
     """Load environment variables from workspace .env files.
-    
+
     Priority (later overrides earlier):
-    1. Project root .env
-    2. .codexlens/.env
-    
+    1. Global ~/.codexlens/.env (lowest priority)
+    2. Project root .env
+    3. .codexlens/.env (highest priority)
+
     Args:
         workspace_root: Workspace root directory. If None, uses current directory.
-        
+
     Returns:
         Merged dictionary of environment variables
     """
     if workspace_root is None:
         workspace_root = Path.cwd()
-    
+
     workspace_root = Path(workspace_root).resolve()
-    
+
     env_vars: Dict[str, str] = {}
-    
-    # Load from project root .env (lowest priority)
+
+    # Load from global ~/.codexlens/.env (lowest priority)
+    global_vars = load_global_env()
+    if global_vars:
+        env_vars.update(global_vars)
+
+    # Load from project root .env (medium priority)
     root_env = workspace_root / ".env"
     if root_env.is_file():
-        env_vars.update(load_env_file(root_env))
-        log.debug("Loaded %d vars from %s", len(env_vars), root_env)
-    
-    # Load from .codexlens/.env (higher priority)
+        loaded = load_env_file(root_env)
+        env_vars.update(loaded)
+        log.debug("Loaded %d vars from %s", len(loaded), root_env)
+
+    # Load from .codexlens/.env (highest priority)
     codexlens_env = workspace_root / ".codexlens" / ".env"
     if codexlens_env.is_file():
         loaded = load_env_file(codexlens_env)
         env_vars.update(loaded)
         log.debug("Loaded %d vars from %s", len(loaded), codexlens_env)
-    
+
     return env_vars
 
 

@@ -527,8 +527,8 @@ def search(
                 console.print("[dim]Use --method with: fts, vector, splade, hybrid, cascade[/dim]")
             raise typer.Exit(code=1)
 
-    # Configure search
-    config = Config()
+    # Configure search (load settings from file)
+    config = Config.load()
 
     # Validate method
     valid_methods = ["fts", "vector", "splade", "hybrid", "cascade"]
