@@ -1,0 +1,451 @@
+{
+  "_metadata": {
+    "version": "1.1.0",
+    "description": "Predefined workflow chains with CLI tool integration for CCW orchestration"
+  },
+  "cli_tools": {
+    "_doc": "CLI工具是CCW的核心能力，在合适时机自动调用以获得：1)较少token获取大量上下文 2)引入不同模型视角 3)增强debug和规划能力",
+    "gemini": {
+      "strengths": ["超长上下文", "深度分析", "架构理解", "执行流追踪"],
+      "triggers": ["分析", "理解", "设计", "架构", "评估", "诊断"],
+      "mode": "analysis",
+      "token_efficiency": "high",
+      "use_when": [
+        "需要理解大型代码库结构",
+        "执行流追踪和数据流分析",
+        "架构设计和技术方案评估",
+        "复杂问题诊断（root cause analysis）"
+      ]
+    },
+    "qwen": {
+      "strengths": ["超长上下文", "代码模式识别", "多维度分析"],
+      "triggers": ["评估", "对比", "验证"],
+      "mode": "analysis",
+      "token_efficiency": "high",
+      "use_when": [
+        "Gemini 不可用时作为备选",
+        "需要第二视角验证分析结果",
+        "代码模式识别和重复检测"
+      ]
+    },
+    "codex": {
+      "strengths": ["精确代码生成", "自主执行", "数学推理"],
+      "triggers": ["实现", "重构", "修复", "生成", "测试"],
+      "mode": "write",
+      "token_efficiency": "medium",
+      "use_when": [
+        "需要自主完成多步骤代码修改",
+        "复杂重构和迁移任务",
+        "测试生成和修复循环"
+      ]
+    }
+  },
+  "cli_injection_rules": {
+    "_doc": "隐式规则：在特定条件下自动注入CLI调用",
+    "context_gathering": {
+      "trigger": "file_read >= 50k chars OR module_count >= 5",
+      "inject": "gemini --mode analysis",
+      "reason": "大量代码上下文使用CLI可节省主会话token"
+    },
+    "pre_planning_analysis": {
+      "trigger": "complexity === 'high' OR intent === 'exploration'",
+      "inject": "gemini --mode analysis",
+      "reason": "复杂任务先用CLI分析获取多模型视角"
+    },
+    "debug_diagnosis": {
+      "trigger": "intent === 'bugfix' AND root_cause_unclear",
+      "inject": "gemini --mode analysis",
+      "reason": "深度诊断利用Gemini的执行流追踪能力"
+    },
+    "code_review": {
+      "trigger": "step === 'review'",
+      "inject": "gemini --mode analysis",
+      "reason": "代码审查用CLI减少token占用"
+    },
+    "implementation": {
+      "trigger": "step === 'execute' AND task_count >= 3",
+      "inject": "codex --mode write",
+      "reason": "多任务执行用Codex自主完成"
+    }
+  },
+  "chains": {
+    "rapid": {
+      "name": "Rapid Iteration",
+      "description": "多模型协作分析 + 直接执行",
+      "complexity": ["low", "medium"],
+      "steps": [
+        { 
+          "command": "/workflow:lite-plan", 
+          "optional": false, 
+          "auto_continue": true,
+          "cli_hint": {
+            "explore_phase": { "tool": "gemini", "mode": "analysis", "trigger": "needs_exploration" },
+            "planning_phase": { "tool": "gemini", "mode": "analysis", "trigger": "complexity >= medium" }
+          }
+        },
+        { 
+          "command": "/workflow:lite-execute", 
+          "optional": false, 
+          "auto_continue": false,
+          "cli_hint": {
+            "execution": { "tool": "codex", "mode": "write", "trigger": "user_selects_codex OR complexity >= medium" },
+            "review": { "tool": "gemini", "mode": "analysis", "trigger": "user_selects_review" }
+          }
+        }
+      ],
+      "total_steps": 2,
+      "estimated_time": "15-45 min"
+    },
+    "full": {
+      "name": "Full Exploration",
+      "description": "多模型深度分析 + 头脑风暴 + 规划 + 执行",
+      "complexity": ["medium", "high"],
+      "steps": [
+        { 
+          "command": "/workflow:brainstorm:auto-parallel", 
+          "optional": false, 
+          "confirm_before": true,
+          "cli_hint": {
+            "role_analysis": { "tool": "gemini", "mode": "analysis", "trigger": "always", "parallel": true }
+          }
+        },
+        { 
+          "command": "/workflow:plan", 
+          "optional": false, 
+          "auto_continue": false,
+          "cli_hint": {
+            "context_gather": { "tool": "gemini", "mode": "analysis", "trigger": "always" },
+            "task_generation": { "tool": "gemini", "mode": "analysis", "trigger": "always" }
+          }
+        },
+        { "command": "/workflow:action-plan-verify", "optional": true, "auto_continue": true },
+        { 
+          "command": "/workflow:execute", 
+          "optional": false, 
+          "auto_continue": false,
+          "cli_hint": {
+            "execution": { "tool": "codex", "mode": "write", "trigger": "task_count >= 3" }
+          }
+        }
+      ],
+      "total_steps": 4,
+      "estimated_time": "1-3 hours"
+    },
+    "coupled": {
+      "name": "Coupled Planning",
+      "description": "CLI深度分析 + 完整规划 + 验证 + 执行",
+      "complexity": ["high"],
+      "steps": [
+        { 
+          "command": "/workflow:plan", 
+          "optional": false, 
+          "auto_continue": false,
+          "cli_hint": {
+            "pre_analysis": { "tool": "gemini", "mode": "analysis", "trigger": "always", "purpose": "架构理解和依赖分析" },
+            "conflict_detection": { "tool": "gemini", "mode": "analysis", "trigger": "always" }
+          }
+        },
+        { "command": "/workflow:action-plan-verify", "optional": false, "auto_continue": true },
+        { 
+          "command": "/workflow:execute", 
+          "optional": false, 
+          "auto_continue": false,
+          "cli_hint": {
+            "execution": { "tool": "codex", "mode": "write", "trigger": "always", "purpose": "自主多任务执行" }
+          }
+        },
+        { 
+          "command": "/workflow:review", 
+          "optional": true, 
+          "auto_continue": false,
+          "cli_hint": {
+            "review": { "tool": "gemini", "mode": "analysis", "trigger": "always" }
+          }
+        }
+      ],
+      "total_steps": 4,
+      "estimated_time": "2-4 hours"
+    },
+    "bugfix": {
+      "name": "Bug Fix",
+      "description": "CLI诊断 + 智能修复",
+      "complexity": ["low", "medium"],
+      "variants": {
+        "standard": {
+          "steps": [
+            { 
+              "command": "/workflow:lite-fix", 
+              "optional": false, 
+              "auto_continue": true,
+              "cli_hint": {
+                "diagnosis": { "tool": "gemini", "mode": "analysis", "trigger": "always", "purpose": "根因分析和执行流追踪" },
+                "fix": { "tool": "codex", "mode": "write", "trigger": "severity >= medium" }
+              }
+            }
+          ]
+        },
+        "hotfix": {
+          "steps": [
+            { 
+              "command": "/workflow:lite-fix --hotfix", 
+              "optional": false, 
+              "auto_continue": true,
+              "cli_hint": {
+                "quick_diagnosis": { "tool": "gemini", "mode": "analysis", "trigger": "always", "timeout": "60s" }
+              }
+            }
+          ]
+        }
+      },
+      "total_steps": 1,
+      "estimated_time": "10-30 min"
+    },
+    "issue": {
+      "name": "Issue Batch",
+      "description": "CLI批量分析 + 队列优化 + 并行执行",
+      "complexity": ["medium", "high"],
+      "steps": [
+        { 
+          "command": "/issue:plan", 
+          "optional": false, 
+          "auto_continue": false,
+          "cli_hint": {
+            "solution_generation": { "tool": "gemini", "mode": "analysis", "trigger": "always", "parallel": true }
+          }
+        },
+        { 
+          "command": "/issue:queue", 
+          "optional": false, 
+          "auto_continue": false,
+          "cli_hint": {
+            "conflict_analysis": { "tool": "gemini", "mode": "analysis", "trigger": "issue_count >= 3" }
+          }
+        },
+        { 
+          "command": "/issue:execute", 
+          "optional": false, 
+          "auto_continue": false,
+          "cli_hint": {
+            "batch_execution": { "tool": "codex", "mode": "write", "trigger": "always", "purpose": "DAG并行执行" }
+          }
+        }
+      ],
+      "total_steps": 3,
+      "estimated_time": "1-4 hours"
+    },
+    "tdd": {
+      "name": "Test-Driven Development",
+      "description": "TDD规划 + 执行 + CLI验证",
+      "complexity": ["medium", "high"],
+      "steps": [
+        { 
+          "command": "/workflow:tdd-plan", 
+          "optional": false, 
+          "auto_continue": false,
+          "cli_hint": {
+            "test_strategy": { "tool": "gemini", "mode": "analysis", "trigger": "always" }
+          }
+        },
+        { 
+          "command": "/workflow:execute", 
+          "optional": false, 
+          "auto_continue": false,
+          "cli_hint": {
+            "red_green_refactor": { "tool": "codex", "mode": "write", "trigger": "always" }
+          }
+        },
+        { 
+          "command": "/workflow:tdd-verify", 
+          "optional": false, 
+          "auto_continue": false,
+          "cli_hint": {
+            "coverage_analysis": { "tool": "gemini", "mode": "analysis", "trigger": "always" }
+          }
+        }
+      ],
+      "total_steps": 3,
+      "estimated_time": "1-3 hours"
+    },
+    "ui": {
+      "name": "UI-First Development",
+      "description": "UI设计 + 规划 + 执行",
+      "complexity": ["medium", "high"],
+      "variants": {
+        "explore": {
+          "steps": [
+            { "command": "/workflow:ui-design:explore-auto", "optional": false, "auto_continue": false },
+            { "command": "/workflow:ui-design:design-sync", "optional": false, "auto_continue": true },
+            { "command": "/workflow:plan", "optional": false, "auto_continue": false },
+            { "command": "/workflow:execute", "optional": false, "auto_continue": false }
+          ]
+        },
+        "imitate": {
+          "steps": [
+            { "command": "/workflow:ui-design:imitate-auto", "optional": false, "auto_continue": false },
+            { "command": "/workflow:ui-design:design-sync", "optional": false, "auto_continue": true },
+            { "command": "/workflow:plan", "optional": false, "auto_continue": false },
+            { "command": "/workflow:execute", "optional": false, "auto_continue": false }
+          ]
+        }
+      },
+      "total_steps": 4,
+      "estimated_time": "2-4 hours"
+    },
+    "review-fix": {
+      "name": "Review and Fix",
+      "description": "CLI多维审查 + 自动修复",
+      "complexity": ["medium"],
+      "steps": [
+        { 
+          "command": "/workflow:review-session-cycle", 
+          "optional": false, 
+          "auto_continue": false,
+          "cli_hint": {
+            "multi_dimension_review": { "tool": "gemini", "mode": "analysis", "trigger": "always", "parallel": true }
+          }
+        },
+        { 
+          "command": "/workflow:review-fix", 
+          "optional": true, 
+          "auto_continue": false,
+          "cli_hint": {
+            "auto_fix": { "tool": "codex", "mode": "write", "trigger": "findings_count >= 3" }
+          }
+        }
+      ],
+      "total_steps": 2,
+      "estimated_time": "30-90 min"
+    },
+    "docs": {
+      "name": "Documentation",
+      "description": "CLI批量文档生成",
+      "complexity": ["low", "medium"],
+      "variants": {
+        "incremental": {
+          "steps": [
+            { 
+              "command": "/memory:update-related", 
+              "optional": false, 
+              "auto_continue": false,
+              "cli_hint": {
+                "doc_generation": { "tool": "gemini", "mode": "write", "trigger": "module_count >= 5" }
+              }
+            }
+          ]
+        },
+        "full": {
+          "steps": [
+            { "command": "/memory:docs", "optional": false, "auto_continue": false },
+            { 
+              "command": "/workflow:execute", 
+              "optional": false, 
+              "auto_continue": false,
+              "cli_hint": {
+                "batch_doc": { "tool": "gemini", "mode": "write", "trigger": "always" }
+              }
+            }
+          ]
+        }
+      },
+      "total_steps": 2,
+      "estimated_time": "15-60 min"
+    },
+    "cli-analysis": {
+      "name": "CLI Direct Analysis",
+      "description": "直接CLI分析，获取多模型视角，节省主会话token",
+      "complexity": ["low", "medium", "high"],
+      "standalone": true,
+      "steps": [
+        {
+          "command": "ccw cli",
+          "tool": "gemini",
+          "mode": "analysis",
+          "optional": false,
+          "auto_continue": false
+        }
+      ],
+      "use_cases": [
+        "大型代码库快速理解",
+        "执行流追踪和数据流分析",
+        "架构评估和技术方案对比",
+        "性能瓶颈诊断"
+      ],
+      "total_steps": 1,
+      "estimated_time": "5-15 min"
+    },
+    "cli-implement": {
+      "name": "CLI Direct Implementation",
+      "description": "直接Codex实现，自主完成多步骤任务",
+      "complexity": ["medium", "high"],
+      "standalone": true,
+      "steps": [
+        {
+          "command": "ccw cli",
+          "tool": "codex",
+          "mode": "write",
+          "optional": false,
+          "auto_continue": false
+        }
+      ],
+      "use_cases": [
+        "明确需求的功能实现",
+        "代码重构和迁移",
+        "测试生成",
+        "批量代码修改"
+      ],
+      "total_steps": 1,
+      "estimated_time": "15-60 min"
+    },
+    "cli-debug": {
+      "name": "CLI Debug Session",
+      "description": "CLI调试会话，利用Gemini深度诊断能力",
+      "complexity": ["medium", "high"],
+      "standalone": true,
+      "steps": [
+        {
+          "command": "ccw cli",
+          "tool": "gemini",
+          "mode": "analysis",
+          "purpose": "hypothesis-driven debugging",
+          "optional": false,
+          "auto_continue": false
+        }
+      ],
+      "use_cases": [
+        "复杂bug根因分析",
+        "执行流异常追踪",
+        "状态机错误诊断",
+        "并发问题排查"
+      ],
+      "total_steps": 1,
+      "estimated_time": "10-30 min"
+    }
+  },
+  "chain_selection_rules": {
+    "intent_mapping": {
+      "bugfix": ["bugfix"],
+      "feature_simple": ["rapid"],
+      "feature_unclear": ["full"],
+      "feature_complex": ["coupled"],
+      "issue_batch": ["issue"],
+      "test_driven": ["tdd"],
+      "ui_design": ["ui"],
+      "code_review": ["review-fix"],
+      "documentation": ["docs"],
+      "analysis_only": ["cli-analysis"],
+      "implement_only": ["cli-implement"],
+      "debug": ["cli-debug", "bugfix"]
+    },
+    "complexity_fallback": {
+      "low": "rapid",
+      "medium": "coupled",
+      "high": "full"
+    },
+    "cli_preference_rules": {
+      "_doc": "用户语义触发CLI工具选择",
+      "gemini_triggers": ["用 gemini", "gemini 分析", "让 gemini", "深度分析", "架构理解"],
+      "qwen_triggers": ["用 qwen", "qwen 评估", "让 qwen", "第二视角"],
+      "codex_triggers": ["用 codex", "codex 实现", "让 codex", "自主完成", "批量修改"]
+    }
+  }
+}

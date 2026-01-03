@@ -1,0 +1,127 @@
+{
+  "_metadata": {
+    "version": "1.0.0",
+    "generated": "2026-01-03",
+    "description": "CCW command capability index for intelligent workflow coordination"
+  },
+  "capabilities": {
+    "explore": {
+      "description": "Codebase exploration and context gathering",
+      "commands": [
+        { "command": "/workflow:init", "weight": 1.0, "tags": ["project-setup", "context"] },
+        { "command": "/workflow:tools:gather", "weight": 0.9, "tags": ["context", "analysis"] },
+        { "command": "/memory:load", "weight": 0.8, "tags": ["context", "memory"] }
+      ],
+      "agents": ["cli-explore-agent", "context-search-agent"]
+    },
+    "brainstorm": {
+      "description": "Multi-perspective analysis and ideation",
+      "commands": [
+        { "command": "/workflow:brainstorm:auto-parallel", "weight": 1.0, "tags": ["exploration", "multi-role"] },
+        { "command": "/workflow:brainstorm:artifacts", "weight": 0.9, "tags": ["clarification", "guidance"] },
+        { "command": "/workflow:brainstorm:synthesis", "weight": 0.8, "tags": ["consolidation", "refinement"] }
+      ],
+      "roles": ["product-manager", "system-architect", "ux-expert", "data-architect", "api-designer"]
+    },
+    "plan": {
+      "description": "Task planning and decomposition",
+      "commands": [
+        { "command": "/workflow:lite-plan", "weight": 1.0, "complexity": "low-medium", "tags": ["fast", "interactive"] },
+        { "command": "/workflow:plan", "weight": 0.9, "complexity": "medium-high", "tags": ["comprehensive", "persistent"] },
+        { "command": "/workflow:tdd-plan", "weight": 0.7, "complexity": "medium-high", "tags": ["test-first", "quality"] },
+        { "command": "/task:create", "weight": 0.6, "tags": ["single-task", "manual"] },
+        { "command": "/task:breakdown", "weight": 0.5, "tags": ["decomposition", "subtasks"] }
+      ],
+      "agents": ["cli-lite-planning-agent", "action-planning-agent"]
+    },
+    "verify": {
+      "description": "Plan and quality verification",
+      "commands": [
+        { "command": "/workflow:action-plan-verify", "weight": 1.0, "tags": ["plan-quality", "consistency"] },
+        { "command": "/workflow:tdd-verify", "weight": 0.8, "tags": ["tdd-compliance", "coverage"] }
+      ]
+    },
+    "execute": {
+      "description": "Task execution and implementation",
+      "commands": [
+        { "command": "/workflow:lite-execute", "weight": 1.0, "complexity": "low-medium", "tags": ["fast", "agent-or-cli"] },
+        { "command": "/workflow:execute", "weight": 0.9, "complexity": "medium-high", "tags": ["dag-parallel", "comprehensive"] },
+        { "command": "/task:execute", "weight": 0.7, "tags": ["single-task"] }
+      ],
+      "agents": ["code-developer", "cli-execution-agent", "universal-executor"]
+    },
+    "bugfix": {
+      "description": "Bug diagnosis and fixing",
+      "commands": [
+        { "command": "/workflow:lite-fix", "weight": 1.0, "tags": ["diagnosis", "fix", "standard"] },
+        { "command": "/workflow:lite-fix --hotfix", "weight": 0.9, "tags": ["emergency", "production", "fast"] }
+      ],
+      "agents": ["code-developer"]
+    },
+    "test": {
+      "description": "Test generation and execution",
+      "commands": [
+        { "command": "/workflow:test-gen", "weight": 1.0, "tags": ["post-implementation", "coverage"] },
+        { "command": "/workflow:test-fix-gen", "weight": 0.9, "tags": ["from-description", "flexible"] },
+        { "command": "/workflow:test-cycle-execute", "weight": 0.8, "tags": ["iterative", "fix-cycle"] }
+      ],
+      "agents": ["test-fix-agent"]
+    },
+    "review": {
+      "description": "Code review and quality analysis",
+      "commands": [
+        { "command": "/workflow:review-session-cycle", "weight": 1.0, "tags": ["session-based", "comprehensive"] },
+        { "command": "/workflow:review-module-cycle", "weight": 0.9, "tags": ["module-based", "targeted"] },
+        { "command": "/workflow:review", "weight": 0.8, "tags": ["single-pass", "type-specific"] },
+        { "command": "/workflow:review-fix", "weight": 0.7, "tags": ["auto-fix", "findings"] }
+      ]
+    },
+    "issue": {
+      "description": "Batch issue management",
+      "commands": [
+        { "command": "/issue:new", "weight": 1.0, "tags": ["create", "import"] },
+        { "command": "/issue:discover", "weight": 0.9, "tags": ["find", "analyze"] },
+        { "command": "/issue:plan", "weight": 0.8, "tags": ["solutions", "planning"] },
+        { "command": "/issue:queue", "weight": 0.7, "tags": ["prioritize", "order"] },
+        { "command": "/issue:execute", "weight": 0.6, "tags": ["batch-execute", "dag"] }
+      ],
+      "agents": ["issue-plan-agent", "issue-queue-agent"]
+    },
+    "ui-design": {
+      "description": "UI design and prototyping",
+      "commands": [
+        { "command": "/workflow:ui-design:explore-auto", "weight": 1.0, "tags": ["from-scratch", "variants"] },
+        { "command": "/workflow:ui-design:imitate-auto", "weight": 0.9, "tags": ["reference-based", "copy"] },
+        { "command": "/workflow:ui-design:design-sync", "weight": 0.7, "tags": ["sync", "finalize"] },
+        { "command": "/workflow:ui-design:generate", "weight": 0.6, "tags": ["assemble", "prototype"] }
+      ],
+      "agents": ["ui-design-agent"]
+    },
+    "memory": {
+      "description": "Documentation and knowledge management",
+      "commands": [
+        { "command": "/memory:docs", "weight": 1.0, "tags": ["generate", "planning"] },
+        { "command": "/memory:update-related", "weight": 0.9, "tags": ["incremental", "git-based"] },
+        { "command": "/memory:update-full", "weight": 0.8, "tags": ["comprehensive", "all-modules"] },
+        { "command": "/memory:skill-memory", "weight": 0.7, "tags": ["package", "reusable"] }
+      ],
+      "agents": ["doc-generator", "memory-bridge"]
+    },
+    "session": {
+      "description": "Workflow session management",
+      "commands": [
+        { "command": "/workflow:session:start", "weight": 1.0, "tags": ["init", "discover"] },
+        { "command": "/workflow:session:list", "weight": 0.9, "tags": ["view", "status"] },
+        { "command": "/workflow:session:resume", "weight": 0.8, "tags": ["continue", "restore"] },
+        { "command": "/workflow:session:complete", "weight": 0.7, "tags": ["finish", "archive"] }
+      ]
+    },
+    "debug": {
+      "description": "Debugging and problem solving",
+      "commands": [
+        { "command": "/workflow:debug", "weight": 1.0, "tags": ["hypothesis", "iterative"] },
+        { "command": "/workflow:clean", "weight": 0.6, "tags": ["cleanup", "artifacts"] }
+      ]
+    }
+  }
+}
