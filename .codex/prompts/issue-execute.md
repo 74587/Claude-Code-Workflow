@@ -13,7 +13,7 @@ argument-hint: "[--worktree] [--queue <queue-id>]"
 
 When `--worktree` is specified, create a separate git worktree to isolate work.
 
-**⚠️ IMPORTANT**: `ccw issue` commands MUST run from the **main repo directory**, NOT inside the worktree. The `.workflow/issues/` directory only exists in the main repo.
+**Note**: `ccw issue` commands auto-detect worktree and redirect to main repo automatically.
 
 ```bash
 # Step 0: Setup worktree before starting (run from MAIN REPO)
@@ -43,23 +43,19 @@ cleanup_worktree() {
 }
 trap cleanup_worktree EXIT INT TERM
 
-# IMPORTANT: Fetch solution BEFORE entering worktree (ccw needs .workflow/)
-SOLUTION_JSON=$(ccw issue next)
-
-# NOW change to worktree directory for implementation
+# Change to worktree directory
 cd "${WORKTREE_PATH}"
 
-# Execute implementation in isolated worktree...
+# ccw issue commands auto-detect worktree and use main repo's .workflow/
+# So you can run ccw issue next/done directly from worktree
 ```
 
 **Worktree Execution Pattern**:
 ```
-1. [MAIN REPO] ccw issue next → get solution JSON
-2. [MAIN REPO] cd to worktree
-3. [WORKTREE]  Implement all tasks, run tests, git commit
-4. [WORKTREE]  cd back to main repo
-5. [MAIN REPO] ccw issue done <item_id> → report completion
-6. Repeat from step 1
+1. [WORKTREE] ccw issue next → auto-redirects to main repo's .workflow/
+2. [WORKTREE] Implement all tasks, run tests, git commit
+3. [WORKTREE] ccw issue done <item_id> → auto-redirects to main repo
+4. Repeat from step 1
 ```
 
 **Note**: Add `.ccw/worktrees/` to `.gitignore` to prevent tracking worktree contents.
@@ -164,14 +160,11 @@ WHEN queue empty:
 
 ## Step 1: Fetch First Solution
 
-Run this command to get your first solution (**must run from main repo**):
+Run this command to get your first solution:
 
 ```javascript
-// Fetch solution from main repo (not worktree)
-const result = shell_command({
-  command: "ccw issue next",
-  workdir: REPO_ROOT  // Main repo path, NOT worktree
-})
+// ccw auto-detects worktree and uses main repo's .workflow/
+const result = shell_command({ command: "ccw issue next" })
 ```
 
 This returns JSON with the full solution definition:
@@ -401,46 +394,35 @@ Continue to next task in `solution.tasks` array until all tasks are complete.
 
 ## Step 4: Report Completion
 
-After ALL tasks in the solution are complete, report to queue system (**must run from main repo**):
+After ALL tasks in the solution are complete, report to queue system:
 
 ```javascript
-// Report completion from main repo (not worktree)
+// ccw auto-detects worktree and uses main repo's .workflow/
 shell_command({
   command: `ccw issue done ${item_id} --result '${JSON.stringify({
     files_modified: ["path1", "path2"],
     tests_passed: true,
-    acceptance_passed: true,
-    committed: true,
-    commits: [
-      { task_id: "T1", hash: "abc123" },
-      { task_id: "T2", hash: "def456" }
-    ],
+    commits: [{ task_id: "T1", hash: "abc123" }],
     summary: "[What was accomplished]"
-  })}'`,
-  workdir: REPO_ROOT  // Main repo path, NOT worktree
+  })}'`
 })
 ```
 
-**If solution failed and cannot be fixed:**
+**If solution failed:**
 
 ```javascript
-// Report failure from main repo
 shell_command({
-  command: `ccw issue done ${item_id} --fail --reason '{"task_id": "TX", "error_type": "test_failure", "message": "..."}'`,
-  workdir: REPO_ROOT
+  command: `ccw issue done ${item_id} --fail --reason '{"task_id": "TX", "error_type": "test_failure", "message": "..."}'`
 })
 ```
 
 ## Step 5: Continue to Next Solution
 
-Fetch next solution (**must run from main repo**):
+Fetch next solution:
 
 ```javascript
-// Fetch next solution from main repo
-const result = shell_command({
-  command: "ccw issue next",
-  workdir: REPO_ROOT
-})
+// ccw auto-detects worktree
+const result = shell_command({ command: "ccw issue next" })
 ```
 
 **Output progress:**
@@ -489,7 +471,7 @@ When `ccw issue next` returns `{ "status": "empty" }`:
 7. **Report accurately** - Use `ccw issue done` after each solution
 8. **Handle failures gracefully** - If a solution fails, report via `ccw issue done --fail` and continue to next
 9. **Track with update_plan** - Use update_plan tool for task progress tracking
-10. **Worktree ccw commands** - Run `ccw issue next/done` from main repo, NOT worktree
+10. **Worktree auto-detect** - `ccw issue` commands auto-redirect to main repo from worktree
 
 ## Error Handling
 
