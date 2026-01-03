@@ -179,13 +179,42 @@ cd "\${WORKTREE_PATH}"
 ` : '';
 
   const worktreeCleanup = useWorktree ? `
-### Step 4: Cleanup Worktree
+### Step 4: Worktree Completion (User Choice)
+
+After all tasks complete, prompt for merge strategy:
+
+\`\`\`javascript
+AskUserQuestion({
+  questions: [{
+    question: "Solution ${solutionId} completed. What to do with worktree branch?",
+    header: "Merge",
+    multiSelect: false,
+    options: [
+      { label: "Merge to main", description: "Merge branch and cleanup worktree" },
+      { label: "Create PR", description: "Push branch and create pull request" },
+      { label: "Keep branch", description: "Cleanup worktree, keep branch for manual handling" }
+    ]
+  }]
+})
+\`\`\`
+
+**Based on selection:**
 \`\`\`bash
-# Return to main repo and merge
-cd -
+MAIN_REPO=$(git worktree list | head -1 | awk '{print $1}')
+cd "\${MAIN_REPO}"
+
+# Merge to main:
 git merge --no-ff "\${WORKTREE_NAME}" -m "Merge solution ${solutionId}"
+git worktree remove "\${WORKTREE_PATH}" && git branch -d "\${WORKTREE_NAME}"
+
+# Create PR:
+git push -u origin "\${WORKTREE_NAME}"
+gh pr create --title "Solution ${solutionId}" --body "Issue queue execution"
 git worktree remove "\${WORKTREE_PATH}"
-git branch -d "\${WORKTREE_NAME}"
+
+# Keep branch:
+git worktree remove "\${WORKTREE_PATH}"
+echo "Branch \${WORKTREE_NAME} kept for manual handling"
 \`\`\`
 ` : '';
 
