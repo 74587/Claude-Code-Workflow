@@ -2,6 +2,23 @@
 // Extracted from cli-manager.js for better maintainability
 
 // ============================================================
+// UTILITY FUNCTIONS
+// ============================================================
+
+/**
+ * Escape HTML special characters to prevent XSS
+ */
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ============================================================
 // CODEXLENS CONFIGURATION MODAL
 // ============================================================
 
@@ -35,15 +52,18 @@ async function showCodexLensConfigModal() {
 }
 
 /**
- * Build CodexLens configuration modal content
+ * Build CodexLens configuration modal content - Tabbed Layout
  */
 function buildCodexLensConfigContent(config) {
   const indexDir = config.index_dir || '~/.codexlens/indexes';
   const indexCount = config.index_count || 0;
   const isInstalled = window.cliToolsStatus?.codexlens?.installed || false;
+  const embeddingCoverage = config.embedding_coverage || 0;
+  const apiMaxWorkers = config.api_max_workers || 4;
+  const apiBatchSize = config.api_batch_size || 8;
 
   return '<div class="modal-backdrop" id="codexlensConfigModal">' +
-    '<div class="modal-container">' +
+    '<div class="modal-container large">' +
     '<div class="modal-header">' +
       '<div class="flex items-center gap-3">' +
         '<div class="modal-icon">' +
@@ -59,159 +79,245 @@ function buildCodexLensConfigContent(config) {
       '</button>' +
     '</div>' +
 
-    '<div class="modal-body">' +
-      // Status Section
-      '<div class="tool-config-section">' +
-        '<h4>' + t('codexlens.status') + '</h4>' +
-        '<div class="flex items-center gap-4 text-sm">' +
-          '<div class="flex items-center gap-2">' +
-            '<span class="text-muted-foreground">' + t('codexlens.currentWorkspace') + ':</span>' +
+    '<div class="modal-body" style="padding: 0;">' +
+      // Tab Navigation
+      '<div class="flex border-b border-border bg-muted/30">' +
+        '<button class="codexlens-tab active flex-1 px-4 py-2.5 text-sm font-medium text-center border-b-2 border-primary text-primary" data-tab="overview">' +
+          '<i data-lucide="layout-dashboard" class="w-4 h-4 inline mr-1.5"></i>Overview' +
+        '</button>' +
+        '<button class="codexlens-tab flex-1 px-4 py-2.5 text-sm font-medium text-center border-b-2 border-transparent text-muted-foreground hover:text-foreground" data-tab="settings">' +
+          '<i data-lucide="settings" class="w-4 h-4 inline mr-1.5"></i>Settings' +
+        '</button>' +
+        (isInstalled
+          ? '<button class="codexlens-tab flex-1 px-4 py-2.5 text-sm font-medium text-center border-b-2 border-transparent text-muted-foreground hover:text-foreground" data-tab="search">' +
+              '<i data-lucide="search" class="w-4 h-4 inline mr-1.5"></i>Search' +
+            '</button>' +
+            '<button class="codexlens-tab flex-1 px-4 py-2.5 text-sm font-medium text-center border-b-2 border-transparent text-muted-foreground hover:text-foreground" data-tab="advanced">' +
+              '<i data-lucide="wrench" class="w-4 h-4 inline mr-1.5"></i>Advanced' +
+            '</button>'
+          : '') +
+      '</div>' +
+
+      // Tab Content Container
+      '<div class="p-4">' +
+
+      // ========== OVERVIEW TAB ==========
+      '<div class="codexlens-tab-content active" data-tab="overview">' +
+        // Status Card - Compact grid layout
+        '<div class="grid grid-cols-2 gap-3 mb-4">' +
+          // Status Card
+          '<div class="rounded-lg border border-border p-3 bg-card">' +
+            '<div class="flex items-center gap-2 mb-2">' +
+              '<i data-lucide="circle-check" class="w-4 h-4 text-muted-foreground"></i>' +
+              '<span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</span>' +
+            '</div>' +
             (isInstalled
-              ? '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-success/10 text-success border border-success/20">' +
-                  '<i data-lucide="check-circle" class="w-3.5 h-3.5"></i>' +
-                  t('codexlens.installed') +
-                '</span>'
-              : '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">' +
-                  '<i data-lucide="circle" class="w-3.5 h-3.5"></i>' +
-                  t('codexlens.notInstalled') +
-                '</span>') +
+              ? '<div class="flex items-center gap-2">' +
+                  '<span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>' +
+                  '<span class="text-sm font-medium text-success">Installed</span>' +
+                '</div>'
+              : '<div class="flex items-center gap-2">' +
+                  '<span class="w-2 h-2 rounded-full bg-muted-foreground"></span>' +
+                  '<span class="text-sm font-medium text-muted-foreground">Not Installed</span>' +
+                '</div>') +
           '</div>' +
-          '<div class="flex items-center gap-2">' +
-            '<span class="text-muted-foreground">' + t('codexlens.indexes') + ':</span>' +
-            '<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20">' +
-              indexCount +
-            '</span>' +
+          // Index Count Card
+          '<div class="rounded-lg border border-border p-3 bg-card">' +
+            '<div class="flex items-center gap-2 mb-2">' +
+              '<i data-lucide="database" class="w-4 h-4 text-muted-foreground"></i>' +
+              '<span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Indexes</span>' +
+            '</div>' +
+            '<div class="text-2xl font-bold text-primary">' + indexCount + '</div>' +
+          '</div>' +
+          // Embeddings Coverage Card
+          '<div class="rounded-lg border border-border p-3 bg-card">' +
+            '<div class="flex items-center gap-2 mb-2">' +
+              '<i data-lucide="brain" class="w-4 h-4 text-muted-foreground"></i>' +
+              '<span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Embeddings</span>' +
+            '</div>' +
+            '<div class="text-sm font-medium">' + embeddingCoverage + '%</div>' +
+          '</div>' +
+          // Storage Path Card
+          '<div class="rounded-lg border border-border p-3 bg-card">' +
+            '<div class="flex items-center gap-2 mb-2">' +
+              '<i data-lucide="folder" class="w-4 h-4 text-muted-foreground"></i>' +
+              '<span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Storage</span>' +
+            '</div>' +
+            '<div class="text-xs font-mono text-muted-foreground truncate" title="' + escapeHtml(indexDir) + '">' + escapeHtml(indexDir) + '</div>' +
+          '</div>' +
+        '</div>' +
+
+        // Quick Actions
+        '<div class="space-y-2">' +
+          '<h4 class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Quick Actions</h4>' +
+          '<div class="grid grid-cols-2 gap-2">' +
+            (isInstalled
+              ? '<button class="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors" onclick="initCodexLensIndex()">' +
+                  '<i data-lucide="refresh-cw" class="w-4 h-4"></i> Update Index' +
+                '</button>' +
+                '<button class="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors" onclick="showWatcherControlModal()">' +
+                  '<i data-lucide="eye" class="w-4 h-4"></i> File Watcher' +
+                '</button>' +
+                '<button class="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors" onclick="showRerankerConfigModal()">' +
+                  '<i data-lucide="layers" class="w-4 h-4"></i> Reranker' +
+                '</button>' +
+                '<button class="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors" onclick="cleanCurrentWorkspaceIndex()">' +
+                  '<i data-lucide="eraser" class="w-4 h-4"></i> Clean Workspace' +
+                '</button>'
+              : '<button class="col-span-2 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors" onclick="installCodexLensFromManager()">' +
+                  '<i data-lucide="download" class="w-4 h-4"></i> Install CodexLens' +
+                '</button>') +
           '</div>' +
         '</div>' +
       '</div>' +
 
-      // Index Storage Path Section
-      '<div class="tool-config-section">' +
-        '<h4>' + t('codexlens.indexStoragePath') + '</h4>' +
-        '<div class="space-y-3">' +
-          '<div>' +
-            '<label class="block text-sm font-medium mb-1.5">' + t('codexlens.currentPath') + '</label>' +
-            '<div class="text-sm text-muted-foreground bg-muted/30 rounded-lg px-3 py-2 font-mono">' +
-              indexDir +
-            '</div>' +
-          '</div>' +
-          '<div>' +
-            '<label class="block text-sm font-medium mb-1.5">' + t('codexlens.newStoragePath') + '</label>' +
-            '<input type="text" id="indexDirInput" value="' + indexDir + '" ' +
+      // ========== SETTINGS TAB ==========
+      '<div class="codexlens-tab-content hidden" data-tab="settings">' +
+        // Index Storage Path
+        '<div class="space-y-4">' +
+          '<div class="space-y-2">' +
+            '<label class="block text-sm font-medium">' + t('codexlens.indexStoragePath') + '</label>' +
+            '<input type="text" id="indexDirInput" value="' + escapeHtml(indexDir) + '" ' +
                    'placeholder="' + t('codexlens.pathPlaceholder') + '" ' +
                    'class="tool-config-input w-full" />' +
-            '<p class="text-xs text-muted-foreground mt-1">' + t('codexlens.pathInfo') + '</p>' +
+            '<p class="text-xs text-muted-foreground">' + t('codexlens.pathInfo') + '</p>' +
           '</div>' +
+
+          // API Settings (Concurrency)
+          '<div class="rounded-lg border border-border p-4 space-y-3">' +
+            '<h4 class="text-sm font-medium flex items-center gap-2">' +
+              '<i data-lucide="zap" class="w-4 h-4"></i> API Settings' +
+            '</h4>' +
+            '<div class="grid grid-cols-2 gap-3">' +
+              '<div>' +
+                '<label class="block text-xs font-medium text-muted-foreground mb-1">Max Workers</label>' +
+                '<input type="number" id="apiMaxWorkersInput" value="' + apiMaxWorkers + '" min="1" max="16" ' +
+                       'class="tool-config-input w-full" />' +
+              '</div>' +
+              '<div>' +
+                '<label class="block text-xs font-medium text-muted-foreground mb-1">Batch Size</label>' +
+                '<input type="number" id="apiBatchSizeInput" value="' + apiBatchSize + '" min="1" max="32" ' +
+                       'class="tool-config-input w-full" />' +
+              '</div>' +
+            '</div>' +
+            '<p class="text-xs text-muted-foreground">Higher values speed up embedding generation but may hit rate limits.</p>' +
+          '</div>' +
+
+          // Environment Variables Section
+          '<div class="rounded-lg border border-border p-4 space-y-3">' +
+            '<div class="flex items-center justify-between">' +
+              '<h4 class="text-sm font-medium flex items-center gap-2">' +
+                '<i data-lucide="file-code" class="w-4 h-4"></i> Environment Variables' +
+              '</h4>' +
+              '<button class="text-xs text-primary hover:underline" onclick="loadEnvVariables()">Load</button>' +
+            '</div>' +
+            '<div id="envVarsContainer" class="space-y-2">' +
+              '<div class="text-xs text-muted-foreground">Click Load to view/edit ~/.codexlens/.env</div>' +
+            '</div>' +
+          '</div>' +
+
+          // Migration Warning
           '<div class="flex items-start gap-2 bg-warning/10 border border-warning/30 rounded-lg p-3">' +
-            '<i data-lucide="alert-triangle" class="w-4 h-4 text-warning mt-0.5"></i>' +
+            '<i data-lucide="alert-triangle" class="w-4 h-4 text-warning mt-0.5 flex-shrink-0"></i>' +
             '<div class="text-sm">' +
               '<p class="font-medium text-warning">' + t('codexlens.migrationRequired') + '</p>' +
-              '<p class="text-muted-foreground mt-1">' + t('codexlens.migrationWarning') + '</p>' +
+              '<p class="text-muted-foreground mt-1 text-xs">' + t('codexlens.migrationWarning') + '</p>' +
             '</div>' +
           '</div>' +
         '</div>' +
       '</div>' +
 
-      // Actions Section
-      '<div class="tool-config-section">' +
-        '<h4>' + t('codexlens.actions') + '</h4>' +
-        '<div class="tool-config-actions">' +
-          (isInstalled
-            ? '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors" onclick="initCodexLensIndex()">' +
-                '<i data-lucide="database" class="w-3.5 h-3.5"></i> ' + t('codexlens.initializeIndex') +
-              '</button>' +
-              '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors" onclick="showRerankerConfigModal()">' +
-                '<i data-lucide="layers" class="w-3.5 h-3.5"></i> ' + (t('codexlens.rerankerConfig') || 'Reranker Config') +
-              '</button>' +
-              '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors" onclick="showWatcherControlModal()">' +
-                '<i data-lucide="eye" class="w-3.5 h-3.5"></i> ' + (t('codexlens.watcherControl') || 'File Watcher') +
-              '</button>' +
-              '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-background hover:bg-muted/50 transition-colors" onclick="cleanCurrentWorkspaceIndex()">' +
-                '<i data-lucide="folder-x" class="w-3.5 h-3.5"></i> ' + t('codexlens.cleanCurrentWorkspace') +
-              '</button>' +
-              '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-background hover:bg-muted/50 transition-colors" onclick="cleanCodexLensIndexes()">' +
-                '<i data-lucide="trash" class="w-3.5 h-3.5"></i> ' + t('codexlens.cleanAllIndexes') +
-              '</button>' +
-              '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-destructive/30 bg-destructive/5 text-destructive hover:bg-destructive/10 transition-colors" onclick="uninstallCodexLensFromManager()">' +
-                '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i> ' + t('cli.uninstall') +
-              '</button>'
-            : '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors" onclick="installCodexLensFromManager()">' +
-                '<i data-lucide="download" class="w-3.5 h-3.5"></i> ' + t('codexlens.installCodexLens') +
-              '</button>') +
-        '</div>' +
-      '</div>' +
-
-      // Semantic Dependencies Section
+      // ========== SEARCH TAB (only if installed) ==========
       (isInstalled
-        ? '<div class="tool-config-section">' +
-            '<h4>' + t('codexlens.semanticDeps') + '</h4>' +
-            '<div id="semanticDepsStatus" class="space-y-2">' +
-              '<div class="text-sm text-muted-foreground">' + t('codexlens.checkingDeps') + '</div>' +
-            '</div>' +
-          '</div>'
-        : '') +
-
-      // SPLADE Section
-      (isInstalled
-        ? '<div class="tool-config-section">' +
-            '<h4>' + t('codexlens.spladeDeps') + '</h4>' +
-            '<div id="spladeStatus" class="space-y-2">' +
-              '<div class="text-sm text-muted-foreground">' + t('common.loading') + '</div>' +
-            '</div>' +
-          '</div>'
-        : '') +
-
-
-      // Model Management Section
-      (isInstalled
-        ? '<div class="tool-config-section">' +
-            '<h4>' + t('codexlens.modelManagement') + '</h4>' +
-            '<div id="modelListContainer" class="space-y-2">' +
-              '<div class="text-sm text-muted-foreground">' + t('codexlens.loadingModels') + '</div>' +
-            '</div>' +
-          '</div>'
-        : '') +
-
-      // Test Search Section
-      (isInstalled
-        ? '<div class="tool-config-section">' +
-            '<h4>' + t('codexlens.testSearch') + ' <span class="text-muted">(' + t('codexlens.testFunctionality') + ')</span></h4>' +
-            '<div class="space-y-3">' +
-              '<div class="flex gap-2">' +
-                '<select id="searchTypeSelect" class="tool-config-select flex-1">' +
-                  '<option value="search">' + t('codexlens.textSearch') + '</option>' +
-                  '<option value="search_files">' + t('codexlens.fileSearch') + '</option>' +
-                  '<option value="symbol">' + t('codexlens.symbolSearch') + '</option>' +
-                '</select>' +
-                '<select id="searchModeSelect" class="tool-config-select flex-1">' +
-                  '<option value="exact">' + t('codexlens.exactMode') + '</option>' +
-                  '<option value="fuzzy">' + t('codexlens.fuzzyMode') + '</option>' +
-                  '<option value="hybrid">' + t('codexlens.hybridMode') + '</option>' +
-                  '<option value="vector">' + t('codexlens.vectorMode') + '</option>' +
-                '</select>' +
-              '</div>' +
-              '<div>' +
-                '<input type="text" id="searchQueryInput" class="tool-config-input w-full" ' +
-                  'placeholder="' + t('codexlens.searchPlaceholder') + '" />' +
-              '</div>' +
-              '<div>' +
-                '<button class="btn-sm btn-primary w-full" id="runSearchBtn">' +
-                  '<i data-lucide="search" class="w-3 h-3"></i> ' + t('codexlens.runSearch') +
-                '</button>' +
-              '</div>' +
-              '<div id="searchResults" class="hidden">' +
+        ? '<div class="codexlens-tab-content hidden" data-tab="search">' +
+            '<div class="space-y-4">' +
+              // Search Options Row
+              '<div class="grid grid-cols-2 gap-3">' +
                 '<div>' +
-                  '<div class="flex items-center justify-between">' +
-                    '<p class="text-sm font-medium">' + t('codexlens.results') + ':</p>' +
-                    '<span id="searchResultCount" class="text-xs text-muted-foreground"></span>' +
-                  '</div>' +
-                  '<pre id="searchResultContent"></pre>' +
+                  '<label class="block text-xs font-medium text-muted-foreground mb-1">Search Type</label>' +
+                  '<select id="searchTypeSelect" class="tool-config-select w-full">' +
+                    '<option value="search">Content Search</option>' +
+                    '<option value="search_files">File Search</option>' +
+                    '<option value="symbol">Symbol Search</option>' +
+                  '</select>' +
+                '</div>' +
+                '<div>' +
+                  '<label class="block text-xs font-medium text-muted-foreground mb-1">Mode</label>' +
+                  '<select id="searchModeSelect" class="tool-config-select w-full">' +
+                    '<option value="dense_rerank">Semantic (default)</option>' +
+                    '<option value="fts">Exact (FTS)</option>' +
+                    '<option value="fuzzy">Fuzzy</option>' +
+                  '</select>' +
+                '</div>' +
+              '</div>' +
+              // Query Input
+              '<div>' +
+                '<input type="text" id="searchQueryInput" class="tool-config-input w-full text-base py-2.5" ' +
+                       'placeholder="Enter search query..." />' +
+              '</div>' +
+              // Search Button
+              '<button class="btn btn-primary w-full py-2.5" id="runSearchBtn">' +
+                '<i data-lucide="search" class="w-4 h-4 mr-2"></i> Search' +
+              '</button>' +
+              // Results
+              '<div id="searchResults" class="hidden">' +
+                '<div class="flex items-center justify-between mb-2">' +
+                  '<span class="text-sm font-medium">Results</span>' +
+                  '<span id="searchResultCount" class="text-xs text-muted-foreground"></span>' +
+                '</div>' +
+                '<pre id="searchResultContent" class="text-xs bg-muted/50 rounded-lg p-3 overflow-auto max-h-64"></pre>' +
+              '</div>' +
+            '</div>' +
+          '</div>'
+        : '') +
+
+      // ========== ADVANCED TAB (only if installed) ==========
+      (isInstalled
+        ? '<div class="codexlens-tab-content hidden" data-tab="advanced">' +
+            '<div class="space-y-4">' +
+              // Dependencies Section
+              '<div class="rounded-lg border border-border p-4">' +
+                '<h4 class="text-sm font-medium mb-3 flex items-center gap-2">' +
+                  '<i data-lucide="package" class="w-4 h-4"></i> Dependencies' +
+                '</h4>' +
+                '<div id="semanticDepsStatus" class="space-y-2">' +
+                  '<div class="text-sm text-muted-foreground">' + t('codexlens.checkingDeps') + '</div>' +
+                '</div>' +
+                '<div id="spladeStatus" class="space-y-2 mt-3 pt-3 border-t border-border">' +
+                  '<div class="text-sm text-muted-foreground">' + t('common.loading') + '</div>' +
+                '</div>' +
+              '</div>' +
+
+              // Model Management
+              '<div class="rounded-lg border border-border p-4">' +
+                '<h4 class="text-sm font-medium mb-3 flex items-center gap-2">' +
+                  '<i data-lucide="brain" class="w-4 h-4"></i> Models' +
+                '</h4>' +
+                '<div id="modelListContainer" class="space-y-2">' +
+                  '<div class="text-sm text-muted-foreground">' + t('codexlens.loadingModels') + '</div>' +
+                '</div>' +
+              '</div>' +
+
+              // Danger Zone
+              '<div class="rounded-lg border border-destructive/30 p-4">' +
+                '<h4 class="text-sm font-medium text-destructive mb-3 flex items-center gap-2">' +
+                  '<i data-lucide="alert-triangle" class="w-4 h-4"></i> Danger Zone' +
+                '</h4>' +
+                '<div class="flex flex-wrap gap-2">' +
+                  '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-background hover:bg-muted/50 transition-colors" onclick="cleanCodexLensIndexes()">' +
+                    '<i data-lucide="trash" class="w-3.5 h-3.5"></i> Clean All Indexes' +
+                  '</button>' +
+                  '<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-destructive/30 bg-destructive/5 text-destructive hover:bg-destructive/10 transition-colors" onclick="uninstallCodexLensFromManager()">' +
+                    '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Uninstall' +
+                  '</button>' +
                 '</div>' +
               '</div>' +
             '</div>' +
           '</div>'
         : '') +
-    '</div>' +
+
+      '</div>' + // End Tab Content Container
+    '</div>' + // End modal-body
 
     // Footer
     '<div class="tool-config-footer">' +
@@ -227,19 +333,55 @@ function buildCodexLensConfigContent(config) {
  * Initialize CodexLens config modal event handlers
  */
 function initCodexLensConfigEvents(currentConfig) {
+  // Tab switching
+  document.querySelectorAll('.codexlens-tab').forEach(function(tab) {
+    tab.onclick = function() {
+      // Remove active from all tabs
+      document.querySelectorAll('.codexlens-tab').forEach(function(t) {
+        t.classList.remove('active', 'border-primary', 'text-primary');
+        t.classList.add('border-transparent', 'text-muted-foreground');
+      });
+      // Hide all content
+      document.querySelectorAll('.codexlens-tab-content').forEach(function(c) {
+        c.classList.add('hidden');
+        c.classList.remove('active');
+      });
+      // Activate clicked tab
+      this.classList.add('active', 'border-primary', 'text-primary');
+      this.classList.remove('border-transparent', 'text-muted-foreground');
+      // Show corresponding content
+      var tabName = this.dataset.tab;
+      var content = document.querySelector('.codexlens-tab-content[data-tab="' + tabName + '"]');
+      if (content) {
+        content.classList.remove('hidden');
+        content.classList.add('active');
+      }
+    };
+  });
+
   // Save button
   var saveBtn = document.getElementById('saveCodexLensConfigBtn');
   if (saveBtn) {
     saveBtn.onclick = async function() {
       var indexDirInput = document.getElementById('indexDirInput');
+      var apiMaxWorkersInput = document.getElementById('apiMaxWorkersInput');
+      var apiBatchSizeInput = document.getElementById('apiBatchSizeInput');
+
       var newIndexDir = indexDirInput ? indexDirInput.value.trim() : '';
+      var newMaxWorkers = apiMaxWorkersInput ? parseInt(apiMaxWorkersInput.value) || 4 : 4;
+      var newBatchSize = apiBatchSizeInput ? parseInt(apiBatchSizeInput.value) || 8 : 8;
 
       if (!newIndexDir) {
         showRefreshToast(t('codexlens.pathEmpty'), 'error');
         return;
       }
 
-      if (newIndexDir === currentConfig.index_dir) {
+      // Check if anything changed
+      var hasChanges = newIndexDir !== currentConfig.index_dir ||
+                       newMaxWorkers !== (currentConfig.api_max_workers || 4) ||
+                       newBatchSize !== (currentConfig.api_batch_size || 8);
+
+      if (!hasChanges) {
         closeModal();
         return;
       }
@@ -251,7 +393,11 @@ function initCodexLensConfigEvents(currentConfig) {
         var response = await fetch('/api/codexlens/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ index_dir: newIndexDir })
+          body: JSON.stringify({
+            index_dir: newIndexDir,
+            api_max_workers: newMaxWorkers,
+            api_batch_size: newBatchSize
+          })
         });
 
         var result = await response.json();
@@ -357,6 +503,112 @@ function initCodexLensConfigEvents(currentConfig) {
 
   // Load model list
   loadModelList();
+}
+
+// ============================================================
+// ENVIRONMENT VARIABLES MANAGEMENT
+// ============================================================
+
+// Known env variable groups
+var ENV_VARIABLES = {
+  'RERANKER_API_KEY': { label: 'Reranker API Key', placeholder: 'sk-...', type: 'password' },
+  'RERANKER_API_BASE': { label: 'Reranker API Base', placeholder: 'https://api.openai.com/v1' },
+  'RERANKER_MODEL': { label: 'Reranker Model', placeholder: 'text-embedding-3-small' },
+  'EMBEDDING_API_KEY': { label: 'Embedding API Key', placeholder: 'sk-...', type: 'password' },
+  'EMBEDDING_API_BASE': { label: 'Embedding API Base', placeholder: 'https://api.openai.com/v1' },
+  'EMBEDDING_MODEL': { label: 'Embedding Model', placeholder: 'text-embedding-3-small' },
+  'LITELLM_API_KEY': { label: 'LiteLLM API Key', placeholder: 'sk-...', type: 'password' },
+  'LITELLM_API_BASE': { label: 'LiteLLM API Base', placeholder: 'http://localhost:4000' },
+  'LITELLM_MODEL': { label: 'LiteLLM Model', placeholder: 'gpt-3.5-turbo' }
+};
+
+/**
+ * Load environment variables from ~/.codexlens/.env
+ */
+async function loadEnvVariables() {
+  var container = document.getElementById('envVarsContainer');
+  if (!container) return;
+
+  container.innerHTML = '<div class="text-xs text-muted-foreground animate-pulse">Loading...</div>';
+
+  try {
+    var response = await fetch('/api/codexlens/env');
+    var result = await response.json();
+
+    if (!result.success) {
+      container.innerHTML = '<div class="text-xs text-error">' + (result.error || 'Failed to load') + '</div>';
+      return;
+    }
+
+    var env = result.env || {};
+    var html = '<div class="space-y-2">';
+
+    // Render known variables with their values
+    for (var key in ENV_VARIABLES) {
+      var config = ENV_VARIABLES[key];
+      var value = env[key] || '';
+      var inputType = config.type || 'text';
+
+      html += '<div class="flex items-center gap-2">' +
+        '<label class="text-xs text-muted-foreground w-32 flex-shrink-0" title="' + escapeHtml(key) + '">' + escapeHtml(config.label) + '</label>' +
+        '<input type="' + inputType + '" class="tool-config-input flex-1 text-xs py-1" ' +
+               'data-env-key="' + escapeHtml(key) + '" value="' + escapeHtml(value) + '" placeholder="' + escapeHtml(config.placeholder || '') + '" />' +
+      '</div>';
+    }
+
+    html += '</div>' +
+      '<div class="flex gap-2 mt-3">' +
+        '<button class="btn-sm btn-primary flex-1" onclick="saveEnvVariables()">' +
+          '<i data-lucide="save" class="w-3 h-3"></i> Save' +
+        '</button>' +
+        '<button class="btn-sm btn-outline" onclick="loadEnvVariables()">' +
+          '<i data-lucide="refresh-cw" class="w-3 h-3"></i>' +
+        '</button>' +
+      '</div>' +
+      '<div class="text-xs text-muted-foreground mt-2">' +
+        '<i data-lucide="info" class="w-3 h-3 inline"></i> ' +
+        'Saved to: ' + escapeHtml(result.path) +
+      '</div>';
+
+    container.innerHTML = html;
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    container.innerHTML = '<div class="text-xs text-error">' + err.message + '</div>';
+  }
+}
+
+/**
+ * Save environment variables to ~/.codexlens/.env
+ */
+async function saveEnvVariables() {
+  var inputs = document.querySelectorAll('[data-env-key]');
+  var env = {};
+
+  inputs.forEach(function(input) {
+    var key = input.dataset.envKey;
+    var value = input.value.trim();
+    if (value) {
+      env[key] = value;
+    }
+  });
+
+  try {
+    var response = await fetch('/api/codexlens/env', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ env: env })
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast('Environment configuration saved', 'success');
+    } else {
+      showRefreshToast('Failed to save: ' + result.error, 'error');
+    }
+  } catch (err) {
+    showRefreshToast('Error: ' + err.message, 'error');
+  }
 }
 
 // ============================================================

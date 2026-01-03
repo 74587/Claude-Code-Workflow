@@ -1,8 +1,14 @@
-// @ts-nocheck
 /**
  * CodexLens Routes Module
  * Handles all CodexLens-related API endpoints
+ *
+ * TODO: Remove @ts-nocheck and add proper types:
+ * - Define interfaces for request body types (ConfigBody, CleanBody, InitBody, etc.)
+ * - Type error catches: (e: unknown) => { const err = e as Error; ... }
+ * - Add null checks for extractJSON results
+ * - Type the handlePostRequest callback body parameter
  */
+// @ts-nocheck
 import type { IncomingMessage, ServerResponse } from 'http';
 import {
   checkVenvStatus,
@@ -65,6 +71,7 @@ function formatSize(bytes: number): string {
  * Extract JSON from CLI output that may contain logging messages
  * CodexLens CLI outputs logs like "INFO ..." before the JSON
  * Also strips ANSI color codes that Rich library adds
+ * Handles trailing content after JSON (e.g., "INFO: Done" messages)
  */
 function extractJSON(output: string): any {
   // Strip ANSI color codes first
@@ -76,8 +83,53 @@ function extractJSON(output: string): any {
     throw new Error('No JSON found in output');
   }
 
-  // Extract everything from the first { or [ onwards
-  const jsonString = cleanOutput.substring(jsonStart);
+  const startChar = cleanOutput[jsonStart];
+  const endChar = startChar === '{' ? '}' : ']';
+
+  // Find matching closing brace/bracket using a simple counter
+  let depth = 0;
+  let inString = false;
+  let escapeNext = false;
+  let jsonEnd = -1;
+
+  for (let i = jsonStart; i < cleanOutput.length; i++) {
+    const char = cleanOutput[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\' && inString) {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (!inString) {
+      if (char === startChar) {
+        depth++;
+      } else if (char === endChar) {
+        depth--;
+        if (depth === 0) {
+          jsonEnd = i + 1;
+          break;
+        }
+      }
+    }
+  }
+
+  if (jsonEnd === -1) {
+    // Fallback: try to parse from start to end (original behavior)
+    const jsonString = cleanOutput.substring(jsonStart);
+    return JSON.parse(jsonString);
+  }
+
+  const jsonString = cleanOutput.substring(jsonStart, jsonEnd);
   return JSON.parse(jsonString);
 }
 
@@ -378,7 +430,7 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
       // Check if CodexLens is installed first (without auto-installing)
       const venvStatus = await checkVenvStatus();
 
-      let responseData = { index_dir: '~/.codexlens/indexes', index_count: 0 };
+      let responseData = { index_dir: '~/.codexlens/indexes', index_count: 0, api_max_workers: 4, api_batch_size: 8 };
 
       // If not installed, return default config without executing CodexLens
       if (!venvStatus.ready) {
@@ -400,6 +452,13 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
           if (config.success && config.result) {
             // CLI returns index_dir (not index_root)
             responseData.index_dir = config.result.index_dir || config.result.index_root || responseData.index_dir;
+            // Extract API settings
+            if (config.result.api_max_workers !== undefined) {
+              responseData.api_max_workers = config.result.api_max_workers;
+            }
+            if (config.result.api_batch_size !== undefined) {
+              responseData.api_batch_size = config.result.api_batch_size;
+            }
           }
         } catch (e) {
           console.error('[CodexLens] Failed to parse config:', e.message);
@@ -432,19 +491,69 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
   // API: CodexLens Config - POST (Set configuration)
   if (pathname === '/api/codexlens/config' && req.method === 'POST') {
     handlePostRequest(req, res, async (body) => {
-      const { index_dir } = body;
+      const { index_dir, api_max_workers, api_batch_size } = body;
 
       if (!index_dir) {
         return { success: false, error: 'index_dir is required', status: 400 };
       }
 
-      try {
-        const result = await executeCodexLens(['config', 'set', 'index_dir', index_dir, '--json']);
-        if (result.success) {
-          return { success: true, message: 'Configuration updated successfully' };
-        } else {
-          return { success: false, error: result.error || 'Failed to update configuration', status: 500 };
+      // Validate index_dir path
+      const indexDirStr = String(index_dir).trim();
+
+      // Check for dangerous patterns
+      if (indexDirStr.includes('\0')) {
+        return { success: false, error: 'Invalid path: contains null bytes', status: 400 };
+      }
+
+      // Prevent system root paths and their subdirectories (Windows and Unix)
+      const dangerousPaths = ['/', 'C:\\', 'C:/', '/etc', '/usr', '/bin', '/sys', '/proc', '/var',
+                              'C:\\Windows', 'C:\\Program Files', 'C:\\Program Files (x86)', 'C:\\System32'];
+      const normalizedPath = indexDirStr.replace(/\\/g, '/').toLowerCase();
+      for (const dangerous of dangerousPaths) {
+        const dangerousLower = dangerous.replace(/\\/g, '/').toLowerCase();
+        // Block exact match OR any subdirectory (using startsWith)
+        if (normalizedPath === dangerousLower ||
+            normalizedPath === dangerousLower + '/' ||
+            normalizedPath.startsWith(dangerousLower + '/')) {
+          return { success: false, error: 'Invalid path: cannot use system directories or their subdirectories', status: 400 };
         }
+      }
+
+      // Additional check: prevent path traversal attempts
+      if (normalizedPath.includes('../') || normalizedPath.includes('/..')) {
+        return { success: false, error: 'Invalid path: path traversal not allowed', status: 400 };
+      }
+
+      // Validate api settings
+      if (api_max_workers !== undefined) {
+        const workers = Number(api_max_workers);
+        if (isNaN(workers) || workers < 1 || workers > 32) {
+          return { success: false, error: 'api_max_workers must be between 1 and 32', status: 400 };
+        }
+      }
+      if (api_batch_size !== undefined) {
+        const batch = Number(api_batch_size);
+        if (isNaN(batch) || batch < 1 || batch > 64) {
+          return { success: false, error: 'api_batch_size must be between 1 and 64', status: 400 };
+        }
+      }
+
+      try {
+        // Set index_dir
+        const result = await executeCodexLens(['config', 'set', 'index_dir', indexDirStr, '--json']);
+        if (!result.success) {
+          return { success: false, error: result.error || 'Failed to update index_dir', status: 500 };
+        }
+
+        // Set API settings if provided
+        if (api_max_workers !== undefined) {
+          await executeCodexLens(['config', 'set', 'api_max_workers', String(api_max_workers), '--json']);
+        }
+        if (api_batch_size !== undefined) {
+          await executeCodexLens(['config', 'set', 'api_batch_size', String(api_batch_size), '--json']);
+        }
+
+        return { success: true, message: 'Configuration updated successfully' };
       } catch (err) {
         return { success: false, error: err.message, status: 500 };
       }
@@ -1528,6 +1637,236 @@ except Exception as e:
             status: 500
           };
         }
+      } catch (err) {
+        return { success: false, error: err.message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // ============================================================
+  // ENV FILE MANAGEMENT ENDPOINTS
+  // ============================================================
+
+  // API: Get global env file content
+  if (pathname === '/api/codexlens/env' && req.method === 'GET') {
+    try {
+      const { homedir } = await import('os');
+      const { join } = await import('path');
+      const { readFile } = await import('fs/promises');
+
+      const envPath = join(homedir(), '.codexlens', '.env');
+      let content = '';
+      try {
+        content = await readFile(envPath, 'utf-8');
+      } catch (e) {
+        // File doesn't exist, return empty
+      }
+
+      // Parse env file into key-value pairs (robust parsing)
+      const envVars: Record<string, string> = {};
+      const lines = content.split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        // Skip empty lines and comments
+        if (!trimmed || trimmed.startsWith('#')) continue;
+
+        // Find first = that's part of key=value (not in a quote)
+        const eqIndex = trimmed.indexOf('=');
+        if (eqIndex <= 0) continue;
+
+        const key = trimmed.substring(0, eqIndex).trim();
+        // Validate key format (alphanumeric + underscore)
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue;
+
+        let value = trimmed.substring(eqIndex + 1);
+
+        // Handle quoted values (preserves = inside quotes)
+        if (value.startsWith('"')) {
+          // Find matching closing quote (handle escaped quotes)
+          let end = 1;
+          while (end < value.length) {
+            if (value[end] === '"' && value[end - 1] !== '\\') break;
+            end++;
+          }
+          value = value.substring(1, end).replace(/\\"/g, '"');
+        } else if (value.startsWith("'")) {
+          // Single quotes don't support escaping
+          const end = value.indexOf("'", 1);
+          value = end > 0 ? value.substring(1, end) : value.substring(1);
+        } else {
+          // Unquoted: trim and take until comment or end
+          const commentIndex = value.indexOf(' #');
+          if (commentIndex > 0) {
+            value = value.substring(0, commentIndex);
+          }
+          value = value.trim();
+        }
+
+        envVars[key] = value;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        path: envPath,
+        env: envVars,
+        raw: content
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+    return true;
+  }
+
+  // API: Save global env file content (merge mode - preserves existing values)
+  if (pathname === '/api/codexlens/env' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { env } = body as { env: Record<string, string> };
+
+      if (!env || typeof env !== 'object') {
+        return { success: false, error: 'env object is required', status: 400 };
+      }
+
+      try {
+        const { homedir } = await import('os');
+        const { join, dirname } = await import('path');
+        const { writeFile, mkdir, readFile } = await import('fs/promises');
+
+        const envPath = join(homedir(), '.codexlens', '.env');
+        await mkdir(dirname(envPath), { recursive: true });
+
+        // Read existing env file to preserve custom variables
+        let existingEnv: Record<string, string> = {};
+        let existingComments: string[] = [];
+        try {
+          const content = await readFile(envPath, 'utf-8');
+          const lines = content.split('\n');
+          for (const line of lines) {
+            const trimmed = line.trim();
+            // Preserve comment lines that aren't our headers
+            if (trimmed.startsWith('#') && !trimmed.includes('Managed by CCW')) {
+              if (!trimmed.includes('Reranker API') && !trimmed.includes('Embedding API') &&
+                  !trimmed.includes('LiteLLM Config') && !trimmed.includes('CodexLens Settings') &&
+                  !trimmed.includes('Other Settings') && !trimmed.includes('CodexLens Environment')) {
+                existingComments.push(line);
+              }
+            }
+            if (!trimmed || trimmed.startsWith('#')) continue;
+
+            // Robust parsing (same as GET handler)
+            const eqIndex = trimmed.indexOf('=');
+            if (eqIndex <= 0) continue;
+
+            const key = trimmed.substring(0, eqIndex).trim();
+            if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue;
+
+            let value = trimmed.substring(eqIndex + 1);
+            if (value.startsWith('"')) {
+              let end = 1;
+              while (end < value.length) {
+                if (value[end] === '"' && value[end - 1] !== '\\') break;
+                end++;
+              }
+              value = value.substring(1, end).replace(/\\"/g, '"');
+            } else if (value.startsWith("'")) {
+              const end = value.indexOf("'", 1);
+              value = end > 0 ? value.substring(1, end) : value.substring(1);
+            } else {
+              const commentIndex = value.indexOf(' #');
+              if (commentIndex > 0) value = value.substring(0, commentIndex);
+              value = value.trim();
+            }
+            existingEnv[key] = value;
+          }
+        } catch (e) {
+          // File doesn't exist, start fresh
+        }
+
+        // Merge: update known keys from payload, preserve unknown keys
+        const knownKeys = new Set([
+          'RERANKER_API_KEY', 'RERANKER_API_BASE', 'RERANKER_MODEL',
+          'EMBEDDING_API_KEY', 'EMBEDDING_API_BASE', 'EMBEDDING_MODEL',
+          'LITELLM_API_KEY', 'LITELLM_API_BASE', 'LITELLM_MODEL'
+        ]);
+
+        // Apply updates from payload
+        for (const [key, value] of Object.entries(env)) {
+          if (value) {
+            existingEnv[key] = value;
+          } else if (knownKeys.has(key)) {
+            // Remove known key if value is empty
+            delete existingEnv[key];
+          }
+        }
+
+        // Build env file content
+        const lines = [
+          '# CodexLens Environment Configuration',
+          '# Managed by CCW Dashboard',
+          ''
+        ];
+
+        // Add preserved custom comments
+        if (existingComments.length > 0) {
+          lines.push(...existingComments, '');
+        }
+
+        // Group by prefix
+        const groups: Record<string, string[]> = {
+          'RERANKER': [],
+          'EMBEDDING': [],
+          'LITELLM': [],
+          'CODEXLENS': [],
+          'OTHER': []
+        };
+
+        for (const [key, value] of Object.entries(existingEnv)) {
+          if (!value) continue;
+          // SECURITY: Escape special characters to prevent .env injection
+          const escapedValue = value
+            .replace(/\\/g, '\\\\')  // Escape backslashes first
+            .replace(/"/g, '\\"')    // Escape double quotes
+            .replace(/\n/g, '\\n')   // Escape newlines
+            .replace(/\r/g, '\\r');  // Escape carriage returns
+          const line = `${key}="${escapedValue}"`;
+          if (key.startsWith('RERANKER_')) groups['RERANKER'].push(line);
+          else if (key.startsWith('EMBEDDING_')) groups['EMBEDDING'].push(line);
+          else if (key.startsWith('LITELLM_')) groups['LITELLM'].push(line);
+          else if (key.startsWith('CODEXLENS_')) groups['CODEXLENS'].push(line);
+          else groups['OTHER'].push(line);
+        }
+
+        // Add grouped content
+        if (groups['RERANKER'].length) {
+          lines.push('# Reranker API Configuration');
+          lines.push(...groups['RERANKER'], '');
+        }
+        if (groups['EMBEDDING'].length) {
+          lines.push('# Embedding API Configuration');
+          lines.push(...groups['EMBEDDING'], '');
+        }
+        if (groups['LITELLM'].length) {
+          lines.push('# LiteLLM Configuration');
+          lines.push(...groups['LITELLM'], '');
+        }
+        if (groups['CODEXLENS'].length) {
+          lines.push('# CodexLens Settings');
+          lines.push(...groups['CODEXLENS'], '');
+        }
+        if (groups['OTHER'].length) {
+          lines.push('# Other Settings');
+          lines.push(...groups['OTHER'], '');
+        }
+
+        await writeFile(envPath, lines.join('\n'), 'utf-8');
+
+        return {
+          success: true,
+          message: 'Environment configuration saved',
+          path: envPath
+        };
       } catch (err) {
         return { success: false, error: err.message, status: 500 };
       }

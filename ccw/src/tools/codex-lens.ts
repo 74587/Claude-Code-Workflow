@@ -807,31 +807,17 @@ async function executeCodexLens(args: string[], options: ExecuteOptions = {}): P
   }
 
   return new Promise((resolve) => {
-    // Build command string - quote paths for shell execution
-    const quotedPython = `"${VENV_PYTHON}"`;
-    const cmdArgs = args.map(arg => {
-      // Quote arguments that contain spaces or special characters
-      if (arg.includes(' ') || arg.includes('\\')) {
-        return `"${arg}"`;
-      }
-      return arg;
-    });
+    // SECURITY: Use spawn without shell to prevent command injection
+    // Pass arguments directly - no manual quoting needed
+    // spawn's cwd option handles drive changes correctly on Windows
+    const spawnArgs = ['-m', 'codexlens', ...args];
 
-    // Build full command - on Windows, prepend cd to handle different drives
-    let fullCmd: string;
-    if (process.platform === 'win32' && cwd) {
-      // Use cd /d to change drive and directory, then run command
-      fullCmd = `cd /d "${cwd}" && ${quotedPython} -m codexlens ${cmdArgs.join(' ')}`;
-    } else {
-      fullCmd = `${quotedPython} -m codexlens ${cmdArgs.join(' ')}`;
-    }
-
-    // Use spawn with shell for real-time progress updates
-    // spawn streams output in real-time, unlike exec which buffers until completion
-    const child = spawn(fullCmd, [], {
-      cwd: process.platform === 'win32' ? undefined : cwd,
-      shell: process.platform === 'win32' ? process.env.ComSpec || true : true,
+    const child = spawn(VENV_PYTHON, spawnArgs, {
+      cwd,
+      shell: false, // CRITICAL: Prevent command injection
       timeout,
+      // Ensure proper encoding on Windows
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     });
 
     // Track indexing process for cancellation (only for init commands)
