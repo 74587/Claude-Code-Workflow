@@ -288,6 +288,7 @@ export function run(argv: string[]): void {
     .option('--reason <text>', 'Failure reason')
     .option('--fail', 'Mark task as failed')
     .option('--from-queue [queue-id]', 'Sync issue statuses from queue (default: active queue)')
+    .option('--queue <queue-id>', 'Target queue ID for multi-queue operations')
     .action((subcommand, args, options) => issueCommand(subcommand, args, options));
 
   program.parse(argv);
