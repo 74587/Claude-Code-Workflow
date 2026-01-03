@@ -432,75 +432,55 @@ def search(
     limit: int = typer.Option(20, "--limit", "-n", min=1, max=500, help="Max results."),
     depth: int = typer.Option(-1, "--depth", "-d", help="Search depth (-1 = unlimited, 0 = current only)."),
     files_only: bool = typer.Option(False, "--files-only", "-f", help="Return only file paths without content snippets."),
-    method: str = typer.Option("hybrid", "--method", "-m", help="Search method: fts, vector, splade, hybrid, cascade."),
+    method: str = typer.Option("dense_rerank", "--method", "-m", help="Search method: 'dense_rerank' (semantic, default), 'fts' (exact keyword)."),
     use_fuzzy: bool = typer.Option(False, "--use-fuzzy", help="Enable fuzzy matching in FTS method."),
+    # Hidden advanced options for backward compatibility
     weights: Optional[str] = typer.Option(
         None,
         "--weights", "-w",
-        help="RRF weights as key=value pairs (e.g., 'splade=0.4,vector=0.6' or 'fts=0.4,vector=0.6'). Default: auto-detect based on available backends."
+        hidden=True,
+        help="[Advanced] RRF weights as key=value pairs."
     ),
     cascade_strategy: Optional[str] = typer.Option(
         None,
         "--cascade-strategy",
-        help="Cascade search strategy: 'binary' (fast binary+dense) or 'hybrid' (FTS+cross-encoder). Only used with --method cascade."
+        hidden=True,
+        help="[Advanced] Cascade strategy for --method cascade."
     ),
     # Hidden deprecated parameter for backward compatibility
     mode: Optional[str] = typer.Option(None, "--mode", hidden=True, help="[DEPRECATED] Use --method instead."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
 ) -> None:
-    """Search indexed file contents using hybrid retrieval.
+    """Search indexed file contents.
 
     Uses chain search across directory indexes.
     Use --depth to limit search recursion (0 = current dir only).
 
     Search Methods:
-      - fts: Full-text search using FTS5 (unicode61 tokenizer). Use --use-fuzzy for typo tolerance.
-      - vector: Pure semantic vector search - for natural language queries.
-      - splade: SPLADE sparse neural search - semantic term expansion.
-      - hybrid: RRF fusion of sparse + dense search (default) - best recall.
-      - cascade: Two-stage retrieval (binary coarse + dense rerank) - fast + accurate.
+      - dense_rerank (default): Semantic search using Dense embedding coarse retrieval +
+        Cross-encoder reranking. Best for natural language queries and code understanding.
+      - fts: Full-text search using FTS5 (unicode61 tokenizer). Best for exact code
+        identifiers like function/class names. Use --use-fuzzy for typo tolerance.
 
     Method Selection Guide:
       - Code identifiers (function/class names): fts
-      - Natural language queries: vector or hybrid
+      - Natural language queries: dense_rerank (default)
       - Typo-tolerant search: fts --use-fuzzy
-      - Best overall quality: hybrid (default)
-      - Large codebase performance: cascade
 
-    Vector Search Requirements:
-      Vector, hybrid, and cascade methods require pre-generated embeddings.
+    Requirements:
+      The dense_rerank method requires pre-generated embeddings.
       Use 'codexlens embeddings-generate' to create embeddings first.
 
-    Hybrid Mode Weights:
-      Use --weights to adjust RRF fusion weights:
-      - SPLADE mode: 'splade=0.4,vector=0.6' (default)
-      - FTS mode: 'fts=0.4,vector=0.6' (default)
-
     Examples:
-      # Default hybrid search
-      codexlens search "authentication"
+      # Default semantic search (dense_rerank)
+      codexlens search "authentication logic"
 
       # Exact code identifier search
       codexlens search "authenticate_user" --method fts
 
       # Typo-tolerant fuzzy search
       codexlens search "authentcate" --method fts --use-fuzzy
-
-      # Pure semantic search
-      codexlens search "how to verify user credentials" --method vector
-
-      # SPLADE sparse neural search
-      codexlens search "user login flow" --method splade
-
-      # Fast cascade retrieval for large codebases (binary strategy)
-      codexlens search "authentication" --method cascade
-
-      # Cascade with cross-encoder reranking (hybrid strategy)
-      codexlens search "authentication" --method cascade --cascade-strategy hybrid
-
-      # Hybrid with custom weights
-      codexlens search "authentication" --method hybrid --weights splade=0.5,vector=0.5
     """
     _configure_logging(verbose, json_mode)
     search_path = path.expanduser().resolve()
@@ -538,29 +518,33 @@ def search(
     # Configure search (load settings from file)
     config = Config.load()
 
-    # Validate method
-    valid_methods = ["fts", "vector", "splade", "hybrid", "cascade"]
+    # Validate method - simplified interface exposes only dense_rerank and fts
+    # Other methods (vector, splade, hybrid, cascade) are hidden but still work for backward compatibility
+    valid_methods = ["fts", "dense_rerank", "vector", "splade", "hybrid", "cascade"]
     if actual_method not in valid_methods:
         if json_mode:
-            print_json(success=False, error=f"Invalid method: {actual_method}. Must be one of: {', '.join(valid_methods)}")
+            print_json(success=False, error=f"Invalid method: {actual_method}. Use 'dense_rerank' (semantic) or 'fts' (exact keyword).")
         else:
             console.print(f"[red]Invalid method:[/red] {actual_method}")
-            console.print(f"[dim]Valid methods: {', '.join(valid_methods)}[/dim]")
+            console.print("[dim]Use 'dense_rerank' (semantic, default) or 'fts' (exact keyword)[/dim]")
         raise typer.Exit(code=1)
 
-    # Validate cascade_strategy if provided
-    if cascade_strategy is not None:
-        valid_strategies = ["binary", "hybrid"]
-        if cascade_strategy not in valid_strategies:
+    # Map dense_rerank to cascade method internally
+    internal_cascade_strategy = cascade_strategy
+    if actual_method == "dense_rerank":
+        actual_method = "cascade"
+        internal_cascade_strategy = "dense_rerank"
+
+    # Validate cascade_strategy if provided (for advanced users)
+    if internal_cascade_strategy is not None:
+        valid_strategies = ["binary", "hybrid", "binary_rerank", "dense_rerank"]
+        if internal_cascade_strategy not in valid_strategies:
             if json_mode:
-                print_json(success=False, error=f"Invalid cascade strategy: {cascade_strategy}. Must be one of: {', '.join(valid_strategies)}")
+                print_json(success=False, error=f"Invalid cascade strategy: {internal_cascade_strategy}. Must be one of: {', '.join(valid_strategies)}")
             else:
-                console.print(f"[red]Invalid cascade strategy:[/red] {cascade_strategy}")
+                console.print(f"[red]Invalid cascade strategy:[/red] {internal_cascade_strategy}")
                 console.print(f"[dim]Valid strategies: {', '.join(valid_strategies)}[/dim]")
             raise typer.Exit(code=1)
-        # Warn if using cascade_strategy with non-cascade method
-        if actual_method != "cascade" and not json_mode:
-            console.print(f"[yellow]Warning: --cascade-strategy is only effective with --method cascade[/yellow]")
 
     # Parse custom weights if provided
     hybrid_weights = None
@@ -693,7 +677,7 @@ def search(
         else:
             # Dispatch to cascade_search for cascade method
             if actual_method == "cascade":
-                result = engine.cascade_search(query, search_path, k=limit, options=options, strategy=cascade_strategy)
+                result = engine.cascade_search(query, search_path, k=limit, options=options, strategy=internal_cascade_strategy)
             else:
                 result = engine.search(query, search_path, options)
             results_list = [

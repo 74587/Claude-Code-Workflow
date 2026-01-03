@@ -3,7 +3,7 @@
  *
  * Features:
  * - Intent classification with automatic mode selection
- * - CodexLens integration (init, hybrid, vector, semantic)
+ * - CodexLens integration (init, dense_rerank, fts)
  * - Ripgrep fallback for exact mode
  * - Index status checking and warnings
  * - Multi-backend search routing with RRF ranking
@@ -12,6 +12,8 @@
  * - init: Initialize CodexLens index
  * - search: Intelligent search with auto mode selection
  * - status: Check index status
+ * - update: Incremental index update for changed files
+ * - watch: Start file watcher for automatic updates
  */
 
 import { z } from 'zod';
@@ -59,9 +61,9 @@ function createTimer(): { mark: (name: string) => void; getTimings: () => Timing
 
 // Define Zod schema for validation
 const ParamsSchema = z.object({
-  // Action: search (content), find_files (path/name pattern), init, status
+  // Action: search (content), find_files (path/name pattern), init, status, update (incremental), watch
   // Note: search_files is deprecated, use search with output_mode='files_only'
-  action: z.enum(['init', 'search', 'search_files', 'find_files', 'status']).default('search'),
+  action: z.enum(['init', 'search', 'search_files', 'find_files', 'status', 'update', 'watch']).default('search'),
   query: z.string().optional().describe('Content search query (for action="search")'),
   pattern: z.string().optional().describe('Glob pattern for path matching (for action="find_files")'),
   mode: z.enum(['auto', 'hybrid', 'exact', 'ripgrep', 'priority']).default('auto'),
@@ -84,6 +86,8 @@ const ParamsSchema = z.object({
   // File type filtering
   excludeExtensions: z.array(z.string()).optional().describe('File extensions to exclude from results (e.g., ["md", "txt"])'),
   codeOnly: z.boolean().default(false).describe('Only return code files (excludes md, txt, json, yaml, xml, etc.)'),
+  // Watcher options
+  debounce: z.number().default(1000).describe('Debounce interval in ms for watch action'),
   // Fuzzy matching is implicit in hybrid mode (RRF fusion)
 });
 
@@ -721,6 +725,130 @@ async function executeStatusAction(params: Params): Promise<SearchResult> {
 }
 
 /**
+ * Action: update - Incremental index update
+ * Updates index for changed files without full rebuild
+ */
+async function executeUpdateAction(params: Params): Promise<SearchResult> {
+  const { path = '.', languages } = params;
+
+  // Check CodexLens availability
+  const readyStatus = await ensureCodexLensReady();
+  if (!readyStatus.ready) {
+    return {
+      success: false,
+      error: `CodexLens not available: ${readyStatus.error}`,
+    };
+  }
+
+  // Check if index exists first
+  const indexStatus = await checkIndexStatus(path);
+  if (!indexStatus.indexed) {
+    return {
+      success: false,
+      error: `Directory not indexed. Run smart_search(action="init") first.`,
+    };
+  }
+
+  // Build args for incremental init (without --force)
+  const args = ['init', path];
+  if (languages && languages.length > 0) {
+    args.push('--languages', languages.join(','));
+  }
+
+  // Track progress updates
+  const progressUpdates: ProgressInfo[] = [];
+  let lastProgress: ProgressInfo | null = null;
+
+  const result = await executeCodexLens(args, {
+    cwd: path,
+    timeout: 600000, // 10 minutes for incremental updates
+    onProgress: (progress: ProgressInfo) => {
+      progressUpdates.push(progress);
+      lastProgress = progress;
+    },
+  });
+
+  // Build metadata with progress info
+  const metadata: SearchMetadata = {
+    action: 'update',
+    path,
+  };
+
+  if (lastProgress !== null) {
+    const p = lastProgress as ProgressInfo;
+    metadata.progress = {
+      stage: p.stage,
+      message: p.message,
+      percent: p.percent,
+      filesProcessed: p.filesProcessed,
+      totalFiles: p.totalFiles,
+    };
+  }
+
+  if (progressUpdates.length > 0) {
+    metadata.progressHistory = progressUpdates.slice(-5);
+  }
+
+  return {
+    success: result.success,
+    error: result.error,
+    message: result.success
+      ? `Incremental update completed for ${path}`
+      : undefined,
+    metadata,
+  };
+}
+
+/**
+ * Action: watch - Start file watcher for automatic incremental updates
+ * Note: This starts a background process, returns immediately with status
+ */
+async function executeWatchAction(params: Params): Promise<SearchResult> {
+  const { path = '.', languages, debounce = 1000 } = params;
+
+  // Check CodexLens availability
+  const readyStatus = await ensureCodexLensReady();
+  if (!readyStatus.ready) {
+    return {
+      success: false,
+      error: `CodexLens not available: ${readyStatus.error}`,
+    };
+  }
+
+  // Check if index exists first
+  const indexStatus = await checkIndexStatus(path);
+  if (!indexStatus.indexed) {
+    return {
+      success: false,
+      error: `Directory not indexed. Run smart_search(action="init") first.`,
+    };
+  }
+
+  // Build args for watch command
+  const args = ['watch', path, '--debounce', debounce.toString()];
+  if (languages && languages.length > 0) {
+    args.push('--language', languages.join(','));
+  }
+
+  // Start watcher in background (non-blocking)
+  // Note: The watcher runs until manually stopped
+  const result = await executeCodexLens(args, {
+    cwd: path,
+    timeout: 5000, // Short timeout for initial startup check
+  });
+
+  return {
+    success: true,
+    message: `File watcher started for ${path}. Use Ctrl+C or kill the process to stop.`,
+    metadata: {
+      action: 'watch',
+      path,
+      note: 'Watcher runs in background. Changes are indexed automatically with debounce.',
+    },
+  };
+}
+
+/**
  * Mode: auto - Intent classification and mode selection
  * Routes to: hybrid (NL + index) | exact (index) | ripgrep (no index)
  */
@@ -816,8 +944,8 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
       };
     }
 
-    // Use CodexLens exact mode as fallback
-    const args = ['search', query, '--limit', totalToFetch.toString(), '--mode', 'exact', '--json'];
+    // Use CodexLens fts mode as fallback
+    const args = ['search', query, '--limit', totalToFetch.toString(), '--method', 'fts', '--json'];
     const result = await executeCodexLens(args, { cwd: path });
 
     if (!result.success) {
@@ -1023,7 +1151,7 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
 
   // Request more results to support split (full content + extra files)
   const totalToFetch = maxResults + extraFilesCount;
-  const args = ['search', query, '--limit', totalToFetch.toString(), '--mode', 'exact', '--json'];
+  const args = ['search', query, '--limit', totalToFetch.toString(), '--method', 'fts', '--json'];
   if (enrich) {
     args.push('--enrich');
   }
@@ -1060,7 +1188,7 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
 
   // Fallback to fuzzy mode if exact returns no results
   if (allResults.length === 0) {
-    const fuzzyArgs = ['search', query, '--limit', totalToFetch.toString(), '--mode', 'fuzzy', '--json'];
+    const fuzzyArgs = ['search', query, '--limit', totalToFetch.toString(), '--method', 'fts', '--use-fuzzy', '--json'];
     if (enrich) {
       fuzzyArgs.push('--enrich');
     }
@@ -1119,8 +1247,8 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
 }
 
 /**
- * Mode: hybrid - Best quality search with RRF fusion
- * Uses CodexLens hybrid mode (exact + fuzzy + vector)
+ * Mode: hybrid - Best quality semantic search
+ * Uses CodexLens dense_rerank method (dense coarse + cross-encoder rerank)
  * Requires index with embeddings
  */
 async function executeHybridMode(params: Params): Promise<SearchResult> {
@@ -1150,7 +1278,7 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
 
   // Request more results to support split (full content + extra files)
   const totalToFetch = maxResults + extraFilesCount;
-  const args = ['search', query, '--limit', totalToFetch.toString(), '--mode', 'hybrid', '--json'];
+  const args = ['search', query, '--limit', totalToFetch.toString(), '--method', 'dense_rerank', '--json'];
   if (enrich) {
     args.push('--enrich');
   }
@@ -1232,7 +1360,7 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
   timer.mark('split_results');
 
   // Build metadata with baseline info if detected
-  let note = 'Hybrid mode uses RRF fusion (exact + fuzzy + vector) for best results';
+  let note = 'Using dense_rerank (dense coarse + cross-encoder rerank) for semantic search';
   if (baselineInfo) {
     note += ` | Filtered ${initialCount - allResults.length} hot-spot results with baseline score ~${baselineInfo.score.toFixed(4)}`;
   }
@@ -1698,6 +1826,8 @@ export const schema: ToolSchema = {
 - find_files: Find files by path/name pattern (glob matching)
 - init: Create FTS index
 - status: Check index status
+- update: Incremental index update (for changed files)
+- watch: Start file watcher for automatic updates
 
 **Content Search (action="search"):**
   smart_search(query="authentication logic")        # auto mode - routes to best backend
@@ -1710,6 +1840,11 @@ export const schema: ToolSchema = {
   smart_search(action="find_files", pattern="src/**/*.js")    # recursive glob pattern
   smart_search(action="find_files", pattern="test_*.py")      # find test files
   smart_search(action="find_files", pattern="*.tsx", offset=20, limit=10)  # pagination
+
+**Index Maintenance:**
+  smart_search(action="update", path="/project")              # incremental index update
+  smart_search(action="watch", path="/project")               # start file watcher
+  smart_search(action="watch", debounce=2000)                 # custom debounce interval
 
 **Pagination:** All actions support offset/limit for paginated results:
   smart_search(query="auth", limit=10, offset=0)    # first page
@@ -2166,6 +2301,16 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
       case 'find_files':
         // NEW: File path/name pattern matching (glob-based)
         result = await executeFindFilesAction(parsed.data);
+        break;
+
+      case 'update':
+        // Incremental index update
+        result = await executeUpdateAction(parsed.data);
+        break;
+
+      case 'watch':
+        // Start file watcher (returns status, watcher runs in background)
+        result = await executeWatchAction(parsed.data);
         break;
 
       case 'search_files':

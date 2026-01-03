@@ -19,9 +19,31 @@
 
 | 字段 | 类型 | 必需 | 说明 |
 |------|------|------|------|
-| `execution_mode` | enum | ✓ | `sequential` \| `autonomous` |
+| `execution_mode` | enum | ✓ | `sequential` \| `autonomous` \| `hybrid` |
 | `phase_count` | number | 条件 | Sequential 模式下的阶段数 |
 | `action_count` | number | 条件 | Autonomous 模式下的动作数 |
+
+### 2.5 上下文策略 (P0 增强)
+
+| 字段 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `context_strategy` | enum | ✓ | `file` \| `memory` |
+
+**策略对比**:
+
+| 策略 | 持久化 | 可调试 | 可恢复 | 适用场景 |
+|------|--------|--------|--------|----------|
+| `file` | ✓ | ✓ | ✓ | 复杂多阶段任务（推荐） |
+| `memory` | ✗ | ✗ | ✗ | 简单线性任务 |
+
+### 2.6 LLM 集成配置 (P1 增强)
+
+| 字段 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `llm_integration` | object | 可选 | LLM 调用配置 |
+| `llm_integration.enabled` | boolean | - | 是否启用 LLM 调用 |
+| `llm_integration.default_tool` | enum | - | `gemini` \| `qwen` \| `codex` |
+| `llm_integration.fallback_chain` | string[] | - | 失败时的备选工具链 |
 
 ### 3. 工具依赖
 
@@ -50,8 +72,19 @@ interface SkillConfig {
   triggers: string[];           // ["keyword1", "keyword2"]
   
   // 执行模式
-  execution_mode: 'sequential' | 'autonomous';
-  
+  execution_mode: 'sequential' | 'autonomous' | 'hybrid';
+
+  // 上下文策略 (P0 增强)
+  context_strategy: 'file' | 'memory';  // 默认: 'file'
+
+  // LLM 集成配置 (P1 增强)
+  llm_integration?: {
+    enabled: boolean;                    // 是否启用 LLM 调用
+    default_tool: 'gemini' | 'qwen' | 'codex';
+    fallback_chain: string[];            // ['gemini', 'qwen', 'codex']
+    mode: 'analysis' | 'write';          // 默认 mode
+  };
+
   // Sequential 模式配置
   sequential_config?: {
     phases: Array<{
@@ -211,7 +244,73 @@ AskUserQuestion({
 });
 ```
 
-### Phase 4: 工具依赖
+### Phase 4: 上下文策略 (P0 增强)
+
+```javascript
+AskUserQuestion({
+  questions: [
+    {
+      question: "选择上下文管理策略：",
+      header: "上下文策略",
+      multiSelect: false,
+      options: [
+        {
+          label: "文件策略 (file)",
+          description: "持久化到 .scratchpad，支持调试和恢复（推荐）"
+        },
+        {
+          label: "内存策略 (memory)",
+          description: "仅在运行时保持，速度快但无法恢复"
+        }
+      ]
+    }
+  ]
+});
+```
+
+### Phase 5: LLM 集成 (P1 增强)
+
+```javascript
+AskUserQuestion({
+  questions: [
+    {
+      question: "是否需要 LLM 调用能力？",
+      header: "LLM 集成",
+      multiSelect: false,
+      options: [
+        {
+          label: "启用 LLM 调用",
+          description: "使用 gemini/qwen/codex 进行分析或生成"
+        },
+        {
+          label: "不需要",
+          description: "仅使用本地工具"
+        }
+      ]
+    }
+  ]
+});
+
+// 如果启用 LLM
+if (llmEnabled) {
+  AskUserQuestion({
+    questions: [
+      {
+        question: "选择默认 LLM 工具：",
+        header: "LLM 工具",
+        multiSelect: false,
+        options: [
+          { label: "Gemini", description: "大上下文，适合分析任务（推荐）" },
+          { label: "Qwen", description: "代码生成能力强" },
+          { label: "Codex", description: "自主执行能力强，适合实现任务" }
+        ]
+      }
+    ]
+  });
+}
+```
+
+### Phase 6: 工具依赖
 
 ```javascript
 AskUserQuestion({
@@ -224,7 +323,8 @@ AskUserQuestion({
         { label: "基础工具", description: "Task, Read, Write, Glob, Grep, Bash" },
         { label: "用户交互", description: "AskUserQuestion" },
         { label: "Chrome 截图", description: "mcp__chrome__*" },
-        { label: "外部搜索", description: "mcp__exa__search" }
+        { label: "外部搜索", description: "mcp__exa__search" },
+        { label: "CCW CLI 调用", description: "ccw cli (gemini/qwen/codex)" }
       ]
     }
   ]
@@ -285,7 +385,7 @@ function validateSkillConfig(config) {
 
 ## 示例配置
 
-### Sequential 模式示例
+### Sequential 模式示例 (增强版)
 
 ```json
 {
@@ -294,11 +394,33 @@ function validateSkillConfig(config) {
   "description": "Generate API documentation from source code",
   "triggers": ["generate api docs", "api documentation"],
   "execution_mode": "sequential",
+  "context_strategy": "file",
+  "llm_integration": {
+    "enabled": true,
+    "default_tool": "gemini",
+    "fallback_chain": ["gemini", "qwen"],
+    "mode": "analysis"
+  },
   "sequential_config": {
     "phases": [
-      { "id": "01-scan", "name": "Code Scanning", "output": "endpoints.json" },
-      { "id": "02-parse", "name": "Schema Parsing", "output": "schemas.json" },
-      { "id": "03-generate", "name": "Doc Generation", "output": "api-docs.md" }
+      {
+        "id": "01-scan",
+        "name": "Code Scanning",
+        "output": "endpoints.json",
+        "agent": { "type": "universal-executor", "run_in_background": false }
+      },
+      {
+        "id": "02-analyze",
+        "name": "LLM Analysis",
+        "output": "analysis.json",
+        "agent": { "type": "llm", "tool": "gemini", "mode": "analysis" }
+      },
+      {
+        "id": "03-generate",
+        "name": "Doc Generation",
+        "output": "api-docs.md",
+        "agent": { "type": "universal-executor", "run_in_background": false }
+      }
     ]
   },
   "allowed_tools": ["Task", "Read", "Write", "Glob", "Grep", "Bash"],

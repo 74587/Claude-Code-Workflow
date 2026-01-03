@@ -164,6 +164,10 @@ class Config:
     embedding_strategy: str = "latency_aware"  # round_robin, latency_aware, weighted_random
     embedding_cooldown: float = 60.0  # Default cooldown seconds for rate-limited endpoints
 
+    # API concurrency settings
+    api_max_workers: int = 4  # Max concurrent API calls for embedding/reranking
+    api_batch_size: int = 8  # Batch size for API requests
+
     def __post_init__(self) -> None:
         try:
             self.data_dir = self.data_dir.expanduser().resolve()
@@ -276,6 +280,10 @@ class Config:
                 "coarse_k": self.cascade_coarse_k,
                 "fine_k": self.cascade_fine_k,
             },
+            "api": {
+                "max_workers": self.api_max_workers,
+                "batch_size": self.api_batch_size,
+            },
         }
         with open(self.settings_path, "w", encoding="utf-8") as f:
             json.dump(settings, f, indent=2)
@@ -348,11 +356,11 @@ class Config:
             cascade = settings.get("cascade", {})
             if "strategy" in cascade:
                 strategy = cascade["strategy"]
-                if strategy in {"binary", "hybrid"}:
+                if strategy in {"binary", "hybrid", "binary_rerank", "dense_rerank"}:
                     self.cascade_strategy = strategy
                 else:
                     log.warning(
-                        "Invalid cascade strategy in %s: %r (expected 'binary' or 'hybrid')",
+                        "Invalid cascade strategy in %s: %r (expected 'binary', 'hybrid', 'binary_rerank', or 'dense_rerank')",
                         self.settings_path,
                         strategy,
                     )
@@ -360,6 +368,13 @@ class Config:
                 self.cascade_coarse_k = cascade["coarse_k"]
             if "fine_k" in cascade:
                 self.cascade_fine_k = cascade["fine_k"]
+
+            # Load API settings
+            api = settings.get("api", {})
+            if "max_workers" in api:
+                self.api_max_workers = api["max_workers"]
+            if "batch_size" in api:
+                self.api_batch_size = api["batch_size"]
         except Exception as exc:
             log.warning(
                 "Failed to load settings from %s (%s): %s",
