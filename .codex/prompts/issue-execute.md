@@ -11,10 +11,12 @@ argument-hint: "[--worktree] [--queue <queue-id>]"
 
 ## Worktree Mode (Recommended for Parallel Execution)
 
-When `--worktree` is specified, create a separate git worktree to isolate work:
+When `--worktree` is specified, create a separate git worktree to isolate work.
+
+**⚠️ IMPORTANT**: `ccw issue` commands MUST run from the **main repo directory**, NOT inside the worktree. The `.workflow/issues/` directory only exists in the main repo.
 
 ```bash
-# Step 0: Setup worktree before starting
+# Step 0: Setup worktree before starting (run from MAIN REPO)
 
 # Use absolute paths to avoid issues when running from subdirectories
 REPO_ROOT=$(git rev-parse --show-toplevel)
@@ -41,10 +43,23 @@ cleanup_worktree() {
 }
 trap cleanup_worktree EXIT INT TERM
 
-# Change to worktree directory
+# IMPORTANT: Fetch solution BEFORE entering worktree (ccw needs .workflow/)
+SOLUTION_JSON=$(ccw issue next)
+
+# NOW change to worktree directory for implementation
 cd "${WORKTREE_PATH}"
 
-# Now execute in isolated worktree...
+# Execute implementation in isolated worktree...
+```
+
+**Worktree Execution Pattern**:
+```
+1. [MAIN REPO] ccw issue next → get solution JSON
+2. [MAIN REPO] cd to worktree
+3. [WORKTREE]  Implement all tasks, run tests, git commit
+4. [WORKTREE]  cd back to main repo
+5. [MAIN REPO] ccw issue done <item_id> → report completion
+6. Repeat from step 1
 ```
 
 **Note**: Add `.ccw/worktrees/` to `.gitignore` to prevent tracking worktree contents.
@@ -230,39 +245,34 @@ Expected solution structure:
 }
 ```
 
-## Step 2.5: Initialize Todo Tracking
+## Step 2.5: Initialize Task Tracking
 
-After parsing solution, create todo list to track each task:
+After parsing solution, use `update_plan` to track each task:
 
-```javascript
-// Create todos for all tasks in current solution
-TodoWrite({
-  todos: solution.tasks.map(task => ({
-    content: `${task.id}: ${task.title}`,
-    activeForm: `Executing ${task.id}: ${task.title}`,
-    status: "pending"
-  }))
-})
 ```
+# Add tasks to plan for tracking
+update_plan("Add task tracking for solution ${item_id}:
+- [ ] ${task.id}: ${task.title}
+- [ ] ${task.id}: ${task.title}
+...")
+```
+
+**Note**: Codex uses `update_plan` tool instead of TodoWrite for task tracking.
 
 ## Step 3: Execute Tasks Sequentially
 
 Iterate through `solution.tasks` array and execute each task.
 
 **Before starting each task**, mark it as in_progress:
-```javascript
-// Update current task status to in_progress
-TodoWrite({ todos: [...existingTodos.map(t =>
-  t.content.startsWith(currentTask.id) ? {...t, status: "in_progress"} : t
-)] })
+```
+# Update task status
+update_plan("Mark ${task.id} as in-progress: 🔄 ${task.title}")
 ```
 
 **After completing each task** (commit done), mark it as completed:
-```javascript
-// Update completed task status
-TodoWrite({ todos: [...existingTodos.map(t =>
-  t.content.startsWith(completedTask.id) ? {...t, status: "completed"} : t
-)] })
+```
+# Update completed task
+update_plan("Mark ${task.id} as completed: ✅ ${task.title}")
 ```
 
 ### Phase A: IMPLEMENT
@@ -362,9 +372,12 @@ Continue to next task in `solution.tasks` array until all tasks are complete.
 
 ## Step 4: Report Completion
 
-After ALL tasks in the solution are complete, report to queue system:
+After ALL tasks in the solution are complete, **return to main repo** and report to queue system:
 
 ```bash
+# Return to main repo for ccw commands (worktree mode)
+cd "${REPO_ROOT}"
+
 ccw issue done <item_id> --result '{
   "files_modified": ["path1", "path2"],
   "tests_passed": true,
@@ -386,11 +399,9 @@ ccw issue done <item_id> --fail --reason "Task [task.id] failed: [details]"
 
 ## Step 5: Continue to Next Solution
 
-Clear current todo list and fetch next solution:
-
-```javascript
-// Reset todos for next solution
-TodoWrite({ todos: [] })
+**⚠️ WORKTREE MODE**: Return to main repo before running `ccw issue next`:
+```bash
+cd "${REPO_ROOT}"  # Return to main repo for ccw commands
 ```
 
 Then fetch next solution:
@@ -444,7 +455,8 @@ When `ccw issue next` returns `{ "status": "empty" }`:
 6. **Self-verify** - All acceptance criteria must pass before commit
 7. **Report accurately** - Use `ccw issue done` after each solution
 8. **Handle failures gracefully** - If a solution fails, report via `ccw issue done --fail` and continue to next
-9. **Track with todos** - Use TodoWrite to track task progress within each solution
+9. **Track with update_plan** - Use update_plan tool for task progress tracking
+10. **Worktree ccw commands** - Run `ccw issue next/done` from main repo, NOT worktree
 
 ## Error Handling
 
