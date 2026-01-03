@@ -5,6 +5,7 @@
  */
 
 import chalk from 'chalk';
+import { execSync } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { join, resolve } from 'path';
 
@@ -217,7 +218,43 @@ const ISSUES_DIR = '.workflow/issues';
 
 // ============ Storage Layer (JSONL) ============
 
+/**
+ * Get the main repository root, even when running from a worktree.
+ * This ensures .workflow/issues/ is always accessed from the main repo.
+ */
 function getProjectRoot(): string {
+  // First, try to detect if we're in a git worktree
+  try {
+    // Get the common git directory (points to main repo's .git)
+    const gitCommonDir = execSync('git rev-parse --git-common-dir', {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
+
+    // Get the current git directory
+    const gitDir = execSync('git rev-parse --git-dir', {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
+
+    // If gitDir != gitCommonDir, we're in a worktree
+    // gitCommonDir will be like "/path/to/main/.git" or "../main/.git"
+    if (gitDir !== gitCommonDir && gitDir !== '.git') {
+      // We're in a worktree - resolve to main repo
+      const absoluteCommonDir = resolve(process.cwd(), gitCommonDir);
+      // .git directory's parent is the repo root
+      const mainRepoRoot = resolve(absoluteCommonDir, '..');
+
+      // Verify .workflow exists in main repo
+      if (existsSync(join(mainRepoRoot, '.workflow')) || existsSync(join(mainRepoRoot, '.git'))) {
+        return mainRepoRoot;
+      }
+    }
+  } catch {
+    // Not in a git repo or git command failed - fall through to normal detection
+  }
+
+  // Standard detection: walk up to find .workflow or .git
   let dir = process.cwd();
   while (dir !== resolve(dir, '..')) {
     if (existsSync(join(dir, '.workflow')) || existsSync(join(dir, '.git'))) {
