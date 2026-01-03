@@ -23,7 +23,7 @@ Orchestrates autonomous workflow execution through systematic task discovery, ag
 ## Core Rules
 **Complete entire workflow autonomously without user interruption, using TodoWrite for comprehensive progress tracking.**
 **Execute all discovered pending tasks until workflow completion or blocking dependency.**
-**Auto-complete session when all tasks finished: Call `/workflow:session:complete` upon workflow completion.**
+**User-choice completion: When all tasks finished, ask user to choose review or complete.**
 **ONE AGENT = ONE TASK JSON: Each agent instance executes exactly one task JSON file - never batch multiple tasks into single agent execution.**
 
 ## Core Responsibilities
@@ -33,7 +33,7 @@ Orchestrates autonomous workflow execution through systematic task discovery, ag
 - **Agent Orchestration**: Coordinate specialized agents with complete context
 - **Status Synchronization**: Update task JSON files and workflow state
 - **Autonomous Completion**: Continue execution until all tasks complete or reach blocking state
-- **Session Auto-Complete**: Call `/workflow:session:complete` when all workflow tasks finished
+- **Session User-Choice Completion**: Ask user to choose review or complete when all tasks finished
 
 ## Execution Philosophy
 - **Progress tracking**: Continuous TodoWrite updates throughout entire workflow execution
@@ -76,7 +76,9 @@ Phase 4: Execution Strategy & Task Execution
 Phase 5: Completion
    ├─ Update task statuses in JSON files
    ├─ Generate summaries
-   └─ Auto-call /workflow:session:complete
+   └─ AskUserQuestion: Choose next step
+      ├─ "Enter Review" → /workflow:review
+      └─ "Complete Session" → /workflow:session:complete
 
 Resume Mode (--resume-session):
    ├─ Skip Phase 1 & Phase 2
@@ -254,7 +256,31 @@ while (TODO_LIST.md has pending tasks) {
 3. **Update TodoWrite**: Mark current task complete, advance to next
 4. **Synchronize State**: Update session state and workflow status
 5. **Check Workflow Complete**: Verify all tasks are completed
-6. **Auto-Complete Session**: Call `/workflow:session:complete` when all tasks finished
+6. **User Choice**: When all tasks finished, ask user to choose next step:
+
+```javascript
+AskUserQuestion({
+  questions: [{
+    question: "All tasks completed. What would you like to do next?",
+    header: "Next Step",
+    multiSelect: false,
+    options: [
+      {
+        label: "Enter Review",
+        description: "Run specialized review (security/architecture/quality/action-items)"
+      },
+      {
+        label: "Complete Session",
+        description: "Archive session and update manifest"
+      }
+    ]
+  }]
+})
+```
+
+**Based on user selection**:
+- **"Enter Review"**: Execute `/workflow:review`
+- **"Complete Session"**: Execute `/workflow:session:complete`
 
 ## Execution Strategy (IMPL_PLAN-Driven)
 
@@ -330,7 +356,7 @@ blocked → skip until dependencies clear
 - **Continuous Tracking**: Maintain TodoWrite throughout entire workflow execution until completion
 
 **Rule 4: Workflow Completion Check**
-- When all tasks marked `completed`, auto-call `/workflow:session:complete`
+- When all tasks marked `completed`, prompt user to choose review or complete session
 
 ### TodoWrite Tool Usage
 

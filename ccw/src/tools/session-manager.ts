@@ -696,6 +696,23 @@ function executeArchive(params: Params): any {
         } catch { /* continue */ }
       }
     }
+
+    // Update all task JSONs to completed status
+    const taskDir = join(session.path, '.task');
+    if (existsSync(taskDir)) {
+      const taskFiles = readdirSync(taskDir).filter(f => f.endsWith('.json'));
+      for (const taskFile of taskFiles) {
+        try {
+          const taskPath = join(taskDir, taskFile);
+          const taskData = readJsonFile(taskPath);
+          if (taskData.status && taskData.status !== 'completed') {
+            taskData.status = 'completed';
+            taskData.completed_at = new Date().toISOString();
+            writeJsonFile(taskPath, taskData);
+          }
+        } catch { /* skip invalid task files */ }
+      }
+    }
   }
 
   // Ensure archive directory exists
