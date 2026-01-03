@@ -1,6 +1,6 @@
 ---
 description: Execute all solutions from issue queue with git commit after each task
-argument-hint: ""
+argument-hint: "[--worktree] [--queue <queue-id>]"
 ---
 
 # Issue Execute (Codex Version)
@@ -8,6 +8,39 @@ argument-hint: ""
 ## Core Principle
 
 **Serial Execution**: Execute solutions ONE BY ONE from the issue queue via `ccw issue next`. For each solution, complete all tasks sequentially (implement → test → commit per task). Continue autonomously until queue is empty.
+
+## Worktree Mode (Recommended for Parallel Execution)
+
+When `--worktree` is specified, create a separate git worktree to isolate work:
+
+```bash
+# Step 0: Setup worktree before starting
+WORKTREE_NAME="issue-exec-$(date +%Y%m%d-%H%M%S)"
+WORKTREE_PATH="../.worktrees/${WORKTREE_NAME}"
+
+# Create worktree from current branch
+git worktree add "${WORKTREE_PATH}" -b "${WORKTREE_NAME}"
+
+# Change to worktree directory
+cd "${WORKTREE_PATH}"
+
+# Now execute in isolated worktree...
+```
+
+**Benefits:**
+- Parallel executors don't conflict with each other
+- Main working directory stays clean
+- Easy cleanup after execution
+
+**Cleanup after completion:**
+```bash
+# Return to main repo
+cd -
+
+# Remove worktree
+git worktree remove "${WORKTREE_PATH}"
+git branch -d "${WORKTREE_NAME}"
+```
 
 ## Execution Flow
 
@@ -341,9 +374,11 @@ When `ccw issue next` returns `{ "status": "empty" }`:
 
 | Command | Purpose |
 |---------|---------|
-| `ccw issue next` | Fetch next solution from queue |
-| `ccw issue done <id>` | Mark solution complete with result |
-| `ccw issue done <id> --fail` | Mark solution failed with reason |
+| `ccw issue next` | Fetch next solution from queue (auto-selects from active queues) |
+| `ccw issue next --queue QUE-xxx` | Fetch from specific queue |
+| `ccw issue done <id>` | Mark solution complete with result (auto-detects queue) |
+| `ccw issue done <id> --fail --reason "..."` | Mark solution failed with structured reason |
+| `ccw issue retry --queue QUE-xxx` | Reset failed items in specific queue |
 
 ## Start Execution
 

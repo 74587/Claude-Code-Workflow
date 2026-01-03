@@ -183,10 +183,12 @@ Group assignment:
 ```json
 {
   "active_queue_id": "QUE-20251228-120000",
+  "active_queue_ids": ["QUE-20251228-120000"],
   "queues": [
     {
       "id": "QUE-20251228-120000",
       "status": "active",
+      "priority": 1,
       "issue_ids": ["ISS-001", "ISS-002"],
       "total_solutions": 3,
       "completed_solutions": 0,
@@ -195,6 +197,26 @@ Group assignment:
   ]
 }
 ```
+
+## Multi-Queue Management
+
+Multiple queues can be active simultaneously. The system executes queues in priority order (lower = higher priority).
+
+**Activate multiple queues:**
+```bash
+ccw issue queue activate QUE-001,QUE-002,QUE-003
+```
+
+**Set queue priority:**
+```bash
+ccw issue queue priority QUE-001 --priority 1
+ccw issue queue priority QUE-002 --priority 2
+```
+
+**Execution behavior with multi-queue:**
+- `ccw issue next` automatically selects from active queues in priority order
+- Complete all items in Q1 before moving to Q2 (serialized execution)
+- Use `--queue QUE-xxx` to target a specific queue
 
 ### Step 7: Update Issue Statuses
 

@@ -1,7 +1,7 @@
 ---
 name: execute
 description: Execute queue with codex using DAG-based parallel orchestration (solution-level)
-argument-hint: ""
+argument-hint: "[--worktree] [--queue <queue-id>]"
 allowed-tools: TodoWrite(*), Bash(*), Read(*), AskUserQuestion(*)
 ---
 
@@ -17,31 +17,41 @@ Minimal orchestrator that dispatches **solution IDs** to executors. Each executo
 - `done <id>` → update solution completion status
 - No race conditions: status changes only via `done`
 - **Executor handles all tasks within a solution sequentially**
+- **Worktree isolation**: Each executor can work in its own git worktree
 
 ## Usage
 
 ```bash
-/issue:execute
+/issue:execute                           # Execute active queue(s)
+/issue:execute --queue QUE-xxx           # Execute specific queue
+/issue:execute --worktree                # Use git worktrees for parallel isolation
+/issue:execute --worktree --queue QUE-xxx
 ```
 
 **Parallelism**: Determined automatically by task dependency DAG (no manual control)
 **Executor & Dry-run**: Selected via interactive prompt (AskUserQuestion)
+**Worktree**: Creates isolated git worktrees for each parallel executor
 
 ## Execution Flow
 
 ```
+Phase 0 (if --worktree): Setup Worktree Base
+   └─ Ensure .worktrees directory exists
+
 Phase 1: Get DAG & User Selection
-   ├─ ccw issue queue dag → { parallel_batches: [["S-1","S-2"], ["S-3"]] }
-   └─ AskUserQuestion → executor type (codex|gemini|agent), dry-run mode
+   ├─ ccw issue queue dag [--queue QUE-xxx] → { parallel_batches: [["S-1","S-2"], ["S-3"]] }
+   └─ AskUserQuestion → executor type (codex|gemini|agent), dry-run mode, worktree mode
 
 Phase 2: Dispatch Parallel Batch (DAG-driven)
    ├─ Parallelism determined by DAG (no manual limit)
    ├─ For each solution ID in batch (parallel - all at once):
+   │   ├─ (if worktree) Create isolated worktree: git worktree add
    │   ├─ Executor calls: ccw issue detail <id>  (READ-ONLY)
    │   ├─ Executor gets FULL SOLUTION with all tasks
    │   ├─ Executor implements all tasks sequentially (T1 → T2 → T3)
    │   ├─ Executor tests + commits per task
-   │   └─ Executor calls: ccw issue done <id>
+   │   ├─ Executor calls: ccw issue done <id>
+   │   └─ (if worktree) Cleanup: merge branch, remove worktree
    └─ Wait for batch completion
 
 Phase 3: Next Batch
@@ -93,12 +103,22 @@ const answer = AskUserQuestion({
         { label: 'Execute (Recommended)', description: 'Run all ready solutions' },
         { label: 'Dry-run', description: 'Show DAG and batches without executing' }
       ]
+    },
+    {
+      question: 'Use git worktrees for parallel isolation?',
+      header: 'Worktree',
+      multiSelect: false,
+      options: [
+        { label: 'Yes (Recommended for parallel)', description: 'Each executor works in isolated worktree branch' },
+        { label: 'No', description: 'Work directly in current directory (serial only)' }
+      ]
     }
   ]
 });
 
 const executor = answer['Executor'].toLowerCase().split(' ')[0];  // codex|gemini|agent
 const isDryRun = answer['Mode'].includes('Dry-run');
+const useWorktree = answer['Worktree'].includes('Yes');
 
 // Dry run mode
 if (isDryRun) {
@@ -128,10 +148,15 @@ TodoWrite({
 
 console.log(`\n### Executing Solutions (DAG batch 1): ${batch.join(', ')}`);
 
+// Setup worktree base directory if needed
+if (useWorktree) {
+  Bash('mkdir -p ../.worktrees');
+}
+
 // Launch ALL solutions in batch in parallel (DAG guarantees no conflicts)
 const executions = batch.map(solutionId => {
   updateTodo(solutionId, 'in_progress');
-  return dispatchExecutor(solutionId, executor);
+  return dispatchExecutor(solutionId, executor, useWorktree);
 });
 
 await Promise.all(executions);
@@ -141,13 +166,32 @@ batch.forEach(id => updateTodo(id, 'completed'));
 ### Executor Dispatch
 
 ```javascript
-function dispatchExecutor(solutionId, executorType) {
-  // Executor fetches FULL SOLUTION via READ-ONLY detail command
-  // Executor handles all tasks within solution sequentially
-  // Then reports completion via done command
+function dispatchExecutor(solutionId, executorType, useWorktree = false) {
+  // Worktree setup commands (if enabled)
+  const worktreeSetup = useWorktree ? `
+### Step 0: Setup Isolated Worktree
+\`\`\`bash
+WORKTREE_NAME="exec-${solutionId}-$(date +%H%M%S)"
+WORKTREE_PATH="../.worktrees/\${WORKTREE_NAME}"
+git worktree add "\${WORKTREE_PATH}" -b "\${WORKTREE_NAME}"
+cd "\${WORKTREE_PATH}"
+\`\`\`
+` : '';
+
+  const worktreeCleanup = useWorktree ? `
+### Step 4: Cleanup Worktree
+\`\`\`bash
+# Return to main repo and merge
+cd -
+git merge --no-ff "\${WORKTREE_NAME}" -m "Merge solution ${solutionId}"
+git worktree remove "\${WORKTREE_PATH}"
+git branch -d "\${WORKTREE_NAME}"
+\`\`\`
+` : '';
+
   const prompt = `
 ## Execute Solution ${solutionId}
-
+${worktreeSetup}
 ### Step 1: Get Solution (read-only)
 \`\`\`bash
 ccw issue detail ${solutionId}
@@ -171,9 +215,9 @@ ccw issue done ${solutionId} --result '{"summary": "...", "files_modified": [...
 
 If any task failed:
 \`\`\`bash
-ccw issue done ${solutionId} --fail --reason "Task TX failed: ..."
+ccw issue done ${solutionId} --fail --reason '{"task_id": "TX", "error_type": "test_failure", "message": "..."}'
 \`\`\`
-`;
+${worktreeCleanup}`;
 
   if (executorType === 'codex') {
     return Bash(
