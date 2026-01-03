@@ -70,16 +70,27 @@ class IncrementalIndexer:
         self._dir_stores: dict[Path, DirIndexStore] = {}
         self._lock = __import__("threading").RLock()
     
-    def _get_global_index(self, index_root: Path) -> Optional[GlobalSymbolIndex]:
-        """Get or create global symbol index."""
+    def _get_global_index(self, index_root: Path, source_root: Optional[Path] = None) -> Optional[GlobalSymbolIndex]:
+        """Get or create global symbol index.
+
+        Args:
+            index_root: Root directory containing the global symbol index DB
+            source_root: Source directory root for looking up project_id from registry
+        """
         if not self.config.global_symbol_index_enabled:
             return None
-        
+
         if self._global_index is None:
             global_db_path = index_root / GlobalSymbolIndex.DEFAULT_DB_NAME
             if global_db_path.exists():
-                self._global_index = GlobalSymbolIndex(global_db_path)
-        
+                # Get project_id from registry using source_root
+                project_id = 0  # Default fallback
+                if source_root:
+                    project_info = self.registry.get_project(source_root)
+                    if project_info:
+                        project_id = project_info.id
+                self._global_index = GlobalSymbolIndex(global_db_path, project_id=project_id)
+
         return self._global_index
     
     def _get_dir_store(self, dir_path: Path) -> Optional[DirIndexStore]:
@@ -94,10 +105,9 @@ class IncrementalIndexer:
                 return None
             
             # Get index root for global index
-            index_root = self.mapper.source_to_index_dir(
-                self.mapper.get_project_root(dir_path) or dir_path
-            )
-            global_index = self._get_global_index(index_root)
+            source_root = self.mapper.get_project_root(dir_path) or dir_path
+            index_root = self.mapper.source_to_index_dir(source_root)
+            global_index = self._get_global_index(index_root, source_root=source_root)
             
             store = DirIndexStore(
                 index_db,
