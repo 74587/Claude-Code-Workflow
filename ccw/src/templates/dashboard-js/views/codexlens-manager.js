@@ -283,9 +283,10 @@ function buildCodexLensConfigContent(config) {
                 '<div id="semanticDepsStatus" class="space-y-2">' +
                   '<div class="text-sm text-muted-foreground">' + t('codexlens.checkingDeps') + '</div>' +
                 '</div>' +
-                '<div id="spladeStatus" class="space-y-2 mt-3 pt-3 border-t border-border">' +
-                  '<div class="text-sm text-muted-foreground">' + t('common.loading') + '</div>' +
-                '</div>' +
+                // SPLADE status hidden - not currently used
+                // '<div id="spladeStatus" class="space-y-2 mt-3 pt-3 border-t border-border">' +
+                //   '<div class="text-sm text-muted-foreground">' + t('common.loading') + '</div>' +
+                // '</div>' +
               '</div>' +
 
               // Model Management
@@ -498,12 +499,141 @@ function initCodexLensConfigEvents(currentConfig) {
   // Load semantic dependencies status
   loadSemanticDepsStatus();
 
-  // Load SPLADE status
-  loadSpladeStatus();
+  // SPLADE status hidden - not currently used
+  // loadSpladeStatus();
 
   // Load model list
   loadModelList();
 }
+
+// ============================================================
+// MODEL LOCK/UNLOCK MANAGEMENT
+// ============================================================
+
+var MODEL_LOCK_KEY = 'codexlens_model_lock';
+
+/**
+ * Get model lock state from localStorage
+ * @returns {Object} { locked: boolean, backend: string, model: string }
+ */
+function getModelLockState() {
+  try {
+    var stored = localStorage.getItem(MODEL_LOCK_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.warn('[CodexLens] Failed to get model lock state:', e);
+  }
+  return { locked: false, backend: 'fastembed', model: 'code' };
+}
+
+/**
+ * Set model lock state in localStorage
+ * @param {boolean} locked - Whether model is locked
+ * @param {string} backend - Selected backend
+ * @param {string} model - Selected model
+ */
+function setModelLockState(locked, backend, model) {
+  try {
+    localStorage.setItem(MODEL_LOCK_KEY, JSON.stringify({
+      locked: locked,
+      backend: backend || 'fastembed',
+      model: model || 'code'
+    }));
+  } catch (e) {
+    console.warn('[CodexLens] Failed to save model lock state:', e);
+  }
+}
+
+/**
+ * Toggle model lock state
+ */
+function toggleModelLock() {
+  var backendSelect = document.getElementById('pageBackendSelect');
+  var modelSelect = document.getElementById('pageModelSelect');
+  var lockBtn = document.getElementById('modelLockBtn');
+  var lockIcon = document.getElementById('modelLockIcon');
+
+  var currentState = getModelLockState();
+  var newLocked = !currentState.locked;
+
+  // Get current values if locking
+  var backend = newLocked ? (backendSelect ? backendSelect.value : 'fastembed') : currentState.backend;
+  var model = newLocked ? (modelSelect ? modelSelect.value : 'code') : currentState.model;
+
+  // Save state
+  setModelLockState(newLocked, backend, model);
+
+  // Update UI
+  applyModelLockUI(newLocked, backend, model);
+
+  // Show feedback
+  if (newLocked) {
+    showRefreshToast('Model locked: ' + backend + ' / ' + model, 'success');
+  } else {
+    showRefreshToast('Model unlocked', 'info');
+  }
+}
+
+/**
+ * Apply model lock UI state
+ */
+function applyModelLockUI(locked, backend, model) {
+  var backendSelect = document.getElementById('pageBackendSelect');
+  var modelSelect = document.getElementById('pageModelSelect');
+  var lockBtn = document.getElementById('modelLockBtn');
+  var lockIcon = document.getElementById('modelLockIcon');
+  var lockText = document.getElementById('modelLockText');
+
+  if (backendSelect) {
+    backendSelect.disabled = locked;
+    if (locked && backend) {
+      backendSelect.value = backend;
+    }
+  }
+
+  if (modelSelect) {
+    modelSelect.disabled = locked;
+    if (locked && model) {
+      modelSelect.value = model;
+    }
+  }
+
+  if (lockBtn) {
+    if (locked) {
+      lockBtn.classList.remove('btn-outline');
+      lockBtn.classList.add('btn-primary');
+    } else {
+      lockBtn.classList.remove('btn-primary');
+      lockBtn.classList.add('btn-outline');
+    }
+  }
+
+  if (lockIcon) {
+    lockIcon.setAttribute('data-lucide', locked ? 'lock' : 'unlock');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  if (lockText) {
+    lockText.textContent = locked ? 'Locked' : 'Lock Model';
+  }
+}
+
+/**
+ * Initialize model lock state on page load
+ */
+function initModelLockState() {
+  var state = getModelLockState();
+  if (state.locked) {
+    applyModelLockUI(true, state.backend, state.model);
+  }
+}
+
+// Make functions globally accessible
+window.toggleModelLock = toggleModelLock;
+window.initModelLockState = initModelLockState;
+window.getModelLockState = getModelLockState;
 
 // ============================================================
 // ENVIRONMENT VARIABLES MANAGEMENT
@@ -987,12 +1117,12 @@ async function installSemanticDeps() {
 }
 
 // ============================================================
-// SPLADE MANAGEMENT
+// SPLADE MANAGEMENT - Hidden (not currently used)
 // ============================================================
+// SPLADE functionality is hidden from the UI. The code is preserved
+// for potential future use but is not exposed to users.
 
-/**
- * Load SPLADE status
- */
+/*
 async function loadSpladeStatus() {
   var container = document.getElementById('spladeStatus');
   if (!container) return;
@@ -1039,9 +1169,6 @@ async function loadSpladeStatus() {
   }
 }
 
-/**
- * Install SPLADE package
- */
 async function installSplade(gpu) {
   var container = document.getElementById('spladeStatus');
   if (!container) return;
@@ -1073,6 +1200,7 @@ async function installSplade(gpu) {
     loadSpladeStatus();
   }
 }
+*/
 
 
 // ============================================================
@@ -2342,9 +2470,6 @@ function buildCodexLensManagerPage(config) {
   var indexCount = config.index_count || 0;
   var isInstalled = window.cliToolsStatus?.codexlens?.installed || false;
 
-  // Build model options for vector indexing
-  var modelOptions = buildModelSelectOptionsForPage();
-
   return '<div class="codexlens-manager-page space-y-6">' +
     // Header with status
     '<div class="bg-card border border-border rounded-lg p-6">' +
@@ -2375,64 +2500,11 @@ function buildCodexLensManagerPage(config) {
         '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">' +
           // Left Column
           '<div class="space-y-6">' +
-            // Create Index Section
+            // Create Index Section - Simplified (model config in Environment Variables)
             '<div class="bg-card border border-border rounded-lg p-5">' +
               '<h4 class="text-lg font-semibold mb-4 flex items-center gap-2"><i data-lucide="layers" class="w-5 h-5 text-primary"></i> ' + t('codexlens.createIndex') + '</h4>' +
               '<div class="space-y-4">' +
-                // Backend selector (fastembed local or litellm API)
-                '<div class="mb-4">' +
-                  '<label class="block text-sm font-medium mb-1.5">' + (t('codexlens.embeddingBackend') || 'Embedding Backend') + '</label>' +
-                  '<select id="pageBackendSelect" class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm" onchange="onEmbeddingBackendChange()">' +
-                    '<option value="fastembed">' + (t('codexlens.localFastembed') || 'Local (FastEmbed)') + '</option>' +
-                    '<option value="litellm">' + (t('codexlens.apiLitellm') || 'API (LiteLLM)') + '</option>' +
-                  '</select>' +
-                  '<p class="text-xs text-muted-foreground mt-1">' + (t('codexlens.backendHint') || 'Select local model or remote API endpoint') + '</p>' +
-                '</div>' +
-                // Model selector
-                '<div>' +
-                  '<label class="block text-sm font-medium mb-1.5">' + t('codexlens.embeddingModel') + '</label>' +
-                  '<select id="pageModelSelect" class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm">' +
-                    modelOptions +
-                  '</select>' +
-                  '<p class="text-xs text-muted-foreground mt-1">' + t('codexlens.modelHint') + '</p>' +
-                '</div>' +
-                // Concurrency selector (only for LiteLLM backend)
-                '<div id="concurrencySelector" class="hidden">' +
-                  '<label class="block text-sm font-medium mb-1.5">' + t('codexlens.concurrency') + '</label>' +
-                  '<div class="flex items-center gap-2">' +
-                    '<input type="number" id="pageConcurrencyInput" min="1" value="4" ' +
-                      'class="w-24 px-3 py-2 border border-border rounded-lg bg-background text-sm" ' +
-                      'onchange="validateConcurrencyInput(this)" />' +
-                    '<span class="text-sm text-muted-foreground">workers</span>' +
-                    '<span class="text-xs text-primary ml-2">(4 = recommended)</span>' +
-                  '</div>' +
-                  '<p class="text-xs text-muted-foreground mt-1">' + t('codexlens.concurrencyHint') + '</p>' +
-                '</div>' +
-                // Multi-Provider Rotation (only for LiteLLM backend) - Simplified, config in API Settings
-                '<div id="rotationSection" class="hidden">' +
-                  '<div class="border border-border rounded-lg p-3 bg-muted/30">' +
-                    '<div class="flex items-center justify-between mb-2">' +
-                      '<div class="flex items-center gap-2">' +
-                        '<i data-lucide="rotate-cw" class="w-4 h-4 text-primary"></i>' +
-                        '<span class="text-sm font-medium">' + t('codexlens.rotation') + '</span>' +
-                      '</div>' +
-                      '<div id="rotationStatusBadge" class="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">' +
-                        t('common.disabled') +
-                      '</div>' +
-                    '</div>' +
-                    '<p class="text-xs text-muted-foreground mb-2">' + t('codexlens.rotationDesc') + '</p>' +
-                    '<div id="rotationDetails" class="text-xs text-muted-foreground mb-3 hidden">' +
-                      '<span id="rotationModelName"></span> · <span id="rotationEndpointCount"></span>' +
-                    '</div>' +
-                    '<div class="flex items-center gap-2">' +
-                      '<a href="#" class="btn-sm btn-outline flex items-center gap-1.5" onclick="navigateToApiSettingsEmbeddingPool(); return false;">' +
-                        '<i data-lucide="external-link" class="w-3.5 h-3.5"></i>' +
-                        t('codexlens.configureInApiSettings') +
-                      '</a>' +
-                    '</div>' +
-                  '</div>' +
-                '</div>' +
-                // Index buttons - two modes: full (FTS + Vector) or FTS only
+                // Index Actions - Primary buttons
                 '<div class="grid grid-cols-2 gap-3">' +
                   '<button class="btn btn-primary flex items-center justify-center gap-2 py-3" onclick="initCodexLensIndexFromPage(\'full\')" title="' + t('codexlens.fullIndexDesc') + '">' +
                     '<i data-lucide="layers" class="w-4 h-4"></i>' +
@@ -2443,7 +2515,28 @@ function buildCodexLensManagerPage(config) {
                     '<span>' + t('codexlens.ftsIndex') + '</span>' +
                   '</button>' +
                 '</div>' +
-                '<p class="text-xs text-muted-foreground">' + t('codexlens.indexTypeHint') + '</p>' +
+                // Incremental Update button
+                '<button class="btn btn-outline w-full flex items-center justify-center gap-2 py-2.5" onclick="runIncrementalUpdate()" title="Update index with changed files only">' +
+                  '<i data-lucide="refresh-cw" class="w-4 h-4"></i>' +
+                  '<span>Incremental Update</span>' +
+                '</button>' +
+                // Watchdog Section
+                '<div class="border border-border rounded-lg p-3 bg-muted/30">' +
+                  '<div class="flex items-center justify-between">' +
+                    '<div class="flex items-center gap-2">' +
+                      '<i data-lucide="eye" class="w-4 h-4 text-primary"></i>' +
+                      '<span class="text-sm font-medium">File Watcher</span>' +
+                    '</div>' +
+                    '<div id="watcherStatusBadge" class="flex items-center gap-2">' +
+                      '<span class="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Stopped</span>' +
+                      '<button class="btn-sm btn-outline" onclick="toggleWatcher()" id="watcherToggleBtn">' +
+                        '<i data-lucide="play" class="w-3.5 h-3.5"></i>' +
+                      '</button>' +
+                    '</div>' +
+                  '</div>' +
+                  '<p class="text-xs text-muted-foreground mt-2">Auto-update index when files change</p>' +
+                '</div>' +
+                '<p class="text-xs text-muted-foreground">' + t('codexlens.indexTypeHint') + ' Configure embedding model in Environment Variables below.</p>' +
               '</div>' +
             '</div>' +
             // Storage Path Section
@@ -2462,6 +2555,16 @@ function buildCodexLensManagerPage(config) {
                   '</div>' +
                   '<p class="text-xs text-muted-foreground mt-1">' + t('codexlens.pathInfo') + '</p>' +
                 '</div>' +
+              '</div>' +
+            '</div>' +
+            // Environment Variables Section
+            '<div class="bg-card border border-border rounded-lg p-5">' +
+              '<div class="flex items-center justify-between mb-4">' +
+                '<h4 class="text-lg font-semibold flex items-center gap-2"><i data-lucide="file-code" class="w-5 h-5 text-primary"></i> Environment Variables</h4>' +
+                '<button class="btn-sm btn-outline" onclick="loadEnvVariables()"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Load</button>' +
+              '</div>' +
+              '<div id="envVarsContainer" class="space-y-2">' +
+                '<div class="text-sm text-muted-foreground">Click Load to view/edit ~/.codexlens/.env</div>' +
               '</div>' +
             '</div>' +
             // Maintenance Section
@@ -2743,25 +2846,113 @@ function buildLiteLLMModelOptions() {
 window.onEmbeddingBackendChange = onEmbeddingBackendChange;
 
 /**
- * Initialize index from page with selected model
+ * Initialize index from page - uses env-based config
+ * Model/backend configured in Environment Variables section
  */
 function initCodexLensIndexFromPage(indexType) {
-  var backendSelect = document.getElementById('pageBackendSelect');
-  var modelSelect = document.getElementById('pageModelSelect');
-  var concurrencyInput = document.getElementById('pageConcurrencyInput');
-  var selectedBackend = backendSelect ? backendSelect.value : 'fastembed';
-  var selectedModel = modelSelect ? modelSelect.value : 'code';
-  var selectedConcurrency = concurrencyInput ? Math.max(1, parseInt(concurrencyInput.value, 10) || 4) : 4;
-
-  // For FTS-only index, model is not needed
+  // For FTS-only index, no embedding config needed
   if (indexType === 'normal') {
     initCodexLensIndex(indexType);
   } else {
-    // Pass concurrency only for litellm backend
-    var maxWorkers = selectedBackend === 'litellm' ? selectedConcurrency : 1;
-    initCodexLensIndex(indexType, selectedModel, selectedBackend, maxWorkers);
+    // Use litellm backend with env-configured model (default 4 workers)
+    // The CLI will read EMBEDDING_MODEL/LITELLM_MODEL from env
+    initCodexLensIndex(indexType, null, 'litellm', 4);
   }
 }
+
+/**
+ * Run incremental update on the current workspace index
+ */
+window.runIncrementalUpdate = async function runIncrementalUpdate() {
+  var projectPath = window.CCW_PROJECT_ROOT || '.';
+
+  showRefreshToast('Starting incremental update...', 'info');
+
+  try {
+    var response = await fetch('/api/codexlens/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: projectPath })
+    });
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast('Incremental update completed', 'success');
+    } else {
+      showRefreshToast('Update failed: ' + (result.error || 'Unknown error'), 'error');
+    }
+  } catch (err) {
+    showRefreshToast('Update error: ' + err.message, 'error');
+  }
+}
+
+/**
+ * Toggle file watcher (watchdog) on/off
+ */
+window.toggleWatcher = async function toggleWatcher() {
+  console.log('[CodexLens] toggleWatcher called');
+  // Debug: uncomment to test if function is called
+  // alert('toggleWatcher called!');
+  var projectPath = window.CCW_PROJECT_ROOT || '.';
+  console.log('[CodexLens] Project path:', projectPath);
+
+  // Check current status first
+  try {
+    console.log('[CodexLens] Checking watcher status...');
+    var statusResponse = await fetch('/api/codexlens/watch/status');
+    var statusResult = await statusResponse.json();
+    console.log('[CodexLens] Status result:', statusResult);
+    var isRunning = statusResult.success && statusResult.running;
+
+    // Toggle: if running, stop; if stopped, start
+    var action = isRunning ? 'stop' : 'start';
+    console.log('[CodexLens] Action:', action);
+
+    var response = await fetch('/api/codexlens/watch/' + action, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: projectPath })
+    });
+    var result = await response.json();
+    console.log('[CodexLens] Action result:', result);
+
+    if (result.success) {
+      var newRunning = action === 'start';
+      updateWatcherUI(newRunning);
+      showRefreshToast('File watcher ' + (newRunning ? 'started' : 'stopped'), 'success');
+    } else {
+      showRefreshToast('Watcher ' + action + ' failed: ' + (result.error || 'Unknown error'), 'error');
+    }
+  } catch (err) {
+    console.error('[CodexLens] Watcher error:', err);
+    showRefreshToast('Watcher error: ' + err.message, 'error');
+  }
+}
+
+/**
+ * Update watcher UI state
+ */
+function updateWatcherUI(running) {
+  var statusBadge = document.getElementById('watcherStatusBadge');
+  if (statusBadge) {
+    var badgeClass = running ? 'bg-success/20 text-success' : 'bg-muted text-muted-foreground';
+    var badgeText = running ? 'Running' : 'Stopped';
+    var iconName = running ? 'pause' : 'play';
+
+    statusBadge.innerHTML =
+      '<span class="text-xs px-2 py-0.5 rounded-full ' + badgeClass + '">' + badgeText + '</span>' +
+      '<button class="btn-sm btn-outline" onclick="toggleWatcher()" id="watcherToggleBtn">' +
+        '<i data-lucide="' + iconName + '" class="w-3.5 h-3.5"></i>' +
+      '</button>';
+
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+// Make functions globally accessible
+window.runIncrementalUpdate = runIncrementalUpdate;
+window.toggleWatcher = toggleWatcher;
+window.updateWatcherUI = updateWatcherUI;
 
 /**
  * Initialize CodexLens Manager page event handlers
