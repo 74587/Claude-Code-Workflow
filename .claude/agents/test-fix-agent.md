@@ -59,6 +59,14 @@ When task JSON contains `flow_control` field, execute preparation and implementa
 2. **Variable Substitution**: Use `[variable_name]` to reference previous outputs
 3. **Error Handling**: Follow step-specific strategies (`skip_optional`, `fail`, `retry_once`)
 
+**Command-to-Tool Mapping** (for pre_analysis commands):
+```
+"Read(path)"            → Read tool: Read(file_path=path)
+"bash(command)"         → Bash tool: Bash(command=command)
+"Search(pattern,path)"  → Grep tool: Grep(pattern=pattern, path=path)
+"Glob(pattern)"         → Glob tool: Glob(pattern=pattern)
+```
+
 **Implementation Approach** (`flow_control.implementation_approach`):
 When task JSON contains implementation_approach array:
 1. **Sequential Execution**: Process steps in order, respecting `depends_on` dependencies
@@ -73,6 +81,12 @@ When task JSON contains implementation_approach array:
    - `command`: Optional CLI command (only when explicitly specified)
    - `depends_on`: Array of step numbers that must complete first
    - `output`: Variable name for this step's output
+5. **Execution Mode Selection**:
+   - IF `command` field exists → Execute CLI command via Bash tool
+   - ELSE (no command) → Agent direct execution:
+     - Parse `modification_points` as files to modify
+     - Follow `logic_flow` for test-fix iteration
+     - Use test_commands from flow_control for test execution
 
 
 ### 1. Context Assessment & Test Discovery
