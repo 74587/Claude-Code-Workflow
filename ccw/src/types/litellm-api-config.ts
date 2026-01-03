@@ -226,6 +226,9 @@ export interface ProviderCredential {
   /** Embedding models configured for this provider */
   embeddingModels?: ModelDefinition[];
 
+  /** Reranker models configured for this provider */
+  rerankerModels?: ModelDefinition[];
+
   /** Creation timestamp (ISO 8601) */
   createdAt: string;
 

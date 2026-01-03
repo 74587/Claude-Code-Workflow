@@ -789,6 +789,46 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
     return true;
   }
 
+  // GET /api/litellm-api/reranker-pool - Get available reranker models from all providers
+  if (pathname === '/api/litellm-api/reranker-pool' && req.method === 'GET') {
+    try {
+      // Get list of all available reranker models from all providers
+      const config = loadLiteLLMApiConfig(initialPath);
+      const availableModels: Array<{ modelId: string; modelName: string; providers: string[] }> = [];
+      const modelMap = new Map<string, { modelId: string; modelName: string; providers: string[] }>();
+
+      for (const provider of config.providers) {
+        if (!provider.enabled || !provider.rerankerModels) continue;
+
+        for (const model of provider.rerankerModels) {
+          if (!model.enabled) continue;
+
+          const key = model.id;
+          if (modelMap.has(key)) {
+            modelMap.get(key)!.providers.push(provider.name);
+          } else {
+            modelMap.set(key, {
+              modelId: model.id,
+              modelName: model.name,
+              providers: [provider.name],
+            });
+          }
+        }
+      }
+
+      availableModels.push(...Array.from(modelMap.values()));
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        availableModels,
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
   // GET /api/litellm-api/embedding-pool/discover/:model - Preview auto-discovery results
   const discoverMatch = pathname.match(/^\/api\/litellm-api\/embedding-pool\/discover\/([^/]+)$/);
   if (discoverMatch && req.method === 'GET') {

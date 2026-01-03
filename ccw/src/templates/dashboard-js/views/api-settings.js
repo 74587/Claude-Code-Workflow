@@ -1221,6 +1221,9 @@ function renderProviderDetail(providerId) {
     '<button class="model-tab' + (activeModelTab === 'embedding' ? ' active' : '') + '" onclick="switchModelTab(\'embedding\')">' +
     t('apiSettings.embeddingModels') +
     '</button>' +
+    '<button class="model-tab' + (activeModelTab === 'reranker' ? ' active' : '') + '" onclick="switchModelTab(\'reranker\')">' +
+    t('apiSettings.rerankerModels') +
+    '</button>' +
     '</div>' +
     '<div class="model-section-actions">' +
     '<button class="btn btn-secondary" onclick="showManageModelsModal(\'' + providerId + '\')">' +
@@ -1275,6 +1278,8 @@ function renderModelTree(provider) {
 
   var models = activeModelTab === 'llm'
     ? (provider.llmModels || [])
+    : activeModelTab === 'reranker'
+    ? (provider.rerankerModels || [])
     : (provider.embeddingModels || []);
 
   if (models.length === 0) {
@@ -1537,10 +1542,11 @@ function showAddModelModal(providerId, modelType) {
   if (!provider) return;
 
   const isLlm = modelType === 'llm';
-  const title = isLlm ? t('apiSettings.addLlmModel') : t('apiSettings.addEmbeddingModel');
+  const isReranker = modelType === 'reranker';
+  const title = isLlm ? t('apiSettings.addLlmModel') : isReranker ? t('apiSettings.addRerankerModel') : t('apiSettings.addEmbeddingModel');
 
   // Get model presets based on provider type
-  const presets = isLlm ? getLlmPresetsForType(provider.type) : getEmbeddingPresetsForType(provider.type);
+  const presets = isLlm ? getLlmPresetsForType(provider.type) : isReranker ? getRerankerPresetsForType(provider.type) : getEmbeddingPresetsForType(provider.type);
 
   // Group presets by series
   const groupedPresets = groupPresetsBySeries(presets);
@@ -1562,9 +1568,8 @@ function showAddModelModal(providerId, modelType) {
     Object.keys(groupedPresets).map(function(series) {
       return '<optgroup label="' + series + '">' +
         groupedPresets[series].map(function(m) {
-          return '<option value="' + m.id + '">' + m.name + ' ' +
-            (isLlm ? '(' + (m.contextWindow/1000) + 'K)' : '(' + m.dimensions + 'D)') +
-            '</option>';
+          var info = isLlm ? '(' + (m.contextWindow/1000) + 'K)' : isReranker ? '' : '(' + m.dimensions + 'D)';
+          return '<option value="' + m.id + '">' + m.name + ' ' + info + '</option>';
         }).join('') +
         '</optgroup>';
     }).join('') +
@@ -1606,6 +1611,12 @@ function showAddModelModal(providerId, modelType) {
       '<label class="checkbox-label">' +
       '<input type="checkbox" id="cap-vision" /> ' + t('apiSettings.vision') +
       '</label>' +
+      '</div>'
+    : isReranker ?
+      '<div class="form-group">' +
+      '<label>' + t('apiSettings.rerankerTopK') + '</label>' +
+      '<input type="number" id="model-top-k" class="cli-input" value="10" min="1" max="100" />' +
+      '<span class="field-hint">' + t('apiSettings.rerankerTopKHint') + '</span>' +
       '</div>'
     :
       '<div class="form-group">' +
@@ -1692,6 +1703,37 @@ function getEmbeddingPresetsForType(providerType) {
 }
 
 /**
+ * Get reranker model presets based on provider type
+ */
+function getRerankerPresetsForType(providerType) {
+  const presets = {
+    openai: [
+      { id: 'BAAI/bge-reranker-v2-m3', name: 'BGE Reranker v2 M3', series: 'BGE Reranker', topK: 10 },
+      { id: 'BAAI/bge-reranker-large', name: 'BGE Reranker Large', series: 'BGE Reranker', topK: 10 },
+      { id: 'BAAI/bge-reranker-base', name: 'BGE Reranker Base', series: 'BGE Reranker', topK: 10 }
+    ],
+    cohere: [
+      { id: 'rerank-english-v3.0', name: 'Rerank English v3.0', series: 'Cohere Rerank', topK: 10 },
+      { id: 'rerank-multilingual-v3.0', name: 'Rerank Multilingual v3.0', series: 'Cohere Rerank', topK: 10 },
+      { id: 'rerank-english-v2.0', name: 'Rerank English v2.0', series: 'Cohere Rerank', topK: 10 }
+    ],
+    voyage: [
+      { id: 'rerank-2', name: 'Rerank 2', series: 'Voyage Rerank', topK: 10 },
+      { id: 'rerank-2-lite', name: 'Rerank 2 Lite', series: 'Voyage Rerank', topK: 10 },
+      { id: 'rerank-1', name: 'Rerank 1', series: 'Voyage Rerank', topK: 10 }
+    ],
+    jina: [
+      { id: 'jina-reranker-v2-base-multilingual', name: 'Jina Reranker v2 Multilingual', series: 'Jina Reranker', topK: 10 },
+      { id: 'jina-reranker-v1-base-en', name: 'Jina Reranker v1 English', series: 'Jina Reranker', topK: 10 }
+    ],
+    custom: [
+      { id: 'custom-reranker', name: 'Custom Reranker', series: 'Custom', topK: 10 }
+    ]
+  };
+  return presets[providerType] || presets.custom;
+}
+
+/**
  * Group presets by series
  */
 function groupPresetsBySeries(presets) {
@@ -1721,7 +1763,8 @@ function fillModelFromPreset(presetId, modelType) {
   if (!provider) return;
 
   const isLlm = modelType === 'llm';
-  const presets = isLlm ? getLlmPresetsForType(provider.type) : getEmbeddingPresetsForType(provider.type);
+  const isReranker = modelType === 'reranker';
+  const presets = isLlm ? getLlmPresetsForType(provider.type) : isReranker ? getRerankerPresetsForType(provider.type) : getEmbeddingPresetsForType(provider.type);
   const preset = presets.find(function(p) { return p.id === presetId; });
 
   if (preset) {
@@ -1732,7 +1775,11 @@ function fillModelFromPreset(presetId, modelType) {
     if (isLlm && preset.contextWindow) {
       document.getElementById('model-context-window').value = preset.contextWindow;
     }
-    if (!isLlm && preset.dimensions) {
+    if (isReranker && preset.topK) {
+      var topKEl = document.getElementById('model-top-k');
+      if (topKEl) topKEl.value = preset.topK;
+    }
+    if (!isLlm && !isReranker && preset.dimensions) {
       document.getElementById('model-dimensions').value = preset.dimensions;
       if (preset.maxTokens) {
         document.getElementById('model-max-tokens').value = preset.maxTokens;
@@ -1748,6 +1795,7 @@ function saveNewModel(event, providerId, modelType) {
   event.preventDefault();
 
   const isLlm = modelType === 'llm';
+  const isReranker = modelType === 'reranker';
   const now = new Date().toISOString();
 
   const newModel = {
@@ -1769,6 +1817,11 @@ function saveNewModel(event, providerId, modelType) {
       functionCalling: document.getElementById('cap-function-calling').checked,
       vision: document.getElementById('cap-vision').checked
     };
+  } else if (isReranker) {
+    var topKEl = document.getElementById('model-top-k');
+    newModel.capabilities = {
+      topK: topKEl ? parseInt(topKEl.value) || 10 : 10
+    };
   } else {
     newModel.capabilities = {
       embeddingDimension: parseInt(document.getElementById('model-dimensions').value) || 1536,
@@ -1780,7 +1833,7 @@ function saveNewModel(event, providerId, modelType) {
   fetch('/api/litellm-api/providers/' + providerId)
     .then(function(res) { return res.json(); })
     .then(function(provider) {
-      const modelsKey = isLlm ? 'llmModels' : 'embeddingModels';
+      const modelsKey = isLlm ? 'llmModels' : isReranker ? 'rerankerModels' : 'embeddingModels';
       const models = provider[modelsKey] || [];
 
       // Check for duplicate ID
@@ -1824,7 +1877,8 @@ function showModelSettingsModal(providerId, modelId, modelType) {
   if (!provider) return;
 
   var isLlm = modelType === 'llm';
-  var models = isLlm ? (provider.llmModels || []) : (provider.embeddingModels || []);
+  var isReranker = modelType === 'reranker';
+  var models = isLlm ? (provider.llmModels || []) : isReranker ? (provider.rerankerModels || []) : (provider.embeddingModels || []);
   var model = models.find(function(m) { return m.id === modelId; });
   if (!model) return;
 
@@ -1834,7 +1888,7 @@ function showModelSettingsModal(providerId, modelId, modelType) {
   // Calculate endpoint preview URL
   var providerBase = provider.apiBase || getDefaultApiBase(provider.type);
   var modelBaseUrl = endpointSettings.baseUrl || providerBase;
-  var endpointPath = isLlm ? '/chat/completions' : '/embeddings';
+  var endpointPath = isLlm ? '/chat/completions' : isReranker ? '/rerank' : '/embeddings';
   var endpointPreview = modelBaseUrl + endpointPath;
 
   var modalHtml = '<div class="modal-overlay" id="model-settings-modal">' +
@@ -1848,7 +1902,7 @@ function showModelSettingsModal(providerId, modelId, modelType) {
 
     // Endpoint Preview Section (combined view + settings)
     '<div class="form-section endpoint-preview-section">' +
-    '<h4><i data-lucide="' + (isLlm ? 'message-square' : 'box') + '"></i> ' + t('apiSettings.endpointPreview') + '</h4>' +
+    '<h4><i data-lucide="' + (isLlm ? 'message-square' : isReranker ? 'sort-asc' : 'box') + '"></i> ' + t('apiSettings.endpointPreview') + '</h4>' +
     '<div class="endpoint-preview-box">' +
     '<code id="model-endpoint-preview">' + escapeHtml(endpointPreview) + '</code>' +
     '<button type="button" class="btn-icon-sm" onclick="copyModelEndpoint()" title="' + t('common.copy') + '">' +
@@ -1857,7 +1911,7 @@ function showModelSettingsModal(providerId, modelId, modelType) {
     '</div>' +
     '<div class="form-group">' +
     '<label>' + t('apiSettings.modelBaseUrlOverride') + ' <span class="text-muted">(' + t('common.optional') + ')</span></label>' +
-    '<input type="text" id="model-settings-baseurl" class="cli-input" value="' + escapeHtml(endpointSettings.baseUrl || '') + '" placeholder="' + escapeHtml(providerBase) + '" oninput="updateModelEndpointPreview(\'' + (isLlm ? 'chat/completions' : 'embeddings') + '\', \'' + escapeHtml(providerBase) + '\')">' +
+    '<input type="text" id="model-settings-baseurl" class="cli-input" value="' + escapeHtml(endpointSettings.baseUrl || '') + '" placeholder="' + escapeHtml(providerBase) + '" oninput="updateModelEndpointPreview(\'' + (isLlm ? 'chat/completions' : isReranker ? 'rerank' : 'embeddings') + '\', \'' + escapeHtml(providerBase) + '\')">' +
     '<small class="form-hint">' + t('apiSettings.modelBaseUrlHint') + '</small>' +
     '</div>' +
     '</div>' +
@@ -1968,7 +2022,8 @@ function saveModelSettings(event, providerId, modelId, modelType) {
   event.preventDefault();
 
   var isLlm = modelType === 'llm';
-  var modelsKey = isLlm ? 'llmModels' : 'embeddingModels';
+  var isReranker = modelType === 'reranker';
+  var modelsKey = isLlm ? 'llmModels' : isReranker ? 'rerankerModels' : 'embeddingModels';
 
   fetch('/api/litellm-api/providers/' + providerId)
     .then(function(res) { return res.json(); })
@@ -1993,6 +2048,11 @@ function saveModelSettings(event, providerId, modelId, modelType) {
           streaming: document.getElementById('model-settings-streaming').checked,
           functionCalling: document.getElementById('model-settings-function-calling').checked,
           vision: document.getElementById('model-settings-vision').checked
+        };
+      } else if (isReranker) {
+        var topKEl = document.getElementById('model-settings-top-k');
+        models[modelIndex].capabilities = {
+          topK: topKEl ? parseInt(topKEl.value) || 10 : 10
         };
       } else {
         models[modelIndex].capabilities = {
@@ -2042,7 +2102,8 @@ function deleteModel(providerId, modelId, modelType) {
   if (!confirm(t('common.confirmDelete'))) return;
 
   var isLlm = modelType === 'llm';
-  var modelsKey = isLlm ? 'llmModels' : 'embeddingModels';
+  var isReranker = modelType === 'reranker';
+  var modelsKey = isLlm ? 'llmModels' : isReranker ? 'rerankerModels' : 'embeddingModels';
 
   fetch('/api/litellm-api/providers/' + providerId)
     .then(function(res) { return res.json(); })

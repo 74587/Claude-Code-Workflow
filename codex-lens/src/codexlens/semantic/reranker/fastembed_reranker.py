@@ -125,6 +125,16 @@ class FastEmbedReranker(BaseReranker):
 
             logger.debug("FastEmbed reranker model loaded successfully")
 
+    @staticmethod
+    def _sigmoid(x: float) -> float:
+        """Numerically stable sigmoid function."""
+        if x < -709:
+            return 0.0
+        if x > 709:
+            return 1.0
+        import math
+        return 1.0 / (1.0 + math.exp(-x))
+
     def score_pairs(
         self,
         pairs: Sequence[tuple[str, str]],
@@ -165,8 +175,8 @@ class FastEmbedReranker(BaseReranker):
             indices = [idx for idx, _ in indexed_docs]
 
             try:
-                # TextCrossEncoder.rerank returns list of RerankResult with score attribute
-                results = list(
+                # TextCrossEncoder.rerank returns raw float scores in same order as input
+                raw_scores = list(
                     self._encoder.rerank(
                         query=query,
                         documents=docs,
@@ -174,22 +184,12 @@ class FastEmbedReranker(BaseReranker):
                     )
                 )
 
-                # Map scores back to original positions
-                # Results are returned in descending score order, but we need original order
-                for result in results:
-                    # Each result has 'index' (position in input docs) and 'score'
-                    doc_idx = result.index if hasattr(result, "index") else 0
-                    score = result.score if hasattr(result, "score") else 0.0
-
-                    if doc_idx < len(indices):
-                        original_idx = indices[doc_idx]
-                        # Normalize score to [0, 1] using sigmoid if needed
-                        # FastEmbed typically returns scores in [0, 1] already
-                        if score < 0 or score > 1:
-                            import math
-
-                            score = 1.0 / (1.0 + math.exp(-score))
-                        scores[original_idx] = float(score)
+                # Map scores back to original positions and normalize with sigmoid
+                for i, raw_score in enumerate(raw_scores):
+                    if i < len(indices):
+                        original_idx = indices[i]
+                        # Normalize score to [0, 1] using stable sigmoid
+                        scores[original_idx] = self._sigmoid(float(raw_score))
 
             except Exception as e:
                 logger.warning("FastEmbed rerank failed for query: %s", str(e)[:100])
@@ -227,7 +227,8 @@ class FastEmbedReranker(BaseReranker):
             return []
 
         try:
-            results = list(
+            # TextCrossEncoder.rerank returns raw float scores in same order as input
+            raw_scores = list(
                 self._encoder.rerank(
                     query=query,
                     documents=list(documents),
@@ -235,13 +236,13 @@ class FastEmbedReranker(BaseReranker):
                 )
             )
 
-            # Convert to our format: (score, document, original_index)
+            # Convert to our format: (normalized_score, document, original_index)
             ranked = []
-            for result in results:
-                idx = result.index if hasattr(result, "index") else 0
-                score = result.score if hasattr(result, "score") else 0.0
-                doc = documents[idx] if idx < len(documents) else ""
-                ranked.append((float(score), doc, idx))
+            for idx, raw_score in enumerate(raw_scores):
+                if idx < len(documents):
+                    # Normalize score to [0, 1] using stable sigmoid
+                    normalized = self._sigmoid(float(raw_score))
+                    ranked.append((normalized, documents[idx], idx))
 
             # Sort by score descending
             ranked.sort(key=lambda x: x[0], reverse=True)
