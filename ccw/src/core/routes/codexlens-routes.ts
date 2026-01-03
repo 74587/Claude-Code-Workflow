@@ -20,7 +20,8 @@ import {
   detectGpuSupport,
   uninstallCodexLens,
   cancelIndexing,
-  isIndexingInProgress
+  isIndexingInProgress,
+  getVenvPythonPath
 } from '../../tools/codex-lens.js';
 import type { ProgressInfo, GpuMode } from '../../tools/codex-lens.js';
 import { loadLiteLLMApiConfig } from '../../config/litellm-api-config-manager.js';
@@ -1356,12 +1357,11 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
           return { success: false, error: 'CodexLens not installed', status: 400 };
         }
 
-        // Spawn watch process (no shell: true for security)
-        // Use process.platform to determine if we need .cmd extension on Windows
-        const isWindows = process.platform === 'win32';
-        const codexlensCmd = isWindows ? 'codexlens.exe' : 'codexlens';
-        const args = ['watch', targetPath, '--debounce', String(debounce_ms)];
-        watcherProcess = spawn(codexlensCmd, args, {
+        // Spawn watch process using Python (no shell: true for security)
+        // CodexLens is a Python package, must run via python -m codexlens
+        const pythonPath = getVenvPythonPath();
+        const args = ['-m', 'codexlens', 'watch', targetPath, '--debounce', String(debounce_ms)];
+        watcherProcess = spawn(pythonPath, args, {
           cwd: targetPath,
           stdio: ['ignore', 'pipe', 'pipe'],
           env: { ...process.env }

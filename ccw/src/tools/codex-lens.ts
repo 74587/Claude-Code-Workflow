@@ -1446,6 +1446,12 @@ export {
   cancelIndexing,
   isIndexingInProgress,
 };
+
+// Export Python path for direct spawn usage (e.g., watcher)
+export function getVenvPythonPath(): string {
+  return VENV_PYTHON;
+}
+
 export type { GpuMode, PythonEnvInfo };
 
 // Backward-compatible export for tests
