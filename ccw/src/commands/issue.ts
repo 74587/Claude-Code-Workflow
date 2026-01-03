@@ -6,7 +6,7 @@
 
 import chalk from 'chalk';
 import { execSync } from 'child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, statSync } from 'fs';
 import { join, resolve } from 'path';
 
 // Handle EPIPE errors gracefully
@@ -219,11 +219,44 @@ const ISSUES_DIR = '.workflow/issues';
 // ============ Storage Layer (JSONL) ============
 
 /**
+ * Normalize path for comparison (handles Windows case sensitivity)
+ */
+function normalizePath(p: string): string {
+  const normalized = resolve(p);
+  // Windows: normalize to lowercase for comparison
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+/**
+ * Try to resolve main repo from .git file (worktree link file)
+ * .git file format: "gitdir: /path/to/main/.git/worktrees/name"
+ */
+function resolveMainRepoFromGitFile(gitFilePath: string): string | null {
+  try {
+    const content = readFileSync(gitFilePath, 'utf-8').trim();
+    // Parse "gitdir: /path/to/.git/worktrees/name"
+    const match = content.match(/^gitdir:\s*(.+)$/);
+    if (match) {
+      const gitDir = match[1];
+      // Navigate from .git/worktrees/name to .git to repo root
+      // Pattern: /main/.git/worktrees/wt-name -> /main/.git -> /main
+      const worktreesMatch = gitDir.match(/^(.+)[/\\]\.git[/\\]worktrees[/\\]/);
+      if (worktreesMatch) {
+        return worktreesMatch[1];
+      }
+    }
+  } catch {
+    // Failed to read or parse .git file
+  }
+  return null;
+}
+
+/**
  * Get the main repository root, even when running from a worktree.
  * This ensures .workflow/issues/ is always accessed from the main repo.
  */
 function getProjectRoot(): string {
-  // First, try to detect if we're in a git worktree
+  // First, try to detect if we're in a git worktree using git commands
   try {
     // Get the common git directory (points to main repo's .git)
     const gitCommonDir = execSync('git rev-parse --git-common-dir', {
@@ -237,27 +270,49 @@ function getProjectRoot(): string {
       stdio: ['pipe', 'pipe', 'pipe']
     }).trim();
 
+    // Normalize paths for comparison (Windows case insensitive)
+    const normalizedCommon = normalizePath(gitCommonDir);
+    const normalizedGit = normalizePath(gitDir);
+
     // If gitDir != gitCommonDir, we're in a worktree
-    // gitCommonDir will be like "/path/to/main/.git" or "../main/.git"
-    if (gitDir !== gitCommonDir && gitDir !== '.git') {
+    if (normalizedGit !== normalizedCommon && gitDir !== '.git') {
       // We're in a worktree - resolve to main repo
       const absoluteCommonDir = resolve(process.cwd(), gitCommonDir);
       // .git directory's parent is the repo root
       const mainRepoRoot = resolve(absoluteCommonDir, '..');
 
-      // Verify .workflow exists in main repo
+      // Verify .workflow or .git exists in main repo
       if (existsSync(join(mainRepoRoot, '.workflow')) || existsSync(join(mainRepoRoot, '.git'))) {
         return mainRepoRoot;
       }
     }
   } catch {
-    // Not in a git repo or git command failed - fall through to normal detection
+    // Git command failed - fall through to manual detection
   }
 
-  // Standard detection: walk up to find .workflow or .git
+  // Standard detection with worktree file support: walk up to find .workflow or .git
   let dir = process.cwd();
   while (dir !== resolve(dir, '..')) {
-    if (existsSync(join(dir, '.workflow')) || existsSync(join(dir, '.git'))) {
+    const gitPath = join(dir, '.git');
+
+    // Check if .git is a file (worktree link) rather than directory
+    if (existsSync(gitPath)) {
+      try {
+        const gitStat = statSync(gitPath);
+        if (gitStat.isFile()) {
+          // .git is a file - this is a worktree, try to resolve main repo
+          const mainRepo = resolveMainRepoFromGitFile(gitPath);
+          if (mainRepo && existsSync(join(mainRepo, '.workflow'))) {
+            return mainRepo;
+          }
+          // If main repo doesn't have .workflow, fall back to current worktree
+        }
+      } catch {
+        // stat failed, continue with normal logic
+      }
+    }
+
+    if (existsSync(join(dir, '.workflow')) || existsSync(gitPath)) {
       return dir;
     }
     dir = resolve(dir, '..');
