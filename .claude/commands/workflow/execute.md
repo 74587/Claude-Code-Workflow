@@ -119,14 +119,7 @@ Auto-select and continue to Phase 2.
 
 List sessions with metadata and prompt user selection:
 ```bash
-bash(for dir in .workflow/active/WFS-*/; do
-  session=$(basename "$dir")
-  project=$(jq -r '.project // "Unknown"' "$dir/workflow-session.json" 2>/dev/null)
-  total=$(grep -c "^- \[" "$dir/TODO_LIST.md" 2>/dev/null || echo "0")
-  completed=$(grep -c "^- \[x\]" "$dir/TODO_LIST.md" 2>/dev/null || echo "0")
-  [ "$total" -gt 0 ] && progress=$((completed * 100 / total)) || progress=0
-  echo "${session} | ${project} | ${completed}/${total} tasks (${progress}%)"
-done)
+bash(for dir in .workflow/active/WFS-*/; do [ -d "$dir" ] || continue; session=$(basename "$dir"); project=$(jq -r '.project // "Unknown"' "${dir}workflow-session.json" 2>/dev/null || echo "Unknown"); total=$(grep -c '^\- \[' "${dir}TODO_LIST.md" 2>/dev/null || echo 0); completed=$(grep -c '^\- \[x\]' "${dir}TODO_LIST.md" 2>/dev/null || echo 0); if [ "$total" -gt 0 ]; then progress=$((completed * 100 / total)); else progress=0; fi; echo "$session | $project | $completed/$total tasks ($progress%)"; done)
 ```
 
 Use AskUserQuestion to present formatted options (max 4 options shown):
@@ -414,38 +407,39 @@ TodoWrite({
 **Note**: Orchestrator does NOT execute flow control steps - Agent interprets and executes them autonomously.
 
 ### Agent Prompt Template
-**Dynamic Generation**: Before agent invocation, read task JSON and extract key requirements.
+**Path-Based Invocation**: Pass paths and trigger markers, let agent parse task JSON autonomously.
 
 ```bash
 Task(subagent_type="{meta.agent}",
      run_in_background=false,
-     prompt="Execute task: {task.title}
+     prompt="Implement task {task.id}: {task.title}
 
-     {[FLOW_CONTROL]}
+     [FLOW_CONTROL]
 
-     **Task Objectives** (from task JSON):
-     {task.context.objective}
-
-     **Expected Deliverables** (from task JSON):
-     {task.context.deliverables}
-
-     **Quality Standards** (from task JSON):
-     {task.context.acceptance_criteria}
-
-     **MANDATORY FIRST STEPS**:
-     1. Read complete task JSON: {session.task_json_path}
-     2. Load context package: {session.context_package_path}
-
-
-     **Session Paths**:
-     - Workflow Dir: {session.workflow_dir}
-     - TODO List: {session.todo_list_path}
-     - Summaries Dir: {session.summaries_dir}
+     **Input**:
+     - Task JSON: {session.task_json_path}
      - Context Package: {session.context_package_path}
 
-     **Success Criteria**: Complete all objectives, meet all quality standards, deliver all outputs as specified above.",
-     description="Executing: {task.title}")
+     **Output Location**:
+     - Workflow: {session.workflow_dir}
+     - TODO List: {session.todo_list_path}
+     - Summaries: {session.summaries_dir}
+
+     **Execution**: Read task JSON → Parse flow_control → Execute implementation_approach → Update TODO_LIST.md → Generate summary",
+     description="Implement: {task.id}")
 ```
+
+**Key Markers**:
+- `Implement` keyword: Triggers tech stack detection and guidelines loading
+- `[FLOW_CONTROL]`: Triggers flow_control.pre_analysis execution
+
+**Why Path-Based**: Agent (code-developer.md) autonomously:
+- Reads and parses task JSON (requirements, acceptance, flow_control)
+- Loads tech stack guidelines based on detected language
+- Executes pre_analysis steps and implementation_approach
+- Generates structured summary with integration points
+
+Embedding task content in prompt creates duplication and conflicts with agent's parsing logic.
 
 ### Agent Assignment Rules
 ```

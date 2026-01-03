@@ -291,11 +291,33 @@ function computeCliStrategy(task, allTasks) {
 - `agent`: Assigned agent for execution
 - `execution_group`: Parallelization group ID (tasks with same ID can run concurrently) or `null` for sequential tasks
 - `module`: Module identifier for multi-module projects (e.g., `frontend`, `backend`, `shared`) or `null` for single-module
-- `execution_config`: CLI execution settings (from userConfig in task-generate-agent)
+- `execution_config`: CLI execution settings (MUST align with userConfig from task-generate-agent)
   - `method`: Execution method - `agent` (direct), `hybrid` (agent + CLI), `cli` (CLI only)
-  - `cli_tool`: Preferred CLI tool - `codex`, `gemini`, `qwen`, or `auto`
+  - `cli_tool`: Preferred CLI tool - `codex`, `gemini`, `qwen`, `auto`, or `null` (for agent-only)
   - `enable_resume`: Whether to use `--resume` for CLI continuity (default: true)
   - `previous_cli_id`: Previous task's CLI execution ID for resume (populated at runtime)
+
+**execution_config Alignment Rules** (MANDATORY):
+```
+userConfig.executionMethod → meta.execution_config + implementation_approach
+
+"agent" →
+  meta.execution_config = { method: "agent", cli_tool: null, enable_resume: false }
+  implementation_approach steps: NO command field (agent direct execution)
+
+"hybrid" →
+  meta.execution_config = { method: "hybrid", cli_tool: userConfig.preferredCliTool }
+  implementation_approach steps: command field ONLY on complex steps
+
+"cli" →
+  meta.execution_config = { method: "cli", cli_tool: userConfig.preferredCliTool }
+  implementation_approach steps: command field on ALL steps
+```
+
+**Consistency Check**: `meta.execution_config.method` MUST match presence of `command` fields:
+- `method: "agent"` → 0 steps have command field
+- `method: "hybrid"` → some steps have command field
+- `method: "cli"` → all steps have command field
 
 **Test Task Extensions** (for type="test-gen" or type="test-fix"):
 

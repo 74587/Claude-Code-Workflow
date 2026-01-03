@@ -41,11 +41,43 @@ Read(.workflow/active/${SESSION_ID}/.process/context-package.json)
 # Returns parsed JSON with brainstorm_artifacts, focus_paths, etc.
 ```
 
+**Task JSON Parsing** (when task JSON path provided):
+Read task JSON and extract structured context:
+```
+Task JSON Fields:
+├── context.requirements[]     → What to implement (list of requirements)
+├── context.acceptance[]       → How to verify (validation commands)
+├── context.focus_paths[]      → Where to focus (directories/files)
+├── context.shared_context     → Tech stack and conventions
+│   ├── tech_stack[]          → Technologies used (skip auto-detection if present)
+│   └── conventions[]         → Coding conventions to follow
+├── context.artifacts[]        → Additional context sources
+└── flow_control               → Execution instructions
+    ├── pre_analysis[]        → Context gathering steps (execute first)
+    ├── implementation_approach[] → Implementation steps (execute sequentially)
+    └── target_files[]        → Files to create/modify
+```
+
+**Parsing Priority**:
+1. Read task JSON from provided path
+2. Extract `context.requirements` as implementation goals
+3. Extract `context.acceptance` as verification criteria
+4. If `context.shared_context.tech_stack` exists → skip auto-detection, use provided stack
+5. Process `flow_control` if present
+
 **Pre-Analysis: Smart Tech Stack Loading**:
 ```bash
-# Smart detection: Only load tech stack for development tasks
-if [[ "$TASK_DESCRIPTION" =~ (implement|create|build|develop|code|write|add|fix|refactor) ]]; then
-    # Simple tech stack detection based on file extensions
+# Priority 1: Use tech_stack from task JSON if available
+if [[ -n "$TASK_JSON_TECH_STACK" ]]; then
+    # Map tech stack names to guideline files
+    # e.g., ["FastAPI", "SQLAlchemy"] → python-dev.md
+    case "$TASK_JSON_TECH_STACK" in
+        *FastAPI*|*Django*|*SQLAlchemy*) TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/python-dev.md) ;;
+        *React*|*Next*) TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/react-dev.md) ;;
+        *TypeScript*) TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/typescript-dev.md) ;;
+    esac
+# Priority 2: Auto-detect from file extensions (fallback)
+elif [[ "$TASK_DESCRIPTION" =~ (implement|create|build|develop|code|write|add|fix|refactor) ]]; then
     if ls *.ts *.tsx 2>/dev/null | head -1; then
         TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/typescript-dev.md)
     elif grep -q "react" package.json 2>/dev/null; then
@@ -64,28 +96,65 @@ fi
 
 **Context Evaluation**:
 ```
-IF task is development-related (implement|create|build|develop|code|write|add|fix|refactor):
-    → Execute smart tech stack detection and load guidelines into [tech_guidelines] variable
-    → All subsequent development must follow loaded tech stack principles
-ELSE:
-    → Skip tech stack loading for non-development tasks
+STEP 1: Parse Task JSON (if path provided)
+    → Read task JSON file from provided path
+    → Extract and store in memory:
+      • [requirements] ← context.requirements[]
+      • [acceptance_criteria] ← context.acceptance[]
+      • [tech_stack] ← context.shared_context.tech_stack[] (skip auto-detection if present)
+      • [conventions] ← context.shared_context.conventions[]
+      • [focus_paths] ← context.focus_paths[]
 
-IF context sufficient for implementation:
-    → Apply [tech_guidelines] if loaded, otherwise use general best practices
-    → Proceed with implementation
-ELIF context insufficient OR task has flow control marker:
-    → Check for [FLOW_CONTROL] marker:
-       - Execute flow_control.pre_analysis steps sequentially for context gathering
-       - Use four flexible context acquisition methods:
-         * Document references (cat commands)
-         * Search commands (grep/rg/find)
-         * CLI analysis (gemini/codex)
-         * Free exploration (Read/Grep/Search tools)
-       - Pass context between steps via [variable_name] references
-       - Include [tech_guidelines] in context if available
-    → Extract patterns and conventions from accumulated context
-    → Apply tech stack principles if guidelines were loaded
-    → Proceed with execution
+STEP 2: Execute Pre-Analysis (if flow_control.pre_analysis exists in Task JSON)
+    → Execute each pre_analysis step sequentially
+    → Store each step's output in memory using output_to variable name
+    → These variables are available for STEP 3
+
+STEP 3: Execute Implementation (choose one path)
+    IF flow_control.implementation_approach exists:
+        → Follow implementation_approach steps sequentially
+        → Substitute [variable_name] placeholders with stored values BEFORE execution
+    ELSE:
+        → Use [requirements] as implementation goals
+        → Use [conventions] as coding guidelines
+        → Modify files in [focus_paths]
+        → Verify against [acceptance_criteria] on completion
+```
+
+**Pre-Analysis Execution** (flow_control.pre_analysis):
+```
+For each step in pre_analysis[]:
+  step.step      → Step identifier (string name)
+  step.action    → Description of what to do
+  step.commands  → Array of commands to execute (see Command-to-Tool Mapping)
+  step.output_to → Variable name to store results in memory
+  step.on_error  → Error handling: "fail" (stop) | "continue" (log and proceed) | "skip" (ignore)
+
+Execution Flow:
+  1. For each step in order:
+  2.   For each command in step.commands[]:
+  3.     Parse command format → Map to actual tool
+  4.     Execute tool → Capture output
+  5.   Concatenate all outputs → Store in [step.output_to] variable
+  6. Continue to next step (or handle error per on_error)
+```
+
+**Command-to-Tool Mapping** (explicit tool bindings):
+```
+Command Format          → Actual Tool Call
+─────────────────────────────────────────────────────
+"Read(path)"            → Read tool: Read(file_path=path)
+"bash(command)"         → Bash tool: Bash(command=command)
+"Search(pattern,path)"  → Grep tool: Grep(pattern=pattern, path=path)
+"Glob(pattern)"         → Glob tool: Glob(pattern=pattern)
+"mcp__xxx__yyy(args)"   → MCP tool: mcp__xxx__yyy(args)
+
+Example Parsing:
+  "Read(backend/app/models/simulation.py)"
+  → Tool: Read
+  → Parameter: file_path = "backend/app/models/simulation.py"
+  → Execute: Read(file_path="backend/app/models/simulation.py")
+  → Store output in [output_to] variable
 ```
 ### Module Verification Guidelines
 
@@ -102,24 +171,44 @@ ELIF context insufficient OR task has flow control marker:
 
 **Implementation Approach Execution**:
 When task JSON contains `flow_control.implementation_approach` array:
-1. **Sequential Processing**: Execute steps in order, respecting `depends_on` dependencies
-2. **Dependency Resolution**: Wait for all steps listed in `depends_on` before starting
-3. **Variable Substitution**: Use `[variable_name]` to reference outputs from previous steps
-4. **Step Structure**:
-   - `step`: Unique identifier (1, 2, 3...)
-   - `title`: Step title
-   - `description`: Detailed description with variable references
-   - `modification_points`: Code modification targets
-   - `logic_flow`: Business logic sequence
-   - `command`: Optional CLI command (only when explicitly specified)
-   - `depends_on`: Array of step numbers that must complete first
-   - `output`: Variable name for this step's output
-5. **Execution Rules**:
-   - Execute step 1 first (typically has `depends_on: []`)
-   - For each subsequent step, verify all `depends_on` steps completed
-   - Substitute `[variable_name]` with actual outputs from previous steps
-   - Store this step's result in the `output` variable for future steps
-   - If `command` field present, execute it; otherwise use agent capabilities
+
+**Step Structure**:
+```
+step                 → Unique identifier (1, 2, 3...)
+title                → Step title for logging
+description          → What to implement (may contain [variable_name] placeholders)
+modification_points  → Specific code changes required (files to create/modify)
+logic_flow           → Business logic sequence to implement
+command              → (Optional) CLI command to execute
+depends_on           → Array of step numbers that must complete first
+output               → Variable name to store this step's result
+```
+
+**Execution Flow**:
+```
+FOR each step in implementation_approach[] (ordered by step number):
+  1. Check depends_on: Wait for all listed step numbers to complete
+  2. Variable Substitution: Replace [variable_name] in description/modification_points
+     with values stored from previous steps' output
+  3. Execute step (choose one):
+
+     IF step.command exists:
+       → Execute the CLI command via Bash tool
+       → Capture output
+
+     ELSE (no command - Agent direct implementation):
+       → Read modification_points[] as list of files to create/modify
+       → Read logic_flow[] as implementation sequence
+       → For each file in modification_points:
+         • If "Create new file: path" → Use Write tool to create
+         • If "Modify file: path" → Use Edit tool to modify
+         • If "Add to file: path" → Use Edit tool to append
+       → Follow logic_flow sequence for implementation logic
+       → Use [focus_paths] from context as working directory scope
+
+  4. Store result in [step.output] variable for later steps
+  5. Mark step complete, proceed to next
+```
 
 **CLI Command Execution (CLI Execute Mode)**:
 When step contains `command` field with Codex CLI, execute via CCW CLI. For Codex resume:
