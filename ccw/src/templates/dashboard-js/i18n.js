@@ -979,6 +979,23 @@ const i18n = {
     'hook.wizard.promptTracker': 'Prompt Tracker',
     'hook.wizard.promptTrackerDesc': 'Record user prompts for pattern analysis',
     'hook.wizard.selectTrackers': 'Select Trackers',
+    
+    // Danger Protection Wizard
+    'hook.wizard.dangerProtection': 'Danger Protection',
+    'hook.wizard.dangerProtectionDesc': 'Protect against dangerous operations with confirmation dialogs',
+    'hook.wizard.dangerBashConfirm': 'Dangerous Commands',
+    'hook.wizard.dangerBashConfirmDesc': 'Confirm before rm -rf, shutdown, kill, format, etc.',
+    'hook.wizard.dangerFileProtection': 'Sensitive Files',
+    'hook.wizard.dangerFileProtectionDesc': 'Block modifications to .env, .git/, secrets, keys',
+    'hook.wizard.dangerGitDestructive': 'Git Operations',
+    'hook.wizard.dangerGitDestructiveDesc': 'Confirm force push, hard reset, branch delete',
+    'hook.wizard.dangerNetworkConfirm': 'Network Access',
+    'hook.wizard.dangerNetworkConfirmDesc': 'Confirm curl, wget, ssh, WebFetch requests',
+    'hook.wizard.dangerSystemPaths': 'System Paths',
+    'hook.wizard.dangerSystemPathsDesc': 'Block/confirm operations on /etc, /usr, C:\\Windows',
+    'hook.wizard.dangerPermissionChange': 'Permission Changes',
+    'hook.wizard.dangerPermissionChangeDesc': 'Confirm chmod, chown, icacls operations',
+    'hook.wizard.selectProtections': 'Select Protections',
 
     // Hook Wizard Labels
     'hook.wizard.cliTools': 'CLI Tools:',
@@ -2903,6 +2920,23 @@ const i18n = {
     'hook.wizard.promptTracker': '提示追踪器',
     'hook.wizard.promptTrackerDesc': '记录用户提示用于模式分析',
     'hook.wizard.selectTrackers': '选择追踪器',
+    
+    // 危险保护向导
+    'hook.wizard.dangerProtection': '危险操作保护',
+    'hook.wizard.dangerProtectionDesc': '通过确认对话框保护危险操作',
+    'hook.wizard.dangerBashConfirm': '危险命令',
+    'hook.wizard.dangerBashConfirmDesc': '执行 rm -rf、shutdown、kill、format 等命令前确认',
+    'hook.wizard.dangerFileProtection': '敏感文件',
+    'hook.wizard.dangerFileProtectionDesc': '阻止修改 .env、.git/、密钥等敏感文件',
+    'hook.wizard.dangerGitDestructive': 'Git 操作',
+    'hook.wizard.dangerGitDestructiveDesc': '强制推送、硬重置、删除分支前确认',
+    'hook.wizard.dangerNetworkConfirm': '网络访问',
+    'hook.wizard.dangerNetworkConfirmDesc': '执行 curl、wget、ssh、WebFetch 请求前确认',
+    'hook.wizard.dangerSystemPaths': '系统路径',
+    'hook.wizard.dangerSystemPathsDesc': '阻止/确认对 /etc、/usr、C:\\Windows 的操作',
+    'hook.wizard.dangerPermissionChange': '权限更改',
+    'hook.wizard.dangerPermissionChangeDesc': '执行 chmod、chown、icacls 操作前确认',
+    'hook.wizard.selectProtections': '选择保护项',
 
     // Hook Wizard Labels
     'hook.wizard.cliTools': 'CLI 工具:',

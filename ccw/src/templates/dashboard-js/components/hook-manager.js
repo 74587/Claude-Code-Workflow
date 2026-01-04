@@ -148,6 +148,61 @@ const HOOK_TEMPLATES = {
     description: 'Progressive session context (cluster overview → intent matching)',
     category: 'context',
     timeout: 5000
+  },
+  // ========== Danger Protection Hooks (PreToolUse with confirmation) ==========
+  'danger-bash-confirm': {
+    event: 'PreToolUse',
+    matcher: 'Bash',
+    command: 'bash',
+    args: ['-c', 'INPUT=$(cat); CMD=$(echo "$INPUT" | jq -r ".tool_input.command // empty"); DANGEROUS_PATTERNS="rm -rf|rmdir|del /|format |shutdown|reboot|kill -9|pkill|mkfs|dd if=|chmod 777|chown -R|>/dev/|wget.*\\|.*sh|curl.*\\|.*bash"; if echo "$CMD" | grep -qiE "$DANGEROUS_PATTERNS"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"ask\\",\\"permissionDecisionReason\\":\\"Potentially dangerous command detected: requires user confirmation\\"}}" && exit 0; fi; exit 0'],
+    description: 'Confirm before running potentially dangerous shell commands (rm -rf, shutdown, etc.)',
+    category: 'danger',
+    timeout: 5000
+  },
+  'danger-file-protection': {
+    event: 'PreToolUse',
+    matcher: 'Write|Edit',
+    command: 'bash',
+    args: ['-c', 'INPUT=$(cat); FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); PROTECTED=".env|.git/|package-lock.json|yarn.lock|.credentials|secrets|id_rsa|.pem$|.key$"; if echo "$FILE" | grep -qiE "$PROTECTED"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"deny\\",\\"permissionDecisionReason\\":\\"Protected file cannot be modified: $FILE\\"}}" && exit 0; fi; exit 0'],
+    description: 'Block modifications to sensitive files (.env, .git/, secrets, keys)',
+    category: 'danger',
+    timeout: 5000
+  },
+  'danger-git-destructive': {
+    event: 'PreToolUse',
+    matcher: 'Bash',
+    command: 'bash',
+    args: ['-c', 'INPUT=$(cat); CMD=$(echo "$INPUT" | jq -r ".tool_input.command // empty"); GIT_DANGEROUS="git push.*--force|git push.*-f|git reset --hard|git clean -fd|git checkout.*--force|git branch -D|git rebase.*-f"; if echo "$CMD" | grep -qiE "$GIT_DANGEROUS"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"ask\\",\\"permissionDecisionReason\\":\\"Destructive git operation detected: $CMD\\"}}" && exit 0; fi; exit 0'],
+    description: 'Confirm before destructive git operations (force push, hard reset, etc.)',
+    category: 'danger',
+    timeout: 5000
+  },
+  'danger-network-confirm': {
+    event: 'PreToolUse',
+    matcher: 'Bash|WebFetch',
+    command: 'bash',
+    args: ['-c', 'INPUT=$(cat); TOOL=$(echo "$INPUT" | jq -r ".tool_name // empty"); if [ "$TOOL" = "WebFetch" ]; then URL=$(echo "$INPUT" | jq -r ".tool_input.url // empty"); echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"ask\\",\\"permissionDecisionReason\\":\\"Network request to: $URL\\"}}" && exit 0; fi; CMD=$(echo "$INPUT" | jq -r ".tool_input.command // empty"); NET_CMDS="curl|wget|nc |netcat|ssh |scp |rsync|ftp "; if echo "$CMD" | grep -qiE "^($NET_CMDS)"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"ask\\",\\"permissionDecisionReason\\":\\"Network command requires confirmation: $CMD\\"}}" && exit 0; fi; exit 0'],
+    description: 'Confirm before network operations (curl, wget, ssh, WebFetch)',
+    category: 'danger',
+    timeout: 5000
+  },
+  'danger-system-paths': {
+    event: 'PreToolUse',
+    matcher: 'Write|Edit|Bash',
+    command: 'bash',
+    args: ['-c', 'INPUT=$(cat); TOOL=$(echo "$INPUT" | jq -r ".tool_name // empty"); if [ "$TOOL" = "Bash" ]; then CMD=$(echo "$INPUT" | jq -r ".tool_input.command // empty"); SYS_PATHS="/etc/|/usr/|/bin/|/sbin/|/boot/|/sys/|/proc/|C:\\\\Windows|C:\\\\Program Files"; if echo "$CMD" | grep -qiE "$SYS_PATHS"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"ask\\",\\"permissionDecisionReason\\":\\"System path operation requires confirmation\\"}}" && exit 0; fi; else FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); SYS_PATHS="/etc/|/usr/|/bin/|/sbin/|C:\\\\Windows|C:\\\\Program Files"; if echo "$FILE" | grep -qiE "$SYS_PATHS"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"deny\\",\\"permissionDecisionReason\\":\\"Cannot modify system file: $FILE\\"}}" && exit 0; fi; fi; exit 0'],
+    description: 'Block/confirm operations on system directories (/etc, /usr, Windows)',
+    category: 'danger',
+    timeout: 5000
+  },
+  'danger-permission-change': {
+    event: 'PreToolUse',
+    matcher: 'Bash',
+    command: 'bash',
+    args: ['-c', 'INPUT=$(cat); CMD=$(echo "$INPUT" | jq -r ".tool_input.command // empty"); PERM_CMDS="chmod|chown|chgrp|setfacl|icacls|takeown|cacls"; if echo "$CMD" | grep -qiE "^($PERM_CMDS)"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"ask\\",\\"permissionDecisionReason\\":\\"Permission change requires confirmation: $CMD\\"}}" && exit 0; fi; exit 0'],
+    description: 'Confirm before changing file permissions (chmod, chown, icacls)',
+    category: 'danger',
+    timeout: 5000
   }
 };
 
@@ -228,6 +283,51 @@ const WIZARD_TEMPLATES = {
         name: 'Prompt Tracker',
         description: 'Record user prompts for pattern analysis',
         templateId: 'memory-prompt-track'
+      }
+    ],
+    configFields: [],
+    multiSelect: true
+  },
+  'danger-protection': {
+    name: 'Danger Protection',
+    description: 'Protect against dangerous operations with confirmation dialogs',
+    icon: 'shield-alert',
+    options: [
+      {
+        id: 'bash-confirm',
+        name: 'Dangerous Commands',
+        description: 'Confirm before rm -rf, shutdown, kill, format, etc.',
+        templateId: 'danger-bash-confirm'
+      },
+      {
+        id: 'file-protection',
+        name: 'Sensitive Files',
+        description: 'Block modifications to .env, .git/, secrets, keys',
+        templateId: 'danger-file-protection'
+      },
+      {
+        id: 'git-destructive',
+        name: 'Git Operations',
+        description: 'Confirm force push, hard reset, branch delete',
+        templateId: 'danger-git-destructive'
+      },
+      {
+        id: 'network-confirm',
+        name: 'Network Access',
+        description: 'Confirm curl, wget, ssh, WebFetch requests',
+        templateId: 'danger-network-confirm'
+      },
+      {
+        id: 'system-paths',
+        name: 'System Paths',
+        description: 'Block/confirm operations on /etc, /usr, C:\\Windows',
+        templateId: 'danger-system-paths'
+      },
+      {
+        id: 'permission-change',
+        name: 'Permission Changes',
+        description: 'Confirm chmod, chown, icacls operations',
+        templateId: 'danger-permission-change'
       }
     ],
     configFields: [],
