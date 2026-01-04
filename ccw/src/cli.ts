@@ -175,7 +175,7 @@ export function run(argv: string[]): void {
     .option('--model <model>', 'Model override')
     .option('--cd <path>', 'Working directory')
     .option('--includeDirs <dirs>', 'Additional directories (--include-directories for gemini/qwen, --add-dir for codex/claude)')
-    .option('--timeout <ms>', 'Timeout in milliseconds', '300000')
+    .option('--timeout <ms>', 'Timeout in milliseconds (0=disabled, controlled by external caller)', '0')
     .option('--stream', 'Enable streaming output (default: non-streaming with caching)')
     .option('--limit <n>', 'History limit')
     .option('--status <status>', 'Filter by status')

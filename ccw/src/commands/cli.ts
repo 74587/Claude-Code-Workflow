@@ -783,7 +783,7 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       model,
       cd,
       includeDirs,
-      timeout: timeout ? parseInt(timeout, 10) : 300000,
+      timeout: timeout ? parseInt(timeout, 10) : 0, // 0 = no internal timeout, controlled by external caller
       resume,
       id, // custom execution ID
       noNative,

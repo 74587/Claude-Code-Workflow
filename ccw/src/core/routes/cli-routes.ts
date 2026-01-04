@@ -55,12 +55,42 @@ export interface RouteContext {
   broadcastToClients: (data: unknown) => void;
 }
 
+// ========== Active Executions State ==========
+// Stores running CLI executions for state recovery when view is opened/refreshed
+interface ActiveExecution {
+  id: string;
+  tool: string;
+  mode: string;
+  prompt: string;
+  startTime: number;
+  output: string;
+  status: 'running' | 'completed' | 'error';
+}
+
+const activeExecutions = new Map<string, ActiveExecution>();
+
+/**
+ * Get all active CLI executions
+ * Used by frontend to restore state when view is opened during execution
+ */
+export function getActiveExecutions(): ActiveExecution[] {
+  return Array.from(activeExecutions.values());
+}
+
 /**
  * Handle CLI routes
  * @returns true if route was handled, false otherwise
  */
 export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
   const { pathname, url, req, res, initialPath, handlePostRequest, broadcastToClients } = ctx;
+
+  // API: Get Active CLI Executions (for state recovery)
+  if (pathname === '/api/cli/active' && req.method === 'GET') {
+    const executions = getActiveExecutions();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ executions }));
+    return true;
+  }
 
   // API: CLI Tools Status
   if (pathname === '/api/cli/status') {
@@ -504,6 +534,17 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
 
       const executionId = `${Date.now()}-${tool}`;
 
+      // Store active execution for state recovery
+      activeExecutions.set(executionId, {
+        id: executionId,
+        tool,
+        mode: mode || 'analysis',
+        prompt: prompt.substring(0, 500), // Truncate for display
+        startTime: Date.now(),
+        output: '',
+        status: 'running'
+      });
+
       // Broadcast execution started
       broadcastToClients({
         type: 'CLI_EXECUTION_STARTED',
@@ -525,11 +566,17 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
           model,
           cd: dir || initialPath,
           includeDirs,
-          timeout: timeout || 300000,
+          timeout: timeout || 0, // 0 = no internal timeout, controlled by external caller
           category: category || 'user',
           parentExecutionId,
           stream: true
         }, (chunk) => {
+          // Append chunk to active execution buffer
+          const activeExec = activeExecutions.get(executionId);
+          if (activeExec) {
+            activeExec.output += chunk.data || '';
+          }
+
           broadcastToClients({
             type: 'CLI_OUTPUT',
             payload: {
@@ -539,6 +586,9 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
             }
           });
         });
+
+        // Remove from active executions on completion
+        activeExecutions.delete(executionId);
 
         // Broadcast completion
         broadcastToClients({
@@ -557,6 +607,9 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
         };
 
       } catch (error: unknown) {
+        // Remove from active executions on error
+        activeExecutions.delete(executionId);
+
         broadcastToClients({
           type: 'CLI_EXECUTION_ERROR',
           payload: {

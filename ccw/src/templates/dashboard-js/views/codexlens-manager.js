@@ -1854,9 +1854,9 @@ async function selectRerankerModel(modelName) {
 // ============================================================
 
 /**
- * Switch between Embedding and Reranker tabs
+ * Switch between Embedding and Reranker tabs in CodexLens manager
  */
-function switchModelTab(tabName) {
+function switchCodexLensModelTab(tabName) {
   console.log('[CodexLens] Switching to tab:', tabName);
 
   // Update tab buttons using direct style manipulation for reliability
@@ -3013,10 +3013,10 @@ function buildCodexLensManagerPage(config) {
               // Tabs for Embedding / Reranker
               '<div class="border-b border-border">' +
                 '<div class="flex">' +
-                  '<button class="model-tab flex-1 px-4 py-2.5 text-sm font-medium border-b-2 border-primary text-primary bg-primary/5" data-tab="embedding" onclick="switchModelTab(\'embedding\')">' +
+                  '<button class="model-tab flex-1 px-4 py-2.5 text-sm font-medium border-b-2 border-primary text-primary bg-primary/5" data-tab="embedding" onclick="switchCodexLensModelTab(\'embedding\')">' +
                     '<i data-lucide="layers" class="w-3.5 h-3.5 inline mr-1"></i>Embedding' +
                   '</button>' +
-                  '<button class="model-tab flex-1 px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground" data-tab="reranker" onclick="switchModelTab(\'reranker\')">' +
+                  '<button class="model-tab flex-1 px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground" data-tab="reranker" onclick="switchCodexLensModelTab(\'reranker\')">' +
                     '<i data-lucide="arrow-up-down" class="w-3.5 h-3.5 inline mr-1"></i>Reranker' +
                   '</button>' +
                 '</div>' +

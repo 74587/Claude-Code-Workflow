@@ -9,6 +9,55 @@ var ccwEndpointTools = [];
 var cliToolConfig = null;  // Store loaded CLI config
 var predefinedModels = {}; // Store predefined models per tool
 
+// ========== Active Execution Sync ==========
+
+/**
+ * Sync active CLI executions from server
+ * Called when view is opened to restore running execution state
+ */
+async function syncActiveExecutions() {
+  try {
+    var response = await fetch('/api/cli/active');
+    if (!response.ok) return;
+
+    var data = await response.json();
+    if (!data.executions || data.executions.length === 0) return;
+
+    // Restore the first active execution
+    var active = data.executions[0];
+
+    // Restore execution state
+    currentCliExecution = {
+      executionId: active.id,
+      tool: active.tool,
+      mode: active.mode,
+      startTime: active.startTime
+    };
+    cliExecutionOutput = active.output || '';
+
+    // Update UI if output panel exists
+    var outputPanel = document.getElementById('cli-output-panel');
+    var outputContent = document.getElementById('cli-output-content');
+
+    if (outputPanel && outputContent) {
+      outputPanel.style.display = 'block';
+      outputContent.textContent = cliExecutionOutput;
+      outputContent.scrollTop = outputContent.scrollHeight;
+
+      // Update status indicator
+      var statusIndicator = outputPanel.querySelector('.cli-status-indicator');
+      if (statusIndicator) {
+        statusIndicator.className = 'cli-status-indicator running';
+        statusIndicator.textContent = t('cli.running') || 'Running...';
+      }
+    }
+
+    console.log('[CLI Manager] Restored active execution:', active.id);
+  } catch (err) {
+    console.warn('[CLI Manager] Failed to sync active executions:', err);
+  }
+}
+
 // ========== Navigation Helpers ==========
 
 /**
@@ -437,6 +486,9 @@ async function renderCliManager() {
 
   // Initialize Lucide icons
   if (window.lucide) lucide.createIcons();
+
+  // Sync active executions to restore running state
+  await syncActiveExecutions();
 }
 
 // ========== Helper Functions ==========
