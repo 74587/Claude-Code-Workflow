@@ -605,15 +605,16 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
       }
 
       // Build CLI arguments based on index type
-      const args = ['init', targetPath, '--json'];
+      // Use 'index init' subcommand (new CLI structure)
+      const args = ['index', 'init', targetPath, '--json'];
       if (indexType === 'normal') {
         args.push('--no-embeddings');
       } else {
-        // Add embedding model selection for vector index
-        args.push('--embedding-model', embeddingModel);
-        // Add embedding backend if not using default fastembed
+        // Add embedding model selection for vector index (use --model, not --embedding-model)
+        args.push('--model', embeddingModel);
+        // Add embedding backend if not using default fastembed (use --backend, not --embedding-backend)
         if (embeddingBackend && embeddingBackend !== 'fastembed') {
-          args.push('--embedding-backend', embeddingBackend);
+          args.push('--backend', embeddingBackend);
         }
         // Add max workers for concurrent API calls (useful for litellm backend)
         if (maxWorkers && maxWorkers > 1) {
@@ -786,7 +787,8 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
     try {
       // Request more results to support split (full content + extra files)
       const totalToFetch = limit + extraFilesCount;
-      const args = ['search', query, '--path', projectPath, '--limit', totalToFetch.toString(), '--mode', mode, '--json'];
+      // Use --method instead of deprecated --mode
+      const args = ['search', query, '--path', projectPath, '--limit', totalToFetch.toString(), '--method', mode, '--json'];
 
       const result = await executeCodexLens(args, { cwd: projectPath });
 
@@ -853,7 +855,8 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
     }
 
     try {
-      const args = ['search', query, '--path', projectPath, '--limit', limit.toString(), '--mode', mode, '--files-only', '--json'];
+      // Use --method instead of deprecated --mode
+      const args = ['search', query, '--path', projectPath, '--limit', limit.toString(), '--method', mode, '--files-only', '--json'];
 
       const result = await executeCodexLens(args, { cwd: projectPath });
 
@@ -1681,7 +1684,8 @@ except Exception as e:
       }
 
       try {
-        const result = await executeCodexLens(['splade-index', projectPath, '--rebuild'], {
+        // Use 'index splade' instead of deprecated 'splade-index'
+        const result = await executeCodexLens(['index', 'splade', projectPath, '--rebuild'], {
           cwd: projectPath,
           timeout: 1800000 // 30 minutes for large codebases
         });
@@ -1769,12 +1773,39 @@ except Exception as e:
         envVars[key] = value;
       }
 
+      // Also read settings.json for current configuration
+      const settingsPath = join(homedir(), '.codexlens', 'settings.json');
+      let settings: Record<string, any> = {};
+      try {
+        const settingsContent = await readFile(settingsPath, 'utf-8');
+        settings = JSON.parse(settingsContent);
+      } catch (e) {
+        // Settings file doesn't exist or is invalid, use empty
+      }
+
+      // Map settings to env var format for defaults
+      const settingsDefaults: Record<string, string> = {};
+      if (settings.embedding?.backend) {
+        settingsDefaults['CODEXLENS_EMBEDDING_BACKEND'] = settings.embedding.backend;
+      }
+      if (settings.embedding?.model) {
+        settingsDefaults['CODEXLENS_EMBEDDING_MODEL'] = settings.embedding.model;
+      }
+      if (settings.reranker?.backend) {
+        // Map 'api' to 'litellm' for UI consistency
+        settingsDefaults['CODEXLENS_RERANKER_BACKEND'] = settings.reranker.backend === 'api' ? 'litellm' : settings.reranker.backend;
+      }
+      if (settings.reranker?.model) {
+        settingsDefaults['CODEXLENS_RERANKER_MODEL'] = settings.reranker.model;
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         success: true,
         path: envPath,
         env: envVars,
-        raw: content
+        raw: content,
+        settings: settingsDefaults
       }));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });

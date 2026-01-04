@@ -658,9 +658,10 @@ async function executeInitAction(params: Params): Promise<SearchResult> {
   }
 
   // Build args with --no-embeddings for FTS-only index (faster)
-  const args = ['init', path, '--no-embeddings'];
+  // Use 'index init' subcommand (new CLI structure)
+  const args = ['index', 'init', path, '--no-embeddings'];
   if (languages && languages.length > 0) {
-    args.push('--languages', languages.join(','));
+    args.push('--language', languages.join(','));
   }
 
   // Track progress updates
@@ -750,9 +751,10 @@ async function executeUpdateAction(params: Params): Promise<SearchResult> {
   }
 
   // Build args for incremental init (without --force)
-  const args = ['init', path];
+  // Use 'index init' subcommand (new CLI structure)
+  const args = ['index', 'init', path];
   if (languages && languages.length > 0) {
-    args.push('--languages', languages.join(','));
+    args.push('--language', languages.join(','));
   }
 
   // Track progress updates
@@ -2398,9 +2400,10 @@ export async function executeInitWithProgress(
     };
   }
 
-  const args = ['init', path];
+  // Use 'index init' subcommand (new CLI structure)
+  const args = ['index', 'init', path];
   if (languages && languages.length > 0) {
-    args.push('--languages', languages.join(','));
+    args.push('--language', languages.join(','));
   }
 
   // Track progress updates

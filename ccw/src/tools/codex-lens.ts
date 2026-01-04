@@ -939,9 +939,10 @@ async function executeCodexLens(args: string[], options: ExecuteOptions = {}): P
 async function initIndex(params: Params): Promise<ExecuteResult> {
   const { path = '.', languages } = params;
 
-  const args = ['init', path];
+  // Use 'index init' subcommand (new CLI structure)
+  const args = ['index', 'init', path];
   if (languages && languages.length > 0) {
-    args.push('--languages', languages.join(','));
+    args.push('--language', languages.join(','));
   }
 
   return executeCodexLens(args, { cwd: path });

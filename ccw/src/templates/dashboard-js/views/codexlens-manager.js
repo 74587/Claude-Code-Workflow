@@ -670,8 +670,8 @@ var ENV_VAR_GROUPS = {
     icon: 'hard-drive',
     showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] !== 'litellm' || env['CODEXLENS_RERANKER_BACKEND'] !== 'litellm'; },
     vars: {
-      'CODEXLENS_EMBEDDING_MODEL': { label: 'Embedding Model', placeholder: 'fast (code, base, minilm, multilingual, balanced)' },
-      'CODEXLENS_RERANKER_MODEL': { label: 'Reranker Model', placeholder: 'Xenova/ms-marco-MiniLM-L-6-v2' }
+      'CODEXLENS_EMBEDDING_MODEL': { label: 'Embedding Model', placeholder: 'fast (code, base, minilm, multilingual, balanced)', default: 'fast' },
+      'CODEXLENS_RERANKER_MODEL': { label: 'Reranker Model', placeholder: 'Xenova/ms-marco-MiniLM-L-6-v2', default: 'Xenova/ms-marco-MiniLM-L-6-v2' }
     }
   },
   api: {
@@ -747,6 +747,7 @@ async function loadEnvVariables() {
     }
 
     var env = result.env || {};
+    var settings = result.settings || {};  // Current settings from settings.json
     var html = '<div class="space-y-4">';
 
     // Get available LiteLLM providers
@@ -783,7 +784,8 @@ async function loadEnvVariables() {
 
       for (var key in group.vars) {
         var config = group.vars[key];
-        var value = env[key] || config.default || '';
+        // Priority: env file > settings.json > hardcoded default
+        var value = env[key] || settings[key] || config.default || '';
 
         if (config.type === 'select') {
           html += '<div class="flex items-center gap-2">' +
