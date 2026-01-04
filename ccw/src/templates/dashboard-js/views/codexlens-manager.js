@@ -1693,9 +1693,14 @@ async function loadRerankerModelList() {
   try {
     // Get current reranker config
     var response = await fetch('/api/codexlens/reranker/config');
+    if (!response.ok) {
+      throw new Error('Failed to load reranker config: ' + response.status);
+    }
     var config = await response.json();
-    var currentModel = config.model_name || 'Xenova/ms-marco-MiniLM-L-6-v2';
-    var currentBackend = config.backend || 'fastembed';
+
+    // Handle API response format
+    var currentModel = config.model_name || config.result?.reranker_model || 'Xenova/ms-marco-MiniLM-L-6-v2';
+    var currentBackend = config.backend || config.result?.reranker_backend || 'fastembed';
 
     var html = '<div class="space-y-2">';
 
@@ -1713,8 +1718,19 @@ async function loadRerankerModelList() {
 
     // Show models for local backend only
     if (currentBackend === 'fastembed' || currentBackend === 'onnx') {
+      // Helper to match model names (handles different prefixes like Xenova/ vs cross-encoder/)
+      function modelMatches(current, target) {
+        if (!current || !target) return false;
+        // Exact match
+        if (current === target) return true;
+        // Match by base name (after last /)
+        var currentBase = current.split('/').pop();
+        var targetBase = target.split('/').pop();
+        return currentBase === targetBase;
+      }
+
       RERANKER_MODELS.forEach(function(model) {
-        var isActive = currentModel === model.name;
+        var isActive = modelMatches(currentModel, model.name);
         var statusIcon = isActive
           ? '<i data-lucide="check-circle" class="w-3.5 h-3.5 text-success"></i>'
           : '<i data-lucide="circle" class="w-3.5 h-3.5 text-muted"></i>';
@@ -1870,7 +1886,12 @@ async function loadGpuDevicesForModeSelector() {
   if (!gpuSelect) return;
 
   try {
-    var response = await fetch('/api/codexlens/gpu/devices');
+    var response = await fetch('/api/codexlens/gpu/list');
+    if (!response.ok) {
+      console.warn('[CodexLens] GPU list endpoint returned:', response.status);
+      gpuSelect.innerHTML = '<option value="auto">Auto</option>';
+      return;
+    }
     var result = await response.json();
 
     var html = '<option value="auto">Auto</option>';
@@ -3785,19 +3806,12 @@ async function checkIndexHealth() {
 
     var lastIndexTime = currentIndex.lastModified ? new Date(currentIndex.lastModified) : null;
 
-    // Get git commits since last index
+    // Estimate staleness based on time (git API not available)
     var commitsSince = 0;
-    try {
-      var gitResponse = await fetch('/api/git/commits-since?since=' + encodeURIComponent(currentIndex.lastModified || ''));
-      var gitData = await gitResponse.json();
-      commitsSince = gitData.count || 0;
-    } catch (gitErr) {
-      console.warn('[CodexLens] Could not get git history:', gitErr);
-      // Fallback: estimate based on time
-      if (lastIndexTime) {
-        var hoursSince = (Date.now() - lastIndexTime.getTime()) / (1000 * 60 * 60);
-        commitsSince = Math.floor(hoursSince / 2); // Rough estimate
-      }
+    if (lastIndexTime) {
+      var hoursSince = (Date.now() - lastIndexTime.getTime()) / (1000 * 60 * 60);
+      // Rough estimate: assume ~2 commits per hour on active projects
+      commitsSince = Math.floor(hoursSince / 2);
     }
 
     // Determine health status

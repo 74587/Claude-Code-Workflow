@@ -1181,10 +1181,10 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
     try {
       const venvStatus = await checkVenvStatus();
 
-      // Default reranker config
+      // Default reranker config (matches fastembed default)
       const rerankerConfig = {
-        backend: 'onnx',
-        model_name: 'cross-encoder/ms-marco-MiniLM-L-6-v2',
+        backend: 'fastembed',
+        model_name: 'Xenova/ms-marco-MiniLM-L-6-v2',
         api_provider: 'siliconflow',
         api_key_set: false,
         available_backends: ['onnx', 'api', 'litellm', 'legacy'],

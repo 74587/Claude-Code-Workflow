@@ -1076,7 +1076,8 @@ function renderProviderList() {
   var container = document.getElementById('provider-list');
   if (!container) return;
 
-  var providers = apiSettingsData.providers || [];
+  // Guard against null apiSettingsData
+  var providers = (apiSettingsData && apiSettingsData.providers) ? apiSettingsData.providers : [];
   var query = providerSearchQuery.toLowerCase();
 
   // Filter providers
@@ -1146,6 +1147,12 @@ function selectProvider(providerId) {
 function renderProviderDetail(providerId) {
   var container = document.getElementById('provider-detail-panel');
   if (!container) return;
+
+  // Guard against null apiSettingsData
+  if (!apiSettingsData || !apiSettingsData.providers) {
+    renderProviderEmptyState();
+    return;
+  }
 
   var provider = apiSettingsData.providers.find(function(p) { return p.id === providerId; });
   if (!provider) {
@@ -1370,6 +1377,9 @@ function toggleModelGroup(series) {
     expandedModelGroups.add(series);
   }
 
+  // Guard against null apiSettingsData
+  if (!apiSettingsData || !apiSettingsData.providers) return;
+
   var provider = apiSettingsData.providers.find(function(p) { return p.id === selectedProviderId; });
   if (provider) {
     renderModelTree(provider);
@@ -1379,9 +1389,19 @@ function toggleModelGroup(series) {
 /**
  * Switch model tab (LLM / Embedding)
  */
-function switchModelTab(tab) {
+async function switchModelTab(tab) {
   activeModelTab = tab;
   expandedModelGroups.clear();
+
+  // Guard against null apiSettingsData or providers - try to load if not available
+  if (!apiSettingsData || !apiSettingsData.providers) {
+    console.warn('[API Settings] switchModelTab: loading data first...');
+    await loadApiSettings(true);
+    if (!apiSettingsData || !apiSettingsData.providers) {
+      console.error('[API Settings] Failed to load API settings data');
+      return;
+    }
+  }
 
   var provider = apiSettingsData.providers.find(function(p) { return p.id === selectedProviderId; });
   if (provider) {

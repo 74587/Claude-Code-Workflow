@@ -1,6 +1,6 @@
 ---
 name: execute
-description: Execute queue with codex using DAG-based parallel orchestration (solution-level)
+description: Execute queue with DAG-based parallel orchestration (one commit per solution)
 argument-hint: "[--worktree] [--queue <queue-id>]"
 allowed-tools: TodoWrite(*), Bash(*), Read(*), AskUserQuestion(*)
 ---
@@ -49,7 +49,8 @@ Phase 2: Dispatch Parallel Batch (DAG-driven)
    │   ├─ Executor calls: ccw issue detail <id>  (READ-ONLY)
    │   ├─ Executor gets FULL SOLUTION with all tasks
    │   ├─ Executor implements all tasks sequentially (T1 → T2 → T3)
-   │   ├─ Executor tests + commits per task
+   │   ├─ Executor tests + verifies each task
+   │   ├─ Executor commits ONCE per solution (with formatted summary)
    │   ├─ Executor calls: ccw issue done <id>
    │   └─ (if worktree) Cleanup: merge branch, remove worktree
    └─ Wait for batch completion
@@ -205,7 +206,7 @@ cd "\${WORKTREE_PATH}"
 ` : '';
 
   const worktreeCleanup = useWorktree ? `
-### Step 4: Worktree Completion (User Choice)
+### Step 5: Worktree Completion (User Choice)
 
 After all tasks complete, prompt for merge strategy:
 
@@ -282,12 +283,34 @@ For each task:
 1. Follow task.implementation steps
 2. Run task.test commands
 3. Verify task.acceptance criteria
-4. Commit using task.commit specification
+(Do NOT commit after each task)
 
-### Step 3: Report Completion
-When ALL tasks in solution are done:
+### Step 3: Commit Solution (Once)
+After ALL tasks pass, commit once with formatted summary:
 \`\`\`bash
-ccw issue done ${solutionId} --result '{"summary": "...", "files_modified": [...], "tasks_completed": N}'
+git add <all-modified-files>
+git commit -m "[type](scope): [solution.description]
+
+## Solution Summary
+- Solution-ID: ${solutionId}
+- Tasks: T1, T2, ...
+
+## Tasks Completed
+- [T1] task1.title: action
+- [T2] task2.title: action
+
+## Files Modified
+- file1.ts
+- file2.ts
+
+## Verification
+- All tests passed
+- All acceptance criteria verified"
+\`\`\`
+
+### Step 4: Report Completion
+\`\`\`bash
+ccw issue done ${solutionId} --result '{"summary": "...", "files_modified": [...], "commit": {"hash": "...", "type": "feat"}, "tasks_completed": N}'
 \`\`\`
 
 If any task failed:
@@ -350,6 +373,7 @@ if (refreshedDag.ready_count > 0) {
 │    │ detail S-1           │ │ detail S-2           │       │
 │    │ → gets full solution │ │ → gets full solution │       │
 │    │ [T1→T2→T3 sequential]│ │ [T1→T2 sequential]   │       │
+│    │ commit (1x solution) │ │ commit (1x solution) │       │
 │    │ done S-1             │ │ done S-2             │       │
 │    └──────────────────────┘ └──────────────────────┘       │
 │                                                             │
@@ -361,6 +385,7 @@ if (refreshedDag.ready_count > 0) {
 **Why this works for parallel:**
 - `detail <id>` is READ-ONLY → no race conditions
 - Each executor handles **all tasks within a solution** sequentially
+- **One commit per solution** with formatted summary (not per-task)
 - `done <id>` updates only its own solution status
 - `queue dag` recalculates ready solutions after each batch
 - Solutions in same batch have NO file conflicts

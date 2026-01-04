@@ -1,5 +1,5 @@
 ---
-description: Execute all solutions from issue queue with git commit after each task
+description: Execute all solutions from issue queue with git commit after each solution
 argument-hint: "[--worktree] [--queue <queue-id>]"
 ---
 
@@ -7,7 +7,7 @@ argument-hint: "[--worktree] [--queue <queue-id>]"
 
 ## Core Principle
 
-**Serial Execution**: Execute solutions ONE BY ONE from the issue queue via `ccw issue next`. For each solution, complete all tasks sequentially (implement → test → commit per task). Continue autonomously until queue is empty.
+**Serial Execution**: Execute solutions ONE BY ONE from the issue queue via `ccw issue next`. For each solution, complete all tasks sequentially (implement → test → verify), then commit once per solution with formatted summary. Continue autonomously until queue is empty.
 
 ## Worktree Mode (Recommended for Parallel Execution)
 
@@ -150,9 +150,9 @@ WHILE solution exists:
        - IMPLEMENT: Follow task.implementation steps
        - TEST: Run task.test commands
        - VERIFY: Check task.acceptance criteria
-       - COMMIT: Stage files, commit with task.commit.message_template
-  3. Report completion via ccw issue done <item_id>
-  4. Fetch next solution via ccw issue next
+  3. COMMIT: Stage all files, commit once with formatted summary
+  4. Report completion via ccw issue done <item_id>
+  5. Fetch next solution via ccw issue next
 
 WHEN queue empty:
   Output final summary
@@ -275,9 +275,9 @@ update_plan({
 })
 ```
 
-**After completing each task** (commit done), mark it as completed:
+**After completing each task** (verification passed), mark it as completed:
 ```javascript
-// Mark task as completed
+// Mark task as completed (commit happens at solution level)
 update_plan({
   explanation: `Completed ${task.id}: ${task.title}`,
   plan: tasks.map(t => ({
@@ -360,41 +360,76 @@ All criteria met: YES
 
 **If any criterion fails**: Go back to IMPLEMENT phase and fix.
 
-### Phase D: COMMIT
-
-After all phases pass, commit the changes for this task:
-
-```bash
-# Stage all modified files
-git add path/to/file1.ts path/to/file2.ts ...
-
-# Commit with task message template
-git commit -m "$(cat <<'EOF'
-[task.commit.message_template]
-
-Solution-ID: [solution_id]
-Issue-ID: [issue_id]
-Task-ID: [task.id]
-EOF
-)"
-```
-
-**Output format:**
-```
-## Committed: [task.title]
-
-**Commit**: [commit hash]
-**Message**: [commit message]
-**Files**: N files changed
-```
-
 ### Repeat for Next Task
 
 Continue to next task in `solution.tasks` array until all tasks are complete.
 
+**Note**: Do NOT commit after each task. Commits happen at solution level after all tasks pass.
+
+## Step 3.5: Commit Solution
+
+After ALL tasks in the solution pass implementation, testing, and verification, commit once for the entire solution:
+
+```bash
+# Stage all modified files from all tasks
+git add path/to/file1.ts path/to/file2.ts ...
+
+# Commit with formatted solution summary
+git commit -m "$(cat <<'EOF'
+[commit_type](scope): [solution.description - brief]
+
+## Solution Summary
+- **Solution-ID**: [solution_id]
+- **Issue-ID**: [issue_id]
+- **Risk/Impact/Complexity**: [solution.analysis.risk]/[solution.analysis.impact]/[solution.analysis.complexity]
+
+## Tasks Completed
+- [T1] [task1.title]: [task1.action] [task1.scope]
+- [T2] [task2.title]: [task2.action] [task2.scope]
+- ...
+
+## Files Modified
+- path/to/file1.ts
+- path/to/file2.ts
+- ...
+
+## Verification
+- All unit tests passed
+- All acceptance criteria verified
+EOF
+)"
+```
+
+**Commit Type Selection**:
+- `feat`: New feature or capability
+- `fix`: Bug fix
+- `refactor`: Code restructuring without behavior change
+- `test`: Adding or updating tests
+- `docs`: Documentation changes
+- `chore`: Maintenance tasks
+
+**Output format:**
+```
+## Solution Committed: [solution_id]
+
+**Commit**: [commit hash]
+**Type**: [commit_type]
+**Scope**: [scope]
+
+**Summary**:
+[solution.description]
+
+**Tasks**: [N] tasks completed
+- [x] T1: [task1.title]
+- [x] T2: [task2.title]
+...
+
+**Files**: [M] files changed
+```
+
 ## Step 4: Report Completion
 
-After ALL tasks in the solution are complete, report to queue system:
+After ALL tasks in the solution are complete and committed, report to queue system:
 
 ```javascript
 // ccw auto-detects worktree and uses main repo's .workflow/
@@ -402,7 +437,7 @@ shell_command({
   command: `ccw issue done ${item_id} --result '${JSON.stringify({
     files_modified: ["path1", "path2"],
     tests_passed: true,
-    commits: [{ task_id: "T1", hash: "abc123" }],
+    commit: { hash: "abc123", type: "feat", tasks: ["T1", "T2"] },
     summary: "[What was accomplished]"
   })}'`
 })
@@ -427,7 +462,9 @@ const result = shell_command({ command: "ccw issue next" })
 
 **Output progress:**
 ```
-✓ [N/M] Completed: [item_id] - [solution.approach]
+✓ [N/M] Completed: [item_id] - [solution.description]
+  Commit: [commit_hash] ([commit_type])
+  Tasks: [task_count] completed
 → Fetching next solution...
 ```
 
@@ -444,13 +481,14 @@ When `ccw issue next` returns `{ "status": "empty" }`:
 
 **Total Solutions Executed**: N
 **Total Tasks Executed**: M
+**Total Commits**: N (one per solution)
 
-**All Commits**:
-| # | Solution | Task | Commit |
-|---|----------|------|--------|
-| 1 | S-1 | T1 | abc123 |
-| 2 | S-1 | T2 | def456 |
-| 3 | S-2 | T1 | ghi789 |
+**Solution Commits**:
+| # | Solution | Tasks | Commit | Type |
+|---|----------|-------|--------|------|
+| 1 | SOL-xxx-1 | T1, T2 | abc123 | feat |
+| 2 | SOL-xxx-2 | T1 | def456 | fix |
+| 3 | SOL-yyy-1 | T1, T2, T3 | ghi789 | refactor |
 
 **Files Modified**:
 - path/to/file1.ts
@@ -463,11 +501,11 @@ When `ccw issue next` returns `{ "status": "empty" }`:
 ## Execution Rules
 
 1. **Never stop mid-queue** - Continue until queue is empty
-2. **One solution at a time** - Fully complete (all tasks + report) before moving on
-3. **Sequential within solution** - Complete each task (including commit) before next
-4. **Tests MUST pass** - Do not proceed to commit if tests fail
-5. **Commit after each task** - Each task gets its own commit
-6. **Self-verify** - All acceptance criteria must pass before commit
+2. **One solution at a time** - Fully complete (all tasks + commit + report) before moving on
+3. **Sequential within solution** - Complete each task's implement/test/verify before next task
+4. **Tests MUST pass** - Do not proceed if any task's tests fail
+5. **One commit per solution** - All tasks share a single commit with formatted summary
+6. **Self-verify** - All acceptance criteria must pass before solution commit
 7. **Report accurately** - Use `ccw issue done` after each solution
 8. **Handle failures gracefully** - If a solution fails, report via `ccw issue done --fail` and continue to next
 9. **Track with update_plan** - Use update_plan tool for task progress tracking
@@ -480,9 +518,9 @@ When `ccw issue next` returns `{ "status": "empty" }`:
 | `ccw issue next` returns empty | All done - output final summary |
 | Tests fail | Fix code, re-run tests |
 | Verification fails | Go back to implement phase |
-| Git commit fails | Check staging, retry commit |
+| Solution commit fails | Check staging, retry commit |
 | `ccw issue done` fails | Log error, continue to next solution |
-| Unrecoverable error | Call `ccw issue done --fail`, continue to next |
+| Any task unrecoverable | Call `ccw issue done --fail`, continue to next solution |
 
 ## CLI Command Reference
 
