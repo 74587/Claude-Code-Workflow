@@ -656,36 +656,24 @@ window.getModelLockState = getModelLockState;
 // ============================================================
 
 // Environment variable groups for organized display
+// Maps to settings.json structure in ~/.codexlens/settings.json
+// Embedding and Reranker are configured separately
 var ENV_VAR_GROUPS = {
-  backend: {
-    label: 'Backend Selection',
-    icon: 'toggle-left',
+  embedding: {
+    label: 'Embedding Configuration',
+    icon: 'box',
     vars: {
-      'CODEXLENS_EMBEDDING_BACKEND': { label: 'Embedding Backend', type: 'select', options: ['fastembed', 'litellm'], default: 'fastembed' },
-      'CODEXLENS_RERANKER_BACKEND': { label: 'Reranker Backend', type: 'select', options: ['fastembed', 'litellm'], default: 'fastembed' }
-    }
-  },
-  local: {
-    label: 'Local Model Settings',
-    icon: 'hard-drive',
-    showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] !== 'litellm' || env['CODEXLENS_RERANKER_BACKEND'] !== 'litellm'; },
-    vars: {
-      'CODEXLENS_EMBEDDING_MODEL': { label: 'Embedding Model', placeholder: 'fast (code, base, minilm, multilingual, balanced)', default: 'fast' },
-      'CODEXLENS_RERANKER_MODEL': { label: 'Reranker Model', placeholder: 'Xenova/ms-marco-MiniLM-L-6-v2', default: 'Xenova/ms-marco-MiniLM-L-6-v2' }
-    }
-  },
-  api: {
-    label: 'API Settings (LiteLLM)',
-    icon: 'cloud',
-    showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'litellm' || env['CODEXLENS_RERANKER_BACKEND'] === 'litellm'; },
-    vars: {
-      'LITELLM_API_KEY': { label: 'API Key', placeholder: 'sk-...', type: 'password' },
-      'LITELLM_API_BASE': { label: 'API Base URL', placeholder: 'https://api.openai.com/v1' },
-      'LITELLM_EMBEDDING_MODEL': {
-        label: 'Embedding Model',
+      'CODEXLENS_EMBEDDING_BACKEND': { label: 'Backend', type: 'select', options: ['fastembed', 'litellm'], default: 'fastembed', settingsPath: 'embedding.backend' },
+      'CODEXLENS_EMBEDDING_MODEL': {
+        label: 'Model',
         type: 'model-select',
         placeholder: 'Select or enter model...',
-        models: [
+        default: 'fast',
+        settingsPath: 'embedding.model',
+        localModels: [
+          { group: 'FastEmbed Profiles', items: ['fast', 'code', 'base', 'minilm', 'multilingual', 'balanced'] }
+        ],
+        apiModels: [
           { group: 'OpenAI', items: ['text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002'] },
           { group: 'Cohere', items: ['embed-english-v3.0', 'embed-multilingual-v3.0', 'embed-english-light-v3.0'] },
           { group: 'Voyage', items: ['voyage-3', 'voyage-3-lite', 'voyage-code-3', 'voyage-multilingual-2'] },
@@ -693,17 +681,69 @@ var ENV_VAR_GROUPS = {
           { group: 'Jina', items: ['jina-embeddings-v3', 'jina-embeddings-v2-base-en', 'jina-embeddings-v2-base-zh'] }
         ]
       },
-      'LITELLM_RERANKER_MODEL': {
-        label: 'Reranker Model',
+      'CODEXLENS_USE_GPU': { label: 'Use GPU', type: 'select', options: ['true', 'false'], default: 'true', settingsPath: 'embedding.use_gpu', showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] !== 'litellm'; } },
+      'CODEXLENS_EMBEDDING_STRATEGY': { label: 'Load Balance', type: 'select', options: ['round_robin', 'latency_aware', 'weighted_random'], default: 'latency_aware', settingsPath: 'embedding.strategy', showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'litellm'; } },
+      'CODEXLENS_EMBEDDING_COOLDOWN': { label: 'Rate Limit Cooldown (s)', type: 'number', placeholder: '60', default: '60', settingsPath: 'embedding.cooldown', min: 0, max: 300, showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'litellm'; } }
+    }
+  },
+  reranker: {
+    label: 'Reranker Configuration',
+    icon: 'arrow-up-down',
+    vars: {
+      'CODEXLENS_RERANKER_ENABLED': { label: 'Enabled', type: 'select', options: ['true', 'false'], default: 'true', settingsPath: 'reranker.enabled' },
+      'CODEXLENS_RERANKER_BACKEND': { label: 'Backend', type: 'select', options: ['fastembed', 'onnx', 'api', 'litellm'], default: 'fastembed', settingsPath: 'reranker.backend' },
+      'CODEXLENS_RERANKER_MODEL': {
+        label: 'Model',
         type: 'model-select',
         placeholder: 'Select or enter model...',
-        models: [
+        default: 'Xenova/ms-marco-MiniLM-L-6-v2',
+        settingsPath: 'reranker.model',
+        localModels: [
+          { group: 'FastEmbed/ONNX', items: ['Xenova/ms-marco-MiniLM-L-6-v2', 'cross-encoder/ms-marco-MiniLM-L-6-v2', 'BAAI/bge-reranker-base'] }
+        ],
+        apiModels: [
           { group: 'Cohere', items: ['rerank-english-v3.0', 'rerank-multilingual-v3.0', 'rerank-english-v2.0'] },
           { group: 'Voyage', items: ['rerank-2', 'rerank-2-lite', 'rerank-1'] },
           { group: 'SiliconFlow', items: ['BAAI/bge-reranker-v2-m3', 'BAAI/bge-reranker-large', 'BAAI/bge-reranker-base'] },
           { group: 'Jina', items: ['jina-reranker-v2-base-multilingual', 'jina-reranker-v1-base-en'] }
         ]
-      }
+      },
+      'CODEXLENS_RERANKER_TOP_K': { label: 'Top K Results', type: 'number', placeholder: '50', default: '50', settingsPath: 'reranker.top_k', min: 5, max: 200 }
+    }
+  },
+  apiCredentials: {
+    label: 'API Credentials',
+    icon: 'key',
+    showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'litellm' || env['CODEXLENS_RERANKER_BACKEND'] === 'litellm' || env['CODEXLENS_RERANKER_BACKEND'] === 'api'; },
+    vars: {
+      'LITELLM_API_KEY': { label: 'API Key', placeholder: 'sk-...', type: 'password' },
+      'LITELLM_API_BASE': { label: 'API Base URL', placeholder: 'https://api.openai.com/v1' }
+    }
+  },
+  concurrency: {
+    label: 'Concurrency Settings',
+    icon: 'cpu',
+    vars: {
+      'CODEXLENS_API_MAX_WORKERS': { label: 'Max Workers', type: 'number', placeholder: '4', default: '4', settingsPath: 'api.max_workers', min: 1, max: 32 },
+      'CODEXLENS_API_BATCH_SIZE': { label: 'Batch Size', type: 'number', placeholder: '8', default: '8', settingsPath: 'api.batch_size', min: 1, max: 64 }
+    }
+  },
+  cascade: {
+    label: 'Cascade Search Settings',
+    icon: 'git-branch',
+    vars: {
+      'CODEXLENS_CASCADE_STRATEGY': { label: 'Search Strategy', type: 'select', options: ['binary', 'hybrid', 'binary_rerank', 'dense_rerank'], default: 'dense_rerank', settingsPath: 'cascade.strategy' },
+      'CODEXLENS_CASCADE_COARSE_K': { label: 'Coarse K (1st stage)', type: 'number', placeholder: '100', default: '100', settingsPath: 'cascade.coarse_k', min: 10, max: 500 },
+      'CODEXLENS_CASCADE_FINE_K': { label: 'Fine K (final)', type: 'number', placeholder: '10', default: '10', settingsPath: 'cascade.fine_k', min: 1, max: 100 }
+    }
+  },
+  llm: {
+    label: 'LLM Features',
+    icon: 'sparkles',
+    collapsed: true,
+    vars: {
+      'CODEXLENS_LLM_ENABLED': { label: 'Enable LLM', type: 'select', options: ['true', 'false'], default: 'false', settingsPath: 'llm.enabled' },
+      'CODEXLENS_LLM_BATCH_SIZE': { label: 'Batch Size', type: 'number', placeholder: '5', default: '5', settingsPath: 'llm.batch_size', min: 1, max: 20 }
     }
   }
 };
@@ -784,6 +824,12 @@ async function loadEnvVariables() {
 
       for (var key in group.vars) {
         var config = group.vars[key];
+        
+        // Check variable-level showWhen condition
+        if (config.showWhen && !config.showWhen(env)) {
+          continue;
+        }
+        
         // Priority: env file > settings.json > hardcoded default
         var value = env[key] || settings[key] || config.default || '';
 
@@ -797,9 +843,16 @@ async function loadEnvVariables() {
           html += '</select></div>';
         } else if (config.type === 'model-select') {
           // Model selector with grouped options and custom input support
+          // Supports localModels/apiModels based on backend type
           var datalistId = 'models-' + key.replace(/_/g, '-').toLowerCase();
-          var isEmbeddingModel = key === 'LITELLM_EMBEDDING_MODEL';
-          var isRerankerModel = key === 'LITELLM_RERANKER_MODEL';
+          var isEmbedding = key.indexOf('EMBEDDING') !== -1;
+          var isReranker = key.indexOf('RERANKER') !== -1;
+          var backendKey = isEmbedding ? 'CODEXLENS_EMBEDDING_BACKEND' : 'CODEXLENS_RERANKER_BACKEND';
+          var isApiBackend = env[backendKey] === 'litellm' || env[backendKey] === 'api';
+          
+          // Choose model list based on backend type
+          var modelList = isApiBackend ? (config.apiModels || config.models || []) : (config.localModels || config.models || []);
+          var configuredModels = isEmbedding ? configuredEmbeddingModels : configuredRerankerModels;
 
           html += '<div class="flex items-center gap-2">' +
             '<label class="text-xs text-muted-foreground w-28 flex-shrink-0" title="' + escapeHtml(key) + '">' + escapeHtml(config.label) + '</label>' +
@@ -811,68 +864,45 @@ async function loadEnvVariables() {
             '</div>' +
             '<datalist id="' + datalistId + '">';
 
-          // For embedding models: use configured models from API settings first
-          if (isEmbeddingModel && configuredEmbeddingModels.length > 0) {
+          // For API backend: show configured models from API settings first
+          if (isApiBackend && configuredModels.length > 0) {
             html += '<option value="" disabled>-- Configured in API Settings --</option>';
-            configuredEmbeddingModels.forEach(function(model) {
+            configuredModels.forEach(function(model) {
               var providers = model.providers ? model.providers.join(', ') : '';
               html += '<option value="' + escapeHtml(model.modelId) + '">' +
                 escapeHtml(model.modelName || model.modelId) +
                 (providers ? ' (' + escapeHtml(providers) + ')' : '') +
                 '</option>';
             });
-            // Add separator and fallback options
-            if (config.models) {
+            if (modelList.length > 0) {
               html += '<option value="" disabled>-- Common Models --</option>';
-              config.models.forEach(function(group) {
-                group.items.forEach(function(model) {
-                  // Skip if already in configured list
-                  var exists = configuredEmbeddingModels.some(function(m) { return m.modelId === model; });
-                  if (!exists) {
-                    html += '<option value="' + escapeHtml(model) + '">' + escapeHtml(group.group) + ': ' + escapeHtml(model) + '</option>';
-                  }
-                });
-              });
             }
-          } else if (isRerankerModel && configuredRerankerModels.length > 0) {
-            // For reranker models: use configured models from API settings first
-            html += '<option value="" disabled>-- Configured in API Settings --</option>';
-            configuredRerankerModels.forEach(function(model) {
-              var providers = model.providers ? model.providers.join(', ') : '';
-              html += '<option value="' + escapeHtml(model.modelId) + '">' +
-                escapeHtml(model.modelName || model.modelId) +
-                (providers ? ' (' + escapeHtml(providers) + ')' : '') +
-                '</option>';
-            });
-            // Add separator and fallback options
-            if (config.models) {
-              html += '<option value="" disabled>-- Common Models --</option>';
-              config.models.forEach(function(group) {
-                group.items.forEach(function(model) {
-                  // Skip if already in configured list
-                  var exists = configuredRerankerModels.some(function(m) { return m.modelId === model; });
-                  if (!exists) {
-                    html += '<option value="' + escapeHtml(model) + '">' + escapeHtml(group.group) + ': ' + escapeHtml(model) + '</option>';
-                  }
-                });
-              });
-            }
-          } else if (config.models) {
-            // Fallback: use static model list
-            config.models.forEach(function(group) {
-              group.items.forEach(function(model) {
-                html += '<option value="' + escapeHtml(model) + '">' + escapeHtml(group.group) + ': ' + escapeHtml(model) + '</option>';
-              });
-            });
           }
+          
+          // Add model list (local or API based on backend)
+          modelList.forEach(function(group) {
+            group.items.forEach(function(model) {
+              // Skip if already in configured list
+              var exists = configuredModels.some(function(m) { return m.modelId === model; });
+              if (!exists) {
+                html += '<option value="' + escapeHtml(model) + '">' + escapeHtml(group.group) + ': ' + escapeHtml(model) + '</option>';
+              }
+            });
+          });
 
           html += '</datalist></div>';
         } else {
           var inputType = config.type || 'text';
+          var extraAttrs = '';
+          if (config.type === 'number') {
+            if (config.min !== undefined) extraAttrs += ' min="' + config.min + '"';
+            if (config.max !== undefined) extraAttrs += ' max="' + config.max + '"';
+            extraAttrs += ' step="1"';
+          }
           html += '<div class="flex items-center gap-2">' +
             '<label class="text-xs text-muted-foreground w-28 flex-shrink-0" title="' + escapeHtml(key) + '">' + escapeHtml(config.label) + '</label>' +
             '<input type="' + inputType + '" class="tool-config-input flex-1 text-xs py-1" ' +
-                   'data-env-key="' + escapeHtml(key) + '" value="' + escapeHtml(value) + '" placeholder="' + escapeHtml(config.placeholder || '') + '" />' +
+                   'data-env-key="' + escapeHtml(key) + '" value="' + escapeHtml(value) + '" placeholder="' + escapeHtml(config.placeholder || '') + '"' + extraAttrs + ' />' +
           '</div>';
         }
       }

@@ -37,6 +37,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       await switchToPath(initialPath);
 
+      // Update all navigation badges after initial load
+      if (typeof updateAllNavigationBadges === 'function') {
+        updateAllNavigationBadges();
+      }
+
       // Clean up URL after loading (remove query param)
       if (urlPath && window.history.replaceState) {
         window.history.replaceState({}, '', window.location.pathname);

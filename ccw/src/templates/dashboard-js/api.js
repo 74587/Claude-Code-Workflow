@@ -73,6 +73,11 @@ async function switchToPath(path) {
       document.getElementById('currentPath').textContent = projectPath;
       renderDashboard();
       refreshRecentPaths();
+
+      // Update all navigation badges after path switch
+      if (typeof updateAllNavigationBadges === 'function') {
+        updateAllNavigationBadges();
+      }
     }
   } catch (err) {
     console.error('Failed to switch path:', err);

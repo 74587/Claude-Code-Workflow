@@ -327,6 +327,51 @@ function updateSidebarCounts(data) {
   if (liteFixCount) liteFixCount.textContent = data.liteTasks?.liteFix?.length || 0;
 }
 
+// ========== Navigation Badge Aggregation ==========
+
+/**
+ * Update a single badge element by ID
+ * @param {string} badgeId - Element ID
+ * @param {number|undefined} count - Badge count value
+ */
+function updateBadgeById(badgeId, count) {
+  const badge = document.getElementById(badgeId);
+  if (badge && count !== undefined) {
+    badge.textContent = count;
+  }
+}
+
+/**
+ * Fetch and update all navigation badges at once
+ * Called on dashboard initialization and path switch
+ */
+async function updateAllNavigationBadges() {
+  if (!window.SERVER_MODE) return;
+
+  try {
+    const response = await fetch('/api/nav-status?path=' + encodeURIComponent(projectPath));
+    if (!response.ok) {
+      console.warn('[Nav Status] Failed to fetch:', response.status);
+      return;
+    }
+
+    const status = await response.json();
+
+    // Update each badge
+    updateBadgeById('badgeIssues', status.issues?.count);
+    updateBadgeById('badgeDiscovery', status.discoveries?.count);
+    updateBadgeById('badgeSkills', status.skills?.count);
+    updateBadgeById('badgeRules', status.rules?.count);
+    updateBadgeById('badgeClaude', status.claude?.count);
+    updateBadgeById('badgeHooks', status.hooks?.count);
+
+    console.log('[Nav Status] Badges updated:', status);
+  } catch (err) {
+    console.error('[Nav Status] Error fetching status:', err);
+    // Graceful degradation - badges will update when user visits each page
+  }
+}
+
 function showRefreshToast(message, type) {
   // Remove existing toast
   const existing = document.querySelector('.status-toast');

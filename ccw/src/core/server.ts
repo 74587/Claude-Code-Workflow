@@ -26,6 +26,7 @@ import { handleClaudeRoutes } from './routes/claude-routes.js';
 import { handleHelpRoutes } from './routes/help-routes.js';
 import { handleLiteLLMRoutes } from './routes/litellm-routes.js';
 import { handleLiteLLMApiRoutes } from './routes/litellm-api-routes.js';
+import { handleNavStatusRoutes } from './routes/nav-status-routes.js';
 
 // Import WebSocket handling
 import { handleWebSocketUpgrade, broadcastToClients } from './websocket.js';
@@ -285,6 +286,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // Status routes (/api/status/*) - Aggregated endpoint for faster loading
       if (pathname.startsWith('/api/status/')) {
         if (await handleStatusRoutes(routeContext)) return;
+      }
+
+      // Navigation status routes (/api/nav-status) - Aggregated badge counts
+      if (pathname === '/api/nav-status') {
+        if (await handleNavStatusRoutes(routeContext)) return;
       }
 
       // CLI routes (/api/cli/*)

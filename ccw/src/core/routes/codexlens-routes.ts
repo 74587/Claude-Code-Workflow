@@ -1785,18 +1785,65 @@ except Exception as e:
 
       // Map settings to env var format for defaults
       const settingsDefaults: Record<string, string> = {};
+      
+      // Embedding settings
       if (settings.embedding?.backend) {
         settingsDefaults['CODEXLENS_EMBEDDING_BACKEND'] = settings.embedding.backend;
       }
       if (settings.embedding?.model) {
         settingsDefaults['CODEXLENS_EMBEDDING_MODEL'] = settings.embedding.model;
+        settingsDefaults['LITELLM_EMBEDDING_MODEL'] = settings.embedding.model;
       }
+      if (settings.embedding?.use_gpu !== undefined) {
+        settingsDefaults['CODEXLENS_USE_GPU'] = String(settings.embedding.use_gpu);
+      }
+      if (settings.embedding?.strategy) {
+        settingsDefaults['CODEXLENS_EMBEDDING_STRATEGY'] = settings.embedding.strategy;
+      }
+      if (settings.embedding?.cooldown !== undefined) {
+        settingsDefaults['CODEXLENS_EMBEDDING_COOLDOWN'] = String(settings.embedding.cooldown);
+      }
+      
+      // Reranker settings
       if (settings.reranker?.backend) {
-        // Map 'api' to 'litellm' for UI consistency
-        settingsDefaults['CODEXLENS_RERANKER_BACKEND'] = settings.reranker.backend === 'api' ? 'litellm' : settings.reranker.backend;
+        settingsDefaults['CODEXLENS_RERANKER_BACKEND'] = settings.reranker.backend;
       }
       if (settings.reranker?.model) {
         settingsDefaults['CODEXLENS_RERANKER_MODEL'] = settings.reranker.model;
+        settingsDefaults['LITELLM_RERANKER_MODEL'] = settings.reranker.model;
+      }
+      if (settings.reranker?.enabled !== undefined) {
+        settingsDefaults['CODEXLENS_RERANKER_ENABLED'] = String(settings.reranker.enabled);
+      }
+      if (settings.reranker?.top_k !== undefined) {
+        settingsDefaults['CODEXLENS_RERANKER_TOP_K'] = String(settings.reranker.top_k);
+      }
+      
+      // API/Concurrency settings
+      if (settings.api?.max_workers !== undefined) {
+        settingsDefaults['CODEXLENS_API_MAX_WORKERS'] = String(settings.api.max_workers);
+      }
+      if (settings.api?.batch_size !== undefined) {
+        settingsDefaults['CODEXLENS_API_BATCH_SIZE'] = String(settings.api.batch_size);
+      }
+      
+      // Cascade search settings
+      if (settings.cascade?.strategy) {
+        settingsDefaults['CODEXLENS_CASCADE_STRATEGY'] = settings.cascade.strategy;
+      }
+      if (settings.cascade?.coarse_k !== undefined) {
+        settingsDefaults['CODEXLENS_CASCADE_COARSE_K'] = String(settings.cascade.coarse_k);
+      }
+      if (settings.cascade?.fine_k !== undefined) {
+        settingsDefaults['CODEXLENS_CASCADE_FINE_K'] = String(settings.cascade.fine_k);
+      }
+      
+      // LLM settings
+      if (settings.llm?.enabled !== undefined) {
+        settingsDefaults['CODEXLENS_LLM_ENABLED'] = String(settings.llm.enabled);
+      }
+      if (settings.llm?.batch_size !== undefined) {
+        settingsDefaults['CODEXLENS_LLM_BATCH_SIZE'] = String(settings.llm.batch_size);
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1956,10 +2003,57 @@ except Exception as e:
 
         await writeFile(envPath, lines.join('\n'), 'utf-8');
 
+        // Also update settings.json with mapped values
+        const settingsPath = join(homedir(), '.codexlens', 'settings.json');
+        let settings: Record<string, any> = {};
+        try {
+          const settingsContent = await readFile(settingsPath, 'utf-8');
+          settings = JSON.parse(settingsContent);
+        } catch (e) {
+          // File doesn't exist, create default structure
+          settings = { embedding: {}, reranker: {}, api: {}, cascade: {}, llm: {} };
+        }
+
+        // Map env vars to settings.json structure
+        const envToSettings: Record<string, { path: string[], transform?: (v: string) => any }> = {
+          'CODEXLENS_EMBEDDING_BACKEND': { path: ['embedding', 'backend'] },
+          'CODEXLENS_EMBEDDING_MODEL': { path: ['embedding', 'model'] },
+          'CODEXLENS_USE_GPU': { path: ['embedding', 'use_gpu'], transform: v => v === 'true' },
+          'CODEXLENS_EMBEDDING_STRATEGY': { path: ['embedding', 'strategy'] },
+          'CODEXLENS_EMBEDDING_COOLDOWN': { path: ['embedding', 'cooldown'], transform: v => parseFloat(v) },
+          'CODEXLENS_RERANKER_BACKEND': { path: ['reranker', 'backend'] },
+          'CODEXLENS_RERANKER_MODEL': { path: ['reranker', 'model'] },
+          'CODEXLENS_RERANKER_ENABLED': { path: ['reranker', 'enabled'], transform: v => v === 'true' },
+          'CODEXLENS_RERANKER_TOP_K': { path: ['reranker', 'top_k'], transform: v => parseInt(v, 10) },
+          'CODEXLENS_API_MAX_WORKERS': { path: ['api', 'max_workers'], transform: v => parseInt(v, 10) },
+          'CODEXLENS_API_BATCH_SIZE': { path: ['api', 'batch_size'], transform: v => parseInt(v, 10) },
+          'CODEXLENS_CASCADE_STRATEGY': { path: ['cascade', 'strategy'] },
+          'CODEXLENS_CASCADE_COARSE_K': { path: ['cascade', 'coarse_k'], transform: v => parseInt(v, 10) },
+          'CODEXLENS_CASCADE_FINE_K': { path: ['cascade', 'fine_k'], transform: v => parseInt(v, 10) },
+          'CODEXLENS_LLM_ENABLED': { path: ['llm', 'enabled'], transform: v => v === 'true' },
+          'CODEXLENS_LLM_BATCH_SIZE': { path: ['llm', 'batch_size'], transform: v => parseInt(v, 10) },
+          'LITELLM_EMBEDDING_MODEL': { path: ['embedding', 'model'] },
+          'LITELLM_RERANKER_MODEL': { path: ['reranker', 'model'] }
+        };
+
+        // Apply env vars to settings
+        for (const [envKey, value] of Object.entries(env)) {
+          const mapping = envToSettings[envKey];
+          if (mapping && value) {
+            const [section, key] = mapping.path;
+            if (!settings[section]) settings[section] = {};
+            settings[section][key] = mapping.transform ? mapping.transform(value) : value;
+          }
+        }
+
+        // Write updated settings
+        await writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+
         return {
           success: true,
-          message: 'Environment configuration saved',
-          path: envPath
+          message: 'Environment and settings configuration saved',
+          path: envPath,
+          settingsPath
         };
       } catch (err) {
         return { success: false, error: err.message, status: 500 };
