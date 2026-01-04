@@ -4558,11 +4558,25 @@ async function showWatcherControlModal() {
   try {
     showRefreshToast(t('codexlens.loadingWatcherStatus') || 'Loading watcher status...', 'info');
 
-    // Fetch current watcher status
-    const response = await fetch('/api/codexlens/watch/status');
-    const status = await response.json();
+    // Fetch current watcher status and indexed projects in parallel
+    const [statusResponse, indexesResponse] = await Promise.all([
+      fetch('/api/codexlens/watch/status'),
+      fetch('/api/codexlens/indexes')
+    ]);
+    const status = await statusResponse.json();
+    const indexes = await indexesResponse.json();
 
-    const modalHtml = buildWatcherControlContent(status);
+    // Get first indexed project path as default
+    let defaultPath = '';
+    if (indexes.success && indexes.projects && indexes.projects.length > 0) {
+      // Sort by last_indexed desc and pick the most recent
+      const sorted = indexes.projects.sort((a, b) =>
+        new Date(b.last_indexed || 0) - new Date(a.last_indexed || 0)
+      );
+      defaultPath = sorted[0].source_root || '';
+    }
+
+    const modalHtml = buildWatcherControlContent(status, defaultPath);
 
     // Create and show modal
     const tempContainer = document.createElement('div');
@@ -4584,9 +4598,12 @@ async function showWatcherControlModal() {
 
 /**
  * Build File Watcher control modal content
+ * @param {Object} status - Watcher status
+ * @param {string} defaultPath - Default path from indexed projects
  */
-function buildWatcherControlContent(status) {
+function buildWatcherControlContent(status, defaultPath) {
   const running = status.running || false;
+  defaultPath = defaultPath || '';
   const rootPath = status.root_path || '';
   const eventsProcessed = status.events_processed || 0;
   const uptimeSeconds = status.uptime_seconds || 0;
@@ -4652,7 +4669,7 @@ function buildWatcherControlContent(status) {
           '<div class="space-y-3">' +
             '<div>' +
               '<label class="block text-sm font-medium mb-1.5">' + (t('codexlens.watchPath') || 'Watch Path') + '</label>' +
-              '<input type="text" id="watcherPath" value="" placeholder="Leave empty for current workspace" ' +
+              '<input type="text" id="watcherPath" value="' + defaultPath + '" placeholder="Enter an indexed project path" ' +
                 'class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm" />' +
             '</div>' +
             '<div>' +

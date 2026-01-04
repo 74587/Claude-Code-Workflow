@@ -1357,6 +1357,29 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
           return { success: false, error: 'CodexLens not installed', status: 400 };
         }
 
+        // Verify directory is indexed before starting watcher
+        try {
+          const statusResult = await executeCodexLens(['projects', 'list', '--json']);
+          if (statusResult.success && statusResult.stdout) {
+            const parsed = extractJSON(statusResult.stdout);
+            const projects = parsed.result || parsed || [];
+            const normalizedTarget = targetPath.toLowerCase().replace(/\\/g, '/');
+            const isIndexed = Array.isArray(projects) && projects.some((p: { source_root: string }) =>
+              p.source_root && p.source_root.toLowerCase().replace(/\\/g, '/') === normalizedTarget
+            );
+            if (!isIndexed) {
+              return {
+                success: false,
+                error: `Directory is not indexed: ${targetPath}. Run 'codexlens init' first.`,
+                status: 400
+              };
+            }
+          }
+        } catch (err) {
+          console.warn('[CodexLens] Could not verify index status:', err);
+          // Continue anyway - watcher will fail with proper error if not indexed
+        }
+
         // Spawn watch process using Python (no shell: true for security)
         // CodexLens is a Python package, must run via python -m codexlens
         const pythonPath = getVenvPythonPath();
