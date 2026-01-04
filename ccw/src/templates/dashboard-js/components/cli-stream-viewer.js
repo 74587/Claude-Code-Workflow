@@ -12,6 +12,82 @@ let searchFilter = '';  // Search filter for output content
 
 const MAX_OUTPUT_LINES = 5000;  // Prevent memory issues
 
+// ===== State Synchronization =====
+/**
+ * Sync active executions from server
+ * Called on initialization to recover state when view is opened mid-execution
+ */
+async function syncActiveExecutions() {
+  // Only sync in server mode
+  if (!window.SERVER_MODE) return;
+
+  try {
+    const response = await fetch('/api/cli/active');
+    if (!response.ok) return;
+
+    const { executions } = await response.json();
+    if (!executions || executions.length === 0) return;
+
+    executions.forEach(exec => {
+      // Skip if already tracked (avoid overwriting live data)
+      if (cliStreamExecutions[exec.id]) return;
+
+      // Rebuild execution state
+      cliStreamExecutions[exec.id] = {
+        tool: exec.tool || 'cli',
+        mode: exec.mode || 'analysis',
+        output: [],
+        status: exec.status || 'running',
+        startTime: exec.startTime || Date.now(),
+        endTime: null
+      };
+
+      // Add system start message
+      cliStreamExecutions[exec.id].output.push({
+        type: 'system',
+        content: `[${new Date(exec.startTime).toLocaleTimeString()}] CLI execution started: ${exec.tool} (${exec.mode} mode)`,
+        timestamp: exec.startTime
+      });
+
+      // Fill historical output (limit to last MAX_OUTPUT_LINES)
+      if (exec.output) {
+        const lines = exec.output.split('\n');
+        const startIndex = Math.max(0, lines.length - MAX_OUTPUT_LINES + 1);
+        lines.slice(startIndex).forEach(line => {
+          if (line.trim()) {
+            cliStreamExecutions[exec.id].output.push({
+              type: 'stdout',
+              content: line,
+              timestamp: Date.now()
+            });
+          }
+        });
+      }
+    });
+
+    // Update UI if we recovered any executions
+    if (executions.length > 0) {
+      // Set active tab to first running execution
+      const runningExec = executions.find(e => e.status === 'running');
+      if (runningExec && !activeStreamTab) {
+        activeStreamTab = runningExec.id;
+      }
+
+      renderStreamTabs();
+      updateStreamBadge();
+
+      // If viewer is open, render content
+      if (isCliStreamViewerOpen) {
+        renderStreamContent(activeStreamTab);
+      }
+    }
+
+    console.log(`[CLI Stream] Synced ${executions.length} active execution(s)`);
+  } catch (e) {
+    console.error('[CLI Stream] Sync failed:', e);
+  }
+}
+
 // ===== Initialization =====
 function initCliStreamViewer() {
   // Initialize keyboard shortcuts
@@ -39,6 +115,9 @@ function initCliStreamViewer() {
   if (content) {
     content.addEventListener('scroll', handleStreamContentScroll);
   }
+
+  // Sync active executions from server (recover state for mid-execution joins)
+  syncActiveExecutions();
 }
 
 // ===== Panel Control =====
