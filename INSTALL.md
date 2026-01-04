@@ -2,118 +2,56 @@
 
 **English** | [中文](INSTALL_CN.md)
 
-Interactive installation guide for Claude Code with Agent workflow coordination and distributed memory system.
+Installation guide for Claude Code Agent workflow coordination and distributed memory system.
 
-## ⚡ Quick One-Line Installation
+> **Version 6.3.18: Native CodexLens & Dashboard Revolution** - Built-in code indexing engine (FTS + semantic search + HNSW vector index), new Dashboard views, TypeScript backend, session clustering intelligent memory management.
 
-**Windows (PowerShell):**
-```powershell
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
-```
+## ⚡ Quick Installation (Recommended)
 
-**Linux/macOS (Bash/Zsh):**
+### NPM Global Install
+
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.sh)
+npm install -g claude-code-workflow
 ```
 
-### Interactive Version Selection
+### Verify Installation
 
-After running the installation command, you'll see an interactive menu with real-time version information:
-
-```
-Detecting latest release and commits...
-Latest stable: v6.3.18 (2026-01-03 UTC)
-Latest commit: bab5625 (2026-01-03 UTC)
-
-====================================================
-            Version Selection Menu
-====================================================
-
-1) Latest Stable Release (Recommended)
-   |-- Version: v6.3.18
-   |-- Released: 2026-01-03 UTC
-   \-- Production-ready
-
-2) Latest Development Version
-   |-- Branch: main
-   |-- Commit: bab5625
-   |-- Updated: 2026-01-03 UTC
-   |-- Cutting-edge features
-   \-- May contain experimental changes
-
-3) Specific Release Version
-   |-- Install a specific tagged release
-   \-- Recent: v6.3.18, v6.3.0, v6.2.0
-
-====================================================
-
-Select version to install (1-3, default: 1):
-```
-
-**Version Options:**
-- **Option 1 (Recommended)**: Latest stable release with verified production quality
-- **Option 2**: Latest development version from main branch with newest features
-- **Option 3**: Specific version tag for controlled deployments
-
-> 💡 **Pro Tip**: The installer automatically detects and displays the latest version numbers and release dates from GitHub. Just press Enter to select the recommended stable release.
-
-## 📂 Local Installation (Install-Claude.ps1)
-
-For local installation without network access, use the bundled PowerShell installer:
-
-**Installation Modes:**
-```powershell
-# Interactive mode with prompts (recommended)
-.\Install-Claude.ps1
-
-# Quick install with automatic backup
-.\Install-Claude.ps1 -Force -BackupAll
-
-# Non-interactive install
-.\Install-Claude.ps1 -NonInteractive -Force
-```
-
-**Installation Options:**
-
-| Mode | Description | Installs To |
-|------|-------------|-------------|
-| **Global** | System-wide installation (default) | `~/.claude/`, `~/.codex/`, `~/.gemini/` |
-| **Path** | Custom directory + global hybrid | Local: `agents/`, `commands/`<br>Global: `workflows/`, `scripts/` |
-
-**Backup Behavior:**
-- **Default**: Automatic backup enabled (`-BackupAll`)
-- **Disable**: Use `-NoBackup` flag (⚠️ overwrites without backup)
-- **Backup location**: `claude-backup-{timestamp}/` in installation directory
-
-**⚠️ Important Warnings:**
-- `-Force -BackupAll`: Silent file overwrite (with backup)
-- `-NoBackup -Force`: Permanent file overwrite (no recovery)
-- Global mode modifies user profile directories
-
-### ✅ Verify Installation
-After installation, open **Claude Code** and check if the workflow commands are available by running:
 ```bash
-/workflow:session:list
+# Check ccw command
+ccw --version
+
+# Start Dashboard
+ccw dashboard
+
+# Start View interface (alternative UI)
+ccw view
 ```
 
-This command should be recognized in Claude Code's interface. If you see the workflow slash commands (e.g., `/workflow:*`, `/cli:*`), the installation was successful.
+## 📂 Install from Source
 
-> **📝 Installation Notes:**
-> - The installer will automatically install/update `.codex/` and `.gemini/` directories
-> - **Global mode**: Installs to `~/.codex` and `~/.gemini`
-> - **Path mode**: Installs to your specified directory (e.g., `project/.codex`, `project/.gemini`)
-> - **Backup**: Existing files are backed up by default to `claude-backup-{timestamp}/`
-> - **Safety**: Use interactive mode for first-time installation to review changes
+If you want to install from source or contribute to development:
+
+```bash
+# Clone repository
+git clone https://github.com/catlog22/Claude-Code-Workflow.git
+cd Claude-Code-Workflow
+
+# Install dependencies
+npm install
+
+# Global link (development mode)
+npm link
+```
 
 ## Platform Requirements
 
-- **Windows**: PowerShell 5.1+ or PowerShell Core 6+
-- **Linux/macOS**: Bash/Zsh (for installer) or PowerShell Core 6+ (for manual Install-Claude.ps1)
+- **Node.js**: 16.0.0 or higher
+- **OS**: Windows, Linux, macOS
 
-**Install PowerShell Core (if needed):**
-- **Ubuntu/Debian**: `sudo apt install powershell`
-- **macOS**: `brew install powershell`
-- **Download**: https://github.com/PowerShell/PowerShell
+Check Node.js version:
+```bash
+node --version  # Should be >= 16.0.0
+```
 
 ## ⚙️ Configuration
 
@@ -151,8 +89,8 @@ While CCW works with Claude alone, installing these tools provides enhanced anal
 
 | Tool | Purpose | Installation |
 |------|---------|--------------|
-| **ripgrep (rg)** | Fast code search | **macOS**: `brew install ripgrep`<br>**Linux**: `apt install ripgrep` (Ubuntu) / `dnf install ripgrep` (Fedora)<br>**Windows**: `winget install ripgrep` / `choco install ripgrep` / `scoop install ripgrep`<br>**Verify**: `rg --version` |
-| **jq** | JSON processing | **macOS**: `brew install jq`<br>**Linux**: `apt install jq` (Ubuntu) / `dnf install jq` (Fedora)<br>**Windows**: `winget install jq` / `choco install jq` / `scoop install jq`<br>**Verify**: `jq --version` |
+| **ripgrep (rg)** | Fast code search | **macOS**: `brew install ripgrep`<br>**Linux**: `apt install ripgrep`<br>**Windows**: `winget install ripgrep` |
+| **jq** | JSON processing | **macOS**: `brew install jq`<br>**Linux**: `apt install jq`<br>**Windows**: `winget install jq` |
 
 #### External AI Tools
 
@@ -175,28 +113,49 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recomme
 
 > **Note**: Code Index MCP has been replaced by CCW's built-in **CodexLens** (`mcp__ccw-tools__codex_lens`). No additional installation required for code indexing.
 
-⚠️ **Note**: Some workflows expect MCP tools to be available. Without them, you may experience:
-- Slower code analysis and search operations
-- Reduced context quality in some scenarios
-- Fallback to less efficient traditional tools
-- Potential unexpected behavior in advanced workflows
+## ✅ Verify Installation
+
+After installation, open **Claude Code** and check if the workflow commands are available by running:
+
+```bash
+/workflow:session:list
+```
+
+This command should be recognized in Claude Code's interface. If you see the workflow slash commands (e.g., `/workflow:*`, `/cli:*`), the installation was successful.
 
 ## Troubleshooting
 
-### PowerShell Execution Policy (Windows)
-If you get execution policy errors:
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+### Permission Errors (npm global install)
+
+**Linux/macOS**:
+```bash
+# Option 1: Use nvm to manage Node.js (recommended)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+
+# Option 2: Fix npm permissions
+mkdir ~/.npm-global
+npm config set prefix '~/.npm-global'
+echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
+source ~/.bashrc
 ```
 
+**Windows**: Run Command Prompt or PowerShell as Administrator
+
 ### Workflow Commands Not Working
+
 - Verify installation: `ls ~/.claude` (should show agents/, commands/, workflows/)
 - Restart Claude Code after installation
 - Check `/workflow:session:list` command is recognized
 
-### Permission Errors
-- **Windows**: Run PowerShell as Administrator
-- **Linux/macOS**: May need `sudo` for global PowerShell installation
+### ccw Command Not Found
+
+```bash
+# Check global install location
+npm list -g --depth=0
+
+# Ensure npm bin directory is in PATH
+npm bin -g
+```
 
 ## Support
 

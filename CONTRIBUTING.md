@@ -102,11 +102,14 @@ git checkout -b feature/your-feature-name
 ### 4. Install CCW for Testing
 
 ```bash
-# Install your development version
-bash Install-Claude.sh
+# Install dependencies
+npm install
 
-# Or on Windows
-powershell -ExecutionPolicy Bypass -File Install-Claude.ps1
+# Link your development version globally
+npm link
+
+# Verify installation
+ccw --version
 ```
 
 ---

@@ -74,16 +74,17 @@ CCW is **language-agnostic**. It works with any programming language or framewor
 
 ### How do I install CCW?
 
-**One-line installation**:
+**NPM Global Install** (Recommended):
 
-**Windows**:
-```powershell
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
+```bash
+npm install -g claude-code-workflow
 ```
 
-**Linux/macOS**:
+**Verify Installation**:
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.sh)
+ccw --version
+ccw dashboard   # Start Dashboard
+ccw view        # Start View interface
 ```
 
 See [INSTALL.md](INSTALL.md) for detailed instructions.
@@ -117,9 +118,12 @@ CCW installs to your home directory:
 
 ### How do I update CCW to the latest version?
 
-Run the installation command again. It will overwrite existing files with the latest version.
+Update via npm:
+```bash
+npm update -g claude-code-workflow
+```
 
-**Note**: Custom modifications in `~/.claude/` will be overwritten. Back up customizations first.
+**Note**: Custom modifications in `~/.claude/` will be preserved. The npm package only updates core CCW files.
 
 ### Do I need to install CLI tools?
 
