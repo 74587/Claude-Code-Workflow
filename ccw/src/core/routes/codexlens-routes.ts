@@ -1252,7 +1252,7 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
       const { backend, model_name, api_provider, api_key, litellm_endpoint } = body;
 
       // Validate backend
-      const validBackends = ['onnx', 'api', 'litellm', 'legacy'];
+      const validBackends = ['onnx', 'api', 'litellm', 'legacy', 'fastembed'];
       if (backend && !validBackends.includes(backend)) {
         return { success: false, error: `Invalid backend: ${backend}. Valid options: ${validBackends.join(', ')}`, status: 400 };
       }
@@ -1307,6 +1307,129 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         return { success: false, error: err.message, status: 500 };
       }
     });
+    return true;
+  }
+
+  // ============================================================
+  // RERANKER MODEL MANAGEMENT ENDPOINTS
+  // ============================================================
+
+  // API: List Reranker Models (list available reranker models)
+  if (pathname === '/api/codexlens/reranker/models' && req.method === 'GET') {
+    try {
+      // Check if CodexLens is installed first
+      const venvStatus = await checkVenvStatus();
+      if (!venvStatus.ready) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'CodexLens not installed' }));
+        return true;
+      }
+      const result = await executeCodexLens(['reranker-model-list', '--json']);
+      if (result.success) {
+        try {
+          const parsed = extractJSON(result.output);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(parsed));
+        } catch {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, result: { models: [] }, output: result.output }));
+        }
+      } else {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: result.error }));
+      }
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+    return true;
+  }
+
+  // API: Download Reranker Model (download reranker model by profile)
+  if (pathname === '/api/codexlens/reranker/models/download' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { profile } = body;
+
+      if (!profile) {
+        return { success: false, error: 'profile is required', status: 400 };
+      }
+
+      try {
+        const result = await executeCodexLens(['reranker-model-download', profile, '--json'], { timeout: 600000 }); // 10 min for download
+        if (result.success) {
+          try {
+            const parsed = extractJSON(result.output);
+            return { success: true, ...parsed };
+          } catch {
+            return { success: true, output: result.output };
+          }
+        } else {
+          return { success: false, error: result.error, status: 500 };
+        }
+      } catch (err) {
+        return { success: false, error: err.message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // API: Delete Reranker Model (delete reranker model by profile)
+  if (pathname === '/api/codexlens/reranker/models/delete' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { profile } = body;
+
+      if (!profile) {
+        return { success: false, error: 'profile is required', status: 400 };
+      }
+
+      try {
+        const result = await executeCodexLens(['reranker-model-delete', profile, '--json']);
+        if (result.success) {
+          try {
+            const parsed = extractJSON(result.output);
+            return { success: true, ...parsed };
+          } catch {
+            return { success: true, output: result.output };
+          }
+        } else {
+          return { success: false, error: result.error, status: 500 };
+        }
+      } catch (err) {
+        return { success: false, error: err.message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // API: Reranker Model Info (get reranker model info by profile)
+  if (pathname === '/api/codexlens/reranker/models/info' && req.method === 'GET') {
+    const profile = url.searchParams.get('profile');
+
+    if (!profile) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'profile parameter is required' }));
+      return true;
+    }
+
+    try {
+      const result = await executeCodexLens(['reranker-model-info', profile, '--json']);
+      if (result.success) {
+        try {
+          const parsed = extractJSON(result.output);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(parsed));
+        } catch {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Failed to parse response' }));
+        }
+      } else {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: result.error }));
+      }
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
     return true;
   }
 

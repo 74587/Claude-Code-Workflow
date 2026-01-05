@@ -12,6 +12,66 @@ try:
 except ImportError:
     FASTEMBED_AVAILABLE = False
 
+try:
+    from fastembed import TextCrossEncoder
+    RERANKER_AVAILABLE = True
+except ImportError:
+    RERANKER_AVAILABLE = False
+
+
+# Reranker model profiles with metadata
+# Note: fastembed TextCrossEncoder uses ONNX models from HuggingFace
+RERANKER_MODEL_PROFILES = {
+    "ms-marco-mini": {
+        "model_name": "Xenova/ms-marco-MiniLM-L-6-v2",
+        "cache_name": "Xenova/ms-marco-MiniLM-L-6-v2",
+        "size_mb": 90,
+        "description": "Fast, lightweight reranker (default)",
+        "use_case": "Quick prototyping, resource-constrained environments",
+        "recommended": True,
+    },
+    "ms-marco-12": {
+        "model_name": "Xenova/ms-marco-MiniLM-L-12-v2",
+        "cache_name": "Xenova/ms-marco-MiniLM-L-12-v2",
+        "size_mb": 130,
+        "description": "Better quality, 12-layer MiniLM",
+        "use_case": "General purpose reranking with better accuracy",
+        "recommended": True,
+    },
+    "bge-base": {
+        "model_name": "BAAI/bge-reranker-base",
+        "cache_name": "BAAI/bge-reranker-base",
+        "size_mb": 280,
+        "description": "BGE reranker base model",
+        "use_case": "High-quality reranking for production",
+        "recommended": True,
+    },
+    "bge-large": {
+        "model_name": "BAAI/bge-reranker-large",
+        "cache_name": "BAAI/bge-reranker-large",
+        "size_mb": 560,
+        "description": "BGE reranker large model (high resource usage)",
+        "use_case": "Maximum quality reranking",
+        "recommended": False,
+    },
+    "jina-tiny": {
+        "model_name": "jinaai/jina-reranker-v1-tiny-en",
+        "cache_name": "jinaai/jina-reranker-v1-tiny-en",
+        "size_mb": 70,
+        "description": "Jina tiny reranker, very fast",
+        "use_case": "Ultra-low latency applications",
+        "recommended": True,
+    },
+    "jina-turbo": {
+        "model_name": "jinaai/jina-reranker-v1-turbo-en",
+        "cache_name": "jinaai/jina-reranker-v1-turbo-en",
+        "size_mb": 150,
+        "description": "Jina turbo reranker, balanced",
+        "use_case": "Fast reranking with good accuracy",
+        "recommended": True,
+    },
+}
+
 
 # Model profiles with metadata
 # Note: 768d is max recommended dimension for optimal performance/quality balance
@@ -345,6 +405,238 @@ def get_model_info(profile: str) -> Dict[str, any]:
             "description": info["description"],
             "use_case": info["use_case"],
             "installed": installed,
+            "cache_path": str(model_cache_path) if installed else None,
+        },
+    }
+
+
+# ============================================================================
+# Reranker Model Management Functions
+# ============================================================================
+
+
+def list_reranker_models() -> Dict[str, any]:
+    """List available reranker model profiles and their installation status.
+
+    Returns:
+        Dictionary with reranker model profiles, installed status, and cache info
+    """
+    if not RERANKER_AVAILABLE:
+        return {
+            "success": False,
+            "error": "fastembed reranker not available. Install with: pip install fastembed>=0.4.0",
+        }
+
+    cache_dir = get_cache_dir()
+    cache_exists = cache_dir.exists()
+
+    models = []
+    for profile, info in RERANKER_MODEL_PROFILES.items():
+        model_name = info["model_name"]
+
+        # Check if model is cached
+        installed = False
+        cache_size_mb = 0
+
+        if cache_exists:
+            model_cache_path = _get_model_cache_path(cache_dir, info)
+            if model_cache_path.exists():
+                installed = True
+                total_size = sum(
+                    f.stat().st_size
+                    for f in model_cache_path.rglob("*")
+                    if f.is_file()
+                )
+                cache_size_mb = round(total_size / (1024 * 1024), 1)
+
+        models.append({
+            "profile": profile,
+            "model_name": model_name,
+            "estimated_size_mb": info["size_mb"],
+            "actual_size_mb": cache_size_mb if installed else None,
+            "description": info["description"],
+            "use_case": info["use_case"],
+            "installed": installed,
+            "recommended": info.get("recommended", True),
+        })
+
+    return {
+        "success": True,
+        "result": {
+            "models": models,
+            "cache_dir": str(cache_dir),
+            "cache_exists": cache_exists,
+        },
+    }
+
+
+def download_reranker_model(profile: str, progress_callback: Optional[callable] = None) -> Dict[str, any]:
+    """Download a reranker model by profile name.
+
+    Args:
+        profile: Reranker model profile name
+        progress_callback: Optional callback function to report progress
+
+    Returns:
+        Result dictionary with success status
+    """
+    if not RERANKER_AVAILABLE:
+        return {
+            "success": False,
+            "error": "fastembed reranker not available. Install with: pip install fastembed>=0.4.0",
+        }
+
+    if profile not in RERANKER_MODEL_PROFILES:
+        return {
+            "success": False,
+            "error": f"Unknown reranker profile: {profile}. Available: {', '.join(RERANKER_MODEL_PROFILES.keys())}",
+        }
+
+    info = RERANKER_MODEL_PROFILES[profile]
+    model_name = info["model_name"]
+
+    try:
+        cache_dir = get_cache_dir()
+
+        if progress_callback:
+            progress_callback(f"Downloading reranker {model_name}...")
+
+        # Download model by instantiating TextCrossEncoder with explicit cache_dir
+        reranker = TextCrossEncoder(model_name=model_name, cache_dir=str(cache_dir))
+
+        # Trigger actual download by calling rerank
+        if progress_callback:
+            progress_callback(f"Initializing {model_name}...")
+
+        list(reranker.rerank("test query", ["test document"]))
+
+        if progress_callback:
+            progress_callback(f"Reranker {model_name} downloaded successfully")
+
+        # Get cache info
+        model_cache_path = _get_model_cache_path(cache_dir, info)
+
+        cache_size = 0
+        if model_cache_path.exists():
+            total_size = sum(
+                f.stat().st_size
+                for f in model_cache_path.rglob("*")
+                if f.is_file()
+            )
+            cache_size = round(total_size / (1024 * 1024), 1)
+
+        return {
+            "success": True,
+            "result": {
+                "profile": profile,
+                "model_name": model_name,
+                "cache_size_mb": cache_size,
+                "cache_path": str(model_cache_path),
+            },
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Failed to download reranker model: {str(e)}",
+        }
+
+
+def delete_reranker_model(profile: str) -> Dict[str, any]:
+    """Delete a downloaded reranker model from cache.
+
+    Args:
+        profile: Reranker model profile name to delete
+
+    Returns:
+        Result dictionary with success status
+    """
+    if profile not in RERANKER_MODEL_PROFILES:
+        return {
+            "success": False,
+            "error": f"Unknown reranker profile: {profile}. Available: {', '.join(RERANKER_MODEL_PROFILES.keys())}",
+        }
+
+    info = RERANKER_MODEL_PROFILES[profile]
+    model_name = info["model_name"]
+    cache_dir = get_cache_dir()
+    model_cache_path = _get_model_cache_path(cache_dir, info)
+
+    if not model_cache_path.exists():
+        return {
+            "success": False,
+            "error": f"Reranker model {profile} ({model_name}) is not installed",
+        }
+
+    try:
+        total_size = sum(
+            f.stat().st_size
+            for f in model_cache_path.rglob("*")
+            if f.is_file()
+        )
+        size_mb = round(total_size / (1024 * 1024), 1)
+
+        shutil.rmtree(model_cache_path)
+
+        return {
+            "success": True,
+            "result": {
+                "profile": profile,
+                "model_name": model_name,
+                "deleted_size_mb": size_mb,
+                "cache_path": str(model_cache_path),
+            },
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Failed to delete reranker model: {str(e)}",
+        }
+
+
+def get_reranker_model_info(profile: str) -> Dict[str, any]:
+    """Get detailed information about a reranker model profile.
+
+    Args:
+        profile: Reranker model profile name
+
+    Returns:
+        Result dictionary with model information
+    """
+    if profile not in RERANKER_MODEL_PROFILES:
+        return {
+            "success": False,
+            "error": f"Unknown reranker profile: {profile}. Available: {', '.join(RERANKER_MODEL_PROFILES.keys())}",
+        }
+
+    info = RERANKER_MODEL_PROFILES[profile]
+    model_name = info["model_name"]
+
+    cache_dir = get_cache_dir()
+    model_cache_path = _get_model_cache_path(cache_dir, info)
+    installed = model_cache_path.exists()
+
+    cache_size_mb = None
+    if installed:
+        total_size = sum(
+            f.stat().st_size
+            for f in model_cache_path.rglob("*")
+            if f.is_file()
+        )
+        cache_size_mb = round(total_size / (1024 * 1024), 1)
+
+    return {
+        "success": True,
+        "result": {
+            "profile": profile,
+            "model_name": model_name,
+            "estimated_size_mb": info["size_mb"],
+            "actual_size_mb": cache_size_mb,
+            "description": info["description"],
+            "use_case": info["use_case"],
+            "installed": installed,
+            "recommended": info.get("recommended", True),
             "cache_path": str(model_cache_path) if installed else None,
         },
     }

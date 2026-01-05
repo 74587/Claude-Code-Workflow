@@ -660,7 +660,7 @@ window.getModelLockState = getModelLockState;
 // Embedding and Reranker are configured separately
 var ENV_VAR_GROUPS = {
   embedding: {
-    label: 'Embedding Configuration',
+    labelKey: 'codexlens.envGroup.embedding',
     icon: 'box',
     vars: {
       'CODEXLENS_EMBEDDING_BACKEND': { label: 'Backend', type: 'select', options: ['fastembed', 'litellm'], default: 'fastembed', settingsPath: 'embedding.backend' },
@@ -687,7 +687,7 @@ var ENV_VAR_GROUPS = {
     }
   },
   reranker: {
-    label: 'Reranker Configuration',
+    labelKey: 'codexlens.envGroup.reranker',
     icon: 'arrow-up-down',
     vars: {
       'CODEXLENS_RERANKER_ENABLED': { label: 'Enabled', type: 'select', options: ['true', 'false'], default: 'true', settingsPath: 'reranker.enabled' },
@@ -711,17 +711,8 @@ var ENV_VAR_GROUPS = {
       'CODEXLENS_RERANKER_TOP_K': { label: 'Top K Results', type: 'number', placeholder: '50', default: '50', settingsPath: 'reranker.top_k', min: 5, max: 200 }
     }
   },
-  apiCredentials: {
-    label: 'API Credentials',
-    icon: 'key',
-    showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'litellm' || env['CODEXLENS_RERANKER_BACKEND'] === 'litellm' || env['CODEXLENS_RERANKER_BACKEND'] === 'api'; },
-    vars: {
-      'LITELLM_API_KEY': { label: 'API Key', placeholder: 'sk-...', type: 'password' },
-      'LITELLM_API_BASE': { label: 'API Base URL', placeholder: 'https://api.openai.com/v1' }
-    }
-  },
   concurrency: {
-    label: 'Concurrency Settings',
+    labelKey: 'codexlens.envGroup.concurrency',
     icon: 'cpu',
     vars: {
       'CODEXLENS_API_MAX_WORKERS': { label: 'Max Workers', type: 'number', placeholder: '4', default: '4', settingsPath: 'api.max_workers', min: 1, max: 32 },
@@ -729,7 +720,7 @@ var ENV_VAR_GROUPS = {
     }
   },
   cascade: {
-    label: 'Cascade Search Settings',
+    labelKey: 'codexlens.envGroup.cascade',
     icon: 'git-branch',
     vars: {
       'CODEXLENS_CASCADE_STRATEGY': { label: 'Search Strategy', type: 'select', options: ['binary', 'hybrid', 'binary_rerank', 'dense_rerank'], default: 'dense_rerank', settingsPath: 'cascade.strategy' },
@@ -738,7 +729,7 @@ var ENV_VAR_GROUPS = {
     }
   },
   llm: {
-    label: 'LLM Features',
+    labelKey: 'codexlens.envGroup.llm',
     icon: 'sparkles',
     collapsed: true,
     vars: {
@@ -802,10 +793,11 @@ async function loadEnvVariables() {
         continue;
       }
 
+      var groupLabel = group.labelKey ? t(group.labelKey) : group.label;
       html += '<div class="border border-border rounded-lg p-3">' +
         '<div class="flex items-center gap-2 mb-2 text-xs font-medium text-muted-foreground">' +
           '<i data-lucide="' + group.icon + '" class="w-3.5 h-3.5"></i>' +
-          group.label +
+          groupLabel +
         '</div>' +
         '<div class="space-y-2">';
 
@@ -927,14 +919,84 @@ async function loadEnvVariables() {
     container.innerHTML = html;
     if (window.lucide) lucide.createIcons();
 
-    // Add change handler for backend selects to refresh display
+    // Add change handler for backend selects to dynamically update model options
     var backendSelects = container.querySelectorAll('select[data-env-key*="BACKEND"]');
     backendSelects.forEach(function(select) {
       select.addEventListener('change', function() {
-        // Trigger a re-render after saving
+        var backendKey = select.getAttribute('data-env-key');
+        var newBackend = select.value;
+        var isApiBackend = newBackend === 'litellm' || newBackend === 'api';
+
+        // Determine which model input to update
+        var isEmbedding = backendKey.indexOf('EMBEDDING') !== -1;
+        var modelKey = isEmbedding ? 'CODEXLENS_EMBEDDING_MODEL' : 'CODEXLENS_RERANKER_MODEL';
+        var modelInput = document.querySelector('[data-env-key="' + modelKey + '"]');
+
+        if (modelInput) {
+          var datalistId = modelInput.getAttribute('list');
+          var datalist = document.getElementById(datalistId);
+
+          if (datalist) {
+            // Get model config from ENV_VAR_GROUPS
+            var groupKey = isEmbedding ? 'embedding' : 'reranker';
+            var modelConfig = ENV_VAR_GROUPS[groupKey]?.vars[modelKey];
+
+            if (modelConfig) {
+              var modelList = isApiBackend
+                ? (modelConfig.apiModels || modelConfig.models || [])
+                : (modelConfig.localModels || modelConfig.models || []);
+              var configuredModels = isEmbedding ? configuredEmbeddingModels : configuredRerankerModels;
+
+              // Rebuild datalist
+              var html = '';
+              if (isApiBackend && configuredModels.length > 0) {
+                html += '<option value="" disabled>-- ' + t('codexlens.configuredInApiSettings') + ' --</option>';
+                configuredModels.forEach(function(model) {
+                  var providers = model.providers ? model.providers.join(', ') : '';
+                  html += '<option value="' + escapeHtml(model.modelId) + '">' +
+                    escapeHtml(model.modelName || model.modelId) +
+                    (providers ? ' (' + escapeHtml(providers) + ')' : '') +
+                    '</option>';
+                });
+                if (modelList.length > 0) {
+                  html += '<option value="" disabled>-- ' + t('codexlens.commonModels') + ' --</option>';
+                }
+              }
+
+              modelList.forEach(function(group) {
+                group.items.forEach(function(model) {
+                  var exists = configuredModels.some(function(m) { return m.modelId === model; });
+                  if (!exists) {
+                    html += '<option value="' + escapeHtml(model) + '">' + escapeHtml(group.group) + ': ' + escapeHtml(model) + '</option>';
+                  }
+                });
+              });
+
+              datalist.innerHTML = html;
+
+              // Clear current model value if it doesn't match new backend type
+              var currentValue = modelInput.value;
+              var isCurrentLocal = modelConfig.localModels?.some(function(g) {
+                return g.items.includes(currentValue);
+              });
+              var isCurrentApi = modelConfig.apiModels?.some(function(g) {
+                return g.items.includes(currentValue);
+              });
+
+              // If switching to API and current is local (or vice versa), clear or set default
+              if (isApiBackend && isCurrentLocal) {
+                modelInput.value = '';
+                modelInput.placeholder = t('codexlens.selectApiModel');
+              } else if (!isApiBackend && isCurrentApi) {
+                modelInput.value = modelConfig.localModels?.[0]?.items?.[0] || '';
+              }
+            }
+          }
+        }
+
+        // Save and refresh after a short delay
         saveEnvVariables().then(function() {
           loadEnvVariables();
-          // Refresh model lists to reflect new backend
           loadModelList();
           loadRerankerModelList();
         });
@@ -947,6 +1009,7 @@ async function loadEnvVariables() {
 
 /**
  * Apply LiteLLM provider settings to environment variables
+ * Note: API credentials are now managed via API Settings page
  */
 function applyLiteLLMProvider(providerId) {
   if (!providerId) return;
@@ -961,19 +1024,9 @@ function applyLiteLLMProvider(providerId) {
     return;
   }
 
-  // Auto-fill fields
-  var apiKeyInput = document.querySelector('[data-env-key="LITELLM_API_KEY"]');
-  var apiBaseInput = document.querySelector('[data-env-key="LITELLM_API_BASE"]');
-  var embeddingModelInput = document.querySelector('[data-env-key="LITELLM_EMBEDDING_MODEL"]');
-  var rerankerModelInput = document.querySelector('[data-env-key="LITELLM_RERANKER_MODEL"]');
-
-  if (apiKeyInput && provider.api_key) {
-    apiKeyInput.value = provider.api_key;
-  }
-
-  if (apiBaseInput && provider.api_base) {
-    apiBaseInput.value = provider.api_base;
-  }
+  // Auto-fill model fields based on provider
+  var embeddingModelInput = document.querySelector('[data-env-key="CODEXLENS_EMBEDDING_MODEL"]');
+  var rerankerModelInput = document.querySelector('[data-env-key="CODEXLENS_RERANKER_MODEL"]');
 
   // Set default models based on provider type
   var providerName = (provider.name || provider.id || '').toLowerCase();
@@ -1706,17 +1759,18 @@ async function deleteModel(profile) {
 // RERANKER MODEL MANAGEMENT
 // ============================================================
 
-// Available reranker models (fastembed TextCrossEncoder)
+// Available reranker models (fastembed TextCrossEncoder) - fallback if API unavailable
 var RERANKER_MODELS = [
-  { id: 'ms-marco-mini', name: 'Xenova/ms-marco-MiniLM-L-6-v2', size: 80, desc: 'Fast, lightweight' },
-  { id: 'ms-marco-12', name: 'Xenova/ms-marco-MiniLM-L-12-v2', size: 120, desc: 'Better accuracy' },
-  { id: 'bge-base', name: 'BAAI/bge-reranker-base', size: 1040, desc: 'High quality' },
-  { id: 'jina-tiny', name: 'jinaai/jina-reranker-v1-tiny-en', size: 130, desc: 'Tiny, fast' },
-  { id: 'jina-turbo', name: 'jinaai/jina-reranker-v1-turbo-en', size: 150, desc: 'Balanced' }
+  { id: 'ms-marco-mini', name: 'Xenova/ms-marco-MiniLM-L-6-v2', size: 90, desc: 'Fast, lightweight', recommended: true },
+  { id: 'ms-marco-12', name: 'Xenova/ms-marco-MiniLM-L-12-v2', size: 130, desc: 'Better accuracy', recommended: true },
+  { id: 'bge-base', name: 'BAAI/bge-reranker-base', size: 280, desc: 'High quality', recommended: true },
+  { id: 'bge-large', name: 'BAAI/bge-reranker-large', size: 560, desc: 'Maximum quality', recommended: false },
+  { id: 'jina-tiny', name: 'jinaai/jina-reranker-v1-tiny-en', size: 70, desc: 'Tiny, fast', recommended: true },
+  { id: 'jina-turbo', name: 'jinaai/jina-reranker-v1-turbo-en', size: 150, desc: 'Balanced', recommended: true }
 ];
 
 /**
- * Load reranker model list
+ * Load reranker model list with download/delete support
  */
 async function loadRerankerModelList() {
   // Update both containers (advanced tab and page model management)
@@ -1725,25 +1779,57 @@ async function loadRerankerModelList() {
     document.getElementById('pageRerankerModelListContainer')
   ].filter(Boolean);
 
-  if (containers.length === 0) return;
+  console.log('[CodexLens] loadRerankerModelList - containers found:', containers.length);
+
+  if (containers.length === 0) {
+    console.warn('[CodexLens] No reranker model list containers found');
+    return;
+  }
 
   try {
-    // Get current reranker config
-    var response = await fetch('/api/codexlens/reranker/config');
-    if (!response.ok) {
-      throw new Error('Failed to load reranker config: ' + response.status);
+    // Fetch both config and models list in parallel
+    var [configResponse, modelsResponse] = await Promise.all([
+      fetch('/api/codexlens/reranker/config'),
+      fetch('/api/codexlens/reranker/models')
+    ]);
+
+    if (!configResponse.ok) {
+      throw new Error('Failed to load reranker config: ' + configResponse.status);
     }
-    var config = await response.json();
+    var config = await configResponse.json();
+    console.log('[CodexLens] Reranker config loaded:', { backend: config.backend, model: config.model_name });
 
     // Handle API response format
     var currentModel = config.model_name || config.result?.reranker_model || 'Xenova/ms-marco-MiniLM-L-6-v2';
     var currentBackend = config.backend || config.result?.reranker_backend || 'fastembed';
 
+    // Try to use API models, fall back to static list
+    var models = RERANKER_MODELS;
+    var modelsFromApi = false;
+    if (modelsResponse.ok) {
+      var modelsData = await modelsResponse.json();
+      if (modelsData.success && modelsData.result && modelsData.result.models) {
+        models = modelsData.result.models.map(function(m) {
+          return {
+            id: m.profile,
+            name: m.model_name,
+            size: m.installed && m.actual_size_mb ? m.actual_size_mb : m.estimated_size_mb,
+            desc: m.description,
+            installed: m.installed,
+            recommended: m.recommended
+          };
+        });
+        modelsFromApi = true;
+        console.log('[CodexLens] Loaded ' + models.length + ' reranker models from API');
+      }
+    }
+
     var html = '<div class="space-y-2">';
 
     // Show current backend status
-    var backendLabel = currentBackend === 'litellm' ? 'API (LiteLLM)' : 'Local (FastEmbed)';
-    var backendIcon = currentBackend === 'litellm' ? 'cloud' : 'hard-drive';
+    var isApiBackend = currentBackend === 'litellm' || currentBackend === 'api';
+    var backendLabel = isApiBackend ? 'API (' + (currentBackend === 'litellm' ? 'LiteLLM' : 'Remote') + ')' : 'Local (FastEmbed)';
+    var backendIcon = isApiBackend ? 'cloud' : 'hard-drive';
     html +=
       '<div class="flex items-center justify-between p-2 bg-primary/5 rounded border border-primary/20 mb-3">' +
         '<div class="flex items-center gap-2">' +
@@ -1753,59 +1839,94 @@ async function loadRerankerModelList() {
         '<span class="text-xs text-muted-foreground">via Environment Variables</span>' +
       '</div>';
 
-    // Show models for local backend only
-    if (currentBackend === 'fastembed' || currentBackend === 'onnx') {
-      // Helper to match model names (handles different prefixes like Xenova/ vs cross-encoder/)
-      function modelMatches(current, target) {
-        if (!current || !target) return false;
-        // Exact match
-        if (current === target) return true;
-        // Match by base name (after last /)
-        var currentBase = current.split('/').pop();
-        var targetBase = target.split('/').pop();
-        return currentBase === targetBase;
-      }
+    // Helper to match model names (handles different prefixes like Xenova/ vs cross-encoder/)
+    function modelMatches(current, target) {
+      if (!current || !target) return false;
+      // Exact match
+      if (current === target) return true;
+      // Match by base name (after last /)
+      var currentBase = current.split('/').pop();
+      var targetBase = target.split('/').pop();
+      return currentBase === targetBase;
+    }
 
-      RERANKER_MODELS.forEach(function(model) {
-        var isActive = modelMatches(currentModel, model.name);
-        var statusIcon = isActive
-          ? '<i data-lucide="check-circle" class="w-3.5 h-3.5 text-success"></i>'
-          : '<i data-lucide="circle" class="w-3.5 h-3.5 text-muted"></i>';
-
-        var actionBtn = isActive
-          ? '<span class="text-xs text-success">Active</span>'
-          : '<button class="text-xs text-primary hover:underline" onclick="selectRerankerModel(\'' + model.name + '\')">Select</button>';
-
-        html +=
-          '<div class="flex items-center justify-between p-2 bg-muted/30 rounded" id="reranker-' + model.id + '">' +
-            '<div class="flex items-center gap-2">' +
-              statusIcon +
-              '<span class="text-sm font-medium">' + model.id + '</span>' +
-              '<span class="text-xs text-muted-foreground">' + model.desc + '</span>' +
-            '</div>' +
-            '<div class="flex items-center gap-3">' +
-              '<span class="text-xs text-muted-foreground">~' + model.size + ' MB</span>' +
-              actionBtn +
-            '</div>' +
-          '</div>';
-      });
-    } else {
-      // API/LiteLLM backend - show current model info
+    // Show API info when using API backend
+    if (isApiBackend) {
       html +=
-        '<div class="p-3 bg-muted/30 rounded">' +
-          '<div class="flex items-center justify-center gap-2 mb-2">' +
-            '<i data-lucide="cloud" class="w-5 h-5 text-primary"></i>' +
-            '<span class="text-sm font-medium">Using API Reranker</span>' +
+        '<div class="p-3 bg-blue-500/10 rounded border border-blue-500/20 mb-3">' +
+          '<div class="flex items-center gap-2 mb-2">' +
+            '<i data-lucide="cloud" class="w-4 h-4 text-blue-500"></i>' +
+            '<span class="text-sm font-medium">' + t('codexlens.usingApiReranker') + '</span>' +
           '</div>' +
-          '<div class="text-center">' +
-            '<div class="text-xs text-muted-foreground mb-1">Current Model:</div>' +
-            '<div class="text-sm font-mono bg-background px-2 py-1 rounded border border-border inline-block">' +
+          '<div class="flex items-center gap-2">' +
+            '<span class="text-xs text-muted-foreground">' + t('codexlens.currentModel') + ':</span>' +
+            '<span class="text-xs font-mono bg-background px-2 py-0.5 rounded border border-border">' +
               escapeHtml(currentModel) +
-            '</div>' +
+            '</span>' +
           '</div>' +
-          '<div class="text-xs text-muted-foreground mt-2 text-center">Configure via Environment Variables below</div>' +
         '</div>';
     }
+
+    // Local models section title
+    html +=
+      '<div class="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-2">' +
+        '<i data-lucide="hard-drive" class="w-3.5 h-3.5"></i>' +
+        t('codexlens.localModels') +
+      '</div>';
+
+    models.forEach(function(model) {
+      var isActive = !isApiBackend && modelMatches(currentModel, model.name);
+      var isInstalled = model.installed;
+
+      // Status icon
+      var statusIcon;
+      if (isActive) {
+        statusIcon = '<i data-lucide="check-circle" class="w-3.5 h-3.5 text-success"></i>';
+      } else if (isInstalled) {
+        statusIcon = '<i data-lucide="check" class="w-3.5 h-3.5 text-primary"></i>';
+      } else {
+        statusIcon = '<i data-lucide="circle" class="w-3.5 h-3.5 text-muted"></i>';
+      }
+
+      // Action buttons
+      var actionBtns = '';
+      if (isActive) {
+        actionBtns = '<span class="text-xs text-success">' + t('codexlens.active') + '</span>';
+        if (isInstalled) {
+          actionBtns += '<button class="text-xs text-destructive hover:underline ml-2" onclick="deleteRerankerModel(\'' + model.id + '\')">' + t('codexlens.deleteModel') + '</button>';
+        }
+      } else if (isInstalled) {
+        // Installed but not active - can select or delete
+        if (isApiBackend) {
+          actionBtns = '<button class="text-xs text-primary hover:underline" onclick="switchToLocalReranker(\'' + model.name + '\')">' + t('codexlens.useLocal') + '</button>';
+        } else {
+          actionBtns = '<button class="text-xs text-primary hover:underline" onclick="selectRerankerModel(\'' + model.name + '\')">' + t('codexlens.select') + '</button>';
+        }
+        actionBtns += '<button class="text-xs text-destructive hover:underline ml-2" onclick="deleteRerankerModel(\'' + model.id + '\')">' + t('codexlens.deleteModel') + '</button>';
+      } else {
+        // Not installed - show download button
+        actionBtns = '<button class="text-xs text-primary hover:underline" onclick="downloadRerankerModel(\'' + model.id + '\')">' + t('codexlens.downloadModel') + '</button>';
+      }
+
+      // Size display
+      var sizeText = (isInstalled && model.size) ? model.size + ' MB' : '~' + model.size + ' MB';
+
+      // Recommendation badge
+      var recBadge = model.recommended ? ' <span class="text-xs text-yellow-500">★</span>' : '';
+
+      html +=
+        '<div class="flex items-center justify-between p-2 bg-muted/30 rounded" id="reranker-' + model.id + '">' +
+          '<div class="flex items-center gap-2">' +
+            statusIcon +
+            '<span class="text-sm font-medium">' + model.id + recBadge + '</span>' +
+            '<span class="text-xs text-muted-foreground">' + model.desc + '</span>' +
+          '</div>' +
+          '<div class="flex items-center gap-3">' +
+            '<span class="text-xs text-muted-foreground">' + sizeText + '</span>' +
+            actionBtns +
+          '</div>' +
+        '</div>';
+    });
 
     html += '</div>';
     // Update all containers
@@ -1818,6 +1939,68 @@ async function loadRerankerModelList() {
     containers.forEach(function(container) {
       container.innerHTML = errorHtml;
     });
+  }
+}
+
+/**
+ * Download reranker model
+ */
+async function downloadRerankerModel(profile) {
+  var container = document.getElementById('reranker-' + profile);
+  if (container) {
+    container.innerHTML =
+      '<div class="flex items-center gap-2 p-2">' +
+        '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>' +
+        '<span class="text-sm">' + t('codexlens.downloading') + '</span>' +
+      '</div>';
+    if (window.lucide) lucide.createIcons();
+  }
+
+  try {
+    var response = await fetch('/api/codexlens/reranker/models/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile: profile })
+    });
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast(t('codexlens.downloadComplete') + ': ' + profile, 'success');
+      loadRerankerModelList();
+    } else {
+      showRefreshToast(t('codexlens.downloadFailed') + ': ' + (result.error || 'Unknown error'), 'error');
+      loadRerankerModelList();
+    }
+  } catch (err) {
+    showRefreshToast(t('codexlens.downloadFailed') + ': ' + err.message, 'error');
+    loadRerankerModelList();
+  }
+}
+
+/**
+ * Delete reranker model
+ */
+async function deleteRerankerModel(profile) {
+  if (!confirm(t('codexlens.deleteModelConfirm') + ' ' + profile + '?')) {
+    return;
+  }
+
+  try {
+    var response = await fetch('/api/codexlens/reranker/models/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile: profile })
+    });
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast(t('codexlens.modelDeleted') + ': ' + profile, 'success');
+      loadRerankerModelList();
+    } else {
+      showRefreshToast('Failed to delete: ' + (result.error || 'Unknown error'), 'error');
+    }
+  } catch (err) {
+    showRefreshToast('Error: ' + err.message, 'error');
   }
 }
 
@@ -1867,6 +2050,47 @@ async function selectRerankerModel(modelName) {
   }
 }
 
+/**
+ * Switch from API to local reranker backend and select model
+ */
+async function switchToLocalReranker(modelName) {
+  try {
+    // First switch backend to fastembed
+    var backendResponse = await fetch('/api/codexlens/reranker/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ backend: 'fastembed' })
+    });
+    var backendResult = await backendResponse.json();
+
+    if (!backendResult.success) {
+      showRefreshToast('Failed to switch backend: ' + (backendResult.error || 'Unknown error'), 'error');
+      return;
+    }
+
+    // Then select the model
+    var modelResponse = await fetch('/api/codexlens/reranker/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model_name: modelName })
+    });
+    var modelResult = await modelResponse.json();
+
+    if (modelResult.success) {
+      showRefreshToast(t('codexlens.switchedToLocal') + ': ' + modelName.split('/').pop(), 'success');
+      loadRerankerModelList();
+      // Also reload env variables to reflect the change
+      if (typeof loadEnvVariables === 'function') {
+        loadEnvVariables();
+      }
+    } else {
+      showRefreshToast('Failed to select model: ' + (modelResult.error || 'Unknown error'), 'error');
+    }
+  } catch (err) {
+    showRefreshToast('Error: ' + err.message, 'error');
+  }
+}
+
 // ============================================================
 // MODEL TAB & MODE MANAGEMENT
 // ============================================================
@@ -1896,12 +2120,16 @@ function switchCodexLensModelTab(tabName) {
 
   if (embeddingContent && rerankerContent) {
     if (tabName === 'embedding') {
+      embeddingContent.classList.remove('hidden');
       embeddingContent.style.display = 'block';
+      rerankerContent.classList.add('hidden');
       rerankerContent.style.display = 'none';
       // Reload embedding models when switching to embedding tab
       loadModelList();
     } else {
+      embeddingContent.classList.add('hidden');
       embeddingContent.style.display = 'none';
+      rerankerContent.classList.remove('hidden');
       rerankerContent.style.display = 'block';
       // Load reranker models when switching to reranker tab
       loadRerankerModelList();

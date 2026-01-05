@@ -1975,6 +1975,175 @@ def model_info(
         console.print(f"  Use case: {data['use_case']}")
 
 
+# ==================== Reranker Model Management Commands ====================
+
+
+@app.command(name="reranker-model-list")
+def reranker_model_list(
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+) -> None:
+    """List available reranker models and their installation status.
+
+    Shows reranker model profiles with:
+    - Installation status
+    - Model size
+    - Use case recommendations
+    """
+    try:
+        from codexlens.cli.model_manager import list_reranker_models
+
+        result = list_reranker_models()
+
+        if json_mode:
+            print_json(**result)
+        else:
+            if not result["success"]:
+                console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+                raise typer.Exit(code=1)
+
+            data = result["result"]
+            models = data["models"]
+            cache_dir = data["cache_dir"]
+            cache_exists = data["cache_exists"]
+
+            console.print("[bold]Available Reranker Models:[/bold]")
+            console.print(f"Cache directory: [dim]{cache_dir}[/dim] {'(exists)' if cache_exists else '(not found)'}\n")
+
+            table = Table(show_header=True, header_style="bold")
+            table.add_column("Profile", style="cyan")
+            table.add_column("Model", style="dim")
+            table.add_column("Size", justify="right")
+            table.add_column("Status")
+            table.add_column("Description")
+
+            for m in models:
+                status = "[green]✓ Installed[/green]" if m["installed"] else "[dim]Not installed[/dim]"
+                size = f"{m['actual_size_mb']:.1f} MB" if m["installed"] and m["actual_size_mb"] else f"~{m['estimated_size_mb']} MB"
+                rec = " [yellow]★[/yellow]" if m.get("recommended") else ""
+                table.add_row(m["profile"] + rec, m["model_name"], size, status, m["description"])
+
+            console.print(table)
+            console.print("\n[yellow]★[/yellow] = Recommended")
+
+    except ImportError:
+        if json_mode:
+            print_json(success=False, error="fastembed reranker not available. Install with: pip install fastembed>=0.4.0")
+        else:
+            console.print("[red]Error:[/red] fastembed reranker not available")
+            console.print("Install with: [cyan]pip install fastembed>=0.4.0[/cyan]")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="reranker-model-download")
+def reranker_model_download(
+    profile: str = typer.Argument(..., help="Reranker model profile to download."),
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+) -> None:
+    """Download a reranker model by profile name.
+
+    Example:
+        codexlens reranker-model-download ms-marco-mini  # Download default reranker
+    """
+    try:
+        from codexlens.cli.model_manager import download_reranker_model
+
+        if not json_mode:
+            console.print(f"[bold]Downloading reranker model:[/bold] {profile}")
+            console.print("[dim]This may take a few minutes depending on your internet connection...[/dim]\n")
+
+        progress_callback = None if json_mode else lambda msg: console.print(f"[cyan]{msg}[/cyan]")
+
+        result = download_reranker_model(profile, progress_callback=progress_callback)
+
+        if json_mode:
+            print_json(**result)
+        else:
+            if not result["success"]:
+                console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+                raise typer.Exit(code=1)
+
+            data = result["result"]
+            console.print(f"[green]✓[/green] Reranker model downloaded successfully!")
+            console.print(f"  Profile: {data['profile']}")
+            console.print(f"  Model: {data['model_name']}")
+            console.print(f"  Cache size: {data['cache_size_mb']:.1f} MB")
+            console.print(f"  Location: [dim]{data['cache_path']}[/dim]")
+
+    except ImportError:
+        if json_mode:
+            print_json(success=False, error="fastembed reranker not available. Install with: pip install fastembed>=0.4.0")
+        else:
+            console.print("[red]Error:[/red] fastembed reranker not available")
+            console.print("Install with: [cyan]pip install fastembed>=0.4.0[/cyan]")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="reranker-model-delete")
+def reranker_model_delete(
+    profile: str = typer.Argument(..., help="Reranker model profile to delete."),
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+) -> None:
+    """Delete a downloaded reranker model from cache.
+
+    Example:
+        codexlens reranker-model-delete ms-marco-mini  # Delete reranker model
+    """
+    from codexlens.cli.model_manager import delete_reranker_model
+
+    if not json_mode:
+        console.print(f"[bold yellow]Deleting reranker model:[/bold yellow] {profile}")
+
+    result = delete_reranker_model(profile)
+
+    if json_mode:
+        print_json(**result)
+    else:
+        if not result["success"]:
+            console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+            raise typer.Exit(code=1)
+
+        data = result["result"]
+        console.print(f"[green]✓[/green] Reranker model deleted successfully!")
+        console.print(f"  Profile: {data['profile']}")
+        console.print(f"  Model: {data['model_name']}")
+        console.print(f"  Freed space: {data['deleted_size_mb']:.1f} MB")
+
+
+@app.command(name="reranker-model-info")
+def reranker_model_info(
+    profile: str = typer.Argument(..., help="Reranker model profile to get info."),
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+) -> None:
+    """Get detailed information about a reranker model profile.
+
+    Example:
+        codexlens reranker-model-info ms-marco-mini  # Get reranker model details
+    """
+    from codexlens.cli.model_manager import get_reranker_model_info
+
+    result = get_reranker_model_info(profile)
+
+    if json_mode:
+        print_json(**result)
+    else:
+        if not result["success"]:
+            console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+            raise typer.Exit(code=1)
+
+        data = result["result"]
+        console.print(f"[bold]Reranker Model Profile:[/bold] {data['profile']}")
+        console.print(f"  Model name: {data['model_name']}")
+        console.print(f"  Status: {'[green]Installed[/green]' if data['installed'] else '[dim]Not installed[/dim]'}")
+        if data['installed'] and data['actual_size_mb']:
+            console.print(f"  Cache size: {data['actual_size_mb']:.1f} MB")
+            console.print(f"  Location: [dim]{data['cache_path']}[/dim]")
+        else:
+            console.print(f"  Estimated size: ~{data['estimated_size_mb']} MB")
+        console.print(f"  Recommended: {'[green]Yes[/green]' if data.get('recommended') else '[dim]No[/dim]'}")
+        console.print(f"\n  Description: {data['description']}")
+        console.print(f"  Use case: {data['use_case']}")
+
+
 # ==================== Embedding Management Commands ====================
 
 @app.command(name="embeddings-status", hidden=True, deprecated=True)
