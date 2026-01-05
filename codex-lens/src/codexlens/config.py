@@ -339,11 +339,11 @@ class Config:
                 self.enable_cross_encoder_rerank = reranker["enabled"]
             if "backend" in reranker:
                 backend = reranker["backend"]
-                if backend in {"onnx", "api", "litellm", "legacy"}:
+                if backend in {"fastembed", "onnx", "api", "litellm", "legacy"}:
                     self.reranker_backend = backend
                 else:
                     log.warning(
-                        "Invalid reranker backend in %s: %r (expected 'onnx', 'api', 'litellm', or 'legacy')",
+                        "Invalid reranker backend in %s: %r (expected 'fastembed', 'onnx', 'api', 'litellm', or 'legacy')",
                         self.settings_path,
                         backend,
                     )
@@ -382,6 +382,58 @@ class Config:
                 type(exc).__name__,
                 exc,
             )
+
+        # Apply .env overrides (highest priority)
+        self._apply_env_overrides()
+
+    def _apply_env_overrides(self) -> None:
+        """Apply environment variable overrides from .env file.
+
+        Priority: default → settings.json → .env (highest)
+
+        Supported variables:
+            EMBEDDING_MODEL: Override embedding model/profile
+            EMBEDDING_BACKEND: Override embedding backend (fastembed/litellm)
+            RERANKER_MODEL: Override reranker model
+            RERANKER_BACKEND: Override reranker backend
+            RERANKER_ENABLED: Override reranker enabled state (true/false)
+        """
+        from .env_config import load_global_env
+
+        env_vars = load_global_env()
+        if not env_vars:
+            return
+
+        # Embedding overrides
+        if "EMBEDDING_MODEL" in env_vars:
+            self.embedding_model = env_vars["EMBEDDING_MODEL"]
+            log.debug("Overriding embedding_model from .env: %s", self.embedding_model)
+
+        if "EMBEDDING_BACKEND" in env_vars:
+            backend = env_vars["EMBEDDING_BACKEND"].lower()
+            if backend in {"fastembed", "litellm"}:
+                self.embedding_backend = backend
+                log.debug("Overriding embedding_backend from .env: %s", backend)
+            else:
+                log.warning("Invalid EMBEDDING_BACKEND in .env: %r", backend)
+
+        # Reranker overrides
+        if "RERANKER_MODEL" in env_vars:
+            self.reranker_model = env_vars["RERANKER_MODEL"]
+            log.debug("Overriding reranker_model from .env: %s", self.reranker_model)
+
+        if "RERANKER_BACKEND" in env_vars:
+            backend = env_vars["RERANKER_BACKEND"].lower()
+            if backend in {"fastembed", "onnx", "api", "litellm", "legacy"}:
+                self.reranker_backend = backend
+                log.debug("Overriding reranker_backend from .env: %s", backend)
+            else:
+                log.warning("Invalid RERANKER_BACKEND in .env: %r", backend)
+
+        if "RERANKER_ENABLED" in env_vars:
+            value = env_vars["RERANKER_ENABLED"].lower()
+            self.enable_cross_encoder_rerank = value in {"true", "1", "yes", "on"}
+            log.debug("Overriding reranker_enabled from .env: %s", self.enable_cross_encoder_rerank)
 
     @classmethod
     def load(cls) -> "Config":

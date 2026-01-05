@@ -73,6 +73,9 @@ Phase 5: Issue Generation & Summary
    ├─ Write to discovery-issues.jsonl
    ├─ Generate single summary.md from agent returns
    └─ Update discovery-state.json to complete
+
+Phase 6: User Action Prompt
+   └─ AskUserQuestion for next step (export/dashboard/skip)
 ```
 
 ## Perspectives
@@ -236,6 +239,44 @@ await updateDiscoveryState(outputDir, {
   updated_at: new Date().toISOString(),
   'results.issues_generated': issues.length
 });
+```
+
+**Phase 6: User Action Prompt**
+
+```javascript
+// Prompt user for next action based on discovery results
+const hasHighPriority = issues.some(i => i.priority === 'critical' || i.priority === 'high');
+const hasMediumFindings = prioritizedFindings.some(f => f.priority === 'medium');
+
+await AskUserQuestion({
+  questions: [{
+    question: `Discovery complete: ${issues.length} issues generated, ${prioritizedFindings.length} total findings. What would you like to do next?`,
+    header: "Next Step",
+    multiSelect: false,
+    options: hasHighPriority ? [
+      { label: "Export to Issues (Recommended)", description: `${issues.length} high-priority issues found - export to issue tracker for planning` },
+      { label: "Open Dashboard", description: "Review findings in ccw view before exporting" },
+      { label: "Skip", description: "Complete discovery without exporting" }
+    ] : hasMediumFindings ? [
+      { label: "Open Dashboard (Recommended)", description: "Review medium-priority findings in ccw view to decide which to export" },
+      { label: "Export to Issues", description: `Export ${issues.length} issues to tracker` },
+      { label: "Skip", description: "Complete discovery without exporting" }
+    ] : [
+      { label: "Skip (Recommended)", description: "No significant issues found - complete discovery" },
+      { label: "Open Dashboard", description: "Review all findings in ccw view" },
+      { label: "Export to Issues", description: `Export ${issues.length} issues anyway` }
+    ]
+  }]
+});
+
+// Handle response
+if (response === "Export to Issues") {
+  // Append to issues.jsonl
+  await appendJsonl('.workflow/issues/issues.jsonl', issues);
+  console.log(`Exported ${issues.length} issues. Run /issue:plan to continue.`);
+} else if (response === "Open Dashboard") {
+  console.log('Run `ccw view` and navigate to Issues > Discovery to manage findings.');
+}
 ```
 
 ### Output File Structure

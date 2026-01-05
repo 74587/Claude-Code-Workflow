@@ -1220,9 +1220,32 @@ def config(
                 except (json.JSONDecodeError, OSError):
                     pass  # Settings file not readable, continue with defaults
 
-            # Environment variables override settings file
-            if os.getenv("RERANKER_PROVIDER"):
-                result["reranker_api_provider"] = os.getenv("RERANKER_PROVIDER")
+            # Load .env overrides from global ~/.codexlens/.env
+            env_overrides: Dict[str, str] = {}
+            try:
+                from codexlens.env_config import load_global_env
+                env_overrides = load_global_env()
+            except ImportError:
+                pass
+
+            # Apply .env overrides (highest priority) and track them
+            if env_overrides.get("EMBEDDING_MODEL"):
+                result["embedding_model"] = env_overrides["EMBEDDING_MODEL"]
+                result["embedding_model_source"] = ".env"
+            if env_overrides.get("EMBEDDING_BACKEND"):
+                result["embedding_backend"] = env_overrides["EMBEDDING_BACKEND"]
+                result["embedding_backend_source"] = ".env"
+            if env_overrides.get("RERANKER_MODEL"):
+                result["reranker_model"] = env_overrides["RERANKER_MODEL"]
+                result["reranker_model_source"] = ".env"
+            if env_overrides.get("RERANKER_BACKEND"):
+                result["reranker_backend"] = env_overrides["RERANKER_BACKEND"]
+                result["reranker_backend_source"] = ".env"
+            if env_overrides.get("RERANKER_ENABLED"):
+                result["reranker_enabled"] = env_overrides["RERANKER_ENABLED"].lower() in ("true", "1", "yes", "on")
+                result["reranker_enabled_source"] = ".env"
+            if env_overrides.get("RERANKER_PROVIDER") or os.getenv("RERANKER_PROVIDER"):
+                result["reranker_api_provider"] = env_overrides.get("RERANKER_PROVIDER") or os.getenv("RERANKER_PROVIDER")
 
             if json_mode:
                 print_json(success=True, result=result)
@@ -1232,12 +1255,27 @@ def config(
                 console.print(f"  Index Directory: {result['index_dir']}")
                 if result['env_override']:
                     console.print(f"  [dim](Override via CODEXLENS_INDEX_DIR)[/dim]")
-                # Show reranker settings if present
-                if result.get("reranker_backend"):
-                    console.print(f"\n[bold]Reranker[/bold]")
-                    console.print(f"  Backend: {result.get('reranker_backend', 'N/A')}")
-                    console.print(f"  Model: {result.get('reranker_model', 'N/A')}")
-                    console.print(f"  Enabled: {result.get('reranker_enabled', False)}")
+
+                # Show embedding settings
+                console.print(f"\n[bold]Embedding[/bold]")
+                backend = result.get('embedding_backend', 'fastembed')
+                backend_source = result.get('embedding_backend_source', 'settings.json')
+                console.print(f"  Backend: {backend} [dim]({backend_source})[/dim]")
+                model = result.get('embedding_model', 'code')
+                model_source = result.get('embedding_model_source', 'settings.json')
+                console.print(f"  Model: {model} [dim]({model_source})[/dim]")
+
+                # Show reranker settings
+                console.print(f"\n[bold]Reranker[/bold]")
+                backend = result.get('reranker_backend', 'fastembed')
+                backend_source = result.get('reranker_backend_source', 'settings.json')
+                console.print(f"  Backend: {backend} [dim]({backend_source})[/dim]")
+                model = result.get('reranker_model', 'N/A')
+                model_source = result.get('reranker_model_source', 'settings.json')
+                console.print(f"  Model: {model} [dim]({model_source})[/dim]")
+                enabled = result.get('reranker_enabled', False)
+                enabled_source = result.get('reranker_enabled_source', 'settings.json')
+                console.print(f"  Enabled: {enabled} [dim]({enabled_source})[/dim]")
 
         elif action == "set":
             if not key:

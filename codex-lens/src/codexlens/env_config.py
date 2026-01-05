@@ -20,15 +20,18 @@ log = logging.getLogger(__name__)
 
 # Supported environment variables with descriptions
 ENV_VARS = {
-    # Reranker API configuration
+    # Reranker configuration (overrides settings.json)
+    "RERANKER_MODEL": "Reranker model name (overrides settings.json)",
+    "RERANKER_BACKEND": "Reranker backend: fastembed, onnx, api, litellm, legacy",
+    "RERANKER_ENABLED": "Enable reranker: true/false",
     "RERANKER_API_KEY": "API key for reranker service (SiliconFlow/Cohere/Jina)",
     "RERANKER_API_BASE": "Base URL for reranker API (overrides provider default)",
     "RERANKER_PROVIDER": "Reranker provider: siliconflow, cohere, jina",
-    "RERANKER_MODEL": "Reranker model name",
-    # Embedding API configuration
+    # Embedding configuration (overrides settings.json)
+    "EMBEDDING_MODEL": "Embedding model/profile name (overrides settings.json)",
+    "EMBEDDING_BACKEND": "Embedding backend: fastembed, litellm",
     "EMBEDDING_API_KEY": "API key for embedding service",
     "EMBEDDING_API_BASE": "Base URL for embedding API",
-    "EMBEDDING_MODEL": "Embedding model name",
     # LiteLLM configuration
     "LITELLM_API_KEY": "API key for LiteLLM",
     "LITELLM_API_BASE": "Base URL for LiteLLM",
