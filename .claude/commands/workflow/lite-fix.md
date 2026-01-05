@@ -17,7 +17,7 @@ Intelligent lightweight bug fixing command with dynamic workflow adaptation base
 - Interactive clarification after diagnosis to gather missing information
 - Adaptive fix planning strategy (direct Claude vs cli-lite-planning-agent) based on complexity
 - Two-step confirmation: fix-plan display -> multi-dimensional input collection
-- Execution dispatch with complete context handoff to lite-execute
+- Execution execute with complete context handoff to lite-execute
 
 ## Usage
 
@@ -62,7 +62,7 @@ Phase 4: Confirmation & Selection
       |- Execution: Agent / Codex / Auto
       +- Review: Gemini / Agent / Skip
 
-Phase 5: Dispatch
+Phase 5: Execute
    |- Build executionContext (fix-plan + diagnoses + clarifications + selections)
    +- SlashCommand("/workflow:lite-execute --in-memory --mode bugfix")
 ```
@@ -543,7 +543,7 @@ AskUserQuestion({
 
 ---
 
-### Phase 5: Dispatch to Execution
+### Phase 5: Execute to Execution
 
 **CRITICAL**: lite-fix NEVER executes code directly. ALL execution MUST go through lite-execute.
 
@@ -588,7 +588,7 @@ executionContext = {
 }
 ```
 
-**Step 5.2: Dispatch**
+**Step 5.2: Execute**
 
 ```javascript
 SlashCommand(command="/workflow:lite-execute --in-memory --mode bugfix")

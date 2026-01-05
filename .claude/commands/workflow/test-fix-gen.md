@@ -59,8 +59,8 @@ This command is a **pure planning coordinator**:
 - **All execution delegated to `/workflow:test-cycle-execute`**
 
 **Task Attachment Model**:
-- SlashCommand dispatch **expands workflow** by attaching sub-tasks to current TodoWrite
-- When dispatching a sub-command (e.g., `/workflow:tools:test-context-gather`), its internal tasks are attached to the orchestrator's TodoWrite
+- SlashCommand execute **expands workflow** by attaching sub-tasks to current TodoWrite
+- When executing a sub-command (e.g., `/workflow:tools:test-context-gather`), its internal tasks are attached to the orchestrator's TodoWrite
 - Orchestrator **executes these attached tasks** sequentially
 - After completion, attached tasks are **collapsed** back to high-level phase summary
 - This is **task expansion**, not external delegation
@@ -128,7 +128,7 @@ This command is a **pure planning coordinator**:
 
 ### Core Execution Rules
 
-1. **Start Immediately**: First action is TodoWrite, second is dispatch Phase 1 session creation
+1. **Start Immediately**: First action is TodoWrite, second is execute Phase 1 session creation
 2. **No Preliminary Analysis**: Do not read files before Phase 1
 3. **Parse Every Output**: Extract required data from each phase for next phase
 4. **Sequential Execution**: Each phase depends on previous phase's output
@@ -136,7 +136,7 @@ This command is a **pure planning coordinator**:
 6. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
 7. **Automatic Detection**: Mode auto-detected from input pattern
 8. **Semantic CLI Detection**: CLI tool usage determined from user's task description for Phase 4
-9. **Task Attachment Model**: SlashCommand dispatch **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
+9. **Task Attachment Model**: SlashCommand execute **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
 10. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and execute next phase
 
 ### 5-Phase Execution
@@ -155,7 +155,7 @@ Read(".workflow/active/[sourceSessionId]/.process/context-package.json")
 // This preserves user's CLI tool preferences (e.g., "use Codex for fixes")
 ```
 
-**Step 1.1: Dispatch** - Create test workflow session with preserved intent
+**Step 1.1: Execute** - Create test workflow session with preserved intent
 
 ```javascript
 // Session Mode - Include original task description to enable semantic CLI selection
@@ -187,7 +187,7 @@ SlashCommand(command="/workflow:session:start --type test --new \"Test generatio
 
 #### Phase 2: Gather Test Context
 
-**Step 2.1: Dispatch** - Gather test context via appropriate method
+**Step 2.1: Execute** - Gather test context via appropriate method
 
 ```javascript
 // Session Mode
@@ -224,7 +224,7 @@ SlashCommand(command="/workflow:tools:context-gather --session [testSessionId] \
 
 #### Phase 3: Test Generation Analysis
 
-**Step 3.1: Dispatch** - Generate test requirements using Gemini
+**Step 3.1: Execute** - Generate test requirements using Gemini
 
 ```javascript
 SlashCommand(command="/workflow:tools:test-concept-enhanced --session [testSessionId] --context [contextPath]")
@@ -284,7 +284,7 @@ For each targeted file/function, Gemini MUST generate:
 
 #### Phase 4: Generate Test Tasks
 
-**Step 4.1: Dispatch** - Generate test task JSONs
+**Step 4.1: Execute** - Generate test task JSONs
 
 ```javascript
 SlashCommand(command="/workflow:tools:test-task-generate --session [testSessionId]")
@@ -381,7 +381,7 @@ CRITICAL - Next Steps:
 
 #### Key Principles
 
-1. **Task Attachment** (when SlashCommand dispatched):
+1. **Task Attachment** (when SlashCommand executed):
    - Sub-command's internal tasks are **attached** to orchestrator's TodoWrite
    - Example - Phase 2 with sub-tasks:
    ```json
@@ -416,7 +416,7 @@ CRITICAL - Next Steps:
    - No user intervention required between phases
    - TodoWrite dynamically reflects current execution state
 
-**Lifecycle Summary**: Initial pending tasks → Phase dispatched (tasks ATTACHED with mode-specific context gathering) → Sub-tasks executed sequentially → Phase completed (tasks COLLAPSED to summary) → Next phase begins → Repeat until all phases complete.
+**Lifecycle Summary**: Initial pending tasks → Phase executed (tasks ATTACHED with mode-specific context gathering) → Sub-tasks executed sequentially → Phase completed (tasks COLLAPSED to summary) → Next phase begins → Repeat until all phases complete.
 
 #### Test-Fix-Gen Specific Features
 

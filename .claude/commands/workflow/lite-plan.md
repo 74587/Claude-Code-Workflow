@@ -1,6 +1,6 @@
 ---
 name: lite-plan
-description: Lightweight interactive planning workflow with in-memory planning, code exploration, and execution dispatch to lite-execute after user confirmation
+description: Lightweight interactive planning workflow with in-memory planning, code exploration, and execution execute to lite-execute after user confirmation
 argument-hint: "[-e|--explore] \"task description\"|file.md"
 allowed-tools: TodoWrite(*), Task(*), SlashCommand(*), AskUserQuestion(*)
 ---
@@ -17,7 +17,7 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 - Interactive clarification after exploration to gather missing information
 - Adaptive planning: Low complexity → Direct Claude; Medium/High → cli-lite-planning-agent
 - Two-step confirmation: plan display → multi-dimensional input collection
-- Execution dispatch with complete context handoff to lite-execute
+- Execution execute with complete context handoff to lite-execute
 
 ## Usage
 
@@ -62,7 +62,7 @@ Phase 4: Confirmation & Selection
       ├─ Execution: Agent / Codex / Auto
       └─ Review: Gemini / Agent / Skip
 
-Phase 5: Dispatch
+Phase 5: Execute
    ├─ Build executionContext (plan + explorations + clarifications + selections)
    └─ SlashCommand("/workflow:lite-execute --in-memory")
 ```
@@ -535,7 +535,7 @@ AskUserQuestion({
 
 ---
 
-### Phase 5: Dispatch to Execution
+### Phase 5: Execute to Execution
 
 **CRITICAL**: lite-plan NEVER executes code directly. ALL execution MUST go through lite-execute.
 
@@ -582,7 +582,7 @@ executionContext = {
 }
 ```
 
-**Step 5.2: Dispatch**
+**Step 5.2: Execute**
 
 ```javascript
 SlashCommand(command="/workflow:lite-execute --in-memory")
