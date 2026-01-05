@@ -1790,12 +1790,20 @@ async function loadRerankerModelList() {
           '</div>';
       });
     } else {
-      // LiteLLM backend - show API info
+      // API/LiteLLM backend - show current model info
       html +=
-        '<div class="p-3 bg-muted/30 rounded text-center">' +
-          '<i data-lucide="cloud" class="w-6 h-6 text-primary mx-auto mb-2"></i>' +
-          '<div class="text-sm">Using API reranker</div>' +
-          '<div class="text-xs text-muted-foreground mt-1">Model configured via CODEXLENS_RERANKER_MODEL</div>' +
+        '<div class="p-3 bg-muted/30 rounded">' +
+          '<div class="flex items-center justify-center gap-2 mb-2">' +
+            '<i data-lucide="cloud" class="w-5 h-5 text-primary"></i>' +
+            '<span class="text-sm font-medium">Using API Reranker</span>' +
+          '</div>' +
+          '<div class="text-center">' +
+            '<div class="text-xs text-muted-foreground mb-1">Current Model:</div>' +
+            '<div class="text-sm font-mono bg-background px-2 py-1 rounded border border-border inline-block">' +
+              escapeHtml(currentModel) +
+            '</div>' +
+          '</div>' +
+          '<div class="text-xs text-muted-foreground mt-2 text-center">Configure via Environment Variables below</div>' +
         '</div>';
     }
 
@@ -1890,9 +1898,13 @@ function switchCodexLensModelTab(tabName) {
     if (tabName === 'embedding') {
       embeddingContent.style.display = 'block';
       rerankerContent.style.display = 'none';
+      // Reload embedding models when switching to embedding tab
+      loadModelList();
     } else {
       embeddingContent.style.display = 'none';
       rerankerContent.style.display = 'block';
+      // Load reranker models when switching to reranker tab
+      loadRerankerModelList();
     }
   }
 }
@@ -2936,9 +2948,9 @@ function buildCodexLensManagerPage(config) {
         '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">' +
           // Left Column
           '<div class="space-y-6">' +
-            // Create Index Section - Simplified (model config in Environment Variables)
+            // Index Management Section - Combined Create Index + Maintenance
             '<div class="bg-card border border-border rounded-lg p-5">' +
-              '<h4 class="text-lg font-semibold mb-4 flex items-center gap-2"><i data-lucide="layers" class="w-5 h-5 text-primary"></i> ' + t('codexlens.createIndex') + '</h4>' +
+              '<h4 class="text-lg font-semibold mb-4 flex items-center gap-2"><i data-lucide="layers" class="w-5 h-5 text-primary"></i> ' + t('codexlens.indexManagement') + '</h4>' +
               '<div class="space-y-4">' +
                 // Index Actions - Primary buttons
                 '<div class="grid grid-cols-2 gap-3">' +
@@ -2954,9 +2966,17 @@ function buildCodexLensManagerPage(config) {
                 // Incremental Update button
                 '<button class="btn btn-outline w-full flex items-center justify-center gap-2 py-2.5" onclick="runIncrementalUpdate()" title="Update index with changed files only">' +
                   '<i data-lucide="refresh-cw" class="w-4 h-4"></i>' +
-                  '<span>Incremental Update</span>' +
+                  '<span>' + t('codexlens.incrementalUpdate') + '</span>' +
                 '</button>' +
-                '<p class="text-xs text-muted-foreground">' + t('codexlens.indexTypeHint') + ' Configure embedding model in Environment Variables below.</p>' +
+                '<p class="text-xs text-muted-foreground">' + t('codexlens.indexTypeHint') + '</p>' +
+                // Maintenance Actions
+                '<div class="pt-3 border-t border-border">' +
+                  '<div class="flex flex-wrap gap-2">' +
+                    '<button class="btn-sm btn-outline" onclick="cleanCurrentWorkspaceIndex()"><i data-lucide="folder-x" class="w-3.5 h-3.5"></i> ' + t('codexlens.cleanCurrentWorkspace') + '</button>' +
+                    '<button class="btn-sm btn-outline" onclick="cleanCodexLensIndexes()"><i data-lucide="trash" class="w-3.5 h-3.5"></i> ' + t('codexlens.cleanAllIndexes') + '</button>' +
+                    '<button class="btn-sm btn-destructive" onclick="uninstallCodexLensFromManager()"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i> ' + t('cli.uninstall') + '</button>' +
+                  '</div>' +
+                '</div>' +
               '</div>' +
             '</div>' +
             // Storage Path Section
@@ -2980,20 +3000,11 @@ function buildCodexLensManagerPage(config) {
             // Environment Variables Section
             '<div class="bg-card border border-border rounded-lg p-5">' +
               '<div class="flex items-center justify-between mb-4">' +
-                '<h4 class="text-lg font-semibold flex items-center gap-2"><i data-lucide="file-code" class="w-5 h-5 text-primary"></i> Environment Variables</h4>' +
+                '<h4 class="text-lg font-semibold flex items-center gap-2"><i data-lucide="file-code" class="w-5 h-5 text-primary"></i> ' + t('codexlens.environmentVariables') + '</h4>' +
                 '<button class="btn-sm btn-outline" onclick="loadEnvVariables()"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Load</button>' +
               '</div>' +
               '<div id="envVarsContainer" class="space-y-2">' +
                 '<div class="text-sm text-muted-foreground">Click Load to view/edit ~/.codexlens/.env</div>' +
-              '</div>' +
-            '</div>' +
-            // Maintenance Section
-            '<div class="bg-card border border-border rounded-lg p-5">' +
-              '<h4 class="text-lg font-semibold mb-4 flex items-center gap-2"><i data-lucide="settings" class="w-5 h-5 text-primary"></i> ' + t('codexlens.maintenance') + '</h4>' +
-              '<div class="flex flex-wrap gap-2">' +
-                '<button class="btn-sm btn-outline" onclick="cleanCurrentWorkspaceIndex()"><i data-lucide="folder-x" class="w-3.5 h-3.5"></i> ' + t('codexlens.cleanCurrentWorkspace') + '</button>' +
-                '<button class="btn-sm btn-outline" onclick="cleanCodexLensIndexes()"><i data-lucide="trash" class="w-3.5 h-3.5"></i> ' + t('codexlens.cleanAllIndexes') + '</button>' +
-                '<button class="btn-sm btn-destructive" onclick="uninstallCodexLensFromManager()"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i> ' + t('cli.uninstall') + '</button>' +
               '</div>' +
             '</div>' +
           '</div>' +
