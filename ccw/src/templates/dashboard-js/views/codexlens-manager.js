@@ -1719,8 +1719,13 @@ var RERANKER_MODELS = [
  * Load reranker model list
  */
 async function loadRerankerModelList() {
-  var container = document.getElementById('rerankerModelListContainer');
-  if (!container) return;
+  // Update both containers (advanced tab and page model management)
+  var containers = [
+    document.getElementById('rerankerModelListContainer'),
+    document.getElementById('pageRerankerModelListContainer')
+  ].filter(Boolean);
+
+  if (containers.length === 0) return;
 
   try {
     // Get current reranker config
@@ -1795,11 +1800,16 @@ async function loadRerankerModelList() {
     }
 
     html += '</div>';
-    container.innerHTML = html;
+    // Update all containers
+    containers.forEach(function(container) {
+      container.innerHTML = html;
+    });
     if (window.lucide) lucide.createIcons();
   } catch (err) {
-    container.innerHTML =
-      '<div class="text-sm text-error">' + escapeHtml(err.message) + '</div>';
+    var errorHtml = '<div class="text-sm text-error">' + escapeHtml(err.message) + '</div>';
+    containers.forEach(function(container) {
+      container.innerHTML = errorHtml;
+    });
   }
 }
 
@@ -3033,7 +3043,7 @@ function buildCodexLensManagerPage(config) {
                 '</div>' +
                 // Reranker Tab Content
                 '<div id="rerankerTabContent" class="model-tab-content hidden">' +
-                  '<div id="rerankerModelListContainer" class="space-y-2">' +
+                  '<div id="pageRerankerModelListContainer" class="space-y-2">' +
                     '<div class="text-sm text-muted-foreground">' + t('common.loading') + '</div>' +
                   '</div>' +
                 '</div>' +

@@ -1162,6 +1162,13 @@ def config(
 
     Config keys:
     - index_dir: Directory to store indexes (default: ~/.codexlens/indexes)
+    - reranker_backend: Reranker backend (onnx, api, litellm, legacy)
+    - reranker_model: Reranker model name
+    - reranker_enabled: Enable reranking (true/false)
+    - reranker_top_k: Number of results to rerank
+    - reranker_api_provider: API provider for reranker (siliconflow, cohere, jina)
+    - embedding_backend: Embedding backend (fastembed, litellm)
+    - embedding_model: Embedding model profile or name
     """
     _configure_logging(verbose, json_mode)
 
@@ -1187,6 +1194,36 @@ def config(
                 "env_override": os.getenv("CODEXLENS_INDEX_DIR"),
             }
 
+            # Load settings.json for reranker and other runtime settings
+            settings_file = Path.home() / ".codexlens" / "settings.json"
+            if settings_file.exists():
+                try:
+                    settings = json.loads(settings_file.read_text(encoding="utf-8"))
+                    # Extract reranker settings (flat keys for CCW compatibility)
+                    reranker = settings.get("reranker", {})
+                    if reranker.get("backend"):
+                        result["reranker_backend"] = reranker["backend"]
+                    if reranker.get("model"):
+                        result["reranker_model"] = reranker["model"]
+                    if reranker.get("enabled") is not None:
+                        result["reranker_enabled"] = reranker["enabled"]
+                    if reranker.get("top_k"):
+                        result["reranker_top_k"] = reranker["top_k"]
+                    if reranker.get("api_provider"):
+                        result["reranker_api_provider"] = reranker["api_provider"]
+                    # Extract embedding settings
+                    embedding = settings.get("embedding", {})
+                    if embedding.get("backend"):
+                        result["embedding_backend"] = embedding["backend"]
+                    if embedding.get("model"):
+                        result["embedding_model"] = embedding["model"]
+                except (json.JSONDecodeError, OSError):
+                    pass  # Settings file not readable, continue with defaults
+
+            # Environment variables override settings file
+            if os.getenv("RERANKER_PROVIDER"):
+                result["reranker_api_provider"] = os.getenv("RERANKER_PROVIDER")
+
             if json_mode:
                 print_json(success=True, result=result)
             else:
@@ -1195,6 +1232,12 @@ def config(
                 console.print(f"  Index Directory: {result['index_dir']}")
                 if result['env_override']:
                     console.print(f"  [dim](Override via CODEXLENS_INDEX_DIR)[/dim]")
+                # Show reranker settings if present
+                if result.get("reranker_backend"):
+                    console.print(f"\n[bold]Reranker[/bold]")
+                    console.print(f"  Backend: {result.get('reranker_backend', 'N/A')}")
+                    console.print(f"  Model: {result.get('reranker_model', 'N/A')}")
+                    console.print(f"  Enabled: {result.get('reranker_enabled', False)}")
 
         elif action == "set":
             if not key:
@@ -1214,6 +1257,50 @@ def config(
                 else:
                     console.print(f"[green]Set {key}=[/green] {new_path}")
                     console.print("[yellow]Note: Existing indexes remain at old location. Use 'config migrate' to move them.[/yellow]")
+
+            # Handle reranker and embedding settings (stored in settings.json)
+            elif key in ("reranker_backend", "reranker_model", "reranker_enabled", "reranker_top_k",
+                         "embedding_backend", "embedding_model", "reranker_api_provider"):
+                settings_file = Path.home() / ".codexlens" / "settings.json"
+                settings_file.parent.mkdir(parents=True, exist_ok=True)
+
+                # Load existing settings
+                settings: Dict[str, Any] = {}
+                if settings_file.exists():
+                    try:
+                        settings = json.loads(settings_file.read_text(encoding="utf-8"))
+                    except (json.JSONDecodeError, OSError):
+                        pass
+
+                # Ensure nested structures exist
+                if "reranker" not in settings:
+                    settings["reranker"] = {}
+                if "embedding" not in settings:
+                    settings["embedding"] = {}
+
+                # Map flat keys to nested structure
+                if key == "reranker_backend":
+                    settings["reranker"]["backend"] = value
+                elif key == "reranker_model":
+                    settings["reranker"]["model"] = value
+                elif key == "reranker_enabled":
+                    settings["reranker"]["enabled"] = value.lower() in ("true", "1", "yes")
+                elif key == "reranker_top_k":
+                    settings["reranker"]["top_k"] = int(value)
+                elif key == "reranker_api_provider":
+                    settings["reranker"]["api_provider"] = value
+                elif key == "embedding_backend":
+                    settings["embedding"]["backend"] = value
+                elif key == "embedding_model":
+                    settings["embedding"]["model"] = value
+
+                # Save settings
+                settings_file.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+
+                if json_mode:
+                    print_json(success=True, result={"key": key, "value": value})
+                else:
+                    console.print(f"[green]Set {key}=[/green] {value}")
             else:
                 raise typer.BadParameter(f"Unknown config key: {key}")
 
