@@ -407,6 +407,41 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
   if (pathname === '/api/codexlens/uninstall' && req.method === 'POST') {
     handlePostRequest(req, res, async () => {
       try {
+        // Stop watcher if running (to release file handles)
+        if (watcherStats.running && watcherProcess) {
+          console.log('[CodexLens] Stopping watcher before uninstall...');
+          try {
+            watcherProcess.kill('SIGTERM');
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if (watcherProcess && !watcherProcess.killed) {
+              watcherProcess.kill('SIGKILL');
+            }
+          } catch {
+            // Ignore errors stopping watcher
+          }
+          watcherStats.running = false;
+          watcherProcess = null;
+        }
+
+        // Cancel any running indexing process
+        if (currentIndexingProcess) {
+          console.log('[CodexLens] Cancelling indexing before uninstall...');
+          try {
+            if (process.platform === 'win32') {
+              const { execSync } = require('child_process');
+              execSync(`taskkill /pid ${currentIndexingProcess.pid} /T /F`, { stdio: 'ignore' });
+            } else {
+              currentIndexingProcess.kill('SIGKILL');
+            }
+          } catch {
+            // Ignore errors
+          }
+          currentIndexingProcess = null;
+        }
+
+        // Wait a moment for processes to fully exit and release handles
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
         const result = await uninstallCodexLens();
         if (result.success) {
           // Broadcast uninstallation event

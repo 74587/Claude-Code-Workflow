@@ -24,6 +24,7 @@ src/codexlens/parsers/factory.py
 src/codexlens/parsers/tokenizer.py
 src/codexlens/parsers/treesitter_parser.py
 src/codexlens/search/__init__.py
+src/codexlens/search/binary_searcher.py
 src/codexlens/search/chain_search.py
 src/codexlens/search/enrichment.py
 src/codexlens/search/graph_expander.py
@@ -46,6 +47,7 @@ src/codexlens/semantic/reranker/__init__.py
 src/codexlens/semantic/reranker/api_reranker.py
 src/codexlens/semantic/reranker/base.py
 src/codexlens/semantic/reranker/factory.py
+src/codexlens/semantic/reranker/fastembed_reranker.py
 src/codexlens/semantic/reranker/legacy.py
 src/codexlens/semantic/reranker/litellm_reranker.py
 src/codexlens/semantic/reranker/onnx_reranker.py

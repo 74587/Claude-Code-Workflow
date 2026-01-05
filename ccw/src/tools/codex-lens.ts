@@ -1360,11 +1360,57 @@ async function uninstallCodexLens(): Promise<BootstrapResult> {
     }
 
     console.log('[CodexLens] Uninstalling CodexLens...');
+
+    // On Windows, kill any Python processes that might be holding locks on .db files
+    if (process.platform === 'win32') {
+      console.log('[CodexLens] Killing any CodexLens Python processes...');
+      const { execSync } = await import('child_process');
+      try {
+        // Kill any python processes from our venv that might be holding file locks
+        execSync(`taskkill /F /IM python.exe /FI "MODULES eq sqlite3" 2>nul`, { stdio: 'ignore' });
+      } catch {
+        // Ignore errors - no processes to kill
+      }
+      // Small delay to allow file handles to be released
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
     console.log(`[CodexLens] Removing directory: ${CODEXLENS_DATA_DIR}`);
 
-    // Remove the entire .codexlens directory
+    // Remove the entire .codexlens directory with retry logic for locked files
     const fs = await import('fs');
-    fs.rmSync(CODEXLENS_DATA_DIR, { recursive: true, force: true });
+    const path = await import('path');
+
+    // Helper function to remove directory with retries (Windows EBUSY workaround)
+    const removeWithRetry = async (dirPath: string, maxRetries = 3, delay = 1000): Promise<void> => {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          fs.rmSync(dirPath, { recursive: true, force: true, maxRetries: 3, retryDelay: 500 });
+          return;
+        } catch (err: any) {
+          if (err.code === 'EBUSY' || err.code === 'EPERM' || err.code === 'ENOTEMPTY') {
+            console.log(`[CodexLens] Retry ${attempt}/${maxRetries} - file locked, waiting...`);
+            if (attempt < maxRetries) {
+              // On Windows, try to forcefully release file handles
+              if (process.platform === 'win32' && err.path) {
+                try {
+                  const { execSync } = await import('child_process');
+                  // Try to close handles on the specific file
+                  execSync(`handle -c ${err.path} -y 2>nul`, { stdio: 'ignore' });
+                } catch {
+                  // handle.exe may not be installed, ignore
+                }
+              }
+              await new Promise(resolve => setTimeout(resolve, delay));
+              continue;
+            }
+          }
+          throw err;
+        }
+      }
+    };
+
+    await removeWithRetry(CODEXLENS_DATA_DIR);
 
     // Reset bootstrap cache
     bootstrapChecked = false;
@@ -1374,7 +1420,15 @@ async function uninstallCodexLens(): Promise<BootstrapResult> {
     console.log('[CodexLens] CodexLens uninstalled successfully');
     return { success: true, message: 'CodexLens uninstalled successfully' };
   } catch (err) {
-    return { success: false, error: `Failed to uninstall CodexLens: ${(err as Error).message}` };
+    const errorMsg = (err as Error).message;
+    // Provide helpful message for Windows users with locked files
+    if (errorMsg.includes('EBUSY') || errorMsg.includes('resource busy')) {
+      return {
+        success: false,
+        error: `Failed to uninstall CodexLens: Files are locked. Please close any applications using CodexLens indexes (e.g., Claude Code, VS Code) and try again. Details: ${errorMsg}`
+      };
+    }
+    return { success: false, error: `Failed to uninstall CodexLens: ${errorMsg}` };
   }
 }
 
