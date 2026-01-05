@@ -13,10 +13,16 @@ except ImportError:
     FASTEMBED_AVAILABLE = False
 
 try:
-    from fastembed import TextCrossEncoder
+    # fastembed >= 0.4.0 moved TextCrossEncoder to rerank.cross_encoder
+    from fastembed.rerank.cross_encoder import TextCrossEncoder
     RERANKER_AVAILABLE = True
 except ImportError:
-    RERANKER_AVAILABLE = False
+    try:
+        # Fallback for older versions
+        from fastembed import TextCrossEncoder
+        RERANKER_AVAILABLE = True
+    except ImportError:
+        RERANKER_AVAILABLE = False
 
 
 # Reranker model profiles with metadata
