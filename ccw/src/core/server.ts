@@ -244,7 +244,7 @@ window.INITIAL_PATH = '${normalizePathForDisplay(initialPath).replace(/\\/g, '/'
  * @returns {Promise<http.Server>}
  */
 export async function startServer(options: ServerOptions = {}): Promise<http.Server> {
-  const port = options.port || 3456;
+  const port = options.port ?? 3456;
   const initialPath = options.initialPath || process.cwd();
 
   const server = http.createServer(async (req, res) => {

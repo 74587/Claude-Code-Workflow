@@ -176,8 +176,8 @@ describe('E2E: Session Lifecycle (Golden Path)', async () => {
     });
 
     assert.equal(archiveRes.success, true);
-    assert.equal(archiveRes.result.from, 'active');
-    assert.equal(archiveRes.result.to, 'archives');
+    assert.equal(archiveRes.result.source_location, 'active');
+    assert.ok(archiveRes.result.destination.includes('archives'));
 
     // Verify session moved to archives
     assert.equal(existsSync(sessionPath), false);
@@ -188,7 +188,8 @@ describe('E2E: Session Lifecycle (Golden Path)', async () => {
 
     const archivedMeta = readJson(join(archivedPath, 'workflow-session.json'));
     assert.equal(archivedMeta.session_id, sessionId);
-    assert.equal(archivedMeta.status, 'archived');
+    assert.equal(archivedMeta.status, 'completed');
+    assert.ok(archivedMeta.archived_at, 'should have archived_at timestamp');
   });
 
   it('supports dual parameter format: legacy (operation) and new (explicit params)', async () => {
