@@ -1,21 +1,12 @@
+---
+name: code-reviewer
+description: Comprehensive code review skill for identifying security vulnerabilities and best practices violations. Triggers on "code review", "review code", "security audit", "代码审查".
+allowed-tools: Read, Glob, Grep, mcp__ace-tool__search_context, mcp__ccw-tools__smart_search
+---
+
 # Code Reviewer
 
 Comprehensive code review skill for identifying security vulnerabilities and best practices violations.
-
-## Metadata
-
-```yaml
-name: code-reviewer
-description: 帮助审查代码的安全漏洞和最佳实践
-version: 1.0.0
-execution_mode: sequential
-allowed-tools:
-  - Read
-  - Glob
-  - Grep
-  - mcp__ace-tool__search_context
-  - mcp__ccw-tools__smart_search
-```
 
 ## Architecture Overview
 

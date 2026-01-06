@@ -44,9 +44,12 @@ class SearchOptions:
         max_workers: Number of parallel worker threads
         limit_per_dir: Maximum results per directory
         total_limit: Total result limit across all directories
+        offset: Pagination offset - skip first N results (default 0)
         include_symbols: Whether to include symbol search results
         files_only: Return only file paths without excerpts
         include_semantic: Whether to include semantic keyword search results
+        code_only: Only return code files (excludes md, txt, json, yaml, xml, etc.)
+        exclude_extensions: List of file extensions to exclude (e.g., ["md", "txt", "json"])
         hybrid_mode: Enable hybrid search with RRF fusion (default False)
         enable_fuzzy: Enable fuzzy FTS in hybrid mode (default True)
         enable_vector: Enable vector semantic search (default False)
@@ -61,9 +64,12 @@ class SearchOptions:
     max_workers: int = 8
     limit_per_dir: int = 10
     total_limit: int = 100
+    offset: int = 0
     include_symbols: bool = False
     files_only: bool = False
     include_semantic: bool = False
+    code_only: bool = False
+    exclude_extensions: Optional[List[str]] = None
     hybrid_mode: bool = False
     enable_fuzzy: bool = True
     enable_vector: bool = False
@@ -234,8 +240,14 @@ class ChainSearchEngine:
         )
         stats.errors = search_stats.errors
 
+        # Step 3.5: Filter by extension if requested
+        if options.code_only or options.exclude_extensions:
+            results = self._filter_by_extension(
+                results, options.code_only, options.exclude_extensions
+            )
+
         # Step 4: Merge and rank
-        final_results = self._merge_and_rank(results, options.total_limit)
+        final_results = self._merge_and_rank(results, options.total_limit, options.offset)
 
         # Step 5: Optional grouping of similar results
         if options.group_results:
@@ -2092,21 +2104,72 @@ class ChainSearchEngine:
             self.logger.debug(f"Search error in {index_path}: {exc}")
             return []
 
+    def _filter_by_extension(self, results: List[SearchResult],
+                              code_only: bool = False,
+                              exclude_extensions: Optional[List[str]] = None) -> List[SearchResult]:
+        """Filter search results by file extension.
+
+        Args:
+            results: Search results to filter
+            code_only: If True, exclude non-code files (md, txt, json, yaml, xml, etc.)
+            exclude_extensions: List of extensions to exclude (e.g., ["md", "txt"])
+
+        Returns:
+            Filtered results
+        """
+        # Non-code file extensions (same as MCP tool smart-search.ts)
+        NON_CODE_EXTENSIONS = {
+            'md', 'txt', 'json', 'yaml', 'yml', 'xml', 'csv', 'log',
+            'ini', 'cfg', 'conf', 'toml', 'env', 'properties',
+            'html', 'htm', 'svg', 'png', 'jpg', 'jpeg', 'gif', 'ico', 'webp',
+            'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+            'lock', 'sum', 'mod',
+        }
+
+        # Build exclusion set
+        excluded_exts = set()
+        if exclude_extensions:
+            # Normalize extensions (remove leading dots, lowercase)
+            excluded_exts = {ext.lower().lstrip('.') for ext in exclude_extensions}
+        if code_only:
+            excluded_exts.update(NON_CODE_EXTENSIONS)
+
+        if not excluded_exts:
+            return results
+
+        # Filter results
+        filtered = []
+        for result in results:
+            path_str = result.path
+            if not path_str:
+                continue
+
+            # Extract extension from path
+            if '.' in path_str:
+                ext = path_str.rsplit('.', 1)[-1].lower()
+                if ext in excluded_exts:
+                    continue  # Skip this result
+
+            filtered.append(result)
+
+        return filtered
+
     def _merge_and_rank(self, results: List[SearchResult],
-                         limit: int) -> List[SearchResult]:
+                         limit: int, offset: int = 0) -> List[SearchResult]:
         """Aggregate, deduplicate, and rank results.
 
         Process:
         1. Deduplicate by path (keep highest score)
         2. Sort by score descending
-        3. Limit to requested count
+        3. Apply offset and limit for pagination
 
         Args:
             results: Raw results from all indexes
             limit: Maximum results to return
+            offset: Number of results to skip (pagination offset)
 
         Returns:
-            Deduplicated and ranked results
+            Deduplicated and ranked results with pagination
         """
         # Deduplicate by path, keeping best score
         path_to_result: Dict[str, SearchResult] = {}
@@ -2119,8 +2182,8 @@ class ChainSearchEngine:
         unique_results = list(path_to_result.values())
         unique_results.sort(key=lambda r: r.score, reverse=True)
 
-        # Apply limit
-        return unique_results[:limit]
+        # Apply offset and limit for pagination
+        return unique_results[offset:offset + limit]
 
     def _search_symbols_parallel(self, index_paths: List[Path],
                                   name: str,

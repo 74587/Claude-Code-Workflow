@@ -1218,7 +1218,7 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
  * Requires index
  */
 async function executeCodexLensExactMode(params: Params): Promise<SearchResult> {
-  const { query, path = '.', maxResults = 5, extraFilesCount = 10, maxContentLength = 200, enrich = false } = params;
+  const { query, path = '.', maxResults = 5, extraFilesCount = 10, maxContentLength = 200, enrich = false, excludeExtensions, codeOnly = false, offset = 0 } = params;
 
   if (!query) {
     return {
@@ -1241,9 +1241,17 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
 
   // Request more results to support split (full content + extra files)
   const totalToFetch = maxResults + extraFilesCount;
-  const args = ['search', query, '--limit', totalToFetch.toString(), '--method', 'fts', '--json'];
+  const args = ['search', query, '--limit', totalToFetch.toString(), '--offset', offset.toString(), '--method', 'fts', '--json'];
   if (enrich) {
     args.push('--enrich');
+  }
+  // Add code_only filter if requested
+  if (codeOnly) {
+    args.push('--code-only');
+  }
+  // Add exclude_extensions filter if provided
+  if (excludeExtensions && excludeExtensions.length > 0) {
+    args.push('--exclude-extensions', excludeExtensions.join(','));
   }
   const result = await executeCodexLens(args, { cwd: path });
 
@@ -1278,9 +1286,17 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
 
   // Fallback to fuzzy mode if exact returns no results
   if (allResults.length === 0) {
-    const fuzzyArgs = ['search', query, '--limit', totalToFetch.toString(), '--method', 'fts', '--use-fuzzy', '--json'];
+    const fuzzyArgs = ['search', query, '--limit', totalToFetch.toString(), '--offset', offset.toString(), '--method', 'fts', '--use-fuzzy', '--json'];
     if (enrich) {
       fuzzyArgs.push('--enrich');
+    }
+    // Add code_only filter if requested
+    if (codeOnly) {
+      fuzzyArgs.push('--code-only');
+    }
+    // Add exclude_extensions filter if provided
+    if (excludeExtensions && excludeExtensions.length > 0) {
+      fuzzyArgs.push('--exclude-extensions', excludeExtensions.join(','));
     }
     const fuzzyResult = await executeCodexLens(fuzzyArgs, { cwd: path });
 
@@ -1343,7 +1359,7 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
  */
 async function executeHybridMode(params: Params): Promise<SearchResult> {
   const timer = createTimer();
-  const { query, path = '.', maxResults = 5, extraFilesCount = 10, maxContentLength = 200, enrich = false, excludeExtensions, codeOnly = false } = params;
+  const { query, path = '.', maxResults = 5, extraFilesCount = 10, maxContentLength = 200, enrich = false, excludeExtensions, codeOnly = false, offset = 0 } = params;
 
   if (!query) {
     return {
@@ -1368,9 +1384,17 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
 
   // Request more results to support split (full content + extra files)
   const totalToFetch = maxResults + extraFilesCount;
-  const args = ['search', query, '--limit', totalToFetch.toString(), '--method', 'dense_rerank', '--json'];
+  const args = ['search', query, '--limit', totalToFetch.toString(), '--offset', offset.toString(), '--method', 'dense_rerank', '--json'];
   if (enrich) {
     args.push('--enrich');
+  }
+  // Add code_only filter if requested
+  if (codeOnly) {
+    args.push('--code-only');
+  }
+  // Add exclude_extensions filter if provided
+  if (excludeExtensions && excludeExtensions.length > 0) {
+    args.push('--exclude-extensions', excludeExtensions.join(','));
   }
   const result = await executeCodexLens(args, { cwd: path });
   timer.mark('codexlens_search');

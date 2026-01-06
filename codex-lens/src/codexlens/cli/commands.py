@@ -435,6 +435,8 @@ def search(
     files_only: bool = typer.Option(False, "--files-only", "-f", help="Return only file paths without content snippets."),
     method: str = typer.Option("dense_rerank", "--method", "-m", help="Search method: 'dense_rerank' (semantic, default), 'fts' (exact keyword)."),
     use_fuzzy: bool = typer.Option(False, "--use-fuzzy", help="Enable fuzzy matching in FTS method."),
+    code_only: bool = typer.Option(False, "--code-only", help="Only return code files (excludes md, txt, json, yaml, xml, etc.)."),
+    exclude_extensions: Optional[str] = typer.Option(None, "--exclude-extensions", help="Comma-separated list of file extensions to exclude (e.g., 'md,txt,json')."),
     # Hidden advanced options for backward compatibility
     weights: Optional[str] = typer.Option(
         None,
@@ -654,10 +656,18 @@ def search(
         else:
             raise ValueError(f"Invalid method: {actual_method}")
 
+        # Parse exclude_extensions from comma-separated string
+        exclude_exts_list = None
+        if exclude_extensions:
+            exclude_exts_list = [ext.strip() for ext in exclude_extensions.split(',') if ext.strip()]
+
         options = SearchOptions(
             depth=depth,
             total_limit=limit,
+            offset=offset,
             files_only=files_only,
+            code_only=code_only,
+            exclude_extensions=exclude_exts_list,
             hybrid_mode=hybrid_mode,
             enable_fuzzy=enable_fuzzy,
             enable_vector=enable_vector,
