@@ -114,7 +114,8 @@ export class LiteLLMClient {
    */
   async isAvailable(): Promise<boolean> {
     try {
-      await this.executePython(['version'], { timeout: 5000 });
+      // Increased timeout to 15s for Python cold start
+      await this.executePython(['version'], { timeout: 15000 });
       return true;
     } catch {
       return false;
@@ -126,10 +127,14 @@ export class LiteLLMClient {
    */
   async getStatus(): Promise<LiteLLMStatus> {
     try {
-      const output = await this.executePython(['version'], { timeout: 5000 });
+      // Increased timeout to 15s for Python cold start
+      const output = await this.executePython(['version'], { timeout: 15000 });
+      // Parse "ccw-litellm 0.1.0" format
+      const versionMatch = output.trim().match(/ccw-litellm\s+([\d.]+)/);
+      const version = versionMatch ? versionMatch[1] : output.trim();
       return {
         available: true,
-        version: output.trim()
+        version
       };
     } catch (error: any) {
       return {
@@ -143,7 +148,8 @@ export class LiteLLMClient {
    * Get current configuration
    */
   async getConfig(): Promise<any> {
-    const output = await this.executePython(['config', '--json']);
+    // config command outputs JSON by default, no --json flag needed
+    const output = await this.executePython(['config']);
     return JSON.parse(output);
   }
 
