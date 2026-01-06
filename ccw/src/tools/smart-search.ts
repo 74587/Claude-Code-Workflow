@@ -330,6 +330,17 @@ interface ModelInfo {
   updated_at?: string;
 }
 
+interface CodexLensConfig {
+  config_file?: string;
+  index_dir?: string;
+  embedding_backend?: string;  // 'fastembed' (local) or 'litellm' (api)
+  embedding_model?: string;
+  reranker_enabled?: boolean;
+  reranker_backend?: string;   // 'onnx' (local) or 'api'
+  reranker_model?: string;
+  reranker_top_k?: number;
+}
+
 interface IndexStatus {
   indexed: boolean;
   has_embeddings: boolean;
@@ -337,6 +348,7 @@ interface IndexStatus {
   embeddings_coverage_percent?: number;
   total_chunks?: number;
   model_info?: ModelInfo | null;
+  config?: CodexLensConfig | null;
   warning?: string;
 }
 
@@ -390,12 +402,39 @@ function splitResultsWithExtraFiles<T extends { file: string }>(
  */
 async function checkIndexStatus(path: string = '.'): Promise<IndexStatus> {
   try {
-    const result = await executeCodexLens(['status', '--json'], { cwd: path });
+    // Fetch both status and config in parallel
+    const [statusResult, configResult] = await Promise.all([
+      executeCodexLens(['status', '--json'], { cwd: path }),
+      executeCodexLens(['config', 'show', '--json'], { cwd: path }),
+    ]);
 
-    if (!result.success) {
+    // Parse config
+    let config: CodexLensConfig | null = null;
+    if (configResult.success && configResult.output) {
+      try {
+        const cleanConfigOutput = stripAnsi(configResult.output);
+        const parsedConfig = JSON.parse(cleanConfigOutput);
+        const configData = parsedConfig.result || parsedConfig;
+        config = {
+          config_file: configData.config_file,
+          index_dir: configData.index_dir,
+          embedding_backend: configData.embedding_backend,
+          embedding_model: configData.embedding_model,
+          reranker_enabled: configData.reranker_enabled,
+          reranker_backend: configData.reranker_backend,
+          reranker_model: configData.reranker_model,
+          reranker_top_k: configData.reranker_top_k,
+        };
+      } catch {
+        // Config parse failed, continue without it
+      }
+    }
+
+    if (!statusResult.success) {
       return {
         indexed: false,
         has_embeddings: false,
+        config,
         warning: 'No CodexLens index found. Run smart_search(action="init") to create index for better search results.',
       };
     }
@@ -403,7 +442,7 @@ async function checkIndexStatus(path: string = '.'): Promise<IndexStatus> {
     // Parse status output
     try {
       // Strip ANSI color codes from JSON output
-      const cleanOutput = stripAnsi(result.output || '{}');
+      const cleanOutput = stripAnsi(statusResult.output || '{}');
       const parsed = JSON.parse(cleanOutput);
       // Handle both direct and nested response formats (status returns {success, result: {...}})
       const status = parsed.result || parsed;
@@ -443,12 +482,14 @@ async function checkIndexStatus(path: string = '.'): Promise<IndexStatus> {
         total_chunks: totalChunks,
         // Ensure model_info is null instead of undefined so it's included in JSON
         model_info: modelInfo ?? null,
+        config,
         warning,
       };
     } catch {
       return {
         indexed: false,
         has_embeddings: false,
+        config,
         warning: 'Failed to parse index status',
       };
     }
@@ -719,10 +760,43 @@ async function executeStatusAction(params: Params): Promise<SearchResult> {
 
   const indexStatus = await checkIndexStatus(path);
 
+  // Build detailed status message
+  const statusParts: string[] = [];
+
+  // Index status
+  statusParts.push(`Index: ${indexStatus.indexed ? 'indexed' : 'not indexed'}`);
+  if (indexStatus.file_count) {
+    statusParts.push(`Files: ${indexStatus.file_count}`);
+  }
+
+  // Embeddings status
+  if (indexStatus.embeddings_coverage_percent !== undefined) {
+    statusParts.push(`Embeddings: ${indexStatus.embeddings_coverage_percent.toFixed(1)}%`);
+  }
+  if (indexStatus.total_chunks) {
+    statusParts.push(`Chunks: ${indexStatus.total_chunks}`);
+  }
+
+  // Config summary
+  if (indexStatus.config) {
+    const cfg = indexStatus.config;
+    // Embedding backend info
+    const embeddingType = cfg.embedding_backend === 'litellm' ? 'API' : 'Local';
+    statusParts.push(`Embedding: ${embeddingType} (${cfg.embedding_model || 'default'})`);
+
+    // Reranker info
+    if (cfg.reranker_enabled) {
+      const rerankerType = cfg.reranker_backend === 'onnx' ? 'Local' : 'API';
+      statusParts.push(`Reranker: ${rerankerType} (${cfg.reranker_model || 'default'})`);
+    } else {
+      statusParts.push('Reranker: disabled');
+    }
+  }
+
   return {
     success: true,
     status: indexStatus,
-    message: indexStatus.warning || `Index status: ${indexStatus.indexed ? 'indexed' : 'not indexed'}, embeddings: ${indexStatus.has_embeddings ? 'available' : 'not available'}`,
+    message: indexStatus.warning || statusParts.join(' | '),
   };
 }
 
@@ -1445,8 +1519,9 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
     allResults = baselineResult.filteredResults;
     baselineInfo = baselineResult.baselineInfo;
 
-    // 1. Filter noisy files (coverage, node_modules, etc.) and excluded extensions
-    allResults = filterNoisyFiles(allResults, { excludeExtensions, codeOnly });
+    // 1. Filter noisy directories (node_modules, etc.)
+    // NOTE: Extension filtering is now done engine-side via --code-only and --exclude-extensions
+    allResults = filterNoisyFiles(allResults, {});
     // 2. Boost results containing query keywords
     allResults = applyKeywordBoosting(allResults, query);
     // 3. Enforce score diversity (penalize identical scores)
