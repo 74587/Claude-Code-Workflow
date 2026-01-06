@@ -1,16 +1,19 @@
 # Windows Platform Guidelines
 
-## Path Format Guidelines
+## Path Format
 
-### MCP Tools
-- Use double backslash: `D:\\path\\file.txt`
-- Example: `read_file(paths="D:\\Claude_dms3\\src\\index.ts")`
+- **MCP Tools**: `D:\\path\\file.txt`
+- **Bash**: `D:/path/file.txt` or `/d/path/file.txt`
+- **Relative**: `./src/index.ts`
 
-### Bash Commands
-- Use forward slash: `D:/path/file.txt` or `/d/path/file.txt`
-- Example: `cd D:/Claude_dms3/src`
+## Bash Rules (Prevent Garbage Files)
 
-### Relative Paths
-- Universal format works in both MCP and Bash contexts
-- Example: `./src/index.ts` or `../shared/utils.ts`
+1. **Null redirect**: `command > NUL 2>&1`
+2. **Quote all**: `echo "$VAR"`, `cat "file name.txt"`
+3. **Variable assignment**: `export VAR=value && command`
+4. **Regex escape**: `grep -F "State<T>"` or `grep "State\<T\>"`
+5. **Pipe output**: `command 2>&1 | ...` (avoid bare command output)
 
+## Tool Priority
+
+MCP Tools > PowerShell > Git Bash > cmd

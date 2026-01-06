@@ -511,6 +511,9 @@ function initCodexLensConfigEvents(currentConfig) {
     };
   }
 
+  // Load FastEmbed installation status (show/hide install card)
+  loadFastEmbedInstallStatus();
+
   // Load semantic dependencies status
   loadSemanticDepsStatus();
 
@@ -749,11 +752,13 @@ async function loadEnvVariables() {
   container.innerHTML = '<div class="text-xs text-muted-foreground animate-pulse">Loading...</div>';
 
   try {
-    // Fetch env vars and configured models in parallel
-    var [envResponse, embeddingPoolResponse, rerankerPoolResponse] = await Promise.all([
+    // Fetch env vars, configured models, and local models in parallel
+    var [envResponse, embeddingPoolResponse, rerankerPoolResponse, localModelsResponse, localRerankerModelsResponse] = await Promise.all([
       fetch('/api/codexlens/env'),
       fetch('/api/litellm-api/embedding-pool').catch(function() { return null; }),
-      fetch('/api/litellm-api/reranker-pool').catch(function() { return null; })
+      fetch('/api/litellm-api/reranker-pool').catch(function() { return null; }),
+      fetch('/api/codexlens/models').catch(function() { return null; }),
+      fetch('/api/codexlens/reranker/models').catch(function() { return null; })
     ]);
 
     var result = await envResponse.json();
@@ -775,6 +780,26 @@ async function loadEnvVariables() {
     if (rerankerPoolResponse && rerankerPoolResponse.ok) {
       var rerankerData = await rerankerPoolResponse.json();
       configuredRerankerModels = rerankerData.availableModels || [];
+    }
+
+    // Get local downloaded embedding models
+    var localEmbeddingModels = [];
+    if (localModelsResponse && localModelsResponse.ok) {
+      var localData = await localModelsResponse.json();
+      if (localData.success && localData.models) {
+        // Filter to only downloaded models
+        localEmbeddingModels = localData.models.filter(function(m) { return m.downloaded; });
+      }
+    }
+
+    // Get local downloaded reranker models
+    var localRerankerModels = [];
+    if (localRerankerModelsResponse && localRerankerModelsResponse.ok) {
+      var localRerankerData = await localRerankerModelsResponse.json();
+      if (localRerankerData.success && localRerankerData.models) {
+        // Filter to only downloaded models
+        localRerankerModels = localRerankerData.models.filter(function(m) { return m.downloaded; });
+      }
     }
 
     var env = result.env || {};
@@ -841,10 +866,13 @@ async function loadEnvVariables() {
           var isReranker = key.indexOf('RERANKER') !== -1;
           var backendKey = isEmbedding ? 'CODEXLENS_EMBEDDING_BACKEND' : 'CODEXLENS_RERANKER_BACKEND';
           var isApiBackend = env[backendKey] === 'litellm' || env[backendKey] === 'api';
-          
-          // Choose model list based on backend type
-          var modelList = isApiBackend ? (config.apiModels || config.models || []) : (config.localModels || config.models || []);
+
+          // Get actual downloaded local models
+          var actualLocalModels = isEmbedding ? localEmbeddingModels : localRerankerModels;
+          // Get configured API models
           var configuredModels = isEmbedding ? configuredEmbeddingModels : configuredRerankerModels;
+          // Fallback preset list for API models
+          var apiModelList = config.apiModels || [];
 
           html += '<div class="flex items-center gap-2">' +
             '<label class="text-xs text-muted-foreground w-28 flex-shrink-0" title="' + escapeHtml(key) + '">' + escapeHtml(config.label) + '</label>' +
@@ -856,31 +884,44 @@ async function loadEnvVariables() {
             '</div>' +
             '<datalist id="' + datalistId + '">';
 
-          // For API backend: show configured models from API settings first
-          if (isApiBackend && configuredModels.length > 0) {
-            html += '<option value="" disabled>-- Configured in API Settings --</option>';
-            configuredModels.forEach(function(model) {
-              var providers = model.providers ? model.providers.join(', ') : '';
-              html += '<option value="' + escapeHtml(model.modelId) + '">' +
-                escapeHtml(model.modelName || model.modelId) +
-                (providers ? ' (' + escapeHtml(providers) + ')' : '') +
-                '</option>';
-            });
-            if (modelList.length > 0) {
-              html += '<option value="" disabled>-- Common Models --</option>';
+          if (isApiBackend) {
+            // For API backend: show configured models from API settings first
+            if (configuredModels.length > 0) {
+              html += '<option value="" disabled>-- ' + (t('codexlens.configuredModels') || 'Configured in API Settings') + ' --</option>';
+              configuredModels.forEach(function(model) {
+                var providers = model.providers ? model.providers.join(', ') : '';
+                html += '<option value="' + escapeHtml(model.modelId) + '">' +
+                  escapeHtml(model.modelName || model.modelId) +
+                  (providers ? ' (' + escapeHtml(providers) + ')' : '') +
+                  '</option>';
+              });
+            }
+            // Then show common API models as suggestions
+            if (apiModelList.length > 0) {
+              html += '<option value="" disabled>-- ' + (t('codexlens.commonModels') || 'Common Models') + ' --</option>';
+              apiModelList.forEach(function(group) {
+                group.items.forEach(function(model) {
+                  // Skip if already in configured list
+                  var exists = configuredModels.some(function(m) { return m.modelId === model; });
+                  if (!exists) {
+                    html += '<option value="' + escapeHtml(model) + '">' + escapeHtml(group.group) + ': ' + escapeHtml(model) + '</option>';
+                  }
+                });
+              });
+            }
+          } else {
+            // For local backend (fastembed): show actually downloaded models
+            if (actualLocalModels.length > 0) {
+              html += '<option value="" disabled>-- ' + (t('codexlens.downloadedModels') || 'Downloaded Models') + ' --</option>';
+              actualLocalModels.forEach(function(model) {
+                var modelId = model.model_id || model.id || model.name;
+                var displayName = model.display_name || model.name || modelId;
+                html += '<option value="' + escapeHtml(modelId) + '">' + escapeHtml(displayName) + '</option>';
+              });
+            } else {
+              html += '<option value="" disabled>-- ' + (t('codexlens.noLocalModels') || 'No models downloaded') + ' --</option>';
             }
           }
-          
-          // Add model list (local or API based on backend)
-          modelList.forEach(function(group) {
-            group.items.forEach(function(model) {
-              // Skip if already in configured list
-              var exists = configuredModels.some(function(m) { return m.modelId === model; });
-              if (!exists) {
-                html += '<option value="' + escapeHtml(model) + '">' + escapeHtml(group.group) + ': ' + escapeHtml(model) + '</option>';
-              }
-            });
-          });
 
           html += '</datalist></div>';
         } else {
@@ -1559,6 +1600,432 @@ async function installSplade(gpu) {
 // ============================================================
 
 /**
+ * Build FastEmbed installation card UI with GPU mode options
+ * @param {Array} gpuDevices - List of detected GPU devices
+ */
+function buildFastEmbedInstallCardUI(gpuDevices) {
+  gpuDevices = gpuDevices || [];
+
+  // Build GPU devices info section
+  var gpuInfoHtml = '';
+  if (gpuDevices.length > 0) {
+    gpuInfoHtml =
+      '<div class="mb-4 p-3 bg-muted/30 rounded-lg">' +
+        '<div class="text-xs font-medium text-muted-foreground mb-2">' +
+          '<i data-lucide="monitor" class="w-3.5 h-3.5 inline mr-1"></i>' +
+          (t('codexlens.detectedGpus') || 'Detected GPUs') + ':' +
+        '</div>' +
+        '<div class="space-y-1">';
+
+    gpuDevices.forEach(function(device) {
+      var typeIcon = device.type === 'integrated' ? 'cpu' : 'zap';
+      var typeClass = device.type === 'integrated' ? 'text-muted-foreground' : 'text-green-500';
+      gpuInfoHtml +=
+        '<div class="flex items-center gap-2 text-sm">' +
+          '<i data-lucide="' + typeIcon + '" class="w-3.5 h-3.5 ' + typeClass + '"></i>' +
+          '<span>' + escapeHtml(device.name) + '</span>' +
+          '<span class="text-xs text-muted-foreground">(' + (device.type === 'integrated' ? 'Integrated' : 'Discrete') + ')</span>' +
+        '</div>';
+    });
+
+    gpuInfoHtml += '</div></div>';
+  }
+
+  return '<div class="bg-card border border-warning/30 rounded-lg overflow-hidden">' +
+    // Header
+    '<div class="bg-warning/10 border-b border-warning/20 px-4 py-3">' +
+      '<div class="flex items-center gap-2">' +
+        '<i data-lucide="alert-circle" class="w-5 h-5 text-warning"></i>' +
+        '<h4 class="font-semibold">' + (t('codexlens.fastembedNotInstalled') || 'FastEmbed Not Installed') + '</h4>' +
+      '</div>' +
+    '</div>' +
+    // Content
+    '<div class="p-4 space-y-4">' +
+      '<p class="text-sm text-muted-foreground">' +
+        (t('codexlens.fastembedDesc') || 'FastEmbed provides local embedding models for semantic search. Select your preferred acceleration mode below.') +
+      '</p>' +
+      // Show detected GPUs
+      gpuInfoHtml +
+      // GPU Mode Cards
+      '<div class="space-y-2">' +
+        '<div class="text-xs font-medium text-muted-foreground mb-2">' +
+          (t('codexlens.selectMode') || 'Select Acceleration Mode') + ':' +
+        '</div>' +
+        '<div class="grid grid-cols-1 gap-2">' +
+          // CPU Option Card
+          '<label class="group flex items-center gap-3 p-3 border-2 border-border rounded-lg cursor-pointer transition-all hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5">' +
+            '<input type="radio" name="fastembedMode" value="cpu" class="sr-only" checked />' +
+            '<div class="flex items-center justify-center w-10 h-10 rounded-lg bg-muted group-has-[:checked]:bg-primary/20">' +
+              '<i data-lucide="cpu" class="w-5 h-5 text-muted-foreground group-has-[:checked]:text-primary"></i>' +
+            '</div>' +
+            '<div class="flex-1">' +
+              '<div class="font-medium">CPU</div>' +
+              '<div class="text-xs text-muted-foreground">' + (t('codexlens.cpuModeDesc') || 'Standard CPU processing, works on all systems') + '</div>' +
+            '</div>' +
+            '<div class="w-5 h-5 rounded-full border-2 border-muted group-has-[:checked]:border-primary group-has-[:checked]:bg-primary flex items-center justify-center">' +
+              '<div class="w-2 h-2 rounded-full bg-white opacity-0 group-has-[:checked]:opacity-100"></div>' +
+            '</div>' +
+          '</label>' +
+          // DirectML Option Card
+          '<label class="group flex items-center gap-3 p-3 border-2 border-border rounded-lg cursor-pointer transition-all hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5">' +
+            '<input type="radio" name="fastembedMode" value="directml" class="sr-only" />' +
+            '<div class="flex items-center justify-center w-10 h-10 rounded-lg bg-muted group-has-[:checked]:bg-primary/20">' +
+              '<i data-lucide="monitor" class="w-5 h-5 text-muted-foreground group-has-[:checked]:text-primary"></i>' +
+            '</div>' +
+            '<div class="flex-1">' +
+              '<div class="font-medium">DirectML</div>' +
+              '<div class="text-xs text-muted-foreground">' + (t('codexlens.directmlModeDesc') || 'Windows GPU acceleration (NVIDIA/AMD/Intel)') + '</div>' +
+            '</div>' +
+            '<div class="w-5 h-5 rounded-full border-2 border-muted group-has-[:checked]:border-primary group-has-[:checked]:bg-primary flex items-center justify-center">' +
+              '<div class="w-2 h-2 rounded-full bg-white opacity-0 group-has-[:checked]:opacity-100"></div>' +
+            '</div>' +
+          '</label>' +
+          // CUDA Option Card
+          '<label class="group flex items-center gap-3 p-3 border-2 border-border rounded-lg cursor-pointer transition-all hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5">' +
+            '<input type="radio" name="fastembedMode" value="cuda" class="sr-only" />' +
+            '<div class="flex items-center justify-center w-10 h-10 rounded-lg bg-muted group-has-[:checked]:bg-primary/20">' +
+              '<i data-lucide="zap" class="w-5 h-5 text-muted-foreground group-has-[:checked]:text-primary"></i>' +
+            '</div>' +
+            '<div class="flex-1">' +
+              '<div class="font-medium">CUDA</div>' +
+              '<div class="text-xs text-muted-foreground">' + (t('codexlens.cudaModeDesc') || 'NVIDIA GPU acceleration (requires CUDA Toolkit)') + '</div>' +
+            '</div>' +
+            '<div class="w-5 h-5 rounded-full border-2 border-muted group-has-[:checked]:border-primary group-has-[:checked]:bg-primary flex items-center justify-center">' +
+              '<div class="w-2 h-2 rounded-full bg-white opacity-0 group-has-[:checked]:opacity-100"></div>' +
+            '</div>' +
+          '</label>' +
+        '</div>' +
+      '</div>' +
+      // Install Button
+      '<button class="btn btn-primary w-full" onclick="installFastEmbed()">' +
+        '<i data-lucide="download" class="w-4 h-4 mr-2"></i> ' +
+        (t('codexlens.installFastembed') || 'Install FastEmbed') +
+      '</button>' +
+    '</div>' +
+  '</div>';
+}
+
+/**
+ * Build FastEmbed status card UI (when installed)
+ * @param {Object} status - Semantic status object
+ * @param {Array} gpuDevices - List of detected GPU devices
+ * @param {Object} litellmStatus - LiteLLM installation status from API settings endpoint
+ */
+function buildFastEmbedStatusCardUI(status, gpuDevices, litellmStatus) {
+  gpuDevices = gpuDevices || [];
+  litellmStatus = litellmStatus || {};
+
+  // Determine accelerator info
+  var accelerator = status.accelerator || 'CPU';
+  var acceleratorIcon = accelerator === 'CPU' ? 'cpu' :
+                        accelerator.includes('CUDA') ? 'zap' : 'monitor';
+  var acceleratorClass = accelerator === 'CPU' ? 'text-muted-foreground' : 'text-green-500';
+  var acceleratorBgClass = accelerator === 'CPU' ? 'bg-muted/50' :
+                           accelerator.includes('CUDA') ? 'bg-green-500/20' : 'bg-blue-500/20';
+
+  // Check if LiteLLM (ccw-litellm) is installed - use the same check as API Settings
+  var isLitellmInstalled = litellmStatus.installed === true;
+
+  // Build GPU devices section with active indicator
+  var gpuInfoHtml = '';
+  if (gpuDevices.length > 0) {
+    gpuInfoHtml =
+      '<div class="mb-3">' +
+        '<div class="text-xs font-medium text-muted-foreground mb-2">' +
+          '<i data-lucide="monitor" class="w-3 h-3 inline mr-1"></i>' +
+          (t('codexlens.detectedGpus') || 'Detected GPUs') +
+        '</div>' +
+        '<div class="space-y-1.5">';
+
+    gpuDevices.forEach(function(device, index) {
+      var isActive = false;
+      // Determine if this GPU matches the active accelerator
+      if (accelerator === 'CUDA' && device.type === 'discrete' && device.name.toLowerCase().includes('nvidia')) {
+        isActive = true;
+      } else if (accelerator === 'DirectML' && device.type === 'discrete') {
+        isActive = true;
+      } else if (accelerator === 'CPU' && device.type === 'integrated') {
+        isActive = index === 0; // First integrated GPU is likely active
+      }
+
+      var typeIcon = device.type === 'integrated' ? 'cpu' : 'zap';
+      var activeClass = isActive ? 'border-green-500 bg-green-500/10' : 'border-border bg-muted/30';
+      var activeBadge = isActive ?
+        '<span class="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-600 font-medium">' +
+          (t('codexlens.active') || 'Active') +
+        '</span>' : '';
+
+      gpuInfoHtml +=
+        '<div class="flex items-center justify-between p-2 rounded border ' + activeClass + '">' +
+          '<div class="flex items-center gap-2">' +
+            '<i data-lucide="' + typeIcon + '" class="w-3.5 h-3.5 ' + (isActive ? 'text-green-500' : 'text-muted-foreground') + '"></i>' +
+            '<div>' +
+              '<div class="text-xs font-medium">' + escapeHtml(device.name) + '</div>' +
+              '<div class="text-[10px] text-muted-foreground">' + (device.type === 'integrated' ? 'Integrated' : 'Discrete') + '</div>' +
+            '</div>' +
+          '</div>' +
+          activeBadge +
+        '</div>';
+    });
+
+    gpuInfoHtml += '</div></div>';
+  }
+
+  // Active accelerator section
+  var activeAcceleratorHtml =
+    '<div class="p-3 rounded-lg ' + acceleratorBgClass + ' mb-3">' +
+      '<div class="flex items-center justify-between">' +
+        '<div class="flex items-center gap-2">' +
+          '<i data-lucide="' + acceleratorIcon + '" class="w-5 h-5 ' + acceleratorClass + '"></i>' +
+          '<div>' +
+            '<div class="text-xs text-muted-foreground">' + (t('codexlens.activeAccelerator') || 'Active Accelerator') + '</div>' +
+            '<div class="font-semibold">' + accelerator + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="text-right text-xs">' +
+          '<div class="text-muted-foreground">Backend</div>' +
+          '<div class="font-medium">' + (status.backend || 'fastembed') + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  return '<div class="bg-card border border-green-500/30 rounded-lg overflow-hidden">' +
+    // Header
+    '<div class="bg-green-500/10 border-b border-green-500/20 px-4 py-2">' +
+      '<div class="flex items-center justify-between">' +
+        '<div class="flex items-center gap-2">' +
+          '<i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i>' +
+          '<h4 class="font-medium text-sm">' + (t('codexlens.fastembedInstalled') || 'FastEmbed Installed') + '</h4>' +
+        '</div>' +
+        '<div class="flex items-center gap-2">' +
+          // LiteLLM status badge
+          (isLitellmInstalled ?
+            '<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-600" title="LiteLLM API Available">' +
+              '<i data-lucide="cloud" class="w-2.5 h-2.5 inline"></i> LiteLLM' +
+            '</span>' : '') +
+          '<span class="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-600">' +
+            '<i data-lucide="' + acceleratorIcon + '" class="w-3 h-3 inline mr-1"></i>' +
+            accelerator +
+          '</span>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    // Content
+    '<div class="p-3 space-y-3">' +
+      // Active accelerator section
+      activeAcceleratorHtml +
+      // GPU devices
+      gpuInfoHtml +
+      // Reinstall option (collapsed by default)
+      '<details class="text-xs">' +
+        '<summary class="cursor-pointer text-muted-foreground hover:text-foreground">' +
+          '<i data-lucide="settings" class="w-3 h-3 inline mr-1"></i>' +
+          (t('codexlens.reinstallOptions') || 'Reinstall Options') +
+        '</summary>' +
+        '<div class="mt-2 p-2 bg-muted/30 rounded space-y-2">' +
+          '<p class="text-muted-foreground">' + (t('codexlens.reinstallDesc') || 'Reinstall with a different GPU mode:') + '</p>' +
+          '<div class="flex gap-2">' +
+            '<button class="btn-xs ' + (accelerator === 'CPU' ? 'btn-primary' : 'btn-outline') + '" onclick="reinstallFastEmbed(\'cpu\')" ' + (accelerator === 'CPU' ? 'disabled' : '') + '>' +
+              '<i data-lucide="cpu" class="w-3 h-3 mr-1"></i>CPU' +
+            '</button>' +
+            '<button class="btn-xs ' + (accelerator === 'DirectML' ? 'btn-primary' : 'btn-outline') + '" onclick="reinstallFastEmbed(\'directml\')" ' + (accelerator === 'DirectML' ? 'disabled' : '') + '>' +
+              '<i data-lucide="monitor" class="w-3 h-3 mr-1"></i>DirectML' +
+            '</button>' +
+            '<button class="btn-xs ' + (accelerator === 'CUDA' ? 'btn-primary' : 'btn-outline') + '" onclick="reinstallFastEmbed(\'cuda\')" ' + (accelerator === 'CUDA' ? 'disabled' : '') + '>' +
+              '<i data-lucide="zap" class="w-3 h-3 mr-1"></i>CUDA' +
+            '</button>' +
+          '</div>' +
+        '</div>' +
+      '</details>' +
+    '</div>' +
+  '</div>';
+}
+
+/**
+ * Reinstall FastEmbed with specified GPU mode
+ * @param {string} mode - GPU mode: cpu, directml, cuda
+ */
+async function reinstallFastEmbed(mode) {
+  if (!confirm((t('codexlens.confirmReinstall') || 'This will reinstall FastEmbed with ' + mode + ' mode. Continue?'))) {
+    return;
+  }
+
+  var card = document.getElementById('fastembedInstallCard');
+  if (!card) return;
+
+  var modeLabels = {
+    cpu: 'CPU',
+    cuda: 'NVIDIA CUDA',
+    directml: 'DirectML'
+  };
+
+  // Show reinstalling state
+  card.innerHTML =
+    '<div class="bg-card border border-primary/30 rounded-lg overflow-hidden">' +
+      '<div class="bg-primary/10 border-b border-primary/20 px-4 py-2">' +
+        '<div class="flex items-center gap-2">' +
+          '<div class="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div>' +
+          '<h4 class="font-medium text-sm">' + (t('codexlens.reinstallingFastembed') || 'Reinstalling FastEmbed...') + '</h4>' +
+        '</div>' +
+      '</div>' +
+      '<div class="p-3 text-xs text-muted-foreground">' +
+        (t('codexlens.installingMode') || 'Installing with') + ': ' + modeLabels[mode] +
+      '</div>' +
+    '</div>';
+
+  try {
+    var response = await fetch('/api/codexlens/semantic/install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gpuMode: mode })
+    });
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast((t('codexlens.fastembedReinstalled') || 'FastEmbed reinstalled') + ' (' + modeLabels[mode] + ')', 'success');
+      // Reload status
+      loadFastEmbedInstallStatus();
+    } else {
+      showRefreshToast((t('codexlens.fastembedInstallFailed') || 'FastEmbed reinstall failed') + ': ' + result.error, 'error');
+      loadFastEmbedInstallStatus();
+    }
+  } catch (err) {
+    showRefreshToast((t('common.error') || 'Error') + ': ' + err.message, 'error');
+    loadFastEmbedInstallStatus();
+  }
+}
+
+/**
+ * Load FastEmbed installation status and show card
+ * Card is always visible - shows install UI or status UI based on state
+ */
+async function loadFastEmbedInstallStatus() {
+  console.log('[CodexLens] loadFastEmbedInstallStatus called');
+  var card = document.getElementById('fastembedInstallCard');
+  console.log('[CodexLens] fastembedInstallCard element:', card);
+  if (!card) {
+    console.warn('[CodexLens] fastembedInstallCard element not found!');
+    return;
+  }
+
+  try {
+    // Load semantic status, GPU list, and LiteLLM status in parallel
+    console.log('[CodexLens] Fetching semantic status, GPU list, and LiteLLM status...');
+    var [semanticResponse, gpuResponse, litellmResponse] = await Promise.all([
+      fetch('/api/codexlens/semantic/status'),
+      fetch('/api/codexlens/gpu/list'),
+      fetch('/api/litellm-api/ccw-litellm/status').catch(function() { return { ok: false }; })
+    ]);
+
+    var result = await semanticResponse.json();
+    var gpuResult = await gpuResponse.json();
+    var gpuDevices = gpuResult.devices || [];
+
+    // Get LiteLLM status (same endpoint as API Settings page)
+    var litellmStatus = {};
+    if (litellmResponse.ok) {
+      try {
+        litellmStatus = await litellmResponse.json();
+      } catch (e) {
+        console.warn('[CodexLens] Failed to parse LiteLLM status:', e);
+      }
+    }
+
+    console.log('[CodexLens] Semantic status:', result);
+    console.log('[CodexLens] GPU devices:', gpuDevices);
+    console.log('[CodexLens] LiteLLM status:', litellmStatus);
+
+    if (result.available) {
+      // FastEmbed is installed - show status card
+      console.log('[CodexLens] FastEmbed available, showing status card');
+      card.innerHTML = buildFastEmbedStatusCardUI(result, gpuDevices, litellmStatus);
+      card.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    } else {
+      // FastEmbed not installed - show install card with GPU devices
+      console.log('[CodexLens] FastEmbed NOT available, showing install card');
+      card.innerHTML = buildFastEmbedInstallCardUI(gpuDevices);
+      card.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+  } catch (err) {
+    // On error, show install card without GPU info
+    console.error('[CodexLens] Error loading FastEmbed status:', err);
+    card.innerHTML = buildFastEmbedInstallCardUI([]);
+    card.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+/**
+ * Install FastEmbed with selected GPU mode
+ */
+async function installFastEmbed() {
+  var card = document.getElementById('fastembedInstallCard');
+  if (!card) return;
+
+  // Get selected GPU mode
+  var selectedMode = 'cpu';
+  var radios = document.querySelectorAll('input[name="fastembedMode"]');
+  radios.forEach(function(radio) {
+    if (radio.checked) {
+      selectedMode = radio.value;
+    }
+  });
+
+  var modeLabels = {
+    cpu: 'CPU',
+    cuda: 'NVIDIA CUDA',
+    directml: 'DirectML'
+  };
+
+  // Show installing state in card
+  card.innerHTML =
+    '<div class="bg-card border border-primary/30 rounded-lg overflow-hidden">' +
+      '<div class="bg-primary/10 border-b border-primary/20 px-4 py-3">' +
+        '<div class="flex items-center gap-2">' +
+          '<div class="animate-spin w-5 h-5 border-2 border-primary border-t-transparent rounded-full"></div>' +
+          '<h4 class="font-semibold">' + (t('codexlens.installingFastembed') || 'Installing FastEmbed...') + '</h4>' +
+        '</div>' +
+      '</div>' +
+      '<div class="p-4 space-y-2">' +
+        '<div class="text-sm">' +
+          (t('codexlens.installingMode') || 'Installing with') + ': <span class="font-medium">' + modeLabels[selectedMode] + '</span>' +
+        '</div>' +
+        '<div class="text-xs text-muted-foreground">' +
+          (t('codexlens.installMayTakeTime') || 'This may take several minutes. Please do not close this page.') +
+        '</div>' +
+        '<div class="w-full bg-muted rounded-full h-1.5 mt-3">' +
+          '<div class="bg-primary h-1.5 rounded-full animate-pulse" style="width: 30%"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  try {
+    var response = await fetch('/api/codexlens/semantic/install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gpuMode: selectedMode })
+    });
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast((t('codexlens.fastembedInstalled') || 'FastEmbed installed') + ' (' + modeLabels[selectedMode] + ')', 'success');
+      // Hide card and reload status
+      await loadFastEmbedInstallStatus();
+      await loadSemanticDepsStatus();
+      await loadModelList();
+    } else {
+      showRefreshToast((t('codexlens.fastembedInstallFailed') || 'FastEmbed installation failed') + ': ' + result.error, 'error');
+      await loadFastEmbedInstallStatus();
+    }
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+    await loadFastEmbedInstallStatus();
+  }
+}
+
+/**
  * Copy text to clipboard
  */
 function copyToClipboard(text) {
@@ -1602,7 +2069,11 @@ async function loadModelList() {
     if (!result.success) {
       var errorMsg = result.error || '';
       if (errorMsg.includes('fastembed not installed') || errorMsg.includes('Semantic')) {
-        html += '<div class="text-sm text-muted-foreground">' + t('codexlens.semanticNotInstalled') + '</div>';
+        // Just show a simple message - installation UI is in the separate card above
+        html += '<div class="flex items-center gap-2 text-sm text-muted-foreground p-3 bg-muted/30 rounded">' +
+          '<i data-lucide="info" class="w-4 h-4"></i>' +
+          '<span>' + (t('codexlens.installFastembedFirst') || 'Install FastEmbed above to manage local embedding models') + '</span>' +
+        '</div>';
       } else {
         html += '<div class="text-sm text-error">' + escapeHtml(errorMsg || t('common.unknownError')) + '</div>';
       }
@@ -2141,18 +2612,7 @@ function switchCodexLensModelTab(tabName) {
  * Update model mode (Local vs API)
  */
 function updateModelMode(mode) {
-  var gpuContainer = document.getElementById('gpuSelectContainer');
   var modeSelect = document.getElementById('modelModeSelect');
-
-  // Show/hide GPU selector based on mode
-  if (gpuContainer) {
-    if (mode === 'local') {
-      gpuContainer.classList.remove('hidden');
-      loadGpuDevicesForModeSelector();
-    } else {
-      gpuContainer.classList.add('hidden');
-    }
-  }
 
   // Store mode preference (will be saved when locked)
   if (modeSelect) {
@@ -2165,6 +2625,7 @@ function updateModelMode(mode) {
  */
 async function loadGpuDevicesForModeSelector() {
   var gpuSelect = document.getElementById('gpuDeviceSelect');
+  var gpuSection = document.getElementById('gpuConfigSection');
   if (!gpuSelect) return;
 
   try {
@@ -2172,19 +2633,28 @@ async function loadGpuDevicesForModeSelector() {
     if (!response.ok) {
       console.warn('[CodexLens] GPU list endpoint returned:', response.status);
       gpuSelect.innerHTML = '<option value="auto">Auto</option>';
+      // Hide section if no GPU devices available
+      if (gpuSection) gpuSection.classList.add('hidden');
       return;
     }
     var result = await response.json();
 
     var html = '<option value="auto">Auto</option>';
-    if (result.devices && result.devices.length > 0) {
+    if (result.devices && result.devices.length > 1) {
+      // Only show section if multiple GPUs available
       result.devices.forEach(function(device, index) {
         html += '<option value="' + index + '">' + escapeHtml(device.name) + '</option>';
       });
+      gpuSelect.innerHTML = html;
+      if (gpuSection) gpuSection.classList.remove('hidden');
+    } else {
+      // Single or no GPU - hide section
+      gpuSelect.innerHTML = html;
+      if (gpuSection) gpuSection.classList.add('hidden');
     }
-    gpuSelect.innerHTML = html;
   } catch (err) {
     console.error('Failed to load GPU devices:', err);
+    if (gpuSection) gpuSection.classList.add('hidden');
   }
 }
 
@@ -2259,7 +2729,6 @@ async function toggleModelModeLock() {
  */
 async function initModelModeFromConfig() {
   var modeSelect = document.getElementById('modelModeSelect');
-  var gpuContainer = document.getElementById('gpuSelectContainer');
 
   if (!modeSelect) return;
 
@@ -2272,16 +2741,6 @@ async function initModelModeFromConfig() {
 
     modeSelect.value = mode;
     modeSelect.setAttribute('data-current-mode', mode);
-
-    // Show GPU selector for local mode
-    if (gpuContainer) {
-      if (mode === 'local') {
-        gpuContainer.classList.remove('hidden');
-        loadGpuDevicesForModeSelector();
-      } else {
-        gpuContainer.classList.add('hidden');
-      }
-    }
   } catch (err) {
     console.error('Failed to load model mode config:', err);
   }
@@ -3112,6 +3571,9 @@ async function renderCodexLensManager() {
     // Wait for LiteLLM config before loading semantic deps (it may need provider info)
     await litellmPromise;
 
+    // Load FastEmbed installation status (show/hide install card)
+    loadFastEmbedInstallStatus();
+
     // Always load semantic deps status - it needs GPU detection and device list
     // which are not included in the aggregated endpoint
     loadSemanticDepsStatus();
@@ -3121,7 +3583,6 @@ async function renderCodexLensManager() {
 
     // Initialize model mode and semantic status badge
     updateSemanticStatusBadge();
-    loadGpuDevicesForModeSelector();
 
     // Initialize file watcher status
     initWatcherStatus();
@@ -3238,6 +3699,10 @@ function buildCodexLensManagerPage(config) {
           '</div>' +
           // Right Column
           '<div class="space-y-6">' +
+            // FastEmbed Installation Card (shown when not installed)
+            '<div id="fastembedInstallCard" class="hidden">' +
+              // Content will be populated by loadFastEmbedInstallStatus()
+            '</div>' +
             // Combined: Semantic Status + Model Management with Tabs
             '<div class="bg-card border border-border rounded-lg overflow-hidden">' +
               // Compact Header with Semantic Status
@@ -3248,16 +3713,6 @@ function buildCodexLensManagerPage(config) {
                     '<span class="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground animate-pulse">Checking...</span>' +
                   '</div>' +
                 '</div>' +
-              '</div>' +
-              // GPU Config Section (for local mode)
-              '<div id="gpuConfigSection" class="px-4 py-3 border-b border-border bg-muted/10">' +
-                '<div class="flex items-center gap-3">' +
-                  '<span class="text-xs text-muted-foreground">GPU:</span>' +
-                  '<select id="gpuDeviceSelect" class="text-sm border rounded px-2 py-1 bg-background flex-1">' +
-                    '<option value="auto">Auto</option>' +
-                  '</select>' +
-                '</div>' +
-                '<p class="text-xs text-muted-foreground mt-1.5">Backend configured in Environment Variables below</p>' +
               '</div>' +
               // Tabs for Embedding / Reranker
               '<div class="border-b border-border">' +

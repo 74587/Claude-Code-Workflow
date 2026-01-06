@@ -389,7 +389,8 @@ async function checkPythonEnvForDirectML(): Promise<PythonEnvInfo> {
 
   try {
     // Get Python version and architecture in one call
-    const checkScript = `import sys, struct; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}|{struct.calcsize('P') * 8}")`;
+    // Use % formatting instead of f-string to avoid Windows shell escaping issues with curly braces
+    const checkScript = `import sys, struct; print('%d.%d.%d|%d' % (sys.version_info.major, sys.version_info.minor, sys.version_info.micro, struct.calcsize('P') * 8))`;
     const result = execSync(`"${pythonPath}" -c "${checkScript}"`, { encoding: 'utf-8', timeout: 10000 }).trim();
     const [version, archStr] = result.split('|');
     const architecture = parseInt(archStr, 10);

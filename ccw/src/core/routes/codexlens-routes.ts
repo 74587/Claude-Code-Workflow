@@ -423,20 +423,14 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
           watcherProcess = null;
         }
 
-        // Cancel any running indexing process
-        if (currentIndexingProcess) {
+        // Cancel any running indexing process using exported function
+        if (isIndexingInProgress()) {
           console.log('[CodexLens] Cancelling indexing before uninstall...');
           try {
-            if (process.platform === 'win32') {
-              const { execSync } = require('child_process');
-              execSync(`taskkill /pid ${currentIndexingProcess.pid} /T /F`, { stdio: 'ignore' });
-            } else {
-              currentIndexingProcess.kill('SIGKILL');
-            }
+            cancelIndexing();
           } catch {
             // Ignore errors
           }
-          currentIndexingProcess = null;
         }
 
         // Wait a moment for processes to fully exit and release handles
@@ -977,27 +971,80 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
   // API: List available GPU devices for selection
   if (pathname === '/api/codexlens/gpu/list' && req.method === 'GET') {
     try {
-      // Check if CodexLens is installed first (without auto-installing)
+      // Try CodexLens gpu-list first if available
       const venvStatus = await checkVenvStatus();
-      if (!venvStatus.ready) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, devices: [], selected_device_id: null }));
-        return true;
+      if (venvStatus.ready) {
+        const result = await executeCodexLens(['gpu-list', '--json']);
+        if (result.success) {
+          try {
+            const parsed = extractJSON(result.output);
+            if (parsed.devices && parsed.devices.length > 0) {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify(parsed));
+              return true;
+            }
+          } catch {
+            // Fall through to system detection
+          }
+        }
       }
-      const result = await executeCodexLens(['gpu-list', '--json']);
-      if (result.success) {
+
+      // Fallback: Use system commands to detect GPUs
+      const devices: Array<{ name: string; type: string; index: number }> = [];
+
+      if (process.platform === 'win32') {
+        // Windows: Use WMIC to get GPU info
         try {
-          const parsed = extractJSON(result.output);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(parsed));
-        } catch {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true, devices: [], output: result.output }));
+          const { execSync } = await import('child_process');
+          const wmicOutput = execSync('wmic path win32_VideoController get name', {
+            encoding: 'utf-8',
+            timeout: 10000,
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+
+          const lines = wmicOutput.split('\n')
+            .map(line => line.trim())
+            .filter(line => line && line !== 'Name');
+
+          lines.forEach((name, index) => {
+            if (name) {
+              const isIntegrated = name.toLowerCase().includes('intel') ||
+                                   name.toLowerCase().includes('integrated');
+              devices.push({
+                name: name,
+                type: isIntegrated ? 'integrated' : 'discrete',
+                index: index
+              });
+            }
+          });
+        } catch (e) {
+          console.warn('[CodexLens] WMIC GPU detection failed:', (e as Error).message);
         }
       } else {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: result.error }));
+        // Linux/Mac: Try nvidia-smi for NVIDIA GPUs
+        try {
+          const { execSync } = await import('child_process');
+          const nvidiaOutput = execSync('nvidia-smi --query-gpu=name --format=csv,noheader', {
+            encoding: 'utf-8',
+            timeout: 10000,
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+
+          const lines = nvidiaOutput.split('\n').filter(line => line.trim());
+          lines.forEach((name, index) => {
+            devices.push({
+              name: name.trim(),
+              type: 'discrete',
+              index: index
+            });
+          });
+        } catch {
+          // NVIDIA not available, that's fine
+        }
       }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, devices: devices, selected_device_id: null }));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: false, error: err.message }));
