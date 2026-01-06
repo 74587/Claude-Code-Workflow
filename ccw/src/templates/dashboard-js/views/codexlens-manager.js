@@ -147,14 +147,40 @@ function buildCodexLensConfigContent(config) {
           '</div>' +
         '</div>' +
 
-        // Quick Actions
+        // Index Operations - 4 buttons grid
         '<div class="space-y-2">' +
-          '<h4 class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Quick Actions</h4>' +
-          '<div class="grid grid-cols-2 gap-2">' +
-            (isInstalled
-              ? '<button class="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors" onclick="initCodexLensIndex()">' +
-                  '<i data-lucide="refresh-cw" class="w-4 h-4"></i> Update Index' +
+          '<h4 class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">' + (t('codexlens.indexOperations') || 'Index Operations') + '</h4>' +
+          (isInstalled
+            ? '<div class="grid grid-cols-2 gap-2">' +
+                // FTS Full Index
+                '<button class="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-blue-500/30 bg-blue-500/5 text-blue-600 hover:bg-blue-500/10 transition-colors" onclick="runFtsFullIndex()" title="' + (t('codexlens.ftsFullIndexDesc') || 'Rebuild full-text search index') + '">' +
+                  '<i data-lucide="file-text" class="w-4 h-4"></i> FTS ' + (t('codexlens.fullIndex') || 'Full') +
                 '</button>' +
+                // FTS Incremental
+                '<button class="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-blue-500/30 bg-background text-blue-600 hover:bg-blue-500/5 transition-colors" onclick="runFtsIncrementalUpdate()" title="' + (t('codexlens.ftsIncrementalDesc') || 'Update FTS index for changed files') + '">' +
+                  '<i data-lucide="file-plus" class="w-4 h-4"></i> FTS ' + (t('codexlens.incremental') || 'Incremental') +
+                '</button>' +
+                // Vector Full Index
+                '<button class="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-purple-500/30 bg-purple-500/5 text-purple-600 hover:bg-purple-500/10 transition-colors" onclick="runVectorFullIndex()" title="' + (t('codexlens.vectorFullIndexDesc') || 'Generate all embeddings') + '">' +
+                  '<i data-lucide="brain" class="w-4 h-4"></i> Vector ' + (t('codexlens.fullIndex') || 'Full') +
+                '</button>' +
+                // Vector Incremental
+                '<button class="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-purple-500/30 bg-background text-purple-600 hover:bg-purple-500/5 transition-colors" onclick="runVectorIncrementalUpdate()" title="' + (t('codexlens.vectorIncrementalDesc') || 'Generate embeddings for new files only') + '">' +
+                  '<i data-lucide="brain" class="w-4 h-4"></i> Vector ' + (t('codexlens.incremental') || 'Incremental') +
+                '</button>' +
+              '</div>'
+            : '<div class="grid grid-cols-2 gap-2">' +
+                '<button class="col-span-2 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors" onclick="installCodexLensFromManager()">' +
+                  '<i data-lucide="download" class="w-4 h-4"></i> Install CodexLens' +
+                '</button>' +
+              '</div>') +
+        '</div>' +
+
+        // Quick Actions
+        '<div class="space-y-2 mt-3">' +
+          '<h4 class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">' + (t('codexlens.quickActions') || 'Quick Actions') + '</h4>' +
+          (isInstalled
+            ? '<div class="grid grid-cols-2 gap-2">' +
                 '<button class="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors" onclick="showWatcherControlModal()">' +
                   '<i data-lucide="eye" class="w-4 h-4"></i> File Watcher' +
                 '</button>' +
@@ -163,11 +189,9 @@ function buildCodexLensConfigContent(config) {
                 '</button>' +
                 '<button class="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors" onclick="cleanCurrentWorkspaceIndex()">' +
                   '<i data-lucide="eraser" class="w-4 h-4"></i> Clean Workspace' +
-                '</button>'
-              : '<button class="col-span-2 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors" onclick="installCodexLensFromManager()">' +
-                  '<i data-lucide="download" class="w-4 h-4"></i> Install CodexLens' +
-                '</button>') +
-          '</div>' +
+                '</button>' +
+              '</div>'
+            : '') +
         '</div>' +
       '</div>' +
 
@@ -684,9 +708,10 @@ var ENV_VAR_GROUPS = {
           { group: 'Jina', items: ['jina-embeddings-v3', 'jina-embeddings-v2-base-en', 'jina-embeddings-v2-base-zh'] }
         ]
       },
-      'CODEXLENS_USE_GPU': { label: 'Use GPU', type: 'select', options: ['true', 'false'], default: 'true', settingsPath: 'embedding.use_gpu', showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] !== 'litellm'; } },
-      'CODEXLENS_EMBEDDING_STRATEGY': { label: 'Load Balance', type: 'select', options: ['round_robin', 'latency_aware', 'weighted_random'], default: 'latency_aware', settingsPath: 'embedding.strategy', showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'litellm'; } },
-      'CODEXLENS_EMBEDDING_COOLDOWN': { label: 'Rate Limit Cooldown (s)', type: 'number', placeholder: '60', default: '60', settingsPath: 'embedding.cooldown', min: 0, max: 300, showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'litellm'; } }
+      'CODEXLENS_USE_GPU': { label: 'Use GPU', type: 'select', options: ['true', 'false'], default: 'true', settingsPath: 'embedding.use_gpu', showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'local'; } },
+      'CODEXLENS_EMBEDDING_POOL_ENABLED': { label: 'High Availability', type: 'select', options: ['true', 'false'], default: 'false', settingsPath: 'embedding.pool_enabled', showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'api'; } },
+      'CODEXLENS_EMBEDDING_STRATEGY': { label: 'Load Balance Strategy', type: 'select', options: ['round_robin', 'latency_aware', 'weighted_random'], default: 'latency_aware', settingsPath: 'embedding.strategy', showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'api' && env['CODEXLENS_EMBEDDING_POOL_ENABLED'] === 'true'; } },
+      'CODEXLENS_EMBEDDING_COOLDOWN': { label: 'Rate Limit Cooldown (s)', type: 'number', placeholder: '60', default: '60', settingsPath: 'embedding.cooldown', min: 0, max: 300, showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'api' && env['CODEXLENS_EMBEDDING_POOL_ENABLED'] === 'true'; } }
     }
   },
   reranker: {
@@ -711,7 +736,10 @@ var ENV_VAR_GROUPS = {
           { group: 'Jina', items: ['jina-reranker-v2-base-multilingual', 'jina-reranker-v1-base-en'] }
         ]
       },
-      'CODEXLENS_RERANKER_TOP_K': { label: 'Top K Results', type: 'number', placeholder: '50', default: '50', settingsPath: 'reranker.top_k', min: 5, max: 200 }
+      'CODEXLENS_RERANKER_TOP_K': { label: 'Top K Results', type: 'number', placeholder: '50', default: '50', settingsPath: 'reranker.top_k', min: 5, max: 200 },
+      'CODEXLENS_RERANKER_POOL_ENABLED': { label: 'High Availability', type: 'select', options: ['true', 'false'], default: 'false', settingsPath: 'reranker.pool_enabled', showWhen: function(env) { return env['CODEXLENS_RERANKER_BACKEND'] === 'api'; } },
+      'CODEXLENS_RERANKER_STRATEGY': { label: 'Load Balance Strategy', type: 'select', options: ['round_robin', 'latency_aware', 'weighted_random'], default: 'latency_aware', settingsPath: 'reranker.strategy', showWhen: function(env) { return env['CODEXLENS_RERANKER_BACKEND'] === 'api' && env['CODEXLENS_RERANKER_POOL_ENABLED'] === 'true'; } },
+      'CODEXLENS_RERANKER_COOLDOWN': { label: 'Rate Limit Cooldown (s)', type: 'number', placeholder: '60', default: '60', settingsPath: 'reranker.cooldown', min: 0, max: 300, showWhen: function(env) { return env['CODEXLENS_RERANKER_BACKEND'] === 'api' && env['CODEXLENS_RERANKER_POOL_ENABLED'] === 'true'; } }
     }
   },
   concurrency: {
@@ -729,15 +757,6 @@ var ENV_VAR_GROUPS = {
       'CODEXLENS_CASCADE_STRATEGY': { label: 'Search Strategy', type: 'select', options: ['binary', 'hybrid', 'binary_rerank', 'dense_rerank'], default: 'dense_rerank', settingsPath: 'cascade.strategy' },
       'CODEXLENS_CASCADE_COARSE_K': { label: 'Coarse K (1st stage)', type: 'number', placeholder: '100', default: '100', settingsPath: 'cascade.coarse_k', min: 10, max: 500 },
       'CODEXLENS_CASCADE_FINE_K': { label: 'Fine K (final)', type: 'number', placeholder: '10', default: '10', settingsPath: 'cascade.fine_k', min: 1, max: 100 }
-    }
-  },
-  llm: {
-    labelKey: 'codexlens.envGroup.llm',
-    icon: 'sparkles',
-    collapsed: true,
-    vars: {
-      'CODEXLENS_LLM_ENABLED': { label: 'Enable LLM', type: 'select', options: ['true', 'false'], default: 'false', settingsPath: 'llm.enabled' },
-      'CODEXLENS_LLM_BATCH_SIZE': { label: 'Batch Size', type: 'number', placeholder: '5', default: '5', settingsPath: 'llm.batch_size', min: 1, max: 20 }
     }
   }
 };
@@ -859,12 +878,11 @@ async function loadEnvVariables() {
 
       for (var key in group.vars) {
         var config = group.vars[key];
-        
-        // Check variable-level showWhen condition
-        if (config.showWhen && !config.showWhen(env)) {
-          continue;
-        }
-        
+
+        // Check variable-level showWhen condition - render but hide if condition is false
+        var shouldShow = !config.showWhen || config.showWhen(env);
+        var hiddenStyle = shouldShow ? '' : ' style="display:none"';
+
         // Priority: env file > settings.json > hardcoded default
         var value = env[key] || settings[key] || config.default || '';
 
@@ -874,7 +892,7 @@ async function loadEnvVariables() {
           if (key === 'CODEXLENS_EMBEDDING_BACKEND' || key === 'CODEXLENS_RERANKER_BACKEND') {
             onchangeHandler = ' onchange="updateModelOptionsOnBackendChange(\'' + key + '\', this.value)"';
           }
-          html += '<div class="flex items-center gap-2">' +
+          html += '<div class="flex items-center gap-2"' + hiddenStyle + '>' +
             '<label class="text-xs text-muted-foreground w-28 flex-shrink-0">' + escapeHtml(config.label) + '</label>' +
             '<select class="tool-config-input flex-1 text-xs py-1" data-env-key="' + escapeHtml(key) + '"' + onchangeHandler + '>';
           config.options.forEach(function(opt) {
@@ -897,7 +915,7 @@ async function loadEnvVariables() {
           // Fallback preset list for API models
           var apiModelList = config.apiModels || [];
 
-          html += '<div class="flex items-center gap-2">' +
+          html += '<div class="flex items-center gap-2"' + hiddenStyle + '>' +
             '<label class="text-xs text-muted-foreground w-28 flex-shrink-0" title="' + escapeHtml(key) + '">' + escapeHtml(config.label) + '</label>' +
             '<div class="relative flex-1">' +
               '<input type="text" class="tool-config-input w-full text-xs py-1 pr-6" ' +
@@ -908,7 +926,8 @@ async function loadEnvVariables() {
             '<datalist id="' + datalistId + '">';
 
           if (isApiBackend) {
-            // For API backend: show configured models from API settings first
+            // For API backend: show ONLY configured models from API settings
+            // (don't show unconfigured preset models - they won't work without configuration)
             if (configuredModels.length > 0) {
               html += '<option value="" disabled>-- ' + (t('codexlens.configuredModels') || 'Configured in API Settings') + ' --</option>';
               configuredModels.forEach(function(model) {
@@ -918,19 +937,8 @@ async function loadEnvVariables() {
                   (providers ? ' (' + escapeHtml(providers) + ')' : '') +
                   '</option>';
               });
-            }
-            // Then show common API models as suggestions
-            if (apiModelList.length > 0) {
-              html += '<option value="" disabled>-- ' + (t('codexlens.commonModels') || 'Common Models') + ' --</option>';
-              apiModelList.forEach(function(group) {
-                group.items.forEach(function(model) {
-                  // Skip if already in configured list
-                  var exists = configuredModels.some(function(m) { return m.modelId === model; });
-                  if (!exists) {
-                    html += '<option value="' + escapeHtml(model) + '">' + escapeHtml(group.group) + ': ' + escapeHtml(model) + '</option>';
-                  }
-                });
-              });
+            } else {
+              html += '<option value="" disabled>-- ' + (t('codexlens.noConfiguredModels') || 'No models configured in API Settings') + ' --</option>';
             }
           } else {
             // For local backend (fastembed): show actually downloaded models
@@ -959,7 +967,7 @@ async function loadEnvVariables() {
             if (config.max !== undefined) extraAttrs += ' max="' + config.max + '"';
             extraAttrs += ' step="1"';
           }
-          html += '<div class="flex items-center gap-2">' +
+          html += '<div class="flex items-center gap-2"' + hiddenStyle + '>' +
             '<label class="text-xs text-muted-foreground w-28 flex-shrink-0" title="' + escapeHtml(key) + '">' + escapeHtml(config.label) + '</label>' +
             '<input type="' + inputType + '" class="tool-config-input flex-1 text-xs py-1" ' +
                    'data-env-key="' + escapeHtml(key) + '" value="' + escapeHtml(value) + '" placeholder="' + escapeHtml(config.placeholder || '') + '"' + extraAttrs + ' />' +
@@ -1021,7 +1029,8 @@ async function loadEnvVariables() {
               var optionsHtml = '';
 
               if (isApiBackend) {
-                // For API backend: show configured models from API settings first
+                // For API backend: show ONLY configured models from API settings
+                // (don't show unconfigured preset models - they won't work without configuration)
                 if (apiConfiguredModels.length > 0) {
                   optionsHtml += '<option value="" disabled>-- ' + (t('codexlens.configuredModels') || 'Configured in API Settings') + ' --</option>';
                   apiConfiguredModels.forEach(function(model) {
@@ -1031,18 +1040,8 @@ async function loadEnvVariables() {
                       (providers ? ' (' + escapeHtml(providers) + ')' : '') +
                       '</option>';
                   });
-                }
-                // Then show common API models as suggestions
-                if (apiModelList.length > 0) {
-                  optionsHtml += '<option value="" disabled>-- ' + (t('codexlens.commonModels') || 'Common Models') + ' --</option>';
-                  apiModelList.forEach(function(group) {
-                    group.items.forEach(function(model) {
-                      var exists = apiConfiguredModels.some(function(m) { return m.modelId === model; });
-                      if (!exists) {
-                        optionsHtml += '<option value="' + escapeHtml(model) + '">' + escapeHtml(group.group) + ': ' + escapeHtml(model) + '</option>';
-                      }
-                    });
-                  });
+                } else {
+                  optionsHtml += '<option value="" disabled>-- ' + (t('codexlens.noConfiguredModels') || 'No models configured in API Settings') + ' --</option>';
                 }
               } else {
                 // For local backend: show actually downloaded models
@@ -1070,7 +1069,63 @@ async function loadEnvVariables() {
             }
           }
         }
+
+        // Update visibility of dependent fields based on new backend value
+        var prefix = isEmbedding ? 'CODEXLENS_EMBEDDING_' : 'CODEXLENS_RERANKER_';
+        var gpuField = document.querySelector('[data-env-key="' + prefix + 'USE_GPU"]');
+        var poolField = document.querySelector('[data-env-key="' + prefix + 'POOL_ENABLED"]');
+        var strategyField = document.querySelector('[data-env-key="' + prefix + 'STRATEGY"]');
+        var cooldownField = document.querySelector('[data-env-key="' + prefix + 'COOLDOWN"]');
+
+        // GPU only for local backend
+        if (gpuField) {
+          var gpuRow = gpuField.closest('.flex.items-center');
+          if (gpuRow) gpuRow.style.display = isApiBackend ? 'none' : '';
+        }
+
+        // Pool, Strategy, Cooldown only for API backend
+        if (poolField) {
+          var poolRow = poolField.closest('.flex.items-center');
+          if (poolRow) poolRow.style.display = isApiBackend ? '' : 'none';
+          // Reset pool value when switching to local
+          if (!isApiBackend) poolField.value = 'false';
+        }
+
+        // Strategy and Cooldown depend on pool being enabled
+        var poolEnabled = poolField && poolField.value === 'true';
+        if (strategyField) {
+          var strategyRow = strategyField.closest('.flex.items-center');
+          if (strategyRow) strategyRow.style.display = (isApiBackend && poolEnabled) ? '' : 'none';
+        }
+        if (cooldownField) {
+          var cooldownRow = cooldownField.closest('.flex.items-center');
+          if (cooldownRow) cooldownRow.style.display = (isApiBackend && poolEnabled) ? '' : 'none';
+        }
+
         // Note: No auto-save here - user must click Save button
+      });
+    });
+
+    // Add change handler for pool_enabled selects to show/hide strategy and cooldown
+    var poolSelects = container.querySelectorAll('select[data-env-key*="POOL_ENABLED"]');
+    poolSelects.forEach(function(select) {
+      select.addEventListener('change', function() {
+        var poolKey = select.getAttribute('data-env-key');
+        var poolEnabled = select.value === 'true';
+        var isEmbedding = poolKey.indexOf('EMBEDDING') !== -1;
+        var prefix = isEmbedding ? 'CODEXLENS_EMBEDDING_' : 'CODEXLENS_RERANKER_';
+
+        var strategyField = document.querySelector('[data-env-key="' + prefix + 'STRATEGY"]');
+        var cooldownField = document.querySelector('[data-env-key="' + prefix + 'COOLDOWN"]');
+
+        if (strategyField) {
+          var strategyRow = strategyField.closest('.flex.items-center');
+          if (strategyRow) strategyRow.style.display = poolEnabled ? '' : 'none';
+        }
+        if (cooldownField) {
+          var cooldownRow = cooldownField.closest('.flex.items-center');
+          if (cooldownRow) cooldownRow.style.display = poolEnabled ? '' : 'none';
+        }
       });
     });
   } catch (err) {
@@ -2213,6 +2268,9 @@ async function loadModelList() {
             '<div class="flex items-center gap-2">' +
               statusIcon +
               '<span class="text-sm font-medium">' + model.profile + '</span>' +
+              '<button class="text-muted-foreground hover:text-foreground p-0.5" onclick="copyToClipboard(\'' + escapeHtml(model.model_name) + '\')" title="' + escapeHtml(model.model_name) + '">' +
+                '<i data-lucide="copy" class="w-3 h-3"></i>' +
+              '</button>' +
               '<span class="text-xs text-muted-foreground">' + model.dimensions + 'd</span>' +
             '</div>' +
             '<div class="flex items-center gap-3">' +
@@ -2491,6 +2549,9 @@ async function loadRerankerModelList() {
           '<div class="flex items-center gap-2">' +
             statusIcon +
             '<span class="text-sm font-medium">' + model.id + recBadge + '</span>' +
+            '<button class="text-muted-foreground hover:text-foreground p-0.5" onclick="copyToClipboard(\'' + escapeHtml(model.name) + '\')" title="' + escapeHtml(model.name) + '">' +
+              '<i data-lucide="copy" class="w-3 h-3"></i>' +
+            '</button>' +
             '<span class="text-xs text-muted-foreground">' + model.desc + '</span>' +
           '</div>' +
           '<div class="flex items-center gap-3">' +
@@ -2901,12 +2962,14 @@ async function updateSemanticStatusBadge() {
  * @param {string} embeddingModel - Model profile: 'code', 'fast'
  * @param {string} embeddingBackend - Backend: 'fastembed' (local) or 'litellm' (API)
  * @param {number} maxWorkers - Max concurrent API calls for embedding generation (default: 1)
+ * @param {boolean} incremental - Incremental mode: true=skip unchanged, false=full rebuild (default: false)
  */
-async function initCodexLensIndex(indexType, embeddingModel, embeddingBackend, maxWorkers) {
+async function initCodexLensIndex(indexType, embeddingModel, embeddingBackend, maxWorkers, incremental) {
   indexType = indexType || 'vector';
   embeddingModel = embeddingModel || 'code';
   embeddingBackend = embeddingBackend || 'fastembed';
   maxWorkers = maxWorkers || 1;
+  incremental = incremental !== undefined ? incremental : false;  // Default: full rebuild
 
   // For vector/full index with local backend, check if semantic dependencies are available
   // LiteLLM backend uses remote embeddings and does not require fastembed/ONNX deps.
@@ -3011,7 +3074,7 @@ async function initCodexLensIndex(indexType, embeddingModel, embeddingBackend, m
   var apiIndexType = (indexType === 'full') ? 'vector' : indexType;
 
   // Start indexing with specified type and model
-  startCodexLensIndexing(apiIndexType, embeddingModel, embeddingBackend, maxWorkers);
+  startCodexLensIndexing(apiIndexType, embeddingModel, embeddingBackend, maxWorkers, incremental);
 }
 
 /**
@@ -3020,12 +3083,14 @@ async function initCodexLensIndex(indexType, embeddingModel, embeddingBackend, m
  * @param {string} embeddingModel - Model profile: 'code', 'fast'
  * @param {string} embeddingBackend - Backend: 'fastembed' (local) or 'litellm' (API)
  * @param {number} maxWorkers - Max concurrent API calls for embedding generation (default: 1)
+ * @param {boolean} incremental - Incremental mode (default: false for full rebuild)
  */
-async function startCodexLensIndexing(indexType, embeddingModel, embeddingBackend, maxWorkers) {
+async function startCodexLensIndexing(indexType, embeddingModel, embeddingBackend, maxWorkers, incremental) {
   indexType = indexType || 'vector';
   embeddingModel = embeddingModel || 'code';
   embeddingBackend = embeddingBackend || 'fastembed';
   maxWorkers = maxWorkers || 1;
+  incremental = incremental !== undefined ? incremental : false;  // Default: full rebuild
   var statusText = document.getElementById('codexlensIndexStatus');
   var progressBar = document.getElementById('codexlensIndexProgressBar');
   var percentText = document.getElementById('codexlensIndexPercent');
@@ -3057,11 +3122,11 @@ async function startCodexLensIndexing(indexType, embeddingModel, embeddingBacken
   }
 
   try {
-    console.log('[CodexLens] Starting index for:', projectPath, 'type:', indexType, 'model:', embeddingModel, 'backend:', embeddingBackend, 'maxWorkers:', maxWorkers);
+    console.log('[CodexLens] Starting index for:', projectPath, 'type:', indexType, 'model:', embeddingModel, 'backend:', embeddingBackend, 'maxWorkers:', maxWorkers, 'incremental:', incremental);
     var response = await fetch('/api/codexlens/init', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: projectPath, indexType: indexType, embeddingModel: embeddingModel, embeddingBackend: embeddingBackend, maxWorkers: maxWorkers })
+      body: JSON.stringify({ path: projectPath, indexType: indexType, embeddingModel: embeddingModel, embeddingBackend: embeddingBackend, maxWorkers: maxWorkers, incremental: incremental })
     });
 
     var result = await response.json();
@@ -4162,6 +4227,121 @@ function initCodexLensIndexFromPage(indexType) {
     // Use litellm backend with env-configured model (default 4 workers)
     // The CLI will read EMBEDDING_MODEL/LITELLM_MODEL from env
     initCodexLensIndex(indexType, null, 'litellm', 4);
+  }
+}
+
+// ============================================================
+// INDEX OPERATIONS - 4 Button Functions
+// ============================================================
+
+/**
+ * Run FTS full index (rebuild full-text search index)
+ * Creates FTS index without embeddings
+ */
+window.runFtsFullIndex = async function runFtsFullIndex() {
+  showRefreshToast(t('codexlens.startingFtsFullIndex') || 'Starting FTS full index...', 'info');
+  // FTS only, no embeddings, full rebuild (incremental=false)
+  initCodexLensIndex('normal', null, 'fastembed', 1, false);
+}
+
+/**
+ * Run FTS incremental update
+ * Updates FTS index for changed files only
+ */
+window.runFtsIncrementalUpdate = async function runFtsIncrementalUpdate() {
+  var projectPath = window.CCW_PROJECT_ROOT || '.';
+  showRefreshToast(t('codexlens.startingFtsIncremental') || 'Starting FTS incremental update...', 'info');
+
+  try {
+    // Use index update endpoint for FTS incremental
+    var response = await fetch('/api/codexlens/init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        path: projectPath,
+        indexType: 'normal',  // FTS only
+        incremental: true
+      })
+    });
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast(t('codexlens.ftsIncrementalComplete') || 'FTS incremental update completed', 'success');
+      renderCodexLensManager();
+    } else {
+      showRefreshToast((t('codexlens.ftsIncrementalFailed') || 'FTS incremental failed') + ': ' + (result.error || 'Unknown error'), 'error');
+    }
+  } catch (err) {
+    showRefreshToast((t('common.error') || 'Error') + ': ' + err.message, 'error');
+  }
+}
+
+/**
+ * Run Vector full index (generate all embeddings)
+ * Generates embeddings for all files
+ */
+window.runVectorFullIndex = async function runVectorFullIndex() {
+  showRefreshToast(t('codexlens.startingVectorFullIndex') || 'Starting Vector full index...', 'info');
+  
+  try {
+    // Fetch env settings to get the configured embedding model
+    var envResponse = await fetch('/api/codexlens/env');
+    var envData = await envResponse.json();
+    var embeddingModel = envData.CODEXLENS_EMBEDDING_MODEL || envData.LITELLM_EMBEDDING_MODEL || 'code';
+    
+    // Use litellm backend with env-configured model, full rebuild (incremental=false)
+    initCodexLensIndex('vector', embeddingModel, 'litellm', 4, false);
+  } catch (err) {
+    // Fallback to default model if env fetch fails
+    initCodexLensIndex('vector', 'code', 'litellm', 4, false);
+  }
+}
+
+/**
+ * Run Vector incremental update
+ * Generates embeddings for new/changed files only
+ */
+window.runVectorIncrementalUpdate = async function runVectorIncrementalUpdate() {
+  var projectPath = window.CCW_PROJECT_ROOT || '.';
+  showRefreshToast(t('codexlens.startingVectorIncremental') || 'Starting Vector incremental update...', 'info');
+
+  try {
+    // Fetch env settings to get the configured embedding model
+    var envResponse = await fetch('/api/codexlens/env');
+    var envData = await envResponse.json();
+    var embeddingModel = envData.CODEXLENS_EMBEDDING_MODEL || envData.LITELLM_EMBEDDING_MODEL || null;
+
+    // Use embeddings endpoint for vector incremental
+    var requestBody = {
+      path: projectPath,
+      incremental: true,  // Only new/changed files
+      backend: 'litellm',
+      maxWorkers: 4
+    };
+
+    // Add model if configured in env
+    if (embeddingModel) {
+      requestBody.model = embeddingModel;
+    }
+
+    var response = await fetch('/api/codexlens/embeddings/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody)
+    });
+    var result = await response.json();
+
+    if (result.success) {
+      var stats = result.result || {};
+      var msg = (t('codexlens.vectorIncrementalComplete') || 'Vector incremental completed') +
+        (stats.chunks_created ? ': ' + stats.chunks_created + ' chunks' : '');
+      showRefreshToast(msg, 'success');
+      renderCodexLensManager();
+    } else {
+      showRefreshToast((t('codexlens.vectorIncrementalFailed') || 'Vector incremental failed') + ': ' + (result.error || 'Unknown error'), 'error');
+    }
+  } catch (err) {
+    showRefreshToast((t('common.error') || 'Error') + ': ' + err.message, 'error');
   }
 }
 

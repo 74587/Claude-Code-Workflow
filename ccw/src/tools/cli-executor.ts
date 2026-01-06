@@ -66,6 +66,309 @@ function errorLog(category: string, message: string, error?: Error | unknown, co
   }
 }
 
+// ========== Unified Stream-JSON Parser ==========
+
+/**
+ * Claude CLI stream-json message types
+ */
+interface ClaudeStreamMessage {
+  type: 'system' | 'assistant' | 'result' | 'error';
+  subtype?: 'init' | 'success' | 'error';
+  session_id?: string;
+  model?: string;
+  message?: {
+    content: Array<{ type: 'text'; text: string }>;
+  };
+  result?: string;
+  total_cost_usd?: number;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+  };
+  error?: string;
+}
+
+/**
+ * Gemini/Qwen CLI stream-json message types
+ */
+interface GeminiStreamMessage {
+  type: 'init' | 'message' | 'result';
+  timestamp?: string;
+  session_id?: string;
+  model?: string;
+  role?: 'user' | 'assistant';
+  content?: string;
+  delta?: boolean;
+  status?: 'success' | 'error';
+  stats?: {
+    total_tokens?: number;
+    input_tokens?: number;
+    output_tokens?: number;
+  };
+}
+
+/**
+ * Codex CLI JSON message types
+ */
+interface CodexStreamMessage {
+  type: 'thread.started' | 'turn.started' | 'item.completed' | 'turn.completed';
+  thread_id?: string;
+  item?: {
+    type: 'reasoning' | 'agent_message';
+    text: string;
+  };
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+  };
+}
+
+/**
+ * Unified Stream-JSON Parser for Claude, Gemini, Qwen, and Codex
+ * Supports different JSON formats and extracts text, session info, and usage data
+ */
+class UnifiedStreamParser {
+  private tool: 'claude' | 'gemini' | 'qwen' | 'codex';
+  private lineBuffer = '';
+  private extractedText = '';
+  private sessionInfo: { session_id?: string; model?: string; thread_id?: string } = {};
+  private usageInfo: { cost?: number; tokens?: { input: number; output: number } } = {};
+
+  constructor(tool: 'claude' | 'gemini' | 'qwen' | 'codex') {
+    this.tool = tool;
+  }
+
+  /**
+   * Process incoming data chunk
+   * @returns Extracted text to output with message type prefixes
+   */
+  processChunk(data: string): string {
+    this.lineBuffer += data;
+    const lines = this.lineBuffer.split('\n');
+
+    // Keep last incomplete line in buffer
+    this.lineBuffer = lines.pop() || '';
+
+    let output = '';
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      try {
+        output += this.parseJsonLine(trimmed);
+      } catch (err) {
+        // Not valid JSON or not a stream-json line - pass through as-is
+        debugLog('STREAM_PARSER', `Non-JSON line (passing through): ${trimmed.substring(0, 100)}`);
+        output += line + '\n';
+      }
+    }
+
+    return output;
+  }
+
+  /**
+   * Parse a single JSON line based on tool type
+   */
+  private parseJsonLine(line: string): string {
+    switch (this.tool) {
+      case 'claude':
+        return this.parseClaudeLine(line);
+      case 'gemini':
+      case 'qwen':
+        return this.parseGeminiQwenLine(line);
+      case 'codex':
+        return this.parseCodexLine(line);
+      default:
+        return '';
+    }
+  }
+
+  /**
+   * Parse Claude stream-json format
+   */
+  private parseClaudeLine(line: string): string {
+    const msg: ClaudeStreamMessage = JSON.parse(line);
+    let output = '';
+
+    // Extract session metadata
+    if (msg.type === 'system' && msg.subtype === 'init') {
+      this.sessionInfo.session_id = msg.session_id;
+      this.sessionInfo.model = msg.model;
+      debugLog('STREAM_PARSER', 'Claude session initialized', this.sessionInfo);
+      output += `[系统] 会话初始化: ${msg.model || 'unknown'}\n`;
+    }
+
+    // Extract assistant response text
+    if (msg.type === 'assistant' && msg.message?.content) {
+      for (const item of msg.message.content) {
+        if (item.type === 'text' && item.text && item.text.trim()) {  // Filter empty/whitespace-only text
+          this.extractedText += item.text;
+          output += `[响应] ${item.text}\n`;  // Add newline for proper line separation
+        }
+      }
+    }
+
+    // Extract result metadata
+    if (msg.type === 'result') {
+      if (msg.total_cost_usd !== undefined) {
+        this.usageInfo.cost = msg.total_cost_usd;
+      }
+      if (msg.usage) {
+        this.usageInfo.tokens = {
+          input: msg.usage.input_tokens || 0,
+          output: msg.usage.output_tokens || 0
+        };
+      }
+      debugLog('STREAM_PARSER', 'Claude execution result received', {
+        subtype: msg.subtype,
+        cost: this.usageInfo.cost,
+        tokens: this.usageInfo.tokens
+      });
+      output += `[结果] 状态: ${msg.subtype || 'completed'}\n`;
+    }
+
+    // Handle errors
+    if (msg.type === 'error') {
+      errorLog('STREAM_PARSER', `Claude error in stream: ${msg.error || 'Unknown error'}`);
+      output += `[错误] ${msg.error || 'Unknown error'}\n`;
+    }
+
+    return output;
+  }
+
+  private lastMessageType: string = '';  // Track last message type for delta mode
+
+  /**
+   * Parse Gemini/Qwen stream-json format
+   */
+  private parseGeminiQwenLine(line: string): string {
+    const msg: GeminiStreamMessage = JSON.parse(line);
+    let output = '';
+
+    // Extract session metadata
+    if (msg.type === 'init') {
+      this.sessionInfo.session_id = msg.session_id;
+      this.sessionInfo.model = msg.model;
+      debugLog('STREAM_PARSER', `${this.tool} session initialized`, this.sessionInfo);
+      output += `[系统] 会话初始化: ${msg.model || 'unknown'}\n`;
+      this.lastMessageType = 'init';
+    }
+
+    // Extract assistant message
+    if (msg.type === 'message' && msg.role === 'assistant' && msg.content) {
+      const contentText = msg.content.trim();  // Filter empty/whitespace-only content
+      if (contentText) {
+        this.extractedText += msg.content;
+        if (msg.delta) {
+          // Delta mode: add prefix only for first chunk
+          if (this.lastMessageType !== 'assistant') {
+            output += `[响应] ${msg.content}`;
+          } else {
+            output += msg.content;
+          }
+        } else {
+          // Full message mode
+          output += `[响应] ${msg.content}\n`;
+        }
+        this.lastMessageType = 'assistant';
+      }
+    }
+
+    // Extract result statistics
+    if (msg.type === 'result') {
+      // Add newline before result if last was delta streaming
+      if (this.lastMessageType === 'assistant') {
+        output += '\n';
+      }
+      if (msg.stats) {
+        this.usageInfo.tokens = {
+          input: msg.stats.input_tokens || 0,
+          output: msg.stats.output_tokens || 0
+        };
+      }
+      debugLog('STREAM_PARSER', `${this.tool} execution result received`, {
+        status: msg.status,
+        tokens: this.usageInfo.tokens
+      });
+      output += `[结果] 状态: ${msg.status || 'success'}\n`;
+      this.lastMessageType = 'result';
+    }
+
+    return output;
+  }
+
+  /**
+   * Parse Codex JSON format
+   */
+  private parseCodexLine(line: string): string {
+    const msg: CodexStreamMessage = JSON.parse(line);
+    let output = '';
+
+    // Extract thread metadata
+    if (msg.type === 'thread.started' && msg.thread_id) {
+      this.sessionInfo.thread_id = msg.thread_id;
+      debugLog('STREAM_PARSER', 'Codex thread started', { thread_id: msg.thread_id });
+      output += `[系统] 线程启动: ${msg.thread_id}\n`;
+    }
+
+    // Extract reasoning text
+    if (msg.type === 'item.completed' && msg.item?.type === 'reasoning') {
+      output += `[思考] ${msg.item.text}\n`;
+    }
+
+    // Extract agent message
+    if (msg.type === 'item.completed' && msg.item?.type === 'agent_message') {
+      this.extractedText += msg.item.text;
+      output += `[响应] ${msg.item.text}\n`;
+    }
+
+    // Extract usage statistics
+    if (msg.type === 'turn.completed' && msg.usage) {
+      this.usageInfo.tokens = {
+        input: msg.usage.input_tokens || 0,
+        output: msg.usage.output_tokens || 0
+      };
+      debugLog('STREAM_PARSER', 'Codex turn completed', {
+        tokens: this.usageInfo.tokens
+      });
+      output += `[结果] 回合完成\n`;
+    }
+
+    return output;
+  }
+
+  /**
+   * Flush remaining buffer on stream end
+   */
+  flush(): string {
+    if (this.lineBuffer.trim()) {
+      return this.processChunk('\n'); // Force process remaining line
+    }
+    return '';
+  }
+
+  /**
+   * Get full extracted text
+   */
+  getExtractedText(): string {
+    return this.extractedText;
+  }
+
+  /**
+   * Get session metadata
+   */
+  getSessionInfo() {
+    return this.sessionInfo;
+  }
+
+  /**
+   * Get usage metadata
+   */
+  getUsageInfo() {
+    return this.usageInfo;
+  }
+}
+
 // LiteLLM integration
 import { executeLiteLLMEndpoint } from './litellm-executor.js';
 import { findEndpointById } from '../config/litellm-api-config-manager.js';
@@ -116,7 +419,7 @@ function getSqliteStoreSync(baseDir: string) {
 
 // Define Zod schema for validation
 const ParamsSchema = z.object({
-  tool: z.enum(['gemini', 'qwen', 'codex']),
+  tool: z.enum(['gemini', 'qwen', 'codex', 'claude']),
   prompt: z.string().min(1, 'Prompt is required'),
   mode: z.enum(['analysis', 'write', 'auto']).default('analysis'),
   format: z.enum(['plain', 'yaml', 'json']).default('plain'), // Multi-turn prompt concatenation format
@@ -255,6 +558,7 @@ interface ExecutionOutput {
   conversation: ConversationRecord;  // Full conversation record
   stdout: string;
   stderr: string;
+  parsedOutput?: string;  // Parsed output from stream parser (for stream-json tools)
 }
 
 /**
@@ -380,6 +684,8 @@ function buildCommand(params: {
       if (include) {
         args.push('--include-directories', include);
       }
+      // Enable stream-json output for unified parsing
+      args.push('--output-format', 'stream-json');
       break;
 
     case 'qwen':
@@ -400,6 +706,8 @@ function buildCommand(params: {
       if (include) {
         args.push('--include-directories', include);
       }
+      // Enable stream-json output for unified parsing
+      args.push('--output-format', 'stream-json');
       break;
 
     case 'codex':
@@ -434,6 +742,8 @@ function buildCommand(params: {
             args.push('--add-dir', addDir);
           }
         }
+        // Enable JSON output for unified parsing
+        args.push('--json');
         // Use `-` to indicate reading prompt from stdin
         args.push('-');
       } else {
@@ -458,6 +768,8 @@ function buildCommand(params: {
             args.push('--add-dir', addDir);
           }
         }
+        // Enable JSON output for unified parsing
+        args.push('--json');
         // Use `-` to indicate reading prompt from stdin (avoids Windows escaping issues)
         args.push('-');
       }
@@ -483,8 +795,9 @@ function buildCommand(params: {
       } else {
         args.push('--permission-mode', 'default');
       }
-      // Output format for better parsing
-      args.push('--output-format', 'text');
+      // Output format: stream-json for real-time parsing, text for backward compatibility
+      args.push('--output-format', 'stream-json');
+      args.push('--verbose'); // Required for stream-json format
       // Add directories
       if (include) {
         const dirs = include.split(',').map(d => d.trim()).filter(d => d);
@@ -962,11 +1275,23 @@ async function executeCliTool(
     let stderr = '';
     let timedOut = false;
 
+    // Initialize unified stream parser for all tools
+    const streamParser = ['claude', 'gemini', 'qwen', 'codex'].includes(tool)
+      ? new UnifiedStreamParser(tool as 'claude' | 'gemini' | 'qwen' | 'codex')
+      : null;
+
     // Handle stdout
     child.stdout!.on('data', (data) => {
       const text = data.toString();
       stdout += text;
-      if (onOutput) {
+
+      // Parse stream-json for all supported tools
+      if (streamParser && onOutput) {
+        const parsedText = streamParser.processChunk(text);
+        if (parsedText) {
+          onOutput({ type: 'stdout', data: parsedText });
+        }
+      } else if (onOutput) {
         onOutput({ type: 'stdout', data: text });
       }
     });
@@ -984,6 +1309,23 @@ async function executeCliTool(
     child.on('close', async (code) => {
       // Clear current child process reference
       currentChildProcess = null;
+
+      // Flush unified parser buffer if present
+      if (streamParser && onOutput) {
+        const remaining = streamParser.flush();
+        if (remaining) {
+          onOutput({ type: 'stdout', data: remaining });
+        }
+
+        // Log usage information if available
+        const usageInfo = streamParser.getUsageInfo();
+        if (usageInfo.cost !== undefined || usageInfo.tokens) {
+          debugLog('STREAM_USAGE', `${tool} execution usage`, {
+            cost_usd: usageInfo.cost,
+            tokens: usageInfo.tokens
+          });
+        }
+      }
 
       const endTime = Date.now();
       const duration = endTime - startTime;
@@ -1212,7 +1554,8 @@ async function executeCliTool(
         execution,
         conversation,
         stdout,
-        stderr
+        stderr,
+        parsedOutput: streamParser?.getExtractedText() || undefined
       });
     });
 

@@ -2,7 +2,8 @@
  * Smart Search Tool - Unified intelligent search with CodexLens integration
  *
  * Features:
- * - Intent classification with automatic mode selection
+ * - Fuzzy mode: FTS + ripgrep fusion with RRF ranking (default)
+ * - Semantic mode: Dense coarse retrieval + cross-encoder reranking
  * - CodexLens integration (init, dense_rerank, fts)
  * - Ripgrep fallback for exact mode
  * - Index status checking and warnings
@@ -10,7 +11,7 @@
  *
  * Actions:
  * - init: Initialize CodexLens index
- * - search: Intelligent search with auto mode selection
+ * - search: Intelligent search with fuzzy (default) or semantic mode
  * - status: Check index status
  * - update: Incremental index update for changed files
  * - watch: Start file watcher for automatic updates
@@ -66,7 +67,7 @@ const ParamsSchema = z.object({
   action: z.enum(['init', 'search', 'search_files', 'find_files', 'status', 'update', 'watch']).default('search'),
   query: z.string().optional().describe('Content search query (for action="search")'),
   pattern: z.string().optional().describe('Glob pattern for path matching (for action="find_files")'),
-  mode: z.enum(['auto', 'hybrid', 'exact', 'ripgrep', 'priority']).default('auto'),
+  mode: z.enum(['fuzzy', 'semantic']).default('fuzzy'),
   output_mode: z.enum(['full', 'files_only', 'count']).default('full'),
   path: z.string().optional(),
   paths: z.array(z.string()).default([]),
@@ -94,7 +95,7 @@ const ParamsSchema = z.object({
 type Params = z.infer<typeof ParamsSchema>;
 
 // Search mode constants
-const SEARCH_MODES = ['auto', 'hybrid', 'exact', 'ripgrep', 'priority'] as const;
+const SEARCH_MODES = ['fuzzy', 'semantic'] as const;
 
 // Classification confidence threshold
 const CONFIDENCE_THRESHOLD = 0.7;
@@ -846,6 +847,93 @@ async function executeWatchAction(params: Params): Promise<SearchResult> {
       action: 'watch',
       path,
       note: 'Watcher runs in background. Changes are indexed automatically with debounce.',
+    },
+  };
+}
+
+/**
+ * Mode: fuzzy - FTS + ripgrep fusion with RRF ranking
+ * Runs both exact (FTS) and ripgrep searches in parallel, merges and ranks results
+ */
+async function executeFuzzyMode(params: Params): Promise<SearchResult> {
+  const { query, path = '.', maxResults = 5, extraFilesCount = 10 } = params;
+
+  if (!query) {
+    return {
+      success: false,
+      error: 'Query is required for search',
+    };
+  }
+
+  const timer = createTimer();
+
+  // Run both searches in parallel
+  const [ftsResult, ripgrepResult] = await Promise.allSettled([
+    executeCodexLensExactMode(params),
+    executeRipgrepMode(params),
+  ]);
+  timer.mark('parallel_search');
+
+  // Collect results from both sources
+  const resultsMap = new Map<string, any[]>();
+  
+  // Add FTS results if successful
+  if (ftsResult.status === 'fulfilled' && ftsResult.value.success && ftsResult.value.results) {
+    resultsMap.set('exact', ftsResult.value.results as any[]);
+  }
+
+  // Add ripgrep results if successful
+  if (ripgrepResult.status === 'fulfilled' && ripgrepResult.value.success && ripgrepResult.value.results) {
+    resultsMap.set('ripgrep', ripgrepResult.value.results as any[]);
+  }
+
+  // If both failed, return error
+  if (resultsMap.size === 0) {
+    const errors: string[] = [];
+    if (ftsResult.status === 'rejected') errors.push(`FTS: ${ftsResult.reason}`);
+    if (ripgrepResult.status === 'rejected') errors.push(`Ripgrep: ${ripgrepResult.reason}`);
+    return {
+      success: false,
+      error: `Both search backends failed: ${errors.join('; ')}`,
+    };
+  }
+
+  // Apply RRF fusion with fuzzy-optimized weights
+  // Fuzzy mode: balanced between exact and ripgrep
+  const fusionWeights = { exact: 0.5, ripgrep: 0.5 };
+  const totalToFetch = maxResults + extraFilesCount;
+  const fusedResults = applyRRFFusion(resultsMap, fusionWeights, totalToFetch);
+  timer.mark('rrf_fusion');
+
+  // Normalize results format
+  const normalizedResults = fusedResults.map((item: any) => ({
+    file: item.file || item.path,
+    line: item.line || 0,
+    column: item.column || 0,
+    content: item.content || '',
+    score: item.fusion_score || 0,
+    matchCount: item.matchCount,
+    matchScore: item.matchScore,
+  }));
+
+  // Split results: first N with full content, rest as file paths only
+  const { results, extra_files } = splitResultsWithExtraFiles(normalizedResults, maxResults, extraFilesCount);
+
+  // Log timing
+  timer.log();
+  const timings = timer.getTimings();
+
+  return {
+    success: true,
+    results,
+    extra_files: extra_files.length > 0 ? extra_files : undefined,
+    metadata: {
+      mode: 'fuzzy',
+      backend: 'fts+ripgrep',
+      count: results.length,
+      query,
+      note: `Fuzzy search using RRF fusion of FTS and ripgrep (weights: exact=${fusionWeights.exact}, ripgrep=${fusionWeights.ripgrep})`,
+      timing: TIMING_ENABLED ? timings : undefined,
     },
   };
 }
@@ -1832,10 +1920,9 @@ export const schema: ToolSchema = {
 - watch: Start file watcher for automatic updates
 
 **Content Search (action="search"):**
-  smart_search(query="authentication logic")        # auto mode - routes to best backend
-  smart_search(query="MyClass", mode="exact")       # exact mode - precise FTS matching
-  smart_search(query="auth", mode="ripgrep")        # ripgrep mode - fast literal search
-  smart_search(query="how to auth", mode="hybrid")  # hybrid mode - semantic + fuzzy search
+  smart_search(query="authentication logic")        # fuzzy mode (default) - FTS + ripgrep fusion
+  smart_search(query="MyClass", mode="fuzzy")       # fuzzy mode - fast hybrid search
+  smart_search(query="how to auth", mode="semantic")  # semantic mode - dense + reranker
 
 **File Discovery (action="find_files"):**
   smart_search(action="find_files", pattern="*.ts")           # find all TypeScript files
@@ -1852,17 +1939,7 @@ export const schema: ToolSchema = {
   smart_search(query="auth", limit=10, offset=0)    # first page
   smart_search(query="auth", limit=10, offset=10)   # second page
 
-**Multi-Word Search (ripgrep mode with tokenization):**
-  smart_search(query="CCW_PROJECT_ROOT CCW_ALLOWED_DIRS", mode="ripgrep")  # tokenized OR matching
-  smart_search(query="auth login user", mode="ripgrep")   # matches any token, ranks by match count
-  smart_search(query="exact phrase", mode="ripgrep", tokenize=false)  # disable tokenization
-
-**Regex Search (ripgrep mode):**
-  smart_search(query="class.*Builder")              # auto-detects regex pattern
-  smart_search(query="def.*\\(.*\\):")              # find function definitions
-  smart_search(query="import.*from", caseSensitive=false)  # case-insensitive
-
-**Modes:** auto (intelligent routing), hybrid (semantic+fuzzy), exact (FTS), ripgrep (fast with tokenization), priority (fallback chain)`,
+**Modes:** fuzzy (FTS + ripgrep fusion, default), semantic (dense + reranker)`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -1883,8 +1960,8 @@ export const schema: ToolSchema = {
       mode: {
         type: 'string',
         enum: SEARCH_MODES,
-        description: 'Search mode: auto, hybrid (best quality), exact (CodexLens FTS), ripgrep (fast, no index), priority (fallback chain)',
-        default: 'auto',
+        description: 'Search mode: fuzzy (FTS + ripgrep fusion, default), semantic (dense + reranker for natural language queries)',
+        default: 'fuzzy',
       },
       output_mode: {
         type: 'string',
@@ -2323,25 +2400,16 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
 
       case 'search':
       default:
-        // Handle search modes: auto | hybrid | exact | ripgrep | priority
+        // Handle search modes: fuzzy | semantic
         switch (mode) {
-          case 'auto':
-            result = await executeAutoMode(parsed.data);
+          case 'fuzzy':
+            result = await executeFuzzyMode(parsed.data);
             break;
-          case 'hybrid':
+          case 'semantic':
             result = await executeHybridMode(parsed.data);
             break;
-          case 'exact':
-            result = await executeCodexLensExactMode(parsed.data);
-            break;
-          case 'ripgrep':
-            result = await executeRipgrepMode(parsed.data);
-            break;
-          case 'priority':
-            result = await executePriorityFallbackMode(parsed.data);
-            break;
           default:
-            throw new Error(`Unsupported mode: ${mode}. Use: auto, hybrid, exact, ripgrep, or priority`);
+            throw new Error(`Unsupported mode: ${mode}. Use: fuzzy or semantic`);
         }
         break;
     }

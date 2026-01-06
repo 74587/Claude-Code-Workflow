@@ -430,6 +430,7 @@ def search(
     query: str = typer.Argument(..., help="Search query."),
     path: Path = typer.Option(Path("."), "--path", "-p", help="Directory to search from."),
     limit: int = typer.Option(20, "--limit", "-n", min=1, max=500, help="Max results."),
+    offset: int = typer.Option(0, "--offset", min=0, help="Pagination offset - skip first N results."),
     depth: int = typer.Option(-1, "--depth", "-d", help="Search depth (-1 = unlimited, 0 = current only)."),
     files_only: bool = typer.Option(False, "--files-only", "-f", help="Return only file paths without content snippets."),
     method: str = typer.Option("dense_rerank", "--method", "-m", help="Search method: 'dense_rerank' (semantic, default), 'fts' (exact keyword)."),

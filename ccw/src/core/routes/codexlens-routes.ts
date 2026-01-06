@@ -622,7 +622,7 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
   // API: CodexLens Init (Initialize workspace index)
   if (pathname === '/api/codexlens/init' && req.method === 'POST') {
     handlePostRequest(req, res, async (body) => {
-      const { path: projectPath, indexType = 'vector', embeddingModel = 'code', embeddingBackend = 'fastembed', maxWorkers = 1 } = body;
+      const { path: projectPath, indexType = 'vector', embeddingModel = 'code', embeddingBackend = 'fastembed', maxWorkers = 1, incremental = true } = body;
       const targetPath = projectPath || initialPath;
 
       // Ensure LiteLLM backend dependencies are installed before running the CLI
@@ -636,6 +636,13 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
       // Build CLI arguments based on index type
       // Use 'index init' subcommand (new CLI structure)
       const args = ['index', 'init', targetPath, '--json'];
+
+      // Force mode: when incremental=false, add --force to rebuild all files
+      // CLI defaults to incremental mode (skip unchanged files)
+      if (!incremental) {
+        args.push('--force');
+      }
+
       if (indexType === 'normal') {
         args.push('--no-embeddings');
       } else {
@@ -725,6 +732,98 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
     const inProgress = isIndexingInProgress();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, inProgress }));
+    return true;
+  }
+
+  // API: Generate embeddings only (without FTS rebuild)
+  if (pathname === '/api/codexlens/embeddings/generate' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { path: projectPath, incremental = false, backend = 'litellm', maxWorkers = 4, model } = body;
+      const targetPath = projectPath || initialPath;
+
+      // Ensure LiteLLM backend dependencies are installed
+      if (backend === 'litellm') {
+        try {
+          await ensureLiteLLMEmbedderReady();
+        } catch (err) {
+          return { success: false, error: `LiteLLM embedder setup failed: ${err.message}` };
+        }
+      }
+
+      // Build CLI arguments for embeddings generation
+      // Use 'index embeddings' subcommand
+      const args = ['index', 'embeddings', targetPath, '--json'];
+
+      // Add backend option
+      if (backend && backend !== 'fastembed') {
+        args.push('--backend', backend);
+      }
+
+      // Add model if specified
+      if (model) {
+        args.push('--model', model);
+      }
+
+      // Add max workers for API backend
+      if (backend === 'litellm' && maxWorkers > 1) {
+        args.push('--max-workers', String(maxWorkers));
+      }
+
+      // Force mode: always use --force for litellm backend to avoid model conflict
+      // (litellm uses different embeddings than fastembed, so regeneration is required)
+      // For true incremental updates with same model, use fastembed backend
+      if (!incremental || backend === 'litellm') {
+        args.push('--force');  // Force regenerate embeddings
+      }
+
+      try {
+        // Broadcast progress start
+        broadcastToClients({
+          type: 'CODEXLENS_INDEX_PROGRESS',
+          payload: { stage: 'embeddings', message: 'Generating embeddings...', percent: 10 }
+        });
+
+        const result = await executeCodexLens(args, {
+          cwd: targetPath,
+          onProgress: (progress: ProgressInfo) => {
+            broadcastToClients({
+              type: 'CODEXLENS_INDEX_PROGRESS',
+              payload: {
+                stage: 'embeddings',
+                message: progress.message || 'Processing...',
+                percent: progress.percent || 50
+              }
+            });
+          }
+        });
+
+        if (result.success) {
+          broadcastToClients({
+            type: 'CODEXLENS_INDEX_PROGRESS',
+            payload: { stage: 'complete', message: 'Embeddings generated', percent: 100 }
+          });
+
+          try {
+            const parsed = extractJSON(result.output || '{}');
+            return { success: true, result: parsed };
+          } catch {
+            return { success: true, result: { message: 'Embeddings generated successfully' } };
+          }
+        } else {
+          broadcastToClients({
+            type: 'CODEXLENS_INDEX_PROGRESS',
+            payload: { stage: 'error', message: result.error || 'Failed', percent: 0 }
+          });
+          return { success: false, error: result.error };
+        }
+      } catch (err) {
+        broadcastToClients({
+          type: 'CODEXLENS_INDEX_PROGRESS',
+          payload: { stage: 'error', message: err.message, percent: 0 }
+        });
+        return { success: false, error: err.message, status: 500 };
+      }
+    });
     return true;
   }
 

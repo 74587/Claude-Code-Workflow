@@ -1338,8 +1338,9 @@ class ChainSearchEngine:
                         (d for cid, d, _ in coarse_candidates if cid == chunk_id),
                         1.0
                     )
-                    # Convert cosine distance to score
-                    score = 1.0 - distance
+                    # Convert cosine distance to score (clamp to [0, 1] for Pydantic validation)
+                    # Cosine distance can be > 1 for anti-correlated vectors, causing negative scores
+                    score = max(0.0, 1.0 - distance)
 
                     content = chunk.get("content", "")
                     result = SearchResult(
