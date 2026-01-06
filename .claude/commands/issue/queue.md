@@ -385,7 +385,6 @@ Before completing, verify:
 
 ## Related Commands
 
-- `/issue:plan` - Plan issues and bind solutions
 - `/issue:execute` - Execute queue with codex
 - `ccw issue queue list` - View current queue
 - `ccw issue update --from-queue [queue-id]` - Sync issue statuses from queue

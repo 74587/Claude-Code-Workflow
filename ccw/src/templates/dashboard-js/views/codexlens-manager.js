@@ -666,7 +666,7 @@ var ENV_VAR_GROUPS = {
     labelKey: 'codexlens.envGroup.embedding',
     icon: 'box',
     vars: {
-      'CODEXLENS_EMBEDDING_BACKEND': { label: 'Backend', type: 'select', options: ['fastembed', 'litellm'], default: 'fastembed', settingsPath: 'embedding.backend' },
+      'CODEXLENS_EMBEDDING_BACKEND': { label: 'Backend', type: 'select', options: ['local', 'api'], default: 'local', settingsPath: 'embedding.backend' },
       'CODEXLENS_EMBEDDING_MODEL': {
         label: 'Model',
         type: 'model-select',
@@ -694,7 +694,7 @@ var ENV_VAR_GROUPS = {
     icon: 'arrow-up-down',
     vars: {
       'CODEXLENS_RERANKER_ENABLED': { label: 'Enabled', type: 'select', options: ['true', 'false'], default: 'true', settingsPath: 'reranker.enabled' },
-      'CODEXLENS_RERANKER_BACKEND': { label: 'Backend', type: 'select', options: ['fastembed', 'onnx', 'api', 'litellm'], default: 'fastembed', settingsPath: 'reranker.backend' },
+      'CODEXLENS_RERANKER_BACKEND': { label: 'Backend', type: 'select', options: ['local', 'api'], default: 'local', settingsPath: 'reranker.backend' },
       'CODEXLENS_RERANKER_MODEL': {
         label: 'Model',
         type: 'model-select',
@@ -786,9 +786,11 @@ async function loadEnvVariables() {
     var localEmbeddingModels = [];
     if (localModelsResponse && localModelsResponse.ok) {
       var localData = await localModelsResponse.json();
-      if (localData.success && localData.models) {
-        // Filter to only downloaded models
-        localEmbeddingModels = localData.models.filter(function(m) { return m.downloaded; });
+      // CLI returns { success: true, result: { models: [...] } }
+      if (localData.success) {
+        var models = localData.models || (localData.result && localData.result.models) || [];
+        // Filter to only installed models (CLI uses 'installed' not 'downloaded')
+        localEmbeddingModels = models.filter(function(m) { return m.installed; });
       }
     }
 
@@ -796,11 +798,27 @@ async function loadEnvVariables() {
     var localRerankerModels = [];
     if (localRerankerModelsResponse && localRerankerModelsResponse.ok) {
       var localRerankerData = await localRerankerModelsResponse.json();
-      if (localRerankerData.success && localRerankerData.models) {
-        // Filter to only downloaded models
-        localRerankerModels = localRerankerData.models.filter(function(m) { return m.downloaded; });
+      // CLI returns { success: true, result: { models: [...] } }
+      if (localRerankerData.success) {
+        var models = localRerankerData.models || (localRerankerData.result && localRerankerData.result.models) || [];
+        // Filter to only installed models
+        localRerankerModels = models.filter(function(m) { return m.installed; });
       }
     }
+
+    // Cache model data for dynamic backend switching
+    var embeddingVars = ENV_VAR_GROUPS.embedding.vars;
+    var rerankerVars = ENV_VAR_GROUPS.reranker.vars;
+    cachedEmbeddingModels = {
+      local: localEmbeddingModels,
+      api: configuredEmbeddingModels,
+      apiModels: embeddingVars['CODEXLENS_EMBEDDING_MODEL'] ? embeddingVars['CODEXLENS_EMBEDDING_MODEL'].apiModels || [] : []
+    };
+    cachedRerankerModels = {
+      local: localRerankerModels,
+      api: configuredRerankerModels,
+      apiModels: rerankerVars['CODEXLENS_RERANKER_MODEL'] ? rerankerVars['CODEXLENS_RERANKER_MODEL'].apiModels || [] : []
+    };
 
     var env = result.env || {};
     var settings = result.settings || {};  // Current settings from settings.json
@@ -851,9 +869,14 @@ async function loadEnvVariables() {
         var value = env[key] || settings[key] || config.default || '';
 
         if (config.type === 'select') {
+          // Add onchange handler for backend selects to update model options dynamically
+          var onchangeHandler = '';
+          if (key === 'CODEXLENS_EMBEDDING_BACKEND' || key === 'CODEXLENS_RERANKER_BACKEND') {
+            onchangeHandler = ' onchange="updateModelOptionsOnBackendChange(\'' + key + '\', this.value)"';
+          }
           html += '<div class="flex items-center gap-2">' +
             '<label class="text-xs text-muted-foreground w-28 flex-shrink-0">' + escapeHtml(config.label) + '</label>' +
-            '<select class="tool-config-input flex-1 text-xs py-1" data-env-key="' + escapeHtml(key) + '">';
+            '<select class="tool-config-input flex-1 text-xs py-1" data-env-key="' + escapeHtml(key) + '"' + onchangeHandler + '>';
           config.options.forEach(function(opt) {
             html += '<option value="' + escapeHtml(opt) + '"' + (value === opt ? ' selected' : '') + '>' + escapeHtml(opt) + '</option>';
           });
@@ -914,9 +937,13 @@ async function loadEnvVariables() {
             if (actualLocalModels.length > 0) {
               html += '<option value="" disabled>-- ' + (t('codexlens.downloadedModels') || 'Downloaded Models') + ' --</option>';
               actualLocalModels.forEach(function(model) {
-                var modelId = model.model_id || model.id || model.name;
-                var displayName = model.display_name || model.name || modelId;
-                html += '<option value="' + escapeHtml(modelId) + '">' + escapeHtml(displayName) + '</option>';
+                // Priority: profile (for fastembed) > model_id > id > name
+                var modelId = model.profile || model.model_id || model.id || model.name;
+                var displayName = model.display_name || model.name || model.profile || modelId;
+                // Show both profile and model name for clarity
+                var displayText = model.profile && model.name ?
+                  model.profile + ' (' + model.name + ')' : displayName;
+                html += '<option value="' + escapeHtml(modelId) + '">' + escapeHtml(displayText) + '</option>';
               });
             } else {
               html += '<option value="" disabled>-- ' + (t('codexlens.noLocalModels') || 'No models downloaded') + ' --</option>';
@@ -961,12 +988,14 @@ async function loadEnvVariables() {
     if (window.lucide) lucide.createIcons();
 
     // Add change handler for backend selects to dynamically update model options
+    // Note: Does NOT auto-save - user must click Save button
     var backendSelects = container.querySelectorAll('select[data-env-key*="BACKEND"]');
     backendSelects.forEach(function(select) {
       select.addEventListener('change', function() {
         var backendKey = select.getAttribute('data-env-key');
         var newBackend = select.value;
-        var isApiBackend = newBackend === 'litellm' || newBackend === 'api';
+        // 'api' is the API backend, 'local' is the local backend
+        var isApiBackend = newBackend === 'api';
 
         // Determine which model input to update
         var isEmbedding = backendKey.indexOf('EMBEDDING') !== -1;
@@ -983,64 +1012,65 @@ async function loadEnvVariables() {
             var modelConfig = ENV_VAR_GROUPS[groupKey]?.vars[modelKey];
 
             if (modelConfig) {
-              var modelList = isApiBackend
-                ? (modelConfig.apiModels || modelConfig.models || [])
-                : (modelConfig.localModels || modelConfig.models || []);
-              var configuredModels = isEmbedding ? configuredEmbeddingModels : configuredRerankerModels;
+              // Use the loaded models from closure
+              var apiModelList = modelConfig.apiModels || [];
+              var apiConfiguredModels = isEmbedding ? configuredEmbeddingModels : configuredRerankerModels;
+              var actualLocalModels = isEmbedding ? localEmbeddingModels : localRerankerModels;
 
               // Rebuild datalist
-              var html = '';
-              if (isApiBackend && configuredModels.length > 0) {
-                html += '<option value="" disabled>-- ' + t('codexlens.configuredInApiSettings') + ' --</option>';
-                configuredModels.forEach(function(model) {
-                  var providers = model.providers ? model.providers.join(', ') : '';
-                  html += '<option value="' + escapeHtml(model.modelId) + '">' +
-                    escapeHtml(model.modelName || model.modelId) +
-                    (providers ? ' (' + escapeHtml(providers) + ')' : '') +
-                    '</option>';
-                });
-                if (modelList.length > 0) {
-                  html += '<option value="" disabled>-- ' + t('codexlens.commonModels') + ' --</option>';
+              var optionsHtml = '';
+
+              if (isApiBackend) {
+                // For API backend: show configured models from API settings first
+                if (apiConfiguredModels.length > 0) {
+                  optionsHtml += '<option value="" disabled>-- ' + (t('codexlens.configuredModels') || 'Configured in API Settings') + ' --</option>';
+                  apiConfiguredModels.forEach(function(model) {
+                    var providers = model.providers ? model.providers.join(', ') : '';
+                    optionsHtml += '<option value="' + escapeHtml(model.modelId) + '">' +
+                      escapeHtml(model.modelName || model.modelId) +
+                      (providers ? ' (' + escapeHtml(providers) + ')' : '') +
+                      '</option>';
+                  });
+                }
+                // Then show common API models as suggestions
+                if (apiModelList.length > 0) {
+                  optionsHtml += '<option value="" disabled>-- ' + (t('codexlens.commonModels') || 'Common Models') + ' --</option>';
+                  apiModelList.forEach(function(group) {
+                    group.items.forEach(function(model) {
+                      var exists = apiConfiguredModels.some(function(m) { return m.modelId === model; });
+                      if (!exists) {
+                        optionsHtml += '<option value="' + escapeHtml(model) + '">' + escapeHtml(group.group) + ': ' + escapeHtml(model) + '</option>';
+                      }
+                    });
+                  });
+                }
+              } else {
+                // For local backend: show actually downloaded models
+                if (actualLocalModels.length > 0) {
+                  optionsHtml += '<option value="" disabled>-- ' + (t('codexlens.downloadedModels') || 'Downloaded Models') + ' --</option>';
+                  actualLocalModels.forEach(function(model) {
+                    var modelId = model.profile || model.model_id || model.id || model.name;
+                    var displayName = model.display_name || model.name || model.profile || modelId;
+                    var displayText = model.profile && model.name ?
+                      model.profile + ' (' + model.name + ')' : displayName;
+                    optionsHtml += '<option value="' + escapeHtml(modelId) + '">' + escapeHtml(displayText) + '</option>';
+                  });
+                } else {
+                  optionsHtml += '<option value="" disabled>-- ' + (t('codexlens.noLocalModels') || 'No models downloaded') + ' --</option>';
                 }
               }
 
-              modelList.forEach(function(group) {
-                group.items.forEach(function(model) {
-                  var exists = configuredModels.some(function(m) { return m.modelId === model; });
-                  if (!exists) {
-                    html += '<option value="' + escapeHtml(model) + '">' + escapeHtml(group.group) + ': ' + escapeHtml(model) + '</option>';
-                  }
-                });
-              });
+              datalist.innerHTML = optionsHtml;
 
-              datalist.innerHTML = html;
-
-              // Clear current model value if it doesn't match new backend type
-              var currentValue = modelInput.value;
-              var isCurrentLocal = modelConfig.localModels?.some(function(g) {
-                return g.items.includes(currentValue);
-              });
-              var isCurrentApi = modelConfig.apiModels?.some(function(g) {
-                return g.items.includes(currentValue);
-              });
-
-              // If switching to API and current is local (or vice versa), clear or set default
-              if (isApiBackend && isCurrentLocal) {
-                modelInput.value = '';
-                modelInput.placeholder = t('codexlens.selectApiModel');
-              } else if (!isApiBackend && isCurrentApi) {
-                modelInput.value = modelConfig.localModels?.[0]?.items?.[0] || '';
-              }
+              // Clear current model value when switching backend type
+              modelInput.value = '';
+              modelInput.placeholder = isApiBackend ?
+                (t('codexlens.selectApiModel') || 'Select API model...') :
+                (t('codexlens.selectLocalModel') || 'Select local model...');
             }
           }
         }
-
-        // Save and refresh after a short delay
-        saveEnvVariables().then(function() {
-          loadEnvVariables();
-          loadModelList();
-          loadRerankerModelList();
-        });
+        // Note: No auto-save here - user must click Save button
       });
     });
   } catch (err) {
@@ -1100,6 +1130,74 @@ function applyLiteLLMProvider(providerId) {
 window.applyLiteLLMProvider = applyLiteLLMProvider;
 
 /**
+ * Update model datalist options when backend changes
+ * @param {string} backendKey - The backend key that changed (CODEXLENS_EMBEDDING_BACKEND or CODEXLENS_RERANKER_BACKEND)
+ * @param {string} newBackend - The new backend value ('local' or 'api')
+ */
+function updateModelOptionsOnBackendChange(backendKey, newBackend) {
+  var isEmbedding = backendKey === 'CODEXLENS_EMBEDDING_BACKEND';
+  var modelKey = isEmbedding ? 'CODEXLENS_EMBEDDING_MODEL' : 'CODEXLENS_RERANKER_MODEL';
+  var datalistId = 'models-' + modelKey.replace(/_/g, '-').toLowerCase();
+  var datalist = document.getElementById(datalistId);
+  
+  if (!datalist) return;
+  
+  var isApiBackend = newBackend === 'api' || newBackend === 'litellm';
+  var cachedModels = isEmbedding ? cachedEmbeddingModels : cachedRerankerModels;
+  
+  var html = '';
+  
+  if (isApiBackend) {
+    // For API backend: show configured models from API settings first
+    var configuredModels = cachedModels.api || [];
+    if (configuredModels.length > 0) {
+      html += '<option value="" disabled>-- ' + (t('codexlens.configuredModels') || 'Configured in API Settings') + ' --</option>';
+      configuredModels.forEach(function(model) {
+        var providers = model.providers ? model.providers.join(', ') : '';
+        html += '<option value="' + escapeHtml(model.modelId) + '">' +
+          escapeHtml(model.modelName || model.modelId) +
+          (providers ? ' (' + escapeHtml(providers) + ')' : '') +
+          '</option>';
+      });
+    }
+    // Then show common API models as suggestions
+    var apiModelList = cachedModels.apiModels || [];
+    if (apiModelList.length > 0) {
+      html += '<option value="" disabled>-- ' + (t('codexlens.commonModels') || 'Common Models') + ' --</option>';
+      apiModelList.forEach(function(group) {
+        group.items.forEach(function(model) {
+          // Skip if already in configured list
+          var exists = configuredModels.some(function(m) { return m.modelId === model; });
+          if (!exists) {
+            html += '<option value="' + escapeHtml(model) + '">' + escapeHtml(group.group) + ': ' + escapeHtml(model) + '</option>';
+          }
+        });
+      });
+    }
+  } else {
+    // For local backend: show actually downloaded models
+    var localModels = cachedModels.local || [];
+    if (localModels.length > 0) {
+      html += '<option value="" disabled>-- ' + (t('codexlens.downloadedModels') || 'Downloaded Models') + ' --</option>';
+      localModels.forEach(function(model) {
+        var modelId = model.profile || model.model_id || model.id || model.name;
+        var displayName = model.display_name || model.name || model.profile || modelId;
+        var displayText = model.profile && model.name ?
+          model.profile + ' (' + model.name + ')' : displayName;
+        html += '<option value="' + escapeHtml(modelId) + '">' + escapeHtml(displayText) + '</option>';
+      });
+    } else {
+      html += '<option value="" disabled>-- ' + (t('codexlens.noLocalModels') || 'No models downloaded') + ' --</option>';
+    }
+  }
+  
+  datalist.innerHTML = html;
+}
+
+// Make function globally accessible
+window.updateModelOptionsOnBackendChange = updateModelOptionsOnBackendChange;
+
+/**
  * Save environment variables to ~/.codexlens/.env
  */
 async function saveEnvVariables() {
@@ -1141,6 +1239,9 @@ async function saveEnvVariables() {
 var detectedGpuInfo = null;
 // Store available GPU devices
 var availableGpuDevices = null;
+// Store model data for dynamic backend switching
+var cachedEmbeddingModels = { local: [], api: [], apiModels: [] };
+var cachedRerankerModels = { local: [], api: [], apiModels: [] };
 
 /**
  * Detect GPU support

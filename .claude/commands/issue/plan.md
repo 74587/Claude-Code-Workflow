@@ -304,6 +304,12 @@ Next: \`/issue:queue\` → \`/issue:execute\`
 | User cancels selection | Skip issue, continue with others |
 | File conflicts | Agent detects and suggests resolution order |
 
+## Bash Compatibility
+
+**Avoid**: `$(cmd)`, `$var`, `for` loops — will be escaped incorrectly
+
+**Use**: Simple commands + `&&` chains, quote comma params `"pending,registered"`
+
 ## Quality Checklist
 
 Before completing, verify:
@@ -319,6 +325,5 @@ Before completing, verify:
 ## Related Commands
 
 - `/issue:queue` - Form execution queue from bound solutions
-- `/issue:execute` - Execute queue with codex
 - `ccw issue list` - List all issues
 - `ccw issue status` - View issue and solution details

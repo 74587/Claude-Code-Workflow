@@ -320,4 +320,4 @@ function parseMarkdownBody(body) {
 ## Related Commands
 
 - `/issue:plan` - Plan solution for issue
-- `/issue:manage` - Interactive issue management
+
