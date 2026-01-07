@@ -39,11 +39,32 @@ interface WatcherConfig {
   debounce_ms: number;
 }
 
+interface PendingQueueStatus {
+  file_count: number;
+  files: string[];
+  countdown_seconds: number;
+  last_event_time: number | null;
+}
+
+interface IndexResultDetail {
+  files_indexed: number;
+  files_removed: number;
+  symbols_added: number;
+  symbols_removed: number;
+  files_success: string[];
+  files_failed: string[];
+  errors: string[];
+  timestamp: number;
+}
+
 interface WatcherStats {
   running: boolean;
   root_path: string;
   events_processed: number;
   start_time: Date | null;
+  pending_queue: PendingQueueStatus | null;
+  last_index_result: IndexResultDetail | null;
+  index_history: IndexResultDetail[];
 }
 
 interface ActiveWatcher {
@@ -58,13 +79,12 @@ const WATCHER_CONFIG_FILE = path.join(WATCHER_CONFIG_DIR, 'watchers.json');
 // Active watchers Map: normalized_path -> { process, stats }
 const activeWatchers = new Map<string, ActiveWatcher>();
 
-/**
- * Normalize path for consistent key usage
- * - Convert to absolute path
-
 // Flag to ensure watchers are initialized only once
 let watchersInitialized = false;
 
+/**
+ * Normalize path for consistent key usage
+ * - Convert to absolute path
  * - Convert to lowercase on Windows
  * - Use forward slashes
  */
@@ -183,7 +203,10 @@ async function startWatcherProcess(
       running: true,
       root_path: targetPath,
       events_processed: 0,
-      start_time: new Date()
+      start_time: new Date(),
+      pending_queue: null,
+      last_index_result: null,
+      index_history: []
     };
 
     // Register in activeWatchers Map
@@ -201,16 +224,66 @@ async function startWatcherProcess(
       });
     }
 
-    // Handle process output for event counting
+    // Handle process output for JSON parsing and event counting
     if (childProcess.stdout) {
       childProcess.stdout.on('data', (data: Buffer) => {
         const output = data.toString();
-        const matches = output.match(/Processed \d+ events?/g);
-        if (matches) {
-          const watcher = activeWatchers.get(normalizedPath);
-          if (watcher) {
-            watcher.stats.events_processed += matches.length;
+        const watcher = activeWatchers.get(normalizedPath);
+        if (!watcher) return;
+
+        // Process output line by line for reliable JSON parsing
+        // (handles nested arrays/objects that simple regex can't match)
+        const lines = output.split('\n');
+        let hasIndexResult = false;
+
+        for (const line of lines) {
+          // Parse [QUEUE_STATUS] JSON
+          if (line.includes('[QUEUE_STATUS]')) {
+            const jsonStart = line.indexOf('{');
+            if (jsonStart !== -1) {
+              try {
+                const queueStatus: PendingQueueStatus = JSON.parse(line.slice(jsonStart));
+                watcher.stats.pending_queue = queueStatus;
+                broadcastToClients({
+                  type: 'CODEXLENS_WATCHER_QUEUE_UPDATE',
+                  payload: { path: targetPath, queue: queueStatus }
+                });
+              } catch (e) {
+                console.warn('[CodexLens] Failed to parse queue status:', e, line);
+              }
+            }
           }
+
+          // Parse [INDEX_RESULT] JSON
+          if (line.includes('[INDEX_RESULT]')) {
+            const jsonStart = line.indexOf('{');
+            if (jsonStart !== -1) {
+              try {
+                const indexResult: IndexResultDetail = JSON.parse(line.slice(jsonStart));
+                watcher.stats.last_index_result = indexResult;
+                watcher.stats.index_history.push(indexResult);
+                if (watcher.stats.index_history.length > 10) {
+                  watcher.stats.index_history.shift();
+                }
+                watcher.stats.events_processed += indexResult.files_indexed + indexResult.files_removed;
+                watcher.stats.pending_queue = null;
+                hasIndexResult = true;
+
+                broadcastToClients({
+                  type: 'CODEXLENS_WATCHER_INDEX_COMPLETE',
+                  payload: { path: targetPath, result: indexResult }
+                });
+              } catch (e) {
+                console.warn('[CodexLens] Failed to parse index result:', e, line);
+              }
+            }
+          }
+        }
+
+        // Legacy event counting (fallback)
+        const matches = output.match(/Processed \d+ events?/g);
+        if (matches && !hasIndexResult) {
+          watcher.stats.events_processed += matches.length;
         }
       });
     }
@@ -2108,6 +2181,68 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         return { success: false, error: err.message, status: 500 };
       }
     });
+    return true;
+  }
+
+  // API: Get Pending Queue Status
+  if (pathname === '/api/codexlens/watch/queue' && req.method === 'GET') {
+    const queryPath = url.searchParams.get('path');
+    const targetPath = queryPath || initialPath;
+    const normalizedPath = normalizePath(targetPath);
+    const watcher = activeWatchers.get(normalizedPath);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      success: true,
+      queue: watcher?.stats.pending_queue || { file_count: 0, files: [], countdown_seconds: 0, last_event_time: null }
+    }));
+    return true;
+  }
+
+  // API: Flush Pending Queue (Immediate Index)
+  if (pathname === '/api/codexlens/watch/flush' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { path: watchPath } = body;
+      const targetPath = watchPath || initialPath;
+      const normalizedPath = normalizePath(targetPath);
+
+      const watcher = activeWatchers.get(normalizedPath);
+      if (!watcher) {
+        return { success: false, error: 'Watcher not running for this path', status: 400 };
+      }
+
+      try {
+        // Create flush.signal file to trigger immediate indexing
+        const signalDir = path.join(targetPath, '.codexlens');
+        const signalFile = path.join(signalDir, 'flush.signal');
+
+        if (!fs.existsSync(signalDir)) {
+          fs.mkdirSync(signalDir, { recursive: true });
+        }
+        fs.writeFileSync(signalFile, Date.now().toString());
+
+        return { success: true, message: 'Flush signal sent' };
+      } catch (err: any) {
+        return { success: false, error: err.message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // API: Get Index History
+  if (pathname === '/api/codexlens/watch/history' && req.method === 'GET') {
+    const queryPath = url.searchParams.get('path');
+    const limitParam = url.searchParams.get('limit');
+    const limit = limitParam ? parseInt(limitParam, 10) : 10;
+    const targetPath = queryPath || initialPath;
+    const normalizedPath = normalizePath(targetPath);
+    const watcher = activeWatchers.get(normalizedPath);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      success: true,
+      history: watcher?.stats.index_history?.slice(-limit) || []
+    }));
     return true;
   }
 

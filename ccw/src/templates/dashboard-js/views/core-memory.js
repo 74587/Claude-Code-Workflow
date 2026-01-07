@@ -1,6 +1,56 @@
 // Core Memory View
 // Manages strategic context entries with knowledge graph and evolution tracking
 
+/**
+ * Parse JSON streaming content and extract readable text
+ * Handles Gemini/Qwen format: {"type":"message","content":"...","delta":true}
+ */
+function parseJsonStreamContent(content) {
+  if (!content || typeof content !== 'string') return content;
+
+  // Check if content looks like JSON streaming (multiple JSON objects)
+  if (!content.includes('{"type":')) return content;
+
+  const lines = content.split('\n');
+  const extractedParts = [];
+  let hasJsonLines = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Try to parse as JSON
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const obj = JSON.parse(trimmed);
+        // Extract content from message type
+        if (obj.type === 'message' && obj.content) {
+          extractedParts.push(obj.content);
+          hasJsonLines = true;
+        }
+        // Skip init/result/error types (metadata)
+        else if (obj.type === 'init' || obj.type === 'result' || obj.type === 'error') {
+          hasJsonLines = true;
+          continue;
+        }
+      } catch (e) {
+        // Not valid JSON, keep as plain text
+        extractedParts.push(trimmed);
+      }
+    } else {
+      // Plain text line
+      extractedParts.push(trimmed);
+    }
+  }
+
+  // If we found JSON lines, return extracted content
+  if (hasJsonLines && extractedParts.length > 0) {
+    return extractedParts.join('');
+  }
+
+  return content;
+}
+
 // Notification function
 function showNotification(message, type = 'info') {
   // Create notification container if it doesn't exist
@@ -527,20 +577,24 @@ async function viewMemoryDetail(memoryId) {
   const modal = document.getElementById('memoryDetailModal');
   document.getElementById('memoryDetailTitle').textContent = memory.id;
 
+  // Parse content and summary in case they contain JSON streaming format
+  const parsedContent = parseJsonStreamContent(memory.content);
+  const parsedSummary = parseJsonStreamContent(memory.summary);
+
   const body = document.getElementById('memoryDetailBody');
   body.innerHTML = `
     <div class="memory-detail-content">
-      ${memory.summary
+      ${parsedSummary
         ? `<div class="detail-section">
              <h3>${t('coreMemory.summary')}</h3>
-             <div class="detail-text">${escapeHtml(memory.summary)}</div>
+             <div class="detail-text">${escapeHtml(parsedSummary)}</div>
            </div>`
         : ''
       }
 
       <div class="detail-section">
         <h3>${t('coreMemory.content')}</h3>
-        <pre class="detail-code">${escapeHtml(memory.content)}</pre>
+        <pre class="detail-code">${escapeHtml(parsedContent)}</pre>
       </div>
 
       ${(() => {
@@ -564,7 +618,7 @@ async function viewMemoryDetail(memoryId) {
       ${memory.raw_output
         ? `<div class="detail-section">
              <h3>${t('coreMemory.rawOutput')}</h3>
-             <pre class="detail-code">${escapeHtml(memory.raw_output)}</pre>
+             <pre class="detail-code">${escapeHtml(parseJsonStreamContent(memory.raw_output))}</pre>
            </div>`
         : ''
       }

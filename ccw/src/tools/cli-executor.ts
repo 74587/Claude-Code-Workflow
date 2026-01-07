@@ -205,6 +205,18 @@ class UnifiedStreamParser {
           this.extractedText += item.text;
           output += `[响应] ${item.text}\n`;  // Add newline for proper line separation
         }
+        // Extract content from write_file tool calls (for rules generation)
+        // Use type assertion to access tool_use properties
+        const anyItem = item as { type: string; name?: string; input?: { content?: string } };
+        if (anyItem.type === 'tool_use' && anyItem.input?.content && typeof anyItem.input.content === 'string') {
+          const toolName = anyItem.name || '';
+          // Check if this is a file write operation
+          if (toolName.includes('write_file') || toolName.includes('Write')) {
+            // Use the file content as extracted text (overwrite previous text response)
+            this.extractedText = anyItem.input.content;
+            output += `[工具] ${toolName}: 写入文件内容 (${anyItem.input.content.length} 字符)\n`;
+          }
+        }
       }
     }
 
@@ -1286,9 +1298,10 @@ async function executeCliTool(
       stdout += text;
 
       // Parse stream-json for all supported tools
-      if (streamParser && onOutput) {
+      // Always process chunks to populate extractedText, even without onOutput callback
+      if (streamParser) {
         const parsedText = streamParser.processChunk(text);
-        if (parsedText) {
+        if (parsedText && onOutput) {
           onOutput({ type: 'stdout', data: parsedText });
         }
       } else if (onOutput) {
@@ -1311,9 +1324,10 @@ async function executeCliTool(
       currentChildProcess = null;
 
       // Flush unified parser buffer if present
-      if (streamParser && onOutput) {
+      // Always flush to capture remaining content, even without onOutput callback
+      if (streamParser) {
         const remaining = streamParser.flush();
-        if (remaining) {
+        if (remaining && onOutput) {
           onOutput({ type: 'stdout', data: remaining });
         }
 

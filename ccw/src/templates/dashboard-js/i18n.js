@@ -1363,6 +1363,8 @@ const i18n = {
     'rules.extractScopeRequired': 'Analysis scope is required',
     'rules.extractFocus': 'Focus Areas',
     'rules.extractFocusHint': 'Comma-separated aspects to focus on (e.g., naming, error-handling)',
+    'rules.enableReview': 'Enable Quality Review',
+    'rules.enableReviewHint': 'AI will verify the generated rule for clarity, actionability, and proper formatting',
     'rules.cliGenerating': 'Generating rule via CLI (this may take a few minutes)...',
 
     // CLAUDE.md Manager
@@ -3375,6 +3377,8 @@ const i18n = {
     'rules.extractScopeRequired': '分析范围是必需的',
     'rules.extractFocus': '关注领域',
     'rules.extractFocusHint': '以逗号分隔的关注方面（例如：命名规范, 错误处理）',
+    'rules.enableReview': '启用质量审查',
+    'rules.enableReviewHint': 'AI 将验证生成的规则是否清晰、可操作且格式正确',
     'rules.cliGenerating': '正在通过 CLI 生成规则（可能需要几分钟）...',
 
     // CLAUDE.md Manager

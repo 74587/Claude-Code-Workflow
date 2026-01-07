@@ -483,7 +483,7 @@ Create a new Claude Code skill with the following specifications:
     if (!result.success) {
       return {
         error: `CLI generation failed: ${result.stderr || 'Unknown error'}`,
-        stdout: result.stdout,
+        stdout: result.parsedOutput || result.stdout,
         stderr: result.stderr
       };
     }
@@ -493,7 +493,7 @@ Create a new Claude Code skill with the following specifications:
     if (!validation.valid) {
       return {
         error: `Generated skill is invalid: ${validation.errors.join(', ')}`,
-        stdout: result.stdout,
+        stdout: result.parsedOutput || result.stdout,
         stderr: result.stderr
       };
     }
@@ -503,7 +503,7 @@ Create a new Claude Code skill with the following specifications:
       skillName: validation.skillInfo.name,
       location,
       path: targetPath,
-      stdout: result.stdout,
+      stdout: result.parsedOutput || result.stdout,
       stderr: result.stderr
     };
   } catch (error) {

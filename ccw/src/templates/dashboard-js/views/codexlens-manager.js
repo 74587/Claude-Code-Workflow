@@ -4536,10 +4536,25 @@ window.toggleWatcher = async function toggleWatcher() {
   // Check current status first
   try {
     console.log('[CodexLens] Checking watcher status...');
-    var statusResponse = await fetch('/api/codexlens/watch/status');
+    // Pass path parameter to get specific watcher status
+    var statusResponse = await fetch('/api/codexlens/watch/status?path=' + encodeURIComponent(projectPath));
     var statusResult = await statusResponse.json();
     console.log('[CodexLens] Status result:', statusResult);
-    var isRunning = statusResult.success && statusResult.running;
+
+    // Handle both single watcher response and array response
+    var isRunning = false;
+    if (statusResult.success) {
+      if (typeof statusResult.running === 'boolean') {
+        isRunning = statusResult.running;
+      } else if (statusResult.watchers && Array.isArray(statusResult.watchers)) {
+        var normalizedPath = projectPath.toLowerCase().replace(/\\/g, '/');
+        var matchingWatcher = statusResult.watchers.find(function(w) {
+          var watcherPath = (w.root_path || '').toLowerCase().replace(/\\/g, '/');
+          return watcherPath === normalizedPath || watcherPath.includes(normalizedPath) || normalizedPath.includes(watcherPath);
+        });
+        isRunning = matchingWatcher ? matchingWatcher.running : false;
+      }
+    }
 
     // Toggle: if running, stop; if stopped, start
     var action = isRunning ? 'stop' : 'start';
@@ -4592,7 +4607,8 @@ function updateWatcherUI(running, stats) {
     var uptimeDisplay = document.getElementById('watcherUptimeDisplay');
 
     if (filesCount) filesCount.textContent = stats.files_watched || '-';
-    if (changesCount) changesCount.textContent = stats.changes_detected || '0';
+    // Support both changes_detected and events_processed
+    if (changesCount) changesCount.textContent = stats.events_processed || stats.changes_detected || '0';
     if (uptimeDisplay) uptimeDisplay.textContent = formatUptime(stats.uptime_seconds);
   }
 
@@ -4628,17 +4644,25 @@ function startWatcherPolling() {
   if (watcherPollInterval) return; // Already polling
 
   watcherStartTime = Date.now();
+  var projectPath = window.CCW_PROJECT_ROOT || '.';
+
   watcherPollInterval = setInterval(async function() {
     try {
-      var response = await fetch('/api/codexlens/watch/status');
+      // Must include path parameter to get specific watcher status
+      var response = await fetch('/api/codexlens/watch/status?path=' + encodeURIComponent(projectPath));
       var result = await response.json();
 
       if (result.success && result.running) {
-        // Update uptime
+        // Update uptime from server response
         var uptimeDisplay = document.getElementById('watcherUptimeDisplay');
-        if (uptimeDisplay) {
-          var uptime = (Date.now() - watcherStartTime) / 1000;
-          uptimeDisplay.textContent = formatUptime(uptime);
+        if (uptimeDisplay && result.uptime_seconds !== undefined) {
+          uptimeDisplay.textContent = formatUptime(result.uptime_seconds);
+        }
+
+        // Update changes count from events_processed
+        if (result.events_processed !== undefined) {
+          var changesCount = document.getElementById('watcherChangesCount');
+          if (changesCount) changesCount.textContent = result.events_processed;
         }
 
         // Update files count if available
@@ -4653,8 +4677,8 @@ function startWatcherPolling() {
             addWatcherLogEntry(event.type, event.path);
           });
         }
-      } else if (!result.running) {
-        // Watcher stopped externally
+      } else if (result.success && result.running === false) {
+        // Watcher stopped externally (only if running is explicitly false)
         updateWatcherUI(false);
         stopWatcherPolling();
       }
@@ -4699,13 +4723,15 @@ function addWatcherLogEntry(type, path) {
     'created': 'text-success',
     'modified': 'text-warning',
     'deleted': 'text-destructive',
-    'renamed': 'text-primary'
+    'renamed': 'text-primary',
+    'indexed': 'text-success'
   };
   var typeIcons = {
     'created': '+',
     'modified': '~',
     'deleted': '-',
-    'renamed': '→'
+    'renamed': '→',
+    'indexed': '✓'
   };
 
   var colorClass = typeColors[type] || 'text-muted-foreground';
@@ -4748,13 +4774,35 @@ function clearWatcherLog() {
  */
 async function initWatcherStatus() {
   try {
-    var response = await fetch('/api/codexlens/watch/status');
+    var projectPath = window.CCW_PROJECT_ROOT || '.';
+    // Pass path parameter to get specific watcher status
+    var response = await fetch('/api/codexlens/watch/status?path=' + encodeURIComponent(projectPath));
     var result = await response.json();
     if (result.success) {
-      updateWatcherUI(result.running, {
-        files_watched: result.files_watched,
+      // Handle both single watcher response (with path param) and array response (without path param)
+      var running = result.running;
+      var uptime = result.uptime_seconds || 0;
+      var filesWatched = result.files_watched;
+
+      // If response has watchers array (no path param), find matching watcher
+      if (result.watchers && Array.isArray(result.watchers)) {
+        var normalizedPath = projectPath.toLowerCase().replace(/\\/g, '/');
+        var matchingWatcher = result.watchers.find(function(w) {
+          var watcherPath = (w.root_path || '').toLowerCase().replace(/\\/g, '/');
+          return watcherPath === normalizedPath || watcherPath.includes(normalizedPath) || normalizedPath.includes(watcherPath);
+        });
+        if (matchingWatcher) {
+          running = matchingWatcher.running;
+          uptime = matchingWatcher.uptime_seconds || 0;
+        } else {
+          running = false;
+        }
+      }
+
+      updateWatcherUI(running, {
+        files_watched: filesWatched,
         changes_detected: 0,
-        uptime_seconds: result.uptime_seconds
+        uptime_seconds: uptime
       });
     }
   } catch (err) {
@@ -5846,6 +5894,45 @@ function buildWatcherControlContent(status, defaultPath) {
           '</div>' +
         '</div>' +
 
+        // Pending Queue Section (shown when running)
+        '<div id="watcherPendingQueue" class="tool-config-section" style="display:' + (running ? 'block' : 'none') + '">' +
+          '<div class="flex items-center justify-between mb-2">' +
+            '<h4 class="flex items-center gap-2 m-0">' +
+              '<i data-lucide="clock" class="w-4 h-4"></i>' +
+              (t('codexlens.pendingChanges') || 'Pending Changes') +
+            '</h4>' +
+            '<button onclick="flushWatcherNow()" class="btn btn-sm btn-primary" id="flushNowBtn" disabled>' +
+              '<i data-lucide="zap" class="w-3 h-3 mr-1"></i>' +
+              (t('codexlens.indexNow') || 'Index Now') +
+            '</button>' +
+          '</div>' +
+          '<div class="flex items-center justify-between p-3 bg-muted/20 rounded-lg mb-2">' +
+            '<div>' +
+              '<span class="text-2xl font-bold text-warning" id="pendingFileCount">0</span>' +
+              '<span class="text-sm text-muted-foreground ml-1">' + (t('codexlens.filesWaiting') || 'files waiting') + '</span>' +
+            '</div>' +
+            '<div class="text-right">' +
+              '<div class="text-lg font-mono" id="countdownTimer">--:--</div>' +
+              '<div class="text-xs text-muted-foreground">' + (t('codexlens.untilNextIndex') || 'until next index') + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div id="pendingFilesList" class="max-h-24 overflow-y-auto space-y-1 text-sm"></div>' +
+        '</div>' +
+
+        // Last Index Result (shown when running)
+        '<div id="watcherLastIndex" class="tool-config-section" style="display:none">' +
+          '<div class="flex items-center justify-between mb-2">' +
+            '<h4 class="flex items-center gap-2 m-0">' +
+              '<i data-lucide="check-circle" class="w-4 h-4"></i>' +
+              (t('codexlens.lastIndexResult') || 'Last Index Result') +
+            '</h4>' +
+            '<button onclick="showIndexHistory()" class="text-xs text-muted-foreground hover:text-foreground">' +
+              (t('codexlens.viewHistory') || 'View History') +
+            '</button>' +
+          '</div>' +
+          '<div class="grid grid-cols-4 gap-2 text-center" id="lastIndexStats"></div>' +
+        '</div>' +
+
         // Start Configuration (shown when not running)
         '<div id="watcherStartConfig" class="tool-config-section" style="display:' + (running ? 'none' : 'block') + '">' +
           '<h4>' + (t('codexlens.watcherConfig') || 'Configuration') + '</h4>' +
@@ -5857,7 +5944,7 @@ function buildWatcherControlContent(status, defaultPath) {
             '</div>' +
             '<div>' +
               '<label class="block text-sm font-medium mb-1.5">' + (t('codexlens.debounceMs') || 'Debounce (ms)') + '</label>' +
-              '<input type="number" id="watcherDebounce" value="1000" min="100" max="10000" step="100" ' +
+              '<input type="number" id="watcherDebounce" value="60000" min="1000" max="120000" step="1000" ' +
                 'class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm" />' +
               '<p class="text-xs text-muted-foreground mt-1">' + (t('codexlens.debounceHint') || 'Time to wait before processing file changes') + '</p>' +
             '</div>' +
@@ -5986,6 +6073,204 @@ function stopWatcherStatusPolling() {
     clearInterval(watcherPollingInterval);
     watcherPollingInterval = null;
   }
+  stopCountdownTimer();
+}
+
+// Countdown timer for pending queue
+var countdownInterval = null;
+var currentCountdownSeconds = 0;
+
+function startCountdownTimer(seconds) {
+  currentCountdownSeconds = seconds;
+  if (countdownInterval) return;
+
+  countdownInterval = setInterval(function() {
+    var timerEl = document.getElementById('countdownTimer');
+    if (!timerEl) {
+      stopCountdownTimer();
+      return;
+    }
+
+    if (currentCountdownSeconds <= 0) {
+      timerEl.textContent = '--:--';
+    } else {
+      currentCountdownSeconds--;
+      timerEl.textContent = formatCountdown(currentCountdownSeconds);
+    }
+  }, 1000);
+}
+
+function stopCountdownTimer() {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+}
+
+function formatCountdown(seconds) {
+  if (seconds <= 0) return '--:--';
+  var mins = Math.floor(seconds / 60);
+  var secs = seconds % 60;
+  return (mins < 10 ? '0' : '') + mins + ':' + (secs < 10 ? '0' : '') + secs;
+}
+
+/**
+ * Immediately flush pending queue and trigger indexing
+ */
+async function flushWatcherNow() {
+  var btn = document.getElementById('flushNowBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 mr-1 animate-spin"></i> Indexing...';
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+
+  try {
+    var watchPath = document.getElementById('watcherPath');
+    var path = watchPath ? watchPath.value.trim() : '';
+
+    var response = await fetch('/api/codexlens/watch/flush', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: path || undefined })
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast(t('codexlens.indexTriggered') || 'Indexing triggered', 'success');
+    } else {
+      showRefreshToast(t('common.error') + ': ' + result.error, 'error');
+    }
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="zap" class="w-3 h-3 mr-1"></i>' + (t('codexlens.indexNow') || 'Index Now');
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+  }
+}
+window.flushWatcherNow = flushWatcherNow;
+
+/**
+ * Show index history in a modal
+ */
+async function showIndexHistory() {
+  try {
+    var watchPath = document.getElementById('watcherPath');
+    var path = watchPath ? watchPath.value.trim() : '';
+
+    var response = await fetch('/api/codexlens/watch/history?limit=10&path=' + encodeURIComponent(path));
+    var result = await response.json();
+
+    if (!result.success || !result.history || result.history.length === 0) {
+      showRefreshToast(t('codexlens.noHistory') || 'No index history available', 'info');
+      return;
+    }
+
+    var historyHtml = result.history.slice().reverse().map(function(h, i) {
+      var timestamp = h.timestamp ? new Date(h.timestamp * 1000).toLocaleString() : 'Unknown';
+      return '<div class="p-3 border-b border-border last:border-0">' +
+        '<div class="flex justify-between items-center mb-2">' +
+          '<span class="text-sm font-medium">#' + (result.history.length - i) + '</span>' +
+          '<span class="text-xs text-muted-foreground">' + timestamp + '</span>' +
+        '</div>' +
+        '<div class="grid grid-cols-4 gap-2 text-center text-sm">' +
+          '<div><span class="text-success">' + (h.files_indexed || 0) + '</span> indexed</div>' +
+          '<div><span class="text-warning">' + (h.files_removed || 0) + '</span> removed</div>' +
+          '<div><span class="text-primary">+' + (h.symbols_added || 0) + '</span> symbols</div>' +
+          '<div><span class="text-destructive">' + ((h.errors && h.errors.length) || 0) + '</span> errors</div>' +
+        '</div>' +
+        (h.errors && h.errors.length > 0 ? '<div class="mt-2 text-xs text-destructive">' +
+          h.errors.slice(0, 2).map(function(e) { return '<div>• ' + e + '</div>'; }).join('') +
+          (h.errors.length > 2 ? '<div>... and ' + (h.errors.length - 2) + ' more</div>' : '') +
+        '</div>' : '') +
+      '</div>';
+    }).join('');
+
+    var modal = document.createElement('div');
+    modal.id = 'indexHistoryModal';
+    modal.className = 'modal-backdrop';
+    modal.innerHTML = '<div class="modal-container max-w-md">' +
+      '<div class="modal-header">' +
+        '<h2 class="text-lg font-bold">' + (t('codexlens.indexHistory') || 'Index History') + '</h2>' +
+        '<button onclick="document.getElementById(\'indexHistoryModal\').remove()" class="text-muted-foreground hover:text-foreground">' +
+          '<i data-lucide="x" class="w-5 h-5"></i>' +
+        '</button>' +
+      '</div>' +
+      '<div class="modal-body max-h-96 overflow-y-auto">' + historyHtml + '</div>' +
+    '</div>';
+    document.body.appendChild(modal);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
+}
+window.showIndexHistory = showIndexHistory;
+
+/**
+ * Update pending queue UI elements
+ */
+function updatePendingQueueUI(queue) {
+  var countEl = document.getElementById('pendingFileCount');
+  var timerEl = document.getElementById('countdownTimer');
+  var listEl = document.getElementById('pendingFilesList');
+  var flushBtn = document.getElementById('flushNowBtn');
+
+  if (countEl) countEl.textContent = queue.file_count || 0;
+
+  if (queue.countdown_seconds > 0) {
+    currentCountdownSeconds = queue.countdown_seconds;
+    if (timerEl) timerEl.textContent = formatCountdown(queue.countdown_seconds);
+    startCountdownTimer(queue.countdown_seconds);
+  } else {
+    if (timerEl) timerEl.textContent = '--:--';
+  }
+
+  if (flushBtn) flushBtn.disabled = (queue.file_count || 0) === 0;
+
+  if (listEl && queue.files) {
+    listEl.innerHTML = queue.files.map(function(f) {
+      return '<div class="flex items-center gap-2 text-muted-foreground">' +
+        '<i data-lucide="file" class="w-3 h-3"></i>' +
+        '<span class="truncate">' + f + '</span>' +
+      '</div>';
+    }).join('');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+}
+
+/**
+ * Update last index result UI
+ */
+function updateLastIndexResult(result) {
+  var statsEl = document.getElementById('lastIndexStats');
+  var sectionEl = document.getElementById('watcherLastIndex');
+
+  if (sectionEl) sectionEl.style.display = 'block';
+  if (statsEl) {
+    statsEl.innerHTML = '<div class="p-2 bg-success/10 rounded">' +
+        '<div class="text-lg font-bold text-success">' + (result.files_indexed || 0) + '</div>' +
+        '<div class="text-xs text-muted-foreground">Indexed</div>' +
+      '</div>' +
+      '<div class="p-2 bg-warning/10 rounded">' +
+        '<div class="text-lg font-bold text-warning">' + (result.files_removed || 0) + '</div>' +
+        '<div class="text-xs text-muted-foreground">Removed</div>' +
+      '</div>' +
+      '<div class="p-2 bg-primary/10 rounded">' +
+        '<div class="text-lg font-bold text-primary">' + (result.symbols_added || 0) + '</div>' +
+        '<div class="text-xs text-muted-foreground">+Symbols</div>' +
+      '</div>' +
+      '<div class="p-2 bg-destructive/10 rounded">' +
+        '<div class="text-lg font-bold text-destructive">' + ((result.errors && result.errors.length) || 0) + '</div>' +
+        '<div class="text-xs text-muted-foreground">Errors</div>' +
+      '</div>';
+  }
+
+  // Clear pending queue after indexing
+  updatePendingQueueUI({ file_count: 0, files: [], countdown_seconds: 0 });
 }
 
 /**
@@ -5999,12 +6284,37 @@ function closeWatcherModal() {
 
 /**
  * Handle watcher status update from WebSocket
- * @param {Object} payload - { running: boolean, path?: string, error?: string }
+ * @param {Object} payload - { running: boolean, path?: string, error?: string, events_processed?: number, uptime_seconds?: number }
  */
 function handleWatcherStatusUpdate(payload) {
   var toggle = document.getElementById('watcherToggle');
   var statsDiv = document.getElementById('watcherStats');
   var configDiv = document.getElementById('watcherStartConfig');
+  var eventsCountEl = document.getElementById('watcherEventsCount');
+  var uptimeEl = document.getElementById('watcherUptime');
+
+  // Update events count if provided (real-time updates)
+  if (payload.events_processed !== undefined && eventsCountEl) {
+    eventsCountEl.textContent = payload.events_processed;
+  }
+
+  // Update uptime if provided
+  if (payload.uptime_seconds !== undefined && uptimeEl) {
+    var seconds = payload.uptime_seconds;
+    var formatted = seconds < 60 ? seconds + 's' :
+      seconds < 3600 ? Math.floor(seconds / 60) + 'm ' + (seconds % 60) + 's' :
+      Math.floor(seconds / 3600) + 'h ' + Math.floor((seconds % 3600) / 60) + 'm';
+    uptimeEl.textContent = formatted;
+  }
+
+  // Also update main page watcher status badge if it exists
+  var statusBadge = document.getElementById('watcherStatusBadge');
+  if (statusBadge && payload.running !== undefined) {
+    updateWatcherUI(payload.running, {
+      events_processed: payload.events_processed,
+      uptime_seconds: payload.uptime_seconds
+    });
+  }
 
   if (payload.error) {
     // Watcher failed - update UI to show stopped state
@@ -6018,8 +6328,8 @@ function handleWatcherStatusUpdate(payload) {
     if (statsDiv) statsDiv.style.display = 'block';
     if (configDiv) configDiv.style.display = 'none';
     startWatcherStatusPolling();
-  } else {
-    // Watcher stopped normally
+  } else if (payload.running === false) {
+    // Watcher stopped normally (only if running is explicitly false)
     if (toggle) toggle.checked = false;
     if (statsDiv) statsDiv.style.display = 'none';
     if (configDiv) configDiv.style.display = 'block';
