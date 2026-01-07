@@ -399,6 +399,8 @@ async function stopWatcherProcess(
     };
   } catch (err: any) {
     return { success: false, error: err.message };
+  }
+}
 
 // ============================================================
 // AUTO-RECOVERY ON SERVER START
@@ -433,9 +435,6 @@ async function initializeWatchers(broadcastToClients: (data: unknown) => void): 
     } catch (err: any) {
       console.error(`[CodexLens] Error restoring watcher for ${watchPath}:`, err.message);
     }
-  }
-}
-
   }
 }
 
