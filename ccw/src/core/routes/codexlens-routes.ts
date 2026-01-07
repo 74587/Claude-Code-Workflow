@@ -25,6 +25,350 @@ import {
 } from '../../tools/codex-lens.js';
 import type { ProgressInfo, GpuMode } from '../../tools/codex-lens.js';
 import { loadLiteLLMApiConfig } from '../../config/litellm-api-config-manager.js';
+import { spawn, ChildProcess } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+
+// ============================================================
+// WATCHER PERSISTENCE CONFIGURATION
+// ============================================================
+
+interface WatcherConfig {
+  enabled: boolean;
+  debounce_ms: number;
+}
+
+interface WatcherStats {
+  running: boolean;
+  root_path: string;
+  events_processed: number;
+  start_time: Date | null;
+}
+
+interface ActiveWatcher {
+  process: ChildProcess;
+  stats: WatcherStats;
+}
+
+// Configuration file path: ~/.codexlens/watchers.json
+const WATCHER_CONFIG_DIR = path.join(os.homedir(), '.codexlens');
+const WATCHER_CONFIG_FILE = path.join(WATCHER_CONFIG_DIR, 'watchers.json');
+
+// Active watchers Map: normalized_path -> { process, stats }
+const activeWatchers = new Map<string, ActiveWatcher>();
+
+/**
+ * Normalize path for consistent key usage
+ * - Convert to absolute path
+
+// Flag to ensure watchers are initialized only once
+let watchersInitialized = false;
+
+ * - Convert to lowercase on Windows
+ * - Use forward slashes
+ */
+function normalizePath(inputPath: string): string {
+  const resolved = path.resolve(inputPath);
+  // Use lowercase on Windows for case-insensitive comparison
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+/**
+ * Read watcher configuration from ~/.codexlens/watchers.json
+ * Returns empty object if file doesn't exist or has errors
+ */
+function readWatcherConfig(): Record<string, WatcherConfig> {
+  try {
+    if (!fs.existsSync(WATCHER_CONFIG_FILE)) {
+      return {};
+    }
+    const content = fs.readFileSync(WATCHER_CONFIG_FILE, 'utf-8');
+    return JSON.parse(content);
+  } catch (err) {
+    console.warn('[CodexLens] Failed to read watcher config:', err);
+    return {};
+  }
+}
+
+/**
+ * Write watcher configuration to ~/.codexlens/watchers.json
+ * Creates directory if it doesn't exist
+ */
+function writeWatcherConfig(config: Record<string, WatcherConfig>): void {
+  try {
+    // Ensure config directory exists
+    if (!fs.existsSync(WATCHER_CONFIG_DIR)) {
+      fs.mkdirSync(WATCHER_CONFIG_DIR, { recursive: true });
+    }
+    fs.writeFileSync(WATCHER_CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('[CodexLens] Failed to write watcher config:', err);
+    throw err;
+  }
+}
+
+// ============================================================
+
+// ============================================================
+// PROCESS MANAGEMENT FUNCTIONS
+// ============================================================
+
+/**
+ * Start watcher process for the given path
+ * Creates process, registers handlers, and updates activeWatchers Map
+ */
+async function startWatcherProcess(
+  targetPath: string,
+  debounce_ms: number,
+  broadcastToClients: (data: unknown) => void
+): Promise<{ success: boolean; error?: string; pid?: number }> {
+  const normalizedPath = normalizePath(targetPath);
+
+  // Check if watcher already running for this path
+  if (activeWatchers.has(normalizedPath)) {
+    return { success: false, error: 'Watcher already running for this path' };
+  }
+
+  try {
+    const { existsSync, statSync } = await import('fs');
+
+    // Validate path exists and is a directory
+    if (!existsSync(targetPath)) {
+      return { success: false, error: `Path does not exist: ${targetPath}` };
+    }
+    const pathStat = statSync(targetPath);
+    if (!pathStat.isDirectory()) {
+      return { success: false, error: `Path is not a directory: ${targetPath}` };
+    }
+
+    // Get the codexlens CLI path
+    const venvStatus = await checkVenvStatus();
+    if (!venvStatus.ready) {
+      return { success: false, error: 'CodexLens not installed' };
+    }
+
+    // Verify directory is indexed before starting watcher
+    try {
+      const statusResult = await executeCodexLens(['projects', 'list', '--json']);
+      if (statusResult.success && statusResult.stdout) {
+        const parsed = extractJSON(statusResult.stdout);
+        const projects = parsed.result || parsed || [];
+        const normalizedTarget = targetPath.toLowerCase().replace(/\\/g, '/');
+        const isIndexed = Array.isArray(projects) && projects.some((p: { source_root: string }) =>
+          p.source_root && p.source_root.toLowerCase().replace(/\\/g, '/') === normalizedTarget
+        );
+        if (!isIndexed) {
+          return {
+            success: false,
+            error: `Directory is not indexed: ${targetPath}. Run 'codexlens init' first.`
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('[CodexLens] Could not verify index status:', err);
+      // Continue anyway - watcher will fail with proper error if not indexed
+    }
+
+    // Spawn watch process using Python (no shell: true for security)
+    const pythonPath = getVenvPythonPath();
+    const args = ['-m', 'codexlens', 'watch', targetPath, '--debounce', String(debounce_ms)];
+    const childProcess = spawn(pythonPath, args, {
+      cwd: targetPath,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env }
+    });
+
+    const stats: WatcherStats = {
+      running: true,
+      root_path: targetPath,
+      events_processed: 0,
+      start_time: new Date()
+    };
+
+    // Register in activeWatchers Map
+    activeWatchers.set(normalizedPath, { process: childProcess, stats });
+
+    // Capture stderr for error messages (capped at 4KB to prevent memory leak)
+    const MAX_STDERR_SIZE = 4096;
+    let stderrBuffer = '';
+    if (childProcess.stderr) {
+      childProcess.stderr.on('data', (data: Buffer) => {
+        stderrBuffer += data.toString();
+        if (stderrBuffer.length > MAX_STDERR_SIZE) {
+          stderrBuffer = stderrBuffer.slice(-MAX_STDERR_SIZE);
+        }
+      });
+    }
+
+    // Handle process output for event counting
+    if (childProcess.stdout) {
+      childProcess.stdout.on('data', (data: Buffer) => {
+        const output = data.toString();
+        const matches = output.match(/Processed \d+ events?/g);
+        if (matches) {
+          const watcher = activeWatchers.get(normalizedPath);
+          if (watcher) {
+            watcher.stats.events_processed += matches.length;
+          }
+        }
+      });
+    }
+
+    // Handle spawn errors (e.g., ENOENT)
+    childProcess.on('error', (err: Error) => {
+      console.error(`[CodexLens] Watcher spawn error for ${targetPath}: ${err.message}`);
+      const watcher = activeWatchers.get(normalizedPath);
+      if (watcher) {
+        watcher.stats.running = false;
+      }
+      activeWatchers.delete(normalizedPath);
+      broadcastToClients({
+        type: 'CODEXLENS_WATCHER_STATUS',
+        payload: { running: false, path: targetPath, error: `Spawn error: ${err.message}` }
+      });
+    });
+
+    // Handle process exit
+    childProcess.on('exit', (code: number) => {
+      console.log(`[CodexLens] Watcher exited with code ${code} for ${targetPath}`);
+      const watcher = activeWatchers.get(normalizedPath);
+      if (watcher) {
+        watcher.stats.running = false;
+      }
+      activeWatchers.delete(normalizedPath);
+
+      // Broadcast error if exited with non-zero code
+      if (code !== 0) {
+        const errorMsg = stderrBuffer.trim() || `Exited with code ${code}`;
+        const cleanError = stripAnsiCodes(errorMsg);
+        broadcastToClients({
+          type: 'CODEXLENS_WATCHER_STATUS',
+          payload: { running: false, path: targetPath, error: cleanError }
+        });
+      } else {
+        broadcastToClients({
+          type: 'CODEXLENS_WATCHER_STATUS',
+          payload: { running: false, path: targetPath }
+        });
+      }
+    });
+
+    // Broadcast watcher started
+    broadcastToClients({
+      type: 'CODEXLENS_WATCHER_STATUS',
+      payload: { running: true, path: targetPath }
+    });
+
+    console.log(`[CodexLens] Watcher started for ${targetPath} (PID: ${childProcess.pid})`);
+
+    return {
+      success: true,
+      pid: childProcess.pid
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Stop watcher process for the given path
+ * Gracefully stops process, removes from activeWatchers Map
+ */
+async function stopWatcherProcess(
+  targetPath: string,
+  broadcastToClients: (data: unknown) => void
+): Promise<{ success: boolean; error?: string; stats?: { events_processed: number; uptime_seconds: number } }> {
+  const normalizedPath = normalizePath(targetPath);
+
+  const watcher = activeWatchers.get(normalizedPath);
+  if (!watcher || !watcher.stats.running) {
+    return { success: false, error: 'Watcher not running for this path' };
+  }
+
+  try {
+    // Send SIGTERM to gracefully stop the watcher
+    watcher.process.kill('SIGTERM');
+
+    // Wait a moment for graceful shutdown
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Force kill if still running
+    if (watcher.process && !watcher.process.killed) {
+      watcher.process.kill('SIGKILL');
+    }
+
+    const finalStats = {
+      events_processed: watcher.stats.events_processed,
+      uptime_seconds: watcher.stats.start_time
+        ? Math.floor((Date.now() - watcher.stats.start_time.getTime()) / 1000)
+        : 0
+    };
+
+    // Update stats and remove from Map
+    watcher.stats.running = false;
+    watcher.stats.root_path = '';
+    watcher.stats.events_processed = 0;
+    watcher.stats.start_time = null;
+    activeWatchers.delete(normalizedPath);
+
+    // Broadcast watcher stopped
+    broadcastToClients({
+      type: 'CODEXLENS_WATCHER_STATUS',
+      payload: { running: false, path: targetPath }
+    });
+
+    console.log(`[CodexLens] Watcher stopped for ${targetPath}`);
+
+    return {
+      success: true,
+      stats: finalStats
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+
+// ============================================================
+// AUTO-RECOVERY ON SERVER START
+// ============================================================
+
+/**
+ * Initialize watchers from persisted configuration
+ * Called on server startup to restore watchers from ~/.codexlens/watchers.json
+ */
+async function initializeWatchers(broadcastToClients: (data: unknown) => void): Promise<void> {
+  const config = readWatcherConfig();
+  const enabledWatchers = Object.entries(config).filter(([_, cfg]) => cfg.enabled);
+
+  if (enabledWatchers.length === 0) {
+    console.log('[CodexLens] No watchers to restore');
+    return;
+  }
+
+  console.log(`[CodexLens] Restoring ${enabledWatchers.length} watcher(s) from config...`);
+
+  for (const [watchPath, cfg] of enabledWatchers) {
+    try {
+      const result = await startWatcherProcess(watchPath, cfg.debounce_ms, broadcastToClients);
+      if (result.success) {
+        console.log(`[CodexLens] Restored watcher for ${watchPath}`);
+      } else {
+        console.warn(`[CodexLens] Failed to restore watcher for ${watchPath}: ${result.error}`);
+        // Keep config entry but mark as disabled (will be re-enabled manually)
+        config[watchPath].enabled = false;
+        writeWatcherConfig(config);
+      }
+    } catch (err: any) {
+      console.error(`[CodexLens] Error restoring watcher for ${watchPath}:`, err.message);
+    }
+  }
+}
+
+  }
+}
+
+// LEGACY STATE (Deprecated - use activeWatchers Map instead)
+// ============================================================
+
 
 // File watcher state (persisted across requests)
 let watcherProcess: any = null;

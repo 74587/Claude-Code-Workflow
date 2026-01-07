@@ -499,6 +499,13 @@ class Config:
             except ValueError:
                 log.warning("Invalid RERANKER_COOLDOWN in .env: %r", env_vars["RERANKER_COOLDOWN"])
 
+        if "RERANKER_MAX_INPUT_TOKENS" in env_vars:
+            try:
+                self.reranker_max_input_tokens = int(env_vars["RERANKER_MAX_INPUT_TOKENS"])
+                log.debug("Overriding reranker_max_input_tokens from .env: %s", self.reranker_max_input_tokens)
+            except ValueError:
+                log.warning("Invalid RERANKER_MAX_INPUT_TOKENS in .env: %r", env_vars["RERANKER_MAX_INPUT_TOKENS"])
+
     @classmethod
     def load(cls) -> "Config":
         """Load config with settings from file."""

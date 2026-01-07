@@ -837,9 +837,9 @@ var ENV_VAR_GROUPS = {
     labelKey: 'codexlens.envGroup.embedding',
     icon: 'box',
     vars: {
-      'CODEXLENS_EMBEDDING_BACKEND': { label: 'Backend', type: 'select', options: ['local', 'api'], default: 'local', settingsPath: 'embedding.backend' },
+      'CODEXLENS_EMBEDDING_BACKEND': { labelKey: 'codexlens.envField.backend', type: 'select', options: ['local', 'api'], default: 'local', settingsPath: 'embedding.backend' },
       'CODEXLENS_EMBEDDING_MODEL': {
-        label: 'Model',
+        labelKey: 'codexlens.envField.model',
         type: 'model-select',
         placeholder: 'Select or enter model...',
         default: 'fast',
@@ -855,20 +855,20 @@ var ENV_VAR_GROUPS = {
           { group: 'Jina', items: ['jina-embeddings-v3', 'jina-embeddings-v2-base-en', 'jina-embeddings-v2-base-zh'] }
         ]
       },
-      'CODEXLENS_USE_GPU': { label: 'Use GPU', type: 'select', options: ['true', 'false'], default: 'true', settingsPath: 'embedding.use_gpu', showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'local'; } },
-      'CODEXLENS_EMBEDDING_POOL_ENABLED': { label: 'High Availability', type: 'select', options: ['true', 'false'], default: 'false', settingsPath: 'embedding.pool_enabled', showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'api'; } },
-      'CODEXLENS_EMBEDDING_STRATEGY': { label: 'Load Balance Strategy', type: 'select', options: ['round_robin', 'latency_aware', 'weighted_random'], default: 'latency_aware', settingsPath: 'embedding.strategy', showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'api' && env['CODEXLENS_EMBEDDING_POOL_ENABLED'] === 'true'; } },
-      'CODEXLENS_EMBEDDING_COOLDOWN': { label: 'Rate Limit Cooldown (s)', type: 'number', placeholder: '60', default: '60', settingsPath: 'embedding.cooldown', min: 0, max: 300, showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'api' && env['CODEXLENS_EMBEDDING_POOL_ENABLED'] === 'true'; } }
+      'CODEXLENS_USE_GPU': { labelKey: 'codexlens.envField.useGpu', type: 'select', options: ['true', 'false'], default: 'true', settingsPath: 'embedding.use_gpu', showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'local'; } },
+      'CODEXLENS_EMBEDDING_POOL_ENABLED': { labelKey: 'codexlens.envField.highAvailability', type: 'select', options: ['true', 'false'], default: 'false', settingsPath: 'embedding.pool_enabled', showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'api'; } },
+      'CODEXLENS_EMBEDDING_STRATEGY': { labelKey: 'codexlens.envField.loadBalanceStrategy', type: 'select', options: ['round_robin', 'latency_aware', 'weighted_random'], default: 'latency_aware', settingsPath: 'embedding.strategy', showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'api' && env['CODEXLENS_EMBEDDING_POOL_ENABLED'] === 'true'; } },
+      'CODEXLENS_EMBEDDING_COOLDOWN': { labelKey: 'codexlens.envField.rateLimitCooldown', type: 'number', placeholder: '60', default: '60', settingsPath: 'embedding.cooldown', min: 0, max: 300, showWhen: function(env) { return env['CODEXLENS_EMBEDDING_BACKEND'] === 'api' && env['CODEXLENS_EMBEDDING_POOL_ENABLED'] === 'true'; } }
     }
   },
   reranker: {
     labelKey: 'codexlens.envGroup.reranker',
     icon: 'arrow-up-down',
     vars: {
-      'CODEXLENS_RERANKER_ENABLED': { label: 'Enabled', type: 'select', options: ['true', 'false'], default: 'true', settingsPath: 'reranker.enabled' },
-      'CODEXLENS_RERANKER_BACKEND': { label: 'Backend', type: 'select', options: ['local', 'api'], default: 'local', settingsPath: 'reranker.backend' },
+      'CODEXLENS_RERANKER_ENABLED': { labelKey: 'codexlens.envField.enabled', type: 'select', options: ['true', 'false'], default: 'true', settingsPath: 'reranker.enabled' },
+      'CODEXLENS_RERANKER_BACKEND': { labelKey: 'codexlens.envField.backend', type: 'select', options: ['local', 'api'], default: 'local', settingsPath: 'reranker.backend' },
       'CODEXLENS_RERANKER_MODEL': {
-        label: 'Model',
+        labelKey: 'codexlens.envField.model',
         type: 'model-select',
         placeholder: 'Select or enter model...',
         default: 'Xenova/ms-marco-MiniLM-L-6-v2',
@@ -883,27 +883,27 @@ var ENV_VAR_GROUPS = {
           { group: 'Jina', items: ['jina-reranker-v2-base-multilingual', 'jina-reranker-v1-base-en'] }
         ]
       },
-      'CODEXLENS_RERANKER_TOP_K': { label: 'Top K Results', type: 'number', placeholder: '50', default: '50', settingsPath: 'reranker.top_k', min: 5, max: 200 },
-      'CODEXLENS_RERANKER_POOL_ENABLED': { label: 'High Availability', type: 'select', options: ['true', 'false'], default: 'false', settingsPath: 'reranker.pool_enabled', showWhen: function(env) { return env['CODEXLENS_RERANKER_BACKEND'] === 'api'; } },
-      'CODEXLENS_RERANKER_STRATEGY': { label: 'Load Balance Strategy', type: 'select', options: ['round_robin', 'latency_aware', 'weighted_random'], default: 'latency_aware', settingsPath: 'reranker.strategy', showWhen: function(env) { return env['CODEXLENS_RERANKER_BACKEND'] === 'api' && env['CODEXLENS_RERANKER_POOL_ENABLED'] === 'true'; } },
-      'CODEXLENS_RERANKER_COOLDOWN': { label: 'Rate Limit Cooldown (s)', type: 'number', placeholder: '60', default: '60', settingsPath: 'reranker.cooldown', min: 0, max: 300, showWhen: function(env) { return env['CODEXLENS_RERANKER_BACKEND'] === 'api' && env['CODEXLENS_RERANKER_POOL_ENABLED'] === 'true'; } }
+      'CODEXLENS_RERANKER_TOP_K': { labelKey: 'codexlens.envField.topKResults', type: 'number', placeholder: '50', default: '50', settingsPath: 'reranker.top_k', min: 5, max: 200 },
+      'CODEXLENS_RERANKER_POOL_ENABLED': { labelKey: 'codexlens.envField.highAvailability', type: 'select', options: ['true', 'false'], default: 'false', settingsPath: 'reranker.pool_enabled', showWhen: function(env) { return env['CODEXLENS_RERANKER_BACKEND'] === 'api'; } },
+      'CODEXLENS_RERANKER_STRATEGY': { labelKey: 'codexlens.envField.loadBalanceStrategy', type: 'select', options: ['round_robin', 'latency_aware', 'weighted_random'], default: 'latency_aware', settingsPath: 'reranker.strategy', showWhen: function(env) { return env['CODEXLENS_RERANKER_BACKEND'] === 'api' && env['CODEXLENS_RERANKER_POOL_ENABLED'] === 'true'; } },
+      'CODEXLENS_RERANKER_COOLDOWN': { labelKey: 'codexlens.envField.rateLimitCooldown', type: 'number', placeholder: '60', default: '60', settingsPath: 'reranker.cooldown', min: 0, max: 300, showWhen: function(env) { return env['CODEXLENS_RERANKER_BACKEND'] === 'api' && env['CODEXLENS_RERANKER_POOL_ENABLED'] === 'true'; } }
     }
   },
   concurrency: {
     labelKey: 'codexlens.envGroup.concurrency',
     icon: 'cpu',
     vars: {
-      'CODEXLENS_API_MAX_WORKERS': { label: 'Max Workers', type: 'number', placeholder: '4', default: '4', settingsPath: 'api.max_workers', min: 1, max: 32 },
-      'CODEXLENS_API_BATCH_SIZE': { label: 'Batch Size', type: 'number', placeholder: '8', default: '8', settingsPath: 'api.batch_size', min: 1, max: 64 }
+      'CODEXLENS_API_MAX_WORKERS': { labelKey: 'codexlens.envField.maxWorkers', type: 'number', placeholder: '4', default: '4', settingsPath: 'api.max_workers', min: 1, max: 32 },
+      'CODEXLENS_API_BATCH_SIZE': { labelKey: 'codexlens.envField.batchSize', type: 'number', placeholder: '8', default: '8', settingsPath: 'api.batch_size', min: 1, max: 64 }
     }
   },
   cascade: {
     labelKey: 'codexlens.envGroup.cascade',
     icon: 'git-branch',
     vars: {
-      'CODEXLENS_CASCADE_STRATEGY': { label: 'Search Strategy', type: 'select', options: ['binary', 'hybrid', 'binary_rerank', 'dense_rerank'], default: 'dense_rerank', settingsPath: 'cascade.strategy' },
-      'CODEXLENS_CASCADE_COARSE_K': { label: 'Coarse K (1st stage)', type: 'number', placeholder: '100', default: '100', settingsPath: 'cascade.coarse_k', min: 10, max: 500 },
-      'CODEXLENS_CASCADE_FINE_K': { label: 'Fine K (final)', type: 'number', placeholder: '10', default: '10', settingsPath: 'cascade.fine_k', min: 1, max: 100 }
+      'CODEXLENS_CASCADE_STRATEGY': { labelKey: 'codexlens.envField.searchStrategy', type: 'select', options: ['binary', 'hybrid', 'binary_rerank', 'dense_rerank'], default: 'dense_rerank', settingsPath: 'cascade.strategy' },
+      'CODEXLENS_CASCADE_COARSE_K': { labelKey: 'codexlens.envField.coarseK', type: 'number', placeholder: '100', default: '100', settingsPath: 'cascade.coarse_k', min: 10, max: 500 },
+      'CODEXLENS_CASCADE_FINE_K': { labelKey: 'codexlens.envField.fineK', type: 'number', placeholder: '10', default: '10', settingsPath: 'cascade.fine_k', min: 1, max: 100 }
     }
   }
 };
@@ -1039,8 +1039,9 @@ async function loadEnvVariables() {
           if (key === 'CODEXLENS_EMBEDDING_BACKEND' || key === 'CODEXLENS_RERANKER_BACKEND') {
             onchangeHandler = ' onchange="updateModelOptionsOnBackendChange(\'' + key + '\', this.value)"';
           }
+          var fieldLabel = config.labelKey ? t(config.labelKey) : config.label;
           html += '<div class="flex items-center gap-2"' + hiddenStyle + '>' +
-            '<label class="text-xs text-muted-foreground w-28 flex-shrink-0">' + escapeHtml(config.label) + '</label>' +
+            '<label class="text-xs text-muted-foreground w-28 flex-shrink-0">' + escapeHtml(fieldLabel) + '</label>' +
             '<select class="tool-config-input flex-1 text-xs py-1" data-env-key="' + escapeHtml(key) + '"' + onchangeHandler + '>';
           config.options.forEach(function(opt) {
             html += '<option value="' + escapeHtml(opt) + '"' + (value === opt ? ' selected' : '') + '>' + escapeHtml(opt) + '</option>';
@@ -1062,8 +1063,9 @@ async function loadEnvVariables() {
           // Fallback preset list for API models
           var apiModelList = config.apiModels || [];
 
+          var modelFieldLabel = config.labelKey ? t(config.labelKey) : config.label;
           html += '<div class="flex items-center gap-2"' + hiddenStyle + '>' +
-            '<label class="text-xs text-muted-foreground w-28 flex-shrink-0" title="' + escapeHtml(key) + '">' + escapeHtml(config.label) + '</label>' +
+            '<label class="text-xs text-muted-foreground w-28 flex-shrink-0" title="' + escapeHtml(key) + '">' + escapeHtml(modelFieldLabel) + '</label>' +
             '<div class="relative flex-1">' +
               '<input type="text" class="tool-config-input w-full text-xs py-1 pr-6" ' +
                      'data-env-key="' + escapeHtml(key) + '" value="' + escapeHtml(value) + '" ' +
@@ -1114,8 +1116,9 @@ async function loadEnvVariables() {
             if (config.max !== undefined) extraAttrs += ' max="' + config.max + '"';
             extraAttrs += ' step="1"';
           }
+          var inputFieldLabel = config.labelKey ? t(config.labelKey) : config.label;
           html += '<div class="flex items-center gap-2"' + hiddenStyle + '>' +
-            '<label class="text-xs text-muted-foreground w-28 flex-shrink-0" title="' + escapeHtml(key) + '">' + escapeHtml(config.label) + '</label>' +
+            '<label class="text-xs text-muted-foreground w-28 flex-shrink-0" title="' + escapeHtml(key) + '">' + escapeHtml(inputFieldLabel) + '</label>' +
             '<input type="' + inputType + '" class="tool-config-input flex-1 text-xs py-1" ' +
                    'data-env-key="' + escapeHtml(key) + '" value="' + escapeHtml(value) + '" placeholder="' + escapeHtml(config.placeholder || '') + '"' + extraAttrs + ' />' +
           '</div>';
@@ -3905,6 +3908,8 @@ async function renderCodexLensManager() {
       loadIndexStatsForPage();
       // Check index health based on git history
       checkIndexHealth();
+      // Load workspace index status (FTS and Vector coverage)
+      refreshWorkspaceIndexStatus();
     }
   } catch (err) {
     container.innerHTML = '<div class="text-center py-12 text-destructive"><i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2"></i><p>' + t('common.error') + ': ' + escapeHtml(err.message) + '</p></div>';
@@ -5938,24 +5943,37 @@ function startWatcherStatusPolling() {
 
   watcherPollingInterval = setInterval(async function() {
     try {
+      // Check if modal elements still exist (modal may be closed)
+      var eventsCountEl = document.getElementById('watcherEventsCount');
+      var uptimeEl = document.getElementById('watcherUptime');
+      var toggleEl = document.getElementById('watcherToggle');
+      var statsEl = document.getElementById('watcherStats');
+      var configEl = document.getElementById('watcherStartConfig');
+
+      // If modal elements don't exist, stop polling
+      if (!eventsCountEl && !toggleEl) {
+        stopWatcherStatusPolling();
+        return;
+      }
+
       var response = await fetch('/api/codexlens/watch/status');
       var status = await response.json();
 
       if (status.running) {
-        document.getElementById('watcherEventsCount').textContent = status.events_processed || 0;
+        if (eventsCountEl) eventsCountEl.textContent = status.events_processed || 0;
 
         // Format uptime
         var seconds = status.uptime_seconds || 0;
         var formatted = seconds < 60 ? seconds + 's' :
           seconds < 3600 ? Math.floor(seconds / 60) + 'm ' + (seconds % 60) + 's' :
           Math.floor(seconds / 3600) + 'h ' + Math.floor((seconds % 3600) / 60) + 'm';
-        document.getElementById('watcherUptime').textContent = formatted;
+        if (uptimeEl) uptimeEl.textContent = formatted;
       } else {
         // Watcher stopped externally
         stopWatcherStatusPolling();
-        document.getElementById('watcherToggle').checked = false;
-        document.getElementById('watcherStats').style.display = 'none';
-        document.getElementById('watcherStartConfig').style.display = 'block';
+        if (toggleEl) toggleEl.checked = false;
+        if (statsEl) statsEl.style.display = 'none';
+        if (configEl) configEl.style.display = 'block';
       }
     } catch (err) {
       console.error('Failed to poll watcher status:', err);

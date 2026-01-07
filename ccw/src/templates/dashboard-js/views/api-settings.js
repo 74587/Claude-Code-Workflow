@@ -1641,6 +1641,10 @@ function showAddModelModal(providerId, modelType) {
       '</div>'
     : isReranker ?
       '<div class="form-group">' +
+      '<label>' + t('apiSettings.embeddingMaxTokens') + '</label>' +
+      '<input type="number" id="model-max-tokens" class="cli-input" value="8192" min="128" />' +
+      '</div>' +
+      '<div class="form-group">' +
       '<label>' + t('apiSettings.rerankerTopK') + '</label>' +
       '<input type="number" id="model-top-k" class="cli-input" value="10" min="1" max="100" />' +
       '<span class="field-hint">' + t('apiSettings.rerankerTopKHint') + '</span>' +
@@ -1846,13 +1850,15 @@ function saveNewModel(event, providerId, modelType) {
     };
   } else if (isReranker) {
     var topKEl = document.getElementById('model-top-k');
+    var maxTokensEl = document.getElementById('model-max-tokens');
     newModel.capabilities = {
+      maxInputTokens: maxTokensEl ? parseInt(maxTokensEl.value) || 8192 : 8192,
       topK: topKEl ? parseInt(topKEl.value) || 10 : 10
     };
   } else {
     newModel.capabilities = {
       embeddingDimension: parseInt(document.getElementById('model-dimensions').value) || 1536,
-      contextWindow: parseInt(document.getElementById('model-max-tokens').value) || 8192
+      maxInputTokens: parseInt(document.getElementById('model-max-tokens').value) || 8192
     };
   }
 
@@ -1878,7 +1884,8 @@ function saveNewModel(event, providerId, modelType) {
     })
     .then(function() {
       closeAddModelModal();
-      return loadApiSettings();
+      // Force refresh to get latest data including newly created model
+      return loadApiSettings(true);
     })
     .then(function() {
       if (selectedProviderId === providerId) {

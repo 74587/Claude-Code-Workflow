@@ -294,7 +294,12 @@ class APIReranker(BaseReranker):
         return payload
 
     def _estimate_tokens(self, text: str) -> int:
-        """Estimate token count using fast heuristic (len/4)."""
+        """Estimate token count using fast heuristic.
+
+        Uses len(text) // 4 as approximation (~4 chars per token for English).
+        Not perfectly accurate for all models/languages but sufficient for
+        batch sizing decisions where exact counts aren't critical.
+        """
         return len(text) // 4
 
     def _create_token_aware_batches(
@@ -317,7 +322,15 @@ class APIReranker(BaseReranker):
         for idx, doc in enumerate(documents):
             doc_tokens = self._estimate_tokens(doc)
 
-            # If single doc + query exceeds limit, include it anyway (will be truncated by API)
+            # Warn if single document exceeds token limit (will be truncated by API)
+            if doc_tokens > max_tokens - query_tokens:
+                logger.warning(
+                    f"Document {idx} exceeds token limit: ~{doc_tokens} tokens "
+                    f"(limit: {max_tokens - query_tokens} after query overhead). "
+                    "Document will likely be truncated by the API."
+                )
+
+            # If batch would exceed limit, start new batch
             if current_tokens + doc_tokens > max_tokens and current_batch:
                 batches.append(current_batch)
                 current_batch = []

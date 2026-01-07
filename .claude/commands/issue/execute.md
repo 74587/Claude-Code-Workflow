@@ -1,7 +1,7 @@
 ---
 name: execute
 description: Execute queue with DAG-based parallel orchestration (one commit per solution)
-argument-hint: "[--worktree] [--queue <queue-id>]"
+argument-hint: "[--worktree [<existing-path>]] [--queue <queue-id>]"
 allowed-tools: TodoWrite(*), Bash(*), Read(*), AskUserQuestion(*)
 ---
 
