@@ -24,106 +24,138 @@ function escapeHtml(str) {
 
 /**
  * Refresh workspace index status (FTS and Vector coverage)
+ * Updates both the detailed panel (if exists) and header badges
  */
 async function refreshWorkspaceIndexStatus() {
   var container = document.getElementById('workspaceIndexStatusContent');
-  if (!container) return;
+  var headerFtsEl = document.getElementById('headerFtsPercent');
+  var headerVectorEl = document.getElementById('headerVectorPercent');
 
-  // Show loading state
-  container.innerHTML = '<div class="text-xs text-muted-foreground text-center py-2">' +
-    '<i data-lucide="loader-2" class="w-4 h-4 animate-spin inline mr-1"></i> ' + (t('common.loading') || 'Loading...') +
-    '</div>';
-  if (window.lucide) lucide.createIcons();
+  // If neither container nor header elements exist, nothing to update
+  if (!container && !headerFtsEl) return;
+
+  // Show loading state in container
+  if (container) {
+    container.innerHTML = '<div class="text-xs text-muted-foreground text-center py-2">' +
+      '<i data-lucide="loader-2" class="w-4 h-4 animate-spin inline mr-1"></i> ' + (t('common.loading') || 'Loading...') +
+      '</div>';
+    if (window.lucide) lucide.createIcons();
+  }
 
   try {
     var response = await fetch('/api/codexlens/workspace-status');
     var result = await response.json();
 
     if (result.success) {
-      var html = '';
+      var ftsPercent = result.hasIndex ? (result.fts.percent || 0) : 0;
+      var vectorPercent = result.hasIndex ? (result.vector.percent || 0) : 0;
 
-      if (!result.hasIndex) {
-        // No index for current workspace
-        html = '<div class="text-center py-3">' +
-          '<div class="text-sm text-muted-foreground mb-2">' +
-            '<i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i> ' +
-            (t('codexlens.noIndexFound') || 'No index found for current workspace') +
-          '</div>' +
-          '<button onclick="runFtsFullIndex()" class="text-xs text-primary hover:underline">' +
-            (t('codexlens.createIndex') || 'Create Index') +
-          '</button>' +
-        '</div>';
-      } else {
-        // FTS Status
-        var ftsPercent = result.fts.percent || 0;
-        var ftsColor = ftsPercent >= 100 ? 'bg-success' : (ftsPercent > 0 ? 'bg-blue-500' : 'bg-muted-foreground');
-        var ftsTextColor = ftsPercent >= 100 ? 'text-success' : (ftsPercent > 0 ? 'text-blue-500' : 'text-muted-foreground');
-
-        html += '<div class="space-y-1">' +
-          '<div class="flex items-center justify-between text-xs">' +
-            '<span class="flex items-center gap-1.5">' +
-              '<i data-lucide="file-text" class="w-3.5 h-3.5 text-blue-500"></i> ' +
-              '<span class="font-medium">' + (t('codexlens.ftsIndex') || 'FTS Index') + '</span>' +
-            '</span>' +
-            '<span class="' + ftsTextColor + ' font-medium">' + ftsPercent + '%</span>' +
-          '</div>' +
-          '<div class="h-1.5 bg-muted rounded-full overflow-hidden">' +
-            '<div class="h-full ' + ftsColor + ' transition-all duration-300" style="width: ' + ftsPercent + '%"></div>' +
-          '</div>' +
-          '<div class="text-xs text-muted-foreground">' +
-            (result.fts.indexedFiles || 0) + ' / ' + (result.fts.totalFiles || 0) + ' ' + (t('codexlens.filesIndexed') || 'files indexed') +
-          '</div>' +
-        '</div>';
-
-        // Vector Status
-        var vectorPercent = result.vector.percent || 0;
-        var vectorColor = vectorPercent >= 100 ? 'bg-success' : (vectorPercent >= 50 ? 'bg-purple-500' : (vectorPercent > 0 ? 'bg-purple-400' : 'bg-muted-foreground'));
-        var vectorTextColor = vectorPercent >= 100 ? 'text-success' : (vectorPercent >= 50 ? 'text-purple-500' : (vectorPercent > 0 ? 'text-purple-400' : 'text-muted-foreground'));
-
-        html += '<div class="space-y-1 mt-3">' +
-          '<div class="flex items-center justify-between text-xs">' +
-            '<span class="flex items-center gap-1.5">' +
-              '<i data-lucide="brain" class="w-3.5 h-3.5 text-purple-500"></i> ' +
-              '<span class="font-medium">' + (t('codexlens.vectorIndex') || 'Vector Index') + '</span>' +
-            '</span>' +
-            '<span class="' + vectorTextColor + ' font-medium">' + vectorPercent.toFixed(1) + '%</span>' +
-          '</div>' +
-          '<div class="h-1.5 bg-muted rounded-full overflow-hidden">' +
-            '<div class="h-full ' + vectorColor + ' transition-all duration-300" style="width: ' + vectorPercent + '%"></div>' +
-          '</div>' +
-          '<div class="text-xs text-muted-foreground">' +
-            (result.vector.filesWithEmbeddings || 0) + ' / ' + (result.vector.totalFiles || 0) + ' ' + (t('codexlens.filesWithEmbeddings') || 'files with embeddings') +
-            (result.vector.totalChunks > 0 ? ' (' + result.vector.totalChunks + ' chunks)' : '') +
-          '</div>' +
-        '</div>';
-
-        // Vector search availability indicator
-        if (vectorPercent >= 50) {
-          html += '<div class="flex items-center gap-1.5 mt-2 pt-2 border-t border-border">' +
-            '<i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-success"></i>' +
-            '<span class="text-xs text-success">' + (t('codexlens.vectorSearchEnabled') || 'Vector search enabled') + '</span>' +
-          '</div>';
-        } else if (vectorPercent > 0) {
-          html += '<div class="flex items-center gap-1.5 mt-2 pt-2 border-t border-border">' +
-            '<i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-warning"></i>' +
-            '<span class="text-xs text-warning">' + (t('codexlens.vectorSearchPartial') || 'Vector search requires ≥50% coverage') + '</span>' +
-          '</div>';
-        }
+      // Update header badges (always update if elements exist)
+      if (headerFtsEl) {
+        headerFtsEl.textContent = ftsPercent + '%';
+        headerFtsEl.className = 'text-sm font-medium ' +
+          (ftsPercent >= 100 ? 'text-success' : (ftsPercent > 0 ? 'text-blue-500' : 'text-muted-foreground'));
+      }
+      if (headerVectorEl) {
+        headerVectorEl.textContent = vectorPercent.toFixed(1) + '%';
+        headerVectorEl.className = 'text-sm font-medium ' +
+          (vectorPercent >= 100 ? 'text-success' : (vectorPercent >= 50 ? 'text-purple-500' : (vectorPercent > 0 ? 'text-purple-400' : 'text-muted-foreground')));
       }
 
-      container.innerHTML = html;
+      // Update detailed container (if exists)
+      if (container) {
+        var html = '';
+
+        if (!result.hasIndex) {
+          // No index for current workspace
+          html = '<div class="text-center py-3">' +
+            '<div class="text-sm text-muted-foreground mb-2">' +
+              '<i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i> ' +
+              (t('codexlens.noIndexFound') || 'No index found for current workspace') +
+            '</div>' +
+            '<button onclick="runFtsFullIndex()" class="text-xs text-primary hover:underline">' +
+              (t('codexlens.createIndex') || 'Create Index') +
+            '</button>' +
+          '</div>';
+        } else {
+          // FTS Status
+          var ftsColor = ftsPercent >= 100 ? 'bg-success' : (ftsPercent > 0 ? 'bg-blue-500' : 'bg-muted-foreground');
+          var ftsTextColor = ftsPercent >= 100 ? 'text-success' : (ftsPercent > 0 ? 'text-blue-500' : 'text-muted-foreground');
+
+          html += '<div class="space-y-1">' +
+            '<div class="flex items-center justify-between text-xs">' +
+              '<span class="flex items-center gap-1.5">' +
+                '<i data-lucide="file-text" class="w-3.5 h-3.5 text-blue-500"></i> ' +
+                '<span class="font-medium">' + (t('codexlens.ftsIndex') || 'FTS Index') + '</span>' +
+              '</span>' +
+              '<span class="' + ftsTextColor + ' font-medium">' + ftsPercent + '%</span>' +
+            '</div>' +
+            '<div class="h-1.5 bg-muted rounded-full overflow-hidden">' +
+              '<div class="h-full ' + ftsColor + ' transition-all duration-300" style="width: ' + ftsPercent + '%"></div>' +
+            '</div>' +
+            '<div class="text-xs text-muted-foreground">' +
+              (result.fts.indexedFiles || 0) + ' / ' + (result.fts.totalFiles || 0) + ' ' + (t('codexlens.filesIndexed') || 'files indexed') +
+            '</div>' +
+          '</div>';
+
+          // Vector Status
+          var vectorColor = vectorPercent >= 100 ? 'bg-success' : (vectorPercent >= 50 ? 'bg-purple-500' : (vectorPercent > 0 ? 'bg-purple-400' : 'bg-muted-foreground'));
+          var vectorTextColor = vectorPercent >= 100 ? 'text-success' : (vectorPercent >= 50 ? 'text-purple-500' : (vectorPercent > 0 ? 'text-purple-400' : 'text-muted-foreground'));
+
+          html += '<div class="space-y-1 mt-3">' +
+            '<div class="flex items-center justify-between text-xs">' +
+              '<span class="flex items-center gap-1.5">' +
+                '<i data-lucide="brain" class="w-3.5 h-3.5 text-purple-500"></i> ' +
+                '<span class="font-medium">' + (t('codexlens.vectorIndex') || 'Vector Index') + '</span>' +
+              '</span>' +
+              '<span class="' + vectorTextColor + ' font-medium">' + vectorPercent.toFixed(1) + '%</span>' +
+            '</div>' +
+            '<div class="h-1.5 bg-muted rounded-full overflow-hidden">' +
+              '<div class="h-full ' + vectorColor + ' transition-all duration-300" style="width: ' + vectorPercent + '%"></div>' +
+            '</div>' +
+            '<div class="text-xs text-muted-foreground">' +
+              (result.vector.filesWithEmbeddings || 0) + ' / ' + (result.vector.totalFiles || 0) + ' ' + (t('codexlens.filesWithEmbeddings') || 'files with embeddings') +
+              (result.vector.totalChunks > 0 ? ' (' + result.vector.totalChunks + ' chunks)' : '') +
+            '</div>' +
+          '</div>';
+
+          // Vector search availability indicator
+          if (vectorPercent >= 50) {
+            html += '<div class="flex items-center gap-1.5 mt-2 pt-2 border-t border-border">' +
+              '<i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-success"></i>' +
+              '<span class="text-xs text-success">' + (t('codexlens.vectorSearchEnabled') || 'Vector search enabled') + '</span>' +
+            '</div>';
+          } else if (vectorPercent > 0) {
+            html += '<div class="flex items-center gap-1.5 mt-2 pt-2 border-t border-border">' +
+              '<i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-warning"></i>' +
+              '<span class="text-xs text-warning">' + (t('codexlens.vectorSearchPartial') || 'Vector search requires ≥50% coverage') + '</span>' +
+            '</div>';
+          }
+        }
+
+        container.innerHTML = html;
+      }
     } else {
-      container.innerHTML = '<div class="text-xs text-destructive text-center py-2">' +
-        '<i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i> ' +
-        (result.error || t('common.error') || 'Error loading status') +
-        '</div>';
+      // Error from API
+      if (headerFtsEl) headerFtsEl.textContent = '--';
+      if (headerVectorEl) headerVectorEl.textContent = '--';
+      if (container) {
+        container.innerHTML = '<div class="text-xs text-destructive text-center py-2">' +
+          '<i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i> ' +
+          (result.error || t('common.error') || 'Error loading status') +
+          '</div>';
+      }
     }
   } catch (err) {
     console.error('[CodexLens] Failed to load workspace status:', err);
-    container.innerHTML = '<div class="text-xs text-destructive text-center py-2">' +
-      '<i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i> ' +
-      (t('common.error') || 'Error') + ': ' + err.message +
-      '</div>';
+    if (headerFtsEl) headerFtsEl.textContent = '--';
+    if (headerVectorEl) headerVectorEl.textContent = '--';
+    if (container) {
+      container.innerHTML = '<div class="text-xs text-destructive text-center py-2">' +
+        '<i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i> ' +
+        (t('common.error') || 'Error') + ': ' + err.message +
+        '</div>';
+    }
   }
 
   if (window.lucide) lucide.createIcons();
@@ -3884,32 +3916,45 @@ async function renderCodexLensManager() {
     // Load additional data in parallel (non-blocking)
     var isInstalled = window.cliToolsStatus?.codexlens?.installed || dashboardData?.installed;
 
+    // OPTIMIZATION: Load critical status first (workspace index status for header badges)
+    // This is prioritized as it updates the visible header immediately
+    if (isInstalled) {
+      refreshWorkspaceIndexStatus(); // Updates header FTS/Vector badges
+    }
+
     // Wait for LiteLLM config before loading semantic deps (it may need provider info)
     await litellmPromise;
 
-    // Load FastEmbed installation status (show/hide install card)
-    loadFastEmbedInstallStatus();
+    // OPTIMIZATION: Batch non-critical loads with requestIdleCallback or setTimeout
+    // This prevents blocking the main thread and allows smoother UI updates
+    var deferredLoads = function() {
+      // Load all independent status checks in parallel
+      Promise.all([
+        // FastEmbed and semantic deps status (independent)
+        Promise.resolve().then(function() { loadFastEmbedInstallStatus(); }),
+        Promise.resolve().then(function() { loadSemanticDepsStatus(); }),
+        // Model lists (independent)
+        Promise.resolve().then(function() { loadModelList(); }),
+        Promise.resolve().then(function() { loadRerankerModelList(); }),
+        // File watcher status (independent)
+        Promise.resolve().then(function() { initWatcherStatus(); })
+      ]).then(function() {
+        // After all loads complete, update the semantic status badge
+        updateSemanticStatusBadge();
+      });
 
-    // Always load semantic deps status - it needs GPU detection and device list
-    // which are not included in the aggregated endpoint
-    loadSemanticDepsStatus();
+      // Load index stats if installed (independent from above)
+      if (isInstalled) {
+        loadIndexStatsForPage();
+        checkIndexHealth();
+      }
+    };
 
-    loadModelList();
-    loadRerankerModelList();
-
-    // Initialize model mode and semantic status badge
-    updateSemanticStatusBadge();
-
-    // Initialize file watcher status
-    initWatcherStatus();
-
-    // Load index stats for the Index Manager section
-    if (isInstalled) {
-      loadIndexStatsForPage();
-      // Check index health based on git history
-      checkIndexHealth();
-      // Load workspace index status (FTS and Vector coverage)
-      refreshWorkspaceIndexStatus();
+    // Use requestIdleCallback for deferred loads if available, otherwise use setTimeout
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(deferredLoads, { timeout: 500 });
+    } else {
+      setTimeout(deferredLoads, 50);
     }
   } catch (err) {
     container.innerHTML = '<div class="text-center py-12 text-destructive"><i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2"></i><p>' + t('common.error') + ': ' + escapeHtml(err.message) + '</p></div>';
@@ -3946,6 +3991,21 @@ function buildCodexLensManagerPage(config) {
             '<span class="text-sm text-muted-foreground">' + t('codexlens.indexes') + ':</span>' +
             '<span class="text-lg font-bold text-primary">' + indexCount + '</span>' +
           '</div>' +
+          // Workspace Index Status badges (FTS/Vector percentages)
+          (isInstalled
+            ? '<div id="headerIndexStatusContainer" class="flex items-center gap-2">' +
+                '<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20" title="' + (t('codexlens.ftsIndex') || 'FTS Index') + '">' +
+                  '<i data-lucide="file-text" class="w-3.5 h-3.5 text-blue-500"></i>' +
+                  '<span class="text-xs text-muted-foreground">FTS:</span>' +
+                  '<span id="headerFtsPercent" class="text-sm font-medium text-blue-500">--</span>' +
+                '</div>' +
+                '<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20" title="' + (t('codexlens.vectorIndex') || 'Vector Index') + '">' +
+                  '<i data-lucide="brain" class="w-3.5 h-3.5 text-purple-500"></i>' +
+                  '<span class="text-xs text-muted-foreground">Vector:</span>' +
+                  '<span id="headerVectorPercent" class="text-sm font-medium text-purple-500">--</span>' +
+                '</div>' +
+              '</div>'
+            : '') +
         '</div>' +
       '</div>' +
     '</div>' +
