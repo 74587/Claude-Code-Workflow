@@ -125,8 +125,8 @@ def index_init(
     workers: Optional[int] = typer.Option(None, "--workers", "-w", min=1, help="Parallel worker processes (default: auto-detect based on CPU count)."),
     force: bool = typer.Option(False, "--force", "-f", help="Force full reindex (skip incremental mode)."),
     no_embeddings: bool = typer.Option(False, "--no-embeddings", help="Skip automatic embedding generation (if semantic deps installed)."),
-    backend: str = typer.Option("fastembed", "--backend", "-b", help="Embedding backend: fastembed (local) or litellm (remote API)."),
-    model: str = typer.Option("code", "--model", "-m", help="Embedding model: profile name for fastembed (fast/code/multilingual/balanced) or model name for litellm (e.g. text-embedding-3-small)."),
+    backend: Optional[str] = typer.Option(None, "--backend", "-b", help="Embedding backend: fastembed (local) or litellm (remote API). Defaults to settings.json config."),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Embedding model: profile name for fastembed or model name for litellm. Defaults to settings.json config."),
     max_workers: int = typer.Option(1, "--max-workers", min=1, help="Max concurrent API calls for embedding generation. Recommended: 4-8 for litellm backend."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
@@ -152,6 +152,12 @@ def index_init(
     """
     _configure_logging(verbose, json_mode)
     config = Config()
+
+    # Fallback to settings.json config if CLI params not provided
+    config.load_settings()  # Ensure settings are loaded
+    actual_backend = backend or config.embedding_backend
+    actual_model = model or config.embedding_model
+
     languages = _parse_languages(language)
     base_path = path.expanduser().resolve()
 
@@ -199,15 +205,15 @@ def index_init(
 
                 # Validate embedding backend
                 valid_backends = ["fastembed", "litellm"]
-                if backend not in valid_backends:
-                    error_msg = f"Invalid embedding backend: {backend}. Must be one of: {', '.join(valid_backends)}"
+                if actual_backend not in valid_backends:
+                    error_msg = f"Invalid embedding backend: {actual_backend}. Must be one of: {', '.join(valid_backends)}"
                     if json_mode:
                         print_json(success=False, error=error_msg)
                     else:
                         console.print(f"[red]Error:[/red] {error_msg}")
                     raise typer.Exit(code=1)
 
-                backend_available, backend_error = is_embedding_backend_available(backend)
+                backend_available, backend_error = is_embedding_backend_available(actual_backend)
 
                 if backend_available:
                     # Use the index root directory (not the _index.db file)
@@ -215,8 +221,8 @@ def index_init(
 
                     if not json_mode:
                         console.print("\n[bold]Generating embeddings...[/bold]")
-                        console.print(f"Backend: [cyan]{backend}[/cyan]")
-                        console.print(f"Model: [cyan]{model}[/cyan]")
+                        console.print(f"Backend: [cyan]{actual_backend}[/cyan]")
+                        console.print(f"Model: [cyan]{actual_model}[/cyan]")
                     else:
                         # Output progress message for JSON mode (parsed by Node.js)
                         print("Generating embeddings...", flush=True)
@@ -236,8 +242,8 @@ def index_init(
 
                     embed_result = generate_embeddings_recursive(
                         index_root,
-                        embedding_backend=backend,
-                        model_profile=model,
+                        embedding_backend=actual_backend,
+                        model_profile=actual_model,
                         force=False,  # Don't force regenerate during init
                         chunk_size=2000,
                         progress_callback=progress_update,  # Always use callback
@@ -283,7 +289,7 @@ def index_init(
                         }
                 else:
                     if not json_mode and verbose:
-                        console.print(f"[dim]Embedding backend '{backend}' not available. Skipping embeddings.[/dim]")
+                        console.print(f"[dim]Embedding backend '{actual_backend}' not available. Skipping embeddings.[/dim]")
                     result["embeddings"] = {
                         "generated": False,
                         "error": backend_error or "Embedding backend not available",

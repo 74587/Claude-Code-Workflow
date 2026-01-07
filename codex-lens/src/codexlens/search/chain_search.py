@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Literal, Tuple, TYPE_CHECKING
+import json
 import logging
 import os
 import time
@@ -1241,20 +1242,60 @@ class ChainSearchEngine:
                 stats=stats
             )
 
-        # Step 3: Generate query dense embedding using same model as index
+        # Step 3: Find centralized HNSW index and read model config
+        from codexlens.config import VECTORS_HNSW_NAME
+        central_hnsw_path = None
+        index_root = start_index.parent
+        current_dir = index_root
+        for _ in range(10):  # Limit search depth
+            candidate = current_dir / VECTORS_HNSW_NAME
+            if candidate.exists():
+                central_hnsw_path = candidate
+                index_root = current_dir  # Update to where HNSW was found
+                break
+            parent = current_dir.parent
+            if parent == current_dir:  # Reached root
+                break
+            current_dir = parent
+
+        # Step 4: Generate query dense embedding using same model as centralized index
         # Read embedding config to match the model used during indexing
         dense_coarse_time = time.time()
         try:
             from codexlens.semantic.factory import get_embedder
 
-            # Get embedding settings from config
+            # Get embedding settings from centralized index config (preferred) or fallback to self._config
             embedding_backend = "litellm"  # Default to API for dense
             embedding_model = "qwen3-embedding-sf"  # Default model
             use_gpu = True
 
+            # Try to read model config from centralized index's embeddings_config table
+            central_index_db = index_root / "_index.db"
+            if central_index_db.exists():
+                try:
+                    from codexlens.semantic.vector_store import VectorStore
+                    with VectorStore(central_index_db) as vs:
+                        model_config = vs.get_model_config()
+                        if model_config:
+                            embedding_backend = model_config.get("backend", embedding_backend)
+                            embedding_model = model_config.get("model_name", embedding_model)
+                            self.logger.debug(
+                                "Read model config from centralized index: %s/%s",
+                                embedding_backend, embedding_model
+                            )
+                except Exception as e:
+                    self.logger.debug("Failed to read centralized model config: %s", e)
+
+            # Fallback to self._config if not read from index
             if self._config is not None:
-                embedding_backend = getattr(self._config, "embedding_backend", "litellm")
-                embedding_model = getattr(self._config, "embedding_model", "qwen3-embedding-sf")
+                if embedding_backend == "litellm" and embedding_model == "qwen3-embedding-sf":
+                    # Only use config values if we didn't read from centralized index
+                    config_backend = getattr(self._config, "embedding_backend", None)
+                    config_model = getattr(self._config, "embedding_model", None)
+                    if config_backend:
+                        embedding_backend = config_backend
+                    if config_model:
+                        embedding_model = config_model
                 use_gpu = getattr(self._config, "embedding_use_gpu", True)
 
             # Create embedder matching index configuration
@@ -1269,30 +1310,53 @@ class ChainSearchEngine:
             self.logger.warning(f"Failed to generate dense query embedding: {exc}")
             return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
 
-        # Step 4: Dense coarse search using HNSW indexes
+        # Step 5: Dense coarse search using centralized HNSW index
         coarse_candidates: List[Tuple[int, float, Path]] = []  # (chunk_id, distance, index_path)
-        index_root = index_paths[0].parent if index_paths else None
 
-        for index_path in index_paths:
+        if central_hnsw_path is not None:
+            # Use centralized index
             try:
-                # Load HNSW index
                 from codexlens.semantic.ann_index import ANNIndex
-                ann_index = ANNIndex(index_path, dim=query_dense.shape[0])
-                if not ann_index.load():
-                    continue
-
-                if ann_index.count() == 0:
-                    continue
-
-                # Search HNSW index
-                ids, distances = ann_index.search(query_dense, top_k=coarse_k)
-                for chunk_id, dist in zip(ids, distances):
-                    coarse_candidates.append((chunk_id, dist, index_path))
-
+                ann_index = ANNIndex.create_central(
+                    index_root=index_root,
+                    dim=query_dense.shape[0],
+                )
+                if ann_index.load() and ann_index.count() > 0:
+                    # Search centralized HNSW index
+                    ids, distances = ann_index.search(query_dense, top_k=coarse_k)
+                    for chunk_id, dist in zip(ids, distances):
+                        coarse_candidates.append((chunk_id, dist, index_root / "_index.db"))
+                    self.logger.debug(
+                        "Centralized dense search: %d candidates from %s",
+                        len(ids), central_hnsw_path
+                    )
             except Exception as exc:
                 self.logger.debug(
-                    "Dense search failed for %s: %s", index_path, exc
+                    "Centralized dense search failed for %s: %s", central_hnsw_path, exc
                 )
+
+        # Fallback: try per-directory HNSW indexes if centralized not found
+        if not coarse_candidates:
+            for index_path in index_paths:
+                try:
+                    # Load HNSW index
+                    from codexlens.semantic.ann_index import ANNIndex
+                    ann_index = ANNIndex(index_path, dim=query_dense.shape[0])
+                    if not ann_index.load():
+                        continue
+
+                    if ann_index.count() == 0:
+                        continue
+
+                    # Search HNSW index
+                    ids, distances = ann_index.search(query_dense, top_k=coarse_k)
+                    for chunk_id, dist in zip(ids, distances):
+                        coarse_candidates.append((chunk_id, dist, index_path))
+
+                except Exception as exc:
+                    self.logger.debug(
+                        "Dense search failed for %s: %s", index_path, exc
+                    )
 
         if not coarse_candidates:
             self.logger.info("No dense candidates found, falling back to hybrid cascade")
@@ -1307,7 +1371,7 @@ class ChainSearchEngine:
             len(coarse_candidates), (time.time() - dense_coarse_time) * 1000
         )
 
-        # Step 5: Build SearchResult objects for cross-encoder reranking
+        # Step 6: Build SearchResult objects for cross-encoder reranking
         candidates_by_index: Dict[Path, List[int]] = {}
         for chunk_id, distance, index_path in coarse_candidates:
             if index_path not in candidates_by_index:
@@ -1320,29 +1384,63 @@ class ChainSearchEngine:
 
         for index_path, chunk_ids in candidates_by_index.items():
             try:
-                # Query semantic_chunks table directly
-                conn = sqlite3.connect(str(index_path))
-                conn.row_factory = sqlite3.Row
-                placeholders = ",".join("?" * len(chunk_ids))
-                cursor = conn.execute(
-                    f"""
-                    SELECT id, file_path, content, metadata, category
-                    FROM semantic_chunks
-                    WHERE id IN ({placeholders})
-                    """,
-                    chunk_ids
-                )
-                chunks_data = [
-                    {
-                        "id": row["id"],
-                        "file_path": row["file_path"],
-                        "content": row["content"],
-                        "metadata": row["metadata"],
-                        "category": row["category"],
-                    }
-                    for row in cursor.fetchall()
-                ]
-                conn.close()
+                # For centralized index, use _vectors_meta.db for chunk metadata
+                # which contains file_path, content, start_line, end_line
+                if central_hnsw_path is not None and index_path == index_root / "_index.db":
+                    # Use centralized metadata from _vectors_meta.db
+                    meta_db_path = index_root / "_vectors_meta.db"
+                    if meta_db_path.exists():
+                        conn = sqlite3.connect(str(meta_db_path))
+                        conn.row_factory = sqlite3.Row
+                        placeholders = ",".join("?" * len(chunk_ids))
+                        cursor = conn.execute(
+                            f"""
+                            SELECT chunk_id, file_path, content, start_line, end_line
+                            FROM chunk_metadata
+                            WHERE chunk_id IN ({placeholders})
+                            """,
+                            chunk_ids
+                        )
+                        chunks_data = [
+                            {
+                                "id": row["chunk_id"],
+                                "file_path": row["file_path"],
+                                "content": row["content"],
+                                "metadata": json.dumps({
+                                    "start_line": row["start_line"],
+                                    "end_line": row["end_line"]
+                                }),
+                                "category": "code" if row["file_path"].endswith(('.py', '.ts', '.js', '.java', '.go', '.rs', '.cpp', '.c')) else "doc",
+                            }
+                            for row in cursor.fetchall()
+                        ]
+                        conn.close()
+                    else:
+                        chunks_data = []
+                else:
+                    # Fall back to per-directory semantic_chunks table
+                    conn = sqlite3.connect(str(index_path))
+                    conn.row_factory = sqlite3.Row
+                    placeholders = ",".join("?" * len(chunk_ids))
+                    cursor = conn.execute(
+                        f"""
+                        SELECT id, file_path, content, metadata, category
+                        FROM semantic_chunks
+                        WHERE id IN ({placeholders})
+                        """,
+                        chunk_ids
+                    )
+                    chunks_data = [
+                        {
+                            "id": row["id"],
+                            "file_path": row["file_path"],
+                            "content": row["content"],
+                            "metadata": row["metadata"],
+                            "category": row["category"],
+                        }
+                        for row in cursor.fetchall()
+                    ]
+                    conn.close()
 
                 for chunk in chunks_data:
                     chunk_id = chunk.get("id")
