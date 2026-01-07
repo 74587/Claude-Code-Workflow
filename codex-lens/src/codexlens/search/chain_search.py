@@ -1798,6 +1798,11 @@ class ChainSearchEngine:
             kwargs = {}
             if backend == "onnx":
                 kwargs["use_gpu"] = use_gpu
+            elif backend == "api":
+                # Pass max_input_tokens for adaptive batching
+                max_tokens = getattr(self._config, "reranker_max_input_tokens", None)
+                if max_tokens:
+                    kwargs["max_input_tokens"] = max_tokens
 
             reranker = get_reranker(backend=backend, model_name=model_name, **kwargs)
 

@@ -1163,7 +1163,7 @@ function renderProviderDetail(providerId) {
   var maskedKey = provider.apiKey ? '••••••••••••••••' + provider.apiKey.slice(-4) : '••••••••';
   var currentApiBase = provider.apiBase || getDefaultApiBase(provider.type);
   // Show full endpoint URL preview based on active model tab
-  var endpointPath = activeModelTab === 'embedding' ? '/embeddings' : '/chat/completions';
+  var endpointPath = activeModelTab === 'embedding' ? '/embeddings' : activeModelTab === 'reranker' ? '/rerank' : '/chat/completions';
   var apiBasePreview = currentApiBase + endpointPath;
 
   var html = '<div class="provider-detail-header">' +
@@ -1322,10 +1322,17 @@ function renderModelTree(provider) {
       var embeddingBadge = model.capabilities && model.capabilities.embeddingDimension
         ? model.capabilities.embeddingDimension + 'd'
         : '';
-      var displayBadge = activeModelTab === 'llm' ? badge : embeddingBadge;
+
+      // Badge for reranker models shows max tokens
+      var rerankerBadge = model.capabilities && model.capabilities.maxInputTokens
+        ? formatContextWindow(model.capabilities.maxInputTokens)
+        : '';
+
+      var displayBadge = activeModelTab === 'llm' ? badge : activeModelTab === 'reranker' ? rerankerBadge : embeddingBadge;
+      var iconName = activeModelTab === 'llm' ? 'sparkles' : activeModelTab === 'reranker' ? 'arrow-up-down' : 'box';
 
       html += '<div class="model-item" data-model-id="' + model.id + '">' +
-        '<i data-lucide="' + (activeModelTab === 'llm' ? 'sparkles' : 'box') + '" class="model-item-icon"></i>' +
+        '<i data-lucide="' + iconName + '" class="model-item-icon"></i>' +
         '<span class="model-item-name">' + escapeHtml(model.name) + '</span>' +
         (displayBadge ? '<span class="model-item-badge">' + displayBadge + '</span>' : '') +
         '<div class="model-item-actions">' +
@@ -1966,14 +1973,25 @@ function showModelSettingsModal(providerId, modelId, modelType) {
       '<label class="checkbox-label"><input type="checkbox" id="model-settings-function-calling"' + (capabilities.functionCalling ? ' checked' : '') + '> ' + t('apiSettings.functionCalling') + '</label>' +
       '<label class="checkbox-label"><input type="checkbox" id="model-settings-vision"' + (capabilities.vision ? ' checked' : '') + '> ' + t('apiSettings.vision') + '</label>' +
       '</div>'
+    ) : isReranker ? (
+      // Reranker capabilities - only maxInputTokens and topK
+      '<div class="form-group">' +
+      '<label>' + t('apiSettings.embeddingMaxTokens') + '</label>' +
+      '<input type="number" id="model-settings-max-tokens" class="cli-input" value="' + (capabilities.maxInputTokens || 8192) + '" min="128">' +
+      '</div>' +
+      '<div class="form-group">' +
+      '<label>' + t('apiSettings.rerankerTopK') + '</label>' +
+      '<input type="number" id="model-settings-top-k" class="cli-input" value="' + (capabilities.topK || 50) + '" min="1" max="1000">' +
+      '</div>'
     ) : (
+      // Embedding capabilities - embeddingDimension and maxInputTokens
       '<div class="form-group">' +
       '<label>' + t('apiSettings.embeddingDimensions') + '</label>' +
       '<input type="number" id="model-settings-dimensions" class="cli-input" value="' + (capabilities.embeddingDimension || 1536) + '" min="64">' +
       '</div>' +
       '<div class="form-group">' +
       '<label>' + t('apiSettings.embeddingMaxTokens') + '</label>' +
-      '<input type="number" id="model-settings-max-tokens" class="cli-input" value="' + (capabilities.contextWindow || 8192) + '" min="128">' +
+      '<input type="number" id="model-settings-max-tokens" class="cli-input" value="' + (capabilities.maxInputTokens || 8192) + '" min="128">' +
       '</div>'
     )) +
     '</div>' +
@@ -2070,14 +2088,14 @@ function saveModelSettings(event, providerId, modelId, modelType) {
           vision: document.getElementById('model-settings-vision').checked
         };
       } else if (isReranker) {
-        var topKEl = document.getElementById('model-settings-top-k');
         models[modelIndex].capabilities = {
-          topK: topKEl ? parseInt(topKEl.value) || 10 : 10
+          maxInputTokens: parseInt(document.getElementById('model-settings-max-tokens').value) || 8192,
+          topK: parseInt(document.getElementById('model-settings-top-k').value) || 50
         };
       } else {
         models[modelIndex].capabilities = {
           embeddingDimension: parseInt(document.getElementById('model-settings-dimensions').value) || 1536,
-          contextWindow: parseInt(document.getElementById('model-settings-max-tokens').value) || 8192
+          maxInputTokens: parseInt(document.getElementById('model-settings-max-tokens').value) || 8192
         };
       }
 
@@ -2218,7 +2236,7 @@ function updateApiBasePreview(apiBase) {
   if (base.endsWith('/')) {
     base = base.slice(0, -1);
   }
-  var endpointPath = activeModelTab === 'embedding' ? '/embeddings' : '/chat/completions';
+  var endpointPath = activeModelTab === 'embedding' ? '/embeddings' : activeModelTab === 'reranker' ? '/rerank' : '/chat/completions';
   preview.textContent = t('apiSettings.preview') + ': ' + base + endpointPath;
 }
 

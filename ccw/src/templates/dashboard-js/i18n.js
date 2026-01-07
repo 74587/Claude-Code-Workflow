@@ -1672,6 +1672,7 @@ const i18n = {
     // Embedding models
     'apiSettings.embeddingDimensions': 'Dimensions',
     'apiSettings.embeddingMaxTokens': 'Max Tokens',
+    'apiSettings.rerankerTopK': 'Top K',
     'apiSettings.selectEmbeddingModel': 'Select Embedding Model',
 
     // Model modal
@@ -3698,6 +3699,7 @@ const i18n = {
     // Embedding models
     'apiSettings.embeddingDimensions': '向量维度',
     'apiSettings.embeddingMaxTokens': '最大 Token',
+    'apiSettings.rerankerTopK': 'Top K',
     'apiSettings.selectEmbeddingModel': '选择嵌入模型',
 
     // Model modal

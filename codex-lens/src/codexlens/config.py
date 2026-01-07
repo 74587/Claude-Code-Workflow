@@ -140,6 +140,7 @@ class Config:
     reranker_backend: str = "onnx"
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     reranker_top_k: int = 50
+    reranker_max_input_tokens: int = 8192  # Maximum tokens for reranker API batching
 
     # Cascade search configuration (two-stage retrieval)
     enable_cascade_search: bool = False  # Enable cascade search (coarse + fine ranking)
@@ -277,6 +278,7 @@ class Config:
                 "backend": self.reranker_backend,
                 "model": self.reranker_model,
                 "top_k": self.reranker_top_k,
+                "max_input_tokens": self.reranker_max_input_tokens,
                 "pool_enabled": self.reranker_pool_enabled,
                 "strategy": self.reranker_strategy,
                 "cooldown": self.reranker_cooldown,
@@ -359,6 +361,8 @@ class Config:
                 self.reranker_model = reranker["model"]
             if "top_k" in reranker:
                 self.reranker_top_k = reranker["top_k"]
+            if "max_input_tokens" in reranker:
+                self.reranker_max_input_tokens = reranker["max_input_tokens"]
             if "pool_enabled" in reranker:
                 self.reranker_pool_enabled = reranker["pool_enabled"]
             if "strategy" in reranker:

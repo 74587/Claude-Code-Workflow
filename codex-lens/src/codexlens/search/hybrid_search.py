@@ -400,6 +400,11 @@ class HybridSearchEngine:
             elif backend == "legacy":
                 if not bool(getattr(self._config, "embedding_use_gpu", True)):
                     device = "cpu"
+            elif backend == "api":
+                # Pass max_input_tokens for adaptive batching
+                max_tokens = getattr(self._config, "reranker_max_input_tokens", None)
+                if max_tokens:
+                    kwargs["max_input_tokens"] = max_tokens
 
             return get_reranker(
                 backend=backend,
