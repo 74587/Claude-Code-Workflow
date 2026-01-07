@@ -903,7 +903,7 @@ def status(
                             schema_version = store._get_schema_version(conn)
                             # Check if dual FTS tables exist
                             cursor = conn.execute(
-                                "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('search_fts_exact', 'search_fts_fuzzy')"
+                                "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('files_fts_exact', 'files_fts_fuzzy')"
                             )
                             fts_tables = [row[0] for row in cursor.fetchall()]
                             has_dual_fts = len(fts_tables) == 2

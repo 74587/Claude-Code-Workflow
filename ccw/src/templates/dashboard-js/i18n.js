@@ -375,6 +375,14 @@ const i18n = {
     'codexlens.cleanFailed': 'Failed to clean indexes',
     'codexlens.loadingConfig': 'Loading configuration...',
 
+    // Workspace Index Status
+    'codexlens.workspaceStatus': 'Workspace Index Status',
+    'codexlens.noIndexFound': 'No index found for current workspace',
+    'codexlens.filesIndexed': 'files indexed',
+    'codexlens.filesWithEmbeddings': 'files with embeddings',
+    'codexlens.vectorSearchEnabled': 'Vector search enabled',
+    'codexlens.vectorSearchPartial': 'Vector search requires ≥50% coverage',
+
     // Model Management
     'codexlens.semanticDeps': 'Semantic Dependencies',
     'codexlens.checkingDeps': 'Checking dependencies...',
@@ -2383,6 +2391,14 @@ const i18n = {
     'codexlens.cleanCurrentWorkspaceSuccess': '当前工作空间索引已成功清理',
     'codexlens.cleanFailed': '清理索引失败',
     'codexlens.loadingConfig': '加载配置中...',
+
+    // 工作空间索引状态
+    'codexlens.workspaceStatus': '工作空间索引状态',
+    'codexlens.noIndexFound': '当前工作空间未找到索引',
+    'codexlens.filesIndexed': '个文件已索引',
+    'codexlens.filesWithEmbeddings': '个文件已嵌入',
+    'codexlens.vectorSearchEnabled': '向量搜索已启用',
+    'codexlens.vectorSearchPartial': '向量搜索需要≥50%覆盖率',
 
     // 模型管理
     'codexlens.semanticDeps': '语义搜索依赖',

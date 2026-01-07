@@ -2366,5 +2366,121 @@ except Exception as e:
     return true;
   }
 
+  // API: Get workspace index status (FTS and Vector coverage percentages)
+  if (pathname === '/api/codexlens/workspace-status') {
+    try {
+      const projectPath = url.searchParams.get('path') || initialPath;
+
+      // Check if CodexLens is installed first
+      const venvStatus = await checkVenvStatus();
+      if (!venvStatus.ready) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          hasIndex: false,
+          fts: { indexed: false, percent: 0 },
+          vector: { indexed: false, percent: 0 },
+          message: 'CodexLens not installed'
+        }));
+        return true;
+      }
+
+      let ftsStatus = { indexed: false, percent: 0, totalFiles: 0, indexedFiles: 0 };
+      let vectorStatus = { indexed: false, percent: 0, totalFiles: 0, filesWithEmbeddings: 0, totalChunks: 0 };
+      let hasIndex = false;
+      let indexRoot = '';
+
+      // First, get project info to check if index exists
+      const projectsResult = await executeCodexLens(['projects', 'show', projectPath, '--json']);
+
+      if (projectsResult.success && projectsResult.output) {
+        try {
+          const projectData = extractJSON(projectsResult.output);
+          if (projectData.success && projectData.result) {
+            const project = projectData.result;
+            hasIndex = true;
+            indexRoot = project.index_root || '';
+
+            // FTS is always 100% when index exists
+            ftsStatus = {
+              indexed: true,
+              percent: 100,
+              totalFiles: project.total_files || 0,
+              indexedFiles: project.total_files || 0
+            };
+
+            // Now get embeddings status for this specific project
+            const statusResult = await executeCodexLens(['index', 'status', projectPath, '--json']);
+            if (statusResult.success && statusResult.output) {
+              try {
+                const status = extractJSON(statusResult.output);
+                if (status.success && status.result && status.result.embeddings) {
+                  const embeddings = status.result.embeddings;
+
+                  // Find the project-specific embedding info from indexes array
+                  const indexes = embeddings.indexes || [];
+                  let projectEmbedding = null;
+
+                  // Look for matching project by path or name
+                  const { basename, resolve } = await import('path');
+                  const normalizedPath = resolve(projectPath).toLowerCase();
+                  const projectName = basename(projectPath);
+
+                  for (const idx of indexes) {
+                    const idxPath = (idx.path || '').toLowerCase();
+                    const idxProject = (idx.project || '').toLowerCase();
+                    if (idxPath.includes(normalizedPath.replace(/\\/g, '/')) ||
+                        idxPath.includes(normalizedPath) ||
+                        idxProject === projectName.toLowerCase()) {
+                      projectEmbedding = idx;
+                      break;
+                    }
+                  }
+
+                  if (projectEmbedding) {
+                    vectorStatus = {
+                      indexed: projectEmbedding.has_embeddings || false,
+                      percent: projectEmbedding.coverage_percent || 0,
+                      totalFiles: projectEmbedding.total_files || project.total_files || 0,
+                      filesWithEmbeddings: Math.round((projectEmbedding.coverage_percent || 0) * (projectEmbedding.total_files || 0) / 100),
+                      totalChunks: projectEmbedding.total_chunks || 0
+                    };
+                  } else {
+                    // No specific project found, use aggregated stats
+                    vectorStatus = {
+                      indexed: embeddings.indexes_with_embeddings > 0,
+                      percent: 0,
+                      totalFiles: project.total_files || 0,
+                      filesWithEmbeddings: 0,
+                      totalChunks: 0
+                    };
+                  }
+                }
+              } catch (e) {
+                console.error('[CodexLens] Failed to parse index status:', e.message);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[CodexLens] Failed to parse project data:', e.message);
+        }
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        hasIndex,
+        indexRoot,
+        path: projectPath,
+        fts: ftsStatus,
+        vector: vectorStatus
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+    return true;
+  }
+
   return false;
 }
