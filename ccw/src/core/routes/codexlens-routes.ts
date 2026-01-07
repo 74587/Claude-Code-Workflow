@@ -486,6 +486,16 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
   const { pathname, url, req, res, initialPath, handlePostRequest, broadcastToClients } = ctx;
 
   // API: CodexLens Index List - Get all indexed projects with details
+
+  // Initialize watchers on first request (restore from config)
+  if (!watchersInitialized) {
+    watchersInitialized = true;
+    // Run async initialization without blocking the request
+    initializeWatchers(broadcastToClients).catch(err => {
+      console.error('[CodexLens] Failed to initialize watchers:', err);
+    });
+  }
+
   if (pathname === '/api/codexlens/indexes') {
     try {
       // Check if CodexLens is installed first (without auto-installing)
@@ -1963,18 +1973,59 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
   // ============================================================
 
   // API: Get File Watcher Status
+  // API: Get File Watcher Status
+  // Supports ?path=<path> query parameter for specific watcher
+  // Returns all watchers if no path specified
   if (pathname === '/api/codexlens/watch/status') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      success: true,
-      running: watcherStats.running,
-      root_path: watcherStats.root_path,
-      events_processed: watcherStats.events_processed,
-      start_time: watcherStats.start_time?.toISOString() || null,
-      uptime_seconds: watcherStats.start_time
-        ? Math.floor((Date.now() - watcherStats.start_time.getTime()) / 1000)
-        : 0
-    }));
+    const queryPath = url.searchParams.get('path');
+    
+    if (queryPath) {
+      // Return status for specific path
+      const normalizedPath = normalizePath(queryPath);
+      const watcher = activeWatchers.get(normalizedPath);
+      
+      if (watcher) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          running: watcher.stats.running,
+          root_path: watcher.stats.root_path,
+          events_processed: watcher.stats.events_processed,
+          start_time: watcher.stats.start_time?.toISOString() || null,
+          uptime_seconds: watcher.stats.start_time
+            ? Math.floor((Date.now() - watcher.stats.start_time.getTime()) / 1000)
+            : 0
+        }));
+      } else {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          running: false,
+          root_path: '',
+          events_processed: 0,
+          start_time: null,
+          uptime_seconds: 0
+        }));
+      }
+    } else {
+      // Return all watchers
+      const watchers = Array.from(activeWatchers.entries()).map(([path, watcher]) => ({
+        root_path: watcher.stats.root_path,
+        running: watcher.stats.running,
+        events_processed: watcher.stats.events_processed,
+        start_time: watcher.stats.start_time?.toISOString() || null,
+        uptime_seconds: watcher.stats.start_time
+          ? Math.floor((Date.now() - watcher.stats.start_time.getTime()) / 1000)
+          : 0
+      }));
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        watchers,
+        count: watchers.length
+      }));
+    }
     return true;
   }
 
@@ -1983,200 +2034,83 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
     handlePostRequest(req, res, async (body) => {
       const { path: watchPath, debounce_ms = 1000 } = body;
       const targetPath = watchPath || initialPath;
+      const normalizedPath = normalizePath(targetPath);
 
-      if (watcherStats.running) {
-        return { success: false, error: 'Watcher already running', status: 400 };
+      // Check if watcher already running for this path
+      if (activeWatchers.has(normalizedPath)) {
+        return { success: false, error: 'Watcher already running for this path', status: 400 };
       }
 
       try {
-        const { spawn } = await import('child_process');
-        const { join } = await import('path');
-        const { existsSync, statSync } = await import('fs');
-
-        // Validate path exists and is a directory
-        if (!existsSync(targetPath)) {
-          return { success: false, error: `Path does not exist: ${targetPath}`, status: 400 };
-        }
-        const pathStat = statSync(targetPath);
-        if (!pathStat.isDirectory()) {
-          return { success: false, error: `Path is not a directory: ${targetPath}`, status: 400 };
+        // Start watcher process using new architecture
+        const result = await startWatcherProcess(targetPath, debounce_ms, broadcastToClients);
+        
+        if (!result.success) {
+          return { success: false, error: result.error, status: 400 };
         }
 
-        // Get the codexlens CLI path
-        const venvStatus = await checkVenvStatus();
-        if (!venvStatus.ready) {
-          return { success: false, error: 'CodexLens not installed', status: 400 };
-        }
-
-        // Verify directory is indexed before starting watcher
-        try {
-          const statusResult = await executeCodexLens(['projects', 'list', '--json']);
-          if (statusResult.success && statusResult.stdout) {
-            const parsed = extractJSON(statusResult.stdout);
-            const projects = parsed.result || parsed || [];
-            const normalizedTarget = targetPath.toLowerCase().replace(/\\/g, '/');
-            const isIndexed = Array.isArray(projects) && projects.some((p: { source_root: string }) =>
-              p.source_root && p.source_root.toLowerCase().replace(/\\/g, '/') === normalizedTarget
-            );
-            if (!isIndexed) {
-              return {
-                success: false,
-                error: `Directory is not indexed: ${targetPath}. Run 'codexlens init' first.`,
-                status: 400
-              };
-            }
-          }
-        } catch (err) {
-          console.warn('[CodexLens] Could not verify index status:', err);
-          // Continue anyway - watcher will fail with proper error if not indexed
-        }
-
-        // Spawn watch process using Python (no shell: true for security)
-        // CodexLens is a Python package, must run via python -m codexlens
-        const pythonPath = getVenvPythonPath();
-        const args = ['-m', 'codexlens', 'watch', targetPath, '--debounce', String(debounce_ms)];
-        watcherProcess = spawn(pythonPath, args, {
-          cwd: targetPath,
-          stdio: ['ignore', 'pipe', 'pipe'],
-          env: { ...process.env }
-        });
-
-        watcherStats = {
-          running: true,
-          root_path: targetPath,
-          events_processed: 0,
-          start_time: new Date()
+        // Persist to config file
+        const config = readWatcherConfig();
+        config[normalizedPath] = {
+          enabled: true,
+          debounce_ms
         };
-
-        // Capture stderr for error messages (capped at 4KB to prevent memory leak)
-        const MAX_STDERR_SIZE = 4096;
-        let stderrBuffer = '';
-        if (watcherProcess.stderr) {
-          watcherProcess.stderr.on('data', (data: Buffer) => {
-            stderrBuffer += data.toString();
-            // Cap buffer size to prevent memory leak in long-running watchers
-            if (stderrBuffer.length > MAX_STDERR_SIZE) {
-              stderrBuffer = stderrBuffer.slice(-MAX_STDERR_SIZE);
-            }
-          });
-        }
-
-        // Handle process output for event counting
-        if (watcherProcess.stdout) {
-          watcherProcess.stdout.on('data', (data: Buffer) => {
-            const output = data.toString();
-            // Count processed events from output
-            const matches = output.match(/Processed \d+ events?/g);
-            if (matches) {
-              watcherStats.events_processed += matches.length;
-            }
-          });
-        }
-
-        // Handle spawn errors (e.g., ENOENT)
-        watcherProcess.on('error', (err: Error) => {
-          console.error(`[CodexLens] Watcher spawn error: ${err.message}`);
-          watcherStats.running = false;
-          watcherProcess = null;
-          broadcastToClients({
-            type: 'CODEXLENS_WATCHER_STATUS',
-            payload: { running: false, error: `Spawn error: ${err.message}` }
-          });
-        });
-
-        // Handle process exit
-        watcherProcess.on('exit', (code: number) => {
-          watcherStats.running = false;
-          watcherProcess = null;
-          console.log(`[CodexLens] Watcher exited with code ${code}`);
-
-          // Broadcast error if exited with non-zero code
-          if (code !== 0) {
-            const errorMsg = stderrBuffer.trim() || `Exited with code ${code}`;
-            // Use stripAnsiCodes helper for consistent ANSI cleanup
-            const cleanError = stripAnsiCodes(errorMsg);
-            broadcastToClients({
-              type: 'CODEXLENS_WATCHER_STATUS',
-              payload: { running: false, error: cleanError }
-            });
-          } else {
-            broadcastToClients({
-              type: 'CODEXLENS_WATCHER_STATUS',
-              payload: { running: false }
-            });
-          }
-        });
-
-        // Broadcast watcher started
-        broadcastToClients({
-          type: 'CODEXLENS_WATCHER_STATUS',
-          payload: { running: true, path: targetPath }
-        });
+        writeWatcherConfig(config);
 
         return {
           success: true,
-          message: 'Watcher started',
+          message: 'Watcher started and persisted to config',
           path: targetPath,
-          pid: watcherProcess.pid
+          pid: result.pid
         };
-      } catch (err) {
+      } catch (err: any) {
         return { success: false, error: err.message, status: 500 };
       }
     });
     return true;
   }
 
+
   // API: Stop File Watcher
   if (pathname === '/api/codexlens/watch/stop' && req.method === 'POST') {
-    handlePostRequest(req, res, async () => {
-      if (!watcherStats.running || !watcherProcess) {
-        return { success: false, error: 'Watcher not running', status: 400 };
+    handlePostRequest(req, res, async (body) => {
+      const { path: watchPath } = body;
+      const targetPath = watchPath || initialPath;
+      const normalizedPath = normalizePath(targetPath);
+
+      // Check if watcher is running for this path
+      if (!activeWatchers.has(normalizedPath)) {
+        return { success: false, error: 'Watcher not running for this path', status: 400 };
       }
 
       try {
-        // Send SIGTERM to gracefully stop the watcher
-        watcherProcess.kill('SIGTERM');
-
-        // Wait a moment for graceful shutdown
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Force kill if still running
-        if (watcherProcess && !watcherProcess.killed) {
-          watcherProcess.kill('SIGKILL');
+        // Stop watcher process using new architecture
+        const result = await stopWatcherProcess(targetPath, broadcastToClients);
+        
+        if (!result.success) {
+          return { success: false, error: result.error, status: 400 };
         }
 
-        const finalStats = {
-          events_processed: watcherStats.events_processed,
-          uptime_seconds: watcherStats.start_time
-            ? Math.floor((Date.now() - watcherStats.start_time.getTime()) / 1000)
-            : 0
-        };
-
-        watcherStats = {
-          running: false,
-          root_path: '',
-          events_processed: 0,
-          start_time: null
-        };
-        watcherProcess = null;
-
-        // Broadcast watcher stopped
-        broadcastToClients({
-          type: 'CODEXLENS_WATCHER_STATUS',
-          payload: { running: false }
-        });
+        // Update config file - disable watcher
+        const config = readWatcherConfig();
+        if (config[normalizedPath]) {
+          config[normalizedPath].enabled = false;
+          writeWatcherConfig(config);
+        }
 
         return {
           success: true,
           message: 'Watcher stopped',
-          ...finalStats
+          events_processed: result.stats?.events_processed || 0,
+          uptime_seconds: result.stats?.uptime_seconds || 0
         };
-      } catch (err) {
+      } catch (err: any) {
         return { success: false, error: err.message, status: 500 };
       }
     });
     return true;
   }
+
 
 
   // ============================================================
