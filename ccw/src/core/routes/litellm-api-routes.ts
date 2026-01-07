@@ -1,12 +1,11 @@
-// @ts-nocheck
 /**
  * LiteLLM API Routes Module
  * Handles LiteLLM provider management, endpoint configuration, and cache management
  */
-import type { IncomingMessage, ServerResponse } from 'http';
 import { fileURLToPath } from 'url';
 import { dirname, join as pathJoin } from 'path';
 import { getSystemPython } from '../../utils/python-utils.js';
+import type { RouteContext } from './types.js';
 
 // Get current module path for package-relative lookups
 const __filename = fileURLToPath(import.meta.url);
@@ -66,14 +65,20 @@ export function clearCcwLitellmStatusCache() {
   ccwLitellmStatusCache.timestamp = 0;
 }
 
-export interface RouteContext {
-  pathname: string;
-  url: URL;
-  req: IncomingMessage;
-  res: ServerResponse;
-  initialPath: string;
-  handlePostRequest: (req: IncomingMessage, res: ServerResponse, handler: (body: unknown) => Promise<any>) => void;
-  broadcastToClients: (data: unknown) => void;
+function sanitizeProviderForResponse(provider: any): any {
+  if (!provider) return provider;
+  return {
+    ...provider,
+    apiKey: '***',
+    apiKeys: Array.isArray(provider.apiKeys)
+      ? provider.apiKeys.map((entry: any) => ({ ...entry, key: '***' }))
+      : provider.apiKeys,
+  };
+}
+
+function sanitizeRotationEndpointForResponse(endpoint: any): any {
+  if (!endpoint) return endpoint;
+  return { ...endpoint, api_key: '***' };
 }
 
 // ===========================
@@ -83,11 +88,11 @@ export interface RouteContext {
 interface ModelInfo {
   id: string;
   name: string;
-  provider: ProviderType;
+  provider: string;
   description?: string;
 }
 
-const PROVIDER_MODELS: Record<ProviderType, ModelInfo[]> = {
+const PROVIDER_MODELS: Record<string, ModelInfo[]> = {
   openai: [
     { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', provider: 'openai', description: '128K context' },
     { id: 'gpt-4', name: 'GPT-4', provider: 'openai', description: '8K context' },
@@ -132,7 +137,7 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
   // GET /api/litellm-api/providers - List all providers
   if (pathname === '/api/litellm-api/providers' && req.method === 'GET') {
     try {
-      const providers = getAllProviders(initialPath);
+      const providers = getAllProviders(initialPath).map(sanitizeProviderForResponse);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ providers, count: providers.length }));
     } catch (err) {
@@ -153,13 +158,14 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
 
       try {
         const provider = addProvider(initialPath, providerData);
+        const sanitizedProvider = sanitizeProviderForResponse(provider);
 
         broadcastToClients({
           type: 'LITELLM_PROVIDER_CREATED',
-          payload: { provider, timestamp: new Date().toISOString() }
+          payload: { provider: sanitizedProvider, timestamp: new Date().toISOString() }
         });
 
-        return { success: true, provider };
+        return { success: true, provider: sanitizedProvider };
       } catch (err) {
         return { error: (err as Error).message, status: 500 };
       }
@@ -181,7 +187,7 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(provider));
+      res.end(JSON.stringify(sanitizeProviderForResponse(provider)));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: (err as Error).message }));
@@ -199,13 +205,14 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
 
       try {
         const provider = updateProvider(initialPath, providerId, updates);
+        const sanitizedProvider = sanitizeProviderForResponse(provider);
 
         broadcastToClients({
           type: 'LITELLM_PROVIDER_UPDATED',
-          payload: { provider, timestamp: new Date().toISOString() }
+          payload: { provider: sanitizedProvider, timestamp: new Date().toISOString() }
         });
 
-        return { success: true, provider };
+        return { success: true, provider: sanitizedProvider };
       } catch (err) {
         return { error: (err as Error).message, status: 404 };
       }
@@ -397,7 +404,7 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
   // GET /api/litellm-api/models/:providerType - Get available models for provider type
   const modelsMatch = pathname.match(/^\/api\/litellm-api\/models\/([^/]+)$/);
   if (modelsMatch && req.method === 'GET') {
-    const providerType = modelsMatch[1] as ProviderType;
+    const providerType = modelsMatch[1];
 
     try {
       const models = PROVIDER_MODELS[providerType];
@@ -589,7 +596,6 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
         const { stdout } = await execAsync('pip show ccw-litellm', {
           timeout: 10000,
           windowsHide: true,
-          shell: true,
         });
         // Parse version from pip show output
         const versionMatch = stdout.match(/Version:\s*(.+)/i);
@@ -608,7 +614,6 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
             const { stdout } = await execAsync(`${pythonExe} -c "import ccw_litellm; print(ccw_litellm.__version__)"`, {
               timeout: 5000,
               windowsHide: true,
-              shell: true,
             });
             const version = stdout.trim();
             if (version) {
@@ -687,11 +692,12 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
   if (pathname === '/api/litellm-api/codexlens/rotation/endpoints' && req.method === 'GET') {
     try {
       const endpoints = generateRotationEndpoints(initialPath);
+      const sanitizedEndpoints = endpoints.map(sanitizeRotationEndpointForResponse);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
-        endpoints,
-        count: endpoints.length,
+        endpoints: sanitizedEndpoints,
+        count: sanitizedEndpoints.length,
       }));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });

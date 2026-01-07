@@ -1,4 +1,3 @@
-// @ts-nocheck
 import http from 'http';
 import { URL } from 'url';
 import { readFileSync, existsSync } from 'fs';
@@ -27,11 +26,20 @@ import { handleHelpRoutes } from './routes/help-routes.js';
 import { handleLiteLLMRoutes } from './routes/litellm-routes.js';
 import { handleLiteLLMApiRoutes } from './routes/litellm-api-routes.js';
 import { handleNavStatusRoutes } from './routes/nav-status-routes.js';
+import { handleAuthRoutes } from './routes/auth-routes.js';
 
 // Import WebSocket handling
-import { handleWebSocketUpgrade, broadcastToClients } from './websocket.js';
+import { handleWebSocketUpgrade, broadcastToClients, extractSessionIdFromPath } from './websocket.js';
+
+import { getTokenManager } from './auth/token-manager.js';
+import { authMiddleware, isLocalhostRequest, setAuthCookie } from './auth/middleware.js';
+import { getCorsOrigin } from './cors.js';
+import { csrfValidation } from './auth/csrf-middleware.js';
+import { getCsrfTokenManager } from './auth/csrf-manager.js';
+import { randomBytes } from 'crypto';
 
 import type { ServerConfig } from '../types/config.js';
+import type { PostRequestHandler } from './routes/types.js';
 
 interface ServerOptions {
   port?: number;
@@ -40,13 +48,7 @@ interface ServerOptions {
   open?: boolean;
 }
 
-interface PostResult {
-  error?: string;
-  status?: number;
-  [key: string]: unknown;
-}
-
-type PostHandler = (body: unknown) => Promise<PostResult>;
+type PostHandler = PostRequestHandler;
 
 // Template paths
 const TEMPLATE_PATH = join(import.meta.dirname, '../../src/templates/dashboard.html');
@@ -158,26 +160,129 @@ const MODULE_FILES = [
  * Handle POST request with JSON body
  */
 function handlePostRequest(req: http.IncomingMessage, res: http.ServerResponse, handler: PostHandler): void {
-  let body = '';
-  req.on('data', chunk => { body += chunk; });
-  req.on('end', async () => {
+  const cachedParsed = (req as any).body;
+  const cachedRawBody = (req as any).__ccwRawBody;
+
+  const handleBody = async (parsed: unknown) => {
     try {
-      const parsed = JSON.parse(body);
       const result = await handler(parsed);
 
-      if (result.error) {
-        const status = result.status || 500;
+      const isObjectResult = typeof result === 'object' && result !== null;
+      const errorValue = isObjectResult && 'error' in result ? (result as { error?: unknown }).error : undefined;
+      const statusValue = isObjectResult && 'status' in result ? (result as { status?: unknown }).status : undefined;
+
+      if (typeof errorValue === 'string' && errorValue.length > 0) {
+        const status = typeof statusValue === 'number' ? statusValue : 500;
         res.writeHead(status, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: result.error }));
-      } else {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(result));
+        res.end(JSON.stringify({ error: errorValue }));
+        return;
       }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
     } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: (error as Error).message }));
+      res.end(JSON.stringify({ error: message }));
+    }
+  };
+
+  if (cachedParsed !== undefined) {
+    void handleBody(cachedParsed);
+    return;
+  }
+
+  if (typeof cachedRawBody === 'string') {
+    try {
+      void handleBody(JSON.parse(cachedRawBody));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: message }));
+    }
+    return;
+  }
+
+  let body = '';
+  req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+  req.on('end', async () => {
+    try {
+      (req as any).__ccwRawBody = body;
+      const parsed = JSON.parse(body);
+      (req as any).body = parsed;
+      await handleBody(parsed);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: message }));
     }
   });
+}
+
+function getHeaderValue(header: string | string[] | undefined): string | null {
+  if (!header) return null;
+  if (Array.isArray(header)) return header[0] ?? null;
+  return header;
+}
+
+function parseCookieHeader(cookieHeader: string | null | undefined): Record<string, string> {
+  if (!cookieHeader) return {};
+
+  const cookies: Record<string, string> = {};
+  for (const part of cookieHeader.split(';')) {
+    const [rawName, ...rawValueParts] = part.trim().split('=');
+    if (!rawName) continue;
+    const rawValue = rawValueParts.join('=');
+    try {
+      cookies[rawName] = decodeURIComponent(rawValue);
+    } catch {
+      cookies[rawName] = rawValue;
+    }
+  }
+  return cookies;
+}
+
+function appendSetCookie(res: http.ServerResponse, cookie: string): void {
+  const existing = res.getHeader('Set-Cookie');
+  if (!existing) {
+    res.setHeader('Set-Cookie', cookie);
+    return;
+  }
+
+  if (Array.isArray(existing)) {
+    res.setHeader('Set-Cookie', [...existing, cookie]);
+    return;
+  }
+
+  res.setHeader('Set-Cookie', [String(existing), cookie]);
+}
+
+function getOrCreateSessionId(req: http.IncomingMessage, res: http.ServerResponse): string {
+  const cookies = parseCookieHeader(getHeaderValue(req.headers.cookie));
+  const existing = cookies.ccw_session_id;
+  if (existing) return existing;
+
+  const created = randomBytes(16).toString('hex');
+  const attributes = [
+    `ccw_session_id=${encodeURIComponent(created)}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Strict',
+    `Max-Age=${24 * 60 * 60}`,
+  ];
+  appendSetCookie(res, attributes.join('; '));
+  return created;
+}
+
+function setCsrfCookie(res: http.ServerResponse, token: string, maxAgeSeconds: number): void {
+  const attributes = [
+    `XSRF-TOKEN=${encodeURIComponent(token)}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Strict',
+    `Max-Age=${maxAgeSeconds}`,
+  ];
+  appendSetCookie(res, attributes.join('; '));
 }
 
 /**
@@ -244,17 +349,27 @@ window.INITIAL_PATH = '${normalizePathForDisplay(initialPath).replace(/\\/g, '/'
  * @returns {Promise<http.Server>}
  */
 export async function startServer(options: ServerOptions = {}): Promise<http.Server> {
-  const port = options.port ?? 3456;
+  let serverPort = options.port ?? 3456;
   const initialPath = options.initialPath || process.cwd();
+  const host = options.host ?? '127.0.0.1';
+
+  const tokenManager = getTokenManager();
+  const secretKey = tokenManager.getSecretKey();
+  tokenManager.getOrCreateAuthToken();
+  const unauthenticatedPaths = new Set<string>(['/api/auth/token', '/api/csrf-token']);
 
   const server = http.createServer(async (req, res) => {
-    const url = new URL(req.url, `http://localhost:${port}`);
+    const url = new URL(req.url ?? '/', `http://localhost:${serverPort}`);
     const pathname = url.pathname;
 
     // CORS headers for API requests
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const originHeader = Array.isArray(req.headers.origin) ? req.headers.origin[0] : req.headers.origin;
+    res.setHeader('Access-Control-Allow-Origin', getCorsOrigin(originHeader, serverPort));
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Expose-Headers', 'X-CSRF-Token');
+    res.setHeader('Vary', 'Origin');
 
     if (req.method === 'OPTIONS') {
       res.writeHead(200);
@@ -277,11 +392,42 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         initialPath,
         handlePostRequest,
         broadcastToClients,
+        extractSessionIdFromPath,
         server
       };
 
+      // Token acquisition endpoint (localhost-only)
+      if (pathname === '/api/auth/token') {
+        if (!isLocalhostRequest(req)) {
+          res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ error: 'Forbidden' }));
+          return;
+        }
+
+        const tokenResult = tokenManager.getOrCreateAuthToken();
+        setAuthCookie(res, tokenResult.token, tokenResult.expiresAt);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ token: tokenResult.token, expiresAt: tokenResult.expiresAt.toISOString() }));
+        return;
+      }
+
+      // Authentication middleware for all API routes
+      if (pathname.startsWith('/api/')) {
+        const ok = authMiddleware({ pathname, req, res, tokenManager, secretKey, unauthenticatedPaths });
+        if (!ok) return;
+      }
+
+      // CSRF validation middleware for state-changing API routes
+      if (pathname.startsWith('/api/')) {
+        const ok = await csrfValidation({ pathname, req, res });
+        if (!ok) return;
+      }
+
       // Try each route handler in order
       // Order matters: more specific routes should come before general ones
+
+      // Auth routes (/api/csrf-token)
+      if (await handleAuthRoutes(routeContext)) return;
 
       // Status routes (/api/status/*) - Aggregated endpoint for faster loading
       if (pathname.startsWith('/api/status/')) {
@@ -401,6 +547,15 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
 
       // Serve dashboard HTML
       if (pathname === '/' || pathname === '/index.html') {
+        if (isLocalhostRequest(req)) {
+          const tokenResult = tokenManager.getOrCreateAuthToken();
+          setAuthCookie(res, tokenResult.token, tokenResult.expiresAt);
+
+          const sessionId = getOrCreateSessionId(req, res);
+          const csrfToken = getCsrfTokenManager().generateToken(sessionId);
+          res.setHeader('X-CSRF-Token', csrfToken);
+          setCsrfCookie(res, csrfToken, 15 * 60);
+        }
         const html = generateServerDashboard(initialPath);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(html);
@@ -418,8 +573,8 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       if (pathname.startsWith('/assets/')) {
         const assetPath = join(ASSETS_DIR, pathname.replace('/assets/', ''));
         if (existsSync(assetPath)) {
-          const ext = assetPath.split('.').pop().toLowerCase();
-          const mimeTypes = {
+          const ext = assetPath.split('.').pop()?.toLowerCase();
+          const mimeTypes: Record<string, string> = {
             'js': 'application/javascript',
             'css': 'text/css',
             'json': 'application/json',
@@ -431,7 +586,7 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
             'woff2': 'font/woff2',
             'ttf': 'font/ttf'
           };
-          const contentType = mimeTypes[ext] || 'application/octet-stream';
+          const contentType = ext ? mimeTypes[ext] ?? 'application/octet-stream' : 'application/octet-stream';
           const content = readFileSync(assetPath);
           res.writeHead(200, {
             'Content-Type': contentType,
@@ -448,8 +603,9 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
 
     } catch (error: unknown) {
       console.error('Server error:', error);
+      const message = error instanceof Error ? error.message : String(error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: (error as Error).message }));
+      res.end(JSON.stringify({ error: message }));
     }
   });
 
@@ -463,10 +619,15 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
   });
 
   return new Promise((resolve, reject) => {
-    server.listen(port, () => {
-      console.log(`Dashboard server running at http://localhost:${port}`);
-      console.log(`WebSocket endpoint available at ws://localhost:${port}/ws`);
-      console.log(`Hook endpoint available at POST http://localhost:${port}/api/hook`);
+    server.listen(serverPort, host, () => {
+      const addr = server.address();
+      if (addr && typeof addr === 'object') {
+        serverPort = addr.port;
+      }
+
+      console.log(`Dashboard server running at http://${host}:${serverPort}`);
+      console.log(`WebSocket endpoint available at ws://${host}:${serverPort}/ws`);
+      console.log(`Hook endpoint available at POST http://${host}:${serverPort}/api/hook`);
       resolve(server);
     });
     server.on('error', reject);

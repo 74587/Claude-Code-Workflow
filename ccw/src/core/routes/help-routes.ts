@@ -1,22 +1,11 @@
-// @ts-nocheck
 /**
  * Help Routes Module
  * Handles all Help-related API endpoints for command guide and CodexLens docs
  */
-import type { IncomingMessage, ServerResponse } from 'http';
 import { readFileSync, existsSync, watch } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-
-export interface RouteContext {
-  pathname: string;
-  url: URL;
-  req: IncomingMessage;
-  res: ServerResponse;
-  initialPath: string;
-  handlePostRequest: (req: IncomingMessage, res: ServerResponse, handler: (body: unknown) => Promise<any>) => void;
-  broadcastToClients: (data: unknown) => void;
-}
+import type { RouteContext } from './types.js';
 
 // ========== In-Memory Cache ==========
 interface CacheEntry {
@@ -101,6 +90,7 @@ function initializeFileWatchers(): void {
     });
 
     watchersInitialized = true;
+    (watcher as any).unref?.();
     console.log(`File watchers initialized for: ${indexDir}`);
   } catch (error) {
     console.error('Failed to initialize file watchers:', error);
