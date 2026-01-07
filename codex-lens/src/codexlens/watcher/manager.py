@@ -154,9 +154,9 @@ class WatcherManager:
                 self.root_path, self.watcher_config, self._handle_changes
             )
 
-            # Register queue change callback for real-time UI updates
-            if self.on_queue_change:
-                self._watcher.register_queue_change_callback(self._on_queue_change_wrapper)
+            # Always register queue change callback for stdout output (TypeScript backend)
+            # The wrapper prints [QUEUE_STATUS] JSON and optionally calls on_queue_change
+            self._watcher.register_queue_change_callback(self._on_queue_change_wrapper)
 
             # Install signal handlers
             self._install_signal_handlers()
