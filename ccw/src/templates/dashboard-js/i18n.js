@@ -563,6 +563,18 @@ const i18n = {
     'codexlens.uninstallComplete': 'Uninstallation complete!',
     'codexlens.uninstallSuccess': 'CodexLens uninstalled successfully!',
 
+    // Ignore Patterns
+    'codexlens.ignorePatterns': 'Ignore Patterns',
+    'codexlens.ignorePatternsDesc': 'Configure directories and files to exclude from indexing. Changes apply to new indexes only.',
+    'codexlens.directoryPatterns': 'Directory Patterns',
+    'codexlens.extensionFilters': 'Extension Filters',
+    'codexlens.directoryPatternsHint': 'One pattern per line (e.g., node_modules, .git)',
+    'codexlens.extensionFiltersHint': 'Files skipped for embedding (e.g., *.min.js)',
+    'codexlens.ignorePatternsSaved': 'Ignore patterns saved',
+    'codexlens.ignorePatternReset': 'Reset to defaults (click Save to apply)',
+    'common.patterns': 'patterns',
+    'common.resetToDefaults': 'Reset to Defaults',
+
     // Index Manager
     'index.manager': 'Index Manager',
     'index.projects': 'Projects',
@@ -2598,6 +2610,18 @@ const i18n = {
     'codexlens.finalizing': '正在完成卸载...',
     'codexlens.uninstallComplete': '卸载完成！',
     'codexlens.uninstallSuccess': 'CodexLens 卸载成功！',
+
+    // 忽略规则
+    'codexlens.ignorePatterns': '忽略规则',
+    'codexlens.ignorePatternsDesc': '配置索引时要排除的目录和文件。更改仅对新索引生效。',
+    'codexlens.directoryPatterns': '目录规则',
+    'codexlens.extensionFilters': '文件过滤',
+    'codexlens.directoryPatternsHint': '每行一个规则（如 node_modules, .git）',
+    'codexlens.extensionFiltersHint': '跳过 embedding 的文件（如 *.min.js）',
+    'codexlens.ignorePatternsSaved': '忽略规则已保存',
+    'codexlens.ignorePatternReset': '已重置为默认值（点击保存应用）',
+    'common.patterns': '条规则',
+    'common.resetToDefaults': '重置为默认',
 
     // 索引管理器
     'index.manager': '索引管理器',

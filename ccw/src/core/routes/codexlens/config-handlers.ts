@@ -909,5 +909,139 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
     return true;
   }
 
+  // ============================================================
+  // IGNORE PATTERNS CONFIGURATION ENDPOINTS
+  // ============================================================
+
+  // API: Get ignore patterns configuration
+  if (pathname === '/api/codexlens/ignore-patterns' && req.method === 'GET') {
+    try {
+      const { homedir } = await import('os');
+      const { join } = await import('path');
+      const { readFile } = await import('fs/promises');
+
+      const settingsPath = join(homedir(), '.codexlens', 'settings.json');
+      let settings: Record<string, any> = {};
+      try {
+        const content = await readFile(settingsPath, 'utf-8');
+        settings = JSON.parse(content);
+      } catch {
+        // File doesn't exist
+      }
+
+      // Default ignore patterns (matching WatcherConfig defaults in events.py)
+      const defaultPatterns = [
+        // Version control
+        '.git', '.svn', '.hg',
+        // Python environments & cache
+        '.venv', 'venv', 'env', '__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache',
+        // Node.js
+        'node_modules', 'bower_components', '.npm', '.yarn',
+        // Build artifacts
+        'dist', 'build', 'out', 'target', 'bin', 'obj', '_build', 'coverage', 'htmlcov',
+        // IDE & Editor
+        '.idea', '.vscode', '.vs', '.eclipse',
+        // CodexLens internal
+        '.codexlens',
+        // Package manager caches
+        '.cache', '.parcel-cache', '.turbo', '.next', '.nuxt',
+        // Logs & temp
+        'logs', 'tmp', 'temp',
+      ];
+
+      // Default extension filters for embeddings (files skipped for vector index)
+      const defaultExtensionFilters = [
+        // Lock files (large, repetitive)
+        'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'composer.lock', 'Gemfile.lock', 'poetry.lock',
+        // Generated/minified
+        '*.min.js', '*.min.css', '*.bundle.js',
+        // Binary-like text
+        '*.svg', '*.map',
+      ];
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        patterns: settings.ignore_patterns || defaultPatterns,
+        extensionFilters: settings.extension_filters || defaultExtensionFilters,
+        defaults: {
+          patterns: defaultPatterns,
+          extensionFilters: defaultExtensionFilters
+        }
+      }));
+    } catch (err: unknown) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err instanceof Error ? err.message : String(err) }));
+    }
+    return true;
+  }
+
+  // API: Save ignore patterns configuration
+  if (pathname === '/api/codexlens/ignore-patterns' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { patterns, extensionFilters } = body as {
+        patterns?: string[];
+        extensionFilters?: string[];
+      };
+
+      try {
+        const { homedir } = await import('os');
+        const { join, dirname } = await import('path');
+        const { writeFile, mkdir, readFile } = await import('fs/promises');
+
+        const settingsPath = join(homedir(), '.codexlens', 'settings.json');
+        await mkdir(dirname(settingsPath), { recursive: true });
+
+        // Read existing settings
+        let settings: Record<string, any> = {};
+        try {
+          const content = await readFile(settingsPath, 'utf-8');
+          settings = JSON.parse(content);
+        } catch {
+          // File doesn't exist, start fresh
+        }
+
+        // Validate patterns (alphanumeric, dots, underscores, dashes, asterisks)
+        const validPatternRegex = /^[\w.*\-/]+$/;
+        if (patterns) {
+          const invalidPatterns = patterns.filter(p => !validPatternRegex.test(p));
+          if (invalidPatterns.length > 0) {
+            return {
+              success: false,
+              error: `Invalid patterns: ${invalidPatterns.join(', ')}`,
+              status: 400
+            };
+          }
+          settings.ignore_patterns = patterns;
+        }
+
+        if (extensionFilters) {
+          const invalidFilters = extensionFilters.filter(p => !validPatternRegex.test(p));
+          if (invalidFilters.length > 0) {
+            return {
+              success: false,
+              error: `Invalid extension filters: ${invalidFilters.join(', ')}`,
+              status: 400
+            };
+          }
+          settings.extension_filters = extensionFilters;
+        }
+
+        // Write updated settings
+        await writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+
+        return {
+          success: true,
+          message: 'Ignore patterns saved successfully',
+          patterns: settings.ignore_patterns,
+          extensionFilters: settings.extension_filters
+        };
+      } catch (err: unknown) {
+        return { success: false, error: err instanceof Error ? err.message : String(err), status: 500 };
+      }
+    });
+    return true;
+  }
+
   return false;
 }

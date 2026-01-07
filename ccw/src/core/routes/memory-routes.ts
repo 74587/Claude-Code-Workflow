@@ -970,6 +970,33 @@ RULES: Be concise. Focus on practical understanding. Include function signatures
         // Try to execute CLI using CCW's built-in executor
         try {
           const syncId = `active-memory-${Date.now()}`;
+
+          // Broadcast CLI_EXECUTION_STARTED event
+          broadcastToClients({
+            type: 'CLI_EXECUTION_STARTED',
+            payload: {
+              executionId: syncId,
+              tool: tool === 'qwen' ? 'qwen' : 'gemini',
+              mode: 'analysis',
+              category: 'internal',
+              context: 'active-memory-sync',
+              fileCount: hotFiles.length
+            }
+          });
+
+          // Create onOutput callback for real-time streaming
+          const onOutput = (chunk: { type: string; data: string }) => {
+            broadcastToClients({
+              type: 'CLI_OUTPUT',
+              payload: {
+                executionId: syncId,
+                chunkType: chunk.type,
+                data: chunk.data
+              }
+            });
+          };
+
+          const startTime = Date.now();
           const result = await executeCliTool({
             tool: tool === 'qwen' ? 'qwen' : 'gemini',
             prompt: cliPrompt,
@@ -980,6 +1007,17 @@ RULES: Be concise. Focus on practical understanding. Include function signatures
             stream: false,
             category: 'internal',
             id: syncId
+          }, onOutput);
+
+          // Broadcast CLI_EXECUTION_COMPLETED event
+          broadcastToClients({
+            type: 'CLI_EXECUTION_COMPLETED',
+            payload: {
+              executionId: syncId,
+              success: result.success,
+              status: result.execution?.status || (result.success ? 'success' : 'error'),
+              duration_ms: Date.now() - startTime
+            }
           });
 
           if (result.success) {

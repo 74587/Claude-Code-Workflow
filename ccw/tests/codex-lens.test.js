@@ -352,6 +352,39 @@ describe('CodexLens Path Configuration', () => {
 
 describe('CodexLens Error Handling', async () => {
   let codexLensModule;
+  const testTempDirs = []; // Track temp directories for cleanup
+
+  after(() => {
+    // Clean up temp directories created during tests
+    for (const dir of testTempDirs) {
+      try {
+        rmSync(dir, { recursive: true, force: true });
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+
+    // Clean up any indexes created for temp directories
+    const indexDir = join(homedir(), '.codexlens', 'indexes');
+    const tempIndexPattern = join(indexDir, 'C', 'Users', '*', 'AppData', 'Local', 'Temp', 'ccw-codexlens-update-*');
+    try {
+      const glob = require('glob');
+      const matches = glob.sync(tempIndexPattern.replace(/\\/g, '/'));
+      for (const match of matches) {
+        rmSync(match, { recursive: true, force: true });
+      }
+    } catch (e) {
+      // glob may not be available, try direct cleanup
+      try {
+        const tempPath = join(indexDir, 'C', 'Users');
+        if (existsSync(tempPath)) {
+          console.log('Note: Temp indexes may need manual cleanup at:', indexDir);
+        }
+      } catch (e2) {
+        // Ignore
+      }
+    }
+  });
 
   before(async () => {
     try {
@@ -395,6 +428,7 @@ describe('CodexLens Error Handling', async () => {
     }
 
     const updateRoot = mkdtempSync(join(tmpdir(), 'ccw-codexlens-update-'));
+    testTempDirs.push(updateRoot); // Track for cleanup
     writeFileSync(join(updateRoot, 'main.py'), 'def hello():\n    return 1\n', 'utf8');
 
     const result = await codexLensModule.codexLensTool.execute({
@@ -419,6 +453,7 @@ describe('CodexLens Error Handling', async () => {
     }
 
     const updateRoot = mkdtempSync(join(tmpdir(), 'ccw-codexlens-update-'));
+    testTempDirs.push(updateRoot); // Track for cleanup
     writeFileSync(join(updateRoot, 'main.py'), 'def hello():\n    return 1\n', 'utf8');
 
     const result = await codexLensModule.codexLensTool.execute({

@@ -4170,6 +4170,52 @@ function buildCodexLensManagerPage(config) {
             '</div>' +
           '</div>' +
         '</div>' +
+        // Ignore Patterns Section
+        '<div class="bg-card border border-border rounded-lg overflow-hidden" id="ignorePatternsSection">' +
+          '<div class="bg-muted/30 border-b border-border px-4 py-3 flex items-center justify-between cursor-pointer" onclick="toggleIgnorePatternsSection()">' +
+            '<div class="flex items-center gap-2">' +
+              '<i data-lucide="eye-off" class="w-4 h-4 text-muted-foreground"></i>' +
+              '<span class="font-medium text-foreground">' + (t('codexlens.ignorePatterns') || 'Ignore Patterns') + '</span>' +
+              '<span class="text-xs px-2 py-0.5 bg-muted rounded-full text-muted-foreground" id="ignorePatternsCount">-</span>' +
+            '</div>' +
+            '<div class="flex items-center gap-2">' +
+              '<i data-lucide="chevron-down" class="w-4 h-4 text-muted-foreground transition-transform" id="ignorePatternsChevron" style="transform: rotate(180deg)"></i>' +
+            '</div>' +
+          '</div>' +
+          '<div id="ignorePatternsContent" class="p-4">' +
+            '<p class="text-xs text-muted-foreground mb-4">' + (t('codexlens.ignorePatternsDesc') || 'Configure directories and files to exclude from indexing. Changes apply to new indexes only.') + '</p>' +
+            '<div class="grid grid-cols-2 gap-4">' +
+              // Directory Patterns
+              '<div>' +
+                '<label class="block text-sm font-medium mb-2 flex items-center gap-1.5">' +
+                  '<i data-lucide="folder-x" class="w-3.5 h-3.5"></i>' +
+                  (t('codexlens.directoryPatterns') || 'Directory Patterns') +
+                '</label>' +
+                '<textarea id="ignorePatternsInput" rows="8" class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm font-mono resize-none" placeholder="node_modules&#10;.git&#10;dist"></textarea>' +
+                '<p class="text-xs text-muted-foreground mt-1">' + (t('codexlens.directoryPatternsHint') || 'One pattern per line') + '</p>' +
+              '</div>' +
+              // Extension Filters
+              '<div>' +
+                '<label class="block text-sm font-medium mb-2 flex items-center gap-1.5">' +
+                  '<i data-lucide="file-x" class="w-3.5 h-3.5"></i>' +
+                  (t('codexlens.extensionFilters') || 'Extension Filters') +
+                '</label>' +
+                '<textarea id="extensionFiltersInput" rows="8" class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm font-mono resize-none" placeholder="*.min.js&#10;package-lock.json&#10;*.map"></textarea>' +
+                '<p class="text-xs text-muted-foreground mt-1">' + (t('codexlens.extensionFiltersHint') || 'Files skipped for embedding') + '</p>' +
+              '</div>' +
+            '</div>' +
+            '<div class="flex items-center justify-between mt-4">' +
+              '<button onclick="resetIgnorePatterns()" class="text-xs px-3 py-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors flex items-center gap-1.5">' +
+                '<i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>' +
+                (t('common.resetToDefaults') || 'Reset to Defaults') +
+              '</button>' +
+              '<button onclick="saveIgnorePatterns()" class="text-xs px-3 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded transition-colors flex items-center gap-1.5">' +
+                '<i data-lucide="save" class="w-3.5 h-3.5"></i>' +
+                (t('common.save') || 'Save') +
+              '</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
         // Index Manager Section
         '<div class="bg-card border border-border rounded-lg overflow-hidden" id="indexManagerSection">' +
           '<div class="bg-muted/30 border-b border-border px-4 py-3 flex items-center justify-between">' +
@@ -4943,6 +4989,13 @@ function initCodexLensManagerPageEvents(currentConfig) {
 
   var searchInput = document.getElementById('searchQueryInput');
   if (searchInput) { searchInput.onkeypress = function(e) { if (e.key === 'Enter' && runSearchBtn) { runSearchBtn.click(); } }; }
+
+  // Initialize ignore patterns count badge (delayed to ensure function is defined)
+  setTimeout(function() {
+    if (typeof initIgnorePatternsCount === 'function') {
+      initIgnorePatternsCount();
+    }
+  }, 100);
 }
 
 /**
@@ -6396,3 +6449,196 @@ function handleWatcherStatusUpdate(payload) {
     stopWatcherStatusPolling();
   }
 }
+
+// ============================================================
+// IGNORE PATTERNS CONFIGURATION
+// ============================================================
+
+// Cache for default patterns (loaded once)
+var ignorePatternsDefaults = null;
+
+/**
+ * Toggle ignore patterns section visibility
+ */
+function toggleIgnorePatternsSection() {
+  var content = document.getElementById('ignorePatternsContent');
+  var chevron = document.getElementById('ignorePatternsChevron');
+  if (content && chevron) {
+    var isHidden = content.classList.contains('hidden');
+    content.classList.toggle('hidden');
+    chevron.style.transform = isHidden ? 'rotate(180deg)' : '';
+  }
+}
+window.toggleIgnorePatternsSection = toggleIgnorePatternsSection;
+
+/**
+ * Load ignore patterns from server
+ */
+async function loadIgnorePatterns() {
+  try {
+    var response = await fetch('/api/codexlens/ignore-patterns');
+    var data = await response.json();
+
+    if (data.success) {
+      // Cache defaults
+      ignorePatternsDefaults = data.defaults;
+
+      // Populate textareas
+      var patternsInput = document.getElementById('ignorePatternsInput');
+      var filtersInput = document.getElementById('extensionFiltersInput');
+
+      if (patternsInput) {
+        patternsInput.value = (data.patterns || []).join('\n');
+      }
+      if (filtersInput) {
+        filtersInput.value = (data.extensionFilters || []).join('\n');
+      }
+
+      // Update count badge
+      var countBadge = document.getElementById('ignorePatternsCount');
+      if (countBadge) {
+        var total = (data.patterns || []).length + (data.extensionFilters || []).length;
+        countBadge.textContent = total + ' ' + (t('common.patterns') || 'patterns');
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load ignore patterns:', err);
+  }
+}
+window.loadIgnorePatterns = loadIgnorePatterns;
+
+/**
+ * Save ignore patterns to server
+ */
+async function saveIgnorePatterns() {
+  var patternsInput = document.getElementById('ignorePatternsInput');
+  var filtersInput = document.getElementById('extensionFiltersInput');
+
+  var patterns = patternsInput ? patternsInput.value.split('\n').map(function(p) { return p.trim(); }).filter(function(p) { return p; }) : [];
+  var extensionFilters = filtersInput ? filtersInput.value.split('\n').map(function(p) { return p.trim(); }).filter(function(p) { return p; }) : [];
+
+  try {
+    var response = await fetch('/api/codexlens/ignore-patterns', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ patterns: patterns, extensionFilters: extensionFilters })
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast(t('codexlens.ignorePatternsSaved') || 'Ignore patterns saved', 'success');
+
+      // Update count badge
+      var countBadge = document.getElementById('ignorePatternsCount');
+      if (countBadge) {
+        var total = patterns.length + extensionFilters.length;
+        countBadge.textContent = total + ' ' + (t('common.patterns') || 'patterns');
+      }
+    } else {
+      showRefreshToast(t('common.error') + ': ' + result.error, 'error');
+    }
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
+}
+window.saveIgnorePatterns = saveIgnorePatterns;
+
+/**
+ * Reset ignore patterns to defaults
+ */
+async function resetIgnorePatterns() {
+  if (!ignorePatternsDefaults) {
+    // Load defaults first if not cached
+    try {
+      var response = await fetch('/api/codexlens/ignore-patterns');
+      var data = await response.json();
+      if (data.success) {
+        ignorePatternsDefaults = data.defaults;
+      }
+    } catch (err) {
+      console.error('Failed to load defaults:', err);
+      return;
+    }
+  }
+
+  if (ignorePatternsDefaults) {
+    var patternsInput = document.getElementById('ignorePatternsInput');
+    var filtersInput = document.getElementById('extensionFiltersInput');
+
+    if (patternsInput) {
+      patternsInput.value = (ignorePatternsDefaults.patterns || []).join('\n');
+    }
+    if (filtersInput) {
+      filtersInput.value = (ignorePatternsDefaults.extensionFilters || []).join('\n');
+    }
+
+    showRefreshToast(t('codexlens.ignorePatternReset') || 'Reset to defaults (click Save to apply)', 'info');
+  }
+}
+window.resetIgnorePatterns = resetIgnorePatterns;
+
+/**
+ * Initialize ignore patterns count badge (called on page load)
+ * Also loads patterns into textarea if section is visible
+ */
+async function initIgnorePatternsCount() {
+  // Fallback defaults in case API fails
+  var fallbackDefaults = {
+    patterns: [
+      '.git', '.svn', '.hg',
+      '.venv', 'venv', 'env', '__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache',
+      'node_modules', 'bower_components', '.npm', '.yarn',
+      'dist', 'build', 'out', 'target', 'bin', 'obj', '_build', 'coverage', 'htmlcov',
+      '.idea', '.vscode', '.vs', '.eclipse',
+      '.codexlens',
+      '.cache', '.parcel-cache', '.turbo', '.next', '.nuxt',
+      'logs', 'tmp', 'temp'
+    ],
+    extensionFilters: [
+      'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'composer.lock', 'Gemfile.lock', 'poetry.lock',
+      '*.min.js', '*.min.css', '*.bundle.js',
+      '*.svg', '*.map'
+    ]
+  };
+
+  var patterns = fallbackDefaults.patterns;
+  var extensionFilters = fallbackDefaults.extensionFilters;
+
+  try {
+    var response = await fetch('/api/codexlens/ignore-patterns');
+    var data = await response.json();
+
+    if (data.success) {
+      // Cache defaults
+      ignorePatternsDefaults = data.defaults || fallbackDefaults;
+      patterns = data.patterns || fallbackDefaults.patterns;
+      extensionFilters = data.extensionFilters || fallbackDefaults.extensionFilters;
+    } else {
+      console.warn('Ignore patterns API returned error, using defaults');
+      ignorePatternsDefaults = fallbackDefaults;
+    }
+  } catch (err) {
+    console.warn('Failed to fetch ignore patterns, using defaults:', err);
+    ignorePatternsDefaults = fallbackDefaults;
+  }
+
+  // Update count badge
+  var countBadge = document.getElementById('ignorePatternsCount');
+  if (countBadge) {
+    var total = patterns.length + extensionFilters.length;
+    countBadge.textContent = total + ' ' + (t('common.patterns') || 'patterns');
+  }
+
+  // Populate textareas if they exist
+  var patternsInput = document.getElementById('ignorePatternsInput');
+  var filtersInput = document.getElementById('extensionFiltersInput');
+
+  if (patternsInput) {
+    patternsInput.value = patterns.join('\n');
+  }
+  if (filtersInput) {
+    filtersInput.value = extensionFilters.join('\n');
+  }
+}
+window.initIgnorePatternsCount = initIgnorePatternsCount;

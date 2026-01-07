@@ -55,6 +55,7 @@ interface GenerationParams {
   skillName: string;
   location: SkillLocation;
   projectPath: string;
+  broadcastToClients?: (data: unknown) => void;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -488,9 +489,13 @@ async function importSkill(sourcePath: string, location: SkillLocation, projectP
  * @param {string} params.skillName - Name for the skill
  * @param {string} params.location - 'project' or 'user'
  * @param {string} params.projectPath - Project root path
+ * @param {Function} params.broadcastToClients - WebSocket broadcast function
  * @returns {Object}
  */
-async function generateSkillViaCLI({ generationType, description, skillName, location, projectPath }: GenerationParams) {
+async function generateSkillViaCLI({ generationType, description, skillName, location, projectPath, broadcastToClients }: GenerationParams) {
+  // Generate unique execution ID for tracking
+  const executionId = `skill-gen-${skillName}-${Date.now()}`;
+
   try {
     // Validate inputs
     if (!skillName) {
@@ -557,15 +562,59 @@ Create a new Claude Code skill with the following specifications:
 4. Follow Claude Code skill design patterns and best practices
 5. Output all files to: ${targetPath}`;
 
+    // Broadcast CLI_EXECUTION_STARTED event
+    if (broadcastToClients) {
+      broadcastToClients({
+        type: 'CLI_EXECUTION_STARTED',
+        payload: {
+          executionId,
+          tool: 'claude',
+          mode: 'write',
+          category: 'internal',
+          context: 'skill-generation',
+          skillName
+        }
+      });
+    }
+
+    // Create onOutput callback for real-time streaming
+    const onOutput = broadcastToClients
+      ? (chunk: { type: string; data: string }) => {
+          broadcastToClients({
+            type: 'CLI_OUTPUT',
+            payload: {
+              executionId,
+              chunkType: chunk.type,
+              data: chunk.data
+            }
+          });
+        }
+      : undefined;
+
     // Execute CLI tool (Claude) with write mode
+    const startTime = Date.now();
     const result = await executeCliTool({
       tool: 'claude',
       prompt,
       mode: 'write',
       cd: baseDir,
       timeout: 600000, // 10 minutes
-      category: 'internal'
-    });
+      category: 'internal',
+      id: executionId
+    }, onOutput);
+
+    // Broadcast CLI_EXECUTION_COMPLETED event
+    if (broadcastToClients) {
+      broadcastToClients({
+        type: 'CLI_EXECUTION_COMPLETED',
+        payload: {
+          executionId,
+          success: result.success,
+          status: result.execution?.status || (result.success ? 'success' : 'error'),
+          duration_ms: Date.now() - startTime
+        }
+      });
+    }
 
     // Check if execution was successful
     if (!result.success) {
@@ -606,7 +655,7 @@ Create a new Claude Code skill with the following specifications:
  * @returns true if route was handled, false otherwise
  */
 export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
-  const { pathname, url, req, res, initialPath, handlePostRequest } = ctx;
+  const { pathname, url, req, res, initialPath, handlePostRequest, broadcastToClients } = ctx;
 
   // API: Get all skills (project and user)
   if (pathname === '/api/skills') {
@@ -991,7 +1040,8 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
           description,
           skillName,
           location,
-          projectPath: validatedProjectPath
+          projectPath: validatedProjectPath,
+          broadcastToClients
         });
       } else {
         return { error: 'Invalid mode. Must be "import" or "cli-generate"' };

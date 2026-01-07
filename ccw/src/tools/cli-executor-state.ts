@@ -102,6 +102,7 @@ export interface ExecutionOutput {
   conversation: ConversationRecord;  // Full conversation record
   stdout: string;
   stderr: string;
+  parsedOutput?: string;  // Extracted text from stream JSON response
 }
 
 /**

@@ -46,6 +46,8 @@ interface RuleGenerateParams {
   location: string;
   subdirectory: string;
   projectPath: string;
+  enableReview?: boolean;
+  broadcastToClients?: (data: unknown) => void;
 }
 
 /**
@@ -351,7 +353,7 @@ function buildStructuredRulePrompt(params: {
   const { description, fileName, subdirectory, location, context, enableReview } = params;
 
   // Build category-specific guidance
-  const categoryGuidance = {
+  const categoryGuidance: Record<string, string> = {
     coding: 'Focus on code style, naming conventions, and formatting rules. Include specific examples of correct and incorrect patterns.',
     testing: 'Emphasize test structure, coverage expectations, mocking strategies, and assertion patterns.',
     security: 'Highlight security best practices, input validation, authentication requirements, and sensitive data handling.',
@@ -583,6 +585,9 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-ri
  * @returns {Object}
  */
 async function generateRuleViaCLI(params: RuleGenerateParams): Promise<Record<string, unknown>> {
+  // Generate unique execution ID for tracking
+  const executionId = `rule-gen-${params.fileName.replace('.md', '')}-${Date.now()}`;
+
   try {
     const {
       generationType,
@@ -594,7 +599,8 @@ async function generateRuleViaCLI(params: RuleGenerateParams): Promise<Record<st
       location,
       subdirectory,
       projectPath,
-      enableReview
+      enableReview,
+      broadcastToClients
     } = params;
 
     let prompt = '';
@@ -608,7 +614,7 @@ async function generateRuleViaCLI(params: RuleGenerateParams): Promise<Record<st
     if (generationType === 'description') {
       mode = 'write';
       prompt = buildStructuredRulePrompt({
-        description,
+        description: description || '',
         fileName,
         subdirectory: subdirectory || '',
         location,
@@ -638,15 +644,59 @@ FILE NAME: ${fileName}`;
       return { error: `Unknown generation type: ${generationType}` };
     }
 
+    // Broadcast CLI_EXECUTION_STARTED event
+    if (broadcastToClients) {
+      broadcastToClients({
+        type: 'CLI_EXECUTION_STARTED',
+        payload: {
+          executionId,
+          tool: 'claude',
+          mode,
+          category: 'internal',
+          context: 'rule-generation',
+          fileName
+        }
+      });
+    }
+
+    // Create onOutput callback for real-time streaming
+    const onOutput = broadcastToClients
+      ? (chunk: { type: string; data: string }) => {
+          broadcastToClients({
+            type: 'CLI_OUTPUT',
+            payload: {
+              executionId,
+              chunkType: chunk.type,
+              data: chunk.data
+            }
+          });
+        }
+      : undefined;
+
     // Execute CLI tool (Claude) with at least 10 minutes timeout
+    const startTime = Date.now();
     const result = await executeCliTool({
       tool: 'claude',
       prompt,
       mode,
       cd: workingDir,
       timeout: 600000, // 10 minutes
-      category: 'internal'
-    });
+      category: 'internal',
+      id: executionId
+    }, onOutput);
+
+    // Broadcast CLI_EXECUTION_COMPLETED event
+    if (broadcastToClients) {
+      broadcastToClients({
+        type: 'CLI_EXECUTION_COMPLETED',
+        payload: {
+          executionId,
+          success: result.success,
+          status: result.execution?.status || (result.success ? 'success' : 'error'),
+          duration_ms: Date.now() - startTime
+        }
+      });
+    }
 
     if (!result.success) {
       return {
@@ -677,15 +727,60 @@ FILE NAME: ${fileName}`;
     let reviewResult = null;
     if (enableReview) {
       const reviewPrompt = buildReviewPrompt(generatedContent, fileName, context);
+      const reviewExecutionId = `${executionId}-review`;
 
+      // Broadcast review CLI_EXECUTION_STARTED event
+      if (broadcastToClients) {
+        broadcastToClients({
+          type: 'CLI_EXECUTION_STARTED',
+          payload: {
+            executionId: reviewExecutionId,
+            tool: 'claude',
+            mode: 'write',
+            category: 'internal',
+            context: 'rule-review',
+            fileName
+          }
+        });
+      }
+
+      // Create onOutput callback for review step
+      const reviewOnOutput = broadcastToClients
+        ? (chunk: { type: string; data: string }) => {
+            broadcastToClients({
+              type: 'CLI_OUTPUT',
+              payload: {
+                executionId: reviewExecutionId,
+                chunkType: chunk.type,
+                data: chunk.data
+              }
+            });
+          }
+        : undefined;
+
+      const reviewStartTime = Date.now();
       const reviewExecution = await executeCliTool({
         tool: 'claude',
         prompt: reviewPrompt,
         mode: 'write',
         cd: workingDir,
         timeout: 300000, // 5 minutes for review
-        category: 'internal'
-      });
+        category: 'internal',
+        id: reviewExecutionId
+      }, reviewOnOutput);
+
+      // Broadcast review CLI_EXECUTION_COMPLETED event
+      if (broadcastToClients) {
+        broadcastToClients({
+          type: 'CLI_EXECUTION_COMPLETED',
+          payload: {
+            executionId: reviewExecutionId,
+            success: reviewExecution.success,
+            status: reviewExecution.execution?.status || (reviewExecution.success ? 'success' : 'error'),
+            duration_ms: Date.now() - reviewStartTime
+          }
+        });
+      }
 
       if (reviewExecution.success) {
         let reviewedContent = (reviewExecution.parsedOutput || reviewExecution.stdout || '').trim();
@@ -801,7 +896,7 @@ paths: [${paths.join(', ')}]
  * @returns true if route was handled, false otherwise
  */
 export async function handleRulesRoutes(ctx: RouteContext): Promise<boolean> {
-  const { pathname, url, req, res, initialPath, handlePostRequest } = ctx;
+  const { pathname, url, req, res, initialPath, handlePostRequest, broadcastToClients } = ctx;
 
   // API: Get all rules
   if (pathname === '/api/rules') {
@@ -920,7 +1015,8 @@ export async function handleRulesRoutes(ctx: RouteContext): Promise<boolean> {
           fileName: resolvedFileName,
           location: resolvedLocation,
           subdirectory: resolvedSubdirectory || '',
-          projectPath
+          projectPath,
+          broadcastToClients
         });
       }
 
