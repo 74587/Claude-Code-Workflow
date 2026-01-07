@@ -1,22 +1,64 @@
-// @ts-nocheck
 /**
  * Skills Routes Module
  * Handles all Skills-related API endpoints
  */
-import type { IncomingMessage, ServerResponse } from 'http';
 import { readFileSync, existsSync, readdirSync, statSync, unlinkSync, promises as fsPromises } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { executeCliTool } from '../../tools/cli-executor.js';
+import { validatePath as validateAllowedPath } from '../../utils/path-validator.js';
+import type { RouteContext } from './types.js';
 
-export interface RouteContext {
-  pathname: string;
-  url: URL;
-  req: IncomingMessage;
-  res: ServerResponse;
-  initialPath: string;
-  handlePostRequest: (req: IncomingMessage, res: ServerResponse, handler: (body: unknown) => Promise<any>) => void;
-  broadcastToClients: (data: unknown) => void;
+type SkillLocation = 'project' | 'user';
+
+interface ParsedSkillFrontmatter {
+  name: string;
+  description: string;
+  version: string | null;
+  allowedTools: string[];
+  content: string;
+}
+
+interface SkillSummary {
+  name: string;
+  folderName: string;
+  description: string;
+  version: string | null;
+  allowedTools: string[];
+  location: SkillLocation;
+  path: string;
+  supportingFiles: string[];
+}
+
+interface SkillsConfig {
+  projectSkills: SkillSummary[];
+  userSkills: SkillSummary[];
+}
+
+interface SkillInfo {
+  name: string;
+  description: string;
+  version: string | null;
+  allowedTools: string[];
+  supportingFiles: string[];
+}
+
+type SkillFolderValidation =
+  | { valid: true; errors: string[]; skillInfo: SkillInfo }
+  | { valid: false; errors: string[]; skillInfo: null };
+
+type GenerationType = 'description' | 'template';
+
+interface GenerationParams {
+  generationType: GenerationType;
+  description?: string;
+  skillName: string;
+  location: SkillLocation;
+  projectPath: string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 // ========== Skills Helper Functions ==========
@@ -26,8 +68,8 @@ export interface RouteContext {
  * @param {string} content - Skill file content
  * @returns {Object} Parsed frontmatter and content
  */
-function parseSkillFrontmatter(content) {
-  const result = {
+function parseSkillFrontmatter(content: string): ParsedSkillFrontmatter {
+  const result: ParsedSkillFrontmatter = {
     name: '',
     description: '',
     version: null,
@@ -58,7 +100,11 @@ function parseSkillFrontmatter(content) {
             result.version = value.replace(/^["']|["']$/g, '');
           } else if (key === 'allowed-tools' || key === 'allowedtools') {
             // Parse as comma-separated or YAML array
-            result.allowedTools = value.replace(/^\[|\]$/g, '').split(',').map(t => t.trim()).filter(Boolean);
+            result.allowedTools = value
+              .replace(/^\[|\]$/g, '')
+              .split(',')
+              .map((tool) => tool.trim())
+              .filter(Boolean);
           }
         }
       }
@@ -75,8 +121,8 @@ function parseSkillFrontmatter(content) {
  * @param {string} skillDir
  * @returns {string[]}
  */
-function getSupportingFiles(skillDir) {
-  const files = [];
+function getSupportingFiles(skillDir: string): string[] {
+  const files: string[] = [];
   try {
     const entries = readdirSync(skillDir, { withFileTypes: true });
     for (const entry of entries) {
@@ -99,8 +145,8 @@ function getSupportingFiles(skillDir) {
  * @param {string} projectPath
  * @returns {Object}
  */
-function getSkillsConfig(projectPath) {
-  const result = {
+function getSkillsConfig(projectPath: string): SkillsConfig {
+  const result: SkillsConfig = {
     projectSkills: [],
     userSkills: []
   };
@@ -179,17 +225,44 @@ function getSkillsConfig(projectPath) {
  * @param {string} projectPath
  * @returns {Object}
  */
-function getSkillDetail(skillName, location, projectPath) {
+async function getSkillDetail(skillName: string, location: SkillLocation, projectPath: string, initialPath: string) {
   try {
-    const baseDir = location === 'project'
-      ? join(projectPath, '.claude', 'skills')
-      : join(homedir(), '.claude', 'skills');
+    if (skillName.includes('/') || skillName.includes('\\')) {
+      return { error: 'Access denied', status: 403 };
+    }
+    if (skillName.includes('..')) {
+      return { error: 'Invalid skill name', status: 400 };
+    }
+
+    let baseDir;
+    if (location === 'project') {
+      try {
+        const validatedProjectPath = await validateAllowedPath(projectPath, { mustExist: true, allowedDirectories: [initialPath] });
+        baseDir = join(validatedProjectPath, '.claude', 'skills');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const status = message.includes('Access denied') ? 403 : 400;
+        console.error(`[Skills] Project path validation failed: ${message}`);
+        return { error: status === 403 ? 'Access denied' : 'Invalid path', status };
+      }
+    } else {
+      baseDir = join(homedir(), '.claude', 'skills');
+    }
 
     const skillDir = join(baseDir, skillName);
-    const skillMdPath = join(skillDir, 'SKILL.md');
+    const skillMdCandidate = join(skillDir, 'SKILL.md');
 
-    if (!existsSync(skillMdPath)) {
-      return { error: 'Skill not found' };
+    let skillMdPath;
+    try {
+      skillMdPath = await validateAllowedPath(skillMdCandidate, { mustExist: true, allowedDirectories: [skillDir] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('File not found')) {
+        return { error: 'Skill not found', status: 404 };
+      }
+      const status = message.includes('Access denied') ? 403 : 400;
+      console.error(`[Skills] Path validation failed: ${message}`);
+      return { error: status === 403 ? 'Access denied' : 'Invalid path', status };
     }
 
     const content = readFileSync(skillMdPath, 'utf8');
@@ -210,7 +283,7 @@ function getSkillDetail(skillName, location, projectPath) {
       }
     };
   } catch (error) {
-    return { error: (error as Error).message };
+    return { error: (error as Error).message, status: 500 };
   }
 }
 
@@ -221,38 +294,50 @@ function getSkillDetail(skillName, location, projectPath) {
  * @param {string} projectPath
  * @returns {Object}
  */
-function deleteSkill(skillName, location, projectPath) {
+async function deleteSkill(skillName: string, location: SkillLocation, projectPath: string, initialPath: string) {
   try {
-    const baseDir = location === 'project'
-      ? join(projectPath, '.claude', 'skills')
-      : join(homedir(), '.claude', 'skills');
-
-    const skillDir = join(baseDir, skillName);
-
-    if (!existsSync(skillDir)) {
-      return { error: 'Skill not found' };
+    if (skillName.includes('/') || skillName.includes('\\')) {
+      return { error: 'Access denied', status: 403 };
+    }
+    if (skillName.includes('..')) {
+      return { error: 'Invalid skill name', status: 400 };
     }
 
-    // Recursively delete directory
-    const deleteRecursive = (dirPath) => {
-      if (existsSync(dirPath)) {
-        readdirSync(dirPath).forEach((file) => {
-          const curPath = join(dirPath, file);
-          if (statSync(curPath).isDirectory()) {
-            deleteRecursive(curPath);
-          } else {
-            unlinkSync(curPath);
-          }
-        });
-        fsPromises.rmdir(dirPath);
+    let baseDir;
+    if (location === 'project') {
+      try {
+        const validatedProjectPath = await validateAllowedPath(projectPath, { mustExist: true, allowedDirectories: [initialPath] });
+        baseDir = join(validatedProjectPath, '.claude', 'skills');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const status = message.includes('Access denied') ? 403 : 400;
+        console.error(`[Skills] Project path validation failed: ${message}`);
+        return { error: status === 403 ? 'Access denied' : 'Invalid path', status };
       }
-    };
+    } else {
+      baseDir = join(homedir(), '.claude', 'skills');
+    }
 
-    deleteRecursive(skillDir);
+    const skillDirCandidate = join(baseDir, skillName);
+
+    let skillDir;
+    try {
+      skillDir = await validateAllowedPath(skillDirCandidate, { mustExist: true, allowedDirectories: [baseDir] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('File not found')) {
+        return { error: 'Skill not found', status: 404 };
+      }
+      const status = message.includes('Access denied') ? 403 : 400;
+      console.error(`[Skills] Path validation failed: ${message}`);
+      return { error: status === 403 ? 'Access denied' : 'Invalid path', status };
+    }
+
+    await fsPromises.rm(skillDir, { recursive: true, force: true });
 
     return { success: true, skillName, location };
   } catch (error) {
-    return { error: (error as Error).message };
+    return { error: (error as Error).message, status: 500 };
   }
 }
 
@@ -261,8 +346,8 @@ function deleteSkill(skillName, location, projectPath) {
  * @param {string} folderPath - Path to skill folder
  * @returns {Object} Validation result with skill info
  */
-function validateSkillFolder(folderPath) {
-  const errors = [];
+function validateSkillFolder(folderPath: string): SkillFolderValidation {
+  const errors: string[] = [];
 
   // Check if folder exists
   if (!existsSync(folderPath)) {
@@ -327,7 +412,7 @@ function validateSkillFolder(folderPath) {
  * @param {string} source - Source directory path
  * @param {string} target - Target directory path
  */
-async function copyDirectoryRecursive(source, target) {
+async function copyDirectoryRecursive(source: string, target: string): Promise<void> {
   await fsPromises.mkdir(target, { recursive: true });
 
   const entries = await fsPromises.readdir(source, { withFileTypes: true });
@@ -352,7 +437,7 @@ async function copyDirectoryRecursive(source, target) {
  * @param {string} customName - Optional custom name for skill
  * @returns {Object}
  */
-async function importSkill(sourcePath, location, projectPath, customName) {
+async function importSkill(sourcePath: string, location: SkillLocation, projectPath: string, customName?: string) {
   try {
     // Validate source folder
     const validation = validateSkillFolder(sourcePath);
@@ -371,6 +456,9 @@ async function importSkill(sourcePath, location, projectPath, customName) {
 
     // Determine target folder name
     const skillName = customName || validation.skillInfo.name;
+    if (skillName.includes('/') || skillName.includes('\\') || skillName.includes('..')) {
+      return { error: 'Invalid skill name', status: 400 };
+    }
     const targetPath = join(baseDir, skillName);
 
     // Check if already exists
@@ -402,7 +490,7 @@ async function importSkill(sourcePath, location, projectPath, customName) {
  * @param {string} params.projectPath - Project root path
  * @returns {Object}
  */
-async function generateSkillViaCLI({ generationType, description, skillName, location, projectPath }) {
+async function generateSkillViaCLI({ generationType, description, skillName, location, projectPath }: GenerationParams) {
   try {
     // Validate inputs
     if (!skillName) {
@@ -523,9 +611,19 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
   // API: Get all skills (project and user)
   if (pathname === '/api/skills') {
     const projectPathParam = url.searchParams.get('path') || initialPath;
-    const skillsData = getSkillsConfig(projectPathParam);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(skillsData));
+
+    try {
+      const validatedProjectPath = await validateAllowedPath(projectPathParam, { mustExist: true, allowedDirectories: [initialPath] });
+      const skillsData = getSkillsConfig(validatedProjectPath);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(skillsData));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const status = message.includes('Access denied') ? 403 : 400;
+      console.error(`[Skills] Project path validation failed: ${message}`);
+      res.writeHead(status, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: status === 403 ? 'Access denied' : 'Invalid path', projectSkills: [], userSkills: [] }));
+    }
     return true;
   }
 
@@ -537,18 +635,46 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
     const location = url.searchParams.get('location') || 'project';
     const projectPathParam = url.searchParams.get('path') || initialPath;
 
-    const baseDir = location === 'project'
-      ? join(projectPathParam, '.claude', 'skills')
-      : join(homedir(), '.claude', 'skills');
+    if (skillName.includes('/') || skillName.includes('\\') || skillName.includes('..')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid skill name' }));
+      return true;
+    }
 
-    const dirPath = subPath
-      ? join(baseDir, skillName, subPath)
-      : join(baseDir, skillName);
+    let baseDir: string;
+    if (location === 'project') {
+      try {
+        const validatedProjectPath = await validateAllowedPath(projectPathParam, { mustExist: true, allowedDirectories: [initialPath] });
+        baseDir = join(validatedProjectPath, '.claude', 'skills');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const status = message.includes('Access denied') ? 403 : 400;
+        console.error(`[Skills] Project path validation failed: ${message}`);
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: status === 403 ? 'Access denied' : 'Invalid path' }));
+        return true;
+      }
+    } else {
+      baseDir = join(homedir(), '.claude', 'skills');
+    }
 
-    // Security check: ensure path is within skill folder
-    if (!dirPath.startsWith(join(baseDir, skillName))) {
-      res.writeHead(403, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Access denied' }));
+    const skillRoot = join(baseDir, skillName);
+    const requestedDir = subPath ? join(skillRoot, subPath) : skillRoot;
+
+    let dirPath: string;
+    try {
+      dirPath = await validateAllowedPath(requestedDir, { mustExist: true, allowedDirectories: [skillRoot] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('File not found')) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Directory not found' }));
+        return true;
+      }
+      const status = message.includes('Access denied') ? 403 : 400;
+      console.error(`[Skills] Path validation failed: ${message}`);
+      res.writeHead(status, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: status === 403 ? 'Access denied' : 'Invalid path' }));
       return true;
     }
 
@@ -596,16 +722,46 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
       return true;
     }
 
-    const baseDir = location === 'project'
-      ? join(projectPathParam, '.claude', 'skills')
-      : join(homedir(), '.claude', 'skills');
+    if (skillName.includes('/') || skillName.includes('\\') || skillName.includes('..')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid skill name' }));
+      return true;
+    }
 
-    const filePath = join(baseDir, skillName, fileName);
+    let baseDir: string;
+    if (location === 'project') {
+      try {
+        const validatedProjectPath = await validateAllowedPath(projectPathParam, { mustExist: true, allowedDirectories: [initialPath] });
+        baseDir = join(validatedProjectPath, '.claude', 'skills');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const status = message.includes('Access denied') ? 403 : 400;
+        console.error(`[Skills] Project path validation failed: ${message}`);
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: status === 403 ? 'Access denied' : 'Invalid path' }));
+        return true;
+      }
+    } else {
+      baseDir = join(homedir(), '.claude', 'skills');
+    }
 
-    // Security check: ensure file is within skill folder
-    if (!filePath.startsWith(join(baseDir, skillName))) {
-      res.writeHead(403, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Access denied' }));
+    const skillRoot = join(baseDir, skillName);
+    const requestedFile = join(skillRoot, fileName);
+
+    let filePath: string;
+    try {
+      filePath = await validateAllowedPath(requestedFile, { mustExist: true, allowedDirectories: [skillRoot] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('File not found')) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'File not found' }));
+        return true;
+      }
+      const status = message.includes('Access denied') ? 403 : 400;
+      console.error(`[Skills] Path validation failed: ${message}`);
+      res.writeHead(status, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: status === 403 ? 'Access denied' : 'Invalid path' }));
       return true;
     }
 
@@ -632,25 +788,54 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
     const skillName = decodeURIComponent(pathParts[3]);
 
     handlePostRequest(req, res, async (body) => {
-      const { fileName, content, location, projectPath: projectPathParam } = body;
+      if (!isRecord(body)) {
+        return { error: 'Invalid request body', status: 400 };
+      }
 
-      if (!fileName) {
+      const fileName = body.fileName;
+      const content = body.content;
+      const location: SkillLocation = body.location === 'project' ? 'project' : 'user';
+      const projectPathParam = typeof body.projectPath === 'string' ? body.projectPath : undefined;
+
+      if (typeof fileName !== 'string' || !fileName) {
         return { error: 'fileName is required' };
       }
 
-      if (content === undefined) {
+      if (typeof content !== 'string') {
         return { error: 'content is required' };
       }
 
-      const baseDir = location === 'project'
-        ? join(projectPathParam || initialPath, '.claude', 'skills')
-        : join(homedir(), '.claude', 'skills');
+      if (skillName.includes('/') || skillName.includes('\\') || skillName.includes('..')) {
+        return { error: 'Invalid skill name', status: 400 };
+      }
 
-      const filePath = join(baseDir, skillName, fileName);
+      let baseDir: string;
+      if (location === 'project') {
+        try {
+          const projectRoot = projectPathParam || initialPath;
+          const validatedProjectPath = await validateAllowedPath(projectRoot, { mustExist: true, allowedDirectories: [initialPath] });
+          baseDir = join(validatedProjectPath, '.claude', 'skills');
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          const status = message.includes('Access denied') ? 403 : 400;
+          console.error(`[Skills] Project path validation failed: ${message}`);
+          return { error: status === 403 ? 'Access denied' : 'Invalid path', status };
+        }
+      } else {
+        baseDir = join(homedir(), '.claude', 'skills');
+      }
 
-      // Security check: ensure file is within skill folder
-      if (!filePath.startsWith(join(baseDir, skillName))) {
-        return { error: 'Access denied' };
+      const skillRoot = join(baseDir, skillName);
+      const requestedFile = join(skillRoot, fileName);
+
+      let filePath: string;
+      try {
+        filePath = await validateAllowedPath(requestedFile, { allowedDirectories: [skillRoot] });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const status = message.includes('Access denied') ? 403 : 400;
+        console.error(`[Skills] Path validation failed: ${message}`);
+        return { error: status === 403 ? 'Access denied' : 'Invalid path', status };
       }
 
       try {
@@ -667,25 +852,43 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
   if (pathname.startsWith('/api/skills/') && req.method === 'GET' &&
       !pathname.endsWith('/skills/') && !pathname.endsWith('/dir') && !pathname.endsWith('/file')) {
     const skillName = decodeURIComponent(pathname.replace('/api/skills/', ''));
-    const location = url.searchParams.get('location') || 'project';
+    const locationParam = url.searchParams.get('location');
+    const location: SkillLocation = locationParam === 'user' ? 'user' : 'project';
     const projectPathParam = url.searchParams.get('path') || initialPath;
-    const skillDetail = getSkillDetail(skillName, location, projectPathParam);
+    const skillDetail = await getSkillDetail(skillName, location, projectPathParam, initialPath);
     if (skillDetail.error) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(skillDetail));
-    } else {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(skillDetail));
+      res.writeHead(skillDetail.status || 404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: skillDetail.error }));
+      return true;
     }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(skillDetail));
     return true;
   }
 
   // API: Delete skill
   if (pathname.startsWith('/api/skills/') && req.method === 'DELETE') {
     const skillName = decodeURIComponent(pathname.replace('/api/skills/', ''));
+    if (skillName.includes('/') || skillName.includes('\\')) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Access denied' }));
+      return true;
+    }
+    if (skillName.includes('..')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid skill name' }));
+      return true;
+    }
     handlePostRequest(req, res, async (body) => {
-      const { location, projectPath: projectPathParam } = body;
-      return deleteSkill(skillName, location, projectPathParam || initialPath);
+      if (!isRecord(body)) {
+        return { error: 'Invalid request body', status: 400 };
+      }
+
+      const location: SkillLocation = body.location === 'project' ? 'project' : 'user';
+      const projectPathParam = typeof body.projectPath === 'string' ? body.projectPath : undefined;
+
+      return deleteSkill(skillName, location, projectPathParam || initialPath, initialPath);
     });
     return true;
   }
@@ -693,11 +896,24 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
   // API: Validate skill import
   if (pathname === '/api/skills/validate-import' && req.method === 'POST') {
     handlePostRequest(req, res, async (body) => {
-      const { sourcePath } = body;
-      if (!sourcePath) {
+      if (!isRecord(body)) {
         return { valid: false, errors: ['Source path is required'], skillInfo: null };
       }
-      return validateSkillFolder(sourcePath);
+
+      const sourcePath = body.sourcePath;
+      if (typeof sourcePath !== 'string' || !sourcePath.trim()) {
+        return { valid: false, errors: ['Source path is required'], skillInfo: null };
+      }
+
+      try {
+        const validatedSourcePath = await validateAllowedPath(sourcePath, { mustExist: true });
+        return validateSkillFolder(validatedSourcePath);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const status = message.includes('Access denied') ? 403 : 400;
+        console.error(`[Skills] Path validation failed: ${message}`);
+        return { error: status === 403 ? 'Access denied' : 'Invalid path', status };
+      }
     });
     return true;
   }
@@ -705,17 +921,40 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
   // API: Create/Import skill
   if (pathname === '/api/skills/create' && req.method === 'POST') {
     handlePostRequest(req, res, async (body) => {
-      const { mode, location, sourcePath, skillName, description, generationType, projectPath: projectPathParam } = body;
+      if (!isRecord(body)) {
+        return { error: 'Invalid request body', status: 400 };
+      }
 
-      if (!mode) {
+      const mode = body.mode;
+      const locationValue = body.location;
+      const sourcePath = typeof body.sourcePath === 'string' ? body.sourcePath : undefined;
+      const skillName = typeof body.skillName === 'string' ? body.skillName : undefined;
+      const description = typeof body.description === 'string' ? body.description : undefined;
+      const generationType = typeof body.generationType === 'string' ? body.generationType : undefined;
+      const projectPathParam = typeof body.projectPath === 'string' ? body.projectPath : undefined;
+
+      if (typeof mode !== 'string' || !mode) {
         return { error: 'Mode is required (import or cli-generate)' };
       }
 
-      if (!location) {
+      if (locationValue !== 'project' && locationValue !== 'user') {
         return { error: 'Location is required (project or user)' };
       }
 
+      const location: SkillLocation = locationValue;
       const projectPath = projectPathParam || initialPath;
+
+      let validatedProjectPath = projectPath;
+      if (location === 'project') {
+        try {
+          validatedProjectPath = await validateAllowedPath(projectPath, { mustExist: true, allowedDirectories: [initialPath] });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          const status = message.includes('Access denied') ? 403 : 400;
+          console.error(`[Skills] Project path validation failed: ${message}`);
+          return { error: status === 403 ? 'Access denied' : 'Invalid path', status };
+        }
+      }
 
       if (mode === 'import') {
         // Import mode: copy existing skill folder
@@ -723,19 +962,36 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
           return { error: 'Source path is required for import mode' };
         }
 
-        return await importSkill(sourcePath, location, projectPath, skillName);
+        if (skillName && (skillName.includes('/') || skillName.includes('\\') || skillName.includes('..'))) {
+          return { error: 'Invalid skill name', status: 400 };
+        }
+
+        let validatedSourcePath;
+        try {
+          validatedSourcePath = await validateAllowedPath(sourcePath, { mustExist: true });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          const status = message.includes('Access denied') ? 403 : 400;
+          console.error(`[Skills] Path validation failed: ${message}`);
+          return { error: status === 403 ? 'Access denied' : 'Invalid path', status };
+        }
+
+        return await importSkill(validatedSourcePath, location, validatedProjectPath, skillName);
       } else if (mode === 'cli-generate') {
         // CLI generate mode: use Claude to generate skill
         if (!skillName) {
           return { error: 'Skill name is required for CLI generation mode' };
         }
+        if (skillName.includes('/') || skillName.includes('\\') || skillName.includes('..')) {
+          return { error: 'Invalid skill name', status: 400 };
+        }
 
         return await generateSkillViaCLI({
-          generationType: generationType || 'description',
+          generationType: generationType === 'template' ? 'template' : 'description',
           description,
           skillName,
           location,
-          projectPath
+          projectPath: validatedProjectPath
         });
       } else {
         return { error: 'Invalid mode. Must be "import" or "cli-generate"' };

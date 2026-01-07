@@ -6,8 +6,18 @@
 
 import chalk from 'chalk';
 import { execSync } from 'child_process';
+import inquirer from 'inquirer';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, statSync } from 'fs';
 import { join, resolve } from 'path';
+import { EXEC_TIMEOUTS } from '../utils/exec-constants.js';
+
+function isExecTimeoutError(error: unknown): boolean {
+  const err = error as { code?: unknown; errno?: unknown; message?: unknown } | null;
+  const code = err?.code ?? err?.errno;
+  if (code === 'ETIMEDOUT') return true;
+  const message = typeof err?.message === 'string' ? err.message : '';
+  return message.includes('ETIMEDOUT');
+}
 
 // Handle EPIPE errors gracefully
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
@@ -262,13 +272,15 @@ function getProjectRoot(): string {
     // Get the common git directory (points to main repo's .git)
     const gitCommonDir = execSync('git rev-parse --git-common-dir', {
       encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: EXEC_TIMEOUTS.GIT_QUICK,
     }).trim();
 
     // Get the current git directory
     const gitDir = execSync('git rev-parse --git-dir', {
       encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: EXEC_TIMEOUTS.GIT_QUICK,
     }).trim();
 
     // Normalize paths for comparison (Windows case insensitive)
@@ -287,7 +299,10 @@ function getProjectRoot(): string {
         return mainRepoRoot;
       }
     }
-  } catch {
+  } catch (err: unknown) {
+    if (isExecTimeoutError(err)) {
+      console.warn(`[issue] git rev-parse timed out after ${EXEC_TIMEOUTS.GIT_QUICK}ms; falling back to filesystem detection`);
+    }
     // Git command failed - fall through to manual detection
   }
 
@@ -334,7 +349,7 @@ function ensureIssuesDir(): void {
 
 // ============ Issues JSONL ============
 
-function readIssues(): Issue[] {
+export function readIssues(): Issue[] {
   const path = join(getIssuesDir(), 'issues.jsonl');
   if (!existsSync(path)) return [];
   try {
@@ -347,7 +362,7 @@ function readIssues(): Issue[] {
   }
 }
 
-function writeIssues(issues: Issue[]): void {
+export function writeIssues(issues: Issue[]): void {
   ensureIssuesDir();
   const path = join(getIssuesDir(), 'issues.jsonl');
   // Always add trailing newline for proper JSONL format
@@ -482,7 +497,7 @@ function getSolutionsPath(issueId: string): string {
   return join(getIssuesDir(), 'solutions', `${issueId}.jsonl`);
 }
 
-function readSolutions(issueId: string): Solution[] {
+export function readSolutions(issueId: string): Solution[] {
   const path = getSolutionsPath(issueId);
   if (!existsSync(path)) return [];
   try {
@@ -495,7 +510,7 @@ function readSolutions(issueId: string): Solution[] {
   }
 }
 
-function writeSolutions(issueId: string, solutions: Solution[]): void {
+export function writeSolutions(issueId: string, solutions: Solution[]): void {
   const dir = join(getIssuesDir(), 'solutions');
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   // Always add trailing newline for proper JSONL format
@@ -596,7 +611,7 @@ function generateQueueFileId(): string {
   return `QUE-${ts}`;
 }
 
-function readQueue(queueId?: string): Queue | null {
+export function readQueue(queueId?: string): Queue | null {
   const index = readQueueIndex();
   const targetId = queueId || index.active_queue_id;
 
@@ -748,7 +763,7 @@ function parseFailureReason(reason: string): FailureDetail {
   };
 }
 
-function writeQueue(queue: Queue): void {
+export function writeQueue(queue: Queue): void {
   ensureQueuesDir();
 
   // Support both old (tasks) and new (solutions) queue format
@@ -1839,6 +1854,20 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
     if (!existsSync(queuePath)) {
       console.error(chalk.red(`Queue "${queueId}" not found`));
       process.exit(1);
+    }
+
+    if (!options.force) {
+      const { proceed } = await inquirer.prompt([{
+        type: 'confirm',
+        name: 'proceed',
+        message: `Delete queue ${queueId}? This action cannot be undone.`,
+        default: false
+      }]);
+
+      if (!proceed) {
+        console.log(chalk.yellow('Queue deletion cancelled'));
+        return;
+      }
     }
 
     // Remove from index

@@ -10,9 +10,10 @@
 import { after, afterEach, before, describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import inquirer from 'inquirer';
 
 const TEST_CCW_HOME = mkdtempSync(join(tmpdir(), 'ccw-cli-command-'));
 process.env.CCW_DATA_DIR = TEST_CCW_HOME;
@@ -20,6 +21,7 @@ process.env.CCW_DATA_DIR = TEST_CCW_HOME;
 const cliCommandPath = new URL('../dist/commands/cli.js', import.meta.url).href;
 const cliExecutorPath = new URL('../dist/tools/cli-executor.js', import.meta.url).href;
 const historyStorePath = new URL('../dist/tools/cli-history-store.js', import.meta.url).href;
+const storageManagerPath = new URL('../dist/tools/storage-manager.js', import.meta.url).href;
 
 function stubHttpRequest(): void {
   mock.method(http, 'request', () => {
@@ -50,11 +52,14 @@ describe('cli command module', async () => {
   let cliExecutorModule: any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let historyStoreModule: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let storageManagerModule: any;
 
   before(async () => {
     cliModule = await import(cliCommandPath);
     cliExecutorModule = await import(cliExecutorPath);
     historyStoreModule = await import(historyStorePath);
+    storageManagerModule = await import(storageManagerPath);
   });
 
   afterEach(() => {
@@ -110,6 +115,117 @@ describe('cli command module', async () => {
       assert.equal(call.timeout, 0);
     }
     assert.deepEqual(exitCodes, [0, 0, 0]);
+  });
+
+  it('prints a --file tip when a multi-line prompt is provided via --prompt', async () => {
+    stubHttpRequest();
+
+    const logs: string[] = [];
+    mock.method(console, 'log', (...args: any[]) => {
+      logs.push(args.map(String).join(' '));
+    });
+    mock.method(console, 'error', (...args: any[]) => {
+      logs.push(args.map(String).join(' '));
+    });
+
+    mock.method(cliExecutorModule.cliExecutorTool, 'execute', async () => {
+      return {
+        success: true,
+        stdout: '',
+        stderr: '',
+        execution: { id: 'EXEC-ML', duration_ms: 1, status: 'success' },
+        conversation: { turn_count: 1, total_duration_ms: 1 },
+      };
+    });
+
+    const exitCodes: Array<number | undefined> = [];
+    mock.method(process as any, 'exit', (code?: number) => {
+      exitCodes.push(code);
+    });
+
+    await cliModule.cliCommand('exec', [], { prompt: 'line1\nline2\nline3\nline4', tool: 'gemini', stream: true });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    assert.ok(logs.some((l) => l.includes('Tip: Use --file option to avoid shell escaping issues with multi-line prompts')));
+    assert.ok(logs.some((l) => l.includes('Example: ccw cli -f prompt.txt --tool gemini')));
+    assert.deepEqual(exitCodes, [0]);
+  });
+
+  it('does not print the --file tip for single-line prompts', async () => {
+    stubHttpRequest();
+
+    const logs: string[] = [];
+    mock.method(console, 'log', (...args: any[]) => {
+      logs.push(args.map(String).join(' '));
+    });
+    mock.method(console, 'error', (...args: any[]) => {
+      logs.push(args.map(String).join(' '));
+    });
+
+    mock.method(cliExecutorModule.cliExecutorTool, 'execute', async () => {
+      return {
+        success: true,
+        stdout: '',
+        stderr: '',
+        execution: { id: 'EXEC-SL', duration_ms: 1, status: 'success' },
+        conversation: { turn_count: 1, total_duration_ms: 1 },
+      };
+    });
+
+    const exitCodes: Array<number | undefined> = [];
+    mock.method(process as any, 'exit', (code?: number) => {
+      exitCodes.push(code);
+    });
+
+    await cliModule.cliCommand('exec', [], { prompt: 'Hello', tool: 'gemini', stream: true });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    assert.equal(
+      logs.some((l) => l.includes('Tip: Use --file option to avoid shell escaping issues with multi-line prompts')),
+      false,
+    );
+    assert.deepEqual(exitCodes, [0]);
+  });
+
+  it('prints full output hint immediately after stderr truncation (no troubleshooting duplicate)', async () => {
+    stubHttpRequest();
+
+    const logs: string[] = [];
+    mock.method(console, 'log', (...args: any[]) => {
+      logs.push(args.map(String).join(' '));
+    });
+    mock.method(console, 'error', (...args: any[]) => {
+      logs.push(args.map(String).join(' '));
+    });
+
+    mock.method(cliExecutorModule.cliExecutorTool, 'execute', async () => {
+      const stderr = Array.from({ length: 31 }, (_, i) => `stderr-line-${i}`).join('\n');
+      return {
+        success: false,
+        stdout: '',
+        stderr,
+        execution: { id: 'EXEC-ERR', duration_ms: 12, status: 'error', exit_code: 1 },
+        conversation: { turn_count: 1, total_duration_ms: 12 },
+      };
+    });
+
+    const exitCodes: Array<number | undefined> = [];
+    mock.method(process as any, 'exit', (code?: number) => {
+      exitCodes.push(code);
+    });
+
+    await cliModule.cliCommand('exec', [], { prompt: 'Hello', tool: 'gemini', stream: true });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const truncationIndex = logs.findIndex((l) => l.includes('... 1 more lines'));
+    const hintIndex = logs.findIndex((l) => l.includes('💡 View full output: ccw cli output EXEC-ERR'));
+    assert.ok(truncationIndex >= 0);
+    assert.ok(hintIndex >= 0);
+    assert.equal(hintIndex, truncationIndex + 1);
+
+    assert.equal(logs.filter((l) => l.includes('View full output: ccw cli output EXEC-ERR')).length, 1);
+    assert.equal(logs.filter((l) => l.includes('• View full output')).length, 0);
+    assert.deepEqual(exitCodes, [1]);
   });
 
   it('supports resume with conversation ID and latest (no prompt required)', async () => {
@@ -179,6 +295,100 @@ describe('cli command module', async () => {
     );
 
     assert.equal(executed, false);
+  });
+
+  it('shows --file guidance first in help output (multi-line prompts)', async () => {
+    const logs: string[] = [];
+    mock.method(console, 'log', (...args: any[]) => {
+      logs.push(args.map(String).join(' '));
+    });
+    mock.method(console, 'error', (...args: any[]) => {
+      logs.push(args.map(String).join(' '));
+    });
+
+    await cliModule.cliCommand('--help', [], {});
+
+    const usageFileIndex = logs.findIndex((l) => l.includes('ccw cli -f prompt.txt'));
+    const usagePromptIndex = logs.findIndex((l) => l.includes('ccw cli -p "<prompt>"'));
+    assert.ok(usageFileIndex >= 0);
+    assert.ok(usagePromptIndex >= 0);
+    assert.ok(usageFileIndex < usagePromptIndex);
+
+    const optionFileIndex = logs.findIndex((l) => l.includes('-f, --file <file>'));
+    const optionPromptIndex = logs.findIndex((l) => l.includes('-p, --prompt <text>'));
+    assert.ok(optionFileIndex >= 0);
+    assert.ok(optionPromptIndex >= 0);
+    assert.ok(optionFileIndex < optionPromptIndex);
+    assert.ok(logs.some((l) => l.includes('Read prompt from file (recommended for multi-line prompts)')));
+
+    assert.ok(logs.some((l) => l.includes('Examples:')));
+    assert.ok(logs.some((l) => l.includes('ccw cli -f my-prompt.txt --tool gemini')));
+    assert.ok(logs.some((l) => l.includes("ccw cli -f <(cat <<'EOF'")));
+    assert.ok(logs.some((l) => l.includes("@'")));
+    assert.ok(logs.some((l) => l.includes('Out-File -Encoding utf8 prompt.tmp; ccw cli -f prompt.tmp --tool gemini')));
+    assert.ok(logs.some((l) => l.includes('Tip: For complex prompts, use --file to avoid shell escaping issues')));
+  });
+
+  it('prompts for confirmation before cleaning all storage (and cancels safely)', async () => {
+    const projectRoot = join(TEST_CCW_HOME, 'projects', 'test-project-cancel');
+    const markerDir = join(projectRoot, 'cli-history');
+    mkdirSync(markerDir, { recursive: true });
+    writeFileSync(join(markerDir, 'dummy.txt'), '1234');
+
+    const stats = storageManagerModule.getStorageStats();
+    const expectedSize = storageManagerModule.formatBytes(stats.totalSize);
+
+    const promptCalls: any[] = [];
+    mock.method(inquirer, 'prompt', async (questions: any) => {
+      promptCalls.push(questions);
+      return { proceed: false };
+    });
+
+    const logs: string[] = [];
+    mock.method(console, 'log', (...args: any[]) => {
+      logs.push(args.map(String).join(' '));
+    });
+    mock.method(console, 'error', (...args: any[]) => {
+      logs.push(args.map(String).join(' '));
+    });
+
+    await cliModule.cliCommand('storage', ['clean'], { force: false });
+
+    assert.equal(promptCalls.length, 1);
+    assert.equal(promptCalls[0][0].type, 'confirm');
+    assert.equal(promptCalls[0][0].default, false);
+    assert.ok(promptCalls[0][0].message.includes(`${stats.projectCount} projects`));
+    assert.ok(promptCalls[0][0].message.includes(`(${expectedSize})`));
+
+    assert.ok(logs.some((l) => l.includes('Storage clean cancelled')));
+    assert.equal(existsSync(projectRoot), true);
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  it('bypasses confirmation prompt when --force is set for storage clean', async () => {
+    const projectRoot = join(TEST_CCW_HOME, 'projects', 'test-project-force');
+    const markerDir = join(projectRoot, 'cli-history');
+    mkdirSync(markerDir, { recursive: true });
+    writeFileSync(join(markerDir, 'dummy.txt'), '1234');
+
+    mock.method(inquirer, 'prompt', async () => {
+      throw new Error('inquirer.prompt should not be called when --force is set');
+    });
+
+    await cliModule.cliCommand('storage', ['clean'], { force: true });
+    assert.equal(existsSync(projectRoot), false);
+  });
+
+  it('deletes all storage after interactive confirmation', async () => {
+    const projectRoot = join(TEST_CCW_HOME, 'projects', 'test-project-confirm');
+    const markerDir = join(projectRoot, 'cli-history');
+    mkdirSync(markerDir, { recursive: true });
+    writeFileSync(join(markerDir, 'dummy.txt'), '1234');
+
+    mock.method(inquirer, 'prompt', async () => ({ proceed: true }));
+
+    await cliModule.cliCommand('storage', ['clean'], { force: false });
+    assert.equal(existsSync(projectRoot), false);
   });
 
   it('prints history and retrieves conversation detail from SQLite store', async () => {

@@ -5,6 +5,7 @@
 
 import chalk from 'chalk';
 import http from 'http';
+import inquirer from 'inquirer';
 import {
   cliExecutorTool,
   getCliToolsStatus,
@@ -26,6 +27,7 @@ import {
   getStorageLocationInstructions
 } from '../tools/storage-manager.js';
 import { getHistoryStore } from '../tools/cli-history-store.js';
+import { createSpinner } from '../utils/ui.js';
 
 // Dashboard notification settings
 const DASHBOARD_PORT = process.env.CCW_PORT || 3456;
@@ -280,12 +282,17 @@ async function cleanStorage(options: StorageOptions): Promise<void> {
     }
 
     if (!force) {
-      console.log(chalk.bold.yellow('\n  Warning: This will delete ALL CCW storage:'));
-      console.log(`    Location:  ${stats.rootPath}`);
-      console.log(`    Projects:  ${stats.projectCount}`);
-      console.log(`    Size:      ${formatBytes(stats.totalSize)}`);
-      console.log(chalk.gray('\n  Use --force to confirm deletion.\n'));
-      return;
+      const { proceed } = await inquirer.prompt([{
+        type: 'confirm',
+        name: 'proceed',
+        message: `Delete ALL CCW storage? This will remove ${stats.projectCount} projects (${formatBytes(stats.totalSize)}). This action cannot be undone.`,
+        default: false
+      }]);
+
+      if (!proceed) {
+        console.log(chalk.yellow('\n  Storage clean cancelled.\n'));
+        return;
+      }
     }
 
     console.log(chalk.bold.cyan('\n  Cleaning all storage...\n'));
@@ -554,6 +561,11 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
   } else if (optionPrompt) {
     // Use --prompt/-p option (preferred for multi-line)
     finalPrompt = optionPrompt;
+    const promptLineCount = optionPrompt.split(/\r?\n/).length;
+    if (promptLineCount > 3) {
+      console.log(chalk.dim('   💡 Tip: Use --file option to avoid shell escaping issues with multi-line prompts'));
+      console.log(chalk.dim('      Example: ccw cli -f prompt.txt --tool gemini'));
+    }
   } else {
     // Fall back to positional argument
     finalPrompt = positionalPrompt;
@@ -705,7 +717,6 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
   }
   const nativeMode = noNative ? ' (prompt-concat)' : '';
   const idInfo = id ? ` [${id}]` : '';
-  console.log(chalk.cyan(`\n  Executing ${tool} (${mode} mode${resumeInfo}${nativeMode})${idInfo}...\n`));
 
   // Show merge details
   if (isMerge) {
@@ -719,11 +730,31 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
   // Generate execution ID for streaming (use custom ID or timestamp-based)
   const executionId = id || `${Date.now()}-${tool}`;
   const startTime = Date.now();
+  const spinnerBaseText = `Executing ${tool} (${mode} mode${resumeInfo}${nativeMode})${idInfo}...`;
+  console.log();
+
+  const spinner = stream ? null : createSpinner(`  ${spinnerBaseText}`).start();
+  const elapsedInterval = spinner
+    ? setInterval(() => {
+      const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+      spinner.text = `  ${spinnerBaseText} (${elapsedSeconds}s elapsed)`;
+    }, 1000)
+    : null;
+  elapsedInterval?.unref?.();
+
+  if (!spinner) {
+    console.log(chalk.cyan(`  ${spinnerBaseText}\n`));
+  }
 
   // Handle process interruption (SIGINT/SIGTERM) to notify dashboard
   const handleInterrupt = (signal: string) => {
     const duration = Date.now() - startTime;
-    console.log(chalk.yellow(`\n  Interrupted by ${signal}`));
+    if (elapsedInterval) clearInterval(elapsedInterval);
+    if (spinner) {
+      spinner.warn(`Interrupted by ${signal} (${Math.floor(duration / 1000)}s elapsed)`);
+    } else {
+      console.log(chalk.yellow(`\n  Interrupted by ${signal}`));
+    }
 
     // Kill child process (gemini/codex/qwen CLI) if running
     killCurrentCliProcess();
@@ -790,6 +821,19 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       stream: !!stream // stream=true → streaming enabled (no cache), stream=false → cache output (default)
     }, onOutput); // Always pass onOutput for real-time dashboard streaming
 
+    if (elapsedInterval) clearInterval(elapsedInterval);
+    if (spinner) {
+      const durationSeconds = (result.execution.duration_ms / 1000).toFixed(1);
+      const turnInfo = result.success && result.conversation.turn_count > 1
+        ? ` (turn ${result.conversation.turn_count})`
+        : '';
+      if (result.success) {
+        spinner.succeed(`Completed in ${durationSeconds}s${turnInfo}`);
+      } else {
+        spinner.fail(`Failed after ${durationSeconds}s`);
+      }
+    }
+
     // If not streaming (default), print output now
     // Prefer parsedOutput (from stream parser) over raw stdout for better formatting
     if (!stream) {
@@ -802,10 +846,12 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
     // Print summary with execution ID and turn info
     console.log();
     if (result.success) {
-      const turnInfo = result.conversation.turn_count > 1
-        ? ` (turn ${result.conversation.turn_count})`
-        : '';
-      console.log(chalk.green(`  ✓ Completed in ${(result.execution.duration_ms / 1000).toFixed(1)}s${turnInfo}`));
+      if (!spinner) {
+        const turnInfo = result.conversation.turn_count > 1
+          ? ` (turn ${result.conversation.turn_count})`
+          : '';
+        console.log(chalk.green(`  ✓ Completed in ${(result.execution.duration_ms / 1000).toFixed(1)}s${turnInfo}`));
+      }
       console.log(chalk.gray(`  ID: ${result.execution.id}`));
       if (isMerge && !id) {
         // Merge without custom ID: updated all source conversations
@@ -844,7 +890,9 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       // Delay to allow HTTP request to complete
       setTimeout(() => process.exit(0), 150);
     } else {
-      console.log(chalk.red(`  ✗ Failed (${result.execution.status})`));
+      if (!spinner) {
+        console.log(chalk.red(`  ✗ Failed (${result.execution.status})`));
+      }
       console.log(chalk.gray(`  ID: ${result.execution.id}`));
       console.log(chalk.gray(`  Duration: ${(result.execution.duration_ms / 1000).toFixed(1)}s`));
       console.log(chalk.gray(`  Exit Code: ${result.execution.exit_code}`));
@@ -861,6 +909,8 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
         }
         if (stderrLines.length > 30) {
           console.log(chalk.yellow(`  ... ${stderrLines.length - 30} more lines`));
+          console.log(chalk.cyan(`  💡 View full output: ccw cli output ${result.execution.id}`));
+          console.log();
         }
         console.log(chalk.gray('  ' + '─'.repeat(60)));
       }
@@ -870,7 +920,6 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       console.log(chalk.yellow.bold('  Troubleshooting:'));
       console.log(chalk.gray(`    • Check if ${tool} is properly installed: ccw cli status`));
       console.log(chalk.gray(`    • Enable debug mode: DEBUG=true ccw cli -p "..."  or  set DEBUG=true && ccw cli -p "..."`));
-      console.log(chalk.gray(`    • View full output: ccw cli output ${result.execution.id}`));
       if (result.stderr?.includes('API key') || result.stderr?.includes('Authentication')) {
         console.log(chalk.gray(`    • Check API key configuration for ${tool}`));
       }
@@ -901,6 +950,8 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
     }
   } catch (error) {
     const err = error as Error;
+    if (elapsedInterval) clearInterval(elapsedInterval);
+    if (spinner) spinner.fail('Execution error');
     console.error(chalk.red.bold(`\n  ✗ Execution Error\n`));
     console.error(chalk.red(`  ${err.message}`));
 
@@ -1121,8 +1172,8 @@ export async function cliCommand(
         console.log(chalk.bold.cyan('\n  CCW CLI Tool Executor\n'));
         console.log('  Unified interface for Gemini, Qwen, and Codex CLI tools.\n');
         console.log('  Usage:');
-        console.log(chalk.gray('    ccw cli -p "<prompt>" --tool <tool>     Execute with prompt'));
-        console.log(chalk.gray('    ccw cli -f prompt.txt --tool <tool>     Execute from file'));
+        console.log(chalk.gray('    ccw cli -f prompt.txt --tool <tool>     Execute from file (recommended for multi-line)'));
+        console.log(chalk.gray('    ccw cli -p "<prompt>" --tool <tool>     Execute with prompt (single-line)'));
         console.log();
         console.log('  Subcommands:');
         console.log(chalk.gray('    status              Check CLI tools availability'));
@@ -1133,8 +1184,8 @@ export async function cliCommand(
         console.log(chalk.gray('    test-parse [args]   Debug CLI argument parsing'));
         console.log();
         console.log('  Options:');
-        console.log(chalk.gray('    -p, --prompt <text> Prompt text'));
-        console.log(chalk.gray('    -f, --file <file>   Read prompt from file'));
+        console.log(chalk.gray('    -f, --file <file>   Read prompt from file (recommended for multi-line prompts)'));
+        console.log(chalk.gray('    -p, --prompt <text> Prompt text (single-line)'));
         console.log(chalk.gray('    --tool <tool>       Tool: gemini, qwen, codex (default: gemini)'));
         console.log(chalk.gray('    --mode <mode>       Mode: analysis, write, auto (default: analysis)'));
         console.log(chalk.gray('    -d, --debug         Enable debug logging for troubleshooting'));
@@ -1145,6 +1196,27 @@ export async function cliCommand(
         console.log(chalk.gray('    --resume [id]       Resume previous session'));
         console.log(chalk.gray('    --cache <items>     Cache: comma-separated @patterns and text'));
         console.log(chalk.gray('    --inject-mode <m>   Inject mode: none, full, progressive'));
+        console.log();
+        console.log('  Examples:');
+        console.log(chalk.gray('    ccw cli -f my-prompt.txt --tool gemini'));
+        console.log();
+        console.log(chalk.gray('    # Bash/Linux heredoc'));
+        console.log(chalk.gray("    ccw cli -f <(cat <<'EOF'"));
+        console.log(chalk.gray('    PURPOSE: Multi-line prompt'));
+        console.log(chalk.gray('    TASK: Example task'));
+        console.log(chalk.gray('    EOF'));
+        console.log(chalk.gray('    ) --tool gemini'));
+        console.log();
+        console.log(chalk.gray('    # PowerShell multi-line'));
+        console.log(chalk.gray("    @'"));
+        console.log(chalk.gray('    PURPOSE: Multi-line prompt'));
+        console.log(chalk.gray('    TASK: Example task'));
+        console.log(chalk.gray("    '@ | Out-File -Encoding utf8 prompt.tmp; ccw cli -f prompt.tmp --tool gemini"));
+        console.log();
+        console.log(chalk.gray('    ccw cli --resume --tool gemini'));
+        console.log(chalk.gray('    ccw cli -p "..." --cache "@src/**/*.ts" --tool codex'));
+        console.log(chalk.gray('    ccw cli -p "..." --cache "@src/**/*" --inject-mode progressive --tool gemini'));
+        console.log(chalk.gray('    ccw cli output <id> --final      # View result with usage hint'));
         console.log();
         console.log('  Cache format:');
         console.log(chalk.gray('    --cache "@src/**/*.ts,@CLAUDE.md"     # @patterns to pack'));
@@ -1162,14 +1234,7 @@ export async function cliCommand(
         console.log(chalk.gray('    --offset <n> Start from byte offset'));
         console.log(chalk.gray('    --limit <n>  Limit output bytes'));
         console.log();
-        console.log('  Examples:');
-        console.log(chalk.gray('    ccw cli -p "Analyze auth module" --tool gemini'));
-        console.log(chalk.gray('    ccw cli -f prompt.txt --tool codex --mode write'));
-        console.log(chalk.gray('    ccw cli -p "$(cat template.md)" --tool gemini'));
-        console.log(chalk.gray('    ccw cli --resume --tool gemini'));
-        console.log(chalk.gray('    ccw cli -p "..." --cache "@src/**/*.ts" --tool codex'));
-        console.log(chalk.gray('    ccw cli -p "..." --cache "@src/**/*" --inject-mode progressive --tool gemini'));
-        console.log(chalk.gray('    ccw cli output <id> --final      # View result with usage hint'));
+        console.log(chalk.dim('  Tip: For complex prompts, use --file to avoid shell escaping issues'));
         console.log();
       }
     }
