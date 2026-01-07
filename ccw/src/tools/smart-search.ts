@@ -62,9 +62,10 @@ function createTimer(): { mark: (name: string) => void; getTimings: () => Timing
 
 // Define Zod schema for validation
 const ParamsSchema = z.object({
-  // Action: search (content), find_files (path/name pattern), init, status, update (incremental), watch
+  // Action: search (content), find_files (path/name pattern), init, init_force, status, update (incremental), watch
   // Note: search_files is deprecated, use search with output_mode='files_only'
-  action: z.enum(['init', 'search', 'search_files', 'find_files', 'status', 'update', 'watch']).default('search'),
+  // init: incremental index (skip existing), init_force: force full rebuild (delete and recreate)
+  action: z.enum(['init', 'init_force', 'search', 'search_files', 'find_files', 'status', 'update', 'watch']).default('search'),
   query: z.string().optional().describe('Content search query (for action="search")'),
   pattern: z.string().optional().describe('Glob pattern for path matching (for action="find_files")'),
   mode: z.enum(['fuzzy', 'semantic']).default('fuzzy'),
@@ -84,9 +85,10 @@ const ParamsSchema = z.object({
   regex: z.boolean().default(true),            // Use regex pattern matching (default: enabled)
   caseSensitive: z.boolean().default(true),    // Case sensitivity (default: case-sensitive)
   tokenize: z.boolean().default(true),         // Tokenize multi-word queries for OR matching (default: enabled)
-  // File type filtering
+  // File type filtering (default: code only)
   excludeExtensions: z.array(z.string()).optional().describe('File extensions to exclude from results (e.g., ["md", "txt"])'),
-  codeOnly: z.boolean().default(false).describe('Only return code files (excludes md, txt, json, yaml, xml, etc.)'),
+  codeOnly: z.boolean().default(true).describe('Only return code files (excludes md, txt, json, yaml, xml, etc.). Default: true'),
+  withDoc: z.boolean().default(false).describe('Include documentation files (md, txt, rst, etc.). Overrides codeOnly when true'),
   // Watcher options
   debounce: z.number().default(1000).describe('Debounce interval in ms for watch action'),
   // Fuzzy matching is implicit in hybrid mode (RRF fusion)
@@ -686,8 +688,10 @@ function buildRipgrepCommand(params: {
 /**
  * Action: init - Initialize CodexLens index (FTS only, no embeddings)
  * For semantic/vector search, use ccw view dashboard or codexlens CLI directly
+ * @param params - Search parameters
+ * @param force - If true, force full rebuild (delete existing index first)
  */
-async function executeInitAction(params: Params): Promise<SearchResult> {
+async function executeInitAction(params: Params, force: boolean = false): Promise<SearchResult> {
   const { path = '.', languages } = params;
 
   // Check CodexLens availability
@@ -702,6 +706,9 @@ async function executeInitAction(params: Params): Promise<SearchResult> {
   // Build args with --no-embeddings for FTS-only index (faster)
   // Use 'index init' subcommand (new CLI structure)
   const args = ['index', 'init', path, '--no-embeddings'];
+  if (force) {
+    args.push('--force');  // Force full rebuild
+  }
   if (languages && languages.length > 0) {
     args.push('--language', languages.join(','));
   }
@@ -721,7 +728,7 @@ async function executeInitAction(params: Params): Promise<SearchResult> {
 
   // Build metadata with progress info
   const metadata: SearchMetadata = {
-    action: 'init',
+    action: force ? 'init_force' : 'init',
     path,
   };
 
@@ -740,8 +747,9 @@ async function executeInitAction(params: Params): Promise<SearchResult> {
     metadata.progressHistory = progressUpdates.slice(-5); // Keep last 5 progress updates
   }
 
+  const actionLabel = force ? 'rebuilt (force)' : 'created';
   const successMessage = result.success
-    ? `FTS index created for ${path}. Note: For semantic/vector search, create vector index via "ccw view" dashboard or run "codexlens init ${path}" (without --no-embeddings).`
+    ? `FTS index ${actionLabel} for ${path}. Note: For semantic/vector search, create vector index via "ccw view" dashboard or run "codexlens init ${path}" (without --no-embeddings).`
     : undefined;
 
   return {
@@ -930,7 +938,9 @@ async function executeWatchAction(params: Params): Promise<SearchResult> {
  * Runs both exact (FTS) and ripgrep searches in parallel, merges and ranks results
  */
 async function executeFuzzyMode(params: Params): Promise<SearchResult> {
-  const { query, path = '.', maxResults = 5, extraFilesCount = 10 } = params;
+  const { query, path = '.', maxResults = 5, extraFilesCount = 10, codeOnly = true, withDoc = false, excludeExtensions } = params;
+  // withDoc overrides codeOnly
+  const effectiveCodeOnly = withDoc ? false : codeOnly;
 
   if (!query) {
     return {
@@ -979,8 +989,11 @@ async function executeFuzzyMode(params: Params): Promise<SearchResult> {
   const fusedResults = applyRRFFusion(resultsMap, fusionWeights, totalToFetch);
   timer.mark('rrf_fusion');
 
+  // Apply code-only and extension filtering after fusion
+  const filteredFusedResults = filterNoisyFiles(fusedResults as any[], { codeOnly: effectiveCodeOnly, excludeExtensions });
+
   // Normalize results format
-  const normalizedResults = fusedResults.map((item: any) => ({
+  const normalizedResults = filteredFusedResults.map((item: any) => ({
     file: item.file || item.path,
     line: item.line || 0,
     column: item.column || 0,
@@ -1083,7 +1096,9 @@ async function executeAutoMode(params: Params): Promise<SearchResult> {
  * Supports tokenized multi-word queries with OR matching and result ranking
  */
 async function executeRipgrepMode(params: Params): Promise<SearchResult> {
-  const { query, paths = [], contextLines = 0, maxResults = 5, extraFilesCount = 10, maxContentLength = 200, includeHidden = false, path = '.', regex = true, caseSensitive = true, tokenize = true } = params;
+  const { query, paths = [], contextLines = 0, maxResults = 5, extraFilesCount = 10, maxContentLength = 200, includeHidden = false, path = '.', regex = true, caseSensitive = true, tokenize = true, codeOnly = true, withDoc = false, excludeExtensions } = params;
+  // withDoc overrides codeOnly
+  const effectiveCodeOnly = withDoc ? false : codeOnly;
 
   if (!query) {
     return {
@@ -1228,9 +1243,12 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
       // Results matching more tokens are ranked higher (exact matches first)
       const scoredResults = tokens.length > 1 ? scoreByTokenMatch(allResults, tokens) : allResults;
 
-      if (code === 0 || code === 1 || (isWindowsDeviceError && scoredResults.length > 0)) {
+      // Apply code-only and extension filtering
+      const filteredResults = filterNoisyFiles(scoredResults as any[], { codeOnly: effectiveCodeOnly, excludeExtensions });
+
+      if (code === 0 || code === 1 || (isWindowsDeviceError && filteredResults.length > 0)) {
         // Split results: first N with full content, rest as file paths only
-        const { results, extra_files } = splitResultsWithExtraFiles(scoredResults, maxResults, extraFilesCount);
+        const { results, extra_files } = splitResultsWithExtraFiles(filteredResults, maxResults, extraFilesCount);
 
         // Build warning message for various conditions
         const warnings: string[] = [];
@@ -1292,7 +1310,9 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
  * Requires index
  */
 async function executeCodexLensExactMode(params: Params): Promise<SearchResult> {
-  const { query, path = '.', maxResults = 5, extraFilesCount = 10, maxContentLength = 200, enrich = false, excludeExtensions, codeOnly = false, offset = 0 } = params;
+  const { query, path = '.', maxResults = 5, extraFilesCount = 10, maxContentLength = 200, enrich = false, excludeExtensions, codeOnly = true, withDoc = false, offset = 0 } = params;
+  // withDoc overrides codeOnly
+  const effectiveCodeOnly = withDoc ? false : codeOnly;
 
   if (!query) {
     return {
@@ -1319,8 +1339,8 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
   if (enrich) {
     args.push('--enrich');
   }
-  // Add code_only filter if requested
-  if (codeOnly) {
+  // Add code_only filter if requested (default: true)
+  if (effectiveCodeOnly) {
     args.push('--code-only');
   }
   // Add exclude_extensions filter if provided
@@ -1364,8 +1384,8 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
     if (enrich) {
       fuzzyArgs.push('--enrich');
     }
-    // Add code_only filter if requested
-    if (codeOnly) {
+    // Add code_only filter if requested (default: true)
+    if (effectiveCodeOnly) {
       fuzzyArgs.push('--code-only');
     }
     // Add exclude_extensions filter if provided
@@ -1433,7 +1453,9 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
  */
 async function executeHybridMode(params: Params): Promise<SearchResult> {
   const timer = createTimer();
-  const { query, path = '.', maxResults = 5, extraFilesCount = 10, maxContentLength = 200, enrich = false, excludeExtensions, codeOnly = false, offset = 0 } = params;
+  const { query, path = '.', maxResults = 5, extraFilesCount = 10, maxContentLength = 200, enrich = false, excludeExtensions, codeOnly = true, withDoc = false, offset = 0 } = params;
+  // withDoc overrides codeOnly
+  const effectiveCodeOnly = withDoc ? false : codeOnly;
 
   if (!query) {
     return {
@@ -1462,8 +1484,8 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
   if (enrich) {
     args.push('--enrich');
   }
-  // Add code_only filter if requested
-  if (codeOnly) {
+  // Add code_only filter if requested (default: true)
+  if (effectiveCodeOnly) {
     args.push('--code-only');
   }
   // Add exclude_extensions filter if provided
@@ -1682,13 +1704,14 @@ function filterNoisyFiles(results: SemanticMatch[], options: FilterOptions = {})
   }
 
   return results.filter(r => {
-    const filePath = r.file || '';
+    // Support both 'file' and 'path' field names (different backends use different names)
+    const filePath = r.file || (r as any).path || '';
     if (!filePath) return true;
 
-    const segments = filePath.split(/[/\\]/);
+    const segments: string[] = filePath.split(/[/\\]/);
 
     // Accurate directory check: segment must exactly match excluded directory
-    if (segments.some(segment => FILTER_CONFIG.exclude_directories.has(segment))) {
+    if (segments.some((segment: string) => FILTER_CONFIG.exclude_directories.has(segment))) {
       return false;
     }
 
@@ -2013,7 +2036,8 @@ export const schema: ToolSchema = {
 **Actions:**
 - search: Search file content (default)
 - find_files: Find files by path/name pattern (glob matching)
-- init: Create FTS index
+- init: Create FTS index (incremental - skips existing)
+- init_force: Force full rebuild (delete and recreate index)
 - status: Check index status
 - update: Incremental index update (for changed files)
 - watch: Start file watcher for automatic updates
@@ -2044,8 +2068,8 @@ export const schema: ToolSchema = {
     properties: {
       action: {
         type: 'string',
-        enum: ['init', 'search', 'find_files', 'status', 'search_files'],
-        description: 'Action: search (content search), find_files (path pattern matching), init (create index), status (check index). Note: search_files is deprecated.',
+        enum: ['init', 'init_force', 'search', 'find_files', 'status', 'update', 'watch', 'search_files'],
+        description: 'Action: search (content search), find_files (path pattern matching), init (create index, incremental), init_force (force full rebuild), status (check index), update (incremental update), watch (auto-update). Note: search_files is deprecated.',
         default: 'search',
       },
       query: {
@@ -2469,7 +2493,11 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
     // Handle actions
     switch (action) {
       case 'init':
-        result = await executeInitAction(parsed.data);
+        result = await executeInitAction(parsed.data, false);
+        break;
+
+      case 'init_force':
+        result = await executeInitAction(parsed.data, true);
         break;
 
       case 'status':
@@ -2550,6 +2578,8 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
 /**
  * Execute init action with external progress callback
  * Used by MCP server for streaming progress
+ * @param params - Search parameters (path, languages, force)
+ * @param onProgress - Optional callback for progress updates
  */
 export async function executeInitWithProgress(
   params: Record<string, unknown>,
@@ -2557,6 +2587,7 @@ export async function executeInitWithProgress(
 ): Promise<SearchResult> {
   const path = (params.path as string) || '.';
   const languages = params.languages as string[] | undefined;
+  const force = params.force as boolean || false;
 
   // Check CodexLens availability
   const readyStatus = await ensureCodexLensReady();
@@ -2569,6 +2600,9 @@ export async function executeInitWithProgress(
 
   // Use 'index init' subcommand (new CLI structure)
   const args = ['index', 'init', path];
+  if (force) {
+    args.push('--force');  // Force full rebuild
+  }
   if (languages && languages.length > 0) {
     args.push('--language', languages.join(','));
   }
@@ -2592,7 +2626,7 @@ export async function executeInitWithProgress(
 
   // Build metadata with progress info
   const metadata: SearchMetadata = {
-    action: 'init',
+    action: force ? 'init_force' : 'init',
     path,
   };
 
@@ -2611,11 +2645,12 @@ export async function executeInitWithProgress(
     metadata.progressHistory = progressUpdates.slice(-5);
   }
 
+  const actionLabel = force ? 'rebuilt (force)' : 'created';
   return {
     success: result.success,
     error: result.error,
     message: result.success
-      ? `CodexLens index created successfully for ${path}`
+      ? `CodexLens index ${actionLabel} successfully for ${path}`
       : undefined,
     metadata,
   };

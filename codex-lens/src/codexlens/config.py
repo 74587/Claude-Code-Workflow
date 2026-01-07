@@ -86,10 +86,6 @@ class Config:
             "c": {"extensions": [".c", ".h"], "tree_sitter_language": "c", "category": "code"},
             "cpp": {"extensions": [".cc", ".cpp", ".hpp", ".cxx"], "tree_sitter_language": "cpp", "category": "code"},
             "rust": {"extensions": [".rs"], "tree_sitter_language": "rust", "category": "code"},
-            # Documentation languages (category: "doc")
-            "markdown": {"extensions": [".md", ".mdx"], "tree_sitter_language": None, "category": "doc"},
-            "text": {"extensions": [".txt"], "tree_sitter_language": None, "category": "doc"},
-            "rst": {"extensions": [".rst"], "tree_sitter_language": None, "category": "doc"},
         }
     )
     parsing_rules: Dict[str, Dict[str, Any]] = field(
