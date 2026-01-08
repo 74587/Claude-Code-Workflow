@@ -918,14 +918,10 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
         const isCodex = target === 'codex';
         const targetDir = isCodex ? join(homedir(), '.codex') : join(homedir(), '.claude');
         const targetFile = isCodex ? join(targetDir, 'AGENTS.md') : join(targetDir, 'CLAUDE.md');
-        const headerText = isCodex ? '# Codex Code Guidelines\n\n' : '# Claude Instructions\n\n';
-        // Match common header patterns for both tools
-        const headerPattern = isCodex
-          ? /^#\s*(Codex\s*(Code\s*)?(Guidelines|Instructions))\n\n?/i
-          : /^#\s*Claude\s*Instructions\n\n?/i;
 
         const chineseRefLine = `- **中文回复准则**: @${guidelinesRef}`;
         const chineseRefPattern = /^- \*\*中文回复准则\*\*:.*chinese-response\.md.*$/gm;
+        const chineseSectionPattern = /\n*## 中文回复\n+- \*\*中文回复准则\*\*:.*chinese-response\.md.*\n*/gm;
 
         // Ensure target directory exists
         if (!existsSync(targetDir)) {
@@ -936,7 +932,8 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
         if (existsSync(targetFile)) {
           content = readFileSync(targetFile, 'utf8');
         } else {
-          // Create new file with header
+          // Create new file with minimal header
+          const headerText = isCodex ? '# Codex Code Guidelines\n\n' : '# Claude Instructions\n\n';
           content = headerText;
         }
 
@@ -946,18 +943,12 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
             return { success: true, message: 'Already enabled' };
           }
 
-          // Add reference after the header line or at the beginning
-          const headerMatch = content.match(headerPattern);
-          if (headerMatch) {
-            const insertPosition = headerMatch[0].length;
-            content = content.slice(0, insertPosition) + chineseRefLine + '\n' + content.slice(insertPosition);
-          } else {
-            // Add header and reference
-            content = headerText + chineseRefLine + '\n' + content;
-          }
+          // Add new section at the end of file
+          const newSection = `\n## 中文回复\n\n${chineseRefLine}\n`;
+          content = content.trimEnd() + '\n' + newSection;
         } else {
-          // Remove reference
-          content = content.replace(chineseRefPattern, '').replace(/\n{3,}/g, '\n\n').trim();
+          // Remove the entire section
+          content = content.replace(chineseSectionPattern, '\n').replace(/\n{3,}/g, '\n\n').trim();
           if (content) content += '\n';
         }
 
