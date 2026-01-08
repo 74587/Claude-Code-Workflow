@@ -897,6 +897,18 @@ const i18n = {
     'mcp.toProject': 'To Project',
     'mcp.toGlobal': 'To Global',
 
+    // Recommended MCP
+    'mcp.recommended': 'Recommended MCP',
+    'mcp.quickSetup': 'Quick Setup',
+    'mcp.configRequired': 'config required',
+    'mcp.noConfigNeeded': 'No config needed',
+    'mcp.reconfigure': 'Configure',
+    'mcp.wizard.install': 'Install',
+    'mcp.wizard.noConfig': 'No configuration required. Ready to install!',
+    'mcp.wizard.installTo': 'Install to',
+    'mcp.wizard.project': 'Project',
+    'mcp.wizard.global': 'Global',
+
     // MCP CLI Mode
     'mcp.cliMode': 'CLI Mode',
     'mcp.claudeMode': 'Claude Mode',
@@ -2946,6 +2958,18 @@ const i18n = {
     'mcp.noTemplates': '无可用模板',
     'mcp.noTemplatesDesc': '从现有服务器创建模板或添加新模板',
     'mcp.templatesDesc': '浏览并安装预配置的 MCP 服务器模板',
+
+    // Recommended MCP
+    'mcp.recommended': '推荐 MCP',
+    'mcp.quickSetup': '快速安装',
+    'mcp.configRequired': '需配置',
+    'mcp.noConfigNeeded': '无需配置',
+    'mcp.reconfigure': '配置',
+    'mcp.wizard.install': '安装',
+    'mcp.wizard.noConfig': '无需配置，可直接安装！',
+    'mcp.wizard.installTo': '安装到',
+    'mcp.wizard.project': '项目',
+    'mcp.wizard.global': '全局',
 
     // MCP CLI Mode
     'mcp.cliMode': 'CLI 模式',

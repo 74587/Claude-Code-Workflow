@@ -549,6 +549,67 @@ async function renderMcpManager() {
         </div>
       </div>
 
+      <!-- Recommended MCP Servers -->
+      <div class="mcp-section mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="sparkles" class="w-5 h-5 text-amber-500"></i>
+              <h3 class="text-lg font-semibold text-foreground">${t('mcp.recommended')}</h3>
+            </div>
+            <span class="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 rounded-full">
+              ${t('mcp.quickSetup')}
+            </span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          ${getRecommendedMcpServers().map(mcp => {
+            const installStatus = isRecommendedMcpInstalled(mcp.id);
+            return `
+              <div class="recommended-mcp-card bg-card border ${installStatus.installed ? 'border-success/50' : 'border-border'} rounded-lg p-4 hover:shadow-md transition-all">
+                <div class="flex items-start justify-between mb-3">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 ${installStatus.installed ? 'bg-success/10' : 'bg-primary/10'} rounded-lg flex items-center justify-center">
+                      <i data-lucide="${mcp.icon}" class="w-5 h-5 ${installStatus.installed ? 'text-success' : 'text-primary'}"></i>
+                    </div>
+                    <div>
+                      <h4 class="font-semibold text-foreground">${escapeHtml(mcp.name)}</h4>
+                      <span class="text-xs px-1.5 py-0.5 bg-muted text-muted-foreground rounded">${mcp.category}</span>
+                    </div>
+                  </div>
+                  ${installStatus.installed ? `
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-success/10 text-success">
+                      <i data-lucide="check" class="w-3 h-3"></i>
+                      ${installStatus.scope}
+                    </span>
+                  ` : ''}
+                </div>
+                <p class="text-sm text-muted-foreground mb-4 line-clamp-2">${escapeHtml(mcp.description)}</p>
+                <div class="flex items-center justify-between">
+                  ${mcp.fields.length > 0 ? `
+                    <span class="text-xs text-muted-foreground flex items-center gap-1">
+                      <i data-lucide="key" class="w-3 h-3"></i>
+                      ${mcp.fields.length} ${t('mcp.configRequired')}
+                    </span>
+                  ` : `
+                    <span class="text-xs text-success flex items-center gap-1">
+                      <i data-lucide="zap" class="w-3 h-3"></i>
+                      ${t('mcp.noConfigNeeded')}
+                    </span>
+                  `}
+                  <button class="px-3 py-1.5 text-sm ${installStatus.installed ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground'} rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
+                          onclick="openRecommendedMcpWizard('${mcp.id}')">
+                    <i data-lucide="${installStatus.installed ? 'settings' : 'download'}" class="w-3.5 h-3.5"></i>
+                    ${installStatus.installed ? t('mcp.reconfigure') : t('mcp.install')}
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
       <!-- Project Available MCP Servers -->
       <div class="mcp-section mb-6">
         <div class="flex items-center justify-between mb-4">

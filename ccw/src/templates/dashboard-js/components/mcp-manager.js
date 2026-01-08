@@ -1201,6 +1201,310 @@ function setPreferredProjectConfigType(type) {
   }
 }
 
+// ========== Recommended MCP Servers ==========
+// Pre-configured MCP server definitions for easy installation
+
+const RECOMMENDED_MCP_SERVERS = [
+  {
+    id: 'ace-tool',
+    name: 'ACE Tool',
+    description: 'Augment Context Engine - Semantic code search with real-time codebase indexing',
+    icon: 'search-code',
+    category: 'search',
+    fields: [
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        type: 'text',
+        default: 'https://acemcp.heroman.wtf/relay/',
+        placeholder: 'https://acemcp.heroman.wtf/relay/',
+        required: true,
+        description: 'ACE MCP relay server URL'
+      },
+      {
+        key: 'token',
+        label: 'API Token',
+        type: 'password',
+        default: '',
+        placeholder: 'ace_xxxxxxxxxxxxxxxx',
+        required: true,
+        description: 'Your ACE API token (get from ACE dashboard)'
+      }
+    ],
+    buildConfig: (values) => ({
+      command: 'npx',
+      args: [
+        'ace-tool',
+        '--base-url',
+        values.baseUrl || 'https://acemcp.heroman.wtf/relay/',
+        '--token',
+        values.token
+      ]
+    })
+  },
+  {
+    id: 'chrome-devtools',
+    name: 'Chrome DevTools',
+    description: 'Browser automation and DevTools integration for web development',
+    icon: 'chrome',
+    category: 'browser',
+    fields: [],
+    buildConfig: () => ({
+      type: 'stdio',
+      command: 'npx',
+      args: ['chrome-devtools-mcp@latest'],
+      env: {}
+    })
+  },
+  {
+    id: 'exa',
+    name: 'Exa Search',
+    description: 'AI-powered web search with real-time crawling and content extraction',
+    icon: 'globe-2',
+    category: 'search',
+    fields: [
+      {
+        key: 'apiKey',
+        label: 'EXA API Key',
+        type: 'password',
+        default: '',
+        placeholder: 'your-exa-api-key',
+        required: true,
+        description: 'Get your API key from exa.ai dashboard'
+      }
+    ],
+    buildConfig: (values) => ({
+      command: 'npx',
+      args: ['-y', 'exa-mcp-server'],
+      env: {
+        EXA_API_KEY: values.apiKey
+      }
+    })
+  }
+];
+
+// Get recommended MCP servers list
+function getRecommendedMcpServers() {
+  return RECOMMENDED_MCP_SERVERS;
+}
+
+// Check if a recommended MCP is already installed
+function isRecommendedMcpInstalled(mcpId) {
+  // Check in current project servers
+  const currentPath = projectPath;
+  const projectData = mcpAllProjects[currentPath] || {};
+  const projectServers = projectData.mcpServers || {};
+
+  if (projectServers[mcpId]) return { installed: true, scope: 'project' };
+
+  // Check in global servers
+  if (mcpUserServers && mcpUserServers[mcpId]) return { installed: true, scope: 'global' };
+
+  // Check in Codex servers
+  if (codexMcpServers && codexMcpServers[mcpId]) return { installed: true, scope: 'codex' };
+
+  return { installed: false, scope: null };
+}
+
+// Open recommended MCP install wizard modal
+function openRecommendedMcpWizard(mcpId) {
+  const mcpDef = RECOMMENDED_MCP_SERVERS.find(m => m.id === mcpId);
+  if (!mcpDef) {
+    showRefreshToast(`Unknown MCP: ${mcpId}`, 'error');
+    return;
+  }
+
+  // Create wizard modal
+  const existingModal = document.getElementById('recommendedMcpWizardModal');
+  if (existingModal) {
+    existingModal.remove();
+  }
+
+  const hasFields = mcpDef.fields && mcpDef.fields.length > 0;
+
+  const modal = document.createElement('div');
+  modal.id = 'recommendedMcpWizardModal';
+  modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+  modal.innerHTML = `
+    <div class="bg-card border border-border rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <!-- Header -->
+      <div class="flex items-center justify-between p-4 border-b border-border">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+            <i data-lucide="${mcpDef.icon}" class="w-5 h-5 text-primary"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-foreground">${t('mcp.wizard.install')} ${escapeHtml(mcpDef.name)}</h3>
+            <p class="text-sm text-muted-foreground">${escapeHtml(mcpDef.description)}</p>
+          </div>
+        </div>
+        <button onclick="closeRecommendedMcpWizard()" class="text-muted-foreground hover:text-foreground">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Content -->
+      <div class="p-4 space-y-4">
+        ${hasFields ? `
+          <div class="space-y-3">
+            ${mcpDef.fields.map(field => `
+              <div class="space-y-1.5">
+                <label class="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                  ${escapeHtml(field.label)}
+                  ${field.required ? '<span class="text-destructive">*</span>' : ''}
+                </label>
+                ${field.description ? `<p class="text-xs text-muted-foreground">${escapeHtml(field.description)}</p>` : ''}
+                <input type="${field.type || 'text'}"
+                       id="wizard-field-${field.key}"
+                       class="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                       placeholder="${escapeHtml(field.placeholder || '')}"
+                       value="${escapeHtml(field.default || '')}"
+                       ${field.required ? 'required' : ''}>
+              </div>
+            `).join('')}
+          </div>
+        ` : `
+          <div class="bg-success/10 border border-success/20 rounded-lg p-4 text-center">
+            <i data-lucide="check-circle" class="w-8 h-8 text-success mx-auto mb-2"></i>
+            <p class="text-sm text-foreground">${t('mcp.wizard.noConfig')}</p>
+          </div>
+        `}
+
+        <!-- Scope Selection -->
+        <div class="space-y-2 pt-2 border-t border-border">
+          <label class="text-sm font-medium text-foreground">${t('mcp.wizard.installTo')}</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button"
+                    class="wizard-scope-btn px-3 py-2 text-sm border border-border rounded-lg hover:bg-accent transition-colors flex items-center justify-center gap-1.5"
+                    data-scope="project"
+                    onclick="selectWizardScope('project')">
+              <i data-lucide="folder" class="w-4 h-4"></i>
+              ${t('mcp.wizard.project')}
+            </button>
+            <button type="button"
+                    class="wizard-scope-btn px-3 py-2 text-sm border border-border rounded-lg hover:bg-accent transition-colors flex items-center justify-center gap-1.5 bg-primary/10 border-primary"
+                    data-scope="global"
+                    onclick="selectWizardScope('global')">
+              <i data-lucide="globe" class="w-4 h-4"></i>
+              ${t('mcp.wizard.global')}
+            </button>
+            <button type="button"
+                    class="wizard-scope-btn px-3 py-2 text-sm border border-border rounded-lg hover:bg-accent transition-colors flex items-center justify-center gap-1.5"
+                    data-scope="codex"
+                    onclick="selectWizardScope('codex')">
+              <i data-lucide="code-2" class="w-4 h-4"></i>
+              Codex
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="flex items-center justify-end gap-2 p-4 border-t border-border">
+        <button onclick="closeRecommendedMcpWizard()"
+                class="px-4 py-2 text-sm border border-border rounded-lg hover:bg-accent transition-colors">
+          ${t('common.cancel')}
+        </button>
+        <button onclick="submitRecommendedMcpWizard('${mcpId}')"
+                class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5">
+          <i data-lucide="download" class="w-4 h-4"></i>
+          ${t('mcp.wizard.install')}
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Initialize Lucide icons in modal
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+
+  // Set default scope to global
+  window.selectedWizardScope = 'global';
+
+  // Focus first input if exists
+  if (hasFields) {
+    const firstInput = modal.querySelector('input');
+    if (firstInput) firstInput.focus();
+  }
+}
+
+// Close recommended MCP wizard modal
+function closeRecommendedMcpWizard() {
+  const modal = document.getElementById('recommendedMcpWizardModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+// Select scope in wizard
+function selectWizardScope(scope) {
+  window.selectedWizardScope = scope;
+
+  // Update button states
+  const buttons = document.querySelectorAll('.wizard-scope-btn');
+  buttons.forEach(btn => {
+    if (btn.dataset.scope === scope) {
+      btn.classList.add('bg-primary/10', 'border-primary');
+    } else {
+      btn.classList.remove('bg-primary/10', 'border-primary');
+    }
+  });
+}
+
+// Submit recommended MCP wizard
+async function submitRecommendedMcpWizard(mcpId) {
+  const mcpDef = RECOMMENDED_MCP_SERVERS.find(m => m.id === mcpId);
+  if (!mcpDef) {
+    showRefreshToast(`Unknown MCP: ${mcpId}`, 'error');
+    return;
+  }
+
+  // Collect field values
+  const values = {};
+  let hasError = false;
+
+  for (const field of mcpDef.fields) {
+    const input = document.getElementById(`wizard-field-${field.key}`);
+    const value = input ? input.value.trim() : '';
+
+    if (field.required && !value) {
+      showRefreshToast(`${field.label} is required`, 'error');
+      if (input) input.focus();
+      hasError = true;
+      break;
+    }
+
+    values[field.key] = value;
+  }
+
+  if (hasError) return;
+
+  // Build config
+  const serverConfig = mcpDef.buildConfig(values);
+  const scope = window.selectedWizardScope || 'global';
+
+  try {
+    showRefreshToast(`Installing ${mcpDef.name}...`, 'info');
+
+    if (scope === 'codex') {
+      await addCodexMcpServer(mcpId, serverConfig);
+    } else if (scope === 'global') {
+      await addGlobalMcpServer(mcpId, serverConfig);
+    } else {
+      await copyMcpServerToProject(mcpId, serverConfig);
+    }
+
+    closeRecommendedMcpWizard();
+    showRefreshToast(`${mcpDef.name} installed successfully`, 'success');
+  } catch (err) {
+    console.error(`Failed to install ${mcpDef.name}:`, err);
+    showRefreshToast(`Failed to install ${mcpDef.name}: ${err.message}`, 'error');
+  }
+}
+
 // ========== Global Exports for onclick handlers ==========
 // Expose functions to global scope to support inline onclick handlers
 window.setCliMode = setCliMode;
@@ -1212,3 +1516,9 @@ window.toggleProjectConfigType = toggleProjectConfigType;
 window.getPreferredProjectConfigType = getPreferredProjectConfigType;
 window.setPreferredProjectConfigType = setPreferredProjectConfigType;
 window.setCcwProjectRootToCurrent = setCcwProjectRootToCurrent;
+window.getRecommendedMcpServers = getRecommendedMcpServers;
+window.isRecommendedMcpInstalled = isRecommendedMcpInstalled;
+window.openRecommendedMcpWizard = openRecommendedMcpWizard;
+window.closeRecommendedMcpWizard = closeRecommendedMcpWizard;
+window.selectWizardScope = selectWizardScope;
+window.submitRecommendedMcpWizard = submitRecommendedMcpWizard;
