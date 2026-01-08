@@ -31,9 +31,12 @@ export const PREDEFINED_MODELS: Record<CliToolName, string[]> = {
   codex: ['gpt-5.2', 'gpt-4.1', 'o4-mini', 'o3'],
   claude: ['sonnet', 'opus', 'haiku', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101'],
   opencode: [
+    'opencode/glm-4.7-free',
+    'opencode/gpt-5-nano',
+    'opencode/grok-code',
+    'opencode/minimax-m2.1-free',
     'anthropic/claude-sonnet-4-20250514',
     'anthropic/claude-opus-4-20250514',
-    'anthropic/claude-haiku',
     'openai/gpt-4.1',
     'openai/o3',
     'google/gemini-2.5-pro',
@@ -66,8 +69,8 @@ export const DEFAULT_CONFIG: CliConfig = {
     },
     opencode: {
       enabled: true,
-      primaryModel: '',  // Empty = use opencode's default config
-      secondaryModel: ''
+      primaryModel: 'opencode/glm-4.7-free',  // Free model as default
+      secondaryModel: 'opencode/glm-4.7-free'
     }
   }
 };

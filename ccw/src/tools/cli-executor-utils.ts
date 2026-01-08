@@ -196,6 +196,8 @@ export function buildCommand(params: {
       if (include) {
         args.push('--include-directories', include);
       }
+      // Enable stream-json output for structured parsing
+      args.push('-o', 'stream-json');
       break;
 
     case 'qwen':
@@ -215,6 +217,8 @@ export function buildCommand(params: {
       if (include) {
         args.push('--include-directories', include);
       }
+      // Enable stream-json output for structured parsing (same as gemini)
+      args.push('-o', 'stream-json');
       break;
 
     case 'codex':
@@ -240,6 +244,8 @@ export function buildCommand(params: {
             args.push('--add-dir', addDir);
           }
         }
+        // Enable JSON output for structured parsing
+        args.push('--json');
         // codex resume uses positional prompt argument, not stdin
         // Format: codex resume <session-id> [prompt]
         useStdin = false;
@@ -260,6 +266,8 @@ export function buildCommand(params: {
             args.push('--add-dir', addDir);
           }
         }
+        // Enable JSON output for structured parsing
+        args.push('--json');
         args.push('-');
       }
       break;
@@ -288,8 +296,9 @@ export function buildCommand(params: {
       } else {
         args.push('--permission-mode', 'default');
       }
-      // Output format for better parsing
-      args.push('--output-format', 'text');
+      // Output format: stream-json for structured parsing (requires --verbose)
+      args.push('--output-format', 'stream-json');
+      args.push('--verbose');
       // Add directories
       if (include) {
         const dirs = include.split(',').map((d) => d.trim()).filter((d) => d);
@@ -317,8 +326,8 @@ export function buildCommand(params: {
       if (model) {
         args.push('--model', model);
       }
-      // Output format for parsing
-      args.push('--format', 'default');
+      // Output format: json for structured parsing
+      args.push('--format', 'json');
       // Add prompt as positional argument at the end
       // OpenCode expects: opencode run [options] [message..]
       args.push(prompt);

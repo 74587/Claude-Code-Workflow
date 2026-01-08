@@ -104,6 +104,72 @@ export class PlainTextParser implements IOutputParser {
 export class JsonLinesParser implements IOutputParser {
   private buffer: string = '';
 
+  /**
+   * Classify non-JSON content to determine appropriate output type
+   * Helps distinguish real errors from normal progress/output sent to stderr
+   * (Some CLI tools like Codex send all progress info to stderr)
+   */
+  private classifyNonJsonContent(content: string, originalType: 'stdout' | 'stderr'): 'stdout' | 'stderr' {
+    // If it came from stdout, keep it as stdout
+    if (originalType === 'stdout') {
+      return 'stdout';
+    }
+
+    // Check if content looks like an actual error
+    const errorPatterns = [
+      /^error:/i,
+      /^fatal:/i,
+      /^failed:/i,
+      /^exception:/i,
+      /\bERROR\b/,
+      /\bFATAL\b/,
+      /\bFAILED\b/,
+      /\bpanic:/i,
+      /traceback \(most recent/i,
+      /syntaxerror:/i,
+      /typeerror:/i,
+      /referenceerror:/i,
+      /\bstack trace\b/i,
+      /\bat line \d+\b/i,
+      /permission denied/i,
+      /access denied/i,
+      /authentication failed/i,
+      /connection refused/i,
+      /network error/i,
+      /unable to connect/i,
+    ];
+
+    for (const pattern of errorPatterns) {
+      if (pattern.test(content)) {
+        return 'stderr';
+      }
+    }
+
+    // Check for common CLI progress/info patterns that are NOT errors
+    const progressPatterns = [
+      /^[-=]+$/,                    // Separators: ----, ====
+      /^\s*\d+\s*$/,               // Just numbers
+      /tokens?\s*(used|count)/i,   // Token counts
+      /model:/i,                   // Model info
+      /session\s*id:/i,            // Session info
+      /workdir:/i,                 // Working directory
+      /provider:/i,                // Provider info
+      /^(user|assistant|codex|claude|gemini)$/i,  // Role labels
+      /^mcp:/i,                    // MCP status
+      /^[-\s]*$/,                  // Empty or whitespace/dashes
+    ];
+
+    for (const pattern of progressPatterns) {
+      if (pattern.test(content)) {
+        return 'stdout';  // Treat as normal output, not error
+      }
+    }
+
+    // Default: if stderr but doesn't look like an error, treat as stdout
+    // This handles CLI tools that send everything to stderr (like Codex)
+    return 'stdout';
+  }
+
   parse(chunk: Buffer, streamType: 'stdout' | 'stderr'): CliOutputUnit[] {
     const text = chunk.toString('utf8');
     this.buffer += text;
@@ -126,8 +192,11 @@ export class JsonLinesParser implements IOutputParser {
         parsed = JSON.parse(trimmed);
       } catch {
         // Not valid JSON, treat as plain text
+        // For stderr content, check if it's actually an error or just normal output
+        // (Some CLI tools like Codex send all progress info to stderr)
+        const effectiveType = this.classifyNonJsonContent(line, streamType);
         units.push({
-          type: streamType,
+          type: effectiveType,
           content: line,
           timestamp: new Date().toISOString()
         });
@@ -171,12 +240,269 @@ export class JsonLinesParser implements IOutputParser {
 
   /**
    * Map parsed JSON object to appropriate IR type
-   * Handles various JSON event formats from different CLI tools
+   * Handles various JSON event formats from different CLI tools:
+   * - Gemini CLI: stream-json format (init, message, result)
+   * - Codex CLI: --json format (thread.started, item.completed, turn.completed)
+   * - Claude CLI: stream-json format (system, assistant, result)
+   * - OpenCode CLI: --format json (step_start, text, step_finish)
    */
   private mapJsonToIR(json: any, fallbackStreamType: 'stdout' | 'stderr'): CliOutputUnit | null {
-    const timestamp = json.timestamp || new Date().toISOString();
+    // Handle numeric timestamp (milliseconds) from OpenCode
+    const timestamp = typeof json.timestamp === 'number'
+      ? new Date(json.timestamp).toISOString()
+      : (json.timestamp || new Date().toISOString());
 
-    // Detect type from JSON structure
+    // ========== Gemini CLI stream-json format ==========
+    // {"type":"init","timestamp":"...","session_id":"...","model":"..."}
+    // {"type":"message","timestamp":"...","role":"assistant","content":"...","delta":true}
+    // {"type":"result","timestamp":"...","status":"success","stats":{...}}
+    if (json.type === 'init' && json.session_id) {
+      return {
+        type: 'metadata',
+        content: {
+          tool: 'gemini',
+          sessionId: json.session_id,
+          model: json.model,
+          raw: json
+        },
+        timestamp
+      };
+    }
+
+    if (json.type === 'message' && json.role) {
+      // Gemini assistant/user message
+      if (json.role === 'assistant') {
+        return {
+          type: 'stdout',
+          content: json.content || '',
+          timestamp
+        };
+      }
+      // Skip user messages in output (they're echo of input)
+      return null;
+    }
+
+    if (json.type === 'result' && json.stats) {
+      return {
+        type: 'metadata',
+        content: {
+          tool: 'gemini',
+          status: json.status,
+          stats: json.stats,
+          raw: json
+        },
+        timestamp
+      };
+    }
+
+    // ========== Codex CLI --json format ==========
+    // {"type":"thread.started","thread_id":"..."}
+    // {"type":"turn.started"}
+    // {"type":"item.started","item":{"id":"...","type":"command_execution","status":"in_progress"}}
+    // {"type":"item.completed","item":{"id":"...","type":"reasoning","text":"..."}}
+    // {"type":"item.completed","item":{"id":"...","type":"agent_message","text":"..."}}
+    // {"type":"item.completed","item":{"id":"...","type":"command_execution","aggregated_output":"..."}}
+    // {"type":"turn.completed","usage":{"input_tokens":...,"output_tokens":...}}
+    if (json.type === 'thread.started' && json.thread_id) {
+      return {
+        type: 'metadata',
+        content: {
+          tool: 'codex',
+          threadId: json.thread_id,
+          raw: json
+        },
+        timestamp
+      };
+    }
+
+    if (json.type === 'turn.started') {
+      return {
+        type: 'progress',
+        content: {
+          message: 'Turn started',
+          tool: 'codex'
+        },
+        timestamp
+      };
+    }
+
+    // Handle item.started - command execution in progress
+    if (json.type === 'item.started' && json.item) {
+      const item = json.item;
+      if (item.type === 'command_execution') {
+        return {
+          type: 'progress',
+          content: {
+            message: `Executing: ${item.command || 'command'}`,
+            tool: 'codex',
+            status: item.status || 'in_progress'
+          },
+          timestamp
+        };
+      }
+      // Other item.started types
+      return {
+        type: 'progress',
+        content: {
+          message: `Starting: ${item.type}`,
+          tool: 'codex'
+        },
+        timestamp
+      };
+    }
+
+    if (json.type === 'item.completed' && json.item) {
+      const item = json.item;
+
+      if (item.type === 'reasoning') {
+        return {
+          type: 'thought',
+          content: item.text || item.summary || '',
+          timestamp
+        };
+      }
+
+      if (item.type === 'agent_message') {
+        return {
+          type: 'stdout',
+          content: item.text || '',
+          timestamp
+        };
+      }
+
+      // Handle command_execution output
+      if (item.type === 'command_execution') {
+        // Show command output as code block
+        const output = item.aggregated_output || '';
+        return {
+          type: 'code',
+          content: {
+            command: item.command,
+            output: output,
+            exitCode: item.exit_code,
+            status: item.status
+          },
+          timestamp
+        };
+      }
+
+      // Other item types (function_call, etc.)
+      return {
+        type: 'system',
+        content: {
+          itemType: item.type,
+          itemId: item.id,
+          raw: item
+        },
+        timestamp
+      };
+    }
+
+    if (json.type === 'turn.completed' && json.usage) {
+      return {
+        type: 'metadata',
+        content: {
+          tool: 'codex',
+          usage: json.usage,
+          raw: json
+        },
+        timestamp
+      };
+    }
+
+    // ========== Claude CLI stream-json format ==========
+    // {"type":"system","subtype":"init","cwd":"...","session_id":"...","tools":[...],"model":"..."}
+    // {"type":"assistant","message":{...},"session_id":"..."}
+    // {"type":"result","subtype":"success","duration_ms":...,"result":"...","total_cost_usd":...}
+    if (json.type === 'system' && json.subtype === 'init') {
+      return {
+        type: 'metadata',
+        content: {
+          tool: 'claude',
+          sessionId: json.session_id,
+          model: json.model,
+          cwd: json.cwd,
+          tools: json.tools,
+          mcpServers: json.mcp_servers,
+          raw: json
+        },
+        timestamp
+      };
+    }
+
+    if (json.type === 'assistant' && json.message) {
+      // Extract text content from Claude message
+      const message = json.message;
+      const textContent = message.content
+        ?.filter((c: any) => c.type === 'text')
+        .map((c: any) => c.text)
+        .join('\n') || '';
+
+      return {
+        type: 'stdout',
+        content: textContent,
+        timestamp
+      };
+    }
+
+    if (json.type === 'result' && json.subtype) {
+      return {
+        type: 'metadata',
+        content: {
+          tool: 'claude',
+          status: json.subtype,
+          result: json.result,
+          durationMs: json.duration_ms,
+          totalCostUsd: json.total_cost_usd,
+          usage: json.usage,
+          modelUsage: json.modelUsage,
+          raw: json
+        },
+        timestamp
+      };
+    }
+
+    // ========== OpenCode CLI --format json ==========
+    // {"type":"step_start","timestamp":...,"sessionID":"...","part":{...}}
+    // {"type":"text","timestamp":...,"sessionID":"...","part":{"type":"text","text":"..."}}
+    // {"type":"step_finish","timestamp":...,"part":{"tokens":{...}}}
+    if (json.type === 'step_start' && json.sessionID) {
+      return {
+        type: 'progress',
+        content: {
+          message: 'Step started',
+          tool: 'opencode',
+          sessionId: json.sessionID,
+          raw: json.part
+        },
+        timestamp
+      };
+    }
+
+    if (json.type === 'text' && json.part) {
+      return {
+        type: 'stdout',
+        content: json.part.text || '',
+        timestamp
+      };
+    }
+
+    if (json.type === 'step_finish' && json.part) {
+      return {
+        type: 'metadata',
+        content: {
+          tool: 'opencode',
+          reason: json.part.reason,
+          tokens: json.part.tokens,
+          cost: json.part.cost,
+          raw: json.part
+        },
+        timestamp
+      };
+    }
+
+    // ========== Legacy/Generic formats ==========
+    // Check for generic type field patterns
     if (json.type) {
       switch (json.type) {
         case 'thought':
@@ -239,7 +565,7 @@ export class JsonLinesParser implements IOutputParser {
       }
     }
 
-    // Check for Codex JSONL format
+    // Check for legacy Codex JSONL format (response_item)
     if (json.type === 'response_item' && json.payload) {
       const payloadType = json.payload.type;
 
@@ -274,7 +600,7 @@ export class JsonLinesParser implements IOutputParser {
       }
     }
 
-    // Check for Gemini/Qwen message format
+    // Check for Gemini/Qwen message format (role-based)
     if (json.role === 'user' || json.role === 'assistant') {
       return {
         type: 'stdout',
@@ -283,6 +609,7 @@ export class JsonLinesParser implements IOutputParser {
       };
     }
 
+    // Check for thoughts array
     if (json.thoughts && Array.isArray(json.thoughts)) {
       return {
         type: 'thought',

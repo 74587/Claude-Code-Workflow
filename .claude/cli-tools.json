@@ -24,6 +24,13 @@
       "isBuiltin": true,
       "command": "claude",
       "description": "Anthropic AI assistant"
+    },
+    "opencode": {
+      "enabled": true,
+      "isBuiltin": true,
+      "command": "opencode",
+      "description": "OpenCode AI assistant",
+      "primaryModel": "opencode/glm-4.7-free"
     }
   },
   "customEndpoints": [],

@@ -347,6 +347,11 @@ function renderFormattedLine(line, searchFilter) {
   content = content.replace(/`([^`]+)`/g, '<code class="cli-inline-code">$1</code>');
 
   // Type badge icons for backend chunkType (CliOutputUnit.type)
+  // Maps to different CLI tools' output types:
+  // - Gemini: init→metadata, message→stdout, result→metadata
+  // - Codex: reasoning→thought, agent_message→stdout, turn.completed→metadata
+  // - Claude: system→metadata, assistant→stdout, result→metadata
+  // - OpenCode: step_start→progress, text→stdout, step_finish→metadata
   const CHUNK_TYPE_ICONS = {
     thought: 'brain',
     code: 'code',
@@ -354,7 +359,8 @@ function renderFormattedLine(line, searchFilter) {
     progress: 'loader',
     system: 'settings',
     stderr: 'alert-circle',
-    metadata: 'info'
+    metadata: 'info',
+    stdout: 'message-circle'
   };
 
   // Type badge labels for backend chunkType
@@ -365,7 +371,8 @@ function renderFormattedLine(line, searchFilter) {
     progress: 'Progress',
     system: 'System',
     stderr: 'Error',
-    metadata: 'Info'
+    metadata: 'Info',
+    stdout: 'Response'
   };
 
   // Build type badge - prioritize content prefix, then fall back to chunkType
