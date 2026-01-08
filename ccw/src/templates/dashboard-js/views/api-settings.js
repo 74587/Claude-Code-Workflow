@@ -2396,7 +2396,7 @@ function deleteModel(providerId, modelId, modelType) {
       });
     })
     .then(function() {
-      return loadApiSettings();
+      return loadApiSettings(true);  // Force refresh to get updated data
     })
     .then(function() {
       if (selectedProviderId === providerId) {
@@ -4091,23 +4091,21 @@ function renderModelPoolsList() {
                     type === 'llm' ? t('apiSettings.llmPools') : 
                     t('apiSettings.rerankerPools');
 
-    html += '<div class="pool-type-group" style="margin-bottom: 1.5rem;">' +
-      '<div class="pool-type-header" style="padding: 0.5rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary); border-bottom: 1px solid var(--border);">' +
-      typeLabel +
-      '</div>';
+    html += '<div class="pool-type-group">' +
+      '<div class="pool-type-header">' + typeLabel + '</div>';
 
     pools.forEach(function(pool) {
       var isSelected = selectedPoolId === pool.id;
       var statusClass = pool.enabled ? 'status-enabled' : 'status-disabled';
       var statusText = pool.enabled ? t('common.enabled') : t('common.disabled');
 
-      html += '<div class="pool-item' + (isSelected ? ' selected' : '') + '" onclick="selectModelPool(\'' + pool.id + '\')" style="padding: 0.75rem; cursor: pointer; border-bottom: 1px solid var(--border);">' +
+      html += '<div class="pool-item' + (isSelected ? ' selected' : '') + '" onclick="selectModelPool(\'' + pool.id + '\')">' +
         '<div style="display: flex; justify-content: space-between; align-items: center;">' +
         '<div style="flex: 1; min-width: 0;">' +
-        '<div style="font-weight: 500; margin-bottom: 0.25rem;">' + escapeHtml(pool.name || pool.targetModel) + '</div>' +
-        '<div style="font-size: 0.75rem; color: var(--text-secondary);">' + escapeHtml(pool.targetModel) + '</div>' +
+        '<div class="pool-name">' + escapeHtml(pool.name || pool.targetModel) + '</div>' +
+        '<div class="pool-target">' + escapeHtml(pool.targetModel) + '</div>' +
         '</div>' +
-        '<span class="status-badge ' + statusClass + '" style="font-size: 0.7rem; padding: 0.25rem 0.5rem; border-radius: 4px;">' + statusText + '</span>' +
+        '<span class="status-badge ' + statusClass + '">' + statusText + '</span>' +
         '</div>' +
         '</div>';
     });

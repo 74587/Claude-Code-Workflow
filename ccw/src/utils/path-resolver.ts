@@ -23,6 +23,7 @@ export interface ValidatePathOptions {
 
 /**
  * Resolve a path, handling ~ for home directory
+ * Also handles Windows drive-relative paths (e.g., "D:path" -> "D:\path")
  * @param inputPath - Path to resolve
  * @returns Absolute path
  */
@@ -32,6 +33,17 @@ export function resolvePath(inputPath: string): string {
   // Handle ~ for home directory
   if (inputPath.startsWith('~')) {
     return join(homedir(), inputPath.slice(1));
+  }
+
+  // Handle Windows drive-relative paths (e.g., "D:path" without backslash)
+  // Pattern: single letter followed by colon, then immediately a non-slash character
+  // This converts "D:path" to "D:\path" to make it absolute
+  if (process.platform === 'win32' || /^[a-zA-Z]:/.test(inputPath)) {
+    const driveRelativeMatch = inputPath.match(/^([a-zA-Z]:)([^/\\].*)$/);
+    if (driveRelativeMatch) {
+      // Insert backslash after drive letter
+      inputPath = driveRelativeMatch[1] + '\\' + driveRelativeMatch[2];
+    }
   }
 
   return resolve(inputPath);
