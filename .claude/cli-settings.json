@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "defaultTool": "gemini",
+  "promptFormat": "plain",
+  "smartContext": {
+    "enabled": false,
+    "maxFiles": 10
+  },
+  "nativeResume": true,
+  "recursiveQuery": true,
+  "cache": {
+    "injectionMode": "auto",
+    "defaultPrefix": "",
+    "defaultSuffix": ""
+  },
+  "codeIndexMcp": "ace",
+  "$schema": "./cli-settings.schema.json"
+}

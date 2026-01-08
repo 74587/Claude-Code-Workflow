@@ -11,12 +11,18 @@ let selectedProviderId = null;
 let providerSearchQuery = '';
 let activeModelTab = 'llm';
 let expandedModelGroups = new Set();
-let activeSidebarTab = 'providers'; // 'providers' | 'endpoints' | 'cache' | 'embedding-pool' | 'cli-settings'
+let activeSidebarTab = 'providers'; // 'providers' | 'endpoints' | 'cache' | 'embedding-pool' | 'model-pools' | 'cli-settings'
 
-// Embedding Pool state
+// Embedding Pool state (legacy, kept for backward compatibility)
 let embeddingPoolConfig = null;
 let embeddingPoolAvailableModels = [];
 let embeddingPoolDiscoveredProviders = [];
+
+// Multi-Model Pool state
+let modelPools = [];
+let selectedPoolId = null;
+let poolAvailableModels = {};
+let poolDiscoveredProviders = {};
 
 // CLI Settings state
 let cliSettingsData = null;
@@ -29,6 +35,9 @@ const CCW_LITELLM_STATUS_CACHE_TTL = 60000; // 60 seconds
 
 // Track if this is the first render (force refresh on first load)
 let isFirstApiSettingsRender = true;
+
+// Note: CSRF token management (csrfToken, initCsrfToken, csrfFetch) is defined in cli-manager.js
+// and shared across all views when files are bundled together
 
 // ========== Data Loading ==========
 
@@ -131,6 +140,57 @@ async function loadCliSettings(forceRefresh = false) {
 }
 
 /**
+ * Load all model pool configurations
+ */
+async function loadModelPools() {
+  try {
+    const response = await fetch('/api/litellm-api/model-pools');
+    if (!response.ok) throw new Error('Failed to load model pools');
+    const data = await response.json();
+    modelPools = data.pools || [];
+    return modelPools;
+  } catch (err) {
+    console.error('Failed to load model pools:', err);
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+    return [];
+  }
+}
+
+/**
+ * Load available models for a specific model type
+ */
+async function loadAvailableModelsForType(modelType) {
+  try {
+    const response = await fetch('/api/litellm-api/model-pools/available-models/' + modelType);
+    if (!response.ok) throw new Error('Failed to load available models');
+    const data = await response.json();
+    poolAvailableModels[modelType] = data.availableModels || [];
+    return data.availableModels;
+  } catch (err) {
+    console.error('Failed to load available models:', err);
+    return [];
+  }
+}
+
+/**
+ * Discover providers for a specific model in pool context
+ */
+async function discoverProvidersForPool(modelType, targetModel) {
+  try {
+    const response = await fetch('/api/litellm-api/model-pools/discover/' + modelType + '/' + encodeURIComponent(targetModel));
+    if (!response.ok) throw new Error('Failed to discover providers');
+    const data = await response.json();
+    const key = modelType + ':' + targetModel;
+    poolDiscoveredProviders[key] = data.discovered || [];
+    return data;
+  } catch (err) {
+    console.error('Failed to discover providers:', err);
+    poolDiscoveredProviders[key] = [];
+    return null;
+  }
+}
+
+/**
  * Save CLI Settings endpoint
  */
 async function saveCliSettingsEndpoint(data) {
@@ -138,7 +198,8 @@ async function saveCliSettingsEndpoint(data) {
     const method = data.id ? 'PUT' : 'POST';
     const url = data.id ? '/api/cli/settings/' + data.id : '/api/cli/settings';
 
-    const response = await fetch(url, {
+    await initCsrfToken();
+    const response = await csrfFetch(url, {
       method: method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -174,7 +235,8 @@ async function deleteCliSettingsEndpoint(endpointId) {
   if (!confirm(t('apiSettings.confirmDeleteSettings'))) return;
 
   try {
-    const response = await fetch('/api/cli/settings/' + endpointId, {
+    await initCsrfToken();
+    const response = await csrfFetch('/api/cli/settings/' + endpointId, {
       method: 'DELETE'
     });
 
@@ -237,7 +299,8 @@ async function saveEmbeddingPoolConfig() {
       defaultMaxConcurrentPerKey: defaultMaxConcurrentPerKey
     } : null;
 
-    const response = await fetch('/api/litellm-api/embedding-pool', {
+    await initCsrfToken();
+    const response = await csrfFetch('/api/litellm-api/embedding-pool', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(poolConfig)
@@ -260,9 +323,9 @@ async function saveEmbeddingPoolConfig() {
     // Update sidebar summary
     const sidebarContainer = document.querySelector('.api-settings-sidebar');
     if (sidebarContainer) {
-      const contentArea = sidebarContainer.querySelector('.provider-list, .endpoints-list, .embedding-pool-sidebar-info, .embedding-pool-sidebar-summary, .cache-sidebar-info');
-      if (contentArea && contentArea.parentElement) {
-        contentArea.parentElement.innerHTML = renderEmbeddingPoolSidebar();
+      const contentArea = sidebarContainer.querySelector('.embedding-pool-sidebar-info, .embedding-pool-sidebar-summary');
+      if (contentArea) {
+        contentArea.outerHTML = renderEmbeddingPoolSidebar();
         if (window.lucide) lucide.createIcons();
       }
     }
@@ -292,11 +355,11 @@ async function toggleProviderExclusion(providerId) {
 
   // Re-render the discovered providers section
   renderDiscoveredProviders();
-  
+
   // Update sidebar summary
-  const sidebarContainer = document.querySelector('.api-settings-sidebar .embedding-pool-sidebar-summary');
-  if (sidebarContainer && sidebarContainer.parentElement) {
-    sidebarContainer.parentElement.innerHTML = renderEmbeddingPoolSidebar();
+  const sidebarContainer = document.querySelector('.api-settings-sidebar .embedding-pool-sidebar-summary, .api-settings-sidebar .embedding-pool-sidebar-info');
+  if (sidebarContainer) {
+    sidebarContainer.outerHTML = renderEmbeddingPoolSidebar();
     if (window.lucide) lucide.createIcons();
   }
 }
@@ -557,7 +620,8 @@ async function saveProvider() {
       : '/api/litellm-api/providers';
     const method = providerId ? 'PUT' : 'POST';
 
-    const response = await fetch(url, {
+    await initCsrfToken();
+    const response = await csrfFetch(url, {
       method: method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(providerData)
@@ -585,7 +649,8 @@ async function deleteProvider(providerId) {
   if (!confirm(t('apiSettings.confirmDeleteProvider'))) return;
 
   try {
-    const response = await fetch('/api/litellm-api/providers/' + providerId, {
+    await initCsrfToken();
+    const response = await csrfFetch('/api/litellm-api/providers/' + providerId, {
       method: 'DELETE'
     });
 
@@ -624,7 +689,8 @@ async function testProviderConnection(providerIdParam) {
   }
 
   try {
-    const response = await fetch('/api/litellm-api/providers/' + providerId + '/test', {
+    await initCsrfToken();
+    const response = await csrfFetch('/api/litellm-api/providers/' + providerId + '/test', {
       method: 'POST'
     });
 
@@ -917,7 +983,8 @@ async function saveEndpoint() {
       : '/api/litellm-api/endpoints';
     const method = form.dataset.endpointId ? 'PUT' : 'POST';
 
-    const response = await fetch(url, {
+    await initCsrfToken();
+    const response = await csrfFetch(url, {
       method: method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(endpointData)
@@ -945,7 +1012,8 @@ async function deleteEndpoint(endpointId) {
   if (!confirm(t('apiSettings.confirmDeleteEndpoint'))) return;
 
   try {
-    const response = await fetch('/api/litellm-api/endpoints/' + endpointId, {
+    await initCsrfToken();
+    const response = await csrfFetch('/api/litellm-api/endpoints/' + endpointId, {
       method: 'DELETE'
     });
 
@@ -1018,7 +1086,8 @@ async function clearCache() {
   if (!confirm(t('apiSettings.confirmClearCache'))) return;
 
   try {
-    const response = await fetch('/api/litellm-api/cache/clear', {
+    await initCsrfToken();
+    const response = await csrfFetch('/api/litellm-api/cache/clear', {
       method: 'POST'
     });
 
@@ -1042,7 +1111,8 @@ async function toggleGlobalCache() {
   const enabled = document.getElementById('global-cache-enabled').checked;
 
   try {
-    const response = await fetch('/api/litellm-api/config/cache', {
+    await initCsrfToken();
+    const response = await csrfFetch('/api/litellm-api/config/cache', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: enabled })
@@ -1095,8 +1165,11 @@ async function renderApiSettings() {
     '<button class="sidebar-tab' + (activeSidebarTab === 'cli-settings' ? ' active' : '') + '" onclick="switchSidebarTab(\'cli-settings\')">' +
     '<i data-lucide="settings"></i> ' + t('apiSettings.cliSettings') +
     '</button>' +
+    '<button class="sidebar-tab' + (activeSidebarTab === 'model-pools' ? ' active' : '') + '" onclick="switchSidebarTab(\'model-pools\')">' +
+    '<i data-lucide="layers"></i> ' + t('apiSettings.modelPools') +
+    '</button>' +
     '<button class="sidebar-tab' + (activeSidebarTab === 'embedding-pool' ? ' active' : '') + '" onclick="switchSidebarTab(\'embedding-pool\')">' +
-    '<i data-lucide="repeat"></i> ' + t('apiSettings.embeddingPool') +
+    '<i data-lucide="repeat"></i> ' + t('apiSettings.embeddingPool') + ' (Legacy)' +
     '</button>' +
     '<button class="sidebar-tab' + (activeSidebarTab === 'cache' ? ' active' : '') + '" onclick="switchSidebarTab(\'cache\')">' +
     '<i data-lucide="database"></i> ' + t('apiSettings.cache') +
@@ -1127,6 +1200,15 @@ async function renderApiSettings() {
       await loadEmbeddingPoolConfig();
     }
     sidebarContentHtml = renderEmbeddingPoolSidebar();
+  } else if (activeSidebarTab === 'model-pools') {
+    // Load model pools first if not already loaded
+    if (!modelPools || modelPools.length === 0) {
+      await loadModelPools();
+    }
+    sidebarContentHtml = '<div class="model-pools-list" id="model-pools-list"></div>';
+    addButtonHtml = '<button class="btn btn-primary btn-full" onclick="showAddModelPoolModal()">' +
+      '<i data-lucide="plus"></i> ' + t('apiSettings.addModelPool') +
+      '</button>';
   } else if (activeSidebarTab === 'cache') {
     sidebarContentHtml = '<div class="cache-sidebar-info" style="padding: 1rem; color: var(--text-secondary); font-size: 0.875rem;">' +
       '<p>' + t('apiSettings.cacheTabHint') + '</p>' +
@@ -1177,6 +1259,16 @@ async function renderApiSettings() {
     renderEndpointsMainPanel();
   } else if (activeSidebarTab === 'embedding-pool') {
     renderEmbeddingPoolMainPanel();
+  } else if (activeSidebarTab === 'model-pools') {
+    renderModelPoolsList();
+    // Auto-select first pool if exists
+    if (!selectedPoolId && modelPools && modelPools.length > 0) {
+      selectModelPool(modelPools[0].id);
+    } else if (selectedPoolId) {
+      renderModelPoolDetail(selectedPoolId);
+    } else {
+      renderModelPoolEmptyState();
+    }
   } else if (activeSidebarTab === 'cache') {
     renderCacheMainPanel();
   } else if (activeSidebarTab === 'cli-settings') {
@@ -1574,7 +1666,8 @@ function getDefaultApiBase(type) {
  */
 async function toggleProviderEnabled(providerId, enabled) {
   try {
-    var response = await fetch('/api/litellm-api/providers/' + providerId, {
+    await initCsrfToken();
+    var response = await csrfFetch('/api/litellm-api/providers/' + providerId, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: enabled })
@@ -2015,7 +2108,7 @@ function saveNewModel(event, providerId, modelType) {
       }
 
       models.push(newModel);
-      return fetch('/api/litellm-api/providers/' + providerId, {
+      return csrfFetch('/api/litellm-api/providers/' + providerId, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [modelsKey]: models })
@@ -2260,7 +2353,7 @@ function saveModelSettings(event, providerId, modelId, modelType) {
       var updateData = {};
       updateData[modelsKey] = models;
 
-      return fetch('/api/litellm-api/providers/' + providerId, {
+      return csrfFetch('/api/litellm-api/providers/' + providerId, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
@@ -2299,7 +2392,7 @@ function deleteModel(providerId, modelId, modelType) {
       var updateData = {};
       updateData[modelsKey] = updatedModels;
 
-      return fetch('/api/litellm-api/providers/' + providerId, {
+      return csrfFetch('/api/litellm-api/providers/' + providerId, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
@@ -2342,7 +2435,8 @@ async function saveProviderApiBase(providerId) {
   }
 
   try {
-    var response = await fetch('/api/litellm-api/providers/' + providerId, {
+    await initCsrfToken();
+    var response = await csrfFetch('/api/litellm-api/providers/' + providerId, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ apiBase: newApiBase || undefined })
@@ -2394,7 +2488,8 @@ async function deleteProviderWithConfirm(providerId) {
   if (!confirm(t('apiSettings.confirmDeleteProvider'))) return;
 
   try {
-    var response = await fetch('/api/litellm-api/providers/' + providerId, {
+    await initCsrfToken();
+    var response = await csrfFetch('/api/litellm-api/providers/' + providerId, {
       method: 'DELETE'
     });
 
@@ -2428,7 +2523,8 @@ async function deleteProviderWithConfirm(providerId) {
  */
 async function syncConfigToCodexLens() {
   try {
-    var response = await fetch('/api/litellm-api/config/sync', {
+    await initCsrfToken();
+    var response = await csrfFetch('/api/litellm-api/config/sync', {
       method: 'POST'
     });
 
@@ -2992,9 +3088,10 @@ async function onTargetModelChange(modelId) {
   // Update sidebar summary
   const sidebarContainer = document.querySelector('.api-settings-sidebar');
   if (sidebarContainer) {
-    const contentArea = sidebarContainer.querySelector('.provider-list, .endpoints-list, .embedding-pool-sidebar-info, .embedding-pool-sidebar-summary, .cache-sidebar-info');
-    if (contentArea && contentArea.parentElement) {
-      contentArea.parentElement.innerHTML = renderEmbeddingPoolSidebar();
+    const contentArea = sidebarContainer.querySelector('.provider-list, .endpoints-list, .embedding-pool-sidebar-info, .embedding-pool-sidebar-summary, .cache-sidebar-info, .cli-settings-list');
+    if (contentArea) {
+      // Use outerHTML to replace only the content area, not the entire sidebar
+      contentArea.outerHTML = renderEmbeddingPoolSidebar();
       if (window.lucide) lucide.createIcons();
     }
   }
@@ -3253,7 +3350,7 @@ function addApiKey(providerId) {
     .then(function(provider) {
       const apiKeys = provider.apiKeys || [];
       apiKeys.push(newKey);
-      return fetch('/api/litellm-api/providers/' + providerId, {
+      return csrfFetch('/api/litellm-api/providers/' + providerId, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKeys: apiKeys })
@@ -3279,7 +3376,7 @@ function removeApiKey(providerId, keyId) {
     .then(function(res) { return res.json(); })
     .then(function(provider) {
       const apiKeys = (provider.apiKeys || []).filter(function(k) { return k.id !== keyId; });
-      return fetch('/api/litellm-api/providers/' + providerId, {
+      return csrfFetch('/api/litellm-api/providers/' + providerId, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKeys: apiKeys })
@@ -3307,7 +3404,7 @@ function updateApiKeyField(providerId, keyId, field, value) {
       if (keyIndex >= 0) {
         apiKeys[keyIndex][field] = value;
       }
-      return fetch('/api/litellm-api/providers/' + providerId, {
+      return csrfFetch('/api/litellm-api/providers/' + providerId, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKeys: apiKeys })
@@ -3322,7 +3419,7 @@ function updateApiKeyField(providerId, keyId, field, value) {
  * Update provider routing strategy
  */
 function updateProviderRouting(providerId, strategy) {
-  fetch('/api/litellm-api/providers/' + providerId, {
+  csrfFetch('/api/litellm-api/providers/' + providerId, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ routingStrategy: strategy })
@@ -3340,7 +3437,7 @@ function updateHealthCheckEnabled(providerId, enabled) {
     .then(function(provider) {
       const healthCheck = provider.healthCheck || { intervalSeconds: 300, cooldownSeconds: 5, failureThreshold: 3 };
       healthCheck.enabled = enabled;
-      return fetch('/api/litellm-api/providers/' + providerId, {
+      return csrfFetch('/api/litellm-api/providers/' + providerId, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ healthCheck: healthCheck })
@@ -3365,7 +3462,7 @@ function updateHealthCheckField(providerId, field, value) {
     .then(function(provider) {
       const healthCheck = provider.healthCheck || { enabled: false, intervalSeconds: 300, cooldownSeconds: 5, failureThreshold: 3 };
       healthCheck[field] = value;
-      return fetch('/api/litellm-api/providers/' + providerId, {
+      return csrfFetch('/api/litellm-api/providers/' + providerId, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ healthCheck: healthCheck })
@@ -3385,7 +3482,7 @@ function testApiKey(providerId, keyId) {
   btn.classList.add('testing');
   btn.textContent = t('apiSettings.testingKey');
 
-  fetch('/api/litellm-api/providers/' + providerId + '/test-key', {
+  csrfFetch('/api/litellm-api/providers/' + providerId + '/test-key', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ keyId: keyId })
@@ -3525,7 +3622,8 @@ async function installCcwLitellm() {
   }
 
   try {
-    var response = await fetch('/api/litellm-api/ccw-litellm/install', {
+    await initCsrfToken();
+    var response = await csrfFetch('/api/litellm-api/ccw-litellm/install', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -3566,7 +3664,8 @@ async function uninstallCcwLitellm() {
   }
 
   try {
-    var response = await fetch('/api/litellm-api/ccw-litellm/uninstall', {
+    await initCsrfToken();
+    var response = await csrfFetch('/api/litellm-api/ccw-litellm/uninstall', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -3952,6 +4051,387 @@ async function submitCliSettings() {
     closeCliSettingsModal();
   }
 }
+
+// ========== Multi-Model Pool Management ==========
+
+/**
+ * Render model pools list in sidebar
+ */
+function renderModelPoolsList() {
+  var container = document.getElementById('model-pools-list');
+  if (!container) return;
+
+  if (!modelPools || modelPools.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="padding: 2rem; text-align: center; color: var(--text-secondary);">' +
+      '<i data-lucide="layers" style="width: 48px; height: 48px; margin-bottom: 1rem;"></i>' +
+      '<p>' + t('apiSettings.noPoolsConfigured') + '</p>' +
+      '</div>';
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  // Group pools by type
+  var poolsByType = {
+    embedding: [],
+    llm: [],
+    reranker: []
+  };
+
+  modelPools.forEach(function(pool) {
+    if (poolsByType[pool.modelType]) {
+      poolsByType[pool.modelType].push(pool);
+    }
+  });
+
+  var html = '';
+  
+  // Render each type group
+  ['embedding', 'llm', 'reranker'].forEach(function(type) {
+    var pools = poolsByType[type];
+    if (pools.length === 0) return;
+
+    var typeLabel = type === 'embedding' ? t('apiSettings.embeddingPools') : 
+                    type === 'llm' ? t('apiSettings.llmPools') : 
+                    t('apiSettings.rerankerPools');
+
+    html += '<div class="pool-type-group" style="margin-bottom: 1.5rem;">' +
+      '<div class="pool-type-header" style="padding: 0.5rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary); border-bottom: 1px solid var(--border);">' +
+      typeLabel +
+      '</div>';
+
+    pools.forEach(function(pool) {
+      var isSelected = selectedPoolId === pool.id;
+      var statusClass = pool.enabled ? 'status-enabled' : 'status-disabled';
+      var statusText = pool.enabled ? t('common.enabled') : t('common.disabled');
+
+      html += '<div class="pool-item' + (isSelected ? ' selected' : '') + '" onclick="selectModelPool(\'' + pool.id + '\')" style="padding: 0.75rem; cursor: pointer; border-bottom: 1px solid var(--border);">' +
+        '<div style="display: flex; justify-content: space-between; align-items: center;">' +
+        '<div style="flex: 1; min-width: 0;">' +
+        '<div style="font-weight: 500; margin-bottom: 0.25rem;">' + escapeHtml(pool.name || pool.targetModel) + '</div>' +
+        '<div style="font-size: 0.75rem; color: var(--text-secondary);">' + escapeHtml(pool.targetModel) + '</div>' +
+        '</div>' +
+        '<span class="status-badge ' + statusClass + '" style="font-size: 0.7rem; padding: 0.25rem 0.5rem; border-radius: 4px;">' + statusText + '</span>' +
+        '</div>' +
+        '</div>';
+    });
+
+    html += '</div>';
+  });
+
+  container.innerHTML = html;
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Select a model pool
+ */
+function selectModelPool(poolId) {
+  selectedPoolId = poolId;
+  renderModelPoolsList();
+  renderModelPoolDetail(poolId);
+}
+
+/**
+ * Render model pool detail in main panel
+ */
+function renderModelPoolDetail(poolId) {
+  var container = document.getElementById('provider-detail-panel');
+  if (!container) return;
+
+  var pool = modelPools.find(function(p) { return p.id === poolId; });
+  if (!pool) {
+    renderModelPoolEmptyState();
+    return;
+  }
+
+  var typeLabel = pool.modelType === 'embedding' ? t('apiSettings.embedding') :
+                  pool.modelType === 'llm' ? t('apiSettings.llm') :
+                  t('apiSettings.reranker');
+
+  var html = '<div class="provider-detail">' +
+    '<div class="provider-detail-header">' +
+    '<div>' +
+    '<h2>' + escapeHtml(pool.name || pool.targetModel) + '</h2>' +
+    '<p style="color: var(--text-secondary); margin-top: 0.5rem;">' + typeLabel + ' Pool</p>' +
+    '</div>' +
+    '<div class="provider-actions">' +
+    '<button class="btn btn-secondary" onclick="editModelPool(\'' + pool.id + '\')"><i data-lucide="edit-2"></i> ' + t('common.edit') + '</button>' +
+    '<button class="btn btn-danger" onclick="deleteModelPool(\'' + pool.id + '\')"><i data-lucide="trash-2"></i> ' + t('common.delete') + '</button>' +
+    '</div>' +
+    '</div>' +
+    '<div class="provider-detail-body">' +
+    
+    // Basic Info
+    '<div class="form-section">' +
+    '<h3>' + t('apiSettings.basicInfo') + '</h3>' +
+    '<div class="info-grid">' +
+    '<div class="info-item"><label>' + t('apiSettings.status') + '</label><span class="status-badge ' + (pool.enabled ? 'status-enabled' : 'status-disabled') + '">' + (pool.enabled ? t('common.enabled') : t('common.disabled')) + '</span></div>' +
+    '<div class="info-item"><label>' + t('apiSettings.modelType') + '</label><span>' + typeLabel + '</span></div>' +
+    '<div class="info-item"><label>' + t('apiSettings.targetModel') + '</label><span>' + escapeHtml(pool.targetModel) + '</span></div>' +
+    '<div class="info-item"><label>' + t('apiSettings.strategy') + '</label><span>' + pool.strategy + '</span></div>' +
+    '<div class="info-item"><label>' + t('apiSettings.autoDiscover') + '</label><span>' + (pool.autoDiscover ? t('common.yes') : t('common.no')) + '</span></div>' +
+    '<div class="info-item"><label>' + t('apiSettings.cooldown') + '</label><span>' + pool.defaultCooldown + 's</span></div>' +
+    '<div class="info-item"><label>' + t('apiSettings.maxConcurrent') + '</label><span>' + pool.defaultMaxConcurrentPerKey + '</span></div>' +
+    '</div>' +
+    '</div>';
+
+  if (pool.description) {
+    html += '<div class="form-section">' +
+      '<h3>' + t('apiSettings.description') + '</h3>' +
+      '<p>' + escapeHtml(pool.description) + '</p>' +
+      '</div>';
+  }
+
+  // Excluded Providers
+  if (pool.excludedProviderIds && pool.excludedProviderIds.length > 0) {
+    html += '<div class="form-section">' +
+      '<h3>' + t('apiSettings.excludedProviders') + '</h3>' +
+      '<div class="excluded-providers-list">';
+    
+    pool.excludedProviderIds.forEach(function(providerId) {
+      html += '<span class="tag">' + escapeHtml(providerId) + '</span>';
+    });
+    
+    html += '</div></div>';
+  }
+
+  html += '</div></div>';
+
+  container.innerHTML = html;
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Render empty state for model pools
+ */
+function renderModelPoolEmptyState() {
+  var container = document.getElementById('provider-detail-panel');
+  if (!container) return;
+
+  container.innerHTML = '<div class="empty-state">' +
+    '<i data-lucide="layers" style="width: 64px; height: 64px; margin-bottom: 1rem;"></i>' +
+    '<h3>' + t('apiSettings.noPoolSelected') + '</h3>' +
+    '<p>' + t('apiSettings.selectPoolFromList') + '</p>' +
+    '</div>';
+  
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Show add model pool modal
+ */
+function showAddModelPoolModal() {
+  var modalHtml = '<div class="generic-modal-overlay active" id="add-pool-modal">' +
+    '<div class="generic-modal" style="max-width: 600px;">' +
+    '<div class="generic-modal-header">' +
+    '<h3 class="generic-modal-title">' + t('apiSettings.addModelPool') + '</h3>' +
+    '<button class="generic-modal-close" onclick="closeAddPoolModal()">&times;</button>' +
+    '</div>' +
+    '<div class="generic-modal-body">' +
+    '<form id="add-pool-form" class="api-settings-form" onsubmit="submitModelPool(event)">' +
+    
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.modelType') + ' *</label>' +
+    '<select id="pool-model-type" class="cli-input" required onchange="onPoolModelTypeChange()">' +
+    '<option value="">Select Type</option>' +
+    '<option value="embedding">Embedding</option>' +
+    '<option value="llm">LLM</option>' +
+    '<option value="reranker">Reranker</option>' +
+    '</select>' +
+    '</div>' +
+    
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.poolName') + '</label>' +
+    '<input type="text" id="pool-name" class="cli-input" placeholder="e.g., Primary Embedding Pool" />' +
+    '</div>' +
+    
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.targetModel') + ' *</label>' +
+    '<select id="pool-target-model" class="cli-input" required disabled>' +
+    '<option value="">Select model type first</option>' +
+    '</select>' +
+    '</div>' +
+    
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.strategy') + ' *</label>' +
+    '<select id="pool-strategy" class="cli-input" required>' +
+    '<option value="round_robin">Round Robin</option>' +
+    '<option value="latency_aware" selected>Latency Aware</option>' +
+    '<option value="weighted_random">Weighted Random</option>' +
+    '</select>' +
+    '</div>' +
+    
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.cooldown') + ' (seconds)</label>' +
+    '<input type="number" id="pool-cooldown" class="cli-input" value="60" min="0" />' +
+    '</div>' +
+    
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.maxConcurrent') + '</label>' +
+    '<input type="number" id="pool-max-concurrent" class="cli-input" value="4" min="1" />' +
+    '</div>' +
+    
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.description') + '</label>' +
+    '<textarea id="pool-description" class="cli-input" rows="2" placeholder="Optional description"></textarea>' +
+    '</div>' +
+    
+    '<div class="form-group">' +
+    '<label class="checkbox-label">' +
+    '<input type="checkbox" id="pool-enabled" checked /> ' + t('apiSettings.enablePool') +
+    '</label>' +
+    '</div>' +
+    
+    '<div class="form-group">' +
+    '<label class="checkbox-label">' +
+    '<input type="checkbox" id="pool-auto-discover" checked /> ' + t('apiSettings.autoDiscoverProviders') +
+    '</label>' +
+    '</div>' +
+    
+    '<div class="modal-actions">' +
+    '<button type="button" class="btn btn-secondary" onclick="closeAddPoolModal()"><i data-lucide="x"></i> ' + t('common.cancel') + '</button>' +
+    '<button type="submit" class="btn btn-primary"><i data-lucide="check"></i> ' + t('common.save') + '</button>' +
+    '</div>' +
+    '</form>' +
+    '</div>' +
+    '</div>' +
+    '</div>';
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Close add pool modal
+ */
+function closeAddPoolModal() {
+  var modal = document.getElementById('add-pool-modal');
+  if (modal) modal.remove();
+}
+
+/**
+ * Handle pool model type change
+ */
+async function onPoolModelTypeChange() {
+  var modelType = document.getElementById('pool-model-type').value;
+  var targetModelSelect = document.getElementById('pool-target-model');
+  
+  if (!modelType) {
+    targetModelSelect.disabled = true;
+    targetModelSelect.innerHTML = '<option value="">Select model type first</option>';
+    return;
+  }
+
+  // Load available models for this type
+  var models = await loadAvailableModelsForType(modelType);
+  
+  targetModelSelect.disabled = false;
+  targetModelSelect.innerHTML = '<option value="">Select a model</option>';
+  
+  models.forEach(function(model) {
+    var option = document.createElement('option');
+    option.value = model.modelId;
+    option.textContent = model.modelName + ' (' + model.providers.length + ' providers)';
+    targetModelSelect.appendChild(option);
+  });
+}
+
+/**
+ * Submit model pool form
+ */
+async function submitModelPool(event) {
+  event.preventDefault();
+
+  var poolData = {
+    modelType: document.getElementById('pool-model-type').value,
+    name: document.getElementById('pool-name').value,
+    targetModel: document.getElementById('pool-target-model').value,
+    strategy: document.getElementById('pool-strategy').value,
+    defaultCooldown: parseInt(document.getElementById('pool-cooldown').value),
+    defaultMaxConcurrentPerKey: parseInt(document.getElementById('pool-max-concurrent').value),
+    description: document.getElementById('pool-description').value,
+    enabled: document.getElementById('pool-enabled').checked,
+    autoDiscover: document.getElementById('pool-auto-discover').checked,
+    excludedProviderIds: []
+  };
+
+  try {
+    await initCsrfToken();
+    var response = await csrfFetch('/api/litellm-api/model-pools', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(poolData)
+    });
+
+    if (!response.ok) {
+      var err = await response.json();
+      throw new Error(err.error || 'Failed to create pool');
+    }
+
+    var result = await response.json();
+    showRefreshToast(t('apiSettings.poolCreated'), 'success');
+    
+    closeAddPoolModal();
+    
+    // Reload pools and switch to model-pools tab
+    await loadModelPools();
+    activeSidebarTab = 'model-pools';
+    renderApiSettings();
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
+}
+
+/**
+ * Edit model pool
+ */
+function editModelPool(poolId) {
+  // TODO: Implement edit modal
+  showRefreshToast('Edit functionality coming soon', 'info');
+}
+
+/**
+ * Delete model pool
+ */
+async function deleteModelPool(poolId) {
+  if (!confirm(t('apiSettings.confirmDeletePool'))) {
+    return;
+  }
+
+  try {
+    await initCsrfToken();
+    var response = await csrfFetch('/api/litellm-api/model-pools/' + poolId, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+      var err = await response.json();
+      throw new Error(err.error || 'Failed to delete pool');
+    }
+
+    showRefreshToast(t('apiSettings.poolDeleted'), 'success');
+    
+    // Reload pools
+    selectedPoolId = null;
+    await loadModelPools();
+    renderApiSettings();
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
+}
+
+// Make model pool functions globally accessible
+window.loadModelPools = loadModelPools;
+window.renderModelPoolsList = renderModelPoolsList;
+window.selectModelPool = selectModelPool;
+window.renderModelPoolDetail = renderModelPoolDetail;
+window.renderModelPoolEmptyState = renderModelPoolEmptyState;
+window.showAddModelPoolModal = showAddModelPoolModal;
+window.closeAddPoolModal = closeAddPoolModal;
+window.onPoolModelTypeChange = onPoolModelTypeChange;
+window.submitModelPool = submitModelPool;
+window.editModelPool = editModelPool;
+window.deleteModelPool = deleteModelPool;
 
 // Make CLI Settings functions globally accessible
 window.loadCliSettings = loadCliSettings;

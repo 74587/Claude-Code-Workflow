@@ -34,6 +34,8 @@ import {
 import {
   loadClaudeCliTools,
   saveClaudeCliTools,
+  loadClaudeCliSettings,
+  saveClaudeCliSettings,
   updateClaudeToolEnabled,
   updateClaudeCacheSettings,
   getClaudeCliToolsInfo,
@@ -704,11 +706,13 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
   // API: Get CLI Tools Config from .claude/cli-tools.json (with fallback to global)
   if (pathname === '/api/cli/tools-config' && req.method === 'GET') {
     try {
-      const config = loadClaudeCliTools(initialPath);
+      const toolsConfig = loadClaudeCliTools(initialPath);
+      const settingsConfig = loadClaudeCliSettings(initialPath);
       const info = getClaudeCliToolsInfo(initialPath);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
-        ...config,
+        tools: toolsConfig,
+        settings: settingsConfig,
         _configInfo: info
       }));
     } catch (err) {
@@ -722,32 +726,55 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
   if (pathname === '/api/cli/tools-config' && req.method === 'PUT') {
     handlePostRequest(req, res, async (body: unknown) => {
       try {
-        const updates = body as Partial<any>;
-        const config = loadClaudeCliTools(initialPath);
+        const updates = body as { tools?: any; settings?: any };
 
-        // Merge updates
-        const updatedConfig = {
-          ...config,
-          ...updates,
-          tools: { ...config.tools, ...(updates.tools || {}) },
-          settings: {
-            ...config.settings,
-            ...(updates.settings || {}),
+        // Update tools config if provided
+        if (updates.tools) {
+          const currentTools = loadClaudeCliTools(initialPath);
+          const updatedTools = {
+            ...currentTools,
+            tools: { ...currentTools.tools, ...(updates.tools.tools || {}) },
+            customEndpoints: updates.tools.customEndpoints || currentTools.customEndpoints
+          };
+          saveClaudeCliTools(initialPath, updatedTools);
+        }
+
+        // Update settings config if provided
+        if (updates.settings) {
+          const currentSettings = loadClaudeCliSettings(initialPath);
+          const s = updates.settings;
+
+          // Deep merge: only update fields that are explicitly provided
+          const updatedSettings = {
+            ...currentSettings,
+            // Scalar fields: only update if explicitly provided
+            ...(s.defaultTool !== undefined && { defaultTool: s.defaultTool }),
+            ...(s.promptFormat !== undefined && { promptFormat: s.promptFormat }),
+            ...(s.nativeResume !== undefined && { nativeResume: s.nativeResume }),
+            ...(s.recursiveQuery !== undefined && { recursiveQuery: s.recursiveQuery }),
+            ...(s.codeIndexMcp !== undefined && { codeIndexMcp: s.codeIndexMcp }),
+            // Nested objects: deep merge
+            smartContext: {
+              ...currentSettings.smartContext,
+              ...(s.smartContext || {})
+            },
             cache: {
-              ...config.settings.cache,
-              ...(updates.settings?.cache || {})
+              ...currentSettings.cache,
+              ...(s.cache || {})
             }
-          }
-        };
+          };
+          saveClaudeCliSettings(initialPath, updatedSettings);
+        }
 
-        saveClaudeCliTools(initialPath, updatedConfig);
+        const toolsConfig = loadClaudeCliTools(initialPath);
+        const settingsConfig = loadClaudeCliSettings(initialPath);
 
         broadcastToClients({
           type: 'CLI_TOOLS_CONFIG_UPDATED',
-          payload: { config: updatedConfig, timestamp: new Date().toISOString() }
+          payload: { tools: toolsConfig, settings: settingsConfig, timestamp: new Date().toISOString() }
         });
 
-        return { success: true, config: updatedConfig };
+        return { success: true, tools: toolsConfig, settings: settingsConfig };
       } catch (err) {
         return { error: (err as Error).message, status: 500 };
       }
@@ -782,14 +809,14 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
     handlePostRequest(req, res, async (body: unknown) => {
       try {
         const cacheSettings = body as { injectionMode?: string; defaultPrefix?: string; defaultSuffix?: string };
-        const config = updateClaudeCacheSettings(initialPath, cacheSettings as any);
+        const settings = updateClaudeCacheSettings(initialPath, cacheSettings as any);
 
         broadcastToClients({
           type: 'CLI_CACHE_SETTINGS_UPDATED',
-          payload: { cache: config.settings.cache, timestamp: new Date().toISOString() }
+          payload: { cache: settings.cache, timestamp: new Date().toISOString() }
         });
 
-        return { success: true, config };
+        return { success: true, settings };
       } catch (err) {
         return { error: (err as Error).message, status: 500 };
       }

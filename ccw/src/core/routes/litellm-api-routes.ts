@@ -4,8 +4,34 @@
  */
 import { fileURLToPath } from 'url';
 import { dirname, join as pathJoin } from 'path';
+import { z } from 'zod';
 import { getSystemPython } from '../../utils/python-utils.js';
 import type { RouteContext } from './types.js';
+
+// ========== Input Validation Schemas ==========
+
+/**
+ * Validation schema for ModelPoolConfig
+ * Used to validate incoming API requests for model pool operations
+ */
+const ModelPoolConfigSchema = z.object({
+  modelType: z.enum(['embedding', 'llm', 'reranker']),
+  enabled: z.boolean(),
+  targetModel: z.string().min(1, 'Target model is required'),
+  strategy: z.enum(['round_robin', 'latency_aware', 'weighted_random']),
+  autoDiscover: z.boolean(),
+  excludedProviderIds: z.array(z.string()).optional().default([]),
+  defaultCooldown: z.number().int().min(0).default(60),
+  defaultMaxConcurrentPerKey: z.number().int().min(1).default(4),
+  name: z.string().optional(),
+  description: z.string().optional(),
+});
+
+/**
+ * Partial schema for updating ModelPoolConfig
+ * All fields are optional for PATCH-like updates
+ */
+const ModelPoolConfigUpdateSchema = ModelPoolConfigSchema.partial();
 
 // Get current module path for package-relative lookups
 const __filename = fileURLToPath(import.meta.url);
@@ -39,6 +65,12 @@ import {
   getEmbeddingPoolConfig,
   updateEmbeddingPoolConfig,
   discoverProvidersForModel,
+  getModelPools,
+  getModelPool,
+  addModelPool,
+  updateModelPool,
+  deleteModelPool,
+  getAvailableModelsForType,
   type ProviderCredential,
   type CustomEndpoint,
   type ProviderType,
@@ -845,6 +877,186 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
+        targetModel,
+        discovered,
+        count: discovered.length,
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // ========== Multi-Model Pool Management ==========
+
+  // GET /api/litellm-api/model-pools - Get all model pool configurations
+  if (pathname === '/api/litellm-api/model-pools' && req.method === 'GET') {
+    try {
+      const pools = getModelPools(initialPath);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ pools }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // GET /api/litellm-api/model-pools/:id - Get specific pool configuration
+  const poolGetMatch = pathname.match(/^\/api\/litellm-api\/model-pools\/([^/]+)$/);
+  if (poolGetMatch && req.method === 'GET') {
+    const poolId = decodeURIComponent(poolGetMatch[1]);
+
+    try {
+      const pool = getModelPool(initialPath, poolId);
+      
+      if (!pool) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Pool not found' }));
+        return true;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ pool }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // POST /api/litellm-api/model-pools - Create new model pool
+  if (pathname === '/api/litellm-api/model-pools' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body: unknown) => {
+      // Validate input using zod schema
+      const validationResult = ModelPoolConfigSchema.safeParse(body);
+      if (!validationResult.success) {
+        return {
+          error: 'Invalid request body',
+          details: validationResult.error.issues.map(e => ({
+            field: String(e.path.join('.')),
+            message: e.message
+          })),
+          status: 400
+        };
+      }
+
+      try {
+        const poolConfig = validationResult.data;
+        const result = addModelPool(initialPath, poolConfig);
+
+        broadcastToClients({
+          type: 'MODEL_POOL_CREATED',
+          payload: { poolId: result.poolId, timestamp: new Date().toISOString() }
+        });
+
+        return { success: true, ...result };
+      } catch (err) {
+        return { error: (err as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // PUT /api/litellm-api/model-pools/:id - Update model pool
+  const poolPutMatch = pathname.match(/^\/api\/litellm-api\/model-pools\/([^/]+)$/);
+  if (poolPutMatch && req.method === 'PUT') {
+    const poolId = decodeURIComponent(poolPutMatch[1]);
+
+    handlePostRequest(req, res, async (body: unknown) => {
+      // Validate input using partial schema (all fields optional for updates)
+      const validationResult = ModelPoolConfigUpdateSchema.safeParse(body);
+      if (!validationResult.success) {
+        return {
+          error: 'Invalid request body',
+          details: validationResult.error.issues.map(e => ({
+            field: String(e.path.join('.')),
+            message: e.message
+          })),
+          status: 400
+        };
+      }
+
+      try {
+        const updates = validationResult.data;
+        const result = updateModelPool(initialPath, poolId, updates);
+
+        if (!result.success) {
+          return { error: 'Pool not found', status: 404 };
+        }
+
+        broadcastToClients({
+          type: 'MODEL_POOL_UPDATED',
+          payload: { poolId, syncResult: result.syncResult, timestamp: new Date().toISOString() }
+        });
+
+        return result;
+      } catch (err) {
+        return { error: (err as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // DELETE /api/litellm-api/model-pools/:id - Delete model pool
+  const poolDeleteMatch = pathname.match(/^\/api\/litellm-api\/model-pools\/([^/]+)$/);
+  if (poolDeleteMatch && req.method === 'DELETE') {
+    const poolId = decodeURIComponent(poolDeleteMatch[1]);
+
+    try {
+      const result = deleteModelPool(initialPath, poolId);
+
+      if (!result.success) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Pool not found' }));
+        return true;
+      }
+
+      broadcastToClients({
+        type: 'MODEL_POOL_DELETED',
+        payload: { poolId, syncResult: result.syncResult, timestamp: new Date().toISOString() }
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // GET /api/litellm-api/model-pools/available-models/:modelType - Get available models for type
+  const availableModelsMatch = pathname.match(/^\/api\/litellm-api\/model-pools\/available-models\/([^/]+)$/);
+  if (availableModelsMatch && req.method === 'GET') {
+    const modelType = decodeURIComponent(availableModelsMatch[1]) as import('../../types/litellm-api-config.js').ModelPoolType;
+
+    try {
+      const availableModels = getAvailableModelsForType(initialPath, modelType);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ availableModels, modelType }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // GET /api/litellm-api/model-pools/discover/:modelType/:model - Discover providers for model
+  const discoverPoolMatch = pathname.match(/^\/api\/litellm-api\/model-pools\/discover\/([^/]+)\/([^/]+)$/);
+  if (discoverPoolMatch && req.method === 'GET') {
+    const modelType = decodeURIComponent(discoverPoolMatch[1]);
+    const targetModel = decodeURIComponent(discoverPoolMatch[2]);
+
+    try {
+      const discovered = discoverProvidersForModel(initialPath, targetModel);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        modelType,
         targetModel,
         discovered,
         count: discovered.length,

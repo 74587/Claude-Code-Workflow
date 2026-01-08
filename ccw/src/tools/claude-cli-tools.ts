@@ -1,8 +1,9 @@
 /**
  * Claude CLI Tools Configuration Manager
- * Manages .claude/cli-tools.json with fallback:
- * 1. Project workspace: {projectDir}/.claude/cli-tools.json (priority)
- * 2. Global: ~/.claude/cli-tools.json (fallback)
+ * Manages .claude/cli-tools.json (tools) and .claude/cli-settings.json (settings)
+ * with fallback:
+ * 1. Project workspace: {projectDir}/.claude/ (priority)
+ * 2. Global: ~/.claude/ (fallback)
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -15,6 +16,15 @@ export interface ClaudeCliTool {
   isBuiltin: boolean;
   command: string;
   description: string;
+  primaryModel?: string;
+  tags: string[];
+}
+
+export interface ClaudeCustomEndpoint {
+  id: string;
+  name: string;
+  enabled: boolean;
+  tags: string[];
 }
 
 export interface ClaudeCacheSettings {
@@ -23,76 +33,107 @@ export interface ClaudeCacheSettings {
   defaultSuffix: string;
 }
 
+// New: Tools-only config (cli-tools.json)
 export interface ClaudeCliToolsConfig {
   $schema?: string;
   version: string;
   tools: Record<string, ClaudeCliTool>;
-  customEndpoints: Array<{
-    id: string;
-    name: string;
-    enabled: boolean;
-  }>;
+  customEndpoints: ClaudeCustomEndpoint[];
+}
+
+// New: Settings-only config (cli-settings.json)
+export interface ClaudeCliSettingsConfig {
+  $schema?: string;
+  version: string;
   defaultTool: string;
-  settings: {
-    promptFormat: 'plain' | 'yaml' | 'json';
-    smartContext: {
-      enabled: boolean;
-      maxFiles: number;
+  promptFormat: 'plain' | 'yaml' | 'json';
+  smartContext: {
+    enabled: boolean;
+    maxFiles: number;
+  };
+  nativeResume: boolean;
+  recursiveQuery: boolean;
+  cache: ClaudeCacheSettings;
+  codeIndexMcp: 'codexlens' | 'ace' | 'none';
+}
+
+// Legacy combined config (for backward compatibility)
+export interface ClaudeCliCombinedConfig extends ClaudeCliToolsConfig {
+  defaultTool?: string;
+  settings?: {
+    promptFormat?: 'plain' | 'yaml' | 'json';
+    smartContext?: {
+      enabled?: boolean;
+      maxFiles?: number;
     };
-    nativeResume: boolean;
-    recursiveQuery: boolean;
-    cache: ClaudeCacheSettings;
-    codeIndexMcp: 'codexlens' | 'ace' | 'none';  // Code Index MCP provider
+    nativeResume?: boolean;
+    recursiveQuery?: boolean;
+    cache?: Partial<ClaudeCacheSettings>;
+    codeIndexMcp?: 'codexlens' | 'ace' | 'none';
   };
 }
 
 // ========== Default Config ==========
 
-const DEFAULT_CONFIG: ClaudeCliToolsConfig = {
-  version: '1.0.0',
+const DEFAULT_TOOLS_CONFIG: ClaudeCliToolsConfig = {
+  version: '2.0.0',
   tools: {
     gemini: {
       enabled: true,
       isBuiltin: true,
       command: 'gemini',
-      description: 'Google AI for code analysis'
+      description: 'Google AI for code analysis',
+      tags: []
     },
     qwen: {
       enabled: true,
       isBuiltin: true,
       command: 'qwen',
-      description: 'Alibaba AI assistant'
+      description: 'Alibaba AI assistant',
+      tags: []
     },
     codex: {
       enabled: true,
       isBuiltin: true,
       command: 'codex',
-      description: 'OpenAI code generation'
+      description: 'OpenAI code generation',
+      tags: []
     },
     claude: {
       enabled: true,
       isBuiltin: true,
       command: 'claude',
-      description: 'Anthropic AI assistant'
+      description: 'Anthropic AI assistant',
+      tags: []
+    },
+    opencode: {
+      enabled: true,
+      isBuiltin: true,
+      command: 'opencode',
+      description: 'OpenCode AI assistant',
+      primaryModel: 'opencode/glm-4.7-free',
+      tags: []
     }
   },
-  customEndpoints: [],
+  customEndpoints: []
+};
+
+const DEFAULT_SETTINGS_CONFIG: ClaudeCliSettingsConfig = {
+  version: '1.0.0',
   defaultTool: 'gemini',
-  settings: {
-    promptFormat: 'plain',
-    smartContext: {
-      enabled: false,
-      maxFiles: 10
-    },
-    nativeResume: true,
-    recursiveQuery: true,
-    cache: {
-      injectionMode: 'auto',
-      defaultPrefix: '',
-      defaultSuffix: ''
-    },
-    codeIndexMcp: 'codexlens'  // Default to CodexLens
-  }
+  promptFormat: 'plain',
+  smartContext: {
+    enabled: false,
+    maxFiles: 10
+  },
+  nativeResume: true,
+  recursiveQuery: true,
+  cache: {
+    injectionMode: 'auto',
+    defaultPrefix: '',
+    defaultSuffix: ''
+  },
+  codeIndexMcp: 'ace'
 };
 
 // ========== Helper Functions ==========
@@ -101,8 +142,16 @@ function getProjectConfigPath(projectDir: string): string {
   return path.join(projectDir, '.claude', 'cli-tools.json');
 }
 
+function getProjectSettingsPath(projectDir: string): string {
+  return path.join(projectDir, '.claude', 'cli-settings.json');
+}
+
 function getGlobalConfigPath(): string {
   return path.join(os.homedir(), '.claude', 'cli-tools.json');
+}
+
+function getGlobalSettingsPath(): string {
+  return path.join(os.homedir(), '.claude', 'cli-settings.json');
 }
 
 /**
@@ -125,6 +174,25 @@ function resolveConfigPath(projectDir: string): { path: string; source: 'project
   return { path: projectPath, source: 'default' };
 }
 
+/**
+ * Resolve settings path with fallback:
+ * 1. Project: {projectDir}/.claude/cli-settings.json
+ * 2. Global: ~/.claude/cli-settings.json
+ */
+function resolveSettingsPath(projectDir: string): { path: string; source: 'project' | 'global' | 'default' } {
+  const projectPath = getProjectSettingsPath(projectDir);
+  if (fs.existsSync(projectPath)) {
+    return { path: projectPath, source: 'project' };
+  }
+
+  const globalPath = getGlobalSettingsPath();
+  if (fs.existsSync(globalPath)) {
+    return { path: globalPath, source: 'global' };
+  }
+
+  return { path: projectPath, source: 'default' };
+}
+
 function ensureClaudeDir(projectDir: string): void {
   const claudeDir = path.join(projectDir, '.claude');
   if (!fs.existsSync(claudeDir)) {
@@ -133,6 +201,20 @@ function ensureClaudeDir(projectDir: string): void {
 }
 
 // ========== Main Functions ==========
+
+/**
+ * Ensure tool has tags field (for backward compatibility)
+ */
+function ensureToolTags(tool: Partial<ClaudeCliTool>): ClaudeCliTool {
+  return {
+    enabled: tool.enabled ?? true,
+    isBuiltin: tool.isBuiltin ?? false,
+    command: tool.command ?? '',
+    description: tool.description ?? '',
+    primaryModel: tool.primaryModel,
+    tags: tool.tags ?? []
+  };
+}
 
 /**
  * Load CLI tools configuration with fallback:
@@ -145,58 +227,112 @@ export function loadClaudeCliTools(projectDir: string): ClaudeCliToolsConfig & {
 
   try {
     if (resolved.source === 'default') {
-      // No config file found, return defaults
-      return { ...DEFAULT_CONFIG, _source: 'default' };
+      return { ...DEFAULT_TOOLS_CONFIG, _source: 'default' };
     }
 
     const content = fs.readFileSync(resolved.path, 'utf-8');
-    const parsed = JSON.parse(content) as Partial<ClaudeCliToolsConfig>;
+    const parsed = JSON.parse(content) as Partial<ClaudeCliCombinedConfig>;
 
-    // Merge with defaults
-    const config = {
-      ...DEFAULT_CONFIG,
-      ...parsed,
-      tools: { ...DEFAULT_CONFIG.tools, ...(parsed.tools || {}) },
-      settings: {
-        ...DEFAULT_CONFIG.settings,
-        ...(parsed.settings || {}),
-        smartContext: {
-          ...DEFAULT_CONFIG.settings.smartContext,
-          ...(parsed.settings?.smartContext || {})
-        },
-        cache: {
-          ...DEFAULT_CONFIG.settings.cache,
-          ...(parsed.settings?.cache || {})
-        }
-      },
+    // Merge tools with defaults and ensure tags exist
+    const mergedTools: Record<string, ClaudeCliTool> = {};
+    for (const [key, tool] of Object.entries({ ...DEFAULT_TOOLS_CONFIG.tools, ...(parsed.tools || {}) })) {
+      mergedTools[key] = ensureToolTags(tool);
+    }
+
+    // Ensure customEndpoints have tags
+    const mergedEndpoints = (parsed.customEndpoints || []).map(ep => ({
+      ...ep,
+      tags: ep.tags ?? []
+    }));
+
+    const config: ClaudeCliToolsConfig & { _source?: string } = {
+      version: parsed.version || DEFAULT_TOOLS_CONFIG.version,
+      tools: mergedTools,
+      customEndpoints: mergedEndpoints,
+      $schema: parsed.$schema,
       _source: resolved.source
     };
 
-    console.log(`[claude-cli-tools] Loaded config from ${resolved.source}: ${resolved.path}`);
+    console.log(`[claude-cli-tools] Loaded tools config from ${resolved.source}: ${resolved.path}`);
     return config;
   } catch (err) {
-    console.error('[claude-cli-tools] Error loading config:', err);
-    return { ...DEFAULT_CONFIG, _source: 'default' };
+    console.error('[claude-cli-tools] Error loading tools config:', err);
+    return { ...DEFAULT_TOOLS_CONFIG, _source: 'default' };
   }
 }
 
 /**
  * Save CLI tools configuration to project .claude/cli-tools.json
- * Always saves to project directory (not global)
  */
 export function saveClaudeCliTools(projectDir: string, config: ClaudeCliToolsConfig & { _source?: string }): void {
   ensureClaudeDir(projectDir);
   const configPath = getProjectConfigPath(projectDir);
 
-  // Remove internal _source field before saving
   const { _source, ...configToSave } = config;
 
   try {
     fs.writeFileSync(configPath, JSON.stringify(configToSave, null, 2), 'utf-8');
-    console.log(`[claude-cli-tools] Saved config to project: ${configPath}`);
+    console.log(`[claude-cli-tools] Saved tools config to: ${configPath}`);
   } catch (err) {
-    console.error('[claude-cli-tools] Error saving config:', err);
+    console.error('[claude-cli-tools] Error saving tools config:', err);
     throw new Error(`Failed to save CLI tools config: ${err}`);
+  }
+}
+
+/**
+ * Load CLI settings configuration with fallback:
+ * 1. Project: {projectDir}/.claude/cli-settings.json
+ * 2. Global: ~/.claude/cli-settings.json
+ * 3. Default settings
+ */
+export function loadClaudeCliSettings(projectDir: string): ClaudeCliSettingsConfig & { _source?: string } {
+  const resolved = resolveSettingsPath(projectDir);
+
+  try {
+    if (resolved.source === 'default') {
+      return { ...DEFAULT_SETTINGS_CONFIG, _source: 'default' };
+    }
+
+    const content = fs.readFileSync(resolved.path, 'utf-8');
+    const parsed = JSON.parse(content) as Partial<ClaudeCliSettingsConfig>;
+
+    const config: ClaudeCliSettingsConfig & { _source?: string } = {
+      ...DEFAULT_SETTINGS_CONFIG,
+      ...parsed,
+      smartContext: {
+        ...DEFAULT_SETTINGS_CONFIG.smartContext,
+        ...(parsed.smartContext || {})
+      },
+      cache: {
+        ...DEFAULT_SETTINGS_CONFIG.cache,
+        ...(parsed.cache || {})
+      },
+      _source: resolved.source
+    };
+
+    console.log(`[claude-cli-tools] Loaded settings from ${resolved.source}: ${resolved.path}`);
+    return config;
+  } catch (err) {
+    console.error('[claude-cli-tools] Error loading settings:', err);
+    return { ...DEFAULT_SETTINGS_CONFIG, _source: 'default' };
+  }
+}
+
+/**
+ * Save CLI settings configuration to project .claude/cli-settings.json
+ */
+export function saveClaudeCliSettings(projectDir: string, config: ClaudeCliSettingsConfig & { _source?: string }): void {
+  ensureClaudeDir(projectDir);
+  const settingsPath = getProjectSettingsPath(projectDir);
+
+  const { _source, ...configToSave } = config;
+
+  try {
+    fs.writeFileSync(settingsPath, JSON.stringify(configToSave, null, 2), 'utf-8');
+    console.log(`[claude-cli-tools] Saved settings to: ${settingsPath}`);
+  } catch (err) {
+    console.error('[claude-cli-tools] Error saving settings:', err);
+    throw new Error(`Failed to save CLI settings: ${err}`);
   }
 }
 
@@ -224,16 +360,16 @@ export function updateClaudeToolEnabled(
 export function updateClaudeCacheSettings(
   projectDir: string,
   cacheSettings: Partial<ClaudeCacheSettings>
-): ClaudeCliToolsConfig {
-  const config = loadClaudeCliTools(projectDir);
+): ClaudeCliSettingsConfig {
+  const settings = loadClaudeCliSettings(projectDir);
 
-  config.settings.cache = {
-    ...config.settings.cache,
+  settings.cache = {
+    ...settings.cache,
     ...cacheSettings
   };
 
-  saveClaudeCliTools(projectDir, config);
-  return config;
+  saveClaudeCliSettings(projectDir, settings);
+  return settings;
 }
 
 /**
@@ -242,11 +378,11 @@ export function updateClaudeCacheSettings(
 export function updateClaudeDefaultTool(
   projectDir: string,
   defaultTool: string
-): ClaudeCliToolsConfig {
-  const config = loadClaudeCliTools(projectDir);
-  config.defaultTool = defaultTool;
-  saveClaudeCliTools(projectDir, config);
-  return config;
+): ClaudeCliSettingsConfig {
+  const settings = loadClaudeCliSettings(projectDir);
+  settings.defaultTool = defaultTool;
+  saveClaudeCliSettings(projectDir, settings);
+  return settings;
 }
 
 /**
@@ -254,16 +390,23 @@ export function updateClaudeDefaultTool(
  */
 export function addClaudeCustomEndpoint(
   projectDir: string,
-  endpoint: { id: string; name: string; enabled: boolean }
+  endpoint: { id: string; name: string; enabled: boolean; tags?: string[] }
 ): ClaudeCliToolsConfig {
   const config = loadClaudeCliTools(projectDir);
+
+  const newEndpoint: ClaudeCustomEndpoint = {
+    id: endpoint.id,
+    name: endpoint.name,
+    enabled: endpoint.enabled,
+    tags: endpoint.tags || []
+  };
 
   // Check if endpoint already exists
   const existingIndex = config.customEndpoints.findIndex(e => e.id === endpoint.id);
   if (existingIndex >= 0) {
-    config.customEndpoints[existingIndex] = endpoint;
+    config.customEndpoints[existingIndex] = newEndpoint;
   } else {
-    config.customEndpoints.push(endpoint);
+    config.customEndpoints.push(newEndpoint);
   }
 
   saveClaudeCliTools(projectDir, config);
@@ -309,12 +452,12 @@ export function getClaudeCliToolsInfo(projectDir: string): {
 export function updateCodeIndexMcp(
   projectDir: string,
   provider: 'codexlens' | 'ace' | 'none'
-): { success: boolean; error?: string; config?: ClaudeCliToolsConfig } {
+): { success: boolean; error?: string; settings?: ClaudeCliSettingsConfig } {
   try {
-    // Update config
-    const config = loadClaudeCliTools(projectDir);
-    config.settings.codeIndexMcp = provider;
-    saveClaudeCliTools(projectDir, config);
+    // Update settings config
+    const settings = loadClaudeCliSettings(projectDir);
+    settings.codeIndexMcp = provider;
+    saveClaudeCliSettings(projectDir, settings);
 
     // Only update global CLAUDE.md (consistent with Chinese response / Windows platform)
     const globalClaudeMdPath = path.join(os.homedir(), '.claude', 'CLAUDE.md');
@@ -358,7 +501,7 @@ export function updateCodeIndexMcp(
       console.log(`[claude-cli-tools] Updated global CLAUDE.md to use ${provider}`);
     }
 
-    return { success: true, config };
+    return { success: true, settings };
   } catch (err) {
     console.error('[claude-cli-tools] Error updating Code Index MCP:', err);
     return { success: false, error: (err as Error).message };
@@ -369,8 +512,8 @@ export function updateCodeIndexMcp(
  * Get current Code Index MCP provider
  */
 export function getCodeIndexMcp(projectDir: string): 'codexlens' | 'ace' | 'none' {
-  const config = loadClaudeCliTools(projectDir);
-  return config.settings.codeIndexMcp || 'codexlens';
+  const settings = loadClaudeCliSettings(projectDir);
+  return settings.codeIndexMcp || 'ace';
 }
 
 /**

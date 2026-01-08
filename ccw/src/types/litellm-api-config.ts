@@ -353,6 +353,7 @@ export interface CodexLensEmbeddingRotation {
 /**
  * Generic embedding pool configuration (refactored from CodexLensEmbeddingRotation)
  * Supports automatic discovery of all providers offering a specific model
+ * @deprecated Use ModelPoolConfig instead
  */
 export interface EmbeddingPoolConfig {
   /** Whether embedding pool is enabled */
@@ -378,6 +379,50 @@ export interface EmbeddingPoolConfig {
 }
 
 /**
+ * Model type for pool configuration
+ */
+export type ModelPoolType = 'embedding' | 'llm' | 'reranker';
+
+/**
+ * Individual model pool configuration
+ * Supports embedding, LLM, and reranker models with high availability
+ */
+export interface ModelPoolConfig {
+  /** Unique identifier for this pool */
+  id: string;
+
+  /** Model type: embedding, llm, or reranker */
+  modelType: ModelPoolType;
+
+  /** Whether this pool is enabled */
+  enabled: boolean;
+
+  /** Target model name (e.g., "text-embedding-3-small", "gpt-4o") */
+  targetModel: string;
+
+  /** Selection strategy: round_robin, latency_aware, weighted_random */
+  strategy: 'round_robin' | 'latency_aware' | 'weighted_random';
+
+  /** Whether to automatically discover all providers offering targetModel */
+  autoDiscover: boolean;
+
+  /** Provider IDs to exclude from auto-discovery (optional) */
+  excludedProviderIds?: string[];
+
+  /** Default cooldown seconds for rate-limited endpoints (default: 60) */
+  defaultCooldown: number;
+
+  /** Default maximum concurrent requests per key (default: 4) */
+  defaultMaxConcurrentPerKey: number;
+
+  /** Optional display name for this pool */
+  name?: string;
+
+  /** Optional description */
+  description?: string;
+}
+
+/**
  * Complete LiteLLM API configuration
  * Root configuration object stored in JSON file
  */
@@ -400,6 +445,9 @@ export interface LiteLLMApiConfig {
   /** CodexLens multi-provider embedding rotation config (deprecated, use embeddingPoolConfig) */
   codexlensEmbeddingRotation?: CodexLensEmbeddingRotation;
 
-  /** Generic embedding pool configuration with auto-discovery support */
+  /** Generic embedding pool configuration with auto-discovery support (deprecated, use modelPools) */
   embeddingPoolConfig?: EmbeddingPoolConfig;
+
+  /** Multi-model pool configurations (supports embedding, LLM, reranker) */
+  modelPools?: ModelPoolConfig[];
 }

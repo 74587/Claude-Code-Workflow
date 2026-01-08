@@ -1,39 +1,50 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "tools": {
     "gemini": {
       "enabled": true,
       "isBuiltin": true,
       "command": "gemini",
-      "description": "Google AI for code analysis"
+      "description": "Google AI for code analysis",
+      "tags": []
     },
     "qwen": {
       "enabled": true,
       "isBuiltin": true,
       "command": "qwen",
-      "description": "Alibaba AI assistant"
+      "description": "Alibaba AI assistant",
+      "tags": []
     },
     "codex": {
       "enabled": true,
       "isBuiltin": true,
       "command": "codex",
-      "description": "OpenAI code generation"
+      "description": "OpenAI code generation",
+      "tags": []
     },
     "claude": {
       "enabled": true,
       "isBuiltin": true,
       "command": "claude",
-      "description": "Anthropic AI assistant"
+      "description": "Anthropic AI assistant",
+      "tags": []
     },
     "opencode": {
       "enabled": true,
       "isBuiltin": true,
       "command": "opencode",
       "description": "OpenCode AI assistant",
-      "primaryModel": "opencode/glm-4.7-free"
+      "primaryModel": "opencode/glm-4.7-free",
+      "tags": []
     }
   },
-  "customEndpoints": [],
+  "customEndpoints": [
+    {
+      "id": "g25",
+      "name": "g25",
+      "enabled": true
+    }
+  ],
   "defaultTool": "gemini",
   "settings": {
     "promptFormat": "plain",
@@ -48,7 +59,7 @@
       "defaultPrefix": "",
       "defaultSuffix": ""
     },
-    "codeIndexMcp": "ace"
+    "codeIndexMcp": "codexlens"
   },
   "$schema": "./cli-tools.schema.json"
 }

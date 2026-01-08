@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { StoragePaths, ensureStorageDir } from '../config/storage-paths.js';
+import { loadClaudeCliTools, saveClaudeCliTools } from './claude-cli-tools.js';
 
 // ========== Types ==========
 
@@ -234,6 +235,20 @@ export function updateToolConfig(
   config.tools[tool] = updatedToolConfig;
   saveCliConfig(baseDir, config);
 
+  // Also sync tags to cli-tools.json
+  if (updates.tags !== undefined) {
+    try {
+      const claudeCliTools = loadClaudeCliTools(baseDir);
+      if (claudeCliTools.tools[tool]) {
+        claudeCliTools.tools[tool].tags = updatedToolConfig.tags || [];
+        saveClaudeCliTools(baseDir, claudeCliTools);
+      }
+    } catch (err) {
+      // Log warning instead of ignoring errors syncing to cli-tools.json
+      console.warn(`[cli-config] Failed to sync tags to cli-tools.json for tool '${tool}'.`, err);
+    }
+  }
+
   return updatedToolConfig;
 }
 
@@ -298,14 +313,30 @@ export function getPredefinedModels(tool: string): string[] {
 }
 
 /**
- * Get full config response for API (includes predefined models)
+ * Get full config response for API (includes predefined models and tags from cli-tools.json)
  */
 export function getFullConfigResponse(baseDir: string): {
   config: CliConfig;
   predefinedModels: Record<string, string[]>;
 } {
+  const config = loadCliConfig(baseDir);
+
+  // Merge tags from cli-tools.json
+  try {
+    const claudeCliTools = loadClaudeCliTools(baseDir);
+    for (const [toolName, toolConfig] of Object.entries(config.tools)) {
+      const claudeTool = claudeCliTools.tools[toolName];
+      if (claudeTool && claudeTool.tags) {
+        toolConfig.tags = claudeTool.tags;
+      }
+    }
+  } catch (err) {
+    // Log warning instead of ignoring errors loading cli-tools.json
+    console.warn('[cli-config] Could not merge tags from cli-tools.json.', err);
+  }
+
   return {
-    config: loadCliConfig(baseDir),
+    config,
     predefinedModels: { ...PREDEFINED_MODELS }
   };
 }

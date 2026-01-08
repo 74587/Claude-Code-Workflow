@@ -1033,5 +1033,219 @@ function objectToYaml(obj: unknown, indent: number = 0): string {
   return String(obj);
 }
 
+// ===========================
+// Multi-Model Pool Management
+// ===========================
+
+/**
+ * Migrate legacy embeddingPoolConfig to new modelPools array
+ * This function ensures backward compatibility with existing configurations
+ */
+function migrateEmbeddingPoolToModelPools(config: LiteLLMApiConfig): void {
+  // Skip if already has modelPools or no legacy config
+  if (config.modelPools && config.modelPools.length > 0) return;
+  if (!config.embeddingPoolConfig) return;
+
+  // Convert legacy embeddingPoolConfig to ModelPoolConfig
+  const legacyPool = config.embeddingPoolConfig;
+  const modelPool: import('../types/litellm-api-config.js').ModelPoolConfig = {
+    id: `pool-embedding-${Date.now()}`,
+    modelType: 'embedding',
+    enabled: legacyPool.enabled,
+    targetModel: legacyPool.targetModel,
+    strategy: legacyPool.strategy,
+    autoDiscover: legacyPool.autoDiscover,
+    excludedProviderIds: legacyPool.excludedProviderIds || [],
+    defaultCooldown: legacyPool.defaultCooldown,
+    defaultMaxConcurrentPerKey: legacyPool.defaultMaxConcurrentPerKey,
+    name: `Embedding Pool - ${legacyPool.targetModel}`,
+    description: 'Migrated from legacy embeddingPoolConfig',
+  };
+
+  config.modelPools = [modelPool];
+  // Keep legacy config for backward compatibility with old CodexLens versions
+}
+
+/**
+ * Get all model pool configurations
+ * Returns empty array if no pools configured
+ */
+export function getModelPools(baseDir: string): import('../types/litellm-api-config.js').ModelPoolConfig[] {
+  const config = loadLiteLLMApiConfig(baseDir);
+  
+  // Auto-migrate if needed
+  migrateEmbeddingPoolToModelPools(config);
+  
+  return config.modelPools || [];
+}
+
+/**
+ * Get a specific model pool by ID
+ */
+export function getModelPool(
+  baseDir: string,
+  poolId: string
+): import('../types/litellm-api-config.js').ModelPoolConfig | undefined {
+  const pools = getModelPools(baseDir);
+  return pools.find(p => p.id === poolId);
+}
+
+/**
+ * Add a new model pool configuration
+ */
+export function addModelPool(
+  baseDir: string,
+  poolConfig: Omit<import('../types/litellm-api-config.js').ModelPoolConfig, 'id'>
+): { poolId: string; syncResult?: { success: boolean; message: string; endpointCount?: number } } {
+  const config = loadLiteLLMApiConfig(baseDir);
+  
+  // Auto-migrate if needed
+  migrateEmbeddingPoolToModelPools(config);
+  
+  // Ensure modelPools array exists
+  if (!config.modelPools) {
+    config.modelPools = [];
+  }
+
+  // Generate unique ID
+  const poolId = `pool-${poolConfig.modelType}-${Date.now()}`;
+  
+  const newPool: import('../types/litellm-api-config.js').ModelPoolConfig = {
+    ...poolConfig,
+    id: poolId,
+  };
+
+  config.modelPools.push(newPool);
+  saveConfig(baseDir, config);
+
+  // Sync to CodexLens if this is an embedding pool
+  const syncResult = poolConfig.modelType === 'embedding' && poolConfig.enabled
+    ? syncCodexLensConfig(baseDir)
+    : undefined;
+
+  return { poolId, syncResult };
+}
+
+/**
+ * Update an existing model pool configuration
+ */
+export function updateModelPool(
+  baseDir: string,
+  poolId: string,
+  updates: Partial<Omit<import('../types/litellm-api-config.js').ModelPoolConfig, 'id'>>
+): { success: boolean; syncResult?: { success: boolean; message: string; endpointCount?: number } } {
+  const config = loadLiteLLMApiConfig(baseDir);
+  
+  // Auto-migrate if needed
+  migrateEmbeddingPoolToModelPools(config);
+  
+  if (!config.modelPools) {
+    return { success: false };
+  }
+
+  const poolIndex = config.modelPools.findIndex(p => p.id === poolId);
+  if (poolIndex === -1) {
+    return { success: false };
+  }
+
+  // Apply updates
+  config.modelPools[poolIndex] = {
+    ...config.modelPools[poolIndex],
+    ...updates,
+  };
+
+  saveConfig(baseDir, config);
+
+  // Sync to CodexLens if this is an enabled embedding pool
+  const pool = config.modelPools[poolIndex];
+  const syncResult = pool.modelType === 'embedding' && pool.enabled
+    ? syncCodexLensConfig(baseDir)
+    : undefined;
+
+  return { success: true, syncResult };
+}
+
+/**
+ * Delete a model pool configuration
+ */
+export function deleteModelPool(
+  baseDir: string,
+  poolId: string
+): { success: boolean; syncResult?: { success: boolean; message: string; endpointCount?: number } } {
+  const config = loadLiteLLMApiConfig(baseDir);
+  
+  if (!config.modelPools) {
+    return { success: false };
+  }
+
+  const poolIndex = config.modelPools.findIndex(p => p.id === poolId);
+  if (poolIndex === -1) {
+    return { success: false };
+  }
+
+  const deletedPool = config.modelPools[poolIndex];
+  config.modelPools.splice(poolIndex, 1);
+  
+  saveConfig(baseDir, config);
+
+  // Sync to CodexLens if we deleted an embedding pool
+  const syncResult = deletedPool.modelType === 'embedding'
+    ? syncCodexLensConfig(baseDir)
+    : undefined;
+
+  return { success: true, syncResult };
+}
+
+/**
+ * Get available models for a specific model type
+ * Used for pool configuration UI
+ */
+export function getAvailableModelsForType(
+  baseDir: string,
+  modelType: import('../types/litellm-api-config.js').ModelPoolType
+): Array<{ modelId: string; modelName: string; providers: string[] }> {
+  const config = loadLiteLLMApiConfig(baseDir);
+  const availableModels: Array<{ modelId: string; modelName: string; providers: string[] }> = [];
+  const modelMap = new Map<string, { modelId: string; modelName: string; providers: string[] }>();
+
+  for (const provider of config.providers) {
+    if (!provider.enabled) continue;
+
+    let models: typeof provider.embeddingModels | undefined;
+    
+    switch (modelType) {
+      case 'embedding':
+        models = provider.embeddingModels;
+        break;
+      case 'llm':
+        models = provider.llmModels;
+        break;
+      case 'reranker':
+        models = provider.rerankerModels;
+        break;
+    }
+
+    if (!models) continue;
+
+    for (const model of models) {
+      if (!model.enabled) continue;
+
+      const key = model.id;
+      if (modelMap.has(key)) {
+        modelMap.get(key)!.providers.push(provider.name);
+      } else {
+        modelMap.set(key, {
+          modelId: model.id,
+          modelName: model.name,
+          providers: [provider.name],
+        });
+      }
+    }
+  }
+
+  availableModels.push(...Array.from(modelMap.values()));
+  return availableModels;
+}
+
 // Re-export types
 export type { ProviderCredential, CustomEndpoint, ProviderType, CacheStrategy, CodexLensEmbeddingRotation, CodexLensEmbeddingProvider, EmbeddingPoolConfig };

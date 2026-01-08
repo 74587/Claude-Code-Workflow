@@ -550,15 +550,15 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
 
       // Serve dashboard HTML
       if (pathname === '/' || pathname === '/index.html') {
-        if (isLocalhostRequest(req)) {
-          const tokenResult = tokenManager.getOrCreateAuthToken();
-          setAuthCookie(res, tokenResult.token, tokenResult.expiresAt);
+        // Set session cookie and CSRF token for all requests
+        const tokenResult = tokenManager.getOrCreateAuthToken();
+        setAuthCookie(res, tokenResult.token, tokenResult.expiresAt);
 
-          const sessionId = getOrCreateSessionId(req, res);
-          const csrfToken = getCsrfTokenManager().generateToken(sessionId);
-          res.setHeader('X-CSRF-Token', csrfToken);
-          setCsrfCookie(res, csrfToken, 15 * 60);
-        }
+        const sessionId = getOrCreateSessionId(req, res);
+        const csrfToken = getCsrfTokenManager().generateToken(sessionId);
+        res.setHeader('X-CSRF-Token', csrfToken);
+        setCsrfCookie(res, csrfToken, 15 * 60);
+
         const html = generateServerDashboard(initialPath);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(html);

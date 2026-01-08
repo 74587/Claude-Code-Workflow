@@ -22,6 +22,12 @@ async function csrfFetch(url, options) {
 
   // Add CSRF token header for state-changing methods
   var method = (options.method || 'GET').toUpperCase();
+
+  // Auto-initialize CSRF token for state-changing requests
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].indexOf(method) !== -1) {
+    await initCsrfToken();
+  }
+
   if (['POST', 'PUT', 'PATCH', 'DELETE'].indexOf(method) !== -1 && csrfToken) {
     options.headers['X-CSRF-Token'] = csrfToken;
   }
