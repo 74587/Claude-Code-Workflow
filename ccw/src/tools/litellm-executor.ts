@@ -10,6 +10,7 @@ import {
   getProviderWithResolvedEnvVars,
 } from '../config/litellm-api-config-manager.js';
 import type { CustomEndpoint, ProviderCredential } from '../types/litellm-api-config.js';
+import type { CliOutputUnit } from './cli-output-converter.js';
 
 export interface LiteLLMExecutionOptions {
   prompt: string;
@@ -18,7 +19,7 @@ export interface LiteLLMExecutionOptions {
   cwd?: string; // Working directory for file resolution
   includeDirs?: string[]; // Additional directories for @patterns
   enableCache?: boolean; // Override endpoint cache setting
-  onOutput?: (data: { type: string; data: string }) => void;
+  onOutput?: (unit: CliOutputUnit) => void;
   /** Number of retries after the initial attempt (default: 0) */
   maxRetries?: number;
   /** Base delay for exponential backoff in milliseconds (default: 1000) */
@@ -105,7 +106,11 @@ export async function executeLiteLLMEndpoint(
     const patterns = extractPatterns(prompt);
     if (patterns.length > 0) {
       if (onOutput) {
-        onOutput({ type: 'stderr', data: `[Context cache: Found ${patterns.length} @patterns]\n` });
+        onOutput({
+          type: 'stderr',
+          content: `[Context cache: Found ${patterns.length} @patterns]\n`,
+          timestamp: new Date().toISOString()
+        });
       }
 
       // Pack files into cache
@@ -124,7 +129,8 @@ export async function executeLiteLLMEndpoint(
         if (onOutput) {
           onOutput({
             type: 'stderr',
-            data: `[Context cache: Packed ${pack.files_packed} files, ${pack.total_bytes} bytes]\n`,
+            content: `[Context cache: Packed ${pack.files_packed} files, ${pack.total_bytes} bytes]\n`,
+            timestamp: new Date().toISOString()
           });
         }
 
@@ -143,12 +149,20 @@ export async function executeLiteLLMEndpoint(
           cachedFiles = pack.files_packed ? Array(pack.files_packed).fill('...') : [];
 
           if (onOutput) {
-            onOutput({ type: 'stderr', data: `[Context cache: Applied to prompt]\n` });
+            onOutput({
+              type: 'stderr',
+              content: `[Context cache: Applied to prompt]\n`,
+              timestamp: new Date().toISOString()
+            });
           }
         }
       } else if (packResult.error) {
         if (onOutput) {
-          onOutput({ type: 'stderr', data: `[Context cache warning: ${packResult.error}]\n` });
+          onOutput({
+            type: 'stderr',
+            content: `[Context cache warning: ${packResult.error}]\n`,
+            timestamp: new Date().toISOString()
+          });
         }
       }
     }
@@ -159,7 +173,8 @@ export async function executeLiteLLMEndpoint(
     if (onOutput) {
       onOutput({
         type: 'stderr',
-        data: `[LiteLLM: Calling ${provider.type}/${endpoint.model}]\n`,
+        content: `[LiteLLM: Calling ${provider.type}/${endpoint.model}]\n`,
+        timestamp: new Date().toISOString()
       });
     }
 
@@ -195,7 +210,11 @@ export async function executeLiteLLMEndpoint(
     );
 
     if (onOutput) {
-      onOutput({ type: 'stdout', data: response });
+      onOutput({
+        type: 'stdout',
+        content: response,
+        timestamp: new Date().toISOString()
+      });
     }
 
     return {
@@ -209,7 +228,11 @@ export async function executeLiteLLMEndpoint(
   } catch (error) {
     const errorMsg = (error as Error).message;
     if (onOutput) {
-      onOutput({ type: 'stderr', data: `[LiteLLM error: ${errorMsg}]\n` });
+      onOutput({
+        type: 'stderr',
+        content: `[LiteLLM error: ${errorMsg}]\n`,
+        timestamp: new Date().toISOString()
+      });
     }
 
     return {
@@ -279,7 +302,7 @@ async function callWithRetries(
   options: {
     maxRetries: number;
     baseDelayMs: number;
-    onOutput?: (data: { type: string; data: string }) => void;
+    onOutput?: (unit: CliOutputUnit) => void;
     rateLimitKey: string;
   },
 ): Promise<string> {
@@ -301,7 +324,8 @@ async function callWithRetries(
       if (onOutput) {
         onOutput({
           type: 'stderr',
-          data: `[LiteLLM retry ${attempt + 1}/${maxRetries}: waiting ${delayMs}ms] ${errorMessage}\n`,
+          content: `[LiteLLM retry ${attempt + 1}/${maxRetries}: waiting ${delayMs}ms] ${errorMessage}\n`,
+          timestamp: new Date().toISOString()
         });
       }
 

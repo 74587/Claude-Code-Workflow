@@ -13,6 +13,7 @@ export interface CliToolConfig {
   enabled: boolean;
   primaryModel: string;      // For CLI endpoint calls (ccw cli -p)
   secondaryModel: string;    // For internal calls (llm_enhancer, generate_module_docs)
+  tags?: string[];           // User-defined tags/labels for the tool
 }
 
 export interface CliConfig {
@@ -204,7 +205,8 @@ export function updateToolConfig(
   const updatedToolConfig: CliToolConfig = {
     enabled: updates.enabled !== undefined ? updates.enabled : currentToolConfig.enabled,
     primaryModel: updates.primaryModel || currentToolConfig.primaryModel,
-    secondaryModel: updates.secondaryModel || currentToolConfig.secondaryModel
+    secondaryModel: updates.secondaryModel || currentToolConfig.secondaryModel,
+    tags: updates.tags !== undefined ? updates.tags : currentToolConfig.tags
   };
 
   // Save updated config

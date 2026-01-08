@@ -579,13 +579,15 @@ Create a new Claude Code skill with the following specifications:
 
     // Create onOutput callback for real-time streaming
     const onOutput = broadcastToClients
-      ? (chunk: { type: string; data: string }) => {
+      ? (unit: import('../../tools/cli-output-converter.js').CliOutputUnit) => {
+          // CliOutputUnit handler: convert to string content for broadcast
+          const content = typeof unit.content === 'string' ? unit.content : JSON.stringify(unit.content);
           broadcastToClients({
             type: 'CLI_OUTPUT',
             payload: {
               executionId,
-              chunkType: chunk.type,
-              data: chunk.data
+              chunkType: unit.type,
+              data: content
             }
           });
         }

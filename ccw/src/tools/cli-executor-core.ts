@@ -11,6 +11,12 @@ import { escapeWindowsArg } from '../utils/shell-escape.js';
 import { buildCommand, checkToolAvailability, clearToolCache, debugLog, errorLog, type NativeResumeConfig, type ToolAvailability } from './cli-executor-utils.js';
 import type { ConversationRecord, ConversationTurn, ExecutionOutput, ExecutionRecord } from './cli-executor-state.js';
 import {
+  createOutputParser,
+  type CliOutputUnit,
+  type IOutputParser,
+  flattenOutputUnits
+} from './cli-output-converter.js';
+import {
   buildMergedPrompt,
   buildMultiTurnPrompt,
   mergeConversations,
@@ -110,6 +116,7 @@ const ParamsSchema = z.object({
   category: z.enum(['user', 'internal', 'insight']).default('user'), // Execution category for tracking
   parentExecutionId: z.string().optional(), // Parent execution ID for fork/retry scenarios
   stream: z.boolean().default(false), // false = cache full output (default), true = stream output via callback
+  outputFormat: z.enum(['text', 'json-lines']).optional().default('json-lines'), // Output parsing format (default: json-lines for type badges)
 });
 
 type Params = z.infer<typeof ParamsSchema>;
@@ -127,14 +134,14 @@ function assertNonEmptyArray<T>(items: T[], message: string): asserts items is N
  */
 async function executeCliTool(
   params: Record<string, unknown>,
-  onOutput?: ((data: { type: string; data: string }) => void) | null
+  onOutput?: ((unit: CliOutputUnit) => void) | null
 ): Promise<ExecutionOutput> {
   const parsed = ParamsSchema.safeParse(params);
   if (!parsed.success) {
     throw new Error(`Invalid params: ${parsed.error.message}`);
   }
 
-  const { tool, prompt, mode, format, model, cd, includeDirs, timeout, resume, id: customId, noNative, category, parentExecutionId } = parsed.data;
+  const { tool, prompt, mode, format, model, cd, includeDirs, timeout, resume, id: customId, noNative, category, parentExecutionId, outputFormat } = parsed.data;
 
   // Validate and determine working directory early (needed for conversation lookup)
   let workingDir: string;
@@ -155,7 +162,11 @@ async function executeCliTool(
     if (endpoint) {
       // Route to LiteLLM executor
       if (onOutput) {
-        onOutput({ type: 'stderr', data: `[Routing to LiteLLM endpoint: ${model}]\n` });
+        onOutput({
+          type: 'stderr',
+          content: `[Routing to LiteLLM endpoint: ${model}]\n`,
+          timestamp: new Date().toISOString()
+        });
       }
 
       const result = await executeLiteLLMEndpoint({
@@ -363,7 +374,11 @@ async function executeCliTool(
   if (resumeDecision) {
     const modeDesc = getResumeModeDescription(resumeDecision);
     if (onOutput) {
-      onOutput({ type: 'stderr', data: `[Resume mode: ${modeDesc}]\n` });
+      onOutput({
+        type: 'stderr',
+        content: `[Resume mode: ${modeDesc}]\n`,
+        timestamp: new Date().toISOString()
+      });
     }
   }
 
@@ -381,6 +396,10 @@ async function executeCliTool(
     nativeResume: nativeResumeConfig
   });
 
+  // Create output parser and IR storage
+  const parser = createOutputParser(outputFormat);
+  const allOutputUnits: CliOutputUnit[] = [];
+
   const startTime = Date.now();
 
   debugLog('EXEC', `Starting CLI execution`, {
@@ -390,7 +409,8 @@ async function executeCliTool(
     conversationId,
     promptLength: finalPrompt.length,
     hasResume: !!resume,
-    hasCustomId: !!customId
+    hasCustomId: !!customId,
+    outputFormat
   });
 
   return new Promise((resolve, reject) => {
@@ -436,20 +456,36 @@ async function executeCliTool(
     let timedOut = false;
 
     // Handle stdout
-    child.stdout!.on('data', (data) => {
+    child.stdout!.on('data', (data: Buffer) => {
       const text = data.toString();
       stdout += text;
+
+      // Parse into IR units
+      const units = parser.parse(data, 'stdout');
+      allOutputUnits.push(...units);
+
       if (onOutput) {
-        onOutput({ type: 'stdout', data: text });
+        // Send each IR unit to callback
+        for (const unit of units) {
+          onOutput(unit);
+        }
       }
     });
 
     // Handle stderr
-    child.stderr!.on('data', (data) => {
+    child.stderr!.on('data', (data: Buffer) => {
       const text = data.toString();
       stderr += text;
+
+      // Parse into IR units
+      const units = parser.parse(data, 'stderr');
+      allOutputUnits.push(...units);
+
       if (onOutput) {
-        onOutput({ type: 'stderr', data: text });
+        // Send each IR unit to callback
+        for (const unit of units) {
+          onOutput(unit);
+        }
       }
     });
 
@@ -464,6 +500,15 @@ async function executeCliTool(
       // Clear current child process reference
       currentChildProcess = null;
 
+      // Flush remaining buffer from parser
+      const remainingUnits = parser.flush();
+      allOutputUnits.push(...remainingUnits);
+      if (onOutput) {
+        for (const unit of remainingUnits) {
+          onOutput(unit);
+        }
+      }
+
       const endTime = Date.now();
       const duration = endTime - startTime;
 
@@ -472,7 +517,8 @@ async function executeCliTool(
         duration: `${duration}ms`,
         timedOut,
         stdoutLength: stdout.length,
-        stderrLength: stderr.length
+        stderrLength: stderr.length,
+        outputUnitsCount: allOutputUnits.length
       });
 
       // Determine status - prioritize output content over exit code
@@ -524,7 +570,8 @@ async function executeCliTool(
         truncated: stdout.length > 10240 || stderr.length > 2048,
         cached: shouldCache,
         stdout_full: shouldCache ? stdout : undefined,
-        stderr_full: shouldCache ? stderr : undefined
+        stderr_full: shouldCache ? stderr : undefined,
+        structured: allOutputUnits  // Save structured IR units
       };
 
       // Determine base turn number for merge scenarios
@@ -677,13 +724,16 @@ async function executeCliTool(
         id: conversationId,
         timestamp: new Date(startTime).toISOString(),
         tool,
-        model: model || 'default',
+        model: effectiveModel || 'default',
         mode,
         prompt,
         status,
         exit_code: code,
         duration_ms: duration,
-        output: newTurnOutput
+        output: newTurnOutput,
+        parsedOutput: flattenOutputUnits(allOutputUnits, {
+          excludeTypes: ['stderr', 'progress', 'metadata', 'system']
+        })
       };
 
       resolve({
@@ -691,7 +741,8 @@ async function executeCliTool(
         execution,
         conversation,
         stdout,
-        stderr
+        stderr,
+        parsedOutput: execution.parsedOutput
       });
     });
 

@@ -346,16 +346,50 @@ function renderFormattedLine(line, searchFilter) {
   // Format inline code
   content = content.replace(/`([^`]+)`/g, '<code class="cli-inline-code">$1</code>');
 
-  // Build type badge if has prefix
-  const typeBadge = parsed.hasPrefix ?
-    `<span class="cli-msg-badge cli-msg-${parsed.type}">
+  // Type badge icons for backend chunkType (CliOutputUnit.type)
+  const CHUNK_TYPE_ICONS = {
+    thought: 'brain',
+    code: 'code',
+    file_diff: 'git-compare',
+    progress: 'loader',
+    system: 'settings',
+    stderr: 'alert-circle',
+    metadata: 'info'
+  };
+
+  // Type badge labels for backend chunkType
+  const CHUNK_TYPE_LABELS = {
+    thought: 'Thinking',
+    code: 'Code',
+    file_diff: 'Diff',
+    progress: 'Progress',
+    system: 'System',
+    stderr: 'Error',
+    metadata: 'Info'
+  };
+
+  // Build type badge - prioritize content prefix, then fall back to chunkType
+  let typeBadge = '';
+  let lineClass = '';
+
+  if (parsed.hasPrefix) {
+    // Content has Chinese prefix like [系统], [思考], etc.
+    typeBadge = `<span class="cli-msg-badge cli-msg-${parsed.type}">
       <i data-lucide="${MESSAGE_TYPE_ICONS[parsed.type] || 'circle'}"></i>
       <span>${parsed.label}</span>
-    </span>` : '';
-
-  // Determine line class based on original type and parsed type
-  const lineClass = parsed.hasPrefix ? `cli-stream-line formatted ${parsed.type}` :
-                    `cli-stream-line ${line.type}`;
+    </span>`;
+    lineClass = `cli-stream-line formatted ${parsed.type}`;
+  } else if (line.type && line.type !== 'stdout' && CHUNK_TYPE_LABELS[line.type]) {
+    // No content prefix, but backend sent a meaningful chunkType
+    typeBadge = `<span class="cli-msg-badge cli-msg-${line.type}">
+      <i data-lucide="${CHUNK_TYPE_ICONS[line.type] || 'circle'}"></i>
+      <span>${CHUNK_TYPE_LABELS[line.type]}</span>
+    </span>`;
+    lineClass = `cli-stream-line formatted ${line.type}`;
+  } else {
+    // Plain stdout, no badge
+    lineClass = `cli-stream-line ${line.type || 'stdout'}`;
+  }
 
   return `<div class="${lineClass}">${typeBadge}<span class="cli-msg-content">${content}</span></div>`;
 }

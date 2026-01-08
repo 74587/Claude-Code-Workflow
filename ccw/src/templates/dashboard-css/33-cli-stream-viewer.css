@@ -549,6 +549,77 @@
   color: hsl(200 70% 70%);
 }
 
+/* ===== Backend ChunkType Badges (CliOutputUnit.type) ===== */
+
+/* Thought/Thinking Message (from JSONL parser) */
+.cli-stream-line.formatted.thought {
+  background: hsl(280 50% 20% / 0.3);
+  border-left: 3px solid hsl(280 70% 65%);
+  font-style: italic;
+}
+
+.cli-msg-badge.cli-msg-thought {
+  background: hsl(280 70% 65% / 0.2);
+  color: hsl(280 70% 75%);
+}
+
+/* Code Block Message */
+.cli-stream-line.formatted.code {
+  background: hsl(220 40% 18% / 0.4);
+  border-left: 3px solid hsl(220 60% 55%);
+  font-family: var(--font-mono, 'Consolas', 'Monaco', 'Courier New', monospace);
+}
+
+.cli-msg-badge.cli-msg-code {
+  background: hsl(220 60% 55% / 0.25);
+  color: hsl(220 60% 70%);
+}
+
+/* File Diff Message */
+.cli-stream-line.formatted.file_diff {
+  background: hsl(35 50% 18% / 0.4);
+  border-left: 3px solid hsl(35 80% 55%);
+}
+
+.cli-msg-badge.cli-msg-file_diff {
+  background: hsl(35 80% 55% / 0.25);
+  color: hsl(35 80% 65%);
+}
+
+/* Progress Message */
+.cli-stream-line.formatted.progress {
+  background: hsl(190 40% 18% / 0.3);
+  border-left: 3px solid hsl(190 70% 50%);
+}
+
+.cli-msg-badge.cli-msg-progress {
+  background: hsl(190 70% 50% / 0.2);
+  color: hsl(190 70% 65%);
+}
+
+/* Metadata Message */
+.cli-stream-line.formatted.metadata {
+  background: hsl(250 30% 18% / 0.3);
+  border-left: 3px solid hsl(250 50% 60%);
+  font-size: 0.85em;
+}
+
+.cli-msg-badge.cli-msg-metadata {
+  background: hsl(250 50% 60% / 0.2);
+  color: hsl(250 50% 75%);
+}
+
+/* Stderr Message (Error) */
+.cli-stream-line.formatted.stderr {
+  background: hsl(0 50% 20% / 0.4);
+  border-left: 3px solid hsl(0 70% 55%);
+}
+
+.cli-msg-badge.cli-msg-stderr {
+  background: hsl(0 70% 55% / 0.25);
+  color: hsl(0 70% 70%);
+}
+
 /* Inline Code */
 .cli-inline-code {
   padding: 1px 5px;

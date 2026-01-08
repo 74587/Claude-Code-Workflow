@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync,
 import { join } from 'path';
 import { parseSessionFile, formatConversation, extractConversationPairs, type ParsedSession, type ParsedTurn } from './session-content-parser.js';
 import { StoragePaths, ensureStorageDir, getProjectId } from '../config/storage-paths.js';
+import type { CliOutputUnit } from './cli-output-converter.js';
 
 // Types
 export interface ConversationTurn {
@@ -26,6 +27,7 @@ export interface ConversationTurn {
     cached?: boolean;
     stdout_full?: string;
     stderr_full?: string;
+    structured?: CliOutputUnit[];  // Structured IR sequence for advanced parsing
   };
 }
 

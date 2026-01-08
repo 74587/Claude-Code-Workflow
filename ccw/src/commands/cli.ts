@@ -6,6 +6,7 @@
 import chalk from 'chalk';
 import http from 'http';
 import inquirer from 'inquirer';
+import type { CliOutputUnit } from '../tools/cli-output-converter.js';
 import {
   cliExecutorTool,
   getCliToolsStatus,
@@ -725,7 +726,8 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
   // Generate execution ID for streaming (use custom ID or timestamp-based)
   const executionId = id || `${Date.now()}-${tool}`;
   const startTime = Date.now();
-  const spinnerBaseText = `Executing ${tool} (${mode} mode${resumeInfo}${nativeMode})${idInfo}...`;
+  const modelInfo = model ? ` @${model}` : '';
+  const spinnerBaseText = `Executing ${tool}${modelInfo} (${mode} mode${resumeInfo}${nativeMode})${idInfo}...`;
   console.log();
 
   const spinner = stream ? null : createSpinner(`  ${spinnerBaseText}`).start();
@@ -787,19 +789,48 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
   });
 
   // Streaming output handler - broadcasts to dashboard AND writes to stdout
-  const onOutput = (chunk: any) => {
+  const onOutput = (unit: CliOutputUnit) => {
     // Always broadcast to dashboard for real-time viewing
     // Note: /api/hook wraps extraData into payload, so send fields directly
+    // Maintain backward compatibility with frontend expecting { chunkType, data }
+    const content = typeof unit.content === 'string' ? unit.content : JSON.stringify(unit.content);
     broadcastStreamEvent('CLI_OUTPUT', {
       executionId,
-      chunkType: chunk.type,
-      data: chunk.data
+      chunkType: unit.type,  // For backward compatibility
+      data: content,         // For backward compatibility
+      unit                   // New structured format
     });
+
     // Write to terminal only when --stream flag is passed
     if (stream) {
-      process.stdout.write(chunk.data);
+      switch (unit.type) {
+        case 'stdout':
+        case 'code':
+          process.stdout.write(typeof unit.content === 'string' ? unit.content : JSON.stringify(unit.content));
+          break;
+        case 'stderr':
+          process.stderr.write(typeof unit.content === 'string' ? unit.content : JSON.stringify(unit.content));
+          break;
+        case 'thought':
+          // Optional: display thinking process with different color
+          // For now, skip to reduce noise
+          break;
+        case 'progress':
+          // Optional: update progress bar
+          // For now, skip
+          break;
+        default:
+          // Other types: output content if available
+          if (unit.content) {
+            process.stdout.write(typeof unit.content === 'string' ? unit.content : '');
+          }
+      }
     }
   };
+
+  // Use JSON-lines parsing by default to enable type badges (thought, code, file_diff, etc.)
+  // All CLI tools may output structured JSON that can be parsed for richer UI
+  const outputFormat = 'json-lines';
 
   try {
     const result = await cliExecutorTool.execute({
@@ -813,7 +844,8 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       resume,
       id, // custom execution ID
       noNative,
-      stream: !!stream // stream=true → streaming enabled (no cache), stream=false → cache output (default)
+      stream: !!stream, // stream=true → streaming enabled (no cache), stream=false → cache output (default)
+      outputFormat // Enable JSONL parsing for tools that support it
     }, onOutput); // Always pass onOutput for real-time dashboard streaming
 
     if (elapsedInterval) clearInterval(elapsedInterval);

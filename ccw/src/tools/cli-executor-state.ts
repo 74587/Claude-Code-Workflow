@@ -5,6 +5,7 @@
 
 import type { HistoryIndexEntry } from './cli-history-store.js';
 import { StoragePaths, ensureStorageDir } from '../config/storage-paths.js';
+import type { CliOutputUnit } from './cli-output-converter.js';
 
 // Lazy-loaded SQLite store module
 let sqliteStoreModule: typeof import('./cli-history-store.js') | null = null;
@@ -44,6 +45,10 @@ export interface ConversationTurn {
     stdout: string;
     stderr: string;
     truncated: boolean;
+    cached?: boolean;
+    stdout_full?: string;
+    stderr_full?: string;
+    structured?: CliOutputUnit[];  // Structured IR sequence for advanced parsing
   };
 }
 
@@ -79,6 +84,7 @@ export interface ExecutionRecord {
     stderr: string;
     truncated: boolean;
   };
+  parsedOutput?: string;  // Extracted clean text from structured output units
 }
 
 interface HistoryIndex {

@@ -627,7 +627,18 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
           stream: false,
           category: 'internal',
           id: syncId
-        }, onOutput);
+        }, (unit) => {
+          // CliOutputUnit handler: convert to string content for broadcast
+          const content = typeof unit.content === 'string' ? unit.content : JSON.stringify(unit.content);
+          broadcastToClients({
+            type: 'CLI_OUTPUT',
+            payload: {
+              executionId: syncId,
+              chunkType: unit.type,
+              data: content
+            }
+          });
+        });
 
         // Broadcast CLI_EXECUTION_COMPLETED event
         broadcastToClients({

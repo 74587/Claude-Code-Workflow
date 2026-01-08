@@ -330,6 +330,25 @@ function buildToolConfigModalContent(tool, config, models, status) {
       '</div>' +
     '</div>' +
 
+    // Tags Section - Unified input with inline tags
+    '<div class="tool-config-section">' +
+      '<h4>Tags <span class="text-muted">(optional labels)</span></h4>' +
+      '<div class="tags-unified-input" id="tagsUnifiedInput">' +
+        (config.tags || []).map(function(tag) {
+          return '<span class="tag-item">' + escapeHtml(tag) + '<button type="button" class="tag-remove" data-tag="' + escapeHtml(tag) + '">&times;</button></span>';
+        }).join('') +
+        '<input type="text" id="tagInput" class="tag-inline-input" placeholder="输入标签按 Enter 添加" />' +
+      '</div>' +
+      '<div class="predefined-tags-row">' +
+        '<button type="button" class="predefined-tag-btn" data-tag="分析"><i data-lucide="search" class="w-3 h-3"></i> 分析</button>' +
+        '<button type="button" class="predefined-tag-btn" data-tag="编码"><i data-lucide="code" class="w-3 h-3"></i> 编码</button>' +
+        '<button type="button" class="predefined-tag-btn" data-tag="Debug"><i data-lucide="bug" class="w-3 h-3"></i> Debug</button>' +
+        '<button type="button" class="predefined-tag-btn" data-tag="重构"><i data-lucide="refresh-cw" class="w-3 h-3"></i> 重构</button>' +
+        '<button type="button" class="predefined-tag-btn" data-tag="测试"><i data-lucide="check-square" class="w-3 h-3"></i> 测试</button>' +
+        '<button type="button" class="predefined-tag-btn" data-tag="文档"><i data-lucide="file-text" class="w-3 h-3"></i> 文档</button>' +
+      '</div>' +
+    '</div>' +
+
     // Footer
     '<div class="tool-config-footer">' +
       '<button class="btn btn-outline" onclick="closeModal()">' + t('common.cancel') + '</button>' +
@@ -341,6 +360,79 @@ function buildToolConfigModalContent(tool, config, models, status) {
 }
 
 function initToolConfigModalEvents(tool, currentConfig, models) {
+  // Local tags state (copy from config)
+  var currentTags = (currentConfig.tags || []).slice();
+
+  // Helper to render tags inline with input
+  function renderTags() {
+    var container = document.getElementById('tagsUnifiedInput');
+    var input = document.getElementById('tagInput');
+    if (!container) return;
+
+    // Remove existing tag items but keep the input
+    container.querySelectorAll('.tag-item').forEach(function(el) { el.remove(); });
+
+    // Insert tags before the input
+    currentTags.forEach(function(tag) {
+      var tagEl = document.createElement('span');
+      tagEl.className = 'tag-item';
+      tagEl.innerHTML = escapeHtml(tag) + '<button type="button" class="tag-remove" data-tag="' + escapeHtml(tag) + '">&times;</button>';
+      container.insertBefore(tagEl, input);
+    });
+
+    // Re-attach remove handlers
+    container.querySelectorAll('.tag-remove').forEach(function(btn) {
+      btn.onclick = function(e) {
+        e.stopPropagation();
+        var tagToRemove = this.getAttribute('data-tag');
+        currentTags = currentTags.filter(function(t) { return t !== tagToRemove; });
+        renderTags();
+      };
+    });
+  }
+
+  // Click on unified input container focuses the input
+  var unifiedInput = document.getElementById('tagsUnifiedInput');
+  if (unifiedInput) {
+    unifiedInput.onclick = function(e) {
+      if (e.target === this) {
+        document.getElementById('tagInput').focus();
+      }
+    };
+  }
+
+  // Tag input handler
+  var tagInput = document.getElementById('tagInput');
+  if (tagInput) {
+    tagInput.onkeydown = function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var newTag = this.value.trim();
+        if (newTag && currentTags.indexOf(newTag) === -1) {
+          currentTags.push(newTag);
+          renderTags();
+        }
+        this.value = '';
+      }
+    };
+  }
+
+  // Predefined tag click handlers
+  document.querySelectorAll('.predefined-tag-btn').forEach(function(btn) {
+    btn.onclick = function() {
+      var tag = this.getAttribute('data-tag');
+      if (tag && currentTags.indexOf(tag) === -1) {
+        currentTags.push(tag);
+        renderTags();
+      }
+    };
+  });
+
+  // Initialize tags display
+  renderTags();
+  // Initialize lucide icons for predefined buttons
+  if (window.lucide) lucide.createIcons();
+
   // Toggle Enable/Disable
   var toggleBtn = document.getElementById('toggleEnableBtn');
   if (toggleBtn) {
@@ -426,10 +518,15 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
       try {
         await updateCliToolConfig(tool, {
           primaryModel: primaryModel,
-          secondaryModel: secondaryModel
+          secondaryModel: secondaryModel,
+          tags: currentTags
         });
+        // Reload config to reflect changes
+        await loadCliToolConfig();
         showRefreshToast('Configuration saved', 'success');
         closeModal();
+        renderToolsSection();
+        if (window.lucide) lucide.createIcons();
       } catch (err) {
         showRefreshToast('Failed to save: ' + err.message, 'error');
       }
@@ -554,35 +651,42 @@ function renderToolsSection() {
   var toolDescriptions = {
     gemini: t('cli.geminiDesc'),
     qwen: t('cli.qwenDesc'),
-    codex: t('cli.codexDesc')
+    codex: t('cli.codexDesc'),
+    claude: t('cli.claudeDesc') || 'Anthropic Claude Code CLI for AI-assisted development',
+    opencode: t('cli.opencodeDesc') || 'OpenCode CLI - Multi-provider AI coding assistant'
   };
 
-  var tools = ['gemini', 'qwen', 'codex'];
+  var tools = ['gemini', 'qwen', 'codex', 'claude', 'opencode'];
   var available = Object.values(cliToolStatus).filter(function(t) { return t.available; }).length;
 
   var toolsHtml = tools.map(function(tool) {
     var status = cliToolStatus[tool] || {};
     var isAvailable = status.available;
-    var isDefault = defaultCliTool === tool;
+    var toolConfig = cliToolConfig && cliToolConfig.tools ? cliToolConfig.tools[tool] : null;
+    var tags = toolConfig && toolConfig.tags ? toolConfig.tags : [];
+
+    // Build tags HTML
+    var tagsHtml = tags.length > 0
+      ? '<div class="tool-tags">' + tags.map(function(tag) {
+          return '<span class="tool-tag">' + escapeHtml(tag) + '</span>';
+        }).join('') + '</div>'
+      : '';
 
     return '<div class="tool-item clickable ' + (isAvailable ? 'available' : 'unavailable') + '" onclick="showToolConfigModal(\'' + tool + '\')">' +
       '<div class="tool-item-left">' +
         '<span class="tool-status-dot ' + (isAvailable ? 'status-available' : 'status-unavailable') + '"></span>' +
         '<div class="tool-item-info">' +
           '<div class="tool-item-name">' + tool.charAt(0).toUpperCase() + tool.slice(1) +
-            (isDefault ? '<span class="tool-default-badge">' + t('cli.default') + '</span>' : '') +
             '<i data-lucide="settings" class="w-3 h-3 tool-config-icon"></i>' +
           '</div>' +
           '<div class="tool-item-desc">' + toolDescriptions[tool] + '</div>' +
+          tagsHtml +
         '</div>' +
       '</div>' +
       '<div class="tool-item-right">' +
         (isAvailable
           ? '<span class="tool-status-text success"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> ' + t('cli.ready') + '</span>'
           : '<span class="tool-status-text muted"><i data-lucide="circle-dashed" class="w-3.5 h-3.5"></i> ' + t('cli.notInstalled') + '</span>') +
-        (isAvailable && !isDefault
-          ? '<button class="btn-sm btn-outline" onclick="event.stopPropagation(); setDefaultCliTool(\'' + tool + '\')"><i data-lucide="star" class="w-3 h-3"></i> ' + t('cli.setDefault') + '</button>'
-          : '') +
       '</div>' +
     '</div>';
   }).join('');

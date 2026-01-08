@@ -3738,22 +3738,93 @@ function renderCliSettingsEmptyState() {
 }
 
 /**
+ * Get available Anthropic providers
+ */
+function getAvailableAnthropicProviders() {
+  if (!apiSettingsData || !apiSettingsData.providers) {
+    return [];
+  }
+
+  return apiSettingsData.providers.filter(function(p) {
+    return p.type === 'anthropic' && p.enabled;
+  });
+}
+
+/**
+ * Build provider options HTML for CLI Settings
+ */
+function buildCliProviderOptions(selectedProviderId) {
+  var providers = getAvailableAnthropicProviders();
+  var optionsHtml = '<option value="">' + t('apiSettings.selectProvider') + '</option>';
+
+  providers.forEach(function(provider) {
+    var isSelected = provider.id === selectedProviderId ? ' selected' : '';
+    optionsHtml += '<option value="' + escapeHtml(provider.id) + '"' + isSelected + '>' + escapeHtml(provider.name) + '</option>';
+  });
+
+  return optionsHtml;
+}
+
+/**
+ * Build model options HTML for CLI Settings based on selected provider
+ */
+function buildCliModelOptions(providerId, selectedModel) {
+  var providers = getAvailableAnthropicProviders();
+  var provider = providers.find(function(p) { return p.id === providerId; });
+
+  if (!provider || !provider.llmModels || provider.llmModels.length === 0) {
+    return '<option value="">' + t('apiSettings.selectProviderFirst') + '</option>';
+  }
+
+  var optionsHtml = '';
+  provider.llmModels.forEach(function(model) {
+    var isSelected = model.id === selectedModel ? ' selected' : '';
+    optionsHtml += '<option value="' + escapeHtml(model.id) + '"' + isSelected + '>' + escapeHtml(model.name || model.id) + '</option>';
+  });
+
+  return optionsHtml;
+}
+
+/**
+ * Update CLI Settings model dropdown when provider changes
+ */
+function onCliProviderChange() {
+  var providerId = document.getElementById('cli-settings-provider').value;
+  var modelSelect = document.getElementById('cli-settings-model');
+
+  if (modelSelect) {
+    modelSelect.innerHTML = buildCliModelOptions(providerId, '');
+  }
+}
+
+/**
  * Show Add CLI Settings Modal
  */
 function showAddCliSettingsModal(existingEndpoint) {
   var isEdit = !!existingEndpoint;
-  var settings = existingEndpoint ? existingEndpoint.settings : { env: {}, model: 'sonnet' };
-  var env = settings.env || {};
+  var settings = existingEndpoint ? existingEndpoint.settings : { env: {}, model: '' };
+  var selectedProviderId = settings.providerId || '';
+  var providerOptionsHtml = buildCliProviderOptions(selectedProviderId);
+  var modelOptionsHtml = buildCliModelOptions(selectedProviderId, settings.model);
+
+  // Check if any Anthropic providers are configured
+  var hasProviders = getAvailableAnthropicProviders().length > 0;
+  var noProvidersWarning = !hasProviders ?
+    '<div class="info-message" style="margin-bottom: 1rem;">' +
+    '<i data-lucide="alert-circle"></i>' +
+    '<span>' + t('apiSettings.noAnthropicProviders') + '</span>' +
+    '</div>' : '';
 
   var modalHtml =
-    '<div class="modal-overlay" onclick="closeModal(event)">' +
-    '<div class="modal" onclick="event.stopPropagation()">' +
-    '<div class="modal-header">' +
-    '<h2>' + (isEdit ? t('apiSettings.editCliSettings') : t('apiSettings.addCliSettings')) + '</h2>' +
-    '<button class="modal-close" onclick="closeCliSettingsModal()">&times;</button>' +
+    '<div class="generic-modal-overlay active" id="cliSettingsModal">' +
+    '<div class="generic-modal">' +
+    '<div class="generic-modal-header">' +
+    '<h3 class="generic-modal-title">' + (isEdit ? t('apiSettings.editCliSettings') : t('apiSettings.addCliSettings')) + '</h3>' +
+    '<button class="generic-modal-close" onclick="closeCliSettingsModal()">&times;</button>' +
     '</div>' +
-    '<div class="modal-body">' +
-    '<form id="cli-settings-form">' +
+    '<div class="generic-modal-body">' +
+    noProvidersWarning +
+    '<form id="cli-settings-form" class="api-settings-form">' +
     (isEdit ? '<input type="hidden" id="cli-settings-id" value="' + existingEndpoint.id + '">' : '') +
     '<div class="form-group">' +
     '<label for="cli-settings-name">' + t('apiSettings.endpointName') + ' *</label>' +
@@ -3764,20 +3835,17 @@ function showAddCliSettingsModal(existingEndpoint) {
     '<input type="text" id="cli-settings-description" class="cli-input" value="' + escapeHtml(existingEndpoint ? (existingEndpoint.description || '') : '') + '" />' +
     '</div>' +
     '<div class="form-group">' +
-    '<label for="cli-settings-model">' + t('apiSettings.model') + '</label>' +
-    '<select id="cli-settings-model" class="cli-select">' +
-    '<option value="opus"' + (settings.model === 'opus' ? ' selected' : '') + '>Claude Opus</option>' +
-    '<option value="sonnet"' + (settings.model === 'sonnet' ? ' selected' : '') + '>Claude Sonnet</option>' +
-    '<option value="haiku"' + (settings.model === 'haiku' ? ' selected' : '') + '>Claude Haiku</option>' +
+    '<label for="cli-settings-provider">' + t('apiSettings.provider') + ' *</label>' +
+    '<select id="cli-settings-provider" class="cli-input" onchange="onCliProviderChange()" required>' +
+    providerOptionsHtml +
     '</select>' +
+    '<small class="form-hint">' + t('apiSettings.cliProviderHint') + '</small>' +
     '</div>' +
     '<div class="form-group">' +
-    '<label for="cli-settings-token">ANTHROPIC_AUTH_TOKEN *</label>' +
-    '<input type="password" id="cli-settings-token" class="cli-input" value="' + escapeHtml(env.ANTHROPIC_AUTH_TOKEN || '') + '" placeholder="sk-..." required />' +
-    '</div>' +
-    '<div class="form-group">' +
-    '<label for="cli-settings-base-url">ANTHROPIC_BASE_URL</label>' +
-    '<input type="text" id="cli-settings-base-url" class="cli-input" value="' + escapeHtml(env.ANTHROPIC_BASE_URL || '') + '" placeholder="https://api.anthropic.com/v1" />' +
+    '<label for="cli-settings-model">' + t('apiSettings.model') + ' *</label>' +
+    '<select id="cli-settings-model" class="cli-input" required>' +
+    modelOptionsHtml +
+    '</select>' +
     '</div>' +
     '<div class="form-group">' +
     '<label class="checkbox-label">' +
@@ -3786,22 +3854,17 @@ function showAddCliSettingsModal(existingEndpoint) {
     '</label>' +
     '</div>' +
     '</form>' +
+    '<div class="modal-actions">' +
+    '<button class="btn btn-secondary" onclick="closeCliSettingsModal()">' + t('common.cancel') + '</button>' +
+    '<button class="btn btn-primary" onclick="submitCliSettings()"' + (!hasProviders ? ' disabled' : '') + '>' + (isEdit ? t('common.save') : t('common.create')) + '</button>' +
     '</div>' +
-    '<div class="modal-footer">' +
-    '<button class="btn btn-ghost" onclick="closeCliSettingsModal()">' + t('common.cancel') + '</button>' +
-    '<button class="btn btn-primary" onclick="submitCliSettings()">' + (isEdit ? t('common.save') : t('common.create')) + '</button>' +
     '</div>' +
     '</div>' +
     '</div>';
 
-  // Append modal to body
-  var modalsContainer = document.getElementById('modals');
-  if (!modalsContainer) {
-    modalsContainer = document.createElement('div');
-    modalsContainer.id = 'modals';
-    document.body.appendChild(modalsContainer);
-  }
-  modalsContainer.innerHTML = modalHtml;
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+  if (window.lucide) lucide.createIcons();
 }
 
 /**
@@ -3821,10 +3884,8 @@ function editCliSettings(endpointId) {
  * Close CLI Settings Modal
  */
 function closeCliSettingsModal() {
-  var modalsContainer = document.getElementById('modals');
-  if (modalsContainer) {
-    modalsContainer.innerHTML = '';
-  }
+  var modal = document.getElementById('cliSettingsModal');
+  if (modal) modal.remove();
 }
 
 /**
@@ -3833,9 +3894,8 @@ function closeCliSettingsModal() {
 async function submitCliSettings() {
   var name = document.getElementById('cli-settings-name').value.trim();
   var description = document.getElementById('cli-settings-description').value.trim();
+  var providerId = document.getElementById('cli-settings-provider').value;
   var model = document.getElementById('cli-settings-model').value;
-  var token = document.getElementById('cli-settings-token').value.trim();
-  var baseUrl = document.getElementById('cli-settings-base-url').value.trim();
   var enabled = document.getElementById('cli-settings-enabled').checked;
   var idInput = document.getElementById('cli-settings-id');
   var id = idInput ? idInput.value : null;
@@ -3845,26 +3905,42 @@ async function submitCliSettings() {
     return;
   }
 
-  if (!token) {
-    showRefreshToast(t('apiSettings.tokenRequired'), 'error');
+  if (!providerId) {
+    showRefreshToast(t('apiSettings.providerRequired'), 'error');
     return;
   }
 
+  if (!model) {
+    showRefreshToast(t('apiSettings.modelRequired'), 'error');
+    return;
+  }
+
+  // Get provider configuration
+  var providers = getAvailableAnthropicProviders();
+  var provider = providers.find(function(p) { return p.id === providerId; });
+
+  if (!provider) {
+    showRefreshToast(t('apiSettings.providerNotFound'), 'error');
+    return;
+  }
+
+  // Build settings from provider
   var data = {
     name: name,
     description: description,
     enabled: enabled,
     settings: {
       env: {
-        ANTHROPIC_AUTH_TOKEN: token,
+        ANTHROPIC_AUTH_TOKEN: provider.apiKey || '',
         DISABLE_AUTOUPDATER: '1'
       },
-      model: model
+      model: model,
+      providerId: providerId // Store for editing
     }
   };
 
-  if (baseUrl) {
-    data.settings.env.ANTHROPIC_BASE_URL = baseUrl;
+  if (provider.apiBase) {
+    data.settings.env.ANTHROPIC_BASE_URL = provider.apiBase;
   }
 
   if (id) {
@@ -3889,6 +3965,7 @@ window.showAddCliSettingsModal = showAddCliSettingsModal;
 window.editCliSettings = editCliSettings;
 window.closeCliSettingsModal = closeCliSettingsModal;
 window.submitCliSettings = submitCliSettings;
+window.onCliProviderChange = onCliProviderChange;
 
 
 // ========== Utility Functions ==========

@@ -195,7 +195,7 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
   }
 
   // API: Get/Update Tool Config
-  const configMatch = pathname.match(/^\/api\/cli\/config\/(gemini|qwen|codex)$/);
+  const configMatch = pathname.match(/^\/api\/cli\/config\/(gemini|qwen|codex|claude|opencode)$/);
   if (configMatch) {
     const tool = configMatch[1];
 
@@ -216,7 +216,7 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
     if (req.method === 'PUT') {
       handlePostRequest(req, res, async (body: unknown) => {
         try {
-          const updates = body as { enabled?: boolean; primaryModel?: string; secondaryModel?: string };
+          const updates = body as { enabled?: boolean; primaryModel?: string; secondaryModel?: string; tags?: string[] };
           const updated = updateToolConfig(initialPath, tool, updates);
 
           // Broadcast config updated event
@@ -559,19 +559,22 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
           category: category || 'user',
           parentExecutionId,
           stream: true
-        }, (chunk) => {
-          // Append chunk to active execution buffer
+        }, (unit) => {
+          // CliOutputUnit handler: convert to string content
+          const content = typeof unit.content === 'string' ? unit.content : JSON.stringify(unit.content);
+
+          // Append to active execution buffer
           const activeExec = activeExecutions.get(executionId);
           if (activeExec) {
-            activeExec.output += chunk.data || '';
+            activeExec.output += content || '';
           }
 
           broadcastToClients({
             type: 'CLI_OUTPUT',
             payload: {
               executionId,
-              chunkType: chunk.type,
-              data: chunk.data
+              chunkType: unit.type,
+              data: content
             }
           });
         });

@@ -357,7 +357,7 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
   const tokenManager = getTokenManager();
   const secretKey = tokenManager.getSecretKey();
   tokenManager.getOrCreateAuthToken();
-  const unauthenticatedPaths = new Set<string>(['/api/auth/token', '/api/csrf-token']);
+  const unauthenticatedPaths = new Set<string>(['/api/auth/token', '/api/csrf-token', '/api/hook']);
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', `http://localhost:${serverPort}`);

@@ -118,8 +118,9 @@ export async function csrfValidation(ctx: CsrfMiddlewareContext): Promise<boolea
   const method = (req.method || 'GET').toUpperCase();
   if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return true;
 
-  // Always allow token acquisition routes.
+  // Always allow token acquisition routes and webhook endpoints.
   if (pathname === '/api/auth/token') return true;
+  if (pathname === '/api/hook') return true;
 
   // Requests authenticated via Authorization header do not require CSRF protection.
   const authorization = getHeaderValue(req.headers.authorization);

@@ -4,9 +4,58 @@
  */
 
 import type { ConversationRecord, ConversationTurn } from './cli-executor-state.js';
+import { flattenOutputUnits, type CliOutputUnit, type CliOutputUnitType } from './cli-output-converter.js';
 
 // Prompt concatenation format types
 export type PromptFormat = 'plain' | 'yaml' | 'json';
+
+/**
+ * Extract clean AI output content from ConversationTurn
+ * Prioritizes structured IR data, falls back to raw stdout
+ *
+ * This function performs noise filtering to extract only meaningful content
+ * for use in prompt context, excluding progress updates, metadata, and system events.
+ *
+ * @param turn - Conversation turn containing output
+ * @param options - Extraction options
+ * @param options.includeThoughts - Whether to include AI reasoning/thinking in output (default: false)
+ * @returns Clean output string suitable for prompt context
+ *
+ * @example
+ * ```typescript
+ * const cleanOutput = extractCleanOutput(turn, { includeThoughts: true });
+ * // Returns: stdout + code + file_diff + thought (excludes: progress, metadata, system)
+ * ```
+ */
+function extractCleanOutput(
+  turn: ConversationTurn,
+  options?: {
+    includeThoughts?: boolean;
+  }
+): string {
+  // Priority 1: Use structured IR if available (clean, noise-filtered)
+  if (turn.output?.structured && turn.output.structured.length > 0) {
+    const includeTypes: CliOutputUnitType[] = ['stdout', 'code', 'file_diff'];
+
+    // Optionally include thought processes
+    if (options?.includeThoughts) {
+      includeTypes.push('thought');
+    }
+
+    return flattenOutputUnits(turn.output.structured, {
+      includeTypes,
+      excludeTypes: ['progress', 'metadata', 'system']
+    });
+  }
+
+  // Priority 2: Use full output if available
+  if (turn.output?.stdout_full) {
+    return turn.output.stdout_full;
+  }
+
+  // Priority 3: Fall back to truncated stdout
+  return turn.output?.stdout || '[No output]';
+}
 
 /**
  * Merge multiple conversations into a unified context
@@ -166,7 +215,11 @@ export class PromptConcatenator {
       timestamp: turn.timestamp,
       source_id: sourceId
     });
-    this.addAssistantTurn(turn.output.stdout || '[No output]', {
+
+    // Use extractCleanOutput to get noise-filtered content
+    const cleanOutput = extractCleanOutput(turn);
+
+    this.addAssistantTurn(cleanOutput, {
       turn: turn.turn * 2,
       timestamp: turn.timestamp,
       status: turn.status,
