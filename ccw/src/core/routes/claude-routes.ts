@@ -918,8 +918,11 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
         const isCodex = target === 'codex';
         const targetDir = isCodex ? join(homedir(), '.codex') : join(homedir(), '.claude');
         const targetFile = isCodex ? join(targetDir, 'AGENTS.md') : join(targetDir, 'CLAUDE.md');
-        const headerText = isCodex ? '# Codex Instructions\n\n' : '# Claude Instructions\n\n';
-        const headerPattern = isCodex ? /^# Codex Instructions\n\n?/ : /^# Claude Instructions\n\n?/;
+        const headerText = isCodex ? '# Codex Code Guidelines\n\n' : '# Claude Instructions\n\n';
+        // Match common header patterns for both tools
+        const headerPattern = isCodex
+          ? /^#\s*(Codex\s*(Code\s*)?(Guidelines|Instructions))\n\n?/i
+          : /^#\s*Claude\s*Instructions\n\n?/i;
 
         const chineseRefLine = `- **中文回复准则**: @${guidelinesRef}`;
         const chineseRefPattern = /^- \*\*中文回复准则\*\*:.*chinese-response\.md.*$/gm;
