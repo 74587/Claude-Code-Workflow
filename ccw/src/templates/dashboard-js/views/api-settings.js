@@ -643,6 +643,24 @@ function updateProviderSpecificFields() {
       el.style.display = 'block';
     });
   }
+
+  // Update API base URL placeholder based on provider type
+  var apiBaseInput = document.getElementById('provider-apibase');
+  if (apiBaseInput) {
+    var defaultBase = getDefaultApiBase(providerType);
+    apiBaseInput.placeholder = defaultBase;
+
+    // If the current value is empty or matches a known default, update to show the new default
+    var currentValue = apiBaseInput.value.trim();
+    var knownDefaults = [
+      'https://api.openai.com/v1',
+      'https://api.anthropic.com/v1',
+      'https://api.example.com/v1'
+    ];
+    if (!currentValue || knownDefaults.includes(currentValue)) {
+      apiBaseInput.value = '';  // Clear to use placeholder, user can override if needed
+    }
+  }
 }
 
 // ========== Endpoint Management ==========
@@ -1449,8 +1467,14 @@ async function toggleProviderEnabled(providerId, enabled) {
     if (!response.ok) throw new Error('Failed to update provider');
 
     // Update local data (for instant UI feedback)
-    var provider = apiSettingsData.providers.find(function(p) { return p.id === providerId; });
-    if (provider) provider.enabled = enabled;
+    // Ensure apiSettingsData is loaded before accessing
+    if (!apiSettingsData || !apiSettingsData.providers) {
+      await loadApiSettings(true);
+    }
+    if (apiSettingsData && apiSettingsData.providers) {
+      var provider = apiSettingsData.providers.find(function(p) { return p.id === providerId; });
+      if (provider) provider.enabled = enabled;
+    }
 
     renderProviderList();
     showRefreshToast(t('apiSettings.providerUpdated'), 'success');
@@ -2129,7 +2153,8 @@ function saveModelSettings(event, providerId, modelId, modelType) {
     })
     .then(function() {
       closeModelSettingsModal();
-      return loadApiSettings();
+      // Force refresh to get latest data after saving
+      return loadApiSettings(true);
     })
     .then(function() {
       if (selectedProviderId === providerId) {

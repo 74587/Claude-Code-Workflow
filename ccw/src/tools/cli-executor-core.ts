@@ -96,7 +96,7 @@ import {
 
 // Define Zod schema for validation
 const ParamsSchema = z.object({
-  tool: z.enum(['gemini', 'qwen', 'codex']),
+  tool: z.enum(['gemini', 'qwen', 'codex', 'opencode']),
   prompt: z.string().min(1, 'Prompt is required'),
   mode: z.enum(['analysis', 'write', 'auto']).default('analysis'),
   format: z.enum(['plain', 'yaml', 'json']).default('plain'), // Multi-turn prompt concatenation format
@@ -808,7 +808,7 @@ export {
  * Get status of all CLI tools
  */
 export async function getCliToolsStatus(): Promise<Record<string, ToolAvailability>> {
-  const tools = ['gemini', 'qwen', 'codex', 'claude'];
+  const tools = ['gemini', 'qwen', 'codex', 'claude', 'opencode'];
   const results: Record<string, ToolAvailability> = {};
 
   await Promise.all(tools.map(async (tool) => {
@@ -823,7 +823,8 @@ const CLI_TOOL_PACKAGES: Record<string, string> = {
   gemini: '@google/gemini-cli',
   qwen: '@qwen-code/qwen-code',
   codex: '@openai/codex',
-  claude: '@anthropic-ai/claude-code'
+  claude: '@anthropic-ai/claude-code',
+  opencode: 'opencode'  // https://opencode.ai - installed via npm/pnpm/bun/brew
 };
 
 // Disabled tools storage (in-memory fallback, main storage is in cli-config.json)

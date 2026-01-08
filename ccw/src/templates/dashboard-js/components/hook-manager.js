@@ -21,7 +21,7 @@ const HOOK_TEMPLATES = {
     event: 'PostToolUse',
     matcher: '',
     command: 'bash',
-    args: ['-c', 'INPUT=$(cat); TOOL=$(echo "$INPUT" | jq -r ".tool_name // empty"); FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); echo "[$(date)] Tool: $TOOL, File: $FILE" >> ~/.claude/tool-usage.log'],
+    args: ['-c', 'mkdir -p "$HOME/.claude"; INPUT=$(cat); TOOL=$(echo "$INPUT" | jq -r ".tool_name // empty" 2>/dev/null); FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty" 2>/dev/null); echo "[$(date)] Tool: $TOOL, File: $FILE" >> "$HOME/.claude/tool-usage.log"'],
     description: 'Log all tool executions to a file',
     category: 'logging'
   },
@@ -66,7 +66,7 @@ const HOOK_TEMPLATES = {
     event: 'PostToolUse',
     matcher: 'Write|Edit',
     command: 'bash',
-    args: ['-c', 'INTERVAL=300; LAST_FILE=~/.claude/.last_memory_update; NOW=$(date +%s); LAST=0; [ -f "$LAST_FILE" ] && LAST=$(cat "$LAST_FILE"); if [ $((NOW - LAST)) -ge $INTERVAL ]; then echo $NOW > "$LAST_FILE"; ccw tool exec update_module_claude \'{"strategy":"related","tool":"gemini"}\' & fi'],
+    args: ['-c', 'INTERVAL=300; LAST_FILE="$HOME/.claude/.last_memory_update"; mkdir -p "$HOME/.claude"; NOW=$(date +%s); LAST=0; [ -f "$LAST_FILE" ] && LAST=$(cat "$LAST_FILE" 2>/dev/null || echo 0); if [ $((NOW - LAST)) -ge $INTERVAL ]; then echo $NOW > "$LAST_FILE"; ccw tool exec update_module_claude \'{"strategy":"related","tool":"gemini"}\' & fi'],
     description: 'Periodically update CLAUDE.md (default: 5 min interval)',
     category: 'memory',
     configurable: true,
@@ -79,7 +79,7 @@ const HOOK_TEMPLATES = {
     event: 'PostToolUse',
     matcher: 'Write|Edit',
     command: 'bash',
-    args: ['-c', 'THRESHOLD=10; COUNT_FILE=~/.claude/.memory_update_count; INPUT=$(cat); FILE_PATH=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); [ -z "$FILE_PATH" ] && exit 0; COUNT=0; [ -f "$COUNT_FILE" ] && COUNT=$(cat "$COUNT_FILE" 2>/dev/null || echo 0); COUNT=$((COUNT + 1)); echo $COUNT > "$COUNT_FILE"; if [ $COUNT -ge $THRESHOLD ]; then echo 0 > "$COUNT_FILE"; ccw tool exec update_module_claude \'{"strategy":"related","tool":"gemini"}\' & fi'],
+    args: ['-c', 'THRESHOLD=10; COUNT_FILE="$HOME/.claude/.memory_update_count"; mkdir -p "$HOME/.claude"; INPUT=$(cat); FILE_PATH=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty" 2>/dev/null); [ -z "$FILE_PATH" ] && exit 0; COUNT=0; [ -f "$COUNT_FILE" ] && COUNT=$(cat "$COUNT_FILE" 2>/dev/null || echo 0); COUNT=$((COUNT + 1)); echo $COUNT > "$COUNT_FILE"; if [ $COUNT -ge $THRESHOLD ]; then echo 0 > "$COUNT_FILE"; ccw tool exec update_module_claude \'{"strategy":"related","tool":"gemini"}\' & fi'],
     description: 'Update CLAUDE.md when file changes reach threshold (default: 10 files)',
     category: 'memory',
     configurable: true,
@@ -1163,9 +1163,9 @@ function generateWizardCommand() {
   const params = JSON.stringify({ strategy, tool });
 
   if (triggerType === 'periodic') {
-    return `INTERVAL=${interval}; LAST_FILE=~/.claude/.last_memory_update; NOW=$(date +%s); LAST=0; [ -f "$LAST_FILE" ] && LAST=$(cat "$LAST_FILE"); if [ $((NOW - LAST)) -ge $INTERVAL ]; then echo $NOW > "$LAST_FILE"; ccw tool exec update_module_claude '${params}' & fi`;
+    return `INTERVAL=${interval}; LAST_FILE="$HOME/.claude/.last_memory_update"; mkdir -p "$HOME/.claude"; NOW=$(date +%s); LAST=0; [ -f "$LAST_FILE" ] && LAST=$(cat "$LAST_FILE" 2>/dev/null || echo 0); if [ $((NOW - LAST)) -ge $INTERVAL ]; then echo $NOW > "$LAST_FILE"; ccw tool exec update_module_claude '${params}' & fi`;
   } else if (triggerType === 'count-based') {
-    return `THRESHOLD=${threshold}; COUNT_FILE=~/.claude/.memory_update_count; INPUT=$(cat); FILE_PATH=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); [ -z "$FILE_PATH" ] && exit 0; COUNT=0; [ -f "$COUNT_FILE" ] && COUNT=$(cat "$COUNT_FILE" 2>/dev/null || echo 0); COUNT=$((COUNT + 1)); echo $COUNT > "$COUNT_FILE"; if [ $COUNT -ge $THRESHOLD ]; then echo 0 > "$COUNT_FILE"; ccw tool exec update_module_claude '${params}' & fi`;
+    return `THRESHOLD=${threshold}; COUNT_FILE="$HOME/.claude/.memory_update_count"; mkdir -p "$HOME/.claude"; INPUT=$(cat); FILE_PATH=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty" 2>/dev/null); [ -z "$FILE_PATH" ] && exit 0; COUNT=0; [ -f "$COUNT_FILE" ] && COUNT=$(cat "$COUNT_FILE" 2>/dev/null || echo 0); COUNT=$((COUNT + 1)); echo $COUNT > "$COUNT_FILE"; if [ $COUNT -ge $THRESHOLD ]; then echo 0 > "$COUNT_FILE"; ccw tool exec update_module_claude '${params}' & fi`;
   } else {
     return `ccw tool exec update_module_claude '${params}'`;
   }

@@ -20,7 +20,7 @@ export interface CliConfig {
   tools: Record<string, CliToolConfig>;
 }
 
-export type CliToolName = 'gemini' | 'qwen' | 'codex' | 'claude';
+export type CliToolName = 'gemini' | 'qwen' | 'codex' | 'claude' | 'opencode';
 
 // ========== Constants ==========
 
@@ -28,7 +28,16 @@ export const PREDEFINED_MODELS: Record<CliToolName, string[]> = {
   gemini: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
   qwen: ['coder-model', 'vision-model', 'qwen2.5-coder-32b'],
   codex: ['gpt-5.2', 'gpt-4.1', 'o4-mini', 'o3'],
-  claude: ['sonnet', 'opus', 'haiku', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101']
+  claude: ['sonnet', 'opus', 'haiku', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101'],
+  opencode: [
+    'anthropic/claude-sonnet-4-20250514',
+    'anthropic/claude-opus-4-20250514',
+    'anthropic/claude-haiku',
+    'openai/gpt-4.1',
+    'openai/o3',
+    'google/gemini-2.5-pro',
+    'google/gemini-2.5-flash'
+  ]
 };
 
 export const DEFAULT_CONFIG: CliConfig = {
@@ -53,6 +62,11 @@ export const DEFAULT_CONFIG: CliConfig = {
       enabled: true,
       primaryModel: 'sonnet',
       secondaryModel: 'haiku'
+    },
+    opencode: {
+      enabled: true,
+      primaryModel: 'anthropic/claude-sonnet-4-20250514',
+      secondaryModel: 'anthropic/claude-haiku'
     }
   }
 };
@@ -69,7 +83,7 @@ function ensureConfigDirForProject(baseDir: string): void {
 }
 
 function isValidToolName(tool: string): tool is CliToolName {
-  return ['gemini', 'qwen', 'codex', 'claude'].includes(tool);
+  return ['gemini', 'qwen', 'codex', 'claude', 'opencode'].includes(tool);
 }
 
 function validateConfig(config: unknown): config is CliConfig {
@@ -80,7 +94,7 @@ function validateConfig(config: unknown): config is CliConfig {
   if (!c.tools || typeof c.tools !== 'object') return false;
 
   const tools = c.tools as Record<string, unknown>;
-  for (const toolName of ['gemini', 'qwen', 'codex', 'claude']) {
+  for (const toolName of ['gemini', 'qwen', 'codex', 'claude', 'opencode']) {
     const tool = tools[toolName];
     if (!tool || typeof tool !== 'object') return false;
 

@@ -290,6 +290,32 @@ export function buildCommand(params: {
       }
       break;
 
+    case 'opencode':
+      // OpenCode: opencode run "prompt" for non-interactive mode
+      // https://opencode.ai/docs/cli/
+      args.push('run');
+      // Native resume: opencode run --continue or --session <id>
+      if (nativeResume?.enabled) {
+        if (nativeResume.isLatest) {
+          args.push('--continue');
+        } else if (nativeResume.sessionId) {
+          args.push('--session', nativeResume.sessionId);
+        }
+      }
+      // Model: --model <provider/model> (e.g., anthropic/claude-sonnet-4-20250514)
+      if (model) {
+        args.push('--model', model);
+      }
+      // Write mode: Use full-auto permission via environment or default permissive mode
+      // OpenCode uses OPENCODE_PERMISSION env var for permission control
+      // For now, we rely on project-level configuration
+      // Output format for parsing
+      args.push('--format', 'default');
+      // Prompt is passed as positional argument after 'run'
+      // Use stdin for prompt to avoid shell escaping issues
+      useStdin = true;
+      break;
+
     default:
       errorLog('BUILD_CMD', `Unknown CLI tool: ${tool}`);
       throw new Error(`Unknown CLI tool: ${tool}`);

@@ -679,12 +679,146 @@ class ClaudeSessionDiscoverer extends SessionDiscoverer {
   }
 }
 
+/**
+ * OpenCode Session Discoverer
+ * Path: ~/.config/opencode/sessions/ or ~/.opencode/sessions/ (fallback)
+ * OpenCode stores sessions with UUID-based session IDs
+ * https://opencode.ai/docs/cli/
+ */
+class OpenCodeSessionDiscoverer extends SessionDiscoverer {
+  tool = 'opencode';
+  // Primary: XDG config path, fallback to .opencode in home
+  basePath = join(
+    process.env.OPENCODE_CONFIG_DIR ||
+    process.env.XDG_CONFIG_HOME ||
+    join(getHomePath(), '.config'),
+    'opencode'
+  );
+  fallbackBasePath = join(getHomePath(), '.opencode');
+
+  private getSessionsDir(): string | null {
+    // Check primary path first
+    const primarySessionsDir = join(this.basePath, 'sessions');
+    if (existsSync(primarySessionsDir)) {
+      return primarySessionsDir;
+    }
+    // Fallback to ~/.opencode/sessions
+    const fallbackSessionsDir = join(this.fallbackBasePath, 'sessions');
+    if (existsSync(fallbackSessionsDir)) {
+      return fallbackSessionsDir;
+    }
+    return null;
+  }
+
+  getSessions(options: SessionDiscoveryOptions = {}): NativeSession[] {
+    const { limit, afterTimestamp } = options;
+    const sessions: NativeSession[] = [];
+
+    const sessionsDir = this.getSessionsDir();
+    if (!sessionsDir) return [];
+
+    try {
+      // OpenCode stores sessions as JSON/JSONL files with UUID names
+      const sessionFiles = readdirSync(sessionsDir)
+        .filter(f => f.endsWith('.json') || f.endsWith('.jsonl'))
+        .map(f => ({
+          name: f,
+          path: join(sessionsDir, f),
+          stat: statSync(join(sessionsDir, f))
+        }))
+        .sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs);
+
+      for (const file of sessionFiles) {
+        if (afterTimestamp && file.stat.mtime <= afterTimestamp) continue;
+
+        try {
+          // Try to extract session ID from filename (UUID pattern)
+          const uuidMatch = file.name.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+          let sessionId: string;
+
+          if (uuidMatch) {
+            sessionId = uuidMatch[1];
+          } else {
+            // Try reading first line for session metadata
+            const firstLine = readFileSync(file.path, 'utf8').split('\n')[0];
+            const meta = JSON.parse(firstLine);
+            sessionId = meta.id || meta.session_id || basename(file.name, '.json').replace('.jsonl', '');
+          }
+
+          sessions.push({
+            sessionId,
+            tool: this.tool,
+            filePath: file.path,
+            createdAt: file.stat.birthtime,
+            updatedAt: file.stat.mtime
+          });
+        } catch {
+          // Skip invalid files
+        }
+      }
+
+      sessions.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+      return limit ? sessions.slice(0, limit) : sessions;
+    } catch {
+      return [];
+    }
+  }
+
+  findSessionById(sessionId: string): NativeSession | null {
+    const sessions = this.getSessions();
+    return sessions.find(s => s.sessionId === sessionId) || null;
+  }
+
+  /**
+   * Extract first user message from OpenCode session file
+   * Format may vary - try common patterns
+   */
+  extractFirstUserMessage(filePath: string): string | null {
+    try {
+      const content = readFileSync(filePath, 'utf8');
+
+      // Check if JSON or JSONL
+      if (filePath.endsWith('.jsonl')) {
+        const lines = content.split('\n').filter(l => l.trim());
+        for (const line of lines) {
+          try {
+            const entry = JSON.parse(line);
+            // Try common patterns for user message
+            if (entry.role === 'user' && entry.content) {
+              return entry.content;
+            }
+            if (entry.type === 'user' && entry.message) {
+              return typeof entry.message === 'string' ? entry.message : entry.message.content;
+            }
+            if (entry.type === 'user_message' && entry.content) {
+              return entry.content;
+            }
+          } catch { /* skip invalid lines */ }
+        }
+      } else {
+        // JSON format - look for messages array
+        const data = JSON.parse(content);
+        if (data.messages && Array.isArray(data.messages)) {
+          const userMsg = data.messages.find((m: { role?: string; type?: string }) =>
+            m.role === 'user' || m.type === 'user'
+          );
+          return userMsg?.content || null;
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+}
+
 // Singleton discoverers
 const discoverers: Record<string, SessionDiscoverer> = {
   gemini: new GeminiSessionDiscoverer(),
   qwen: new QwenSessionDiscoverer(),
   codex: new CodexSessionDiscoverer(),
-  claude: new ClaudeSessionDiscoverer()
+  claude: new ClaudeSessionDiscoverer(),
+  opencode: new OpenCodeSessionDiscoverer()
 };
 
 /**
@@ -780,6 +914,13 @@ export function getNativeResumeArgs(
         return ['resume', '--last'];
       }
       return ['resume', sessionId];
+
+    case 'opencode':
+      // opencode run --continue (latest) or --session <uuid>
+      if (sessionId === 'latest') {
+        return ['--continue'];
+      }
+      return ['--session', sessionId];
 
     default:
       return [];
