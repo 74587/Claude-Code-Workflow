@@ -157,8 +157,10 @@ export function buildCommand(params: {
   dir?: string;
   include?: string;
   nativeResume?: NativeResumeConfig;
+  /** Claude CLI settings file path (for --settings parameter) */
+  settingsFile?: string;
 }): { command: string; args: string[]; useStdin: boolean } {
-  const { tool, prompt, mode = 'analysis', model, dir, include, nativeResume } = params;
+  const { tool, prompt, mode = 'analysis', model, dir, include, nativeResume, settingsFile } = params;
 
   debugLog('BUILD_CMD', `Building command for tool: ${tool}`, {
     mode,
@@ -238,7 +240,10 @@ export function buildCommand(params: {
             args.push('--add-dir', addDir);
           }
         }
-        args.push('-');
+        // codex resume uses positional prompt argument, not stdin
+        // Format: codex resume <session-id> [prompt]
+        useStdin = false;
+        args.push(prompt);
       } else {
         args.push('exec');
         if (mode === 'write' || mode === 'auto') {
@@ -262,6 +267,10 @@ export function buildCommand(params: {
     case 'claude':
       // Claude Code: claude -p "prompt" for non-interactive mode
       args.push('-p'); // Print mode (non-interactive)
+      // Settings file: claude --settings <file-or-json>
+      if (settingsFile) {
+        args.push('--settings', settingsFile);
+      }
       // Native resume: claude --resume <session-id> or --continue
       if (nativeResume?.enabled) {
         if (nativeResume.isLatest) {
@@ -291,8 +300,10 @@ export function buildCommand(params: {
       break;
 
     case 'opencode':
-      // OpenCode: opencode run "prompt" for non-interactive mode
+      // OpenCode: opencode run [message..] for non-interactive mode
       // https://opencode.ai/docs/cli/
+      // Prompt is passed as positional arguments (NOT stdin)
+      useStdin = false;
       args.push('run');
       // Native resume: opencode run --continue or --session <id>
       if (nativeResume?.enabled) {
@@ -306,14 +317,11 @@ export function buildCommand(params: {
       if (model) {
         args.push('--model', model);
       }
-      // Write mode: Use full-auto permission via environment or default permissive mode
-      // OpenCode uses OPENCODE_PERMISSION env var for permission control
-      // For now, we rely on project-level configuration
       // Output format for parsing
       args.push('--format', 'default');
-      // Prompt is passed as positional argument after 'run'
-      // Use stdin for prompt to avoid shell escaping issues
-      useStdin = true;
+      // Add prompt as positional argument at the end
+      // OpenCode expects: opencode run [options] [message..]
+      args.push(prompt);
       break;
 
     default:

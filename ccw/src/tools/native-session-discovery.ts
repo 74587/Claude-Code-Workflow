@@ -681,82 +681,124 @@ class ClaudeSessionDiscoverer extends SessionDiscoverer {
 
 /**
  * OpenCode Session Discoverer
- * Path: ~/.config/opencode/sessions/ or ~/.opencode/sessions/ (fallback)
- * OpenCode stores sessions with UUID-based session IDs
- * https://opencode.ai/docs/cli/
+ * Storage path: ~/.local/share/opencode/storage/ (all platforms)
+ * Structure:
+ *   session/<project-hash>/<session-id>.json  - Session metadata
+ *   message/<session-id>/<message-id>.json    - Message content
+ *   part/<message-id>/<part-id>.json          - Message parts
+ *   project/<project-hash>.json               - Project metadata
+ * https://opencode.ai/docs/config/
  */
 class OpenCodeSessionDiscoverer extends SessionDiscoverer {
   tool = 'opencode';
-  // Primary: XDG config path, fallback to .opencode in home
+  // Storage base path: ~/.local/share/opencode/storage
   basePath = join(
-    process.env.OPENCODE_CONFIG_DIR ||
-    process.env.XDG_CONFIG_HOME ||
-    join(getHomePath(), '.config'),
-    'opencode'
+    process.env.USERPROFILE || getHomePath(),
+    '.local',
+    'share',
+    'opencode',
+    'storage'
   );
-  fallbackBasePath = join(getHomePath(), '.opencode');
 
-  private getSessionsDir(): string | null {
-    // Check primary path first
-    const primarySessionsDir = join(this.basePath, 'sessions');
-    if (existsSync(primarySessionsDir)) {
-      return primarySessionsDir;
-    }
-    // Fallback to ~/.opencode/sessions
-    const fallbackSessionsDir = join(this.fallbackBasePath, 'sessions');
-    if (existsSync(fallbackSessionsDir)) {
-      return fallbackSessionsDir;
-    }
-    return null;
-  }
-
-  getSessions(options: SessionDiscoveryOptions = {}): NativeSession[] {
-    const { limit, afterTimestamp } = options;
-    const sessions: NativeSession[] = [];
-
-    const sessionsDir = this.getSessionsDir();
-    if (!sessionsDir) return [];
+  private getProjectHash(workingDir: string): string | null {
+    // OpenCode uses SHA1 hash of the project directory path
+    const sessionDir = join(this.basePath, 'session');
+    if (!existsSync(sessionDir)) return null;
 
     try {
-      // OpenCode stores sessions as JSON/JSONL files with UUID names
-      const sessionFiles = readdirSync(sessionsDir)
-        .filter(f => f.endsWith('.json') || f.endsWith('.jsonl'))
-        .map(f => ({
-          name: f,
-          path: join(sessionsDir, f),
-          stat: statSync(join(sessionsDir, f))
-        }))
-        .sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs);
+      const projectHashes = readdirSync(sessionDir).filter(d => {
+        const fullPath = join(sessionDir, d);
+        return statSync(fullPath).isDirectory();
+      });
 
-      for (const file of sessionFiles) {
-        if (afterTimestamp && file.stat.mtime <= afterTimestamp) continue;
+      if (projectHashes.length === 0) return null;
 
-        try {
-          // Try to extract session ID from filename (UUID pattern)
-          const uuidMatch = file.name.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
-          let sessionId: string;
-
-          if (uuidMatch) {
-            sessionId = uuidMatch[1];
-          } else {
-            // Try reading first line for session metadata
-            const firstLine = readFileSync(file.path, 'utf8').split('\n')[0];
-            const meta = JSON.parse(firstLine);
-            sessionId = meta.id || meta.session_id || basename(file.name, '.json').replace('.jsonl', '');
+      // If workingDir provided, try to find matching project
+      if (workingDir) {
+        const normalizedWorkDir = resolve(workingDir);
+        // Check project files for directory match
+        const projectDir = join(this.basePath, 'project');
+        if (existsSync(projectDir)) {
+          for (const hash of projectHashes) {
+            const projectFile = join(projectDir, `${hash}.json`);
+            if (existsSync(projectFile)) {
+              try {
+                const projectData = JSON.parse(readFileSync(projectFile, 'utf8'));
+                // Normalize path comparison for Windows
+                const projectPath = projectData.directory?.replace(/\\/g, '/').toLowerCase();
+                const targetPath = normalizedWorkDir.replace(/\\/g, '/').toLowerCase();
+                if (projectPath === targetPath) {
+                  return hash;
+                }
+              } catch {
+                // Skip invalid project files
+              }
+            }
           }
-
-          sessions.push({
-            sessionId,
-            tool: this.tool,
-            filePath: file.path,
-            createdAt: file.stat.birthtime,
-            updatedAt: file.stat.mtime
-          });
-        } catch {
-          // Skip invalid files
         }
       }
 
+      // Return first available project hash if no match
+      return projectHashes[0];
+    } catch {
+      return null;
+    }
+  }
+
+  getSessions(options: SessionDiscoveryOptions = {}): NativeSession[] {
+    const { workingDir, limit, afterTimestamp } = options;
+    const sessions: NativeSession[] = [];
+
+    const sessionDir = join(this.basePath, 'session');
+    if (!existsSync(sessionDir)) return [];
+
+    try {
+      // Get all project directories or specific one
+      let projectHashes: string[];
+      if (workingDir) {
+        const hash = this.getProjectHash(workingDir);
+        projectHashes = hash ? [hash] : [];
+      } else {
+        projectHashes = readdirSync(sessionDir).filter(d => {
+          const fullPath = join(sessionDir, d);
+          return statSync(fullPath).isDirectory();
+        });
+      }
+
+      for (const projectHash of projectHashes) {
+        const projectSessionDir = join(sessionDir, projectHash);
+        if (!existsSync(projectSessionDir)) continue;
+
+        // Get all session files
+        const sessionFiles = readdirSync(projectSessionDir)
+          .filter(f => f.endsWith('.json'))
+          .map(f => ({
+            name: f,
+            path: join(projectSessionDir, f),
+            stat: statSync(join(projectSessionDir, f))
+          }))
+          .sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs);
+
+        for (const file of sessionFiles) {
+          if (afterTimestamp && file.stat.mtime <= afterTimestamp) continue;
+
+          try {
+            const sessionData = JSON.parse(readFileSync(file.path, 'utf8'));
+            sessions.push({
+              sessionId: sessionData.id || basename(file.name, '.json'),
+              tool: this.tool,
+              filePath: file.path,
+              projectHash,
+              createdAt: new Date(sessionData.time?.created || file.stat.birthtime),
+              updatedAt: new Date(sessionData.time?.updated || file.stat.mtime)
+            });
+          } catch {
+            // Skip invalid files
+          }
+        }
+      }
+
+      // Sort by updatedAt descending
       sessions.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
       return limit ? sessions.slice(0, limit) : sessions;
     } catch {
@@ -770,42 +812,61 @@ class OpenCodeSessionDiscoverer extends SessionDiscoverer {
   }
 
   /**
-   * Extract first user message from OpenCode session file
-   * Format may vary - try common patterns
+   * Extract first user message from OpenCode session
+   * Messages are stored in: message/<session-id>/<message-id>.json
+   * Format: { id, sessionID, role, time }
+   * Content is in parts: part/<message-id>/<part-id>.json
    */
   extractFirstUserMessage(filePath: string): string | null {
     try {
-      const content = readFileSync(filePath, 'utf8');
+      // filePath is the session JSON file
+      const sessionData = JSON.parse(readFileSync(filePath, 'utf8'));
+      const sessionId = sessionData.id;
+      if (!sessionId) return null;
 
-      // Check if JSON or JSONL
-      if (filePath.endsWith('.jsonl')) {
-        const lines = content.split('\n').filter(l => l.trim());
-        for (const line of lines) {
-          try {
-            const entry = JSON.parse(line);
-            // Try common patterns for user message
-            if (entry.role === 'user' && entry.content) {
-              return entry.content;
+      // Find messages for this session
+      const messageDir = join(this.basePath, 'message', sessionId);
+      if (!existsSync(messageDir)) return null;
+
+      // Get message files sorted by time
+      const messageFiles = readdirSync(messageDir)
+        .filter(f => f.endsWith('.json'))
+        .map(f => ({
+          name: f,
+          path: join(messageDir, f)
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      for (const msgFile of messageFiles) {
+        try {
+          const msgData = JSON.parse(readFileSync(msgFile.path, 'utf8'));
+          if (msgData.role === 'user') {
+            // Get content from parts
+            const partDir = join(this.basePath, 'part', msgData.id);
+            if (existsSync(partDir)) {
+              const partFiles = readdirSync(partDir)
+                .filter(f => f.endsWith('.json'))
+                .sort();
+
+              for (const partFile of partFiles) {
+                try {
+                  const partData = JSON.parse(readFileSync(join(partDir, partFile), 'utf8'));
+                  if (partData.type === 'text' && partData.text) {
+                    return partData.text;
+                  }
+                } catch {
+                  // Skip invalid parts
+                }
+              }
             }
-            if (entry.type === 'user' && entry.message) {
-              return typeof entry.message === 'string' ? entry.message : entry.message.content;
-            }
-            if (entry.type === 'user_message' && entry.content) {
-              return entry.content;
-            }
-          } catch { /* skip invalid lines */ }
-        }
-      } else {
-        // JSON format - look for messages array
-        const data = JSON.parse(content);
-        if (data.messages && Array.isArray(data.messages)) {
-          const userMsg = data.messages.find((m: { role?: string; type?: string }) =>
-            m.role === 'user' || m.type === 'user'
-          );
-          return userMsg?.content || null;
+            // Fallback to title if available
+            return msgData.summary?.title || sessionData.title || null;
+          }
+        } catch {
+          // Skip invalid messages
         }
       }
-      return null;
+      return sessionData.title || null;
     } catch {
       return null;
     }
@@ -884,8 +945,14 @@ export function getNativeSessions(
 
 /**
  * Check if a tool supports native resume
+ * Note: codex is excluded because `codex resume` requires a TTY (terminal)
+ * which doesn't work in spawn() context. Codex uses prompt-concat mode instead.
  */
 export function supportsNativeResume(tool: string): boolean {
+  // codex resume requires TTY - use prompt-concat mode instead
+  if (tool === 'codex') {
+    return false;
+  }
   return tool in discoverers;
 }
 

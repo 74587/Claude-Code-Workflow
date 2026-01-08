@@ -1,0 +1,232 @@
+/**
+ * CLI Settings Routes Module
+ * Handles Claude CLI settings file management API endpoints
+ */
+
+import type { RouteContext } from './types.js';
+import {
+  saveEndpointSettings,
+  loadEndpointSettings,
+  deleteEndpointSettings,
+  listAllSettings,
+  toggleEndpointEnabled,
+  getSettingsFilePath,
+  ensureSettingsDir,
+  sanitizeEndpointId
+} from '../../config/cli-settings-manager.js';
+import type { SaveEndpointRequest } from '../../types/cli-settings.js';
+import { validateSettings } from '../../types/cli-settings.js';
+
+/**
+ * Handle CLI Settings routes
+ * @returns true if route was handled, false otherwise
+ */
+export async function handleCliSettingsRoutes(ctx: RouteContext): Promise<boolean> {
+  const { pathname, req, res, handlePostRequest, broadcastToClients } = ctx;
+
+  // Ensure settings directory exists
+  ensureSettingsDir();
+
+  // ========== LIST ALL SETTINGS ==========
+  // GET /api/cli/settings
+  if (pathname === '/api/cli/settings' && req.method === 'GET') {
+    try {
+      const result = listAllSettings();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // ========== CREATE/UPDATE SETTINGS ==========
+  // POST /api/cli/settings
+  if (pathname === '/api/cli/settings' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body: unknown) => {
+      try {
+        const request = body as SaveEndpointRequest;
+
+        // Validate required fields
+        if (!request.name) {
+          return { error: 'name is required', status: 400 };
+        }
+        if (!request.settings || !request.settings.env) {
+          return { error: 'settings.env is required', status: 400 };
+        }
+        // Deep validation of settings object
+        if (!validateSettings(request.settings)) {
+          return { error: 'Invalid settings object format', status: 400 };
+        }
+
+        const result = saveEndpointSettings(request);
+
+        if (result.success) {
+          // Broadcast settings created/updated event
+          broadcastToClients({
+            type: 'CLI_SETTINGS_UPDATED',
+            payload: {
+              endpoint: result.endpoint,
+              filePath: result.filePath,
+              timestamp: new Date().toISOString()
+            }
+          });
+          return result;
+        } else {
+          return { error: result.message, status: 500 };
+        }
+      } catch (err) {
+        return { error: (err as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // ========== GET SINGLE SETTINGS ==========
+  // GET /api/cli/settings/:id
+  const getMatch = pathname.match(/^\/api\/cli\/settings\/([^/]+)$/);
+  if (getMatch && req.method === 'GET') {
+    const endpointId = sanitizeEndpointId(getMatch[1]);
+    try {
+      const endpoint = loadEndpointSettings(endpointId);
+
+      if (!endpoint) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Endpoint not found' }));
+        return true;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        endpoint,
+        filePath: getSettingsFilePath(endpointId)
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // ========== UPDATE SETTINGS ==========
+  // PUT /api/cli/settings/:id
+  const putMatch = pathname.match(/^\/api\/cli\/settings\/([^/]+)$/);
+  if (putMatch && req.method === 'PUT') {
+    const endpointId = sanitizeEndpointId(putMatch[1]);
+    handlePostRequest(req, res, async (body: unknown) => {
+      try {
+        const request = body as Partial<SaveEndpointRequest>;
+
+        // Check if just toggling enabled status
+        if (Object.keys(request).length === 1 && 'enabled' in request) {
+          const result = toggleEndpointEnabled(endpointId, request.enabled as boolean);
+
+          if (result.success) {
+            broadcastToClients({
+              type: 'CLI_SETTINGS_TOGGLED',
+              payload: {
+                endpointId,
+                enabled: request.enabled,
+                timestamp: new Date().toISOString()
+              }
+            });
+          }
+          return result;
+        }
+
+        // Full update
+        const existing = loadEndpointSettings(endpointId);
+        if (!existing) {
+          return { error: 'Endpoint not found', status: 404 };
+        }
+
+        const updateRequest: SaveEndpointRequest = {
+          id: endpointId,
+          name: request.name || existing.name,
+          description: request.description ?? existing.description,
+          settings: request.settings || existing.settings,
+          enabled: request.enabled ?? existing.enabled
+        };
+
+        const result = saveEndpointSettings(updateRequest);
+
+        if (result.success) {
+          broadcastToClients({
+            type: 'CLI_SETTINGS_UPDATED',
+            payload: {
+              endpoint: result.endpoint,
+              filePath: result.filePath,
+              timestamp: new Date().toISOString()
+            }
+          });
+        }
+
+        return result;
+      } catch (err) {
+        return { error: (err as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // ========== DELETE SETTINGS ==========
+  // DELETE /api/cli/settings/:id
+  const deleteMatch = pathname.match(/^\/api\/cli\/settings\/([^/]+)$/);
+  if (deleteMatch && req.method === 'DELETE') {
+    const endpointId = sanitizeEndpointId(deleteMatch[1]);
+    try {
+      const result = deleteEndpointSettings(endpointId);
+
+      if (result.success) {
+        broadcastToClients({
+          type: 'CLI_SETTINGS_DELETED',
+          payload: {
+            endpointId,
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      }
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // ========== GET SETTINGS FILE PATH ==========
+  // GET /api/cli/settings/:id/path
+  const pathMatch = pathname.match(/^\/api\/cli\/settings\/([^/]+)\/path$/);
+  if (pathMatch && req.method === 'GET') {
+    const endpointId = sanitizeEndpointId(pathMatch[1]);
+    try {
+      const endpoint = loadEndpointSettings(endpointId);
+
+      if (!endpoint) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Endpoint not found' }));
+        return true;
+      }
+
+      const filePath = getSettingsFilePath(endpointId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        endpointId,
+        filePath,
+        enabled: endpoint.enabled
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  return false;
+}

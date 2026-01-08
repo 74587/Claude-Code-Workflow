@@ -308,7 +308,9 @@ async function executeCliTool(
       tool,
       resumeIds,
       customId,
-      forcePromptConcat: noNative,
+      // Force prompt-concat if noNative flag is set OR if tool doesn't support native resume
+      // (e.g., codex resume requires TTY which spawn() doesn't provide)
+      forcePromptConcat: noNative || !supportsNativeResume(tool),
       getNativeSessionId: (ccwId) => store.getNativeSessionId(ccwId),
       getConversation: (ccwId) => loadConversation(workingDir, ccwId),
       getConversationTool: (ccwId) => {

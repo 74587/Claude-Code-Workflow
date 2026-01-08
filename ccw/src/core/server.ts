@@ -7,6 +7,7 @@ import { resolvePath, getRecentPaths, normalizePathForDisplay } from '../utils/p
 // Import route handlers
 import { handleStatusRoutes } from './routes/status-routes.js';
 import { handleCliRoutes } from './routes/cli-routes.js';
+import { handleCliSettingsRoutes } from './routes/cli-settings-routes.js';
 import { handleMemoryRoutes } from './routes/memory-routes.js';
 import { handleCoreMemoryRoutes } from './routes/core-memory-routes.js';
 import { handleMcpRoutes } from './routes/mcp-routes.js';
@@ -441,6 +442,8 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
 
       // CLI routes (/api/cli/*)
       if (pathname.startsWith('/api/cli/')) {
+        // CLI Settings routes first (more specific path /api/cli/settings/*)
+        if (await handleCliSettingsRoutes(routeContext)) return;
         if (await handleCliRoutes(routeContext)) return;
       }
 

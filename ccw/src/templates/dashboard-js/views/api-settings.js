@@ -11,12 +11,16 @@ let selectedProviderId = null;
 let providerSearchQuery = '';
 let activeModelTab = 'llm';
 let expandedModelGroups = new Set();
-let activeSidebarTab = 'providers'; // 'providers' | 'endpoints' | 'cache' | 'embedding-pool'
+let activeSidebarTab = 'providers'; // 'providers' | 'endpoints' | 'cache' | 'embedding-pool' | 'cli-settings'
 
 // Embedding Pool state
 let embeddingPoolConfig = null;
 let embeddingPoolAvailableModels = [];
 let embeddingPoolDiscoveredProviders = [];
+
+// CLI Settings state
+let cliSettingsData = null;
+let selectedCliSettingsId = null;
 
 // Cache for ccw-litellm status (frontend cache with TTL)
 let ccwLitellmStatusCache = null;
@@ -103,6 +107,95 @@ async function loadEmbeddingPoolConfig() {
     console.error('Failed to load embedding pool config:', err);
     showRefreshToast(t('common.error') + ': ' + err.message, 'error');
     return null;
+  }
+}
+
+/**
+ * Load CLI Settings endpoints
+ */
+async function loadCliSettings(forceRefresh = false) {
+  if (!forceRefresh && cliSettingsData) {
+    return cliSettingsData;
+  }
+
+  try {
+    const response = await fetch('/api/cli/settings');
+    if (!response.ok) throw new Error('Failed to load CLI settings');
+    cliSettingsData = await response.json();
+    return cliSettingsData;
+  } catch (err) {
+    console.error('Failed to load CLI settings:', err);
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+    return { endpoints: [], total: 0 };
+  }
+}
+
+/**
+ * Save CLI Settings endpoint
+ */
+async function saveCliSettingsEndpoint(data) {
+  try {
+    const method = data.id ? 'PUT' : 'POST';
+    const url = data.id ? '/api/cli/settings/' + data.id : '/api/cli/settings';
+
+    const response = await fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Failed to save settings');
+    }
+
+    const result = await response.json();
+    showRefreshToast(t('apiSettings.settingsSaved'), 'success');
+
+    // Refresh data and re-render
+    await loadCliSettings(true);
+    renderCliSettingsList();
+    if (result.endpoint) {
+      selectCliSettings(result.endpoint.id);
+    }
+
+    return result;
+  } catch (err) {
+    console.error('Failed to save CLI settings:', err);
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+    return null;
+  }
+}
+
+/**
+ * Delete CLI Settings endpoint
+ */
+async function deleteCliSettingsEndpoint(endpointId) {
+  if (!confirm(t('apiSettings.confirmDeleteSettings'))) return;
+
+  try {
+    const response = await fetch('/api/cli/settings/' + endpointId, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Failed to delete settings');
+    }
+
+    showRefreshToast(t('apiSettings.settingsDeleted'), 'success');
+
+    // Refresh data and re-render
+    await loadCliSettings(true);
+    selectedCliSettingsId = null;
+    renderCliSettingsList();
+    renderCliSettingsEmptyState();
+
+    return true;
+  } catch (err) {
+    console.error('Failed to delete CLI settings:', err);
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+    return false;
   }
 }
 
@@ -999,6 +1092,9 @@ async function renderApiSettings() {
     '<button class="sidebar-tab' + (activeSidebarTab === 'endpoints' ? ' active' : '') + '" onclick="switchSidebarTab(\'endpoints\')">' +
     '<i data-lucide="link"></i> ' + t('apiSettings.endpoints') +
     '</button>' +
+    '<button class="sidebar-tab' + (activeSidebarTab === 'cli-settings' ? ' active' : '') + '" onclick="switchSidebarTab(\'cli-settings\')">' +
+    '<i data-lucide="settings"></i> ' + t('apiSettings.cliSettings') +
+    '</button>' +
     '<button class="sidebar-tab' + (activeSidebarTab === 'embedding-pool' ? ' active' : '') + '" onclick="switchSidebarTab(\'embedding-pool\')">' +
     '<i data-lucide="repeat"></i> ' + t('apiSettings.embeddingPool') +
     '</button>' +
@@ -1035,6 +1131,15 @@ async function renderApiSettings() {
     sidebarContentHtml = '<div class="cache-sidebar-info" style="padding: 1rem; color: var(--text-secondary); font-size: 0.875rem;">' +
       '<p>' + t('apiSettings.cacheTabHint') + '</p>' +
       '</div>';
+  } else if (activeSidebarTab === 'cli-settings') {
+    // Load CLI settings first if not already loaded
+    if (!cliSettingsData) {
+      await loadCliSettings();
+    }
+    sidebarContentHtml = '<div class="cli-settings-list" id="cli-settings-list"></div>';
+    addButtonHtml = '<button class="btn btn-primary btn-full" onclick="showAddCliSettingsModal()">' +
+      '<i data-lucide="plus"></i> ' + t('apiSettings.addCliSettings') +
+      '</button>';
   }
 
   // Build split layout
@@ -1074,6 +1179,16 @@ async function renderApiSettings() {
     renderEmbeddingPoolMainPanel();
   } else if (activeSidebarTab === 'cache') {
     renderCacheMainPanel();
+  } else if (activeSidebarTab === 'cli-settings') {
+    renderCliSettingsList();
+    // Auto-select first settings if exists
+    if (!selectedCliSettingsId && cliSettingsData && cliSettingsData.endpoints && cliSettingsData.endpoints.length > 0) {
+      selectCliSettings(cliSettingsData.endpoints[0].id);
+    } else if (selectedCliSettingsId) {
+      renderCliSettingsDetail(selectedCliSettingsId);
+    } else {
+      renderCliSettingsEmptyState();
+    }
   }
 
   // Check and render ccw-litellm status
@@ -3478,6 +3593,302 @@ window.checkCcwLitellmStatus = checkCcwLitellmStatus;
 window.renderCcwLitellmStatusCard = renderCcwLitellmStatusCard;
 window.installCcwLitellm = installCcwLitellm;
 window.uninstallCcwLitellm = uninstallCcwLitellm;
+
+// ========== CLI Settings Functions ==========
+
+/**
+ * Render CLI Settings list in sidebar
+ */
+function renderCliSettingsList() {
+  var container = document.getElementById('cli-settings-list');
+  if (!container) return;
+
+  var endpoints = (cliSettingsData && cliSettingsData.endpoints) ? cliSettingsData.endpoints : [];
+
+  if (endpoints.length === 0) {
+    container.innerHTML = '<div class="provider-list-empty">' +
+      '<p>' + t('apiSettings.noCliSettings') + '</p>' +
+      '</div>';
+    return;
+  }
+
+  var html = '';
+  endpoints.forEach(function(endpoint) {
+    var isSelected = endpoint.id === selectedCliSettingsId;
+    html += '<div class="provider-item' + (isSelected ? ' selected' : '') + '" onclick="selectCliSettings(\'' + endpoint.id + '\')">' +
+      '<div class="provider-item-content">' +
+      '<div class="provider-icon">' +
+      '<i data-lucide="settings"></i>' +
+      '</div>' +
+      '<div class="provider-info">' +
+      '<div class="provider-name">' + escapeHtml(endpoint.name) + '</div>' +
+      '<div class="provider-type">' + (endpoint.settings.model || 'sonnet') + '</div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="provider-status' + (endpoint.enabled ? ' enabled' : ' disabled') + '">' +
+      '<span class="status-dot"></span>' +
+      '</div>' +
+      '</div>';
+  });
+
+  container.innerHTML = html;
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Select CLI Settings endpoint
+ */
+function selectCliSettings(endpointId) {
+  selectedCliSettingsId = endpointId;
+  renderCliSettingsList();
+  renderCliSettingsDetail(endpointId);
+}
+
+/**
+ * Render CLI Settings detail panel
+ */
+function renderCliSettingsDetail(endpointId) {
+  var container = document.getElementById('provider-detail-panel');
+  if (!container) return;
+
+  var endpoint = null;
+  if (cliSettingsData && cliSettingsData.endpoints) {
+    endpoint = cliSettingsData.endpoints.find(function(e) { return e.id === endpointId; });
+  }
+
+  if (!endpoint) {
+    renderCliSettingsEmptyState();
+    return;
+  }
+
+  var settings = endpoint.settings || {};
+  var env = settings.env || {};
+
+  container.innerHTML =
+    '<div class="provider-detail-header">' +
+    '<h2>' + escapeHtml(endpoint.name) + '</h2>' +
+    '<div class="provider-detail-actions">' +
+    '<button class="btn btn-ghost" onclick="editCliSettings(\'' + endpoint.id + '\')" title="' + t('common.edit') + '">' +
+    '<i data-lucide="edit-2"></i>' +
+    '</button>' +
+    '<button class="btn btn-ghost btn-danger" onclick="deleteCliSettingsEndpoint(\'' + endpoint.id + '\')" title="' + t('common.delete') + '">' +
+    '<i data-lucide="trash-2"></i>' +
+    '</button>' +
+    '</div>' +
+    '</div>' +
+    '<div class="provider-detail-content">' +
+    '<div class="detail-section">' +
+    '<h3>' + t('apiSettings.basicInfo') + '</h3>' +
+    '<div class="detail-grid">' +
+    '<div class="detail-item">' +
+    '<label>' + t('apiSettings.endpointId') + '</label>' +
+    '<span class="mono">' + escapeHtml(endpoint.id) + '</span>' +
+    '</div>' +
+    '<div class="detail-item">' +
+    '<label>' + t('apiSettings.model') + '</label>' +
+    '<span>' + escapeHtml(settings.model || 'sonnet') + '</span>' +
+    '</div>' +
+    '<div class="detail-item">' +
+    '<label>' + t('apiSettings.status') + '</label>' +
+    '<span class="status-badge ' + (endpoint.enabled ? 'enabled' : 'disabled') + '">' +
+    (endpoint.enabled ? t('common.enabled') : t('common.disabled')) +
+    '</span>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    '<div class="detail-section">' +
+    '<h3>' + t('apiSettings.envSettings') + '</h3>' +
+    '<div class="detail-grid">' +
+    '<div class="detail-item">' +
+    '<label>ANTHROPIC_AUTH_TOKEN</label>' +
+    '<span class="mono">' + (env.ANTHROPIC_AUTH_TOKEN ? '••••••••' + env.ANTHROPIC_AUTH_TOKEN.slice(-8) : '-') + '</span>' +
+    '</div>' +
+    '<div class="detail-item">' +
+    '<label>ANTHROPIC_BASE_URL</label>' +
+    '<span class="mono">' + escapeHtml(env.ANTHROPIC_BASE_URL || '-') + '</span>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    '<div class="detail-section">' +
+    '<h3>' + t('apiSettings.settingsFilePath') + '</h3>' +
+    '<div class="code-block">' +
+    '<code>claude -p --settings ~/.ccw/cli-settings/' + endpoint.id + '.json</code>' +
+    '</div>' +
+    '</div>' +
+    '</div>';
+
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Render CLI Settings empty state
+ */
+function renderCliSettingsEmptyState() {
+  var container = document.getElementById('provider-detail-panel');
+  if (!container) return;
+
+  container.innerHTML =
+    '<div class="provider-empty-state">' +
+    '<i data-lucide="settings" class="empty-icon"></i>' +
+    '<h3>' + t('apiSettings.noCliSettingsSelected') + '</h3>' +
+    '<p>' + t('apiSettings.cliSettingsHint') + '</p>' +
+    '</div>';
+
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Show Add CLI Settings Modal
+ */
+function showAddCliSettingsModal(existingEndpoint) {
+  var isEdit = !!existingEndpoint;
+  var settings = existingEndpoint ? existingEndpoint.settings : { env: {}, model: 'sonnet' };
+  var env = settings.env || {};
+
+  var modalHtml =
+    '<div class="modal-overlay" onclick="closeModal(event)">' +
+    '<div class="modal" onclick="event.stopPropagation()">' +
+    '<div class="modal-header">' +
+    '<h2>' + (isEdit ? t('apiSettings.editCliSettings') : t('apiSettings.addCliSettings')) + '</h2>' +
+    '<button class="modal-close" onclick="closeCliSettingsModal()">&times;</button>' +
+    '</div>' +
+    '<div class="modal-body">' +
+    '<form id="cli-settings-form">' +
+    (isEdit ? '<input type="hidden" id="cli-settings-id" value="' + existingEndpoint.id + '">' : '') +
+    '<div class="form-group">' +
+    '<label for="cli-settings-name">' + t('apiSettings.endpointName') + ' *</label>' +
+    '<input type="text" id="cli-settings-name" class="cli-input" value="' + escapeHtml(existingEndpoint ? existingEndpoint.name : '') + '" required />' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label for="cli-settings-description">' + t('apiSettings.description') + '</label>' +
+    '<input type="text" id="cli-settings-description" class="cli-input" value="' + escapeHtml(existingEndpoint ? (existingEndpoint.description || '') : '') + '" />' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label for="cli-settings-model">' + t('apiSettings.model') + '</label>' +
+    '<select id="cli-settings-model" class="cli-select">' +
+    '<option value="opus"' + (settings.model === 'opus' ? ' selected' : '') + '>Claude Opus</option>' +
+    '<option value="sonnet"' + (settings.model === 'sonnet' ? ' selected' : '') + '>Claude Sonnet</option>' +
+    '<option value="haiku"' + (settings.model === 'haiku' ? ' selected' : '') + '>Claude Haiku</option>' +
+    '</select>' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label for="cli-settings-token">ANTHROPIC_AUTH_TOKEN *</label>' +
+    '<input type="password" id="cli-settings-token" class="cli-input" value="' + escapeHtml(env.ANTHROPIC_AUTH_TOKEN || '') + '" placeholder="sk-..." required />' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label for="cli-settings-base-url">ANTHROPIC_BASE_URL</label>' +
+    '<input type="text" id="cli-settings-base-url" class="cli-input" value="' + escapeHtml(env.ANTHROPIC_BASE_URL || '') + '" placeholder="https://api.anthropic.com/v1" />' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label class="checkbox-label">' +
+    '<input type="checkbox" id="cli-settings-enabled"' + (existingEndpoint ? (existingEndpoint.enabled ? ' checked' : '') : ' checked') + ' />' +
+    ' ' + t('common.enabled') +
+    '</label>' +
+    '</div>' +
+    '</form>' +
+    '</div>' +
+    '<div class="modal-footer">' +
+    '<button class="btn btn-ghost" onclick="closeCliSettingsModal()">' + t('common.cancel') + '</button>' +
+    '<button class="btn btn-primary" onclick="submitCliSettings()">' + (isEdit ? t('common.save') : t('common.create')) + '</button>' +
+    '</div>' +
+    '</div>' +
+    '</div>';
+
+  // Append modal to body
+  var modalsContainer = document.getElementById('modals');
+  if (!modalsContainer) {
+    modalsContainer = document.createElement('div');
+    modalsContainer.id = 'modals';
+    document.body.appendChild(modalsContainer);
+  }
+  modalsContainer.innerHTML = modalHtml;
+}
+
+/**
+ * Edit CLI Settings
+ */
+function editCliSettings(endpointId) {
+  var endpoint = null;
+  if (cliSettingsData && cliSettingsData.endpoints) {
+    endpoint = cliSettingsData.endpoints.find(function(e) { return e.id === endpointId; });
+  }
+  if (endpoint) {
+    showAddCliSettingsModal(endpoint);
+  }
+}
+
+/**
+ * Close CLI Settings Modal
+ */
+function closeCliSettingsModal() {
+  var modalsContainer = document.getElementById('modals');
+  if (modalsContainer) {
+    modalsContainer.innerHTML = '';
+  }
+}
+
+/**
+ * Submit CLI Settings Form
+ */
+async function submitCliSettings() {
+  var name = document.getElementById('cli-settings-name').value.trim();
+  var description = document.getElementById('cli-settings-description').value.trim();
+  var model = document.getElementById('cli-settings-model').value;
+  var token = document.getElementById('cli-settings-token').value.trim();
+  var baseUrl = document.getElementById('cli-settings-base-url').value.trim();
+  var enabled = document.getElementById('cli-settings-enabled').checked;
+  var idInput = document.getElementById('cli-settings-id');
+  var id = idInput ? idInput.value : null;
+
+  if (!name) {
+    showRefreshToast(t('apiSettings.nameRequired'), 'error');
+    return;
+  }
+
+  if (!token) {
+    showRefreshToast(t('apiSettings.tokenRequired'), 'error');
+    return;
+  }
+
+  var data = {
+    name: name,
+    description: description,
+    enabled: enabled,
+    settings: {
+      env: {
+        ANTHROPIC_AUTH_TOKEN: token,
+        DISABLE_AUTOUPDATER: '1'
+      },
+      model: model
+    }
+  };
+
+  if (baseUrl) {
+    data.settings.env.ANTHROPIC_BASE_URL = baseUrl;
+  }
+
+  if (id) {
+    data.id = id;
+  }
+
+  var result = await saveCliSettingsEndpoint(data);
+  if (result && result.success) {
+    closeCliSettingsModal();
+  }
+}
+
+// Make CLI Settings functions globally accessible
+window.loadCliSettings = loadCliSettings;
+window.saveCliSettingsEndpoint = saveCliSettingsEndpoint;
+window.deleteCliSettingsEndpoint = deleteCliSettingsEndpoint;
+window.renderCliSettingsList = renderCliSettingsList;
+window.selectCliSettings = selectCliSettings;
+window.renderCliSettingsDetail = renderCliSettingsDetail;
+window.renderCliSettingsEmptyState = renderCliSettingsEmptyState;
+window.showAddCliSettingsModal = showAddCliSettingsModal;
+window.editCliSettings = editCliSettings;
+window.closeCliSettingsModal = closeCliSettingsModal;
+window.submitCliSettings = submitCliSettings;
 
 
 // ========== Utility Functions ==========

@@ -65,8 +65,8 @@ export const DEFAULT_CONFIG: CliConfig = {
     },
     opencode: {
       enabled: true,
-      primaryModel: 'anthropic/claude-sonnet-4-20250514',
-      secondaryModel: 'anthropic/claude-haiku'
+      primaryModel: '',  // Empty = use opencode's default config
+      secondaryModel: ''
     }
   }
 };

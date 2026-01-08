@@ -561,11 +561,6 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
   } else if (optionPrompt) {
     // Use --prompt/-p option (preferred for multi-line)
     finalPrompt = optionPrompt;
-    const promptLineCount = optionPrompt.split(/\r?\n/).length;
-    if (promptLineCount > 3) {
-      console.log(chalk.dim('   💡 Tip: Use --file option to avoid shell escaping issues with multi-line prompts'));
-      console.log(chalk.dim('      Example: ccw cli -f prompt.txt --tool gemini'));
-    }
   } else {
     // Fall back to positional argument
     finalPrompt = positionalPrompt;
