@@ -1207,28 +1207,28 @@ function setPreferredProjectConfigType(type) {
 const RECOMMENDED_MCP_SERVERS = [
   {
     id: 'ace-tool',
-    name: 'ACE Tool',
-    description: 'Augment Context Engine - Semantic code search with real-time codebase indexing',
+    nameKey: 'mcp.ace-tool.name',
+    descKey: 'mcp.ace-tool.desc',
     icon: 'search-code',
     category: 'search',
     fields: [
       {
         key: 'baseUrl',
-        label: 'Base URL',
+        labelKey: 'mcp.ace-tool.field.baseUrl',
         type: 'text',
         default: 'https://acemcp.heroman.wtf/relay/',
         placeholder: 'https://acemcp.heroman.wtf/relay/',
         required: true,
-        description: 'ACE MCP relay server URL'
+        descKey: 'mcp.ace-tool.field.baseUrl.desc'
       },
       {
         key: 'token',
-        label: 'API Token',
+        labelKey: 'mcp.ace-tool.field.token',
         type: 'password',
         default: '',
         placeholder: 'ace_xxxxxxxxxxxxxxxx',
         required: true,
-        description: 'Your ACE API token (get from ACE dashboard)'
+        descKey: 'mcp.ace-tool.field.token.desc'
       }
     ],
     buildConfig: (values) => ({
@@ -1244,8 +1244,8 @@ const RECOMMENDED_MCP_SERVERS = [
   },
   {
     id: 'chrome-devtools',
-    name: 'Chrome DevTools',
-    description: 'Browser automation and DevTools integration for web development',
+    nameKey: 'mcp.chrome-devtools.name',
+    descKey: 'mcp.chrome-devtools.desc',
     icon: 'chrome',
     category: 'browser',
     fields: [],
@@ -1258,28 +1258,32 @@ const RECOMMENDED_MCP_SERVERS = [
   },
   {
     id: 'exa',
-    name: 'Exa Search',
-    description: 'AI-powered web search with real-time crawling and content extraction',
+    nameKey: 'mcp.exa.name',
+    descKey: 'mcp.exa.desc',
     icon: 'globe-2',
     category: 'search',
     fields: [
       {
         key: 'apiKey',
-        label: 'EXA API Key',
+        labelKey: 'mcp.exa.field.apiKey',
         type: 'password',
         default: '',
         placeholder: 'your-exa-api-key',
-        required: true,
-        description: 'Get your API key from exa.ai dashboard'
+        required: false,
+        descKey: 'mcp.exa.field.apiKey.desc'
       }
     ],
-    buildConfig: (values) => ({
-      command: 'npx',
-      args: ['-y', 'exa-mcp-server'],
-      env: {
-        EXA_API_KEY: values.apiKey
+    buildConfig: (values) => {
+      const config = {
+        command: 'npx',
+        args: ['-y', 'exa-mcp-server']
+      };
+      // Only add env if API key is provided
+      if (values.apiKey) {
+        config.env = { EXA_API_KEY: values.apiKey };
       }
-    })
+      return config;
+    }
   }
 ];
 
@@ -1290,9 +1294,10 @@ function getRecommendedMcpServers() {
 
 // Check if a recommended MCP is already installed
 function isRecommendedMcpInstalled(mcpId) {
-  // Check in current project servers
-  const currentPath = projectPath;
-  const projectData = mcpAllProjects[currentPath] || {};
+  // Check in current project servers (handle different path formats)
+  const forwardSlashPath = projectPath.replace(/\\/g, '/');
+  const backSlashPath = projectPath.replace(/\//g, '\\');
+  const projectData = mcpAllProjects[forwardSlashPath] || mcpAllProjects[backSlashPath] || mcpAllProjects[projectPath] || {};
   const projectServers = projectData.mcpServers || {};
 
   if (projectServers[mcpId]) return { installed: true, scope: 'project' };
@@ -1321,6 +1326,8 @@ function openRecommendedMcpWizard(mcpId) {
   }
 
   const hasFields = mcpDef.fields && mcpDef.fields.length > 0;
+  const mcpName = t(mcpDef.nameKey);
+  const mcpDesc = t(mcpDef.descKey);
 
   const modal = document.createElement('div');
   modal.id = 'recommendedMcpWizardModal';
@@ -1334,8 +1341,8 @@ function openRecommendedMcpWizard(mcpId) {
             <i data-lucide="${mcpDef.icon}" class="w-5 h-5 text-primary"></i>
           </div>
           <div>
-            <h3 class="text-lg font-semibold text-foreground">${t('mcp.wizard.install')} ${escapeHtml(mcpDef.name)}</h3>
-            <p class="text-sm text-muted-foreground">${escapeHtml(mcpDef.description)}</p>
+            <h3 class="text-lg font-semibold text-foreground">${t('mcp.wizard.install')} ${escapeHtml(mcpName)}</h3>
+            <p class="text-sm text-muted-foreground">${escapeHtml(mcpDesc)}</p>
           </div>
         </div>
         <button onclick="closeRecommendedMcpWizard()" class="text-muted-foreground hover:text-foreground">
@@ -1350,10 +1357,10 @@ function openRecommendedMcpWizard(mcpId) {
             ${mcpDef.fields.map(field => `
               <div class="space-y-1.5">
                 <label class="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                  ${escapeHtml(field.label)}
+                  ${escapeHtml(t(field.labelKey))}
                   ${field.required ? '<span class="text-destructive">*</span>' : ''}
                 </label>
-                ${field.description ? `<p class="text-xs text-muted-foreground">${escapeHtml(field.description)}</p>` : ''}
+                ${field.descKey ? `<p class="text-xs text-muted-foreground">${escapeHtml(t(field.descKey))}</p>` : ''}
                 <input type="${field.type || 'text'}"
                        id="wizard-field-${field.key}"
                        class="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -1471,7 +1478,7 @@ async function submitRecommendedMcpWizard(mcpId) {
     const value = input ? input.value.trim() : '';
 
     if (field.required && !value) {
-      showRefreshToast(`${field.label} is required`, 'error');
+      showRefreshToast(`${t(field.labelKey)} is required`, 'error');
       if (input) input.focus();
       hasError = true;
       break;
@@ -1498,7 +1505,7 @@ async function submitRecommendedMcpWizard(mcpId) {
     }
 
     closeRecommendedMcpWizard();
-    showRefreshToast(`${mcpDef.name} installed successfully`, 'success');
+    // Note: success toast is shown by the underlying API functions
   } catch (err) {
     console.error(`Failed to install ${mcpDef.name}:`, err);
     showRefreshToast(`Failed to install ${mcpDef.name}: ${err.message}`, 'error');

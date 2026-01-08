@@ -217,6 +217,55 @@ function ensureToolTags(tool: Partial<ClaudeCliTool>): ClaudeCliTool {
 }
 
 /**
+ * Ensure CLI tools configuration file exists
+ * Creates default config if missing (auto-rebuild feature)
+ * @param projectDir - Project directory path
+ * @param createInProject - If true, create in project dir; if false, create in global dir
+ * @returns The config that was created/exists
+ */
+export function ensureClaudeCliTools(projectDir: string, createInProject: boolean = true): ClaudeCliToolsConfig & { _source?: string } {
+  const resolved = resolveConfigPath(projectDir);
+
+  if (resolved.source !== 'default') {
+    // Config exists, load and return it
+    return loadClaudeCliTools(projectDir);
+  }
+
+  // Config doesn't exist - create default
+  console.log('[claude-cli-tools] Config not found, creating default cli-tools.json');
+
+  const defaultConfig: ClaudeCliToolsConfig = { ...DEFAULT_TOOLS_CONFIG };
+
+  if (createInProject) {
+    // Create in project directory
+    ensureClaudeDir(projectDir);
+    const projectPath = getProjectConfigPath(projectDir);
+    try {
+      fs.writeFileSync(projectPath, JSON.stringify(defaultConfig, null, 2), 'utf-8');
+      console.log(`[claude-cli-tools] Created default config at: ${projectPath}`);
+      return { ...defaultConfig, _source: 'project' };
+    } catch (err) {
+      console.error('[claude-cli-tools] Failed to create project config:', err);
+    }
+  }
+
+  // Fallback: create in global directory
+  const globalDir = path.join(os.homedir(), '.claude');
+  if (!fs.existsSync(globalDir)) {
+    fs.mkdirSync(globalDir, { recursive: true });
+  }
+  const globalPath = getGlobalConfigPath();
+  try {
+    fs.writeFileSync(globalPath, JSON.stringify(defaultConfig, null, 2), 'utf-8');
+    console.log(`[claude-cli-tools] Created default config at: ${globalPath}`);
+    return { ...defaultConfig, _source: 'global' };
+  } catch (err) {
+    console.error('[claude-cli-tools] Failed to create global config:', err);
+    return { ...defaultConfig, _source: 'default' };
+  }
+}
+
+/**
  * Load CLI tools configuration with fallback:
  * 1. Project: {projectDir}/.claude/cli-tools.json
  * 2. Global: ~/.claude/cli-tools.json

@@ -19,7 +19,8 @@ export type CliOutputUnitType =
   | 'file_diff'      // File modification diff
   | 'progress'       // Progress updates
   | 'metadata'       // Session/execution metadata
-  | 'system';        // System events/messages
+  | 'system'         // System events/messages
+  | 'tool_call';     // Tool invocation/result (Gemini tool_use/tool_result)
 
 /**
  * Intermediate Representation unit
@@ -289,6 +290,38 @@ export class JsonLinesParser implements IOutputParser {
           tool: 'gemini',
           status: json.status,
           stats: json.stats,
+          raw: json
+        },
+        timestamp
+      };
+    }
+
+    // Gemini tool_use: {"type":"tool_use","timestamp":"...","tool_name":"...","tool_id":"...","parameters":{...}}
+    if (json.type === 'tool_use' && json.tool_name) {
+      return {
+        type: 'tool_call',
+        content: {
+          tool: 'gemini',
+          action: 'invoke',
+          toolName: json.tool_name,
+          toolId: json.tool_id,
+          parameters: json.parameters,
+          raw: json
+        },
+        timestamp
+      };
+    }
+
+    // Gemini tool_result: {"type":"tool_result","timestamp":"...","tool_id":"...","status":"...","output":"..."}
+    if (json.type === 'tool_result' && json.tool_id) {
+      return {
+        type: 'tool_call',
+        content: {
+          tool: 'gemini',
+          action: 'result',
+          toolId: json.tool_id,
+          status: json.status,
+          output: json.output,
           raw: json
         },
         timestamp
@@ -728,6 +761,20 @@ export function flattenOutputUnits(
             if (unit.content.progress !== undefined && unit.content.total !== undefined) {
               text += ` (${unit.content.progress}/${unit.content.total})`;
             }
+          } else {
+            text += JSON.stringify(unit.content);
+          }
+          break;
+
+        case 'tool_call':
+          // Format tool call/result
+          if (unit.content.action === 'invoke') {
+            const params = unit.content.parameters ? JSON.stringify(unit.content.parameters) : '';
+            text += `[Tool] ${unit.content.toolName}(${params})`;
+          } else if (unit.content.action === 'result') {
+            const status = unit.content.status || 'unknown';
+            const output = unit.content.output ? `: ${unit.content.output.substring(0, 200)}${unit.content.output.length > 200 ? '...' : ''}` : '';
+            text += `[Tool Result] ${status}${output}`;
           } else {
             text += JSON.stringify(unit.content);
           }

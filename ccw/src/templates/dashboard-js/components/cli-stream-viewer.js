@@ -186,37 +186,58 @@ function handleCliStreamStarted(payload) {
 }
 
 function handleCliStreamOutput(payload) {
-  const { executionId, chunkType, data } = payload;
-  
+  const { executionId, chunkType, data, unit } = payload;
+
   const exec = cliStreamExecutions[executionId];
   if (!exec) return;
-  
-  // Parse and add output lines
-  const content = typeof data === 'string' ? data : JSON.stringify(data);
+
+  // Use structured unit if available, otherwise fall back to data
+  const unitContent = unit?.content;
+  const unitType = unit?.type || chunkType;
+
+  // For tool_call type, format the content specially
+  let content;
+  if (unitType === 'tool_call' && typeof unitContent === 'object' && unitContent !== null) {
+    // Format tool_call for display
+    if (unitContent.action === 'invoke') {
+      const params = unitContent.parameters ? JSON.stringify(unitContent.parameters) : '';
+      content = `[Tool] ${unitContent.toolName}(${params})`;
+    } else if (unitContent.action === 'result') {
+      const status = unitContent.status || 'unknown';
+      const output = unitContent.output ? `: ${unitContent.output.substring(0, 200)}${unitContent.output.length > 200 ? '...' : ''}` : '';
+      content = `[Tool Result] ${status}${output}`;
+    } else {
+      content = JSON.stringify(unitContent);
+    }
+  } else {
+    // Use data (already serialized) for backward compatibility
+    content = typeof data === 'string' ? data : JSON.stringify(data);
+  }
+
   const lines = content.split('\n');
-  
+
   lines.forEach(line => {
     if (line.trim() || lines.length === 1) {  // Keep empty lines if it's the only content
       exec.output.push({
-        type: chunkType || 'stdout',
+        type: unitType || 'stdout',
         content: line,
         timestamp: Date.now()
       });
     }
   });
-  
+
   // Trim if too long
   if (exec.output.length > MAX_OUTPUT_LINES) {
     exec.output = exec.output.slice(-MAX_OUTPUT_LINES);
   }
-  
+
   // Update UI if this is the active tab
   if (activeStreamTab === executionId && isCliStreamViewerOpen) {
     requestAnimationFrame(() => {
       renderStreamContent(executionId);
     });
   }
-  
+
   // Update badge to show activity
   updateStreamBadge();
 }
@@ -348,7 +369,7 @@ function renderFormattedLine(line, searchFilter) {
 
   // Type badge icons for backend chunkType (CliOutputUnit.type)
   // Maps to different CLI tools' output types:
-  // - Gemini: init→metadata, message→stdout, result→metadata
+  // - Gemini: init→metadata, message→stdout, result→metadata, tool_use/tool_result→tool_call
   // - Codex: reasoning→thought, agent_message→stdout, turn.completed→metadata
   // - Claude: system→metadata, assistant→stdout, result→metadata
   // - OpenCode: step_start→progress, text→stdout, step_finish→metadata
@@ -360,7 +381,8 @@ function renderFormattedLine(line, searchFilter) {
     system: 'settings',
     stderr: 'alert-circle',
     metadata: 'info',
-    stdout: 'message-circle'
+    stdout: 'message-circle',
+    tool_call: 'wrench'
   };
 
   // Type badge labels for backend chunkType
@@ -372,7 +394,8 @@ function renderFormattedLine(line, searchFilter) {
     system: 'System',
     stderr: 'Error',
     metadata: 'Info',
-    stdout: 'Response'
+    stdout: 'Response',
+    tool_call: 'Tool'
   };
 
   // Build type badge - prioritize content prefix, then fall back to chunkType

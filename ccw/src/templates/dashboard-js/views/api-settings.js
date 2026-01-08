@@ -1157,22 +1157,19 @@ async function renderApiSettings() {
   // Build sidebar tabs HTML
   var sidebarTabsHtml = '<div class="sidebar-tabs">' +
     '<button class="sidebar-tab' + (activeSidebarTab === 'providers' ? ' active' : '') + '" onclick="switchSidebarTab(\'providers\')">' +
-    '<i data-lucide="server"></i> ' + t('apiSettings.providers') +
+    '<i data-lucide="server"></i><span>' + t('apiSettings.providers') + '</span>' +
     '</button>' +
     '<button class="sidebar-tab' + (activeSidebarTab === 'endpoints' ? ' active' : '') + '" onclick="switchSidebarTab(\'endpoints\')">' +
-    '<i data-lucide="link"></i> ' + t('apiSettings.endpoints') +
+    '<i data-lucide="link"></i><span>' + t('apiSettings.endpoints') + '</span>' +
     '</button>' +
     '<button class="sidebar-tab' + (activeSidebarTab === 'cli-settings' ? ' active' : '') + '" onclick="switchSidebarTab(\'cli-settings\')">' +
-    '<i data-lucide="settings"></i> ' + t('apiSettings.cliSettings') +
+    '<i data-lucide="settings"></i><span>' + t('apiSettings.cliSettings') + '</span>' +
     '</button>' +
     '<button class="sidebar-tab' + (activeSidebarTab === 'model-pools' ? ' active' : '') + '" onclick="switchSidebarTab(\'model-pools\')">' +
-    '<i data-lucide="layers"></i> ' + t('apiSettings.modelPools') +
-    '</button>' +
-    '<button class="sidebar-tab' + (activeSidebarTab === 'embedding-pool' ? ' active' : '') + '" onclick="switchSidebarTab(\'embedding-pool\')">' +
-    '<i data-lucide="repeat"></i> ' + t('apiSettings.embeddingPool') + ' (Legacy)' +
+    '<i data-lucide="layers"></i><span>' + t('apiSettings.modelPools') + '</span>' +
     '</button>' +
     '<button class="sidebar-tab' + (activeSidebarTab === 'cache' ? ' active' : '') + '" onclick="switchSidebarTab(\'cache\')">' +
-    '<i data-lucide="database"></i> ' + t('apiSettings.cache') +
+    '<i data-lucide="database"></i><span>' + t('apiSettings.cache') + '</span>' +
     '</button>' +
     '</div>';
 
@@ -4152,7 +4149,7 @@ function renderModelPoolDetail(poolId) {
     '<div class="provider-detail-header">' +
     '<div>' +
     '<h2>' + escapeHtml(pool.name || pool.targetModel) + '</h2>' +
-    '<p style="color: var(--text-secondary); margin-top: 0.5rem;">' + typeLabel + ' Pool</p>' +
+    '<p style="color: var(--text-secondary); margin-top: 0.5rem;">' + typeLabel + t('apiSettings.pool') + '</p>' +
     '</div>' +
     '<div class="provider-actions">' +
     '<button class="btn btn-secondary" onclick="editModelPool(\'' + pool.id + '\')"><i data-lucide="edit-2"></i> ' + t('common.edit') + '</button>' +

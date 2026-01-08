@@ -977,6 +977,7 @@ select.cli-input {
   padding: 0.5rem;
   background: hsl(var(--muted) / 0.3);
   border-bottom: 1px solid hsl(var(--border));
+  overflow-x: auto;
 }
 
 .sidebar-tab {
@@ -987,7 +988,7 @@ select.cli-input {
   justify-content: center;
   gap: 0.125rem;
   padding: 0.5rem 0.25rem;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 500;
   color: hsl(var(--muted-foreground));
   background: transparent;
@@ -996,7 +997,18 @@ select.cli-input {
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   min-width: 0;
+  max-width: 100%;
+}
+
+.sidebar-tab span {
+  display: block;
+  width: 100%;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar-tab:hover {

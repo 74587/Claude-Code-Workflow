@@ -566,6 +566,8 @@ async function renderMcpManager() {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           ${getRecommendedMcpServers().map(mcp => {
             const installStatus = isRecommendedMcpInstalled(mcp.id);
+            const mcpName = t(mcp.nameKey);
+            const mcpDesc = t(mcp.descKey);
             return `
               <div class="recommended-mcp-card bg-card border ${installStatus.installed ? 'border-success/50' : 'border-border'} rounded-lg p-4 hover:shadow-md transition-all">
                 <div class="flex items-start justify-between mb-3">
@@ -574,7 +576,7 @@ async function renderMcpManager() {
                       <i data-lucide="${mcp.icon}" class="w-5 h-5 ${installStatus.installed ? 'text-success' : 'text-primary'}"></i>
                     </div>
                     <div>
-                      <h4 class="font-semibold text-foreground">${escapeHtml(mcp.name)}</h4>
+                      <h4 class="font-semibold text-foreground">${escapeHtml(mcpName)}</h4>
                       <span class="text-xs px-1.5 py-0.5 bg-muted text-muted-foreground rounded">${mcp.category}</span>
                     </div>
                   </div>
@@ -585,7 +587,7 @@ async function renderMcpManager() {
                     </span>
                   ` : ''}
                 </div>
-                <p class="text-sm text-muted-foreground mb-4 line-clamp-2">${escapeHtml(mcp.description)}</p>
+                <p class="text-sm text-muted-foreground mb-4 line-clamp-2">${escapeHtml(mcpDesc)}</p>
                 <div class="flex items-center justify-between">
                   ${mcp.fields.length > 0 ? `
                     <span class="text-xs text-muted-foreground flex items-center gap-1">

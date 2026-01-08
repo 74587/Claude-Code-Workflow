@@ -33,6 +33,7 @@ import {
 } from '../../tools/cli-config-manager.js';
 import {
   loadClaudeCliTools,
+  ensureClaudeCliTools,
   saveClaudeCliTools,
   loadClaudeCliSettings,
   saveClaudeCliSettings,
@@ -239,7 +240,8 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
   // API: Get all custom endpoints
   if (pathname === '/api/cli/endpoints' && req.method === 'GET') {
     try {
-      const config = loadClaudeCliTools(initialPath);
+      // Use ensureClaudeCliTools to auto-create config if missing
+      const config = ensureClaudeCliTools(initialPath);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ endpoints: config.customEndpoints || [] }));
     } catch (err) {
@@ -706,7 +708,8 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
   // API: Get CLI Tools Config from .claude/cli-tools.json (with fallback to global)
   if (pathname === '/api/cli/tools-config' && req.method === 'GET') {
     try {
-      const toolsConfig = loadClaudeCliTools(initialPath);
+      // Use ensureClaudeCliTools to auto-create config if missing
+      const toolsConfig = ensureClaudeCliTools(initialPath);
       const settingsConfig = loadClaudeCliSettings(initialPath);
       const info = getClaudeCliToolsInfo(initialPath);
       res.writeHead(200, { 'Content-Type': 'application/json' });

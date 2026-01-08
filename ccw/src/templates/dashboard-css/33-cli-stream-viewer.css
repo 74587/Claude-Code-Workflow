@@ -609,6 +609,18 @@
   color: hsl(250 50% 75%);
 }
 
+/* Tool Call Message (Gemini tool_use/tool_result) */
+.cli-stream-line.formatted.tool_call {
+  background: hsl(160 40% 18% / 0.3);
+  border-left: 3px solid hsl(160 70% 50%);
+  font-size: 0.85em;
+}
+
+.cli-msg-badge.cli-msg-tool_call {
+  background: hsl(160 70% 50% / 0.2);
+  color: hsl(160 70% 65%);
+}
+
 /* Stderr Message (Error) */
 .cli-stream-line.formatted.stderr {
   background: hsl(0 50% 20% / 0.4);
