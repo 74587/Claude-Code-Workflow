@@ -335,7 +335,7 @@ function buildToolConfigModalContent(tool, config, models, status) {
       '<h4>Tags <span class="text-muted">(optional labels)</span></h4>' +
       '<div class="tags-unified-input" id="tagsUnifiedInput">' +
         (config.tags || []).map(function(tag) {
-          return '<span class="tag-item">' + escapeHtml(tag) + '<button type="button" class="tag-remove" data-tag="' + escapeHtml(tag) + '">&times;</button></span>';
+          return '<span class="tag-item tag-' + escapeHtml(tag) + '">' + escapeHtml(tag) + '<button type="button" class="tag-remove" data-tag="' + escapeHtml(tag) + '">&times;</button></span>';
         }).join('') +
         '<input type="text" id="tagInput" class="tag-inline-input" placeholder="输入标签按 Enter 添加" />' +
       '</div>' +
@@ -375,7 +375,7 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
     // Insert tags before the input
     currentTags.forEach(function(tag) {
       var tagEl = document.createElement('span');
-      tagEl.className = 'tag-item';
+      tagEl.className = 'tag-item tag-' + escapeHtml(tag);
       tagEl.innerHTML = escapeHtml(tag) + '<button type="button" class="tag-remove" data-tag="' + escapeHtml(tag) + '">&times;</button>';
       container.insertBefore(tagEl, input);
     });
@@ -388,6 +388,18 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
         currentTags = currentTags.filter(function(t) { return t !== tagToRemove; });
         renderTags();
       };
+    });
+
+    // Update predefined tag buttons state
+    document.querySelectorAll('.predefined-tag-btn').forEach(function(btn) {
+      var tag = btn.getAttribute('data-tag');
+      if (currentTags.indexOf(tag) !== -1) {
+        btn.classList.add('selected');
+        btn.disabled = true;
+      } else {
+        btn.classList.remove('selected');
+        btn.disabled = false;
+      }
     });
   }
 
@@ -665,10 +677,10 @@ function renderToolsSection() {
     var toolConfig = cliToolConfig && cliToolConfig.tools ? cliToolConfig.tools[tool] : null;
     var tags = toolConfig && toolConfig.tags ? toolConfig.tags : [];
 
-    // Build tags HTML
+    // Build tags HTML with color classes
     var tagsHtml = tags.length > 0
       ? '<div class="tool-tags">' + tags.map(function(tag) {
-          return '<span class="tool-tag">' + escapeHtml(tag) + '</span>';
+          return '<span class="tool-tag tag-' + escapeHtml(tag) + '">' + escapeHtml(tag) + '</span>';
         }).join('') + '</div>'
       : '';
 

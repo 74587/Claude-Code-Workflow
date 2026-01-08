@@ -284,6 +284,37 @@
   border-radius: 0.25rem;
 }
 
+/* Tag color variants */
+.tag-item.tag-分析, .tool-tag.tag-分析 {
+  background: hsl(210 100% 50% / 0.15);
+  color: hsl(210 100% 45%);
+}
+
+.tag-item.tag-编码, .tool-tag.tag-编码 {
+  background: hsl(142 76% 36% / 0.15);
+  color: hsl(142 76% 36%);
+}
+
+.tag-item.tag-Debug, .tool-tag.tag-Debug {
+  background: hsl(0 84% 60% / 0.15);
+  color: hsl(0 84% 50%);
+}
+
+.tag-item.tag-重构, .tool-tag.tag-重构 {
+  background: hsl(280 70% 50% / 0.15);
+  color: hsl(280 70% 45%);
+}
+
+.tag-item.tag-测试, .tool-tag.tag-测试 {
+  background: hsl(45 93% 47% / 0.15);
+  color: hsl(45 93% 35%);
+}
+
+.tag-item.tag-文档, .tool-tag.tag-文档 {
+  background: hsl(180 70% 40% / 0.15);
+  color: hsl(180 70% 35%);
+}
+
 .tag-remove {
   display: flex;
   align-items: center;
@@ -332,6 +363,15 @@
   background: hsl(var(--primary) / 0.15);
   color: hsl(var(--primary));
   border-color: hsl(var(--primary) / 0.3);
+}
+
+.predefined-tag-btn.selected,
+.predefined-tag-btn:disabled {
+  background: hsl(var(--primary) / 0.1);
+  color: hsl(var(--muted-foreground));
+  border-color: hsl(var(--primary) / 0.2);
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .predefined-tag-btn i {

@@ -186,6 +186,24 @@ export function getToolConfig(baseDir: string, tool: string): CliToolConfig {
 }
 
 /**
+ * Validate and sanitize tags array
+ * @param tags - Raw tags array from user input
+ * @returns Sanitized tags array
+ */
+function validateTags(tags: string[] | undefined): string[] | undefined {
+  if (!tags || !Array.isArray(tags)) return undefined;
+
+  const MAX_TAGS = 10;
+  const MAX_TAG_LENGTH = 30;
+
+  return tags
+    .filter(tag => typeof tag === 'string')
+    .map(tag => tag.trim())
+    .filter(tag => tag.length > 0 && tag.length <= MAX_TAG_LENGTH)
+    .slice(0, MAX_TAGS);
+}
+
+/**
  * Update configuration for a specific tool
  * Returns the updated tool config
  */
@@ -206,7 +224,7 @@ export function updateToolConfig(
     enabled: updates.enabled !== undefined ? updates.enabled : currentToolConfig.enabled,
     primaryModel: updates.primaryModel || currentToolConfig.primaryModel,
     secondaryModel: updates.secondaryModel || currentToolConfig.secondaryModel,
-    tags: updates.tags !== undefined ? updates.tags : currentToolConfig.tags
+    tags: updates.tags !== undefined ? validateTags(updates.tags) : currentToolConfig.tags
   };
 
   // Save updated config
