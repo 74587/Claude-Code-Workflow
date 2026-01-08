@@ -9,6 +9,52 @@ var ccwEndpointTools = [];
 var cliToolConfig = null;  // Store loaded CLI config
 var predefinedModels = {}; // Store predefined models per tool
 
+// ========== CSRF Token Management ==========
+var csrfToken = null;  // Store CSRF token for state-changing requests
+
+/**
+ * Fetch wrapper that handles CSRF token management
+ * Captures new token from response and includes token in requests
+ */
+async function csrfFetch(url, options) {
+  options = options || {};
+  options.headers = options.headers || {};
+
+  // Add CSRF token header for state-changing methods
+  var method = (options.method || 'GET').toUpperCase();
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].indexOf(method) !== -1 && csrfToken) {
+    options.headers['X-CSRF-Token'] = csrfToken;
+  }
+
+  var response = await fetch(url, options);
+
+  // Capture new CSRF token from response
+  var newToken = response.headers.get('X-CSRF-Token');
+  if (newToken) {
+    csrfToken = newToken;
+  }
+
+  return response;
+}
+
+/**
+ * Initialize CSRF token by fetching from server
+ * Should be called before any state-changing requests
+ */
+async function initCsrfToken() {
+  if (csrfToken) return; // Already initialized
+
+  try {
+    var response = await fetch('/api/csrf-token');
+    if (response.ok) {
+      var data = await response.json();
+      csrfToken = data.csrfToken || response.headers.get('X-CSRF-Token');
+    }
+  } catch (err) {
+    console.warn('[CLI Manager] Failed to fetch CSRF token:', err);
+  }
+}
+
 // ========== Active Execution Sync ==========
 
 /**
@@ -143,7 +189,8 @@ async function loadCliCustomEndpoints() {
 
 async function toggleEndpointEnabled(endpointId, enabled) {
   try {
-    var response = await fetch('/api/cli/endpoints/' + endpointId, {
+    await initCsrfToken();
+    var response = await csrfFetch('/api/cli/endpoints/' + endpointId, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: enabled })
@@ -167,7 +214,8 @@ async function toggleEndpointEnabled(endpointId, enabled) {
 
 async function syncEndpointToCliTools(endpoint) {
   try {
-    var response = await fetch('/api/cli/endpoints', {
+    await initCsrfToken();
+    var response = await csrfFetch('/api/cli/endpoints', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -212,13 +260,18 @@ async function loadCliToolConfig() {
 
 async function updateCliToolConfig(tool, updates) {
   try {
-    var response = await fetch('/api/cli/config/' + tool, {
+    // Ensure CSRF token is initialized before making state-changing request
+    await initCsrfToken();
+
+    var response = await csrfFetch('/api/cli/config/' + tool, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates)
     });
-    if (!response.ok) throw new Error('Failed to update CLI config');
     var data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to update CLI config');
+    }
     if (data.success && cliToolConfig && cliToolConfig.tools) {
       cliToolConfig.tools[tool] = data.config;
     }
@@ -881,6 +934,8 @@ function renderCcwSection() {
 // ========== Language Settings State ==========
 var chineseResponseEnabled = false;
 var chineseResponseLoading = false;
+var codexChineseResponseEnabled = false;
+var codexChineseResponseLoading = false;
 var windowsPlatformEnabled = false;
 var windowsPlatformLoading = false;
 
@@ -890,12 +945,14 @@ async function loadLanguageSettings() {
     var response = await fetch('/api/language/chinese-response');
     if (!response.ok) throw new Error('Failed to load language settings');
     var data = await response.json();
-    chineseResponseEnabled = data.enabled || false;
+    chineseResponseEnabled = data.claudeEnabled || data.enabled || false;
+    codexChineseResponseEnabled = data.codexEnabled || false;
     return data;
   } catch (err) {
     console.error('Failed to load language settings:', err);
     chineseResponseEnabled = false;
-    return { enabled: false, guidelinesExists: false };
+    codexChineseResponseEnabled = false;
+    return { claudeEnabled: false, codexEnabled: false, guidelinesExists: false };
   }
 }
 
@@ -913,8 +970,13 @@ async function loadWindowsPlatformSettings() {
   }
 }
 
-async function toggleChineseResponse(enabled) {
-  if (chineseResponseLoading) return;
+async function toggleChineseResponse(enabled, target) {
+  // target: 'claude' (default) or 'codex'
+  target = target || 'claude';
+  var isCodex = target === 'codex';
+  var loadingVar = isCodex ? 'codexChineseResponseLoading' : 'chineseResponseLoading';
+
+  if (isCodex ? codexChineseResponseLoading : chineseResponseLoading) return;
 
   // Pre-check: verify CCW workflows are installed (only when enabling)
   if (enabled && typeof ccwInstallStatus !== 'undefined' && !ccwInstallStatus.installed) {
@@ -925,13 +987,17 @@ async function toggleChineseResponse(enabled) {
     }
   }
 
-  chineseResponseLoading = true;
+  if (isCodex) {
+    codexChineseResponseLoading = true;
+  } else {
+    chineseResponseLoading = true;
+  }
 
   try {
     var response = await fetch('/api/language/chinese-response', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: enabled })
+      body: JSON.stringify({ enabled: enabled, target: target })
     });
 
     if (!response.ok) {
@@ -947,18 +1013,27 @@ async function toggleChineseResponse(enabled) {
     }
 
     var data = await response.json();
-    chineseResponseEnabled = data.enabled;
+    if (isCodex) {
+      codexChineseResponseEnabled = data.enabled;
+    } else {
+      chineseResponseEnabled = data.enabled;
+    }
 
     // Update UI
     renderLanguageSettingsSection();
 
     // Show toast
-    showRefreshToast(enabled ? t('lang.enableSuccess') : t('lang.disableSuccess'), 'success');
+    var toolName = isCodex ? 'Codex' : 'Claude';
+    showRefreshToast(toolName + ': ' + (enabled ? t('lang.enableSuccess') : t('lang.disableSuccess')), 'success');
   } catch (err) {
     console.error('Failed to toggle Chinese response:', err);
     // Error already shown in the !response.ok block
   } finally {
-    chineseResponseLoading = false;
+    if (isCodex) {
+      codexChineseResponseLoading = false;
+    } else {
+      chineseResponseLoading = false;
+    }
   }
 }
 
@@ -1016,7 +1091,7 @@ async function renderLanguageSettingsSection() {
   if (!container) return;
 
   // Load current state if not loaded
-  if (!chineseResponseEnabled && !chineseResponseLoading) {
+  if (!chineseResponseEnabled && !codexChineseResponseEnabled && !chineseResponseLoading) {
     await loadLanguageSettings();
   }
   if (!windowsPlatformEnabled && !windowsPlatformLoading) {
@@ -1029,22 +1104,41 @@ async function renderLanguageSettingsSection() {
       '</div>' +
     '</div>' +
     '<div class="cli-settings-grid" style="grid-template-columns: 1fr 1fr;">' +
+      // Chinese Response - Claude
       '<div class="cli-setting-item">' +
         '<label class="cli-setting-label">' +
           '<i data-lucide="message-square-text" class="w-3 h-3"></i>' +
-          t('lang.chinese') +
+          t('lang.chinese') + ' <span class="badge badge-sm badge-primary">Claude</span>' +
         '</label>' +
         '<div class="cli-setting-control">' +
           '<label class="cli-toggle">' +
-            '<input type="checkbox"' + (chineseResponseEnabled ? ' checked' : '') + ' onchange="toggleChineseResponse(this.checked)"' + (chineseResponseLoading ? ' disabled' : '') + '>' +
+            '<input type="checkbox"' + (chineseResponseEnabled ? ' checked' : '') + ' onchange="toggleChineseResponse(this.checked, \'claude\')"' + (chineseResponseLoading ? ' disabled' : '') + '>' +
             '<span class="cli-toggle-slider"></span>' +
           '</label>' +
           '<span class="cli-setting-status ' + (chineseResponseEnabled ? 'enabled' : 'disabled') + '">' +
             (chineseResponseEnabled ? t('lang.enabled') : t('lang.disabled')) +
           '</span>' +
         '</div>' +
-        '<p class="cli-setting-desc">' + t('lang.chineseDesc') + '</p>' +
+        '<p class="cli-setting-desc">' + t('lang.chineseDescClaude') + '</p>' +
       '</div>' +
+      // Chinese Response - Codex
+      '<div class="cli-setting-item">' +
+        '<label class="cli-setting-label">' +
+          '<i data-lucide="message-square-text" class="w-3 h-3"></i>' +
+          t('lang.chinese') + ' <span class="badge badge-sm badge-secondary">Codex</span>' +
+        '</label>' +
+        '<div class="cli-setting-control">' +
+          '<label class="cli-toggle">' +
+            '<input type="checkbox"' + (codexChineseResponseEnabled ? ' checked' : '') + ' onchange="toggleChineseResponse(this.checked, \'codex\')"' + (codexChineseResponseLoading ? ' disabled' : '') + '>' +
+            '<span class="cli-toggle-slider"></span>' +
+          '</label>' +
+          '<span class="cli-setting-status ' + (codexChineseResponseEnabled ? 'enabled' : 'disabled') + '">' +
+            (codexChineseResponseEnabled ? t('lang.enabled') : t('lang.disabled')) +
+          '</span>' +
+        '</div>' +
+        '<p class="cli-setting-desc">' + t('lang.chineseDescCodex') + '</p>' +
+      '</div>' +
+      // Windows Platform
       '<div class="cli-setting-item">' +
         '<label class="cli-setting-label">' +
           '<i data-lucide="monitor" class="w-3 h-3"></i>' +

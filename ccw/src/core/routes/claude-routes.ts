@@ -851,15 +851,23 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
   if (pathname === '/api/language/chinese-response' && req.method === 'GET') {
     try {
       const userClaudePath = join(homedir(), '.claude', 'CLAUDE.md');
+      const userCodexPath = join(homedir(), '.codex', 'AGENTS.md');
       const chineseRefPattern = /@.*chinese-response\.md/i;
 
-      let enabled = false;
+      let claudeEnabled = false;
+      let codexEnabled = false;
       let guidelinesPath = '';
 
       // Check if user CLAUDE.md exists and contains Chinese response reference
       if (existsSync(userClaudePath)) {
         const content = readFileSync(userClaudePath, 'utf8');
-        enabled = chineseRefPattern.test(content);
+        claudeEnabled = chineseRefPattern.test(content);
+      }
+
+      // Check if user AGENTS.md exists and contains Chinese response reference
+      if (existsSync(userCodexPath)) {
+        const content = readFileSync(userCodexPath, 'utf8');
+        codexEnabled = chineseRefPattern.test(content);
       }
 
       // Find guidelines file path - always use user-level path
@@ -871,10 +879,13 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
-        enabled,
+        enabled: claudeEnabled, // backward compatibility
+        claudeEnabled,
+        codexEnabled,
         guidelinesPath,
         guidelinesExists: !!guidelinesPath,
-        userClaudeMdExists: existsSync(userClaudePath)
+        userClaudeMdExists: existsSync(userClaudePath),
+        userCodexAgentsExists: existsSync(userCodexPath)
       }));
       return true;
     } catch (error) {
@@ -887,16 +898,13 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
   // API: Toggle Chinese response setting
   if (pathname === '/api/language/chinese-response' && req.method === 'POST') {
     handlePostRequest(req, res, async (body: any) => {
-      const { enabled } = body;
+      const { enabled, target = 'claude' } = body; // target: 'claude' | 'codex'
 
       if (typeof enabled !== 'boolean') {
         return { error: 'Missing or invalid enabled parameter', status: 400 };
       }
 
       try {
-        const userClaudePath = join(homedir(), '.claude', 'CLAUDE.md');
-        const userClaudeDir = join(homedir(), '.claude');
-
         // Find guidelines file path - always use user-level path with ~ shorthand
         const userGuidelinesPath = join(homedir(), '.claude', 'workflows', 'chinese-response.md');
 
@@ -906,21 +914,27 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
 
         const guidelinesRef = '~/.claude/workflows/chinese-response.md';
 
+        // Configure based on target
+        const isCodex = target === 'codex';
+        const targetDir = isCodex ? join(homedir(), '.codex') : join(homedir(), '.claude');
+        const targetFile = isCodex ? join(targetDir, 'AGENTS.md') : join(targetDir, 'CLAUDE.md');
+        const headerText = isCodex ? '# Codex Instructions\n\n' : '# Claude Instructions\n\n';
+        const headerPattern = isCodex ? /^# Codex Instructions\n\n?/ : /^# Claude Instructions\n\n?/;
+
         const chineseRefLine = `- **中文回复准则**: @${guidelinesRef}`;
         const chineseRefPattern = /^- \*\*中文回复准则\*\*:.*chinese-response\.md.*$/gm;
 
-        // Ensure user .claude directory exists
-        if (!existsSync(userClaudeDir)) {
-          const fs = require('fs');
-          fs.mkdirSync(userClaudeDir, { recursive: true });
+        // Ensure target directory exists
+        if (!existsSync(targetDir)) {
+          mkdirSync(targetDir, { recursive: true });
         }
 
         let content = '';
-        if (existsSync(userClaudePath)) {
-          content = readFileSync(userClaudePath, 'utf8');
+        if (existsSync(targetFile)) {
+          content = readFileSync(targetFile, 'utf8');
         } else {
-          // Create new CLAUDE.md with header
-          content = '# Claude Instructions\n\n';
+          // Create new file with header
+          content = headerText;
         }
 
         if (enabled) {
@@ -930,13 +944,13 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
           }
 
           // Add reference after the header line or at the beginning
-          const headerMatch = content.match(/^# Claude Instructions\n\n?/);
+          const headerMatch = content.match(headerPattern);
           if (headerMatch) {
             const insertPosition = headerMatch[0].length;
             content = content.slice(0, insertPosition) + chineseRefLine + '\n' + content.slice(insertPosition);
           } else {
             // Add header and reference
-            content = '# Claude Instructions\n\n' + chineseRefLine + '\n' + content;
+            content = headerText + chineseRefLine + '\n' + content;
           }
         } else {
           // Remove reference
@@ -944,15 +958,15 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
           if (content) content += '\n';
         }
 
-        writeFileSync(userClaudePath, content, 'utf8');
+        writeFileSync(targetFile, content, 'utf8');
 
         // Broadcast update
         broadcastToClients({
           type: 'LANGUAGE_SETTING_CHANGED',
-          data: { chineseResponse: enabled }
+          data: { chineseResponse: enabled, target }
         });
 
-        return { success: true, enabled };
+        return { success: true, enabled, target };
       } catch (error) {
         return { error: (error as Error).message, status: 500 };
       }
