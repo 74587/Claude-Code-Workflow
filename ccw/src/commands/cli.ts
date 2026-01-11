@@ -794,8 +794,8 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
     // Always broadcast to dashboard for real-time viewing
     // Note: /api/hook wraps extraData into payload, so send fields directly
     // Maintain backward compatibility with frontend expecting { chunkType, data }
-    // Use SmartContentFormatter for intelligent content formatting
-    const content = SmartContentFormatter.format(unit.content, unit.type) || JSON.stringify(unit.content);
+    // Use SmartContentFormatter for intelligent content formatting (never returns null)
+    const content = SmartContentFormatter.format(unit.content, unit.type);
     broadcastStreamEvent('CLI_OUTPUT', {
       executionId,
       chunkType: unit.type,  // For backward compatibility

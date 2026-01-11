@@ -663,8 +663,8 @@ FILE NAME: ${fileName}`;
     // Create onOutput callback for real-time streaming
     const onOutput = broadcastToClients
       ? (unit: import('../../tools/cli-output-converter.js').CliOutputUnit) => {
-          // CliOutputUnit handler: use SmartContentFormatter for intelligent formatting
-          const content = SmartContentFormatter.format(unit.content, unit.type) || JSON.stringify(unit.content);
+          // CliOutputUnit handler: use SmartContentFormatter for intelligent formatting (never returns null)
+          const content = SmartContentFormatter.format(unit.content, unit.type);
           broadcastToClients({
             type: 'CLI_OUTPUT',
             payload: {
@@ -750,8 +750,8 @@ FILE NAME: ${fileName}`;
       // Create onOutput callback for review step
       const reviewOnOutput = broadcastToClients
         ? (unit: import('../../tools/cli-output-converter.js').CliOutputUnit) => {
-            // CliOutputUnit handler: use SmartContentFormatter for intelligent formatting
-            const content = SmartContentFormatter.format(unit.content, unit.type) || JSON.stringify(unit.content);
+            // CliOutputUnit handler: use SmartContentFormatter for intelligent formatting (never returns null)
+            const content = SmartContentFormatter.format(unit.content, unit.type);
             broadcastToClients({
               type: 'CLI_OUTPUT',
               payload: {

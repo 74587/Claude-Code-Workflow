@@ -712,43 +712,94 @@ export class JsonLinesParser implements IOutputParser {
 export class SmartContentFormatter {
   /**
    * Format structured content into human-readable text
-   * Returns formatted string or null if should use original content
+   * NEVER returns null - always returns displayable content to prevent data loss
    */
-  static format(content: any, type: CliOutputUnitType): string | null {
+  static format(content: any, type: CliOutputUnitType): string {
+    // Handle null/undefined
+    if (content === null || content === undefined) {
+      return '';
+    }
+
+    // String content - return as-is
     if (typeof content === 'string') {
       return content;
     }
 
-    if (typeof content !== 'object' || content === null) {
+    // Primitive types - convert to string
+    if (typeof content !== 'object') {
       return String(content);
     }
 
-    // Type-specific formatting
+    // Type-specific formatting with fallback chain
+    let result: string | null = null;
+
     switch (type) {
       case 'metadata':
-        return this.formatMetadata(content);
+        result = this.formatMetadata(content);
+        break;
       case 'progress':
-        return this.formatProgress(content);
+        result = this.formatProgress(content);
+        break;
       case 'tool_call':
-        return this.formatToolCall(content);
+        result = this.formatToolCall(content);
+        break;
       case 'code':
-        return this.formatCode(content);
+        result = this.formatCode(content);
+        break;
       case 'file_diff':
-        return this.formatFileDiff(content);
+        result = this.formatFileDiff(content);
+        break;
       case 'thought':
-        return this.formatThought(content);
+        result = this.formatThought(content);
+        break;
       case 'system':
-        return this.formatSystem(content);
+        result = this.formatSystem(content);
+        break;
       default:
         // Try to extract text content from common fields
-        return this.extractTextContent(content);
+        result = this.extractTextContent(content);
+    }
+
+    // If type-specific formatting succeeded, return it
+    if (result && result.trim()) {
+      return result;
+    }
+
+    // Fallback: try to extract any text content regardless of type
+    const textContent = this.extractTextContent(content);
+    if (textContent && textContent.trim()) {
+      return textContent;
+    }
+
+    // Last resort: format as readable JSON with type hint
+    return this.formatAsReadableJson(content, type);
+  }
+
+  /**
+   * Format object as readable JSON with type hint (fallback for unknown content)
+   * Ensures content is never lost
+   */
+  private static formatAsReadableJson(content: any, type: CliOutputUnitType): string {
+    try {
+      const jsonStr = JSON.stringify(content, null, 0);
+      // For short content, show inline; for long content, indicate it's data
+      if (jsonStr.length <= 200) {
+        return `[${type}] ${jsonStr}`;
+      }
+      // For long content, show truncated with type indicator
+      return `[${type}] ${jsonStr.substring(0, 200)}...`;
+    } catch {
+      // If JSON.stringify fails, try to extract keys
+      const keys = Object.keys(content).slice(0, 5).join(', ');
+      return `[${type}] {${keys}${Object.keys(content).length > 5 ? ', ...' : ''}}`;
     }
   }
 
   /**
    * Format metadata (session info, stats, etc.)
+   * Returns null if no meaningful metadata could be extracted
    */
-  private static formatMetadata(content: any): string {
+  private static formatMetadata(content: any): string | null {
     const parts: string[] = [];
 
     // Tool identifier
@@ -772,6 +823,11 @@ export class SmartContentFormatter {
       parts.push(`Status: ${content.status}`);
     }
 
+    // Reason (for step_finish events)
+    if (content.reason) {
+      parts.push(`Reason: ${content.reason}`);
+    }
+
     // Duration
     if (content.durationMs || content.duration_ms) {
       const ms = content.durationMs || content.duration_ms;
@@ -785,8 +841,8 @@ export class SmartContentFormatter {
     }
 
     // Cost
-    if (content.totalCostUsd || content.total_cost_usd || content.cost) {
-      const cost = content.totalCostUsd || content.total_cost_usd || content.cost;
+    if (content.totalCostUsd !== undefined || content.total_cost_usd !== undefined || content.cost !== undefined) {
+      const cost = content.totalCostUsd ?? content.total_cost_usd ?? content.cost;
       parts.push(`Cost: $${typeof cost === 'number' ? cost.toFixed(6) : cost}`);
     }
 
@@ -795,13 +851,15 @@ export class SmartContentFormatter {
       parts.push(`Result: ${this.truncate(content.result, 100)}`);
     }
 
-    return parts.length > 0 ? parts.join(' | ') : JSON.stringify(content);
+    // Return null if no meaningful parts extracted (let fallback handle it)
+    return parts.length > 0 ? parts.join(' | ') : null;
   }
 
   /**
    * Format progress updates
+   * Returns null if no meaningful progress info could be extracted
    */
-  private static formatProgress(content: any): string {
+  private static formatProgress(content: any): string | null {
     const parts: string[] = [];
 
     // Tool identifier
@@ -824,13 +882,14 @@ export class SmartContentFormatter {
       parts.push(`[${content.progress}/${content.total}]`);
     }
 
-    // Session ID (brief)
+    // Session ID (brief) - only show if no message (avoid duplication)
     const sessionId = content.sessionId || content.session_id;
     if (sessionId && !content.message) {
       parts.push(`Session: ${this.truncate(sessionId, 12)}`);
     }
 
-    return parts.length > 0 ? parts.join(' ') : JSON.stringify(content);
+    // Return null if no meaningful parts extracted (let fallback handle it)
+    return parts.length > 0 ? parts.join(' ') : null;
   }
 
   /**
@@ -900,24 +959,26 @@ export class SmartContentFormatter {
 
   /**
    * Format thought/reasoning
+   * Returns null if no text content could be extracted
    */
-  private static formatThought(content: any): string {
+  private static formatThought(content: any): string | null {
     if (typeof content === 'string') {
       return `💭 ${content}`;
     }
-    const text = content.text || content.summary || content.content;
-    return text ? `💭 ${text}` : JSON.stringify(content);
+    const text = content.text || content.summary || content.content || content.thinking;
+    return text ? `💭 ${text}` : null;
   }
 
   /**
    * Format system message
+   * Returns null if no message content could be extracted
    */
-  private static formatSystem(content: any): string {
+  private static formatSystem(content: any): string | null {
     if (typeof content === 'string') {
       return `⚙️ ${content}`;
     }
-    const message = content.message || content.content || content.event;
-    return message ? `⚙️ ${message}` : JSON.stringify(content);
+    const message = content.message || content.content || content.event || content.info;
+    return message ? `⚙️ ${message}` : null;
   }
 
   /**

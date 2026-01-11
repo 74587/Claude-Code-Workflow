@@ -565,8 +565,8 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
           parentExecutionId,
           stream: true
         }, (unit) => {
-          // CliOutputUnit handler: use SmartContentFormatter for intelligent formatting
-          const content = SmartContentFormatter.format(unit.content, unit.type) || JSON.stringify(unit.content);
+          // CliOutputUnit handler: use SmartContentFormatter for intelligent formatting (never returns null)
+          const content = SmartContentFormatter.format(unit.content, unit.type);
 
           // Append to active execution buffer
           const activeExec = activeExecutions.get(executionId);

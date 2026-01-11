@@ -629,8 +629,8 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
           category: 'internal',
           id: syncId
         }, (unit) => {
-          // CliOutputUnit handler: use SmartContentFormatter for intelligent formatting
-          const content = SmartContentFormatter.format(unit.content, unit.type) || JSON.stringify(unit.content);
+          // CliOutputUnit handler: use SmartContentFormatter for intelligent formatting (never returns null)
+          const content = SmartContentFormatter.format(unit.content, unit.type);
           broadcastToClients({
             type: 'CLI_OUTPUT',
             payload: {
