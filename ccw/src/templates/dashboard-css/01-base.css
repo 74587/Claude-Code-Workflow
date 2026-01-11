@@ -300,3 +300,112 @@ body {
     padding-right: 2.5rem;
   }
 }
+
+/* ===================================
+   Development Index Timeline Styles
+   =================================== */
+
+/* View toggle buttons */
+.dev-view-btn {
+  transition: all 0.2s ease;
+}
+
+.dev-view-btn.active {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-color: hsl(var(--primary));
+}
+
+.dev-view-btn:hover:not(.active) {
+  background: hsl(var(--muted));
+}
+
+/* Development Timeline */
+.dev-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.dev-timeline-item {
+  display: flex;
+  gap: 1rem;
+  position: relative;
+}
+
+.dev-timeline-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 2rem;
+}
+
+.dev-timeline-dot {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.dev-timeline-dot.bg-primary {
+  background: hsl(var(--primary));
+  color: white;
+}
+
+.dev-timeline-dot.bg-success {
+  background: hsl(var(--success));
+  color: white;
+}
+
+.dev-timeline-dot.bg-destructive {
+  background: hsl(var(--destructive));
+  color: white;
+}
+
+.dev-timeline-dot.bg-warning {
+  background: hsl(var(--warning));
+  color: hsl(var(--foreground));
+}
+
+.dev-timeline-dot.bg-muted {
+  background: hsl(var(--muted-foreground));
+  color: white;
+}
+
+.dev-timeline-dot i {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.dev-timeline-line {
+  width: 2px;
+  flex: 1;
+  min-height: 1rem;
+  background: hsl(var(--border));
+  margin: 0.25rem 0;
+}
+
+.dev-timeline-content {
+  flex: 1;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.dev-timeline-content:hover {
+  border-color: hsl(var(--primary) / 0.3);
+  box-shadow: 0 2px 8px hsl(var(--foreground) / 0.05);
+}
+
+/* Hidden utility class */
+.hidden {
+  display: none !important;
+}

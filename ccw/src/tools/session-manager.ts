@@ -737,6 +737,11 @@ function executeArchive(params: Params): any {
     }
   }
 
+  // Update development index with archived session info
+  if (sessionMetadata) {
+    updateDevelopmentIndex(sessionMetadata);
+  }
+
   return {
     operation: 'archive',
     session_id,
@@ -901,6 +906,72 @@ function executeStats(params: Params): any {
     has_plan: hasPlan,
     message: `Session statistics retrieved`,
   };
+}
+
+/**
+ * Updates the project's development index when a session is archived.
+ * Simplified: only appends entries, does NOT manage statistics.
+ * Dashboard aggregator handles dynamic calculation.
+ */
+function updateDevelopmentIndex(sessionMetadata: any): void {
+  if (!sessionMetadata || !sessionMetadata.session_id) {
+    console.warn('Skipping development index update due to missing session metadata.');
+    return;
+  }
+
+  const root = findWorkflowRoot();
+  const projectTechFile = join(root, WORKFLOW_BASE, 'project-tech.json');
+
+  if (!existsSync(projectTechFile)) {
+    console.warn(`Skipping development index update: ${projectTechFile} not found.`);
+    return;
+  }
+
+  try {
+    const projectData = readJsonFile(projectTechFile);
+
+    // Ensure development_index exists
+    if (!projectData.development_index) {
+      projectData.development_index = { feature: [], enhancement: [], bugfix: [], refactor: [], docs: [] };
+    }
+
+    // Type inference from description
+    const description = (sessionMetadata.description || '').toLowerCase();
+    let devType: 'feature' | 'enhancement' | 'bugfix' | 'refactor' | 'docs' = 'enhancement';
+
+    if (sessionMetadata.type === 'docs') {
+      devType = 'docs';
+    } else if (/\b(fix|bug|resolve)\b/.test(description)) {
+      devType = 'bugfix';
+    } else if (/\b(feature|implement|add|create)\b/.test(description)) {
+      devType = 'feature';
+    } else if (/\b(refactor|restructure|cleanup)\b/.test(description)) {
+      devType = 'refactor';
+    }
+
+    const entry = {
+      title: sessionMetadata.description || sessionMetadata.project || sessionMetadata.session_id,
+      sessionId: sessionMetadata.session_id,
+      type: devType,
+      tags: sessionMetadata.tags || [],
+      archivedAt: sessionMetadata.archived_at || new Date().toISOString(),
+    };
+
+    // Append to correct category
+    if (!projectData.development_index[devType]) {
+      projectData.development_index[devType] = [];
+    }
+    projectData.development_index[devType].push(entry);
+
+    // CRITICAL: Do NOT touch projectData.statistics
+    // Dashboard aggregator handles dynamic calculation
+
+    writeJsonFile(projectTechFile, projectData);
+    console.log(`Development index updated for session: ${sessionMetadata.session_id}`);
+
+  } catch (error) {
+    console.error(`Failed to update development index: ${(error as Error).message}`);
+  }
 }
 
 // ============================================================

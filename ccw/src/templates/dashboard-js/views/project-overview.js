@@ -180,16 +180,16 @@ function renderProjectOverview() {
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="text-center p-4 bg-background rounded-lg">
-          <div class="text-3xl font-bold text-primary mb-1">${project.statistics.total_features || 0}</div>
+          <div class="text-3xl font-bold text-primary mb-1">${calculateTotalFeatures(project.developmentIndex)}</div>
           <div class="text-sm text-muted-foreground">Total Features</div>
         </div>
         <div class="text-center p-4 bg-background rounded-lg">
-          <div class="text-3xl font-bold text-success mb-1">${project.statistics.total_sessions || 0}</div>
+          <div class="text-3xl font-bold text-success mb-1">${workflowData.statistics?.totalSessions || 0}</div>
           <div class="text-sm text-muted-foreground">Total Sessions</div>
         </div>
         <div class="text-center p-4 bg-background rounded-lg">
           <div class="text-sm text-muted-foreground mb-1">Last Updated</div>
-          <div class="text-sm font-medium text-foreground">${formatDate(project.statistics.last_updated)}</div>
+          <div class="text-sm font-medium text-foreground">${formatDate(getLastUpdatedDate(project.developmentIndex))}</div>
         </div>
       </div>
     </div>
@@ -203,53 +203,169 @@ function renderDevelopmentIndex(devIndex) {
   if (!devIndex) return '<p class="text-muted-foreground text-sm">No development history available</p>';
 
   const categories = [
-    { key: 'feature', label: 'Features', icon: '<i data-lucide="sparkles" class="w-4 h-4 inline"></i>', badgeClass: 'bg-primary-light text-primary' },
-    { key: 'enhancement', label: 'Enhancements', icon: '<i data-lucide="zap" class="w-4 h-4 inline"></i>', badgeClass: 'bg-success-light text-success' },
-    { key: 'bugfix', label: 'Bug Fixes', icon: '<i data-lucide="bug" class="w-4 h-4 inline"></i>', badgeClass: 'bg-destructive/10 text-destructive' },
-    { key: 'refactor', label: 'Refactorings', icon: '<i data-lucide="wrench" class="w-4 h-4 inline"></i>', badgeClass: 'bg-warning-light text-warning' },
-    { key: 'docs', label: 'Documentation', icon: '<i data-lucide="book-open" class="w-4 h-4 inline"></i>', badgeClass: 'bg-muted text-muted-foreground' }
+    { key: 'feature', label: 'Features', icon: '<i data-lucide="sparkles" class="w-4 h-4 inline"></i>', badgeClass: 'bg-primary-light text-primary', color: 'primary' },
+    { key: 'enhancement', label: 'Enhancements', icon: '<i data-lucide="zap" class="w-4 h-4 inline"></i>', badgeClass: 'bg-success-light text-success', color: 'success' },
+    { key: 'bugfix', label: 'Bug Fixes', icon: '<i data-lucide="bug" class="w-4 h-4 inline"></i>', badgeClass: 'bg-destructive/10 text-destructive', color: 'destructive' },
+    { key: 'refactor', label: 'Refactorings', icon: '<i data-lucide="wrench" class="w-4 h-4 inline"></i>', badgeClass: 'bg-warning-light text-warning', color: 'warning' },
+    { key: 'docs', label: 'Documentation', icon: '<i data-lucide="book-open" class="w-4 h-4 inline"></i>', badgeClass: 'bg-muted text-muted-foreground', color: 'muted' }
   ];
 
-  const totalEntries = categories.reduce((sum, cat) => sum + (devIndex[cat.key]?.length || 0), 0);
+  // Calculate totals from developmentIndex (dynamic calculation)
+  const totals = categories.reduce((acc, cat) => {
+    acc[cat.key] = (devIndex[cat.key] || []).length;
+    return acc;
+  }, {});
+  const totalEntries = Object.values(totals).reduce((sum, count) => sum + count, 0);
 
   if (totalEntries === 0) {
     return '<p class="text-muted-foreground text-sm">No development history entries</p>';
   }
 
-  return `
-    <div class="space-y-4">
-      ${categories.map(cat => {
-        const entries = devIndex[cat.key] || [];
-        if (entries.length === 0) return '';
+  // Collect all entries with type info for timeline view
+  const allEntries = [];
+  categories.forEach(cat => {
+    (devIndex[cat.key] || []).forEach(entry => {
+      allEntries.push({
+        ...entry,
+        type: cat.key,
+        typeLabel: cat.label,
+        typeIcon: cat.icon,
+        typeBadgeClass: cat.badgeClass,
+        typeColor: cat.color,
+        // Support both 'archivedAt' and 'date' field names
+        sortDate: entry.archivedAt || entry.date || entry.implemented_at || ''
+      });
+    });
+  });
 
-        return `
-          <div>
-            <h4 class="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-              <span>${cat.icon}</span>
-              <span>${cat.label}</span>
-              <span class="text-xs px-2 py-0.5 ${cat.badgeClass} rounded-full">${entries.length}</span>
-            </h4>
-            <div class="space-y-2">
-              ${entries.slice(0, 5).map(entry => `
-                <div class="p-3 bg-background border border-border rounded-lg hover:shadow-sm transition-shadow">
-                  <div class="flex items-start justify-between mb-1">
-                    <h5 class="font-medium text-foreground text-sm">${escapeHtml(entry.title)}</h5>
-                    <span class="text-xs text-muted-foreground">${formatDate(entry.date)}</span>
-                  </div>
-                  ${entry.description ? `<p class="text-sm text-muted-foreground mb-1">${escapeHtml(entry.description)}</p>` : ''}
-                  <div class="flex items-center gap-2 text-xs">
-                    ${entry.sub_feature ? `<span class="px-2 py-0.5 bg-muted rounded">${escapeHtml(entry.sub_feature)}</span>` : ''}
-                    ${entry.status ? `<span class="px-2 py-0.5 ${entry.status === 'completed' ? 'bg-success-light text-success' : 'bg-warning-light text-warning'} rounded">${escapeHtml(entry.status)}</span>` : ''}
-                  </div>
+  // Sort by date descending (newest first)
+  allEntries.sort((a, b) => {
+    const dateA = new Date(a.sortDate || 0).getTime();
+    const dateB = new Date(b.sortDate || 0).getTime();
+    return dateB - dateA;
+  });
+
+  return `
+    <!-- View Toggle & Stats Summary -->
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2">
+        ${categories.map(cat => {
+          const count = totals[cat.key];
+          if (count === 0) return '';
+          return `<span class="text-xs px-2 py-1 ${cat.badgeClass} rounded-full flex items-center gap-1">${cat.icon} ${count}</span>`;
+        }).join('')}
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="viewCategoryBtn" onclick="toggleDevIndexView('category')" class="px-3 py-1.5 text-xs rounded-lg border border-border bg-background hover:bg-muted transition-colors dev-view-btn active">
+          <i data-lucide="layout-grid" class="w-3.5 h-3.5 inline mr-1"></i>Categories
+        </button>
+        <button id="viewTimelineBtn" onclick="toggleDevIndexView('timeline')" class="px-3 py-1.5 text-xs rounded-lg border border-border bg-background hover:bg-muted transition-colors dev-view-btn">
+          <i data-lucide="git-commit-horizontal" class="w-3.5 h-3.5 inline mr-1"></i>Timeline
+        </button>
+      </div>
+    </div>
+
+    <!-- Category View (default) -->
+    <div id="devIndexCategoryView" class="dev-index-view">
+      <div class="space-y-4">
+        ${categories.map(cat => {
+          const entries = devIndex[cat.key] || [];
+          if (entries.length === 0) return '';
+
+          return `
+            <div>
+              <h4 class="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                <span>${cat.icon}</span>
+                <span>${cat.label}</span>
+                <span class="text-xs px-2 py-0.5 ${cat.badgeClass} rounded-full">${entries.length}</span>
+              </h4>
+              <div class="space-y-2">
+                ${entries.slice(0, 5).map(entry => renderDevIndexEntry(entry, cat)).join('')}
+                ${entries.length > 5 ? `<div class="text-sm text-muted-foreground text-center py-2">... and ${entries.length - 5} more</div>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- Timeline View -->
+    <div id="devIndexTimelineView" class="dev-index-view hidden">
+      <div class="dev-timeline">
+        ${allEntries.slice(0, 20).map((entry, index) => `
+          <div class="dev-timeline-item">
+            <div class="dev-timeline-marker">
+              <div class="dev-timeline-dot bg-${entry.typeColor}" title="${entry.typeLabel}">
+                ${entry.typeIcon}
+              </div>
+              ${index < Math.min(allEntries.length, 20) - 1 ? '<div class="dev-timeline-line"></div>' : ''}
+            </div>
+            <div class="dev-timeline-content">
+              <div class="flex items-start justify-between gap-2 mb-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs px-2 py-0.5 ${entry.typeBadgeClass} rounded">${entry.typeLabel}</span>
+                  <h5 class="font-medium text-foreground text-sm">${escapeHtml(entry.title)}</h5>
                 </div>
-              `).join('')}
-              ${entries.length > 5 ? `<div class="text-sm text-muted-foreground text-center py-2">... and ${entries.length - 5} more</div>` : ''}
+                <span class="text-xs text-muted-foreground whitespace-nowrap">${formatDate(entry.sortDate)}</span>
+              </div>
+              ${entry.description ? `<p class="text-sm text-muted-foreground mb-1">${escapeHtml(entry.description)}</p>` : ''}
+              <div class="flex items-center gap-2 text-xs">
+                ${entry.sessionId ? `<span class="px-2 py-0.5 bg-muted rounded font-mono">${escapeHtml(entry.sessionId)}</span>` : ''}
+                ${entry.sub_feature ? `<span class="px-2 py-0.5 bg-muted rounded">${escapeHtml(entry.sub_feature)}</span>` : ''}
+                ${entry.tags && entry.tags.length > 0 ? entry.tags.slice(0, 3).map(tag => `<span class="px-2 py-0.5 bg-accent rounded">${escapeHtml(tag)}</span>`).join('') : ''}
+              </div>
             </div>
           </div>
-        `;
-      }).join('')}
+        `).join('')}
+        ${allEntries.length > 20 ? `<div class="text-sm text-muted-foreground text-center py-4">... and ${allEntries.length - 20} more entries</div>` : ''}
+      </div>
     </div>
   `;
+}
+
+// Helper function to render a single development index entry
+function renderDevIndexEntry(entry, cat) {
+  // Support both 'archivedAt' and 'date' field names
+  const entryDate = entry.archivedAt || entry.date || entry.implemented_at || '';
+
+  return `
+    <div class="p-3 bg-background border border-border rounded-lg hover:shadow-sm transition-shadow">
+      <div class="flex items-start justify-between mb-1">
+        <h5 class="font-medium text-foreground text-sm">${escapeHtml(entry.title)}</h5>
+        <span class="text-xs text-muted-foreground">${formatDate(entryDate)}</span>
+      </div>
+      ${entry.description ? `<p class="text-sm text-muted-foreground mb-1">${escapeHtml(entry.description)}</p>` : ''}
+      <div class="flex items-center gap-2 text-xs flex-wrap">
+        ${entry.sessionId ? `<span class="px-2 py-0.5 bg-primary-light text-primary rounded font-mono">${escapeHtml(entry.sessionId)}</span>` : ''}
+        ${entry.sub_feature ? `<span class="px-2 py-0.5 bg-muted rounded">${escapeHtml(entry.sub_feature)}</span>` : ''}
+        ${entry.status ? `<span class="px-2 py-0.5 ${entry.status === 'completed' ? 'bg-success-light text-success' : 'bg-warning-light text-warning'} rounded">${escapeHtml(entry.status)}</span>` : ''}
+        ${entry.tags && entry.tags.length > 0 ? entry.tags.slice(0, 2).map(tag => `<span class="px-2 py-0.5 bg-accent rounded">${escapeHtml(tag)}</span>`).join('') : ''}
+      </div>
+    </div>
+  `;
+}
+
+// Toggle between category and timeline views
+function toggleDevIndexView(view) {
+  const categoryView = document.getElementById('devIndexCategoryView');
+  const timelineView = document.getElementById('devIndexTimelineView');
+  const categoryBtn = document.getElementById('viewCategoryBtn');
+  const timelineBtn = document.getElementById('viewTimelineBtn');
+
+  if (view === 'timeline') {
+    categoryView.classList.add('hidden');
+    timelineView.classList.remove('hidden');
+    categoryBtn.classList.remove('active');
+    timelineBtn.classList.add('active');
+  } else {
+    categoryView.classList.remove('hidden');
+    timelineView.classList.add('hidden');
+    categoryBtn.classList.add('active');
+    timelineBtn.classList.remove('active');
+  }
+
+  // Reinitialize icons for the newly visible view
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function renderProjectGuidelines(guidelines) {
@@ -400,4 +516,33 @@ function renderLearnings(learnings) {
       </div>
     </div>
   `;
+}
+
+// Calculate total features from developmentIndex (dynamic calculation)
+function calculateTotalFeatures(devIndex) {
+  if (!devIndex) return 0;
+  const categories = ['feature', 'enhancement', 'bugfix', 'refactor', 'docs'];
+  return categories.reduce((sum, cat) => sum + (devIndex[cat]?.length || 0), 0);
+}
+
+// Get the most recent date from developmentIndex entries
+function getLastUpdatedDate(devIndex) {
+  if (!devIndex) return null;
+
+  const categories = ['feature', 'enhancement', 'bugfix', 'refactor', 'docs'];
+  let latestDate = null;
+
+  categories.forEach(cat => {
+    (devIndex[cat] || []).forEach(entry => {
+      const entryDate = entry.archivedAt || entry.date || entry.implemented_at;
+      if (entryDate) {
+        const date = new Date(entryDate);
+        if (!latestDate || date > latestDate) {
+          latestDate = date;
+        }
+      }
+    });
+  });
+
+  return latestDate ? latestDate.toISOString() : null;
 }
