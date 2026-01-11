@@ -1,8 +1,14 @@
 /**
  * Claude CLI Tools Configuration Manager
  * Manages .claude/cli-tools.json (tools) and .claude/cli-settings.json (settings)
- * with fallback:
- * 1. Project workspace: {projectDir}/.claude/ (priority)
+ *
+ * Configuration Strategy:
+ * - READ: Project → Global → Default (fallback chain)
+ * - CREATE: Always in ~/.claude/ (global user-level config)
+ * - SAVE: Based on source (project config saves to project, others to global)
+ *
+ * Read priority:
+ * 1. Project workspace: {projectDir}/.claude/ (if exists)
  * 2. Global: ~/.claude/ (fallback)
  */
 import * as fs from 'fs';
@@ -295,12 +301,12 @@ function migrateConfig(config: any, projectDir: string): ClaudeCliToolsConfig {
 
 /**
  * Ensure CLI tools configuration file exists
- * Creates default config if missing (auto-rebuild feature)
- * @param projectDir - Project directory path
- * @param createInProject - If true, create in project dir; if false, create in global dir
+ * Creates default config in global ~/.claude directory (user-level config)
+ * @param projectDir - Project directory path (used for reading existing project config)
+ * @param createInProject - DEPRECATED: Always creates in global dir. Kept for backward compatibility.
  * @returns The config that was created/exists
  */
-export function ensureClaudeCliTools(projectDir: string, createInProject: boolean = true): ClaudeCliToolsConfig & { _source?: string } {
+export function ensureClaudeCliTools(projectDir: string, createInProject: boolean = false): ClaudeCliToolsConfig & { _source?: string } {
   const resolved = resolveConfigPath(projectDir);
 
   if (resolved.source !== 'default') {
@@ -308,25 +314,12 @@ export function ensureClaudeCliTools(projectDir: string, createInProject: boolea
     return loadClaudeCliTools(projectDir);
   }
 
-  // Config doesn't exist - create default
-  console.log('[claude-cli-tools] Config not found, creating default cli-tools.json');
+  // Config doesn't exist - create in global directory only
+  console.log('[claude-cli-tools] Config not found, creating default cli-tools.json in ~/.claude');
 
   const defaultConfig: ClaudeCliToolsConfig = { ...DEFAULT_TOOLS_CONFIG };
 
-  if (createInProject) {
-    // Create in project directory
-    ensureClaudeDir(projectDir);
-    const projectPath = getProjectConfigPath(projectDir);
-    try {
-      fs.writeFileSync(projectPath, JSON.stringify(defaultConfig, null, 2), 'utf-8');
-      console.log(`[claude-cli-tools] Created default config at: ${projectPath}`);
-      return { ...defaultConfig, _source: 'project' };
-    } catch (err) {
-      console.error('[claude-cli-tools] Failed to create project config:', err);
-    }
-  }
-
-  // Fallback: create in global directory
+  // Always create in global directory (user-level config)
   const globalDir = path.join(os.homedir(), '.claude');
   if (!fs.existsSync(globalDir)) {
     fs.mkdirSync(globalDir, { recursive: true });
@@ -405,13 +398,27 @@ export function loadClaudeCliTools(projectDir: string): ClaudeCliToolsConfig & {
 }
 
 /**
- * Save CLI tools configuration to project .claude/cli-tools.json
+ * Save CLI tools configuration
+ * - If config was loaded from project, saves to project
+ * - Otherwise saves to global ~/.claude/cli-tools.json
  */
 export function saveClaudeCliTools(projectDir: string, config: ClaudeCliToolsConfig & { _source?: string }): void {
-  ensureClaudeDir(projectDir);
-  const configPath = getProjectConfigPath(projectDir);
-
   const { _source, ...configToSave } = config;
+
+  // Determine save location based on source
+  let configPath: string;
+  if (_source === 'project') {
+    // Config was loaded from project, save back to project
+    ensureClaudeDir(projectDir);
+    configPath = getProjectConfigPath(projectDir);
+  } else {
+    // Default: save to global directory
+    const globalDir = path.join(os.homedir(), '.claude');
+    if (!fs.existsSync(globalDir)) {
+      fs.mkdirSync(globalDir, { recursive: true });
+    }
+    configPath = getGlobalConfigPath();
+  }
 
   try {
     fs.writeFileSync(configPath, JSON.stringify(configToSave, null, 2), 'utf-8');
