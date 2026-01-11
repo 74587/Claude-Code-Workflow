@@ -7,6 +7,7 @@ import chalk from 'chalk';
 import http from 'http';
 import inquirer from 'inquirer';
 import type { CliOutputUnit } from '../tools/cli-output-converter.js';
+import { SmartContentFormatter } from '../tools/cli-output-converter.js';
 import {
   cliExecutorTool,
   getCliToolsStatus,
@@ -793,11 +794,12 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
     // Always broadcast to dashboard for real-time viewing
     // Note: /api/hook wraps extraData into payload, so send fields directly
     // Maintain backward compatibility with frontend expecting { chunkType, data }
-    const content = typeof unit.content === 'string' ? unit.content : JSON.stringify(unit.content);
+    // Use SmartContentFormatter for intelligent content formatting
+    const content = SmartContentFormatter.format(unit.content, unit.type) || JSON.stringify(unit.content);
     broadcastStreamEvent('CLI_OUTPUT', {
       executionId,
       chunkType: unit.type,  // For backward compatibility
-      data: content,         // For backward compatibility
+      data: content,         // For backward compatibility (now formatted)
       unit                   // New structured format
     });
 
