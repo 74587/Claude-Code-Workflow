@@ -12,6 +12,7 @@ const CODEXLENS_CACHE_TTL = 30000;
 const codexLensCache = {
   workspaceStatus: { data: null, timestamp: 0 },
   config: { data: null, timestamp: 0 },
+  rerankerConfig: { data: null, timestamp: 0 },
   status: { data: null, timestamp: 0 },
   env: { data: null, timestamp: 0 },
   models: { data: null, timestamp: 0 },
@@ -68,6 +69,57 @@ function invalidateCache(key) {
       codexLensCache[k].timestamp = 0;
     });
   }
+}
+
+// Preload promises for tracking in-flight requests
+var codexLensPreloadPromises = {};
+
+/**
+ * Preload CodexLens data in the background
+ * Called immediately when entering the CodexLens page
+ * @returns {Promise<void>}
+ */
+async function preloadCodexLensData() {
+  console.log('[CodexLens] Starting preload...');
+
+  // Skip if already preloading or cache is valid
+  if (codexLensPreloadPromises.inProgress) {
+    console.log('[CodexLens] Preload already in progress, skipping');
+    return codexLensPreloadPromises.inProgress;
+  }
+
+  // Check if all caches are valid
+  var allCacheValid = isCacheValid('config') && isCacheValid('models') &&
+                      isCacheValid('rerankerConfig') && isCacheValid('rerankerModels') &&
+                      isCacheValid('semanticStatus') && isCacheValid('env');
+  if (allCacheValid) {
+    console.log('[CodexLens] All caches valid, skipping preload');
+    return Promise.resolve();
+  }
+
+  // Start preloading all endpoints in parallel
+  codexLensPreloadPromises.inProgress = Promise.all([
+    // Config and models
+    !isCacheValid('config') ? fetch('/api/codexlens/config').then(r => r.json()).then(d => setCacheData('config', d)) : Promise.resolve(),
+    !isCacheValid('models') ? fetch('/api/codexlens/models').then(r => r.json()).then(d => setCacheData('models', d)) : Promise.resolve(),
+    // Reranker config and models
+    !isCacheValid('rerankerConfig') ? fetch('/api/codexlens/reranker/config').then(r => r.json()).then(d => setCacheData('rerankerConfig', d)) : Promise.resolve(),
+    !isCacheValid('rerankerModels') ? fetch('/api/codexlens/reranker/models').then(r => r.json()).then(d => setCacheData('rerankerModels', d)).catch(() => null) : Promise.resolve(),
+    // Workspace status
+    !isCacheValid('workspaceStatus') ? fetch('/api/codexlens/workspace-status').then(r => r.json()).then(d => setCacheData('workspaceStatus', d)).catch(() => null) : Promise.resolve(),
+    // Semantic status (for FastEmbed detection)
+    !isCacheValid('semanticStatus') ? fetch('/api/codexlens/semantic/status').then(r => r.json()).then(d => setCacheData('semanticStatus', d)).catch(() => null) : Promise.resolve(),
+    // Environment variables
+    !isCacheValid('env') ? fetch('/api/codexlens/env').then(r => r.json()).then(d => { if (d.success) setCacheData('env', d); }).catch(() => null) : Promise.resolve()
+  ]).then(function() {
+    console.log('[CodexLens] Preload completed');
+    codexLensPreloadPromises.inProgress = null;
+  }).catch(function(err) {
+    console.warn('[CodexLens] Preload error:', err);
+    codexLensPreloadPromises.inProgress = null;
+  });
+
+  return codexLensPreloadPromises.inProgress;
 }
 
 // ============================================================
@@ -1051,28 +1103,35 @@ var ENV_VAR_GROUPS = {
 /**
  * Load environment variables from ~/.codexlens/.env
  */
-async function loadEnvVariables() {
+async function loadEnvVariables(forceRefresh) {
   var container = document.getElementById('envVarsContainer');
   if (!container) return;
 
   container.innerHTML = '<div class="text-xs text-muted-foreground animate-pulse">Loading...</div>';
 
   try {
-    // Fetch env vars, configured models, and local models in parallel
-    var [envResponse, embeddingPoolResponse, rerankerPoolResponse, localModelsResponse, localRerankerModelsResponse] = await Promise.all([
-      fetch('/api/codexlens/env'),
-      fetch('/api/litellm-api/embedding-pool').catch(function() { return null; }),
-      fetch('/api/litellm-api/reranker-pool').catch(function() { return null; }),
-      fetch('/api/codexlens/models').catch(function() { return null; }),
-      fetch('/api/codexlens/reranker/models').catch(function() { return null; })
-    ]);
-
-    var result = await envResponse.json();
+    // Check cache first for env data
+    var result;
+    if (!forceRefresh && isCacheValid('env')) {
+      result = getCachedData('env');
+    } else {
+      var envResponse = await fetch('/api/codexlens/env');
+      result = await envResponse.json();
+      if (result.success) {
+        setCacheData('env', result);
+      }
+    }
 
     if (!result.success) {
       container.innerHTML = '<div class="text-xs text-error">' + escapeHtml(result.error || 'Failed to load') + '</div>';
       return;
     }
+
+    // Get configured embedding/reranker models from API settings (not cached - different data source)
+    var [embeddingPoolResponse, rerankerPoolResponse] = await Promise.all([
+      fetch('/api/litellm-api/embedding-pool').catch(function() { return null; }),
+      fetch('/api/litellm-api/reranker-pool').catch(function() { return null; })
+    ]);
 
     // Get configured embedding models from API settings
     var configuredEmbeddingModels = [];
@@ -1088,28 +1147,22 @@ async function loadEnvVariables() {
       configuredRerankerModels = rerankerData.availableModels || [];
     }
 
-    // Get local downloaded embedding models
+    // Get local downloaded embedding models from cache (preloaded by preloadCodexLensData)
     var localEmbeddingModels = [];
-    if (localModelsResponse && localModelsResponse.ok) {
-      var localData = await localModelsResponse.json();
-      // CLI returns { success: true, result: { models: [...] } }
-      if (localData.success) {
-        var models = localData.models || (localData.result && localData.result.models) || [];
-        // Filter to only installed models (CLI uses 'installed' not 'downloaded')
-        localEmbeddingModels = models.filter(function(m) { return m.installed; });
-      }
+    var localData = getCachedData('models');
+    if (localData && localData.success) {
+      var models = localData.models || (localData.result && localData.result.models) || [];
+      // Filter to only installed models (CLI uses 'installed' not 'downloaded')
+      localEmbeddingModels = models.filter(function(m) { return m.installed; });
     }
 
-    // Get local downloaded reranker models
+    // Get local downloaded reranker models from cache (preloaded by preloadCodexLensData)
     var localRerankerModels = [];
-    if (localRerankerModelsResponse && localRerankerModelsResponse.ok) {
-      var localRerankerData = await localRerankerModelsResponse.json();
-      // CLI returns { success: true, result: { models: [...] } }
-      if (localRerankerData.success) {
-        var models = localRerankerData.models || (localRerankerData.result && localRerankerData.result.models) || [];
-        // Filter to only installed models
-        localRerankerModels = models.filter(function(m) { return m.installed; });
-      }
+    var localRerankerData = getCachedData('rerankerModels');
+    if (localRerankerData && localRerankerData.success) {
+      var models = localRerankerData.models || (localRerankerData.result && localRerankerData.result.models) || [];
+      // Filter to only installed models
+      localRerankerModels = models.filter(function(m) { return m.installed; });
     }
 
     // Cache model data for dynamic backend switching
@@ -1608,16 +1661,24 @@ async function detectGpuSupport() {
 /**
  * Load semantic dependencies status
  */
-async function loadSemanticDepsStatus() {
+async function loadSemanticDepsStatus(forceRefresh) {
   var container = document.getElementById('semanticDepsStatus');
   if (!container) return;
 
   try {
+    // Check cache first (unless force refresh)
+    var result;
+    if (!forceRefresh && isCacheValid('semanticStatus')) {
+      result = getCachedData('semanticStatus');
+    } else {
+      var response = await fetch('/api/codexlens/semantic/status');
+      result = await response.json();
+      setCacheData('semanticStatus', result);
+    }
+
     // Detect GPU support and load GPU devices in parallel
     var gpuPromise = detectGpuSupport();
     var gpuDevicesPromise = loadGpuDevices();
-    var response = await fetch('/api/codexlens/semantic/status');
-    var result = await response.json();
     var gpuInfo = await gpuPromise;
     var gpuDevices = await gpuDevicesPromise;
 
@@ -2344,8 +2405,9 @@ async function reinstallFastEmbed(mode) {
 /**
  * Load FastEmbed installation status and show card
  * Card is always visible - shows install UI or status UI based on state
+ * @param {boolean} forceRefresh - Force refresh, bypass cache
  */
-async function loadFastEmbedInstallStatus() {
+async function loadFastEmbedInstallStatus(forceRefresh) {
   console.log('[CodexLens] loadFastEmbedInstallStatus called');
   var card = document.getElementById('fastembedInstallCard');
   console.log('[CodexLens] fastembedInstallCard element:', card);
@@ -2355,15 +2417,24 @@ async function loadFastEmbedInstallStatus() {
   }
 
   try {
-    // Load semantic status, GPU list, and LiteLLM status in parallel
-    console.log('[CodexLens] Fetching semantic status, GPU list, and LiteLLM status...');
-    var [semanticResponse, gpuResponse, litellmResponse] = await Promise.all([
-      fetch('/api/codexlens/semantic/status'),
+    // Check cache first for semantic status
+    var result;
+    if (!forceRefresh && isCacheValid('semanticStatus')) {
+      result = getCachedData('semanticStatus');
+      console.log('[CodexLens] Using cached semantic status');
+    } else {
+      var semanticResponse = await fetch('/api/codexlens/semantic/status');
+      result = await semanticResponse.json();
+      setCacheData('semanticStatus', result);
+    }
+
+    // Load GPU list and LiteLLM status (not cached - less frequently used)
+    console.log('[CodexLens] Fetching GPU list and LiteLLM status...');
+    var [gpuResponse, litellmResponse] = await Promise.all([
       fetch('/api/codexlens/gpu/list'),
       fetch('/api/litellm-api/ccw-litellm/status').catch(function() { return { ok: false }; })
     ]);
 
-    var result = await semanticResponse.json();
     var gpuResult = await gpuResponse.json();
     var gpuDevices = gpuResult.devices || [];
 
@@ -2483,20 +2554,36 @@ function copyToClipboard(text) {
 }
 
 /**
- * Load model list (simplified version)
+ * Load model list with cache support
+ * @param {boolean} forceRefresh - Force refresh, bypass cache
  */
-async function loadModelList() {
+async function loadModelList(forceRefresh) {
   var container = document.getElementById('modelListContainer');
   if (!container) return;
 
   try {
-    // Get config for backend info
-    var configResponse = await fetch('/api/codexlens/config');
-    var config = await configResponse.json();
-    var embeddingBackend = config.embedding_backend || 'fastembed';
+    // Check cache first (config + models)
+    var config, result;
+    var useCache = !forceRefresh && isCacheValid('config') && isCacheValid('models');
 
-    var response = await fetch('/api/codexlens/models');
-    var result = await response.json();
+    if (useCache) {
+      config = getCachedData('config');
+      result = getCachedData('models');
+    } else {
+      // Fetch config and models in parallel
+      var [configResponse, modelsResponse] = await Promise.all([
+        fetch('/api/codexlens/config'),
+        fetch('/api/codexlens/models')
+      ]);
+      config = await configResponse.json();
+      result = await modelsResponse.json();
+
+      // Cache the results
+      setCacheData('config', config);
+      setCacheData('models', result);
+    }
+
+    var embeddingBackend = config.embedding_backend || 'fastembed';
 
     var html = '<div class="space-y-2">';
 
@@ -2745,7 +2832,8 @@ async function downloadModel(profile) {
 
     if (result.success) {
       showRefreshToast('Model downloaded: ' + profile, 'success');
-      loadModelList();
+      invalidateCache('models');
+      loadModelList(true);
     } else {
       showRefreshToast('Download failed: ' + result.error, 'error');
       modelCard.innerHTML = originalHTML;
@@ -2789,7 +2877,8 @@ async function deleteModel(profile) {
 
     if (result.success) {
       showRefreshToast('Model deleted: ' + profile, 'success');
-      loadModelList();
+      invalidateCache('models');
+      loadModelList(true);
     } else {
       showRefreshToast('Delete failed: ' + result.error, 'error');
       modelCard.innerHTML = originalHTML;
@@ -2837,7 +2926,8 @@ async function downloadCustomModel() {
 
     if (result.success) {
       showRefreshToast('Custom model downloaded: ' + modelName, 'success');
-      loadModelList();
+      invalidateCache('models');
+      loadModelList(true);
     } else {
       showRefreshToast('Download failed: ' + result.error, 'error');
       input.disabled = false;
@@ -2869,7 +2959,8 @@ async function deleteDiscoveredModel(cachePath) {
 
     if (result.success) {
       showRefreshToast('Model deleted successfully', 'success');
-      loadModelList();
+      invalidateCache('models');
+      loadModelList(true);
     } else {
       showRefreshToast('Delete failed: ' + result.error, 'error');
     }
@@ -2893,9 +2984,10 @@ var RERANKER_MODELS = [
 ];
 
 /**
- * Load reranker model list with download/delete support
+ * Load reranker model list with download/delete support and cache
+ * @param {boolean} forceRefresh - Force refresh, bypass cache
  */
-async function loadRerankerModelList() {
+async function loadRerankerModelList(forceRefresh) {
   // Update both containers (advanced tab and page model management)
   var containers = [
     document.getElementById('rerankerModelListContainer'),
@@ -2910,17 +3002,31 @@ async function loadRerankerModelList() {
   }
 
   try {
-    // Fetch both config and models list in parallel
-    var [configResponse, modelsResponse] = await Promise.all([
-      fetch('/api/codexlens/reranker/config'),
-      fetch('/api/codexlens/reranker/models')
-    ]);
+    var config, modelsData;
+    var useCache = !forceRefresh && isCacheValid('rerankerConfig') && isCacheValid('rerankerModels');
 
-    if (!configResponse.ok) {
-      throw new Error('Failed to load reranker config: ' + configResponse.status);
+    if (useCache) {
+      config = getCachedData('rerankerConfig');
+      modelsData = getCachedData('rerankerModels');
+      console.log('[CodexLens] Using cached reranker data');
+    } else {
+      // Fetch both config and models list in parallel
+      var [configResponse, modelsResponse] = await Promise.all([
+        fetch('/api/codexlens/reranker/config'),
+        fetch('/api/codexlens/reranker/models')
+      ]);
+
+      if (!configResponse.ok) {
+        throw new Error('Failed to load reranker config: ' + configResponse.status);
+      }
+      config = await configResponse.json();
+      modelsData = modelsResponse.ok ? await modelsResponse.json() : null;
+
+      // Cache the results
+      setCacheData('rerankerConfig', config);
+      setCacheData('rerankerModels', modelsData);
+      console.log('[CodexLens] Reranker config loaded:', { backend: config.backend, model: config.model_name });
     }
-    var config = await configResponse.json();
-    console.log('[CodexLens] Reranker config loaded:', { backend: config.backend, model: config.model_name });
 
     // Handle API response format
     var currentModel = config.model_name || config.result?.reranker_model || 'Xenova/ms-marco-MiniLM-L-6-v2';
@@ -2929,22 +3035,19 @@ async function loadRerankerModelList() {
     // Try to use API models, fall back to static list
     var models = RERANKER_MODELS;
     var modelsFromApi = false;
-    if (modelsResponse.ok) {
-      var modelsData = await modelsResponse.json();
-      if (modelsData.success && modelsData.result && modelsData.result.models) {
-        models = modelsData.result.models.map(function(m) {
-          return {
-            id: m.profile,
-            name: m.model_name,
-            size: m.installed && m.actual_size_mb ? m.actual_size_mb : m.estimated_size_mb,
-            desc: m.description,
-            installed: m.installed,
-            recommended: m.recommended
-          };
-        });
-        modelsFromApi = true;
-        console.log('[CodexLens] Loaded ' + models.length + ' reranker models from API');
-      }
+    if (modelsData && modelsData.success && modelsData.result && modelsData.result.models) {
+      models = modelsData.result.models.map(function(m) {
+        return {
+          id: m.profile,
+          name: m.model_name,
+          size: m.installed && m.actual_size_mb ? m.actual_size_mb : m.estimated_size_mb,
+          desc: m.description,
+          installed: m.installed,
+          recommended: m.recommended
+        };
+      });
+      modelsFromApi = true;
+      console.log('[CodexLens] Loaded ' + models.length + ' reranker models from API');
     }
 
     var html = '<div class="space-y-2">';
@@ -3092,14 +3195,15 @@ async function downloadRerankerModel(profile) {
 
     if (result.success) {
       showRefreshToast(t('codexlens.downloadComplete') + ': ' + profile, 'success');
-      loadRerankerModelList();
+      invalidateCache('rerankerModels');
+      loadRerankerModelList(true);
     } else {
       showRefreshToast(t('codexlens.downloadFailed') + ': ' + (result.error || 'Unknown error'), 'error');
-      loadRerankerModelList();
+      loadRerankerModelList(true);
     }
   } catch (err) {
     showRefreshToast(t('codexlens.downloadFailed') + ': ' + err.message, 'error');
-    loadRerankerModelList();
+    loadRerankerModelList(true);
   }
 }
 
@@ -3121,7 +3225,8 @@ async function deleteRerankerModel(profile) {
 
     if (result.success) {
       showRefreshToast(t('codexlens.modelDeleted') + ': ' + profile, 'success');
-      loadRerankerModelList();
+      invalidateCache('rerankerModels');
+      loadRerankerModelList(true);
     } else {
       showRefreshToast('Failed to delete: ' + (result.error || 'Unknown error'), 'error');
     }
@@ -3144,7 +3249,8 @@ async function updateRerankerBackend(backend) {
 
     if (result.success) {
       showRefreshToast('Reranker backend updated: ' + backend, 'success');
-      loadRerankerModelList();
+      invalidateCache('rerankerConfig');
+      loadRerankerModelList(true);
     } else {
       showRefreshToast('Failed to update: ' + (result.error || 'Unknown error'), 'error');
     }
@@ -3167,7 +3273,8 @@ async function selectRerankerModel(modelName) {
 
     if (result.success) {
       showRefreshToast('Reranker model selected: ' + modelName.split('/').pop(), 'success');
-      loadRerankerModelList();
+      invalidateCache('rerankerConfig');
+      loadRerankerModelList(true);
     } else {
       showRefreshToast('Failed to select: ' + (result.error || 'Unknown error'), 'error');
     }
@@ -3204,7 +3311,9 @@ async function switchToLocalReranker(modelName) {
 
     if (modelResult.success) {
       showRefreshToast(t('codexlens.switchedToLocal') + ': ' + modelName.split('/').pop(), 'success');
-      loadRerankerModelList();
+      invalidateCache('rerankerConfig');
+      invalidateCache('rerankerModels');
+      loadRerankerModelList(true);
       // Also reload env variables to reflect the change
       if (typeof loadEnvVariables === 'function') {
         loadEnvVariables();
@@ -4177,6 +4286,9 @@ async function cleanCodexLensIndexes() {
 async function renderCodexLensManager() {
   var container = document.getElementById('mainContent');
   if (!container) return;
+
+  // Start preloading immediately (non-blocking)
+  preloadCodexLensData();
 
   // Hide stats grid and search
   var statsGrid = document.getElementById('statsGrid');
