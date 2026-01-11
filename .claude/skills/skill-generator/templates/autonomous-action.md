@@ -17,11 +17,22 @@
 
 {{preconditions_list}}
 
+## Scripts
+
+\`\`\`yaml
+# 声明本动作使用的脚本（可选）
+# - script-id        # 对应 scripts/script-id.py 或 .sh
+\`\`\`
+
 ## Execution
 
 \`\`\`javascript
 async function execute(state) {
   {{execution_code}}
+
+  // 调用脚本示例
+  // const result = await ExecuteScript('script-id', { input: state.context.data });
+  // if (!result.success) throw new Error(result.stderr);
 }
 \`\`\`
 

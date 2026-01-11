@@ -34,10 +34,8 @@ if (config.execution_mode === 'autonomous' || config.execution_mode === 'hybrid'
   Bash(`mkdir -p "${skillDir}/phases/actions"`);
 }
 
-// 可选: scripts 目录
-if (config.needs_scripts) {
-  Bash(`mkdir -p "${skillDir}/scripts"`);
-}
+// scripts 目录（默认创建，用于存放确定性脚本）
+Bash(`mkdir -p "${skillDir}/scripts"`);
 ```
 
 ### Step 3: 生成 SKILL.md
@@ -197,11 +195,12 @@ function generateReferenceTable(config) {
 ## Output
 
 - **Directory**: `.claude/skills/{skill-name}/`
-- **Files**: 
+- **Files**:
   - `SKILL.md` (入口文件)
-  - `phases/` (空目录)
-  - `specs/` (空目录)
-  - `templates/` (空目录)
+  - `phases/` (执行阶段目录)
+  - `specs/` (规范文档目录)
+  - `templates/` (模板目录)
+  - `scripts/` (脚本目录，存放 Python/Bash 确定性脚本)
 
 ## Next Phase
 

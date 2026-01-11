@@ -18,6 +18,13 @@
 - 依赖: `{{input_dependency}}`
 - 配置: `{workDir}/skill-config.json`
 
+## Scripts
+
+\`\`\`yaml
+# 声明本阶段使用的脚本（可选）
+# - script-id        # 对应 scripts/script-id.py 或 .sh
+\`\`\`
+
 ## Execution Steps
 
 ### Step 1: {{step_1_name}}
@@ -32,10 +39,13 @@
 {{step_2_code}}
 \`\`\`
 
-### Step 3: {{step_3_name}}
+### Step 3: 执行脚本（可选）
 
 \`\`\`javascript
-{{step_3_code}}
+// 调用脚本示例
+// const result = await ExecuteScript('script-id', { input_path: `${workDir}/data.json` });
+// if (!result.success) throw new Error(result.stderr);
+// console.log(result.outputs.output_file);
 \`\`\`
 
 ## Output
@@ -67,6 +77,44 @@
 | `{{output_format}}` | 输出格式 |
 | `{{quality_checklist}}` | 质量检查项 |
 | `{{next_phase_link}}` | 下一阶段链接 |
+
+## 脚本调用说明
+
+### 目录约定
+
+```
+scripts/
+├── process-data.py    # id: process-data, runtime: python
+├── validate.sh        # id: validate, runtime: bash
+└── transform.js       # id: transform, runtime: node
+```
+
+- **命名即 ID**：文件名（不含扩展名）= 脚本 ID
+- **扩展名即运行时**：`.py` → python, `.sh` → bash, `.js` → node
+
+### 调用语法
+
+```javascript
+// 一行调用
+const result = await ExecuteScript('script-id', { key: value });
+
+// 检查结果
+if (!result.success) throw new Error(result.stderr);
+
+// 获取输出
+const { output_file } = result.outputs;
+```
+
+### 返回格式
+
+```typescript
+interface ScriptResult {
+  success: boolean;    // exit code === 0
+  stdout: string;      // 标准输出
+  stderr: string;      // 标准错误
+  outputs: object;     // 从 stdout 解析的 JSON 输出
+}
+```
 
 ## Phase 类型模板
 
