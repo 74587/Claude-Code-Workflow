@@ -916,7 +916,7 @@ select.cli-input {
 .cli-textarea {
   resize: vertical;
   min-height: 4rem;
-  max-height: 12rem;
+  max-height: 20rem;
   font-family: 'SF Mono', 'Consolas', 'Liberation Mono', monospace;
   font-size: 0.8125rem;
 }
@@ -2681,7 +2681,7 @@ select.cli-input {
   display: flex;
   position: relative;
   min-height: 200px;
-  max-height: 350px;
+  max-height: min(450px, 50vh);
 }
 
 .json-line-numbers {

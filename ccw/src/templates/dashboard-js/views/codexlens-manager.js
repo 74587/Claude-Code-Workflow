@@ -2672,14 +2672,15 @@ async function loadModelList() {
           '<i data-lucide="plus-circle" class="w-3 h-3"></i> Download Custom Model' +
         '</div>' +
         '<div class="flex gap-2">' +
-          '<input type="text" id="customModelInput" placeholder="e.g., BAAI/bge-small-en-v1.5" ' +
+          '<input type="text" id="customModelInput" placeholder="e.g., Xenova/bge-small-en-v1.5" ' +
             'class="flex-1 text-xs px-2 py-1.5 border border-border rounded bg-background focus:border-primary focus:ring-1 focus:ring-primary outline-none" />' +
           '<button onclick="downloadCustomModel()" class="text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded hover:bg-primary/90">' +
             'Download' +
           '</button>' +
         '</div>' +
-        '<div class="text-[10px] text-muted-foreground mt-2">' +
-          'Enter any HuggingFace model name compatible with FastEmbed' +
+        '<div class="text-[10px] text-muted-foreground mt-2 space-y-1">' +
+          '<div><span class="text-amber-500">⚠</span> Only <strong>ONNX-format</strong> models work with FastEmbed (e.g., Xenova/* models)</div>' +
+          '<div>PyTorch models (intfloat/*, sentence-transformers/*) will download but won\'t work with local embedding</div>' +
         '</div>' +
       '</div>';
     } else {
