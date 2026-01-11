@@ -1,29 +1,126 @@
-# Intelligent Tools Selection Strategy
+# CLI Tools Execution Specification
 
 ## Table of Contents
-1. [Quick Reference](#quick-reference)
-2. [Tool Specifications](#tool-specifications)
+1. [Configuration Reference](#configuration-reference)
+2. [Tool Selection](#tool-selection)
 3. [Prompt Template](#prompt-template)
 4. [CLI Execution](#cli-execution)
-5. [Configuration](#configuration)
+5. [Execution Configuration](#execution-configuration)
 6. [Best Practices](#best-practices)
 
 ---
 
-## Quick Reference
+## Configuration Reference
 
-## Quick Decision Tree
+### Configuration File
+
+**Path**: `.claude/cli-tools.json`
+
+All tool availability, model selection, and routing are defined in this configuration file.
+
+### Configuration Schema
+
+```json
+{
+  "version": "3.0.0",
+  "models": {
+    "<tool-id>": ["<model-1>", "<model-2>", ...]
+  },
+  "tools": {
+    "<tool-id>": {
+      "enabled": true|false,
+      "primaryModel": "<model-id>",
+      "secondaryModel": "<model-id>",
+      "tags": ["<tag-1>", "<tag-2>", ...]
+    }
+  },
+  "customEndpoints": [
+    {
+      "id": "<endpoint-id>",
+      "name": "<display-name>",
+      "enabled": true|false,
+      "tags": ["<tag-1>", "<tag-2>", ...]
+    }
+  ]
+}
+```
+
+### Configuration Fields
+
+| Field | Description |
+|-------|-------------|
+| `enabled` | Tool availability status |
+| `primaryModel` | Default model for the tool |
+| `secondaryModel` | Fallback model |
+| `tags` | Capability tags for routing |
+
+---
+
+## Tool Selection
+
+### Tag-Based Routing
+
+Tools are selected based on **tags** defined in the configuration. Use tags to match task requirements to tool capabilities.
+
+#### Common Tags
+
+| Tag | Use Case |
+|-----|----------|
+| `analysis` | Code review, architecture analysis, exploration |
+| `implementation` | Feature development, bug fixes |
+| `documentation` | Doc generation, comments |
+| `testing` | Test creation, coverage analysis |
+| `refactoring` | Code restructuring |
+| `security` | Security audits, vulnerability scanning |
+
+### Selection Algorithm
 
 ```
-┌─ Task Analysis/Documentation?
-│  └─→ Use Gemini (Fallback: Codex,Qwen)
-│     └─→ MODE: analysis (read-only)
+1. Parse task intent → extract required capabilities
+2. Load cli-tools.json → get enabled tools with tags
+3. Match tags → filter tools supporting required capabilities
+4. Select tool → choose by priority (explicit > tag-match > default)
+5. Select model → use primaryModel, fallback to secondaryModel
+```
+
+### Selection Decision Tree
+
+```
+┌─ Explicit --tool specified?
+│  └─→ YES: Use specified tool (validate enabled)
 │
-└─ Task Implementation/Bug Fix?
-   └─→ Use Codex (Fallback: Gemini,Qwen)
-      └─→ MODE: write (file operations)
+└─ NO: Tag-based selection
+   ├─ Task requires tags?
+   │  └─→ Match tools with matching tags
+   │     └─→ Multiple matches? Use first enabled
+   │
+   └─ No tag match?
+      └─→ Use default tool (first enabled in config)
 ```
 
+### Command Structure
+
+```bash
+# Explicit tool selection
+ccw cli -p "<PROMPT>" --tool <tool-id> --mode <analysis|write>
+
+# Model override
+ccw cli -p "<PROMPT>" --tool <tool-id> --model <model-id> --mode <analysis|write>
+
+# Tag-based auto-selection (future)
+ccw cli -p "<PROMPT>" --tags <tag1,tag2> --mode <analysis|write>
+```
+
+### Tool Fallback Chain
+
+When primary tool fails or is unavailable:
+1. Check `secondaryModel` for same tool
+2. Try next enabled tool with matching tags
+3. Fall back to default enabled tool
+
+---
+
+## Prompt Template
 
 ### Universal Prompt Template
 
@@ -39,6 +136,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/[mode]-protocol.md) $(c
 ### Intent Capture Checklist (Before CLI Execution)
 
 **⚠️ CRITICAL**: Before executing any CLI command, verify these intent dimensions:
+
 **Intent Validation Questions**:
 - [ ] Is the objective specific and measurable?
 - [ ] Are success criteria defined?
@@ -46,145 +144,6 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/[mode]-protocol.md) $(c
 - [ ] Are constraints and limitations stated?
 - [ ] Is the expected output format clear?
 - [ ] Is the action level (read/write) explicit?
-
-## Tool Selection Matrix
-
-- **Read/Analyze**
-  - Tool: Gemini/Qwen
-  - MODE: `analysis`
-  - When to Use: Code review, architecture analysis, pattern discovery, exploration
-
-- **Write/Implement**
-  - Tool: Codex (Fallback: Gemini/Qwen)
-  - MODE: `write`
-  - When to Use: Feature implementation, bug fixes, test creation, refactoring, documentation generation, file creation
-
-## Essential Command Structure
-
-```bash
-ccw cli -p "<PROMPT>" --tool <gemini|qwen|codex> --mode <analysis|write>
-```
-
-**Note**: `--mode` defaults to `analysis` if not specified. Explicitly specify `--mode write` for file operations.
-
-### Core Principles
-
-- **Use tools early and often** - Tools are faster and more thorough
-- **Unified CLI** - Always use `ccw cli -p` for consistent parameter handling
-- **Default mode is analysis** - Omit `--mode` for read-only operations, explicitly use `--mode write` for file modifications
-- **One template required** - ALWAYS reference exactly ONE template in RULES (use universal fallback if no specific match)
-- **Write protection** - Require EXPLICIT `--mode write` for file operations
-- **Use double quotes for shell expansion** - Always wrap prompts in double quotes `"..."` to enable `$(cat ...)` command substitution; NEVER use single quotes or escape characters (`\$`, `\"`, `\'`)
-
----
-
-## Tool Specifications
-
-### MODE Options
-
-- **`analysis`**
-  - Permission: Read-only
-  - Use For: Code review, architecture analysis, pattern discovery, exploration
-  - Specification: Safe for all tools (Gemini/Qwen/Codex)
-
-- **`write`**
-  - Permission: Create/Modify/Delete
-  - Use For: Feature implementation, bug fixes, documentation, code creation, file modifications
-  - Specification: Requires explicit `--mode write`
-
-### Mode Protocol References (MANDATORY)
-
-**⚠️ REQUIRED**: Every CLI execution MUST include the corresponding mode protocol in RULES:
-
-#### Mode Rule= Templates
-
-**Purpose**: Mode protocols define permission boundaries and operational constraints for each execution mode.
-
-**Protocol Mapping**:
-
-- **`analysis`** mode
-  - Protocol: `$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md)`
-  - Permission: Read-only operations
-  - Enforces: No file creation/modification/deletion
-
-- **`write`** mode
-  - Protocol: `$(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md)`
-  - Permission: Create/Modify/Delete files
-  - Enforces: Explicit write authorization and full workflow execution capability
-
-**RULES Format** (protocol MUST be included):
-```bash
-# Analysis mode - MUST include analysis-protocol.md
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/analysis/...) | constraints
-
-# Write mode - MUST include write-protocol.md
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/development/...) | constraints
-```
-
-**Validation**: CLI execution without mode protocol reference is INVALID
-
-**Why Mode Rules Are Required**:
-- Ensures consistent permission enforcement across all tools (Gemini/Qwen/Codex)
-- Prevents accidental file modifications during analysis tasks
-- Provides explicit authorization trail for write operations
-- Enables safe automation with clear boundaries
-
-### Gemini & Qwen
-
-**Via CCW**: `ccw cli -p "<prompt>" --tool gemini --mode analysis` or `--tool qwen --mode analysis`
-
-**Characteristics**:
-- Large context window, pattern recognition
-- Best for: Analysis, documentation, code exploration, architecture review
-- Recommended MODE: `analysis` (read-only) for analysis tasks, `write` for file creation
-- Priority: Prefer Gemini; use Qwen as fallback
-
-
-
-**Error Handling**: HTTP 429 may show error but still return results - check if results exist
-
-### Codex
-
-**Via CCW**: `ccw cli -p "<prompt>" --tool codex --mode write`
-
-**Characteristics**:
-- Autonomous development, mathematical reasoning
-- Best for: Implementation, testing, automation, bug fixes
-- No default MODE - must explicitly specify `--mode analysis` or `--mode write`
-
-
-### Session Resume
-
-**When to Use**:
-- Multi-round planning (analysis → planning → implementation)
-- Multi-model collaboration (Gemini → Codex on same topic)
-- Topic continuity (building on previous findings)
-
-**Usage**:
-
-```bash
-ccw cli -p "Continue analyzing" --tool gemini --mode analysis --resume              # Resume last
-ccw cli -p "Fix issues found" --tool codex --mode write --resume <id>              # Resume specific
-ccw cli -p "Merge findings" --tool gemini --mode analysis --resume <id1>,<id2>     # Merge multiple
-```
-
-- **`--resume`**: Last session
-- **`--resume <id>`**: Specific session
-- **`--resume <id1>,<id2>`**: Merge sessions (comma-separated)
-
-**Context Assembly** (automatic):
-```
-=== PREVIOUS CONVERSATION ===
-USER PROMPT: [Previous prompt]
-ASSISTANT RESPONSE: [Previous output]
-=== CONTINUATION ===
-[Your new prompt]
-```
-
-**Tool Behavior**: Codex uses native `codex resume`; Gemini/Qwen assembles context as single prompt
-
-
-## Prompt Template
 
 ### Template Structure
 
@@ -266,7 +225,7 @@ rg "export.*Component" --files-with-matches --type ts
 CONTEXT: @components/Auth.tsx @types/auth.d.ts | Memory: Previous type refactoring
 
 # Step 3: Execute CLI
-ccw cli -p "..." --tool gemini --mode analysis --cd src
+ccw cli -p "..." --tool <tool-id> --mode analysis --cd src
 ```
 
 ### RULES Configuration
@@ -286,14 +245,51 @@ ccw cli -p "..." --tool gemini --mode analysis --cd src
 **Critical**: Use double quotes `"..."` around the entire prompt to enable `$(cat ...)` expansion:
 ```bash
 # ✓ CORRECT - double quotes allow shell expansion
-ccw cli -p "RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ..." --tool gemini
+ccw cli -p "RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ..." --tool <tool-id>
 
 # ✗ WRONG - single quotes prevent expansion
-ccw cli -p 'RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ...' --tool gemini
+ccw cli -p 'RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ...' --tool <tool-id>
 
 # ✗ WRONG - escaped $ prevents expansion
-ccw cli -p "RULES: \$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ..." --tool gemini
+ccw cli -p "RULES: \$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ..." --tool <tool-id>
 ```
+
+### Mode Protocol References (MANDATORY)
+
+**⚠️ REQUIRED**: Every CLI execution MUST include the corresponding mode protocol in RULES:
+
+#### Mode Rule Templates
+
+**Purpose**: Mode protocols define permission boundaries and operational constraints for each execution mode.
+
+**Protocol Mapping**:
+
+- **`analysis`** mode
+  - Protocol: `$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md)`
+  - Permission: Read-only operations
+  - Enforces: No file creation/modification/deletion
+
+- **`write`** mode
+  - Protocol: `$(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md)`
+  - Permission: Create/Modify/Delete files
+  - Enforces: Explicit write authorization and full workflow execution capability
+
+**RULES Format** (protocol MUST be included):
+```bash
+# Analysis mode - MUST include analysis-protocol.md
+RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/analysis/...) | constraints
+
+# Write mode - MUST include write-protocol.md
+RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/development/...) | constraints
+```
+
+**Validation**: CLI execution without mode protocol reference is INVALID
+
+**Why Mode Rules Are Required**:
+- Ensures consistent permission enforcement across all tools
+- Prevents accidental file modifications during analysis tasks
+- Provides explicit authorization trail for write operations
+- Enables safe automation with clear boundaries
 
 ### Template System
 
@@ -339,11 +335,23 @@ ccw cli -p "RULES: \$(cat ~/.claude/workflows/cli-templates/protocols/analysis-p
 
 ## CLI Execution
 
+### MODE Options
+
+- **`analysis`**
+  - Permission: Read-only
+  - Use For: Code review, architecture analysis, pattern discovery, exploration
+  - Specification: Safe for all tools
+
+- **`write`**
+  - Permission: Create/Modify/Delete
+  - Use For: Feature implementation, bug fixes, documentation, code creation, file modifications
+  - Specification: Requires explicit `--mode write`
+
 ### Command Options
 
 - **`--tool <tool>`**
-  - Description: gemini, qwen, codex
-  - Default: gemini
+  - Description: Tool from config (e.g., gemini, qwen, codex)
+  - Default: First enabled tool in config
 
 - **`--mode <mode>`**
   - Description: **REQUIRED**: analysis, write
@@ -351,7 +359,7 @@ ccw cli -p "RULES: \$(cat ~/.claude/workflows/cli-templates/protocols/analysis-p
 
 - **`--model <model>`**
   - Description: Model override
-  - Default: auto-select
+  - Default: Tool's primaryModel from config
 
 - **`--cd <path>`**
   - Description: Working directory
@@ -382,35 +390,43 @@ When using `--cd`:
 
 ```bash
 # Single directory
-ccw cli -p "CONTEXT: @**/* @../shared/**/*" --tool gemini --mode analysis --cd src/auth --includeDirs ../shared
+ccw cli -p "CONTEXT: @**/* @../shared/**/*" --tool <tool-id> --mode analysis --cd src/auth --includeDirs ../shared
 
 # Multiple directories
-ccw cli -p "..." --tool gemini --mode analysis --cd src/auth --includeDirs ../shared,../types,../utils
+ccw cli -p "..." --tool <tool-id> --mode analysis --cd src/auth --includeDirs ../shared,../types,../utils
 ```
 
 **Rule**: If CONTEXT contains `@../dir/**/*`, MUST include `--includeDirs ../dir`
 
 **Benefits**: Excludes unrelated directories, reduces token usage
 
-### CCW Parameter Mapping
+### Session Resume
 
-CCW automatically maps to tool-specific syntax:
+**When to Use**:
+- Multi-round planning (analysis → planning → implementation)
+- Multi-model collaboration (tool A → tool B on same topic)
+- Topic continuity (building on previous findings)
 
-- **`--cd <path>`**
-  - Gemini/Qwen: `cd <path> &&`
-  - Codex: `-C <path>`
+**Usage**:
 
-- **`--includeDirs <dirs>`**
-  - Gemini/Qwen: `--include-directories`
-  - Codex: `--add-dir` (per dir)
+```bash
+ccw cli -p "Continue analyzing" --tool <tool-id> --mode analysis --resume              # Resume last
+ccw cli -p "Fix issues found" --tool <tool-id> --mode write --resume <id>              # Resume specific
+ccw cli -p "Merge findings" --tool <tool-id> --mode analysis --resume <id1>,<id2>      # Merge multiple
+```
 
-- **`--mode analysis`**
-  - Gemini/Qwen: (default read-only)
-  - Codex: (default read-only)
+- **`--resume`**: Last session
+- **`--resume <id>`**: Specific session
+- **`--resume <id1>,<id2>`**: Merge sessions (comma-separated)
 
-- **`--mode write`**
-  - Gemini/Qwen: `--approval-mode yolo`
-  - Codex: `-s danger-full-access`
+**Context Assembly** (automatic):
+```
+=== PREVIOUS CONVERSATION ===
+USER PROMPT: [Previous prompt]
+ASSISTANT RESPONSE: [Previous output]
+=== CONTINUATION ===
+[Your new prompt]
+```
 
 ### Command Examples
 
@@ -425,7 +441,7 @@ MODE: analysis
 CONTEXT: @src/auth/**/* @src/middleware/auth.ts | Memory: Using bcrypt for passwords, JWT for sessions
 EXPECTED: Security report with: severity matrix, file:line references, CVE mappings where applicable, remediation code snippets prioritized by risk
 RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/analysis/03-assess-security-risks.txt) | Focus on authentication | Ignore test files
-" --tool gemini --mode analysis --cd src/auth
+" --tool <tool-id> --mode analysis --cd src/auth
 ```
 
 **Implementation Task** (New Feature):
@@ -437,7 +453,7 @@ MODE: write
 CONTEXT: @src/middleware/**/* @src/config/**/* | Memory: Using Express.js, Redis already configured, existing middleware pattern in auth.ts
 EXPECTED: Production-ready code with: TypeScript types, unit tests, integration test, configuration example, migration guide
 RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | Follow existing middleware patterns | No breaking changes
-" --tool codex --mode write
+" --tool <tool-id> --mode write
 ```
 
 **Bug Fix Task**:
@@ -449,7 +465,7 @@ MODE: analysis
 CONTEXT: @src/websocket/**/* @src/services/connection-manager.ts | Memory: Using ws library, ~5000 concurrent connections in production
 EXPECTED: Root cause analysis with: memory profile, leak source (file:line), fix recommendation with code, verification steps
 RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt) | Focus on resource cleanup
-" --tool gemini --mode analysis --cd src
+" --tool <tool-id> --mode analysis --cd src
 ```
 
 **Refactoring Task**:
@@ -461,11 +477,12 @@ MODE: write
 CONTEXT: @src/payments/**/* @src/types/payment.ts | Memory: Currently only Stripe, adding PayPal next sprint, must support future gateways
 EXPECTED: Refactored code with: strategy interface, concrete implementations, factory class, updated tests, migration checklist
 RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/development/02-refactor-codebase.txt) | Preserve all existing behavior | Tests must pass
-" --tool gemini --mode write
+" --tool <tool-id> --mode write
 ```
+
 ---
 
-## ⚙️ Execution Configuration
+## Execution Configuration
 
 ### Dynamic Timeout Allocation
 
@@ -476,8 +493,6 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 - **Medium** (refactoring, documentation): 10-20min (600000-1200000ms)
 - **Complex** (implementation, migration): 20-60min (1200000-3600000ms)
 - **Heavy** (large codebase, multi-file): 60-120min (3600000-7200000ms)
-
-**Codex Multiplier**: 3x of allocated time (minimum 15min / 900000ms)
 
 **Auto-detection**: Analyze PURPOSE and TASK fields to determine timeout
 
@@ -493,6 +508,17 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 ---
 
 ## Best Practices
+
+### Core Principles
+
+- **Configuration-driven** - All tool selection from `cli-tools.json`
+- **Tag-based routing** - Match task requirements to tool capabilities
+- **Use tools early and often** - Tools are faster and more thorough
+- **Unified CLI** - Always use `ccw cli -p` for consistent parameter handling
+- **Default mode is analysis** - Omit `--mode` for read-only operations, explicitly use `--mode write` for file modifications
+- **One template required** - ALWAYS reference exactly ONE template in RULES (use universal fallback if no specific match)
+- **Write protection** - Require EXPLICIT `--mode write` for file operations
+- **Use double quotes for shell expansion** - Always wrap prompts in double quotes `"..."` to enable `$(cat ...)` command substitution; NEVER use single quotes or escape characters (`\$`, `\"`, `\'`)
 
 ### Workflow Principles
 
@@ -510,6 +536,14 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 - [ ] **Mode selected** - `--mode analysis|write`
 - [ ] **Context gathered** - File references + memory (default `@**/*`)
 - [ ] **Directory navigation** - `--cd` and/or `--includeDirs`
-- [ ] **Tool selected** - `--tool gemini|qwen|codex`
+- [ ] **Tool selected** - Explicit `--tool` or tag-based auto-selection
 - [ ] **Template applied (REQUIRED)** - Use specific or universal fallback template
 - [ ] **Constraints specified** - Scope, requirements
+
+### Execution Workflow
+
+1. **Load configuration** - Read `cli-tools.json` for available tools
+2. **Match by tags** - Select tool based on task requirements
+3. **Validate enabled** - Ensure selected tool is enabled
+4. **Execute with mode** - Always specify `--mode analysis|write`
+5. **Fallback gracefully** - Use secondary model or next matching tool on failure
