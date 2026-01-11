@@ -15,7 +15,6 @@ Available CLI endpoints are dynamically defined by the config file:
 - Managed through the CCW Dashboard Status page
 
 
-
 ## Tool Execution
 
 - **Context Requirements**: @~/.claude/workflows/context-tools.md

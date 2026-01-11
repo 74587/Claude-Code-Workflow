@@ -620,7 +620,9 @@ async function renderCliManager() {
   if (searchInput) searchInput.parentElement.style.display = 'none';
 
   // Load data (including CodexLens status for tools section)
+  // loadCliToolsConfig() ensures cli-tools.json is auto-created if missing
   await Promise.all([
+    loadCliToolsConfig(),
     loadCliToolStatus(),
     loadCodexLensStatus(),
     loadCcwInstallations(),

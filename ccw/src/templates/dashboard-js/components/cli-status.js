@@ -2,7 +2,7 @@
 // Displays CLI tool availability status and allows setting default tool
 
 // ========== CLI State ==========
-let cliToolStatus = { gemini: {}, qwen: {}, codex: {}, claude: {} };
+let cliToolStatus = {}; // Dynamically populated from config
 let codexLensStatus = { ready: false };
 let semanticStatus = { available: false };
 let ccwInstallStatus = { installed: true, workflowsInstalled: true, missingFiles: [], installPath: '' };
@@ -38,8 +38,8 @@ async function loadAllStatuses() {
     if (!response.ok) throw new Error('Failed to load status');
     const data = await response.json();
 
-    // Update all status data
-    cliToolStatus = data.cli || { gemini: {}, qwen: {}, codex: {}, claude: {} };
+    // Update all status data - merge with config tools to ensure all tools are tracked
+    cliToolStatus = data.cli || {};
     codexLensStatus = data.codexLens || { ready: false };
     semanticStatus = data.semantic || { available: false };
     ccwInstallStatus = data.ccwInstall || { installed: true, workflowsInstalled: true, missingFiles: [], installPath: '' };
@@ -70,6 +70,7 @@ async function loadAllStatuses() {
 async function loadAllStatusesFallback() {
   console.warn('[CLI Status] Using fallback individual API calls');
   await Promise.all([
+    loadCliToolsConfig(), // Ensure config is loaded (auto-creates if missing)
     loadCliToolStatus(),
     loadCodexLensStatus()
   ]);
@@ -307,12 +308,49 @@ async function loadCliSettingsEndpoints() {
 function updateCliBadge() {
   const badge = document.getElementById('badgeCliTools');
   if (badge) {
-    const available = Object.values(cliToolStatus).filter(t => t.available).length;
-    const total = Object.keys(cliToolStatus).length;
-    badge.textContent = `${available}/${total}`;
-    badge.classList.toggle('text-success', available === total);
-    badge.classList.toggle('text-warning', available > 0 && available < total);
-    badge.classList.toggle('text-destructive', available === 0);
+    // Merge tools from both status and config to get complete list
+    const allTools = new Set([
+      ...Object.keys(cliToolStatus),
+      ...Object.keys(cliToolsConfig)
+    ]);
+
+    // Count available and enabled CLI tools
+    let available = 0;
+    allTools.forEach(tool => {
+      const status = cliToolStatus[tool] || {};
+      const config = cliToolsConfig[tool] || { enabled: true };
+      if (status.available && config.enabled !== false) {
+        available++;
+      }
+    });
+
+    // Also count CodexLens and Semantic Search
+    let totalExtras = 0;
+    let availableExtras = 0;
+
+    // CodexLens counts if ready
+    if (codexLensStatus.ready) {
+      totalExtras++;
+      availableExtras++;
+    } else if (codexLensStatus.ready === false) {
+      // Only count as total if we have status info (not just initial state)
+      totalExtras++;
+    }
+
+    // Semantic Search counts if CodexLens is ready (it's a feature of CodexLens)
+    if (codexLensStatus.ready) {
+      totalExtras++;
+      if (semanticStatus.available) {
+        availableExtras++;
+      }
+    }
+
+    const total = allTools.size + totalExtras;
+    const totalAvailable = available + availableExtras;
+    badge.textContent = `${totalAvailable}/${total}`;
+    badge.classList.toggle('text-success', totalAvailable === total && total > 0);
+    badge.classList.toggle('text-warning', totalAvailable > 0 && totalAvailable < total);
+    badge.classList.toggle('text-destructive', totalAvailable === 0);
   }
 }
 
@@ -353,17 +391,33 @@ function renderCliStatus() {
     gemini: 'Google AI for code analysis',
     qwen: 'Alibaba AI assistant',
     codex: 'OpenAI code generation',
-    claude: 'Anthropic AI assistant'
+    claude: 'Anthropic AI assistant',
+    opencode: 'OpenCode multi-model API'
   };
 
   const toolIcons = {
     gemini: 'sparkle',
     qwen: 'bot',
     codex: 'code-2',
-    claude: 'brain'
+    claude: 'brain',
+    opencode: 'globe'  // Default icon for new tools
   };
 
-  const tools = ['gemini', 'qwen', 'codex', 'claude'];
+  // Helper to get description for any tool (with fallback)
+  const getToolDescription = (tool) => {
+    return toolDescriptions[tool] || `${tool.charAt(0).toUpperCase() + tool.slice(1)} CLI tool`;
+  };
+
+  // Helper to get icon for any tool (with fallback)
+  const getToolIcon = (tool) => {
+    return toolIcons[tool] || 'terminal';
+  };
+
+  // Get tools dynamically from config, merging with status for complete list
+  const tools = [...new Set([
+    ...Object.keys(cliToolsConfig),
+    ...Object.keys(cliToolStatus)
+  ])].filter(t => t && t !== '_configInfo'); // Filter out metadata keys
 
   const toolsHtml = tools.map(tool => {
     const status = cliToolStatus[tool] || {};
@@ -429,7 +483,7 @@ function renderCliStatus() {
           ${cliSettingsBadge}
         </div>
         <div class="cli-tool-desc text-xs text-muted-foreground mt-1">
-          ${toolDescriptions[tool]}
+          ${getToolDescription(tool)}
         </div>
         <div class="cli-tool-info mt-2 flex items-center justify-between">
           <div>
@@ -810,7 +864,8 @@ async function refreshAllCliStatus() {
 async function toggleCliTool(tool, enabled) {
   // If disabling the current default tool, switch to another available+enabled tool
   if (!enabled && defaultCliTool === tool) {
-    const tools = ['gemini', 'qwen', 'codex', 'claude'];
+    // Get tools dynamically from config
+    const tools = Object.keys(cliToolsConfig).filter(t => t && t !== '_configInfo');
     const newDefault = tools.find(t => {
       if (t === tool) return false;
       const status = cliToolStatus[t] || {};

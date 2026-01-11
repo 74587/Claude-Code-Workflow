@@ -1,15 +1,15 @@
 /**
  * Claude CLI Tools Configuration Manager
- * Manages .claude/cli-tools.json (tools) and .claude/cli-settings.json (settings)
+ * Manages cli-tools.json (tools) and cli-settings.json (settings)
  *
- * Configuration Strategy:
- * - READ: Project → Global → Default (fallback chain)
- * - CREATE: Always in ~/.claude/ (global user-level config)
- * - SAVE: Based on source (project config saves to project, others to global)
+ * Configuration Strategy (GLOBAL ONLY):
+ * - READ: Global → Default (no project-level configs)
+ * - CREATE/SAVE: Always in ~/.claude/ (global user-level config)
  *
- * Read priority:
- * 1. Project workspace: {projectDir}/.claude/ (if exists)
- * 2. Global: ~/.claude/ (fallback)
+ * Config location: ~/.claude/cli-tools.json
+ * Settings location: ~/.claude/cli-settings.json
+ *
+ * Note: Project-level configs are NOT used - all config is user-level.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -177,50 +177,35 @@ function getGlobalSettingsPath(): string {
 }
 
 /**
- * Resolve config path with fallback:
- * 1. Project: {projectDir}/.claude/cli-tools.json
- * 2. Global: ~/.claude/cli-tools.json
- * Returns { path, source } where source is 'project' | 'global' | 'default'
+ * Resolve config path - GLOBAL ONLY
+ * Config is user-level, stored only in ~/.claude/cli-tools.json
+ * Returns { path, source } where source is 'global' | 'default'
  */
 function resolveConfigPath(projectDir: string): { path: string; source: 'project' | 'global' | 'default' } {
-  const projectPath = getProjectConfigPath(projectDir);
-  if (fs.existsSync(projectPath)) {
-    return { path: projectPath, source: 'project' };
-  }
-
   const globalPath = getGlobalConfigPath();
   if (fs.existsSync(globalPath)) {
     return { path: globalPath, source: 'global' };
   }
 
-  return { path: projectPath, source: 'default' };
+  // Return global path for default (will be created there)
+  return { path: globalPath, source: 'default' };
 }
 
 /**
- * Resolve settings path with fallback:
- * 1. Project: {projectDir}/.claude/cli-settings.json
- * 2. Global: ~/.claude/cli-settings.json
+ * Resolve settings path - GLOBAL ONLY
+ * Settings are user-level, stored only in ~/.claude/cli-settings.json
  */
 function resolveSettingsPath(projectDir: string): { path: string; source: 'project' | 'global' | 'default' } {
-  const projectPath = getProjectSettingsPath(projectDir);
-  if (fs.existsSync(projectPath)) {
-    return { path: projectPath, source: 'project' };
-  }
-
   const globalPath = getGlobalSettingsPath();
   if (fs.existsSync(globalPath)) {
     return { path: globalPath, source: 'global' };
   }
 
-  return { path: projectPath, source: 'default' };
+  // Return global path for default (will be created there)
+  return { path: globalPath, source: 'default' };
 }
 
-function ensureClaudeDir(projectDir: string): void {
-  const claudeDir = path.join(projectDir, '.claude');
-  if (!fs.existsSync(claudeDir)) {
-    fs.mkdirSync(claudeDir, { recursive: true });
-  }
-}
+// NOTE: ensureClaudeDir removed - config should only be in ~/.claude/, not project directory
 
 // ========== Main Functions ==========
 
@@ -336,10 +321,8 @@ export function ensureClaudeCliTools(projectDir: string, createInProject: boolea
 }
 
 /**
- * Load CLI tools configuration with fallback:
- * 1. Project: {projectDir}/.claude/cli-tools.json
- * 2. Global: ~/.claude/cli-tools.json
- * 3. Default config
+ * Load CLI tools configuration from global ~/.claude/cli-tools.json
+ * Falls back to default config if not found.
  *
  * Automatically migrates older config versions to v3.0.0
  */
@@ -398,27 +381,18 @@ export function loadClaudeCliTools(projectDir: string): ClaudeCliToolsConfig & {
 }
 
 /**
- * Save CLI tools configuration
- * - If config was loaded from project, saves to project
- * - Otherwise saves to global ~/.claude/cli-tools.json
+ * Save CLI tools configuration to global ~/.claude/cli-tools.json
+ * Always saves to global directory (user-level config)
  */
 export function saveClaudeCliTools(projectDir: string, config: ClaudeCliToolsConfig & { _source?: string }): void {
   const { _source, ...configToSave } = config;
 
-  // Determine save location based on source
-  let configPath: string;
-  if (_source === 'project') {
-    // Config was loaded from project, save back to project
-    ensureClaudeDir(projectDir);
-    configPath = getProjectConfigPath(projectDir);
-  } else {
-    // Default: save to global directory
-    const globalDir = path.join(os.homedir(), '.claude');
-    if (!fs.existsSync(globalDir)) {
-      fs.mkdirSync(globalDir, { recursive: true });
-    }
-    configPath = getGlobalConfigPath();
+  // Always save to global directory
+  const globalDir = path.join(os.homedir(), '.claude');
+  if (!fs.existsSync(globalDir)) {
+    fs.mkdirSync(globalDir, { recursive: true });
   }
+  const configPath = getGlobalConfigPath();
 
   try {
     fs.writeFileSync(configPath, JSON.stringify(configToSave, null, 2), 'utf-8');
@@ -430,10 +404,8 @@ export function saveClaudeCliTools(projectDir: string, config: ClaudeCliToolsCon
 }
 
 /**
- * Load CLI settings configuration with fallback:
- * 1. Project: {projectDir}/.claude/cli-settings.json
- * 2. Global: ~/.claude/cli-settings.json
- * 3. Default settings
+ * Load CLI settings configuration from global ~/.claude/cli-settings.json
+ * Falls back to default settings if not found.
  */
 export function loadClaudeCliSettings(projectDir: string): ClaudeCliSettingsConfig & { _source?: string } {
   const resolved = resolveSettingsPath(projectDir);
@@ -469,13 +441,18 @@ export function loadClaudeCliSettings(projectDir: string): ClaudeCliSettingsConf
 }
 
 /**
- * Save CLI settings configuration to project .claude/cli-settings.json
+ * Save CLI settings configuration to global ~/.claude/cli-settings.json
+ * Always saves to global directory (user-level config)
  */
 export function saveClaudeCliSettings(projectDir: string, config: ClaudeCliSettingsConfig & { _source?: string }): void {
-  ensureClaudeDir(projectDir);
-  const settingsPath = getProjectSettingsPath(projectDir);
-
   const { _source, ...configToSave } = config;
+
+  // Always save to global directory
+  const globalDir = path.join(os.homedir(), '.claude');
+  if (!fs.existsSync(globalDir)) {
+    fs.mkdirSync(globalDir, { recursive: true });
+  }
+  const settingsPath = getGlobalSettingsPath();
 
   try {
     fs.writeFileSync(settingsPath, JSON.stringify(configToSave, null, 2), 'utf-8');

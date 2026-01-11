@@ -859,9 +859,28 @@ export {
 
 /**
  * Get status of all CLI tools
+ * Dynamically reads tools from config file
  */
 export async function getCliToolsStatus(): Promise<Record<string, ToolAvailability>> {
-  const tools = ['gemini', 'qwen', 'codex', 'claude', 'opencode'];
+  // Default built-in tools
+  const builtInTools = ['gemini', 'qwen', 'codex', 'claude', 'opencode'];
+
+  // Try to get tools from config
+  let tools = builtInTools;
+  try {
+    // Dynamic import to avoid circular dependencies
+    const { loadClaudeCliTools } = await import('./claude-cli-tools.js');
+    const config = loadClaudeCliTools(configBaseDir);
+    if (config.tools && typeof config.tools === 'object') {
+      // Merge built-in tools with config tools to ensure all are checked
+      const configTools = Object.keys(config.tools);
+      tools = [...new Set([...builtInTools, ...configTools])];
+    }
+  } catch (e) {
+    // Fallback to built-in tools if config load fails
+    debugLog('cli-executor', `Using built-in tools (config load failed: ${(e as Error).message})`);
+  }
+
   const results: Record<string, ToolAvailability> = {};
 
   await Promise.all(tools.map(async (tool) => {
