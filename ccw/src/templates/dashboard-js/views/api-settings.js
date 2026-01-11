@@ -4031,10 +4031,13 @@ function renderCliConfigModeContent(existingEndpoint) {
   if (cliConfigMode === 'provider') {
     renderProviderModeContent(container, settings);
   } else {
-    renderDirectModeContent(container, env);
+    renderDirectModeContent(container, env, settings);
   }
 
   if (window.lucide) lucide.createIcons();
+
+  // Initialize JSON editor after rendering
+  initCliJsonEditor(settings);
 }
 
 /**
@@ -4081,13 +4084,16 @@ function renderProviderModeContent(container, settings) {
     '<input type="text" id="cli-model-opus" class="form-control" placeholder="claude-3-opus-20240229" value="' + escapeHtml(env.ANTHROPIC_DEFAULT_OPUS_MODEL || '') + '" />' +
     '</div>' +
     '</div>' +
-    '</div>';
+    '</div>' +
+    // JSON Preview/Editor Section
+    buildJsonEditorSection(settings);
 }
 
 /**
  * Render Direct Configuration mode content
  */
-function renderDirectModeContent(container, env) {
+function renderDirectModeContent(container, env, settings) {
+  settings = settings || { env: env };
   container.innerHTML =
     '<div class="form-group">' +
     '<label for="cli-auth-token">ANTHROPIC_AUTH_TOKEN *</label>' +
@@ -4118,7 +4124,225 @@ function renderDirectModeContent(container, env) {
     '<input type="text" id="cli-model-opus" class="form-control" placeholder="claude-3-opus-20240229" value="' + escapeHtml(env.ANTHROPIC_DEFAULT_OPUS_MODEL || '') + '" />' +
     '</div>' +
     '</div>' +
+    '</div>' +
+    // JSON Preview/Editor Section
+    buildJsonEditorSection(settings);
+}
+
+/**
+ * Build JSON Editor Section HTML
+ */
+function buildJsonEditorSection(settings) {
+  return '<div class="json-editor-section">' +
+    '<div class="json-editor-header">' +
+    '<h4><i data-lucide="code-2"></i> ' + (t('apiSettings.configJson') || 'Configuration JSON') + '</h4>' +
+    '<div class="json-editor-actions">' +
+    '<button type="button" class="btn btn-sm btn-ghost" onclick="formatCliJson()" title="' + (t('common.format') || 'Format') + '">' +
+    '<i data-lucide="align-left"></i> ' + (t('common.format') || 'Format') +
+    '</button>' +
+    '<button type="button" class="btn btn-sm btn-ghost" onclick="syncFormToJson()" title="' + (t('apiSettings.syncToJson') || 'Sync to JSON') + '">' +
+    '<i data-lucide="refresh-cw"></i>' +
+    '</button>' +
+    '</div>' +
+    '</div>' +
+    '<div class="json-editor-body">' +
+    '<div class="json-line-numbers" id="cli-json-line-numbers"></div>' +
+    '<textarea id="cli-json-editor" class="json-textarea" spellcheck="false" placeholder="{\n  &quot;env&quot;: {},\n  &quot;model&quot;: &quot;&quot;\n}"></textarea>' +
+    '</div>' +
+    '<div class="json-editor-footer">' +
+    '<span class="json-status" id="cli-json-status"></span>' +
+    '<span class="json-hint">' + (t('apiSettings.jsonEditorHint') || 'Edit JSON directly to add advanced settings') + '</span>' +
+    '</div>' +
     '</div>';
+}
+
+/**
+ * Initialize JSON Editor with settings data
+ */
+function initCliJsonEditor(settings) {
+  var editor = document.getElementById('cli-json-editor');
+  if (!editor) return;
+
+  // Build initial JSON from settings (without sensitive fields for display)
+  var displaySettings = buildDisplaySettings(settings);
+  var jsonStr = JSON.stringify(displaySettings, null, 2);
+
+  editor.value = jsonStr;
+  updateJsonLineNumbers();
+  validateCliJson();
+
+  // Add event listeners
+  editor.addEventListener('input', function() {
+    updateJsonLineNumbers();
+    validateCliJson();
+  });
+
+  editor.addEventListener('scroll', function() {
+    var lineNumbers = document.getElementById('cli-json-line-numbers');
+    if (lineNumbers) {
+      lineNumbers.scrollTop = editor.scrollTop;
+    }
+  });
+
+  editor.addEventListener('keydown', function(e) {
+    // Handle Tab key for indentation
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      var start = this.selectionStart;
+      var end = this.selectionEnd;
+      this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
+      this.selectionStart = this.selectionEnd = start + 2;
+      updateJsonLineNumbers();
+    }
+  });
+}
+
+/**
+ * Build display settings object (hide sensitive values)
+ */
+function buildDisplaySettings(settings) {
+  var result = {};
+
+  // Copy non-env fields
+  for (var key in settings) {
+    if (key !== 'env' && key !== 'configMode' && key !== 'providerId') {
+      result[key] = settings[key];
+    }
+  }
+
+  // Copy env with masked sensitive values
+  if (settings.env) {
+    result.env = {};
+    for (var envKey in settings.env) {
+      if (envKey === 'ANTHROPIC_AUTH_TOKEN') {
+        // Mask the token
+        var token = settings.env[envKey] || '';
+        result.env[envKey] = token ? (token.substring(0, 10) + '...') : '';
+      } else {
+        result.env[envKey] = settings.env[envKey];
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Update JSON line numbers
+ */
+function updateJsonLineNumbers() {
+  var editor = document.getElementById('cli-json-editor');
+  var lineNumbers = document.getElementById('cli-json-line-numbers');
+  if (!editor || !lineNumbers) return;
+
+  var lines = editor.value.split('\n').length;
+  var html = '';
+  for (var i = 1; i <= lines; i++) {
+    html += '<span>' + i + '</span>';
+  }
+  lineNumbers.innerHTML = html;
+}
+
+/**
+ * Validate JSON in editor
+ */
+function validateCliJson() {
+  var editor = document.getElementById('cli-json-editor');
+  var status = document.getElementById('cli-json-status');
+  if (!editor || !status) return false;
+
+  try {
+    JSON.parse(editor.value);
+    status.innerHTML = '<i data-lucide="check-circle"></i> ' + (t('apiSettings.jsonValid') || 'Valid JSON');
+    status.className = 'json-status valid';
+    editor.classList.remove('invalid');
+    if (window.lucide) lucide.createIcons();
+    return true;
+  } catch (e) {
+    status.innerHTML = '<i data-lucide="alert-circle"></i> ' + (t('apiSettings.jsonInvalid') || 'Invalid JSON') + ': ' + e.message;
+    status.className = 'json-status invalid';
+    editor.classList.add('invalid');
+    if (window.lucide) lucide.createIcons();
+    return false;
+  }
+}
+
+/**
+ * Format JSON in editor
+ */
+function formatCliJson() {
+  var editor = document.getElementById('cli-json-editor');
+  if (!editor) return;
+
+  try {
+    var obj = JSON.parse(editor.value);
+    editor.value = JSON.stringify(obj, null, 2);
+    updateJsonLineNumbers();
+    validateCliJson();
+  } catch (e) {
+    showRefreshToast(t('apiSettings.jsonInvalid') || 'Invalid JSON', 'error');
+  }
+}
+window.formatCliJson = formatCliJson;
+
+/**
+ * Sync form fields to JSON editor
+ */
+function syncFormToJson() {
+  var editor = document.getElementById('cli-json-editor');
+  if (!editor) return;
+
+  // Get current JSON
+  var currentObj = {};
+  try {
+    currentObj = JSON.parse(editor.value);
+  } catch (e) {
+    currentObj = { env: {} };
+  }
+
+  // Update env from form fields
+  currentObj.env = currentObj.env || {};
+
+  // Model fields
+  var modelDefault = document.getElementById('cli-model-default');
+  var modelHaiku = document.getElementById('cli-model-haiku');
+  var modelSonnet = document.getElementById('cli-model-sonnet');
+  var modelOpus = document.getElementById('cli-model-opus');
+
+  if (modelDefault && modelDefault.value) currentObj.env.ANTHROPIC_MODEL = modelDefault.value;
+  if (modelHaiku && modelHaiku.value) currentObj.env.ANTHROPIC_DEFAULT_HAIKU_MODEL = modelHaiku.value;
+  if (modelSonnet && modelSonnet.value) currentObj.env.ANTHROPIC_DEFAULT_SONNET_MODEL = modelSonnet.value;
+  if (modelOpus && modelOpus.value) currentObj.env.ANTHROPIC_DEFAULT_OPUS_MODEL = modelOpus.value;
+
+  // Direct mode fields
+  if (cliConfigMode === 'direct') {
+    var authToken = document.getElementById('cli-auth-token');
+    var baseUrl = document.getElementById('cli-base-url');
+    if (authToken && authToken.value) currentObj.env.ANTHROPIC_AUTH_TOKEN = authToken.value;
+    if (baseUrl && baseUrl.value) currentObj.env.ANTHROPIC_BASE_URL = baseUrl.value;
+  }
+
+  // Ensure DISABLE_AUTOUPDATER
+  currentObj.env.DISABLE_AUTOUPDATER = '1';
+
+  editor.value = JSON.stringify(currentObj, null, 2);
+  updateJsonLineNumbers();
+  validateCliJson();
+}
+window.syncFormToJson = syncFormToJson;
+
+/**
+ * Get settings from JSON editor (merges with form data)
+ */
+function getSettingsFromJsonEditor() {
+  var editor = document.getElementById('cli-json-editor');
+  if (!editor) return null;
+
+  try {
+    return JSON.parse(editor.value);
+  } catch (e) {
+    return null;
+  }
 }
 
 /**
@@ -4212,6 +4436,33 @@ async function submitCliSettingsForm() {
   }
   if (opusModel) {
     data.settings.env.ANTHROPIC_DEFAULT_OPUS_MODEL = opusModel;
+  }
+
+  // Merge additional settings from JSON editor
+  var jsonSettings = getSettingsFromJsonEditor();
+  if (jsonSettings) {
+    // Merge env variables (JSON editor values take precedence for non-core fields)
+    if (jsonSettings.env) {
+      for (var envKey in jsonSettings.env) {
+        // Skip core fields that are managed by form inputs
+        if (envKey === 'ANTHROPIC_AUTH_TOKEN' || envKey === 'ANTHROPIC_BASE_URL') {
+          // Only use JSON editor value if form field is empty
+          if (!data.settings.env[envKey] && jsonSettings.env[envKey] && !jsonSettings.env[envKey].endsWith('...')) {
+            data.settings.env[envKey] = jsonSettings.env[envKey];
+          }
+        } else if (!['ANTHROPIC_MODEL', 'ANTHROPIC_DEFAULT_HAIKU_MODEL', 'ANTHROPIC_DEFAULT_SONNET_MODEL', 'ANTHROPIC_DEFAULT_OPUS_MODEL'].includes(envKey)) {
+          // For non-model env vars, use JSON editor value
+          data.settings.env[envKey] = jsonSettings.env[envKey];
+        }
+      }
+    }
+
+    // Merge non-env settings from JSON editor
+    for (var settingKey in jsonSettings) {
+      if (settingKey !== 'env' && settingKey !== 'configMode' && settingKey !== 'providerId') {
+        data.settings[settingKey] = jsonSettings[settingKey];
+      }
+    }
   }
 
   // Set ID if editing

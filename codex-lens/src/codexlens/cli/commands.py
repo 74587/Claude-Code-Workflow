@@ -1995,6 +1995,55 @@ def model_delete(
         console.print(f"  Freed space: {data['deleted_size_mb']:.1f} MB")
 
 
+@app.command(name="model-download-custom")
+def model_download_custom(
+    model_name: str = typer.Argument(..., help="Full HuggingFace model name (e.g., BAAI/bge-small-en-v1.5)."),
+    model_type: str = typer.Option("embedding", "--type", help="Model type: embedding or reranker."),
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+) -> None:
+    """Download a custom HuggingFace model by name.
+
+    This allows downloading any fastembed-compatible model from HuggingFace.
+
+    Example:
+        codexlens model-download-custom BAAI/bge-small-en-v1.5
+        codexlens model-download-custom BAAI/bge-reranker-base --type reranker
+    """
+    try:
+        from codexlens.cli.model_manager import download_custom_model
+
+        if not json_mode:
+            console.print(f"[bold]Downloading custom model:[/bold] {model_name}")
+            console.print(f"[dim]Model type: {model_type}[/dim]")
+            console.print("[dim]This may take a few minutes depending on your internet connection...[/dim]\n")
+
+        progress_callback = None if json_mode else lambda msg: console.print(f"[cyan]{msg}[/cyan]")
+
+        result = download_custom_model(model_name, model_type=model_type, progress_callback=progress_callback)
+
+        if json_mode:
+            print_json(**result)
+        else:
+            if not result["success"]:
+                console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+                raise typer.Exit(code=1)
+
+            data = result["result"]
+            console.print(f"[green]✓[/green] Custom model downloaded successfully!")
+            console.print(f"  Model: {data['model_name']}")
+            console.print(f"  Type: {data['model_type']}")
+            console.print(f"  Cache size: {data['cache_size_mb']:.1f} MB")
+            console.print(f"  Location: [dim]{data['cache_path']}[/dim]")
+
+    except ImportError:
+        if json_mode:
+            print_json(success=False, error="fastembed not installed. Install with: pip install codexlens[semantic]")
+        else:
+            console.print("[red]Error:[/red] fastembed not installed")
+            console.print("[yellow]Install with:[/yellow] pip install codexlens[semantic]")
+            raise typer.Exit(code=1)
+
+
 @app.command(name="model-info")
 def model_info(
     profile: str = typer.Argument(..., help="Model profile to get info (fast, code, multilingual, balanced)."),

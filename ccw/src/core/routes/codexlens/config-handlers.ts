@@ -497,6 +497,46 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
     return true;
   }
 
+  // API: CodexLens Model Download Custom (download any HuggingFace model)
+  if (pathname === '/api/codexlens/models/download-custom' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { model_name, model_type } = body as { model_name?: unknown; model_type?: unknown };
+      const resolvedModelName = typeof model_name === 'string' && model_name.trim().length > 0 ? model_name.trim() : undefined;
+      const resolvedModelType = typeof model_type === 'string' ? model_type.trim() : 'embedding';
+
+      if (!resolvedModelName) {
+        return { success: false, error: 'model_name is required', status: 400 };
+      }
+
+      // Validate model name format
+      if (!resolvedModelName.includes('/')) {
+        return { success: false, error: 'Invalid model_name format. Expected: org/model-name', status: 400 };
+      }
+
+      try {
+        const result = await executeCodexLens([
+          'model-download-custom', resolvedModelName,
+          '--type', resolvedModelType,
+          '--json'
+        ], { timeout: 600000 }); // 10 min for download
+
+        if (result.success) {
+          try {
+            const parsed = extractJSON(result.output ?? '');
+            return { success: true, ...parsed };
+          } catch {
+            return { success: true, output: result.output };
+          }
+        } else {
+          return { success: false, error: result.error, status: 500 };
+        }
+      } catch (err: unknown) {
+        return { success: false, error: err instanceof Error ? err.message : String(err), status: 500 };
+      }
+    });
+    return true;
+  }
+
   // API: CodexLens Model Delete (delete embedding model by profile)
   if (pathname === '/api/codexlens/models/delete' && req.method === 'POST') {
     handlePostRequest(req, res, async (body) => {
@@ -519,6 +559,47 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
         } else {
           return { success: false, error: result.error, status: 500 };
         }
+      } catch (err: unknown) {
+        return { success: false, error: err instanceof Error ? err.message : String(err), status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // API: CodexLens Model Delete by Path (delete discovered/manually placed model)
+  if (pathname === '/api/codexlens/models/delete-path' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { cache_path } = body as { cache_path?: unknown };
+      const resolvedPath = typeof cache_path === 'string' && cache_path.trim().length > 0 ? cache_path.trim() : undefined;
+
+      if (!resolvedPath) {
+        return { success: false, error: 'cache_path is required', status: 400 };
+      }
+
+      // Security: Validate that the path is within the HuggingFace cache directory
+      const { homedir } = await import('os');
+      const { join, resolve, normalize } = await import('path');
+      const { rm } = await import('fs/promises');
+
+      const hfCacheDir = process.env.HF_HOME || join(homedir(), '.cache', 'huggingface');
+      const normalizedCachePath = normalize(resolve(resolvedPath));
+      const normalizedHfCacheDir = normalize(resolve(hfCacheDir));
+
+      // Ensure the path is within the HuggingFace cache directory
+      if (!normalizedCachePath.startsWith(normalizedHfCacheDir)) {
+        return { success: false, error: 'Path must be within the HuggingFace cache directory', status: 400 };
+      }
+
+      // Ensure it's a models-- directory
+      const pathParts = normalizedCachePath.split(/[/\\]/);
+      const lastPart = pathParts[pathParts.length - 1];
+      if (!lastPart.startsWith('models--')) {
+        return { success: false, error: 'Path must be a model cache directory (models--*)', status: 400 };
+      }
+
+      try {
+        await rm(normalizedCachePath, { recursive: true, force: true });
+        return { success: true, message: 'Model deleted successfully', cache_path: normalizedCachePath };
       } catch (err: unknown) {
         return { success: false, error: err instanceof Error ? err.message : String(err), status: 500 };
       }

@@ -2540,7 +2540,15 @@ async function loadModelList() {
     // Show models for local backend
     if (embeddingBackend !== 'litellm') {
       var models = result.result.models;
-      models.forEach(function(model) {
+      var predefinedModels = models.filter(function(m) { return m.source !== 'discovered'; });
+      var discoveredModels = models.filter(function(m) { return m.source === 'discovered'; });
+      
+      // Split predefined models into recommended and others
+      var recommendedModels = predefinedModels.filter(function(m) { return m.recommended; });
+      var otherModels = predefinedModels.filter(function(m) { return !m.recommended; });
+
+      // Helper function to render model card
+      function renderModelCard(model) {
         var statusIcon = model.installed
           ? '<i data-lucide="check-circle" class="w-3.5 h-3.5 text-success"></i>'
           : '<i data-lucide="circle" class="w-3.5 h-3.5 text-muted"></i>';
@@ -2553,11 +2561,15 @@ async function loadModelList() {
           ? '<button class="text-xs text-destructive hover:underline" onclick="deleteModel(\'' + model.profile + '\')">Delete</button>'
           : '<button class="text-xs text-primary hover:underline" onclick="downloadModel(\'' + model.profile + '\')">Download</button>';
 
-        html +=
-          '<div class="flex items-center justify-between p-2 bg-muted/30 rounded" id="model-' + model.profile + '">' +
+        var recommendedBadge = model.recommended
+          ? '<span class="text-[10px] px-1 py-0.5 bg-success/20 text-success rounded">Rec</span>'
+          : '';
+
+        return '<div class="flex items-center justify-between p-2 bg-muted/30 rounded" id="model-' + model.profile + '">' +
             '<div class="flex items-center gap-2">' +
               statusIcon +
               '<span class="text-sm font-medium">' + model.profile + '</span>' +
+              recommendedBadge +
               '<button class="text-muted-foreground hover:text-foreground p-0.5" onclick="copyToClipboard(\'' + escapeHtml(model.model_name) + '\')" title="' + escapeHtml(model.model_name) + '">' +
                 '<i data-lucide="copy" class="w-3 h-3"></i>' +
               '</button>' +
@@ -2568,7 +2580,108 @@ async function loadModelList() {
               actionBtn +
             '</div>' +
           '</div>';
-      });
+      }
+
+      // Show recommended models (always visible)
+      if (recommendedModels.length > 0) {
+        html += '<div class="text-xs font-medium text-muted-foreground mb-1 mt-2 flex items-center gap-1">' +
+          '<i data-lucide="star" class="w-3 h-3"></i> Recommended Models (' + recommendedModels.length + ')</div>';
+        recommendedModels.forEach(function(model) {
+          html += renderModelCard(model);
+        });
+      }
+
+      // Show other models (collapsed by default)
+      if (otherModels.length > 0) {
+        html += '<div class="mt-3">' +
+          '<button onclick="toggleOtherModels()" class="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1 hover:text-foreground">' +
+            '<i data-lucide="chevron-right" class="w-3 h-3 transition-transform" id="otherModelsChevron"></i>' +
+            'Other Models (' + otherModels.length + ')' +
+          '</button>' +
+          '<div id="otherModelsContainer" class="hidden space-y-1">';
+        otherModels.forEach(function(model) {
+          html += renderModelCard(model);
+        });
+        html += '</div></div>';
+      }
+      
+      // Show discovered models (user manually placed)
+      if (discoveredModels.length > 0) {
+        html += '<div class="text-xs font-medium text-muted-foreground mb-1 mt-3 flex items-center gap-1">' +
+          '<i data-lucide="folder-search" class="w-3 h-3"></i> Discovered Models</div>';
+        discoveredModels.forEach(function(model) {
+          var sizeText = model.actual_size_mb ? model.actual_size_mb.toFixed(0) + ' MB' : 'Unknown';
+          var safeProfile = model.profile.replace(/[^a-zA-Z0-9-_]/g, '-');
+          
+          html +=
+            '<div class="flex items-center justify-between p-2 bg-amber-500/10 border border-amber-500/20 rounded" id="model-' + safeProfile + '">' +
+              '<div class="flex items-center gap-2">' +
+                '<i data-lucide="check-circle" class="w-3.5 h-3.5 text-amber-500"></i>' +
+                '<span class="text-sm font-medium">' + escapeHtml(model.model_name) + '</span>' +
+                '<span class="text-[10px] px-1 py-0.5 bg-amber-500/20 text-amber-600 rounded">Manual</span>' +
+                '<span class="text-xs text-muted-foreground">' + (model.dimensions || '?') + 'd</span>' +
+              '</div>' +
+              '<div class="flex items-center gap-3">' +
+                '<span class="text-xs text-muted-foreground">' + sizeText + '</span>' +
+                '<button class="text-xs text-destructive hover:underline" onclick="deleteDiscoveredModel(\'' + escapeHtml(model.cache_path) + '\')">Delete</button>' +
+              '</div>' +
+            '</div>';
+        });
+      }
+      
+      // Show manual install guide
+      var guide = result.result.manual_install_guide;
+      if (guide) {
+        html += '<div class="mt-4 p-3 bg-blue-500/5 border border-blue-500/20 rounded">' +
+          '<div class="flex items-center gap-1 text-xs font-medium text-blue-600 mb-2">' +
+            '<i data-lucide="download" class="w-3 h-3"></i> Manual Model Installation' +
+          '</div>' +
+          '<div class="text-xs text-muted-foreground space-y-1">';
+        if (guide.steps) {
+          guide.steps.forEach(function(step) {
+            html += '<div>' + escapeHtml(step) + '</div>';
+          });
+        }
+        if (guide.example) {
+          html += '<div class="mt-2 font-mono text-[10px] bg-muted/50 p-1.5 rounded overflow-x-auto">' +
+            '<code>' + escapeHtml(guide.example) + '</code>' +
+          '</div>';
+        }
+        // Show multi-platform paths
+        if (guide.paths) {
+          html += '<div class="mt-2 space-y-1">' +
+            '<div class="text-[10px] font-medium">Cache paths:</div>' +
+            '<div class="font-mono text-[10px] bg-muted/50 p-1.5 rounded space-y-0.5">';
+          if (guide.paths.windows) {
+            html += '<div><span class="text-muted-foreground">Windows:</span> ' + escapeHtml(guide.paths.windows) + '</div>';
+          }
+          if (guide.paths.linux) {
+            html += '<div><span class="text-muted-foreground">Linux:</span> ' + escapeHtml(guide.paths.linux) + '</div>';
+          }
+          if (guide.paths.macos) {
+            html += '<div><span class="text-muted-foreground">macOS:</span> ' + escapeHtml(guide.paths.macos) + '</div>';
+          }
+          html += '</div></div>';
+        }
+        html += '</div></div>';
+      }
+      
+      // Custom model download section
+      html += '<div class="mt-4 p-3 bg-green-500/5 border border-green-500/20 rounded">' +
+        '<div class="flex items-center gap-1 text-xs font-medium text-green-600 mb-2">' +
+          '<i data-lucide="plus-circle" class="w-3 h-3"></i> Download Custom Model' +
+        '</div>' +
+        '<div class="flex gap-2">' +
+          '<input type="text" id="customModelInput" placeholder="e.g., BAAI/bge-small-en-v1.5" ' +
+            'class="flex-1 text-xs px-2 py-1.5 border border-border rounded bg-background focus:border-primary focus:ring-1 focus:ring-primary outline-none" />' +
+          '<button onclick="downloadCustomModel()" class="text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded hover:bg-primary/90">' +
+            'Download' +
+          '</button>' +
+        '</div>' +
+        '<div class="text-[10px] text-muted-foreground mt-2">' +
+          'Enter any HuggingFace model name compatible with FastEmbed' +
+        '</div>' +
+      '</div>';
     } else {
       // LiteLLM backend - show API info
       html +=
@@ -2585,6 +2698,19 @@ async function loadModelList() {
   } catch (err) {
     container.innerHTML =
       '<div class="text-sm text-error">' + escapeHtml(err.message) + '</div>';
+  }
+}
+
+/**
+ * Toggle visibility of other (non-recommended) models
+ */
+function toggleOtherModels() {
+  var container = document.getElementById('otherModelsContainer');
+  var chevron = document.getElementById('otherModelsChevron');
+  if (container && chevron) {
+    var isHidden = container.classList.contains('hidden');
+    container.classList.toggle('hidden');
+    chevron.style.transform = isHidden ? 'rotate(90deg)' : '';
   }
 }
 
@@ -2672,6 +2798,82 @@ async function deleteModel(profile) {
     showRefreshToast('Error: ' + err.message, 'error');
     modelCard.innerHTML = originalHTML;
     if (window.lucide) lucide.createIcons();
+  }
+}
+
+/**
+ * Download a custom HuggingFace model by name
+ */
+async function downloadCustomModel() {
+  var input = document.getElementById('customModelInput');
+  if (!input) return;
+  
+  var modelName = input.value.trim();
+  if (!modelName) {
+    showRefreshToast('Please enter a model name', 'error');
+    return;
+  }
+  
+  if (!modelName.includes('/')) {
+    showRefreshToast('Invalid format. Use: org/model-name', 'error');
+    return;
+  }
+  
+  // Disable input and show loading
+  input.disabled = true;
+  var originalPlaceholder = input.placeholder;
+  input.placeholder = 'Downloading...';
+  input.value = '';
+  
+  try {
+    var response = await fetch('/api/codexlens/models/download-custom', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model_name: modelName, model_type: 'embedding' })
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast('Custom model downloaded: ' + modelName, 'success');
+      loadModelList();
+    } else {
+      showRefreshToast('Download failed: ' + result.error, 'error');
+      input.disabled = false;
+      input.placeholder = originalPlaceholder;
+    }
+  } catch (err) {
+    showRefreshToast('Error: ' + err.message, 'error');
+    input.disabled = false;
+    input.placeholder = originalPlaceholder;
+  }
+}
+
+/**
+ * Delete a discovered (manually placed) model by its cache path
+ */
+async function deleteDiscoveredModel(cachePath) {
+  if (!confirm('Delete this manually placed model?\n\nPath: ' + cachePath)) {
+    return;
+  }
+
+  try {
+    var response = await fetch('/api/codexlens/models/delete-path', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cache_path: cachePath })
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast('Model deleted successfully', 'success');
+      loadModelList();
+    } else {
+      showRefreshToast('Delete failed: ' + result.error, 'error');
+    }
+  } catch (err) {
+    showRefreshToast('Error: ' + err.message, 'error');
   }
 }
 
