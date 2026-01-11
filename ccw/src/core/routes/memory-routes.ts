@@ -5,6 +5,7 @@ import { join, isAbsolute, extname } from 'path';
 import { homedir } from 'os';
 import { getMemoryStore } from '../memory-store.js';
 import { executeCliTool } from '../../tools/cli-executor.js';
+import { SmartContentFormatter } from '../../tools/cli-output-converter.js';
 
 /**
  * Route context interface
@@ -1008,8 +1009,8 @@ RULES: Be concise. Focus on practical understanding. Include function signatures
             category: 'internal',
             id: syncId
           }, (unit) => {
-            // CliOutputUnit handler: convert to string content for broadcast
-            const content = typeof unit.content === 'string' ? unit.content : JSON.stringify(unit.content);
+            // CliOutputUnit handler: use SmartContentFormatter for intelligent formatting
+            const content = SmartContentFormatter.format(unit.content, unit.type) || JSON.stringify(unit.content);
             broadcastToClients({
               type: 'CLI_OUTPUT',
               payload: {

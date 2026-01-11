@@ -556,8 +556,9 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
       }
 
       try {
-        // Import CLI executor
+        // Import CLI executor and content formatter
         const { executeCliTool } = await import('../../tools/cli-executor.js');
+        const { SmartContentFormatter } = await import('../../tools/cli-output-converter.js');
 
         // Determine file path based on level
         let filePath: string;
@@ -628,8 +629,8 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
           category: 'internal',
           id: syncId
         }, (unit) => {
-          // CliOutputUnit handler: convert to string content for broadcast
-          const content = typeof unit.content === 'string' ? unit.content : JSON.stringify(unit.content);
+          // CliOutputUnit handler: use SmartContentFormatter for intelligent formatting
+          const content = SmartContentFormatter.format(unit.content, unit.type) || JSON.stringify(unit.content);
           broadcastToClients({
             type: 'CLI_OUTPUT',
             payload: {

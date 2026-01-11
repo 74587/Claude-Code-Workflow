@@ -498,6 +498,7 @@ export class JsonLinesParser implements IOutputParser {
     // ========== OpenCode CLI --format json ==========
     // {"type":"step_start","timestamp":...,"sessionID":"...","part":{...}}
     // {"type":"text","timestamp":...,"sessionID":"...","part":{"type":"text","text":"..."}}
+    // {"type":"tool_use","timestamp":...,"sessionID":"...","part":{"type":"tool","tool":"glob","input":{...},"state":{...}}}
     // {"type":"step_finish","timestamp":...,"part":{"tokens":{...}}}
     if (json.type === 'step_start' && json.sessionID) {
       return {
@@ -505,8 +506,7 @@ export class JsonLinesParser implements IOutputParser {
         content: {
           message: 'Step started',
           tool: 'opencode',
-          sessionId: json.sessionID,
-          raw: json.part
+          sessionId: json.sessionID
         },
         timestamp
       };
@@ -520,15 +520,40 @@ export class JsonLinesParser implements IOutputParser {
       };
     }
 
+    // OpenCode tool_use: {"type":"tool_use","part":{"type":"tool","tool":"glob","input":{...},"state":{"status":"..."}}}
+    if (json.type === 'tool_use' && json.part) {
+      const part = json.part;
+      const toolName = part.tool || 'unknown';
+      const status = part.state?.status || 'in_progress';
+      const input = part.input || {};
+
+      return {
+        type: 'tool_call',
+        content: {
+          tool: 'opencode',
+          action: status === 'completed' ? 'result' : 'invoke',
+          toolName: toolName,
+          toolId: part.callID || part.id,
+          parameters: input,
+          status: status,
+          output: part.output
+        },
+        timestamp
+      };
+    }
+
     if (json.type === 'step_finish' && json.part) {
+      const tokens = json.part.tokens || {};
+      const inputTokens = tokens.input || 0;
+      const outputTokens = tokens.output || 0;
+
       return {
         type: 'metadata',
         content: {
           tool: 'opencode',
           reason: json.part.reason,
-          tokens: json.part.tokens,
-          cost: json.part.cost,
-          raw: json.part
+          tokens: { input: inputTokens, output: outputTokens },
+          cost: json.part.cost
         },
         timestamp
       };
@@ -668,6 +693,309 @@ export class JsonLinesParser implements IOutputParser {
       content: json,
       timestamp
     };
+  }
+}
+
+// ========== Smart Content Formatter ==========
+
+/**
+ * Intelligent content formatter that detects and formats JSON content
+ * based on structural patterns rather than hardcoded tool-specific formats.
+ *
+ * Key detection patterns:
+ * - Session/Metadata: session_id, sessionID, thread_id, model, stats
+ * - Tool Calls: tool_name, tool, function_name, parameters
+ * - Progress: status, progress, state, reason
+ * - Tokens: tokens, usage, input_tokens, output_tokens
+ * - Text Content: content, text, message
+ */
+export class SmartContentFormatter {
+  /**
+   * Format structured content into human-readable text
+   * Returns formatted string or null if should use original content
+   */
+  static format(content: any, type: CliOutputUnitType): string | null {
+    if (typeof content === 'string') {
+      return content;
+    }
+
+    if (typeof content !== 'object' || content === null) {
+      return String(content);
+    }
+
+    // Type-specific formatting
+    switch (type) {
+      case 'metadata':
+        return this.formatMetadata(content);
+      case 'progress':
+        return this.formatProgress(content);
+      case 'tool_call':
+        return this.formatToolCall(content);
+      case 'code':
+        return this.formatCode(content);
+      case 'file_diff':
+        return this.formatFileDiff(content);
+      case 'thought':
+        return this.formatThought(content);
+      case 'system':
+        return this.formatSystem(content);
+      default:
+        // Try to extract text content from common fields
+        return this.extractTextContent(content);
+    }
+  }
+
+  /**
+   * Format metadata (session info, stats, etc.)
+   */
+  private static formatMetadata(content: any): string {
+    const parts: string[] = [];
+
+    // Tool identifier
+    if (content.tool) {
+      parts.push(`[${content.tool.toUpperCase()}]`);
+    }
+
+    // Session ID
+    const sessionId = content.sessionId || content.session_id || content.threadId || content.thread_id;
+    if (sessionId) {
+      parts.push(`Session: ${this.truncate(sessionId, 20)}`);
+    }
+
+    // Model info
+    if (content.model) {
+      parts.push(`Model: ${content.model}`);
+    }
+
+    // Status
+    if (content.status) {
+      parts.push(`Status: ${content.status}`);
+    }
+
+    // Duration
+    if (content.durationMs || content.duration_ms) {
+      const ms = content.durationMs || content.duration_ms;
+      parts.push(`Duration: ${this.formatDuration(ms)}`);
+    }
+
+    // Token usage
+    const tokens = this.extractTokens(content);
+    if (tokens) {
+      parts.push(`Tokens: ${tokens}`);
+    }
+
+    // Cost
+    if (content.totalCostUsd || content.total_cost_usd || content.cost) {
+      const cost = content.totalCostUsd || content.total_cost_usd || content.cost;
+      parts.push(`Cost: $${typeof cost === 'number' ? cost.toFixed(6) : cost}`);
+    }
+
+    // Result
+    if (content.result && typeof content.result === 'string') {
+      parts.push(`Result: ${this.truncate(content.result, 100)}`);
+    }
+
+    return parts.length > 0 ? parts.join(' | ') : JSON.stringify(content);
+  }
+
+  /**
+   * Format progress updates
+   */
+  private static formatProgress(content: any): string {
+    const parts: string[] = [];
+
+    // Tool identifier
+    if (content.tool) {
+      parts.push(`[${content.tool.toUpperCase()}]`);
+    }
+
+    // Message
+    if (content.message) {
+      parts.push(content.message);
+    }
+
+    // Status
+    if (content.status) {
+      parts.push(`(${content.status})`);
+    }
+
+    // Progress indicator
+    if (content.progress !== undefined && content.total !== undefined) {
+      parts.push(`[${content.progress}/${content.total}]`);
+    }
+
+    // Session ID (brief)
+    const sessionId = content.sessionId || content.session_id;
+    if (sessionId && !content.message) {
+      parts.push(`Session: ${this.truncate(sessionId, 12)}`);
+    }
+
+    return parts.length > 0 ? parts.join(' ') : JSON.stringify(content);
+  }
+
+  /**
+   * Format tool call (invoke/result)
+   */
+  private static formatToolCall(content: any): string {
+    const toolName = content.toolName || content.tool_name || content.name || 'unknown';
+    const action = content.action || 'invoke';
+    const status = content.status;
+
+    if (action === 'result') {
+      const statusText = status || 'completed';
+      let result = `[Tool Result] ${toolName}: ${statusText}`;
+      if (content.output) {
+        const outputStr = typeof content.output === 'string' ? content.output : JSON.stringify(content.output);
+        result += ` → ${this.truncate(outputStr, 150)}`;
+      }
+      return result;
+    } else {
+      // invoke
+      let params = '';
+      if (content.parameters) {
+        const paramStr = typeof content.parameters === 'string'
+          ? content.parameters
+          : JSON.stringify(content.parameters);
+        params = this.truncate(paramStr, 100);
+      }
+      return `[Tool] ${toolName}(${params})`;
+    }
+  }
+
+  /**
+   * Format code block
+   */
+  private static formatCode(content: any): string {
+    if (typeof content === 'string') {
+      return `\`\`\`\n${content}\n\`\`\``;
+    }
+
+    const lang = content.language || '';
+    const code = content.code || content.output || content.content || '';
+    const command = content.command;
+
+    let result = '';
+    if (command) {
+      result += `$ ${command}\n`;
+    }
+    result += `\`\`\`${lang}\n${code}\n\`\`\``;
+
+    if (content.exitCode !== undefined) {
+      result += `\n(exit: ${content.exitCode})`;
+    }
+
+    return result;
+  }
+
+  /**
+   * Format file diff
+   */
+  private static formatFileDiff(content: any): string {
+    const path = content.path || content.file || 'unknown';
+    const action = content.action || 'modify';
+    const diff = content.diff || content.content || '';
+
+    return `[${action.toUpperCase()}] ${path}\n\`\`\`diff\n${diff}\n\`\`\``;
+  }
+
+  /**
+   * Format thought/reasoning
+   */
+  private static formatThought(content: any): string {
+    if (typeof content === 'string') {
+      return `💭 ${content}`;
+    }
+    const text = content.text || content.summary || content.content;
+    return text ? `💭 ${text}` : JSON.stringify(content);
+  }
+
+  /**
+   * Format system message
+   */
+  private static formatSystem(content: any): string {
+    if (typeof content === 'string') {
+      return `⚙️ ${content}`;
+    }
+    const message = content.message || content.content || content.event;
+    return message ? `⚙️ ${message}` : JSON.stringify(content);
+  }
+
+  /**
+   * Extract text content from common fields
+   */
+  private static extractTextContent(content: any): string | null {
+    // Priority order for text extraction
+    const textFields = ['text', 'content', 'message', 'output', 'data'];
+
+    for (const field of textFields) {
+      if (content[field] && typeof content[field] === 'string') {
+        return content[field];
+      }
+    }
+
+    // Check for nested content
+    if (content.part && typeof content.part === 'object') {
+      const nested = this.extractTextContent(content.part);
+      if (nested) return nested;
+    }
+
+    // Check for item content (Codex format)
+    if (content.item && typeof content.item === 'object') {
+      const nested = this.extractTextContent(content.item);
+      if (nested) return nested;
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract token usage from various formats
+   */
+  private static extractTokens(content: any): string | null {
+    // Direct tokens object
+    if (content.tokens && typeof content.tokens === 'object') {
+      const input = content.tokens.input || content.tokens.input_tokens || 0;
+      const output = content.tokens.output || content.tokens.output_tokens || 0;
+      return `${input}↓ ${output}↑`;
+    }
+
+    // Usage object
+    if (content.usage && typeof content.usage === 'object') {
+      const input = content.usage.input_tokens || content.usage.inputTokens || 0;
+      const output = content.usage.output_tokens || content.usage.outputTokens || 0;
+      return `${input}↓ ${output}↑`;
+    }
+
+    // Stats object
+    if (content.stats && typeof content.stats === 'object') {
+      const input = content.stats.input_tokens || content.stats.inputTokens || 0;
+      const output = content.stats.output_tokens || content.stats.outputTokens || 0;
+      if (input || output) {
+        return `${input}↓ ${output}↑`;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Truncate string to max length
+   */
+  private static truncate(str: string, maxLen: number): string {
+    if (!str || str.length <= maxLen) return str;
+    return str.substring(0, maxLen) + '...';
+  }
+
+  /**
+   * Format duration from milliseconds
+   */
+  private static formatDuration(ms: number): string {
+    if (ms < 1000) return `${ms}ms`;
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const rs = s % 60;
+    return `${m}m ${rs}s`;
   }
 }
 

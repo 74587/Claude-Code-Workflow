@@ -6,6 +6,7 @@ import { readFileSync, existsSync, readdirSync, statSync, unlinkSync, promises a
 import { join } from 'path';
 import { homedir } from 'os';
 import { executeCliTool } from '../../tools/cli-executor.js';
+import { SmartContentFormatter } from '../../tools/cli-output-converter.js';
 import { validatePath as validateAllowedPath } from '../../utils/path-validator.js';
 import type { RouteContext } from './types.js';
 
@@ -580,8 +581,8 @@ Create a new Claude Code skill with the following specifications:
     // Create onOutput callback for real-time streaming
     const onOutput = broadcastToClients
       ? (unit: import('../../tools/cli-output-converter.js').CliOutputUnit) => {
-          // CliOutputUnit handler: convert to string content for broadcast
-          const content = typeof unit.content === 'string' ? unit.content : JSON.stringify(unit.content);
+          // CliOutputUnit handler: use SmartContentFormatter for intelligent formatting
+          const content = SmartContentFormatter.format(unit.content, unit.type) || JSON.stringify(unit.content);
           broadcastToClients({
             type: 'CLI_OUTPUT',
             payload: {

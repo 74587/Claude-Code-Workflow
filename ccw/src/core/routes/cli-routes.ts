@@ -23,6 +23,7 @@ import {
   getEnrichedConversation,
   getHistoryWithNativeInfo
 } from '../../tools/cli-executor.js';
+import { SmartContentFormatter } from '../../tools/cli-output-converter.js';
 import { generateSmartContext, formatSmartContext } from '../../tools/smart-context.js';
 import {
   loadCliConfig,
@@ -564,8 +565,8 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
           parentExecutionId,
           stream: true
         }, (unit) => {
-          // CliOutputUnit handler: convert to string content
-          const content = typeof unit.content === 'string' ? unit.content : JSON.stringify(unit.content);
+          // CliOutputUnit handler: use SmartContentFormatter for intelligent formatting
+          const content = SmartContentFormatter.format(unit.content, unit.type) || JSON.stringify(unit.content);
 
           // Append to active execution buffer
           const activeExec = activeExecutions.get(executionId);
