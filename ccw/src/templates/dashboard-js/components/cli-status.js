@@ -10,6 +10,7 @@ let defaultCliTool = 'gemini';
 let promptConcatFormat = localStorage.getItem('ccw-prompt-format') || 'plain'; // plain, yaml, json
 let cliToolsConfig = {}; // CLI tools enable/disable config
 let apiEndpoints = []; // API endpoints from LiteLLM config
+let cliSettingsEndpoints = []; // CLI Settings endpoints (for Claude wrapper)
 
 // Smart Context settings
 let smartContextEnabled = localStorage.getItem('ccw-smart-context') === 'true';
@@ -43,10 +44,11 @@ async function loadAllStatuses() {
     semanticStatus = data.semantic || { available: false };
     ccwInstallStatus = data.ccwInstall || { installed: true, workflowsInstalled: true, missingFiles: [], installPath: '' };
 
-    // Load CLI tools config and API endpoints
+    // Load CLI tools config, API endpoints, and CLI Settings
     await Promise.all([
       loadCliToolsConfig(),
-      loadApiEndpoints()
+      loadApiEndpoints(),
+      loadCliSettingsEndpoints()
     ]);
 
     // Update badges
@@ -285,6 +287,22 @@ async function loadApiEndpoints() {
   }
 }
 
+/**
+ * Load CLI Settings endpoints (Claude wrapper configurations)
+ */
+async function loadCliSettingsEndpoints() {
+  try {
+    const response = await fetch('/api/cli/settings');
+    if (!response.ok) return [];
+    const data = await response.json();
+    cliSettingsEndpoints = data.endpoints || [];
+    return cliSettingsEndpoints;
+  } catch (err) {
+    console.error('Failed to load CLI settings endpoints:', err);
+    return [];
+  }
+}
+
 // ========== Badge Update ==========
 function updateCliBadge() {
   const badge = document.getElementById('badgeCliTools');
@@ -355,6 +373,52 @@ function renderCliStatus() {
     const isEnabled = config.enabled !== false;
     const canSetDefault = isAvailable && isEnabled && !isDefault;
 
+    // Special handling for Claude: show CLI Settings info
+    const isClaude = tool === 'claude';
+    const enabledCliSettings = isClaude ? cliSettingsEndpoints.filter(ep => ep.enabled) : [];
+    const hasCliSettings = enabledCliSettings.length > 0;
+
+    // Build CLI Settings badge for Claude
+    let cliSettingsBadge = '';
+    if (isClaude && hasCliSettings) {
+      cliSettingsBadge = `<span class="cli-tool-badge cli-settings-badge" title="${enabledCliSettings.length} endpoint(s) configured">${enabledCliSettings.length} Endpoint${enabledCliSettings.length > 1 ? 's' : ''}</span>`;
+    }
+
+    // Build CLI Settings info for Claude
+    let cliSettingsInfo = '';
+    if (isClaude) {
+      if (hasCliSettings) {
+        const epNames = enabledCliSettings.slice(0, 2).map(ep => ep.name).join(', ');
+        const moreCount = enabledCliSettings.length > 2 ? ` +${enabledCliSettings.length - 2}` : '';
+        cliSettingsInfo = `
+          <div class="cli-settings-info mt-2 p-2 rounded bg-muted/50 text-xs">
+            <div class="flex items-center gap-1 text-muted-foreground mb-1">
+              <i data-lucide="settings-2" class="w-3 h-3"></i>
+              <span>CLI Wrapper Endpoints:</span>
+            </div>
+            <div class="text-foreground font-medium">${epNames}${moreCount}</div>
+            <a href="#" onclick="navigateToApiSettings('cli-settings'); return false;" class="text-primary hover:underline mt-1 inline-flex items-center gap-1">
+              <i data-lucide="external-link" class="w-3 h-3"></i>
+              Configure
+            </a>
+          </div>
+        `;
+      } else {
+        cliSettingsInfo = `
+          <div class="cli-settings-info mt-2 p-2 rounded bg-muted/30 text-xs">
+            <div class="flex items-center gap-1 text-muted-foreground">
+              <i data-lucide="info" class="w-3 h-3"></i>
+              <span>No CLI wrapper configured</span>
+            </div>
+            <a href="#" onclick="navigateToApiSettings('cli-settings'); return false;" class="text-primary hover:underline mt-1 inline-flex items-center gap-1">
+              <i data-lucide="plus" class="w-3 h-3"></i>
+              Add Endpoint
+            </a>
+          </div>
+        `;
+      }
+    }
+
     return `
       <div class="cli-tool-card tool-${tool} ${isAvailable ? 'available' : 'unavailable'} ${!isEnabled ? 'disabled' : ''}">
         <div class="cli-tool-header">
@@ -362,6 +426,7 @@ function renderCliStatus() {
           <span class="cli-tool-name">${tool.charAt(0).toUpperCase() + tool.slice(1)}</span>
           ${isDefault ? '<span class="cli-tool-badge">Default</span>' : ''}
           ${!isEnabled && isAvailable ? '<span class="cli-tool-badge-disabled">Disabled</span>' : ''}
+          ${cliSettingsBadge}
         </div>
         <div class="cli-tool-desc text-xs text-muted-foreground mt-1">
           ${toolDescriptions[tool]}
@@ -376,6 +441,7 @@ function renderCliStatus() {
             }
           </div>
         </div>
+        ${cliSettingsInfo}
         <div class="cli-tool-actions mt-3 flex gap-2">
           ${isAvailable ? (isEnabled
             ? `<button class="btn-sm btn-outline-warning flex items-center gap-1" onclick="toggleCliTool('${tool}', false)">
@@ -1322,4 +1388,40 @@ async function startSemanticInstall() {
     if (window.lucide) lucide.createIcons();
   }
 }
+
+// ========== Navigation ==========
+/**
+ * Navigate to API Settings page with optional section
+ * @param {string} section - Target section: 'cli-settings', 'providers', 'endpoints'
+ */
+function navigateToApiSettings(section) {
+  // Try to switch to API Settings view
+  if (typeof switchView === 'function') {
+    switchView('api-settings');
+  } else if (window.switchView) {
+    window.switchView('api-settings');
+  }
+
+  // After view switch, select the target section
+  setTimeout(() => {
+    if (section === 'cli-settings') {
+      // Click CLI Settings tab if exists
+      const cliSettingsTab = document.querySelector('[data-section="cli-settings"]');
+      if (cliSettingsTab) {
+        cliSettingsTab.click();
+      } else {
+        // Fallback: try to find and click by text content
+        const tabs = document.querySelectorAll('.api-settings-sidebar .sidebar-item, .api-settings-tabs .tab-btn');
+        tabs.forEach(tab => {
+          if (tab.textContent.includes('CLI') || tab.textContent.includes('Wrapper')) {
+            tab.click();
+          }
+        });
+      }
+    }
+  }, 100);
+}
+
+// Export navigation function
+window.navigateToApiSettings = navigateToApiSettings;
 

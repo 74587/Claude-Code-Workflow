@@ -1,42 +1,53 @@
 {
-  "$schema": "./cli-tools.schema.json",
-  "version": "2.0.0",
+  "version": "3.0.0",
+  "models": {
+    "gemini": ["gemini-2.5-pro", "gemini-2.5-flash" ],
+    "qwen": ["coder-model", "vision-model" ],
+    "codex": ["gpt-5.2"],
+    "claude": ["sonnet", "opus", "haiku"],
+    "opencode": [
+      "opencode/glm-4.7-free",
+      "opencode/gpt-5-nano",
+      "opencode/grok-code",
+      "opencode/minimax-m2.1-free",
+      "anthropic/claude-sonnet-4-20250514",
+      "anthropic/claude-opus-4-20250514",
+      "openai/gpt-4.1",
+      "openai/o3",
+      "google/gemini-2.5-pro",
+      "google/gemini-2.5-flash"
+    ]
+  },
   "tools": {
     "gemini": {
       "enabled": true,
-      "isBuiltin": true,
-      "command": "gemini",
-      "description": "Google AI for code analysis",
+      "primaryModel": "gemini-2.5-pro",
+      "secondaryModel": "gemini-2.5-flash",
       "tags": []
     },
     "qwen": {
       "enabled": true,
-      "isBuiltin": true,
-      "command": "qwen",
-      "description": "Alibaba AI assistant",
+      "primaryModel": "coder-model",
+      "secondaryModel": "coder-model",
       "tags": []
     },
     "codex": {
       "enabled": true,
-      "isBuiltin": true,
-      "command": "codex",
-      "description": "OpenAI code generation",
+      "primaryModel": "gpt-5.2",
+      "secondaryModel": "gpt-5.2",
       "tags": []
     },
     "claude": {
       "enabled": true,
-      "isBuiltin": true,
-      "command": "claude",
-      "description": "Anthropic AI assistant",
+      "primaryModel": "sonnet",
+      "secondaryModel": "haiku",
       "tags": []
     },
     "opencode": {
       "enabled": true,
-      "isBuiltin": true,
-      "command": "opencode",
-      "description": "OpenCode AI assistant",
       "primaryModel": "opencode/glm-4.7-free",
-      "tags": []
+      "secondaryModel": "opencode/glm-4.7-free",
+      "tags": ["分析"]
     }
   },
   "customEndpoints": [
@@ -46,5 +57,6 @@
       "enabled": true,
       "tags": []
     }
-  ]
+  ],
+  "$schema": "./cli-tools.schema.json"
 }

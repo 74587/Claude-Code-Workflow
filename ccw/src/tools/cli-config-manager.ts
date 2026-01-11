@@ -1,20 +1,34 @@
 /**
- * CLI Configuration Manager
- * Handles loading, saving, and managing CLI tool configurations
- * Stores config in centralized storage (~/.ccw/projects/{id}/config/)
+ * CLI Configuration Manager (Deprecated - Redirects to claude-cli-tools.ts)
+ *
+ * This module is maintained for backward compatibility.
+ * All configuration is now managed by claude-cli-tools.ts using cli-tools.json
+ *
+ * @deprecated Use claude-cli-tools.ts directly
  */
-import * as fs from 'fs';
-import * as path from 'path';
-import { StoragePaths, ensureStorageDir } from '../config/storage-paths.js';
-import { loadClaudeCliTools, saveClaudeCliTools } from './claude-cli-tools.js';
+import {
+  loadClaudeCliTools,
+  saveClaudeCliTools,
+  getToolConfig as getToolConfigFromClaude,
+  updateToolConfig as updateToolConfigFromClaude,
+  getPredefinedModels as getPredefinedModelsFromClaude,
+  getAllPredefinedModels,
+  getPrimaryModel as getPrimaryModelFromClaude,
+  getSecondaryModel as getSecondaryModelFromClaude,
+  isToolEnabled as isToolEnabledFromClaude,
+  getFullConfigResponse as getFullConfigResponseFromClaude,
+  type ClaudeCliTool,
+  type ClaudeCliToolsConfig,
+  type CliToolName
+} from './claude-cli-tools.js';
 
-// ========== Types ==========
+// ========== Re-exported Types ==========
 
 export interface CliToolConfig {
   enabled: boolean;
-  primaryModel: string;      // For CLI endpoint calls (ccw cli -p)
-  secondaryModel: string;    // For internal calls (llm_enhancer, generate_module_docs)
-  tags?: string[];           // User-defined tags/labels for the tool
+  primaryModel: string;
+  secondaryModel: string;
+  tags?: string[];
 }
 
 export interface CliConfig {
@@ -22,234 +36,94 @@ export interface CliConfig {
   tools: Record<string, CliToolConfig>;
 }
 
-export type CliToolName = 'gemini' | 'qwen' | 'codex' | 'claude' | 'opencode';
+export type { CliToolName };
 
-// ========== Constants ==========
+// ========== Re-exported Constants ==========
 
-export const PREDEFINED_MODELS: Record<CliToolName, string[]> = {
-  gemini: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
-  qwen: ['coder-model', 'vision-model', 'qwen2.5-coder-32b'],
-  codex: ['gpt-5.2', 'gpt-4.1', 'o4-mini', 'o3'],
-  claude: ['sonnet', 'opus', 'haiku', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101'],
-  opencode: [
-    'opencode/glm-4.7-free',
-    'opencode/gpt-5-nano',
-    'opencode/grok-code',
-    'opencode/minimax-m2.1-free',
-    'anthropic/claude-sonnet-4-20250514',
-    'anthropic/claude-opus-4-20250514',
-    'openai/gpt-4.1',
-    'openai/o3',
-    'google/gemini-2.5-pro',
-    'google/gemini-2.5-flash'
-  ]
-};
+/**
+ * @deprecated Use getPredefinedModels() or getAllPredefinedModels() instead
+ */
+export const PREDEFINED_MODELS = getAllPredefinedModels();
 
+/**
+ * @deprecated Default config is now managed in claude-cli-tools.ts
+ */
 export const DEFAULT_CONFIG: CliConfig = {
   version: 1,
   tools: {
-    gemini: {
-      enabled: true,
-      primaryModel: 'gemini-2.5-pro',
-      secondaryModel: 'gemini-2.5-flash'
-    },
-    qwen: {
-      enabled: true,
-      primaryModel: 'coder-model',
-      secondaryModel: 'coder-model'
-    },
-    codex: {
-      enabled: true,
-      primaryModel: 'gpt-5.2',
-      secondaryModel: 'gpt-5.2'
-    },
-    claude: {
-      enabled: true,
-      primaryModel: 'sonnet',
-      secondaryModel: 'haiku'
-    },
-    opencode: {
-      enabled: true,
-      primaryModel: 'opencode/glm-4.7-free',  // Free model as default
-      secondaryModel: 'opencode/glm-4.7-free'
-    }
+    gemini: { enabled: true, primaryModel: 'gemini-2.5-pro', secondaryModel: 'gemini-2.5-flash' },
+    qwen: { enabled: true, primaryModel: 'coder-model', secondaryModel: 'coder-model' },
+    codex: { enabled: true, primaryModel: 'gpt-5.2', secondaryModel: 'gpt-5.2' },
+    claude: { enabled: true, primaryModel: 'sonnet', secondaryModel: 'haiku' },
+    opencode: { enabled: true, primaryModel: 'opencode/glm-4.7-free', secondaryModel: 'opencode/glm-4.7-free' }
   }
 };
 
-// ========== Helper Functions ==========
+// ========== Re-exported Functions ==========
 
-function getConfigPath(baseDir: string): string {
-  return StoragePaths.project(baseDir).cliConfig;
-}
+/**
+ * Load CLI configuration
+ * @deprecated Use loadClaudeCliTools() instead
+ */
+export function loadCliConfig(baseDir: string): CliConfig {
+  const config = loadClaudeCliTools(baseDir);
 
-function ensureConfigDirForProject(baseDir: string): void {
-  const configDir = StoragePaths.project(baseDir).config;
-  ensureStorageDir(configDir);
-}
-
-function isValidToolName(tool: string): tool is CliToolName {
-  return ['gemini', 'qwen', 'codex', 'claude', 'opencode'].includes(tool);
-}
-
-function validateConfig(config: unknown): config is CliConfig {
-  if (!config || typeof config !== 'object') return false;
-  const c = config as Record<string, unknown>;
-
-  if (typeof c.version !== 'number') return false;
-  if (!c.tools || typeof c.tools !== 'object') return false;
-
-  const tools = c.tools as Record<string, unknown>;
-  for (const toolName of ['gemini', 'qwen', 'codex', 'claude', 'opencode']) {
-    const tool = tools[toolName];
-    if (!tool || typeof tool !== 'object') return false;
-
-    const t = tool as Record<string, unknown>;
-    if (typeof t.enabled !== 'boolean') return false;
-    if (typeof t.primaryModel !== 'string') return false;
-    if (typeof t.secondaryModel !== 'string') return false;
+  // Convert to legacy format
+  const tools: Record<string, CliToolConfig> = {};
+  for (const [key, tool] of Object.entries(config.tools)) {
+    tools[key] = {
+      enabled: tool.enabled,
+      primaryModel: tool.primaryModel ?? '',
+      secondaryModel: tool.secondaryModel ?? '',
+      tags: tool.tags
+    };
   }
 
-  return true;
+  return {
+    version: parseFloat(config.version) || 1,
+    tools
+  };
 }
 
-function mergeWithDefaults(config: Partial<CliConfig>): CliConfig {
-  const result: CliConfig = {
-    version: config.version ?? DEFAULT_CONFIG.version,
-    tools: { ...DEFAULT_CONFIG.tools }
-  };
+/**
+ * Save CLI configuration
+ * @deprecated Use saveClaudeCliTools() instead
+ */
+export function saveCliConfig(baseDir: string, config: CliConfig): void {
+  const currentConfig = loadClaudeCliTools(baseDir);
 
-  if (config.tools) {
-    for (const toolName of Object.keys(config.tools)) {
-      if (isValidToolName(toolName) && config.tools[toolName]) {
-        result.tools[toolName] = {
-          ...DEFAULT_CONFIG.tools[toolName],
-          ...config.tools[toolName]
-        };
+  // Update tools from legacy format
+  for (const [key, tool] of Object.entries(config.tools)) {
+    if (currentConfig.tools[key]) {
+      currentConfig.tools[key].enabled = tool.enabled;
+      currentConfig.tools[key].primaryModel = tool.primaryModel;
+      currentConfig.tools[key].secondaryModel = tool.secondaryModel;
+      if (tool.tags) {
+        currentConfig.tools[key].tags = tool.tags;
       }
     }
   }
 
-  return result;
-}
-
-// ========== Main Functions ==========
-
-/**
- * Load CLI configuration from .workflow/cli-config.json
- * Returns default config if file doesn't exist or is invalid
- */
-export function loadCliConfig(baseDir: string): CliConfig {
-  const configPath = getConfigPath(baseDir);
-
-  try {
-    if (!fs.existsSync(configPath)) {
-      return { ...DEFAULT_CONFIG };
-    }
-
-    const content = fs.readFileSync(configPath, 'utf-8');
-    const parsed = JSON.parse(content);
-
-    if (validateConfig(parsed)) {
-      return mergeWithDefaults(parsed);
-    }
-
-    // Invalid config, return defaults
-    console.warn('[cli-config] Invalid config file, using defaults');
-    return { ...DEFAULT_CONFIG };
-  } catch (err) {
-    console.error('[cli-config] Error loading config:', err);
-    return { ...DEFAULT_CONFIG };
-  }
-}
-
-/**
- * Save CLI configuration to .workflow/cli-config.json
- */
-export function saveCliConfig(baseDir: string, config: CliConfig): void {
-  ensureConfigDirForProject(baseDir);
-  const configPath = getConfigPath(baseDir);
-
-  try {
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
-  } catch (err) {
-    console.error('[cli-config] Error saving config:', err);
-    throw new Error(`Failed to save CLI config: ${err}`);
-  }
+  saveClaudeCliTools(baseDir, currentConfig);
 }
 
 /**
  * Get configuration for a specific tool
  */
 export function getToolConfig(baseDir: string, tool: string): CliToolConfig {
-  if (!isValidToolName(tool)) {
-    throw new Error(`Invalid tool name: ${tool}`);
-  }
-
-  const config = loadCliConfig(baseDir);
-  return config.tools[tool] || DEFAULT_CONFIG.tools[tool];
-}
-
-/**
- * Validate and sanitize tags array
- * @param tags - Raw tags array from user input
- * @returns Sanitized tags array
- */
-function validateTags(tags: string[] | undefined): string[] | undefined {
-  if (!tags || !Array.isArray(tags)) return undefined;
-
-  const MAX_TAGS = 10;
-  const MAX_TAG_LENGTH = 30;
-
-  return tags
-    .filter(tag => typeof tag === 'string')
-    .map(tag => tag.trim())
-    .filter(tag => tag.length > 0 && tag.length <= MAX_TAG_LENGTH)
-    .slice(0, MAX_TAGS);
+  return getToolConfigFromClaude(baseDir, tool);
 }
 
 /**
  * Update configuration for a specific tool
- * Returns the updated tool config
  */
 export function updateToolConfig(
   baseDir: string,
   tool: string,
   updates: Partial<CliToolConfig>
 ): CliToolConfig {
-  if (!isValidToolName(tool)) {
-    throw new Error(`Invalid tool name: ${tool}`);
-  }
-
-  const config = loadCliConfig(baseDir);
-  const currentToolConfig = config.tools[tool] || DEFAULT_CONFIG.tools[tool];
-
-  // Apply updates
-  const updatedToolConfig: CliToolConfig = {
-    enabled: updates.enabled !== undefined ? updates.enabled : currentToolConfig.enabled,
-    primaryModel: updates.primaryModel || currentToolConfig.primaryModel,
-    secondaryModel: updates.secondaryModel || currentToolConfig.secondaryModel,
-    tags: updates.tags !== undefined ? validateTags(updates.tags) : currentToolConfig.tags
-  };
-
-  // Save updated config
-  config.tools[tool] = updatedToolConfig;
-  saveCliConfig(baseDir, config);
-
-  // Also sync tags to cli-tools.json
-  if (updates.tags !== undefined) {
-    try {
-      const claudeCliTools = loadClaudeCliTools(baseDir);
-      if (claudeCliTools.tools[tool]) {
-        claudeCliTools.tools[tool].tags = updatedToolConfig.tags || [];
-        saveClaudeCliTools(baseDir, claudeCliTools);
-      }
-    } catch (err) {
-      // Log warning instead of ignoring errors syncing to cli-tools.json
-      console.warn(`[cli-config] Failed to sync tags to cli-tools.json for tool '${tool}'.`, err);
-    }
-  }
-
-  return updatedToolConfig;
+  updateToolConfigFromClaude(baseDir, tool, updates);
+  return getToolConfig(baseDir, tool);
 }
 
 /**
@@ -270,73 +144,55 @@ export function disableTool(baseDir: string, tool: string): CliToolConfig {
  * Check if a tool is enabled
  */
 export function isToolEnabled(baseDir: string, tool: string): boolean {
-  try {
-    const config = getToolConfig(baseDir, tool);
-    return config.enabled;
-  } catch {
-    return true; // Default to enabled if error
-  }
+  return isToolEnabledFromClaude(baseDir, tool);
 }
 
 /**
  * Get primary model for a tool
  */
 export function getPrimaryModel(baseDir: string, tool: string): string {
-  try {
-    const config = getToolConfig(baseDir, tool);
-    return config.primaryModel;
-  } catch {
-    return isValidToolName(tool) ? DEFAULT_CONFIG.tools[tool].primaryModel : 'gemini-2.5-pro';
-  }
+  return getPrimaryModelFromClaude(baseDir, tool);
 }
 
 /**
- * Get secondary model for a tool (used for internal calls)
+ * Get secondary model for a tool
  */
 export function getSecondaryModel(baseDir: string, tool: string): string {
-  try {
-    const config = getToolConfig(baseDir, tool);
-    return config.secondaryModel;
-  } catch {
-    return isValidToolName(tool) ? DEFAULT_CONFIG.tools[tool].secondaryModel : 'gemini-2.5-flash';
-  }
+  return getSecondaryModelFromClaude(baseDir, tool);
 }
 
 /**
  * Get all predefined models for a tool
  */
 export function getPredefinedModels(tool: string): string[] {
-  if (!isValidToolName(tool)) {
-    return [];
-  }
-  return [...PREDEFINED_MODELS[tool]];
+  return getPredefinedModelsFromClaude(tool);
 }
 
 /**
- * Get full config response for API (includes predefined models and tags from cli-tools.json)
+ * Get full config response for API
  */
 export function getFullConfigResponse(baseDir: string): {
   config: CliConfig;
   predefinedModels: Record<string, string[]>;
 } {
-  const config = loadCliConfig(baseDir);
+  const response = getFullConfigResponseFromClaude(baseDir);
 
-  // Merge tags from cli-tools.json
-  try {
-    const claudeCliTools = loadClaudeCliTools(baseDir);
-    for (const [toolName, toolConfig] of Object.entries(config.tools)) {
-      const claudeTool = claudeCliTools.tools[toolName];
-      if (claudeTool && claudeTool.tags) {
-        toolConfig.tags = claudeTool.tags;
-      }
-    }
-  } catch (err) {
-    // Log warning instead of ignoring errors loading cli-tools.json
-    console.warn('[cli-config] Could not merge tags from cli-tools.json.', err);
+  // Convert to legacy format
+  const tools: Record<string, CliToolConfig> = {};
+  for (const [key, tool] of Object.entries(response.config.tools)) {
+    tools[key] = {
+      enabled: tool.enabled,
+      primaryModel: tool.primaryModel ?? '',
+      secondaryModel: tool.secondaryModel ?? '',
+      tags: tool.tags
+    };
   }
 
   return {
-    config,
-    predefinedModels: { ...PREDEFINED_MODELS }
+    config: {
+      version: parseFloat(response.config.version) || 1,
+      tools
+    },
+    predefinedModels: response.predefinedModels
   };
 }

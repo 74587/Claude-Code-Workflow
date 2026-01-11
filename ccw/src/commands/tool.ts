@@ -159,8 +159,23 @@ async function execAction(toolName: string | undefined, jsonParams: string | und
   // Execute tool
   const result = await executeTool(toolName, params);
 
-  // Always output JSON
-  console.log(JSON.stringify(result, null, 2));
+  // Output raw result value for hooks, or JSON on error
+  if (result.success && result.result !== undefined) {
+    // For string results, output directly (useful for hooks)
+    if (typeof result.result === 'string') {
+      if (result.result) {
+        console.log(result.result);
+      }
+      // Empty string = silent (no output)
+    } else {
+      // For object results, output JSON
+      console.log(JSON.stringify(result.result, null, 2));
+    }
+  } else if (!result.success) {
+    // Error case - output full JSON for debugging
+    console.error(JSON.stringify(result, null, 2));
+    process.exit(1);
+  }
 }
 
 /**

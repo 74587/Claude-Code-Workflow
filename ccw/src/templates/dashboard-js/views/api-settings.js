@@ -27,6 +27,9 @@ let poolDiscoveredProviders = {};
 // CLI Settings state
 let cliSettingsData = null;
 let selectedCliSettingsId = null;
+let cliConfigMode = 'provider'; // 'provider' | 'direct'
+let isAddingCliSettings = false;
+let editingCliSettingsId = null;
 
 // Cache for ccw-litellm status (frontend cache with TTL)
 let ccwLitellmStatusCache = null;
@@ -3711,14 +3714,21 @@ function renderCliSettingsList() {
   var html = '';
   endpoints.forEach(function(endpoint) {
     var isSelected = endpoint.id === selectedCliSettingsId;
-    html += '<div class="provider-item' + (isSelected ? ' selected' : '') + '" onclick="selectCliSettings(\'' + endpoint.id + '\')">' +
+    var isEditing = endpoint.id === editingCliSettingsId;
+    var settings = endpoint.settings || {};
+    var configMode = settings.configMode || (settings.providerId ? 'provider' : 'direct');
+    var configIcon = configMode === 'provider' ? 'link' : 'key';
+
+    html += '<div class="provider-item' + (isSelected || isEditing ? ' selected' : '') + '" onclick="selectCliSettings(\'' + endpoint.id + '\')">' +
       '<div class="provider-item-content">' +
       '<div class="provider-icon">' +
-      '<i data-lucide="settings"></i>' +
+      '<i data-lucide="' + configIcon + '"></i>' +
       '</div>' +
       '<div class="provider-info">' +
       '<div class="provider-name">' + escapeHtml(endpoint.name) + '</div>' +
-      '<div class="provider-type">' + (endpoint.settings.model || 'sonnet') + '</div>' +
+      '<div class="provider-type" style="font-size: 0.75rem; color: var(--text-muted);">' +
+      (configMode === 'provider' ? 'Provider' : 'Direct') +
+      '</div>' +
       '</div>' +
       '</div>' +
       '<div class="provider-status' + (endpoint.enabled ? ' enabled' : ' disabled') + '">' +
@@ -3759,10 +3769,45 @@ function renderCliSettingsDetail(endpointId) {
 
   var settings = endpoint.settings || {};
   var env = settings.env || {};
+  var configMode = settings.configMode || (settings.providerId ? 'provider' : 'direct');
+  var configModeLabel = configMode === 'provider' ? (t('apiSettings.providerBinding') || 'Provider Binding') : (t('apiSettings.directConfig') || 'Direct Configuration');
+
+  // Build model config display
+  var modelConfigHtml = '';
+  if (env.ANTHROPIC_MODEL || env.ANTHROPIC_DEFAULT_HAIKU_MODEL || env.ANTHROPIC_DEFAULT_SONNET_MODEL || env.ANTHROPIC_DEFAULT_OPUS_MODEL) {
+    modelConfigHtml =
+      '<div class="detail-section">' +
+      '<h3>' + (t('apiSettings.modelConfig') || 'Model Configuration') + '</h3>' +
+      '<div class="detail-grid">' +
+      '<div class="detail-item">' +
+      '<label>ANTHROPIC_MODEL</label>' +
+      '<span class="mono">' + escapeHtml(env.ANTHROPIC_MODEL || '-') + '</span>' +
+      '</div>' +
+      '<div class="detail-item">' +
+      '<label>ANTHROPIC_DEFAULT_HAIKU_MODEL</label>' +
+      '<span class="mono">' + escapeHtml(env.ANTHROPIC_DEFAULT_HAIKU_MODEL || '-') + '</span>' +
+      '</div>' +
+      '<div class="detail-item">' +
+      '<label>ANTHROPIC_DEFAULT_SONNET_MODEL</label>' +
+      '<span class="mono">' + escapeHtml(env.ANTHROPIC_DEFAULT_SONNET_MODEL || '-') + '</span>' +
+      '</div>' +
+      '<div class="detail-item">' +
+      '<label>ANTHROPIC_DEFAULT_OPUS_MODEL</label>' +
+      '<span class="mono">' + escapeHtml(env.ANTHROPIC_DEFAULT_OPUS_MODEL || '-') + '</span>' +
+      '</div>' +
+      '</div>' +
+      '</div>';
+  }
 
   container.innerHTML =
     '<div class="provider-detail-header">' +
+    '<div>' +
     '<h2>' + escapeHtml(endpoint.name) + '</h2>' +
+    '<span class="config-source-badge ' + configMode + '" style="margin-top: 0.5rem; display: inline-block;">' +
+    (configMode === 'provider' ? '<i data-lucide="link" style="width: 12px; height: 12px;"></i> ' : '<i data-lucide="key" style="width: 12px; height: 12px;"></i> ') +
+    configModeLabel +
+    '</span>' +
+    '</div>' +
     '<div class="provider-detail-actions">' +
     '<button class="btn btn-ghost" onclick="editCliSettings(\'' + endpoint.id + '\')" title="' + t('common.edit') + '">' +
     '<i data-lucide="edit-2"></i>' +
@@ -3781,15 +3826,12 @@ function renderCliSettingsDetail(endpointId) {
     '<span class="mono">' + escapeHtml(endpoint.id) + '</span>' +
     '</div>' +
     '<div class="detail-item">' +
-    '<label>' + t('apiSettings.model') + '</label>' +
-    '<span>' + escapeHtml(settings.model || 'sonnet') + '</span>' +
-    '</div>' +
-    '<div class="detail-item">' +
     '<label>' + t('apiSettings.status') + '</label>' +
     '<span class="status-badge ' + (endpoint.enabled ? 'enabled' : 'disabled') + '">' +
     (endpoint.enabled ? t('common.enabled') : t('common.disabled')) +
     '</span>' +
     '</div>' +
+    (endpoint.description ? '<div class="detail-item detail-item-full"><label>' + t('apiSettings.description') + '</label><span>' + escapeHtml(endpoint.description) + '</span></div>' : '') +
     '</div>' +
     '</div>' +
     '<div class="detail-section">' +
@@ -3805,6 +3847,7 @@ function renderCliSettingsDetail(endpointId) {
     '</div>' +
     '</div>' +
     '</div>' +
+    modelConfigHtml +
     '<div class="detail-section">' +
     '<h3>' + t('apiSettings.settingsFilePath') + '</h3>' +
     '<div class="code-block">' +
@@ -3817,20 +3860,405 @@ function renderCliSettingsDetail(endpointId) {
 }
 
 /**
- * Render CLI Settings empty state
+ * Render CLI Settings empty state or add form
  */
 function renderCliSettingsEmptyState() {
   var container = document.getElementById('provider-detail-panel');
   if (!container) return;
+
+  // If adding new settings, show the form
+  if (isAddingCliSettings) {
+    renderCliSettingsForm(null);
+    return;
+  }
 
   container.innerHTML =
     '<div class="provider-empty-state">' +
     '<i data-lucide="settings" class="empty-icon"></i>' +
     '<h3>' + t('apiSettings.noCliSettingsSelected') + '</h3>' +
     '<p>' + t('apiSettings.cliSettingsHint') + '</p>' +
+    '<button class="btn btn-primary" style="margin-top: 1rem;" onclick="startAddCliSettings()">' +
+    '<i data-lucide="plus"></i> ' + t('apiSettings.addCliSettings') +
+    '</button>' +
     '</div>';
 
   if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Start adding new CLI Settings (show form in panel)
+ */
+function startAddCliSettings() {
+  isAddingCliSettings = true;
+  selectedCliSettingsId = null;
+  editingCliSettingsId = null;
+  cliConfigMode = 'provider';
+  renderCliSettingsForm(null);
+  renderCliSettingsList();
+}
+
+/**
+ * Cancel adding/editing CLI Settings
+ */
+function cancelCliSettingsForm() {
+  isAddingCliSettings = false;
+  editingCliSettingsId = null;
+
+  // Re-render detail panel
+  if (selectedCliSettingsId) {
+    renderCliSettingsDetail(selectedCliSettingsId);
+  } else {
+    renderCliSettingsEmptyState();
+  }
+  renderCliSettingsList();
+}
+
+/**
+ * Render CLI Settings form in detail panel (for add or edit)
+ */
+function renderCliSettingsForm(existingEndpoint) {
+  var container = document.getElementById('provider-detail-panel');
+  if (!container) return;
+
+  var isEdit = !!existingEndpoint;
+  var settings = existingEndpoint ? existingEndpoint.settings : { env: {}, model: '' };
+  var env = settings.env || {};
+
+  // Determine initial config mode for editing
+  if (isEdit) {
+    // If settings has configMode, use it; otherwise detect based on providerId
+    cliConfigMode = settings.configMode || (settings.providerId ? 'provider' : 'direct');
+  }
+
+  // Build mode toggle
+  var modeToggleHtml =
+    '<div class="config-mode-toggle">' +
+    '<button type="button" class="config-mode-btn' + (cliConfigMode === 'provider' ? ' active' : '') + '" data-mode="provider" onclick="switchCliConfigMode(\'provider\')">' +
+    '<i data-lucide="link"></i> ' + (t('apiSettings.providerBinding') || 'Provider Binding') +
+    '</button>' +
+    '<button type="button" class="config-mode-btn' + (cliConfigMode === 'direct' ? ' active' : '') + '" data-mode="direct" onclick="switchCliConfigMode(\'direct\')">' +
+    '<i data-lucide="key"></i> ' + (t('apiSettings.directConfig') || 'Direct Configuration') +
+    '</button>' +
+    '</div>';
+
+  // Common fields
+  var commonFieldsHtml =
+    '<div class="form-group">' +
+    '<label for="cli-settings-name">' + t('apiSettings.endpointName') + ' *</label>' +
+    '<input type="text" id="cli-settings-name" class="form-control" value="' + escapeHtml(existingEndpoint ? existingEndpoint.name : '') + '" placeholder="My Claude Endpoint" required />' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label for="cli-settings-description">' + t('apiSettings.description') + '</label>' +
+    '<input type="text" id="cli-settings-description" class="form-control" value="' + escapeHtml(existingEndpoint ? (existingEndpoint.description || '') : '') + '" placeholder="Optional description" />' +
+    '</div>';
+
+  // Mode-specific form content container
+  var formContentHtml = '<div id="cli-config-mode-content"></div>';
+
+  // Enabled toggle
+  var enabledHtml =
+    '<div class="form-group" style="margin-top: 1rem;">' +
+    '<label class="checkbox-label">' +
+    '<input type="checkbox" id="cli-settings-enabled"' + (existingEndpoint ? (existingEndpoint.enabled ? ' checked' : '') : ' checked') + ' />' +
+    ' ' + t('common.enabled') +
+    '</label>' +
+    '</div>';
+
+  // Action buttons
+  var actionsHtml =
+    '<div class="form-actions" style="margin-top: 1.5rem; display: flex; gap: 0.75rem; justify-content: flex-end;">' +
+    '<button type="button" class="btn btn-secondary" onclick="cancelCliSettingsForm()">' + t('common.cancel') + '</button>' +
+    '<button type="button" class="btn btn-primary" onclick="submitCliSettingsForm()">' +
+    '<i data-lucide="save"></i> ' + (isEdit ? t('common.save') : t('common.create')) +
+    '</button>' +
+    '</div>';
+
+  container.innerHTML =
+    '<div class="tool-detail-header">' +
+    '<h3><i data-lucide="settings"></i> ' + (isEdit ? t('apiSettings.editCliSettings') : t('apiSettings.addCliSettings')) + '</h3>' +
+    '</div>' +
+    '<div class="claude-config-form">' +
+    (isEdit ? '<input type="hidden" id="cli-settings-id" value="' + existingEndpoint.id + '">' : '') +
+    '<input type="hidden" id="cli-config-mode" value="' + cliConfigMode + '">' +
+    modeToggleHtml +
+    commonFieldsHtml +
+    formContentHtml +
+    enabledHtml +
+    actionsHtml +
+    '</div>';
+
+  if (window.lucide) lucide.createIcons();
+
+  // Render mode-specific content
+  renderCliConfigModeContent(existingEndpoint);
+}
+
+/**
+ * Switch CLI config mode
+ */
+function switchCliConfigMode(mode) {
+  cliConfigMode = mode;
+
+  // Update hidden input
+  var modeInput = document.getElementById('cli-config-mode');
+  if (modeInput) modeInput.value = mode;
+
+  // Update toggle buttons
+  document.querySelectorAll('.config-mode-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+
+  // Re-render mode content while preserving form data
+  var existingEndpoint = null;
+  var idInput = document.getElementById('cli-settings-id');
+  if (idInput && idInput.value && cliSettingsData && cliSettingsData.endpoints) {
+    existingEndpoint = cliSettingsData.endpoints.find(function(e) { return e.id === idInput.value; });
+  }
+
+  renderCliConfigModeContent(existingEndpoint);
+}
+
+/**
+ * Render CLI config mode-specific content
+ */
+function renderCliConfigModeContent(existingEndpoint) {
+  var container = document.getElementById('cli-config-mode-content');
+  if (!container) return;
+
+  var settings = existingEndpoint ? existingEndpoint.settings : { env: {}, model: '' };
+  var env = settings.env || {};
+
+  if (cliConfigMode === 'provider') {
+    renderProviderModeContent(container, settings);
+  } else {
+    renderDirectModeContent(container, env);
+  }
+
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Render Provider Binding mode content
+ */
+function renderProviderModeContent(container, settings) {
+  var providers = getAvailableAnthropicProviders();
+  var hasProviders = providers.length > 0;
+  var selectedProviderId = settings.providerId || '';
+  var providerOptionsHtml = buildCliProviderOptions(selectedProviderId);
+  var env = settings.env || {};
+
+  var noProvidersWarning = !hasProviders ?
+    '<div class="info-message" style="margin-bottom: 1rem; padding: 0.75rem; background: hsl(var(--warning) / 0.1); border-radius: 0.375rem; display: flex; align-items: center; gap: 0.5rem;">' +
+    '<i data-lucide="alert-circle" style="width: 16px; height: 16px; color: hsl(var(--warning));"></i>' +
+    '<span style="font-size: 0.8125rem;">' + (t('apiSettings.noAnthropicProviders') || 'No Anthropic providers configured. Please add a provider first.') + '</span>' +
+    '</div>' : '';
+
+  container.innerHTML = noProvidersWarning +
+    '<div class="form-group">' +
+    '<label for="cli-settings-provider">' + t('apiSettings.provider') + ' *</label>' +
+    '<select id="cli-settings-provider" class="form-control" onchange="onCliProviderChange()"' + (!hasProviders ? ' disabled' : '') + '>' +
+    providerOptionsHtml +
+    '</select>' +
+    '</div>' +
+    // Model Config Section
+    '<div class="model-config-section">' +
+    '<h4><i data-lucide="cpu"></i> ' + (t('apiSettings.modelConfig') || 'Model Configuration') + '</h4>' +
+    '<div class="model-config-grid">' +
+    '<div class="form-group">' +
+    '<label for="cli-model-default">ANTHROPIC_MODEL</label>' +
+    '<input type="text" id="cli-model-default" class="form-control" placeholder="claude-3-5-sonnet-20241022" value="' + escapeHtml(env.ANTHROPIC_MODEL || '') + '" />' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label for="cli-model-haiku">ANTHROPIC_DEFAULT_HAIKU_MODEL</label>' +
+    '<input type="text" id="cli-model-haiku" class="form-control" placeholder="claude-3-haiku-20240307" value="' + escapeHtml(env.ANTHROPIC_DEFAULT_HAIKU_MODEL || '') + '" />' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label for="cli-model-sonnet">ANTHROPIC_DEFAULT_SONNET_MODEL</label>' +
+    '<input type="text" id="cli-model-sonnet" class="form-control" placeholder="claude-3-5-sonnet-20241022" value="' + escapeHtml(env.ANTHROPIC_DEFAULT_SONNET_MODEL || '') + '" />' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label for="cli-model-opus">ANTHROPIC_DEFAULT_OPUS_MODEL</label>' +
+    '<input type="text" id="cli-model-opus" class="form-control" placeholder="claude-3-opus-20240229" value="' + escapeHtml(env.ANTHROPIC_DEFAULT_OPUS_MODEL || '') + '" />' +
+    '</div>' +
+    '</div>' +
+    '</div>';
+}
+
+/**
+ * Render Direct Configuration mode content
+ */
+function renderDirectModeContent(container, env) {
+  container.innerHTML =
+    '<div class="form-group">' +
+    '<label for="cli-auth-token">ANTHROPIC_AUTH_TOKEN *</label>' +
+    '<input type="password" id="cli-auth-token" class="form-control" placeholder="sk-ant-..." value="' + escapeHtml(env.ANTHROPIC_AUTH_TOKEN || '') + '" />' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label for="cli-base-url">ANTHROPIC_BASE_URL</label>' +
+    '<input type="text" id="cli-base-url" class="form-control" placeholder="https://api.anthropic.com (optional)" value="' + escapeHtml(env.ANTHROPIC_BASE_URL || '') + '" />' +
+    '</div>' +
+    // Model Config Section
+    '<div class="model-config-section">' +
+    '<h4><i data-lucide="cpu"></i> ' + (t('apiSettings.modelConfig') || 'Model Configuration') + '</h4>' +
+    '<div class="model-config-grid">' +
+    '<div class="form-group">' +
+    '<label for="cli-model-default">ANTHROPIC_MODEL</label>' +
+    '<input type="text" id="cli-model-default" class="form-control" placeholder="claude-3-5-sonnet-20241022" value="' + escapeHtml(env.ANTHROPIC_MODEL || '') + '" />' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label for="cli-model-haiku">ANTHROPIC_DEFAULT_HAIKU_MODEL</label>' +
+    '<input type="text" id="cli-model-haiku" class="form-control" placeholder="claude-3-haiku-20240307" value="' + escapeHtml(env.ANTHROPIC_DEFAULT_HAIKU_MODEL || '') + '" />' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label for="cli-model-sonnet">ANTHROPIC_DEFAULT_SONNET_MODEL</label>' +
+    '<input type="text" id="cli-model-sonnet" class="form-control" placeholder="claude-3-5-sonnet-20241022" value="' + escapeHtml(env.ANTHROPIC_DEFAULT_SONNET_MODEL || '') + '" />' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label for="cli-model-opus">ANTHROPIC_DEFAULT_OPUS_MODEL</label>' +
+    '<input type="text" id="cli-model-opus" class="form-control" placeholder="claude-3-opus-20240229" value="' + escapeHtml(env.ANTHROPIC_DEFAULT_OPUS_MODEL || '') + '" />' +
+    '</div>' +
+    '</div>' +
+    '</div>';
+}
+
+/**
+ * Submit CLI Settings Form (handles both Provider and Direct modes)
+ */
+async function submitCliSettingsForm() {
+  // Get common fields
+  var name = document.getElementById('cli-settings-name').value.trim();
+  var description = document.getElementById('cli-settings-description').value.trim();
+  var enabled = document.getElementById('cli-settings-enabled').checked;
+  var idInput = document.getElementById('cli-settings-id');
+  var id = idInput ? idInput.value : null;
+  var configMode = cliConfigMode;
+
+  // Get model configuration fields
+  var anthropicModel = document.getElementById('cli-model-default').value.trim();
+  var haikuModel = document.getElementById('cli-model-haiku').value.trim();
+  var sonnetModel = document.getElementById('cli-model-sonnet').value.trim();
+  var opusModel = document.getElementById('cli-model-opus').value.trim();
+
+  // Validate common fields
+  if (!name) {
+    showRefreshToast(t('apiSettings.nameRequired'), 'error');
+    return;
+  }
+
+  var data = {
+    name: name,
+    description: description,
+    enabled: enabled,
+    settings: {
+      env: {
+        DISABLE_AUTOUPDATER: '1'
+      },
+      configMode: configMode,
+      includeCoAuthoredBy: false
+    }
+  };
+
+  // Mode-specific handling
+  if (configMode === 'provider') {
+    // Provider binding mode
+    var providerId = document.getElementById('cli-settings-provider').value;
+
+    if (!providerId) {
+      showRefreshToast(t('apiSettings.providerRequired'), 'error');
+      return;
+    }
+
+    // Get provider credentials
+    var providers = getAvailableAnthropicProviders();
+    var provider = providers.find(function(p) { return p.id === providerId; });
+
+    if (!provider) {
+      showRefreshToast(t('apiSettings.providerNotFound'), 'error');
+      return;
+    }
+
+    // Copy provider credentials to env
+    data.settings.env.ANTHROPIC_AUTH_TOKEN = provider.apiKey || '';
+    if (provider.apiBase) {
+      data.settings.env.ANTHROPIC_BASE_URL = provider.apiBase;
+    }
+    data.settings.providerId = providerId;
+
+  } else {
+    // Direct configuration mode
+    var authToken = document.getElementById('cli-auth-token').value.trim();
+    var baseUrl = document.getElementById('cli-base-url').value.trim();
+
+    if (!authToken) {
+      showRefreshToast(t('apiSettings.authTokenRequired') || 'Auth token is required', 'error');
+      return;
+    }
+
+    data.settings.env.ANTHROPIC_AUTH_TOKEN = authToken;
+    if (baseUrl) {
+      data.settings.env.ANTHROPIC_BASE_URL = baseUrl;
+    }
+  }
+
+  // Add model configuration
+  if (anthropicModel) {
+    data.settings.env.ANTHROPIC_MODEL = anthropicModel;
+  }
+  if (haikuModel) {
+    data.settings.env.ANTHROPIC_DEFAULT_HAIKU_MODEL = haikuModel;
+  }
+  if (sonnetModel) {
+    data.settings.env.ANTHROPIC_DEFAULT_SONNET_MODEL = sonnetModel;
+  }
+  if (opusModel) {
+    data.settings.env.ANTHROPIC_DEFAULT_OPUS_MODEL = opusModel;
+  }
+
+  // Set ID if editing
+  if (id) {
+    data.id = id;
+  }
+
+  // Save endpoint
+  var result = await saveCliSettingsEndpoint(data);
+  if (result && result.success) {
+    // Reset form state
+    isAddingCliSettings = false;
+    editingCliSettingsId = null;
+
+    // Select the newly created/updated endpoint
+    if (result.endpoint && result.endpoint.id) {
+      selectedCliSettingsId = result.endpoint.id;
+    }
+
+    // Refresh view
+    await loadCliSettings();
+    renderCliSettingsList();
+    if (selectedCliSettingsId) {
+      renderCliSettingsDetail(selectedCliSettingsId);
+    }
+  }
+}
+
+/**
+ * Edit CLI Settings in panel (new panel-based approach)
+ */
+function editCliSettingsInPanel(endpointId) {
+  var endpoint = null;
+  if (cliSettingsData && cliSettingsData.endpoints) {
+    endpoint = cliSettingsData.endpoints.find(function(e) { return e.id === endpointId; });
+  }
+  if (endpoint) {
+    isAddingCliSettings = false;
+    editingCliSettingsId = endpointId;
+
+    // Determine config mode from existing settings
+    var settings = endpoint.settings || {};
+    cliConfigMode = settings.configMode || (settings.providerId ? 'provider' : 'direct');
+
+    renderCliSettingsForm(endpoint);
+    renderCliSettingsList();
+  }
 }
 
 /**
@@ -3964,16 +4392,10 @@ function showAddCliSettingsModal(existingEndpoint) {
 }
 
 /**
- * Edit CLI Settings
+ * Edit CLI Settings (uses panel-based form)
  */
 function editCliSettings(endpointId) {
-  var endpoint = null;
-  if (cliSettingsData && cliSettingsData.endpoints) {
-    endpoint = cliSettingsData.endpoints.find(function(e) { return e.id === endpointId; });
-  }
-  if (endpoint) {
-    showAddCliSettingsModal(endpoint);
-  }
+  editCliSettingsInPanel(endpointId);
 }
 
 /**
@@ -4381,8 +4803,150 @@ async function submitModelPool(event) {
  * Edit model pool
  */
 function editModelPool(poolId) {
-  // TODO: Implement edit modal
-  showRefreshToast('Edit functionality coming soon', 'info');
+  var pool = modelPools.find(function(p) { return p.id === poolId; });
+  if (!pool) {
+    showRefreshToast(t('common.error') + ': Pool not found', 'error');
+    return;
+  }
+
+  var modalHtml = '<div class="generic-modal-overlay active" id="edit-pool-modal">' +
+    '<div class="generic-modal" style="max-width: 600px;">' +
+    '<div class="generic-modal-header">' +
+    '<h3 class="generic-modal-title">' + t('apiSettings.editModelPool') + '</h3>' +
+    '<button class="generic-modal-close" onclick="closeEditPoolModal()">&times;</button>' +
+    '</div>' +
+    '<div class="generic-modal-body">' +
+    '<form id="edit-pool-form" class="api-settings-form" onsubmit="submitEditModelPool(event, \'' + poolId + '\')">' +
+
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.modelType') + '</label>' +
+    '<input type="text" class="cli-input" value="' + (pool.modelType === 'embedding' ? 'Embedding' : pool.modelType === 'llm' ? 'LLM' : 'Reranker') + '" disabled />' +
+    '</div>' +
+
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.poolName') + '</label>' +
+    '<input type="text" id="edit-pool-name" class="cli-input" value="' + escapeHtml(pool.name || '') + '" placeholder="e.g., Primary Embedding Pool" />' +
+    '</div>' +
+
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.targetModel') + '</label>' +
+    '<input type="text" class="cli-input" value="' + escapeHtml(pool.targetModel) + '" disabled />' +
+    '</div>' +
+
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.strategy') + ' *</label>' +
+    '<select id="edit-pool-strategy" class="cli-input" required>' +
+    '<option value="round_robin"' + (pool.strategy === 'round_robin' ? ' selected' : '') + '>Round Robin</option>' +
+    '<option value="latency_aware"' + (pool.strategy === 'latency_aware' ? ' selected' : '') + '>Latency Aware</option>' +
+    '<option value="weighted_random"' + (pool.strategy === 'weighted_random' ? ' selected' : '') + '>Weighted Random</option>' +
+    '</select>' +
+    '</div>' +
+
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.cooldown') + ' (seconds)</label>' +
+    '<input type="number" id="edit-pool-cooldown" class="cli-input" value="' + (pool.defaultCooldown || 60) + '" min="0" />' +
+    '</div>' +
+
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.maxConcurrent') + '</label>' +
+    '<input type="number" id="edit-pool-max-concurrent" class="cli-input" value="' + (pool.defaultMaxConcurrentPerKey || 4) + '" min="1" />' +
+    '</div>' +
+
+    '<div class="form-group">' +
+    '<label>' + t('apiSettings.description') + '</label>' +
+    '<textarea id="edit-pool-description" class="cli-input" rows="2" placeholder="Optional description">' + escapeHtml(pool.description || '') + '</textarea>' +
+    '</div>' +
+
+    '<div class="form-group">' +
+    '<label class="checkbox-label">' +
+    '<input type="checkbox" id="edit-pool-enabled"' + (pool.enabled ? ' checked' : '') + ' /> ' + t('apiSettings.enablePool') +
+    '</label>' +
+    '</div>' +
+
+    '<div class="form-group">' +
+    '<label class="checkbox-label">' +
+    '<input type="checkbox" id="edit-pool-auto-discover"' + (pool.autoDiscover !== false ? ' checked' : '') + ' /> ' + t('apiSettings.autoDiscoverProviders') +
+    '</label>' +
+    '</div>' +
+
+    '</form>' +
+    '</div>' +
+    '<div class="generic-modal-footer">' +
+    '<button class="btn btn-secondary" onclick="closeEditPoolModal()">' + t('common.cancel') + '</button>' +
+    '<button class="btn btn-primary" onclick="document.getElementById(\'edit-pool-form\').requestSubmit()">' + t('common.save') + '</button>' +
+    '</div>' +
+    '</div>' +
+    '</div>';
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Close edit pool modal
+ */
+function closeEditPoolModal() {
+  var modal = document.getElementById('edit-pool-modal');
+  if (modal) modal.remove();
+}
+
+/**
+ * Submit edit model pool form
+ */
+async function submitEditModelPool(event, poolId) {
+  event.preventDefault();
+
+  var pool = modelPools.find(function(p) { return p.id === poolId; });
+  if (!pool) {
+    showRefreshToast(t('common.error') + ': Pool not found', 'error');
+    return;
+  }
+
+  var name = document.getElementById('edit-pool-name').value.trim();
+  var strategy = document.getElementById('edit-pool-strategy').value;
+  var cooldown = parseInt(document.getElementById('edit-pool-cooldown').value || '60');
+  var maxConcurrent = parseInt(document.getElementById('edit-pool-max-concurrent').value || '4');
+  var description = document.getElementById('edit-pool-description').value.trim();
+  var enabled = document.getElementById('edit-pool-enabled').checked;
+  var autoDiscover = document.getElementById('edit-pool-auto-discover').checked;
+
+  var poolData = {
+    id: poolId,
+    modelType: pool.modelType,
+    enabled: enabled,
+    name: name || pool.targetModel,
+    targetModel: pool.targetModel,
+    strategy: strategy,
+    autoDiscover: autoDiscover,
+    defaultCooldown: cooldown,
+    defaultMaxConcurrentPerKey: maxConcurrent,
+    description: description || undefined,
+    excludedProviderIds: pool.excludedProviderIds || []
+  };
+
+  try {
+    await initCsrfToken();
+    var response = await csrfFetch('/api/litellm-api/model-pools/' + poolId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(poolData)
+    });
+
+    if (!response.ok) {
+      var err = await response.json();
+      throw new Error(err.error || 'Failed to update pool');
+    }
+
+    showRefreshToast(t('apiSettings.poolUpdated'), 'success');
+    closeEditPoolModal();
+
+    // Reload pools and refresh view
+    await loadModelPools();
+    renderModelPoolsList();
+    renderModelPoolDetail(poolId);
+  } catch (err) {
+    showRefreshToast(t('common.error') + ': ' + err.message, 'error');
+  }
 }
 
 /**
@@ -4426,6 +4990,8 @@ window.closeAddPoolModal = closeAddPoolModal;
 window.onPoolModelTypeChange = onPoolModelTypeChange;
 window.submitModelPool = submitModelPool;
 window.editModelPool = editModelPool;
+window.closeEditPoolModal = closeEditPoolModal;
+window.submitEditModelPool = submitEditModelPool;
 window.deleteModelPool = deleteModelPool;
 
 // Make CLI Settings functions globally accessible
@@ -4441,6 +5007,12 @@ window.editCliSettings = editCliSettings;
 window.closeCliSettingsModal = closeCliSettingsModal;
 window.submitCliSettings = submitCliSettings;
 window.onCliProviderChange = onCliProviderChange;
+// New panel-based CLI Settings functions
+window.startAddCliSettings = startAddCliSettings;
+window.cancelCliSettingsForm = cancelCliSettingsForm;
+window.switchCliConfigMode = switchCliConfigMode;
+window.submitCliSettingsForm = submitCliSettingsForm;
+window.editCliSettingsInPanel = editCliSettingsInPanel;
 
 
 // ========== Utility Functions ==========
