@@ -671,6 +671,46 @@ Use gemini to review code quality
 
 ## 💡 Expert Advice
 
+### 🔧 Issue Batch Execution Workflow (v6.3.19 New)
+
+**Use Case**: Multiple related issues requiring batch planning and execution, supports long-running autonomous work
+
+| Phase | Command | Description |
+|-------|---------|-------------|
+| **Plan** | `/issue:plan` | Generate solutions and task breakdown for issues |
+| **Queue** | `/issue:queue` | Form execution queue, analyze dependencies |
+| **Execute** | `/issue:execute` | DAG-driven parallel execution, one commit per solution |
+
+**Executor Selection**:
+| Executor | Recommended For | Timeout |
+|----------|-----------------|---------|
+| **Codex (Recommended)** | Long-running autonomous coding, complex multi-task solutions | 2 hours |
+| Gemini | Large context analysis and implementation | 1 hour |
+| Agent | Claude Code sub-agent for complex tasks | Sync |
+
+**Why Codex is Recommended**:
+- ✅ **Long-running autonomous work**: 2-hour timeout, suitable for complex solutions
+- ✅ **Full write access**: Autonomously create, modify, delete files
+- ✅ **Background execution**: Supports `run_in_background: true`, non-blocking
+- ✅ **Worktree isolation**: Combined with `--worktree` for true parallel execution
+
+**Example Workflow**:
+```bash
+# 1. Plan multiple issues
+/issue:plan ISS-001 ISS-002 ISS-003
+
+# 2. Form execution queue
+/issue:queue
+
+# 3. Execute with Codex (recommended for long tasks)
+/issue:execute --worktree
+# → Select Codex executor
+# → Enable worktree isolation
+# → Parallel batches auto-execute
+```
+
+---
+
 ### ✅ Best Practices
 
 1. **Use brainstorming when uncertain**: Better to spend 10 minutes exploring solutions than blindly implementing and rewriting
@@ -678,6 +718,7 @@ Use gemini to review code quality
 3. **Use Lite workflow for small tasks**: Complete quickly, reduce overhead
 4. **Use TDD for critical modules**: Test-driven development ensures quality
 5. **Regularly update memory**: `/memory:update-related` keeps context accurate
+6. **Use issue workflow for batch issues**: `/issue:plan` → `/issue:queue` → `/issue:execute`, recommend Codex for long-running tasks
 
 ### ❌ Common Pitfalls
 
@@ -699,5 +740,5 @@ Use gemini to review code quality
 
 ---
 
-**Last Updated**: 2025-11-20
-**Version**: 5.8.1
+**Last Updated**: 2026-01-12
+**Version**: 6.3.19

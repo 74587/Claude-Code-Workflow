@@ -109,6 +109,9 @@ export interface ApiKeyEntry {
 
   /** Error message if unhealthy */
   lastError?: string;
+
+  /** Last recorded latency in milliseconds */
+  lastLatencyMs?: number;
 }
 
 /**

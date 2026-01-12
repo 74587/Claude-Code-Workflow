@@ -5,7 +5,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v6.3.18-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v6.3.19-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![npm](https://img.shields.io/npm/v/claude-code-workflow.svg)](https://www.npmjs.com/package/claude-code-workflow)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
@@ -19,18 +19,16 @@
 
 **Claude Code Workflow (CCW)** is a JSON-driven multi-agent development framework with intelligent CLI orchestration (Gemini/Qwen/Codex), context-first architecture, and automated workflow execution. It transforms AI development from simple prompt chaining into a powerful orchestration system.
 
-> **🎉 Version 6.3.18: Native CodexLens & Dashboard Revolution**
+> **🎉 Version 6.3.19: Search Enhancement & CLI Tools Upgrade**
 >
-> **Breaking Changes**:
-> - ⚠️ CLI command refactored: `ccw cli exec` → `ccw cli -p`
-> - ⚠️ Code Index MCP replaced with native CodexLens
-> - ⚠️ Knowledge Graph replaced with Session Clustering
+> **New Features**:
+> - 🔍 **Dense + Reranker Search**: Cross-Encoder reranking for improved result relevance
+> - 💻 **OpenCode AI Support**: New OpenCode CLI tool integration
+> - 🛠️ **Service Architecture**: Preload service, cache management, UV package manager support
+> - 📊 **Issue Multi-Queue Execution**: Supports Codex for long-running autonomous work
 >
-> **Core Features**:
-> - 🔍 **Native CodexLens**: Full-Text Search + Semantic Search + HNSW vector index
-> - 🖥️ **New Dashboard Views**: CLAUDE.md Manager, Skills Manager, Graph Explorer, Core Memory
-> - 📘 **TypeScript Migration**: Full backend modernization
-> - 🧠 **Session Clustering**: Intelligent memory management with cluster visualization
+> **Recommended Workflow**:
+> - 🚀 **Issue Workflow** (`/issue:plan` → `/issue:queue` → `/issue:execute`): Recommend **Codex** executor for long-running autonomous coding
 >
 > See [CHANGELOG.md](CHANGELOG.md) for complete details and migration guide.
 

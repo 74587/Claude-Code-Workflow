@@ -3173,15 +3173,74 @@ function renderDiscoveredProviders() {
 }
 
 /**
+ * Format relative time for display (e.g., "2 minutes ago")
+ */
+function formatKeyRelativeTime(dateString) {
+  if (!dateString) return '';
+  try {
+    var date = new Date(dateString);
+    var now = new Date();
+    var diffMs = now - date;
+    var diffSecs = Math.floor(diffMs / 1000);
+    var diffMins = Math.floor(diffSecs / 60);
+    var diffHours = Math.floor(diffMins / 60);
+    var diffDays = Math.floor(diffHours / 24);
+
+    if (diffSecs < 60) return t('apiSettings.justNow') || 'just now';
+    if (diffMins < 60) return diffMins + (t('apiSettings.minutesAgo') || 'm ago');
+    if (diffHours < 24) return diffHours + (t('apiSettings.hoursAgo') || 'h ago');
+    if (diffDays < 7) return diffDays + (t('apiSettings.daysAgo') || 'd ago');
+    return date.toLocaleDateString();
+  } catch (e) {
+    return dateString;
+  }
+}
+
+/**
+ * Get status indicator color class
+ */
+function getKeyStatusColorClass(status) {
+  switch (status) {
+    case 'healthy': return 'text-success';
+    case 'unhealthy': return 'text-danger';
+    default: return 'text-muted';
+  }
+}
+
+/**
  * Render API keys section
  */
 function renderApiKeysSection(provider) {
-  const keys = provider.apiKeys || [];
-  const hasMultipleKeys = keys.length > 0;
+  var keys = provider.apiKeys || [];
+  var hasMultipleKeys = keys.length > 0;
 
-  let keysHtml = '';
+  var keysHtml = '';
   if (hasMultipleKeys) {
     keysHtml = keys.map(function(key, index) {
+      var healthStatus = key.healthStatus || 'unknown';
+      var statusColorClass = getKeyStatusColorClass(healthStatus);
+      var lastCheckTime = key.lastHealthCheck ? formatKeyRelativeTime(key.lastHealthCheck) : '';
+      var latencyInfo = (healthStatus === 'healthy' && key.lastLatencyMs !== undefined)
+        ? ' (' + key.lastLatencyMs + 'ms)'
+        : '';
+
+      // Status display with latency and time
+      var statusDisplay = '<div class="key-status" style="display: flex; flex-direction: column; gap: 0.25rem;">' +
+        '<div style="display: flex; align-items: center; gap: 0.5rem;">' +
+        '<span class="key-status-indicator ' + healthStatus + '"></span>' +
+        '<span class="key-status-text ' + statusColorClass + '">' +
+          t('apiSettings.' + healthStatus) + latencyInfo +
+        '</span>' +
+        '</div>';
+
+      // Show last check time if available
+      if (lastCheckTime) {
+        statusDisplay += '<div style="font-size: 0.7rem; color: hsl(var(--muted-foreground)); padding-left: 1rem;">' +
+          (t('apiSettings.lastCheck') || 'Last check') + ': ' + lastCheckTime +
+        '</div>';
+      }
+      statusDisplay += '</div>';
+
       return '<div class="api-key-item" data-key-id="' + key.id + '">' +
         '<input type="text" class="cli-input key-label" ' +
         'value="' + (key.label || '') + '" ' +
@@ -3198,12 +3257,9 @@ function renderApiKeysSection(provider) {
         'value="' + (key.weight || 1) + '" min="1" max="100" ' +
         'placeholder="' + t('apiSettings.keyWeight') + '" ' +
         'onchange="updateApiKeyField(\'' + provider.id + '\', \'' + key.id + '\', \'weight\', parseInt(this.value))">' +
-        '<div class="key-status">' +
-        '<span class="key-status-indicator ' + (key.healthStatus || 'unknown') + '"></span>' +
-        '<span class="key-status-text">' + t('apiSettings.' + (key.healthStatus || 'unknown')) + '</span>' +
-        '</div>' +
+        statusDisplay +
         '<div class="api-key-actions">' +
-        '<button type="button" class="test-key-btn" onclick="testApiKey(\'' + provider.id + '\', \'' + key.id + '\')">' +
+        '<button type="button" class="test-key-btn" onclick="testApiKey(\'' + provider.id + '\', \'' + key.id + '\', event)">' +
         t('apiSettings.testKey') +
         '</button>' +
         '<button type="button" class="btn-danger btn-sm" onclick="removeApiKey(\'' + provider.id + '\', \'' + key.id + '\')">' +
@@ -3252,18 +3308,37 @@ function renderRoutingSection(provider) {
  * Render health check section
  */
 function renderHealthCheckSection(provider) {
-  const health = provider.healthCheck || { enabled: false, intervalSeconds: 300, cooldownSeconds: 5, failureThreshold: 3 };
+  var health = provider.healthCheck || { enabled: false, intervalSeconds: 300, cooldownSeconds: 5, failureThreshold: 3 };
+
+  // Calculate next check time based on interval (if enabled)
+  var nextCheckInfo = '';
+  if (health.enabled) {
+    var intervalMinutes = Math.floor(health.intervalSeconds / 60);
+    nextCheckInfo = '<div style="font-size: 0.75rem; color: hsl(var(--muted-foreground)); margin-top: 0.5rem;">' +
+      '<i data-lucide="clock" style="width: 0.875rem; height: 0.875rem; display: inline-block; vertical-align: text-bottom;"></i> ' +
+      (t('apiSettings.checksEvery') || 'Checks every') + ' ' + intervalMinutes + ' ' + (t('apiSettings.minutes') || 'min') +
+      '</div>';
+  }
 
   return '<div class="health-check-section">' +
-    '<div class="health-check-header">' +
-    '<h5>' + t('apiSettings.healthCheck') + '</h5>' +
+    '<div class="health-check-header" style="display: flex; align-items: center; justify-content: space-between; gap: 1rem;">' +
+    '<div style="display: flex; align-items: center; gap: 0.5rem;">' +
+    '<h5 style="margin: 0;">' + t('apiSettings.healthCheck') + '</h5>' +
     '<label class="toggle-switch">' +
     '<input type="checkbox"' + (health.enabled ? ' checked' : '') + ' ' +
     'onchange="updateHealthCheckEnabled(\'' + provider.id + '\', this.checked)">' +
     '<span class="toggle-slider"></span>' +
     '</label>' +
     '</div>' +
-    '<div class="health-check-grid" style="' + (health.enabled ? '' : 'opacity: 0.5; pointer-events: none;') + '">' +
+    '<button type="button" class="btn-secondary btn-sm" id="health-check-now-btn-' + provider.id + '" ' +
+    'onclick="triggerHealthCheckNow(\'' + provider.id + '\')" ' +
+    'style="' + (health.enabled ? '' : 'opacity: 0.5; pointer-events: none;') + '">' +
+    '<i data-lucide="activity" style="width: 0.875rem; height: 0.875rem;"></i> ' +
+    (t('apiSettings.checkNow') || 'Check Now') +
+    '</button>' +
+    '</div>' +
+    nextCheckInfo +
+    '<div class="health-check-grid" style="' + (health.enabled ? '' : 'opacity: 0.5; pointer-events: none;') + ' margin-top: 0.75rem;">' +
     '<div class="health-check-field">' +
     '<label>' + t('apiSettings.healthInterval') + '</label>' +
     '<input type="number" class="cli-input" value="' + health.intervalSeconds + '" min="60" max="3600" ' +
@@ -3467,7 +3542,7 @@ function updateHealthCheckField(providerId, field, value) {
   fetch('/api/litellm-api/providers/' + providerId)
     .then(function(res) { return res.json(); })
     .then(function(provider) {
-      const healthCheck = provider.healthCheck || { enabled: false, intervalSeconds: 300, cooldownSeconds: 5, failureThreshold: 3 };
+      var healthCheck = provider.healthCheck || { enabled: false, intervalSeconds: 300, cooldownSeconds: 5, failureThreshold: 3 };
       healthCheck[field] = value;
       return csrfFetch('/api/litellm-api/providers/' + providerId, {
         method: 'PUT',
@@ -3481,13 +3556,99 @@ function updateHealthCheckField(providerId, field, value) {
 }
 
 /**
- * Test API key
+ * Trigger immediate health check for all keys of a provider
+ * @param {string} providerId - Provider ID to check
  */
-function testApiKey(providerId, keyId) {
-  const btn = event.target;
+function triggerHealthCheckNow(providerId) {
+  var btn = document.getElementById('health-check-now-btn-' + providerId);
+  var originalHtml = '';
+
+  if (btn) {
+    originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="display: inline-block; width: 0.875rem; height: 0.875rem; border: 2px solid hsl(var(--muted)); border-top-color: hsl(var(--primary)); border-radius: 50%; animation: spin 0.8s linear infinite;"></span> ' +
+      (t('apiSettings.checking') || 'Checking...');
+  }
+
+  csrfFetch('/api/litellm-api/providers/' + providerId + '/health-check-now', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
+  })
+    .then(function(res) { return res.json(); })
+    .then(function(result) {
+      // Reset button state
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        if (window.lucide) lucide.createIcons();
+      }
+
+      if (result.success) {
+        // Count healthy/unhealthy keys
+        var healthyCount = 0;
+        var unhealthyCount = 0;
+        (result.keys || []).forEach(function(key) {
+          if (key.status === 'healthy') healthyCount++;
+          else if (key.status === 'unhealthy') unhealthyCount++;
+        });
+
+        var statusMsg = (t('apiSettings.healthCheckComplete') || 'Health check complete') + ': ' +
+          healthyCount + ' ' + (t('apiSettings.healthy') || 'healthy');
+        if (unhealthyCount > 0) {
+          statusMsg += ', ' + unhealthyCount + ' ' + (t('apiSettings.unhealthy') || 'unhealthy');
+        }
+        showToast(statusMsg, unhealthyCount > 0 ? 'warning' : 'success');
+
+        // Reload data and refresh modal
+        loadApiSettings(true).then(function() {
+          refreshMultiKeyModal(providerId);
+        });
+      } else {
+        showToast((t('apiSettings.healthCheckFailed') || 'Health check failed') + ': ' + (result.error || 'Unknown error'), 'error');
+      }
+    })
+    .catch(function(err) {
+      // Reset button state on error
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        if (window.lucide) lucide.createIcons();
+      }
+      console.error('Failed to trigger health check:', err);
+      showToast((t('apiSettings.healthCheckFailed') || 'Health check failed') + ': ' + err.message, 'error');
+    });
+}
+
+/**
+ * Test API key
+ * @param {string} providerId - Provider ID
+ * @param {string} keyId - Key ID to test
+ * @param {Event} event - Click event (optional, for button reference)
+ */
+function testApiKey(providerId, keyId, event) {
+  // Get button element - either from event or find by data attributes
+  var btn;
+  if (event && event.target) {
+    btn = event.target.closest('button');
+  }
+  if (!btn) {
+    // Fallback: find button by data attributes
+    btn = document.querySelector('button[onclick*="testApiKey"][onclick*="' + keyId + '"]');
+  }
+
+  if (!btn) {
+    showToast('Test failed: Could not find test button', 'error');
+    return;
+  }
+
+  // Store original button text
+  var originalText = btn.textContent;
+
+  // Set loading state
   btn.disabled = true;
   btn.classList.add('testing');
-  btn.textContent = t('apiSettings.testingKey');
+  btn.textContent = t('apiSettings.testingKey') || 'Testing...';
 
   csrfFetch('/api/litellm-api/providers/' + providerId + '/test-key', {
     method: 'POST',
@@ -3496,29 +3657,61 @@ function testApiKey(providerId, keyId) {
   })
     .then(function(res) { return res.json(); })
     .then(function(result) {
+      // Reset button state
       btn.disabled = false;
       btn.classList.remove('testing');
-      btn.textContent = t('apiSettings.testKey');
+      btn.textContent = originalText;
 
-      const keyItem = btn.closest('.api-key-item');
-      const statusIndicator = keyItem.querySelector('.key-status-indicator');
-      const statusText = keyItem.querySelector('.key-status-text');
+      // Find status elements within the key item
+      var keyItem = btn.closest('.api-key-item');
+      if (!keyItem) {
+        // Try parent elements
+        keyItem = btn.parentElement;
+        while (keyItem && !keyItem.classList.contains('api-key-item')) {
+          keyItem = keyItem.parentElement;
+        }
+      }
+
+      var statusIndicator = keyItem ? keyItem.querySelector('.key-status-indicator') : null;
+      var statusText = keyItem ? keyItem.querySelector('.key-status-text') : null;
 
       if (result.valid) {
-        statusIndicator.className = 'key-status-indicator healthy';
-        statusText.textContent = t('apiSettings.healthy');
-        showToast(t('apiSettings.keyValid'), 'success');
+        // Update status indicators if found
+        if (statusIndicator) {
+          statusIndicator.className = 'key-status-indicator healthy';
+        }
+        if (statusText) {
+          var latencyInfo = result.latencyMs ? ' (' + result.latencyMs + 'ms)' : '';
+          statusText.textContent = (t('apiSettings.healthy') || 'Healthy') + latencyInfo;
+        }
+        // Show success toast with latency info
+        var successMsg = (t('apiSettings.keyValid') || 'API key is valid');
+        if (result.latencyMs) {
+          successMsg += ' (' + result.latencyMs + 'ms)';
+        }
+        showToast(successMsg, 'success');
       } else {
-        statusIndicator.className = 'key-status-indicator unhealthy';
-        statusText.textContent = t('apiSettings.unhealthy');
-        showToast(t('apiSettings.keyInvalid') + ': ' + (result.error || ''), 'error');
+        // Update status indicators if found
+        if (statusIndicator) {
+          statusIndicator.className = 'key-status-indicator unhealthy';
+        }
+        if (statusText) {
+          statusText.textContent = t('apiSettings.unhealthy') || 'Unhealthy';
+        }
+        // Show error toast
+        var errorMsg = (t('apiSettings.keyInvalid') || 'API key is invalid');
+        if (result.error) {
+          errorMsg += ': ' + result.error;
+        }
+        showToast(errorMsg, 'error');
       }
     })
     .catch(function(err) {
+      // Reset button state on error
       btn.disabled = false;
       btn.classList.remove('testing');
-      btn.textContent = t('apiSettings.testKey');
-      showToast('Test failed: ' + err.message, 'error');
+      btn.textContent = originalText;
+      showToast('Test failed: ' + (err.message || 'Unknown error'), 'error');
     });
 }
 

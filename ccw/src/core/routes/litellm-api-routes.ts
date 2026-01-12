@@ -86,6 +86,7 @@ import {
 } from '../../config/litellm-api-config-manager.js';
 import { getContextCacheStore } from '../../tools/context-cache-store.js';
 import { getLiteLLMClient } from '../../tools/litellm-client.js';
+import { testApiKeyConnection, getDefaultApiBase } from '../services/api-key-tester.js';
 
 // Cache for ccw-litellm status check
 let ccwLitellmStatusCache: {
@@ -331,6 +332,201 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: available, provider: provider.type }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // POST /api/litellm-api/providers/:id/test-key - Test specific API key
+  const providerTestKeyMatch = pathname.match(/^\/api\/litellm-api\/providers\/([^/]+)\/test-key$/);
+  if (providerTestKeyMatch && req.method === 'POST') {
+    const providerId = providerTestKeyMatch[1];
+
+    handlePostRequest(req, res, async (body: unknown) => {
+      const { keyId } = body as { keyId?: string };
+
+      if (!keyId) {
+        return { valid: false, error: 'keyId is required', status: 400 };
+      }
+
+      try {
+        const provider = getProvider(initialPath, providerId);
+
+        if (!provider) {
+          return { valid: false, error: 'Provider not found', status: 404 };
+        }
+
+        // Find the specific API key
+        let apiKeyValue: string | null = null;
+        let keyLabel = 'Default';
+
+        if (keyId === 'default' && provider.apiKey) {
+          // Use the single default apiKey
+          apiKeyValue = provider.apiKey;
+        } else if (provider.apiKeys && provider.apiKeys.length > 0) {
+          const keyEntry = provider.apiKeys.find(k => k.id === keyId);
+          if (keyEntry) {
+            apiKeyValue = keyEntry.key;
+            keyLabel = keyEntry.label || keyEntry.id;
+          }
+        }
+
+        if (!apiKeyValue) {
+          return { valid: false, error: 'API key not found' };
+        }
+
+        // Resolve environment variables
+        const { resolveEnvVar } = await import('../../config/litellm-api-config-manager.js');
+        const resolvedKey = resolveEnvVar(apiKeyValue);
+
+        if (!resolvedKey) {
+          return { valid: false, error: 'API key is empty or environment variable not set' };
+        }
+
+        // Determine API base URL
+        const apiBase = provider.apiBase || getDefaultApiBase(provider.type);
+
+        // Test the API key with appropriate endpoint based on provider type
+        const startTime = Date.now();
+        const testResult = await testApiKeyConnection(provider.type, apiBase, resolvedKey);
+        const latencyMs = Date.now() - startTime;
+
+        // Update key health status in provider config
+        if (provider.apiKeys && provider.apiKeys.length > 0) {
+          const keyEntry = provider.apiKeys.find(k => k.id === keyId);
+          if (keyEntry) {
+            keyEntry.healthStatus = testResult.valid ? 'healthy' : 'unhealthy';
+            keyEntry.lastHealthCheck = new Date().toISOString();
+            if (!testResult.valid) {
+              keyEntry.lastError = testResult.error;
+            } else {
+              delete keyEntry.lastError;
+            }
+
+            // Save updated provider
+            try {
+              updateProvider(initialPath, providerId, { apiKeys: provider.apiKeys });
+            } catch (updateErr) {
+              console.warn('[test-key] Failed to update key health status:', updateErr);
+            }
+          }
+        }
+
+        return {
+          valid: testResult.valid,
+          error: testResult.error,
+          latencyMs: testResult.valid ? latencyMs : undefined,
+          keyLabel,
+        };
+      } catch (err) {
+        return { valid: false, error: (err as Error).message };
+      }
+    });
+    return true;
+  }
+
+  // GET /api/litellm-api/providers/:id/health-status - Get health status for all keys
+  const providerHealthStatusMatch = pathname.match(/^\/api\/litellm-api\/providers\/([^/]+)\/health-status$/);
+  if (providerHealthStatusMatch && req.method === 'GET') {
+    const providerId = providerHealthStatusMatch[1];
+
+    try {
+      const provider = getProvider(initialPath, providerId);
+
+      if (!provider) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Provider not found' }));
+        return true;
+      }
+
+      // Import health check service to get runtime state
+      const { getHealthCheckService } = await import('../services/health-check-service.js');
+      const healthService = getHealthCheckService();
+      const healthStatus = healthService.getProviderHealthStatus(providerId);
+
+      // Merge persisted key data with runtime health status
+      const keys = (provider.apiKeys || []).map(key => {
+        const runtimeStatus = healthStatus.find(s => s.keyId === key.id);
+        return {
+          keyId: key.id,
+          label: key.label || key.id,
+          status: runtimeStatus?.status || key.healthStatus || 'unknown',
+          lastCheck: runtimeStatus?.lastCheck || key.lastHealthCheck,
+          lastLatencyMs: key.lastLatencyMs,
+          consecutiveFailures: runtimeStatus?.consecutiveFailures || 0,
+          inCooldown: runtimeStatus?.inCooldown || false,
+          lastError: runtimeStatus?.lastError || key.lastError,
+        };
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        providerId,
+        providerName: provider.name,
+        keys,
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // POST /api/litellm-api/providers/:id/health-check-now - Trigger immediate health check
+  const providerHealthCheckNowMatch = pathname.match(/^\/api\/litellm-api\/providers\/([^/]+)\/health-check-now$/);
+  if (providerHealthCheckNowMatch && req.method === 'POST') {
+    const providerId = providerHealthCheckNowMatch[1];
+
+    try {
+      const provider = getProvider(initialPath, providerId);
+
+      if (!provider) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Provider not found' }));
+        return true;
+      }
+
+      // Import health check service and trigger check
+      const { getHealthCheckService } = await import('../services/health-check-service.js');
+      const healthService = getHealthCheckService();
+
+      // Trigger immediate check (async, but we wait for completion)
+      await healthService.checkProviderNow(providerId);
+
+      // Get updated status
+      const healthStatus = healthService.getProviderHealthStatus(providerId);
+
+      // Reload provider to get updated persisted data
+      const updatedProvider = getProvider(initialPath, providerId);
+      const keys = (updatedProvider?.apiKeys || []).map(key => {
+        const runtimeStatus = healthStatus.find(s => s.keyId === key.id);
+        return {
+          keyId: key.id,
+          label: key.label || key.id,
+          status: runtimeStatus?.status || key.healthStatus || 'unknown',
+          lastCheck: runtimeStatus?.lastCheck || key.lastHealthCheck,
+          lastLatencyMs: key.lastLatencyMs,
+          consecutiveFailures: runtimeStatus?.consecutiveFailures || 0,
+          inCooldown: runtimeStatus?.inCooldown || false,
+          lastError: runtimeStatus?.lastError || key.lastError,
+        };
+      });
+
+      broadcastToClients({
+        type: 'PROVIDER_HEALTH_CHECKED',
+        payload: { providerId, keys, timestamp: new Date().toISOString() }
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        providerId,
+        providerName: updatedProvider?.name,
+        keys,
+        checkedAt: new Date().toISOString(),
+      }));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: false, error: (err as Error).message }));

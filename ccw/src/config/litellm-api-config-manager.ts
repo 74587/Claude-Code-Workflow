@@ -545,18 +545,34 @@ export function getEmbeddingProvidersForRotation(baseDir: string): Array<{
 }
 
 /**
- * Generate rotation endpoints for ccw_litellm
- * Creates endpoint list from rotation config for parallel embedding
- * Supports both legacy codexlensEmbeddingRotation and new embeddingPoolConfig
+ * Extended rotation endpoint with routing and health check info
  */
-export function generateRotationEndpoints(baseDir: string): Array<{
+export interface RotationEndpointConfig {
   name: string;
   api_key: string;
   api_base: string;
   model: string;
   weight: number;
   max_concurrent: number;
-}> {
+  /** Routing strategy for load balancing */
+  routing_strategy?: string;
+  /** Health check configuration */
+  health_check?: {
+    enabled: boolean;
+    interval_seconds: number;
+    cooldown_seconds: number;
+    failure_threshold: number;
+  };
+  /** Last recorded latency in milliseconds */
+  last_latency_ms?: number;
+}
+
+/**
+ * Generate rotation endpoints for ccw_litellm
+ * Creates endpoint list from rotation config for parallel embedding
+ * Supports both legacy codexlensEmbeddingRotation and new embeddingPoolConfig
+ */
+export function generateRotationEndpoints(baseDir: string): RotationEndpointConfig[] {
   const config = loadLiteLLMApiConfig(baseDir);
 
   // Prefer embeddingPoolConfig, fallback to codexlensEmbeddingRotation for backward compatibility
@@ -583,22 +599,8 @@ function generateEndpointsFromPool(
   baseDir: string,
   poolConfig: EmbeddingPoolConfig,
   config: LiteLLMApiConfig
-): Array<{
-  name: string;
-  api_key: string;
-  api_base: string;
-  model: string;
-  weight: number;
-  max_concurrent: number;
-}> {
-  const endpoints: Array<{
-    name: string;
-    api_key: string;
-    api_base: string;
-    model: string;
-    weight: number;
-    max_concurrent: number;
-  }> = [];
+): RotationEndpointConfig[] {
+  const endpoints: RotationEndpointConfig[] = [];
 
   if (poolConfig.autoDiscover) {
     // Auto-discover all providers offering targetModel
@@ -626,10 +628,20 @@ function generateEndpointsFromPool(
       let keysToUse: Array<{ id: string; key: string; label: string }> = [];
 
       if (provider.apiKeys && provider.apiKeys.length > 0) {
-        // Use all enabled keys
-        keysToUse = provider.apiKeys
-          .filter(k => k.enabled)
-          .map(k => ({ id: k.id, key: k.key, label: k.label || k.id }));
+        // Use all enabled and healthy keys (filter out unhealthy)
+        const healthyKeys = provider.apiKeys.filter(k =>
+          k.enabled && k.healthStatus !== 'unhealthy'
+        );
+
+        // Log filtered keys for debugging
+        const unhealthyCount = provider.apiKeys.filter(k =>
+          k.enabled && k.healthStatus === 'unhealthy'
+        ).length;
+        if (unhealthyCount > 0) {
+          console.log(`[RotationEndpoints] Filtered ${unhealthyCount} unhealthy key(s) from provider ${provider.name}`);
+        }
+
+        keysToUse = healthyKeys.map(k => ({ id: k.id, key: k.key, label: k.label || k.id }));
       } else if (provider.apiKey) {
         // Single key fallback
         keysToUse = [{ id: 'default', key: provider.apiKey, label: 'Default' }];
@@ -637,14 +649,37 @@ function generateEndpointsFromPool(
 
       // Create endpoint for each key
       for (const keyInfo of keysToUse) {
-        endpoints.push({
+        const endpoint: RotationEndpointConfig = {
           name: `${provider.name}-${keyInfo.label}`,
           api_key: resolveEnvVar(keyInfo.key),
           api_base: apiBase,
           model: embeddingModel.name,
           weight: 1.0, // Default weight for auto-discovered providers
           max_concurrent: poolConfig.defaultMaxConcurrentPerKey,
-        });
+        };
+
+        // Add routing strategy from provider config
+        if (provider.routingStrategy) {
+          endpoint.routing_strategy = provider.routingStrategy;
+        }
+
+        // Add health check config from provider
+        if (provider.healthCheck) {
+          endpoint.health_check = {
+            enabled: provider.healthCheck.enabled,
+            interval_seconds: provider.healthCheck.intervalSeconds,
+            cooldown_seconds: provider.healthCheck.cooldownSeconds,
+            failure_threshold: provider.healthCheck.failureThreshold,
+          };
+        }
+
+        // Add last latency if available from key entry
+        const keyEntry = provider.apiKeys?.find(k => k.id === keyInfo.id);
+        if (keyEntry && keyEntry.lastLatencyMs !== undefined) {
+          endpoint.last_latency_ms = keyEntry.lastLatencyMs;
+        }
+
+        endpoints.push(endpoint);
       }
     }
   }
@@ -659,22 +694,8 @@ function generateEndpointsFromLegacyRotation(
   baseDir: string,
   rotationConfig: CodexLensEmbeddingRotation,
   config: LiteLLMApiConfig
-): Array<{
-  name: string;
-  api_key: string;
-  api_base: string;
-  model: string;
-  weight: number;
-  max_concurrent: number;
-}> {
-  const endpoints: Array<{
-    name: string;
-    api_key: string;
-    api_base: string;
-    model: string;
-    weight: number;
-    max_concurrent: number;
-  }> = [];
+): RotationEndpointConfig[] {
+  const endpoints: RotationEndpointConfig[] = [];
 
   for (const rotationProvider of rotationConfig.providers) {
     if (!rotationProvider.enabled) continue;
@@ -696,15 +717,26 @@ function generateEndpointsFromLegacyRotation(
     let keysToUse: Array<{ id: string; key: string; label: string }> = [];
 
     if (provider.apiKeys && provider.apiKeys.length > 0) {
+      // Filter out unhealthy keys first
+      const healthyKeys = provider.apiKeys.filter(k =>
+        k.enabled && k.healthStatus !== 'unhealthy'
+      );
+
+      // Log filtered keys for debugging
+      const unhealthyCount = provider.apiKeys.filter(k =>
+        k.enabled && k.healthStatus === 'unhealthy'
+      ).length;
+      if (unhealthyCount > 0) {
+        console.log(`[RotationEndpoints] Filtered ${unhealthyCount} unhealthy key(s) from provider ${provider.name}`);
+      }
+
       if (rotationProvider.useAllKeys) {
-        // Use all enabled keys
-        keysToUse = provider.apiKeys
-          .filter(k => k.enabled)
-          .map(k => ({ id: k.id, key: k.key, label: k.label || k.id }));
+        // Use all enabled and healthy keys
+        keysToUse = healthyKeys.map(k => ({ id: k.id, key: k.key, label: k.label || k.id }));
       } else if (rotationProvider.selectedKeyIds && rotationProvider.selectedKeyIds.length > 0) {
-        // Use only selected keys
-        keysToUse = provider.apiKeys
-          .filter(k => k.enabled && rotationProvider.selectedKeyIds!.includes(k.id))
+        // Use only selected healthy keys
+        keysToUse = healthyKeys
+          .filter(k => rotationProvider.selectedKeyIds!.includes(k.id))
           .map(k => ({ id: k.id, key: k.key, label: k.label || k.id }));
       }
     } else if (provider.apiKey) {
@@ -714,14 +746,37 @@ function generateEndpointsFromLegacyRotation(
 
     // Create endpoint for each key
     for (const keyInfo of keysToUse) {
-      endpoints.push({
+      const endpoint: RotationEndpointConfig = {
         name: `${provider.name}-${keyInfo.label}`,
         api_key: resolveEnvVar(keyInfo.key),
         api_base: apiBase,
         model: embeddingModel.name,
         weight: rotationProvider.weight,
         max_concurrent: rotationProvider.maxConcurrentPerKey,
-      });
+      };
+
+      // Add routing strategy from provider config
+      if (provider.routingStrategy) {
+        endpoint.routing_strategy = provider.routingStrategy;
+      }
+
+      // Add health check config from provider
+      if (provider.healthCheck) {
+        endpoint.health_check = {
+          enabled: provider.healthCheck.enabled,
+          interval_seconds: provider.healthCheck.intervalSeconds,
+          cooldown_seconds: provider.healthCheck.cooldownSeconds,
+          failure_threshold: provider.healthCheck.failureThreshold,
+        };
+      }
+
+      // Add last latency if available from key entry
+      const keyEntry = provider.apiKeys?.find(k => k.id === keyInfo.id);
+      if (keyEntry && keyEntry.lastLatencyMs !== undefined) {
+        endpoint.last_latency_ms = keyEntry.lastLatencyMs;
+      }
+
+      endpoints.push(endpoint);
     }
   }
 
@@ -1289,4 +1344,4 @@ export function getAvailableModelsForType(
 }
 
 // Re-export types
-export type { ProviderCredential, CustomEndpoint, ProviderType, CacheStrategy, CodexLensEmbeddingRotation, CodexLensEmbeddingProvider, EmbeddingPoolConfig };
+export type { ProviderCredential, CustomEndpoint, ProviderType, CacheStrategy, CodexLensEmbeddingRotation, CodexLensEmbeddingProvider, EmbeddingPoolConfig, RotationEndpointConfig };

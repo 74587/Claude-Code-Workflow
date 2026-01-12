@@ -39,6 +39,9 @@ import { csrfValidation } from './auth/csrf-middleware.js';
 import { getCsrfTokenManager } from './auth/csrf-manager.js';
 import { randomBytes } from 'crypto';
 
+// Import health check service
+import { getHealthCheckService } from './services/health-check-service.js';
+
 import type { ServerConfig } from '../types/config.js';
 import type { PostRequestHandler } from './routes/types.js';
 
@@ -632,6 +635,15 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       console.log(`Dashboard server running at http://${host}:${serverPort}`);
       console.log(`WebSocket endpoint available at ws://${host}:${serverPort}/ws`);
       console.log(`Hook endpoint available at POST http://${host}:${serverPort}/api/hook`);
+
+      // Start health check service for all enabled providers
+      try {
+        const healthCheckService = getHealthCheckService();
+        healthCheckService.startAllHealthChecks(initialPath);
+      } catch (err) {
+        console.warn('[Server] Failed to start health check service:', err);
+      }
+
       resolve(server);
     });
     server.on('error', reject);

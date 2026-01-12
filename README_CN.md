@@ -5,7 +5,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v6.3.18-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v6.3.19-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![npm](https://img.shields.io/npm/v/claude-code-workflow.svg)](https://www.npmjs.com/package/claude-code-workflow)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
@@ -18,18 +18,16 @@
 
 **Claude Code Workflow (CCW)** 是一个 JSON 驱动的多智能体开发框架，具有智能 CLI 编排（Gemini/Qwen/Codex）、上下文优先架构和自动化工作流执行。它将 AI 开发从简单的提示词链接转变为一个强大的编排系统。
 
-> **🎉 版本 6.3.18: 原生 CodexLens 与 Dashboard 革新**
+> **🎉 版本 6.3.19: 搜索增强与 CLI 工具升级**
 >
-> **破坏性变更**:
-> - ⚠️ CLI 命令重构: `ccw cli exec` → `ccw cli -p`
-> - ⚠️ Code Index MCP 替换为原生 CodexLens
-> - ⚠️ 知识图谱替换为会话聚类系统
+> **新功能亮点**:
+> - 🔍 **Dense + Reranker 搜索**: Cross-Encoder 重排序提升结果相关性
+> - 💻 **OpenCode AI 支持**: 新增 OpenCode CLI 工具集成
+> - 🛠️ **服务架构优化**: 预加载服务、缓存管理、UV 包管理器支持
+> - 📊 **Issue 多队列执行**: 支持 Codex 长时间自主工作
 >
-> **核心功能**:
-> - 🔍 **原生 CodexLens**: 全文搜索 + 语义搜索 + HNSW 向量索引
-> - 🖥️ **新 Dashboard 视图**: CLAUDE.md 管理器、技能管理器、图浏览器、核心记忆
-> - 📘 **TypeScript 迁移**: 后端全面现代化
-> - 🧠 **会话聚类**: 智能记忆管理与聚类可视化
+> **推荐工作流**:
+> - 🚀 **Issue 工作流** (`/issue:plan` → `/issue:queue` → `/issue:execute`): 推荐使用 **Codex** 执行器，支持长时间自主编码工作
 >
 > 详见 [CHANGELOG.md](CHANGELOG.md) 获取完整详情和迁移指南。
 

@@ -1,6 +1,6 @@
 # CCW - Claude Code Workflow CLI
 
-[![Version](https://img.shields.io/badge/version-v6.2.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v6.3.19-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 
 A powerful command-line tool for managing Claude Code Workflow with native CodexLens code intelligence, multi-model CLI orchestration, and interactive dashboard.
 
@@ -36,17 +36,23 @@ ccw view -o report.html
 
 ## Features
 
-### 🔍 Native CodexLens (v6.2)
+### 🔍 Native CodexLens (v6.3)
 - **Full-Text Search (FTS)**: SQLite-based fast keyword search with symbol extraction
-- **Semantic Search**: Embedding-based similarity search with vector store
+- **Semantic Search**: Dense embedding-based similarity search with vector store
 - **Hybrid Search**: RRF (Reciprocal Rank Fusion) combining FTS and semantic results
+- **Cross-Encoder Reranking**: Second-stage reranker for improved result relevance
 - **HNSW Index**: Approximate Nearest Neighbor index for significantly faster vector search
+- **Dynamic Batch Processing**: Intelligent batch size calculation for embedding generation
+- **Workspace Index Status**: Real-time index status monitoring and management
 
 ### 💻 CLI Tools Integration
-- **Multi-Model Support**: Execute prompts with Gemini, Qwen, or Codex
+- **Multi-Model Support**: Execute prompts with Gemini, Qwen, Codex, Claude, or OpenCode
+- **CLI Wrapper Endpoints**: Custom API endpoints with tool calling support
+- **Smart Content Formatter**: Intelligent output formatting with structured IR
 - **Session Resume**: Resume from last session or merge multiple sessions
 - **SQLite History**: Persistent execution history with conversation tracking
 - **Custom IDs**: Support for custom execution IDs and multi-turn conversations
+- **Preload Service**: Optimized data fetching with caching for faster responses
 
 ### 🧠 Core Memory & Clustering
 - **Session Clustering**: Intelligent grouping of related sessions

@@ -5,6 +5,67 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.3.19] - 2026-01-12
+
+### 🚀 Major New Features | 主要新功能
+
+#### SPLADE & Dense Reranker Search System | SPLADE 与密集重排序搜索系统
+- **Added**: SPLADE sparse encoder implementation for precise semantic search (currently hidden, dense mode primary)
+- **Added**: Cross-Encoder reranking with FastEmbed integration for improved result relevance
+- **Added**: Unified reranker architecture with file watcher support
+- **Added**: Centralized vector storage and metadata management for embeddings
+- **Added**: Dynamic batch size calculation for embedding generation
+- **Added**: Multiple embedding backends for cascade retrieval
+
+#### CLI Tools System Overhaul | CLI 工具系统全面升级
+- **Added**: OpenCode AI assistant support with full CLI integration
+- **Added**: CLI Wrapper endpoints management with Dashboard UI
+- **Added**: Smart Content Formatter for intelligent output processing
+- **Added**: Structured Intermediate Representation (IR) for CLI output
+- **Added**: High-availability model pool with path resolution
+- **Added**: Custom API header support and tool type descriptions
+
+#### Service Architecture | 服务架构
+- **Added**: Core service modules: cache-manager, event-manager, preload-service
+- **Added**: CLI state caching with preload optimization
+- **Added**: UV package manager support for optimized installation
+- **Added**: ccw-litellm installation improvements with venv prioritization
+
+#### Issue Management | Issue 管理
+- **Added**: Multi-queue parallel execution support
+- **Added**: Worktree auto-detection with user choice (merge/PR/keep)
+- **Added**: Enhanced worktree management with recovery support
+
+### 🎨 Dashboard & UI Improvements | Dashboard 与 UI 改进
+
+- **Added**: Workspace index status interface with real-time monitoring
+- **Added**: Watcher status handling and control modal
+- **Added**: CLI stream viewer with active execution synchronization
+- **Added**: Danger protection hooks with i18n confirmation dialogs
+- **Added**: Navigation status routes with badge aggregation
+
+### 🛠️ Skills & Templates | 技能与模板
+
+- **Added**: CCW orchestrator skill for workflow automation
+- **Added**: Code analysis and LLM action templates
+- **Added**: Autonomous actions and sequential phase templates
+- **Added**: Swagger docs command for RESTful API documentation
+- **Added**: Debug explore agent with 5-phase workflow and NDJSON logging
+
+### 🔒 Security & Quality | 安全与质量
+
+- **Fixed**: Command injection prevention with strengthened input validation
+- **Fixed**: Path validation for CLI executor --cd parameter
+- **Added**: E2E tests for MCP tool execution and session lifecycle
+- **Added**: Integration tests for CodexLens UV installation
+
+### 🌐 Internationalization | 国际化
+
+- **Added**: Index management, incremental update translations
+- **Added**: Environment variables and dynamic batch size i18n support
+
+---
+
 ## [6.3.11] - 2025-12-28
 
 ### 🔧 Issue System Enhancements | Issue系统增强

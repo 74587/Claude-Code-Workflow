@@ -33,6 +33,8 @@ Minimal orchestrator that dispatches **solution IDs** to executors. Each executo
 **Executor & Dry-run**: Selected via interactive prompt (AskUserQuestion)
 **Worktree**: Creates isolated git worktrees for each parallel executor
 
+**⭐ Recommended Executor**: **Codex** - Best for long-running autonomous work (2hr timeout), supports background execution and full write access
+
 **Worktree Options**:
 - `--worktree` - Create a new worktree with timestamp-based name
 - `--worktree <existing-path>` - Resume in an existing worktree (for recovery/continuation)
