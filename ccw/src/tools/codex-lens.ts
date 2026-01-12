@@ -18,6 +18,12 @@ import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import { getSystemPython } from '../utils/python-utils.js';
 import { EXEC_TIMEOUTS } from '../utils/exec-constants.js';
+import {
+  UvManager,
+  ensureUvInstalled,
+  isUvAvailable,
+  createCodexLensUvManager,
+} from '../utils/uv-manager.js';
 
 // Get directory of this module
 const __filename = fileURLToPath(import.meta.url);
@@ -364,6 +370,15 @@ async function ensureLiteLLMEmbedderReady(): Promise<BootstrapResult> {
 type GpuMode = 'cpu' | 'cuda' | 'directml';
 
 /**
+ * Mapping from GPU mode to codexlens extras for UV installation
+ */
+const GPU_MODE_EXTRAS: Record<GpuMode, string[]> = {
+  cpu: ['semantic'],
+  cuda: ['semantic-gpu'],
+  directml: ['semantic-directml'],
+};
+
+/**
  * Python environment info for compatibility checks
  */
 interface PythonEnvInfo {
@@ -468,11 +483,164 @@ async function detectGpuSupport(): Promise<{ mode: GpuMode; available: GpuMode[]
 }
 
 /**
+ * Bootstrap CodexLens venv using UV (fast package manager)
+ * @param gpuMode - GPU acceleration mode for semantic search
+ * @returns Bootstrap result
+ */
+async function bootstrapWithUv(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResult> {
+  console.log('[CodexLens] Bootstrapping with UV package manager...');
+
+  // Ensure UV is installed
+  const uvInstalled = await ensureUvInstalled();
+  if (!uvInstalled) {
+    return { success: false, error: 'Failed to install UV package manager' };
+  }
+
+  // Create UV manager for CodexLens
+  const uv = createCodexLensUvManager();
+
+  // Create venv if not exists
+  if (!uv.isVenvValid()) {
+    console.log('[CodexLens] Creating virtual environment with UV...');
+    const createResult = await uv.createVenv();
+    if (!createResult.success) {
+      return { success: false, error: `Failed to create venv: ${createResult.error}` };
+    }
+  }
+
+  // Find local codex-lens package
+  const possiblePaths = [
+    join(process.cwd(), 'codex-lens'),
+    join(__dirname, '..', '..', '..', 'codex-lens'), // ccw/src/tools -> project root
+    join(homedir(), 'codex-lens'),
+  ];
+
+  let codexLensPath: string | null = null;
+  for (const localPath of possiblePaths) {
+    if (existsSync(join(localPath, 'pyproject.toml'))) {
+      codexLensPath = localPath;
+      break;
+    }
+  }
+
+  // Determine extras based on GPU mode
+  const extras = GPU_MODE_EXTRAS[gpuMode];
+
+  if (codexLensPath) {
+    console.log(`[CodexLens] Installing from local path with UV: ${codexLensPath}`);
+    console.log(`[CodexLens] Extras: ${extras.join(', ')}`);
+    const installResult = await uv.installFromProject(codexLensPath, extras);
+    if (!installResult.success) {
+      return { success: false, error: `Failed to install codexlens: ${installResult.error}` };
+    }
+  } else {
+    // Install from PyPI with extras
+    console.log('[CodexLens] Installing from PyPI with UV...');
+    const packageSpec = `codexlens[${extras.join(',')}]`;
+    const installResult = await uv.install([packageSpec]);
+    if (!installResult.success) {
+      return { success: false, error: `Failed to install codexlens: ${installResult.error}` };
+    }
+  }
+
+  // Clear cache after successful installation
+  clearVenvStatusCache();
+  console.log(`[CodexLens] Bootstrap with UV complete (${gpuMode} mode)`);
+  return { success: true, message: `Installed with UV (${gpuMode} mode)` };
+}
+
+/**
+ * Install semantic search dependencies using UV (fast package manager)
+ * UV automatically handles ONNX Runtime conflicts
+ * @param gpuMode - GPU acceleration mode: 'cpu', 'cuda', or 'directml'
+ * @returns Bootstrap result
+ */
+async function installSemanticWithUv(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResult> {
+  console.log('[CodexLens] Installing semantic dependencies with UV...');
+
+  // First check if CodexLens is installed
+  const venvStatus = await checkVenvStatus();
+  if (!venvStatus.ready) {
+    return { success: false, error: 'CodexLens not installed. Install CodexLens first.' };
+  }
+
+  // Check Python environment compatibility for DirectML
+  if (gpuMode === 'directml') {
+    const pythonEnv = await checkPythonEnvForDirectML();
+    if (!pythonEnv.compatible) {
+      const errorDetails = pythonEnv.error || 'Unknown compatibility issue';
+      return {
+        success: false,
+        error: `DirectML installation failed: ${errorDetails}\n\nTo fix this:\n1. Uninstall current Python\n2. Install 64-bit Python 3.10, 3.11, or 3.12 from python.org\n3. Delete ~/.codexlens/venv folder\n4. Reinstall CodexLens`,
+      };
+    }
+    console.log(`[CodexLens] Python ${pythonEnv.version} (${pythonEnv.architecture}-bit) - DirectML compatible`);
+  }
+
+  // Create UV manager
+  const uv = createCodexLensUvManager();
+
+  // Find local codex-lens package
+  const possiblePaths = [
+    join(process.cwd(), 'codex-lens'),
+    join(__dirname, '..', '..', '..', 'codex-lens'),
+    join(homedir(), 'codex-lens'),
+  ];
+
+  let codexLensPath: string | null = null;
+  for (const localPath of possiblePaths) {
+    if (existsSync(join(localPath, 'pyproject.toml'))) {
+      codexLensPath = localPath;
+      break;
+    }
+  }
+
+  // Determine extras based on GPU mode
+  const extras = GPU_MODE_EXTRAS[gpuMode];
+  const modeDescription =
+    gpuMode === 'cuda'
+      ? 'NVIDIA CUDA GPU acceleration'
+      : gpuMode === 'directml'
+        ? 'Windows DirectML GPU acceleration'
+        : 'CPU (ONNX Runtime)';
+
+  console.log(`[CodexLens] Mode: ${modeDescription}`);
+  console.log(`[CodexLens] Extras: ${extras.join(', ')}`);
+
+  // Install with extras - UV handles dependency conflicts automatically
+  if (codexLensPath) {
+    console.log(`[CodexLens] Reinstalling from local path with semantic extras...`);
+    const installResult = await uv.installFromProject(codexLensPath, extras);
+    if (!installResult.success) {
+      return { success: false, error: `Installation failed: ${installResult.error}` };
+    }
+  } else {
+    // Install from PyPI
+    const packageSpec = `codexlens[${extras.join(',')}]`;
+    console.log(`[CodexLens] Installing ${packageSpec} from PyPI...`);
+    const installResult = await uv.install([packageSpec]);
+    if (!installResult.success) {
+      return { success: false, error: `Installation failed: ${installResult.error}` };
+    }
+  }
+
+  console.log(`[CodexLens] Semantic dependencies installed successfully (${gpuMode} mode)`);
+  return { success: true, message: `Installed with ${modeDescription}` };
+}
+
+/**
  * Install semantic search dependencies with optional GPU acceleration
  * @param gpuMode - GPU acceleration mode: 'cpu', 'cuda', or 'directml'
  * @returns Bootstrap result
  */
 async function installSemantic(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResult> {
+  // Prefer UV if available
+  if (await isUvAvailable()) {
+    console.log('[CodexLens] Using UV for semantic installation...');
+    return installSemanticWithUv(gpuMode);
+  }
+
+  // Fall back to pip logic...
   // First ensure CodexLens is installed
   const venvStatus = await checkVenvStatus();
   if (!venvStatus.ready) {
@@ -617,6 +785,13 @@ async function installSemantic(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResul
  * @returns Bootstrap result
  */
 async function bootstrapVenv(): Promise<BootstrapResult> {
+  // Prefer UV if available (faster package resolution and installation)
+  if (await isUvAvailable()) {
+    console.log('[CodexLens] Using UV for bootstrap...');
+    return bootstrapWithUv();
+  }
+
+  // Fall back to pip logic...
   // Ensure data directory exists
   if (!existsSync(CODEXLENS_DATA_DIR)) {
     mkdirSync(CODEXLENS_DATA_DIR, { recursive: true });
@@ -1502,6 +1677,9 @@ export {
   uninstallCodexLens,
   cancelIndexing,
   isIndexingInProgress,
+  // UV-based installation functions
+  bootstrapWithUv,
+  installSemanticWithUv,
 };
 
 // Export Python path for direct spawn usage (e.g., watcher)

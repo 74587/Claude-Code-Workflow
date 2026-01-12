@@ -6,6 +6,12 @@ import { fileURLToPath } from 'url';
 import { dirname, join as pathJoin } from 'path';
 import { z } from 'zod';
 import { getSystemPython } from '../../utils/python-utils.js';
+import {
+  UvManager,
+  isUvAvailable,
+  ensureUvInstalled,
+  createCodexLensUvManager
+} from '../../utils/uv-manager.js';
 import type { RouteContext } from './types.js';
 
 // ========== Input Validation Schemas ==========
@@ -95,6 +101,47 @@ let ccwLitellmStatusCache: {
 export function clearCcwLitellmStatusCache() {
   ccwLitellmStatusCache.data = null;
   ccwLitellmStatusCache.timestamp = 0;
+}
+
+/**
+ * Install ccw-litellm using UV package manager
+ * Uses CodexLens venv for consistency with other Python dependencies
+ * @param packagePath - Local package path, or null to install from PyPI
+ * @returns Installation result
+ */
+async function installCcwLitellmWithUv(packagePath: string | null): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    await ensureUvInstalled();
+
+    // Reuse CodexLens venv for consistency
+    const uv = createCodexLensUvManager();
+
+    // Ensure venv exists
+    const venvResult = await uv.createVenv();
+    if (!venvResult.success) {
+      return { success: false, error: venvResult.error };
+    }
+
+    if (packagePath) {
+      // Install from local path
+      const result = await uv.installFromProject(packagePath);
+      if (result.success) {
+        clearCcwLitellmStatusCache();
+        return { success: true, message: 'ccw-litellm installed from local path via UV' };
+      }
+      return { success: false, error: result.error };
+    } else {
+      // Install from PyPI
+      const result = await uv.install(['ccw-litellm']);
+      if (result.success) {
+        clearCcwLitellmStatusCache();
+        return { success: true, message: 'ccw-litellm installed from PyPI via UV' };
+      }
+      return { success: false, error: result.error };
+    }
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
 }
 
 function sanitizeProviderForResponse(provider: any): any {
@@ -1093,6 +1140,22 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
           }
         }
 
+        // Priority: Use UV if available
+        if (await isUvAvailable()) {
+          const uvResult = await installCcwLitellmWithUv(packagePath || null);
+          if (uvResult.success) {
+            // Broadcast installation event
+            broadcastToClients({
+              type: 'CCW_LITELLM_INSTALLED',
+              payload: { timestamp: new Date().toISOString(), method: 'uv' }
+            });
+            return { ...uvResult, path: packagePath || undefined };
+          }
+          // UV install failed, fall through to pip fallback
+          console.log('[ccw-litellm install] UV install failed, falling back to pip:', uvResult.error);
+        }
+
+        // Fallback: Use pip for installation
         // Use shared Python detection for consistent cross-platform behavior
         const pythonCmd = getSystemPython();
 
@@ -1108,6 +1171,10 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
               if (code === 0) {
                 // Clear status cache after successful installation
                 clearCcwLitellmStatusCache();
+                broadcastToClients({
+                  type: 'CCW_LITELLM_INSTALLED',
+                  payload: { timestamp: new Date().toISOString(), method: 'pip' }
+                });
                 resolve({ success: true, message: 'ccw-litellm installed from PyPI' });
               } else {
                 resolve({ success: false, error: error || 'Installation failed' });
@@ -1132,7 +1199,7 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
               // Broadcast installation event
               broadcastToClients({
                 type: 'CCW_LITELLM_INSTALLED',
-                payload: { timestamp: new Date().toISOString() }
+                payload: { timestamp: new Date().toISOString(), method: 'pip' }
               });
               resolve({ success: true, message: 'ccw-litellm installed successfully', path: packagePath });
             } else {
