@@ -93,6 +93,96 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
     return true;
   }
 
+  // API: CodexLens Workspace Status - Get FTS and Vector index status for current workspace
+  if (pathname === '/api/codexlens/workspace-status') {
+    try {
+      const venvStatus = await checkVenvStatus();
+
+      // Default response when not installed
+      if (!venvStatus.ready) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          hasIndex: false,
+          fts: { percent: 0, indexedFiles: 0, totalFiles: 0 },
+          vector: { percent: 0, filesWithEmbeddings: 0, totalFiles: 0, totalChunks: 0 }
+        }));
+        return true;
+      }
+
+      // Get project info for current workspace
+      const projectResult = await executeCodexLens(['projects', 'get', initialPath, '--json']);
+
+      if (!projectResult.success) {
+        // No index for this workspace
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          hasIndex: false,
+          fts: { percent: 0, indexedFiles: 0, totalFiles: 0 },
+          vector: { percent: 0, filesWithEmbeddings: 0, totalFiles: 0, totalChunks: 0 }
+        }));
+        return true;
+      }
+
+      // Parse project data
+      let projectData: any = null;
+      try {
+        const parsed = extractJSON(projectResult.output ?? '');
+        if (parsed.success && parsed.result) {
+          projectData = parsed.result;
+        }
+      } catch (e: unknown) {
+        console.error('[CodexLens] Failed to parse project data:', e instanceof Error ? e.message : String(e));
+      }
+
+      if (!projectData) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          hasIndex: false,
+          fts: { percent: 0, indexedFiles: 0, totalFiles: 0 },
+          vector: { percent: 0, filesWithEmbeddings: 0, totalFiles: 0, totalChunks: 0 }
+        }));
+        return true;
+      }
+
+      // Calculate FTS and Vector percentages
+      const totalFiles = projectData.total_files || 0;
+      const indexedFiles = projectData.indexed_files || projectData.total_files || 0;
+      const filesWithEmbeddings = projectData.files_with_embeddings || projectData.embedded_files || 0;
+      const totalChunks = projectData.total_chunks || projectData.embedded_chunks || 0;
+
+      // FTS percentage (all indexed files have FTS)
+      const ftsPercent = totalFiles > 0 ? Math.round((indexedFiles / totalFiles) * 100) : 0;
+
+      // Vector percentage (files with embeddings)
+      const vectorPercent = totalFiles > 0 ? Math.round((filesWithEmbeddings / totalFiles) * 1000) / 10 : 0;
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        hasIndex: true,
+        path: initialPath,
+        fts: {
+          percent: ftsPercent,
+          indexedFiles,
+          totalFiles
+        },
+        vector: {
+          percent: vectorPercent,
+          filesWithEmbeddings,
+          totalFiles,
+          totalChunks
+        }
+      }));
+    } catch (err: unknown) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err instanceof Error ? err.message : String(err) }));
+    }
+    return true;
+  }
+
   // API: CodexLens Bootstrap (Install)
   if (pathname === '/api/codexlens/bootstrap' && req.method === 'POST') {
     handlePostRequest(req, res, async () => {
@@ -164,9 +254,10 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
         return true;
       }
 
-      const [configResult, statusResult] = await Promise.all([
+      // Use projects list for accurate index_count (same source as /api/codexlens/indexes)
+      const [configResult, projectsResult] = await Promise.all([
         executeCodexLens(['config', '--json']),
-        executeCodexLens(['status', '--json'])
+        executeCodexLens(['projects', 'list', '--json'])
       ]);
 
       // Parse config (extract JSON from output that may contain log messages)
@@ -190,16 +281,27 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
         }
       }
 
-      // Parse status to get index_count (projects_count)
-      if (statusResult.success) {
+      // Parse projects list to get index_count (consistent with /api/codexlens/indexes)
+      if (projectsResult.success) {
         try {
-          const status = extractJSON(statusResult.output ?? '');
-          if (status.success && status.result) {
-            responseData.index_count = status.result.projects_count || 0;
+          const projectsData = extractJSON(projectsResult.output ?? '');
+          if (projectsData.success && Array.isArray(projectsData.result)) {
+            // Filter out test/temp projects (same logic as /api/codexlens/indexes)
+            const validProjects = projectsData.result.filter((project: any) => {
+              if (project.source_root && (
+                project.source_root.includes('\\Temp\\') ||
+                project.source_root.includes('/tmp/') ||
+                project.total_files === 0
+              )) {
+                return false;
+              }
+              return true;
+            });
+            responseData.index_count = validProjects.length;
           }
         } catch (e: unknown) {
-          console.error('[CodexLens] Failed to parse status:', e instanceof Error ? e.message : String(e));
-          console.error('[CodexLens] Status output:', (statusResult.output ?? '').substring(0, 200));
+          console.error('[CodexLens] Failed to parse projects list:', e instanceof Error ? e.message : String(e));
+          console.error('[CodexLens] Projects output:', (projectsResult.output ?? '').substring(0, 200));
         }
       }
 

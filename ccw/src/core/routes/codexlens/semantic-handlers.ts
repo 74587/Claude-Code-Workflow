@@ -9,7 +9,7 @@ import {
   installSemantic,
 } from '../../../tools/codex-lens.js';
 import type { GpuMode } from '../../../tools/codex-lens.js';
-import { loadLiteLLMApiConfig } from '../../../config/litellm-api-config-manager.js';
+import { loadLiteLLMApiConfig, getAvailableModelsForType, getProvider, getAllProviders } from '../../../config/litellm-api-config-manager.js';
 import {
   isUvAvailable,
   createCodexLensUvManager,
@@ -317,16 +317,21 @@ export async function handleCodexLensSemanticRoutes(ctx: RouteContext): Promise<
         config_source: 'default'
       };
 
-      // Load LiteLLM endpoints for dropdown
+      // Load LiteLLM reranker models for dropdown (from litellm-api-config providers)
       try {
-        const litellmConfig = loadLiteLLMApiConfig(initialPath);
-        if (litellmConfig.endpoints && Array.isArray(litellmConfig.endpoints)) {
-          rerankerConfig.litellm_endpoints = litellmConfig.endpoints.map(
-            (ep: any) => ep.alias || ep.name || ep.baseUrl
-          ).filter(Boolean);
+        const availableRerankerModels = getAvailableModelsForType(initialPath, 'reranker');
+        if (availableRerankerModels && Array.isArray(availableRerankerModels)) {
+          // Return full model info for frontend to use
+          (rerankerConfig as any).litellm_models = availableRerankerModels.map((m: any) => ({
+            modelId: m.modelId,
+            modelName: m.modelName,
+            providers: m.providers
+          }));
+          // Keep litellm_endpoints for backward compatibility (just model IDs)
+          rerankerConfig.litellm_endpoints = availableRerankerModels.map((m: any) => m.modelId);
         }
       } catch {
-        // LiteLLM config not available, continue with empty endpoints
+        // LiteLLM config not available, continue with empty models
       }
 
       // If CodexLens is installed, try to get actual config
@@ -407,6 +412,97 @@ export async function handleCodexLensSemanticRoutes(ctx: RouteContext): Promise<
       try {
         const updates: string[] = [];
 
+        // Special handling for litellm backend - auto-configure from litellm-api-config
+        if (resolvedBackend === 'litellm' && (resolvedModelName || resolvedLiteLLMEndpoint)) {
+          const selectedModel = resolvedModelName || resolvedLiteLLMEndpoint;
+
+          // Find the provider that has this model
+          const providers = getAllProviders(initialPath);
+          let providerWithModel: any = null;
+          let foundModel: any = null;
+
+          for (const provider of providers) {
+            if (!provider.enabled || !provider.rerankerModels) continue;
+            const model = provider.rerankerModels.find((m: any) => m.id === selectedModel && m.enabled);
+            if (model) {
+              providerWithModel = provider;
+              foundModel = model;
+              break;
+            }
+          }
+
+          if (providerWithModel) {
+            // Set backend to litellm
+            const backendResult = await executeCodexLens(['config', 'set', 'reranker_backend', 'litellm', '--json']);
+            if (backendResult.success) updates.push('backend');
+
+            // Set model
+            const modelResult = await executeCodexLens(['config', 'set', 'reranker_model', selectedModel, '--json']);
+            if (modelResult.success) updates.push('model_name');
+
+            // Auto-configure API credentials from provider
+            // Write to CodexLens .env file for persistence
+            const { writeFileSync, existsSync, readFileSync } = await import('fs');
+            const { join } = await import('path');
+            const { homedir } = await import('os');
+
+            const codexlensDir = join(homedir(), '.codexlens');
+            const envFile = join(codexlensDir, '.env');
+
+            // Read existing .env content
+            let envContent = '';
+            if (existsSync(envFile)) {
+              envContent = readFileSync(envFile, 'utf-8');
+            }
+
+            // Update or add RERANKER_API_KEY and RERANKER_API_BASE
+            const apiKey = providerWithModel.apiKey;
+            const apiBase = providerWithModel.apiBase;
+
+            // Helper to update env var in content
+            const updateEnvVar = (content: string, key: string, value: string): string => {
+              const regex = new RegExp(`^${key}=.*$`, 'm');
+              const newLine = `${key}="${value}"`;
+              if (regex.test(content)) {
+                return content.replace(regex, newLine);
+              } else {
+                return content.trim() + '\n' + newLine;
+              }
+            };
+
+            if (apiKey) {
+              envContent = updateEnvVar(envContent, 'RERANKER_API_KEY', apiKey);
+              envContent = updateEnvVar(envContent, 'CODEXLENS_RERANKER_API_KEY', apiKey);
+              process.env.RERANKER_API_KEY = apiKey;
+              updates.push('api_key (auto-configured)');
+            }
+            if (apiBase) {
+              envContent = updateEnvVar(envContent, 'RERANKER_API_BASE', apiBase);
+              envContent = updateEnvVar(envContent, 'CODEXLENS_RERANKER_API_BASE', apiBase);
+              process.env.RERANKER_API_BASE = apiBase;
+              updates.push('api_base (auto-configured)');
+            }
+
+            // Write updated .env
+            writeFileSync(envFile, envContent.trim() + '\n', 'utf-8');
+
+            return {
+              success: true,
+              message: `LiteLLM backend configured with model: ${selectedModel}`,
+              updated_fields: updates,
+              provider: providerWithModel.name,
+              auto_configured: true
+            };
+          } else {
+            return {
+              success: false,
+              error: `Model "${selectedModel}" not found in any enabled LiteLLM provider. Please configure it in API Settings first.`,
+              status: 400
+            };
+          }
+        }
+
+        // Standard handling for non-litellm backends
         // Set backend
         if (resolvedBackend) {
           const result = await executeCodexLens(['config', 'set', 'reranker_backend', resolvedBackend, '--json']);
@@ -425,8 +521,8 @@ export async function handleCodexLensSemanticRoutes(ctx: RouteContext): Promise<
           if (result.success) updates.push('api_provider');
         }
 
-        // Set LiteLLM endpoint
-        if (resolvedLiteLLMEndpoint) {
+        // Set LiteLLM endpoint (for backward compatibility)
+        if (resolvedLiteLLMEndpoint && resolvedBackend !== 'litellm') {
           const result = await executeCodexLens([
             'config',
             'set',

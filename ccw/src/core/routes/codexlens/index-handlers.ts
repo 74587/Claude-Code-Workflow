@@ -5,6 +5,7 @@
 import {
   cancelIndexing,
   checkVenvStatus,
+  checkSemanticStatus,
   ensureLiteLLMEmbedderReady,
   executeCodexLens,
   isIndexingInProgress,
@@ -230,11 +231,29 @@ export async function handleCodexLensIndexRoutes(ctx: RouteContext): Promise<boo
       const resolvedEmbeddingBackend = typeof embeddingBackend === 'string' && embeddingBackend.trim().length > 0 ? embeddingBackend : 'fastembed';
       const resolvedMaxWorkers = typeof maxWorkers === 'number' ? maxWorkers : Number(maxWorkers);
 
-      // Ensure LiteLLM backend dependencies are installed before running the CLI
-      if (resolvedIndexType !== 'normal' && resolvedEmbeddingBackend === 'litellm') {
-        const installResult = await ensureLiteLLMEmbedderReady();
-        if (!installResult.success) {
-          return { success: false, error: installResult.error || 'Failed to prepare LiteLLM embedder', status: 500 };
+      // Pre-check: Verify embedding backend availability before proceeding with vector indexing
+      // This prevents silent degradation where vector indexing is skipped without error
+      if (resolvedIndexType !== 'normal') {
+        if (resolvedEmbeddingBackend === 'litellm') {
+          // For litellm backend, ensure ccw-litellm is installed
+          const installResult = await ensureLiteLLMEmbedderReady();
+          if (!installResult.success) {
+            return {
+              success: false,
+              error: installResult.error || 'LiteLLM embedding backend is not available. Please install ccw-litellm first.',
+              status: 500
+            };
+          }
+        } else {
+          // For fastembed backend (default), check semantic dependencies
+          const semanticStatus = await checkSemanticStatus();
+          if (!semanticStatus.available) {
+            return {
+              success: false,
+              error: semanticStatus.error || 'FastEmbed semantic backend is not available. Please install semantic dependencies first (CodeLens Settings → Install Semantic).',
+              status: 500
+            };
+          }
         }
       }
 

@@ -6057,6 +6057,7 @@ function buildRerankerConfigContent(config) {
   const availableBackends = config.available_backends || ['onnx', 'api', 'litellm', 'legacy'];
   const apiProviders = config.api_providers || ['siliconflow', 'cohere', 'jina'];
   const litellmEndpoints = config.litellm_endpoints || [];
+  const litellmModels = config.litellm_models || []; // Rich model info with providers
 
   // ONNX models
   const onnxModels = [
@@ -6067,11 +6068,12 @@ function buildRerankerConfigContent(config) {
   ];
 
   // Build backend options
+  const hasLitellmModels = litellmModels.length > 0 || litellmEndpoints.length > 0;
   const backendOptions = availableBackends.map(function(b) {
     const labels = {
       'onnx': 'ONNX (Local, Optimum)',
-      'api': 'API (SiliconFlow/Cohere/Jina)',
-      'litellm': 'LiteLLM (Custom Endpoint)',
+      'api': 'API (Manual Config)',
+      'litellm': hasLitellmModels ? 'LiteLLM (Auto-configured)' : 'LiteLLM (Not configured)',
       'legacy': 'Legacy (SentenceTransformers)'
     };
     return '<option value="' + b + '" ' + (backend === b ? 'selected' : '') + '>' + (labels[b] || b) + '</option>';
@@ -6087,12 +6089,21 @@ function buildRerankerConfigContent(config) {
     return '<option value="' + m + '" ' + (modelName === m ? 'selected' : '') + '>' + m + '</option>';
   }).join('');
 
-  // Build LiteLLM endpoint options
-  const litellmOptions = litellmEndpoints.length > 0
-    ? litellmEndpoints.map(function(ep) {
-        return '<option value="' + ep + '">' + ep + '</option>';
+  // Build LiteLLM model options (use rich model data if available)
+  const litellmOptions = litellmModels.length > 0
+    ? litellmModels.map(function(m) {
+        // Display: "ModelName (Provider)" for better UX
+        const providerNames = m.providers && m.providers.length > 0
+          ? m.providers.join(', ')
+          : 'Unknown';
+        const displayName = m.modelName + ' (' + providerNames + ')';
+        return '<option value="' + m.modelId + '">' + displayName + '</option>';
       }).join('')
-    : '<option value="" disabled>No endpoints configured</option>';
+    : (litellmEndpoints.length > 0
+        ? litellmEndpoints.map(function(ep) {
+            return '<option value="' + ep + '">' + ep + '</option>';
+          }).join('')
+        : '<option value="" disabled>No models configured</option>');
 
   return '<div class="modal-backdrop" id="rerankerConfigModal">' +
     '<div class="modal-container max-w-xl">' +
@@ -6162,13 +6173,16 @@ function buildRerankerConfigContent(config) {
 
         // LiteLLM Section (visible when backend=litellm)
         '<div id="rerankerLitellmSection" class="tool-config-section" style="display:' + (backend === 'litellm' ? 'block' : 'none') + '">' +
-          '<h4>' + (t('codexlens.litellmEndpoint') || 'LiteLLM Endpoint') + '</h4>' +
+          '<h4>' + (t('codexlens.litellmModel') || 'Reranker Model') + '</h4>' +
           '<select id="rerankerLitellmEndpoint" class="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm">' +
             litellmOptions +
           '</select>' +
-          (litellmEndpoints.length === 0
-            ? '<p class="text-xs text-warning mt-1">' + (t('codexlens.noEndpointsHint') || 'Configure LiteLLM endpoints in API Settings first') + '</p>'
-            : '') +
+          ((litellmModels.length > 0 || litellmEndpoints.length > 0)
+            ? '<div class="flex items-start gap-2 mt-2 p-2 bg-success/10 border border-success/30 rounded-lg text-xs">' +
+                '<i data-lucide="check-circle" class="w-4 h-4 text-success mt-0.5 flex-shrink-0"></i>' +
+                '<span class="text-muted-foreground">' + (t('codexlens.litellmAutoConfigHint') || 'API key and endpoint will be auto-configured from your LiteLLM API Settings') + '</span>' +
+              '</div>'
+            : '<p class="text-xs text-warning mt-1">' + (t('codexlens.noEndpointsHint') || 'Configure reranker models in API Settings first') + '</p>') +
         '</div>' +
 
         // Legacy Section (visible when backend=legacy)
