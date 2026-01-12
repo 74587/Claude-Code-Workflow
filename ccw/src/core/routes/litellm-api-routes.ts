@@ -670,7 +670,8 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
 
       let result: { installed: boolean; version?: string; error?: string } = { installed: false };
 
-      // Priority 1: Check in CodexLens venv (where UV installs packages)
+      // Check ONLY in CodexLens venv (where UV installs packages)
+      // Do NOT fallback to system pip - we want isolated venv dependencies
       const uv = createCodexLensUvManager();
       const venvPython = uv.getVenvPython();
 
@@ -687,25 +688,11 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
           }
         } catch (venvErr) {
           console.log('[ccw-litellm status] Not found in CodexLens venv');
+          result = { installed: false };
         }
-      }
-
-      // Priority 2: Fallback to system pip show (for backward compatibility)
-      if (!result.installed) {
-        try {
-          const { stdout } = await execAsync('pip show ccw-litellm', {
-            timeout: 10000,
-            windowsHide: true,
-          });
-          // Parse version from pip show output
-          const versionMatch = stdout.match(/Version:\s*(.+)/i);
-          if (versionMatch) {
-            result = { installed: true, version: versionMatch[1].trim() };
-            console.log(`[ccw-litellm status] Found via system pip: ${result.version}`);
-          }
-        } catch (pipErr) {
-          console.log('[ccw-litellm status] Not found via system pip');
-        }
+      } else {
+        console.log('[ccw-litellm status] CodexLens venv not valid');
+        result = { installed: false };
       }
 
       // Update cache
