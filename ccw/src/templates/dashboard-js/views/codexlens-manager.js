@@ -2,124 +2,107 @@
 // Extracted from cli-manager.js for better maintainability
 
 // ============================================================
-// CACHE MANAGEMENT
+// CACHE BRIDGE - 使用全局 PreloadService
 // ============================================================
 
-// Cache TTL in milliseconds (30 seconds default)
-const CODEXLENS_CACHE_TTL = 30000;
-
-// Cache storage for CodexLens data
-const codexLensCache = {
-  workspaceStatus: { data: null, timestamp: 0 },
-  config: { data: null, timestamp: 0 },
-  rerankerConfig: { data: null, timestamp: 0 },
-  status: { data: null, timestamp: 0 },
-  env: { data: null, timestamp: 0 },
-  models: { data: null, timestamp: 0 },
-  rerankerModels: { data: null, timestamp: 0 },
-  semanticStatus: { data: null, timestamp: 0 },
-  gpuList: { data: null, timestamp: 0 },
-  indexes: { data: null, timestamp: 0 }
+// 缓存键映射（旧键名 -> 新键名）
+const CACHE_KEY_MAP = {
+  workspaceStatus: 'workspace-status',
+  config: 'codexlens-config',
+  rerankerConfig: 'codexlens-reranker-config',
+  status: 'codexlens-status',
+  env: 'codexlens-env',
+  models: 'codexlens-models',
+  rerankerModels: 'codexlens-reranker-models',
+  semanticStatus: 'codexlens-semantic-status',
+  gpuList: 'codexlens-gpu-list',
+  indexes: 'codexlens-indexes'
 };
 
 /**
- * Check if cache is valid (not expired)
- * @param {string} key - Cache key
- * @param {number} ttl - Optional custom TTL
+ * 兼容性函数：检查缓存是否有效
+ * @param {string} key - 旧缓存键
  * @returns {boolean}
  */
-function isCacheValid(key, ttl = CODEXLENS_CACHE_TTL) {
-  const cache = codexLensCache[key];
-  if (!cache || !cache.data) return false;
-  return (Date.now() - cache.timestamp) < ttl;
+function isCacheValid(key) {
+  if (!window.cacheManager) return false;
+  const newKey = CACHE_KEY_MAP[key] || key;
+  return window.cacheManager.isValid(newKey);
 }
 
 /**
- * Get cached data
- * @param {string} key - Cache key
- * @returns {*} Cached data or null
+ * 兼容性函数：获取缓存数据
+ * @param {string} key - 旧缓存键
+ * @returns {*}
  */
 function getCachedData(key) {
-  return codexLensCache[key]?.data || null;
+  if (!window.cacheManager) return null;
+  const newKey = CACHE_KEY_MAP[key] || key;
+  return window.cacheManager.get(newKey);
 }
 
 /**
- * Set cache data
- * @param {string} key - Cache key
- * @param {*} data - Data to cache
+ * 兼容性函数：设置缓存数据
+ * @param {string} key - 旧缓存键
+ * @param {*} data - 数据
+ * @param {number} ttl - 可选的 TTL
  */
-function setCacheData(key, data) {
-  if (codexLensCache[key]) {
-    codexLensCache[key].data = data;
-    codexLensCache[key].timestamp = Date.now();
-  }
+function setCacheData(key, data, ttl = 180000) {
+  if (!window.cacheManager) return;
+  const newKey = CACHE_KEY_MAP[key] || key;
+  window.cacheManager.set(newKey, data, ttl);
 }
 
 /**
- * Invalidate specific cache or all caches
- * @param {string} key - Cache key (optional, if not provided clears all)
+ * 兼容性函数：使缓存失效
+ * @param {string} key - 旧缓存键（可选，不提供则清除所有）
  */
 function invalidateCache(key) {
-  if (key && codexLensCache[key]) {
-    codexLensCache[key].data = null;
-    codexLensCache[key].timestamp = 0;
-  } else if (!key) {
-    Object.keys(codexLensCache).forEach(function(k) {
-      codexLensCache[k].data = null;
-      codexLensCache[k].timestamp = 0;
+  if (!window.cacheManager) return;
+  if (key) {
+    const newKey = CACHE_KEY_MAP[key] || key;
+    window.cacheManager.invalidate(newKey);
+  } else {
+    // 清除所有 codexlens 相关缓存
+    Object.values(CACHE_KEY_MAP).forEach(function(k) {
+      window.cacheManager.invalidate(k);
     });
   }
 }
 
-// Preload promises for tracking in-flight requests
-var codexLensPreloadPromises = {};
-
 /**
- * Preload CodexLens data in the background
- * Called immediately when entering the CodexLens page
+ * 预加载 CodexLens 数据
+ * 现在委托给全局 PreloadService
  * @returns {Promise<void>}
  */
 async function preloadCodexLensData() {
-  console.log('[CodexLens] Starting preload...');
-
-  // Skip if already preloading or cache is valid
-  if (codexLensPreloadPromises.inProgress) {
-    console.log('[CodexLens] Preload already in progress, skipping');
-    return codexLensPreloadPromises.inProgress;
+  console.log('[CodexLens] Preload delegated to PreloadService');
+  if (!window.preloadService) {
+    console.warn('[CodexLens] PreloadService not available');
+    return;
   }
 
-  // Check if all caches are valid
-  var allCacheValid = isCacheValid('config') && isCacheValid('models') &&
-                      isCacheValid('rerankerConfig') && isCacheValid('rerankerModels') &&
-                      isCacheValid('semanticStatus') && isCacheValid('env');
-  if (allCacheValid) {
-    console.log('[CodexLens] All caches valid, skipping preload');
-    return Promise.resolve();
-  }
+  // 注册额外的数据源（如果尚未注册）
+  const additionalSources = [
+    { key: 'codexlens-config', url: '/api/codexlens/config', priority: true, ttl: 300000 },
+    { key: 'codexlens-reranker-config', url: '/api/codexlens/reranker/config', priority: false, ttl: 300000 },
+    { key: 'codexlens-reranker-models', url: '/api/codexlens/reranker/models', priority: false, ttl: 600000 },
+    { key: 'codexlens-semantic-status', url: '/api/codexlens/semantic/status', priority: false, ttl: 300000 },
+    { key: 'codexlens-env', url: '/api/codexlens/env', priority: false, ttl: 300000 }
+  ];
 
-  // Start preloading all endpoints in parallel
-  codexLensPreloadPromises.inProgress = Promise.all([
-    // Config and models
-    !isCacheValid('config') ? fetch('/api/codexlens/config').then(r => r.json()).then(d => setCacheData('config', d)) : Promise.resolve(),
-    !isCacheValid('models') ? fetch('/api/codexlens/models').then(r => r.json()).then(d => setCacheData('models', d)) : Promise.resolve(),
-    // Reranker config and models
-    !isCacheValid('rerankerConfig') ? fetch('/api/codexlens/reranker/config').then(r => r.json()).then(d => setCacheData('rerankerConfig', d)) : Promise.resolve(),
-    !isCacheValid('rerankerModels') ? fetch('/api/codexlens/reranker/models').then(r => r.json()).then(d => setCacheData('rerankerModels', d)).catch(() => null) : Promise.resolve(),
-    // Workspace status
-    !isCacheValid('workspaceStatus') ? fetch('/api/codexlens/workspace-status?path=' + encodeURIComponent(projectPath || '')).then(r => r.json()).then(d => setCacheData('workspaceStatus', d)).catch(() => null) : Promise.resolve(),
-    // Semantic status (for FastEmbed detection)
-    !isCacheValid('semanticStatus') ? fetch('/api/codexlens/semantic/status').then(r => r.json()).then(d => setCacheData('semanticStatus', d)).catch(() => null) : Promise.resolve(),
-    // Environment variables
-    !isCacheValid('env') ? fetch('/api/codexlens/env').then(r => r.json()).then(d => { if (d.success) setCacheData('env', d); }).catch(() => null) : Promise.resolve()
-  ]).then(function() {
-    console.log('[CodexLens] Preload completed');
-    codexLensPreloadPromises.inProgress = null;
-  }).catch(function(err) {
-    console.warn('[CodexLens] Preload error:', err);
-    codexLensPreloadPromises.inProgress = null;
+  additionalSources.forEach(function(src) {
+    if (!window.preloadService.sources.has(src.key)) {
+      window.preloadService.register(src.key,
+        () => fetch(src.url).then(r => r.ok ? r.json() : Promise.reject(r)),
+        { isHighPriority: src.priority, ttl: src.ttl }
+      );
+    }
   });
 
-  return codexLensPreloadPromises.inProgress;
+  // 触发预加载
+  const preloadKeys = ['workspace-status', 'codexlens-config', 'codexlens-models'];
+  await Promise.all(preloadKeys.map(key => window.preloadService.preload(key).catch(() => null)));
 }
 
 // ============================================================
@@ -145,7 +128,7 @@ function escapeHtml(str) {
 
 /**
  * Refresh workspace index status (FTS and Vector coverage)
- * Updates both the detailed panel (if exists) and header badges
+ * Uses progressive rendering: show cached data first, auto-refresh after background update
  * @param {boolean} forceRefresh - Force refresh, bypass cache
  */
 async function refreshWorkspaceIndexStatus(forceRefresh) {
@@ -156,38 +139,47 @@ async function refreshWorkspaceIndexStatus(forceRefresh) {
   // If neither container nor header elements exist, nothing to update
   if (!container && !headerFtsEl) return;
 
-  // Check cache first (unless force refresh)
-  if (!forceRefresh && isCacheValid('workspaceStatus')) {
-    var cachedResult = getCachedData('workspaceStatus');
-    updateWorkspaceStatusUI(cachedResult, container, headerFtsEl, headerVectorEl);
-    return;
-  }
+  // Render function
+  var render = function(result) {
+    updateWorkspaceStatusUI(result, container, headerFtsEl, headerVectorEl);
+  };
 
-  // Show loading state in container
-  if (container) {
+  // 1. Try to render from cache immediately
+  var cachedResult = getCachedData('workspaceStatus');
+  if (cachedResult && !forceRefresh) {
+    render(cachedResult);
+  } else if (container) {
+    // Show skeleton screen
     container.innerHTML = '<div class="text-xs text-muted-foreground text-center py-2">' +
       '<i data-lucide="loader-2" class="w-4 h-4 animate-spin inline mr-1"></i> ' + (t('common.loading') || 'Loading...') +
       '</div>';
     if (window.lucide) lucide.createIcons();
   }
 
-  try {
-    var response = await fetch('/api/codexlens/workspace-status?path=' + encodeURIComponent(projectPath || ''));
-    var result = await response.json();
+  // 2. Listen for data update events
+  if (window.eventManager) {
+    var handleUpdate = function(data) {
+      render(data);
+    };
+    // Use one-time listener or remove at appropriate time
+    window.eventManager.on('data:updated:workspace-status', handleUpdate);
+  }
 
-    // Cache the result
-    setCacheData('workspaceStatus', result);
-
-    updateWorkspaceStatusUI(result, container, headerFtsEl, headerVectorEl);
-  } catch (err) {
-    console.error('[CodexLens] Failed to load workspace status:', err);
-    if (headerFtsEl) headerFtsEl.textContent = '--';
-    if (headerVectorEl) headerVectorEl.textContent = '--';
-    if (container) {
-      container.innerHTML = '<div class="text-xs text-destructive text-center py-2">' +
-        '<i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i> ' +
-        (t('common.error') || 'Error') + ': ' + err.message +
-        '</div>';
+  // 3. Trigger background loading
+  if (window.preloadService) {
+    try {
+      var freshData = await window.preloadService.preload('workspace-status', { force: forceRefresh });
+      render(freshData);
+    } catch (err) {
+      console.error('[CodexLens] Failed to load workspace status:', err);
+      if (headerFtsEl) headerFtsEl.textContent = '--';
+      if (headerVectorEl) headerVectorEl.textContent = '--';
+      if (container) {
+        container.innerHTML = '<div class="text-xs text-destructive text-center py-2">' +
+          '<i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i> ' +
+          (t('common.error') || 'Error') + ': ' + err.message +
+          '</div>';
+      }
     }
   }
 

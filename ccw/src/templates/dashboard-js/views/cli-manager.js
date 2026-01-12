@@ -10,6 +10,69 @@ var cliWrapperEndpoints = [];  // CLI封装 endpoints from /api/cli/settings
 var cliToolConfig = null;  // Store loaded CLI config
 var predefinedModels = {}; // Store predefined models per tool
 
+// ========== Cache Key Mapping ==========
+// 缓存键映射（旧键名 -> 新键名）
+var CLI_CACHE_KEY_MAP = {
+  toolConfig: 'cli-config',
+  toolStatus: 'cli-status',
+  installations: 'cli-installations',
+  endpointTools: 'cli-endpoint-tools',
+  litellmEndpoints: 'cli-litellm-endpoints',
+  customEndpoints: 'cli-custom-endpoints',
+  wrapperEndpoints: 'cli-wrapper-endpoints'
+};
+
+// ========== CLI Cache Bridge ==========
+
+/**
+ * 获取 CLI 缓存数据
+ * @param {string} key - 缓存键
+ * @returns {*} 缓存的数据或 null
+ */
+function getCliCachedData(key) {
+  if (!window.cacheManager) return null;
+  var newKey = CLI_CACHE_KEY_MAP[key] || key;
+  return window.cacheManager.get(newKey);
+}
+
+/**
+ * 设置 CLI 缓存数据
+ * @param {string} key - 缓存键
+ * @param {*} data - 要缓存的数据
+ * @param {number} ttl - 缓存 TTL（毫秒），默认 5 分钟
+ */
+function setCliCacheData(key, data, ttl) {
+  if (!window.cacheManager) return;
+  ttl = ttl || 300000;
+  var newKey = CLI_CACHE_KEY_MAP[key] || key;
+  window.cacheManager.set(newKey, data, ttl);
+}
+
+/**
+ * 注册 CLI 相关数据源到预加载服务
+ * 仅在数据源尚未注册时添加
+ */
+function registerCliDataSources() {
+  if (!window.preloadService) return;
+
+  var sources = [
+    { key: 'cli-installations', url: '/api/ccw/installations', priority: false, ttl: 300000 },
+    { key: 'cli-endpoint-tools', url: '/api/ccw/tools', priority: false, ttl: 300000 },
+    { key: 'cli-litellm-endpoints', url: '/api/litellm-api/config', priority: false, ttl: 300000 },
+    { key: 'cli-custom-endpoints', url: '/api/cli/endpoints', priority: false, ttl: 300000 },
+    { key: 'cli-wrapper-endpoints', url: '/api/cli/settings', priority: false, ttl: 300000 }
+  ];
+
+  sources.forEach(function(src) {
+    if (!window.preloadService.sources.has(src.key)) {
+      window.preloadService.register(src.key,
+        function() { return fetch(src.url).then(function(r) { return r.ok ? r.json() : Promise.reject(r); }); },
+        { isHighPriority: src.priority, ttl: src.ttl }
+      );
+    }
+  });
+}
+
 // ========== CSRF Token Management ==========
 var csrfToken = null;  // Store CSRF token for state-changing requests
 
@@ -290,12 +353,23 @@ window.syncEndpointToCliTools = syncEndpointToCliTools;
 
 // ========== CLI Tool Configuration ==========
 async function loadCliToolConfig() {
+  // 尝试从缓存获取
+  var cached = getCliCachedData('toolConfig');
+  if (cached) {
+    cliToolConfig = cached.config || null;
+    predefinedModels = cached.predefinedModels || {};
+    return cached;
+  }
+
   try {
     var response = await fetch('/api/cli/config');
     if (!response.ok) throw new Error('Failed to load CLI config');
     var data = await response.json();
     cliToolConfig = data.config || null;
     predefinedModels = data.predefinedModels || {};
+
+    // 缓存结果
+    setCliCacheData('toolConfig', data);
     return data;
   } catch (err) {
     console.error('Failed to load CLI config:', err);
@@ -650,29 +724,50 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
 }
 
 // ========== Rendering ==========
-async function renderCliManager() {
-  var container = document.getElementById('mainContent');
-  if (!container) return;
 
-  // Hide stats grid and search for CLI view
-  var statsGrid = document.getElementById('statsGrid');
-  var searchInput = document.getElementById('searchInput');
-  if (statsGrid) statsGrid.style.display = 'none';
-  if (searchInput) searchInput.parentElement.style.display = 'none';
+/**
+ * 构建 CLI Manager 骨架屏
+ * @returns {string} HTML 字符串
+ */
+function buildCliManagerSkeleton() {
+  return '<div class="space-y-6">' +
+    '<div class="flex items-center justify-between mb-4">' +
+      '<h2 class="text-lg font-semibold">' + (t('nav.cliManager') || 'CLI Status') + '</h2>' +
+    '</div>' +
+    '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">' +
+      // 左侧 Tools 区域骨架
+      '<div class="card p-4">' +
+        '<div class="animate-pulse space-y-4">' +
+          '<div class="h-4 bg-muted rounded w-1/3"></div>' +
+          '<div class="h-16 bg-muted rounded"></div>' +
+          '<div class="h-16 bg-muted rounded"></div>' +
+          '<div class="h-16 bg-muted rounded"></div>' +
+        '</div>' +
+      '</div>' +
+      // 右侧 CCW 区域骨架
+      '<div class="card p-4">' +
+        '<div class="animate-pulse space-y-4">' +
+          '<div class="h-4 bg-muted rounded w-1/3"></div>' +
+          '<div class="h-20 bg-muted rounded"></div>' +
+          '<div class="h-20 bg-muted rounded"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    // 底部区域骨架
+    '<div class="card p-4">' +
+      '<div class="animate-pulse space-y-4">' +
+        '<div class="h-4 bg-muted rounded w-1/4"></div>' +
+        '<div class="h-12 bg-muted rounded"></div>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
 
-  // Load data (including CodexLens status for tools section)
-  // loadCliToolsConfig() ensures cli-tools.json is auto-created if missing
-  await Promise.all([
-    loadCliToolsConfig(),
-    loadCliToolStatus(),
-    loadCodexLensStatus(),
-    loadCcwInstallations(),
-    loadCcwEndpointTools(),
-    loadLitellmApiEndpoints(),
-    loadCliCustomEndpoints(),
-    loadCliWrapperEndpoints()
-  ]);
-
+/**
+ * 渲染 CLI Manager 实际内容（内部容器结构 + 各子面板）
+ * @param {HTMLElement} container - 主容器元素
+ */
+function renderCliManagerContent(container) {
   container.innerHTML = '<div class="status-manager">' +
     '<div class="status-two-column">' +
     '<div class="cli-section" id="tools-section"></div>' +
@@ -684,23 +779,87 @@ async function renderCliManager() {
     '</div>' +
     '<section id="storageCard" class="mb-6"></section>';
 
-  // Render sub-panels
+  // 渲染子面板
   renderToolsSection();
   renderCcwSection();
   renderLanguageSettingsSection();
   renderCliSettingsSection();
   renderCcwEndpointToolsSection();
 
-  // Initialize storage manager card
+  // 初始化存储管理器卡片
   if (typeof initStorageManager === 'function') {
     initStorageManager();
   }
 
-  // Initialize Lucide icons
+  // 初始化 Lucide 图标
+  if (window.lucide) lucide.createIcons();
+}
+
+async function renderCliManager() {
+  var container = document.getElementById('mainContent');
+  if (!container) return;
+
+  // 隐藏统计网格和搜索框
+  var statsGrid = document.getElementById('statsGrid');
+  var searchInput = document.getElementById('searchInput');
+  if (statsGrid) statsGrid.style.display = 'none';
+  if (searchInput) searchInput.parentElement.style.display = 'none';
+
+  // 注册数据源（如果尚未注册）
+  registerCliDataSources();
+
+  // 1. 立即显示骨架屏
+  container.innerHTML = buildCliManagerSkeleton();
   if (window.lucide) lucide.createIcons();
 
-  // Sync active executions to restore running state
-  await syncActiveExecutions();
+  // 2. 尝试从缓存渲染（快速展示）
+  var cachedConfig = getCliCachedData('toolConfig');
+  var cachedStatus = getCliCachedData('toolStatus');
+  var hasCachedData = cachedConfig && cachedStatus;
+
+  if (hasCachedData) {
+    // 应用缓存数据
+    cliToolConfig = cachedConfig.config;
+    predefinedModels = cachedConfig.predefinedModels || {};
+    // 立即渲染缓存数据
+    renderCliManagerContent(container);
+    console.log('[CLI Manager] Rendered from cache');
+  }
+
+  // 3. 后台加载最新数据
+  try {
+    await Promise.all([
+      loadCliToolsConfig(),
+      loadCliToolStatus(),
+      loadCodexLensStatus(),
+      loadCcwInstallations(),
+      loadCcwEndpointTools(),
+      loadLitellmApiEndpoints(),
+      loadCliCustomEndpoints(),
+      loadCliWrapperEndpoints()
+    ]);
+
+    // 4. 用最新数据更新 UI（如果之前未渲染或数据有变化）
+    renderCliManagerContent(container);
+    console.log('[CLI Manager] Rendered with fresh data');
+  } catch (err) {
+    console.error('[CLI Manager] Failed to load data:', err);
+    // 如果没有缓存数据且加载失败，显示错误提示
+    if (!hasCachedData) {
+      container.innerHTML = '<div class="card p-4 text-center">' +
+        '<i data-lucide="alert-circle" class="w-8 h-8 text-muted-foreground mx-auto mb-2"></i>' +
+        '<p class="text-muted-foreground">' + (t('common.loadFailed') || 'Failed to load data') + '</p>' +
+        '<button class="btn btn-sm mt-2" onclick="renderCliManager()">' +
+          '<i data-lucide="refresh-cw" class="w-3 h-3 mr-1"></i>' +
+          (t('common.retry') || 'Retry') +
+        '</button>' +
+      '</div>';
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+
+  // 同步活动执行
+  syncActiveExecutions();
 }
 
 // ========== Helper Functions ==========

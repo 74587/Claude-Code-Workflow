@@ -5,6 +5,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initialize Lucide icons (must be first to render SVG icons)
   try { lucide.createIcons(); } catch (e) { console.error('Lucide icons init failed:', e); }
 
+  // Initialize preload services (must be early to start data fetching)
+  try { initPreloadServices(); } catch (e) { console.error('Preload services init failed:', e); }
+
   // Initialize i18n (must be early to translate static content)
   try { initI18n(); } catch (e) { console.error('I18n init failed:', e); }
 
@@ -90,3 +93,49 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 });
+
+/**
+ * 初始化预加载服务
+ * 创建缓存管理器、事件管理器和预加载服务，并注册数据源
+ */
+function initPreloadServices() {
+  // 初始化服务实例
+  window.cacheManager = new CacheManager('ccw.cache.');
+  window.eventManager = new EventManager();
+  window.preloadService = new PreloadService(window.cacheManager, window.eventManager);
+
+  // 注册高优先级数据源（页面进入时立即预加载）
+  window.preloadService.register('dashboard-init',
+    () => fetch('/api/codexlens/dashboard-init').then(r => r.ok ? r.json() : Promise.reject(r)),
+    { isHighPriority: true, ttl: 300000 } // 5分钟
+  );
+
+  window.preloadService.register('workspace-status',
+    () => {
+      const path = encodeURIComponent(projectPath || '');
+      return fetch('/api/codexlens/workspace-status?path=' + path).then(r => r.ok ? r.json() : Promise.reject(r));
+    },
+    { isHighPriority: true, ttl: 120000 } // 2分钟
+  );
+
+  window.preloadService.register('cli-status',
+    () => fetch('/api/cli/status').then(r => r.ok ? r.json() : Promise.reject(r)),
+    { isHighPriority: true, ttl: 300000 } // 5分钟
+  );
+
+  // 注册中优先级数据源
+  window.preloadService.register('codexlens-models',
+    () => fetch('/api/codexlens/models').then(r => r.ok ? r.json() : Promise.reject(r)),
+    { isHighPriority: false, ttl: 600000 } // 10分钟
+  );
+
+  window.preloadService.register('cli-config',
+    () => fetch('/api/cli/config').then(r => r.ok ? r.json() : Promise.reject(r)),
+    { isHighPriority: false, ttl: 300000 } // 5分钟
+  );
+
+  // 立即触发高优先级预加载（静默后台执行）
+  window.preloadService.runInitialPreload();
+
+  console.log('[Preload] Services initialized, high-priority preload started');
+}

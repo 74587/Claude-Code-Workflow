@@ -106,6 +106,7 @@ const MODULE_FILES = [
   'i18n.js',  // Must be loaded first for translations
   'utils.js',
   'state.js',
+  'services.js',  // CacheManager, EventManager, PreloadService - must be before main.js
   'api.js',
   'components/theme.js',
   'components/modals.js',
