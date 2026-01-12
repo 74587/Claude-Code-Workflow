@@ -118,8 +118,21 @@ function initPreloadServices() {
     { isHighPriority: true, ttl: 120000 } // 2分钟
   );
 
+  // CLI 状态 - 高优先级
   window.preloadService.register('cli-status',
     () => fetch('/api/cli/status').then(r => r.ok ? r.json() : Promise.reject(r)),
+    { isHighPriority: true, ttl: 300000 } // 5分钟
+  );
+
+  // CLI 工具配置 - /api/cli/config（cli-manager.js 使用）
+  window.preloadService.register('cli-config',
+    () => fetch('/api/cli/config').then(r => r.ok ? r.json() : Promise.reject(r)),
+    { isHighPriority: true, ttl: 300000 } // 5分钟
+  );
+
+  // CLI 工具列表配置 - /api/cli/tools-config（cli-status.js 使用）
+  window.preloadService.register('cli-tools-config',
+    () => fetch('/api/cli/tools-config').then(r => r.ok ? r.json() : Promise.reject(r)),
     { isHighPriority: true, ttl: 300000 } // 5分钟
   );
 
@@ -127,11 +140,6 @@ function initPreloadServices() {
   window.preloadService.register('codexlens-models',
     () => fetch('/api/codexlens/models').then(r => r.ok ? r.json() : Promise.reject(r)),
     { isHighPriority: false, ttl: 600000 } // 10分钟
-  );
-
-  window.preloadService.register('cli-config',
-    () => fetch('/api/cli/config').then(r => r.ok ? r.json() : Promise.reject(r)),
-    { isHighPriority: false, ttl: 300000 } // 5分钟
   );
 
   // 立即触发高优先级预加载（静默后台执行）

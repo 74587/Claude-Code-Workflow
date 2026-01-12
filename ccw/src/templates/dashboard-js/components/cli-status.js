@@ -78,13 +78,30 @@ async function loadAllStatusesFallback() {
 
 /**
  * Legacy: Load CLI tool status individually
+ * 优先从缓存读取，如果缓存有效则直接使用
  */
 async function loadCliToolStatus() {
+  // 尝试从缓存获取
+  if (window.cacheManager) {
+    const cached = window.cacheManager.get('cli-status');
+    if (cached) {
+      cliToolStatus = cached;
+      updateCliBadge();
+      console.log('[CLI Status] Loaded from cache');
+      return cached;
+    }
+  }
+
   try {
     const response = await fetch('/api/cli/status');
     if (!response.ok) throw new Error('Failed to load CLI status');
     const data = await response.json();
     cliToolStatus = data;
+
+    // 存入缓存
+    if (window.cacheManager) {
+      window.cacheManager.set('cli-status', data, 300000); // 5分钟
+    }
 
     // Update badge
     updateCliBadge();
@@ -135,36 +152,31 @@ async function loadCodexLensStatus() {
 /**
  * Load CodexLens dashboard data using aggregated endpoint (single API call)
  * This is optimized for the CodexLens Manager page initialization
+ * 优先从缓存读取，如果缓存有效则直接使用
  * @returns {Promise<object|null>} Dashboard init data or null on error
  */
 async function loadCodexLensDashboardInit() {
+  // 尝试从缓存获取
+  if (window.cacheManager) {
+    const cached = window.cacheManager.get('dashboard-init');
+    if (cached) {
+      applyDashboardInitData(cached);
+      console.log('[CLI Status] CodexLens dashboard init loaded from cache');
+      return cached;
+    }
+  }
+
   try {
     const response = await fetch('/api/codexlens/dashboard-init');
     if (!response.ok) throw new Error('Failed to load CodexLens dashboard init');
     const data = await response.json();
 
-    // Update status variables from aggregated response
-    codexLensStatus = data.status || { ready: false };
-    semanticStatus = data.semantic || { available: false };
+    applyDashboardInitData(data);
 
-    // Expose to window for other modules
-    if (!window.cliToolsStatus) {
-      window.cliToolsStatus = {};
+    // 存入缓存
+    if (window.cacheManager) {
+      window.cacheManager.set('dashboard-init', data, 300000); // 5分钟
     }
-    window.cliToolsStatus.codexlens = {
-      installed: data.installed || false,
-      version: data.status?.version || null,
-      installedModels: [],
-      config: data.config || {},
-      semantic: data.semantic || {}
-    };
-
-    // Store config globally for easy access
-    window.codexLensConfig = data.config || {};
-    window.codexLensStatusData = data.statusData || {};
-
-    // Update badges
-    updateCodexLensBadge();
 
     console.log('[CLI Status] CodexLens dashboard init loaded:', {
       installed: data.installed,
@@ -178,6 +190,35 @@ async function loadCodexLensDashboardInit() {
     // Fallback to individual calls
     return await loadCodexLensStatus();
   }
+}
+
+/**
+ * 应用 dashboard-init 数据到状态变量
+ * @param {object} data - dashboard init 响应数据
+ */
+function applyDashboardInitData(data) {
+  // Update status variables from aggregated response
+  codexLensStatus = data.status || { ready: false };
+  semanticStatus = data.semantic || { available: false };
+
+  // Expose to window for other modules
+  if (!window.cliToolsStatus) {
+    window.cliToolsStatus = {};
+  }
+  window.cliToolsStatus.codexlens = {
+    installed: data.installed || false,
+    version: data.status?.version || null,
+    installedModels: [],
+    config: data.config || {},
+    semantic: data.semantic || {}
+  };
+
+  // Store config globally for easy access
+  window.codexLensConfig = data.config || {};
+  window.codexLensStatusData = data.statusData || {};
+
+  // Update badges
+  updateCodexLensBadge();
 }
 
 /**
@@ -229,8 +270,23 @@ async function loadInstalledModels() {
 
 /**
  * Load CLI tools config from .claude/cli-tools.json (project or global fallback)
+ * 优先从缓存读取，如果缓存有效则直接使用
  */
 async function loadCliToolsConfig() {
+  // 尝试从缓存获取
+  if (window.cacheManager) {
+    const cached = window.cacheManager.get('cli-tools-config');
+    if (cached) {
+      cliToolsConfig = cached.tools?.tools || {};
+      window.claudeCliToolsConfig = cached;
+      if (cached.defaultTool) {
+        defaultCliTool = cached.defaultTool;
+      }
+      console.log('[CLI Tools Config] Loaded from cache');
+      return cached;
+    }
+  }
+
   try {
     const response = await fetch('/api/cli/tools-config');
     if (!response.ok) return null;
@@ -242,6 +298,11 @@ async function loadCliToolsConfig() {
     // Load default tool from config
     if (data.defaultTool) {
       defaultCliTool = data.defaultTool;
+    }
+
+    // 存入缓存
+    if (window.cacheManager) {
+      window.cacheManager.set('cli-tools-config', data, 300000); // 5分钟
     }
 
     console.log('[CLI Config] Loaded from:', data._configInfo?.source || 'unknown', '| Default:', data.defaultTool);

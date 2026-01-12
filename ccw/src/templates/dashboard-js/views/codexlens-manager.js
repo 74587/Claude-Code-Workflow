@@ -2,6 +2,11 @@
 // Extracted from cli-manager.js for better maintainability
 
 // ============================================================
+// EVENT HANDLERS - 用于防止内存泄漏的处理器引用
+// ============================================================
+var _workspaceStatusHandler = null;
+
+// ============================================================
 // CACHE BRIDGE - 使用全局 PreloadService
 // ============================================================
 
@@ -156,13 +161,17 @@ async function refreshWorkspaceIndexStatus(forceRefresh) {
     if (window.lucide) lucide.createIcons();
   }
 
-  // 2. Listen for data update events
+  // 2. Listen for data update events (防止内存泄漏：先移除旧监听器)
   if (window.eventManager) {
-    var handleUpdate = function(data) {
+    // 移除之前的监听器（如果存在）
+    if (_workspaceStatusHandler) {
+      window.eventManager.off('data:updated:workspace-status', _workspaceStatusHandler);
+    }
+    // 创建新的监听器并保存引用
+    _workspaceStatusHandler = function(data) {
       render(data);
     };
-    // Use one-time listener or remove at appropriate time
-    window.eventManager.on('data:updated:workspace-status', handleUpdate);
+    window.eventManager.on('data:updated:workspace-status', _workspaceStatusHandler);
   }
 
   // 3. Trigger background loading
