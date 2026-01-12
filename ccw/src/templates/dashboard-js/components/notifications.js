@@ -415,6 +415,11 @@ function handleNotification(data) {
           'CodexLens'
         );
       }
+      // Invalidate CodexLens page cache to ensure fresh data on next visit
+      if (typeof window.invalidateCodexLensCache === 'function') {
+        window.invalidateCodexLensCache();
+        console.log('[CodexLens] Cache invalidated after installation');
+      }
       // Refresh CLI status if active
       if (typeof loadCodexLensStatus === 'function') {
         loadCodexLensStatus().then(() => {
@@ -437,6 +442,11 @@ function handleNotification(data) {
           },
           'CodexLens'
         );
+      }
+      // Invalidate CodexLens page cache to ensure fresh data on next visit
+      if (typeof window.invalidateCodexLensCache === 'function') {
+        window.invalidateCodexLensCache();
+        console.log('[CodexLens] Cache invalidated after uninstallation');
       }
       // Refresh CLI status if active
       if (typeof loadCodexLensStatus === 'function') {
@@ -529,6 +539,48 @@ function handleNotification(data) {
         showRefreshToast(indexMsg, toastType);
       }
       console.log('[CodexLens] Index complete:', payload.result?.files_indexed, 'files indexed');
+      break;
+
+    case 'CCW_LITELLM_INSTALLED':
+      // Handle ccw-litellm installation completion
+      if (typeof addGlobalNotification === 'function') {
+        addGlobalNotification(
+          'success',
+          `ccw-litellm installed successfully`,
+          {
+            'Time': new Date(payload.timestamp).toLocaleTimeString()
+          },
+          'LiteLLM'
+        );
+      }
+      // Invalidate ccw-litellm status cache
+      if (typeof window.checkCcwLitellmStatus === 'function') {
+        window.checkCcwLitellmStatus(true);
+      }
+      console.log('[ccw-litellm] Installation completed:', payload);
+      break;
+
+    case 'CCW_LITELLM_UNINSTALLED':
+      // Handle ccw-litellm uninstallation completion
+      if (typeof addGlobalNotification === 'function') {
+        addGlobalNotification(
+          'success',
+          `ccw-litellm uninstalled successfully`,
+          {
+            'Time': new Date(payload.timestamp).toLocaleTimeString()
+          },
+          'LiteLLM'
+        );
+      }
+      // Invalidate ccw-litellm status cache and refresh UI
+      if (typeof window.checkCcwLitellmStatus === 'function') {
+        window.checkCcwLitellmStatus(true).then(function() {
+          if (typeof window.renderCcwLitellmStatusCard === 'function') {
+            window.renderCcwLitellmStatusCard();
+          }
+        });
+      }
+      console.log('[ccw-litellm] Uninstallation completed:', payload);
       break;
 
     default:

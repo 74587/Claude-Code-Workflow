@@ -329,32 +329,70 @@ async function ensureLiteLLMEmbedderReady(): Promise<BootstrapResult> {
     return { success: true };
   }
 
+  console.log('[CodexLens] Installing ccw-litellm for LiteLLM embedding backend...');
+
+  // Find local ccw-litellm package path
+  const possiblePaths = [
+    join(process.cwd(), 'ccw-litellm'),
+    join(__dirname, '..', '..', '..', 'ccw-litellm'), // ccw/src/tools -> project root
+    join(homedir(), 'ccw-litellm'),
+  ];
+
+  let localPath: string | null = null;
+  for (const p of possiblePaths) {
+    if (existsSync(join(p, 'pyproject.toml'))) {
+      localPath = p;
+      break;
+    }
+  }
+
+  // Priority: Use UV if available (faster, better dependency resolution)
+  if (await isUvAvailable()) {
+    console.log('[CodexLens] Using UV for ccw-litellm installation...');
+    try {
+      const uv = createCodexLensUvManager();
+
+      // Ensure venv exists
+      if (!uv.isVenvValid()) {
+        const venvResult = await uv.createVenv();
+        if (!venvResult.success) {
+          console.log('[CodexLens] UV venv creation failed, falling back to pip:', venvResult.error);
+          // Fall through to pip fallback
+        }
+      }
+
+      if (uv.isVenvValid()) {
+        let uvResult;
+        if (localPath) {
+          console.log(`[CodexLens] Installing ccw-litellm from local path with UV: ${localPath}`);
+          uvResult = await uv.installFromProject(localPath);
+        } else {
+          console.log('[CodexLens] Installing ccw-litellm from PyPI with UV...');
+          uvResult = await uv.install(['ccw-litellm']);
+        }
+
+        if (uvResult.success) {
+          return { success: true };
+        }
+        console.log('[CodexLens] UV install failed, falling back to pip:', uvResult.error);
+      }
+    } catch (uvErr) {
+      console.log('[CodexLens] UV error, falling back to pip:', (uvErr as Error).message);
+    }
+  }
+
+  // Fallback: Use pip for installation
   const pipPath =
     process.platform === 'win32'
       ? join(CODEXLENS_VENV, 'Scripts', 'pip.exe')
       : join(CODEXLENS_VENV, 'bin', 'pip');
 
   try {
-    console.log('[CodexLens] Installing ccw-litellm for LiteLLM embedding backend...');
-
-    const possiblePaths = [
-      join(process.cwd(), 'ccw-litellm'),
-      join(__dirname, '..', '..', '..', 'ccw-litellm'), // ccw/src/tools -> project root
-      join(homedir(), 'ccw-litellm'),
-    ];
-
-    let installed = false;
-    for (const localPath of possiblePaths) {
-      if (existsSync(join(localPath, 'pyproject.toml'))) {
-        console.log(`[CodexLens] Installing ccw-litellm from local path: ${localPath}`);
-        execSync(`"${pipPath}" install -e "${localPath}"`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL });
-        installed = true;
-        break;
-      }
-    }
-
-    if (!installed) {
-      console.log('[CodexLens] Installing ccw-litellm from PyPI...');
+    if (localPath) {
+      console.log(`[CodexLens] Installing ccw-litellm from local path with pip: ${localPath}`);
+      execSync(`"${pipPath}" install -e "${localPath}"`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL });
+    } else {
+      console.log('[CodexLens] Installing ccw-litellm from PyPI with pip...');
       execSync(`"${pipPath}" install ccw-litellm`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL });
     }
 
