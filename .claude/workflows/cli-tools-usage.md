@@ -54,6 +54,16 @@ All tool availability, model selection, and routing are defined in this configur
 | `secondaryModel` | Fallback model |
 | `tags` | Capability tags for routing |
 
+### Tool Types
+
+| Type | Usage | Capabilities |
+|------|-------|--------------|
+| `builtin` | `--tool gemini` | Full (analysis + write tools) |
+| `cli-wrapper` | `--tool doubao` | Full (analysis + write tools) |
+| `api-endpoint` | `--tool g25` | **Analysis only** (no file write tools) |
+
+> **Note**: `api-endpoint` tools only support analysis and code generation responses. They cannot create, modify, or delete files.
+
 ---
 
 ## Tool Selection

@@ -198,6 +198,14 @@ export async function executeLiteLLMEndpoint(
       }
     }
 
+    // Set custom headers from provider advanced settings
+    if (provider.advancedSettings?.customHeaders) {
+      process.env['CCW_LITELLM_EXTRA_HEADERS'] = JSON.stringify(provider.advancedSettings.customHeaders);
+    } else {
+      // Clear any previous custom headers
+      delete process.env['CCW_LITELLM_EXTRA_HEADERS'];
+    }
+
     // Use litellm-client to call chat
     const response = await callWithRetries(
       () => client.chat(finalPrompt, endpoint.model),

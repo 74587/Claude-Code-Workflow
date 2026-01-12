@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 from typing import Any, Sequence
 
 import litellm
@@ -132,10 +134,22 @@ class LiteLLMClient(AbstractLLMClient):
         # Merge kwargs
         completion_kwargs = {**self._litellm_kwargs, **kwargs}
 
-        # Override User-Agent to avoid being blocked by some API proxies
-        # that detect and block OpenAI SDK's default User-Agent
+        # Build extra_headers from multiple sources
         if "extra_headers" not in completion_kwargs:
             completion_kwargs["extra_headers"] = {}
+
+        # 1. Load custom headers from environment variable (set by CCW)
+        env_headers = os.environ.get("CCW_LITELLM_EXTRA_HEADERS")
+        if env_headers:
+            try:
+                custom_headers = json.loads(env_headers)
+                completion_kwargs["extra_headers"].update(custom_headers)
+            except json.JSONDecodeError:
+                logger.warning(f"Invalid JSON in CCW_LITELLM_EXTRA_HEADERS: {env_headers}")
+
+        # 2. Override User-Agent to avoid being blocked by some API proxies
+        # that detect and block OpenAI SDK's default User-Agent
+        # This is a fallback - user can override via custom headers
         if "User-Agent" not in completion_kwargs["extra_headers"]:
             completion_kwargs["extra_headers"]["User-Agent"] = "python-httpx/0.27"
 
