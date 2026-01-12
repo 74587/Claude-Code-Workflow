@@ -1086,7 +1086,11 @@ var ENV_VAR_GROUPS = {
     icon: 'cpu',
     vars: {
       'CODEXLENS_API_MAX_WORKERS': { labelKey: 'codexlens.envField.maxWorkers', type: 'number', placeholder: '4', default: '4', settingsPath: 'api.max_workers', min: 1, max: 32 },
-      'CODEXLENS_API_BATCH_SIZE': { labelKey: 'codexlens.envField.batchSize', type: 'number', placeholder: '8', default: '8', settingsPath: 'api.batch_size', min: 1, max: 64 }
+      'CODEXLENS_API_BATCH_SIZE': { labelKey: 'codexlens.envField.batchSize', type: 'number', placeholder: '8', default: '8', settingsPath: 'api.batch_size', min: 1, max: 64, showWhen: function(env) { return env['CODEXLENS_API_BATCH_SIZE_DYNAMIC'] !== 'true'; } },
+      'CODEXLENS_API_BATCH_SIZE_DYNAMIC': { labelKey: 'codexlens.envField.dynamicBatchSize', type: 'checkbox', default: 'false', settingsPath: 'api.batch_size_dynamic' },
+      'CODEXLENS_API_BATCH_SIZE_UTILIZATION': { labelKey: 'codexlens.envField.batchSizeUtilization', type: 'number', placeholder: '0.8', default: '0.8', settingsPath: 'api.batch_size_utilization_factor', min: 0.1, max: 0.95, step: 0.05, showWhen: function(env) { return env['CODEXLENS_API_BATCH_SIZE_DYNAMIC'] === 'true'; } },
+      'CODEXLENS_API_BATCH_SIZE_MAX': { labelKey: 'codexlens.envField.batchSizeMax', type: 'number', placeholder: '2048', default: '2048', settingsPath: 'api.batch_size_max', min: 1, max: 4096, showWhen: function(env) { return env['CODEXLENS_API_BATCH_SIZE_DYNAMIC'] === 'true'; } },
+      'CODEXLENS_CHARS_PER_TOKEN': { labelKey: 'codexlens.envField.charsPerToken', type: 'number', placeholder: '4', default: '4', settingsPath: 'api.chars_per_token_estimate', min: 1, max: 10, showWhen: function(env) { return env['CODEXLENS_API_BATCH_SIZE_DYNAMIC'] === 'true'; } }
     }
   },
   cascade: {

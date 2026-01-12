@@ -856,6 +856,19 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
       if (settings.api?.batch_size !== undefined) {
         settingsDefaults['CODEXLENS_API_BATCH_SIZE'] = String(settings.api.batch_size);
       }
+      // Dynamic batch size settings
+      if (settings.api?.batch_size_dynamic !== undefined) {
+        settingsDefaults['CODEXLENS_API_BATCH_SIZE_DYNAMIC'] = String(settings.api.batch_size_dynamic);
+      }
+      if (settings.api?.batch_size_utilization_factor !== undefined) {
+        settingsDefaults['CODEXLENS_API_BATCH_SIZE_UTILIZATION'] = String(settings.api.batch_size_utilization_factor);
+      }
+      if (settings.api?.batch_size_max !== undefined) {
+        settingsDefaults['CODEXLENS_API_BATCH_SIZE_MAX'] = String(settings.api.batch_size_max);
+      }
+      if (settings.api?.chars_per_token_estimate !== undefined) {
+        settingsDefaults['CODEXLENS_CHARS_PER_TOKEN'] = String(settings.api.chars_per_token_estimate);
+      }
 
       // Cascade search settings
       if (settings.cascade?.strategy) {
@@ -1057,6 +1070,10 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
           'CODEXLENS_RERANKER_TOP_K': { path: ['reranker', 'top_k'], transform: v => parseInt(v, 10) },
           'CODEXLENS_API_MAX_WORKERS': { path: ['api', 'max_workers'], transform: v => parseInt(v, 10) },
           'CODEXLENS_API_BATCH_SIZE': { path: ['api', 'batch_size'], transform: v => parseInt(v, 10) },
+          'CODEXLENS_API_BATCH_SIZE_DYNAMIC': { path: ['api', 'batch_size_dynamic'], transform: v => v === 'true' },
+          'CODEXLENS_API_BATCH_SIZE_UTILIZATION': { path: ['api', 'batch_size_utilization_factor'], transform: v => parseFloat(v) },
+          'CODEXLENS_API_BATCH_SIZE_MAX': { path: ['api', 'batch_size_max'], transform: v => parseInt(v, 10) },
+          'CODEXLENS_CHARS_PER_TOKEN': { path: ['api', 'chars_per_token_estimate'], transform: v => parseInt(v, 10) },
           'CODEXLENS_CASCADE_STRATEGY': { path: ['cascade', 'strategy'] },
           'CODEXLENS_CASCADE_COARSE_K': { path: ['cascade', 'coarse_k'], transform: v => parseInt(v, 10) },
           'CODEXLENS_CASCADE_FINE_K': { path: ['cascade', 'fine_k'], transform: v => parseInt(v, 10) },
