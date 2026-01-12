@@ -468,39 +468,75 @@ async function executeCliTool(
       }
     }
 
-    // Check tools with type: 'api-endpoint' (for --tool custom --model <id>)
+    // Check tools with type: 'api-endpoint' -> route to LiteLLM
     const apiEndpointTool = Object.entries(cliToolsConfig.tools).find(
       ([name, t]) => t.type === 'api-endpoint' && t.enabled &&
         (t.id === tool || name === tool || name.toLowerCase() === tool.toLowerCase())
     );
     if (apiEndpointTool) {
       const [toolName, toolConfig] = apiEndpointTool;
-      const endpointId = toolConfig.id || toolName;
-      // Check if there's a corresponding CLI封装 settings file
-      const cliSettingsForEndpoint = findEndpoint(endpointId);
-      if (cliSettingsForEndpoint) {
-        const settingsPath = getSettingsFilePath(cliSettingsForEndpoint.id);
+      // id field is the LiteLLM endpoint ID (e.g., "g25")
+      const litellmEndpointId = toolConfig.id || toolName;
+
+      // Find LiteLLM endpoint configuration
+      const litellmEndpoint = findEndpointById(workingDir, litellmEndpointId);
+      if (litellmEndpoint) {
         if (onOutput) {
           onOutput({
             type: 'stderr',
-            content: `[Routing to API endpoint: ${toolName} via claude --settings]\n`,
+            content: `[Routing to LiteLLM API endpoint: ${toolName} (${litellmEndpointId})]\n`,
             timestamp: new Date().toISOString()
           });
         }
 
-        const result = await executeClaudeWithSettings({
+        // Execute via LiteLLM
+        const result = await executeLiteLLMEndpoint({
           prompt,
-          settingsPath,
-          endpointId: cliSettingsForEndpoint.id,
-          mode,
-          workingDir,
-          cd,
+          endpointId: litellmEndpointId,
+          baseDir: workingDir,
+          cwd: cd || workingDir,
           includeDirs: includeDirs ? includeDirs.split(',').map(d => d.trim()) : undefined,
-          customId,
-          onOutput: onOutput || undefined
+          onOutput: onOutput || undefined,
         });
 
-        return result;
+        // Convert LiteLLM result to ExecutionOutput format
+        const startTime = Date.now();
+        const endTime = Date.now();
+        const duration = endTime - startTime;
+
+        const execution: ExecutionRecord = {
+          id: customId || `${Date.now()}-litellm`,
+          timestamp: new Date(startTime).toISOString(),
+          tool: toolName,
+          model: litellmEndpoint.model,
+          mode,
+          prompt,
+          status: result.success ? 'success' : 'error',
+          exit_code: result.success ? 0 : 1,
+          duration_ms: duration,
+          output: {
+            stdout: result.output,
+            stderr: result.error || '',
+            truncated: false
+          }
+        };
+
+        const conversation = convertToConversation(execution);
+
+        // Try to save to history
+        try {
+          saveConversation(workingDir, conversation);
+        } catch (err) {
+          console.error('[CLI Executor] Failed to save LiteLLM history:', (err as Error).message);
+        }
+
+        return {
+          success: result.success,
+          execution,
+          conversation,
+          stdout: result.output,
+          stderr: result.error || '',
+        };
       }
     }
 

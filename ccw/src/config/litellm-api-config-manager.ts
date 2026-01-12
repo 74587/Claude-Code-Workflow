@@ -18,6 +18,10 @@ import type {
   CodexLensEmbeddingProvider,
   EmbeddingPoolConfig,
 } from '../types/litellm-api-config.js';
+import {
+  addClaudeApiEndpoint,
+  removeClaudeApiEndpoint
+} from '../tools/claude-cli-tools.js';
 
 /**
  * Default configuration
@@ -270,6 +274,20 @@ export function addEndpoint(
   config.endpoints.push(endpoint);
   saveConfig(baseDir, config);
 
+  // Sync to cli-tools.json as api-endpoint type
+  // Usage: ccw cli -p "..." --tool <endpoint-id>
+  try {
+    addClaudeApiEndpoint(homedir(), {
+      id: endpoint.id,
+      name: endpoint.id,  // Use endpoint ID as tool name for CLI access
+      enabled: endpoint.enabled !== false
+    });
+    console.log(`[LiteLLM Config] Synced endpoint ${endpoint.id} to cli-tools.json (api-endpoint)`);
+  } catch (syncError) {
+    console.warn(`[LiteLLM Config] Failed to sync endpoint to cli-tools.json: ${syncError}`);
+    // Non-fatal: continue even if sync fails
+  }
+
   return endpoint;
 }
 
@@ -300,7 +318,21 @@ export function updateEndpoint(
   };
 
   saveConfig(baseDir, config);
-  return config.endpoints[endpointIndex];
+
+  // Sync enabled status to cli-tools.json
+  const updatedEndpoint = config.endpoints[endpointIndex];
+  try {
+    addClaudeApiEndpoint(homedir(), {
+      id: updatedEndpoint.id,
+      name: updatedEndpoint.id,
+      enabled: updatedEndpoint.enabled !== false
+    });
+    console.log(`[LiteLLM Config] Synced endpoint ${updatedEndpoint.id} update to cli-tools.json`);
+  } catch (syncError) {
+    console.warn(`[LiteLLM Config] Failed to sync endpoint update to cli-tools.json: ${syncError}`);
+  }
+
+  return updatedEndpoint;
 }
 
 /**
@@ -322,6 +354,15 @@ export function deleteEndpoint(baseDir: string, endpointId: string): boolean {
   }
 
   saveConfig(baseDir, config);
+
+  // Remove from cli-tools.json
+  try {
+    removeClaudeApiEndpoint(homedir(), endpointId);
+    console.log(`[LiteLLM Config] Removed endpoint ${endpointId} from cli-tools.json`);
+  } catch (syncError) {
+    console.warn(`[LiteLLM Config] Failed to remove endpoint from cli-tools.json: ${syncError}`);
+  }
+
   return true;
 }
 

@@ -22,8 +22,18 @@ export interface ClaudeCliTool {
   primaryModel?: string;
   secondaryModel?: string;
   tags: string[];
-  type?: 'builtin' | 'cli-wrapper' | 'api-endpoint';  // Tool type: builtin, cli-wrapper, or api-endpoint
-  id?: string;  // Required for api-endpoint type (endpoint ID for settings lookup)
+  /**
+   * Tool type determines routing:
+   * - 'builtin': Built-in CLI tools (gemini, qwen, codex, etc.)
+   * - 'cli-wrapper': Routes to `claude --settings` (CLI Settings endpoints)
+   * - 'api-endpoint': Routes to LiteLLM (LiteLLM endpoints)
+   */
+  type?: 'builtin' | 'cli-wrapper' | 'api-endpoint';
+  /**
+   * Endpoint ID for type: 'api-endpoint'
+   * Used to lookup endpoint configuration in litellm-api-config.json
+   */
+  id?: string;
 }
 
 export type CliToolName = 'gemini' | 'qwen' | 'codex' | 'claude' | 'opencode' | string;

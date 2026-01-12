@@ -122,17 +122,17 @@ export function saveEndpointSettings(request: SaveEndpointRequest): SettingsOper
     saveIndex(index);
 
     // Sync with cli-tools.json for ccw cli --tool integration
-    // API endpoints are added as tools with type: 'api-endpoint'
-    // Usage: ccw cli -p "..." --tool custom --model <endpoint-id> --mode analysis
+    // CLI Settings endpoints are added as tools with type: 'cli-wrapper'
+    // Usage: ccw cli -p "..." --tool <name> --mode analysis
     try {
       const projectDir = os.homedir(); // Use home dir as base for global config
       addClaudeCustomEndpoint(projectDir, {
         id: endpointId,
         name: request.name,
-        enabled: request.enabled ?? true
-        // No cli-wrapper tag -> registers as type: 'api-endpoint'
+        enabled: request.enabled ?? true,
+        tags: ['cli-wrapper']  // cli-wrapper tag -> registers as type: 'cli-wrapper'
       });
-      console.log(`[CliSettings] Synced endpoint ${endpointId} to cli-tools.json tools`);
+      console.log(`[CliSettings] Synced endpoint ${endpointId} to cli-tools.json tools (cli-wrapper)`);
     } catch (syncError) {
       console.warn(`[CliSettings] Failed to sync with cli-tools.json: ${syncError}`);
       // Non-fatal: continue even if sync fails
@@ -303,14 +303,14 @@ export function toggleEndpointEnabled(endpointId: string, enabled: boolean): Set
     index.set(endpointId, metadata);
     saveIndex(index);
 
-    // Sync enabled status with cli-tools.json tools (api-endpoint type)
+    // Sync enabled status with cli-tools.json tools (cli-wrapper type)
     try {
       const projectDir = os.homedir();
       addClaudeCustomEndpoint(projectDir, {
         id: endpointId,
         name: metadata.name,
-        enabled: enabled
-        // No cli-wrapper tag -> updates as type: 'api-endpoint'
+        enabled: enabled,
+        tags: ['cli-wrapper']  // cli-wrapper tag -> registers as type: 'cli-wrapper'
       });
       console.log(`[CliSettings] Synced endpoint ${endpointId} enabled=${enabled} to cli-tools.json tools`);
     } catch (syncError) {

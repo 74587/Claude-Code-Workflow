@@ -93,6 +93,18 @@ class LiteLLMClient(AbstractLLMClient):
         if provider in ["anthropic", "azure", "vertex_ai", "bedrock"]:
             return f"{provider}/{model}"
 
+        # If there's a custom api_base, use openai/ prefix to force OpenAI-compatible routing
+        # This prevents LiteLLM from auto-detecting model provider from name
+        # (e.g., "gemini-2.5-pro" would otherwise trigger Vertex AI auth)
+        if self._provider_config.api_base:
+            # Check if it's not the default OpenAI endpoint
+            default_openai_bases = [
+                "https://api.openai.com/v1",
+                "https://api.openai.com",
+            ]
+            if self._provider_config.api_base not in default_openai_bases:
+                return f"openai/{model}"
+
         return model
 
     def chat(
@@ -119,6 +131,13 @@ class LiteLLMClient(AbstractLLMClient):
 
         # Merge kwargs
         completion_kwargs = {**self._litellm_kwargs, **kwargs}
+
+        # Override User-Agent to avoid being blocked by some API proxies
+        # that detect and block OpenAI SDK's default User-Agent
+        if "extra_headers" not in completion_kwargs:
+            completion_kwargs["extra_headers"] = {}
+        if "User-Agent" not in completion_kwargs["extra_headers"]:
+            completion_kwargs["extra_headers"]["User-Agent"] = "python-httpx/0.27"
 
         try:
             # Call LiteLLM
