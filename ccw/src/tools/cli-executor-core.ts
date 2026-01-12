@@ -1184,21 +1184,42 @@ export {
 /**
  * Get status of all CLI tools
  * Dynamically reads tools from config file
+ * Handles different tool types:
+ * - builtin: Check system PATH availability
+ * - cli-wrapper: Check CLI Settings configuration exists
+ * - api-endpoint: Check LiteLLM endpoint configuration exists
  */
 export async function getCliToolsStatus(): Promise<Record<string, ToolAvailability>> {
   // Default built-in tools
   const builtInTools = ['gemini', 'qwen', 'codex', 'claude', 'opencode'];
 
-  // Try to get tools from config
-  let tools = builtInTools;
+  // Try to get tools from config with their types
+  interface ToolInfo {
+    name: string;
+    type?: 'builtin' | 'cli-wrapper' | 'api-endpoint';
+    enabled?: boolean;
+    id?: string;  // For api-endpoint type
+  }
+  let toolsInfo: ToolInfo[] = builtInTools.map(name => ({ name, type: 'builtin' }));
+
   try {
     // Dynamic import to avoid circular dependencies
     const { loadClaudeCliTools } = await import('./claude-cli-tools.js');
     const config = loadClaudeCliTools(configBaseDir);
     if (config.tools && typeof config.tools === 'object') {
-      // Merge built-in tools with config tools to ensure all are checked
-      const configTools = Object.keys(config.tools);
-      tools = [...new Set([...builtInTools, ...configTools])];
+      // Build complete tool info list from config
+      const configToolsInfo: ToolInfo[] = Object.entries(config.tools).map(([name, toolConfig]) => ({
+        name,
+        type: toolConfig.type || 'builtin',
+        enabled: toolConfig.enabled !== false,
+        id: toolConfig.id
+      }));
+
+      // Merge: config tools take precedence over built-in defaults
+      const toolsMap = new Map<string, ToolInfo>();
+      toolsInfo.forEach(t => toolsMap.set(t.name, t));
+      configToolsInfo.forEach(t => toolsMap.set(t.name, t));
+      toolsInfo = Array.from(toolsMap.values());
     }
   } catch (e) {
     // Fallback to built-in tools if config load fails
@@ -1207,8 +1228,49 @@ export async function getCliToolsStatus(): Promise<Record<string, ToolAvailabili
 
   const results: Record<string, ToolAvailability> = {};
 
-  await Promise.all(tools.map(async (tool) => {
-    results[tool] = await checkToolAvailability(tool);
+  await Promise.all(toolsInfo.map(async (toolInfo) => {
+    const { name, type, enabled, id } = toolInfo;
+
+    // Check availability based on tool type
+    if (type === 'cli-wrapper') {
+      // For cli-wrapper: check if CLI Settings configuration exists
+      try {
+        const { findEndpoint } = await import('../config/cli-settings-manager.js');
+        const endpoint = findEndpoint(name);
+        if (endpoint && endpoint.enabled) {
+          results[name] = {
+            available: true,
+            path: `cli-settings:${endpoint.id}`  // Virtual path indicating CLI Settings source
+          };
+        } else {
+          results[name] = { available: false, path: null };
+        }
+      } catch (e) {
+        debugLog('cli-executor', `Failed to check cli-wrapper ${name}: ${(e as Error).message}`);
+        results[name] = { available: false, path: null };
+      }
+    } else if (type === 'api-endpoint') {
+      // For api-endpoint: check if LiteLLM endpoint configuration exists
+      try {
+        const { findEndpointById } = await import('../config/litellm-api-config-manager.js');
+        const endpointId = id || name;
+        const endpoint = findEndpointById(configBaseDir, endpointId);
+        if (endpoint && enabled !== false) {
+          results[name] = {
+            available: true,
+            path: `litellm:${endpointId}`  // Virtual path indicating LiteLLM source
+          };
+        } else {
+          results[name] = { available: false, path: null };
+        }
+      } catch (e) {
+        debugLog('cli-executor', `Failed to check api-endpoint ${name}: ${(e as Error).message}`);
+        results[name] = { available: false, path: null };
+      }
+    } else {
+      // For builtin: check system PATH availability
+      results[name] = await checkToolAvailability(name);
+    }
   }));
 
   return results;

@@ -170,9 +170,13 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
       const indexedFiles = projectData.total_files || 0; // All indexed files have FTS
 
       // Get embeddings data from index status
-      const filesWithEmbeddings = embeddingsData?.files_with_embeddings || 0;
+      // The response structure is: { total_indexes, indexes_with_embeddings, total_chunks, indexes: [{coverage_percent, total_files, ...}] }
+      const indexesWithEmbeddings = embeddingsData?.indexes_with_embeddings || 0;
       const totalChunks = embeddingsData?.total_chunks || 0;
-      const vectorPercent = embeddingsData?.coverage_percent || 0;
+      // coverage_percent is in the indexes array - get the first one (for single project query)
+      const indexEntry = embeddingsData?.indexes?.[0];
+      const vectorPercent = indexEntry?.coverage_percent || 0;
+      const filesWithEmbeddings = indexEntry?.total_files || 0;
 
       // FTS percentage (all indexed files have FTS, so it's always 100% if indexed)
       const ftsPercent = totalFiles > 0 ? 100 : 0;
