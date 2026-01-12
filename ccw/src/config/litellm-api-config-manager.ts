@@ -1344,4 +1344,4 @@ export function getAvailableModelsForType(
 }
 
 // Re-export types
-export type { ProviderCredential, CustomEndpoint, ProviderType, CacheStrategy, CodexLensEmbeddingRotation, CodexLensEmbeddingProvider, EmbeddingPoolConfig, RotationEndpointConfig };
+export type { ProviderCredential, CustomEndpoint, ProviderType, CacheStrategy, CodexLensEmbeddingRotation, CodexLensEmbeddingProvider, EmbeddingPoolConfig };
