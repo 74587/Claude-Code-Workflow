@@ -113,8 +113,8 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
       // Use path from query param, fallback to initialPath
       const projectPath = url.searchParams.get('path') || initialPath;
 
-      // Get project info for current workspace
-      const projectResult = await executeCodexLens(['projects', 'get', projectPath, '--json']);
+      // Get project info using 'projects show' command
+      const projectResult = await executeCodexLens(['projects', 'show', projectPath, '--json']);
 
       if (!projectResult.success) {
         // No index for this workspace
@@ -150,17 +150,32 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
         return true;
       }
 
+      // Get index status for embeddings coverage using 'index status' command
+      const indexStatusResult = await executeCodexLens(['index', 'status', projectPath, '--json']);
+
+      let embeddingsData: any = null;
+      if (indexStatusResult.success && indexStatusResult.output) {
+        try {
+          const parsed = extractJSON(indexStatusResult.output);
+          if (parsed.success && parsed.result?.embeddings) {
+            embeddingsData = parsed.result.embeddings;
+          }
+        } catch (e: unknown) {
+          console.error('[CodexLens] Failed to parse index status:', e instanceof Error ? e.message : String(e));
+        }
+      }
+
       // Calculate FTS and Vector percentages
       const totalFiles = projectData.total_files || 0;
-      const indexedFiles = projectData.indexed_files || projectData.total_files || 0;
-      const filesWithEmbeddings = projectData.files_with_embeddings || projectData.embedded_files || 0;
-      const totalChunks = projectData.total_chunks || projectData.embedded_chunks || 0;
+      const indexedFiles = projectData.total_files || 0; // All indexed files have FTS
 
-      // FTS percentage (all indexed files have FTS)
-      const ftsPercent = totalFiles > 0 ? Math.round((indexedFiles / totalFiles) * 100) : 0;
+      // Get embeddings data from index status
+      const filesWithEmbeddings = embeddingsData?.files_with_embeddings || 0;
+      const totalChunks = embeddingsData?.total_chunks || 0;
+      const vectorPercent = embeddingsData?.coverage_percent || 0;
 
-      // Vector percentage (files with embeddings)
-      const vectorPercent = totalFiles > 0 ? Math.round((filesWithEmbeddings / totalFiles) * 1000) / 10 : 0;
+      // FTS percentage (all indexed files have FTS, so it's always 100% if indexed)
+      const ftsPercent = totalFiles > 0 ? 100 : 0;
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
