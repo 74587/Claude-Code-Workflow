@@ -10,6 +10,10 @@ import {
 } from '../../../tools/codex-lens.js';
 import type { GpuMode } from '../../../tools/codex-lens.js';
 import { loadLiteLLMApiConfig } from '../../../config/litellm-api-config-manager.js';
+import {
+  isUvAvailable,
+  createCodexLensUvManager,
+} from '../../../utils/uv-manager.js';
 import type { RouteContext } from '../types.js';
 import { extractJSON } from './utils.js';
 
@@ -631,9 +635,73 @@ export async function handleCodexLensSemanticRoutes(ctx: RouteContext): Promise<
       try {
         const { gpu } = body as { gpu?: unknown };
         const useGpu = typeof gpu === 'boolean' ? gpu : false;
-        const packageName = useGpu ? 'codex-lens[splade-gpu]' : 'codex-lens[splade]';
+        const extras = useGpu ? ['splade-gpu'] : ['splade'];
 
-        // Use pip to install the SPLADE extras
+        // Priority: Use UV if available (faster, better dependency resolution)
+        if (await isUvAvailable()) {
+          console.log('[SPLADE Install] Using UV for installation...');
+          const uv = createCodexLensUvManager();
+
+          // Ensure venv exists
+          if (!uv.isVenvValid()) {
+            console.log('[SPLADE Install] Venv not valid, creating...');
+            const venvResult = await uv.createVenv();
+            if (!venvResult.success) {
+              throw new Error(`Failed to create venv: ${venvResult.error}`);
+            }
+          }
+
+          // Find local codex-lens package
+          const { existsSync } = await import('fs');
+          const { join, dirname } = await import('path');
+          const { fileURLToPath } = await import('url');
+          const __filename = fileURLToPath(import.meta.url);
+          const __dirname = dirname(__filename);
+
+          // Look for local codex-lens package
+          const possiblePaths = [
+            join(__dirname, '..', '..', '..', '..', '..', 'codex-lens'),
+            join(__dirname, '..', '..', '..', '..', '..', '..', 'codex-lens'),
+            join(process.cwd(), 'codex-lens'),
+          ];
+
+          let codexLensPath: string | null = null;
+          for (const p of possiblePaths) {
+            if (existsSync(join(p, 'pyproject.toml'))) {
+              codexLensPath = p;
+              break;
+            }
+          }
+
+          if (codexLensPath) {
+            // Install from local project with extras
+            const result = await uv.installFromProject(codexLensPath, extras);
+            if (result.success) {
+              return {
+                success: true,
+                message: `SPLADE installed successfully via UV (${useGpu ? 'GPU' : 'CPU'} mode)`,
+                duration: result.duration
+              };
+            }
+            console.log('[SPLADE Install] UV install failed, falling back to pip:', result.error);
+          } else {
+            // Install from PyPI with extras
+            const packageSpec = `codex-lens[${extras.join(',')}]`;
+            const result = await uv.install([packageSpec]);
+            if (result.success) {
+              return {
+                success: true,
+                message: `SPLADE installed successfully via UV from PyPI (${useGpu ? 'GPU' : 'CPU'} mode)`,
+                duration: result.duration
+              };
+            }
+            console.log('[SPLADE Install] UV install failed, falling back to pip:', result.error);
+          }
+        }
+
+        // Fallback: Use pip for installation
+        console.log('[SPLADE Install] Using pip fallback...');
+        const packageName = useGpu ? 'codex-lens[splade-gpu]' : 'codex-lens[splade]';
         const { promisify } = await import('util');
         const execFilePromise = promisify(require('child_process').execFile);
 
@@ -643,7 +711,7 @@ export async function handleCodexLensSemanticRoutes(ctx: RouteContext): Promise<
 
         return {
           success: true,
-          message: `SPLADE installed successfully (${useGpu ? 'GPU' : 'CPU'} mode)`,
+          message: `SPLADE installed successfully via pip (${useGpu ? 'GPU' : 'CPU'} mode)`,
           output: result.stdout
         };
       } catch (err: unknown) {
