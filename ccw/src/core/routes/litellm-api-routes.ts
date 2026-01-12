@@ -662,7 +662,7 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
       return true;
     }
 
-    // Async check - use pip show for more reliable detection
+    // Async check - use CodexLens venv Python for reliable detection
     try {
       const { exec } = await import('child_process');
       const { promisify } = await import('util');
@@ -670,40 +670,41 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
 
       let result: { installed: boolean; version?: string; error?: string } = { installed: false };
 
-      // Method 1: Try pip show ccw-litellm (most reliable)
-      try {
-        const { stdout } = await execAsync('pip show ccw-litellm', {
-          timeout: 10000,
-          windowsHide: true,
-        });
-        // Parse version from pip show output
-        const versionMatch = stdout.match(/Version:\s*(.+)/i);
-        if (versionMatch) {
-          result = { installed: true, version: versionMatch[1].trim() };
-          console.log(`[ccw-litellm status] Found via pip show: ${result.version}`);
-        }
-      } catch (pipErr) {
-        console.log('[ccw-litellm status] pip show failed, trying python import...');
+      // Priority 1: Check in CodexLens venv (where UV installs packages)
+      const uv = createCodexLensUvManager();
+      const venvPython = uv.getVenvPython();
 
-        // Method 2: Fallback to Python import
-        const pythonExecutables = ['python', 'python3', 'py'];
-        for (const pythonExe of pythonExecutables) {
-          try {
-            // Use simpler Python code without complex quotes
-            const { stdout } = await execAsync(`${pythonExe} -c "import ccw_litellm; print(ccw_litellm.__version__)"`, {
-              timeout: 5000,
-              windowsHide: true,
-            });
-            const version = stdout.trim();
-            if (version) {
-              result = { installed: true, version };
-              console.log(`[ccw-litellm status] Found with ${pythonExe}: ${version}`);
-              break;
-            }
-          } catch (err) {
-            result.error = (err as Error).message;
-            console.log(`[ccw-litellm status] ${pythonExe} failed:`, result.error.substring(0, 100));
+      if (uv.isVenvValid()) {
+        try {
+          const { stdout } = await execAsync(`"${venvPython}" -c "import ccw_litellm; print(ccw_litellm.__version__)"`, {
+            timeout: 10000,
+            windowsHide: true,
+          });
+          const version = stdout.trim();
+          if (version) {
+            result = { installed: true, version };
+            console.log(`[ccw-litellm status] Found in CodexLens venv: ${version}`);
           }
+        } catch (venvErr) {
+          console.log('[ccw-litellm status] Not found in CodexLens venv');
+        }
+      }
+
+      // Priority 2: Fallback to system pip show (for backward compatibility)
+      if (!result.installed) {
+        try {
+          const { stdout } = await execAsync('pip show ccw-litellm', {
+            timeout: 10000,
+            windowsHide: true,
+          });
+          // Parse version from pip show output
+          const versionMatch = stdout.match(/Version:\s*(.+)/i);
+          if (versionMatch) {
+            result = { installed: true, version: versionMatch[1].trim() };
+            console.log(`[ccw-litellm status] Found via system pip: ${result.version}`);
+          }
+        } catch (pipErr) {
+          console.log('[ccw-litellm status] Not found via system pip');
         }
       }
 
@@ -1219,9 +1220,28 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
   if (pathname === '/api/litellm-api/ccw-litellm/uninstall' && req.method === 'POST') {
     handlePostRequest(req, res, async () => {
       try {
-        const { spawn } = await import('child_process');
+        // Priority 1: Use UV to uninstall from CodexLens venv
+        if (await isUvAvailable()) {
+          const uv = createCodexLensUvManager();
+          if (uv.isVenvValid()) {
+            console.log('[ccw-litellm uninstall] Using UV to uninstall from CodexLens venv...');
+            const uvResult = await uv.uninstall(['ccw-litellm']);
+            clearCcwLitellmStatusCache();
 
-        // Use shared Python detection for consistent cross-platform behavior
+            if (uvResult.success) {
+              broadcastToClients({
+                type: 'CCW_LITELLM_UNINSTALLED',
+                payload: { timestamp: new Date().toISOString() }
+              });
+              return { success: true, message: 'ccw-litellm uninstalled successfully via UV' };
+            }
+            console.log('[ccw-litellm uninstall] UV uninstall failed, falling back to pip:', uvResult.error);
+          }
+        }
+
+        // Priority 2: Fallback to system pip uninstall
+        console.log('[ccw-litellm uninstall] Using pip fallback...');
+        const { spawn } = await import('child_process');
         const pythonCmd = getSystemPython();
 
         return new Promise((resolve) => {
