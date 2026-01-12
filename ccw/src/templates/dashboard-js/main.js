@@ -105,20 +105,29 @@ function initPreloadServices() {
   window.preloadService = new PreloadService(window.cacheManager, window.eventManager);
 
   // 注册高优先级数据源（页面进入时立即预加载）
+
+  // 聚合状态接口 - 最高优先级（cli-status.js 的 loadAllStatuses 使用）
+  window.preloadService.register('all-status',
+    () => fetch('/api/status/all').then(r => r.ok ? r.json() : Promise.reject(r)),
+    { isHighPriority: true, ttl: 300000 } // 5分钟
+  );
+
   window.preloadService.register('dashboard-init',
     () => fetch('/api/codexlens/dashboard-init').then(r => r.ok ? r.json() : Promise.reject(r)),
     { isHighPriority: true, ttl: 300000 } // 5分钟
   );
 
+  // workspace-status: NOT high priority - must wait for projectPath to be set via switchToPath()
+  // Will be triggered by codexlens-manager.js when the view loads
   window.preloadService.register('workspace-status',
     () => {
       const path = encodeURIComponent(projectPath || '');
       return fetch('/api/codexlens/workspace-status?path=' + path).then(r => r.ok ? r.json() : Promise.reject(r));
     },
-    { isHighPriority: true, ttl: 120000 } // 2分钟
+    { isHighPriority: false, ttl: 120000 } // 2分钟
   );
 
-  // CLI 状态 - 高优先级
+  // CLI 状态 - 高优先级（备用，用于独立加载）
   window.preloadService.register('cli-status',
     () => fetch('/api/cli/status').then(r => r.ok ? r.json() : Promise.reject(r)),
     { isHighPriority: true, ttl: 300000 } // 5分钟

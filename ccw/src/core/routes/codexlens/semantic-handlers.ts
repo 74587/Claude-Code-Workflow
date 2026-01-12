@@ -414,7 +414,7 @@ export async function handleCodexLensSemanticRoutes(ctx: RouteContext): Promise<
 
         // Special handling for litellm backend - auto-configure from litellm-api-config
         if (resolvedBackend === 'litellm' && (resolvedModelName || resolvedLiteLLMEndpoint)) {
-          const selectedModel = resolvedModelName || resolvedLiteLLMEndpoint;
+          const selectedModel = (resolvedModelName || resolvedLiteLLMEndpoint) as string;
 
           // Find the provider that has this model
           const providers = getAllProviders(initialPath);

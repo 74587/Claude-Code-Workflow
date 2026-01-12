@@ -33,10 +33,42 @@ function initCliStatus() {
  * Load all statuses using aggregated endpoint (single API call)
  */
 async function loadAllStatuses() {
+  // 1. 尝试从缓存获取（预加载的数据）
+  if (window.cacheManager) {
+    const cached = window.cacheManager.get('all-status');
+    if (cached) {
+      console.log('[CLI Status] Loaded all statuses from cache');
+      // 应用缓存数据
+      cliToolStatus = cached.cli || {};
+      codexLensStatus = cached.codexLens || { ready: false };
+      semanticStatus = cached.semantic || { available: false };
+      ccwInstallStatus = cached.ccwInstall || { installed: true, workflowsInstalled: true, missingFiles: [], installPath: '' };
+
+      // Load CLI tools config, API endpoints, and CLI Settings（这些有自己的缓存）
+      await Promise.all([
+        loadCliToolsConfig(),
+        loadApiEndpoints(),
+        loadCliSettingsEndpoints()
+      ]);
+
+      // Update badges
+      updateCliBadge();
+      updateCodexLensBadge();
+      updateCcwInstallBadge();
+      return cached;
+    }
+  }
+
+  // 2. 缓存未命中，从服务器获取
   try {
     const response = await fetch('/api/status/all');
     if (!response.ok) throw new Error('Failed to load status');
     const data = await response.json();
+
+    // 存入缓存
+    if (window.cacheManager) {
+      window.cacheManager.set('all-status', data, 300000); // 5分钟
+    }
 
     // Update all status data - merge with config tools to ensure all tools are tracked
     cliToolStatus = data.cli || {};

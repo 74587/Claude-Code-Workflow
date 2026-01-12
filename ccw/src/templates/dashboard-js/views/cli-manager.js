@@ -732,7 +732,7 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
 function buildCliManagerSkeleton() {
   return '<div class="space-y-6">' +
     '<div class="flex items-center justify-between mb-4">' +
-      '<h2 class="text-lg font-semibold">' + (t('nav.cliManager') || 'CLI Status') + '</h2>' +
+      '<h2 class="text-lg font-semibold">' + (t('title.cliTools') || 'CLI Tools & CCW') + '</h2>' +
     '</div>' +
     '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">' +
       // 左侧 Tools 区域骨架
