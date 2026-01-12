@@ -110,8 +110,11 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
         return true;
       }
 
+      // Use path from query param, fallback to initialPath
+      const projectPath = url.searchParams.get('path') || initialPath;
+
       // Get project info for current workspace
-      const projectResult = await executeCodexLens(['projects', 'get', initialPath, '--json']);
+      const projectResult = await executeCodexLens(['projects', 'get', projectPath, '--json']);
 
       if (!projectResult.success) {
         // No index for this workspace
@@ -163,7 +166,7 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
       res.end(JSON.stringify({
         success: true,
         hasIndex: true,
-        path: initialPath,
+        path: projectPath,
         fts: {
           percent: ftsPercent,
           indexedFiles,

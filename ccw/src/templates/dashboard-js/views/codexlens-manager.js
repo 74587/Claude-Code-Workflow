@@ -106,7 +106,7 @@ async function preloadCodexLensData() {
     !isCacheValid('rerankerConfig') ? fetch('/api/codexlens/reranker/config').then(r => r.json()).then(d => setCacheData('rerankerConfig', d)) : Promise.resolve(),
     !isCacheValid('rerankerModels') ? fetch('/api/codexlens/reranker/models').then(r => r.json()).then(d => setCacheData('rerankerModels', d)).catch(() => null) : Promise.resolve(),
     // Workspace status
-    !isCacheValid('workspaceStatus') ? fetch('/api/codexlens/workspace-status').then(r => r.json()).then(d => setCacheData('workspaceStatus', d)).catch(() => null) : Promise.resolve(),
+    !isCacheValid('workspaceStatus') ? fetch('/api/codexlens/workspace-status?path=' + encodeURIComponent(projectPath || '')).then(r => r.json()).then(d => setCacheData('workspaceStatus', d)).catch(() => null) : Promise.resolve(),
     // Semantic status (for FastEmbed detection)
     !isCacheValid('semanticStatus') ? fetch('/api/codexlens/semantic/status').then(r => r.json()).then(d => setCacheData('semanticStatus', d)).catch(() => null) : Promise.resolve(),
     // Environment variables
@@ -172,7 +172,7 @@ async function refreshWorkspaceIndexStatus(forceRefresh) {
   }
 
   try {
-    var response = await fetch('/api/codexlens/workspace-status');
+    var response = await fetch('/api/codexlens/workspace-status?path=' + encodeURIComponent(projectPath || ''));
     var result = await response.json();
 
     // Cache the result
