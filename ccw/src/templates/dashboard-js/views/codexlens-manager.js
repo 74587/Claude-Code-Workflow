@@ -174,21 +174,28 @@ async function refreshWorkspaceIndexStatus(forceRefresh) {
     window.eventManager.on('data:updated:workspace-status', _workspaceStatusHandler);
   }
 
-  // 3. Trigger background loading
-  if (window.preloadService) {
-    try {
-      var freshData = await window.preloadService.preload('workspace-status', { force: forceRefresh });
-      render(freshData);
-    } catch (err) {
-      console.error('[CodexLens] Failed to load workspace status:', err);
-      if (headerFtsEl) headerFtsEl.textContent = '--';
-      if (headerVectorEl) headerVectorEl.textContent = '--';
-      if (container) {
-        container.innerHTML = '<div class="text-xs text-destructive text-center py-2">' +
-          '<i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i> ' +
-          (t('common.error') || 'Error') + ': ' + err.message +
-          '</div>';
-      }
+  // 3. Trigger background loading (with fallback to direct fetch)
+  try {
+    var freshData;
+    if (window.preloadService) {
+      freshData = await window.preloadService.preload('workspace-status', { force: forceRefresh });
+    } else {
+      // Fallback: direct fetch if preloadService not available
+      var path = encodeURIComponent(projectPath || '');
+      var response = await fetch('/api/codexlens/workspace-status?path=' + path);
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      freshData = await response.json();
+    }
+    render(freshData);
+  } catch (err) {
+    console.error('[CodexLens] Failed to load workspace status:', err);
+    if (headerFtsEl) headerFtsEl.textContent = '--';
+    if (headerVectorEl) headerVectorEl.textContent = '--';
+    if (container) {
+      container.innerHTML = '<div class="text-xs text-destructive text-center py-2">' +
+        '<i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i> ' +
+        (t('common.error') || 'Error') + ': ' + err.message +
+        '</div>';
     }
   }
 

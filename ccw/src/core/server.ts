@@ -104,6 +104,7 @@ const MODULE_FILES = [
   'help-i18n.js',  // Help page translations
   'utils.js',
   'state.js',
+  'services.js',  // CacheManager, EventManager, PreloadService - must be before main.js
   'api.js',
   'components/theme.js',
   'components/modals.js',
