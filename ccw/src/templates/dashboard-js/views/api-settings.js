@@ -1150,6 +1150,13 @@ async function renderApiSettings() {
   // Load data (use cache by default, forceRefresh=false)
   await loadApiSettings(false);
 
+  // Handle pending CLI wrapper edit from status page navigation
+  if (window.pendingCliWrapperEdit) {
+    activeSidebarTab = 'cli-settings';
+    selectedCliSettingsId = window.pendingCliWrapperEdit;
+    window.pendingCliWrapperEdit = null;  // Clear the pending edit flag
+  }
+
   if (!apiSettingsData) {
     container.innerHTML = '<div class="api-settings-container">' +
       '<div class="error-message">' + t('apiSettings.failedToLoad') + '</div>' +
@@ -2707,7 +2714,7 @@ function renderEndpointsList() {
       '</div>' +
       '<div class="usage-hint">' +
       '<i data-lucide="terminal"></i>' +
-      '<code>ccw cli -p "..." --model ' + endpoint.id + '</code>' +
+      '<code>ccw cli -p "..." --tool custom --model ' + endpoint.id + ' --mode analysis</code>' +
       '</div>' +
       '</div>' +
       '</div>';
@@ -3945,7 +3952,8 @@ function renderCliSettingsForm(existingEndpoint) {
   var commonFieldsHtml =
     '<div class="form-group">' +
     '<label for="cli-settings-name">' + t('apiSettings.endpointName') + ' *</label>' +
-    '<input type="text" id="cli-settings-name" class="form-control" value="' + escapeHtml(existingEndpoint ? existingEndpoint.name : '') + '" placeholder="My Claude Endpoint" required />' +
+    '<input type="text" id="cli-settings-name" class="form-control" value="' + escapeHtml(existingEndpoint ? existingEndpoint.name : '') + '" placeholder="my-claude-endpoint" required pattern="^[a-zA-Z][a-zA-Z0-9_-]*$" maxlength="32" />' +
+    '<small class="form-hint">' + (t('apiSettings.nameFormatHint') || 'Letters, numbers, hyphens, underscores only. Used as: ccw cli --tool [name]') + '</small>' +
     '</div>' +
     '<div class="form-group">' +
     '<label for="cli-settings-description">' + t('apiSettings.description') + '</label>' +
@@ -4097,7 +4105,12 @@ function renderDirectModeContent(container, env, settings) {
   container.innerHTML =
     '<div class="form-group">' +
     '<label for="cli-auth-token">ANTHROPIC_AUTH_TOKEN *</label>' +
+    '<div class="input-with-toggle">' +
     '<input type="password" id="cli-auth-token" class="form-control" placeholder="sk-ant-..." value="' + escapeHtml(env.ANTHROPIC_AUTH_TOKEN || '') + '" />' +
+    '<button type="button" class="btn btn-sm btn-ghost toggle-password" onclick="toggleAuthTokenVisibility()" title="' + (t('apiSettings.showToken') || 'Show') + '">' +
+    '<i data-lucide="eye" id="cli-auth-token-icon"></i>' +
+    '</button>' +
+    '</div>' +
     '</div>' +
     '<div class="form-group">' +
     '<label for="cli-base-url">ANTHROPIC_BASE_URL</label>' +
@@ -4151,7 +4164,7 @@ function buildJsonEditorSection(settings) {
     '</div>' +
     '<div class="json-editor-footer">' +
     '<span class="json-status" id="cli-json-status"></span>' +
-    '<span class="json-hint">' + (t('apiSettings.jsonEditorHint') || 'Edit JSON directly to add advanced settings') + '</span>' +
+    '<a href="javascript:void(0)" class="json-parse-link" onclick="syncJsonToForm()">' + (t('apiSettings.syncFromJson') || 'Parse JSON') + '</a>' +
     '</div>' +
     '</div>';
 }
@@ -4268,6 +4281,39 @@ function validateCliJson() {
 }
 
 /**
+ * Validate CLI endpoint name for CLI compatibility
+ * Name must be: start with letter, alphanumeric with hyphens/underscores, no spaces
+ */
+function validateCliEndpointName(name) {
+  if (!name || name.trim().length === 0) {
+    return { valid: false, error: t('apiSettings.nameRequired') || 'Name is required' };
+  }
+
+  // Check for valid characters: a-z, A-Z, 0-9, hyphen, underscore
+  var validPattern = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
+  if (!validPattern.test(name)) {
+    return {
+      valid: false,
+      error: t('apiSettings.nameInvalidFormat') || 'Name must start with a letter and contain only letters, numbers, hyphens, and underscores'
+    };
+  }
+
+  // Check length
+  if (name.length > 32) {
+    return { valid: false, error: t('apiSettings.nameTooLong') || 'Name must be 32 characters or less' };
+  }
+
+  // Check if name conflicts with built-in tools
+  var builtinTools = ['gemini', 'qwen', 'codex', 'claude', 'opencode', 'litellm'];
+  if (builtinTools.indexOf(name.toLowerCase()) !== -1) {
+    return { valid: false, error: (t('apiSettings.nameConflict') || 'Name conflicts with built-in tool') + ': ' + name };
+  }
+
+  return { valid: true };
+}
+window.validateCliEndpointName = validateCliEndpointName;
+
+/**
  * Format JSON in editor
  */
 function formatCliJson() {
@@ -4332,6 +4378,87 @@ function syncFormToJson() {
 window.syncFormToJson = syncFormToJson;
 
 /**
+ * Toggle ANTHROPIC_AUTH_TOKEN visibility
+ */
+function toggleAuthTokenVisibility() {
+  var input = document.getElementById('cli-auth-token');
+  var icon = document.getElementById('cli-auth-token-icon');
+  var btn = input ? input.parentElement.querySelector('.toggle-password') : null;
+
+  if (!input || !icon) return;
+
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.setAttribute('data-lucide', 'eye-off');
+    if (btn) btn.title = t('apiSettings.hideToken') || 'Hide';
+  } else {
+    input.type = 'password';
+    icon.setAttribute('data-lucide', 'eye');
+    if (btn) btn.title = t('apiSettings.showToken') || 'Show';
+  }
+
+  if (window.lucide) lucide.createIcons();
+}
+window.toggleAuthTokenVisibility = toggleAuthTokenVisibility;
+
+/**
+ * Sync JSON editor content to form fields
+ * Parses JSON and fills ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL and model fields
+ */
+function syncJsonToForm() {
+  var editor = document.getElementById('cli-json-editor');
+  if (!editor) return;
+
+  var jsonObj;
+  try {
+    jsonObj = JSON.parse(editor.value);
+  } catch (e) {
+    showRefreshToast(t('apiSettings.jsonInvalid') || 'Invalid JSON', 'error');
+    return;
+  }
+
+  var env = jsonObj.env || {};
+
+  // Fill ANTHROPIC_AUTH_TOKEN (only in direct mode and only if not masked)
+  if (cliConfigMode === 'direct') {
+    var authTokenInput = document.getElementById('cli-auth-token');
+    if (authTokenInput && env.ANTHROPIC_AUTH_TOKEN) {
+      // Only fill if the value is not masked (doesn't end with '...')
+      if (!env.ANTHROPIC_AUTH_TOKEN.endsWith('...')) {
+        authTokenInput.value = env.ANTHROPIC_AUTH_TOKEN;
+      }
+    }
+
+    var baseUrlInput = document.getElementById('cli-base-url');
+    if (baseUrlInput && env.ANTHROPIC_BASE_URL !== undefined) {
+      baseUrlInput.value = env.ANTHROPIC_BASE_URL || '';
+    }
+  }
+
+  // Fill model configuration fields
+  var modelDefault = document.getElementById('cli-model-default');
+  var modelHaiku = document.getElementById('cli-model-haiku');
+  var modelSonnet = document.getElementById('cli-model-sonnet');
+  var modelOpus = document.getElementById('cli-model-opus');
+
+  if (modelDefault && env.ANTHROPIC_MODEL !== undefined) {
+    modelDefault.value = env.ANTHROPIC_MODEL || '';
+  }
+  if (modelHaiku && env.ANTHROPIC_DEFAULT_HAIKU_MODEL !== undefined) {
+    modelHaiku.value = env.ANTHROPIC_DEFAULT_HAIKU_MODEL || '';
+  }
+  if (modelSonnet && env.ANTHROPIC_DEFAULT_SONNET_MODEL !== undefined) {
+    modelSonnet.value = env.ANTHROPIC_DEFAULT_SONNET_MODEL || '';
+  }
+  if (modelOpus && env.ANTHROPIC_DEFAULT_OPUS_MODEL !== undefined) {
+    modelOpus.value = env.ANTHROPIC_DEFAULT_OPUS_MODEL || '';
+  }
+
+  showRefreshToast(t('common.success') || 'Success', 'success');
+}
+window.syncJsonToForm = syncJsonToForm;
+
+/**
  * Get settings from JSON editor (merges with form data)
  */
 function getSettingsFromJsonEditor() {
@@ -4366,6 +4493,13 @@ async function submitCliSettingsForm() {
   // Validate common fields
   if (!name) {
     showRefreshToast(t('apiSettings.nameRequired'), 'error');
+    return;
+  }
+
+  // Validate name format for CLI compatibility
+  var nameValidation = validateCliEndpointName(name);
+  if (!nameValidation.valid) {
+    showRefreshToast(nameValidation.error, 'error');
     return;
   }
 
@@ -4603,7 +4737,8 @@ function showAddCliSettingsModal(existingEndpoint) {
     (isEdit ? '<input type="hidden" id="cli-settings-id" value="' + existingEndpoint.id + '">' : '') +
     '<div class="form-group">' +
     '<label for="cli-settings-name">' + t('apiSettings.endpointName') + ' *</label>' +
-    '<input type="text" id="cli-settings-name" class="cli-input" value="' + escapeHtml(existingEndpoint ? existingEndpoint.name : '') + '" required />' +
+    '<input type="text" id="cli-settings-name" class="cli-input" value="' + escapeHtml(existingEndpoint ? existingEndpoint.name : '') + '" required pattern="^[a-zA-Z][a-zA-Z0-9_-]*$" maxlength="32" />' +
+    '<small class="form-hint">' + (t('apiSettings.nameFormatHint') || 'Letters, numbers, hyphens, underscores only. Used as: ccw cli --tool [name]') + '</small>' +
     '</div>' +
     '<div class="form-group">' +
     '<label for="cli-settings-description">' + t('apiSettings.description') + '</label>' +
@@ -4671,6 +4806,13 @@ async function submitCliSettings() {
 
   if (!name) {
     showRefreshToast(t('apiSettings.nameRequired'), 'error');
+    return;
+  }
+
+  // Validate name format for CLI compatibility
+  var nameValidation = validateCliEndpointName(name);
+  if (!nameValidation.valid) {
+    showRefreshToast(nameValidation.error, 'error');
     return;
   }
 

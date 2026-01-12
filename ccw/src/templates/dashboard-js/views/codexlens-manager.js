@@ -4497,6 +4497,53 @@ function buildCodexLensManagerPage(config) {
                 '<div class="text-sm text-muted-foreground">Click Load to view/edit ~/.codexlens/.env</div>' +
               '</div>' +
             '</div>' +
+            // File Watcher Card (moved from right column)
+            '<div class="bg-card border border-border rounded-lg overflow-hidden">' +
+              '<div class="bg-muted/30 border-b border-border px-4 py-3">' +
+                '<div class="flex items-center justify-between">' +
+                  '<div class="flex items-center gap-2">' +
+                    '<i data-lucide="eye" class="w-4 h-4 text-primary"></i>' +
+                    '<h4 class="font-semibold">File Watcher</h4>' +
+                  '</div>' +
+                  '<div id="watcherStatusBadge" class="flex items-center gap-2">' +
+                    '<span class="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Stopped</span>' +
+                    '<button class="btn-sm btn-outline" onclick="toggleWatcher()" id="watcherToggleBtn">' +
+                      '<i data-lucide="play" class="w-3.5 h-3.5"></i>' +
+                    '</button>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="p-4">' +
+                '<p class="text-xs text-muted-foreground mb-3">Monitor file changes and auto-update index</p>' +
+                // Stats row
+                '<div class="grid grid-cols-3 gap-2 mb-3">' +
+                  '<div class="bg-muted/30 rounded p-2 text-center">' +
+                    '<div id="watcherFilesCount" class="text-sm font-semibold">-</div>' +
+                    '<div class="text-xs text-muted-foreground">Files</div>' +
+                  '</div>' +
+                  '<div class="bg-muted/30 rounded p-2 text-center">' +
+                    '<div id="watcherChangesCount" class="text-sm font-semibold">0</div>' +
+                    '<div class="text-xs text-muted-foreground">Changes</div>' +
+                  '</div>' +
+                  '<div class="bg-muted/30 rounded p-2 text-center">' +
+                    '<div id="watcherUptimeDisplay" class="text-sm font-semibold">-</div>' +
+                    '<div class="text-xs text-muted-foreground">Uptime</div>' +
+                  '</div>' +
+                '</div>' +
+                // Recent activity log
+                '<div class="border border-border rounded">' +
+                  '<div class="bg-muted/30 px-3 py-1.5 border-b border-border text-xs font-medium text-muted-foreground flex items-center justify-between">' +
+                    '<span>Recent Activity</span>' +
+                    '<button class="text-xs hover:text-foreground" onclick="clearWatcherLog()" title="Clear log">' +
+                      '<i data-lucide="trash-2" class="w-3 h-3"></i>' +
+                    '</button>' +
+                  '</div>' +
+                  '<div id="watcherActivityLog" class="h-24 overflow-y-auto p-2 text-xs font-mono bg-background">' +
+                    '<div class="text-muted-foreground">No activity yet. Start watcher to monitor files.</div>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
           '</div>' +
           // Right Column
           '<div class="space-y-6">' +
@@ -4540,53 +4587,6 @@ function buildCodexLensManagerPage(config) {
                 '<div id="rerankerTabContent" class="model-tab-content hidden">' +
                   '<div id="pageRerankerModelListContainer" class="space-y-2">' +
                     '<div class="text-sm text-muted-foreground">' + t('common.loading') + '</div>' +
-                  '</div>' +
-                '</div>' +
-              '</div>' +
-            '</div>' +
-            // File Watcher Card
-            '<div class="bg-card border border-border rounded-lg overflow-hidden">' +
-              '<div class="bg-muted/30 border-b border-border px-4 py-3">' +
-                '<div class="flex items-center justify-between">' +
-                  '<div class="flex items-center gap-2">' +
-                    '<i data-lucide="eye" class="w-4 h-4 text-primary"></i>' +
-                    '<h4 class="font-semibold">File Watcher</h4>' +
-                  '</div>' +
-                  '<div id="watcherStatusBadge" class="flex items-center gap-2">' +
-                    '<span class="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Stopped</span>' +
-                    '<button class="btn-sm btn-outline" onclick="toggleWatcher()" id="watcherToggleBtn">' +
-                      '<i data-lucide="play" class="w-3.5 h-3.5"></i>' +
-                    '</button>' +
-                  '</div>' +
-                '</div>' +
-              '</div>' +
-              '<div class="p-4">' +
-                '<p class="text-xs text-muted-foreground mb-3">Monitor file changes and auto-update index</p>' +
-                // Stats row
-                '<div class="grid grid-cols-3 gap-2 mb-3">' +
-                  '<div class="bg-muted/30 rounded p-2 text-center">' +
-                    '<div id="watcherFilesCount" class="text-sm font-semibold">-</div>' +
-                    '<div class="text-xs text-muted-foreground">Files</div>' +
-                  '</div>' +
-                  '<div class="bg-muted/30 rounded p-2 text-center">' +
-                    '<div id="watcherChangesCount" class="text-sm font-semibold">0</div>' +
-                    '<div class="text-xs text-muted-foreground">Changes</div>' +
-                  '</div>' +
-                  '<div class="bg-muted/30 rounded p-2 text-center">' +
-                    '<div id="watcherUptimeDisplay" class="text-sm font-semibold">-</div>' +
-                    '<div class="text-xs text-muted-foreground">Uptime</div>' +
-                  '</div>' +
-                '</div>' +
-                // Recent activity log
-                '<div class="border border-border rounded">' +
-                  '<div class="bg-muted/30 px-3 py-1.5 border-b border-border text-xs font-medium text-muted-foreground flex items-center justify-between">' +
-                    '<span>Recent Activity</span>' +
-                    '<button class="text-xs hover:text-foreground" onclick="clearWatcherLog()" title="Clear log">' +
-                      '<i data-lucide="trash-2" class="w-3 h-3"></i>' +
-                    '</button>' +
-                  '</div>' +
-                  '<div id="watcherActivityLog" class="h-24 overflow-y-auto p-2 text-xs font-mono bg-background">' +
-                    '<div class="text-muted-foreground">No activity yet. Start watcher to monitor files.</div>' +
                   '</div>' +
                 '</div>' +
               '</div>' +

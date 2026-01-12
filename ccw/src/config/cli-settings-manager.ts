@@ -7,6 +7,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, readdirSync } from 'fs';
 import { join } from 'path';
+import * as os from 'os';
 import { getCCWHome, ensureStorageDir } from './storage-paths.js';
 import {
   ClaudeCliSettings,
@@ -17,6 +18,10 @@ import {
   validateSettings,
   createDefaultSettings
 } from '../types/cli-settings.js';
+import {
+  addClaudeCustomEndpoint,
+  removeClaudeCustomEndpoint
+} from '../tools/claude-cli-tools.js';
 
 /**
  * Get CLI settings directory path
@@ -116,6 +121,23 @@ export function saveEndpointSettings(request: SaveEndpointRequest): SettingsOper
     index.set(endpointId, metadata);
     saveIndex(index);
 
+    // Sync with cli-tools.json for ccw cli --tool integration
+    // API endpoints are added as tools with type: 'api-endpoint'
+    // Usage: ccw cli -p "..." --tool custom --model <endpoint-id> --mode analysis
+    try {
+      const projectDir = os.homedir(); // Use home dir as base for global config
+      addClaudeCustomEndpoint(projectDir, {
+        id: endpointId,
+        name: request.name,
+        enabled: request.enabled ?? true
+        // No cli-wrapper tag -> registers as type: 'api-endpoint'
+      });
+      console.log(`[CliSettings] Synced endpoint ${endpointId} to cli-tools.json tools`);
+    } catch (syncError) {
+      console.warn(`[CliSettings] Failed to sync with cli-tools.json: ${syncError}`);
+      // Non-fatal: continue even if sync fails
+    }
+
     // Return full endpoint settings
     const endpoint: EndpointSettings = {
       ...metadata,
@@ -195,6 +217,16 @@ export function deleteEndpointSettings(endpointId: string): SettingsOperationRes
     index.delete(endpointId);
     saveIndex(index);
 
+    // Step 3: Remove from cli-tools.json tools (api-endpoint type)
+    try {
+      const projectDir = os.homedir();
+      removeClaudeCustomEndpoint(projectDir, endpointId);
+      console.log(`[CliSettings] Removed endpoint ${endpointId} from cli-tools.json tools`);
+    } catch (syncError) {
+      console.warn(`[CliSettings] Failed to remove from cli-tools.json: ${syncError}`);
+      // Non-fatal: continue even if sync fails
+    }
+
     return {
       success: true,
       message: 'Endpoint deleted'
@@ -270,6 +302,20 @@ export function toggleEndpointEnabled(endpointId: string, enabled: boolean): Set
     metadata.updatedAt = new Date().toISOString();
     index.set(endpointId, metadata);
     saveIndex(index);
+
+    // Sync enabled status with cli-tools.json tools (api-endpoint type)
+    try {
+      const projectDir = os.homedir();
+      addClaudeCustomEndpoint(projectDir, {
+        id: endpointId,
+        name: metadata.name,
+        enabled: enabled
+        // No cli-wrapper tag -> updates as type: 'api-endpoint'
+      });
+      console.log(`[CliSettings] Synced endpoint ${endpointId} enabled=${enabled} to cli-tools.json tools`);
+    } catch (syncError) {
+      console.warn(`[CliSettings] Failed to sync enabled status to cli-tools.json: ${syncError}`);
+    }
 
     // Load full settings for response
     const endpoint = loadEndpointSettings(endpointId);
@@ -356,4 +402,59 @@ export function endpointExists(endpointId: string): boolean {
 export function getEnabledEndpoints(): EndpointSettings[] {
   const { endpoints } = listAllSettings();
   return endpoints.filter(ep => ep.enabled);
+}
+
+/**
+ * Find endpoint by name (case-insensitive)
+ * Useful for CLI where user types --tool doubao instead of --tool ep-xxx
+ */
+export function findEndpointByName(name: string): EndpointSettings | null {
+  const { endpoints } = listAllSettings();
+  const lowerName = name.toLowerCase();
+  return endpoints.find(ep => ep.name.toLowerCase() === lowerName) || null;
+}
+
+/**
+ * Find endpoint by ID or name
+ * First tries exact ID match, then falls back to name match
+ */
+export function findEndpoint(idOrName: string): EndpointSettings | null {
+  // Try by ID first
+  const byId = loadEndpointSettings(idOrName);
+  if (byId) return byId;
+
+  // Try by name
+  return findEndpointByName(idOrName);
+}
+
+/**
+ * Validate endpoint name for CLI compatibility
+ * Name must be: lowercase, alphanumeric, hyphens allowed, no spaces or special chars
+ */
+export function validateEndpointName(name: string): { valid: boolean; error?: string } {
+  if (!name || name.trim().length === 0) {
+    return { valid: false, error: 'Name is required' };
+  }
+
+  // Check for valid characters: a-z, 0-9, hyphen, underscore
+  const validPattern = /^[a-z][a-z0-9_-]*$/;
+  if (!validPattern.test(name.toLowerCase())) {
+    return {
+      valid: false,
+      error: 'Name must start with a letter and contain only letters, numbers, hyphens, and underscores'
+    };
+  }
+
+  // Check length
+  if (name.length > 32) {
+    return { valid: false, error: 'Name must be 32 characters or less' };
+  }
+
+  // Check if name conflicts with built-in tools
+  const builtinTools = ['gemini', 'qwen', 'codex', 'claude', 'opencode', 'litellm'];
+  if (builtinTools.includes(name.toLowerCase())) {
+    return { valid: false, error: `Name "${name}" conflicts with a built-in tool` };
+  }
+
+  return { valid: true };
 }

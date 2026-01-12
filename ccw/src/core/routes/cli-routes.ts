@@ -41,8 +41,10 @@ import {
   updateClaudeToolEnabled,
   updateClaudeCacheSettings,
   getClaudeCliToolsInfo,
-  addClaudeCustomEndpoint,
-  removeClaudeCustomEndpoint,
+  addClaudeApiEndpoint,
+  removeClaudeApiEndpoint,
+  addClaudeCustomEndpoint,  // @deprecated - kept for backward compatibility
+  removeClaudeCustomEndpoint,  // @deprecated - kept for backward compatibility
   updateCodeIndexMcp,
   getCodeIndexMcp
 } from '../../tools/claude-cli-tools.js';
@@ -238,13 +240,21 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
     }
   }
 
-  // API: Get all custom endpoints
+  // Helper: Get API endpoints from tools (type: 'api-endpoint')
+  const getApiEndpointsFromTools = (config: any) => {
+    return Object.entries(config.tools)
+      .filter(([_, t]: [string, any]) => t.type === 'api-endpoint')
+      .map(([name, t]: [string, any]) => ({ id: t.id || name, name, enabled: t.enabled }));
+  };
+
+  // API: Get all API endpoints (for --tool custom --model <id>)
   if (pathname === '/api/cli/endpoints' && req.method === 'GET') {
     try {
       // Use ensureClaudeCliTools to auto-create config if missing
       const config = ensureClaudeCliTools(initialPath);
+      const endpoints = getApiEndpointsFromTools(config);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ endpoints: config.customEndpoints || [] }));
+      res.end(JSON.stringify({ endpoints }));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: (err as Error).message }));
@@ -252,7 +262,7 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
-  // API: Add/Update custom endpoint
+  // API: Add/Update API endpoint
   if (pathname === '/api/cli/endpoints' && req.method === 'POST') {
     handlePostRequest(req, res, async (body: unknown) => {
       try {
@@ -260,14 +270,14 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
         if (!id || !name) {
           return { error: 'id and name are required', status: 400 };
         }
-        const config = addClaudeCustomEndpoint(initialPath, { id, name, enabled: enabled !== false });
+        const config = addClaudeApiEndpoint(initialPath, { id, name, enabled: enabled !== false });
 
         broadcastToClients({
           type: 'CLI_ENDPOINT_UPDATED',
           payload: { endpoint: { id, name, enabled }, timestamp: new Date().toISOString() }
         });
 
-        return { success: true, endpoints: config.customEndpoints };
+        return { success: true, endpoints: getApiEndpointsFromTools(config) };
       } catch (err) {
         return { error: (err as Error).message, status: 500 };
       }
@@ -275,23 +285,35 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
-  // API: Update custom endpoint enabled status
+  // API: Update API endpoint enabled status
   if (pathname.match(/^\/api\/cli\/endpoints\/[^/]+$/) && req.method === 'PUT') {
     const endpointId = pathname.split('/').pop() || '';
     handlePostRequest(req, res, async (body: unknown) => {
       try {
-        const { enabled, name } = body as { enabled?: boolean; name?: string };
+        const { enabled, name: newName } = body as { enabled?: boolean; name?: string };
         const config = loadClaudeCliTools(initialPath);
-        const endpoint = config.customEndpoints.find(e => e.id === endpointId);
 
-        if (!endpoint) {
+        // Find the tool by id (api-endpoint type)
+        const toolEntry = Object.entries(config.tools).find(
+          ([_, t]: [string, any]) => t.type === 'api-endpoint' && t.id === endpointId
+        );
+
+        if (!toolEntry) {
           return { error: 'Endpoint not found', status: 404 };
         }
 
-        if (typeof enabled === 'boolean') endpoint.enabled = enabled;
-        if (name) endpoint.name = name;
+        const [toolName, tool] = toolEntry as [string, any];
+
+        if (typeof enabled === 'boolean') tool.enabled = enabled;
+        // If name changes, we need to rename the key
+        if (newName && newName !== toolName) {
+          delete config.tools[toolName];
+          config.tools[newName] = tool;
+        }
 
         saveClaudeCliTools(initialPath, config);
+
+        const endpoint = { id: tool.id || toolName, name: newName || toolName, enabled: tool.enabled };
 
         broadcastToClients({
           type: 'CLI_ENDPOINT_UPDATED',
@@ -306,11 +328,11 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
-  // API: Delete custom endpoint
+  // API: Delete API endpoint
   if (pathname.match(/^\/api\/cli\/endpoints\/[^/]+$/) && req.method === 'DELETE') {
     const endpointId = pathname.split('/').pop() || '';
     try {
-      const config = removeClaudeCustomEndpoint(initialPath, endpointId);
+      const config = removeClaudeApiEndpoint(initialPath, endpointId);
 
       broadcastToClients({
         type: 'CLI_ENDPOINT_DELETED',
@@ -318,7 +340,7 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
       });
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, endpoints: config.customEndpoints }));
+      res.end(JSON.stringify({ success: true, endpoints: getApiEndpointsFromTools(config) }));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: (err as Error).message }));
@@ -737,8 +759,7 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
           const currentTools = loadClaudeCliTools(initialPath);
           const updatedTools = {
             ...currentTools,
-            tools: { ...currentTools.tools, ...(updates.tools.tools || {}) },
-            customEndpoints: updates.tools.customEndpoints || currentTools.customEndpoints
+            tools: { ...currentTools.tools, ...(updates.tools.tools || {}) }
           };
           saveClaudeCliTools(initialPath, updatedTools);
         }

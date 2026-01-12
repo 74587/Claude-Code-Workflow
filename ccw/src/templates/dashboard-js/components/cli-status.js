@@ -71,8 +71,8 @@ async function loadAllStatusesFallback() {
   console.warn('[CLI Status] Using fallback individual API calls');
   await Promise.all([
     loadCliToolsConfig(), // Ensure config is loaded (auto-creates if missing)
-    loadCliToolStatus(),
-    loadCodexLensStatus()
+    loadCliToolStatus()
+    // CodexLens status removed - managed in dedicated CodexLens Manager page
   ]);
 }
 
@@ -235,8 +235,8 @@ async function loadCliToolsConfig() {
     const response = await fetch('/api/cli/tools-config');
     if (!response.ok) return null;
     const data = await response.json();
-    // Store full config and extract tools for backward compatibility
-    cliToolsConfig = data.tools || {};
+    // Store full config and extract tools object (data.tools is full config, data.tools.tools is the actual tools)
+    cliToolsConfig = data.tools?.tools || {};
     window.claudeCliToolsConfig = data; // Full config available globally
 
     // Load default tool from config
@@ -308,15 +308,17 @@ async function loadCliSettingsEndpoints() {
 function updateCliBadge() {
   const badge = document.getElementById('badgeCliTools');
   if (badge) {
-    // Merge tools from both status and config to get complete list
-    const allTools = new Set([
-      ...Object.keys(cliToolStatus),
-      ...Object.keys(cliToolsConfig)
-    ]);
+    // Only count builtin and cli-wrapper tools (exclude api-endpoint tools)
+    const cliTools = Object.keys(cliToolsConfig).filter(t => {
+      if (!t || t === '_configInfo') return false;
+      const config = cliToolsConfig[t];
+      // Include if: no type (legacy builtin), type is builtin, or type is cli-wrapper
+      return !config?.type || config.type === 'builtin' || config.type === 'cli-wrapper';
+    });
 
-    // Count available and enabled CLI tools
+    // Count available and enabled CLI tools only
     let available = 0;
-    allTools.forEach(tool => {
+    cliTools.forEach(tool => {
       const status = cliToolStatus[tool] || {};
       const config = cliToolsConfig[tool] || { enabled: true };
       if (status.available && config.enabled !== false) {
@@ -324,33 +326,12 @@ function updateCliBadge() {
       }
     });
 
-    // Also count CodexLens and Semantic Search
-    let totalExtras = 0;
-    let availableExtras = 0;
-
-    // CodexLens counts if ready
-    if (codexLensStatus.ready) {
-      totalExtras++;
-      availableExtras++;
-    } else if (codexLensStatus.ready === false) {
-      // Only count as total if we have status info (not just initial state)
-      totalExtras++;
-    }
-
-    // Semantic Search counts if CodexLens is ready (it's a feature of CodexLens)
-    if (codexLensStatus.ready) {
-      totalExtras++;
-      if (semanticStatus.available) {
-        availableExtras++;
-      }
-    }
-
-    const total = allTools.size + totalExtras;
-    const totalAvailable = available + availableExtras;
-    badge.textContent = `${totalAvailable}/${total}`;
-    badge.classList.toggle('text-success', totalAvailable === total && total > 0);
-    badge.classList.toggle('text-warning', totalAvailable > 0 && totalAvailable < total);
-    badge.classList.toggle('text-destructive', totalAvailable === 0);
+    // CLI tools badge shows only CLI tools count
+    const total = cliTools.length;
+    badge.textContent = `${available}/${total}`;
+    badge.classList.toggle('text-success', available === total && total > 0);
+    badge.classList.toggle('text-warning', available > 0 && available < total);
+    badge.classList.toggle('text-destructive', available === 0);
   }
 }
 
@@ -414,10 +395,16 @@ function renderCliStatus() {
   };
 
   // Get tools dynamically from config, merging with status for complete list
+  // Only show builtin and cli-wrapper tools in the tools grid (api-endpoint tools show in API Endpoints section)
   const tools = [...new Set([
     ...Object.keys(cliToolsConfig),
     ...Object.keys(cliToolStatus)
-  ])].filter(t => t && t !== '_configInfo'); // Filter out metadata keys
+  ])].filter(t => {
+    if (!t || t === '_configInfo') return false;
+    const config = cliToolsConfig[t];
+    // Include if: no type (legacy builtin), type is builtin, or type is cli-wrapper
+    return !config?.type || config.type === 'builtin' || config.type === 'cli-wrapper';
+  });
 
   const toolsHtml = tools.map(tool => {
     const status = cliToolStatus[tool] || {};
@@ -516,74 +503,8 @@ function renderCliStatus() {
     `;
   }).join('');
 
-  // CodexLens card with semantic search info
-  const codexLensHtml = `
-    <div class="cli-tool-card tool-codexlens ${codexLensStatus.ready ? 'available' : 'unavailable'}">
-      <div class="cli-tool-header">
-        <span class="cli-tool-status ${codexLensStatus.ready ? 'status-available' : 'status-unavailable'}"></span>
-        <span class="cli-tool-name">CodexLens</span>
-        <span class="badge px-1.5 py-0.5 text-xs rounded bg-muted text-muted-foreground">Index</span>
-      </div>
-      <div class="cli-tool-desc text-xs text-muted-foreground mt-1">
-        ${codexLensStatus.ready ? 'Code indexing & FTS search' : 'Full-text code search engine'}
-      </div>
-      <div class="cli-tool-info mt-2">
-        ${codexLensStatus.ready
-          ? `<span class="text-success flex items-center gap-1"><i data-lucide="check-circle" class="w-3 h-3"></i> v${codexLensStatus.version || 'installed'}</span>`
-          : `<span class="text-muted-foreground flex items-center gap-1"><i data-lucide="circle-dashed" class="w-3 h-3"></i> Not Installed</span>`
-        }
-      </div>
-      <div class="cli-tool-actions flex gap-2 mt-3">
-        ${!codexLensStatus.ready
-          ? `<button class="btn-sm btn-primary flex items-center gap-1" onclick="installCodexLens()">
-              <i data-lucide="download" class="w-3 h-3"></i> Install
-            </button>`
-          : `<button class="btn-sm btn-outline flex items-center gap-1" onclick="initCodexLensIndex()">
-              <i data-lucide="database" class="w-3 h-3"></i> Init Index
-            </button>
-            <button class="btn-sm btn-outline flex items-center gap-1" onclick="uninstallCodexLens()">
-              <i data-lucide="trash-2" class="w-3 h-3"></i> Uninstall
-            </button>`
-        }
-      </div>
-    </div>
-  `;
-
-  // Semantic Search card (only show if CodexLens is installed)
-  const semanticHtml = codexLensStatus.ready ? `
-    <div class="cli-tool-card tool-semantic ${semanticStatus.available ? 'available' : 'unavailable'}">
-      <div class="cli-tool-header">
-        <span class="cli-tool-status ${semanticStatus.available ? 'status-available' : 'status-unavailable'}"></span>
-        <span class="cli-tool-name">Semantic Search</span>
-        <span class="badge px-1.5 py-0.5 text-xs rounded ${semanticStatus.available ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}">AI</span>
-      </div>
-      <div class="cli-tool-desc text-xs text-muted-foreground mt-1">
-        ${semanticStatus.available ? 'AI-powered code understanding' : 'Natural language code search'}
-      </div>
-      <div class="cli-tool-info mt-2">
-        ${semanticStatus.available
-          ? `<span class="text-success flex items-center gap-1"><i data-lucide="sparkles" class="w-3 h-3"></i> ${semanticStatus.backend || 'Ready'}</span>`
-          : `<span class="text-muted-foreground flex items-center gap-1"><i data-lucide="circle-dashed" class="w-3 h-3"></i> Not Installed</span>`
-        }
-      </div>
-      <div class="cli-tool-actions flex flex-col gap-2 mt-3">
-        ${!semanticStatus.available ? `
-          <button class="btn-sm btn-primary w-full flex items-center justify-center gap-1" onclick="openSemanticInstallWizard()">
-            <i data-lucide="brain" class="w-3 h-3"></i> Install AI Model
-          </button>
-          <div class="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-            <i data-lucide="hard-drive" class="w-3 h-3"></i>
-            <span>~130MB</span>
-          </div>
-        ` : `
-          <div class="flex items-center gap-1 text-xs text-muted-foreground">
-            <i data-lucide="cpu" class="w-3 h-3"></i>
-            <span>bge-small-en-v1.5</span>
-          </div>
-        `}
-      </div>
-    </div>
-  ` : '';
+  // CodexLens and Semantic Search removed from CLI status panel
+  // They are managed in the dedicated CodexLens Manager page
 
   // CCW Installation Status card (show warning if not fully installed)
   const ccwInstallHtml = !ccwInstallStatus.installed ? `
@@ -636,6 +557,9 @@ function renderCliStatus() {
             </div>
             <div class="cli-endpoint-info" style="margin-top: 0.25rem;">
               <span class="text-xs text-muted-foreground" style="font-size: 0.75rem; color: var(--muted-foreground);">${ep.model}</span>
+            </div>
+            <div class="cli-endpoint-usage" style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border);">
+              <code style="font-size: 0.65rem; color: var(--muted-foreground); word-break: break-all;">--tool custom --model ${ep.id}</code>
             </div>
           </div>
         `).join('')}
@@ -748,8 +672,6 @@ function renderCliStatus() {
     ${ccwInstallHtml}
     <div class="cli-tools-grid">
       ${toolsHtml}
-      ${codexLensHtml}
-      ${semanticHtml}
     </div>
     ${apiEndpointsHtml}
     ${settingsHtml}

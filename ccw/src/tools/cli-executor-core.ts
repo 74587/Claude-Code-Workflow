@@ -80,6 +80,179 @@ export function killCurrentCliProcess(): boolean {
 import { executeLiteLLMEndpoint } from './litellm-executor.js';
 import { findEndpointById } from '../config/litellm-api-config-manager.js';
 
+// CLI Settings (CLI封装) integration
+import { loadEndpointSettings, getSettingsFilePath, findEndpoint } from '../config/cli-settings-manager.js';
+import { loadClaudeCliTools } from './claude-cli-tools.js';
+
+/**
+ * Execute Claude CLI with custom settings file (CLI封装)
+ */
+interface ClaudeWithSettingsParams {
+  prompt: string;
+  settingsPath: string;
+  endpointId: string;
+  mode: 'analysis' | 'write' | 'auto';
+  workingDir: string;
+  cd?: string;
+  includeDirs?: string[];
+  customId?: string;
+  onOutput?: (unit: CliOutputUnit) => void;
+}
+
+async function executeClaudeWithSettings(params: ClaudeWithSettingsParams): Promise<ExecutionOutput> {
+  const { prompt, settingsPath, endpointId, mode, workingDir, cd, includeDirs, customId, onOutput } = params;
+
+  const startTime = Date.now();
+  const conversationId = customId || `${Date.now()}-${endpointId}`;
+
+  // Build claude command with --settings flag
+  const args: string[] = [
+    '--settings', settingsPath,
+    '--print'  // Non-interactive mode
+  ];
+
+  // Add mode-specific flags
+  if (mode === 'write') {
+    args.push('--dangerously-skip-permissions');
+  }
+
+  // Add working directory if specified
+  if (cd) {
+    args.push('--cd', cd);
+  }
+
+  // Add include directories
+  if (includeDirs && includeDirs.length > 0) {
+    for (const dir of includeDirs) {
+      args.push('--add-dir', dir);
+    }
+  }
+
+  // Add prompt as argument
+  args.push('-p', prompt);
+
+  debugLog('CLAUDE_SETTINGS', `Executing claude with settings`, {
+    settingsPath,
+    endpointId,
+    mode,
+    workingDir,
+    args
+  });
+
+  return new Promise((resolve, reject) => {
+    const isWindows = process.platform === 'win32';
+    const command = 'claude';
+    const commandToSpawn = isWindows ? escapeWindowsArg(command) : command;
+    const argsToSpawn = isWindows ? args.map(escapeWindowsArg) : args;
+
+    const child = spawn(commandToSpawn, argsToSpawn, {
+      cwd: workingDir,
+      shell: isWindows,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    // Track current child process for cleanup
+    currentChildProcess = child;
+
+    let stdout = '';
+    let stderr = '';
+    const outputUnits: CliOutputUnit[] = [];
+
+    child.stdout!.on('data', (data: Buffer) => {
+      const text = data.toString();
+      stdout += text;
+
+      const unit: CliOutputUnit = {
+        type: 'stdout',
+        content: text,
+        timestamp: new Date().toISOString()
+      };
+      outputUnits.push(unit);
+
+      if (onOutput) {
+        onOutput(unit);
+      }
+    });
+
+    child.stderr!.on('data', (data: Buffer) => {
+      const text = data.toString();
+      stderr += text;
+
+      const unit: CliOutputUnit = {
+        type: 'stderr',
+        content: text,
+        timestamp: new Date().toISOString()
+      };
+      outputUnits.push(unit);
+
+      if (onOutput) {
+        onOutput(unit);
+      }
+    });
+
+    child.on('close', (code) => {
+      currentChildProcess = null;
+
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+
+      // Determine status
+      let status: 'success' | 'error' = 'success';
+      if (code !== 0) {
+        const hasValidOutput = stdout.trim().length > 0;
+        const hasFatalError = stderr.includes('FATAL') ||
+                              stderr.includes('Authentication failed') ||
+                              stderr.includes('API key');
+
+        if (hasValidOutput && !hasFatalError) {
+          status = 'success';
+        } else {
+          status = 'error';
+        }
+      }
+
+      const execution: ExecutionRecord = {
+        id: conversationId,
+        timestamp: new Date(startTime).toISOString(),
+        tool: 'claude',
+        model: endpointId, // Use endpoint ID as model identifier
+        mode,
+        prompt,
+        status,
+        exit_code: code,
+        duration_ms: duration,
+        output: {
+          stdout: stdout.substring(0, 10240),
+          stderr: stderr.substring(0, 2048),
+          truncated: stdout.length > 10240 || stderr.length > 2048
+        }
+      };
+
+      const conversation = convertToConversation(execution);
+
+      // Save to history
+      try {
+        saveConversation(workingDir, conversation);
+      } catch (err) {
+        console.error('[CLI Executor] Failed to save CLI封装 history:', (err as Error).message);
+      }
+
+      resolve({
+        success: status === 'success',
+        execution,
+        conversation,
+        stdout,
+        stderr
+      });
+    });
+
+    child.on('error', (error) => {
+      currentChildProcess = null;
+      reject(new Error(`Failed to spawn claude: ${error.message}`));
+    });
+  });
+}
+
 // Native resume support
 import {
   trackNewSession,
@@ -100,9 +273,14 @@ import {
   getPrimaryModel
 } from './cli-config-manager.js';
 
+// Built-in CLI tools
+const BUILTIN_CLI_TOOLS = ['gemini', 'qwen', 'codex', 'opencode', 'claude'] as const;
+type BuiltinCliTool = typeof BUILTIN_CLI_TOOLS[number];
+
 // Define Zod schema for validation
+// tool accepts built-in tools or custom endpoint IDs (CLI封装)
 const ParamsSchema = z.object({
-  tool: z.enum(['gemini', 'qwen', 'codex', 'opencode']),
+  tool: z.string().min(1, 'Tool is required'), // Accept any tool ID (built-in or custom endpoint)
   prompt: z.string().min(1, 'Prompt is required'),
   mode: z.enum(['analysis', 'write', 'auto']).default('analysis'),
   format: z.enum(['plain', 'yaml', 'json']).default('plain'), // Multi-turn prompt concatenation format
@@ -218,6 +396,116 @@ async function executeCliTool(
         stderr: result.error || '',
       };
     }
+  }
+
+  // Check if tool is a custom CLI封装 endpoint (not a built-in tool)
+  const isBuiltinTool = BUILTIN_CLI_TOOLS.includes(tool as BuiltinCliTool);
+  if (!isBuiltinTool) {
+    // Check if it's a CLI封装 endpoint (by ID or name)
+    const cliSettings = findEndpoint(tool);
+    if (cliSettings && cliSettings.enabled) {
+      // Route to Claude CLI with --settings flag
+      const settingsPath = getSettingsFilePath(cliSettings.id);
+      const displayName = cliSettings.name !== cliSettings.id ? `${cliSettings.name} (${cliSettings.id})` : cliSettings.id;
+      if (onOutput) {
+        onOutput({
+          type: 'stderr',
+          content: `[Routing to CLI封装 endpoint: ${displayName} via claude --settings]\n`,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Execute claude CLI with settings file
+      const result = await executeClaudeWithSettings({
+        prompt,
+        settingsPath,
+        endpointId: cliSettings.id,
+        mode,
+        workingDir,
+        cd,
+        includeDirs: includeDirs ? includeDirs.split(',').map(d => d.trim()) : undefined,
+        customId,
+        onOutput: onOutput || undefined
+      });
+
+      return result;
+    }
+
+    // Check cli-tools.json for CLI wrapper tools or API endpoints
+    const cliToolsConfig = loadClaudeCliTools(workingDir);
+
+    // First check if tool is a cli-wrapper in tools section
+    const cliWrapperTool = Object.entries(cliToolsConfig.tools).find(
+      ([name, t]) => name.toLowerCase() === tool.toLowerCase() && t.type === 'cli-wrapper' && t.enabled
+    );
+    if (cliWrapperTool) {
+      const [toolName] = cliWrapperTool;
+      // Check if there's a corresponding CLI封装 settings file
+      const cliSettingsForTool = findEndpoint(toolName);
+      if (cliSettingsForTool) {
+        const settingsPath = getSettingsFilePath(cliSettingsForTool.id);
+        if (onOutput) {
+          onOutput({
+            type: 'stderr',
+            content: `[Routing to CLI wrapper tool: ${toolName} via claude --settings]\n`,
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        const result = await executeClaudeWithSettings({
+          prompt,
+          settingsPath,
+          endpointId: cliSettingsForTool.id,
+          mode,
+          workingDir,
+          cd,
+          includeDirs: includeDirs ? includeDirs.split(',').map(d => d.trim()) : undefined,
+          customId,
+          onOutput: onOutput || undefined
+        });
+
+        return result;
+      }
+    }
+
+    // Check tools with type: 'api-endpoint' (for --tool custom --model <id>)
+    const apiEndpointTool = Object.entries(cliToolsConfig.tools).find(
+      ([name, t]) => t.type === 'api-endpoint' && t.enabled &&
+        (t.id === tool || name === tool || name.toLowerCase() === tool.toLowerCase())
+    );
+    if (apiEndpointTool) {
+      const [toolName, toolConfig] = apiEndpointTool;
+      const endpointId = toolConfig.id || toolName;
+      // Check if there's a corresponding CLI封装 settings file
+      const cliSettingsForEndpoint = findEndpoint(endpointId);
+      if (cliSettingsForEndpoint) {
+        const settingsPath = getSettingsFilePath(cliSettingsForEndpoint.id);
+        if (onOutput) {
+          onOutput({
+            type: 'stderr',
+            content: `[Routing to API endpoint: ${toolName} via claude --settings]\n`,
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        const result = await executeClaudeWithSettings({
+          prompt,
+          settingsPath,
+          endpointId: cliSettingsForEndpoint.id,
+          mode,
+          workingDir,
+          cd,
+          includeDirs: includeDirs ? includeDirs.split(',').map(d => d.trim()) : undefined,
+          customId,
+          onOutput: onOutput || undefined
+        });
+
+        return result;
+      }
+    }
+
+    // Tool not found
+    throw new Error(`Unknown tool: ${tool}. Use one of: ${BUILTIN_CLI_TOOLS.join(', ')} or a registered CLI封装 endpoint name.`);
   }
 
   // Get SQLite store for native session lookup

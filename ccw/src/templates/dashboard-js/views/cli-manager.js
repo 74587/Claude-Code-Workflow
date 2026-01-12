@@ -6,6 +6,7 @@ var currentCliExecution = null;
 var cliExecutionOutput = '';
 var ccwInstallations = [];
 var ccwEndpointTools = [];
+var cliWrapperEndpoints = [];  // CLI封装 endpoints from /api/cli/settings
 var cliToolConfig = null;  // Store loaded CLI config
 var predefinedModels = {}; // Store predefined models per tool
 
@@ -190,6 +191,46 @@ async function loadCliCustomEndpoints() {
     console.error('Failed to load CLI custom endpoints:', err);
     cliCustomEndpoints = [];
     return [];
+  }
+}
+
+// ========== CLI Wrapper Endpoints (CLI封装) ==========
+async function loadCliWrapperEndpoints() {
+  try {
+    var response = await fetch('/api/cli/settings');
+    if (!response.ok) throw new Error('Failed to load CLI wrapper endpoints');
+    var data = await response.json();
+    cliWrapperEndpoints = data.endpoints || [];
+    return cliWrapperEndpoints;
+  } catch (err) {
+    console.error('Failed to load CLI wrapper endpoints:', err);
+    cliWrapperEndpoints = [];
+    return [];
+  }
+}
+
+async function toggleCliWrapperEnabled(endpointId, enabled) {
+  try {
+    await initCsrfToken();
+    var response = await csrfFetch('/api/cli/settings/' + endpointId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: enabled })
+    });
+    if (!response.ok) throw new Error('Failed to update CLI wrapper endpoint');
+    var data = await response.json();
+    if (data.success) {
+      // Update local state
+      var idx = cliWrapperEndpoints.findIndex(function(e) { return e.id === endpointId; });
+      if (idx >= 0) {
+        cliWrapperEndpoints[idx].enabled = enabled;
+      }
+      showRefreshToast((enabled ? t('cli.enabled') || 'Enabled' : t('cli.disabled') || 'Disabled') + ': ' + endpointId, 'success');
+    }
+    return data;
+  } catch (err) {
+    showRefreshToast((t('cli.updateFailed') || 'Failed to update') + ': ' + err.message, 'error');
+    throw err;
   }
 }
 
@@ -628,7 +669,8 @@ async function renderCliManager() {
     loadCcwInstallations(),
     loadCcwEndpointTools(),
     loadLitellmApiEndpoints(),
-    loadCliCustomEndpoints()
+    loadCliCustomEndpoints(),
+    loadCliWrapperEndpoints()
   ]);
 
   container.innerHTML = '<div class="status-manager">' +
@@ -764,44 +806,8 @@ function renderToolsSection() {
     '</div>';
   }).join('');
 
-  // CodexLens item - simplified view with link to manager page
-  var codexLensHtml = '<div class="tool-item clickable ' + (codexLensStatus.ready ? 'available' : 'unavailable') + '" onclick="navigateToCodexLensManager()">' +
-    '<div class="tool-item-left">' +
-      '<span class="tool-status-dot ' + (codexLensStatus.ready ? 'status-available' : 'status-unavailable') + '"></span>' +
-      '<div class="tool-item-info">' +
-        '<div class="tool-item-name">CodexLens <span class="tool-type-badge">Index</span>' +
-          '<i data-lucide="external-link" class="w-3 h-3 tool-config-icon"></i></div>' +
-        '<div class="tool-item-desc">' + (codexLensStatus.ready ? t('cli.codexLensDesc') : t('cli.codexLensDescFull')) + '</div>' +
-      '</div>' +
-    '</div>' +
-    '<div class="tool-item-right">' +
-      (codexLensStatus.ready
-        ? '<span class="tool-status-text success"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> v' + (codexLensStatus.version || 'installed') + '</span>' +
-          '<button class="btn-sm btn-primary" onclick="event.stopPropagation(); navigateToCodexLensManager()"><i data-lucide="settings" class="w-3 h-3"></i> ' + t('cli.openManager') + '</button>'
-        : '<span class="tool-status-text muted"><i data-lucide="circle-dashed" class="w-3.5 h-3.5"></i> ' + t('cli.notInstalled') + '</span>' +
-          '<button class="btn-sm btn-primary" onclick="event.stopPropagation(); navigateToCodexLensManager()"><i data-lucide="settings" class="w-3 h-3"></i> ' + t('cli.openManager') + '</button>') +
-    '</div>' +
-  '</div>';
-
-  // Semantic Search item (only show if CodexLens is installed)
-  var semanticHtml = '';
-  if (codexLensStatus.ready) {
-    semanticHtml = '<div class="tool-item ' + (semanticStatus.available ? 'available' : 'unavailable') + '">' +
-      '<div class="tool-item-left">' +
-        '<span class="tool-status-dot ' + (semanticStatus.available ? 'status-available' : 'status-unavailable') + '"></span>' +
-        '<div class="tool-item-info">' +
-          '<div class="tool-item-name">Semantic Search <span class="tool-type-badge ai">AI</span></div>' +
-          '<div class="tool-item-desc">' + (semanticStatus.available ? 'AI-powered code understanding' : 'Natural language code search') + '</div>' +
-        '</div>' +
-      '</div>' +
-      '<div class="tool-item-right">' +
-        (semanticStatus.available
-          ? '<span class="tool-status-text success"><i data-lucide="sparkles" class="w-3.5 h-3.5"></i> ' + (semanticStatus.backend || 'Ready') + '</span>'
-          : '<span class="tool-status-text muted"><i data-lucide="circle-dashed" class="w-3.5 h-3.5"></i> Not Installed</span>' +
-            '<button class="btn-sm btn-primary" onclick="event.stopPropagation(); openSemanticInstallWizard()"><i data-lucide="brain" class="w-3 h-3"></i> Install</button>') +
-      '</div>' +
-    '</div>';
-  }
+  // CodexLens and Semantic Search removed from this list
+  // They are managed in the dedicated CodexLens Manager page (left menu)
 
   // API Endpoints section
   var apiEndpointsHtml = '';
@@ -848,6 +854,45 @@ function renderToolsSection() {
     '</div>';
   }
 
+  // CLI Wrapper (CLI封装) section
+  var cliWrapperHtml = '';
+  if (cliWrapperEndpoints.length > 0) {
+    var wrapperItems = cliWrapperEndpoints.map(function(endpoint) {
+      var isEnabled = endpoint.enabled !== false;
+      var desc = endpoint.description || (t('cli.customClaudeSettings') || 'Custom Claude CLI settings');
+      // Show command hint with name for easy copying
+      var commandHint = 'ccw cli --tool ' + endpoint.name;
+
+      return '<div class="tool-item clickable ' + (isEnabled ? 'available' : 'unavailable') + '" onclick="navigateToApiSettings(\'' + endpoint.id + '\')">' +
+        '<div class="tool-item-left">' +
+          '<span class="tool-status-dot ' + (isEnabled ? 'status-available' : 'status-unavailable') + '"></span>' +
+          '<div class="tool-item-info">' +
+            '<div class="tool-item-name">' + escapeHtml(endpoint.name) + ' <span class="tool-type-badge" style="background: var(--primary); color: white;">' + (t('cli.wrapper') || 'Wrapper') + '</span></div>' +
+            '<div class="tool-item-desc">' + escapeHtml(desc) + '</div>' +
+            '<div class="tool-item-command" style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted-foreground); margin-top: 0.25rem;">' + escapeHtml(commandHint) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="tool-item-right">' +
+          '<label class="toggle-switch" onclick="event.stopPropagation()">' +
+            '<input type="checkbox" ' + (isEnabled ? 'checked' : '') + ' onchange="toggleCliWrapperEnabled(\'' + endpoint.id + '\', this.checked); renderToolsSection();">' +
+            '<span class="toggle-slider"></span>' +
+          '</label>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    var enabledCount = cliWrapperEndpoints.filter(function(e) { return e.enabled !== false; }).length;
+    cliWrapperHtml = '<div class="tools-subsection" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">' +
+      '<div class="section-header-left" style="margin-bottom: 0.5rem;">' +
+        '<h4 style="font-size: 0.875rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">' +
+          '<i data-lucide="package-2" class="w-4 h-4"></i> ' + (t('cli.cliWrapper') || 'CLI Wrapper') +
+        '</h4>' +
+        '<span class="section-count">' + enabledCount + '/' + cliWrapperEndpoints.length + ' ' + (t('cli.enabled') || 'enabled') + '</span>' +
+      '</div>' +
+      '<div class="tools-list">' + wrapperItems + '</div>' +
+    '</div>';
+  }
+
   container.innerHTML = '<div class="section-header">' +
       '<div class="section-header-left">' +
         '<h3><i data-lucide="terminal" class="w-4 h-4"></i> ' + t('cli.tools') + '</h3>' +
@@ -859,12 +904,32 @@ function renderToolsSection() {
     '</div>' +
     '<div class="tools-list">' +
       toolsHtml +
-      codexLensHtml +
-      semanticHtml +
     '</div>' +
-    apiEndpointsHtml;
+    apiEndpointsHtml +
+    cliWrapperHtml;
 
   if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Navigate to API Settings page and open the CLI wrapper endpoint for editing
+ */
+function navigateToApiSettings(endpointId) {
+  // Store the endpoint ID to edit after navigation
+  window.pendingCliWrapperEdit = endpointId;
+
+  var navItem = document.querySelector('.nav-item[data-view="api-settings"]');
+  if (navItem) {
+    navItem.click();
+  } else {
+    // Fallback: try to render directly
+    if (typeof renderApiSettings === 'function') {
+      currentView = 'api-settings';
+      renderApiSettings();
+    } else {
+      showRefreshToast(t('common.error') + ': API Settings not available', 'error');
+    }
+  }
 }
 
 // ========== CCW Section (Right Column) ==========

@@ -22,10 +22,20 @@ export interface ClaudeCliTool {
   primaryModel?: string;
   secondaryModel?: string;
   tags: string[];
+  type?: 'builtin' | 'cli-wrapper' | 'api-endpoint';  // Tool type: builtin, cli-wrapper, or api-endpoint
+  id?: string;  // Required for api-endpoint type (endpoint ID for settings lookup)
 }
 
-export type CliToolName = 'gemini' | 'qwen' | 'codex' | 'claude' | 'opencode';
+export type CliToolName = 'gemini' | 'qwen' | 'codex' | 'claude' | 'opencode' | string;
 
+// @deprecated Use tools with type: 'api-endpoint' instead
+export interface ClaudeApiEndpoint {
+  id: string;
+  name: string;
+  enabled: boolean;
+}
+
+// @deprecated Use tools with type: 'cli-wrapper' or 'api-endpoint' instead
 export interface ClaudeCustomEndpoint {
   id: string;
   name: string;
@@ -44,8 +54,9 @@ export interface ClaudeCliToolsConfig {
   $schema?: string;
   version: string;
   models?: Record<string, string[]>;  // PREDEFINED_MODELS
-  tools: Record<string, ClaudeCliTool>;
-  customEndpoints: ClaudeCustomEndpoint[];
+  tools: Record<string, ClaudeCliTool>;  // All tools: builtin, cli-wrapper, api-endpoint
+  apiEndpoints?: ClaudeApiEndpoint[];  // @deprecated Use tools with type: 'api-endpoint' instead
+  customEndpoints?: ClaudeCustomEndpoint[];  // @deprecated Use tools with type: 'cli-wrapper' or 'api-endpoint' instead
 }
 
 // New: Settings-only config (cli-settings.json)
@@ -103,41 +114,46 @@ const PREDEFINED_MODELS: Record<CliToolName, string[]> = {
 };
 
 const DEFAULT_TOOLS_CONFIG: ClaudeCliToolsConfig = {
-  version: '3.0.0',
+  version: '3.2.0',
   models: { ...PREDEFINED_MODELS },
   tools: {
     gemini: {
       enabled: true,
       primaryModel: 'gemini-2.5-pro',
       secondaryModel: 'gemini-2.5-flash',
-      tags: []
+      tags: [],
+      type: 'builtin'
     },
     qwen: {
       enabled: true,
       primaryModel: 'coder-model',
       secondaryModel: 'coder-model',
-      tags: []
+      tags: [],
+      type: 'builtin'
     },
     codex: {
       enabled: true,
       primaryModel: 'gpt-5.2',
       secondaryModel: 'gpt-5.2',
-      tags: []
+      tags: [],
+      type: 'builtin'
     },
     claude: {
       enabled: true,
       primaryModel: 'sonnet',
       secondaryModel: 'haiku',
-      tags: []
+      tags: [],
+      type: 'builtin'
     },
     opencode: {
       enabled: true,
       primaryModel: 'opencode/glm-4.7-free',
       secondaryModel: 'opencode/glm-4.7-free',
-      tags: []
+      tags: [],
+      type: 'builtin'
     }
-  },
-  customEndpoints: []
+  }
+  // Note: api-endpoint type tools are added dynamically via addClaudeApiEndpoint
 };
 
 const DEFAULT_SETTINGS_CONFIG: ClaudeCliSettingsConfig = {
@@ -222,17 +238,18 @@ function ensureToolTags(tool: Partial<ClaudeCliTool>): ClaudeCliTool {
 }
 
 /**
- * Migrate config from older versions to v3.0.0
+ * Migrate config from older versions to v3.2.0
+ * v3.2.0: All endpoints (cli-wrapper, api-endpoint) are in tools with type field
  */
 function migrateConfig(config: any, projectDir: string): ClaudeCliToolsConfig {
   const version = parseFloat(config.version || '1.0');
 
-  // Already v3.x, no migration needed
-  if (version >= 3.0) {
+  // Already v3.2+, no migration needed
+  if (version >= 3.2) {
     return config as ClaudeCliToolsConfig;
   }
 
-  console.log(`[claude-cli-tools] Migrating config from v${config.version || '1.0'} to v3.0.0`);
+  console.log(`[claude-cli-tools] Migrating config from v${config.version || '1.0'} to v3.2.0`);
 
   // Try to load legacy cli-config.json for model data
   let legacyCliConfig: any = null;
@@ -258,7 +275,9 @@ function migrateConfig(config: any, projectDir: string): ClaudeCliToolsConfig {
       enabled: t.enabled ?? legacyTool?.enabled ?? true,
       primaryModel: t.primaryModel ?? legacyTool?.primaryModel ?? DEFAULT_TOOLS_CONFIG.tools[key]?.primaryModel,
       secondaryModel: t.secondaryModel ?? legacyTool?.secondaryModel ?? DEFAULT_TOOLS_CONFIG.tools[key]?.secondaryModel,
-      tags: t.tags ?? legacyTool?.tags ?? []
+      tags: t.tags ?? legacyTool?.tags ?? [],
+      type: t.type ?? DEFAULT_TOOLS_CONFIG.tools[key]?.type ?? 'builtin',
+      id: t.id  // Preserve id for api-endpoint type
     };
   }
 
@@ -270,16 +289,57 @@ function migrateConfig(config: any, projectDir: string): ClaudeCliToolsConfig {
         enabled: legacyTool?.enabled ?? defaultTool.enabled,
         primaryModel: legacyTool?.primaryModel ?? defaultTool.primaryModel,
         secondaryModel: legacyTool?.secondaryModel ?? defaultTool.secondaryModel,
-        tags: legacyTool?.tags ?? defaultTool.tags
+        tags: legacyTool?.tags ?? defaultTool.tags,
+        type: defaultTool.type ?? 'builtin'
       };
     }
   }
 
+  // Migrate customEndpoints (v3.0 and below): cli-wrapper -> tools, others -> api-endpoint tools
+  const customEndpoints = config.customEndpoints || [];
+  for (const ep of customEndpoints) {
+    if (ep.tags?.includes('cli-wrapper')) {
+      // CLI wrapper becomes a tool with type: 'cli-wrapper'
+      if (!migratedTools[ep.name]) {
+        migratedTools[ep.name] = {
+          enabled: ep.enabled ?? true,
+          tags: ep.tags.filter((t: string) => t !== 'cli-wrapper'),
+          type: 'cli-wrapper'
+        };
+        console.log(`[claude-cli-tools] Migrated cli-wrapper "${ep.name}" to tools`);
+      }
+    } else {
+      // Pure API endpoint becomes a tool with type: 'api-endpoint'
+      if (!migratedTools[ep.name]) {
+        migratedTools[ep.name] = {
+          enabled: ep.enabled ?? true,
+          tags: [],
+          type: 'api-endpoint',
+          id: ep.id  // Store endpoint ID for settings lookup
+        };
+        console.log(`[claude-cli-tools] Migrated API endpoint "${ep.name}" to tools`);
+      }
+    }
+  }
+
+  // Migrate apiEndpoints (v3.1): convert to tools with type: 'api-endpoint'
+  const apiEndpoints = config.apiEndpoints || [];
+  for (const ep of apiEndpoints) {
+    if (!migratedTools[ep.name]) {
+      migratedTools[ep.name] = {
+        enabled: ep.enabled ?? true,
+        tags: [],
+        type: 'api-endpoint',
+        id: ep.id  // Store endpoint ID for settings lookup
+      };
+      console.log(`[claude-cli-tools] Migrated API endpoint "${ep.name}" to tools`);
+    }
+  }
+
   return {
-    version: '3.0.0',
+    version: '3.2.0',
     models: { ...PREDEFINED_MODELS },
     tools: migratedTools,
-    customEndpoints: config.customEndpoints || [],
     $schema: config.$schema
   };
 }
@@ -324,7 +384,7 @@ export function ensureClaudeCliTools(projectDir: string, createInProject: boolea
  * Load CLI tools configuration from global ~/.claude/cli-tools.json
  * Falls back to default config if not found.
  *
- * Automatically migrates older config versions to v3.0.0
+ * Automatically migrates older config versions to v3.2.0
  */
 export function loadClaudeCliTools(projectDir: string): ClaudeCliToolsConfig & { _source?: string } {
   const resolved = resolveConfigPath(projectDir);
@@ -337,27 +397,24 @@ export function loadClaudeCliTools(projectDir: string): ClaudeCliToolsConfig & {
     const content = fs.readFileSync(resolved.path, 'utf-8');
     const parsed = JSON.parse(content) as Partial<ClaudeCliCombinedConfig>;
 
-    // Migrate older versions to v3.0.0
+    // Migrate older versions to v3.2.0
     const migrated = migrateConfig(parsed, projectDir);
     const needsSave = migrated.version !== parsed.version;
 
     // Merge tools with defaults and ensure required fields exist
     const mergedTools: Record<string, ClaudeCliTool> = {};
     for (const [key, tool] of Object.entries({ ...DEFAULT_TOOLS_CONFIG.tools, ...(migrated.tools || {}) })) {
-      mergedTools[key] = ensureToolTags(tool);
+      mergedTools[key] = {
+        ...ensureToolTags(tool),
+        type: tool.type ?? 'builtin',
+        id: tool.id  // Preserve id for api-endpoint type
+      };
     }
-
-    // Ensure customEndpoints have tags
-    const mergedEndpoints = (migrated.customEndpoints || []).map(ep => ({
-      ...ep,
-      tags: ep.tags ?? []
-    }));
 
     const config: ClaudeCliToolsConfig & { _source?: string } = {
       version: migrated.version || DEFAULT_TOOLS_CONFIG.version,
       models: migrated.models || DEFAULT_TOOLS_CONFIG.models,
       tools: mergedTools,
-      customEndpoints: mergedEndpoints,
       $schema: migrated.$schema,
       _source: resolved.source
     };
@@ -513,27 +570,43 @@ export function updateClaudeDefaultTool(
 }
 
 /**
- * Add custom endpoint
+ * Add API endpoint as a tool with type: 'api-endpoint'
+ * Usage: --tool <name> or --tool custom --model <id>
  */
-export function addClaudeCustomEndpoint(
+export function addClaudeApiEndpoint(
   projectDir: string,
-  endpoint: { id: string; name: string; enabled: boolean; tags?: string[] }
+  endpoint: { id: string; name: string; enabled: boolean }
 ): ClaudeCliToolsConfig {
   const config = loadClaudeCliTools(projectDir);
 
-  const newEndpoint: ClaudeCustomEndpoint = {
-    id: endpoint.id,
-    name: endpoint.name,
+  // Add as a tool with type: 'api-endpoint'
+  config.tools[endpoint.name] = {
     enabled: endpoint.enabled,
-    tags: endpoint.tags || []
+    tags: [],
+    type: 'api-endpoint',
+    id: endpoint.id  // Store endpoint ID for settings lookup
   };
 
-  // Check if endpoint already exists
-  const existingIndex = config.customEndpoints.findIndex(e => e.id === endpoint.id);
-  if (existingIndex >= 0) {
-    config.customEndpoints[existingIndex] = newEndpoint;
-  } else {
-    config.customEndpoints.push(newEndpoint);
+  saveClaudeCliTools(projectDir, config);
+  return config;
+}
+
+/**
+ * Remove API endpoint tool by id or name
+ */
+export function removeClaudeApiEndpoint(
+  projectDir: string,
+  endpointId: string
+): ClaudeCliToolsConfig {
+  const config = loadClaudeCliTools(projectDir);
+
+  // Find the tool by id or name
+  const toolToRemove = Object.entries(config.tools).find(
+    ([name, t]) => t.type === 'api-endpoint' && (t.id === endpointId || name === endpointId || name.toLowerCase() === endpointId.toLowerCase())
+  );
+
+  if (toolToRemove) {
+    delete config.tools[toolToRemove[0]];
   }
 
   saveClaudeCliTools(projectDir, config);
@@ -541,14 +614,57 @@ export function addClaudeCustomEndpoint(
 }
 
 /**
- * Remove custom endpoint
+ * @deprecated Use addClaudeApiEndpoint instead
+ * Adds tool to config based on tags:
+ * - cli-wrapper tag -> type: 'cli-wrapper'
+ * - others -> type: 'api-endpoint'
+ */
+export function addClaudeCustomEndpoint(
+  projectDir: string,
+  endpoint: { id: string; name: string; enabled: boolean; tags?: string[] }
+): ClaudeCliToolsConfig {
+  const config = loadClaudeCliTools(projectDir);
+
+  if (endpoint.tags?.includes('cli-wrapper')) {
+    // CLI wrapper tool
+    config.tools[endpoint.name] = {
+      enabled: endpoint.enabled,
+      tags: endpoint.tags.filter(t => t !== 'cli-wrapper'),
+      type: 'cli-wrapper'
+    };
+  } else {
+    // API endpoint tool
+    config.tools[endpoint.name] = {
+      enabled: endpoint.enabled,
+      tags: [],
+      type: 'api-endpoint',
+      id: endpoint.id
+    };
+  }
+
+  saveClaudeCliTools(projectDir, config);
+  return config;
+}
+
+/**
+ * Remove endpoint tool (cli-wrapper or api-endpoint)
  */
 export function removeClaudeCustomEndpoint(
   projectDir: string,
   endpointId: string
 ): ClaudeCliToolsConfig {
   const config = loadClaudeCliTools(projectDir);
-  config.customEndpoints = config.customEndpoints.filter(e => e.id !== endpointId);
+
+  // Find the tool by id or name (cli-wrapper or api-endpoint type)
+  const toolToRemove = Object.entries(config.tools).find(
+    ([name, t]) => (t.type === 'cli-wrapper' || t.type === 'api-endpoint') &&
+      (name === endpointId || name.toLowerCase() === endpointId.toLowerCase() || t.id === endpointId)
+  );
+
+  if (toolToRemove) {
+    delete config.tools[toolToRemove[0]];
+  }
+
   saveClaudeCliTools(projectDir, config);
   return config;
 }
