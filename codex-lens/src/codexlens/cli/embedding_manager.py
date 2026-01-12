@@ -63,10 +63,17 @@ def calculate_dynamic_batch_size(config, embedder) -> int:
     if not getattr(config, 'api_batch_size_dynamic', False):
         return getattr(config, 'api_batch_size', 8)
 
-    # Get maximum chunk character size from parsing rules
+    # Get maximum chunk character size from ALL parsing rules (not just default)
+    # This ensures we use the worst-case chunk size across all languages
     parsing_rules = getattr(config, 'parsing_rules', {})
-    default_rules = parsing_rules.get('default', {})
-    max_chunk_chars = default_rules.get('max_chunk_chars', 4000)
+    all_max_chunk_chars = [
+        rule.get('max_chunk_chars', 0)
+        for rule in parsing_rules.values()
+        if isinstance(rule, dict)
+    ]
+    max_chunk_chars = max(all_max_chunk_chars) if all_max_chunk_chars else 4000
+    if max_chunk_chars <= 0:
+        max_chunk_chars = 4000  # Final fallback
 
     # Get characters per token estimate
     chars_per_token = getattr(config, 'chars_per_token_estimate', 4)
@@ -83,10 +90,19 @@ def calculate_dynamic_batch_size(config, embedder) -> int:
     # Get model's maximum token capacity
     model_max_tokens = getattr(embedder, 'max_tokens', 8192)
 
-    # Get utilization factor (default 80%)
+    # Get utilization factor (default 80%, max 95% to leave safety margin)
     utilization_factor = getattr(config, 'api_batch_size_utilization_factor', 0.8)
-    if utilization_factor <= 0 or utilization_factor > 1:
-        utilization_factor = 0.8
+    if utilization_factor <= 0 or utilization_factor > 0.95:
+        if utilization_factor > 0.95:
+            logger.warning(
+                "Utilization factor %.2f exceeds safe limit 0.95. "
+                "Token estimation is approximate, high values risk API errors. "
+                "Clamping to 0.95.",
+                utilization_factor
+            )
+            utilization_factor = 0.95
+        else:
+            utilization_factor = 0.8
 
     # Calculate safe token limit
     safe_token_limit = model_max_tokens * utilization_factor
@@ -1378,7 +1394,7 @@ def generate_dense_embeddings_centralized(
 
                         # Generate embeddings for this file's chunks
                         batch_contents = [chunk.content for chunk in chunks]
-                        embeddings_numpy = embedder.embed_to_numpy(batch_contents, batch_size=EMBEDDING_BATCH_SIZE)
+                        embeddings_numpy = embedder.embed_to_numpy(batch_contents, batch_size=effective_batch_size)
 
                         # Assign chunk IDs and store embeddings
                         for i, chunk in enumerate(chunks):
