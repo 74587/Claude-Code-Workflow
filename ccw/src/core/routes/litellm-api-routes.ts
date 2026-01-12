@@ -12,6 +12,7 @@ import {
   ensureUvInstalled,
   createCodexLensUvManager
 } from '../../utils/uv-manager.js';
+import { ensureLiteLLMEmbedderReady } from '../../tools/codex-lens.js';
 import type { RouteContext } from './types.js';
 
 // ========== Input Validation Schemas ==========
@@ -105,43 +106,20 @@ export function clearCcwLitellmStatusCache() {
 
 /**
  * Install ccw-litellm using UV package manager
- * Uses CodexLens venv for consistency with other Python dependencies
- * @param packagePath - Local package path, or null to install from PyPI
+ * Delegates to ensureLiteLLMEmbedderReady for consistent dependency handling
+ * This ensures ccw-litellm installation doesn't break fastembed's onnxruntime dependencies
+ * @param _packagePath - Ignored, ensureLiteLLMEmbedderReady handles path discovery
  * @returns Installation result
  */
-async function installCcwLitellmWithUv(packagePath: string | null): Promise<{ success: boolean; message?: string; error?: string }> {
-  try {
-    await ensureUvInstalled();
-
-    // Reuse CodexLens venv for consistency
-    const uv = createCodexLensUvManager();
-
-    // Ensure venv exists
-    const venvResult = await uv.createVenv();
-    if (!venvResult.success) {
-      return { success: false, error: venvResult.error };
-    }
-
-    if (packagePath) {
-      // Install from local path
-      const result = await uv.installFromProject(packagePath);
-      if (result.success) {
-        clearCcwLitellmStatusCache();
-        return { success: true, message: 'ccw-litellm installed from local path via UV' };
-      }
-      return { success: false, error: result.error };
-    } else {
-      // Install from PyPI
-      const result = await uv.install(['ccw-litellm']);
-      if (result.success) {
-        clearCcwLitellmStatusCache();
-        return { success: true, message: 'ccw-litellm installed from PyPI via UV' };
-      }
-      return { success: false, error: result.error };
-    }
-  } catch (err) {
-    return { success: false, error: (err as Error).message };
+async function installCcwLitellmWithUv(_packagePath: string | null): Promise<{ success: boolean; message?: string; error?: string }> {
+  // Delegate to the robust installation logic in codex-lens.ts
+  // This ensures consistent dependency handling within the shared venv,
+  // preventing onnxruntime conflicts that would break fastembed
+  const result = await ensureLiteLLMEmbedderReady();
+  if (result.success) {
+    clearCcwLitellmStatusCache();
   }
+  return result;
 }
 
 function sanitizeProviderForResponse(provider: any): any {
