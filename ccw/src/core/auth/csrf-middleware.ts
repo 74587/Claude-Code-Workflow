@@ -113,7 +113,9 @@ export async function csrfValidation(ctx: CsrfMiddlewareContext): Promise<boolea
   const { pathname, req, res } = ctx;
 
   if (!pathname.startsWith('/api/')) return true;
-  if (envFlagEnabled('CCW_DISABLE_CSRF')) return true;
+  // CSRF is disabled by default for local deployment scenarios.
+  // Set CCW_ENABLE_CSRF=1 to enable CSRF protection.
+  if (!envFlagEnabled('CCW_ENABLE_CSRF')) return true;
 
   const method = (req.method || 'GET').toUpperCase();
   if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return true;

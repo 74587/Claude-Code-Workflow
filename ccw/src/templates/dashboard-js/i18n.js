@@ -1092,7 +1092,14 @@ const i18n = {
 
     // Hook Wizard Templates
     'hook.wizard.memoryUpdate': 'Memory Update Hook',
-    'hook.wizard.memoryUpdateDesc': 'Automatically update CLAUDE.md documentation based on code changes',
+    'hook.wizard.memoryUpdateDesc': 'Queue-based CLAUDE.md updates with configurable threshold and timeout',
+    'hook.wizard.queueBasedUpdate': 'Queue-Based Update',
+    'hook.wizard.queueBasedUpdateDesc': 'Batch updates when threshold reached or timeout expires',
+    'hook.wizard.thresholdPaths': 'Threshold (paths)',
+    'hook.wizard.thresholdPathsDesc': 'Number of paths to trigger batch update',
+    'hook.wizard.timeoutSeconds': 'Timeout (seconds)',
+    'hook.wizard.timeoutSecondsDesc': 'Auto-flush queue after this time',
+    // Legacy keys (kept for compatibility)
     'hook.wizard.onSessionEnd': 'On Session End',
     'hook.wizard.onSessionEndDesc': 'Update documentation when Claude session ends',
     'hook.wizard.periodicUpdate': 'Periodic Update',
@@ -3238,7 +3245,14 @@ const i18n = {
 
     // Hook Wizard Templates
     'hook.wizard.memoryUpdate': '记忆更新钩子',
-    'hook.wizard.memoryUpdateDesc': '根据代码更改自动更新 CLAUDE.md 文档',
+    'hook.wizard.memoryUpdateDesc': '基于队列的 CLAUDE.md 更新，支持阈值和超时配置',
+    'hook.wizard.queueBasedUpdate': '队列批量更新',
+    'hook.wizard.queueBasedUpdateDesc': '达到路径数量阈值或超时时批量更新',
+    'hook.wizard.thresholdPaths': '阈值（路径数）',
+    'hook.wizard.thresholdPathsDesc': '触发批量更新的路径数量',
+    'hook.wizard.timeoutSeconds': '超时（秒）',
+    'hook.wizard.timeoutSecondsDesc': '超过此时间自动刷新队列',
+    // 保留旧键以兼容
     'hook.wizard.onSessionEnd': '会话结束时',
     'hook.wizard.onSessionEndDesc': 'Claude 会话结束时更新文档',
     'hook.wizard.periodicUpdate': '定期更新',

@@ -451,18 +451,21 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
       const devices: Array<{ name: string; type: string; index: number }> = [];
 
       if (process.platform === 'win32') {
-        // Windows: Use WMIC to get GPU info
+        // Windows: Use PowerShell Get-CimInstance (wmic is deprecated in Windows 11)
         try {
           const { execSync } = await import('child_process');
-          const wmicOutput = execSync('wmic path win32_VideoController get name', {
-            encoding: 'utf-8',
-            timeout: EXEC_TIMEOUTS.SYSTEM_INFO,
-            stdio: ['pipe', 'pipe', 'pipe']
-          });
+          const psOutput = execSync(
+            'powershell -NoProfile -Command "(Get-CimInstance Win32_VideoController).Name"',
+            {
+              encoding: 'utf-8',
+              timeout: EXEC_TIMEOUTS.SYSTEM_INFO,
+              stdio: ['pipe', 'pipe', 'pipe']
+            }
+          );
 
-          const lines = wmicOutput.split('\n')
+          const lines = psOutput.split('\n')
             .map(line => line.trim())
-            .filter(line => line && line !== 'Name');
+            .filter(line => line);
 
           lines.forEach((name, index) => {
             if (name) {
@@ -476,7 +479,7 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
             }
           });
         } catch (e) {
-          console.warn('[CodexLens] WMIC GPU detection failed:', (e as Error).message);
+          console.warn('[CodexLens] PowerShell GPU detection failed:', (e as Error).message);
         }
       } else {
         // Linux/Mac: Try nvidia-smi for NVIDIA GPUs
