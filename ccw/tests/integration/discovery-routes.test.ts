@@ -182,6 +182,80 @@ function createDiscoveryFixture(projectRoot: string): { discoveryId: string; fin
   return { discoveryId, findingId, discoveryDir };
 }
 
+/**
+ * Creates a discovery fixture using the NEW format:
+ * - perspectives is a string array
+ * - status tracked in perspectives_completed/perspectives_failed
+ * - stats in results object
+ */
+function createNewFormatDiscoveryFixture(projectRoot: string): { discoveryId: string; findingId: string; discoveryDir: string } {
+  const discoveryId = `DSC-NEW-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  const findingId = 'F-NEW-001';
+
+  const discoveryDir = join(projectRoot, '.workflow', 'issues', 'discoveries', discoveryId);
+  const perspectivesDir = join(discoveryDir, 'perspectives');
+  mkdirSync(perspectivesDir, { recursive: true });
+
+  const createdAt = new Date().toISOString();
+  writeFileSync(
+    join(discoveryDir, 'discovery-state.json'),
+    JSON.stringify(
+      {
+        discovery_id: discoveryId,
+        target_pattern: 'src/**/*.ts',
+        phase: 'complete',
+        created_at: createdAt,
+        updated_at: createdAt,
+        target: {
+          files_count: { total: 10 },
+          project: { name: 'test', path: projectRoot },
+        },
+        // New format: perspectives as string array
+        perspectives: ['bug', 'security', 'performance'],
+        perspectives_completed: ['bug', 'security'],
+        perspectives_failed: ['performance'],
+        external_research: { enabled: false, completed: false },
+        // New format: stats in results object
+        results: {
+          total_findings: 5,
+          issues_generated: 2,
+          priority_distribution: { critical: 1, high: 2, medium: 1, low: 1 },
+          findings_by_perspective: { bug: 3, security: 2 },
+        },
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  writeFileSync(
+    join(perspectivesDir, 'bug.json'),
+    JSON.stringify(
+      {
+        summary: { total: 3 },
+        findings: [
+          {
+            id: findingId,
+            title: 'New format finding',
+            description: 'Example from new format',
+            priority: 'high',
+            perspective: 'bug',
+            file: 'src/example.ts',
+            line: 100,
+            suggested_issue: { title: 'New format issue', priority: 2, labels: ['bug'] },
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  return { discoveryId, findingId, discoveryDir };
+}
+
 describe('discovery routes integration', async () => {
   before(async () => {
     mock.method(console, 'log', () => {});
@@ -351,6 +425,104 @@ describe('discovery routes integration', async () => {
         assert.equal(res.json.success, true);
         assert.equal(res.json.deleted, discoveryId);
         assert.equal(existsSync(discoveryDir), false);
+      } finally {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  // ========== NEW FORMAT TESTS ==========
+
+  it('GET /api/discoveries lists new format discovery sessions with correct stats', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'ccw-discovery-routes-newformat-'));
+    try {
+      const { discoveryId } = createNewFormatDiscoveryFixture(projectRoot);
+      const { server, baseUrl } = await createServer(projectRoot);
+      try {
+        const res = await requestJson(baseUrl, 'GET', '/api/discoveries');
+        assert.equal(res.status, 200);
+        assert.equal(Array.isArray(res.json.discoveries), true);
+        assert.equal(res.json.total, 1);
+
+        const discovery = res.json.discoveries[0];
+        assert.equal(discovery.discovery_id, discoveryId);
+        assert.equal(discovery.phase, 'complete');
+        // Verify stats are extracted from results object
+        assert.equal(discovery.total_findings, 5);
+        assert.equal(discovery.issues_generated, 2);
+        assert.deepEqual(discovery.priority_distribution, { critical: 1, high: 2, medium: 1, low: 1 });
+        // Verify perspectives is string array
+        assert.ok(Array.isArray(discovery.perspectives));
+        assert.ok(discovery.perspectives.includes('bug'));
+        assert.ok(discovery.perspectives.includes('security'));
+      } finally {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('GET /api/discoveries/:id/progress returns correct progress for new format', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'ccw-discovery-routes-newformat-'));
+    try {
+      const { discoveryId } = createNewFormatDiscoveryFixture(projectRoot);
+      const { server, baseUrl } = await createServer(projectRoot);
+      try {
+        const res = await requestJson(baseUrl, 'GET', `/api/discoveries/${encodeURIComponent(discoveryId)}/progress`);
+        assert.equal(res.status, 200);
+        assert.equal(res.json.discovery_id, discoveryId);
+        assert.ok(res.json.progress);
+
+        const pa = res.json.progress.perspective_analysis;
+        assert.equal(pa.total, 3); // bug, security, performance
+        assert.equal(pa.completed, 2); // bug, security
+        assert.equal(pa.failed, 1); // performance
+        assert.equal(pa.in_progress, 0);
+        assert.equal(pa.percent_complete, 100); // (completed + failed) / total = 3/3 = 100%
+
+        // Verify agent_status is converted to object array for UI compatibility
+        assert.ok(Array.isArray(res.json.agent_status));
+        const bugStatus = res.json.agent_status.find((s: any) => s.name === 'bug');
+        assert.ok(bugStatus);
+        assert.equal(bugStatus.status, 'completed');
+        const perfStatus = res.json.agent_status.find((s: any) => s.name === 'performance');
+        assert.ok(perfStatus);
+        assert.equal(perfStatus.status, 'failed');
+      } finally {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('mixed old and new format discoveries are listed correctly', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'ccw-discovery-routes-mixed-'));
+    try {
+      const oldFormat = createDiscoveryFixture(projectRoot);
+      const newFormat = createNewFormatDiscoveryFixture(projectRoot);
+      const { server, baseUrl } = await createServer(projectRoot);
+      try {
+        const res = await requestJson(baseUrl, 'GET', '/api/discoveries');
+        assert.equal(res.status, 200);
+        assert.equal(res.json.total, 2);
+
+        // Both formats should be parsed correctly
+        const oldDiscovery = res.json.discoveries.find((d: any) => d.discovery_id === oldFormat.discoveryId);
+        const newDiscovery = res.json.discoveries.find((d: any) => d.discovery_id === newFormat.discoveryId);
+
+        assert.ok(oldDiscovery);
+        assert.ok(newDiscovery);
+
+        // Old format stats
+        assert.equal(oldDiscovery.total_findings, 1);
+
+        // New format stats from results object
+        assert.equal(newDiscovery.total_findings, 5);
+        assert.equal(newDiscovery.issues_generated, 2);
       } finally {
         await new Promise<void>((resolve) => server.close(() => resolve()));
       }

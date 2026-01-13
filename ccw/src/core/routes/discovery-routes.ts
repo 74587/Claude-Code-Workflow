@@ -60,12 +60,30 @@ function readDiscoveryIndex(discoveriesDir: string): { discoveries: any[]; total
         if (existsSync(statePath)) {
           try {
             const state = JSON.parse(readFileSync(statePath, 'utf8'));
+
+            // Extract perspectives - handle both old and new formats
+            let perspectives: string[] = [];
+            if (state.perspectives && Array.isArray(state.perspectives)) {
+              // New format: string array or old format: object array
+              if (state.perspectives.length > 0 && typeof state.perspectives[0] === 'object') {
+                perspectives = state.perspectives.map((p: any) => p.name || p.perspective || '');
+              } else {
+                perspectives = state.perspectives;
+              }
+            } else if (state.metadata?.perspectives) {
+              // Legacy format
+              perspectives = state.metadata.perspectives;
+            }
+
+            // Extract created_at - handle both formats
+            const created_at = state.created_at || state.metadata?.created_at;
+
             discoveries.push({
               discovery_id: entry.name,
               target_pattern: state.target_pattern,
-              perspectives: state.metadata?.perspectives || [],
-              created_at: state.metadata?.created_at,
-              completed_at: state.completed_at
+              perspectives,
+              created_at,
+              completed_at: state.completed_at || state.updated_at
             });
           } catch {
             // Skip invalid entries
@@ -110,29 +128,71 @@ function readDiscoveryProgress(discoveriesDir: string, discoveryId: string): any
   if (existsSync(statePath)) {
     try {
       const state = JSON.parse(readFileSync(statePath, 'utf8'));
-      // New merged schema: perspectives array + results object
+
+      // Check if perspectives is an array
       if (state.perspectives && Array.isArray(state.perspectives)) {
-        const completed = state.perspectives.filter((p: any) => p.status === 'completed').length;
-        const total = state.perspectives.length;
-        return {
-          discovery_id: discoveryId,
-          phase: state.phase,
-          last_update: state.updated_at || state.created_at,
-          progress: {
-            perspective_analysis: {
-              total,
-              completed,
-              in_progress: state.perspectives.filter((p: any) => p.status === 'in_progress').length,
-              percent_complete: total > 0 ? Math.round((completed / total) * 100) : 0
+        // Detect format: object array (old) vs string array (new)
+        const isObjectArray = state.perspectives.length > 0 && typeof state.perspectives[0] === 'object';
+
+        if (isObjectArray) {
+          // Old merged schema: perspectives is array of objects with status
+          const completed = state.perspectives.filter((p: any) => p.status === 'completed').length;
+          const total = state.perspectives.length;
+          return {
+            discovery_id: discoveryId,
+            phase: state.phase,
+            last_update: state.updated_at || state.created_at,
+            progress: {
+              perspective_analysis: {
+                total,
+                completed,
+                in_progress: state.perspectives.filter((p: any) => p.status === 'in_progress').length,
+                percent_complete: total > 0 ? Math.round((completed / total) * 100) : 0
+              },
+              external_research: state.external_research || { enabled: false, completed: false },
+              aggregation: { completed: state.phase === 'aggregation' || state.phase === 'complete' },
+              issue_generation: { completed: state.phase === 'complete', issues_count: state.results?.issues_generated || 0 }
             },
-            external_research: state.external_research || { enabled: false, completed: false },
-            aggregation: { completed: state.phase === 'aggregation' || state.phase === 'complete' },
-            issue_generation: { completed: state.phase === 'complete', issues_count: state.results?.issues_generated || 0 }
-          },
-          agent_status: state.perspectives
-        };
+            agent_status: state.perspectives
+          };
+        } else {
+          // New schema: perspectives is string array, status in perspectives_completed/perspectives_failed
+          const total = state.perspectives.length;
+          const completedList = state.perspectives_completed || [];
+          const failedList = state.perspectives_failed || [];
+          const completed = completedList.length;
+          const failed = failedList.length;
+          const inProgress = total - completed - failed;
+
+          return {
+            discovery_id: discoveryId,
+            phase: state.phase,
+            last_update: state.updated_at || state.created_at,
+            progress: {
+              perspective_analysis: {
+                total,
+                completed,
+                failed,
+                in_progress: inProgress,
+                percent_complete: total > 0 ? Math.round(((completed + failed) / total) * 100) : 0
+              },
+              external_research: state.external_research || { enabled: false, completed: false },
+              aggregation: { completed: state.phase === 'aggregation' || state.phase === 'complete' },
+              issue_generation: {
+                completed: state.phase === 'complete',
+                issues_count: state.results?.issues_generated || state.issues_generated || 0
+              }
+            },
+            // Convert string array to object array for UI compatibility
+            agent_status: state.perspectives.map((p: string) => ({
+              name: p,
+              status: completedList.includes(p) ? 'completed' : (failedList.includes(p) ? 'failed' : 'pending')
+            }))
+          };
+        }
       }
-      // Old schema: metadata.perspectives (backward compat)
+
+      // Legacy schema: metadata.perspectives (backward compat)
       if (state.metadata?.perspectives) {
         return {
           discovery_id: discoveryId,
@@ -294,12 +354,20 @@ export async function handleDiscoveryRoutes(ctx: RouteContext): Promise<boolean>
     const enrichedDiscoveries = index.discoveries.map((d: any) => {
       const state = readDiscoveryState(discoveriesDir, d.discovery_id);
       const progress = readDiscoveryProgress(discoveriesDir, d.discovery_id);
+
+      // Extract statistics - handle both old and new formats
+      // New format: stats in state.results object
+      // Old format: stats directly in state
+      const total_findings = state?.results?.total_findings ?? state?.total_findings ?? 0;
+      const issues_generated = state?.results?.issues_generated ?? state?.issues_generated ?? 0;
+      const priority_distribution = state?.results?.priority_distribution ?? state?.priority_distribution ?? {};
+
       return {
         ...d,
         phase: state?.phase || 'unknown',
-        total_findings: state?.total_findings || 0,
-        issues_generated: state?.issues_generated || 0,
-        priority_distribution: state?.priority_distribution || {},
+        total_findings,
+        issues_generated,
+        priority_distribution,
         progress: progress?.progress || null
       };
     });
