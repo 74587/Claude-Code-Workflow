@@ -212,14 +212,14 @@ Write solution JSON to JSONL file (one line per solution):
 
 **File Format** (JSONL - each line is a complete solution):
 ```
-{"id":"SOL-GH-123-1","description":"...","approach":"...","analysis":{...},"score":0.85,"tasks":[...]}
-{"id":"SOL-GH-123-2","description":"...","approach":"...","analysis":{...},"score":0.75,"tasks":[...]}
+{"id":"SOL-GH-123-a7x9","description":"...","approach":"...","analysis":{...},"score":0.85,"tasks":[...]}
+{"id":"SOL-GH-123-b2k4","description":"...","approach":"...","analysis":{...},"score":0.75,"tasks":[...]}
 ```
 
 **Solution Schema** (must match CLI `Solution` interface):
 ```typescript
 {
-  id: string;                    // Format: SOL-{issue-id}-{N}
+  id: string;                    // Format: SOL-{issue-id}-{uid}
   description?: string;
   approach?: string;
   tasks: SolutionTask[];
@@ -232,8 +232,13 @@ Write solution JSON to JSONL file (one line per solution):
 **Write Operation**:
 ```javascript
 // Append solution to JSONL file (one line per solution)
-const solutionId = `SOL-${issueId}-${seq}`;
+// Use 4-char random uid to avoid collisions across multiple plan runs
+const uid = Math.random().toString(36).slice(2, 6);  // e.g., "a7x9"
+const solutionId = `SOL-${issueId}-${uid}`;
 const solutionLine = JSON.stringify({ id: solutionId, ...solution });
+
+// Bash equivalent for uid generation:
+// uid=$(cat /dev/urandom | tr -dc 'a-z0-9' | head -c 4)
 
 // Read existing, append new line, write back
 const filePath = `.workflow/issues/solutions/${issueId}.jsonl`;
@@ -311,7 +316,7 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 6. Evaluate each solution with `analysis` and `score`
 7. Write solutions to `.workflow/issues/solutions/{issue-id}.jsonl` (append mode)
 8. For HIGH complexity: generate 2-3 candidate solutions
-9. **Solution ID format**: `SOL-{issue-id}-{N}` (e.g., `SOL-GH-123-1`, `SOL-GH-123-2`)
+9. **Solution ID format**: `SOL-{issue-id}-{uid}` where uid is 4 random alphanumeric chars (e.g., `SOL-GH-123-a7x9`)
 10. **GitHub Reply Task**: If issue has `github_url` or `github_number`, add final task to comment on GitHub issue with completion summary
 
 **CONFLICT AVOIDANCE** (for batch processing of similar issues):

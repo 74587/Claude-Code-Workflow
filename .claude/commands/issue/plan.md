@@ -203,7 +203,7 @@ ${issueList}
 7. Single solution → auto-bind; Multiple → return for selection
 
 ### Rules
-- Solution ID format: SOL-{issue-id}-{seq}
+- Solution ID format: SOL-{issue-id}-{uid} (uid: 4 random alphanumeric chars, e.g., a7x9)
 - Single solution per issue → auto-bind via ccw issue bind
 - Multiple solutions → register only, return pending_selection
 - Tasks must have quantified acceptance.criteria

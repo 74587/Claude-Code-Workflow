@@ -7,9 +7,9 @@
   "properties": {
     "id": {
       "type": "string",
-      "description": "Unique solution identifier: SOL-{issue-id}-{seq}",
-      "pattern": "^SOL-.+-[0-9]+$",
-      "examples": ["SOL-GH-123-1", "SOL-ISS-20251229-1"]
+      "description": "Unique solution identifier: SOL-{issue-id}-{4-char-uid} where uid is 4 alphanumeric chars",
+      "pattern": "^SOL-.+-[a-z0-9]{4}$",
+      "examples": ["SOL-GH-123-a7x9", "SOL-ISS-20251229-001-b2k4"]
     },
     "description": {
       "type": "string",

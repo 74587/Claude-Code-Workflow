@@ -338,6 +338,14 @@ function renderIssueCard(issue) {
             ${t('issues.boundSolution') || 'Bound'}
           </span>
         ` : ''}
+        ${issue.github_url ? `
+          <a href="${issue.github_url}" target="_blank" rel="noopener noreferrer"
+             class="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+             onclick="event.stopPropagation()" title="View on GitHub">
+            <i data-lucide="github" class="w-3.5 h-3.5"></i>
+            ${issue.github_number ? `#${issue.github_number}` : 'GitHub'}
+          </a>
+        ` : ''}
       </div>
     </div>
   `;
