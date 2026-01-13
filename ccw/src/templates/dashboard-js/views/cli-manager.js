@@ -659,7 +659,17 @@ async function loadFileBrowserDirectory(path) {
   } catch (err) {
     console.error('Failed to load directory:', err);
     if (listContainer) {
-      listContainer.innerHTML = '<div class="file-browser-error">Failed to load directory</div>';
+      listContainer.innerHTML = '<div class="file-browser-error">' +
+        '<p>' + t('cli.fileBrowserApiError') + '</p>' +
+        '<p class="file-browser-hint">' + t('cli.fileBrowserManualHint') + '</p>' +
+      '</div>';
+    }
+    // Enable manual path entry mode - enable select button when path is typed
+    var selectBtn = document.getElementById('fileBrowserSelectBtn');
+    var pathInput = document.getElementById('fileBrowserPathInput');
+    if (selectBtn && pathInput) {
+      selectBtn.disabled = false;
+      pathInput.focus();
     }
   }
 }
@@ -744,8 +754,17 @@ function initFileBrowserEvents() {
   var selectBtn = document.getElementById('fileBrowserSelectBtn');
   if (selectBtn) {
     selectBtn.onclick = function() {
+      // First try selected path from list, then fall back to path input
       var path = selectBtn.getAttribute('data-selected-path');
-      closeFileBrowserModal(path);
+      if (!path) {
+        var pathInput = document.getElementById('fileBrowserPathInput');
+        if (pathInput && pathInput.value.trim()) {
+          path = pathInput.value.trim();
+        }
+      }
+      if (path) {
+        closeFileBrowserModal(path);
+      }
     };
   }
   

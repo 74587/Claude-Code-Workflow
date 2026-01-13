@@ -278,6 +278,8 @@ const i18n = {
     'cli.fileBrowserUp': 'Parent Directory',
     'cli.fileBrowserHome': 'Home',
     'cli.fileBrowserShowHidden': 'Show hidden files',
+    'cli.fileBrowserApiError': 'Server restart required to enable file browser',
+    'cli.fileBrowserManualHint': 'Type the full path above and click Select (e.g., C:\\Users\\name\\.gemini)',
 
     // CodexLens Configuration
     'codexlens.config': 'CodexLens Configuration',
@@ -2517,6 +2519,8 @@ const i18n = {
     'cli.fileBrowserUp': '上级目录',
     'cli.fileBrowserHome': '主目录',
     'cli.fileBrowserShowHidden': '显示隐藏文件',
+    'cli.fileBrowserApiError': '需要重启服务器以启用文件浏览器',
+    'cli.fileBrowserManualHint': '请在上方输入完整路径后点击选择（如 C:\\Users\\用户名\\.gemini）',
 
     // CodexLens 配置
     'codexlens.config': 'CodexLens 配置',

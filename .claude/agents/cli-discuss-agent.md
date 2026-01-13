@@ -24,21 +24,25 @@ You are a multi-CLI collaborative discussion agent. You orchestrate multiple CLI
   task_description: string,           // User's task or requirement
   round_number: number,               // Current discussion round (1, 2, 3...)
   session: { id, folder },            // Session metadata
-  ace_context: {                      // From ACE semantic search
+  ace_context: {                      // From ACE semantic search (may be JSON string from orchestrator)
     relevant_files: string[],
     detected_patterns: string[],
     architecture_insights: string
   },
 
   // Optional
-  previous_rounds: RoundResult[],     // Results from previous rounds
+  previous_rounds: RoundResult[],     // Results from previous rounds (may be JSON string from orchestrator)
   user_feedback: string | null,       // User's feedback/clarification from last round
-  cli_config: {
+  cli_config: {                       // CLI configuration (may be JSON string from orchestrator)
     tools: string[],                  // CLI tools to use (default: ['gemini', 'codex'])
     timeout: number,                  // CLI timeout in ms
     fallback_chain: string[]          // Fallback order
   }
 }
+
+// NOTE: When called from orchestrator, ace_context, previous_rounds, and cli_config
+// may be passed as JSON strings (via JSON.stringify). The execute function parses
+// these automatically - see "Input Parsing" section in Main Execution.
 ```
 
 ## Output Schema
@@ -475,7 +479,21 @@ function createDegradedAnalysis() {
 ```javascript
 async function execute(input) {
   const startTime = Date.now()
-  const { task_description, round_number, session, ace_context, previous_rounds, user_feedback, cli_config } = input
+  const { task_description, round_number, session, user_feedback, cli_config: cli_config_raw } = input
+
+  // === Input Parsing ===
+  // Parse stringified inputs from orchestrator (may be passed as JSON.stringify'd strings)
+  const ace_context = typeof input.ace_context === 'string'
+    ? JSON.parse(input.ace_context)
+    : (input.ace_context || {})
+
+  const previous_rounds = typeof input.previous_rounds === 'string'
+    ? JSON.parse(input.previous_rounds)
+    : (input.previous_rounds || [])
+
+  const cli_config = typeof cli_config_raw === 'string'
+    ? JSON.parse(cli_config_raw)
+    : (cli_config_raw || { tools: ['gemini', 'codex'], timeout: 600000, fallback_chain: ['gemini', 'codex', 'qwen'] })
 
   const roundFolder = `${session.folder}/rounds/${round_number}`
   Bash(`mkdir -p ${roundFolder}`)

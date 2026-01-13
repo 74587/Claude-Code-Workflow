@@ -206,16 +206,18 @@ ${JSON.stringify(contextPackage, null, 2)}
 
 ## Previous Rounds
 ${analysisResults.length > 0
-  ? analysisResults.map(r => `Round ${r.round}: ${r.summary}`).join('\n')
+  ? JSON.stringify(analysisResults, null, 2)
   : 'None (first round)'}
 
 ## User Feedback
 ${userFeedback || 'None'}
 
 ## CLI Configuration
-- Tools: ${effectiveTools.join(', ')}
-- Timeout: 600000ms
-- Fallback Chain: gemini → codex → qwen
+${JSON.stringify({
+  tools: effectiveTools,
+  timeout: 600000,
+  fallback_chain: ['gemini', 'codex', 'qwen']
+}, null, 2)}
 
 ## Output Requirements
 Write: ${sessionFolder}/rounds/${currentRound}/synthesis.json
@@ -461,7 +463,7 @@ const planningContext = {
   task_description: taskDescription,
   selected_solution: selectedSolution,
   analysis_rounds: analysisResults,
-  consensus_points: finalSynthesis.consensus_points,
+  consensus_points: finalSynthesis._internal?.cross_verification?.agreements || [],
   user_constraints: userDecision.constraints || null,
   ace_context: contextPackage,
   clarifications: sessionState.user_decisions
@@ -514,7 +516,7 @@ ${selectedSolution.cons.map(c => `- ${c}`).join('\n')}
 ${selectedSolution.affected_files.map(f => `- ${f.file}:${f.line} - ${f.reason}`).join('\n')}
 
 ### Analysis Consensus
-${finalSynthesis.consensus_points.map(p => `- ${p}`).join('\n')}
+${(finalSynthesis._internal?.cross_verification?.agreements || []).map(p => `- ${p}`).join('\n')}
 
 ### User Constraints
 ${userDecision.constraints ? JSON.stringify(userDecision.constraints) : 'None specified'}
