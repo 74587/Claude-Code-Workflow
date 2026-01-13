@@ -63,6 +63,7 @@ interface LiteSession {
 interface LiteTasks {
   litePlan: LiteSession[];
   liteFix: LiteSession[];
+  multiCliPlan: LiteSession[];
 }
 
 interface LiteTaskDetail {
@@ -84,13 +85,15 @@ interface LiteTaskDetail {
 export async function scanLiteTasks(workflowDir: string): Promise<LiteTasks> {
   const litePlanDir = join(workflowDir, '.lite-plan');
   const liteFixDir = join(workflowDir, '.lite-fix');
+  const multiCliDir = join(workflowDir, '.multi-cli-plan');
 
-  const [litePlan, liteFix] = await Promise.all([
+  const [litePlan, liteFix, multiCliPlan] = await Promise.all([
     scanLiteDir(litePlanDir, 'lite-plan'),
     scanLiteDir(liteFixDir, 'lite-fix'),
+    scanMultiCliDir(multiCliDir),
   ]);
 
-  return { litePlan, liteFix };
+  return { litePlan, liteFix, multiCliPlan };
 }
 
 /**
@@ -140,6 +143,141 @@ async function scanLiteDir(dir: string, type: string): Promise<LiteSession[]> {
     console.error(`Error scanning ${dir}:`, err?.message || String(err));
     return [];
   }
+}
+
+/**
+ * Scan multi-cli-plan directory for sessions
+ * @param dir - Directory path to .multi-cli-plan
+ * @returns Array of multi-cli sessions
+ */
+async function scanMultiCliDir(dir: string): Promise<LiteSession[]> {
+  try {
+    const entries = await readdir(dir, { withFileTypes: true });
+
+    const sessions = (await Promise.all(
+      entries
+        .filter((entry) => entry.isDirectory())
+        .map(async (entry) => {
+          const sessionPath = join(dir, entry.name);
+
+          const [createdAt, syntheses] = await Promise.all([
+            getCreatedTime(sessionPath),
+            loadRoundSyntheses(sessionPath),
+          ]);
+
+          // Extract plan from latest synthesis if available
+          const latestSynthesis = syntheses.length > 0 ? syntheses[syntheses.length - 1] : null;
+
+          // Calculate progress based on round count and convergence
+          const progress = calculateMultiCliProgress(syntheses);
+
+          const session: LiteSession = {
+            id: entry.name,
+            type: 'multi-cli-plan',
+            path: sessionPath,
+            createdAt,
+            plan: latestSynthesis,
+            tasks: extractTasksFromSyntheses(syntheses),
+            progress,
+          };
+
+          return session;
+        }),
+    ))
+      .filter((session): session is LiteSession => session !== null)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return sessions;
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') return [];
+    console.error(`Error scanning ${dir}:`, err?.message || String(err));
+    return [];
+  }
+}
+
+interface RoundSynthesis {
+  round: number;
+  converged?: boolean;
+  tasks?: unknown[];
+  synthesis?: unknown;
+  [key: string]: unknown;
+}
+
+/**
+ * Load all synthesis.json files from rounds subdirectories
+ * @param sessionPath - Session directory path
+ * @returns Array of synthesis objects sorted by round number
+ */
+async function loadRoundSyntheses(sessionPath: string): Promise<RoundSynthesis[]> {
+  const roundsDir = join(sessionPath, 'rounds');
+  const syntheses: RoundSynthesis[] = [];
+
+  try {
+    const roundEntries = await readdir(roundsDir, { withFileTypes: true });
+
+    const roundDirs = roundEntries
+      .filter((entry) => entry.isDirectory() && /^\d+$/.test(entry.name))
+      .map((entry) => ({
+        name: entry.name,
+        num: parseInt(entry.name, 10),
+      }))
+      .sort((a, b) => a.num - b.num);
+
+    for (const roundDir of roundDirs) {
+      const synthesisPath = join(roundsDir, roundDir.name, 'synthesis.json');
+      try {
+        const content = await readFile(synthesisPath, 'utf8');
+        const synthesis = JSON.parse(content) as RoundSynthesis;
+        synthesis.round = roundDir.num;
+        syntheses.push(synthesis);
+      } catch {
+        // Skip if synthesis.json doesn't exist or can't be parsed
+      }
+    }
+  } catch {
+    // Return empty array if rounds directory doesn't exist
+  }
+
+  return syntheses;
+}
+
+/**
+ * Calculate progress for multi-cli-plan sessions
+ * @param syntheses - Array of round syntheses
+ * @returns Progress info
+ */
+function calculateMultiCliProgress(syntheses: RoundSynthesis[]): Progress {
+  if (syntheses.length === 0) {
+    return { total: 0, completed: 0, percentage: 0 };
+  }
+
+  const latestSynthesis = syntheses[syntheses.length - 1];
+  const isConverged = latestSynthesis.converged === true;
+
+  // Total is based on expected rounds or actual rounds
+  const total = syntheses.length;
+  const completed = isConverged ? total : Math.max(0, total - 1);
+  const percentage = isConverged ? 100 : Math.round((completed / Math.max(total, 1)) * 100);
+
+  return { total, completed, percentage };
+}
+
+/**
+ * Extract tasks from synthesis objects
+ * @param syntheses - Array of round syntheses
+ * @returns Normalized tasks from latest synthesis
+ */
+function extractTasksFromSyntheses(syntheses: RoundSynthesis[]): NormalizedTask[] {
+  if (syntheses.length === 0) return [];
+
+  const latestSynthesis = syntheses[syntheses.length - 1];
+  const tasks = latestSynthesis.tasks;
+
+  if (!Array.isArray(tasks)) return [];
+
+  return tasks
+    .map((task) => normalizeTask(task))
+    .filter((task): task is NormalizedTask => task !== null);
 }
 
 /**
@@ -368,20 +506,48 @@ function calculateProgress(tasks: NormalizedTask[]): Progress {
 /**
  * Get detailed lite task info
  * @param workflowDir - Workflow directory
- * @param type - 'lite-plan' or 'lite-fix'
+ * @param type - 'lite-plan', 'lite-fix', or 'multi-cli-plan'
  * @param sessionId - Session ID
  * @returns Detailed task info
  */
 export async function getLiteTaskDetail(workflowDir: string, type: string, sessionId: string): Promise<LiteTaskDetail | null> {
-  const dir = type === 'lite-plan'
-    ? join(workflowDir, '.lite-plan', sessionId)
-    : join(workflowDir, '.lite-fix', sessionId);
+  let dir: string;
+  if (type === 'lite-plan') {
+    dir = join(workflowDir, '.lite-plan', sessionId);
+  } else if (type === 'multi-cli-plan') {
+    dir = join(workflowDir, '.multi-cli-plan', sessionId);
+  } else {
+    dir = join(workflowDir, '.lite-fix', sessionId);
+  }
 
   try {
     const stats = await stat(dir);
     if (!stats.isDirectory()) return null;
   } catch {
     return null;
+  }
+
+  // For multi-cli-plan, use synthesis-based loading
+  if (type === 'multi-cli-plan') {
+    const [syntheses, explorations, clarifications] = await Promise.all([
+      loadRoundSyntheses(dir),
+      loadExplorations(dir),
+      loadClarifications(dir),
+    ]);
+
+    const latestSynthesis = syntheses.length > 0 ? syntheses[syntheses.length - 1] : null;
+
+    const detail: LiteTaskDetail = {
+      id: sessionId,
+      type,
+      path: dir,
+      plan: latestSynthesis,
+      tasks: extractTasksFromSyntheses(syntheses),
+      explorations,
+      clarifications,
+    };
+
+    return detail;
   }
 
   const [plan, tasks, explorations, clarifications, diagnoses] = await Promise.all([

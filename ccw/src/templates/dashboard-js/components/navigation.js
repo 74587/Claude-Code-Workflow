@@ -216,8 +216,10 @@ function updateContentTitle() {
   } else if (currentView === 'issue-discovery') {
     titleEl.textContent = t('title.issueDiscovery');
   } else if (currentView === 'liteTasks') {
-    const names = { 'lite-plan': t('title.litePlanSessions'), 'lite-fix': t('title.liteFixSessions') };
+    const names = { 'lite-plan': t('title.litePlanSessions'), 'lite-fix': t('title.liteFixSessions'), 'multi-cli-plan': t('title.multiCliPlanSessions') || 'Multi-CLI Plan Sessions' };
     titleEl.textContent = names[currentLiteType] || t('title.liteTasks');
+  } else if (currentView === 'multiCliDetail') {
+    titleEl.textContent = t('title.multiCliDetail') || 'Multi-CLI Discussion Detail';
   } else if (currentView === 'sessionDetail') {
     titleEl.textContent = t('title.sessionDetail');
   } else if (currentView === 'liteTaskDetail') {
@@ -322,9 +324,11 @@ function updateSidebarCounts(data) {
   // Update lite task counts
   const litePlanCount = document.querySelector('.nav-item[data-lite="lite-plan"] .nav-count');
   const liteFixCount = document.querySelector('.nav-item[data-lite="lite-fix"] .nav-count');
+  const multiCliPlanCount = document.querySelector('.nav-item[data-lite="multi-cli-plan"] .nav-count');
 
   if (litePlanCount) litePlanCount.textContent = data.liteTasks?.litePlan?.length || 0;
   if (liteFixCount) liteFixCount.textContent = data.liteTasks?.liteFix?.length || 0;
+  if (multiCliPlanCount) multiCliPlanCount.textContent = data.liteTasks?.multiCliPlan?.length || 0;
 }
 
 // ========== Navigation Badge Aggregation ==========

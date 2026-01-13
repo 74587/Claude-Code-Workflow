@@ -7,9 +7,17 @@ function renderLiteTasks() {
   const container = document.getElementById('mainContent');
 
   const liteTasks = workflowData.liteTasks || {};
-  const sessions = currentLiteType === 'lite-plan'
-    ? liteTasks.litePlan || []
-    : liteTasks.liteFix || [];
+  let sessions;
+
+  if (currentLiteType === 'lite-plan') {
+    sessions = liteTasks.litePlan || [];
+  } else if (currentLiteType === 'lite-fix') {
+    sessions = liteTasks.liteFix || [];
+  } else if (currentLiteType === 'multi-cli-plan') {
+    sessions = liteTasks.multiCliPlan || [];
+  } else {
+    sessions = [];
+  }
 
   if (sessions.length === 0) {
     container.innerHTML = `
@@ -23,7 +31,12 @@ function renderLiteTasks() {
     return;
   }
 
-  container.innerHTML = `<div class="sessions-grid">${sessions.map(session => renderLiteTaskCard(session)).join('')}</div>`;
+  // Render based on type
+  if (currentLiteType === 'multi-cli-plan') {
+    container.innerHTML = `<div class="sessions-grid">${sessions.map(session => renderMultiCliCard(session)).join('')}</div>`;
+  } else {
+    container.innerHTML = `<div class="sessions-grid">${sessions.map(session => renderLiteTaskCard(session)).join('')}</div>`;
+  }
   
   // Initialize Lucide icons
   if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -66,6 +79,881 @@ function renderLiteTaskCard(session) {
       </div>
     </div>
   `;
+}
+
+// ============================================
+// MULTI-CLI PLAN VIEW
+// ============================================
+
+/**
+ * Render a card for multi-cli-plan session
+ * Shows: Session ID, round count, topic title, status, created date
+ */
+function renderMultiCliCard(session) {
+  const sessionKey = `multi-cli-${session.id}`.replace(/[^a-zA-Z0-9-]/g, '-');
+  liteTaskDataStore[sessionKey] = session;
+
+  // Extract info from latest synthesis or metadata
+  const metadata = session.metadata || {};
+  const latestSynthesis = session.latestSynthesis || session.discussionTopic || {};
+  const roundCount = metadata.roundId || session.roundCount || 1;
+  const topicTitle = getI18nText(latestSynthesis.title) || session.topicTitle || 'Discussion Topic';
+  const status = latestSynthesis.status || session.status || 'analyzing';
+  const createdAt = metadata.timestamp || session.createdAt || '';
+
+  // Status badge color mapping
+  const statusColors = {
+    'decided': 'success',
+    'converged': 'success',
+    'exploring': 'info',
+    'analyzing': 'warning',
+    'debating': 'warning',
+    'blocked': 'error',
+    'conflict': 'error'
+  };
+  const statusColor = statusColors[status] || 'default';
+
+  return `
+    <div class="session-card multi-cli-card" onclick="showMultiCliDetailPage('${sessionKey}')" style="cursor: pointer;">
+      <div class="session-header">
+        <div class="session-title">${escapeHtml(session.id)}</div>
+        <span class="session-status multi-cli-plan">
+          <i data-lucide="messages-square" class="w-3 h-3 inline"></i> ${t('lite.multiCli') || 'Multi-CLI'}
+        </span>
+      </div>
+      <div class="session-body">
+        <div class="multi-cli-topic">
+          <i data-lucide="message-circle" class="w-4 h-4 inline mr-1"></i>
+          <span class="topic-title">${escapeHtml(topicTitle)}</span>
+        </div>
+        <div class="session-meta">
+          <span class="session-meta-item"><i data-lucide="calendar" class="w-3.5 h-3.5 inline mr-1"></i>${formatDate(createdAt)}</span>
+          <span class="session-meta-item"><i data-lucide="repeat" class="w-3.5 h-3.5 inline mr-1"></i>${roundCount} ${t('multiCli.rounds') || 'rounds'}</span>
+          <span class="session-meta-item status-badge ${statusColor}"><i data-lucide="activity" class="w-3.5 h-3.5 inline mr-1"></i>${escapeHtml(status)}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Get text from i18n label object (supports {en, zh} format)
+ */
+function getI18nText(label) {
+  if (!label) return '';
+  if (typeof label === 'string') return label;
+  // Return based on current language or default to English
+  const lang = window.currentLanguage || 'en';
+  return label[lang] || label.en || label.zh || '';
+}
+
+/**
+ * Show multi-cli detail page with tabs
+ */
+function showMultiCliDetailPage(sessionKey) {
+  const session = liteTaskDataStore[sessionKey];
+  if (!session) return;
+
+  currentView = 'multiCliDetail';
+  currentSessionDetailKey = sessionKey;
+
+  hideStatsAndCarousel();
+
+  const container = document.getElementById('mainContent');
+  const metadata = session.metadata || {};
+  const discussionTopic = session.discussionTopic || {};
+  const latestSynthesis = session.latestSynthesis || discussionTopic;
+  const roundCount = metadata.roundId || session.roundCount || 1;
+  const topicTitle = getI18nText(latestSynthesis.title) || session.topicTitle || 'Discussion Topic';
+  const status = latestSynthesis.status || session.status || 'analyzing';
+
+  container.innerHTML = `
+    <div class="session-detail-page multi-cli-detail-page">
+      <!-- Header -->
+      <div class="detail-header">
+        <button class="btn-back" onclick="goBackToLiteTasks()">
+          <span class="back-icon">&larr;</span>
+          <span>${t('multiCli.backToList') || 'Back to Multi-CLI Plan'}</span>
+        </button>
+        <div class="detail-title-row">
+          <h2 class="detail-session-id"><i data-lucide="messages-square" class="w-5 h-5 inline mr-2"></i> ${escapeHtml(session.id)}</h2>
+          <div class="detail-badges">
+            <span class="session-type-badge multi-cli-plan">multi-cli-plan</span>
+            <span class="session-status-badge ${status}">${escapeHtml(status)}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session Info Bar -->
+      <div class="detail-info-bar">
+        <div class="info-item">
+          <span class="info-label">${t('detail.created') || 'Created'}</span>
+          <span class="info-value">${formatDate(metadata.timestamp || session.createdAt)}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">${t('multiCli.roundCount') || 'Rounds'}</span>
+          <span class="info-value">${roundCount}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">${t('multiCli.topic') || 'Topic'}</span>
+          <span class="info-value">${escapeHtml(topicTitle)}</span>
+        </div>
+      </div>
+
+      <!-- Tab Navigation -->
+      <div class="detail-tabs">
+        <button class="detail-tab active" data-tab="topic" onclick="switchMultiCliDetailTab('topic')">
+          <span class="tab-icon"><i data-lucide="message-circle" class="w-4 h-4"></i></span>
+          <span class="tab-text">${t('multiCli.tab.topic') || 'Discussion Topic'}</span>
+        </button>
+        <button class="detail-tab" data-tab="files" onclick="switchMultiCliDetailTab('files')">
+          <span class="tab-icon"><i data-lucide="folder-tree" class="w-4 h-4"></i></span>
+          <span class="tab-text">${t('multiCli.tab.files') || 'Related Files'}</span>
+        </button>
+        <button class="detail-tab" data-tab="planning" onclick="switchMultiCliDetailTab('planning')">
+          <span class="tab-icon"><i data-lucide="list-checks" class="w-4 h-4"></i></span>
+          <span class="tab-text">${t('multiCli.tab.planning') || 'Planning'}</span>
+        </button>
+        <button class="detail-tab" data-tab="decision" onclick="switchMultiCliDetailTab('decision')">
+          <span class="tab-icon"><i data-lucide="check-circle" class="w-4 h-4"></i></span>
+          <span class="tab-text">${t('multiCli.tab.decision') || 'Decision'}</span>
+        </button>
+        <button class="detail-tab" data-tab="timeline" onclick="switchMultiCliDetailTab('timeline')">
+          <span class="tab-icon"><i data-lucide="git-commit" class="w-4 h-4"></i></span>
+          <span class="tab-text">${t('multiCli.tab.timeline') || 'Timeline'}</span>
+        </button>
+        <button class="detail-tab" data-tab="rounds" onclick="switchMultiCliDetailTab('rounds')">
+          <span class="tab-icon"><i data-lucide="layers" class="w-4 h-4"></i></span>
+          <span class="tab-text">${t('multiCli.tab.rounds') || 'Rounds'}</span>
+          <span class="tab-count">${roundCount}</span>
+        </button>
+      </div>
+
+      <!-- Tab Content -->
+      <div class="detail-tab-content" id="multiCliDetailTabContent">
+        ${renderMultiCliTopicTab(session)}
+      </div>
+    </div>
+  `;
+
+  // Initialize icons and collapsible sections
+  setTimeout(() => {
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    initCollapsibleSections(container);
+  }, 50);
+}
+
+/**
+ * Switch between multi-cli detail tabs
+ */
+function switchMultiCliDetailTab(tabName) {
+  // Update active tab
+  document.querySelectorAll('.detail-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.tab === tabName);
+  });
+
+  const session = liteTaskDataStore[currentSessionDetailKey];
+  if (!session) return;
+
+  const contentArea = document.getElementById('multiCliDetailTabContent');
+
+  switch (tabName) {
+    case 'topic':
+      contentArea.innerHTML = renderMultiCliTopicTab(session);
+      break;
+    case 'files':
+      contentArea.innerHTML = renderMultiCliFilesTab(session);
+      break;
+    case 'planning':
+      contentArea.innerHTML = renderMultiCliPlanningTab(session);
+      break;
+    case 'decision':
+      contentArea.innerHTML = renderMultiCliDecisionTab(session);
+      break;
+    case 'timeline':
+      contentArea.innerHTML = renderMultiCliTimelineTab(session);
+      break;
+    case 'rounds':
+      contentArea.innerHTML = renderMultiCliRoundsTab(session);
+      break;
+  }
+
+  // Re-initialize after tab switch
+  setTimeout(() => {
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    initCollapsibleSections(contentArea);
+  }, 50);
+}
+
+// ============================================
+// MULTI-CLI TAB RENDERERS
+// ============================================
+
+/**
+ * Render Discussion Topic tab
+ * Shows: title, description, scope, keyQuestions, status, tags
+ */
+function renderMultiCliTopicTab(session) {
+  const topic = session.discussionTopic || session.latestSynthesis?.discussionTopic || {};
+
+  if (!topic || Object.keys(topic).length === 0) {
+    return `
+      <div class="tab-empty-state">
+        <div class="empty-icon"><i data-lucide="message-circle" class="w-12 h-12"></i></div>
+        <div class="empty-title">${t('multiCli.empty.topic') || 'No Discussion Topic'}</div>
+        <div class="empty-text">${t('multiCli.empty.topicText') || 'No discussion topic data available for this session.'}</div>
+      </div>
+    `;
+  }
+
+  const title = getI18nText(topic.title) || 'Untitled';
+  const description = getI18nText(topic.description) || '';
+  const scope = topic.scope || {};
+  const keyQuestions = topic.keyQuestions || [];
+  const status = topic.status || 'unknown';
+  const tags = topic.tags || [];
+
+  let sections = [];
+
+  // Title and Description
+  sections.push(`
+    <div class="multi-cli-section topic-header-section">
+      <h3 class="topic-main-title">${escapeHtml(title)}</h3>
+      ${description ? `<p class="topic-description">${escapeHtml(description)}</p>` : ''}
+      <div class="topic-meta">
+        <span class="status-badge ${status}">${escapeHtml(status)}</span>
+        ${tags.length ? tags.map(tag => `<span class="tag-badge">${escapeHtml(tag)}</span>`).join('') : ''}
+      </div>
+    </div>
+  `);
+
+  // Scope (included/excluded)
+  if (scope.included?.length || scope.excluded?.length) {
+    sections.push(`
+      <div class="multi-cli-section scope-section">
+        <h4 class="section-title"><i data-lucide="target" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.scope') || 'Scope'}</h4>
+        ${scope.included?.length ? `
+          <div class="scope-included">
+            <strong>${t('multiCli.scope.included') || 'Included'}:</strong>
+            <ul class="scope-list">
+              ${scope.included.map(item => `<li>${escapeHtml(getI18nText(item))}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+        ${scope.excluded?.length ? `
+          <div class="scope-excluded">
+            <strong>${t('multiCli.scope.excluded') || 'Excluded'}:</strong>
+            <ul class="scope-list excluded">
+              ${scope.excluded.map(item => `<li>${escapeHtml(getI18nText(item))}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+      </div>
+    `);
+  }
+
+  // Key Questions
+  if (keyQuestions.length) {
+    sections.push(`
+      <div class="multi-cli-section questions-section">
+        <h4 class="section-title"><i data-lucide="help-circle" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.keyQuestions') || 'Key Questions'}</h4>
+        <ol class="key-questions-list">
+          ${keyQuestions.map(q => `<li>${escapeHtml(getI18nText(q))}</li>`).join('')}
+        </ol>
+      </div>
+    `);
+  }
+
+  return `<div class="multi-cli-topic-tab">${sections.join('')}</div>`;
+}
+
+/**
+ * Render Related Files tab
+ * Shows: fileTree, impactSummary
+ */
+function renderMultiCliFilesTab(session) {
+  const relatedFiles = session.relatedFiles || session.latestSynthesis?.relatedFiles || {};
+
+  if (!relatedFiles || Object.keys(relatedFiles).length === 0) {
+    return `
+      <div class="tab-empty-state">
+        <div class="empty-icon"><i data-lucide="folder-tree" class="w-12 h-12"></i></div>
+        <div class="empty-title">${t('multiCli.empty.files') || 'No Related Files'}</div>
+        <div class="empty-text">${t('multiCli.empty.filesText') || 'No file analysis data available for this session.'}</div>
+      </div>
+    `;
+  }
+
+  const fileTree = relatedFiles.fileTree || [];
+  const impactSummary = relatedFiles.impactSummary || [];
+  const dependencyGraph = relatedFiles.dependencyGraph || [];
+
+  let sections = [];
+
+  // File Tree
+  if (fileTree.length) {
+    sections.push(`
+      <div class="multi-cli-section file-tree-section collapsible-section">
+        <div class="collapsible-header">
+          <span class="collapse-icon">&#9658;</span>
+          <span class="section-label"><i data-lucide="folder-tree" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.fileTree') || 'File Tree'} (${fileTree.length})</span>
+        </div>
+        <div class="collapsible-content collapsed">
+          <div class="file-tree-list">
+            ${renderFileTreeNodes(fileTree)}
+          </div>
+        </div>
+      </div>
+    `);
+  }
+
+  // Impact Summary
+  if (impactSummary.length) {
+    sections.push(`
+      <div class="multi-cli-section impact-section collapsible-section">
+        <div class="collapsible-header">
+          <span class="collapse-icon">&#9658;</span>
+          <span class="section-label"><i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.impactSummary') || 'Impact Summary'} (${impactSummary.length})</span>
+        </div>
+        <div class="collapsible-content collapsed">
+          <div class="impact-list">
+            ${impactSummary.map(impact => `
+              <div class="impact-item impact-${impact.score || 'medium'}">
+                <div class="impact-header">
+                  <code class="impact-file">${escapeHtml(impact.filePath || '')}</code>
+                  ${impact.line ? `<span class="impact-line">:${impact.line}</span>` : ''}
+                  <span class="impact-score ${impact.score || 'medium'}">${escapeHtml(impact.score || 'medium')}</span>
+                </div>
+                ${impact.reasoning ? `<div class="impact-reason">${escapeHtml(getI18nText(impact.reasoning))}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `);
+  }
+
+  // Dependency Graph
+  if (dependencyGraph.length) {
+    sections.push(`
+      <div class="multi-cli-section deps-section collapsible-section">
+        <div class="collapsible-header">
+          <span class="collapse-icon">&#9658;</span>
+          <span class="section-label"><i data-lucide="git-branch" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.dependencies') || 'Dependencies'} (${dependencyGraph.length})</span>
+        </div>
+        <div class="collapsible-content collapsed">
+          <div class="deps-list">
+            ${dependencyGraph.map(edge => `
+              <div class="dep-edge">
+                <code>${escapeHtml(edge.source || '')}</code>
+                <span class="dep-arrow">&rarr;</span>
+                <code>${escapeHtml(edge.target || '')}</code>
+                <span class="dep-relationship">(${escapeHtml(edge.relationship || 'depends')})</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `);
+  }
+
+  return sections.length ? `<div class="multi-cli-files-tab">${sections.join('')}</div>` : `
+    <div class="tab-empty-state">
+      <div class="empty-icon"><i data-lucide="folder-tree" class="w-12 h-12"></i></div>
+      <div class="empty-title">${t('multiCli.empty.files') || 'No Related Files'}</div>
+    </div>
+  `;
+}
+
+/**
+ * Render file tree nodes recursively
+ */
+function renderFileTreeNodes(nodes, depth = 0) {
+  return nodes.map(node => {
+    const indent = depth * 16;
+    const isDir = node.type === 'directory';
+    const icon = isDir ? 'folder' : 'file';
+    const modStatus = node.modificationStatus || 'unchanged';
+    const impactScore = node.impactScore || '';
+
+    let html = `
+      <div class="file-tree-node" style="margin-left: ${indent}px;">
+        <i data-lucide="${icon}" class="w-4 h-4 inline mr-1 file-icon ${modStatus}"></i>
+        <span class="file-path ${modStatus}">${escapeHtml(node.path || '')}</span>
+        ${modStatus !== 'unchanged' ? `<span class="mod-status ${modStatus}">${modStatus}</span>` : ''}
+        ${impactScore ? `<span class="impact-badge ${impactScore}">${impactScore}</span>` : ''}
+      </div>
+    `;
+
+    if (node.children?.length) {
+      html += renderFileTreeNodes(node.children, depth + 1);
+    }
+
+    return html;
+  }).join('');
+}
+
+/**
+ * Render Planning tab
+ * Shows: functional, nonFunctional requirements, acceptanceCriteria
+ */
+function renderMultiCliPlanningTab(session) {
+  const planning = session.planning || session.latestSynthesis?.planning || {};
+
+  if (!planning || Object.keys(planning).length === 0) {
+    return `
+      <div class="tab-empty-state">
+        <div class="empty-icon"><i data-lucide="list-checks" class="w-12 h-12"></i></div>
+        <div class="empty-title">${t('multiCli.empty.planning') || 'No Planning Data'}</div>
+        <div class="empty-text">${t('multiCli.empty.planningText') || 'No planning requirements available for this session.'}</div>
+      </div>
+    `;
+  }
+
+  const functional = planning.functional || [];
+  const nonFunctional = planning.nonFunctional || [];
+  const acceptanceCriteria = planning.acceptanceCriteria || [];
+
+  let sections = [];
+
+  // Functional Requirements
+  if (functional.length) {
+    sections.push(`
+      <div class="multi-cli-section requirements-section">
+        <h4 class="section-title"><i data-lucide="check-square" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.functional') || 'Functional Requirements'} (${functional.length})</h4>
+        <div class="requirements-list">
+          ${functional.map(req => renderRequirementItem(req)).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  // Non-Functional Requirements
+  if (nonFunctional.length) {
+    sections.push(`
+      <div class="multi-cli-section requirements-section">
+        <h4 class="section-title"><i data-lucide="settings" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.nonFunctional') || 'Non-Functional Requirements'} (${nonFunctional.length})</h4>
+        <div class="requirements-list">
+          ${nonFunctional.map(req => renderRequirementItem(req)).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  // Acceptance Criteria
+  if (acceptanceCriteria.length) {
+    sections.push(`
+      <div class="multi-cli-section acceptance-section">
+        <h4 class="section-title"><i data-lucide="clipboard-check" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.acceptanceCriteria') || 'Acceptance Criteria'} (${acceptanceCriteria.length})</h4>
+        <div class="acceptance-list">
+          ${acceptanceCriteria.map(ac => `
+            <div class="acceptance-item ${ac.isMet ? 'met' : 'unmet'}">
+              <span class="acceptance-check">${ac.isMet ? '&#10003;' : '&#9675;'}</span>
+              <span class="acceptance-id">${escapeHtml(ac.id || '')}</span>
+              <span class="acceptance-desc">${escapeHtml(getI18nText(ac.description))}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  return sections.length ? `<div class="multi-cli-planning-tab">${sections.join('')}</div>` : `
+    <div class="tab-empty-state">
+      <div class="empty-icon"><i data-lucide="list-checks" class="w-12 h-12"></i></div>
+      <div class="empty-title">${t('multiCli.empty.planning') || 'No Planning Data'}</div>
+    </div>
+  `;
+}
+
+/**
+ * Render a single requirement item
+ */
+function renderRequirementItem(req) {
+  const priorityColors = {
+    'critical': 'error',
+    'high': 'warning',
+    'medium': 'info',
+    'low': 'default'
+  };
+  const priority = req.priority || 'medium';
+  const colorClass = priorityColors[priority] || 'default';
+
+  return `
+    <div class="requirement-item">
+      <div class="requirement-header">
+        <span class="requirement-id">${escapeHtml(req.id || '')}</span>
+        <span class="priority-badge ${colorClass}">${escapeHtml(priority)}</span>
+      </div>
+      <div class="requirement-desc">${escapeHtml(getI18nText(req.description))}</div>
+      ${req.source ? `<div class="requirement-source">${t('multiCli.source') || 'Source'}: ${escapeHtml(req.source)}</div>` : ''}
+    </div>
+  `;
+}
+
+/**
+ * Render Decision tab
+ * Shows: selectedSolution, rejectedAlternatives, confidenceScore
+ */
+function renderMultiCliDecisionTab(session) {
+  const decision = session.decision || session.latestSynthesis?.decision || {};
+
+  if (!decision || Object.keys(decision).length === 0) {
+    return `
+      <div class="tab-empty-state">
+        <div class="empty-icon"><i data-lucide="check-circle" class="w-12 h-12"></i></div>
+        <div class="empty-title">${t('multiCli.empty.decision') || 'No Decision Yet'}</div>
+        <div class="empty-text">${t('multiCli.empty.decisionText') || 'No decision has been made for this discussion yet.'}</div>
+      </div>
+    `;
+  }
+
+  const status = decision.status || 'pending';
+  const summary = getI18nText(decision.summary) || '';
+  const selectedSolution = decision.selectedSolution || null;
+  const rejectedAlternatives = decision.rejectedAlternatives || [];
+  const confidenceScore = decision.confidenceScore || 0;
+
+  let sections = [];
+
+  // Decision Status and Summary
+  sections.push(`
+    <div class="multi-cli-section decision-header-section">
+      <div class="decision-status-bar">
+        <span class="decision-status ${status}">${escapeHtml(status)}</span>
+        <span class="confidence-meter">
+          <span class="confidence-label">${t('multiCli.confidence') || 'Confidence'}:</span>
+          <span class="confidence-bar">
+            <span class="confidence-fill" style="width: ${(confidenceScore * 100).toFixed(0)}%"></span>
+          </span>
+          <span class="confidence-value">${(confidenceScore * 100).toFixed(0)}%</span>
+        </span>
+      </div>
+      ${summary ? `<p class="decision-summary">${escapeHtml(summary)}</p>` : ''}
+    </div>
+  `);
+
+  // Selected Solution
+  if (selectedSolution) {
+    sections.push(`
+      <div class="multi-cli-section selected-solution-section">
+        <h4 class="section-title"><i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.selectedSolution') || 'Selected Solution'}</h4>
+        ${renderSolutionCard(selectedSolution, true)}
+      </div>
+    `);
+  }
+
+  // Rejected Alternatives
+  if (rejectedAlternatives.length) {
+    sections.push(`
+      <div class="multi-cli-section rejected-section collapsible-section">
+        <div class="collapsible-header">
+          <span class="collapse-icon">&#9658;</span>
+          <span class="section-label"><i data-lucide="x-circle" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.rejectedAlternatives') || 'Rejected Alternatives'} (${rejectedAlternatives.length})</span>
+        </div>
+        <div class="collapsible-content collapsed">
+          ${rejectedAlternatives.map(alt => renderSolutionCard(alt, false)).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  return `<div class="multi-cli-decision-tab">${sections.join('')}</div>`;
+}
+
+/**
+ * Render a solution card
+ */
+function renderSolutionCard(solution, isSelected) {
+  const title = getI18nText(solution.title) || 'Untitled Solution';
+  const description = getI18nText(solution.description) || '';
+  const pros = solution.pros || [];
+  const cons = solution.cons || [];
+  const risk = solution.risk || 'medium';
+  const effort = getI18nText(solution.estimatedEffort) || '';
+  const rejectionReason = solution.rejectionReason ? getI18nText(solution.rejectionReason) : '';
+  const sourceCLIs = solution.sourceCLIs || [];
+
+  return `
+    <div class="solution-card ${isSelected ? 'selected' : 'rejected'}">
+      <div class="solution-header">
+        <span class="solution-id">${escapeHtml(solution.id || '')}</span>
+        <span class="solution-title">${escapeHtml(title)}</span>
+        <span class="risk-badge ${risk}">${escapeHtml(risk)}</span>
+      </div>
+      ${description ? `<p class="solution-desc">${escapeHtml(description)}</p>` : ''}
+      ${rejectionReason ? `<div class="rejection-reason"><strong>${t('multiCli.rejectionReason') || 'Reason'}:</strong> ${escapeHtml(rejectionReason)}</div>` : ''}
+      <div class="solution-details">
+        ${pros.length ? `
+          <div class="pros-list">
+            <strong>${t('multiCli.pros') || 'Pros'}:</strong>
+            <ul>${pros.map(p => `<li class="pro-item">${escapeHtml(getI18nText(p))}</li>`).join('')}</ul>
+          </div>
+        ` : ''}
+        ${cons.length ? `
+          <div class="cons-list">
+            <strong>${t('multiCli.cons') || 'Cons'}:</strong>
+            <ul>${cons.map(c => `<li class="con-item">${escapeHtml(getI18nText(c))}</li>`).join('')}</ul>
+          </div>
+        ` : ''}
+        ${effort ? `<div class="effort-estimate"><strong>${t('multiCli.effort') || 'Effort'}:</strong> ${escapeHtml(effort)}</div>` : ''}
+        ${sourceCLIs.length ? `<div class="source-clis"><strong>${t('multiCli.sources') || 'Sources'}:</strong> ${sourceCLIs.map(s => `<span class="cli-badge">${escapeHtml(s)}</span>`).join('')}</div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Render Timeline tab
+ * Shows: decisionRecords.timeline
+ */
+function renderMultiCliTimelineTab(session) {
+  const decisionRecords = session.decisionRecords || session.latestSynthesis?.decisionRecords || {};
+  const timeline = decisionRecords.timeline || [];
+
+  if (!timeline.length) {
+    return `
+      <div class="tab-empty-state">
+        <div class="empty-icon"><i data-lucide="git-commit" class="w-12 h-12"></i></div>
+        <div class="empty-title">${t('multiCli.empty.timeline') || 'No Timeline Events'}</div>
+        <div class="empty-text">${t('multiCli.empty.timelineText') || 'No decision timeline available for this session.'}</div>
+      </div>
+    `;
+  }
+
+  const eventTypeIcons = {
+    'proposal': 'lightbulb',
+    'argument': 'message-square',
+    'agreement': 'thumbs-up',
+    'disagreement': 'thumbs-down',
+    'decision': 'check-circle',
+    'reversal': 'rotate-ccw'
+  };
+
+  return `
+    <div class="multi-cli-timeline-tab">
+      <div class="timeline-container">
+        ${timeline.map(event => {
+          const icon = eventTypeIcons[event.type] || 'circle';
+          const contributor = event.contributor || {};
+          const summary = getI18nText(event.summary) || '';
+          const evidence = event.evidence || [];
+
+          return `
+            <div class="timeline-event event-${event.type || 'default'}">
+              <div class="timeline-marker">
+                <i data-lucide="${icon}" class="w-4 h-4"></i>
+              </div>
+              <div class="timeline-content">
+                <div class="event-header">
+                  <span class="event-type ${event.type || ''}">${escapeHtml(event.type || 'event')}</span>
+                  <span class="event-contributor">${escapeHtml(contributor.name || 'Unknown')}</span>
+                  <span class="event-time">${formatDate(event.timestamp)}</span>
+                </div>
+                <div class="event-summary">${escapeHtml(summary)}</div>
+                ${event.reversibility ? `<span class="reversibility-badge ${event.reversibility}">${escapeHtml(event.reversibility)}</span>` : ''}
+                ${evidence.length ? `
+                  <div class="event-evidence">
+                    ${evidence.map(ev => `
+                      <div class="evidence-item evidence-${ev.type || 'reference'}">
+                        <span class="evidence-type">${escapeHtml(ev.type || 'reference')}</span>
+                        <span class="evidence-desc">${escapeHtml(getI18nText(ev.description))}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Render Rounds tab
+ * Shows: navigation between round synthesis files
+ */
+function renderMultiCliRoundsTab(session) {
+  const rounds = session.rounds || [];
+  const metadata = session.metadata || {};
+  const totalRounds = metadata.roundId || rounds.length || 1;
+
+  if (!rounds.length && totalRounds <= 1) {
+    // Show current synthesis as single round
+    return `
+      <div class="multi-cli-rounds-tab">
+        <div class="rounds-nav">
+          <div class="round-item active" data-round="1">
+            <span class="round-number">Round 1</span>
+            <span class="round-status">${t('multiCli.currentRound') || 'Current'}</span>
+          </div>
+        </div>
+        <div class="round-content">
+          <div class="round-info">
+            <p>${t('multiCli.singleRoundInfo') || 'This is a single-round discussion. View other tabs for details.'}</p>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Render round navigation and content
+  return `
+    <div class="multi-cli-rounds-tab">
+      <div class="rounds-nav">
+        ${rounds.map((round, idx) => {
+          const roundNum = idx + 1;
+          const isActive = roundNum === totalRounds;
+          const roundStatus = round.convergence?.recommendation || 'continue';
+
+          return `
+            <div class="round-item ${isActive ? 'active' : ''}" data-round="${roundNum}" onclick="loadMultiCliRound('${currentSessionDetailKey}', ${roundNum})">
+              <span class="round-number">Round ${roundNum}</span>
+              <span class="round-status ${roundStatus}">${escapeHtml(roundStatus)}</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <div class="round-content" id="multiCliRoundContent">
+        ${renderRoundContent(rounds[totalRounds - 1] || rounds[0] || session)}
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Render content for a specific round
+ */
+function renderRoundContent(round) {
+  if (!round) {
+    return `<div class="round-empty">${t('multiCli.noRoundData') || 'No data for this round.'}</div>`;
+  }
+
+  const metadata = round.metadata || {};
+  const agents = metadata.contributingAgents || [];
+  const convergence = round._internal?.convergence || {};
+  const crossVerification = round._internal?.cross_verification || {};
+
+  let sections = [];
+
+  // Round metadata
+  sections.push(`
+    <div class="round-metadata">
+      <div class="meta-row">
+        <span class="meta-label">${t('multiCli.roundId') || 'Round'}:</span>
+        <span class="meta-value">${metadata.roundId || 1}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">${t('multiCli.timestamp') || 'Time'}:</span>
+        <span class="meta-value">${formatDate(metadata.timestamp)}</span>
+      </div>
+      ${metadata.durationSeconds ? `
+        <div class="meta-row">
+          <span class="meta-label">${t('multiCli.duration') || 'Duration'}:</span>
+          <span class="meta-value">${metadata.durationSeconds}s</span>
+        </div>
+      ` : ''}
+    </div>
+  `);
+
+  // Contributing agents
+  if (agents.length) {
+    sections.push(`
+      <div class="round-agents">
+        <strong>${t('multiCli.contributors') || 'Contributors'}:</strong>
+        ${agents.map(agent => `<span class="agent-badge">${escapeHtml(agent.name || agent.id)}</span>`).join('')}
+      </div>
+    `);
+  }
+
+  // Convergence metrics
+  if (convergence.score !== undefined) {
+    sections.push(`
+      <div class="round-convergence">
+        <strong>${t('multiCli.convergence') || 'Convergence'}:</strong>
+        <span class="convergence-score">${(convergence.score * 100).toFixed(0)}%</span>
+        <span class="convergence-rec ${convergence.recommendation || ''}">${escapeHtml(convergence.recommendation || '')}</span>
+        ${convergence.new_insights ? `<span class="new-insights-badge">${t('multiCli.newInsights') || 'New Insights'}</span>` : ''}
+      </div>
+    `);
+  }
+
+  // Cross-verification
+  if (crossVerification.agreements?.length || crossVerification.disagreements?.length) {
+    sections.push(`
+      <div class="round-verification collapsible-section">
+        <div class="collapsible-header">
+          <span class="collapse-icon">&#9658;</span>
+          <span class="section-label">${t('multiCli.crossVerification') || 'Cross-Verification'}</span>
+        </div>
+        <div class="collapsible-content collapsed">
+          ${crossVerification.agreements?.length ? `
+            <div class="agreements">
+              <strong>${t('multiCli.agreements') || 'Agreements'}:</strong>
+              <ul>${crossVerification.agreements.map(a => `<li class="agreement">${escapeHtml(a)}</li>`).join('')}</ul>
+            </div>
+          ` : ''}
+          ${crossVerification.disagreements?.length ? `
+            <div class="disagreements">
+              <strong>${t('multiCli.disagreements') || 'Disagreements'}:</strong>
+              <ul>${crossVerification.disagreements.map(d => `<li class="disagreement">${escapeHtml(d)}</li>`).join('')}</ul>
+            </div>
+          ` : ''}
+          ${crossVerification.resolution ? `
+            <div class="resolution">
+              <strong>${t('multiCli.resolution') || 'Resolution'}:</strong>
+              <p>${escapeHtml(crossVerification.resolution)}</p>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `);
+  }
+
+  return sections.join('');
+}
+
+/**
+ * Load a specific round's data (async, may fetch from server)
+ */
+async function loadMultiCliRound(sessionKey, roundNum) {
+  const session = liteTaskDataStore[sessionKey];
+  if (!session) return;
+
+  // Update active state in nav
+  document.querySelectorAll('.round-item').forEach(item => {
+    item.classList.toggle('active', parseInt(item.dataset.round) === roundNum);
+  });
+
+  const contentArea = document.getElementById('multiCliRoundContent');
+
+  // If we have rounds array, use it
+  if (session.rounds && session.rounds[roundNum - 1]) {
+    contentArea.innerHTML = renderRoundContent(session.rounds[roundNum - 1]);
+    initCollapsibleSections(contentArea);
+    return;
+  }
+
+  // Otherwise try to fetch from server
+  if (window.SERVER_MODE && session.path) {
+    contentArea.innerHTML = `<div class="tab-loading">${t('common.loading') || 'Loading...'}</div>`;
+    try {
+      const response = await fetch(`/api/session-detail?path=${encodeURIComponent(session.path)}&type=round&round=${roundNum}`);
+      if (response.ok) {
+        const data = await response.json();
+        contentArea.innerHTML = renderRoundContent(data.round || {});
+        initCollapsibleSections(contentArea);
+        return;
+      }
+    } catch (err) {
+      console.error('Failed to load round:', err);
+    }
+  }
+
+  // Fallback
+  contentArea.innerHTML = `<div class="round-empty">${t('multiCli.noRoundData') || 'No data for this round.'}</div>`;
 }
 
 // Lite Task Detail Page

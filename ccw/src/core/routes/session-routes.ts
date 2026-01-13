@@ -7,9 +7,9 @@ import { join } from 'path';
 import type { RouteContext } from './types.js';
 
 /**
- * Get session detail data (context, summaries, impl-plan, review)
+ * Get session detail data (context, summaries, impl-plan, review, multi-cli)
  * @param {string} sessionPath - Path to session directory
- * @param {string} dataType - Type of data to load ('all', 'context', 'tasks', 'summary', 'plan', 'explorations', 'conflict', 'impl-plan', 'review')
+ * @param {string} dataType - Type of data to load ('all', 'context', 'tasks', 'summary', 'plan', 'explorations', 'conflict', 'impl-plan', 'review', 'multi-cli', 'discussions')
  * @returns {Promise<Object>}
  */
 async function getSessionDetailData(sessionPath: string, dataType: string): Promise<Record<string, unknown>> {
@@ -247,6 +247,44 @@ async function getSessionDetailData(sessionPath: string, dataType: string): Prom
           result.implPlan = readFileSync(implPlanFile, 'utf8');
         } catch (e) {
           result.implPlan = null;
+        }
+      }
+    }
+
+    // Load multi-cli discussion rounds (rounds/*/synthesis.json)
+    if (dataType === 'multi-cli' || dataType === 'discussions' || dataType === 'all') {
+      result.multiCli = {
+        sessionId: normalizedPath.split('/').pop() || '',
+        type: 'multi-cli-plan',
+        rounds: [] as Array<{ roundNumber: number; synthesis: Record<string, unknown> | null }>
+      };
+
+      const roundsDir = join(normalizedPath, 'rounds');
+      if (existsSync(roundsDir)) {
+        try {
+          const roundDirs = readdirSync(roundsDir)
+            .filter(d => /^\d+$/.test(d)) // Only numeric directories
+            .sort((a, b) => parseInt(a) - parseInt(b));
+
+          for (const roundDir of roundDirs) {
+            const synthesisFile = join(roundsDir, roundDir, 'synthesis.json');
+            let synthesis: Record<string, unknown> | null = null;
+
+            if (existsSync(synthesisFile)) {
+              try {
+                synthesis = JSON.parse(readFileSync(synthesisFile, 'utf8'));
+              } catch (e) {
+                // Skip unreadable synthesis files
+              }
+            }
+
+            result.multiCli.rounds.push({
+              roundNumber: parseInt(roundDir),
+              synthesis
+            });
+          }
+        } catch (e) {
+          // Directory read failed
         }
       }
     }

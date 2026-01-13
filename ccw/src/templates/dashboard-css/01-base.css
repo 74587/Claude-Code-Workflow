@@ -119,6 +119,14 @@ body {
   color: hsl(var(--orange));
 }
 
+.nav-item[data-lite="multi-cli-plan"].active {
+  background-color: hsl(var(--purple-light, 280 60% 95%));
+}
+
+.nav-item[data-lite="multi-cli-plan"].active .nav-icon {
+  color: hsl(var(--purple, 280 60% 50%));
+}
+
 .sidebar.collapsed .toggle-icon {
   transform: rotate(180deg);
 }

@@ -584,6 +584,17 @@ function showFileBrowserModal(onSelect) {
 }
 
 function buildFileBrowserModalContent() {
+  // Detect if Windows
+  var isWindows = navigator.platform.indexOf('Win') > -1;
+  var driveButtons = '';
+  if (isWindows) {
+    driveButtons = '<div class="file-browser-drives">' +
+      '<button class="btn-xs btn-outline drive-btn" data-drive="C:/">C:</button>' +
+      '<button class="btn-xs btn-outline drive-btn" data-drive="D:/">D:</button>' +
+      '<button class="btn-xs btn-outline drive-btn" data-drive="E:/">E:</button>' +
+    '</div>';
+  }
+  
   return '<div class="modal-content file-browser-modal">' +
     '<div class="modal-header">' +
       '<h3><i data-lucide="folder-open" class="w-4 h-4"></i> ' + t('cli.fileBrowser') + '</h3>' +
@@ -597,9 +608,10 @@ function buildFileBrowserModalContent() {
         '<button class="btn-sm btn-outline" id="fileBrowserHomeBtn" title="' + t('cli.fileBrowserHome') + '">' +
           '<i data-lucide="home" class="w-3.5 h-3.5"></i>' +
         '</button>' +
-        '<input type="text" id="fileBrowserPathInput" class="file-browser-path" placeholder="/" readonly />' +
+        driveButtons +
+        '<input type="text" id="fileBrowserPathInput" class="file-browser-path" placeholder="Enter path and press Enter" />' +
         '<label class="file-browser-hidden-toggle">' +
-          '<input type="checkbox" id="fileBrowserShowHidden" />' +
+          '<input type="checkbox" id="fileBrowserShowHidden" checked />' +
           '<span>' + t('cli.fileBrowserShowHidden') + '</span>' +
         '</label>' +
       '</div>' +
@@ -756,9 +768,35 @@ function initFileBrowserEvents() {
     };
   }
   
+  // Drive buttons (Windows)
+  document.querySelectorAll('.drive-btn').forEach(function(btn) {
+    btn.onclick = function() {
+      var drive = btn.getAttribute('data-drive');
+      if (drive) {
+        loadFileBrowserDirectory(drive);
+      }
+    };
+  });
+  
+  // Path input - allow manual entry
+  var pathInput = document.getElementById('fileBrowserPathInput');
+  if (pathInput) {
+    pathInput.onkeydown = function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var path = pathInput.value.trim();
+        if (path) {
+          loadFileBrowserDirectory(path);
+        }
+      }
+    };
+  }
+  
   // Show hidden checkbox
   var showHiddenCheckbox = document.getElementById('fileBrowserShowHidden');
   if (showHiddenCheckbox) {
+    showHiddenCheckbox.checked = true; // Default to show hidden
+    fileBrowserState.showHidden = true;
     showHiddenCheckbox.onchange = function() {
       fileBrowserState.showHidden = showHiddenCheckbox.checked;
       loadFileBrowserDirectory(fileBrowserState.currentPath);
@@ -994,6 +1032,7 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
         var envFileInput = document.getElementById('envFileInput');
         if (envFileInput && selectedPath) {
           envFileInput.value = selectedPath;
+          envFileInput.focus();
         }
       });
     };
