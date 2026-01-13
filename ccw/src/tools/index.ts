@@ -30,6 +30,7 @@ import type { ProgressInfo } from './codex-lens.js';
 import { uiGeneratePreviewTool } from './ui-generate-preview.js';
 import { uiInstantiatePrototypesTool } from './ui-instantiate-prototypes.js';
 import { updateModuleClaudeTool } from './update-module-claude.js';
+import { memoryQueueTool } from './memory-update-queue.js';
 
 interface LegacyTool {
   name: string;
@@ -366,6 +367,7 @@ registerTool(toLegacyTool(skillContextLoaderMod));
 registerTool(uiGeneratePreviewTool);
 registerTool(uiInstantiatePrototypesTool);
 registerTool(updateModuleClaudeTool);
+registerTool(memoryQueueTool);
 
 // Export for external tool registration
 export { registerTool };

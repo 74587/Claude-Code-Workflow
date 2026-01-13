@@ -33,11 +33,14 @@ function initCliStatus() {
  * Load all statuses using aggregated endpoint (single API call)
  */
 async function loadAllStatuses() {
+  const totalStart = performance.now();
+  console.log('[PERF][Frontend] loadAllStatuses START');
+
   // 1. 尝试从缓存获取（预加载的数据）
   if (window.cacheManager) {
     const cached = window.cacheManager.get('all-status');
     if (cached) {
-      console.log('[CLI Status] Loaded all statuses from cache');
+      console.log(`[PERF][Frontend] Cache hit: ${(performance.now() - totalStart).toFixed(1)}ms`);
       // 应用缓存数据
       cliToolStatus = cached.cli || {};
       codexLensStatus = cached.codexLens || { ready: false };
@@ -45,25 +48,32 @@ async function loadAllStatuses() {
       ccwInstallStatus = cached.ccwInstall || { installed: true, workflowsInstalled: true, missingFiles: [], installPath: '' };
 
       // Load CLI tools config, API endpoints, and CLI Settings（这些有自己的缓存）
+      const configStart = performance.now();
       await Promise.all([
         loadCliToolsConfig(),
         loadApiEndpoints(),
         loadCliSettingsEndpoints()
       ]);
+      console.log(`[PERF][Frontend] Config/Endpoints load: ${(performance.now() - configStart).toFixed(1)}ms`);
 
       // Update badges
       updateCliBadge();
       updateCodexLensBadge();
       updateCcwInstallBadge();
+
+      console.log(`[PERF][Frontend] loadAllStatuses TOTAL (cached): ${(performance.now() - totalStart).toFixed(1)}ms`);
       return cached;
     }
   }
 
   // 2. 缓存未命中，从服务器获取
   try {
+    const fetchStart = performance.now();
+    console.log('[PERF][Frontend] Fetching /api/status/all...');
     const response = await fetch('/api/status/all');
     if (!response.ok) throw new Error('Failed to load status');
     const data = await response.json();
+    console.log(`[PERF][Frontend] /api/status/all fetch: ${(performance.now() - fetchStart).toFixed(1)}ms`);
 
     // 存入缓存
     if (window.cacheManager) {
@@ -77,10 +87,11 @@ async function loadAllStatuses() {
     ccwInstallStatus = data.ccwInstall || { installed: true, workflowsInstalled: true, missingFiles: [], installPath: '' };
 
     // Load CLI tools config, API endpoints, and CLI Settings
-    await Promise.all([
-      loadCliToolsConfig(),
-      loadApiEndpoints(),
-      loadCliSettingsEndpoints()
+    const configStart = performance.now();
+    const [configResult, endpointsResult, settingsResult] = await Promise.all([
+      loadCliToolsConfig().then(r => { console.log(`[PERF][Frontend] loadCliToolsConfig: ${(performance.now() - configStart).toFixed(1)}ms`); return r; }),
+      loadApiEndpoints().then(r => { console.log(`[PERF][Frontend] loadApiEndpoints: ${(performance.now() - configStart).toFixed(1)}ms`); return r; }),
+      loadCliSettingsEndpoints().then(r => { console.log(`[PERF][Frontend] loadCliSettingsEndpoints: ${(performance.now() - configStart).toFixed(1)}ms`); return r; })
     ]);
 
     // Update badges
@@ -88,9 +99,11 @@ async function loadAllStatuses() {
     updateCodexLensBadge();
     updateCcwInstallBadge();
 
+    console.log(`[PERF][Frontend] loadAllStatuses TOTAL: ${(performance.now() - totalStart).toFixed(1)}ms`);
     return data;
   } catch (err) {
     console.error('Failed to load aggregated status:', err);
+    console.log(`[PERF][Frontend] loadAllStatuses ERROR after: ${(performance.now() - totalStart).toFixed(1)}ms`);
     // Fallback to individual calls if aggregated endpoint fails
     return await loadAllStatusesFallback();
   }

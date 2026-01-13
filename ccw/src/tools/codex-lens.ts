@@ -49,6 +49,14 @@ interface VenvStatusCache {
 let venvStatusCache: VenvStatusCache | null = null;
 const VENV_STATUS_TTL = 5 * 60 * 1000; // 5 minutes TTL
 
+// Semantic status cache with TTL (same as venv cache)
+interface SemanticStatusCache {
+  status: SemanticStatus;
+  timestamp: number;
+}
+let semanticStatusCache: SemanticStatusCache | null = null;
+const SEMANTIC_STATUS_TTL = 5 * 60 * 1000; // 5 minutes TTL
+
 // Track running indexing process for cancellation
 let currentIndexingProcess: ReturnType<typeof spawn> | null = null;
 let currentIndexingAborted = false;
@@ -147,8 +155,12 @@ function clearVenvStatusCache(): void {
  * @returns Ready status
  */
 async function checkVenvStatus(force = false): Promise<ReadyStatus> {
+  const funcStart = Date.now();
+  console.log('[PERF][CodexLens] checkVenvStatus START');
+
   // Use cached result if available and not expired
   if (!force && venvStatusCache && (Date.now() - venvStatusCache.timestamp < VENV_STATUS_TTL)) {
+    console.log(`[PERF][CodexLens] checkVenvStatus CACHE HIT: ${Date.now() - funcStart}ms`);
     return venvStatusCache.status;
   }
 
@@ -156,6 +168,7 @@ async function checkVenvStatus(force = false): Promise<ReadyStatus> {
   if (!existsSync(CODEXLENS_VENV)) {
     const result = { ready: false, error: 'Venv not found' };
     venvStatusCache = { status: result, timestamp: Date.now() };
+    console.log(`[PERF][CodexLens] checkVenvStatus (no venv): ${Date.now() - funcStart}ms`);
     return result;
   }
 
@@ -163,12 +176,16 @@ async function checkVenvStatus(force = false): Promise<ReadyStatus> {
   if (!existsSync(VENV_PYTHON)) {
     const result = { ready: false, error: 'Python executable not found in venv' };
     venvStatusCache = { status: result, timestamp: Date.now() };
+    console.log(`[PERF][CodexLens] checkVenvStatus (no python): ${Date.now() - funcStart}ms`);
     return result;
   }
 
-  // Check codexlens is importable
+  // Check codexlens and core dependencies are importable
+  const spawnStart = Date.now();
+  console.log('[PERF][CodexLens] checkVenvStatus spawning Python...');
+
   return new Promise((resolve) => {
-    const child = spawn(VENV_PYTHON, ['-c', 'import codexlens; print(codexlens.__version__)'], {
+    const child = spawn(VENV_PYTHON, ['-c', 'import codexlens; import watchdog; print(codexlens.__version__)'], {
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 10000,
     });
@@ -192,29 +209,54 @@ async function checkVenvStatus(force = false): Promise<ReadyStatus> {
       }
       // Cache the result
       venvStatusCache = { status: result, timestamp: Date.now() };
+      console.log(`[PERF][CodexLens] checkVenvStatus Python spawn: ${Date.now() - spawnStart}ms | TOTAL: ${Date.now() - funcStart}ms | ready: ${result.ready}`);
       resolve(result);
     });
 
     child.on('error', (err) => {
       const result = { ready: false, error: `Failed to check venv: ${err.message}` };
       venvStatusCache = { status: result, timestamp: Date.now() };
+      console.log(`[PERF][CodexLens] checkVenvStatus ERROR: ${Date.now() - funcStart}ms`);
       resolve(result);
     });
   });
 }
 
 /**
+ * Clear semantic status cache (call after install/uninstall operations)
+ */
+function clearSemanticStatusCache(): void {
+  semanticStatusCache = null;
+}
+
+/**
  * Check if semantic search dependencies are installed
+ * @param force - Force refresh cache (default: false)
  * @returns Semantic status
  */
-async function checkSemanticStatus(): Promise<SemanticStatus> {
+async function checkSemanticStatus(force = false): Promise<SemanticStatus> {
+  const funcStart = Date.now();
+  console.log('[PERF][CodexLens] checkSemanticStatus START');
+
+  // Use cached result if available and not expired
+  if (!force && semanticStatusCache && (Date.now() - semanticStatusCache.timestamp < SEMANTIC_STATUS_TTL)) {
+    console.log(`[PERF][CodexLens] checkSemanticStatus CACHE HIT: ${Date.now() - funcStart}ms`);
+    return semanticStatusCache.status;
+  }
+
   // First check if CodexLens is installed
   const venvStatus = await checkVenvStatus();
   if (!venvStatus.ready) {
-    return { available: false, error: 'CodexLens not installed' };
+    const result: SemanticStatus = { available: false, error: 'CodexLens not installed' };
+    semanticStatusCache = { status: result, timestamp: Date.now() };
+    console.log(`[PERF][CodexLens] checkSemanticStatus (no venv): ${Date.now() - funcStart}ms`);
+    return result;
   }
 
   // Check semantic module availability and accelerator info
+  const spawnStart = Date.now();
+  console.log('[PERF][CodexLens] checkSemanticStatus spawning Python...');
+
   return new Promise((resolve) => {
     const checkCode = `
 import sys
@@ -274,21 +316,31 @@ except Exception as e:
       const output = stdout.trim();
       try {
         const result = JSON.parse(output);
-        resolve({
+        console.log(`[PERF][CodexLens] checkSemanticStatus Python spawn: ${Date.now() - spawnStart}ms | TOTAL: ${Date.now() - funcStart}ms | available: ${result.available}`);
+        const status: SemanticStatus = {
           available: result.available || false,
           backend: result.backend,
           accelerator: result.accelerator || 'CPU',
           providers: result.providers || [],
           litellmAvailable: result.litellm_available || false,
           error: result.error
-        });
+        };
+        // Cache the result
+        semanticStatusCache = { status, timestamp: Date.now() };
+        resolve(status);
       } catch {
-        resolve({ available: false, error: output || stderr || 'Unknown error' });
+        console.log(`[PERF][CodexLens] checkSemanticStatus PARSE ERROR: ${Date.now() - funcStart}ms`);
+        const errorStatus: SemanticStatus = { available: false, error: output || stderr || 'Unknown error' };
+        semanticStatusCache = { status: errorStatus, timestamp: Date.now() };
+        resolve(errorStatus);
       }
     });
 
     child.on('error', (err) => {
-      resolve({ available: false, error: `Check failed: ${err.message}` });
+      console.log(`[PERF][CodexLens] checkSemanticStatus ERROR: ${Date.now() - funcStart}ms`);
+      const errorStatus: SemanticStatus = { available: false, error: `Check failed: ${err.message}` };
+      semanticStatusCache = { status: errorStatus, timestamp: Date.now() };
+      resolve(errorStatus);
     });
   });
 }
@@ -583,6 +635,7 @@ async function bootstrapWithUv(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResul
 
   // Clear cache after successful installation
   clearVenvStatusCache();
+  clearSemanticStatusCache();
   console.log(`[CodexLens] Bootstrap with UV complete (${gpuMode} mode)`);
   return { success: true, message: `Installed with UV (${gpuMode} mode)` };
 }
@@ -878,6 +931,7 @@ async function bootstrapVenv(): Promise<BootstrapResult> {
 
     // Clear cache after successful installation
     clearVenvStatusCache();
+    clearSemanticStatusCache();
     return { success: true };
   } catch (err) {
     return { success: false, error: `Failed to install codexlens: ${(err as Error).message}` };
@@ -1631,6 +1685,7 @@ async function uninstallCodexLens(): Promise<BootstrapResult> {
     bootstrapChecked = false;
     bootstrapReady = false;
     clearVenvStatusCache();
+    clearSemanticStatusCache();
 
     console.log('[CodexLens] CodexLens uninstalled successfully');
     return { success: true, message: 'CodexLens uninstalled successfully' };

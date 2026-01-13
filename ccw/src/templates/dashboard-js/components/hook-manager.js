@@ -53,39 +53,39 @@ const HOOK_TEMPLATES = {
     event: 'Stop',
     matcher: '',
     command: 'bash',
-    args: ['-c', 'ccw tool exec update_module_claude \'{"strategy":"related","tool":"gemini"}\''],
-    description: 'Update CLAUDE.md for changed modules when session ends',
+    args: ['-c', 'ccw tool exec memory_queue "{\\"action\\":\\"add\\",\\"path\\":\\"$CLAUDE_PROJECT_DIR\\",\\"tool\\":\\"gemini\\",\\"strategy\\":\\"single-layer\\"}"'],
+    description: 'Queue CLAUDE.md update for changed modules when session ends',
     category: 'memory',
     configurable: true,
     config: {
       tool: { type: 'select', options: ['gemini', 'qwen', 'codex'], default: 'gemini', label: 'CLI Tool' },
-      strategy: { type: 'select', options: ['related', 'single-layer'], default: 'related', label: 'Strategy' }
+      strategy: { type: 'select', options: ['single-layer', 'multi-layer'], default: 'single-layer', label: 'Strategy' }
     }
   },
   'memory-update-periodic': {
     event: 'PostToolUse',
     matcher: 'Write|Edit',
     command: 'bash',
-    args: ['-c', 'INTERVAL=300; LAST_FILE="$HOME/.claude/.last_memory_update"; mkdir -p "$HOME/.claude"; NOW=$(date +%s); LAST=0; [ -f "$LAST_FILE" ] && LAST=$(cat "$LAST_FILE" 2>/dev/null || echo 0); if [ $((NOW - LAST)) -ge $INTERVAL ]; then echo $NOW > "$LAST_FILE"; ccw tool exec update_module_claude \'{"strategy":"related","tool":"gemini"}\' & fi'],
-    description: 'Periodically update CLAUDE.md (default: 5 min interval)',
+    args: ['-c', 'ccw tool exec memory_queue "{\\"action\\":\\"add\\",\\"path\\":\\"$CLAUDE_PROJECT_DIR\\",\\"tool\\":\\"gemini\\",\\"strategy\\":\\"single-layer\\"}"'],
+    description: 'Queue CLAUDE.md update on file changes (batched with threshold/timeout)',
     category: 'memory',
     configurable: true,
     config: {
       tool: { type: 'select', options: ['gemini', 'qwen', 'codex'], default: 'gemini', label: 'CLI Tool' },
-      interval: { type: 'number', default: 300, min: 60, max: 3600, label: 'Interval (seconds)', step: 60 }
+      strategy: { type: 'select', options: ['single-layer', 'multi-layer'], default: 'single-layer', label: 'Strategy' }
     }
   },
   'memory-update-count-based': {
     event: 'PostToolUse',
     matcher: 'Write|Edit',
     command: 'bash',
-    args: ['-c', 'THRESHOLD=10; COUNT_FILE="$HOME/.claude/.memory_update_count"; mkdir -p "$HOME/.claude"; INPUT=$(cat); FILE_PATH=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty" 2>/dev/null); [ -z "$FILE_PATH" ] && exit 0; COUNT=0; [ -f "$COUNT_FILE" ] && COUNT=$(cat "$COUNT_FILE" 2>/dev/null || echo 0); COUNT=$((COUNT + 1)); echo $COUNT > "$COUNT_FILE"; if [ $COUNT -ge $THRESHOLD ]; then echo 0 > "$COUNT_FILE"; ccw tool exec update_module_claude \'{"strategy":"related","tool":"gemini"}\' & fi'],
-    description: 'Update CLAUDE.md when file changes reach threshold (default: 10 files)',
+    args: ['-c', 'ccw tool exec memory_queue "{\\"action\\":\\"add\\",\\"path\\":\\"$CLAUDE_PROJECT_DIR\\",\\"tool\\":\\"gemini\\",\\"strategy\\":\\"single-layer\\"}"'],
+    description: 'Queue CLAUDE.md update on file changes (auto-flush at 5 paths or 5min timeout)',
     category: 'memory',
     configurable: true,
     config: {
       tool: { type: 'select', options: ['gemini', 'qwen', 'codex'], default: 'gemini', label: 'CLI Tool' },
-      threshold: { type: 'number', default: 10, min: 3, max: 50, label: 'File count threshold', step: 1 }
+      strategy: { type: 'select', options: ['single-layer', 'multi-layer'], default: 'single-layer', label: 'Strategy' }
     }
   },
   // SKILL Context Loader templates
@@ -1154,21 +1154,17 @@ function generateWizardCommand() {
   }
 
   // Handle memory-update wizard (default)
+  // Now uses memory_queue for batched updates
   const tool = wizardConfig.tool || 'gemini';
-  const strategy = wizardConfig.strategy || 'related';
-  const interval = wizardConfig.interval || 300;
-  const threshold = wizardConfig.threshold || 10;
+  const strategy = wizardConfig.strategy || 'single-layer';
 
-  // Build the ccw tool command based on configuration
-  const params = JSON.stringify({ strategy, tool });
+  // Build the ccw tool command using memory_queue
+  // Use double quotes to allow bash $CLAUDE_PROJECT_DIR expansion
+  const params = `"{\\"action\\":\\"add\\",\\"path\\":\\"$CLAUDE_PROJECT_DIR\\",\\"tool\\":\\"${tool}\\",\\"strategy\\":\\"${strategy}\\"}"`;
 
-  if (triggerType === 'periodic') {
-    return `INTERVAL=${interval}; LAST_FILE="$HOME/.claude/.last_memory_update"; mkdir -p "$HOME/.claude"; NOW=$(date +%s); LAST=0; [ -f "$LAST_FILE" ] && LAST=$(cat "$LAST_FILE" 2>/dev/null || echo 0); if [ $((NOW - LAST)) -ge $INTERVAL ]; then echo $NOW > "$LAST_FILE"; ccw tool exec update_module_claude '${params}' & fi`;
-  } else if (triggerType === 'count-based') {
-    return `THRESHOLD=${threshold}; COUNT_FILE="$HOME/.claude/.memory_update_count"; mkdir -p "$HOME/.claude"; INPUT=$(cat); FILE_PATH=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty" 2>/dev/null); [ -z "$FILE_PATH" ] && exit 0; COUNT=0; [ -f "$COUNT_FILE" ] && COUNT=$(cat "$COUNT_FILE" 2>/dev/null || echo 0); COUNT=$((COUNT + 1)); echo $COUNT > "$COUNT_FILE"; if [ $COUNT -ge $THRESHOLD ]; then echo 0 > "$COUNT_FILE"; ccw tool exec update_module_claude '${params}' & fi`;
-  } else {
-    return `ccw tool exec update_module_claude '${params}'`;
-  }
+  // All trigger types now use the same queue-based command
+  // The queue handles batching (threshold: 5 paths, timeout: 5 min)
+  return `ccw tool exec memory_queue ${params}`;
 }
 
 async function submitHookWizard() {

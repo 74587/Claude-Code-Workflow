@@ -1256,5 +1256,89 @@ RULES: Be concise. Focus on practical understanding. Include function signatures
     return true;
   }
 
+  // API: Memory Queue - Add path to queue
+  if (pathname === '/api/memory/queue/add' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { path: modulePath, tool = 'gemini', strategy = 'single-layer' } = body;
+
+      if (!modulePath) {
+        return { error: 'path is required', status: 400 };
+      }
+
+      try {
+        const { memoryQueueTool } = await import('../../tools/memory-update-queue.js');
+        const result = await memoryQueueTool.execute({
+          action: 'add',
+          path: modulePath,
+          tool,
+          strategy
+        }) as { queueSize?: number; willFlush?: boolean; flushed?: boolean };
+
+        // Broadcast queue update event
+        broadcastToClients({
+          type: 'MEMORY_QUEUE_UPDATED',
+          payload: {
+            action: 'add',
+            path: modulePath,
+            queueSize: result.queueSize || 0,
+            willFlush: result.willFlush || false,
+            flushed: result.flushed || false,
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        return { success: true, ...result };
+      } catch (error: unknown) {
+        return { error: (error as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // API: Memory Queue - Get queue status
+  if (pathname === '/api/memory/queue/status' && req.method === 'GET') {
+    try {
+      const { memoryQueueTool } = await import('../../tools/memory-update-queue.js');
+      const result = await memoryQueueTool.execute({ action: 'status' }) as Record<string, unknown>;
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, ...result }));
+    } catch (error: unknown) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (error as Error).message }));
+    }
+    return true;
+  }
+
+  // API: Memory Queue - Flush queue immediately
+  if (pathname === '/api/memory/queue/flush' && req.method === 'POST') {
+    handlePostRequest(req, res, async () => {
+      try {
+        const { memoryQueueTool } = await import('../../tools/memory-update-queue.js');
+        const result = await memoryQueueTool.execute({ action: 'flush' }) as {
+          processed?: number;
+          success?: boolean;
+          errors?: unknown[];
+        };
+
+        // Broadcast queue flushed event
+        broadcastToClients({
+          type: 'MEMORY_QUEUE_FLUSHED',
+          payload: {
+            processed: result.processed || 0,
+            success: result.success || false,
+            errors: result.errors?.length || 0,
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        return { success: true, ...result };
+      } catch (error: unknown) {
+        return { error: (error as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
   return false;
 }

@@ -1190,6 +1190,9 @@ export {
  * - api-endpoint: Check LiteLLM endpoint configuration exists
  */
 export async function getCliToolsStatus(): Promise<Record<string, ToolAvailability>> {
+  const funcStart = Date.now();
+  debugLog('PERF', 'getCliToolsStatus START');
+
   // Default built-in tools
   const builtInTools = ['gemini', 'qwen', 'codex', 'claude', 'opencode'];
 
@@ -1202,6 +1205,7 @@ export async function getCliToolsStatus(): Promise<Record<string, ToolAvailabili
   }
   let toolsInfo: ToolInfo[] = builtInTools.map(name => ({ name, type: 'builtin' }));
 
+  const configLoadStart = Date.now();
   try {
     // Dynamic import to avoid circular dependencies
     const { loadClaudeCliTools } = await import('./claude-cli-tools.js');
@@ -1225,11 +1229,15 @@ export async function getCliToolsStatus(): Promise<Record<string, ToolAvailabili
     // Fallback to built-in tools if config load fails
     debugLog('cli-executor', `Using built-in tools (config load failed: ${(e as Error).message})`);
   }
+  debugLog('PERF', `Config load: ${Date.now() - configLoadStart}ms, tools: ${toolsInfo.length}`);
 
   const results: Record<string, ToolAvailability> = {};
+  const toolTimings: Record<string, number> = {};
 
+  const checksStart = Date.now();
   await Promise.all(toolsInfo.map(async (toolInfo) => {
     const { name, type, enabled, id } = toolInfo;
+    const toolStart = Date.now();
 
     // Check availability based on tool type
     if (type === 'cli-wrapper') {
@@ -1271,7 +1279,12 @@ export async function getCliToolsStatus(): Promise<Record<string, ToolAvailabili
       // For builtin: check system PATH availability
       results[name] = await checkToolAvailability(name);
     }
+
+    toolTimings[name] = Date.now() - toolStart;
   }));
+
+  debugLog('PERF', `Tool checks: ${Date.now() - checksStart}ms | Individual: ${JSON.stringify(toolTimings)}`);
+  debugLog('PERF', `getCliToolsStatus TOTAL: ${Date.now() - funcStart}ms`);
 
   return results;
 }

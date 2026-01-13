@@ -42,6 +42,10 @@ import { randomBytes } from 'crypto';
 // Import health check service
 import { getHealthCheckService } from './services/health-check-service.js';
 
+// Import status check functions for warmup
+import { checkSemanticStatus, checkVenvStatus } from '../tools/codex-lens.js';
+import { getCliToolsStatus } from '../tools/cli-executor.js';
+
 import type { ServerConfig } from '../types/config.js';
 import type { PostRequestHandler } from './routes/types.js';
 
@@ -288,6 +292,56 @@ function setCsrfCookie(res: http.ServerResponse, token: string, maxAgeSeconds: n
     `Max-Age=${maxAgeSeconds}`,
   ];
   appendSetCookie(res, attributes.join('; '));
+}
+
+/**
+ * Warmup function to pre-populate caches on server startup
+ * This runs asynchronously and non-blocking after the server starts
+ */
+async function warmupCaches(initialPath: string): Promise<void> {
+  console.log('[WARMUP] Starting cache warmup...');
+  const startTime = Date.now();
+
+  // Run all warmup tasks in parallel for faster startup
+  const warmupTasks = [
+    // Warmup semantic status cache (Python process startup - can be slow first time)
+    (async () => {
+      const taskStart = Date.now();
+      try {
+        const semanticStatus = await checkSemanticStatus();
+        console.log(`[WARMUP] Semantic status: ${semanticStatus.available ? 'available' : 'not available'} (${Date.now() - taskStart}ms)`);
+      } catch (err) {
+        console.warn(`[WARMUP] Semantic status check failed: ${(err as Error).message}`);
+      }
+    })(),
+
+    // Warmup venv status cache
+    (async () => {
+      const taskStart = Date.now();
+      try {
+        const venvStatus = await checkVenvStatus();
+        console.log(`[WARMUP] Venv status: ${venvStatus.ready ? 'ready' : 'not ready'} (${Date.now() - taskStart}ms)`);
+      } catch (err) {
+        console.warn(`[WARMUP] Venv status check failed: ${(err as Error).message}`);
+      }
+    })(),
+
+    // Warmup CLI tools status cache
+    (async () => {
+      const taskStart = Date.now();
+      try {
+        const cliStatus = await getCliToolsStatus();
+        const availableCount = Object.values(cliStatus).filter(s => s.available).length;
+        const totalCount = Object.keys(cliStatus).length;
+        console.log(`[WARMUP] CLI tools status: ${availableCount}/${totalCount} available (${Date.now() - taskStart}ms)`);
+      } catch (err) {
+        console.warn(`[WARMUP] CLI tools status check failed: ${(err as Error).message}`);
+      }
+    })()
+  ];
+
+  await Promise.allSettled(warmupTasks);
+  console.log(`[WARMUP] Cache warmup complete (${Date.now() - startTime}ms total)`);
 }
 
 /**
@@ -649,6 +703,14 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       } catch (err) {
         console.warn('[Server] Failed to start health check service:', err);
       }
+
+      // Start cache warmup asynchronously (non-blocking)
+      // Uses setImmediate to not delay server startup response
+      setImmediate(() => {
+        warmupCaches(initialPath).catch((err) => {
+          console.warn('[WARMUP] Cache warmup failed:', err);
+        });
+      });
 
       resolve(server);
     });
