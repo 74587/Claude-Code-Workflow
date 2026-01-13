@@ -523,6 +523,27 @@ function buildToolConfigModalContent(tool, config, models, status) {
       '</div>' +
     '</div>' +
 
+    // Environment File Section (only for builtin tools: gemini, qwen)
+    (tool === 'gemini' || tool === 'qwen' ? (
+    '<div class="tool-config-section">' +
+      '<h4><i data-lucide="file-key" class="w-3.5 h-3.5"></i> ' + t('cli.envFile') + ' <span class="text-muted">' + t('cli.envFileOptional') + '</span></h4>' +
+      '<div class="env-file-input-group">' +
+        '<div class="env-file-input-row">' +
+          '<input type="text" id="envFileInput" class="tool-config-input" ' +
+            'placeholder="' + t('cli.envFilePlaceholder') + '" ' +
+            'value="' + (config.envFile ? escapeHtml(config.envFile) : '') + '" />' +
+          '<button type="button" class="btn-sm btn-outline" id="envFileBrowseBtn">' +
+            '<i data-lucide="folder-open" class="w-3.5 h-3.5"></i> ' + t('cli.envFileBrowse') +
+          '</button>' +
+        '</div>' +
+        '<p class="env-file-hint">' +
+          '<i data-lucide="info" class="w-3 h-3"></i> ' +
+          t('cli.envFileHint') +
+        '</p>' +
+      '</div>' +
+    '</div>'
+    ) : '') +
+
     // Footer
     '<div class="tool-config-footer">' +
       '<button class="btn btn-outline" onclick="closeModal()">' + t('common.cancel') + '</button>' +
@@ -701,12 +722,23 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
         return;
       }
 
+      // Get envFile value (only for gemini/qwen)
+      var envFileInput = document.getElementById('envFileInput');
+      var envFile = envFileInput ? envFileInput.value.trim() : '';
+
       try {
-        await updateCliToolConfig(tool, {
+        var updateData = {
           primaryModel: primaryModel,
           secondaryModel: secondaryModel,
           tags: currentTags
-        });
+        };
+
+        // Only include envFile for gemini/qwen tools
+        if (tool === 'gemini' || tool === 'qwen') {
+          updateData.envFile = envFile || null;
+        }
+
+        await updateCliToolConfig(tool, updateData);
         // Reload config to reflect changes
         await loadCliToolConfig();
         showRefreshToast('Configuration saved', 'success');
@@ -715,6 +747,44 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
         if (window.lucide) lucide.createIcons();
       } catch (err) {
         showRefreshToast('Failed to save: ' + err.message, 'error');
+      }
+    };
+  }
+
+  // Environment file browse button (only for gemini/qwen)
+  var envFileBrowseBtn = document.getElementById('envFileBrowseBtn');
+  if (envFileBrowseBtn) {
+    envFileBrowseBtn.onclick = async function() {
+      try {
+        // Use file dialog API if available
+        var response = await fetch('/api/dialog/open-file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: t('cli.envFile'),
+            filters: [
+              { name: 'Environment Files', extensions: ['env'] },
+              { name: 'All Files', extensions: ['*'] }
+            ],
+            defaultPath: ''
+          })
+        });
+        
+        if (response.ok) {
+          var data = await response.json();
+          if (data.filePath) {
+            var envFileInput = document.getElementById('envFileInput');
+            if (envFileInput) {
+              envFileInput.value = data.filePath;
+            }
+          }
+        } else {
+          // Fallback: prompt user to enter path manually
+          showRefreshToast('File dialog not available. Please enter path manually.', 'info');
+        }
+      } catch (err) {
+        console.error('Failed to open file dialog:', err);
+        showRefreshToast('File dialog not available. Please enter path manually.', 'info');
       }
     };
   }

@@ -261,6 +261,13 @@ const i18n = {
     'cli.wrapper': 'Wrapper',
     'cli.customClaudeSettings': 'Custom Claude CLI settings',
     'cli.updateFailed': 'Failed to update',
+    
+    // CLI Tool Config - Environment File
+    'cli.envFile': 'Environment File',
+    'cli.envFileOptional': '(optional)',
+    'cli.envFilePlaceholder': 'Path to .env file (e.g., ~/.gemini-env or C:/Users/xxx/.env)',
+    'cli.envFileHint': 'Load environment variables (e.g., API keys) before CLI execution. Supports ~ for home directory.',
+    'cli.envFileBrowse': 'Browse',
 
     // CodexLens Configuration
     'codexlens.config': 'CodexLens Configuration',
@@ -2421,6 +2428,13 @@ const i18n = {
     'cli.wrapper': '封装',
     'cli.customClaudeSettings': '自定义 Claude CLI 配置',
     'cli.updateFailed': '更新失败',
+    
+    // CLI 工具配置 - 环境文件
+    'cli.envFile': '环境文件',
+    'cli.envFileOptional': '（可选）',
+    'cli.envFilePlaceholder': '.env 文件路径（如 ~/.gemini-env 或 C:/Users/xxx/.env）',
+    'cli.envFileHint': '在 CLI 执行前加载环境变量（如 API 密钥）。支持 ~ 表示用户目录。',
+    'cli.envFileBrowse': '浏览',
 
     // CodexLens 配置
     'codexlens.config': 'CodexLens 配置',

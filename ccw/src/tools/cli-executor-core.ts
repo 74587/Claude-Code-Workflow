@@ -6,6 +6,9 @@
 import { z } from 'zod';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
 import { spawn, ChildProcess } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { validatePath } from '../utils/path-resolver.js';
 import { escapeWindowsArg } from '../utils/shell-escape.js';
 import { buildCommand, checkToolAvailability, clearToolCache, debugLog, errorLog, type NativeResumeConfig, type ToolAvailability } from './cli-executor-utils.js';
@@ -82,7 +85,73 @@ import { findEndpointById } from '../config/litellm-api-config-manager.js';
 
 // CLI Settings (CLI封装) integration
 import { loadEndpointSettings, getSettingsFilePath, findEndpoint } from '../config/cli-settings-manager.js';
-import { loadClaudeCliTools } from './claude-cli-tools.js';
+import { loadClaudeCliTools, getToolConfig } from './claude-cli-tools.js';
+
+/**
+ * Parse .env file content into key-value pairs
+ * Supports: KEY=value, KEY="value", KEY='value', comments (#), empty lines
+ */
+function parseEnvFile(content: string): Record<string, string> {
+  const env: Record<string, string> = {};
+  const lines = content.split(/\r?\n/);
+
+  for (const line of lines) {
+    // Skip empty lines and comments
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    // Find first = sign
+    const eqIndex = trimmed.indexOf('=');
+    if (eqIndex === -1) continue;
+
+    const key = trimmed.substring(0, eqIndex).trim();
+    let value = trimmed.substring(eqIndex + 1).trim();
+
+    // Remove surrounding quotes if present
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+
+    if (key) {
+      env[key] = value;
+    }
+  }
+
+  return env;
+}
+
+/**
+ * Load environment variables from .env file
+ * Supports ~ for home directory expansion
+ */
+function loadEnvFile(envFilePath: string): Record<string, string> {
+  try {
+    // Expand ~ to home directory
+    let resolvedPath = envFilePath;
+    if (resolvedPath.startsWith('~')) {
+      resolvedPath = path.join(os.homedir(), resolvedPath.slice(1));
+    }
+
+    // Resolve relative paths
+    if (!path.isAbsolute(resolvedPath)) {
+      resolvedPath = path.resolve(resolvedPath);
+    }
+
+    if (!fs.existsSync(resolvedPath)) {
+      debugLog('ENV_FILE', `Env file not found: ${resolvedPath}`);
+      return {};
+    }
+
+    const content = fs.readFileSync(resolvedPath, 'utf-8');
+    const envVars = parseEnvFile(content);
+    debugLog('ENV_FILE', `Loaded ${Object.keys(envVars).length} env vars from ${resolvedPath}`);
+    return envVars;
+  } catch (err) {
+    errorLog('ENV_FILE', `Failed to load env file: ${envFilePath}`, err as Error);
+    return {};
+  }
+}
 
 /**
  * Execute Claude CLI with custom settings file (CLI封装)
@@ -746,6 +815,19 @@ async function executeCliTool(
     const commandToSpawn = isWindows ? escapeWindowsArg(command) : command;
     const argsToSpawn = isWindows ? args.map(escapeWindowsArg) : args;
 
+    // Load custom environment variables from envFile if configured (for gemini/qwen)
+    const toolConfig = getToolConfig(workingDir, tool);
+    let customEnv: Record<string, string> = {};
+    if (toolConfig.envFile) {
+      customEnv = loadEnvFile(toolConfig.envFile);
+    }
+
+    // Merge custom env with process.env (custom env takes precedence)
+    const spawnEnv = {
+      ...process.env,
+      ...customEnv
+    };
+
     debugLog('SPAWN', `Spawning process`, {
       command,
       args,
@@ -754,13 +836,16 @@ async function executeCliTool(
       useStdin,
       platform: process.platform,
       fullCommand: `${command} ${args.join(' ')}`,
+      hasCustomEnv: Object.keys(customEnv).length > 0,
+      customEnvKeys: Object.keys(customEnv),
       ...(isWindows ? { escapedCommand: commandToSpawn, escapedArgs: argsToSpawn, escapedFullCommand: `${commandToSpawn} ${argsToSpawn.join(' ')}` } : {})
     });
 
     const child = spawn(commandToSpawn, argsToSpawn, {
       cwd: workingDir,
       shell: isWindows,  // Enable shell on Windows for .cmd files
-      stdio: [useStdin ? 'pipe' : 'ignore', 'pipe', 'pipe']
+      stdio: [useStdin ? 'pipe' : 'ignore', 'pipe', 'pipe'],
+      env: spawnEnv
     });
 
     // Track current child process for cleanup on interruption
@@ -1532,6 +1617,9 @@ export type { PromptFormat, ConcatOptions } from './cli-prompt-builder.js';
 
 // Export utility functions and tool definition for backward compatibility
 export { executeCliTool, checkToolAvailability, clearToolCache };
+
+// Export env file utilities for testing
+export { parseEnvFile, loadEnvFile };
 
 // Export prompt concatenation utilities
 export { PromptConcatenator, createPromptConcatenator, buildPrompt, buildMultiTurnPrompt } from './cli-prompt-builder.js';

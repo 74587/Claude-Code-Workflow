@@ -49,43 +49,17 @@ const HOOK_TEMPLATES = {
     description: 'Auto-update code index when files are written or edited',
     category: 'indexing'
   },
-  'memory-update-related': {
+  'memory-update-queue': {
     event: 'Stop',
     matcher: '',
     command: 'bash',
-    args: ['-c', 'ccw tool exec memory_queue "{\\"action\\":\\"add\\",\\"path\\":\\"$CLAUDE_PROJECT_DIR\\",\\"tool\\":\\"gemini\\",\\"strategy\\":\\"single-layer\\"}"'],
-    description: 'Queue CLAUDE.md update for changed modules when session ends',
+    args: ['-c', 'ccw tool exec memory_queue "{\\"action\\":\\"add\\",\\"path\\":\\"$CLAUDE_PROJECT_DIR\\"}"'],
+    description: 'Queue CLAUDE.md update when session ends (batched by threshold/timeout)',
     category: 'memory',
     configurable: true,
     config: {
-      tool: { type: 'select', options: ['gemini', 'qwen', 'codex'], default: 'gemini', label: 'CLI Tool' },
-      strategy: { type: 'select', options: ['single-layer', 'multi-layer'], default: 'single-layer', label: 'Strategy' }
-    }
-  },
-  'memory-update-periodic': {
-    event: 'PostToolUse',
-    matcher: 'Write|Edit',
-    command: 'bash',
-    args: ['-c', 'ccw tool exec memory_queue "{\\"action\\":\\"add\\",\\"path\\":\\"$CLAUDE_PROJECT_DIR\\",\\"tool\\":\\"gemini\\",\\"strategy\\":\\"single-layer\\"}"'],
-    description: 'Queue CLAUDE.md update on file changes (batched with threshold/timeout)',
-    category: 'memory',
-    configurable: true,
-    config: {
-      tool: { type: 'select', options: ['gemini', 'qwen', 'codex'], default: 'gemini', label: 'CLI Tool' },
-      strategy: { type: 'select', options: ['single-layer', 'multi-layer'], default: 'single-layer', label: 'Strategy' }
-    }
-  },
-  'memory-update-count-based': {
-    event: 'PostToolUse',
-    matcher: 'Write|Edit',
-    command: 'bash',
-    args: ['-c', 'ccw tool exec memory_queue "{\\"action\\":\\"add\\",\\"path\\":\\"$CLAUDE_PROJECT_DIR\\",\\"tool\\":\\"gemini\\",\\"strategy\\":\\"single-layer\\"}"'],
-    description: 'Queue CLAUDE.md update on file changes (auto-flush at 5 paths or 5min timeout)',
-    category: 'memory',
-    configurable: true,
-    config: {
-      tool: { type: 'select', options: ['gemini', 'qwen', 'codex'], default: 'gemini', label: 'CLI Tool' },
-      strategy: { type: 'select', options: ['single-layer', 'multi-layer'], default: 'single-layer', label: 'Strategy' }
+      threshold: { type: 'number', default: 5, min: 1, max: 20, label: 'Threshold (paths)', step: 1 },
+      timeout: { type: 'number', default: 300, min: 60, max: 1800, label: 'Timeout (seconds)', step: 60 }
     }
   },
   // SKILL Context Loader templates
@@ -210,33 +184,19 @@ const HOOK_TEMPLATES = {
 const WIZARD_TEMPLATES = {
   'memory-update': {
     name: 'Memory Update Hook',
-    description: 'Automatically update CLAUDE.md documentation based on code changes',
+    description: 'Queue-based CLAUDE.md updates with configurable threshold and timeout',
     icon: 'brain',
     options: [
       {
-        id: 'on-stop',
-        name: 'On Session End',
-        description: 'Update documentation when Claude session ends',
-        templateId: 'memory-update-related'
-      },
-      {
-        id: 'periodic',
-        name: 'Periodic Update',
-        description: 'Update documentation at regular intervals during session',
-        templateId: 'memory-update-periodic'
-      },
-      {
-        id: 'count-based',
-        name: 'Count-Based Update',
-        description: 'Update documentation when file changes reach threshold',
-        templateId: 'memory-update-count-based'
+        id: 'queue',
+        name: 'Queue-Based Update',
+        description: 'Batch updates when threshold reached or timeout expires',
+        templateId: 'memory-update-queue'
       }
     ],
     configFields: [
-      { key: 'tool', type: 'select', label: 'CLI Tool', options: ['gemini', 'qwen', 'codex'], default: 'gemini', description: 'Tool for documentation generation' },
-      { key: 'interval', type: 'number', label: 'Interval (seconds)', default: 300, min: 60, max: 3600, step: 60, showFor: ['periodic'], description: 'Time between updates' },
-      { key: 'threshold', type: 'number', label: 'File Count Threshold', default: 10, min: 3, max: 50, step: 1, showFor: ['count-based'], description: 'Number of file changes to trigger update' },
-      { key: 'strategy', type: 'select', label: 'Update Strategy', options: ['related', 'single-layer'], default: 'related', description: 'Related: changed modules, Single-layer: current directory' }
+      { key: 'threshold', type: 'number', label: 'Threshold (paths)', default: 5, min: 1, max: 20, step: 1, description: 'Number of paths to trigger batch update' },
+      { key: 'timeout', type: 'number', label: 'Timeout (seconds)', default: 300, min: 60, max: 1800, step: 60, description: 'Auto-flush queue after this time' }
     ]
   },
   'skill-context': {
@@ -730,9 +690,7 @@ function renderWizardModalContent() {
   // Helper to get translated option names
   const getOptionName = (optId) => {
     if (wizardId === 'memory-update') {
-      if (optId === 'on-stop') return t('hook.wizard.onSessionEnd');
-      if (optId === 'periodic') return t('hook.wizard.periodicUpdate');
-      if (optId === 'count-based') return t('hook.wizard.countBasedUpdate');
+      if (optId === 'queue') return t('hook.wizard.queueBasedUpdate') || 'Queue-Based Update';
     }
     if (wizardId === 'memory-setup') {
       if (optId === 'file-read') return t('hook.wizard.fileReadTracker');
@@ -748,9 +706,7 @@ function renderWizardModalContent() {
 
   const getOptionDesc = (optId) => {
     if (wizardId === 'memory-update') {
-      if (optId === 'on-stop') return t('hook.wizard.onSessionEndDesc');
-      if (optId === 'periodic') return t('hook.wizard.periodicUpdateDesc');
-      if (optId === 'count-based') return t('hook.wizard.countBasedUpdateDesc');
+      if (optId === 'queue') return t('hook.wizard.queueBasedUpdateDesc') || 'Batch updates when threshold reached or timeout expires';
     }
     if (wizardId === 'memory-setup') {
       if (optId === 'file-read') return t('hook.wizard.fileReadTrackerDesc');
@@ -767,20 +723,16 @@ function renderWizardModalContent() {
   // Helper to get translated field labels
   const getFieldLabel = (fieldKey) => {
     const labels = {
-      'tool': t('hook.wizard.cliTool'),
-      'interval': t('hook.wizard.intervalSeconds'),
-      'threshold': t('hook.wizard.fileCountThreshold'),
-      'strategy': t('hook.wizard.updateStrategy')
+      'threshold': t('hook.wizard.thresholdPaths') || 'Threshold (paths)',
+      'timeout': t('hook.wizard.timeoutSeconds') || 'Timeout (seconds)'
     };
     return labels[fieldKey] || wizard.configFields.find(f => f.key === fieldKey)?.label || fieldKey;
   };
 
   const getFieldDesc = (fieldKey) => {
     const descs = {
-      'tool': t('hook.wizard.toolForDocGen'),
-      'interval': t('hook.wizard.timeBetweenUpdates'),
-      'threshold': t('hook.wizard.fileCountThresholdDesc'),
-      'strategy': t('hook.wizard.relatedStrategy')
+      'threshold': t('hook.wizard.thresholdPathsDesc') || 'Number of paths to trigger batch update',
+      'timeout': t('hook.wizard.timeoutSecondsDesc') || 'Auto-flush queue after this time'
     };
     return descs[fieldKey] || wizard.configFields.find(f => f.key === fieldKey)?.description || '';
   };
@@ -1154,16 +1106,9 @@ function generateWizardCommand() {
   }
 
   // Handle memory-update wizard (default)
-  // Now uses memory_queue for batched updates
-  const tool = wizardConfig.tool || 'gemini';
-  const strategy = wizardConfig.strategy || 'single-layer';
-
-  // Build the ccw tool command using memory_queue
-  // Use double quotes to allow bash $CLAUDE_PROJECT_DIR expansion
-  const params = `"{\\"action\\":\\"add\\",\\"path\\":\\"$CLAUDE_PROJECT_DIR\\",\\"tool\\":\\"${tool}\\",\\"strategy\\":\\"${strategy}\\"}"`;
-
-  // All trigger types now use the same queue-based command
-  // The queue handles batching (threshold: 5 paths, timeout: 5 min)
+  // Now uses memory_queue for batched updates with configurable threshold/timeout
+  // The command adds to queue, configuration is applied separately via submitHookWizard
+  const params = `"{\\"action\\":\\"add\\",\\"path\\":\\"$CLAUDE_PROJECT_DIR\\"}"`;
   return `ccw tool exec memory_queue ${params}`;
 }
 
@@ -1259,6 +1204,26 @@ async function submitHookWizard() {
   }
 
   await saveHook(scope, baseTemplate.event, hookData);
+
+  // For memory-update wizard, also configure queue settings
+  if (wizard.id === 'memory-update') {
+    const threshold = wizardConfig.threshold || 5;
+    const timeout = wizardConfig.timeout || 300;
+    try {
+      const configParams = JSON.stringify({ action: 'configure', threshold, timeout });
+      const response = await fetch('/api/tools/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tool: 'memory_queue', params: configParams })
+      });
+      if (response.ok) {
+        showRefreshToast(`Queue configured: threshold=${threshold}, timeout=${timeout}s`, 'success');
+      }
+    } catch (e) {
+      console.warn('Failed to configure memory queue:', e);
+    }
+  }
+
   closeHookWizardModal();
 }
 

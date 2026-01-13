@@ -304,6 +304,51 @@
   margin-top: 0;
 }
 
+/* Environment File Input Group */
+.env-file-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.env-file-input-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.env-file-input-row .tool-config-input {
+  flex: 1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8125rem;
+  margin-top: 0;
+}
+
+.env-file-input-row .btn-sm {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.env-file-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  margin: 0;
+  padding: 0;
+}
+
+.env-file-hint i {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
 .btn-ghost.text-destructive:hover {
   background: hsl(var(--destructive) / 0.1);
 }

@@ -34,6 +34,11 @@ export interface ClaudeCliTool {
    * Used to lookup endpoint configuration in litellm-api-config.json
    */
   id?: string;
+  /**
+   * Path to .env file for loading environment variables before CLI execution
+   * Supports both absolute paths and paths relative to home directory (e.g., ~/.my-env)
+   */
+  envFile?: string;
 }
 
 export type CliToolName = 'gemini' | 'qwen' | 'codex' | 'claude' | 'opencode' | string;
@@ -808,6 +813,7 @@ export function getToolConfig(projectDir: string, tool: string): {
   primaryModel: string;
   secondaryModel: string;
   tags?: string[];
+  envFile?: string;
 } {
   const config = loadClaudeCliTools(projectDir);
   const toolConfig = config.tools[tool];
@@ -826,7 +832,8 @@ export function getToolConfig(projectDir: string, tool: string): {
     enabled: toolConfig.enabled,
     primaryModel: toolConfig.primaryModel ?? '',
     secondaryModel: toolConfig.secondaryModel ?? '',
-    tags: toolConfig.tags
+    tags: toolConfig.tags,
+    envFile: toolConfig.envFile
   };
 }
 
@@ -841,6 +848,7 @@ export function updateToolConfig(
     primaryModel: string;
     secondaryModel: string;
     tags: string[];
+    envFile: string | null;
   }>
 ): ClaudeCliToolsConfig {
   const config = loadClaudeCliTools(projectDir);
@@ -857,6 +865,14 @@ export function updateToolConfig(
     }
     if (updates.tags !== undefined) {
       config.tools[tool].tags = updates.tags;
+    }
+    // Handle envFile: set to undefined if null/empty, otherwise set value
+    if (updates.envFile !== undefined) {
+      if (updates.envFile === null || updates.envFile === '') {
+        delete config.tools[tool].envFile;
+      } else {
+        config.tools[tool].envFile = updates.envFile;
+      }
     }
     saveClaudeCliTools(projectDir, config);
   }
