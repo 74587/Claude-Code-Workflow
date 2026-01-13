@@ -535,10 +535,15 @@ def generate_embeddings(
 
         # skip_token_count=True: Use fast estimation (len/4) instead of expensive tiktoken
         # This significantly reduces CPU usage with minimal impact on metadata accuracy
+        # Load chunk stripping config from settings
+        from codexlens.config import Config
+        chunk_cfg = Config.load()
         chunker = Chunker(config=ChunkConfig(
             max_chunk_size=chunk_size,
             overlap=overlap,
-            skip_token_count=True
+            skip_token_count=True,
+            strip_comments=getattr(chunk_cfg, 'chunk_strip_comments', True),
+            strip_docstrings=getattr(chunk_cfg, 'chunk_strip_docstrings', True),
         ))
 
         # Log embedder info with endpoint count for multi-endpoint mode
@@ -1307,10 +1312,15 @@ def generate_dense_embeddings_centralized(
                 "error": f"Invalid embedding backend: {embedding_backend}",
             }
 
+        # Load chunk stripping config from settings
+        from codexlens.config import Config
+        chunk_cfg = Config.load()
         chunker = Chunker(config=ChunkConfig(
             max_chunk_size=chunk_size,
             overlap=overlap,
-            skip_token_count=True
+            skip_token_count=True,
+            strip_comments=getattr(chunk_cfg, 'chunk_strip_comments', True),
+            strip_docstrings=getattr(chunk_cfg, 'chunk_strip_docstrings', True),
         ))
 
         if progress_callback:
@@ -1319,8 +1329,7 @@ def generate_dense_embeddings_centralized(
             progress_callback(f"Using model: {embedder.model_name} ({embedder.embedding_dim} dimensions)")
 
         # Calculate dynamic batch size based on model capacity
-        from codexlens.config import Config
-        batch_config = Config.load()
+        batch_config = chunk_cfg  # Reuse already loaded config
         effective_batch_size = calculate_dynamic_batch_size(batch_config, embedder)
 
         if progress_callback and batch_config.api_batch_size_dynamic:

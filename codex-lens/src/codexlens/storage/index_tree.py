@@ -412,7 +412,8 @@ class IndexTreeBuilder:
         A directory is indexed if:
         1. It's not in IGNORE_DIRS
         2. It doesn't start with '.'
-        3. It contains at least one supported language file
+        3. It contains at least one supported language file, OR
+        4. It has subdirectories that contain supported files (transitive)
 
         Args:
             dir_path: Directory to check
@@ -427,7 +428,50 @@ class IndexTreeBuilder:
 
         # Check for supported files in this directory
         source_files = self._iter_source_files(dir_path, languages)
-        return len(source_files) > 0
+        if len(source_files) > 0:
+            return True
+
+        # Check if any subdirectory has indexable files (transitive)
+        # This handles cases like 'src' which has no direct files but has 'src/codexlens'
+        for item in dir_path.iterdir():
+            if not item.is_dir():
+                continue
+            if item.name in self.IGNORE_DIRS or item.name.startswith("."):
+                continue
+            # Recursively check subdirectories
+            if self._has_indexable_files_recursive(item, languages):
+                return True
+
+        return False
+
+    def _has_indexable_files_recursive(self, dir_path: Path, languages: List[str] = None) -> bool:
+        """Check if directory or any subdirectory has indexable files.
+
+        Args:
+            dir_path: Directory to check
+            languages: Optional language filter
+
+        Returns:
+            True if directory tree contains indexable files
+        """
+        # Check for supported files in this directory
+        source_files = self._iter_source_files(dir_path, languages)
+        if len(source_files) > 0:
+            return True
+
+        # Check subdirectories
+        try:
+            for item in dir_path.iterdir():
+                if not item.is_dir():
+                    continue
+                if item.name in self.IGNORE_DIRS or item.name.startswith("."):
+                    continue
+                if self._has_indexable_files_recursive(item, languages):
+                    return True
+        except PermissionError:
+            pass
+
+        return False
 
     def _build_level_parallel(
         self,
