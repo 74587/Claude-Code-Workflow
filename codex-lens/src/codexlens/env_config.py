@@ -45,6 +45,12 @@ ENV_VARS = {
     # General configuration
     "CODEXLENS_DATA_DIR": "Custom data directory path",
     "CODEXLENS_DEBUG": "Enable debug mode (true/false)",
+    # Chunking configuration
+    "CHUNK_STRIP_COMMENTS": "Strip comments from code chunks for embedding: true/false (default: true)",
+    "CHUNK_STRIP_DOCSTRINGS": "Strip docstrings from code chunks for embedding: true/false (default: true)",
+    # Reranker tuning
+    "RERANKER_TEST_FILE_PENALTY": "Penalty for test files in reranking: 0.0-1.0 (default: 0.0)",
+    "RERANKER_DOCSTRING_WEIGHT": "Weight for docstring chunks in reranking: 0.0-1.0 (default: 1.0)",
 }
 
 

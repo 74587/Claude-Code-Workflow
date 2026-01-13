@@ -1109,6 +1109,16 @@ var ENV_VAR_GROUPS = {
       'CODEXLENS_CASCADE_COARSE_K': { labelKey: 'codexlens.envField.coarseK', type: 'number', placeholder: '100', default: '100', settingsPath: 'cascade.coarse_k', min: 10, max: 500 },
       'CODEXLENS_CASCADE_FINE_K': { labelKey: 'codexlens.envField.fineK', type: 'number', placeholder: '10', default: '10', settingsPath: 'cascade.fine_k', min: 1, max: 100 }
     }
+  },
+  chunking: {
+    labelKey: 'codexlens.envGroup.chunking',
+    icon: 'scissors',
+    vars: {
+      'CHUNK_STRIP_COMMENTS': { labelKey: 'codexlens.envField.stripComments', type: 'select', options: ['true', 'false'], default: 'true', settingsPath: 'chunking.strip_comments' },
+      'CHUNK_STRIP_DOCSTRINGS': { labelKey: 'codexlens.envField.stripDocstrings', type: 'select', options: ['true', 'false'], default: 'true', settingsPath: 'chunking.strip_docstrings' },
+      'RERANKER_TEST_FILE_PENALTY': { labelKey: 'codexlens.envField.testFilePenalty', type: 'number', placeholder: '0.0', default: '0.0', settingsPath: 'reranker.test_file_penalty', min: 0, max: 1, step: 0.1 },
+      'RERANKER_DOCSTRING_WEIGHT': { labelKey: 'codexlens.envField.docstringWeight', type: 'number', placeholder: '1.0', default: '1.0', settingsPath: 'reranker.docstring_weight', min: 0, max: 1, step: 0.1 }
+    }
   }
 };
 

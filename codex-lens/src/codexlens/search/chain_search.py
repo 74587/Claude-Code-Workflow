@@ -1816,12 +1816,22 @@ class ChainSearchEngine:
         # Use cross_encoder_rerank from ranking module
         from codexlens.search.ranking import cross_encoder_rerank
 
+        # Get chunk_type weights and test_file_penalty from config
+        chunk_type_weights = None
+        test_file_penalty = 0.0
+
+        if self._config is not None:
+            chunk_type_weights = getattr(self._config, "reranker_chunk_type_weights", None)
+            test_file_penalty = getattr(self._config, "reranker_test_file_penalty", 0.0)
+
         return cross_encoder_rerank(
             query=query,
             results=results,
             reranker=reranker,
             top_k=top_k,
             batch_size=32,
+            chunk_type_weights=chunk_type_weights,
+            test_file_penalty=test_file_penalty,
         )
 
     def search_files_only(self, query: str,

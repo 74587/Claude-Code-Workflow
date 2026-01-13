@@ -613,11 +613,24 @@ def cross_encoder_rerank(
     reranker: Any,
     top_k: int = 50,
     batch_size: int = 32,
+    chunk_type_weights: Optional[Dict[str, float]] = None,
+    test_file_penalty: float = 0.0,
 ) -> List[SearchResult]:
     """Second-stage reranking using a cross-encoder model.
 
     This function is dependency-agnostic: callers can pass any object that exposes
     a compatible `score_pairs(pairs, batch_size=...)` method.
+
+    Args:
+        query: Search query string
+        results: List of search results to rerank
+        reranker: Cross-encoder model with score_pairs or predict method
+        top_k: Number of top results to rerank
+        batch_size: Batch size for reranking
+        chunk_type_weights: Optional weights for different chunk types.
+            Example: {"code": 1.0, "docstring": 0.7} - reduce docstring influence
+        test_file_penalty: Penalty applied to test files (0.0-1.0).
+            Example: 0.2 means test files get 20% score reduction
     """
     if not results:
         return []
@@ -667,12 +680,49 @@ def cross_encoder_rerank(
 
     reranked_results: List[SearchResult] = []
 
+    # Helper to detect test files
+    def is_test_file(path: str) -> bool:
+        if not path:
+            return False
+        basename = path.split("/")[-1].split("\\")[-1]
+        return (
+            basename.startswith("test_") or
+            basename.endswith("_test.py") or
+            basename.endswith(".test.ts") or
+            basename.endswith(".test.js") or
+            basename.endswith(".spec.ts") or
+            basename.endswith(".spec.js") or
+            "/tests/" in path or
+            "\\tests\\" in path or
+            "/test/" in path or
+            "\\test\\" in path
+        )
+
     for idx, result in enumerate(results):
         if idx < rerank_count:
             prev_score = float(result.score)
             ce_score = scores[idx]
             ce_prob = probs[idx]
+
+            # Base combined score
             combined_score = 0.5 * prev_score + 0.5 * ce_prob
+
+            # Apply chunk_type weight adjustment
+            if chunk_type_weights:
+                chunk_type = None
+                if result.chunk and hasattr(result.chunk, "metadata"):
+                    chunk_type = result.chunk.metadata.get("chunk_type")
+                elif result.metadata:
+                    chunk_type = result.metadata.get("chunk_type")
+
+                if chunk_type and chunk_type in chunk_type_weights:
+                    weight = chunk_type_weights[chunk_type]
+                    # Apply weight to CE contribution only
+                    combined_score = 0.5 * prev_score + 0.5 * ce_prob * weight
+
+            # Apply test file penalty
+            if test_file_penalty > 0 and is_test_file(result.path):
+                combined_score = combined_score * (1.0 - test_file_penalty)
 
             reranked_results.append(
                 SearchResult(

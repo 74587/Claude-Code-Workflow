@@ -141,6 +141,12 @@ class Config:
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     reranker_top_k: int = 50
     reranker_max_input_tokens: int = 8192  # Maximum tokens for reranker API batching
+    reranker_chunk_type_weights: Optional[Dict[str, float]] = None  # Weights for chunk types: {"code": 1.0, "docstring": 0.7}
+    reranker_test_file_penalty: float = 0.0  # Penalty for test files (0.0-1.0, e.g., 0.2 = 20% reduction)
+
+    # Chunk stripping configuration (for semantic embedding)
+    chunk_strip_comments: bool = True  # Strip comments from code chunks
+    chunk_strip_docstrings: bool = True  # Strip docstrings from code chunks
 
     # Cascade search configuration (two-stage retrieval)
     enable_cascade_search: bool = False  # Enable cascade search (coarse + fine ranking)
@@ -544,6 +550,35 @@ class Config:
                 log.debug("Overriding reranker_max_input_tokens from .env: %s", self.reranker_max_input_tokens)
             except ValueError:
                 log.warning("Invalid RERANKER_MAX_INPUT_TOKENS in .env: %r", reranker_max_tokens)
+
+        # Reranker tuning from environment
+        test_penalty = get_env("RERANKER_TEST_FILE_PENALTY")
+        if test_penalty:
+            try:
+                self.reranker_test_file_penalty = float(test_penalty)
+                log.debug("Overriding reranker_test_file_penalty from .env: %s", self.reranker_test_file_penalty)
+            except ValueError:
+                log.warning("Invalid RERANKER_TEST_FILE_PENALTY in .env: %r", test_penalty)
+
+        docstring_weight = get_env("RERANKER_DOCSTRING_WEIGHT")
+        if docstring_weight:
+            try:
+                weight = float(docstring_weight)
+                self.reranker_chunk_type_weights = {"code": 1.0, "docstring": weight}
+                log.debug("Overriding reranker docstring weight from .env: %s", weight)
+            except ValueError:
+                log.warning("Invalid RERANKER_DOCSTRING_WEIGHT in .env: %r", docstring_weight)
+
+        # Chunk stripping from environment
+        strip_comments = get_env("CHUNK_STRIP_COMMENTS")
+        if strip_comments:
+            self.chunk_strip_comments = strip_comments.lower() in ("true", "1", "yes")
+            log.debug("Overriding chunk_strip_comments from .env: %s", self.chunk_strip_comments)
+
+        strip_docstrings = get_env("CHUNK_STRIP_DOCSTRINGS")
+        if strip_docstrings:
+            self.chunk_strip_docstrings = strip_docstrings.lower() in ("true", "1", "yes")
+            log.debug("Overriding chunk_strip_docstrings from .env: %s", self.chunk_strip_docstrings)
 
     @classmethod
     def load(cls) -> "Config":
