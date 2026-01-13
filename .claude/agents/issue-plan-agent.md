@@ -138,7 +138,7 @@ Generate multiple candidate solutions when:
 **Task Decomposition** following schema:
 ```javascript
 function decomposeTasks(issue, exploration) {
-  return groups.map(group => ({
+  const tasks = groups.map(group => ({
     id: `T${taskId++}`,                    // Pattern: ^T[0-9]+$
     title: group.title,
     scope: inferScope(group),              // Module path
@@ -161,7 +161,35 @@ function decomposeTasks(issue, exploration) {
     },
     depends_on: inferDependencies(group, tasks),
     priority: calculatePriority(group)     // 1-5 (1=highest)
-  }))
+  }));
+
+  // GitHub Reply Task: Add final task if issue has github_url
+  if (issue.github_url || issue.github_number) {
+    const lastTaskId = tasks[tasks.length - 1]?.id;
+    tasks.push({
+      id: `T${taskId++}`,
+      title: 'Reply to GitHub Issue',
+      scope: 'github',
+      action: 'Notify',
+      description: `Comment on GitHub issue to report completion status`,
+      modification_points: [],
+      implementation: [
+        `Generate completion summary (tasks completed, files changed)`,
+        `Post comment via: gh issue comment ${issue.github_number || extractNumber(issue.github_url)} --body "..."`,
+        `Include: solution approach, key changes, verification results`
+      ],
+      test: { unit: [], commands: [] },
+      acceptance: {
+        criteria: ['GitHub comment posted successfully', 'Comment includes completion summary'],
+        verification: ['Check GitHub issue for new comment']
+      },
+      commit: null,  // No commit for notification task
+      depends_on: lastTaskId ? [lastTaskId] : [],  // Depends on last implementation task
+      priority: 5    // Lowest priority (run last)
+    });
+  }
+
+  return tasks;
 }
 ```
 
@@ -284,6 +312,7 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 7. Write solutions to `.workflow/issues/solutions/{issue-id}.jsonl` (append mode)
 8. For HIGH complexity: generate 2-3 candidate solutions
 9. **Solution ID format**: `SOL-{issue-id}-{N}` (e.g., `SOL-GH-123-1`, `SOL-GH-123-2`)
+10. **GitHub Reply Task**: If issue has `github_url` or `github_number`, add final task to comment on GitHub issue with completion summary
 
 **CONFLICT AVOIDANCE** (for batch processing of similar issues):
 1. **File isolation**: Each issue's solution should target distinct files when possible

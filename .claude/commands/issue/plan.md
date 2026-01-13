@@ -198,8 +198,9 @@ ${issueList}
 2. Load project context files
 3. Explore codebase (ACE semantic search)
 4. Plan solution with tasks (schema: solution-schema.json)
-5. Write solution to: .workflow/issues/solutions/{issue-id}.jsonl
-6. Single solution → auto-bind; Multiple → return for selection
+5. **If github_url exists**: Add final task to comment on GitHub issue
+6. Write solution to: .workflow/issues/solutions/{issue-id}.jsonl
+7. Single solution → auto-bind; Multiple → return for selection
 
 ### Rules
 - Solution ID format: SOL-{issue-id}-{seq}

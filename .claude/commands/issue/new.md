@@ -29,6 +29,10 @@ interface Issue {
   source_url?: string;
   labels?: string[];
 
+  // GitHub binding (for non-GitHub sources that publish to GitHub)
+  github_url?: string;           // https://github.com/owner/repo/issues/123
+  github_number?: number;        // 123
+
   // Optional structured fields
   expected_behavior?: string;
   actual_behavior?: string;
@@ -165,7 +169,30 @@ if (clarityScore < 2 && (!issueData.context || issueData.context.length < 20)) {
 }
 ```
 
-### Phase 5: Create Issue
+### Phase 5: GitHub Publishing Decision (Non-GitHub Sources)
+
+```javascript
+// For non-GitHub sources, ask if user wants to publish to GitHub
+let publishToGitHub = false;
+
+if (issueData.source !== 'github') {
+  const publishAnswer = AskUserQuestion({
+    questions: [{
+      question: 'Would you like to publish this issue to GitHub?',
+      header: 'Publish',
+      multiSelect: false,
+      options: [
+        { label: 'Yes, publish to GitHub', description: 'Create issue on GitHub and link it' },
+        { label: 'No, keep local only', description: 'Store as local issue without GitHub sync' }
+      ]
+    }]
+  });
+
+  publishToGitHub = publishAnswer.answers?.['Publish']?.includes('Yes');
+}
+```
+
+### Phase 6: Create Issue
 
 **Summary Display:**
 - Show ID, title, source, affected files (if any)
@@ -220,8 +247,64 @@ EOF
 }
 ```
 
+**GitHub Publishing** (if user opted in):
+```javascript
+// Step 1: Create local issue FIRST
+const localIssue = createLocalIssue(issueData);  // ccw issue create
+
+// Step 2: Publish to GitHub if requested
+if (publishToGitHub) {
+  const ghResult = Bash(`gh issue create --title "${issueData.title}" --body "${issueData.context}"`);
+  // Parse GitHub URL from output
+  const ghUrl = ghResult.match(/https:\/\/github\.com\/[\w-]+\/[\w-]+\/issues\/\d+/)?.[0];
+  const ghNumber = parseInt(ghUrl?.match(/\/issues\/(\d+)/)?.[1]);
+
+  if (ghNumber) {
+    // Step 3: Update local issue with GitHub binding
+    Bash(`ccw issue update ${localIssue.id} --github-url "${ghUrl}" --github-number ${ghNumber}`);
+    // Or via pipe:
+    // echo '{"github_url":"${ghUrl}","github_number":${ghNumber}}' | ccw issue update ${localIssue.id}
+  }
+}
+```
+
+**Workflow:**
+```
+1. Create local issue (ISS-YYYYMMDD-NNN) → stored in .workflow/issues.jsonl
+2. If publishToGitHub:
+   a. gh issue create → returns GitHub URL
+   b. Update local issue with github_url + github_number binding
+3. Both local and GitHub issues exist, linked together
+```
+
+**Example with GitHub Publishing:**
+```bash
+# User creates text issue
+/issue:new "Login fails with special chars. Expected: success. Actual: 500"
+
+# System asks: "Would you like to publish this issue to GitHub?"
+# User selects: "Yes, publish to GitHub"
+
+# Output:
+# ✓ Local issue created: ISS-20251229-001
+# ✓ Published to GitHub: https://github.com/org/repo/issues/123
+# ✓ GitHub binding saved to local issue
+# → Next step: /issue:plan ISS-20251229-001
+
+# Resulting issue JSON:
+{
+  "id": "ISS-20251229-001",
+  "title": "Login fails with special chars",
+  "source": "text",
+  "github_url": "https://github.com/org/repo/issues/123",
+  "github_number": 123,
+  ...
+}
+```
+
 **Completion:**
 - Display created issue ID
+- Show GitHub URL (if published)
 - Show next step: `/issue:plan <id>`
 
 ## Execution Flow
@@ -240,9 +323,16 @@ Phase 2: Data Extraction (branched by clarity)
    │            │  (3 files max)  │  → feedback  │
    └────────────┴─────────────────┴──────────────┘
 
-Phase 3: Create Issue
+Phase 3: GitHub Publishing Decision (non-GitHub only)
+   ├─ Source = github: Skip (already from GitHub)
+   └─ Source ≠ github: AskUserQuestion
+      ├─ Yes → publishToGitHub = true
+      └─ No  → publishToGitHub = false
+
+Phase 4: Create Issue
    ├─ Score ≥ 2: Direct creation
    └─ Score < 2: Confirm first → Create
+   └─ If publishToGitHub: gh issue create → link URL
 
 Note: Deep exploration & lifecycle deferred to /issue:plan
 ```
