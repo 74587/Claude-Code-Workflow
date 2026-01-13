@@ -66,40 +66,42 @@ async function execute(state, workDir, currentDimension) {
   const context = state.context;
   const dimension = currentDimension;
   const findings = [];
-  
-  // 获取维度特定的检查规则
-  const rules = getDimensionRules(dimension);
-  
+
+  // 从外部 JSON 文件加载规则
+  const rulesConfig = loadRulesConfig(dimension, workDir);
+  const rules = rulesConfig.rules || [];
+  const prefix = rulesConfig.prefix || getDimensionPrefix(dimension);
+
   // 优先审查高风险区域
   const filesToReview = state.scan_summary?.risk_areas
     ?.map(r => r.file)
     ?.filter(f => context.files.includes(f)) || context.files;
-  
+
   const filesToCheck = [...new Set([
     ...filesToReview.slice(0, 20),
     ...context.files.slice(0, 30)
   ])].slice(0, 50);  // 最多50个文件
-  
+
   let findingCounter = 1;
-  
+
   for (const file of filesToCheck) {
     try {
       const content = Read(file);
       const lines = content.split('\n');
-      
-      // 应用维度特定规则
+
+      // 应用外部规则文件中的规则
       for (const rule of rules) {
-        const matches = rule.detect(content, lines, file);
+        const matches = detectByPattern(content, lines, file, rule);
         for (const match of matches) {
           findings.push({
-            id: `${getDimensionPrefix(dimension)}-${String(findingCounter++).padStart(3, '0')}`,
-            severity: match.severity,
+            id: `${prefix}-${String(findingCounter++).padStart(3, '0')}`,
+            severity: rule.severity || match.severity,
             dimension: dimension,
             category: rule.category,
             file: file,
             line: match.line,
             code_snippet: match.snippet,
-            description: match.description,
+            description: rule.description,
             recommendation: rule.recommendation,
             fix_example: rule.fixExample
           });
@@ -109,10 +111,10 @@ async function execute(state, workDir, currentDimension) {
       // 跳过无法读取的文件
     }
   }
-  
+
   // 保存维度发现
   Write(`${workDir}/findings/${dimension}.json`, JSON.stringify(findings, null, 2));
-  
+
   return {
     stateUpdates: {
       reviewed_dimensions: [...(state.reviewed_dimensions || []), dimension],
@@ -122,6 +124,137 @@ async function execute(state, workDir, currentDimension) {
   };
 }
 
+/**
+ * 从外部 JSON 文件加载规则配置
+ * 规则文件位于 specs/rules/{dimension}-rules.json
+ * @param {string} dimension - 维度名称 (correctness, security, etc.)
+ * @param {string} workDir - 工作目录 (用于日志记录)
+ * @returns {object} 规则配置对象，包含 rules 数组和 prefix
+ */
+function loadRulesConfig(dimension, workDir) {
+  // 规则文件路径：相对于 skill 目录
+  const rulesPath = `specs/rules/${dimension}-rules.json`;
+
+  try {
+    const rulesFile = Read(rulesPath);
+    const rulesConfig = JSON.parse(rulesFile);
+    return rulesConfig;
+  } catch (e) {
+    console.warn(`Failed to load rules for ${dimension}: ${e.message}`);
+    // 返回空规则配置，保持向后兼容
+    return { rules: [], prefix: getDimensionPrefix(dimension) };
+  }
+}
+
+/**
+ * 根据规则的 patternType 检测代码问题
+ * 支持的 patternType: regex, includes
+ * @param {string} content - 文件内容
+ * @param {string[]} lines - 按行分割的内容
+ * @param {string} file - 文件路径
+ * @param {object} rule - 规则配置对象
+ * @returns {Array} 匹配结果数组
+ */
+function detectByPattern(content, lines, file, rule) {
+  const matches = [];
+  const { pattern, patternType, negativePatterns, caseInsensitive } = rule;
+
+  if (!pattern) return matches;
+
+  switch (patternType) {
+    case 'regex':
+      return detectByRegex(content, lines, pattern, negativePatterns, caseInsensitive);
+
+    case 'includes':
+      return detectByIncludes(content, lines, pattern, negativePatterns);
+
+    default:
+      // 默认使用 includes 模式
+      return detectByIncludes(content, lines, pattern, negativePatterns);
+  }
+}
+
+/**
+ * 使用正则表达式检测代码问题
+ * @param {string} content - 文件完整内容
+ * @param {string[]} lines - 按行分割的内容
+ * @param {string} pattern - 正则表达式模式
+ * @param {string[]} negativePatterns - 排除模式列表
+ * @param {boolean} caseInsensitive - 是否忽略大小写
+ * @returns {Array} 匹配结果数组
+ */
+function detectByRegex(content, lines, pattern, negativePatterns, caseInsensitive) {
+  const matches = [];
+  const flags = caseInsensitive ? 'gi' : 'g';
+
+  try {
+    const regex = new RegExp(pattern, flags);
+    let match;
+
+    while ((match = regex.exec(content)) !== null) {
+      const lineNum = content.substring(0, match.index).split('\n').length;
+      const lineContent = lines[lineNum - 1] || '';
+
+      // 检查排除模式 - 如果行内容匹配任一排除模式则跳过
+      if (negativePatterns && negativePatterns.length > 0) {
+        const shouldExclude = negativePatterns.some(np => {
+          try {
+            return new RegExp(np).test(lineContent);
+          } catch {
+            return lineContent.includes(np);
+          }
+        });
+        if (shouldExclude) continue;
+      }
+
+      matches.push({
+        line: lineNum,
+        snippet: lineContent.trim().substring(0, 100),
+        matchedText: match[0]
+      });
+    }
+  } catch (e) {
+    console.warn(`Invalid regex pattern: ${pattern}`);
+  }
+
+  return matches;
+}
+
+/**
+ * 使用字符串包含检测代码问题
+ * @param {string} content - 文件完整内容 (未使用但保持接口一致)
+ * @param {string[]} lines - 按行分割的内容
+ * @param {string} pattern - 要查找的字符串
+ * @param {string[]} negativePatterns - 排除模式列表
+ * @returns {Array} 匹配结果数组
+ */
+function detectByIncludes(content, lines, pattern, negativePatterns) {
+  const matches = [];
+
+  lines.forEach((line, i) => {
+    if (line.includes(pattern)) {
+      // 检查排除模式 - 如果行内容包含任一排除字符串则跳过
+      if (negativePatterns && negativePatterns.length > 0) {
+        const shouldExclude = negativePatterns.some(np => line.includes(np));
+        if (shouldExclude) return;
+      }
+
+      matches.push({
+        line: i + 1,
+        snippet: line.trim().substring(0, 100),
+        matchedText: pattern
+      });
+    }
+  });
+
+  return matches;
+}
+
+/**
+ * 获取维度前缀（作为规则文件不存在时的备用）
+ * @param {string} dimension - 维度名称
+ * @returns {string} 4字符前缀
+ */
 function getDimensionPrefix(dimension) {
   const prefixes = {
     correctness: 'CORR',
@@ -132,93 +265,6 @@ function getDimensionPrefix(dimension) {
     architecture: 'ARCH'
   };
   return prefixes[dimension] || 'MISC';
-}
-
-function getDimensionRules(dimension) {
-  // 参见 specs/review-dimensions.md 获取完整规则
-  const allRules = {
-    correctness: [
-      {
-        category: 'null-check',
-        detect: (content, lines) => {
-          const issues = [];
-          lines.forEach((line, i) => {
-            if (line.match(/\w+\.\w+/) && !line.includes('?.') && !line.includes('if') && !line.includes('null')) {
-              // 简化检测：可能缺少 null 检查
-            }
-          });
-          return issues;
-        },
-        recommendation: 'Add null/undefined check before accessing properties',
-        fixExample: 'obj?.property or if (obj) { obj.property }'
-      },
-      {
-        category: 'empty-catch',
-        detect: (content, lines) => {
-          const issues = [];
-          const regex = /catch\s*\([^)]*\)\s*{\s*}/g;
-          let match;
-          while ((match = regex.exec(content)) !== null) {
-            const lineNum = content.substring(0, match.index).split('\n').length;
-            issues.push({
-              severity: 'high',
-              line: lineNum,
-              snippet: match[0],
-              description: 'Empty catch block silently swallows errors'
-            });
-          }
-          return issues;
-        },
-        recommendation: 'Log the error or rethrow it',
-        fixExample: 'catch (e) { console.error(e); throw e; }'
-      }
-    ],
-    security: [
-      {
-        category: 'xss-risk',
-        detect: (content, lines) => {
-          const issues = [];
-          lines.forEach((line, i) => {
-            if (line.includes('innerHTML') || line.includes('dangerouslySetInnerHTML')) {
-              issues.push({
-                severity: 'critical',
-                line: i + 1,
-                snippet: line.trim().substring(0, 100),
-                description: 'Direct HTML injection can lead to XSS vulnerabilities'
-              });
-            }
-          });
-          return issues;
-        },
-        recommendation: 'Use textContent or sanitize HTML before injection',
-        fixExample: 'element.textContent = userInput; // or sanitize(userInput)'
-      },
-      {
-        category: 'hardcoded-secret',
-        detect: (content, lines) => {
-          const issues = [];
-          const regex = /(?:password|secret|api[_-]?key|token)\s*[=:]\s*['"]([^'"]{8,})['"]/gi;
-          lines.forEach((line, i) => {
-            if (regex.test(line)) {
-              issues.push({
-                severity: 'critical',
-                line: i + 1,
-                snippet: line.trim().substring(0, 100),
-                description: 'Hardcoded credentials detected'
-              });
-            }
-            regex.lastIndex = 0;  // Reset regex
-          });
-          return issues;
-        },
-        recommendation: 'Use environment variables or secret management',
-        fixExample: 'const apiKey = process.env.API_KEY;'
-      }
-    ],
-    // ... 其他维度规则参见 specs/review-dimensions.md
-  };
-  
-  return allRules[dimension] || [];
 }
 ```
 

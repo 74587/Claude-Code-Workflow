@@ -10,27 +10,41 @@ Code Review 编排器，负责：
 3. 执行动作并更新状态
 4. 循环直到审查完成
 
+## Dependencies
+
+- **State Manager**: [state-manager.md](./state-manager.md) - 提供原子化状态操作、自动备份、验证和回滚功能
+
 ## State Management
 
-### 读取状态
+本模块使用 StateManager 进行所有状态操作，确保：
+- **原子更新** - 写入临时文件后重命名，防止损坏
+- **自动备份** - 每次更新前自动创建备份
+- **回滚能力** - 失败时可从备份恢复
+- **结构验证** - 确保状态结构完整性
+
+### StateManager API (from state-manager.md)
 
 ```javascript
-const state = JSON.parse(Read(`${workDir}/state.json`));
-```
+// 初始化状态
+StateManager.initState(workDir)
 
-### 更新状态
+// 读取当前状态
+StateManager.getState(workDir)
 
-```javascript
-function updateState(updates) {
-  const state = JSON.parse(Read(`${workDir}/state.json`));
-  const newState = {
-    ...state,
-    ...updates,
-    updated_at: new Date().toISOString()
-  };
-  Write(`${workDir}/state.json`, JSON.stringify(newState, null, 2));
-  return newState;
-}
+// 更新状态（原子操作，自动备份）
+StateManager.updateState(workDir, updates)
+
+// 获取下一个待审查维度
+StateManager.getNextDimension(state)
+
+// 标记维度完成
+StateManager.markDimensionComplete(workDir, dimension)
+
+// 记录错误
+StateManager.recordError(workDir, action, message)
+
+// 从备份恢复
+StateManager.restoreState(workDir)
 ```
 
 ## Decision Logic
@@ -41,32 +55,28 @@ function selectNextAction(state) {
   if (state.status === 'completed') return null;
   if (state.status === 'user_exit') return null;
   if (state.error_count >= 3) return 'action-abort';
-  
+
   // 2. 初始化阶段
   if (state.status === 'pending' || !state.context) {
     return 'action-collect-context';
   }
-  
+
   // 3. 快速扫描阶段
   if (!state.scan_completed) {
     return 'action-quick-scan';
   }
-  
-  // 4. 深入审查阶段 - 逐维度审查
-  const dimensions = ['correctness', 'readability', 'performance', 'security', 'testing', 'architecture'];
-  const reviewedDimensions = state.reviewed_dimensions || [];
-  
-  for (const dim of dimensions) {
-    if (!reviewedDimensions.includes(dim)) {
-      return 'action-deep-review';  // 传递 dimension 参数
-    }
+
+  // 4. 深入审查阶段 - 使用 StateManager 获取下一个维度
+  const nextDimension = StateManager.getNextDimension(state);
+  if (nextDimension) {
+    return 'action-deep-review';  // 传递 dimension 参数
   }
-  
+
   // 5. 报告生成阶段
   if (!state.report_generated) {
     return 'action-generate-report';
   }
-  
+
   // 6. 完成
   return 'action-complete';
 }
@@ -77,42 +87,51 @@ function selectNextAction(state) {
 ```javascript
 async function runOrchestrator() {
   console.log('=== Code Review Orchestrator Started ===');
-  
+
   let iteration = 0;
   const MAX_ITERATIONS = 20;  // 6 dimensions + overhead
-  
+
+  // 初始化状态（如果尚未初始化）
+  let state = StateManager.getState(workDir);
+  if (!state) {
+    state = StateManager.initState(workDir);
+  }
+
   while (iteration < MAX_ITERATIONS) {
     iteration++;
-    
-    // 1. 读取当前状态
-    const state = JSON.parse(Read(`${workDir}/state.json`));
+
+    // 1. 读取当前状态（使用 StateManager）
+    state = StateManager.getState(workDir);
+    if (!state) {
+      console.error('[Orchestrator] Failed to read state, attempting recovery...');
+      state = StateManager.restoreState(workDir);
+      if (!state) {
+        console.error('[Orchestrator] Recovery failed, aborting.');
+        break;
+      }
+    }
     console.log(`[Iteration ${iteration}] Status: ${state.status}`);
-    
+
     // 2. 选择下一个动作
     const actionId = selectNextAction(state);
-    
+
     if (!actionId) {
       console.log('Review completed, terminating.');
       break;
     }
-    
+
     console.log(`[Iteration ${iteration}] Executing: ${actionId}`);
-    
-    // 3. 更新状态：当前动作
-    updateState({ current_action: actionId });
-    
+
+    // 3. 更新状态：当前动作（使用 StateManager）
+    StateManager.updateState(workDir, { current_action: actionId });
+
     // 4. 执行动作
     try {
       const actionPrompt = Read(`phases/actions/${actionId}.md`);
-      
-      // 确定当前需要审查的维度
-      let currentDimension = null;
-      if (actionId === 'action-deep-review') {
-        const dimensions = ['correctness', 'readability', 'performance', 'security', 'testing', 'architecture'];
-        const reviewed = state.reviewed_dimensions || [];
-        currentDimension = dimensions.find(d => !reviewed.includes(d));
-      }
-      
+
+      // 确定当前需要审查的维度（使用 StateManager）
+      const currentDimension = StateManager.getNextDimension(state);
+
       const result = await Task({
         subagent_type: 'universal-executor',
         run_in_background: false,
@@ -137,30 +156,38 @@ Issue Classification: specs/issue-classification.md
 Return JSON with stateUpdates field containing updates to apply to state.
 `
       });
-      
+
       const actionResult = JSON.parse(result);
-      
-      // 5. 更新状态：动作完成
-      updateState({
+
+      // 5. 更新状态：动作完成（使用 StateManager）
+      StateManager.updateState(workDir, {
         current_action: null,
         completed_actions: [...(state.completed_actions || []), actionId],
         ...actionResult.stateUpdates
       });
-      
+
+      // 如果是深入审查动作，标记维度完成
+      if (actionId === 'action-deep-review' && currentDimension) {
+        StateManager.markDimensionComplete(workDir, currentDimension);
+      }
+
     } catch (error) {
-      // 错误处理
-      updateState({
-        current_action: null,
-        errors: [...(state.errors || []), {
-          action: actionId,
-          message: error.message,
-          timestamp: new Date().toISOString()
-        }],
-        error_count: (state.error_count || 0) + 1
-      });
+      // 错误处理（使用 StateManager.recordError）
+      console.error(`[Orchestrator] Action failed: ${error.message}`);
+      StateManager.recordError(workDir, actionId, error.message);
+
+      // 清除当前动作
+      StateManager.updateState(workDir, { current_action: null });
+
+      // 检查是否需要恢复状态
+      const updatedState = StateManager.getState(workDir);
+      if (updatedState && updatedState.error_count >= 3) {
+        console.error('[Orchestrator] Too many errors, attempting state recovery...');
+        StateManager.restoreState(workDir);
+      }
     }
   }
-  
+
   console.log('=== Code Review Orchestrator Finished ===');
 }
 ```
@@ -179,14 +206,46 @@ Return JSON with stateUpdates field containing updates to apply to state.
 
 - `state.status === 'completed'` - 审查正常完成
 - `state.status === 'user_exit'` - 用户主动退出
-- `state.error_count >= 3` - 错误次数超限
+- `state.error_count >= 3` - 错误次数超限（由 StateManager.recordError 自动处理）
 - `iteration >= MAX_ITERATIONS` - 迭代次数超限
 
 ## Error Recovery
 
-| Error Type | Recovery Strategy |
-|------------|-------------------|
-| 文件读取失败 | 跳过该文件，记录警告 |
-| 动作执行失败 | 重试最多 3 次 |
-| 状态不一致 | 重新初始化状态 |
-| 用户中止 | 保存当前进度，允许恢复 |
+本模块利用 StateManager 提供的错误恢复机制：
+
+| Error Type | Recovery Strategy | StateManager Function |
+|------------|-------------------|----------------------|
+| 状态读取失败 | 从备份恢复 | `restoreState(workDir)` |
+| 动作执行失败 | 记录错误，累计超限后自动失败 | `recordError(workDir, action, message)` |
+| 状态不一致 | 验证并恢复 | `getState()` 内置验证 |
+| 用户中止 | 保存当前进度 | `updateState(workDir, { status: 'user_exit' })` |
+
+### 错误处理流程
+
+```
+1. 动作执行失败
+   |
+2. StateManager.recordError() 记录错误
+   |
+3. 检查 error_count
+   |
+   +-- < 3: 继续下一次迭代
+   +-- >= 3: StateManager 自动设置 status='failed'
+             |
+             Orchestrator 检测到 status 变化
+             |
+             尝试 restoreState() 恢复到上一个稳定状态
+```
+
+### 状态备份时机
+
+StateManager 在以下时机自动创建备份：
+- 每次 `updateState()` 调用前
+- 可通过 `backupState(workDir, suffix)` 手动创建命名备份
+
+### 历史追踪
+
+所有状态变更记录在 `state-history.json`，便于调试和审计：
+- 初始化事件
+- 每次更新的字段变更
+- 恢复操作记录
