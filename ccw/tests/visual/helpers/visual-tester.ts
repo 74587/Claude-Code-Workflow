@@ -131,7 +131,22 @@ type CompareResult = {
 type CompareOptions = {
   pixelmatchThreshold?: number;
   diffPath?: string;
+  allowSizeMismatch?: boolean;
 };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractRegion(png: any, width: number, height: number): Buffer {
+  const bytesPerPixel = 4; // RGBA
+  const result = Buffer.alloc(width * height * bytesPerPixel);
+
+  for (let y = 0; y < height; y++) {
+    const srcOffset = y * png.width * bytesPerPixel;
+    const dstOffset = y * width * bytesPerPixel;
+    png.data.copy(result, dstOffset, srcOffset, srcOffset + width * bytesPerPixel);
+  }
+
+  return result;
+}
 
 export function compareSnapshots(
   baselinePath: string,
@@ -142,23 +157,39 @@ export function compareSnapshots(
   const baselinePng = PNG.sync.read(readFileSync(baselinePath));
   const currentPng = PNG.sync.read(readFileSync(currentPath));
 
-  if (baselinePng.width !== currentPng.width || baselinePng.height !== currentPng.height) {
+  const sizeMismatch =
+    baselinePng.width !== currentPng.width || baselinePng.height !== currentPng.height;
+
+  if (sizeMismatch && !options?.allowSizeMismatch) {
     throw new Error(
       `Snapshot size mismatch: baseline=${baselinePng.width}x${baselinePng.height} current=${currentPng.width}x${currentPng.height}`
     );
   }
 
-  const diffPng = new PNG({ width: baselinePng.width, height: baselinePng.height });
+  // Use minimum dimensions for comparison when sizes differ
+  const compareWidth = Math.min(baselinePng.width, currentPng.width);
+  const compareHeight = Math.min(baselinePng.height, currentPng.height);
+  const diffPng = new PNG({ width: compareWidth, height: compareHeight });
+
+  // Extract comparable regions when sizes differ
+  let baselineData = baselinePng.data;
+  let currentData = currentPng.data;
+
+  if (sizeMismatch) {
+    baselineData = extractRegion(baselinePng, compareWidth, compareHeight);
+    currentData = extractRegion(currentPng, compareWidth, compareHeight);
+  }
+
   const diffPixels = pixelmatch(
-    baselinePng.data,
-    currentPng.data,
+    baselineData,
+    currentData,
     diffPng.data,
-    baselinePng.width,
-    baselinePng.height,
+    compareWidth,
+    compareHeight,
     { threshold: options?.pixelmatchThreshold ?? 0.1 }
   );
 
-  const totalPixels = baselinePng.width * baselinePng.height;
+  const totalPixels = compareWidth * compareHeight;
   const diffRatio = totalPixels > 0 ? diffPixels / totalPixels : 0;
   const pass = diffRatio <= tolerancePercent / 100;
 
