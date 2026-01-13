@@ -444,6 +444,11 @@ EOF
 - `docs`: Documentation changes
 - `chore`: Maintenance tasks
 
+**Commit Language**:
+- Use **Chinese** commit summary if project's `CLAUDE.md` specifies Chinese response guidelines or user explicitly requests Chinese
+- Use **English** commit summary by default or when project targets international collaboration
+- Check project's existing commit history for language convention consistency
+
 **Output format:**
 ```
 ## Solution Committed: [solution_id]
