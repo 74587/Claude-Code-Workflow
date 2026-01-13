@@ -7,6 +7,29 @@ import { join } from 'path';
 import { homedir } from 'os';
 import type { RouteContext } from './types.js';
 
+/**
+ * Get the ccw-help index directory path (pure function)
+ * Priority: project path (.claude/skills/ccw-help/index) > user path (~/.claude/skills/ccw-help/index)
+ * @param projectPath - The project path to check first
+ */
+function getIndexDir(projectPath: string | null): string | null {
+  // Try project path first
+  if (projectPath) {
+    const projectIndexDir = join(projectPath, '.claude', 'skills', 'ccw-help', 'index');
+    if (existsSync(projectIndexDir)) {
+      return projectIndexDir;
+    }
+  }
+
+  // Fall back to user path
+  const userIndexDir = join(homedir(), '.claude', 'skills', 'ccw-help', 'index');
+  if (existsSync(userIndexDir)) {
+    return userIndexDir;
+  }
+
+  return null;
+}
+
 // ========== In-Memory Cache ==========
 interface CacheEntry {
   data: any;
@@ -61,14 +84,15 @@ let watchersInitialized = false;
 
 /**
  * Initialize file watchers for JSON indexes
+ * @param projectPath - The project path to resolve index directory
  */
-function initializeFileWatchers(): void {
+function initializeFileWatchers(projectPath: string | null): void {
   if (watchersInitialized) return;
 
-  const indexDir = join(homedir(), '.claude', 'skills', 'command-guide', 'index');
+  const indexDir = getIndexDir(projectPath);
 
-  if (!existsSync(indexDir)) {
-    console.warn(`Command guide index directory not found: ${indexDir}`);
+  if (!indexDir) {
+    console.warn(`ccw-help index directory not found in project or user paths`);
     return;
   }
 
@@ -152,15 +176,20 @@ function groupCommandsByCategory(commands: any[]): any {
  * @returns true if route was handled, false otherwise
  */
 export async function handleHelpRoutes(ctx: RouteContext): Promise<boolean> {
-  const { pathname, url, req, res } = ctx;
+  const { pathname, url, req, res, initialPath } = ctx;
 
   // Initialize file watchers on first request
-  initializeFileWatchers();
+  initializeFileWatchers(initialPath);
 
-  const indexDir = join(homedir(), '.claude', 'skills', 'command-guide', 'index');
+  const indexDir = getIndexDir(initialPath);
 
   // API: Get all commands with optional search
   if (pathname === '/api/help/commands') {
+    if (!indexDir) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'ccw-help index directory not found' }));
+      return true;
+    }
     const searchQuery = url.searchParams.get('q') || '';
     const filePath = join(indexDir, 'all-commands.json');
 
@@ -191,6 +220,11 @@ export async function handleHelpRoutes(ctx: RouteContext): Promise<boolean> {
 
   // API: Get workflow command relationships
   if (pathname === '/api/help/workflows') {
+    if (!indexDir) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'ccw-help index directory not found' }));
+      return true;
+    }
     const filePath = join(indexDir, 'command-relationships.json');
     const relationships = getCachedData('command-relationships', filePath);
 
@@ -207,6 +241,11 @@ export async function handleHelpRoutes(ctx: RouteContext): Promise<boolean> {
 
   // API: Get commands by category
   if (pathname === '/api/help/commands/by-category') {
+    if (!indexDir) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'ccw-help index directory not found' }));
+      return true;
+    }
     const filePath = join(indexDir, 'by-category.json');
     const byCategory = getCachedData('by-category', filePath);
 

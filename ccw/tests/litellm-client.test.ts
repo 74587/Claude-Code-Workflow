@@ -346,3 +346,45 @@ describe('LiteLLM client bridge', () => {
     assert.ok(String(status.error).includes('ccw_litellm not installed'));
   });
 });
+
+describe('getCodexLensVenvPython (Issue #68 fix)', () => {
+  it('should be exported from the module', async () => {
+    assert.ok(typeof mod.getCodexLensVenvPython === 'function');
+  });
+
+  it('should return a string path', async () => {
+    const pythonPath = mod.getCodexLensVenvPython();
+    assert.equal(typeof pythonPath, 'string');
+    assert.ok(pythonPath.length > 0);
+  });
+
+  it('should return correct path structure for CodexLens venv', async () => {
+    const pythonPath = mod.getCodexLensVenvPython();
+
+    // On Windows: should contain Scripts/python.exe
+    // On Unix: should contain bin/python
+    const isWindows = process.platform === 'win32';
+
+    if (isWindows) {
+      // Either it's the venv path with Scripts, or fallback to 'python'
+      const isVenvPath = pythonPath.includes('Scripts') && pythonPath.includes('python');
+      const isFallback = pythonPath === 'python';
+      assert.ok(isVenvPath || isFallback, `Expected venv path or 'python' fallback, got: ${pythonPath}`);
+    } else {
+      // On Unix: either venv path with bin/python, or fallback
+      const isVenvPath = pythonPath.includes('bin') && pythonPath.includes('python');
+      const isFallback = pythonPath === 'python';
+      assert.ok(isVenvPath || isFallback, `Expected venv path or 'python' fallback, got: ${pythonPath}`);
+    }
+  });
+
+  it('should include .codexlens/venv in path when venv exists', async () => {
+    const pythonPath = mod.getCodexLensVenvPython();
+
+    // If not falling back to 'python', should contain .codexlens/venv
+    if (pythonPath !== 'python') {
+      assert.ok(pythonPath.includes('.codexlens'), `Expected .codexlens in path, got: ${pythonPath}`);
+      assert.ok(pythonPath.includes('venv'), `Expected venv in path, got: ${pythonPath}`);
+    }
+  });
+});

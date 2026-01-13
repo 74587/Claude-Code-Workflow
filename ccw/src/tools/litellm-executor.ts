@@ -3,7 +3,7 @@
  * Integrates with context-cache for file packing and LiteLLM client for API calls
  */
 
-import { getLiteLLMClient } from './litellm-client.js';
+import { getLiteLLMClient, getCodexLensVenvPython } from './litellm-client.js';
 import { handler as contextCacheHandler } from './context-cache.js';
 import {
   findEndpointById,
@@ -179,7 +179,7 @@ export async function executeLiteLLMEndpoint(
     }
 
     const client = getLiteLLMClient({
-      pythonPath: 'python',
+      pythonPath: getCodexLensVenvPython(),
       timeout: 120000, // 2 minutes
     });
 

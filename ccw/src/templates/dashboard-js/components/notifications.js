@@ -415,10 +415,15 @@ function handleNotification(data) {
           'CodexLens'
         );
       }
-      // Invalidate CodexLens page cache to ensure fresh data on next visit
+      // Invalidate all CodexLens related caches to ensure fresh data on refresh
+      // Must clear both codexlens-specific cache AND global status cache
+      if (window.cacheManager) {
+        window.cacheManager.invalidate('all-status');
+        window.cacheManager.invalidate('dashboard-init');
+      }
       if (typeof window.invalidateCodexLensCache === 'function') {
         window.invalidateCodexLensCache();
-        console.log('[CodexLens] Cache invalidated after installation');
+        console.log('[CodexLens] All caches invalidated after installation');
       }
       // Refresh CLI status if active
       if (typeof loadCodexLensStatus === 'function') {
@@ -443,10 +448,15 @@ function handleNotification(data) {
           'CodexLens'
         );
       }
-      // Invalidate CodexLens page cache to ensure fresh data on next visit
+      // Invalidate all CodexLens related caches to ensure fresh data on refresh
+      // Must clear both codexlens-specific cache AND global status cache
+      if (window.cacheManager) {
+        window.cacheManager.invalidate('all-status');
+        window.cacheManager.invalidate('dashboard-init');
+      }
       if (typeof window.invalidateCodexLensCache === 'function') {
         window.invalidateCodexLensCache();
-        console.log('[CodexLens] Cache invalidated after uninstallation');
+        console.log('[CodexLens] All caches invalidated after uninstallation');
       }
       // Refresh CLI status if active
       if (typeof loadCodexLensStatus === 'function') {

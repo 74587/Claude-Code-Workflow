@@ -334,12 +334,43 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
         return true;
       }
 
-      // Test connection using litellm client
-      const client = getLiteLLMClient();
-      const available = await client.isAvailable();
+      // Get the API key to test (prefer first key from apiKeys array, fall back to default apiKey)
+      let apiKeyValue: string | null = null;
+      if (provider.apiKeys && provider.apiKeys.length > 0) {
+        apiKeyValue = provider.apiKeys[0].key;
+      } else if (provider.apiKey) {
+        apiKeyValue = provider.apiKey;
+      }
+
+      if (!apiKeyValue) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'No API key configured for this provider' }));
+        return true;
+      }
+
+      // Resolve environment variables in the API key
+      const { resolveEnvVar } = await import('../../config/litellm-api-config-manager.js');
+      const resolvedKey = resolveEnvVar(apiKeyValue);
+
+      if (!resolvedKey) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'API key is empty or environment variable not set' }));
+        return true;
+      }
+
+      // Determine API base URL
+      const apiBase = provider.apiBase || getDefaultApiBase(provider.type);
+
+      // Test the API key connection
+      const testResult = await testApiKeyConnection(provider.type, apiBase, resolvedKey);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: available, provider: provider.type }));
+      res.end(JSON.stringify({
+        success: testResult.valid,
+        provider: provider.type,
+        latencyMs: testResult.latencyMs,
+        error: testResult.error,
+      }));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: false, error: (err as Error).message }));

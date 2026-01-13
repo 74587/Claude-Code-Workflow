@@ -72,6 +72,10 @@ export async function testApiKeyConnection(
     return { valid: false, error: urlValidation.error };
   }
 
+  // Normalize apiBase: remove trailing slashes to prevent URL construction issues
+  // e.g., "https://api.openai.com/v1/" -> "https://api.openai.com/v1"
+  const normalizedApiBase = apiBase.replace(/\/+$/, '');
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
   const startTime = Date.now();
@@ -80,7 +84,7 @@ export async function testApiKeyConnection(
     if (providerType === 'anthropic') {
       // Anthropic format: Use /v1/models endpoint (no cost, no model dependency)
       // This validates the API key without making a billable request
-      const response = await fetch(`${apiBase}/models`, {
+      const response = await fetch(`${normalizedApiBase}/models`, {
         method: 'GET',
         headers: {
           'x-api-key': apiKey,
@@ -114,8 +118,10 @@ export async function testApiKeyConnection(
 
       return { valid: false, error: errorMessage };
     } else {
-      // OpenAI-compatible format: GET /v1/models
-      const modelsUrl = apiBase.endsWith('/v1') ? `${apiBase}/models` : `${apiBase}/v1/models`;
+      // OpenAI-compatible format: GET /v{N}/models
+      // Detect if URL already ends with a version pattern like /v1, /v2, /v4, etc.
+      const hasVersionSuffix = /\/v\d+$/.test(normalizedApiBase);
+      const modelsUrl = hasVersionSuffix ? `${normalizedApiBase}/models` : `${normalizedApiBase}/v1/models`;
       const response = await fetch(modelsUrl, {
         method: 'GET',
         headers: {

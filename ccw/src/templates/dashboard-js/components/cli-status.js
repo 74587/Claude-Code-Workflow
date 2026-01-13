@@ -1034,6 +1034,15 @@ async function startCodexLensInstall() {
       progressBar.style.width = '100%';
       statusText.textContent = 'Installation complete!';
 
+      // 清理缓存以确保刷新后获取最新状态
+      if (window.cacheManager) {
+        window.cacheManager.invalidate('all-status');
+        window.cacheManager.invalidate('dashboard-init');
+      }
+      if (typeof window.invalidateCodexLensCache === 'function') {
+        window.invalidateCodexLensCache();
+      }
+
       setTimeout(() => {
         closeCodexLensInstallWizard();
         showRefreshToast('CodexLens installed successfully!', 'success');
@@ -1183,6 +1192,15 @@ async function startCodexLensUninstall() {
     if (result.success) {
       progressBar.style.width = '100%';
       statusText.textContent = 'Uninstallation complete!';
+
+      // 清理缓存以确保刷新后获取最新状态
+      if (window.cacheManager) {
+        window.cacheManager.invalidate('all-status');
+        window.cacheManager.invalidate('dashboard-init');
+      }
+      if (typeof window.invalidateCodexLensCache === 'function') {
+        window.invalidateCodexLensCache();
+      }
 
       setTimeout(() => {
         closeCodexLensUninstallWizard();

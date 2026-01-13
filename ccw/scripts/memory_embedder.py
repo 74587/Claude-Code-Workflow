@@ -26,7 +26,9 @@ except ImportError:
     sys.exit(1)
 
 try:
-    from codexlens.semantic.embedder import get_embedder, clear_embedder_cache
+    from codexlens.semantic.factory import get_embedder as get_embedder_factory
+    from codexlens.semantic.factory import clear_embedder_cache
+    from codexlens.config import Config as CodexLensConfig
 except ImportError:
     print("Error: CodexLens not found. Install with: pip install codexlens[semantic]", file=sys.stderr)
     sys.exit(1)
@@ -34,8 +36,6 @@ except ImportError:
 
 class MemoryEmbedder:
     """Generate and search embeddings for memory chunks."""
-
-    EMBEDDING_DIM = 768  # jina-embeddings-v2-base-code dimension
 
     def __init__(self, db_path: str):
         """Initialize embedder with database path."""
@@ -46,14 +46,61 @@ class MemoryEmbedder:
         self.conn = sqlite3.connect(str(self.db_path))
         self.conn.row_factory = sqlite3.Row
 
+        # Load CodexLens configuration for embedding settings
+        try:
+            self._config = CodexLensConfig.load()
+        except Exception as e:
+            print(f"Warning: Could not load CodexLens config, using defaults. Error: {e}", file=sys.stderr)
+            self._config = CodexLensConfig()  # Use default config
+
         # Lazy-load embedder to avoid ~0.8s model loading for status command
         self._embedder = None
+        self._embedding_dim = None
+
+    @property
+    def embedding_dim(self) -> int:
+        """Get embedding dimension from the embedder."""
+        if self._embedding_dim is None:
+            # Access embedder to get its dimension
+            self._embedding_dim = self.embedder.embedding_dim
+        return self._embedding_dim
 
     @property
     def embedder(self):
-        """Lazy-load the embedder on first access."""
+        """Lazy-load the embedder on first access using CodexLens config."""
         if self._embedder is None:
-            self._embedder = get_embedder(profile="code")
+            # Use CodexLens configuration settings
+            backend = self._config.embedding_backend
+            model = self._config.embedding_model
+            use_gpu = self._config.embedding_use_gpu
+
+            # Use factory to create embedder based on backend type
+            if backend == "fastembed":
+                self._embedder = get_embedder_factory(
+                    backend="fastembed",
+                    profile=model,
+                    use_gpu=use_gpu
+                )
+            elif backend == "litellm":
+                # For litellm backend, also pass endpoints if configured
+                endpoints = self._config.embedding_endpoints
+                strategy = self._config.embedding_strategy
+                cooldown = self._config.embedding_cooldown
+
+                self._embedder = get_embedder_factory(
+                    backend="litellm",
+                    model=model,
+                    endpoints=endpoints if endpoints else None,
+                    strategy=strategy,
+                    cooldown=cooldown,
+                )
+            else:
+                # Fallback to fastembed with code profile
+                self._embedder = get_embedder_factory(
+                    backend="fastembed",
+                    profile="code",
+                    use_gpu=True
+                )
         return self._embedder
 
     def close(self):

@@ -72,6 +72,10 @@ function invalidateCache(key) {
     Object.values(CACHE_KEY_MAP).forEach(function(k) {
       window.cacheManager.invalidate(k);
     });
+    // 重要：同时清理包含 CodexLens 状态的全局缓存
+    // 这些缓存在 cli-status.js 中使用，包含 codexLens.ready 状态
+    window.cacheManager.invalidate('all-status');
+    window.cacheManager.invalidate('dashboard-init');
   }
 }
 
@@ -788,6 +792,12 @@ function initCodexLensConfigEvents(currentConfig) {
 
         if (result.success) {
           showRefreshToast(t('codexlens.configSaved'), 'success');
+
+          // Invalidate config cache to ensure fresh data on next load
+          if (window.cacheManager) {
+            window.cacheManager.invalidate('codexlens-config');
+          }
+
           closeModal();
 
           // Refresh CodexLens status
@@ -5385,7 +5395,7 @@ function initCodexLensManagerPageEvents(currentConfig) {
       try {
         var response = await csrfFetch('/api/codexlens/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index_dir: newIndexDir }) });
         var result = await response.json();
-        if (result.success) { showRefreshToast(t('codexlens.configSaved'), 'success'); renderCodexLensManager(); }
+        if (result.success) { if (window.cacheManager) { window.cacheManager.invalidate('codexlens-config'); } showRefreshToast(t('codexlens.configSaved'), 'success'); renderCodexLensManager(); }
         else { showRefreshToast(t('common.saveFailed') + ': ' + result.error, 'error'); }
       } catch (err) { showRefreshToast(t('common.error') + ': ' + err.message, 'error'); }
       saveBtn.disabled = false;
