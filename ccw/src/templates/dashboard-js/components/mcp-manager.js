@@ -84,6 +84,147 @@ function getCliMode() {
   return currentCliMode;
 }
 
+// ========== Cross-Platform MCP Helpers ==========
+
+/**
+ * Build cross-platform MCP server configuration
+ * On Windows, wraps npx/node/python commands with cmd /c for proper execution
+ * @param {string} command - The command to run (e.g., 'npx', 'node', 'python')
+ * @param {string[]} args - Command arguments
+ * @param {object} [options] - Additional options (env, type, etc.)
+ * @returns {object} MCP server configuration
+ */
+function buildCrossPlatformMcpConfig(command, args = [], options = {}) {
+  const { env, type, ...rest } = options;
+
+  // Commands that need cmd /c wrapper on Windows
+  const windowsWrappedCommands = ['npx', 'npm', 'node', 'python', 'python3', 'pip', 'pip3', 'pnpm', 'yarn', 'bun'];
+  const needsWindowsWrapper = isWindowsPlatform && windowsWrappedCommands.includes(command.toLowerCase());
+
+  const config = needsWindowsWrapper
+    ? { command: 'cmd', args: ['/c', command, ...args] }
+    : { command, args };
+
+  // Add optional fields
+  if (type) config.type = type;
+  if (env && Object.keys(env).length > 0) config.env = env;
+  Object.assign(config, rest);
+
+  return config;
+}
+
+/**
+ * Check if MCP config needs Windows cmd /c wrapper
+ * @param {object} serverConfig - MCP server configuration
+ * @returns {object} { needsWrapper: boolean, command: string }
+ */
+function checkWindowsMcpCompatibility(serverConfig) {
+  if (!isWindowsPlatform) return { needsWrapper: false };
+
+  const command = serverConfig.command?.toLowerCase() || '';
+  const windowsWrappedCommands = ['npx', 'npm', 'node', 'python', 'python3', 'pip', 'pip3', 'pnpm', 'yarn', 'bun'];
+
+  // Already wrapped with cmd
+  if (command === 'cmd') return { needsWrapper: false };
+
+  const needsWrapper = windowsWrappedCommands.includes(command);
+  return { needsWrapper, command: serverConfig.command };
+}
+
+/**
+ * Auto-fix MCP config for Windows platform
+ * @param {object} serverConfig - Original MCP server configuration
+ * @returns {object} Fixed configuration (or original if no fix needed)
+ */
+function autoFixWindowsMcpConfig(serverConfig) {
+  const { needsWrapper, command } = checkWindowsMcpCompatibility(serverConfig);
+
+  if (!needsWrapper) return serverConfig;
+
+  // Create new config with cmd /c wrapper
+  const fixedConfig = {
+    ...serverConfig,
+    command: 'cmd',
+    args: ['/c', command, ...(serverConfig.args || [])]
+  };
+
+  return fixedConfig;
+}
+
+/**
+ * Show Windows compatibility warning for MCP config
+ * @param {string} serverName - Name of the MCP server
+ * @param {object} serverConfig - MCP server configuration
+ * @returns {Promise<boolean>} True if user confirms auto-fix, false to keep original
+ */
+async function showWindowsMcpCompatibilityWarning(serverName, serverConfig) {
+  const { needsWrapper, command } = checkWindowsMcpCompatibility(serverConfig);
+
+  if (!needsWrapper) return false;
+
+  // Show warning toast with auto-fix option
+  const message = t('mcp.windows.compatibilityWarning', {
+    name: serverName,
+    command: command
+  });
+
+  return new Promise((resolve) => {
+    // Create custom toast with action buttons
+    const toastContainer = document.getElementById('refreshToast') || createToastContainer();
+    const toastId = `windows-mcp-warning-${Date.now()}`;
+
+    const toastHtml = `
+      <div id="${toastId}" class="fixed bottom-4 right-4 bg-warning text-warning-foreground p-4 rounded-lg shadow-lg max-w-md z-50 animate-slide-up">
+        <div class="flex items-start gap-3">
+          <i data-lucide="alert-triangle" class="w-5 h-5 flex-shrink-0 mt-0.5"></i>
+          <div class="flex-1">
+            <p class="font-medium mb-2">${t('mcp.windows.title')}</p>
+            <p class="text-sm opacity-90 mb-3">${message}</p>
+            <div class="flex gap-2">
+              <button class="px-3 py-1.5 text-sm bg-background text-foreground rounded hover:opacity-90"
+                      onclick="document.getElementById('${toastId}').remove(); window._mcpWindowsResolve && window._mcpWindowsResolve(true)">
+                ${t('mcp.windows.autoFix')}
+              </button>
+              <button class="px-3 py-1.5 text-sm border border-current rounded hover:opacity-90"
+                      onclick="document.getElementById('${toastId}').remove(); window._mcpWindowsResolve && window._mcpWindowsResolve(false)">
+                ${t('mcp.windows.keepOriginal')}
+              </button>
+            </div>
+          </div>
+          <button onclick="document.getElementById('${toastId}').remove(); window._mcpWindowsResolve && window._mcpWindowsResolve(false)"
+                  class="text-current opacity-70 hover:opacity-100">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Store resolve function globally for button clicks
+    window._mcpWindowsResolve = (result) => {
+      delete window._mcpWindowsResolve;
+      resolve(result);
+    };
+
+    document.body.insertAdjacentHTML('beforeend', toastHtml);
+
+    // Initialize icons
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
+
+    // Auto-dismiss after 15 seconds (keep original)
+    setTimeout(() => {
+      const toast = document.getElementById(toastId);
+      if (toast) {
+        toast.remove();
+        if (window._mcpWindowsResolve) {
+          window._mcpWindowsResolve(false);
+        }
+      }
+    }, 15000);
+  });
+}
+
 // ========== Codex MCP Functions ==========
 
 /**
@@ -847,6 +988,19 @@ async function submitMcpCreateFromJson() {
 }
 
 async function createMcpServerWithConfig(name, serverConfig, scope = 'project') {
+  // Check Windows compatibility and offer auto-fix if needed
+  const { needsWrapper } = checkWindowsMcpCompatibility(serverConfig);
+  let finalConfig = serverConfig;
+
+  if (needsWrapper) {
+    // Show warning and ask user whether to auto-fix
+    const shouldAutoFix = await showWindowsMcpCompatibilityWarning(name, serverConfig);
+    if (shouldAutoFix) {
+      finalConfig = autoFixWindowsMcpConfig(serverConfig);
+      console.log('[MCP] Auto-fixed config for Windows:', finalConfig);
+    }
+  }
+
   // Submit to API
   try {
     let response;
@@ -859,7 +1013,7 @@ async function createMcpServerWithConfig(name, serverConfig, scope = 'project') 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           serverName: name,
-          serverConfig: serverConfig
+          serverConfig: finalConfig
         })
       });
       scopeLabel = 'Codex';
@@ -869,7 +1023,7 @@ async function createMcpServerWithConfig(name, serverConfig, scope = 'project') 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           serverName: name,
-          serverConfig: serverConfig
+          serverConfig: finalConfig
         })
       });
       scopeLabel = 'global';
@@ -880,7 +1034,7 @@ async function createMcpServerWithConfig(name, serverConfig, scope = 'project') 
         body: JSON.stringify({
           projectPath: projectPath,
           serverName: name,
-          serverConfig: serverConfig
+          serverConfig: finalConfig
         })
       });
       scopeLabel = 'project';
@@ -1231,16 +1385,14 @@ const RECOMMENDED_MCP_SERVERS = [
         descKey: 'mcp.ace-tool.field.token.desc'
       }
     ],
-    buildConfig: (values) => ({
-      command: 'npx',
-      args: [
-        'ace-tool',
-        '--base-url',
-        values.baseUrl || 'https://acemcp.heroman.wtf/relay/',
-        '--token',
-        values.token
-      ]
-    })
+    // Uses buildCrossPlatformMcpConfig for automatic Windows cmd /c wrapping
+    buildConfig: (values) => buildCrossPlatformMcpConfig('npx', [
+      'ace-tool',
+      '--base-url',
+      values.baseUrl || 'https://acemcp.heroman.wtf/relay/',
+      '--token',
+      values.token
+    ])
   },
   {
     id: 'chrome-devtools',
@@ -1249,12 +1401,8 @@ const RECOMMENDED_MCP_SERVERS = [
     icon: 'chrome',
     category: 'browser',
     fields: [],
-    buildConfig: () => ({
-      type: 'stdio',
-      command: 'npx',
-      args: ['chrome-devtools-mcp@latest'],
-      env: {}
-    })
+    // Uses buildCrossPlatformMcpConfig for automatic Windows cmd /c wrapping
+    buildConfig: () => buildCrossPlatformMcpConfig('npx', ['chrome-devtools-mcp@latest'], { type: 'stdio' })
   },
   {
     id: 'exa',
@@ -1273,16 +1421,10 @@ const RECOMMENDED_MCP_SERVERS = [
         descKey: 'mcp.exa.field.apiKey.desc'
       }
     ],
+    // Uses buildCrossPlatformMcpConfig for automatic Windows cmd /c wrapping
     buildConfig: (values) => {
-      const config = {
-        command: 'npx',
-        args: ['-y', 'exa-mcp-server']
-      };
-      // Only add env if API key is provided
-      if (values.apiKey) {
-        config.env = { EXA_API_KEY: values.apiKey };
-      }
-      return config;
+      const env = values.apiKey ? { EXA_API_KEY: values.apiKey } : undefined;
+      return buildCrossPlatformMcpConfig('npx', ['-y', 'exa-mcp-server'], { env });
     }
   }
 ];

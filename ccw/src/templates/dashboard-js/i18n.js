@@ -995,6 +995,12 @@ const i18n = {
     'mcp.clickToEdit': 'Click to edit',
     'mcp.clickToViewDetails': 'Click to view details',
 
+    // Windows MCP Compatibility
+    'mcp.windows.title': 'Windows Compatibility Warning',
+    'mcp.windows.compatibilityWarning': 'The MCP server "{name}" uses "{command}" which requires "cmd /c" wrapper on Windows to work properly with Claude Code.',
+    'mcp.windows.autoFix': 'Auto-fix (Recommended)',
+    'mcp.windows.keepOriginal': 'Keep Original',
+
     // Hook Manager
     'hook.projectHooks': 'Project Hooks',
     'hook.projectFile': '.claude/settings.json',
@@ -3127,6 +3133,12 @@ const i18n = {
     'mcp.editModal.deleteFailed': '删除 MCP 服务器失败',
     'mcp.clickToEdit': '点击编辑',
     'mcp.clickToViewDetails': '点击查看详情',
+
+    // Windows MCP 兼容性
+    'mcp.windows.title': 'Windows 兼容性警告',
+    'mcp.windows.compatibilityWarning': 'MCP 服务器 "{name}" 使用的 "{command}" 命令需要在 Windows 上添加 "cmd /c" 包装才能与 Claude Code 正常工作。',
+    'mcp.windows.autoFix': '自动修复（推荐）',
+    'mcp.windows.keepOriginal': '保持原样',
 
     // Hook Manager
     'hook.projectHooks': '项目钩子',
