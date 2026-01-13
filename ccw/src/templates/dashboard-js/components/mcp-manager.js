@@ -91,7 +91,7 @@ function getCliMode() {
  */
 async function addCodexMcpServer(serverName, serverConfig) {
   try {
-    const response = await fetch('/api/codex-mcp-add', {
+    const response = await csrfFetch('/api/codex-mcp-add', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -123,7 +123,7 @@ async function addCodexMcpServer(serverName, serverConfig) {
  */
 async function removeCodexMcpServer(serverName) {
   try {
-    const response = await fetch('/api/codex-mcp-remove', {
+    const response = await csrfFetch('/api/codex-mcp-remove', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ serverName })
@@ -152,7 +152,7 @@ async function removeCodexMcpServer(serverName) {
  */
 async function toggleCodexMcpServer(serverName, enabled) {
   try {
-    const response = await fetch('/api/codex-mcp-toggle', {
+    const response = await csrfFetch('/api/codex-mcp-toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ serverName, enabled })
@@ -205,7 +205,7 @@ async function copyCodexServerToClaude(serverName, serverConfig) {
 
 async function toggleMcpServer(serverName, enable) {
   try {
-    const response = await fetch('/api/mcp-toggle', {
+    const response = await csrfFetch('/api/mcp-toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -239,7 +239,7 @@ async function copyMcpServerToProject(serverName, serverConfig, configType = nul
       configType = preferredProjectConfigType;
     }
 
-    const response = await fetch('/api/mcp-copy-server', {
+    const response = await csrfFetch('/api/mcp-copy-server', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -316,7 +316,7 @@ function showConfigTypeDialog() {
 
 async function removeMcpServerFromProject(serverName) {
   try {
-    const response = await fetch('/api/mcp-remove-server', {
+    const response = await csrfFetch('/api/mcp-remove-server', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -343,7 +343,7 @@ async function removeMcpServerFromProject(serverName) {
 
 async function addGlobalMcpServer(serverName, serverConfig) {
   try {
-    const response = await fetch('/api/mcp-add-global-server', {
+    const response = await csrfFetch('/api/mcp-add-global-server', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -370,7 +370,7 @@ async function addGlobalMcpServer(serverName, serverConfig) {
 
 async function removeGlobalMcpServer(serverName) {
   try {
-    const response = await fetch('/api/mcp-remove-global-server', {
+    const response = await csrfFetch('/api/mcp-remove-global-server', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -809,7 +809,7 @@ async function submitMcpCreateFromJson() {
 
   for (const [name, config] of Object.entries(servers)) {
     try {
-      const response = await fetch('/api/mcp-copy-server', {
+      const response = await csrfFetch('/api/mcp-copy-server', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -854,7 +854,7 @@ async function createMcpServerWithConfig(name, serverConfig, scope = 'project') 
 
     if (scope === 'codex') {
       // Create in Codex config.toml
-      response = await fetch('/api/codex-mcp-add', {
+      response = await csrfFetch('/api/codex-mcp-add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -864,7 +864,7 @@ async function createMcpServerWithConfig(name, serverConfig, scope = 'project') 
       });
       scopeLabel = 'Codex';
     } else if (scope === 'global') {
-      response = await fetch('/api/mcp-add-global-server', {
+      response = await csrfFetch('/api/mcp-add-global-server', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -874,7 +874,7 @@ async function createMcpServerWithConfig(name, serverConfig, scope = 'project') 
       });
       scopeLabel = 'global';
     } else {
-      response = await fetch('/api/mcp-copy-server', {
+      response = await csrfFetch('/api/mcp-copy-server', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1006,7 +1006,7 @@ async function installCcwToolsMcp(scope = 'workspace') {
 
     if (scope === 'global') {
       // Install to global (~/.claude.json mcpServers)
-      const response = await fetch('/api/mcp-add-global-server', {
+      const response = await csrfFetch('/api/mcp-add-global-server', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1028,7 +1028,7 @@ async function installCcwToolsMcp(scope = 'workspace') {
     } else {
       // Install to workspace (use preferredProjectConfigType)
       const configType = preferredProjectConfigType;
-      const response = await fetch('/api/mcp-copy-server', {
+      const response = await csrfFetch('/api/mcp-copy-server', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1074,7 +1074,7 @@ async function updateCcwToolsMcp(scope = 'workspace') {
 
     if (scope === 'global') {
       // Update global (~/.claude.json mcpServers)
-      const response = await fetch('/api/mcp-add-global-server', {
+      const response = await csrfFetch('/api/mcp-add-global-server', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1096,7 +1096,7 @@ async function updateCcwToolsMcp(scope = 'workspace') {
     } else {
       // Update workspace (use preferredProjectConfigType)
       const configType = preferredProjectConfigType;
-      const response = await fetch('/api/mcp-copy-server', {
+      const response = await csrfFetch('/api/mcp-copy-server', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

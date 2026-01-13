@@ -350,7 +350,7 @@ async function loadCliToolsConfig() {
  */
 async function updateCliToolEnabled(tool, enabled) {
   try {
-    const response = await fetch('/api/cli/tools-config/' + tool, {
+    const response = await csrfFetch('/api/cli/tools-config/' + tool, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: enabled })
@@ -796,7 +796,7 @@ function setDefaultCliTool(tool) {
   // Save to config
   if (window.claudeCliToolsConfig) {
     window.claudeCliToolsConfig.defaultTool = tool;
-    fetch('/api/cli/tools-config', {
+    csrfFetch('/api/cli/tools-config', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ defaultTool: tool })
@@ -851,7 +851,7 @@ function getCacheInjectionMode() {
 
 async function setCacheInjectionMode(mode) {
   try {
-    const response = await fetch('/api/cli/tools-config/cache', {
+    const response = await csrfFetch('/api/cli/tools-config/cache', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ injectionMode: mode })
@@ -1021,7 +1021,7 @@ async function startCodexLensInstall() {
   }, 1500);
 
   try {
-    const response = await fetch('/api/codexlens/bootstrap', {
+    const response = await csrfFetch('/api/codexlens/bootstrap', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -1171,7 +1171,7 @@ async function startCodexLensUninstall() {
   }, 500);
 
   try {
-    const response = await fetch('/api/codexlens/uninstall', {
+    const response = await csrfFetch('/api/codexlens/uninstall', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -1257,7 +1257,7 @@ async function initCodexLensIndex() {
   console.log('[CodexLens] Initializing index for path:', targetPath);
 
   try {
-    const response = await fetch('/api/codexlens/init', {
+    const response = await csrfFetch('/api/codexlens/init', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: targetPath })
@@ -1424,7 +1424,7 @@ async function startSemanticInstall() {
   }, 2000);
 
   try {
-    const response = await fetch('/api/codexlens/semantic/install', {
+    const response = await csrfFetch('/api/codexlens/semantic/install', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})

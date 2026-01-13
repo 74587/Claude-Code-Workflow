@@ -252,7 +252,7 @@ async function cleanIndexProject(projectId) {
 
     // The project ID is the directory name in the index folder
     // We need to construct the full path or use a clean API
-    const response = await fetch('/api/codexlens/clean', {
+    const response = await csrfFetch('/api/codexlens/clean', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ projectId: projectId })
@@ -282,7 +282,7 @@ async function cleanAllIndexesConfirm() {
   try {
     showRefreshToast(t('index.cleaning') || 'Cleaning indexes...', 'info');
 
-    const response = await fetch('/api/codexlens/clean', {
+    const response = await csrfFetch('/api/codexlens/clean', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ all: true })

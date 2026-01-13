@@ -415,7 +415,7 @@ async function cleanProjectStorage(projectId) {
   }
 
   try {
-    const res = await fetch('/api/storage/clean', {
+    const res = await csrfFetch('/api/storage/clean', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ projectId })
@@ -451,7 +451,7 @@ async function cleanAllStorageConfirm() {
   }
 
   try {
-    const res = await fetch('/api/storage/clean', {
+    const res = await csrfFetch('/api/storage/clean', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ all: true })

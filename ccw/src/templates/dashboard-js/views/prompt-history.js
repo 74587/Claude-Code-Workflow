@@ -431,7 +431,7 @@ async function deletePromptInsight(insightId) {
   if (!confirm(isZh() ? '确定要删除这条洞察记录吗？' : 'Are you sure you want to delete this insight?')) return;
 
   try {
-    var response = await fetch('/api/memory/insights/' + insightId, { method: 'DELETE' });
+    var response = await csrfFetch('/api/memory/insights/' + insightId, { method: 'DELETE' });
     if (!response.ok) throw new Error('Failed to delete insight');
 
     selectedPromptInsight = null;

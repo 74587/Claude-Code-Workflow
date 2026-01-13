@@ -568,7 +568,7 @@ async function executeSidebarUpdateTask(taskId) {
   }
 
   try {
-    const response = await fetch('/api/update-claude-md', {
+    const response = await csrfFetch('/api/update-claude-md', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

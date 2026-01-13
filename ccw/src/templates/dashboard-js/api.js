@@ -174,7 +174,7 @@ function refreshRecentPaths() {
  */
 async function removeRecentPathFromList(path) {
   try {
-    const response = await fetch('/api/remove-recent-path', {
+    const response = await csrfFetch('/api/remove-recent-path', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path })

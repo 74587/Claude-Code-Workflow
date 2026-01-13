@@ -449,7 +449,7 @@ async function saveHook(scope, event, hookData) {
     // Convert to Claude Code format before saving
     const convertedHookData = convertToClaudeCodeFormat(hookData);
     
-    const response = await fetch('/api/hooks', {
+    const response = await csrfFetch('/api/hooks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -478,7 +478,7 @@ async function saveHook(scope, event, hookData) {
 
 async function removeHook(scope, event, hookIndex) {
   try {
-    const response = await fetch('/api/hooks', {
+    const response = await csrfFetch('/api/hooks', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

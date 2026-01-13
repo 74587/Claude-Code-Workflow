@@ -1114,7 +1114,7 @@ async function deleteInsight(insightId) {
   if (!confirm(t('memory.confirmDeleteInsight'))) return;
 
   try {
-    var response = await fetch('/api/memory/insights/' + insightId, { method: 'DELETE' });
+    var response = await csrfFetch('/api/memory/insights/' + insightId, { method: 'DELETE' });
     if (!response.ok) throw new Error('Failed to delete insight');
 
     selectedInsight = null;

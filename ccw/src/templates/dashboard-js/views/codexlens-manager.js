@@ -3613,7 +3613,7 @@ async function initCodexLensIndex(indexType, embeddingModel, embeddingBackend, m
           // Install semantic dependencies first
           showRefreshToast(t('codexlens.installingDeps') || 'Installing semantic dependencies...', 'info');
           try {
-            var installResponse = await fetch('/api/codexlens/semantic/install', { method: 'POST' });
+            var installResponse = await csrfFetch('/api/codexlens/semantic/install', { method: 'POST' });
             var installResult = await installResponse.json();
 
             if (!installResult.success) {
@@ -5383,7 +5383,7 @@ function initCodexLensManagerPageEvents(currentConfig) {
       saveBtn.disabled = true;
       saveBtn.innerHTML = '<span class="animate-pulse">' + t('common.saving') + '</span>';
       try {
-        var response = await fetch('/api/codexlens/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index_dir: newIndexDir }) });
+        var response = await csrfFetch('/api/codexlens/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index_dir: newIndexDir }) });
         var result = await response.json();
         if (result.success) { showRefreshToast(t('codexlens.configSaved'), 'success'); renderCodexLensManager(); }
         else { showRefreshToast(t('common.saveFailed') + ': ' + result.error, 'error'); }

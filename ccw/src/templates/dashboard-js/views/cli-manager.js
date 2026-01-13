@@ -2752,7 +2752,7 @@ async function installSemanticDeps() {
     '<div class="text-sm text-muted-foreground animate-pulse">' + t('codexlens.installingDeps') + '</div>';
 
   try {
-    var response = await fetch('/api/codexlens/semantic/install', { method: 'POST' });
+    var response = await csrfFetch('/api/codexlens/semantic/install', { method: 'POST' });
     var result = await response.json();
 
     if (result.success) {
