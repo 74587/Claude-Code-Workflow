@@ -59,6 +59,14 @@
 | 斜体 | `/\*(.+?)\*/` | `*italic*` |
 | 删除线 | `/~~(.+?)~~/` | `~~strike~~` |
 
+### HTML 元素检测
+
+| 类型 | Pattern | 示例 |
+|------|---------|------|
+| 高亮 | `/<mark>(.+?)<\/mark>/` | `<mark>高亮</mark>` |
+| 折叠块 | `/<details>\s*<summary>(.+?)<\/summary>([\s\S]*?)<\/details>/` | `<details><summary>标题</summary>内容</details>` |
+| 下划线 | `/<u>(.+?)<\/u>/` | `<u>下划线</u>` |
+
 ---
 
 ## Element Conversion Matrix
@@ -76,14 +84,23 @@
 
 ### 文本样式映射
 
-| Element | Markdown | BBCode |
-|---------|----------|--------|
-| **Bold** | `**text**` | `[b]text[/b]` |
-| **Italic** | `*text*` | `[i]text[/i]` |
+| Element | Markdown/HTML | BBCode |
+|---------|---------------|--------|
+| **Bold** | `**text**` 或 `__text__` | `[b]text[/b]` |
+| **Italic** | `*text*` 或 `_text_` | `[i]text[/i]` |
 | **Bold+Italic** | `***text***` | `[b][i]text[/i][/b]` |
 | **Strike** | `~~text~~` | `[s]text[/s]` |
-| **Highlight** | `==text==` | `[color=yellow]text[/color]` |
+| **Underline** | `<u>text</u>` | `[u]text[/u]` |
+| **Highlight** | `==text==` 或 `<mark>text</mark>` | `[color=yellow]text[/color]` |
 | **Code (inline)** | `` `text` `` | 保持原样 |
+
+### HTML 转 BBCode 映射
+
+| HTML | BBCode |
+|------|--------|
+| `<mark>text</mark>` | `[color=yellow]text[/color]` |
+| `<u>text</u>` | `[u]text[/u]` |
+| `<details><summary>标题</summary>内容</details>` | `[spoiler=标题]内容[/spoiler]` |
 
 ### 块级元素映射
 

@@ -144,9 +144,17 @@ function formatBBCodeMD(text) {
   // ===== 文本样式 =====
   result = result.replace(/\*\*\*(.+?)\*\*\*/g, '[b][i]$1[/i][/b]');
   result = result.replace(/\*\*(.+?)\*\*/g, '[b]$1[/b]');
+  result = result.replace(/__(.+?)__/g, '[b]$1[/b]');
   result = result.replace(/\*(.+?)\*/g, '[i]$1[/i]');
+  result = result.replace(/_(.+?)_/g, '[i]$1[/i]');
   result = result.replace(/~~(.+?)~~/g, '[s]$1[/s]');
   result = result.replace(/==(.+?)==/g, '[color=yellow]$1[/color]');
+
+  // ===== HTML 转 BBCode =====
+  result = result.replace(/<mark>(.+?)<\/mark>/g, '[color=yellow]$1[/color]');
+  result = result.replace(/<u>(.+?)<\/u>/g, '[u]$1[/u]');
+  result = result.replace(/<details>\s*<summary>(.+?)<\/summary>\s*([\s\S]*?)<\/details>/g,
+    '[spoiler=$1]$2[/spoiler]');
 
   // ===== 代码 =====
   result = result.replace(/```(\w*)\n([\s\S]*?)```/g, '[code]$2[/code]');

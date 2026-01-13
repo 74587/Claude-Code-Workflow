@@ -28,18 +28,23 @@ BBCode + Markdown 混合格式转换规则（论坛优化）。
 
 **支持的 BBCode 标签**:
 - `[size=N]` - 字号（像素值）
-- `[color=X]` - 颜色（hex 或名称）
-- `[b]`, `[i]`, `[s]` - 粗体、斜体、删除线
+- `[color=X]` - 颜色（hex 或名称，如 `[color=blue]`、`[color=#2196F3]`）
+- `[b]`, `[i]`, `[s]`, `[u]` - 粗体、斜体、删除线、下划线
 - `[quote]` - 引用块
 - `[code]` - 代码块
 - `[url]`, `[img]` - 链接、图片
 - `[list]`, `[*]` - 列表
+- `[spoiler]` 或 `[spoiler=标题]` - 折叠/隐藏内容
 
 **禁止使用的标签**:
 - `[align]` - 不渲染，显示为文本
 - `[hr]` - 不渲染，使用 Markdown `---`
 - `[table]` - 支持有限，避免使用
-- HTML 标签 (`<div>`, `<span>`) - 不支持
+
+**HTML 标签转换** (输入时支持，转换为 BBCode):
+- `<mark>text</mark>` → `[color=yellow]text[/color]`
+- `<details><summary>标题</summary>内容</details>` → `[spoiler=标题]内容[/spoiler]`
+- 其他 HTML 标签 (`<div>`, `<span>`) - 删除
 
 ### 3. Markdown as Separator
 
@@ -60,13 +65,21 @@ BBCode + Markdown 混合格式转换规则（论坛优化）。
 
 ### 文本样式
 
-| Markdown | BBCode |
-|----------|--------|
-| `**bold**` | `[b]bold[/b]` |
-| `*italic*` | `[i]italic[/i]` |
+| Markdown/HTML | BBCode |
+|---------------|--------|
+| `**bold**` 或 `__bold__` | `[b]bold[/b]` |
+| `*italic*` 或 `_italic_` | `[i]italic[/i]` |
 | `***both***` | `[b][i]both[/i][/b]` |
 | `~~strike~~` | `[s]strike[/s]` |
-| `==highlight==` | `[color=yellow]highlight[/color]` |
+| `==highlight==` 或 `<mark>text</mark>` | `[color=yellow]highlight[/color]` |
+| (无 MD 语法) | `[u]underline[/u]` |
+
+### 折叠内容
+
+| HTML | BBCode |
+|------|--------|
+| `<details><summary>标题</summary>内容</details>` | `[spoiler=标题]内容[/spoiler]` |
+| (无 HTML) | `[spoiler]隐藏内容[/spoiler]` |
 
 ### 代码
 

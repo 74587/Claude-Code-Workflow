@@ -43,14 +43,25 @@ Transform and optimize text content with intelligent structure analysis. Output 
 | Tag | Usage | Example |
 |-----|-------|---------|
 | `[size=N]` | Font size (pixels) | `[size=120]Title[/size]` |
-| `[color=X]` | Text color | `[color=#2196F3]Blue[/color]` |
+| `[color=X]` | Text color (hex/name) | `[color=#2196F3]Blue[/color]` 或 `[color=blue]` |
 | `[b]` | Bold | `[b]Bold text[/b]` |
 | `[i]` | Italic | `[i]Italic[/i]` |
+| `[s]` | Strikethrough | `[s]deleted[/s]` |
+| `[u]` | Underline | `[u]underlined[/u]` |
 | `[quote]` | Quote block | `[quote]Content[/quote]` |
 | `[code]` | Code block | `[code]code[/code]` |
 | `[img]` | Image | `[img]url[/img]` |
 | `[url]` | Link | `[url=link]text[/url]` |
 | `[list]` | List container | `[list][*]item[/list]` |
+| `[spoiler]` | Collapsible content | `[spoiler=标题]隐藏内容[/spoiler]` |
+
+### HTML to BBCode Conversion
+
+| HTML Input | BBCode Output |
+|------------|---------------|
+| `<mark>高亮</mark>` | `[color=yellow]高亮[/color]` |
+| `<u>下划线</u>` | `[u]下划线[/u]` |
+| `<details><summary>标题</summary>内容</details>` | `[spoiler=标题]内容[/spoiler]` |
 
 ### Unsupported Tags (Avoid!)
 
