@@ -2,6 +2,16 @@
 
 自主模式编排器的模板。
 
+## ⚠️ 重要提示
+
+> **Phase 0 是强制前置阶段**：在 Orchestrator 启动执行循环之前，必须先完成 Phase 0 的规范研读。
+>
+> 生成 Orchestrator 时，需要确保：
+> 1. SKILL.md 中已包含 Phase 0 规范研读步骤
+> 2. Orchestrator 启动前验证规范已阅读
+> 3. 所有 Action 文件都引用相关的规范文档
+> 4. Architecture Overview 中 Phase 0 位于 Orchestrator 之前
+
 ## 模板结构
 
 ```markdown

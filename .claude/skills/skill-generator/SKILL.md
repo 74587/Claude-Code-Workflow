@@ -15,6 +15,9 @@ Meta-skill for creating new Claude Code skills with configurable execution modes
 │  Skill Generator Architecture                                    │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
+│  ⚠️ Phase 0: Specification  → 阅读并理解设计规范 (强制前置)      │
+│              Study              SKILL-DESIGN-SPEC.md + 模板     │
+│           ↓                                                      │
 │  Phase 1: Requirements    → skill-config.json                   │
 │           Discovery           (name, type, mode, agents)        │
 │           ↓                                                      │
@@ -82,10 +85,63 @@ Phase 01 → Phase 02 → Phase 03 → ... → Phase N
 3. **规范遵循**: 严格遵循 `_shared/SKILL-DESIGN-SPEC.md`
 4. **可扩展性**: 生成的 Skill 易于扩展和修改
 
+---
+
+## ⚠️ Mandatory Prerequisites (强制前置条件)
+
+> **⛔ 禁止跳过**: 在执行任何生成操作之前，**必须**完整阅读以下文档。未阅读规范直接生成将导致输出不符合质量标准。
+
+### 核心规范 (必读)
+
+| Document | Purpose | Priority |
+|----------|---------|----------|
+| [../_shared/SKILL-DESIGN-SPEC.md](../_shared/SKILL-DESIGN-SPEC.md) | 通用设计规范 - 定义所有 Skill 的结构、命名、质量标准 | **P0 - 最高** |
+
+### 模板文件 (生成前必读)
+
+| Document | Purpose |
+|----------|---------|
+| [templates/skill-md.md](templates/skill-md.md) | SKILL.md 入口文件模板 |
+| [templates/sequential-phase.md](templates/sequential-phase.md) | Sequential Phase 模板 |
+| [templates/autonomous-orchestrator.md](templates/autonomous-orchestrator.md) | Autonomous 编排器模板 |
+| [templates/autonomous-action.md](templates/autonomous-action.md) | Autonomous Action 模板 |
+| [templates/code-analysis-action.md](templates/code-analysis-action.md) | 代码分析 Action 模板 |
+| [templates/llm-action.md](templates/llm-action.md) | LLM Action 模板 |
+| [templates/script-bash.md](templates/script-bash.md) | Bash 脚本模板 |
+| [templates/script-python.md](templates/script-python.md) | Python 脚本模板 |
+
+### 规范文档 (按需阅读)
+
+| Document | Purpose |
+|----------|---------|
+| [specs/execution-modes.md](specs/execution-modes.md) | 执行模式规范 |
+| [specs/skill-requirements.md](specs/skill-requirements.md) | Skill 需求规范 |
+| [specs/cli-integration.md](specs/cli-integration.md) | CLI 集成规范 |
+| [specs/scripting-integration.md](specs/scripting-integration.md) | 脚本集成规范 |
+
+### Phase 执行指南 (执行时参考)
+
+| Document | Purpose |
+|----------|---------|
+| [phases/01-requirements-discovery.md](phases/01-requirements-discovery.md) | 收集 Skill 需求 |
+| [phases/02-structure-generation.md](phases/02-structure-generation.md) | 生成目录结构 |
+| [phases/03-phase-generation.md](phases/03-phase-generation.md) | 生成 Phase 文件 |
+| [phases/04-specs-templates.md](phases/04-specs-templates.md) | 生成规范和模板 |
+| [phases/05-validation.md](phases/05-validation.md) | 验证和文档 |
+
+---
+
 ## Execution Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
+│  ⚠️ Phase 0: Specification Study (强制前置 - 禁止跳过)           │
+│  → Read: ../_shared/SKILL-DESIGN-SPEC.md (通用设计规范)         │
+│  → Read: templates/*.md (所有相关模板文件)                       │
+│  → 理解: Skill 结构规范、命名约定、质量标准                      │
+│  → Output: 内化规范要求，确保后续生成符合标准                    │
+│  ⛔ 未完成 Phase 0 禁止进入 Phase 1                              │
+├─────────────────────────────────────────────────────────────────┤
 │  Phase 1: Requirements Discovery                                 │
 │  → AskUserQuestion: Skill 名称、目标、执行模式                   │
 │  → Output: skill-config.json                                    │
@@ -168,20 +224,3 @@ if (config.execution_mode === 'autonomous') {
     ├── orchestrator-base.md     # 编排器模板
     └── action-base.md           # 动作模板
 ```
-
-## Reference Documents
-
-| Document | Purpose |
-|----------|---------|
-| [phases/01-requirements-discovery.md](phases/01-requirements-discovery.md) | 收集 Skill 需求 |
-| [phases/02-structure-generation.md](phases/02-structure-generation.md) | 生成目录结构 |
-| [phases/03-phase-generation.md](phases/03-phase-generation.md) | 生成 Phase 文件 |
-| [phases/04-specs-templates.md](phases/04-specs-templates.md) | 生成规范和模板 |
-| [phases/05-validation.md](phases/05-validation.md) | 验证和文档 |
-| [specs/execution-modes.md](specs/execution-modes.md) | 执行模式规范 |
-| [specs/skill-requirements.md](specs/skill-requirements.md) | Skill 需求规范 |
-| [templates/skill-md.md](templates/skill-md.md) | SKILL.md 模板 |
-| [templates/sequential-phase.md](templates/sequential-phase.md) | Sequential Phase 模板 |
-| [templates/autonomous-orchestrator.md](templates/autonomous-orchestrator.md) | Autonomous 编排器模板 |
-| [templates/autonomous-action.md](templates/autonomous-action.md) | Autonomous Action 模板 |
-| [../_shared/SKILL-DESIGN-SPEC.md](../_shared/SKILL-DESIGN-SPEC.md) | 通用设计规范 |

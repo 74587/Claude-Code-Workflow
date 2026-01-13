@@ -36,6 +36,16 @@ allowed-tools: {{allowed_tools}}
 
 {{design_principles}}
 
+---
+
+## ⚠️ Mandatory Prerequisites (强制前置条件)
+
+> **⛔ 禁止跳过**: 在执行任何操作之前，**必须**完整阅读以下文档。未阅读规范直接执行将导致输出不符合质量标准。
+
+{{mandatory_prerequisites}}
+
+---
+
 ## Execution Flow
 
 {{execution_flow}}
@@ -71,9 +81,10 @@ Bash(\`mkdir -p "\${workDir}"\`);
 | `{{description}}` | string | config.description |
 | `{{triggers}}` | string | config.triggers.join(", ") |
 | `{{allowed_tools}}` | string | config.allowed_tools.join(", ") |
-| `{{architecture_diagram}}` | string | 根据 execution_mode 生成 |
+| `{{architecture_diagram}}` | string | 根据 execution_mode 生成 (包含 Phase 0) |
 | `{{design_principles}}` | string | 根据 execution_mode 生成 |
-| `{{execution_flow}}` | string | 根据 phases/actions 生成 |
+| `{{mandatory_prerequisites}}` | string | 强制前置阅读文档列表 (specs + templates) |
+| `{{execution_flow}}` | string | 根据 phases/actions 生成 (Phase 0 在最前) |
 | `{{output_location}}` | string | config.output.location |
 | `{{additional_dirs}}` | string | 根据 execution_mode 生成 |
 | `{{output_structure}}` | string | 根据配置生成 |
@@ -84,20 +95,47 @@ Bash(\`mkdir -p "\${workDir}"\`);
 ```javascript
 function generateSkillMd(config) {
   const template = Read('templates/skill-md.md');
-  
+
   return template
     .replace(/\{\{skill_name\}\}/g, config.skill_name)
     .replace(/\{\{display_name\}\}/g, config.display_name)
     .replace(/\{\{description\}\}/g, config.description)
     .replace(/\{\{triggers\}\}/g, config.triggers.map(t => `"${t}"`).join(", "))
     .replace(/\{\{allowed_tools\}\}/g, config.allowed_tools.join(", "))
-    .replace(/\{\{architecture_diagram\}\}/g, generateArchitecture(config))
+    .replace(/\{\{architecture_diagram\}\}/g, generateArchitecture(config))  // 包含 Phase 0
     .replace(/\{\{design_principles\}\}/g, generatePrinciples(config))
-    .replace(/\{\{execution_flow\}\}/g, generateFlow(config))
+    .replace(/\{\{mandatory_prerequisites\}\}/g, generatePrerequisites(config))  // 强制前置条件
+    .replace(/\{\{execution_flow\}\}/g, generateFlow(config))  // Phase 0 在最前
     .replace(/\{\{output_location\}\}/g, config.output.location)
     .replace(/\{\{additional_dirs\}\}/g, generateAdditionalDirs(config))
     .replace(/\{\{output_structure\}\}/g, generateOutputStructure(config))
     .replace(/\{\{reference_table\}\}/g, generateReferenceTable(config));
+}
+
+// 生成强制前置条件表格
+function generatePrerequisites(config) {
+  const specs = config.specs || [];
+  const templates = config.templates || [];
+
+  let result = '### 规范文档 (必读)\n\n';
+  result += '| Document | Purpose | Priority |\n';
+  result += '|----------|---------|----------|\n';
+
+  specs.forEach((spec, index) => {
+    const priority = index === 0 ? '**P0 - 最高**' : 'P1';
+    result += `| [${spec.path}](${spec.path}) | ${spec.purpose} | ${priority} |\n`;
+  });
+
+  if (templates.length > 0) {
+    result += '\n### 模板文件 (生成前必读)\n\n';
+    result += '| Document | Purpose |\n';
+    result += '|----------|---------|\n';
+    templates.forEach(tmpl => {
+      result += `| [${tmpl.path}](${tmpl.path}) | ${tmpl.purpose} |\n`;
+    });
+  }
+
+  return result;
 }
 ```
 
@@ -118,6 +156,9 @@ Generate API documentation from source code.
 
 \`\`\`
 ┌─────────────────────────────────────────────────────────────────┐
+│  ⚠️ Phase 0: Specification  → 阅读并理解设计规范 (强制前置)      │
+│              Study                                               │
+│           ↓                                                      │
 │  Phase 1: Scanning        → endpoints.json                      │
 │           ↓                                                      │
 │  Phase 2: Parsing         → schemas.json                        │
@@ -125,6 +166,22 @@ Generate API documentation from source code.
 │  Phase 3: Generation      → api-docs.md                         │
 └─────────────────────────────────────────────────────────────────┘
 \`\`\`
+
+## ⚠️ Mandatory Prerequisites (强制前置条件)
+
+> **⛔ 禁止跳过**: 在执行任何操作之前，**必须**完整阅读以下文档。
+
+### 规范文档 (必读)
+
+| Document | Purpose | Priority |
+|----------|---------|----------|
+| [specs/api-standards.md](specs/api-standards.md) | API 文档标准规范 | **P0 - 最高** |
+
+### 模板文件 (生成前必读)
+
+| Document | Purpose |
+|----------|---------|
+| [templates/endpoint-doc.md](templates/endpoint-doc.md) | 端点文档模板 |
 ```
 
 ## Autonomous 模式示例
@@ -144,6 +201,10 @@ Interactive task management with CRUD operations.
 
 \`\`\`
 ┌─────────────────────────────────────────────────────────────────┐
+│  ⚠️ Phase 0: Specification Study (强制前置)                       │
+└───────────────┬─────────────────────────────────────────────────┘
+                ↓
+┌─────────────────────────────────────────────────────────────────┐
 │           Orchestrator (状态驱动决策)                             │
 └───────────────┬─────────────────────────────────────────────────┘
                 │
@@ -153,4 +214,22 @@ Interactive task management with CRUD operations.
 │ List  │  │Create │  │ Edit  │  │Delete │
 └───────┘  └───────┘  └───────┘  └───────┘
 \`\`\`
+
+## ⚠️ Mandatory Prerequisites (强制前置条件)
+
+> **⛔ 禁止跳过**: 在执行任何操作之前，**必须**完整阅读以下文档。
+
+### 规范文档 (必读)
+
+| Document | Purpose | Priority |
+|----------|---------|----------|
+| [specs/task-schema.md](specs/task-schema.md) | 任务数据结构规范 | **P0 - 最高** |
+| [specs/action-catalog.md](specs/action-catalog.md) | 动作目录 | P1 |
+
+### 模板文件 (生成前必读)
+
+| Document | Purpose |
+|----------|---------|
+| [templates/orchestrator-base.md](templates/orchestrator-base.md) | 编排器模板 |
+| [templates/action-base.md](templates/action-base.md) | 动作模板 |
 ```
