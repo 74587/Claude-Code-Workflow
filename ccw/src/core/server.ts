@@ -640,6 +640,12 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       try {
         const healthCheckService = getHealthCheckService();
         healthCheckService.startAllHealthChecks(initialPath);
+
+        // Graceful shutdown: stop health checks when server closes
+        server.on('close', () => {
+          console.log('[Server] Shutting down health check service...');
+          healthCheckService.stopAllHealthChecks();
+        });
       } catch (err) {
         console.warn('[Server] Failed to start health check service:', err);
       }

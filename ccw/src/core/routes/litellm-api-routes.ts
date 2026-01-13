@@ -292,6 +292,14 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
         return true;
       }
 
+      // Clean up health check service state for deleted provider
+      try {
+        const { getHealthCheckService } = await import('../services/health-check-service.js');
+        getHealthCheckService().cleanupProvider(providerId);
+      } catch (cleanupErr) {
+        console.warn('[Provider Delete] Failed to cleanup health check state:', cleanupErr);
+      }
+
       broadcastToClients({
         type: 'LITELLM_PROVIDER_DELETED',
         payload: { providerId, timestamp: new Date().toISOString() }

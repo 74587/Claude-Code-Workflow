@@ -330,6 +330,32 @@ export class HealthCheckService {
   getMonitoredProviders(): string[] {
     return Array.from(this.timers.keys());
   }
+
+  /**
+   * Clean up all state for a deleted provider
+   * Call this when a provider is deleted to prevent memory leaks
+   * @param providerId - The provider ID to clean up
+   */
+  cleanupProvider(providerId: string): void {
+    // Stop health check timer
+    this.stopHealthCheck(providerId);
+
+    // Remove all key states for this provider
+    const keysToRemove: string[] = [];
+    for (const key of this.keyStates.keys()) {
+      if (key.startsWith(`${providerId}:`)) {
+        keysToRemove.push(key);
+      }
+    }
+
+    for (const key of keysToRemove) {
+      this.keyStates.delete(key);
+    }
+
+    if (keysToRemove.length > 0) {
+      console.log(`[HealthCheck] Cleaned up ${keysToRemove.length} key state(s) for deleted provider ${providerId}`);
+    }
+  }
 }
 
 /**

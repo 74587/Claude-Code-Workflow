@@ -7,6 +7,51 @@
 import type { ProviderType } from '../../types/litellm-api-config.js';
 
 /**
+ * Allowed URL patterns for API base URLs (SSRF protection)
+ * Only allows HTTPS URLs to known API providers or custom domains
+ */
+const BLOCKED_HOSTS = [
+  /^localhost$/i,
+  /^127\.\d+\.\d+\.\d+$/,
+  /^10\.\d+\.\d+\.\d+$/,
+  /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/,
+  /^192\.168\.\d+\.\d+$/,
+  /^0\.0\.0\.0$/,
+  /^::1$/,
+  /^\[::1\]$/,
+  /^metadata\.google\.internal$/i,
+  /^169\.254\.\d+\.\d+$/,  // AWS metadata service
+];
+
+/**
+ * Validate API base URL to prevent SSRF attacks
+ * @param url - The URL to validate
+ * @returns Object with valid flag and optional error message
+ */
+export function validateApiBaseUrl(url: string): { valid: boolean; error?: string } {
+  try {
+    const parsed = new URL(url);
+
+    // Must be HTTPS (except for localhost in development)
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return { valid: false, error: 'URL must use HTTPS protocol' };
+    }
+
+    // Check against blocked hosts
+    const hostname = parsed.hostname.toLowerCase();
+    for (const pattern of BLOCKED_HOSTS) {
+      if (pattern.test(hostname)) {
+        return { valid: false, error: 'URL points to internal/private network address' };
+      }
+    }
+
+    return { valid: true };
+  } catch {
+    return { valid: false, error: 'Invalid URL format' };
+  }
+}
+
+/**
  * Result of an API key connection test
  */
 export interface TestResult {
@@ -44,6 +89,12 @@ export async function testApiKeyConnection(
   apiKey: string,
   timeout: number = 10000
 ): Promise<TestResult> {
+  // Validate URL to prevent SSRF
+  const urlValidation = validateApiBaseUrl(apiBase);
+  if (!urlValidation.valid) {
+    return { valid: false, error: urlValidation.error };
+  }
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
   const startTime = Date.now();
