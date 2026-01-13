@@ -268,6 +268,12 @@ const i18n = {
     'cli.envFilePlaceholder': 'Path to .env file (e.g., ~/.gemini-env or C:/Users/xxx/.env)',
     'cli.envFileHint': 'Load environment variables (e.g., API keys) before CLI execution. Supports ~ for home directory.',
     'cli.envFileBrowse': 'Browse',
+    'cli.fileBrowser': 'File Browser',
+    'cli.fileBrowserSelect': 'Select',
+    'cli.fileBrowserCancel': 'Cancel',
+    'cli.fileBrowserUp': 'Parent Directory',
+    'cli.fileBrowserHome': 'Home',
+    'cli.fileBrowserShowHidden': 'Show hidden files',
 
     // CodexLens Configuration
     'codexlens.config': 'CodexLens Configuration',
@@ -2442,6 +2448,12 @@ const i18n = {
     'cli.envFilePlaceholder': '.env 文件路径（如 ~/.gemini-env 或 C:/Users/xxx/.env）',
     'cli.envFileHint': '在 CLI 执行前加载环境变量（如 API 密钥）。支持 ~ 表示用户目录。',
     'cli.envFileBrowse': '浏览',
+    'cli.fileBrowser': '文件浏览器',
+    'cli.fileBrowserSelect': '选择',
+    'cli.fileBrowserCancel': '取消',
+    'cli.fileBrowserUp': '上级目录',
+    'cli.fileBrowserHome': '主目录',
+    'cli.fileBrowserShowHidden': '显示隐藏文件',
 
     // CodexLens 配置
     'codexlens.config': 'CodexLens 配置',

@@ -17,21 +17,21 @@ Minimal orchestrator that dispatches **solution IDs** to executors. Each executo
 - `done <id>` → update solution completion status
 - No race conditions: status changes only via `done`
 - **Executor handles all tasks within a solution sequentially**
-- **Worktree isolation**: Each executor can work in its own git worktree
+- **Single worktree for entire queue**: One worktree isolates ALL queue execution from main workspace
 
 ## Usage
 
 ```bash
 /issue:execute                           # Execute active queue(s)
 /issue:execute --queue QUE-xxx           # Execute specific queue
-/issue:execute --worktree                # Use git worktrees for parallel isolation
+/issue:execute --worktree                # Execute entire queue in isolated worktree
 /issue:execute --worktree --queue QUE-xxx
 /issue:execute --worktree /path/to/existing/worktree  # Resume in existing worktree
 ```
 
 **Parallelism**: Determined automatically by task dependency DAG (no manual control)
 **Executor & Dry-run**: Selected via interactive prompt (AskUserQuestion)
-**Worktree**: Creates isolated git worktrees for each parallel executor
+**Worktree**: Creates ONE worktree for the entire queue execution (not per-solution)
 
 **⭐ Recommended Executor**: **Codex** - Best for long-running autonomous work (2hr timeout), supports background execution and full write access
 
@@ -44,8 +44,10 @@ Minimal orchestrator that dispatches **solution IDs** to executors. Each executo
 ## Execution Flow
 
 ```
-Phase 0 (if --worktree): Setup Worktree Base
-   └─ Ensure .worktrees directory exists
+Phase 0 (if --worktree): Setup Queue Worktree
+   ├─ Create ONE worktree for entire queue: .ccw/worktrees/queue-<timestamp>
+   ├─ All subsequent execution happens in this worktree
+   └─ Main workspace remains clean and untouched
 
 Phase 1: Get DAG & User Selection
    ├─ ccw issue queue dag [--queue QUE-xxx] → { parallel_batches: [["S-1","S-2"], ["S-3"]] }
@@ -53,19 +55,22 @@ Phase 1: Get DAG & User Selection
 
 Phase 2: Dispatch Parallel Batch (DAG-driven)
    ├─ Parallelism determined by DAG (no manual limit)
+   ├─ All executors work in the SAME worktree (or main if no worktree)
    ├─ For each solution ID in batch (parallel - all at once):
-   │   ├─ (if worktree) Create isolated worktree: git worktree add
    │   ├─ Executor calls: ccw issue detail <id>  (READ-ONLY)
    │   ├─ Executor gets FULL SOLUTION with all tasks
    │   ├─ Executor implements all tasks sequentially (T1 → T2 → T3)
    │   ├─ Executor tests + verifies each task
    │   ├─ Executor commits ONCE per solution (with formatted summary)
-   │   ├─ Executor calls: ccw issue done <id>
-   │   └─ (if worktree) Cleanup: merge branch, remove worktree
+   │   └─ Executor calls: ccw issue done <id>
    └─ Wait for batch completion
 
-Phase 3: Next Batch
+Phase 3: Next Batch (repeat Phase 2)
    └─ ccw issue queue dag → check for newly-ready solutions
+
+Phase 4 (if --worktree): Worktree Completion
+   ├─ All batches complete → prompt for merge strategy
+   └─ Options: Create PR / Merge to main / Keep branch
 ```
 
 ## Implementation
@@ -115,12 +120,12 @@ const answer = AskUserQuestion({
       ]
     },
     {
-      question: 'Use git worktrees for parallel isolation?',
+      question: 'Use git worktree for queue isolation?',
       header: 'Worktree',
       multiSelect: false,
       options: [
-        { label: 'Yes (Recommended for parallel)', description: 'Each executor works in isolated worktree branch' },
-        { label: 'No', description: 'Work directly in current directory (serial only)' }
+        { label: 'Yes (Recommended)', description: 'Create ONE worktree for entire queue - main stays clean' },
+        { label: 'No', description: 'Work directly in current directory' }
       ]
     }
   ]
@@ -140,7 +145,7 @@ if (isDryRun) {
 }
 ```
 
-### Phase 2: Dispatch Parallel Batch (DAG-driven)
+### Phase 0 & 2: Setup Queue Worktree & Dispatch
 
 ```javascript
 // Parallelism determined by DAG - no manual limit
@@ -158,24 +163,40 @@ TodoWrite({
 
 console.log(`\n### Executing Solutions (DAG batch 1): ${batch.join(', ')}`);
 
-// Setup worktree base directory if needed (using absolute paths)
-if (useWorktree) {
-  // Use absolute paths to avoid issues when running from subdirectories
-  const repoRoot = Bash('git rev-parse --show-toplevel').trim();
-  const worktreeBase = `${repoRoot}/.ccw/worktrees`;
-  Bash(`mkdir -p "${worktreeBase}"`);
-  // Prune stale worktrees from previous interrupted executions
-  Bash('git worktree prune');
-}
-
 // Parse existing worktree path from args if provided
 // Example: --worktree /path/to/existing/worktree
 const existingWorktree = args.worktree && typeof args.worktree === 'string' ? args.worktree : null;
 
+// Setup ONE worktree for entire queue (not per-solution)
+let worktreePath = null;
+let worktreeBranch = null;
+
+if (useWorktree) {
+  const repoRoot = Bash('git rev-parse --show-toplevel').trim();
+  const worktreeBase = `${repoRoot}/.ccw/worktrees`;
+  Bash(`mkdir -p "${worktreeBase}"`);
+  Bash('git worktree prune');  // Cleanup stale worktrees
+
+  if (existingWorktree) {
+    // Resume mode: Use existing worktree
+    worktreePath = existingWorktree;
+    worktreeBranch = Bash(`git -C "${worktreePath}" branch --show-current`).trim();
+    console.log(`Resuming in existing worktree: ${worktreePath} (branch: ${worktreeBranch})`);
+  } else {
+    // Create mode: ONE worktree for the entire queue
+    const timestamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+    worktreeBranch = `queue-exec-${dag.queue_id || timestamp}`;
+    worktreePath = `${worktreeBase}/${worktreeBranch}`;
+    Bash(`git worktree add "${worktreePath}" -b "${worktreeBranch}"`);
+    console.log(`Created queue worktree: ${worktreePath}`);
+  }
+}
+
 // Launch ALL solutions in batch in parallel (DAG guarantees no conflicts)
+// All executors work in the SAME worktree (or main if no worktree)
 const executions = batch.map(solutionId => {
   updateTodo(solutionId, 'in_progress');
-  return dispatchExecutor(solutionId, executor, useWorktree, existingWorktree);
+  return dispatchExecutor(solutionId, executor, worktreePath);
 });
 
 await Promise.all(executions);
@@ -185,126 +206,20 @@ batch.forEach(id => updateTodo(id, 'completed'));
 ### Executor Dispatch
 
 ```javascript
-function dispatchExecutor(solutionId, executorType, useWorktree = false, existingWorktree = null) {
-  // Worktree setup commands (if enabled) - using absolute paths
-  // Supports both creating new worktrees and resuming in existing ones
-  const worktreeSetup = useWorktree ? `
-### Step 0: Setup Isolated Worktree
-\`\`\`bash
-# Use absolute paths to avoid issues when running from subdirectories
-REPO_ROOT=$(git rev-parse --show-toplevel)
-WORKTREE_BASE="\${REPO_ROOT}/.ccw/worktrees"
-
-# Check if existing worktree path was provided
-EXISTING_WORKTREE="${existingWorktree || ''}"
-
-if [[ -n "\${EXISTING_WORKTREE}" && -d "\${EXISTING_WORKTREE}" ]]; then
-  # Resume mode: Use existing worktree
-  WORKTREE_PATH="\${EXISTING_WORKTREE}"
-  WORKTREE_NAME=$(basename "\${WORKTREE_PATH}")
-
-  # Verify it's a valid git worktree
-  if ! git -C "\${WORKTREE_PATH}" rev-parse --is-inside-work-tree &>/dev/null; then
-    echo "Error: \${EXISTING_WORKTREE} is not a valid git worktree"
-    exit 1
-  fi
-
-  echo "Resuming in existing worktree: \${WORKTREE_PATH}"
-else
-  # Create mode: New worktree with timestamp
-  WORKTREE_NAME="exec-${solutionId}-$(date +%H%M%S)"
-  WORKTREE_PATH="\${WORKTREE_BASE}/\${WORKTREE_NAME}"
-
-  # Ensure worktree base exists
-  mkdir -p "\${WORKTREE_BASE}"
-
-  # Prune stale worktrees
-  git worktree prune
-
-  # Create worktree
-  git worktree add "\${WORKTREE_PATH}" -b "\${WORKTREE_NAME}"
-
-  echo "Created new worktree: \${WORKTREE_PATH}"
-fi
-
-# Setup cleanup trap for graceful failure handling
-cleanup_worktree() {
-  echo "Cleaning up worktree due to interruption..."
-  cd "\${REPO_ROOT}" 2>/dev/null || true
-  git worktree remove "\${WORKTREE_PATH}" --force 2>/dev/null || true
-  echo "Worktree removed. Branch '\${WORKTREE_NAME}' kept for inspection."
-}
-trap cleanup_worktree EXIT INT TERM
-
-cd "\${WORKTREE_PATH}"
-\`\`\`
-` : '';
-
-  const worktreeCleanup = useWorktree ? `
-### Step 5: Worktree Completion (User Choice)
-
-After all tasks complete, prompt for merge strategy:
-
-\`\`\`javascript
-AskUserQuestion({
-  questions: [{
-    question: "Solution ${solutionId} completed. What to do with worktree branch?",
-    header: "Merge",
-    multiSelect: false,
-    options: [
-      { label: "Create PR (Recommended)", description: "Push branch and create pull request - safest for parallel execution" },
-      { label: "Merge to main", description: "Merge branch and cleanup worktree (requires clean main)" },
-      { label: "Keep branch", description: "Cleanup worktree, keep branch for manual handling" }
-    ]
-  }]
-})
-\`\`\`
-
-**Based on selection:**
-\`\`\`bash
-# Disable cleanup trap before intentional cleanup
-trap - EXIT INT TERM
-
-# Return to repo root (use REPO_ROOT from setup)
-cd "\${REPO_ROOT}"
-
-# Validate main repo state before merge
-validate_main_clean() {
-  if [[ -n \$(git status --porcelain) ]]; then
-    echo "⚠️ Warning: Main repo has uncommitted changes."
-    echo "Cannot auto-merge. Falling back to 'Create PR' option."
-    return 1
-  fi
-  return 0
-}
-
-# Create PR (Recommended for parallel execution):
-git push -u origin "\${WORKTREE_NAME}"
-gh pr create --title "Solution ${solutionId}" --body "Issue queue execution"
-git worktree remove "\${WORKTREE_PATH}"
-
-# Merge to main (only if main is clean):
-if validate_main_clean; then
-  git merge --no-ff "\${WORKTREE_NAME}" -m "Merge solution ${solutionId}"
-  git worktree remove "\${WORKTREE_PATH}" && git branch -d "\${WORKTREE_NAME}"
-else
-  # Fallback to PR if main is dirty
-  git push -u origin "\${WORKTREE_NAME}"
-  gh pr create --title "Solution ${solutionId}" --body "Issue queue execution (main had uncommitted changes)"
-  git worktree remove "\${WORKTREE_PATH}"
-fi
-
-# Keep branch:
-git worktree remove "\${WORKTREE_PATH}"
-echo "Branch \${WORKTREE_NAME} kept for manual handling"
-\`\`\`
-
-**Parallel Execution Safety**: "Create PR" is the default and safest option for parallel executors, avoiding merge race conditions.
-` : '';
+// worktreePath: path to shared worktree (null if not using worktree)
+function dispatchExecutor(solutionId, executorType, worktreePath = null) {
+  // If worktree is provided, executor works in that directory
+  // No per-solution worktree creation - ONE worktree for entire queue
+  const cdCommand = worktreePath ? `cd "${worktreePath}"` : '';
 
   const prompt = `
 ## Execute Solution ${solutionId}
-${worktreeSetup}
+${worktreePath ? `
+### Step 0: Enter Queue Worktree
+\`\`\`bash
+cd "${worktreePath}"
+\`\`\`
+` : ''}
 ### Step 1: Get Solution (read-only)
 \`\`\`bash
 ccw issue detail ${solutionId}
@@ -352,16 +267,21 @@ If any task failed:
 \`\`\`bash
 ccw issue done ${solutionId} --fail --reason '{"task_id": "TX", "error_type": "test_failure", "message": "..."}'
 \`\`\`
-${worktreeCleanup}`;
+
+**Note**: Do NOT cleanup worktree after this solution. Worktree is shared by all solutions in the queue.
+`;
+
+  // For CLI tools, pass --cd to set working directory
+  const cdOption = worktreePath ? ` --cd "${worktreePath}"` : '';
 
   if (executorType === 'codex') {
     return Bash(
-      `ccw cli -p "${escapePrompt(prompt)}" --tool codex --mode write --id exec-${solutionId}`,
+      `ccw cli -p "${escapePrompt(prompt)}" --tool codex --mode write --id exec-${solutionId}${cdOption}`,
       { timeout: 7200000, run_in_background: true }  // 2hr for full solution
     );
   } else if (executorType === 'gemini') {
     return Bash(
-      `ccw cli -p "${escapePrompt(prompt)}" --tool gemini --mode write --id exec-${solutionId}`,
+      `ccw cli -p "${escapePrompt(prompt)}" --tool gemini --mode write --id exec-${solutionId}${cdOption}`,
       { timeout: 3600000, run_in_background: true }
     );
   } else {
@@ -369,7 +289,7 @@ ${worktreeCleanup}`;
       subagent_type: 'code-developer',
       run_in_background: false,
       description: `Execute solution ${solutionId}`,
-      prompt: prompt
+      prompt: worktreePath ? `Working directory: ${worktreePath}\n\n${prompt}` : prompt
     });
   }
 }
@@ -390,40 +310,98 @@ console.log(`
 
 if (refreshedDag.ready_count > 0) {
   console.log('Run `/issue:execute` again for next batch.');
+  // Note: If resuming, pass existing worktree path:
+  // /issue:execute --worktree <worktreePath>
+}
+```
+
+### Phase 4: Worktree Completion (after ALL batches)
+
+```javascript
+// Only run when ALL solutions completed AND using worktree
+if (useWorktree && refreshedDag.ready_count === 0 && refreshedDag.completed_count === refreshedDag.total) {
+  console.log('\n## All Solutions Completed - Worktree Cleanup');
+
+  const answer = AskUserQuestion({
+    questions: [{
+      question: `Queue complete. What to do with worktree branch "${worktreeBranch}"?`,
+      header: 'Merge',
+      multiSelect: false,
+      options: [
+        { label: 'Create PR (Recommended)', description: 'Push branch and create pull request' },
+        { label: 'Merge to main', description: 'Merge all commits and cleanup worktree' },
+        { label: 'Keep branch', description: 'Cleanup worktree, keep branch for manual handling' }
+      ]
+    }]
+  });
+
+  const repoRoot = Bash('git rev-parse --show-toplevel').trim();
+
+  if (answer['Merge'].includes('Create PR')) {
+    Bash(`git -C "${worktreePath}" push -u origin "${worktreeBranch}"`);
+    Bash(`gh pr create --title "Queue ${dag.queue_id}" --body "Issue queue execution - all solutions completed" --head "${worktreeBranch}"`);
+    Bash(`git worktree remove "${worktreePath}"`);
+    console.log(`PR created for branch: ${worktreeBranch}`);
+  } else if (answer['Merge'].includes('Merge to main')) {
+    // Check main is clean
+    const mainDirty = Bash('git status --porcelain').trim();
+    if (mainDirty) {
+      console.log('Warning: Main has uncommitted changes. Falling back to PR.');
+      Bash(`git -C "${worktreePath}" push -u origin "${worktreeBranch}"`);
+      Bash(`gh pr create --title "Queue ${dag.queue_id}" --body "Issue queue execution (main had uncommitted changes)" --head "${worktreeBranch}"`);
+    } else {
+      Bash(`git merge --no-ff "${worktreeBranch}" -m "Merge queue ${dag.queue_id}"`);
+      Bash(`git branch -d "${worktreeBranch}"`);
+    }
+    Bash(`git worktree remove "${worktreePath}"`);
+  } else {
+    Bash(`git worktree remove "${worktreePath}"`);
+    console.log(`Branch ${worktreeBranch} kept for manual handling`);
+  }
 }
 ```
 
 ## Parallel Execution Model
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│ Orchestrator                                                │
-├─────────────────────────────────────────────────────────────┤
-│ 1. ccw issue queue dag                                      │
-│    → { parallel_batches: [["S-1","S-2"], ["S-3"]] }        │
-│                                                             │
-│ 2. Dispatch batch 1 (parallel):                            │
-│    ┌──────────────────────┐ ┌──────────────────────┐       │
-│    │ Executor 1           │ │ Executor 2           │       │
-│    │ detail S-1           │ │ detail S-2           │       │
-│    │ → gets full solution │ │ → gets full solution │       │
-│    │ [T1→T2→T3 sequential]│ │ [T1→T2 sequential]   │       │
-│    │ commit (1x solution) │ │ commit (1x solution) │       │
-│    │ done S-1             │ │ done S-2             │       │
-│    └──────────────────────┘ └──────────────────────┘       │
-│                                                             │
-│ 3. ccw issue queue dag (refresh)                           │
-│    → S-3 now ready (S-1 completed, file conflict resolved) │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│ Orchestrator                                                    │
+├─────────────────────────────────────────────────────────────────┤
+│ 0. (if --worktree) Create ONE worktree for entire queue         │
+│    → .ccw/worktrees/queue-exec-<queue-id>                       │
+│                                                                 │
+│ 1. ccw issue queue dag                                          │
+│    → { parallel_batches: [["S-1","S-2"], ["S-3"]] }             │
+│                                                                 │
+│ 2. Dispatch batch 1 (parallel, SAME worktree):                  │
+│    ┌──────────────────────────────────────────────────────┐     │
+│    │        Shared Queue Worktree (or main)               │     │
+│    │  ┌──────────────────┐ ┌──────────────────┐          │     │
+│    │  │ Executor 1       │ │ Executor 2       │          │     │
+│    │  │ detail S-1       │ │ detail S-2       │          │     │
+│    │  │ [T1→T2→T3]       │ │ [T1→T2]          │          │     │
+│    │  │ commit S-1       │ │ commit S-2       │          │     │
+│    │  │ done S-1         │ │ done S-2         │          │     │
+│    │  └──────────────────┘ └──────────────────┘          │     │
+│    └──────────────────────────────────────────────────────┘     │
+│                                                                 │
+│ 3. ccw issue queue dag (refresh)                                │
+│    → S-3 now ready → dispatch batch 2 (same worktree)           │
+│                                                                 │
+│ 4. (if --worktree) ALL batches complete → cleanup worktree      │
+│    → Prompt: Create PR / Merge to main / Keep branch            │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 **Why this works for parallel:**
+- **ONE worktree for entire queue** → all solutions share same isolated workspace
 - `detail <id>` is READ-ONLY → no race conditions
 - Each executor handles **all tasks within a solution** sequentially
 - **One commit per solution** with formatted summary (not per-task)
 - `done <id>` updates only its own solution status
 - `queue dag` recalculates ready solutions after each batch
-- Solutions in same batch have NO file conflicts
+- Solutions in same batch have NO file conflicts (DAG guarantees)
+- **Main workspace stays clean** until merge/PR decision
 
 ## CLI Endpoint Contract
 

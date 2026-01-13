@@ -554,6 +554,241 @@ function buildToolConfigModalContent(tool, config, models, status) {
   '</div>';
 }
 
+// ========== File Browser Modal ==========
+
+var fileBrowserState = {
+  currentPath: '',
+  showHidden: false,
+  onSelect: null
+};
+
+function showFileBrowserModal(onSelect) {
+  fileBrowserState.onSelect = onSelect;
+  fileBrowserState.showHidden = false;
+  
+  // Create modal overlay
+  var overlay = document.createElement('div');
+  overlay.id = 'fileBrowserOverlay';
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = buildFileBrowserModalContent();
+  document.body.appendChild(overlay);
+  
+  // Load initial directory (home)
+  loadFileBrowserDirectory('');
+  
+  // Initialize events
+  initFileBrowserEvents();
+  
+  // Initialize icons
+  if (window.lucide) lucide.createIcons();
+}
+
+function buildFileBrowserModalContent() {
+  return '<div class="modal-content file-browser-modal">' +
+    '<div class="modal-header">' +
+      '<h3><i data-lucide="folder-open" class="w-4 h-4"></i> ' + t('cli.fileBrowser') + '</h3>' +
+      '<button class="modal-close" id="fileBrowserCloseBtn">&times;</button>' +
+    '</div>' +
+    '<div class="modal-body">' +
+      '<div class="file-browser-toolbar">' +
+        '<button class="btn-sm btn-outline" id="fileBrowserUpBtn" title="' + t('cli.fileBrowserUp') + '">' +
+          '<i data-lucide="arrow-up" class="w-3.5 h-3.5"></i>' +
+        '</button>' +
+        '<button class="btn-sm btn-outline" id="fileBrowserHomeBtn" title="' + t('cli.fileBrowserHome') + '">' +
+          '<i data-lucide="home" class="w-3.5 h-3.5"></i>' +
+        '</button>' +
+        '<input type="text" id="fileBrowserPathInput" class="file-browser-path" placeholder="/" readonly />' +
+        '<label class="file-browser-hidden-toggle">' +
+          '<input type="checkbox" id="fileBrowserShowHidden" />' +
+          '<span>' + t('cli.fileBrowserShowHidden') + '</span>' +
+        '</label>' +
+      '</div>' +
+      '<div class="file-browser-list" id="fileBrowserList">' +
+        '<div class="file-browser-loading"><i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="modal-footer">' +
+      '<button class="btn btn-outline" id="fileBrowserCancelBtn">' + t('cli.fileBrowserCancel') + '</button>' +
+      '<button class="btn btn-primary" id="fileBrowserSelectBtn" disabled>' +
+        '<i data-lucide="check" class="w-3.5 h-3.5"></i> ' + t('cli.fileBrowserSelect') +
+      '</button>' +
+    '</div>' +
+  '</div>';
+}
+
+async function loadFileBrowserDirectory(path) {
+  var listContainer = document.getElementById('fileBrowserList');
+  var pathInput = document.getElementById('fileBrowserPathInput');
+  
+  if (listContainer) {
+    listContainer.innerHTML = '<div class="file-browser-loading"><i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i></div>';
+    if (window.lucide) lucide.createIcons();
+  }
+  
+  try {
+    var response = await fetch('/api/dialog/browse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: path, showHidden: fileBrowserState.showHidden })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to load directory');
+    }
+    
+    var data = await response.json();
+    fileBrowserState.currentPath = data.currentPath;
+    
+    if (pathInput) {
+      pathInput.value = data.currentPath;
+    }
+    
+    renderFileBrowserItems(data.items);
+  } catch (err) {
+    console.error('Failed to load directory:', err);
+    if (listContainer) {
+      listContainer.innerHTML = '<div class="file-browser-error">Failed to load directory</div>';
+    }
+  }
+}
+
+function renderFileBrowserItems(items) {
+  var listContainer = document.getElementById('fileBrowserList');
+  if (!listContainer) return;
+  
+  if (!items || items.length === 0) {
+    listContainer.innerHTML = '<div class="file-browser-empty">Empty directory</div>';
+    return;
+  }
+  
+  var html = items.map(function(item) {
+    var icon = item.isDirectory ? 'folder' : 'file';
+    var itemClass = 'file-browser-item' + (item.isDirectory ? ' is-directory' : ' is-file');
+    return '<div class="' + itemClass + '" data-path="' + escapeHtml(item.path) + '" data-is-dir="' + item.isDirectory + '">' +
+      '<i data-lucide="' + icon + '" class="w-4 h-4"></i>' +
+      '<span class="file-browser-item-name">' + escapeHtml(item.name) + '</span>' +
+    '</div>';
+  }).join('');
+  
+  listContainer.innerHTML = html;
+  
+  // Initialize icons
+  if (window.lucide) lucide.createIcons();
+  
+  // Add click handlers
+  listContainer.querySelectorAll('.file-browser-item').forEach(function(el) {
+    el.onclick = function() {
+      var isDir = el.getAttribute('data-is-dir') === 'true';
+      var path = el.getAttribute('data-path');
+      
+      if (isDir) {
+        // Navigate into directory
+        loadFileBrowserDirectory(path);
+      } else {
+        // Select file
+        listContainer.querySelectorAll('.file-browser-item').forEach(function(item) {
+          item.classList.remove('selected');
+        });
+        el.classList.add('selected');
+        
+        // Enable select button
+        var selectBtn = document.getElementById('fileBrowserSelectBtn');
+        if (selectBtn) {
+          selectBtn.disabled = false;
+          selectBtn.setAttribute('data-selected-path', path);
+        }
+      }
+    };
+    
+    // Double-click to select file or enter directory
+    el.ondblclick = function() {
+      var isDir = el.getAttribute('data-is-dir') === 'true';
+      var path = el.getAttribute('data-path');
+      
+      if (isDir) {
+        loadFileBrowserDirectory(path);
+      } else {
+        // Select and close
+        closeFileBrowserModal(path);
+      }
+    };
+  });
+}
+
+function initFileBrowserEvents() {
+  // Close button
+  var closeBtn = document.getElementById('fileBrowserCloseBtn');
+  if (closeBtn) {
+    closeBtn.onclick = function() { closeFileBrowserModal(null); };
+  }
+  
+  // Cancel button
+  var cancelBtn = document.getElementById('fileBrowserCancelBtn');
+  if (cancelBtn) {
+    cancelBtn.onclick = function() { closeFileBrowserModal(null); };
+  }
+  
+  // Select button
+  var selectBtn = document.getElementById('fileBrowserSelectBtn');
+  if (selectBtn) {
+    selectBtn.onclick = function() {
+      var path = selectBtn.getAttribute('data-selected-path');
+      closeFileBrowserModal(path);
+    };
+  }
+  
+  // Up button
+  var upBtn = document.getElementById('fileBrowserUpBtn');
+  if (upBtn) {
+    upBtn.onclick = function() {
+      // Get parent path
+      var currentPath = fileBrowserState.currentPath;
+      var parentPath = currentPath.replace(/[/\\][^/\\]+$/, '') || '/';
+      loadFileBrowserDirectory(parentPath);
+    };
+  }
+  
+  // Home button
+  var homeBtn = document.getElementById('fileBrowserHomeBtn');
+  if (homeBtn) {
+    homeBtn.onclick = function() {
+      loadFileBrowserDirectory('');
+    };
+  }
+  
+  // Show hidden checkbox
+  var showHiddenCheckbox = document.getElementById('fileBrowserShowHidden');
+  if (showHiddenCheckbox) {
+    showHiddenCheckbox.onchange = function() {
+      fileBrowserState.showHidden = showHiddenCheckbox.checked;
+      loadFileBrowserDirectory(fileBrowserState.currentPath);
+    };
+  }
+  
+  // Click outside to close
+  var overlay = document.getElementById('fileBrowserOverlay');
+  if (overlay) {
+    overlay.onclick = function(e) {
+      if (e.target === overlay) {
+        closeFileBrowserModal(null);
+      }
+    };
+  }
+}
+
+function closeFileBrowserModal(selectedPath) {
+  var overlay = document.getElementById('fileBrowserOverlay');
+  if (overlay) {
+    overlay.remove();
+  }
+  
+  if (fileBrowserState.onSelect && selectedPath) {
+    fileBrowserState.onSelect(selectedPath);
+  }
+  
+  fileBrowserState.onSelect = null;
+}
+
 function initToolConfigModalEvents(tool, currentConfig, models) {
   // Local tags state (copy from config)
   var currentTags = (currentConfig.tags || []).slice();
@@ -754,38 +989,13 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
   // Environment file browse button (only for gemini/qwen)
   var envFileBrowseBtn = document.getElementById('envFileBrowseBtn');
   if (envFileBrowseBtn) {
-    envFileBrowseBtn.onclick = async function() {
-      try {
-        // Use file dialog API if available
-        var response = await fetch('/api/dialog/open-file', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: t('cli.envFile'),
-            filters: [
-              { name: 'Environment Files', extensions: ['env'] },
-              { name: 'All Files', extensions: ['*'] }
-            ],
-            defaultPath: ''
-          })
-        });
-        
-        if (response.ok) {
-          var data = await response.json();
-          if (data.filePath) {
-            var envFileInput = document.getElementById('envFileInput');
-            if (envFileInput) {
-              envFileInput.value = data.filePath;
-            }
-          }
-        } else {
-          // Fallback: prompt user to enter path manually
-          showRefreshToast('File dialog not available. Please enter path manually.', 'info');
+    envFileBrowseBtn.onclick = function() {
+      showFileBrowserModal(function(selectedPath) {
+        var envFileInput = document.getElementById('envFileInput');
+        if (envFileInput && selectedPath) {
+          envFileInput.value = selectedPath;
         }
-      } catch (err) {
-        console.error('Failed to open file dialog:', err);
-        showRefreshToast('File dialog not available. Please enter path manually.', 'info');
-      }
+      });
     };
   }
 

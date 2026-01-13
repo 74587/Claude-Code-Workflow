@@ -416,5 +416,107 @@ export async function handleSystemRoutes(ctx: SystemRouteContext): Promise<boole
     return true;
   }
 
+  // API: File dialog - list directory contents for file browser
+  if (pathname === '/api/dialog/browse' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { path: browsePath, showHidden } = body as {
+        path?: string;
+        showHidden?: boolean;
+      };
+
+      const os = await import('os');
+      const path = await import('path');
+      const fs = await import('fs');
+
+      // Default to home directory
+      let targetPath = browsePath || os.homedir();
+
+      // Expand ~ to home directory
+      if (targetPath.startsWith('~')) {
+        targetPath = path.join(os.homedir(), targetPath.slice(1));
+      }
+
+      // Resolve to absolute path
+      if (!path.isAbsolute(targetPath)) {
+        targetPath = path.resolve(targetPath);
+      }
+
+      try {
+        const stat = await fs.promises.stat(targetPath);
+        if (!stat.isDirectory()) {
+          return { error: 'Path is not a directory', status: 400 };
+        }
+
+        const entries = await fs.promises.readdir(targetPath, { withFileTypes: true });
+        const items = entries
+          .filter(entry => showHidden || !entry.name.startsWith('.'))
+          .map(entry => ({
+            name: entry.name,
+            path: path.join(targetPath, entry.name),
+            isDirectory: entry.isDirectory(),
+            isFile: entry.isFile()
+          }))
+          .sort((a, b) => {
+            // Directories first, then files
+            if (a.isDirectory && !b.isDirectory) return -1;
+            if (!a.isDirectory && b.isDirectory) return 1;
+            return a.name.localeCompare(b.name);
+          });
+
+        return {
+          currentPath: targetPath,
+          parentPath: path.dirname(targetPath),
+          items,
+          homePath: os.homedir()
+        };
+      } catch (err) {
+        return { error: 'Cannot access directory: ' + (err as Error).message, status: 400 };
+      }
+    });
+    return true;
+  }
+
+  // API: File dialog - select file (validate path exists)
+  if (pathname === '/api/dialog/open-file' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { path: filePath } = body as { path?: string };
+
+      if (!filePath) {
+        return { error: 'Path is required', status: 400 };
+      }
+
+      const os = await import('os');
+      const path = await import('path');
+      const fs = await import('fs');
+
+      let targetPath = filePath;
+
+      // Expand ~ to home directory
+      if (targetPath.startsWith('~')) {
+        targetPath = path.join(os.homedir(), targetPath.slice(1));
+      }
+
+      // Resolve to absolute path
+      if (!path.isAbsolute(targetPath)) {
+        targetPath = path.resolve(targetPath);
+      }
+
+      try {
+        await fs.promises.access(targetPath, fs.constants.R_OK);
+        const stat = await fs.promises.stat(targetPath);
+
+        return {
+          success: true,
+          path: targetPath,
+          isFile: stat.isFile(),
+          isDirectory: stat.isDirectory()
+        };
+      } catch {
+        return { error: 'File not accessible', status: 404 };
+      }
+    });
+    return true;
+  }
+
   return false;
 }
