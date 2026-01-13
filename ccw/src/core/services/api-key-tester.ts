@@ -7,24 +7,9 @@
 import type { ProviderType } from '../../types/litellm-api-config.js';
 
 /**
- * Allowed URL patterns for API base URLs (SSRF protection)
- * Only allows HTTPS URLs to known API providers or custom domains
- */
-const BLOCKED_HOSTS = [
-  /^localhost$/i,
-  /^127\.\d+\.\d+\.\d+$/,
-  /^10\.\d+\.\d+\.\d+$/,
-  /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/,
-  /^192\.168\.\d+\.\d+$/,
-  /^0\.0\.0\.0$/,
-  /^::1$/,
-  /^\[::1\]$/,
-  /^metadata\.google\.internal$/i,
-  /^169\.254\.\d+\.\d+$/,  // AWS metadata service
-];
-
-/**
- * Validate API base URL to prevent SSRF attacks
+ * Validate API base URL format
+ * Note: This is a local development tool, so we allow localhost and internal networks
+ * for users who run local API gateways or proxies.
  * @param url - The URL to validate
  * @returns Object with valid flag and optional error message
  */
@@ -32,17 +17,9 @@ export function validateApiBaseUrl(url: string): { valid: boolean; error?: strin
   try {
     const parsed = new URL(url);
 
-    // Must be HTTPS (except for localhost in development)
+    // Must be HTTP or HTTPS
     if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-      return { valid: false, error: 'URL must use HTTPS protocol' };
-    }
-
-    // Check against blocked hosts
-    const hostname = parsed.hostname.toLowerCase();
-    for (const pattern of BLOCKED_HOSTS) {
-      if (pattern.test(hostname)) {
-        return { valid: false, error: 'URL points to internal/private network address' };
-      }
+      return { valid: false, error: 'URL must use HTTP or HTTPS protocol' };
     }
 
     return { valid: true };
@@ -101,19 +78,14 @@ export async function testApiKeyConnection(
 
   try {
     if (providerType === 'anthropic') {
-      // Anthropic format: POST /v1/messages with minimal payload
-      const response = await fetch(`${apiBase}/messages`, {
-        method: 'POST',
+      // Anthropic format: Use /v1/models endpoint (no cost, no model dependency)
+      // This validates the API key without making a billable request
+      const response = await fetch(`${apiBase}/models`, {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
           'x-api-key': apiKey,
           'anthropic-version': '2023-06-01',
         },
-        body: JSON.stringify({
-          model: 'claude-3-haiku-20240307',
-          max_tokens: 1,
-          messages: [{ role: 'user', content: 'Hi' }],
-        }),
         signal: controller.signal,
       });
 
@@ -128,7 +100,7 @@ export async function testApiKeyConnection(
       const errorBody = await response.json().catch(() => ({}));
       const errorMessage = (errorBody as any)?.error?.message || response.statusText;
 
-      // 401 = invalid API key, other 4xx might be valid key with other issues
+      // 401 = invalid API key
       if (response.status === 401) {
         return { valid: false, error: 'Invalid API key' };
       }
