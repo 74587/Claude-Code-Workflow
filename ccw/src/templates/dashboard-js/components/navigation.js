@@ -321,10 +321,10 @@ function updateSidebarCounts(data) {
   if (archivedCount) archivedCount.textContent = data.archivedSessions?.length || 0;
   if (allCount) allCount.textContent = (data.activeSessions?.length || 0) + (data.archivedSessions?.length || 0);
 
-  // Update lite task counts
-  const litePlanCount = document.querySelector('.nav-item[data-lite="lite-plan"] .nav-count');
-  const liteFixCount = document.querySelector('.nav-item[data-lite="lite-fix"] .nav-count');
-  const multiCliPlanCount = document.querySelector('.nav-item[data-lite="multi-cli-plan"] .nav-count');
+  // Update lite task counts (using ID selectors to match dashboard.html structure)
+  const litePlanCount = document.getElementById('badgeLitePlan');
+  const liteFixCount = document.getElementById('badgeLiteFix');
+  const multiCliPlanCount = document.getElementById('badgeMultiCliPlan');
 
   if (litePlanCount) litePlanCount.textContent = data.liteTasks?.litePlan?.length || 0;
   if (liteFixCount) liteFixCount.textContent = data.liteTasks?.liteFix?.length || 0;

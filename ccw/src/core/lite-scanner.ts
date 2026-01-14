@@ -60,6 +60,43 @@ interface LiteSession {
   progress: Progress;
 }
 
+// Multi-CLI specific session state from session-state.json
+interface MultiCliSessionState {
+  session_id: string;
+  task_description: string;
+  status: string;
+  current_phase: number;
+  phases: Record<string, { status: string; rounds_completed?: number }>;
+  ace_context?: { relevant_files: string[]; detected_patterns: string[] };
+  user_decisions?: Array<{ round: number; decision: string; selected: string }>;
+  updated_at?: string;
+}
+
+// Discussion topic structure for frontend rendering
+interface DiscussionTopic {
+  title: string;
+  description: string;
+  scope: { included: string[]; excluded: string[] };
+  keyQuestions: string[];
+  status: string;
+  tags: string[];
+}
+
+// Extended session interface for multi-cli-plan
+interface MultiCliSession extends LiteSession {
+  roundCount: number;
+  topicTitle: string;
+  status: string;
+  metadata: {
+    roundId: number;
+    timestamp: string;
+    currentPhase: number;
+  };
+  discussionTopic: DiscussionTopic;
+  rounds: RoundSynthesis[];
+  latestSynthesis: RoundSynthesis | null;
+}
+
 interface LiteTasks {
   litePlan: LiteSession[];
   liteFix: LiteSession[];
@@ -146,11 +183,52 @@ async function scanLiteDir(dir: string, type: string): Promise<LiteSession[]> {
 }
 
 /**
+ * Load session-state.json from multi-cli session directory
+ * @param sessionPath - Session directory path
+ * @returns Session state or null if not found
+ */
+async function loadSessionState(sessionPath: string): Promise<MultiCliSessionState | null> {
+  const statePath = join(sessionPath, 'session-state.json');
+  try {
+    const content = await readFile(statePath, 'utf8');
+    return JSON.parse(content);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build discussion topic structure from session state and synthesis
+ * @param state - Session state from session-state.json
+ * @param synthesis - Latest round synthesis
+ * @returns Discussion topic for frontend rendering
+ */
+function buildDiscussionTopic(
+  state: MultiCliSessionState | null,
+  synthesis: RoundSynthesis | null
+): DiscussionTopic {
+  const keyQuestions = synthesis?.clarification_questions || [];
+  const solutions = synthesis?.solutions || [];
+
+  return {
+    title: state?.task_description || 'Discussion Topic',
+    description: solutions[0]?.summary || '',
+    scope: {
+      included: state?.ace_context?.relevant_files || [],
+      excluded: [],
+    },
+    keyQuestions,
+    status: state?.status || 'analyzing',
+    tags: solutions.map((s) => s.name).slice(0, 3),
+  };
+}
+
+/**
  * Scan multi-cli-plan directory for sessions
  * @param dir - Directory path to .multi-cli-plan
- * @returns Array of multi-cli sessions
+ * @returns Array of multi-cli sessions with extended metadata
  */
-async function scanMultiCliDir(dir: string): Promise<LiteSession[]> {
+async function scanMultiCliDir(dir: string): Promise<MultiCliSession[]> {
   try {
     const entries = await readdir(dir, { withFileTypes: true });
 
@@ -160,18 +238,27 @@ async function scanMultiCliDir(dir: string): Promise<LiteSession[]> {
         .map(async (entry) => {
           const sessionPath = join(dir, entry.name);
 
-          const [createdAt, syntheses] = await Promise.all([
+          const [createdAt, syntheses, sessionState] = await Promise.all([
             getCreatedTime(sessionPath),
             loadRoundSyntheses(sessionPath),
+            loadSessionState(sessionPath),
           ]);
 
-          // Extract plan from latest synthesis if available
+          // Extract data from syntheses
+          const roundCount = syntheses.length;
           const latestSynthesis = syntheses.length > 0 ? syntheses[syntheses.length - 1] : null;
 
           // Calculate progress based on round count and convergence
           const progress = calculateMultiCliProgress(syntheses);
 
-          const session: LiteSession = {
+          // Build discussion topic for frontend
+          const discussionTopic = buildDiscussionTopic(sessionState, latestSynthesis);
+
+          // Determine status from session state or synthesis convergence
+          const status = sessionState?.status ||
+            (latestSynthesis?.convergence?.recommendation === 'converged' ? 'converged' : 'analyzing');
+
+          const session: MultiCliSession = {
             id: entry.name,
             type: 'multi-cli-plan',
             path: sessionPath,
@@ -179,12 +266,24 @@ async function scanMultiCliDir(dir: string): Promise<LiteSession[]> {
             plan: latestSynthesis,
             tasks: extractTasksFromSyntheses(syntheses),
             progress,
+            // Extended multi-cli specific fields
+            roundCount,
+            topicTitle: sessionState?.task_description || 'Discussion Topic',
+            status,
+            metadata: {
+              roundId: roundCount,
+              timestamp: sessionState?.updated_at || createdAt,
+              currentPhase: sessionState?.current_phase || 1,
+            },
+            discussionTopic,
+            rounds: syntheses,
+            latestSynthesis,
           };
 
           return session;
         }),
     ))
-      .filter((session): session is LiteSession => session !== null)
+      .filter((session): session is MultiCliSession => session !== null)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return sessions;

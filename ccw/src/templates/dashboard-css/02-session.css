@@ -102,6 +102,87 @@
   color: hsl(220 80% 40%);
 }
 
+/* Session Status Badge (used in detail page header) */
+.session-status-badge {
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.25rem;
+  text-transform: lowercase;
+}
+
+.session-status-badge.plan_generated,
+.session-status-badge.converged,
+.session-status-badge.completed,
+.session-status-badge.decided {
+  background: hsl(var(--success-light, 142 70% 95%));
+  color: hsl(var(--success, 142 70% 45%));
+}
+
+.session-status-badge.analyzing,
+.session-status-badge.debating {
+  background: hsl(var(--warning-light, 45 90% 95%));
+  color: hsl(var(--warning, 45 90% 40%));
+}
+
+.session-status-badge.initialized,
+.session-status-badge.exploring {
+  background: hsl(var(--info-light, 220 80% 95%));
+  color: hsl(var(--info, 220 80% 55%));
+}
+
+.session-status-badge.blocked,
+.session-status-badge.conflict {
+  background: hsl(var(--destructive) / 0.1);
+  color: hsl(var(--destructive));
+}
+
+.session-status-badge.pending {
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+}
+
+/* Status Badge Colors (used in card list meta) */
+.session-meta-item.status-badge.success {
+  background: hsl(var(--success-light, 142 70% 95%));
+  color: hsl(var(--success, 142 70% 45%));
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-weight: 500;
+}
+
+.session-meta-item.status-badge.warning {
+  background: hsl(var(--warning-light, 45 90% 95%));
+  color: hsl(var(--warning, 45 90% 40%));
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-weight: 500;
+}
+
+.session-meta-item.status-badge.info {
+  background: hsl(var(--info-light, 220 80% 95%));
+  color: hsl(var(--info, 220 80% 55%));
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-weight: 500;
+}
+
+.session-meta-item.status-badge.error {
+  background: hsl(var(--destructive) / 0.1);
+  color: hsl(var(--destructive));
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-weight: 500;
+}
+
+.session-meta-item.status-badge.default {
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-weight: 500;
+}
+
 .session-body {
   display: flex;
   flex-direction: column;

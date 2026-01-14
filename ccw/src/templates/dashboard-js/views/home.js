@@ -51,6 +51,7 @@ function updateBadges() {
   const liteTasks = workflowData.liteTasks || {};
   document.getElementById('badgeLitePlan').textContent = liteTasks.litePlan?.length || 0;
   document.getElementById('badgeLiteFix').textContent = liteTasks.liteFix?.length || 0;
+  document.getElementById('badgeMultiCliPlan').textContent = liteTasks.multiCliPlan?.length || 0;
 
   // MCP badge - load async if needed
   if (typeof loadMcpConfig === 'function') {

@@ -105,7 +105,10 @@ function renderMultiCliCard(session) {
   const statusColors = {
     'decided': 'success',
     'converged': 'success',
+    'plan_generated': 'success',
+    'completed': 'success',
     'exploring': 'info',
+    'initialized': 'info',
     'analyzing': 'warning',
     'debating': 'warning',
     'blocked': 'error',
@@ -145,6 +148,203 @@ function getI18nText(label) {
   // Return based on current language or default to English
   const lang = window.currentLanguage || 'en';
   return label[lang] || label.en || label.zh || '';
+}
+
+// ============================================
+// SYNTHESIS DATA TRANSFORMATION HELPERS
+// ============================================
+
+/**
+ * Extract files from synthesis solutions[].implementation_plan.tasks[].files
+ * Returns object with fileTree and impactSummary arrays
+ */
+function extractFilesFromSynthesis(synthesis) {
+  if (!synthesis || !synthesis.solutions) {
+    return { fileTree: [], impactSummary: [], dependencyGraph: [] };
+  }
+
+  const fileSet = new Set();
+  const impactMap = new Map();
+
+  synthesis.solutions.forEach(solution => {
+    const tasks = solution.implementation_plan?.tasks || [];
+    tasks.forEach(task => {
+      const files = task.files || [];
+      files.forEach(filePath => {
+        fileSet.add(filePath);
+        // Build impact summary based on task context
+        if (!impactMap.has(filePath)) {
+          impactMap.set(filePath, {
+            filePath: filePath,
+            score: 'medium',
+            reasoning: { en: `Part of ${solution.title?.en || solution.id} implementation`, zh: `${solution.title?.zh || solution.id} 实现的一部分` }
+          });
+        }
+      });
+    });
+  });
+
+  // Convert to fileTree format (flat list with file type)
+  const fileTree = Array.from(fileSet).map(path => ({
+    path: path,
+    type: 'file',
+    modificationStatus: 'modified',
+    impactScore: 'medium'
+  }));
+
+  return {
+    fileTree: fileTree,
+    impactSummary: Array.from(impactMap.values()),
+    dependencyGraph: []
+  };
+}
+
+/**
+ * Extract planning data from synthesis solutions[].implementation_plan
+ * Builds planning object with functional requirements format
+ */
+function extractPlanningFromSynthesis(synthesis) {
+  if (!synthesis || !synthesis.solutions) {
+    return { functional: [], nonFunctional: [], acceptanceCriteria: [] };
+  }
+
+  const functional = [];
+  const acceptanceCriteria = [];
+  let reqCounter = 1;
+  let acCounter = 1;
+
+  synthesis.solutions.forEach(solution => {
+    const plan = solution.implementation_plan;
+    if (!plan) return;
+
+    // Extract approach as functional requirement
+    if (plan.approach) {
+      functional.push({
+        id: `FR-${String(reqCounter++).padStart(3, '0')}`,
+        description: plan.approach,
+        priority: solution.feasibility?.score >= 0.8 ? 'high' : 'medium',
+        source: solution.id
+      });
+    }
+
+    // Extract tasks as acceptance criteria
+    const tasks = plan.tasks || [];
+    tasks.forEach(task => {
+      acceptanceCriteria.push({
+        id: `AC-${String(acCounter++).padStart(3, '0')}`,
+        description: task.title || { en: task.id, zh: task.id },
+        isMet: false
+      });
+    });
+  });
+
+  return {
+    functional: functional,
+    nonFunctional: [],
+    acceptanceCriteria: acceptanceCriteria
+  };
+}
+
+/**
+ * Extract decision data from synthesis solutions
+ * Sorts by feasibility score, returns highest as selected, rest as rejected
+ */
+function extractDecisionFromSynthesis(synthesis) {
+  if (!synthesis || !synthesis.solutions || synthesis.solutions.length === 0) {
+    return {};
+  }
+
+  // Sort solutions by feasibility score (highest first)
+  const sortedSolutions = [...synthesis.solutions].sort((a, b) => {
+    const scoreA = a.feasibility?.score || 0;
+    const scoreB = b.feasibility?.score || 0;
+    return scoreB - scoreA;
+  });
+
+  const selectedSolution = sortedSolutions[0];
+  const rejectedAlternatives = sortedSolutions.slice(1).map(sol => ({
+    ...sol,
+    rejectionReason: sol.cons?.length > 0 ? sol.cons[0] : { en: 'Lower feasibility score', zh: '可行性评分较低' }
+  }));
+
+  // Calculate confidence from convergence level
+  let confidenceScore = 0.5;
+  if (synthesis.convergence) {
+    const level = synthesis.convergence.level;
+    if (level === 'high' || level === 'converged') confidenceScore = 0.9;
+    else if (level === 'medium') confidenceScore = 0.7;
+    else if (level === 'low') confidenceScore = 0.4;
+  }
+
+  return {
+    status: synthesis.convergence?.recommendation || 'pending',
+    summary: synthesis.convergence?.summary || {},
+    selectedSolution: selectedSolution,
+    rejectedAlternatives: rejectedAlternatives,
+    confidenceScore: confidenceScore
+  };
+}
+
+/**
+ * Extract timeline data from synthesis convergence and cross_verification
+ * Builds timeline array with events from discussion process
+ */
+function extractTimelineFromSynthesis(synthesis) {
+  if (!synthesis) {
+    return [];
+  }
+
+  const timeline = [];
+  const now = new Date().toISOString();
+
+  // Add convergence summary as decision event
+  if (synthesis.convergence?.summary) {
+    timeline.push({
+      type: 'decision',
+      timestamp: now,
+      summary: synthesis.convergence.summary,
+      contributor: { name: 'Synthesis', id: 'synthesis' },
+      reversibility: synthesis.convergence.recommendation === 'proceed' ? 'irreversible' : 'reversible'
+    });
+  }
+
+  // Add cross-verification agreements as agreement events
+  const agreements = synthesis.cross_verification?.agreements || [];
+  agreements.forEach((agreement, idx) => {
+    timeline.push({
+      type: 'agreement',
+      timestamp: now,
+      summary: typeof agreement === 'string' ? { en: agreement, zh: agreement } : agreement,
+      contributor: { name: 'Cross-Verification', id: 'cross-verify' },
+      evidence: []
+    });
+  });
+
+  // Add cross-verification disagreements as disagreement events
+  const disagreements = synthesis.cross_verification?.disagreements || [];
+  disagreements.forEach((disagreement, idx) => {
+    timeline.push({
+      type: 'disagreement',
+      timestamp: now,
+      summary: typeof disagreement === 'string' ? { en: disagreement, zh: disagreement } : disagreement,
+      contributor: { name: 'Cross-Verification', id: 'cross-verify' },
+      evidence: []
+    });
+  });
+
+  // Add solutions as proposal events
+  const solutions = synthesis.solutions || [];
+  solutions.forEach(solution => {
+    timeline.push({
+      type: 'proposal',
+      timestamp: now,
+      summary: solution.description || solution.title || {},
+      contributor: { name: solution.id, id: solution.id },
+      evidence: solution.pros?.map(p => ({ type: 'pro', description: p })) || []
+    });
+  });
+
+  return timeline;
 }
 
 /**
@@ -317,11 +517,11 @@ function renderMultiCliTopicTab(session) {
 
   // Title and Description
   sections.push(`
-    <div class="multi-cli-section topic-header-section">
-      <h3 class="topic-main-title">${escapeHtml(title)}</h3>
-      ${description ? `<p class="topic-description">${escapeHtml(description)}</p>` : ''}
+    <div class="multi-cli-topic-section">
+      <h3 class="multi-cli-topic-title">${escapeHtml(title)}</h3>
+      ${description ? `<p class="multi-cli-topic-description">${escapeHtml(description)}</p>` : ''}
       <div class="topic-meta">
-        <span class="status-badge ${status}">${escapeHtml(status)}</span>
+        <span class="multi-cli-status ${status}">${escapeHtml(status)}</span>
         ${tags.length ? tags.map(tag => `<span class="tag-badge">${escapeHtml(tag)}</span>`).join('') : ''}
       </div>
     </div>
@@ -372,9 +572,10 @@ function renderMultiCliTopicTab(session) {
  * Shows: fileTree, impactSummary
  */
 function renderMultiCliFilesTab(session) {
-  const relatedFiles = session.relatedFiles || session.latestSynthesis?.relatedFiles || {};
+  // Use helper to extract files from synthesis data structure
+  const relatedFiles = extractFilesFromSynthesis(session.latestSynthesis);
 
-  if (!relatedFiles || Object.keys(relatedFiles).length === 0) {
+  if (!relatedFiles || (!relatedFiles.fileTree?.length && !relatedFiles.impactSummary?.length)) {
     return `
       <div class="tab-empty-state">
         <div class="empty-icon"><i data-lucide="folder-tree" class="w-12 h-12"></i></div>
@@ -498,9 +699,10 @@ function renderFileTreeNodes(nodes, depth = 0) {
  * Shows: functional, nonFunctional requirements, acceptanceCriteria
  */
 function renderMultiCliPlanningTab(session) {
-  const planning = session.planning || session.latestSynthesis?.planning || {};
+  // Use helper to extract planning from synthesis data structure
+  const planning = extractPlanningFromSynthesis(session.latestSynthesis);
 
-  if (!planning || Object.keys(planning).length === 0) {
+  if (!planning || (!planning.functional?.length && !planning.acceptanceCriteria?.length)) {
     return `
       <div class="tab-empty-state">
         <div class="empty-icon"><i data-lucide="list-checks" class="w-12 h-12"></i></div>
@@ -596,9 +798,10 @@ function renderRequirementItem(req) {
  * Shows: selectedSolution, rejectedAlternatives, confidenceScore
  */
 function renderMultiCliDecisionTab(session) {
-  const decision = session.decision || session.latestSynthesis?.decision || {};
+  // Use helper to extract decision from synthesis data structure
+  const decision = extractDecisionFromSynthesis(session.latestSynthesis);
 
-  if (!decision || Object.keys(decision).length === 0) {
+  if (!decision || !decision.selectedSolution) {
     return `
       <div class="tab-empty-state">
         <div class="empty-icon"><i data-lucide="check-circle" class="w-12 h-12"></i></div>
@@ -708,10 +911,10 @@ function renderSolutionCard(solution, isSelected) {
  * Shows: decisionRecords.timeline
  */
 function renderMultiCliTimelineTab(session) {
-  const decisionRecords = session.decisionRecords || session.latestSynthesis?.decisionRecords || {};
-  const timeline = decisionRecords.timeline || [];
+  // Use helper to extract timeline from synthesis data structure
+  const timeline = extractTimelineFromSynthesis(session.latestSynthesis);
 
-  if (!timeline.length) {
+  if (!timeline || !timeline.length) {
     return `
       <div class="tab-empty-state">
         <div class="empty-icon"><i data-lucide="git-commit" class="w-12 h-12"></i></div>

@@ -77,6 +77,7 @@ interface DashboardData {
   liteTasks: {
     litePlan: unknown[];
     liteFix: unknown[];
+    multiCliPlan: unknown[];
   };
   reviewData: ReviewData | null;
   projectOverview: ProjectOverview | null;
@@ -88,6 +89,7 @@ interface DashboardData {
     reviewFindings: number;
     litePlanCount: number;
     liteFixCount: number;
+    multiCliPlanCount: number;
   };
 }
 
@@ -211,7 +213,8 @@ export async function aggregateData(sessions: ScanSessionsResult, workflowDir: s
     archivedSessions: [],
     liteTasks: {
       litePlan: [],
-      liteFix: []
+      liteFix: [],
+      multiCliPlan: []
     },
     reviewData: null,
     projectOverview: null,
@@ -222,7 +225,8 @@ export async function aggregateData(sessions: ScanSessionsResult, workflowDir: s
       completedTasks: 0,
       reviewFindings: 0,
       litePlanCount: 0,
-      liteFixCount: 0
+      liteFixCount: 0,
+      multiCliPlanCount: 0
     }
   };
 
@@ -257,6 +261,7 @@ export async function aggregateData(sessions: ScanSessionsResult, workflowDir: s
     data.liteTasks = liteTasks;
     data.statistics.litePlanCount = liteTasks.litePlan.length;
     data.statistics.liteFixCount = liteTasks.liteFix.length;
+    data.statistics.multiCliPlanCount = liteTasks.multiCliPlan.length;
   } catch (err) {
     console.error('Error scanning lite tasks:', (err as Error).message);
   }

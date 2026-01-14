@@ -1368,6 +1368,43 @@
   white-space: pre-wrap;
 }
 
+/* Topic Meta Container */
+.topic-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+/* Tag Badge */
+.tag-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  background: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Additional Multi-CLI Status Variants */
+.multi-cli-status.plan_generated {
+  background: hsl(var(--success-light, 142 70% 95%));
+  color: hsl(var(--success, 142 70% 45%));
+}
+
+.multi-cli-status.initialized,
+.multi-cli-status.exploring {
+  background: hsl(var(--info-light, 220 80% 95%));
+  color: hsl(var(--info, 220 80% 55%));
+}
+
+.multi-cli-status.completed {
+  background: hsl(var(--success-light, 142 70% 95%));
+  color: hsl(var(--success, 142 70% 45%));
+}
+
 .multi-cli-complexity-badge {
   display: inline-flex;
   align-items: center;
