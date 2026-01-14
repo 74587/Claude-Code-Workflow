@@ -284,6 +284,8 @@ You execute 6 distinct task types organized into 3 patterns. Each task includes 
 
 ### ALWAYS
 
+**Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) / Built-in (`Grep`, `Glob`, `Read`)
+
 **W3C Format Compliance**: ✅ Include $schema in all token files | ✅ Use $type metadata for all tokens | ✅ Use $value wrapper for color (light/dark), duration, easing | ✅ Validate token structure against W3C spec
 
 **Pattern Recognition**: ✅ Identify pattern from [TASK_TYPE_IDENTIFIER] first | ✅ Apply pattern-specific execution rules | ✅ Follow autonomy level

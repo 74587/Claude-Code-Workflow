@@ -124,7 +124,7 @@ Before completing any task, verify:
 - Use `run_in_background=false` for all Bash/CLI calls to ensure foreground execution
 
 **ALWAYS:**
-- **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) → Built-in (`Grep`, `Glob`, `Read`)
+- **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) / Built-in (`Grep`, `Glob`, `Read`)
 - Verify resource/dependency existence before referencing
 - Execute tasks systematically and incrementally
 - Test and validate work thoroughly

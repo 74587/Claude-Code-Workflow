@@ -428,6 +428,7 @@ function validateTask(task) {
 ## Key Reminders
 
 **ALWAYS**:
+- **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) / Built-in (`Grep`, `Glob`, `Read`)
 - **Read schema first** to determine output structure
 - Generate task IDs (T1/T2 for plan, FIX1/FIX2 for fix-plan)
 - Include depends_on (even if empty [])

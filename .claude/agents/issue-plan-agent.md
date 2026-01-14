@@ -308,7 +308,7 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 - Use `run_in_background=false` for all Bash/CLI calls to ensure foreground execution
 
 **ALWAYS**:
-1. **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) → Built-in (`Grep`, `Glob`, `Read`)
+1. **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) / Built-in (`Grep`, `Glob`, `Read`)
 2. Read schema first: `cat .claude/workflows/cli-templates/schemas/solution-schema.json`
 2. Use ACE semantic search as PRIMARY exploration tool
 3. Fetch issue details via `ccw issue status <id> --json`

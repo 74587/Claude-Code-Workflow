@@ -436,6 +436,7 @@ See: `.process/iteration-{iteration}-cli-output.txt`
 ## Key Reminders
 
 **ALWAYS:**
+- **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) / Built-in (`Grep`, `Glob`, `Read`)
 - **Validate context package**: Ensure all required fields present before CLI execution
 - **Handle CLI errors gracefully**: Use fallback chain (Gemini → Qwen → degraded mode)
 - **Parse CLI output structurally**: Extract specific sections (RCA, 修复建议, 验证建议)

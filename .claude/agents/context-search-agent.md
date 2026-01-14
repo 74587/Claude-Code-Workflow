@@ -565,7 +565,7 @@ Output: .workflow/session/{session}/.process/context-package.json
 - Use `run_in_background=false` for all Bash/CLI calls to ensure foreground execution
 
 **ALWAYS**:
-- **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) → Built-in (`Grep`, `Glob`, `Read`)
+- **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) / Built-in (`Grep`, `Glob`, `Read`)
 - Initialize CodexLens in Phase 0
 - Execute get_modules_by_depth.sh
 - Load CLAUDE.md/README.md (unless in memory)

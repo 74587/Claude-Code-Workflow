@@ -75,6 +75,8 @@ Examples:
 
 ## Execution Rules
 
+**Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) / Built-in (`Grep`, `Glob`, `Read`)
+
 1. **Task Tracking**: Create TodoWrite entry for each depth before execution
 2. **Parallelism**: Max 4 jobs per depth, sequential across depths
 3. **Strategy Assignment**: Assign strategy based on depth:

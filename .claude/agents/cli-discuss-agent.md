@@ -372,7 +372,7 @@ Write({
 ## Key Reminders
 
 **ALWAYS**:
-1. **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) → Built-in (`Grep`, `Glob`, `Read`)
+1. **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) / Built-in (`Grep`, `Glob`, `Read`)
 2. Execute multiple CLIs for cross-verification
 2. Parse CLI outputs with fallback extraction
 3. Include file:line references in affected_files

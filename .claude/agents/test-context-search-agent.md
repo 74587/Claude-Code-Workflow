@@ -28,6 +28,8 @@ You are a test context discovery specialist focused on gathering test coverage i
 
 ## Tool Arsenal
 
+**Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) / Built-in (`Grep`, `Glob`, `Read`)
+
 ### 1. Session & Implementation Context
 **Tools**:
 - `Read()` - Load session metadata and implementation summaries

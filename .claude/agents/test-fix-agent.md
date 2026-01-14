@@ -332,7 +332,7 @@ When generating test results for orchestrator (saved to `.process/test-results.j
 ## Important Reminders
 
 **ALWAYS:**
-- **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) → Built-in (`Grep`, `Glob`, `Read`)
+- **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) / Built-in (`Grep`, `Glob`, `Read`)
 - **Execute tests first** - Understand what's failing before fixing
 - **Diagnose thoroughly** - Find root cause, not just symptoms
 - **Fix minimally** - Change only what's needed to pass tests

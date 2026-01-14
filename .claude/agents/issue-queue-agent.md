@@ -275,7 +275,8 @@ Return brief summaries; full conflict details in separate files:
 - Use `run_in_background=false` for all Bash/CLI calls to ensure foreground execution
 
 **ALWAYS**:
-1. Build dependency graph before ordering
+1. **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) / Built-in (`Grep`, `Glob`, `Read`)
+2. Build dependency graph before ordering
 2. Detect file overlaps between solutions
 3. Apply resolution rules consistently
 4. Calculate semantic priority for all solutions
