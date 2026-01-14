@@ -12,21 +12,22 @@ allowed-tools: Task(*), SlashCommand(*), AskUserQuestion(*), Read(*), Bash(*), G
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  CCW Orchestrator (Stateless)                                   │
+│  CCW Orchestrator (Stateless + Requirement Analysis)             │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  Input Analysis                                                  │
+│  Input Analysis & Requirement Extraction                         │
 │  ├─ Intent Classification (bugfix/feature/refactor/issue/...)  │
 │  ├─ Complexity Assessment (low/medium/high)                     │
-│  ├─ Context Detection (codebase familiarity needed?)            │
+│  ├─ Dimension Extraction (WHAT/WHERE/WHY/HOW)                   │
+│  ├─ Clarity Scoring (0-3) with auto-clarification               │
 │  └─ Constraint Extraction (time/scope/quality)                  │
 │                                                                  │
 │  Workflow Selection (Decision Tree)                              │
 │  ├─ 🐛 Bug? → lite-fix / lite-fix --hotfix                      │
-│  ├─ ❓ Unclear? → brainstorm → plan → execute                   │
+│  ├─ ❓ Unclear? → clarify → brainstorm → plan → execute         │
 │  ├─ ⚡ Simple? → lite-plan → lite-execute                       │
 │  ├─ 🔧 Complex? → plan → execute                                │
-│  ├─ 📋 Issue? → issue:plan → issue:queue → issue:execute        │
+│  ├─ 📋 Issue? → discover → plan → queue → execute               │
 │  └─ 🎨 UI? → ui-design → plan → execute                         │
 │                                                                  │
 │  Execution Dispatch                                              │
@@ -70,12 +71,16 @@ allowed-tools: Task(*), SlashCommand(*), AskUserQuestion(*), Read(*), Bash(*), G
 - 根因不清楚需要诊断
 
 ### 5. Issue (长时间多点修复) 📌
-**Pattern**: Issue规划 + 队列 + 批量执行
-**Commands**: `/issue:plan` → `/issue:queue` → `/issue:execute`
+**Pattern**: 发现 + 创建 + 规划 + 队列 + 批量执行
+**Commands**:
+- 完整链: `/issue:discover` → `/issue:new` → `/issue:plan` → `/issue:queue` → `/issue:execute`
+- 快速链: `/issue:plan` → `/issue:queue` → `/issue:execute`
+- 提示发现: `/issue:discover-by-prompt` → `/issue:plan` → `/issue:queue` → `/issue:execute`
 **When to use**:
 - 多个相关问题需要批量处理
 - 长时间跨度的修复任务
 - 需要优先级排序和冲突解决
+- 安全审计、技术债务清理、GitHub Issues 批量导入
 
 ### 6. UI-First (设计驱动) 🎨
 **Pattern**: UI设计 + 规划 + 执行
@@ -415,13 +420,15 @@ TodoWrite({
 
 | Document | Purpose |
 |----------|---------|
-| [phases/orchestrator.md](phases/orchestrator.md) | 编排器决策逻辑 + TODO 跟踪 |
+| [phases/orchestrator.md](phases/orchestrator.md) | 编排器决策逻辑 + 澄清流程 + TODO 跟踪 |
 | [phases/actions/rapid.md](phases/actions/rapid.md) | 快速迭代组合 |
 | [phases/actions/full.md](phases/actions/full.md) | 完整流程组合 |
 | [phases/actions/coupled.md](phases/actions/coupled.md) | 复杂耦合组合 |
 | [phases/actions/bugfix.md](phases/actions/bugfix.md) | 缺陷修复组合 |
-| [phases/actions/issue.md](phases/actions/issue.md) | Issue工作流组合 |
+| [phases/actions/issue.md](phases/actions/issue.md) | Issue工作流组合 (完整链路) |
 | [specs/intent-classification.md](specs/intent-classification.md) | 意图分类规范 |
+| [specs/requirement-analysis.md](specs/requirement-analysis.md) | 需求分析规范 (NEW) |
+| [specs/output-templates.md](specs/output-templates.md) | 输出格式模板 (NEW) |
 | [WORKFLOW_DECISION_GUIDE.md](/WORKFLOW_DECISION_GUIDE.md) | 工作流决策指南 |
 
 ## Examples

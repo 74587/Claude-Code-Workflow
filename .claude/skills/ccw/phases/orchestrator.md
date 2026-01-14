@@ -6,19 +6,26 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  CCW Orchestrator (CLI-Enhanced)                                  │
+│  CCW Orchestrator (CLI-Enhanced + Requirement Analysis)           │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                   │
 │  Phase 1: Input Analysis (Rule-Based, Fast Path)                  │
 │  ├─ Parse input (natural language / explicit command)            │
 │  ├─ Classify intent (bugfix / feature / issue / ui / docs)       │
-│  └─ Assess complexity (low / medium / high)                      │
+│  ├─ Assess complexity (low / medium / high)                      │
+│  └─ Extract requirement dimensions (WHAT/WHERE/WHY/HOW)          │
 │                                                                   │
 │  Phase 1.5: CLI-Assisted Classification (Smart Path)             │
 │  ├─ Trigger: low match count / high complexity / long input      │
 │  ├─ Use Gemini CLI for semantic intent understanding             │
 │  ├─ Get confidence score and reasoning                           │
 │  └─ Fallback to rule-based if CLI fails                          │
+│                                                                   │
+│  Phase 1.75: Requirement Clarification (NEW)                      │
+│  ├─ Calculate clarity score (0-3)                                 │
+│  ├─ Trigger: clarity_score < 2 OR missing critical dimensions    │
+│  ├─ Generate targeted clarification questions                     │
+│  └─ Refine requirement dimensions with user input                 │
 │                                                                   │
 │  Phase 2: Chain Selection                                         │
 │  ├─ Load index/workflow-chains.json                              │
@@ -48,6 +55,46 @@
 │                                                                   │
 └──────────────────────────────────────────────────────────────────┘
 ```
+
+## Requirement Analysis Integration
+
+See [specs/requirement-analysis.md](../specs/requirement-analysis.md) for full specification.
+
+### Clarity Scoring
+
+| Score | Level | Action |
+|-------|-------|--------|
+| 0 | 模糊 | 必须澄清 |
+| 1 | 基本 | 建议澄清 |
+| 2 | 清晰 | 可直接执行 |
+| 3 | 详细 | 直接执行 |
+
+### Dimension Extraction
+
+```javascript
+// Extract requirement dimensions during Phase 1
+function extractDimensions(input) {
+  return {
+    what: extractWhat(input),     // Action + Target
+    where: extractWhere(input),   // Scope + Paths
+    why: extractWhy(input),       // Goal + Motivation
+    how: extractHow(input),       // Constraints + Preferences
+    clarity_score: 0,             // Calculated later
+    missing_dimensions: []        // Identified later
+  }
+}
+```
+
+## Output Templates Integration
+
+See [specs/output-templates.md](../specs/output-templates.md) for full specification.
+
+All output uses standardized templates for consistency:
+- Classification Summary
+- Requirement Analysis
+- Planning Summary
+- Execution Progress
+- Workflow Complete
 
 ## CLI Enhancement Features
 
@@ -353,6 +400,181 @@ RULES: Output ONLY valid JSON without markdown code blocks. Be concise but accur
 
     return { ...ruleBasedResult, source: 'rules', matchCount }
   }
+}
+```
+
+### Phase 1.75: Requirement Clarification
+
+当需求不够清晰时，主动向用户发起澄清。
+
+```javascript
+// Requirement clarification for ambiguous inputs
+async function clarifyRequirement(analysis, dimensions) {
+  // Skip if already clear
+  if (dimensions.clarity_score >= 2) {
+    return { needsClarification: false, dimensions }
+  }
+
+  // Skip for explicit commands
+  if (analysis.passthrough) {
+    return { needsClarification: false, dimensions }
+  }
+
+  console.log('### Requirement Clarification\n')
+  console.log('> Your request needs more detail. Let me ask a few questions.\n')
+
+  // Generate questions based on missing dimensions
+  const questions = generateClarificationQuestions(dimensions)
+
+  if (questions.length === 0) {
+    return { needsClarification: false, dimensions }
+  }
+
+  // Display current understanding
+  console.log(`
+**Current Understanding**:
+| Dimension | Value | Status |
+|-----------|-------|--------|
+| WHAT | ${dimensions.what.action || 'unknown'} ${dimensions.what.target || ''} | ${dimensions.what.target ? '✓' : '⚠'} |
+| WHERE | ${dimensions.where.scope}: ${dimensions.where.paths?.join(', ') || 'unknown'} | ${dimensions.where.paths?.length ? '✓' : '⚠'} |
+| WHY | ${dimensions.why.goal || 'not specified'} | ${dimensions.why.goal ? '✓' : '○'} |
+| HOW | ${dimensions.how.constraints?.join(', ') || 'no constraints'} | ○ |
+
+**Clarity Score**: ${dimensions.clarity_score}/3
+`)
+
+  // Ask user for clarification (max 4 questions)
+  const responses = AskUserQuestion({
+    questions: questions.slice(0, 4)
+  })
+
+  // Refine dimensions with user responses
+  const refinedDimensions = refineDimensions(dimensions, responses)
+  refinedDimensions.clarity_score = Math.min(3, dimensions.clarity_score + 1)
+
+  console.log('> Requirements clarified. Proceeding with workflow selection.\n')
+
+  return { needsClarification: false, dimensions: refinedDimensions }
+}
+
+// Generate clarification questions based on missing info
+function generateClarificationQuestions(dimensions) {
+  const questions = []
+
+  // WHAT: If target is unclear
+  if (!dimensions.what.target) {
+    questions.push({
+      question: "你想要对什么进行操作?",
+      header: "目标",
+      multiSelect: false,
+      options: [
+        { label: "特定文件", description: "修改特定的文件或代码" },
+        { label: "功能模块", description: "处理整个功能模块" },
+        { label: "系统级", description: "架构或系统级变更" },
+        { label: "让我指定", description: "我会提供具体说明" }
+      ]
+    })
+  }
+
+  // WHERE: If scope is unknown
+  if (dimensions.where.scope === 'unknown' && !dimensions.where.paths?.length) {
+    questions.push({
+      question: "操作的范围是什么?",
+      header: "范围",
+      multiSelect: false,
+      options: [
+        { label: "自动发现", description: "分析代码库后推荐相关位置" },
+        { label: "当前目录", description: "只在当前工作目录" },
+        { label: "全项目", description: "整个项目范围" },
+        { label: "让我指定", description: "我会提供具体路径" }
+      ]
+    })
+  }
+
+  // WHY: If goal is unclear for complex tasks
+  if (!dimensions.why.goal && dimensions.what.action !== 'analyze') {
+    questions.push({
+      question: "这个操作的主要目标是什么?",
+      header: "目标",
+      multiSelect: false,
+      options: [
+        { label: "修复问题", description: "解决已知的Bug或错误" },
+        { label: "新增功能", description: "添加新的能力或特性" },
+        { label: "改进质量", description: "提升性能、可维护性" },
+        { label: "代码审查", description: "检查和评估代码" }
+      ]
+    })
+  }
+
+  // HOW: If constraints matter for the task
+  if (dimensions.what.action === 'refactor' || dimensions.what.action === 'create') {
+    questions.push({
+      question: "有什么特殊要求或限制?",
+      header: "约束",
+      multiSelect: true,
+      options: [
+        { label: "保持兼容", description: "不破坏现有功能" },
+        { label: "最小改动", description: "尽量少修改文件" },
+        { label: "包含测试", description: "需要添加测试" },
+        { label: "无特殊要求", description: "按最佳实践处理" }
+      ]
+    })
+  }
+
+  return questions
+}
+
+// Refine dimensions based on user responses
+function refineDimensions(dimensions, responses) {
+  const refined = { ...dimensions }
+
+  // Apply user selections to dimensions
+  if (responses['目标']) {
+    if (responses['目标'] === '特定文件') {
+      refined.where.scope = 'file'
+    } else if (responses['目标'] === '功能模块') {
+      refined.where.scope = 'module'
+    } else if (responses['目标'] === '系统级') {
+      refined.where.scope = 'system'
+    }
+  }
+
+  if (responses['范围']) {
+    if (responses['范围'] === '全项目') {
+      refined.where.scope = 'system'
+    } else if (responses['范围'] === '当前目录') {
+      refined.where.scope = 'module'
+    }
+  }
+
+  if (responses['目标']) {
+    const goalMapping = {
+      '修复问题': 'fix bug',
+      '新增功能': 'add feature',
+      '改进质量': 'improve quality',
+      '代码审查': 'code review'
+    }
+    refined.why.goal = goalMapping[responses['目标']] || responses['目标']
+  }
+
+  if (responses['约束']) {
+    const constraints = Array.isArray(responses['约束']) ? responses['约束'] : [responses['约束']]
+    refined.how.constraints = constraints.filter(c => c !== '无特殊要求')
+  }
+
+  // Update missing dimensions
+  refined.missing_dimensions = identifyMissing(refined)
+
+  return refined
+}
+
+// Identify still-missing dimensions
+function identifyMissing(dimensions) {
+  const missing = []
+  if (!dimensions.what.target) missing.push('what.target')
+  if (dimensions.where.scope === 'unknown') missing.push('where.scope')
+  // why and how are optional
+  return missing
 }
 ```
 
