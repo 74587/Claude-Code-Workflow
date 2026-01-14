@@ -18,33 +18,6 @@
 
 All tool availability, model selection, and routing are defined in this configuration file.
 
-### Configuration Schema
-
-```json
-{
-  "version": "3.0.0",
-  "models": {
-    "<tool-id>": ["<model-1>", "<model-2>", ...]
-  },
-  "tools": {
-    "<tool-id>": {
-      "enabled": true|false,
-      "primaryModel": "<model-id>",
-      "secondaryModel": "<model-id>",
-      "tags": ["<tag-1>", "<tag-2>", ...]
-    }
-  },
-  "customEndpoints": [
-    {
-      "id": "<endpoint-id>",
-      "name": "<display-name>",
-      "enabled": true|false,
-      "tags": ["<tag-1>", "<tag-2>", ...]
-    }
-  ]
-}
-```
-
 ### Configuration Fields
 
 | Field | Description |
@@ -491,20 +464,6 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 ```
 
 ---
-
-## Execution Configuration
-
-### Dynamic Timeout Allocation
-
-**Minimum timeout: 5 minutes (300000ms)** - Never set below this threshold.
-
-**Timeout Ranges**:
-- **Simple** (analysis, search): 5-10min (300000-600000ms)
-- **Medium** (refactoring, documentation): 10-20min (600000-1200000ms)
-- **Complex** (implementation, migration): 20-60min (1200000-3600000ms)
-- **Heavy** (large codebase, multi-file): 60-120min (3600000-7200000ms)
-
-**Auto-detection**: Analyze PURPOSE and TASK fields to determine timeout
 
 ### Permission Framework
 

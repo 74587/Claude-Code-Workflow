@@ -855,6 +855,7 @@ Use `analysis_results.complexity` or task count to determine structure:
 ### 3.3 Guidelines Checklist
 
 **ALWAYS:**
+- **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) → Built-in (`Grep`, `Glob`, `Read`)
 - Apply Quantification Requirements to all requirements, acceptance criteria, and modification points
 - Load IMPL_PLAN template: `Read(~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)` before generating IMPL_PLAN.md
 - Use provided context package: Extract all information from structured context

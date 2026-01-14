@@ -65,6 +65,8 @@ Score = 0
 
 ## Phase 2: Context Discovery
 
+**Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) → Built-in (`Grep`, `Glob`, `Read`)
+
 **1. Project Structure**:
 ```bash
 ccw tool exec get_modules_by_depth '{}'

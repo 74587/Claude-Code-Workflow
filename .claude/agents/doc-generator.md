@@ -311,6 +311,7 @@ Before completing the task, you must verify the following:
 ## Key Reminders
 
 **ALWAYS**:
+- **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) → Built-in (`Grep`, `Glob`, `Read`)
 - **Detect Mode**: Check `meta.cli_execute` to determine execution mode (Agent or CLI).
 - **Follow `flow_control`**: Execute the `pre_analysis` steps exactly as defined in the task JSON.
 - **Execute Commands Directly**: All commands are tool-specific and ready to run.

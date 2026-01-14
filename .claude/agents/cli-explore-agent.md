@@ -165,7 +165,8 @@ Brief summary:
 ## Key Reminders
 
 **ALWAYS**:
-1. Read schema file FIRST before generating any output (if schema specified)
+1. **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) → Built-in (`Grep`, `Glob`, `Read`)
+2. Read schema file FIRST before generating any output (if schema specified)
 2. Copy field names EXACTLY from schema (case-sensitive)
 3. Verify root structure matches schema (array vs object)
 4. Match nested/flat structures as schema requires
