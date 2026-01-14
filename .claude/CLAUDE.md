@@ -24,12 +24,10 @@ Available CLI endpoints are dynamically defined by the config file:
 - **Always use `run_in_background: false`** for Task tool agent calls: `Task({ subagent_type: "xxx", prompt: "...", run_in_background: false })` to ensure synchronous execution and immediate result visibility
 - **TaskOutput usage**: Only use `TaskOutput({ task_id: "xxx", block: false })` + sleep loop to poll completion status. NEVER read intermediate output during agent/CLI execution - wait for final result only
 
-### CLI Tool Calls (ccw cli)
-- **Default: `run_in_background: true`** - Unless otherwise specified, always use background execution for CLI calls:
-  ```
-  Bash({ command: "ccw cli -p '...' --tool gemini", run_in_background: true })
-  ```
-- **After CLI call**: Stop immediately - let CLI execute in background, do NOT poll with TaskOutput
+### CLI Analysis Calls
+- **Wait for results**: MUST wait for CLI analysis to complete before taking any write action. Do NOT proceed with fixes while analysis is running
+- **Value every call**: Each CLI invocation is valuable and costly. NEVER waste analysis results:
+  - Aggregate multiple analysis results before proposing solutions
 
 ## Code Diagnostics
 
