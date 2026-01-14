@@ -2,9 +2,24 @@
  * Session Routes Module
  * Handles all Session/Task-related API endpoints
  */
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFile, readdir, access } from 'fs/promises';
 import { join } from 'path';
 import type { RouteContext } from './types.js';
+
+/**
+ * Check if a file or directory exists (async version)
+ * @param filePath - Path to check
+ * @returns Promise<boolean>
+ */
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Get session detail data (context, summaries, impl-plan, review, multi-cli)
@@ -23,14 +38,15 @@ async function getSessionDetailData(sessionPath: string, dataType: string): Prom
     if (dataType === 'context' || dataType === 'all') {
       // Try .process/context-package.json first (common location)
       let contextFile = join(normalizedPath, '.process', 'context-package.json');
-      if (!existsSync(contextFile)) {
+      if (!(await fileExists(contextFile))) {
         // Fallback to session root
         contextFile = join(normalizedPath, 'context-package.json');
       }
-      if (existsSync(contextFile)) {
+      if (await fileExists(contextFile)) {
         try {
-          result.context = JSON.parse(readFileSync(contextFile, 'utf8'));
+          result.context = JSON.parse(await readFile(contextFile, 'utf8'));
         } catch (e) {
+          console.warn('Failed to parse context file:', contextFile, (e as Error).message);
           result.context = null;
         }
       }
@@ -40,18 +56,18 @@ async function getSessionDetailData(sessionPath: string, dataType: string): Prom
     if (dataType === 'tasks' || dataType === 'all') {
       const taskDir = join(normalizedPath, '.task');
       result.tasks = [];
-      if (existsSync(taskDir)) {
-        const files = readdirSync(taskDir).filter(f => f.endsWith('.json') && f.startsWith('IMPL-'));
+      if (await fileExists(taskDir)) {
+        const files = (await readdir(taskDir)).filter(f => f.endsWith('.json') && f.startsWith('IMPL-'));
         for (const file of files) {
           try {
-            const content = JSON.parse(readFileSync(join(taskDir, file), 'utf8'));
+            const content = JSON.parse(await readFile(join(taskDir, file), 'utf8'));
             result.tasks.push({
               filename: file,
               task_id: file.replace('.json', ''),
               ...content
             });
           } catch (e) {
-            // Skip unreadable files
+            console.warn('Failed to parse task file:', join(taskDir, file), (e as Error).message);
           }
         }
         // Sort by task ID
@@ -63,14 +79,14 @@ async function getSessionDetailData(sessionPath: string, dataType: string): Prom
     if (dataType === 'summary' || dataType === 'all') {
       const summariesDir = join(normalizedPath, '.summaries');
       result.summaries = [];
-      if (existsSync(summariesDir)) {
-        const files = readdirSync(summariesDir).filter(f => f.endsWith('.md'));
+      if (await fileExists(summariesDir)) {
+        const files = (await readdir(summariesDir)).filter(f => f.endsWith('.md'));
         for (const file of files) {
           try {
-            const content = readFileSync(join(summariesDir, file), 'utf8');
+            const content = await readFile(join(summariesDir, file), 'utf8');
             result.summaries.push({ name: file.replace('.md', ''), content });
           } catch (e) {
-            // Skip unreadable files
+            console.warn('Failed to read summary file:', join(summariesDir, file), (e as Error).message);
           }
         }
       }
@@ -79,10 +95,11 @@ async function getSessionDetailData(sessionPath: string, dataType: string): Prom
     // Load plan.json (for lite tasks)
     if (dataType === 'plan' || dataType === 'all') {
       const planFile = join(normalizedPath, 'plan.json');
-      if (existsSync(planFile)) {
+      if (await fileExists(planFile)) {
         try {
-          result.plan = JSON.parse(readFileSync(planFile, 'utf8'));
+          result.plan = JSON.parse(await readFile(planFile, 'utf8'));
         } catch (e) {
+          console.warn('Failed to parse plan file:', planFile, (e as Error).message);
           result.plan = null;
         }
       }
@@ -100,52 +117,54 @@ async function getSessionDetailData(sessionPath: string, dataType: string): Prom
       ];
 
       for (const searchDir of searchDirs) {
-        if (!existsSync(searchDir)) continue;
+        if (!(await fileExists(searchDir))) continue;
 
         // Look for explorations-manifest.json
         const manifestFile = join(searchDir, 'explorations-manifest.json');
-        if (existsSync(manifestFile)) {
+        if (await fileExists(manifestFile)) {
           try {
-            result.explorations.manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
+            result.explorations.manifest = JSON.parse(await readFile(manifestFile, 'utf8'));
 
             // Load each exploration file based on manifest
             const explorations = result.explorations.manifest.explorations || [];
             for (const exp of explorations) {
               const expFile = join(searchDir, exp.file);
-              if (existsSync(expFile)) {
+              if (await fileExists(expFile)) {
                 try {
-                  result.explorations.data[exp.angle] = JSON.parse(readFileSync(expFile, 'utf8'));
+                  result.explorations.data[exp.angle] = JSON.parse(await readFile(expFile, 'utf8'));
                 } catch (e) {
-                  // Skip unreadable exploration files
+                  console.warn('Failed to parse exploration file:', expFile, (e as Error).message);
                 }
               }
             }
             break; // Found manifest, stop searching
           } catch (e) {
+            console.warn('Failed to parse explorations manifest:', manifestFile, (e as Error).message);
             result.explorations.manifest = null;
           }
         }
 
         // Look for diagnoses-manifest.json
         const diagManifestFile = join(searchDir, 'diagnoses-manifest.json');
-        if (existsSync(diagManifestFile)) {
+        if (await fileExists(diagManifestFile)) {
           try {
-            result.diagnoses.manifest = JSON.parse(readFileSync(diagManifestFile, 'utf8'));
+            result.diagnoses.manifest = JSON.parse(await readFile(diagManifestFile, 'utf8'));
 
             // Load each diagnosis file based on manifest
             const diagnoses = result.diagnoses.manifest.diagnoses || [];
             for (const diag of diagnoses) {
               const diagFile = join(searchDir, diag.file);
-              if (existsSync(diagFile)) {
+              if (await fileExists(diagFile)) {
                 try {
-                  result.diagnoses.data[diag.angle] = JSON.parse(readFileSync(diagFile, 'utf8'));
+                  result.diagnoses.data[diag.angle] = JSON.parse(await readFile(diagFile, 'utf8'));
                 } catch (e) {
-                  // Skip unreadable diagnosis files
+                  console.warn('Failed to parse diagnosis file:', diagFile, (e as Error).message);
                 }
               }
             }
             break; // Found manifest, stop searching
           } catch (e) {
+            console.warn('Failed to parse diagnoses manifest:', diagManifestFile, (e as Error).message);
             result.diagnoses.manifest = null;
           }
         }
@@ -153,7 +172,7 @@ async function getSessionDetailData(sessionPath: string, dataType: string): Prom
         // Fallback: scan for exploration-*.json and diagnosis-*.json files directly
         if (!result.explorations.manifest) {
           try {
-            const expFiles = readdirSync(searchDir).filter(f => f.startsWith('exploration-') && f.endsWith('.json') && f !== 'explorations-manifest.json');
+            const expFiles = (await readdir(searchDir)).filter(f => f.startsWith('exploration-') && f.endsWith('.json') && f !== 'explorations-manifest.json');
             if (expFiles.length > 0) {
               // Create synthetic manifest
               result.explorations.manifest = {
@@ -169,21 +188,21 @@ async function getSessionDetailData(sessionPath: string, dataType: string): Prom
               for (const file of expFiles) {
                 const angle = file.replace('exploration-', '').replace('.json', '');
                 try {
-                  result.explorations.data[angle] = JSON.parse(readFileSync(join(searchDir, file), 'utf8'));
+                  result.explorations.data[angle] = JSON.parse(await readFile(join(searchDir, file), 'utf8'));
                 } catch (e) {
-                  // Skip unreadable files
+                  console.warn('Failed to parse exploration file:', join(searchDir, file), (e as Error).message);
                 }
               }
             }
           } catch (e) {
-            // Directory read failed
+            console.warn('Failed to read explorations directory:', searchDir, (e as Error).message);
           }
         }
 
         // Fallback: scan for diagnosis-*.json files directly
         if (!result.diagnoses.manifest) {
           try {
-            const diagFiles = readdirSync(searchDir).filter(f => f.startsWith('diagnosis-') && f.endsWith('.json') && f !== 'diagnoses-manifest.json');
+            const diagFiles = (await readdir(searchDir)).filter(f => f.startsWith('diagnosis-') && f.endsWith('.json') && f !== 'diagnoses-manifest.json');
             if (diagFiles.length > 0) {
               // Create synthetic manifest
               result.diagnoses.manifest = {
@@ -199,14 +218,14 @@ async function getSessionDetailData(sessionPath: string, dataType: string): Prom
               for (const file of diagFiles) {
                 const angle = file.replace('diagnosis-', '').replace('.json', '');
                 try {
-                  result.diagnoses.data[angle] = JSON.parse(readFileSync(join(searchDir, file), 'utf8'));
+                  result.diagnoses.data[angle] = JSON.parse(await readFile(join(searchDir, file), 'utf8'));
                 } catch (e) {
-                  // Skip unreadable files
+                  console.warn('Failed to parse diagnosis file:', join(searchDir, file), (e as Error).message);
                 }
               }
             }
           } catch (e) {
-            // Directory read failed
+            console.warn('Failed to read diagnoses directory:', searchDir, (e as Error).message);
           }
         }
 
@@ -228,12 +247,12 @@ async function getSessionDetailData(sessionPath: string, dataType: string): Prom
       ];
 
       for (const conflictFile of conflictFiles) {
-        if (existsSync(conflictFile)) {
+        if (await fileExists(conflictFile)) {
           try {
-            result.conflictResolution = JSON.parse(readFileSync(conflictFile, 'utf8'));
+            result.conflictResolution = JSON.parse(await readFile(conflictFile, 'utf8'));
             break; // Found file, stop searching
           } catch (e) {
-            // Skip unreadable file
+            console.warn('Failed to parse conflict resolution file:', conflictFile, (e as Error).message);
           }
         }
       }
@@ -242,27 +261,60 @@ async function getSessionDetailData(sessionPath: string, dataType: string): Prom
     // Load IMPL_PLAN.md
     if (dataType === 'impl-plan' || dataType === 'all') {
       const implPlanFile = join(normalizedPath, 'IMPL_PLAN.md');
-      if (existsSync(implPlanFile)) {
+      if (await fileExists(implPlanFile)) {
         try {
-          result.implPlan = readFileSync(implPlanFile, 'utf8');
+          result.implPlan = await readFile(implPlanFile, 'utf8');
         } catch (e) {
+          console.warn('Failed to read IMPL_PLAN.md:', implPlanFile, (e as Error).message);
           result.implPlan = null;
         }
       }
     }
 
     // Load multi-cli discussion rounds (rounds/*/synthesis.json)
+    // Supports both NEW and OLD schema formats
     if (dataType === 'multi-cli' || dataType === 'discussions' || dataType === 'all') {
       result.multiCli = {
         sessionId: normalizedPath.split('/').pop() || '',
         type: 'multi-cli-plan',
-        rounds: [] as Array<{ roundNumber: number; synthesis: Record<string, unknown> | null }>
+        rounds: [] as Array<{
+          roundNumber: number;
+          synthesis: Record<string, unknown> | null;
+          // NEW schema extracted fields
+          solutions?: Array<{
+            name: string;
+            source_cli: string[];
+            feasibility: number;
+            effort: string;
+            risk: string;
+            summary: string;
+            tasksCount: number;
+            dependencies: { internal: string[]; external: string[] };
+            technical_concerns: string[];
+          }>;
+          convergence?: {
+            score: number;
+            new_insights: boolean;
+            recommendation: string;
+          };
+          cross_verification?: {
+            agreements: string[];
+            disagreements: string[];
+            resolution: string;
+          };
+          clarification_questions?: string[];
+        }>,
+        // Aggregated data from latest synthesis
+        latestSolutions: [] as Array<Record<string, unknown>>,
+        latestConvergence: null as Record<string, unknown> | null,
+        latestCrossVerification: null as Record<string, unknown> | null,
+        clarificationQuestions: [] as string[]
       };
 
       const roundsDir = join(normalizedPath, 'rounds');
-      if (existsSync(roundsDir)) {
+      if (await fileExists(roundsDir)) {
         try {
-          const roundDirs = readdirSync(roundsDir)
+          const roundDirs = (await readdir(roundsDir))
             .filter(d => /^\d+$/.test(d)) // Only numeric directories
             .sort((a, b) => parseInt(a) - parseInt(b));
 
@@ -270,21 +322,84 @@ async function getSessionDetailData(sessionPath: string, dataType: string): Prom
             const synthesisFile = join(roundsDir, roundDir, 'synthesis.json');
             let synthesis: Record<string, unknown> | null = null;
 
-            if (existsSync(synthesisFile)) {
+            if (await fileExists(synthesisFile)) {
               try {
-                synthesis = JSON.parse(readFileSync(synthesisFile, 'utf8'));
+                synthesis = JSON.parse(await readFile(synthesisFile, 'utf8'));
               } catch (e) {
-                // Skip unreadable synthesis files
+                console.warn('Failed to parse synthesis file:', synthesisFile, (e as Error).message);
               }
             }
 
-            result.multiCli.rounds.push({
+            // Build round data with NEW schema fields extracted
+            const roundData: any = {
               roundNumber: parseInt(roundDir),
               synthesis
-            });
+            };
+
+            // Extract NEW schema fields if present
+            if (synthesis) {
+              // Extract solutions with summary info
+              if (Array.isArray(synthesis.solutions)) {
+                roundData.solutions = (synthesis.solutions as Array<Record<string, any>>).map(s => ({
+                  name: s.name || '',
+                  source_cli: s.source_cli || [],
+                  feasibility: s.feasibility ?? 0,
+                  effort: s.effort || 'unknown',
+                  risk: s.risk || 'unknown',
+                  summary: s.summary || '',
+                  tasksCount: s.implementation_plan?.tasks?.length || 0,
+                  dependencies: s.dependencies || { internal: [], external: [] },
+                  technical_concerns: s.technical_concerns || []
+                }));
+              }
+
+              // Extract convergence
+              if (synthesis.convergence && typeof synthesis.convergence === 'object') {
+                const conv = synthesis.convergence as Record<string, unknown>;
+                roundData.convergence = {
+                  score: conv.score ?? 0,
+                  new_insights: conv.new_insights ?? false,
+                  recommendation: conv.recommendation || 'unknown'
+                };
+              }
+
+              // Extract cross_verification
+              if (synthesis.cross_verification && typeof synthesis.cross_verification === 'object') {
+                const cv = synthesis.cross_verification as Record<string, unknown>;
+                roundData.cross_verification = {
+                  agreements: Array.isArray(cv.agreements) ? cv.agreements : [],
+                  disagreements: Array.isArray(cv.disagreements) ? cv.disagreements : [],
+                  resolution: (cv.resolution as string) || ''
+                };
+              }
+
+              // Extract clarification_questions
+              if (Array.isArray(synthesis.clarification_questions)) {
+                roundData.clarification_questions = synthesis.clarification_questions;
+              }
+            }
+
+            result.multiCli.rounds.push(roundData);
+          }
+
+          // Populate aggregated data from latest round
+          if (result.multiCli.rounds.length > 0) {
+            const latestRound = result.multiCli.rounds[result.multiCli.rounds.length - 1];
+            if (latestRound.solutions) {
+              result.multiCli.latestSolutions = latestRound.solutions;
+            }
+            if (latestRound.convergence) {
+              result.multiCli.latestConvergence = latestRound.convergence;
+            }
+            if (latestRound.cross_verification) {
+              result.multiCli.latestCrossVerification = latestRound.cross_verification;
+            }
+            if (latestRound.clarification_questions) {
+              result.multiCli.clarificationQuestions = latestRound.clarification_questions;
+            }
           }
         } catch (e) {
-          // Directory read failed
+          console.warn('Failed to read rounds directory:', roundsDir, (e as Error).message);
         }
       }
     }
@@ -299,12 +414,12 @@ async function getSessionDetailData(sessionPath: string, dataType: string): Prom
         totalFindings: 0
       };
 
-      if (existsSync(reviewDir)) {
+      if (await fileExists(reviewDir)) {
         // Load review-state.json
         const stateFile = join(reviewDir, 'review-state.json');
-        if (existsSync(stateFile)) {
+        if (await fileExists(stateFile)) {
           try {
-            const state = JSON.parse(readFileSync(stateFile, 'utf8'));
+            const state = JSON.parse(await readFile(stateFile, 'utf8'));
             result.review.state = state;
             result.review.severityDistribution = state.severity_distribution || {};
             result.review.totalFindings = state.total_findings || 0;
@@ -313,18 +428,18 @@ async function getSessionDetailData(sessionPath: string, dataType: string): Prom
             result.review.crossCuttingConcerns = state.cross_cutting_concerns || [];
             result.review.criticalFiles = state.critical_files || [];
           } catch (e) {
-            // Skip unreadable state
+            console.warn('Failed to parse review state file:', stateFile, (e as Error).message);
           }
         }
 
         // Load dimension findings
         const dimensionsDir = join(reviewDir, 'dimensions');
-        if (existsSync(dimensionsDir)) {
-          const files = readdirSync(dimensionsDir).filter(f => f.endsWith('.json'));
+        if (await fileExists(dimensionsDir)) {
+          const files = (await readdir(dimensionsDir)).filter(f => f.endsWith('.json'));
           for (const file of files) {
             try {
               const dimName = file.replace('.json', '');
-              const data = JSON.parse(readFileSync(join(dimensionsDir, file), 'utf8'));
+              const data = JSON.parse(await readFile(join(dimensionsDir, file), 'utf8'));
 
               // Handle array structure: [ { findings: [...] } ]
               let findings = [];
@@ -346,7 +461,7 @@ async function getSessionDetailData(sessionPath: string, dataType: string): Prom
                 count: findings.length
               });
             } catch (e) {
-              // Skip unreadable files
+              console.warn('Failed to parse review dimension file:', join(dimensionsDir, file), (e as Error).message);
             }
           }
         }

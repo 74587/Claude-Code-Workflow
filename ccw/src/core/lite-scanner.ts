@@ -195,8 +195,65 @@ async function scanMultiCliDir(dir: string): Promise<LiteSession[]> {
   }
 }
 
+// NEW Schema types for multi-cli synthesis
+interface SolutionFileAction {
+  file: string;
+  line: number;
+  action: 'modify' | 'create' | 'delete';
+}
+
+interface SolutionTask {
+  id: string;
+  name: string;
+  depends_on: string[];
+  files: SolutionFileAction[];
+  key_point: string | null;
+}
+
+interface SolutionImplementationPlan {
+  approach: string;
+  tasks: SolutionTask[];
+  execution_flow: string;
+  milestones: string[];
+}
+
+interface SolutionDependencies {
+  internal: string[];
+  external: string[];
+}
+
+interface Solution {
+  name: string;
+  source_cli: string[];
+  feasibility: number;  // 0-1
+  effort: 'low' | 'medium' | 'high';
+  risk: 'low' | 'medium' | 'high';
+  summary: string;
+  implementation_plan: SolutionImplementationPlan;
+  dependencies: SolutionDependencies;
+  technical_concerns: string[];
+}
+
+interface SynthesisConvergence {
+  score: number;
+  new_insights: boolean;
+  recommendation: 'converged' | 'continue' | 'user_input_needed';
+}
+
+interface SynthesisCrossVerification {
+  agreements: string[];
+  disagreements: string[];
+  resolution: string;
+}
+
 interface RoundSynthesis {
   round: number;
+  // NEW schema fields
+  solutions?: Solution[];
+  convergence?: SynthesisConvergence;
+  cross_verification?: SynthesisCrossVerification;
+  clarification_questions?: string[];
+  // OLD schema fields (backward compatibility)
   converged?: boolean;
   tasks?: unknown[];
   synthesis?: unknown;
@@ -230,31 +287,72 @@ async function loadRoundSyntheses(sessionPath: string): Promise<RoundSynthesis[]
         const synthesis = JSON.parse(content) as RoundSynthesis;
         synthesis.round = roundDir.num;
         syntheses.push(synthesis);
-      } catch {
-        // Skip if synthesis.json doesn't exist or can't be parsed
+      } catch (e) {
+        console.warn('Failed to parse synthesis file:', synthesisPath, (e as Error).message);
       }
     }
-  } catch {
-    // Return empty array if rounds directory doesn't exist
+  } catch (e) {
+    // Ignore ENOENT errors (directory doesn't exist), warn on others
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+      console.warn('Failed to read rounds directory:', roundsDir, (e as Error).message);
+    }
   }
 
   return syntheses;
 }
 
+// Extended Progress interface for multi-cli sessions
+interface MultiCliProgress extends Progress {
+  convergenceScore?: number;
+  recommendation?: 'converged' | 'continue' | 'user_input_needed';
+  solutionsCount?: number;
+  avgFeasibility?: number;
+}
+
 /**
  * Calculate progress for multi-cli-plan sessions
+ * Uses new convergence.score and convergence.recommendation when available
+ * Falls back to old converged boolean for backward compatibility
  * @param syntheses - Array of round syntheses
- * @returns Progress info
+ * @returns Progress info with convergence metrics
  */
-function calculateMultiCliProgress(syntheses: RoundSynthesis[]): Progress {
+function calculateMultiCliProgress(syntheses: RoundSynthesis[]): MultiCliProgress {
   if (syntheses.length === 0) {
     return { total: 0, completed: 0, percentage: 0 };
   }
 
   const latestSynthesis = syntheses[syntheses.length - 1];
-  const isConverged = latestSynthesis.converged === true;
 
-  // Total is based on expected rounds or actual rounds
+  // NEW schema: Use convergence object
+  if (latestSynthesis.convergence) {
+    const { score, recommendation } = latestSynthesis.convergence;
+    const isConverged = recommendation === 'converged';
+
+    // Calculate solutions metrics
+    const solutions = latestSynthesis.solutions || [];
+    const solutionsCount = solutions.length;
+    const avgFeasibility = solutionsCount > 0
+      ? solutions.reduce((sum, s) => sum + (s.feasibility || 0), 0) / solutionsCount
+      : 0;
+
+    // Total is based on rounds, percentage derived from convergence score
+    const total = syntheses.length;
+    const completed = isConverged ? total : Math.max(0, total - 1);
+    const percentage = isConverged ? 100 : Math.round(score * 100);
+
+    return {
+      total,
+      completed,
+      percentage,
+      convergenceScore: score,
+      recommendation,
+      solutionsCount,
+      avgFeasibility: Math.round(avgFeasibility * 100) / 100
+    };
+  }
+
+  // OLD schema: Fallback to converged boolean
+  const isConverged = latestSynthesis.converged === true;
   const total = syntheses.length;
   const completed = isConverged ? total : Math.max(0, total - 1);
   const percentage = isConverged ? 100 : Math.round((completed / Math.max(total, 1)) * 100);
@@ -264,6 +362,8 @@ function calculateMultiCliProgress(syntheses: RoundSynthesis[]): Progress {
 
 /**
  * Extract tasks from synthesis objects
+ * NEW schema: Extract from solutions[].implementation_plan.tasks
+ * OLD schema: Extract from tasks[] array directly
  * @param syntheses - Array of round syntheses
  * @returns Normalized tasks from latest synthesis
  */
@@ -271,13 +371,82 @@ function extractTasksFromSyntheses(syntheses: RoundSynthesis[]): NormalizedTask[
   if (syntheses.length === 0) return [];
 
   const latestSynthesis = syntheses[syntheses.length - 1];
-  const tasks = latestSynthesis.tasks;
 
+  // NEW schema: Extract tasks from solutions
+  if (latestSynthesis.solutions && Array.isArray(latestSynthesis.solutions)) {
+    const allTasks: NormalizedTask[] = [];
+
+    for (const solution of latestSynthesis.solutions) {
+      const implPlan = solution.implementation_plan;
+      if (!implPlan?.tasks || !Array.isArray(implPlan.tasks)) continue;
+
+      for (const task of implPlan.tasks) {
+        const normalizedTask = normalizeSolutionTask(task, solution);
+        if (normalizedTask) {
+          allTasks.push(normalizedTask);
+        }
+      }
+    }
+
+    // Sort by task ID
+    return allTasks.sort((a, b) => {
+      const aNum = parseInt(a.id?.replace(/\D/g, '') || '0');
+      const bNum = parseInt(b.id?.replace(/\D/g, '') || '0');
+      return aNum - bNum;
+    });
+  }
+
+  // OLD schema: Extract from tasks array directly
+  const tasks = latestSynthesis.tasks;
   if (!Array.isArray(tasks)) return [];
 
   return tasks
     .map((task) => normalizeTask(task))
     .filter((task): task is NormalizedTask => task !== null);
+}
+
+/**
+ * Normalize a solution task from NEW schema to NormalizedTask
+ * @param task - SolutionTask from new schema
+ * @param solution - Parent solution for context
+ * @returns Normalized task
+ */
+function normalizeSolutionTask(task: SolutionTask, solution: Solution): NormalizedTask | null {
+  if (!task || !task.id) return null;
+
+  return {
+    id: task.id,
+    title: task.name || 'Untitled Task',
+    status: (task as unknown as { status?: string }).status || 'pending',
+    meta: {
+      type: 'implementation',
+      agent: null,
+      scope: solution.name || null,
+      module: null
+    },
+    context: {
+      requirements: task.key_point ? [task.key_point] : [],
+      focus_paths: task.files?.map(f => f.file) || [],
+      acceptance: [],
+      depends_on: task.depends_on || []
+    },
+    flow_control: {
+      implementation_approach: task.files?.map((f, i) => ({
+        step: `Step ${i + 1}`,
+        action: `${f.action} ${f.file}${f.line ? ` at line ${f.line}` : ''}`
+      })) || []
+    },
+    _raw: {
+      task,
+      solution: {
+        name: solution.name,
+        source_cli: solution.source_cli,
+        feasibility: solution.feasibility,
+        effort: solution.effort,
+        risk: solution.risk
+      }
+    }
+  };
 }
 
 /**

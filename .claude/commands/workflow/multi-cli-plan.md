@@ -130,7 +130,7 @@ Task({
 - task_description: ${taskDescription}
 - round_number: ${currentRound}
 - session: { id: "${sessionId}", folder: "${sessionFolder}" }
-- ace_context: ${JSON.stringify(contextPackage)}
+- ace_context: ${JSON.stringify(contextPackageage)}
 - previous_rounds: ${JSON.stringify(analysisResults)}
 - user_feedback: ${userFeedback || 'None'}
 - cli_config: { tools: ["gemini", "codex"], mode: "parallel", fallback_chain: ["gemini", "codex", "claude"] }
@@ -225,7 +225,96 @@ AskUserQuestion({
 
 ### Phase 5: Plan Generation
 
-**Invoke Planning Agent**:
+**Step 1: Build Context-Package** (Orchestrator responsibility):
+```javascript
+// Extract key information from user decision and synthesis
+const contextPackage = {
+  // Core solution details
+  solution: {
+    name: selectedSolution.name,
+    source_cli: selectedSolution.source_cli,
+    feasibility: selectedSolution.feasibility,
+    effort: selectedSolution.effort,
+    risk: selectedSolution.risk,
+    summary: selectedSolution.summary
+  },
+  // Implementation plan (tasks, flow, milestones)
+  implementation_plan: selectedSolution.implementation_plan,
+  // Dependencies
+  dependencies: selectedSolution.dependencies || { internal: [], external: [] },
+  // Technical concerns
+  technical_concerns: selectedSolution.technical_concerns || [],
+  // Consensus from cross-verification
+  consensus: {
+    agreements: synthesis.cross_verification.agreements,
+    resolved_conflicts: synthesis.cross_verification.resolution
+  },
+  // User constraints (from Phase 4 feedback)
+  constraints: userConstraints || [],
+  // Task context
+  task_description: taskDescription,
+  session_id: sessionId
+}
+
+// Write context-package for traceability
+Write(`${sessionFolder}/context-package.json`, JSON.stringify(contextPackage, null, 2))
+```
+
+**Context-Package Schema**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `solution` | object | User-selected solution from synthesis |
+| `solution.name` | string | Solution identifier |
+| `solution.feasibility` | number | Viability score (0-1) |
+| `solution.summary` | string | Brief analysis summary |
+| `implementation_plan` | object | Task breakdown with flow and dependencies |
+| `implementation_plan.approach` | string | High-level technical strategy |
+| `implementation_plan.tasks[]` | array | Discrete tasks with id, name, depends_on, files |
+| `implementation_plan.execution_flow` | string | Task sequence (e.g., "T1 → T2 → T3") |
+| `implementation_plan.milestones` | string[] | Key checkpoints |
+| `dependencies` | object | Module and package dependencies |
+| `technical_concerns` | string[] | Risks and blockers |
+| `consensus` | object | Cross-verified agreements from multi-CLI |
+| `constraints` | string[] | User-specified constraints from Phase 4 |
+
+```json
+{
+  "solution": {
+    "name": "Strategy Pattern Refactoring",
+    "source_cli": ["gemini", "codex"],
+    "feasibility": 0.88,
+    "effort": "medium",
+    "risk": "low",
+    "summary": "Extract payment gateway interface, implement strategy pattern for multi-gateway support"
+  },
+  "implementation_plan": {
+    "approach": "Define interface → Create concrete strategies → Implement factory → Migrate existing code",
+    "tasks": [
+      {"id": "T1", "name": "Define PaymentGateway interface", "depends_on": [], "files": [{"file": "src/types/payment.ts", "line": 1, "action": "create"}], "key_point": "Include all existing Stripe methods"},
+      {"id": "T2", "name": "Implement StripeGateway", "depends_on": ["T1"], "files": [{"file": "src/payment/stripe.ts", "line": 1, "action": "create"}], "key_point": "Wrap existing logic"},
+      {"id": "T3", "name": "Create GatewayFactory", "depends_on": ["T1"], "files": [{"file": "src/payment/factory.ts", "line": 1, "action": "create"}], "key_point": null},
+      {"id": "T4", "name": "Migrate processor to use factory", "depends_on": ["T2", "T3"], "files": [{"file": "src/payment/processor.ts", "line": 45, "action": "modify"}], "key_point": "Backward compatible"}
+    ],
+    "execution_flow": "T1 → (T2 | T3) → T4",
+    "milestones": ["Interface defined", "Gateway implementations complete", "Migration done"]
+  },
+  "dependencies": {
+    "internal": ["@/lib/payment-gateway", "@/types/payment"],
+    "external": ["stripe@^14.0.0"]
+  },
+  "technical_concerns": ["Existing tests must pass", "No breaking API changes"],
+  "consensus": {
+    "agreements": ["Use strategy pattern", "Keep existing API"],
+    "resolved_conflicts": "Factory over DI for simpler integration"
+  },
+  "constraints": ["backward compatible", "no breaking changes to PaymentResult type"],
+  "task_description": "Refactor payment processing for multi-gateway support",
+  "session_id": "MCP-payment-refactor-2026-01-14"
+}
+```
+
+**Step 2: Invoke Planning Agent**:
 ```javascript
 Task({
   subagent_type: "cli-lite-planning-agent",
@@ -235,29 +324,35 @@ Task({
 ## Schema Reference
 Execute: cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json
 
-## Selected Solution
-${JSON.stringify(selectedSolution)}
-
-## Analysis Consensus
-${synthesis.cross_verification.agreements.join('\n')}
+## Context-Package (from orchestrator)
+${JSON.stringify(contextPackage, null, 2)}
 
 ## Execution Process
 1. Read plan-json-schema.json for output structure
 2. Read project-tech.json and project-guidelines.json
-3. Decompose solution into 2-7 tasks (group by feature, not file)
-4. Assign dependencies and execution groups
-5. Generate IMPL_PLAN.md with step-by-step documentation
-6. Generate plan.json following schema exactly
+3. Parse context-package fields:
+   - solution: name, feasibility, summary
+   - implementation_plan: tasks[], execution_flow, milestones
+   - dependencies: internal[], external[]
+   - technical_concerns: risks/blockers
+   - consensus: agreements, resolved_conflicts
+   - constraints: user requirements
+4. Use implementation_plan.tasks[] as task foundation
+5. Preserve task dependencies (depends_on) and execution_flow
+6. Expand tasks with detailed acceptance criteria
+7. Generate IMPL_PLAN.md documenting milestones and key_points
+8. Generate plan.json following schema exactly
 
 ## Output
 - ${sessionFolder}/IMPL_PLAN.md
 - ${sessionFolder}/plan.json
 
 ## Completion Checklist
-- [ ] IMPL_PLAN.md written with complete documentation
-- [ ] plan.json follows schema exactly
-- [ ] All affected files have line numbers
-- [ ] Tasks grouped by feature (not one per file)
+- [ ] IMPL_PLAN.md documents approach, milestones, technical_concerns
+- [ ] plan.json preserves task dependencies from implementation_plan
+- [ ] Task execution order follows execution_flow
+- [ ] Key_points reflected in task descriptions
+- [ ] User constraints applied to implementation
 - [ ] Acceptance criteria are testable
 `
 })
@@ -279,6 +374,7 @@ if (userConfirms) {
 │   ├── 1/synthesis.json        # Round 1 analysis (cli-discuss-agent)
 │   ├── 2/synthesis.json        # Round 2 analysis (cli-discuss-agent)
 │   └── .../
+├── context-package.json        # Extracted context for planning (orchestrator)
 ├── IMPL_PLAN.md                # Documentation (cli-lite-planning-agent)
 └── plan.json                   # Structured plan (cli-lite-planning-agent)
 ```
@@ -289,23 +385,32 @@ if (userConfirms) {
 |------|----------|---------|
 | `session-state.json` | Orchestrator | Session metadata, rounds, decisions |
 | `rounds/*/synthesis.json` | cli-discuss-agent | Solutions, convergence, cross-verification |
+| `context-package.json` | Orchestrator | Extracted solution, dependencies, consensus for planning |
 | `IMPL_PLAN.md` | cli-lite-planning-agent | Human-readable plan |
 | `plan.json` | cli-lite-planning-agent | Structured tasks for execution |
 
 ## synthesis.json Schema
 
-**Primary Fields** (orchestrator reads these):
 ```json
 {
   "round": 1,
   "solutions": [{
     "name": "Solution Name",
-    "description": "What this does",
     "source_cli": ["gemini", "codex"],
-    "pros": [], "cons": [],
+    "feasibility": 0.85,
     "effort": "low|medium|high",
     "risk": "low|medium|high",
-    "affected_files": [{"file": "path", "line": 10, "reason": "why"}]
+    "summary": "Brief analysis summary",
+    "implementation_plan": {
+      "approach": "High-level technical approach",
+      "tasks": [
+        {"id": "T1", "name": "Task", "depends_on": [], "files": [], "key_point": "..."}
+      ],
+      "execution_flow": "T1 → T2 → T3",
+      "milestones": ["Checkpoint 1", "Checkpoint 2"]
+    },
+    "dependencies": {"internal": [], "external": []},
+    "technical_concerns": ["Risk 1", "Blocker 2"]
   }],
   "convergence": {
     "score": 0.85,
@@ -321,7 +426,17 @@ if (userConfirms) {
 }
 ```
 
-**Extended Fields** (for visualization): `metadata`, `discussionTopic`, `relatedFiles`, `planning`, `decision`, `decisionRecords`
+**Key Planning Fields**:
+
+| Field | Purpose |
+|-------|---------|
+| `feasibility` | Viability score (0-1) |
+| `implementation_plan.tasks[]` | Discrete tasks with dependencies |
+| `implementation_plan.execution_flow` | Task sequence visualization |
+| `implementation_plan.milestones` | Key checkpoints |
+| `technical_concerns` | Risks and blockers |
+
+**Note**: Solutions ranked by internal scoring (array order = priority)
 
 ## TodoWrite Structure
 

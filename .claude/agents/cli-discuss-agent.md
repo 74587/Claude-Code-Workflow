@@ -60,24 +60,43 @@ Phase 5: Output Generation
 
 **Output Path**: `{session.folder}/rounds/{round_number}/synthesis.json`
 
-### Primary Fields (orchestrator reads these)
-
 ```json
 {
   "round": 1,
   "solutions": [
     {
       "name": "Solution Name",
-      "description": "What this does",
       "source_cli": ["gemini", "codex"],
-      "pros": ["advantage 1"],
-      "cons": ["disadvantage 1"],
+      "feasibility": 0.85,
       "effort": "low|medium|high",
       "risk": "low|medium|high",
-      "maintainability": "low|medium|high",
-      "performance_impact": "positive|neutral|negative",
-      "affected_files": [{"file": "path", "line": 10, "reason": "why"}],
-      "score": 85
+      "summary": "Brief analysis summary",
+      "implementation_plan": {
+        "approach": "High-level technical approach",
+        "tasks": [
+          {
+            "id": "T1",
+            "name": "Task name",
+            "depends_on": [],
+            "files": [{"file": "path", "line": 10, "action": "modify|create|delete"}],
+            "key_point": "Critical consideration for this task"
+          },
+          {
+            "id": "T2",
+            "name": "Second task",
+            "depends_on": ["T1"],
+            "files": [{"file": "path2", "line": 1, "action": "create"}],
+            "key_point": null
+          }
+        ],
+        "execution_flow": "T1 → T2 → T3 (T2,T3 can parallel after T1)",
+        "milestones": ["Interface defined", "Core logic complete", "Tests passing"]
+      },
+      "dependencies": {
+        "internal": ["@/lib/module"],
+        "external": ["npm:package@version"]
+      },
+      "technical_concerns": ["Potential blocker 1", "Risk area 2"]
     }
   ],
   "convergence": {
@@ -94,14 +113,21 @@ Phase 5: Output Generation
 }
 ```
 
-### Extended Fields (for visualization)
+**Schema Fields**:
 
-- `metadata` - artifactId, timestamp, contributingAgents, durationSeconds
-- `discussionTopic` - title, description, scope, status, tags
-- `relatedFiles` - fileTree, impactSummary
-- `planning` - functional/nonFunctional requirements
-- `decision` - status, selectedSolution, rejectedAlternatives
-- `decisionRecords` - timeline events
+| Field | Purpose |
+|-------|---------|
+| `feasibility` | Quantitative viability score (0-1) |
+| `summary` | Narrative analysis summary |
+| `implementation_plan.approach` | High-level technical strategy |
+| `implementation_plan.tasks[]` | Discrete implementation tasks |
+| `implementation_plan.tasks[].depends_on` | Task dependencies (IDs) |
+| `implementation_plan.tasks[].key_point` | Critical consideration for task |
+| `implementation_plan.execution_flow` | Visual task sequence |
+| `implementation_plan.milestones` | Key checkpoints |
+| `technical_concerns` | Specific risks/blockers |
+
+**Note**: Solutions ranked by internal scoring (array order = priority). `pros/cons` merged into `summary` and `technical_concerns`.
 
 ---
 
@@ -273,7 +299,7 @@ Second+ CLI receives prior analysis for verification:
 3. Combine pros/cons/affected_files from multiple sources
 4. Track source_cli attribution
 
-**Scoring formula**:
+**Internal scoring** (used for ranking, not exported):
 ```
 score = (source_cli.length × 20)           // Multi-CLI consensus
       + effort_score[effort]               // low=30, medium=20, high=10
@@ -282,7 +308,7 @@ score = (source_cli.length × 20)           // Multi-CLI consensus
       + min(affected_files.length × 3, 15) // Specificity
 ```
 
-**Output**: Top 3 solutions ranked by score
+**Output**: Top 3 solutions, ranked in array order (highest score first)
 
 ---
 
