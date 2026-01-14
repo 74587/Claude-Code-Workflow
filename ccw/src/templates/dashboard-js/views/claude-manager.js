@@ -1,6 +1,10 @@
 // CLAUDE.md Manager View
 // Three-column layout: File Tree | Viewer/Editor | Metadata & Actions
 
+// ========== Lifecycle Management ==========
+var claudeManagerDestroy = null;
+var createDialogOverlay = null;  // Track create dialog overlay for cleanup
+
 // ========== State Management ==========
 var claudeFilesData = {
   user: { main: null },
@@ -19,9 +23,15 @@ var fileTreeExpanded = {
 var searchQuery = '';
 var freshnessData = {}; // { [filePath]: FreshnessResult }
 var freshnessSummary = null;
+var searchKeyboardHandlerAdded = false;
 
 // ========== Main Render Function ==========
 async function renderClaudeManager() {
+  // Initialize lifecycle
+  if (typeof initClaudeManager === 'function') {
+    initClaudeManager();
+  }
+
   var container = document.getElementById('mainContent');
   if (!container) return;
 
@@ -749,9 +759,11 @@ function filterFileTree(query) {
   renderFileTree();
 
   // Add keyboard shortcut handler
-  if (query && !window.claudeSearchKeyboardHandlerAdded) {
-    document.addEventListener('keydown', handleSearchKeyboard);
-    window.claudeSearchKeyboardHandlerAdded = true;
+  if (query && !searchKeyboardHandlerAdded) {
+    (function() {
+      document.addEventListener('keydown', handleSearchKeyboard);
+      searchKeyboardHandlerAdded = true;
+    })();
   }
 }
 
@@ -796,6 +808,7 @@ function showCreateFileDialog() {
     '</div>';
 
   document.body.insertAdjacentHTML('beforeend', dialog);
+  createDialogOverlay = document.querySelector('.modal-overlay');
   if (window.lucide) lucide.createIcons();
 }
 
@@ -918,3 +931,31 @@ function updateClaudeBadge() {
     badge.textContent = total;
   }
 }
+
+// ========== Lifecycle Functions ==========
+function destroyClaudeManager() {
+  // Remove search keyboard event listener if added
+  if (searchKeyboardHandlerAdded) {
+    document.removeEventListener('keydown', handleSearchKeyboard);
+    searchKeyboardHandlerAdded = false;
+  }
+
+  // Remove create dialog overlay if exists
+  if (createDialogOverlay) {
+    createDialogOverlay.remove();
+    createDialogOverlay = null;
+  }
+
+  // Reset view-specific state
+  selectedFile = null;
+  isEditMode = false;
+  isDirty = false;
+}
+
+// Expose init/destroy functions for lifecycle management
+window.initClaudeManager = function() {
+  claudeManagerDestroy = destroyClaudeManager;
+};
+
+// Make destroyClaudeManager accessible globally as well
+window.destroyClaudeManager = destroyClaudeManager;

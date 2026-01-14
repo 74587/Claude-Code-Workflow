@@ -7,6 +7,9 @@ var isMultiSelectMode = false;
 
 // ========== Rendering ==========
 async function renderCliHistoryView() {
+  // Reset view state to prevent stale data persistence
+  resetHistoryViewState();
+
   var container = document.getElementById('mainContent');
   if (!container) return;
 
@@ -183,6 +186,9 @@ async function renderCliHistoryView() {
   if (window.lucide) lucide.createIcons();
 }
 
+// Export destroy function for lifecycle management
+window.destroyCliHistoryView = destroyCliHistoryView;
+
 // ========== Actions ==========
 async function copyExecutionId(executionId) {
   try {
@@ -218,16 +224,28 @@ async function refreshCliHistoryView() {
 }
 
 // ========== Multi-Select Functions ==========
+var deleteDropdownListenerActive = false;
+
 function toggleDeleteDropdown(event) {
   event.stopPropagation();
   var menu = document.getElementById('deleteDropdownMenu');
   if (menu) {
-    menu.classList.toggle('show');
-    // Close on outside click
     if (menu.classList.contains('show')) {
-      setTimeout(function() {
-        document.addEventListener('click', closeDeleteDropdown);
-      }, 0);
+      // Closing: remove listener if active
+      menu.classList.remove('show');
+      if (deleteDropdownListenerActive) {
+        document.removeEventListener('click', closeDeleteDropdown);
+        deleteDropdownListenerActive = false;
+      }
+    } else {
+      // Opening: add listener if not already active
+      menu.classList.add('show');
+      if (!deleteDropdownListenerActive) {
+        setTimeout(function() {
+          document.addEventListener('click', closeDeleteDropdown);
+          deleteDropdownListenerActive = true;
+        }, 0);
+      }
     }
   }
 }
@@ -235,7 +253,10 @@ function toggleDeleteDropdown(event) {
 function closeDeleteDropdown() {
   var menu = document.getElementById('deleteDropdownMenu');
   if (menu) menu.classList.remove('show');
-  document.removeEventListener('click', closeDeleteDropdown);
+  if (deleteDropdownListenerActive) {
+    document.removeEventListener('click', closeDeleteDropdown);
+    deleteDropdownListenerActive = false;
+  }
 }
 
 function enterMultiSelectMode() {
@@ -277,6 +298,23 @@ function selectAllExecutions() {
 function clearExecutionSelection() {
   selectedExecutions.clear();
   renderCliHistoryView();
+}
+
+function resetHistoryViewState() {
+  selectedExecutions.clear();
+  isMultiSelectMode = false;
+}
+
+// ========== View Lifecycle ==========
+function destroyCliHistoryView() {
+  // Clean up dropdown listener if active
+  if (deleteDropdownListenerActive) {
+    document.removeEventListener('click', closeDeleteDropdown);
+    deleteDropdownListenerActive = false;
+  }
+  // Ensure dropdown menu is closed
+  var menu = document.getElementById('deleteDropdownMenu');
+  if (menu) menu.classList.remove('show');
 }
 
 // ========== Batch Delete Functions ==========

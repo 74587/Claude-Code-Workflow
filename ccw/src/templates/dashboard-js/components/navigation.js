@@ -1,6 +1,9 @@
 // Navigation and Routing
 // Manages navigation events, active state, content title updates, search, and path selector
 
+// View lifecycle management
+var currentViewDestroy = null;
+
 // Path Selector
 function initPathSelector() {
   const btn = document.getElementById('pathButton');
@@ -54,6 +57,11 @@ function initPathSelector() {
 
 // Cleanup function for view transitions
 function cleanupPreviousView() {
+  // Call current view's destroy function if exists
+  if (currentViewDestroy) {
+    currentViewDestroy();
+    currentViewDestroy = null;
+  }
   // Cleanup graph explorer
   if (currentView === 'graph-explorer' && typeof window.cleanupGraphExplorer === 'function') {
     window.cleanupGraphExplorer();
@@ -118,9 +126,13 @@ function initNavigation() {
       } else if (currentView === 'explorer') {
         renderExplorer();
       } else if (currentView === 'cli-manager') {
-        renderCliManager();
+        renderClaudeManager();
       } else if (currentView === 'cli-history') {
         renderCliHistoryView();
+        // Register destroy function for cli-history view
+        if (typeof window.destroyCliHistoryView === 'function') {
+          currentViewDestroy = window.destroyCliHistoryView;
+        }
       } else if (currentView === 'hook-manager') {
         renderHookManager();
       } else if (currentView === 'memory') {
@@ -133,6 +145,10 @@ function initNavigation() {
         renderRulesManager();
       } else if (currentView === 'claude-manager') {
         renderClaudeManager();
+        // Register destroy function for claude-manager view
+        if (typeof window.initClaudeManager === 'function') {
+          window.initClaudeManager();
+        }
       } else if (currentView === 'graph-explorer') {
         renderGraphExplorer();
       } else if (currentView === 'help') {

@@ -1117,6 +1117,143 @@ function renderRoundContent(round) {
     `);
   }
 
+  // Round solutions
+  if (round.solutions && round.solutions.length > 0) {
+    sections.push(`
+      <div class="round-solutions">
+        <strong>${t('multiCli.solutions') || 'Solutions'} (${round.solutions.length}):</strong>
+        <div class="solutions-list">
+          ${round.solutions.map((solution, idx) => `
+            <div class="solution-card">
+              <div class="solution-header">
+                <div class="solution-title">
+                  <span class="solution-number">${idx + 1}</span>
+                  <span class="solution-name">${escapeHtml(solution.name || `Solution ${idx + 1}`)}</span>
+                </div>
+                <div class="solution-meta">
+                  ${solution.source_cli?.length ? `
+                    <div class="source-clis">
+                      ${solution.source_cli.map(cli => `<span class="cli-badge">${escapeHtml(cli)}</span>`).join('')}
+                    </div>
+                  ` : ''}
+                  <div class="solution-scores">
+                    <span class="score-badge feasibility" title="Feasibility">
+                      ${Math.round((solution.feasibility || 0) * 100)}%
+                    </span>
+                    <span class="score-badge effort-${solution.effort || 'medium'}" title="Effort">
+                      ${escapeHtml(solution.effort || 'medium')}
+                    </span>
+                    <span class="score-badge risk-${solution.risk || 'medium'}" title="Risk">
+                      ${escapeHtml(solution.risk || 'medium')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              ${solution.summary ? `
+                <div class="solution-summary">
+                  ${escapeHtml(getI18nText(solution.summary))}
+                </div>
+              ` : ''}
+
+              ${solution.implementation_plan?.approach ? `
+                <div class="solution-approach collapsible-section">
+                  <div class="collapsible-header">
+                    <span class="collapse-icon">&#9658;</span>
+                    <span class="section-label">${t('multiCli.implementation') || 'Implementation Approach'}</span>
+                  </div>
+                  <div class="collapsible-content collapsed">
+                    <p>${escapeHtml(getI18nText(solution.implementation_plan.approach))}</p>
+
+                    ${solution.implementation_plan.tasks?.length ? `
+                      <div class="solution-tasks">
+                        <strong>${t('multiCli.tasks') || 'Tasks'}:</strong>
+                        <ul class="task-list">
+                          ${solution.implementation_plan.tasks.map(task => `
+                            <li class="task-item">
+                              <span class="task-id">${escapeHtml(task.id || '')}</span>
+                              <span class="task-name">${escapeHtml(getI18nText(task.name))}</span>
+                              ${task.key_point ? `<span class="task-key-point">${escapeHtml(getI18nText(task.key_point))}</span>` : ''}
+                            </li>
+                          `).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+
+                    ${solution.implementation_plan.execution_flow ? `
+                      <div class="execution-flow">
+                        <strong>${t('multiCli.executionFlow') || 'Execution Flow'}:</strong>
+                        <code class="flow-code">${escapeHtml(solution.implementation_plan.execution_flow)}</code>
+                      </div>
+                    ` : ''}
+
+                    ${solution.implementation_plan.milestones?.length ? `
+                      <div class="solution-milestones">
+                        <strong>${t('multiCli.milestones') || 'Milestones'}:</strong>
+                        <ul class="milestone-list">
+                          ${solution.implementation_plan.milestones.map(milestone => `
+                            <li class="milestone-item">${escapeHtml(getI18nText(milestone))}</li>
+                          `).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+                  </div>
+                </div>
+              ` : ''}
+
+              ${(solution.dependencies?.internal?.length || solution.dependencies?.external?.length) ? `
+                <div class="solution-dependencies collapsible-section">
+                  <div class="collapsible-header">
+                    <span class="collapse-icon">&#9658;</span>
+                    <span class="section-label">${t('multiCli.dependencies') || 'Dependencies'}</span>
+                  </div>
+                  <div class="collapsible-content collapsed">
+                    ${solution.dependencies.internal?.length ? `
+                      <div class="internal-deps">
+                        <strong>${t('multiCli.internalDeps') || 'Internal'}:</strong>
+                        <ul class="dep-list">
+                          ${solution.dependencies.internal.map(dep => `
+                            <li class="dep-item">${escapeHtml(getI18nText(dep))}</li>
+                          `).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+                    ${solution.dependencies.external?.length ? `
+                      <div class="external-deps">
+                        <strong>${t('multiCli.externalDeps') || 'External'}:</strong>
+                        <ul class="dep-list">
+                          ${solution.dependencies.external.map(dep => `
+                            <li class="dep-item">${escapeHtml(getI18nText(dep))}</li>
+                          `).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+                  </div>
+                </div>
+              ` : ''}
+
+              ${solution.technical_concerns?.length ? `
+                <div class="solution-concerns collapsible-section">
+                  <div class="collapsible-header">
+                    <span class="collapse-icon">&#9658;</span>
+                    <span class="section-label">${t('multiCli.technicalConcerns') || 'Technical Concerns'}</span>
+                  </div>
+                  <div class="collapsible-content collapsed">
+                    <ul class="concern-list">
+                      ${solution.technical_concerns.map(concern => `
+                        <li class="concern-item">${escapeHtml(getI18nText(concern))}</li>
+                      `).join('')}
+                    </ul>
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+  }
+
   return sections.join('');
 }
 

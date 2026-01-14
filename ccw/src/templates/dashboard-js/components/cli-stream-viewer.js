@@ -3,6 +3,12 @@
  * Real-time streaming output viewer for CLI executions
  */
 
+// ===== Lifecycle Management =====
+let cliStreamViewerDestroy = null;
+let streamKeyboardHandler = null;
+let streamScrollHandler = null;  // Track scroll listener
+let streamStatusTimers = [];  // Track status update timers
+
 // ===== State Management =====
 let cliStreamExecutions = {};  // { executionId: { tool, mode, output, status, startTime, endTime } }
 let activeStreamTab = null;
@@ -91,7 +97,7 @@ async function syncActiveExecutions() {
 // ===== Initialization =====
 function initCliStreamViewer() {
   // Initialize keyboard shortcuts
-  document.addEventListener('keydown', function(e) {
+  streamKeyboardHandler = function(e) {
     if (e.key === 'Escape' && isCliStreamViewerOpen) {
       if (searchFilter) {
         clearSearch();
@@ -108,12 +114,14 @@ function initCliStreamViewer() {
         searchInput.select();
       }
     }
-  });
+  };
+  document.addEventListener('keydown', streamKeyboardHandler);
 
   // Initialize scroll detection for auto-scroll
   const content = document.getElementById('cliStreamContent');
   if (content) {
-    content.addEventListener('scroll', handleStreamContentScroll);
+    streamScrollHandler = handleStreamContentScroll;
+    content.addEventListener('scroll', streamScrollHandler);
   }
 
   // Sync active executions from server (recover state for mid-execution joins)
@@ -592,11 +600,12 @@ function renderStreamStatus(executionId) {
   
   // Update duration periodically for running executions
   if (exec.status === 'running') {
-    setTimeout(() => {
+    const timerId = setTimeout(() => {
       if (activeStreamTab === executionId && cliStreamExecutions[executionId]?.status === 'running') {
         renderStreamStatus(executionId);
       }
     }, 1000);
+    streamStatusTimers.push(timerId);
   }
 }
 
@@ -759,6 +768,31 @@ if (document.readyState === 'loading') {
 } else {
   initCliStreamViewer();
 }
+
+// ===== Lifecycle Functions =====
+function destroyCliStreamViewer() {
+  // Remove keyboard event listener if exists
+  if (streamKeyboardHandler) {
+    document.removeEventListener('keydown', streamKeyboardHandler);
+    streamKeyboardHandler = null;
+  }
+
+  // Remove scroll event listener if exists
+  if (streamScrollHandler) {
+    const content = document.getElementById('cliStreamContent');
+    if (content) {
+      content.removeEventListener('scroll', streamScrollHandler);
+    }
+    streamScrollHandler = null;
+  }
+
+  // Clear all pending status update timers
+  streamStatusTimers.forEach(timerId => clearTimeout(timerId));
+  streamStatusTimers = [];
+}
+
+// Export lifecycle functions
+window.destroyCliStreamViewer = destroyCliStreamViewer;
 
 // ===== Global Exposure =====
 window.toggleCliStreamViewer = toggleCliStreamViewer;
