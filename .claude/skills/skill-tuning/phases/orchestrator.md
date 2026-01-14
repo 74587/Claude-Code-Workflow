@@ -63,6 +63,24 @@ function selectNextAction(state) {
     return 'action-init';
   }
 
+  // 1.5. Requirement analysis (在 init 后，diagnosis 前)
+  if (state.status === 'running' &&
+      state.completed_actions.includes('action-init') &&
+      !state.completed_actions.includes('action-analyze-requirements')) {
+    return 'action-analyze-requirements';
+  }
+
+  // 1.6. 如果需求分析发现歧义需要澄清，暂停等待用户
+  if (state.requirement_analysis?.status === 'needs_clarification') {
+    return null;  // 等待用户澄清后继续
+  }
+
+  // 1.7. 如果需求分析覆盖度不足，优先触发 Gemini 深度分析
+  if (state.requirement_analysis?.coverage?.status === 'unsatisfied' &&
+      !state.completed_actions.includes('action-gemini-analysis')) {
+    return 'action-gemini-analysis';
+  }
+
   // 2. Check if Gemini analysis is requested or needed
   if (shouldTriggerGeminiAnalysis(state)) {
     return 'action-gemini-analysis';
@@ -295,6 +313,7 @@ After completing the action:
 | Action | Purpose | Preconditions | Effects |
 |--------|---------|---------------|---------|
 | [action-init](actions/action-init.md) | Initialize tuning session | status === 'pending' | Creates work dirs, backup, sets status='running' |
+| [action-analyze-requirements](actions/action-analyze-requirements.md) | Analyze user requirements | init completed | Sets requirement_analysis, optimizes focus_areas |
 | [action-diagnose-context](actions/action-diagnose-context.md) | Analyze context explosion | status === 'running' | Sets diagnosis.context |
 | [action-diagnose-memory](actions/action-diagnose-memory.md) | Analyze long-tail forgetting | status === 'running' | Sets diagnosis.memory |
 | [action-diagnose-dataflow](actions/action-diagnose-dataflow.md) | Analyze data flow issues | status === 'running' | Sets diagnosis.dataflow |
@@ -312,6 +331,7 @@ After completing the action:
 - `status === 'completed'`: Normal completion
 - `status === 'user_exit'`: User requested exit
 - `status === 'failed'`: Unrecoverable error
+- `requirement_analysis.status === 'needs_clarification'`: Waiting for user clarification (暂停，非终止)
 - `error_count >= max_errors`: Too many errors (default: 3)
 - `iteration_count >= max_iterations`: Max iterations reached (default: 5)
 - `quality_gate === 'pass'`: All quality criteria met

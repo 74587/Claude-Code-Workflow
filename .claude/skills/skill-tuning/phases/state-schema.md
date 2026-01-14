@@ -67,6 +67,62 @@ interface TuningState {
   // === Output Paths ===
   work_dir: string;
   backup_dir: string;
+
+  // === Requirement Analysis (新增) ===
+  requirement_analysis: RequirementAnalysis | null;
+}
+
+interface RequirementAnalysis {
+  status: 'pending' | 'completed' | 'needs_clarification';
+  analyzed_at: string;
+
+  // Phase 1: 维度拆解
+  dimensions: Dimension[];
+
+  // Phase 2: Spec 匹配
+  spec_matches: SpecMatch[];
+
+  // Phase 3: 覆盖度
+  coverage: {
+    total_dimensions: number;
+    with_detection: number;      // 有 taxonomy pattern
+    with_fix_strategy: number;   // 有 tuning strategy (满足判断标准)
+    coverage_rate: number;       // 0-100%
+    status: 'satisfied' | 'partial' | 'unsatisfied';
+  };
+
+  // Phase 4: 歧义
+  ambiguities: Ambiguity[];
+}
+
+interface Dimension {
+  id: string;                    // e.g., "DIM-001"
+  description: string;           // 关注点描述
+  keywords: string[];            // 关键词
+  inferred_category: string;     // 推断的问题类别
+  confidence: number;            // 置信度 0-1
+}
+
+interface SpecMatch {
+  dimension_id: string;
+  taxonomy_match: {
+    category: string;            // e.g., "context_explosion"
+    pattern_ids: string[];       // e.g., ["CTX-001", "CTX-003"]
+    severity_hint: string;
+  } | null;
+  strategy_match: {
+    strategies: string[];        // e.g., ["sliding_window", "path_reference"]
+    risk_levels: string[];
+  } | null;
+  has_fix: boolean;              // 满足性判断核心
+}
+
+interface Ambiguity {
+  dimension_id: string;
+  type: 'multi_category' | 'vague_description' | 'conflicting_keywords';
+  description: string;
+  possible_interpretations: string[];
+  needs_clarification: boolean;
 }
 
 interface DiagnosisResult {
@@ -208,7 +264,8 @@ interface ErrorEntry {
   "error_count": 0,
   "max_errors": 3,
   "work_dir": null,
-  "backup_dir": null
+  "backup_dir": null,
+  "requirement_analysis": null
 }
 ```
 

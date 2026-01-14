@@ -12,6 +12,155 @@ Detailed fix strategies for each problem category with implementation guidance.
 
 ---
 
+## Authoring Principles Strategies (P0 - 首要准则)
+
+> **核心原则**：简洁高效 → 去除无关存储 → 去除中间存储 → 上下文流转
+
+### Strategy: eliminate_intermediate_files
+
+**Purpose**: 删除所有中间文件，改用上下文流转。
+
+**Implementation**:
+```javascript
+// Before: 中间文件
+async function process() {
+  const step1 = await analyze();
+  Write(`${workDir}/step1.json`, JSON.stringify(step1));
+
+  const step1Data = JSON.parse(Read(`${workDir}/step1.json`));
+  const step2 = await transform(step1Data);
+  Write(`${workDir}/step2.json`, JSON.stringify(step2));
+
+  const step2Data = JSON.parse(Read(`${workDir}/step2.json`));
+  return finalize(step2Data);
+}
+
+// After: 上下文流转
+async function process() {
+  const step1 = await analyze();
+  const step2 = await transform(step1);  // 直接传递
+  return finalize(step2);  // 只返回最终结果
+}
+```
+
+**Risk**: Low
+**Verification**: `ls ${workDir}` 无 temp/intermediate 文件
+
+---
+
+### Strategy: minimize_state
+
+**Purpose**: 精简 State schema 至必要字段。
+
+**Implementation**:
+```typescript
+// Before: 膨胀的 State
+interface State {
+  status: string;
+  target: TargetInfo;
+  user_input: string;
+  parsed_input: ParsedInput;      // 删除 - 只在处理时用
+  intermediate_result: any;       // 删除 - 中间结果
+  debug_info: DebugInfo;          // 删除 - 调试信息
+  analysis_cache: any;            // 删除 - 缓存
+  full_history: HistoryEntry[];   // 删除 - 无限增长
+  step1_output: any;              // 删除 - 中间输出
+  step2_output: any;              // 删除 - 中间输出
+  final_result: FinalResult;
+}
+
+// After: 精简的 State
+interface State {
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  target: { name: string; path: string };
+  result_path: string;            // 最终结果路径
+  error?: string;                 // 仅失败时有
+}
+```
+
+**Rules**:
+- State 字段 ≤ 15 个
+- 删除所有 `debug_*`, `*_cache`, `*_temp` 字段
+- `*_history` 数组设置上限或改用滚动窗口
+
+**Risk**: Medium (需确保不丢失必要数据)
+**Verification**: Count state fields ≤ 15
+
+---
+
+### Strategy: context_passing
+
+**Purpose**: 用函数参数/返回值代替文件中转。
+
+**Implementation**:
+```javascript
+// 上下文流转模式
+async function executeWorkflow(initialContext) {
+  let ctx = initialContext;
+
+  // Phase 1: 直接传递上下文
+  ctx = await executePhase1(ctx);
+
+  // Phase 2: 继续传递
+  ctx = await executePhase2(ctx);
+
+  // Phase 3: 最终处理
+  const result = await executePhase3(ctx);
+
+  // 只存最终结果
+  Write(`${ctx.workDir}/result.json`, JSON.stringify(result));
+
+  return result;
+}
+
+// Phase 函数模板
+async function executePhaseN(ctx) {
+  const { previousResult, constraints } = ctx;
+
+  const result = await Task({
+    prompt: `
+      [CONTEXT]
+      ${JSON.stringify(previousResult)}
+
+      [TASK]
+      Process and return result.
+    `
+  });
+
+  // 返回更新后的上下文，不写文件
+  return {
+    ...ctx,
+    previousResult: result,
+    completed: [...ctx.completed, 'phase-n']
+  };
+}
+```
+
+**Risk**: Low
+**Verification**: 无 Write→Read 紧邻模式
+
+---
+
+### Strategy: deduplicate_storage
+
+**Purpose**: 消除重复数据存储。
+
+**Implementation**:
+```javascript
+// Before: 重复存储
+state.user_request = userInput;
+state.original_request = userInput;
+state.input_text = userInput;
+
+// After: 单一来源
+state.input = userInput;  // 唯一存储点
+```
+
+**Risk**: Low
+**Verification**: 无相同数据多字段存储
+
+---
+
 ## Context Explosion Strategies
 
 ### Strategy: sliding_window

@@ -25,12 +25,20 @@ Universal skill diagnosis and optimization tool that identifies and resolves ski
 │                              │                                               │
 │     ┌────────────┬───────────┼───────────┬────────────┬────────────┐        │
 │     ↓            ↓           ↓           ↓            ↓            ↓        │
-│  ┌──────┐   ┌─────────┐  ┌────────┐  ┌────────┐  ┌────────┐  ┌─────────┐   │
-│  │ Init │   │Diagnose │  │Diagnose│  │Diagnose│  │Diagnose│  │ Gemini  │   │
-│  │      │   │ Context │  │ Memory │  │DataFlow│  │ Agent  │  │Analysis │   │
-│  └──────┘   └─────────┘  └────────┘  └────────┘  └────────┘  └─────────┘   │
-│      │           │           │           │            │            │        │
-│      └───────────┴───────────┴───────────┴────────────┴────────────┘        │
+│  ┌──────┐  ┌──────────┐  ┌─────────┐  ┌────────┐  ┌────────┐  ┌─────────┐  │
+│  │ Init │→ │ Analyze  │→ │Diagnose │  │Diagnose│  │Diagnose│  │ Gemini  │  │
+│  │      │  │Requiremts│  │ Context │  │ Memory │  │DataFlow│  │Analysis │  │
+│  └──────┘  └──────────┘  └─────────┘  └────────┘  └────────┘  └─────────┘  │
+│                 │              │           │           │            │        │
+│                 │              └───────────┴───────────┴────────────┘        │
+│                 ↓                                                            │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │  Requirement Analysis (NEW)                                            │  │
+│  │  • Phase 1: 维度拆解 (Gemini CLI) - 单一描述 → 多个关注维度             │  │
+│  │  • Phase 2: Spec 匹配 - 每个维度 → taxonomy + strategy                 │  │
+│  │  • Phase 3: 覆盖度评估 - 以"有修复策略"为满足标准                       │  │
+│  │  • Phase 4: 歧义检测 - 识别多义性描述，必要时请求澄清                   │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
 │                              ↓                                               │
 │                    ┌──────────────────┐                                      │
 │                    │  Apply Fixes +   │                                      │
@@ -40,6 +48,7 @@ Universal skill diagnosis and optimization tool that identifies and resolves ski
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
 │  │                    Gemini CLI Integration                              │  │
 │  │  根据用户需求动态调用 gemini cli 进行深度分析:                          │  │
+│  │  • 需求维度拆解 (requirement decomposition)                             │  │
 │  │  • 复杂问题分析 (prompt engineering, architecture review)               │  │
 │  │  • 代码模式识别 (pattern matching, anti-pattern detection)              │  │
 │  │  • 修复策略生成 (fix generation, refactoring suggestions)               │  │
@@ -161,8 +170,10 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) |
 
 | Document | Purpose | Priority |
 |----------|---------|----------|
+| [specs/skill-authoring-principles.md](specs/skill-authoring-principles.md) | **首要准则：简洁高效、去除存储、上下文流转** | **P0** |
 | [specs/problem-taxonomy.md](specs/problem-taxonomy.md) | Problem classification and detection patterns | **P0** |
 | [specs/tuning-strategies.md](specs/tuning-strategies.md) | Fix strategies for each problem type | **P0** |
+| [specs/dimension-mapping.md](specs/dimension-mapping.md) | Dimension to Spec mapping rules | **P0** |
 | [specs/quality-gates.md](specs/quality-gates.md) | Quality thresholds and verification criteria | P1 |
 
 ### Templates (Reference)
@@ -181,6 +192,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) |
 │  Phase 0: Specification Study (强制前置 - 禁止跳过)                           │
 │  → Read: specs/problem-taxonomy.md (问题分类)                                │
 │  → Read: specs/tuning-strategies.md (调优策略)                               │
+│  → Read: specs/dimension-mapping.md (维度映射规则)                           │
 │  → Read: Target skill's SKILL.md and phases/*.md                            │
 │  → Output: 内化规范，理解目标 skill 结构                                      │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -188,6 +200,13 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) |
 │  → Create work directory: .workflow/.scratchpad/skill-tuning-{timestamp}    │
 │  → Initialize state.json with target skill info                             │
 │  → Create backup of target skill files                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  action-analyze-requirements: Requirement Analysis (NEW)                     │
+│  → Phase 1: 维度拆解 (Gemini CLI) - 单一描述 → 多个关注维度                   │
+│  → Phase 2: Spec 匹配 - 每个维度 → taxonomy + strategy                       │
+│  → Phase 3: 覆盖度评估 - 以"有修复策略"为满足标准                             │
+│  → Phase 4: 歧义检测 - 识别多义性描述，必要时请求澄清                         │
+│  → Output: requirement-analysis.json, 自动优化 focus_areas                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  action-diagnose-context: Context Explosion Analysis                         │
 │  → Scan for token accumulation patterns                                      │
@@ -328,6 +347,7 @@ interface Fix {
 | [phases/orchestrator.md](phases/orchestrator.md) | Orchestrator decision logic |
 | [phases/state-schema.md](phases/state-schema.md) | State structure definition |
 | [phases/actions/action-init.md](phases/actions/action-init.md) | Initialize tuning session |
+| [phases/actions/action-analyze-requirements.md](phases/actions/action-analyze-requirements.md) | Requirement analysis (NEW) |
 | [phases/actions/action-diagnose-context.md](phases/actions/action-diagnose-context.md) | Context explosion diagnosis |
 | [phases/actions/action-diagnose-memory.md](phases/actions/action-diagnose-memory.md) | Long-tail forgetting diagnosis |
 | [phases/actions/action-diagnose-dataflow.md](phases/actions/action-diagnose-dataflow.md) | Data flow diagnosis |
@@ -339,4 +359,5 @@ interface Fix {
 | [phases/actions/action-complete.md](phases/actions/action-complete.md) | Finalization |
 | [specs/problem-taxonomy.md](specs/problem-taxonomy.md) | Problem classification |
 | [specs/tuning-strategies.md](specs/tuning-strategies.md) | Fix strategies |
+| [specs/dimension-mapping.md](specs/dimension-mapping.md) | Dimension to Spec mapping (NEW) |
 | [specs/quality-gates.md](specs/quality-gates.md) | Quality criteria |

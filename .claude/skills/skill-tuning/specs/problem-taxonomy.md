@@ -14,6 +14,35 @@ Classification of skill execution issues with detection patterns and severity cr
 
 ## Problem Categories
 
+### 0. Authoring Principles Violation (P0)
+
+**Definition**: 违反 skill 撰写首要准则（简洁高效、去除存储、上下文流转）。
+
+**Root Causes**:
+- 不必要的中间文件存储
+- State schema 过度膨胀
+- 文件中转代替上下文传递
+- 重复数据存储
+
+**Detection Patterns**:
+
+| Pattern ID | Regex/Check | Description |
+|------------|-------------|-------------|
+| APV-001 | `/Write\([^)]*temp-|intermediate-/` | 中间文件写入 |
+| APV-002 | `/Write\([^)]+\)[\s\S]{0,50}Read\([^)]+\)/` | 写后立即读（文件中转） |
+| APV-003 | State schema > 15 fields | State 字段过多 |
+| APV-004 | `/_history\s*[.=].*push|concat/` | 无限增长数组 |
+| APV-005 | `/debug_|_cache|_temp/` in state | 调试/缓存字段残留 |
+| APV-006 | Same data in multiple state fields | 重复存储 |
+
+**Impact Levels**:
+- **Critical**: 中间文件 > 5 个，严重违反原则
+- **High**: State 字段 > 20 个，或存在文件中转
+- **Medium**: 存在调试字段或轻微冗余
+- **Low**: 轻微的命名不规范
+
+---
+
 ### 1. Context Explosion (P2)
 
 **Definition**: Excessive token accumulation causing prompt size to grow unbounded.
@@ -181,6 +210,7 @@ function calculateIssueSeverity(issue) {
 
 | Problem Type | Recommended Strategies | Priority Order |
 |--------------|----------------------|----------------|
+| **Authoring Principles Violation** | eliminate_intermediate_files, minimize_state, context_passing | 1, 2, 3 |
 | Context Explosion | sliding_window, path_reference, context_summarization | 1, 2, 3 |
 | Long-tail Forgetting | constraint_injection, state_constraints_field, checkpoint | 1, 2, 3 |
 | Data Flow Disruption | state_centralization, schema_enforcement, field_normalization | 1, 2, 3 |
