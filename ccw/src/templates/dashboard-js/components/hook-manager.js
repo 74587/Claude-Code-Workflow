@@ -359,48 +359,73 @@ async function loadAvailableSkills() {
  * Convert internal hook format to Claude Code format
  * Internal: { command, args, matcher, timeout }
  * Claude Code: { matcher, hooks: [{ type: "command", command: "...", timeout }] }
+ *
+ * IMPORTANT: For bash -c commands, use single quotes to wrap the script argument
+ * to avoid complex escaping issues with jq commands inside.
+ * See: https://github.com/catlog22/Claude-Code-Workflow/issues/73
  */
 function convertToClaudeCodeFormat(hookData) {
   // If already in correct format, return as-is
   if (hookData.hooks && Array.isArray(hookData.hooks)) {
     return hookData;
   }
-  
+
   // Build command string from command + args
   let commandStr = hookData.command || '';
   if (hookData.args && Array.isArray(hookData.args)) {
-    // Join args, properly quoting if needed
-    const quotedArgs = hookData.args.map(arg => {
-      if (arg.includes(' ') && !arg.startsWith('"') && !arg.startsWith("'")) {
-        return `"${arg.replace(/"/g, '\\"')}"`;
+    // Special handling for bash -c commands: use single quotes for the script
+    // This avoids complex escaping issues with jq and other shell commands
+    if (commandStr === 'bash' && hookData.args.length >= 2 && hookData.args[0] === '-c') {
+      // Use single quotes for bash -c script argument
+      // Single quotes prevent shell expansion, so internal double quotes work naturally
+      const script = hookData.args[1];
+      // Escape single quotes within the script: ' -> '\''
+      const escapedScript = script.replace(/'/g, "'\\''");
+      commandStr = `bash -c '${escapedScript}'`;
+      // Handle any additional args after the script
+      if (hookData.args.length > 2) {
+        const additionalArgs = hookData.args.slice(2).map(arg => {
+          if (arg.includes(' ') && !arg.startsWith('"') && !arg.startsWith("'")) {
+            return `"${arg.replace(/"/g, '\\"')}"`;
+          }
+          return arg;
+        });
+        commandStr += ' ' + additionalArgs.join(' ');
       }
-      return arg;
-    });
-    commandStr = `${commandStr} ${quotedArgs.join(' ')}`.trim();
+    } else {
+      // Default handling for other commands
+      const quotedArgs = hookData.args.map(arg => {
+        if (arg.includes(' ') && !arg.startsWith('"') && !arg.startsWith("'")) {
+          return `"${arg.replace(/"/g, '\\"')}"`;
+        }
+        return arg;
+      });
+      commandStr = `${commandStr} ${quotedArgs.join(' ')}`.trim();
+    }
   }
-  
+
   const converted = {
     hooks: [{
       type: 'command',
       command: commandStr
     }]
   };
-  
+
   // Add matcher if present (not needed for UserPromptSubmit, Stop, etc.)
   if (hookData.matcher) {
     converted.matcher = hookData.matcher;
   }
-  
+
   // Add timeout if present (in seconds for Claude Code)
   if (hookData.timeout) {
     converted.hooks[0].timeout = Math.ceil(hookData.timeout / 1000);
   }
-  
+
   // Preserve replaceIndex for updates
   if (hookData.replaceIndex !== undefined) {
     converted.replaceIndex = hookData.replaceIndex;
   }
-  
+
   return converted;
 }
 
