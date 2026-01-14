@@ -750,7 +750,7 @@ function renderMultiCliPlanningTab(session) {
         <div class="acceptance-list">
           ${acceptanceCriteria.map(ac => `
             <div class="acceptance-item ${ac.isMet ? 'met' : 'unmet'}">
-              <span class="acceptance-check">${ac.isMet ? '&#10003;' : '&#9675;'}</span>
+              <span class="acceptance-check"><i data-lucide="${ac.isMet ? 'check' : 'circle'}" class="w-3 h-3"></i></span>
               <span class="acceptance-id">${escapeHtml(ac.id || '')}</span>
               <span class="acceptance-desc">${escapeHtml(getI18nText(ac.description))}</span>
             </div>
@@ -822,17 +822,19 @@ function renderMultiCliDecisionTab(session) {
   // Decision Status and Summary
   sections.push(`
     <div class="multi-cli-section decision-header-section">
-      <div class="decision-status-bar">
-        <span class="decision-status ${status}">${escapeHtml(status)}</span>
-        <span class="confidence-meter">
-          <span class="confidence-label">${t('multiCli.confidence') || 'Confidence'}:</span>
-          <span class="confidence-bar">
-            <span class="confidence-fill" style="width: ${(confidenceScore * 100).toFixed(0)}%"></span>
-          </span>
-          <span class="confidence-value">${(confidenceScore * 100).toFixed(0)}%</span>
-        </span>
+      <div class="decision-status-bar ${confidenceScore >= 0.7 ? 'converged' : 'divergent'}">
+        <div class="decision-status-wrapper">
+          <span class="decision-status ${status}">${escapeHtml(status)}</span>
+        </div>
+        <div class="decision-confidence">
+          <span class="decision-confidence-label">${t('multiCli.confidence') || 'Confidence'}:</span>
+          <div class="decision-confidence-bar">
+            <div class="decision-confidence-fill" style="width: ${(confidenceScore * 100).toFixed(0)}%"></div>
+          </div>
+          <span class="decision-confidence-value">${(confidenceScore * 100).toFixed(0)}%</span>
+        </div>
       </div>
-      ${summary ? `<p class="decision-summary">${escapeHtml(summary)}</p>` : ''}
+      ${summary ? `<p class="decision-summary-text">${escapeHtml(summary)}</p>` : ''}
     </div>
   `);
 
@@ -888,15 +890,15 @@ function renderSolutionCard(solution, isSelected) {
       ${rejectionReason ? `<div class="rejection-reason"><strong>${t('multiCli.rejectionReason') || 'Reason'}:</strong> ${escapeHtml(rejectionReason)}</div>` : ''}
       <div class="solution-details">
         ${pros.length ? `
-          <div class="pros-list">
+          <div class="pros-section">
             <strong>${t('multiCli.pros') || 'Pros'}:</strong>
-            <ul>${pros.map(p => `<li class="pro-item">${escapeHtml(getI18nText(p))}</li>`).join('')}</ul>
+            <ul class="pros-list">${pros.map(p => `<li class="pro-item">${escapeHtml(getI18nText(p))}</li>`).join('')}</ul>
           </div>
         ` : ''}
         ${cons.length ? `
-          <div class="cons-list">
+          <div class="cons-section">
             <strong>${t('multiCli.cons') || 'Cons'}:</strong>
-            <ul>${cons.map(c => `<li class="con-item">${escapeHtml(getI18nText(c))}</li>`).join('')}</ul>
+            <ul class="cons-list">${cons.map(c => `<li class="con-item">${escapeHtml(getI18nText(c))}</li>`).join('')}</ul>
           </div>
         ` : ''}
         ${effort ? `<div class="effort-estimate"><strong>${t('multiCli.effort') || 'Effort'}:</strong> ${escapeHtml(effort)}</div>` : ''}
@@ -950,7 +952,7 @@ function renderMultiCliTimelineTab(session) {
               <div class="timeline-content">
                 <div class="event-header">
                   <span class="event-type ${event.type || ''}">${escapeHtml(event.type || 'event')}</span>
-                  <span class="event-contributor">${escapeHtml(contributor.name || 'Unknown')}</span>
+                  <span class="event-contributor"><i data-lucide="user" class="w-3.5 h-3.5"></i>${escapeHtml(contributor.name || 'Unknown')}</span>
                   <span class="event-time">${formatDate(event.timestamp)}</span>
                 </div>
                 <div class="event-summary">${escapeHtml(summary)}</div>
