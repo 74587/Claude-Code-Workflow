@@ -85,62 +85,55 @@ RULES:
 
 ### Phase 2: Spec 匹配
 
-基于 `specs/dimension-mapping.md` 规则为每个维度匹配检测模式和修复策略：
+基于 `specs/category-mappings.json` 配置为每个维度匹配检测模式和修复策略：
 
 ```javascript
+// 加载集中式映射配置
+const mappings = JSON.parse(Read('specs/category-mappings.json'));
+
 function matchSpecs(dimensions) {
-  // 加载映射规则
-  const mappingRules = loadMappingRules();
-  
   return dimensions.map(dim => {
     // 匹配 taxonomy pattern
-    const taxonomyMatch = findTaxonomyMatch(dim.inferred_category, mappingRules);
-    
+    const taxonomyMatch = findTaxonomyMatch(dim.inferred_category);
+
     // 匹配 strategy
-    const strategyMatch = findStrategyMatch(dim.inferred_category, mappingRules);
-    
+    const strategyMatch = findStrategyMatch(dim.inferred_category);
+
     // 判断是否满足（核心标准：有修复策略）
     const hasFix = strategyMatch !== null && strategyMatch.strategies.length > 0;
-    
+
     return {
       dimension_id: dim.id,
       taxonomy_match: taxonomyMatch,
       strategy_match: strategyMatch,
       has_fix: hasFix,
-      needs_gemini_analysis: taxonomyMatch === null  // 无内置检测时需要 Gemini 深度分析
+      needs_gemini_analysis: taxonomyMatch === null || mappings.categories[dim.inferred_category]?.needs_gemini_analysis
     };
   });
 }
 
-function findTaxonomyMatch(category, rules) {
-  const patternMapping = {
-    'context_explosion': { category: 'context_explosion', pattern_ids: ['CTX-001', 'CTX-002', 'CTX-003', 'CTX-004', 'CTX-005'], severity_hint: 'high' },
-    'memory_loss': { category: 'memory_loss', pattern_ids: ['MEM-001', 'MEM-002', 'MEM-003', 'MEM-004', 'MEM-005'], severity_hint: 'high' },
-    'dataflow_break': { category: 'dataflow_break', pattern_ids: ['DF-001', 'DF-002', 'DF-003', 'DF-004', 'DF-005'], severity_hint: 'critical' },
-    'agent_failure': { category: 'agent_failure', pattern_ids: ['AGT-001', 'AGT-002', 'AGT-003', 'AGT-004', 'AGT-005', 'AGT-006'], severity_hint: 'high' },
-    'performance': { category: 'performance', pattern_ids: ['CTX-001', 'CTX-003'], severity_hint: 'medium' },
-    'error_handling': { category: 'error_handling', pattern_ids: ['AGT-001', 'AGT-002'], severity_hint: 'medium' }
+function findTaxonomyMatch(category) {
+  const config = mappings.categories[category];
+  if (!config || config.pattern_ids.length === 0) return null;
+
+  return {
+    category: category,
+    pattern_ids: config.pattern_ids,
+    severity_hint: config.severity_hint
   };
-  
-  return patternMapping[category] || null;
 }
 
-function findStrategyMatch(category, rules) {
-  const strategyMapping = {
-    'context_explosion': { strategies: ['sliding_window', 'path_reference', 'context_summarization', 'structured_state'], risk_levels: ['low', 'low', 'low', 'medium'] },
-    'memory_loss': { strategies: ['constraint_injection', 'state_constraints_field', 'checkpoint_restore', 'goal_embedding'], risk_levels: ['low', 'low', 'low', 'medium'] },
-    'dataflow_break': { strategies: ['state_centralization', 'schema_enforcement', 'field_normalization'], risk_levels: ['medium', 'low', 'low'] },
-    'agent_failure': { strategies: ['error_wrapping', 'result_validation', 'flatten_nesting'], risk_levels: ['low', 'low', 'medium'] },
-    'prompt_quality': { strategies: ['structured_prompt', 'output_schema', 'grounding_context', 'format_enforcement'], risk_levels: ['low', 'low', 'medium', 'low'] },
-    'architecture': { strategies: ['phase_decomposition', 'interface_contracts', 'plugin_architecture'], risk_levels: ['medium', 'medium', 'high'] },
-    'performance': { strategies: ['token_budgeting', 'parallel_execution', 'result_caching', 'lazy_loading'], risk_levels: ['low', 'low', 'low', 'low'] },
-    'error_handling': { strategies: ['graceful_degradation', 'error_propagation', 'structured_logging'], risk_levels: ['low', 'low', 'low'] },
-    'output_quality': { strategies: ['quality_gates', 'output_validation', 'template_enforcement'], risk_levels: ['low', 'low', 'low'] },
-    'user_experience': { strategies: ['progress_tracking', 'status_communication', 'interactive_checkpoints'], risk_levels: ['low', 'low', 'low'] }
+function findStrategyMatch(category) {
+  const config = mappings.categories[category];
+  if (!config) {
+    // Fallback to custom from config
+    return mappings.fallback;
+  }
+
+  return {
+    strategies: config.strategies,
+    risk_levels: config.risk_levels
   };
-  
-  // Fallback to custom
-  return strategyMapping[category] || { strategies: ['custom'], risk_levels: ['medium'] };
 }
 ```
 
@@ -224,11 +217,10 @@ function detectAmbiguities(dimensions, specMatches) {
 }
 
 function suggestInterpretations(dim) {
-  // 基于关键词推荐可能的解释
-  const categories = [
-    'context_explosion', 'memory_loss', 'dataflow_break', 'agent_failure',
-    'prompt_quality', 'architecture', 'performance', 'error_handling'
-  ];
+  // 基于 mappings 配置推荐可能的解释
+  const categories = Object.keys(mappings.categories).filter(
+    cat => cat !== 'authoring_principles_violation'  // 排除内部检测类别
+  );
   return categories.slice(0, 4);  // 返回最常见的 4 个作为选项
 }
 
@@ -240,12 +232,10 @@ function hasConflictingKeywords(keywords) {
 }
 
 function getKeywordCategoryHint(keyword) {
+  // 从 mappings.keywords 构建查找表（合并中英文关键词）
   const keywordMap = {
-    '慢': 'performance', 'slow': 'performance',
-    '遗忘': 'memory_loss', 'forget': 'memory_loss',
-    '状态': 'dataflow_break', 'state': 'dataflow_break',
-    'agent': 'agent_failure', '失败': 'agent_failure',
-    'token': 'context_explosion', '上下文': 'context_explosion'
+    ...mappings.keywords.chinese,
+    ...mappings.keywords.english
   };
   return keywordMap[keyword.toLowerCase()];
 }
@@ -281,33 +271,13 @@ async function handleAmbiguities(ambiguities, dimensions) {
 }
 
 function getCategoryLabel(category) {
-  const labels = {
-    'context_explosion': '上下文膨胀',
-    'memory_loss': '指令遗忘',
-    'dataflow_break': '数据流问题',
-    'agent_failure': 'Agent 协调问题',
-    'prompt_quality': '提示词质量',
-    'architecture': '架构问题',
-    'performance': '性能问题',
-    'error_handling': '错误处理',
-    'custom': '其他问题'
-  };
-  return labels[category] || category;
+  // 从 mappings 配置加载标签
+  return mappings.category_labels_chinese[category] || category;
 }
 
 function getCategoryDescription(category) {
-  const descriptions = {
-    'context_explosion': 'Token 累积导致上下文过大',
-    'memory_loss': '早期指令或约束在后期丢失',
-    'dataflow_break': '状态数据在阶段间不一致',
-    'agent_failure': '子 Agent 调用失败或结果异常',
-    'prompt_quality': '提示词模糊导致输出不稳定',
-    'architecture': '阶段划分或模块结构不合理',
-    'performance': '执行慢或 Token 消耗高',
-    'error_handling': '错误恢复机制不完善',
-    'custom': '需要自定义分析的问题'
-  };
-  return descriptions[category] || '需要进一步分析';
+  // 从 mappings 配置加载描述
+  return mappings.category_descriptions[category] || 'Requires further analysis';
 }
 ```
 

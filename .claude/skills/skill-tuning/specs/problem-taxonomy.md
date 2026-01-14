@@ -156,6 +156,53 @@ Classification of skill execution issues with detection patterns and severity cr
 
 ---
 
+### 5. Documentation Redundancy (P5)
+
+**Definition**: 同一定义（如 State Schema、映射表、类型定义）在多个文件中重复出现，导致维护困难和不一致风险。
+
+**Root Causes**:
+- 缺乏单一真相来源 (SSOT)
+- 复制粘贴代替引用
+- 硬编码配置代替集中管理
+
+**Detection Patterns**:
+
+| Pattern ID | Regex/Check | Description |
+|------------|-------------|-------------|
+| DOC-RED-001 | 跨文件语义比较 | 找到 State Schema 等核心概念的重复定义 |
+| DOC-RED-002 | 代码块 vs 规范表对比 | action 文件中硬编码与 spec 文档的重复 |
+| DOC-RED-003 | `/interface\s+(\w+)/` 同名扫描 | 多处定义的 interface/type |
+
+**Impact Levels**:
+- **High**: 核心定义（State Schema, 映射表）重复
+- **Medium**: 类型定义重复
+- **Low**: 示例代码重复
+
+---
+
+### 6. Documentation Conflict (P6)
+
+**Definition**: 同一概念在不同文件中定义不一致，导致行为不可预测和文档误导。
+
+**Root Causes**:
+- 定义更新后未同步其他位置
+- 实现与文档漂移
+- 缺乏一致性校验
+
+**Detection Patterns**:
+
+| Pattern ID | Regex/Check | Description |
+|------------|-------------|-------------|
+| DOC-CON-001 | 键值一致性校验 | 同一键（如优先级）在不同文件中值不同 |
+| DOC-CON-002 | 实现 vs 文档对比 | 硬编码配置与文档对应项不一致 |
+
+**Impact Levels**:
+- **Critical**: 优先级/类别定义冲突
+- **High**: 策略映射不一致
+- **Medium**: 示例与实际不符
+
+---
+
 ## Severity Criteria
 
 ### Global Severity Matrix
@@ -215,6 +262,8 @@ function calculateIssueSeverity(issue) {
 | Long-tail Forgetting | constraint_injection, state_constraints_field, checkpoint | 1, 2, 3 |
 | Data Flow Disruption | state_centralization, schema_enforcement, field_normalization | 1, 2, 3 |
 | Agent Coordination | error_wrapping, result_validation, flatten_nesting | 1, 2, 3 |
+| **Documentation Redundancy** | consolidate_to_ssot, centralize_mapping_config | 1, 2 |
+| **Documentation Conflict** | reconcile_conflicting_definitions | 1 |
 
 ---
 

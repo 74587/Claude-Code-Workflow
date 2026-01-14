@@ -29,6 +29,8 @@
 | 错误, 异常, 恢复, 降级, 崩溃 | error, exception, recovery, crash | error_handling | agent_failure |
 | 输出, 质量, 格式, 验证, 不完整 | output, quality, validation, incomplete | output_quality | - |
 | 交互, 体验, 进度, 反馈, 不清晰 | interaction, ux, progress, feedback | user_experience | - |
+| 重复, 冗余, 多处定义, 相同内容 | duplicate, redundant, multiple definitions | doc_redundancy | - |
+| 冲突, 不一致, 定义不同, 矛盾 | conflict, inconsistent, mismatch, contradiction | doc_conflict | - |
 
 ### Matching Algorithm
 
@@ -86,6 +88,8 @@ function matchCategory(keywords) {
 | error_handling | AGT-001, AGT-002 | (复用 agent 检测) |
 | output_quality | - | (无内置检测，需 Gemini 分析) |
 | user_experience | - | (无内置检测，需 Gemini 分析) |
+| doc_redundancy | DOC-RED-001, DOC-RED-002, DOC-RED-003 | 重复定义检测 |
+| doc_conflict | DOC-CON-001, DOC-CON-002 | 冲突定义检测 |
 
 ---
 
@@ -101,6 +105,8 @@ function matchCategory(keywords) {
 | memory_loss | constraint_injection, state_constraints_field, checkpoint_restore, goal_embedding | Low-Medium |
 | dataflow_break | state_centralization, schema_enforcement, field_normalization | Low-Medium |
 | agent_failure | error_wrapping, result_validation, flatten_nesting | Low-Medium |
+| doc_redundancy | consolidate_to_ssot, centralize_mapping_config | Low-Medium |
+| doc_conflict | reconcile_conflicting_definitions | Low |
 
 ### Extended Categories (需 Gemini 生成策略)
 

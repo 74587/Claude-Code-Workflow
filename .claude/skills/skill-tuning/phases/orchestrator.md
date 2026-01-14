@@ -93,13 +93,17 @@ function selectNextAction(state) {
   }
 
   // 4. Run diagnosis in order (only if not completed)
-  const diagnosisOrder = ['context', 'memory', 'dataflow', 'agent'];
+  const diagnosisOrder = ['context', 'memory', 'dataflow', 'agent', 'docs'];
 
   for (const diagType of diagnosisOrder) {
     if (state.diagnosis[diagType] === null) {
       // Check if user wants to skip this diagnosis
       if (!state.focus_areas.length || state.focus_areas.includes(diagType)) {
         return `action-diagnose-${diagType}`;
+      }
+      // For docs diagnosis, also check 'all' focus_area
+      if (diagType === 'docs' && state.focus_areas.includes('all')) {
+        return 'action-diagnose-docs';
       }
     }
   }
@@ -175,7 +179,7 @@ function shouldTriggerGeminiAnalysis(state) {
   }
 
   // 标准诊断完成但问题未得到解决，需要深度分析
-  const diagnosisComplete = ['context', 'memory', 'dataflow', 'agent'].every(
+  const diagnosisComplete = ['context', 'memory', 'dataflow', 'agent', 'docs'].every(
     d => state.diagnosis[d] !== null
   );
   if (diagnosisComplete &&
@@ -318,6 +322,7 @@ After completing the action:
 | [action-diagnose-memory](actions/action-diagnose-memory.md) | Analyze long-tail forgetting | status === 'running' | Sets diagnosis.memory |
 | [action-diagnose-dataflow](actions/action-diagnose-dataflow.md) | Analyze data flow issues | status === 'running' | Sets diagnosis.dataflow |
 | [action-diagnose-agent](actions/action-diagnose-agent.md) | Analyze agent coordination | status === 'running' | Sets diagnosis.agent |
+| [action-diagnose-docs](actions/action-diagnose-docs.md) | Analyze documentation structure | status === 'running', focus includes 'docs' | Sets diagnosis.docs |
 | [action-gemini-analysis](actions/action-gemini-analysis.md) | Deep analysis via Gemini CLI | User request OR critical issues | Sets gemini_analysis, adds issues |
 | [action-generate-report](actions/action-generate-report.md) | Generate consolidated report | All diagnoses complete | Creates tuning-report.md |
 | [action-propose-fixes](actions/action-propose-fixes.md) | Generate fix proposals | Report generated, issues > 0 | Sets proposed_fixes |

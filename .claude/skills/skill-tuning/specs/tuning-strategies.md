@@ -675,6 +675,144 @@ if (parsedA.needs_agent_b) {
 
 ---
 
+## Documentation Strategies
+
+文档去重和冲突解决策略。
+
+---
+
+### Strategy: consolidate_to_ssot
+
+**Purpose**: 将重复定义合并到单一真相来源 (Single Source of Truth)。
+
+**Implementation**:
+```javascript
+// 合并流程
+async function consolidateToSSOT(state, duplicates) {
+  // 1. 识别最完整的定义位置
+  const canonical = selectCanonicalSource(duplicates);
+
+  // 2. 确保规范位置包含完整定义
+  const fullDefinition = mergeDefinitions(duplicates);
+  Write(canonical.file, fullDefinition);
+
+  // 3. 替换其他位置为引用
+  for (const dup of duplicates.filter(d => d.file !== canonical.file)) {
+    const reference = generateReference(canonical.file, dup.type);
+    // 例如: "详见 [state-schema.md](phases/state-schema.md)"
+    replaceWithReference(dup.file, dup.location, reference);
+  }
+
+  return { canonical: canonical.file, removed: duplicates.length - 1 };
+}
+
+function selectCanonicalSource(duplicates) {
+  // 优先级: specs/ > phases/ > SKILL.md
+  const priority = ['specs/', 'phases/', 'SKILL.md'];
+  return duplicates.sort((a, b) => {
+    const aIdx = priority.findIndex(p => a.file.includes(p));
+    const bIdx = priority.findIndex(p => b.file.includes(p));
+    return aIdx - bIdx;
+  })[0];
+}
+```
+
+**Risk**: Low
+**Verification**:
+- 确认只有一处包含完整定义
+- 其他位置包含有效引用链接
+
+---
+
+### Strategy: centralize_mapping_config
+
+**Purpose**: 将硬编码配置提取到集中的 JSON 文件，代码改为加载配置。
+
+**Implementation**:
+```javascript
+// 1. 创建集中配置文件
+const config = {
+  version: "1.0.0",
+  categories: {
+    context_explosion: {
+      pattern_ids: ["CTX-001", "CTX-002"],
+      strategies: ["sliding_window", "path_reference"]
+    }
+    // ... 从硬编码中提取
+  }
+};
+Write('specs/category-mappings.json', JSON.stringify(config, null, 2));
+
+// 2. 重构代码加载配置
+// Before:
+function findTaxonomyMatch(category) {
+  const patternMapping = {
+    'context_explosion': { category: 'context_explosion', pattern_ids: [...] }
+    // 硬编码
+  };
+  return patternMapping[category];
+}
+
+// After:
+function findTaxonomyMatch(category) {
+  const mappings = JSON.parse(Read('specs/category-mappings.json'));
+  const config = mappings.categories[category];
+  if (!config) return null;
+  return { category, pattern_ids: config.pattern_ids, severity_hint: config.severity_hint };
+}
+```
+
+**Risk**: Medium (需要测试配置加载逻辑)
+**Verification**:
+- JSON 文件语法正确
+- 所有原硬编码的值都已迁移
+- 功能行为不变
+
+---
+
+### Strategy: reconcile_conflicting_definitions
+
+**Purpose**: 调和冲突的定义，由用户选择正确版本后统一更新。
+
+**Implementation**:
+```javascript
+async function reconcileConflicts(conflicts) {
+  for (const conflict of conflicts) {
+    // 1. 展示冲突给用户
+    const options = conflict.definitions.map(def => ({
+      label: `${def.file}: ${def.value}`,
+      description: `来自 ${def.file}`
+    }));
+
+    const choice = await AskUserQuestion({
+      questions: [{
+        question: `发现冲突定义: "${conflict.key}"，请选择正确版本`,
+        header: '冲突解决',
+        options: options,
+        multiSelect: false
+      }]
+    });
+
+    // 2. 更新所有文件为选中的版本
+    const selected = conflict.definitions[choice.index];
+    for (const def of conflict.definitions) {
+      if (def.file !== selected.file) {
+        updateDefinition(def.file, conflict.key, selected.value);
+      }
+    }
+  }
+
+  return { resolved: conflicts.length };
+}
+```
+
+**Risk**: Low (用户确认后执行)
+**Verification**:
+- 所有位置的定义一致
+- 无新冲突产生
+
+---
+
 ## Strategy Selection Guide
 
 ```
@@ -735,6 +873,13 @@ Issue Type: User Experience
 ├── unclear status? → status_communication
 ├── no feedback? → interactive_checkpoints
 └── confusing flow? → guided_workflow
+
+Issue Type: Documentation Redundancy
+├── 核心定义重复? → consolidate_to_ssot
+└── 硬编码配置重复? → centralize_mapping_config
+
+Issue Type: Documentation Conflict
+└── 定义不一致? → reconcile_conflicting_definitions
 ```
 
 ---

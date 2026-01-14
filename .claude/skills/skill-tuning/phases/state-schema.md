@@ -30,6 +30,7 @@ interface TuningState {
     memory: DiagnosisResult | null;
     dataflow: DiagnosisResult | null;
     agent: DiagnosisResult | null;
+    docs: DocsDiagnosisResult | null;  // 文档结构诊断
   };
 
   // === Issues Found ===
@@ -138,6 +139,33 @@ interface DiagnosisResult {
   };
 }
 
+interface DocsDiagnosisResult extends DiagnosisResult {
+  redundancies: Redundancy[];
+  conflicts: Conflict[];
+}
+
+interface Redundancy {
+  id: string;                    // e.g., "DOC-RED-001"
+  type: 'state_schema' | 'strategy_mapping' | 'type_definition' | 'other';
+  files: string[];               // 涉及的文件列表
+  description: string;           // 冗余描述
+  severity: 'high' | 'medium' | 'low';
+  merge_suggestion: string;      // 合并建议
+}
+
+interface Conflict {
+  id: string;                    // e.g., "DOC-CON-001"
+  type: 'priority' | 'mapping' | 'definition';
+  files: string[];               // 涉及的文件列表
+  key: string;                   // 冲突的键/概念
+  definitions: {
+    file: string;
+    value: string;
+    location?: string;
+  }[];
+  resolution_suggestion: string; // 解决建议
+}
+
 interface Evidence {
   file: string;
   line?: number;
@@ -241,7 +269,8 @@ interface ErrorEntry {
     "context": null,
     "memory": null,
     "dataflow": null,
-    "agent": null
+    "agent": null,
+    "docs": null
   },
   "issues": [],
   "issues_by_severity": {

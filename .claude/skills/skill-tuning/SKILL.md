@@ -65,10 +65,11 @@ Based on comprehensive analysis, skill-tuning addresses **core skill issues** an
 
 | Priority | Problem | Root Cause | Solution Strategy |
 |----------|---------|------------|-------------------|
-| **P0** | Data Flow Disruption | Scattered state, inconsistent formats | Centralized session store, transactional updates |
-| **P1** | Agent Coordination | Fragile call chains, merge complexity | Dedicated orchestrator, enforced data contracts |
-| **P2** | Context Explosion | Token accumulation, multi-turn bloat | Context summarization, sliding window, structured state |
-| **P3** | Long-tail Forgetting | Early constraint loss | Constraint injection, checkpointing, goal alignment |
+| **P0** | Authoring Principles Violation | 中间文件存储, State膨胀, 文件中转 | eliminate_intermediate_files, minimize_state, context_passing |
+| **P1** | Data Flow Disruption | Scattered state, inconsistent formats | state_centralization, schema_enforcement |
+| **P2** | Agent Coordination | Fragile call chains, merge complexity | error_wrapping, result_validation |
+| **P3** | Context Explosion | Token accumulation, multi-turn bloat | sliding_window, context_summarization |
+| **P4** | Long-tail Forgetting | Early constraint loss | constraint_injection, checkpoint_restore |
 
 ### General Optimization Areas (按需分析 via Gemini CLI)
 
@@ -228,6 +229,11 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) |
 │  → Detect result passing issues                                              │
 │  → Output: agent-diagnosis.json                                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
+│  action-diagnose-docs: Documentation Structure Analysis (Optional)           │
+│  → Detect definition duplicates across files                                 │
+│  → Detect conflicting definitions                                            │
+│  → Output: docs-diagnosis.json                                               │
+├─────────────────────────────────────────────────────────────────────────────┤
 │  action-generate-report: Consolidated Report                                 │
 │  → Merge all diagnosis results                                               │
 │  → Prioritize issues by severity                                             │
@@ -275,7 +281,8 @@ Bash(`mkdir -p "${workDir}/fixes"`);
 │   ├── context-diagnosis.json      # Context explosion analysis
 │   ├── memory-diagnosis.json       # Long-tail forgetting analysis
 │   ├── dataflow-diagnosis.json     # Data flow analysis
-│   └── agent-diagnosis.json        # Agent coordination analysis
+│   ├── agent-diagnosis.json        # Agent coordination analysis
+│   └── docs-diagnosis.json         # Documentation structure analysis (optional)
 ├── backups/
 │   └── {skill-name}-backup/        # Original skill files backup
 ├── fixes/
@@ -287,58 +294,14 @@ Bash(`mkdir -p "${workDir}/fixes"`);
 
 ## State Schema
 
-```typescript
-interface TuningState {
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  target_skill: {
-    name: string;
-    path: string;
-    execution_mode: 'sequential' | 'autonomous';
-  };
-  user_issue_description: string;
-  diagnosis: {
-    context: DiagnosisResult | null;
-    memory: DiagnosisResult | null;
-    dataflow: DiagnosisResult | null;
-    agent: DiagnosisResult | null;
-  };
-  issues: Issue[];
-  proposed_fixes: Fix[];
-  applied_fixes: AppliedFix[];
-  iteration_count: number;
-  max_iterations: number;
-  quality_score: number;
-  completed_actions: string[];
-  current_action: string | null;
-  errors: Error[];
-  error_count: number;
-}
+详细状态结构定义请参阅 [phases/state-schema.md](phases/state-schema.md)。
 
-interface DiagnosisResult {
-  status: 'completed' | 'skipped';
-  issues_found: number;
-  severity: 'critical' | 'high' | 'medium' | 'low' | 'none';
-  details: any;
-}
-
-interface Issue {
-  id: string;
-  type: 'context_explosion' | 'memory_loss' | 'dataflow_break' | 'agent_failure';
-  severity: 'critical' | 'high' | 'medium' | 'low';
-  location: string;
-  description: string;
-  evidence: string[];
-}
-
-interface Fix {
-  id: string;
-  issue_id: string;
-  strategy: string;
-  description: string;
-  changes: FileChange[];
-  risk: 'low' | 'medium' | 'high';
-}
-```
+核心状态字段：
+- `status`: 工作流状态 (pending/running/completed/failed)
+- `target_skill`: 目标 skill 信息
+- `diagnosis`: 各维度诊断结果
+- `issues`: 发现的问题列表
+- `proposed_fixes`: 建议的修复方案
 
 ## Reference Documents
 
@@ -352,6 +315,7 @@ interface Fix {
 | [phases/actions/action-diagnose-memory.md](phases/actions/action-diagnose-memory.md) | Long-tail forgetting diagnosis |
 | [phases/actions/action-diagnose-dataflow.md](phases/actions/action-diagnose-dataflow.md) | Data flow diagnosis |
 | [phases/actions/action-diagnose-agent.md](phases/actions/action-diagnose-agent.md) | Agent coordination diagnosis |
+| [phases/actions/action-diagnose-docs.md](phases/actions/action-diagnose-docs.md) | Documentation structure diagnosis |
 | [phases/actions/action-generate-report.md](phases/actions/action-generate-report.md) | Report generation |
 | [phases/actions/action-propose-fixes.md](phases/actions/action-propose-fixes.md) | Fix proposal |
 | [phases/actions/action-apply-fix.md](phases/actions/action-apply-fix.md) | Fix application |
