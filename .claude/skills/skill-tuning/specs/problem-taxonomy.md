@@ -180,7 +180,35 @@ Classification of skill execution issues with detection patterns and severity cr
 
 ---
 
-### 6. Documentation Conflict (P6)
+### 6. Token Consumption (P6)
+
+**Definition**: Excessive token usage from verbose prompts, large state objects, or inefficient I/O patterns.
+
+**Root Causes**:
+- Long static prompts without compression
+- State schema with too many fields
+- Full content embedding instead of path references
+- Arrays growing unbounded without sliding windows
+- Write-then-read file relay patterns
+
+**Detection Patterns**:
+
+| Pattern ID | Regex/Check | Description |
+|------------|-------------|-------------|
+| TKN-001 | File size > 4KB | Verbose prompt files |
+| TKN-002 | State fields > 15 | Excessive state schema |
+| TKN-003 | `/Read\([^)]+\)\s*[\+,]/` | Full content passing |
+| TKN-004 | `/.push\|concat(?!.*\.slice)/` | Unbounded array growth |
+| TKN-005 | `/Write\([^)]+\)[\s\S]{0,100}Read\([^)]+\)/` | Write-then-read pattern |
+
+**Impact Levels**:
+- **High**: Multiple TKN-003/TKN-004 issues causing significant token waste
+- **Medium**: Several verbose files or state bloat
+- **Low**: Minor optimization opportunities
+
+---
+
+### 7. Documentation Conflict (P7)
 
 **Definition**: 同一概念在不同文件中定义不一致，导致行为不可预测和文档误导。
 
@@ -262,6 +290,7 @@ function calculateIssueSeverity(issue) {
 | Long-tail Forgetting | constraint_injection, state_constraints_field, checkpoint | 1, 2, 3 |
 | Data Flow Disruption | state_centralization, schema_enforcement, field_normalization | 1, 2, 3 |
 | Agent Coordination | error_wrapping, result_validation, flatten_nesting | 1, 2, 3 |
+| **Token Consumption** | prompt_compression, lazy_loading, output_minimization, state_field_reduction | 1, 2, 3, 4 |
 | **Documentation Redundancy** | consolidate_to_ssot, centralize_mapping_config | 1, 2 |
 | **Documentation Conflict** | reconcile_conflicting_definitions | 1 |
 

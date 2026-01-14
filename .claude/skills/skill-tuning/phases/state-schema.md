@@ -31,6 +31,7 @@ interface TuningState {
     dataflow: DiagnosisResult | null;
     agent: DiagnosisResult | null;
     docs: DocsDiagnosisResult | null;  // 文档结构诊断
+    token_consumption: DiagnosisResult | null;  // Token消耗诊断
   };
 
   // === Issues Found ===
@@ -68,6 +69,9 @@ interface TuningState {
   // === Output Paths ===
   work_dir: string;
   backup_dir: string;
+
+  // === Final Report (consolidated output) ===
+  final_report: string | null;  // Markdown summary generated on completion
 
   // === Requirement Analysis (新增) ===
   requirement_analysis: RequirementAnalysis | null;
@@ -176,7 +180,7 @@ interface Evidence {
 
 interface Issue {
   id: string;                   // e.g., "ISS-001"
-  type: 'context_explosion' | 'memory_loss' | 'dataflow_break' | 'agent_failure';
+  type: 'context_explosion' | 'memory_loss' | 'dataflow_break' | 'agent_failure' | 'token_consumption';
   severity: 'critical' | 'high' | 'medium' | 'low';
   priority: number;             // 1 = highest
   location: {
@@ -214,6 +218,10 @@ type FixStrategy =
   | 'schema_enforcement'        // Add data contract validation
   | 'orchestrator_refactor'     // Refactor agent coordination
   | 'state_centralization'      // Centralize state management
+  | 'prompt_compression'        // Extract static text, use templates
+  | 'lazy_loading'              // Pass paths instead of content
+  | 'output_minimization'       // Return minimal structured JSON
+  | 'state_field_reduction'     // Audit and consolidate state fields
   | 'custom';                   // Custom fix
 
 interface FileChange {
@@ -270,7 +278,8 @@ interface ErrorEntry {
     "memory": null,
     "dataflow": null,
     "agent": null,
-    "docs": null
+    "docs": null,
+    "token_consumption": null
   },
   "issues": [],
   "issues_by_severity": {
@@ -294,6 +303,7 @@ interface ErrorEntry {
   "max_errors": 3,
   "work_dir": null,
   "backup_dir": null,
+  "final_report": null,
   "requirement_analysis": null
 }
 ```

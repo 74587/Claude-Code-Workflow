@@ -93,6 +93,14 @@
       "detection_focus": null,
       "needs_gemini_analysis": true,
       "priority_order": [1, 2, 3, 4]
+    },
+    "token_consumption": {
+      "pattern_ids": ["TKN-001", "TKN-002", "TKN-003", "TKN-004", "TKN-005"],
+      "severity_hint": "medium",
+      "strategies": ["prompt_compression", "lazy_loading", "output_minimization", "state_field_reduction", "sliding_window"],
+      "risk_levels": ["low", "low", "low", "low", "low"],
+      "detection_focus": "Verbose prompts, excessive state fields, full content passing, unbounded arrays, redundant I/O",
+      "priority_order": [1, 2, 3, 4, 5]
     }
   },
   "keywords": {
@@ -149,7 +157,12 @@
       "中间文件": "authoring_principles_violation",
       "临时文件": "authoring_principles_violation",
       "文件中转": "authoring_principles_violation",
-      "state膨胀": "authoring_principles_violation"
+      "state膨胀": "authoring_principles_violation",
+      "token消耗": "token_consumption",
+      "token优化": "token_consumption",
+      "产出简化": "token_consumption",
+      "冗长": "token_consumption",
+      "精简": "token_consumption"
     },
     "english": {
       "token": "context_explosion",
@@ -198,7 +211,12 @@
       "feedback": "user_experience",
       "intermediate": "authoring_principles_violation",
       "temp": "authoring_principles_violation",
-      "relay": "authoring_principles_violation"
+      "relay": "authoring_principles_violation",
+      "verbose": "token_consumption",
+      "minimize": "token_consumption",
+      "compress": "token_consumption",
+      "simplify": "token_consumption",
+      "reduction": "token_consumption"
     }
   },
   "category_labels": {
@@ -213,6 +231,7 @@
     "output_quality": "Output Quality",
     "user_experience": "User Experience",
     "authoring_principles_violation": "Authoring Principles Violation",
+    "token_consumption": "Token Consumption",
     "custom": "Custom"
   },
   "category_labels_chinese": {
@@ -227,6 +246,7 @@
     "output_quality": "Output Quality",
     "user_experience": "User Experience",
     "authoring_principles_violation": "Authoring Principles Violation",
+    "token_consumption": "Token Consumption Optimization",
     "custom": "Other Issues"
   },
   "category_descriptions": {
@@ -241,12 +261,13 @@
     "output_quality": "Output validation or completeness issues",
     "user_experience": "Interaction or feedback clarity issues",
     "authoring_principles_violation": "Violation of skill authoring principles",
+    "token_consumption": "Excessive token usage from verbose prompts, large state objects, or redundant I/O patterns",
     "custom": "Requires custom analysis"
   },
   "fix_priority_order": {
     "P0": ["dataflow_break", "authoring_principles_violation"],
     "P1": ["agent_failure"],
-    "P2": ["context_explosion"],
+    "P2": ["context_explosion", "token_consumption"],
     "P3": ["memory_loss"]
   },
   "cross_category_dependencies": {

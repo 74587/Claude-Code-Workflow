@@ -70,6 +70,7 @@ Based on comprehensive analysis, skill-tuning addresses **core skill issues** an
 | **P2** | Agent Coordination | Fragile call chains, merge complexity | error_wrapping, result_validation |
 | **P3** | Context Explosion | Token accumulation, multi-turn bloat | sliding_window, context_summarization |
 | **P4** | Long-tail Forgetting | Early constraint loss | constraint_injection, checkpoint_restore |
+| **P5** | Token Consumption | Verbose prompts, excessive state, redundant I/O | prompt_compression, lazy_loading, output_minimization |
 
 ### General Optimization Areas (按需分析 via Gemini CLI)
 
@@ -202,47 +203,27 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) |
 │  → Initialize state.json with target skill info                             │
 │  → Create backup of target skill files                                       │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  action-analyze-requirements: Requirement Analysis (NEW)                     │
+│  action-analyze-requirements: Requirement Analysis                           │
 │  → Phase 1: 维度拆解 (Gemini CLI) - 单一描述 → 多个关注维度                   │
 │  → Phase 2: Spec 匹配 - 每个维度 → taxonomy + strategy                       │
 │  → Phase 3: 覆盖度评估 - 以"有修复策略"为满足标准                             │
 │  → Phase 4: 歧义检测 - 识别多义性描述，必要时请求澄清                         │
-│  → Output: requirement-analysis.json, 自动优化 focus_areas                   │
+│  → Output: state.json (requirement_analysis field)                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  action-diagnose-context: Context Explosion Analysis                         │
-│  → Scan for token accumulation patterns                                      │
-│  → Detect multi-turn dialogue growth                                         │
-│  → Output: context-diagnosis.json                                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  action-diagnose-memory: Long-tail Forgetting Analysis                       │
-│  → Trace constraint propagation through phases                               │
-│  → Detect early instruction loss                                             │
-│  → Output: memory-diagnosis.json                                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  action-diagnose-dataflow: Data Flow Analysis                                │
-│  → Map state transitions between phases                                      │
-│  → Detect format inconsistencies                                             │
-│  → Output: dataflow-diagnosis.json                                           │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  action-diagnose-agent: Agent Coordination Analysis                          │
-│  → Analyze agent call patterns                                               │
-│  → Detect result passing issues                                              │
-│  → Output: agent-diagnosis.json                                              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  action-diagnose-docs: Documentation Structure Analysis (Optional)           │
-│  → Detect definition duplicates across files                                 │
-│  → Detect conflicting definitions                                            │
-│  → Output: docs-diagnosis.json                                               │
+│  action-diagnose-*: Diagnosis Actions (context/memory/dataflow/agent/docs/   │
+│                      token_consumption)                                      │
+│  → Execute pattern-based detection for each category                         │
+│  → Output: state.json (diagnosis.{category} field)                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  action-generate-report: Consolidated Report                                 │
-│  → Merge all diagnosis results                                               │
+│  → Generate markdown summary from state.diagnosis                            │
 │  → Prioritize issues by severity                                             │
-│  → Output: tuning-report.md                                                  │
+│  → Output: state.json (final_report field)                                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  action-propose-fixes: Fix Proposal Generation                               │
 │  → Generate fix strategies for each issue                                    │
 │  → Create implementation plan                                                │
-│  → Output: fix-proposals.json                                                │
+│  → Output: state.json (proposed_fixes field)                                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  action-apply-fix: Apply Selected Fix                                        │
 │  → User selects fix to apply                                                 │
@@ -255,9 +236,9 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) |
 │  → Update iteration count                                                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  action-complete: Finalization                                               │
-│  → Generate final report                                                     │
-│  → Cleanup temporary files                                                   │
-│  → Output: tuning-summary.md                                                 │
+│  → Set status='completed'                                                    │
+│  → Final report already in state.json (final_report field)                   │
+│  → Output: state.json (final)                                                │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -267,30 +248,24 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) |
 const timestamp = new Date().toISOString().slice(0,19).replace(/[-:T]/g, '');
 const workDir = `.workflow/.scratchpad/skill-tuning-${timestamp}`;
 
-Bash(`mkdir -p "${workDir}/diagnosis"`);
+// Simplified: Only backups dir needed, diagnosis results go into state.json
 Bash(`mkdir -p "${workDir}/backups"`);
-Bash(`mkdir -p "${workDir}/fixes"`);
 ```
 
 ## Output Structure
 
 ```
 .workflow/.scratchpad/skill-tuning-{timestamp}/
-├── state.json                      # Session state (orchestrator-managed)
-├── diagnosis/
-│   ├── context-diagnosis.json      # Context explosion analysis
-│   ├── memory-diagnosis.json       # Long-tail forgetting analysis
-│   ├── dataflow-diagnosis.json     # Data flow analysis
-│   ├── agent-diagnosis.json        # Agent coordination analysis
-│   └── docs-diagnosis.json         # Documentation structure analysis (optional)
-├── backups/
-│   └── {skill-name}-backup/        # Original skill files backup
-├── fixes/
-│   ├── fix-proposals.json          # Proposed fixes
-│   └── applied-fixes.json          # Applied fix history
-├── tuning-report.md                # Consolidated diagnosis report
-└── tuning-summary.md               # Final summary
+├── state.json                      # Single source of truth (all results consolidated)
+│   ├── diagnosis.*                 # All diagnosis results embedded
+│   ├── issues[]                    # Found issues
+│   ├── proposed_fixes[]            # Fix proposals
+│   └── final_report                # Markdown summary (on completion)
+└── backups/
+    └── {skill-name}-backup/        # Original skill files backup
 ```
+
+> **Token Optimization**: All outputs consolidated into state.json. No separate diagnosis files or report files.
 
 ## State Schema
 
@@ -316,6 +291,7 @@ Bash(`mkdir -p "${workDir}/fixes"`);
 | [phases/actions/action-diagnose-dataflow.md](phases/actions/action-diagnose-dataflow.md) | Data flow diagnosis |
 | [phases/actions/action-diagnose-agent.md](phases/actions/action-diagnose-agent.md) | Agent coordination diagnosis |
 | [phases/actions/action-diagnose-docs.md](phases/actions/action-diagnose-docs.md) | Documentation structure diagnosis |
+| [phases/actions/action-diagnose-token-consumption.md](phases/actions/action-diagnose-token-consumption.md) | Token consumption diagnosis |
 | [phases/actions/action-generate-report.md](phases/actions/action-generate-report.md) | Report generation |
 | [phases/actions/action-propose-fixes.md](phases/actions/action-propose-fixes.md) | Fix proposal |
 | [phases/actions/action-apply-fix.md](phases/actions/action-apply-fix.md) | Fix application |

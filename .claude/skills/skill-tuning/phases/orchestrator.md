@@ -93,7 +93,7 @@ function selectNextAction(state) {
   }
 
   // 4. Run diagnosis in order (only if not completed)
-  const diagnosisOrder = ['context', 'memory', 'dataflow', 'agent', 'docs'];
+  const diagnosisOrder = ['context', 'memory', 'dataflow', 'agent', 'docs', 'token_consumption'];
 
   for (const diagType of diagnosisOrder) {
     if (state.diagnosis[diagType] === null) {
@@ -221,6 +221,7 @@ async function runOrchestrator(workDir) {
     console.log(`[Loop ${iteration}] Executing: ${actionId}`);
 
     // 3. Update state: current action
+    // FIX CTX-001: sliding window for action_history (keep last 10)
     updateState({
       current_action: actionId,
       action_history: [...state.action_history, {
@@ -229,13 +230,24 @@ async function runOrchestrator(workDir) {
         completed_at: null,
         result: null,
         output_files: []
-      }]
+      }].slice(-10)  // Sliding window: prevent unbounded growth
     });
 
     // 4. Execute action
     try {
       const actionPrompt = Read(`phases/actions/${actionId}.md`);
-      const stateJson = JSON.stringify(state, null, 2);
+      // FIX CTX-003: Pass state path + key fields only instead of full state
+      const stateKeyInfo = {
+        status: state.status,
+        iteration_count: state.iteration_count,
+        issues_by_severity: state.issues_by_severity,
+        quality_gate: state.quality_gate,
+        current_action: state.current_action,
+        completed_actions: state.completed_actions,
+        user_issue_description: state.user_issue_description,
+        target_skill: { name: state.target_skill.name, path: state.target_skill.path }
+      };
+      const stateKeyJson = JSON.stringify(stateKeyInfo, null, 2);
 
       const result = await Task({
         subagent_type: 'universal-executor',
@@ -245,8 +257,12 @@ async function runOrchestrator(workDir) {
 You are executing action "${actionId}" for skill-tuning workflow.
 Work directory: ${workDir}
 
-[STATE]
-${stateJson}
+[STATE KEY INFO]
+${stateKeyJson}
+
+[FULL STATE PATH]
+${workDir}/state.json
+(Read full state from this file if you need additional fields)
 
 [ACTION INSTRUCTIONS]
 ${actionPrompt}
@@ -295,6 +311,7 @@ After completing the action:
       console.log(`[Loop ${iteration}] Error in ${actionId}: ${error.message}`);
 
       // Error handling
+      // FIX CTX-002: sliding window for errors (keep last 5)
       updateState({
         current_action: null,
         errors: [...state.errors, {
@@ -302,7 +319,7 @@ After completing the action:
           message: error.message,
           timestamp: new Date().toISOString(),
           recoverable: true
-        }],
+        }].slice(-5),  // Sliding window: prevent unbounded growth
         error_count: state.error_count + 1
       });
     }

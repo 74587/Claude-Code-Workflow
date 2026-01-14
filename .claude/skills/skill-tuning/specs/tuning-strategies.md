@@ -1308,3 +1308,230 @@ async function checkpoint(name, summary, options) {
   return response;
 }
 ```
+
+---
+
+## Token Consumption Strategies
+
+Strategies for reducing token usage and simplifying skill outputs.
+
+---
+
+### Strategy: prompt_compression
+
+**Purpose**: Reduce verbose prompts by extracting static text and using templates.
+
+**Implementation**:
+```javascript
+// Before: Long inline prompt
+const prompt = `
+You are an expert code analyzer specializing in identifying patterns.
+Your role is to examine the provided code and identify any issues.
+Please follow these detailed instructions carefully:
+1. Read the code thoroughly
+2. Identify any anti-patterns
+3. Check for security vulnerabilities
+... (continues for many lines)
+
+Code to analyze:
+${fullCodeContent}
+`;
+
+// After: Compressed with template reference
+const PROMPT_TEMPLATE_PATH = 'templates/analyzer-prompt.md';
+
+const prompt = `
+[TEMPLATE: ${PROMPT_TEMPLATE_PATH}]
+[CODE_PATH: ${codePath}]
+[FOCUS: patterns, security]
+`;
+
+// Or use key instructions only
+const prompt = `
+Analyze ${codePath} for: patterns, security, performance.
+Return JSON: { issues: [], severity: string }
+`;
+```
+
+**Risk**: Low
+**Verification**: Compare token count before/after compression
+
+---
+
+### Strategy: lazy_loading
+
+**Purpose**: Pass file paths instead of full content, let consumers load if needed.
+
+**Implementation**:
+```javascript
+// Before: Full content in prompt
+const content = Read(filePath);
+const prompt = `Analyze this content:\n${content}`;
+
+// After: Path reference with lazy loading instruction
+const prompt = `
+Analyze file at: ${filePath}
+(Read the file content if you need to examine it)
+Return: { summary: string, issues: [] }
+`;
+
+// For agent calls
+const result = await Task({
+  subagent_type: 'universal-executor',
+  prompt: `
+    [FILE_PATH]: ${dataPath}
+    [TASK]: Analyze the file and extract key metrics.
+    [NOTE]: Read the file only if needed for your analysis.
+  `
+});
+```
+
+**Risk**: Low
+**Verification**: Verify agents can still access required data
+
+---
+
+### Strategy: output_minimization
+
+**Purpose**: Configure agents to return minimal, structured output instead of verbose text.
+
+**Implementation**:
+```javascript
+// Before: Verbose output expectation
+const prompt = `
+Analyze the code and provide a detailed report including:
+- Executive summary
+- Detailed findings with explanations
+- Code examples for each issue
+- Recommendations with rationale
+...
+`;
+
+// After: Minimal structured output
+const prompt = `
+Analyze the code. Return ONLY this JSON:
+{
+  "status": "pass|review|fail",
+  "issues": [{ "id": string, "severity": string, "file": string, "line": number }],
+  "summary": "one sentence"
+}
+Do not include explanations or code examples.
+`;
+
+// Validation
+const result = JSON.parse(agentOutput);
+if (!result.status || !Array.isArray(result.issues)) {
+  throw new Error('Invalid output format');
+}
+```
+
+**Risk**: Low
+**Verification**: JSON.parse succeeds, output size reduced
+
+---
+
+### Strategy: state_field_reduction
+
+**Purpose**: Audit and consolidate state fields to minimize serialization overhead.
+
+**Implementation**:
+```typescript
+// Before: Bloated state
+interface State {
+  status: string;
+  target: TargetInfo;
+  user_input: string;
+  parsed_input: ParsedInput;      // Remove - temporary
+  intermediate_result: any;       // Remove - not persisted
+  debug_info: DebugInfo;          // Remove - debugging only
+  analysis_cache: any;            // Remove - session cache
+  full_history: HistoryEntry[];   // Remove - unbounded
+  step1_output: any;              // Remove - intermediate
+  step2_output: any;              // Remove - intermediate
+  step3_output: any;              // Remove - intermediate
+  final_result: FinalResult;
+  error_log: string[];            // Remove - debugging
+  metrics: Metrics;               // Remove - optional
+}
+
+// After: Minimal state (≤15 fields)
+interface State {
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  target: { name: string; path: string };
+  input_summary: string;          // Summarized user input
+  result_path: string;            // Path to final result
+  quality_gate: 'pass' | 'fail';
+  error?: string;                 // Only if failed
+}
+```
+
+**Audit Checklist**:
+```javascript
+function auditStateFields(stateSchema) {
+  const removeCandidates = [];
+
+  for (const [key, type] of Object.entries(stateSchema)) {
+    // Identify removal candidates
+    if (key.startsWith('debug_')) removeCandidates.push(key);
+    if (key.endsWith('_cache')) removeCandidates.push(key);
+    if (key.endsWith('_temp')) removeCandidates.push(key);
+    if (key.includes('intermediate')) removeCandidates.push(key);
+    if (key.includes('step') && key.includes('output')) removeCandidates.push(key);
+  }
+
+  return {
+    total_fields: Object.keys(stateSchema).length,
+    remove_candidates: removeCandidates,
+    estimated_reduction: removeCandidates.length
+  };
+}
+```
+
+**Risk**: Medium (ensure no essential data removed)
+**Verification**: State field count ≤ 15, all essential data preserved
+
+---
+
+### Strategy: in_memory_consolidation
+
+**Purpose**: Consolidate outputs into single file, eliminate redundant report files.
+
+**Implementation**:
+```javascript
+// Before: Multiple output files
+Write(`${workDir}/diagnosis-report.md`, reportMarkdown);
+Write(`${workDir}/diagnosis-summary.json`, summaryJson);
+Write(`${workDir}/state.json`, JSON.stringify(state));
+Write(`${workDir}/tuning-report.md`, tuningReport);
+Write(`${workDir}/tuning-summary.md`, finalSummary);
+
+// After: Single source of truth
+const consolidatedState = {
+  ...state,
+  final_report: {
+    summary: summaryJson,
+    details_available_in_state: true,
+    generated_at: new Date().toISOString()
+  }
+};
+Write(`${workDir}/state.json`, JSON.stringify(consolidatedState, null, 2));
+
+// Report can be rendered from state on-demand
+function renderReport(state) {
+  return `
+# Tuning Report: ${state.target_skill.name}
+Status: ${state.status}
+Quality: ${state.quality_gate}
+Issues: ${state.issues.length}
+...
+`;
+}
+```
+
+**Benefits**:
+- Single file to read/write
+- No data duplication
+- On-demand rendering
+
+**Risk**: Low
+**Verification**: Only state.json exists as output, rendering works correctly
