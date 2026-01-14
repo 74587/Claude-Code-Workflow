@@ -6,19 +6,31 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  CCW Orchestrator                                                 │
+│  CCW Orchestrator (CLI-Enhanced)                                  │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                   │
-│  Phase 1: Input Analysis                                          │
+│  Phase 1: Input Analysis (Rule-Based, Fast Path)                  │
 │  ├─ Parse input (natural language / explicit command)            │
 │  ├─ Classify intent (bugfix / feature / issue / ui / docs)       │
 │  └─ Assess complexity (low / medium / high)                      │
+│                                                                   │
+│  Phase 1.5: CLI-Assisted Classification (Smart Path)             │
+│  ├─ Trigger: low match count / high complexity / long input      │
+│  ├─ Use Gemini CLI for semantic intent understanding             │
+│  ├─ Get confidence score and reasoning                           │
+│  └─ Fallback to rule-based if CLI fails                          │
 │                                                                   │
 │  Phase 2: Chain Selection                                         │
 │  ├─ Load index/workflow-chains.json                              │
 │  ├─ Match intent → chain(s)                                       │
 │  ├─ Filter by complexity                                          │
 │  └─ Select optimal chain                                          │
+│                                                                   │
+│  Phase 2.5: CLI-Assisted Action Planning (Optimization)          │
+│  ├─ Trigger: high complexity / many steps / long request         │
+│  ├─ Use Gemini CLI to optimize execution strategy                │
+│  ├─ Suggest step modifications or CLI injections                 │
+│  └─ Identify risks and provide mitigations                       │
 │                                                                   │
 │  Phase 3: User Confirmation (optional)                            │
 │  ├─ Display selected chain and steps                              │
@@ -35,6 +47,41 @@
 │  └─ Proceed to next step or wait for user                         │
 │                                                                   │
 └──────────────────────────────────────────────────────────────────┘
+```
+
+## CLI Enhancement Features
+
+### Trigger Conditions
+
+| Feature | Trigger Condition | Default Tool |
+|---------|------------------|--------------|
+| CLI Classification | matchCount < 2 OR complexity = high OR input > 100 chars | gemini |
+| CLI Action Planning | complexity = high OR steps >= 3 OR input > 200 chars | gemini |
+
+### Fallback Behavior
+
+- **Classification**: If CLI fails, falls back to rule-based classification
+- **Action Planning**: If CLI fails, uses default chain without optimization
+- **Tool Fallback**: Primary tool (gemini) -> Secondary tool (qwen)
+
+### Configuration
+
+All CLI enhancement settings are in `index/intent-rules.json`:
+
+```json
+{
+  "cli_classification": {
+    "enabled": true,
+    "trigger_conditions": { ... },
+    "default_tool": "gemini",
+    "fallback_tool": "qwen"
+  },
+  "cli_action_planning": {
+    "enabled": true,
+    "trigger_conditions": { ... },
+    "allow_step_modification": true
+  }
+}
 ```
 
 ## Implementation
@@ -157,6 +204,156 @@ function detectToolPreference(text, triggers) {
   }
   return null
 }
+
+// Calculate match count for confidence assessment
+function calculateMatchCount(text, patterns) {
+  let count = 0
+  for (const [intentType, config] of Object.entries(patterns)) {
+    if (config.variants) {
+      for (const [variant, variantConfig] of Object.entries(config.variants)) {
+        const variantPatterns = variantConfig.patterns || variantConfig.triggers || []
+        if (matchesAnyPattern(text, variantPatterns)) count++
+      }
+    }
+    if (config.patterns && !config.require_both) {
+      if (matchesAnyPattern(text, config.patterns)) count++
+    }
+  }
+  return count
+}
+```
+
+### Phase 1.5: CLI-Assisted Classification
+
+For ambiguous or complex inputs, use CLI tools for semantic understanding.
+
+```javascript
+// CLI-assisted classification for ambiguous inputs
+async function cliAssistedClassification(input, ruleBasedResult, intentRules) {
+  const cliConfig = intentRules.cli_classification
+
+  // Skip if CLI classification is disabled
+  if (!cliConfig || !cliConfig.enabled) {
+    return { ...ruleBasedResult, source: 'rules', matchCount: 0 }
+  }
+
+  // Calculate match count for confidence assessment
+  const matchCount = calculateMatchCount(input, intentRules.intent_patterns)
+
+  // Determine if CLI classification should be triggered
+  const triggers = cliConfig.trigger_conditions
+  const shouldUseCli =
+    matchCount < triggers.low_match_count ||
+    ruleBasedResult.complexity === triggers.complexity_trigger ||
+    input.length > triggers.min_input_length ||
+    matchesAnyPattern(input, triggers.ambiguous_patterns)
+
+  if (!shouldUseCli) {
+    return { ...ruleBasedResult, source: 'rules', matchCount }
+  }
+
+  console.log('### CLI-Assisted Intent Classification\n')
+  console.log('> Using CLI for semantic understanding of ambiguous input...\n')
+
+  // Build CLI prompt for intent classification
+  const cliPrompt = `
+PURPOSE: Classify user request intent and recommend optimal workflow
+TASK:
+- Analyze the semantic meaning of the user request
+- Classify into one of: bugfix, feature, exploration, ui, issue, tdd, review, docs
+- Assess complexity: low, medium, high
+- Recommend workflow chain based on intent and complexity
+- Provide confidence score (0-1)
+
+MODE: analysis
+CONTEXT: User request analysis for workflow orchestration
+EXPECTED: JSON output with structure:
+{
+  "intent": {
+    "type": "bugfix|feature|exploration|ui|issue|tdd|review|docs",
+    "variant": "optional variant like hotfix, imitate, incremental",
+    "confidence": 0.0-1.0,
+    "reasoning": "brief explanation of classification"
+  },
+  "complexity": {
+    "level": "low|medium|high",
+    "factors": ["factor1", "factor2"],
+    "confidence": 0.0-1.0
+  },
+  "recommended_workflow": {
+    "chain_id": "rapid|full|coupled|bugfix|issue|tdd|ui|review-fix|docs",
+    "reasoning": "why this workflow is optimal"
+  },
+  "tool_preference": {
+    "suggested": "gemini|qwen|codex|null",
+    "reasoning": "optional reasoning"
+  }
+}
+
+USER REQUEST:
+${input}
+
+RULES: Output ONLY valid JSON without markdown code blocks. Be concise but accurate.
+`
+
+  // Select CLI tool (default or fallback)
+  const tool = cliConfig.default_tool || 'gemini'
+  const timeout = cliConfig.timeout_ms || 60000
+
+  try {
+    // Execute CLI call synchronously for classification
+    const escapedPrompt = cliPrompt.replace(/"/g, '\\"').replace(/\n/g, '\\n')
+    const cliResult = Bash({
+      command: `ccw cli -p "${escapedPrompt}" --tool ${tool} --mode analysis`,
+      run_in_background: false,
+      timeout: timeout
+    })
+
+    // Parse CLI result - extract JSON from response
+    const jsonMatch = cliResult.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      throw new Error('No JSON found in CLI response')
+    }
+
+    const parsed = JSON.parse(jsonMatch[0])
+
+    console.log(`
+**CLI Classification Result**:
+- **Intent**: ${parsed.intent.type}${parsed.intent.variant ? ` (${parsed.intent.variant})` : ''}
+- **Complexity**: ${parsed.complexity.level}
+- **Confidence**: ${(parsed.intent.confidence * 100).toFixed(0)}%
+- **Reasoning**: ${parsed.intent.reasoning}
+- **Recommended Chain**: ${parsed.recommended_workflow.chain_id}
+`)
+
+    return {
+      type: 'natural',
+      text: input,
+      intent: {
+        type: parsed.intent.type,
+        variant: parsed.intent.variant,
+        workflow: parsed.recommended_workflow.chain_id
+      },
+      complexity: parsed.complexity.level,
+      toolPreference: parsed.tool_preference?.suggested || ruleBasedResult.toolPreference,
+      confidence: parsed.intent.confidence,
+      source: 'cli',
+      cliReasoning: parsed.intent.reasoning,
+      passthrough: false
+    }
+  } catch (error) {
+    console.log(`> CLI classification failed: ${error.message}`)
+    console.log('> Falling back to rule-based classification\n')
+
+    // Try fallback tool if available
+    if (cliConfig.fallback_tool && cliConfig.fallback_tool !== tool) {
+      console.log(`> Attempting fallback with ${cliConfig.fallback_tool}...`)
+      // Could recursively call with fallback tool, but for simplicity, just return rule-based
+    }
+
+    return { ...ruleBasedResult, source: 'rules', matchCount }
+  }
+}
 ```
 
 ### Phase 2: Chain Selection
@@ -203,6 +400,141 @@ function selectChain(analysis) {
     steps,
     complexity: chain.complexity,
     estimated_time: chain.estimated_time
+  }
+}
+```
+
+### Phase 2.5: CLI-Assisted Action Planning
+
+For high complexity tasks, use CLI to plan optimal execution strategy.
+
+```javascript
+// CLI-assisted action planning for complex tasks
+async function cliAssistedPlanning(analysis, selectedChain, intentRules) {
+  const planConfig = intentRules.cli_action_planning
+
+  // Skip if action planning is disabled
+  if (!planConfig || !planConfig.enabled) {
+    return { useDefaultChain: true, chain: selectedChain }
+  }
+
+  // Determine if CLI planning should be triggered
+  const triggers = planConfig.trigger_conditions
+  const shouldUseCli =
+    analysis.complexity === triggers.complexity_threshold ||
+    selectedChain.steps.length >= triggers.step_count_threshold ||
+    (analysis.text && analysis.text.length > 200)
+
+  if (!shouldUseCli) {
+    return { useDefaultChain: true, chain: selectedChain }
+  }
+
+  console.log('### CLI-Assisted Action Planning\n')
+  console.log('> Using CLI to optimize execution strategy for complex task...\n')
+
+  // Build CLI prompt for action planning
+  const planningPrompt = `
+PURPOSE: Plan optimal workflow execution strategy for complex task
+TASK:
+- Review the selected workflow chain and its steps
+- Consider task complexity, dependencies, and potential risks
+- Suggest step modifications, additions, or reordering if beneficial
+- Identify potential risks and provide mitigations
+- Recommend CLI tool injection points for efficiency
+
+MODE: analysis
+CONTEXT:
+- User Intent: ${analysis.intent.type}${analysis.intent.variant ? ` (${analysis.intent.variant})` : ''}
+- Complexity: ${analysis.complexity}
+- Selected Chain: ${selectedChain.name}
+- Current Steps: ${selectedChain.steps.map((s, i) => `${i + 1}. ${s.command}`).join(', ')}
+- User Request: ${analysis.text ? analysis.text.substring(0, 200) : 'N/A'}
+
+EXPECTED: JSON output with structure:
+{
+  "recommendation": "use_default|modify|upgrade",
+  "modified_steps": [
+    { "command": "/workflow:xxx", "optional": false, "auto_continue": true, "reason": "why this step" }
+  ],
+  "cli_injections": [
+    { "before_step": 1, "tool": "gemini", "mode": "analysis", "purpose": "pre-analysis" }
+  ],
+  "reasoning": "explanation of recommendations",
+  "risks": ["risk1", "risk2"],
+  "mitigations": ["mitigation1", "mitigation2"],
+  "suggestions": ["suggestion1", "suggestion2"]
+}
+
+RULES: Output ONLY valid JSON. If no modifications needed, set recommendation to "use_default" and leave modified_steps empty.
+`
+
+  const tool = planConfig.default_tool || 'gemini'
+  const timeout = planConfig.timeout_ms || 60000
+
+  try {
+    const escapedPrompt = planningPrompt.replace(/"/g, '\\"').replace(/\n/g, '\\n')
+    const cliResult = Bash({
+      command: `ccw cli -p "${escapedPrompt}" --tool ${tool} --mode analysis`,
+      run_in_background: false,
+      timeout: timeout
+    })
+
+    // Parse CLI result
+    const jsonMatch = cliResult.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      throw new Error('No JSON found in CLI response')
+    }
+
+    const parsed = JSON.parse(jsonMatch[0])
+
+    // Display planning results
+    console.log(`
+**CLI Planning Result**:
+- **Recommendation**: ${parsed.recommendation}
+- **Reasoning**: ${parsed.reasoning}
+${parsed.risks && parsed.risks.length > 0 ? `- **Risks**: ${parsed.risks.join(', ')}` : ''}
+${parsed.suggestions && parsed.suggestions.length > 0 ? `- **Suggestions**: ${parsed.suggestions.join(', ')}` : ''}
+`)
+
+    // Handle step modification
+    if (parsed.recommendation === 'modify' && parsed.modified_steps && parsed.modified_steps.length > 0) {
+      if (planConfig.allow_step_modification) {
+        console.log('> Applying modified execution plan\n')
+        return {
+          useDefaultChain: false,
+          chain: {
+            ...selectedChain,
+            steps: parsed.modified_steps
+          },
+          reasoning: parsed.reasoning,
+          risks: parsed.risks,
+          cliInjections: parsed.cli_injections,
+          source: 'cli-planned'
+        }
+      } else {
+        console.log('> Step modification disabled, using default chain with suggestions\n')
+      }
+    }
+
+    // Handle upgrade recommendation
+    if (parsed.recommendation === 'upgrade') {
+      console.log('> CLI recommends upgrading to a more comprehensive workflow\n')
+      // Could select a more complex chain here
+    }
+
+    return {
+      useDefaultChain: true,
+      chain: selectedChain,
+      suggestions: parsed.suggestions,
+      risks: parsed.risks,
+      cliInjections: parsed.cli_injections,
+      source: 'cli-reviewed'
+    }
+  } catch (error) {
+    console.log(`> CLI planning failed: ${error.message}`)
+    console.log('> Using default chain without optimization\n')
+
+    return { useDefaultChain: true, chain: selectedChain, source: 'default' }
   }
 }
 ```
@@ -374,32 +706,68 @@ Type "continue" to proceed or specify different action.
 ```javascript
 async function ccwOrchestrate(userInput) {
   console.log('## CCW Orchestrator\n')
-  
-  // Phase 1: Analyze input
-  const analysis = analyzeInput(userInput)
-  
+
+  // Phase 1: Analyze input (rule-based, fast path)
+  const ruleBasedAnalysis = analyzeInput(userInput)
+
   // Handle explicit command passthrough
-  if (analysis.passthrough) {
-    console.log(`Direct command: ${analysis.command}`)
-    return SlashCommand(analysis.command)
+  if (ruleBasedAnalysis.passthrough) {
+    console.log(`Direct command: ${ruleBasedAnalysis.command}`)
+    return SlashCommand(ruleBasedAnalysis.command)
   }
-  
+
+  // Phase 1.5: CLI-Assisted Classification (smart path for ambiguous inputs)
+  const analysis = await cliAssistedClassification(userInput, ruleBasedAnalysis, intentRules)
+
+  // Display classification source
+  if (analysis.source === 'cli') {
+    console.log(`
+### Classification Summary
+- **Source**: CLI-Assisted (${analysis.confidence ? (analysis.confidence * 100).toFixed(0) + '% confidence' : 'semantic analysis'})
+- **Intent**: ${analysis.intent.type}${analysis.intent.variant ? ` (${analysis.intent.variant})` : ''}
+- **Complexity**: ${analysis.complexity}
+${analysis.cliReasoning ? `- **Reasoning**: ${analysis.cliReasoning}` : ''}
+`)
+  } else {
+    console.log(`
+### Classification Summary
+- **Source**: Rule-Based (fast path)
+- **Intent**: ${analysis.intent.type}${analysis.intent.variant ? ` (${analysis.intent.variant})` : ''}
+- **Complexity**: ${analysis.complexity}
+`)
+  }
+
   // Phase 2: Select chain
   const selectedChain = selectChain(analysis)
-  
+
+  // Phase 2.5: CLI-Assisted Action Planning (for high complexity)
+  const planningResult = await cliAssistedPlanning(analysis, selectedChain, intentRules)
+  const optimizedChain = planningResult.chain
+
+  // Display planning result if CLI was used
+  if (planningResult.source === 'cli-planned' || planningResult.source === 'cli-reviewed') {
+    console.log(`
+### Planning Summary
+- **Source**: CLI-Assisted
+${planningResult.reasoning ? `- **Reasoning**: ${planningResult.reasoning}` : ''}
+${planningResult.risks && planningResult.risks.length > 0 ? `- **Identified Risks**: ${planningResult.risks.join(', ')}` : ''}
+${planningResult.suggestions && planningResult.suggestions.length > 0 ? `- **Suggestions**: ${planningResult.suggestions.join(', ')}` : ''}
+`)
+  }
+
   // Phase 3: Confirm (for complex workflows)
-  const confirmedChain = confirmChain(selectedChain, analysis)
+  const confirmedChain = confirmChain(optimizedChain, analysis)
   if (!confirmedChain) {
     console.log('Manual mode selected. Specify commands directly.')
     return
   }
-  
+
   // Phase 4: Setup TODO tracking
   const execution = setupTodoTracking(confirmedChain, analysis)
-  
+
   // Phase 5: Execute
   const result = await executeChain(execution, analysis)
-  
+
   return result
 }
 ```

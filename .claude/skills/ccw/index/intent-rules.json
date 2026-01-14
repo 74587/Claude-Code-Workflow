@@ -132,5 +132,34 @@
       "action": "ask_user",
       "message": "检测到多个可能意图，请确认工作流选择"
     }
+  },
+  "cli_classification": {
+    "_doc": "CLI辅助意图分类配置：对模糊或复杂输入使用Gemini进行语义理解",
+    "enabled": true,
+    "trigger_conditions": {
+      "low_confidence_threshold": 0.6,
+      "min_input_length": 100,
+      "low_match_count": 2,
+      "complexity_trigger": "high",
+      "ambiguous_patterns": ["不确定", "可能", "或者", "建议", "最好", "maybe", "perhaps", "should i", "what if", "or"]
+    },
+    "default_tool": "gemini",
+    "fallback_tool": "qwen",
+    "timeout_ms": 60000,
+    "cache_similar_inputs": true,
+    "max_retries": 2
+  },
+  "cli_action_planning": {
+    "_doc": "CLI辅助行动规划配置：对高复杂度任务使用CLI规划最优执行策略",
+    "enabled": true,
+    "trigger_conditions": {
+      "complexity_threshold": "high",
+      "step_count_threshold": 3,
+      "multi_module_detected": true
+    },
+    "default_tool": "gemini",
+    "timeout_ms": 60000,
+    "allow_step_modification": true,
+    "risk_assessment": true
   }
 }
