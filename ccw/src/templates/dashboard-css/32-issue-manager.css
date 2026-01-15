@@ -3258,6 +3258,34 @@
   border-color: hsl(38 92% 50%);
 }
 
+.btn-danger,
+.btn-secondary.btn-danger,
+.btn-sm.btn-danger {
+  color: hsl(var(--destructive));
+  border-color: hsl(var(--destructive) / 0.5);
+  background: hsl(var(--destructive) / 0.08);
+}
+
+.btn-danger:hover,
+.btn-secondary.btn-danger:hover,
+.btn-sm.btn-danger:hover {
+  background: hsl(var(--destructive) / 0.15);
+  border-color: hsl(var(--destructive));
+}
+
+/* Issue Detail Actions */
+.issue-detail-actions {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid hsl(var(--border));
+}
+
+.issue-detail-actions .flex {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 /* Active queue badge enhancement */
 .queue-active-badge {
   display: inline-flex;

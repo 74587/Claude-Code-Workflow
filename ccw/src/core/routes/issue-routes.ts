@@ -67,6 +67,12 @@ function readIssueHistoryJsonl(issuesDir: string): any[] {
   }
 }
 
+function writeIssueHistoryJsonl(issuesDir: string, issues: any[]) {
+  if (!existsSync(issuesDir)) mkdirSync(issuesDir, { recursive: true });
+  const historyPath = join(issuesDir, 'issue-history.jsonl');
+  writeFileSync(historyPath, issues.map(i => JSON.stringify(i)).join('\n'));
+}
+
 function writeSolutionsJsonl(issuesDir: string, issueId: string, solutions: any[]) {
   const solutionsDir = join(issuesDir, 'solutions');
   if (!existsSync(solutionsDir)) mkdirSync(solutionsDir, { recursive: true });
@@ -556,6 +562,48 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
+  // DELETE /api/queue/:queueId - Delete entire queue
+  const queueDeleteMatch = pathname.match(/^\/api\/queue\/([^/]+)$/);
+  if (queueDeleteMatch && req.method === 'DELETE') {
+    const queueId = queueDeleteMatch[1];
+    const queuesDir = join(issuesDir, 'queues');
+    const queueFilePath = join(queuesDir, `${queueId}.json`);
+    const indexPath = join(queuesDir, 'index.json');
+
+    if (!existsSync(queueFilePath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `Queue ${queueId} not found` }));
+      return true;
+    }
+
+    try {
+      // Delete queue file
+      unlinkSync(queueFilePath);
+
+      // Update index
+      if (existsSync(indexPath)) {
+        const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+
+        // Remove from queues array
+        index.queues = (index.queues || []).filter((q: any) => q.id !== queueId);
+
+        // Clear active if this was the active queue
+        if (index.active_queue_id === queueId) {
+          index.active_queue_id = null;
+        }
+
+        writeFileSync(indexPath, JSON.stringify(index, null, 2));
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, deletedQueueId: queueId }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to delete queue' }));
+    }
+    return true;
+  }
+
   // POST /api/queue/merge - Merge source queue into target queue
   if (pathname === '/api/queue/merge' && req.method === 'POST') {
     handlePostRequest(req, res, async (body: any) => {
@@ -814,6 +862,39 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, issueId }));
+    return true;
+  }
+
+  // POST /api/issues/:id/archive - Archive issue (move to history)
+  const archiveMatch = pathname.match(/^\/api\/issues\/([^/]+)\/archive$/);
+  if (archiveMatch && req.method === 'POST') {
+    const issueId = decodeURIComponent(archiveMatch[1]);
+
+    const issues = readIssuesJsonl(issuesDir);
+    const issueIndex = issues.findIndex(i => i.id === issueId);
+
+    if (issueIndex === -1) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Issue not found' }));
+      return true;
+    }
+
+    // Get the issue and add archive metadata
+    const issue = issues[issueIndex];
+    issue.archived_at = new Date().toISOString();
+    issue.status = 'completed';
+
+    // Move to history
+    const history = readIssueHistoryJsonl(issuesDir);
+    history.push(issue);
+    writeIssueHistoryJsonl(issuesDir, history);
+
+    // Remove from active issues
+    issues.splice(issueIndex, 1);
+    writeIssuesJsonl(issuesDir, issues);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, issueId, archivedAt: issue.archived_at }));
     return true;
   }
 

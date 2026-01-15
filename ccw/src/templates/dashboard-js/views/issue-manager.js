@@ -562,6 +562,9 @@ function renderQueueCard(queue, isActive) {
             <i data-lucide="git-merge" class="w-3 h-3"></i>
           </button>
         ` : ''}
+        <button class="btn-sm btn-danger" onclick="confirmDeleteQueue('${safeQueueId}')" title="${t('issues.deleteQueue') || 'Delete queue'}">
+          <i data-lucide="trash-2" class="w-3 h-3"></i>
+        </button>
       </div>
     </div>
   `;
@@ -616,6 +619,33 @@ async function deactivateQueue(queueId) {
   } catch (err) {
     console.error('Failed to deactivate queue:', err);
     showNotification('Failed to deactivate queue', 'error');
+  }
+}
+
+function confirmDeleteQueue(queueId) {
+  const msg = t('issues.confirmDeleteQueue') || 'Are you sure you want to delete this queue? This action cannot be undone.';
+  if (confirm(msg)) {
+    deleteQueue(queueId);
+  }
+}
+
+async function deleteQueue(queueId) {
+  try {
+    const response = await fetch('/api/queue/' + encodeURIComponent(queueId) + '?path=' + encodeURIComponent(projectPath), {
+      method: 'DELETE'
+    });
+    const result = await response.json();
+    if (result.success) {
+      showNotification(t('issues.queueDeleted') || 'Queue deleted successfully', 'success');
+      queueData.expandedQueueId = null;
+      await Promise.all([loadQueueData(), loadAllQueues()]);
+      renderIssueView();
+    } else {
+      showNotification(result.error || 'Failed to delete queue', 'error');
+    }
+  } catch (err) {
+    console.error('Failed to delete queue:', err);
+    showNotification('Failed to delete queue', 'error');
   }
 }
 
@@ -1405,6 +1435,23 @@ function renderIssueDetailPanel(issue) {
           `).join('') : '<p class="text-sm text-muted-foreground">' + (t('issues.noTasks') || 'No tasks') + '</p>'}
         </div>
       </div>
+
+      <!-- Actions -->
+      <div class="detail-section issue-detail-actions">
+        <label class="detail-label">${t('issues.actions') || 'Actions'}</label>
+        <div class="flex gap-2 flex-wrap">
+          ${!issue._isArchived ? `
+            <button class="btn-secondary btn-sm" onclick="confirmArchiveIssue('${issue.id}')">
+              <i data-lucide="archive" class="w-4 h-4"></i>
+              ${t('issues.archive') || 'Archive'}
+            </button>
+          ` : ''}
+          <button class="btn-secondary btn-sm btn-danger" onclick="confirmDeleteIssue('${issue.id}', ${issue._isArchived || false})">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+            ${t('issues.delete') || 'Delete'}
+          </button>
+        </div>
+      </div>
     </div>
   `;
 
@@ -1417,6 +1464,67 @@ function closeIssueDetail() {
     panel.classList.add('hidden');
   }
   issueData.selectedIssue = null;
+}
+
+// ========== Issue Delete & Archive ==========
+function confirmDeleteIssue(issueId, isArchived) {
+  const msg = t('issues.confirmDeleteIssue') || 'Are you sure you want to delete this issue? This action cannot be undone.';
+  if (confirm(msg)) {
+    deleteIssue(issueId, isArchived);
+  }
+}
+
+async function deleteIssue(issueId, isArchived) {
+  try {
+    const response = await fetch('/api/issues/' + encodeURIComponent(issueId) + '?path=' + encodeURIComponent(projectPath), {
+      method: 'DELETE'
+    });
+    const result = await response.json();
+    if (result.success) {
+      showNotification(t('issues.issueDeleted') || 'Issue deleted successfully', 'success');
+      closeIssueDetail();
+      if (isArchived) {
+        issueData.historyIssues = issueData.historyIssues.filter(i => i.id !== issueId);
+      } else {
+        issueData.issues = issueData.issues.filter(i => i.id !== issueId);
+      }
+      renderIssueView();
+      updateIssueBadge();
+    } else {
+      showNotification(result.error || 'Failed to delete issue', 'error');
+    }
+  } catch (err) {
+    console.error('Failed to delete issue:', err);
+    showNotification('Failed to delete issue', 'error');
+  }
+}
+
+function confirmArchiveIssue(issueId) {
+  const msg = t('issues.confirmArchiveIssue') || 'Archive this issue? It will be moved to history.';
+  if (confirm(msg)) {
+    archiveIssue(issueId);
+  }
+}
+
+async function archiveIssue(issueId) {
+  try {
+    const response = await fetch('/api/issues/' + encodeURIComponent(issueId) + '/archive?path=' + encodeURIComponent(projectPath), {
+      method: 'POST'
+    });
+    const result = await response.json();
+    if (result.success) {
+      showNotification(t('issues.issueArchived') || 'Issue archived successfully', 'success');
+      closeIssueDetail();
+      await loadIssueData();
+      renderIssueView();
+      updateIssueBadge();
+    } else {
+      showNotification(result.error || 'Failed to archive issue', 'error');
+    }
+  } catch (err) {
+    console.error('Failed to archive issue:', err);
+    showNotification('Failed to archive issue', 'error');
+  }
 }
 
 function toggleSolutionExpand(solId) {
