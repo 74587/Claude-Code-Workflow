@@ -126,7 +126,7 @@ function initNavigation() {
       } else if (currentView === 'explorer') {
         renderExplorer();
       } else if (currentView === 'cli-manager') {
-        renderClaudeManager();
+        renderCliManager();
       } else if (currentView === 'cli-history') {
         renderCliHistoryView();
         // Register destroy function for cli-history view
