@@ -116,7 +116,7 @@ interface CliExecOptions {
   model?: string;
   cd?: string;
   includeDirs?: string;
-  timeout?: string;
+  // timeout removed - controlled by external caller (bash timeout)
   stream?: boolean; // Enable streaming (default: false, caches output)
   resume?: string | boolean; // true = last, string = execution ID, comma-separated for merge
   id?: string; // Custom execution ID (e.g., IMPL-001-step1)
@@ -535,7 +535,7 @@ async function statusAction(debug?: boolean): Promise<void> {
  * @param {Object} options - CLI options
  */
 async function execAction(positionalPrompt: string | undefined, options: CliExecOptions): Promise<void> {
-  const { prompt: optionPrompt, file, tool = 'gemini', mode = 'analysis', model, cd, includeDirs, timeout, stream, resume, id, noNative, cache, injectMode, debug } = options;
+  const { prompt: optionPrompt, file, tool = 'gemini', mode = 'analysis', model, cd, includeDirs, stream, resume, id, noNative, cache, injectMode, debug } = options;
 
   // Enable debug mode if --debug flag is set
   if (debug) {
@@ -842,7 +842,7 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       model,
       cd,
       includeDirs,
-      timeout: timeout ? parseInt(timeout, 10) : 0, // 0 = no internal timeout, controlled by external caller
+      // timeout removed - controlled by external caller (bash timeout)
       resume,
       id, // custom execution ID
       noNative,
@@ -1221,7 +1221,7 @@ export async function cliCommand(
         console.log(chalk.gray('    --model <model>     Model override'));
         console.log(chalk.gray('    --cd <path>         Working directory'));
         console.log(chalk.gray('    --includeDirs <dirs>  Additional directories'));
-        console.log(chalk.gray('    --timeout <ms>      Timeout (default: 0=disabled)'));
+        // --timeout removed - controlled by external caller (bash timeout)
         console.log(chalk.gray('    --resume [id]       Resume previous session'));
         console.log(chalk.gray('    --cache <items>     Cache: comma-separated @patterns and text'));
         console.log(chalk.gray('    --inject-mode <m>   Inject mode: none, full, progressive'));

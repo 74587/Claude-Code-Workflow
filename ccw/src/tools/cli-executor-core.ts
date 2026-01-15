@@ -356,7 +356,7 @@ const ParamsSchema = z.object({
   model: z.string().optional(),
   cd: z.string().optional(),
   includeDirs: z.string().optional(),
-  timeout: z.number().default(0), // 0 = no internal timeout, controlled by external caller (e.g., bash timeout)
+  // timeout removed - controlled by external caller (bash timeout)
   resume: z.union([z.boolean(), z.string()]).optional(), // true = last, string = single ID or comma-separated IDs
   id: z.string().optional(), // Custom execution ID (e.g., IMPL-001-step1)
   noNative: z.boolean().optional(), // Force prompt concatenation instead of native resume
@@ -388,7 +388,7 @@ async function executeCliTool(
     throw new Error(`Invalid params: ${parsed.error.message}`);
   }
 
-  const { tool, prompt, mode, format, model, cd, includeDirs, timeout, resume, id: customId, noNative, category, parentExecutionId, outputFormat } = parsed.data;
+  const { tool, prompt, mode, format, model, cd, includeDirs, resume, id: customId, noNative, category, parentExecutionId, outputFormat } = parsed.data;
 
   // Validate and determine working directory early (needed for conversation lookup)
   let workingDir: string;
@@ -862,7 +862,6 @@ async function executeCliTool(
 
     let stdout = '';
     let stderr = '';
-    let timedOut = false;
 
     // Handle stdout
     child.stdout!.on('data', (data: Buffer) => {
@@ -924,18 +923,14 @@ async function executeCliTool(
       debugLog('CLOSE', `Process closed`, {
         exitCode: code,
         duration: `${duration}ms`,
-        timedOut,
         stdoutLength: stdout.length,
         stderrLength: stderr.length,
         outputUnitsCount: allOutputUnits.length
       });
 
       // Determine status - prioritize output content over exit code
-      let status: 'success' | 'error' | 'timeout' = 'success';
-      if (timedOut) {
-        status = 'timeout';
-        debugLog('STATUS', `Execution timed out after ${duration}ms`);
-      } else if (code !== 0) {
+      let status: 'success' | 'error' = 'success';
+      if (code !== 0) {
         // Non-zero exit code doesn't always mean failure
         // Check if there's valid output (AI response) - treat as success
         const hasValidOutput = stdout.trim().length > 0;
@@ -1169,25 +1164,8 @@ async function executeCliTool(
       reject(new Error(`Failed to spawn ${tool}: ${error.message}\n  Command: ${command} ${args.join(' ')}\n  Working Dir: ${workingDir}`));
     });
 
-    // Timeout handling (timeout=0 disables internal timeout, controlled by external caller)
-    let timeoutId: NodeJS.Timeout | null = null;
-    if (timeout > 0) {
-      timeoutId = setTimeout(() => {
-        timedOut = true;
-        child.kill('SIGTERM');
-        setTimeout(() => {
-          if (!child.killed) {
-            child.kill('SIGKILL');
-          }
-        }, 5000);
-      }, timeout);
-    }
-
-    child.on('close', () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    });
+    // Timeout controlled by external caller (bash timeout)
+    // When parent process terminates, child will be cleaned up via process exit handler
   });
 }
 
@@ -1228,12 +1206,8 @@ Modes:
       includeDirs: {
         type: 'string',
         description: 'Additional directories (comma-separated). Maps to --include-directories for gemini/qwen, --add-dir for codex'
-      },
-      timeout: {
-        type: 'number',
-        description: 'Timeout in milliseconds (default: 0 = disabled, controlled by external caller)',
-        default: 0
       }
+      // timeout removed - controlled by external caller (bash timeout)
     },
     required: ['tool', 'prompt']
   }
