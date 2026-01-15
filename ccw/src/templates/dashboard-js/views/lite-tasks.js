@@ -706,11 +706,11 @@ function renderMultiCliTasksTab(session) {
 
     // Task description (main objective)
     if (taskDescription) {
-      planInfo.push(`<p class="plan-summary-text"><strong>${t('plan.objective') || 'Objective'}:</strong> ${escapeHtml(taskDescription)}</p>`);
+      planInfo.push(`<p class="plan-summary-text"><strong>${t('multiCli.plan.objective')}:</strong> ${escapeHtml(taskDescription)}</p>`);
     }
     // Solution name and summary
     if (solutionName) {
-      planInfo.push(`<p class="plan-solution-text"><strong>${t('plan.solution') || 'Solution'}:</strong> ${escapeHtml(solutionName)}</p>`);
+      planInfo.push(`<p class="plan-solution-text"><strong>${t('multiCli.plan.solution')}:</strong> ${escapeHtml(solutionName)}</p>`);
     }
     if (solutionSummary) {
       planInfo.push(`<p class="plan-summary-text">${escapeHtml(solutionSummary)}</p>`);
@@ -721,14 +721,14 @@ function renderMultiCliTasksTab(session) {
     }
     // Approach/execution flow
     if (approach) {
-      planInfo.push(`<p class="plan-approach-text"><strong>${t('plan.approach') || 'Approach'}:</strong> ${escapeHtml(approach)}</p>`);
+      planInfo.push(`<p class="plan-approach-text"><strong>${t('multiCli.plan.approach')}:</strong> ${escapeHtml(approach)}</p>`);
     }
 
     // Metadata badges - concise format
     let metaBadges = [];
     if (feasibility) metaBadges.push(`<span class="meta-badge feasibility">${Math.round(feasibility * 100)}%</span>`);
     if (effort) metaBadges.push(`<span class="meta-badge effort ${escapeHtml(effort)}">${escapeHtml(effort)}</span>`);
-    if (risk) metaBadges.push(`<span class="meta-badge risk ${escapeHtml(risk)}">${escapeHtml(risk)} risk</span>`);
+    if (risk) metaBadges.push(`<span class="meta-badge risk ${escapeHtml(risk)}">${escapeHtml(risk)} ${t('multiCli.plan.risk')}</span>`);
     // Legacy badges
     if (plan.severity) metaBadges.push(`<span class="meta-badge severity ${escapeHtml(plan.severity)}">${escapeHtml(plan.severity)}</span>`);
     if (plan.complexity) metaBadges.push(`<span class="meta-badge complexity">${escapeHtml(plan.complexity)}</span>`);
@@ -905,7 +905,7 @@ function renderMultiCliContextContent(context, session) {
   if (ctx.task_description) {
     sections.push(`
       <div class="context-section">
-        <h4 class="context-section-title"><i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i> Task Description</h4>
+        <h4 class="context-section-title"><i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.context.taskDescription')}</h4>
         <p class="context-description">${escapeHtml(ctx.task_description)}</p>
       </div>
     `);
@@ -915,7 +915,7 @@ function renderMultiCliContextContent(context, session) {
   if (ctx.constraints?.length) {
     sections.push(`
       <div class="context-section">
-        <h4 class="context-section-title"><i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1"></i> Constraints</h4>
+        <h4 class="context-section-title"><i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.context.constraints')}</h4>
         <ul class="constraints-list">
           ${ctx.constraints.map(c => `<li>${escapeHtml(c)}</li>`).join('')}
         </ul>
@@ -927,7 +927,7 @@ function renderMultiCliContextContent(context, session) {
   if (ctx.focus_paths?.length) {
     sections.push(`
       <div class="context-section">
-        <h4 class="context-section-title"><i data-lucide="folder" class="w-4 h-4 inline mr-1"></i> Focus Paths</h4>
+        <h4 class="context-section-title"><i data-lucide="folder" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.context.focusPaths')}</h4>
         <div class="path-tags">
           ${ctx.focus_paths.map(p => `<span class="path-tag">${escapeHtml(p)}</span>`).join('')}
         </div>
@@ -941,7 +941,7 @@ function renderMultiCliContextContent(context, session) {
       <div class="context-section collapsible-section">
         <div class="collapsible-header">
           <span class="collapse-icon">&#9654;</span>
-          <span class="section-label"><i data-lucide="files" class="w-4 h-4 inline mr-1"></i> Relevant Files (${ctx.relevant_files.length})</span>
+          <span class="section-label"><i data-lucide="files" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.context.relevantFiles')} (${ctx.relevant_files.length})</span>
         </div>
         <div class="collapsible-content collapsed">
           <ul class="files-list">
@@ -964,7 +964,7 @@ function renderMultiCliContextContent(context, session) {
       <div class="context-section collapsible-section">
         <div class="collapsible-header">
           <span class="collapse-icon">&#9654;</span>
-          <span class="section-label"><i data-lucide="git-branch" class="w-4 h-4 inline mr-1"></i> Dependencies (${ctx.dependencies.length})</span>
+          <span class="section-label"><i data-lucide="git-branch" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.context.dependencies')} (${ctx.dependencies.length})</span>
         </div>
         <div class="collapsible-content collapsed">
           <ul class="deps-list">
@@ -979,7 +979,7 @@ function renderMultiCliContextContent(context, session) {
   if (ctx.conflict_risks?.length) {
     sections.push(`
       <div class="context-section">
-        <h4 class="context-section-title"><i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i> Conflict Risks</h4>
+        <h4 class="context-section-title"><i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.context.conflictRisks')}</h4>
         <ul class="risks-list">
           ${ctx.conflict_risks.map(r => `<li class="risk-item">${escapeHtml(typeof r === 'string' ? r : r.description || JSON.stringify(r))}</li>`).join('')}
         </ul>
@@ -991,7 +991,7 @@ function renderMultiCliContextContent(context, session) {
   if (ctx.session_id) {
     sections.push(`
       <div class="context-section">
-        <h4 class="context-section-title"><i data-lucide="hash" class="w-4 h-4 inline mr-1"></i> Session ID</h4>
+        <h4 class="context-section-title"><i data-lucide="hash" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.context.sessionId')}</h4>
         <code class="session-id-code">${escapeHtml(ctx.session_id)}</code>
       </div>
     `);
@@ -1002,7 +1002,7 @@ function renderMultiCliContextContent(context, session) {
     <div class="context-section collapsible-section">
       <div class="collapsible-header">
         <span class="collapse-icon">&#9654;</span>
-        <span class="section-label">{ } Raw JSON</span>
+        <span class="section-label">{ } ${t('multiCli.context.rawJson')}</span>
       </div>
       <div class="collapsible-content collapsed">
         <pre class="json-content">${escapeHtml(JSON.stringify(ctx, null, 2))}</pre>
@@ -1066,7 +1066,7 @@ function renderMultiCliSummaryContent(summary, session) {
     const summaryContent = typeof summaryText === 'string' ? summaryText : getI18nText(summaryText);
     sections.push(`
       <div class="summary-section">
-        <h4 class="summary-section-title"><i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i> Summary</h4>
+        <h4 class="summary-section-title"><i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.summary.title')}</h4>
         <div class="summary-content">${escapeHtml(summaryContent)}</div>
       </div>
     `);
@@ -1077,7 +1077,7 @@ function renderMultiCliSummaryContent(summary, session) {
     const conv = synthesis.convergence;
     sections.push(`
       <div class="summary-section">
-        <h4 class="summary-section-title"><i data-lucide="git-merge" class="w-4 h-4 inline mr-1"></i> Convergence</h4>
+        <h4 class="summary-section-title"><i data-lucide="git-merge" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.summary.convergence')}</h4>
         <div class="convergence-info">
           <span class="convergence-level ${conv.level || ''}">${escapeHtml(conv.level || 'unknown')}</span>
           <span class="convergence-rec ${conv.recommendation || ''}">${escapeHtml(conv.recommendation || '')}</span>
@@ -1092,13 +1092,13 @@ function renderMultiCliSummaryContent(summary, session) {
       <div class="summary-section collapsible-section">
         <div class="collapsible-header">
           <span class="collapse-icon">&#9654;</span>
-          <span class="section-label"><i data-lucide="lightbulb" class="w-4 h-4 inline mr-1"></i> Solutions (${synthesis.solutions.length})</span>
+          <span class="section-label"><i data-lucide="lightbulb" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.summary.solutions')} (${synthesis.solutions.length})</span>
         </div>
         <div class="collapsible-content collapsed">
           ${synthesis.solutions.map((sol, idx) => `
             <div class="solution-summary-item">
               <span class="solution-num">#${idx + 1}</span>
-              <span class="solution-name">${escapeHtml(getI18nText(sol.title) || sol.id || `Solution ${idx + 1}`)}</span>
+              <span class="solution-name">${escapeHtml(getI18nText(sol.title) || sol.id || `${t('multiCli.summary.solution')} ${idx + 1}`)}</span>
               ${sol.feasibility?.score ? `<span class="feasibility-badge">${Math.round(sol.feasibility.score * 100)}%</span>` : ''}
             </div>
           `).join('')}
@@ -1602,10 +1602,10 @@ function renderMultiCliTaskOverview(task) {
       <div class="lite-card">
         <div class="lite-card-header">
           <span class="lite-card-icon">📝</span>
-          <h4 class="lite-card-title">Description</h4>
+          <h4 class="lite-card-title">${t('multiCli.task.description')}</h4>
         </div>
         <div class="lite-card-body">
-          ${keyPoint ? `<p class="lite-key-point"><strong>Key Point:</strong> ${escapeHtml(keyPoint)}</p>` : ''}
+          ${keyPoint ? `<p class="lite-key-point"><strong>${t('multiCli.task.keyPoint')}:</strong> ${escapeHtml(keyPoint)}</p>` : ''}
           ${description ? `<p class="lite-description">${escapeHtml(description)}</p>` : ''}
         </div>
       </div>
@@ -1618,7 +1618,7 @@ function renderMultiCliTaskOverview(task) {
       <div class="lite-card">
         <div class="lite-card-header">
           <span class="lite-card-icon">📂</span>
-          <h4 class="lite-card-title">Scope</h4>
+          <h4 class="lite-card-title">${t('multiCli.task.scope')}</h4>
         </div>
         <div class="lite-card-body">
           <div class="lite-scope-box">
@@ -1635,7 +1635,7 @@ function renderMultiCliTaskOverview(task) {
       <div class="lite-card">
         <div class="lite-card-header">
           <span class="lite-card-icon">🔗</span>
-          <h4 class="lite-card-title">Dependencies</h4>
+          <h4 class="lite-card-title">${t('multiCli.task.dependencies')}</h4>
         </div>
         <div class="lite-card-body">
           <div class="lite-deps-list">
@@ -1652,7 +1652,7 @@ function renderMultiCliTaskOverview(task) {
       <div class="lite-card">
         <div class="lite-card-header">
           <span class="lite-card-icon">📁</span>
-          <h4 class="lite-card-title">Target Files</h4>
+          <h4 class="lite-card-title">${t('multiCli.task.targetFiles')}</h4>
         </div>
         <div class="lite-card-body">
           <ul class="lite-file-list">
@@ -1669,7 +1669,7 @@ function renderMultiCliTaskOverview(task) {
       <div class="lite-card">
         <div class="lite-card-header">
           <span class="lite-card-icon">✅</span>
-          <h4 class="lite-card-title">Acceptance Criteria</h4>
+          <h4 class="lite-card-title">${t('multiCli.task.acceptanceCriteria')}</h4>
         </div>
         <div class="lite-card-body">
           <ul class="lite-acceptance-list">
@@ -1687,18 +1687,18 @@ function renderMultiCliTaskOverview(task) {
       <div class="lite-card">
         <div class="lite-card-header">
           <span class="lite-card-icon">📚</span>
-          <h4 class="lite-card-title">Reference</h4>
+          <h4 class="lite-card-title">${t('multiCli.task.reference')}</h4>
         </div>
         <div class="lite-card-body">
-          ${ref.pattern ? `<div class="ref-item"><strong>PATTERN:</strong> ${escapeHtml(ref.pattern)}</div>` : ''}
-          ${ref.files?.length ? `<div class="ref-item"><strong>FILES:</strong><br><code class="ref-files">${ref.files.map(f => escapeHtml(f)).join('\n')}</code></div>` : ''}
-          ${ref.examples ? `<div class="ref-item"><strong>EXAMPLES:</strong> ${escapeHtml(ref.examples)}</div>` : ''}
+          ${ref.pattern ? `<div class="ref-item"><strong>${t('multiCli.task.pattern')}:</strong> ${escapeHtml(ref.pattern)}</div>` : ''}
+          ${ref.files?.length ? `<div class="ref-item"><strong>${t('multiCli.task.files')}:</strong><br><code class="ref-files">${ref.files.map(f => escapeHtml(f)).join('\n')}</code></div>` : ''}
+          ${ref.examples ? `<div class="ref-item"><strong>${t('multiCli.task.examples')}:</strong> ${escapeHtml(ref.examples)}</div>` : ''}
         </div>
       </div>
     `);
   }
 
-  return sections.length ? sections.join('') : '<div class="empty-section">No overview data available</div>';
+  return sections.length ? sections.join('') : `<div class="empty-section">${t('multiCli.task.noOverviewData')}</div>`;
 }
 
 /**
@@ -1719,7 +1719,7 @@ function renderMultiCliTaskImplementation(task) {
       <div class="drawer-section">
         <h4 class="drawer-section-title">
           <i data-lucide="list-ordered" class="w-4 h-4"></i>
-          Implementation Steps
+          ${t('multiCli.task.implementationSteps')}
         </h4>
         <ol class="impl-steps-detail-list">
           ${implApproach.map((step, idx) => `
@@ -1736,7 +1736,7 @@ function renderMultiCliTaskImplementation(task) {
       <div class="drawer-section">
         <h4 class="drawer-section-title">
           <i data-lucide="file-edit" class="w-4 h-4"></i>
-          Modification Points
+          ${t('multiCli.task.modificationPoints')}
         </h4>
         <ul class="mod-points-detail-list">
           ${modPoints.map(mp => `
@@ -1758,7 +1758,7 @@ function renderMultiCliTaskImplementation(task) {
       <div class="drawer-section">
         <h4 class="drawer-section-title">
           <i data-lucide="list-ordered" class="w-4 h-4"></i>
-          Implementation Steps
+          ${t('multiCli.task.implementationSteps')}
         </h4>
         <ol class="impl-steps-detail-list">
           ${rawImpl.map((step, idx) => `
@@ -1778,7 +1778,7 @@ function renderMultiCliTaskImplementation(task) {
       <div class="drawer-section">
         <h4 class="drawer-section-title">
           <i data-lucide="check-circle" class="w-4 h-4"></i>
-          Verification
+          ${t('multiCli.task.verification')}
         </h4>
         <ul class="verification-list">
           ${task.verification.map(v => `<li>${escapeHtml(v)}</li>`).join('')}
@@ -1787,7 +1787,7 @@ function renderMultiCliTaskImplementation(task) {
     `);
   }
 
-  return sections.length ? sections.join('') : '<div class="empty-section">No implementation details available</div>';
+  return sections.length ? sections.join('') : `<div class="empty-section">${t('multiCli.task.noImplementationData')}</div>`;
 }
 
 /**
@@ -1831,12 +1831,12 @@ function renderMultiCliTaskFiles(task) {
   }
 
   if (files.length === 0) {
-    return '<div class="empty-section">No files specified</div>';
+    return `<div class="empty-section">${t('multiCli.task.noFilesSpecified')}</div>`;
   }
 
   return `
     <div class="drawer-section">
-      <h4 class="drawer-section-title">Target Files</h4>
+      <h4 class="drawer-section-title">${t('multiCli.task.targetFiles')}</h4>
       <ul class="target-files-list">
         ${files.map(f => `
           <li class="file-item">
@@ -2391,7 +2391,7 @@ function renderMultiCliDiscussionSection(session) {
 
   // If no rounds, show topic summary and current synthesis
   if (!rounds.length) {
-    const title = getI18nText(topic.title) || 'Discussion Topic';
+    const title = getI18nText(topic.title) || t('multiCli.discussion.discussionTopic');
     const description = getI18nText(topic.description) || '';
     const status = topic.status || session.status || 'analyzing';
 
@@ -2404,7 +2404,7 @@ function renderMultiCliDiscussionSection(session) {
         ${description ? `<p class="discussion-description">${escapeHtml(description)}</p>` : ''}
         <div class="discussion-empty-state">
           <i data-lucide="message-circle" class="w-8 h-8"></i>
-          <p>${t('multiCli.singleRoundInfo') || 'This is a single-round discussion. View Planning tab for execution details.'}</p>
+          <p>${t('multiCli.singleRoundInfo')}</p>
         </div>
       </div>
     `;
@@ -2456,16 +2456,16 @@ function renderMultiCliDiscussionSection(session) {
           <!-- Solutions -->
           ${solutions.length ? `
             <div class="round-solutions-summary">
-              <h4 class="round-section-title"><i data-lucide="lightbulb" class="w-4 h-4 inline"></i> ${t('multiCli.solutions') || 'Solutions'} (${solutions.length})</h4>
+              <h4 class="round-section-title"><i data-lucide="lightbulb" class="w-4 h-4 inline"></i> ${t('multiCli.solutions')} (${solutions.length})</h4>
               <div class="solution-cards-grid">
                 ${solutions.map((sol, sidx) => `
                   <div class="solution-mini-card">
                     <div class="solution-mini-header">
                       <span class="solution-number">${sidx + 1}</span>
-                      <span class="solution-name">${escapeHtml(sol.name || 'Solution ' + (sidx + 1))}</span>
+                      <span class="solution-name">${escapeHtml(sol.name || `${t('multiCli.summary.solution')} ${sidx + 1}`)}</span>
                     </div>
                     <div class="solution-mini-scores">
-                      <span class="score-pill feasibility" title="Feasibility">${Math.round((sol.feasibility || 0) * 100)}%</span>
+                      <span class="score-pill feasibility" title="${t('multiCli.feasibility')}">${Math.round((sol.feasibility || 0) * 100)}%</span>
                       <span class="score-pill effort-${sol.effort || 'medium'}">${escapeHtml(sol.effort || 'M')}</span>
                       <span class="score-pill risk-${sol.risk || 'medium'}">${escapeHtml(sol.risk || 'M')}</span>
                     </div>
@@ -2479,7 +2479,7 @@ function renderMultiCliDiscussionSection(session) {
           <!-- Decision/Recommendation -->
           ${convergence.reasoning || round.decision ? `
             <div class="round-decision">
-              <h4 class="round-section-title"><i data-lucide="check-circle" class="w-4 h-4 inline"></i> ${t('multiCli.decision') || 'Decision'}</h4>
+              <h4 class="round-section-title"><i data-lucide="check-circle" class="w-4 h-4 inline"></i> ${t('multiCli.decision')}</h4>
               <p class="decision-text">${escapeHtml(convergence.reasoning || round.decision || '')}</p>
             </div>
           ` : ''}
@@ -2491,8 +2491,8 @@ function renderMultiCliDiscussionSection(session) {
   return `
     <div class="multi-cli-discussion-section">
       <div class="discussion-header">
-        <h3 class="discussion-title">${escapeHtml(getI18nText(topic.title) || 'Discussion')}</h3>
-        <span class="rounds-count">${totalRounds} ${t('multiCli.tab.rounds') || 'Rounds'}</span>
+        <h3 class="discussion-title">${escapeHtml(getI18nText(topic.title) || t('multiCli.discussion.title'))}</h3>
+        <span class="rounds-count">${totalRounds} ${t('multiCli.tab.rounds')}</span>
       </div>
       <div class="discussion-accordion">
         ${accordionItems}

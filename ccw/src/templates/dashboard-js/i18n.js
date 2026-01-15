@@ -1285,6 +1285,54 @@ const i18n = {
     'multiCli.toolbar.noTasks': 'No tasks available',
     'multiCli.toolbar.scrollToTask': 'Click to scroll to task',
 
+    // Context Tab
+    'multiCli.context.taskDescription': 'Task Description',
+    'multiCli.context.constraints': 'Constraints',
+    'multiCli.context.focusPaths': 'Focus Paths',
+    'multiCli.context.relevantFiles': 'Relevant Files',
+    'multiCli.context.dependencies': 'Dependencies',
+    'multiCli.context.conflictRisks': 'Conflict Risks',
+    'multiCli.context.sessionId': 'Session ID',
+    'multiCli.context.rawJson': 'Raw JSON',
+
+    // Summary Tab
+    'multiCli.summary.title': 'Summary',
+    'multiCli.summary.convergence': 'Convergence',
+    'multiCli.summary.solutions': 'Solutions',
+    'multiCli.summary.solution': 'Solution',
+
+    // Task Overview
+    'multiCli.task.description': 'Description',
+    'multiCli.task.keyPoint': 'Key Point',
+    'multiCli.task.scope': 'Scope',
+    'multiCli.task.dependencies': 'Dependencies',
+    'multiCli.task.targetFiles': 'Target Files',
+    'multiCli.task.acceptanceCriteria': 'Acceptance Criteria',
+    'multiCli.task.reference': 'Reference',
+    'multiCli.task.pattern': 'PATTERN',
+    'multiCli.task.files': 'FILES',
+    'multiCli.task.examples': 'EXAMPLES',
+    'multiCli.task.noOverviewData': 'No overview data available',
+
+    // Task Implementation
+    'multiCli.task.implementationSteps': 'Implementation Steps',
+    'multiCli.task.modificationPoints': 'Modification Points',
+    'multiCli.task.verification': 'Verification',
+    'multiCli.task.noImplementationData': 'No implementation details available',
+    'multiCli.task.noFilesSpecified': 'No files specified',
+
+    // Discussion Tab
+    'multiCli.discussion.title': 'Discussion',
+    'multiCli.discussion.discussionTopic': 'Discussion Topic',
+    'multiCli.solutions': 'Solutions',
+    'multiCli.decision': 'Decision',
+
+    // Plan
+    'multiCli.plan.objective': 'Objective',
+    'multiCli.plan.solution': 'Solution',
+    'multiCli.plan.approach': 'Approach',
+    'multiCli.plan.risk': 'risk',
+
     // Modals
     'modal.contentPreview': 'Content Preview',
     'modal.raw': 'Raw',
@@ -3526,6 +3574,54 @@ const i18n = {
     'multiCli.toolbar.viewRaw': '查看原始数据',
     'multiCli.toolbar.noTasks': '暂无任务',
     'multiCli.toolbar.scrollToTask': '点击定位到任务',
+
+    // Context Tab
+    'multiCli.context.taskDescription': '任务描述',
+    'multiCli.context.constraints': '约束条件',
+    'multiCli.context.focusPaths': '焦点路径',
+    'multiCli.context.relevantFiles': '相关文件',
+    'multiCli.context.dependencies': '依赖项',
+    'multiCli.context.conflictRisks': '冲突风险',
+    'multiCli.context.sessionId': '会话ID',
+    'multiCli.context.rawJson': '原始JSON',
+
+    // Summary Tab
+    'multiCli.summary.title': '摘要',
+    'multiCli.summary.convergence': '收敛状态',
+    'multiCli.summary.solutions': '解决方案',
+    'multiCli.summary.solution': '方案',
+
+    // Task Overview
+    'multiCli.task.description': '描述',
+    'multiCli.task.keyPoint': '关键点',
+    'multiCli.task.scope': '范围',
+    'multiCli.task.dependencies': '依赖项',
+    'multiCli.task.targetFiles': '目标文件',
+    'multiCli.task.acceptanceCriteria': '验收标准',
+    'multiCli.task.reference': '参考资料',
+    'multiCli.task.pattern': '模式',
+    'multiCli.task.files': '文件',
+    'multiCli.task.examples': '示例',
+    'multiCli.task.noOverviewData': '无概览数据',
+
+    // Task Implementation
+    'multiCli.task.implementationSteps': '实现步骤',
+    'multiCli.task.modificationPoints': '修改点',
+    'multiCli.task.verification': '验证',
+    'multiCli.task.noImplementationData': '无实现详情',
+    'multiCli.task.noFilesSpecified': '未指定文件',
+
+    // Discussion Tab
+    'multiCli.discussion.title': '讨论',
+    'multiCli.discussion.discussionTopic': '讨论主题',
+    'multiCli.solutions': '解决方案',
+    'multiCli.decision': '决策',
+
+    // Plan
+    'multiCli.plan.objective': '目标',
+    'multiCli.plan.solution': '解决方案',
+    'multiCli.plan.approach': '实现方式',
+    'multiCli.plan.risk': '风险',
 
     // Modals
     'modal.contentPreview': '内容预览',
