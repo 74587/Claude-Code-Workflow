@@ -5,6 +5,21 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.3.29] - 2026-01-15
+
+### ✨ New Features | 新功能
+
+#### Multi-CLI Task & Discussion Enhancements | 多CLI任务与讨论增强
+- **Added**: Internationalization support for multi-CLI tasks and discussion tabs | 多CLI任务和讨论标签的国际化支持
+- **Added**: Collapsible sections for discussion and summary tabs with enhanced layout | 讨论和摘要标签的可折叠区域及增强布局
+- **Added**: Post-Completion Expansion feature for execution commands | 执行命令的完成后扩展功能
+
+#### Session & UI Improvements | 会话与UI改进
+- **Enhanced**: Multi-CLI session handling with improved UI updates | 多CLI会话处理及UI更新优化
+- **Refactored**: Code structure for improved readability and maintainability | 代码结构重构以提升可读性和可维护性
+
+---
+
 ## [6.3.19] - 2026-01-12
 
 ### 🚀 Major New Features | 主要新功能
