@@ -491,6 +491,10 @@ The orchestrator automatically creates git commits at key checkpoints to enable 
 
 **Note**: Final session completion creates additional commit with full summary.
 
+## Post-Completion Expansion
+
+完成后询问用户是否扩展为issue(test/enhance/refactor/doc)，选中项调用 `/issue:new "{summary} - {dimension}"`
+
 ## Best Practices
 
 1. **Default Settings Work**: 10 iterations sufficient for most cases

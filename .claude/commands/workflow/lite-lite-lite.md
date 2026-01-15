@@ -420,6 +420,10 @@ TodoWrite({ todos: [
 | **Analysis Modes** | 5 modes with --resume | Fixed synthesis rounds |
 | **Best For** | Quick analysis, adversarial validation | Complex multi-step implementations |
 
+## Post-Completion Expansion
+
+完成后询问用户是否扩展为issue(test/enhance/refactor/doc)，选中项调用 `/issue:new "{summary} - {dimension}"`
+
 ## Related Commands
 
 ```bash

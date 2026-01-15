@@ -664,6 +664,10 @@ Collected after each execution call completes:
 
 Appended to `previousExecutionResults` array for context continuity in multi-execution scenarios.
 
+## Post-Completion Expansion
+
+完成后询问用户是否扩展为issue(test/enhance/refactor/doc)，选中项调用 `/issue:new "{summary} - {dimension}"`
+
 **Fixed ID Pattern**: `${sessionId}-${groupId}` enables predictable lookup without auto-generated timestamps.
 
 **Resume Usage**: If `status` is "partial" or "failed", use `fixedCliId` to resume:

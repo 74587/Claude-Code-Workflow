@@ -275,6 +275,10 @@ AskUserQuestion({
 - **"Enter Review"**: Execute `/workflow:review`
 - **"Complete Session"**: Execute `/workflow:session:complete`
 
+### Post-Completion Expansion
+
+完成后询问用户是否扩展为issue(test/enhance/refactor/doc)，选中项调用 `/issue:new "{summary} - {dimension}"`
+
 ## Execution Strategy (IMPL_PLAN-Driven)
 
 ### Strategy Priority
