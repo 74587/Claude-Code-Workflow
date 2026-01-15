@@ -589,6 +589,18 @@ function loadProjectOverview(workflowDir: string): ProjectOverview | null {
     const statistics = (projectData.statistics || developmentStatus?.statistics) as Record<string, unknown> | undefined;
     const metadata = projectData._metadata as Record<string, unknown> | undefined;
 
+    // Helper to extract string array from mixed array (handles both string[] and {name: string}[])
+    const extractStringArray = (arr: unknown[] | undefined): string[] => {
+      if (!arr) return [];
+      return arr.map(item => {
+        if (typeof item === 'string') return item;
+        if (typeof item === 'object' && item !== null && 'name' in item) {
+          return String((item as { name: unknown }).name);
+        }
+        return String(item);
+      });
+    };
+
     // Load guidelines from separate file if exists
     let guidelines: ProjectGuidelines | null = null;
     if (existsSync(guidelinesFile)) {
@@ -633,17 +645,17 @@ function loadProjectOverview(workflowDir: string): ProjectOverview | null {
       description: (overview?.description as string) || '',
       initializedAt: (projectData.initialized_at as string) || null,
       technologyStack: {
-        languages: (technologyStack?.languages as string[]) || [],
-        frameworks: (technologyStack?.frameworks as string[]) || [],
-        build_tools: (technologyStack?.build_tools as string[]) || [],
-        test_frameworks: (technologyStack?.test_frameworks as string[]) || []
+        languages: extractStringArray(technologyStack?.languages),
+        frameworks: extractStringArray(technologyStack?.frameworks),
+        build_tools: extractStringArray(technologyStack?.build_tools),
+        test_frameworks: extractStringArray(technologyStack?.test_frameworks)
       },
       architecture: {
         style: (architecture?.style as string) || 'Unknown',
-        layers: (architecture?.layers as string[]) || [],
-        patterns: (architecture?.patterns as string[]) || []
+        layers: extractStringArray(architecture?.layers as unknown[] | undefined),
+        patterns: extractStringArray(architecture?.patterns as unknown[] | undefined)
       },
-      keyComponents: (overview?.key_components as string[]) || [],
+      keyComponents: extractStringArray(overview?.key_components as unknown[] | undefined),
       features: (projectData.features as unknown[]) || [],
       developmentIndex: {
         feature: (developmentIndex?.feature as unknown[]) || [],
