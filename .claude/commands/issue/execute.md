@@ -1,7 +1,7 @@
 ---
 name: execute
 description: Execute queue with DAG-based parallel orchestration (one commit per solution)
-argument-hint: "[--worktree [<existing-path>]] [--queue <queue-id>]"
+argument-hint: "--queue <queue-id> [--worktree [<existing-path>]]"
 allowed-tools: TodoWrite(*), Bash(*), Read(*), AskUserQuestion(*)
 ---
 
@@ -19,14 +19,57 @@ Minimal orchestrator that dispatches **solution IDs** to executors. Each executo
 - **Executor handles all tasks within a solution sequentially**
 - **Single worktree for entire queue**: One worktree isolates ALL queue execution from main workspace
 
+## Queue ID Requirement (MANDATORY)
+
+**Queue ID is REQUIRED.** You MUST specify which queue to execute via `--queue <queue-id>`.
+
+### If Queue ID Not Provided
+
+When `--queue` parameter is missing, you MUST:
+
+1. **List available queues** by running:
+```javascript
+const result = Bash('ccw issue queue list --brief --json');
+const index = JSON.parse(result);
+```
+
+2. **Display available queues** to user:
+```
+Available Queues:
+ID                    Status      Progress    Issues
+-----------------------------------------------------------
+→ QUE-20251215-001   active      3/10        ISS-001, ISS-002
+  QUE-20251210-002   active      0/5         ISS-003
+  QUE-20251205-003   completed   8/8         ISS-004
+```
+
+3. **Stop and ask user** to specify which queue to execute:
+```javascript
+AskUserQuestion({
+  questions: [{
+    question: "Which queue would you like to execute?",
+    header: "Queue",
+    multiSelect: false,
+    options: index.queues
+      .filter(q => q.status === 'active')
+      .map(q => ({
+        label: q.id,
+        description: `${q.status}, ${q.completed_solutions || 0}/${q.total_solutions || 0} completed, Issues: ${q.issue_ids.join(', ')}`
+      }))
+  }]
+})
+```
+
+4. **After user selection**, continue execution with the selected queue ID.
+
+**DO NOT auto-select queues.** Explicit user confirmation is required to prevent accidental execution of wrong queue.
+
 ## Usage
 
 ```bash
-/issue:execute                           # Execute active queue(s)
-/issue:execute --queue QUE-xxx           # Execute specific queue
-/issue:execute --worktree                # Execute entire queue in isolated worktree
-/issue:execute --worktree --queue QUE-xxx
-/issue:execute --worktree /path/to/existing/worktree  # Resume in existing worktree
+/issue:execute --queue QUE-xxx           # Execute specific queue (REQUIRED)
+/issue:execute --queue QUE-xxx --worktree  # Execute in isolated worktree
+/issue:execute --queue QUE-xxx --worktree /path/to/existing/worktree  # Resume
 ```
 
 **Parallelism**: Determined automatically by task dependency DAG (no manual control)
@@ -44,13 +87,18 @@ Minimal orchestrator that dispatches **solution IDs** to executors. Each executo
 ## Execution Flow
 
 ```
-Phase 0 (if --worktree): Setup Queue Worktree
+Phase 0: Validate Queue ID (REQUIRED)
+   ├─ If --queue provided → use specified queue
+   ├─ If --queue missing → list queues, prompt user to select
+   └─ Store QUEUE_ID for all subsequent commands
+
+Phase 0.5 (if --worktree): Setup Queue Worktree
    ├─ Create ONE worktree for entire queue: .ccw/worktrees/queue-<timestamp>
    ├─ All subsequent execution happens in this worktree
    └─ Main workspace remains clean and untouched
 
 Phase 1: Get DAG & User Selection
-   ├─ ccw issue queue dag [--queue QUE-xxx] → { parallel_batches: [["S-1","S-2"], ["S-3"]] }
+   ├─ ccw issue queue dag --queue ${QUEUE_ID} → { parallel_batches: [["S-1","S-2"], ["S-3"]] }
    └─ AskUserQuestion → executor type (codex|gemini|agent), dry-run mode, worktree mode
 
 Phase 2: Dispatch Parallel Batch (DAG-driven)
@@ -75,11 +123,65 @@ Phase 4 (if --worktree): Worktree Completion
 
 ## Implementation
 
+### Phase 0: Validate Queue ID
+
+```javascript
+// Check if --queue was provided
+let QUEUE_ID = args.queue;
+
+if (!QUEUE_ID) {
+  // List available queues
+  const listResult = Bash('ccw issue queue list --brief --json').trim();
+  const index = JSON.parse(listResult);
+
+  if (index.queues.length === 0) {
+    console.log('No queues found. Use /issue:queue to create one first.');
+    return;
+  }
+
+  // Filter active queues only
+  const activeQueues = index.queues.filter(q => q.status === 'active');
+
+  if (activeQueues.length === 0) {
+    console.log('No active queues found.');
+    console.log('Available queues:', index.queues.map(q => `${q.id} (${q.status})`).join(', '));
+    return;
+  }
+
+  // Display and prompt user
+  console.log('\nAvailable Queues:');
+  console.log('ID'.padEnd(22) + 'Status'.padEnd(12) + 'Progress'.padEnd(12) + 'Issues');
+  console.log('-'.repeat(70));
+  for (const q of index.queues) {
+    const marker = q.id === index.active_queue_id ? '→ ' : '  ';
+    console.log(marker + q.id.padEnd(20) + q.status.padEnd(12) +
+      `${q.completed_solutions || 0}/${q.total_solutions || 0}`.padEnd(12) +
+      q.issue_ids.join(', '));
+  }
+
+  const answer = AskUserQuestion({
+    questions: [{
+      question: "Which queue would you like to execute?",
+      header: "Queue",
+      multiSelect: false,
+      options: activeQueues.map(q => ({
+        label: q.id,
+        description: `${q.completed_solutions || 0}/${q.total_solutions || 0} completed, Issues: ${q.issue_ids.join(', ')}`
+      }))
+    }]
+  });
+
+  QUEUE_ID = answer['Queue'];
+}
+
+console.log(`\n## Executing Queue: ${QUEUE_ID}\n`);
+```
+
 ### Phase 1: Get DAG & User Selection
 
 ```javascript
-// Get dependency graph and parallel batches
-const dagJson = Bash(`ccw issue queue dag`).trim();
+// Get dependency graph and parallel batches (QUEUE_ID required)
+const dagJson = Bash(`ccw issue queue dag --queue ${QUEUE_ID}`).trim();
 const dag = JSON.parse(dagJson);
 
 if (dag.error || dag.ready_count === 0) {
@@ -298,8 +400,8 @@ ccw issue done ${solutionId} --fail --reason '{"task_id": "TX", "error_type": "t
 ### Phase 3: Check Next Batch
 
 ```javascript
-// Refresh DAG after batch completes
-const refreshedDag = JSON.parse(Bash(`ccw issue queue dag`).trim());
+// Refresh DAG after batch completes (use same QUEUE_ID)
+const refreshedDag = JSON.parse(Bash(`ccw issue queue dag --queue ${QUEUE_ID}`).trim());
 
 console.log(`
 ## Batch Complete
@@ -309,9 +411,9 @@ console.log(`
 `);
 
 if (refreshedDag.ready_count > 0) {
-  console.log('Run `/issue:execute` again for next batch.');
+  console.log(`Run \`/issue:execute --queue ${QUEUE_ID}\` again for next batch.`);
   // Note: If resuming, pass existing worktree path:
-  // /issue:execute --worktree <worktreePath>
+  // /issue:execute --queue ${QUEUE_ID} --worktree <worktreePath>
 }
 ```
 
@@ -367,10 +469,12 @@ if (useWorktree && refreshedDag.ready_count === 0 && refreshedDag.completed_coun
 ┌─────────────────────────────────────────────────────────────────┐
 │ Orchestrator                                                    │
 ├─────────────────────────────────────────────────────────────────┤
-│ 0. (if --worktree) Create ONE worktree for entire queue         │
+│ 0. Validate QUEUE_ID (required, or prompt user to select)       │
+│                                                                 │
+│ 0.5 (if --worktree) Create ONE worktree for entire queue        │
 │    → .ccw/worktrees/queue-exec-<queue-id>                       │
 │                                                                 │
-│ 1. ccw issue queue dag                                          │
+│ 1. ccw issue queue dag --queue ${QUEUE_ID}                      │
 │    → { parallel_batches: [["S-1","S-2"], ["S-3"]] }             │
 │                                                                 │
 │ 2. Dispatch batch 1 (parallel, SAME worktree):                  │
@@ -405,8 +509,19 @@ if (useWorktree && refreshedDag.ready_count === 0 && refreshedDag.completed_coun
 
 ## CLI Endpoint Contract
 
-### `ccw issue queue dag`
-Returns dependency graph with parallel batches (solution-level):
+### `ccw issue queue list --brief --json`
+Returns queue index for selection (used when --queue not provided):
+```json
+{
+  "active_queue_id": "QUE-20251215-001",
+  "queues": [
+    { "id": "QUE-20251215-001", "status": "active", "issue_ids": ["ISS-001"], "total_solutions": 5, "completed_solutions": 2 }
+  ]
+}
+```
+
+### `ccw issue queue dag --queue <queue-id>`
+Returns dependency graph with parallel batches (solution-level, **--queue required**):
 ```json
 {
   "queue_id": "QUE-...",

@@ -281,6 +281,9 @@ CCW provides comprehensive documentation to help you get started quickly and mas
 - [**Dashboard Guide**](DASHBOARD_GUIDE.md) - Dashboard user guide and interface overview
 - [**Dashboard Operations**](DASHBOARD_OPERATIONS_EN.md) - Detailed operation instructions
 
+### 🔄 **Workflow Guides**
+- [**Issue Loop Workflow**](docs/workflows/ISSUE_LOOP_WORKFLOW.md) - Batch issue processing with two-phase lifecycle (accumulate → resolve)
+
 ### 🏗️ **Architecture & Design**
 - [**Architecture Overview**](ARCHITECTURE.md) - System design and core components
 - [**Project Introduction**](PROJECT_INTRODUCTION.md) - Detailed project overview

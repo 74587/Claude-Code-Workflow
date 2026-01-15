@@ -1,6 +1,6 @@
 ---
 description: Execute all solutions from issue queue with git commit after each solution
-argument-hint: "[--worktree [<existing-path>]] [--queue <queue-id>]"
+argument-hint: "--queue <queue-id> [--worktree [<existing-path>]]"
 ---
 
 # Issue Execute (Codex Version)
@@ -8,6 +8,49 @@ argument-hint: "[--worktree [<existing-path>]] [--queue <queue-id>]"
 ## Core Principle
 
 **Serial Execution**: Execute solutions ONE BY ONE from the issue queue via `ccw issue next`. For each solution, complete all tasks sequentially (implement → test → verify), then commit once per solution with formatted summary. Continue autonomously until queue is empty.
+
+## Queue ID Requirement (MANDATORY)
+
+**Queue ID is REQUIRED.** You MUST specify which queue to execute via `--queue <queue-id>`.
+
+### If Queue ID Not Provided
+
+When `--queue` parameter is missing, you MUST:
+
+1. **List available queues** by running:
+```javascript
+const result = shell_command({ command: "ccw issue queue list --brief --json" })
+```
+
+2. **Parse and display queues** to user:
+```
+Available Queues:
+ID                    Status      Progress    Issues
+-----------------------------------------------------------
+→ QUE-20251215-001   active      3/10        ISS-001, ISS-002
+  QUE-20251210-002   active      0/5         ISS-003
+  QUE-20251205-003   completed   8/8         ISS-004
+```
+
+3. **Stop and ask user** to specify which queue to execute:
+```javascript
+AskUserQuestion({
+  questions: [{
+    question: "Which queue would you like to execute?",
+    header: "Queue",
+    multiSelect: false,
+    options: [
+      // Generate from parsed queue list - only show active/pending queues
+      { label: "QUE-20251215-001", description: "active, 3/10 completed, Issues: ISS-001, ISS-002" },
+      { label: "QUE-20251210-002", description: "active, 0/5 completed, Issues: ISS-003" }
+    ]
+  }]
+})
+```
+
+4. **After user selection**, continue execution with the selected queue ID.
+
+**DO NOT auto-select queues.** Explicit user confirmation is required to prevent accidental execution of wrong queue.
 
 ## Worktree Mode (Recommended for Parallel Execution)
 
@@ -77,7 +120,8 @@ cd "${WORKTREE_PATH}"
 
 **Worktree Execution Pattern**:
 ```
-1. [WORKTREE] ccw issue next → auto-redirects to main repo's .workflow/
+0. [MAIN REPO] Validate queue ID (--queue required, or prompt user to select)
+1. [WORKTREE] ccw issue next --queue <queue-id> → auto-redirects to main repo's .workflow/
 2. [WORKTREE] Implement all tasks, run tests, git commit
 3. [WORKTREE] ccw issue done <item_id> → auto-redirects to main repo
 4. Repeat from step 1
@@ -177,10 +221,12 @@ echo "Branch '${WORKTREE_NAME}' kept. Merge manually when ready."
 ## Execution Flow
 
 ```
-INIT: Fetch first solution via ccw issue next
+STEP 0: Validate queue ID (--queue required, or prompt user to select)
+
+INIT: Fetch first solution via ccw issue next --queue <queue-id>
 
 WHILE solution exists:
-  1. Receive solution JSON from ccw issue next
+  1. Receive solution JSON from ccw issue next --queue <queue-id>
   2. Execute all tasks in solution.tasks sequentially:
      FOR each task:
        - IMPLEMENT: Follow task.implementation steps
@@ -188,7 +234,7 @@ WHILE solution exists:
        - VERIFY: Check task.acceptance criteria
   3. COMMIT: Stage all files, commit once with formatted summary
   4. Report completion via ccw issue done <item_id>
-  5. Fetch next solution via ccw issue next
+  5. Fetch next solution via ccw issue next --queue <queue-id>
 
 WHEN queue empty:
   Output final summary
@@ -196,11 +242,14 @@ WHEN queue empty:
 
 ## Step 1: Fetch First Solution
 
+**Prerequisite**: Queue ID must be determined (either from `--queue` argument or user selection in Step 0).
+
 Run this command to get your first solution:
 
 ```javascript
 // ccw auto-detects worktree and uses main repo's .workflow/
-const result = shell_command({ command: "ccw issue next" })
+// QUEUE_ID is required - obtained from --queue argument or user selection
+const result = shell_command({ command: `ccw issue next --queue ${QUEUE_ID}` })
 ```
 
 This returns JSON with the full solution definition:
@@ -494,11 +543,12 @@ shell_command({
 
 ## Step 5: Continue to Next Solution
 
-Fetch next solution:
+Fetch next solution (using same QUEUE_ID from Step 0/1):
 
 ```javascript
 // ccw auto-detects worktree
-const result = shell_command({ command: "ccw issue next" })
+// Continue using the same QUEUE_ID throughout execution
+const result = shell_command({ command: `ccw issue next --queue ${QUEUE_ID}` })
 ```
 
 **Output progress:**
@@ -567,18 +617,28 @@ When `ccw issue next` returns `{ "status": "empty" }`:
 
 | Command | Purpose |
 |---------|---------|
-| `ccw issue next` | Fetch next solution from queue (auto-selects from active queues) |
-| `ccw issue next --queue QUE-xxx` | Fetch from specific queue |
+| `ccw issue queue list --brief --json` | List all queues (for queue selection) |
+| `ccw issue next --queue QUE-xxx` | Fetch next solution from specified queue (**--queue required**) |
 | `ccw issue done <id>` | Mark solution complete with result (auto-detects queue) |
 | `ccw issue done <id> --fail --reason "..."` | Mark solution failed with structured reason |
 | `ccw issue retry --queue QUE-xxx` | Reset failed items in specific queue |
 
 ## Start Execution
 
-Begin by running:
+**Step 0: Validate Queue ID**
+
+If `--queue` was NOT provided in the command arguments:
+1. Run `ccw issue queue list --brief --json`
+2. Display available queues to user
+3. Ask user to select a queue via `AskUserQuestion`
+4. Store selected queue ID for all subsequent commands
+
+**Step 1: Fetch First Solution**
+
+Once queue ID is confirmed, begin by running:
 
 ```bash
-ccw issue next
+ccw issue next --queue <queue-id>
 ```
 
 Then follow the solution lifecycle for each solution until queue is empty.
