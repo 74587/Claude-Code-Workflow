@@ -1281,7 +1281,7 @@
 .multi-cli-status.pending,
 .multi-cli-status.exploring,
 .multi-cli-status.initialized {
-)  background: hsl(var(--muted));
+  background: hsl(var(--muted));
   color: hsl(var(--muted-foreground));
 }
 
@@ -3619,5 +3619,330 @@
   .association-card .card-metrics {
     grid-template-columns: repeat(3, 1fr);
   }
+}
+
+/* ===================================
+   Multi-CLI Plan Summary Section
+   =================================== */
+
+/* Plan Summary Section - card-like styling */
+.plan-summary-section {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.plan-summary-section:hover {
+  border-color: hsl(var(--purple, 280 60% 50%) / 0.3);
+}
+
+/* Plan text styles */
+.plan-summary-text,
+.plan-solution-text,
+.plan-approach-text {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: hsl(var(--foreground));
+  margin: 0 0 0.75rem 0;
+}
+
+.plan-summary-text:last-child,
+.plan-solution-text:last-child,
+.plan-approach-text:last-child {
+  margin-bottom: 0;
+}
+
+.plan-summary-text strong,
+.plan-solution-text strong,
+.plan-approach-text strong {
+  color: hsl(var(--muted-foreground));
+  font-weight: 600;
+  margin-right: 0.5rem;
+}
+
+/* Plan meta badges container */
+.plan-meta-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid hsl(var(--border) / 0.5);
+}
+
+/* Feasibility badge */
+.feasibility-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  background: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Effort badge variants */
+.effort-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.effort-badge.low {
+  background: hsl(var(--success-light, 142 70% 95%));
+  color: hsl(var(--success, 142 70% 45%));
+}
+
+.effort-badge.medium {
+  background: hsl(var(--warning-light, 45 90% 95%));
+  color: hsl(var(--warning, 45 90% 40%));
+}
+
+.effort-badge.high {
+  background: hsl(var(--destructive) / 0.1);
+  color: hsl(var(--destructive));
+}
+
+/* Complexity badge */
+.complexity-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Time badge */
+.time-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  background: hsl(var(--info-light, 220 80% 95%));
+  color: hsl(var(--info, 220 80% 55%));
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* ===================================
+   Multi-CLI Task Item Additional Badges
+   =================================== */
+
+/* Files meta badge */
+.meta-badge.files {
+  background: hsl(var(--purple, 280 60% 50%) / 0.1);
+  color: hsl(var(--purple, 280 60% 50%));
+}
+
+/* Depends meta badge */
+.meta-badge.depends {
+  background: hsl(var(--info-light, 220 80% 95%));
+  color: hsl(var(--info, 220 80% 55%));
+}
+
+/* Multi-CLI Task Item Full - enhanced padding */
+.detail-task-item-full.multi-cli-task-item {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  padding: 0.875rem 1rem;
+  transition: all 0.2s ease;
+  border-left: 3px solid hsl(var(--primary) / 0.5);
+}
+
+.detail-task-item-full.multi-cli-task-item:hover {
+  border-color: hsl(var(--primary) / 0.4);
+  border-left-color: hsl(var(--primary));
+  box-shadow: 0 2px 8px hsl(var(--primary) / 0.1);
+  background: hsl(var(--hover));
+}
+
+/* Task ID badge enhancement */
+.task-id-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  padding: 0.25rem 0.5rem;
+  background: hsl(var(--purple, 280 60% 50%));
+  color: white;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* Tasks list container */
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+/* Plan section styling (for Plan tab) */
+.plan-section {
+  background: hsl(var(--muted) / 0.3);
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.plan-section:last-child {
+  margin-bottom: 0;
+}
+
+.plan-section-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.plan-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.tasks-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ===================================
+   Plan Summary Meta Badges
+   =================================== */
+
+/* Base meta badge style (plan summary) */
+.plan-meta-badges .meta-badge {
+  display: inline-block;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Feasibility badge */
+.meta-badge.feasibility {
+  background: hsl(var(--success) / 0.15);
+  color: hsl(var(--success));
+  border: 1px solid hsl(var(--success) / 0.3);
+}
+
+/* Effort badges */
+.meta-badge.effort {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
+.meta-badge.effort.low {
+  background: hsl(142 70% 50% / 0.15);
+  color: hsl(142 70% 35%);
+}
+
+.meta-badge.effort.medium {
+  background: hsl(30 90% 50% / 0.15);
+  color: hsl(30 90% 40%);
+}
+
+.meta-badge.effort.high {
+  background: hsl(0 70% 50% / 0.15);
+  color: hsl(0 70% 45%);
+}
+
+/* Risk badges */
+.meta-badge.risk {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
+.meta-badge.risk.low {
+  background: hsl(142 70% 50% / 0.15);
+  color: hsl(142 70% 35%);
+}
+
+.meta-badge.risk.medium {
+  background: hsl(30 90% 50% / 0.15);
+  color: hsl(30 90% 40%);
+}
+
+.meta-badge.risk.high {
+  background: hsl(0 70% 50% / 0.15);
+  color: hsl(0 70% 45%);
+}
+
+/* Severity badges */
+.meta-badge.severity {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
+.meta-badge.severity.low {
+  background: hsl(142 70% 50% / 0.15);
+  color: hsl(142 70% 35%);
+}
+
+.meta-badge.severity.medium {
+  background: hsl(30 90% 50% / 0.15);
+  color: hsl(30 90% 40%);
+}
+
+.meta-badge.severity.high,
+.meta-badge.severity.critical {
+  background: hsl(0 70% 50% / 0.15);
+  color: hsl(0 70% 45%);
+}
+
+/* Complexity badge */
+.meta-badge.complexity {
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+}
+
+/* Time badge */
+.meta-badge.time {
+  background: hsl(220 80% 50% / 0.15);
+  color: hsl(220 80% 45%);
+}
+
+/* Task item action badge */
+.meta-badge.action {
+  background: hsl(var(--primary) / 0.15);
+  color: hsl(var(--primary));
+}
+
+/* Task item scope badge */
+.meta-badge.scope {
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+/* Task item impl steps badge */
+.meta-badge.impl {
+  background: hsl(280 60% 50% / 0.1);
+  color: hsl(280 60% 50%);
+}
+
+/* Task item acceptance criteria badge */
+.meta-badge.accept {
+  background: hsl(var(--success) / 0.1);
+  color: hsl(var(--success));
 }
 

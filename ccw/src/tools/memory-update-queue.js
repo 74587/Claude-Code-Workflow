@@ -391,11 +391,7 @@ async function execute(params) {
       if (timeoutCheck.flushed) {
         // Queue was flushed due to timeout, add to fresh queue
         const result = addToQueue(path, { tool, strategy });
-        return {
-          ...result,
-          timeoutFlushed: true,
-          flushResult: timeoutCheck.result
-        };
+        return `[MemoryQueue] Timeout flush (${timeoutCheck.result.processed} items) → ${result.message}`;
       }
 
       const addResult = addToQueue(path, { tool, strategy });
@@ -403,14 +399,12 @@ async function execute(params) {
       // Auto-flush if threshold reached
       if (addResult.willFlush) {
         const flushResult = await flushQueue();
-        return {
-          ...addResult,
-          flushed: true,
-          flushResult
-        };
+        // Return string for hook-friendly output
+        return `[MemoryQueue] ${addResult.message} → Flushed ${flushResult.processed} items`;
       }
 
-      return addResult;
+      // Return string for hook-friendly output
+      return `[MemoryQueue] ${addResult.message}`;
 
     case 'status':
       // Check timeout first

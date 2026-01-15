@@ -52,12 +52,13 @@ const HOOK_TEMPLATES = {
   'memory-update-queue': {
     event: 'Stop',
     matcher: '',
-    command: 'bash',
-    args: ['-c', 'ccw tool exec memory_queue "{\\"action\\":\\"add\\",\\"path\\":\\"$CLAUDE_PROJECT_DIR\\"}"'],
+    command: 'node',
+    args: ['-e', "require('child_process').spawnSync(process.platform==='win32'?'cmd':'ccw',process.platform==='win32'?['/c','ccw','tool','exec','memory_queue',JSON.stringify({action:'add',path:process.env.CLAUDE_PROJECT_DIR,tool:'gemini'})]:['tool','exec','memory_queue',JSON.stringify({action:'add',path:process.env.CLAUDE_PROJECT_DIR,tool:'gemini'})],{stdio:'inherit'})"],
     description: 'Queue CLAUDE.md update when session ends (batched by threshold/timeout)',
     category: 'memory',
     configurable: true,
     config: {
+      tool: { type: 'select', default: 'gemini', options: ['gemini', 'qwen', 'codex', 'opencode'], label: 'CLI Tool' },
       threshold: { type: 'number', default: 5, min: 1, max: 20, label: 'Threshold (paths)', step: 1 },
       timeout: { type: 'number', default: 300, min: 60, max: 1800, label: 'Timeout (seconds)', step: 60 }
     }
@@ -66,8 +67,8 @@ const HOOK_TEMPLATES = {
   'skill-context-keyword': {
     event: 'UserPromptSubmit',
     matcher: '',
-    command: 'bash',
-    args: ['-c', 'ccw tool exec skill_context_loader --stdin'],
+    command: 'node',
+    args: ['-e', "const p=JSON.parse(process.env.HOOK_INPUT||'{}');require('child_process').spawnSync('ccw',['tool','exec','skill_context_loader',JSON.stringify({prompt:p.user_prompt||''})],{stdio:'inherit'})"],
     description: 'Load SKILL context based on keyword matching in user prompt',
     category: 'skill',
     configurable: true,
@@ -79,8 +80,8 @@ const HOOK_TEMPLATES = {
   'skill-context-auto': {
     event: 'UserPromptSubmit',
     matcher: '',
-    command: 'bash',
-    args: ['-c', 'ccw tool exec skill_context_loader --stdin --mode auto'],
+    command: 'node',
+    args: ['-e', "const p=JSON.parse(process.env.HOOK_INPUT||'{}');require('child_process').spawnSync('ccw',['tool','exec','skill_context_loader',JSON.stringify({mode:'auto',prompt:p.user_prompt||''})],{stdio:'inherit'})"],
     description: 'Auto-detect and load SKILL based on skill name in prompt',
     category: 'skill',
     configurable: false
@@ -195,6 +196,7 @@ const WIZARD_TEMPLATES = {
       }
     ],
     configFields: [
+      { key: 'tool', type: 'select', label: 'CLI Tool', default: 'gemini', options: ['gemini', 'qwen', 'codex', 'opencode'], description: 'CLI tool for CLAUDE.md generation' },
       { key: 'threshold', type: 'number', label: 'Threshold (paths)', default: 5, min: 1, max: 20, step: 1, description: 'Number of paths to trigger batch update' },
       { key: 'timeout', type: 'number', label: 'Timeout (seconds)', default: 300, min: 60, max: 1800, step: 60, description: 'Auto-flush queue after this time' }
     ]
@@ -748,6 +750,7 @@ function renderWizardModalContent() {
   // Helper to get translated field labels
   const getFieldLabel = (fieldKey) => {
     const labels = {
+      'tool': t('hook.wizard.cliTool') || 'CLI Tool',
       'threshold': t('hook.wizard.thresholdPaths') || 'Threshold (paths)',
       'timeout': t('hook.wizard.timeoutSeconds') || 'Timeout (seconds)'
     };
@@ -756,6 +759,7 @@ function renderWizardModalContent() {
 
   const getFieldDesc = (fieldKey) => {
     const descs = {
+      'tool': t('hook.wizard.cliToolDesc') || 'CLI tool for CLAUDE.md generation',
       'threshold': t('hook.wizard.thresholdPathsDesc') || 'Number of paths to trigger batch update',
       'timeout': t('hook.wizard.timeoutSecondsDesc') || 'Auto-flush queue after this time'
     };
@@ -1121,20 +1125,19 @@ function generateWizardCommand() {
         keywords: c.keywords.split(',').map(k => k.trim()).filter(k => k)
       }));
 
-      const params = JSON.stringify({ configs: configJson, prompt: '$CLAUDE_PROMPT' });
-      return `ccw tool exec skill_context_loader '${params}'`;
+      // Use node + spawnSync for cross-platform JSON handling
+      const paramsObj = { configs: configJson, prompt: '${p.user_prompt}' };
+      return `node -e "const p=JSON.parse(process.env.HOOK_INPUT||'{}');require('child_process').spawnSync('ccw',['tool','exec','skill_context_loader',JSON.stringify(${JSON.stringify(paramsObj).replace('${p.user_prompt}', "'+p.user_prompt+'")})],{stdio:'inherit'})"`;
     } else {
-      // auto mode
-      const params = JSON.stringify({ mode: 'auto', prompt: '$CLAUDE_PROMPT' });
-      return `ccw tool exec skill_context_loader '${params}'`;
+      // auto mode - use node + spawnSync
+      return `node -e "const p=JSON.parse(process.env.HOOK_INPUT||'{}');require('child_process').spawnSync('ccw',['tool','exec','skill_context_loader',JSON.stringify({mode:'auto',prompt:p.user_prompt||''})],{stdio:'inherit'})"`;
     }
   }
 
   // Handle memory-update wizard (default)
-  // Now uses memory_queue for batched updates with configurable threshold/timeout
-  // The command adds to queue, configuration is applied separately via submitHookWizard
-  const params = `"{\\"action\\":\\"add\\",\\"path\\":\\"$CLAUDE_PROJECT_DIR\\"}"`;
-  return `ccw tool exec memory_queue ${params}`;
+  // Use node + spawnSync for cross-platform JSON handling
+  const selectedTool = wizardConfig.tool || 'gemini';
+  return `node -e "require('child_process').spawnSync(process.platform==='win32'?'cmd':'ccw',process.platform==='win32'?['/c','ccw','tool','exec','memory_queue',JSON.stringify({action:'add',path:process.env.CLAUDE_PROJECT_DIR,tool:'${selectedTool}'})]:['tool','exec','memory_queue',JSON.stringify({action:'add',path:process.env.CLAUDE_PROJECT_DIR,tool:'${selectedTool}'})],{stdio:'inherit'})"`;
 }
 
 async function submitHookWizard() {
@@ -1217,12 +1220,17 @@ async function submitHookWizard() {
   const baseTemplate = HOOK_TEMPLATES[selectedOption.templateId];
   if (!baseTemplate) return;
 
-  const command = generateWizardCommand();
-
-  const hookData = {
-    command: 'bash',
-    args: ['-c', command]
+  // Build hook data with configured values
+  let hookData = {
+    command: baseTemplate.command,
+    args: [...baseTemplate.args]
   };
+
+  // For memory-update wizard, use configured tool in args (cross-platform)
+  if (wizard.id === 'memory-update') {
+    const selectedTool = wizardConfig.tool || 'gemini';
+    hookData.args = ['-e', `require('child_process').spawnSync(process.platform==='win32'?'cmd':'ccw',process.platform==='win32'?['/c','ccw','tool','exec','memory_queue',JSON.stringify({action:'add',path:process.env.CLAUDE_PROJECT_DIR,tool:'${selectedTool}'})]:['tool','exec','memory_queue',JSON.stringify({action:'add',path:process.env.CLAUDE_PROJECT_DIR,tool:'${selectedTool}'})],{stdio:'inherit'})`];
+  }
 
   if (baseTemplate.matcher) {
     hookData.matcher = baseTemplate.matcher;
@@ -1232,6 +1240,7 @@ async function submitHookWizard() {
 
   // For memory-update wizard, also configure queue settings
   if (wizard.id === 'memory-update') {
+    const selectedTool = wizardConfig.tool || 'gemini';
     const threshold = wizardConfig.threshold || 5;
     const timeout = wizardConfig.timeout || 300;
     try {
@@ -1242,7 +1251,7 @@ async function submitHookWizard() {
         body: JSON.stringify({ tool: 'memory_queue', params: configParams })
       });
       if (response.ok) {
-        showRefreshToast(`Queue configured: threshold=${threshold}, timeout=${timeout}s`, 'success');
+        showRefreshToast(`Queue configured: tool=${selectedTool}, threshold=${threshold}, timeout=${timeout}s`, 'success');
       }
     } catch (e) {
       console.warn('Failed to configure memory queue:', e);

@@ -362,7 +362,8 @@ function showMultiCliDetailPage(sessionKey) {
   const container = document.getElementById('mainContent');
   const metadata = session.metadata || {};
   const plan = session.plan || {};
-  const tasks = plan.tasks || [];
+  // Use session.tasks (normalized from backend) with fallback to plan.tasks
+  const tasks = session.tasks?.length > 0 ? session.tasks : (plan.tasks || []);
   const roundCount = metadata.roundId || session.roundCount || 1;
   const status = session.status || 'analyzing';
 
@@ -401,10 +402,6 @@ function showMultiCliDetailPage(sessionKey) {
           <span class="tab-text">${t('tab.tasks') || 'Tasks'}</span>
           <span class="tab-count">${tasks.length}</span>
         </button>
-        <button class="detail-tab" data-tab="plan" onclick="switchMultiCliDetailTab('plan')">
-          <span class="tab-icon"><i data-lucide="ruler" class="w-4 h-4"></i></span>
-          <span class="tab-text">${t('tab.plan') || 'Plan'}</span>
-        </button>
         <button class="detail-tab" data-tab="discussion" onclick="switchMultiCliDetailTab('discussion')">
           <span class="tab-icon"><i data-lucide="messages-square" class="w-4 h-4"></i></span>
           <span class="tab-text">${t('multiCli.tab.discussion') || 'Discussion'}</span>
@@ -440,7 +437,8 @@ function showMultiCliDetailPage(sessionKey) {
  */
 function renderMultiCliToolbar(session) {
   const plan = session.plan;
-  const tasks = plan?.tasks || [];
+  // Use session.tasks (normalized from backend) with fallback to plan.tasks
+  const tasks = session.tasks?.length > 0 ? session.tasks : (plan?.tasks || []);
   const taskCount = tasks.length;
 
   let toolbarHtml = `
@@ -473,8 +471,8 @@ function renderMultiCliToolbar(session) {
     toolbarHtml += `
       <div class="toolbar-task-list">
         ${tasks.map((task, idx) => {
-          const taskTitle = task.title || task.summary || `Task ${idx + 1}`;
-          const taskScope = task.scope || '';
+          const taskTitle = task.title || task.name || task.summary || `Task ${idx + 1}`;
+          const taskScope = task.meta?.scope || task.scope || '';
           const taskIdValue = task.id || `T${idx + 1}`;
 
           return `
@@ -650,9 +648,6 @@ function switchMultiCliDetailTab(tabName) {
     case 'tasks':
       contentArea.innerHTML = renderMultiCliTasksTab(session);
       break;
-    case 'plan':
-      contentArea.innerHTML = renderMultiCliPlanTab(session);
-      break;
     case 'discussion':
       contentArea.innerHTML = renderMultiCliDiscussionSection(session);
       break;
@@ -680,32 +675,91 @@ function switchMultiCliDetailTab(tabName) {
 // ============================================
 
 /**
- * Render Tasks tab - displays tasks from plan.json (same style as lite-plan)
+ * Render Tasks tab - displays plan summary + tasks (same style as lite-plan)
+ * Uses session.tasks (normalized tasks) with fallback to session.plan.tasks
  */
 function renderMultiCliTasksTab(session) {
   const plan = session.plan || {};
-  const tasks = plan.tasks || [];
+  // Use session.tasks (normalized from backend) with fallback to plan.tasks
+  const tasks = session.tasks?.length > 0 ? session.tasks : (plan.tasks || []);
 
   // Populate drawer tasks for click-to-open functionality
   currentDrawerTasks = tasks;
 
+  let sections = [];
+
+  // Extract plan info from multiple sources (plan.json, synthesis, or session)
+  // plan.json: task_description, solution.name, execution_flow
+  // synthesis: solutions[].summary, solutions[].implementation_plan.approach
+  const taskDescription = plan.task_description || session.topicTitle || '';
+  const solutionName = plan.solution?.name || (plan.solutions?.[0]?.name) || '';
+  const solutionSummary = plan.solutions?.[0]?.summary || '';
+  const approach = plan.solutions?.[0]?.implementation_plan?.approach || plan.execution_flow || '';
+  const feasibility = plan.solution?.feasibility || plan.solutions?.[0]?.feasibility;
+  const effort = plan.solution?.effort || plan.solutions?.[0]?.effort || '';
+  const risk = plan.solution?.risk || plan.solutions?.[0]?.risk || '';
+
+  // Plan Summary Section (if any info available)
+  const hasInfo = taskDescription || solutionName || solutionSummary || approach || plan.summary;
+  if (hasInfo) {
+    let planInfo = [];
+
+    // Task description (main objective)
+    if (taskDescription) {
+      planInfo.push(`<p class="plan-summary-text"><strong>${t('plan.objective') || 'Objective'}:</strong> ${escapeHtml(taskDescription)}</p>`);
+    }
+    // Solution name and summary
+    if (solutionName) {
+      planInfo.push(`<p class="plan-solution-text"><strong>${t('plan.solution') || 'Solution'}:</strong> ${escapeHtml(solutionName)}</p>`);
+    }
+    if (solutionSummary) {
+      planInfo.push(`<p class="plan-summary-text">${escapeHtml(solutionSummary)}</p>`);
+    }
+    // Legacy summary field
+    if (plan.summary && !taskDescription && !solutionSummary) {
+      planInfo.push(`<p class="plan-summary-text">${escapeHtml(plan.summary)}</p>`);
+    }
+    // Approach/execution flow
+    if (approach) {
+      planInfo.push(`<p class="plan-approach-text"><strong>${t('plan.approach') || 'Approach'}:</strong> ${escapeHtml(approach)}</p>`);
+    }
+
+    // Metadata badges - concise format
+    let metaBadges = [];
+    if (feasibility) metaBadges.push(`<span class="meta-badge feasibility">${Math.round(feasibility * 100)}%</span>`);
+    if (effort) metaBadges.push(`<span class="meta-badge effort ${escapeHtml(effort)}">${escapeHtml(effort)}</span>`);
+    if (risk) metaBadges.push(`<span class="meta-badge risk ${escapeHtml(risk)}">${escapeHtml(risk)} risk</span>`);
+    // Legacy badges
+    if (plan.severity) metaBadges.push(`<span class="meta-badge severity ${escapeHtml(plan.severity)}">${escapeHtml(plan.severity)}</span>`);
+    if (plan.complexity) metaBadges.push(`<span class="meta-badge complexity">${escapeHtml(plan.complexity)}</span>`);
+    if (plan.estimated_time) metaBadges.push(`<span class="meta-badge time">${escapeHtml(plan.estimated_time)}</span>`);
+
+    sections.push(`
+      <div class="plan-summary-section">
+        ${planInfo.join('')}
+        ${metaBadges.length ? `<div class="plan-meta-badges">${metaBadges.join(' ')}</div>` : ''}
+      </div>
+    `);
+  }
+
+  // Tasks Section
   if (tasks.length === 0) {
-    return `
+    sections.push(`
       <div class="tab-empty-state">
         <div class="empty-icon"><i data-lucide="clipboard-list" class="w-12 h-12"></i></div>
         <div class="empty-title">${t('empty.noTasks') || 'No Tasks'}</div>
         <div class="empty-text">${t('empty.noTasksText') || 'No tasks available for this session.'}</div>
       </div>
-    `;
-  }
-
-  return `
-    <div class="tasks-tab-content">
+    `);
+  } else {
+    sections.push(`
       <div class="tasks-list" id="multiCliTasksListContent">
         ${tasks.map((task, idx) => renderMultiCliTaskItem(session.id, task, idx)).join('')}
       </div>
-    </div>
-  `;
+    `);
+  }
+
+  return `<div class="tasks-tab-content">${sections.join('')}</div>`;
 }
 
 /**
@@ -1375,12 +1429,15 @@ function renderMultiCliTaskItem(sessionId, task, idx) {
   const taskJsonId = `multi-cli-task-${sessionId}-${taskId}`.replace(/[^a-zA-Z0-9-]/g, '-');
   taskJsonStore[taskJsonId] = task;
 
-  // Get preview info
-  const action = task.action || '';
-  const scope = task.scope || task.file || '';
-  const modCount = task.modification_points?.length || 0;
-  const implCount = task.implementation?.length || 0;
-  const acceptCount = task.acceptance?.length || 0;
+  // Get preview info - handle both normalized and raw formats
+  // Normalized: meta.type, meta.scope, context.focus_paths, context.acceptance, flow_control.implementation_approach
+  // Raw: action, scope, file, modification_points, implementation, acceptance
+  const taskType = task.meta?.type || task.action || '';
+  const scope = task.meta?.scope || task.scope || task.file || '';
+  const filesCount = task.context?.focus_paths?.length || task.files?.length || task.modification_points?.length || 0;
+  const implCount = task.flow_control?.implementation_approach?.length || task.implementation?.length || 0;
+  const acceptCount = task.context?.acceptance?.length || task.acceptance?.length || task.acceptance_criteria?.length || 0;
+  const dependsCount = task.context?.depends_on?.length || task.depends_on?.length || 0;
 
   // Escape for data attributes
   const safeSessionId = escapeHtml(sessionId);
@@ -1390,15 +1447,16 @@ function renderMultiCliTaskItem(sessionId, task, idx) {
     <div class="detail-task-item-full multi-cli-task-item" data-session-id="${safeSessionId}" data-task-id="${safeTaskId}" style="cursor: pointer;" title="Click to view details">
       <div class="task-item-header-lite">
         <span class="task-id-badge">${escapeHtml(taskId)}</span>
-        <span class="task-title">${escapeHtml(task.title || task.summary || 'Untitled')}</span>
+        <span class="task-title">${escapeHtml(task.title || task.name || task.summary || 'Untitled')}</span>
         <button class="btn-view-json" data-task-json-id="${taskJsonId}" data-task-display-id="${safeTaskId}">{ } JSON</button>
       </div>
       <div class="task-item-meta-lite">
-        ${action ? `<span class="meta-badge action">${escapeHtml(action)}</span>` : ''}
+        ${taskType ? `<span class="meta-badge action">${escapeHtml(taskType)}</span>` : ''}
         ${scope ? `<span class="meta-badge scope">${escapeHtml(scope)}</span>` : ''}
-        ${modCount > 0 ? `<span class="meta-badge mods">${modCount} mods</span>` : ''}
+        ${filesCount > 0 ? `<span class="meta-badge files">${filesCount} files</span>` : ''}
         ${implCount > 0 ? `<span class="meta-badge impl">${implCount} steps</span>` : ''}
-        ${acceptCount > 0 ? `<span class="meta-badge accept">${acceptCount} acceptance</span>` : ''}
+        ${acceptCount > 0 ? `<span class="meta-badge accept">${acceptCount} criteria</span>` : ''}
+        ${dependsCount > 0 ? `<span class="meta-badge depends">${dependsCount} deps</span>` : ''}
       </div>
     </div>
   `;
@@ -1442,16 +1500,18 @@ function initMultiCliTaskClickHandlers() {
  */
 function openTaskDrawerForMultiCli(sessionId, taskId) {
   const session = liteTaskDataStore[currentSessionDetailKey];
-  if (!session || !session.plan) return;
+  if (!session) return;
 
-  const task = session.plan.tasks?.find(t => (t.id || `T${session.plan.tasks.indexOf(t) + 1}`) === taskId);
+  // Use session.tasks (normalized from backend) with fallback to plan.tasks
+  const tasks = session.tasks?.length > 0 ? session.tasks : (session.plan?.tasks || []);
+  const task = tasks.find(t => (t.id || `T${tasks.indexOf(t) + 1}`) === taskId);
   if (!task) return;
 
   // Set current drawer tasks
-  currentDrawerTasks = session.plan.tasks || [];
+  currentDrawerTasks = tasks;
   window._currentDrawerSession = session;
 
-  document.getElementById('drawerTaskTitle').textContent = task.title || task.summary || taskId;
+  document.getElementById('drawerTaskTitle').textContent = task.title || task.name || task.summary || taskId;
   document.getElementById('drawerContent').innerHTML = renderMultiCliTaskDrawerContent(task, session);
   document.getElementById('taskDetailDrawer').classList.add('open');
   document.getElementById('drawerOverlay').classList.add('active');
@@ -1523,12 +1583,21 @@ function switchMultiCliDrawerTab(tabName) {
 
 /**
  * Render multi-cli task overview section
+ * Handles both normalized format (meta, context, flow_control) and raw format
  */
 function renderMultiCliTaskOverview(task) {
   let sections = [];
 
-  // Description Card
-  if (task.description) {
+  // Extract from both normalized and raw formats
+  const description = task.description || (task.context?.requirements?.length > 0 ? task.context.requirements.join('\n') : '');
+  const scope = task.meta?.scope || task.scope || task.file || '';
+  const acceptance = task.context?.acceptance || task.acceptance || task.acceptance_criteria || [];
+  const dependsOn = task.context?.depends_on || task.depends_on || [];
+  const focusPaths = task.context?.focus_paths || task.files?.map(f => typeof f === 'string' ? f : f.file) || [];
+  const keyPoint = task._raw?.task?.key_point || task.key_point || '';
+
+  // Description/Key Point Card
+  if (description || keyPoint) {
     sections.push(`
       <div class="lite-card">
         <div class="lite-card-header">
@@ -1536,14 +1605,15 @@ function renderMultiCliTaskOverview(task) {
           <h4 class="lite-card-title">Description</h4>
         </div>
         <div class="lite-card-body">
-          <p class="lite-description">${escapeHtml(task.description)}</p>
+          ${keyPoint ? `<p class="lite-key-point"><strong>Key Point:</strong> ${escapeHtml(keyPoint)}</p>` : ''}
+          ${description ? `<p class="lite-description">${escapeHtml(description)}</p>` : ''}
         </div>
       </div>
     `);
   }
 
   // Scope Card
-  if (task.scope || task.file) {
+  if (scope) {
     sections.push(`
       <div class="lite-card">
         <div class="lite-card-header">
@@ -1552,15 +1622,49 @@ function renderMultiCliTaskOverview(task) {
         </div>
         <div class="lite-card-body">
           <div class="lite-scope-box">
-            <code>${escapeHtml(task.scope || task.file)}</code>
+            <code>${escapeHtml(scope)}</code>
           </div>
         </div>
       </div>
     `);
   }
 
+  // Dependencies Card
+  if (dependsOn.length > 0) {
+    sections.push(`
+      <div class="lite-card">
+        <div class="lite-card-header">
+          <span class="lite-card-icon">🔗</span>
+          <h4 class="lite-card-title">Dependencies</h4>
+        </div>
+        <div class="lite-card-body">
+          <div class="lite-deps-list">
+            ${dependsOn.map(dep => `<span class="dep-badge">${escapeHtml(dep)}</span>`).join('')}
+          </div>
+        </div>
+      </div>
+    `);
+  }
+
+  // Focus Paths / Files Card
+  if (focusPaths.length > 0) {
+    sections.push(`
+      <div class="lite-card">
+        <div class="lite-card-header">
+          <span class="lite-card-icon">📁</span>
+          <h4 class="lite-card-title">Target Files</h4>
+        </div>
+        <div class="lite-card-body">
+          <ul class="lite-file-list">
+            ${focusPaths.map(f => `<li><code>${escapeHtml(f)}</code></li>`).join('')}
+          </ul>
+        </div>
+      </div>
+    `);
+  }
+
   // Acceptance Criteria Card
-  if (task.acceptance?.length) {
+  if (acceptance.length > 0) {
     sections.push(`
       <div class="lite-card">
         <div class="lite-card-header">
@@ -1569,7 +1673,7 @@ function renderMultiCliTaskOverview(task) {
         </div>
         <div class="lite-card-body">
           <ul class="lite-acceptance-list">
-            ${task.acceptance.map(ac => `<li>${escapeHtml(ac)}</li>`).join('')}
+            ${acceptance.map(ac => `<li>${escapeHtml(ac)}</li>`).join('')}
           </ul>
         </div>
       </div>
@@ -1599,12 +1703,35 @@ function renderMultiCliTaskOverview(task) {
 
 /**
  * Render multi-cli task implementation section
+ * Handles both normalized format (flow_control.implementation_approach) and raw format
  */
 function renderMultiCliTaskImplementation(task) {
   let sections = [];
 
-  // Modification Points
-  if (task.modification_points?.length) {
+  // Get implementation steps from normalized or raw format
+  const implApproach = task.flow_control?.implementation_approach || [];
+  const rawImpl = task.implementation || [];
+  const modPoints = task.modification_points || [];
+
+  // Modification Points / Flow Control Implementation Approach
+  if (implApproach.length > 0) {
+    sections.push(`
+      <div class="drawer-section">
+        <h4 class="drawer-section-title">
+          <i data-lucide="list-ordered" class="w-4 h-4"></i>
+          Implementation Steps
+        </h4>
+        <ol class="impl-steps-detail-list">
+          ${implApproach.map((step, idx) => `
+            <li class="impl-step-item">
+              <span class="step-num">${step.step || (idx + 1)}</span>
+              <span class="step-text">${escapeHtml(step.action || step)}</span>
+            </li>
+          `).join('')}
+        </ol>
+      </div>
+    `);
+  } else if (modPoints.length > 0) {
     sections.push(`
       <div class="drawer-section">
         <h4 class="drawer-section-title">
@@ -1612,7 +1739,7 @@ function renderMultiCliTaskImplementation(task) {
           Modification Points
         </h4>
         <ul class="mod-points-detail-list">
-          ${task.modification_points.map(mp => `
+          ${modPoints.map(mp => `
             <li class="mod-point-item">
               <code class="mod-file">${escapeHtml(mp.file || '')}</code>
               ${mp.target ? `<span class="mod-target">→ ${escapeHtml(mp.target)}</span>` : ''}
@@ -1625,8 +1752,8 @@ function renderMultiCliTaskImplementation(task) {
     `);
   }
 
-  // Implementation Steps
-  if (task.implementation?.length) {
+  // Raw Implementation Steps (if not already rendered via implApproach)
+  if (rawImpl.length > 0 && implApproach.length === 0) {
     sections.push(`
       <div class="drawer-section">
         <h4 class="drawer-section-title">
@@ -1634,7 +1761,7 @@ function renderMultiCliTaskImplementation(task) {
           Implementation Steps
         </h4>
         <ol class="impl-steps-detail-list">
-          ${task.implementation.map((step, idx) => `
+          ${rawImpl.map((step, idx) => `
             <li class="impl-step-item">
               <span class="step-num">${idx + 1}</span>
               <span class="step-text">${escapeHtml(step)}</span>
@@ -1665,9 +1792,25 @@ function renderMultiCliTaskImplementation(task) {
 
 /**
  * Render multi-cli task files section
+ * Handles both normalized format (context.focus_paths) and raw format
  */
 function renderMultiCliTaskFiles(task) {
   const files = [];
+
+  // Collect from normalized format (context.focus_paths)
+  if (task.context?.focus_paths) {
+    task.context.focus_paths.forEach(f => {
+      if (f && !files.includes(f)) files.push(f);
+    });
+  }
+
+  // Collect from raw files array (plan.json format)
+  if (task.files) {
+    task.files.forEach(f => {
+      const filePath = typeof f === 'string' ? f : f.file;
+      if (filePath && !files.includes(filePath)) files.push(filePath);
+    });
+  }
 
   // Collect from modification_points
   if (task.modification_points) {
@@ -1676,7 +1819,7 @@ function renderMultiCliTaskFiles(task) {
     });
   }
 
-  // Collect from scope/file
+  // Collect from scope/file (legacy)
   if (task.scope && !files.includes(task.scope)) files.push(task.scope);
   if (task.file && !files.includes(task.file)) files.push(task.file);
 

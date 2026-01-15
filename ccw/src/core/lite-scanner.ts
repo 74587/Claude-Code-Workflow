@@ -238,10 +238,11 @@ async function scanMultiCliDir(dir: string): Promise<MultiCliSession[]> {
         .map(async (entry) => {
           const sessionPath = join(dir, entry.name);
 
-          const [createdAt, syntheses, sessionState] = await Promise.all([
+          const [createdAt, syntheses, sessionState, planJson] = await Promise.all([
             getCreatedTime(sessionPath),
             loadRoundSyntheses(sessionPath),
             loadSessionState(sessionPath),
+            loadPlanJson(sessionPath),
           ]);
 
           // Extract data from syntheses
@@ -258,13 +259,20 @@ async function scanMultiCliDir(dir: string): Promise<MultiCliSession[]> {
           const status = sessionState?.status ||
             (latestSynthesis?.convergence?.recommendation === 'converged' ? 'converged' : 'analyzing');
 
+          // Use plan.json if available, otherwise extract from synthesis
+          const plan = planJson || latestSynthesis;
+          // Use tasks from plan.json if available, otherwise extract from synthesis
+          const tasks = (planJson as any)?.tasks?.length > 0
+            ? normalizePlanJsonTasks((planJson as any).tasks)
+            : extractTasksFromSyntheses(syntheses);
+
           const session: MultiCliSession = {
             id: entry.name,
             type: 'multi-cli-plan',
             path: sessionPath,
             createdAt,
-            plan: latestSynthesis,
-            tasks: extractTasksFromSyntheses(syntheses),
+            plan,
+            tasks,
             progress,
             // Extended multi-cli specific fields
             roundCount,
@@ -546,6 +554,53 @@ function normalizeSolutionTask(task: SolutionTask, solution: Solution): Normaliz
       }
     }
   };
+}
+
+/**
+ * Normalize tasks from plan.json format to NormalizedTask[]
+ * plan.json tasks have: id, name, description, depends_on, status, files, key_point, acceptance_criteria
+ * @param tasks - Tasks array from plan.json
+ * @returns Normalized tasks
+ */
+function normalizePlanJsonTasks(tasks: unknown[]): NormalizedTask[] {
+  if (!Array.isArray(tasks)) return [];
+
+  return tasks.map((task: any): NormalizedTask | null => {
+    if (!task || !task.id) return null;
+
+    return {
+      id: task.id,
+      title: task.name || task.title || 'Untitled Task',
+      status: task.status || 'pending',
+      meta: {
+        type: 'implementation',
+        agent: null,
+        scope: task.scope || null,
+        module: null
+      },
+      context: {
+        requirements: task.description ? [task.description] : (task.key_point ? [task.key_point] : []),
+        focus_paths: task.files?.map((f: any) => typeof f === 'string' ? f : f.file) || [],
+        acceptance: task.acceptance_criteria || [],
+        depends_on: task.depends_on || []
+      },
+      flow_control: {
+        implementation_approach: task.files?.map((f: any, i: number) => {
+          const filePath = typeof f === 'string' ? f : f.file;
+          const action = typeof f === 'string' ? 'modify' : f.action;
+          const line = typeof f === 'string' ? null : f.line;
+          return {
+            step: `Step ${i + 1}`,
+            action: `${action} ${filePath}${line ? ` at line ${line}` : ''}`
+          };
+        }) || []
+      },
+      _raw: {
+        task,
+        estimated_complexity: task.estimated_complexity
+      }
+    };
+  }).filter((task): task is NormalizedTask => task !== null);
 }
 
 /**
