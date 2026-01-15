@@ -347,6 +347,9 @@ function extractTimelineFromSynthesis(synthesis) {
   return timeline;
 }
 
+// Track multi-cli toolbar state
+let isMultiCliToolbarExpanded = false;
+
 /**
  * Show multi-cli detail page with tabs
  */
@@ -368,70 +371,71 @@ function showMultiCliDetailPage(sessionKey) {
   const status = latestSynthesis.status || session.status || 'analyzing';
 
   container.innerHTML = `
-    <div class="session-detail-page multi-cli-detail-page">
-      <!-- Header -->
-      <div class="detail-header">
-        <button class="btn-back" onclick="goBackToLiteTasks()">
-          <span class="back-icon">&larr;</span>
-          <span>${t('multiCli.backToList') || 'Back to Multi-CLI Plan'}</span>
-        </button>
-        <div class="detail-title-row">
-          <h2 class="detail-session-id"><i data-lucide="messages-square" class="w-5 h-5 inline mr-2"></i> ${escapeHtml(session.id)}</h2>
-          <div class="detail-badges">
-            <span class="session-type-badge multi-cli-plan">multi-cli-plan</span>
-            <span class="session-status-badge ${status}">${escapeHtml(status)}</span>
+    <div class="session-detail-page multi-cli-detail-page multi-cli-detail-with-toolbar">
+      <!-- Main Content Area -->
+      <div class="multi-cli-main-content">
+        <!-- Header -->
+        <div class="detail-header">
+          <button class="btn-back" onclick="goBackToLiteTasks()">
+            <span class="back-icon">&larr;</span>
+            <span>${t('multiCli.backToList') || 'Back to Multi-CLI Plan'}</span>
+          </button>
+          <div class="detail-title-row">
+            <h2 class="detail-session-id"><i data-lucide="messages-square" class="w-5 h-5 inline mr-2"></i> ${escapeHtml(session.id)}</h2>
+            <div class="detail-badges">
+              <span class="session-type-badge multi-cli-plan">multi-cli-plan</span>
+              <span class="session-status-badge ${status}">${escapeHtml(status)}</span>
+            </div>
           </div>
         </div>
+
+        <!-- Session Info Bar -->
+        <div class="detail-info-bar">
+          <div class="info-item">
+            <span class="info-label">${t('detail.created') || 'Created'}</span>
+            <span class="info-value">${formatDate(metadata.timestamp || session.createdAt)}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">${t('multiCli.roundCount') || 'Rounds'}</span>
+            <span class="info-value">${roundCount}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">${t('multiCli.topic') || 'Topic'}</span>
+            <span class="info-value">${escapeHtml(topicTitle)}</span>
+          </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="detail-tabs">
+          <button class="detail-tab active" data-tab="planning" onclick="switchMultiCliDetailTab('planning')">
+            <span class="tab-icon"><i data-lucide="list-checks" class="w-4 h-4"></i></span>
+            <span class="tab-text">${t('multiCli.tab.planning') || 'Planning'}</span>
+          </button>
+          <button class="detail-tab" data-tab="discussion" onclick="switchMultiCliDetailTab('discussion')">
+            <span class="tab-icon"><i data-lucide="messages-square" class="w-4 h-4"></i></span>
+            <span class="tab-text">${t('multiCli.tab.discussion') || 'Discussion'}</span>
+            <span class="tab-count">${roundCount}</span>
+          </button>
+          <button class="detail-tab" data-tab="association" onclick="switchMultiCliDetailTab('association')">
+            <span class="tab-icon"><i data-lucide="link-2" class="w-4 h-4"></i></span>
+            <span class="tab-text">${t('multiCli.tab.association') || 'Association'}</span>
+          </button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="detail-tab-content" id="multiCliDetailTabContent">
+          ${renderMultiCliPlanningTab(session)}
+        </div>
       </div>
 
-      <!-- Session Info Bar -->
-      <div class="detail-info-bar">
-        <div class="info-item">
-          <span class="info-label">${t('detail.created') || 'Created'}</span>
-          <span class="info-value">${formatDate(metadata.timestamp || session.createdAt)}</span>
+      <!-- Right Toolbar -->
+      <div class="multi-cli-toolbar ${isMultiCliToolbarExpanded ? 'expanded' : 'collapsed'}" id="multiCliToolbar">
+        <button class="toolbar-toggle-btn" onclick="toggleMultiCliToolbar()" title="${t('multiCli.toolbar.toggle') || 'Toggle Task Panel'}">
+          <i data-lucide="${isMultiCliToolbarExpanded ? 'panel-right-close' : 'panel-right-open'}" class="w-5 h-5"></i>
+        </button>
+        <div class="toolbar-content">
+          ${renderMultiCliToolbar(session)}
         </div>
-        <div class="info-item">
-          <span class="info-label">${t('multiCli.roundCount') || 'Rounds'}</span>
-          <span class="info-value">${roundCount}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">${t('multiCli.topic') || 'Topic'}</span>
-          <span class="info-value">${escapeHtml(topicTitle)}</span>
-        </div>
-      </div>
-
-      <!-- Tab Navigation -->
-      <div class="detail-tabs">
-        <button class="detail-tab active" data-tab="topic" onclick="switchMultiCliDetailTab('topic')">
-          <span class="tab-icon"><i data-lucide="message-circle" class="w-4 h-4"></i></span>
-          <span class="tab-text">${t('multiCli.tab.topic') || 'Discussion Topic'}</span>
-        </button>
-        <button class="detail-tab" data-tab="files" onclick="switchMultiCliDetailTab('files')">
-          <span class="tab-icon"><i data-lucide="folder-tree" class="w-4 h-4"></i></span>
-          <span class="tab-text">${t('multiCli.tab.files') || 'Related Files'}</span>
-        </button>
-        <button class="detail-tab" data-tab="planning" onclick="switchMultiCliDetailTab('planning')">
-          <span class="tab-icon"><i data-lucide="list-checks" class="w-4 h-4"></i></span>
-          <span class="tab-text">${t('multiCli.tab.planning') || 'Planning'}</span>
-        </button>
-        <button class="detail-tab" data-tab="decision" onclick="switchMultiCliDetailTab('decision')">
-          <span class="tab-icon"><i data-lucide="check-circle" class="w-4 h-4"></i></span>
-          <span class="tab-text">${t('multiCli.tab.decision') || 'Decision'}</span>
-        </button>
-        <button class="detail-tab" data-tab="timeline" onclick="switchMultiCliDetailTab('timeline')">
-          <span class="tab-icon"><i data-lucide="git-commit" class="w-4 h-4"></i></span>
-          <span class="tab-text">${t('multiCli.tab.timeline') || 'Timeline'}</span>
-        </button>
-        <button class="detail-tab" data-tab="rounds" onclick="switchMultiCliDetailTab('rounds')">
-          <span class="tab-icon"><i data-lucide="layers" class="w-4 h-4"></i></span>
-          <span class="tab-text">${t('multiCli.tab.rounds') || 'Rounds'}</span>
-          <span class="tab-count">${roundCount}</span>
-        </button>
-      </div>
-
-      <!-- Tab Content -->
-      <div class="detail-tab-content" id="multiCliDetailTabContent">
-        ${renderMultiCliTopicTab(session)}
       </div>
     </div>
   `;
@@ -441,6 +445,216 @@ function showMultiCliDetailPage(sessionKey) {
     if (typeof lucide !== 'undefined') lucide.createIcons();
     initCollapsibleSections(container);
   }, 50);
+}
+
+/**
+ * Toggle multi-cli toolbar expanded/collapsed state
+ */
+function toggleMultiCliToolbar() {
+  isMultiCliToolbarExpanded = !isMultiCliToolbarExpanded;
+  const toolbar = document.getElementById('multiCliToolbar');
+  const toggleBtn = toolbar?.querySelector('.toolbar-toggle-btn i');
+
+  if (toolbar) {
+    toolbar.classList.toggle('expanded', isMultiCliToolbarExpanded);
+    toolbar.classList.toggle('collapsed', !isMultiCliToolbarExpanded);
+
+    // Update icon
+    if (toggleBtn) {
+      toggleBtn.setAttribute('data-lucide', isMultiCliToolbarExpanded ? 'panel-right-close' : 'panel-right-open');
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+  }
+}
+
+/**
+ * Render the multi-cli toolbar content
+ */
+function renderMultiCliToolbar(session) {
+  const plan = session.plan;
+  const tasks = plan?.tasks || [];
+  const taskCount = tasks.length;
+
+  let toolbarHtml = `
+    <div class="toolbar-header">
+      <h4 class="toolbar-title">
+        <i data-lucide="list-checks" class="w-4 h-4"></i>
+        <span>${t('multiCli.toolbar.tasks') || 'Tasks'}</span>
+        <span class="toolbar-count">${taskCount}</span>
+      </h4>
+    </div>
+  `;
+
+  // Quick Actions
+  toolbarHtml += `
+    <div class="toolbar-actions">
+      <button class="toolbar-action-btn" onclick="refreshMultiCliToolbar()" title="${t('multiCli.toolbar.refresh') || 'Refresh'}">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+      </button>
+      <button class="toolbar-action-btn" onclick="exportMultiCliPlanJson()" title="${t('multiCli.toolbar.export') || 'Export JSON'}">
+        <i data-lucide="download" class="w-4 h-4"></i>
+      </button>
+      <button class="toolbar-action-btn" onclick="viewMultiCliRawJson()" title="${t('multiCli.toolbar.viewRaw') || 'View Raw Data'}">
+        <i data-lucide="code" class="w-4 h-4"></i>
+      </button>
+    </div>
+  `;
+
+  // Task List
+  if (tasks.length > 0) {
+    toolbarHtml += `
+      <div class="toolbar-task-list">
+        ${tasks.map((task, idx) => {
+          const taskTitle = task.title || task.summary || `Task ${idx + 1}`;
+          const taskScope = task.scope || '';
+          const taskId = `task-${idx}`;
+
+          return `
+            <div class="toolbar-task-item" onclick="scrollToMultiCliTask(${idx})" data-task-idx="${idx}">
+              <span class="toolbar-task-num">#${idx + 1}</span>
+              <div class="toolbar-task-info">
+                <span class="toolbar-task-title" title="${escapeHtml(taskTitle)}">${escapeHtml(taskTitle)}</span>
+                ${taskScope ? `<span class="toolbar-task-scope">${escapeHtml(taskScope)}</span>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } else {
+    toolbarHtml += `
+      <div class="toolbar-empty">
+        <i data-lucide="inbox" class="w-8 h-8"></i>
+        <span>${t('multiCli.toolbar.noTasks') || 'No tasks available'}</span>
+      </div>
+    `;
+  }
+
+  // Session Info
+  toolbarHtml += `
+    <div class="toolbar-session-info">
+      <div class="toolbar-info-item">
+        <span class="toolbar-info-label">${t('multiCli.toolbar.sessionId') || 'Session'}</span>
+        <span class="toolbar-info-value" title="${escapeHtml(session.id)}">${escapeHtml(session.id)}</span>
+      </div>
+      ${plan?.summary ? `
+        <div class="toolbar-info-item">
+          <span class="toolbar-info-label">${t('multiCli.toolbar.summary') || 'Summary'}</span>
+          <span class="toolbar-info-value toolbar-summary" title="${escapeHtml(plan.summary)}">${escapeHtml(plan.summary)}</span>
+        </div>
+      ` : ''}
+    </div>
+  `;
+
+  return toolbarHtml;
+}
+
+/**
+ * Scroll to a specific task in the planning tab
+ */
+function scrollToMultiCliTask(taskIdx) {
+  // Switch to planning tab if not active
+  const planningTab = document.querySelector('.detail-tab[data-tab="planning"]');
+  if (planningTab && !planningTab.classList.contains('active')) {
+    switchMultiCliDetailTab('planning');
+    // Wait for tab content to render
+    setTimeout(() => scrollToTaskElement(taskIdx), 100);
+  } else {
+    scrollToTaskElement(taskIdx);
+  }
+}
+
+/**
+ * Scroll to task element in the DOM
+ */
+function scrollToTaskElement(taskIdx) {
+  const taskItems = document.querySelectorAll('.fix-task-summary-item');
+  if (taskItems[taskIdx]) {
+    taskItems[taskIdx].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Highlight the task briefly
+    taskItems[taskIdx].classList.add('toolbar-highlight');
+    setTimeout(() => {
+      taskItems[taskIdx].classList.remove('toolbar-highlight');
+    }, 2000);
+    // Expand the collapsible if collapsed
+    const header = taskItems[taskIdx].querySelector('.collapsible-header');
+    const content = taskItems[taskIdx].querySelector('.collapsible-content');
+    if (header && content && content.classList.contains('collapsed')) {
+      header.click();
+    }
+  }
+}
+
+/**
+ * Refresh the toolbar content
+ */
+function refreshMultiCliToolbar() {
+  const session = liteTaskDataStore[currentSessionDetailKey];
+  if (!session) return;
+
+  const toolbarContent = document.querySelector('.toolbar-content');
+  if (toolbarContent) {
+    toolbarContent.innerHTML = renderMultiCliToolbar(session);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+}
+
+/**
+ * Export plan.json content
+ */
+function exportMultiCliPlanJson() {
+  const session = liteTaskDataStore[currentSessionDetailKey];
+  if (!session || !session.plan) {
+    if (typeof showRefreshToast === 'function') {
+      showRefreshToast(t('multiCli.toolbar.noPlan') || 'No plan data available', 'warning');
+    }
+    return;
+  }
+
+  const jsonStr = JSON.stringify(session.plan, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `plan-${session.id}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  if (typeof showRefreshToast === 'function') {
+    showRefreshToast(t('multiCli.toolbar.exported') || 'Plan exported successfully', 'success');
+  }
+}
+
+/**
+ * View raw session JSON in modal
+ */
+function viewMultiCliRawJson() {
+  const session = liteTaskDataStore[currentSessionDetailKey];
+  if (!session) return;
+
+  // Reuse existing JSON modal pattern
+  const overlay = document.createElement('div');
+  overlay.className = 'json-modal-overlay active';
+  overlay.innerHTML = `
+    <div class="json-modal">
+      <div class="json-modal-header">
+        <div class="json-modal-title">
+          <span class="session-id-badge">${escapeHtml(session.id)}</span>
+          <span>${t('multiCli.toolbar.rawData') || 'Raw Session Data'}</span>
+        </div>
+        <button class="json-modal-close" onclick="closeJsonModal(this)">&times;</button>
+      </div>
+      <div class="json-modal-body">
+        <pre class="json-modal-content">${escapeHtml(JSON.stringify(session, null, 2))}</pre>
+      </div>
+      <div class="json-modal-footer">
+        <button class="btn-copy-json" onclick="copyJsonToClipboard(this)">${t('action.copy') || 'Copy to Clipboard'}</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
 }
 
 /**
@@ -458,23 +672,14 @@ function switchMultiCliDetailTab(tabName) {
   const contentArea = document.getElementById('multiCliDetailTabContent');
 
   switch (tabName) {
-    case 'topic':
-      contentArea.innerHTML = renderMultiCliTopicTab(session);
-      break;
-    case 'files':
-      contentArea.innerHTML = renderMultiCliFilesTab(session);
-      break;
     case 'planning':
       contentArea.innerHTML = renderMultiCliPlanningTab(session);
       break;
-    case 'decision':
-      contentArea.innerHTML = renderMultiCliDecisionTab(session);
+    case 'discussion':
+      contentArea.innerHTML = renderMultiCliDiscussionSection(session);
       break;
-    case 'timeline':
-      contentArea.innerHTML = renderMultiCliTimelineTab(session);
-      break;
-    case 'rounds':
-      contentArea.innerHTML = renderMultiCliRoundsTab(session);
+    case 'association':
+      contentArea.innerHTML = renderMultiCliAssociationSection(session);
       break;
   }
 
@@ -695,75 +900,147 @@ function renderFileTreeNodes(nodes, depth = 0) {
 }
 
 /**
- * Render Planning tab
- * Shows: functional, nonFunctional requirements, acceptanceCriteria
+ * Render Planning tab - displays session.plan (plan.json content)
+ * Reuses renderLitePlanTab style with Summary, Approach, Focus Paths, Metadata, and Tasks
  */
 function renderMultiCliPlanningTab(session) {
-  // Use helper to extract planning from synthesis data structure
-  const planning = extractPlanningFromSynthesis(session.latestSynthesis);
+  const plan = session.plan;
 
-  if (!planning || (!planning.functional?.length && !planning.acceptanceCriteria?.length)) {
+  if (!plan) {
     return `
       <div class="tab-empty-state">
-        <div class="empty-icon"><i data-lucide="list-checks" class="w-12 h-12"></i></div>
+        <div class="empty-icon"><i data-lucide="ruler" class="w-12 h-12"></i></div>
         <div class="empty-title">${t('multiCli.empty.planning') || 'No Planning Data'}</div>
-        <div class="empty-text">${t('multiCli.empty.planningText') || 'No planning requirements available for this session.'}</div>
+        <div class="empty-text">${t('multiCli.empty.planningText') || 'No plan.json found for this session.'}</div>
       </div>
     `;
   }
 
-  const functional = planning.functional || [];
-  const nonFunctional = planning.nonFunctional || [];
-  const acceptanceCriteria = planning.acceptanceCriteria || [];
+  return `
+    <div class="plan-tab-content">
+      <!-- Summary -->
+      ${plan.summary ? `
+        <div class="plan-section">
+          <h4 class="plan-section-title"><i data-lucide="clipboard-list" class="w-4 h-4 inline mr-1"></i> Summary</h4>
+          <p class="plan-summary-text">${escapeHtml(plan.summary)}</p>
+        </div>
+      ` : ''}
 
-  let sections = [];
+      <!-- Root Cause (fix-plan specific) -->
+      ${plan.root_cause ? `
+        <div class="plan-section">
+          <h4 class="plan-section-title"><i data-lucide="search" class="w-4 h-4 inline mr-1"></i> Root Cause</h4>
+          <p class="plan-root-cause-text">${escapeHtml(plan.root_cause)}</p>
+        </div>
+      ` : ''}
 
-  // Functional Requirements
-  if (functional.length) {
-    sections.push(`
-      <div class="multi-cli-section requirements-section">
-        <h4 class="section-title"><i data-lucide="check-square" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.functional') || 'Functional Requirements'} (${functional.length})</h4>
-        <div class="requirements-list">
-          ${functional.map(req => renderRequirementItem(req)).join('')}
+      <!-- Strategy (fix-plan specific) -->
+      ${plan.strategy ? `
+        <div class="plan-section">
+          <h4 class="plan-section-title"><i data-lucide="route" class="w-4 h-4 inline mr-1"></i> Fix Strategy</h4>
+          <p class="plan-strategy-text">${escapeHtml(plan.strategy)}</p>
+        </div>
+      ` : ''}
+
+      <!-- Approach -->
+      ${plan.approach ? `
+        <div class="plan-section">
+          <h4 class="plan-section-title"><i data-lucide="target" class="w-4 h-4 inline mr-1"></i> Approach</h4>
+          <p class="plan-approach-text">${escapeHtml(plan.approach)}</p>
+        </div>
+      ` : ''}
+
+      <!-- User Requirements -->
+      ${plan.user_requirements ? `
+        <div class="plan-section">
+          <h4 class="plan-section-title"><i data-lucide="user" class="w-4 h-4 inline mr-1"></i> User Requirements</h4>
+          <p class="plan-requirements-text">${escapeHtml(plan.user_requirements)}</p>
+        </div>
+      ` : ''}
+
+      <!-- Focus Paths -->
+      ${plan.focus_paths?.length ? `
+        <div class="plan-section">
+          <h4 class="plan-section-title"><i data-lucide="folder" class="w-4 h-4 inline mr-1"></i> Focus Paths</h4>
+          <div class="path-tags">
+            ${plan.focus_paths.map(p => `<span class="path-tag">${escapeHtml(p)}</span>`).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Metadata -->
+      <div class="plan-section">
+        <h4 class="plan-section-title"><i data-lucide="info" class="w-4 h-4 inline mr-1"></i> Metadata</h4>
+        <div class="plan-meta-grid">
+          ${plan.severity ? `<div class="meta-item"><span class="meta-label">Severity:</span> <span class="severity-badge ${escapeHtml(plan.severity)}">${escapeHtml(plan.severity)}</span></div>` : ''}
+          ${plan.risk_level ? `<div class="meta-item"><span class="meta-label">Risk Level:</span> <span class="risk-badge ${escapeHtml(plan.risk_level)}">${escapeHtml(plan.risk_level)}</span></div>` : ''}
+          ${plan.estimated_time ? `<div class="meta-item"><span class="meta-label">Estimated Time:</span> ${escapeHtml(plan.estimated_time)}</div>` : ''}
+          ${plan.complexity ? `<div class="meta-item"><span class="meta-label">Complexity:</span> ${escapeHtml(plan.complexity)}</div>` : ''}
+          ${plan.recommended_execution ? `<div class="meta-item"><span class="meta-label">Execution:</span> ${escapeHtml(plan.recommended_execution)}</div>` : ''}
         </div>
       </div>
-    `);
-  }
 
-  // Non-Functional Requirements
-  if (nonFunctional.length) {
-    sections.push(`
-      <div class="multi-cli-section requirements-section">
-        <h4 class="section-title"><i data-lucide="settings" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.nonFunctional') || 'Non-Functional Requirements'} (${nonFunctional.length})</h4>
-        <div class="requirements-list">
-          ${nonFunctional.map(req => renderRequirementItem(req)).join('')}
+      <!-- Tasks -->
+      ${plan.tasks?.length ? `
+        <div class="plan-section">
+          <h4 class="plan-section-title"><i data-lucide="list-checks" class="w-4 h-4 inline mr-1"></i> Tasks (${plan.tasks.length})</h4>
+          <div class="fix-tasks-summary">
+            ${plan.tasks.map((task, idx) => `
+              <div class="fix-task-summary-item collapsible-section">
+                <div class="collapsible-header">
+                  <span class="collapse-icon">&#9654;</span>
+                  <span class="task-num">#${idx + 1}</span>
+                  <span class="task-title-brief">${escapeHtml(task.title || task.summary || 'Untitled')}</span>
+                  ${task.scope ? `<span class="task-scope-badge">${escapeHtml(task.scope)}</span>` : ''}
+                </div>
+                <div class="collapsible-content collapsed">
+                  ${task.modification_points?.length ? `
+                    <div class="task-detail-section">
+                      <strong>Modification Points:</strong>
+                      <ul class="mod-points-list">
+                        ${task.modification_points.map(mp => `
+                          <li>
+                            <code>${escapeHtml(mp.file || '')}</code>
+                            ${mp.function_name ? `<span class="func-name">-> ${escapeHtml(mp.function_name)}</span>` : ''}
+                            ${mp.change_type ? `<span class="change-type">(${escapeHtml(mp.change_type)})</span>` : ''}
+                          </li>
+                        `).join('')}
+                      </ul>
+                    </div>
+                  ` : ''}
+                  ${task.implementation?.length ? `
+                    <div class="task-detail-section">
+                      <strong>Implementation Steps:</strong>
+                      <ol class="impl-steps-list">
+                        ${task.implementation.map(step => `<li>${escapeHtml(step)}</li>`).join('')}
+                      </ol>
+                    </div>
+                  ` : ''}
+                  ${task.verification?.length ? `
+                    <div class="task-detail-section">
+                      <strong>Verification:</strong>
+                      <ul class="verify-list">
+                        ${task.verification.map(v => `<li>${escapeHtml(v)}</li>`).join('')}
+                      </ul>
+                    </div>
+                  ` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Raw JSON -->
+      <div class="plan-section collapsible-section">
+        <div class="collapsible-header">
+          <span class="collapse-icon">&#9654;</span>
+          <span class="section-label">{ } Raw JSON</span>
+        </div>
+        <div class="collapsible-content collapsed">
+          <pre class="json-content">${escapeHtml(JSON.stringify(plan, null, 2))}</pre>
         </div>
       </div>
-    `);
-  }
-
-  // Acceptance Criteria
-  if (acceptanceCriteria.length) {
-    sections.push(`
-      <div class="multi-cli-section acceptance-section">
-        <h4 class="section-title"><i data-lucide="clipboard-check" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.acceptanceCriteria') || 'Acceptance Criteria'} (${acceptanceCriteria.length})</h4>
-        <div class="acceptance-list">
-          ${acceptanceCriteria.map(ac => `
-            <div class="acceptance-item ${ac.isMet ? 'met' : 'unmet'}">
-              <span class="acceptance-check"><i data-lucide="${ac.isMet ? 'check' : 'circle'}" class="w-3 h-3"></i></span>
-              <span class="acceptance-id">${escapeHtml(ac.id || '')}</span>
-              <span class="acceptance-desc">${escapeHtml(getI18nText(ac.description))}</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `);
-  }
-
-  return sections.length ? `<div class="multi-cli-planning-tab">${sections.join('')}</div>` : `
-    <div class="tab-empty-state">
-      <div class="empty-icon"><i data-lucide="list-checks" class="w-12 h-12"></i></div>
-      <div class="empty-title">${t('multiCli.empty.planning') || 'No Planning Data'}</div>
     </div>
   `;
 }
@@ -1296,6 +1573,312 @@ async function loadMultiCliRound(sessionKey, roundNum) {
 
   // Fallback
   contentArea.innerHTML = `<div class="round-empty">${t('multiCli.noRoundData') || 'No data for this round.'}</div>`;
+}
+
+/**
+ * Render Discussion Section (combines Topic, Rounds, Decision)
+ * Uses accordion layout to display discussion rounds
+ */
+function renderMultiCliDiscussionSection(session) {
+  const rounds = session.rounds || [];
+  const metadata = session.metadata || {};
+  const totalRounds = metadata.roundId || rounds.length || 1;
+  const topic = session.discussionTopic || session.latestSynthesis?.discussionTopic || {};
+
+  // If no rounds, show topic summary and current synthesis
+  if (!rounds.length) {
+    const title = getI18nText(topic.title) || 'Discussion Topic';
+    const description = getI18nText(topic.description) || '';
+    const status = topic.status || session.status || 'analyzing';
+
+    return `
+      <div class="multi-cli-discussion-section">
+        <div class="discussion-header">
+          <h3 class="discussion-title">${escapeHtml(title)}</h3>
+          <span class="discussion-status ${status}">${escapeHtml(status)}</span>
+        </div>
+        ${description ? `<p class="discussion-description">${escapeHtml(description)}</p>` : ''}
+        <div class="discussion-empty-state">
+          <i data-lucide="message-circle" class="w-8 h-8"></i>
+          <p>${t('multiCli.singleRoundInfo') || 'This is a single-round discussion. View Planning tab for execution details.'}</p>
+        </div>
+      </div>
+    `;
+  }
+
+  // Render accordion for multiple rounds
+  const accordionItems = rounds.map((round, idx) => {
+    const roundNum = idx + 1;
+    const isLatest = roundNum === totalRounds;
+    const roundMeta = round.metadata || {};
+    const convergence = round._internal?.convergence || round.convergence || {};
+    const recommendation = convergence.recommendation || 'continue';
+    const score = convergence.score !== undefined ? Math.round(convergence.score * 100) : null;
+    const solutions = round.solutions || [];
+    const agents = roundMeta.contributingAgents || [];
+
+    return `
+      <div class="discussion-round collapsible-section ${isLatest ? 'expanded' : ''}">
+        <div class="collapsible-header discussion-round-header">
+          <span class="collapse-icon">${isLatest ? '&#9660;' : '&#9658;'}</span>
+          <div class="round-title-group">
+            <span class="round-badge">${t('multiCli.round') || 'Round'} ${roundNum}</span>
+            <span class="round-timestamp">${formatDate(roundMeta.timestamp)}</span>
+          </div>
+          <div class="round-indicators">
+            ${score !== null ? `<span class="convergence-badge" title="${t('multiCli.convergence') || 'Convergence'}">${score}%</span>` : ''}
+            <span class="recommendation-badge ${recommendation}">${escapeHtml(recommendation)}</span>
+          </div>
+        </div>
+        <div class="collapsible-content ${isLatest ? '' : 'collapsed'}">
+          <!-- Discussion Topic for this round -->
+          ${round.discussionTopic ? `
+            <div class="round-topic">
+              <h4 class="round-section-title"><i data-lucide="message-circle" class="w-4 h-4 inline"></i> ${t('multiCli.topic') || 'Topic'}</h4>
+              <p>${escapeHtml(getI18nText(round.discussionTopic.title || round.discussionTopic))}</p>
+            </div>
+          ` : ''}
+
+          <!-- Contributing Agents -->
+          ${agents.length ? `
+            <div class="round-agents">
+              <h4 class="round-section-title"><i data-lucide="users" class="w-4 h-4 inline"></i> ${t('multiCli.contributors') || 'Contributors'}</h4>
+              <div class="agent-badges">
+                ${agents.map(agent => `<span class="agent-badge">${escapeHtml(agent.name || agent.id || agent)}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Solutions -->
+          ${solutions.length ? `
+            <div class="round-solutions-summary">
+              <h4 class="round-section-title"><i data-lucide="lightbulb" class="w-4 h-4 inline"></i> ${t('multiCli.solutions') || 'Solutions'} (${solutions.length})</h4>
+              <div class="solution-cards-grid">
+                ${solutions.map((sol, sidx) => `
+                  <div class="solution-mini-card">
+                    <div class="solution-mini-header">
+                      <span class="solution-number">${sidx + 1}</span>
+                      <span class="solution-name">${escapeHtml(sol.name || 'Solution ' + (sidx + 1))}</span>
+                    </div>
+                    <div class="solution-mini-scores">
+                      <span class="score-pill feasibility" title="Feasibility">${Math.round((sol.feasibility || 0) * 100)}%</span>
+                      <span class="score-pill effort-${sol.effort || 'medium'}">${escapeHtml(sol.effort || 'M')}</span>
+                      <span class="score-pill risk-${sol.risk || 'medium'}">${escapeHtml(sol.risk || 'M')}</span>
+                    </div>
+                    ${sol.summary ? `<p class="solution-mini-summary">${escapeHtml(getI18nText(sol.summary).substring(0, 100))}${getI18nText(sol.summary).length > 100 ? '...' : ''}</p>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Decision/Recommendation -->
+          ${convergence.reasoning || round.decision ? `
+            <div class="round-decision">
+              <h4 class="round-section-title"><i data-lucide="check-circle" class="w-4 h-4 inline"></i> ${t('multiCli.decision') || 'Decision'}</h4>
+              <p class="decision-text">${escapeHtml(convergence.reasoning || round.decision || '')}</p>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="multi-cli-discussion-section">
+      <div class="discussion-header">
+        <h3 class="discussion-title">${escapeHtml(getI18nText(topic.title) || 'Discussion')}</h3>
+        <span class="rounds-count">${totalRounds} ${t('multiCli.tab.rounds') || 'Rounds'}</span>
+      </div>
+      <div class="discussion-accordion">
+        ${accordionItems}
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Render Association Section (context-package key fields)
+ * Shows solution summary, dependencies, consensus
+ */
+function renderMultiCliAssociationSection(session) {
+  const contextPkg = session.contextPackage || session.context_package || session.latestSynthesis?.context_package || {};
+  const solutions = contextPkg.solutions || session.latestSynthesis?.solutions || [];
+  const dependencies = contextPkg.dependencies || {};
+  const consensus = contextPkg.consensus || session.latestSynthesis?._internal?.cross_verification || {};
+  const relatedFiles = extractFilesFromSynthesis(session.latestSynthesis);
+
+  // Check if we have any content to display
+  const hasSolutions = solutions.length > 0;
+  const hasDependencies = dependencies.internal?.length || dependencies.external?.length;
+  const hasConsensus = consensus.agreements?.length || consensus.resolved_conflicts?.length || consensus.disagreements?.length;
+  const hasFiles = relatedFiles?.fileTree?.length || relatedFiles?.impactSummary?.length;
+
+  if (!hasSolutions && !hasDependencies && !hasConsensus && !hasFiles) {
+    return `
+      <div class="tab-empty-state">
+        <div class="empty-icon"><i data-lucide="link-2" class="w-12 h-12"></i></div>
+        <div class="empty-title">${t('multiCli.empty.association') || 'No Association Data'}</div>
+        <div class="empty-text">${t('multiCli.empty.associationText') || 'No context package or related files available for this session.'}</div>
+      </div>
+    `;
+  }
+
+  let sections = [];
+
+  // Solution Summary Cards
+  if (hasSolutions) {
+    sections.push(`
+      <div class="association-section solutions-section">
+        <h4 class="association-section-title">
+          <i data-lucide="lightbulb" class="w-4 h-4 inline"></i>
+          ${t('multiCli.solutionSummary') || 'Solution Summary'}
+        </h4>
+        <div class="association-cards-grid">
+          ${solutions.map((sol, idx) => `
+            <div class="association-card solution-card">
+              <div class="card-header">
+                <span class="card-number">${idx + 1}</span>
+                <span class="card-title">${escapeHtml(sol.name || 'Solution ' + (idx + 1))}</span>
+              </div>
+              <div class="card-metrics">
+                <div class="metric">
+                  <span class="metric-label">${t('multiCli.feasibility') || 'Feasibility'}</span>
+                  <span class="metric-value">${Math.round((sol.feasibility || 0) * 100)}%</span>
+                </div>
+                <div class="metric">
+                  <span class="metric-label">${t('multiCli.effort') || 'Effort'}</span>
+                  <span class="metric-value effort-${sol.effort || 'medium'}">${escapeHtml(sol.effort || 'medium')}</span>
+                </div>
+                <div class="metric">
+                  <span class="metric-label">${t('multiCli.risk') || 'Risk'}</span>
+                  <span class="metric-value risk-${sol.risk || 'medium'}">${escapeHtml(sol.risk || 'medium')}</span>
+                </div>
+              </div>
+              ${sol.summary ? `<p class="card-description">${escapeHtml(getI18nText(sol.summary))}</p>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  // Dependencies Card
+  if (hasDependencies) {
+    sections.push(`
+      <div class="association-section dependencies-section">
+        <h4 class="association-section-title">
+          <i data-lucide="git-branch" class="w-4 h-4 inline"></i>
+          ${t('multiCli.dependencies') || 'Dependencies'}
+        </h4>
+        <div class="dependencies-grid">
+          ${dependencies.internal?.length ? `
+            <div class="association-card dependency-card">
+              <div class="card-header">
+                <i data-lucide="folder" class="w-4 h-4"></i>
+                <span class="card-title">${t('multiCli.internalDeps') || 'Internal'}</span>
+                <span class="card-count">${dependencies.internal.length}</span>
+              </div>
+              <ul class="dependency-list">
+                ${dependencies.internal.map(dep => `<li>${escapeHtml(getI18nText(dep))}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+          ${dependencies.external?.length ? `
+            <div class="association-card dependency-card">
+              <div class="card-header">
+                <i data-lucide="package" class="w-4 h-4"></i>
+                <span class="card-title">${t('multiCli.externalDeps') || 'External'}</span>
+                <span class="card-count">${dependencies.external.length}</span>
+              </div>
+              <ul class="dependency-list">
+                ${dependencies.external.map(dep => `<li>${escapeHtml(getI18nText(dep))}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `);
+  }
+
+  // Consensus Card
+  if (hasConsensus) {
+    sections.push(`
+      <div class="association-section consensus-section">
+        <h4 class="association-section-title">
+          <i data-lucide="check-check" class="w-4 h-4 inline"></i>
+          ${t('multiCli.consensus') || 'Consensus'}
+        </h4>
+        <div class="consensus-grid">
+          ${consensus.agreements?.length ? `
+            <div class="association-card consensus-card agreements">
+              <div class="card-header">
+                <i data-lucide="thumbs-up" class="w-4 h-4"></i>
+                <span class="card-title">${t('multiCli.agreements') || 'Agreements'}</span>
+                <span class="card-count">${consensus.agreements.length}</span>
+              </div>
+              <ul class="consensus-list">
+                ${consensus.agreements.map(item => `<li class="agreement-item">${escapeHtml(item)}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+          ${(consensus.resolved_conflicts?.length || consensus.disagreements?.length) ? `
+            <div class="association-card consensus-card conflicts">
+              <div class="card-header">
+                <i data-lucide="git-merge" class="w-4 h-4"></i>
+                <span class="card-title">${t('multiCli.resolvedConflicts') || 'Resolved Conflicts'}</span>
+                <span class="card-count">${(consensus.resolved_conflicts || consensus.disagreements || []).length}</span>
+              </div>
+              <ul class="consensus-list">
+                ${(consensus.resolved_conflicts || consensus.disagreements || []).map(item => `<li class="conflict-item">${escapeHtml(item)}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `);
+  }
+
+  // Related Files (from existing Files tab logic)
+  if (hasFiles) {
+    sections.push(`
+      <div class="association-section files-section">
+        <h4 class="association-section-title">
+          <i data-lucide="folder-tree" class="w-4 h-4 inline"></i>
+          ${t('multiCli.tab.files') || 'Related Files'}
+        </h4>
+        <div class="files-summary">
+          ${relatedFiles.fileTree?.length ? `
+            <div class="files-list">
+              ${relatedFiles.fileTree.slice(0, 10).map(file => `
+                <div class="file-item">
+                  <i data-lucide="file" class="w-3 h-3"></i>
+                  <span class="file-path">${escapeHtml(typeof file === 'string' ? file : file.path || file.name)}</span>
+                </div>
+              `).join('')}
+              ${relatedFiles.fileTree.length > 10 ? `
+                <div class="files-more">+${relatedFiles.fileTree.length - 10} ${t('common.more') || 'more'}</div>
+              ` : ''}
+            </div>
+          ` : ''}
+          ${relatedFiles.impactSummary?.length ? `
+            <div class="impact-summary">
+              <h5>${t('multiCli.impactSummary') || 'Impact Summary'}</h5>
+              <ul>
+                ${relatedFiles.impactSummary.slice(0, 5).map(item => `<li>${escapeHtml(getI18nText(item))}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `);
+  }
+
+  return `
+    <div class="multi-cli-association-section">
+      ${sections.join('')}
+    </div>
+  `;
 }
 
 // Lite Task Detail Page

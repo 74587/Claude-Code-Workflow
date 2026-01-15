@@ -50,6 +50,7 @@
     "ccw/bin/",
     "ccw/dist/",
     "ccw/src/",
+    "ccw/scripts/",
     ".claude/agents/",
     ".claude/commands/",
     ".claude/output-styles/",

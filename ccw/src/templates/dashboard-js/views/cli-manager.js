@@ -395,6 +395,10 @@ async function updateCliToolConfig(tool, updates) {
     }
     if (data.success && cliToolConfig && cliToolConfig.tools) {
       cliToolConfig.tools[tool] = data.config;
+      // Invalidate cache to ensure fresh data on page refresh
+      if (window.cacheManager) {
+        window.cacheManager.invalidate('cli-config');
+      }
     }
     return data;
   } catch (err) {

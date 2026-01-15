@@ -216,6 +216,11 @@ async function saveCliSettingsEndpoint(data) {
     const result = await response.json();
     showRefreshToast(t('apiSettings.settingsSaved'), 'success');
 
+    // Invalidate cache to ensure fresh data on page refresh
+    if (window.cacheManager) {
+      window.cacheManager.invalidate('cli-wrapper-endpoints');
+    }
+
     // Refresh data and re-render
     await loadCliSettings(true);
     renderCliSettingsList();
@@ -249,6 +254,11 @@ async function deleteCliSettingsEndpoint(endpointId) {
     }
 
     showRefreshToast(t('apiSettings.settingsDeleted'), 'success');
+
+    // Invalidate cache to ensure fresh data on page refresh
+    if (window.cacheManager) {
+      window.cacheManager.invalidate('cli-wrapper-endpoints');
+    }
 
     // Refresh data and re-render
     await loadCliSettings(true);
@@ -635,6 +645,11 @@ async function saveProvider() {
     const result = await response.json();
     showRefreshToast(t('apiSettings.providerSaved'), 'success');
 
+    // Invalidate cache to ensure fresh data on page refresh
+    if (window.cacheManager) {
+      window.cacheManager.invalidate('cli-litellm-endpoints');
+    }
+
     closeProviderModal();
     // Force refresh data after saving
     apiSettingsData = null;
@@ -660,6 +675,12 @@ async function deleteProvider(providerId) {
     if (!response.ok) throw new Error('Failed to delete provider');
 
     showRefreshToast(t('apiSettings.providerDeleted'), 'success');
+
+    // Invalidate cache to ensure fresh data on page refresh
+    if (window.cacheManager) {
+      window.cacheManager.invalidate('cli-litellm-endpoints');
+    }
+
     // Force refresh data after deleting
     apiSettingsData = null;
     await renderApiSettings();
@@ -998,6 +1019,11 @@ async function saveEndpoint() {
     const result = await response.json();
     showRefreshToast(t('apiSettings.endpointSaved'), 'success');
 
+    // Invalidate cache to ensure fresh data on page refresh
+    if (window.cacheManager) {
+      window.cacheManager.invalidate('cli-litellm-endpoints');
+    }
+
     closeEndpointModal();
     // Force refresh data after saving
     apiSettingsData = null;
@@ -1023,6 +1049,12 @@ async function deleteEndpoint(endpointId) {
     if (!response.ok) throw new Error('Failed to delete endpoint');
 
     showRefreshToast(t('apiSettings.endpointDeleted'), 'success');
+
+    // Invalidate cache to ensure fresh data on page refresh
+    if (window.cacheManager) {
+      window.cacheManager.invalidate('cli-litellm-endpoints');
+    }
+
     // Force refresh data after deleting
     apiSettingsData = null;
     await renderApiSettings();
