@@ -956,15 +956,13 @@ function renderSkillFileModal() {
         </div>
 
         <!-- Content -->
-        <div class="flex-1 overflow-hidden p-4">
+        <div class="flex-1 min-h-0 overflow-auto p-4">
           ${isEditing ? `
             <textarea id="skillFileContent"
                       class="w-full h-full min-h-[400px] px-4 py-3 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                       spellcheck="false">${escapeHtml(content)}</textarea>
           ` : `
-            <div class="w-full h-full min-h-[400px] overflow-auto">
-              <pre class="px-4 py-3 bg-muted/30 rounded-lg text-sm font-mono whitespace-pre-wrap break-words">${escapeHtml(content)}</pre>
-            </div>
+            <pre class="px-4 py-3 bg-muted/30 rounded-lg text-sm font-mono whitespace-pre-wrap break-words">${escapeHtml(content)}</pre>
           `}
         </div>
 

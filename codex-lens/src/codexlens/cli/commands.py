@@ -3645,6 +3645,84 @@ def index_status(
         console.print(f"  SPLADE encoder: {'[green]Yes[/green]' if splade_available else f'[red]No[/red] ({splade_err})'}")
 
 
+# ==================== Index Update Command ====================
+
+@index_app.command("update")
+def index_update(
+    file_path: Path = typer.Argument(..., exists=True, file_okay=True, dir_okay=False, help="Path to the file to update in the index."),
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
+) -> None:
+    """Update the index for a single file incrementally.
+
+    This is a lightweight command designed for use in hooks (e.g., Claude Code PostToolUse).
+    It updates only the specified file without scanning the entire directory.
+
+    The file's parent directory must already be indexed via 'codexlens index init'.
+
+    Examples:
+        codexlens index update src/main.py           # Update single file
+        codexlens index update ./foo.ts --json       # JSON output for hooks
+    """
+    _configure_logging(verbose, json_mode)
+
+    from codexlens.watcher.incremental_indexer import IncrementalIndexer
+
+    registry: RegistryStore | None = None
+    indexer: IncrementalIndexer | None = None
+
+    try:
+        registry = RegistryStore()
+        registry.initialize()
+        mapper = PathMapper()
+        config = Config()
+
+        resolved_path = file_path.resolve()
+
+        # Check if project is indexed
+        source_root = mapper.get_project_root(resolved_path)
+        if not source_root or not registry.get_project(source_root):
+            error_msg = f"Project containing file is not indexed: {file_path}"
+            if json_mode:
+                print_json(success=False, error=error_msg)
+            else:
+                console.print(f"[red]Error:[/red] {error_msg}")
+                console.print("[dim]Run 'codexlens index init' on the project root first.[/dim]")
+            raise typer.Exit(code=1)
+
+        indexer = IncrementalIndexer(registry, mapper, config)
+        result = indexer._index_file(resolved_path)
+
+        if result.success:
+            if json_mode:
+                print_json(success=True, result={
+                    "path": str(result.path),
+                    "symbols_count": result.symbols_count,
+                    "status": "updated",
+                })
+            else:
+                console.print(f"[green]✓[/green] Updated index for [bold]{result.path.name}[/bold] ({result.symbols_count} symbols)")
+        else:
+            error_msg = result.error or f"Failed to update index for {file_path}"
+            if json_mode:
+                print_json(success=False, error=error_msg)
+            else:
+                console.print(f"[red]Error:[/red] {error_msg}")
+            raise typer.Exit(code=1)
+
+    except CodexLensError as exc:
+        if json_mode:
+            print_json(success=False, error=str(exc))
+        else:
+            console.print(f"[red]Update failed:[/red] {exc}")
+        raise typer.Exit(code=1)
+    finally:
+        if indexer:
+            indexer.close()
+        if registry:
+            registry.close()
+
+
 # ==================== Index All Command ====================
 
 @index_app.command("all")

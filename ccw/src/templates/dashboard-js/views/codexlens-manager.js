@@ -6381,12 +6381,12 @@ async function showWatcherControlModal() {
 
     // Get first indexed project path as default
     let defaultPath = '';
-    if (indexes.success && indexes.projects && indexes.projects.length > 0) {
-      // Sort by last_indexed desc and pick the most recent
-      const sorted = indexes.projects.sort((a, b) =>
-        new Date(b.last_indexed || 0) - new Date(a.last_indexed || 0)
+    if (indexes.success && indexes.indexes && indexes.indexes.length > 0) {
+      // Sort by lastModified desc and pick the most recent
+      const sorted = indexes.indexes.sort((a, b) =>
+        new Date(b.lastModified || 0) - new Date(a.lastModified || 0)
       );
-      defaultPath = sorted[0].source_root || '';
+      defaultPath = sorted[0].path || '';
     }
 
     const modalHtml = buildWatcherControlContent(status, defaultPath);
