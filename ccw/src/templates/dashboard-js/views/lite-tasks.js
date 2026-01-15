@@ -347,11 +347,8 @@ function extractTimelineFromSynthesis(synthesis) {
   return timeline;
 }
 
-// Track multi-cli toolbar state
-let isMultiCliToolbarExpanded = false;
-
 /**
- * Show multi-cli detail page with tabs
+ * Show multi-cli detail page with tabs (same layout as lite-plan)
  */
 function showMultiCliDetailPage(sessionKey) {
   const session = liteTaskDataStore[sessionKey];
@@ -364,107 +361,78 @@ function showMultiCliDetailPage(sessionKey) {
 
   const container = document.getElementById('mainContent');
   const metadata = session.metadata || {};
-  const discussionTopic = session.discussionTopic || {};
-  const latestSynthesis = session.latestSynthesis || discussionTopic;
+  const plan = session.plan || {};
+  const tasks = plan.tasks || [];
   const roundCount = metadata.roundId || session.roundCount || 1;
-  const topicTitle = getI18nText(latestSynthesis.title) || session.topicTitle || 'Discussion Topic';
-  const status = latestSynthesis.status || session.status || 'analyzing';
+  const status = session.status || 'analyzing';
 
   container.innerHTML = `
-    <div class="session-detail-page multi-cli-detail-page multi-cli-detail-with-toolbar">
-      <!-- Main Content Area -->
-      <div class="multi-cli-main-content">
-        <!-- Header -->
-        <div class="detail-header">
-          <button class="btn-back" onclick="goBackToLiteTasks()">
-            <span class="back-icon">&larr;</span>
-            <span>${t('multiCli.backToList') || 'Back to Multi-CLI Plan'}</span>
-          </button>
-          <div class="detail-title-row">
-            <h2 class="detail-session-id"><i data-lucide="messages-square" class="w-5 h-5 inline mr-2"></i> ${escapeHtml(session.id)}</h2>
-            <div class="detail-badges">
-              <span class="session-type-badge multi-cli-plan">multi-cli-plan</span>
-              <span class="session-status-badge ${status}">${escapeHtml(status)}</span>
-            </div>
+    <div class="session-detail-page lite-task-detail-page">
+      <!-- Header -->
+      <div class="detail-header">
+        <button class="btn-back" onclick="goBackToLiteTasks()">
+          <span class="back-icon">←</span>
+          <span>${t('multiCli.backToList') || 'Back to Multi-CLI Plan'}</span>
+        </button>
+        <div class="detail-title-row">
+          <h2 class="detail-session-id"><i data-lucide="messages-square" class="w-5 h-5 inline mr-2"></i> ${escapeHtml(session.id)}</h2>
+          <div class="detail-badges">
+            <span class="session-type-badge multi-cli-plan">MULTI-CLI</span>
           </div>
-        </div>
-
-        <!-- Session Info Bar -->
-        <div class="detail-info-bar">
-          <div class="info-item">
-            <span class="info-label">${t('detail.created') || 'Created'}</span>
-            <span class="info-value">${formatDate(metadata.timestamp || session.createdAt)}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">${t('multiCli.roundCount') || 'Rounds'}</span>
-            <span class="info-value">${roundCount}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">${t('multiCli.topic') || 'Topic'}</span>
-            <span class="info-value">${escapeHtml(topicTitle)}</span>
-          </div>
-        </div>
-
-        <!-- Tab Navigation -->
-        <div class="detail-tabs">
-          <button class="detail-tab active" data-tab="planning" onclick="switchMultiCliDetailTab('planning')">
-            <span class="tab-icon"><i data-lucide="list-checks" class="w-4 h-4"></i></span>
-            <span class="tab-text">${t('multiCli.tab.planning') || 'Planning'}</span>
-          </button>
-          <button class="detail-tab" data-tab="discussion" onclick="switchMultiCliDetailTab('discussion')">
-            <span class="tab-icon"><i data-lucide="messages-square" class="w-4 h-4"></i></span>
-            <span class="tab-text">${t('multiCli.tab.discussion') || 'Discussion'}</span>
-            <span class="tab-count">${roundCount}</span>
-          </button>
-          <button class="detail-tab" data-tab="association" onclick="switchMultiCliDetailTab('association')">
-            <span class="tab-icon"><i data-lucide="link-2" class="w-4 h-4"></i></span>
-            <span class="tab-text">${t('multiCli.tab.association') || 'Association'}</span>
-          </button>
-        </div>
-
-        <!-- Tab Content -->
-        <div class="detail-tab-content" id="multiCliDetailTabContent">
-          ${renderMultiCliPlanningTab(session)}
         </div>
       </div>
 
-      <!-- Right Toolbar -->
-      <div class="multi-cli-toolbar ${isMultiCliToolbarExpanded ? 'expanded' : 'collapsed'}" id="multiCliToolbar">
-        <button class="toolbar-toggle-btn" onclick="toggleMultiCliToolbar()" title="${t('multiCli.toolbar.toggle') || 'Toggle Task Panel'}">
-          <i data-lucide="${isMultiCliToolbarExpanded ? 'panel-right-close' : 'panel-right-open'}" class="w-5 h-5"></i>
-        </button>
-        <div class="toolbar-content">
-          ${renderMultiCliToolbar(session)}
+      <!-- Session Info Bar -->
+      <div class="detail-info-bar">
+        <div class="info-item">
+          <span class="info-label">${t('detail.created') || 'Created'}</span>
+          <span class="info-value">${formatDate(metadata.timestamp || session.createdAt)}</span>
         </div>
+        <div class="info-item">
+          <span class="info-label">${t('detail.tasks') || 'Tasks'}</span>
+          <span class="info-value">${tasks.length} ${t('session.tasks') || 'tasks'}</span>
+        </div>
+      </div>
+
+      <!-- Tab Navigation (same as lite-plan) -->
+      <div class="detail-tabs">
+        <button class="detail-tab active" data-tab="tasks" onclick="switchMultiCliDetailTab('tasks')">
+          <span class="tab-icon"><i data-lucide="list-checks" class="w-4 h-4"></i></span>
+          <span class="tab-text">${t('tab.tasks') || 'Tasks'}</span>
+          <span class="tab-count">${tasks.length}</span>
+        </button>
+        <button class="detail-tab" data-tab="plan" onclick="switchMultiCliDetailTab('plan')">
+          <span class="tab-icon"><i data-lucide="ruler" class="w-4 h-4"></i></span>
+          <span class="tab-text">${t('tab.plan') || 'Plan'}</span>
+        </button>
+        <button class="detail-tab" data-tab="discussion" onclick="switchMultiCliDetailTab('discussion')">
+          <span class="tab-icon"><i data-lucide="messages-square" class="w-4 h-4"></i></span>
+          <span class="tab-text">${t('multiCli.tab.discussion') || 'Discussion'}</span>
+          <span class="tab-count">${roundCount}</span>
+        </button>
+        <button class="detail-tab" data-tab="context" onclick="switchMultiCliDetailTab('context')">
+          <span class="tab-icon"><i data-lucide="package" class="w-4 h-4"></i></span>
+          <span class="tab-text">${t('tab.context') || 'Context'}</span>
+        </button>
+        <button class="detail-tab" data-tab="summary" onclick="switchMultiCliDetailTab('summary')">
+          <span class="tab-icon"><i data-lucide="file-text" class="w-4 h-4"></i></span>
+          <span class="tab-text">${t('tab.summary') || 'Summary'}</span>
+        </button>
+      </div>
+
+      <!-- Tab Content -->
+      <div class="detail-tab-content" id="multiCliDetailTabContent">
+        ${renderMultiCliTasksTab(session)}
       </div>
     </div>
   `;
 
-  // Initialize icons and collapsible sections
+  // Initialize icons, collapsible sections, and task click handlers
   setTimeout(() => {
     if (typeof lucide !== 'undefined') lucide.createIcons();
     initCollapsibleSections(container);
+    initMultiCliTaskClickHandlers();
   }, 50);
-}
-
-/**
- * Toggle multi-cli toolbar expanded/collapsed state
- */
-function toggleMultiCliToolbar() {
-  isMultiCliToolbarExpanded = !isMultiCliToolbarExpanded;
-  const toolbar = document.getElementById('multiCliToolbar');
-  const toggleBtn = toolbar?.querySelector('.toolbar-toggle-btn i');
-
-  if (toolbar) {
-    toolbar.classList.toggle('expanded', isMultiCliToolbarExpanded);
-    toolbar.classList.toggle('collapsed', !isMultiCliToolbarExpanded);
-
-    // Update icon
-    if (toggleBtn) {
-      toggleBtn.setAttribute('data-lucide', isMultiCliToolbarExpanded ? 'panel-right-close' : 'panel-right-open');
-      if (typeof lucide !== 'undefined') lucide.createIcons();
-    }
-  }
 }
 
 /**
@@ -507,10 +475,10 @@ function renderMultiCliToolbar(session) {
         ${tasks.map((task, idx) => {
           const taskTitle = task.title || task.summary || `Task ${idx + 1}`;
           const taskScope = task.scope || '';
-          const taskId = `task-${idx}`;
+          const taskIdValue = task.id || `T${idx + 1}`;
 
           return `
-            <div class="toolbar-task-item" onclick="scrollToMultiCliTask(${idx})" data-task-idx="${idx}">
+            <div class="toolbar-task-item" onclick="openToolbarTaskDrawer('${escapeHtml(session.id)}', '${escapeHtml(taskIdValue)}')" data-task-idx="${idx}">
               <span class="toolbar-task-num">#${idx + 1}</span>
               <div class="toolbar-task-info">
                 <span class="toolbar-task-title" title="${escapeHtml(taskTitle)}">${escapeHtml(taskTitle)}</span>
@@ -562,6 +530,13 @@ function scrollToMultiCliTask(taskIdx) {
   } else {
     scrollToTaskElement(taskIdx);
   }
+}
+
+/**
+ * Open task drawer from toolbar (wrapper for openTaskDrawerForMultiCli)
+ */
+function openToolbarTaskDrawer(sessionId, taskId) {
+  openTaskDrawerForMultiCli(sessionId, taskId);
 }
 
 /**
@@ -672,27 +647,414 @@ function switchMultiCliDetailTab(tabName) {
   const contentArea = document.getElementById('multiCliDetailTabContent');
 
   switch (tabName) {
-    case 'planning':
-      contentArea.innerHTML = renderMultiCliPlanningTab(session);
+    case 'tasks':
+      contentArea.innerHTML = renderMultiCliTasksTab(session);
+      break;
+    case 'plan':
+      contentArea.innerHTML = renderMultiCliPlanTab(session);
       break;
     case 'discussion':
       contentArea.innerHTML = renderMultiCliDiscussionSection(session);
       break;
-    case 'association':
-      contentArea.innerHTML = renderMultiCliAssociationSection(session);
-      break;
+    case 'context':
+      loadAndRenderMultiCliContextTab(session, contentArea);
+      return; // Early return as this is async
+    case 'summary':
+      loadAndRenderMultiCliSummaryTab(session, contentArea);
+      return; // Early return as this is async
   }
 
   // Re-initialize after tab switch
   setTimeout(() => {
     if (typeof lucide !== 'undefined') lucide.createIcons();
     initCollapsibleSections(contentArea);
+    // Initialize task click handlers for tasks tab
+    if (tabName === 'tasks') {
+      initMultiCliTaskClickHandlers();
+    }
   }, 50);
 }
 
 // ============================================
 // MULTI-CLI TAB RENDERERS
 // ============================================
+
+/**
+ * Render Tasks tab - displays tasks from plan.json (same style as lite-plan)
+ */
+function renderMultiCliTasksTab(session) {
+  const plan = session.plan || {};
+  const tasks = plan.tasks || [];
+
+  // Populate drawer tasks for click-to-open functionality
+  currentDrawerTasks = tasks;
+
+  if (tasks.length === 0) {
+    return `
+      <div class="tab-empty-state">
+        <div class="empty-icon"><i data-lucide="clipboard-list" class="w-12 h-12"></i></div>
+        <div class="empty-title">${t('empty.noTasks') || 'No Tasks'}</div>
+        <div class="empty-text">${t('empty.noTasksText') || 'No tasks available for this session.'}</div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="tasks-tab-content">
+      <div class="tasks-list" id="multiCliTasksListContent">
+        ${tasks.map((task, idx) => renderMultiCliTaskItem(session.id, task, idx)).join('')}
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Render Plan tab - displays plan.json content (summary, approach, metadata)
+ */
+function renderMultiCliPlanTab(session) {
+  const plan = session.plan;
+
+  if (!plan) {
+    return `
+      <div class="tab-empty-state">
+        <div class="empty-icon"><i data-lucide="ruler" class="w-12 h-12"></i></div>
+        <div class="empty-title">${t('multiCli.empty.planning') || 'No Plan Data'}</div>
+        <div class="empty-text">${t('multiCli.empty.planningText') || 'No plan.json found for this session.'}</div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="plan-tab-content">
+      <!-- Summary -->
+      ${plan.summary ? `
+        <div class="plan-section">
+          <h4 class="plan-section-title"><i data-lucide="clipboard-list" class="w-4 h-4 inline mr-1"></i> Summary</h4>
+          <p class="plan-summary-text">${escapeHtml(plan.summary)}</p>
+        </div>
+      ` : ''}
+
+      <!-- Root Cause (fix-plan specific) -->
+      ${plan.root_cause ? `
+        <div class="plan-section">
+          <h4 class="plan-section-title"><i data-lucide="search" class="w-4 h-4 inline mr-1"></i> Root Cause</h4>
+          <p class="plan-root-cause-text">${escapeHtml(plan.root_cause)}</p>
+        </div>
+      ` : ''}
+
+      <!-- Strategy (fix-plan specific) -->
+      ${plan.strategy ? `
+        <div class="plan-section">
+          <h4 class="plan-section-title"><i data-lucide="route" class="w-4 h-4 inline mr-1"></i> Fix Strategy</h4>
+          <p class="plan-strategy-text">${escapeHtml(plan.strategy)}</p>
+        </div>
+      ` : ''}
+
+      <!-- Approach -->
+      ${plan.approach ? `
+        <div class="plan-section">
+          <h4 class="plan-section-title"><i data-lucide="target" class="w-4 h-4 inline mr-1"></i> Approach</h4>
+          <p class="plan-approach-text">${escapeHtml(plan.approach)}</p>
+        </div>
+      ` : ''}
+
+      <!-- User Requirements -->
+      ${plan.user_requirements ? `
+        <div class="plan-section">
+          <h4 class="plan-section-title"><i data-lucide="user" class="w-4 h-4 inline mr-1"></i> User Requirements</h4>
+          <p class="plan-requirements-text">${escapeHtml(plan.user_requirements)}</p>
+        </div>
+      ` : ''}
+
+      <!-- Focus Paths -->
+      ${plan.focus_paths?.length ? `
+        <div class="plan-section">
+          <h4 class="plan-section-title"><i data-lucide="folder" class="w-4 h-4 inline mr-1"></i> Focus Paths</h4>
+          <div class="path-tags">
+            ${plan.focus_paths.map(p => `<span class="path-tag">${escapeHtml(p)}</span>`).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Metadata -->
+      <div class="plan-section">
+        <h4 class="plan-section-title"><i data-lucide="info" class="w-4 h-4 inline mr-1"></i> Metadata</h4>
+        <div class="plan-meta-grid">
+          ${plan.severity ? `<div class="meta-item"><span class="meta-label">Severity:</span> <span class="severity-badge ${escapeHtml(plan.severity)}">${escapeHtml(plan.severity)}</span></div>` : ''}
+          ${plan.risk_level ? `<div class="meta-item"><span class="meta-label">Risk Level:</span> <span class="risk-badge ${escapeHtml(plan.risk_level)}">${escapeHtml(plan.risk_level)}</span></div>` : ''}
+          ${plan.estimated_time ? `<div class="meta-item"><span class="meta-label">Estimated Time:</span> ${escapeHtml(plan.estimated_time)}</div>` : ''}
+          ${plan.complexity ? `<div class="meta-item"><span class="meta-label">Complexity:</span> ${escapeHtml(plan.complexity)}</div>` : ''}
+          ${plan.recommended_execution ? `<div class="meta-item"><span class="meta-label">Execution:</span> ${escapeHtml(plan.recommended_execution)}</div>` : ''}
+        </div>
+      </div>
+
+      <!-- Raw JSON -->
+      <div class="plan-section collapsible-section">
+        <div class="collapsible-header">
+          <span class="collapse-icon">&#9654;</span>
+          <span class="section-label">{ } Raw JSON</span>
+        </div>
+        <div class="collapsible-content collapsed">
+          <pre class="json-content">${escapeHtml(JSON.stringify(plan, null, 2))}</pre>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Load and render Context tab - displays context-package content
+ */
+async function loadAndRenderMultiCliContextTab(session, contentArea) {
+  contentArea.innerHTML = `<div class="tab-loading">${t('common.loading') || 'Loading...'}</div>`;
+
+  try {
+    if (window.SERVER_MODE && session.path) {
+      const response = await fetch(`/api/session-detail?path=${encodeURIComponent(session.path)}&type=context`);
+      if (response.ok) {
+        const data = await response.json();
+        contentArea.innerHTML = renderMultiCliContextContent(data.context, session);
+        initCollapsibleSections(contentArea);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return;
+      }
+    }
+    // Fallback: show session context_package if available
+    contentArea.innerHTML = renderMultiCliContextContent(session.context_package, session);
+    initCollapsibleSections(contentArea);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  } catch (err) {
+    contentArea.innerHTML = `<div class="tab-error">Failed to load context: ${err.message}</div>`;
+  }
+}
+
+/**
+ * Render context content for multi-cli
+ */
+function renderMultiCliContextContent(context, session) {
+  // Also check for context_package in session
+  const ctx = context || session.context_package || {};
+
+  if (!ctx || Object.keys(ctx).length === 0) {
+    return `
+      <div class="tab-empty-state">
+        <div class="empty-icon"><i data-lucide="package" class="w-12 h-12"></i></div>
+        <div class="empty-title">${t('empty.noContext') || 'No Context Data'}</div>
+        <div class="empty-text">${t('empty.noContextText') || 'No context package available for this session.'}</div>
+      </div>
+    `;
+  }
+
+  let sections = [];
+
+  // Task Description
+  if (ctx.task_description) {
+    sections.push(`
+      <div class="context-section">
+        <h4 class="context-section-title"><i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i> Task Description</h4>
+        <p class="context-description">${escapeHtml(ctx.task_description)}</p>
+      </div>
+    `);
+  }
+
+  // Constraints
+  if (ctx.constraints?.length) {
+    sections.push(`
+      <div class="context-section">
+        <h4 class="context-section-title"><i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1"></i> Constraints</h4>
+        <ul class="constraints-list">
+          ${ctx.constraints.map(c => `<li>${escapeHtml(c)}</li>`).join('')}
+        </ul>
+      </div>
+    `);
+  }
+
+  // Focus Paths
+  if (ctx.focus_paths?.length) {
+    sections.push(`
+      <div class="context-section">
+        <h4 class="context-section-title"><i data-lucide="folder" class="w-4 h-4 inline mr-1"></i> Focus Paths</h4>
+        <div class="path-tags">
+          ${ctx.focus_paths.map(p => `<span class="path-tag">${escapeHtml(p)}</span>`).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  // Relevant Files
+  if (ctx.relevant_files?.length) {
+    sections.push(`
+      <div class="context-section collapsible-section">
+        <div class="collapsible-header">
+          <span class="collapse-icon">&#9654;</span>
+          <span class="section-label"><i data-lucide="files" class="w-4 h-4 inline mr-1"></i> Relevant Files (${ctx.relevant_files.length})</span>
+        </div>
+        <div class="collapsible-content collapsed">
+          <ul class="files-list">
+            ${ctx.relevant_files.map(f => `
+              <li class="file-item">
+                <span class="file-icon">📄</span>
+                <code>${escapeHtml(typeof f === 'string' ? f : f.path || f.file || '')}</code>
+                ${f.reason ? `<span class="file-reason">${escapeHtml(f.reason)}</span>` : ''}
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      </div>
+    `);
+  }
+
+  // Dependencies
+  if (ctx.dependencies?.length) {
+    sections.push(`
+      <div class="context-section collapsible-section">
+        <div class="collapsible-header">
+          <span class="collapse-icon">&#9654;</span>
+          <span class="section-label"><i data-lucide="git-branch" class="w-4 h-4 inline mr-1"></i> Dependencies (${ctx.dependencies.length})</span>
+        </div>
+        <div class="collapsible-content collapsed">
+          <ul class="deps-list">
+            ${ctx.dependencies.map(d => `<li>${escapeHtml(typeof d === 'string' ? d : d.name || JSON.stringify(d))}</li>`).join('')}
+          </ul>
+        </div>
+      </div>
+    `);
+  }
+
+  // Conflict Risks
+  if (ctx.conflict_risks?.length) {
+    sections.push(`
+      <div class="context-section">
+        <h4 class="context-section-title"><i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i> Conflict Risks</h4>
+        <ul class="risks-list">
+          ${ctx.conflict_risks.map(r => `<li class="risk-item">${escapeHtml(typeof r === 'string' ? r : r.description || JSON.stringify(r))}</li>`).join('')}
+        </ul>
+      </div>
+    `);
+  }
+
+  // Session ID
+  if (ctx.session_id) {
+    sections.push(`
+      <div class="context-section">
+        <h4 class="context-section-title"><i data-lucide="hash" class="w-4 h-4 inline mr-1"></i> Session ID</h4>
+        <code class="session-id-code">${escapeHtml(ctx.session_id)}</code>
+      </div>
+    `);
+  }
+
+  // Raw JSON
+  sections.push(`
+    <div class="context-section collapsible-section">
+      <div class="collapsible-header">
+        <span class="collapse-icon">&#9654;</span>
+        <span class="section-label">{ } Raw JSON</span>
+      </div>
+      <div class="collapsible-content collapsed">
+        <pre class="json-content">${escapeHtml(JSON.stringify(ctx, null, 2))}</pre>
+      </div>
+    </div>
+  `);
+
+  return `<div class="context-tab-content">${sections.join('')}</div>`;
+}
+
+/**
+ * Load and render Summary tab
+ */
+async function loadAndRenderMultiCliSummaryTab(session, contentArea) {
+  contentArea.innerHTML = `<div class="tab-loading">${t('common.loading') || 'Loading...'}</div>`;
+
+  try {
+    if (window.SERVER_MODE && session.path) {
+      const response = await fetch(`/api/session-detail?path=${encodeURIComponent(session.path)}&type=summary`);
+      if (response.ok) {
+        const data = await response.json();
+        contentArea.innerHTML = renderMultiCliSummaryContent(data.summary, session);
+        initCollapsibleSections(contentArea);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return;
+      }
+    }
+    // Fallback: show synthesis summary
+    contentArea.innerHTML = renderMultiCliSummaryContent(null, session);
+    initCollapsibleSections(contentArea);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  } catch (err) {
+    contentArea.innerHTML = `<div class="tab-error">Failed to load summary: ${err.message}</div>`;
+  }
+}
+
+/**
+ * Render summary content for multi-cli
+ */
+function renderMultiCliSummaryContent(summary, session) {
+  const synthesis = session.latestSynthesis || session.discussionTopic || {};
+  const plan = session.plan || {};
+
+  // Use summary from file or build from synthesis
+  const summaryText = summary || synthesis.convergence?.summary || plan.summary;
+
+  if (!summaryText && !synthesis.solutions?.length) {
+    return `
+      <div class="tab-empty-state">
+        <div class="empty-icon"><i data-lucide="file-text" class="w-12 h-12"></i></div>
+        <div class="empty-title">${t('empty.noSummary') || 'No Summary'}</div>
+        <div class="empty-text">${t('empty.noSummaryText') || 'No summary available for this session.'}</div>
+      </div>
+    `;
+  }
+
+  let sections = [];
+
+  // Main Summary
+  if (summaryText) {
+    const summaryContent = typeof summaryText === 'string' ? summaryText : getI18nText(summaryText);
+    sections.push(`
+      <div class="summary-section">
+        <h4 class="summary-section-title"><i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i> Summary</h4>
+        <div class="summary-content">${escapeHtml(summaryContent)}</div>
+      </div>
+    `);
+  }
+
+  // Convergence Status
+  if (synthesis.convergence) {
+    const conv = synthesis.convergence;
+    sections.push(`
+      <div class="summary-section">
+        <h4 class="summary-section-title"><i data-lucide="git-merge" class="w-4 h-4 inline mr-1"></i> Convergence</h4>
+        <div class="convergence-info">
+          <span class="convergence-level ${conv.level || ''}">${escapeHtml(conv.level || 'unknown')}</span>
+          <span class="convergence-rec ${conv.recommendation || ''}">${escapeHtml(conv.recommendation || '')}</span>
+        </div>
+      </div>
+    `);
+  }
+
+  // Solutions Summary
+  if (synthesis.solutions?.length) {
+    sections.push(`
+      <div class="summary-section collapsible-section">
+        <div class="collapsible-header">
+          <span class="collapse-icon">&#9654;</span>
+          <span class="section-label"><i data-lucide="lightbulb" class="w-4 h-4 inline mr-1"></i> Solutions (${synthesis.solutions.length})</span>
+        </div>
+        <div class="collapsible-content collapsed">
+          ${synthesis.solutions.map((sol, idx) => `
+            <div class="solution-summary-item">
+              <span class="solution-num">#${idx + 1}</span>
+              <span class="solution-name">${escapeHtml(getI18nText(sol.title) || sol.id || `Solution ${idx + 1}`)}</span>
+              ${sol.feasibility?.score ? `<span class="feasibility-badge">${Math.round(sol.feasibility.score * 100)}%</span>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  return `<div class="summary-tab-content">${sections.join('')}</div>`;
+}
 
 /**
  * Render Discussion Topic tab
@@ -980,53 +1342,12 @@ function renderMultiCliPlanningTab(session) {
         </div>
       </div>
 
-      <!-- Tasks -->
+      <!-- Tasks (Click to view details) -->
       ${plan.tasks?.length ? `
         <div class="plan-section">
           <h4 class="plan-section-title"><i data-lucide="list-checks" class="w-4 h-4 inline mr-1"></i> Tasks (${plan.tasks.length})</h4>
-          <div class="fix-tasks-summary">
-            ${plan.tasks.map((task, idx) => `
-              <div class="fix-task-summary-item collapsible-section">
-                <div class="collapsible-header">
-                  <span class="collapse-icon">&#9654;</span>
-                  <span class="task-num">#${idx + 1}</span>
-                  <span class="task-title-brief">${escapeHtml(task.title || task.summary || 'Untitled')}</span>
-                  ${task.scope ? `<span class="task-scope-badge">${escapeHtml(task.scope)}</span>` : ''}
-                </div>
-                <div class="collapsible-content collapsed">
-                  ${task.modification_points?.length ? `
-                    <div class="task-detail-section">
-                      <strong>Modification Points:</strong>
-                      <ul class="mod-points-list">
-                        ${task.modification_points.map(mp => `
-                          <li>
-                            <code>${escapeHtml(mp.file || '')}</code>
-                            ${mp.function_name ? `<span class="func-name">-> ${escapeHtml(mp.function_name)}</span>` : ''}
-                            ${mp.change_type ? `<span class="change-type">(${escapeHtml(mp.change_type)})</span>` : ''}
-                          </li>
-                        `).join('')}
-                      </ul>
-                    </div>
-                  ` : ''}
-                  ${task.implementation?.length ? `
-                    <div class="task-detail-section">
-                      <strong>Implementation Steps:</strong>
-                      <ol class="impl-steps-list">
-                        ${task.implementation.map(step => `<li>${escapeHtml(step)}</li>`).join('')}
-                      </ol>
-                    </div>
-                  ` : ''}
-                  ${task.verification?.length ? `
-                    <div class="task-detail-section">
-                      <strong>Verification:</strong>
-                      <ul class="verify-list">
-                        ${task.verification.map(v => `<li>${escapeHtml(v)}</li>`).join('')}
-                      </ul>
-                    </div>
-                  ` : ''}
-                </div>
-              </div>
-            `).join('')}
+          <div class="tasks-list multi-cli-tasks-list">
+            ${plan.tasks.map((task, idx) => renderMultiCliTaskItem(session.id, task, idx)).join('')}
           </div>
         </div>
       ` : ''}
@@ -1041,6 +1362,346 @@ function renderMultiCliPlanningTab(session) {
           <pre class="json-content">${escapeHtml(JSON.stringify(plan, null, 2))}</pre>
         </div>
       </div>
+    </div>
+  `;
+}
+
+/**
+ * Render a single task item for multi-cli-plan (reuses lite-plan style)
+ * Supports click to open drawer for details
+ */
+function renderMultiCliTaskItem(sessionId, task, idx) {
+  const taskId = task.id || `T${idx + 1}`;
+  const taskJsonId = `multi-cli-task-${sessionId}-${taskId}`.replace(/[^a-zA-Z0-9-]/g, '-');
+  taskJsonStore[taskJsonId] = task;
+
+  // Get preview info
+  const action = task.action || '';
+  const scope = task.scope || task.file || '';
+  const modCount = task.modification_points?.length || 0;
+  const implCount = task.implementation?.length || 0;
+  const acceptCount = task.acceptance?.length || 0;
+
+  // Escape for data attributes
+  const safeSessionId = escapeHtml(sessionId);
+  const safeTaskId = escapeHtml(taskId);
+
+  return `
+    <div class="detail-task-item-full multi-cli-task-item" data-session-id="${safeSessionId}" data-task-id="${safeTaskId}" style="cursor: pointer;" title="Click to view details">
+      <div class="task-item-header-lite">
+        <span class="task-id-badge">${escapeHtml(taskId)}</span>
+        <span class="task-title">${escapeHtml(task.title || task.summary || 'Untitled')}</span>
+        <button class="btn-view-json" data-task-json-id="${taskJsonId}" data-task-display-id="${safeTaskId}">{ } JSON</button>
+      </div>
+      <div class="task-item-meta-lite">
+        ${action ? `<span class="meta-badge action">${escapeHtml(action)}</span>` : ''}
+        ${scope ? `<span class="meta-badge scope">${escapeHtml(scope)}</span>` : ''}
+        ${modCount > 0 ? `<span class="meta-badge mods">${modCount} mods</span>` : ''}
+        ${implCount > 0 ? `<span class="meta-badge impl">${implCount} steps</span>` : ''}
+        ${acceptCount > 0 ? `<span class="meta-badge accept">${acceptCount} acceptance</span>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Initialize click handlers for multi-cli task items
+ */
+function initMultiCliTaskClickHandlers() {
+  // Task item click handlers
+  document.querySelectorAll('.multi-cli-task-item').forEach(item => {
+    if (!item._clickBound) {
+      item._clickBound = true;
+      item.addEventListener('click', function(e) {
+        // Don't trigger if clicking on JSON button
+        if (e.target.closest('.btn-view-json')) return;
+
+        const sessionId = this.dataset.sessionId;
+        const taskId = this.dataset.taskId;
+        openTaskDrawerForMultiCli(sessionId, taskId);
+      });
+    }
+  });
+
+  // JSON button click handlers
+  document.querySelectorAll('.multi-cli-task-item .btn-view-json').forEach(btn => {
+    if (!btn._clickBound) {
+      btn._clickBound = true;
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const taskJsonId = this.dataset.taskJsonId;
+        const displayId = this.dataset.taskDisplayId;
+        showJsonModal(taskJsonId, displayId);
+      });
+    }
+  });
+}
+
+/**
+ * Open task drawer for multi-cli task
+ */
+function openTaskDrawerForMultiCli(sessionId, taskId) {
+  const session = liteTaskDataStore[currentSessionDetailKey];
+  if (!session || !session.plan) return;
+
+  const task = session.plan.tasks?.find(t => (t.id || `T${session.plan.tasks.indexOf(t) + 1}`) === taskId);
+  if (!task) return;
+
+  // Set current drawer tasks
+  currentDrawerTasks = session.plan.tasks || [];
+  window._currentDrawerSession = session;
+
+  document.getElementById('drawerTaskTitle').textContent = task.title || task.summary || taskId;
+  document.getElementById('drawerContent').innerHTML = renderMultiCliTaskDrawerContent(task, session);
+  document.getElementById('taskDetailDrawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('active');
+
+  // Re-init lucide icons in drawer
+  setTimeout(() => {
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }, 50);
+}
+
+/**
+ * Render drawer content for multi-cli task
+ */
+function renderMultiCliTaskDrawerContent(task, session) {
+  const taskId = task.id || 'Task';
+  const action = task.action || '';
+
+  return `
+    <!-- Task Header -->
+    <div class="drawer-task-header">
+      <span class="task-id-badge">${escapeHtml(taskId)}</span>
+      ${action ? `<span class="action-badge">${escapeHtml(action.toUpperCase())}</span>` : ''}
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="drawer-tabs">
+      <button class="drawer-tab active" data-tab="overview" onclick="switchMultiCliDrawerTab('overview')">Overview</button>
+      <button class="drawer-tab" data-tab="implementation" onclick="switchMultiCliDrawerTab('implementation')">Implementation</button>
+      <button class="drawer-tab" data-tab="files" onclick="switchMultiCliDrawerTab('files')">Files</button>
+      <button class="drawer-tab" data-tab="raw" onclick="switchMultiCliDrawerTab('raw')">Raw JSON</button>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="drawer-tab-content">
+      <!-- Overview Tab (default) -->
+      <div class="drawer-panel active" data-tab="overview">
+        ${renderMultiCliTaskOverview(task)}
+      </div>
+
+      <!-- Implementation Tab -->
+      <div class="drawer-panel" data-tab="implementation">
+        ${renderMultiCliTaskImplementation(task)}
+      </div>
+
+      <!-- Files Tab -->
+      <div class="drawer-panel" data-tab="files">
+        ${renderMultiCliTaskFiles(task)}
+      </div>
+
+      <!-- Raw JSON Tab -->
+      <div class="drawer-panel" data-tab="raw">
+        <pre class="json-view">${escapeHtml(JSON.stringify(task, null, 2))}</pre>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Switch drawer tab for multi-cli task
+ */
+function switchMultiCliDrawerTab(tabName) {
+  document.querySelectorAll('.drawer-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.tab === tabName);
+  });
+  document.querySelectorAll('.drawer-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.dataset.tab === tabName);
+  });
+}
+
+/**
+ * Render multi-cli task overview section
+ */
+function renderMultiCliTaskOverview(task) {
+  let sections = [];
+
+  // Description Card
+  if (task.description) {
+    sections.push(`
+      <div class="lite-card">
+        <div class="lite-card-header">
+          <span class="lite-card-icon">📝</span>
+          <h4 class="lite-card-title">Description</h4>
+        </div>
+        <div class="lite-card-body">
+          <p class="lite-description">${escapeHtml(task.description)}</p>
+        </div>
+      </div>
+    `);
+  }
+
+  // Scope Card
+  if (task.scope || task.file) {
+    sections.push(`
+      <div class="lite-card">
+        <div class="lite-card-header">
+          <span class="lite-card-icon">📂</span>
+          <h4 class="lite-card-title">Scope</h4>
+        </div>
+        <div class="lite-card-body">
+          <div class="lite-scope-box">
+            <code>${escapeHtml(task.scope || task.file)}</code>
+          </div>
+        </div>
+      </div>
+    `);
+  }
+
+  // Acceptance Criteria Card
+  if (task.acceptance?.length) {
+    sections.push(`
+      <div class="lite-card">
+        <div class="lite-card-header">
+          <span class="lite-card-icon">✅</span>
+          <h4 class="lite-card-title">Acceptance Criteria</h4>
+        </div>
+        <div class="lite-card-body">
+          <ul class="lite-acceptance-list">
+            ${task.acceptance.map(ac => `<li>${escapeHtml(ac)}</li>`).join('')}
+          </ul>
+        </div>
+      </div>
+    `);
+  }
+
+  // Reference Card
+  if (task.reference) {
+    const ref = task.reference;
+    sections.push(`
+      <div class="lite-card">
+        <div class="lite-card-header">
+          <span class="lite-card-icon">📚</span>
+          <h4 class="lite-card-title">Reference</h4>
+        </div>
+        <div class="lite-card-body">
+          ${ref.pattern ? `<div class="ref-item"><strong>PATTERN:</strong> ${escapeHtml(ref.pattern)}</div>` : ''}
+          ${ref.files?.length ? `<div class="ref-item"><strong>FILES:</strong><br><code class="ref-files">${ref.files.map(f => escapeHtml(f)).join('\n')}</code></div>` : ''}
+          ${ref.examples ? `<div class="ref-item"><strong>EXAMPLES:</strong> ${escapeHtml(ref.examples)}</div>` : ''}
+        </div>
+      </div>
+    `);
+  }
+
+  return sections.length ? sections.join('') : '<div class="empty-section">No overview data available</div>';
+}
+
+/**
+ * Render multi-cli task implementation section
+ */
+function renderMultiCliTaskImplementation(task) {
+  let sections = [];
+
+  // Modification Points
+  if (task.modification_points?.length) {
+    sections.push(`
+      <div class="drawer-section">
+        <h4 class="drawer-section-title">
+          <i data-lucide="file-edit" class="w-4 h-4"></i>
+          Modification Points
+        </h4>
+        <ul class="mod-points-detail-list">
+          ${task.modification_points.map(mp => `
+            <li class="mod-point-item">
+              <code class="mod-file">${escapeHtml(mp.file || '')}</code>
+              ${mp.target ? `<span class="mod-target">→ ${escapeHtml(mp.target)}</span>` : ''}
+              ${mp.function_name ? `<span class="mod-func">→ ${escapeHtml(mp.function_name)}</span>` : ''}
+              ${mp.change || mp.change_type ? `<span class="mod-change">(${escapeHtml(mp.change || mp.change_type)})</span>` : ''}
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+    `);
+  }
+
+  // Implementation Steps
+  if (task.implementation?.length) {
+    sections.push(`
+      <div class="drawer-section">
+        <h4 class="drawer-section-title">
+          <i data-lucide="list-ordered" class="w-4 h-4"></i>
+          Implementation Steps
+        </h4>
+        <ol class="impl-steps-detail-list">
+          ${task.implementation.map((step, idx) => `
+            <li class="impl-step-item">
+              <span class="step-num">${idx + 1}</span>
+              <span class="step-text">${escapeHtml(step)}</span>
+            </li>
+          `).join('')}
+        </ol>
+      </div>
+    `);
+  }
+
+  // Verification
+  if (task.verification?.length) {
+    sections.push(`
+      <div class="drawer-section">
+        <h4 class="drawer-section-title">
+          <i data-lucide="check-circle" class="w-4 h-4"></i>
+          Verification
+        </h4>
+        <ul class="verification-list">
+          ${task.verification.map(v => `<li>${escapeHtml(v)}</li>`).join('')}
+        </ul>
+      </div>
+    `);
+  }
+
+  return sections.length ? sections.join('') : '<div class="empty-section">No implementation details available</div>';
+}
+
+/**
+ * Render multi-cli task files section
+ */
+function renderMultiCliTaskFiles(task) {
+  const files = [];
+
+  // Collect from modification_points
+  if (task.modification_points) {
+    task.modification_points.forEach(mp => {
+      if (mp.file && !files.includes(mp.file)) files.push(mp.file);
+    });
+  }
+
+  // Collect from scope/file
+  if (task.scope && !files.includes(task.scope)) files.push(task.scope);
+  if (task.file && !files.includes(task.file)) files.push(task.file);
+
+  // Collect from reference.files
+  if (task.reference?.files) {
+    task.reference.files.forEach(f => {
+      if (f && !files.includes(f)) files.push(f);
+    });
+  }
+
+  if (files.length === 0) {
+    return '<div class="empty-section">No files specified</div>';
+  }
+
+  return `
+    <div class="drawer-section">
+      <h4 class="drawer-section-title">Target Files</h4>
+      <ul class="target-files-list">
+        ${files.map(f => `
+          <li class="file-item">
+            <span class="file-icon">📄</span>
+            <code>${escapeHtml(f)}</code>
+          </li>
+        `).join('')}
+      </ul>
     </div>
   `;
 }
