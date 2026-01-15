@@ -6,6 +6,7 @@
 // ========== Issue State ==========
 var issueData = {
   issues: [],
+  historyIssues: [], // Archived/completed issues from history
   queue: { tasks: [], solutions: [], conflicts: [], execution_groups: [], grouped_items: {} },
   selectedIssue: null,
   selectedSolution: null,
@@ -58,6 +59,18 @@ async function loadIssueData() {
   }
 }
 
+async function loadIssueHistory() {
+  try {
+    const response = await fetch('/api/issues/history?path=' + encodeURIComponent(projectPath));
+    if (!response.ok) throw new Error('Failed to load issue history');
+    const data = await response.json();
+    issueData.historyIssues = data.issues || [];
+  } catch (err) {
+    console.error('Failed to load issue history:', err);
+    issueData.historyIssues = [];
+  }
+}
+
 async function loadQueueData() {
   try {
     const response = await fetch('/api/queue?path=' + encodeURIComponent(projectPath));
@@ -93,10 +106,21 @@ function renderIssueView() {
   if (!container) return;
 
   const issues = issueData.issues || [];
+  const historyIssues = issueData.historyIssues || [];
+
   // Apply both status and search filters
-  let filteredIssues = issueData.statusFilter === 'all'
-    ? issues
-    : issues.filter(i => i.status === issueData.statusFilter);
+  let filteredIssues;
+  if (issueData.statusFilter === 'all') {
+    filteredIssues = issues;
+  } else if (issueData.statusFilter === 'completed') {
+    // For 'completed' filter, include both current completed issues and archived history issues
+    const currentCompleted = issues.filter(i => i.status === 'completed');
+    // Mark history issues as archived for visual distinction
+    const archivedIssues = historyIssues.map(i => ({ ...i, _isArchived: true }));
+    filteredIssues = [...currentCompleted, ...archivedIssues];
+  } else {
+    filteredIssues = issues.filter(i => i.status === issueData.statusFilter);
+  }
 
   if (issueData.searchQuery) {
     const query = issueData.searchQuery.toLowerCase();
@@ -309,12 +333,15 @@ function renderIssueCard(issue) {
     failed: 'failed'
   };
 
+  const isArchived = issue._isArchived;
+
   return `
-    <div class="issue-card" onclick="openIssueDetail('${issue.id}')">
+    <div class="issue-card ${isArchived ? 'archived' : ''}" onclick="openIssueDetail('${issue.id}'${isArchived ? ', true' : ''})">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-center gap-2">
           <span class="issue-id font-mono text-sm">${issue.id}</span>
           <span class="issue-status ${statusColors[issue.status] || ''}">${issue.status || 'unknown'}</span>
+          ${isArchived ? '<span class="issue-archived-badge">' + (t('issues.archived') || 'Archived') + '</span>' : ''}
         </div>
         <span class="issue-priority" title="${t('issues.priority') || 'Priority'}: ${issue.priority || 3}">
           ${renderPriorityStars(issue.priority || 3)}
@@ -360,8 +387,12 @@ function renderPriorityStars(priority) {
   return stars;
 }
 
-function filterIssuesByStatus(status) {
+async function filterIssuesByStatus(status) {
   issueData.statusFilter = status;
+  // Load history data when filtering by 'completed' status
+  if (status === 'completed' && issueData.historyIssues.length === 0) {
+    await loadIssueHistory();
+  }
   renderIssueView();
 }
 
@@ -725,7 +756,7 @@ async function saveQueueOrder(groupId, newOrder) {
 }
 
 // ========== Detail Panel ==========
-async function openIssueDetail(issueId) {
+async function openIssueDetail(issueId, isArchived = false) {
   const panel = document.getElementById('issueDetailPanel');
   if (!panel) return;
 
@@ -733,7 +764,23 @@ async function openIssueDetail(issueId) {
   panel.classList.remove('hidden');
   lucide.createIcons();
 
-  const detail = await loadIssueDetail(issueId);
+  let detail;
+  if (isArchived) {
+    // For archived issues, get detail from historyIssues (already loaded)
+    const historyIssue = issueData.historyIssues.find(i => i.id === issueId);
+    if (historyIssue) {
+      // Mark as archived and provide minimal detail structure
+      detail = {
+        ...historyIssue,
+        _isArchived: true,
+        solutions: historyIssue.solutions || [],
+        tasks: historyIssue.tasks || []
+      };
+    }
+  } else {
+    detail = await loadIssueDetail(issueId);
+  }
+
   if (!detail) {
     panel.innerHTML = '<div class="p-8 text-center text-destructive">Failed to load issue</div>';
     return;
