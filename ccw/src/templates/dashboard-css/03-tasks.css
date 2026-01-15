@@ -302,9 +302,14 @@
 
 .collapsible-content {
   padding: 1rem;
+  display: block;
+}
+
+.collapsible-content.collapsed {
   display: none;
 }
 
+/* Legacy .open class support */
 .collapsible-content.open {
   display: block;
 }
