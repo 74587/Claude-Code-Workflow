@@ -13,12 +13,23 @@ var issueData = {
   selectedSolutionIssueId: null,
   statusFilter: 'all',
   searchQuery: '',
-  viewMode: 'issues' // 'issues' | 'queue'
+  viewMode: 'issues', // 'issues' | 'queue'
+  // Search suggestions state
+  searchSuggestions: [],
+  showSuggestions: false,
+  selectedSuggestion: -1
 };
 var issueLoading = false;
 var issueDragState = {
   dragging: null,
   groupId: null
+};
+
+// Multi-queue state
+var queueData = {
+  queues: [],           // All queue index entries
+  activeQueueId: null,  // Currently active queue
+  expandedQueueId: null // Queue showing execution groups
 };
 
 // ========== Main Render Function ==========
@@ -36,7 +47,7 @@ async function renderIssueManager() {
     '</div>';
 
   // Load data
-  await Promise.all([loadIssueData(), loadQueueData()]);
+  await Promise.all([loadIssueData(), loadQueueData(), loadAllQueues()]);
 
   // Render the main view
   renderIssueView();
@@ -82,6 +93,20 @@ async function loadQueueData() {
   }
 }
 
+async function loadAllQueues() {
+  try {
+    const response = await fetch('/api/queue/history?path=' + encodeURIComponent(projectPath));
+    if (!response.ok) throw new Error('Failed to load queue history');
+    const data = await response.json();
+    queueData.queues = data.queues || [];
+    queueData.activeQueueId = data.active_queue_id;
+  } catch (err) {
+    console.error('Failed to load all queues:', err);
+    queueData.queues = [];
+    queueData.activeQueueId = null;
+  }
+}
+
 async function loadIssueDetail(issueId) {
   try {
     const response = await fetch('/api/issues/' + encodeURIComponent(issueId) + '?path=' + encodeURIComponent(projectPath));
@@ -124,11 +149,24 @@ function renderIssueView() {
 
   if (issueData.searchQuery) {
     const query = issueData.searchQuery.toLowerCase();
-    filteredIssues = filteredIssues.filter(i =>
-      i.id.toLowerCase().includes(query) ||
-      (i.title && i.title.toLowerCase().includes(query)) ||
-      (i.context && i.context.toLowerCase().includes(query))
-    );
+    filteredIssues = filteredIssues.filter(i => {
+      // Basic field search
+      const basicMatch =
+        i.id.toLowerCase().includes(query) ||
+        (i.title && i.title.toLowerCase().includes(query)) ||
+        (i.context && i.context.toLowerCase().includes(query));
+
+      if (basicMatch) return true;
+
+      // Search in solutions
+      if (i.solutions && i.solutions.length > 0) {
+        return i.solutions.some(sol =>
+          (sol.description && sol.description.toLowerCase().includes(query)) ||
+          (sol.approach && sol.approach.toLowerCase().includes(query))
+        );
+      }
+      return false;
+    });
   }
 
   container.innerHTML = `
@@ -273,12 +311,18 @@ function renderIssueListSection(issues) {
                id="issueSearchInput"
                placeholder="${t('issues.searchPlaceholder') || 'Search issues...'}"
                value="${issueData.searchQuery}"
-               oninput="handleIssueSearch(this.value)" />
+               oninput="handleIssueSearch(this.value)"
+               onkeydown="handleSearchKeydown(event)"
+               onfocus="showSearchSuggestions()"
+               autocomplete="off" />
         ${issueData.searchQuery ? `
           <button class="issue-search-clear" onclick="clearIssueSearch()">
             <i data-lucide="x" class="w-3 h-3"></i>
           </button>
         ` : ''}
+        <div class="search-suggestions ${issueData.showSuggestions && issueData.searchSuggestions.length > 0 ? 'show' : ''}" id="searchSuggestions">
+          ${renderSearchSuggestions()}
+        </div>
       </div>
 
       <div class="issue-filters">
@@ -339,7 +383,7 @@ function renderIssueCard(issue) {
     <div class="issue-card ${isArchived ? 'archived' : ''}" onclick="openIssueDetail('${issue.id}'${isArchived ? ', true' : ''})">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-center gap-2">
-          <span class="issue-id font-mono text-sm">${issue.id}</span>
+          <span class="issue-id font-mono text-sm">${highlightMatch(issue.id, issueData.searchQuery)}</span>
           <span class="issue-status ${statusColors[issue.status] || ''}">${issue.status || 'unknown'}</span>
           ${isArchived ? '<span class="issue-archived-badge">' + (t('issues.archived') || 'Archived') + '</span>' : ''}
         </div>
@@ -348,7 +392,7 @@ function renderIssueCard(issue) {
         </span>
       </div>
 
-      <h3 class="issue-title text-foreground font-medium mb-2">${issue.title || issue.id}</h3>
+      <h3 class="issue-title text-foreground font-medium mb-2">${highlightMatch(issue.title || issue.id, issueData.searchQuery)}</h3>
 
       <div class="issue-meta flex items-center gap-4 text-sm text-muted-foreground">
         <span class="flex items-center gap-1">
@@ -398,25 +442,57 @@ async function filterIssuesByStatus(status) {
 
 // ========== Queue Section ==========
 function renderQueueSection() {
-  const queue = issueData.queue;
-  // Support both solution-level and task-level queues
-  const queueItems = queue.solutions || queue.tasks || [];
-  const isSolutionLevel = !!(queue.solutions && queue.solutions.length > 0);
-  const metadata = queue._metadata || {};
+  const queues = queueData.queues || [];
+  const activeQueueId = queueData.activeQueueId;
+  const expandedQueueId = queueData.expandedQueueId;
 
-  // Check if queue is empty
-  if (queueItems.length === 0) {
+  // If a queue is expanded, show loading then load detail
+  if (expandedQueueId) {
+    // Show loading state first, then load async
+    setTimeout(() => loadAndRenderExpandedQueue(expandedQueueId), 0);
     return `
-      <div class="queue-empty-container">
-        <div class="queue-empty-toolbar">
-          <button class="btn-secondary" onclick="showQueueHistoryModal()" title="${t('issues.queueHistory') || 'Queue History'}">
-            <i data-lucide="history" class="w-4 h-4"></i>
-            <span>${t('issues.history') || 'History'}</span>
+      <div id="queueExpandedWrapper" class="queue-expanded-wrapper">
+        <div class="queue-detail-header mb-4">
+          <button class="btn-secondary" onclick="queueData.expandedQueueId = null; renderIssueView();">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span>${t('common.back') || 'Back'}</span>
           </button>
+          <div class="queue-detail-title">
+            <h3 class="font-mono text-lg">${escapeHtml(expandedQueueId)}</h3>
+          </div>
         </div>
+        <div id="expandedQueueContent" class="flex items-center justify-center py-8">
+          <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i>
+          <span class="ml-2">${t('common.loading') || 'Loading...'}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // Show multi-queue cards view
+  return `
+    <!-- Queue Cards Header -->
+    <div class="queue-cards-header mb-4">
+      <div class="flex items-center gap-3">
+        <h3 class="text-lg font-semibold">${t('issues.executionQueues') || 'Execution Queues'}</h3>
+        <span class="text-sm text-muted-foreground">${queues.length} ${t('issues.queues') || 'queues'}</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="btn-secondary" onclick="loadAllQueues().then(() => renderIssueView())" title="${t('issues.refresh') || 'Refresh'}">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        </button>
+        <button class="btn-primary" onclick="createExecutionQueue()">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>${t('issues.createQueue') || 'Create Queue'}</span>
+        </button>
+      </div>
+    </div>
+
+    ${queues.length === 0 ? `
+      <div class="queue-empty-container">
         <div class="queue-empty">
           <i data-lucide="git-branch" class="w-16 h-16"></i>
-          <p class="queue-empty-title">${t('issues.queueEmpty') || 'Queue is empty'}</p>
+          <p class="queue-empty-title">${t('issues.noQueues') || 'No queues found'}</p>
           <p class="queue-empty-hint">${t('issues.queueEmptyHint') || 'Generate execution queue from bound solutions'}</p>
           <button class="queue-create-btn" onclick="createExecutionQueue()">
             <i data-lucide="play" class="w-4 h-4"></i>
@@ -424,14 +500,479 @@ function renderQueueSection() {
           </button>
         </div>
       </div>
+    ` : `
+      <!-- Queue Cards Grid -->
+      <div class="queue-cards-grid">
+        ${queues.map(q => renderQueueCard(q, q.id === activeQueueId)).join('')}
+      </div>
+    `}
+  `;
+}
+
+function renderQueueCard(queue, isActive) {
+  const itemCount = queue.total_solutions || queue.total_tasks || 0;
+  const completedCount = queue.completed_solutions || queue.completed_tasks || 0;
+  const progressPercent = itemCount > 0 ? Math.round((completedCount / itemCount) * 100) : 0;
+  const issueCount = queue.issue_ids?.length || 0;
+  const statusClass = queue.status === 'merged' ? 'merged' : queue.status || '';
+  const safeQueueId = escapeHtml(queue.id || '');
+
+  return `
+    <div class="queue-card ${isActive ? 'active' : ''} ${statusClass}" onclick="toggleQueueExpand('${safeQueueId}')">
+      <div class="queue-card-header">
+        <span class="queue-card-id font-mono">${safeQueueId}</span>
+        <div class="queue-card-badges">
+          ${isActive ? '<span class="queue-active-badge">Active</span>' : ''}
+          <span class="queue-status-badge ${statusClass}">${queue.status || 'unknown'}</span>
+        </div>
+      </div>
+
+      <div class="queue-card-stats">
+        <div class="progress-bar">
+          <div class="progress-fill ${queue.status === 'completed' ? 'completed' : ''}" style="width: ${progressPercent}%"></div>
+        </div>
+        <div class="queue-card-progress">
+          <span>${completedCount}/${itemCount} ${queue.total_solutions ? 'solutions' : 'tasks'}</span>
+          <span class="text-muted-foreground">${progressPercent}%</span>
+        </div>
+      </div>
+
+      <div class="queue-card-meta">
+        <span class="flex items-center gap-1">
+          <i data-lucide="layers" class="w-3 h-3"></i>
+          ${issueCount} issues
+        </span>
+        <span class="flex items-center gap-1">
+          <i data-lucide="calendar" class="w-3 h-3"></i>
+          ${queue.created_at ? new Date(queue.created_at).toLocaleDateString() : 'N/A'}
+        </span>
+      </div>
+
+      <div class="queue-card-actions" onclick="event.stopPropagation()">
+        <button class="btn-sm" onclick="toggleQueueExpand('${safeQueueId}')" title="View details">
+          <i data-lucide="eye" class="w-3 h-3"></i>
+        </button>
+        ${!isActive && queue.status !== 'merged' ? `
+          <button class="btn-sm btn-primary" onclick="activateQueue('${safeQueueId}')" title="Set as active">
+            <i data-lucide="check-circle" class="w-3 h-3"></i>
+          </button>
+        ` : ''}
+        ${queue.status !== 'merged' ? `
+          <button class="btn-sm" onclick="showMergeQueueModal('${safeQueueId}')" title="Merge into another queue">
+            <i data-lucide="git-merge" class="w-3 h-3"></i>
+          </button>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function toggleQueueExpand(queueId) {
+  if (queueData.expandedQueueId === queueId) {
+    queueData.expandedQueueId = null;
+  } else {
+    queueData.expandedQueueId = queueId;
+  }
+  renderIssueView();
+}
+
+async function activateQueue(queueId) {
+  try {
+    const response = await fetch('/api/queue/switch?path=' + encodeURIComponent(projectPath), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ queueId })
+    });
+    const result = await response.json();
+    if (result.success) {
+      showNotification(t('issues.queueActivated') || 'Queue activated: ' + queueId, 'success');
+      await Promise.all([loadQueueData(), loadAllQueues()]);
+      renderIssueView();
+    } else {
+      showNotification(result.error || 'Failed to activate queue', 'error');
+    }
+  } catch (err) {
+    console.error('Failed to activate queue:', err);
+    showNotification('Failed to activate queue', 'error');
+  }
+}
+
+async function deactivateQueue(queueId) {
+  try {
+    const response = await fetch('/api/queue/deactivate?path=' + encodeURIComponent(projectPath), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ queueId })
+    });
+    const result = await response.json();
+    if (result.success) {
+      showNotification(t('issues.queueDeactivated') || 'Queue deactivated', 'success');
+      queueData.activeQueueId = null;
+      await Promise.all([loadQueueData(), loadAllQueues()]);
+      renderIssueView();
+    } else {
+      showNotification(result.error || 'Failed to deactivate queue', 'error');
+    }
+  } catch (err) {
+    console.error('Failed to deactivate queue:', err);
+    showNotification('Failed to deactivate queue', 'error');
+  }
+}
+
+async function renderExpandedQueueView(queueId) {
+  const safeQueueId = escapeHtml(queueId || '');
+  // Fetch queue detail
+  let queue;
+  try {
+    const response = await fetch('/api/queue/' + encodeURIComponent(queueId) + '?path=' + encodeURIComponent(projectPath));
+    queue = await response.json();
+    if (queue.error) throw new Error(queue.error);
+  } catch (err) {
+    return `
+      <div class="queue-error">
+        <button class="btn-secondary mb-4" onclick="queueData.expandedQueueId = null; renderIssueView();">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
+        </button>
+        <p class="text-red-500">Failed to load queue: ${escapeHtml(err.message)}</p>
+      </div>
     `;
   }
 
-  // Group items by execution_group or treat all as single group
+  const queueItems = queue.solutions || queue.tasks || [];
+  const isSolutionLevel = !!(queue.solutions && queue.solutions.length > 0);
+  const metadata = queue._metadata || {};
+  const isActive = queueId === queueData.activeQueueId;
+
+  // Group items by execution_group
+  const groupMap = {};
+  queueItems.forEach(item => {
+    const groupId = item.execution_group || 'default';
+    if (!groupMap[groupId]) groupMap[groupId] = [];
+    groupMap[groupId].push(item);
+  });
+
+  const groups = queue.execution_groups || Object.keys(groupMap).map(groupId => ({
+    id: groupId,
+    type: groupId.startsWith('P') ? 'parallel' : 'sequential',
+    solution_count: groupMap[groupId]?.length || 0
+  }));
+  const groupedItems = queue.grouped_items || groupMap;
+
+  return `
+    <!-- Back Button & Queue Header -->
+    <div class="queue-detail-header mb-4">
+      <button class="btn-secondary" onclick="queueData.expandedQueueId = null; renderIssueView();">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        <span>${t('common.back') || 'Back'}</span>
+      </button>
+      <div class="queue-detail-title">
+        <h3 class="font-mono text-lg">${escapeHtml(queue.id || queueId)}</h3>
+        <div class="flex items-center gap-2">
+          ${isActive ? '<span class="queue-active-badge">Active</span>' : ''}
+          <span class="queue-status-badge ${escapeHtml(queue.status || '')}">${escapeHtml(queue.status || 'unknown')}</span>
+        </div>
+      </div>
+      <div class="queue-detail-actions">
+        ${!isActive && queue.status !== 'merged' ? `
+          <button class="btn-primary" onclick="activateQueue('${safeQueueId}')">
+            <i data-lucide="check-circle" class="w-4 h-4"></i>
+            <span>${t('issues.activate') || 'Activate'}</span>
+          </button>
+        ` : ''}
+        ${isActive ? `
+          <button class="btn-secondary btn-warning" onclick="deactivateQueue('${safeQueueId}')">
+            <i data-lucide="x-circle" class="w-4 h-4"></i>
+            <span>${t('issues.deactivate') || 'Deactivate'}</span>
+          </button>
+        ` : ''}
+        <button class="btn-secondary" onclick="refreshExpandedQueue('${safeQueueId}')">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Queue Stats -->
+    <div class="queue-stats-grid mb-4">
+      <div class="queue-stat-card">
+        <span class="queue-stat-value">${isSolutionLevel ? (metadata.total_solutions || queueItems.length) : (metadata.total_tasks || queueItems.length)}</span>
+        <span class="queue-stat-label">${isSolutionLevel ? 'Solutions' : 'Tasks'}</span>
+      </div>
+      <div class="queue-stat-card pending">
+        <span class="queue-stat-value">${metadata.pending_count || queueItems.filter(i => i.status === 'pending').length}</span>
+        <span class="queue-stat-label">Pending</span>
+      </div>
+      <div class="queue-stat-card executing">
+        <span class="queue-stat-value">${metadata.executing_count || queueItems.filter(i => i.status === 'executing').length}</span>
+        <span class="queue-stat-label">Executing</span>
+      </div>
+      <div class="queue-stat-card completed">
+        <span class="queue-stat-value">${isSolutionLevel ? (metadata.completed_solutions || 0) : (metadata.completed_tasks || queueItems.filter(i => i.status === 'completed').length)}</span>
+        <span class="queue-stat-label">Completed</span>
+      </div>
+      <div class="queue-stat-card failed">
+        <span class="queue-stat-value">${metadata.failed_count || queueItems.filter(i => i.status === 'failed').length}</span>
+        <span class="queue-stat-label">Failed</span>
+      </div>
+    </div>
+
+    <div class="queue-info mb-4">
+      <p class="text-sm text-muted-foreground">
+        <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
+        ${t('issues.reorderHint') || 'Drag items within a group to reorder. Click item to view details.'}
+      </p>
+    </div>
+
+    <div class="queue-timeline">
+      ${groups.map(group => renderQueueGroupWithDelete(group, groupedItems[group.id] || groupMap[group.id] || [], queueId)).join('')}
+    </div>
+
+    ${queue.conflicts && queue.conflicts.length > 0 ? renderConflictsSection(queue.conflicts) : ''}
+  `;
+}
+
+// Async loader for expanded queue view - renders into DOM container
+async function loadAndRenderExpandedQueue(queueId) {
+  const wrapper = document.getElementById('queueExpandedWrapper');
+  if (!wrapper) return;
+
+  try {
+    const html = await renderExpandedQueueView(queueId);
+    wrapper.innerHTML = html;
+    // Re-init icons and drag-drop after DOM update
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+    // Initialize drag-drop for queue items
+    initQueueDragDrop();
+  } catch (err) {
+    console.error('Failed to load expanded queue:', err);
+    wrapper.innerHTML = `
+      <div class="text-center py-8 text-red-500">
+        <i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2"></i>
+        <p>Failed to load queue: ${escapeHtml(err.message || 'Unknown error')}</p>
+        <button class="btn-secondary mt-4" onclick="queueData.expandedQueueId = null; renderIssueView();">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
+        </button>
+      </div>
+    `;
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+  }
+}
+
+function renderQueueGroupWithDelete(group, items, queueId) {
+  const isParallel = group.type === 'parallel';
+  const itemCount = group.solution_count || group.task_count || items.length;
+  const itemLabel = group.solution_count ? 'solutions' : 'tasks';
+
+  return `
+    <div class="queue-group" data-group-id="${group.id}">
+      <div class="queue-group-header">
+        <div class="queue-group-type ${isParallel ? 'parallel' : 'sequential'}">
+          <i data-lucide="${isParallel ? 'git-merge' : 'arrow-right'}" class="w-4 h-4"></i>
+          ${group.id} (${isParallel ? 'Parallel' : 'Sequential'})
+        </div>
+        <span class="text-sm text-muted-foreground">${itemCount} ${itemLabel}</span>
+      </div>
+      <div class="queue-items ${isParallel ? 'parallel' : 'sequential'}">
+        ${items.map((item, idx) => renderQueueItemWithDelete(item, idx, items.length, queueId)).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderQueueItemWithDelete(item, index, total, queueId) {
+  const statusColors = {
+    pending: '',
+    ready: 'ready',
+    executing: 'executing',
+    completed: 'completed',
+    failed: 'failed',
+    blocked: 'blocked'
+  };
+
+  const isSolutionItem = item.task_count !== undefined;
+  const safeItemId = escapeHtml(item.item_id || '');
+  const safeIssueId = escapeHtml(item.issue_id || '');
+  const safeQueueId = escapeHtml(queueId || '');
+  const safeSolutionId = escapeHtml(item.solution_id || '');
+  const safeTaskId = escapeHtml(item.task_id || '-');
+  const safeFilesTouched = item.files_touched ? escapeHtml(item.files_touched.join(', ')) : '';
+  const safeDependsOn = item.depends_on ? escapeHtml(item.depends_on.join(', ')) : '';
+
+  return `
+    <div class="queue-item ${statusColors[item.status] || ''}"
+         draggable="true"
+         data-item-id="${safeItemId}"
+         data-group-id="${escapeHtml(item.execution_group || '')}"
+         onclick="openQueueItemDetail('${safeItemId}')">
+      <span class="queue-item-id font-mono text-xs">${safeItemId}</span>
+      <span class="queue-item-issue text-xs text-muted-foreground">${safeIssueId}</span>
+      ${isSolutionItem ? `
+        <span class="queue-item-solution text-sm" title="${safeSolutionId}">
+          <i data-lucide="package" class="w-3 h-3 inline mr-1"></i>
+          ${item.task_count} tasks
+        </span>
+        ${item.files_touched && item.files_touched.length > 0 ? `
+          <span class="queue-item-files text-xs text-muted-foreground" title="${safeFilesTouched}">
+            <i data-lucide="file" class="w-3 h-3"></i>
+            ${item.files_touched.length}
+          </span>
+        ` : ''}
+      ` : `
+        <span class="queue-item-task text-sm">${safeTaskId}</span>
+      `}
+      <span class="queue-item-priority" style="opacity: ${item.semantic_priority || 0.5}">
+        <i data-lucide="arrow-up" class="w-3 h-3"></i>
+      </span>
+      ${item.depends_on && item.depends_on.length > 0 ? `
+        <span class="queue-item-deps text-xs text-muted-foreground" title="Depends on: ${safeDependsOn}">
+          <i data-lucide="link" class="w-3 h-3"></i>
+        </span>
+      ` : ''}
+      <button class="queue-item-delete btn-icon" onclick="event.stopPropagation(); deleteQueueItem('${safeQueueId}', '${safeItemId}')" title="Delete item">
+        <i data-lucide="trash-2" class="w-3 h-3"></i>
+      </button>
+    </div>
+  `;
+}
+
+async function deleteQueueItem(queueId, itemId) {
+  if (!confirm('Delete this item from queue?')) return;
+
+  try {
+    const response = await fetch('/api/queue/' + queueId + '/item/' + encodeURIComponent(itemId) + '?path=' + encodeURIComponent(projectPath), {
+      method: 'DELETE'
+    });
+    const result = await response.json();
+
+    if (result.success) {
+      showNotification('Item deleted from queue', 'success');
+      await Promise.all([loadQueueData(), loadAllQueues()]);
+      renderIssueView();
+    } else {
+      showNotification(result.error || 'Failed to delete item', 'error');
+    }
+  } catch (err) {
+    console.error('Failed to delete queue item:', err);
+    showNotification('Failed to delete item', 'error');
+  }
+}
+
+async function refreshExpandedQueue(queueId) {
+  await Promise.all([loadQueueData(), loadAllQueues()]);
+  renderIssueView();
+}
+
+// ========== Queue Merge Modal ==========
+function showMergeQueueModal(sourceQueueId) {
+  let modal = document.getElementById('mergeQueueModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'mergeQueueModal';
+    modal.className = 'issue-modal';
+    document.body.appendChild(modal);
+  }
+
+  const otherQueues = queueData.queues.filter(q =>
+    q.id !== sourceQueueId && q.status !== 'merged'
+  );
+
+  const safeSourceId = escapeHtml(sourceQueueId || '');
+
+  modal.innerHTML = `
+    <div class="issue-modal-backdrop" onclick="hideMergeQueueModal()"></div>
+    <div class="issue-modal-content" style="max-width: 500px;">
+      <div class="issue-modal-header">
+        <h3><i data-lucide="git-merge" class="w-5 h-5 inline mr-2"></i>Merge Queue</h3>
+        <button class="btn-icon" onclick="hideMergeQueueModal()">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="issue-modal-body">
+        <p class="mb-4">Merge <strong class="font-mono">${safeSourceId}</strong> into another queue:</p>
+        ${otherQueues.length === 0 ? `
+          <p class="text-muted-foreground text-center py-4">No other queues available for merging</p>
+        ` : `
+          <div class="form-group">
+            <label>Target Queue</label>
+            <select id="targetQueueSelect" class="w-full">
+              ${otherQueues.map(q => `
+                <option value="${escapeHtml(q.id)}">${escapeHtml(q.id)} (${q.total_solutions || q.total_tasks || 0} items)</option>
+              `).join('')}
+            </select>
+          </div>
+          <p class="text-sm text-muted-foreground mt-2">
+            <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
+            Items from source queue will be appended to target queue. Source queue will be marked as "merged".
+          </p>
+        `}
+      </div>
+      <div class="issue-modal-footer">
+        <button class="btn-secondary" onclick="hideMergeQueueModal()">Cancel</button>
+        ${otherQueues.length > 0 ? `
+          <button class="btn-primary" onclick="executeQueueMerge('${safeSourceId}')">
+            <i data-lucide="git-merge" class="w-4 h-4"></i>
+            Merge
+          </button>
+        ` : ''}
+      </div>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function hideMergeQueueModal() {
+  const modal = document.getElementById('mergeQueueModal');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+}
+
+async function executeQueueMerge(sourceQueueId) {
+  const targetQueueId = document.getElementById('targetQueueSelect')?.value;
+  if (!targetQueueId) return;
+
+  try {
+    const response = await fetch('/api/queue/merge?path=' + encodeURIComponent(projectPath), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceQueueId, targetQueueId })
+    });
+    const result = await response.json();
+
+    if (result.success) {
+      showNotification('Merged ' + result.mergedItemCount + ' items into ' + targetQueueId, 'success');
+      hideMergeQueueModal();
+      queueData.expandedQueueId = null;
+      await Promise.all([loadQueueData(), loadAllQueues()]);
+      renderIssueView();
+    } else {
+      showNotification(result.error || 'Failed to merge queues', 'error');
+    }
+  } catch (err) {
+    console.error('Failed to merge queues:', err);
+    showNotification('Failed to merge queues', 'error');
+  }
+}
+
+// ========== Legacy Queue Render (for backward compatibility) ==========
+function renderLegacyQueueSection() {
+  const queue = issueData.queue;
+  const queueItems = queue.solutions || queue.tasks || [];
+  const isSolutionLevel = !!(queue.solutions && queue.solutions.length > 0);
+  const metadata = queue._metadata || {};
+
+  if (queueItems.length === 0) {
+    return `<div class="queue-empty"><p>Queue is empty</p></div>`;
+  }
+
   const groups = queue.execution_groups || [];
   let groupedItems = queue.grouped_items || {};
 
-  // If no execution_groups, create a default grouping from queue items
   if (groups.length === 0 && queueItems.length > 0) {
     const groupMap = {};
     queueItems.forEach(item => {
@@ -442,7 +983,6 @@ function renderQueueSection() {
       groupMap[groupId].push(item);
     });
 
-    // Create synthetic groups
     const syntheticGroups = Object.keys(groupMap).map(groupId => ({
       id: groupId,
       type: 'sequential',
@@ -450,7 +990,6 @@ function renderQueueSection() {
     }));
 
     return `
-      <!-- Queue Header -->
       <div class="queue-toolbar mb-4">
         <div class="queue-stats">
           <div class="queue-info-card">
@@ -1234,6 +1773,20 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Helper: escape regex special characters
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Helper: highlight matching text in search results
+function highlightMatch(text, query) {
+  if (!text || !query) return escapeHtml(text || '');
+  const escaped = escapeHtml(text);
+  const escapedQuery = escapeRegex(escapeHtml(query));
+  const regex = new RegExp(`(${escapedQuery})`, 'gi');
+  return escaped.replace(regex, '<mark class="search-highlight">$1</mark>');
+}
+
 function openQueueItemDetail(itemId) {
   // Support both solution-level and task-level queues
   const items = issueData.queue.solutions || issueData.queue.tasks || [];
@@ -1366,15 +1919,177 @@ async function updateTaskStatus(issueId, taskId, status) {
 }
 
 // ========== Search Functions ==========
+var searchDebounceTimer = null;
+
 function handleIssueSearch(value) {
   issueData.searchQuery = value;
-  renderIssueView();
+
+  // Update suggestions immediately (no debounce for dropdown)
+  updateSearchSuggestions(value);
+  issueData.showSuggestions = value.length > 0;
+  issueData.selectedSuggestion = -1;
+  updateSuggestionsDropdown();
+
+  // Clear previous timer
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer);
+  }
+
+  // 300ms debounce for full re-render to prevent freeze on rapid input
+  searchDebounceTimer = setTimeout(() => {
+    renderIssueView();
+    // Restore input focus and cursor position
+    const input = document.getElementById('issueSearchInput');
+    if (input) {
+      input.focus();
+      input.setSelectionRange(value.length, value.length);
+    }
+  }, 300);
 }
 
 function clearIssueSearch() {
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer);
+  }
   issueData.searchQuery = '';
+  issueData.showSuggestions = false;
+  issueData.searchSuggestions = [];
+  issueData.selectedSuggestion = -1;
   renderIssueView();
 }
+
+// Update search suggestions based on query
+function updateSearchSuggestions(query) {
+  if (!query || query.length < 1) {
+    issueData.searchSuggestions = [];
+    return;
+  }
+
+  const q = query.toLowerCase();
+  const allIssues = [...issueData.issues, ...issueData.historyIssues];
+
+  // Find matching issues (max 6)
+  issueData.searchSuggestions = allIssues
+    .filter(issue => {
+      const idMatch = issue.id.toLowerCase().includes(q);
+      const titleMatch = issue.title && issue.title.toLowerCase().includes(q);
+      const contextMatch = issue.context && issue.context.toLowerCase().includes(q);
+      const solutionMatch = issue.solutions && issue.solutions.some(sol =>
+        (sol.description && sol.description.toLowerCase().includes(q)) ||
+        (sol.approach && sol.approach.toLowerCase().includes(q))
+      );
+      return idMatch || titleMatch || contextMatch || solutionMatch;
+    })
+    .slice(0, 6);
+}
+
+// Render search suggestions dropdown
+function renderSearchSuggestions() {
+  if (!issueData.searchSuggestions || issueData.searchSuggestions.length === 0) {
+    return '';
+  }
+
+  return issueData.searchSuggestions.map((issue, index) => `
+    <div class="search-suggestion-item ${index === issueData.selectedSuggestion ? 'selected' : ''}"
+         onclick="selectSuggestion(${index})"
+         onmouseenter="issueData.selectedSuggestion = ${index}">
+      <div class="suggestion-id">${highlightMatch(issue.id, issueData.searchQuery)}</div>
+      <div class="suggestion-title">${highlightMatch(issue.title || issue.id, issueData.searchQuery)}</div>
+    </div>
+  `).join('');
+}
+
+// Show search suggestions
+function showSearchSuggestions() {
+  if (issueData.searchQuery) {
+    updateSearchSuggestions(issueData.searchQuery);
+    issueData.showSuggestions = true;
+    updateSuggestionsDropdown();
+  }
+}
+
+// Hide search suggestions
+function hideSearchSuggestions() {
+  issueData.showSuggestions = false;
+  issueData.selectedSuggestion = -1;
+  const dropdown = document.getElementById('searchSuggestions');
+  if (dropdown) {
+    dropdown.classList.remove('show');
+  }
+}
+
+// Update suggestions dropdown without full re-render
+function updateSuggestionsDropdown() {
+  const dropdown = document.getElementById('searchSuggestions');
+  if (dropdown) {
+    dropdown.innerHTML = renderSearchSuggestions();
+    if (issueData.showSuggestions && issueData.searchSuggestions.length > 0) {
+      dropdown.classList.add('show');
+    } else {
+      dropdown.classList.remove('show');
+    }
+  }
+}
+
+// Select a suggestion
+function selectSuggestion(index) {
+  const issue = issueData.searchSuggestions[index];
+  if (issue) {
+    hideSearchSuggestions();
+    openIssueDetail(issue.id, issue._isArchived);
+  }
+}
+
+// Handle keyboard navigation in search
+function handleSearchKeydown(event) {
+  const suggestions = issueData.searchSuggestions || [];
+
+  if (!issueData.showSuggestions || suggestions.length === 0) {
+    // If Enter and no suggestions, just search
+    if (event.key === 'Enter') {
+      hideSearchSuggestions();
+    }
+    return;
+  }
+
+  switch (event.key) {
+    case 'ArrowDown':
+      event.preventDefault();
+      issueData.selectedSuggestion = Math.min(
+        issueData.selectedSuggestion + 1,
+        suggestions.length - 1
+      );
+      updateSuggestionsDropdown();
+      break;
+
+    case 'ArrowUp':
+      event.preventDefault();
+      issueData.selectedSuggestion = Math.max(issueData.selectedSuggestion - 1, -1);
+      updateSuggestionsDropdown();
+      break;
+
+    case 'Enter':
+      event.preventDefault();
+      if (issueData.selectedSuggestion >= 0) {
+        selectSuggestion(issueData.selectedSuggestion);
+      } else {
+        hideSearchSuggestions();
+      }
+      break;
+
+    case 'Escape':
+      hideSearchSuggestions();
+      break;
+  }
+}
+
+// Close suggestions when clicking outside
+document.addEventListener('click', function(event) {
+  const searchContainer = document.querySelector('.issue-search');
+  if (searchContainer && !searchContainer.contains(event.target)) {
+    hideSearchSuggestions();
+  }
+});
 
 // ========== Create Issue Modal ==========
 function generateIssueId() {

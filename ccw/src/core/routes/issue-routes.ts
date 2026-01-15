@@ -23,7 +23,7 @@
  * - POST   /api/queue/reorder       - Reorder queue items
  */
 import { readFileSync, existsSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
-import { join } from 'path';
+import { join, resolve, normalize } from 'path';
 import type { RouteContext } from './types.js';
 
 // ========== JSONL Helper Functions ==========
@@ -156,7 +156,30 @@ function writeQueue(issuesDir: string, queue: any) {
 
 function getIssueDetail(issuesDir: string, issueId: string) {
   const issues = readIssuesJsonl(issuesDir);
-  const issue = issues.find(i => i.id === issueId);
+  let issue = issues.find(i => i.id === issueId);
+
+  // Fallback: Reconstruct issue from solution file if issue not in issues.jsonl
+  if (!issue) {
+    const solutionPath = join(issuesDir, 'solutions', `${issueId}.jsonl`);
+    if (existsSync(solutionPath)) {
+      const solutions = readSolutionsJsonl(issuesDir, issueId);
+      if (solutions.length > 0) {
+        const boundSolution = solutions.find(s => s.is_bound) || solutions[0];
+        issue = {
+          id: issueId,
+          title: boundSolution?.description || issueId,
+          status: 'completed',
+          priority: 3,
+          context: boundSolution?.approach || '',
+          bound_solution_id: boundSolution?.id || null,
+          created_at: boundSolution?.created_at || new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          _reconstructed: true
+        };
+      }
+    }
+  }
+
   if (!issue) return null;
 
   const solutions = readSolutionsJsonl(issuesDir, issueId);
@@ -254,11 +277,46 @@ function bindSolutionToIssue(issuesDir: string, issueId: string, solutionId: str
   return { success: true, bound: solutionId };
 }
 
+// ========== Path Validation ==========
+
+/**
+ * Validate that the provided path is safe (no path traversal)
+ * Returns the resolved, normalized path or null if invalid
+ */
+function validateProjectPath(requestedPath: string, basePath: string): string | null {
+  if (!requestedPath) return basePath;
+
+  // Resolve to absolute path and normalize
+  const resolvedPath = resolve(normalize(requestedPath));
+  const resolvedBase = resolve(normalize(basePath));
+
+  // For local development tool, we allow any absolute path
+  // but prevent obvious traversal attempts
+  if (requestedPath.includes('..') && !resolvedPath.startsWith(resolvedBase)) {
+    // Check if it's trying to escape with ..
+    const normalizedRequested = normalize(requestedPath);
+    if (normalizedRequested.startsWith('..')) {
+      return null;
+    }
+  }
+
+  return resolvedPath;
+}
+
 // ========== Route Handler ==========
 
 export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
   const { pathname, url, req, res, initialPath, handlePostRequest } = ctx;
-  const projectPath = url.searchParams.get('path') || initialPath;
+  const rawProjectPath = url.searchParams.get('path') || initialPath;
+
+  // Validate project path to prevent path traversal
+  const projectPath = validateProjectPath(rawProjectPath, initialPath);
+  if (!projectPath) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Invalid project path' }));
+    return true;
+  }
+
   const issuesDir = join(projectPath, '.workflow', 'issues');
 
   // ===== Queue Routes (top-level /api/queue) =====
@@ -295,7 +353,8 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
 
   // GET /api/queue/:id - Get specific queue by ID
   const queueDetailMatch = pathname.match(/^\/api\/queue\/([^/]+)$/);
-  if (queueDetailMatch && req.method === 'GET' && queueDetailMatch[1] !== 'history' && queueDetailMatch[1] !== 'reorder') {
+  const reservedQueuePaths = ['history', 'reorder', 'switch', 'deactivate', 'merge'];
+  if (queueDetailMatch && req.method === 'GET' && !reservedQueuePaths.includes(queueDetailMatch[1])) {
     const queueId = queueDetailMatch[1];
     const queuesDir = join(issuesDir, 'queues');
     const queueFilePath = join(queuesDir, `${queueId}.json`);
@@ -342,6 +401,29 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
         return { success: true, active_queue_id: queueId };
       } catch (err) {
         return { error: 'Failed to switch queue' };
+      }
+    });
+    return true;
+  }
+
+  // POST /api/queue/deactivate - Deactivate current queue (set active to null)
+  if (pathname === '/api/queue/deactivate' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body: any) => {
+      const queuesDir = join(issuesDir, 'queues');
+      const indexPath = join(queuesDir, 'index.json');
+
+      try {
+        const index = existsSync(indexPath)
+          ? JSON.parse(readFileSync(indexPath, 'utf8'))
+          : { active_queue_id: null, queues: [] };
+
+        const previousActiveId = index.active_queue_id;
+        index.active_queue_id = null;
+        writeFileSync(indexPath, JSON.stringify(index, null, 2));
+
+        return { success: true, previous_active_id: previousActiveId };
+      } catch (err) {
+        return { error: 'Failed to deactivate queue' };
       }
     });
     return true;
@@ -395,6 +477,195 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
       writeQueue(issuesDir, queue);
 
       return { success: true, groupId, reordered: newOrder.length };
+    });
+    return true;
+  }
+
+  // DELETE /api/queue/:queueId/item/:itemId - Delete item from queue
+  const queueItemDeleteMatch = pathname.match(/^\/api\/queue\/([^/]+)\/item\/([^/]+)$/);
+  if (queueItemDeleteMatch && req.method === 'DELETE') {
+    const queueId = queueItemDeleteMatch[1];
+    const itemId = decodeURIComponent(queueItemDeleteMatch[2]);
+
+    const queuesDir = join(issuesDir, 'queues');
+    const queueFilePath = join(queuesDir, `${queueId}.json`);
+
+    if (!existsSync(queueFilePath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `Queue ${queueId} not found` }));
+      return true;
+    }
+
+    try {
+      const queue = JSON.parse(readFileSync(queueFilePath, 'utf8'));
+      const items = queue.solutions || queue.tasks || [];
+      const filteredItems = items.filter((item: any) => item.item_id !== itemId);
+
+      if (filteredItems.length === items.length) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `Item ${itemId} not found in queue` }));
+        return true;
+      }
+
+      // Update queue items
+      if (queue.solutions) {
+        queue.solutions = filteredItems;
+      } else {
+        queue.tasks = filteredItems;
+      }
+
+      // Recalculate metadata
+      const completedCount = filteredItems.filter((i: any) => i.status === 'completed').length;
+      queue._metadata = {
+        ...queue._metadata,
+        updated_at: new Date().toISOString(),
+        ...(queue.solutions
+          ? { total_solutions: filteredItems.length, completed_solutions: completedCount }
+          : { total_tasks: filteredItems.length, completed_tasks: completedCount })
+      };
+
+      writeFileSync(queueFilePath, JSON.stringify(queue, null, 2));
+
+      // Update index counts
+      const indexPath = join(queuesDir, 'index.json');
+      if (existsSync(indexPath)) {
+        try {
+          const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+          const queueEntry = index.queues?.find((q: any) => q.id === queueId);
+          if (queueEntry) {
+            if (queue.solutions) {
+              queueEntry.total_solutions = filteredItems.length;
+              queueEntry.completed_solutions = completedCount;
+            } else {
+              queueEntry.total_tasks = filteredItems.length;
+              queueEntry.completed_tasks = completedCount;
+            }
+            writeFileSync(indexPath, JSON.stringify(index, null, 2));
+          }
+        } catch (err) {
+          console.error('Failed to update queue index:', err);
+        }
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, queueId, deletedItemId: itemId }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to delete item' }));
+    }
+    return true;
+  }
+
+  // POST /api/queue/merge - Merge source queue into target queue
+  if (pathname === '/api/queue/merge' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body: any) => {
+      const { sourceQueueId, targetQueueId } = body;
+      if (!sourceQueueId || !targetQueueId) {
+        return { error: 'sourceQueueId and targetQueueId required' };
+      }
+
+      if (sourceQueueId === targetQueueId) {
+        return { error: 'Cannot merge queue into itself' };
+      }
+
+      const queuesDir = join(issuesDir, 'queues');
+      const sourcePath = join(queuesDir, `${sourceQueueId}.json`);
+      const targetPath = join(queuesDir, `${targetQueueId}.json`);
+
+      if (!existsSync(sourcePath)) return { error: `Source queue ${sourceQueueId} not found` };
+      if (!existsSync(targetPath)) return { error: `Target queue ${targetQueueId} not found` };
+
+      try {
+        const sourceQueue = JSON.parse(readFileSync(sourcePath, 'utf8'));
+        const targetQueue = JSON.parse(readFileSync(targetPath, 'utf8'));
+
+        const sourceItems = sourceQueue.solutions || sourceQueue.tasks || [];
+        const targetItems = targetQueue.solutions || targetQueue.tasks || [];
+        const isSolutionBased = !!targetQueue.solutions;
+
+        // Re-index source items to avoid ID conflicts
+        const maxOrder = targetItems.reduce((max: number, i: any) => Math.max(max, i.execution_order || 0), 0);
+        const reindexedSourceItems = sourceItems.map((item: any, idx: number) => ({
+          ...item,
+          item_id: `${item.item_id}-merged`,
+          execution_order: maxOrder + idx + 1,
+          execution_group: item.execution_group ? `M-${item.execution_group}` : 'M-ungrouped'
+        }));
+
+        // Merge items
+        const mergedItems = [...targetItems, ...reindexedSourceItems];
+
+        if (isSolutionBased) {
+          targetQueue.solutions = mergedItems;
+        } else {
+          targetQueue.tasks = mergedItems;
+        }
+
+        // Merge issue_ids
+        const mergedIssueIds = [...new Set([
+          ...(targetQueue.issue_ids || []),
+          ...(sourceQueue.issue_ids || [])
+        ])];
+        targetQueue.issue_ids = mergedIssueIds;
+
+        // Update metadata
+        const completedCount = mergedItems.filter((i: any) => i.status === 'completed').length;
+        targetQueue._metadata = {
+          ...targetQueue._metadata,
+          updated_at: new Date().toISOString(),
+          ...(isSolutionBased
+            ? { total_solutions: mergedItems.length, completed_solutions: completedCount }
+            : { total_tasks: mergedItems.length, completed_tasks: completedCount })
+        };
+
+        // Write merged queue
+        writeFileSync(targetPath, JSON.stringify(targetQueue, null, 2));
+
+        // Update source queue status
+        sourceQueue.status = 'merged';
+        sourceQueue._metadata = {
+          ...sourceQueue._metadata,
+          merged_into: targetQueueId,
+          merged_at: new Date().toISOString()
+        };
+        writeFileSync(sourcePath, JSON.stringify(sourceQueue, null, 2));
+
+        // Update index
+        const indexPath = join(queuesDir, 'index.json');
+        if (existsSync(indexPath)) {
+          try {
+            const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+            const sourceEntry = index.queues?.find((q: any) => q.id === sourceQueueId);
+            const targetEntry = index.queues?.find((q: any) => q.id === targetQueueId);
+            if (sourceEntry) {
+              sourceEntry.status = 'merged';
+            }
+            if (targetEntry) {
+              if (isSolutionBased) {
+                targetEntry.total_solutions = mergedItems.length;
+                targetEntry.completed_solutions = completedCount;
+              } else {
+                targetEntry.total_tasks = mergedItems.length;
+                targetEntry.completed_tasks = completedCount;
+              }
+              targetEntry.issue_ids = mergedIssueIds;
+            }
+            writeFileSync(indexPath, JSON.stringify(index, null, 2));
+          } catch {
+            // Ignore index update errors
+          }
+        }
+
+        return {
+          success: true,
+          sourceQueueId,
+          targetQueueId,
+          mergedItemCount: sourceItems.length,
+          totalItems: mergedItems.length
+        };
+      } catch (err) {
+        return { error: 'Failed to merge queues' };
+      }
     });
     return true;
   }
