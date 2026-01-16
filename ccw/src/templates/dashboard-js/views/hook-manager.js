@@ -524,16 +524,32 @@ async function installHookTemplate(templateId, scope) {
     return;
   }
 
-  const hookData = {
-    command: template.command,
-    args: template.args
-  };
-
-  if (template.matcher) {
-    hookData.matcher = template.matcher;
+  // Platform compatibility check
+  const compatibility = PlatformUtils.checkCompatibility(template);
+  if (compatibility.issues.length > 0) {
+    const warnings = compatibility.issues.filter(i => i.level === 'warning');
+    if (warnings.length > 0) {
+      const platform = PlatformUtils.detect();
+      const warningMsg = warnings.map(w => w.message).join('; ');
+      console.warn(`[Hook Install] Platform: ${platform}, Warnings: ${warningMsg}`);
+      // Show warning but continue installation
+      showRefreshToast(`Warning: ${warningMsg}`, 'warning', 5000);
+    }
   }
 
-  await saveHook(scope, template.event, hookData);
+  // Get platform-specific variant if available
+  const adaptedTemplate = PlatformUtils.getVariant(template);
+
+  const hookData = {
+    command: adaptedTemplate.command,
+    args: adaptedTemplate.args
+  };
+
+  if (adaptedTemplate.matcher) {
+    hookData.matcher = adaptedTemplate.matcher;
+  }
+
+  await saveHook(scope, adaptedTemplate.event, hookData);
 }
 
 async function uninstallHookTemplate(templateId) {

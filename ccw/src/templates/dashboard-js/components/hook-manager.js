@@ -1,6 +1,103 @@
 // Hook Manager Component
 // Manages Claude Code hooks configuration from settings.json
 
+// ========== Platform Detection ==========
+const PlatformUtils = {
+  // Detect current platform
+  detect() {
+    if (typeof navigator !== 'undefined') {
+      const platform = navigator.platform.toLowerCase();
+      if (platform.includes('win')) return 'windows';
+      if (platform.includes('mac')) return 'macos';
+      return 'linux';
+    }
+    if (typeof process !== 'undefined') {
+      if (process.platform === 'win32') return 'windows';
+      if (process.platform === 'darwin') return 'macos';
+      return 'linux';
+    }
+    return 'unknown';
+  },
+
+  isWindows() {
+    return this.detect() === 'windows';
+  },
+
+  isUnix() {
+    const platform = this.detect();
+    return platform === 'macos' || platform === 'linux';
+  },
+
+  // Get default shell for platform
+  getShell() {
+    return this.isWindows() ? 'cmd' : 'bash';
+  },
+
+  // Check if template is compatible with current platform
+  checkCompatibility(template) {
+    const platform = this.detect();
+    const issues = [];
+
+    // bash commands require Unix or Git Bash on Windows
+    if (template.command === 'bash' && platform === 'windows') {
+      issues.push({
+        level: 'warning',
+        message: 'bash command may not work on Windows without Git Bash or WSL'
+      });
+    }
+
+    // Check for Unix-specific shell features in args
+    if (template.args && Array.isArray(template.args)) {
+      const argStr = template.args.join(' ');
+
+      if (platform === 'windows') {
+        // Unix shell features that won't work in cmd
+        if (argStr.includes('$HOME') || argStr.includes('${HOME}')) {
+          issues.push({ level: 'warning', message: 'Uses $HOME - use %USERPROFILE% on Windows' });
+        }
+        if (argStr.includes('$(') || argStr.includes('`')) {
+          issues.push({ level: 'warning', message: 'Uses command substitution - not supported in cmd' });
+        }
+        if (argStr.includes(' | ')) {
+          issues.push({ level: 'info', message: 'Uses pipes - works in cmd but syntax may differ' });
+        }
+      }
+    }
+
+    return {
+      compatible: issues.filter(i => i.level === 'error').length === 0,
+      issues
+    };
+  },
+
+  // Get platform-specific command variant if available
+  getVariant(template) {
+    const platform = this.detect();
+
+    // Check if template has platform-specific variants
+    if (template.variants && template.variants[platform]) {
+      return { ...template, ...template.variants[platform] };
+    }
+
+    return template;
+  },
+
+  // Escape script for specific shell type
+  escapeForShell(script, shell) {
+    if (shell === 'bash' || shell === 'sh') {
+      // Unix: use single quotes, escape internal single quotes
+      return script.replace(/'/g, "'\\''");
+    } else if (shell === 'cmd') {
+      // Windows cmd: escape double quotes and special chars
+      return script.replace(/"/g, '\\"').replace(/%/g, '%%');
+    } else if (shell === 'powershell') {
+      // PowerShell: escape single quotes by doubling
+      return script.replace(/'/g, "''");
+    }
+    return script;
+  }
+};
+
 // ========== Hook State ==========
 let hookConfig = {
   global: { hooks: {} },
@@ -384,6 +481,29 @@ function convertToClaudeCodeFormat(hookData) {
       // Escape single quotes within the script: ' -> '\''
       const escapedScript = script.replace(/'/g, "'\\''");
       commandStr = `bash -c '${escapedScript}'`;
+      // Handle any additional args after the script
+      if (hookData.args.length > 2) {
+        const additionalArgs = hookData.args.slice(2).map(arg => {
+          if (arg.includes(' ') && !arg.startsWith('"') && !arg.startsWith("'")) {
+            return `"${arg.replace(/"/g, '\\"')}"`;
+          }
+          return arg;
+        });
+        commandStr += ' ' + additionalArgs.join(' ');
+      }
+    } else if (commandStr === 'node' && hookData.args.length >= 2 && hookData.args[0] === '-e') {
+      // Special handling for node -e commands using PlatformUtils
+      const script = hookData.args[1];
+
+      if (PlatformUtils.isWindows()) {
+        // Windows: use double quotes, escape internal quotes
+        const escapedScript = PlatformUtils.escapeForShell(script, 'cmd');
+        commandStr = `node -e "${escapedScript}"`;
+      } else {
+        // Unix: use single quotes to prevent shell interpretation
+        const escapedScript = PlatformUtils.escapeForShell(script, 'bash');
+        commandStr = `node -e '${escapedScript}'`;
+      }
       // Handle any additional args after the script
       if (hookData.args.length > 2) {
         const additionalArgs = hookData.args.slice(2).map(arg => {
