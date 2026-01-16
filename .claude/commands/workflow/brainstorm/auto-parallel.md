@@ -424,6 +424,48 @@ CONTEXT_VARS:
 - **Agent execution failure**: Agent-specific retry with minimal dependencies
 - **Template loading issues**: Agent handles graceful degradation
 - **Synthesis conflicts**: Synthesis highlights disagreements without resolution
+- **Context overflow protection**: See below for automatic context management
+
+## Context Overflow Protection
+
+**⚠️ IMPORTANT**: Brainstorm workflows can generate substantial content across multiple roles. To prevent API context limit issues:
+
+### Per-Role Output Limits
+- Each `analysis.md` should be **< 3000 words**
+- Sub-documents (`analysis-*.md`) should be **< 2000 words each**
+- Maximum 5 sub-documents per role
+- Total per-role content: **< 15000 words**
+
+### Synthesis Phase Protection
+Before Phase 3 (synthesis), check total analysis size:
+```javascript
+// Check combined analysis size before synthesis
+const analysisFiles = Glob(".workflow/active/WFS-{session}/.brainstorming/*/analysis*.md");
+let totalSize = 0;
+for (const file of analysisFiles) {
+  totalSize += getFileSize(file);
+}
+
+// If total > 100KB, use summary mode
+if (totalSize > 100 * 1024) {
+  console.log("⚠️ Large context detected. Using summary mode for synthesis.");
+  // Synthesis will read only analysis.md (index) files, not sub-documents
+  useSummaryMode = true;
+}
+```
+
+### Recovery from Context Overflow
+If API returns empty response or timeout:
+1. **Identify overflow**: Check last request size in logs
+2. **Reduce scope**: Re-run synthesis with fewer roles (use `--count 2`)
+3. **Use summary mode**: Pass `--summary-only` to synthesis command
+4. **Manual synthesis**: Combine key insights from each role's `analysis.md` manually
+
+### Prevention Best Practices
+- Start with `--count 3` (default) before trying more roles
+- Use structured topic format: `"GOAL: [x] SCOPE: [y] CONTEXT: [z]"`
+- Review each role's output size before proceeding to synthesis
+- For complex topics, consider running brainstorm in phases (3 roles at a time)
 
 ## Reference Information
 

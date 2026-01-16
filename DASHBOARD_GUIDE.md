@@ -148,6 +148,36 @@ CCW Dashboard 是一个单页应用（SPA），界面由四个核心部分组成
 - **模型配置**: 配置每个工具的主要和次要模型
 - **安装/卸载**: 通过向导安装或卸载工具
 
+#### API Endpoint 配置（无需安装 CLI）
+
+如果您没有安装 Gemini/Qwen CLI，但有 API 访问权限（如反向代理服务），可以在 `~/.claude/cli-tools.json` 中配置 `api-endpoint` 类型的工具：
+
+```json
+{
+  "version": "3.2.0",
+  "tools": {
+    "gemini-api": {
+      "enabled": true,
+      "type": "api-endpoint",
+      "id": "your-api-id",
+      "primaryModel": "gemini-2.5-pro",
+      "secondaryModel": "gemini-2.5-flash",
+      "tags": ["analysis"]
+    }
+  }
+}
+```
+
+**配置说明**：
+- `type: "api-endpoint"`: 表示使用 API 调用而非 CLI
+- `id`: API 端点标识符，用于路由请求
+- API Endpoint 工具仅支持**分析模式**（只读），不支持文件写入操作
+
+**使用示例**：
+```bash
+ccw cli -p "分析代码结构" --tool gemini-api --mode analysis
+```
+
 #### CodexLens 管理
 - **索引路径**: 查看和修改索引存储位置
 - **索引操作**:
