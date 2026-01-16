@@ -398,6 +398,7 @@ async function updateCliToolConfig(tool, updates) {
       // Invalidate cache to ensure fresh data on page refresh
       if (window.cacheManager) {
         window.cacheManager.invalidate('cli-config');
+        window.cacheManager.invalidate('cli-tools-config');
       }
     }
     return data;
