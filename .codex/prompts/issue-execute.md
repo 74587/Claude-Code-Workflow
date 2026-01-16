@@ -11,46 +11,21 @@ argument-hint: "--queue <queue-id> [--worktree [<existing-path>]]"
 
 ## Queue ID Requirement (MANDATORY)
 
-**Queue ID is REQUIRED.** You MUST specify which queue to execute via `--queue <queue-id>`.
+**`--queue <queue-id>` parameter is REQUIRED**
 
-### If Queue ID Not Provided
+### When Queue ID Not Provided
 
-When `--queue` parameter is missing, you MUST:
-
-1. **List available queues** by running:
-```javascript
-const result = shell_command({ command: "ccw issue queue list --brief --json" })
+```
+List queues → Output options → Stop and wait for user
 ```
 
-2. **Parse and display queues** to user:
-```
-Available Queues:
-ID                    Status      Progress    Issues
------------------------------------------------------------
-→ QUE-20251215-001   active      3/10        ISS-001, ISS-002
-  QUE-20251210-002   active      0/5         ISS-003
-  QUE-20251205-003   completed   8/8         ISS-004
-```
+**Actions**:
 
-3. **Stop and ask user** to specify which queue to execute:
-```javascript
-AskUserQuestion({
-  questions: [{
-    question: "Which queue would you like to execute?",
-    header: "Queue",
-    multiSelect: false,
-    options: [
-      // Generate from parsed queue list - only show active/pending queues
-      { label: "QUE-20251215-001", description: "active, 3/10 completed, Issues: ISS-001, ISS-002" },
-      { label: "QUE-20251210-002", description: "active, 0/5 completed, Issues: ISS-003" }
-    ]
-  }]
-})
-```
+1. `ccw issue queue list --brief --json` - Fetch queue list
+2. Filter active/pending status, output formatted list
+3. **Stop execution**, prompt user to rerun with `codex -p "@.codex/prompts/issue-execute.md --queue QUE-xxx"`
 
-4. **After user selection**, continue execution with the selected queue ID.
-
-**DO NOT auto-select queues.** Explicit user confirmation is required to prevent accidental execution of wrong queue.
+**No auto-selection** - User MUST explicitly specify queue-id
 
 ## Worktree Mode (Recommended for Parallel Execution)
 
@@ -147,33 +122,19 @@ codex -p "@.codex/prompts/issue-execute.md --worktree /path/to/existing/worktree
 
 **Completion - User Choice:**
 
-When all solutions are complete, ask user what to do with the worktree branch:
+When all solutions are complete, output options and wait for user to specify:
 
-```javascript
-AskUserQuestion({
-  questions: [{
-    question: "All solutions completed in worktree. What would you like to do with the changes?",
-    header: "Merge",
-    multiSelect: false,
-    options: [
-      {
-        label: "Merge to main",
-        description: "Merge worktree branch into main branch and cleanup"
-      },
-      {
-        label: "Create PR",
-        description: "Push branch and create a pull request for review"
-      },
-      {
-        label: "Keep branch",
-        description: "Keep the branch for manual handling, cleanup worktree only"
-      }
-    ]
-  }]
-})
+```
+All solutions completed in worktree. Choose next action:
+
+1. Merge to main - Merge worktree branch into main and cleanup
+2. Create PR - Push branch and create pull request (Recommended for parallel execution)
+3. Keep branch - Keep branch for manual handling, cleanup worktree only
+
+Please respond with: 1, 2, or 3
 ```
 
-**Based on user selection:**
+**Based on user response:**
 
 ```bash
 # Disable cleanup trap before intentional cleanup
@@ -327,9 +288,154 @@ Expected solution structure:
 }
 ```
 
+## Step 2.1: Determine Execution Strategy
+
+After parsing the solution, analyze the issue type and task actions to determine the appropriate execution strategy. The strategy defines additional verification steps and quality gates beyond the basic implement-test-verify cycle.
+
+### Strategy Auto-Matching
+
+**Matching Priority**:
+1. Explicit `solution.strategy_type` if provided
+2. Infer from `task.action` keywords (Debug, Fix, Feature, Refactor, Test, etc.)
+3. Infer from `solution.description` and `task.title` content
+4. Default to "standard" if no clear match
+
+**Strategy Types and Matching Keywords**:
+
+| Strategy Type | Match Keywords | Description |
+|---------------|----------------|-------------|
+| `debug` | Debug, Diagnose, Trace, Investigate | Bug diagnosis with logging and debugging |
+| `bugfix` | Fix, Patch, Resolve, Correct | Bug fixing with root cause analysis |
+| `feature` | Feature, Add, Implement, Create, Build | New feature development with full testing |
+| `refactor` | Refactor, Restructure, Optimize, Cleanup | Code restructuring with behavior preservation |
+| `test` | Test, Coverage, E2E, Integration | Test implementation with coverage checks |
+| `performance` | Performance, Optimize, Speed, Memory | Performance optimization with benchmarking |
+| `security` | Security, Vulnerability, CVE, Audit | Security fixes with vulnerability checks |
+| `hotfix` | Hotfix, Urgent, Critical, Emergency | Urgent fixes with minimal changes |
+| `documentation` | Documentation, Docs, Comment, README | Documentation updates with example validation |
+| `chore` | Chore, Dependency, Config, Maintenance | Maintenance tasks with compatibility checks |
+| `standard` | (default) | Standard implementation without extra steps |
+
+### Strategy-Specific Execution Phases
+
+Each strategy extends the basic cycle with additional quality gates:
+
+#### 1. Debug → Reproduce → Instrument → Diagnose → Implement → Test → Verify → Cleanup
+
+```
+REPRODUCE → INSTRUMENT → DIAGNOSE → IMPLEMENT → TEST → VERIFY → CLEANUP
+```
+
+#### 2. Bugfix → Root Cause → Implement → Test → Edge Cases → Regression → Verify
+
+```
+ROOT_CAUSE → IMPLEMENT → TEST → EDGE_CASES → REGRESSION → VERIFY
+```
+
+#### 3. Feature → Design Review → Unit Tests → Implement → Integration Tests → Code Review → Docs → Verify
+
+```
+DESIGN_REVIEW → UNIT_TESTS → IMPLEMENT → INTEGRATION_TESTS → TEST → CODE_REVIEW → DOCS → VERIFY
+```
+
+#### 4. Refactor → Baseline Tests → Implement → Test → Behavior Check → Performance Compare → Verify
+
+```
+BASELINE_TESTS → IMPLEMENT → TEST → BEHAVIOR_PRESERVATION → PERFORMANCE_CMP → VERIFY
+```
+
+#### 5. Test → Coverage Baseline → Test Design → Implement → Coverage Check → Verify
+
+```
+COVERAGE_BASELINE → TEST_DESIGN → IMPLEMENT → COVERAGE_CHECK → VERIFY
+```
+
+#### 6. Performance → Profiling → Bottleneck → Implement → Benchmark → Test → Verify
+
+```
+PROFILING → BOTTLENECK → IMPLEMENT → BENCHMARK → TEST → VERIFY
+```
+
+#### 7. Security → Vulnerability Scan → Implement → Security Test → Penetration Test → Verify
+
+```
+VULNERABILITY_SCAN → IMPLEMENT → SECURITY_TEST → PENETRATION_TEST → VERIFY
+```
+
+#### 8. Hotfix → Impact Assessment → Implement → Test → Quick Verify → Verify
+
+```
+IMPACT_ASSESSMENT → IMPLEMENT → TEST → QUICK_VERIFY → VERIFY
+```
+
+#### 9. Documentation → Implement → Example Validation → Format Check → Link Validation → Verify
+
+```
+IMPLEMENT → EXAMPLE_VALIDATION → FORMAT_CHECK → LINK_VALIDATION → VERIFY
+```
+
+#### 10. Chore → Implement → Compatibility Check → Test → Changelog → Verify
+
+```
+IMPLEMENT → COMPATIBILITY_CHECK → TEST → CHANGELOG → VERIFY
+```
+
+#### 11. Standard → Implement → Test → Verify
+
+```
+IMPLEMENT → TEST → VERIFY
+```
+
+### Strategy Selection Implementation
+
+**Pseudo-code for strategy matching**:
+
+```javascript
+function determineStrategy(solution) {
+  // Priority 1: Explicit strategy type
+  if (solution.strategy_type) {
+    return solution.strategy_type
+  }
+
+  // Priority 2: Infer from task actions
+  const actions = solution.tasks.map(t => t.action.toLowerCase())
+  const titles = solution.tasks.map(t => t.title.toLowerCase())
+  const description = solution.description.toLowerCase()
+  const allText = [...actions, ...titles, description].join(' ')
+
+  // Match keywords (order matters - more specific first)
+  if (/hotfix|urgent|critical|emergency/.test(allText)) return 'hotfix'
+  if (/debug|diagnose|trace|investigate/.test(allText)) return 'debug'
+  if (/security|vulnerability|cve|audit/.test(allText)) return 'security'
+  if (/performance|optimize|speed|memory|benchmark/.test(allText)) return 'performance'
+  if (/refactor|restructure|cleanup/.test(allText)) return 'refactor'
+  if (/test|coverage|e2e|integration/.test(allText)) return 'test'
+  if (/documentation|docs|comment|readme/.test(allText)) return 'documentation'
+  if (/chore|dependency|config|maintenance/.test(allText)) return 'chore'
+  if (/fix|patch|resolve|correct/.test(allText)) return 'bugfix'
+  if (/feature|add|implement|create|build/.test(allText)) return 'feature'
+
+  // Default
+  return 'standard'
+}
+```
+
+**Usage in execution flow**:
+
+```javascript
+// After parsing solution (Step 2)
+const strategy = determineStrategy(solution)
+console.log(`Strategy selected: ${strategy}`)
+
+// During task execution (Step 3), follow strategy-specific phases
+for (const task of solution.tasks) {
+  executeTaskWithStrategy(task, strategy)
+}
+```
+
 ## Step 2.5: Initialize Task Tracking
 
-After parsing solution, use `update_plan` to track each task:
+After parsing solution and determining strategy, use `update_plan` to track each task:
 
 ```javascript
 // Initialize plan with all tasks from solution
@@ -503,18 +609,19 @@ EOF
 ## Solution Committed: [solution_id]
 
 **Commit**: [commit hash]
-**Type**: [commit_type]
-**Scope**: [scope]
+**Type**: [commit_type]([scope])
 
-**Summary**:
-[solution.description]
+**Changes**:
+- [Feature/Fix/Improvement]: [What functionality was added/fixed/improved]
+- [Specific change 1]
+- [Specific change 2]
 
-**Tasks**: [N] tasks completed
-- [x] T1: [task1.title]
-- [x] T2: [task2.title]
-...
+**Files Modified**:
+- path/to/file1.ts - [Brief description of changes]
+- path/to/file2.ts - [Brief description of changes]
+- path/to/file3.ts - [Brief description of changes]
 
-**Files**: [M] files changed
+**Solution**: [solution_id] ([N] tasks completed)
 ```
 
 ## Step 4: Report Completion
@@ -629,9 +736,8 @@ When `ccw issue next` returns `{ "status": "empty" }`:
 
 If `--queue` was NOT provided in the command arguments:
 1. Run `ccw issue queue list --brief --json`
-2. Display available queues to user
-3. Ask user to select a queue via `AskUserQuestion`
-4. Store selected queue ID for all subsequent commands
+2. Filter and display active/pending queues to user
+3. **Stop execution**, prompt user to rerun with `--queue QUE-xxx`
 
 **Step 1: Fetch First Solution**
 
