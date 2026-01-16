@@ -1,7 +1,7 @@
 {
   "_metadata": {
     "version": "2.0.0",
-    "total_commands": 88,
+    "total_commands": 45,
     "total_agents": 16,
     "description": "Unified CCW-Help command index"
   },
@@ -485,6 +485,15 @@
       "category": "general",
       "difficulty": "Intermediate",
       "source": "../../../commands/enhance-prompt.md"
+    },
+    {
+      "name": "cli-init",
+      "command": "/cli:cli-init",
+      "description": "Initialize CLI tool configurations (.gemini/, .qwen/) with technology-aware ignore rules",
+      "arguments": "[--tool gemini|qwen|all] [--preview] [--output path]",
+      "category": "cli",
+      "difficulty": "Intermediate",
+      "source": "../../../commands/cli/cli-init.md"
     }
   ],
 

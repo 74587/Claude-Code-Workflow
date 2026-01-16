@@ -8,23 +8,23 @@ import { homedir } from 'os';
 import type { RouteContext } from './types.js';
 
 /**
- * Get the ccw-help index directory path (pure function)
- * Priority: project path (.claude/skills/ccw-help/index) > user path (~/.claude/skills/ccw-help/index)
+ * Get the ccw-help command.json file path (pure function)
+ * Priority: project path (.claude/skills/ccw-help/command.json) > user path (~/.claude/skills/ccw-help/command.json)
  * @param projectPath - The project path to check first
  */
-function getIndexDir(projectPath: string | null): string | null {
+function getCommandFilePath(projectPath: string | null): string | null {
   // Try project path first
   if (projectPath) {
-    const projectIndexDir = join(projectPath, '.claude', 'skills', 'ccw-help', 'index');
-    if (existsSync(projectIndexDir)) {
-      return projectIndexDir;
+    const projectFilePath = join(projectPath, '.claude', 'skills', 'ccw-help', 'command.json');
+    if (existsSync(projectFilePath)) {
+      return projectFilePath;
     }
   }
 
   // Fall back to user path
-  const userIndexDir = join(homedir(), '.claude', 'skills', 'ccw-help', 'index');
-  if (existsSync(userIndexDir)) {
-    return userIndexDir;
+  const userFilePath = join(homedir(), '.claude', 'skills', 'ccw-help', 'command.json');
+  if (existsSync(userFilePath)) {
+    return userFilePath;
   }
 
   return null;
@@ -83,45 +83,47 @@ function invalidateCache(key: string): void {
 let watchersInitialized = false;
 
 /**
- * Initialize file watchers for JSON indexes
- * @param projectPath - The project path to resolve index directory
+ * Initialize file watcher for command.json
+ * @param projectPath - The project path to resolve command file
  */
 function initializeFileWatchers(projectPath: string | null): void {
   if (watchersInitialized) return;
 
-  const indexDir = getIndexDir(projectPath);
+  const commandFilePath = getCommandFilePath(projectPath);
 
-  if (!indexDir) {
-    console.warn(`ccw-help index directory not found in project or user paths`);
+  if (!commandFilePath) {
+    console.warn(`ccw-help command.json not found in project or user paths`);
     return;
   }
 
   try {
-    // Watch all JSON files in index directory
-    const watcher = watch(indexDir, { recursive: false }, (eventType, filename) => {
-      if (!filename || !filename.endsWith('.json')) return;
+    // Watch the command.json file
+    const watcher = watch(commandFilePath, (eventType) => {
+      console.log(`File change detected: command.json (${eventType})`);
 
-      console.log(`File change detected: ${filename} (${eventType})`);
-
-      // Invalidate relevant cache entries
-      if (filename === 'all-commands.json') {
-        invalidateCache('all-commands');
-      } else if (filename === 'command-relationships.json') {
-        invalidateCache('command-relationships');
-      } else if (filename === 'by-category.json') {
-        invalidateCache('by-category');
-      }
+      // Invalidate all cache entries when command.json changes
+      invalidateCache('command-data');
     });
 
     watchersInitialized = true;
     (watcher as any).unref?.();
-    console.log(`File watchers initialized for: ${indexDir}`);
+    console.log(`File watcher initialized for: ${commandFilePath}`);
   } catch (error) {
-    console.error('Failed to initialize file watchers:', error);
+    console.error('Failed to initialize file watcher:', error);
   }
 }
 
 // ========== Helper Functions ==========
+
+/**
+ * Get command data from command.json (with caching)
+ */
+function getCommandData(projectPath: string | null): any {
+  const filePath = getCommandFilePath(projectPath);
+  if (!filePath) return null;
+
+  return getCachedData('command-data', filePath);
+}
 
 /**
  * Filter commands by search query
@@ -137,6 +139,15 @@ function filterCommands(commands: any[], query: string): any[] {
     cmd.category?.toLowerCase().includes(lowerQuery)
   );
 }
+
+/**
+ * Category merge mapping for frontend compatibility
+ * Merges additional categories into target category for display
+ * Format: { targetCategory: [additionalCategoriesToMerge] }
+ */
+const CATEGORY_MERGES: Record<string, string[]> = {
+  'cli': ['general'],  // CLI tab shows both 'cli' and 'general' commands
+};
 
 /**
  * Group commands by category with subcategories
@@ -166,7 +177,102 @@ function groupCommandsByCategory(commands: any[]): any {
     }
   }
 
+  // Apply category merges for frontend compatibility
+  for (const [target, sources] of Object.entries(CATEGORY_MERGES)) {
+    // Initialize target category if not exists
+    if (!grouped[target]) {
+      grouped[target] = {
+        name: target,
+        commands: [],
+        subcategories: {}
+      };
+    }
+
+    // Merge commands from source categories into target
+    for (const source of sources) {
+      if (grouped[source]) {
+        // Merge direct commands
+        grouped[target].commands = [
+          ...grouped[target].commands,
+          ...grouped[source].commands
+        ];
+        // Merge subcategories
+        for (const [subcat, cmds] of Object.entries(grouped[source].subcategories)) {
+          if (!grouped[target].subcategories[subcat]) {
+            grouped[target].subcategories[subcat] = [];
+          }
+          grouped[target].subcategories[subcat] = [
+            ...grouped[target].subcategories[subcat],
+            ...(cmds as any[])
+          ];
+        }
+      }
+    }
+  }
+
   return grouped;
+}
+
+/**
+ * Build workflow relationships from command flow data
+ */
+function buildWorkflowRelationships(commands: any[]): any {
+  const relationships: any = {
+    workflows: [],
+    dependencies: {},
+    alternatives: {}
+  };
+
+  for (const cmd of commands) {
+    if (!cmd.flow) continue;
+
+    const cmdName = cmd.command;
+
+    // Build next_steps relationships
+    if (cmd.flow.next_steps) {
+      if (!relationships.dependencies[cmdName]) {
+        relationships.dependencies[cmdName] = { next: [], prev: [] };
+      }
+      relationships.dependencies[cmdName].next = cmd.flow.next_steps;
+
+      // Add reverse relationship
+      for (const nextCmd of cmd.flow.next_steps) {
+        if (!relationships.dependencies[nextCmd]) {
+          relationships.dependencies[nextCmd] = { next: [], prev: [] };
+        }
+        if (!relationships.dependencies[nextCmd].prev.includes(cmdName)) {
+          relationships.dependencies[nextCmd].prev.push(cmdName);
+        }
+      }
+    }
+
+    // Build prerequisites relationships
+    if (cmd.flow.prerequisites) {
+      if (!relationships.dependencies[cmdName]) {
+        relationships.dependencies[cmdName] = { next: [], prev: [] };
+      }
+      relationships.dependencies[cmdName].prev = [
+        ...new Set([...relationships.dependencies[cmdName].prev, ...cmd.flow.prerequisites])
+      ];
+    }
+
+    // Build alternatives
+    if (cmd.flow.alternatives) {
+      relationships.alternatives[cmdName] = cmd.flow.alternatives;
+    }
+
+    // Add to workflows list
+    if (cmd.category === 'workflow') {
+      relationships.workflows.push({
+        name: cmd.name,
+        command: cmd.command,
+        description: cmd.description,
+        flow: cmd.flow
+      });
+    }
+  }
+
+  return relationships;
 }
 
 // ========== API Routes ==========
@@ -181,25 +287,17 @@ export async function handleHelpRoutes(ctx: RouteContext): Promise<boolean> {
   // Initialize file watchers on first request
   initializeFileWatchers(initialPath);
 
-  const indexDir = getIndexDir(initialPath);
-
   // API: Get all commands with optional search
   if (pathname === '/api/help/commands') {
-    if (!indexDir) {
+    const commandData = getCommandData(initialPath);
+    if (!commandData) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'ccw-help index directory not found' }));
+      res.end(JSON.stringify({ error: 'ccw-help command.json not found' }));
       return true;
     }
+
     const searchQuery = url.searchParams.get('q') || '';
-    const filePath = join(indexDir, 'all-commands.json');
-
-    let commands = getCachedData('all-commands', filePath);
-
-    if (!commands) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Commands data not found' }));
-      return true;
-    }
+    let commands = commandData.commands || [];
 
     // Filter by search query if provided
     if (searchQuery) {
@@ -213,26 +311,24 @@ export async function handleHelpRoutes(ctx: RouteContext): Promise<boolean> {
     res.end(JSON.stringify({
       commands: commands,
       grouped: grouped,
-      total: commands.length
+      total: commands.length,
+      essential: commandData.essential_commands || [],
+      metadata: commandData._metadata
     }));
     return true;
   }
 
   // API: Get workflow command relationships
   if (pathname === '/api/help/workflows') {
-    if (!indexDir) {
+    const commandData = getCommandData(initialPath);
+    if (!commandData) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'ccw-help index directory not found' }));
+      res.end(JSON.stringify({ error: 'ccw-help command.json not found' }));
       return true;
     }
-    const filePath = join(indexDir, 'command-relationships.json');
-    const relationships = getCachedData('command-relationships', filePath);
 
-    if (!relationships) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Workflow relationships not found' }));
-      return true;
-    }
+    const commands = commandData.commands || [];
+    const relationships = buildWorkflowRelationships(commands);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(relationships));
@@ -241,22 +337,38 @@ export async function handleHelpRoutes(ctx: RouteContext): Promise<boolean> {
 
   // API: Get commands by category
   if (pathname === '/api/help/commands/by-category') {
-    if (!indexDir) {
+    const commandData = getCommandData(initialPath);
+    if (!commandData) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'ccw-help index directory not found' }));
+      res.end(JSON.stringify({ error: 'ccw-help command.json not found' }));
       return true;
     }
-    const filePath = join(indexDir, 'by-category.json');
-    const byCategory = getCachedData('by-category', filePath);
 
-    if (!byCategory) {
+    const commands = commandData.commands || [];
+    const byCategory = groupCommandsByCategory(commands);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      categories: commandData.categories || [],
+      grouped: byCategory
+    }));
+    return true;
+  }
+
+  // API: Get agents list
+  if (pathname === '/api/help/agents') {
+    const commandData = getCommandData(initialPath);
+    if (!commandData) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Category data not found' }));
+      res.end(JSON.stringify({ error: 'ccw-help command.json not found' }));
       return true;
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(byCategory));
+    res.end(JSON.stringify({
+      agents: commandData.agents || [],
+      total: (commandData.agents || []).length
+    }));
     return true;
   }
 
