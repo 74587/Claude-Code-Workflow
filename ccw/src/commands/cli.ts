@@ -1216,7 +1216,7 @@ export async function cliCommand(
         console.log(chalk.gray('    -f, --file <file>   Read prompt from file (recommended for multi-line prompts)'));
         console.log(chalk.gray('    -p, --prompt <text> Prompt text (single-line)'));
         console.log(chalk.gray('    --tool <tool>       Tool: gemini, qwen, codex (default: gemini)'));
-        console.log(chalk.gray('    --mode <mode>       Mode: analysis, write, auto (default: analysis)'));
+        console.log(chalk.gray('    --mode <mode>       Mode: analysis, write, auto, review (default: analysis)'));
         console.log(chalk.gray('    -d, --debug         Enable debug logging for troubleshooting'));
         console.log(chalk.gray('    --model <model>     Model override'));
         console.log(chalk.gray('    --cd <path>         Working directory'));

@@ -223,7 +223,21 @@ export function buildCommand(params: {
 
     case 'codex':
       useStdin = true;
-      if (nativeResume?.enabled) {
+      if (mode === 'review') {
+        // codex review mode: non-interactive code review
+        // Format: codex review [OPTIONS] [PROMPT]
+        args.push('review');
+        // Default to --uncommitted if no specific review target in prompt
+        args.push('--uncommitted');
+        if (model) {
+          args.push('-m', model);
+        }
+        // codex review uses positional prompt argument, not stdin
+        useStdin = false;
+        if (prompt) {
+          args.push(prompt);
+        }
+      } else if (nativeResume?.enabled) {
         args.push('resume');
         if (nativeResume.isLatest) {
           args.push('--last');

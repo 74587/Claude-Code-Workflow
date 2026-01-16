@@ -160,7 +160,7 @@ interface ClaudeWithSettingsParams {
   prompt: string;
   settingsPath: string;
   endpointId: string;
-  mode: 'analysis' | 'write' | 'auto';
+  mode: 'analysis' | 'write' | 'auto' | 'review';
   workingDir: string;
   cd?: string;
   includeDirs?: string[];
@@ -351,7 +351,7 @@ type BuiltinCliTool = typeof BUILTIN_CLI_TOOLS[number];
 const ParamsSchema = z.object({
   tool: z.string().min(1, 'Tool is required'), // Accept any tool ID (built-in or custom endpoint)
   prompt: z.string().min(1, 'Prompt is required'),
-  mode: z.enum(['analysis', 'write', 'auto']).default('analysis'),
+  mode: z.enum(['analysis', 'write', 'auto', 'review']).default('analysis'),
   format: z.enum(['plain', 'yaml', 'json']).default('plain'), // Multi-turn prompt concatenation format
   model: z.string().optional(),
   cd: z.string().optional(),
@@ -1176,7 +1176,8 @@ export const schema: ToolSchema = {
 Modes:
 - analysis: Read-only operations (default)
 - write: File modifications allowed
-- auto: Full autonomous operations (codex only)`,
+- auto: Full autonomous operations (codex only)
+- review: Code review mode (codex uses 'codex review' subcommand, others accept but no operation change)`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -1191,8 +1192,8 @@ Modes:
       },
       mode: {
         type: 'string',
-        enum: ['analysis', 'write', 'auto'],
-        description: 'Execution mode (default: analysis)',
+        enum: ['analysis', 'write', 'auto', 'review'],
+        description: 'Execution mode (default: analysis). review mode uses codex review subcommand for codex tool.',
         default: 'analysis'
       },
       model: {

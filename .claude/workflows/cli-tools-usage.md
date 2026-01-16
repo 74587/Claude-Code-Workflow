@@ -85,10 +85,13 @@ Tools are selected based on **tags** defined in the configuration. Use tags to m
 
 ```bash
 # Explicit tool selection
-ccw cli -p "<PROMPT>" --tool <tool-id> --mode <analysis|write>
+ccw cli -p "<PROMPT>" --tool <tool-id> --mode <analysis|write|review>
 
 # Model override
 ccw cli -p "<PROMPT>" --tool <tool-id> --model <model-id> --mode <analysis|write>
+
+# Code review (codex only)
+ccw cli -p "<PROMPT>" --tool codex --mode review
 
 # Tag-based auto-selection (future)
 ccw cli -p "<PROMPT>" --tags <tag1,tag2> --mode <analysis|write>
@@ -330,6 +333,14 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
   - Use For: Feature implementation, bug fixes, documentation, code creation, file modifications
   - Specification: Requires explicit `--mode write`
 
+- **`review`**
+  - Permission: Read-only (code review output)
+  - Use For: Git-aware code review of uncommitted changes, branch diffs, specific commits
+  - Specification: **codex only** - uses `codex review` subcommand with `--uncommitted` by default
+  - Tool Behavior:
+    - `codex`: Executes `codex review --uncommitted [prompt]` for structured code review
+    - Other tools (gemini/qwen/claude): Accept mode but no operation change (treated as analysis)
+
 ### Command Options
 
 - **`--tool <tool>`**
@@ -337,8 +348,9 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
   - Default: First enabled tool in config
 
 - **`--mode <mode>`**
-  - Description: **REQUIRED**: analysis, write
+  - Description: **REQUIRED**: analysis, write, review
   - Default: **NONE** (must specify)
+  - Note: `review` mode triggers `codex review` subcommand for codex tool only
 
 - **`--model <model>`**
   - Description: Model override
@@ -463,6 +475,17 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 " --tool <tool-id> --mode write
 ```
 
+**Code Review Task** (codex review mode):
+```bash
+# Review uncommitted changes (default)
+ccw cli -p "Focus on security vulnerabilities and error handling" --tool codex --mode review
+
+# Review with custom instructions
+ccw cli -p "Check for breaking changes in API contracts and backward compatibility" --tool codex --mode review
+```
+
+> **Note**: `--mode review` only triggers special behavior for `codex` tool (uses `codex review --uncommitted`). Other tools accept the mode but execute as standard analysis.
+
 ---
 
 ### Permission Framework
@@ -472,6 +495,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 **Mode Hierarchy**:
 - `analysis`: Read-only, safe for auto-execution
 - `write`: Create/Modify/Delete files, full operations - requires explicit `--mode write`
+- `review`: Git-aware code review (codex only), read-only output - requires explicit `--mode review`
 - **Exception**: User provides clear instructions like "modify", "create", "implement"
 
 ---
@@ -502,7 +526,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 ### Planning Checklist
 
 - [ ] **Purpose defined** - Clear goal and intent
-- [ ] **Mode selected** - `--mode analysis|write`
+- [ ] **Mode selected** - `--mode analysis|write|review`
 - [ ] **Context gathered** - File references + memory (default `@**/*`)
 - [ ] **Directory navigation** - `--cd` and/or `--includeDirs`
 - [ ] **Tool selected** - Explicit `--tool` or tag-based auto-selection
@@ -514,5 +538,5 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 1. **Load configuration** - Read `cli-tools.json` for available tools
 2. **Match by tags** - Select tool based on task requirements
 3. **Validate enabled** - Ensure selected tool is enabled
-4. **Execute with mode** - Always specify `--mode analysis|write`
+4. **Execute with mode** - Always specify `--mode analysis|write|review`
 5. **Fallback gracefully** - Use secondary model or next matching tool on failure
