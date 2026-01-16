@@ -132,7 +132,7 @@ Scan and analyze workflow session directories:
 
 **Staleness criteria**:
 - Active sessions: No modification >7 days + no related git commits
-- Archives: >30 days old + no feature references in project.json
+- Archives: >30 days old + no feature references in project-tech.json
 - Lite-plan: >7 days old + plan.json not executed
 - Debug: >3 days old + issue not in recent commits
 
@@ -443,8 +443,8 @@ if (selectedCategories.includes('Sessions')) {
   }
 }
 
-// Update project.json if features referenced deleted sessions
-const projectPath = '.workflow/project.json'
+// Update project-tech.json if features referenced deleted sessions
+const projectPath = '.workflow/project-tech.json'
 if (fileExists(projectPath)) {
   const project = JSON.parse(Read(projectPath))
   const deletedPaths = new Set(results.deleted)

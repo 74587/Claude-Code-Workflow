@@ -107,13 +107,13 @@ rm -f .workflow/archives/$SESSION_ID/.archiving
   Manifest: Updated with N total sessions
 ```
 
-### Phase 4: Update project.json (Optional)
+### Phase 4: Update project-tech.json (Optional)
 
-**Skip if**: `.workflow/project.json` doesn't exist
+**Skip if**: `.workflow/project-tech.json` doesn't exist
 
 ```bash
 # Check
-test -f .workflow/project.json || echo "SKIP"
+test -f .workflow/project-tech.json || echo "SKIP"
 ```
 
 **If exists**, add feature entry:
@@ -149,5 +149,5 @@ test -f .workflow/project.json || echo "SKIP"
 Phase 1: find session → create .archiving marker
 Phase 2: read key files → build manifest entry (no writes)
 Phase 3: mkdir → mv → update manifest.json → rm marker
-Phase 4: update project.json features array (optional)
+Phase 4: update project-tech.json features array (optional)
 ```

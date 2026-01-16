@@ -140,12 +140,25 @@ interface ProjectGuidelines {
   };
 }
 
+interface Language {
+  name: string;
+  file_count: number;
+  primary: boolean;
+}
+
+interface KeyComponent {
+  name: string;
+  path: string;
+  description: string;
+  importance: 'high' | 'medium' | 'low';
+}
+
 interface ProjectOverview {
   projectName: string;
   description: string;
   initializedAt: string | null;
   technologyStack: {
-    languages: string[];
+    languages: Language[];
     frameworks: string[];
     build_tools: string[];
     test_frameworks: string[];
@@ -155,7 +168,7 @@ interface ProjectOverview {
     layers: string[];
     patterns: string[];
   };
-  keyComponents: string[];
+  keyComponents: KeyComponent[];
   features: unknown[];
   developmentIndex: {
     feature: unknown[];
@@ -187,13 +200,12 @@ export async function aggregateData(sessions: ScanSessionsResult, workflowDir: s
   // Initialize cache manager
   const cache = createDashboardCache(workflowDir);
 
-  // Prepare paths to watch for changes (includes both new dual files and legacy)
+  // Prepare paths to watch for changes
   const watchPaths = [
     join(workflowDir, 'active'),
     join(workflowDir, 'archives'),
     join(workflowDir, 'project-tech.json'),
     join(workflowDir, 'project-guidelines.json'),
-    join(workflowDir, 'project.json'),  // Legacy support
     ...sessions.active.map(s => s.path),
     ...sessions.archived.map(s => s.path)
   ];
@@ -266,7 +278,7 @@ export async function aggregateData(sessions: ScanSessionsResult, workflowDir: s
     console.error('Error scanning lite tasks:', (err as Error).message);
   }
 
-  // Load project overview from project.json
+  // Load project overview from project-tech.json
   try {
     data.projectOverview = loadProjectOverview(workflowDir);
   } catch (err) {
@@ -553,31 +565,25 @@ function sortTaskIds(a: string, b: string): number {
 
 /**
  * Load project overview from project-tech.json and project-guidelines.json
- * Supports dual file structure with backward compatibility for legacy project.json
  * @param workflowDir - Path to .workflow directory
  * @returns Project overview data or null if not found
  */
 function loadProjectOverview(workflowDir: string): ProjectOverview | null {
   const techFile = join(workflowDir, 'project-tech.json');
   const guidelinesFile = join(workflowDir, 'project-guidelines.json');
-  const legacyFile = join(workflowDir, 'project.json');
 
-  // Check for new dual file structure first, fallback to legacy
-  const useLegacy = !existsSync(techFile) && existsSync(legacyFile);
-  const projectFile = useLegacy ? legacyFile : techFile;
-
-  if (!existsSync(projectFile)) {
-    console.log(`Project file not found at: ${projectFile}`);
+  if (!existsSync(techFile)) {
+    console.log(`Project file not found at: ${techFile}`);
     return null;
   }
 
   try {
-    const fileContent = readFileSync(projectFile, 'utf8');
+    const fileContent = readFileSync(techFile, 'utf8');
     const projectData = JSON.parse(fileContent) as Record<string, unknown>;
 
-    console.log(`Successfully loaded project overview: ${projectData.project_name || 'Unknown'} (${useLegacy ? 'legacy' : 'tech'})`);
+    console.log(`Successfully loaded project overview: ${projectData.project_name || 'Unknown'}`);
 
-    // Parse tech data (compatible with both legacy and new structure)
+    // Parse tech data from project-tech.json structure
     const overview = projectData.overview as Record<string, unknown> | undefined;
     const technologyAnalysis = projectData.technology_analysis as Record<string, unknown> | undefined;
     const developmentStatus = projectData.development_status as Record<string, unknown> | undefined;
@@ -645,7 +651,7 @@ function loadProjectOverview(workflowDir: string): ProjectOverview | null {
       description: (overview?.description as string) || '',
       initializedAt: (projectData.initialized_at as string) || null,
       technologyStack: {
-        languages: extractStringArray(technologyStack?.languages),
+        languages: (technologyStack?.languages as Language[]) || [],
         frameworks: extractStringArray(technologyStack?.frameworks),
         build_tools: extractStringArray(technologyStack?.build_tools),
         test_frameworks: extractStringArray(technologyStack?.test_frameworks)
@@ -655,7 +661,7 @@ function loadProjectOverview(workflowDir: string): ProjectOverview | null {
         layers: extractStringArray(architecture?.layers as unknown[] | undefined),
         patterns: extractStringArray(architecture?.patterns as unknown[] | undefined)
       },
-      keyComponents: extractStringArray(overview?.key_components as unknown[] | undefined),
+      keyComponents: (overview?.key_components as KeyComponent[]) || [],
       features: (projectData.features as unknown[]) || [],
       developmentIndex: {
         feature: (developmentIndex?.feature as unknown[]) || [],
@@ -677,7 +683,7 @@ function loadProjectOverview(workflowDir: string): ProjectOverview | null {
       guidelines
     };
   } catch (err) {
-    console.error(`Failed to parse project file at ${projectFile}:`, (err as Error).message);
+    console.error(`Failed to parse project file at ${techFile}:`, (err as Error).message);
     console.error('Error stack:', (err as Error).stack);
     return null;
   }

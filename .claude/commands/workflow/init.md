@@ -108,11 +108,24 @@ Analyze project for workflow initialization and generate .workflow/project-tech.
 2. Execute: ccw tool exec get_modules_by_depth '{}' (get project structure)
 
 ## Task
-Generate complete project-tech.json with:
-- project_metadata: {name: ${projectName}, root_path: ${projectRoot}, initialized_at, updated_at}
-- technology_analysis: {description, languages, frameworks, build_tools, test_frameworks, architecture, key_components, dependencies}
-- development_status: ${regenerate ? 'preserve from backup' : '{completed_features: [], development_index: {feature: [], enhancement: [], bugfix: [], refactor: [], docs: []}, statistics: {total_features: 0, total_sessions: 0, last_updated}}'}
-- _metadata: {initialized_by: "cli-explore-agent", analysis_timestamp, analysis_mode}
+Generate complete project-tech.json following the schema structure:
+- project_name: "${projectName}"
+- initialized_at: ISO 8601 timestamp
+- overview: {
+    description: "Brief project description",
+    technology_stack: {
+      languages: [{name, file_count, primary}],
+      frameworks: ["string"],
+      build_tools: ["string"],
+      test_frameworks: ["string"]
+    },
+    architecture: {style, layers: [], patterns: []},
+    key_components: [{name, path, description, importance}]
+  }
+- features: []
+- development_index: ${regenerate ? 'preserve from backup' : '{feature: [], enhancement: [], bugfix: [], refactor: [], docs: []}'}
+- statistics: ${regenerate ? 'preserve from backup' : '{total_features: 0, total_sessions: 0, last_updated: ISO timestamp}'}
+- _metadata: {initialized_by: "cli-explore-agent", analysis_timestamp: ISO timestamp, analysis_mode: "deep-scan"}
 
 ## Analysis Requirements
 
@@ -181,16 +194,16 @@ console.log(`
 ✓ Project initialized successfully
 
 ## Project Overview
-Name: ${projectTech.project_metadata.name}
-Description: ${projectTech.technology_analysis.description}
+Name: ${projectTech.project_name}
+Description: ${projectTech.overview.description}
 
 ### Technology Stack
-Languages: ${projectTech.technology_analysis.languages.map(l => l.name).join(', ')}
-Frameworks: ${projectTech.technology_analysis.frameworks.join(', ')}
+Languages: ${projectTech.overview.technology_stack.languages.map(l => l.name).join(', ')}
+Frameworks: ${projectTech.overview.technology_stack.frameworks.join(', ')}
 
 ### Architecture
-Style: ${projectTech.technology_analysis.architecture.style}
-Components: ${projectTech.technology_analysis.key_components.length} core modules
+Style: ${projectTech.overview.architecture.style}
+Components: ${projectTech.overview.key_components.length} core modules
 
 ---
 Files created:

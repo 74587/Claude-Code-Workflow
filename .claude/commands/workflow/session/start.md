@@ -16,7 +16,7 @@ examples:
 Manages workflow sessions with three operation modes: discovery (manual), auto (intelligent), and force-new.
 
 **Dual Responsibility**:
-1. **Project-level initialization** (first-time only): Creates `.workflow/project.json` for feature registry
+1. **Project-level initialization** (first-time only): Creates `.workflow/project-tech.json` for feature registry
 2. **Session-level initialization** (always): Creates session directory structure
 
 ## Session Types

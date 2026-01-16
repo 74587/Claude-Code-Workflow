@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Project Metadata Schema",
-  "description": "Workflow initialization metadata for project-level context",
+  "title": "Project Tech Schema",
+  "description": "Schema for project-tech.json - auto-generated technical analysis (stack, architecture, components)",
   "type": "object",
   "required": [
     "project_name",

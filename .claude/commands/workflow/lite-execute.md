@@ -531,11 +531,11 @@ if (hasUnresolvedIssues(reviewResult)) {
 
 **Trigger**: After all executions complete (regardless of code review)
 
-**Skip Condition**: Skip if `.workflow/project.json` does not exist
+**Skip Condition**: Skip if `.workflow/project-tech.json` does not exist
 
 **Operations**:
 ```javascript
-const projectJsonPath = '.workflow/project.json'
+const projectJsonPath = '.workflow/project-tech.json'
 if (!fileExists(projectJsonPath)) return  // Silent skip
 
 const projectJson = JSON.parse(Read(projectJsonPath))
