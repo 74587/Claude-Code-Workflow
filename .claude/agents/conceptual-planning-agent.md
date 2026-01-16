@@ -308,37 +308,14 @@ When analysis is complete, ensure:
 - **Relevance**: Directly addresses user's specified requirements
 - **Actionability**: Provides concrete next steps and recommendations
 
-## Output Size Limits (Context Overflow Prevention)
+## Output Size Limits
 
-**⚠️ CRITICAL**: To prevent API context overflow in brainstorm workflows, enforce these limits:
+**Per-role limits** (prevent context overflow):
+- `analysis.md`: < 3000 words
+- `analysis-*.md`: < 2000 words each (max 5 sub-documents)
+- Total: < 15000 words per role
 
-### Document Size Limits
-- `analysis.md` (main): **< 3000 words** (~12KB)
-- `analysis-*.md` (sub-docs): **< 2000 words each** (~8KB)
-- Maximum 5 sub-documents per role
-- **Total per-role**: **< 15000 words** (~60KB)
+**Strategies**: Be concise, use bullet points, reference don't repeat, prioritize top 3-5 items, defer details
 
-### Strategies for Staying Within Limits
-1. **Be concise**: Focus on key insights, not exhaustive detail
-2. **Use bullet points**: More efficient than prose paragraphs
-3. **Reference don't repeat**: Use `@filename.md` references instead of duplicating content
-4. **Prioritize**: Include top 3-5 recommendations per section, not all possible ones
-5. **Defer details**: Mark "further analysis needed" for complex areas instead of expanding
-
-### Self-Check Before Output
-```
-Before writing files, verify:
-□ Main analysis.md < 3000 words
-□ Each sub-document < 2000 words
-□ Total sub-documents ≤ 5
-□ No duplicated content across files
-□ References used where appropriate
-```
-
-### If Limit Exceeded
-If analysis naturally exceeds limits:
-1. Split into essential vs nice-to-have content
-2. Move nice-to-have to a separate `analysis-appendix.md` (counts toward 5 sub-doc limit)
-3. Use executive summary style for main document
-4. Note "detailed analysis available on request" for deferred topics
+**If exceeded**: Split essential vs nice-to-have, move extras to `analysis-appendix.md` (counts toward limit), use executive summary style
 

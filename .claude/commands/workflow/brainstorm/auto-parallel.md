@@ -428,44 +428,13 @@ CONTEXT_VARS:
 
 ## Context Overflow Protection
 
-**⚠️ IMPORTANT**: Brainstorm workflows can generate substantial content across multiple roles. To prevent API context limit issues:
+**Per-role limits**: See `conceptual-planning-agent.md` (< 3000 words main, < 2000 words sub-docs, max 5 sub-docs)
 
-### Per-Role Output Limits
-- Each `analysis.md` should be **< 3000 words**
-- Sub-documents (`analysis-*.md`) should be **< 2000 words each**
-- Maximum 5 sub-documents per role
-- Total per-role content: **< 15000 words**
+**Synthesis protection**: If total analysis > 100KB, synthesis reads only `analysis.md` files (not sub-documents)
 
-### Synthesis Phase Protection
-Before Phase 3 (synthesis), check total analysis size:
-```javascript
-// Check combined analysis size before synthesis
-const analysisFiles = Glob(".workflow/active/WFS-{session}/.brainstorming/*/analysis*.md");
-let totalSize = 0;
-for (const file of analysisFiles) {
-  totalSize += getFileSize(file);
-}
+**Recovery**: Check logs → reduce scope (--count 2) → use --summary-only → manual synthesis
 
-// If total > 100KB, use summary mode
-if (totalSize > 100 * 1024) {
-  console.log("⚠️ Large context detected. Using summary mode for synthesis.");
-  // Synthesis will read only analysis.md (index) files, not sub-documents
-  useSummaryMode = true;
-}
-```
-
-### Recovery from Context Overflow
-If API returns empty response or timeout:
-1. **Identify overflow**: Check last request size in logs
-2. **Reduce scope**: Re-run synthesis with fewer roles (use `--count 2`)
-3. **Use summary mode**: Pass `--summary-only` to synthesis command
-4. **Manual synthesis**: Combine key insights from each role's `analysis.md` manually
-
-### Prevention Best Practices
-- Start with `--count 3` (default) before trying more roles
-- Use structured topic format: `"GOAL: [x] SCOPE: [y] CONTEXT: [z]"`
-- Review each role's output size before proceeding to synthesis
-- For complex topics, consider running brainstorm in phases (3 roles at a time)
+**Prevention**: Start with --count 3, use structured topic format, review output sizes before synthesis
 
 ## Reference Information
 
