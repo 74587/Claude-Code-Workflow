@@ -145,7 +145,7 @@ Generate complete project-tech.json following the schema structure:
 1. Structural scan: get_modules_by_depth.sh, find, wc -l
 2. Semantic analysis: Gemini for patterns/architecture
 3. Synthesis: Merge findings
-4. ${regenerate ? 'Merge with preserved development_status from .workflow/project-tech.json.backup' : ''}
+4. ${regenerate ? 'Merge with preserved development_index and statistics from .workflow/project-tech.json.backup' : ''}
 5. Write JSON: Write('.workflow/project-tech.json', jsonContent)
 6. Report: Return brief completion summary
 

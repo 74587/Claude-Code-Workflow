@@ -134,6 +134,32 @@ test -f .workflow/project-tech.json || echo "SKIP"
 ✓ Feature added to project registry
 ```
 
+### Phase 5: Ask About Solidify (Always)
+
+After successful archival, prompt user to capture learnings:
+
+```javascript
+AskUserQuestion({
+  questions: [{
+    question: "Would you like to solidify learnings from this session into project guidelines?",
+    header: "Solidify",
+    options: [
+      { label: "Yes, solidify now", description: "Extract learnings and update project-guidelines.json" },
+      { label: "Skip", description: "Archive complete, no learnings to capture" }
+    ],
+    multiSelect: false
+  }]
+})
+```
+
+**If "Yes, solidify now"**: Execute `/workflow:session:solidify` with the archived session ID.
+
+**Output**:
+```
+Session archived successfully.
+→ Run /workflow:session:solidify to capture learnings (recommended)
+```
+
 ## Error Recovery
 
 | Phase | Symptom | Recovery |
@@ -150,4 +176,5 @@ Phase 1: find session → create .archiving marker
 Phase 2: read key files → build manifest entry (no writes)
 Phase 3: mkdir → mv → update manifest.json → rm marker
 Phase 4: update project-tech.json features array (optional)
+Phase 5: ask user → solidify learnings (optional)
 ```
