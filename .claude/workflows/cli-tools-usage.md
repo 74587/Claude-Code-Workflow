@@ -111,14 +111,12 @@ When primary tool fails or is unavailable:
 ### Universal Prompt Template
 
 ```bash
-ccw cli -p "
-PURPOSE: [what] + [why] + [success criteria] + [constraints/scope]
+ccw cli -p "PURPOSE: [what] + [why] + [success criteria] + [constraints/scope]
 TASK: • [step 1: specific action] • [step 2: specific action] • [step 3: specific action]
 MODE: [analysis|write]
 CONTEXT: @[file patterns] | Memory: [session/tech/module context]
 EXPECTED: [deliverable format] + [quality criteria] + [structure requirements]
-CONSTRAINTS: [domain constraints]
-" --tool <tool-id> --mode <analysis|write> --rule <category-template>
+CONSTRAINTS: [domain constraints]" --tool <tool-id> --mode <analysis|write> --rule <category-template>
 ```
 
 ### Intent Capture Checklist (Before CLI Execution)
@@ -407,8 +405,7 @@ CONSTRAINTS: Focus on authentication | Ignore test files
 
 **Implementation Task** (New Feature):
 ```bash
-ccw cli -p "
-PURPOSE: Implement rate limiting for API endpoints to prevent abuse; must be configurable per-endpoint; backward compatible with existing clients
+ccw cli -p "PURPOSE: Implement rate limiting for API endpoints to prevent abuse; must be configurable per-endpoint; backward compatible with existing clients
 TASK: • Create rate limiter middleware with sliding window • Implement per-route configuration • Add Redis backend for distributed state • Include bypass for internal services
 MODE: write
 CONTEXT: @src/middleware/**/* @src/config/**/* | Memory: Using Express.js, Redis already configured, existing middleware pattern in auth.ts
@@ -419,8 +416,7 @@ CONSTRAINTS: Follow existing middleware patterns | No breaking changes
 
 **Bug Fix Task**:
 ```bash
-ccw cli -p "
-PURPOSE: Fix memory leak in WebSocket connection handler causing server OOM after 24h; root cause must be identified before any fix
+ccw cli -p "PURPOSE: Fix memory leak in WebSocket connection handler causing server OOM after 24h; root cause must be identified before any fix
 TASK: • Trace connection lifecycle from open to close • Identify event listener accumulation • Check cleanup on disconnect • Verify garbage collection eligibility
 MODE: analysis
 CONTEXT: @src/websocket/**/* @src/services/connection-manager.ts | Memory: Using ws library, ~5000 concurrent connections in production
@@ -431,8 +427,7 @@ CONSTRAINTS: Focus on resource cleanup
 
 **Refactoring Task**:
 ```bash
-ccw cli -p "
-PURPOSE: Refactor payment processing to use strategy pattern for multi-gateway support; no functional changes; all existing tests must pass
+ccw cli -p "PURPOSE: Refactor payment processing to use strategy pattern for multi-gateway support; no functional changes; all existing tests must pass
 TASK: • Extract gateway interface from current implementation • Create strategy classes for Stripe, PayPal • Implement factory for gateway selection • Migrate existing code to use strategies
 MODE: write
 CONTEXT: @src/payments/**/* @src/types/payment.ts | Memory: Currently only Stripe, adding PayPal next sprint, must support future gateways
