@@ -644,6 +644,45 @@ Phase 3: Synthesis Integration
 
 ---
 
+## 语义化 CLI 调用
+
+用户可以在提示词中 **语义指定 CLI 工具** - 系统自动调用对应的 CLI。
+
+### 基础调用
+
+| 用户提示词 | 系统动作 |
+|------------|----------|
+| "使用 Gemini 分析 auth 模块" | 自动调用 `gemini` CLI 进行分析 |
+| "让 Codex 审查这段代码" | 自动调用 `codex` CLI 进行审查 |
+| "问问 Qwen 性能优化建议" | 自动调用 `qwen` CLI 进行咨询 |
+
+### 多 CLI 编排
+
+| 模式 | 用户提示词示例 |
+|------|----------------|
+| **协同分析** | "使用 Gemini 和 Codex 协同分析安全漏洞" |
+| **并行执行** | "让 Gemini、Codex、Qwen 并行分析架构设计" |
+| **迭代优化** | "用 Gemini 诊断问题，然后 Codex 修复，迭代直到解决" |
+| **流水线** | "Gemini 设计方案，Codex 实现，Claude 审查" |
+
+### 自定义 CLI 注册
+
+通过 Dashboard 界面 **注册任意 API 为自定义 CLI**：
+
+```bash
+ccw view  # 打开 Dashboard → Status → API Settings → 添加自定义 CLI
+```
+
+| 字段 | 示例 |
+|------|------|
+| **名称** | `deepseek` |
+| **端点** | `https://api.deepseek.com/v1/chat` |
+| **API Key** | `your-api-key` |
+
+> 注册一次，永久语义调用 - 无需修改代码。
+
+---
+
 ## ACE Tool 配置
 
 ACE (Augment Context Engine) 提供强大的语义代码搜索能力。两种配置方式：

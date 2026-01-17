@@ -645,6 +645,45 @@ System auto-evaluates complexity based on these keywords:
 
 ---
 
+## Semantic CLI Invocation
+
+Users can **semantically specify CLI tools** in prompts - the system automatically invokes the corresponding CLI.
+
+### Basic Invocation
+
+| User Prompt | System Action |
+|-------------|---------------|
+| "Use Gemini to analyze the auth module" | Auto-invoke `gemini` CLI for analysis |
+| "Let Codex review this code" | Auto-invoke `codex` CLI for review |
+| "Ask Qwen about performance optimization" | Auto-invoke `qwen` CLI for consultation |
+
+### Multi-CLI Orchestration
+
+| Pattern | User Prompt Example |
+|---------|---------------------|
+| **Collaborative** | "Use Gemini and Codex to collaboratively analyze security vulnerabilities" |
+| **Parallel** | "Have Gemini, Codex, and Qwen analyze the architecture in parallel" |
+| **Iterative** | "Use Gemini to diagnose, then Codex to fix, iterate until resolved" |
+| **Pipeline** | "Gemini designs the solution, Codex implements, Claude reviews" |
+
+### Custom CLI Registration
+
+Register **any API as a custom CLI** via Dashboard interface:
+
+```bash
+ccw view  # Open Dashboard → Status → API Settings → Add Custom CLI
+```
+
+| Field | Example |
+|-------|---------|
+| **Name** | `deepseek` |
+| **Endpoint** | `https://api.deepseek.com/v1/chat` |
+| **API Key** | `your-api-key` |
+
+> Register once, invoke semantically forever - no code changes needed.
+
+---
+
 ## ACE Tool Configuration
 
 ACE (Augment Context Engine) provides powerful semantic code search. Two configuration methods available:
