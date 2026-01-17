@@ -142,54 +142,10 @@ qwen --version
 
 ACE (Augment Context Engine) 提供强大的语义代码搜索能力。
 
-### 方式一：官方安装（推荐）
-
-直接使用 Anthropic 官方 MCP 包：
-
-```json
-{
-  "mcpServers": {
-    "ace-tool": {
-      "command": "npx",
-      "args": ["-y", "@anthropic/ace-mcp"],
-      "env": {
-        "AUGMENT_API_KEY": "your-augment-api-key"
-      }
-    }
-  }
-}
-```
-
-**获取 API Key**: 从 [Augment 开发者门户](https://augment.dev) 获取
-
-### 方式二：代理安装
-
-如果网络受限，可通过代理服务器配置：
-
-```json
-{
-  "mcpServers": {
-    "ace-tool": {
-      "command": "npx",
-      "args": ["-y", "@anthropic/ace-mcp"],
-      "env": {
-        "AUGMENT_API_KEY": "your-api-key",
-        "HTTPS_PROXY": "http://your-proxy:port",
-        "HTTP_PROXY": "http://your-proxy:port"
-      }
-    }
-  }
-}
-```
-
-### 使用方式
-
-```javascript
-mcp__ace-tool__search_context({
-  project_root_path: "/path/to/project",
-  query: "用户认证逻辑"
-})
-```
+| 方式 | 链接 |
+|------|------|
+| 📘 **官方安装** | [Augment MCP 文档](https://docs.augmentcode.com/context-services/mcp/overview) |
+| 🔧 **代理版本** | [ace-tool (GitHub)](https://github.com/eastxiaodong/ace-tool) |
 
 ---
 

@@ -142,54 +142,10 @@ qwen --version
 
 ACE (Augment Context Engine) provides powerful semantic code search.
 
-### Method 1: Official Installation (Recommended)
-
-Use Anthropic's official MCP package directly:
-
-```json
-{
-  "mcpServers": {
-    "ace-tool": {
-      "command": "npx",
-      "args": ["-y", "@anthropic/ace-mcp"],
-      "env": {
-        "AUGMENT_API_KEY": "your-augment-api-key"
-      }
-    }
-  }
-}
-```
-
-**Get API Key**: From [Augment Developer Portal](https://augment.dev)
-
-### Method 2: Proxy Installation
-
-For network-restricted environments:
-
-```json
-{
-  "mcpServers": {
-    "ace-tool": {
-      "command": "npx",
-      "args": ["-y", "@anthropic/ace-mcp"],
-      "env": {
-        "AUGMENT_API_KEY": "your-api-key",
-        "HTTPS_PROXY": "http://your-proxy:port",
-        "HTTP_PROXY": "http://your-proxy:port"
-      }
-    }
-  }
-}
-```
-
-### Usage
-
-```javascript
-mcp__ace-tool__search_context({
-  project_root_path: "/path/to/project",
-  query: "user authentication logic"
-})
-```
+| Method | Link |
+|--------|------|
+| 📘 **Official** | [Augment MCP Documentation](https://docs.augmentcode.com/context-services/mcp/overview) |
+| 🔧 **Proxy Version** | [ace-tool (GitHub)](https://github.com/eastxiaodong/ace-tool) |
 
 ---
 
