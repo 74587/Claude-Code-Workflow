@@ -145,13 +145,19 @@ ccw install -m Global
 
 ### 基础调用
 
+<div align="center">
+
 | 用户提示词 | 系统动作 |
 |------------|----------|
 | "使用 Gemini 分析 auth 模块" | 自动调用 `gemini` CLI 进行分析 |
 | "让 Codex 审查这段代码" | 自动调用 `codex` CLI 进行审查 |
 | "问问 Qwen 性能优化建议" | 自动调用 `qwen` CLI 进行咨询 |
 
+</div>
+
 ### 多 CLI 编排
+
+<div align="center">
 
 | 模式 | 用户提示词示例 |
 |------|----------------|
@@ -159,6 +165,8 @@ ccw install -m Global
 | **并行执行** | "让 Gemini、Codex、Qwen 并行分析架构设计" |
 | **迭代优化** | "用 Gemini 诊断问题，然后 Codex 修复，迭代直到解决" |
 | **流水线** | "Gemini 设计方案，Codex 实现，Claude 审查" |
+
+</div>
 
 <details>
 <summary><b>📝 更多示例</b></summary>
@@ -191,11 +199,15 @@ ccw install -m Global
 ccw view  # 打开 Dashboard → Status → API Settings → 添加自定义 CLI
 ```
 
+<div align="center">
+
 | 字段 | 示例 |
 |------|------|
 | **名称** | `deepseek` |
 | **端点** | `https://api.deepseek.com/v1/chat` |
 | **API Key** | `your-api-key` |
+
+</div>
 
 > ⚙️ 注册一次，永久语义调用 - 无需修改代码。
 
@@ -205,10 +217,14 @@ ccw view  # 打开 Dashboard → Status → API Settings → 添加自定义 CLI
 
 ACE (Augment Context Engine) 提供强大的语义代码搜索能力。
 
+<div align="center">
+
 | 方式 | 链接 |
 |------|------|
 | **官方** | [Augment MCP 文档](https://docs.augmentcode.com/context-services/mcp/overview) |
 | **代理** | [ace-tool (GitHub)](https://github.com/eastxiaodong/ace-tool) |
+
+</div>
 
 ---
 
@@ -270,6 +286,8 @@ ccw upgrade -a        # 升级所有安装
 
 ## 📖 文档
 
+<div align="center">
+
 | 文档 | 说明 |
 |------|------|
 | [**工作流指南**](WORKFLOW_GUIDE_CN.md) | 4 级工作流系统（推荐） |
@@ -277,6 +295,8 @@ ccw upgrade -a        # 升级所有安装
 | [**Dashboard 指南**](DASHBOARD_GUIDE.md) | Dashboard 用户指南 |
 | [**常见问题**](FAQ.md) | 常见问题解答 |
 | [**更新日志**](CHANGELOG.md) | 版本历史 |
+
+</div>
 
 ---
 

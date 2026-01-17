@@ -145,13 +145,19 @@ Users can **semantically specify CLI tools** in prompts - the system automatical
 
 ### Basic Invocation
 
+<div align="center">
+
 | User Prompt | System Action |
 |-------------|---------------|
 | "Use Gemini to analyze the auth module" | Auto-invoke `gemini` CLI for analysis |
 | "Let Codex review this code" | Auto-invoke `codex` CLI for review |
 | "Ask Qwen about performance optimization" | Auto-invoke `qwen` CLI for consultation |
 
+</div>
+
 ### Multi-CLI Orchestration
+
+<div align="center">
 
 | Pattern | User Prompt Example |
 |---------|---------------------|
@@ -159,6 +165,8 @@ Users can **semantically specify CLI tools** in prompts - the system automatical
 | **Parallel** | "Have Gemini, Codex, and Qwen analyze the architecture in parallel" |
 | **Iterative** | "Use Gemini to diagnose, then Codex to fix, iterate until resolved" |
 | **Pipeline** | "Gemini designs the solution, Codex implements, Claude reviews" |
+
+</div>
 
 <details>
 <summary><b>📝 More Examples</b></summary>
@@ -191,11 +199,15 @@ Register **any API as a custom CLI** via Dashboard interface:
 ccw view  # Open Dashboard → Status → API Settings → Add Custom CLI
 ```
 
+<div align="center">
+
 | Field | Example |
 |-------|---------|
 | **Name** | `deepseek` |
 | **Endpoint** | `https://api.deepseek.com/v1/chat` |
 | **API Key** | `your-api-key` |
+
+</div>
 
 > ⚙️ Register once, invoke semantically forever - no code changes needed.
 
@@ -205,10 +217,14 @@ ccw view  # Open Dashboard → Status → API Settings → Add Custom CLI
 
 ACE (Augment Context Engine) provides powerful semantic code search.
 
+<div align="center">
+
 | Method | Link |
 |--------|------|
 | **Official** | [Augment MCP Documentation](https://docs.augmentcode.com/context-services/mcp/overview) |
 | **Proxy** | [ace-tool (GitHub)](https://github.com/eastxiaodong/ace-tool) |
+
+</div>
 
 ---
 
@@ -270,6 +286,8 @@ ccw upgrade -a        # Upgrade all installations
 
 ## 📖 Documentation
 
+<div align="center">
+
 | Document | Description |
 |----------|-------------|
 | [**Workflow Guide**](WORKFLOW_GUIDE.md) | 4-level workflow system (recommended) |
@@ -277,6 +295,8 @@ ccw upgrade -a        # Upgrade all installations
 | [**Dashboard Guide**](DASHBOARD_GUIDE.md) | Dashboard user guide |
 | [**FAQ**](FAQ.md) | Common questions |
 | [**Changelog**](CHANGELOG.md) | Version history |
+
+</div>
 
 ---
 
