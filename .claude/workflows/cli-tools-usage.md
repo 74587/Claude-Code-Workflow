@@ -228,11 +228,6 @@ ccw cli -p "..." --tool <tool-id> --mode analysis --cd src
 ccw cli -p "..." --tool gemini --mode analysis --rule analysis-review-architecture
 ```
 
-**`--rule` How It Works**:
-1. Auto-discovers templates from `~/.claude/workflows/cli-templates/prompts/`
-2. Auto-loads corresponding protocol based on `--mode` (analysis-protocol.md or write-protocol.md)
-3. Appends protocol and template content to the end of your prompt
-
 ### Mode Protocol References
 
 **`--rule` auto-loads Protocol based on mode**:
