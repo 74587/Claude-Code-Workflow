@@ -5,15 +5,11 @@
 
 <!-- Badges -->
 <p>
-  <a href="https://github.com/catlog22/Claude-Code-Workflow/releases"><img src="https://img.shields.io/badge/version-v6.3.33-blue?style=for-the-badge&logo=semanticrelease" alt="Version"/></a>
-  <a href="https://www.npmjs.com/package/claude-code-workflow"><img src="https://img.shields.io/npm/v/claude-code-workflow?style=for-the-badge&logo=npm&logoColor=white&color=cb3837" alt="npm"/></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="License"/></a>
-</p>
-
-<p>
-  <a href="https://github.com/catlog22/Claude-Code-Workflow/stargazers"><img src="https://img.shields.io/github/stars/catlog22/Claude-Code-Workflow?style=for-the-badge&logo=github&color=yellow" alt="Stars"/></a>
-  <a href="https://github.com/catlog22/Claude-Code-Workflow/network/members"><img src="https://img.shields.io/github/forks/catlog22/Claude-Code-Workflow?style=for-the-badge&logo=github&color=lightgray" alt="Forks"/></a>
-  <a href="https://github.com/catlog22/Claude-Code-Workflow/issues"><img src="https://img.shields.io/github/issues/catlog22/Claude-Code-Workflow?style=for-the-badge&logo=github&color=red" alt="Issues"/></a>
+  <a href="https://github.com/catlog22/Claude-Code-Workflow/releases"><img src="https://img.shields.io/badge/version-v6.3.33-6366F1?style=flat-square" alt="Version"/></a>
+  <a href="https://www.npmjs.com/package/claude-code-workflow"><img src="https://img.shields.io/npm/v/claude-code-workflow?style=flat-square&color=cb3837" alt="npm"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-10B981?style=flat-square" alt="License"/></a>
+  <a href="https://github.com/catlog22/Claude-Code-Workflow/stargazers"><img src="https://img.shields.io/github/stars/catlog22/Claude-Code-Workflow?style=flat-square&color=F59E0B" alt="Stars"/></a>
+  <a href="https://github.com/catlog22/Claude-Code-Workflow/issues"><img src="https://img.shields.io/github/issues/catlog22/Claude-Code-Workflow?style=flat-square&color=EF4444" alt="Issues"/></a>
 </p>
 
 **[English](README.md) | [中文](README_CN.md)**
@@ -87,13 +83,13 @@ ccw install -m Global
 
 <table>
 <tr><th>Level</th><th>Command</th><th>Use Case</th></tr>
-<tr><td>⚡ <b>1</b></td><td><code>/workflow:lite-lite-lite</code></td><td>Quick fixes, config changes</td></tr>
-<tr><td>📝 <b>2</b></td><td><code>/workflow:lite-plan</code></td><td>Clear single-module features</td></tr>
-<tr><td>🔧 <b>2</b></td><td><code>/workflow:lite-fix</code></td><td>Bug diagnosis and fix</td></tr>
-<tr><td>🔍 <b>2</b></td><td><code>/workflow:multi-cli-plan</code></td><td>Multi-perspective analysis</td></tr>
-<tr><td>📊 <b>3</b></td><td><code>/workflow:plan</code></td><td>Multi-module development</td></tr>
-<tr><td>🧪 <b>3</b></td><td><code>/workflow:tdd-plan</code></td><td>Test-driven development</td></tr>
-<tr><td>🧠 <b>4</b></td><td><code>/workflow:brainstorm:auto-parallel</code></td><td>New features, architecture design</td></tr>
+<tr><td><b>1</b></td><td><code>/workflow:lite-lite-lite</code></td><td>Quick fixes, config changes</td></tr>
+<tr><td><b>2</b></td><td><code>/workflow:lite-plan</code></td><td>Clear single-module features</td></tr>
+<tr><td><b>2</b></td><td><code>/workflow:lite-fix</code></td><td>Bug diagnosis and fix</td></tr>
+<tr><td><b>2</b></td><td><code>/workflow:multi-cli-plan</code></td><td>Multi-perspective analysis</td></tr>
+<tr><td><b>3</b></td><td><code>/workflow:plan</code></td><td>Multi-module development</td></tr>
+<tr><td><b>3</b></td><td><code>/workflow:tdd-plan</code></td><td>Test-driven development</td></tr>
+<tr><td><b>4</b></td><td><code>/workflow:brainstorm:auto-parallel</code></td><td>New features, architecture design</td></tr>
 </table>
 
 ### Workflow Examples
@@ -122,10 +118,10 @@ ccw install -m Global
 
 <table>
 <tr><th>CLI</th><th>Description</th><th>Official Docs</th></tr>
-<tr><td>🔷 <b>Gemini</b></td><td>Google AI analysis</td><td><a href="https://github.com/google-gemini/gemini-cli">google-gemini/gemini-cli</a></td></tr>
-<tr><td>🟢 <b>Codex</b></td><td>OpenAI autonomous coding</td><td><a href="https://github.com/openai/codex">openai/codex</a></td></tr>
-<tr><td>🟠 <b>OpenCode</b></td><td>Open-source multi-model</td><td><a href="https://github.com/opencode-ai/opencode">opencode-ai/opencode</a></td></tr>
-<tr><td>🟣 <b>Qwen</b></td><td>Alibaba Qwen-Code</td><td><a href="https://github.com/QwenLM">QwenLM/Qwen</a></td></tr>
+<tr><td><b>Gemini</b></td><td>Google AI analysis</td><td><a href="https://github.com/google-gemini/gemini-cli">google-gemini/gemini-cli</a></td></tr>
+<tr><td><b>Codex</b></td><td>OpenAI autonomous coding</td><td><a href="https://github.com/openai/codex">openai/codex</a></td></tr>
+<tr><td><b>OpenCode</b></td><td>Open-source multi-model</td><td><a href="https://github.com/opencode-ai/opencode">opencode-ai/opencode</a></td></tr>
+<tr><td><b>Qwen</b></td><td>Alibaba Qwen-Code</td><td><a href="https://github.com/QwenLM">QwenLM/Qwen</a></td></tr>
 </table>
 
 ---
@@ -133,8 +129,8 @@ ccw install -m Global
 ## 🎭 Semantic CLI Invocation
 
 <div align="center">
-<img src="https://img.shields.io/badge/Just_Describe-What_You_Want-6366F1?style=for-the-badge"/>
-<img src="https://img.shields.io/badge/CCW_Handles-The_Rest-10B981?style=for-the-badge"/>
+<img src="https://img.shields.io/badge/Just_Describe-What_You_Want-6366F1?style=flat-square"/>
+<img src="https://img.shields.io/badge/CCW_Handles-The_Rest-10B981?style=flat-square"/>
 </div>
 
 <br/>
@@ -153,10 +149,10 @@ Users can **semantically specify CLI tools** in prompts - the system automatical
 
 | Pattern | User Prompt Example |
 |---------|---------------------|
-| 🔄 **Collaborative** | "Use Gemini and Codex to collaboratively analyze security vulnerabilities" |
-| ⚡ **Parallel** | "Have Gemini, Codex, and Qwen analyze the architecture in parallel" |
-| 🔁 **Iterative** | "Use Gemini to diagnose, then Codex to fix, iterate until resolved" |
-| 🔗 **Pipeline** | "Gemini designs the solution, Codex implements, Claude reviews" |
+| **Collaborative** | "Use Gemini and Codex to collaboratively analyze security vulnerabilities" |
+| **Parallel** | "Have Gemini, Codex, and Qwen analyze the architecture in parallel" |
+| **Iterative** | "Use Gemini to diagnose, then Codex to fix, iterate until resolved" |
+| **Pipeline** | "Gemini designs the solution, Codex implements, Claude reviews" |
 
 <details>
 <summary><b>📝 More Examples</b></summary>
@@ -205,8 +201,8 @@ ACE (Augment Context Engine) provides powerful semantic code search.
 
 | Method | Link |
 |--------|------|
-| 📘 **Official** | [Augment MCP Documentation](https://docs.augmentcode.com/context-services/mcp/overview) |
-| 🔧 **Proxy Version** | [ace-tool (GitHub)](https://github.com/eastxiaodong/ace-tool) |
+| **Official** | [Augment MCP Documentation](https://docs.augmentcode.com/context-services/mcp/overview) |
+| **Proxy** | [ace-tool (GitHub)](https://github.com/eastxiaodong/ace-tool) |
 
 ---
 
@@ -216,9 +212,9 @@ ACE (Augment Context Engine) provides powerful semantic code search.
 
 <table>
 <tr><th>Search Mode</th><th>Description</th></tr>
-<tr><td>🔤 <b>FTS</b></td><td>Full-text search, based on SQLite FTS5</td></tr>
-<tr><td>🧠 <b>Semantic</b></td><td>Semantic search, using local embedding models</td></tr>
-<tr><td>🔀 <b>Hybrid</b></td><td>Hybrid search, combining FTS + Semantic + Reranking</td></tr>
+<tr><td><b>FTS</b></td><td>Full-text search, based on SQLite FTS5</td></tr>
+<tr><td><b>Semantic</b></td><td>Semantic search, using local embedding models</td></tr>
+<tr><td><b>Hybrid</b></td><td>Hybrid search, combining FTS + Semantic + Reranking</td></tr>
 </table>
 
 <details>
@@ -254,10 +250,10 @@ ccw upgrade -a        # Upgrade all installations
 
 <table>
 <tr><th>Feature</th><th>Description</th></tr>
-<tr><td>📊 <b>Session Overview</b></td><td>Track workflow sessions and progress</td></tr>
-<tr><td>🔍 <b>CodexLens</b></td><td>FTS + Semantic + Hybrid code search</td></tr>
-<tr><td>🕸️ <b>Graph Explorer</b></td><td>Interactive code relationship visualization</td></tr>
-<tr><td>📜 <b>CLI Manager</b></td><td>Execution history with session resume</td></tr>
+<tr><td><b>Session Overview</b></td><td>Track workflow sessions and progress</td></tr>
+<tr><td><b>CodexLens</b></td><td>FTS + Semantic + Hybrid code search</td></tr>
+<tr><td><b>Graph Explorer</b></td><td>Interactive code relationship visualization</td></tr>
+<tr><td><b>CLI Manager</b></td><td>Execution history with session resume</td></tr>
 </table>
 
 ---
@@ -266,11 +262,11 @@ ccw upgrade -a        # Upgrade all installations
 
 | Document | Description |
 |----------|-------------|
-| 📘 [**Workflow Guide**](WORKFLOW_GUIDE.md) | 4-level workflow system (recommended) |
-| 🚀 [**Getting Started**](GETTING_STARTED.md) | 5-minute quick start |
-| 🖥️ [**Dashboard Guide**](DASHBOARD_GUIDE.md) | Dashboard user guide |
-| ❓ [**FAQ**](FAQ.md) | Common questions |
-| 📝 [**Changelog**](CHANGELOG.md) | Version history |
+| [**Workflow Guide**](WORKFLOW_GUIDE.md) | 4-level workflow system (recommended) |
+| [**Getting Started**](GETTING_STARTED.md) | 5-minute quick start |
+| [**Dashboard Guide**](DASHBOARD_GUIDE.md) | Dashboard user guide |
+| [**FAQ**](FAQ.md) | Common questions |
+| [**Changelog**](CHANGELOG.md) | Version history |
 
 ---
 
@@ -301,9 +297,9 @@ ccw upgrade -a        # Upgrade all installations
 ## 🤝 Contributing
 
 <div align="center">
-  <a href="https://github.com/catlog22/Claude-Code-Workflow"><img src="https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github" alt="GitHub"/></a>
-  <a href="https://github.com/catlog22/Claude-Code-Workflow/issues"><img src="https://img.shields.io/badge/Issues-Report_Bug-FF6B6B?style=for-the-badge&logo=github" alt="Issues"/></a>
-  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/Contributing-Guide-4CAF50?style=for-the-badge&logo=github" alt="Contributing"/></a>
+  <a href="https://github.com/catlog22/Claude-Code-Workflow"><img src="https://img.shields.io/badge/GitHub-Repository-181717?style=flat-square" alt="GitHub"/></a>
+  <a href="https://github.com/catlog22/Claude-Code-Workflow/issues"><img src="https://img.shields.io/badge/Issues-Report_Bug-EF4444?style=flat-square" alt="Issues"/></a>
+  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/Contributing-Guide-10B981?style=flat-square" alt="Contributing"/></a>
 </div>
 
 ---

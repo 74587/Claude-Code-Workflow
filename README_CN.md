@@ -5,15 +5,11 @@
 
 <!-- Badges -->
 <p>
-  <a href="https://github.com/catlog22/Claude-Code-Workflow/releases"><img src="https://img.shields.io/badge/version-v6.3.33-blue?style=for-the-badge&logo=semanticrelease" alt="Version"/></a>
-  <a href="https://www.npmjs.com/package/claude-code-workflow"><img src="https://img.shields.io/npm/v/claude-code-workflow?style=for-the-badge&logo=npm&logoColor=white&color=cb3837" alt="npm"/></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="License"/></a>
-</p>
-
-<p>
-  <a href="https://github.com/catlog22/Claude-Code-Workflow/stargazers"><img src="https://img.shields.io/github/stars/catlog22/Claude-Code-Workflow?style=for-the-badge&logo=github&color=yellow" alt="Stars"/></a>
-  <a href="https://github.com/catlog22/Claude-Code-Workflow/network/members"><img src="https://img.shields.io/github/forks/catlog22/Claude-Code-Workflow?style=for-the-badge&logo=github&color=lightgray" alt="Forks"/></a>
-  <a href="https://github.com/catlog22/Claude-Code-Workflow/issues"><img src="https://img.shields.io/github/issues/catlog22/Claude-Code-Workflow?style=for-the-badge&logo=github&color=red" alt="Issues"/></a>
+  <a href="https://github.com/catlog22/Claude-Code-Workflow/releases"><img src="https://img.shields.io/badge/version-v6.3.33-6366F1?style=flat-square" alt="Version"/></a>
+  <a href="https://www.npmjs.com/package/claude-code-workflow"><img src="https://img.shields.io/npm/v/claude-code-workflow?style=flat-square&color=cb3837" alt="npm"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-10B981?style=flat-square" alt="License"/></a>
+  <a href="https://github.com/catlog22/Claude-Code-Workflow/stargazers"><img src="https://img.shields.io/github/stars/catlog22/Claude-Code-Workflow?style=flat-square&color=F59E0B" alt="Stars"/></a>
+  <a href="https://github.com/catlog22/Claude-Code-Workflow/issues"><img src="https://img.shields.io/github/issues/catlog22/Claude-Code-Workflow?style=flat-square&color=EF4444" alt="Issues"/></a>
 </p>
 
 **[English](README.md) | [中文](README_CN.md)**
@@ -87,13 +83,13 @@ ccw install -m Global
 
 <table>
 <tr><th>级别</th><th>命令</th><th>使用场景</th></tr>
-<tr><td>⚡ <b>1</b></td><td><code>/workflow:lite-lite-lite</code></td><td>快速修复、配置调整</td></tr>
-<tr><td>📝 <b>2</b></td><td><code>/workflow:lite-plan</code></td><td>明确的单模块功能</td></tr>
-<tr><td>🔧 <b>2</b></td><td><code>/workflow:lite-fix</code></td><td>Bug 诊断修复</td></tr>
-<tr><td>🔍 <b>2</b></td><td><code>/workflow:multi-cli-plan</code></td><td>多视角分析</td></tr>
-<tr><td>📊 <b>3</b></td><td><code>/workflow:plan</code></td><td>多模块开发</td></tr>
-<tr><td>🧪 <b>3</b></td><td><code>/workflow:tdd-plan</code></td><td>测试驱动开发</td></tr>
-<tr><td>🧠 <b>4</b></td><td><code>/workflow:brainstorm:auto-parallel</code></td><td>新功能、架构设计</td></tr>
+<tr><td><b>1</b></td><td><code>/workflow:lite-lite-lite</code></td><td>快速修复、配置调整</td></tr>
+<tr><td><b>2</b></td><td><code>/workflow:lite-plan</code></td><td>明确的单模块功能</td></tr>
+<tr><td><b>2</b></td><td><code>/workflow:lite-fix</code></td><td>Bug 诊断修复</td></tr>
+<tr><td><b>2</b></td><td><code>/workflow:multi-cli-plan</code></td><td>多视角分析</td></tr>
+<tr><td><b>3</b></td><td><code>/workflow:plan</code></td><td>多模块开发</td></tr>
+<tr><td><b>3</b></td><td><code>/workflow:tdd-plan</code></td><td>测试驱动开发</td></tr>
+<tr><td><b>4</b></td><td><code>/workflow:brainstorm:auto-parallel</code></td><td>新功能、架构设计</td></tr>
 </table>
 
 ### 工作流示例
@@ -122,10 +118,10 @@ ccw install -m Global
 
 <table>
 <tr><th>CLI</th><th>说明</th><th>官方文档</th></tr>
-<tr><td>🔷 <b>Gemini</b></td><td>Google AI 分析</td><td><a href="https://github.com/google-gemini/gemini-cli">google-gemini/gemini-cli</a></td></tr>
-<tr><td>🟢 <b>Codex</b></td><td>OpenAI 自主编码</td><td><a href="https://github.com/openai/codex">openai/codex</a></td></tr>
-<tr><td>🟠 <b>OpenCode</b></td><td>开源多模型</td><td><a href="https://github.com/opencode-ai/opencode">opencode-ai/opencode</a></td></tr>
-<tr><td>🟣 <b>Qwen</b></td><td>阿里云 Qwen-Code</td><td><a href="https://github.com/QwenLM">QwenLM/Qwen</a></td></tr>
+<tr><td><b>Gemini</b></td><td>Google AI 分析</td><td><a href="https://github.com/google-gemini/gemini-cli">google-gemini/gemini-cli</a></td></tr>
+<tr><td><b>Codex</b></td><td>OpenAI 自主编码</td><td><a href="https://github.com/openai/codex">openai/codex</a></td></tr>
+<tr><td><b>OpenCode</b></td><td>开源多模型</td><td><a href="https://github.com/opencode-ai/opencode">opencode-ai/opencode</a></td></tr>
+<tr><td><b>Qwen</b></td><td>阿里云 Qwen-Code</td><td><a href="https://github.com/QwenLM">QwenLM/Qwen</a></td></tr>
 </table>
 
 ---
@@ -133,8 +129,8 @@ ccw install -m Global
 ## 🎭 语义化 CLI 调用
 
 <div align="center">
-<img src="https://img.shields.io/badge/只需描述-你想要什么-6366F1?style=for-the-badge"/>
-<img src="https://img.shields.io/badge/CCW_处理-剩下的一切-10B981?style=for-the-badge"/>
+<img src="https://img.shields.io/badge/只需描述-你想要什么-6366F1?style=flat-square"/>
+<img src="https://img.shields.io/badge/CCW_处理-剩下的一切-10B981?style=flat-square"/>
 </div>
 
 <br/>
@@ -153,10 +149,10 @@ ccw install -m Global
 
 | 模式 | 用户提示词示例 |
 |------|----------------|
-| 🔄 **协同分析** | "使用 Gemini 和 Codex 协同分析安全漏洞" |
-| ⚡ **并行执行** | "让 Gemini、Codex、Qwen 并行分析架构设计" |
-| 🔁 **迭代优化** | "用 Gemini 诊断问题，然后 Codex 修复，迭代直到解决" |
-| 🔗 **流水线** | "Gemini 设计方案，Codex 实现，Claude 审查" |
+| **协同分析** | "使用 Gemini 和 Codex 协同分析安全漏洞" |
+| **并行执行** | "让 Gemini、Codex、Qwen 并行分析架构设计" |
+| **迭代优化** | "用 Gemini 诊断问题，然后 Codex 修复，迭代直到解决" |
+| **流水线** | "Gemini 设计方案，Codex 实现，Claude 审查" |
 
 <details>
 <summary><b>📝 更多示例</b></summary>
@@ -205,8 +201,8 @@ ACE (Augment Context Engine) 提供强大的语义代码搜索能力。
 
 | 方式 | 链接 |
 |------|------|
-| 📘 **官方安装** | [Augment MCP 文档](https://docs.augmentcode.com/context-services/mcp/overview) |
-| 🔧 **代理版本** | [ace-tool (GitHub)](https://github.com/eastxiaodong/ace-tool) |
+| **官方** | [Augment MCP 文档](https://docs.augmentcode.com/context-services/mcp/overview) |
+| **代理** | [ace-tool (GitHub)](https://github.com/eastxiaodong/ace-tool) |
 
 ---
 
@@ -216,9 +212,9 @@ ACE (Augment Context Engine) 提供强大的语义代码搜索能力。
 
 <table>
 <tr><th>搜索模式</th><th>说明</th></tr>
-<tr><td>🔤 <b>FTS</b></td><td>全文搜索，基于 SQLite FTS5</td></tr>
-<tr><td>🧠 <b>Semantic</b></td><td>语义搜索，基于本地嵌入模型</td></tr>
-<tr><td>🔀 <b>Hybrid</b></td><td>混合搜索，结合 FTS + 语义 + 重排序</td></tr>
+<tr><td><b>FTS</b></td><td>全文搜索，基于 SQLite FTS5</td></tr>
+<tr><td><b>Semantic</b></td><td>语义搜索，基于本地嵌入模型</td></tr>
+<tr><td><b>Hybrid</b></td><td>混合搜索，结合 FTS + 语义 + 重排序</td></tr>
 </table>
 
 <details>
@@ -254,10 +250,10 @@ ccw upgrade -a        # 升级所有安装
 
 <table>
 <tr><th>功能</th><th>说明</th></tr>
-<tr><td>📊 <b>会话概览</b></td><td>跟踪工作流会话和进度</td></tr>
-<tr><td>🔍 <b>CodexLens</b></td><td>FTS + 语义 + 混合代码搜索</td></tr>
-<tr><td>🕸️ <b>图浏览器</b></td><td>交互式代码关系可视化</td></tr>
-<tr><td>📜 <b>CLI 管理器</b></td><td>执行历史与会话恢复</td></tr>
+<tr><td><b>会话概览</b></td><td>跟踪工作流会话和进度</td></tr>
+<tr><td><b>CodexLens</b></td><td>FTS + 语义 + 混合代码搜索</td></tr>
+<tr><td><b>图浏览器</b></td><td>交互式代码关系可视化</td></tr>
+<tr><td><b>CLI 管理器</b></td><td>执行历史与会话恢复</td></tr>
 </table>
 
 ---
@@ -266,11 +262,11 @@ ccw upgrade -a        # 升级所有安装
 
 | 文档 | 说明 |
 |------|------|
-| 📘 [**工作流指南**](WORKFLOW_GUIDE_CN.md) | 4 级工作流系统（推荐） |
-| 🚀 [**快速开始**](GETTING_STARTED_CN.md) | 5 分钟快速入门 |
-| 🖥️ [**Dashboard 指南**](DASHBOARD_GUIDE.md) | Dashboard 用户指南 |
-| ❓ [**常见问题**](FAQ.md) | 常见问题解答 |
-| 📝 [**更新日志**](CHANGELOG.md) | 版本历史 |
+| [**工作流指南**](WORKFLOW_GUIDE_CN.md) | 4 级工作流系统（推荐） |
+| [**快速开始**](GETTING_STARTED_CN.md) | 5 分钟快速入门 |
+| [**Dashboard 指南**](DASHBOARD_GUIDE.md) | Dashboard 用户指南 |
+| [**常见问题**](FAQ.md) | 常见问题解答 |
+| [**更新日志**](CHANGELOG.md) | 版本历史 |
 
 ---
 
@@ -301,9 +297,9 @@ ccw upgrade -a        # 升级所有安装
 ## 🤝 贡献
 
 <div align="center">
-  <a href="https://github.com/catlog22/Claude-Code-Workflow"><img src="https://img.shields.io/badge/GitHub-仓库-181717?style=for-the-badge&logo=github" alt="GitHub"/></a>
-  <a href="https://github.com/catlog22/Claude-Code-Workflow/issues"><img src="https://img.shields.io/badge/Issues-报告问题-FF6B6B?style=for-the-badge&logo=github" alt="Issues"/></a>
-  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/贡献-指南-4CAF50?style=for-the-badge&logo=github" alt="Contributing"/></a>
+  <a href="https://github.com/catlog22/Claude-Code-Workflow"><img src="https://img.shields.io/badge/GitHub-仓库-181717?style=flat-square" alt="GitHub"/></a>
+  <a href="https://github.com/catlog22/Claude-Code-Workflow/issues"><img src="https://img.shields.io/badge/Issues-报告问题-EF4444?style=flat-square" alt="Issues"/></a>
+  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/贡献-指南-10B981?style=flat-square" alt="Contributing"/></a>
 </div>
 
 ---
