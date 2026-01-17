@@ -76,7 +76,7 @@ TASK: • Extract conflicts from IMPL_PLAN and lessons • Group by type (archit
 MODE: analysis
 CONTEXT: @.workflow/.archives/*/IMPL_PLAN.md @.workflow/.archives/manifest.json
 EXPECTED: Conflict patterns with frequency and resolution
-RULES: $PROTO $TMPL | analysis=READ-ONLY
+CONSTRAINTS: analysis=READ-ONLY
 " --tool gemini --mode analysis --rule workflow-skill-aggregation --cd .workflow/.archives
 ```
 

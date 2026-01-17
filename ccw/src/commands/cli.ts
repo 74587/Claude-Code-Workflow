@@ -551,6 +551,8 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
   }
 
   // Priority: 1. --file, 2. --prompt/-p option, 3. positional argument
+  // Note: On Windows, quoted arguments like -p "say hello" may be split into
+  // -p "say" and positional "hello". We merge them back together.
   let finalPrompt: string | undefined;
 
   if (file) {
@@ -569,7 +571,8 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
     }
   } else if (optionPrompt) {
     // Use --prompt/-p option (preferred for multi-line)
-    finalPrompt = optionPrompt;
+    // Merge with positional argument if Windows split the quoted string
+    finalPrompt = positionalPrompt ? `${optionPrompt} ${positionalPrompt}` : optionPrompt;
   } else {
     // Fall back to positional argument
     finalPrompt = positionalPrompt;
@@ -586,20 +589,21 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
 
   const prompt_to_use = finalPrompt || '';
 
-  // Load rules templates (will be passed as env vars)
+  // Load rules templates (concatenation mode - directly prepend to prompt)
   // Default to universal-rigorous-style if --rule not specified
   const effectiveRule = rule || 'universal-rigorous-style';
-  let rulesEnv: { PROTO?: string; TMPL?: string } = {};
+  let systemRules = '';  // Protocol content
+  let roles = '';        // Template content
   try {
     const { loadProtocol, loadTemplate } = await import('../tools/template-discovery.js');
     const proto = loadProtocol(mode);
     const tmpl = loadTemplate(effectiveRule);
-    if (proto) rulesEnv.PROTO = proto;
-    if (tmpl) rulesEnv.TMPL = tmpl;
+    if (proto) systemRules = proto;
+    if (tmpl) roles = tmpl;
     if (debug) {
       console.log(chalk.gray(`  Rule loaded: ${effectiveRule}${!rule ? ' (default)' : ''}`));
-      console.log(chalk.gray(`  PROTO(${proto ? proto.length : 0} chars) + TMPL(${tmpl ? tmpl.length : 0} chars)`));
-      console.log(chalk.gray(`  Use $PROTO and $TMPL in your prompt to reference them`));
+      console.log(chalk.gray(`  systemRules(${systemRules.length} chars) + roles(${roles.length} chars)`));
+      console.log(chalk.gray(`  Rules will be prepended to prompt automatically`));
     }
   } catch (error) {
     console.error(chalk.red(`Error loading rule template: ${error instanceof Error ? error.message : error}`));
@@ -728,6 +732,24 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
     }
   }
 
+  // Concatenate systemRules and roles to the end of prompt (if loaded)
+  // Format: [USER_PROMPT]\n[SYSTEM_RULES]\n[ROLES]
+  if (systemRules || roles) {
+    const parts: string[] = [actualPrompt];
+    if (systemRules) {
+      parts.push(`=== SYSTEM RULES ===\n${systemRules}`);
+    }
+    if (roles) {
+      parts.push(`=== ROLES ===\n${roles}`);
+    }
+    actualPrompt = parts.join('\n\n');
+
+    if (debug) {
+      console.log(chalk.gray(`  Prompt structure: USER_PROMPT(${prompt_to_use.length}) + SYSTEM_RULES(${systemRules.length}) + ROLES(${roles.length})`));
+      console.log(chalk.gray(`  Total prompt length: ${actualPrompt.length} chars`));
+    }
+  }
+
   // Parse resume IDs for merge scenario
   const resumeIds = resume && typeof resume === 'string' ? resume.split(',').map(s => s.trim()).filter(Boolean) : [];
   const isMerge = resumeIds.length > 1;
@@ -835,6 +857,7 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       switch (unit.type) {
         case 'stdout':
         case 'code':
+        case 'streaming_content':  // Show streaming delta content in real-time
           process.stdout.write(typeof unit.content === 'string' ? unit.content : JSON.stringify(unit.content));
           break;
         case 'stderr':
@@ -879,9 +902,8 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       uncommitted,
       base,
       commit,
-      title,
-      // Rules env vars (PROTO, TMPL)
-      rulesEnv: Object.keys(rulesEnv).length > 0 ? rulesEnv : undefined
+      title
+      // Rules are now concatenated directly into prompt (no env vars)
     }, onOutput); // Always pass onOutput for real-time dashboard streaming
 
     if (elapsedInterval) clearInterval(elapsedInterval);
@@ -1228,7 +1250,15 @@ export async function cliCommand(
 
       if (hasPromptOption || hasFileOption || hasResume || subcommandIsPrompt) {
         // Treat as exec: use subcommand as positional prompt if no -p/-f option
-        const positionalPrompt = subcommandIsPrompt ? subcommand : undefined;
+        let positionalPrompt = subcommandIsPrompt ? subcommand : undefined;
+
+        // On Windows, quoted arguments like -p "a b c" may be split across argsArray
+        // Merge them back together to reconstruct the full prompt
+        if (argsArray.length > 0 && hasPromptOption) {
+          const extraArgs = argsArray.join(' ');
+          positionalPrompt = positionalPrompt ? `${positionalPrompt} ${extraArgs}` : extraArgs;
+        }
+
         await execAction(positionalPrompt, execOptions);
       } else {
         // Show help

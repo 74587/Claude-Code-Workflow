@@ -30,7 +30,7 @@ TASK: • [step 1] • [step 2] • [step 3]
 MODE: review
 CONTEXT: [review target description] | Memory: [relevant context]
 EXPECTED: [deliverable format] + [quality criteria]
-RULES: $PROTO $TMPL | [focus constraints]
+CONSTRAINTS: [focus constraints]
 ```
 
 ## EXECUTION INSTRUCTIONS - START HERE
@@ -137,7 +137,7 @@ TASK: • Review code correctness and logic errors • Check coding standards an
 MODE: review
 CONTEXT: {target_description} | Memory: Project conventions from CLAUDE.md
 EXPECTED: Structured review report with: severity levels (Critical/High/Medium/Low), file:line references, specific improvement suggestions, priority ranking
-RULES: $PROTO $TMPL | Focus on actionable feedback
+CONSTRAINTS: Focus on actionable feedback
 ```
 
 **Security Focus Prompt:**
@@ -147,7 +147,7 @@ TASK: • Scan for injection vulnerabilities (SQL, XSS, command) • Check authe
 MODE: review
 CONTEXT: {target_description} | Memory: Security best practices, OWASP Top 10
 EXPECTED: Security report with: vulnerability classification, CVE references where applicable, remediation code snippets, risk severity matrix
-RULES: $PROTO $TMPL | Security-first analysis | Flag all potential vulnerabilities
+CONSTRAINTS: Security-first analysis | Flag all potential vulnerabilities
 ```
 
 **Performance Focus Prompt:**
@@ -157,7 +157,7 @@ TASK: • Analyze algorithmic complexity (Big-O) • Identify memory allocation 
 MODE: review
 CONTEXT: {target_description} | Memory: Performance patterns and anti-patterns
 EXPECTED: Performance report with: complexity analysis, bottleneck identification, optimization suggestions with expected impact, benchmark recommendations
-RULES: $PROTO $TMPL | Performance optimization focus
+CONSTRAINTS: Performance optimization focus
 ```
 
 **Code Quality Focus Prompt:**
@@ -167,7 +167,7 @@ TASK: • Assess SOLID principles adherence • Identify code duplication and ab
 MODE: review
 CONTEXT: {target_description} | Memory: Project coding standards
 EXPECTED: Quality report with: principle violations, refactoring suggestions, naming improvements, maintainability score
-RULES: $PROTO $TMPL | Code quality and maintainability focus
+CONSTRAINTS: Code quality and maintainability focus
 ```
 
 **3.2 Build Target Description**
@@ -226,7 +226,7 @@ TASK: • Review correctness and logic • Check standards compliance • Identi
 MODE: review
 CONTEXT: Reviewing uncommitted changes | Memory: Project conventions
 EXPECTED: Structured report with severity levels, file:line refs, improvement suggestions
-RULES: $PROTO $TMPL | Actionable feedback
+CONSTRAINTS: Actionable feedback
 " --tool codex --mode review --uncommitted --rule analysis-review-code-quality
 ```
 

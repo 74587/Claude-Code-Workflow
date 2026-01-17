@@ -267,7 +267,7 @@ EXPECTED: JSON exploration plan following exploration-plan-schema.json:
   "estimated_iterations": N,
   "termination_conditions": [...]
 }
-RULES: $PROTO | Use ACE context to inform targets | Focus on actionable plan
+CONSTRAINTS: Use ACE context to inform targets | Focus on actionable plan
 `;
 
 // Step 3: Execute Gemini planning

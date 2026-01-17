@@ -20,7 +20,8 @@ export type CliOutputUnitType =
   | 'progress'       // Progress updates
   | 'metadata'       // Session/execution metadata
   | 'system'         // System events/messages
-  | 'tool_call';     // Tool invocation/result (Gemini tool_use/tool_result)
+  | 'tool_call'      // Tool invocation/result (Gemini tool_use/tool_result)
+  | 'streaming_content';  // Streaming delta content (only last one used in final output)
 
 /**
  * Intermediate Representation unit
@@ -292,9 +293,9 @@ export class JsonLinesParser implements IOutputParser {
     if (json.type === 'message' && json.role) {
       // Gemini assistant/user message
       if (json.role === 'assistant') {
-        // Delta messages are incremental streaming chunks - treat as progress (filtered from final output)
-        // Only non-delta messages are final content
-        const outputType = json.delta === true ? 'progress' : 'stdout';
+        // Delta messages use 'streaming_content' type - only last one is used in final output
+        // Non-delta (final) messages use 'stdout' type
+        const outputType = json.delta === true ? 'streaming_content' : 'stdout';
         return {
           type: outputType,
           content: json.content || '',
@@ -1125,8 +1126,26 @@ export function flattenOutputUnits(
     separator = '\n'
   } = options || {};
 
+  // Special handling for streaming_content: concatenate all into a single stdout unit
+  // Gemini delta messages are incremental (each contains partial content to append)
+  let processedUnits = units;
+  const streamingUnits = units.filter(u => u.type === 'streaming_content');
+  if (streamingUnits.length > 0) {
+    // Concatenate all streaming_content into one
+    const concatenatedContent = streamingUnits
+      .map(u => typeof u.content === 'string' ? u.content : '')
+      .join('');
+    processedUnits = units.filter(u => u.type !== 'streaming_content');
+    // Add concatenated content as stdout type for inclusion
+    processedUnits.push({
+      type: 'stdout',
+      content: concatenatedContent,
+      timestamp: streamingUnits[streamingUnits.length - 1].timestamp
+    });
+  }
+
   // Filter units by type
-  let filtered = units;
+  let filtered = processedUnits;
   if (includeTypes && includeTypes.length > 0) {
     filtered = filtered.filter(u => includeTypes.includes(u.type));
   }

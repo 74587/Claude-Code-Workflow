@@ -106,7 +106,7 @@ EXPECTED:
 ## Time Estimate
 **Total**: [time]
 
-RULES: $PROTO $TMPL |
+CONSTRAINTS:
 - Follow schema structure from {schema_path}
 - Acceptance/verification must be quantified
 - Dependencies use task IDs

@@ -114,10 +114,10 @@ plan → planning/architecture-planning.txt | planning/task-breakdown.txt
 bug-fix → development/bug-diagnosis.txt
 ```
 
-**3. RULES Field**:
-- Use `--rule <template>` option to auto-load protocol + template as `$PROTO` and `$TMPL`
+**3. CONSTRAINTS Field**:
+- Use `--rule <template>` option to auto-load protocol + template (appended to prompt)
 - Template names: `category-function` format (e.g., `analysis-code-patterns`, `development-feature`)
-- NEVER escape: `\$`, `\"`, `\'` breaks variable expansion
+- NEVER escape: `\"`, `\'` breaks shell parsing
 
 **4. Structured Prompt**:
 ```bash
@@ -126,7 +126,7 @@ TASK: {specific_task_with_details}
 MODE: {analysis|write|auto}
 CONTEXT: {structured_file_references}
 EXPECTED: {clear_output_expectations}
-RULES: $PROTO $TMPL | {constraints}
+CONSTRAINTS: {constraints}
 ```
 
 ---
@@ -157,7 +157,7 @@ TASK: {task}
 MODE: analysis
 CONTEXT: @**/*
 EXPECTED: {output}
-RULES: $PROTO $TMPL
+CONSTRAINTS: {constraints}
 " --tool gemini --mode analysis --rule analysis-code-patterns --cd {dir}
 
 # Qwen fallback: Replace '--tool gemini' with '--tool qwen'

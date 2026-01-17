@@ -72,7 +72,7 @@ TASK: • Group successes by functional domain • Categorize challenges by seve
 MODE: analysis
 CONTEXT: @.workflow/.archives/manifest.json
 EXPECTED: Aggregated lessons with frequency counts
-RULES: $PROTO $TMPL | analysis=READ-ONLY
+CONSTRAINTS: analysis=READ-ONLY
 " --tool gemini --mode analysis --rule workflow-skill-aggregation --cd .workflow/.archives
 ```
 

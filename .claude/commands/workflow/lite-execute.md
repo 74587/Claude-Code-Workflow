@@ -486,7 +486,7 @@ TASK: • Verify plan acceptance criteria fulfillment • Analyze code quality �
 MODE: analysis
 CONTEXT: @**/* @{plan.json} [@{exploration.json}] | Memory: Review lite-execute changes against plan requirements
 EXPECTED: Quality assessment with acceptance criteria verification, issue identification, and recommendations. Explicitly check each acceptance criterion from plan.json tasks.
-RULES: $PROTO $TMPL | Focus on plan acceptance criteria and plan adherence | analysis=READ-ONLY
+CONSTRAINTS: Focus on plan acceptance criteria and plan adherence | analysis=READ-ONLY
 ```
 
 **Tool-Specific Execution** (Apply shared prompt template above):

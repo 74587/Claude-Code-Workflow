@@ -304,14 +304,14 @@ async function runWithTool(tool, context) {
 ### 引用协议模板
 
 ```bash
-# 分析模式 - 使用 --rule 自动加载协议和模板
+# Analysis mode - use --rule to auto-load protocol and template (appended to prompt)
 ccw cli -p "
-RULES: $PROTO $TMPL | ...
+CONSTRAINTS: ...
 ..." --tool gemini --mode analysis --rule analysis-code-patterns
 
-# 写入模式 - 使用 --rule 自动加载协议和模板
+# Write mode - use --rule to auto-load protocol and template (appended to prompt)
 ccw cli -p "
-RULES: $PROTO $TMPL | ...
+CONSTRAINTS: ...
 ..." --tool codex --mode write --rule development-feature
 ```
 
@@ -319,11 +319,7 @@ RULES: $PROTO $TMPL | ...
 
 ```javascript
 function buildPrompt(config) {
-  const { purpose, task, mode, context, expected, template } = config;
-
-  const protocolPath = mode === 'write'
-    ? '~/.claude/workflows/cli-templates/protocols/write-protocol.md'
-    : '~/.claude/workflows/cli-templates/protocols/analysis-protocol.md';
+  const { purpose, task, mode, context, expected, constraints } = config;
 
   return `
 PURPOSE: ${purpose}
@@ -331,8 +327,8 @@ TASK: ${task.map(t => `• ${t}`).join('\n')}
 MODE: ${mode}
 CONTEXT: ${context}
 EXPECTED: ${expected}
-RULES: $PROTO $TMPL
-`; // Use --rule option to specify template
+CONSTRAINTS: ${constraints || ''}
+`; // Use --rule option to auto-append protocol + template
 }
 ```
 
@@ -433,11 +429,11 @@ CLI 调用 (Bash + ccw cli):
 - 相关任务使用 `--resume` 保持上下文
 - 独立任务不使用 `--resume`
 
-### 4. 提示词规范
+### 4. Prompt Specification
 
-- 始终使用 PURPOSE/TASK/MODE/CONTEXT/EXPECTED/RULES 结构
-- 使用 `--rule <template>` 自动加载协议和模板（`$PROTO` 和 `$TMPL`）
-- 模板名格式: `category-function` (如 `analysis-code-patterns`)
+- Always use PURPOSE/TASK/MODE/CONTEXT/EXPECTED/CONSTRAINTS structure
+- Use `--rule <template>` to auto-append protocol + template to prompt
+- Template name format: `category-function` (e.g., `analysis-code-patterns`)
 
 ### 5. 结果处理
 

@@ -127,7 +127,7 @@ EXPECTED: Structured fix strategy with:
 - Fix approach ensuring business logic correctness (not just test passage)
 - Expected outcome and verification steps
 - Impact assessment: Will this fix potentially mask other issues?
-RULES: $PROTO $TMPL |
+CONSTRAINTS:
 - For {test_type} tests: {layer_specific_guidance}
 - Avoid 'surgical fixes' that mask underlying issues
 - Provide specific line numbers for modifications

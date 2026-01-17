@@ -167,7 +167,7 @@ TASK: ${tasks.map(t => `• ${t}`).join(' ')}
 MODE: analysis
 CONTEXT: @**/*
 EXPECTED: ${expected}
-RULES: $PROTO | ${rules}
+CONSTRAINTS: ${rules}
 `
 }
 
@@ -373,7 +373,7 @@ TASK: ${extractedTasks.join(' • ')}
 MODE: write
 CONTEXT: @${affectedFiles.join(' @')}
 EXPECTED: Working implementation with all changes applied
-RULES: $PROTO
+CONSTRAINTS: Follow existing patterns
 " --tool ${executionTool.name} --mode write`,
     run_in_background: false
   })

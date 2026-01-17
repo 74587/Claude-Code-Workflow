@@ -111,14 +111,13 @@ When primary tool fails or is unavailable:
 ### Universal Prompt Template
 
 ```bash
-# Use --rule to auto-load protocol and template as $PROTO and $TMPL
 ccw cli -p "
 PURPOSE: [what] + [why] + [success criteria] + [constraints/scope]
 TASK: • [step 1: specific action] • [step 2: specific action] • [step 3: specific action]
 MODE: [analysis|write]
 CONTEXT: @[file patterns] | Memory: [session/tech/module context]
 EXPECTED: [deliverable format] + [quality criteria] + [structure requirements]
-RULES: $PROTO $TMPL | [domain constraints]
+CONSTRAINTS: [domain constraints]
 " --tool <tool-id> --mode <analysis|write> --rule <category-template>
 ```
 
@@ -168,11 +167,11 @@ Every command MUST include these fields:
   - Bad Example: "Report"
   - Good Example: "Markdown report with: severity levels (Critical/High/Medium/Low), file:line references, remediation code snippets, priority ranking"
 
-- **RULES**
-  - Purpose: Protocol + template + constraints
-  - Components: $PROTO + $TMPL + domain rules (variables loaded beforehand)
-  - Bad Example: (missing)
-  - Good Example: "$PROTO $TMPL | Focus on authentication | Ignore test files" (where PROTO and TMPL are pre-loaded variables)
+- **CONSTRAINTS**
+  - Purpose: Domain-specific constraints
+  - Components: Scope limits, special requirements, focus areas
+  - Bad Example: (missing or too vague)
+  - Good Example: "Focus on authentication | Ignore test files | No breaking changes"
 
 ### CONTEXT Configuration
 
@@ -221,27 +220,24 @@ CONTEXT: @components/Auth.tsx @types/auth.d.ts | Memory: Previous type refactori
 ccw cli -p "..." --tool <tool-id> --mode analysis --cd src
 ```
 
-### RULES Configuration
+### --rule Configuration
 
 **Use `--rule` option to auto-load templates**:
 
 ```bash
-ccw cli -p "... RULES: \$PROTO \$TMPL | constraints" --tool gemini --mode analysis --rule analysis-review-architecture
+ccw cli -p "..." --tool gemini --mode analysis --rule analysis-review-architecture
 ```
 
 **`--rule` How It Works**:
 1. Auto-discovers templates from `~/.claude/workflows/cli-templates/prompts/`
 2. Auto-loads corresponding protocol based on `--mode` (analysis-protocol.md or write-protocol.md)
-3. Sets environment variables `$PROTO` (protocol) and `$TMPL` (template) for subprocess
-4. Reference `$PROTO` and `$TMPL` in prompt
-
-> **Important**: `$PROTO` is required and must be included in RULES. `$TMPL` is optional.
+3. Appends protocol and template content to the end of your prompt
 
 ### Mode Protocol References
 
-**`--rule` auto-handles Protocol**:
-- `--mode analysis` → `$PROTO` = analysis-protocol.md
-- `--mode write` → `$PROTO` = write-protocol.md
+**`--rule` auto-loads Protocol based on mode**:
+- `--mode analysis` → analysis-protocol.md
+- `--mode write` → write-protocol.md
 
 **Protocol Mapping**:
 
@@ -336,9 +332,9 @@ ccw cli -p "... RULES: \$PROTO \$TMPL | constraints" --tool gemini --mode analys
   - Default: -
 
 - **`--rule <template>`**
-  - Description: 模板名称，自动加载 protocol + template 为 $PROTO 和 $TMPL 环境变量
-  - Default: none
-  - 根据 --mode 自动选择 protocol
+  - Description: Template name, auto-loads protocol + template appended to prompt
+  - Default: universal-rigorous-style
+  - Auto-selects protocol based on --mode
 
 ### Directory Configuration
 
@@ -407,7 +403,7 @@ TASK: • Scan for injection flaws (SQL, command, LDAP) • Check authentication
 MODE: analysis
 CONTEXT: @src/auth/**/* @src/middleware/auth.ts | Memory: Using bcrypt for passwords, JWT for sessions
 EXPECTED: Security report with: severity matrix, file:line references, CVE mappings where applicable, remediation code snippets prioritized by risk
-RULES: \$PROTO \$TMPL | Focus on authentication | Ignore test files
+CONSTRAINTS: Focus on authentication | Ignore test files
 " --tool gemini --mode analysis --rule analysis-assess-security-risks --cd src/auth
 ```
 
@@ -419,7 +415,7 @@ TASK: • Create rate limiter middleware with sliding window • Implement per-r
 MODE: write
 CONTEXT: @src/middleware/**/* @src/config/**/* | Memory: Using Express.js, Redis already configured, existing middleware pattern in auth.ts
 EXPECTED: Production-ready code with: TypeScript types, unit tests, integration test, configuration example, migration guide
-RULES: \$PROTO \$TMPL | Follow existing middleware patterns | No breaking changes
+CONSTRAINTS: Follow existing middleware patterns | No breaking changes
 " --tool gemini --mode write --rule development-implement-feature
 ```
 
@@ -431,7 +427,7 @@ TASK: • Trace connection lifecycle from open to close • Identify event liste
 MODE: analysis
 CONTEXT: @src/websocket/**/* @src/services/connection-manager.ts | Memory: Using ws library, ~5000 concurrent connections in production
 EXPECTED: Root cause analysis with: memory profile, leak source (file:line), fix recommendation with code, verification steps
-RULES: \$PROTO \$TMPL | Focus on resource cleanup
+CONSTRAINTS: Focus on resource cleanup
 " --tool gemini --mode analysis --rule analysis-diagnose-bug-root-cause --cd src
 ```
 
@@ -443,7 +439,7 @@ TASK: • Extract gateway interface from current implementation • Create strat
 MODE: write
 CONTEXT: @src/payments/**/* @src/types/payment.ts | Memory: Currently only Stripe, adding PayPal next sprint, must support future gateways
 EXPECTED: Refactored code with: strategy interface, concrete implementations, factory class, updated tests, migration checklist
-RULES: \$PROTO \$TMPL | Preserve all existing behavior | Tests must pass
+CONSTRAINTS: Preserve all existing behavior | Tests must pass
 " --tool gemini --mode write --rule development-refactor-codebase
 ```
 
@@ -481,15 +477,15 @@ ccw cli -p "Check for breaking changes in API contracts and backward compatibili
 - **Use tools early and often** - Tools are faster and more thorough
 - **Unified CLI** - Always use `ccw cli -p` for consistent parameter handling
 - **Default mode is analysis** - Omit `--mode` for read-only operations, explicitly use `--mode write` for file modifications
-- **Use `--rule` for templates** - 自动加载 protocol + template 为 `$PROTO` 和 `$TMPL` 环境变量
+- **Use `--rule` for templates** - Auto-loads protocol + template appended to prompt
 - **Write protection** - Require EXPLICIT `--mode write` for file operations
 
 ### Workflow Principles
 
 - **Use CCW unified interface** for all executions
-- **Always include template** - 使用 `--rule <template-name>` 加载模板
+- **Always include template** - Use `--rule <template-name>` to load templates
 - **Be specific** - Clear PURPOSE, TASK, EXPECTED fields
-- **Include constraints** - File patterns, scope in RULES
+- **Include constraints** - File patterns, scope in CONSTRAINTS
 - **Leverage memory context** when building on previous work
 - **Discover patterns first** - Use rg/MCP before CLI execution
 - **Default to full context** - Use `@**/*` unless specific files needed
@@ -501,8 +497,8 @@ ccw cli -p "Check for breaking changes in API contracts and backward compatibili
 - [ ] **Context gathered** - File references + memory (default `@**/*`)
 - [ ] **Directory navigation** - `--cd` and/or `--includeDirs`
 - [ ] **Tool selected** - Explicit `--tool` or tag-based auto-selection
-- [ ] **Rule template** - `--rule <template-name>` 自动加载 protocol + template
-- [ ] **Constraints specified** - Scope, requirements
+- [ ] **Rule template** - `--rule <template-name>` loads template
+- [ ] **Constraints** - Domain constraints in CONSTRAINTS field
 
 ### Execution Workflow
 

@@ -215,7 +215,7 @@ CONTEXT: @**/* | Memory: {ace_context_summary}
 
 EXPECTED: JSON with feasibility_score, findings, implementation_approaches, technical_concerns, code_locations
 
-RULES: $PROTO |
+CONSTRAINTS:
 - Specific file:line references
 - Quantify effort estimates
 - Concrete pros/cons

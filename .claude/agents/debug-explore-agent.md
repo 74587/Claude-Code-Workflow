@@ -105,7 +105,7 @@ TASK: • Analyze error pattern • Identify potential root causes • Suggest t
 MODE: analysis
 CONTEXT: @{affected_files}
 EXPECTED: Structured hypothesis list with priority ranking
-RULES: $PROTO $TMPL | Focus on testable conditions
+CONSTRAINTS: Focus on testable conditions
 " --tool gemini --mode analysis --cd {project_root}
 ```
 
@@ -213,7 +213,7 @@ EXPECTED:
 - Evidence summary
 - Root cause identification (if confirmed)
 - Next steps (if inconclusive)
-RULES: $PROTO $TMPL | Evidence-based reasoning only
+CONSTRAINTS: Evidence-based reasoning only
 " --tool gemini --mode analysis
 ```
 
@@ -271,7 +271,7 @@ TASK:
 MODE: write
 CONTEXT: @{affected_files}
 EXPECTED: Working fix that addresses root cause
-RULES: $PROTO $TMPL | Minimal changes only
+CONSTRAINTS: Minimal changes only
 " --tool codex --mode write --cd {project_root}
 ```
 

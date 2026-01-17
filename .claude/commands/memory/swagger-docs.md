@@ -223,7 +223,7 @@ TASK:
 MODE: analysis
 CONTEXT: @src/**/*.controller.ts @src/**/*.routes.ts @src/**/*.dto.ts @src/**/middleware/**/*
 EXPECTED: JSON format API structure analysis report with modules, endpoints, security schemes, and error codes
-RULES: $PROTO | Strict RESTful standards | Identify all public endpoints | Document output language: {lang}
+CONSTRAINTS: Strict RESTful standards | Identify all public endpoints | Document output language: {lang}
 " --tool gemini --mode analysis --rule analysis-code-patterns --cd {project_root}
 ```
 
@@ -387,7 +387,7 @@ bash(cat ${session_dir}/.process/swagger-planning-data.json | jq -r '.api_struct
         "step": 1,
         "title": "Generate OpenAPI spec file",
         "description": "Create complete swagger.yaml specification file",
-        "cli_prompt": "PURPOSE: Generate OpenAPI 3.0.3 specification file from analyzed API structure\nTASK:\n• Define openapi version: 3.0.3\n• Define info: title, description, version, contact, license\n• Define servers: development, staging, production environments\n• Define tags: organized by business modules\n• Define paths: all API endpoints with complete specifications\n• Define components: schemas, securitySchemes, parameters, responses\nMODE: write\nCONTEXT: @[api_analysis]\nEXPECTED: Complete swagger.yaml file following OpenAPI 3.0.3 specification\nRULES: $PROTO $TMPL | Use {lang} for all descriptions | Strict RESTful standards\n--rule documentation-swagger-api",
+        "cli_prompt": "PURPOSE: Generate OpenAPI 3.0.3 specification file from analyzed API structure\nTASK:\n• Define openapi version: 3.0.3\n• Define info: title, description, version, contact, license\n• Define servers: development, staging, production environments\n• Define tags: organized by business modules\n• Define paths: all API endpoints with complete specifications\n• Define components: schemas, securitySchemes, parameters, responses\nMODE: write\nCONTEXT: @[api_analysis]\nEXPECTED: Complete swagger.yaml file following OpenAPI 3.0.3 specification\nCONSTRAINTS: Use {lang} for all descriptions | Strict RESTful standards\n--rule documentation-swagger-api",
         "output": "swagger.yaml"
       }
     ],
@@ -429,7 +429,7 @@ bash(cat ${session_dir}/.process/swagger-planning-data.json | jq -r '.api_struct
       {
         "step": 1,
         "title": "Generate authentication documentation",
-        "cli_prompt": "PURPOSE: Generate comprehensive authentication documentation for API security\nTASK:\n• Document authentication mechanism: JWT Bearer Token\n• Explain header format: Authorization: Bearer <token>\n• Describe token lifecycle: acquisition, refresh, expiration handling\n• Define permission levels: public, user, admin, super_admin\n• Document authentication failure responses: 401/403 error handling\nMODE: write\nCONTEXT: @[auth_patterns] @src/**/auth/**/* @src/**/guard/**/*\nEXPECTED: Complete authentication guide in {lang}\nRULES: $PROTO | Include code examples | Clear step-by-step instructions\n--rule development-feature",
+        "cli_prompt": "PURPOSE: Generate comprehensive authentication documentation for API security\nTASK:\n• Document authentication mechanism: JWT Bearer Token\n• Explain header format: Authorization: Bearer <token>\n• Describe token lifecycle: acquisition, refresh, expiration handling\n• Define permission levels: public, user, admin, super_admin\n• Document authentication failure responses: 401/403 error handling\nMODE: write\nCONTEXT: @[auth_patterns] @src/**/auth/**/* @src/**/guard/**/*\nEXPECTED: Complete authentication guide in {lang}\nCONSTRAINTS: Include code examples | Clear step-by-step instructions\n--rule development-feature",
         "output": "{auth_doc_name}"
       }
     ],
@@ -464,7 +464,7 @@ bash(cat ${session_dir}/.process/swagger-planning-data.json | jq -r '.api_struct
       {
         "step": 1,
         "title": "Generate error code specification document",
-        "cli_prompt": "PURPOSE: Generate comprehensive error code specification for consistent API error handling\nTASK:\n• Define error response format: {code, message, details, timestamp}\n• Document authentication errors (AUTH_xxx): 401/403 series\n• Document parameter errors (PARAM_xxx): 400 series\n• Document business errors (BIZ_xxx): business logic errors\n• Document system errors (SYS_xxx): 500 series\n• For each error code: HTTP status, error message, possible causes, resolution suggestions\nMODE: write\nCONTEXT: @src/**/*.exception.ts @src/**/*.filter.ts\nEXPECTED: Complete error code specification in {lang} with tables and examples\nRULES: $PROTO | Include response examples | Clear categorization\n--rule development-feature",
+        "cli_prompt": "PURPOSE: Generate comprehensive error code specification for consistent API error handling\nTASK:\n• Define error response format: {code, message, details, timestamp}\n• Document authentication errors (AUTH_xxx): 401/403 series\n• Document parameter errors (PARAM_xxx): 400 series\n• Document business errors (BIZ_xxx): business logic errors\n• Document system errors (SYS_xxx): 500 series\n• For each error code: HTTP status, error message, possible causes, resolution suggestions\nMODE: write\nCONTEXT: @src/**/*.exception.ts @src/**/*.filter.ts\nEXPECTED: Complete error code specification in {lang} with tables and examples\nCONSTRAINTS: Include response examples | Clear categorization\n--rule development-feature",
         "output": "{error_doc_name}"
       }
     ],
@@ -523,7 +523,7 @@ bash(cat ${session_dir}/.process/swagger-planning-data.json | jq -r '.api_struct
         "step": 1,
         "title": "Generate module API documentation",
         "description": "Generate complete API documentation for ${module_name}",
-        "cli_prompt": "PURPOSE: Generate complete RESTful API documentation for ${module_name} module\nTASK:\n• Create module overview: purpose, use cases, prerequisites\n• Generate endpoint index: grouped by functionality\n• For each endpoint document:\n  - Functional description: purpose and business context\n  - Request method: GET/POST/PUT/DELETE\n  - URL path: complete API path\n  - Request headers: Authorization and other required headers\n  - Path parameters: {id} and other path variables\n  - Query parameters: pagination, filters, etc.\n  - Request body: JSON Schema format\n  - Response body: success and error responses\n  - Field description table: type, required, example, description\n• Add usage examples: cURL, JavaScript, Python\n• Add version info: v1.0.0, last updated date\nMODE: write\nCONTEXT: @[module_endpoints] @[source_code]\nEXPECTED: Complete module API documentation in {lang} with all endpoints fully documented\nRULES: $PROTO $TMPL | RESTful standards | Include all response codes\n--rule documentation-swagger-api",
+        "cli_prompt": "PURPOSE: Generate complete RESTful API documentation for ${module_name} module\nTASK:\n• Create module overview: purpose, use cases, prerequisites\n• Generate endpoint index: grouped by functionality\n• For each endpoint document:\n  - Functional description: purpose and business context\n  - Request method: GET/POST/PUT/DELETE\n  - URL path: complete API path\n  - Request headers: Authorization and other required headers\n  - Path parameters: {id} and other path variables\n  - Query parameters: pagination, filters, etc.\n  - Request body: JSON Schema format\n  - Response body: success and error responses\n  - Field description table: type, required, example, description\n• Add usage examples: cURL, JavaScript, Python\n• Add version info: v1.0.0, last updated date\nMODE: write\nCONTEXT: @[module_endpoints] @[source_code]\nEXPECTED: Complete module API documentation in {lang} with all endpoints fully documented\nCONSTRAINTS: RESTful standards | Include all response codes\n--rule documentation-swagger-api",
         "output": "${module_doc_name}"
       }
     ],
@@ -559,7 +559,7 @@ bash(cat ${session_dir}/.process/swagger-planning-data.json | jq -r '.api_struct
       {
         "step": 1,
         "title": "Generate API overview",
-        "cli_prompt": "PURPOSE: Generate API overview document with navigation and quick start guide\nTASK:\n• Create introduction: system features, tech stack, version\n• Write quick start guide: authentication, first request example\n• Build module navigation: categorized links to all modules\n• Document environment configuration: development, staging, production\n• List SDKs and tools: client libraries, Postman collection\nMODE: write\nCONTEXT: @[all_module_docs] @.workflow/docs/${project_name}/api/swagger.yaml\nEXPECTED: Complete API overview in {lang} with navigation links\nRULES: $PROTO | Clear structure | Quick start focus\n--rule development-feature",
+        "cli_prompt": "PURPOSE: Generate API overview document with navigation and quick start guide\nTASK:\n• Create introduction: system features, tech stack, version\n• Write quick start guide: authentication, first request example\n• Build module navigation: categorized links to all modules\n• Document environment configuration: development, staging, production\n• List SDKs and tools: client libraries, Postman collection\nMODE: write\nCONTEXT: @[all_module_docs] @.workflow/docs/${project_name}/api/swagger.yaml\nEXPECTED: Complete API overview in {lang} with navigation links\nCONSTRAINTS: Clear structure | Quick start focus\n--rule development-feature",
         "output": "README.md"
       }
     ],
@@ -602,7 +602,7 @@ bash(cat ${session_dir}/.process/swagger-planning-data.json | jq -r '.api_struct
       {
         "step": 1,
         "title": "Generate test report",
-        "cli_prompt": "PURPOSE: Generate comprehensive API test validation report\nTASK:\n• Document test environment configuration\n• Calculate endpoint coverage statistics\n• Report test results: pass/fail counts\n• Document boundary tests: parameter limits, null values, special characters\n• Document exception tests: auth failures, permission denied, resource not found\n• List issues found with recommendations\nMODE: write\nCONTEXT: @[swagger_spec]\nEXPECTED: Complete test report in {lang} with detailed results\nRULES: $PROTO | Include test cases | Clear pass/fail status\n--rule development-tests",
+        "cli_prompt": "PURPOSE: Generate comprehensive API test validation report\nTASK:\n• Document test environment configuration\n• Calculate endpoint coverage statistics\n• Report test results: pass/fail counts\n• Document boundary tests: parameter limits, null values, special characters\n• Document exception tests: auth failures, permission denied, resource not found\n• List issues found with recommendations\nMODE: write\nCONTEXT: @[swagger_spec]\nEXPECTED: Complete test report in {lang} with detailed results\nCONSTRAINTS: Include test cases | Clear pass/fail status\n--rule development-tests",
         "output": "{test_doc_name}"
       }
     ],

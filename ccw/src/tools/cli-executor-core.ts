@@ -1149,7 +1149,7 @@ async function executeCliTool(
         duration_ms: duration,
         output: newTurnOutput,
         parsedOutput: flattenOutputUnits(allOutputUnits, {
-          excludeTypes: ['stderr', 'progress', 'metadata', 'system', 'tool_call']
+          excludeTypes: ['stderr', 'progress', 'metadata', 'system', 'tool_call', 'thought']
         })
       };
 
