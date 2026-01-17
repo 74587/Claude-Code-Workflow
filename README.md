@@ -138,6 +138,53 @@ qwen --version
 
 ---
 
+## 🎭 Semantic CLI Invocation
+
+Users can **semantically specify CLI tools** in prompts - the system automatically invokes the corresponding CLI for analysis.
+
+### Basic Invocation
+
+| User Prompt | System Action |
+|-------------|---------------|
+| "Use Gemini to analyze the auth module" | Auto-invoke `gemini` CLI for analysis |
+| "Let Codex review this code" | Auto-invoke `codex` CLI for review |
+| "Ask Qwen about performance optimization" | Auto-invoke `qwen` CLI for consultation |
+
+### Multi-CLI Orchestration
+
+Users can semantically orchestrate multiple CLIs in a single prompt:
+
+| Pattern | User Prompt Example |
+|---------|---------------------|
+| 🔄 **Collaborative** | "Use Gemini and Codex to collaboratively analyze security vulnerabilities" |
+| ⚡ **Parallel** | "Have Gemini, Codex, and Qwen analyze the architecture in parallel" |
+| 🔁 **Iterative** | "Use Gemini to diagnose, then Codex to fix, iterate until resolved" |
+| 🔗 **Pipeline** | "Gemini designs the solution, Codex implements, Claude reviews" |
+
+### Examples
+
+```text
+# Single CLI invocation
+User: "Use Gemini to analyze the database query performance"
+→ System auto-calls: gemini CLI with analysis task
+
+# Collaborative analysis
+User: "Use Gemini and Codex to collaboratively review the authentication flow"
+→ System auto-calls: gemini + codex CLIs, synthesizes results
+
+# Parallel multi-perspective
+User: "Have all available CLIs analyze this architecture design in parallel"
+→ System auto-calls: gemini, codex, qwen in parallel → merged report
+
+# Sequential pipeline
+User: "Use Gemini to plan the refactoring, then Codex to implement it"
+→ System auto-calls: gemini (plan) → codex (implement) sequentially
+```
+
+> 💡 **Key**: Just describe which CLI to use and what to do - CCW handles the invocation automatically.
+
+---
+
 ## 🔍 ACE Tool Configuration
 
 ACE (Augment Context Engine) provides powerful semantic code search.
