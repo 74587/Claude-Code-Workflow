@@ -1,6 +1,6 @@
-# Claude Code Workflow (CCW)
-
 <div align="center">
+
+# Claude Code Workflow (CCW)
 
 [![Version](https://img.shields.io/badge/version-v6.3.33-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![npm](https://img.shields.io/npm/v/claude-code-workflow.svg)](https://www.npmjs.com/package/claude-code-workflow)
@@ -78,10 +78,10 @@ CCW 支持多种 CLI 工具，按需安装：
 
 | CLI | 说明 | 官方文档 |
 |-----|------|----------|
-| 🔷 **Gemini** | Google AI 分析 | [github.com/anthropics/anthropic-quickstarts](https://github.com/anthropics/anthropic-quickstarts) |
-| 🟢 **Codex** | OpenAI 自主编码 | [github.com/openai/codex](https://github.com/openai/codex) |
-| 🟠 **OpenCode** | 开源多模型 | [github.com/opencode-ai/opencode](https://github.com/opencode-ai/opencode) |
-| 🟣 **Qwen** | 阿里云 Qwen | [github.com/QwenLM/Qwen](https://github.com/QwenLM/Qwen) |
+| 🔷 **Gemini** | Google AI 分析 | [google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli) |
+| 🟢 **Codex** | OpenAI 自主编码 | [openai/codex](https://github.com/openai/codex) |
+| 🟠 **OpenCode** | 开源多模型 | [opencode-ai/opencode](https://github.com/opencode-ai/opencode) |
+| 🟣 **Qwen** | 阿里云 Qwen-Code | [QwenLM/Qwen](https://github.com/QwenLM) |
 
 ---
 
