@@ -644,6 +644,26 @@ Phase 3: Synthesis Integration
 
 ---
 
+## ACE Tool 配置
+
+ACE (Augment Context Engine) 提供强大的语义代码搜索能力。两种配置方式：
+
+| 方式 | 链接 |
+|------|------|
+| **官方** | [Augment MCP 文档](https://docs.augmentcode.com/context-services/mcp/overview) |
+| **代理** | [ace-tool (GitHub)](https://github.com/eastxiaodong/ace-tool) |
+
+### 使用示例
+
+```javascript
+mcp__ace-tool__search_context({
+  project_root_path: "/path/to/project",
+  query: "authentication logic"
+})
+```
+
+---
+
 ## 总结
 
 ### 分级总览

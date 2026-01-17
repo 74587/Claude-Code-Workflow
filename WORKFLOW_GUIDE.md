@@ -647,23 +647,15 @@ System auto-evaluates complexity based on these keywords:
 
 ## ACE Tool Configuration
 
-ACE MCP can be configured directly using official settings, no relay server required:
+ACE (Augment Context Engine) provides powerful semantic code search. Two configuration methods available:
 
-```json
-{
-  "mcpServers": {
-    "ace-tool": {
-      "command": "npx",
-      "args": ["-y", "@anthropic/ace-mcp"],
-      "env": {
-        "AUGMENT_API_KEY": "your-augment-api-key"
-      }
-    }
-  }
-}
-```
+| Method | Link |
+|--------|------|
+| **Official** | [Augment MCP Documentation](https://docs.augmentcode.com/context-services/mcp/overview) |
+| **Proxy** | [ace-tool (GitHub)](https://github.com/eastxiaodong/ace-tool) |
 
-Usage:
+### Usage Example
+
 ```javascript
 mcp__ace-tool__search_context({
   project_root_path: "/path/to/project",
