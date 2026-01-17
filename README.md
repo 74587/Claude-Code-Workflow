@@ -14,24 +14,24 @@
 
 **CCW** is a JSON-driven multi-agent development framework with intelligent CLI orchestration. It provides **4-level workflow system** from rapid execution to full brainstorming, transforming AI development into powerful orchestration.
 
-## Key Features
+## ✨ Key Features
 
 | Feature | Description |
 |---------|-------------|
-| **4-Level Workflows** | From `lite-lite-lite` (instant) to `brainstorm` (multi-role analysis) |
-| **Multi-CLI Orchestration** | Gemini, Qwen, Codex, Claude - auto-select or manual |
-| **Dependency-Aware Parallelism** | Agent parallel execution without worktree complexity |
-| **Issue Workflow** | Post-development maintenance with optional worktree isolation |
-| **JSON-First State** | `.task/IMPL-*.json` as single source of truth |
-| **Dashboard** | Visual session management, CodexLens search, graph explorer |
+| 🎯 **4-Level Workflows** | From `lite-lite-lite` (instant) to `brainstorm` (multi-role analysis) |
+| 🔄 **Multi-CLI Orchestration** | Gemini, Qwen, Codex, Claude - auto-select or manual |
+| ⚡ **Dependency-Aware Parallelism** | Agent parallel execution without worktree complexity |
+| 🔧 **Issue Workflow** | Post-development maintenance with optional worktree isolation |
+| 📦 **JSON-First State** | `.task/IMPL-*.json` as single source of truth |
+| 🖥️ **Dashboard** | Visual session management, CodexLens search, graph explorer |
 
 > 📖 **New?** See [Workflow Guide](WORKFLOW_GUIDE.md) for the complete 4-level workflow system.
 
 ---
 
-## Quick Start
+## 🚀 Quick Start
 
-### Install
+### Install CCW
 
 ```bash
 npm install -g claude-code-workflow
@@ -42,15 +42,15 @@ ccw install -m Global
 
 | Level | Command | Use Case |
 |-------|---------|----------|
-| **1** | `/workflow:lite-lite-lite` | Quick fixes, config changes |
-| **2** | `/workflow:lite-plan` | Clear single-module features |
-| **2** | `/workflow:lite-fix` | Bug diagnosis and fix |
-| **2** | `/workflow:multi-cli-plan` | Multi-perspective analysis |
-| **3** | `/workflow:plan` | Multi-module development |
-| **3** | `/workflow:tdd-plan` | Test-driven development |
-| **4** | `/workflow:brainstorm:auto-parallel` | New features, architecture design |
+| ⚡ **1** | `/workflow:lite-lite-lite` | Quick fixes, config changes |
+| 📝 **2** | `/workflow:lite-plan` | Clear single-module features |
+| 🔧 **2** | `/workflow:lite-fix` | Bug diagnosis and fix |
+| 🔍 **2** | `/workflow:multi-cli-plan` | Multi-perspective analysis |
+| 📊 **3** | `/workflow:plan` | Multi-module development |
+| 🧪 **3** | `/workflow:tdd-plan` | Test-driven development |
+| 🧠 **4** | `/workflow:brainstorm:auto-parallel` | New features, architecture design |
 
-### Example Workflows
+### Workflow Examples
 
 ```bash
 # Level 1: Instant execution
@@ -72,7 +72,159 @@ ccw install -m Global
 
 ---
 
-## CLI Tool
+## 🛠️ CLI Tool Installation
+
+CCW supports multiple CLI tools for code analysis and generation. Install as needed:
+
+### 🔷 Gemini CLI
+
+Google's official Gemini CLI:
+
+```bash
+# Install
+npm install -g @anthropic-ai/gemini-cli
+
+# Configure API Key
+export GEMINI_API_KEY="your-api-key"
+
+# Verify
+gemini --version
+```
+
+### 🟢 Codex CLI
+
+OpenAI Codex CLI (recommended for long autonomous coding):
+
+```bash
+# Install
+npm install -g @openai/codex
+
+# Configure API Key
+export OPENAI_API_KEY="your-api-key"
+
+# Verify
+codex --version
+```
+
+### 🟠 OpenCode CLI
+
+Open-source multi-model CLI:
+
+```bash
+# Install
+npm install -g opencode-ai
+
+# Configure (supports multiple models)
+export OPENCODE_API_KEY="your-api-key"
+
+# Verify
+opencode --version
+```
+
+### 🟣 Qwen CLI
+
+Alibaba Cloud Qwen CLI:
+
+```bash
+# Install
+pip install qwen-cli
+
+# Configure
+export QWEN_API_KEY="your-api-key"
+
+# Verify
+qwen --version
+```
+
+---
+
+## 🔍 ACE Tool Configuration
+
+ACE (Augment Context Engine) provides powerful semantic code search.
+
+### Method 1: Official Installation (Recommended)
+
+Use Anthropic's official MCP package directly:
+
+```json
+{
+  "mcpServers": {
+    "ace-tool": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/ace-mcp"],
+      "env": {
+        "AUGMENT_API_KEY": "your-augment-api-key"
+      }
+    }
+  }
+}
+```
+
+**Get API Key**: From [Augment Developer Portal](https://augment.dev)
+
+### Method 2: Proxy Installation
+
+For network-restricted environments:
+
+```json
+{
+  "mcpServers": {
+    "ace-tool": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/ace-mcp"],
+      "env": {
+        "AUGMENT_API_KEY": "your-api-key",
+        "HTTPS_PROXY": "http://your-proxy:port",
+        "HTTP_PROXY": "http://your-proxy:port"
+      }
+    }
+  }
+}
+```
+
+### Usage
+
+```javascript
+mcp__ace-tool__search_context({
+  project_root_path: "/path/to/project",
+  query: "user authentication logic"
+})
+```
+
+---
+
+## 📚 CodexLens Local Search
+
+> ⚠️ **In Development**: CodexLens is under iterative optimization. Some features may be unstable.
+
+CodexLens provides local code indexing and search without external APIs:
+
+| Search Mode | Description |
+|-------------|-------------|
+| 🔤 **FTS** | Full-text search, based on SQLite FTS5 |
+| 🧠 **Semantic** | Semantic search, using local embedding models |
+| 🔀 **Hybrid** | Hybrid search, combining FTS + Semantic + Reranking |
+
+### Installation
+
+```bash
+# Enter codex-lens directory
+cd codex-lens
+
+# Install dependencies
+pip install -e .
+
+# Initialize index
+codexlens index /path/to/project
+```
+
+### Dashboard Integration
+
+Open Dashboard via `ccw view`, manage indexes and execute searches in **CodexLens Manager**.
+
+---
+
+## 💻 CCW CLI Commands
 
 ```bash
 ccw install           # Install workflow files
@@ -83,55 +235,57 @@ ccw upgrade -a        # Upgrade all installations
 
 ### Dashboard Features
 
-- **Session Overview** - Track workflow sessions and progress
-- **CodexLens** - FTS + Semantic + Hybrid code search
-- **Graph Explorer** - Interactive code relationship visualization
-- **CLI Manager** - Execution history with session resume
+| Feature | Description |
+|---------|-------------|
+| 📊 **Session Overview** | Track workflow sessions and progress |
+| 🔍 **CodexLens** | FTS + Semantic + Hybrid code search |
+| 🕸️ **Graph Explorer** | Interactive code relationship visualization |
+| 📜 **CLI Manager** | Execution history with session resume |
 
 ---
 
-## Documentation
+## 📖 Documentation
 
 | Document | Description |
 |----------|-------------|
-| [**Workflow Guide**](WORKFLOW_GUIDE.md) | 4-level workflow system (recommended) |
-| [**Getting Started**](GETTING_STARTED.md) | 5-minute quick start |
-| [**Dashboard Guide**](DASHBOARD_GUIDE.md) | Dashboard user guide |
-| [**FAQ**](FAQ.md) | Common questions |
-| [**Changelog**](CHANGELOG.md) | Version history |
+| 📘 [**Workflow Guide**](WORKFLOW_GUIDE.md) | 4-level workflow system (recommended) |
+| 🚀 [**Getting Started**](GETTING_STARTED.md) | 5-minute quick start |
+| 🖥️ [**Dashboard Guide**](DASHBOARD_GUIDE.md) | Dashboard user guide |
+| ❓ [**FAQ**](FAQ.md) | Common questions |
+| 📝 [**Changelog**](CHANGELOG.md) | Version history |
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Main Workflow (4 Levels)                    │
-│  Level 1: lite-lite-lite (instant, no artifacts)                │
-│  Level 2: lite-plan / lite-fix / multi-cli-plan (→ lite-execute)│
-│  Level 3: plan / tdd-plan / test-fix-gen (session persistence)  │
-│  Level 4: brainstorm:auto-parallel → plan → execute             │
+│  ⚡ Level 1: lite-lite-lite (instant, no artifacts)             │
+│  📝 Level 2: lite-plan / lite-fix / multi-cli-plan (→ execute)  │
+│  📊 Level 3: plan / tdd-plan / test-fix-gen (session persist)   │
+│  🧠 Level 4: brainstorm:auto-parallel → plan → execute          │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Issue Workflow (Supplement)                 │
-│  discover → plan → queue → execute (worktree isolation)         │
+│                   Issue Workflow (Supplement)                   │
+│  🔍 discover → 📋 plan → 📦 queue → ▶️ execute (worktree)        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 **Core Principles:**
-- **Dependency Analysis** solves parallelism - no worktree needed for main workflow
-- **Issue Workflow** supplements main workflow for post-development maintenance
-- Select workflow level based on complexity - avoid over-engineering
+- ⚡ **Dependency Analysis** solves parallelism - no worktree needed for main workflow
+- 🔧 **Issue Workflow** supplements main workflow for post-development maintenance
+- 🎯 Select workflow level based on complexity - avoid over-engineering
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
 - **Repository**: [GitHub](https://github.com/catlog22/Claude-Code-Workflow)
 - **Issues**: [Report bugs or request features](https://github.com/catlog22/Claude-Code-Workflow/issues)
 - **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md)
 
-## License
+## 📄 License
 
 MIT License - see [LICENSE](LICENSE)
