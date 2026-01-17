@@ -17,7 +17,7 @@
 <br/>
 
 <!-- Typing Animation -->
-<a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&pause=1000&color=6366F1&center=true&vCenter=true&random=false&width=600&lines=JSON+驱动的多智能体框架;4+级工作流系统;语义化+CLI+编排;Gemini+%7C+Codex+%7C+Qwen+%7C+Claude" alt="Typing SVG" /></a>
+<a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&pause=1000&color=6366F1&center=true&vCenter=true&random=false&width=600&lines=JSON+驱动的多智能体框架;4+级工作流系统;语义化+CLI+编排;Gemini+%7C+Codex+%7C+OpenCode+%7C+Qwen+%7C+Claude" alt="Typing SVG" /></a>
 
 </div>
 
