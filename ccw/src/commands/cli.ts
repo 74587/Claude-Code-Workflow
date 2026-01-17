@@ -578,36 +578,49 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
     finalPrompt = positionalPrompt;
   }
 
-  // Prompt is required unless resuming
-  if (!finalPrompt && !resume) {
+  // Prompt is required unless resuming OR using review mode with target flags
+  // codex review: --uncommitted, --base, --commit don't require a prompt
+  const isReviewWithTarget = mode === 'review' && (uncommitted || base || commit);
+  if (!finalPrompt && !resume && !isReviewWithTarget) {
     console.error(chalk.red('Error: Prompt is required'));
     console.error(chalk.gray('Usage: ccw cli -p "<prompt>" --tool gemini'));
     console.error(chalk.gray('   or: ccw cli -f prompt.txt --tool codex'));
     console.error(chalk.gray('   or: ccw cli --resume --tool gemini'));
+    console.error(chalk.gray('   or: ccw cli --tool codex --mode review --uncommitted'));
     process.exit(1);
   }
 
   const prompt_to_use = finalPrompt || '';
 
-  // Load rules templates (concatenation mode - directly prepend to prompt)
+  // Load rules templates (concatenation mode - directly append to prompt)
+  // Skip template loading when using target flags with codex review
+  // codex review: --uncommitted, --base, --commit are all mutually exclusive with [PROMPT]
   // Default to universal-rigorous-style if --rule not specified
+  const skipTemplates = mode === 'review' && (uncommitted || base || commit);
   const effectiveRule = rule || 'universal-rigorous-style';
   let systemRules = '';  // Protocol content
   let roles = '';        // Template content
-  try {
-    const { loadProtocol, loadTemplate } = await import('../tools/template-discovery.js');
-    const proto = loadProtocol(mode);
-    const tmpl = loadTemplate(effectiveRule);
-    if (proto) systemRules = proto;
-    if (tmpl) roles = tmpl;
+
+  if (skipTemplates) {
     if (debug) {
-      console.log(chalk.gray(`  Rule loaded: ${effectiveRule}${!rule ? ' (default)' : ''}`));
-      console.log(chalk.gray(`  systemRules(${systemRules.length} chars) + roles(${roles.length} chars)`));
-      console.log(chalk.gray(`  Rules will be prepended to prompt automatically`));
+      console.log(chalk.gray(`  Skipping templates: --commit with review mode doesn't support prompt`));
     }
-  } catch (error) {
-    console.error(chalk.red(`Error loading rule template: ${error instanceof Error ? error.message : error}`));
-    process.exit(1);
+  } else {
+    try {
+      const { loadProtocol, loadTemplate } = await import('../tools/template-discovery.js');
+      const proto = loadProtocol(mode);
+      const tmpl = loadTemplate(effectiveRule);
+      if (proto) systemRules = proto;
+      if (tmpl) roles = tmpl;
+      if (debug) {
+        console.log(chalk.gray(`  Rule loaded: ${effectiveRule}${!rule ? ' (default)' : ''}`));
+        console.log(chalk.gray(`  systemRules(${systemRules.length} chars) + roles(${roles.length} chars)`));
+        console.log(chalk.gray(`  Rules will be appended to prompt automatically`));
+      }
+    } catch (error) {
+      console.error(chalk.red(`Error loading rule template: ${error instanceof Error ? error.message : error}`));
+      process.exit(1);
+    }
   }
 
   // Handle cache option: pack @patterns and/or content
@@ -734,7 +747,8 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
 
   // Concatenate systemRules and roles to the end of prompt (if loaded)
   // Format: [USER_PROMPT]\n[SYSTEM_RULES]\n[ROLES]
-  if (systemRules || roles) {
+  // Skip concatenation when using --commit with review mode (prompt not allowed)
+  if (!skipTemplates && (systemRules || roles)) {
     const parts: string[] = [actualPrompt];
     if (systemRules) {
       parts.push(`=== SYSTEM RULES ===\n${systemRules}`);
@@ -1242,13 +1256,16 @@ export async function cliCommand(
 
     default: {
       const execOptions = options as CliExecOptions;
-      // Auto-exec if: has -p/--prompt, has -f/--file, has --resume, or subcommand looks like a prompt
+      // Auto-exec if: has -p/--prompt, has -f/--file, has --resume, subcommand looks like a prompt,
+      // or review mode with target flags (--uncommitted, --base, --commit)
       const hasPromptOption = !!execOptions.prompt;
       const hasFileOption = !!execOptions.file;
       const hasResume = execOptions.resume !== undefined;
       const subcommandIsPrompt = subcommand && !subcommand.startsWith('-');
+      const hasReviewTarget = execOptions.mode === 'review' &&
+        (execOptions.uncommitted || execOptions.base || execOptions.commit);
 
-      if (hasPromptOption || hasFileOption || hasResume || subcommandIsPrompt) {
+      if (hasPromptOption || hasFileOption || hasResume || subcommandIsPrompt || hasReviewTarget) {
         // Treat as exec: use subcommand as positional prompt if no -p/-f option
         let positionalPrompt = subcommandIsPrompt ? subcommand : undefined;
 

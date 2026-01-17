@@ -350,7 +350,7 @@ type BuiltinCliTool = typeof BUILTIN_CLI_TOOLS[number];
 // tool accepts built-in tools or custom endpoint IDs (CLI封装)
 const ParamsSchema = z.object({
   tool: z.string().min(1, 'Tool is required'), // Accept any tool ID (built-in or custom endpoint)
-  prompt: z.string().min(1, 'Prompt is required'),
+  prompt: z.string(), // Prompt can be empty for review mode with target flags
   mode: z.enum(['analysis', 'write', 'auto', 'review']).default('analysis'),
   format: z.enum(['plain', 'yaml', 'json']).default('plain'), // Multi-turn prompt concatenation format
   model: z.string().optional(),

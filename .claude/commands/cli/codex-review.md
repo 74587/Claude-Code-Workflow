@@ -309,3 +309,47 @@ git log --oneline -10
 - Model passed via prompt (codex uses `-c model=` internally)
 - Target flags (`--uncommitted`, `--base`, `--commit`) passed through to codex
 - Prompt follows standard ccw cli template format for consistency
+
+## Validation Constraints
+
+**IMPORTANT: Target flags and prompt are mutually exclusive**
+
+The codex CLI has a constraint where target flags (`--uncommitted`, `--base`, `--commit`) cannot be used with a positional `[PROMPT]` argument:
+
+```
+error: the argument '--uncommitted' cannot be used with '[PROMPT]'
+error: the argument '--base <BRANCH>' cannot be used with '[PROMPT]'
+error: the argument '--commit <SHA>' cannot be used with '[PROMPT]'
+```
+
+**Behavior:**
+- When ANY target flag is specified, ccw cli automatically skips template concatenation (systemRules/roles)
+- The review uses codex's default review behavior for the specified target
+- Custom prompts are only supported WITHOUT target flags (reviews uncommitted changes by default)
+
+**Valid combinations:**
+| Command | Result |
+|---------|--------|
+| `codex review "Focus on security"` | ✓ Custom prompt, reviews uncommitted (default) |
+| `codex review --uncommitted` | ✓ No prompt, uses default review |
+| `codex review --base main` | ✓ No prompt, uses default review |
+| `codex review --commit abc123` | ✓ No prompt, uses default review |
+| `codex review --uncommitted "prompt"` | ✗ Invalid - mutually exclusive |
+| `codex review --base main "prompt"` | ✗ Invalid - mutually exclusive |
+| `codex review --commit abc123 "prompt"` | ✗ Invalid - mutually exclusive |
+
+**Examples:**
+```bash
+# ✓ Valid: prompt only (reviews uncommitted by default)
+ccw cli -p "Focus on security" --tool codex --mode review
+
+# ✓ Valid: target flag only (no prompt)
+ccw cli --tool codex --mode review --uncommitted
+ccw cli --tool codex --mode review --base main
+ccw cli --tool codex --mode review --commit abc123
+
+# ✗ Invalid: target flag with prompt (will fail)
+ccw cli -p "Review this" --tool codex --mode review --uncommitted
+ccw cli -p "Review this" --tool codex --mode review --base main
+ccw cli -p "Review this" --tool codex --mode review --commit abc123
+```

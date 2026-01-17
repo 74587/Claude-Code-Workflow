@@ -299,10 +299,13 @@ ccw cli -p "..." --tool gemini --mode analysis --rule analysis-review-architectu
 - **`review`**
   - Permission: Read-only (code review output)
   - Use For: Git-aware code review of uncommitted changes, branch diffs, specific commits
-  - Specification: **codex only** - uses `codex review` subcommand with `--uncommitted` by default
+  - Specification: **codex only** - uses `codex review` subcommand
   - Tool Behavior:
-    - `codex`: Executes `codex review --uncommitted [prompt]` for structured code review
+    - `codex`: Executes `codex review` for structured code review
     - Other tools (gemini/qwen/claude): Accept mode but no operation change (treated as analysis)
+  - **Constraint**: Target flags (`--uncommitted`, `--base`, `--commit`) and prompt are mutually exclusive
+    - With prompt only: `ccw cli -p "Focus on security" --tool codex --mode review` (reviews uncommitted by default)
+    - With target flag only: `ccw cli --tool codex --mode review --commit abc123` (no prompt allowed)
 
 ### Command Options
 
@@ -445,14 +448,16 @@ CONSTRAINTS: Preserve all existing behavior | Tests must pass
 
 **Code Review Task** (codex review mode):
 ```bash
-# Review uncommitted changes (default)
+# Option 1: Custom prompt (reviews uncommitted changes by default)
 ccw cli -p "Focus on security vulnerabilities and error handling" --tool codex --mode review
 
-# Review with custom instructions
-ccw cli -p "Check for breaking changes in API contracts and backward compatibility" --tool codex --mode review
+# Option 2: Target flag only (no prompt allowed with target flags)
+ccw cli --tool codex --mode review --uncommitted
+ccw cli --tool codex --mode review --base main
+ccw cli --tool codex --mode review --commit abc123
 ```
 
-> **Note**: `--mode review` only triggers special behavior for `codex` tool (uses `codex review --uncommitted`). Other tools accept the mode but execute as standard analysis.
+> **Note**: `--mode review` only triggers special behavior for `codex` tool. Target flags (`--uncommitted`, `--base`, `--commit`) and prompt are **mutually exclusive** - use one or the other, not both.
 
 ---
 
