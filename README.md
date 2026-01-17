@@ -81,6 +81,7 @@ ccw install -m Global
 
 ### Choose Your Workflow Level
 
+<div align="center">
 <table>
 <tr><th>Level</th><th>Command</th><th>Use Case</th></tr>
 <tr><td><b>1</b></td><td><code>/workflow:lite-lite-lite</code></td><td>Quick fixes, config changes</td></tr>
@@ -91,6 +92,7 @@ ccw install -m Global
 <tr><td><b>3</b></td><td><code>/workflow:tdd-plan</code></td><td>Test-driven development</td></tr>
 <tr><td><b>4</b></td><td><code>/workflow:brainstorm:auto-parallel</code></td><td>New features, architecture design</td></tr>
 </table>
+</div>
 
 ### Workflow Examples
 
@@ -116,6 +118,7 @@ ccw install -m Global
 
 ## 🛠️ CLI Tool Installation
 
+<div align="center">
 <table>
 <tr><th>CLI</th><th>Description</th><th>Official Docs</th></tr>
 <tr><td><b>Gemini</b></td><td>Google AI analysis</td><td><a href="https://github.com/google-gemini/gemini-cli">google-gemini/gemini-cli</a></td></tr>
@@ -123,6 +126,7 @@ ccw install -m Global
 <tr><td><b>OpenCode</b></td><td>Open-source multi-model</td><td><a href="https://github.com/opencode-ai/opencode">opencode-ai/opencode</a></td></tr>
 <tr><td><b>Qwen</b></td><td>Alibaba Qwen-Code</td><td><a href="https://github.com/QwenLM">QwenLM/Qwen</a></td></tr>
 </table>
+</div>
 
 ---
 
@@ -210,12 +214,14 @@ ACE (Augment Context Engine) provides powerful semantic code search.
 
 > ⚠️ **In Development**: CodexLens is under iterative optimization. Some features may be unstable.
 
+<div align="center">
 <table>
 <tr><th>Search Mode</th><th>Description</th></tr>
 <tr><td><b>FTS</b></td><td>Full-text search, based on SQLite FTS5</td></tr>
 <tr><td><b>Semantic</b></td><td>Semantic search, using local embedding models</td></tr>
 <tr><td><b>Hybrid</b></td><td>Hybrid search, combining FTS + Semantic + Reranking</td></tr>
 </table>
+</div>
 
 <details>
 <summary><b>📦 Installation</b></summary>
@@ -248,6 +254,7 @@ ccw upgrade -a        # Upgrade all installations
 
 ### Dashboard Features
 
+<div align="center">
 <table>
 <tr><th>Feature</th><th>Description</th></tr>
 <tr><td><b>Session Overview</b></td><td>Track workflow sessions and progress</td></tr>
@@ -255,6 +262,7 @@ ccw upgrade -a        # Upgrade all installations
 <tr><td><b>Graph Explorer</b></td><td>Interactive code relationship visualization</td></tr>
 <tr><td><b>CLI Manager</b></td><td>Execution history with session resume</td></tr>
 </table>
+</div>
 
 ---
 

@@ -81,6 +81,7 @@ ccw install -m Global
 
 ### 选择工作流级别
 
+<div align="center">
 <table>
 <tr><th>级别</th><th>命令</th><th>使用场景</th></tr>
 <tr><td><b>1</b></td><td><code>/workflow:lite-lite-lite</code></td><td>快速修复、配置调整</td></tr>
@@ -91,6 +92,7 @@ ccw install -m Global
 <tr><td><b>3</b></td><td><code>/workflow:tdd-plan</code></td><td>测试驱动开发</td></tr>
 <tr><td><b>4</b></td><td><code>/workflow:brainstorm:auto-parallel</code></td><td>新功能、架构设计</td></tr>
 </table>
+</div>
 
 ### 工作流示例
 
@@ -116,6 +118,7 @@ ccw install -m Global
 
 ## 🛠️ CLI 工具安装
 
+<div align="center">
 <table>
 <tr><th>CLI</th><th>说明</th><th>官方文档</th></tr>
 <tr><td><b>Gemini</b></td><td>Google AI 分析</td><td><a href="https://github.com/google-gemini/gemini-cli">google-gemini/gemini-cli</a></td></tr>
@@ -123,6 +126,7 @@ ccw install -m Global
 <tr><td><b>OpenCode</b></td><td>开源多模型</td><td><a href="https://github.com/opencode-ai/opencode">opencode-ai/opencode</a></td></tr>
 <tr><td><b>Qwen</b></td><td>阿里云 Qwen-Code</td><td><a href="https://github.com/QwenLM">QwenLM/Qwen</a></td></tr>
 </table>
+</div>
 
 ---
 
@@ -210,12 +214,14 @@ ACE (Augment Context Engine) 提供强大的语义代码搜索能力。
 
 > ⚠️ **开发中**: CodexLens 正在迭代优化中，部分功能可能不稳定。
 
+<div align="center">
 <table>
 <tr><th>搜索模式</th><th>说明</th></tr>
 <tr><td><b>FTS</b></td><td>全文搜索，基于 SQLite FTS5</td></tr>
 <tr><td><b>Semantic</b></td><td>语义搜索，基于本地嵌入模型</td></tr>
 <tr><td><b>Hybrid</b></td><td>混合搜索，结合 FTS + 语义 + 重排序</td></tr>
 </table>
+</div>
 
 <details>
 <summary><b>📦 安装</b></summary>
@@ -248,6 +254,7 @@ ccw upgrade -a        # 升级所有安装
 
 ### Dashboard 功能
 
+<div align="center">
 <table>
 <tr><th>功能</th><th>说明</th></tr>
 <tr><td><b>会话概览</b></td><td>跟踪工作流会话和进度</td></tr>
@@ -255,6 +262,7 @@ ccw upgrade -a        # 升级所有安装
 <tr><td><b>图浏览器</b></td><td>交互式代码关系可视化</td></tr>
 <tr><td><b>CLI 管理器</b></td><td>执行历史与会话恢复</td></tr>
 </table>
+</div>
 
 ---
 
