@@ -1,35 +1,80 @@
 <div align="center">
 
-# Claude Code Workflow (CCW)
+<!-- Animated Header -->
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=180&section=header&text=Claude%20Code%20Workflow&fontSize=42&fontColor=fff&animation=twinkling&fontAlignY=32&desc=多智能体%20AI%20开发框架&descAlignY=52&descSize=18"/>
 
-[![Version](https://img.shields.io/badge/version-v6.3.33-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
-[![npm](https://img.shields.io/npm/v/claude-code-workflow.svg)](https://www.npmjs.com/package/claude-code-workflow)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+<!-- Badges -->
+<p>
+  <a href="https://github.com/catlog22/Claude-Code-Workflow/releases"><img src="https://img.shields.io/badge/version-v6.3.33-blue?style=for-the-badge&logo=semanticrelease" alt="Version"/></a>
+  <a href="https://www.npmjs.com/package/claude-code-workflow"><img src="https://img.shields.io/npm/v/claude-code-workflow?style=for-the-badge&logo=npm&logoColor=white&color=cb3837" alt="npm"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="License"/></a>
+</p>
+
+<p>
+  <a href="https://github.com/catlog22/Claude-Code-Workflow/stargazers"><img src="https://img.shields.io/github/stars/catlog22/Claude-Code-Workflow?style=for-the-badge&logo=github&color=yellow" alt="Stars"/></a>
+  <a href="https://github.com/catlog22/Claude-Code-Workflow/network/members"><img src="https://img.shields.io/github/forks/catlog22/Claude-Code-Workflow?style=for-the-badge&logo=github&color=lightgray" alt="Forks"/></a>
+  <a href="https://github.com/catlog22/Claude-Code-Workflow/issues"><img src="https://img.shields.io/github/issues/catlog22/Claude-Code-Workflow?style=for-the-badge&logo=github&color=red" alt="Issues"/></a>
+</p>
 
 **[English](README.md) | [中文](README_CN.md)**
 
+<br/>
+
+<!-- Typing Animation -->
+<a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&pause=1000&color=6366F1&center=true&vCenter=true&random=false&width=600&lines=JSON+驱动的多智能体框架;4+级工作流系统;语义化+CLI+编排;Gemini+%7C+Codex+%7C+Qwen+%7C+Claude" alt="Typing SVG" /></a>
+
 </div>
+
+<br/>
+
+<!-- Quick Links -->
+<div align="center">
+  <a href="#-快速开始"><img src="https://img.shields.io/badge/🚀_快速开始-4285F4?style=flat-square" alt="Quick Start"/></a>
+  <a href="WORKFLOW_GUIDE_CN.md"><img src="https://img.shields.io/badge/📖_工作流指南-34A853?style=flat-square" alt="Guide"/></a>
+  <a href="#-cli-工具安装"><img src="https://img.shields.io/badge/🛠️_CLI_工具-EA4335?style=flat-square" alt="CLI Tools"/></a>
+  <a href="#-架构概览"><img src="https://img.shields.io/badge/🏗️_架构-FBBC05?style=flat-square" alt="Architecture"/></a>
+</div>
+
+<br/>
 
 ---
 
-**CCW** 是一个 JSON 驱动的多智能体开发框架，具有智能 CLI 编排能力。提供 **4 级工作流系统**，从急速执行到完整头脑风暴，将 AI 开发转变为强大的编排系统。
+## ✨ 核心特性
 
-## 核心特性
+<table>
+<tr>
+<td width="50%">
 
-| 特性 | 说明 |
-|------|------|
-| **4 级工作流** | 从 `lite-lite-lite`（即时执行）到 `brainstorm`（多角色分析） |
-| **多 CLI 编排** | Gemini、Qwen、Codex、Claude - 自动选择或手动指定 |
-| **依赖感知并行** | Agent 并行执行，无需 worktree 复杂性 |
-| **Issue 工作流** | 开发后维护，可选 worktree 隔离 |
-| **JSON 优先状态** | `.task/IMPL-*.json` 作为唯一事实来源 |
-| **Dashboard** | 可视化会话管理、CodexLens 搜索、图浏览器 |
+### 🎯 4 级工作流
+从 `lite-lite-lite`（即时执行）到 `brainstorm`（多角色分析）
+
+### 🔄 多 CLI 编排
+Gemini、Qwen、Codex、Claude - 自动选择或手动指定
+
+### ⚡ 依赖感知并行
+Agent 并行执行，无需 worktree 复杂性
+
+</td>
+<td width="50%">
+
+### 🔧 Issue 工作流
+开发后维护，可选 worktree 隔离
+
+### 📦 JSON 优先状态
+`.task/IMPL-*.json` 作为唯一事实来源
+
+### 🖥️ Dashboard
+可视化会话管理、CodexLens 搜索、图浏览器
+
+</td>
+</tr>
+</table>
 
 > 📖 **新用户？** 查看 [工作流指南](WORKFLOW_GUIDE_CN.md) 了解完整的 4 级工作流系统。
 
 ---
 
-## 快速开始
+## 🚀 快速开始
 
 ### 安装 CCW
 
@@ -40,15 +85,16 @@ ccw install -m Global
 
 ### 选择工作流级别
 
-| 级别 | 命令 | 使用场景 |
-|------|------|----------|
-| **1** | `/workflow:lite-lite-lite` | 快速修复、配置调整 |
-| **2** | `/workflow:lite-plan` | 明确的单模块功能 |
-| **2** | `/workflow:lite-fix` | Bug 诊断修复 |
-| **2** | `/workflow:multi-cli-plan` | 多视角分析 |
-| **3** | `/workflow:plan` | 多模块开发 |
-| **3** | `/workflow:tdd-plan` | 测试驱动开发 |
-| **4** | `/workflow:brainstorm:auto-parallel` | 新功能、架构设计 |
+<table>
+<tr><th>级别</th><th>命令</th><th>使用场景</th></tr>
+<tr><td>⚡ <b>1</b></td><td><code>/workflow:lite-lite-lite</code></td><td>快速修复、配置调整</td></tr>
+<tr><td>📝 <b>2</b></td><td><code>/workflow:lite-plan</code></td><td>明确的单模块功能</td></tr>
+<tr><td>🔧 <b>2</b></td><td><code>/workflow:lite-fix</code></td><td>Bug 诊断修复</td></tr>
+<tr><td>🔍 <b>2</b></td><td><code>/workflow:multi-cli-plan</code></td><td>多视角分析</td></tr>
+<tr><td>📊 <b>3</b></td><td><code>/workflow:plan</code></td><td>多模块开发</td></tr>
+<tr><td>🧪 <b>3</b></td><td><code>/workflow:tdd-plan</code></td><td>测试驱动开发</td></tr>
+<tr><td>🧠 <b>4</b></td><td><code>/workflow:brainstorm:auto-parallel</code></td><td>新功能、架构设计</td></tr>
+</table>
 
 ### 工作流示例
 
@@ -74,20 +120,26 @@ ccw install -m Global
 
 ## 🛠️ CLI 工具安装
 
-CCW 支持多种 CLI 工具，按需安装：
-
-| CLI | 说明 | 官方文档 |
-|-----|------|----------|
-| 🔷 **Gemini** | Google AI 分析 | [google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli) |
-| 🟢 **Codex** | OpenAI 自主编码 | [openai/codex](https://github.com/openai/codex) |
-| 🟠 **OpenCode** | 开源多模型 | [opencode-ai/opencode](https://github.com/opencode-ai/opencode) |
-| 🟣 **Qwen** | 阿里云 Qwen-Code | [QwenLM/Qwen](https://github.com/QwenLM) |
+<table>
+<tr><th>CLI</th><th>说明</th><th>官方文档</th></tr>
+<tr><td>🔷 <b>Gemini</b></td><td>Google AI 分析</td><td><a href="https://github.com/google-gemini/gemini-cli">google-gemini/gemini-cli</a></td></tr>
+<tr><td>🟢 <b>Codex</b></td><td>OpenAI 自主编码</td><td><a href="https://github.com/openai/codex">openai/codex</a></td></tr>
+<tr><td>🟠 <b>OpenCode</b></td><td>开源多模型</td><td><a href="https://github.com/opencode-ai/opencode">opencode-ai/opencode</a></td></tr>
+<tr><td>🟣 <b>Qwen</b></td><td>阿里云 Qwen-Code</td><td><a href="https://github.com/QwenLM">QwenLM/Qwen</a></td></tr>
+</table>
 
 ---
 
 ## 🎭 语义化 CLI 调用
 
-用户可以在提示词中 **语义指定 CLI 工具** - 系统自动调用对应的 CLI 进行分析。
+<div align="center">
+<img src="https://img.shields.io/badge/只需描述-你想要什么-6366F1?style=for-the-badge"/>
+<img src="https://img.shields.io/badge/CCW_处理-剩下的一切-10B981?style=for-the-badge"/>
+</div>
+
+<br/>
+
+用户可以在提示词中 **语义指定 CLI 工具** - 系统自动调用对应的 CLI。
 
 ### 基础调用
 
@@ -99,8 +151,6 @@ CCW 支持多种 CLI 工具，按需安装：
 
 ### 多 CLI 编排
 
-用户可以在单个提示词中语义编排多个 CLI：
-
 | 模式 | 用户提示词示例 |
 |------|----------------|
 | 🔄 **协同分析** | "使用 Gemini 和 Codex 协同分析安全漏洞" |
@@ -108,7 +158,8 @@ CCW 支持多种 CLI 工具，按需安装：
 | 🔁 **迭代优化** | "用 Gemini 诊断问题，然后 Codex 修复，迭代直到解决" |
 | 🔗 **流水线** | "Gemini 设计方案，Codex 实现，Claude 审查" |
 
-### 示例
+<details>
+<summary><b>📝 更多示例</b></summary>
 
 ```text
 # 单 CLI 调用
@@ -128,7 +179,7 @@ CCW 支持多种 CLI 工具，按需安装：
 → 系统自动调用: gemini（规划）→ codex（实现）顺序执行
 ```
 
-> 💡 **核心**：只需描述使用哪个 CLI 做什么 - CCW 自动处理调用。
+</details>
 
 ### 自定义 CLI 注册
 
@@ -144,21 +195,11 @@ ccw view  # 打开 Dashboard → Status → API Settings → 添加自定义 CLI
 | **端点** | `https://api.deepseek.com/v1/chat` |
 | **API Key** | `your-api-key` |
 
-注册后即可像内置 CLI 一样语义调用：
-
-```text
-用户: "使用 DeepSeek 分析这个算法复杂度"
-→ 系统自动调用: deepseek CLI（你的自定义端点）
-
-用户: "让 DeepSeek 和 Gemini 对比分析结果"
-→ 系统自动调用: deepseek + gemini 并行执行
-```
-
 > ⚙️ 注册一次，永久语义调用 - 无需修改代码。
 
 ---
 
-## ACE Tool 配置
+## 🔍 ACE Tool 配置
 
 ACE (Augment Context Engine) 提供强大的语义代码搜索能力。
 
@@ -169,19 +210,19 @@ ACE (Augment Context Engine) 提供强大的语义代码搜索能力。
 
 ---
 
-## CodexLens 本地搜索
+## 📚 CodexLens 本地搜索
 
 > ⚠️ **开发中**: CodexLens 正在迭代优化中，部分功能可能不稳定。
 
-CodexLens 提供本地代码索引和搜索能力，无需外部 API：
+<table>
+<tr><th>搜索模式</th><th>说明</th></tr>
+<tr><td>🔤 <b>FTS</b></td><td>全文搜索，基于 SQLite FTS5</td></tr>
+<tr><td>🧠 <b>Semantic</b></td><td>语义搜索，基于本地嵌入模型</td></tr>
+<tr><td>🔀 <b>Hybrid</b></td><td>混合搜索，结合 FTS + 语义 + 重排序</td></tr>
+</table>
 
-| 搜索模式 | 说明 |
-|----------|------|
-| **FTS** | 全文搜索，基于 SQLite FTS5 |
-| **Semantic** | 语义搜索，基于本地嵌入模型 |
-| **Hybrid** | 混合搜索，结合 FTS + 语义 + 重排序 |
-
-### 安装
+<details>
+<summary><b>📦 安装</b></summary>
 
 ```bash
 # 进入 codex-lens 目录
@@ -194,13 +235,13 @@ pip install -e .
 codexlens index /path/to/project
 ```
 
-### Dashboard 集成
-
 通过 `ccw view` 打开 Dashboard，在 **CodexLens Manager** 中管理索引和执行搜索。
+
+</details>
 
 ---
 
-## CCW CLI 命令
+## 💻 CCW CLI 命令
 
 ```bash
 ccw install           # 安装工作流文件
@@ -211,55 +252,71 @@ ccw upgrade -a        # 升级所有安装
 
 ### Dashboard 功能
 
-- **会话概览** - 跟踪工作流会话和进度
-- **CodexLens** - FTS + 语义 + 混合代码搜索
-- **图浏览器** - 交互式代码关系可视化
-- **CLI 管理器** - 执行历史与会话恢复
+<table>
+<tr><th>功能</th><th>说明</th></tr>
+<tr><td>📊 <b>会话概览</b></td><td>跟踪工作流会话和进度</td></tr>
+<tr><td>🔍 <b>CodexLens</b></td><td>FTS + 语义 + 混合代码搜索</td></tr>
+<tr><td>🕸️ <b>图浏览器</b></td><td>交互式代码关系可视化</td></tr>
+<tr><td>📜 <b>CLI 管理器</b></td><td>执行历史与会话恢复</td></tr>
+</table>
 
 ---
 
-## 文档
+## 📖 文档
 
 | 文档 | 说明 |
 |------|------|
-| [**工作流指南**](WORKFLOW_GUIDE_CN.md) | 4 级工作流系统（推荐） |
-| [**快速开始**](GETTING_STARTED_CN.md) | 5 分钟快速入门 |
-| [**Dashboard 指南**](DASHBOARD_GUIDE.md) | Dashboard 用户指南 |
-| [**常见问题**](FAQ.md) | 常见问题解答 |
-| [**更新日志**](CHANGELOG.md) | 版本历史 |
+| 📘 [**工作流指南**](WORKFLOW_GUIDE_CN.md) | 4 级工作流系统（推荐） |
+| 🚀 [**快速开始**](GETTING_STARTED_CN.md) | 5 分钟快速入门 |
+| 🖥️ [**Dashboard 指南**](DASHBOARD_GUIDE.md) | Dashboard 用户指南 |
+| ❓ [**常见问题**](FAQ.md) | 常见问题解答 |
+| 📝 [**更新日志**](CHANGELOG.md) | 版本历史 |
 
 ---
 
-## 架构概览
+## 🏗️ 架构概览
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     主干工作流 (4 级)                            │
-│  Level 1: lite-lite-lite (即时执行，无产物)                      │
-│  Level 2: lite-plan / lite-fix / multi-cli-plan (→ lite-execute)│
-│  Level 3: plan / tdd-plan / test-fix-gen (Session 持久化)        │
-│  Level 4: brainstorm:auto-parallel → plan → execute             │
+│  ⚡ Level 1: lite-lite-lite (即时执行，无产物)                   │
+│  📝 Level 2: lite-plan / lite-fix / multi-cli-plan (→ execute)  │
+│  📊 Level 3: plan / tdd-plan / test-fix-gen (Session 持久化)     │
+│  🧠 Level 4: brainstorm:auto-parallel → plan → execute          │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Issue 工作流 (补充)                          │
-│  discover → plan → queue → execute (worktree 隔离)              │
+│  🔍 discover → 📋 plan → 📦 queue → ▶️ execute (worktree)        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 **核心原则：**
-- **依赖分析** 解决并行问题 - 主干工作流无需 worktree
-- **Issue 工作流** 补充主干工作流，用于开发后维护
-- 根据复杂度选择工作流级别 - 避免过度工程化
+- ⚡ **依赖分析** 解决并行问题 - 主干工作流无需 worktree
+- 🔧 **Issue 工作流** 补充主干工作流，用于开发后维护
+- 🎯 根据复杂度选择工作流级别 - 避免过度工程化
 
 ---
 
-## 贡献
+## 🤝 贡献
 
-- **仓库**: [GitHub](https://github.com/catlog22/Claude-Code-Workflow)
-- **问题**: [报告 Bug 或请求功能](https://github.com/catlog22/Claude-Code-Workflow/issues)
-- **贡献**: 查看 [CONTRIBUTING.md](CONTRIBUTING.md)
+<div align="center">
+  <a href="https://github.com/catlog22/Claude-Code-Workflow"><img src="https://img.shields.io/badge/GitHub-仓库-181717?style=for-the-badge&logo=github" alt="GitHub"/></a>
+  <a href="https://github.com/catlog22/Claude-Code-Workflow/issues"><img src="https://img.shields.io/badge/Issues-报告问题-FF6B6B?style=for-the-badge&logo=github" alt="Issues"/></a>
+  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/贡献-指南-4CAF50?style=for-the-badge&logo=github" alt="Contributing"/></a>
+</div>
 
-## 许可证
+---
+
+## 📄 许可证
+
+<div align="center">
 
 MIT License - 详见 [LICENSE](LICENSE)
+
+<br/>
+
+<!-- Footer -->
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=100&section=footer"/>
+
+</div>
