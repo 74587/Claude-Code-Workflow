@@ -110,7 +110,26 @@ export class JsonLinesParser implements IOutputParser {
    * Helps distinguish real errors from normal progress/output sent to stderr
    * (Some CLI tools like Codex send all progress info to stderr)
    */
-  private classifyNonJsonContent(content: string, originalType: 'stdout' | 'stderr'): 'stdout' | 'stderr' {
+  private classifyNonJsonContent(content: string, originalType: 'stdout' | 'stderr'): 'stdout' | 'stderr' | 'progress' {
+    // Check for CLI initialization/progress patterns that should be filtered from final output
+    const cliProgressPatterns = [
+      /^Loaded cached credentials\.?$/i,        // Gemini auth message
+      /^Loading.*\.\.\.$/i,                      // Loading messages
+      /^Initializ(ing|ed).*$/i,                  // Initialization messages
+      /^Connecting.*$/i,                         // Connection messages
+      /^Authenticat(ing|ed).*$/i,                // Auth messages
+      /^Waiting.*$/i,                            // Waiting messages
+      /^Retry(ing)?.*$/i,                        // Retry messages
+      /^Using model:?.*$/i,                      // Model info
+      /^Session (started|resumed).*$/i,          // Session info
+    ];
+
+    for (const pattern of cliProgressPatterns) {
+      if (pattern.test(content.trim())) {
+        return 'progress';  // Will be filtered from final output
+      }
+    }
+
     // If it came from stdout, keep it as stdout
     if (originalType === 'stdout') {
       return 'stdout';
@@ -273,8 +292,11 @@ export class JsonLinesParser implements IOutputParser {
     if (json.type === 'message' && json.role) {
       // Gemini assistant/user message
       if (json.role === 'assistant') {
+        // Delta messages are incremental streaming chunks - treat as progress (filtered from final output)
+        // Only non-delta messages are final content
+        const outputType = json.delta === true ? 'progress' : 'stdout';
         return {
-          type: 'stdout',
+          type: outputType,
           content: json.content || '',
           timestamp
         };

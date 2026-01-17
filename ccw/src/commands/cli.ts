@@ -586,23 +586,24 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
 
   const prompt_to_use = finalPrompt || '';
 
-  // Load rules templates if --rule is specified (will be passed as env vars)
+  // Load rules templates (will be passed as env vars)
+  // Default to universal-rigorous-style if --rule not specified
+  const effectiveRule = rule || 'universal-rigorous-style';
   let rulesEnv: { PROTO?: string; TMPL?: string } = {};
-  if (rule) {
-    try {
-      const { loadProtocol, loadTemplate } = await import('../tools/template-discovery.js');
-      const proto = loadProtocol(mode);
-      const tmpl = loadTemplate(rule);
-      if (proto) rulesEnv.PROTO = proto;
-      if (tmpl) rulesEnv.TMPL = tmpl;
-      if (debug) {
-        console.log(chalk.gray(`  Rule loaded: PROTO(${proto ? proto.length : 0} chars) + TMPL(${tmpl ? tmpl.length : 0} chars)`));
-        console.log(chalk.gray(`  Use $PROTO and $TMPL in your prompt to reference them`));
-      }
-    } catch (error) {
-      console.error(chalk.red(`Error loading rule template: ${error instanceof Error ? error.message : error}`));
-      process.exit(1);
+  try {
+    const { loadProtocol, loadTemplate } = await import('../tools/template-discovery.js');
+    const proto = loadProtocol(mode);
+    const tmpl = loadTemplate(effectiveRule);
+    if (proto) rulesEnv.PROTO = proto;
+    if (tmpl) rulesEnv.TMPL = tmpl;
+    if (debug) {
+      console.log(chalk.gray(`  Rule loaded: ${effectiveRule}${!rule ? ' (default)' : ''}`));
+      console.log(chalk.gray(`  PROTO(${proto ? proto.length : 0} chars) + TMPL(${tmpl ? tmpl.length : 0} chars)`));
+      console.log(chalk.gray(`  Use $PROTO and $TMPL in your prompt to reference them`));
     }
+  } catch (error) {
+    console.error(chalk.red(`Error loading rule template: ${error instanceof Error ? error.message : error}`));
+    process.exit(1);
   }
 
   // Handle cache option: pack @patterns and/or content

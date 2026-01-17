@@ -207,7 +207,11 @@ Memory: Integration with auth module, using shared error patterns from @shared/u
 For complex requirements, discover files BEFORE CLI execution:
 
 ```bash
-# Step 1: Discover files
+# Step 1: Discover files (choose one method)
+# Method A: ACE semantic search (recommended)
+mcp__ace-tool__search_context(project_root_path="/path", query="React components with export")
+
+# Method B: Ripgrep pattern search
 rg "export.*Component" --files-with-matches --type ts
 
 # Step 2: Build CONTEXT
@@ -219,74 +223,66 @@ ccw cli -p "..." --tool <tool-id> --mode analysis --cd src
 
 ### RULES Configuration
 
-**使用 `--rule` 选项自动加载模板**：
+**Use `--rule` option to auto-load templates**:
 
 ```bash
 ccw cli -p "... RULES: \$PROTO \$TMPL | constraints" --tool gemini --mode analysis --rule analysis-review-architecture
 ```
 
-**`--rule` 工作原理**：
-1. 自动从 `~/.claude/workflows/cli-templates/prompts/` 发现模板
-2. 根据 `--mode` 自动加载对应 protocol（analysis-protocol.md 或 write-protocol.md）
-3. 设置环境变量 `$PROTO`（protocol）和 `$TMPL`（template）供子进程使用
-4. 在提示词中用 `$PROTO` 和 `$TMPL` 引用
+**`--rule` How It Works**:
+1. Auto-discovers templates from `~/.claude/workflows/cli-templates/prompts/`
+2. Auto-loads corresponding protocol based on `--mode` (analysis-protocol.md or write-protocol.md)
+3. Sets environment variables `$PROTO` (protocol) and `$TMPL` (template) for subprocess
+4. Reference `$PROTO` and `$TMPL` in prompt
 
-**模板选择**：从 Task-Template Matrix 选择或使用通用模板：
-- `universal-rigorous-style` - 精确型任务
-- `universal-creative-style` - 探索型任务
+> **Important**: `$PROTO` is required and must be included in RULES. `$TMPL` is optional.
 
 ### Mode Protocol References
 
-**`--rule` 自动处理 Protocol**：
+**`--rule` auto-handles Protocol**:
 - `--mode analysis` → `$PROTO` = analysis-protocol.md
 - `--mode write` → `$PROTO` = write-protocol.md
 
-**Protocol 映射**：
+**Protocol Mapping**:
 
-- **`analysis`** 模式
-  - 权限：只读操作
-  - 约束：禁止文件创建/修改/删除
+- **`analysis`** mode
+  - Permission: Read-only
+  - Constraint: No file create/modify/delete
 
-- **`write`** 模式
-  - 权限：创建/修改/删除文件
-  - 约束：完整工作流执行能力
+- **`write`** mode
+  - Permission: Create/Modify/Delete files
+  - Constraint: Full workflow execution
 
 ### Template System
 
-**Base Path**: `~/.claude/workflows/cli-templates/prompts/`
+**Available `--rule` template names**:
 
-**Naming Convention**: `category-function.txt`
-- 第一段为分类（analysis, development, planning 等）
-- 第二段为功能描述
-
-**Universal Templates**:
-- `universal-rigorous-style` - 精确型任务
-- `universal-creative-style` - 探索型任务
-
-**Task-Template Matrix**:
+**Universal**:
+- `universal-rigorous-style` - Precise tasks
+- `universal-creative-style` - Exploratory tasks
 
 **Analysis**:
-- Execution Tracing: `analysis-trace-code-execution`
-- Bug Diagnosis: `analysis-diagnose-bug-root-cause`
-- Code Patterns: `analysis-analyze-code-patterns`
-- Document Analysis: `analysis-analyze-technical-document`
-- Architecture Review: `analysis-review-architecture`
-- Code Review: `analysis-review-code-quality`
-- Performance: `analysis-analyze-performance`
-- Security: `analysis-assess-security-risks`
+- `analysis-trace-code-execution` - Execution tracing
+- `analysis-diagnose-bug-root-cause` - Bug diagnosis
+- `analysis-analyze-code-patterns` - Code patterns
+- `analysis-analyze-technical-document` - Document analysis
+- `analysis-review-architecture` - Architecture review
+- `analysis-review-code-quality` - Code review
+- `analysis-analyze-performance` - Performance analysis
+- `analysis-assess-security-risks` - Security assessment
 
 **Planning**:
-- Architecture: `planning-plan-architecture-design`
-- Task Breakdown: `planning-breakdown-task-steps`
-- Component Design: `planning-design-component-spec`
-- Migration: `planning-plan-migration-strategy`
+- `planning-plan-architecture-design` - Architecture design
+- `planning-breakdown-task-steps` - Task breakdown
+- `planning-design-component-spec` - Component design
+- `planning-plan-migration-strategy` - Migration strategy
 
 **Development**:
-- Feature: `development-implement-feature`
-- Refactoring: `development-refactor-codebase`
-- Tests: `development-generate-tests`
-- UI Component: `development-implement-component-ui`
-- Debugging: `development-debug-runtime-issues`
+- `development-implement-feature` - Feature implementation
+- `development-refactor-codebase` - Code refactoring
+- `development-generate-tests` - Test generation
+- `development-implement-component-ui` - UI component
+- `development-debug-runtime-issues` - Runtime debugging
 
 ---
 
