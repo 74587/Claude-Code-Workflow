@@ -185,23 +185,19 @@ User: "Use Gemini to plan the refactoring, then Codex to implement it"
 
 ### Custom CLI Registration
 
-Register **any API as a custom CLI** via Dashboard API Settings:
+Register **any API as a custom CLI** via Dashboard interface:
 
-```json
-// Example: Register "deepseek" as custom CLI
-{
-  "tools": {
-    "deepseek": {
-      "enabled": true,
-      "type": "api-endpoint",
-      "endpoint": "https://api.deepseek.com/v1/chat",
-      "apiKey": "your-api-key"
-    }
-  }
-}
+```bash
+ccw view  # Open Dashboard → Status → API Settings → Add Custom CLI
 ```
 
-After registration, use it semantically:
+| Field | Example |
+|-------|---------|
+| **Name** | `deepseek` |
+| **Endpoint** | `https://api.deepseek.com/v1/chat` |
+| **API Key** | `your-api-key` |
+
+After registration, use it semantically like built-in CLIs:
 
 ```text
 User: "Use DeepSeek to analyze this algorithm complexity"
@@ -211,7 +207,7 @@ User: "Let DeepSeek and Gemini compare their analysis results"
 → System auto-calls: deepseek + gemini in parallel
 ```
 
-> ⚙️ **Dashboard**: `ccw view` → Status → API Settings to manage custom CLIs.
+> ⚙️ Register once, invoke semantically forever - no code changes needed.
 
 ---
 

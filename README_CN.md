@@ -185,23 +185,19 @@ qwen --version
 
 ### 自定义 CLI 注册
 
-通过 Dashboard API Settings **注册任意 API 为自定义 CLI**：
+通过 Dashboard 界面 **注册任意 API 为自定义 CLI**：
 
-```json
-// 示例：注册 "deepseek" 为自定义 CLI
-{
-  "tools": {
-    "deepseek": {
-      "enabled": true,
-      "type": "api-endpoint",
-      "endpoint": "https://api.deepseek.com/v1/chat",
-      "apiKey": "your-api-key"
-    }
-  }
-}
+```bash
+ccw view  # 打开 Dashboard → Status → API Settings → 添加自定义 CLI
 ```
 
-注册后即可语义调用：
+| 字段 | 示例 |
+|------|------|
+| **名称** | `deepseek` |
+| **端点** | `https://api.deepseek.com/v1/chat` |
+| **API Key** | `your-api-key` |
+
+注册后即可像内置 CLI 一样语义调用：
 
 ```text
 用户: "使用 DeepSeek 分析这个算法复杂度"
@@ -211,7 +207,7 @@ qwen --version
 → 系统自动调用: deepseek + gemini 并行执行
 ```
 
-> ⚙️ **Dashboard 配置**: `ccw view` → Status → API Settings 管理自定义 CLI。
+> ⚙️ 注册一次，永久语义调用 - 无需修改代码。
 
 ---
 
