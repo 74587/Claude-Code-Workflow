@@ -7,6 +7,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { executeCliTool } from '../../tools/cli-executor.js';
 import { SmartContentFormatter } from '../../tools/cli-output-converter.js';
+import { loadProtocol, loadTemplate } from '../../tools/template-discovery.js';
 import type { RouteContext } from './types.js';
 
 interface ParsedRuleFrontmatter {
@@ -445,7 +446,7 @@ FILE NAME: ${fileName}
 ${subdirectory ? `SUBDIRECTORY: ${subdirectory}` : ''}
 ${reviewInstruction}
 
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-rigorous-style.txt) | Generate ONLY the rule content in markdown | No additional commentary | Do NOT use any tools | Output raw markdown text directly | write=CREATE`;
+RULES: $PROTO $TMPL | Generate ONLY the rule content in markdown | No additional commentary | Do NOT use any tools | Output raw markdown text directly | write=CREATE`;
 }
 
 /**
@@ -516,7 +517,7 @@ FILE NAME: ${fileName}
 ${subdirectory ? `SUBDIRECTORY: ${subdirectory}` : ''}
 INFERRED CATEGORY: ${context.category}
 
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Extract REAL patterns from code | Include actual code snippets as examples | Do NOT use any tools | Output raw markdown text directly | analysis=READ-ONLY`;
+RULES: $PROTO $TMPL | Extract REAL patterns from code | Include actual code snippets as examples | Do NOT use any tools | Output raw markdown text directly | analysis=READ-ONLY`;
 }
 
 /**
@@ -567,7 +568,7 @@ EXPECTED OUTPUT:
 - If the original is already high quality, return it unchanged
 - Preserve any frontmatter (---paths---) if present
 
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-rigorous-style.txt) | Output ONLY improved markdown content | No additional text | Do NOT use any tools | Output raw markdown text directly | write=CREATE`;
+RULES: $PROTO $TMPL | Output ONLY improved markdown content | No additional text | Do NOT use any tools | Output raw markdown text directly | write=CREATE`;
 }
 
 /**
@@ -628,7 +629,7 @@ async function generateRuleViaCLI(params: RuleGenerateParams): Promise<Record<st
 TASK: • Create rule based on ${templateType} template • Generate structured markdown content
 MODE: write
 EXPECTED: Complete rule content in markdown format following template structure
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-rigorous-style.txt) | Follow Claude Code rule format | Use ${templateType} template patterns | Do NOT use any tools | Output raw markdown text directly | write=CREATE
+RULES: $PROTO $TMPL | Follow Claude Code rule format | Use ${templateType} template patterns | Do NOT use any tools | Output raw markdown text directly | write=CREATE
 
 TEMPLATE TYPE: ${templateType}
 FILE NAME: ${fileName}`;
@@ -676,6 +677,15 @@ FILE NAME: ${fileName}`;
         }
       : undefined;
 
+    // Build rulesEnv for $PROTO and $TMPL injection
+    const templateName = generationType === 'extract'
+      ? 'analysis-analyze-code-patterns'
+      : 'universal-universal-rigorous-style';
+    const rulesEnv = {
+      PROTO: loadProtocol(mode),
+      TMPL: loadTemplate(templateName)
+    };
+
     // Execute CLI tool (Claude) with at least 10 minutes timeout
     const startTime = Date.now();
     const result = await executeCliTool({
@@ -685,7 +695,8 @@ FILE NAME: ${fileName}`;
       cd: workingDir,
       timeout: 600000, // 10 minutes
       category: 'internal',
-      id: executionId
+      id: executionId,
+      rulesEnv
     }, onOutput);
 
     // Broadcast CLI_EXECUTION_COMPLETED event
@@ -763,6 +774,12 @@ FILE NAME: ${fileName}`;
           }
         : undefined;
 
+      // Build rulesEnv for review step
+      const reviewRulesEnv = {
+        PROTO: loadProtocol('write'),
+        TMPL: loadTemplate('universal-universal-rigorous-style')
+      };
+
       const reviewStartTime = Date.now();
       const reviewExecution = await executeCliTool({
         tool: 'claude',
@@ -771,7 +788,8 @@ FILE NAME: ${fileName}`;
         cd: workingDir,
         timeout: 300000, // 5 minutes for review
         category: 'internal',
-        id: reviewExecutionId
+        id: reviewExecutionId,
+        rulesEnv: reviewRulesEnv
       }, reviewOnOutput);
 
       // Broadcast review CLI_EXECUTION_COMPLETED event

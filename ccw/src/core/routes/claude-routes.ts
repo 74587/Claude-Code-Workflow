@@ -314,7 +314,7 @@ TASK: • Analyze module's purpose and responsibilities • Document public APIs
 MODE: analysis
 CONTEXT: @${modulePath}/**/* | Memory: Project conventions from .claude/CLAUDE.md
 EXPECTED: Module-level CLAUDE.md with: - Module purpose (1-2 sentences) - Key files and their roles - Public API documentation - Integration points - Testing approach
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/planning/02-design-component-spec.txt) | Module-level perspective only | Concrete examples | analysis=READ-ONLY`;
+RULES: $PROTO $TMPL | Module-level perspective only | Concrete examples | analysis=READ-ONLY`;
   } else {
     // User/Project level prompt
     const contextPath = level === 'user' ? '~/.claude' : '.claude';
@@ -323,7 +323,7 @@ TASK: • Analyze ${level} configuration and conventions • Identify common pat
 MODE: analysis
 CONTEXT: @${contextPath}/**/*
 EXPECTED: Updated CLAUDE.md content with: - Preserved existing sections - New insights appended to relevant sections - Timestamp header - Focus on ${level}-level concerns
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Maintain existing CLAUDE.md structure | Focus on actionable rules | analysis=READ-ONLY`;
+RULES: $PROTO $TMPL | Maintain existing CLAUDE.md structure | Focus on actionable rules | analysis=READ-ONLY`;
   }
 }
 
@@ -559,6 +559,7 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
         // Import CLI executor and content formatter
         const { executeCliTool } = await import('../../tools/cli-executor.js');
         const { SmartContentFormatter } = await import('../../tools/cli-output-converter.js');
+        const { loadProtocol, loadTemplate } = await import('../../tools/template-discovery.js');
 
         // Determine file path based on level
         let filePath: string;
@@ -617,6 +618,15 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
           });
         };
 
+        // Build rulesEnv for $PROTO and $TMPL injection
+        const templateName = level === 'module'
+          ? 'planning-design-component-spec'
+          : 'analysis-analyze-code-patterns';
+        const rulesEnv = {
+          PROTO: loadProtocol('analysis'),
+          TMPL: loadTemplate(templateName)
+        };
+
         const startTime = Date.now();
         const result = await executeCliTool({
           tool: tool === 'qwen' ? 'qwen' : 'gemini',
@@ -627,7 +637,8 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
           timeout: 600000, // 10 minutes
           stream: false,
           category: 'internal',
-          id: syncId
+          id: syncId,
+          rulesEnv
         }, (unit) => {
           // CliOutputUnit handler: use SmartContentFormatter for intelligent formatting (never returns null)
           const content = SmartContentFormatter.format(unit.content, unit.type);

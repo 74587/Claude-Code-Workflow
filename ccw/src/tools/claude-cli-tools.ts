@@ -15,6 +15,18 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
+// ========== Debug Logging ==========
+// Only output logs when DEBUG is enabled (via --debug flag or DEBUG env var)
+function isDebugEnabled(): boolean {
+  return process.env.DEBUG === 'true' || process.env.DEBUG === '1' || process.env.CCW_DEBUG === 'true';
+}
+
+function debugLog(message: string): void {
+  if (isDebugEnabled()) {
+    console.log(message);
+  }
+}
+
 // ========== Types ==========
 
 export interface ClaudeCliTool {
@@ -264,7 +276,7 @@ function migrateConfig(config: any, projectDir: string): ClaudeCliToolsConfig {
     return config as ClaudeCliToolsConfig;
   }
 
-  console.log(`[claude-cli-tools] Migrating config from v${config.version || '1.0'} to v3.2.0`);
+  debugLog(`[claude-cli-tools] Migrating config from v${config.version || '1.0'} to v3.2.0`);
 
   // Try to load legacy cli-config.json for model data
   let legacyCliConfig: any = null;
@@ -274,7 +286,7 @@ function migrateConfig(config: any, projectDir: string): ClaudeCliToolsConfig {
     const fs = require('fs');
     if (fs.existsSync(legacyPath)) {
       legacyCliConfig = JSON.parse(fs.readFileSync(legacyPath, 'utf-8'));
-      console.log(`[claude-cli-tools] Found legacy cli-config.json, merging model data`);
+      debugLog(`[claude-cli-tools] Found legacy cli-config.json, merging model data`);
     }
   } catch {
     // Ignore errors loading legacy config
@@ -321,7 +333,7 @@ function migrateConfig(config: any, projectDir: string): ClaudeCliToolsConfig {
           tags: ep.tags.filter((t: string) => t !== 'cli-wrapper'),
           type: 'cli-wrapper'
         };
-        console.log(`[claude-cli-tools] Migrated cli-wrapper "${ep.name}" to tools`);
+        debugLog(`[claude-cli-tools] Migrated cli-wrapper "${ep.name}" to tools`);
       }
     } else {
       // Pure API endpoint becomes a tool with type: 'api-endpoint'
@@ -332,7 +344,7 @@ function migrateConfig(config: any, projectDir: string): ClaudeCliToolsConfig {
           type: 'api-endpoint',
           id: ep.id  // Store endpoint ID for settings lookup
         };
-        console.log(`[claude-cli-tools] Migrated API endpoint "${ep.name}" to tools`);
+        debugLog(`[claude-cli-tools] Migrated API endpoint "${ep.name}" to tools`);
       }
     }
   }
@@ -347,7 +359,7 @@ function migrateConfig(config: any, projectDir: string): ClaudeCliToolsConfig {
         type: 'api-endpoint',
         id: ep.id  // Store endpoint ID for settings lookup
       };
-      console.log(`[claude-cli-tools] Migrated API endpoint "${ep.name}" to tools`);
+      debugLog(`[claude-cli-tools] Migrated API endpoint "${ep.name}" to tools`);
     }
   }
 
@@ -375,7 +387,7 @@ export function ensureClaudeCliTools(projectDir: string, createInProject: boolea
   }
 
   // Config doesn't exist - create in global directory only
-  console.log('[claude-cli-tools] Config not found, creating default cli-tools.json in ~/.claude');
+  debugLog('[claude-cli-tools] Config not found, creating default cli-tools.json in ~/.claude');
 
   const defaultConfig: ClaudeCliToolsConfig = { ...DEFAULT_TOOLS_CONFIG };
 
@@ -387,7 +399,7 @@ export function ensureClaudeCliTools(projectDir: string, createInProject: boolea
   const globalPath = getGlobalConfigPath();
   try {
     fs.writeFileSync(globalPath, JSON.stringify(defaultConfig, null, 2), 'utf-8');
-    console.log(`[claude-cli-tools] Created default config at: ${globalPath}`);
+    debugLog(`[claude-cli-tools] Created default config at: ${globalPath}`);
     return { ...defaultConfig, _source: 'global' };
   } catch (err) {
     console.error('[claude-cli-tools] Failed to create global config:', err);
@@ -438,13 +450,13 @@ export function loadClaudeCliTools(projectDir: string): ClaudeCliToolsConfig & {
     if (needsSave) {
       try {
         saveClaudeCliTools(projectDir, config);
-        console.log(`[claude-cli-tools] Saved migrated config to: ${resolved.path}`);
+        debugLog(`[claude-cli-tools] Saved migrated config to: ${resolved.path}`);
       } catch (err) {
         console.warn('[claude-cli-tools] Failed to save migrated config:', err);
       }
     }
 
-    console.log(`[claude-cli-tools] Loaded tools config from ${resolved.source}: ${resolved.path}`);
+    debugLog(`[claude-cli-tools] Loaded tools config from ${resolved.source}: ${resolved.path}`);
     return config;
   } catch (err) {
     console.error('[claude-cli-tools] Error loading tools config:', err);
@@ -468,7 +480,7 @@ export function saveClaudeCliTools(projectDir: string, config: ClaudeCliToolsCon
 
   try {
     fs.writeFileSync(configPath, JSON.stringify(configToSave, null, 2), 'utf-8');
-    console.log(`[claude-cli-tools] Saved tools config to: ${configPath}`);
+    debugLog(`[claude-cli-tools] Saved tools config to: ${configPath}`);
   } catch (err) {
     console.error('[claude-cli-tools] Error saving tools config:', err);
     throw new Error(`Failed to save CLI tools config: ${err}`);
@@ -504,7 +516,7 @@ export function loadClaudeCliSettings(projectDir: string): ClaudeCliSettingsConf
       _source: resolved.source
     };
 
-    console.log(`[claude-cli-tools] Loaded settings from ${resolved.source}: ${resolved.path}`);
+    debugLog(`[claude-cli-tools] Loaded settings from ${resolved.source}: ${resolved.path}`);
     return config;
   } catch (err) {
     console.error('[claude-cli-tools] Error loading settings:', err);
@@ -528,7 +540,7 @@ export function saveClaudeCliSettings(projectDir: string, config: ClaudeCliSetti
 
   try {
     fs.writeFileSync(settingsPath, JSON.stringify(configToSave, null, 2), 'utf-8');
-    console.log(`[claude-cli-tools] Saved settings to: ${settingsPath}`);
+    debugLog(`[claude-cli-tools] Saved settings to: ${settingsPath}`);
   } catch (err) {
     console.error('[claude-cli-tools] Error saving settings:', err);
     throw new Error(`Failed to save CLI settings: ${err}`);
@@ -744,7 +756,7 @@ export function updateCodeIndexMcp(
         content = content.replace(nonePattern, targetFile);
 
         fs.writeFileSync(projectClaudeMdPath, content, 'utf-8');
-        console.log(`[claude-cli-tools] Updated project CLAUDE.md to use ${provider} (no global CLAUDE.md found)`);
+        debugLog(`[claude-cli-tools] Updated project CLAUDE.md to use ${provider} (no global CLAUDE.md found)`);
       }
     } else {
       // Update global CLAUDE.md (primary target)
@@ -756,7 +768,7 @@ export function updateCodeIndexMcp(
       content = content.replace(nonePattern, targetFile);
 
       fs.writeFileSync(globalClaudeMdPath, content, 'utf-8');
-      console.log(`[claude-cli-tools] Updated global CLAUDE.md to use ${provider}`);
+      debugLog(`[claude-cli-tools] Updated global CLAUDE.md to use ${provider}`);
     }
 
     return { success: true, settings };
