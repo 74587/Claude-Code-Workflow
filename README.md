@@ -37,6 +37,7 @@
 
 ## ✨ Key Features
 
+<div align="center">
 <table>
 <tr>
 <td width="50%">
@@ -65,6 +66,7 @@ Visual session management, CodexLens search, graph explorer
 </td>
 </tr>
 </table>
+</div>
 
 > 📖 **New?** See [Workflow Guide](WORKFLOW_GUIDE.md) for the complete 4-level workflow system.
 

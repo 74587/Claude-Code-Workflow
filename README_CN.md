@@ -37,6 +37,7 @@
 
 ## ✨ 核心特性
 
+<div align="center">
 <table>
 <tr>
 <td width="50%">
@@ -65,6 +66,7 @@ Agent 并行执行，无需 worktree 复杂性
 </td>
 </tr>
 </table>
+</div>
 
 > 📖 **新用户？** 查看 [工作流指南](WORKFLOW_GUIDE_CN.md) 了解完整的 4 级工作流系统。
 
