@@ -1024,7 +1024,9 @@ async function loadAndRenderMultiCliSummaryTab(session, contentArea) {
       const response = await fetch(`/api/session-detail?path=${encodeURIComponent(session.path)}&type=summary`);
       if (response.ok) {
         const data = await response.json();
-        contentArea.innerHTML = renderMultiCliSummaryContent(data.summary, session);
+        // Support both summaries (from .summaries/) and summary (from plan.json)
+        const summaryText = data.summary || (data.summaries?.length ? data.summaries[0].content : null);
+        contentArea.innerHTML = renderMultiCliSummaryContent(summaryText, session);
         initCollapsibleSections(contentArea);
         if (typeof lucide !== 'undefined') lucide.createIcons();
         return;
@@ -3135,16 +3137,38 @@ async function loadAndRenderLiteSummaryTab(session, contentArea) {
       const response = await fetch(`/api/session-detail?path=${encodeURIComponent(session.path)}&type=summary`);
       if (response.ok) {
         const data = await response.json();
-        contentArea.innerHTML = renderSummaryContent(data.summaries);
-        return;
+        // Prioritize .summaries/ directory content
+        if (data.summaries?.length) {
+          contentArea.innerHTML = renderSummaryContent(data.summaries);
+          if (typeof lucide !== 'undefined') lucide.createIcons();
+          return;
+        }
+        // Fallback to plan.json summary field
+        if (data.summary) {
+          contentArea.innerHTML = renderSummaryContent([{ name: 'Summary', content: data.summary }]);
+          if (typeof lucide !== 'undefined') lucide.createIcons();
+          return;
+        }
       }
     }
-    // Fallback
+
+    // Fallback: try to get summary from session object (plan.summary or synthesis.convergence.summary)
+    const plan = session.plan || {};
+    const synthesis = session.latestSynthesis || session.discussionTopic || {};
+    const summaryText = plan.summary || synthesis.convergence?.summary;
+
+    if (summaryText) {
+      contentArea.innerHTML = renderSummaryContent([{ name: 'Summary', content: summaryText }]);
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      return;
+    }
+
+    // No summary available
     contentArea.innerHTML = `
       <div class="tab-empty-state">
         <div class="empty-icon"><i data-lucide="file-text" class="w-12 h-12"></i></div>
-        <div class="empty-title">No Summaries</div>
-        <div class="empty-text">No summaries found in .summaries/</div>
+        <div class="empty-title">${t('empty.noSummary') || 'No Summary'}</div>
+        <div class="empty-text">${t('empty.noSummaryText') || 'No summary available for this session.'}</div>
       </div>
     `;
     if (typeof lucide !== 'undefined') lucide.createIcons();

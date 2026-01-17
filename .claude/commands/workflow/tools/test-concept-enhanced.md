@@ -90,7 +90,7 @@ Template: ~/.claude/workflows/cli-templates/prompts/test/test-concept-analysis.t
 
 ## EXECUTION STEPS
 1. Execute Gemini analysis:
-   ccw cli -p "$(cat ~/.claude/workflows/cli-templates/prompts/test/test-concept-analysis.txt)" --tool gemini --mode write --cd .workflow/active/{test_session_id}/.process
+   ccw cli -p "..." --tool gemini --mode write --rule test-test-concept-analysis --cd .workflow/active/{test_session_id}/.process
 
 2. Generate TEST_ANALYSIS_RESULTS.md:
    Synthesize gemini-test-analysis.md into standardized format for task generation

@@ -3300,3 +3300,93 @@
   text-transform: uppercase;
   letter-spacing: 0.025em;
 }
+
+/* ==========================================
+   SPLIT QUEUE MODAL STYLES
+   ========================================== */
+
+.split-queue-modal-content {
+  max-width: 600px;
+  width: 90%;
+}
+
+.split-queue-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.split-queue-issues {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.split-queue-issue-group {
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  background: hsl(var(--muted) / 0.3);
+  transition: all 0.15s ease;
+}
+
+.split-queue-issue-group:hover {
+  background: hsl(var(--muted) / 0.5);
+  border-color: hsl(var(--primary) / 0.3);
+}
+
+.split-queue-issue-header {
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+
+.split-queue-issue-header label {
+  cursor: pointer;
+  user-select: none;
+}
+
+.split-queue-issue-header input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.split-queue-solutions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.split-queue-solutions label {
+  cursor: pointer;
+  user-select: none;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.15s ease;
+}
+
+.split-queue-solutions label:hover {
+  background: hsl(var(--muted) / 0.5);
+}
+
+.split-queue-solutions input[type="checkbox"] {
+  cursor: pointer;
+}
+
+/* Checkbox styles */
+.split-queue-modal-content input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.split-queue-modal-content input[type="checkbox"]:hover {
+  border-color: hsl(var(--primary));
+}
+
+.split-queue-modal-content input[type="checkbox"]:checked {
+  background-color: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+}

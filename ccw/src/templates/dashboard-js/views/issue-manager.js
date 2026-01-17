@@ -562,6 +562,11 @@ function renderQueueCard(queue, isActive) {
             <i data-lucide="git-merge" class="w-3 h-3"></i>
           </button>
         ` : ''}
+        ${queue.status !== 'merged' && issueCount > 1 ? `
+          <button class="btn-sm" onclick="showSplitQueueModal('${safeQueueId}')" title="Split queue into multiple queues">
+            <i data-lucide="git-branch" class="w-3 h-3"></i>
+          </button>
+        ` : ''}
         <button class="btn-sm btn-danger" onclick="confirmDeleteQueue('${safeQueueId}')" title="${t('issues.deleteQueue') || 'Delete queue'}">
           <i data-lucide="trash-2" class="w-3 h-3"></i>
         </button>
@@ -986,6 +991,188 @@ async function executeQueueMerge(sourceQueueId) {
   } catch (err) {
     console.error('Failed to merge queues:', err);
     showNotification('Failed to merge queues', 'error');
+  }
+}
+
+// ========== Queue Split Modal ==========
+async function showSplitQueueModal(queueId) {
+  let modal = document.getElementById('splitQueueModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'splitQueueModal';
+    modal.className = 'issue-modal';
+    document.body.appendChild(modal);
+  }
+
+  // Fetch queue details
+  let queue;
+  try {
+    const response = await fetch('/api/queue/' + encodeURIComponent(queueId) + '?path=' + encodeURIComponent(projectPath));
+    queue = await response.json();
+    if (queue.error) throw new Error(queue.error);
+  } catch (err) {
+    showNotification('Failed to load queue details', 'error');
+    return;
+  }
+
+  const safeQueueId = escapeHtml(queueId || '');
+  const items = queue.solutions || queue.tasks || [];
+  const isSolutionLevel = !!queue.solutions;
+
+  // Group items by issue
+  const issueGroups = {};
+  items.forEach(item => {
+    const issueId = item.issue_id || 'unknown';
+    if (!issueGroups[issueId]) {
+      issueGroups[issueId] = [];
+    }
+    issueGroups[issueId].push(item);
+  });
+
+  const issueIds = Object.keys(issueGroups);
+
+  modal.innerHTML = `
+    <div class="issue-modal-content split-queue-modal-content">
+      <div class="issue-modal-header">
+        <h3><i data-lucide="git-branch" class="w-5 h-5"></i> Split Queue: ${safeQueueId}</h3>
+        <button class="issue-modal-close" onclick="hideSplitQueueModal()">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="issue-modal-body">
+        <p class="text-sm text-muted-foreground mb-4">
+          Select issues and their solutions to split into a new queue. The remaining items will stay in the current queue.
+        </p>
+
+        ${issueIds.length === 0 ? `
+          <p class="text-center text-muted-foreground py-4">No items to split</p>
+        ` : `
+          <div class="split-queue-controls mb-3">
+            <button class="btn-sm btn-secondary" onclick="selectAllIssues()">
+              <i data-lucide="check-square" class="w-3 h-3"></i> Select All
+            </button>
+            <button class="btn-sm btn-secondary" onclick="deselectAllIssues()">
+              <i data-lucide="square" class="w-3 h-3"></i> Deselect All
+            </button>
+          </div>
+
+          <div class="split-queue-issues">
+            ${issueIds.map(issueId => {
+              const issueItems = issueGroups[issueId];
+              const safeIssueId = escapeHtml(issueId);
+              return `
+                <div class="split-queue-issue-group" data-issue-id="${safeIssueId}">
+                  <div class="split-queue-issue-header">
+                    <label class="flex items-center gap-2">
+                      <input type="checkbox"
+                             class="issue-checkbox"
+                             data-issue-id="${safeIssueId}"
+                             onchange="toggleIssueSelection('${safeIssueId}')">
+                      <span class="font-medium">${safeIssueId}</span>
+                      <span class="text-xs text-muted-foreground">(${issueItems.length} ${isSolutionLevel ? 'solution' : 'task'}${issueItems.length > 1 ? 's' : ''})</span>
+                    </label>
+                  </div>
+                  <div class="split-queue-solutions ml-6">
+                    ${issueItems.map(item => {
+                      const itemId = item.item_id || item.solution_id || item.task_id || '';
+                      const safeItemId = escapeHtml(itemId);
+                      const displayName = isSolutionLevel
+                        ? (item.solution_id || itemId)
+                        : (item.task_id || itemId);
+                      return `
+                        <label class="flex items-center gap-2 py-1">
+                          <input type="checkbox"
+                                 class="solution-checkbox"
+                                 data-issue-id="${safeIssueId}"
+                                 data-item-id="${safeItemId}"
+                                 value="${safeItemId}">
+                          <span class="text-sm font-mono">${escapeHtml(displayName)}</span>
+                          ${item.task_count ? `<span class="text-xs text-muted-foreground">(${item.task_count} tasks)</span>` : ''}
+                        </label>
+                      `;
+                    }).join('')}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
+      </div>
+
+      <div class="issue-modal-footer">
+        <button class="btn-secondary" onclick="hideSplitQueueModal()">Cancel</button>
+        ${issueIds.length > 0 ? `
+          <button class="btn-primary" onclick="executeQueueSplit('${safeQueueId}')">
+            <i data-lucide="git-branch" class="w-4 h-4"></i>
+            <span>Split Queue</span>
+          </button>
+        ` : ''}
+      </div>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function hideSplitQueueModal() {
+  const modal = document.getElementById('splitQueueModal');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+}
+
+function toggleIssueSelection(issueId) {
+  const issueCheckbox = document.querySelector(`.issue-checkbox[data-issue-id="${issueId}"]`);
+  const solutionCheckboxes = document.querySelectorAll(`.solution-checkbox[data-issue-id="${issueId}"]`);
+
+  if (issueCheckbox && solutionCheckboxes) {
+    solutionCheckboxes.forEach(cb => {
+      cb.checked = issueCheckbox.checked;
+    });
+  }
+}
+
+function selectAllIssues() {
+  const allCheckboxes = document.querySelectorAll('.split-queue-modal-content input[type="checkbox"]');
+  allCheckboxes.forEach(cb => cb.checked = true);
+}
+
+function deselectAllIssues() {
+  const allCheckboxes = document.querySelectorAll('.split-queue-modal-content input[type="checkbox"]');
+  allCheckboxes.forEach(cb => cb.checked = false);
+}
+
+async function executeQueueSplit(sourceQueueId) {
+  const selectedCheckboxes = document.querySelectorAll('.solution-checkbox:checked');
+  const selectedItemIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+
+  if (selectedItemIds.length === 0) {
+    showNotification('Please select at least one item to split', 'warning');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/queue/split?path=' + encodeURIComponent(projectPath), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceQueueId, itemIds: selectedItemIds })
+    });
+    const result = await response.json();
+
+    if (result.success) {
+      showNotification(`Split ${result.splitItemCount} items into new queue ${result.newQueueId}`, 'success');
+      hideSplitQueueModal();
+      queueData.expandedQueueId = null;
+      await Promise.all([loadQueueData(), loadAllQueues()]);
+      renderIssueView();
+    } else {
+      showNotification(result.error || 'Failed to split queue', 'error');
+    }
+  } catch (err) {
+    console.error('Failed to split queue:', err);
+    showNotification('Failed to split queue', 'error');
   }
 }
 

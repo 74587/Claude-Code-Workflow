@@ -497,6 +497,7 @@ ${plan.tasks.map((t, i) => `${i+1}. ${t.title} (${t.file})`).join('\n')}
 
 **Step 4.2: Collect Confirmation**
 ```javascript
+// Note: Execution "Other" option allows specifying CLI tools from ~/.claude/cli-tools.json
 AskUserQuestion({
   questions: [
     {
@@ -524,8 +525,9 @@ AskUserQuestion({
       header: "Review",
       multiSelect: false,
       options: [
-        { label: "Gemini Review", description: "Gemini CLI" },
-        { label: "Agent Review", description: "@code-reviewer" },
+        { label: "Gemini Review", description: "Gemini CLI review" },
+        { label: "Codex Review", description: "codex review --uncommitted" },
+        { label: "Agent Review", description: "@code-reviewer agent" },
         { label: "Skip", description: "No review" }
       ]
     }

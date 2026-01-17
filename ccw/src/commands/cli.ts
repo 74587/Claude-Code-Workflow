@@ -124,6 +124,13 @@ interface CliExecOptions {
   cache?: string | boolean; // Cache: true = auto from CONTEXT, string = comma-separated patterns/content
   injectMode?: 'none' | 'full' | 'progressive'; // Inject mode for cached content
   debug?: boolean; // Enable debug logging
+  // Codex review options
+  uncommitted?: boolean; // Review uncommitted changes (default for review mode)
+  base?: string; // Review changes against base branch
+  commit?: string; // Review changes from specific commit
+  title?: string; // Optional title for review summary
+  // Template/Rules options
+  rule?: string; // Template name for auto-discovery (defines $PROTO and $TMPL env vars)
 }
 
 /** Cache configuration parsed from --cache */
@@ -535,7 +542,7 @@ async function statusAction(debug?: boolean): Promise<void> {
  * @param {Object} options - CLI options
  */
 async function execAction(positionalPrompt: string | undefined, options: CliExecOptions): Promise<void> {
-  const { prompt: optionPrompt, file, tool = 'gemini', mode = 'analysis', model, cd, includeDirs, stream, resume, id, noNative, cache, injectMode, debug } = options;
+  const { prompt: optionPrompt, file, tool = 'gemini', mode = 'analysis', model, cd, includeDirs, stream, resume, id, noNative, cache, injectMode, debug, uncommitted, base, commit, title, rule } = options;
 
   // Enable debug mode if --debug flag is set
   if (debug) {
@@ -578,6 +585,25 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
   }
 
   const prompt_to_use = finalPrompt || '';
+
+  // Load rules templates if --rule is specified (will be passed as env vars)
+  let rulesEnv: { PROTO?: string; TMPL?: string } = {};
+  if (rule) {
+    try {
+      const { loadProtocol, loadTemplate } = await import('../tools/template-discovery.js');
+      const proto = loadProtocol(mode);
+      const tmpl = loadTemplate(rule);
+      if (proto) rulesEnv.PROTO = proto;
+      if (tmpl) rulesEnv.TMPL = tmpl;
+      if (debug) {
+        console.log(chalk.gray(`  Rule loaded: PROTO(${proto ? proto.length : 0} chars) + TMPL(${tmpl ? tmpl.length : 0} chars)`));
+        console.log(chalk.gray(`  Use $PROTO and $TMPL in your prompt to reference them`));
+      }
+    } catch (error) {
+      console.error(chalk.red(`Error loading rule template: ${error instanceof Error ? error.message : error}`));
+      process.exit(1);
+    }
+  }
 
   // Handle cache option: pack @patterns and/or content
   let cacheSessionId: string | undefined;
@@ -847,7 +873,14 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       id, // custom execution ID
       noNative,
       stream: !!stream, // stream=true → streaming enabled (no cache), stream=false → cache output (default)
-      outputFormat // Enable JSONL parsing for tools that support it
+      outputFormat, // Enable JSONL parsing for tools that support it
+      // Codex review options
+      uncommitted,
+      base,
+      commit,
+      title,
+      // Rules env vars (PROTO, TMPL)
+      rulesEnv: Object.keys(rulesEnv).length > 0 ? rulesEnv : undefined
     }, onOutput); // Always pass onOutput for real-time dashboard streaming
 
     if (elapsedInterval) clearInterval(elapsedInterval);

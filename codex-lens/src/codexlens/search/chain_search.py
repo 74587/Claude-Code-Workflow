@@ -116,6 +116,24 @@ class ChainSearchResult:
     related_results: List[SearchResult] = field(default_factory=list)
 
 
+@dataclass
+class ReferenceResult:
+    """Result from reference search in code_relationships table.
+
+    Attributes:
+        file_path: Path to the file containing the reference
+        line: Line number where the reference occurs (1-based)
+        column: Column number where the reference occurs (0-based)
+        context: Surrounding code snippet for context
+        relationship_type: Type of relationship (call, import, inheritance, etc.)
+    """
+    file_path: str
+    line: int
+    column: int
+    context: str
+    relationship_type: str
+
+
 class ChainSearchEngine:
     """Parallel chain search engine for hierarchical directory indexes.
 
@@ -810,7 +828,7 @@ class ChainSearchEngine:
         k: int = 10,
         coarse_k: int = 100,
         options: Optional[SearchOptions] = None,
-        strategy: Optional[Literal["binary", "hybrid", "binary_rerank", "dense_rerank"]] = None,
+        strategy: Optional[Literal["binary", "hybrid", "binary_rerank", "dense_rerank", "staged"]] = None,
     ) -> ChainSearchResult:
         """Unified cascade search entry point with strategy selection.
 
@@ -819,6 +837,7 @@ class ChainSearchEngine:
         - "hybrid": Uses FTS+SPLADE+Vector coarse ranking + cross-encoder reranking (original)
         - "binary_rerank": Uses binary vector coarse ranking + cross-encoder reranking (best balance)
         - "dense_rerank": Uses dense vector coarse ranking + cross-encoder reranking
+        - "staged": 4-stage pipeline: binary -> LSP expand -> clustering -> optional rerank
 
         The strategy is determined with the following priority:
         1. The `strategy` parameter (e.g., from CLI --cascade-strategy option)
@@ -831,7 +850,7 @@ class ChainSearchEngine:
             k: Number of final results to return (default 10)
             coarse_k: Number of coarse candidates from first stage (default 100)
             options: Search configuration (uses defaults if None)
-            strategy: Cascade strategy - "binary", "hybrid", or "binary_rerank".
+            strategy: Cascade strategy - "binary", "hybrid", "binary_rerank", "dense_rerank", or "staged".
 
         Returns:
             ChainSearchResult with reranked results and statistics
@@ -844,10 +863,12 @@ class ChainSearchEngine:
             >>> result = engine.cascade_search("auth", Path("D:/project"), strategy="hybrid")
             >>> # Use binary + cross-encoder (best balance of speed and quality)
             >>> result = engine.cascade_search("auth", Path("D:/project"), strategy="binary_rerank")
+            >>> # Use 4-stage pipeline (binary + LSP expand + clustering + optional rerank)
+            >>> result = engine.cascade_search("auth", Path("D:/project"), strategy="staged")
         """
         # Strategy priority: parameter > config > default
         effective_strategy = strategy
-        valid_strategies = ("binary", "hybrid", "binary_rerank", "dense_rerank")
+        valid_strategies = ("binary", "hybrid", "binary_rerank", "dense_rerank", "staged")
         if effective_strategy is None:
             # Not passed via parameter, check config
             if self._config is not None:
@@ -865,8 +886,634 @@ class ChainSearchEngine:
             return self.binary_rerank_cascade_search(query, source_path, k, coarse_k, options)
         elif effective_strategy == "dense_rerank":
             return self.dense_rerank_cascade_search(query, source_path, k, coarse_k, options)
+        elif effective_strategy == "staged":
+            return self.staged_cascade_search(query, source_path, k, coarse_k, options)
         else:
             return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+
+    def staged_cascade_search(
+        self,
+        query: str,
+        source_path: Path,
+        k: int = 10,
+        coarse_k: int = 100,
+        options: Optional[SearchOptions] = None,
+    ) -> ChainSearchResult:
+        """Execute 4-stage cascade search pipeline with binary, LSP expansion, clustering, and optional reranking.
+
+        Staged cascade search process:
+        1. Stage 1 (Binary Coarse): Fast binary vector search using Hamming distance
+           to quickly filter to coarse_k candidates (256-bit binary vectors)
+        2. Stage 2 (LSP Expansion): Expand coarse candidates using GraphExpander to
+           include related symbols (definitions, references, callers/callees)
+        3. Stage 3 (Clustering): Use configurable clustering strategy to group similar
+           results and select representative results from each cluster
+        4. Stage 4 (Optional Rerank): If config.enable_staged_rerank is True, apply
+           cross-encoder reranking for final precision
+
+        This approach combines the speed of binary search with graph-based context
+        expansion and diversity-preserving clustering for high-quality results.
+
+        Performance characteristics:
+        - Stage 1: O(N) binary search with SIMD acceleration (~8ms)
+        - Stage 2: O(k * d) graph traversal where d is expansion depth
+        - Stage 3: O(n^2) clustering on expanded candidates
+        - Stage 4: Optional cross-encoder reranking (API call)
+
+        Args:
+            query: Natural language or keyword query string
+            source_path: Starting directory path
+            k: Number of final results to return (default 10)
+            coarse_k: Number of coarse candidates from first stage (default 100)
+            options: Search configuration (uses defaults if None)
+
+        Returns:
+            ChainSearchResult with per-stage statistics
+
+        Examples:
+            >>> engine = ChainSearchEngine(registry, mapper, config=config)
+            >>> result = engine.staged_cascade_search(
+            ...     "authentication handler",
+            ...     Path("D:/project/src"),
+            ...     k=10,
+            ...     coarse_k=100
+            ... )
+            >>> for r in result.results:
+            ...     print(f"{r.path}: {r.score:.3f}")
+        """
+        if not NUMPY_AVAILABLE:
+            self.logger.warning(
+                "NumPy not available, falling back to hybrid cascade search"
+            )
+            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+
+        options = options or SearchOptions()
+        start_time = time.time()
+        stats = SearchStats()
+
+        # Per-stage timing stats
+        stage_times: Dict[str, float] = {}
+        stage_counts: Dict[str, int] = {}
+
+        # Use config defaults if available
+        if self._config is not None:
+            if hasattr(self._config, "cascade_coarse_k"):
+                coarse_k = coarse_k or self._config.cascade_coarse_k
+            if hasattr(self._config, "cascade_fine_k"):
+                k = k or self._config.cascade_fine_k
+
+        # Step 1: Find starting index
+        start_index = self._find_start_index(source_path)
+        if not start_index:
+            self.logger.warning(f"No index found for {source_path}")
+            stats.time_ms = (time.time() - start_time) * 1000
+            return ChainSearchResult(
+                query=query,
+                results=[],
+                symbols=[],
+                stats=stats
+            )
+
+        # Step 2: Collect all index paths
+        index_paths = self._collect_index_paths(start_index, options.depth)
+        stats.dirs_searched = len(index_paths)
+
+        if not index_paths:
+            self.logger.warning(f"No indexes collected from {start_index}")
+            stats.time_ms = (time.time() - start_time) * 1000
+            return ChainSearchResult(
+                query=query,
+                results=[],
+                symbols=[],
+                stats=stats
+            )
+
+        # ========== Stage 1: Binary Coarse Search ==========
+        stage1_start = time.time()
+        coarse_results, index_root = self._stage1_binary_search(
+            query, index_paths, coarse_k, stats
+        )
+        stage_times["stage1_binary_ms"] = (time.time() - stage1_start) * 1000
+        stage_counts["stage1_candidates"] = len(coarse_results)
+
+        self.logger.debug(
+            "Staged Stage 1: Binary search found %d candidates in %.2fms",
+            len(coarse_results), stage_times["stage1_binary_ms"]
+        )
+
+        if not coarse_results:
+            self.logger.debug("No binary candidates found, falling back to hybrid cascade")
+            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+
+        # ========== Stage 2: LSP Graph Expansion ==========
+        stage2_start = time.time()
+        expanded_results = self._stage2_lsp_expand(coarse_results, index_root)
+        stage_times["stage2_expand_ms"] = (time.time() - stage2_start) * 1000
+        stage_counts["stage2_expanded"] = len(expanded_results)
+
+        self.logger.debug(
+            "Staged Stage 2: LSP expansion %d -> %d results in %.2fms",
+            len(coarse_results), len(expanded_results), stage_times["stage2_expand_ms"]
+        )
+
+        # ========== Stage 3: Clustering and Representative Selection ==========
+        stage3_start = time.time()
+        clustered_results = self._stage3_cluster_prune(expanded_results, k * 2)
+        stage_times["stage3_cluster_ms"] = (time.time() - stage3_start) * 1000
+        stage_counts["stage3_clustered"] = len(clustered_results)
+
+        self.logger.debug(
+            "Staged Stage 3: Clustering %d -> %d representatives in %.2fms",
+            len(expanded_results), len(clustered_results), stage_times["stage3_cluster_ms"]
+        )
+
+        # ========== Stage 4: Optional Cross-Encoder Reranking ==========
+        enable_rerank = False
+        if self._config is not None:
+            enable_rerank = getattr(self._config, "enable_staged_rerank", False)
+
+        if enable_rerank:
+            stage4_start = time.time()
+            final_results = self._stage4_optional_rerank(query, clustered_results, k)
+            stage_times["stage4_rerank_ms"] = (time.time() - stage4_start) * 1000
+            stage_counts["stage4_reranked"] = len(final_results)
+
+            self.logger.debug(
+                "Staged Stage 4: Reranking %d -> %d results in %.2fms",
+                len(clustered_results), len(final_results), stage_times["stage4_rerank_ms"]
+            )
+        else:
+            # Skip reranking, just take top-k by score
+            final_results = sorted(
+                clustered_results, key=lambda r: r.score, reverse=True
+            )[:k]
+            stage_counts["stage4_reranked"] = len(final_results)
+
+        # Deduplicate by path (keep highest score)
+        path_to_result: Dict[str, SearchResult] = {}
+        for result in final_results:
+            if result.path not in path_to_result or result.score > path_to_result[result.path].score:
+                path_to_result[result.path] = result
+
+        final_results = list(path_to_result.values())[:k]
+
+        # Optional: grouping of similar results
+        if options.group_results:
+            from codexlens.search.ranking import group_similar_results
+            final_results = group_similar_results(
+                final_results, score_threshold_abs=options.grouping_threshold
+            )
+
+        stats.files_matched = len(final_results)
+        stats.time_ms = (time.time() - start_time) * 1000
+
+        # Add per-stage stats to errors field (as JSON for now, will be proper field later)
+        stage_stats_json = json.dumps({
+            "stage_times": stage_times,
+            "stage_counts": stage_counts,
+        })
+        stats.errors.append(f"STAGE_STATS:{stage_stats_json}")
+
+        self.logger.debug(
+            "Staged cascade search complete: %d results in %.2fms "
+            "(stage1=%.1fms, stage2=%.1fms, stage3=%.1fms)",
+            len(final_results),
+            stats.time_ms,
+            stage_times.get("stage1_binary_ms", 0),
+            stage_times.get("stage2_expand_ms", 0),
+            stage_times.get("stage3_cluster_ms", 0),
+        )
+
+        return ChainSearchResult(
+            query=query,
+            results=final_results,
+            symbols=[],
+            stats=stats,
+        )
+
+    def _stage1_binary_search(
+        self,
+        query: str,
+        index_paths: List[Path],
+        coarse_k: int,
+        stats: SearchStats,
+    ) -> Tuple[List[SearchResult], Optional[Path]]:
+        """Stage 1: Binary vector coarse search using Hamming distance.
+
+        Reuses the binary coarse search logic from binary_cascade_search.
+
+        Args:
+            query: Search query string
+            index_paths: List of index database paths to search
+            coarse_k: Number of coarse candidates to retrieve
+            stats: SearchStats to update with errors
+
+        Returns:
+            Tuple of (list of SearchResult objects, index_root path or None)
+        """
+        # Initialize binary embedding backend
+        try:
+            from codexlens.indexing.embedding import BinaryEmbeddingBackend
+        except ImportError as exc:
+            self.logger.warning(
+                "BinaryEmbeddingBackend not available: %s", exc
+            )
+            return [], None
+
+        # Try centralized BinarySearcher first (preferred for mmap indexes)
+        index_root = index_paths[0].parent if index_paths else None
+        coarse_candidates: List[Tuple[int, int, Path]] = []  # (chunk_id, distance, index_path)
+        used_centralized = False
+
+        if index_root:
+            binary_searcher = self._get_centralized_binary_searcher(index_root)
+            if binary_searcher is not None:
+                try:
+                    from codexlens.semantic.embedder import Embedder
+                    embedder = Embedder()
+                    query_dense = embedder.embed_to_numpy([query])[0]
+
+                    results = binary_searcher.search(query_dense, top_k=coarse_k)
+                    for chunk_id, distance in results:
+                        coarse_candidates.append((chunk_id, distance, index_root))
+                    if coarse_candidates:
+                        used_centralized = True
+                        self.logger.debug(
+                            "Stage 1 centralized binary search: %d candidates", len(results)
+                        )
+                except Exception as exc:
+                    self.logger.debug(f"Centralized binary search failed: {exc}")
+
+        if not used_centralized:
+            # Fallback to per-directory binary indexes
+            use_gpu = True
+            if self._config is not None:
+                use_gpu = getattr(self._config, "embedding_use_gpu", True)
+
+            try:
+                binary_backend = BinaryEmbeddingBackend(use_gpu=use_gpu)
+                query_binary = binary_backend.embed_packed([query])[0]
+            except Exception as exc:
+                self.logger.warning(f"Failed to generate binary query embedding: {exc}")
+                return [], index_root
+
+            for index_path in index_paths:
+                try:
+                    binary_index = self._get_or_create_binary_index(index_path)
+                    if binary_index is None or binary_index.count() == 0:
+                        continue
+                    ids, distances = binary_index.search(query_binary, coarse_k)
+                    for chunk_id, dist in zip(ids, distances):
+                        coarse_candidates.append((chunk_id, dist, index_path))
+                except Exception as exc:
+                    self.logger.debug(
+                        "Binary search failed for %s: %s", index_path, exc
+                    )
+
+        if not coarse_candidates:
+            return [], index_root
+
+        # Sort by Hamming distance and take top coarse_k
+        coarse_candidates.sort(key=lambda x: x[1])
+        coarse_candidates = coarse_candidates[:coarse_k]
+
+        # Build SearchResult objects from candidates
+        coarse_results: List[SearchResult] = []
+
+        # Group candidates by index path for efficient retrieval
+        candidates_by_index: Dict[Path, List[int]] = {}
+        for chunk_id, _, idx_path in coarse_candidates:
+            if idx_path not in candidates_by_index:
+                candidates_by_index[idx_path] = []
+            candidates_by_index[idx_path].append(chunk_id)
+
+        # Retrieve chunk content
+        import sqlite3
+        central_meta_path = index_root / VECTORS_META_DB_NAME if index_root else None
+        central_meta_store = None
+        if central_meta_path and central_meta_path.exists():
+            central_meta_store = VectorMetadataStore(central_meta_path)
+
+        for idx_path, chunk_ids in candidates_by_index.items():
+            try:
+                chunks_data = []
+                if central_meta_store:
+                    chunks_data = central_meta_store.get_chunks_by_ids(chunk_ids)
+
+                if not chunks_data and used_centralized:
+                    meta_db_path = idx_path / VECTORS_META_DB_NAME
+                    if meta_db_path.exists():
+                        meta_store = VectorMetadataStore(meta_db_path)
+                        chunks_data = meta_store.get_chunks_by_ids(chunk_ids)
+
+                if not chunks_data:
+                    try:
+                        conn = sqlite3.connect(str(idx_path))
+                        conn.row_factory = sqlite3.Row
+                        placeholders = ",".join("?" * len(chunk_ids))
+                        cursor = conn.execute(
+                            f"""
+                            SELECT id, file_path, content, metadata, category
+                            FROM semantic_chunks
+                            WHERE id IN ({placeholders})
+                            """,
+                            chunk_ids
+                        )
+                        chunks_data = [
+                            {
+                                "id": row["id"],
+                                "file_path": row["file_path"],
+                                "content": row["content"],
+                                "metadata": row["metadata"],
+                                "category": row["category"],
+                            }
+                            for row in cursor.fetchall()
+                        ]
+                        conn.close()
+                    except Exception:
+                        pass
+
+                for chunk in chunks_data:
+                    chunk_id = chunk.get("id") or chunk.get("chunk_id")
+                    distance = next(
+                        (d for cid, d, _ in coarse_candidates if cid == chunk_id),
+                        256
+                    )
+                    score = 1.0 - (distance / 256.0)
+
+                    content = chunk.get("content", "")
+
+                    # Extract symbol info from metadata if available
+                    metadata = chunk.get("metadata")
+                    symbol_name = None
+                    symbol_kind = None
+                    start_line = None
+                    end_line = None
+                    if metadata:
+                        try:
+                            meta_dict = json.loads(metadata) if isinstance(metadata, str) else metadata
+                            symbol_name = meta_dict.get("symbol_name")
+                            symbol_kind = meta_dict.get("symbol_kind")
+                            start_line = meta_dict.get("start_line")
+                            end_line = meta_dict.get("end_line")
+                        except Exception:
+                            pass
+
+                    result = SearchResult(
+                        path=chunk.get("file_path", ""),
+                        score=float(score),
+                        excerpt=content[:500] if content else "",
+                        content=content,
+                        symbol_name=symbol_name,
+                        symbol_kind=symbol_kind,
+                        start_line=start_line,
+                        end_line=end_line,
+                    )
+                    coarse_results.append(result)
+            except Exception as exc:
+                self.logger.debug(
+                    "Failed to retrieve chunks from %s: %s", idx_path, exc
+                )
+                stats.errors.append(f"Stage 1 chunk retrieval failed for {idx_path}: {exc}")
+
+        return coarse_results, index_root
+
+    def _stage2_lsp_expand(
+        self,
+        coarse_results: List[SearchResult],
+        index_root: Optional[Path],
+    ) -> List[SearchResult]:
+        """Stage 2: LSP-based graph expansion using GraphExpander.
+
+        Expands coarse results with related symbols (definitions, references,
+        callers, callees) using precomputed graph neighbors.
+
+        Args:
+            coarse_results: Results from Stage 1 binary search
+            index_root: Root path of the index (for graph database access)
+
+        Returns:
+            Combined list of original results plus expanded related results
+        """
+        if not coarse_results or index_root is None:
+            return coarse_results
+
+        try:
+            from codexlens.search.graph_expander import GraphExpander
+
+            # Get expansion depth from config
+            depth = 2
+            if self._config is not None:
+                depth = getattr(self._config, "graph_expansion_depth", 2)
+
+            expander = GraphExpander(self.mapper, config=self._config)
+
+            # Expand top results (limit expansion to avoid explosion)
+            max_expand = min(10, len(coarse_results))
+            max_related = 50
+
+            related_results = expander.expand(
+                coarse_results,
+                depth=depth,
+                max_expand=max_expand,
+                max_related=max_related,
+            )
+
+            if related_results:
+                self.logger.debug(
+                    "Stage 2 expanded %d base results to %d related symbols",
+                    len(coarse_results), len(related_results)
+                )
+
+            # Combine: original results + related results
+            # Keep original results first (higher relevance)
+            combined = list(coarse_results)
+            seen_keys = {(r.path, r.symbol_name, r.start_line) for r in coarse_results}
+
+            for related in related_results:
+                key = (related.path, related.symbol_name, related.start_line)
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    combined.append(related)
+
+            return combined
+
+        except ImportError as exc:
+            self.logger.debug("GraphExpander not available: %s", exc)
+            return coarse_results
+        except Exception as exc:
+            self.logger.debug("Stage 2 LSP expansion failed: %s", exc)
+            return coarse_results
+
+    def _stage3_cluster_prune(
+        self,
+        expanded_results: List[SearchResult],
+        target_count: int,
+    ) -> List[SearchResult]:
+        """Stage 3: Cluster expanded results and select representatives.
+
+        Uses the extensible clustering infrastructure from codexlens.search.clustering
+        to group similar results and select the best representative from each cluster.
+
+        Args:
+            expanded_results: Results from Stage 2 expansion
+            target_count: Target number of representative results
+
+        Returns:
+            List of representative results (one per cluster)
+        """
+        if not expanded_results:
+            return []
+
+        # If few results, skip clustering
+        if len(expanded_results) <= target_count:
+            return expanded_results
+
+        try:
+            from codexlens.search.clustering import (
+                ClusteringConfig,
+                get_strategy,
+            )
+
+            # Get clustering config from config
+            strategy_name = "auto"
+            min_cluster_size = 3
+
+            if self._config is not None:
+                strategy_name = getattr(self._config, "staged_clustering_strategy", "auto")
+                min_cluster_size = getattr(self._config, "staged_clustering_min_size", 3)
+
+            # Get embeddings for clustering
+            # Try to get dense embeddings from results' content
+            embeddings = self._get_embeddings_for_clustering(expanded_results)
+
+            if embeddings is None or len(embeddings) == 0:
+                # No embeddings available, fall back to score-based selection
+                self.logger.debug("No embeddings for clustering, using score-based selection")
+                return sorted(
+                    expanded_results, key=lambda r: r.score, reverse=True
+                )[:target_count]
+
+            # Create clustering config
+            config = ClusteringConfig(
+                min_cluster_size=min(min_cluster_size, max(2, len(expanded_results) // 5)),
+                min_samples=2,
+                metric="cosine",
+            )
+
+            # Get strategy with fallback
+            strategy = get_strategy(strategy_name, config, fallback=True)
+
+            # Cluster and select representatives
+            representatives = strategy.fit_predict(embeddings, expanded_results)
+
+            self.logger.debug(
+                "Stage 3 clustered %d results into %d representatives using %s",
+                len(expanded_results), len(representatives), type(strategy).__name__
+            )
+
+            # If clustering returned too few, supplement with top-scored unclustered
+            if len(representatives) < target_count:
+                rep_paths = {r.path for r in representatives}
+                remaining = [r for r in expanded_results if r.path not in rep_paths]
+                remaining_sorted = sorted(remaining, key=lambda r: r.score, reverse=True)
+                representatives.extend(remaining_sorted[:target_count - len(representatives)])
+
+            return representatives[:target_count]
+
+        except ImportError as exc:
+            self.logger.debug("Clustering not available: %s", exc)
+            return sorted(
+                expanded_results, key=lambda r: r.score, reverse=True
+            )[:target_count]
+        except Exception as exc:
+            self.logger.debug("Stage 3 clustering failed: %s", exc)
+            return sorted(
+                expanded_results, key=lambda r: r.score, reverse=True
+            )[:target_count]
+
+    def _stage4_optional_rerank(
+        self,
+        query: str,
+        clustered_results: List[SearchResult],
+        k: int,
+    ) -> List[SearchResult]:
+        """Stage 4: Optional cross-encoder reranking.
+
+        Applies cross-encoder reranking if enabled in config.
+
+        Args:
+            query: Search query string
+            clustered_results: Results from Stage 3 clustering
+            k: Number of final results to return
+
+        Returns:
+            Reranked results sorted by cross-encoder score
+        """
+        if not clustered_results:
+            return []
+
+        # Use existing _cross_encoder_rerank method
+        return self._cross_encoder_rerank(query, clustered_results, k)
+
+    def _get_embeddings_for_clustering(
+        self,
+        results: List[SearchResult],
+    ) -> Optional["np.ndarray"]:
+        """Get dense embeddings for clustering results.
+
+        Tries to generate embeddings from result content for clustering.
+
+        Args:
+            results: List of SearchResult objects
+
+        Returns:
+            NumPy array of embeddings or None if not available
+        """
+        if not NUMPY_AVAILABLE:
+            return None
+
+        if not results:
+            return None
+
+        try:
+            from codexlens.semantic.factory import get_embedder
+
+            # Get embedding settings from config
+            embedding_backend = "fastembed"
+            embedding_model = "code"
+            use_gpu = True
+
+            if self._config is not None:
+                embedding_backend = getattr(self._config, "embedding_backend", "fastembed")
+                embedding_model = getattr(self._config, "embedding_model", "code")
+                use_gpu = getattr(self._config, "embedding_use_gpu", True)
+
+            # Create embedder
+            if embedding_backend == "litellm":
+                embedder = get_embedder(backend="litellm", model=embedding_model)
+            else:
+                embedder = get_embedder(backend="fastembed", profile=embedding_model, use_gpu=use_gpu)
+
+            # Extract text content from results
+            texts = []
+            for result in results:
+                # Use content if available, otherwise use excerpt
+                text = result.content or result.excerpt or ""
+                if not text and result.path:
+                    text = result.path
+                texts.append(text[:2000])  # Limit text length
+
+            # Generate embeddings
+            embeddings = embedder.embed_to_numpy(texts)
+            return embeddings
+
+        except ImportError as exc:
+            self.logger.debug("Embedder not available for clustering: %s", exc)
+            return None
+        except Exception as exc:
+            self.logger.debug("Failed to generate embeddings for clustering: %s", exc)
+            return None
 
     def binary_rerank_cascade_search(
         self,
@@ -1989,6 +2636,220 @@ class ChainSearchEngine:
         return self._search_symbols_parallel(
             index_paths, name, kind, options.total_limit
         )
+
+    def search_references(
+        self,
+        symbol_name: str,
+        source_path: Optional[Path] = None,
+        depth: int = -1,
+        limit: int = 100,
+    ) -> List[ReferenceResult]:
+        """Find all references to a symbol across the project.
+
+        Searches the code_relationships table in all index databases to find
+        where the given symbol is referenced (called, imported, inherited, etc.).
+
+        Args:
+            symbol_name: Fully qualified or simple name of the symbol to find references to
+            source_path: Starting path for search (default: workspace root from registry)
+            depth: Search depth (-1 = unlimited, 0 = current dir only)
+            limit: Maximum results to return (default 100)
+
+        Returns:
+            List of ReferenceResult objects sorted by file path and line number
+
+        Examples:
+            >>> engine = ChainSearchEngine(registry, mapper)
+            >>> refs = engine.search_references("authenticate", Path("D:/project/src"))
+            >>> for ref in refs[:10]:
+            ...     print(f"{ref.file_path}:{ref.line} ({ref.relationship_type})")
+        """
+        import sqlite3
+        from concurrent.futures import as_completed
+
+        # Determine starting path
+        if source_path is None:
+            # Try to get workspace root from registry
+            mappings = self.registry.list_mappings()
+            if mappings:
+                source_path = Path(mappings[0].source_path)
+            else:
+                self.logger.warning("No source path provided and no mappings in registry")
+                return []
+
+        # Find starting index
+        start_index = self._find_start_index(source_path)
+        if not start_index:
+            self.logger.warning(f"No index found for {source_path}")
+            return []
+
+        # Collect all index paths
+        index_paths = self._collect_index_paths(start_index, depth)
+        if not index_paths:
+            self.logger.debug(f"No indexes collected from {start_index}")
+            return []
+
+        self.logger.debug(
+            "Searching %d indexes for references to '%s'",
+            len(index_paths), symbol_name
+        )
+
+        # Search in parallel
+        all_results: List[ReferenceResult] = []
+        executor = self._get_executor()
+
+        def search_single_index(index_path: Path) -> List[ReferenceResult]:
+            """Search a single index for references."""
+            results: List[ReferenceResult] = []
+            try:
+                conn = sqlite3.connect(str(index_path), check_same_thread=False)
+                conn.row_factory = sqlite3.Row
+
+                # Query code_relationships for references to this symbol
+                # Match either target_qualified_name containing the symbol name
+                # or an exact match on the last component
+                # Try full_path first (new schema), fallback to path (old schema)
+                try:
+                    rows = conn.execute(
+                        """
+                        SELECT DISTINCT
+                            f.full_path as source_file,
+                            cr.source_line,
+                            cr.relationship_type,
+                            f.content
+                        FROM code_relationships cr
+                        JOIN symbols s ON s.id = cr.source_symbol_id
+                        JOIN files f ON f.id = s.file_id
+                        WHERE cr.target_qualified_name LIKE ?
+                           OR cr.target_qualified_name LIKE ?
+                           OR cr.target_qualified_name = ?
+                        ORDER BY f.full_path, cr.source_line
+                        LIMIT ?
+                        """,
+                        (
+                            f"%{symbol_name}",      # Ends with symbol name
+                            f"%.{symbol_name}",     # Qualified name ending with .symbol_name
+                            symbol_name,            # Exact match
+                            limit,
+                        )
+                    ).fetchall()
+                except sqlite3.OperationalError:
+                    # Fallback for old schema with 'path' column
+                    rows = conn.execute(
+                        """
+                        SELECT DISTINCT
+                            f.path as source_file,
+                            cr.source_line,
+                            cr.relationship_type,
+                            f.content
+                        FROM code_relationships cr
+                        JOIN symbols s ON s.id = cr.source_symbol_id
+                        JOIN files f ON f.id = s.file_id
+                        WHERE cr.target_qualified_name LIKE ?
+                           OR cr.target_qualified_name LIKE ?
+                           OR cr.target_qualified_name = ?
+                        ORDER BY f.path, cr.source_line
+                        LIMIT ?
+                        """,
+                        (
+                            f"%{symbol_name}",      # Ends with symbol name
+                            f"%.{symbol_name}",     # Qualified name ending with .symbol_name
+                            symbol_name,            # Exact match
+                            limit,
+                        )
+                    ).fetchall()
+
+                for row in rows:
+                    file_path = row["source_file"]
+                    line = row["source_line"] or 1
+                    rel_type = row["relationship_type"]
+                    content = row["content"] or ""
+
+                    # Extract context (3 lines around reference)
+                    context = self._extract_context(content, line, context_lines=3)
+
+                    results.append(ReferenceResult(
+                        file_path=file_path,
+                        line=line,
+                        column=0,  # Column info not stored in code_relationships
+                        context=context,
+                        relationship_type=rel_type,
+                    ))
+
+                conn.close()
+            except sqlite3.DatabaseError as exc:
+                self.logger.debug(
+                    "Failed to search references in %s: %s", index_path, exc
+                )
+            except Exception as exc:
+                self.logger.debug(
+                    "Unexpected error searching references in %s: %s", index_path, exc
+                )
+
+            return results
+
+        # Submit parallel searches
+        futures = {
+            executor.submit(search_single_index, idx_path): idx_path
+            for idx_path in index_paths
+        }
+
+        for future in as_completed(futures):
+            try:
+                results = future.result()
+                all_results.extend(results)
+            except Exception as exc:
+                idx_path = futures[future]
+                self.logger.debug(
+                    "Reference search failed for %s: %s", idx_path, exc
+                )
+
+        # Deduplicate by (file_path, line)
+        seen: set = set()
+        unique_results: List[ReferenceResult] = []
+        for ref in all_results:
+            key = (ref.file_path, ref.line)
+            if key not in seen:
+                seen.add(key)
+                unique_results.append(ref)
+
+        # Sort by file path and line
+        unique_results.sort(key=lambda r: (r.file_path, r.line))
+
+        # Apply limit
+        return unique_results[:limit]
+
+    def _extract_context(
+        self,
+        content: str,
+        line: int,
+        context_lines: int = 3
+    ) -> str:
+        """Extract lines around a given line number from file content.
+
+        Args:
+            content: Full file content
+            line: Target line number (1-based)
+            context_lines: Number of lines to include before and after
+
+        Returns:
+            Context snippet as a string
+        """
+        if not content:
+            return ""
+
+        lines = content.splitlines()
+        total_lines = len(lines)
+
+        if line < 1 or line > total_lines:
+            return ""
+
+        # Calculate range (0-indexed internally)
+        start = max(0, line - 1 - context_lines)
+        end = min(total_lines, line + context_lines)
+
+        context = lines[start:end]
+        return "\n".join(context)
 
     # === Internal Methods ===
 

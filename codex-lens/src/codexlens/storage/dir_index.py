@@ -1807,6 +1807,178 @@ class DirIndexStore:
                 for row in rows
             ]
 
+    def get_file_symbols(self, file_path: str | Path) -> List[Symbol]:
+        """Get all symbols in a specific file, sorted by start_line.
+
+        Args:
+            file_path: Full path to the file
+
+        Returns:
+            List of Symbol objects sorted by start_line
+        """
+        file_path_str = str(Path(file_path).resolve())
+
+        with self._lock:
+            conn = self._get_connection()
+            # First get the file_id
+            file_row = conn.execute(
+                "SELECT id FROM files WHERE full_path=?",
+                (file_path_str,),
+            ).fetchone()
+
+            if not file_row:
+                return []
+
+            file_id = int(file_row["id"])
+
+            rows = conn.execute(
+                """
+                SELECT s.name, s.kind, s.start_line, s.end_line
+                FROM symbols s
+                WHERE s.file_id=?
+                ORDER BY s.start_line
+                """,
+                (file_id,),
+            ).fetchall()
+
+            return [
+                Symbol(
+                    name=row["name"],
+                    kind=row["kind"],
+                    range=(row["start_line"], row["end_line"]),
+                    file=file_path_str,
+                )
+                for row in rows
+            ]
+
+    def get_outgoing_calls(
+        self,
+        file_path: str | Path,
+        symbol_name: Optional[str] = None,
+    ) -> List[Tuple[str, str, int, Optional[str]]]:
+        """Get outgoing calls from symbols in a file.
+
+        Queries code_relationships table for calls originating from symbols
+        in the specified file.
+
+        Args:
+            file_path: Full path to the source file
+            symbol_name: Optional symbol name to filter by. If None, returns
+                        calls from all symbols in the file.
+
+        Returns:
+            List of tuples: (target_name, relationship_type, source_line, target_file)
+            - target_name: Qualified name of the call target
+            - relationship_type: Type of relationship (e.g., "calls", "imports")
+            - source_line: Line number where the call occurs
+            - target_file: Target file path (may be None if unknown)
+        """
+        file_path_str = str(Path(file_path).resolve())
+
+        with self._lock:
+            conn = self._get_connection()
+            # First get the file_id
+            file_row = conn.execute(
+                "SELECT id FROM files WHERE full_path=?",
+                (file_path_str,),
+            ).fetchone()
+
+            if not file_row:
+                return []
+
+            file_id = int(file_row["id"])
+
+            if symbol_name:
+                rows = conn.execute(
+                    """
+                    SELECT cr.target_qualified_name, cr.relationship_type,
+                           cr.source_line, cr.target_file
+                    FROM code_relationships cr
+                    JOIN symbols s ON s.id = cr.source_symbol_id
+                    WHERE s.file_id=? AND s.name=?
+                    ORDER BY cr.source_line
+                    """,
+                    (file_id, symbol_name),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT cr.target_qualified_name, cr.relationship_type,
+                           cr.source_line, cr.target_file
+                    FROM code_relationships cr
+                    JOIN symbols s ON s.id = cr.source_symbol_id
+                    WHERE s.file_id=?
+                    ORDER BY cr.source_line
+                    """,
+                    (file_id,),
+                ).fetchall()
+
+            return [
+                (
+                    row["target_qualified_name"],
+                    row["relationship_type"],
+                    int(row["source_line"]),
+                    row["target_file"],
+                )
+                for row in rows
+            ]
+
+    def get_incoming_calls(
+        self,
+        target_name: str,
+        limit: int = 100,
+    ) -> List[Tuple[str, str, int, str]]:
+        """Get incoming calls/references to a target symbol.
+
+        Queries code_relationships table for references to the specified
+        target symbol name.
+
+        Args:
+            target_name: Name of the target symbol to find references for.
+                        Matches against target_qualified_name (exact match,
+                        suffix match, or contains match).
+            limit: Maximum number of results to return
+
+        Returns:
+            List of tuples: (source_symbol_name, relationship_type, source_line, source_file)
+            - source_symbol_name: Name of the calling symbol
+            - relationship_type: Type of relationship (e.g., "calls", "imports")
+            - source_line: Line number where the call occurs
+            - source_file: Full path to the source file
+        """
+        with self._lock:
+            conn = self._get_connection()
+            rows = conn.execute(
+                """
+                SELECT s.name AS source_name, cr.relationship_type,
+                       cr.source_line, f.full_path AS source_file
+                FROM code_relationships cr
+                JOIN symbols s ON s.id = cr.source_symbol_id
+                JOIN files f ON f.id = s.file_id
+                WHERE cr.target_qualified_name = ?
+                   OR cr.target_qualified_name LIKE ?
+                   OR cr.target_qualified_name LIKE ?
+                ORDER BY f.full_path, cr.source_line
+                LIMIT ?
+                """,
+                (
+                    target_name,
+                    f"%.{target_name}",
+                    f"%{target_name}",
+                    limit,
+                ),
+            ).fetchall()
+
+            return [
+                (
+                    row["source_name"],
+                    row["relationship_type"],
+                    int(row["source_line"]),
+                    row["source_file"],
+                )
+                for row in rows
+            ]
+
     # === Statistics ===
 
     def stats(self) -> Dict[str, Any]:

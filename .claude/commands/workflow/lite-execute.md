@@ -81,6 +81,7 @@ AskUserQuestion({
       options: [
         { label: "Skip", description: "No review" },
         { label: "Gemini Review", description: "Gemini CLI tool" },
+        { label: "Codex Review", description: "codex review --uncommitted" },
         { label: "Agent Review", description: "Current agent review" }
       ]
     }
@@ -485,7 +486,7 @@ TASK: • Verify plan acceptance criteria fulfillment • Analyze code quality �
 MODE: analysis
 CONTEXT: @**/* @{plan.json} [@{exploration.json}] | Memory: Review lite-execute changes against plan requirements
 EXPECTED: Quality assessment with acceptance criteria verification, issue identification, and recommendations. Explicitly check each acceptance criterion from plan.json tasks.
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on plan acceptance criteria and plan adherence | analysis=READ-ONLY
+RULES: $PROTO $TMPL | Focus on plan acceptance criteria and plan adherence | analysis=READ-ONLY
 ```
 
 **Tool-Specific Execution** (Apply shared prompt template above):
@@ -504,8 +505,9 @@ ccw cli -p "[Shared Prompt Template with artifacts]" --tool gemini --mode analys
 ccw cli -p "[Shared Prompt Template with artifacts]" --tool qwen --mode analysis
 # Same prompt as Gemini, different execution engine
 
-# Method 4: Codex Review (autonomous)
-ccw cli -p "[Verify plan acceptance criteria at ${plan.json}]" --tool codex --mode write
+# Method 4: Codex Review (git-aware)
+ccw cli -p "[Shared Prompt Template with artifacts]" --tool codex --mode review --uncommitted
+# Reviews uncommitted changes against plan acceptance criteria
 ```
 
 **Multi-Round Review with Fixed IDs**:

@@ -70,8 +70,8 @@ The agent supports **two execution modes** based on task JSON's `meta.cli_execut
    CONTEXT: @**/* ./src/modules/auth|code|code:5|dirs:2
    ./src/modules/api|code|code:3|dirs:0
    EXPECTED: Documentation files in .workflow/docs/my_project/src/modules/
-   RULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt) | Mirror source structure
-   " --tool gemini --mode write --cd src/modules
+   RULES: $PROTO $TMPL | Mirror source structure
+   " --tool gemini --mode write --rule documentation-module --cd src/modules
    ```
 
 4. **CLI Execution** (Gemini CLI):
@@ -216,7 +216,7 @@ Before completion, verify:
 {
   "step": "analyze_module_structure",
   "action": "Deep analysis of module structure and API",
-  "command": "ccw cli -p \"PURPOSE: Document module comprehensively\nTASK: Extract module purpose, architecture, public API, dependencies\nMODE: analysis\nCONTEXT: @**/* System: [system_context]\nEXPECTED: Complete module analysis for documentation\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt)\" --tool gemini --mode analysis --cd src/auth",
+  "command": "ccw cli -p \"PURPOSE: Document module comprehensively\nTASK: Extract module purpose, architecture, public API, dependencies\nMODE: analysis\nCONTEXT: @**/* System: [system_context]\nEXPECTED: Complete module analysis for documentation\nRULES: $PROTO $TMPL\" --tool gemini --mode analysis --rule documentation-module --cd src/auth",
   "output_to": "module_analysis",
   "on_error": "fail"
 }

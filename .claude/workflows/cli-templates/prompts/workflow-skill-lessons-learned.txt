@@ -72,8 +72,8 @@ TASK: • Group successes by functional domain • Categorize challenges by seve
 MODE: analysis
 CONTEXT: @.workflow/.archives/manifest.json
 EXPECTED: Aggregated lessons with frequency counts
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/workflow/skill-aggregation.txt) | analysis=READ-ONLY
-" --tool gemini --cd .workflow/.archives
+RULES: $PROTO $TMPL | analysis=READ-ONLY
+" --tool gemini --mode analysis --rule workflow-skill-aggregation --cd .workflow/.archives
 ```
 
 **Severity Classification**:

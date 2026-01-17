@@ -8,6 +8,44 @@ allowed-tools: Task(*), SlashCommand(*), AskUserQuestion(*), Read(*), Bash(*), G
 
 无状态工作流协调器，根据任务意图自动选择最优工作流。
 
+## Workflow System Overview
+
+CCW 提供两个工作流系统：**Main Workflow** 和 **Issue Workflow**，协同覆盖完整的软件开发生命周期。
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Main Workflow                                  │
+│                                                                             │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐     │
+│  │   Level 1   │ → │   Level 2   │ → │   Level 3   │ → │   Level 4   │     │
+│  │   Rapid     │   │ Lightweight │   │  Standard   │   │ Brainstorm  │     │
+│  │             │   │             │   │             │   │             │     │
+│  │ lite-lite-  │   │ lite-plan   │   │    plan     │   │ brainstorm  │     │
+│  │    lite     │   │ lite-fix    │   │  tdd-plan   │   │  :auto-     │     │
+│  │             │   │ multi-cli-  │   │ test-fix-   │   │  parallel   │     │
+│  │             │   │    plan     │   │    gen      │   │     ↓       │     │
+│  │             │   │             │   │             │   │   plan      │     │
+│  └─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘     │
+│                                                                             │
+│  Complexity: ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━▶  │
+│              Low                                                    High    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ After development
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Issue Workflow                                 │
+│                                                                             │
+│     ┌──────────────┐         ┌──────────────┐         ┌──────────────┐     │
+│     │  Accumulate  │    →    │    Plan      │    →    │   Execute    │     │
+│     │  Discover &  │         │    Batch     │         │   Parallel   │     │
+│     │   Collect    │         │   Planning   │         │  Execution   │     │
+│     └──────────────┘         └──────────────┘         └──────────────┘     │
+│                                                                             │
+│     Supplementary role: Maintain main branch stability, worktree isolation  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
 ## Architecture
 
 ```
@@ -17,7 +55,7 @@ allowed-tools: Task(*), SlashCommand(*), AskUserQuestion(*), Read(*), Bash(*), G
 │  Phase 1    │ Input Analysis (rule-based, fast path)            │
 │  Phase 1.5  │ CLI Classification (semantic, smart path)         │
 │  Phase 1.75 │ Requirement Clarification (clarity < 2)           │
-│  Phase 2    │ Chain Selection (intent → workflow)               │
+│  Phase 2    │ Level Selection (intent → level → workflow)       │
 │  Phase 2.5  │ CLI Action Planning (high complexity)             │
 │  Phase 3    │ User Confirmation (optional)                      │
 │  Phase 4    │ TODO Tracking Setup                               │
@@ -25,23 +63,79 @@ allowed-tools: Task(*), SlashCommand(*), AskUserQuestion(*), Read(*), Bash(*), G
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+## Level Quick Reference
+
+| Level | Name | Workflows | Artifacts | Execution |
+|-------|------|-----------|-----------|-----------|
+| **1** | Rapid | `lite-lite-lite` | None | Direct execute |
+| **2** | Lightweight | `lite-plan`, `lite-fix`, `multi-cli-plan` | Memory/Lightweight files | → `lite-execute` |
+| **3** | Standard | `plan`, `tdd-plan`, `test-fix-gen` | Session persistence | → `execute` / `test-cycle-execute` |
+| **4** | Brainstorm | `brainstorm:auto-parallel` → `plan` | Multi-role analysis + Session | → `execute` |
+| **-** | Issue | `discover` → `plan` → `queue` → `execute` | Issue records | Worktree isolation (optional) |
+
+## Workflow Selection Decision Tree
+
+```
+Start
+  │
+  ├─ Is it post-development maintenance?
+  │     ├─ Yes → Issue Workflow
+  │     └─ No ↓
+  │
+  ├─ Are requirements clear?
+  │     ├─ Uncertain → Level 4 (brainstorm:auto-parallel)
+  │     └─ Clear ↓
+  │
+  ├─ Need persistent Session?
+  │     ├─ Yes → Level 3 (plan / tdd-plan / test-fix-gen)
+  │     └─ No ↓
+  │
+  ├─ Need multi-perspective / solution comparison?
+  │     ├─ Yes → Level 2 (multi-cli-plan)
+  │     └─ No ↓
+  │
+  ├─ Is it a bug fix?
+  │     ├─ Yes → Level 2 (lite-fix)
+  │     └─ No ↓
+  │
+  ├─ Need planning?
+  │     ├─ Yes → Level 2 (lite-plan)
+  │     └─ No → Level 1 (lite-lite-lite)
+```
+
 ## Intent Classification
 
-### Priority Order
+### Priority Order (with Level Mapping)
 
-| Priority | Intent | Patterns | Flow |
-|----------|--------|----------|------|
-| 1 | bugfix/hotfix | `urgent,production,critical` + bug | `bugfix.hotfix` |
-| 1 | bugfix | `fix,bug,error,crash,fail` | `bugfix.standard` |
-| 2 | issue batch | `issues,batch` + `fix,resolve` | `issue` |
-| 3 | exploration | `不确定,explore,研究,what if` | `full` |
-| 3 | multi-perspective | `多视角,权衡,比较方案,cross-verify` | `multi-cli-plan` |
-| 4 | quick-task | `快速,简单,small,quick` + feature | `lite-lite-lite` |
-| 5 | ui design | `ui,design,component,style` | `ui` |
-| 6 | tdd | `tdd,test-driven,先写测试` | `tdd` |
-| 7 | review | `review,审查,code review` | `review-fix` |
-| 8 | documentation | `文档,docs,readme` | `docs` |
-| 99 | feature | complexity-based | `rapid`/`coupled` |
+| Priority | Intent | Patterns | Level | Flow |
+|----------|--------|----------|-------|------|
+| 1 | bugfix/hotfix | `urgent,production,critical` + bug | L2 | `bugfix.hotfix` |
+| 1 | bugfix | `fix,bug,error,crash,fail` | L2 | `bugfix.standard` |
+| 2 | issue batch | `issues,batch` + `fix,resolve` | Issue | `issue` |
+| 3 | exploration | `不确定,explore,研究,what if` | L4 | `full` |
+| 3 | multi-perspective | `多视角,权衡,比较方案,cross-verify` | L2 | `multi-cli-plan` |
+| 4 | quick-task | `快速,简单,small,quick` + feature | L1 | `lite-lite-lite` |
+| 5 | ui design | `ui,design,component,style` | L3/L4 | `ui` |
+| 6 | tdd | `tdd,test-driven,先写测试` | L3 | `tdd` |
+| 7 | test-fix | `测试失败,test fail,fix test` | L3 | `test-fix-gen` |
+| 8 | review | `review,审查,code review` | L3 | `review-fix` |
+| 9 | documentation | `文档,docs,readme` | L2 | `docs` |
+| 99 | feature | complexity-based | L2/L3 | `rapid`/`coupled` |
+
+### Quick Selection Guide
+
+| Scenario | Recommended Workflow | Level |
+|----------|---------------------|-------|
+| Quick fixes, config adjustments | `lite-lite-lite` | 1 |
+| Clear single-module features | `lite-plan → lite-execute` | 2 |
+| Bug diagnosis and fix | `lite-fix` | 2 |
+| Production emergencies | `lite-fix --hotfix` | 2 |
+| Technology selection, solution comparison | `multi-cli-plan → lite-execute` | 2 |
+| Multi-module changes, refactoring | `plan → verify → execute` | 3 |
+| Test-driven development | `tdd-plan → execute → tdd-verify` | 3 |
+| Test failure fixes | `test-fix-gen → test-cycle-execute` | 3 |
+| New features, architecture design | `brainstorm:auto-parallel → plan → execute` | 4 |
+| Post-development issue fixes | Issue Workflow | - |
 
 ### Complexity Assessment
 
@@ -214,24 +308,100 @@ CLI 可返回建议：`use_default` | `modify` (调整步骤) | `upgrade` (升�
 
 ## Workflow Flow Details
 
-### Issue Workflow (两阶段生命周期)
+### Issue Workflow (Main Workflow 补充机制)
 
-Issue 工作流设计为两阶段生命周期，支持在项目迭代过程中积累问题并集中解决。
+Issue Workflow 是 Main Workflow 的**补充机制**，专注于开发后的持续维护。
 
-**Phase 1: Accumulation (积累阶段)**
-- 触发：任务完成后的 review、代码审查发现、测试失败
-- 活动：需求扩展、bug 分析、测试覆盖、安全审查
-- 命令：`/issue:discover`, `/issue:discover-by-prompt`, `/issue:new`
+#### 设计理念
 
-**Phase 2: Batch Resolution (批量解决阶段)**
-- 触发：积累足够 issue 后的集中处理
-- 流程：plan → queue → execute
-- 命令：`/issue:plan --all-pending` → `/issue:queue` → `/issue:execute`
+| 方面 | Main Workflow | Issue Workflow |
+|------|---------------|----------------|
+| **用途** | 主要开发周期 | 开发后维护 |
+| **时机** | 功能开发阶段 | 主工作流完成后 |
+| **范围** | 完整功能实现 | 针对性修复/增强 |
+| **并行性** | 依赖分析 → Agent 并行 | Worktree 隔离 (可选) |
+| **分支模型** | 当前分支工作 | 可使用隔离的 worktree |
+
+#### 为什么 Main Workflow 不自动使用 Worktree？
+
+**依赖分析已解决并行性问题**：
+1. 规划阶段 (`/workflow:plan`) 执行依赖分析
+2. 自动识别任务依赖和关键路径
+3. 划分为**并行组**（独立任务）和**串行链**（依赖任务）
+4. Agent 并行执行独立任务，无需文件系统隔离
+
+#### 两阶段生命周期
 
 ```
-任务完成 → discover → 积累 issue → ... → plan all → queue → parallel execute
-    ↑                      ↓
-    └────── 迭代循环 ───────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Phase 1: Accumulation (积累阶段)                  │
+│                                                                     │
+│   Triggers: 任务完成后的 review、代码审查发现、测试失败              │
+│                                                                     │
+│   ┌────────────┐     ┌────────────┐     ┌────────────┐             │
+│   │ discover   │     │ discover-  │     │    new     │             │
+│   │ Auto-find  │     │ by-prompt  │     │  Manual    │             │
+│   └────────────┘     └────────────┘     └────────────┘             │
+│                                                                     │
+│   持续积累 issues 到待处理队列                                       │
+└─────────────────────────────────────────────────────────────────────┘
+                               │
+                               │ 积累足够后
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                  Phase 2: Batch Resolution (批量解决阶段)            │
+│                                                                     │
+│   ┌────────────┐     ┌────────────┐     ┌────────────┐             │
+│   │   plan     │ ──→ │   queue    │ ──→ │  execute   │             │
+│   │ --all-     │     │ Optimize   │     │  Parallel  │             │
+│   │  pending   │     │  order     │     │ execution  │             │
+│   └────────────┘     └────────────┘     └────────────┘             │
+│                                                                     │
+│   支持 worktree 隔离，保持主分支稳定                                 │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### 与 Main Workflow 的协作
+
+```
+开发迭代循环
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│   ┌─────────┐                              ┌─────────┐             │
+│   │ Feature │ ──→ Main Workflow ──→ Done ──→│ Review  │             │
+│   │ Request │     (Level 1-4)              └────┬────┘             │
+│   └─────────┘                                   │                  │
+│        ▲                                        │ 发现 Issues       │
+│        │                                        ▼                  │
+│        │                                  ┌─────────┐              │
+│   继续 │                                  │  Issue  │              │
+│   新功能│                                  │ Workflow│              │
+│        │                                  └────┬────┘              │
+│        │         ┌──────────────────────────────┘                   │
+│        │         │ 修复完成                                          │
+│        │         ▼                                                 │
+│   ┌────┴────┐◀──────                                               │
+│   │  Main   │    Merge                                             │
+│   │ Branch  │    back                                              │
+│   └─────────┘                                                      │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### 命令列表
+
+**积累阶段：**
+```bash
+/issue:discover            # 多视角自动发现
+/issue:discover-by-prompt  # 基于提示发现
+/issue:new                 # 手动创建
+```
+
+**批量解决阶段：**
+```bash
+/issue:plan --all-pending  # 批量规划所有待处理
+/issue:queue               # 生成优化执行队列
+/issue:execute             # 并行执行
 ```
 
 ### lite-lite-lite vs multi-cli-plan

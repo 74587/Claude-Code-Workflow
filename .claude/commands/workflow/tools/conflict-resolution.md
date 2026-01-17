@@ -154,8 +154,8 @@ Task(subagent_type="cli-execution-agent", run_in_background=false, prompt=`
     - Validation of exploration conflict_indicators
     - ModuleOverlap conflicts with overlap_analysis
     - Targeted clarification questions
-  RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on breaking changes, migration needs, and functional overlaps | Prioritize exploration-identified conflicts | analysis=READ-ONLY
-  " --tool gemini --mode analysis --cd {project_root}
+  RULES: $PROTO $TMPL | Focus on breaking changes, migration needs, and functional overlaps | Prioritize exploration-identified conflicts | analysis=READ-ONLY
+  " --tool gemini --mode analysis --rule analysis-code-patterns --cd {project_root}
 
   Fallback: Qwen (same prompt) → Claude (manual analysis)
 

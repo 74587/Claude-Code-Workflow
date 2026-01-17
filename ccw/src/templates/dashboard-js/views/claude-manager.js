@@ -24,6 +24,7 @@ var searchQuery = '';
 var freshnessData = {}; // { [filePath]: FreshnessResult }
 var freshnessSummary = null;
 var searchKeyboardHandlerAdded = false;
+var pendingDeleteFiles = []; // Files pending for batch delete
 
 // ========== Main Render Function ==========
 async function renderClaudeManager() {
@@ -63,6 +64,9 @@ async function renderClaudeManager() {
     '</button>' +
     '<button class="btn btn-sm btn-secondary" onclick="refreshClaudeFiles()">' +
     '<i data-lucide="refresh-cw" class="w-4 h-4"></i> ' + t('common.refresh') +
+    '</button>' +
+    '<button class="btn btn-sm btn-danger" onclick="showBatchDeleteDialog()">' +
+    '<i data-lucide="trash-2" class="w-4 h-4"></i> ' + t('claude.batchDeleteProject') +
     '</button>' +
     '</div>' +
     '</div>' +
@@ -959,3 +963,167 @@ window.initClaudeManager = function() {
 
 // Make destroyClaudeManager accessible globally as well
 window.destroyClaudeManager = destroyClaudeManager;
+
+// ========== Batch Delete Functions ==========
+/**
+ * Show batch delete confirmation dialog for project workspace files
+ */
+function showBatchDeleteDialog() {
+  // Get project workspace files (project + modules, exclude user)
+  var projectFiles = [];
+
+  if (claudeFilesData.project.main) {
+    projectFiles.push(claudeFilesData.project.main);
+  }
+
+  projectFiles.push(...claudeFilesData.modules);
+
+  if (projectFiles.length === 0) {
+    showRefreshToast(t('claude.noProjectFiles') || 'No project workspace files to delete', 'info');
+    return;
+  }
+
+  // Initialize pending delete files list
+  pendingDeleteFiles = [...projectFiles];
+
+  // Render the modal with current pending files
+  renderBatchDeleteModal();
+}
+
+/**
+ * Render or re-render the batch delete modal content
+ */
+function renderBatchDeleteModal() {
+  // Build file list HTML with remove buttons
+  var fileListHTML = pendingDeleteFiles.map(function(file, index) {
+    var levelBadge = file.level === 'project'
+      ? '<span class="level-badge project">' + t('claudeManager.projectLevel') + '</span>'
+      : '<span class="level-badge module">' + t('claudeManager.moduleLevel') + '</span>';
+
+    return '<div class="delete-file-item" data-file-index="' + index + '">' +
+      '<i data-lucide="file-text" class="w-4 h-4"></i>' +
+      '<div class="file-info">' +
+      '<span class="file-name">' + escapeHtml(file.name) + '</span>' +
+      '<span class="file-path">' + escapeHtml(file.relativePath) + '</span>' +
+      '</div>' +
+      levelBadge +
+      '<button class="btn btn-sm btn-ghost remove-file-btn" onclick="removeFromDeleteList(' + index + ')" title="' + (t('claude.removeFromList') || 'Remove from list') + '">' +
+      '<i data-lucide="x" class="w-4 h-4"></i>' +
+      '</button>' +
+      '</div>';
+  }).join('');
+
+  var totalSize = pendingDeleteFiles.reduce(function(sum, f) { return sum + f.size; }, 0);
+
+  var modalContent = '<div class="batch-delete-modal">' +
+    '<div class="warning-banner">' +
+    '<i data-lucide="alert-triangle" class="w-5 h-5"></i>' +
+    '<span>' + (t('claude.batchDeleteWarning') || 'This will delete all CLAUDE.md files in the project workspace') + '</span>' +
+    '</div>' +
+    '<div class="delete-summary" id="delete-summary">' +
+    '<div class="summary-item">' +
+    '<span class="summary-label">' + t('claude.filesToDelete') + '</span>' +
+    '<span class="summary-value" id="files-to-delete-count">' + pendingDeleteFiles.length + '</span>' +
+    '</div>' +
+    '<div class="summary-item">' +
+    '<span class="summary-label">' + t('claude.totalSize') + '</span>' +
+    '<span class="summary-value" id="total-size-value">' + formatFileSize(totalSize) + '</span>' +
+    '</div>' +
+    '</div>' +
+    '<div class="file-list-container">' +
+    '<h4>' + t('claude.fileList') + '</h4>' +
+    '<div class="file-list" id="pending-file-list">' + (fileListHTML || '<div class="empty-list-message">' + (t('claude.noFilesInList') || 'No files in the list') + '</div>') + '</div>' +
+    '</div>' +
+    '<div class="confirmation-actions">' +
+    '<button class="btn btn-secondary" onclick="closeModal()">' +
+    '<i data-lucide="x" class="w-4 h-4"></i> ' + t('common.cancel') +
+    '</button>' +
+    '<button class="btn btn-danger" onclick="confirmBatchDeleteProject()"' + (pendingDeleteFiles.length === 0 ? ' disabled' : '') + '>' +
+    '<i data-lucide="trash-2" class="w-4 h-4"></i> ' + t('claude.confirmDelete') +
+    '</button>' +
+    '</div>' +
+    '</div>';
+
+  showModal(
+    t('claude.batchDeleteTitle') || 'Delete Project Workspace Files',
+    modalContent,
+    { size: 'large' }
+  );
+
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Remove a file from the pending delete list
+ */
+function removeFromDeleteList(index) {
+  if (index >= 0 && index < pendingDeleteFiles.length) {
+    pendingDeleteFiles.splice(index, 1);
+    renderBatchDeleteModal();
+  }
+}
+
+/**
+ * Execute batch delete for project workspace files
+ */
+async function confirmBatchDeleteProject() {
+  // Collect file paths from pending delete list
+  var filePaths = pendingDeleteFiles.map(function(file) {
+    return file.path;
+  });
+
+  if (filePaths.length === 0) return;
+
+  closeModal();
+
+  // Show progress
+  showRefreshToast(
+    (t('claude.deletingFiles') || 'Deleting {count} files...').replace('{count}', filePaths.length),
+    'info'
+  );
+
+  try {
+    var res = await fetch('/api/memory/claude/batch-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        paths: filePaths,
+        confirm: true
+      })
+    });
+
+    if (!res.ok) throw new Error('Batch delete failed');
+
+    var result = await res.json();
+
+    if (result.success) {
+      var message = (t('claude.batchDeleteSuccess') || 'Successfully deleted {deleted} of {total} files')
+        .replace('{deleted}', result.deleted)
+        .replace('{total}', result.total);
+
+      showRefreshToast(message, 'success');
+      addGlobalNotification('success', message, null, 'CLAUDE.md');
+
+      if (result.errors && result.errors.length > 0) {
+        console.warn('Some files failed to delete:', result.errors);
+      }
+
+      // Clear selection if deleted file was selected
+      if (selectedFile && filePaths.includes(selectedFile.path)) {
+        selectedFile = null;
+      }
+
+      // Refresh file tree
+      await refreshClaudeFiles();
+    } else {
+      throw new Error(result.error || 'Unknown error');
+    }
+  } catch (error) {
+    console.error('Error in batch delete:', error);
+    showRefreshToast(
+      t('claude.batchDeleteError') || 'Failed to delete files',
+      'error'
+    );
+    addGlobalNotification('error', t('claude.batchDeleteError') || 'Failed to delete files', null, 'CLAUDE.md');
+  }
+}

@@ -304,17 +304,15 @@ async function runWithTool(tool, context) {
 ### 引用协议模板
 
 ```bash
-# 分析模式 - 必须引用 analysis-protocol.md
+# 分析模式 - 使用 --rule 自动加载协议和模板
 ccw cli -p "
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md)
-$(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt)
-..." --tool gemini --mode analysis
+RULES: $PROTO $TMPL | ...
+..." --tool gemini --mode analysis --rule analysis-code-patterns
 
-# 写入模式 - 必须引用 write-protocol.md
+# 写入模式 - 使用 --rule 自动加载协议和模板
 ccw cli -p "
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md)
-$(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt)
-..." --tool codex --mode write
+RULES: $PROTO $TMPL | ...
+..." --tool codex --mode write --rule development-feature
 ```
 
 ### 动态模板构建
@@ -333,8 +331,8 @@ TASK: ${task.map(t => `• ${t}`).join('\n')}
 MODE: ${mode}
 CONTEXT: ${context}
 EXPECTED: ${expected}
-RULES: $(cat ${protocolPath}) $(cat ${template})
-`;
+RULES: $PROTO $TMPL
+`; // Use --rule option to specify template
 }
 ```
 
@@ -438,8 +436,8 @@ CLI 调用 (Bash + ccw cli):
 ### 4. 提示词规范
 
 - 始终使用 PURPOSE/TASK/MODE/CONTEXT/EXPECTED/RULES 结构
-- 必须引用协议模板（analysis-protocol 或 write-protocol）
-- 使用 `$(cat ...)` 动态加载模板
+- 使用 `--rule <template>` 自动加载协议和模板（`$PROTO` 和 `$TMPL`）
+- 模板名格式: `category-function` (如 `analysis-code-patterns`)
 
 ### 5. 结果处理
 

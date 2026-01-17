@@ -79,3 +79,87 @@ def test_symbol_filtering_handles_path_failures(monkeypatch: pytest.MonkeyPatch,
     if os.name == "nt":
         assert "CrossDrive" in caplog.text
 
+
+def test_cascade_search_strategy_routing(temp_paths: Path) -> None:
+    """Test cascade_search() routes to correct strategy implementation."""
+    from unittest.mock import patch
+    from codexlens.search.chain_search import ChainSearchResult, SearchStats
+
+    registry = RegistryStore(db_path=temp_paths / "registry.db")
+    registry.initialize()
+    mapper = PathMapper(index_root=temp_paths / "indexes")
+    config = Config(data_dir=temp_paths / "data")
+
+    engine = ChainSearchEngine(registry, mapper, config=config)
+    source_path = temp_paths / "src"
+
+    # Test strategy='staged' routing
+    with patch.object(engine, "staged_cascade_search") as mock_staged:
+        mock_staged.return_value = ChainSearchResult(
+            query="query", results=[], symbols=[], stats=SearchStats()
+        )
+        engine.cascade_search("query", source_path, strategy="staged")
+        mock_staged.assert_called_once()
+
+    # Test strategy='binary' routing
+    with patch.object(engine, "binary_cascade_search") as mock_binary:
+        mock_binary.return_value = ChainSearchResult(
+            query="query", results=[], symbols=[], stats=SearchStats()
+        )
+        engine.cascade_search("query", source_path, strategy="binary")
+        mock_binary.assert_called_once()
+
+    # Test strategy='hybrid' routing
+    with patch.object(engine, "hybrid_cascade_search") as mock_hybrid:
+        mock_hybrid.return_value = ChainSearchResult(
+            query="query", results=[], symbols=[], stats=SearchStats()
+        )
+        engine.cascade_search("query", source_path, strategy="hybrid")
+        mock_hybrid.assert_called_once()
+
+    # Test strategy='binary_rerank' routing
+    with patch.object(engine, "binary_rerank_cascade_search") as mock_br:
+        mock_br.return_value = ChainSearchResult(
+            query="query", results=[], symbols=[], stats=SearchStats()
+        )
+        engine.cascade_search("query", source_path, strategy="binary_rerank")
+        mock_br.assert_called_once()
+
+    # Test strategy='dense_rerank' routing
+    with patch.object(engine, "dense_rerank_cascade_search") as mock_dr:
+        mock_dr.return_value = ChainSearchResult(
+            query="query", results=[], symbols=[], stats=SearchStats()
+        )
+        engine.cascade_search("query", source_path, strategy="dense_rerank")
+        mock_dr.assert_called_once()
+
+    # Test default routing (no strategy specified) - defaults to binary
+    with patch.object(engine, "binary_cascade_search") as mock_default:
+        mock_default.return_value = ChainSearchResult(
+            query="query", results=[], symbols=[], stats=SearchStats()
+        )
+        engine.cascade_search("query", source_path)
+        mock_default.assert_called_once()
+
+
+def test_cascade_search_invalid_strategy(temp_paths: Path) -> None:
+    """Test cascade_search() defaults to 'binary' for invalid strategy."""
+    from unittest.mock import patch
+    from codexlens.search.chain_search import ChainSearchResult, SearchStats
+
+    registry = RegistryStore(db_path=temp_paths / "registry.db")
+    registry.initialize()
+    mapper = PathMapper(index_root=temp_paths / "indexes")
+    config = Config(data_dir=temp_paths / "data")
+
+    engine = ChainSearchEngine(registry, mapper, config=config)
+    source_path = temp_paths / "src"
+
+    # Invalid strategy should default to binary
+    with patch.object(engine, "binary_cascade_search") as mock_binary:
+        mock_binary.return_value = ChainSearchResult(
+            query="query", results=[], symbols=[], stats=SearchStats()
+        )
+        engine.cascade_search("query", source_path, strategy="invalid_strategy")
+        mock_binary.assert_called_once()
+

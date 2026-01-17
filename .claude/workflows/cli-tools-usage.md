@@ -110,13 +110,16 @@ When primary tool fails or is unavailable:
 
 ### Universal Prompt Template
 
-```
+```bash
+# Use --rule to auto-load protocol and template as $PROTO and $TMPL
+ccw cli -p "
 PURPOSE: [what] + [why] + [success criteria] + [constraints/scope]
 TASK: • [step 1: specific action] • [step 2: specific action] • [step 3: specific action]
 MODE: [analysis|write]
 CONTEXT: @[file patterns] | Memory: [session/tech/module context]
 EXPECTED: [deliverable format] + [quality criteria] + [structure requirements]
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/[mode]-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt) | [domain constraints]
+RULES: $PROTO $TMPL | [domain constraints]
+" --tool <tool-id> --mode <analysis|write> --rule <category-template>
 ```
 
 ### Intent Capture Checklist (Before CLI Execution)
@@ -167,9 +170,9 @@ Every command MUST include these fields:
 
 - **RULES**
   - Purpose: Protocol + template + constraints
-  - Components: $(cat protocol) + $(cat template) + domain rules
+  - Components: $PROTO + $TMPL + domain rules (variables loaded beforehand)
   - Bad Example: (missing)
-  - Good Example: "$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/analysis/03-assess-security-risks.txt) \| Focus on authentication \| Ignore test files"
+  - Good Example: "$PROTO $TMPL | Focus on authentication | Ignore test files" (where PROTO and TMPL are pre-loaded variables)
 
 ### CONTEXT Configuration
 
@@ -216,106 +219,74 @@ ccw cli -p "..." --tool <tool-id> --mode analysis --cd src
 
 ### RULES Configuration
 
-**Format**: `RULES: $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt) | [constraints]`
+**使用 `--rule` 选项自动加载模板**：
 
-**⚠️ MANDATORY**: Exactly ONE template reference is REQUIRED. Select from Task-Template Matrix or use universal fallback:
-- `universal/00-universal-rigorous-style.txt` - For precision-critical tasks (default fallback)
-- `universal/00-universal-creative-style.txt` - For exploratory tasks
-
-**Command Substitution Rules**:
-- Use `$(cat ...)` directly in **double quotes** - command substitution executes in your local shell BEFORE passing to ccw
-- Shell expands `$(cat ...)` into file content automatically - do NOT read template content first
-- NEVER use escape characters (`\$`, `\"`, `\'`) or single quotes - these prevent shell expansion
-- Tilde (`~`) expands correctly in prompt context
-
-**Critical**: Use double quotes `"..."` around the entire prompt to enable `$(cat ...)` expansion:
 ```bash
-# ✓ CORRECT - double quotes allow shell expansion
-ccw cli -p "RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ..." --tool <tool-id>
-
-# ✗ WRONG - single quotes prevent expansion
-ccw cli -p 'RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ...' --tool <tool-id>
-
-# ✗ WRONG - escaped $ prevents expansion
-ccw cli -p "RULES: \$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) ..." --tool <tool-id>
+ccw cli -p "... RULES: \$PROTO \$TMPL | constraints" --tool gemini --mode analysis --rule analysis-review-architecture
 ```
 
-### Mode Protocol References (MANDATORY)
+**`--rule` 工作原理**：
+1. 自动从 `~/.claude/workflows/cli-templates/prompts/` 发现模板
+2. 根据 `--mode` 自动加载对应 protocol（analysis-protocol.md 或 write-protocol.md）
+3. 设置环境变量 `$PROTO`（protocol）和 `$TMPL`（template）供子进程使用
+4. 在提示词中用 `$PROTO` 和 `$TMPL` 引用
 
-**⚠️ REQUIRED**: Every CLI execution MUST include the corresponding mode protocol in RULES:
+**模板选择**：从 Task-Template Matrix 选择或使用通用模板：
+- `universal-rigorous-style` - 精确型任务
+- `universal-creative-style` - 探索型任务
 
-#### Mode Rule Templates
+### Mode Protocol References
 
-**Purpose**: Mode protocols define permission boundaries and operational constraints for each execution mode.
+**`--rule` 自动处理 Protocol**：
+- `--mode analysis` → `$PROTO` = analysis-protocol.md
+- `--mode write` → `$PROTO` = write-protocol.md
 
-**Protocol Mapping**:
+**Protocol 映射**：
 
-- **`analysis`** mode
-  - Protocol: `$(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md)`
-  - Permission: Read-only operations
-  - Enforces: No file creation/modification/deletion
+- **`analysis`** 模式
+  - 权限：只读操作
+  - 约束：禁止文件创建/修改/删除
 
-- **`write`** mode
-  - Protocol: `$(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md)`
-  - Permission: Create/Modify/Delete files
-  - Enforces: Explicit write authorization and full workflow execution capability
-
-**RULES Format** (protocol MUST be included):
-```bash
-# Analysis mode - MUST include analysis-protocol.md
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/analysis/...) | constraints
-
-# Write mode - MUST include write-protocol.md
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/development/...) | constraints
-```
-
-**Validation**: CLI execution without mode protocol reference is INVALID
-
-**Why Mode Rules Are Required**:
-- Ensures consistent permission enforcement across all tools
-- Prevents accidental file modifications during analysis tasks
-- Provides explicit authorization trail for write operations
-- Enables safe automation with clear boundaries
+- **`write`** 模式
+  - 权限：创建/修改/删除文件
+  - 约束：完整工作流执行能力
 
 ### Template System
 
 **Base Path**: `~/.claude/workflows/cli-templates/prompts/`
 
-**Naming Convention**:
-- `00-*` - Universal fallbacks (when no specific match)
-- `01-*` - Universal, high-frequency
-- `02-*` - Common specialized
-- `03-*` - Domain-specific
+**Naming Convention**: `category-function.txt`
+- 第一段为分类（analysis, development, planning 等）
+- 第二段为功能描述
 
 **Universal Templates**:
-
-- **`universal/00-universal-rigorous-style.txt`**: Precision-critical, systematic methodology
-- **`universal/00-universal-creative-style.txt`**: Exploratory, innovative solutions
+- `universal-rigorous-style` - 精确型任务
+- `universal-creative-style` - 探索型任务
 
 **Task-Template Matrix**:
 
 **Analysis**:
-- Execution Tracing: `analysis/01-trace-code-execution.txt`
-- Bug Diagnosis: `analysis/01-diagnose-bug-root-cause.txt`
-- Code Patterns: `analysis/02-analyze-code-patterns.txt`
-- Document Analysis: `analysis/02-analyze-technical-document.txt`
-- Architecture Review: `analysis/02-review-architecture.txt`
-- Code Review: `analysis/02-review-code-quality.txt`
-- Performance: `analysis/03-analyze-performance.txt`
-- Security: `analysis/03-assess-security-risks.txt`
+- Execution Tracing: `analysis-trace-code-execution`
+- Bug Diagnosis: `analysis-diagnose-bug-root-cause`
+- Code Patterns: `analysis-analyze-code-patterns`
+- Document Analysis: `analysis-analyze-technical-document`
+- Architecture Review: `analysis-review-architecture`
+- Code Review: `analysis-review-code-quality`
+- Performance: `analysis-analyze-performance`
+- Security: `analysis-assess-security-risks`
 
 **Planning**:
-- Architecture: `planning/01-plan-architecture-design.txt`
-- Task Breakdown: `planning/02-breakdown-task-steps.txt`
-- Component Design: `planning/02-design-component-spec.txt`
-- Migration: `planning/03-plan-migration-strategy.txt`
+- Architecture: `planning-plan-architecture-design`
+- Task Breakdown: `planning-breakdown-task-steps`
+- Component Design: `planning-design-component-spec`
+- Migration: `planning-plan-migration-strategy`
 
 **Development**:
-- Feature: `development/02-implement-feature.txt`
-- Refactoring: `development/02-refactor-codebase.txt`
-- Tests: `development/02-generate-tests.txt`
-- UI Component: `development/02-implement-component-ui.txt`
-- Debugging: `development/03-debug-runtime-issues.txt`
+- Feature: `development-implement-feature`
+- Refactoring: `development-refactor-codebase`
+- Tests: `development-generate-tests`
+- UI Component: `development-implement-component-ui`
+- Debugging: `development-debug-runtime-issues`
 
 ---
 
@@ -367,6 +338,11 @@ RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(ca
 - **`--resume [id]`**
   - Description: Resume previous session
   - Default: -
+
+- **`--rule <template>`**
+  - Description: 模板名称，自动加载 protocol + template 为 $PROTO 和 $TMPL 环境变量
+  - Default: none
+  - 根据 --mode 自动选择 protocol
 
 ### Directory Configuration
 
@@ -435,8 +411,8 @@ TASK: • Scan for injection flaws (SQL, command, LDAP) • Check authentication
 MODE: analysis
 CONTEXT: @src/auth/**/* @src/middleware/auth.ts | Memory: Using bcrypt for passwords, JWT for sessions
 EXPECTED: Security report with: severity matrix, file:line references, CVE mappings where applicable, remediation code snippets prioritized by risk
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/analysis/03-assess-security-risks.txt) | Focus on authentication | Ignore test files
-" --tool <tool-id> --mode analysis --cd src/auth
+RULES: \$PROTO \$TMPL | Focus on authentication | Ignore test files
+" --tool gemini --mode analysis --rule analysis-assess-security-risks --cd src/auth
 ```
 
 **Implementation Task** (New Feature):
@@ -447,8 +423,8 @@ TASK: • Create rate limiter middleware with sliding window • Implement per-r
 MODE: write
 CONTEXT: @src/middleware/**/* @src/config/**/* | Memory: Using Express.js, Redis already configured, existing middleware pattern in auth.ts
 EXPECTED: Production-ready code with: TypeScript types, unit tests, integration test, configuration example, migration guide
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | Follow existing middleware patterns | No breaking changes
-" --tool <tool-id> --mode write
+RULES: \$PROTO \$TMPL | Follow existing middleware patterns | No breaking changes
+" --tool gemini --mode write --rule development-implement-feature
 ```
 
 **Bug Fix Task**:
@@ -459,8 +435,8 @@ TASK: • Trace connection lifecycle from open to close • Identify event liste
 MODE: analysis
 CONTEXT: @src/websocket/**/* @src/services/connection-manager.ts | Memory: Using ws library, ~5000 concurrent connections in production
 EXPECTED: Root cause analysis with: memory profile, leak source (file:line), fix recommendation with code, verification steps
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt) | Focus on resource cleanup
-" --tool <tool-id> --mode analysis --cd src
+RULES: \$PROTO \$TMPL | Focus on resource cleanup
+" --tool gemini --mode analysis --rule analysis-diagnose-bug-root-cause --cd src
 ```
 
 **Refactoring Task**:
@@ -471,8 +447,8 @@ TASK: • Extract gateway interface from current implementation • Create strat
 MODE: write
 CONTEXT: @src/payments/**/* @src/types/payment.ts | Memory: Currently only Stripe, adding PayPal next sprint, must support future gateways
 EXPECTED: Refactored code with: strategy interface, concrete implementations, factory class, updated tests, migration checklist
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md) $(cat ~/.claude/workflows/cli-templates/prompts/development/02-refactor-codebase.txt) | Preserve all existing behavior | Tests must pass
-" --tool <tool-id> --mode write
+RULES: \$PROTO \$TMPL | Preserve all existing behavior | Tests must pass
+" --tool gemini --mode write --rule development-refactor-codebase
 ```
 
 **Code Review Task** (codex review mode):
@@ -509,14 +485,13 @@ ccw cli -p "Check for breaking changes in API contracts and backward compatibili
 - **Use tools early and often** - Tools are faster and more thorough
 - **Unified CLI** - Always use `ccw cli -p` for consistent parameter handling
 - **Default mode is analysis** - Omit `--mode` for read-only operations, explicitly use `--mode write` for file modifications
-- **One template required** - ALWAYS reference exactly ONE template in RULES (use universal fallback if no specific match)
+- **Use `--rule` for templates** - 自动加载 protocol + template 为 `$PROTO` 和 `$TMPL` 环境变量
 - **Write protection** - Require EXPLICIT `--mode write` for file operations
-- **Use double quotes for shell expansion** - Always wrap prompts in double quotes `"..."` to enable `$(cat ...)` command substitution; NEVER use single quotes or escape characters (`\$`, `\"`, `\'`)
 
 ### Workflow Principles
 
 - **Use CCW unified interface** for all executions
-- **Always include template** - Use Task-Template Matrix or universal fallback
+- **Always include template** - 使用 `--rule <template-name>` 加载模板
 - **Be specific** - Clear PURPOSE, TASK, EXPECTED fields
 - **Include constraints** - File patterns, scope in RULES
 - **Leverage memory context** when building on previous work
@@ -530,7 +505,7 @@ ccw cli -p "Check for breaking changes in API contracts and backward compatibili
 - [ ] **Context gathered** - File references + memory (default `@**/*`)
 - [ ] **Directory navigation** - `--cd` and/or `--includeDirs`
 - [ ] **Tool selected** - Explicit `--tool` or tag-based auto-selection
-- [ ] **Template applied (REQUIRED)** - Use specific or universal fallback template
+- [ ] **Rule template** - `--rule <template-name>` 自动加载 protocol + template
 - [ ] **Constraints specified** - Scope, requirements
 
 ### Execution Workflow

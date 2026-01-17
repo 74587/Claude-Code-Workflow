@@ -75,10 +75,13 @@ async function getSessionDetailData(sessionPath: string, dataType: string): Prom
       }
     }
 
-    // Load summaries from .summaries/
+    // Load summaries from .summaries/ and fallback to plan.json
     if (dataType === 'summary' || dataType === 'all') {
       const summariesDir = join(normalizedPath, '.summaries');
       result.summaries = [];
+      result.summary = null; // Single summary text from plan.json
+
+      // 1. Try to load from .summaries/ directory
       if (await fileExists(summariesDir)) {
         const files = (await readdir(summariesDir)).filter(f => f.endsWith('.md'));
         for (const file of files) {
@@ -87,6 +90,26 @@ async function getSessionDetailData(sessionPath: string, dataType: string): Prom
             result.summaries.push({ name: file.replace('.md', ''), content });
           } catch (e) {
             console.warn('Failed to read summary file:', join(summariesDir, file), (e as Error).message);
+          }
+        }
+      }
+
+      // 2. Fallback: Try to get summary from plan.json (for lite-fix-plan sessions)
+      if (result.summaries.length === 0) {
+        const planFile = join(normalizedPath, 'plan.json');
+        if (await fileExists(planFile)) {
+          try {
+            const planData = JSON.parse(await readFile(planFile, 'utf8'));
+            // Check plan.summary
+            if (planData.summary) {
+              result.summary = planData.summary;
+            }
+            // Check synthesis.convergence.summary
+            if (!result.summary && planData.synthesis?.convergence?.summary) {
+              result.summary = planData.synthesis.convergence.summary;
+            }
+          } catch (e) {
+            console.warn('Failed to parse plan file for summary:', planFile, (e as Error).message);
           }
         }
       }

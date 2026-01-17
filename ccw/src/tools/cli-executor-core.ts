@@ -364,6 +364,16 @@ const ParamsSchema = z.object({
   parentExecutionId: z.string().optional(), // Parent execution ID for fork/retry scenarios
   stream: z.boolean().default(false), // false = cache full output (default), true = stream output via callback
   outputFormat: z.enum(['text', 'json-lines']).optional().default('json-lines'), // Output parsing format (default: json-lines for type badges)
+  // Codex review options
+  uncommitted: z.boolean().optional(), // Review uncommitted changes (default for review mode)
+  base: z.string().optional(), // Review changes against base branch
+  commit: z.string().optional(), // Review changes from specific commit
+  title: z.string().optional(), // Optional title for review summary
+  // Rules env vars (PROTO, TMPL) - will be passed to subprocess environment
+  rulesEnv: z.object({
+    PROTO: z.string().optional(),
+    TMPL: z.string().optional(),
+  }).optional(),
 });
 
 type Params = z.infer<typeof ParamsSchema>;
@@ -388,7 +398,7 @@ async function executeCliTool(
     throw new Error(`Invalid params: ${parsed.error.message}`);
   }
 
-  const { tool, prompt, mode, format, model, cd, includeDirs, resume, id: customId, noNative, category, parentExecutionId, outputFormat } = parsed.data;
+  const { tool, prompt, mode, format, model, cd, includeDirs, resume, id: customId, noNative, category, parentExecutionId, outputFormat, uncommitted, base, commit, title, rulesEnv } = parsed.data;
 
   // Validate and determine working directory early (needed for conversation lookup)
   let workingDir: string;
@@ -786,7 +796,8 @@ async function executeCliTool(
     model: effectiveModel,
     dir: cd,
     include: includeDirs,
-    nativeResume: nativeResumeConfig
+    nativeResume: nativeResumeConfig,
+    reviewOptions: mode === 'review' ? { uncommitted, base, commit, title } : undefined
   });
 
   // Create output parser and IR storage
@@ -823,9 +834,11 @@ async function executeCliTool(
     }
 
     // Merge custom env with process.env (custom env takes precedence)
+    // Also include rulesEnv for $PROTO and $TMPL template variables
     const spawnEnv = {
       ...process.env,
-      ...customEnv
+      ...customEnv,
+      ...(rulesEnv || {})
     };
 
     debugLog('SPAWN', `Spawning process`, {

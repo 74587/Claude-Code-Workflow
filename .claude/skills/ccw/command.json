@@ -73,10 +73,37 @@
   },
 
   "flows": {
+    "_level_guide": {
+      "L1": "Rapid - No artifacts, direct execution",
+      "L2": "Lightweight - Memory/lightweight files, → lite-execute",
+      "L3": "Standard - Session persistence, → execute/test-cycle-execute",
+      "L4": "Brainstorm - Multi-role analysis + Session, → execute"
+    },
+    "lite-lite-lite": {
+      "name": "Ultra-Rapid Execution",
+      "level": "L1",
+      "description": "零文件 + 自动CLI选择 + 语义描述 + 直接执行",
+      "complexity": ["low"],
+      "artifacts": "none",
+      "steps": [
+        { "phase": "clarify", "description": "需求澄清 (AskUser if needed)" },
+        { "phase": "auto-select", "description": "任务分析 → 自动选择CLI组合" },
+        { "phase": "multi-cli", "description": "并行多CLI分析" },
+        { "phase": "decision", "description": "展示结果 → AskUser决策" },
+        { "phase": "execute", "description": "直接执行 (无中间文件)" }
+      ],
+      "cli_hints": {
+        "analysis": { "tool": "auto", "mode": "analysis", "parallel": true },
+        "execution": { "tool": "auto", "mode": "write" }
+      },
+      "estimated_time": "10-30 min"
+    },
     "rapid": {
       "name": "Rapid Iteration",
-      "description": "多模型协作分析 + 直接执行",
+      "level": "L2",
+      "description": "内存规划 + 直接执行",
       "complexity": ["low", "medium"],
+      "artifacts": "memory://plan",
       "steps": [
         { "command": "/workflow:lite-plan", "optional": false, "auto_continue": true },
         { "command": "/workflow:lite-execute", "optional": false }
@@ -87,107 +114,12 @@
       },
       "estimated_time": "15-45 min"
     },
-    "full": {
-      "name": "Full Exploration",
-      "description": "头脑风暴 + 规划 + 执行",
-      "complexity": ["medium", "high"],
-      "steps": [
-        { "command": "/workflow:brainstorm:auto-parallel", "optional": false, "confirm_before": true },
-        { "command": "/workflow:plan", "optional": false },
-        { "command": "/workflow:action-plan-verify", "optional": true, "auto_continue": true },
-        { "command": "/workflow:execute", "optional": false }
-      ],
-      "cli_hints": {
-        "role_analysis": { "tool": "gemini", "mode": "analysis", "trigger": "always", "parallel": true },
-        "execution": { "tool": "codex", "mode": "write", "trigger": "task_count >= 3" }
-      },
-      "estimated_time": "1-3 hours"
-    },
-    "coupled": {
-      "name": "Coupled Planning",
-      "description": "完整规划 + 验证 + 执行",
-      "complexity": ["high"],
-      "steps": [
-        { "command": "/workflow:plan", "optional": false },
-        { "command": "/workflow:action-plan-verify", "optional": false, "auto_continue": true },
-        { "command": "/workflow:execute", "optional": false },
-        { "command": "/workflow:review", "optional": true }
-      ],
-      "cli_hints": {
-        "pre_analysis": { "tool": "gemini", "mode": "analysis", "trigger": "always" },
-        "execution": { "tool": "codex", "mode": "write", "trigger": "always" }
-      },
-      "estimated_time": "2-4 hours"
-    },
-    "bugfix": {
-      "name": "Bug Fix",
-      "description": "智能诊断 + 修复",
-      "complexity": ["low", "medium"],
-      "variants": {
-        "standard": [{ "command": "/workflow:lite-fix", "optional": false }],
-        "hotfix": [{ "command": "/workflow:lite-fix --hotfix", "optional": false }]
-      },
-      "cli_hints": {
-        "diagnosis": { "tool": "gemini", "mode": "analysis", "trigger": "always" },
-        "fix": { "tool": "codex", "mode": "write", "trigger": "severity >= medium" }
-      },
-      "estimated_time": "10-30 min"
-    },
-    "issue": {
-      "name": "Issue Lifecycle",
-      "description": "发现积累 → 批量规划 → 队列优化 → 并行执行",
-      "complexity": ["medium", "high"],
-      "phases": {
-        "accumulation": {
-          "description": "项目迭代中持续发现和积累issue",
-          "commands": ["/issue:discover", "/issue:new"],
-          "trigger": "post-task, code-review, test-failure"
-        },
-        "resolution": {
-          "description": "集中规划和执行积累的issue",
-          "steps": [
-            { "command": "/issue:plan --all-pending", "optional": false },
-            { "command": "/issue:queue", "optional": false },
-            { "command": "/issue:execute", "optional": false }
-          ]
-        }
-      },
-      "cli_hints": {
-        "discovery": { "tool": "gemini", "mode": "analysis", "trigger": "perspective_analysis", "parallel": true },
-        "solution_generation": { "tool": "gemini", "mode": "analysis", "trigger": "always", "parallel": true },
-        "batch_execution": { "tool": "codex", "mode": "write", "trigger": "always" }
-      },
-      "estimated_time": "1-4 hours"
-    },
-    "lite-lite-lite": {
-      "name": "Ultra-Lite Multi-CLI",
-      "description": "零文件 + 自动CLI选择 + 语义描述 + 直接执行",
-      "complexity": ["low", "medium"],
-      "steps": [
-        { "phase": "clarify", "description": "需求澄清 (AskUser if needed)" },
-        { "phase": "auto-select", "description": "任务分析 → 自动选择CLI组合" },
-        { "phase": "multi-cli", "description": "并行多CLI分析" },
-        { "phase": "decision", "description": "展示结果 → AskUser决策" },
-        { "phase": "execute", "description": "直接执行 (无中间文件)" }
-      ],
-      "vs_multi_cli_plan": {
-        "artifacts": "None vs IMPL_PLAN.md + plan.json + synthesis.json",
-        "session": "Stateless vs Persistent",
-        "cli_selection": "Auto-select based on task analysis vs Config-driven",
-        "iteration": "Via AskUser vs Via rounds/synthesis",
-        "execution": "Direct vs Via lite-execute",
-        "best_for": "Quick fixes, simple features vs Complex multi-step implementations"
-      },
-      "cli_hints": {
-        "analysis": { "tool": "auto", "mode": "analysis", "parallel": true },
-        "execution": { "tool": "auto", "mode": "write" }
-      },
-      "estimated_time": "10-30 min"
-    },
     "multi-cli-plan": {
       "name": "Multi-CLI Collaborative Planning",
+      "level": "L2",
       "description": "ACE上下文 + 多CLI协作分析 + 迭代收敛 + 计划生成",
       "complexity": ["medium", "high"],
+      "artifacts": ".workflow/.multi-cli-plan/{session}/",
       "steps": [
         { "command": "/workflow:multi-cli-plan", "optional": false, "phases": [
           "context_gathering: ACE语义搜索",
@@ -210,28 +142,154 @@
         "discussion": { "tools": ["gemini", "codex", "claude"], "mode": "analysis", "parallel": true },
         "planning": { "tool": "gemini", "mode": "analysis" }
       },
-      "output": ".workflow/.multi-cli-plan/{session-id}/",
       "estimated_time": "30-90 min"
+    },
+    "coupled": {
+      "name": "Standard Planning",
+      "level": "L3",
+      "description": "完整规划 + 验证 + 执行",
+      "complexity": ["medium", "high"],
+      "artifacts": ".workflow/active/{session}/",
+      "steps": [
+        { "command": "/workflow:plan", "optional": false },
+        { "command": "/workflow:action-plan-verify", "optional": false, "auto_continue": true },
+        { "command": "/workflow:execute", "optional": false },
+        { "command": "/workflow:review", "optional": true }
+      ],
+      "cli_hints": {
+        "pre_analysis": { "tool": "gemini", "mode": "analysis", "trigger": "always" },
+        "execution": { "tool": "codex", "mode": "write", "trigger": "always" }
+      },
+      "estimated_time": "2-4 hours"
+    },
+    "full": {
+      "name": "Full Exploration (Brainstorm)",
+      "level": "L4",
+      "description": "头脑风暴 + 规划 + 执行",
+      "complexity": ["high"],
+      "artifacts": ".workflow/active/{session}/.brainstorming/",
+      "steps": [
+        { "command": "/workflow:brainstorm:auto-parallel", "optional": false, "confirm_before": true },
+        { "command": "/workflow:plan", "optional": false },
+        { "command": "/workflow:action-plan-verify", "optional": true, "auto_continue": true },
+        { "command": "/workflow:execute", "optional": false }
+      ],
+      "cli_hints": {
+        "role_analysis": { "tool": "gemini", "mode": "analysis", "trigger": "always", "parallel": true },
+        "execution": { "tool": "codex", "mode": "write", "trigger": "task_count >= 3" }
+      },
+      "estimated_time": "1-3 hours"
+    },
+    "bugfix": {
+      "name": "Bug Fix",
+      "level": "L2",
+      "description": "智能诊断 + 修复 (5 phases)",
+      "complexity": ["low", "medium"],
+      "artifacts": ".workflow/.lite-fix/{bug-slug}-{date}/",
+      "variants": {
+        "standard": [{ "command": "/workflow:lite-fix", "optional": false }],
+        "hotfix": [{ "command": "/workflow:lite-fix --hotfix", "optional": false }]
+      },
+      "phases": [
+        "Phase 1: Bug Analysis & Diagnosis (severity pre-assessment)",
+        "Phase 2: Clarification (optional, AskUserQuestion)",
+        "Phase 3: Fix Planning (Low/Medium → Claude, High/Critical → cli-lite-planning-agent)",
+        "Phase 4: Confirmation & Selection",
+        "Phase 5: Execute (→ lite-execute --mode bugfix)"
+      ],
+      "cli_hints": {
+        "diagnosis": { "tool": "gemini", "mode": "analysis", "trigger": "always" },
+        "fix": { "tool": "codex", "mode": "write", "trigger": "severity >= medium" }
+      },
+      "estimated_time": "10-30 min"
+    },
+    "issue": {
+      "name": "Issue Lifecycle",
+      "level": "Supplementary",
+      "description": "发现积累 → 批量规划 → 队列优化 → 并行执行 (Main Workflow 补充机制)",
+      "complexity": ["medium", "high"],
+      "artifacts": ".workflow/.issues/",
+      "purpose": "Post-development continuous maintenance, maintain main branch stability",
+      "phases": {
+        "accumulation": {
+          "description": "项目迭代中持续发现和积累issue",
+          "commands": ["/issue:discover", "/issue:discover-by-prompt", "/issue:new"],
+          "trigger": "post-task, code-review, test-failure"
+        },
+        "resolution": {
+          "description": "集中规划和执行积累的issue",
+          "steps": [
+            { "command": "/issue:plan --all-pending", "optional": false },
+            { "command": "/issue:queue", "optional": false },
+            { "command": "/issue:execute", "optional": false }
+          ]
+        }
+      },
+      "worktree_support": {
+        "description": "可选的 worktree 隔离，保持主分支稳定",
+        "use_case": "主开发完成后的 issue 修复"
+      },
+      "cli_hints": {
+        "discovery": { "tool": "gemini", "mode": "analysis", "trigger": "perspective_analysis", "parallel": true },
+        "solution_generation": { "tool": "gemini", "mode": "analysis", "trigger": "always", "parallel": true },
+        "batch_execution": { "tool": "codex", "mode": "write", "trigger": "always" }
+      },
+      "estimated_time": "1-4 hours"
     },
     "tdd": {
       "name": "Test-Driven Development",
-      "description": "TDD规划 + 执行 + 验证",
+      "level": "L3",
+      "description": "TDD规划 + 执行 + 验证 (6 phases)",
       "complexity": ["medium", "high"],
+      "artifacts": ".workflow/active/{session}/",
       "steps": [
         { "command": "/workflow:tdd-plan", "optional": false },
+        { "command": "/workflow:action-plan-verify", "optional": true, "auto_continue": true },
         { "command": "/workflow:execute", "optional": false },
         { "command": "/workflow:tdd-verify", "optional": false }
       ],
+      "tdd_structure": {
+        "description": "Each IMPL task contains complete internal Red-Green-Refactor cycle",
+        "meta": "tdd_workflow: true",
+        "flow_control": "implementation_approach contains 3 steps (red/green/refactor)"
+      },
       "cli_hints": {
         "test_strategy": { "tool": "gemini", "mode": "analysis", "trigger": "always" },
         "red_green_refactor": { "tool": "codex", "mode": "write", "trigger": "always" }
       },
       "estimated_time": "1-3 hours"
     },
+    "test-fix": {
+      "name": "Test Fix Generation",
+      "level": "L3",
+      "description": "测试修复生成 + 执行循环 (5 phases)",
+      "complexity": ["medium", "high"],
+      "artifacts": ".workflow/active/WFS-test-{session}/",
+      "dual_mode": {
+        "session_mode": { "input": "WFS-xxx", "context_source": "Source session summaries" },
+        "prompt_mode": { "input": "Text/file path", "context_source": "Direct codebase analysis" }
+      },
+      "steps": [
+        { "command": "/workflow:test-fix-gen", "optional": false },
+        { "command": "/workflow:test-cycle-execute", "optional": false }
+      ],
+      "task_structure": [
+        "IMPL-001.json (test understanding & generation)",
+        "IMPL-001.5-review.json (quality gate)",
+        "IMPL-002.json (test execution & fix cycle)"
+      ],
+      "cli_hints": {
+        "analysis": { "tool": "gemini", "mode": "analysis", "trigger": "always" },
+        "fix_cycle": { "tool": "codex", "mode": "write", "trigger": "pass_rate < 0.95" }
+      },
+      "estimated_time": "1-2 hours"
+    },
     "ui": {
       "name": "UI-First Development",
+      "level": "L3/L4",
       "description": "UI设计 + 规划 + 执行",
       "complexity": ["medium", "high"],
+      "artifacts": ".workflow/active/{session}/",
       "variants": {
         "explore": [
           { "command": "/workflow:ui-design:explore-auto", "optional": false },
@@ -250,8 +308,10 @@
     },
     "review-fix": {
       "name": "Review and Fix",
+      "level": "L3",
       "description": "多维审查 + 自动修复",
       "complexity": ["medium"],
+      "artifacts": ".workflow/active/{session}/review_report.md",
       "steps": [
         { "command": "/workflow:review-session-cycle", "optional": false },
         { "command": "/workflow:review-fix", "optional": true }
@@ -264,6 +324,7 @@
     },
     "docs": {
       "name": "Documentation",
+      "level": "L2",
       "description": "批量文档生成",
       "complexity": ["low", "medium"],
       "variants": {
@@ -278,8 +339,17 @@
   },
 
   "intent_rules": {
+    "_level_mapping": {
+      "description": "Intent → Level → Flow mapping guide",
+      "L1": ["lite-lite-lite"],
+      "L2": ["rapid", "bugfix", "multi-cli-plan", "docs"],
+      "L3": ["coupled", "tdd", "test-fix", "review-fix", "ui"],
+      "L4": ["full"],
+      "Supplementary": ["issue"]
+    },
     "bugfix": {
       "priority": 1,
+      "level": "L2",
       "variants": {
         "hotfix": {
           "patterns": ["hotfix", "urgent", "production", "critical", "emergency", "紧急", "生产环境", "线上"],
@@ -293,6 +363,7 @@
     },
     "issue_batch": {
       "priority": 2,
+      "level": "Supplementary",
       "patterns": {
         "batch": ["issues", "batch", "queue", "多个", "批量"],
         "action": ["fix", "resolve", "处理", "解决"]
@@ -302,11 +373,25 @@
     },
     "exploration": {
       "priority": 3,
+      "level": "L4",
       "patterns": ["不确定", "不知道", "explore", "研究", "分析一下", "怎么做", "what if", "探索"],
       "flow": "full"
     },
-    "ui_design": {
+    "multi_perspective": {
+      "priority": 3,
+      "level": "L2",
+      "patterns": ["多视角", "权衡", "比较方案", "cross-verify", "多CLI", "协作分析"],
+      "flow": "multi-cli-plan"
+    },
+    "quick_task": {
       "priority": 4,
+      "level": "L1",
+      "patterns": ["快速", "简单", "small", "quick", "simple", "trivial", "小改动"],
+      "flow": "lite-lite-lite"
+    },
+    "ui_design": {
+      "priority": 5,
+      "level": "L3/L4",
       "patterns": ["ui", "界面", "design", "设计", "component", "组件", "style", "样式", "layout", "布局"],
       "variants": {
         "imitate": { "triggers": ["参考", "模仿", "像", "类似"], "flow": "ui.imitate" },
@@ -314,17 +399,26 @@
       }
     },
     "tdd": {
-      "priority": 5,
+      "priority": 6,
+      "level": "L3",
       "patterns": ["tdd", "test-driven", "测试驱动", "先写测试", "test first"],
       "flow": "tdd"
     },
+    "test_fix": {
+      "priority": 7,
+      "level": "L3",
+      "patterns": ["测试失败", "test fail", "fix test", "test error", "pass rate", "coverage gap"],
+      "flow": "test-fix"
+    },
     "review": {
-      "priority": 6,
+      "priority": 8,
+      "level": "L3",
       "patterns": ["review", "审查", "检查代码", "code review", "质量检查"],
       "flow": "review-fix"
     },
     "documentation": {
-      "priority": 7,
+      "priority": 9,
+      "level": "L2",
       "patterns": ["文档", "documentation", "docs", "readme"],
       "variants": {
         "incremental": { "triggers": ["更新", "增量"], "flow": "docs.incremental" },
@@ -334,9 +428,9 @@
     "feature": {
       "priority": 99,
       "complexity_map": {
-        "high": "coupled",
-        "medium": "rapid",
-        "low": "rapid"
+        "high": { "level": "L3", "flow": "coupled" },
+        "medium": { "level": "L2", "flow": "rapid" },
+        "low": { "level": "L1", "flow": "lite-lite-lite" }
       }
     }
   },

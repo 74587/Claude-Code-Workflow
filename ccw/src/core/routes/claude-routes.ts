@@ -811,6 +811,56 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
+  // API: Batch delete files
+  if (pathname === '/api/memory/claude/batch-delete' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body: any) => {
+      const { paths, confirm } = body;
+
+      if (!paths || !Array.isArray(paths) || paths.length === 0) {
+        return { error: 'paths array is required', status: 400 };
+      }
+
+      if (confirm !== true) {
+        return { error: 'Confirmation required', status: 400 };
+      }
+
+      const results = {
+        success: true,
+        total: paths.length,
+        deleted: 0,
+        errors: [] as Array<{ path: string; error: string }>
+      };
+
+      // Delete each file
+      for (const filePath of paths) {
+        const result = deleteClaudeFile(filePath);
+        if (result.success) {
+          results.deleted++;
+          // Broadcast individual file deletion
+          broadcastToClients({
+            type: 'CLAUDE_FILE_DELETED',
+            data: { path: filePath }
+          });
+        } else {
+          results.errors.push({ path: filePath, error: result.error || 'Unknown error' });
+        }
+      }
+
+      // Broadcast batch deletion completion
+      broadcastToClients({
+        type: 'CLAUDE_BATCH_DELETED',
+        data: {
+          total: results.total,
+          deleted: results.deleted,
+          failed: results.errors.length
+        }
+      });
+
+      return results;
+    });
+    return true;
+  }
+
   // API: Create file
   if (pathname === '/api/memory/claude/create' && req.method === 'POST') {
     handlePostRequest(req, res, async (body: any) => {

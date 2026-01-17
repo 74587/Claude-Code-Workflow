@@ -147,8 +147,8 @@ You are generating path-conditional rules for Claude Code.
 
 ## Instructions
 
-Read the agent prompt template for detailed instructions:
-$(cat ~/.claude/workflows/cli-templates/prompts/rules/tech-rules-agent-prompt.txt)
+Read the agent prompt template for detailed instructions.
+Use --rule rules-tech-rules-agent-prompt to load the template automatically.
 
 ## Execution Steps
 

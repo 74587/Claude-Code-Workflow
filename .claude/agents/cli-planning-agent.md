@@ -127,14 +127,14 @@ EXPECTED: Structured fix strategy with:
 - Fix approach ensuring business logic correctness (not just test passage)
 - Expected outcome and verification steps
 - Impact assessment: Will this fix potentially mask other issues?
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/{template}) |
+RULES: $PROTO $TMPL |
 - For {test_type} tests: {layer_specific_guidance}
 - Avoid 'surgical fixes' that mask underlying issues
 - Provide specific line numbers for modifications
 - Consider previous iteration failures
 - Validate fix doesn't introduce new vulnerabilities
 - analysis=READ-ONLY
-" --tool {cli_tool} --mode analysis --cd {project_root} --timeout {timeout_value}
+" --tool {cli_tool} --mode analysis --rule {template} --cd {project_root} --timeout {timeout_value}
 ```
 
 **Layer-Specific Guidance Injection**:

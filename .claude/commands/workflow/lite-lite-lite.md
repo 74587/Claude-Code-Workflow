@@ -167,7 +167,7 @@ TASK: ${tasks.map(t => `• ${t}`).join(' ')}
 MODE: analysis
 CONTEXT: @**/*
 EXPECTED: ${expected}
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) | ${rules}
+RULES: $PROTO | ${rules}
 `
 }
 
@@ -373,7 +373,7 @@ TASK: ${extractedTasks.join(' • ')}
 MODE: write
 CONTEXT: @${affectedFiles.join(' @')}
 EXPECTED: Working implementation with all changes applied
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md)
+RULES: $PROTO
 " --tool ${executionTool.name} --mode write`,
     run_in_background: false
   })

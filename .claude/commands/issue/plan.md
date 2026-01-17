@@ -131,7 +131,7 @@ TASK: • Analyze issue titles/tags semantically • Identify functional/archite
 MODE: analysis
 CONTEXT: Issue metadata only
 EXPECTED: JSON with groups array, each containing max 4 issue_ids, theme, rationale
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) | Each issue in exactly one group | Max 4 issues per group | Balance group sizes
+RULES: $PROTO | Each issue in exactly one group | Max 4 issues per group | Balance group sizes
 
 INPUT:
 ${JSON.stringify(issueSummaries, null, 2)}

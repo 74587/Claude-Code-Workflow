@@ -105,7 +105,7 @@ TASK: • Analyze error pattern • Identify potential root causes • Suggest t
 MODE: analysis
 CONTEXT: @{affected_files}
 EXPECTED: Structured hypothesis list with priority ranking
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt) | Focus on testable conditions
+RULES: $PROTO $TMPL | Focus on testable conditions
 " --tool gemini --mode analysis --cd {project_root}
 ```
 
@@ -213,7 +213,7 @@ EXPECTED:
 - Evidence summary
 - Root cause identification (if confirmed)
 - Next steps (if inconclusive)
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt) | Evidence-based reasoning only
+RULES: $PROTO $TMPL | Evidence-based reasoning only
 " --tool gemini --mode analysis
 ```
 
@@ -271,7 +271,7 @@ TASK:
 MODE: write
 CONTEXT: @{affected_files}
 EXPECTED: Working fix that addresses root cause
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | Minimal changes only
+RULES: $PROTO $TMPL | Minimal changes only
 " --tool codex --mode write --cd {project_root}
 ```
 

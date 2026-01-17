@@ -79,6 +79,12 @@ function writeSolutionsJsonl(issuesDir: string, issueId: string, solutions: any[
   writeFileSync(join(solutionsDir, `${issueId}.jsonl`), solutions.map(s => JSON.stringify(s)).join('\n'));
 }
 
+function generateQueueFileId(): string {
+  const now = new Date();
+  const ts = now.toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  return `QUE-${ts}`;
+}
+
 function readQueue(issuesDir: string) {
   // Try new multi-queue structure first
   const queuesDir = join(issuesDir, 'queues');
@@ -713,6 +719,183 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
         };
       } catch (err) {
         return { error: 'Failed to merge queues' };
+      }
+    });
+    return true;
+  }
+
+  // POST /api/queue/split - Split items from source queue into a new queue
+  if (pathname === '/api/queue/split' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body: any) => {
+      const { sourceQueueId, itemIds } = body;
+      if (!sourceQueueId || !itemIds || !Array.isArray(itemIds) || itemIds.length === 0) {
+        return { error: 'sourceQueueId and itemIds (non-empty array) required' };
+      }
+
+      const queuesDir = join(issuesDir, 'queues');
+      const sourcePath = join(queuesDir, `${sourceQueueId}.json`);
+
+      if (!existsSync(sourcePath)) {
+        return { error: `Source queue ${sourceQueueId} not found` };
+      }
+
+      try {
+        const sourceQueue = JSON.parse(readFileSync(sourcePath, 'utf8'));
+        const sourceItems = sourceQueue.solutions || sourceQueue.tasks || [];
+        const isSolutionBased = !!sourceQueue.solutions;
+
+        // Find items to split
+        const itemsToSplit = sourceItems.filter((item: any) =>
+          itemIds.includes(item.item_id) ||
+          itemIds.includes(item.solution_id) ||
+          itemIds.includes(item.task_id)
+        );
+
+        if (itemsToSplit.length === 0) {
+          return { error: 'No matching items found to split' };
+        }
+
+        if (itemsToSplit.length === sourceItems.length) {
+          return { error: 'Cannot split all items - at least one item must remain in source queue' };
+        }
+
+        // Find remaining items
+        const remainingItems = sourceItems.filter((item: any) =>
+          !itemIds.includes(item.item_id) &&
+          !itemIds.includes(item.solution_id) &&
+          !itemIds.includes(item.task_id)
+        );
+
+        // Create new queue with split items
+        const newQueueId = generateQueueFileId();
+        const newQueuePath = join(queuesDir, `${newQueueId}.json`);
+
+        // Re-index split items
+        const reindexedSplitItems = itemsToSplit.map((item: any, idx: number) => ({
+          ...item,
+          execution_order: idx + 1
+        }));
+
+        // Extract issue IDs from split items
+        const splitIssueIds = [...new Set(itemsToSplit.map((item: any) => item.issue_id).filter(Boolean))];
+
+        // Remaining issue IDs
+        const remainingIssueIds = [...new Set(remainingItems.map((item: any) => item.issue_id).filter(Boolean))];
+
+        // Create new queue
+        const newQueue: any = {
+          id: newQueueId,
+          status: 'active',
+          issue_ids: splitIssueIds,
+          conflicts: [],
+          _metadata: {
+            version: '2.1',
+            updated_at: new Date().toISOString(),
+            split_from: sourceQueueId,
+            split_at: new Date().toISOString(),
+            ...(isSolutionBased
+              ? {
+                  total_solutions: reindexedSplitItems.length,
+                  completed_solutions: reindexedSplitItems.filter((i: any) => i.status === 'completed').length
+                }
+              : {
+                  total_tasks: reindexedSplitItems.length,
+                  completed_tasks: reindexedSplitItems.filter((i: any) => i.status === 'completed').length
+                })
+          }
+        };
+
+        if (isSolutionBased) {
+          newQueue.solutions = reindexedSplitItems;
+        } else {
+          newQueue.tasks = reindexedSplitItems;
+        }
+
+        // Update source queue with remaining items
+        const reindexedRemainingItems = remainingItems.map((item: any, idx: number) => ({
+          ...item,
+          execution_order: idx + 1
+        }));
+
+        if (isSolutionBased) {
+          sourceQueue.solutions = reindexedRemainingItems;
+        } else {
+          sourceQueue.tasks = reindexedRemainingItems;
+        }
+
+        sourceQueue.issue_ids = remainingIssueIds;
+        sourceQueue._metadata = {
+          ...sourceQueue._metadata,
+          updated_at: new Date().toISOString(),
+          ...(isSolutionBased
+            ? {
+                total_solutions: reindexedRemainingItems.length,
+                completed_solutions: reindexedRemainingItems.filter((i: any) => i.status === 'completed').length
+              }
+            : {
+                total_tasks: reindexedRemainingItems.length,
+                completed_tasks: reindexedRemainingItems.filter((i: any) => i.status === 'completed').length
+              })
+        };
+
+        // Write both queues
+        writeFileSync(newQueuePath, JSON.stringify(newQueue, null, 2));
+        writeFileSync(sourcePath, JSON.stringify(sourceQueue, null, 2));
+
+        // Update index
+        const indexPath = join(queuesDir, 'index.json');
+        if (existsSync(indexPath)) {
+          try {
+            const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+
+            // Add new queue to index
+            const newQueueEntry: any = {
+              id: newQueueId,
+              status: 'active',
+              issue_ids: splitIssueIds,
+              created_at: new Date().toISOString(),
+              ...(isSolutionBased
+                ? {
+                    total_solutions: reindexedSplitItems.length,
+                    completed_solutions: reindexedSplitItems.filter((i: any) => i.status === 'completed').length
+                  }
+                : {
+                    total_tasks: reindexedSplitItems.length,
+                    completed_tasks: reindexedSplitItems.filter((i: any) => i.status === 'completed').length
+                  })
+            };
+
+            index.queues = index.queues || [];
+            index.queues.push(newQueueEntry);
+
+            // Update source queue in index
+            const sourceEntry = index.queues.find((q: any) => q.id === sourceQueueId);
+            if (sourceEntry) {
+              sourceEntry.issue_ids = remainingIssueIds;
+              if (isSolutionBased) {
+                sourceEntry.total_solutions = reindexedRemainingItems.length;
+                sourceEntry.completed_solutions = reindexedRemainingItems.filter((i: any) => i.status === 'completed').length;
+              } else {
+                sourceEntry.total_tasks = reindexedRemainingItems.length;
+                sourceEntry.completed_tasks = reindexedRemainingItems.filter((i: any) => i.status === 'completed').length;
+              }
+            }
+
+            writeFileSync(indexPath, JSON.stringify(index, null, 2));
+          } catch {
+            // Ignore index update errors
+          }
+        }
+
+        return {
+          success: true,
+          sourceQueueId,
+          newQueueId,
+          splitItemCount: itemsToSplit.length,
+          remainingItemCount: remainingItems.length
+        };
+      } catch (err) {
+        return { error: 'Failed to split queue' };
       }
     });
     return true;

@@ -159,8 +159,15 @@ export function buildCommand(params: {
   nativeResume?: NativeResumeConfig;
   /** Claude CLI settings file path (for --settings parameter) */
   settingsFile?: string;
+  /** Codex review options */
+  reviewOptions?: {
+    uncommitted?: boolean;
+    base?: string;
+    commit?: string;
+    title?: string;
+  };
 }): { command: string; args: string[]; useStdin: boolean } {
-  const { tool, prompt, mode = 'analysis', model, dir, include, nativeResume, settingsFile } = params;
+  const { tool, prompt, mode = 'analysis', model, dir, include, nativeResume, settingsFile, reviewOptions } = params;
 
   debugLog('BUILD_CMD', `Building command for tool: ${tool}`, {
     mode,
@@ -227,10 +234,25 @@ export function buildCommand(params: {
         // codex review mode: non-interactive code review
         // Format: codex review [OPTIONS] [PROMPT]
         args.push('review');
-        // Default to --uncommitted if no specific review target in prompt
-        args.push('--uncommitted');
+
+        // Review target: --uncommitted (default), --base <branch>, or --commit <sha>
+        if (reviewOptions?.base) {
+          args.push('--base', reviewOptions.base);
+        } else if (reviewOptions?.commit) {
+          args.push('--commit', reviewOptions.commit);
+        } else {
+          // Default to --uncommitted if no specific target
+          args.push('--uncommitted');
+        }
+
+        // Optional title for review summary
+        if (reviewOptions?.title) {
+          args.push('--title', reviewOptions.title);
+        }
+
         if (model) {
-          args.push('-m', model);
+          // codex review uses -c key=value for config override, not -m
+          args.push('-c', `model=${model}`);
         }
         // codex review uses positional prompt argument, not stdin
         useStdin = false;

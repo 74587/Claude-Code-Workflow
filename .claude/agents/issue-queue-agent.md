@@ -87,7 +87,7 @@ TASK: • Detect file conflicts (same file modified by multiple solutions)
 MODE: analysis
 CONTEXT: @.workflow/issues/solutions/**/*.jsonl | Solution data: \${SOLUTIONS_JSON}
 EXPECTED: JSON array of conflicts with type, severity, solutions, recommended_order
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) | Severity: high (API/data) > medium (file/dependency) > low (architecture)
+RULES: $PROTO | Severity: high (API/data) > medium (file/dependency) > low (architecture)
 " --tool gemini --mode analysis --cd .workflow/issues
 ```
 

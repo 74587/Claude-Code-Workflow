@@ -270,6 +270,39 @@ class GlobalSymbolIndex:
         symbols = self.search(name=name, kind=kind, limit=limit, prefix_mode=prefix_mode)
         return [(s.file or "", s.range) for s in symbols]
 
+    def get_file_symbols(self, file_path: str | Path) -> List[Symbol]:
+        """Get all symbols in a specific file, sorted by start_line.
+
+        Args:
+            file_path: Full path to the file
+
+        Returns:
+            List of Symbol objects sorted by start_line
+        """
+        file_path_str = str(Path(file_path).resolve())
+
+        with self._lock:
+            conn = self._get_connection()
+            rows = conn.execute(
+                """
+                SELECT symbol_name, symbol_kind, file_path, start_line, end_line
+                FROM global_symbols
+                WHERE project_id=? AND file_path=?
+                ORDER BY start_line
+                """,
+                (self.project_id, file_path_str),
+            ).fetchall()
+
+            return [
+                Symbol(
+                    name=row["symbol_name"],
+                    kind=row["symbol_kind"],
+                    range=(row["start_line"], row["end_line"]),
+                    file=row["file_path"],
+                )
+                for row in rows
+            ]
+
     def _get_existing_index_path(self, file_path_str: str) -> Optional[str]:
         with self._lock:
             conn = self._get_connection()

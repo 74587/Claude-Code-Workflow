@@ -106,7 +106,7 @@ EXPECTED:
 ## Time Estimate
 **Total**: [time]
 
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/planning/02-breakdown-task-steps.txt) |
+RULES: $PROTO $TMPL |
 - Follow schema structure from {schema_path}
 - Acceptance/verification must be quantified
 - Dependencies use task IDs

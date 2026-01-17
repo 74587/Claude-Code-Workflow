@@ -115,8 +115,9 @@ bug-fix → development/bug-diagnosis.txt
 ```
 
 **3. RULES Field**:
-- Use `$(cat ~/.claude/workflows/cli-templates/prompts/{path}.txt)` directly
-- NEVER escape: `\$`, `\"`, `\'` breaks command substitution
+- Use `--rule <template>` option to auto-load protocol + template as `$PROTO` and `$TMPL`
+- Template names: `category-function` format (e.g., `analysis-code-patterns`, `development-feature`)
+- NEVER escape: `\$`, `\"`, `\'` breaks variable expansion
 
 **4. Structured Prompt**:
 ```bash
@@ -125,7 +126,7 @@ TASK: {specific_task_with_details}
 MODE: {analysis|write|auto}
 CONTEXT: {structured_file_references}
 EXPECTED: {clear_output_expectations}
-RULES: $(cat {selected_template}) | {constraints}
+RULES: $PROTO $TMPL | {constraints}
 ```
 
 ---
@@ -156,8 +157,8 @@ TASK: {task}
 MODE: analysis
 CONTEXT: @**/*
 EXPECTED: {output}
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
-" --tool gemini --mode analysis --cd {dir}
+RULES: $PROTO $TMPL
+" --tool gemini --mode analysis --rule analysis-code-patterns --cd {dir}
 
 # Qwen fallback: Replace '--tool gemini' with '--tool qwen'
 ```

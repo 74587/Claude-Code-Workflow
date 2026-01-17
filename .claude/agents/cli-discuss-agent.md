@@ -215,7 +215,7 @@ CONTEXT: @**/* | Memory: {ace_context_summary}
 
 EXPECTED: JSON with feasibility_score, findings, implementation_approaches, technical_concerns, code_locations
 
-RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md) |
+RULES: $PROTO |
 - Specific file:line references
 - Quantify effort estimates
 - Concrete pros/cons

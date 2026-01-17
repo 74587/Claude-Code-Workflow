@@ -154,6 +154,13 @@ class Config:
     cascade_fine_k: int = 10  # Number of final results after reranking
     cascade_strategy: str = "binary"  # "binary" (fast binary+dense) or "hybrid" (FTS+SPLADE+Vector+CrossEncoder)
 
+    # Staged cascade search configuration (4-stage pipeline)
+    staged_coarse_k: int = 200  # Number of coarse candidates from Stage 1 binary search
+    staged_lsp_depth: int = 2  # LSP relationship expansion depth in Stage 2
+    staged_clustering_strategy: str = "auto"  # "auto", "hdbscan", "dbscan", "frequency", "noop"
+    staged_clustering_min_size: int = 3  # Minimum cluster size for Stage 3 grouping
+    enable_staged_rerank: bool = True  # Enable optional cross-encoder reranking in Stage 4
+
     # RRF fusion configuration
     fusion_method: str = "rrf"  # "simple" (weighted sum) or "rrf" (reciprocal rank fusion)
     rrf_k: int = 60  # RRF constant (default 60)
