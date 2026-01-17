@@ -183,6 +183,36 @@ qwen --version
 
 > 💡 **核心**：只需描述使用哪个 CLI 做什么 - CCW 自动处理调用。
 
+### 自定义 CLI 注册
+
+通过 Dashboard API Settings **注册任意 API 为自定义 CLI**：
+
+```json
+// 示例：注册 "deepseek" 为自定义 CLI
+{
+  "tools": {
+    "deepseek": {
+      "enabled": true,
+      "type": "api-endpoint",
+      "endpoint": "https://api.deepseek.com/v1/chat",
+      "apiKey": "your-api-key"
+    }
+  }
+}
+```
+
+注册后即可语义调用：
+
+```text
+用户: "使用 DeepSeek 分析这个算法复杂度"
+→ 系统自动调用: deepseek CLI（你的自定义端点）
+
+用户: "让 DeepSeek 和 Gemini 对比分析结果"
+→ 系统自动调用: deepseek + gemini 并行执行
+```
+
+> ⚙️ **Dashboard 配置**: `ccw view` → Status → API Settings 管理自定义 CLI。
+
 ---
 
 ## ACE Tool 配置

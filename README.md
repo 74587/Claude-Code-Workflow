@@ -183,6 +183,36 @@ User: "Use Gemini to plan the refactoring, then Codex to implement it"
 
 > 💡 **Key**: Just describe which CLI to use and what to do - CCW handles the invocation automatically.
 
+### Custom CLI Registration
+
+Register **any API as a custom CLI** via Dashboard API Settings:
+
+```json
+// Example: Register "deepseek" as custom CLI
+{
+  "tools": {
+    "deepseek": {
+      "enabled": true,
+      "type": "api-endpoint",
+      "endpoint": "https://api.deepseek.com/v1/chat",
+      "apiKey": "your-api-key"
+    }
+  }
+}
+```
+
+After registration, use it semantically:
+
+```text
+User: "Use DeepSeek to analyze this algorithm complexity"
+→ System auto-calls: deepseek CLI (your custom endpoint)
+
+User: "Let DeepSeek and Gemini compare their analysis results"
+→ System auto-calls: deepseek + gemini in parallel
+```
+
+> ⚙️ **Dashboard**: `ccw view` → Status → API Settings to manage custom CLIs.
+
 ---
 
 ## 🔍 ACE Tool Configuration
