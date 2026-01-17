@@ -74,67 +74,14 @@ ccw install -m Global
 
 ## 🛠️ CLI Tool Installation
 
-CCW supports multiple CLI tools for code analysis and generation. Install as needed:
+CCW supports multiple CLI tools. Install as needed:
 
-### 🔷 Gemini CLI
-
-Google's official Gemini CLI:
-
-```bash
-# Install
-npm install -g @anthropic-ai/gemini-cli
-
-# Configure API Key
-export GEMINI_API_KEY="your-api-key"
-
-# Verify
-gemini --version
-```
-
-### 🟢 Codex CLI
-
-OpenAI Codex CLI (recommended for long autonomous coding):
-
-```bash
-# Install
-npm install -g @openai/codex
-
-# Configure API Key
-export OPENAI_API_KEY="your-api-key"
-
-# Verify
-codex --version
-```
-
-### 🟠 OpenCode CLI
-
-Open-source multi-model CLI:
-
-```bash
-# Install
-npm install -g opencode-ai
-
-# Configure (supports multiple models)
-export OPENCODE_API_KEY="your-api-key"
-
-# Verify
-opencode --version
-```
-
-### 🟣 Qwen CLI
-
-Alibaba Cloud Qwen CLI:
-
-```bash
-# Install
-pip install qwen-cli
-
-# Configure
-export QWEN_API_KEY="your-api-key"
-
-# Verify
-qwen --version
-```
+| CLI | Description | Official Docs |
+|-----|-------------|---------------|
+| 🔷 **Gemini** | Google AI analysis | [github.com/anthropics/anthropic-quickstarts](https://github.com/anthropics/anthropic-quickstarts) |
+| 🟢 **Codex** | OpenAI autonomous coding | [github.com/openai/codex](https://github.com/openai/codex) |
+| 🟠 **OpenCode** | Open-source multi-model | [github.com/opencode-ai/opencode](https://github.com/opencode-ai/opencode) |
+| 🟣 **Qwen** | Alibaba Cloud Qwen | [github.com/QwenLM/Qwen](https://github.com/QwenLM/Qwen) |
 
 ---
 

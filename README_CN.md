@@ -72,69 +72,16 @@ ccw install -m Global
 
 ---
 
-## CLI 工具安装
+## 🛠️ CLI 工具安装
 
-CCW 支持多种 CLI 工具进行代码分析和生成。以下是各工具的安装方式：
+CCW 支持多种 CLI 工具，按需安装：
 
-### Gemini CLI
-
-Google 官方 Gemini CLI 工具：
-
-```bash
-# 安装
-npm install -g @anthropic-ai/gemini-cli
-
-# 配置 API Key
-export GEMINI_API_KEY="your-api-key"
-
-# 验证
-gemini --version
-```
-
-### Codex CLI
-
-OpenAI Codex CLI 工具（推荐用于长时间自主编码）：
-
-```bash
-# 安装
-npm install -g @openai/codex
-
-# 配置 API Key
-export OPENAI_API_KEY="your-api-key"
-
-# 验证
-codex --version
-```
-
-### OpenCode CLI
-
-开源多模型 CLI 工具：
-
-```bash
-# 安装
-npm install -g opencode-ai
-
-# 配置（支持多种模型）
-export OPENCODE_API_KEY="your-api-key"
-
-# 验证
-opencode --version
-```
-
-### Qwen CLI
-
-阿里云 Qwen CLI 工具：
-
-```bash
-# 安装
-pip install qwen-cli
-
-# 配置
-export QWEN_API_KEY="your-api-key"
-
-# 验证
-qwen --version
-```
+| CLI | 说明 | 官方文档 |
+|-----|------|----------|
+| 🔷 **Gemini** | Google AI 分析 | [github.com/anthropics/anthropic-quickstarts](https://github.com/anthropics/anthropic-quickstarts) |
+| 🟢 **Codex** | OpenAI 自主编码 | [github.com/openai/codex](https://github.com/openai/codex) |
+| 🟠 **OpenCode** | 开源多模型 | [github.com/opencode-ai/opencode](https://github.com/opencode-ai/opencode) |
+| 🟣 **Qwen** | 阿里云 Qwen | [github.com/QwenLM/Qwen](https://github.com/QwenLM/Qwen) |
 
 ---
 
