@@ -767,20 +767,20 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
   }
 
   // Concatenate systemRules and roles to the end of prompt (if loaded)
-  // Format: [USER_PROMPT]\n[SYSTEM_RULES]\n[ROLES]
+  // Format: [USER_PROMPT]\n\nProtocol (mode): [content]\n\nTemplate (rule): [content]
   // Skip concatenation when using --commit with review mode (prompt not allowed)
   if (!skipTemplates && (systemRules || roles)) {
     const parts: string[] = [actualPrompt];
     if (systemRules) {
-      parts.push(`=== SYSTEM RULES ===\n${systemRules}`);
+      parts.push(`Protocol (${mode}):\n${systemRules}`);
     }
     if (roles) {
-      parts.push(`=== ROLES ===\n${roles}`);
+      parts.push(`Template (${effectiveRule}):\n${roles}`);
     }
     actualPrompt = parts.join('\n\n');
 
     if (debug) {
-      console.log(chalk.gray(`  Prompt structure: USER_PROMPT(${prompt_to_use.length}) + SYSTEM_RULES(${systemRules.length}) + ROLES(${roles.length})`));
+      console.log(chalk.gray(`  Prompt structure: USER_PROMPT(${prompt_to_use.length}) + Protocol(${systemRules.length}) + Template(${roles.length})`));
       console.log(chalk.gray(`  Total prompt length: ${actualPrompt.length} chars`));
     }
   }
