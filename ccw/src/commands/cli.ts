@@ -441,6 +441,11 @@ function testParseAction(args: string[], options: CliExecOptions): void {
   console.log(chalk.bold.cyan('  │       CLI PARSE TEST ENDPOINT              │'));
   console.log(chalk.bold.cyan('  ═══════════════════════════════════════════════\n'));
 
+  // Debug: show raw options.prompt with JSON.stringify to reveal hidden characters
+  console.log(chalk.bold.yellow('🔬 RAW OPTIONS.PROMPT (JSON):'));
+  console.log(chalk.cyan('   ' + JSON.stringify(options.prompt)));
+  console.log();
+
   // Show args array parsing
   console.log(chalk.bold.yellow('📦 Positional Arguments (args[]):'));
   console.log(chalk.gray('   Length: ') + chalk.white(args.length));
@@ -550,7 +555,7 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
     console.log(chalk.yellow('  Debug mode enabled\n'));
   }
 
-  // Priority: 1. --file, 2. --prompt/-p option, 3. positional argument
+  // Priority: 1. --file, 2. stdin (piped), 3. --prompt/-p option, 4. positional argument
   // Note: On Windows, quoted arguments like -p "say hello" may be split into
   // -p "say" and positional "hello". We merge them back together.
   let finalPrompt: string | undefined;
@@ -569,13 +574,30 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       console.error(chalk.red('Error: File is empty'));
       process.exit(1);
     }
-  } else if (optionPrompt) {
-    // Use --prompt/-p option (preferred for multi-line)
-    // Merge with positional argument if Windows split the quoted string
-    finalPrompt = positionalPrompt ? `${optionPrompt} ${positionalPrompt}` : optionPrompt;
-  } else {
-    // Fall back to positional argument
-    finalPrompt = positionalPrompt;
+  } else if (!process.stdin.isTTY) {
+    // Read from stdin (piped input) - enables: echo "prompt" | ccw cli --tool gemini
+    // This bypasses Windows shell multi-line argument limitations
+    const { readFileSync } = await import('fs');
+    try {
+      finalPrompt = readFileSync(0, 'utf8').trim(); // fd 0 = stdin
+      if (debug) {
+        console.log(chalk.gray(`  Read ${finalPrompt.length} chars from stdin`));
+      }
+    } catch {
+      // stdin not available or empty, fall through to other methods
+    }
+  }
+
+  // If no stdin input, try --prompt/-p option or positional argument
+  if (!finalPrompt) {
+    if (optionPrompt) {
+      // Use --prompt/-p option (preferred for multi-line)
+      // Merge with positional argument if Windows split the quoted string
+      finalPrompt = positionalPrompt ? `${optionPrompt} ${positionalPrompt}` : optionPrompt;
+    } else {
+      // Fall back to positional argument
+      finalPrompt = positionalPrompt;
+    }
   }
 
   // Prompt is required unless resuming OR using review mode with target flags
@@ -1257,15 +1279,16 @@ export async function cliCommand(
     default: {
       const execOptions = options as CliExecOptions;
       // Auto-exec if: has -p/--prompt, has -f/--file, has --resume, subcommand looks like a prompt,
-      // or review mode with target flags (--uncommitted, --base, --commit)
+      // review mode with target flags (--uncommitted, --base, --commit), or stdin has piped input
       const hasPromptOption = !!execOptions.prompt;
       const hasFileOption = !!execOptions.file;
       const hasResume = execOptions.resume !== undefined;
       const subcommandIsPrompt = subcommand && !subcommand.startsWith('-');
       const hasReviewTarget = execOptions.mode === 'review' &&
         (execOptions.uncommitted || execOptions.base || execOptions.commit);
+      const hasStdinInput = !process.stdin.isTTY; // piped input detected
 
-      if (hasPromptOption || hasFileOption || hasResume || subcommandIsPrompt || hasReviewTarget) {
+      if (hasPromptOption || hasFileOption || hasResume || subcommandIsPrompt || hasReviewTarget || hasStdinInput) {
         // Treat as exec: use subcommand as positional prompt if no -p/-f option
         let positionalPrompt = subcommandIsPrompt ? subcommand : undefined;
 
@@ -1284,6 +1307,7 @@ export async function cliCommand(
         console.log('  Usage:');
         console.log(chalk.gray('    ccw cli -f prompt.txt --tool <tool>     Execute from file (recommended for multi-line)'));
         console.log(chalk.gray('    ccw cli -p "<prompt>" --tool <tool>     Execute with prompt (single-line)'));
+        console.log(chalk.gray('    echo "prompt" | ccw cli --tool <tool>   Execute from stdin (pipe)'));
         console.log();
         console.log('  Subcommands:');
         console.log(chalk.gray('    status              Check CLI tools availability'));
