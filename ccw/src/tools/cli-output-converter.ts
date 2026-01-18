@@ -21,6 +21,7 @@ export type CliOutputUnitType =
   | 'metadata'       // Session/execution metadata
   | 'system'         // System events/messages
   | 'tool_call'      // Tool invocation/result (Gemini tool_use/tool_result)
+  | 'agent_message'  // Final agent response (for --final output)
   | 'streaming_content';  // Streaming delta content (only last one used in final output)
 
 /**
@@ -293,9 +294,9 @@ export class JsonLinesParser implements IOutputParser {
     if (json.type === 'message' && json.role) {
       // Gemini assistant/user message
       if (json.role === 'assistant') {
-        // Delta messages use 'streaming_content' type - only last one is used in final output
-        // Non-delta (final) messages use 'stdout' type
-        const outputType = json.delta === true ? 'streaming_content' : 'stdout';
+        // Delta messages use 'streaming_content' type - aggregated to agent_message later
+        // Non-delta (final) messages use 'agent_message' type directly
+        const outputType = json.delta === true ? 'streaming_content' : 'agent_message';
         return {
           type: outputType,
           content: json.content || '',
@@ -420,7 +421,7 @@ export class JsonLinesParser implements IOutputParser {
 
       if (item.type === 'agent_message') {
         return {
-          type: 'stdout',
+          type: 'agent_message',  // Use dedicated type for final agent response
           content: item.text || '',
           timestamp
         };
@@ -495,7 +496,7 @@ export class JsonLinesParser implements IOutputParser {
         .join('\n') || '';
 
       return {
-        type: 'stdout',
+        type: 'agent_message',  // Use dedicated type for Claude final response
         content: textContent,
         timestamp
       };
@@ -537,7 +538,7 @@ export class JsonLinesParser implements IOutputParser {
 
     if (json.type === 'text' && json.part) {
       return {
-        type: 'stdout',
+        type: 'agent_message',  // Use dedicated type for OpenCode text response
         content: json.part.text || '',
         timestamp
       };
@@ -658,7 +659,7 @@ export class JsonLinesParser implements IOutputParser {
           .join('\n') || '';
 
         return {
-          type: 'stdout',
+          type: 'agent_message',  // Use dedicated type for legacy Codex response
           content,
           timestamp
         };
@@ -682,9 +683,16 @@ export class JsonLinesParser implements IOutputParser {
     }
 
     // Check for Gemini/Qwen message format (role-based)
-    if (json.role === 'user' || json.role === 'assistant') {
+    if (json.role === 'assistant') {
       return {
-        type: 'stdout',
+        type: 'agent_message',  // Use dedicated type for Gemini/Qwen assistant response
+        content: json.content || json.text || '',
+        timestamp
+      };
+    }
+    if (json.role === 'user') {
+      return {
+        type: 'stdout',  // User messages remain as stdout
         content: json.content || json.text || '',
         timestamp
       };
@@ -1128,7 +1136,7 @@ export function flattenOutputUnits(
     stripCommandJsonBlocks = false
   } = options || {};
 
-  // Special handling for streaming_content: concatenate all into a single stdout unit
+  // Special handling for streaming_content: concatenate all into a single agent_message unit
   // Gemini delta messages are incremental (each contains partial content to append)
   let processedUnits = units;
   const streamingUnits = units.filter(u => u.type === 'streaming_content');
@@ -1138,9 +1146,9 @@ export function flattenOutputUnits(
       .map(u => typeof u.content === 'string' ? u.content : '')
       .join('');
     processedUnits = units.filter(u => u.type !== 'streaming_content');
-    // Add concatenated content as stdout type for inclusion
+    // Add concatenated content as agent_message type for final output
     processedUnits.push({
-      type: 'stdout',
+      type: 'agent_message',
       content: concatenatedContent,
       timestamp: streamingUnits[streamingUnits.length - 1].timestamp
     });
@@ -1168,7 +1176,7 @@ export function flattenOutputUnits(
       let content = unit.content;
 
       // Strip command execution JSON code blocks if requested (codex agent_message often includes these)
-      if (stripCommandJsonBlocks && unit.type === 'stdout') {
+      if (stripCommandJsonBlocks && (unit.type === 'stdout' || unit.type === 'agent_message')) {
         // Pattern 1: Backtick-wrapped JSON blocks
         // Format: ```...{"command":"...","output":"...","exitCode":N,"status":"..."...}...```
         // Uses [\s\S]*? to match any characters (including newlines) non-greedily

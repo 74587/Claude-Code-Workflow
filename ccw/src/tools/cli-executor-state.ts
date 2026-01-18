@@ -85,6 +85,7 @@ export interface ExecutionRecord {
     truncated: boolean;
   };
   parsedOutput?: string;  // Extracted clean text from structured output units
+  finalOutput?: string;  // Agent message only (for --final flag)
 }
 
 interface HistoryIndex {
@@ -109,6 +110,7 @@ export interface ExecutionOutput {
   stdout: string;
   stderr: string;
   parsedOutput?: string;  // Extracted text from stream JSON response
+  finalOutput?: string;  // Agent message only (for --final flag)
 }
 
 /**

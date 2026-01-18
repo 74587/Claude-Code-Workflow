@@ -386,8 +386,8 @@ async function outputAction(conversationId: string | undefined, options: OutputV
 
   if (options.final) {
     // Final result only with usage hint
-    // Prefer parsedOutput (filtered, intermediate content removed) over raw stdout
-    const outputContent = result.parsedOutput?.content || result.stdout?.content;
+    // Prefer finalOutput (agent_message only) > parsedOutput (filtered) > raw stdout
+    const outputContent = result.finalOutput?.content || result.parsedOutput?.content || result.stdout?.content;
     if (outputContent) {
       console.log(outputContent);
     }
