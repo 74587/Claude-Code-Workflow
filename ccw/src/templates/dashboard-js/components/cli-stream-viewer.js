@@ -162,7 +162,7 @@ function toggleCliStreamViewer() {
 // ===== WebSocket Event Handlers =====
 function handleCliStreamStarted(payload) {
   const { executionId, tool, mode, timestamp } = payload;
-  
+
   // Create new execution record
   cliStreamExecutions[executionId] = {
     tool: tool || 'cli',
