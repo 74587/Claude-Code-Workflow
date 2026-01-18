@@ -385,8 +385,12 @@ Before completing any task, verify:
 - Make assumptions - verify with existing code
 - Create unnecessary complexity
 
-**Bash Tool**:
-- Use `run_in_background=false` for all Bash/CLI calls to ensure foreground execution
+**Bash Tool (CLI Execution in Agent)**:
+- Use `run_in_background=false` for all Bash/CLI calls - agent cannot receive task hook callbacks
+- Set timeout ≥60 minutes for CLI commands (hooks don't propagate to subagents):
+  ```javascript
+  Bash(command="ccw cli -p '...' --tool codex --mode write", timeout=3600000)  // 60 min
+  ```
 
 **ALWAYS:**
 - **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) / Built-in (`Grep`, `Glob`, `Read`)

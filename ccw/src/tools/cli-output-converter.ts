@@ -1117,13 +1117,15 @@ export function flattenOutputUnits(
     excludeTypes?: CliOutputUnitType[];
     includeTimestamps?: boolean;
     separator?: string;
+    stripCommandJsonBlocks?: boolean;  // Strip embedded command execution JSON code blocks from stdout
   }
 ): string {
   const {
     includeTypes,
     excludeTypes,
     includeTimestamps = false,
-    separator = '\n'
+    separator = '\n',
+    stripCommandJsonBlocks = false
   } = options || {};
 
   // Special handling for streaming_content: concatenate all into a single stdout unit
@@ -1163,7 +1165,20 @@ export function flattenOutputUnits(
 
     // Extract text content based on type
     if (typeof unit.content === 'string') {
-      text += unit.content;
+      let content = unit.content;
+
+      // Strip command execution JSON code blocks if requested (codex agent_message often includes these)
+      if (stripCommandJsonBlocks && unit.type === 'stdout') {
+        // Pattern 1: Backtick-wrapped JSON blocks
+        // Format: ```...{"command":"...","output":"...","exitCode":N,"status":"..."...}...```
+        // Uses [\s\S]*? to match any characters (including newlines) non-greedily
+        content = content.replace(/```[\s\S]*?\{"command":[\s\S]*?,"status":"[^"]*"\}[\s\S]*?```/g, '').trim();
+        // Pattern 2: Raw JSON command execution (no backticks)
+        // Matches complete JSON object with command/output/exitCode/status fields
+        content = content.replace(/\{"command":[\s\S]*?,"status":"[^"]*"\}/g, '').trim();
+      }
+
+      text += content;
     } else if (typeof unit.content === 'object' && unit.content !== null) {
       // Handle structured content with type-specific formatting
       switch (unit.type) {

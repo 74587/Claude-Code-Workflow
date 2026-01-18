@@ -386,8 +386,10 @@ async function outputAction(conversationId: string | undefined, options: OutputV
 
   if (options.final) {
     // Final result only with usage hint
-    if (result.stdout) {
-      console.log(result.stdout.content);
+    // Prefer parsedOutput (filtered, intermediate content removed) over raw stdout
+    const outputContent = result.parsedOutput?.content || result.stdout?.content;
+    if (outputContent) {
+      console.log(outputContent);
     }
     console.log();
     console.log(chalk.gray('─'.repeat(60)));

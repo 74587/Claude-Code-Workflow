@@ -27,6 +27,7 @@ export interface ConversationTurn {
     cached?: boolean;
     stdout_full?: string;
     stderr_full?: string;
+    parsed_output?: string;  // Filtered output (intermediate content removed)
     structured?: CliOutputUnit[];  // Structured IR sequence for advanced parsing
   };
 }
@@ -326,6 +327,7 @@ export class CliHistoryStore {
       const hasCached = turnsInfo.some(col => col.name === 'cached');
       const hasStdoutFull = turnsInfo.some(col => col.name === 'stdout_full');
       const hasStderrFull = turnsInfo.some(col => col.name === 'stderr_full');
+      const hasParsedOutput = turnsInfo.some(col => col.name === 'parsed_output');
 
       if (!hasCached) {
         console.log('[CLI History] Migrating database: adding cached column to turns table...');
@@ -341,6 +343,11 @@ export class CliHistoryStore {
         console.log('[CLI History] Migrating database: adding stderr_full column to turns table...');
         this.db.exec('ALTER TABLE turns ADD COLUMN stderr_full TEXT;');
         console.log('[CLI History] Migration complete: stderr_full column added');
+      }
+      if (!hasParsedOutput) {
+        console.log('[CLI History] Migrating database: adding parsed_output column to turns table...');
+        this.db.exec('ALTER TABLE turns ADD COLUMN parsed_output TEXT;');
+        console.log('[CLI History] Migration complete: parsed_output column added');
       }
     } catch (err) {
       console.error('[CLI History] Migration error:', (err as Error).message);
@@ -448,8 +455,8 @@ export class CliHistoryStore {
     `);
 
     const upsertTurn = this.db.prepare(`
-      INSERT INTO turns (conversation_id, turn_number, timestamp, prompt, duration_ms, status, exit_code, stdout, stderr, truncated, cached, stdout_full, stderr_full)
-      VALUES (@conversation_id, @turn_number, @timestamp, @prompt, @duration_ms, @status, @exit_code, @stdout, @stderr, @truncated, @cached, @stdout_full, @stderr_full)
+      INSERT INTO turns (conversation_id, turn_number, timestamp, prompt, duration_ms, status, exit_code, stdout, stderr, truncated, cached, stdout_full, stderr_full, parsed_output)
+      VALUES (@conversation_id, @turn_number, @timestamp, @prompt, @duration_ms, @status, @exit_code, @stdout, @stderr, @truncated, @cached, @stdout_full, @stderr_full, @parsed_output)
       ON CONFLICT(conversation_id, turn_number) DO UPDATE SET
         timestamp = @timestamp,
         prompt = @prompt,
@@ -461,7 +468,8 @@ export class CliHistoryStore {
         truncated = @truncated,
         cached = @cached,
         stdout_full = @stdout_full,
-        stderr_full = @stderr_full
+        stderr_full = @stderr_full,
+        parsed_output = @parsed_output
     `);
 
     const transaction = this.db.transaction(() => {
@@ -496,7 +504,8 @@ export class CliHistoryStore {
           truncated: turn.output.truncated ? 1 : 0,
           cached: turn.output.cached ? 1 : 0,
           stdout_full: turn.output.stdout_full || null,
-          stderr_full: turn.output.stderr_full || null
+          stderr_full: turn.output.stderr_full || null,
+          parsed_output: turn.output.parsed_output || null
         });
       }
     });
@@ -543,7 +552,8 @@ export class CliHistoryStore {
           truncated: !!t.truncated,
           cached: !!t.cached,
           stdout_full: t.stdout_full || undefined,
-          stderr_full: t.stderr_full || undefined
+          stderr_full: t.stderr_full || undefined,
+          parsed_output: t.parsed_output || undefined
         }
       }))
     };
@@ -588,6 +598,7 @@ export class CliHistoryStore {
     turnNumber: number;
     stdout?: { content: string; totalBytes: number; offset: number; hasMore: boolean };
     stderr?: { content: string; totalBytes: number; offset: number; hasMore: boolean };
+    parsedOutput?: { content: string; totalBytes: number; offset: number; hasMore: boolean };
     cached: boolean;
     prompt: string;
     status: string;
@@ -614,6 +625,7 @@ export class CliHistoryStore {
       turnNumber: number;
       stdout?: { content: string; totalBytes: number; offset: number; hasMore: boolean };
       stderr?: { content: string; totalBytes: number; offset: number; hasMore: boolean };
+      parsedOutput?: { content: string; totalBytes: number; offset: number; hasMore: boolean };
       cached: boolean;
       prompt: string;
       status: string;
@@ -645,6 +657,19 @@ export class CliHistoryStore {
       const totalBytes = fullStderr.length;
       const content = fullStderr.substring(offset, offset + limit);
       result.stderr = {
+        content,
+        totalBytes,
+        offset,
+        hasMore: offset + limit < totalBytes
+      };
+    }
+
+    // Add parsed output if available (filtered output for final display)
+    if (turn.parsed_output) {
+      const parsedContent = turn.parsed_output;
+      const totalBytes = parsedContent.length;
+      const content = parsedContent.substring(offset, offset + limit);
+      result.parsedOutput = {
         content,
         totalBytes,
         offset,

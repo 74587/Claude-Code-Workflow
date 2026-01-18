@@ -981,6 +981,13 @@ async function executeCliTool(
 
       // Create new turn - cache full output when not streaming (default)
       const shouldCache = !parsed.data.stream;
+
+      // Compute parsed output (filtered, intermediate content removed) for final display
+      const computedParsedOutput = flattenOutputUnits(allOutputUnits, {
+        excludeTypes: ['stderr', 'progress', 'metadata', 'system', 'tool_call', 'thought', 'code', 'file_diff', 'streaming_content'],
+        stripCommandJsonBlocks: true  // Strip embedded command execution JSON from agent_message
+      });
+
       const newTurnOutput = {
         stdout: stdout.substring(0, 10240), // Truncate preview to 10KB
         stderr: stderr.substring(0, 2048),  // Truncate preview to 2KB
@@ -988,6 +995,7 @@ async function executeCliTool(
         cached: shouldCache,
         stdout_full: shouldCache ? stdout : undefined,
         stderr_full: shouldCache ? stderr : undefined,
+        parsed_output: computedParsedOutput || undefined,  // Filtered output for final display
         structured: allOutputUnits  // Save structured IR units
       };
 
@@ -1148,9 +1156,7 @@ async function executeCliTool(
         exit_code: code,
         duration_ms: duration,
         output: newTurnOutput,
-        parsedOutput: flattenOutputUnits(allOutputUnits, {
-          excludeTypes: ['stderr', 'progress', 'metadata', 'system', 'tool_call', 'thought']
-        })
+        parsedOutput: computedParsedOutput  // Use already-computed filtered output
       };
 
       resolve({

@@ -172,10 +172,23 @@ Output:
 **Operations**:
 - Initialize result tracking for multi-execution scenarios
 - Set up `previousExecutionResults` array for context continuity
+- **In-Memory Mode**: Echo execution strategy from lite-plan for transparency
 
 ```javascript
 // Initialize result tracking
 previousExecutionResults = []
+
+// In-Memory Mode: Echo execution strategy (transparency before execution)
+if (executionContext) {
+  console.log(`
+📋 Execution Strategy (from lite-plan):
+   Method: ${executionContext.executionMethod}
+   Review: ${executionContext.codeReviewTool}
+   Tasks: ${executionContext.planObject.tasks.length}
+   Complexity: ${executionContext.planObject.complexity}
+${executionContext.executorAssignments ? `   Assignments: ${JSON.stringify(executionContext.executorAssignments)}` : ''}
+  `)
+}
 ```
 
 ### Step 2: Task Grouping & Batch Creation
@@ -393,16 +406,8 @@ ccw cli -p "${buildExecutionPrompt(batch)}" --tool codex --mode write
 
 **Execution with fixed IDs** (predictable ID pattern):
 ```javascript
-// Launch CLI in foreground (NOT background)
-// Timeout based on complexity: Low=40min, Medium=60min, High=100min
-const timeoutByComplexity = {
-  "Low": 2400000,    // 40 minutes
-  "Medium": 3600000, // 60 minutes
-  "High": 6000000    // 100 minutes
-}
-
+// Launch CLI in background, wait for task hook callback
 // Generate fixed execution ID: ${sessionId}-${groupId}
-// This enables predictable ID lookup without relying on resume context chains
 const sessionId = executionContext?.session?.id || 'standalone'
 const fixedExecutionId = `${sessionId}-${batch.groupId}`  // e.g., "implement-auth-2025-12-13-P1"
 
@@ -414,16 +419,12 @@ const cli_command = previousCliId
   ? `ccw cli -p "${buildExecutionPrompt(batch)}" --tool codex --mode write --id ${fixedExecutionId} --resume ${previousCliId}`
   : `ccw cli -p "${buildExecutionPrompt(batch)}" --tool codex --mode write --id ${fixedExecutionId}`
 
-bash_result = Bash(
+// Execute in background, stop output and wait for task hook callback
+Bash(
   command=cli_command,
-  timeout=timeoutByComplexity[planObject.complexity] || 3600000
+  run_in_background=true
 )
-
-// Execution ID is now predictable: ${fixedExecutionId}
-// Can also extract from output: "ID: implement-auth-2025-12-13-P1"
-const cliExecutionId = fixedExecutionId
-
-// Update TodoWrite when execution completes
+// STOP HERE - CLI executes in background, task hook will notify on completion
 ```
 
 **Resume on Failure** (with fixed ID):
