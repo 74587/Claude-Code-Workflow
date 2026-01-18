@@ -454,7 +454,6 @@ function testParseAction(args: string[], options: CliExecOptions): void {
   } else {
     args.forEach((arg, i) => {
       console.log(chalk.gray(`   [${i}]: `) + chalk.green(`"${arg}"`));
-      // Show if multiline
       if (arg.includes('\n')) {
         console.log(chalk.yellow(`        ↳ Contains ${arg.split('\n').length} lines`));
       }

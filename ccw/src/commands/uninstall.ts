@@ -1,10 +1,11 @@
 import { existsSync, unlinkSync, rmdirSync, readdirSync, statSync } from 'fs';
 import { join, dirname, basename } from 'path';
-import { homedir } from 'os';
+import { homedir, platform } from 'os';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { showBanner, createSpinner, success, info, warning, error, summaryBox, divider } from '../utils/ui.js';
 import { getAllManifests, deleteManifest } from '../core/manifest.js';
+import { removeGitBashFix } from './install.js';
 
 // Global subdirectories that should be protected when Global installation exists
 const GLOBAL_SUBDIRS = ['workflows', 'scripts', 'templates'];
@@ -254,6 +255,27 @@ export async function uninstallCommand(options: UninstallOptions): Promise<void>
     failedFiles.forEach(f => {
       console.log(chalk.red(`  ${f.path}: ${f.error}`));
     });
+  }
+
+  // Ask to remove Git Bash fix on Windows if this is the last installation
+  const remainingManifests = getAllManifests();
+  if (platform() === 'win32' && remainingManifests.length === 0) {
+    console.log('');
+    const { removeFix } = await inquirer.prompt([{
+      type: 'confirm',
+      name: 'removeFix',
+      message: 'Remove Git Bash multi-line prompt fix from shell config?',
+      default: true
+    }]);
+
+    if (removeFix) {
+      const fixResult = removeGitBashFix();
+      if (fixResult.removed) {
+        info(`Git Bash fix: ${fixResult.message}`);
+      } else {
+        info(`Git Bash fix: ${fixResult.message}`);
+      }
+    }
   }
 
   console.log('');

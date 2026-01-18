@@ -1,13 +1,18 @@
-import { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, readFileSync, writeFileSync, unlinkSync, rmdirSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, readFileSync, writeFileSync, unlinkSync, rmdirSync, appendFileSync } from 'fs';
 import { join, dirname, basename } from 'path';
-import { homedir } from 'os';
+import { homedir, platform } from 'os';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { showHeader, createSpinner, info, warning, error, summaryBox, divider } from '../utils/ui.js';
 import { createManifest, addFileEntry, addDirectoryEntry, saveManifest, findManifest, getAllManifests } from '../core/manifest.js';
 import { validatePath } from '../utils/path-resolver.js';
 import type { Ora } from 'ora';
+
+// Git Bash fix markers
+const GITBASH_FIX_START = '# >>> ccw gitbash fix';
+const GITBASH_FIX_END = '# <<< ccw gitbash fix';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -272,6 +277,27 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     borderColor: 'green'
   });
 
+  // Install Git Bash fix on Windows
+  if (platform() === 'win32') {
+    console.log('');
+    const { installFix } = await inquirer.prompt([{
+      type: 'confirm',
+      name: 'installFix',
+      message: 'Install Git Bash multi-line prompt fix? (recommended for Git Bash users)',
+      default: true
+    }]);
+
+    if (installFix) {
+      const fixResult = await installGitBashFix();
+      if (fixResult.installed) {
+        info(`Git Bash fix: ${fixResult.message}`);
+        info('  Run: source ~/.bashrc  (to apply immediately)');
+      } else {
+        warning(`Git Bash fix skipped: ${fixResult.message}`);
+      }
+    }
+  }
+
   // Show next steps
   console.log('');
   info('Next steps:');
@@ -495,6 +521,153 @@ async function copyDirectory(
   }
 
   return { files, directories };
+}
+
+/**
+ * Check if running in Git Bash on Windows
+ */
+function isGitBashOnWindows(): boolean {
+  if (platform() !== 'win32') return false;
+
+  // Check for MSYSTEM env var (set by Git Bash)
+  const msystem = process.env.MSYSTEM;
+  if (msystem && ['MINGW64', 'MINGW32', 'MSYS'].includes(msystem)) {
+    return true;
+  }
+
+  // Check for typical Git Bash shell path
+  const shell = process.env.SHELL || '';
+  if (shell.includes('bash') || shell.includes('sh')) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Get the ccw.js path for Git Bash fix
+ */
+function getCcwJsPath(): string | null {
+  try {
+    const npmPrefix = execSync('npm config get prefix', { encoding: 'utf8' }).trim();
+    const ccwJsPath = join(npmPrefix, 'node_modules', 'claude-code-workflow', 'ccw', 'bin', 'ccw.js');
+
+    if (existsSync(ccwJsPath)) {
+      return ccwJsPath;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Generate Git Bash fix content for .bashrc
+ */
+function generateGitBashFix(ccwJsPath: string): string {
+  // Use Windows path format for node (works in Git Bash)
+  const windowsPath = ccwJsPath.replace(/\//g, '/');
+
+  return `
+${GITBASH_FIX_START}
+# Fix for multi-line prompt arguments in Git Bash + Windows
+# npm's shell wrapper cannot handle multi-line quoted strings correctly
+ccw() {
+    node "${windowsPath}" "$@"
+}
+${GITBASH_FIX_END}
+`;
+}
+
+/**
+ * Install Git Bash fix to user's shell config
+ * @returns true if fix was installed, false otherwise
+ */
+export async function installGitBashFix(): Promise<{ installed: boolean; message: string }> {
+  // Only applicable on Windows
+  if (platform() !== 'win32') {
+    return { installed: false, message: 'Not Windows platform' };
+  }
+
+  const ccwJsPath = getCcwJsPath();
+  if (!ccwJsPath) {
+    return { installed: false, message: 'ccw not found in npm global modules' };
+  }
+
+  // Find shell config file
+  const home = homedir();
+  const configFiles = [
+    join(home, '.bashrc'),
+    join(home, '.bash_profile'),
+    join(home, '.profile')
+  ];
+
+  let targetConfig: string | null = null;
+  for (const configFile of configFiles) {
+    if (existsSync(configFile)) {
+      targetConfig = configFile;
+      break;
+    }
+  }
+
+  // If no config exists, create .bashrc
+  if (!targetConfig) {
+    targetConfig = join(home, '.bashrc');
+  }
+
+  // Check if fix already exists
+  if (existsSync(targetConfig)) {
+    const content = readFileSync(targetConfig, 'utf8');
+    if (content.includes(GITBASH_FIX_START)) {
+      // Update existing fix
+      const fixContent = generateGitBashFix(ccwJsPath);
+      const regex = new RegExp(`${GITBASH_FIX_START}[\\s\\S]*?${GITBASH_FIX_END}`, 'g');
+      const newContent = content.replace(regex, fixContent.trim());
+      writeFileSync(targetConfig, newContent, 'utf8');
+      return { installed: true, message: `Updated in ${basename(targetConfig)}` };
+    }
+  }
+
+  // Append fix to config file
+  const fixContent = generateGitBashFix(ccwJsPath);
+  appendFileSync(targetConfig, fixContent, 'utf8');
+
+  return { installed: true, message: `Added to ${basename(targetConfig)}` };
+}
+
+/**
+ * Remove Git Bash fix from user's shell config
+ * @returns true if fix was removed, false otherwise
+ */
+export function removeGitBashFix(): { removed: boolean; message: string } {
+  const home = homedir();
+  const configFiles = [
+    join(home, '.bashrc'),
+    join(home, '.bash_profile'),
+    join(home, '.profile')
+  ];
+
+  let removed = false;
+  let targetFile = '';
+
+  for (const configFile of configFiles) {
+    if (!existsSync(configFile)) continue;
+
+    const content = readFileSync(configFile, 'utf8');
+    if (content.includes(GITBASH_FIX_START)) {
+      // Remove the fix block
+      const regex = new RegExp(`\\n?${GITBASH_FIX_START}[\\s\\S]*?${GITBASH_FIX_END}\\n?`, 'g');
+      const newContent = content.replace(regex, '\n');
+      writeFileSync(configFile, newContent, 'utf8');
+      removed = true;
+      targetFile = basename(configFile);
+    }
+  }
+
+  if (removed) {
+    return { removed: true, message: `Removed from ${targetFile}` };
+  }
+  return { removed: false, message: 'No fix found to remove' };
 }
 
 /**
