@@ -36,6 +36,23 @@ Available CLI endpoints are dynamically defined by the config file:
 - **Value every call**: Each CLI invocation is valuable and costly. NEVER waste analysis results:
   - Aggregate multiple analysis results before proposing solutions
 
+### CLI Auto-Invoke Triggers
+
+**Proactive CLI invocation scenarios** - Auto-invoke `ccw cli` for external analysis in these cases:
+
+| Trigger Condition | Recommended Mode | Description |
+|-------------------|------------------|-------------|
+| **Bug fix fails after 2+ attempts** | `--mode analysis --rule analysis-diagnose-bug-root-cause` | Invoke CLI for root cause analysis when self-repair attempts fail |
+| **Unclear task description** | `--mode analysis --rule planning-breakdown-task-steps` | Invoke CLI for task decomposition when requirements are ambiguous |
+| **Quick planning needed** | `--mode analysis --rule planning-plan-architecture-design` | Invoke CLI for architecture design on complex feature requests |
+| **Uncertain code patterns** | `--mode analysis --rule analysis-analyze-code-patterns` | Invoke CLI to analyze existing code style/patterns when uncertain |
+| **Security/performance critical paths** | `--mode analysis --rule analysis-assess-security-risks` | Proactively request review for security or performance-sensitive code |
+
+**Execution principles**:
+- When trigger conditions are met, invoke CLI **without user confirmation**
+- Wait for results before determining next steps
+- Tool fallback chain: `gemini` → `qwen` → `codex`
+
 ## Code Diagnostics
 
 - **Prefer `mcp__ide__getDiagnostics`** for code error checking over shell-based TypeScript compilation
