@@ -14,6 +14,14 @@ import type { Ora } from 'ora';
 const GITBASH_FIX_START = '# >>> ccw gitbash fix';
 const GITBASH_FIX_END = '# <<< ccw gitbash fix';
 
+// Supported shell configuration files
+const SHELL_CONFIG_FILES = [
+  { name: '.bashrc', description: 'Bash configuration (recommended for Git Bash)' },
+  { name: '.bash_profile', description: 'Bash login shell configuration' },
+  { name: '.profile', description: 'Generic shell profile' },
+  { name: '.zshrc', description: 'Zsh configuration' }
+];
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -288,10 +296,13 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     }]);
 
     if (installFix) {
-      const fixResult = await installGitBashFix();
+      // Let user select shell config file
+      const selectedConfig = await selectShellConfig();
+      const fixResult = await installGitBashFix(selectedConfig);
+
       if (fixResult.installed) {
         info(`Git Bash fix: ${fixResult.message}`);
-        info('  Run: source ~/.bashrc  (to apply immediately)');
+        info(`  Run: source ${selectedConfig}  (to apply immediately)`);
       } else {
         warning(`Git Bash fix skipped: ${fixResult.message}`);
       }
@@ -351,6 +362,56 @@ async function selectPath(): Promise<string> {
   }]);
 
   return path;
+}
+
+/**
+ * Interactive shell configuration file selection
+ * @returns {Promise<string>} - Selected config file path
+ */
+async function selectShellConfig(): Promise<string> {
+  const home = homedir();
+
+  // Build choices with status indicators
+  const choices = SHELL_CONFIG_FILES.map(config => {
+    const fullPath = join(home, config.name);
+    const exists = existsSync(fullPath);
+    const status = exists ? chalk.green('exists') : chalk.gray('will be created');
+    const recommended = config.name === '.bashrc' ? chalk.yellow(' (recommended)') : '';
+
+    return {
+      name: `${chalk.cyan(config.name)}${recommended} - ${config.description} [${status}]`,
+      value: fullPath
+    };
+  });
+
+  // Add custom path option
+  choices.push({
+    name: chalk.yellow('Custom path...'),
+    value: 'custom'
+  });
+
+  const { configPath } = await inquirer.prompt([{
+    type: 'list',
+    name: 'configPath',
+    message: 'Select shell configuration file to install Git Bash fix:',
+    choices
+  }]);
+
+  if (configPath === 'custom') {
+    const { customPath } = await inquirer.prompt([{
+      type: 'input',
+      name: 'customPath',
+      message: 'Enter custom shell config path:',
+      default: join(home, '.bashrc'),
+      validate: (input: string) => {
+        if (!input) return 'Path is required';
+        return true;
+      }
+    }]);
+    return customPath;
+  }
+
+  return configPath;
 }
 
 /**
@@ -581,9 +642,10 @@ ${GITBASH_FIX_END}
 
 /**
  * Install Git Bash fix to user's shell config
+ * @param targetConfigPath - Optional target config file path. If not provided, auto-detects.
  * @returns true if fix was installed, false otherwise
  */
-export async function installGitBashFix(): Promise<{ installed: boolean; message: string }> {
+export async function installGitBashFix(targetConfigPath?: string): Promise<{ installed: boolean; message: string }> {
   // Only applicable on Windows
   if (platform() !== 'win32') {
     return { installed: false, message: 'Not Windows platform' };
@@ -594,28 +656,33 @@ export async function installGitBashFix(): Promise<{ installed: boolean; message
     return { installed: false, message: 'ccw not found in npm global modules' };
   }
 
-  // Find shell config file
-  const home = homedir();
-  const configFiles = [
-    join(home, '.bashrc'),
-    join(home, '.bash_profile'),
-    join(home, '.profile')
-  ];
+  let targetConfig: string;
 
-  let targetConfig: string | null = null;
-  for (const configFile of configFiles) {
-    if (existsSync(configFile)) {
-      targetConfig = configFile;
-      break;
+  if (targetConfigPath) {
+    // Use provided path
+    targetConfig = targetConfigPath;
+  } else {
+    // Auto-detect: find existing shell config file
+    const home = homedir();
+    const configFiles = [
+      join(home, '.bashrc'),
+      join(home, '.bash_profile'),
+      join(home, '.profile')
+    ];
+
+    let foundConfig: string | null = null;
+    for (const configFile of configFiles) {
+      if (existsSync(configFile)) {
+        foundConfig = configFile;
+        break;
+      }
     }
+
+    // If no config exists, default to .bashrc
+    targetConfig = foundConfig || join(home, '.bashrc');
   }
 
-  // If no config exists, create .bashrc
-  if (!targetConfig) {
-    targetConfig = join(home, '.bashrc');
-  }
-
-  // Check if fix already exists
+  // Check if fix already exists in target file
   if (existsSync(targetConfig)) {
     const content = readFileSync(targetConfig, 'utf8');
     if (content.includes(GITBASH_FIX_START)) {
@@ -628,7 +695,7 @@ export async function installGitBashFix(): Promise<{ installed: boolean; message
     }
   }
 
-  // Append fix to config file
+  // Append fix to config file (creates file if not exists)
   const fixContent = generateGitBashFix(ccwJsPath);
   appendFileSync(targetConfig, fixContent, 'utf8');
 
@@ -641,11 +708,8 @@ export async function installGitBashFix(): Promise<{ installed: boolean; message
  */
 export function removeGitBashFix(): { removed: boolean; message: string } {
   const home = homedir();
-  const configFiles = [
-    join(home, '.bashrc'),
-    join(home, '.bash_profile'),
-    join(home, '.profile')
-  ];
+  // Check all supported shell config files
+  const configFiles = SHELL_CONFIG_FILES.map(config => join(home, config.name));
 
   let removed = false;
   let targetFile = '';
