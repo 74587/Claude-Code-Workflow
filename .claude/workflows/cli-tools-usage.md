@@ -389,84 +389,51 @@ ASSISTANT RESPONSE: [Previous output]
 
 ### Command Examples
 
-> **⚠️ IMPORTANT: Multi-line prompts in shell**
->
-> Direct multi-line strings in quotes **WILL BREAK** in bash/shell:
-> ```bash
-> # ❌ WRONG - shell cannot parse multi-line in quotes
-> ccw cli -p "PURPOSE: ...
-> TASK: ..."
-> ```
->
-> **Correct methods:**
-> 1. **Stdin pipe (NEW):** `echo "..." | ccw cli --tool gemini` or heredoc
-> 2. **File-based:** `ccw cli -f prompt.txt --tool gemini`
-> 3. **Single line:** Use `|` as logical separator between fields
-
 #### Task-Type Specific Templates
 
-**Analysis Task** (Security Audit) - File method:
+**Analysis Task** (Security Audit):
 ```bash
-# Create prompt file
-cat > /tmp/security-audit.txt << 'EOF'
+ccw cli -p "
 PURPOSE: Identify OWASP Top 10 vulnerabilities in authentication module to pass security audit; success = all critical/high issues documented with remediation
 TASK: • Scan for injection flaws (SQL, command, LDAP) • Check authentication bypass vectors • Evaluate session management • Assess sensitive data exposure
 MODE: analysis
 CONTEXT: @src/auth/**/* @src/middleware/auth.ts | Memory: Using bcrypt for passwords, JWT for sessions
 EXPECTED: Security report with: severity matrix, file:line references, CVE mappings where applicable, remediation code snippets prioritized by risk
 CONSTRAINTS: Focus on authentication | Ignore test files
-EOF
-
-# Execute
-ccw cli -f /tmp/security-audit.txt --tool gemini --mode analysis --rule analysis-assess-security-risks --cd src/auth
-```
-
-**Analysis Task** (Security Audit) - Single line method:
-```bash
-ccw cli -p "PURPOSE: Identify OWASP Top 10 vulnerabilities in auth module; success = critical issues documented | TASK: • Scan injection flaws • Check auth bypass • Evaluate session management | MODE: analysis | CONTEXT: @src/auth/**/* | Memory: bcrypt, JWT | EXPECTED: Security report with severity matrix | CONSTRAINTS: Focus on auth" --tool gemini --mode analysis --rule analysis-assess-security-risks
+" --tool gemini --mode analysis --rule analysis-assess-security-risks --cd src/auth
 ```
 
 **Implementation Task** (New Feature):
 ```bash
-# Create prompt file
-cat > /tmp/rate-limit.txt << 'EOF'
-PURPOSE: Implement rate limiting for API endpoints to prevent abuse; must be configurable per-endpoint; backward compatible with existing clients
+ccw cli -p "PURPOSE: Implement rate limiting for API endpoints to prevent abuse; must be configurable per-endpoint; backward compatible with existing clients
 TASK: • Create rate limiter middleware with sliding window • Implement per-route configuration • Add Redis backend for distributed state • Include bypass for internal services
 MODE: write
 CONTEXT: @src/middleware/**/* @src/config/**/* | Memory: Using Express.js, Redis already configured, existing middleware pattern in auth.ts
 EXPECTED: Production-ready code with: TypeScript types, unit tests, integration test, configuration example, migration guide
 CONSTRAINTS: Follow existing middleware patterns | No breaking changes
-EOF
-
-ccw cli -f /tmp/rate-limit.txt --tool gemini --mode write --rule development-implement-feature
+" --tool gemini --mode write --rule development-implement-feature
 ```
 
 **Bug Fix Task**:
 ```bash
-cat > /tmp/memory-leak.txt << 'EOF'
-PURPOSE: Fix memory leak in WebSocket connection handler causing server OOM after 24h; root cause must be identified before any fix
+ccw cli -p "PURPOSE: Fix memory leak in WebSocket connection handler causing server OOM after 24h; root cause must be identified before any fix
 TASK: • Trace connection lifecycle from open to close • Identify event listener accumulation • Check cleanup on disconnect • Verify garbage collection eligibility
 MODE: analysis
 CONTEXT: @src/websocket/**/* @src/services/connection-manager.ts | Memory: Using ws library, ~5000 concurrent connections in production
 EXPECTED: Root cause analysis with: memory profile, leak source (file:line), fix recommendation with code, verification steps
 CONSTRAINTS: Focus on resource cleanup
-EOF
-
-ccw cli -f /tmp/memory-leak.txt --tool gemini --mode analysis --rule analysis-diagnose-bug-root-cause --cd src
+" --tool gemini --mode analysis --rule analysis-diagnose-bug-root-cause --cd src
 ```
 
 **Refactoring Task**:
 ```bash
-cat > /tmp/refactor-payment.txt << 'EOF'
-PURPOSE: Refactor payment processing to use strategy pattern for multi-gateway support; no functional changes; all existing tests must pass
+ccw cli -p "PURPOSE: Refactor payment processing to use strategy pattern for multi-gateway support; no functional changes; all existing tests must pass
 TASK: • Extract gateway interface from current implementation • Create strategy classes for Stripe, PayPal • Implement factory for gateway selection • Migrate existing code to use strategies
 MODE: write
 CONTEXT: @src/payments/**/* @src/types/payment.ts | Memory: Currently only Stripe, adding PayPal next sprint, must support future gateways
 EXPECTED: Refactored code with: strategy interface, concrete implementations, factory class, updated tests, migration checklist
 CONSTRAINTS: Preserve all existing behavior | Tests must pass
-EOF
-
-ccw cli -f /tmp/refactor-payment.txt --tool gemini --mode write --rule development-refactor-codebase
+" --tool gemini --mode write --rule development-refactor-codebase
 ```
 
 **Code Review Task** (codex review mode):
