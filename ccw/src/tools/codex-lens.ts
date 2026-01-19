@@ -41,8 +41,13 @@ function isInsideNodeModules(pathToCheck: string): boolean {
 
 /**
  * Check if we're running in a development environment (not from node_modules)
+ * Also detects Yarn PnP (Plug'n'Play) which doesn't use node_modules.
  */
 function isDevEnvironment(): boolean {
+  // Yarn PnP detection: if pnp version exists, it's a managed production environment
+  if ((process.versions as any).pnp) {
+    return false;
+  }
   return !isInsideNodeModules(__dirname);
 }
 
