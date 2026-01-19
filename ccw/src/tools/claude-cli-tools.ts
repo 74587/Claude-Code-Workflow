@@ -212,11 +212,19 @@ function getProjectSettingsPath(projectDir: string): string {
 }
 
 function getGlobalConfigPath(): string {
-  return path.join(os.homedir(), '.claude', 'cli-tools.json');
+  // Support CCW_DATA_DIR for test isolation
+  const claudeHome = process.env.CCW_DATA_DIR
+    ? path.join(process.env.CCW_DATA_DIR, '.claude')
+    : path.join(os.homedir(), '.claude');
+  return path.join(claudeHome, 'cli-tools.json');
 }
 
 function getGlobalSettingsPath(): string {
-  return path.join(os.homedir(), '.claude', 'cli-settings.json');
+  // Support CCW_DATA_DIR for test isolation
+  const claudeHome = process.env.CCW_DATA_DIR
+    ? path.join(process.env.CCW_DATA_DIR, '.claude')
+    : path.join(os.homedir(), '.claude');
+  return path.join(claudeHome, 'cli-settings.json');
 }
 
 /**
@@ -391,10 +399,12 @@ export function ensureClaudeCliTools(projectDir: string, createInProject: boolea
 
   const defaultConfig: ClaudeCliToolsConfig = { ...DEFAULT_TOOLS_CONFIG };
 
-  // Always create in global directory (user-level config)
-  const globalDir = path.join(os.homedir(), '.claude');
-  if (!fs.existsSync(globalDir)) {
-    fs.mkdirSync(globalDir, { recursive: true });
+  // Always create in global directory (user-level config), respecting CCW_DATA_DIR
+  const claudeHome = process.env.CCW_DATA_DIR
+    ? path.join(process.env.CCW_DATA_DIR, '.claude')
+    : path.join(os.homedir(), '.claude');
+  if (!fs.existsSync(claudeHome)) {
+    fs.mkdirSync(claudeHome, { recursive: true });
   }
   const globalPath = getGlobalConfigPath();
   try {
@@ -471,10 +481,12 @@ export function loadClaudeCliTools(projectDir: string): ClaudeCliToolsConfig & {
 export function saveClaudeCliTools(projectDir: string, config: ClaudeCliToolsConfig & { _source?: string }): void {
   const { _source, ...configToSave } = config;
 
-  // Always save to global directory
-  const globalDir = path.join(os.homedir(), '.claude');
-  if (!fs.existsSync(globalDir)) {
-    fs.mkdirSync(globalDir, { recursive: true });
+  // Always save to global directory, respecting CCW_DATA_DIR
+  const claudeHome = process.env.CCW_DATA_DIR
+    ? path.join(process.env.CCW_DATA_DIR, '.claude')
+    : path.join(os.homedir(), '.claude');
+  if (!fs.existsSync(claudeHome)) {
+    fs.mkdirSync(claudeHome, { recursive: true });
   }
   const configPath = getGlobalConfigPath();
 
@@ -531,10 +543,12 @@ export function loadClaudeCliSettings(projectDir: string): ClaudeCliSettingsConf
 export function saveClaudeCliSettings(projectDir: string, config: ClaudeCliSettingsConfig & { _source?: string }): void {
   const { _source, ...configToSave } = config;
 
-  // Always save to global directory
-  const globalDir = path.join(os.homedir(), '.claude');
-  if (!fs.existsSync(globalDir)) {
-    fs.mkdirSync(globalDir, { recursive: true });
+  // Always save to global directory, respecting CCW_DATA_DIR
+  const claudeHome = process.env.CCW_DATA_DIR
+    ? path.join(process.env.CCW_DATA_DIR, '.claude')
+    : path.join(os.homedir(), '.claude');
+  if (!fs.existsSync(claudeHome)) {
+    fs.mkdirSync(claudeHome, { recursive: true });
   }
   const settingsPath = getGlobalSettingsPath();
 
