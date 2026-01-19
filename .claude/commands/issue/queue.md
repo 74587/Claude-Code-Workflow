@@ -65,9 +65,13 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
 --queues <n>          Number of parallel queues (default: 1)
 --issue <id>          Form queue for specific issue only
 --append <id>         Append issue to active queue (don't create new)
+--force               Skip active queue check, always create new queue
 
 # CLI subcommands (ccw issue queue ...)
 ccw issue queue list                  List all queues with status
+ccw issue queue add <issue-id>        Add issue to queue (interactive if active queue exists)
+ccw issue queue add <issue-id> -f     Add to new queue without prompt (force)
+ccw issue queue merge <src> --queue <target>  Merge source queue into target queue
 ccw issue queue switch <queue-id>     Switch active queue
 ccw issue queue archive               Archive current queue
 ccw issue queue delete <queue-id>     Delete queue from history
@@ -92,7 +96,7 @@ Phase 2-4: Agent-Driven Queue Formation (issue-queue-agent)
    │   ├─ Build dependency DAG from conflicts
    │   ├─ Calculate semantic priority per solution
    │   └─ Assign execution groups (parallel/sequential)
-   └─ Each agent writes: queue JSON + index update
+   └─ Each agent writes: queue JSON + index update (NOT active yet)
 
 Phase 5: Conflict Clarification (if needed)
    ├─ Collect `clarifications` arrays from all agents
@@ -102,7 +106,24 @@ Phase 5: Conflict Clarification (if needed)
 
 Phase 6: Status Update & Summary
    ├─ Update issue statuses to 'queued'
-   └─ Display queue summary (N queues), next step: /issue:execute
+   └─ Display new queue summary (N queues)
+
+Phase 7: Active Queue Check & Decision (REQUIRED)
+   ├─ Read queue index: ccw issue queue list --brief
+   ├─ Get generated queue ID from agent output
+   ├─ If NO active queue exists:
+   │   ├─ Set generated queue as active_queue_id
+   │   ├─ Update index.json
+   │   └─ Display: "Queue created and activated"
+   │
+   └─ If active queue exists with items:
+       ├─ Display both queues to user
+       ├─ Use AskUserQuestion to prompt:
+       │   ├─ "Use new queue (keep existing)" → Set new as active, keep old inactive
+       │   ├─ "Merge: add new items to existing" → Merge new → existing, delete new
+       │   ├─ "Merge: add existing items to new" → Merge existing → new, archive old
+       │   └─ "Cancel" → Delete new queue, keep existing active
+       └─ Execute chosen action
 ```
 
 ## Implementation
@@ -306,6 +327,41 @@ ccw issue update <issue-id> --status queued
 - Show unplanned issues (planned but NOT in queue)
 - Show next step: `/issue:execute`
 
+### Phase 7: Active Queue Check & Decision
+
+**After agent completes Phase 1-6, check for active queue:**
+
+```bash
+ccw issue queue list --brief
+```
+
+**Decision:**
+- If `active_queue_id` is null → `ccw issue queue switch <new-queue-id>` (activate new queue)
+- If active queue exists → Use **AskUserQuestion** to prompt user
+
+**AskUserQuestion:**
+```javascript
+AskUserQuestion({
+  questions: [{
+    question: "Active queue exists. How would you like to proceed?",
+    header: "Queue Action",
+    options: [
+      { label: "Merge into existing queue", description: "Add new items to active queue, delete new queue" },
+      { label: "Use new queue", description: "Switch to new queue, keep existing in history" },
+      { label: "Cancel", description: "Delete new queue, keep existing active" }
+    ],
+    multiSelect: false
+  }]
+})
+```
+
+**Action Commands:**
+
+| User Choice | Commands |
+|-------------|----------|
+| **Merge into existing** | `ccw issue queue merge <new-queue-id> --queue <active-queue-id>` then `ccw issue queue delete <new-queue-id>` |
+| **Use new queue** | `ccw issue queue switch <new-queue-id>` |
+| **Cancel** | `ccw issue queue delete <new-queue-id>` |
 
 ## Storage Structure (Queue History)
 
@@ -360,6 +416,9 @@ ccw issue update <issue-id> --status queued
 | User cancels clarification | Abort queue formation |
 | **index.json not updated** | Auto-fix: Set active_queue_id to new queue |
 | **Queue file missing solutions** | Abort with error, agent must regenerate |
+| **User cancels queue add** | Display message, return without changes |
+| **Merge with empty source** | Skip merge, display warning |
+| **All items duplicate** | Skip merge, display "All items already exist" |
 
 ## Quality Checklist
 

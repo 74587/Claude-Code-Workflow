@@ -637,22 +637,44 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
         const targetItems = targetQueue.solutions || targetQueue.tasks || [];
         const isSolutionBased = !!targetQueue.solutions;
 
-        // Re-index source items to avoid ID conflicts
-        const maxOrder = targetItems.reduce((max: number, i: any) => Math.max(max, i.execution_order || 0), 0);
-        const reindexedSourceItems = sourceItems.map((item: any, idx: number) => ({
-          ...item,
-          item_id: `${item.item_id}-merged`,
-          execution_order: maxOrder + idx + 1,
-          execution_group: item.execution_group ? `M-${item.execution_group}` : 'M-ungrouped'
-        }));
+        if (!isSolutionBased) {
+          targetQueue.solutions = [];
+        }
 
-        // Merge items
-        const mergedItems = [...targetItems, ...reindexedSourceItems];
+        // Helper to generate next item ID (S-N format)
+        const getNextItemId = (): string => {
+          const items = targetQueue.solutions || [];
+          const maxNum = items.reduce((max: number, i: any) => {
+            const match = i.item_id?.match(/^S-(\d+)$/);
+            return match ? Math.max(max, parseInt(match[1])) : max;
+          }, 0);
+          return `S-${maxNum + 1}`;
+        };
 
-        if (isSolutionBased) {
-          targetQueue.solutions = mergedItems;
-        } else {
-          targetQueue.tasks = mergedItems;
+        let itemsMerged = 0;
+        let skippedDuplicates = 0;
+
+        for (const sourceItem of sourceItems) {
+          // Skip duplicates (same issue_id + solution_id)
+          const exists = (targetQueue.solutions || []).some(
+            (t: any) => t.issue_id === sourceItem.issue_id && t.solution_id === sourceItem.solution_id
+          );
+
+          if (exists) {
+            skippedDuplicates++;
+            continue;
+          }
+
+          // Add with new item_id (S-N format)
+          const newItem = {
+            ...sourceItem,
+            item_id: getNextItemId(),
+            execution_order: (targetQueue.solutions?.length || 0) + 1
+          };
+
+          if (!targetQueue.solutions) targetQueue.solutions = [];
+          targetQueue.solutions.push(newItem);
+          itemsMerged++;
         }
 
         // Merge issue_ids
@@ -662,20 +684,26 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
         ])];
         targetQueue.issue_ids = mergedIssueIds;
 
+        // Merge conflicts
+        if (sourceQueue.conflicts && sourceQueue.conflicts.length > 0) {
+          if (!targetQueue.conflicts) targetQueue.conflicts = [];
+          targetQueue.conflicts.push(...sourceQueue.conflicts);
+        }
+
         // Update metadata
+        const mergedItems = targetQueue.solutions || [];
         const completedCount = mergedItems.filter((i: any) => i.status === 'completed').length;
         targetQueue._metadata = {
           ...targetQueue._metadata,
           updated_at: new Date().toISOString(),
-          ...(isSolutionBased
-            ? { total_solutions: mergedItems.length, completed_solutions: completedCount }
-            : { total_tasks: mergedItems.length, completed_tasks: completedCount })
+          total_solutions: mergedItems.length,
+          completed_solutions: completedCount
         };
 
         // Write merged queue
         writeFileSync(targetPath, JSON.stringify(targetQueue, null, 2));
 
-        // Update source queue status
+        // Update source queue status to 'merged'
         sourceQueue.status = 'merged';
         sourceQueue._metadata = {
           ...sourceQueue._metadata,
@@ -695,13 +723,8 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
               sourceEntry.status = 'merged';
             }
             if (targetEntry) {
-              if (isSolutionBased) {
-                targetEntry.total_solutions = mergedItems.length;
-                targetEntry.completed_solutions = completedCount;
-              } else {
-                targetEntry.total_tasks = mergedItems.length;
-                targetEntry.completed_tasks = completedCount;
-              }
+              targetEntry.total_solutions = mergedItems.length;
+              targetEntry.completed_solutions = completedCount;
               targetEntry.issue_ids = mergedIssueIds;
             }
             writeFileSync(indexPath, JSON.stringify(index, null, 2));
@@ -714,7 +737,8 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
           success: true,
           sourceQueueId,
           targetQueueId,
-          mergedItemCount: sourceItems.length,
+          mergedItemCount: itemsMerged,
+          skippedDuplicates,
           totalItems: mergedItems.length
         };
       } catch (err) {

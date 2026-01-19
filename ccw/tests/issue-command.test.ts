@@ -965,6 +965,182 @@ describe('issue command module', async () => {
 
       assert.equal(existsSync(join(env.queuesDir, `${queueId}.json`)), false);
     });
+
+    it('queue merge merges source queue into target and marks source as merged', async () => {
+      issueModule ??= await import(issueCommandUrl);
+      assert.ok(env);
+
+      const logs: string[] = [];
+      mock.method(console, 'log', (...args: any[]) => {
+        logs.push(args.map(String).join(' '));
+      });
+      mock.method(console, 'error', () => {});
+
+      // Create target queue
+      const targetId = 'QUE-TARGET-001';
+      issueModule.writeQueue({
+        id: targetId,
+        status: 'active',
+        issue_ids: ['ISS-1'],
+        tasks: [],
+        solutions: [
+          {
+            item_id: 'S-1',
+            issue_id: 'ISS-1',
+            solution_id: 'SOL-ISS-1-1',
+            status: 'pending',
+            execution_order: 1,
+            files_touched: ['src/a.ts'],
+            task_count: 1,
+          },
+        ],
+        conflicts: [],
+      });
+
+      // Create source queue
+      const sourceId = 'QUE-SOURCE-001';
+      issueModule.writeQueue({
+        id: sourceId,
+        status: 'active',
+        issue_ids: ['ISS-2'],
+        tasks: [],
+        solutions: [
+          {
+            item_id: 'S-1',
+            issue_id: 'ISS-2',
+            solution_id: 'SOL-ISS-2-1',
+            status: 'pending',
+            execution_order: 1,
+            files_touched: ['src/b.ts'],
+            task_count: 2,
+          },
+        ],
+        conflicts: [{ id: 'CFT-1', type: 'file', severity: 'low' }],
+      });
+
+      // Set target as active queue
+      const indexPath = join(env.queuesDir, 'index.json');
+      writeFileSync(indexPath, JSON.stringify({ active_queue_id: targetId, queues: [] }));
+
+      await issueModule.issueCommand('queue', ['merge', sourceId], { queue: targetId });
+
+      // Verify merge result
+      const mergedTarget = issueModule.readQueue(targetId);
+      assert.ok(mergedTarget);
+      assert.equal(mergedTarget.solutions.length, 2);
+      assert.equal(mergedTarget.solutions[0].item_id, 'S-1');
+      assert.equal(mergedTarget.solutions[1].item_id, 'S-2'); // Re-generated ID
+      assert.equal(mergedTarget.solutions[1].issue_id, 'ISS-2');
+      assert.deepEqual(mergedTarget.issue_ids, ['ISS-1', 'ISS-2']);
+      assert.equal(mergedTarget.conflicts.length, 1); // Merged conflicts
+
+      // Verify source queue is marked as merged
+      const sourceQueue = issueModule.readQueue(sourceId);
+      assert.ok(sourceQueue);
+      assert.equal(sourceQueue.status, 'merged');
+      assert.equal(sourceQueue._metadata?.merged_into, targetId);
+    });
+
+    it('queue merge skips duplicate solutions with same issue_id and solution_id', async () => {
+      issueModule ??= await import(issueCommandUrl);
+      assert.ok(env);
+
+      mock.method(console, 'log', () => {});
+      mock.method(console, 'error', () => {});
+
+      const targetId = 'QUE-TARGET-DUP';
+      const sourceId = 'QUE-SOURCE-DUP';
+
+      // Create target with a solution
+      issueModule.writeQueue({
+        id: targetId,
+        status: 'active',
+        issue_ids: ['ISS-DUP'],
+        tasks: [],
+        solutions: [
+          {
+            item_id: 'S-1',
+            issue_id: 'ISS-DUP',
+            solution_id: 'SOL-ISS-DUP-1',
+            status: 'pending',
+            execution_order: 1,
+            files_touched: ['src/dup.ts'],
+            task_count: 1,
+          },
+        ],
+        conflicts: [],
+      });
+
+      // Create source with same solution (duplicate)
+      issueModule.writeQueue({
+        id: sourceId,
+        status: 'active',
+        issue_ids: ['ISS-DUP'],
+        tasks: [],
+        solutions: [
+          {
+            item_id: 'S-1',
+            issue_id: 'ISS-DUP',
+            solution_id: 'SOL-ISS-DUP-1', // Same issue_id + solution_id
+            status: 'pending',
+            execution_order: 1,
+            files_touched: ['src/dup.ts'],
+            task_count: 1,
+          },
+        ],
+        conflicts: [],
+      });
+
+      const indexPath = join(env.queuesDir, 'index.json');
+      writeFileSync(indexPath, JSON.stringify({ active_queue_id: targetId, queues: [] }));
+
+      await issueModule.issueCommand('queue', ['merge', sourceId], { queue: targetId });
+
+      const mergedTarget = issueModule.readQueue(targetId);
+      assert.ok(mergedTarget);
+      // Should still have only 1 solution (duplicate skipped)
+      assert.equal(mergedTarget.solutions.length, 1);
+      assert.equal(mergedTarget.solutions[0].solution_id, 'SOL-ISS-DUP-1');
+    });
+
+    it('queue merge returns skipped reason when source is empty', async () => {
+      issueModule ??= await import(issueCommandUrl);
+      assert.ok(env);
+
+      const logs: string[] = [];
+      mock.method(console, 'log', (...args: any[]) => {
+        logs.push(args.map(String).join(' '));
+      });
+      mock.method(console, 'error', () => {});
+
+      const targetId = 'QUE-TARGET-EMPTY';
+      const sourceId = 'QUE-SOURCE-EMPTY';
+
+      issueModule.writeQueue({
+        id: targetId,
+        status: 'active',
+        issue_ids: [],
+        tasks: [],
+        solutions: [{ item_id: 'S-1', issue_id: 'ISS-1', solution_id: 'SOL-1', status: 'pending' }],
+        conflicts: [],
+      });
+
+      issueModule.writeQueue({
+        id: sourceId,
+        status: 'active',
+        issue_ids: [],
+        tasks: [],
+        solutions: [], // Empty source
+        conflicts: [],
+      });
+
+      const indexPath = join(env.queuesDir, 'index.json');
+      writeFileSync(indexPath, JSON.stringify({ active_queue_id: targetId, queues: [] }));
+
+      await issueModule.issueCommand('queue', ['merge', sourceId], { queue: targetId });
+
+      assert.ok(logs.some((l) => l.includes('skipped') || l.includes('empty')));
+    });
   });
 
   describe('Queue Execution', () => {

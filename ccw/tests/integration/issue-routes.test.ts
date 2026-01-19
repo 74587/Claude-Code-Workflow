@@ -292,5 +292,65 @@ describe('issue routes integration', async () => {
     assert.equal(Array.isArray(res.json.execution_groups), true);
     assert.equal(typeof res.json.grouped_items, 'object');
   });
+
+  it('POST /api/queue/merge merges source queue into target and skips duplicates', async () => {
+    const { writeFileSync, mkdirSync } = await import('fs');
+    const { join } = await import('path');
+
+    // Create queues directory
+    const queuesDir = join(projectRoot, '.workflow', 'issues', 'queues');
+    mkdirSync(queuesDir, { recursive: true });
+
+    // Create target queue
+    const targetQueue = {
+      id: 'QUE-TARGET',
+      status: 'active',
+      issue_ids: ['ISS-1'],
+      solutions: [
+        { item_id: 'S-1', issue_id: 'ISS-1', solution_id: 'SOL-1', status: 'pending' }
+      ],
+      conflicts: []
+    };
+    writeFileSync(join(queuesDir, 'QUE-TARGET.json'), JSON.stringify(targetQueue));
+
+    // Create source queue with one duplicate and one new item
+    const sourceQueue = {
+      id: 'QUE-SOURCE',
+      status: 'active',
+      issue_ids: ['ISS-1', 'ISS-2'],
+      solutions: [
+        { item_id: 'S-1', issue_id: 'ISS-1', solution_id: 'SOL-1', status: 'pending' }, // Duplicate
+        { item_id: 'S-2', issue_id: 'ISS-2', solution_id: 'SOL-2', status: 'pending' }  // New
+      ],
+      conflicts: []
+    };
+    writeFileSync(join(queuesDir, 'QUE-SOURCE.json'), JSON.stringify(sourceQueue));
+
+    // Create index
+    writeFileSync(join(queuesDir, 'index.json'), JSON.stringify({
+      active_queue_id: 'QUE-TARGET',
+      queues: [
+        { id: 'QUE-TARGET', status: 'active' },
+        { id: 'QUE-SOURCE', status: 'active' }
+      ]
+    }));
+
+    // Merge
+    const res = await requestJson(baseUrl, 'POST', '/api/queue/merge', {
+      sourceQueueId: 'QUE-SOURCE',
+      targetQueueId: 'QUE-TARGET'
+    });
+
+    assert.equal(res.status, 200);
+    assert.equal(res.json.success, true);
+    assert.equal(res.json.mergedItemCount, 1); // Only new item merged
+    assert.equal(res.json.skippedDuplicates, 1); // Duplicate skipped
+    assert.equal(res.json.totalItems, 2); // Target now has 2 items
+
+    // Verify source queue is marked as merged
+    const sourceContent = JSON.parse(readFileSync(join(queuesDir, 'QUE-SOURCE.json'), 'utf8'));
+    assert.equal(sourceContent.status, 'merged');
+    assert.equal(sourceContent._metadata.merged_into, 'QUE-TARGET');
+  });
 });
 
