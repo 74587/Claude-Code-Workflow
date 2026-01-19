@@ -239,6 +239,9 @@ async function showExecutionDetail(executionId, sourceDir) {
     return;
   }
 
+  // Escape sourceDir for use in onclick handlers
+  const sourceDirEscaped = sourceDir ? sourceDir.replace(/\\/g, '/').replace(/'/g, "\\'") : '';
+
   // Handle both old (single execution) and new (conversation) formats
   const isConversation = conversation.turns && Array.isArray(conversation.turns);
   const turnCount = isConversation ? conversation.turn_count : 1;
@@ -368,7 +371,7 @@ async function showExecutionDetail(executionId, sourceDir) {
       </div>
       ${hasNativeSession ? `
         <div class="cli-detail-native-action">
-          <button class="btn btn-sm btn-primary" onclick="showNativeSessionDetail('${executionId}')">
+          <button class="btn btn-sm btn-primary" onclick="showNativeSessionDetail('${executionId}', '${sourceDirEscaped}')">
             <i data-lucide="eye" class="w-3.5 h-3.5"></i> View Full Process Conversation
           </button>
         </div>

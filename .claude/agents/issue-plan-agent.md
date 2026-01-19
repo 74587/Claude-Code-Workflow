@@ -16,7 +16,7 @@ color: green
 - 5-phase task lifecycle (analyze → implement → test → optimize → commit)
 - Conflict-aware planning (isolate file modifications across issues)
 - Dependency DAG validation
-- Auto-bind for single solution, return for selection on multiple
+- Execute bind command for single solution, return for selection on multiple
 
 **Key Principle**: Generate tasks conforming to schema with quantified acceptance criteria.
 
@@ -111,29 +111,29 @@ Generate multiple candidate solutions when:
 - Multiple valid implementation approaches exist
 - Trade-offs between approaches (performance vs simplicity, etc.)
 
-| Condition | Solutions |
-|-----------|-----------|
-| Low complexity, single approach | 1 solution, auto-bind |
-| Medium complexity, clear path | 1-2 solutions |
-| High complexity, multiple approaches | 2-3 solutions, user selection |
+| Condition | Solutions | Binding Action |
+|-----------|-----------|----------------|
+| Low complexity, single approach | 1 solution | Execute bind |
+| Medium complexity, clear path | 1-2 solutions | Execute bind if 1, return if 2+ |
+| High complexity, multiple approaches | 2-3 solutions | Return for selection |
+
+**Binding Decision** (based SOLELY on final `solutions.length`):
+```javascript
+// After generating all solutions
+if (solutions.length === 1) {
+  exec(`ccw issue bind ${issueId} ${solutions[0].id}`);  // MUST execute
+} else {
+  return { pending_selection: solutions };  // Return for user choice
+}
+```
 
 **Solution Evaluation** (for each candidate):
 ```javascript
 {
-  analysis: {
-    risk: "low|medium|high",      // Implementation risk
-    impact: "low|medium|high",    // Scope of changes
-    complexity: "low|medium|high" // Technical complexity
-  },
-  score: 0.0-1.0  // Overall quality score (higher = recommended)
+  analysis: { risk: "low|medium|high", impact: "low|medium|high", complexity: "low|medium|high" },
+  score: 0.0-1.0  // Higher = recommended
 }
 ```
-
-**Selection Flow**:
-1. Generate all candidate solutions
-2. Evaluate and score each
-3. Single solution → auto-bind
-4. Multiple solutions → return `pending_selection` for user choice
 
 **Task Decomposition** following schema:
 ```javascript
@@ -248,8 +248,8 @@ Write({ file_path: filePath, content: newContent })
 ```
 
 **Step 2: Bind decision**
-- **Single solution** → Auto-bind: `ccw issue bind <issue-id> <solution-id>`
-- **Multiple solutions** → Return for user selection (no bind)
+- 1 solution → Execute `ccw issue bind <issue-id> <solution-id>`
+- 2+ solutions → Return `pending_selection` (no bind)
 
 ---
 
@@ -264,14 +264,7 @@ Write({ file_path: filePath, content: newContent })
 
 Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cli-templates/schemas/solution-schema.json`
 
-### 2.2 Binding
-
-| Scenario | Action |
-|----------|--------|
-| Single solution | `ccw issue bind <issue-id> <solution-id>` (auto) |
-| Multiple solutions | Register only, return for selection |
-
-### 2.3 Return Summary
+### 2.2 Return Summary
 
 ```json
 {
@@ -332,9 +325,9 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 2. Use vague criteria ("works correctly", "good performance")
 3. Create circular dependencies
 4. Generate more than 10 tasks per issue
-5. **Bind when multiple solutions exist** - MUST check `solutions.length === 1` before calling `ccw issue bind`
+5. Skip bind when `solutions.length === 1` (MUST execute bind command)
 
 **OUTPUT**:
-1. Write solutions to `.workflow/issues/solutions/{issue-id}.jsonl` (JSONL format)
-2. Single solution → `ccw issue bind <issue-id> <solution-id>`; Multiple → return only
-3. Return JSON with `bound`, `pending_selection`
+1. Write solutions to `.workflow/issues/solutions/{issue-id}.jsonl`
+2. Execute bind or return `pending_selection` based on solution count
+3. Return JSON: `{ bound: [...], pending_selection: [...] }`
