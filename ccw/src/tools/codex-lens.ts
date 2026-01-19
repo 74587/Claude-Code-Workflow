@@ -29,6 +29,71 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+/**
+ * Check if a path is inside node_modules (unstable for editable installs)
+ * Paths inside node_modules will change when npm reinstalls packages,
+ * breaking editable (-e) pip installs that reference them.
+ */
+function isInsideNodeModules(pathToCheck: string): boolean {
+  const normalizedPath = pathToCheck.replace(/\\/g, '/').toLowerCase();
+  return normalizedPath.includes('/node_modules/');
+}
+
+/**
+ * Check if we're running in a development environment (not from node_modules)
+ */
+function isDevEnvironment(): boolean {
+  return !isInsideNodeModules(__dirname);
+}
+
+/**
+ * Find valid local package path for development installs.
+ * Returns null if running from node_modules (should use PyPI instead).
+ *
+ * IMPORTANT: When running from node_modules, local paths are unstable
+ * because npm reinstall will delete and recreate the node_modules directory,
+ * breaking any editable (-e) pip installs that reference them.
+ */
+function findLocalPackagePath(packageName: string): string | null {
+  // If running from node_modules, skip local paths entirely - use PyPI
+  if (!isDevEnvironment()) {
+    console.log(`[CodexLens] Running from node_modules - will use PyPI for ${packageName}`);
+    return null;
+  }
+
+  const possiblePaths = [
+    join(process.cwd(), packageName),
+    join(__dirname, '..', '..', '..', packageName), // ccw/src/tools -> project root
+    join(homedir(), packageName),
+  ];
+
+  for (const localPath of possiblePaths) {
+    // Skip paths inside node_modules
+    if (isInsideNodeModules(localPath)) {
+      continue;
+    }
+    if (existsSync(join(localPath, 'pyproject.toml'))) {
+      return localPath;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Find valid local codex-lens package path for development installs.
+ */
+function findLocalCodexLensPath(): string | null {
+  return findLocalPackagePath('codex-lens');
+}
+
+/**
+ * Find valid local ccw-litellm package path for development installs.
+ */
+function findLocalCcwLitellmPath(): string | null {
+  return findLocalPackagePath('ccw-litellm');
+}
+
 // CodexLens configuration
 const CODEXLENS_DATA_DIR = join(homedir(), '.codexlens');
 const CODEXLENS_VENV = join(CODEXLENS_DATA_DIR, 'venv');
@@ -383,20 +448,8 @@ async function ensureLiteLLMEmbedderReady(): Promise<BootstrapResult> {
 
   console.log('[CodexLens] Installing ccw-litellm for LiteLLM embedding backend...');
 
-  // Find local ccw-litellm package path
-  const possiblePaths = [
-    join(process.cwd(), 'ccw-litellm'),
-    join(__dirname, '..', '..', '..', 'ccw-litellm'), // ccw/src/tools -> project root
-    join(homedir(), 'ccw-litellm'),
-  ];
-
-  let localPath: string | null = null;
-  for (const p of possiblePaths) {
-    if (existsSync(join(p, 'pyproject.toml'))) {
-      localPath = p;
-      break;
-    }
-  }
+  // Find local ccw-litellm package path (only in development, not from node_modules)
+  const localPath = findLocalCcwLitellmPath();
 
   // Priority: Use UV if available (faster, better dependency resolution)
   if (await isUvAvailable()) {
@@ -598,20 +651,8 @@ async function bootstrapWithUv(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResul
     }
   }
 
-  // Find local codex-lens package
-  const possiblePaths = [
-    join(process.cwd(), 'codex-lens'),
-    join(__dirname, '..', '..', '..', 'codex-lens'), // ccw/src/tools -> project root
-    join(homedir(), 'codex-lens'),
-  ];
-
-  let codexLensPath: string | null = null;
-  for (const localPath of possiblePaths) {
-    if (existsSync(join(localPath, 'pyproject.toml'))) {
-      codexLensPath = localPath;
-      break;
-    }
-  }
+  // Find local codex-lens package (only in development, not from node_modules)
+  const codexLensPath = findLocalCodexLensPath();
 
   // Determine extras based on GPU mode
   const extras = GPU_MODE_EXTRAS[gpuMode];
@@ -671,20 +712,8 @@ async function installSemanticWithUv(gpuMode: GpuMode = 'cpu'): Promise<Bootstra
   // Create UV manager
   const uv = createCodexLensUvManager();
 
-  // Find local codex-lens package
-  const possiblePaths = [
-    join(process.cwd(), 'codex-lens'),
-    join(__dirname, '..', '..', '..', 'codex-lens'),
-    join(homedir(), 'codex-lens'),
-  ];
-
-  let codexLensPath: string | null = null;
-  for (const localPath of possiblePaths) {
-    if (existsSync(join(localPath, 'pyproject.toml'))) {
-      codexLensPath = localPath;
-      break;
-    }
-  }
+  // Find local codex-lens package (only in development, not from node_modules)
+  const codexLensPath = findLocalCodexLensPath();
 
   // Determine extras based on GPU mode
   const extras = GPU_MODE_EXTRAS[gpuMode];
@@ -907,24 +936,13 @@ async function bootstrapVenv(): Promise<BootstrapResult> {
         ? join(CODEXLENS_VENV, 'Scripts', 'pip.exe')
         : join(CODEXLENS_VENV, 'bin', 'pip');
 
-    // Try multiple local paths, then fall back to PyPI
-    const possiblePaths = [
-      join(process.cwd(), 'codex-lens'),
-      join(__dirname, '..', '..', '..', 'codex-lens'), // ccw/src/tools -> project root
-      join(homedir(), 'codex-lens'),
-    ];
+    // Try local path if in development (not from node_modules), then fall back to PyPI
+    const codexLensPath = findLocalCodexLensPath();
 
-    let installed = false;
-    for (const localPath of possiblePaths) {
-      if (existsSync(join(localPath, 'pyproject.toml'))) {
-        console.log(`[CodexLens] Installing from local path: ${localPath}`);
-        execSync(`"${pipPath}" install -e "${localPath}"`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL });
-        installed = true;
-        break;
-      }
-    }
-
-    if (!installed) {
+    if (codexLensPath) {
+      console.log(`[CodexLens] Installing from local path: ${codexLensPath}`);
+      execSync(`"${pipPath}" install -e "${codexLensPath}"`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL });
+    } else {
       console.log('[CodexLens] Installing from PyPI...');
       execSync(`"${pipPath}" install codexlens`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL });
     }
