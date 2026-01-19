@@ -159,6 +159,11 @@ export class CliHistoryStore {
         stdout TEXT,
         stderr TEXT,
         truncated INTEGER DEFAULT 0,
+        cached INTEGER DEFAULT 0,
+        stdout_full TEXT,
+        stderr_full TEXT,
+        parsed_output TEXT,
+        final_output TEXT,
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
         UNIQUE(conversation_id, turn_number)
       );
@@ -325,36 +330,34 @@ export class CliHistoryStore {
 
       // Add cached output columns to turns table for non-streaming mode
       const turnsInfo = this.db.prepare('PRAGMA table_info(turns)').all() as Array<{ name: string }>;
-      const hasCached = turnsInfo.some(col => col.name === 'cached');
-      const hasStdoutFull = turnsInfo.some(col => col.name === 'stdout_full');
-      const hasStderrFull = turnsInfo.some(col => col.name === 'stderr_full');
-      const hasParsedOutput = turnsInfo.some(col => col.name === 'parsed_output');
-      const hasFinalOutput = turnsInfo.some(col => col.name === 'final_output');
+      const turnsColumns = new Set(turnsInfo.map(col => col.name));
 
-      if (!hasCached) {
-        console.log('[CLI History] Migrating database: adding cached column to turns table...');
-        this.db.exec('ALTER TABLE turns ADD COLUMN cached INTEGER DEFAULT 0;');
-        console.log('[CLI History] Migration complete: cached column added');
+      // Collect all missing columns
+      const missingTurnsColumns: string[] = [];
+      const turnsColumnDefs: Record<string, string> = {
+        'cached': 'INTEGER DEFAULT 0',
+        'stdout_full': 'TEXT',
+        'stderr_full': 'TEXT',
+        'parsed_output': 'TEXT',
+        'final_output': 'TEXT'
+      };
+
+      // Silently detect missing columns
+      for (const [col, def] of Object.entries(turnsColumnDefs)) {
+        if (!turnsColumns.has(col)) {
+          missingTurnsColumns.push(col);
+        }
       }
-      if (!hasStdoutFull) {
-        console.log('[CLI History] Migrating database: adding stdout_full column to turns table...');
-        this.db.exec('ALTER TABLE turns ADD COLUMN stdout_full TEXT;');
-        console.log('[CLI History] Migration complete: stdout_full column added');
-      }
-      if (!hasStderrFull) {
-        console.log('[CLI History] Migrating database: adding stderr_full column to turns table...');
-        this.db.exec('ALTER TABLE turns ADD COLUMN stderr_full TEXT;');
-        console.log('[CLI History] Migration complete: stderr_full column added');
-      }
-      if (!hasParsedOutput) {
-        console.log('[CLI History] Migrating database: adding parsed_output column to turns table...');
-        this.db.exec('ALTER TABLE turns ADD COLUMN parsed_output TEXT;');
-        console.log('[CLI History] Migration complete: parsed_output column added');
-      }
-      if (!hasFinalOutput) {
-        console.log('[CLI History] Migrating database: adding final_output column to turns table...');
-        this.db.exec('ALTER TABLE turns ADD COLUMN final_output TEXT;');
-        console.log('[CLI History] Migration complete: final_output column added');
+
+      // Batch migration - only output log if there are columns to migrate
+      if (missingTurnsColumns.length > 0) {
+        console.log(`[CLI History] Migrating turns table: adding ${missingTurnsColumns.length} columns (${missingTurnsColumns.join(', ')})...`);
+
+        for (const col of missingTurnsColumns) {
+          this.db.exec(`ALTER TABLE turns ADD COLUMN ${col} ${turnsColumnDefs[col]};`);
+        }
+
+        console.log('[CLI History] Migration complete: turns table updated');
       }
     } catch (err) {
       console.error('[CLI History] Migration error:', (err as Error).message);

@@ -139,8 +139,8 @@ def find_references(
 
     # Initialize infrastructure
     config = Config()
-    registry = RegistryStore(config.registry_db_path)
-    mapper = PathMapper(config.index_root)
+    registry = RegistryStore()
+    mapper = PathMapper(config.index_dir)
 
     # Create chain search engine
     engine = ChainSearchEngine(registry, mapper, config=config)

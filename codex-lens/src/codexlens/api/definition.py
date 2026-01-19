@@ -51,7 +51,7 @@ def find_definition(
 
     # Get project info from registry
     registry = RegistryStore()
-    project_info = registry.get_project_by_source(str(project_path))
+    project_info = registry.get_project(project_path)
     if project_info is None:
         raise IndexNotFoundError(f"Project not indexed: {project_path}")
 

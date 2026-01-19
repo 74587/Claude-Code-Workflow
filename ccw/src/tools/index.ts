@@ -20,6 +20,8 @@ import * as cliExecutorMod from './cli-executor.js';
 import * as smartSearchMod from './smart-search.js';
 import { executeInitWithProgress } from './smart-search.js';
 // codex_lens removed - functionality integrated into smart_search
+import * as codexLensLspMod from './codex-lens-lsp.js';
+import * as vscodeLspMod from './vscode-lsp.js';
 import * as readFileMod from './read-file.js';
 import * as coreMemoryMod from './core-memory.js';
 import * as contextCacheMod from './context-cache.js';
@@ -358,6 +360,8 @@ registerTool(toLegacyTool(sessionManagerMod));
 registerTool(toLegacyTool(cliExecutorMod));
 registerTool(toLegacyTool(smartSearchMod));
 // codex_lens removed - functionality integrated into smart_search
+registerTool(toLegacyTool(codexLensLspMod));
+registerTool(toLegacyTool(vscodeLspMod));
 registerTool(toLegacyTool(readFileMod));
 registerTool(toLegacyTool(coreMemoryMod));
 registerTool(toLegacyTool(contextCacheMod));

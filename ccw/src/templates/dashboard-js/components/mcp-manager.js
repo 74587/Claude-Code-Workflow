@@ -1426,6 +1426,34 @@ const RECOMMENDED_MCP_SERVERS = [
       const env = values.apiKey ? { EXA_API_KEY: values.apiKey } : undefined;
       return buildCrossPlatformMcpConfig('npx', ['-y', 'exa-mcp-server'], { env });
     }
+  },
+  {
+    id: 'codex-lens-tools',
+    nameKey: 'mcp.codexLens.name',
+    descKey: 'mcp.codexLens.desc',
+    icon: 'code-2',
+    category: 'code-intelligence',
+    fields: [
+      {
+        key: 'tools',
+        labelKey: 'mcp.codexLens.field.tools',
+        type: 'multi-select',
+        options: [
+          { value: 'symbol.search', label: 'Symbol Search', desc: 'Workspace symbol search' },
+          { value: 'symbol.findDefinition', label: 'Find Definition', desc: 'Go to definition' },
+          { value: 'symbol.findReferences', label: 'Find References', desc: 'Find all references' },
+          { value: 'symbol.getHoverInfo', label: 'Hover Information', desc: 'Rich symbol info' }
+        ],
+        default: ['symbol.search', 'symbol.findDefinition', 'symbol.findReferences'],
+        required: true,
+        descKey: 'mcp.codexLens.field.tools.desc'
+      }
+    ],
+    buildConfig: (values) => {
+      const tools = values.tools || [];
+      const env = { CODEXLENS_ENABLED_TOOLS: tools.join(',') };
+      return buildCrossPlatformMcpConfig('npx', ['-y', 'codex-lens-mcp'], { env });
+    }
   }
 ];
 
@@ -1503,12 +1531,30 @@ function openRecommendedMcpWizard(mcpId) {
                   ${field.required ? '<span class="text-destructive">*</span>' : ''}
                 </label>
                 ${field.descKey ? `<p class="text-xs text-muted-foreground">${escapeHtml(t(field.descKey))}</p>` : ''}
-                <input type="${field.type || 'text'}"
-                       id="wizard-field-${field.key}"
-                       class="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                       placeholder="${escapeHtml(field.placeholder || '')}"
-                       value="${escapeHtml(field.default || '')}"
-                       ${field.required ? 'required' : ''}>
+                ${field.type === 'multi-select' ? `
+                  <div id="wizard-field-${field.key}" class="space-y-2 p-2 bg-muted/30 border border-border rounded-lg max-h-48 overflow-y-auto">
+                    ${(field.options || []).map(opt => {
+                      const isChecked = (field.default || []).includes(opt.value);
+                      return `
+                        <label class="flex items-center gap-2 p-2 rounded-md hover:bg-accent cursor-pointer transition-colors">
+                          <input type="checkbox"
+                                 class="wizard-multi-select-${field.key} rounded border-border text-primary focus:ring-primary"
+                                 value="${escapeHtml(opt.value)}"
+                                 ${isChecked ? 'checked' : ''}>
+                          <span class="text-sm text-foreground">${escapeHtml(opt.label)}</span>
+                          ${opt.desc ? `<span class="text-xs text-muted-foreground ml-auto">${escapeHtml(opt.desc)}</span>` : ''}
+                        </label>
+                      `;
+                    }).join('')}
+                  </div>
+                ` : `
+                  <input type="${field.type || 'text'}"
+                         id="wizard-field-${field.key}"
+                         class="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                         placeholder="${escapeHtml(field.placeholder || '')}"
+                         value="${escapeHtml(field.default || '')}"
+                         ${field.required ? 'required' : ''}>
+                `}
               </div>
             `).join('')}
           </div>
@@ -1616,17 +1662,31 @@ async function submitRecommendedMcpWizard(mcpId) {
   let hasError = false;
 
   for (const field of mcpDef.fields) {
-    const input = document.getElementById(`wizard-field-${field.key}`);
-    const value = input ? input.value.trim() : '';
+    if (field.type === 'multi-select') {
+      // Collect all checked checkboxes for multi-select field
+      const checkboxes = document.querySelectorAll(`.wizard-multi-select-${field.key}:checked`);
+      const selectedValues = Array.from(checkboxes).map(cb => cb.value);
 
-    if (field.required && !value) {
-      showRefreshToast(`${t(field.labelKey)} is required`, 'error');
-      if (input) input.focus();
-      hasError = true;
-      break;
+      if (field.required && selectedValues.length === 0) {
+        showRefreshToast(`${t(field.labelKey)} - ${t('mcp.wizard.selectAtLeastOne')}`, 'error');
+        hasError = true;
+        break;
+      }
+
+      values[field.key] = selectedValues;
+    } else {
+      const input = document.getElementById(`wizard-field-${field.key}`);
+      const value = input ? input.value.trim() : '';
+
+      if (field.required && !value) {
+        showRefreshToast(`${t(field.labelKey)} is required`, 'error');
+        if (input) input.focus();
+        hasError = true;
+        break;
+      }
+
+      values[field.key] = value;
     }
-
-    values[field.key] = value;
   }
 
   if (hasError) return;

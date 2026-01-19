@@ -29,7 +29,7 @@ Available CLI endpoints are dynamically defined by the config file:
   ```
   Bash({ command: "ccw cli -p '...' --tool gemini", run_in_background: true })
   ```
-- **After CLI call**: Stop immediately - let CLI execute in background
+- **After CLI call**: Stop output immediately - let CLI execute in background. **DO NOT use TaskOutput polling** - wait for hook callback to receive results
 
 ### CLI Analysis Calls
 - **Wait for results**: MUST wait for CLI analysis to complete before taking any write action. Do NOT proceed with fixes while analysis is running
@@ -42,7 +42,7 @@ Available CLI endpoints are dynamically defined by the config file:
 
 | Trigger Condition | Recommended Mode | Description |
 |-------------------|------------------|-------------|
-| **Bug fix fails after 2+ attempts** | `--mode analysis --rule analysis-diagnose-bug-root-cause` | Invoke CLI for root cause analysis when self-repair attempts fail |
+| **Bug fix fails after 1+ attempts** | `--mode analysis --rule analysis-diagnose-bug-root-cause` | Invoke CLI for root cause analysis when self-repair attempts fail |
 | **Unclear task description** | `--mode analysis --rule planning-breakdown-task-steps` | Invoke CLI for task decomposition when requirements are ambiguous |
 | **Quick planning needed** | `--mode analysis --rule planning-plan-architecture-design` | Invoke CLI for architecture design on complex feature requests |
 | **Uncertain code patterns** | `--mode analysis --rule analysis-analyze-code-patterns` | Invoke CLI to analyze existing code style/patterns when uncertain |

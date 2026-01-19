@@ -53,3 +53,7 @@ class StorageError(CodexLensError):
 class SearchError(CodexLensError):
     """Raised when a search operation fails."""
 
+
+class IndexNotFoundError(CodexLensError):
+    """Raised when a project's index cannot be found."""
+

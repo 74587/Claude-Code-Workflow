@@ -956,6 +956,11 @@ const i18n = {
     'mcp.exa.desc': 'AI-powered web search with real-time crawling and content extraction',
     'mcp.exa.field.apiKey': 'EXA API Key',
     'mcp.exa.field.apiKey.desc': 'Optional - Free tier has rate limits. Get key from exa.ai for higher limits',
+    'mcp.codexLens.name': 'CodexLens Tools',
+    'mcp.codexLens.desc': 'Code intelligence tools for symbol search, navigation, and reference finding',
+    'mcp.codexLens.field.tools': 'Enabled Tools',
+    'mcp.codexLens.field.tools.desc': 'Select the code intelligence tools to enable for this MCP server',
+    'mcp.wizard.selectAtLeastOne': 'Please select at least one option',
 
     // MCP CLI Mode
     'mcp.cliMode': 'CLI Mode',
@@ -3278,6 +3283,11 @@ const i18n = {
     'mcp.exa.desc': 'AI 驱动的网络搜索，支持实时爬取和内容提取',
     'mcp.exa.field.apiKey': 'EXA API 密钥',
     'mcp.exa.field.apiKey.desc': '可选 - 免费版有速率限制，从 exa.ai 获取密钥可提高配额',
+    'mcp.codexLens.name': 'CodexLens 工具',
+    'mcp.codexLens.desc': '代码智能工具，提供符号搜索、代码导航和引用查找功能',
+    'mcp.codexLens.field.tools': '启用的工具',
+    'mcp.codexLens.field.tools.desc': '选择要启用的代码智能工具',
+    'mcp.wizard.selectAtLeastOne': '请至少选择一个选项',
 
     // MCP CLI Mode
     'mcp.cliMode': 'CLI 模式',
