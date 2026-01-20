@@ -73,6 +73,44 @@ export function getActiveExecutions(): ActiveExecution[] {
 }
 
 /**
+ * Update active execution state from hook events
+ * Called by hooks-routes when CLI events are received from terminal execution
+ */
+export function updateActiveExecution(event: {
+  type: 'started' | 'output' | 'completed';
+  executionId: string;
+  tool?: string;
+  mode?: string;
+  prompt?: string;
+  output?: string;
+  success?: boolean;
+}): void {
+  const { type, executionId, tool, mode, prompt, output, success } = event;
+
+  if (type === 'started') {
+    // Create new active execution
+    activeExecutions.set(executionId, {
+      id: executionId,
+      tool: tool || 'unknown',
+      mode: mode || 'analysis',
+      prompt: (prompt || '').substring(0, 500),
+      startTime: Date.now(),
+      output: '',
+      status: 'running'
+    });
+  } else if (type === 'output') {
+    // Append output to existing execution
+    const activeExec = activeExecutions.get(executionId);
+    if (activeExec && output) {
+      activeExec.output += output;
+    }
+  } else if (type === 'completed') {
+    // Remove from active executions
+    activeExecutions.delete(executionId);
+  }
+}
+
+/**
  * Handle CLI routes
  * @returns true if route was handled, false otherwise
  */

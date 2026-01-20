@@ -1095,9 +1095,16 @@ function getCcwPathConfig() {
 
 // Get CCW_DISABLE_SANDBOX checkbox status for Claude Code mode
 function getCcwDisableSandbox() {
-  // Check if already installed and has the setting
-  const ccwToolsConfig = projectMcpServers?.['ccw-tools'] || globalServers?.['ccw-tools'];
-  return ccwToolsConfig?.env?.CCW_DISABLE_SANDBOX === '1' || ccwToolsConfig?.env?.CCW_DISABLE_SANDBOX === 'true';
+  // Try project config first, then global config
+  const currentPath = projectPath; // projectPath is from state.js
+  const projectData = mcpAllProjects[currentPath] || {};
+  const projectCcwConfig = projectData.mcpServers?.['ccw-tools'];
+  if (projectCcwConfig?.env?.CCW_DISABLE_SANDBOX) {
+    return projectCcwConfig.env.CCW_DISABLE_SANDBOX === '1' || projectCcwConfig.env.CCW_DISABLE_SANDBOX === 'true';
+  }
+  // Fallback to global config
+  const globalCcwConfig = mcpGlobalServers?.['ccw-tools'];
+  return globalCcwConfig?.env?.CCW_DISABLE_SANDBOX === '1' || globalCcwConfig?.env?.CCW_DISABLE_SANDBOX === 'true';
 }
 
 // Get CCW_DISABLE_SANDBOX checkbox status for Codex mode
@@ -1452,6 +1459,7 @@ const RECOMMENDED_MCP_SERVERS = [
     descKey: 'mcp.codexLens.desc',
     icon: 'code-2',
     category: 'code-intelligence',
+    hidden: true, // Hide from recommended list (not ready for production)
     fields: [
       {
         key: 'tools',
@@ -1476,9 +1484,9 @@ const RECOMMENDED_MCP_SERVERS = [
   }
 ];
 
-// Get recommended MCP servers list
+// Get recommended MCP servers list (exclude hidden ones)
 function getRecommendedMcpServers() {
-  return RECOMMENDED_MCP_SERVERS;
+  return RECOMMENDED_MCP_SERVERS.filter(mcp => !mcp.hidden);
 }
 
 // Check if a recommended MCP is already installed

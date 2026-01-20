@@ -170,7 +170,13 @@ function getIssueDetail(issuesDir: string, issueId: string) {
   const issues = readIssuesJsonl(issuesDir);
   let issue = issues.find(i => i.id === issueId);
 
-  // Fallback: Reconstruct issue from solution file if issue not in issues.jsonl
+  // Fix: Check history if not found in active issues
+  if (!issue) {
+    const historyIssues = readIssueHistoryJsonl(issuesDir);
+    issue = historyIssues.find(i => i.id === issueId);
+  }
+
+  // Fallback: Reconstruct issue from solution file if issue not in issues.jsonl or history
   if (!issue) {
     const solutionPath = join(issuesDir, 'solutions', `${issueId}.jsonl`);
     if (existsSync(solutionPath)) {
@@ -948,7 +954,8 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
 
   // GET /api/issues/history - List completed issues from history
   if (pathname === '/api/issues/history' && req.method === 'GET') {
-    const history = readIssueHistoryJsonl(issuesDir);
+    // Fix: Use enrichIssues to add solution/task counts to historical issues
+    const history = enrichIssues(readIssueHistoryJsonl(issuesDir), issuesDir);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       issues: history,

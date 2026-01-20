@@ -9,8 +9,20 @@
       "extensions": ["py", "pyi"],
       "command": ["pyright-langserver", "--stdio"],
       "enabled": true,
-      "initializationOptions": {},
-      "settings": {}
+      "initializationOptions": {
+        "pythonPath": "",
+        "pythonPlatform": "",
+        "pythonVersion": "3.13"
+      },
+      "settings": {
+        "python.analysis": {
+          "typeCheckingMode": "standard",
+          "diagnosticMode": "workspace",
+          "exclude": ["**/node_modules", "**/__pycache__", "build", "dist"],
+          "include": ["src/**", "tests/**"],
+          "stubPath": "typings"
+        }
+      }
     },
     {
       "languageId": "typescript",

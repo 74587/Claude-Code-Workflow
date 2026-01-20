@@ -1053,7 +1053,38 @@ class StandaloneLspManager:
             return []
         
         return result
-    
+
+    async def get_outgoing_calls(
+        self,
+        item: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+        """Get outgoing calls for a call hierarchy item.
+
+        Args:
+            item: CallHierarchyItem from get_call_hierarchy_items
+
+        Returns:
+            List of CallHierarchyOutgoingCall dicts
+        """
+        # Determine language from item's uri
+        uri = item.get("uri", "")
+        file_path = uri.replace("file:///", "").replace("file://", "")
+
+        state = await self._get_server(file_path)
+        if not state:
+            return []
+
+        result = await self._send_request(
+            state,
+            "callHierarchy/outgoingCalls",
+            {"item": item},
+        )
+
+        if not result or not isinstance(result, list):
+            return []
+
+        return result
+
     async def __aenter__(self) -> "StandaloneLspManager":
         """Async context manager entry."""
         await self.start()

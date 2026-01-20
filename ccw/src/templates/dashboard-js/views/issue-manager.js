@@ -378,6 +378,7 @@ function renderIssueCard(issue) {
   };
 
   const isArchived = issue._isArchived;
+  const archivedDate = issue.archived_at ? new Date(issue.archived_at).toLocaleDateString() : null;
 
   return `
     <div class="issue-card ${isArchived ? 'archived' : ''}" onclick="openIssueDetail('${issue.id}'${isArchived ? ', true' : ''})">
@@ -385,7 +386,12 @@ function renderIssueCard(issue) {
         <div class="flex items-center gap-2">
           <span class="issue-id font-mono text-sm">${highlightMatch(issue.id, issueData.searchQuery)}</span>
           <span class="issue-status ${statusColors[issue.status] || ''}">${issue.status || 'unknown'}</span>
-          ${isArchived ? '<span class="issue-archived-badge">' + (t('issues.archived') || 'Archived') + '</span>' : ''}
+          ${isArchived ? `
+            <span class="issue-archived-badge" title="Archived on ${archivedDate || 'Unknown'}">
+              <i data-lucide="archive" class="w-3 h-3"></i>
+              <span>${t('issues.archived') || 'Archived'}</span>
+            </span>
+          ` : ''}
         </div>
         <span class="issue-priority" title="${t('issues.priority') || 'Priority'}: ${issue.priority || 3}">
           ${renderPriorityStars(issue.priority || 3)}
@@ -418,6 +424,13 @@ function renderIssueCard(issue) {
           </a>
         ` : ''}
       </div>
+
+      ${isArchived && archivedDate ? `
+        <div class="issue-archived-footer">
+          <i data-lucide="clock" class="w-3 h-3"></i>
+          <span>Archived on ${archivedDate}</span>
+        </div>
+      ` : ''}
     </div>
   `;
 }

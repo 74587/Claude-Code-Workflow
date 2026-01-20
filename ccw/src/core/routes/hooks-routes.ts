@@ -266,6 +266,37 @@ export async function handleHooksRoutes(ctx: HooksRouteContext): Promise<boolean
         }
       }
 
+      // Update active executions state for CLI streaming events (terminal execution)
+      if (type === 'CLI_EXECUTION_STARTED' || type === 'CLI_OUTPUT' || type === 'CLI_EXECUTION_COMPLETED') {
+        try {
+          const { updateActiveExecution } = await import('./cli-routes.js');
+
+          if (type === 'CLI_EXECUTION_STARTED') {
+            updateActiveExecution({
+              type: 'started',
+              executionId: String(extraData.executionId || ''),
+              tool: String(extraData.tool || 'unknown'),
+              mode: String(extraData.mode || 'analysis'),
+              prompt: String(extraData.prompt_preview || '')
+            });
+          } else if (type === 'CLI_OUTPUT') {
+            updateActiveExecution({
+              type: 'output',
+              executionId: String(extraData.executionId || ''),
+              output: String(extraData.data || '')
+            });
+          } else if (type === 'CLI_EXECUTION_COMPLETED') {
+            updateActiveExecution({
+              type: 'completed',
+              executionId: String(extraData.executionId || ''),
+              success: Boolean(extraData.success)
+            });
+          }
+        } catch (err) {
+          console.error('[Hooks] Failed to update active execution:', err);
+        }
+      }
+
       // Broadcast to all connected WebSocket clients
       const notification = {
         type: typeof type === 'string' && type.trim().length > 0 ? type : 'session_updated',

@@ -115,9 +115,12 @@ async function syncActiveExecutions() {
       renderStreamTabs();
       updateStreamBadge();
 
-      // If viewer is open, render content
+      // If viewer is open, render content. If not, and there's a running execution, open it.
       if (isCliStreamViewerOpen) {
         renderStreamContent(activeStreamTab);
+      } else if (executions.some(e => e.status === 'running')) {
+        // Automatically open the viewer if it's closed and we just synced a running task
+        toggleCliStreamViewer();
       }
     }
 
