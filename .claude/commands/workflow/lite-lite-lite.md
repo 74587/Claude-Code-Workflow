@@ -1,8 +1,8 @@
 ---
 name: workflow:lite-lite-lite
-description: Ultra-lightweight multi-tool analysis and direct execution. No artifacts, auto tool selection based on task analysis, user-driven iteration via AskUser.
+description: Ultra-lightweight multi-tool analysis and direct execution. No artifacts for simple tasks; auto-creates planning docs in .workflow/.scratchpad/ for complex tasks. Auto tool selection based on task analysis, user-driven iteration via AskUser.
 argument-hint: "<task description>"
-allowed-tools: TodoWrite(*), Task(*), AskUserQuestion(*), Read(*), Bash(*), mcp__ace-tool__search_context(*)
+allowed-tools: TodoWrite(*), Task(*), AskUserQuestion(*), Read(*), Bash(*), Write(*), mcp__ace-tool__search_context(*), mcp__ccw-tools__write_file(*)
 ---
 
 # Ultra-Lite Multi-Tool Workflow
@@ -14,22 +14,23 @@ allowed-tools: TodoWrite(*), Task(*), AskUserQuestion(*), Read(*), Bash(*), mcp_
 /workflow:lite-lite-lite "Refactor payment module for multi-gateway support"
 ```
 
-**Core Philosophy**: Minimal friction, maximum velocity. No files, no artifacts - just analyze and execute.
+**Core Philosophy**: Minimal friction, maximum velocity. Simple tasks = no artifacts. Complex tasks = lightweight planning doc in `.workflow/.scratchpad/`.
 
 ## Overview
 
-**Zero-artifact workflow**: Clarify → Select Tools → Multi-Mode Analysis → Decision → Direct Execution
+**Complexity-aware workflow**: Clarify → Assess Complexity → Select Tools → Multi-Mode Analysis → Decision → Direct Execution
 
-**vs multi-cli-plan**: No IMPL_PLAN.md, plan.json, synthesis.json - all state in memory.
+**vs multi-cli-plan**: No IMPL_PLAN.md, plan.json, synthesis.json - state in memory or lightweight scratchpad doc for complex tasks.
 
 ## Execution Flow
 
 ```
 Phase 1: Clarify Requirements → AskUser for missing details
+Phase 1.5: Assess Complexity → Determine if planning doc needed
 Phase 2: Select Tools (CLI → Mode → Agent) → 3-step selection
 Phase 3: Multi-Mode Analysis → Execute with --resume chaining
 Phase 4: User Decision → Execute / Refine / Change / Cancel
-Phase 5: Direct Execution → No plan files, immediate implementation
+Phase 5: Direct Execution → No plan files (simple) or scratchpad doc (complex)
 ```
 
 ## Phase 1: Clarify Requirements
@@ -56,6 +57,25 @@ mcp__ace-tool__search_context({
   project_root_path: process.cwd(),
   query: `${taskDescription} implementation patterns`
 })
+```
+
+## Phase 1.5: Assess Complexity
+
+| Level | Creates Plan Doc | Trigger Keywords |
+|-------|------------------|------------------|
+| **simple** | ❌ | (default) |
+| **moderate** | ✅ | module, system, service, integration, multiple |
+| **complex** | ✅ | refactor, migrate, security, auth, payment, database |
+
+```javascript
+// Complexity detection (after ACE query)
+const isComplex = /refactor|migrate|security|auth|payment|database/i.test(taskDescription)
+const isModerate = /module|system|service|integration|multiple/i.test(taskDescription) || aceContext?.relevant_files?.length > 2
+
+if (isComplex || isModerate) {
+  const planPath = `.workflow/.scratchpad/lite3-${taskSlug}-${dateStr}.md`
+  // Create planning doc with: Task, Status, Complexity, Analysis Summary, Execution Plan, Progress Log
+}
 ```
 
 ## Phase 2: Select Tools
@@ -308,6 +328,8 @@ function aggregateResults(mode, results) {
         critiques: parseCritiques(results.find(r => r.phase === 'challenge')?.result), riskScore: calculateRiskScore(results) }
   }
 }
+
+// If planPath exists: update Analysis Summary & Execution Plan sections
 ```
 
 ## Phase 4: User Decision
@@ -348,13 +370,14 @@ AskUserQuestion({
     multiSelect: false
   }]
 })
+// If planPath exists: record decision to Decisions Made table
 // Routing: Execute → Phase 5 | Refine → Phase 3 | Change → Phase 2 | Cancel → End
 ```
 
 ## Phase 5: Direct Execution
 
 ```javascript
-// No IMPL_PLAN.md, no plan.json - direct implementation
+// Simple tasks: No artifacts | Complex tasks: Update scratchpad doc
 const executionAgents = agents.filter(a => a.canExecute)
 const executionTool = selectedAgent.canExecute ? selectedAgent : selectedCLIs[0]
 
@@ -378,6 +401,7 @@ CONSTRAINTS: Follow existing patterns
     run_in_background: false
   })
 }
+// If planPath exists: update Status to completed/failed, append to Progress Log
 ```
 
 ## TodoWrite Structure
@@ -385,6 +409,7 @@ CONSTRAINTS: Follow existing patterns
 ```javascript
 TodoWrite({ todos: [
   { content: "Phase 1: Clarify requirements", status: "in_progress", activeForm: "Clarifying requirements" },
+  { content: "Phase 1.5: Assess complexity", status: "pending", activeForm: "Assessing complexity" },
   { content: "Phase 2: Select tools", status: "pending", activeForm: "Selecting tools" },
   { content: "Phase 3: Multi-mode analysis", status: "pending", activeForm: "Running analysis" },
   { content: "Phase 4: User decision", status: "pending", activeForm: "Awaiting decision" },
@@ -409,16 +434,19 @@ TodoWrite({ todos: [
 | Task unclear | Default to first CLI + code-developer |
 | Ambiguous task | Force clarification via AskUser |
 | Execution fails | Present error, ask user for direction |
+| Plan doc write fails | Continue without doc (degrade to zero-artifact mode) |
+| Scratchpad dir missing | Auto-create `.workflow/.scratchpad/` |
 
 ## Comparison with multi-cli-plan
 
 | Aspect | lite-lite-lite | multi-cli-plan |
 |--------|----------------|----------------|
-| **Artifacts** | None | IMPL_PLAN.md, plan.json, synthesis.json |
+| **Artifacts** | Conditional (scratchpad doc for complex tasks) | Always (IMPL_PLAN.md, plan.json, synthesis.json) |
 | **Session** | Stateless (--resume chaining) | Persistent session folder |
 | **Tool Selection** | 3-step (CLI → Mode → Agent) | Config-driven fixed tools |
 | **Analysis Modes** | 5 modes with --resume | Fixed synthesis rounds |
-| **Best For** | Quick analysis, adversarial validation | Complex multi-step implementations |
+| **Complexity** | Auto-detected (simple/moderate/complex) | Assumed complex |
+| **Best For** | Quick analysis, simple-to-moderate tasks | Complex multi-step implementations |
 
 ## Post-Completion Expansion
 

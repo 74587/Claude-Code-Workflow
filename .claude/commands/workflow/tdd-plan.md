@@ -37,6 +37,44 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 7. **Task Attachment Model**: SlashCommand execute **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
 8. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and execute next phase
 
+## TDD Compliance Requirements
+
+### The Iron Law
+
+```
+NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
+```
+
+**Enforcement Method**:
+- Phase 5: `implementation_approach` includes test-first steps (Red → Green → Refactor)
+- Green phase: Includes test-fix-cycle configuration (max 3 iterations)
+- Auto-revert: Triggered when max iterations reached without passing tests
+
+**Verification**: Phase 6 validates Red-Green-Refactor structure in all generated tasks
+
+### TDD Compliance Checkpoint
+
+| Checkpoint | Validation Phase | Evidence Required |
+|------------|------------------|-------------------|
+| Test-first structure | Phase 5 | `implementation_approach` has 3 steps |
+| Red phase exists | Phase 6 | Step 1: `tdd_phase: "red"` |
+| Green phase with test-fix | Phase 6 | Step 2: `tdd_phase: "green"` + test-fix-cycle |
+| Refactor phase exists | Phase 6 | Step 3: `tdd_phase: "refactor"` |
+
+### Core TDD Principles (from ref skills)
+
+**Red Flags - STOP and Reassess**:
+- Code written before test
+- Test passes immediately (no Red phase witnessed)
+- Cannot explain why test should fail
+- "Just this once" rationalization
+- "Tests after achieve same goals" thinking
+
+**Why Order Matters**:
+- Tests written after code pass immediately → proves nothing
+- Test-first forces edge case discovery before implementation
+- Tests-after verify what was built, not what's required
+
 ## 6-Phase Execution (with Conflict Resolution)
 
 ### Phase 1: Session Discovery
@@ -183,7 +221,7 @@ SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] 
   {"content": "Phase 3: Test Coverage Analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
   {"content": "Phase 4: Conflict Resolution", "status": "in_progress", "activeForm": "Executing conflict resolution"},
   {"content": "  → Detect conflicts with CLI analysis", "status": "in_progress", "activeForm": "Detecting conflicts"},
-  {"content": "  → Present conflicts to user", "status": "pending", "activeForm": "Presenting conflicts"},
+  {"content": "  → Log and analyze detected conflicts", "status": "pending", "activeForm": "Analyzing conflicts"},
   {"content": "  → Apply resolution strategies", "status": "pending", "activeForm": "Applying resolution strategies"},
   {"content": "Phase 5: TDD Task Generation", "status": "pending", "activeForm": "Executing TDD task generation"},
   {"content": "Phase 6: TDD Structure Validation", "status": "pending", "activeForm": "Validating TDD structure"}
@@ -251,6 +289,13 @@ SlashCommand(command="/workflow:tools:task-generate-tdd --session [sessionId]")
 - IMPL_PLAN.md contains workflow_type: "tdd" in frontmatter
 - Task count ≤10 (compliance with task limit)
 
+**Red Flag Detection** (Non-Blocking Warnings):
+- Task count >10: `⚠️ High task count may indicate insufficient decomposition`
+- Missing test-fix-cycle: `⚠️ Green phase lacks auto-revert configuration`
+- Generic task names: `⚠️ Vague task names suggest unclear TDD cycles`
+
+**Action**: Log warnings to `.workflow/active/[sessionId]/.process/tdd-warnings.log` (non-blocking)
+
 <!-- TodoWrite: When task-generate-tdd executed, INSERT 3 task-generate-tdd tasks -->
 
 **TodoWrite Update (Phase 5 SlashCommand executed - tasks attached)**:
@@ -302,6 +347,42 @@ SlashCommand(command="/workflow:tools:task-generate-tdd --session [sessionId]")
 5. Test-fix cycle: Green phase step includes test-fix-cycle logic with max_iterations
 6. Task count: Total tasks ≤10 (simple + subtasks)
 
+**Red Flag Checklist** (from TDD best practices):
+- [ ] No tasks skip Red phase (`tdd_phase: "red"` exists in step 1)
+- [ ] Test files referenced in Red phase (explicit paths, not placeholders)
+- [ ] Green phase has test-fix-cycle with `max_iterations` configured
+- [ ] Refactor phase has clear completion criteria
+
+**Non-Compliance Warning Format**:
+```
+⚠️ TDD Red Flag: [issue description]
+   Task: [IMPL-N]
+   Recommendation: [action to fix]
+```
+
+**Evidence Gathering** (Before Completion Claims):
+
+```bash
+# Verify session artifacts exist
+ls -la .workflow/active/[sessionId]/{IMPL_PLAN.md,TODO_LIST.md}
+ls -la .workflow/active/[sessionId]/.task/IMPL-*.json
+
+# Count generated artifacts
+echo "IMPL tasks: $(ls .workflow/active/[sessionId]/.task/IMPL-*.json 2>/dev/null | wc -l)"
+
+# Sample task structure verification (first task)
+jq '{id, tdd: .meta.tdd_workflow, phases: [.flow_control.implementation_approach[].tdd_phase]}' \
+  "$(ls .workflow/active/[sessionId]/.task/IMPL-*.json | head -1)"
+```
+
+**Evidence Required Before Summary**:
+| Evidence Type | Verification Method | Pass Criteria |
+|---------------|---------------------|---------------|
+| File existence | `ls -la` artifacts | All files present |
+| Task count | Count IMPL-*.json | Count matches claims |
+| TDD structure | jq sample extraction | Shows red/green/refactor |
+| Warning log | Check tdd-warnings.log | Logged (may be empty) |
+
 **Return Summary**:
 ```
 TDD Planning complete for session: [sessionId]
@@ -332,6 +413,9 @@ TDD Configuration:
 - Each task contains complete Red-Green-Refactor cycle
 - Green phase includes test-fix cycle (max 3 iterations)
 - Auto-revert on max iterations reached
+
+⚠️ ACTION REQUIRED: Before execution, ensure you understand WHY each Red phase test is expected to fail.
+   This is crucial for valid TDD - if you don't know why the test fails, you can't verify it tests the right thing.
 
 Recommended Next Steps:
 1. /workflow:action-plan-verify --session [sessionId]  # Verify TDD plan quality and dependencies
@@ -400,7 +484,7 @@ TDD Workflow Orchestrator
 │  IF conflict_risk ≥ medium:
 │  └─ /workflow:tools:conflict-resolution             ← ATTACHED (3 tasks)
 │     ├─ Phase 4.1: Detect conflicts with CLI
-│     ├─ Phase 4.2: Present conflicts to user
+│     ├─ Phase 4.2: Log and analyze detected conflicts
 │     └─ Phase 4.3: Apply resolution strategies
 │     └─ Returns: conflict-resolution.json            ← COLLAPSED
 │  ELSE:
@@ -439,6 +523,34 @@ Convert user input to TDD-structured format:
 - **Command failure**: Keep phase in_progress, report error
 - **TDD validation failure**: Report incomplete chains or wrong dependencies
 
+### TDD Warning Patterns
+
+| Pattern | Warning Message | Recommended Action |
+|---------|----------------|-------------------|
+| Task count >10 | High task count detected | Consider splitting into multiple sessions |
+| Missing test-fix-cycle | Green phase lacks auto-revert | Add `max_iterations: 3` to task config |
+| Red phase missing test path | Test file path not specified | Add explicit test file paths |
+| Generic task names | Vague names like "Add feature" | Use specific behavior descriptions |
+| No refactor criteria | Refactor phase lacks completion criteria | Define clear refactor scope |
+
+### Non-Blocking Warning Policy
+
+**All warnings are advisory** - they do not halt execution:
+1. Warnings logged to `.process/tdd-warnings.log`
+2. Summary displayed in Phase 6 output
+3. User decides whether to address before `/workflow:execute`
+
+### Error Handling Quick Reference
+
+| Error Type | Detection | Recovery Action |
+|------------|-----------|-----------------|
+| Parsing failure | Empty/malformed output | Retry once, then report |
+| Missing context-package | File read error | Re-run `/workflow:tools:context-gather` |
+| Invalid task JSON | jq parse error | Report malformed file path |
+| High task count (>10) | Count validation | Log warning, continue (non-blocking) |
+| Test-context missing | File not found | Re-run `/workflow:tools:test-context-gather` |
+| Phase timeout | No response | Retry phase, check CLI connectivity |
+
 ## Related Commands
 
 **Prerequisite Commands**:
@@ -458,3 +570,28 @@ Convert user input to TDD-structured format:
 - `/workflow:execute` - Begin TDD implementation
 - `/workflow:tdd-verify` - Post-execution: Verify TDD compliance and generate quality report
 
+## Next Steps Decision Table
+
+| Situation | Recommended Command | Purpose |
+|-----------|---------------------|---------|
+| First time planning | `/workflow:action-plan-verify` | Validate task structure before execution |
+| Warnings in tdd-warnings.log | Review log, refine tasks | Address Red Flags before proceeding |
+| High task count warning | Consider `/workflow:session:start` | Split into focused sub-sessions |
+| Ready to implement | `/workflow:execute` | Begin TDD Red-Green-Refactor cycles |
+| After implementation | `/workflow:tdd-verify` | Generate TDD compliance report |
+| Need to review tasks | `/workflow:status --session [id]` | Inspect current task breakdown |
+| Plan needs changes | `/task:replan` | Update task JSON with new requirements |
+
+### TDD Workflow State Transitions
+
+```
+/workflow:tdd-plan
+        ↓
+[Planning Complete] ──→ /workflow:action-plan-verify (recommended)
+        ↓
+[Verified/Ready] ─────→ /workflow:execute
+        ↓
+[Implementation] ─────→ /workflow:tdd-verify (post-execution)
+        ↓
+[Quality Report] ─────→ Done or iterate
+```
