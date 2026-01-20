@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "description": "Language Server configuration for codex-lens standalone LSP client",
+  "servers": [
+    {
+      "languageId": "python",
+      "displayName": "Pyright",
+      "extensions": ["py", "pyi"],
+      "command": ["pyright-langserver", "--stdio"],
+      "enabled": true,
+      "initializationOptions": {},
+      "settings": {}
+    },
+    {
+      "languageId": "typescript",
+      "displayName": "TypeScript Language Server",
+      "extensions": ["ts", "tsx"],
+      "command": ["typescript-language-server", "--stdio"],
+      "enabled": true,
+      "initializationOptions": {},
+      "settings": {}
+    },
+    {
+      "languageId": "javascript",
+      "displayName": "TypeScript Language Server (for JS)",
+      "extensions": ["js", "jsx", "mjs", "cjs"],
+      "command": ["typescript-language-server", "--stdio"],
+      "enabled": true,
+      "initializationOptions": {},
+      "settings": {}
+    },
+    {
+      "languageId": "go",
+      "displayName": "Gopls",
+      "extensions": ["go"],
+      "command": ["gopls", "serve"],
+      "enabled": true,
+      "initializationOptions": {},
+      "settings": {}
+    },
+    {
+      "languageId": "rust",
+      "displayName": "Rust Analyzer",
+      "extensions": ["rs"],
+      "command": ["rust-analyzer"],
+      "enabled": false,
+      "initializationOptions": {},
+      "settings": {}
+    },
+    {
+      "languageId": "c",
+      "displayName": "Clangd",
+      "extensions": ["c", "h"],
+      "command": ["clangd"],
+      "enabled": false,
+      "initializationOptions": {},
+      "settings": {}
+    },
+    {
+      "languageId": "cpp",
+      "displayName": "Clangd",
+      "extensions": ["cpp", "hpp", "cc", "cxx"],
+      "command": ["clangd"],
+      "enabled": false,
+      "initializationOptions": {},
+      "settings": {}
+    }
+  ],
+  "defaults": {
+    "rootDir": ".",
+    "timeout": 30000,
+    "restartInterval": 5000,
+    "maxRestarts": 3
+  }
+}

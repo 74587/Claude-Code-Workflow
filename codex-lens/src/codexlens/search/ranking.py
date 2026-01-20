@@ -17,15 +17,17 @@ from codexlens.entities import SearchResult, AdditionalLocation
 
 # Default RRF weights for SPLADE-based hybrid search
 DEFAULT_WEIGHTS = {
-    "splade": 0.4,  # Replaces exact(0.3) + fuzzy(0.1)
-    "vector": 0.6,
+    "splade": 0.35,  # Replaces exact(0.3) + fuzzy(0.1)
+    "vector": 0.5,
+    "lsp_graph": 0.15,  # Real-time LSP-based graph expansion
 }
 
 # Legacy weights for FTS fallback mode (when SPLADE unavailable)
 FTS_FALLBACK_WEIGHTS = {
-    "exact": 0.3,
+    "exact": 0.25,
     "fuzzy": 0.1,
-    "vector": 0.6,
+    "vector": 0.5,
+    "lsp_graph": 0.15,  # Real-time LSP-based graph expansion
 }
 
 

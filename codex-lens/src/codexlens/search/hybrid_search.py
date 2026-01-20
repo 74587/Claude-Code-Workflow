@@ -49,6 +49,13 @@ from codexlens.search.ranking import (
 )
 from codexlens.storage.dir_index import DirIndexStore
 
+# Optional LSP imports (for real-time graph expansion)
+try:
+    from codexlens.lsp import LspBridge, LspGraphBuilder
+    HAS_LSP = True
+except ImportError:
+    HAS_LSP = False
+
 
 # Three-way fusion weights (FTS + Vector + SPLADE)
 THREE_WAY_WEIGHTS = {
@@ -113,6 +120,9 @@ class HybridSearchEngine:
         enable_vector: bool = False,
         pure_vector: bool = False,
         enable_splade: bool = False,
+        enable_lsp_graph: bool = False,
+        lsp_max_depth: int = 1,
+        lsp_max_nodes: int = 20,
     ) -> List[SearchResult]:
         """Execute hybrid search with parallel retrieval and RRF fusion.
 
@@ -124,6 +134,9 @@ class HybridSearchEngine:
             enable_vector: Enable vector search (default False)
             pure_vector: If True, only use vector search without FTS fallback (default False)
             enable_splade: If True, force SPLADE sparse neural search (default False)
+            enable_lsp_graph: If True, enable real-time LSP graph expansion (default False)
+            lsp_max_depth: Maximum depth for LSP graph BFS expansion (default 1)
+            lsp_max_nodes: Maximum nodes to collect in LSP graph (default 20)
 
         Returns:
             List of SearchResult objects sorted by fusion score
@@ -140,6 +153,9 @@ class HybridSearchEngine:
             >>> # SPLADE sparse neural search
             >>> results = engine.search(Path("project/_index.db"), "auth flow",
             ...                         enable_splade=True, enable_vector=True)
+            >>> # With LSP graph expansion (real-time)
+            >>> results = engine.search(Path("project/_index.db"), "auth flow",
+            ...                         enable_vector=True, enable_lsp_graph=True)
             >>> for r in results[:5]:
             ...     print(f"{r.path}: {r.score:.3f}")
         """
@@ -228,9 +244,21 @@ class HybridSearchEngine:
                 if enable_vector:
                     backends["vector"] = True
 
+        # Add LSP graph expansion if requested and available
+        if enable_lsp_graph and HAS_LSP:
+            backends["lsp_graph"] = True
+        elif enable_lsp_graph and not HAS_LSP:
+            self.logger.warning(
+                "LSP graph search requested but dependencies not available. "
+                "Install: pip install aiohttp"
+            )
+
         # Execute parallel searches
         with timer("parallel_search_total", self.logger):
-            results_map = self._search_parallel(index_path, query, backends, limit, vector_category)
+            results_map = self._search_parallel(
+                index_path, query, backends, limit, vector_category,
+                lsp_max_depth, lsp_max_nodes
+            )
 
         # Provide helpful message if pure-vector mode returns no results
         if pure_vector and enable_vector and len(results_map.get("vector", [])) == 0:
@@ -427,6 +455,8 @@ class HybridSearchEngine:
         backends: Dict[str, bool],
         limit: int,
         category: Optional[str] = None,
+        lsp_max_depth: int = 1,
+        lsp_max_nodes: int = 20,
     ) -> Dict[str, List[SearchResult]]:
         """Execute parallel searches across enabled backends.
 
@@ -436,6 +466,8 @@ class HybridSearchEngine:
             backends: Dictionary of backend name to enabled flag
             limit: Results limit per backend
             category: Optional category filter for vector search ('code' or 'doc')
+            lsp_max_depth: Maximum depth for LSP graph BFS expansion (default 1)
+            lsp_max_nodes: Maximum nodes to collect in LSP graph (default 20)
 
         Returns:
             Dictionary mapping source name to results list
@@ -476,6 +508,14 @@ class HybridSearchEngine:
                     self._search_splade, index_path, query, limit
                 )
                 future_to_source[future] = "splade"
+
+            if backends.get("lsp_graph"):
+                submit_times["lsp_graph"] = time.perf_counter()
+                future = executor.submit(
+                    self._search_lsp_graph, index_path, query, limit,
+                    lsp_max_depth, lsp_max_nodes
+                )
+                future_to_source[future] = "lsp_graph"
 
             # Collect results as they complete with timeout protection
             try:
@@ -1211,7 +1251,159 @@ class HybridSearchEngine:
                 ))
             
             return results
-            
+
         except Exception as exc:
             self.logger.debug("SPLADE search error: %s", exc)
+            return []
+
+    def _search_lsp_graph(
+        self,
+        index_path: Path,
+        query: str,
+        limit: int,
+        max_depth: int = 1,
+        max_nodes: int = 20,
+    ) -> List[SearchResult]:
+        """Execute LSP-based graph expansion search.
+
+        Uses real-time LSP to expand from seed results and find related code.
+        This provides accurate, up-to-date code relationships.
+
+        Args:
+            index_path: Path to _index.db file
+            query: Natural language query string
+            limit: Maximum results
+            max_depth: Maximum depth for LSP graph BFS expansion (default 1)
+            max_nodes: Maximum nodes to collect in LSP graph (default 20)
+
+        Returns:
+            List of SearchResult from graph expansion
+        """
+        import asyncio
+
+        if not HAS_LSP:
+            self.logger.debug("LSP dependencies not available")
+            return []
+
+        try:
+            # Try multiple seed sources in priority order
+            seeds = []
+            seed_source = "none"
+
+            # 1. Try vector search first (best semantic match)
+            seeds = self._search_vector(index_path, query, limit=3, category="code")
+            if seeds:
+                seed_source = "vector"
+
+            # 2. Fallback to SPLADE if vector returns nothing
+            if not seeds:
+                self.logger.debug("Vector search returned no seeds, trying SPLADE")
+                seeds = self._search_splade(index_path, query, limit=3)
+                if seeds:
+                    seed_source = "splade"
+
+            # 3. Fallback to exact FTS if SPLADE also fails
+            if not seeds:
+                self.logger.debug("SPLADE returned no seeds, trying exact FTS")
+                seeds = self._search_exact(index_path, query, limit=3)
+                if seeds:
+                    seed_source = "exact_fts"
+
+            # 4. No seeds available from any source
+            if not seeds:
+                self.logger.debug("No seed results available for LSP graph expansion")
+                return []
+
+            self.logger.debug(
+                "LSP graph expansion using %d seeds from %s",
+                len(seeds),
+                seed_source,
+            )
+
+            # Convert SearchResult to CodeSymbolNode for LSP processing
+            from codexlens.hybrid_search.data_structures import CodeSymbolNode, Range
+
+            seed_nodes = []
+            for seed in seeds:
+                try:
+                    node = CodeSymbolNode(
+                        id=f"{seed.path}:{seed.symbol_name or 'unknown'}:{seed.start_line or 0}",
+                        name=seed.symbol_name or "unknown",
+                        kind=seed.symbol_kind or "unknown",
+                        file_path=seed.path,
+                        range=Range(
+                            start_line=seed.start_line or 1,
+                            start_character=0,
+                            end_line=seed.end_line or seed.start_line or 1,
+                            end_character=0,
+                        ),
+                        raw_code=seed.content or "",
+                        docstring=seed.excerpt or "",
+                    )
+                    seed_nodes.append(node)
+                except Exception as e:
+                    self.logger.debug("Failed to create seed node: %s", e)
+                    continue
+
+            if not seed_nodes:
+                return []
+
+            # Run async LSP expansion in sync context
+            async def expand_graph():
+                async with LspBridge() as bridge:
+                    builder = LspGraphBuilder(max_depth=max_depth, max_nodes=max_nodes)
+                    graph = await builder.build_from_seeds(seed_nodes, bridge)
+                    return graph
+
+            # Run the async code
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Already in async context - use run_coroutine_threadsafe
+                    import concurrent.futures
+                    future = asyncio.run_coroutine_threadsafe(expand_graph(), loop)
+                    graph = future.result(timeout=5.0)
+                else:
+                    graph = loop.run_until_complete(expand_graph())
+            except RuntimeError:
+                # No event loop - create new one
+                graph = asyncio.run(expand_graph())
+
+            # Convert graph nodes to SearchResult
+            # Create set of seed identifiers for fast lookup
+            seed_ids = set()
+            for seed in seeds:
+                seed_id = f"{seed.path}:{seed.symbol_name or 'unknown'}:{seed.start_line or 0}"
+                seed_ids.add(seed_id)
+
+            results = []
+            for node_id, node in graph.nodes.items():
+                # Skip seed nodes using ID comparison (already in other results)
+                if node_id in seed_ids or node.id in seed_ids:
+                    continue
+
+                # Calculate score based on graph position
+                # Nodes closer to seeds get higher scores
+                depth = 1  # Simple heuristic, could be improved
+                score = 0.8 / (1 + depth)  # Score decreases with depth
+
+                results.append(SearchResult(
+                    path=node.file_path,
+                    score=score,
+                    excerpt=node.docstring[:200] if node.docstring else node.raw_code[:200] if node.raw_code else "",
+                    content=node.raw_code,
+                    symbol=None,
+                    metadata={"lsp_node_id": node_id, "lsp_kind": node.kind},
+                    start_line=node.range.start_line,
+                    end_line=node.range.end_line,
+                    symbol_name=node.name,
+                    symbol_kind=node.kind,
+                ))
+
+            # Sort by score
+            results.sort(key=lambda r: r.score, reverse=True)
+            return results[:limit]
+
+        except Exception as exc:
+            self.logger.debug("LSP graph search error: %s", exc)
             return []

@@ -1,711 +1,540 @@
-# CodexLens Hybrid Search Architecture Design
+# Hybrid Search Architecture for CodexLens
 
-> **Version**: 1.0  
-> **Date**: 2025-12-15  
-> **Authors**: Gemini + Qwen + Claude (Collaborative Design)  
-> **Status**: Design Proposal
+> Embedding + Real-time LSP + Clustering + Reranking Pipeline
 
----
+## Overview
 
-## Executive Summary
+This document describes the architecture for a hybrid intelligent code search system that combines:
+1. **Low-dimensional embedding model** for semantic search
+2. **Real-time LSP integration** for code structure analysis
+3. **Graph-based clustering** for result organization
+4. **Multi-factor reranking** for intelligent sorting
 
-本设计方案针对 CodexLens 当前文本搜索效果差、乱码问题、无增量索引等痛点，综合借鉴 **Codanna** (Tantivy N-gram + 复合排序) 和 **Code-Index-MCP** (双重索引 + AST解析) 的设计思想，提出全新的 **Dual-FTS Hybrid Search** 架构。
+**Key Constraint**: Must use real-time LSP servers, NOT pre-indexed data.
 
-### 核心改进
-| 问题 | 现状 | 目标方案 |
-|------|------|----------|
-| 乱码 | `errors="ignore"` 丢弃字节 | chardet 编码检测 + `errors="replace"` |
-| 搜索效果差 | 单一 unicode61 分词 | Dual-FTS (精确 + Trigram 模糊) |
-| 无模糊搜索 | 仅BM25精确匹配 | 复合排序 (Exact + Fuzzy + Prefix) |
-| 重复索引 | 全量重建 | mtime 增量检测 |
-| 语义割裂 | FTS与向量独立 | RRF 混合融合 |
-
----
-
-## Part 1: Architecture Overview
-
-### 1.1 Target Architecture Diagram
+## Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         User Query: "auth login"                        │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                       Query Preprocessor (NEW)                          │
-│  • CamelCase split: UserAuth → "UserAuth" OR "User Auth"                │
-│  • snake_case split: user_auth → "user_auth" OR "user auth"             │
-│  • Encoding normalization                                                │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                    ┌───────────────┼───────────────┐
-                    ▼               ▼               ▼
-┌──────────────────────┐ ┌──────────────────────┐ ┌──────────────────────┐
-│   FTS Exact Search   │ │   FTS Fuzzy Search   │ │   Vector Search      │
-│   (files_fts_exact)  │ │   (files_fts_fuzzy)  │ │   (VectorStore)      │
-│   unicode61 + '_'    │ │   trigram tokenizer  │ │   Cosine similarity  │
-│   BM25 scoring       │ │   Substring match    │ │   0.0 - 1.0 range    │
-└──────────────────────┘ └──────────────────────┘ └──────────────────────┘
-            │                       │                       │
-            │     Results E         │     Results F         │    Results V
-            └───────────────────────┼───────────────────────┘
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    Ranking Fusion Engine (NEW)                          │
-│  • Reciprocal Rank Fusion (RRF): score = Σ 1/(k + rank_i)               │
-│  • Score normalization (BM25 unbounded → 0-1)                           │
-│  • Weighted linear fusion: w1*exact + w2*fuzzy + w3*vector              │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         Final Sorted Results                            │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         HybridSearchEngine                                   │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                     5-Stage Search Pipeline                          │   │
+│  │                                                                      │   │
+│  │  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌────┐│   │
+│  │  │ Stage 1  │──▶│ Stage 2  │──▶│ Stage 3  │──▶│ Stage 4  │──▶│ S5 ││   │
+│  │  │ Vector   │   │   LSP    │   │  Graph   │   │Clustering│   │Rank││   │
+│  │  │ Search   │   │Expansion │   │ Building │   │ +Filter  │   │    ││   │
+│  │  └──────────┘   └──────────┘   └──────────┘   └──────────┘   └────┘│   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────────┐ │
+│  │VectorSearchSvc  │  │   LspBridge     │  │      GraphBuilder           │ │
+│  │                 │  │                 │  │                             │ │
+│  │ • Embedding     │  │ • get_refs()    │  │ • build_from_seeds()        │ │
+│  │ • FAISS/HNSW    │  │ • get_def()     │  │ • add_relationships()       │ │
+│  │ • search()      │  │ • get_calls()   │  │ • CodeAssociationGraph      │ │
+│  └────────┬────────┘  └────────┬────────┘  └─────────────────────────────┘ │
+│           │                    │                                            │
+└───────────┼────────────────────┼────────────────────────────────────────────┘
+            │                    │
+            ▼                    ▼
+    ┌───────────────┐    ┌───────────────────────────────────────┐
+    │ Embedding     │    │     LanguageServerMultiplexer         │
+    │ Model (local) │    │  (from REAL_LSP_SERVER_PLAN.md)       │
+    │               │    │                                       │
+    │ sentence-     │    │  ┌─────┐ ┌─────┐ ┌─────┐ ┌──────────┐│
+    │ transformers  │    │  │pylsp│ │gopls│ │tssvr│ │rust-anlzr││
+    │               │    │  └─────┘ └─────┘ └─────┘ └──────────┘│
+    └───────────────┘    └───────────────────────────────────────┘
 ```
 
-### 1.2 Component Architecture
+## Core Components
 
-```
-codexlens/
-├── storage/
-│   ├── schema.py          # (NEW) Centralized schema definitions
-│   ├── dir_index.py       # (MODIFY) Add Dual-FTS, incremental indexing
-│   ├── sqlite_store.py    # (MODIFY) Add encoding detection
-│   └── migrations/
-│       └── migration_004_dual_fts.py  # (NEW) Schema migration
-│
-├── search/
-│   ├── hybrid_search.py   # (NEW) HybridSearchEngine
-│   ├── ranking.py         # (NEW) RRF and fusion algorithms
-│   ├── query_parser.py    # (NEW) Query preprocessing
-│   └── chain_search.py    # (MODIFY) Integrate hybrid search
-│
-├── parsers/
-│   └── encoding.py        # (NEW) Encoding detection utility
-│
-└── semantic/
-    └── vector_store.py    # (MODIFY) Integration with hybrid search
-```
+### 1. HybridSearchEngine (`hybrid_search/engine.py`)
 
----
-
-## Part 2: Detailed Component Design
-
-### 2.1 Encoding Detection Module
-
-**File**: `codexlens/parsers/encoding.py` (NEW)
+**Role**: Main orchestrator coordinating all services
 
 ```python
-"""Robust encoding detection for file content."""
-from pathlib import Path
-from typing import Tuple, Optional
-
-# Optional: chardet or charset-normalizer
-try:
-    import chardet
-    HAS_CHARDET = True
-except ImportError:
-    HAS_CHARDET = False
-
-
-def detect_encoding(content: bytes, default: str = "utf-8") -> str:
-    """Detect encoding of byte content with fallback."""
-    if HAS_CHARDET:
-        result = chardet.detect(content[:10000])  # Sample first 10KB
-        if result and result.get("confidence", 0) > 0.7:
-            return result["encoding"] or default
-    return default
-
-
-def read_file_safe(path: Path) -> Tuple[str, str]:
-    """Read file with encoding detection.
+class HybridSearchEngine:
+    def __init__(self):
+        self.vector_service: VectorSearchService
+        self.lsp_bridge: LspBridge
+        self.graph_builder: GraphBuilder
+        self.clustering_service: ClusteringService
+        self.ranking_service: RankingService
     
-    Returns:
-        Tuple of (content, detected_encoding)
-    """
-    raw_bytes = path.read_bytes()
-    encoding = detect_encoding(raw_bytes)
-    
-    try:
-        content = raw_bytes.decode(encoding, errors="replace")
-    except (UnicodeDecodeError, LookupError):
-        content = raw_bytes.decode("utf-8", errors="replace")
-        encoding = "utf-8"
-    
-    return content, encoding
+    async def search(self, query: str, top_k: int = 10) -> List[SearchResultCluster]:
+        # Stage 1: Vector search for seeds
+        seeds = await self.vector_service.search(query, top_k=top_k * 2)
+        
+        # Stage 2-3: LSP expansion + Graph building
+        graph = await self.graph_builder.build_from_seeds(seeds, self.lsp_bridge)
+        
+        # Stage 4: Clustering + Filtering
+        clusters = self.clustering_service.cluster(graph)
+        clusters = self.clustering_service.filter_noise(clusters)
+        
+        # Stage 5: Reranking
+        ranked = self.ranking_service.rerank(clusters, seeds, query)
+        
+        return ranked[:top_k]
 ```
 
-**Integration Point**: `dir_index.py:add_file()`, `index_tree.py:_build_single_dir()`
-
----
-
-### 2.2 Dual-FTS Schema Design
-
-**File**: `codexlens/storage/schema.py` (NEW)
+### 2. Data Structures (`hybrid_search/data_structures.py`)
 
 ```python
-"""Centralized database schema definitions for Dual-FTS architecture."""
-
-# Schema version for migration tracking
-SCHEMA_VERSION = 4
-
-# Standard FTS5 for exact matching (code symbols, identifiers)
-FTS_EXACT_SCHEMA = """
-CREATE VIRTUAL TABLE IF NOT EXISTS files_fts_exact USING fts5(
-    name, full_path UNINDEXED, content,
-    content='files',
-    content_rowid='id',
-    tokenize="unicode61 tokenchars '_-'"
-)
-"""
-
-# Trigram FTS5 for fuzzy/substring matching (requires SQLite 3.34+)
-FTS_FUZZY_SCHEMA = """
-CREATE VIRTUAL TABLE IF NOT EXISTS files_fts_fuzzy USING fts5(
-    name, full_path UNINDEXED, content,
-    content='files',
-    content_rowid='id',
-    tokenize="trigram"
-)
-"""
-
-# Fallback if trigram not available
-FTS_FUZZY_FALLBACK = """
-CREATE VIRTUAL TABLE IF NOT EXISTS files_fts_fuzzy USING fts5(
-    name, full_path UNINDEXED, content,
-    content='files',
-    content_rowid='id',
-    tokenize="unicode61 tokenchars '_-' separators '.'"
-)
-"""
-
-def check_trigram_support(conn) -> bool:
-    """Check if SQLite supports trigram tokenizer."""
-    try:
-        conn.execute("CREATE VIRTUAL TABLE _test_trigram USING fts5(x, tokenize='trigram')")
-        conn.execute("DROP TABLE _test_trigram")
-        return True
-    except Exception:
-        return False
-
-
-def create_dual_fts_schema(conn) -> dict:
-    """Create Dual-FTS tables with fallback.
+@dataclass
+class CodeSymbolNode:
+    """Graph node representing a code symbol"""
+    id: str                    # Unique: file_path:name:line
+    name: str                  # Symbol name
+    kind: str                  # function, class, method, variable
+    file_path: str             # Absolute file path
+    range: Range               # Start/end line and character
+    embedding: Optional[List[float]] = None
+    raw_code: str = ""
+    docstring: str = ""
     
-    Returns:
-        dict with 'exact_table', 'fuzzy_table', 'trigram_enabled' keys
-    """
-    result = {"exact_table": "files_fts_exact", "fuzzy_table": "files_fts_fuzzy"}
+@dataclass  
+class CodeAssociationGraph:
+    """Graph of code relationships"""
+    nodes: Dict[str, CodeSymbolNode]
+    edges: List[Tuple[str, str, str]]  # (from_id, to_id, relationship_type)
+    # relationship_type: 'calls', 'references', 'inherits', 'imports'
     
-    # Create exact FTS (always available)
-    conn.execute(FTS_EXACT_SCHEMA)
-    
-    # Create fuzzy FTS (with trigram if supported)
-    if check_trigram_support(conn):
-        conn.execute(FTS_FUZZY_SCHEMA)
-        result["trigram_enabled"] = True
-    else:
-        conn.execute(FTS_FUZZY_FALLBACK)
-        result["trigram_enabled"] = False
-    
-    # Create triggers for dual-table sync
-    conn.execute("""
-        CREATE TRIGGER IF NOT EXISTS files_ai_exact AFTER INSERT ON files BEGIN
-            INSERT INTO files_fts_exact(rowid, name, full_path, content) 
-            VALUES (new.id, new.name, new.full_path, new.content);
-        END
-    """)
-    conn.execute("""
-        CREATE TRIGGER IF NOT EXISTS files_ai_fuzzy AFTER INSERT ON files BEGIN
-            INSERT INTO files_fts_fuzzy(rowid, name, full_path, content) 
-            VALUES (new.id, new.name, new.full_path, new.content);
-        END
-    """)
-    # ... similar triggers for UPDATE and DELETE
-    
-    return result
-```
-
----
-
-### 2.3 Hybrid Search Engine
-
-**File**: `codexlens/search/hybrid_search.py` (NEW)
-
-```python
-"""Hybrid search engine combining FTS and semantic search with RRF fusion."""
-from dataclasses import dataclass
-from typing import List, Optional
-from concurrent.futures import ThreadPoolExecutor
-
-from codexlens.entities import SearchResult
-from codexlens.search.ranking import reciprocal_rank_fusion, normalize_scores
-
+    def to_networkx(self) -> nx.DiGraph:
+        """Convert to NetworkX for algorithms"""
+        ...
 
 @dataclass
-class HybridSearchConfig:
-    """Configuration for hybrid search."""
-    enable_exact: bool = True
-    enable_fuzzy: bool = True
-    enable_vector: bool = True
-    exact_weight: float = 0.4
-    fuzzy_weight: float = 0.3
-    vector_weight: float = 0.3
-    rrf_k: int = 60  # RRF constant
-    max_results: int = 20
+class SearchResultCluster:
+    """Clustered search result"""
+    cluster_id: str
+    score: float
+    title: str                 # AI-generated summary (optional)
+    symbols: List[CodeSymbolNode]
+    metadata: Dict[str, Any]
+```
 
+### 3. VectorSearchService (`services/vector_search.py`)
 
-class HybridSearchEngine:
-    """Multi-modal search with RRF fusion."""
+**Role**: Semantic search using embeddings
+
+```python
+class VectorSearchService:
+    def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
+        self.model = SentenceTransformer(model_name)  # 384-dim, fast
+        self.index: faiss.IndexFlatIP  # or hnswlib for larger scale
+        self.id_to_symbol: Dict[str, CodeSymbolNode]
     
-    def __init__(self, dir_index_store, vector_store=None, config: HybridSearchConfig = None):
-        self.store = dir_index_store
-        self.vector_store = vector_store
-        self.config = config or HybridSearchConfig()
+    async def index_codebase(self, symbols: List[CodeSymbolNode]):
+        """Build/update vector index from symbols"""
+        texts = [f"{s.name} {s.docstring} {s.raw_code[:500]}" for s in symbols]
+        embeddings = self.model.encode(texts, normalize_embeddings=True)
+        self.index.add(embeddings)
+        
+    async def search(self, query: str, top_k: int) -> List[CodeSymbolNode]:
+        """Find semantically similar symbols"""
+        query_vec = self.model.encode([query], normalize_embeddings=True)
+        scores, indices = self.index.search(query_vec, top_k)
+        return [self.id_to_symbol[i] for i in indices[0]]
+```
+
+**Embedding Model Selection**:
+| Model | Dimensions | Speed | Quality |
+|-------|-----------|-------|---------|
+| all-MiniLM-L6-v2 | 384 | Fast | Good |
+| all-mpnet-base-v2 | 768 | Medium | Better |
+| CodeBERT | 768 | Medium | Code-optimized |
+
+### 4. LspBridge (`services/lsp_bridge.py`)
+
+**Role**: Interface to real-time language servers via LanguageServerMultiplexer
+
+```python
+class LspBridge:
+    def __init__(self, multiplexer_url: str = "http://localhost:3458"):
+        self.multiplexer_url = multiplexer_url
+        self.cache: Dict[str, CacheEntry] = {}  # file_path -> (mtime, data)
+        self.session = aiohttp.ClientSession()
     
-    def search(self, query: str, limit: int = 20) -> List[SearchResult]:
-        """Execute hybrid search with parallel retrieval and RRF fusion."""
-        results_map = {}
-        
-        # Parallel retrieval
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            futures = {}
+    async def get_references(self, symbol: CodeSymbolNode) -> List[Location]:
+        """Get all references to a symbol (real-time LSP)"""
+        cache_key = f"refs:{symbol.id}"
+        if self._is_cached(cache_key, symbol.file_path):
+            return self.cache[cache_key].data
             
-            if self.config.enable_exact:
-                futures["exact"] = executor.submit(
-                    self._search_exact, query, limit * 2
-                )
-            if self.config.enable_fuzzy:
-                futures["fuzzy"] = executor.submit(
-                    self._search_fuzzy, query, limit * 2
-                )
-            if self.config.enable_vector and self.vector_store:
-                futures["vector"] = executor.submit(
-                    self._search_vector, query, limit * 2
-                )
-            
-            for name, future in futures.items():
-                try:
-                    results_map[name] = future.result(timeout=10)
-                except Exception:
-                    results_map[name] = []
+        response = await self._lsp_request("textDocument/references", {
+            "textDocument": {"uri": f"file://{symbol.file_path}"},
+            "position": {"line": symbol.range.start.line, 
+                        "character": symbol.range.start.character},
+            "context": {"includeDeclaration": True}
+        })
         
-        # Apply RRF fusion
-        fused = reciprocal_rank_fusion(
-            results_map,
-            weights={
-                "exact": self.config.exact_weight,
-                "fuzzy": self.config.fuzzy_weight,
-                "vector": self.config.vector_weight,
-            },
-            k=self.config.rrf_k
+        locations = self._parse_locations(response)
+        self._cache(cache_key, symbol.file_path, locations)
+        return locations
+    
+    async def get_call_hierarchy(self, symbol: CodeSymbolNode) -> List[CallHierarchyItem]:
+        """Get incoming/outgoing calls (if supported by language server)"""
+        try:
+            # Prepare call hierarchy
+            items = await self._lsp_request("textDocument/prepareCallHierarchy", {...})
+            if not items:
+                # Fallback to references if callHierarchy not supported
+                return await self._fallback_to_references(symbol)
+            
+            # Get incoming calls
+            incoming = await self._lsp_request("callHierarchy/incomingCalls", 
+                                               {"item": items[0]})
+            return incoming
+        except LspCapabilityNotSupported:
+            return await self._fallback_to_references(symbol)
+    
+    async def get_definition(self, symbol: CodeSymbolNode) -> Optional[Location]:
+        """Get symbol definition location"""
+        ...
+    
+    async def get_hover(self, symbol: CodeSymbolNode) -> Optional[str]:
+        """Get hover documentation"""
+        ...
+```
+
+**Caching Strategy**:
+- Cache key: `{operation}:{symbol_id}`
+- Invalidation: Check file modification time
+- TTL: 5 minutes for frequently accessed files
+
+**Concurrency Control**:
+- Max concurrent LSP requests: 10
+- Request timeout: 2 seconds
+- Batch requests where possible
+
+### 5. GraphBuilder (`graph/builder.py`)
+
+**Role**: Build code association graph from seeds using LSP
+
+```python
+class GraphBuilder:
+    def __init__(self, max_depth: int = 2, max_nodes: int = 100):
+        self.max_depth = max_depth
+        self.max_nodes = max_nodes
+    
+    async def build_from_seeds(
+        self, 
+        seeds: List[CodeSymbolNode],
+        lsp_bridge: LspBridge
+    ) -> CodeAssociationGraph:
+        """Build association graph by expanding from seed nodes"""
+        graph = CodeAssociationGraph()
+        visited: Set[str] = set()
+        queue: List[Tuple[CodeSymbolNode, int]] = [(s, 0) for s in seeds]
+        
+        # Parallel expansion with semaphore
+        sem = asyncio.Semaphore(10)
+        
+        async def expand_node(node: CodeSymbolNode, depth: int):
+            if node.id in visited or depth > self.max_depth:
+                return
+            if len(graph.nodes) >= self.max_nodes:
+                return
+                
+            visited.add(node.id)
+            graph.add_node(node)
+            
+            async with sem:
+                # Get relationships in parallel
+                refs, calls = await asyncio.gather(
+                    lsp_bridge.get_references(node),
+                    lsp_bridge.get_call_hierarchy(node),
+                    return_exceptions=True
+                )
+                
+                # Add edges
+                for ref in refs:
+                    ref_node = await self._location_to_node(ref, lsp_bridge)
+                    graph.add_edge(node.id, ref_node.id, "references")
+                    queue.append((ref_node, depth + 1))
+                    
+                for call in calls:
+                    call_node = await self._call_to_node(call, lsp_bridge)
+                    graph.add_edge(call_node.id, node.id, "calls")
+                    queue.append((call_node, depth + 1))
+        
+        # BFS expansion
+        while queue and len(graph.nodes) < self.max_nodes:
+            batch = queue[:10]
+            queue = queue[10:]
+            await asyncio.gather(*[expand_node(n, d) for n, d in batch])
+        
+        return graph
+```
+
+### 6. ClusteringService (`clustering/algorithms.py`)
+
+**Role**: Group related code symbols and filter noise
+
+```python
+class ClusteringService:
+    def __init__(self, resolution: float = 1.0):
+        self.resolution = resolution  # Higher = smaller clusters
+    
+    def cluster(self, graph: CodeAssociationGraph) -> List[SearchResultCluster]:
+        """Apply Louvain community detection"""
+        nx_graph = graph.to_networkx()
+        
+        # Louvain algorithm
+        communities = community_louvain.best_partition(
+            nx_graph, 
+            resolution=self.resolution
         )
         
-        return fused[:limit]
-    
-    def _search_exact(self, query: str, limit: int) -> List[SearchResult]:
-        """Exact FTS search with BM25."""
-        return self.store.search_fts_exact(query, limit)
-    
-    def _search_fuzzy(self, query: str, limit: int) -> List[SearchResult]:
-        """Fuzzy FTS search with trigram."""
-        return self.store.search_fts_fuzzy(query, limit)
-    
-    def _search_vector(self, query: str, limit: int) -> List[SearchResult]:
-        """Semantic vector search."""
-        if not self.vector_store:
-            return []
-        return self.vector_store.search_similar(query, limit)
-```
-
----
-
-### 2.4 RRF Ranking Fusion
-
-**File**: `codexlens/search/ranking.py` (NEW)
-
-```python
-"""Ranking fusion algorithms for hybrid search."""
-from typing import Dict, List
-from collections import defaultdict
-
-from codexlens.entities import SearchResult
-
-
-def reciprocal_rank_fusion(
-    results_map: Dict[str, List[SearchResult]],
-    weights: Dict[str, float] = None,
-    k: int = 60
-) -> List[SearchResult]:
-    """Reciprocal Rank Fusion (RRF) algorithm.
-    
-    Formula: score(d) = Σ weight_i / (k + rank_i(d))
-    
-    Args:
-        results_map: Dict mapping source name to ranked results
-        weights: Optional weights per source (default equal)
-        k: RRF constant (default 60)
-    
-    Returns:
-        Fused and re-ranked results
-    """
-    if weights is None:
-        weights = {name: 1.0 for name in results_map}
-    
-    # Normalize weights
-    total_weight = sum(weights.values())
-    weights = {k: v / total_weight for k, v in weights.items()}
-    
-    # Calculate RRF scores
-    rrf_scores = defaultdict(float)
-    path_to_result = {}
-    
-    for source_name, results in results_map.items():
-        weight = weights.get(source_name, 1.0)
-        for rank, result in enumerate(results, start=1):
-            rrf_scores[result.path] += weight / (k + rank)
-            if result.path not in path_to_result:
-                path_to_result[result.path] = result
-    
-    # Sort by RRF score
-    sorted_paths = sorted(rrf_scores.keys(), key=lambda p: rrf_scores[p], reverse=True)
-    
-    # Build final results with updated scores
-    fused_results = []
-    for path in sorted_paths:
-        result = path_to_result[path]
-        fused_results.append(SearchResult(
-            path=result.path,
-            score=rrf_scores[path],
-            excerpt=result.excerpt,
-        ))
-    
-    return fused_results
-
-
-def normalize_bm25_score(score: float, max_score: float = 100.0) -> float:
-    """Normalize BM25 score to 0-1 range.
-    
-    BM25 scores are unbounded and typically negative in SQLite FTS5.
-    This normalizes them for fusion with other score types.
-    """
-    if score >= 0:
-        return 0.0
-    # BM25 in SQLite is negative; more negative = better match
-    return min(1.0, abs(score) / max_score)
-```
-
----
-
-### 2.5 Incremental Indexing
-
-**File**: `codexlens/storage/dir_index.py` (MODIFY)
-
-```python
-# Add to DirIndexStore class:
-
-def needs_reindex(self, path: Path) -> bool:
-    """Check if file needs re-indexing based on mtime.
-    
-    Returns:
-        True if file should be reindexed, False to skip
-    """
-    with self._lock:
-        conn = self._get_connection()
-        row = conn.execute(
-            "SELECT mtime FROM files WHERE full_path = ?",
-            (str(path.resolve()),)
-        ).fetchone()
+        # Group nodes by community
+        clusters: Dict[int, List[CodeSymbolNode]] = defaultdict(list)
+        for node_id, community_id in communities.items():
+            clusters[community_id].append(graph.nodes[node_id])
         
-        if row is None:
-            return True  # New file
-        
-        stored_mtime = row["mtime"]
-        if stored_mtime is None:
-            return True
-        
-        try:
-            current_mtime = path.stat().st_mtime
-            # Allow 1ms tolerance for floating point comparison
-            return abs(current_mtime - stored_mtime) > 0.001
-        except OSError:
-            return False  # File doesn't exist anymore
-
-
-def add_file_incremental(
-    self,
-    file_path: Path,
-    content: str,
-    indexed_file: IndexedFile,
-) -> Optional[int]:
-    """Add file to index only if changed.
+        return [
+            SearchResultCluster(
+                cluster_id=f"cluster_{cid}",
+                symbols=nodes,
+                score=0.0,  # Will be set by RankingService
+                title="",
+                metadata={"size": len(nodes)}
+            )
+            for cid, nodes in clusters.items()
+        ]
     
-    Returns:
-        file_id if indexed, None if skipped
-    """
-    if not self.needs_reindex(file_path):
-        # Return existing file_id without re-indexing
-        with self._lock:
-            conn = self._get_connection()
-            row = conn.execute(
-                "SELECT id FROM files WHERE full_path = ?",
-                (str(file_path.resolve()),)
-            ).fetchone()
-            return int(row["id"]) if row else None
+    def filter_noise(self, clusters: List[SearchResultCluster]) -> List[SearchResultCluster]:
+        """Remove noisy clusters and symbols"""
+        filtered = []
+        for cluster in clusters:
+            # Filter high-degree generic nodes
+            cluster.symbols = [
+                s for s in cluster.symbols 
+                if not self._is_generic_symbol(s)
+            ]
+            
+            # Keep clusters with minimum size
+            if len(cluster.symbols) >= 2:
+                filtered.append(cluster)
+        
+        return filtered
     
-    # Proceed with full indexing
-    return self.add_file(file_path, content, indexed_file)
+    def _is_generic_symbol(self, symbol: CodeSymbolNode) -> bool:
+        """Check if symbol is too generic (log, print, etc.)"""
+        generic_names = {'log', 'print', 'debug', 'error', 'warn', 
+                        'get', 'set', 'init', '__init__', 'toString'}
+        return symbol.name.lower() in generic_names
 ```
 
----
+### 7. RankingService (`ranking/service.py`)
 
-### 2.6 Query Preprocessor
-
-**File**: `codexlens/search/query_parser.py` (NEW)
+**Role**: Multi-factor intelligent reranking
 
 ```python
-"""Query preprocessing for improved search recall."""
-import re
-from typing import List
+@dataclass
+class RankingWeights:
+    text_relevance: float = 0.4    # w1
+    graph_centrality: float = 0.35  # w2
+    structural_proximity: float = 0.25  # w3
 
-
-def split_camel_case(text: str) -> List[str]:
-    """Split CamelCase into words: UserAuth -> ['User', 'Auth']"""
-    return re.findall(r'[A-Z]?[a-z]+|[A-Z]+(?=[A-Z]|$)', text)
-
-
-def split_snake_case(text: str) -> List[str]:
-    """Split snake_case into words: user_auth -> ['user', 'auth']"""
-    return text.split('_')
-
-
-def preprocess_query(query: str) -> str:
-    """Preprocess query for better recall.
+class RankingService:
+    def __init__(self, weights: RankingWeights = None):
+        self.weights = weights or RankingWeights()
     
-    Transforms:
-    - UserAuth -> "UserAuth" OR "User Auth"
-    - user_auth -> "user_auth" OR "user auth"
-    """
-    terms = []
-    
-    for word in query.split():
-        # Handle CamelCase
-        if re.match(r'^[A-Z][a-z]+[A-Z]', word):
-            parts = split_camel_case(word)
-            terms.append(f'"{word}"')  # Original
-            terms.append(f'"{" ".join(parts)}"')  # Split
+    def rerank(
+        self,
+        clusters: List[SearchResultCluster],
+        seeds: List[CodeSymbolNode],
+        query: str
+    ) -> List[SearchResultCluster]:
+        """Rerank clusters using multi-factor scoring"""
+        seed_ids = {s.id for s in seeds}
         
-        # Handle snake_case
-        elif '_' in word:
-            parts = split_snake_case(word)
-            terms.append(f'"{word}"')  # Original
-            terms.append(f'"{" ".join(parts)}"')  # Split
+        for cluster in clusters:
+            # Build cluster subgraph for centrality
+            subgraph = self._build_subgraph(cluster)
+            pagerank = nx.pagerank(subgraph)
+            
+            for symbol in cluster.symbols:
+                # Factor 1: Text relevance (from vector search)
+                text_score = self._compute_text_relevance(symbol, query)
+                
+                # Factor 2: Graph centrality (PageRank in cluster)
+                centrality_score = pagerank.get(symbol.id, 0.0)
+                
+                # Factor 3: Structural proximity to seeds
+                proximity_score = self._compute_proximity(symbol, seed_ids, subgraph)
+                
+                # Combined score
+                symbol.score = (
+                    self.weights.text_relevance * text_score +
+                    self.weights.graph_centrality * centrality_score +
+                    self.weights.structural_proximity * proximity_score
+                )
+            
+            # Cluster score = max symbol score
+            cluster.score = max(s.score for s in cluster.symbols)
+            cluster.symbols.sort(key=lambda s: s.score, reverse=True)
         
-        else:
-            terms.append(word)
+        # Sort clusters by score
+        clusters.sort(key=lambda c: c.score, reverse=True)
+        return clusters
     
-    # Combine with OR for recall
-    return " OR ".join(terms) if len(terms) > 1 else terms[0]
+    def _compute_proximity(
+        self, 
+        symbol: CodeSymbolNode, 
+        seed_ids: Set[str],
+        graph: nx.DiGraph
+    ) -> float:
+        """Compute proximity score based on shortest path to seeds"""
+        if symbol.id in seed_ids:
+            return 1.0
+        
+        min_distance = float('inf')
+        for seed_id in seed_ids:
+            try:
+                distance = nx.shortest_path_length(graph, seed_id, symbol.id)
+                min_distance = min(min_distance, distance)
+            except nx.NetworkXNoPath:
+                continue
+        
+        if min_distance == float('inf'):
+            return 0.0
+        
+        # Inverse distance scoring (closer = higher)
+        return 1.0 / (1.0 + min_distance)
 ```
 
----
+## API Design
 
-## Part 3: Database Schema Changes
+### Endpoint: `POST /api/v1/hybrid-search`
 
-### 3.1 New Tables
-
-```sql
--- Exact FTS table (code-friendly tokenizer)
-CREATE VIRTUAL TABLE files_fts_exact USING fts5(
-    name, full_path UNINDEXED, content,
-    content='files',
-    content_rowid='id',
-    tokenize="unicode61 tokenchars '_-'"
-);
-
--- Fuzzy FTS table (trigram for substring matching)
-CREATE VIRTUAL TABLE files_fts_fuzzy USING fts5(
-    name, full_path UNINDEXED, content,
-    content='files',
-    content_rowid='id',
-    tokenize="trigram"
-);
-
--- File hash for robust change detection (optional enhancement)
-ALTER TABLE files ADD COLUMN content_hash TEXT;
-CREATE INDEX idx_files_hash ON files(content_hash);
+**Request**:
+```json
+{
+  "query": "user authentication flow",
+  "top_k": 10,
+  "config_overrides": {
+    "ranking_weights": {"w1": 0.5, "w2": 0.3, "w3": 0.2},
+    "max_graph_depth": 2,
+    "clustering_resolution": 1.0
+  }
+}
 ```
 
-### 3.2 Migration Script
-
-**File**: `codexlens/storage/migrations/migration_004_dual_fts.py` (NEW)
-
-```python
-"""Migration 004: Dual-FTS architecture."""
-
-def upgrade(db_conn):
-    """Upgrade to Dual-FTS schema."""
-    cursor = db_conn.cursor()
-    
-    # Check current schema
-    tables = cursor.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'files_fts%'"
-    ).fetchall()
-    existing = {t[0] for t in tables}
-    
-    # Drop legacy single FTS table
-    if "files_fts" in existing and "files_fts_exact" not in existing:
-        cursor.execute("DROP TABLE IF EXISTS files_fts")
-    
-    # Create new Dual-FTS tables
-    from codexlens.storage.schema import create_dual_fts_schema
-    result = create_dual_fts_schema(db_conn)
-    
-    # Rebuild indexes from existing content
-    cursor.execute("""
-        INSERT INTO files_fts_exact(rowid, name, full_path, content)
-        SELECT id, name, full_path, content FROM files
-    """)
-    cursor.execute("""
-        INSERT INTO files_fts_fuzzy(rowid, name, full_path, content)
-        SELECT id, name, full_path, content FROM files
-    """)
-    
-    db_conn.commit()
-    return result
+**Response**:
+```json
+{
+  "query_id": "hs-20250120-001",
+  "execution_time_ms": 1250,
+  "results": [
+    {
+      "cluster_id": "cluster_0",
+      "score": 0.92,
+      "title": "User Authentication Handler",
+      "symbols": [
+        {
+          "id": "src/auth/handler.py:authenticate:45",
+          "name": "authenticate",
+          "kind": "function",
+          "file_path": "src/auth/handler.py",
+          "range": {"start": {"line": 45, "char": 0}, "end": {"line": 78, "char": 0}},
+          "score": 0.95,
+          "raw_code": "async def authenticate(request: Request):\n    ..."
+        },
+        {
+          "id": "src/auth/handler.py:validate_token:80",
+          "name": "validate_token",
+          "kind": "function",
+          "file_path": "src/auth/handler.py",
+          "score": 0.88,
+          "raw_code": "def validate_token(token: str) -> bool:\n    ..."
+        }
+      ]
+    }
+  ]
+}
 ```
 
----
+## Implementation Priorities
 
-## Part 4: API Contracts
+### P0 - Core Infrastructure (Week 1-2)
+1. **HybridSearchEngine skeleton** - Basic orchestration without all features
+2. **LspBridge with caching** - Connect to LanguageServerMultiplexer
+3. **GraphBuilder basic** - Seed expansion with references only
+4. **Integration test** - Verify LSP communication works
 
-### 4.1 Search API
+### P1 - Search Pipeline (Week 2-3)
+1. **VectorSearchService** - Embedding model + FAISS index
+2. **ClusteringService** - Louvain algorithm + noise filtering
+3. **End-to-end pipeline** - Query to clustered results
 
-```python
-# New unified search interface
-class SearchOptions:
-    query: str
-    limit: int = 20
-    offset: int = 0
-    enable_exact: bool = True      # FTS exact matching
-    enable_fuzzy: bool = True      # Trigram fuzzy matching  
-    enable_vector: bool = False    # Semantic vector search
-    exact_weight: float = 0.4
-    fuzzy_weight: float = 0.3
-    vector_weight: float = 0.3
+### P2 - Ranking & API (Week 3-4)
+1. **RankingService** - Multi-factor scoring
+2. **API endpoint** - FastAPI integration
+3. **Performance optimization** - Caching, parallelization, timeouts
+4. **Configuration system** - Dynamic weight adjustment
 
-# API endpoint signature
-def search(options: SearchOptions) -> SearchResponse:
-    """Unified hybrid search."""
-    pass
+## Performance Targets
 
-class SearchResponse:
-    results: List[SearchResult]
-    total: int
-    search_modes: List[str]  # ["exact", "fuzzy", "vector"]
-    trigram_available: bool
+| Metric | Target | Strategy |
+|--------|--------|----------|
+| End-to-end latency | < 2s | Parallel LSP calls, aggressive caching |
+| Vector search | < 100ms | FAISS with GPU (optional) |
+| LSP expansion | < 1s | Max 10 concurrent requests, 2s timeout |
+| Clustering | < 200ms | Limit graph size to 100 nodes |
+| Reranking | < 100ms | Pre-computed embeddings |
+
+## Dependencies
+
+### External
+- LanguageServerMultiplexer (from REAL_LSP_SERVER_PLAN.md)
+- Language servers: pylsp, tsserver, gopls, rust-analyzer
+
+### Python Libraries
+- `sentence-transformers` - Embedding models
+- `faiss-cpu` or `hnswlib` - Vector indexing
+- `networkx` - Graph algorithms
+- `python-louvain` - Community detection
+- `aiohttp` - Async HTTP client
+
+## File Structure
+
+```
+src/codexlens/
+├── hybrid_search/
+│   ├── __init__.py
+│   ├── engine.py           # HybridSearchEngine
+│   ├── pipeline.py         # Pipeline stage definitions
+│   └── data_structures.py  # CodeSymbolNode, Graph, Cluster
+├── services/
+│   ├── vector_search.py    # VectorSearchService
+│   └── lsp_bridge.py       # LspBridge
+├── graph/
+│   └── builder.py          # GraphBuilder
+├── clustering/
+│   └── algorithms.py       # ClusteringService
+├── ranking/
+│   └── service.py          # RankingService
+├── api/
+│   └── endpoints.py        # API routes
+└── configs/
+    └── hybrid_search_config.py
 ```
 
-### 4.2 Indexing API
+## Risk Mitigation
 
-```python
-# Enhanced indexing with incremental support
-class IndexOptions:
-    path: Path
-    incremental: bool = True     # Skip unchanged files
-    force: bool = False          # Force reindex all
-    detect_encoding: bool = True # Auto-detect file encoding
-
-def index_directory(options: IndexOptions) -> IndexResult:
-    """Index directory with incremental support."""
-    pass
-
-class IndexResult:
-    total_files: int
-    indexed_files: int
-    skipped_files: int  # Unchanged files skipped
-    encoding_errors: int
-```
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| LSP timeout | High | Fallback to vector-only results |
+| LSP not available | High | Graceful degradation to CodexLens index |
+| Large codebases | Medium | Limit graph expansion, pagination |
+| Language server crash | Medium | Auto-restart, circuit breaker |
+| Clustering quality | Low | Tunable resolution parameter |
 
 ---
 
-## Part 5: Implementation Roadmap
-
-### Phase 1: Foundation (Week 1)
-- [ ] Implement encoding detection module
-- [ ] Update file reading in `dir_index.py` and `index_tree.py`
-- [ ] Add chardet/charset-normalizer dependency
-- [ ] Write unit tests for encoding detection
-
-### Phase 2: Dual-FTS (Week 2)
-- [ ] Create `schema.py` with Dual-FTS definitions
-- [ ] Implement trigram compatibility check
-- [ ] Write migration script
-- [ ] Update `DirIndexStore` with dual search methods
-- [ ] Test FTS5 trigram on target platforms
-
-### Phase 3: Hybrid Search (Week 3)
-- [ ] Implement `HybridSearchEngine`
-- [ ] Implement `ranking.py` with RRF
-- [ ] Create `query_parser.py`
-- [ ] Integrate with `ChainSearchEngine`
-- [ ] Write integration tests
-
-### Phase 4: Incremental Indexing (Week 4)
-- [ ] Add `needs_reindex()` method
-- [ ] Implement `add_file_incremental()`
-- [ ] Update `IndexTreeBuilder` to use incremental API
-- [ ] Add optional content hash column
-- [ ] Performance benchmarking
-
-### Phase 5: Vector Integration (Week 5)
-- [ ] Update `VectorStore` for hybrid integration
-- [ ] Implement vector search in `HybridSearchEngine`
-- [ ] Tune RRF weights for optimal results
-- [ ] End-to-end testing
-
----
-
-## Part 6: Performance Considerations
-
-### 6.1 Indexing Performance
-- **Incremental indexing**: Skip ~90% of files on re-index
-- **Parallel file processing**: ThreadPoolExecutor for parsing
-- **Batch commits**: Commit every 100 files to reduce I/O
-
-### 6.2 Search Performance
-- **Parallel retrieval**: Execute FTS + Vector searches concurrently
-- **Early termination**: Stop after finding enough high-confidence matches
-- **Result caching**: LRU cache for frequent queries
-
-### 6.3 Storage Overhead
-- **Dual-FTS**: ~2x FTS index size (exact + fuzzy)
-- **Trigram**: ~3-5x content size (due to trigram expansion)
-- **Mitigation**: Optional fuzzy index, configurable per project
-
----
-
-## Part 7: Risk Assessment
-
-| Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|------------|
-| SQLite trigram not available | Medium | High | Fallback to extended unicode61 |
-| Performance degradation | Low | Medium | Parallel search, caching |
-| Migration data loss | Low | High | Backup before migration |
-| Encoding detection false positives | Medium | Low | Use replace mode, log warnings |
-
----
-
-## Appendix: Reference Project Learnings
-
-### From Codanna (Rust)
-- **N-gram tokenizer (3-10)**: Enables partial matching for code symbols
-- **Compound BooleanQuery**: Combines exact + fuzzy + prefix in single query
-- **File hash change detection**: More robust than mtime alone
-
-### From Code-Index-MCP (Python)
-- **Dual-index architecture**: Fast shallow index + rich deep index
-- **External tool integration**: Wrap ripgrep for performance
-- **AST-based parsing**: Single-pass symbol extraction
-- **ReDoS protection**: Validate regex patterns before execution
+*Generated from Gemini analysis (Session: 1768836775699-gemini)*
+*Date: 2025-01-20*
