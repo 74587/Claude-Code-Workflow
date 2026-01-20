@@ -12,7 +12,14 @@ Usage:
 import subprocess
 import time
 import json
+import re
+import os
 from pathlib import Path
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI color codes from text."""
+    ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
+    return ansi_escape.sub('', text)
 
 def run_search(query: str, method: str, limit: int = 20) -> tuple[list, float]:
     """Run search via CLI and measure time."""
@@ -31,19 +38,25 @@ def run_search(query: str, method: str, limit: int = 20) -> tuple[list, float]:
         cwd=str(Path("D:/Claude_dms3/codex-lens/src")),
         capture_output=True,
         text=True,
+        env={**os.environ, "NO_COLOR": "1"},  # Try to disable colors
     )
     elapsed = time.perf_counter() - start
 
     if result.returncode != 0:
         print(f"Error running {method} search:")
-        print(result.stderr)
+        print(result.stderr[:200])
         return [], elapsed
 
     try:
-        data = json.loads(result.stdout)
+        # Strip ANSI codes and parse JSON
+        clean_output = strip_ansi(result.stdout)
+        data = json.loads(clean_output)
+        # Results are nested in "result" object
+        if "result" in data and "results" in data["result"]:
+            return data["result"]["results"], elapsed
         return data.get("results", []), elapsed
-    except json.JSONDecodeError:
-        print(f"Failed to parse JSON output for {method}")
+    except json.JSONDecodeError as e:
+        print(f"Failed to parse JSON output for {method}: {e}")
         return [], elapsed
 
 

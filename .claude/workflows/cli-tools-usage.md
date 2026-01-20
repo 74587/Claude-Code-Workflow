@@ -5,7 +5,7 @@
 2. [Tool Selection](#tool-selection)
 3. [Prompt Template](#prompt-template)
 4. [CLI Execution](#cli-execution)
-5. [Execution Configuration](#execution-configuration)
+5. [Auto-Invoke Triggers](#auto-invoke-triggers)
 6. [Best Practices](#best-practices)
 
 ---
@@ -459,6 +459,41 @@ ccw cli --tool codex --mode review --commit abc123
 - `write`: Create/Modify/Delete files, full operations - requires explicit `--mode write`
 - `review`: Git-aware code review (codex only), read-only output - requires explicit `--mode review`
 - **Exception**: User provides clear instructions like "modify", "create", "implement"
+
+---
+
+## Auto-Invoke Triggers
+
+**Proactive CLI invocation** - Auto-invoke `ccw cli` when encountering these scenarios:
+
+| Trigger Condition | Suggested Rule | When to Use |
+|-------------------|----------------|-------------|
+| **Self-repair fails** | `analysis-diagnose-bug-root-cause` | After 1+ failed fix attempts |
+| **Ambiguous requirements** | `planning-breakdown-task-steps` | Task description lacks clarity |
+| **Architecture decisions** | `planning-plan-architecture-design` | Complex feature needs design |
+| **Pattern uncertainty** | `analysis-analyze-code-patterns` | Unsure of existing conventions |
+| **Critical code paths** | `analysis-assess-security-risks` | Security/performance sensitive |
+
+### Execution Principles
+
+- **Default mode**: `--mode analysis` (read-only, safe for auto-execution)
+- **No confirmation needed**: Invoke proactively when triggers match
+- **Wait for results**: Complete analysis before next action
+- **Tool selection**: Use context-appropriate tool or fallback chain (`gemini` → `qwen` → `codex`)
+- **Rule flexibility**: Suggested rules are guidelines, not requirements - choose the most appropriate template for the situation
+
+### Example: Bug Fix with Auto-Invoke
+
+```bash
+# After 1+ failed fix attempts, auto-invoke root cause analysis
+ccw cli -p "PURPOSE: Identify root cause of [bug description]; success = actionable fix strategy
+TASK: • Trace execution flow • Identify failure point • Analyze state at failure • Determine fix approach
+MODE: analysis
+CONTEXT: @src/module/**/* | Memory: Previous fix attempts failed at [location]
+EXPECTED: Root cause analysis with: failure mechanism, stack trace interpretation, fix recommendation with code
+CONSTRAINTS: Focus on [specific area]
+" --tool gemini --mode analysis --rule analysis-diagnose-bug-root-cause
+```
 
 ---
 

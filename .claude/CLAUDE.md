@@ -37,21 +37,9 @@ Available CLI endpoints are dynamically defined by the config file:
   - Aggregate multiple analysis results before proposing solutions
 
 ### CLI Auto-Invoke Triggers
-
-**Proactive CLI invocation scenarios** - Auto-invoke `ccw cli` for external analysis in these cases:
-
-| Trigger Condition | Recommended Mode | Description |
-|-------------------|------------------|-------------|
-| **Bug fix fails after 1+ attempts** | `--mode analysis --rule analysis-diagnose-bug-root-cause` | Invoke CLI for root cause analysis when self-repair attempts fail |
-| **Unclear task description** | `--mode analysis --rule planning-breakdown-task-steps` | Invoke CLI for task decomposition when requirements are ambiguous |
-| **Quick planning needed** | `--mode analysis --rule planning-plan-architecture-design` | Invoke CLI for architecture design on complex feature requests |
-| **Uncertain code patterns** | `--mode analysis --rule analysis-analyze-code-patterns` | Invoke CLI to analyze existing code style/patterns when uncertain |
-| **Security/performance critical paths** | `--mode analysis --rule analysis-assess-security-risks` | Proactively request review for security or performance-sensitive code |
-
-**Execution principles**:
-- When trigger conditions are met, invoke CLI **without user confirmation**
-- Wait for results before determining next steps
-- Tool fallback chain: `gemini` → `qwen` → `codex`
+- **Reference**: See `cli-tools-usage.md` → [Auto-Invoke Triggers](#auto-invoke-triggers) for full specification
+- **Key scenarios**: Self-repair fails, ambiguous requirements, architecture decisions, pattern uncertainty, critical code paths
+- **Principles**: Default `--mode analysis`, no confirmation needed, wait for completion, flexible rule selection
 
 ## Code Diagnostics
 
