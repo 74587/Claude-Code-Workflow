@@ -34,11 +34,56 @@ async function syncActiveExecutions() {
     const { executions } = await response.json();
     if (!executions || executions.length === 0) return;
 
-    executions.forEach(exec => {
-      // Skip if already tracked (avoid overwriting live data)
-      if (cliStreamExecutions[exec.id]) return;
+    let needsUiUpdate = false;
 
-      // Rebuild execution state
+    executions.forEach(exec => {
+      const existing = cliStreamExecutions[exec.id];
+
+      // Parse historical output from server
+      const historicalLines = [];
+      if (exec.output) {
+        const lines = exec.output.split('\n');
+        const startIndex = Math.max(0, lines.length - MAX_OUTPUT_LINES + 1);
+        lines.slice(startIndex).forEach(line => {
+          if (line.trim()) {
+            historicalLines.push({
+              type: 'stdout',
+              content: line,
+              timestamp: exec.startTime || Date.now()
+            });
+          }
+        });
+      }
+
+      if (existing) {
+        // Already tracked by WebSocket events - merge historical output
+        // Only prepend historical lines that are not already in the output
+        // (WebSocket events only add NEW output, so historical output should come before)
+        const existingContentSet = new Set(existing.output.map(o => o.content));
+        const missingLines = historicalLines.filter(h => !existingContentSet.has(h.content));
+
+        if (missingLines.length > 0) {
+          // Find the system start message index (skip it when prepending)
+          const systemMsgIndex = existing.output.findIndex(o => o.type === 'system');
+          const insertIndex = systemMsgIndex >= 0 ? systemMsgIndex + 1 : 0;
+
+          // Prepend missing historical lines after system message
+          existing.output.splice(insertIndex, 0, ...missingLines);
+
+          // Trim if too long
+          if (existing.output.length > MAX_OUTPUT_LINES) {
+            existing.output = existing.output.slice(-MAX_OUTPUT_LINES);
+          }
+
+          needsUiUpdate = true;
+          console.log(`[CLI Stream] Merged ${missingLines.length} historical lines for ${exec.id}`);
+        }
+        return;
+      }
+
+      needsUiUpdate = true;
+
+      // New execution - rebuild full state
       cliStreamExecutions[exec.id] = {
         tool: exec.tool || 'cli',
         mode: exec.mode || 'analysis',
@@ -55,24 +100,12 @@ async function syncActiveExecutions() {
         timestamp: exec.startTime
       });
 
-      // Fill historical output (limit to last MAX_OUTPUT_LINES)
-      if (exec.output) {
-        const lines = exec.output.split('\n');
-        const startIndex = Math.max(0, lines.length - MAX_OUTPUT_LINES + 1);
-        lines.slice(startIndex).forEach(line => {
-          if (line.trim()) {
-            cliStreamExecutions[exec.id].output.push({
-              type: 'stdout',
-              content: line,
-              timestamp: Date.now()
-            });
-          }
-        });
-      }
+      // Add historical output
+      cliStreamExecutions[exec.id].output.push(...historicalLines);
     });
 
-    // Update UI if we recovered any executions
-    if (executions.length > 0) {
+    // Update UI if we recovered or merged any executions
+    if (needsUiUpdate) {
       // Set active tab to first running execution
       const runningExec = executions.find(e => e.status === 'running');
       if (runningExec && !activeStreamTab) {

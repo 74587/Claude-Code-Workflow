@@ -42,10 +42,10 @@ class ServerConfig:
     max_restarts: int = 3
 
 
-@dataclass  
+@dataclass
 class ServerState:
     """State of a running language server."""
-    
+
     config: ServerConfig
     process: asyncio.subprocess.Process
     reader: asyncio.StreamReader
@@ -55,6 +55,8 @@ class ServerState:
     capabilities: Dict[str, Any] = field(default_factory=dict)
     pending_requests: Dict[int, asyncio.Future] = field(default_factory=dict)
     restart_count: int = 0
+    # Queue for producer-consumer pattern - continuous reading puts messages here
+    message_queue: asyncio.Queue = field(default_factory=asyncio.Queue)
 
 
 class StandaloneLspManager:
@@ -253,20 +255,24 @@ class StandaloneLspManager:
             
             self._servers[language_id] = state
 
-            # Start reading responses in background
-            self._read_tasks[language_id] = asyncio.create_task(
-                self._read_responses(language_id)
-            )
-
             # Start reading stderr in background (prevents pipe buffer from filling up)
             if process.stderr:
                 self._stderr_tasks[language_id] = asyncio.create_task(
                     self._read_stderr(language_id, process.stderr)
                 )
 
-            # Initialize the server
+            # CRITICAL: Start the continuous reader task IMMEDIATELY before any communication
+            # This ensures no messages are lost during initialization handshake
+            self._read_tasks[language_id] = asyncio.create_task(
+                self._continuous_reader(language_id)
+            )
+
+            # Start the message processor task to handle queued messages
+            asyncio.create_task(self._process_messages(language_id))
+
+            # Initialize the server - now uses queue for reading responses
             await self._initialize_server(state)
-            
+
             logger.info(f"{config.display_name} started and initialized")
             return state
             
@@ -353,49 +359,25 @@ class StandaloneLspManager:
             return await self._start_server(language_id)
     
     async def _initialize_server(self, state: ServerState) -> None:
-        """Send initialize request to language server."""
+        """Send initialize request and wait for response via the message queue.
+
+        The continuous reader and message processor are already running, so we just
+        send the request and wait for the response via pending_requests.
+        """
         root_uri = self.workspace_root.as_uri()
-        
+
+        # Simplified params matching direct test that works
         params = {
-            "processId": os.getpid(),
+            "processId": None,  # Use None like direct test
             "rootUri": root_uri,
             "rootPath": str(self.workspace_root),
             "capabilities": {
                 "textDocument": {
-                    "synchronization": {
-                        "dynamicRegistration": False,
-                        "willSave": False,
-                        "willSaveWaitUntil": False,
-                        "didSave": True,
-                    },
-                    "completion": {
-                        "dynamicRegistration": False,
-                        "completionItem": {
-                            "snippetSupport": False,
-                            "documentationFormat": ["plaintext", "markdown"],
-                        },
-                    },
-                    "hover": {
-                        "dynamicRegistration": False,
-                        "contentFormat": ["plaintext", "markdown"],
-                    },
-                    "definition": {
-                        "dynamicRegistration": False,
-                        "linkSupport": False,
-                    },
-                    "references": {
-                        "dynamicRegistration": False,
-                    },
                     "documentSymbol": {
-                        "dynamicRegistration": False,
                         "hierarchicalDocumentSymbolSupport": True,
-                    },
-                    "callHierarchy": {
-                        "dynamicRegistration": False,
                     },
                 },
                 "workspace": {
-                    "workspaceFolders": True,
                     "configuration": True,
                 },
             },
@@ -405,17 +387,49 @@ class StandaloneLspManager:
                     "name": self.workspace_root.name,
                 }
             ],
-            "initializationOptions": state.config.initialization_options,
         }
-        
-        result = await self._send_request(state, "initialize", params)
 
-        if result:
-            state.capabilities = result.get("capabilities", {})
-            state.initialized = True
+        # Send initialize request and wait for response via queue
+        state.request_id += 1
+        init_request_id = state.request_id
 
-            # Send initialized notification
-            await self._send_notification(state, "initialized", {})
+        # Create future for the response
+        future: asyncio.Future = asyncio.get_event_loop().create_future()
+        state.pending_requests[init_request_id] = future
+
+        # Send the request
+        init_message = {
+            "jsonrpc": "2.0",
+            "id": init_request_id,
+            "method": "initialize",
+            "params": params,
+        }
+        encoded = self._encode_message(init_message)
+        logger.debug(f"Sending initialize request id={init_request_id}")
+        state.writer.write(encoded)
+        await state.writer.drain()
+
+        # Wait for response (will be routed by _process_messages)
+        try:
+            init_result = await asyncio.wait_for(future, timeout=30.0)
+        except asyncio.TimeoutError:
+            state.pending_requests.pop(init_request_id, None)
+            raise RuntimeError("Initialize request timed out")
+
+        if init_result is None:
+            init_result = {}
+
+        # Store capabilities
+        state.capabilities = init_result.get("capabilities", {})
+        state.initialized = True
+        logger.debug(f"Initialize response received, capabilities: {len(state.capabilities)} keys")
+
+        # Send initialized notification
+        await self._send_notification(state, "initialized", {})
+
+        # Give time for server to process initialized and send any requests
+        # The message processor will handle workspace/configuration automatically
+        await asyncio.sleep(0.5)
     
     def _encode_message(self, content: Dict[str, Any]) -> bytes:
         """Encode a JSON-RPC message with LSP headers."""
@@ -465,63 +479,121 @@ class StandaloneLspManager:
         except Exception as e:
             logger.error(f"Error reading message: {e}")
             return None, True
-    
-    async def _read_responses(self, language_id: str) -> None:
-        """Background task to read responses from a language server."""
+
+    async def _continuous_reader(self, language_id: str) -> None:
+        """Continuously read messages from language server and put them in the queue.
+
+        This is the PRODUCER in the producer-consumer pattern. It starts IMMEDIATELY
+        after subprocess creation and runs continuously until shutdown. This ensures
+        no messages are ever lost, even during initialization handshake.
+        """
         state = self._servers.get(language_id)
         if not state:
             return
 
+        logger.debug(f"Continuous reader started for {language_id}")
+
         try:
             while True:
-                # Yield to allow other tasks to run
-                await asyncio.sleep(0)
+                try:
+                    # Read headers with timeout
+                    content_length = 0
+                    while True:
+                        try:
+                            line = await asyncio.wait_for(state.reader.readline(), timeout=5.0)
+                        except asyncio.TimeoutError:
+                            continue  # Keep waiting for data
 
-                message, stream_closed = await self._read_message(state.reader)
+                        if not line:
+                            logger.debug(f"Continuous reader for {language_id}: EOF")
+                            return
 
-                if stream_closed:
-                    logger.debug(f"Read loop for {language_id}: stream closed")
-                    break
+                        line_str = line.decode("ascii").strip()
+                        if not line_str:
+                            break  # End of headers
 
-                if message is None:
-                    # Just a timeout, continue waiting
-                    logger.debug(f"Read loop for {language_id}: timeout, continuing...")
-                    continue
+                        if line_str.lower().startswith("content-length:"):
+                            content_length = int(line_str.split(":")[1].strip())
 
-                # Log all incoming messages for debugging
-                msg_id = message.get("id", "none")
-                msg_method = message.get("method", "none")
-                logger.debug(f"Received message: id={msg_id}, method={msg_method}")
+                    if content_length == 0:
+                        continue
 
-                # Handle response (has id but no method)
-                if "id" in message and "method" not in message:
-                    request_id = message["id"]
-                    logger.debug(f"Received response id={request_id}, pending={list(state.pending_requests.keys())}")
-                    if request_id in state.pending_requests:
-                        future = state.pending_requests.pop(request_id)
+                    # Read body
+                    body = await state.reader.readexactly(content_length)
+                    message = json.loads(body.decode("utf-8"))
+
+                    # Put message in queue for processing
+                    await state.message_queue.put(message)
+
+                    msg_id = message.get("id", "none")
+                    msg_method = message.get("method", "none")
+                    logger.debug(f"Queued message: id={msg_id}, method={msg_method}")
+
+                except asyncio.IncompleteReadError:
+                    logger.debug(f"Continuous reader for {language_id}: IncompleteReadError")
+                    return
+                except Exception as e:
+                    logger.error(f"Error in continuous reader for {language_id}: {e}")
+                    await asyncio.sleep(0.1)
+
+        except asyncio.CancelledError:
+            logger.debug(f"Continuous reader cancelled for {language_id}")
+        except Exception as e:
+            logger.error(f"Fatal error in continuous reader for {language_id}: {e}")
+
+    async def _process_messages(self, language_id: str) -> None:
+        """Process messages from the queue and route them appropriately.
+
+        This is the CONSUMER in the producer-consumer pattern. It handles:
+        - Server requests (workspace/configuration, etc.) - responds immediately
+        - Notifications (window/logMessage, etc.) - logs them
+        - Responses to our requests are NOT handled here - they're consumed by _wait_for_response
+        """
+        state = self._servers.get(language_id)
+        if not state:
+            return
+
+        logger.debug(f"Message processor started for {language_id}")
+
+        try:
+            while True:
+                # Get message from queue (blocks until available)
+                message = await state.message_queue.get()
+
+                msg_id = message.get("id")
+                method = message.get("method", "")
+
+                # Response (has id but no method) - put back for _wait_for_response to consume
+                if msg_id is not None and not method:
+                    # This is a response to one of our requests
+                    if msg_id in state.pending_requests:
+                        future = state.pending_requests.pop(msg_id)
                         if "error" in message:
                             future.set_exception(
                                 Exception(message["error"].get("message", "Unknown error"))
                             )
                         else:
                             future.set_result(message.get("result"))
+                        logger.debug(f"Response routed to pending request id={msg_id}")
                     else:
-                        logger.debug(f"No pending request for id={request_id}")
+                        logger.debug(f"No pending request for response id={msg_id}")
 
-                # Handle server request (has both id and method) - needs response
-                elif "id" in message and "method" in message:
-                    logger.info(f"Server request received: {message.get('method')} with id={message.get('id')}")
+                # Server request (has both id and method) - needs response
+                elif msg_id is not None and method:
+                    logger.info(f"Server request: {method} (id={msg_id})")
                     await self._handle_server_request(state, message)
 
-                # Handle notification from server (has method but no id)
-                elif "method" in message:
+                # Notification (has method but no id)
+                elif method:
                     self._handle_server_message(language_id, message)
-                    
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            logger.error(f"Error in read loop for {language_id}: {e}")
 
+                state.message_queue.task_done()
+
+        except asyncio.CancelledError:
+            logger.debug(f"Message processor cancelled for {language_id}")
+        except Exception as e:
+            logger.error(f"Error in message processor for {language_id}: {e}")
+    
     async def _read_stderr(self, language_id: str, stderr: asyncio.StreamReader) -> None:
         """Background task to read stderr from a language server.
 
@@ -732,9 +804,9 @@ class StandaloneLspManager:
             }
         })
 
-        # Give the language server time to process the file and send any requests
-        # The read loop running in background will handle workspace/configuration requests
-        await asyncio.sleep(2.0)
+        # Give the language server a brief moment to process the file
+        # The message queue handles any server requests automatically
+        await asyncio.sleep(0.5)
     
     # ========== Public LSP Methods ==========
     

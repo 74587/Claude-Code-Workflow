@@ -119,6 +119,7 @@ export class CliHistoryStore {
     this.db = new Database(this.dbPath);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('synchronous = NORMAL');
+    this.db.pragma('busy_timeout = 5000');  // Wait up to 5 seconds for locks
 
     this.initSchema();
     this.migrateFromJson(historyDir);
@@ -366,6 +367,41 @@ export class CliHistoryStore {
   }
 
   /**
+   * Execute a database operation with retry logic for SQLITE_BUSY errors
+   * @param operation - Function to execute
+   * @param maxRetries - Maximum retry attempts (default: 3)
+   * @param baseDelay - Base delay in ms for exponential backoff (default: 100)
+   */
+  private withRetry<T>(operation: () => T, maxRetries = 3, baseDelay = 100): T {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return operation();
+      } catch (err) {
+        const error = err as Error;
+        // Check if it's a SQLITE_BUSY error
+        if (error.message?.includes('SQLITE_BUSY') || error.message?.includes('database is locked')) {
+          lastError = error;
+          if (attempt < maxRetries) {
+            // Exponential backoff: 100ms, 200ms, 400ms
+            const delay = baseDelay * Math.pow(2, attempt);
+            // Sync sleep using Atomics (works in Node.js)
+            const sharedBuffer = new SharedArrayBuffer(4);
+            const sharedArray = new Int32Array(sharedBuffer);
+            Atomics.wait(sharedArray, 0, 0, delay);
+          }
+        } else {
+          // Non-BUSY error, throw immediately
+          throw error;
+        }
+      }
+    }
+
+    throw lastError || new Error('Operation failed after retries');
+  }
+
+  /**
    * Migrate existing JSON files to SQLite
    */
   private migrateFromJson(historyDir: string): void {
@@ -522,7 +558,7 @@ export class CliHistoryStore {
       }
     });
 
-    transaction();
+    this.withRetry(() => transaction());
   }
 
   /**
@@ -795,7 +831,9 @@ export class CliHistoryStore {
    */
   deleteConversation(id: string): { success: boolean; error?: string } {
     try {
-      const result = this.db.prepare('DELETE FROM conversations WHERE id = ?').run(id);
+      const result = this.withRetry(() =>
+        this.db.prepare('DELETE FROM conversations WHERE id = ?').run(id)
+      );
       return { success: result.changes > 0 };
     } catch (err) {
       return { success: false, error: (err as Error).message };
@@ -821,7 +859,7 @@ export class CliHistoryStore {
       }
     });
 
-    transaction();
+    this.withRetry(() => transaction());
 
     return {
       success: true,
@@ -896,14 +934,14 @@ export class CliHistoryStore {
         project_hash = @project_hash
     `);
 
-    stmt.run({
+    this.withRetry(() => stmt.run({
       ccw_id: mapping.ccw_id,
       tool: mapping.tool,
       native_session_id: mapping.native_session_id,
       native_session_path: mapping.native_session_path || null,
       project_hash: mapping.project_hash || null,
       created_at: mapping.created_at || new Date().toISOString()
-    });
+    }));
   }
 
   /**
@@ -1147,7 +1185,7 @@ export class CliHistoryStore {
       VALUES (@id, @created_at, @tool, @prompt_count, @patterns, @suggestions, @raw_output, @execution_id, @lang)
     `);
 
-    stmt.run({
+    this.withRetry(() => stmt.run({
       id: insight.id,
       created_at: new Date().toISOString(),
       tool: insight.tool,
@@ -1157,7 +1195,7 @@ export class CliHistoryStore {
       raw_output: insight.rawOutput || null,
       execution_id: insight.executionId || null,
       lang: insight.lang || 'en'
-    });
+    }));
   }
 
   /**
@@ -1249,7 +1287,7 @@ export class CliHistoryStore {
         updated_at = @updated_at
     `);
 
-    const result = stmt.run({
+    const result = this.withRetry(() => stmt.run({
       execution_id: review.execution_id,
       status: review.status,
       rating: review.rating ?? null,
@@ -1257,7 +1295,7 @@ export class CliHistoryStore {
       reviewer: review.reviewer ?? null,
       created_at,
       updated_at
-    });
+    }));
 
     return {
       id: result.lastInsertRowid as number,
