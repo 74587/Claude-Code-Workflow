@@ -22,24 +22,55 @@ export interface ValidatePathOptions {
 }
 
 /**
+ * Normalize path separators to the native format for the current platform
+ * - Windows: converts / to \
+ * - Linux/macOS: converts \ to /
+ * @param inputPath - Path with potentially mixed separators
+ * @returns Path with native separators
+ */
+export function normalizePathSeparators(inputPath: string): string {
+  if (!inputPath) return inputPath;
+
+  if (process.platform === 'win32') {
+    // Windows: convert forward slashes to backslashes
+    return inputPath.replace(/\//g, '\\');
+  } else {
+    // Linux/macOS: convert backslashes to forward slashes
+    // This handles Windows-style paths being used on Unix systems
+    return inputPath.replace(/\\/g, '/');
+  }
+}
+
+/**
  * Resolve a path, handling ~ for home directory
  * Also handles Windows drive-relative paths (e.g., "D:path" -> "D:\path")
- * @param inputPath - Path to resolve
- * @returns Absolute path
+ * and normalizes mixed slashes for cross-platform compatibility
+ *
+ * Cross-platform behavior:
+ * - Windows: D:/path/to/file -> D:\path\to\file
+ * - Linux/macOS: /path\to/file -> /path/to/file
+ *
+ * @param inputPath - Path to resolve (can use / or \ on any platform)
+ * @returns Absolute path with native separators
  */
 export function resolvePath(inputPath: string): string {
   if (!inputPath) return process.cwd();
 
-  // Handle ~ for home directory
+  // Handle ~ for home directory (before normalizing separators)
   if (inputPath.startsWith('~')) {
-    return join(homedir(), inputPath.slice(1));
+    const remainder = inputPath.slice(1);
+    return join(homedir(), normalizePathSeparators(remainder));
   }
+
+  // Normalize path separators to native format
+  inputPath = normalizePathSeparators(inputPath);
 
   // Handle Windows drive-relative paths (e.g., "D:path" without backslash)
   // Pattern: single letter followed by colon, then immediately a non-slash character
   // This converts "D:path" to "D:\path" to make it absolute
-  if (process.platform === 'win32' || /^[a-zA-Z]:/.test(inputPath)) {
-    const driveRelativeMatch = inputPath.match(/^([a-zA-Z]:)([^/\\].*)$/);
+  // Only apply on Windows or when path looks like a Windows drive path
+  if (process.platform === 'win32') {
+    const driveRelativeMatch = inputPath.match(/^([a-zA-Z]:)([^\\].*)$/);
     if (driveRelativeMatch) {
       // Insert backslash after drive letter
       inputPath = driveRelativeMatch[1] + '\\' + driveRelativeMatch[2];

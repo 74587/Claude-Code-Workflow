@@ -93,7 +93,7 @@ async function callVSCodeBridge(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      const errorBody = await response.json();
+      const errorBody = await response.json() as any;
       return {
         success: false,
         error: errorBody.error || `HTTP ${response.status}: ${response.statusText}`,
@@ -101,7 +101,7 @@ async function callVSCodeBridge(
       };
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
     return {
       success: data.success !== false,
       result: data.result,
