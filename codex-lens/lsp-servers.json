@@ -16,7 +16,7 @@
       "languageId": "typescript",
       "displayName": "TypeScript Language Server",
       "extensions": ["ts", "tsx"],
-      "command": ["typescript-language-server", "--stdio"],
+      "command": ["typescript-language-server.cmd", "--stdio"],
       "enabled": true,
       "initializationOptions": {},
       "settings": {}
@@ -25,7 +25,7 @@
       "languageId": "javascript",
       "displayName": "TypeScript Language Server (for JS)",
       "extensions": ["js", "jsx", "mjs", "cjs"],
-      "command": ["typescript-language-server", "--stdio"],
+      "command": ["typescript-language-server.cmd", "--stdio"],
       "enabled": true,
       "initializationOptions": {},
       "settings": {}
