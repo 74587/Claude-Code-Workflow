@@ -17,15 +17,13 @@ allowed-tools: TodoWrite(*), Task(*), AskUserQuestion(*), Read(*), Bash(*), Writ
 /workflow:multi-cli-plan "Add dark mode support" --max-rounds=3
 /workflow:multi-cli-plan "Refactor payment module" --tools=gemini,codex,claude
 /workflow:multi-cli-plan "Fix memory leak" --mode=serial
-
-# Resume session
-/workflow:lite-execute --session=MCP-xxx
 ```
 
 **Context Source**: ACE semantic search + Multi-CLI analysis
 **Output Directory**: `.workflow/.multi-cli-plan/{session-id}/`
 **Default Max Rounds**: 3 (convergence may complete earlier)
 **CLI Tools**: @cli-discuss-agent (analysis), @cli-lite-planning-agent (plan generation)
+**Execution**: Auto-hands off to `/workflow:lite-execute --in-memory` after plan approval
 
 ## What & Why
 
@@ -71,22 +69,27 @@ Phase 3: Present Options
    └─ Display solutions with trade-offs from agent output
 
 Phase 4: User Decision
-   ├─ Approve solution → Phase 5
-   ├─ Need clarification → Return to Phase 2
-   └─ Change direction → Reset with feedback
+   ├─ Select solution approach
+   ├─ Select execution method (Agent/Codex/Auto)
+   ├─ Select code review tool (Skip/Gemini/Codex/Agent)
+   └─ Route:
+      ├─ Approve → Phase 5
+      ├─ Need More Analysis → Return to Phase 2
+      └─ Cancel → Save session
 
-Phase 5: Plan Generation (via @cli-lite-planning-agent)
-   ├─ Generate IMPL_PLAN.md + plan.json
-   └─ Hand off to /workflow:lite-execute
+Phase 5: Plan Generation & Execution Handoff
+   ├─ Generate plan.json (via @cli-lite-planning-agent)
+   ├─ Build executionContext with user selections
+   └─ Execute to /workflow:lite-execute --in-memory
 ```
 
 ### Agent Roles
 
 | Agent | Responsibility |
 |-------|---------------|
-| **Orchestrator** | Session management, ACE context, user decisions, phase transitions |
+| **Orchestrator** | Session management, ACE context, user decisions, phase transitions, executionContext assembly |
 | **@cli-discuss-agent** | Multi-CLI execution (Gemini/Codex/Claude), cross-verification, solution synthesis, synthesis.json output |
-| **@cli-lite-planning-agent** | Task decomposition, IMPL_PLAN.md + plan.json generation |
+| **@cli-lite-planning-agent** | Task decomposition, plan.json generation following schema |
 
 ## Core Responsibilities
 
@@ -205,25 +208,49 @@ Disagreements: ${synthesis.cross_verification.disagreements.length}
 **Decision Options**:
 ```javascript
 AskUserQuestion({
-  questions: [{
-    question: "Which solution approach?",
-    header: "Solution",
-    options: solutions.map((s, i) => ({
-      label: `Option ${i+1}: ${s.name}`,
-      description: `${s.effort} effort, ${s.risk} risk`
-    })).concat([
-      { label: "Need More Analysis", description: "Return to Phase 2" }
-    ])
-  }]
+  questions: [
+    {
+      question: "Which solution approach?",
+      header: "Solution",
+      multiSelect: false,
+      options: solutions.map((s, i) => ({
+        label: `Option ${i+1}: ${s.name}`,
+        description: `${s.effort} effort, ${s.risk} risk`
+      })).concat([
+        { label: "Need More Analysis", description: "Return to Phase 2" }
+      ])
+    },
+    {
+      question: "Execution method:",
+      header: "Execution",
+      multiSelect: false,
+      options: [
+        { label: "Agent", description: "@code-developer agent" },
+        { label: "Codex", description: "codex CLI tool" },
+        { label: "Auto", description: "Auto-select based on complexity" }
+      ]
+    },
+    {
+      question: "Code review after execution?",
+      header: "Review",
+      multiSelect: false,
+      options: [
+        { label: "Skip", description: "No review" },
+        { label: "Gemini Review", description: "Gemini CLI tool" },
+        { label: "Codex Review", description: "codex review --uncommitted" },
+        { label: "Agent Review", description: "Current agent review" }
+      ]
+    }
+  ]
 })
 ```
 
 **Routing**:
-- Approve → Phase 5
+- Approve + execution method → Phase 5
 - Need More Analysis → Phase 2 with feedback
-- Add constraints → Collect details, then Phase 5
+- Cancel → Save session for resumption
 
-### Phase 5: Plan Generation
+### Phase 5: Plan Generation & Execution Handoff
 
 **Step 1: Build Context-Package** (Orchestrator responsibility):
 ```javascript
@@ -340,29 +367,61 @@ ${JSON.stringify(contextPackage, null, 2)}
 4. Use implementation_plan.tasks[] as task foundation
 5. Preserve task dependencies (depends_on) and execution_flow
 6. Expand tasks with detailed acceptance criteria
-7. Generate IMPL_PLAN.md documenting milestones and key_points
-8. Generate plan.json following schema exactly
+7. Generate plan.json following schema exactly
 
 ## Output
-- ${sessionFolder}/IMPL_PLAN.md
 - ${sessionFolder}/plan.json
 
 ## Completion Checklist
-- [ ] IMPL_PLAN.md documents approach, milestones, technical_concerns
 - [ ] plan.json preserves task dependencies from implementation_plan
 - [ ] Task execution order follows execution_flow
 - [ ] Key_points reflected in task descriptions
 - [ ] User constraints applied to implementation
 - [ ] Acceptance criteria are testable
+- [ ] Schema fields match plan-json-schema.json exactly
 `
 })
 ```
 
-**Hand off to Execution**:
+**Step 3: Build executionContext**:
 ```javascript
-if (userConfirms) {
-  SlashCommand("/workflow:lite-execute --in-memory")
+// After plan.json is generated by cli-lite-planning-agent
+const plan = JSON.parse(Read(`${sessionFolder}/plan.json`))
+
+// Build executionContext (same structure as lite-plan)
+executionContext = {
+  planObject: plan,
+  explorationsContext: null,  // Multi-CLI doesn't use exploration files
+  explorationAngles: [],      // No exploration angles
+  explorationManifest: null,  // No manifest
+  clarificationContext: null,  // Store user feedback from Phase 2 if exists
+  executionMethod: userSelection.execution_method,  // From Phase 4
+  codeReviewTool: userSelection.code_review_tool,   // From Phase 4
+  originalUserInput: taskDescription,
+
+  // Optional: Task-level executor assignments
+  executorAssignments: null,  // Could be enhanced in future
+
+  session: {
+    id: sessionId,
+    folder: sessionFolder,
+    artifacts: {
+      explorations: [],  // No explorations in multi-CLI workflow
+      explorations_manifest: null,
+      plan: `${sessionFolder}/plan.json`,
+      synthesis_rounds: Array.from({length: currentRound}, (_, i) =>
+        `${sessionFolder}/rounds/${i+1}/synthesis.json`
+      ),
+      context_package: `${sessionFolder}/context-package.json`
+    }
+  }
 }
+```
+
+**Step 4: Hand off to Execution**:
+```javascript
+// Execute to lite-execute with in-memory context
+SlashCommand("/workflow:lite-execute --in-memory")
 ```
 
 ## Output File Structure
@@ -375,7 +434,6 @@ if (userConfirms) {
 │   ├── 2/synthesis.json        # Round 2 analysis (cli-discuss-agent)
 │   └── .../
 ├── context-package.json        # Extracted context for planning (orchestrator)
-├── IMPL_PLAN.md                # Documentation (cli-lite-planning-agent)
 └── plan.json                   # Structured plan (cli-lite-planning-agent)
 ```
 
@@ -386,8 +444,7 @@ if (userConfirms) {
 | `session-state.json` | Orchestrator | Session metadata, rounds, decisions |
 | `rounds/*/synthesis.json` | cli-discuss-agent | Solutions, convergence, cross-verification |
 | `context-package.json` | Orchestrator | Extracted solution, dependencies, consensus for planning |
-| `IMPL_PLAN.md` | cli-lite-planning-agent | Human-readable plan |
-| `plan.json` | cli-lite-planning-agent | Structured tasks for execution |
+| `plan.json` | cli-lite-planning-agent | Structured tasks for lite-execute |
 
 ## synthesis.json Schema
 
@@ -495,9 +552,6 @@ TodoWrite({ todos: [
 ## Related Commands
 
 ```bash
-# Resume saved session
-/workflow:lite-execute --session=MCP-xxx
-
 # Simpler single-round planning
 /workflow:lite-plan "task description"
 
@@ -505,6 +559,10 @@ TodoWrite({ todos: [
 /issue:discover-by-prompt "find issues"
 
 # View session files
-cat .workflow/.multi-cli-plan/{session-id}/IMPL_PLAN.md
+cat .workflow/.multi-cli-plan/{session-id}/plan.json
 cat .workflow/.multi-cli-plan/{session-id}/rounds/1/synthesis.json
+cat .workflow/.multi-cli-plan/{session-id}/context-package.json
+
+# Direct execution (if you have plan.json)
+/workflow:lite-execute plan.json
 ```
