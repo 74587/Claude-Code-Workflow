@@ -298,6 +298,14 @@ async function renderMcpManager() {
                              placeholder="${t('mcp.allowedDirsPlaceholder')}"
                              value="${getCcwAllowedDirsCodex()}">
                     </div>
+                    <div class="flex items-center gap-2">
+                      <label class="text-xs text-muted-foreground w-36 shrink-0">CCW_DISABLE_SANDBOX</label>
+                      <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" class="ccw-disable-sandbox-checkbox-codex w-3 h-3"
+                               ${getCcwDisableSandboxCodex() ? 'checked' : ''}>
+                        <span class="text-xs text-muted-foreground">${t('mcp.disableSandboxDesc')}</span>
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -511,6 +519,14 @@ async function renderMcpManager() {
                              class="ccw-allowed-dirs-input flex-1 px-2 py-1 text-xs bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
                              placeholder="${t('mcp.allowedDirsPlaceholder')}"
                              value="${getCcwAllowedDirs()}">
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <label class="text-xs text-muted-foreground w-36 shrink-0">CCW_DISABLE_SANDBOX</label>
+                      <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" class="ccw-disable-sandbox-checkbox w-3 h-3"
+                               ${getCcwDisableSandbox() ? 'checked' : ''}>
+                        <span class="text-xs text-muted-foreground">${t('mcp.disableSandboxDesc')}</span>
+                      </label>
                     </div>
                   </div>
                 </div>

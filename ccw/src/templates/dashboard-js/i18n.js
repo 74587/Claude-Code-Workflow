@@ -972,6 +972,7 @@ const i18n = {
     'mcp.useCurrentDir': 'Use current directory',
     'mcp.useCurrentProject': 'Use current project',
     'mcp.allowedDirsPlaceholder': 'Comma-separated paths (optional)',
+    'mcp.disableSandboxDesc': 'Allow access to any directory',
 
     // Codex MCP
     'mcp.codex.globalServers': 'Codex Global MCP Servers',
@@ -3299,6 +3300,7 @@ const i18n = {
     'mcp.useCurrentDir': '使用当前目录',
     'mcp.useCurrentProject': '使用当前项目',
     'mcp.allowedDirsPlaceholder': '逗号分隔的路径列表（可选）',
+    'mcp.disableSandboxDesc': '允许访问任意目录',
 
     // Codex MCP
     'mcp.codex.globalServers': 'Codex 全局 MCP 服务器',

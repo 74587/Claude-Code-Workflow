@@ -1085,10 +1085,25 @@ function selectCcwTools(type) {
 function getCcwPathConfig() {
   const projectRootInput = document.querySelector('.ccw-project-root-input');
   const allowedDirsInput = document.querySelector('.ccw-allowed-dirs-input');
+  const disableSandboxCheckbox = document.querySelector('.ccw-disable-sandbox-checkbox');
   return {
     projectRoot: projectRootInput?.value || '',
-    allowedDirs: allowedDirsInput?.value || ''
+    allowedDirs: allowedDirsInput?.value || '',
+    disableSandbox: disableSandboxCheckbox?.checked || false
   };
+}
+
+// Get CCW_DISABLE_SANDBOX checkbox status for Claude Code mode
+function getCcwDisableSandbox() {
+  // Check if already installed and has the setting
+  const ccwToolsConfig = projectMcpServers?.['ccw-tools'] || globalServers?.['ccw-tools'];
+  return ccwToolsConfig?.env?.CCW_DISABLE_SANDBOX === '1' || ccwToolsConfig?.env?.CCW_DISABLE_SANDBOX === 'true';
+}
+
+// Get CCW_DISABLE_SANDBOX checkbox status for Codex mode
+function getCcwDisableSandboxCodex() {
+  const ccwToolsConfig = codexMcpServers?.['ccw-tools'];
+  return ccwToolsConfig?.env?.CCW_DISABLE_SANDBOX === '1' || ccwToolsConfig?.env?.CCW_DISABLE_SANDBOX === 'true';
 }
 
 // Set CCW_PROJECT_ROOT to current project path
@@ -1102,7 +1117,7 @@ function setCcwProjectRootToCurrent() {
 // Build CCW Tools config with selected tools
 // Uses globally installed ccw-mcp command (from claude-code-workflow package)
 function buildCcwToolsConfig(selectedTools, pathConfig = {}) {
-  const { projectRoot, allowedDirs } = pathConfig;
+  const { projectRoot, allowedDirs, disableSandbox } = pathConfig;
   // Use globally installed ccw-mcp command directly
   // Requires: npm install -g claude-code-workflow
   const config = {
@@ -1133,6 +1148,10 @@ function buildCcwToolsConfig(selectedTools, pathConfig = {}) {
   }
   if (allowedDirs && allowedDirs.trim()) {
     config.env.CCW_ALLOWED_DIRS = allowedDirs.trim();
+  }
+  // Add sandbox disable option
+  if (disableSandbox) {
+    config.env.CCW_DISABLE_SANDBOX = '1';
   }
 
   // Remove env object if empty

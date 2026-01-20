@@ -12,7 +12,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { getAllToolSchemas, executeTool, executeToolWithProgress } from '../tools/index.js';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
-import { getProjectRoot, getAllowedDirectories } from '../utils/path-validator.js';
+import { getProjectRoot, getAllowedDirectories, isSandboxDisabled } from '../utils/path-validator.js';
 
 const SERVER_NAME = 'ccw-tools';
 const SERVER_VERSION = '6.2.0';
@@ -169,9 +169,14 @@ async function main(): Promise<void> {
   // Log server start (to stderr to not interfere with stdio protocol)
   const projectRoot = getProjectRoot();
   const allowedDirs = getAllowedDirectories();
+  const sandboxDisabled = isSandboxDisabled();
   console.error(`${SERVER_NAME} v${SERVER_VERSION} started`);
   console.error(`Project root: ${projectRoot}`);
-  console.error(`Allowed directories: ${allowedDirs.join(', ')}`);
+  if (sandboxDisabled) {
+    console.error(`Sandbox: DISABLED (CCW_DISABLE_SANDBOX=true)`);
+  } else {
+    console.error(`Allowed directories: ${allowedDirs.join(', ')}`);
+  }
   if (!process.env[ENV_PROJECT_ROOT]) {
     console.error(`[Warning] ${ENV_PROJECT_ROOT} not set, using process.cwd()`);
     console.error(`[Tip] Set ${ENV_PROJECT_ROOT} in your MCP config to specify project directory`);

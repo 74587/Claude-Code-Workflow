@@ -1171,13 +1171,17 @@ export async function handleMcpRoutes(ctx: RouteContext): Promise<boolean> {
         return { error: 'projectPath is required', status: 400 };
       }
 
+      // Check if sandbox should be disabled
+      const disableSandbox = body.disableSandbox === true;
+
       // Generate CCW MCP server config
       // Use cmd /c to inherit Claude Code's working directory
-      const ccwMcpConfig = {
+      const ccwMcpConfig: Record<string, any> = {
         command: "cmd",
         args: ["/c", "npx", "-y", "ccw-mcp"],
         env: {
-          CCW_ENABLED_TOOLS: "all"
+          CCW_ENABLED_TOOLS: "all",
+          ...(disableSandbox && { CCW_DISABLE_SANDBOX: "1" })
         }
       };
 
