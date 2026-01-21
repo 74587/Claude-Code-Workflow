@@ -380,6 +380,7 @@ if (uniqueClarifications.length > 0) {
 const schema = Bash(`cat ~/.claude/workflows/cli-templates/schemas/fix-plan-json-schema.json`)
 
 // Step 2: Generate fix-plan following schema (Claude directly, no agent)
+// For Medium complexity: include rationale + verification (optional, but recommended)
 const fixPlan = {
   summary: "...",
   root_cause: "...",
@@ -389,13 +390,67 @@ const fixPlan = {
   recommended_execution: "Agent",
   severity: severity,
   risk_level: "...",
-  _metadata: { timestamp: getUtc8ISOString(), source: "direct-planning", planning_mode: "direct" }
+
+  // Medium complexity fields (optional for direct planning, auto-filled for Low)
+  ...(severity === "Medium" ? {
+    design_decisions: [
+      {
+        decision: "Use immediate_patch strategy for minimal risk",
+        rationale: "Keeps changes localized and quick to review",
+        tradeoff: "Defers comprehensive refactoring"
+      }
+    ],
+    tasks_with_rationale: {
+      // Each task gets rationale if Medium
+      task_rationale_example: {
+        rationale: {
+          chosen_approach: "Direct fix approach",
+          alternatives_considered: ["Workaround", "Refactor"],
+          decision_factors: ["Minimal impact", "Quick turnaround"],
+          tradeoffs: "Doesn't address underlying issue"
+        },
+        verification: {
+          unit_tests: ["test_bug_fix_basic"],
+          integration_tests: [],
+          manual_checks: ["Reproduce issue", "Verify fix"],
+          success_metrics: ["Issue resolved", "No regressions"]
+        }
+      }
+    }
+  } : {}),
+
+  _metadata: {
+    timestamp: getUtc8ISOString(),
+    source: "direct-planning",
+    planning_mode: "direct",
+    complexity: severity === "Medium" ? "Medium" : "Low"
+  }
 }
 
-// Step 3: Write fix-plan to session folder
+// Step 3: Merge task rationale into tasks array
+if (severity === "Medium") {
+  fixPlan.tasks = fixPlan.tasks.map(task => ({
+    ...task,
+    rationale: fixPlan.tasks_with_rationale[task.id]?.rationale || {
+      chosen_approach: "Standard fix",
+      alternatives_considered: [],
+      decision_factors: ["Correctness", "Simplicity"],
+      tradeoffs: "None"
+    },
+    verification: fixPlan.tasks_with_rationale[task.id]?.verification || {
+      unit_tests: [`test_${task.id}_basic`],
+      integration_tests: [],
+      manual_checks: ["Verify fix works"],
+      success_metrics: ["Test pass"]
+    }
+  }))
+  delete fixPlan.tasks_with_rationale  // Clean up temp field
+}
+
+// Step 4: Write fix-plan to session folder
 Write(`${sessionFolder}/fix-plan.json`, JSON.stringify(fixPlan, null, 2))
 
-// Step 4: MUST continue to Phase 4 (Confirmation) - DO NOT execute code here
+// Step 5: MUST continue to Phase 4 (Confirmation) - DO NOT execute code here
 ```
 
 **High/Critical Severity** - Invoke cli-lite-planning-agent:
@@ -451,11 +506,41 @@ Generate fix-plan.json with:
   - description
   - modification_points: ALL files to modify for this fix (group related changes)
   - implementation (2-5 steps covering all modification_points)
-  - verification (test criteria)
+  - acceptance: Quantified acceptance criteria
   - depends_on: task IDs this task depends on (use sparingly)
+
+  **High/Critical complexity fields per task** (REQUIRED):
+  - rationale:
+    - chosen_approach: Why this fix approach (not alternatives)
+    - alternatives_considered: Other approaches evaluated
+    - decision_factors: Key factors influencing choice
+    - tradeoffs: Known tradeoffs of this approach
+  - verification:
+    - unit_tests: Test names to add/verify
+    - integration_tests: Integration test names
+    - manual_checks: Manual verification steps
+    - success_metrics: Quantified success criteria
+  - risks:
+    - description: Risk description
+    - probability: Low|Medium|High
+    - impact: Low|Medium|High
+    - mitigation: How to mitigate
+    - fallback: Fallback if fix fails
+  - code_skeleton (optional): Key interfaces/functions to implement
+    - interfaces: [{name, definition, purpose}]
+    - key_functions: [{signature, purpose, returns}]
+
+**Top-level High/Critical fields** (REQUIRED):
+- data_flow: How data flows through affected code
+  - diagram: "A → B → C" style flow
+  - stages: [{stage, input, output, component}]
+- design_decisions: Global fix decisions
+  - [{decision, rationale, tradeoff}]
+
 - estimated_time, recommended_execution, severity, risk_level
 - _metadata:
   - timestamp, source, planning_mode
+  - complexity: "High" | "Critical"
   - diagnosis_angles: ${JSON.stringify(manifest.diagnoses.map(d => d.angle))}
 
 ## Task Grouping Rules
@@ -467,11 +552,21 @@ Generate fix-plan.json with:
 
 ## Execution
 1. Read ALL diagnosis files for comprehensive context
-2. Execute CLI planning using Gemini (Qwen fallback)
+2. Execute CLI planning using Gemini (Qwen fallback) with --rule planning-fix-strategy template
 3. Synthesize findings from multiple diagnosis angles
-4. Parse output and structure fix-plan
-5. Write JSON: Write('${sessionFolder}/fix-plan.json', jsonContent)
-6. Return brief completion summary
+4. Generate fix-plan with:
+   - For High/Critical: REQUIRED new fields (rationale, verification, risks, code_skeleton, data_flow, design_decisions)
+   - Each task MUST have rationale (why this fix), verification (how to verify success), and risks (potential issues)
+5. Parse output and structure fix-plan
+6. Write JSON: Write('${sessionFolder}/fix-plan.json', jsonContent)
+7. Return brief completion summary
+
+## Output Format for CLI
+Include these sections in your fix-plan output:
+- Summary, Root Cause, Strategy (existing)
+- Data Flow: Diagram showing affected code paths
+- Design Decisions: Key architectural choices in the fix
+- Tasks: Each with rationale (Medium/High), verification (Medium/High), risks (High), code_skeleton (High)
 `
 )
 ```
@@ -565,7 +660,11 @@ const fixPlan = JSON.parse(Read(`${sessionFolder}/fix-plan.json`))
 executionContext = {
   mode: "bugfix",
   severity: fixPlan.severity,
-  planObject: fixPlan,
+  planObject: {
+    ...fixPlan,
+    // Ensure complexity is set based on severity for new field consumption
+    complexity: fixPlan.complexity || (fixPlan.severity === 'Critical' ? 'High' : (fixPlan.severity === 'High' ? 'High' : 'Medium'))
+  },
   diagnosisContext: diagnoses,
   diagnosisAngles: manifest.diagnoses.map(d => d.angle),
   diagnosisManifest: manifest,
