@@ -56,14 +56,61 @@ Phase 4: Validation & Output (15%)
 ccw issue status <issue-id> --json
 ```
 
-**Step 2**: Analyze and classify
+**Step 2**: Analyze failure history (if present)
+```javascript
+function analyzeFailureHistory(issue) {
+  if (!issue.feedback || issue.feedback.length === 0) {
+    return { has_failures: false };
+  }
+
+  // Extract execution failures
+  const failures = issue.feedback.filter(f => f.type === 'failure' && f.stage === 'execute');
+
+  if (failures.length === 0) {
+    return { has_failures: false };
+  }
+
+  // Parse failure details
+  const failureAnalysis = failures.map(f => {
+    const detail = JSON.parse(f.content);
+    return {
+      solution_id: detail.solution_id,
+      task_id: detail.task_id,
+      error_type: detail.error_type,       // test_failure, compilation, timeout, etc.
+      message: detail.message,
+      stack_trace: detail.stack_trace,
+      timestamp: f.created_at
+    };
+  });
+
+  // Identify patterns
+  const errorTypes = failureAnalysis.map(f => f.error_type);
+  const repeatedErrors = errorTypes.filter((e, i, arr) => arr.indexOf(e) !== i);
+
+  return {
+    has_failures: true,
+    failure_count: failures.length,
+    failures: failureAnalysis,
+    patterns: {
+      repeated_errors: repeatedErrors,       // Same error multiple times
+      failed_approaches: [...new Set(failureAnalysis.map(f => f.solution_id))]
+    }
+  };
+}
+```
+
+**Step 3**: Analyze and classify
 ```javascript
 function analyzeIssue(issue) {
+  const failureAnalysis = analyzeFailureHistory(issue);
+
   return {
     issue_id: issue.id,
     requirements: extractRequirements(issue.context),
     scope: inferScope(issue.title, issue.context),
-    complexity: determineComplexity(issue)  // Low | Medium | High
+    complexity: determineComplexity(issue),  // Low | Medium | High
+    failure_analysis: failureAnalysis,       // Failure context for planning
+    is_replan: failureAnalysis.has_failures  // Flag for replanning
   }
 }
 ```
@@ -103,6 +150,41 @@ mcp__ace-tool__search_context({
 | `Glob` | File path discovery |
 
 #### Phase 3: Solution Planning
+
+**Failure-Aware Planning** (when `issue.failure_analysis.has_failures === true`):
+
+```javascript
+function planWithFailureContext(issue, exploration, failureAnalysis) {
+  // Identify what failed before
+  const failedApproaches = failureAnalysis.patterns.failed_approaches;
+  const rootCauses = failureAnalysis.failures.map(f => ({
+    error: f.error_type,
+    message: f.message,
+    task: f.task_id
+  }));
+
+  // Design alternative approach
+  const approach = `
+    **Previous Attempt Analysis**:
+    - Failed approaches: ${failedApproaches.join(', ')}
+    - Root causes: ${rootCauses.map(r => `${r.error} (${r.task}): ${r.message}`).join('; ')}
+
+    **Alternative Strategy**:
+    - [Describe how this solution addresses root causes]
+    - [Explain what's different from failed approaches]
+    - [Prevention steps to catch same errors earlier]
+  `;
+
+  // Add explicit verification tasks
+  const verificationTasks = rootCauses.map(rc => ({
+    verification_type: rc.error,
+    check: `Prevent ${rc.error}: ${rc.message}`,
+    method: `Add unit test / compile check / timeout limit`
+  }));
+
+  return { approach, verificationTasks };
+}
+```
 
 **Multi-Solution Generation**:
 
@@ -303,15 +385,17 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 **ALWAYS**:
 1. **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) / Built-in (`Grep`, `Glob`, `Read`)
 2. Read schema first: `cat .claude/workflows/cli-templates/schemas/solution-schema.json`
-2. Use ACE semantic search as PRIMARY exploration tool
-3. Fetch issue details via `ccw issue status <id> --json`
-4. Quantify acceptance.criteria with testable conditions
-5. Validate DAG before output
-6. Evaluate each solution with `analysis` and `score`
-7. Write solutions to `.workflow/issues/solutions/{issue-id}.jsonl` (append mode)
-8. For HIGH complexity: generate 2-3 candidate solutions
-9. **Solution ID format**: `SOL-{issue-id}-{uid}` where uid is 4 random alphanumeric chars (e.g., `SOL-GH-123-a7x9`)
-10. **GitHub Reply Task**: If issue has `github_url` or `github_number`, add final task to comment on GitHub issue with completion summary
+3. Use ACE semantic search as PRIMARY exploration tool
+4. Fetch issue details via `ccw issue status <id> --json`
+5. **Analyze failure history**: Check `issue.feedback` for type='failure', stage='execute'
+6. **For replanning**: Reference previous failures in `solution.approach`, add prevention steps
+7. Quantify acceptance.criteria with testable conditions
+8. Validate DAG before output
+9. Evaluate each solution with `analysis` and `score`
+10. Write solutions to `.workflow/issues/solutions/{issue-id}.jsonl` (append mode)
+11. For HIGH complexity: generate 2-3 candidate solutions
+12. **Solution ID format**: `SOL-{issue-id}-{uid}` where uid is 4 random alphanumeric chars (e.g., `SOL-GH-123-a7x9`)
+13. **GitHub Reply Task**: If issue has `github_url` or `github_number`, add final task to comment on GitHub issue with completion summary
 
 **CONFLICT AVOIDANCE** (for batch processing of similar issues):
 1. **File isolation**: Each issue's solution should target distinct files when possible

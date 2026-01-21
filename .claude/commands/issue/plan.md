@@ -195,12 +195,26 @@ ${issueList}
 
 ### Workflow
 1. Fetch issue details: ccw issue status <id> --json
-2. Load project context files
-3. Explore codebase (ACE semantic search)
-4. Plan solution with tasks (schema: solution-schema.json)
-5. **If github_url exists**: Add final task to comment on GitHub issue
-6. Write solution to: .workflow/issues/solutions/{issue-id}.jsonl
-7. Single solution → auto-bind; Multiple → return for selection
+2. **Analyze failure history** (if issue.feedback exists):
+   - Extract failure details from issue.feedback (type='failure', stage='execute')
+   - Parse error_type, message, task_id, solution_id from content JSON
+   - Identify failure patterns: repeated errors, root causes, blockers
+   - **Constraint**: Avoid repeating failed approaches
+3. Load project context files
+4. Explore codebase (ACE semantic search)
+5. Plan solution with tasks (schema: solution-schema.json)
+   - **If previous solution failed**: Reference failure analysis in solution.approach
+   -  Add explicit verification steps to prevent same failure mode
+6. **If github_url exists**: Add final task to comment on GitHub issue
+7. Write solution to: .workflow/issues/solutions/{issue-id}.jsonl
+8. Single solution → auto-bind; Multiple → return for selection
+
+### Failure-Aware Planning Rules
+- **Extract failure patterns**: Parse issue.feedback where type='failure' and stage='execute'
+- **Identify root causes**: Analyze error_type (test_failure, compilation, timeout, etc.)
+- **Design alternative approach**: Create solution that addresses root cause
+- **Add prevention steps**: Include explicit verification to catch same error earlier
+- **Document lessons**: Reference previous failures in solution.approach
 
 ### Rules
 - Solution ID format: SOL-{issue-id}-{uid} (uid: 4 random alphanumeric chars, e.g., a7x9)

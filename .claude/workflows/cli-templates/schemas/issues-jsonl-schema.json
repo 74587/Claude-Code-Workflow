@@ -65,6 +65,35 @@
       "items": { "type": "string" },
       "description": "Files/modules affected"
     },
+    "feedback": {
+      "type": "array",
+      "description": "Execution feedback history (failures, clarifications, rejections) for planning phase reference",
+      "items": {
+        "type": "object",
+        "required": ["type", "stage", "content", "created_at"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["failure", "clarification", "rejection"],
+            "description": "Type of feedback"
+          },
+          "stage": {
+            "type": "string",
+            "enum": ["new", "plan", "execute"],
+            "description": "Which stage the feedback occurred (new=creation, plan=planning, execute=execution)"
+          },
+          "content": {
+            "type": "string",
+            "description": "JSON string for failures (with solution_id, task_id, error_type, message, stack_trace) or plain text for clarifications/rejections"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when feedback was created"
+          }
+        }
+      }
+    },
     "lifecycle_requirements": {
       "type": "object",
       "properties": {

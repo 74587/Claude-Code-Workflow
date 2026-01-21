@@ -2587,6 +2587,7 @@ async function doneAction(queueItemId: string | undefined, options: IssueOptions
 
 /**
  * retry - Reset failed items to pending for re-execution
+ * Syncs failure details to Issue.feedback for planning phase
  */
 async function retryAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
   let queues: Queue[];
@@ -2609,6 +2610,7 @@ async function retryAction(issueId: string | undefined, options: IssueOptions): 
   }
 
   let totalUpdated = 0;
+  const updatedIssues = new Set<string>();
 
   for (const queue of queues) {
     const items = queue.solutions || queue.tasks || [];
@@ -2618,6 +2620,41 @@ async function retryAction(issueId: string | undefined, options: IssueOptions): 
       // Retry failed items only
       if (item.status === 'failed') {
         if (!issueId || item.issue_id === issueId) {
+          // Sync failure details to Issue.feedback (persistent for planning phase)
+          if (item.failure_details && item.issue_id) {
+            const issue = findIssue(item.issue_id);
+            if (issue) {
+              if (!issue.feedback) {
+                issue.feedback = [];
+              }
+
+              // Add failure to feedback history
+              issue.feedback.push({
+                type: 'failure',
+                stage: 'execute',
+                content: JSON.stringify({
+                  solution_id: item.solution_id,
+                  task_id: item.failure_details.task_id,
+                  error_type: item.failure_details.error_type,
+                  message: item.failure_details.message,
+                  stack_trace: item.failure_details.stack_trace,
+                  queue_id: queue.id,
+                  item_id: item.item_id
+                }),
+                created_at: item.failure_details.timestamp
+              });
+
+              // Keep issue status as 'failed' (or optionally 'pending_replan')
+              // This signals to planning phase that this issue had failures
+              updateIssue(item.issue_id, {
+                status: 'failed',
+                updated_at: new Date().toISOString()
+              });
+
+              updatedIssues.add(item.issue_id);
+            }
+          }
+
           // Preserve failure history before resetting
           if (item.failure_details) {
             if (!item.failure_history) {
@@ -2626,7 +2663,7 @@ async function retryAction(issueId: string | undefined, options: IssueOptions): 
             item.failure_history.push(item.failure_details);
           }
 
-          // Reset for retry
+          // Reset QueueItem for retry (but Issue status remains 'failed')
           item.status = 'pending';
           item.failure_reason = undefined;
           item.failure_details = undefined;
@@ -2659,11 +2696,10 @@ async function retryAction(issueId: string | undefined, options: IssueOptions): 
     return;
   }
 
-  if (issueId) {
-    updateIssue(issueId, { status: 'queued' });
-  }
-
   console.log(chalk.green(`✓ Reset ${totalUpdated} item(s) to pending (failure history preserved)`));
+  if (updatedIssues.size > 0) {
+    console.log(chalk.cyan(`✓ Synced failure details to ${updatedIssues.size} issue(s) for planning phase`));
+  }
 }
 
 // ============ Main Entry ============

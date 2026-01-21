@@ -431,8 +431,58 @@ function renderIssueCard(issue) {
           <span>Archived on ${archivedDate}</span>
         </div>
       ` : ''}
+
+      ${renderFailureInfo(issue)}
     </div>
   `;
+}
+
+// Render failure information for failed issues
+function renderFailureInfo(issue) {
+  // Check if issue has failure feedback
+  if (!issue.feedback || issue.feedback.length === 0) {
+    return '';
+  }
+
+  // Extract failure feedbacks
+  const failures = issue.feedback.filter(f => f.type === 'failure' && f.stage === 'execute');
+  if (failures.length === 0) {
+    return '';
+  }
+
+  // Get latest failure
+  const latestFailure = failures[failures.length - 1];
+  let failureDetail;
+  try {
+    failureDetail = JSON.parse(latestFailure.content);
+  } catch {
+    return '';
+  }
+
+  const errorMessage = failureDetail.message || 'Unknown error';
+  const errorType = failureDetail.error_type || 'error';
+  const taskId = failureDetail.task_id;
+  const failureCount = failures.length;
+
+  return `
+    <div class="issue-failure-info">
+      <div class="failure-header">
+        <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>
+        <span class="failure-label">${failureCount > 1 ? `Failed ${failureCount} times` : 'Execution Failed'}</span>
+        ${taskId ? `<span class="failure-task">${taskId}</span>` : ''}
+      </div>
+      <div class="failure-message">
+        <span class="failure-type">${errorType}:</span>
+        <span class="failure-text" title="${escapeHtml(errorMessage)}">${escapeHtml(truncateText(errorMessage, 80))}</span>
+      </div>
+    </div>
+  `;
+}
+
+// Helper: Truncate text to max length
+function truncateText(text, maxLength) {
+  if (!text || text.length <= maxLength) return text;
+  return text.substring(0, maxLength - 3) + '...';
 }
 
 function renderPriorityStars(priority) {
@@ -879,10 +929,52 @@ function renderQueueItemWithDelete(item, index, total, queueId) {
           <i data-lucide="link" class="w-3 h-3"></i>
         </span>
       ` : ''}
+      ${renderQueueItemFailureInfo(item)}
       <button class="queue-item-delete btn-icon" onclick="event.stopPropagation(); deleteQueueItem('${safeQueueId}', '${safeItemId}')" title="Delete item">
         <i data-lucide="trash-2" class="w-3 h-3"></i>
       </button>
     </div>
+  `;
+}
+
+// Render failure info for queue items
+function renderQueueItemFailureInfo(item) {
+  // Only show for failed items
+  if (item.status !== 'failed') {
+    return '';
+  }
+
+  // Check failure_details or failure_reason
+  const failureDetails = item.failure_details;
+  const failureReason = item.failure_reason;
+
+  if (!failureDetails && !failureReason) {
+    return '';
+  }
+
+  let errorType = 'error';
+  let errorMessage = 'Unknown error';
+
+  if (failureDetails) {
+    errorType = failureDetails.error_type || 'error';
+    errorMessage = failureDetails.message || 'Unknown error';
+  } else if (failureReason) {
+    // Try to parse as JSON
+    try {
+      const parsed = JSON.parse(failureReason);
+      errorType = parsed.error_type || 'error';
+      errorMessage = parsed.message || failureReason;
+    } catch {
+      errorMessage = failureReason;
+    }
+  }
+
+  return `
+    <span class="queue-item-failure text-xs" title="${escapeHtml(errorMessage)}">
+      <i data-lucide="alert-circle" class="w-3 h-3"></i>
+      <span class="failure-type">${escapeHtml(errorType)}:</span>
+      <span class="failure-msg">${escapeHtml(truncateText(errorMessage, 40))}</span>
+    </span>
   `;
 }
 
