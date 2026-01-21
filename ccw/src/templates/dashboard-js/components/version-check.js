@@ -55,9 +55,17 @@ function toggleAutoUpdate() {
 async function checkForUpdatesNow() {
   const btn = document.getElementById('checkUpdateNow');
   if (btn) {
-    // Add loading animation
-    btn.classList.add('animate-spin');
+    // Add loading state - change button color and animate icon
+    btn.classList.add('checking');
     btn.disabled = true;
+  }
+
+  // Show checking notification
+  console.log('[Version Check] Starting update check...');
+  if (typeof addGlobalNotification === 'function') {
+    addGlobalNotification('info', 'Checking for updates...', 'Please wait', 'version-check');
+  } else {
+    console.warn('[Version Check] addGlobalNotification is not available');
   }
 
   // Force check regardless of toggle state
@@ -65,16 +73,56 @@ async function checkForUpdatesNow() {
   autoUpdateEnabled = true;
 
   try {
-    await checkForUpdates();
-    addGlobalNotification('success', 'Update check complete', 'Checked for latest version', 'version-check');
+    const res = await fetch('/api/version-check');
+
+    if (!res.ok) {
+      throw new Error('Failed to fetch version information');
+    }
+
+    const data = await res.json();
+    versionCheckData = data;
+    console.log('[Version Check] Result:', data);
+
+    if (data.hasUpdate) {
+      // New version available
+      console.log('[Version Check] Update available:', data.latestVersion);
+      showUpdateBanner(data);
+      if (typeof addGlobalNotification === 'function') {
+        addGlobalNotification(
+          'success',
+          'Update Available!',
+          `New version ${data.latestVersion} is available (current: ${data.currentVersion})`,
+          'version-check'
+        );
+      }
+    } else {
+      // Already up to date
+      console.log('[Version Check] Already up to date:', data.currentVersion);
+      if (typeof addGlobalNotification === 'function') {
+        addGlobalNotification(
+          'success',
+          'You\'re up to date!',
+          `Current version ${data.currentVersion} is the latest`,
+          'version-check'
+        );
+      }
+    }
   } catch (err) {
-    addGlobalNotification('error', 'Update check failed', err.message, 'version-check');
+    console.error('[Version Check] Error:', err);
+    if (typeof addGlobalNotification === 'function') {
+      addGlobalNotification(
+        'error',
+        'Update check failed',
+        err.message || 'Unable to check for updates',
+        'version-check'
+      );
+    }
   } finally {
     // Restore original state
     autoUpdateEnabled = originalState;
 
     if (btn) {
-      btn.classList.remove('animate-spin');
+      btn.classList.remove('checking');
       btn.disabled = false;
     }
   }
