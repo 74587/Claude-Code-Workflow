@@ -13,6 +13,7 @@ import { memoryCommand } from './commands/memory.js';
 import { coreMemoryCommand } from './commands/core-memory.js';
 import { hookCommand } from './commands/hook.js';
 import { issueCommand } from './commands/issue.js';
+import { workflowCommand } from './commands/workflow.js';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -299,6 +300,14 @@ export function run(argv: string[]): void {
     .option('--from-queue [queue-id]', 'Sync issue statuses from queue (default: active queue)')
     .option('--queue <queue-id>', 'Target queue ID for multi-queue operations')
     .action((subcommand, args, options) => issueCommand(subcommand, args, options));
+
+  // Workflow command - Workflow installation and management
+  program
+    .command('workflow [subcommand] [args...]')
+    .description('Workflow installation and management (install, list, sync)')
+    .option('-f, --force', 'Force installation without prompts')
+    .option('--source <source>', 'Install specific source only')
+    .action((subcommand, args, options) => workflowCommand(subcommand, args, options));
 
   program.parse(argv);
 }

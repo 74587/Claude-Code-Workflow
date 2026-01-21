@@ -6,21 +6,100 @@
 // State
 let versionCheckData = null;
 let versionBannerDismissed = false;
+let autoUpdateEnabled = true; // Default to enabled
 
 /**
  * Initialize version check on page load
  */
 async function initVersionCheck() {
+  // Load auto-update setting from localStorage
+  const stored = localStorage.getItem('ccw.autoUpdate');
+  autoUpdateEnabled = stored !== null ? stored === 'true' : true;
+
+  // Update toggle checkbox state
+  updateAutoUpdateToggleUI();
+
   // Check version after a short delay to not block initial render
   setTimeout(async () => {
-    await checkForUpdates();
+    if (autoUpdateEnabled) {
+      await checkForUpdates();
+    }
   }, 2000);
+}
+
+/**
+ * Toggle auto-update setting (called from checkbox change event)
+ */
+function toggleAutoUpdate() {
+  const checkbox = document.getElementById('autoUpdateToggle');
+  if (!checkbox) return;
+
+  autoUpdateEnabled = checkbox.checked;
+  localStorage.setItem('ccw.autoUpdate', autoUpdateEnabled.toString());
+
+  // Show notification
+  if (autoUpdateEnabled) {
+    addGlobalNotification('success', 'Auto-update enabled', 'Version check will run automatically', 'version-check');
+    // Run check immediately if just enabled
+    checkForUpdates();
+  } else {
+    addGlobalNotification('info', 'Auto-update disabled', 'Version check is turned off', 'version-check');
+    // Dismiss banner if visible
+    dismissUpdateBanner();
+  }
+}
+
+/**
+ * Check for updates immediately (called from "Check Now" button)
+ */
+async function checkForUpdatesNow() {
+  const btn = document.getElementById('checkUpdateNow');
+  if (btn) {
+    // Add loading animation
+    btn.classList.add('animate-spin');
+    btn.disabled = true;
+  }
+
+  // Force check regardless of toggle state
+  const originalState = autoUpdateEnabled;
+  autoUpdateEnabled = true;
+
+  try {
+    await checkForUpdates();
+    addGlobalNotification('success', 'Update check complete', 'Checked for latest version', 'version-check');
+  } catch (err) {
+    addGlobalNotification('error', 'Update check failed', err.message, 'version-check');
+  } finally {
+    // Restore original state
+    autoUpdateEnabled = originalState;
+
+    if (btn) {
+      btn.classList.remove('animate-spin');
+      btn.disabled = false;
+    }
+  }
+}
+
+/**
+ * Update auto-update toggle checkbox state
+ */
+function updateAutoUpdateToggleUI() {
+  const checkbox = document.getElementById('autoUpdateToggle');
+  if (!checkbox) return;
+
+  checkbox.checked = autoUpdateEnabled;
 }
 
 /**
  * Check for package updates
  */
 async function checkForUpdates() {
+  // Respect the toggle setting
+  if (!autoUpdateEnabled) {
+    console.log('Version check skipped: auto-update is disabled');
+    return;
+  }
+
   try {
     const res = await fetch('/api/version-check');
     if (!res.ok) return;
@@ -164,4 +243,11 @@ npm install -g ' + versionCheckData.packageName + '@latest\n\
  */
 function getVersionInfo() {
   return versionCheckData;
+}
+
+/**
+ * Check if auto-update is enabled
+ */
+function isAutoUpdateEnabled() {
+  return autoUpdateEnabled;
 }

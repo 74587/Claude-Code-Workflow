@@ -234,6 +234,52 @@
       animation: spin 1s linear infinite;
     }
 
+    /* Auto-Update Toggle Switch */
+    .auto-update-switch {
+      position: relative;
+      display: inline-block;
+      width: 32px;
+      height: 18px;
+      cursor: pointer;
+    }
+    .auto-update-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .auto-update-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: hsl(var(--muted));
+      transition: 0.3s;
+      border-radius: 18px;
+    }
+    .auto-update-slider:before {
+      position: absolute;
+      content: "";
+      height: 12px;
+      width: 12px;
+      left: 3px;
+      bottom: 3px;
+      background-color: hsl(var(--muted-foreground));
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+    .auto-update-switch input:checked + .auto-update-slider {
+      background-color: hsl(var(--success));
+    }
+    .auto-update-switch input:checked + .auto-update-slider:before {
+      transform: translateX(14px);
+      background-color: white;
+    }
+    .auto-update-switch:hover .auto-update-slider {
+      opacity: 0.9;
+    }
+
     /* Injected from dashboard-css/*.css modules */
     {{CSS_CONTENT}}
   </style>
@@ -296,6 +342,22 @@
               <path d="M16 21h5v-5"/>
             </svg>
           </button>
+          <!-- Auto-Update Controls -->
+          <div class="flex items-center gap-2 border-l border-border pl-2">
+            <!-- Check Now Button -->
+            <button class="p-1.5 text-muted-foreground hover:text-foreground hover:bg-hover rounded" id="checkUpdateNow" data-i18n-title="header.checkUpdateNow" title="Check for updates now" onclick="checkForUpdatesNow()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </button>
+            <!-- Auto-Update Toggle Switch -->
+            <label class="auto-update-switch" data-i18n-title="header.autoUpdate" title="Auto-update check">
+              <input type="checkbox" id="autoUpdateToggle" onchange="toggleAutoUpdate()" checked>
+              <span class="auto-update-slider"></span>
+            </label>
+          </div>
         </div>
 
         <!-- Language Toggle -->

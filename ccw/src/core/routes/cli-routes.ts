@@ -113,8 +113,20 @@ export function updateActiveExecution(event: {
       activeExec.output += output;
     }
   } else if (type === 'completed') {
-    // Remove from active executions
-    activeExecutions.delete(executionId);
+    // Mark as completed instead of immediately deleting
+    // Keep execution visible for 5 minutes to allow page refreshes to see it
+    const activeExec = activeExecutions.get(executionId);
+    if (activeExec) {
+      activeExec.status = success ? 'completed' : 'error';
+
+      // Auto-cleanup after 5 minutes
+      setTimeout(() => {
+        activeExecutions.delete(executionId);
+        console.log(`[ActiveExec] Auto-cleaned completed execution: ${executionId}`);
+      }, 5 * 60 * 1000);
+
+      console.log(`[ActiveExec] Marked as ${activeExec.status}, will auto-clean in 5 minutes`);
+    }
   }
 }
 

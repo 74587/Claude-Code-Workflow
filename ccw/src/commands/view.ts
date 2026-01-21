@@ -1,6 +1,7 @@
 import { serveCommand } from './serve.js';
 import { launchBrowser } from '../utils/browser-launcher.js';
 import { validatePath } from '../utils/path-resolver.js';
+import { checkForUpdates } from '../utils/update-checker.js';
 import chalk from 'chalk';
 
 interface ViewOptions {
@@ -68,6 +69,9 @@ async function switchWorkspace(port: number, path: string): Promise<SwitchWorksp
  * @param {Object} options - Command options
  */
 export async function viewCommand(options: ViewOptions): Promise<void> {
+  // Check for updates (fire-and-forget, non-blocking)
+  checkForUpdates().catch(() => { /* ignore errors */ });
+
   const port = options.port || 3456;
   const host = options.host || '127.0.0.1';
   const browserHost = host === '0.0.0.0' || host === '::' ? 'localhost' : host;

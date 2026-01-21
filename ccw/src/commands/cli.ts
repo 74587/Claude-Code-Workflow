@@ -98,8 +98,9 @@ function broadcastStreamEvent(eventType: string, payload: Record<string, unknown
   req.on('socket', (socket) => {
     socket.unref();
   });
-  req.on('error', () => {
-    // Silently ignore errors for streaming events
+  req.on('error', (err) => {
+    // Log errors for debugging - helps diagnose hook communication issues
+    console.error(`[Hook] Failed to send ${eventType}:`, (err as Error).message);
   });
   req.on('timeout', () => {
     req.destroy();
