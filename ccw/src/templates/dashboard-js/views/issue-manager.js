@@ -431,8 +431,6 @@ function renderIssueCard(issue) {
           <span>Archived on ${archivedDate}</span>
         </div>
       ` : ''}
-
-      ${renderFailureInfo(issue)}
     </div>
   `;
 }
@@ -474,6 +472,72 @@ function renderFailureInfo(issue) {
       <div class="failure-message">
         <span class="failure-type">${errorType}:</span>
         <span class="failure-text" title="${escapeHtml(errorMessage)}">${escapeHtml(truncateText(errorMessage, 80))}</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderFailureHistoryDetail(issue) {
+  // Check if issue has failure feedback
+  if (!issue.feedback || issue.feedback.length === 0) {
+    return '';
+  }
+
+  // Extract failure feedbacks
+  const failures = issue.feedback.filter(f => f.type === 'failure' && f.stage === 'execute');
+  if (failures.length === 0) {
+    return '';
+  }
+
+  return `
+    <div class="detail-section">
+      <label class="detail-label">${t('issues.failureHistory') || 'Failure History'} (${failures.length})</label>
+      <div class="failure-history-list">
+        ${failures.map((failure, index) => {
+          let failureDetail;
+          try {
+            failureDetail = JSON.parse(failure.content);
+          } catch {
+            return '';
+          }
+
+          const errorMessage = failureDetail.message || 'Unknown error';
+          const errorType = failureDetail.error_type || 'error';
+          const taskId = failureDetail.task_id;
+          const timestamp = failure.created_at ? new Date(failure.created_at).toLocaleString() : 'Unknown time';
+
+          return `
+            <div class="failure-history-item">
+              <div class="failure-history-header">
+                <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                <span class="failure-history-count">Failure ${index + 1}</span>
+                <span class="failure-history-timestamp text-xs text-muted-foreground">${timestamp}</span>
+              </div>
+              <div class="failure-history-content">
+                ${taskId ? `
+                  <div class="failure-history-task">
+                    <span class="detail-label-sm">Task:</span>
+                    <span class="font-mono text-xs">${taskId}</span>
+                  </div>
+                ` : ''}
+                <div class="failure-history-error">
+                  <span class="detail-label-sm">Error Type:</span>
+                  <span class="font-mono text-xs">${errorType}</span>
+                </div>
+                <div class="failure-history-message">
+                  <span class="detail-label-sm">Message:</span>
+                  <pre class="detail-pre text-xs">${escapeHtml(errorMessage)}</pre>
+                </div>
+                ${failureDetail.stack_trace ? `
+                  <details class="failure-history-stacktrace">
+                    <summary class="cursor-pointer text-xs text-muted-foreground">Show Stack Trace</summary>
+                    <pre class="detail-pre text-xs mt-1 max-h-60 overflow-auto">${escapeHtml(failureDetail.stack_trace)}</pre>
+                  </details>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        }).join('')}
       </div>
     </div>
   `;
@@ -1690,6 +1754,9 @@ function renderIssueDetailPanel(issue) {
           </button>
         </div>
       </div>
+
+      <!-- Failure History -->
+      ${renderFailureHistoryDetail(issue)}
 
       <!-- Solutions -->
       <div class="detail-section">
