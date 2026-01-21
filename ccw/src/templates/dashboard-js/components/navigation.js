@@ -183,6 +183,14 @@ function initNavigation() {
         } else {
           console.error('renderIssueDiscovery not defined - please refresh the page');
         }
+      } else if (currentView === 'loop-monitor') {
+        if (typeof renderLoopMonitor === 'function') {
+          renderLoopMonitor();
+          // Register destroy function for cleanup
+          currentViewDestroy = window.destroyLoopMonitor;
+        } else {
+          console.error('renderLoopMonitor not defined - please refresh the page');
+        }
       }
     });
   });
@@ -231,6 +239,8 @@ function updateContentTitle() {
     titleEl.textContent = t('title.issueManager');
   } else if (currentView === 'issue-discovery') {
     titleEl.textContent = t('title.issueDiscovery');
+  } else if (currentView === 'loop-monitor') {
+    titleEl.textContent = t('title.loopMonitor') || 'Loop Monitor';
   } else if (currentView === 'liteTasks') {
     const names = { 'lite-plan': t('title.litePlanSessions'), 'lite-fix': t('title.liteFixSessions'), 'multi-cli-plan': t('title.multiCliPlanSessions') || 'Multi-CLI Plan Sessions' };
     titleEl.textContent = names[currentLiteType] || t('title.liteTasks');

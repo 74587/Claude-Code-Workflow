@@ -28,6 +28,9 @@ import { handleLiteLLMRoutes } from './routes/litellm-routes.js';
 import { handleLiteLLMApiRoutes } from './routes/litellm-api-routes.js';
 import { handleNavStatusRoutes } from './routes/nav-status-routes.js';
 import { handleAuthRoutes } from './routes/auth-routes.js';
+import { handleLoopRoutes } from './routes/loop-routes.js';
+import { handleTestLoopRoutes } from './routes/test-loop-routes.js';
+import { handleTaskRoutes } from './routes/task-routes.js';
 
 // Import WebSocket handling
 import { handleWebSocketUpgrade, broadcastToClients, extractSessionIdFromPath } from './websocket.js';
@@ -102,7 +105,8 @@ const MODULE_CSS_FILES = [
   '31-api-settings.css',
   '32-issue-manager.css',
   '33-cli-stream-viewer.css',
-  '34-discovery.css'
+  '34-discovery.css',
+  '36-loop-monitor.css'
 ];
 
 // Modular JS files in dependency order
@@ -162,6 +166,7 @@ const MODULE_FILES = [
   'views/help.js',
   'views/issue-manager.js',
   'views/issue-discovery.js',
+  'views/loop-monitor.js',
   'main.js'
 ];
 
@@ -359,7 +364,14 @@ function generateServerDashboard(initialPath: string): string {
   // Read and concatenate modular JS files in dependency order
   let jsContent = MODULE_FILES.map(file => {
     const filePath = join(MODULE_JS_DIR, file);
-    return existsSync(filePath) ? readFileSync(filePath, 'utf8') : '';
+    if (!existsSync(filePath)) {
+      console.error(`[Dashboard] Critical module file not found: ${filePath}`);
+      console.error(`[Dashboard] Expected path relative to: ${MODULE_JS_DIR}`);
+      console.error(`[Dashboard] Check that the file exists and is included in the build.`);
+      // Return empty string with error comment to make the issue visible in browser
+      return `console.error('[Dashboard] Module not loaded: ${file} (see server console for details)');\n`;
+    }
+    return readFileSync(filePath, 'utf8');
   }).join('\n\n');
 
   // Inject CSS content
@@ -554,6 +566,21 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // CCW routes (/api/ccw/*)
       if (pathname.startsWith('/api/ccw/')) {
         if (await handleCcwRoutes(routeContext)) return;
+      }
+
+      // Loop routes (/api/loops*)
+      if (pathname.startsWith('/api/loops')) {
+        if (await handleLoopRoutes(routeContext)) return;
+      }
+
+      // Task routes (/api/tasks)
+      if (pathname.startsWith('/api/tasks')) {
+        if (await handleTaskRoutes(routeContext)) return;
+      }
+
+      // Test loop routes (/api/test/loop*)
+      if (pathname.startsWith('/api/test/loop')) {
+        if (await handleTestLoopRoutes(routeContext)) return;
       }
 
       // Skills routes (/api/skills*)

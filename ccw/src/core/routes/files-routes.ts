@@ -6,6 +6,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import { validatePath as validateAllowedPath } from '../../utils/path-validator.js';
 import type { RouteContext } from './types.js';
+import { getDefaultTool } from '../../tools/claude-cli-tools.js';
 
 // ========================================
 // Constants
@@ -471,7 +472,7 @@ export async function handleFilesRoutes(ctx: RouteContext): Promise<boolean> {
 
       const {
         path: targetPath,
-        tool = 'gemini',
+        tool,
         strategy = 'single-layer'
       } = body as { path?: unknown; tool?: unknown; strategy?: unknown };
 
@@ -481,9 +482,10 @@ export async function handleFilesRoutes(ctx: RouteContext): Promise<boolean> {
 
       try {
         const validatedPath = await validateAllowedPath(targetPath, { mustExist: true, allowedDirectories: [initialPath] });
+        const resolvedTool = typeof tool === 'string' && tool.trim().length > 0 ? tool : getDefaultTool(validatedPath);
         return await triggerUpdateClaudeMd(
           validatedPath,
-          typeof tool === 'string' ? tool : 'gemini',
+          resolvedTool,
           typeof strategy === 'string' ? strategy : 'single-layer'
         );
       } catch (err) {

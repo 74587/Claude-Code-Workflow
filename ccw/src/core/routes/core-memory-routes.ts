@@ -6,6 +6,7 @@ import { getEmbeddingStatus, generateEmbeddings } from '../memory-embedder-bridg
 import { checkSemanticStatus } from '../../tools/codex-lens.js';
 import { StoragePaths } from '../../config/storage-paths.js';
 import { join } from 'path';
+import { getDefaultTool } from '../../tools/claude-cli-tools.js';
 
 /**
  * Route context interface
@@ -173,12 +174,13 @@ export async function handleCoreMemoryRoutes(ctx: RouteContext): Promise<boolean
     const memoryId = pathname.replace('/api/core-memory/memories/', '').replace('/summary', '');
 
     handlePostRequest(req, res, async (body) => {
-      const { tool = 'gemini', path: projectPath } = body;
+      const { tool, path: projectPath } = body;
       const basePath = projectPath || initialPath;
+      const resolvedTool = tool || getDefaultTool(basePath);
 
       try {
         const store = getCoreMemoryStore(basePath);
-        const summary = await store.generateSummary(memoryId, tool);
+        const summary = await store.generateSummary(memoryId, resolvedTool);
 
         // Broadcast update event
         broadcastToClients({

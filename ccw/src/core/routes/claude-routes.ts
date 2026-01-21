@@ -6,6 +6,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, unlinkS
 import { dirname, join, relative } from 'path';
 import { homedir } from 'os';
 import type { RouteContext } from './types.js';
+import { getDefaultTool } from '../../tools/claude-cli-tools.js';
 
 interface ClaudeFile {
   id: string;
@@ -549,7 +550,8 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
   // API: CLI Sync (analyze and update CLAUDE.md using CLI tools)
   if (pathname === '/api/memory/claude/sync' && req.method === 'POST') {
     handlePostRequest(req, res, async (body: any) => {
-      const { level, path: modulePath, tool = 'gemini', mode = 'update', targets } = body;
+      const { level, path: modulePath, tool, mode = 'update', targets } = body;
+      const resolvedTool = tool || getDefaultTool(initialPath);
 
       if (!level) {
         return { error: 'Missing level parameter', status: 400 };
@@ -598,7 +600,7 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
           type: 'CLI_EXECUTION_STARTED',
           payload: {
             executionId: syncId,
-            tool: tool === 'qwen' ? 'qwen' : 'gemini',
+            tool: resolvedTool,
             mode: 'analysis',
             category: 'internal',
             context: 'claude-sync',
@@ -629,7 +631,7 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
 
         const startTime = Date.now();
         const result = await executeCliTool({
-          tool: tool === 'qwen' ? 'qwen' : 'gemini',
+          tool: resolvedTool,
           prompt: cliPrompt,
           mode: 'analysis',
           format: 'plain',

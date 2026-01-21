@@ -6,6 +6,7 @@ import { homedir } from 'os';
 import { getMemoryStore } from '../memory-store.js';
 import { executeCliTool } from '../../tools/cli-executor.js';
 import { SmartContentFormatter } from '../../tools/cli-output-converter.js';
+import { getDefaultTool } from '../../tools/claude-cli-tools.js';
 
 /**
  * Route context interface
@@ -340,7 +341,7 @@ export async function handleMemoryRoutes(ctx: RouteContext): Promise<boolean> {
   if (pathname === '/api/memory/insights/analyze' && req.method === 'POST') {
     handlePostRequest(req, res, async (body: any) => {
       const projectPath = body.path || initialPath;
-      const tool = body.tool || 'gemini'; // gemini, qwen, codex, claude
+      const tool = body.tool || getDefaultTool(projectPath);
       const prompts = body.prompts || [];
       const lang = body.lang || 'en'; // Language preference
 

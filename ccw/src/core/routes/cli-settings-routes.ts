@@ -16,6 +16,7 @@ import {
 } from '../../config/cli-settings-manager.js';
 import type { SaveEndpointRequest } from '../../types/cli-settings.js';
 import { validateSettings } from '../../types/cli-settings.js';
+import { syncBuiltinToolsAvailability, getBuiltinToolsSyncReport } from '../../tools/claude-cli-tools.js';
 
 /**
  * Handle CLI Settings routes
@@ -221,6 +222,52 @@ export async function handleCliSettingsRoutes(ctx: RouteContext): Promise<boolea
         filePath,
         enabled: endpoint.enabled
       }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // ========== SYNC BUILTIN TOOLS AVAILABILITY ==========
+  // POST /api/cli/settings/sync-tools
+  if (pathname === '/api/cli/settings/sync-tools' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body: any) => {
+      const { initialPath } = ctx;
+      try {
+        const result = await syncBuiltinToolsAvailability(initialPath);
+
+        // Broadcast update event
+        broadcastToClients({
+          type: 'CLI_TOOLS_CONFIG_UPDATED',
+          payload: {
+            tools: result.config,
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          changes: result.changes,
+          config: result.config
+        }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: (err as Error).message }));
+      }
+    });
+    return true;
+  }
+
+  // GET /api/cli/settings/sync-report
+  if (pathname === '/api/cli/settings/sync-report' && req.method === 'GET') {
+    try {
+      const { initialPath } = ctx;
+      const report = await getBuiltinToolsSyncReport(initialPath);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(report));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: (err as Error).message }));

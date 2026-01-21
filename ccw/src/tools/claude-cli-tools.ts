@@ -611,6 +611,19 @@ export function updateClaudeDefaultTool(
 }
 
 /**
+ * Get the default tool from config
+ * Returns the configured defaultTool or 'gemini' as fallback
+ */
+export function getDefaultTool(projectDir: string): string {
+  try {
+    const settings = loadClaudeCliSettings(projectDir);
+    return settings.defaultTool || 'gemini';
+  } catch {
+    return 'gemini';
+  }
+}
+
+/**
  * Add API endpoint as a tool with type: 'api-endpoint'
  * Usage: --tool <name> or --tool custom --model <id>
  */
@@ -942,4 +955,134 @@ export function getFullConfigResponse(projectDir: string): {
     config,
     predefinedModels: { ...PREDEFINED_MODELS }
   };
+}
+
+// ========== Tool Detection & Sync Functions ==========
+
+/**
+ * Sync builtin tools availability with cli-tools.json
+ *
+ * For builtin tools (gemini, qwen, codex, claude, opencode):
+ * - Checks actual tool availability using system PATH
+ * - Updates enabled status based on actual availability
+ *
+ * For non-builtin tools (cli-wrapper, api-endpoint):
+ * - Leaves them unchanged as they have different availability mechanisms
+ *
+ * @returns Updated config and sync results
+ */
+export async function syncBuiltinToolsAvailability(projectDir: string): Promise<{
+  config: ClaudeCliToolsConfig;
+  changes: {
+    enabled: string[];    // Tools that were enabled
+    disabled: string[];   // Tools that were disabled
+    unchanged: string[];  // Tools that stayed the same
+  };
+}> {
+  // Import getCliToolsStatus dynamically to avoid circular dependency
+  const { getCliToolsStatus } = await import('./cli-executor.js');
+
+  // Get actual tool availability
+  const actualStatus = await getCliToolsStatus();
+
+  // Load current config
+  const config = loadClaudeCliTools(projectDir);
+  const changes = {
+    enabled: [] as string[],
+    disabled: [] as string[],
+    unchanged: [] as string[]
+  };
+
+  // Builtin tools that need sync
+  const builtinTools = ['gemini', 'qwen', 'codex', 'claude', 'opencode'];
+
+  for (const toolName of builtinTools) {
+    const isAvailable = actualStatus[toolName]?.available ?? false;
+    const currentConfig = config.tools[toolName];
+    const wasEnabled = currentConfig?.enabled ?? true;
+
+    // Update based on actual availability
+    if (isAvailable && !wasEnabled) {
+      // Tool exists but was disabled - enable it
+      if (!currentConfig) {
+        config.tools[toolName] = {
+          enabled: true,
+          primaryModel: DEFAULT_TOOLS_CONFIG.tools[toolName]?.primaryModel || '',
+          secondaryModel: DEFAULT_TOOLS_CONFIG.tools[toolName]?.secondaryModel || '',
+          tags: [],
+          type: 'builtin'
+        };
+      } else {
+        currentConfig.enabled = true;
+      }
+      changes.enabled.push(toolName);
+    } else if (!isAvailable && wasEnabled) {
+      // Tool doesn't exist but was enabled - disable it
+      if (currentConfig) {
+        currentConfig.enabled = false;
+      }
+      changes.disabled.push(toolName);
+    } else {
+      // No change needed
+      changes.unchanged.push(toolName);
+    }
+  }
+
+  // Save updated config
+  saveClaudeCliTools(projectDir, config);
+
+  console.log('[claude-cli-tools] Synced builtin tools availability:', {
+    enabled: changes.enabled,
+    disabled: changes.disabled,
+    unchanged: changes.unchanged
+  });
+
+  return { config, changes };
+}
+
+/**
+ * Get sync status report without actually modifying config
+ *
+ * @returns Report showing what would change if sync were run
+ */
+export async function getBuiltinToolsSyncReport(projectDir: string): Promise<{
+  current: Record<string, { available: boolean; enabled: boolean }>;
+  recommended: Record<string, { shouldEnable: boolean; reason: string }>;
+}> {
+  // Import getCliToolsStatus dynamically to avoid circular dependency
+  const { getCliToolsStatus } = await import('./cli-executor.js');
+
+  // Get actual tool availability
+  const actualStatus = await getCliToolsStatus();
+
+  // Load current config
+  const config = loadClaudeCliTools(projectDir);
+  const builtinTools = ['gemini', 'qwen', 'codex', 'claude', 'opencode'];
+
+  const current: Record<string, { available: boolean; enabled: boolean }> = {};
+  const recommended: Record<string, { shouldEnable: boolean; reason: string }> = {};
+
+  for (const toolName of builtinTools) {
+    const isAvailable = actualStatus[toolName]?.available ?? false;
+    const isEnabled = config.tools[toolName]?.enabled ?? true;
+
+    current[toolName] = {
+      available: isAvailable,
+      enabled: isEnabled
+    };
+
+    if (isAvailable && !isEnabled) {
+      recommended[toolName] = {
+        shouldEnable: true,
+        reason: 'Tool is installed but disabled in config'
+      };
+    } else if (!isAvailable && isEnabled) {
+      recommended[toolName] = {
+        shouldEnable: false,
+        reason: 'Tool is not installed but enabled in config'
+      };
+    }
+  }
+
+  return { current, recommended };
 }

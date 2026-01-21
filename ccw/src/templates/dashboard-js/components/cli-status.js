@@ -771,9 +771,14 @@ function renderCliStatus() {
   container.innerHTML = `
     <div class="cli-status-header">
       <h3><i data-lucide="terminal" class="w-4 h-4"></i> CLI Tools</h3>
-      <button class="btn-icon" onclick="refreshAllCliStatus()" title="Refresh">
-        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-      </button>
+      <div class="cli-status-actions">
+        <button class="btn-icon" onclick="syncBuiltinTools()" title="Sync tool availability with installed CLI tools">
+          <i data-lucide="sync" class="w-4 h-4"></i>
+        </button>
+        <button class="btn-icon" onclick="refreshAllCliStatus()" title="Refresh">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        </button>
+      </div>
     </div>
     ${ccwInstallHtml}
     <div class="cli-tools-grid">
@@ -823,6 +828,62 @@ function setPromptFormat(format) {
   promptConcatFormat = format;
   localStorage.setItem('ccw-prompt-format', format);
   showRefreshToast(`Prompt format set to ${format.toUpperCase()}`, 'success');
+}
+
+/**
+ * Sync builtin tools availability with installed CLI tools
+ * Checks system PATH and updates cli-tools.json accordingly
+ */
+async function syncBuiltinTools() {
+  const syncButton = document.querySelector('[onclick="syncBuiltinTools()"]');
+  if (syncButton) {
+    syncButton.disabled = true;
+    const icon = syncButton.querySelector('i');
+    if (icon) icon.classList.add('spin');
+  }
+
+  try {
+    const response = await csrfFetch('/api/cli/settings/sync-tools', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!response.ok) {
+      throw new Error('Sync failed');
+    }
+
+    const result = await response.json();
+
+    // Reload the config after sync
+    await loadCliToolsConfig();
+    await loadAllStatuses();
+    renderCliStatus();
+
+    // Show summary of changes
+    const { enabled, disabled, unchanged } = result.changes;
+    let message = 'Tools synced: ';
+    const parts = [];
+    if (enabled.length > 0) parts.push(`${enabled.join(', ')} enabled`);
+    if (disabled.length > 0) parts.push(`${disabled.join(', ')} disabled`);
+    if (unchanged.length > 0) parts.push(`${unchanged.length} unchanged`);
+    message += parts.join(', ');
+
+    showRefreshToast(message, 'success');
+
+    // Also invalidate the CLI tool cache to ensure fresh checks
+    if (window.cacheManager) {
+      window.cacheManager.delete('cli-tools-status');
+    }
+  } catch (err) {
+    console.error('Failed to sync tools:', err);
+    showRefreshToast('Failed to sync tools: ' + (err.message || String(err)), 'error');
+  } finally {
+    if (syncButton) {
+      syncButton.disabled = false;
+      const icon = syncButton.querySelector('i');
+      if (icon) icon.classList.remove('spin');
+    }
+  }
 }
 
 function setSmartContextEnabled(enabled) {

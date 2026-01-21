@@ -5,6 +5,64 @@ import type { Duplex } from 'stream';
 // WebSocket clients for real-time notifications
 export const wsClients = new Set<Duplex>();
 
+/**
+ * WebSocket message types for Loop monitoring
+ */
+export type LoopMessageType =
+  | 'LOOP_STATE_UPDATE'
+  | 'LOOP_STEP_COMPLETED'
+  | 'LOOP_COMPLETED'
+  | 'LOOP_LOG_ENTRY';
+
+/**
+ * Loop State Update - fired when loop status changes
+ */
+export interface LoopStateUpdateMessage {
+  type: 'LOOP_STATE_UPDATE';
+  loop_id: string;
+  status: 'created' | 'running' | 'paused' | 'completed' | 'failed';
+  current_iteration: number;
+  current_cli_step: number;
+  updated_at: string;
+  timestamp: string;
+}
+
+/**
+ * Loop Step Completed - fired when a CLI step finishes
+ */
+export interface LoopStepCompletedMessage {
+  type: 'LOOP_STEP_COMPLETED';
+  loop_id: string;
+  step_id: string;
+  exit_code: number;
+  duration_ms: number;
+  output: string;
+  timestamp: string;
+}
+
+/**
+ * Loop Completed - fired when entire loop finishes
+ */
+export interface LoopCompletedMessage {
+  type: 'LOOP_COMPLETED';
+  loop_id: string;
+  final_status: 'completed' | 'failed';
+  total_iterations: number;
+  reason?: string;
+  timestamp: string;
+}
+
+/**
+ * Loop Log Entry - fired for streaming log lines
+ */
+export interface LoopLogEntryMessage {
+  type: 'LOOP_LOG_ENTRY';
+  loop_id: string;
+  step_id: string;
+  line: string;
+  timestamp: string;
+}
+
 export function handleWebSocketUpgrade(req: IncomingMessage, socket: Duplex, _head: Buffer): void {
   const header = req.headers['sec-websocket-key'];
   const key = Array.isArray(header) ? header[0] : header;
@@ -195,4 +253,50 @@ export function extractSessionIdFromPath(filePath: string): string | null {
   }
 
   return null;
+}
+
+/**
+ * Loop-specific broadcast with throttling
+ * Throttles LOOP_STATE_UPDATE messages to avoid flooding clients
+ */
+let lastLoopBroadcast = 0;
+const LOOP_BROADCAST_THROTTLE = 1000; // 1 second
+
+export type LoopMessage =
+  | Omit<LoopStateUpdateMessage, 'timestamp'>
+  | Omit<LoopStepCompletedMessage, 'timestamp'>
+  | Omit<LoopCompletedMessage, 'timestamp'>
+  | Omit<LoopLogEntryMessage, 'timestamp'>;
+
+/**
+ * Broadcast loop state update with throttling
+ */
+export function broadcastLoopUpdate(message: LoopMessage): void {
+  const now = Date.now();
+
+  // Throttle LOOP_STATE_UPDATE to reduce WebSocket traffic
+  if (message.type === 'LOOP_STATE_UPDATE' && now - lastLoopBroadcast < LOOP_BROADCAST_THROTTLE) {
+    return;
+  }
+
+  lastLoopBroadcast = now;
+
+  broadcastToClients({
+    ...message,
+    timestamp: new Date().toISOString()
+  });
+}
+
+/**
+ * Broadcast loop log entry (no throttling)
+ * Used for streaming real-time logs to Dashboard
+ */
+export function broadcastLoopLog(loop_id: string, step_id: string, line: string): void {
+  broadcastToClients({
+    type: 'LOOP_LOG_ENTRY',
+    loop_id,
+    step_id,
+    line,
+    timestamp: new Date().toISOString()
+  });
 }

@@ -16,6 +16,7 @@ import {
 } from '../../../utils/uv-manager.js';
 import type { RouteContext } from '../types.js';
 import { extractJSON } from './utils.js';
+import { getDefaultTool } from '../../../tools/claude-cli-tools.js';
 
 export async function handleCodexLensSemanticRoutes(ctx: RouteContext): Promise<boolean> {
   const { pathname, url, req, res, initialPath, handlePostRequest } = ctx;
@@ -66,14 +67,14 @@ export async function handleCodexLensSemanticRoutes(ctx: RouteContext): Promise<
   // API: CodexLens LLM Enhancement (run enhance command)
   if (pathname === '/api/codexlens/enhance' && req.method === 'POST') {
     handlePostRequest(req, res, async (body) => {
-      const { path: projectPath, tool = 'gemini', batchSize = 5, timeoutMs = 300000 } = body as {
+      const { path: projectPath, tool, batchSize = 5, timeoutMs = 300000 } = body as {
         path?: unknown;
         tool?: unknown;
         batchSize?: unknown;
         timeoutMs?: unknown;
       };
       const targetPath = typeof projectPath === 'string' && projectPath.trim().length > 0 ? projectPath : initialPath;
-      const resolvedTool = typeof tool === 'string' && tool.trim().length > 0 ? tool : 'gemini';
+      const resolvedTool = typeof tool === 'string' && tool.trim().length > 0 ? tool : getDefaultTool(targetPath);
       const resolvedBatchSize = typeof batchSize === 'number' ? batchSize : Number(batchSize);
       const resolvedTimeoutMs = typeof timeoutMs === 'number' ? timeoutMs : Number(timeoutMs);
 

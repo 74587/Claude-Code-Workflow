@@ -14,6 +14,7 @@ import { coreMemoryCommand } from './commands/core-memory.js';
 import { hookCommand } from './commands/hook.js';
 import { issueCommand } from './commands/issue.js';
 import { workflowCommand } from './commands/workflow.js';
+import { loopCommand } from './commands/loop.js';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -172,7 +173,7 @@ export function run(argv: string[]): void {
     .description('Unified CLI tool executor (gemini/qwen/codex/claude)')
     .option('-p, --prompt <prompt>', 'Prompt text (alternative to positional argument)')
     .option('-f, --file <file>', 'Read prompt from file (best for multi-line prompts)')
-    .option('--tool <tool>', 'CLI tool to use', 'gemini')
+    .option('--tool <tool>', 'CLI tool to use (reads from cli-settings.json defaultTool if not specified)')
     .option('--mode <mode>', 'Execution mode: analysis, write, auto', 'analysis')
     .option('-d, --debug', 'Enable debug logging for troubleshooting')
     .option('--model <model>', 'Model override')
@@ -300,6 +301,13 @@ export function run(argv: string[]): void {
     .option('--from-queue [queue-id]', 'Sync issue statuses from queue (default: active queue)')
     .option('--queue <queue-id>', 'Target queue ID for multi-queue operations')
     .action((subcommand, args, options) => issueCommand(subcommand, args, options));
+
+  // Loop command - Loop management for multi-CLI orchestration
+  program
+    .command('loop [subcommand] [args...]')
+    .description('Loop management for automated multi-CLI execution')
+    .option('--session <name>', 'Specify workflow session')
+    .action((subcommand, args, options) => loopCommand(subcommand, args, options));
 
   // Workflow command - Workflow installation and management
   program

@@ -30,6 +30,7 @@ import {
 } from '../tools/storage-manager.js';
 import { getHistoryStore } from '../tools/cli-history-store.js';
 import { createSpinner } from '../utils/ui.js';
+import { loadClaudeCliSettings } from '../tools/claude-cli-tools.js';
 
 // Dashboard notification settings
 const DASHBOARD_PORT = process.env.CCW_PORT || 3456;
@@ -548,7 +549,19 @@ async function statusAction(debug?: boolean): Promise<void> {
  * @param {Object} options - CLI options
  */
 async function execAction(positionalPrompt: string | undefined, options: CliExecOptions): Promise<void> {
-  const { prompt: optionPrompt, file, tool = 'gemini', mode = 'analysis', model, cd, includeDirs, stream, resume, id, noNative, cache, injectMode, debug, uncommitted, base, commit, title, rule } = options;
+  const { prompt: optionPrompt, file, tool: userTool, mode = 'analysis', model, cd, includeDirs, stream, resume, id, noNative, cache, injectMode, debug, uncommitted, base, commit, title, rule } = options;
+
+  // Determine the tool to use: explicit --tool option, or defaultTool from config
+  let tool = userTool;
+  if (!tool) {
+    try {
+      const settings = loadClaudeCliSettings(cd || process.cwd());
+      tool = settings.defaultTool || 'gemini';
+    } catch {
+      // Fallback to gemini if config cannot be loaded
+      tool = 'gemini';
+    }
+  }
 
   // Enable debug mode if --debug flag is set
   if (debug) {
