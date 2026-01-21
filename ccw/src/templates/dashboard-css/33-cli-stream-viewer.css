@@ -22,12 +22,12 @@
 /* ===== Main Panel ===== */
 .cli-stream-viewer {
   position: fixed;
-  top: 80px;
+  top: 16px;
   right: 16px;
   bottom: 16px;
   width: 700px;
   max-width: calc(100vw - 32px);
-  height: calc(100vh - 96px);
+  height: calc(100vh - 32px);
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
   border-radius: 8px;
