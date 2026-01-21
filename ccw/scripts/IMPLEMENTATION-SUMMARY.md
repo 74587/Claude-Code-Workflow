@@ -124,11 +124,11 @@ Generated automatically for each match:
 
 ### Required
 - `numpy`: Array operations and cosine similarity
-- `codexlens[semantic]`: Embedding generation
+- `codex-lens[semantic]`: Embedding generation
 
 ### Installation
 ```bash
-pip install numpy codexlens[semantic]
+pip install numpy codex-lens[semantic]
 ```
 
 ## Testing

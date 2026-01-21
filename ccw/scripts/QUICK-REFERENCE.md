@@ -3,7 +3,7 @@
 ## Installation
 
 ```bash
-pip install numpy codexlens[semantic]
+pip install numpy codex-lens[semantic]
 ```
 
 ## Commands

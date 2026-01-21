@@ -60,11 +60,9 @@ function isDevEnvironment(): boolean {
  * breaking any editable (-e) pip installs that reference them.
  */
 function findLocalPackagePath(packageName: string): string | null {
-  // If running from node_modules, skip local paths entirely - use PyPI
-  if (!isDevEnvironment()) {
-    console.log(`[CodexLens] Running from node_modules - will use PyPI for ${packageName}`);
-    return null;
-  }
+  // Always try to find local paths first, even when running from node_modules.
+  // codex-lens is a local development package not published to PyPI,
+  // so we must find it locally regardless of execution context.
 
   const possiblePaths = [
     join(process.cwd(), packageName),
@@ -72,14 +70,26 @@ function findLocalPackagePath(packageName: string): string | null {
     join(homedir(), packageName),
   ];
 
+  // Also check common workspace locations
+  const cwd = process.cwd();
+  const cwdParent = dirname(cwd);
+  if (cwdParent !== cwd) {
+    possiblePaths.push(join(cwdParent, packageName));
+  }
+
   for (const localPath of possiblePaths) {
     // Skip paths inside node_modules
     if (isInsideNodeModules(localPath)) {
       continue;
     }
     if (existsSync(join(localPath, 'pyproject.toml'))) {
+      console.log(`[CodexLens] Found local ${packageName} at: ${localPath}`);
       return localPath;
     }
+  }
+
+  if (!isDevEnvironment()) {
+    console.log(`[CodexLens] Running from node_modules - will try PyPI for ${packageName}`);
   }
 
   return null;
@@ -662,21 +672,24 @@ async function bootstrapWithUv(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResul
   // Determine extras based on GPU mode
   const extras = GPU_MODE_EXTRAS[gpuMode];
 
-  if (codexLensPath) {
-    console.log(`[CodexLens] Installing from local path with UV: ${codexLensPath}`);
-    console.log(`[CodexLens] Extras: ${extras.join(', ')}`);
-    const installResult = await uv.installFromProject(codexLensPath, extras);
-    if (!installResult.success) {
-      return { success: false, error: `Failed to install codexlens: ${installResult.error}` };
-    }
-  } else {
-    // Install from PyPI with extras
-    console.log('[CodexLens] Installing from PyPI with UV...');
-    const packageSpec = `codexlens[${extras.join(',')}]`;
-    const installResult = await uv.install([packageSpec]);
-    if (!installResult.success) {
-      return { success: false, error: `Failed to install codexlens: ${installResult.error}` };
-    }
+  if (!codexLensPath) {
+    // codex-lens is a local-only package, not published to PyPI
+    const errorMsg = `Cannot find codex-lens directory for local installation.\n\n` +
+      `codex-lens is a local development package (not published to PyPI) and must be installed from local files.\n\n` +
+      `To fix this:\n` +
+      `1. Ensure the 'codex-lens' directory exists in your project root\n` +
+      `   Expected location: D:\\Claude_dms3\\codex-lens\n` +
+      `2. Verify pyproject.toml exists: D:\\Claude_dms3\\codex-lens\\pyproject.toml\n` +
+      `3. Run ccw from the correct working directory (e.g., D:\\Claude_dms3)\n` +
+      `4. Or manually install: cd D:\\Claude_dms3\\codex-lens && pip install -e .[${extras.join(',')}]`;
+    return { success: false, error: errorMsg };
+  }
+
+  console.log(`[CodexLens] Installing from local path with UV: ${codexLensPath}`);
+  console.log(`[CodexLens] Extras: ${extras.join(', ')}`);
+  const installResult = await uv.installFromProject(codexLensPath, extras);
+  if (!installResult.success) {
+    return { success: false, error: `Failed to install codex-lens: ${installResult.error}` };
   }
 
   // Clear cache after successful installation
@@ -733,20 +746,22 @@ async function installSemanticWithUv(gpuMode: GpuMode = 'cpu'): Promise<Bootstra
   console.log(`[CodexLens] Extras: ${extras.join(', ')}`);
 
   // Install with extras - UV handles dependency conflicts automatically
-  if (codexLensPath) {
-    console.log(`[CodexLens] Reinstalling from local path with semantic extras...`);
-    const installResult = await uv.installFromProject(codexLensPath, extras);
-    if (!installResult.success) {
-      return { success: false, error: `Installation failed: ${installResult.error}` };
-    }
-  } else {
-    // Install from PyPI
-    const packageSpec = `codexlens[${extras.join(',')}]`;
-    console.log(`[CodexLens] Installing ${packageSpec} from PyPI...`);
-    const installResult = await uv.install([packageSpec]);
-    if (!installResult.success) {
-      return { success: false, error: `Installation failed: ${installResult.error}` };
-    }
+  if (!codexLensPath) {
+    // codex-lens is a local-only package, not published to PyPI
+    const errorMsg = `Cannot find codex-lens directory for local installation.\n\n` +
+      `codex-lens is a local development package (not published to PyPI) and must be installed from local files.\n\n` +
+      `To fix this:\n` +
+      `1. Ensure the 'codex-lens' directory exists in your project root\n` +
+      `2. Verify pyproject.toml exists in codex-lens directory\n` +
+      `3. Run ccw from the correct working directory\n` +
+      `4. Or manually install: cd codex-lens && pip install -e .[${extras.join(',')}]`;
+    return { success: false, error: errorMsg };
+  }
+
+  console.log(`[CodexLens] Reinstalling from local path with semantic extras...`);
+  const installResult = await uv.installFromProject(codexLensPath, extras);
+  if (!installResult.success) {
+    return { success: false, error: `Installation failed: ${installResult.error}` };
   }
 
   console.log(`[CodexLens] Semantic dependencies installed successfully (${gpuMode} mode)`);
@@ -933,31 +948,43 @@ async function bootstrapVenv(): Promise<BootstrapResult> {
     }
   }
 
-  // Install codexlens with semantic extras
+  // Install codex-lens
   try {
-    console.log('[CodexLens] Installing codexlens package...');
+    console.log('[CodexLens] Installing codex-lens package...');
     const pipPath =
       process.platform === 'win32'
         ? join(CODEXLENS_VENV, 'Scripts', 'pip.exe')
         : join(CODEXLENS_VENV, 'bin', 'pip');
 
-    // Try local path if in development (not from node_modules), then fall back to PyPI
+    // Try local path - codex-lens is local-only, not published to PyPI
     const codexLensPath = findLocalCodexLensPath();
 
-    if (codexLensPath) {
-      console.log(`[CodexLens] Installing from local path: ${codexLensPath}`);
-      execSync(`"${pipPath}" install -e "${codexLensPath}"`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL });
-    } else {
-      console.log('[CodexLens] Installing from PyPI...');
-      execSync(`"${pipPath}" install codexlens`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL });
+    if (!codexLensPath) {
+      // codex-lens is a local-only package, not published to PyPI
+      const errorMsg = `Cannot find codex-lens directory for local installation.\n\n` +
+        `codex-lens is a local development package (not published to PyPI) and must be installed from local files.\n\n` +
+        `To fix this:\n` +
+        `1. Ensure the 'codex-lens' directory exists in your project root\n` +
+        `2. Verify pyproject.toml exists in codex-lens directory\n` +
+        `3. Run ccw from the correct working directory\n` +
+        `4. Or manually install: cd codex-lens && pip install -e .`;
+      throw new Error(errorMsg);
     }
+
+    console.log(`[CodexLens] Installing from local path: ${codexLensPath}`);
+    execSync(`"${pipPath}" install -e "${codexLensPath}"`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL });
 
     // Clear cache after successful installation
     clearVenvStatusCache();
     clearSemanticStatusCache();
     return { success: true };
   } catch (err) {
-    return { success: false, error: `Failed to install codexlens: ${(err as Error).message}` };
+    const errorMsg = `Failed to install codex-lens: ${(err as Error).message}\n\n` +
+      `codex-lens is a local development package. To fix this:\n` +
+      `1. Ensure the 'codex-lens' directory exists in your project root\n` +
+      `2. Run the installation from the correct working directory\n` +
+      `3. Or manually install: cd codex-lens && pip install -e .`;
+    return { success: false, error: errorMsg };
   }
 }
 

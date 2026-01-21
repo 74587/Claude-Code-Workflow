@@ -13,7 +13,7 @@ Bridge CCW to CodexLens semantic search by generating and searching embeddings f
 ## Requirements
 
 ```bash
-pip install numpy codexlens[semantic]
+pip install numpy codex-lens[semantic]
 ```
 
 ## Usage

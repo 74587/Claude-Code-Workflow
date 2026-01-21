@@ -30,7 +30,7 @@ try:
     from codexlens.semantic.factory import clear_embedder_cache
     from codexlens.config import Config as CodexLensConfig
 except ImportError:
-    print("Error: CodexLens not found. Install with: pip install codexlens[semantic]", file=sys.stderr)
+    print("Error: CodexLens not found. Install with: pip install codex-lens[semantic]", file=sys.stderr)
     sys.exit(1)
 
 

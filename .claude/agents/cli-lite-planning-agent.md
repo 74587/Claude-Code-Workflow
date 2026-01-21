@@ -77,6 +77,8 @@ Phase 4: planObject Generation
 
 ## CLI Command Template
 
+### Base Template (All Complexity Levels)
+
 ```bash
 ccw cli -p "
 PURPOSE: Generate plan for {task_description}
@@ -84,11 +86,17 @@ TASK:
 • Analyze task/bug description and context
 • Break down into tasks following schema structure
 • Identify dependencies and execution phases
+• Generate complexity-appropriate fields (rationale, verification, risks, code_skeleton, data_flow)
 MODE: analysis
 CONTEXT: @**/* | Memory: {context_summary}
 EXPECTED:
 ## Summary
 [overview]
+
+## Approach
+[high-level strategy]
+
+## Complexity: {Low|Medium|High}
 
 ## Task Breakdown
 ### T1: [Title] (or FIX1 for fix-plan)
@@ -97,17 +105,54 @@ EXPECTED:
 **Description**: [what]
 **Modification Points**: - [file]: [target] - [change]
 **Implementation**: 1. [step]
-**Acceptance/Verification**: - [quantified criterion]
+**Reference**: - Pattern: [pattern] - Files: [files] - Examples: [guidance]
+**Acceptance**: - [quantified criterion]
 **Depends On**: []
+
+[MEDIUM/HIGH COMPLEXITY ONLY]
+**Rationale**:
+- Chosen Approach: [why this approach]
+- Alternatives Considered: [other options]
+- Decision Factors: [key factors]
+- Tradeoffs: [known tradeoffs]
+
+**Verification**:
+- Unit Tests: [test names]
+- Integration Tests: [test names]
+- Manual Checks: [specific steps]
+- Success Metrics: [quantified metrics]
+
+[HIGH COMPLEXITY ONLY]
+**Risks**:
+- Risk: [description] | Probability: [L/M/H] | Impact: [L/M/H] | Mitigation: [strategy] | Fallback: [alternative]
+
+**Code Skeleton**:
+- Interfaces: [name]: [definition] - [purpose]
+- Functions: [signature] - [purpose] - returns [type]
+- Classes: [name] - [purpose] - methods: [list]
+
+## Data Flow (HIGH COMPLEXITY ONLY)
+**Diagram**: [A → B → C]
+**Stages**:
+- Stage [name]: Input=[type] → Output=[type] | Component=[module] | Transforms=[list]
+**Dependencies**: [external deps]
+
+## Design Decisions (MEDIUM/HIGH)
+- Decision: [what] | Rationale: [why] | Tradeoff: [what was traded]
 
 ## Flow Control
 **Execution Order**: - Phase parallel-1: [T1, T2] (independent)
+**Exit Conditions**: - Success: [condition] - Failure: [condition]
 
 ## Time Estimate
 **Total**: [time]
 
 CONSTRAINTS:
 - Follow schema structure from {schema_path}
+- Complexity determines required fields:
+  * Low: base fields only
+  * Medium: + rationale + verification + design_decisions
+  * High: + risks + code_skeleton + data_flow
 - Acceptance/verification must be quantified
 - Dependencies use task IDs
 - analysis=READ-ONLY
@@ -127,43 +172,80 @@ function extractSection(cliOutput, header) {
 }
 
 // Parse structured tasks from CLI output
-function extractStructuredTasks(cliOutput) {
+function extractStructuredTasks(cliOutput, complexity) {
   const tasks = []
-  const taskPattern = /### (T\d+): (.+?)\n\*\*File\*\*: (.+?)\n\*\*Action\*\*: (.+?)\n\*\*Description\*\*: (.+?)\n\*\*Modification Points\*\*:\n((?:- .+?\n)*)\*\*Implementation\*\*:\n((?:\d+\. .+?\n)+)\*\*Reference\*\*:\n((?:- .+?\n)+)\*\*Acceptance\*\*:\n((?:- .+?\n)+)\*\*Depends On\*\*: (.+)/g
+  // Split by task headers
+  const taskBlocks = cliOutput.split(/### (T\d+):/).slice(1)
 
-  let match
-  while ((match = taskPattern.exec(cliOutput)) !== null) {
+  for (let i = 0; i < taskBlocks.length; i += 2) {
+    const taskId = taskBlocks[i].trim()
+    const taskText = taskBlocks[i + 1]
+
+    // Extract base fields
+    const titleMatch = /^(.+?)(?=\n)/.exec(taskText)
+    const scopeMatch = /\*\*Scope\*\*: (.+?)(?=\n)/.exec(taskText)
+    const actionMatch = /\*\*Action\*\*: (.+?)(?=\n)/.exec(taskText)
+    const descMatch = /\*\*Description\*\*: (.+?)(?=\n)/.exec(taskText)
+    const depsMatch = /\*\*Depends On\*\*: (.+?)(?=\n|$)/.exec(taskText)
+
     // Parse modification points
-    const modPoints = match[6].trim().split('\n').filter(s => s.startsWith('-')).map(s => {
-      const m = /- \[(.+?)\]: \[(.+?)\] - (.+)/.exec(s)
-      return m ? { file: m[1], target: m[2], change: m[3] } : null
-    }).filter(Boolean)
-
-    // Parse reference
-    const refText = match[8].trim()
-    const reference = {
-      pattern: (/- Pattern: (.+)/m.exec(refText) || [])[1]?.trim() || "No pattern",
-      files: ((/- Files: (.+)/m.exec(refText) || [])[1] || "").split(',').map(f => f.trim()).filter(Boolean),
-      examples: (/- Examples: (.+)/m.exec(refText) || [])[1]?.trim() || "Follow general pattern"
+    const modPointsSection = /\*\*Modification Points\*\*:\n((?:- .+?\n)*)/.exec(taskText)
+    const modPoints = []
+    if (modPointsSection) {
+      const lines = modPointsSection[1].split('\n').filter(s => s.trim().startsWith('-'))
+      lines.forEach(line => {
+        const m = /- \[(.+?)\]: \[(.+?)\] - (.+)/.exec(line)
+        if (m) modPoints.push({ file: m[1].trim(), target: m[2].trim(), change: m[3].trim() })
+      })
     }
 
-    // Parse depends_on
-    const depsText = match[10].trim()
-    const depends_on = depsText === '[]' ? [] : depsText.replace(/[\[\]]/g, '').split(',').map(s => s.trim()).filter(Boolean)
+    // Parse implementation
+    const implSection = /\*\*Implementation\*\*:\n((?:\d+\. .+?\n)+)/.exec(taskText)
+    const implementation = implSection
+      ? implSection[1].split('\n').map(s => s.replace(/^\d+\. /, '').trim()).filter(Boolean)
+      : []
 
-    tasks.push({
-      id: match[1].trim(),
-      title: match[2].trim(),
-      file: match[3].trim(),
-      action: match[4].trim(),
-      description: match[5].trim(),
+    // Parse reference
+    const refSection = /\*\*Reference\*\*:\n((?:- .+?\n)+)/.exec(taskText)
+    const reference = refSection ? {
+      pattern: (/- Pattern: (.+)/m.exec(refSection[1]) || [])[1]?.trim() || "No pattern",
+      files: ((/- Files: (.+)/m.exec(refSection[1]) || [])[1] || "").split(',').map(f => f.trim()).filter(Boolean),
+      examples: (/- Examples: (.+)/m.exec(refSection[1]) || [])[1]?.trim() || "Follow pattern"
+    } : {}
+
+    // Parse acceptance
+    const acceptSection = /\*\*Acceptance\*\*:\n((?:- .+?\n)+)/.exec(taskText)
+    const acceptance = acceptSection
+      ? acceptSection[1].split('\n').map(s => s.replace(/^- /, '').trim()).filter(Boolean)
+      : []
+
+    const task = {
+      id: taskId,
+      title: titleMatch?.[1].trim() || "Untitled",
+      scope: scopeMatch?.[1].trim() || "",
+      action: actionMatch?.[1].trim() || "Implement",
+      description: descMatch?.[1].trim() || "",
       modification_points: modPoints,
-      implementation: match[7].trim().split('\n').map(s => s.replace(/^\d+\. /, '')).filter(Boolean),
+      implementation,
       reference,
-      acceptance: match[9].trim().split('\n').map(s => s.replace(/^- /, '')).filter(Boolean),
-      depends_on
-    })
+      acceptance,
+      depends_on: depsMatch?.[1] === '[]' ? [] : (depsMatch?.[1] || "").replace(/[\[\]]/g, '').split(',').map(s => s.trim()).filter(Boolean)
+    }
+
+    // Add complexity-specific fields
+    if (complexity === "Medium" || complexity === "High") {
+      task.rationale = extractRationale(taskText)
+      task.verification = extractVerification(taskText)
+    }
+
+    if (complexity === "High") {
+      task.risks = extractRisks(taskText)
+      task.code_skeleton = extractCodeSkeleton(taskText)
+    }
+
+    tasks.push(task)
   }
+
   return tasks
 }
 
@@ -186,14 +268,155 @@ function extractFlowControl(cliOutput) {
   }
 }
 
+// Parse rationale section for a task
+function extractRationale(taskText) {
+  const rationaleMatch = /\*\*Rationale\*\*:\n- Chosen Approach: (.+?)\n- Alternatives Considered: (.+?)\n- Decision Factors: (.+?)\n- Tradeoffs: (.+)/s.exec(taskText)
+  if (!rationaleMatch) return null
+
+  return {
+    chosen_approach: rationaleMatch[1].trim(),
+    alternatives_considered: rationaleMatch[2].split(',').map(s => s.trim()).filter(Boolean),
+    decision_factors: rationaleMatch[3].split(',').map(s => s.trim()).filter(Boolean),
+    tradeoffs: rationaleMatch[4].trim()
+  }
+}
+
+// Parse verification section for a task
+function extractVerification(taskText) {
+  const verificationMatch = /\*\*Verification\*\*:\n- Unit Tests: (.+?)\n- Integration Tests: (.+?)\n- Manual Checks: (.+?)\n- Success Metrics: (.+)/s.exec(taskText)
+  if (!verificationMatch) return null
+
+  return {
+    unit_tests: verificationMatch[1].split(',').map(s => s.trim()).filter(Boolean),
+    integration_tests: verificationMatch[2].split(',').map(s => s.trim()).filter(Boolean),
+    manual_checks: verificationMatch[3].split(',').map(s => s.trim()).filter(Boolean),
+    success_metrics: verificationMatch[4].split(',').map(s => s.trim()).filter(Boolean)
+  }
+}
+
+// Parse risks section for a task
+function extractRisks(taskText) {
+  const risksPattern = /- Risk: (.+?) \| Probability: ([LMH]) \| Impact: ([LMH]) \| Mitigation: (.+?)(?: \| Fallback: (.+?))?(?=\n|$)/g
+  const risks = []
+  let match
+
+  while ((match = risksPattern.exec(taskText)) !== null) {
+    risks.push({
+      description: match[1].trim(),
+      probability: match[2] === 'L' ? 'Low' : match[2] === 'M' ? 'Medium' : 'High',
+      impact: match[3] === 'L' ? 'Low' : match[3] === 'M' ? 'Medium' : 'High',
+      mitigation: match[4].trim(),
+      fallback: match[5]?.trim() || undefined
+    })
+  }
+
+  return risks.length > 0 ? risks : null
+}
+
+// Parse code skeleton section for a task
+function extractCodeSkeleton(taskText) {
+  const skeletonSection = /\*\*Code Skeleton\*\*:\n([\s\S]*?)(?=\n\*\*|$)/.exec(taskText)
+  if (!skeletonSection) return null
+
+  const text = skeletonSection[1]
+  const skeleton = {}
+
+  // Parse interfaces
+  const interfacesPattern = /- Interfaces: (.+?): (.+?) - (.+?)(?=\n|$)/g
+  const interfaces = []
+  let match
+  while ((match = interfacesPattern.exec(text)) !== null) {
+    interfaces.push({ name: match[1].trim(), definition: match[2].trim(), purpose: match[3].trim() })
+  }
+  if (interfaces.length > 0) skeleton.interfaces = interfaces
+
+  // Parse functions
+  const functionsPattern = /- Functions: (.+?) - (.+?) - returns (.+?)(?=\n|$)/g
+  const functions = []
+  while ((match = functionsPattern.exec(text)) !== null) {
+    functions.push({ signature: match[1].trim(), purpose: match[2].trim(), returns: match[3].trim() })
+  }
+  if (functions.length > 0) skeleton.key_functions = functions
+
+  // Parse classes
+  const classesPattern = /- Classes: (.+?) - (.+?) - methods: (.+?)(?=\n|$)/g
+  const classes = []
+  while ((match = classesPattern.exec(text)) !== null) {
+    classes.push({
+      name: match[1].trim(),
+      purpose: match[2].trim(),
+      methods: match[3].split(',').map(s => s.trim()).filter(Boolean)
+    })
+  }
+  if (classes.length > 0) skeleton.classes = classes
+
+  return Object.keys(skeleton).length > 0 ? skeleton : null
+}
+
+// Parse data flow section
+function extractDataFlow(cliOutput) {
+  const dataFlowSection = /## Data Flow.*?\n([\s\S]*?)(?=\n## |$)/.exec(cliOutput)
+  if (!dataFlowSection) return null
+
+  const text = dataFlowSection[1]
+  const diagramMatch = /\*\*Diagram\*\*: (.+?)(?=\n|$)/.exec(text)
+  const depsMatch = /\*\*Dependencies\*\*: (.+?)(?=\n|$)/.exec(text)
+
+  // Parse stages
+  const stagesPattern = /- Stage (.+?): Input=(.+?) → Output=(.+?) \| Component=(.+?)(?: \| Transforms=(.+?))?(?=\n|$)/g
+  const stages = []
+  let match
+  while ((match = stagesPattern.exec(text)) !== null) {
+    stages.push({
+      stage: match[1].trim(),
+      input: match[2].trim(),
+      output: match[3].trim(),
+      component: match[4].trim(),
+      transformations: match[5] ? match[5].split(',').map(s => s.trim()).filter(Boolean) : undefined
+    })
+  }
+
+  return {
+    diagram: diagramMatch?.[1].trim() || null,
+    stages: stages.length > 0 ? stages : undefined,
+    dependencies: depsMatch ? depsMatch[1].split(',').map(s => s.trim()).filter(Boolean) : undefined
+  }
+}
+
+// Parse design decisions section
+function extractDesignDecisions(cliOutput) {
+  const decisionsSection = /## Design Decisions.*?\n([\s\S]*?)(?=\n## |$)/.exec(cliOutput)
+  if (!decisionsSection) return null
+
+  const decisionsPattern = /- Decision: (.+?) \| Rationale: (.+?)(?: \| Tradeoff: (.+?))?(?=\n|$)/g
+  const decisions = []
+  let match
+
+  while ((match = decisionsPattern.exec(decisionsSection[1])) !== null) {
+    decisions.push({
+      decision: match[1].trim(),
+      rationale: match[2].trim(),
+      tradeoff: match[3]?.trim() || undefined
+    })
+  }
+
+  return decisions.length > 0 ? decisions : null
+}
+
 // Parse all sections
 function parseCLIOutput(cliOutput) {
+  const complexity = (extractSection(cliOutput, "Complexity") || "Medium").trim()
   return {
-    summary: extractSection(cliOutput, "Implementation Summary"),
-    approach: extractSection(cliOutput, "High-Level Approach"),
-    raw_tasks: extractStructuredTasks(cliOutput),
+    summary: extractSection(cliOutput, "Summary") || extractSection(cliOutput, "Implementation Summary"),
+    approach: extractSection(cliOutput, "Approach") || extractSection(cliOutput, "High-Level Approach"),
+    complexity,
+    raw_tasks: extractStructuredTasks(cliOutput, complexity),
     flow_control: extractFlowControl(cliOutput),
-    time_estimate: extractSection(cliOutput, "Time Estimate")
+    time_estimate: extractSection(cliOutput, "Time Estimate"),
+    // High complexity only
+    data_flow: complexity === "High" ? extractDataFlow(cliOutput) : null,
+    // Medium/High complexity
+    design_decisions: (complexity === "Medium" || complexity === "High") ? extractDesignDecisions(cliOutput) : null
   }
 }
 ```
@@ -326,7 +549,8 @@ function inferFlowControl(tasks) {
 
 ```javascript
 function generatePlanObject(parsed, enrichedContext, input, schemaType) {
-  const tasks = validateAndEnhanceTasks(parsed.raw_tasks, enrichedContext)
+  const complexity = parsed.complexity || input.complexity || "Medium"
+  const tasks = validateAndEnhanceTasks(parsed.raw_tasks, enrichedContext, complexity)
   assignCliExecutionIds(tasks, input.session.id)  // MANDATORY: Assign CLI execution IDs
   const flow_control = parsed.flow_control?.execution_order?.length > 0 ? parsed.flow_control : inferFlowControl(tasks)
   const focus_paths = [...new Set(tasks.flatMap(t => [t.file || t.scope, ...t.modification_points.map(m => m.file)]).filter(Boolean))]
@@ -338,7 +562,7 @@ function generatePlanObject(parsed, enrichedContext, input, schemaType) {
     flow_control,
     focus_paths,
     estimated_time: parsed.time_estimate || `${tasks.length * 30} minutes`,
-    recommended_execution: (input.complexity === "Low" || input.severity === "Low") ? "Agent" : "Codex",
+    recommended_execution: (complexity === "Low" || input.severity === "Low") ? "Agent" : "Codex",
     _metadata: {
       timestamp: new Date().toISOString(),
       source: "cli-lite-planning-agent",
@@ -346,6 +570,15 @@ function generatePlanObject(parsed, enrichedContext, input, schemaType) {
       context_angles: input.contextAngles || [],
       duration_seconds: Math.round((Date.now() - startTime) / 1000)
     }
+  }
+
+  // Add complexity-specific top-level fields
+  if (complexity === "Medium" || complexity === "High") {
+    base.design_decisions = parsed.design_decisions || []
+  }
+
+  if (complexity === "High") {
+    base.data_flow = parsed.data_flow || null
   }
 
   // Schema-specific fields
@@ -361,9 +594,62 @@ function generatePlanObject(parsed, enrichedContext, input, schemaType) {
     return {
       ...base,
       approach: parsed.approach || "Step-by-step implementation",
-      complexity: input.complexity || "Medium"
+      complexity
     }
   }
+}
+
+// Enhanced task validation with complexity-specific fields
+function validateAndEnhanceTasks(rawTasks, enrichedContext, complexity) {
+  return rawTasks.map((task, idx) => {
+    const enhanced = {
+      id: task.id || `T${idx + 1}`,
+      title: task.title || "Unnamed task",
+      scope: task.scope || task.file || inferFile(task, enrichedContext),
+      action: task.action || inferAction(task.title),
+      description: task.description || task.title,
+      modification_points: task.modification_points?.length > 0
+        ? task.modification_points
+        : [{ file: task.scope || task.file, target: "main", change: task.description }],
+      implementation: task.implementation?.length >= 2
+        ? task.implementation
+        : [`Analyze ${task.scope || task.file}`, `Implement ${task.title}`, `Add error handling`],
+      reference: task.reference || { pattern: "existing patterns", files: enrichedContext.relevant_files.slice(0, 2), examples: "Follow existing structure" },
+      acceptance: task.acceptance?.length >= 1
+        ? task.acceptance
+        : [`${task.title} completed`, `Follows conventions`],
+      depends_on: task.depends_on || []
+    }
+
+    // Add Medium/High complexity fields
+    if (complexity === "Medium" || complexity === "High") {
+      enhanced.rationale = task.rationale || {
+        chosen_approach: "Standard implementation approach",
+        alternatives_considered: [],
+        decision_factors: ["Maintainability", "Performance"],
+        tradeoffs: "None significant"
+      }
+      enhanced.verification = task.verification || {
+        unit_tests: [`test_${task.id.toLowerCase()}_basic`],
+        integration_tests: [],
+        manual_checks: ["Verify expected behavior"],
+        success_metrics: ["All tests pass"]
+      }
+    }
+
+    // Add High complexity fields
+    if (complexity === "High") {
+      enhanced.risks = task.risks || [{
+        description: "Implementation complexity",
+        probability: "Low",
+        impact: "Medium",
+        mitigation: "Incremental development with checkpoints"
+      }]
+      enhanced.code_skeleton = task.code_skeleton || null
+    }
+
+    return enhanced
+  })
 }
 ```
 

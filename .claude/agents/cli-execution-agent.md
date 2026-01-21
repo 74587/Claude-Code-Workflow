@@ -61,6 +61,29 @@ Score = 0
 
 **Extract Keywords**: domains (auth, api, database, ui), technologies (react, typescript, node), actions (implement, refactor, test)
 
+**Plan Context Loading** (when executing from plan.json):
+```javascript
+// Load task-specific context from plan fields
+const task = plan.tasks.find(t => t.id === taskId)
+const context = {
+  // Base context
+  scope: task.scope,
+  modification_points: task.modification_points,
+  implementation: task.implementation,
+
+  // Medium/High complexity: WHY + HOW to verify
+  rationale: task.rationale?.chosen_approach,        // Why this approach
+  verification: task.verification?.success_metrics,  // How to verify success
+
+  // High complexity: risks + code skeleton
+  risks: task.risks?.map(r => r.mitigation),         // Risk mitigations to follow
+  code_skeleton: task.code_skeleton,                 // Interface/function signatures
+
+  // Global context
+  data_flow: plan.data_flow?.diagram                 // Data flow overview
+}
+```
+
 ---
 
 ## Phase 2: Context Discovery
@@ -127,6 +150,30 @@ MODE: {analysis|write|auto}
 CONTEXT: {structured_file_references}
 EXPECTED: {clear_output_expectations}
 CONSTRAINTS: {constraints}
+```
+
+**5. Plan-Aware Prompt Enhancement** (when executing from plan.json):
+```bash
+# Include rationale in PURPOSE (Medium/High)
+PURPOSE: {task.description}
+  Approach: {task.rationale.chosen_approach}
+  Decision factors: {task.rationale.decision_factors.join(', ')}
+
+# Include code skeleton in TASK (High)
+TASK: {task.implementation.join('\n')}
+  Key interfaces: {task.code_skeleton.interfaces.map(i => i.signature)}
+  Key functions: {task.code_skeleton.key_functions.map(f => f.signature)}
+
+# Include verification in EXPECTED
+EXPECTED: {task.acceptance.join(', ')}
+  Success metrics: {task.verification.success_metrics.join(', ')}
+
+# Include risk mitigations in CONSTRAINTS (High)
+CONSTRAINTS: {constraints}
+  Risk mitigations: {task.risks.map(r => r.mitigation).join('; ')}
+
+# Include data flow context (High)
+Memory: Data flow: {plan.data_flow.diagram}
 ```
 
 ---
@@ -205,11 +252,25 @@ find .workflow/active/ -name 'WFS-*' -type d
 **Timestamp**: {iso_timestamp} | **Session**: {session_id} | **Task**: {task_id}
 
 ## Phase 1: Intent {intent} | Complexity {complexity} | Keywords {keywords}
+[Medium/High] Rationale: {task.rationale.chosen_approach}
+[High] Risks: {task.risks.map(r => `${r.description} → ${r.mitigation}`).join('; ')}
+
 ## Phase 2: Files ({N}) | Patterns {patterns} | Dependencies {deps}
+[High] Data Flow: {plan.data_flow.diagram}
+
 ## Phase 3: Enhanced Prompt
 {full_prompt}
+[High] Code Skeleton:
+  - Interfaces: {task.code_skeleton.interfaces.map(i => i.name).join(', ')}
+  - Functions: {task.code_skeleton.key_functions.map(f => f.signature).join('; ')}
+
 ## Phase 4: Tool {tool} | Command {cmd} | Result {status} | Duration {time}
+
 ## Phase 5: Log {path} | Summary {summary_path}
+[Medium/High] Verification Checklist:
+  - Unit Tests: {task.verification.unit_tests.join(', ')}
+  - Success Metrics: {task.verification.success_metrics.join(', ')}
+
 ## Next Steps: {actions}
 ```
 
