@@ -39,6 +39,9 @@ function readSettingsFile(filePath: string): Record<string, unknown> {
       return {};
     }
     const content = readFileSync(filePath, 'utf8');
+    if (!content.trim()) {
+      return {};
+    }
     return JSON.parse(content);
   } catch (error: unknown) {
     console.error(`Error reading settings file ${filePath}:`, error);
