@@ -87,6 +87,14 @@ export function updateActiveExecution(event: {
 }): void {
   const { type, executionId, tool, mode, prompt, output, success } = event;
 
+  // Debug log for troubleshooting
+  console.log(`[ActiveExec] ${type}: ${executionId} (current count: ${activeExecutions.size})`);
+
+  if (!executionId) {
+    console.warn('[ActiveExec] Missing executionId, skipping');
+    return;
+  }
+
   if (type === 'started') {
     // Create new active execution
     activeExecutions.set(executionId, {

@@ -268,6 +268,7 @@ export async function handleHooksRoutes(ctx: HooksRouteContext): Promise<boolean
 
       // Update active executions state for CLI streaming events (terminal execution)
       if (type === 'CLI_EXECUTION_STARTED' || type === 'CLI_OUTPUT' || type === 'CLI_EXECUTION_COMPLETED') {
+        console.log(`[Hooks] CLI event: ${type}, executionId: ${extraData.executionId}`);
         try {
           const { updateActiveExecution } = await import('./cli-routes.js');
 
