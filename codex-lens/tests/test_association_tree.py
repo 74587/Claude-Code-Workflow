@@ -32,7 +32,7 @@ class MockLspManager:
         self.outgoing_calls: Dict[str, List[Dict]] = {}
 
     async def get_call_hierarchy_items(
-        self, file_path: str, line: int, character: int
+        self, file_path: str, line: int, character: int, wait_for_analysis: float = 0.0
     ) -> List[Dict]:
         """Mock get_call_hierarchy_items."""
         key = f"{file_path}:{line}:{character}"

@@ -42,16 +42,20 @@ class AssociationTreeBuilder:
         self,
         lsp_manager: StandaloneLspManager,
         timeout: float = 5.0,
+        analysis_wait: float = 2.0,
     ):
         """Initialize AssociationTreeBuilder.
 
         Args:
             lsp_manager: StandaloneLspManager instance for LSP communication
             timeout: Timeout for individual LSP requests in seconds
+            analysis_wait: Time to wait for LSP analysis on first file (seconds)
         """
         self.lsp_manager = lsp_manager
         self.timeout = timeout
+        self.analysis_wait = analysis_wait
         self.visited: Set[str] = set()
+        self._analyzed_files: Set[str] = set()  # Track files already analyzed
 
     async def build_tree(
         self,
@@ -78,6 +82,12 @@ class AssociationTreeBuilder:
         tree = CallTree()
         self.visited.clear()
 
+        # Determine wait time - only wait for analysis on first encounter of file
+        wait_time = 0.0
+        if seed_file_path not in self._analyzed_files:
+            wait_time = self.analysis_wait
+            self._analyzed_files.add(seed_file_path)
+
         # Get call hierarchy items for the seed position
         try:
             hierarchy_items = await asyncio.wait_for(
@@ -85,8 +95,9 @@ class AssociationTreeBuilder:
                     file_path=seed_file_path,
                     line=seed_line,
                     character=seed_character,
+                    wait_for_analysis=wait_time,
                 ),
-                timeout=self.timeout,
+                timeout=self.timeout + wait_time,
             )
         except asyncio.TimeoutError:
             logger.warning(

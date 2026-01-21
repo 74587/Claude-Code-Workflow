@@ -987,28 +987,35 @@ class StandaloneLspManager:
         file_path: str,
         line: int,
         character: int,
+        wait_for_analysis: float = 2.0,
     ) -> List[Dict[str, Any]]:
         """Prepare call hierarchy items for a position.
-        
+
         Args:
             file_path: Path to the source file
             line: Line number (1-indexed)
             character: Character position (1-indexed)
-            
+            wait_for_analysis: Time to wait for server analysis (seconds)
+
         Returns:
             List of CallHierarchyItem dicts
         """
         state = await self._get_server(file_path)
         if not state:
             return []
-        
+
         # Check if call hierarchy is supported
         if not state.capabilities.get("callHierarchyProvider"):
             return []
-        
+
         # Open document first
         await self._open_document(state, file_path)
-        
+
+        # Wait for language server to complete analysis
+        # This is critical for Pyright to return valid call hierarchy items
+        if wait_for_analysis > 0:
+            await asyncio.sleep(wait_for_analysis)
+
         result = await self._send_request(
             state,
             "textDocument/prepareCallHierarchy",
@@ -1017,10 +1024,10 @@ class StandaloneLspManager:
                 "position": self._to_position(line, character),
             },
         )
-        
+
         if not result or not isinstance(result, list):
             return []
-        
+
         return result
     
     async def get_incoming_calls(

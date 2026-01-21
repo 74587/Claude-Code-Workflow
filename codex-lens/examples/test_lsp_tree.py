@@ -8,10 +8,11 @@ from codexlens.search.association_tree import AssociationTreeBuilder
 async def test_lsp_tree():
     """Test building LSP association tree for a known Python file."""
 
-    # Setup
-    workspace_root = Path("D:/Claude_dms3/codex-lens/src")
-    test_file = "codexlens/search/hybrid_search.py"
-    test_line = 115  # search() method definition
+    # Setup - use simple test file
+    workspace_root = Path("D:/Claude_dms3/codex-lens")
+    test_file = "test_simple_function.py"
+    test_line = 11  # main() function definition (1-based)
+    test_char = 5   # Points to 'm' in 'main' (1-based, becomes 4 in 0-based)
 
     print(f"Testing LSP tree for: {test_file}:{test_line}")
     print("="*80)
@@ -29,11 +30,11 @@ async def test_lsp_tree():
         print("   [OK] LSP manager started")
 
         # Test get_call_hierarchy_items directly
-        print(f"\n2. Testing get_call_hierarchy_items for {test_file}:{test_line}...")
+        print(f"\n2. Testing get_call_hierarchy_items for {test_file}:{test_line}:{test_char}...")
         items = await manager.get_call_hierarchy_items(
             file_path=str(workspace_root / test_file),
             line=test_line,
-            character=10,
+            character=test_char,
         )
         print(f"   Result: {len(items)} items")
         if items:
@@ -59,7 +60,7 @@ async def test_lsp_tree():
             tree = await builder.build_tree(
                 seed_file_path=str(workspace_root / test_file),
                 seed_line=test_line,
-                seed_character=10,
+                seed_character=test_char,
                 max_depth=2,
                 expand_callers=True,
                 expand_callees=True,
