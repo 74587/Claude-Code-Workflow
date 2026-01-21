@@ -81,7 +81,7 @@ AskUserQuestion({
       options: [
         { label: "Skip", description: "No review" },
         { label: "Gemini Review", description: "Gemini CLI tool" },
-        { label: "Codex Review", description: "codex review --uncommitted" },
+        { label: "Codex Review", description: "Git-aware review (prompt OR --uncommitted)" },
         { label: "Agent Review", description: "Current agent review" }
       ]
     }
@@ -471,7 +471,8 @@ Progress tracked at batch level (not individual task level). Icons: ⚡ (paralle
 **Operations**:
 - Agent Review: Current agent performs direct review
 - Gemini Review: Execute gemini CLI with review prompt
-- Custom tool: Execute specified CLI tool (qwen, codex, etc.)
+- Codex Review: Two options - (A) with prompt for complex reviews, (B) `--uncommitted` flag only for quick reviews
+- Custom tool: Execute specified CLI tool (qwen, etc.)
 
 **Unified Review Template** (All tools use same standard):
 
@@ -506,9 +507,17 @@ ccw cli -p "[Shared Prompt Template with artifacts]" --tool gemini --mode analys
 ccw cli -p "[Shared Prompt Template with artifacts]" --tool qwen --mode analysis
 # Same prompt as Gemini, different execution engine
 
-# Method 4: Codex Review (git-aware)
-ccw cli -p "[Shared Prompt Template with artifacts]" --tool codex --mode review --uncommitted
-# Reviews uncommitted changes against plan acceptance criteria
+# Method 4: Codex Review (git-aware) - Two mutually exclusive options:
+
+# Option A: With custom prompt (reviews uncommitted by default)
+ccw cli -p "[Shared Prompt Template with artifacts]" --tool codex --mode review
+# Use for complex reviews with specific focus areas
+
+# Option B: Target flag only (no prompt allowed)
+ccw cli --tool codex --mode review --uncommitted
+# Quick review of uncommitted changes without custom instructions
+
+# ⚠️ IMPORTANT: -p prompt and target flags (--uncommitted/--base/--commit) are MUTUALLY EXCLUSIVE
 ```
 
 **Multi-Round Review with Fixed IDs**:

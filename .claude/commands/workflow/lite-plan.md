@@ -526,7 +526,7 @@ AskUserQuestion({
       multiSelect: false,
       options: [
         { label: "Gemini Review", description: "Gemini CLI review" },
-        { label: "Codex Review", description: "codex review --uncommitted" },
+        { label: "Codex Review", description: "Git-aware review (prompt OR --uncommitted)" },
         { label: "Agent Review", description: "@code-reviewer agent" },
         { label: "Skip", description: "No review" }
       ]

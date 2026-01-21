@@ -217,8 +217,9 @@ fi
 ccw cli -p "$PROMPT" --tool codex --mode review $TARGET_FLAG $MODEL_FLAG $TITLE_FLAG
 ```
 
-**Full Example Command:**
+**Full Example Commands:**
 
+**Option 1: With custom prompt (reviews uncommitted by default):**
 ```bash
 ccw cli -p "
 PURPOSE: Comprehensive code review to identify issues and improve quality; success = actionable feedback with priorities
@@ -227,7 +228,12 @@ MODE: review
 CONTEXT: Reviewing uncommitted changes | Memory: Project conventions
 EXPECTED: Structured report with severity levels, file:line refs, improvement suggestions
 CONSTRAINTS: Actionable feedback
-" --tool codex --mode review --uncommitted --rule analysis-review-code-quality
+" --tool codex --mode review --rule analysis-review-code-quality
+```
+
+**Option 2: Target flag only (no prompt allowed):**
+```bash
+ccw cli --tool codex --mode review --uncommitted
 ```
 
 ### Step 5: Execute and Display Results
