@@ -4,7 +4,7 @@ CCW Loop state structure definition for Codex subagent pattern.
 
 ## State File
 
-**Location**: `.loop/{loopId}.json` (unified location, API + Skill shared)
+**Location**: `.workflow/.loop/{loopId}.json` (unified location, API + Skill shared)
 
 ## Structure Definition
 
@@ -208,7 +208,7 @@ Agent checks control signals at start of every action:
  * @returns { continue: boolean, action: 'pause_exit' | 'stop_exit' | 'continue' }
  */
 function checkControlSignals(loopId) {
-  const state = JSON.parse(Read(`.loop/${loopId}.json`))
+  const state = JSON.parse(Read(`.workflow/.loop/${loopId}.json`))
 
   switch (state.status) {
     case 'paused':
@@ -338,17 +338,17 @@ State-to-file mapping:
 
 | State Field | Sync File | Sync Timing |
 |-------------|-----------|-------------|
-| Entire LoopState | `.loop/{loopId}.json` | Every state change (master) |
-| `skill_state.develop` | `.loop/{loopId}.progress/develop.md` | After each dev operation |
-| `skill_state.debug` | `.loop/{loopId}.progress/debug.md` | After each debug operation |
-| `skill_state.validate` | `.loop/{loopId}.progress/validate.md` | After each validation |
-| Code changes log | `.loop/{loopId}.progress/changes.log` | Each file modification (NDJSON) |
-| Debug log | `.loop/{loopId}.progress/debug.log` | Each debug log (NDJSON) |
+| Entire LoopState | `.workflow/.loop/{loopId}.json` | Every state change (master) |
+| `skill_state.develop` | `.workflow/.loop/{loopId}.progress/develop.md` | After each dev operation |
+| `skill_state.debug` | `.workflow/.loop/{loopId}.progress/debug.md` | After each debug operation |
+| `skill_state.validate` | `.workflow/.loop/{loopId}.progress/validate.md` | After each validation |
+| Code changes log | `.workflow/.loop/{loopId}.progress/changes.log` | Each file modification (NDJSON) |
+| Debug log | `.workflow/.loop/{loopId}.progress/debug.log` | Each debug log (NDJSON) |
 
 ### File Structure
 
 ```
-.loop/
+.workflow/.loop/
 +-- loop-v2-20260122-abc123.json         # Master state file (API + Skill)
 +-- loop-v2-20260122-abc123.tasks.jsonl  # Task list (API managed)
 +-- loop-v2-20260122-abc123.progress/    # Skill progress files
@@ -366,7 +366,7 @@ If master state file corrupted, rebuild skill_state from progress files:
 
 ```javascript
 function rebuildSkillStateFromProgress(loopId) {
-  const progressDir = `.loop/${loopId}.progress`
+  const progressDir = `.workflow/.loop/${loopId}.progress`
 
   // Parse progress files to rebuild state
   const skill_state = {
@@ -381,7 +381,7 @@ function rebuildSkillStateFromProgress(loopId) {
 
 ## Codex Pattern Notes
 
-1. **Agent reads state**: Agent reads `.loop/{loopId}.json` at action start
+1. **Agent reads state**: Agent reads `.workflow/.loop/{loopId}.json` at action start
 2. **Agent writes state**: Agent updates state after action completion
 3. **Orchestrator tracks iterations**: Main loop tracks `current_iteration`
 4. **Single agent context**: All state updates in same agent conversation via send_input

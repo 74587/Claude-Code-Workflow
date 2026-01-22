@@ -21,7 +21,7 @@ Run tests and verify implementation, record results to validate.md.
 ### Step 1: Verify Control Signals
 
 ```javascript
-const state = JSON.parse(Read(`.loop/${loopId}.json`))
+const state = JSON.parse(Read(`.workflow/.loop/${loopId}.json`))
 
 if (state.status !== 'running') {
   return {
@@ -174,7 +174,7 @@ state.skill_state.validate.last_run_at = timestamp
 
 state.skill_state.last_action = 'VALIDATE'
 state.updated_at = timestamp
-Write(`.loop/${loopId}.json`, JSON.stringify(state, null, 2))
+Write(`.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
 ```
 
 ## Output Format
@@ -191,9 +191,9 @@ ACTION_RESULT:
   }
 
 FILES_UPDATED:
-- .loop/{loopId}.progress/validate.md: Validation report created
-- .loop/{loopId}.progress/test-results.json: Test results saved
-- .loop/{loopId}.progress/coverage.json: Coverage data saved (if available)
+- .workflow/.loop/{loopId}.progress/validate.md: Validation report created
+- .workflow/.loop/{loopId}.progress/test-results.json: Test results saved
+- .workflow/.loop/{loopId}.progress/coverage.json: Coverage data saved (if available)
 
 NEXT_ACTION_NEEDED: {COMPLETE | DEBUG | DEVELOP | MENU}
 ```

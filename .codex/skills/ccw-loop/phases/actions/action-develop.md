@@ -20,7 +20,7 @@ Execute development task and record progress to develop.md.
 ### Step 1: Verify Control Signals
 
 ```javascript
-const state = JSON.parse(Read(`.loop/${loopId}.json`))
+const state = JSON.parse(Read(`.workflow/.loop/${loopId}.json`))
 
 if (state.status !== 'running') {
   return {
@@ -133,7 +133,7 @@ state.skill_state.last_action = 'DEVELOP'
 state.skill_state.completed_actions.push('DEVELOP')
 state.updated_at = timestamp
 
-Write(`.loop/${loopId}.json`, JSON.stringify(state, null, 2))
+Write(`.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
 ```
 
 ## Output Format
@@ -149,9 +149,9 @@ ACTION_RESULT:
   }
 
 FILES_UPDATED:
-- .loop/{loopId}.json: Task status updated
-- .loop/{loopId}.progress/develop.md: Progress entry added
-- .loop/{loopId}.progress/changes.log: Change entry added
+- .workflow/.loop/{loopId}.json: Task status updated
+- .workflow/.loop/{loopId}.progress/develop.md: Progress entry added
+- .workflow/.loop/{loopId}.progress/changes.log: Change entry added
 
 NEXT_ACTION_NEEDED: {DEVELOP | DEBUG | VALIDATE | MENU}
 ```

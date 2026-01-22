@@ -41,8 +41,8 @@ PROJECT CONTEXT:
 ## Execution Steps
 
 1. **Read all progress**
-   - Load worker outputs from `.loop/{loopId}.workers/`
-   - Read progress files from `.loop/{loopId}.progress/`
+   - Load worker outputs from `.workflow/.loop/{loopId}.workers/`
+   - Read progress files from `.workflow/.loop/{loopId}.progress/`
    - Consolidate findings
 
 2. **Verify completeness**

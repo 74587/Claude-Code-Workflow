@@ -20,7 +20,7 @@ Display interactive action menu for user selection.
 ### Step 1: Verify Control Signals
 
 ```javascript
-const state = JSON.parse(Read(`.loop/${loopId}.json`))
+const state = JSON.parse(Read(`.workflow/.loop/${loopId}.json`))
 
 if (state.status !== 'running') {
   return {
@@ -172,7 +172,7 @@ If user selects "exit":
 // Save current state
 state.status = 'user_exit'
 state.updated_at = getUtc8ISOString()
-Write(`.loop/${loopId}.json`, JSON.stringify(state, null, 2))
+Write(`.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
 
 return {
   action: 'MENU',

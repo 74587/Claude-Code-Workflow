@@ -27,8 +27,8 @@ Stateless iterative development loop using Codex subagent pattern. Supports deve
 +-------------------------------------------------------------+
 |              loop-v2-routes.ts (Control Plane)               |
 |                                                              |
-|  State: .loop/{loopId}.json (MASTER)                         |
-|  Tasks: .loop/{loopId}.tasks.jsonl                           |
+|  State: .workflow/.loop/{loopId}.json (MASTER)                         |
+|  Tasks: .workflow/.loop/{loopId}.tasks.jsonl                           |
 |                                                              |
 |  /start -> Trigger ccw-loop skill with --loop-id             |
 |  /pause -> Set status='paused' (skill checks before action)  |
@@ -42,8 +42,8 @@ Stateless iterative development loop using Codex subagent pattern. Supports deve
 |                                                              |
 |  Codex Pattern: spawn_agent -> wait -> send_input -> close   |
 |                                                              |
-|  Reads/Writes: .loop/{loopId}.json (unified state)           |
-|  Writes: .loop/{loopId}.progress/* (progress files)          |
+|  Reads/Writes: .workflow/.loop/{loopId}.json (unified state)           |
+|  Writes: .workflow/.loop/{loopId}.progress/* (progress files)          |
 |                                                              |
 |  BEFORE each action:                                         |
 |    -> Check status: paused/stopped -> exit gracefully        |
@@ -55,9 +55,9 @@ Stateless iterative development loop using Codex subagent pattern. Supports deve
 
 ## Key Design Principles (Codex Adaptation)
 
-1. **Unified State**: API and Skill share `.loop/{loopId}.json` state file
+1. **Unified State**: API and Skill share `.workflow/.loop/{loopId}.json` state file
 2. **Control Signals**: Skill checks status field before each action (paused/stopped)
-3. **File-Driven**: All progress documented in `.loop/{loopId}.progress/`
+3. **File-Driven**: All progress documented in `.workflow/.loop/{loopId}.progress/`
 4. **Resumable**: Continue any loop with `--loop-id`
 5. **Dual Trigger**: Supports API trigger (`--loop-id`) and direct call (task description)
 6. **Single Agent Deep Interaction**: Use send_input for multi-phase execution instead of multiple agents
@@ -100,7 +100,7 @@ Develop -> Debug -> Validate -> (if issues) -> Develop -> ...
 ## Session Structure (Unified Location)
 
 ```
-.loop/
+.workflow/.loop/
 +-- {loopId}.json              # Master state file (API + Skill shared)
 +-- {loopId}.tasks.jsonl       # Task list (API managed)
 +-- {loopId}.progress/         # Skill progress files
@@ -129,8 +129,8 @@ const loopId = args['--loop-id'] || (() => {
   return `loop-v2-${timestamp}-${random}`
 })()
 
-const loopFile = `.loop/${loopId}.json`
-const progressDir = `.loop/${loopId}.progress`
+const loopFile = `.workflow/.loop/${loopId}.json`
+const progressDir = `.workflow/.loop/${loopId}.progress`
 
 // Create progress directory
 mkdir -p "${progressDir}"
@@ -144,14 +144,14 @@ mkdir -p "${progressDir}"
 // Step 1: Read or create initial state
 let state = null
 if (existingLoopId) {
-  state = JSON.parse(Read(`.loop/${loopId}.json`))
+  state = JSON.parse(Read(`.workflow/.loop/${loopId}.json`))
   if (!state) {
     console.error(`Loop not found: ${loopId}`)
     return
   }
 } else {
   state = createInitialState(loopId, taskDescription)
-  Write(`.loop/${loopId}.json`, JSON.stringify(state, null, 2))
+  Write(`.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
 }
 
 // Step 2: Create orchestrator agent (single agent handles all phases)
@@ -169,7 +169,7 @@ const agent = spawn_agent({
 ## LOOP CONTEXT
 
 - **Loop ID**: ${loopId}
-- **State File**: .loop/${loopId}.json
+- **State File**: .workflow/.loop/${loopId}.json
 - **Progress Dir**: ${progressDir}
 - **Mode**: ${mode}  // 'interactive' or 'auto'
 
@@ -186,7 +186,7 @@ ${taskDescription}
 You are executing CCW Loop orchestrator. Your job:
 
 1. **Check Control Signals**
-   - Read .loop/${loopId}.json
+   - Read .workflow/.loop/${loopId}.json
    - If status === 'paused' -> Output "PAUSED" and stop
    - If status === 'failed' -> Output "STOPPED" and stop
    - If status === 'running' -> Continue
@@ -200,7 +200,7 @@ You are executing CCW Loop orchestrator. Your job:
 3. **Execute Action**
    - Follow action instructions from ~/.codex/skills/ccw-loop/phases/actions/
    - Update progress files in ${progressDir}/
-   - Update state in .loop/${loopId}.json
+   - Update state in .workflow/.loop/${loopId}.json
 
 4. **Output Format**
    \`\`\`
@@ -283,10 +283,10 @@ Continue with: ${actionResult.next_action}
   }
 
   // Update iteration count in state
-  const currentState = JSON.parse(Read(`.loop/${loopId}.json`))
+  const currentState = JSON.parse(Read(`.workflow/.loop/${loopId}.json`))
   currentState.current_iteration = iteration
   currentState.updated_at = getUtc8ISOString()
-  Write(`.loop/${loopId}.json`, JSON.stringify(currentState, null, 2))
+  Write(`.workflow/.loop/${loopId}.json`, JSON.stringify(currentState, null, 2))
 }
 
 // Step 4: Cleanup

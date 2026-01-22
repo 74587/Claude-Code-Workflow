@@ -61,7 +61,7 @@ Coordinator -> spawn [develop, debug, validate] in parallel -> wait({ ids: all }
 ## Session Structure
 
 ```
-.loop/
+.workflow/.loop/
 +-- {loopId}.json              # Master state
 +-- {loopId}.workers/          # Worker outputs
 |   +-- develop.output.json
@@ -242,9 +242,9 @@ function buildWorkerPrompt(action, loopId, state) {
 
 - **Loop ID**: ${loopId}
 - **Action**: ${action}
-- **State File**: .loop/${loopId}.json
-- **Output File**: .loop/${loopId}.workers/${action}.output.json
-- **Progress File**: .loop/${loopId}.progress/${action}.md
+- **State File**: .workflow/.loop/${loopId}.json
+- **Output File**: .workflow/.loop/${loopId}.workers/${action}.output.json
+- **Progress File**: .workflow/.loop/${loopId}.progress/${action}.md
 
 ## CURRENT STATE
 

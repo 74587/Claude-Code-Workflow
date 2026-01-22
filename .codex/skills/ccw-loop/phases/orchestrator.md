@@ -45,7 +45,7 @@ const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOSt
  * @param loopId - Loop ID (e.g., "loop-v2-20260122-abc123")
  */
 function readLoopState(loopId) {
-  const stateFile = `.loop/${loopId}.json`
+  const stateFile = `.workflow/.loop/${loopId}.json`
 
   if (!fs.existsSync(stateFile)) {
     return null
@@ -63,7 +63,7 @@ function readLoopState(loopId) {
  * Create new loop state (only for direct calls, API triggers have existing state)
  */
 function createLoopState(loopId, taskDescription) {
-  const stateFile = `.loop/${loopId}.json`
+  const stateFile = `.workflow/.loop/${loopId}.json`
   const now = getUtc8ISOString()
 
   const state = {
@@ -83,7 +83,7 @@ function createLoopState(loopId, taskDescription) {
 
   // Ensure directories exist
   mkdir -p ".loop"
-  mkdir -p ".loop/${loopId}.progress"
+  mkdir -p ".workflow/.loop/${loopId}.progress"
 
   Write(stateFile, JSON.stringify(state, null, 2))
   return state
@@ -137,7 +137,7 @@ async function runOrchestrator(options = {}) {
     return { status: 'error', message: 'Missing loopId or task' }
   }
 
-  const progressDir = `.loop/${loopId}.progress`
+  const progressDir = `.workflow/.loop/${loopId}.progress`
 
   // 2. Create executor agent (single agent for entire loop)
   const agent = spawn_agent({
@@ -154,7 +154,7 @@ async function runOrchestrator(options = {}) {
 ## LOOP CONTEXT
 
 - **Loop ID**: ${loopId}
-- **State File**: .loop/${loopId}.json
+- **State File**: .workflow/.loop/${loopId}.json
 - **Progress Dir**: ${progressDir}
 - **Mode**: ${mode}
 
@@ -213,7 +213,7 @@ Execution timeout reached. Please:
     state = readLoopState(loopId)
     state.current_iteration = iteration
     state.updated_at = getUtc8ISOString()
-    Write(`.loop/${loopId}.json`, JSON.stringify(state, null, 2))
+    Write(`.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
 
     // Handle different outcomes
     switch (actionResult.next_action) {

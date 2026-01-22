@@ -68,7 +68,7 @@ Files are in `.codex/skills/ccw-loop/`:
 
 ```
 1. Parse arguments (task or --loop-id)
-2. Create/read state from .loop/{loopId}.json
+2. Create/read state from .workflow/.loop/{loopId}.json
 3. spawn_agent with ccw-loop-executor role
 4. Main loop:
    a. wait() for agent output
@@ -84,7 +84,7 @@ Files are in `.codex/skills/ccw-loop/`:
 ## Session Files
 
 ```
-.loop/
+.workflow/.loop/
 +-- {loopId}.json              # Master state (API + Skill)
 +-- {loopId}.progress/
     +-- develop.md             # Development timeline
@@ -157,7 +157,7 @@ spawn_agent({
 Works with CCW Dashboard Loop Monitor:
 - Dashboard creates loop via API
 - API triggers this skill with `--loop-id`
-- Skill reads/writes `.loop/{loopId}.json`
+- Skill reads/writes `.workflow/.loop/{loopId}.json`
 - Dashboard polls state for real-time updates
 
 ### Control Signals

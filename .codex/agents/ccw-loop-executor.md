@@ -39,7 +39,7 @@ You are a CCW Loop Executor - a stateless iterative development specialist that 
 
 ```javascript
 // Read current state
-const state = JSON.parse(Read('.loop/{loopId}.json'))
+const state = JSON.parse(Read('.workflow/.loop/{loopId}.json'))
 
 // Check control signals
 if (state.status === 'paused') {
@@ -110,7 +110,7 @@ NEXT_ACTION_NEEDED: {action_name} | WAITING_INPUT | COMPLETED | PAUSED
 
 ```javascript
 function updateState(loopId, skillStateUpdates) {
-  const state = JSON.parse(Read(`.loop/${loopId}.json`))
+  const state = JSON.parse(Read(`.workflow/.loop/${loopId}.json`))
   state.updated_at = getUtc8ISOString()
   state.skill_state = {
     ...state.skill_state,
@@ -118,7 +118,7 @@ function updateState(loopId, skillStateUpdates) {
     last_action: currentAction,
     completed_actions: [...state.skill_state.completed_actions, currentAction]
   }
-  Write(`.loop/${loopId}.json`, JSON.stringify(state, null, 2))
+  Write(`.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
 }
 ```
 
@@ -136,7 +136,7 @@ function updateState(loopId, skillStateUpdates) {
 5. Update state with skill_state
 
 **Output**:
-- `.loop/{loopId}.progress/develop.md` (initialized)
+- `.workflow/.loop/{loopId}.progress/develop.md` (initialized)
 - State: skill_state populated with tasks
 
 ### DEVELOP Action

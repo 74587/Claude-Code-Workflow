@@ -439,9 +439,9 @@ export function loadClaudeCliTools(projectDir: string): ClaudeCliToolsConfig & {
     const migrated = migrateConfig(parsed, projectDir);
     const needsSave = migrated.version !== parsed.version;
 
-    // Merge tools with defaults and ensure required fields exist
+    // Load user-configured tools only (defaults NOT merged)
     const mergedTools: Record<string, ClaudeCliTool> = {};
-    for (const [key, tool] of Object.entries({ ...DEFAULT_TOOLS_CONFIG.tools, ...(migrated.tools || {}) })) {
+    for (const [key, tool] of Object.entries(migrated.tools || {})) {
       mergedTools[key] = {
         ...ensureToolTags(tool),
         type: tool.type ?? 'builtin',

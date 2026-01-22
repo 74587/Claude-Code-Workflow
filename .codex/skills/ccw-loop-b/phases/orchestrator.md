@@ -14,7 +14,7 @@ Read state -> Select mode -> Spawn workers -> Wait results -> Merge -> Update st
 
 ```javascript
 function readState(loopId) {
-  const stateFile = `.loop/${loopId}.json`
+  const stateFile = `.workflow/.loop/${loopId}.json`
   return fs.existsSync(stateFile)
     ? JSON.parse(Read(stateFile))
     : null
@@ -252,6 +252,6 @@ function parseWorkerResult(output) {
 ## Best Practices
 
 1. **Worker 生命周期**: spawn → wait → close，不保留 worker
-2. **结果持久化**: Worker 输出写入 `.loop/{loopId}.workers/`
+2. **结果持久化**: Worker 输出写入 `.workflow/.loop/{loopId}.workers/`
 3. **状态同步**: 每次 worker 完成后更新 state
 4. **超时处理**: send_input 请求收敛，再超时则跳过
