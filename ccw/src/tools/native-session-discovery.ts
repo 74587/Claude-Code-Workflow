@@ -233,6 +233,19 @@ function encodeQwenProjectPath(projectDir: string): string {
 }
 
 /**
+ * Encode a path to Claude Code's project folder name format
+ * D:\Claude_dms3 -> D--Claude-dms3 (same as Qwen)
+ * Rules: : -> -, \ -> -, _ -> -
+ */
+function encodeClaudeProjectPath(projectDir: string): string {
+  const absolutePath = resolve(projectDir);
+  return absolutePath
+    .replace(/:/g, '-')
+    .replace(/\\/g, '-')
+    .replace(/_/g, '-');
+}
+
+/**
  * Qwen Session Discoverer
  * New path: ~/.qwen/projects/<path-encoded>/chats/<uuid>.jsonl
  * Old path: ~/.qwen/tmp/<projectHash>/chats/session-*.json (deprecated, fallback)
@@ -576,9 +589,10 @@ class ClaudeSessionDiscoverer extends SessionDiscoverer {
       // If workingDir provided, only look in that project's folder
       let projectDirs: string[];
       if (workingDir) {
-        const projectHash = calculateProjectHash(workingDir);
-        const projectPath = join(this.basePath, projectHash);
-        projectDirs = existsSync(projectPath) ? [projectHash] : [];
+        // Claude Code uses path encoding (D:\path -> D--path) not SHA256 hash
+        const encodedPath = encodeClaudeProjectPath(workingDir);
+        const projectPath = join(this.basePath, encodedPath);
+        projectDirs = existsSync(projectPath) ? [encodedPath] : [];
       } else {
         projectDirs = readdirSync(this.basePath).filter(d => {
           const fullPath = join(this.basePath, d);
@@ -652,6 +666,7 @@ class ClaudeSessionDiscoverer extends SessionDiscoverer {
   /**
    * Extract first user message from Claude Code session file (.jsonl)
    * Format: {"type":"user","message":{"role":"user","content":"..."},"isMeta":false,...}
+   * Content can be: string | array of {type,text} | array of {type,source} etc.
    */
   extractFirstUserMessage(filePath: string): string | null {
     try {
@@ -661,14 +676,30 @@ class ClaudeSessionDiscoverer extends SessionDiscoverer {
       for (const line of lines) {
         try {
           const entry = JSON.parse(line);
-          // Claude Code format: type="user", message.role="user", message.content="..."
+          // Claude Code format: type="user", message.role="user", message.content can be string or array
           // Skip meta messages and command messages
           if (entry.type === 'user' &&
               entry.message?.role === 'user' &&
               entry.message?.content &&
-              !entry.isMeta &&
-              !entry.message.content.startsWith('<command-')) {
-            return entry.message.content;
+              !entry.isMeta) {
+
+            const msgContent = entry.message.content;
+
+            // Handle string content (simple case)
+            if (typeof msgContent === 'string') {
+              if (!msgContent.startsWith('<command-') && !msgContent.includes('<local-command')) {
+                return msgContent;
+              }
+            }
+            // Handle array content (can contain text, image, tool_result, etc.)
+            else if (Array.isArray(msgContent)) {
+              for (const item of msgContent) {
+                // Look for text items
+                if (item.type === 'text' && item.text) {
+                  return item.text;
+                }
+              }
+            }
           }
         } catch { /* skip invalid lines */ }
       }

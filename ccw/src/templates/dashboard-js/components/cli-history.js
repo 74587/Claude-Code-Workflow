@@ -102,7 +102,7 @@ function renderCliHistory() {
   if (cliExecutionHistory.length === 0) {
     container.innerHTML = `
       <div class="cli-history-header">
-        <h3><i data-lucide="history" class="w-4 h-4"></i> Execution History</h3>
+        <h3><i data-lucide="history" class="w-4 h-4"></i> ${t('cli.executionHistory')}</h3>
         <div class="cli-history-controls">
           ${renderHistorySearch()}
           ${renderToolFilter()}
@@ -113,7 +113,7 @@ function renderCliHistory() {
       </div>
       <div class="empty-state">
         <i data-lucide="terminal" class="w-8 h-8"></i>
-        <p>No executions yet</p>
+        <p>${t('cli.noExecutions')}</p>
       </div>
     `;
 
@@ -124,7 +124,7 @@ function renderCliHistory() {
   const historyHtml = filteredHistory.length === 0
     ? `<div class="empty-state">
         <i data-lucide="search-x" class="w-6 h-6"></i>
-        <p>No matching results</p>
+        <p>${t('cli.noMatchingResults')}</p>
       </div>`
     : filteredHistory.map(exec => {
         const statusIcon = exec.status === 'success' ? 'check-circle' :
@@ -140,7 +140,7 @@ function renderCliHistory() {
         // Native session indicator
         const hasNative = exec.hasNativeSession || exec.nativeSessionId;
         const nativeBadge = hasNative
-          ? `<span class="cli-native-badge" title="Native session: ${exec.nativeSessionId}">
+          ? `<span class="cli-native-badge" title="${t('cli.nativeSessionBadge')}: ${exec.nativeSessionId}">
                <i data-lucide="file-json" class="w-3 h-3"></i>
              </span>`
           : '';
@@ -173,14 +173,14 @@ function renderCliHistory() {
                 <i data-lucide="copy" class="w-3.5 h-3.5"></i>
               </button>
               ${hasNative ? `
-                <button class="btn-icon" onclick="event.stopPropagation(); showNativeSessionDetail('${exec.id}', '${sourceDirEscaped}')" title="View Native Session">
+                <button class="btn-icon" onclick="event.stopPropagation(); showNativeSessionDetail('${exec.id}', '${sourceDirEscaped}')" title="${t('cli.viewNativeSession')}">
                   <i data-lucide="file-json" class="w-3.5 h-3.5"></i>
                 </button>
               ` : ''}
-              <button class="btn-icon" onclick="event.stopPropagation(); showExecutionDetail('${exec.id}', '${sourceDirEscaped}')" title="View Details">
+              <button class="btn-icon" onclick="event.stopPropagation(); showExecutionDetail('${exec.id}', '${sourceDirEscaped}')" title="${t('cli.viewDetails')}">
                 <i data-lucide="eye" class="w-3.5 h-3.5"></i>
               </button>
-              <button class="btn-icon btn-danger" onclick="event.stopPropagation(); confirmDeleteExecution('${exec.id}', '${sourceDirEscaped}')" title="Delete">
+              <button class="btn-icon btn-danger" onclick="event.stopPropagation(); confirmDeleteExecution('${exec.id}', '${sourceDirEscaped}')" title="${t('cli.delete')}">
                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
               </button>
             </div>
@@ -211,7 +211,7 @@ function renderHistorySearch() {
   return `
     <input type="text"
            class="cli-history-search"
-           placeholder="Search history..."
+           placeholder="${t('cli.searchHistory')}"
            value="${escapeHtml(cliHistorySearch)}"
            onkeyup="searchCliHistory(this.value)"
            oninput="searchCliHistory(this.value)">
@@ -224,7 +224,7 @@ function renderToolFilter() {
     <select class="cli-tool-filter" onchange="filterCliHistory(this.value)">
       ${tools.map(tool => `
         <option value="${tool === 'all' ? '' : tool}" ${cliHistoryFilter === (tool === 'all' ? null : tool) ? 'selected' : ''}>
-          ${tool === 'all' ? 'All Tools' : tool.charAt(0).toUpperCase() + tool.slice(1)}
+          ${tool === 'all' ? t('cli.allTools') : tool.charAt(0).toUpperCase() + tool.slice(1)}
         </option>
       `).join('')}
     </select>
@@ -235,7 +235,7 @@ function renderToolFilter() {
 async function showExecutionDetail(executionId, sourceDir) {
   const conversation = await loadExecutionDetail(executionId, sourceDir);
   if (!conversation) {
-    showRefreshToast('Conversation not found', 'error');
+    showRefreshToast(t('cli.conversationNotFound'), 'error');
     return;
   }
 
@@ -264,7 +264,7 @@ async function showExecutionDetail(executionId, sourceDir) {
           <div class="cli-turn-header">
             <div class="cli-turn-marker">
               <span class="cli-turn-number">${isFirst ? '▶' : '↳'} Turn ${turn.turn}</span>
-              ${isLast ? '<span class="cli-turn-latest-badge">Latest</span>' : ''}
+              ${isLast ? `<span class="cli-turn-latest-badge">${t('cli.latest')}</span>` : ''}
             </div>
             <div class="cli-turn-meta">
               <span class="cli-turn-time"><i data-lucide="clock" class="w-3 h-3"></i> ${turnTime}</span>
@@ -276,12 +276,12 @@ async function showExecutionDetail(executionId, sourceDir) {
           </div>
           <div class="cli-turn-body">
             <div class="cli-detail-section cli-prompt-section">
-              <h4><i data-lucide="user" class="w-3.5 h-3.5"></i> User Prompt</h4>
+              <h4><i data-lucide="user" class="w-3.5 h-3.5"></i> ${t('cli.userPrompt')}</h4>
               <pre class="cli-detail-prompt">${escapeHtml(turn.prompt)}</pre>
             </div>
             ${turn.output.stdout ? `
               <div class="cli-detail-section cli-output-section">
-                <h4><i data-lucide="bot" class="w-3.5 h-3.5"></i> Assistant Response</h4>
+                <h4><i data-lucide="bot" class="w-3.5 h-3.5"></i> ${t('cli.assistantResponse')}</h4>
                 <pre class="cli-detail-output">${escapeHtml(turn.output.stdout)}</pre>
               </div>
             ` : ''}
@@ -340,7 +340,7 @@ async function showExecutionDetail(executionId, sourceDir) {
     concatenatedPromptHtml = `
       <div class="cli-concat-section" id="concatPromptSection" style="display: none;">
         <div class="cli-detail-section">
-          <h4><i data-lucide="layers" class="w-3.5 h-3.5"></i> Concatenated Prompt (sent to CLI)</h4>
+          <h4><i data-lucide="layers" class="w-3.5 h-3.5"></i> ${t('cli.concatenatedPrompt')}</h4>
           <div class="cli-concat-format-selector">
             <button class="btn btn-xs ${true ? 'btn-primary' : 'btn-outline'}" onclick="switchConcatFormat('plain', '${executionId}')">Plain</button>
             <button class="btn btn-xs btn-outline" onclick="switchConcatFormat('yaml', '${executionId}')">YAML</button>
@@ -372,7 +372,7 @@ async function showExecutionDetail(executionId, sourceDir) {
       ${hasNativeSession ? `
         <div class="cli-detail-native-action">
           <button class="btn btn-sm btn-primary" onclick="showNativeSessionDetail('${executionId}', '${sourceDirEscaped}')">
-            <i data-lucide="eye" class="w-3.5 h-3.5"></i> View Full Process Conversation
+            <i data-lucide="eye" class="w-3.5 h-3.5"></i> ${t('cli.viewFullConversation')}
           </button>
         </div>
       ` : ''}
@@ -380,10 +380,10 @@ async function showExecutionDetail(executionId, sourceDir) {
     ${turnCount > 1 ? `
       <div class="cli-view-toggle">
         <button class="btn btn-sm btn-outline active" onclick="toggleConversationView('turns')">
-          <i data-lucide="list" class="w-3.5 h-3.5"></i> Per-Turn View
+          <i data-lucide="list" class="w-3.5 h-3.5"></i> ${t('cli.perTurnView')}
         </button>
         <button class="btn btn-sm btn-outline" onclick="toggleConversationView('concat')">
-          <i data-lucide="layers" class="w-3.5 h-3.5"></i> Concatenated View
+          <i data-lucide="layers" class="w-3.5 h-3.5"></i> ${t('cli.concatenatedView')}
         </button>
       </div>
     ` : ''}
@@ -393,15 +393,15 @@ async function showExecutionDetail(executionId, sourceDir) {
     ${concatenatedPromptHtml}
     <div class="cli-detail-actions">
       <button class="btn btn-sm btn-outline" onclick="copyConversationId('${executionId}')">
-        <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy ID
+        <i data-lucide="copy" class="w-3.5 h-3.5"></i> ${t('cli.copyId')}
       </button>
       ${turnCount > 1 ? `
         <button class="btn btn-sm btn-outline" onclick="copyConcatenatedPrompt('${executionId}')">
-          <i data-lucide="clipboard-copy" class="w-3.5 h-3.5"></i> Copy Full Prompt
+          <i data-lucide="clipboard-copy" class="w-3.5 h-3.5"></i> ${t('cli.copyFullPrompt')}
         </button>
       ` : ''}
       <button class="btn btn-sm btn-outline btn-danger" onclick="confirmDeleteExecution('${executionId}'); closeModal();">
-        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> ${t('cli.delete')}
       </button>
     </div>
   `;
@@ -409,7 +409,7 @@ async function showExecutionDetail(executionId, sourceDir) {
   // Store conversation data for format switching
   window._currentConversation = conversation;
 
-  showModal('Conversation Detail', modalContent);
+  showModal(t('cli.conversationDetail'), modalContent);
 }
 
 // ========== Actions ==========
@@ -433,12 +433,12 @@ function searchCliHistory(query) {
 async function refreshCliHistory() {
   await loadCliHistory();
   renderCliHistory();
-  showRefreshToast('History refreshed', 'success');
+  showRefreshToast(t('cli.historyRefreshed'), 'success');
 }
 
 // ========== Delete Execution ==========
 function confirmDeleteExecution(executionId, sourceDir) {
-  if (confirm('Delete this execution record? This action cannot be undone.')) {
+  if (confirm(t('cli.confirmDelete'))) {
     deleteExecution(executionId, sourceDir);
   }
 }
@@ -471,10 +471,10 @@ async function deleteExecution(executionId, sourceDir) {
     } else {
       renderCliHistory();
     }
-    showRefreshToast('Execution deleted', 'success');
+    showRefreshToast(t('cli.executionDeleted'), 'success');
   } catch (err) {
     console.error('Failed to delete execution:', err);
-    showRefreshToast('Delete failed: ' + err.message, 'error');
+    showRefreshToast(t('cli.deleteFailed') + ': ' + err.message, 'error');
   }
 }
 
@@ -483,10 +483,10 @@ async function copyCliExecutionId(executionId) {
   if (navigator.clipboard) {
     try {
       await navigator.clipboard.writeText(executionId);
-      showRefreshToast('ID copied: ' + executionId, 'success');
+      showRefreshToast(t('cli.idCopied') + ': ' + executionId, 'success');
     } catch (err) {
       console.error('Failed to copy ID:', err);
-      showRefreshToast('Failed to copy ID', 'error');
+      showRefreshToast(t('cli.failedToCopy'), 'error');
     }
   }
 }
@@ -494,16 +494,16 @@ async function copyCliExecutionId(executionId) {
 async function copyExecutionPrompt(executionId) {
   const detail = await loadExecutionDetail(executionId);
   if (!detail) {
-    showRefreshToast('Execution not found', 'error');
+    showRefreshToast(t('cli.executionNotFound'), 'error');
     return;
   }
 
   if (navigator.clipboard) {
     try {
       await navigator.clipboard.writeText(detail.prompt);
-      showRefreshToast('Prompt copied to clipboard', 'success');
+      showRefreshToast(t('cli.promptCopied'), 'success');
     } catch (err) {
-      showRefreshToast('Failed to copy', 'error');
+      showRefreshToast(t('cli.failedToCopy'), 'error');
     }
   }
 }
@@ -512,7 +512,7 @@ async function copyConversationId(conversationId) {
   if (navigator.clipboard) {
     try {
       await navigator.clipboard.writeText(conversationId);
-      showRefreshToast('ID copied to clipboard', 'success');
+      showRefreshToast(t('cli.idCopied'), 'success');
     } catch (err) {
       showRefreshToast('Failed to copy', 'error');
     }
@@ -667,7 +667,7 @@ function switchConcatFormat(format, executionId) {
 async function copyConcatenatedPrompt(executionId) {
   var conversation = window._currentConversation;
   if (!conversation) {
-    showRefreshToast('Conversation not found', 'error');
+    showRefreshToast(t('cli.conversationNotFound'), 'error');
     return;
   }
 
@@ -675,7 +675,7 @@ async function copyConcatenatedPrompt(executionId) {
   if (navigator.clipboard) {
     try {
       await navigator.clipboard.writeText(prompt);
-      showRefreshToast('Full prompt copied to clipboard', 'success');
+      showRefreshToast(t('cli.fullPromptCopied'), 'success');
     } catch (err) {
       showRefreshToast('Failed to copy', 'error');
     }
@@ -692,7 +692,7 @@ async function showNativeSessionDetail(executionId, sourceDir) {
   const nativeSession = await loadNativeSessionContent(executionId, sourceDir);
 
   if (!nativeSession) {
-    showRefreshToast('Native session not found', 'error');
+    showRefreshToast(t('cli.nativeSessionNotFound'), 'error');
     return;
   }
 
@@ -718,7 +718,7 @@ async function showNativeSessionDetail(executionId, sourceDir) {
                <details class="turn-thinking-details">
                  <summary class="turn-thinking-summary">
                    <i data-lucide="brain" class="w-3 h-3"></i>
-                   💭 Thinking Process (${turn.thoughts.length} thoughts)
+                   💭 ${t('cli.thinkingProcess')} (${turn.thoughts.length} ${t('cli.thoughts')})
                  </summary>
                  <div class="turn-thinking-content">
                    <ul class="native-thoughts-list">
@@ -734,7 +734,7 @@ async function showNativeSessionDetail(executionId, sourceDir) {
           ? `<div class="native-tools-section">
                <div class="turn-tool-calls-header">
                  <i data-lucide="wrench" class="w-3 h-3"></i>
-                 <strong>Tool Calls (${turn.toolCalls.length})</strong>
+                 <strong>${t('cli.toolCalls')} (${turn.toolCalls.length})</strong>
                </div>
                <div class="native-tools-list">
                  ${turn.toolCalls.map((tc, tcIdx) => `
@@ -768,11 +768,11 @@ async function showNativeSessionDetail(executionId, sourceDir) {
             <div class="native-turn-header">
               <span class="native-turn-role">
                 <i data-lucide="${roleIcon}" class="w-3.5 h-3.5"></i>
-                ${turn.role === 'user' ? 'User' : 'Assistant'}
+                ${turn.role === 'user' ? t('cli.user') : t('cli.assistant')}
               </span>
               <span class="native-turn-number">Turn ${turn.turnNumber}</span>
               ${tokenInfo}
-              ${isLast ? '<span class="native-turn-latest">Latest</span>' : ''}
+              ${isLast ? `<span class="native-turn-latest">${t('cli.latest')}</span>` : ''}
             </div>
             <div class="native-turn-content">
               <pre>${escapeHtml(turn.content)}</pre>
@@ -788,7 +788,7 @@ async function showNativeSessionDetail(executionId, sourceDir) {
   const totalTokensHtml = nativeSession.totalTokens
     ? `<div class="native-tokens-summary">
          <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
-         <strong>Total Tokens:</strong>
+         <strong>${t('cli.totalTokens')}:</strong>
          ${nativeSession.totalTokens.total || 0}
          (Input: ${nativeSession.totalTokens.input || 0},
           Output: ${nativeSession.totalTokens.output || 0}
@@ -816,13 +816,13 @@ async function showNativeSessionDetail(executionId, sourceDir) {
       </div>
       <div class="native-session-actions">
         <button class="btn btn-sm btn-outline" onclick="copyNativeSessionId('${nativeSession.sessionId}')">
-          <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy Session ID
+          <i data-lucide="copy" class="w-3.5 h-3.5"></i> ${t('cli.copySessionId')}
         </button>
         <button class="btn btn-sm btn-outline" onclick="copyNativeSessionPath('${executionId}')">
-          <i data-lucide="file" class="w-3.5 h-3.5"></i> Copy File Path
+          <i data-lucide="file" class="w-3.5 h-3.5"></i> ${t('cli.copyFilePath')}
         </button>
         <button class="btn btn-sm btn-outline" onclick="exportNativeSession('${executionId}')">
-          <i data-lucide="download" class="w-3.5 h-3.5"></i> Export JSON
+          <i data-lucide="download" class="w-3.5 h-3.5"></i> ${t('cli.exportJson')}
         </button>
       </div>
     </div>
@@ -831,7 +831,7 @@ async function showNativeSessionDetail(executionId, sourceDir) {
   // Store for export
   window._currentNativeSession = nativeSession;
 
-  showModal('Native Session Detail', modalContent, { size: 'lg' });
+  showModal(t('cli.nativeSessionDetail'), modalContent, { size: 'lg' });
 }
 
 /**
@@ -841,7 +841,7 @@ async function copyNativeSessionId(sessionId) {
   if (navigator.clipboard) {
     try {
       await navigator.clipboard.writeText(sessionId);
-      showRefreshToast('Session ID copied', 'success');
+      showRefreshToast(t('cli.sessionIdCopied'), 'success');
     } catch (err) {
       showRefreshToast('Failed to copy', 'error');
     }
@@ -858,13 +858,13 @@ async function copyNativeSessionPath(executionId) {
     if (navigator.clipboard) {
       try {
         await navigator.clipboard.writeText(exec.nativeSessionPath);
-        showRefreshToast('File path copied', 'success');
+        showRefreshToast(t('cli.filePathCopied'), 'success');
       } catch (err) {
         showRefreshToast('Failed to copy', 'error');
       }
     }
   } else {
-    showRefreshToast('Path not available', 'error');
+    showRefreshToast(t('cli.pathNotAvailable'), 'error');
   }
 }
 
@@ -874,7 +874,7 @@ async function copyNativeSessionPath(executionId) {
 function exportNativeSession(executionId) {
   const session = window._currentNativeSession;
   if (!session) {
-    showRefreshToast('No session data', 'error');
+    showRefreshToast(t('cli.noSessionData'), 'error');
     return;
   }
 
@@ -887,7 +887,7 @@ function exportNativeSession(executionId) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  showRefreshToast('Session exported', 'success');
+  showRefreshToast(t('cli.sessionExported'), 'success');
 }
 
 // ========== Helpers ==========
