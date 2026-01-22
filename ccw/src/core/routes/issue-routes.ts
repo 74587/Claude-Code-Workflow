@@ -212,20 +212,22 @@ function getIssueDetail(issuesDir: string, issueId: string) {
 function enrichIssues(issues: any[], issuesDir: string) {
   return issues.map(issue => {
     const solutions = readSolutionsJsonl(issuesDir, issue.id);
-    let taskCount = 0;
+    let tasks: any[] = [];
 
-    // Get task count from bound solution
+    // Get tasks from bound solution
     if (issue.bound_solution_id) {
       const boundSol = solutions.find(s => s.id === issue.bound_solution_id);
       if (boundSol?.tasks) {
-        taskCount = boundSol.tasks.length;
+        tasks = boundSol.tasks;
       }
     }
 
     return {
       ...issue,
+      solutions,                        // Add full solutions array
+      tasks,                            // Add full tasks array
       solution_count: solutions.length,
-      task_count: taskCount
+      task_count: tasks.length
     };
   });
 }

@@ -1000,10 +1000,28 @@ while (result.timed_out) {
 
 转换 Claude 多 Agent 命令到 Codex 时，确保：
 
-- [ ] **角色加载**：首条 message 包含 `~/.codex/agents/*.md` 内容
+- [ ] **角色加载**：首条 message 包含 `~/.codex/agents/*.md` 路径
 - [ ] **并行优化**：多个独立 agent 使用批量 `wait({ ids: [...] })`
 - [ ] **超时处理**：设置合理 `timeout_ms`，处理 `timed_out` 情况
 - [ ] **结果汇聚**：主 agent 负责合并 `status[id].completed`
 - [ ] **显式清理**：任务完成后调用 `close_agent`
 - [ ] **追问模式**：需要续做时使用 `send_input`，不要提前 close
 - [ ] **输出模板**：要求 subagent 使用统一结构化输出格式
+
+## 18. Skill/命令设计原则
+
+### 18.1 内容独立性
+
+**Codex skill/命令文档中不应包含与 Claude 的对比内容**：
+
+- 对比表格属于转换准则（本文档），不属于最终产物
+- skill 文档应专注于 Codex 机制本身的使用
+- 避免引入无关上下文，保持文档简洁
+
+### 18.2 模式选择灵活性
+
+**不过度约束设计思路**：
+
+- 文档提供的模式（单 agent / 多 agent / 混合）是可选方案
+- 根据具体场景选择合适模式
+- 主 agent 可作为协调器，灵活利用各种机制
