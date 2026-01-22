@@ -268,7 +268,8 @@ function ensureToolTags(tool: Partial<ClaudeCliTool>): ClaudeCliTool {
     enabled: tool.enabled ?? true,
     primaryModel: tool.primaryModel,
     secondaryModel: tool.secondaryModel,
-    tags: tool.tags ?? []
+    tags: tool.tags ?? [],
+    envFile: tool.envFile
   };
 }
 
