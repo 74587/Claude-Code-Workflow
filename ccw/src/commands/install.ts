@@ -335,7 +335,7 @@ export async function installCommand(options: InstallOptions): Promise<void> {
       type: 'confirm',
       name: 'installFix',
       message: 'Install Git Bash multi-line prompt fix? (recommended for Git Bash users)',
-      default: true
+      default: false
     }]);
 
     if (installFix) {
