@@ -524,6 +524,19 @@
   border-bottom: 1px solid hsl(var(--border));
 }
 
+.kanban-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.kanban-loop-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  opacity: 0.85;
+}
+
 .detail-actions {
   display: flex;
   gap: 0.5rem;

@@ -1583,9 +1583,11 @@ function renderKanbanBoardContent(container, loop, loopId, tasksByStatus) {
   container.innerHTML = `
     <div class="loop-detail">
       <div class="detail-header">
-        <div class="detail-status ${loop.status}">
-          <i data-lucide="layout-grid" class="w-4 h-4"></i>
-          <span class="status-label">${t('loop.kanban.title') || 'Tasks Board'}</span>
+        <div class="kanban-header-left">
+          <div class="detail-status ${loop.status}">
+            <i data-lucide="layout-grid" class="w-4 h-4"></i>
+            <span class="status-label">${t('loop.kanban.title') || 'Tasks Board'}</span>
+          </div>
           <span class="kanban-loop-title">${escapeHtml(loop.title || loop.loop_id)}</span>
         </div>
         <div class="detail-actions">

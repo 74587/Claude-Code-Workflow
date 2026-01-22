@@ -2199,6 +2199,8 @@ const i18n = {
     'loop.kanban.byStatus': 'By Status',
     'loop.kanban.byPriority': 'By Priority',
     'loop.kanban.noBoardData': 'No tasks to display',
+    'loop.listView': 'List View',
+    'loop.addTask': 'Add Task',
 
     // Navigation & Grouping
     'loop.nav.groupBy': 'Group By',
@@ -4790,6 +4792,8 @@ const i18n = {
     'loop.kanban.byStatus': '按状态',
     'loop.kanban.byPriority': '按优先级',
     'loop.kanban.noBoardData': '没有要显示的任务',
+    'loop.listView': '列表视图',
+    'loop.addTask': '添加任务',
 
     // Navigation & Grouping
     'loop.nav.groupBy': '分组',
