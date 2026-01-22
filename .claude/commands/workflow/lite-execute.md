@@ -390,6 +390,8 @@ ${t.verification?.success_metrics?.length > 0 ? `\n**Success metrics**: ${t.veri
   if (executionContext?.session?.artifacts?.plan) {
     context.push(`### Artifacts\nPlan: ${executionContext.session.artifacts.plan}`)
   }
+  // Project guidelines (user-defined constraints from /workflow:session:solidify)
+  context.push(`### Project Guidelines\n@.workflow/project-guidelines.json`)
   if (context.length > 0) sections.push(`## Context\n${context.join('\n\n')}`)
 
   sections.push(`Complete each task according to its "Done when" checklist.`)
