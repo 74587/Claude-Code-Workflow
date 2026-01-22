@@ -7,7 +7,8 @@
  * - GET    /api/loops/v2                   - List all loops with pagination
  * - POST   /api/loops/v2                   - Create loop with {title, description, max_iterations}
  * - GET    /api/loops/v2/:loopId           - Get loop details
- * - PUT    /api/loops/v2/:loopId           - Update loop metadata
+ * - PUT    /api/loops/v2/:loopId           - Update loop metadata (title, description, max_iterations, tags, priority, notes)
+ * - PATCH  /api/loops/v2/:loopId/status    - Quick status update with {status}
  * - DELETE /api/loops/v2/:loopId           - Delete loop
  * - POST   /api/loops/v2/:loopId/start     - Start loop execution
  * - POST   /api/loops/v2/:loopId/pause     - Pause loop
@@ -44,12 +45,18 @@ interface V2LoopCreateRequest {
 }
 
 /**
- * V2 Loop Update Request
+ * V2 Loop Update Request (extended)
  */
 interface V2LoopUpdateRequest {
+  // Basic fields
   title?: string;
   description?: string;
   max_iterations?: number;
+
+  // Extended metadata fields
+  tags?: string[];
+  priority?: 'low' | 'medium' | 'high';
+  notes?: string;
 }
 
 /**
@@ -66,6 +73,12 @@ interface V2LoopStorage {
   updated_at: string;
   completed_at?: string;
   failure_reason?: string;
+
+  // Extended metadata fields
+  tags?: string[];
+  priority?: 'low' | 'medium' | 'high';
+  notes?: string;
+
   // Tasks stored in separate tasks.jsonl file
 }
 
@@ -505,7 +518,7 @@ export async function handleLoopV2Routes(ctx: RouteContext): Promise<boolean> {
     }
 
     handlePostRequest(req, res, async (body) => {
-      const { title, description, max_iterations } = body as V2LoopUpdateRequest;
+      const { title, description, max_iterations, tags, priority, notes } = body as V2LoopUpdateRequest;
 
       try {
         const loop = await readLoopStorage(loopId);
@@ -540,7 +553,74 @@ export async function handleLoopV2Routes(ctx: RouteContext): Promise<boolean> {
           loop.max_iterations = max_iterations;
         }
 
+        // Extended metadata fields
+        if (tags !== undefined) {
+          if (!Array.isArray(tags) || !tags.every(t => typeof t === 'string')) {
+            return { success: false, error: 'tags must be an array of strings', status: 400 };
+          }
+          loop.tags = tags;
+        }
+
+        if (priority !== undefined) {
+          if (!['low', 'medium', 'high'].includes(priority)) {
+            return { success: false, error: 'priority must be one of: low, medium, high', status: 400 };
+          }
+          loop.priority = priority;
+        }
+
+        if (notes !== undefined) {
+          if (typeof notes !== 'string') {
+            return { success: false, error: 'notes must be a string', status: 400 };
+          }
+          loop.notes = notes.trim();
+        }
+
         loop.updated_at = new Date().toISOString();
+        await writeLoopStorage(loop);
+
+        broadcastStateUpdate(loopId, loop.status);
+
+        return { success: true, data: loop };
+      } catch (error) {
+        return { success: false, error: (error as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // PATCH /api/loops/v2/:loopId/status - Quick status update
+  if (pathname.match(/\/api\/loops\/v2\/[^/]+\/status$/) && req.method === 'PATCH') {
+    const loopId = pathname.split('/').slice(-2)[0];
+    if (!loopId || !isValidId(loopId)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Invalid loop ID format' }));
+      return true;
+    }
+
+    handlePostRequest(req, res, async (body) => {
+      const { status } = body as { status?: string };
+
+      if (!status || typeof status !== 'string') {
+        return { success: false, error: 'status is required', status: 400 };
+      }
+
+      if (!Object.values(LoopStatus).includes(status as LoopStatus)) {
+        return { success: false, error: `Invalid status: ${status}`, status: 400 };
+      }
+
+      try {
+        const loop = await readLoopStorage(loopId);
+        if (!loop) {
+          return { success: false, error: 'Loop not found', status: 404 };
+        }
+
+        loop.status = status as LoopStatus;
+        loop.updated_at = new Date().toISOString();
+
+        if (status === LoopStatus.COMPLETED && !loop.completed_at) {
+          loop.completed_at = new Date().toISOString();
+        }
+
         await writeLoopStorage(loop);
 
         broadcastStateUpdate(loopId, loop.status);

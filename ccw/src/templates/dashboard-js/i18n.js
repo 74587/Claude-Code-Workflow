@@ -2194,6 +2194,36 @@ const i18n = {
     'loop.failImmediate': 'Fail immediately',
     'loop.successCondition': 'Success Condition',
 
+    // Kanban Board
+    'loop.kanban.title': 'Tasks Board',
+    'loop.kanban.byStatus': 'By Status',
+    'loop.kanban.byPriority': 'By Priority',
+    'loop.kanban.noBoardData': 'No tasks to display',
+
+    // Navigation & Grouping
+    'loop.nav.groupBy': 'Group By',
+    'loop.nav.allLoops': 'All Loops',
+    'loop.nav.activeOnly': 'Active Only',
+    'loop.nav.recentlyActive': 'Recently Active',
+
+    // Task Status Details
+    'loop.taskStatus.pending': 'Pending',
+    'loop.taskStatus.inProgress': 'In Progress',
+    'loop.taskStatus.blocked': 'Blocked',
+    'loop.taskStatus.done': 'Done',
+
+    // Status Management
+    'loop.updateStatus': 'Update Status',
+    'loop.updatedAt': 'Updated at',
+    'loop.updateSuccess': 'Status updated successfully',
+    'loop.updateError': 'Failed to update status',
+    'loop.priority': 'Priority',
+    'loop.priority.low': 'Low',
+    'loop.priority.medium': 'Medium',
+    'loop.priority.high': 'High',
+    'loop.tags': 'Tags',
+    'loop.notes': 'Notes',
+
     // Issue Discovery
     'discovery.title': 'Issue Discovery',
     'discovery.description': 'Discover potential issues from multiple perspectives',
@@ -4754,6 +4784,36 @@ const i18n = {
     'loop.retryAutomatically': '自动重试',
     'loop.failImmediate': '立即失败',
     'loop.successCondition': '成功条件',
+
+    // Kanban Board
+    'loop.kanban.title': '任务看板',
+    'loop.kanban.byStatus': '按状态',
+    'loop.kanban.byPriority': '按优先级',
+    'loop.kanban.noBoardData': '没有要显示的任务',
+
+    // Navigation & Grouping
+    'loop.nav.groupBy': '分组',
+    'loop.nav.allLoops': '所有循环',
+    'loop.nav.activeOnly': '仅活跃',
+    'loop.nav.recentlyActive': '最近活跃',
+
+    // Task Status Details
+    'loop.taskStatus.pending': '待处理',
+    'loop.taskStatus.inProgress': '进行中',
+    'loop.taskStatus.blocked': '已阻止',
+    'loop.taskStatus.done': '已完成',
+
+    // Status Management
+    'loop.updateStatus': '更新状态',
+    'loop.updatedAt': '更新于',
+    'loop.updateSuccess': '状态更新成功',
+    'loop.updateError': '更新状态失败',
+    'loop.priority': '优先级',
+    'loop.priority.low': '低',
+    'loop.priority.medium': '中',
+    'loop.priority.high': '高',
+    'loop.tags': '标签',
+    'loop.notes': '备注',
 
     // Issue Discovery
     'discovery.title': '议题发现',

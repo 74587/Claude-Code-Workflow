@@ -1360,6 +1360,973 @@ function showError(message) {
 }
 
 // ==========================================
+// VIEW SWITCHING AND KANBAN BOARD
+// ==========================================
+
+// Current view state
+window.currentLoopView = 'loops'; // 'loops' | 'kanban'
+
+/**
+ * Switch between loops list view and kanban board view
+ * @param {string} view - 'loops' or 'kanban'
+ */
+function switchView(view) {
+  window.currentLoopView = view;
+
+  // Update tab buttons
+  const tabs = document.querySelectorAll('.view-tabs .tab-button');
+  tabs.forEach(tab => {
+    const tabView = tab.dataset.tab;
+    const isActive = tabView === view;
+    tab.classList.toggle('active', isActive);
+    // Add ARIA attributes for accessibility
+    tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    tab.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+  });
+
+  // Announce view change for screen readers
+  const viewLabel = view === 'loops' ? 'Loops list view' : 'Tasks kanban board view';
+  announceToScreenReader(viewLabel);
+
+  // Render appropriate view
+  if (view === 'loops') {
+    renderLoopList();
+    // Show loop detail if one is selected
+    if (window.selectedLoopId) {
+      renderLoopDetail(window.selectedLoopId);
+    }
+  } else if (view === 'tasks' || view === 'kanban') {
+    if (window.selectedLoopId) {
+      renderKanbanBoard(window.selectedLoopId);
+    } else {
+      // No loop selected, show instruction
+      const detailPanel = document.getElementById('loopDetailPanel');
+      if (detailPanel) {
+        detailPanel.innerHTML = `
+          <div class="empty-detail-state" role="status" aria-label="No loop selected">
+            <div class="empty-icon-large">
+              <i data-lucide="layout-grid" class="w-10 h-10"></i>
+            </div>
+            <p class="empty-state-title">${t('loop.selectLoopForKanban') || 'Select a Loop'}</p>
+            <p class="empty-state-hint">${t('loop.selectLoopForKanbanHint') || 'Select a loop from the list to view its task board'}</p>
+          </div>
+        `;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+      }
+    }
+  }
+}
+
+/**
+ * Render kanban board for a loop's tasks
+ * Displays tasks grouped by status in columns
+ */
+async function renderKanbanBoard(loopId) {
+  const container = document.getElementById('loopDetailPanel');
+  const loop = window.loopStateStore[loopId];
+
+  if (!container) return;
+
+  if (!loop) {
+    container.innerHTML = `
+      <div class="empty-detail-state">
+        <div class="empty-icon-large">
+          <i data-lucide="alert-circle" class="w-10 h-10"></i>
+        </div>
+        <p class="empty-state-title">${t('loop.loopNotFound')}</p>
+      </div>
+    `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    return;
+  }
+
+  // Show loading state
+  container.innerHTML = `
+    <div class="loop-detail">
+      <div class="detail-header">
+        <div class="detail-status ${loop.status}">
+          <i data-lucide="layout-grid" class="w-4 h-4"></i>
+          <span class="status-label">${t('loop.kanban.title') || 'Tasks Board'}</span>
+        </div>
+        <div class="detail-actions">
+          <button class="btn btn-success" onclick="showAddTaskModal('${loopId}')" title="${t('loop.addTask') || 'Add Task'}">
+            <i data-lucide="plus" class="w-4 h-4"></i> ${t('loop.addTask') || 'Add Task'}
+          </button>
+          <button class="btn btn-secondary" onclick="selectLoop('${loopId}')">
+            <i data-lucide="list" class="w-4 h-4"></i> ${t('loop.listView') || 'List View'}
+          </button>
+        </div>
+      </div>
+      <div class="kanban-loading">
+        <div class="loading-spinner">${t('loop.loading') || 'Loading...'}</div>
+      </div>
+    </div>
+  `;
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+
+  // Fetch tasks
+  try {
+    const response = await fetch(`/api/loops/v2/${encodeURIComponent(loopId)}/tasks`);
+    const result = await response.json();
+
+    if (!result.success) {
+      container.innerHTML = `
+        <div class="empty-detail-state">
+          <div class="empty-icon-large">
+            <i data-lucide="alert-circle" class="w-10 h-10"></i>
+          </div>
+          <p class="empty-state-title">${t('loop.loadTasksFailed') || 'Failed to load tasks'}</p>
+          <p class="empty-state-hint">${result.error || ''}</p>
+        </div>
+      `;
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      return;
+    }
+
+    const tasks = result.data || [];
+
+    // Group tasks by status
+    const tasksByStatus = groupTasksByStatus(tasks);
+
+    // Render kanban board
+    renderKanbanBoardContent(container, loop, loopId, tasksByStatus);
+
+  } catch (err) {
+    console.error('Load tasks for kanban error:', err);
+    container.innerHTML = `
+      <div class="empty-detail-state">
+        <div class="empty-icon-large">
+          <i data-lucide="alert-circle" class="w-10 h-10"></i>
+        </div>
+        <p class="empty-state-title">${t('loop.loadTasksError') || 'Error loading tasks'}</p>
+        <p class="empty-state-hint">${err.message}</p>
+      </div>
+    `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+}
+
+/**
+ * Group tasks by their status
+ */
+function groupTasksByStatus(tasks) {
+  const statuses = ['pending', 'in_progress', 'blocked', 'done'];
+  const grouped = {};
+
+  statuses.forEach(status => {
+    grouped[status] = [];
+  });
+
+  tasks.forEach(task => {
+    const status = task.status || 'pending';
+    if (!grouped[status]) {
+      grouped[status] = [];
+    }
+    grouped[status].push(task);
+  });
+
+  return grouped;
+}
+
+/**
+ * Render the actual kanban board content
+ */
+function renderKanbanBoardContent(container, loop, loopId, tasksByStatus) {
+  const statusConfig = {
+    pending: {
+      label: t('loop.taskStatus.pending') || 'Pending',
+      icon: 'circle',
+      color: 'muted'
+    },
+    in_progress: {
+      label: t('loop.taskStatus.inProgress') || 'In Progress',
+      icon: 'loader',
+      color: 'info'
+    },
+    blocked: {
+      label: t('loop.taskStatus.blocked') || 'Blocked',
+      icon: 'octagon',
+      color: 'warning'
+    },
+    done: {
+      label: t('loop.taskStatus.done') || 'Done',
+      icon: 'check-circle-2',
+      color: 'success'
+    }
+  };
+
+  const columns = Object.entries(statusConfig).map(([status, config]) => {
+    const tasks = tasksByStatus[status] || [];
+    return `
+      <div class="loop-kanban-column" data-status="${status}" role="region" aria-label="${config.label} column with ${tasks.length} tasks">
+        <div class="loop-kanban-column-header">
+          <div class="column-title">
+            <i data-lucide="${config.icon}" class="w-4 h-4" aria-hidden="true"></i>
+            <span>${config.label}</span>
+          </div>
+          <span class="column-count" aria-label="${tasks.length} tasks">${tasks.length}</span>
+        </div>
+        <div class="loop-kanban-column-body" data-status="${status}"
+             role="list"
+             aria-label="${config.label} tasks"
+             ondragover="handleKanbanDragOver(event)" ondrop="handleKanbanDrop(event, '${loopId}', '${status}')">
+          ${tasks.length > 0 ? tasks.map(task => renderKanbanTaskCard(task, loopId)).join('') : `
+            <div class="kanban-empty-column" role="status" aria-label="No ${config.label} tasks">
+              <p>${t('loop.kanban.noBoardData') || 'No tasks'}</p>
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="loop-detail">
+      <div class="detail-header">
+        <div class="detail-status ${loop.status}">
+          <i data-lucide="layout-grid" class="w-4 h-4"></i>
+          <span class="status-label">${t('loop.kanban.title') || 'Tasks Board'}</span>
+          <span class="kanban-loop-title">${escapeHtml(loop.title || loop.loop_id)}</span>
+        </div>
+        <div class="detail-actions">
+          <button class="btn btn-success" onclick="showAddTaskModal('${loopId}')" title="${t('loop.addTask') || 'Add Task'}">
+            <i data-lucide="plus" class="w-4 h-4"></i> ${t('loop.addTask') || 'Add Task'}
+          </button>
+          <button class="btn btn-secondary" onclick="selectLoop('${loopId}')">
+            <i data-lucide="list" class="w-4 h-4"></i> ${t('loop.listView') || 'List View'}
+          </button>
+        </div>
+      </div>
+      <div class="loop-kanban-wrapper">
+        <div class="loop-kanban-board">
+          ${columns}
+        </div>
+      </div>
+    </div>
+  `;
+
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+
+  // Initialize drag and drop for kanban cards
+  initKanbanDragDrop();
+
+  // Initialize keyboard navigation for accessibility
+  initializeKeyboardNavigation();
+
+  // Announce to screen reader
+  const totalTasks = Object.values(tasksByStatus).reduce((sum, tasks) => sum + tasks.length, 0);
+  announceToScreenReader(`Kanban board loaded with ${totalTasks} tasks across 4 columns`);
+}
+
+/**
+ * Render a single task card for the kanban board
+ */
+function renderKanbanTaskCard(task, loopId) {
+  const priorityClass = task.priority || 'medium';
+  const priorityLabel = t(`loop.priority.${priorityClass}`) || priorityClass;
+  const taskDescription = escapeHtml(task.description || t('loop.noDescription') || 'No description');
+  const taskTool = task.tool || 'gemini';
+  const taskMode = task.mode || 'analysis';
+
+  return `
+    <div class="loop-task-card"
+         draggable="true"
+         data-task-id="${task.task_id || task.id}"
+         data-loop-id="${loopId}"
+         role="listitem"
+         aria-label="Task: ${taskDescription}, Tool: ${taskTool}, Mode: ${taskMode}, Priority: ${priorityLabel}"
+         ondragstart="handleKanbanDragStart(event)">
+      <div class="loop-task-card-header">
+        <span class="task-card-title">${taskDescription}</span>
+        <button class="task-card-menu" onclick="showTaskContextMenu(event, '${task.task_id || task.id}', '${loopId}')" aria-label="Task options menu" title="Task options">
+          <i data-lucide="more-vertical" class="w-3 h-3" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="loop-task-card-body">
+        <div class="loop-task-card-meta">
+          <span class="task-tool-badge">${task.tool || 'gemini'}</span>
+          <span class="task-mode-badge mode-${task.mode || 'analysis'}">${task.mode || 'analysis'}</span>
+        </div>
+        ${task.priority ? `
+          <div class="loop-task-card-priority">
+            <span class="priority-badge ${priorityClass}">${priorityLabel}</span>
+          </div>
+        ` : ''}
+      </div>
+      <div class="loop-task-card-footer">
+        <div class="task-card-actions">
+          <button class="btn btn-xs btn-ghost" onclick="editTask('${task.task_id || task.id}')" title="${t('loop.edit') || 'Edit'}">
+            <i data-lucide="edit-2" class="w-3 h-3"></i>
+          </button>
+          <button class="btn btn-xs btn-ghost" onclick="showTaskStatusUpdate('${task.task_id || task.id}', '${loopId}')" title="${t('loop.updateStatus') || 'Update Status'}">
+            <i data-lucide="arrow-right-circle" class="w-3 h-3"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Initialize drag and drop for kanban board
+ */
+function initKanbanDragDrop() {
+  const cards = document.querySelectorAll('.loop-task-card[draggable="true"]');
+  cards.forEach(card => {
+    card.addEventListener('dragend', handleKanbanDragEnd);
+  });
+}
+
+/**
+ * Handle drag start for kanban card
+ */
+function handleKanbanDragStart(event) {
+  const card = event.target.closest('.loop-task-card');
+  if (!card) return;
+
+  card.classList.add('dragging');
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', JSON.stringify({
+    taskId: card.dataset.taskId,
+    loopId: card.dataset.loopId
+  }));
+}
+
+/**
+ * Handle drag end for kanban card
+ */
+function handleKanbanDragEnd(event) {
+  const card = event.target.closest('.loop-task-card');
+  if (card) {
+    card.classList.remove('dragging');
+  }
+}
+
+/**
+ * Handle drag over for kanban column
+ */
+function handleKanbanDragOver(event) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+
+  const column = event.target.closest('.loop-kanban-column-body');
+  if (column) {
+    column.classList.add('drag-over');
+  }
+}
+
+/**
+ * Handle drop for kanban column
+ */
+async function handleKanbanDrop(event, loopId, newStatus) {
+  event.preventDefault();
+
+  // Remove drag-over style
+  document.querySelectorAll('.loop-kanban-column-body').forEach(col => {
+    col.classList.remove('drag-over');
+  });
+
+  try {
+    const data = JSON.parse(event.dataTransfer.getData('text/plain'));
+    const taskId = data.taskId;
+
+    if (!taskId) return;
+
+    // Update task status
+    await updateTaskStatus(loopId, taskId, newStatus);
+
+    // Refresh kanban board
+    await renderKanbanBoard(loopId);
+
+  } catch (err) {
+    console.error('Kanban drop error:', err);
+  }
+}
+
+// ==========================================
+// STATUS UPDATE FUNCTIONS
+// ==========================================
+
+/**
+ * Update loop status via PATCH endpoint
+ * @param {string} loopId - The loop ID
+ * @param {string} status - New status (created, running, paused, completed, failed)
+ */
+async function updateLoopStatus(loopId, status) {
+  try {
+    const response = await fetch(`/api/loops/v2/${encodeURIComponent(loopId)}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      showNotification(t('loop.updateSuccess') || 'Status updated successfully', 'success');
+
+      // Update local store
+      if (window.loopStateStore[loopId]) {
+        window.loopStateStore[loopId] = result.data;
+      }
+
+      // Refresh UI
+      renderLoopList();
+      if (window.selectedLoopId === loopId) {
+        renderLoopDetail(loopId);
+      }
+
+      return result.data;
+    } else {
+      showNotification(t('loop.updateError') || 'Failed to update status: ' + (result.error || ''), 'error');
+      return null;
+    }
+  } catch (err) {
+    console.error('Update loop status error:', err);
+    showNotification(t('loop.updateError') || 'Failed to update status: ' + err.message, 'error');
+    return null;
+  }
+}
+
+/**
+ * Update loop metadata via PUT endpoint
+ * @param {string} loopId - The loop ID
+ * @param {object} metadata - Metadata to update (title, description, tags, priority, notes, etc.)
+ */
+async function updateLoopMetadata(loopId, metadata) {
+  try {
+    const response = await fetch(`/api/loops/v2/${encodeURIComponent(loopId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(metadata)
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      showNotification(t('loop.updateSuccess') || 'Loop updated successfully', 'success');
+
+      // Update local store
+      if (window.loopStateStore[loopId]) {
+        window.loopStateStore[loopId] = result.data;
+      }
+
+      // Refresh UI
+      renderLoopList();
+      if (window.selectedLoopId === loopId) {
+        renderLoopDetail(loopId);
+      }
+
+      return result.data;
+    } else {
+      showNotification(t('loop.updateError') || 'Failed to update loop: ' + (result.error || ''), 'error');
+      return null;
+    }
+  } catch (err) {
+    console.error('Update loop metadata error:', err);
+    showNotification(t('loop.updateError') || 'Failed to update loop: ' + err.message, 'error');
+    return null;
+  }
+}
+
+/**
+ * Update task status within a loop
+ * @param {string} loopId - The loop ID
+ * @param {string} taskId - The task ID
+ * @param {string} newStatus - New status (pending, in_progress, blocked, done)
+ */
+async function updateTaskStatus(loopId, taskId, newStatus) {
+  try {
+    const response = await fetch(`/api/loops/v2/${encodeURIComponent(loopId)}/tasks/${encodeURIComponent(taskId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      showNotification(t('loop.updateSuccess') || 'Task status updated', 'success');
+      return result.data;
+    } else {
+      showNotification(t('loop.updateError') || 'Failed to update task: ' + (result.error || ''), 'error');
+      return null;
+    }
+  } catch (err) {
+    console.error('Update task status error:', err);
+    showNotification(t('loop.updateError') || 'Failed to update task: ' + err.message, 'error');
+    return null;
+  }
+}
+
+/**
+ * Show status update panel for a task
+ */
+function showTaskStatusUpdate(taskId, loopId) {
+  const statuses = [
+    { value: 'pending', label: t('loop.taskStatus.pending') || 'Pending', icon: 'circle' },
+    { value: 'in_progress', label: t('loop.taskStatus.inProgress') || 'In Progress', icon: 'loader' },
+    { value: 'blocked', label: t('loop.taskStatus.blocked') || 'Blocked', icon: 'octagon' },
+    { value: 'done', label: t('loop.taskStatus.done') || 'Done', icon: 'check-circle-2' }
+  ];
+
+  const modal = document.createElement('div');
+  modal.id = 'statusUpdateModal';
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h3><i data-lucide="arrow-right-circle" class="w-5 h-5"></i> ${t('loop.updateStatus') || 'Update Status'}</h3>
+        <button class="modal-close" onclick="closeStatusUpdateModal()">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="status-update-panel">
+          ${statuses.map(status => `
+            <button class="status-option" onclick="applyTaskStatus('${taskId}', '${loopId}', '${status.value}')">
+              <i data-lucide="${status.icon}" class="w-4 h-4"></i>
+              <span>${status.label}</span>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+/**
+ * Close status update modal
+ */
+function closeStatusUpdateModal() {
+  const modal = document.getElementById('statusUpdateModal');
+  if (modal) modal.remove();
+}
+
+/**
+ * Apply task status and close modal
+ */
+async function applyTaskStatus(taskId, loopId, newStatus) {
+  closeStatusUpdateModal();
+  await updateTaskStatus(loopId, taskId, newStatus);
+
+  // Refresh the appropriate view
+  if (window.currentLoopView === 'kanban' || window.currentLoopView === 'tasks') {
+    await renderKanbanBoard(loopId);
+  } else {
+    await loadLoopTasks(loopId);
+  }
+}
+
+/**
+ * Show task context menu
+ */
+function showTaskContextMenu(event, taskId, loopId) {
+  event.stopPropagation();
+
+  // Remove existing menu if any
+  const existing = document.getElementById('taskContextMenu');
+  if (existing) existing.remove();
+
+  const menu = document.createElement('div');
+  menu.id = 'taskContextMenu';
+  menu.className = 'context-menu';
+  menu.style.cssText = `
+    position: fixed;
+    left: ${event.clientX}px;
+    top: ${event.clientY}px;
+    z-index: 10000;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.5rem;
+    padding: 0.25rem;
+    box-shadow: 0 4px 12px hsl(var(--foreground) / 0.15);
+    min-width: 150px;
+  `;
+
+  menu.innerHTML = `
+    <button class="context-menu-item" onclick="editTask('${taskId}'); closeTaskContextMenu();">
+      <i data-lucide="edit-2" class="w-4 h-4"></i>
+      <span>${t('loop.edit') || 'Edit'}</span>
+    </button>
+    <button class="context-menu-item" onclick="showTaskStatusUpdate('${taskId}', '${loopId}'); closeTaskContextMenu();">
+      <i data-lucide="arrow-right-circle" class="w-4 h-4"></i>
+      <span>${t('loop.updateStatus') || 'Update Status'}</span>
+    </button>
+    <hr class="context-menu-divider">
+    <button class="context-menu-item danger" onclick="confirmDeleteTask('${taskId}'); closeTaskContextMenu();">
+      <i data-lucide="trash-2" class="w-4 h-4"></i>
+      <span>${t('loop.delete') || 'Delete'}</span>
+    </button>
+  `;
+
+  document.body.appendChild(menu);
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+
+  // Close on click outside
+  setTimeout(() => {
+    document.addEventListener('click', closeTaskContextMenu, { once: true });
+  }, 10);
+}
+
+/**
+ * Close task context menu
+ */
+function closeTaskContextMenu() {
+  const menu = document.getElementById('taskContextMenu');
+  if (menu) menu.remove();
+}
+
+// ==========================================
+// ACCESSIBILITY UTILITIES
+// ==========================================
+
+/**
+ * Announce message to screen readers using ARIA live region
+ * @param {string} message - Message to announce
+ * @param {string} priority - 'polite' or 'assertive' (default: 'polite')
+ */
+function announceToScreenReader(message, priority = 'polite') {
+  // Create or get existing live region
+  let liveRegion = document.getElementById('screen-reader-announcements');
+  if (!liveRegion) {
+    liveRegion = document.createElement('div');
+    liveRegion.id = 'screen-reader-announcements';
+    liveRegion.className = 'sr-only';
+    liveRegion.setAttribute('role', 'status');
+    liveRegion.setAttribute('aria-live', priority);
+    liveRegion.setAttribute('aria-atomic', 'true');
+    liveRegion.style.cssText = 'position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;';
+    document.body.appendChild(liveRegion);
+  }
+
+  // Update aria-live if priority changes
+  if (liveRegion.getAttribute('aria-live') !== priority) {
+    liveRegion.setAttribute('aria-live', priority);
+  }
+
+  // Clear and set message
+  liveRegion.textContent = '';
+  setTimeout(() => {
+    liveRegion.textContent = message;
+  }, 100);
+}
+
+/**
+ * Add keyboard navigation for task cards
+ * @param {HTMLElement} card - Task card element
+ */
+function addTaskCardKeyboardSupport(card) {
+  if (!card) return;
+
+  // Make card focusable
+  card.setAttribute('tabindex', '0');
+  card.setAttribute('role', 'button');
+  card.setAttribute('aria-label', `Task: ${card.querySelector('.task-card-title')?.textContent || 'Unnamed task'}`);
+
+  // Add keyboard event listener
+  card.addEventListener('keydown', (event) => {
+    const taskId = card.dataset.taskId;
+    const loopId = card.dataset.loopId;
+
+    if (!taskId || !loopId) return;
+
+    // Enter or Space to open task context menu or edit
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      showTaskContextMenu(event, taskId, loopId);
+    }
+
+    // Arrow keys for navigation between cards
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      const nextCard = card.nextElementSibling;
+      if (nextCard && nextCard.classList.contains('loop-task-card')) {
+        nextCard.focus();
+      }
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      const prevCard = card.previousElementSibling;
+      if (prevCard && prevCard.classList.contains('loop-task-card')) {
+        prevCard.focus();
+      }
+    }
+
+    // Arrow Left/Right to move between columns (in kanban view)
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      const currentColumn = card.closest('.loop-kanban-column-body');
+      if (!currentColumn) return;
+
+      const parentColumn = currentColumn.closest('.loop-kanban-column');
+      const siblingColumn = event.key === 'ArrowLeft'
+        ? parentColumn.previousElementSibling
+        : parentColumn.nextElementSibling;
+
+      if (siblingColumn) {
+        const siblingBody = siblingColumn.querySelector('.loop-kanban-column-body');
+        const firstCard = siblingBody?.querySelector('.loop-task-card');
+        if (firstCard) {
+          firstCard.focus();
+        }
+      }
+    }
+  });
+}
+
+/**
+ * Initialize keyboard navigation for all task cards
+ */
+function initializeKeyboardNavigation() {
+  const cards = document.querySelectorAll('.loop-task-card');
+  cards.forEach(card => addTaskCardKeyboardSupport(card));
+
+  // Add keyboard shortcut hints
+  document.addEventListener('keydown', (event) => {
+    // Ctrl+K or Cmd+K to focus search/filter
+    if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
+      event.preventDefault();
+      const filterSelect = document.getElementById('loopFilter');
+      if (filterSelect) {
+        filterSelect.focus();
+      }
+    }
+
+    // ? to show keyboard shortcuts help
+    if (event.key === '?' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      const activeElement = document.activeElement;
+      const isTyping = activeElement && (
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.isContentEditable
+      );
+
+      if (!isTyping) {
+        event.preventDefault();
+        showKeyboardShortcutsHelp();
+      }
+    }
+  });
+}
+
+/**
+ * Show keyboard shortcuts help dialog
+ */
+function showKeyboardShortcutsHelp() {
+  const modal = document.createElement('div');
+  modal.id = 'keyboardShortcutsModal';
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-content modal-sm" role="dialog" aria-labelledby="shortcuts-title" aria-modal="true">
+      <div class="modal-header">
+        <h3 id="shortcuts-title"><i data-lucide="keyboard" class="w-5 h-5"></i> ${t('common.keyboardShortcuts') || 'Keyboard Shortcuts'}</h3>
+        <button class="modal-close" onclick="closeKeyboardShortcutsHelp()" aria-label="Close">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <div style="display: flex; justify-content: space-between; padding: 0.5rem; border-bottom: 1px solid hsl(var(--border));">
+            <span><kbd>?</kbd></span>
+            <span style="color: hsl(var(--muted-foreground));">Show shortcuts</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 0.5rem; border-bottom: 1px solid hsl(var(--border));">
+            <span><kbd>Ctrl</kbd> + <kbd>K</kbd></span>
+            <span style="color: hsl(var(--muted-foreground));">Focus filter</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 0.5rem; border-bottom: 1px solid hsl(var(--border));">
+            <span><kbd>Enter</kbd> / <kbd>Space</kbd></span>
+            <span style="color: hsl(var(--muted-foreground));">Open task menu</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 0.5rem; border-bottom: 1px solid hsl(var(--border));">
+            <span><kbd>↑</kbd> / <kbd>↓</kbd></span>
+            <span style="color: hsl(var(--muted-foreground));">Navigate tasks</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 0.5rem; border-bottom: 1px solid hsl(var(--border));">
+            <span><kbd>←</kbd> / <kbd>→</kbd></span>
+            <span style="color: hsl(var(--muted-foreground));">Switch columns</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 0.5rem;">
+            <span><kbd>Esc</kbd></span>
+            <span style="color: hsl(var(--muted-foreground));">Close dialog</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+
+  // Focus on close button
+  setTimeout(() => {
+    const closeBtn = modal.querySelector('.modal-close');
+    if (closeBtn) closeBtn.focus();
+  }, 100);
+
+  // Close on Escape
+  const handleEscape = (event) => {
+    if (event.key === 'Escape') {
+      closeKeyboardShortcutsHelp();
+      document.removeEventListener('keydown', handleEscape);
+    }
+  };
+  document.addEventListener('keydown', handleEscape);
+}
+
+/**
+ * Close keyboard shortcuts help
+ */
+function closeKeyboardShortcutsHelp() {
+  const modal = document.getElementById('keyboardShortcutsModal');
+  if (modal) modal.remove();
+}
+
+// ==========================================
+// PERFORMANCE OPTIMIZATIONS
+// ==========================================
+
+/**
+ * Debounce function to limit how often a function is called
+ * @param {Function} func - Function to debounce
+ * @param {number} wait - Wait time in milliseconds
+ * @returns {Function} Debounced function
+ */
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+/**
+ * Throttle function to limit execution frequency
+ * @param {Function} func - Function to throttle
+ * @param {number} limit - Minimum time between executions in ms
+ * @returns {Function} Throttled function
+ */
+function throttle(func, limit) {
+  let inThrottle;
+  return function(...args) {
+    if (!inThrottle) {
+      func.apply(this, args);
+      inThrottle = true;
+      setTimeout(() => inThrottle = false, limit);
+    }
+  };
+}
+
+// Debounced versions of frequently called functions
+const debouncedRenderLoopList = debounce(renderLoopList, 300);
+const debouncedRenderKanbanBoard = debounce(renderKanbanBoard, 300);
+
+// ==========================================
+// NAVIGATION GROUPING
+// ==========================================
+
+/**
+ * Group loops by their status for navigation display
+ * @returns {object} Loops grouped by status with counts
+ */
+function groupLoopsByStatus() {
+  const loops = Object.values(window.loopStateStore);
+  const groups = {
+    all: { loops: loops, count: loops.length },
+    running: { loops: [], count: 0 },
+    paused: { loops: [], count: 0 },
+    completed: { loops: [], count: 0 },
+    failed: { loops: [], count: 0 },
+    created: { loops: [], count: 0 }
+  };
+
+  loops.forEach(loop => {
+    const status = loop.status || 'created';
+    if (groups[status]) {
+      groups[status].loops.push(loop);
+      groups[status].count++;
+    }
+  });
+
+  return groups;
+}
+
+/**
+ * Render loop list with status grouping
+ */
+function renderGroupedLoopList() {
+  const container = document.getElementById('loopList');
+  if (!container) return;
+
+  const groups = groupLoopsByStatus();
+  const filter = document.getElementById('loopFilter')?.value || 'all';
+
+  // Get loops based on filter
+  let loops;
+  if (filter === 'all') {
+    loops = groups.all.loops;
+  } else {
+    loops = groups[filter]?.loops || [];
+  }
+
+  // Sort by updated_at descending
+  loops.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+  if (loops.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">
+          <i data-lucide="inbox" class="w-6 h-6"></i>
+        </div>
+        <p class="empty-state-title">${t('loop.noLoops')}</p>
+        <p class="empty-state-hint">${t('loop.noLoopsHint')}</p>
+      </div>
+    `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    return;
+  }
+
+  // Render grouped navigation
+  const statusGroups = ['running', 'paused', 'created', 'completed', 'failed'];
+  const groupHeaders = [];
+
+  statusGroups.forEach(status => {
+    const group = groups[status];
+    if (group.count > 0 && (filter === 'all' || filter === status)) {
+      const statusLabel = t(`loop.${status}`) || status;
+      const groupLoops = group.loops.map(loop => renderLoopCard(loop)).join('');
+      groupHeaders.push(`
+        <div class="loop-group">
+          <div class="loop-group-header">
+            <span class="group-label">${statusLabel}</span>
+            <span class="group-count">${group.count}</span>
+          </div>
+          <div class="loop-group-items">
+            ${groupLoops}
+          </div>
+        </div>
+      `);
+    }
+  });
+
+  // If filter is not 'all', just show filtered list without group headers
+  if (filter !== 'all') {
+    container.innerHTML = loops.map(loop => renderLoopCard(loop)).join('');
+  } else {
+    container.innerHTML = groupHeaders.join('');
+  }
+
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// ==========================================
 // LOOP TASK CREATION
 // ==========================================
 
