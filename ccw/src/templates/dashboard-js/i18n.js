@@ -2202,6 +2202,9 @@ const i18n = {
     'loop.kanban.noBoardData': 'No tasks to display',
     'loop.listView': 'List View',
     'loop.addTask': 'Add Task',
+    'loop.add': 'Add',
+    'loop.save': 'Save',
+    'loop.cancel': 'Cancel',
 
     // Navigation & Grouping
     'loop.nav.groupBy': 'Group By',
@@ -4796,6 +4799,9 @@ const i18n = {
     'loop.kanban.noBoardData': '没有要显示的任务',
     'loop.listView': '列表视图',
     'loop.addTask': '添加任务',
+    'loop.add': '添加',
+    'loop.save': '保存',
+    'loop.cancel': '取消',
 
     // Navigation & Grouping
     'loop.nav.groupBy': '分组',

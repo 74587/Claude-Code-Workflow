@@ -22,8 +22,8 @@ export interface LoopTask {
   /** Task description (what to do) */
   description: string;
 
-  /** CLI tool to use */
-  tool: 'bash' | 'gemini' | 'codex' | 'qwen' | 'claude';
+  /** CLI tool to use (bash, builtin tools, cli-wrapper, api-endpoint) */
+  tool: string;
 
   /** Execution mode */
   mode: 'analysis' | 'write' | 'review';

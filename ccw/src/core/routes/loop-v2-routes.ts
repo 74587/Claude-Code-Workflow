@@ -29,11 +29,13 @@
 
 import { join } from 'path';
 import { randomBytes } from 'crypto';
+import * as os from 'os';
 import type { RouteContext } from './types.js';
 import { LoopStatus } from '../../types/loop.js';
 import type { LoopState } from '../../types/loop.js';
 import { TaskStorageManager, type TaskCreateRequest, type TaskUpdateRequest, type TaskReorderRequest } from '../../tools/loop-task-manager.js';
 import { executeCliTool } from '../../tools/cli-executor.js';
+import { loadClaudeCliTools } from '../../tools/claude-cli-tools.js';
 
 /**
  * V2 Loop Create Request
@@ -710,9 +712,17 @@ export async function handleLoopV2Routes(ctx: RouteContext): Promise<boolean> {
         return { success: false, error: 'tool is required', status: 400 };
       }
 
-      const validTools = ['bash', 'gemini', 'codex', 'qwen', 'claude'];
+      // Get enabled tools from cli-tools.json dynamically
+      const cliToolsConfig = loadClaudeCliTools(os.homedir());
+      const enabledTools = Object.entries(cliToolsConfig.tools || {})
+        .filter(([_, config]) => config.enabled === true)
+        .map(([name]) => name);
+
+      // Also allow 'bash' as a special case (built-in tool)
+      const validTools = ['bash', ...enabledTools];
+
       if (!validTools.includes(tool)) {
-        return { success: false, error: `tool must be one of: ${validTools.join(', ')}`, status: 400 };
+        return { success: false, error: `tool must be one of enabled tools: ${validTools.join(', ')}`, status: 400 };
       }
 
       if (!mode || typeof mode !== 'string') {
@@ -1304,11 +1314,22 @@ function isValidId(id: string): boolean {
 }
 
 /**
+ * Get enabled tools list
+ */
+function getEnabledToolsList(): string[] {
+  const cliToolsConfig = loadClaudeCliTools(os.homedir());
+  const enabledTools = Object.entries(cliToolsConfig.tools || {})
+    .filter(([_, config]) => config.enabled === true)
+    .map(([name]) => name);
+  return ['bash', ...enabledTools];
+}
+
+/**
  * Map issue tool to loop tool
  */
-function mapIssueToolToLoopTool(tool: any): 'bash' | 'gemini' | 'codex' | 'qwen' | 'claude' | null {
-  const validTools = ['bash', 'gemini', 'codex', 'qwen', 'claude'];
-  if (validTools.includes(tool)) return tool as any;
+function mapIssueToolToLoopTool(tool: any): string | null {
+  const validTools = getEnabledToolsList();
+  if (validTools.includes(tool)) return tool;
   // Map aliases
   if (tool === 'ccw') return 'gemini';
   if (tool === 'ai') return 'gemini';
@@ -1343,7 +1364,7 @@ function mapIssueOnError(onError: any): 'continue' | 'pause' | 'fail_fast' | und
  * Validate tool value
  */
 function validateTool(tool: any): boolean {
-  const validTools = ['bash', 'gemini', 'codex', 'qwen', 'claude'];
+  const validTools = getEnabledToolsList();
   return validTools.includes(tool);
 }
 
