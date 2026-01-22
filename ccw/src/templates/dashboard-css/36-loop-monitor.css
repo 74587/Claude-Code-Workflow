@@ -332,7 +332,6 @@
   margin-bottom: 0.75rem;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-left: 4px solid hsl(var(--muted-foreground));
   border-radius: 0.625rem;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -350,13 +349,6 @@
   border-color: hsl(var(--primary));
   box-shadow: 0 0 0 2px hsl(var(--primary) / 0.15);
 }
-
-/* Status border colors */
-.loop-card.status-created { border-left-color: hsl(var(--muted-foreground)); }
-.loop-card.status-running { border-left-color: hsl(var(--info)); }
-.loop-card.status-paused { border-left-color: hsl(var(--warning)); }
-.loop-card.status-completed { border-left-color: hsl(var(--success)); }
-.loop-card.status-failed { border-left-color: hsl(var(--destructive)); }
 
 .loop-card-header {
   display: flex;

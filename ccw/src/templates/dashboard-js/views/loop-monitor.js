@@ -305,11 +305,11 @@ function renderLoopCard(loop) {
 
   // Lucide icons for each status
   const statusIcons = {
-    created: 'circle',
-    running: 'activity',
-    paused: 'pause-circle',
-    completed: 'check-circle-2',
-    failed: 'x-circle'
+    created: 'square',
+    running: 'zap',
+    paused: 'pause',
+    completed: 'check',
+    failed: 'alert-triangle'
   };
 
   // Check if this is a v2 loop (has title field) or v1 loop (has task_id field)
@@ -1318,13 +1318,13 @@ window.destroyLoopMonitor = function() {
 // Helper functions
 function getStatusIcon(status) {
   const icons = {
-    created: 'circle',
-    running: 'activity',
-    paused: 'pause-circle',
-    completed: 'check-circle-2',
-    failed: 'x-circle'
+    created: 'square',
+    running: 'zap',
+    paused: 'pause',
+    completed: 'check',
+    failed: 'alert-triangle'
   };
-  return icons[status] || 'circle';
+  return icons[status] || 'square';
 }
 
 function escapeHtml(text) {
