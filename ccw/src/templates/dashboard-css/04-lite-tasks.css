@@ -1732,10 +1732,23 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 0.75rem;
   padding: 0.75rem 1rem;
   background: hsl(var(--muted) / 0.2);
   border-bottom: 1px solid hsl(var(--border));
+}
+
+.solution-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.solution-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .solution-title {
@@ -2780,6 +2793,39 @@
   color: hsl(var(--foreground));
   line-height: 1.5;
   border-bottom: 1px solid hsl(var(--border));
+}
+
+.solution-details {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+
+.solution-details:last-child {
+  border-bottom: none;
+}
+
+.details-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  color: hsl(var(--foreground));
+}
+
+.details-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  list-style: disc;
+}
+
+.details-list li {
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 0.375rem;
+}
+
+.details-list li:last-child {
+  margin-bottom: 0;
 }
 
 .solution-approach,
@@ -3974,6 +4020,62 @@
   margin-top: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px solid hsl(var(--border) / 0.5);
+}
+
+/* Badge - generic badge styling */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.badge.feasibility {
+  background: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+}
+
+.badge.effort {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
+.badge.effort.low {
+  background: hsl(142 70% 50% / 0.15);
+  color: hsl(142 70% 35%);
+}
+
+.badge.effort.medium {
+  background: hsl(30 90% 50% / 0.15);
+  color: hsl(30 90% 40%);
+}
+
+.badge.effort.high {
+  background: hsl(0 70% 50% / 0.15);
+  color: hsl(0 70% 45%);
+}
+
+.badge.risk {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
+.badge.risk.low {
+  background: hsl(142 70% 50% / 0.15);
+  color: hsl(142 70% 35%);
+}
+
+.badge.risk.medium {
+  background: hsl(30 90% 50% / 0.15);
+  color: hsl(30 90% 40%);
+}
+
+.badge.risk.high {
+  background: hsl(0 70% 50% / 0.15);
+  color: hsl(0 70% 45%);
 }
 
 /* Feasibility badge */

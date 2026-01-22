@@ -418,7 +418,7 @@ function showMultiCliDetailPage(sessionKey) {
       </div>
 
       <!-- Tab Content -->
-      <div class="detail-tab-content" id="multiCliDetailTabContent">
+      <div class="detail-tab-content active" id="multiCliDetailTabContent">
         ${renderMultiCliTasksTab(session)}
       </div>
     </div>
@@ -653,11 +653,16 @@ function switchMultiCliDetailTab(tabName) {
       break;
     case 'context':
       loadAndRenderMultiCliContextTab(session, contentArea);
+      contentArea.classList.add('active');
       return; // Early return as this is async
     case 'summary':
       loadAndRenderMultiCliSummaryTab(session, contentArea);
+      contentArea.classList.add('active');
       return; // Early return as this is async
   }
+
+  // Add active class to show content
+  contentArea.classList.add('active');
 
   // Re-initialize after tab switch
   setTimeout(() => {
@@ -1097,13 +1102,52 @@ function renderMultiCliSummaryContent(summary, session) {
           <span class="section-label"><i data-lucide="lightbulb" class="w-4 h-4 inline mr-1"></i> ${t('multiCli.summary.solutions')} (${synthesis.solutions.length})</span>
         </div>
         <div class="collapsible-content collapsed">
-          ${synthesis.solutions.map((sol, idx) => `
-            <div class="solution-summary-item">
-              <span class="solution-num">#${idx + 1}</span>
-              <span class="solution-name">${escapeHtml(getI18nText(sol.title) || sol.id || `${t('multiCli.summary.solution')} ${idx + 1}`)}</span>
-              ${sol.feasibility?.score ? `<span class="feasibility-badge">${Math.round(sol.feasibility.score * 100)}%</span>` : ''}
-            </div>
-          `).join('')}
+          ${synthesis.solutions.map((sol, idx) => {
+            const name = getI18nText(sol.name) || sol.title || sol.id || `${t('multiCli.summary.solution')} ${idx + 1}`;
+            const summary = getI18nText(sol.summary) || '';
+            const feasibility = sol.feasibility?.score || sol.feasibility || 0;
+            const effort = sol.effort || '';
+            const risk = sol.risk || '';
+            const pros = sol.pros || [];
+            const cons = sol.cons || [];
+
+            return `
+              <div class="solution-card">
+                <div class="solution-header">
+                  <div class="solution-title-row">
+                    <span class="solution-num">#${idx + 1}</span>
+                    <span class="solution-name">${escapeHtml(name)}</span>
+                  </div>
+                  <div class="solution-badges">
+                    ${feasibility ? `<span class="badge feasibility">${Math.round(feasibility * 100)}%</span>` : ''}
+                    ${effort ? `<span class="badge effort ${escapeHtml(effort)}">${escapeHtml(effort)}</span>` : ''}
+                    ${risk ? `<span class="badge risk ${escapeHtml(risk)}">${escapeHtml(risk)}</span>` : ''}
+                  </div>
+                </div>
+                ${summary ? `
+                  <div class="solution-summary">
+                    <p>${escapeHtml(summary)}</p>
+                  </div>
+                ` : ''}
+                ${pros.length > 0 ? `
+                  <div class="solution-details">
+                    <h5 class="details-label">✓ ${t('multiCli.summary.pros') || 'Pros'}:</h5>
+                    <ul class="details-list">
+                      ${pros.map(p => `<li>${escapeHtml(getI18nText(p) || p)}</li>`).join('')}
+                    </ul>
+                  </div>
+                ` : ''}
+                ${cons.length > 0 ? `
+                  <div class="solution-details">
+                    <h5 class="details-label">✗ ${t('multiCli.summary.cons') || 'Cons'}:</h5>
+                    <ul class="details-list">
+                      ${cons.map(c => `<li>${escapeHtml(getI18nText(c) || c)}</li>`).join('')}
+                    </ul>
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('')}
         </div>
       </div>
     `);
@@ -2722,12 +2766,12 @@ function showLiteTaskDetailPage(sessionKey) {
       <div class="detail-header">
         <button class="btn-back" onclick="goBackToLiteTasks()">
           <span class="back-icon">←</span>
-          <span>Back to ${session.type === 'lite-plan' ? 'Lite Plan' : 'Lite Fix'}</span>
+          <span>${session.type === 'lite-plan' ? t('lite.backToList', { type: 'Plan' }) : session.type === 'lite-fix' ? t('lite.backToList', { type: 'Fix' }) : t('multiCli.backToList')}</span>
         </button>
         <div class="detail-title-row">
-          <h2 class="detail-session-id">${session.type === 'lite-plan' ? '<i data-lucide="file-edit" class="w-5 h-5 inline mr-2"></i>' : '<i data-lucide="wrench" class="w-5 h-5 inline mr-2"></i>'} ${escapeHtml(session.id)}</h2>
+          <h2 class="detail-session-id">${session.type === 'lite-plan' ? '<i data-lucide="file-edit" class="w-5 h-5 inline mr-2"></i>' : session.type === 'lite-fix' ? '<i data-lucide="wrench" class="w-5 h-5 inline mr-2"></i>' : '<i data-lucide="speech-icon" class="w-5 h-5 inline mr-2"></i>'} ${escapeHtml(session.id)}</h2>
           <div class="detail-badges">
-            <span class="session-type-badge ${session.type}">${session.type}</span>
+            <span class="session-type-badge ${session.type}">${session.type === 'multi-cli-plan' ? 'MULTI-CLI' : session.type}</span>
           </div>
         </div>
       </div>

@@ -4,9 +4,10 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from 'fs';
-import { homedir } from 'os';
 import { join } from 'path';
+import { homedir } from 'os';
 import { StoragePaths, GlobalPaths, ensureStorageDir } from './storage-paths.js';
+import { getCodexLensDataDir } from '../utils/codexlens-path.js';
 import type {
   LiteLLMApiConfig,
   ProviderCredential,
@@ -798,7 +799,7 @@ export function syncCodexLensConfig(baseDir: string): { success: boolean; messag
     const rotationConfig = config.codexlensEmbeddingRotation;
 
     // Get CodexLens settings path
-    const codexlensDir = join(homedir(), '.codexlens');
+    const codexlensDir = getCodexLensDataDir();
     const settingsPath = join(codexlensDir, 'settings.json');
 
     // Ensure directory exists

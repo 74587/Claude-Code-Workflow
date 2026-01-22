@@ -29,7 +29,7 @@ import { handleLiteLLMApiRoutes } from './routes/litellm-api-routes.js';
 import { handleNavStatusRoutes } from './routes/nav-status-routes.js';
 import { handleAuthRoutes } from './routes/auth-routes.js';
 import { handleLoopRoutes } from './routes/loop-routes.js';
-import { handleLoopV2Routes } from './routes/loop-v2-routes.js';
+import { handleLoopV2Routes, initializeCliToolsCache } from './routes/loop-v2-routes.js';
 import { handleTestLoopRoutes } from './routes/test-loop-routes.js';
 import { handleTaskRoutes } from './routes/task-routes.js';
 
@@ -383,10 +383,10 @@ function generateServerDashboard(initialPath: string): string {
     generatedAt: new Date().toISOString(),
     activeSessions: [],
     archivedSessions: [],
-    liteTasks: { litePlan: [], liteFix: [] },
+    liteTasks: { litePlan: [], liteFix: [], multiCliPlan: [] },
     reviewData: { dimensions: {} },
     projectOverview: null,
-    statistics: { totalSessions: 0, activeSessions: 0, totalTasks: 0, completedTasks: 0, reviewFindings: 0, litePlanCount: 0, liteFixCount: 0 }
+    statistics: { totalSessions: 0, activeSessions: 0, totalTasks: 0, completedTasks: 0, reviewFindings: 0, litePlanCount: 0, liteFixCount: 0, multiCliPlanCount: 0 }
   };
 
   // Replace JS placeholders
@@ -722,6 +722,9 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       console.log(`Dashboard server running at http://${host}:${serverPort}`);
       console.log(`WebSocket endpoint available at ws://${host}:${serverPort}/ws`);
       console.log(`Hook endpoint available at POST http://${host}:${serverPort}/api/hook`);
+
+      // Initialize CLI tools cache for Loop V2 routes
+      initializeCliToolsCache();
 
       // Start periodic cleanup of stale CLI executions (every 2 minutes)
       const CLEANUP_INTERVAL_MS = 2 * 60 * 1000;

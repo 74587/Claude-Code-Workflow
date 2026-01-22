@@ -145,7 +145,7 @@ async function getWorkflowData(projectPath: string): Promise<any> {
       generatedAt: new Date().toISOString(),
       activeSessions: [],
       archivedSessions: [],
-      liteTasks: { litePlan: [], liteFix: [] },
+      liteTasks: { litePlan: [], liteFix: [], multiCliPlan: [] },
       reviewData: { dimensions: {} },
       projectOverview: null,
       statistics: {
@@ -155,7 +155,8 @@ async function getWorkflowData(projectPath: string): Promise<any> {
         completedTasks: 0,
         reviewFindings: 0,
         litePlanCount: 0,
-        liteFixCount: 0
+        liteFixCount: 0,
+        multiCliPlanCount: 0
       },
       projectPath: normalizePathForDisplay(resolvedPath),
       recentPaths: getRecentPaths()
