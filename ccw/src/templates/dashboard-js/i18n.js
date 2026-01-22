@@ -91,6 +91,7 @@ const i18n = {
     // Sidebar - Loops section
     'nav.loops': 'Loops',
     'nav.loopMonitor': 'Monitor',
+    'nav.inDevelopment': 'In Dev',
 
     // Sidebar - MCP section
     'nav.mcpServers': 'MCP Servers',
@@ -2672,6 +2673,7 @@ const i18n = {
     // Sidebar - Loops section
     'nav.loops': '循环',
     'nav.loopMonitor': '监控器',
+    'nav.inDevelopment': '开发中',
 
     // Sidebar - MCP section
     'nav.mcpServers': 'MCP 服务器',
