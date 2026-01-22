@@ -6,7 +6,7 @@ import { resolvePath, getRecentPaths, normalizePathForDisplay } from '../utils/p
 
 // Import route handlers
 import { handleStatusRoutes } from './routes/status-routes.js';
-import { handleCliRoutes } from './routes/cli-routes.js';
+import { handleCliRoutes, cleanupStaleExecutions } from './routes/cli-routes.js';
 import { handleCliSettingsRoutes } from './routes/cli-settings-routes.js';
 import { handleMemoryRoutes } from './routes/memory-routes.js';
 import { handleCoreMemoryRoutes } from './routes/core-memory-routes.js';
@@ -29,6 +29,7 @@ import { handleLiteLLMApiRoutes } from './routes/litellm-api-routes.js';
 import { handleNavStatusRoutes } from './routes/nav-status-routes.js';
 import { handleAuthRoutes } from './routes/auth-routes.js';
 import { handleLoopRoutes } from './routes/loop-routes.js';
+import { handleLoopV2Routes } from './routes/loop-v2-routes.js';
 import { handleTestLoopRoutes } from './routes/test-loop-routes.js';
 import { handleTaskRoutes } from './routes/task-routes.js';
 
@@ -568,7 +569,12 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         if (await handleCcwRoutes(routeContext)) return;
       }
 
-      // Loop routes (/api/loops*)
+      // Loop V2 routes (/api/loops/v2/*) - must be checked before v1
+      if (pathname.startsWith('/api/loops/v2')) {
+        if (await handleLoopV2Routes(routeContext)) return;
+      }
+
+      // Loop V1 routes (/api/loops/*) - backward compatibility
       if (pathname.startsWith('/api/loops')) {
         if (await handleLoopRoutes(routeContext)) return;
       }
@@ -716,6 +722,14 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       console.log(`Dashboard server running at http://${host}:${serverPort}`);
       console.log(`WebSocket endpoint available at ws://${host}:${serverPort}/ws`);
       console.log(`Hook endpoint available at POST http://${host}:${serverPort}/api/hook`);
+
+      // Start periodic cleanup of stale CLI executions (every 2 minutes)
+      const CLEANUP_INTERVAL_MS = 2 * 60 * 1000;
+      const cleanupInterval = setInterval(cleanupStaleExecutions, CLEANUP_INTERVAL_MS);
+      server.on('close', () => {
+        clearInterval(cleanupInterval);
+        console.log('[Server] Stopped CLI execution cleanup interval');
+      });
 
       // Start health check service for all enabled providers
       try {

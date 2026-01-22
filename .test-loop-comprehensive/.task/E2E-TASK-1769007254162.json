@@ -1,0 +1,29 @@
+{
+  "id": "E2E-TASK-1769007254162",
+  "title": "Test Task E2E-TASK-1769007254162",
+  "description": "Test task with loop control",
+  "status": "pending",
+  "loop_control": {
+    "enabled": true,
+    "description": "Test loop",
+    "max_iterations": 3,
+    "success_condition": "current_iteration >= 3",
+    "error_policy": {
+      "on_failure": "pause",
+      "max_retries": 3
+    },
+    "cli_sequence": [
+      {
+        "step_id": "step1",
+        "tool": "bash",
+        "command": "echo \"iteration\""
+      },
+      {
+        "step_id": "step2",
+        "tool": "gemini",
+        "mode": "analysis",
+        "prompt_template": "Process output"
+      }
+    ]
+  }
+}

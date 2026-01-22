@@ -130,8 +130,9 @@ async function initCsrfToken() {
 /**
  * Sync active CLI executions from server
  * Called when view is opened to restore running execution state
+ * Note: Renamed from syncActiveExecutions to avoid conflict with cli-stream-viewer.js
  */
-async function syncActiveExecutions() {
+async function syncActiveExecutionsForManager() {
   try {
     var response = await fetch('/api/cli/active');
     if (!response.ok) return;
@@ -1202,7 +1203,7 @@ async function renderCliManager() {
   }
 
   // 同步活动执行
-  syncActiveExecutions();
+  syncActiveExecutionsForManager();
 }
 
 // ========== Helper Functions ==========

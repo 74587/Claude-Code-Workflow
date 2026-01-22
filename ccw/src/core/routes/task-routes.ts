@@ -152,6 +152,48 @@ export async function handleTaskRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
+  // GET /api/tasks/:taskId - Get single task
+  const taskDetailMatch = pathname.match(/^\/api\/tasks\/([^\/]+)$/);
+  if (taskDetailMatch && req.method === 'GET') {
+    const taskId = decodeURIComponent(taskDetailMatch[1]);
+
+    // Sanitize taskId to prevent path traversal
+    if (taskId.includes('/') || taskId.includes('\\') || taskId === '..' || taskId === '.') {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Invalid task ID format' }));
+      return true;
+    }
+
+    try {
+      const taskPath = join(taskDir, taskId + '.json');
+
+      if (!existsSync(taskPath)) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Task not found: ' + taskId }));
+        return true;
+      }
+
+      const content = await readFile(taskPath, 'utf-8');
+      const task = JSON.parse(content) as Task;
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        data: {
+          task: task
+        }
+      }));
+      return true;
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: false,
+        error: (error as Error).message
+      }));
+      return true;
+    }
+  }
+
   // POST /api/tasks/validate - Validate task loop_control configuration
   if (pathname === '/api/tasks/validate' && req.method === 'POST') {
     handlePostRequest(req, res, async (body) => {

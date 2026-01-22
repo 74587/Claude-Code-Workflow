@@ -767,9 +767,11 @@
         <button class="cli-stream-search-clear" onclick="clearSearch()" title="Clear search">&times;</button>
       </div>
       <div class="cli-stream-actions">
-        <button class="cli-stream-action-btn" onclick="clearCompletedStreams()" data-i18n="cliStream.clearCompleted">
+        <button class="cli-stream-icon-btn" onclick="clearCompletedStreams()" title="Clear completed">
+          <i data-lucide="check-circle"></i>
+        </button>
+        <button class="cli-stream-icon-btn" onclick="clearAllStreams()" title="Clear all">
           <i data-lucide="trash-2"></i>
-          <span>Clear</span>
         </button>
         <button class="cli-stream-close-btn" onclick="toggleCliStreamViewer()" title="Close">&times;</button>
       </div>

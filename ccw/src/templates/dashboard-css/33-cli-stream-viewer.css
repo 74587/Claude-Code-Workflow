@@ -161,6 +161,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  /* Isolate from parent transform to fix native tooltip positioning */
+  will-change: transform;
 }
 
 .cli-stream-action-btn {
@@ -196,11 +198,58 @@
   color: hsl(var(--muted-foreground));
   cursor: pointer;
   transition: all 0.15s;
+  /* Fix native tooltip positioning under transformed parent */
+  position: relative;
+  z-index: 1;
+  transform: translateZ(0);
 }
 
 .cli-stream-close-btn:hover {
   background: hsl(var(--destructive) / 0.1);
   color: hsl(var(--destructive));
+}
+
+/* Icon-only action buttons (cleaner style matching close button) */
+.cli-stream-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: all 0.15s;
+  /* Fix native tooltip positioning under transformed parent */
+  position: relative;
+  z-index: 1;
+  /* Create new stacking context to isolate from parent transform */
+  transform: translateZ(0);
+}
+
+.cli-stream-icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.cli-stream-icon-btn:hover {
+  background: hsl(var(--hover));
+  color: hsl(var(--foreground));
+}
+
+.cli-stream-icon-btn:first-child:hover {
+  /* Clear completed - green/success tint */
+  background: hsl(142 76% 36% / 0.1);
+  color: hsl(142 76% 36%);
+}
+
+.cli-stream-icon-btn:nth-child(2):hover {
+  /* Clear all - orange/warning tint */
+  background: hsl(38 92% 50% / 0.1);
+  color: hsl(38 92% 50%);
 }
 
 /* ===== Tab Bar ===== */
@@ -785,6 +834,12 @@
 .cli-stream-badge.has-running {
   display: flex;
   animation: streamBadgePulse 1.5s ease-in-out infinite;
+}
+
+.cli-stream-badge.has-completed {
+  display: flex;
+  background: hsl(var(--muted) / 0.8);
+  color: hsl(var(--muted-foreground));
 }
 
 @keyframes streamBadgePulse {

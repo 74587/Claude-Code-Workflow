@@ -10,7 +10,7 @@ let streamScrollHandler = null;  // Track scroll listener
 let streamStatusTimers = [];  // Track status update timers
 
 // ===== State Management =====
-let cliStreamExecutions = {};  // { executionId: { tool, mode, output, status, startTime, endTime } }
+let cliStreamExecutions = {};  // { executionId: { tool, mode, output, status, startTime, endTime, recovered } }
 let activeStreamTab = null;
 let autoScrollEnabled = true;
 let isCliStreamViewerOpen = false;
@@ -18,116 +18,212 @@ let searchFilter = '';  // Search filter for output content
 
 const MAX_OUTPUT_LINES = 5000;  // Prevent memory issues
 
+// ===== Sync State Management =====
+let syncPromise = null;  // Track ongoing sync to prevent duplicates
+let syncTimeoutId = null;  // Debounce timeout ID
+let lastSyncTime = 0;  // Track last successful sync time
+const SYNC_DEBOUNCE_MS = 300;  // Debounce delay for sync calls
+const SYNC_TIMEOUT_MS = 10000;  // 10 second timeout for sync requests
+
 // ===== State Synchronization =====
 /**
  * Sync active executions from server
  * Called on initialization to recover state when view is opened mid-execution
+ * Also called on WebSocket reconnection to restore CLI viewer state
+ *
+ * Features:
+ * - Debouncing: Prevents rapid successive sync calls
+ * - Deduplication: Only one sync at a time
+ * - Timeout handling: 10 second timeout for sync requests
+ * - Recovery flag: Marks recovered sessions for visual indicator
  */
 async function syncActiveExecutions() {
   // Only sync in server mode
   if (!window.SERVER_MODE) return;
 
-  try {
-    const response = await fetch('/api/cli/active');
-    if (!response.ok) return;
+  // Deduplication: if a sync is already in progress, return that promise
+  if (syncPromise) {
+    console.log('[CLI Stream] Sync already in progress, skipping');
+    return syncPromise;
+  }
 
-    const { executions } = await response.json();
-    if (!executions || executions.length === 0) return;
+  // Clear any pending debounced sync
+  if (syncTimeoutId) {
+    clearTimeout(syncTimeoutId);
+    syncTimeoutId = null;
+  }
 
-    let needsUiUpdate = false;
+  syncPromise = (async function() {
+    try {
+      // Create timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Sync timeout')), SYNC_TIMEOUT_MS);
+      });
 
-    executions.forEach(exec => {
-      const existing = cliStreamExecutions[exec.id];
+      // Race between fetch and timeout
+      const response = await Promise.race([
+        fetch('/api/cli/active'),
+        timeoutPromise
+      ]);
 
-      // Parse historical output from server
-      const historicalLines = [];
-      if (exec.output) {
-        const lines = exec.output.split('\n');
-        const startIndex = Math.max(0, lines.length - MAX_OUTPUT_LINES + 1);
-        lines.slice(startIndex).forEach(line => {
-          if (line.trim()) {
-            historicalLines.push({
-              type: 'stdout',
-              content: line,
-              timestamp: exec.startTime || Date.now()
-            });
-          }
-        });
-      }
-
-      if (existing) {
-        // Already tracked by WebSocket events - merge historical output
-        // Only prepend historical lines that are not already in the output
-        // (WebSocket events only add NEW output, so historical output should come before)
-        const existingContentSet = new Set(existing.output.map(o => o.content));
-        const missingLines = historicalLines.filter(h => !existingContentSet.has(h.content));
-
-        if (missingLines.length > 0) {
-          // Find the system start message index (skip it when prepending)
-          const systemMsgIndex = existing.output.findIndex(o => o.type === 'system');
-          const insertIndex = systemMsgIndex >= 0 ? systemMsgIndex + 1 : 0;
-
-          // Prepend missing historical lines after system message
-          existing.output.splice(insertIndex, 0, ...missingLines);
-
-          // Trim if too long
-          if (existing.output.length > MAX_OUTPUT_LINES) {
-            existing.output = existing.output.slice(-MAX_OUTPUT_LINES);
-          }
-
-          needsUiUpdate = true;
-          console.log(`[CLI Stream] Merged ${missingLines.length} historical lines for ${exec.id}`);
-        }
+      if (!response.ok) {
+        console.warn('[CLI Stream] Sync response not OK:', response.status);
         return;
       }
 
-      needsUiUpdate = true;
+      const { executions } = await response.json();
 
-      // New execution - rebuild full state
-      cliStreamExecutions[exec.id] = {
-        tool: exec.tool || 'cli',
-        mode: exec.mode || 'analysis',
-        output: [],
-        status: exec.status || 'running',
-        startTime: exec.startTime || Date.now(),
-        endTime: null
-      };
+      // Handle empty response gracefully
+      if (!executions || executions.length === 0) {
+        console.log('[CLI Stream] No active executions to sync');
+        return;
+      }
 
-      // Add system start message
-      cliStreamExecutions[exec.id].output.push({
-        type: 'system',
-        content: `[${new Date(exec.startTime).toLocaleTimeString()}] CLI execution started: ${exec.tool} (${exec.mode} mode)`,
-        timestamp: exec.startTime
+      let needsUiUpdate = false;
+      const now = Date.now();
+      lastSyncTime = now;
+
+      executions.forEach(exec => {
+        const existing = cliStreamExecutions[exec.id];
+
+        // Parse historical output from server with type detection
+        const historicalLines = [];
+        if (exec.output) {
+          const lines = exec.output.split('\n');
+          const startIndex = Math.max(0, lines.length - MAX_OUTPUT_LINES + 1);
+          lines.slice(startIndex).forEach(line => {
+            if (line.trim()) {
+              // Detect type from content prefix for proper formatting
+              const parsed = parseMessageType(line);
+              // Map parsed type to chunkType for rendering
+              const typeMap = {
+                system: 'system',
+                thinking: 'thought',
+                response: 'stdout',
+                result: 'metadata',
+                error: 'stderr',
+                warning: 'stderr',
+                info: 'metadata'
+              };
+              historicalLines.push({
+                type: parsed.hasPrefix ? (typeMap[parsed.type] || 'stdout') : 'stdout',
+                content: line,  // Keep original content with prefix
+                timestamp: exec.startTime || Date.now()
+              });
+            }
+          });
+        }
+
+        if (existing) {
+          // Already tracked by WebSocket events - merge historical output
+          // Only prepend historical lines that are not already in the output
+          // (WebSocket events only add NEW output, so historical output should come before)
+          const existingContentSet = new Set(existing.output.map(o => o.content));
+          const missingLines = historicalLines.filter(h => !existingContentSet.has(h.content));
+
+          if (missingLines.length > 0) {
+            // Find the system start message index (skip it when prepending)
+            const systemMsgIndex = existing.output.findIndex(o => o.type === 'system');
+            const insertIndex = systemMsgIndex >= 0 ? systemMsgIndex + 1 : 0;
+
+            // Prepend missing historical lines after system message
+            existing.output.splice(insertIndex, 0, ...missingLines);
+
+            // Trim if too long
+            if (existing.output.length > MAX_OUTPUT_LINES) {
+              existing.output = existing.output.slice(-MAX_OUTPUT_LINES);
+            }
+
+            needsUiUpdate = true;
+            console.log(`[CLI Stream] Merged ${missingLines.length} historical lines for ${exec.id}`);
+          }
+          return;
+        }
+
+        needsUiUpdate = true;
+
+        // New execution - rebuild full state with recovered flag
+        cliStreamExecutions[exec.id] = {
+          tool: exec.tool || 'cli',
+          mode: exec.mode || 'analysis',
+          output: [],
+          status: exec.status || 'running',
+          startTime: exec.startTime || Date.now(),
+          endTime: exec.status !== 'running' ? Date.now() : null,
+          recovered: true  // Mark as recovered for visual indicator
+        };
+
+        // Add system start message
+        cliStreamExecutions[exec.id].output.push({
+          type: 'system',
+          content: `[${new Date(exec.startTime).toLocaleTimeString()}] CLI execution started: ${exec.tool} (${exec.mode} mode)`,
+          timestamp: exec.startTime
+        });
+
+        // Add historical output
+        cliStreamExecutions[exec.id].output.push(...historicalLines);
+
+        // Add recovery notice for completed executions
+        if (exec.isComplete) {
+          cliStreamExecutions[exec.id].output.push({
+            type: 'system',
+            content: `[Session recovered from server - ${exec.status}]`,
+            timestamp: now
+          });
+        }
       });
 
-      // Add historical output
-      cliStreamExecutions[exec.id].output.push(...historicalLines);
-    });
+      // Update UI if we recovered or merged any executions
+      if (needsUiUpdate) {
+        // Set active tab to first running execution, or first recovered if none running
+        const runningExec = executions.find(e => e.status === 'running');
+        if (runningExec && !activeStreamTab) {
+          activeStreamTab = runningExec.id;
+        } else if (!runningExec && executions.length > 0 && !activeStreamTab) {
+          // If no running executions, select the first recovered one
+          activeStreamTab = executions[0].id;
+        }
 
-    // Update UI if we recovered or merged any executions
-    if (needsUiUpdate) {
-      // Set active tab to first running execution
-      const runningExec = executions.find(e => e.status === 'running');
-      if (runningExec && !activeStreamTab) {
-        activeStreamTab = runningExec.id;
+        renderStreamTabs();
+        updateStreamBadge();
+
+        // If viewer is open, render content. If not, open it if we have any recovered executions.
+        if (isCliStreamViewerOpen) {
+          renderStreamContent(activeStreamTab);
+        } else if (executions.length > 0) {
+          // Automatically open the viewer if it's closed and we just synced any executions
+          // (running or completed - user might refresh after completion to see the output)
+          toggleCliStreamViewer();
+        }
       }
 
-      renderStreamTabs();
-      updateStreamBadge();
-
-      // If viewer is open, render content. If not, and there's a running execution, open it.
-      if (isCliStreamViewerOpen) {
-        renderStreamContent(activeStreamTab);
-      } else if (executions.some(e => e.status === 'running')) {
-        // Automatically open the viewer if it's closed and we just synced a running task
-        toggleCliStreamViewer();
+      console.log(`[CLI Stream] Synced ${executions.length} active execution(s)`);
+    } catch (e) {
+      if (e.message === 'Sync timeout') {
+        console.warn('[CLI Stream] Sync request timed out after', SYNC_TIMEOUT_MS, 'ms');
+      } else {
+        console.error('[CLI Stream] Sync failed:', e);
       }
+    } finally {
+      syncPromise = null;  // Clear the promise to allow future syncs
     }
+  })();
 
-    console.log(`[CLI Stream] Synced ${executions.length} active execution(s)`);
-  } catch (e) {
-    console.error('[CLI Stream] Sync failed:', e);
+  return syncPromise;
+}
+
+/**
+ * Debounced sync function - prevents rapid successive sync calls
+ * Use this when multiple sync triggers may happen in quick succession
+ */
+function syncActiveExecutionsDebounced() {
+  if (syncTimeoutId) {
+    clearTimeout(syncTimeoutId);
   }
+  syncTimeoutId = setTimeout(function() {
+    syncTimeoutId = null;
+    syncActiveExecutions();
+  }, SYNC_DEBOUNCE_MS);
 }
 
 // ===== Initialization =====
@@ -502,19 +598,24 @@ function renderStreamTabs() {
   tabsContainer.innerHTML = execIds.map(id => {
     const exec = cliStreamExecutions[id];
     const isActive = id === activeStreamTab;
-    const canClose = exec.status !== 'running';
-    
+    const isRecovered = exec.recovered === true;
+
+    // Recovery badge HTML
+    const recoveryBadge = isRecovered
+      ? `<span class="cli-stream-recovery-badge" title="Session recovered after page refresh">Recovered</span>`
+      : '';
+
     return `
-      <div class="cli-stream-tab ${isActive ? 'active' : ''}" 
-           onclick="switchStreamTab('${id}')" 
+      <div class="cli-stream-tab ${isActive ? 'active' : ''} ${isRecovered ? 'recovered' : ''}"
+           onclick="switchStreamTab('${id}')"
            data-execution-id="${id}">
         <span class="cli-stream-tab-status ${exec.status}"></span>
         <span class="cli-stream-tab-tool">${escapeHtml(exec.tool)}</span>
         <span class="cli-stream-tab-mode">${exec.mode}</span>
-        <button class="cli-stream-tab-close ${canClose ? '' : 'disabled'}" 
+        ${recoveryBadge}
+        <button class="cli-stream-tab-close"
                 onclick="event.stopPropagation(); closeStream('${id}')"
-                title="${canClose ? _streamT('cliStream.close') : _streamT('cliStream.cannotCloseRunning')}"
-                ${canClose ? '' : 'disabled'}>×</button>
+                title="${_streamT('cliStream.close')}">×</button>
       </div>
     `;
   }).join('');
@@ -589,29 +690,35 @@ function renderStreamContent(executionId) {
 function renderStreamStatus(executionId) {
   const statusContainer = document.getElementById('cliStreamStatus');
   if (!statusContainer) return;
-  
+
   const exec = executionId ? cliStreamExecutions[executionId] : null;
-  
+
   if (!exec) {
     statusContainer.innerHTML = '';
     return;
   }
-  
-  const duration = exec.endTime 
+
+  const duration = exec.endTime
     ? formatDuration(exec.endTime - exec.startTime)
     : formatDuration(Date.now() - exec.startTime);
-  
-  const statusLabel = exec.status === 'running' 
+
+  const statusLabel = exec.status === 'running'
     ? _streamT('cliStream.running')
     : exec.status === 'completed'
       ? _streamT('cliStream.completed')
       : _streamT('cliStream.error');
-  
+
+  // Recovery badge for status bar
+  const recoveryBadge = exec.recovered
+    ? `<span class="cli-status-recovery-badge">Recovered</span>`
+    : '';
+
   statusContainer.innerHTML = `
     <div class="cli-stream-status-info">
       <div class="cli-stream-status-item">
         <span class="cli-stream-tab-status ${exec.status}"></span>
         <span>${statusLabel}</span>
+        ${recoveryBadge}
       </div>
       <div class="cli-stream-status-item">
         <i data-lucide="clock"></i>
@@ -623,15 +730,15 @@ function renderStreamStatus(executionId) {
       </div>
     </div>
     <div class="cli-stream-status-actions">
-      <button class="cli-stream-toggle-btn ${autoScrollEnabled ? 'active' : ''}" 
-              onclick="toggleAutoScroll()" 
+      <button class="cli-stream-toggle-btn ${autoScrollEnabled ? 'active' : ''}"
+              onclick="toggleAutoScroll()"
               title="${_streamT('cliStream.autoScroll')}">
         <i data-lucide="arrow-down-to-line"></i>
         <span data-i18n="cliStream.autoScroll">${_streamT('cliStream.autoScroll')}</span>
       </button>
     </div>
   `;
-  
+
   if (typeof lucide !== 'undefined') lucide.createIcons();
   
   // Update duration periodically for running executions
@@ -656,52 +763,85 @@ function switchStreamTab(executionId) {
 function updateStreamBadge() {
   const badge = document.getElementById('cliStreamBadge');
   if (!badge) return;
-  
+
   const runningCount = Object.values(cliStreamExecutions).filter(e => e.status === 'running').length;
-  
+  const totalCount = Object.keys(cliStreamExecutions).length;
+
   if (runningCount > 0) {
     badge.textContent = runningCount;
     badge.classList.add('has-running');
+  } else if (totalCount > 0) {
+    // Show badge for completed executions too (with a different style)
+    badge.textContent = totalCount;
+    badge.classList.remove('has-running');
+    badge.classList.add('has-completed');
   } else {
     badge.textContent = '';
-    badge.classList.remove('has-running');
+    badge.classList.remove('has-running', 'has-completed');
   }
 }
 
 // ===== User Actions =====
 function closeStream(executionId) {
   const exec = cliStreamExecutions[executionId];
-  if (!exec || exec.status === 'running') return;
-  
+  if (!exec) return;
+
+  // Note: We now allow closing running tasks - this just removes from view,
+  // the actual CLI process continues on the server
   delete cliStreamExecutions[executionId];
-  
+
   // Switch to another tab if this was active
   if (activeStreamTab === executionId) {
     const remaining = Object.keys(cliStreamExecutions);
     activeStreamTab = remaining.length > 0 ? remaining[0] : null;
   }
-  
+
   renderStreamTabs();
   renderStreamContent(activeStreamTab);
   updateStreamBadge();
+
+  // If no executions left, close the viewer
+  if (Object.keys(cliStreamExecutions).length === 0) {
+    toggleCliStreamViewer();
+  }
 }
 
 function clearCompletedStreams() {
   const toRemove = Object.keys(cliStreamExecutions).filter(
     id => cliStreamExecutions[id].status !== 'running'
   );
-  
+
   toRemove.forEach(id => delete cliStreamExecutions[id]);
-  
+
   // Update active tab if needed
   if (activeStreamTab && !cliStreamExecutions[activeStreamTab]) {
     const remaining = Object.keys(cliStreamExecutions);
     activeStreamTab = remaining.length > 0 ? remaining[0] : null;
   }
-  
+
   renderStreamTabs();
   renderStreamContent(activeStreamTab);
   updateStreamBadge();
+
+  // If no executions left, close the viewer
+  if (Object.keys(cliStreamExecutions).length === 0) {
+    toggleCliStreamViewer();
+  }
+}
+
+function clearAllStreams() {
+  // Clear all executions (both running and completed)
+  const allIds = Object.keys(cliStreamExecutions);
+
+  allIds.forEach(id => delete cliStreamExecutions[id]);
+  activeStreamTab = null;
+
+  renderStreamTabs();
+  renderStreamContent(null);
+  updateStreamBadge();
+
+  // Close the viewer since there's nothing to show
+  toggleCliStreamViewer();
 }
 
 function toggleAutoScroll() {
@@ -839,6 +979,7 @@ window.handleCliStreamError = handleCliStreamError;
 window.switchStreamTab = switchStreamTab;
 window.closeStream = closeStream;
 window.clearCompletedStreams = clearCompletedStreams;
+window.clearAllStreams = clearAllStreams;
 window.toggleAutoScroll = toggleAutoScroll;
 window.handleSearchInput = handleSearchInput;
 window.clearSearch = clearSearch;

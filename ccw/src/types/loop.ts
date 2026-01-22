@@ -132,6 +132,129 @@ export interface ExecutionRecord {
   timestamp: string;
 }
 
+// ============================================================================
+// CCW-LOOP SKILL STATE (Unified Architecture)
+// ============================================================================
+
+/**
+ * Skill State - Extension fields managed by ccw-loop skill
+ * Stored in .workflow/.loop/{loopId}.json alongside API fields
+ */
+export interface SkillState {
+  /** Current action being executed */
+  current_action: 'init' | 'develop' | 'debug' | 'validate' | 'complete' | null;
+
+  /** Last completed action */
+  last_action: string | null;
+
+  /** List of completed action names */
+  completed_actions: string[];
+
+  /** Execution mode */
+  mode: 'interactive' | 'auto';
+
+  /** Development phase state */
+  develop: {
+    total: number;
+    completed: number;
+    current_task?: string;
+    tasks: DevelopTask[];
+    last_progress_at: string | null;
+  };
+
+  /** Debug phase state */
+  debug: {
+    active_bug?: string;
+    hypotheses_count: number;
+    hypotheses: Hypothesis[];
+    confirmed_hypothesis: string | null;
+    iteration: number;
+    last_analysis_at: string | null;
+  };
+
+  /** Validation phase state */
+  validate: {
+    pass_rate: number;
+    coverage: number;
+    test_results: TestResult[];
+    passed: boolean;
+    failed_tests: string[];
+    last_run_at: string | null;
+  };
+
+  /** Error tracking */
+  errors: Array<{
+    action: string;
+    message: string;
+    timestamp: string;
+  }>;
+}
+
+/**
+ * Development task
+ */
+export interface DevelopTask {
+  id: string;
+  description: string;
+  tool: 'gemini' | 'qwen' | 'codex' | 'bash';
+  mode: 'analysis' | 'write';
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  files_changed?: string[];
+  created_at: string;
+  completed_at?: string;
+}
+
+/**
+ * Debug hypothesis
+ */
+export interface Hypothesis {
+  id: string;
+  description: string;
+  testable_condition: string;
+  logging_point: string;
+  evidence_criteria: {
+    confirm: string;
+    reject: string;
+  };
+  likelihood: number;
+  status: 'pending' | 'confirmed' | 'rejected' | 'inconclusive';
+  evidence?: Record<string, unknown>;
+  verdict_reason?: string;
+}
+
+/**
+ * Test result
+ */
+export interface TestResult {
+  test_name: string;
+  suite: string;
+  status: 'passed' | 'failed' | 'skipped';
+  duration_ms: number;
+  error_message?: string;
+  stack_trace?: string;
+}
+
+/**
+ * V2 Loop Storage Format (simplified, for Dashboard API)
+ * This is the unified state structure used by both API and ccw-loop skill
+ */
+export interface V2LoopState {
+  // === API Fields (managed by loop-v2-routes.ts) ===
+  loop_id: string;
+  title: string;
+  description: string;
+  max_iterations: number;
+  status: LoopStatus;
+  current_iteration: number;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string;
+  failure_reason?: string;
+
+  // === Skill Extension Fields (managed by ccw-loop skill) ===
+  skill_state?: SkillState;
+}
+
 /**
  * Task Loop control configuration
  * Extension to Task JSON schema

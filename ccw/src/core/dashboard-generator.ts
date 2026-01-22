@@ -99,7 +99,10 @@ const MODULE_CSS_FILES = [
   '29-help.css',
   '30-core-memory.css',
   '31-api-settings.css',
-  '34-discovery.css'
+  '32-issue-manager.css',
+  '33-cli-stream-viewer.css',
+  '34-discovery.css',
+  '36-loop-monitor.css'
 ];
 
 const MODULE_FILES = [

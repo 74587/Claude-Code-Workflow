@@ -13,8 +13,8 @@ export class LoopStateManager {
   private baseDir: string;
 
   constructor(workflowDir: string) {
-    // State files stored in .workflow/active/WFS-{session}/.loop/
-    this.baseDir = join(workflowDir, '.loop');
+    // State files stored in .workflow/.loop/
+    this.baseDir = join(workflowDir, '.workflow', '.loop');
   }
 
   /**

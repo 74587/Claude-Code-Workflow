@@ -60,9 +60,35 @@ interface ActiveExecution {
   startTime: number;
   output: string;
   status: 'running' | 'completed' | 'error';
+  completedTimestamp?: number;  // When execution completed (for 5-minute retention)
 }
 
 const activeExecutions = new Map<string, ActiveExecution>();
+const EXECUTION_RETENTION_MS = 5 * 60 * 1000;  // 5 minutes
+
+/**
+ * Cleanup stale completed executions older than retention period
+ * Runs periodically to prevent memory buildup
+ */
+export function cleanupStaleExecutions(): void {
+  const now = Date.now();
+  const staleIds: string[] = [];
+
+  for (const [id, exec] of activeExecutions.entries()) {
+    if (exec.completedTimestamp && (now - exec.completedTimestamp) > EXECUTION_RETENTION_MS) {
+      staleIds.push(id);
+    }
+  }
+
+  staleIds.forEach(id => {
+    activeExecutions.delete(id);
+    console.log(`[ActiveExec] Cleaned up stale execution: ${id}`);
+  });
+
+  if (staleIds.length > 0) {
+    console.log(`[ActiveExec] Cleaned up ${staleIds.length} stale execution(s), remaining: ${activeExecutions.size}`);
+  }
+}
 
 /**
  * Get all active CLI executions
@@ -113,19 +139,12 @@ export function updateActiveExecution(event: {
       activeExec.output += output;
     }
   } else if (type === 'completed') {
-    // Mark as completed instead of immediately deleting
-    // Keep execution visible for 5 minutes to allow page refreshes to see it
+    // Mark as completed with timestamp for retention-based cleanup
     const activeExec = activeExecutions.get(executionId);
     if (activeExec) {
       activeExec.status = success ? 'completed' : 'error';
-
-      // Auto-cleanup after 5 minutes
-      setTimeout(() => {
-        activeExecutions.delete(executionId);
-        console.log(`[ActiveExec] Auto-cleaned completed execution: ${executionId}`);
-      }, 5 * 60 * 1000);
-
-      console.log(`[ActiveExec] Marked as ${activeExec.status}, will auto-clean in 5 minutes`);
+      activeExec.completedTimestamp = Date.now();
+      console.log(`[ActiveExec] Marked as ${activeExec.status}, retained for ${EXECUTION_RETENTION_MS / 1000}s`);
     }
   }
 }
@@ -139,7 +158,10 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
 
   // API: Get Active CLI Executions (for state recovery)
   if (pathname === '/api/cli/active' && req.method === 'GET') {
-    const executions = getActiveExecutions();
+    const executions = getActiveExecutions().map(exec => ({
+      ...exec,
+      isComplete: exec.status !== 'running'
+    }));
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ executions }));
     return true;
@@ -664,8 +686,13 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
           });
         });
 
-        // Remove from active executions on completion
-        activeExecutions.delete(executionId);
+        // Mark as completed with timestamp for retention-based cleanup (not immediate delete)
+        const activeExec = activeExecutions.get(executionId);
+        if (activeExec) {
+          activeExec.status = result.success ? 'completed' : 'error';
+          activeExec.completedTimestamp = Date.now();
+          console.log(`[ActiveExec] Direct execution ${executionId} marked as ${activeExec.status}, retained for ${EXECUTION_RETENTION_MS / 1000}s`);
+        }
 
         // Broadcast completion
         broadcastToClients({
@@ -684,8 +711,13 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
         };
 
       } catch (error: unknown) {
-        // Remove from active executions on error
-        activeExecutions.delete(executionId);
+        // Mark as completed with timestamp for retention-based cleanup (not immediate delete)
+        const activeExec = activeExecutions.get(executionId);
+        if (activeExec) {
+          activeExec.status = 'error';
+          activeExec.completedTimestamp = Date.now();
+          console.log(`[ActiveExec] Direct execution ${executionId} marked as error, retained for ${EXECUTION_RETENTION_MS / 1000}s`);
+        }
 
         broadcastToClients({
           type: 'CLI_EXECUTION_ERROR',

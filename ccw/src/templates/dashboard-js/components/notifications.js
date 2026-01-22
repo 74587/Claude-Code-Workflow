@@ -140,6 +140,22 @@ function initWebSocket() {
 
     wsConnection.onopen = () => {
       console.log('[WS] Connected');
+
+      // Trigger CLI stream sync on WebSocket reconnection
+      // This allows the viewer to recover after page refresh
+      if (typeof syncActiveExecutions === 'function') {
+        syncActiveExecutions().then(function() {
+          console.log('[WS] CLI executions synced after connection');
+        }).catch(function(err) {
+          console.warn('[WS] Failed to sync CLI executions:', err);
+        });
+      }
+
+      // Emit custom event for other components to handle reconnection
+      const reconnectEvent = new CustomEvent('websocket-reconnected', {
+        detail: { timestamp: Date.now() }
+      });
+      window.dispatchEvent(reconnectEvent);
     };
 
     wsConnection.onmessage = (event) => {
