@@ -9,6 +9,16 @@ argument-hint: "--queue <queue-id> [--worktree [<existing-path>]]"
 
 **Serial Execution**: Execute solutions ONE BY ONE from the issue queue via `ccw issue next`. For each solution, complete all tasks sequentially (implement → test → verify), then commit once per solution with formatted summary. Continue autonomously until queue is empty.
 
+## Project Context (MANDATORY FIRST STEPS)
+
+Before starting execution, load project context:
+
+1. **Read project tech stack**: `.workflow/project-tech.json`
+2. **Read project guidelines**: `.workflow/project-guidelines.json`
+3. **Read solution schema**: `~/.claude/workflows/cli-templates/schemas/solution-schema.json`
+
+This ensures execution follows project conventions and patterns.
+
 ## Queue ID Requirement (MANDATORY)
 
 **`--queue <queue-id>` parameter is REQUIRED**
