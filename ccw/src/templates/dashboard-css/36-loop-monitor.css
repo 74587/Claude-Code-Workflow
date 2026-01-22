@@ -883,6 +883,11 @@
   line-height: 1.5;
 }
 
+.empty-state .btn,
+.empty-detail-state .btn {
+  margin-top: 1rem;
+}
+
 /* ==========================================
    TASK LIST
    ========================================== */
@@ -893,6 +898,65 @@
   gap: 0.5rem;
   max-height: 400px;
   overflow-y: auto;
+}
+
+/* Task List Header */
+.tasks-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.6);
+  margin-bottom: 0.75rem;
+}
+
+.tasks-list-header h4 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tasks-list-header .text-sm {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Task List Empty State */
+.task-list-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: hsl(var(--muted-foreground));
+}
+
+.task-list-empty i {
+  color: hsl(var(--muted-foreground) / 0.6);
+}
+
+.task-list-empty .empty-state-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.task-list-empty .empty-state-hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+  max-width: 300px;
+}
+
+.task-list-empty .btn {
+  margin-top: 0.5rem;
 }
 
 .task-item {
