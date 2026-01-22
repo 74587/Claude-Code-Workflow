@@ -8,6 +8,7 @@ window.selectedLoopId = null;
 window.loopWebSocket = null;
 window.loopReconnectAttempts = 0;
 window.loopMaxReconnectAttempts = 10;
+window.enabledTools = null; // Cache for enabled tools from config
 
 // Status icons and keys (will be updated with i18n labels dynamically)
 // Colors are now handled by CSS via semantic class names (.loop-status-indicator.{status})
@@ -29,6 +30,45 @@ function updateLoopStatusLabels() {
   for (const status in loopStatusConfig) {
     loopStatusConfig[status].label = getLoopStatusLabel(status);
   }
+}
+
+/**
+ * Get enabled tools from CLI tools config
+ * Fetches from /api/cli/tools-config and caches result
+ */
+async function getEnabledTools() {
+  if (window.enabledTools) {
+    return window.enabledTools;
+  }
+
+  try {
+    const response = await fetch('/api/cli/tools-config');
+    const result = await response.json();
+
+    if (result.tools && typeof result.tools === 'object') {
+      // Filter enabled tools
+      window.enabledTools = Object.entries(result.tools)
+        .filter(([_, config]) => config.enabled === true)
+        .map(([name]) => name);
+
+      // Fallback to Claude if no tools enabled
+      if (window.enabledTools.length === 0) {
+        window.enabledTools = ['claude'];
+      }
+
+      return window.enabledTools;
+    }
+  } catch (err) {
+    console.error('Load tools config error:', err);
+  }
+
+  // Fallback to default tools if API fails
+  window.enabledTools = ['claude', 'gemini', 'qwen', 'codex'].filter(t => {
+    const defaultTools = { claude: true, gemini: true, qwen: true, codex: true };
+    return defaultTools[t];
+  });
+
+  return window.enabledTools;
 }
 
 /**
@@ -974,6 +1014,14 @@ async function saveTaskOrder(loopId, newOrder) {
  * Show add task modal
  */
 async function showAddTaskModal(loopId) {
+  // Get enabled tools
+  const enabledTools = await getEnabledTools();
+
+  // Build tool options HTML
+  const toolOptions = enabledTools.map(tool =>
+    `<option value="${tool}">${tool.charAt(0).toUpperCase() + tool.slice(1)}</option>`
+  ).join('');
+
   const modal = document.createElement('div');
   modal.id = 'addTaskModal';
   modal.className = 'modal-overlay';
@@ -1001,10 +1049,7 @@ async function showAddTaskModal(loopId) {
           <div class="form-group">
             <label for="taskTool">${t('loop.tool') || 'Tool'}</label>
             <select id="taskTool" name="tool" class="form-control">
-              <option value="gemini">Gemini</option>
-              <option value="qwen">Qwen</option>
-              <option value="codex">Codex</option>
-              <option value="claude">Claude</option>
+              ${toolOptions}
             </select>
           </div>
 
@@ -1128,7 +1173,7 @@ async function editTask(taskId) {
     }
 
     const task = result.data;
-    showEditTaskModal(loopId, task);
+    await showEditTaskModal(loopId, task);
   } catch (err) {
     console.error('Load task error:', err);
     showNotification(t('loop.loadTaskError') || 'Error loading task', 'error');
@@ -1138,7 +1183,15 @@ async function editTask(taskId) {
 /**
  * Show edit task modal
  */
-function showEditTaskModal(loopId, task) {
+async function showEditTaskModal(loopId, task) {
+  // Get enabled tools
+  const enabledTools = await getEnabledTools();
+
+  // Build tool options HTML
+  const toolOptions = enabledTools.map(tool =>
+    `<option value="${tool}" ${task.tool === tool ? 'selected' : ''}>${tool.charAt(0).toUpperCase() + tool.slice(1)}</option>`
+  ).join('');
+
   const modal = document.createElement('div');
   modal.id = 'editTaskModal';
   modal.className = 'modal-overlay';
@@ -1165,10 +1218,7 @@ function showEditTaskModal(loopId, task) {
           <div class="form-group">
             <label for="editTaskTool">${t('loop.tool') || 'Tool'}</label>
             <select id="editTaskTool" name="tool" class="form-control">
-              <option value="gemini" ${task.tool === 'gemini' ? 'selected' : ''}>Gemini</option>
-              <option value="qwen" ${task.tool === 'qwen' ? 'selected' : ''}>Qwen</option>
-              <option value="codex" ${task.tool === 'codex' ? 'selected' : ''}>Codex</option>
-              <option value="claude" ${task.tool === 'claude' ? 'selected' : ''}>Claude</option>
+              ${toolOptions}
             </select>
           </div>
 
