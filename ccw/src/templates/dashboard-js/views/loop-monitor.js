@@ -305,7 +305,7 @@ function renderLoopCard(loop) {
 
   // Lucide icons for each status
   const statusIcons = {
-    created: 'square',
+    created: 'inbox',
     running: 'zap',
     paused: 'pause',
     completed: 'check',
@@ -1318,13 +1318,13 @@ window.destroyLoopMonitor = function() {
 // Helper functions
 function getStatusIcon(status) {
   const icons = {
-    created: 'square',
+    created: 'inbox',
     running: 'zap',
     paused: 'pause',
     completed: 'check',
     failed: 'alert-triangle'
   };
-  return icons[status] || 'square';
+  return icons[status] || 'inbox';
 }
 
 function escapeHtml(text) {
