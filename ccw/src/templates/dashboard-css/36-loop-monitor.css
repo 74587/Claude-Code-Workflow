@@ -172,6 +172,26 @@
   overflow: hidden;
 }
 
+/* Panel Header - Row 1: Tabs + New Button */
+.panel-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1rem 0.75rem 1rem;
+  gap: 0.75rem;
+}
+
+/* Panel Filter - Row 2: Filter Dropdown */
+.panel-filter-row {
+  padding: 0 1rem 0.75rem 1rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.panel-filter-row .filter-select {
+  width: 100%;
+}
+
+/* Legacy panel-header support */
 .panel-header {
   display: flex;
   align-items: center;

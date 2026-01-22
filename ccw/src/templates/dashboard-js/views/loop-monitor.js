@@ -54,7 +54,8 @@ async function renderLoopMonitor() {
       <div class="loop-monitor-layout">
         <!-- Loop List -->
         <div class="loop-list-panel">
-          <div class="panel-header">
+          <!-- Row 1: Tabs + New Button -->
+          <div class="panel-header-row">
             <div class="view-tabs">
               <button class="tab-button active" data-tab="loops" onclick="switchView('loops')">
                 <i data-lucide="activity" class="w-4 h-4"></i> ${t('loop.loops')}
@@ -63,19 +64,23 @@ async function renderLoopMonitor() {
                 <i data-lucide="list" class="w-4 h-4"></i> ${t('loop.tasks')}
               </button>
             </div>
-            <div class="header-actions">
-              <button class="btn btn-primary" onclick="showCreateLoopModal()" title="Create new loop task">
-                <i data-lucide="plus" class="w-4 h-4"></i> ${t('loop.newLoop')}
-              </button>
-              <select id="loopFilter" class="filter-select" onchange="filterLoops()">
-                <option value="all">${t('loop.all')}</option>
-                <option value="running">${t('loop.running')}</option>
-                <option value="paused">${t('loop.paused')}</option>
-                <option value="completed">${t('loop.completed')}</option>
-                <option value="failed">${t('loop.failed')}</option>
-              </select>
-            </div>
+            <button class="btn btn-primary btn-sm" onclick="showCreateLoopModal()" title="Create new loop task">
+              <i data-lucide="plus" class="w-4 h-4"></i> ${t('loop.newLoop')}
+            </button>
           </div>
+
+          <!-- Row 2: Filter -->
+          <div class="panel-filter-row">
+            <select id="loopFilter" class="filter-select" onchange="filterLoops()">
+              <option value="all">${t('loop.all')}</option>
+              <option value="running">${t('loop.running')}</option>
+              <option value="paused">${t('loop.paused')}</option>
+              <option value="completed">${t('loop.completed')}</option>
+              <option value="failed">${t('loop.failed')}</option>
+            </select>
+          </div>
+
+          <!-- Row 3: Loop List -->
           <div class="loop-list" id="loopList">
             <div class="loading-spinner">${t('loop.loading')}</div>
           </div>
