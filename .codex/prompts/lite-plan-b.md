@@ -482,16 +482,4 @@ Plan-B Hybrid Mode:
 | Merge phase timeout | send_input to request current merge progress |
 | Planning phase timeout | send_input requesting partial plan output |
 
-## Plan-A vs Plan-B Comparison
-
-| Dimension | Plan-A | Plan-B (This Document) |
-|-----------|--------|----------------------|
-| Agent count | 1 | N → 1 (parallel then reuse) |
-| Suitable complexity | Low/Medium | **High** |
-| Exploration depth | Single angle | **Multi-angle parallel** |
-| Context | Fully coherent | Primary agent coherent + incremental merge |
-| Recommended scenario | Clear task | **Complex task, cross-module** |
-
----
-
 **Execute task**: $TASK

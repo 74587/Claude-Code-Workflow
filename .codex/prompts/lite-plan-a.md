@@ -334,16 +334,4 @@ Please review the plan above and reply with one of the following:
 | Agent unexpectedly closed | Re-spawn, paste previous output in message |
 | User cancels | close_agent, preserve generated files |
 
-## Plan-A vs Plan-B Comparison
-
-| Dimension | Plan-A (This Document) | Plan-B |
-|-----------|----------------------|--------|
-| Agent count | 1 | N (parallel exploration) + 1 (main agent) |
-| Suitable complexity | Low/Medium | High |
-| Exploration depth | Single angle, deep | Multi-angle parallel |
-| Context | Fully coherent | Requires merge transfer |
-| Recommended scenario | Clear task, single module | Complex task, cross-module |
-
----
-
 **Execute task**: $TASK
