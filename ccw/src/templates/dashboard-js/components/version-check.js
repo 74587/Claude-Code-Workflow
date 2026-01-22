@@ -60,6 +60,9 @@ async function checkForUpdatesNow() {
     btn.disabled = true;
   }
 
+  // Show checking state on badge
+  updateVersionBadge('checking');
+
   // Show checking notification
   console.log('[Version Check] Starting update check...');
   if (typeof addGlobalNotification === 'function') {
@@ -82,6 +85,9 @@ async function checkForUpdatesNow() {
     const data = await res.json();
     versionCheckData = data;
     console.log('[Version Check] Result:', data);
+
+    // Update badge based on result
+    updateVersionBadge(data.hasUpdate ? 'has-update' : 'none');
 
     if (data.hasUpdate) {
       // New version available
@@ -109,6 +115,8 @@ async function checkForUpdatesNow() {
     }
   } catch (err) {
     console.error('[Version Check] Error:', err);
+    // Clear badge on error
+    updateVersionBadge('none');
     if (typeof addGlobalNotification === 'function') {
       addGlobalNotification(
         'error',
@@ -153,6 +161,9 @@ async function checkForUpdates() {
     if (!res.ok) return;
 
     versionCheckData = await res.json();
+
+    // Update badge
+    updateVersionBadge(versionCheckData.hasUpdate ? 'has-update' : 'none');
 
     if (versionCheckData.hasUpdate && !versionBannerDismissed) {
       showUpdateBanner(versionCheckData);
@@ -298,4 +309,31 @@ function getVersionInfo() {
  */
 function isAutoUpdateEnabled() {
   return autoUpdateEnabled;
+}
+
+/**
+ * Update version badge state
+ * @param {string} state - 'checking', 'has-update', 'none'
+ */
+function updateVersionBadge(state) {
+  const badge = document.getElementById('versionBadge');
+  if (!badge) return;
+
+  // Remove all state classes
+  badge.classList.remove('has-update', 'checking');
+  badge.textContent = '';
+
+  switch (state) {
+    case 'checking':
+      badge.classList.add('checking');
+      break;
+    case 'has-update':
+      badge.classList.add('has-update');
+      badge.textContent = '!';
+      break;
+    case 'none':
+    default:
+      // Hide badge
+      break;
+  }
 }

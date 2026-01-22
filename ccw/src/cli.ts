@@ -300,6 +300,10 @@ export function run(argv: string[]): void {
     .option('--fail', 'Mark task as failed')
     .option('--from-queue [queue-id]', 'Sync issue statuses from queue (default: active queue)')
     .option('--queue <queue-id>', 'Target queue ID for multi-queue operations')
+    // GitHub pull options
+    .option('--state <state>', 'GitHub issue state: open, closed, or all')
+    .option('--limit <n>', 'Maximum number of issues to pull from GitHub')
+    .option('--labels <labels>', 'Filter by GitHub labels (comma-separated)')
     .action((subcommand, args, options) => issueCommand(subcommand, args, options));
 
   // Loop command - Loop management for multi-CLI orchestration

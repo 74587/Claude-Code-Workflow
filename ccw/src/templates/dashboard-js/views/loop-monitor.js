@@ -1012,15 +1012,24 @@ async function saveTaskOrder(loopId, newOrder) {
 
 /**
  * Show add task modal
+ * Loads enabled tools before displaying modal to prevent race conditions
  */
 async function showAddTaskModal(loopId) {
-  // Get enabled tools
-  const enabledTools = await getEnabledTools();
+  // Find and disable the "Add Task" button to prevent multiple clicks during loading
+  const addTaskButton = event?.target;
+  if (addTaskButton) {
+    addTaskButton.disabled = true;
+    const originalText = addTaskButton.innerHTML;
+    addTaskButton.innerHTML = '<i class="spinner"></i> ' + (t('common.loading') || 'Loading...');
 
-  // Build tool options HTML
-  const toolOptions = enabledTools.map(tool =>
-    `<option value="${tool}">${tool.charAt(0).toUpperCase() + tool.slice(1)}</option>`
-  ).join('');
+    try {
+      // Get enabled tools (this ensures tools are loaded before modal opens)
+      const enabledTools = await getEnabledTools();
+
+      // Build tool options HTML
+      const toolOptions = enabledTools.map(tool =>
+        `<option value="${tool}">${tool.charAt(0).toUpperCase() + tool.slice(1)}</option>`
+      ).join('');
 
   const modal = document.createElement('div');
   modal.id = 'addTaskModal';
@@ -1075,11 +1084,103 @@ async function showAddTaskModal(loopId) {
     </div>
   `;
 
-  document.body.appendChild(modal);
-  if (typeof lucide !== 'undefined') lucide.createIcons();
+      document.body.appendChild(modal);
+      if (typeof lucide !== 'undefined') lucide.createIcons();
 
-  // Focus on description field
-  setTimeout(() => document.getElementById('taskDescription').focus(), 100);
+      // Focus on description field
+      setTimeout(() => document.getElementById('taskDescription').focus(), 100);
+
+    } catch (err) {
+      console.error('Failed to show add task modal:', err);
+      alert(t('loop.loadToolsError') || 'Failed to load available tools. Please try again.');
+    } finally {
+      // Restore button state
+      if (addTaskButton) {
+        addTaskButton.disabled = false;
+        addTaskButton.innerHTML = originalText;
+      }
+    }
+  } else {
+    // Fallback if event is not available (shouldn't happen normally)
+    const enabledTools = await getEnabledTools();
+    const toolOptions = enabledTools.map(tool =>
+      `<option value="${tool}">${tool.charAt(0).toUpperCase() + tool.slice(1)}</option>`
+    ).join('');
+
+    const modal = document.createElement('div');
+    modal.id = 'addTaskModal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i data-lucide="plus-circle" class="w-5 h-5"></i> ${t('loop.addTask') || 'Add Task'}</h3>
+        <button class="modal-close" onclick="closeTaskModal()">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="addTaskForm" onsubmit="handleAddTask(event, '${loopId}')">
+          <div id="addTaskError" class="alert alert-error" style="display: none;"></div>
+
+          <!-- Description -->
+          <div class="form-group">
+            <label for="taskDescription">${t('loop.taskDescription') || 'Task Description'} <span class="required">*</span></label>
+            <textarea id="taskDescription" name="description" rows="3" required
+                      placeholder="${t('loop.taskDescriptionPlaceholder') || 'Describe what this task should do...'}"
+                      class="form-control"></textarea>
+          </div>
+
+          <!-- Tool -->
+          <div class="form-group">
+            <label for="taskTool">${t('loop.tool') || 'Tool'}</label>
+            <select id="taskTool" name="tool" class="form-control">
+              ${toolOptions}
+            </select>
+          </div>
+
+          <!-- Mode -->
+          <div class="form-group">
+            <label for="taskMode">${t('loop.mode') || 'Mode'}</label>
+            <select id="taskMode" name="mode" class="form-control">
+              <option value="analysis">${t('loop.modeAnalysis') || 'Analysis'}</option>
+              <option value="write">${t('loop.modeWrite') || 'Write'}</option>
+              <option value="review">${t('loop.modeReview') || 'Review'}</option>
+            </select>
+          </div>
+
+          <!-- Prompt Template -->
+          <div class="form-group">
+            <label for="taskPrompt">${t('loop.promptTemplate') || 'Prompt Template'} <span class="required">*</span></label>
+            <textarea id="taskPrompt" name="prompt_template" rows="5" required
+                      placeholder="${t('loop.promptPlaceholder') || 'Enter the prompt to execute...'}"
+                      class="form-control"></textarea>
+            <small class="form-help">${t('loop.promptHelp') || 'Variables: {iteration}, {output_prev}'}</small>
+          </div>
+
+          <!-- Error Handling -->
+          <div class="form-group">
+            <label for="taskOnError">${t('loop.onError') || 'On Error'}</label>
+            <select id="taskOnError" name="on_error" class="form-control">
+              <option value="continue">${t('loop.errorContinue') || 'Continue'}</option>
+              <option value="pause">${t('loop.errorPause') || 'Pause'}</option>
+              <option value="fail_fast">${t('loop.errorFailFast') || 'Fail Fast'}</option>
+            </select>
+          </div>
+
+          <!-- Form Actions -->
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeTaskModal()">${t('loop.cancel') || 'Cancel'}</button>
+            <button type="submit" class="btn btn-primary">${t('loop.add') || 'Add'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+    document.body.appendChild(modal);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    setTimeout(() => document.getElementById('taskDescription').focus(), 100);
+  }
 }
 
 /**

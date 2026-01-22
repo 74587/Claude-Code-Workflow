@@ -16,6 +16,7 @@ import type { RouteContext } from '../types.js';
 import { EXEC_TIMEOUTS } from '../../../utils/exec-constants.js';
 import { extractJSON } from './utils.js';
 import { stopWatcherForUninstall } from './watcher-handlers.js';
+import { getCodexLensDataDir } from '../../../utils/codexlens-path.js';
 
 export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<boolean> {
   const { pathname, url, req, res, initialPath, handlePostRequest, broadcastToClients } = ctx;
@@ -777,7 +778,7 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
       const { join } = await import('path');
       const { readFile } = await import('fs/promises');
 
-      const envPath = join(homedir(), '.codexlens', '.env');
+      const envPath = join(getCodexLensDataDir(), '.env');
       let content = '';
       try {
         content = await readFile(envPath, 'utf-8');
@@ -829,7 +830,7 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
       }
 
       // Also read settings.json for current configuration
-      const settingsPath = join(homedir(), '.codexlens', 'settings.json');
+      const settingsPath = join(getCodexLensDataDir(), 'settings.json');
       let settings: Record<string, any> = {};
       try {
         const settingsContent = await readFile(settingsPath, 'utf-8');
@@ -943,7 +944,7 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
         const { join, dirname } = await import('path');
         const { writeFile, mkdir, readFile } = await import('fs/promises');
 
-        const envPath = join(homedir(), '.codexlens', '.env');
+        const envPath = join(getCodexLensDataDir(), '.env');
         await mkdir(dirname(envPath), { recursive: true });
 
         // Read existing env file to preserve custom variables
@@ -1072,7 +1073,7 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
         await writeFile(envPath, lines.join('\n'), 'utf-8');
 
         // Also update settings.json with mapped values
-        const settingsPath = join(homedir(), '.codexlens', 'settings.json');
+        const settingsPath = join(getCodexLensDataDir(), 'settings.json');
         let settings: Record<string, any> = {};
         try {
           const settingsContent = await readFile(settingsPath, 'utf-8');
@@ -1145,7 +1146,7 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
       const { join } = await import('path');
       const { readFile } = await import('fs/promises');
 
-      const settingsPath = join(homedir(), '.codexlens', 'settings.json');
+      const settingsPath = join(getCodexLensDataDir(), 'settings.json');
       let settings: Record<string, any> = {};
       try {
         const content = await readFile(settingsPath, 'utf-8');
@@ -1214,7 +1215,7 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
         const { join, dirname } = await import('path');
         const { writeFile, mkdir, readFile } = await import('fs/promises');
 
-        const settingsPath = join(homedir(), '.codexlens', 'settings.json');
+        const settingsPath = join(getCodexLensDataDir(), 'settings.json');
         await mkdir(dirname(settingsPath), { recursive: true });
 
         // Read existing settings

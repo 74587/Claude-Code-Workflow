@@ -38,6 +38,38 @@ import { executeCliTool } from '../../tools/cli-executor.js';
 import { loadClaudeCliTools } from '../../tools/claude-cli-tools.js';
 
 /**
+ * Module-level cache for CLI tools configuration
+ * Loaded once at server startup to avoid repeated file I/O
+ */
+let cachedEnabledTools: string[] | null = null;
+
+/**
+ * Initialize CLI tools cache at server startup
+ * Should be called once when the server starts
+ */
+export function initializeCliToolsCache(): void {
+  try {
+    const cliToolsConfig = loadClaudeCliTools(os.homedir());
+    const enabledTools = Object.entries(cliToolsConfig.tools || {})
+      .filter(([_, config]) => config.enabled === true)
+      .map(([name]) => name);
+    cachedEnabledTools = ['bash', ...enabledTools];
+    console.log('[Loop V2] CLI tools cache initialized:', cachedEnabledTools);
+  } catch (err) {
+    console.error('[Loop V2] Failed to initialize CLI tools cache:', err);
+    // Fallback to basic tools if config loading fails
+    cachedEnabledTools = ['bash', 'gemini', 'qwen', 'codex', 'claude'];
+  }
+}
+
+/**
+ * Clear CLI tools cache (for testing or config reload)
+ */
+export function clearCliToolsCache(): void {
+  cachedEnabledTools = null;
+}
+
+/**
  * V2 Loop Create Request
  */
 interface V2LoopCreateRequest {
@@ -1314,14 +1346,19 @@ function isValidId(id: string): boolean {
 }
 
 /**
- * Get enabled tools list
+ * Get enabled tools list from cache
+ * If cache is not initialized, it will load from config (fallback for lazy initialization)
  */
 function getEnabledToolsList(): string[] {
-  const cliToolsConfig = loadClaudeCliTools(os.homedir());
-  const enabledTools = Object.entries(cliToolsConfig.tools || {})
-    .filter(([_, config]) => config.enabled === true)
-    .map(([name]) => name);
-  return ['bash', ...enabledTools];
+  // Return cached value if available
+  if (cachedEnabledTools) {
+    return cachedEnabledTools;
+  }
+
+  // Fallback: lazy initialization if cache not initialized (shouldn't happen in normal operation)
+  console.warn('[Loop V2] CLI tools cache not initialized, performing lazy load');
+  initializeCliToolsCache();
+  return cachedEnabledTools || ['bash', 'gemini', 'qwen', 'codex', 'claude'];
 }
 
 /**

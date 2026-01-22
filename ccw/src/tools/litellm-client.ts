@@ -12,7 +12,7 @@
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { homedir } from 'os';
+import { getCodexLensPython, getCodexLensVenvDir } from '../utils/codexlens-path.js';
 
 export interface LiteLLMConfig {
   pythonPath?: string;  // Default: CodexLens venv Python
@@ -22,7 +22,7 @@ export interface LiteLLMConfig {
 
 // Platform-specific constants for CodexLens venv
 const IS_WINDOWS = process.platform === 'win32';
-const CODEXLENS_VENV = join(homedir(), '.codexlens', 'venv');
+const CODEXLENS_VENV = getCodexLensVenvDir();
 const VENV_BIN_DIR = IS_WINDOWS ? 'Scripts' : 'bin';
 const PYTHON_EXECUTABLE = IS_WINDOWS ? 'python.exe' : 'python';
 
@@ -35,6 +35,20 @@ export function getCodexLensVenvPython(): string {
   const venvPython = join(CODEXLENS_VENV, VENV_BIN_DIR, PYTHON_EXECUTABLE);
   if (existsSync(venvPython)) {
     return venvPython;
+  }
+  // Fallback to system Python if venv not available
+  return 'python';
+}
+
+/**
+ * Get the Python path from CodexLens venv using centralized path utility
+ * Falls back to system 'python' if venv doesn't exist
+ * @returns Path to Python executable
+ */
+export function getCodexLensPythonPath(): string {
+  const codexLensPython = getCodexLensPython();
+  if (existsSync(codexLensPython)) {
+    return codexLensPython;
   }
   // Fallback to system Python if venv not available
   return 'python';

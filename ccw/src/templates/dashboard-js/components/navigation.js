@@ -303,6 +303,12 @@ async function refreshWorkspace() {
           liteTaskDataStore[sessionKey] = s;
         });
 
+        // Populate multiCliPlan sessions
+        (data.liteTasks?.multiCliPlan || []).forEach(s => {
+          const sessionKey = `multi-cli-${s.id}`.replace(/[^a-zA-Z0-9-]/g, '-');
+          liteTaskDataStore[sessionKey] = s;
+        });
+
         // Update global data
         window.workflowData = data;
 

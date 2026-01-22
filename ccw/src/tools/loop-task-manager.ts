@@ -22,7 +22,18 @@ export interface LoopTask {
   /** Task description (what to do) */
   description: string;
 
-  /** CLI tool to use (bash, builtin tools, cli-wrapper, api-endpoint) */
+  /**
+   * CLI tool to use
+   *
+   * Should be one of the enabled tools from cli-tools.json:
+   * - 'bash' (always available)
+   * - Builtin tools: 'gemini', 'qwen', 'codex', 'claude', 'opencode'
+   * - CLI wrappers: 'doubao', etc. (if enabled)
+   * - API endpoints: custom tools (if enabled)
+   *
+   * Note: Validation is performed at the API layer (loop-v2-routes.ts)
+   * to ensure tool is enabled before saving.
+   */
   tool: string;
 
   /** Execution mode */

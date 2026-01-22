@@ -185,6 +185,14 @@ function renderIssueView() {
           </div>
 
           <div class="flex items-center gap-3">
+            <!-- Pull from GitHub Button -->
+            <button class="issue-pull-btn" onclick="showPullIssuesModal()" title="Pull issues from GitHub repository">
+              <svg class="w-4 h-4 mr-1.5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v 3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+              </svg>
+              <span>Pull from GitHub</span>
+            </button>
+
             <!-- Create Button -->
             <button class="issue-create-btn" onclick="showCreateIssueModal()">
               <i data-lucide="plus" class="w-4 h-4"></i>
@@ -278,6 +286,59 @@ function renderIssueView() {
           <div class="issue-modal-footer">
             <button class="btn-secondary" onclick="hideCreateIssueModal()">${t('common.cancel') || 'Cancel'}</button>
             <button class="btn-primary" onclick="createIssue()">${t('issues.create') || 'Create'}</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pull Issues Modal -->
+      <div id="pullIssuesModal" class="issue-modal hidden">
+        <div class="issue-modal-backdrop" onclick="hidePullIssuesModal()"></div>
+        <div class="issue-modal-content">
+          <div class="issue-modal-header">
+            <h3>
+              <svg class="w-5 h-5 inline mr-2 -mt-1" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+              </svg>
+              Pull Issues from GitHub
+            </h3>
+            <button class="btn-icon" onclick="hidePullIssuesModal()">
+              <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+          </div>
+          <div class="issue-modal-body">
+            <div class="form-group">
+              <label>Issue State</label>
+              <select id="pullIssueState">
+                <option value="open" selected>Open</option>
+                <option value="closed">Closed</option>
+                <option value="all">All</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Maximum Issues</label>
+              <input type="number" id="pullIssueLimit" value="20" min="1" max="100" />
+            </div>
+            <div class="form-group">
+              <label>Labels (optional)</label>
+              <input type="text" id="pullIssueLabels" placeholder="bug, enhancement (comma-separated)" />
+            </div>
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="pullDownloadImages" checked />
+                <span>Download images to local</span>
+              </label>
+              <p class="form-hint text-xs text-muted-foreground mt-1">Images will be saved to .workflow/issues/images/ and links updated in issue context</p>
+            </div>
+            <div id="pullIssueResult" class="pull-result hidden mt-4 p-3 rounded-md bg-muted"></div>
+          </div>
+          <div class="issue-modal-footer">
+            <button class="btn-secondary" onclick="hidePullIssuesModal()">Cancel</button>
+            <button class="btn-primary" id="pullIssuesBtn" onclick="pullGitHubIssues()">
+              <svg class="w-4 h-4 mr-1 inline" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+              </svg>
+              Pull Issues
+            </button>
           </div>
         </div>
       </div>
@@ -2624,6 +2685,127 @@ function hideCreateIssueModal() {
     if (titleInput) titleInput.value = '';
     if (contextInput) contextInput.value = '';
     if (prioritySelect) prioritySelect.value = '3';
+  }
+}
+
+// ========== Pull Issues Modal ==========
+function showPullIssuesModal() {
+  const modal = document.getElementById('pullIssuesModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    // Reset result area
+    const resultDiv = document.getElementById('pullIssueResult');
+    if (resultDiv) {
+      resultDiv.classList.add('hidden');
+      resultDiv.innerHTML = '';
+    }
+    lucide.createIcons();
+  }
+}
+
+function hidePullIssuesModal() {
+  const modal = document.getElementById('pullIssuesModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    // Clear form
+    const stateSelect = document.getElementById('pullIssueState');
+    const limitInput = document.getElementById('pullIssueLimit');
+    const labelsInput = document.getElementById('pullIssueLabels');
+    const downloadImagesCheck = document.getElementById('pullDownloadImages');
+    if (stateSelect) stateSelect.value = 'open';
+    if (limitInput) limitInput.value = '20';
+    if (labelsInput) labelsInput.value = '';
+    if (downloadImagesCheck) downloadImagesCheck.checked = true;
+  }
+}
+
+async function pullGitHubIssues() {
+  const stateSelect = document.getElementById('pullIssueState');
+  const limitInput = document.getElementById('pullIssueLimit');
+  const labelsInput = document.getElementById('pullIssueLabels');
+  const downloadImagesCheck = document.getElementById('pullDownloadImages');
+  const resultDiv = document.getElementById('pullIssueResult');
+  const pullBtn = document.getElementById('pullIssuesBtn');
+
+  const state = stateSelect?.value || 'open';
+  const limit = parseInt(limitInput?.value || '20');
+  const labels = labelsInput?.value?.trim();
+  const downloadImages = downloadImagesCheck?.checked || false;
+
+  // Disable button and show loading
+  if (pullBtn) {
+    pullBtn.disabled = true;
+    pullBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 mr-1 animate-spin"></i>' + (t('common.loading') || 'Loading...');
+    lucide.createIcons();
+  }
+
+  try {
+    const params = new URLSearchParams({
+      path: projectPath,
+      state: state,
+      limit: limit.toString(),
+      downloadImages: downloadImages.toString()
+    });
+    if (labels) params.set('labels', labels);
+
+    const response = await fetch('/api/issues/pull?' + params.toString(), {
+      method: 'POST'
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || result.error) {
+      showNotification(result.error || 'Failed to pull issues', 'error');
+      if (resultDiv) {
+        resultDiv.classList.remove('hidden');
+        resultDiv.innerHTML = `<p class="text-destructive">${result.error || 'Failed to pull issues'}</p>`;
+      }
+      return;
+    }
+
+    // Show results
+    if (resultDiv) {
+      resultDiv.classList.remove('hidden');
+      resultDiv.innerHTML = `
+        <div class="flex items-start gap-2">
+          <i data-lucide="check-circle" class="w-5 h-5 text-success mt-0.5"></i>
+          <div class="flex-1">
+            <p class="font-medium mb-2">${t('issues.pullSuccess') || 'GitHub Issues Pulled Successfully'}</p>
+            <div class="text-sm text-muted-foreground space-y-1">
+              <p>✓ Imported: <strong>${result.imported || 0}</strong> new issues</p>
+              <p>✓ Updated: <strong>${result.updated || 0}</strong> existing issues</p>
+              <p>✓ Skipped: <strong>${result.skipped || 0}</strong> unchanged issues</p>
+              ${result.images_downloaded > 0 ? `<p>✓ Downloaded: <strong>${result.images_downloaded}</strong> images</p>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+      lucide.createIcons();
+    }
+
+    showNotification(`Pulled ${result.imported + result.updated} issues from GitHub`, 'success');
+
+    // Reload data after 1 second
+    setTimeout(async () => {
+      await loadIssueData();
+      renderIssueView();
+      hidePullIssuesModal();
+    }, 1500);
+
+  } catch (err) {
+    console.error('Failed to pull issues:', err);
+    showNotification('Failed to pull issues', 'error');
+    if (resultDiv) {
+      resultDiv.classList.remove('hidden');
+      resultDiv.innerHTML = `<p class="text-destructive">${err.message || 'Unknown error occurred'}</p>`;
+    }
+  } finally {
+    // Re-enable button
+    if (pullBtn) {
+      pullBtn.disabled = false;
+      pullBtn.innerHTML = '<i data-lucide="download" class="w-4 h-4 mr-1"></i>' + (t('issues.pull') || 'Pull');
+      lucide.createIcons();
+    }
   }
 }
 

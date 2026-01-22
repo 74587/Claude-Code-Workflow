@@ -223,6 +223,10 @@ interface IssueOptions {
   data?: string;        // JSON data for create
   fromQueue?: boolean | string;  // Sync statuses from queue (true=active, string=specific queue ID)
   queue?: string;       // Target queue ID for multi-queue operations
+  // GitHub pull options
+  state?: string;       // Issue state: open, closed, all
+  limit?: number;       // Maximum number of issues to pull
+  labels?: string;      // Filter by labels (comma-separated)
 }
 
 const ISSUES_DIR = '.workflow/issues';
@@ -999,6 +1003,113 @@ async function createAction(options: IssueOptions): Promise<void> {
     console.log(JSON.stringify(issue, null, 2));
   } catch (err) {
     console.error(chalk.red((err as Error).message));
+    process.exit(1);
+  }
+}
+
+/**
+ * pull - Pull issues from GitHub
+ * Usage: ccw issue pull [--state open|closed|all] [--limit N] [--labels label1,label2]
+ */
+async function pullAction(options: IssueOptions): Promise<void> {
+  try {
+    // Check if gh CLI is available
+    try {
+      execSync('gh --version', { stdio: 'ignore', timeout: EXEC_TIMEOUTS.GIT_QUICK });
+    } catch {
+      console.error(chalk.red('GitHub CLI (gh) is not installed or not in PATH'));
+      console.error(chalk.gray('Install from: https://cli.github.com/'));
+      process.exit(1);
+    }
+
+    // Build gh command with options
+    const state = options.state || 'open';
+    const limit = options.limit || 100;
+    let ghCommand = `gh issue list --state ${state} --limit ${limit} --json number,title,body,labels,url,state`;
+
+    if (options.labels) {
+      ghCommand += ` --label "${options.labels}"`;
+    }
+
+    console.log(chalk.cyan(`Fetching issues from GitHub (state: ${state}, limit: ${limit})...`));
+
+    // Fetch issues from GitHub
+    const ghOutput = execSync(ghCommand, {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: EXEC_TIMEOUTS.PROCESS_SPAWN,
+    }).trim();
+
+    if (!ghOutput) {
+      console.log(chalk.yellow('No issues found on GitHub'));
+      return;
+    }
+
+    const ghIssues = JSON.parse(ghOutput);
+    const existingIssues = readIssues();
+
+    let imported = 0;
+    let skipped = 0;
+    let updated = 0;
+
+    for (const ghIssue of ghIssues) {
+      const issueId = `GH-${ghIssue.number}`;
+      const existingIssue = existingIssues.find(i => i.id === issueId);
+
+      // Prepare issue data
+      const issueData: Partial<Issue> = {
+        id: issueId,
+        title: ghIssue.title,
+        status: ghIssue.state === 'OPEN' ? 'registered' : 'completed',
+        priority: 3, // Default priority
+        context: ghIssue.body?.substring(0, 500) || ghIssue.title,
+        source: 'github',
+        source_url: ghIssue.url,
+        tags: ghIssue.labels?.map((l: any) => l.name) || [],
+      };
+
+      if (existingIssue) {
+        // Update existing issue if state changed
+        if (existingIssue.source_url === ghIssue.url) {
+          // Check if status needs updating
+          const newStatus = ghIssue.state === 'OPEN' ? 'registered' : 'completed';
+          if (existingIssue.status !== newStatus || existingIssue.title !== ghIssue.title) {
+            existingIssue.title = ghIssue.title;
+            existingIssue.status = newStatus;
+            existingIssue.updated_at = new Date().toISOString();
+            updated++;
+          } else {
+            skipped++;
+          }
+        } else {
+          skipped++;
+        }
+      } else {
+        // Create new issue
+        try {
+          createIssue(issueData);
+          imported++;
+        } catch (err) {
+          console.error(chalk.red(`Failed to import issue #${ghIssue.number}: ${(err as Error).message}`));
+        }
+      }
+    }
+
+    // Save updates if any
+    if (updated > 0) {
+      writeIssues(existingIssues);
+    }
+
+    console.log(chalk.green(`\n✓ GitHub sync complete:`));
+    console.log(chalk.gray(`  - Imported: ${imported} new issues`));
+    console.log(chalk.gray(`  - Updated: ${updated} existing issues`));
+    console.log(chalk.gray(`  - Skipped: ${skipped} unchanged issues`));
+
+    if (options.json) {
+      console.log(JSON.stringify({ imported, updated, skipped, total: ghIssues.length }));
+    }
+  } catch (err) {
+    console.error(chalk.red(`Failed to pull issues from GitHub: ${(err as Error).message}`));
     process.exit(1);
   }
 }
@@ -2715,6 +2826,9 @@ export async function issueCommand(
     case 'create':
       await createAction(options);
       break;
+    case 'pull':
+      await pullAction(options);
+      break;
     case 'solution':
       await solutionAction(argsArray[0], options);
       break;
@@ -2769,6 +2883,8 @@ export async function issueCommand(
       console.log(chalk.bold.cyan('\nCCW Issue Management (v3.0 - Multi-Queue + Lifecycle)\n'));
       console.log(chalk.bold('Core Commands:'));
       console.log(chalk.gray('  create --data \'{"title":"..."}\'    Create issue (auto-generates ID)'));
+      console.log(chalk.gray('  pull [--state open|closed|all]     Pull issues from GitHub'));
+      console.log(chalk.gray('       [--limit N] [--labels label1,label2]'));
       console.log(chalk.gray('  init <issue-id>                    Initialize new issue (manual ID)'));
       console.log(chalk.gray('  list [issue-id]                    List issues or tasks'));
       console.log(chalk.gray('  history                            List completed issues (from history)'));
@@ -2809,6 +2925,9 @@ export async function issueCommand(
       console.log(chalk.gray('  --priority <n>                     Queue priority (lower = higher)'));
       console.log(chalk.gray('  --json                             JSON output'));
       console.log(chalk.gray('  --force                            Force operation'));
+      console.log(chalk.gray('  --state <state>                    GitHub issue state (open/closed/all)'));
+      console.log(chalk.gray('  --limit <n>                        Max issues to pull from GitHub'));
+      console.log(chalk.gray('  --labels <labels>                  Filter by GitHub labels (comma-separated)'));
       console.log();
       console.log(chalk.bold('Storage:'));
       console.log(chalk.gray('  .workflow/issues/issues.jsonl         Active issues'));

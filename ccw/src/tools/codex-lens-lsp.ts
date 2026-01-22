@@ -12,14 +12,11 @@ import { z } from 'zod';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
 import { spawn } from 'child_process';
 import { join } from 'path';
-import { homedir } from 'os';
 import { getProjectRoot } from '../utils/path-validator.js';
+import { getCodexLensPython } from '../utils/codexlens-path.js';
 
 // CodexLens venv configuration
-const CODEXLENS_VENV =
-  process.platform === 'win32'
-    ? join(homedir(), '.codexlens', 'venv', 'Scripts', 'python.exe')
-    : join(homedir(), '.codexlens', 'venv', 'bin', 'python');
+const CODEXLENS_VENV = getCodexLensPython();
 
 // Define Zod schema for validation
 const ParamsSchema = z.object({

@@ -992,6 +992,188 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
+  // POST /api/issues/pull - Pull issues from GitHub
+  if (pathname === '/api/issues/pull' && req.method === 'POST') {
+    const state = url.searchParams.get('state') || 'open';
+    const limit = parseInt(url.searchParams.get('limit') || '100');
+    const labels = url.searchParams.get('labels') || '';
+    const downloadImages = url.searchParams.get('downloadImages') === 'true';
+
+    try {
+      const { execSync } = await import('child_process');
+      const https = await import('https');
+      const http = await import('http');
+
+      // Check if gh CLI is available
+      try {
+        execSync('gh --version', { stdio: 'ignore', timeout: 5000 });
+      } catch {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'GitHub CLI (gh) is not installed or not in PATH' }));
+        return true;
+      }
+
+      // Build gh command
+      let ghCommand = `gh issue list --state ${state} --limit ${limit} --json number,title,body,labels,url,state`;
+      if (labels) ghCommand += ` --label "${labels}"`;
+
+      // Execute gh command from project root
+      const ghOutput = execSync(ghCommand, {
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 60000,
+        cwd: issuesDir.replace(/[\\/]\.workflow[\\/]issues$/, '')
+      }).trim();
+
+      if (!ghOutput) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ imported: 0, updated: 0, skipped: 0, images_downloaded: 0 }));
+        return true;
+      }
+
+      const ghIssues = JSON.parse(ghOutput);
+      const existingIssues = readIssuesJsonl(issuesDir);
+
+      let imported = 0;
+      let skipped = 0;
+      let updated = 0;
+      let imagesDownloaded = 0;
+
+      // Create images directory if needed
+      const imagesDir = join(issuesDir, 'images');
+      if (downloadImages && !existsSync(imagesDir)) {
+        mkdirSync(imagesDir, { recursive: true });
+      }
+
+      // Helper function to download image
+      const downloadImage = async (imageUrl: string, issueNumber: number, imageIndex: number): Promise<string | null> => {
+        return new Promise((resolveDownload) => {
+          try {
+            const ext = imageUrl.match(/\.(png|jpg|jpeg|gif|webp|svg)/i)?.[1] || 'png';
+            const filename = `GH-${issueNumber}-${imageIndex}.${ext}`;
+            const filePath = join(imagesDir, filename);
+
+            // Skip if already downloaded
+            if (existsSync(filePath)) {
+              resolveDownload(`.workflow/issues/images/${filename}`);
+              return;
+            }
+
+            const protocol = imageUrl.startsWith('https') ? https : http;
+            protocol.get(imageUrl, { timeout: 30000 }, (response: any) => {
+              // Handle redirect
+              if (response.statusCode === 301 || response.statusCode === 302) {
+                const redirectUrl = response.headers.location;
+                if (redirectUrl) {
+                  downloadImage(redirectUrl, issueNumber, imageIndex).then(resolveDownload);
+                  return;
+                }
+              }
+              if (response.statusCode !== 200) {
+                resolveDownload(null);
+                return;
+              }
+
+              const chunks: Buffer[] = [];
+              response.on('data', (chunk: Buffer) => chunks.push(chunk));
+              response.on('end', () => {
+                try {
+                  writeFileSync(filePath, Buffer.concat(chunks));
+                  resolveDownload(`.workflow/issues/images/${filename}`);
+                } catch {
+                  resolveDownload(null);
+                }
+              });
+              response.on('error', () => resolveDownload(null));
+            }).on('error', () => resolveDownload(null));
+          } catch {
+            resolveDownload(null);
+          }
+        });
+      };
+
+      // Process issues
+      for (const ghIssue of ghIssues) {
+        const issueId = `GH-${ghIssue.number}`;
+        const existingIssue = existingIssues.find((i: any) => i.id === issueId);
+
+        let context = ghIssue.body || ghIssue.title;
+
+        // Extract and download images if enabled
+        if (downloadImages && ghIssue.body) {
+          // Find all image URLs in the body
+          const imgPattern = /!\[[^\]]*\]\((https?:\/\/[^)]+)\)|<img[^>]+src=["'](https?:\/\/[^"']+)["']/gi;
+          const imageUrls: string[] = [];
+          let match;
+          while ((match = imgPattern.exec(ghIssue.body)) !== null) {
+            imageUrls.push(match[1] || match[2]);
+          }
+
+          // Download images and build reference list
+          if (imageUrls.length > 0) {
+            const downloadedImages: string[] = [];
+            for (let i = 0; i < imageUrls.length; i++) {
+              const localPath = await downloadImage(imageUrls[i], ghIssue.number, i + 1);
+              if (localPath) {
+                downloadedImages.push(localPath);
+                imagesDownloaded++;
+              }
+            }
+
+            // Append image references to context
+            if (downloadedImages.length > 0) {
+              context += '\n\n---\n**Downloaded Images:**\n';
+              downloadedImages.forEach((path, idx) => {
+                context += `- Image ${idx + 1}: \`${path}\`\n`;
+              });
+            }
+          }
+        }
+
+        // Prepare issue data (truncate context to 2000 chars max)
+        const issueData = {
+          id: issueId,
+          title: ghIssue.title,
+          status: ghIssue.state === 'OPEN' ? 'registered' : 'completed',
+          priority: 3,
+          context: context.substring(0, 2000),
+          source: 'github',
+          source_url: ghIssue.url,
+          tags: ghIssue.labels?.map((l: any) => l.name) || [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        if (existingIssue) {
+          // Update if changed
+          const newStatus = ghIssue.state === 'OPEN' ? 'registered' : 'completed';
+          if (existingIssue.status !== newStatus || existingIssue.title !== ghIssue.title) {
+            existingIssue.title = ghIssue.title;
+            existingIssue.status = newStatus;
+            existingIssue.context = issueData.context;
+            existingIssue.updated_at = new Date().toISOString();
+            updated++;
+          } else {
+            skipped++;
+          }
+        } else {
+          existingIssues.push(issueData);
+          imported++;
+        }
+      }
+
+      // Save all issues
+      writeIssuesJsonl(issuesDir, existingIssues);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ imported, updated, skipped, images_downloaded: imagesDownloaded, total: ghIssues.length }));
+    } catch (err: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message || 'Failed to pull issues from GitHub' }));
+    }
+    return true;
+  }
+
   // GET /api/issues/:id - Get issue detail
   const detailMatch = pathname.match(/^\/api\/issues\/([^/]+)$/);
   if (detailMatch && req.method === 'GET') {

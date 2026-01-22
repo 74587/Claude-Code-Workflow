@@ -2,12 +2,28 @@
  * Graph Routes Module
  * Handles graph visualization API endpoints for codex-lens data
  */
-import { homedir } from 'os';
 import { join, resolve, normalize } from 'path';
 import { existsSync, readdirSync } from 'fs';
 import Database from 'better-sqlite3';
 import { validatePath as validateAllowedPath } from '../../utils/path-validator.js';
 import type { RouteContext } from './types.js';
+
+/**
+ * Get the index root directory from CodexLens config or default.
+ * Matches Python implementation priority:
+ * 1. CODEXLENS_INDEX_DIR environment variable
+ * 2. index_dir from ~/.codexlens/config.json
+ * 3. Default: ~/.codexlens/indexes
+ */
+function getIndexRoot(): string {
+  const envOverride = process.env.CODEXLENS_INDEX_DIR;
+  if (envOverride) {
+    return envOverride;
+  }
+  // Default: use CodexLens data directory + indexes
+  const { getCodexLensDataDir } = require('../../utils/codexlens-path.js');
+  return join(getCodexLensDataDir(), 'indexes');
+}
 
 /**
  * PathMapper utility class (simplified from codex-lens Python implementation)
@@ -17,7 +33,7 @@ class PathMapper {
   private indexRoot: string;
 
   constructor(indexRoot?: string) {
-    this.indexRoot = indexRoot || join(homedir(), '.codexlens', 'indexes');
+    this.indexRoot = indexRoot || getIndexRoot();
   }
 
   /**

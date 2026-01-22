@@ -17,6 +17,7 @@ import {
 import type { RouteContext } from '../types.js';
 import { extractJSON } from './utils.js';
 import { getDefaultTool } from '../../../tools/claude-cli-tools.js';
+import { getCodexLensDataDir } from '../../../utils/codexlens-path.js';
 
 export async function handleCodexLensSemanticRoutes(ctx: RouteContext): Promise<boolean> {
   const { pathname, url, req, res, initialPath, handlePostRequest } = ctx;
@@ -445,9 +446,8 @@ export async function handleCodexLensSemanticRoutes(ctx: RouteContext): Promise<
             // Write to CodexLens .env file for persistence
             const { writeFileSync, existsSync, readFileSync } = await import('fs');
             const { join } = await import('path');
-            const { homedir } = await import('os');
 
-            const codexlensDir = join(homedir(), '.codexlens');
+            const codexlensDir = getCodexLensDataDir();
             const envFile = join(codexlensDir, '.env');
 
             // Read existing .env content

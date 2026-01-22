@@ -124,7 +124,7 @@ export async function upgradeCommand(options: UpgradeOptions): Promise<void> {
     info('All installations are up to date.');
     console.log('');
     info('To upgrade ccw itself, run:');
-    console.log(chalk.cyan('  npm update -g ccw'));
+    console.log(chalk.cyan('  npm update -g claude-code-workflow'));
     console.log('');
     return;
   }

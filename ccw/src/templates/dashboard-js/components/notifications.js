@@ -827,6 +827,12 @@ async function refreshWorkspaceData(newData) {
     liteTaskDataStore[key] = s;
   });
 
+  // Populate multiCliPlan sessions
+  (newData.liteTasks?.multiCliPlan || []).forEach(s => {
+    const key = `multi-cli-${s.id}`.replace(/[^a-zA-Z0-9-]/g, '-');
+    liteTaskDataStore[key] = s;
+  });
+
   // Update UI silently
   updateStats();
   updateBadges();

@@ -13,20 +13,16 @@
 
 import { spawn } from 'child_process';
 import { join, dirname } from 'path';
-import { homedir } from 'os';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
+import { getCodexLensPython } from '../utils/codexlens-path.js';
 
 // Get directory of this module
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Venv paths (reuse CodexLens venv)
-const CODEXLENS_VENV = join(homedir(), '.codexlens', 'venv');
-const VENV_PYTHON =
-  process.platform === 'win32'
-    ? join(CODEXLENS_VENV, 'Scripts', 'python.exe')
-    : join(CODEXLENS_VENV, 'bin', 'python');
+const VENV_PYTHON = getCodexLensPython();
 
 // Script path
 const EMBEDDER_SCRIPT = join(__dirname, '..', '..', 'scripts', 'memory_embedder.py');

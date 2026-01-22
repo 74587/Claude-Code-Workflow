@@ -24,6 +24,12 @@ import {
   isUvAvailable,
   createCodexLensUvManager,
 } from '../utils/uv-manager.js';
+import {
+  getCodexLensDataDir,
+  getCodexLensVenvDir,
+  getCodexLensPython,
+  getCodexLensPip,
+} from '../utils/codexlens-path.js';
 
 // Get directory of this module
 const __filename = fileURLToPath(import.meta.url);
@@ -108,14 +114,6 @@ function findLocalCodexLensPath(): string | null {
 function findLocalCcwLitellmPath(): string | null {
   return findLocalPackagePath('ccw-litellm');
 }
-
-// CodexLens configuration
-const CODEXLENS_DATA_DIR = join(homedir(), '.codexlens');
-const CODEXLENS_VENV = join(CODEXLENS_DATA_DIR, 'venv');
-const VENV_PYTHON =
-  process.platform === 'win32'
-    ? join(CODEXLENS_VENV, 'Scripts', 'python.exe')
-    : join(CODEXLENS_VENV, 'bin', 'python');
 
 // Bootstrap status cache
 let bootstrapChecked = false;
@@ -245,7 +243,7 @@ async function checkVenvStatus(force = false): Promise<ReadyStatus> {
   }
 
   // Check venv exists
-  if (!existsSync(CODEXLENS_VENV)) {
+  if (!existsSync(getCodexLensVenvDir())) {
     const result = { ready: false, error: 'Venv not found' };
     venvStatusCache = { status: result, timestamp: Date.now() };
     console.log(`[PERF][CodexLens] checkVenvStatus (no venv): ${Date.now() - funcStart}ms`);
@@ -253,7 +251,7 @@ async function checkVenvStatus(force = false): Promise<ReadyStatus> {
   }
 
   // Check python executable exists
-  if (!existsSync(VENV_PYTHON)) {
+  if (!existsSync(getCodexLensPython())) {
     const result = { ready: false, error: 'Python executable not found in venv' };
     venvStatusCache = { status: result, timestamp: Date.now() };
     console.log(`[PERF][CodexLens] checkVenvStatus (no python): ${Date.now() - funcStart}ms`);
@@ -265,7 +263,7 @@ async function checkVenvStatus(force = false): Promise<ReadyStatus> {
   console.log('[PERF][CodexLens] checkVenvStatus spawning Python...');
 
   return new Promise((resolve) => {
-    const child = spawn(VENV_PYTHON, ['-c', 'import codexlens; import watchdog; print(codexlens.__version__)'], {
+    const child = spawn(getCodexLensPython(), ['-c', 'import codexlens; import watchdog; print(codexlens.__version__)'], {
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 10000,
     });
@@ -377,7 +375,7 @@ try:
 except Exception as e:
     print(json.dumps({"available": False, "error": str(e)}))
 `;
-    const child = spawn(VENV_PYTHON, ['-c', checkCode], {
+    const child = spawn(getCodexLensPython(), ['-c', checkCode], {
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 15000,
     });
@@ -438,7 +436,7 @@ async function ensureLiteLLMEmbedderReady(): Promise<BootstrapResult> {
 
   // Check if ccw_litellm can be imported
   const importStatus = await new Promise<{ ok: boolean; error?: string }>((resolve) => {
-    const child = spawn(VENV_PYTHON, ['-c', 'import ccw_litellm; print("OK")'], {
+    const child = spawn(getCodexLensPython(), ['-c', 'import ccw_litellm; print("OK")'], {
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 15000,
     });
@@ -502,10 +500,7 @@ async function ensureLiteLLMEmbedderReady(): Promise<BootstrapResult> {
   }
 
   // Fallback: Use pip for installation
-  const pipPath =
-    process.platform === 'win32'
-      ? join(CODEXLENS_VENV, 'Scripts', 'pip.exe')
-      : join(CODEXLENS_VENV, 'bin', 'pip');
+  const pipPath = getCodexLensPip();
 
   try {
     if (localPath) {
@@ -552,10 +547,7 @@ interface PythonEnvInfo {
  * DirectML requires: 64-bit Python, version 3.8-3.12
  */
 async function checkPythonEnvForDirectML(): Promise<PythonEnvInfo> {
-  const pythonPath =
-    process.platform === 'win32'
-      ? join(CODEXLENS_VENV, 'Scripts', 'python.exe')
-      : join(CODEXLENS_VENV, 'bin', 'python');
+  const pythonPath = getCodexLensPython();
 
   if (!existsSync(pythonPath)) {
     return { version: '', majorMinor: '', architecture: 0, compatible: false, error: 'Python not found in venv' };
@@ -800,10 +792,7 @@ async function installSemantic(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResul
     console.log(`[CodexLens] Python ${pythonEnv.version} (${pythonEnv.architecture}-bit) - DirectML compatible`);
   }
 
-  const pipPath =
-    process.platform === 'win32'
-      ? join(CODEXLENS_VENV, 'Scripts', 'pip.exe')
-      : join(CODEXLENS_VENV, 'bin', 'pip');
+  const pipPath = getCodexLensPip();
 
   // IMPORTANT: Uninstall all onnxruntime variants first to prevent conflicts
   // Having multiple onnxruntime packages causes provider detection issues
@@ -933,16 +922,18 @@ async function bootstrapVenv(): Promise<BootstrapResult> {
 
   // Fall back to pip logic...
   // Ensure data directory exists
-  if (!existsSync(CODEXLENS_DATA_DIR)) {
-    mkdirSync(CODEXLENS_DATA_DIR, { recursive: true });
+  const dataDir = getCodexLensDataDir();
+  const venvDir = getCodexLensVenvDir();
+  if (!existsSync(dataDir)) {
+    mkdirSync(dataDir, { recursive: true });
   }
 
   // Create venv if not exists
-  if (!existsSync(CODEXLENS_VENV)) {
+  if (!existsSync(venvDir)) {
     try {
       console.log('[CodexLens] Creating virtual environment...');
       const pythonCmd = getSystemPython();
-      execSync(`${pythonCmd} -m venv "${CODEXLENS_VENV}"`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PROCESS_SPAWN });
+      execSync(`${pythonCmd} -m venv "${venvDir}"`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PROCESS_SPAWN });
     } catch (err) {
       return { success: false, error: `Failed to create venv: ${(err as Error).message}` };
     }
@@ -951,10 +942,7 @@ async function bootstrapVenv(): Promise<BootstrapResult> {
   // Install codex-lens
   try {
     console.log('[CodexLens] Installing codex-lens package...');
-    const pipPath =
-      process.platform === 'win32'
-        ? join(CODEXLENS_VENV, 'Scripts', 'pip.exe')
-        : join(CODEXLENS_VENV, 'bin', 'pip');
+    const pipPath = getCodexLensPip();
 
     // Try local path - codex-lens is local-only, not published to PyPI
     const codexLensPath = findLocalCodexLensPath();
@@ -1131,7 +1119,7 @@ async function executeCodexLens(args: string[], options: ExecuteOptions = {}): P
     // spawn's cwd option handles drive changes correctly on Windows
     const spawnArgs = ['-m', 'codexlens', ...args];
 
-    const child = spawn(VENV_PYTHON, spawnArgs, {
+    const child = spawn(getCodexLensPython(), spawnArgs, {
       cwd,
       shell: false, // CRITICAL: Prevent command injection
       timeout,
@@ -1674,7 +1662,7 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
 async function uninstallCodexLens(): Promise<BootstrapResult> {
   try {
     // Check if venv exists
-    if (!existsSync(CODEXLENS_VENV)) {
+    if (!existsSync(getCodexLensVenvDir())) {
       return { success: false, error: 'CodexLens not installed (venv not found)' };
     }
 
@@ -1694,7 +1682,8 @@ async function uninstallCodexLens(): Promise<BootstrapResult> {
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 
-    console.log(`[CodexLens] Removing directory: ${CODEXLENS_DATA_DIR}`);
+    const dataDir = getCodexLensDataDir();
+    console.log(`[CodexLens] Removing directory: ${dataDir}`);
 
     // Remove the entire .codexlens directory with retry logic for locked files
     const fs = await import('fs');
@@ -1729,7 +1718,7 @@ async function uninstallCodexLens(): Promise<BootstrapResult> {
       }
     };
 
-    await removeWithRetry(CODEXLENS_DATA_DIR);
+    await removeWithRetry(dataDir);
 
     // Reset bootstrap cache
     bootstrapChecked = false;
@@ -1827,7 +1816,7 @@ export {
 
 // Export Python path for direct spawn usage (e.g., watcher)
 export function getVenvPythonPath(): string {
-  return VENV_PYTHON;
+  return getCodexLensPython();
 }
 
 export type { GpuMode, PythonEnvInfo };

@@ -14,6 +14,7 @@ import { existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir, platform, arch } from 'os';
 import { EXEC_TIMEOUTS } from './exec-constants.js';
+import { getCodexLensDataDir, getCodexLensVenvDir } from './codexlens-path.js';
 
 /**
  * Configuration for UvManager
@@ -767,9 +768,9 @@ export class UvManager {
  * @returns Configured UvManager instance
  */
 export function createCodexLensUvManager(dataDir?: string): UvManager {
-  const baseDir = dataDir ?? join(homedir(), '.codexlens');
+  const baseDir = dataDir ?? getCodexLensDataDir();
   return new UvManager({
-    venvPath: join(baseDir, 'venv'),
+    venvPath: getCodexLensVenvDir(),
     pythonVersion: '>=3.10,<3.13', // onnxruntime compatibility
   });
 }
