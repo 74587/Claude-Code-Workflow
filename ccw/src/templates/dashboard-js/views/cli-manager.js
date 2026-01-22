@@ -570,7 +570,7 @@ var fileBrowserState = {
 
 function showFileBrowserModal(onSelect) {
   fileBrowserState.onSelect = onSelect;
-  fileBrowserState.showHidden = false;
+  fileBrowserState.showHidden = true;
   
   // Create modal overlay
   var overlay = document.createElement('div');
