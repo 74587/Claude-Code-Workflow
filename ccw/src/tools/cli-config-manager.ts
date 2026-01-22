@@ -29,6 +29,7 @@ export interface CliToolConfig {
   primaryModel: string;
   secondaryModel: string;
   tags?: string[];
+  envFile?: string | null;
 }
 
 export interface CliConfig {
@@ -184,7 +185,8 @@ export function getFullConfigResponse(baseDir: string): {
       enabled: tool.enabled,
       primaryModel: tool.primaryModel ?? '',
       secondaryModel: tool.secondaryModel ?? '',
-      tags: tool.tags
+      tags: tool.tags,
+      envFile: tool.envFile
     };
   }
 
