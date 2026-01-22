@@ -1,19 +1,19 @@
 ---
-description: Lightweight interactive planning workflow with direct exploration, outputs plan.json after user confirmation
+description: Lightweight interactive planning workflow with Codex subagent orchestration, outputs plan.json after user confirmation
 argument-hint: TASK="<task description or file.md path>" [EXPLORE="true"]
 ---
 
-# Workflow Lite-Plan Command
+# Workflow Lite-Plan Command (Codex Subagent Version)
 
 ## Overview
 
-Intelligent lightweight planning command with dynamic workflow adaptation based on task complexity. Focuses on planning phases (exploration, clarification, planning, confirmation) and outputs plan.json for subsequent execution.
+Intelligent lightweight planning command with dynamic workflow adaptation based on task complexity. Uses Codex subagent API for parallel exploration and planning phases.
 
 **Core capabilities:**
 - Intelligent task analysis with automatic exploration detection
-- Direct code exploration (grep, find, file reading) when codebase understanding needed
+- **Parallel code exploration via Codex subagents** (spawn_agent + batch wait)
 - Interactive clarification after exploration to gather missing information
-- Adaptive planning strategy based on complexity
+- Adaptive planning: Low complexity → Direct; Medium/High → cli-lite-planning-agent subagent
 - Two-step confirmation: plan display → user approval
 - Outputs plan.json file after user confirmation
 
@@ -25,22 +25,23 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 ## Execution Process
 
 ```
-Phase 1: Task Analysis & Exploration
+Phase 1: Task Analysis & Exploration (Subagent Orchestration)
    ├─ Parse input (description or .md file)
    ├─ Intelligent complexity assessment (Low/Medium/High)
    ├─ Exploration decision (auto-detect or EXPLORE="true")
    └─ Decision:
-      ├─ needsExploration=true → Direct exploration using grep/find/read
+      ├─ needsExploration=true → Spawn parallel cli-explore-agent subagents
       └─ needsExploration=false → Skip to Phase 2/3
 
 Phase 2: Clarification (optional)
-   ├─ Aggregate clarification needs from exploration
+   ├─ Aggregate clarification needs from exploration results
    ├─ Output questions to user
    └─ STOP and wait for user reply
 
 Phase 3: Planning (NO CODE EXECUTION - planning only)
-   └─ Generate plan.json following schema
-      └─ MUST proceed to Phase 4
+   └─ Decision (based on complexity):
+      ├─ Low → Direct planning following schema
+      └─ Medium/High → Spawn cli-lite-planning-agent subagent → plan.json
 
 Phase 4: Confirmation
    ├─ Display plan summary (tasks, complexity, estimated time)
@@ -53,7 +54,7 @@ Phase 5: Output
 
 ## Implementation
 
-### Phase 1: Intelligent Direct Exploration
+### Phase 1: Intelligent Multi-Angle Exploration (Subagent Orchestration)
 
 **Session Setup** (MANDATORY - follow exactly):
 ```javascript
@@ -86,6 +87,8 @@ if (!needsExploration) {
 }
 ```
 
+**Context Protection**: File reading >=50k chars → force `needsExploration=true`
+
 **Complexity Assessment** (Intelligent Analysis):
 ```javascript
 // Analyzes task complexity based on:
@@ -96,9 +99,6 @@ if (!needsExploration) {
 
 const complexity = analyzeTaskComplexity("$TASK")
 // Returns: 'Low' | 'Medium' | 'High'
-// Low: Single file, isolated change, minimal risk
-// Medium: Multiple files, some dependencies, moderate risk
-// High: Cross-module, architectural, high risk
 
 // Angle assignment based on task type
 const ANGLE_PRESETS = {
@@ -129,58 +129,115 @@ console.log(`
 Task Complexity: ${complexity}
 Selected Angles: ${selectedAngles.join(', ')}
 
-Starting direct exploration...
+Launching ${selectedAngles.length} parallel subagent explorations...
 `)
 ```
 
-**Direct Exploration** (No Agent - Use grep/find/read directly):
+**Launch Parallel Exploration Subagents** (Codex Pattern):
 
 ```javascript
-// For each selected angle, perform direct exploration
+// ==================== CODEX SUBAGENT PATTERN ====================
 
-selectedAngles.forEach((angle, index) => {
-  console.log(`\n### Exploring: ${angle} (${index + 1}/${selectedAngles.length})`)
+// Step 1: Spawn parallel exploration subagents (角色文件由 agent 自己读取)
+const explorationAgents = selectedAngles.map((angle, index) => {
+  return spawn_agent({
+    message: `
+## TASK ASSIGNMENT
 
-  // Step 1: Structural Scan
-  // - Find relevant files using grep/rg
-  // - Analyze directory structure
-  // - Identify modules related to the angle
+### Task Objective
+Execute **${angle}** exploration for task planning context. Analyze codebase from this specific angle to discover relevant structure, patterns, and constraints.
 
-  // Example commands:
-  // rg -l "keyword_from_task" --type ts
-  // find . -name "*.ts" -path "*auth*"
-  // tree -L 3 src/
+### Assigned Context
+- **Exploration Angle**: ${angle}
+- **Task Description**: $TASK
+- **Exploration Index**: ${index + 1} of ${selectedAngles.length}
+- **Output File**: ${sessionFolder}/exploration-${angle}.json
 
-  // Step 2: Content Analysis
-  // - Read key files identified
-  // - Analyze patterns and conventions
-  // - Identify integration points
+### MANDATORY FIRST STEPS (Agent Execute)
+1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
+2. Run: ccw tool exec get_modules_by_depth '{}' (project structure)
+3. Run: rg -l "{keyword_from_task}" --type ts (locate relevant files)
+4. Execute: cat ~/.claude/workflows/cli-templates/schemas/explore-json-schema.json (get output schema reference)
+5. Read: .workflow/project-tech.json (technology stack and architecture context)
+6. Read: .workflow/project-guidelines.json (user-defined constraints and conventions)
 
-  // Step 3: Document Findings
-  const explorationResult = {
-    angle: angle,
-    project_structure: [], // Modules/architecture relevant to angle
-    relevant_files: [],    // Files affected from angle perspective
-    patterns: [],          // Angle-related patterns to follow
-    dependencies: [],      // Dependencies relevant to angle
-    integration_points: [], // Where to integrate from angle viewpoint
-    constraints: [],       // Angle-specific limitations/conventions
-    clarification_needs: [], // Angle-related ambiguities
-    _metadata: {
-      exploration_angle: angle,
-      exploration_index: index + 1,
-      timestamp: getUtc8ISOString()
-    }
-  }
+### Exploration Strategy (${angle} focus)
 
-  // Write exploration result
-  Write(`${sessionFolder}/exploration-${angle}.json`, JSON.stringify(explorationResult, null, 2))
+**Step 1: Structural Scan** (Bash)
+- get_modules_by_depth.sh → identify modules related to ${angle}
+- find/rg → locate files relevant to ${angle} aspect
+- Analyze imports/dependencies from ${angle} perspective
+
+**Step 2: Semantic Analysis** (Gemini CLI)
+- How does existing code handle ${angle} concerns?
+- What patterns are used for ${angle}?
+- Where would new code integrate from ${angle} viewpoint?
+
+**Step 3: Write Output**
+- Consolidate ${angle} findings into JSON
+- Identify ${angle}-specific clarification needs
+
+### Expected Output
+
+**File**: ${sessionFolder}/exploration-${angle}.json
+
+**Schema Reference**: Schema obtained in MANDATORY FIRST STEPS step 3, follow schema exactly
+
+**Required Fields** (all ${angle} focused):
+- project_structure: Modules/architecture relevant to ${angle}
+- relevant_files: Files affected from ${angle} perspective
+  **IMPORTANT**: Use object format with relevance scores:
+  \`[{path: "src/file.ts", relevance: 0.85, rationale: "Core ${angle} logic"}]\`
+- patterns: ${angle}-related patterns to follow
+- dependencies: Dependencies relevant to ${angle}
+- integration_points: Where to integrate from ${angle} viewpoint (include file:line locations)
+- constraints: ${angle}-specific limitations/conventions
+- clarification_needs: ${angle}-related ambiguities (options array + recommended index)
+- _metadata.exploration_angle: "${angle}"
+
+### Success Criteria
+- [ ] Schema obtained via cat explore-json-schema.json
+- [ ] get_modules_by_depth.sh executed
+- [ ] At least 3 relevant files identified with ${angle} rationale
+- [ ] Patterns are actionable (code examples, not generic advice)
+- [ ] Integration points include file:line locations
+- [ ] JSON output follows schema exactly
+- [ ] clarification_needs includes options + recommended
+
+### Deliverables
+Write: ${sessionFolder}/exploration-${angle}.json
+Return: 2-3 sentence summary of ${angle} findings
+`
+  })
 })
+
+// Step 3: Batch wait for ALL exploration subagents (KEY ADVANTAGE of Codex)
+const explorationResults = wait({
+  ids: explorationAgents,
+  timeout_ms: 600000  // 10 minutes
+})
+
+// Step 4: Handle timeout
+if (explorationResults.timed_out) {
+  console.log('部分探索超时，继续使用已完成结果')
+}
+
+// Step 5: Collect results from completed agents
+const completedExplorations = {}
+explorationAgents.forEach((agentId, index) => {
+  const angle = selectedAngles[index]
+  if (explorationResults.status[agentId].completed) {
+    completedExplorations[angle] = explorationResults.status[agentId].completed
+  }
+})
+
+// Step 6: Cleanup - close all exploration agents
+explorationAgents.forEach(id => close_agent({ id }))
 ```
 
 **Build Exploration Manifest**:
 ```javascript
-// After all explorations complete, build manifest
+// After all explorations complete, auto-discover all exploration-*.json files
 const explorationFiles = find(`${sessionFolder}`, "-name", "exploration-*.json")
 
 const explorationManifest = {
@@ -248,9 +305,6 @@ explorations.forEach(exp => {
 })
 
 // Intelligent deduplication: analyze allClarifications by intent
-// - Identify questions with similar intent across different angles
-// - Merge similar questions: combine options, consolidate context
-// - Produce dedupedClarifications with unique intents only
 const dedupedClarifications = intelligentMerge(allClarifications)
 ```
 
@@ -293,26 +347,21 @@ ${need.options.map((opt, i) => `  ${i + 1}. ${opt}${need.recommended === i ? ' �
 
 **IMPORTANT**: Phase 3 is **planning only** - NO code execution.
 
-**Read Schema**:
-```javascript
-// Read plan schema for reference
-const schema = Read("~/.claude/workflows/cli-templates/schemas/plan-json-schema.json")
-```
+**Planning Strategy Selection** (based on Phase 1 complexity):
 
-**Read All Exploration Files**:
+**Low Complexity** - Direct Planning:
 ```javascript
-// MANDATORY - Read and review ALL exploration files
+// Step 1: Read schema
+const schema = Read("~/.claude/workflows/cli-templates/schemas/plan-json-schema.json")
+
+// Step 2: Read all exploration files for context
 const manifest = JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
 manifest.explorations.forEach(exp => {
   const explorationData = Read(exp.path)
   console.log(`\n### Exploration: ${exp.angle}\n${explorationData}`)
 })
-```
 
-**Generate Plan**:
-```javascript
-// Generate plan following schema
-// Plan MUST incorporate insights from exploration files
+// Step 3: Generate plan following schema (direct, no subagent)
 const plan = {
   summary: "Brief description of what will be implemented",
   approach: "High-level approach and strategy",
@@ -322,7 +371,7 @@ const plan = {
     // 2-7 tasks recommended
   ],
   estimated_time: "Total estimated time",
-  complexity: complexity,  // Low | Medium | High
+  complexity: complexity,
   _metadata: {
     timestamp: getUtc8ISOString(),
     source: "lite-plan",
@@ -330,18 +379,94 @@ const plan = {
     exploration_angles: manifest.explorations.map(e => e.angle)
   }
 }
+
+// Step 4: Write plan
+Write(`${sessionFolder}/plan.json`, JSON.stringify(plan, null, 2))
+
+// Step 5: Proceed to Phase 4 (Confirmation)
 ```
 
-**Task Grouping Rules**:
+**Medium/High Complexity** - Spawn cli-lite-planning-agent Subagent:
+
+```javascript
+// ==================== CODEX SUBAGENT PATTERN ====================
+
+// Step 1: Create planning subagent (角色文件由 agent 自己读取)
+const planningAgent = spawn_agent({
+  message: `
+## TASK ASSIGNMENT
+
+### Objective
+Generate implementation plan and write plan.json.
+
+### MANDATORY FIRST STEPS (Agent Execute)
+1. **Read role definition**: ~/.codex/agents/cli-lite-planning-agent.md (MUST read first)
+2. Execute: cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json (get schema reference)
+3. Read: .workflow/project-tech.json (technology stack, architecture, key components)
+4. Read: .workflow/project-guidelines.json (user-defined constraints and conventions)
+
+**CRITICAL**: All generated tasks MUST comply with constraints in project-guidelines.json
+
+### Task Description
+$TASK
+
+### Multi-Angle Exploration Context
+
+${manifest.explorations.map(exp => `#### Exploration: ${exp.angle} (${exp.file})
+Path: ${exp.path}
+
+Read this file for detailed ${exp.angle} analysis.`).join('\n\n')}
+
+Total explorations: ${manifest.exploration_count}
+Angles covered: ${manifest.explorations.map(e => e.angle).join(', ')}
+
+Manifest: ${sessionFolder}/explorations-manifest.json
+
+### User Clarifications
+${JSON.stringify(clarificationContext) || "None"}
+
+### Complexity Level
+${complexity}
+
+### Requirements
+Generate plan.json following the schema obtained above. Key constraints:
+- tasks: 2-7 structured tasks (**group by feature/module, NOT by file**)
+- _metadata.exploration_angles: ${JSON.stringify(manifest.explorations.map(e => e.angle))}
+
+### Task Grouping Rules
 1. **Group by feature**: All changes for one feature = one task (even if 3-5 files)
 2. **Group by context**: Tasks with similar context or related functional changes can be grouped together
-3. **Minimize task count**: Simple, unrelated tasks can also be grouped to reduce overhead
+3. **Minimize agent count**: Simple, unrelated tasks can also be grouped to reduce agent execution overhead
 4. **Avoid file-per-task**: Do NOT create separate tasks for each file
 5. **Substantial tasks**: Each task should represent 15-60 minutes of work
 6. **True dependencies only**: Only use depends_on when Task B cannot start without Task A's output
 7. **Prefer parallel**: Most tasks should be independent (no depends_on)
 
-**Proceed to Phase 4** - DO NOT execute code here.
+### Execution
+1. Read schema file (cat command above)
+2. Execute CLI planning using Gemini (Qwen fallback)
+3. Read ALL exploration files for comprehensive context
+4. Synthesize findings and generate plan following schema
+5. Write JSON: Write('${sessionFolder}/plan.json', jsonContent)
+6. Return brief completion summary
+
+### Deliverables
+Write: ${sessionFolder}/plan.json
+Return: Brief plan summary
+`
+})
+
+// Step 3: Wait for planning subagent to complete
+const planResult = wait({
+  ids: [planningAgent],
+  timeout_ms: 900000  // 15 minutes
+})
+
+// Step 4: Cleanup
+close_agent({ id: planningAgent })
+```
+
+**Output**: `${sessionFolder}/plan.json`
 
 ---
 
@@ -362,7 +487,7 @@ ${plan.tasks.map((t, i) => `
 ### Task ${i+1}: ${t.title}
 - **Description**: ${t.description}
 - **Scope**: ${t.scope}
-- **Files**: ${t.files.join(', ')}
+- **Files**: ${t.files?.join(', ') || 'N/A'}
 - **Complexity**: ${t.complexity}
 - **Dependencies**: ${t.depends_on?.join(', ') || 'None'}
 `).join('\n')}
@@ -393,9 +518,7 @@ return
 
 **After User Confirms "Allow"**:
 ```javascript
-// Write final plan.json to session folder
-Write(`${sessionFolder}/plan.json`, JSON.stringify(plan, null, 2))
-
+// Final plan.json already written in Phase 3
 console.log(`
 ## Plan Output Complete
 
@@ -419,6 +542,24 @@ You can now use this plan with your preferred execution method:
 
 ---
 
+## Codex vs Claude Comparison (for this workflow)
+
+| Aspect | Claude Code Task | Codex Subagent |
+|--------|------------------|----------------|
+| **Creation** | `Task({ subagent_type, prompt })` | `spawn_agent({ message: role + task })` |
+| **Role Loading** | Auto via `subagent_type` | Manual: Read `~/.codex/agents/*.md` |
+| **Parallel Wait** | Multiple `Task()` calls | **Batch `wait({ ids: [...] })`** |
+| **Result Retrieval** | Sync return or `TaskOutput` | `wait({ ids }).status[id].completed` |
+| **Follow-up** | `resume` parameter | `send_input({ id, message })` |
+| **Cleanup** | Automatic | **Explicit `close_agent({ id })`** |
+
+**Codex Advantages for lite-plan**:
+- True parallel exploration with batch `wait`
+- Fine-grained lifecycle control
+- Efficient multi-agent coordination
+
+---
+
 ## Session Folder Structure
 
 ```
@@ -429,16 +570,6 @@ You can now use this plan with your preferred execution method:
 ├── exploration-{angle4}.json      # Exploration angle 4 (if applicable)
 ├── explorations-manifest.json     # Exploration index
 └── plan.json                      # Implementation plan (after confirmation)
-```
-
-**Example**:
-```
-.workflow/.lite-plan/implement-jwt-refresh-2025-11-25/
-├── exploration-architecture.json
-├── exploration-auth-patterns.json
-├── exploration-security.json
-├── explorations-manifest.json
-└── plan.json
 ```
 
 ## Workflow States
@@ -458,8 +589,9 @@ You can now use this plan with your preferred execution method:
 
 | Error | Resolution |
 |-------|------------|
-| Exploration failure | Skip exploration, continue with task description only |
-| No relevant files found | Broaden search scope or proceed with minimal context |
+| Subagent spawn failure | Fallback to direct exploration |
+| wait() timeout | Use completed results, log partial status |
+| Planning subagent failure | Fallback to direct planning |
 | Clarification timeout | Use exploration findings as-is |
 | Confirmation timeout | Save context, display resume instructions |
 | Modify loop > 3 times | Suggest breaking task into smaller pieces |
