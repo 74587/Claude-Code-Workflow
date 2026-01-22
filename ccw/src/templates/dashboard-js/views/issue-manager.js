@@ -711,7 +711,7 @@ function renderQueueCard(queue, isActive) {
         <span class="queue-card-id font-mono">${safeQueueId}</span>
         <div class="queue-card-badges">
           ${isActive ? '<span class="queue-active-badge">Active</span>' : ''}
-          <span class="queue-status-badge ${statusClass}">${queue.status || 'unknown'}</span>
+          ${!isActive || queue.status !== 'active' ? `<span class="queue-status-badge ${statusClass}">${queue.status || 'unknown'}</span>` : ''}
         </div>
       </div>
 

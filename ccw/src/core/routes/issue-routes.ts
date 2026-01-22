@@ -339,41 +339,58 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
 
   const issuesDir = join(projectPath, '.workflow', 'issues');
 
-  // ===== Queue Routes (top-level /api/queue) =====
+  // ===== Helper: Normalize queue path (supports both /api/queue/* and /api/issues/queue/*) =====
+  const normalizeQueuePath = (path: string): string | null => {
+    if (path.startsWith('/api/issues/queue')) {
+      return path.replace('/api/issues/queue', '/api/queue');
+    }
+    if (path.startsWith('/api/queue')) {
+      return path;
+    }
+    return null;
+  };
 
-  // GET /api/queue - Get execution queue
-  if (pathname === '/api/queue' && req.method === 'GET') {
+  const normalizedPath = normalizeQueuePath(pathname);
+
+  // ===== Queue Routes (supports both /api/queue/* and /api/issues/queue/*) =====
+
+  // GET /api/queue or /api/issues/queue - Get execution queue
+  if ((normalizedPath === '/api/queue') && req.method === 'GET') {
     const queue = groupQueueByExecutionGroup(readQueue(issuesDir));
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(queue));
     return true;
   }
 
-  // GET /api/queue/history - Get queue history (all queues from index)
-  if (pathname === '/api/queue/history' && req.method === 'GET') {
+  // GET /api/queue/history or /api/issues/queue/history - Get queue history (all queues from index)
+  if (normalizedPath === '/api/queue/history' && req.method === 'GET') {
     const queuesDir = join(issuesDir, 'queues');
     const indexPath = join(queuesDir, 'index.json');
 
     if (!existsSync(indexPath)) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ queues: [], active_queue_id: null }));
+      res.end(JSON.stringify({ queues: [], active_queue_id: null, active_queue_ids: [] }));
       return true;
     }
 
     try {
       const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+      // Ensure active_queue_ids is always returned for multi-queue support
+      if (!index.active_queue_ids) {
+        index.active_queue_ids = index.active_queue_id ? [index.active_queue_id] : [];
+      }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(index));
     } catch {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ queues: [], active_queue_id: null }));
+      res.end(JSON.stringify({ queues: [], active_queue_id: null, active_queue_ids: [] }));
     }
     return true;
   }
 
-  // GET /api/queue/:id - Get specific queue by ID
-  const queueDetailMatch = pathname.match(/^\/api\/queue\/([^/]+)$/);
-  const reservedQueuePaths = ['history', 'reorder', 'switch', 'deactivate', 'merge'];
+  // GET /api/queue/:id or /api/issues/queue/:id - Get specific queue by ID
+  const queueDetailMatch = normalizedPath?.match(/^\/api\/queue\/([^/]+)$/);
+  const reservedQueuePaths = ['history', 'reorder', 'switch', 'deactivate', 'merge', 'activate'];
   if (queueDetailMatch && req.method === 'GET' && !reservedQueuePaths.includes(queueDetailMatch[1])) {
     const queueId = queueDetailMatch[1];
     const queuesDir = join(issuesDir, 'queues');
@@ -396,8 +413,55 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
-  // POST /api/queue/switch - Switch active queue
-  if (pathname === '/api/queue/switch' && req.method === 'POST') {
+  // POST /api/queue/activate or /api/issues/queue/activate - Activate one or more queues (multi-queue support)
+  if (normalizedPath === '/api/queue/activate' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body: any) => {
+      const { queueId, queueIds } = body;
+
+      // Support both single queueId and array queueIds
+      const idsToActivate: string[] = queueIds
+        ? (Array.isArray(queueIds) ? queueIds : [queueIds])
+        : (queueId ? [queueId] : []);
+
+      if (idsToActivate.length === 0) {
+        return { error: 'queueId or queueIds required' };
+      }
+
+      const queuesDir = join(issuesDir, 'queues');
+      const indexPath = join(queuesDir, 'index.json');
+
+      // Validate all queue IDs exist
+      for (const id of idsToActivate) {
+        const queueFilePath = join(queuesDir, `${id}.json`);
+        if (!existsSync(queueFilePath)) {
+          return { error: `Queue ${id} not found` };
+        }
+      }
+
+      try {
+        const index = existsSync(indexPath)
+          ? JSON.parse(readFileSync(indexPath, 'utf8'))
+          : { active_queue_id: null, active_queue_ids: [], queues: [] };
+
+        index.active_queue_ids = idsToActivate;
+        index.active_queue_id = idsToActivate[0] || null; // Backward compat
+
+        writeFileSync(indexPath, JSON.stringify(index, null, 2));
+
+        return {
+          success: true,
+          active_queue_ids: idsToActivate,
+          active_queue_id: idsToActivate[0] || null // Backward compat
+        };
+      } catch (err) {
+        return { error: 'Failed to activate queue(s)' };
+      }
+    });
+    return true;
+  }
+
+  // POST /api/queue/switch or /api/issues/queue/switch - Switch active queue (legacy, single queue)
+  if (normalizedPath === '/api/queue/switch' && req.method === 'POST') {
     handlePostRequest(req, res, async (body: any) => {
       const { queueId } = body;
       if (!queueId) return { error: 'queueId required' };
@@ -413,12 +477,18 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
       try {
         const index = existsSync(indexPath)
           ? JSON.parse(readFileSync(indexPath, 'utf8'))
-          : { active_queue_id: null, queues: [] };
+          : { active_queue_id: null, active_queue_ids: [], queues: [] };
 
         index.active_queue_id = queueId;
+        index.active_queue_ids = [queueId]; // Also update multi-queue array
+
         writeFileSync(indexPath, JSON.stringify(index, null, 2));
 
-        return { success: true, active_queue_id: queueId };
+        return {
+          success: true,
+          active_queue_id: queueId,
+          active_queue_ids: [queueId]
+        };
       } catch (err) {
         return { error: 'Failed to switch queue' };
       }
@@ -426,22 +496,43 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
-  // POST /api/queue/deactivate - Deactivate current queue (set active to null)
-  if (pathname === '/api/queue/deactivate' && req.method === 'POST') {
+  // POST /api/queue/deactivate or /api/issues/queue/deactivate - Deactivate queue(s)
+  if (normalizedPath === '/api/queue/deactivate' && req.method === 'POST') {
     handlePostRequest(req, res, async (body: any) => {
+      const { queueId } = body; // Optional: specific queue to deactivate
       const queuesDir = join(issuesDir, 'queues');
       const indexPath = join(queuesDir, 'index.json');
 
       try {
         const index = existsSync(indexPath)
           ? JSON.parse(readFileSync(indexPath, 'utf8'))
-          : { active_queue_id: null, queues: [] };
+          : { active_queue_id: null, active_queue_ids: [], queues: [] };
 
-        const previousActiveId = index.active_queue_id;
-        index.active_queue_id = null;
+        const currentActiveIds = index.active_queue_ids || (index.active_queue_id ? [index.active_queue_id] : []);
+        let deactivatedIds: string[] = [];
+        let remainingIds: string[] = [];
+
+        if (queueId) {
+          // Deactivate specific queue
+          deactivatedIds = currentActiveIds.includes(queueId) ? [queueId] : [];
+          remainingIds = currentActiveIds.filter((id: string) => id !== queueId);
+        } else {
+          // Deactivate all
+          deactivatedIds = [...currentActiveIds];
+          remainingIds = [];
+        }
+
+        index.active_queue_ids = remainingIds;
+        index.active_queue_id = remainingIds[0] || null; // Backward compat
+
         writeFileSync(indexPath, JSON.stringify(index, null, 2));
 
-        return { success: true, previous_active_id: previousActiveId };
+        return {
+          success: true,
+          deactivated_queue_ids: deactivatedIds,
+          active_queue_ids: remainingIds,
+          active_queue_id: remainingIds[0] || null // Backward compat
+        };
       } catch (err) {
         return { error: 'Failed to deactivate queue' };
       }
@@ -449,8 +540,8 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
-  // POST /api/queue/reorder - Reorder queue items (supports both solutions and tasks)
-  if (pathname === '/api/queue/reorder' && req.method === 'POST') {
+  // POST /api/queue/reorder or /api/issues/queue/reorder - Reorder queue items (supports both solutions and tasks)
+  if (normalizedPath === '/api/queue/reorder' && req.method === 'POST') {
     handlePostRequest(req, res, async (body: any) => {
       const { groupId, newOrder } = body;
       if (!groupId || !Array.isArray(newOrder)) {
@@ -501,8 +592,8 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
-  // DELETE /api/queue/:queueId/item/:itemId - Delete item from queue
-  const queueItemDeleteMatch = pathname.match(/^\/api\/queue\/([^/]+)\/item\/([^/]+)$/);
+  // DELETE /api/queue/:queueId/item/:itemId or /api/issues/queue/:queueId/item/:itemId
+  const queueItemDeleteMatch = normalizedPath?.match(/^\/api\/queue\/([^/]+)\/item\/([^/]+)$/);
   if (queueItemDeleteMatch && req.method === 'DELETE') {
     const queueId = queueItemDeleteMatch[1];
     const itemId = decodeURIComponent(queueItemDeleteMatch[2]);
@@ -576,8 +667,8 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
-  // DELETE /api/queue/:queueId - Delete entire queue
-  const queueDeleteMatch = pathname.match(/^\/api\/queue\/([^/]+)$/);
+  // DELETE /api/queue/:queueId or /api/issues/queue/:queueId - Delete entire queue
+  const queueDeleteMatch = normalizedPath?.match(/^\/api\/queue\/([^/]+)$/);
   if (queueDeleteMatch && req.method === 'DELETE') {
     const queueId = queueDeleteMatch[1];
     const queuesDir = join(issuesDir, 'queues');
@@ -618,8 +709,8 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
-  // POST /api/queue/merge - Merge source queue into target queue
-  if (pathname === '/api/queue/merge' && req.method === 'POST') {
+  // POST /api/queue/merge or /api/issues/queue/merge - Merge source queue into target queue
+  if (normalizedPath === '/api/queue/merge' && req.method === 'POST') {
     handlePostRequest(req, res, async (body: any) => {
       const { sourceQueueId, targetQueueId } = body;
       if (!sourceQueueId || !targetQueueId) {
@@ -757,7 +848,7 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
   }
 
   // POST /api/queue/split - Split items from source queue into a new queue
-  if (pathname === '/api/queue/split' && req.method === 'POST') {
+  if (normalizedPath === '/api/queue/split' && req.method === 'POST') {
     handlePostRequest(req, res, async (body: any) => {
       const { sourceQueueId, itemIds } = body;
       if (!sourceQueueId || !itemIds || !Array.isArray(itemIds) || itemIds.length === 0) {

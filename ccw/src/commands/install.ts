@@ -125,12 +125,33 @@ export async function installCommand(options: InstallOptions): Promise<void> {
   console.log('');
   info(`Found ${availableDirs.length} directories to install: ${availableDirs.join(', ')}`);
 
-  // Show what will be installed including .codex/prompts
+  // Show what will be installed including .codex subdirectories
   if (availableDirs.includes('.codex')) {
-    const promptsPath = join(sourceDir, '.codex', 'prompts');
+    const codexPath = join(sourceDir, '.codex');
+
+    // Show prompts info
+    const promptsPath = join(codexPath, 'prompts');
     if (existsSync(promptsPath)) {
-      const promptFiles = readdirSync(promptsPath, { recursive: true });
-      info(`  └─ .codex/prompts: ${promptFiles.length} files (workflow execute, lite-execute)`);
+      const promptFiles = readdirSync(promptsPath, { recursive: true }).filter(f =>
+        statSync(join(promptsPath, f.toString())).isFile()
+      );
+      info(`  └─ .codex/prompts: ${promptFiles.length} files`);
+    }
+
+    // Show agents info
+    const agentsPath = join(codexPath, 'agents');
+    if (existsSync(agentsPath)) {
+      const agentFiles = readdirSync(agentsPath).filter(f => f.endsWith('.md'));
+      info(`  └─ .codex/agents: ${agentFiles.length} agent definitions`);
+    }
+
+    // Show skills info
+    const skillsPath = join(codexPath, 'skills');
+    if (existsSync(skillsPath)) {
+      const skillDirs = readdirSync(skillsPath).filter(f =>
+        statSync(join(skillsPath, f)).isDirectory()
+      );
+      info(`  └─ .codex/skills: ${skillDirs.length} skills`);
     }
   }
 
@@ -272,11 +293,33 @@ export async function installCommand(options: InstallOptions): Promise<void> {
   summaryLines.push('');
   summaryLines.push(chalk.gray(`Manifest: ${basename(manifestPath)}`));
 
-  // Add codex prompts info if installed
+  // Add codex components info if installed
   if (availableDirs.includes('.codex')) {
+    const codexPath = join(installPath, '.codex');
     summaryLines.push('');
-    summaryLines.push(chalk.cyan('Codex Prompts: ✓ Installed'));
-    summaryLines.push(chalk.gray(`  Path: ${join(installPath, '.codex', 'prompts')}`));
+    summaryLines.push(chalk.cyan('Codex Components:'));
+
+    // Prompts
+    const promptsPath = join(codexPath, 'prompts');
+    if (existsSync(promptsPath)) {
+      summaryLines.push(chalk.gray(`  ✓ prompts: ${promptsPath}`));
+    }
+
+    // Agents
+    const agentsPath = join(codexPath, 'agents');
+    if (existsSync(agentsPath)) {
+      const agentCount = readdirSync(agentsPath).filter(f => f.endsWith('.md')).length;
+      summaryLines.push(chalk.gray(`  ✓ agents: ${agentCount} definitions`));
+    }
+
+    // Skills
+    const skillsPath = join(codexPath, 'skills');
+    if (existsSync(skillsPath)) {
+      const skillCount = readdirSync(skillsPath).filter(f =>
+        statSync(join(skillsPath, f)).isDirectory()
+      ).length;
+      summaryLines.push(chalk.gray(`  ✓ skills: ${skillCount} skills`));
+    }
   }
 
   summaryBox({
