@@ -1221,6 +1221,81 @@ async function solutionAction(issueId: string | undefined, options: IssueOptions
 }
 
 /**
+ * solutions - Batch query solutions for multiple issues
+ * Usage: ccw issue solutions --status planned --brief
+ */
+async function solutionsAction(options: IssueOptions): Promise<void> {
+  // Get issues filtered by status
+  const issues = readIssues();
+  let targetIssues = issues;
+
+  if (options.status) {
+    const statuses = options.status.split(',').map((s: string) => s.trim());
+    targetIssues = issues.filter((i: Issue) => statuses.includes(i.status));
+  }
+
+  // Filter to only issues with bound_solution_id
+  const boundIssues = targetIssues.filter((i: Issue) => i.bound_solution_id);
+
+  if (boundIssues.length === 0) {
+    if (options.json || options.brief) {
+      console.log('[]');
+    } else {
+      console.log(chalk.yellow('No bound solutions found'));
+    }
+    return;
+  }
+
+  // Collect solutions for all bound issues
+  const allSolutions: Array<{
+    issue_id: string;
+    solution_id: string;
+    is_bound: boolean;
+    task_count: number;
+    files_touched: string[];
+    priority?: number;
+  }> = [];
+
+  for (const issue of boundIssues) {
+    const solutions = readSolutions(issue.id);
+    const boundSolution = solutions.find(s => s.id === issue.bound_solution_id);
+
+    if (boundSolution) {
+      const filesTouched = new Set<string>();
+      for (const task of boundSolution.tasks) {
+        if (task.modification_points) {
+          for (const mp of task.modification_points) {
+            if (mp.file) filesTouched.add(mp.file);
+          }
+        }
+      }
+
+      allSolutions.push({
+        issue_id: issue.id,
+        solution_id: boundSolution.id,
+        is_bound: true,
+        task_count: boundSolution.tasks.length,
+        files_touched: Array.from(filesTouched),
+        priority: issue.priority
+      });
+    }
+  }
+
+  // Brief mode: already minimal
+  if (options.brief || options.json) {
+    console.log(JSON.stringify(allSolutions, null, 2));
+    return;
+  }
+
+  // Human-readable output
+  console.log(chalk.bold.cyan(`\nBound Solutions (${allSolutions.length}):\n`));
+  for (const sol of allSolutions) {
+    console.log(`${chalk.green('◉')} ${sol.issue_id} → ${sol.solution_id}`);
+    console.log(chalk.gray(`  Tasks: ${sol.task_count}, Files: ${sol.files_touched.length}`));
+  }
+}
+
+/**
  * init - Initialize a new issue (manual ID)
  */
 async function initAction(issueId: string | undefined, options: IssueOptions): Promise<void> {
@@ -2831,6 +2906,9 @@ export async function issueCommand(
       break;
     case 'solution':
       await solutionAction(argsArray[0], options);
+      break;
+    case 'solutions':
+      await solutionsAction(options);
       break;
     case 'init':
       await initAction(argsArray[0], options);

@@ -59,7 +59,7 @@ Phase 1: Issue Loading
    ├─ Parse input (single, comma-separated, or --all-pending)
    ├─ Fetch issue metadata (ID, title, tags)
    ├─ Validate issues exist (create if needed)
-   └─ Group by similarity (shared tags or title keywords, max 3 per batch)
+   └─ Create batches by size (max 3 per batch by default)
 
 Phase 2: Unified Explore + Plan (issue-plan-agent)
    ├─ Launch issue-plan-agent per batch
@@ -119,46 +119,17 @@ if (useAllPending) {
 }
 // Note: Agent fetches full issue content via `ccw issue status <id> --json`
 
-// Semantic grouping via Gemini CLI (max 4 issues per group)
-async function groupBySimilarityGemini(issues) {
-  const issueSummaries = issues.map(i => ({
-    id: i.id, title: i.title, tags: i.tags
-  }));
-
-  const prompt = `
-PURPOSE: Group similar issues by semantic similarity for batch processing; maximize within-group coherence; max 4 issues per group
-TASK: • Analyze issue titles/tags semantically • Identify functional/architectural clusters • Assign each issue to one group
-MODE: analysis
-CONTEXT: Issue metadata only
-EXPECTED: JSON with groups array, each containing max 4 issue_ids, theme, rationale
-CONSTRAINTS: Each issue in exactly one group | Max 4 issues per group | Balance group sizes
-
-INPUT:
-${JSON.stringify(issueSummaries, null, 2)}
-
-OUTPUT FORMAT:
-{"groups":[{"group_id":1,"theme":"...","issue_ids":["..."],"rationale":"..."}],"ungrouped":[]}
-`;
-
-  const taskId = Bash({
-    command: `ccw cli -p "${prompt}" --tool gemini --mode analysis`,
-    run_in_background: true, timeout: 600000
-  });
-  const output = TaskOutput({ task_id: taskId, block: true });
-
-  // Extract JSON from potential markdown code blocks
-  function extractJsonFromMarkdown(text) {
-    const jsonMatch = text.match(/```json\s*\n([\s\S]*?)\n```/) ||
-                      text.match(/```\s*\n([\s\S]*?)\n```/);
-    return jsonMatch ? jsonMatch[1] : text;
+// Simple size-based batching (max batchSize issues per group)
+function createBatches(issues, batchSize) {
+  const batches = [];
+  for (let i = 0; i < issues.length; i += batchSize) {
+    batches.push(issues.slice(i, i + batchSize));
   }
-
-  const result = JSON.parse(extractJsonFromMarkdown(output));
-  return result.groups.map(g => g.issue_ids.map(id => issues.find(i => i.id === id)));
+  return batches;
 }
 
-const batches = await groupBySimilarityGemini(issues);
-console.log(`Processing ${issues.length} issues in ${batches.length} batch(es) (max 4 issues/agent)`);
+const batches = createBatches(issues, batchSize);
+console.log(`Processing ${issues.length} issues in ${batches.length} batch(es) (max ${batchSize} issues/agent)`);
 
 TodoWrite({
   todos: batches.map((_, i) => ({
@@ -207,7 +178,9 @@ ${issueList}
    -  Add explicit verification steps to prevent same failure mode
 6. **If github_url exists**: Add final task to comment on GitHub issue
 7. Write solution to: .workflow/issues/solutions/{issue-id}.jsonl
-8. Single solution → auto-bind; Multiple → return for selection
+8. **CRITICAL - Binding Decision**:
+   - Single solution → **MUST execute**: ccw issue bind <issue-id> <solution-id>
+   - Multiple solutions → Return pending_selection only (no bind)
 
 ### Failure-Aware Planning Rules
 - **Extract failure patterns**: Parse issue.feedback where type='failure' and stage='execute'
@@ -265,35 +238,55 @@ for (let i = 0; i < agentTasks.length; i += MAX_PARALLEL) {
     }
     agentResults.push(summary);  // Store for Phase 3 conflict aggregation
 
+    // Verify binding for bound issues (agent should have executed bind)
     for (const item of summary.bound || []) {
-      console.log(`✓ ${item.issue_id}: ${item.solution_id} (${item.task_count} tasks)`);
+      const status = JSON.parse(Bash(`ccw issue status ${item.issue_id} --json`).trim());
+      if (status.bound_solution_id === item.solution_id) {
+        console.log(`✓ ${item.issue_id}: ${item.solution_id} (${item.task_count} tasks)`);
+      } else {
+        // Fallback: agent failed to bind, execute here
+        Bash(`ccw issue bind ${item.issue_id} ${item.solution_id}`);
+        console.log(`✓ ${item.issue_id}: ${item.solution_id} (${item.task_count} tasks) [recovered]`);
+      }
     }
-    // Collect and notify pending selections
+    // Collect pending selections for Phase 3
     for (const pending of summary.pending_selection || []) {
-      console.log(`⏳ ${pending.issue_id}: ${pending.solutions.length} solutions → awaiting selection`);
       pendingSelections.push(pending);
-    }
-    if (summary.conflicts?.length > 0) {
-      console.log(`⚠ Conflicts: ${summary.conflicts.length} detected (will resolve in Phase 3)`);
     }
     updateTodo(`Plan batch ${batchIndex + 1}`, 'completed');
   }
 }
 ```
 
-### Phase 3: Conflict Resolution & Solution Selection
+### Phase 3: Solution Selection (if pending)
 
-**Conflict Handling:**
-- Collect `conflicts` from all agent results
-- Low/Medium severity → auto-resolve with `recommended_resolution`
-- High severity → use `AskUserQuestion` to let user choose resolution
+```javascript
+// Handle multi-solution issues
+for (const pending of pendingSelections) {
+  if (pending.solutions.length === 0) continue;
 
-**Multi-Solution Selection:**
-- If `pending_selection` contains issues with multiple solutions:
-  - Use `AskUserQuestion` to present options (solution ID + task count + description)
-  - Extract selected solution ID from user response
-  - Verify solution file exists, recover from payload if missing
-  - Bind selected solution via `ccw issue bind <issue-id> <solution-id>`
+  const options = pending.solutions.slice(0, 4).map(sol => ({
+    label: `${sol.id} (${sol.task_count} tasks)`,
+    description: sol.description || sol.approach || 'No description'
+  }));
+
+  const answer = AskUserQuestion({
+    questions: [{
+      question: `Issue ${pending.issue_id}: which solution to bind?`,
+      header: pending.issue_id,
+      options: options,
+      multiSelect: false
+    }]
+  });
+
+  const selected = answer[Object.keys(answer)[0]];
+  if (!selected || selected === 'Other') continue;
+
+  const solId = selected.split(' ')[0];
+  Bash(`ccw issue bind ${pending.issue_id} ${solId}`);
+  console.log(`✓ ${pending.issue_id}: ${solId} bound`);
+}
+```
 
 ### Phase 4: Summary
 

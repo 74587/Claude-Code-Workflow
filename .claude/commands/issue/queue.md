@@ -28,12 +28,13 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
 | Operation | Correct | Incorrect |
 |-----------|---------|-----------|
 | List issues (brief) | `ccw issue list --status planned --brief` | `Read('issues.jsonl')` |
+| **Batch solutions (NEW)** | `ccw issue solutions --status planned --brief` | Loop `ccw issue solution <id>` |
 | List queue (brief) | `ccw issue queue --brief` | `Read('queues/*.json')` |
 | Read issue details | `ccw issue status <id> --json` | `Read('issues.jsonl')` |
 | Get next item | `ccw issue next --json` | `Read('queues/*.json')` |
 | Update status | `ccw issue update <id> --status ...` | Direct file edit |
 | Sync from queue | `ccw issue update --from-queue` | Direct file edit |
-| **Read solution (brief)** | `ccw issue solution <id> --brief` | `Read('solutions/*.jsonl')` |
+| Read solution (single) | `ccw issue solution <id> --brief` | `Read('solutions/*.jsonl')` |
 
 **Output Options**:
 - `--brief`: JSON with minimal fields (id, status, counts)
@@ -131,24 +132,23 @@ Phase 7: Active Queue Check & Decision (REQUIRED)
 ### Phase 1: Solution Loading & Distribution
 
 **Data Loading:**
-- Use `ccw issue list --status planned --brief` to get planned issues with `bound_solution_id`
-- If no planned issues found → display message, suggest `/issue:plan`
-
-**Solution Brief Loading** (for each planned issue):
-```bash
-ccw issue solution <issue-id> --brief
-# Returns: [{ solution_id, is_bound, task_count, files_touched[] }]
-```
+- Use `ccw issue solutions --status planned --brief` to get all planned issues with solutions in **one call**
+- Returns: Array of `{ issue_id, solution_id, is_bound, task_count, files_touched[], priority }`
+- If no bound solutions found → display message, suggest `/issue:plan`
 
 **Build Solution Objects:**
-```json
-{
-  "issue_id": "ISS-xxx",
-  "solution_id": "SOL-ISS-xxx-1",
-  "task_count": 3,
-  "files_touched": ["src/auth.ts", "src/utils.ts"],
-  "priority": "medium"
+```javascript
+// Single CLI call replaces N individual queries
+const result = Bash(`ccw issue solutions --status planned --brief`).trim();
+const solutions = result ? JSON.parse(result) : [];
+
+if (solutions.length === 0) {
+  console.log('No bound solutions found. Run /issue:plan first.');
+  return;
 }
+
+// solutions already in correct format:
+// { issue_id, solution_id, is_bound, task_count, files_touched[], priority }
 ```
 
 **Multi-Queue Distribution** (if `--queues > 1`):
