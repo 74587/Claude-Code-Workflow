@@ -35,6 +35,7 @@ import {
 import {
   loadClaudeCliTools,
   ensureClaudeCliTools,
+  ensureClaudeCliToolsAsync,
   saveClaudeCliTools,
   loadClaudeCliSettings,
   saveClaudeCliSettings,
@@ -329,16 +330,18 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
 
   // API: Get all API endpoints (for --tool custom --model <id>)
   if (pathname === '/api/cli/endpoints' && req.method === 'GET') {
-    try {
-      // Use ensureClaudeCliTools to auto-create config if missing
-      const config = ensureClaudeCliTools(initialPath);
-      const endpoints = getApiEndpointsFromTools(config);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ endpoints }));
-    } catch (err) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: (err as Error).message }));
-    }
+    (async () => {
+      try {
+        // Use ensureClaudeCliToolsAsync to auto-create config with availability sync
+        const config = await ensureClaudeCliToolsAsync(initialPath);
+        const endpoints = getApiEndpointsFromTools(config);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ endpoints }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: (err as Error).message }));
+      }
+    })();
     return true;
   }
 
@@ -820,21 +823,23 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
 
   // API: Get CLI Tools Config from .claude/cli-tools.json (with fallback to global)
   if (pathname === '/api/cli/tools-config' && req.method === 'GET') {
-    try {
-      // Use ensureClaudeCliTools to auto-create config if missing
-      const toolsConfig = ensureClaudeCliTools(initialPath);
-      const settingsConfig = loadClaudeCliSettings(initialPath);
-      const info = getClaudeCliToolsInfo(initialPath);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        tools: toolsConfig,
-        settings: settingsConfig,
-        _configInfo: info
-      }));
-    } catch (err) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: (err as Error).message }));
-    }
+    (async () => {
+      try {
+        // Use ensureClaudeCliToolsAsync to auto-create config with availability sync
+        const toolsConfig = await ensureClaudeCliToolsAsync(initialPath);
+        const settingsConfig = loadClaudeCliSettings(initialPath);
+        const info = getClaudeCliToolsInfo(initialPath);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          tools: toolsConfig,
+          settings: settingsConfig,
+          _configInfo: info
+        }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: (err as Error).message }));
+      }
+    })();
     return true;
   }
 

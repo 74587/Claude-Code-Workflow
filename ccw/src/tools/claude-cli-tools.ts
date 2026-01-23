@@ -419,6 +419,56 @@ export function ensureClaudeCliTools(projectDir: string, createInProject: boolea
 }
 
 /**
+ * Async version of ensureClaudeCliTools with automatic availability sync
+ * Creates default config in global ~/.claude directory and syncs with actual tool availability
+ * @param projectDir - Project directory path (used for reading existing project config)
+ * @param createInProject - DEPRECATED: Always creates in global dir. Kept for backward compatibility.
+ * @returns The config that was created/exists
+ */
+export async function ensureClaudeCliToolsAsync(projectDir: string, createInProject: boolean = false): Promise<ClaudeCliToolsConfig & { _source?: string }> {
+  const resolved = resolveConfigPath(projectDir);
+
+  if (resolved.source !== 'default') {
+    // Config exists, load and return it
+    return loadClaudeCliTools(projectDir);
+  }
+
+  // Config doesn't exist - create in global directory only
+  debugLog('[claude-cli-tools] Config not found, creating default cli-tools.json in ~/.claude');
+
+  const defaultConfig: ClaudeCliToolsConfig = { ...DEFAULT_TOOLS_CONFIG };
+
+  // Always create in global directory (user-level config), respecting CCW_DATA_DIR
+  const claudeHome = process.env.CCW_DATA_DIR
+    ? path.join(process.env.CCW_DATA_DIR, '.claude')
+    : path.join(os.homedir(), '.claude');
+  if (!fs.existsSync(claudeHome)) {
+    fs.mkdirSync(claudeHome, { recursive: true });
+  }
+  const globalPath = getGlobalConfigPath();
+  try {
+    fs.writeFileSync(globalPath, JSON.stringify(defaultConfig, null, 2), 'utf-8');
+    debugLog(`[claude-cli-tools] Created default config at: ${globalPath}`);
+
+    // Auto-sync with actual tool availability on first creation
+    try {
+      debugLog('[claude-cli-tools] Auto-syncing tool availability on first creation...');
+      const syncResult = await syncBuiltinToolsAvailability(projectDir);
+      debugLog(`[claude-cli-tools] Auto-sync completed: enabled=[${syncResult.changes.enabled.join(', ')}], disabled=[${syncResult.changes.disabled.join(', ')}]`);
+      return { ...syncResult.config, _source: 'global' };
+    } catch (syncErr) {
+      console.warn('[claude-cli-tools] Failed to auto-sync availability:', syncErr);
+      // Return default config if sync fails
+      return { ...defaultConfig, _source: 'global' };
+    }
+  } catch (err) {
+    console.error('[claude-cli-tools] Failed to create global config:', err);
+    return { ...defaultConfig, _source: 'default' };
+  }
+}
+
+
+/**
  * Load CLI tools configuration from global ~/.claude/cli-tools.json
  * Falls back to default config if not found.
  *
