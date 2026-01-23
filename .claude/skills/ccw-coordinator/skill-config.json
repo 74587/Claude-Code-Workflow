@@ -1,0 +1,66 @@
+{
+  "skill_name": "ccw-coordinator",
+  "display_name": "CCW Coordinator",
+  "description": "Interactive command orchestration - select, build, and execute workflow command chains",
+  "execution_mode": "autonomous",
+  "version": "1.0.0",
+  "triggers": [
+    "coordinator",
+    "ccw-coordinator",
+    "命令编排",
+    "command chain"
+  ],
+  "allowed_tools": [
+    "Task",
+    "AskUserQuestion",
+    "Read",
+    "Write",
+    "Bash"
+  ],
+  "actions": [
+    {
+      "id": "action-init",
+      "name": "Init",
+      "description": "Initialize orchestration session"
+    },
+    {
+      "id": "action-command-selection",
+      "name": "Select Commands",
+      "description": "Interactive command selection from library"
+    },
+    {
+      "id": "action-command-build",
+      "name": "Build Chain",
+      "description": "Adjust and confirm command chain"
+    },
+    {
+      "id": "action-command-execute",
+      "name": "Execute",
+      "description": "Execute command chain sequentially"
+    },
+    {
+      "id": "action-complete",
+      "name": "Complete",
+      "description": "Generate final report"
+    },
+    {
+      "id": "action-abort",
+      "name": "Abort",
+      "description": "Abort session and save state"
+    }
+  ],
+  "termination_conditions": [
+    "user_exit",
+    "task_completed",
+    "error"
+  ],
+  "output": {
+    "location": ".workflow/.ccw-coordinator/{timestamp}",
+    "artifacts": [
+      "state.json",
+      "command-chain.json",
+      "execution-log.md",
+      "final-report.md"
+    ]
+  }
+}
