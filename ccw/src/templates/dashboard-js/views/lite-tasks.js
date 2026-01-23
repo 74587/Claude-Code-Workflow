@@ -2817,7 +2817,7 @@ function showLiteTaskDetailPage(sessionKey) {
       </div>
 
       <!-- Tab Content -->
-      <div class="detail-tab-content" id="liteDetailTabContent">
+      <div class="detail-tab-content active" id="liteDetailTabContent">
         ${renderLiteTasksTab(session, tasks, completed, inProgress, pending)}
       </div>
     </div>

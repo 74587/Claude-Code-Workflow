@@ -107,7 +107,7 @@ function showSessionDetailPage(sessionKey) {
       </div>
 
       <!-- Tab Content -->
-      <div class="detail-tab-content" id="detailTabContent">
+      <div class="detail-tab-content active" id="detailTabContent">
         ${renderTasksTab(session, tasks, completed, inProgress, pending)}
       </div>
     </div>

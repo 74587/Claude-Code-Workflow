@@ -299,7 +299,7 @@ async function refreshWorkspace() {
         });
 
         [...(data.liteTasks?.litePlan || []), ...(data.liteTasks?.liteFix || [])].forEach(s => {
-          const sessionKey = `lite-${s.session_id}`.replace(/[^a-zA-Z0-9-]/g, '-');
+          const sessionKey = `lite-${s.type}-${s.id}`.replace(/[^a-zA-Z0-9-]/g, '-');
           liteTaskDataStore[sessionKey] = s;
         });
 

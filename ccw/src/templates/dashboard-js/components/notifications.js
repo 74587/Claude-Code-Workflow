@@ -823,7 +823,7 @@ async function refreshWorkspaceData(newData) {
   });
 
   [...(newData.liteTasks?.litePlan || []), ...(newData.liteTasks?.liteFix || [])].forEach(s => {
-    const key = `lite-${s.session_id}`.replace(/[^a-zA-Z0-9-]/g, '-');
+    const key = `lite-${s.type}-${s.id}`.replace(/[^a-zA-Z0-9-]/g, '-');
     liteTaskDataStore[key] = s;
   });
 
