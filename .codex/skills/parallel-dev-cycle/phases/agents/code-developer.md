@@ -99,11 +99,95 @@ For each task in the plan:
    - Verify integration
    - Test error cases
    - Check performance
+   - **If tests fail**: Initiate Debug Workflow (see Debug Workflow section)
 
 5. **Report Progress**
    - Update implementation.md
    - Log any issues or blockers
    - Note decisions made
+
+## Debug Workflow
+
+When tests fail during implementation, the CD agent MUST initiate the hypothesis-driven debug workflow. This workflow systematically identifies and resolves bugs through structured hypothesis testing.
+
+### Debug Triggers
+
+| Trigger | Condition | Action |
+|---------|-----------|--------|
+| **Test Failure** | Automated tests fail during implementation | Start debug workflow |
+| **Integration Conflict** | Blockers logged in `issues.md` | Start debug workflow |
+| **VAS Feedback** | Orchestrator provides validation failure feedback | Start debug workflow |
+
+### Debug Workflow Phases
+
+1. **Isolate Failure**
+   - Pinpoint the specific test or condition that is failing
+   - Extract exact error message and stack trace
+   - Identify the failing component/function
+
+2. **Formulate Hypothesis**
+   - Generate a specific, testable hypothesis about the root cause
+   - Example: "Error is caused by null value passed from function X"
+   - Log hypothesis in `debug-log.ndjson`
+   - Prioritize hypotheses based on: error messages > recent changes > dependency relationships > edge cases
+
+3. **Design Experiment**
+   - Determine minimal change to test hypothesis
+   - Options: add logging, create minimal unit test, inspect variable, add breakpoint
+   - Document experiment design
+
+4. **Execute & Observe**
+   - Apply the change and run the test
+   - Capture inputs, actions taken, and observed outcomes
+   - Log structured results in `debug-log.ndjson`
+
+5. **Analyze & Conclude**
+   - Compare outcome to hypothesis
+   - If **confirmed**: Proceed to implement fix (Phase 6)
+   - If **refuted**: Log finding and formulate new hypothesis (return to Phase 2)
+   - If **inconclusive**: Refine experiment and repeat
+
+6. **Implement Fix**
+   - Once root cause confirmed, implement necessary code changes
+   - Document fix rationale in implementation.md
+   - Log fix in code-changes.log
+
+7. **Verify Fix**
+   - Run all relevant tests to ensure fix is effective
+   - Verify no regressions introduced
+   - Mark issue as resolved in issues.md
+
+### Debug Log Format (NDJSON)
+
+File: `.workflow/.cycle/{cycleId}.progress/cd/debug-log.ndjson`
+
+Schema:
+```json
+{
+  "timestamp": "2026-01-23T10:00:00+08:00",
+  "iteration": 1,
+  "issue_id": "BUG-001",
+  "file": "src/auth/oauth.ts",
+  "hypothesis": "OAuth token refresh fails due to expired refresh_token not handled",
+  "action": "Added logging to capture refresh_token expiry",
+  "observation": "Refresh token is expired but code doesn't check expiry before use",
+  "outcome": "confirmed"
+}
+```
+
+Outcome values: `confirmed | refuted | inconclusive`
+
+### Hypothesis Priority Order
+
+1. **Direct Error Messages/Stack Traces**: Most reliable starting point
+2. **Recent Changes**: Check `code-changes.log` for recent modifications
+3. **Dependency Relationships**: Analyze relationships between failing component and its dependencies
+4. **Edge Cases**: Review `edge-cases.md` for documented edge cases
+
+### Output
+
+Debug workflow generates an additional file:
+- **debug-log.ndjson**: NDJSON log of all hypothesis-test cycles
 
 ### Phase 3: Output
 
@@ -190,11 +274,12 @@ Overview of what was implemented in this iteration.
 PHASE_RESULT:
 - phase: cd
 - status: success | failed | partial
-- files_written: [implementation.md, code-changes.log, issues.md]
+- files_written: [implementation.md, code-changes.log, debug-log.ndjson (if debug executed), issues.md]
 - summary: N tasks completed, M files modified, X blockers identified
 - tasks_completed: N
 - files_modified: M
 - tests_passing: X/Y
+- debug_cycles: Z (if debug executed)
 - blockers: []
 - issues: [list of open issues]
 ```

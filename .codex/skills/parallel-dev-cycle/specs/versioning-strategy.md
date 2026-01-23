@@ -1,50 +1,51 @@
 # Document Versioning Strategy
 
-文档版本管理策略：重新创建 vs 增量更新
+Document version management strategy: Complete Rewrite + Archive History
 
-## 推荐方案：重新创建 + 归档历史
+## Recommended Approach: Complete Rewrite + Archive History
 
-每次迭代，**完全重写**主文档，旧版本自动归档到 `history/` 目录。
+For each iteration, **completely rewrite** the main document, and automatically archive the old version to the `history/` directory.
 
-### 文件结构
+### File Structure
 
 ```
 .workflow/.cycle/cycle-v1-20260122-abc123.progress/
 ├── ra/
-│   ├── requirements.md          # v1.2.0 (当前版本，重新创建)
-│   ├── edge-cases.md            # v1.2.0 (当前版本，重新创建)
-│   ├── changes.log              # NDJSON 完整变更历史（append-only）
+│   ├── requirements.md          # v1.2.0 (current version, complete rewrite)
+│   ├── edge-cases.md            # v1.2.0 (current version, complete rewrite)
+│   ├── changes.log              # NDJSON complete change history (append-only)
 │   └── history/
-│       ├── requirements-v1.0.0.md   (归档)
-│       ├── requirements-v1.1.0.md   (归档)
-│       ├── edge-cases-v1.0.0.md     (归档)
-│       └── edge-cases-v1.1.0.md     (归档)
+│       ├── requirements-v1.0.0.md   (archived)
+│       ├── requirements-v1.1.0.md   (archived)
+│       ├── edge-cases-v1.0.0.md     (archived)
+│       └── edge-cases-v1.1.0.md     (archived)
 ├── ep/
-│   ├── exploration.md           # v1.2.0 (当前)
-│   ├── architecture.md          # v1.2.0 (当前)
-│   ├── plan.json                # v1.2.0 (当前)
+│   ├── exploration.md           # v1.2.0 (current)
+│   ├── architecture.md          # v1.2.0 (current)
+│   ├── plan.json                # v1.2.0 (current)
 │   └── history/
 │       ├── plan-v1.0.0.json
 │       └── plan-v1.1.0.json
 ├── cd/
-│   ├── implementation.md        # v1.2.0 (当前)
-│   ├── code-changes.log         # NDJSON 完整历史
-│   ├── issues.md                # 当前未解决问题
+│   ├── implementation.md        # v1.2.0 (current)
+│   ├── code-changes.log         # NDJSON complete history
+│   ├── debug-log.ndjson         # Debug hypothesis tracking
+│   ├── issues.md                # Current unresolved issues
 │   └── history/
 │       ├── implementation-v1.0.0.md
 │       └── implementation-v1.1.0.md
 └── vas/
-    ├── validation.md            # v1.2.0 (当前)
-    ├── test-results.json        # v1.2.0 (当前)
-    ├── summary.md               # v1.2.0 (当前)
+    ├── validation.md            # v1.2.0 (current)
+    ├── test-results.json        # v1.2.0 (current)
+    ├── summary.md               # v1.2.0 (current)
     └── history/
         ├── validation-v1.0.0.md
         └── test-results-v1.0.0.json
 ```
 
-## 文档模板优化
+## Optimized Document Template
 
-### Requirements.md (重新创建版本)
+### Requirements.md (Complete Rewrite Version)
 
 ```markdown
 # Requirements Specification - v1.2.0
@@ -162,7 +163,7 @@ Response time < 500ms for all OAuth flows.
 **Detailed History**: See `history/` directory and `changes.log`
 ```
 
-### Changes.log (NDJSON - 完整历史)
+### Changes.log (NDJSON - Complete History)
 
 ```jsonl
 {"timestamp":"2026-01-22T10:00:00+08:00","iteration":1,"version":"1.0.0","action":"create","type":"requirement","id":"FR-001","description":"Initial OAuth requirement"}
@@ -173,37 +174,37 @@ Response time < 500ms for all OAuth flows.
 {"timestamp":"2026-01-23T10:05:00+08:00","iteration":3,"version":"1.2.0","action":"update","type":"requirement","id":"FR-002","description":"Added GitHub provider"}
 ```
 
-## 实现流程
+## Implementation Flow
 
-### Agent 工作流（RA 为例）
+### Agent Workflow (RA Example)
 
 ```javascript
-// ==================== RA Agent 迭代流程 ====================
+// ==================== RA Agent Iteration Flow ====================
 
-// 读取当前状态
+// Read current state
 const state = JSON.parse(Read(`.workflow/.cycle/${cycleId}.json`))
 const currentVersion = state.requirements?.version || "0.0.0"
 const iteration = state.current_iteration
 
-// 如果是迭代（已有旧版本）
+// If iteration (old version exists)
 if (currentVersion !== "0.0.0") {
-  // 1. 归档旧版本
+  // 1. Archive old version
   const oldFile = `.workflow/.cycle/${cycleId}.progress/ra/requirements.md`
   const archiveFile = `.workflow/.cycle/${cycleId}.progress/ra/history/requirements-v${currentVersion}.md`
 
-  Copy(oldFile, archiveFile)  // 归档
+  Copy(oldFile, archiveFile)  // Archive
 
-  // 2. 读取旧版本（可选，用于理解上下文）
+  // 2. Read old version (optional, for context understanding)
   const oldRequirements = Read(oldFile)
 
-  // 3. 读取变更历史
+  // 3. Read change history
   const changesLog = readNDJSON(`.workflow/.cycle/${cycleId}.progress/ra/changes.log`)
 }
 
-// 4. 生成新版本号
+// 4. Generate new version number
 const newVersion = bumpVersion(currentVersion, 'minor')  // 1.1.0 -> 1.2.0
 
-// 5. 生成新文档（完全重写）
+// 5. Generate new document (complete rewrite)
 const newRequirements = generateRequirements({
   version: newVersion,
   previousVersion: currentVersion,
@@ -211,13 +212,13 @@ const newRequirements = generateRequirements({
   currentChanges: "Added MFA and GitHub provider",
   iteration: iteration,
   taskDescription: state.description,
-  changesLog: changesLog  // 用于理解历史
+  changesLog: changesLog  // For understanding history
 })
 
-// 6. 写入新文档（覆盖旧的）
+// 6. Write new document (overwrite old)
 Write(`.workflow/.cycle/${cycleId}.progress/ra/requirements.md`, newRequirements)
 
-// 7. 追加变更到 changes.log
+// 7. Append change to changes.log
 appendNDJSON(`.workflow/.cycle/${cycleId}.progress/ra/changes.log`, {
   timestamp: getUtc8ISOString(),
   iteration: iteration,
@@ -228,7 +229,7 @@ appendNDJSON(`.workflow/.cycle/${cycleId}.progress/ra/changes.log`, {
   description: "Added MFA requirement"
 })
 
-// 8. 更新状态
+// 8. Update state
 state.requirements = {
   version: newVersion,
   output_file: `.workflow/.cycle/${cycleId}.progress/ra/requirements.md`,
@@ -242,25 +243,25 @@ state.requirements = {
 Write(`.workflow/.cycle/${cycleId}.json`, JSON.stringify(state, null, 2))
 ```
 
-## 优势对比
+## Advantages Comparison
 
-| 方面 | 增量更新 | 重新创建 + 归档 |
-|------|----------|----------------|
-| **文档简洁性** | ❌ 越来越长 | ✅ 始终简洁 |
-| **Agent 解析** | ❌ 需要解析历史 | ✅ 只看当前版本 |
-| **维护复杂度** | ❌ 高（版本标记） | ✅ 低（直接重写） |
-| **文件大小** | ❌ 膨胀 | ✅ 固定 |
-| **历史追溯** | ✅ 在主文档 | ✅ 在 history/ + changes.log |
-| **人类可读** | ❌ 需要跳过历史 | ✅ 直接看当前 |
-| **Token 使用** | ❌ 多（读取完整历史） | ✅ 少（只读当前） |
+| Aspect | Incremental Update | Complete Rewrite + Archive |
+|--------|-------------------|---------------------------|
+| **Document Conciseness** | ❌ Gets longer | ✅ Always concise |
+| **Agent Parsing** | ❌ Must parse history | ✅ Only read current version |
+| **Maintenance Complexity** | ❌ High (version marking) | ✅ Low (direct rewrite) |
+| **File Size** | ❌ Bloats | ✅ Fixed |
+| **History Tracking** | ✅ In main document | ✅ In history/ + changes.log |
+| **Human Readability** | ❌ Must skip history | ✅ Direct current view |
+| **Token Usage** | ❌ More (read complete history) | ✅ Less (only read current) |
 
-## 归档策略
+## Archive Strategy
 
-### 自动归档触发时机
+### Auto-Archive Trigger
 
 ```javascript
 function shouldArchive(currentVersion, state) {
-  // 每次版本更新时归档
+  // Archive on each version update
   return currentVersion !== state.requirements?.version
 }
 
@@ -269,29 +270,29 @@ function archiveOldVersion(cycleId, agent, filename, currentVersion) {
   const archiveDir = `.workflow/.cycle/${cycleId}.progress/${agent}/history`
   const archiveFile = `${archiveDir}/${filename.replace('.', `-v${currentVersion}.`)}`
 
-  // 确保归档目录存在
+  // Ensure archive directory exists
   mkdir -p ${archiveDir}
 
-  // 复制（不是移动，保持当前文件直到新版本写入）
+  // Copy (not move, keep current file until new version written)
   Copy(currentFile, archiveFile)
 
   console.log(`Archived ${filename} v${currentVersion} to history/`)
 }
 ```
 
-### 清理策略（可选）
+### Cleanup Strategy (Optional)
 
-保留最近 N 个版本，删除更老的归档：
+Keep most recent N versions, delete older archives:
 
 ```javascript
 function cleanupArchives(cycleId, agent, keepVersions = 3) {
   const historyDir = `.workflow/.cycle/${cycleId}.progress/${agent}/history`
   const archives = listFiles(historyDir)
 
-  // 按版本号排序
+  // Sort by version number
   archives.sort((a, b) => compareVersions(extractVersion(a), extractVersion(b)))
 
-  // 删除最老的版本（保留最近 N 个）
+  // Delete oldest versions (keep most recent N)
   if (archives.length > keepVersions) {
     const toDelete = archives.slice(0, archives.length - keepVersions)
     toDelete.forEach(file => Delete(`${historyDir}/${file}`))
@@ -299,32 +300,32 @@ function cleanupArchives(cycleId, agent, keepVersions = 3) {
 }
 ```
 
-## Changes.log 的重要性
+## Importance of Changes.log
 
-虽然主文档重新创建，但 **changes.log (NDJSON) 永久保留完整历史**：
+Although main document is completely rewritten, **changes.log (NDJSON) permanently preserves complete history**:
 
 ```bash
-# 查看所有变更
+# View all changes
 cat .workflow/.cycle/cycle-xxx.progress/ra/changes.log | jq .
 
-# 查看某个需求的历史
+# View history of specific requirement
 cat .workflow/.cycle/cycle-xxx.progress/ra/changes.log | jq 'select(.id=="FR-001")'
 
-# 按迭代查看变更
+# View changes by iteration
 cat .workflow/.cycle/cycle-xxx.progress/ra/changes.log | jq 'select(.iteration==2)'
 ```
 
-这样：
-- **主文档**: 清晰简洁（当前状态）
-- **Changes.log**: 完整追溯（所有历史）
-- **History/**: 快照备份（按需查看）
+This way:
+- **Main Document**: Clear and concise (current state)
+- **Changes.log**: Complete traceability (all history)
+- **History/**: Snapshot backups (view on demand)
 
-## 推荐实施
+## Recommended Implementation
 
-1. ✅ 采用"重新创建"策略
-2. ✅ 主文档只保留"上一版本简要说明"
-3. ✅ 自动归档到 `history/` 目录
-4. ✅ Changes.log (NDJSON) 保留完整历史
-5. ✅ 可选：保留最近 3-5 个历史版本
+1. ✅ Adopt "Complete Rewrite" strategy
+2. ✅ Main document only keeps "previous version summary"
+3. ✅ Auto-archive to `history/` directory
+4. ✅ Changes.log (NDJSON) preserves complete history
+5. ✅ Optional: Keep most recent 3-5 historical versions
 
-这样既保持了文档简洁（Agent 友好），又保留了完整历史（审计友好）。
+This approach keeps documents concise (agent-friendly) while preserving complete history (audit-friendly).

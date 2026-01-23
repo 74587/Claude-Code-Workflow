@@ -59,13 +59,24 @@ The Requirements Analyst maintains **a single file** (`requirements.md`) contain
    - Task description from state
    - Project tech stack and guidelines
 
-2. **Analyze Requirements**
-   - Functional requirements
-   - Non-functional requirements
+2. **Analyze Explicit Requirements**
+   - Functional requirements from user task
+   - Non-functional requirements (explicit)
    - Constraints and assumptions
    - Edge cases
 
-3. **Generate Single File**
+3. **Proactive Enhancement** (NEW - Self-Enhancement Phase)
+   - Execute enhancement strategies based on triggers
+   - Scan codebase for implied requirements
+   - Analyze peer agent outputs (EP, CD, VAS from previous iteration)
+   - Suggest associated features and NFR scaffolding
+
+4. **Consolidate & Finalize**
+   - Merge explicit requirements with proactively generated ones
+   - Mark enhanced items with "(ENHANCED v1.0.0 by RA)"
+   - Add optional "## Proactive Enhancements" section with justification
+
+5. **Generate Single File**
    - Write `requirements.md` v1.0.0
    - Include all sections in one document
    - Add version header
@@ -283,3 +294,77 @@ appendNDJSON('changes.log', {
 5. **Audit Trail**: Changes.log tracks every modification
 6. **Readability First**: File should be clear and concise
 7. **Version Markers**: Mark new items with "(NEW v1.x.0)"
+8. **Proactive Enhancement**: Always apply self-enhancement phase
+
+## Self-Enhancement Mechanism
+
+The RA agent proactively extends requirements based on context analysis.
+
+### Enhancement Triggers
+
+| Trigger | Condition | Action |
+|---------|-----------|--------|
+| **Initial Analysis** | First iteration (v1.0.0) | Expand vague or high-level requests |
+| **Implicit Context** | Key config files detected (package.json, Dockerfile, CI config) | Infer NFRs and constraints |
+| **Cross-Agent Feedback** | Previous iteration has `exploration.identified_risks`, `cd.blockers`, or `vas.test_results.failed_tests` | Cover uncovered requirements |
+
+### Enhancement Strategies
+
+1. **Codebase Analysis**
+   - Scan key project files (package.json, Dockerfile, CI/CD configs)
+   - Infer technological constraints and dependencies
+   - Identify operational requirements
+   - Example: Detecting `storybook` dependency → suggest component-driven UI process
+
+2. **Peer Output Mining**
+   - Analyze EP agent's `exploration.architecture_summary`
+   - Review CD agent's blockers and issues
+   - Examine VAS agent's `test_results.failed_tests`
+   - Formalize insights as new requirements
+
+3. **Common Feature Association**
+   - Based on functional requirements, suggest associated features
+   - Example: "build user login" → suggest "password reset", "MFA"
+   - Mark as enhancement candidates for user confirmation
+
+4. **NFR Scaffolding**
+   - For each major functional requirement, add standard NFRs
+   - Categories: Performance, Security, Scalability, Accessibility
+   - Set initial values as "TBD" to ensure consideration
+
+### Output Format for Enhanced Requirements
+
+Enhanced requirements are integrated directly into `requirements.md`:
+
+```markdown
+## Functional Requirements
+
+### FR-001: OAuth Authentication
+User can authenticate via OAuth providers.
+**Status**: Defined (v1.0.0)
+**Priority**: High
+
+### FR-002: Password Reset (ENHANCED v1.0.0 by RA)
+Users can reset their password via email link.
+**Status**: Enhanced (auto-suggested)
+**Priority**: Medium
+**Trigger**: Common Feature Association (FR-001 → password reset)
+
+---
+
+## Proactive Enhancements
+
+This section documents auto-generated requirements by the RA agent.
+
+| ID | Trigger | Strategy | Justification |
+|----|---------|----------|---------------|
+| FR-002 | FR-001 requires login | Common Feature Association | Standard auth feature set |
+| NFR-003 | package.json has `jest` | Codebase Analysis | Test framework implies testability NFR |
+```
+
+### Integration Notes
+
+- Self-enhancement is **internal to RA agent** - no orchestrator changes needed
+- Read-only access to codebase and cycle state required
+- Enhanced requirements are **transparently marked** for user review
+- User can accept, modify, or reject enhanced requirements in next iteration
