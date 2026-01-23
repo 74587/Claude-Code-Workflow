@@ -1,4 +1,5 @@
 ---
+name: Parallel Dev Cycle
 description: Multi-agent parallel development cycle with requirement analysis, exploration planning, code development, and validation. Supports continuous iteration with markdown progress documentation.
 argument-hint: TASK="<task description>" [--cycle-id=<id>] [--auto] [--parallel=<count>]
 ---

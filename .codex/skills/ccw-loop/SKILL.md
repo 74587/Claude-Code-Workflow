@@ -1,5 +1,6 @@
 ---
-description: Stateless iterative development loop workflow with documented progress. Supports develop, debug, and validate phases with file-based state tracking. Triggers on "ccw-loop", "dev loop", "development loop".
+name: CCW Loop
+description: Stateless iterative development loop workflow with documented progress. Supports develop, debug, and validate phases with file-based state tracking. Triggers on "ccw-loop", "dev loop", "development loop", "开发循环", "迭代开发".
 argument-hint: TASK="<task description>" [--loop-id=<id>] [--auto]
 ---
 

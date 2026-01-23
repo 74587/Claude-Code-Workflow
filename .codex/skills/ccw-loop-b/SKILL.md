@@ -1,4 +1,5 @@
 ---
+name: CCW Loop-B
 description: Hybrid orchestrator pattern for iterative development. Coordinator + specialized workers with batch wait support. Triggers on "ccw-loop-b".
 argument-hint: TASK="<task description>" [--loop-id=<id>] [--mode=<interactive|auto|parallel>]
 ---
