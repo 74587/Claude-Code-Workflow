@@ -78,44 +78,176 @@ Phase 2: Agent Execution (Document Generation)
 
 ## Execution Lifecycle
 
-### Phase 1: Discovery & Context Loading
+### Phase 0: User Configuration (Interactive)
+
+**Purpose**: Collect user preferences before TDD task generation to ensure generated tasks match execution expectations and provide necessary supplementary context.
+
+**User Questions**:
+```javascript
+AskUserQuestion({
+  questions: [
+    {
+      question: "Do you have supplementary materials or guidelines to include?",
+      header: "Materials",
+      multiSelect: false,
+      options: [
+        { label: "No additional materials", description: "Use existing context only" },
+        { label: "Provide file paths", description: "I'll specify paths to include" },
+        { label: "Provide inline content", description: "I'll paste content directly" }
+      ]
+    },
+    {
+      question: "Select execution method for generated TDD tasks:",
+      header: "Execution",
+      multiSelect: false,
+      options: [
+        { label: "Agent (Recommended)", description: "Claude agent executes Red-Green-Refactor cycles directly" },
+        { label: "Hybrid", description: "Agent orchestrates, calls CLI for complex steps (Red/Green phases)" },
+        { label: "CLI Only", description: "All TDD cycles via CLI tools (codex/gemini/qwen)" }
+      ]
+    },
+    {
+      question: "If using CLI, which tool do you prefer?",
+      header: "CLI Tool",
+      multiSelect: false,
+      options: [
+        { label: "Codex (Recommended)", description: "Best for TDD Red-Green-Refactor cycles" },
+        { label: "Gemini", description: "Best for analysis and large context" },
+        { label: "Qwen", description: "Alternative analysis tool" },
+        { label: "Auto", description: "Let agent decide per-task" }
+      ]
+    }
+  ]
+})
+```
+
+**Handle Materials Response**:
+```javascript
+if (userConfig.materials === "Provide file paths") {
+  // Follow-up question for file paths
+  const pathsResponse = AskUserQuestion({
+    questions: [{
+      question: "Enter file paths to include (comma-separated or one per line):",
+      header: "Paths",
+      multiSelect: false,
+      options: [
+        { label: "Enter paths", description: "Provide paths in text input" }
+      ]
+    }]
+  })
+  userConfig.supplementaryPaths = parseUserPaths(pathsResponse)
+}
+```
+
+**Build userConfig**:
+```javascript
+const userConfig = {
+  supplementaryMaterials: {
+    type: "none|paths|inline",
+    content: [...],  // Parsed paths or inline content
+  },
+  executionMethod: "agent|hybrid|cli",
+  preferredCliTool: "codex|gemini|qwen|auto",
+  enableResume: true  // Always enable resume for CLI executions
+}
+```
+
+**Pass to Agent**: Include `userConfig` in agent prompt for Phase 2.
+
+---
+
+### Phase 1: Context Preparation & Discovery
+
+**Command Responsibility**: Command prepares session paths and metadata, provides to agent for autonomous context loading.
+
 **⚡ Memory-First Rule**: Skip file loading if documents already in conversation memory
 
-**Agent Context Package**:
+**📊 Progressive Loading Strategy**: Load context incrementally due to large analysis.md file sizes:
+- **Core**: session metadata + context-package.json (always load)
+- **Selective**: synthesis_output OR (guidance + relevant role analyses) - NOT all role analyses
+- **On-Demand**: conflict resolution (if conflict_risk >= medium), test context
+
+**🛤️ Path Clarity Requirement**: All `focus_paths` prefer absolute paths (e.g., `D:\\project\\src\\module`), or clear relative paths from project root (e.g., `./src/module`)
+
+**Session Path Structure** (Provided by Command to Agent):
+```
+.workflow/active/WFS-{session-id}/
+├── workflow-session.json          # Session metadata
+├── .process/
+│   ├── context-package.json       # Context package with artifact catalog
+│   ├── test-context-package.json  # Test coverage analysis
+│   └── conflict-resolution.json   # Conflict resolution (if exists)
+├── .task/                         # Output: Task JSON files
+│   ├── IMPL-1.json
+│   ├── IMPL-2.json
+│   └── ...
+├── IMPL_PLAN.md                   # Output: TDD implementation plan
+└── TODO_LIST.md                   # Output: TODO list with TDD phases
+```
+
+**Command Preparation**:
+1. **Assemble Session Paths** for agent prompt:
+   - `session_metadata_path`: `.workflow/active/{session-id}/workflow-session.json`
+   - `context_package_path`: `.workflow/active/{session-id}/.process/context-package.json`
+   - `test_context_package_path`: `.workflow/active/{session-id}/.process/test-context-package.json`
+   - Output directory paths
+
+2. **Provide Metadata** (simple values):
+   - `session_id`: WFS-{session-id}
+   - `workflow_type`: "tdd"
+   - `mcp_capabilities`: {exa_code, exa_web, code_index}
+
+3. **Pass userConfig** from Phase 0
+
+**Agent Context Package** (Agent loads autonomously):
 ```javascript
 {
   "session_id": "WFS-[session-id]",
   "workflow_type": "tdd",
-  // Note: CLI tool usage is determined semantically by action-planning-agent based on user's task description
+
+  // Core (ALWAYS load)
   "session_metadata": {
     // If in memory: use cached content
-    // Else: Load from .workflow/active//{session-id}/workflow-session.json
+    // Else: Load from workflow-session.json
   },
+  "context_package": {
+    // If in memory: use cached content
+    // Else: Load from context-package.json
+  },
+
+  // Selective (load based on progressive strategy)
   "brainstorm_artifacts": {
     // Loaded from context-package.json → brainstorm_artifacts section
-    "role_analyses": [
+    "synthesis_output": {"path": "...", "exists": true},  // Load if exists (highest priority)
+    "guidance_specification": {"path": "...", "exists": true},  // Load if no synthesis
+    "role_analyses": [  // Load SELECTIVELY based on task relevance
       {
         "role": "system-architect",
         "files": [{"path": "...", "type": "primary|supplementary"}]
       }
-    ],
-    "guidance_specification": {"path": "...", "exists": true},
-    "synthesis_output": {"path": "...", "exists": true},
-    "conflict_resolution": {"path": "...", "exists": true}  // if conflict_risk >= medium
+    ]
   },
-  "context_package_path": ".workflow/active//{session-id}/.process/context-package.json",
-  "context_package": {
-    // If in memory: use cached content
-    // Else: Load from .workflow/active//{session-id}/.process/context-package.json
-  },
-  "test_context_package_path": ".workflow/active//{session-id}/.process/test-context-package.json",
+
+  // On-Demand (load if exists)
   "test_context_package": {
-    // Existing test patterns and coverage analysis
+    // Load from test-context-package.json
+    // Contains existing test patterns and coverage analysis
   },
+  "conflict_resolution": {
+    // Load from conflict-resolution.json if conflict_risk >= medium
+    // Check context-package.conflict_detection.resolution_file
+  },
+
+  // Capabilities
   "mcp_capabilities": {
-    "codex_lens": true,
     "exa_code": true,
-    "exa_web": true
+    "exa_web": true,
+    "code_index": true
+  },
+
+  // User configuration from Phase 0
+  "user_config": {
+    // From Phase 0 AskUserQuestion
   }
 }
 ```
@@ -124,21 +256,21 @@ Phase 2: Agent Execution (Document Generation)
 1. **Load Session Context** (if not in memory)
    ```javascript
    if (!memory.has("workflow-session.json")) {
-     Read(.workflow/active//{session-id}/workflow-session.json)
+     Read(.workflow/active/{session-id}/workflow-session.json)
    }
    ```
 
 2. **Load Context Package** (if not in memory)
    ```javascript
    if (!memory.has("context-package.json")) {
-     Read(.workflow/active//{session-id}/.process/context-package.json)
+     Read(.workflow/active/{session-id}/.process/context-package.json)
    }
    ```
 
 3. **Load Test Context Package** (if not in memory)
    ```javascript
    if (!memory.has("test-context-package.json")) {
-     Read(.workflow/active//{session-id}/.process/test-context-package.json)
+     Read(.workflow/active/{session-id}/.process/test-context-package.json)
    }
    ```
 
@@ -180,62 +312,81 @@ Phase 2: Agent Execution (Document Generation)
    )
    ```
 
-### Phase 2: Agent Execution (Document Generation)
+### Phase 2: Agent Execution (TDD Document Generation)
 
-**Pre-Agent Template Selection** (Command decides path before invoking agent):
-```javascript
-// Command checks flag and selects template PATH (not content)
-const templatePath = hasCliExecuteFlag
-  ? "~/.claude/workflows/cli-templates/prompts/workflow/task-json-cli-mode.txt"
-  : "~/.claude/workflows/cli-templates/prompts/workflow/task-json-agent-mode.txt";
-```
+**Purpose**: Generate TDD planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) - planning only, NOT code implementation.
 
 **Agent Invocation**:
 ```javascript
 Task(
   subagent_type="action-planning-agent",
   run_in_background=false,
-  description="Generate TDD task JSON and implementation plan",
+  description="Generate TDD planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md)",
   prompt=`
-## Execution Context
+## TASK OBJECTIVE
+Generate TDD implementation planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) for workflow session
 
-**Session ID**: WFS-{session-id}
-**Workflow Type**: TDD
-**Note**: CLI tool usage is determined semantically from user's task description
+IMPORTANT: This is PLANNING ONLY - you are generating planning documents, NOT implementing code.
 
-## Phase 1: Discovery Results (Provided Context)
+CRITICAL: Follow the progressive loading strategy (load analysis.md files incrementally due to file size):
+- **Core**: session metadata + context-package.json (always)
+- **Selective**: synthesis_output OR (guidance + relevant role analyses) - NOT all
+- **On-Demand**: conflict resolution (if conflict_risk >= medium), test context
 
-### Session Metadata
-{session_metadata_content}
+## SESSION PATHS
+Input:
+  - Session Metadata: .workflow/active/{session-id}/workflow-session.json
+  - Context Package: .workflow/active/{session-id}/.process/context-package.json
+  - Test Context: .workflow/active/{session-id}/.process/test-context-package.json
 
-### Role Analyses (Enhanced by Synthesis)
-{role_analyses_content}
-- Includes requirements, design specs, enhancements, and clarifications from synthesis phase
+Output:
+  - Task Dir: .workflow/active/{session-id}/.task/
+  - IMPL_PLAN: .workflow/active/{session-id}/IMPL_PLAN.md
+  - TODO_LIST: .workflow/active/{session-id}/TODO_LIST.md
 
-### Artifacts Inventory
-- **Guidance Specification**: {guidance_spec_path}
-- **Role Analyses**: {role_analyses_list}
+## CONTEXT METADATA
+Session ID: {session-id}
+Workflow Type: TDD
+MCP Capabilities: {exa_code, exa_web, code_index}
 
-### Context Package
-{context_package_summary}
-- Includes conflict_risk assessment
+## USER CONFIGURATION (from Phase 0)
+Execution Method: ${userConfig.executionMethod}  // agent|hybrid|cli
+Preferred CLI Tool: ${userConfig.preferredCliTool}  // codex|gemini|qwen|auto
+Supplementary Materials: ${userConfig.supplementaryMaterials}
 
-### Test Context Package
-{test_context_package_summary}
-- Existing test patterns, framework config, coverage analysis
+## CLI TOOL SELECTION
+Based on userConfig.executionMethod:
+- "agent": No command field in implementation_approach steps
+- "hybrid": Add command field to complex steps only (Red/Green phases recommended for CLI)
+- "cli": Add command field to ALL Red-Green-Refactor steps
 
-### Conflict Resolution (Conditional)
-If conflict_risk was medium/high, modifications have been applied to:
-- **guidance-specification.md**: Design decisions updated to resolve conflicts
-- **Role analyses (*.md)**: Recommendations adjusted for compatibility
-- **context-package.json**: Marked as "resolved" with conflict IDs
-- Conflict resolution results stored in conflict-resolution.json
+CLI Resume Support (MANDATORY for all CLI commands):
+- Use --resume parameter to continue from previous task execution
+- Read previous task's cliExecutionId from session state
+- Format: ccw cli -p "[prompt]" --resume [previousCliId] --tool [tool] --mode write
 
-### MCP Analysis Results (Optional)
-**Code Structure**: {mcp_code_index_results}
-**External Research**: {mcp_exa_research_results}
+## EXPLORATION CONTEXT (from context-package.exploration_results)
+- Load exploration_results from context-package.json
+- Use aggregated_insights.critical_files for focus_paths generation
+- Apply aggregated_insights.constraints to acceptance criteria
+- Reference aggregated_insights.all_patterns for implementation approach
+- Use aggregated_insights.all_integration_points for precise modification locations
+- Use conflict_indicators for risk-aware task sequencing
 
-## Phase 2: TDD Document Generation Task
+## CONFLICT RESOLUTION CONTEXT (if exists)
+- Check context-package.conflict_detection.resolution_file for conflict-resolution.json path
+- If exists, load .process/conflict-resolution.json:
+  - Apply planning_constraints as task constraints (for brainstorm-less workflows)
+  - Reference resolved_conflicts for implementation approach alignment
+  - Handle custom_conflicts with explicit task notes
+
+## TEST CONTEXT INTEGRATION
+- Load test-context-package.json for existing test patterns and coverage analysis
+- Extract test framework configuration (Jest/Pytest/etc.)
+- Identify existing test conventions and patterns
+- Map coverage gaps to TDD Red phase test targets
+
+## TDD DOCUMENT GENERATION TASK
 
 **Agent Configuration Reference**: All TDD task generation rules, quantification requirements, Red-Green-Refactor cycle structure, quality standards, and execution details are defined in action-planning-agent.
 
@@ -256,30 +407,60 @@ If conflict_risk was medium/high, modifications have been applied to:
 #### Required Outputs Summary
 
 ##### 1. TDD Task JSON Files (.task/IMPL-*.json)
-- **Location**: `.workflow/active//{session-id}/.task/`
-- **Schema**: 5-field structure with TDD-specific metadata
+- **Location**: `.workflow/active/{session-id}/.task/`
+- **Schema**: 6-field structure with TDD-specific metadata
+  - `id, title, status, context_package_path, meta, context, flow_control`
   - `meta.tdd_workflow`: true (REQUIRED)
   - `meta.max_iterations`: 3 (Green phase test-fix cycle limit)
+  - `meta.cli_execution_id`: Unique CLI execution ID (format: `{session_id}-{task_id}`)
+  - `meta.cli_execution`: Strategy object (new|resume|fork|merge_fork)
   - `context.tdd_cycles`: Array with quantified test cases and coverage
+  - `context.focus_paths`: Absolute or clear relative paths (enhanced with exploration critical_files)
   - `flow_control.implementation_approach`: Exactly 3 steps with `tdd_phase` field
     1. Red Phase (`tdd_phase: "red"`): Write failing tests
     2. Green Phase (`tdd_phase: "green"`): Implement to pass tests
     3. Refactor Phase (`tdd_phase: "refactor"`): Improve code quality
-  - CLI tool usage determined semantically (add `command` field when user requests CLI execution)
+  - `flow_control.pre_analysis`: Include exploration integration_points analysis
+  - CLI tool usage based on userConfig (add `command` field per executionMethod)
 - **Details**: See action-planning-agent.md § TDD Task JSON Generation
 
 ##### 2. IMPL_PLAN.md (TDD Variant)
-- **Location**: `.workflow/active//{session-id}/IMPL_PLAN.md`
+- **Location**: `.workflow/active/{session-id}/IMPL_PLAN.md`
 - **Template**: `~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt`
 - **TDD-Specific Frontmatter**: workflow_type="tdd", tdd_workflow=true, feature_count, task_breakdown
 - **TDD Implementation Tasks Section**: Feature-by-feature with internal Red-Green-Refactor cycles
+- **Context Analysis**: Artifact references and exploration insights
 - **Details**: See action-planning-agent.md § TDD Implementation Plan Creation
 
 ##### 3. TODO_LIST.md
-- **Location**: `.workflow/active//{session-id}/TODO_LIST.md`
+- **Location**: `.workflow/active/{session-id}/TODO_LIST.md`
 - **Format**: Hierarchical task list with internal TDD phase indicators (Red → Green → Refactor)
 - **Status**: ▸ (container), [ ] (pending), [x] (completed)
+- **Links**: Task JSON references and summaries
 - **Details**: See action-planning-agent.md § TODO List Generation
+
+### CLI EXECUTION ID REQUIREMENTS (MANDATORY)
+
+Each task JSON MUST include:
+- **meta.cli_execution_id**: Unique ID for CLI execution (format: `{session_id}-{task_id}`)
+- **meta.cli_execution**: Strategy object based on depends_on:
+  - No deps → `{ "strategy": "new" }`
+  - 1 dep (single child) → `{ "strategy": "resume", "resume_from": "parent-cli-id" }`
+  - 1 dep (multiple children) → `{ "strategy": "fork", "resume_from": "parent-cli-id" }`
+  - N deps → `{ "strategy": "merge_fork", "resume_from": ["id1", "id2", ...] }`
+  - **Type**: `resume_from: string | string[]` (string for resume/fork, array for merge_fork)
+
+**CLI Execution Strategy Rules**:
+1. **new**: Task has no dependencies - starts fresh CLI conversation
+2. **resume**: Task has 1 parent AND that parent has only this child - continues same conversation
+3. **fork**: Task has 1 parent BUT parent has multiple children - creates new branch with parent context
+4. **merge_fork**: Task has multiple parents - merges all parent contexts into new conversation
+
+**Execution Command Patterns**:
+- new: `ccw cli -p "[prompt]" --tool [tool] --mode write --id [cli_execution_id]`
+- resume: `ccw cli -p "[prompt]" --resume [resume_from] --tool [tool] --mode write`
+- fork: `ccw cli -p "[prompt]" --resume [resume_from] --id [cli_execution_id] --tool [tool] --mode write`
+- merge_fork: `ccw cli -p "[prompt]" --resume [resume_from.join(',')] --id [cli_execution_id] --tool [tool] --mode write` (resume_from is array)
 
 ### Quantification Requirements (MANDATORY)
 
@@ -302,6 +483,7 @@ If conflict_risk was medium/high, modifications have been applied to:
 - [ ] Every acceptance criterion includes measurable coverage percentage
 - [ ] tdd_cycles array contains test_count and test_cases for each cycle
 - [ ] No vague language ("comprehensive", "complete", "thorough")
+- [ ] cli_execution_id and cli_execution strategy assigned to each task
 
 ### Agent Execution Summary
 
@@ -317,20 +499,34 @@ If conflict_risk was medium/high, modifications have been applied to:
 - ✓ Quantification requirements enforced (explicit counts, measurable acceptance, exact targets)
 - ✓ Task count ≤18 (hard limit)
 - ✓ Each task has meta.tdd_workflow: true
-- ✓ Each task has exactly 3 implementation steps with tdd_phase field
-- ✓ Green phase includes test-fix cycle logic
-- ✓ Artifact references mapped correctly
-- ✓ MCP tool integration added
+- ✓ Each task has exactly 3 implementation steps with tdd_phase field ("red", "green", "refactor")
+- ✓ Each task has meta.cli_execution_id and meta.cli_execution strategy
+- ✓ Green phase includes test-fix cycle logic with max_iterations
+- ✓ focus_paths are absolute or clear relative paths (from exploration critical_files)
+- ✓ Artifact references mapped correctly from context package
+- ✓ Exploration context integrated (critical_files, constraints, patterns, integration_points)
+- ✓ Conflict resolution context applied (if conflict_risk >= medium)
+- ✓ Test context integrated (existing test patterns and coverage analysis)
 - ✓ Documents follow TDD template structure
+- ✓ CLI tool selection based on userConfig.executionMethod
 
-## Output
+## SUCCESS CRITERIA
+- All planning documents generated successfully:
+  - Task JSONs valid and saved to .task/ directory with cli_execution_id
+  - IMPL_PLAN.md created with complete TDD structure
+  - TODO_LIST.md generated matching task JSONs
+- CLI execution strategies assigned based on task dependencies
+- Return completion status with document count and task breakdown summary
 
-Generate all three documents and report completion status:
-- TDD task JSON files created: N files (IMPL-*.json)
+## OUTPUT SUMMARY
+Generate all three documents and report:
+- TDD task JSON files created: N files (IMPL-*.json) with cli_execution_id assigned
 - TDD cycles configured: N cycles with quantified test cases
-- Artifacts integrated: synthesis-spec, guidance-specification, N role analyses
+- CLI execution strategies: new/resume/fork/merge_fork assigned per dependency graph
+- Artifacts integrated: synthesis-spec/guidance-specification, relevant role analyses
+- Exploration context: critical_files, constraints, patterns, integration_points
 - Test context integrated: existing patterns and coverage
-- MCP enhancements: CodexLens, exa-research
+- Conflict resolution: applied (if conflict_risk >= medium)
 - Session ready for TDD execution: /workflow:execute
 `
 )
@@ -338,49 +534,63 @@ Generate all three documents and report completion status:
 
 ### Agent Context Passing
 
-**Memory-Aware Context Assembly**:
+**Context Delegation Model**: Command provides paths and metadata, agent loads context autonomously using progressive loading strategy.
+
+**Command Provides** (in agent prompt):
 ```javascript
-// Assemble context package for agent
-const agentContext = {
-  session_id: "WFS-[id]",
+// Command assembles these simple values and paths for agent
+const commandProvides = {
+  // Session paths
+  session_metadata_path: ".workflow/active/WFS-{id}/workflow-session.json",
+  context_package_path: ".workflow/active/WFS-{id}/.process/context-package.json",
+  test_context_package_path: ".workflow/active/WFS-{id}/.process/test-context-package.json",
+  output_task_dir: ".workflow/active/WFS-{id}/.task/",
+  output_impl_plan: ".workflow/active/WFS-{id}/IMPL_PLAN.md",
+  output_todo_list: ".workflow/active/WFS-{id}/TODO_LIST.md",
+
+  // Simple metadata
+  session_id: "WFS-{id}",
   workflow_type: "tdd",
+  mcp_capabilities: { exa_code: true, exa_web: true, code_index: true },
 
-  // Use memory if available, else load
-  session_metadata: memory.has("workflow-session.json")
-    ? memory.get("workflow-session.json")
-    : Read(.workflow/active/WFS-[id]/workflow-session.json),
-
-  context_package_path: ".workflow/active/WFS-[id]/.process/context-package.json",
-
-  context_package: memory.has("context-package.json")
-    ? memory.get("context-package.json")
-    : Read(".workflow/active/WFS-[id]/.process/context-package.json"),
-
-  test_context_package_path: ".workflow/active/WFS-[id]/.process/test-context-package.json",
-
-  test_context_package: memory.has("test-context-package.json")
-    ? memory.get("test-context-package.json")
-    : Read(".workflow/active/WFS-[id]/.process/test-context-package.json"),
-
-  // Extract brainstorm artifacts from context package
-  brainstorm_artifacts: extractBrainstormArtifacts(context_package),
-
-  // Load role analyses using paths from context package
-  role_analyses: brainstorm_artifacts.role_analyses
-    .flatMap(role => role.files)
-    .map(file => Read(file.path)),
-
-  // Load conflict resolution if exists (prefer new JSON format)
-  conflict_resolution: context_package.conflict_detection?.resolution_file
-    ? Read(context_package.conflict_detection.resolution_file)  // .process/conflict-resolution.json
-    : (brainstorm_artifacts?.conflict_resolution?.exists
-        ? Read(brainstorm_artifacts.conflict_resolution.path)
-        : null),
-
-  // Optional MCP enhancements
-  mcp_analysis: executeMcpDiscovery()
+  // User configuration from Phase 0
+  user_config: {
+    supplementaryMaterials: { type: "...", content: [...] },
+    executionMethod: "agent|hybrid|cli",
+    preferredCliTool: "codex|gemini|qwen|auto",
+    enableResume: true
+  }
 }
 ```
+
+**Agent Loads Autonomously** (progressive loading):
+```javascript
+// Agent executes progressive loading based on memory state
+const agentLoads = {
+  // Core (ALWAYS load if not in memory)
+  session_metadata: loadIfNotInMemory(session_metadata_path),
+  context_package: loadIfNotInMemory(context_package_path),
+
+  // Selective (based on progressive strategy)
+  // Priority: synthesis_output > guidance + relevant_role_analyses
+  brainstorm_content: loadSelectiveBrainstormArtifacts(context_package),
+
+  // On-Demand (load if exists and relevant)
+  test_context: loadIfExists(test_context_package_path),
+  conflict_resolution: loadConflictResolution(context_package),
+
+  // Optional (if MCP available)
+  exploration_results: extractExplorationResults(context_package),
+  external_research: executeMcpResearch()  // If needed
+}
+```
+
+**Progressive Loading Implementation** (agent responsibility):
+1. **Check memory first** - skip if already loaded
+2. **Load core files** - session metadata + context-package.json
+3. **Smart selective loading** - synthesis_output OR (guidance + task-relevant role analyses)
+4. **On-demand loading** - test context, conflict resolution (if conflict_risk >= medium)
+5. **Extract references** - exploration results, artifact paths from context package
 
 ## TDD Task Structure Reference
 
@@ -389,14 +599,31 @@ This section provides quick reference for TDD task JSON structure. For complete 
 **Quick Reference**:
 - Each TDD task contains complete Red-Green-Refactor cycle
 - Task ID format: `IMPL-N` (simple) or `IMPL-N.M` (complex subtasks)
-- Required metadata: `meta.tdd_workflow: true`, `meta.max_iterations: 3`
-- Flow control: Exactly 3 steps with `tdd_phase` field (red, green, refactor)
-- Context: `tdd_cycles` array with quantified test cases and coverage
+- Required metadata:
+  - `meta.tdd_workflow: true`
+  - `meta.max_iterations: 3`
+  - `meta.cli_execution_id: "{session_id}-{task_id}"`
+  - `meta.cli_execution: { "strategy": "new|resume|fork|merge_fork", ... }`
+- Context: `tdd_cycles` array with quantified test cases and coverage:
+  ```javascript
+  tdd_cycles: [
+    {
+      test_count: 5,                    // Number of test cases to write
+      test_cases: ["case1", "case2"],   // Enumerated test scenarios
+      implementation_scope: "...",      // Files and functions to implement
+      expected_coverage: ">=85%"        // Coverage target
+    }
+  ]
+  ```
+- Context: `focus_paths` use absolute or clear relative paths
+- Flow control: Exactly 3 steps with `tdd_phase` field ("red", "green", "refactor")
+- Flow control: `pre_analysis` includes exploration integration_points analysis
+- Command field: Added per `userConfig.executionMethod` (agent/hybrid/cli)
 - See Phase 2 agent prompt for full schema and requirements
 
 ## Output Files Structure
 ```
-.workflow/active//{session-id}/
+.workflow/active/{session-id}/
 ├── IMPL_PLAN.md                     # Unified plan with TDD Implementation Tasks section
 ├── TODO_LIST.md                     # Progress tracking with internal TDD phase indicators
 ├── .task/
@@ -432,9 +659,9 @@ This section provides quick reference for TDD task JSON structure. For complete 
 - No circular dependencies allowed
 
 ### Task Limits
-- Maximum 10 total tasks (simple + subtasks)
-- Flat hierarchy (≤5 tasks) or two-level (6-10 tasks with containers)
-- Re-scope requirements if >10 tasks needed
+- Maximum 18 total tasks (simple + subtasks) - hard limit for TDD workflows
+- Flat hierarchy (≤5 tasks) or two-level (6-18 tasks with containers)
+- Re-scope requirements if >18 tasks needed
 
 ### TDD Workflow Validation
 - `meta.tdd_workflow` must be true
@@ -454,7 +681,7 @@ This section provides quick reference for TDD task JSON structure. For complete 
 ### TDD Generation Errors
 | Error | Cause | Resolution |
 |-------|-------|------------|
-| Task count exceeds 10 | Too many features or subtasks | Re-scope requirements or merge features |
+| Task count exceeds 18 | Too many features or subtasks | Re-scope requirements or merge features into multiple TDD sessions |
 | Missing test framework | No test config | Configure testing first |
 | Invalid TDD workflow | Missing tdd_phase or incomplete flow_control | Fix TDD structure in ANALYSIS_RESULTS.md |
 | Missing tdd_workflow flag | Task doesn't have meta.tdd_workflow: true | Add TDD workflow metadata |
@@ -512,6 +739,6 @@ IMPL (Green phase) tasks include automatic test-fix cycle:
 
 
 ## Configuration Options
-- **meta.max_iterations**: Number of fix attempts (default: 3 for TDD, 5 for test-gen)
+- **meta.max_iterations**: Number of fix attempts in Green phase (default: 3)
 - **CLI tool usage**: Determined semantically from user's task description via `command` field in implementation_approach
 
