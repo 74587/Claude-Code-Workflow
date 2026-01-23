@@ -28,7 +28,7 @@ For each iteration, **completely rewrite** the main document, and automatically 
 │       └── plan-v1.1.0.json
 ├── cd/
 │   ├── implementation.md        # v1.2.0 (current)
-│   ├── code-changes.log         # NDJSON complete history
+│   ├── changes.log         # NDJSON complete history
 │   ├── debug-log.ndjson         # Debug hypothesis tracking
 │   ├── issues.md                # Current unresolved issues
 │   └── history/

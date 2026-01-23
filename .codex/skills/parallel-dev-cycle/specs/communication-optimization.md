@@ -244,7 +244,7 @@ if (cdChangesPath && exists(cdChangesPath)) {
     "version": "1.0.0",
     "output_files": {
       "progress": ".workflow/.cycle/cycle-v1-20260122-abc123.progress/cd/implementation.md",
-      "changes": ".workflow/.cycle/cycle-v1-20260122-abc123.progress/cd/code-changes.log",
+      "changes": ".workflow/.cycle/cycle-v1-20260122-abc123.progress/cd/changes.log",
       "issues": ".workflow/.cycle/cycle-v1-20260122-abc123.progress/cd/issues.md"
     },
     "summary": {
@@ -313,7 +313,7 @@ Full Test Report: .workflow/.cycle/${cycleId}.progress/vas/test-results.json (v1
 
 ## Implementation Reference
 - Current Code: .workflow/.cycle/${cycleId}.progress/cd/implementation.md (v1.0.0)
-- Code Changes: .workflow/.cycle/${cycleId}.progress/cd/code-changes.log (v1.0.0)
+- Code Changes: .workflow/.cycle/${cycleId}.progress/cd/changes.log (v1.0.0)
 
 ## Action Required
 1. Review failing tests in referenced test results file

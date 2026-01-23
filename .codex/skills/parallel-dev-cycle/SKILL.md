@@ -1,7 +1,7 @@
 ---
 name: Parallel Dev Cycle
 description: Multi-agent parallel development cycle with requirement analysis, exploration planning, code development, and validation. Supports continuous iteration with markdown progress documentation.
-argument-hint: TASK="<task description>" [--cycle-id=<id>] [--auto] [--parallel=<count>]
+argument-hint: TASK="<task description>" | --cycle-id=<id> [--extend="<extension>"] [--auto] [--parallel=<count>]
 ---
 
 # Parallel Dev Cycle - Multi-Agent Development Workflow
@@ -12,14 +12,15 @@ Multi-agent parallel development cycle using Codex subagent pattern with four sp
 3. **Code Development** (CD) - Code development with debug strategy support
 4. **Validation & Archival Summary** (VAS) - Validation and archival summary
 
-Each agent **maintains only one main document file**, supporting versioning, automatic archival, and complete history tracking.
+Each agent **maintains one main document** (e.g., requirements.md, plan.json, implementation.md) that is completely rewritten per iteration, plus auxiliary logs (changes.log, debug-log.ndjson) that are append-only. Supports versioning, automatic archival, and complete history tracking.
 
 ## Arguments
 
 | Arg | Required | Description |
 |-----|----------|-------------|
-| TASK | No | Task description (for new cycle, mutually exclusive with --cycle-id) |
-| --cycle-id | No | Existing cycle ID to continue (from API or previous session) |
+| TASK | One of TASK or --cycle-id | Task description (for new cycle, mutually exclusive with --cycle-id) |
+| --cycle-id | One of TASK or --cycle-id | Existing cycle ID to continue (from API or previous session) |
+| --extend | No | Extension description (only valid with --cycle-id) |
 | --auto | No | Auto-cycle mode (run all phases sequentially) |
 | --parallel | No | Number of parallel agents (default: 4, max: 4) |
 
@@ -61,11 +62,11 @@ Each agent **maintains only one main document file**, supporting versioning, aut
 
 ## Key Design Principles
 
-1. **Single File Per Agent**: Each agent maintains only one main file (clean and simple)
-2. **Version-Based Overwrite**: Each version completely rewrites the main file
-3. **Automatic Archival**: Old versions automatically archived to `history/` directory
+1. **Main Document + Auxiliary Logs**: Each agent maintains one main document (rewritten per iteration) and auxiliary logs (append-only)
+2. **Version-Based Overwrite**: Main documents completely rewritten per version; logs append-only
+3. **Automatic Archival**: Old main document versions automatically archived to `history/` directory
 4. **Complete Audit Trail**: Changes.log (NDJSON) preserves all change history
-5. **Parallel Execution**: Four agents work simultaneously, no waiting
+5. **Parallel Coordination**: Four agents launched simultaneously; coordination via shared state and orchestrator
 6. **File References**: Use short file paths instead of content passing
 7. **Self-Enhancement**: RA agent proactively extends requirements based on context
 
@@ -82,11 +83,13 @@ Each agent **maintains only one main document file**, supporting versioning, aut
     |       +-- requirements-v1.0.0.md             # Archived snapshot
     |       +-- requirements-v1.1.0.md             # Archived snapshot
     +-- ep/
-    |   +-- plan.md                                # Current version
+    |   +-- exploration.md                         # Codebase exploration report
+    |   +-- architecture.md                        # Architecture design
+    |   +-- plan.json                              # Structured task list (current version)
     |   +-- changes.log                            # NDJSON complete history
     |   └-- history/
-    |       +-- plan-v1.0.0.md
-    |       +-- plan-v1.1.0.md
+    |       +-- plan-v1.0.0.json
+    |       +-- plan-v1.1.0.json
     +-- cd/
     |   +-- implementation.md                      # Current version
     |   +-- debug-log.ndjson                       # Debug hypothesis tracking
@@ -125,7 +128,9 @@ State schema is defined in [phases/state-schema.md](phases/state-schema.md). The
 Generates:
 ```
 requirements.md (v1.0.0)
-plan.md (v1.0.0)
+exploration.md (v1.0.0)
+architecture.md (v1.0.0)
+plan.json (v1.0.0)
 implementation.md (v1.0.0) - if applicable
 summary.md (v1.0.0) - if applicable
 ```

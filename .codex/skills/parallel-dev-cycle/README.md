@@ -7,7 +7,7 @@ Multi-agent parallel development cycle using Codex subagent pattern with continu
 This skill implements a **single-file-per-agent** development workflow:
 
 - **RA**: `requirements.md` (all requirements + edge cases + history)
-- **EP**: `plan.md` (architecture + tasks + integration points)
+- **EP**: `exploration.md`, `architecture.md`, `plan.json` (codebase exploration + architecture + structured tasks)
 - **CD**: `implementation.md` (progress + files + decisions + testing)
 - **VAS**: `summary.md` (validation + test results + recommendations)
 
@@ -49,7 +49,9 @@ Creates:
 │   ├── requirements.md (v1.0.0)
 │   └── changes.log (NDJSON)
 ├── ep/
-│   ├── plan.md (v1.0.0)
+│   ├── exploration.md (v1.0.0)
+│   ├── architecture.md (v1.0.0)
+│   ├── plan.json (v1.0.0)
 │   └── changes.log (NDJSON)
 ├── cd/
 │   ├── implementation.md (v1.0.0)
@@ -113,20 +115,19 @@ When iteration completes, next extends to v1.1.0:
 ```
 Current State (v1.0.0)
 ├── requirements.md (v1.0.0)
-├── plan.md (v1.0.0)
+├── plan.json (v1.0.0)
 ├── implementation.md (v1.0.0)
 └── summary.md (v1.0.0)
 
 User: "Add GitHub provider"
          ↓
 Archive Old                    Write New
-├── history/requirements-v1.0.0.md
-├── history/plan-v1.0.0.md    → requirements.md (v1.1.0) - REWRITTEN
-├── history/impl-v1.0.0.md    → plan.md (v1.1.0) - REWRITTEN
-└── history/summary-v1.0.0.md → implementation.md (v1.1.0) - REWRITTEN
-                               → summary.md (v1.1.0) - REWRITTEN
-                                  ↓
-                           Append to changes.log (NDJSON)
+├── history/requirements-v1.0.0.md  → requirements.md (v1.1.0) - REWRITTEN
+├── history/plan-v1.0.0.json        → plan.json (v1.1.0) - REWRITTEN
+├── history/impl-v1.0.0.md          → implementation.md (v1.1.0) - REWRITTEN
+└── history/summary-v1.0.0.md       → summary.md (v1.1.0) - REWRITTEN
+                                       ↓
+                                 Append to changes.log (NDJSON)
 ```
 
 ## Session Files
@@ -142,11 +143,13 @@ ra/ - Requirements Analyst
     └── requirements-v1.1.0.md
 
 ep/ - Exploration & Planning
-├── plan.md                  # v1.2.0 (current)
+├── exploration.md           # v1.2.0 (codebase exploration)
+├── architecture.md          # v1.2.0 (architecture design)
+├── plan.json                # v1.2.0 (structured task list, current)
 ├── changes.log              # NDJSON audit trail
 └── history/
-    ├── plan-v1.0.0.md
-    └── plan-v1.1.0.md
+    ├── plan-v1.0.0.json
+    └── plan-v1.1.0.json
 
 cd/ - Code Developer
 ├── implementation.md        # v1.2.0 (current)
@@ -203,7 +206,7 @@ vas/ - Validation & Archival
 | Agent | File | Contains | Size |
 |-------|------|----------|------|
 | **RA** | requirements.md | All FR, NFR, edge cases, history summary | ~2-5KB |
-| **EP** | plan.md | Architecture, all tasks, critical path, history | ~3-8KB |
+| **EP** | exploration.md + architecture.md + plan.json | Codebase exploration, architecture design, structured task list | ~5-10KB total |
 | **CD** | implementation.md | Completed tasks, files changed, decisions, tests | ~4-10KB |
 | **VAS** | summary.md | Test results, coverage, issues, recommendations | ~5-12KB |
 
@@ -362,14 +365,14 @@ Orchestrator (main coordinator)
            ↓
       All write to:
       - requirements.md (v1.x.0)
-      - plan.md (v1.x.0)
+      - exploration.md, architecture.md, plan.json (v1.x.0)
       - implementation.md (v1.x.0)
       - summary.md (v1.x.0)
       - changes.log (NDJSON append)
            ↓
       [Automatic archival]
       - history/requirements-v1.{x-1}.0.md
-      - history/plan-v1.{x-1}.0.md
+      - history/plan-v1.{x-1}.0.json
       - etc...
            ↓
       Orchestrator: Next iteration?

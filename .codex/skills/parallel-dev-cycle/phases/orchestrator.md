@@ -456,7 +456,7 @@ Code Developer - Implement features based on plan and requirements.
 
 Write files to ${progressDir}/cd/:
 - implementation.md: Implementation progress and decisions
-- code-changes.log: NDJSON format, each line: {file, action, timestamp}
+- changes.log: NDJSON format, each line: {file, action, timestamp}
 - issues.md: Development issues and blockers
 
 ## OUTPUT FORMAT
@@ -484,7 +484,7 @@ function spawnVASAgent(cycleId, state, progressDir) {
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/validation-archivist.md
-2. Read: ${progressDir}/cd/code-changes.log
+2. Read: ${progressDir}/cd/changes.log
 
 ---
 
@@ -638,7 +638,7 @@ function generateFinalSummary(cycleId, state) {
 ## Generated Files
 - .workflow/.cycle/${cycleId}.progress/ra/requirements.md
 - .workflow/.cycle/${cycleId}.progress/ep/plan.json
-- .workflow/.cycle/${cycleId}.progress/cd/code-changes.log
+- .workflow/.cycle/${cycleId}.progress/cd/changes.log
 - .workflow/.cycle/${cycleId}.progress/vas/summary.md
 
 ## Continuation Instructions

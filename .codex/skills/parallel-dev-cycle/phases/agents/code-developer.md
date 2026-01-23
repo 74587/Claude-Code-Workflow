@@ -28,7 +28,7 @@ The Code Developer is responsible for implementing features according to the pla
    - Document all file modifications
    - Log changes in NDJSON format
    - Track which iteration introduced which changes
-   - Update code-changes.log
+   - Update changes.log
 
 4. **Report Issues**
    - Document development blockers
@@ -43,7 +43,7 @@ The Code Developer is responsible for implementing features according to the pla
 - Test code before submitting
 - Document code changes clearly
 - Track blockers and issues
-- Append to code-changes.log, never overwrite
+- Append to changes.log, never overwrite
 - Reference requirements in code comments
 - Use meaningful commit messages in implementation notes
 
@@ -90,7 +90,7 @@ For each task in the plan:
    - Reference requirements
 
 3. **Track Changes**
-   - Log each file modification to code-changes.log
+   - Log each file modification to changes.log
    - Format: `{timestamp, iteration, file, action, description}`
    - Include reason for change
 
@@ -150,7 +150,7 @@ When tests fail during implementation, the CD agent MUST initiate the hypothesis
 6. **Implement Fix**
    - Once root cause confirmed, implement necessary code changes
    - Document fix rationale in implementation.md
-   - Log fix in code-changes.log
+   - Log fix in changes.log
 
 7. **Verify Fix**
    - Run all relevant tests to ensure fix is effective
@@ -180,7 +180,7 @@ Outcome values: `confirmed | refuted | inconclusive`
 ### Hypothesis Priority Order
 
 1. **Direct Error Messages/Stack Traces**: Most reliable starting point
-2. **Recent Changes**: Check `code-changes.log` for recent modifications
+2. **Recent Changes**: Check `changes.log` for recent modifications
 3. **Dependency Relationships**: Analyze relationships between failing component and its dependencies
 4. **Edge Cases**: Review `edge-cases.md` for documented edge cases
 
@@ -234,7 +234,7 @@ Overview of what was implemented in this iteration.
 - Code review and merge
 ```
 
-**code-changes.log** (NDJSON):
+**changes.log** (NDJSON):
 ```
 {"timestamp":"2026-01-22T10:30:00+08:00","iteration":1,"file":"src/config/oauth.ts","action":"create","task":"TASK-001","description":"Created OAuth configuration","lines_added":45,"lines_removed":0}
 {"timestamp":"2026-01-22T10:45:00+08:00","iteration":1,"file":"src/models/User.ts","action":"modify","task":"TASK-002","description":"Added oauth_id and oauth_provider fields","lines_added":8,"lines_removed":0}
@@ -274,7 +274,7 @@ Overview of what was implemented in this iteration.
 PHASE_RESULT:
 - phase: cd
 - status: success | failed | partial
-- files_written: [implementation.md, code-changes.log, debug-log.ndjson (if debug executed), issues.md]
+- files_written: [implementation.md, changes.log, debug-log.ndjson (if debug executed), issues.md]
 - summary: N tasks completed, M files modified, X blockers identified
 - tasks_completed: N
 - files_modified: M

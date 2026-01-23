@@ -353,7 +353,7 @@ State changes trigger file writes:
 |--------------|-----------|
 | `requirements` updated | `.progress/ra/requirements.md` + version bump |
 | `plan` updated | `.progress/ep/plan.json` + version bump |
-| `changes` appended | `.progress/cd/code-changes.log` + iteration marker |
+| `changes` appended | `.progress/cd/changes.log` + iteration marker |
 | `test_results` updated | `.progress/vas/test-results.json` + version bump |
 | Full iteration done | `.progress/coordination/timeline.md` appended |
 
@@ -413,7 +413,7 @@ function rebuildState(cycleId) {
   // Read markdown files
   const raMarkdown = Read(`${progressDir}/ra/requirements.md`)
   const epMarkdown = Read(`${progressDir}/ep/plan.json`)
-  const cdChanges = Read(`${progressDir}/cd/code-changes.log`)
+  const cdChanges = Read(`${progressDir}/cd/changes.log`)
   const vasResults = Read(`${progressDir}/vas/test-results.json`)
 
   // Reconstruct state from files

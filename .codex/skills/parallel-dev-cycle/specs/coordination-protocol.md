@@ -12,19 +12,26 @@ The coordination protocol enables four parallel agents (RA, EP, CD, VAS) to comm
 
 **Location**: `.workflow/.cycle/{cycleId}.json`
 
-All agents read from and write to the unified state file:
+**Access Pattern**:
+- **Agents**: READ ONLY - check dependencies and status
+- **Orchestrator**: READ-WRITE - updates state after each phase
 
 ```javascript
-// Every agent: Read fresh state at action start
+// Every agent: Read state to check dependencies
 const state = JSON.parse(Read(`.workflow/.cycle/${cycleId}.json`))
+const canProceed = checkDependencies(state)
 
-// Every agent: Write updated state at action end
-Write(`.workflow/.cycle/${cycleId}.json`, JSON.stringify(state, null, 2))
+// Agent outputs PHASE_RESULT (reports to orchestrator, NOT writes directly)
+console.log("PHASE_RESULT: ...")
+
+// Only Orchestrator writes to state file after receiving PHASE_RESULT
+// Write(`.workflow/.cycle/${cycleId}.json`, JSON.stringify(updatedState, null, 2))
 ```
 
 **Protocol**:
-- Read-Update-Write pattern (no lock needed, orchestrator serializes)
-- Timestamp all updates with ISO8601 format
+- Only orchestrator writes to state file (no concurrent writes, no lock needed)
+- Agents read state to understand dependencies
+- Timestamp all orchestrator updates with ISO8601 format
 - Never delete existing data, only append
 
 ### 2. Progress Markdown Files (Async Log)
@@ -33,18 +40,18 @@ Write(`.workflow/.cycle/${cycleId}.json`, JSON.stringify(state, null, 2))
 
 Each agent writes progress to dedicated markdown files:
 
-| Agent | Files |
-|-------|-------|
-| RA | requirements.md, edge-cases.md, changes.log |
-| EP | exploration.md, architecture.md, plan.json |
-| CD | implementation.md, code-changes.log, issues.md |
-| VAS | validation.md, test-results.json, coverage.md, summary.md |
+| Agent | Main Documents (Rewrite) | Logs (Append-Only) |
+|-------|--------------------------|-------------------|
+| RA | requirements.md | changes.log |
+| EP | exploration.md, architecture.md, plan.json | changes.log |
+| CD | implementation.md, issues.md | changes.log, debug-log.ndjson |
+| VAS | validation.md, summary.md, test-results.json | changes.log |
 
 **Protocol**:
-- Append-only pattern (no overwrites)
-- Version each document independently
+- **Main documents**: Complete rewrite per iteration, archived to `history/`
+- **Log files**: Append-only (changes.log, debug-log.ndjson) - never delete
+- **Version synchronization**: All main documents share same version (e.g., all v1.1.0 in iteration 2)
 - Include timestamp on each update
-- Maintain backward compatibility
 
 ### 3. Orchestrator send_input (Synchronous)
 
@@ -198,6 +205,8 @@ PHASE_DETAILS:
 
 ## Dependency Resolution
 
+**Execution Model**: All four agents are spawned in parallel, but execution blocks based on dependencies. Orchestrator manages dependency resolution via shared state.
+
 ### Build Order (Default)
 
 ```
@@ -205,6 +214,12 @@ RA (Requirements) → EP (Planning) → CD (Development) → VAS (Validation)
        ↓                  ↓               ↓                 ↓
    Block EP         Block CD         Block VAS         Block completion
 ```
+
+**Explanation**:
+- All agents spawned simultaneously
+- Each agent checks dependencies in shared state before proceeding
+- Blocked agents wait for dependency completion
+- Orchestrator uses `send_input` to notify dependent agents when ready
 
 ### Parallel Opportunities
 
@@ -384,7 +399,7 @@ console.log(state.coordination.feedback_log)
 tail .workflow/.cycle/cycle-xxx.progress/ra/changes.log
 
 # Check CD changes
-grep "TASK-001" .workflow/.cycle/cycle-xxx.progress/cd/code-changes.log
+grep "TASK-001" .workflow/.cycle/cycle-xxx.progress/cd/changes.log
 
 # Check coordination timeline
 tail -50 .workflow/.cycle/cycle-xxx.progress/coordination/feedback.md
