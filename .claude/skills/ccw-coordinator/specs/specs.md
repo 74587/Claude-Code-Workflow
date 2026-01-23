@@ -299,7 +299,7 @@ node tools/chain-validate.js plan execute test-cycle-execute
 
 ### 工具位置
 
-位置: `tools/command-registry.js` (skill 内置)
+位置: `tools/command-registry.cjs` (skill 内置)
 
 ### 工作模式
 
@@ -324,7 +324,7 @@ const commandMeta = registry.getCommands(commandNames);
 在 action-command-execute 中自动集成：
 
 ```javascript
-const CommandRegistry = require('./tools/command-registry.js');
+const CommandRegistry = require('./tools/command-registry.cjs');
 const registry = new CommandRegistry();
 
 // 只提取任务链中的命令

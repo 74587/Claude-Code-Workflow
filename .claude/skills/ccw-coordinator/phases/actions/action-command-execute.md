@@ -5,8 +5,8 @@
 ## 命令注册表集成
 
 ```javascript
-// 从 ./tools/command-registry.js 按需提取命令元数据
-const CommandRegistry = require('./tools/command-registry.js');
+// 从 ./tools/command-registry.cjs 按需提取命令元数据
+const CommandRegistry = require('./tools/command-registry.cjs');
 const registry = new CommandRegistry();
 
 // 只提取当前任务链中的命令

@@ -51,13 +51,14 @@ class CommandRegistry {
    * 解析 YAML 头
    */
   parseYamlHeader(content) {
-    const match = content.match(/^---\n([\s\S]*?)\n---/);
+    // 处理 Windows 行结尾 (\r\n)
+    const match = content.match(/^---[\r\n]+([\s\S]*?)[\r\n]+---/);
     if (!match) return null;
 
     const yamlContent = match[1];
     const result = {};
 
-    const lines = yamlContent.split('\n');
+    const lines = yamlContent.split(/[\r\n]+/);
     for (const line of lines) {
       if (!line.trim()) continue;
 
@@ -152,6 +153,53 @@ class CommandRegistry {
   }
 
   /**
+   * 获取所有命令的名称和描述
+   * @returns {object} 命令名称和描述的映射
+   */
+  getAllCommandsSummary() {
+    const result = {};
+    const commandDir = this.commandDir;
+
+    if (!commandDir) {
+      return result;
+    }
+
+    try {
+      const files = fs.readdirSync(commandDir);
+
+      for (const file of files) {
+        if (!file.endsWith('.md')) continue;
+
+        const filePath = path.join(commandDir, file);
+        const stat = fs.statSync(filePath);
+
+        if (stat.isDirectory()) continue;
+
+        try {
+          const content = fs.readFileSync(filePath, 'utf-8');
+          const header = this.parseYamlHeader(content);
+
+          if (header && header.name) {
+            const commandName = `/workflow:${header.name}`;
+            result[commandName] = {
+              name: header.name,
+              description: header.description || ''
+            };
+          }
+        } catch (error) {
+          // 跳过读取失败的文件
+          continue;
+        }
+      }
+    } catch (error) {
+      // 目录读取失败
+      return result;
+    }
+
+    return result;
+  }
+
+  /**
    * 生成注册表 JSON
    */
   toJSON(commands = null) {
@@ -164,11 +212,12 @@ class CommandRegistry {
 if (require.main === module) {
   const args = process.argv.slice(2);
 
-  if (args.length === 0) {
-    console.error('用法: node command-registry.js <command-name> [command-name2] ...');
-    console.error('示例: node command-registry.js lite-plan lite-execute');
-    console.error('      node command-registry.js /workflow:lite-plan');
-    process.exit(1);
+  if (args.length === 0 || args[0] === '--all') {
+    // 获取所有命令的名称和描述
+    const registry = new CommandRegistry();
+    const commands = registry.getAllCommandsSummary();
+    console.log(JSON.stringify(commands, null, 2));
+    process.exit(0);
   }
 
   const registry = new CommandRegistry();
