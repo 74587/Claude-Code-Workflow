@@ -55,11 +55,11 @@ Unified planning command using **issue-plan-agent** that combines exploration an
 ## Execution Process
 
 ```
-Phase 1: Issue Loading
+Phase 1: Issue Loading & Intelligent Grouping
    ├─ Parse input (single, comma-separated, or --all-pending)
    ├─ Fetch issue metadata (ID, title, tags)
    ├─ Validate issues exist (create if needed)
-   └─ Create batches by size (max 3 per batch by default)
+   └─ Intelligent grouping via Gemini (semantic similarity, max 3 per batch)
 
 Phase 2: Unified Explore + Plan (issue-plan-agent)
    ├─ Launch issue-plan-agent per batch
@@ -119,17 +119,11 @@ if (useAllPending) {
 }
 // Note: Agent fetches full issue content via `ccw issue status <id> --json`
 
-// Simple size-based batching (max batchSize issues per group)
-function createBatches(issues, batchSize) {
-  const batches = [];
-  for (let i = 0; i < issues.length; i += batchSize) {
-    batches.push(issues.slice(i, i + batchSize));
-  }
-  return batches;
-}
+// Intelligent grouping: Analyze issues by title/tags, group semantically similar ones
+// Strategy: Same module/component, related bugs, feature clusters
+// Constraint: Max ${batchSize} issues per batch
 
-const batches = createBatches(issues, batchSize);
-console.log(`Processing ${issues.length} issues in ${batches.length} batch(es) (max ${batchSize} issues/agent)`);
+console.log(`Processing ${issues.length} issues in ${batches.length} batch(es)`);
 
 TodoWrite({
   todos: batches.map((_, i) => ({
