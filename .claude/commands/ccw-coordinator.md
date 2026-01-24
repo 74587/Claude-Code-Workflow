@@ -212,12 +212,6 @@ const commandPorts = {
     tags: ['planning', 'tdd'],
     atomic_group: 'tdd-planning-execution'     // 最小单元：与 execute 绑定
   },
-  'execute': {
-    name: 'execute',
-    input: ['tdd-tasks'],
-    output: ['code'],
-    tags: ['execution']
-  },
   'tdd-verify': {
     name: 'tdd-verify',
     input: ['code'],
@@ -277,12 +271,6 @@ const commandPorts = {
     output: ['multi-cli-plan'],                 // 对比分析计划（供 lite-execute 执行）
     tags: ['planning', 'multi-cli'],
     atomic_group: 'multi-cli-planning'         // 最小单元：与 lite-execute 绑定
-  },
-  'plan-verify': {
-    name: 'plan-verify',
-    input: ['detailed-plan'],
-    output: ['verified-plan'],
-    tags: ['planning']
   },
   'review-session-cycle': {
     name: 'review-session-cycle',
