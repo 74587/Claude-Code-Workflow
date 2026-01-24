@@ -882,7 +882,10 @@ Task: Implement user registration' --tool claude --mode write
 
 ### Serial Blocking
 
-Commands execute one-by-one. After launching CLI in background, orchestrator stops immediately and waits for hook callback.
+**CRITICAL**: Commands execute one-by-one. After launching CLI in background:
+1. Orchestrator stops immediately (`break`)
+2. Wait for hook callback - **DO NOT use TaskOutput polling**
+3. Hook callback triggers next command
 
 **Prompt Structure**: Command must be first in prompt content
 
@@ -892,11 +895,12 @@ const prompt = '/workflow:plan -y "Implement user authentication"\n\nTask: Imple
 const taskId = Bash(`ccw cli -p "${prompt}" --tool claude --mode write`, { run_in_background: true }).task_id;
 state.execution_results.push({ status: 'in-progress', task_id: taskId, ... });
 Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
-break; // Stop, wait for hook callback
+break; // ⚠️ STOP HERE - DO NOT use TaskOutput polling
 
-// Hook calls handleCliCompletion(sessionId, taskId, output) when done
+// Hook callback will call handleCliCompletion(sessionId, taskId, output) when done
 // → Updates state → Triggers next command via resumeChainExecution()
 ```
+
 
 ## Available Commands
 

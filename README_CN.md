@@ -263,6 +263,49 @@ codexlens index /path/to/project
 
 ## 💻 CCW CLI 命令
 
+### 🌟 推荐命令（核心功能）
+
+<div align="center">
+<table>
+<tr><th>命令</th><th>说明</th><th>适用场景</th></tr>
+<tr>
+  <td><b>/ccw</b></td>
+  <td>自动工作流编排器 - 分析意图、自动选择工作流级别、在主进程中执行命令链</td>
+  <td>✅ 通用任务、自动选择工作流、快速开发</td>
+</tr>
+<tr>
+  <td><b>/ccw-coordinator</b></td>
+  <td>手动编排器 - 推荐命令链、通过外部 CLI 执行、持久化状态</td>
+  <td>🔧 复杂多步骤工作流、自定义链、可恢复会话</td>
+</tr>
+</table>
+</div>
+
+**快速示例**：
+
+```bash
+# /ccw - 自动工作流选择（主进程）
+/ccw "添加用户认证"                    # 自动根据意图选择工作流
+/ccw "修复 WebSocket 中的内存泄漏"     # 识别为 bugfix 工作流
+/ccw "使用 TDD 方式实现"                # 路由到 TDD 工作流
+
+# /ccw-coordinator - 手动链编排（外部 CLI）
+/ccw-coordinator "实现 OAuth2 系统"     # 分析 → 推荐链 → 用户确认 → 执行
+```
+
+**主要区别**：
+
+| 方面 | /ccw | /ccw-coordinator |
+|------|------|------------------|
+| **执行方式** | 主进程（SlashCommand） | 外部 CLI（后台任务） |
+| **选择方式** | 自动基于意图识别 | 手动链确认 |
+| **状态管理** | TodoWrite 跟踪 | 持久化 state.json |
+| **适用场景** | 通用任务、快速开发 | 复杂链条、可恢复 |
+
+---
+
+### 其他 CLI 命令
+
 ```bash
 ccw install           # 安装工作流文件
 ccw view              # 打开 Dashboard

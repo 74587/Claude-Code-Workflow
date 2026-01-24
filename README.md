@@ -263,6 +263,49 @@ Open Dashboard via `ccw view`, manage indexes and execute searches in **CodexLen
 
 ## 💻 CCW CLI Commands
 
+### 🌟 Recommended Commands (Main Features)
+
+<div align="center">
+<table>
+<tr><th>Command</th><th>Description</th><th>When to Use</th></tr>
+<tr>
+  <td><b>/ccw</b></td>
+  <td>Auto workflow orchestrator - analyzes intent, selects workflow level, executes command chain in main process</td>
+  <td>✅ General tasks, auto workflow selection, quick development</td>
+</tr>
+<tr>
+  <td><b>/ccw-coordinator</b></td>
+  <td>Manual orchestrator - recommends command chains, executes via external CLI with state persistence</td>
+  <td>🔧 Complex multi-step workflows, custom chains, resumable sessions</td>
+</tr>
+</table>
+</div>
+
+**Quick Examples**:
+
+```bash
+# /ccw - Auto workflow selection (Main Process)
+/ccw "Add user authentication"              # Auto-selects workflow based on intent
+/ccw "Fix memory leak in WebSocket"         # Detects bugfix workflow
+/ccw "Implement with TDD"                   # Routes to TDD workflow
+
+# /ccw-coordinator - Manual chain orchestration (External CLI)
+/ccw-coordinator "Implement OAuth2 system"  # Analyzes → Recommends chain → User confirms → Executes
+```
+
+**Key Differences**:
+
+| Aspect | /ccw | /ccw-coordinator |
+|--------|------|------------------|
+| **Execution** | Main process (SlashCommand) | External CLI (background tasks) |
+| **Selection** | Auto intent-based | Manual chain confirmation |
+| **State** | TodoWrite tracking | Persistent state.json |
+| **Use Case** | General tasks, quick dev | Complex chains, resumable |
+
+---
+
+### Other CLI Commands
+
 ```bash
 ccw install           # Install workflow files
 ccw view              # Open dashboard
