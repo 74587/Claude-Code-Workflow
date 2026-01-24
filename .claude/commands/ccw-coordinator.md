@@ -401,20 +401,19 @@ async function executeCommandChain(chain, analysis) {
     state.updated_at = new Date().toISOString();
     Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
 
-    // Assemble prompt: Task context + Command instruction
+    // Assemble prompt: Command first, then context
     let promptContent = formatCommand(cmd, state.execution_results, analysis);
 
-    // Build full prompt with context
-    let prompt = `Task: ${analysis.goal}\n`;
+    // Build full prompt: Command → Task → Previous Results
+    let prompt = `${promptContent}\n\nTask: ${analysis.goal}`;
     if (state.execution_results.length > 0) {
-      prompt += '\nPrevious results:\n';
+      prompt += '\n\nPrevious results:\n';
       state.execution_results.forEach(r => {
         if (r.session_id) {
           prompt += `- ${r.command}: ${r.session_id} (${r.artifacts?.join(', ') || 'completed'})\n`;
         }
       });
     }
-    prompt += `\n${promptContent}`;
 
     // Record prompt used
     state.prompts_used.push({
@@ -671,12 +670,12 @@ function parseOutput(output) {
     {
       "index": 0,
       "command": "/workflow:plan",
-      "prompt": "Task: Implement user registration...\n\n/workflow:plan --yes \"Implement user registration...\""
+      "prompt": "/workflow:plan -y \"Implement user registration...\"\n\nTask: Implement user registration..."
     },
     {
       "index": 1,
       "command": "/workflow:execute",
-      "prompt": "Task: Implement user registration...\n\nPrevious results:\n- /workflow:plan: WFS-plan-20250124 (IMPL_PLAN.md)\n\n/workflow:execute --yes --resume-session=\"WFS-plan-20250124\""
+      "prompt": "/workflow:execute -y --resume-session=\"WFS-plan-20250124\"\n\nTask: Implement user registration\n\nPrevious results:\n- /workflow:plan: WFS-plan-20250124 (IMPL_PLAN.md)"
     }
   ]
 }
@@ -747,22 +746,22 @@ ccw cli -p "PROMPT_CONTENT" --tool <tool> --mode <mode>
 ### Prompt Content Template
 
 ```
+/workflow:<command> -y <command_parameters>
+
 Task: <task_description>
 
 <optional_previous_results>
-
-/workflow:<command> -y <command_parameters>
 ```
 
 ### Template Variables
 
 | Variable | Description | Examples |
 |----------|-------------|----------|
-| `<task_description>` | Brief task description | "Implement user authentication", "Fix memory leak" |
-| `<optional_previous_results>` | Context from previous commands | "Previous results:\n- /workflow:plan: WFS-xxx" |
 | `<command>` | Workflow command name | `plan`, `lite-execute`, `test-cycle-execute` |
 | `-y` | Auto-confirm flag (inside prompt) | Always include for automation |
 | `<command_parameters>` | Command-specific parameters | Task description, session ID, flags |
+| `<task_description>` | Brief task description | "Implement user authentication", "Fix memory leak" |
+| `<optional_previous_results>` | Context from previous commands | "Previous results:\n- /workflow:plan: WFS-xxx" |
 
 ### Command Parameter Patterns
 
@@ -778,26 +777,26 @@ Task: <task_description>
 
 **Planning Command**:
 ```bash
-ccw cli -p 'Task: Implement user registration
+ccw cli -p '/workflow:plan -y "Implement user registration with email validation"
 
-/workflow:plan -y "Implement user registration with email validation"' --tool claude --mode write
+Task: Implement user registration' --tool claude --mode write
 ```
 
 **Execution with Context**:
 ```bash
-ccw cli -p 'Task: Implement user registration
+ccw cli -p '/workflow:execute -y --resume-session="WFS-plan-20250124"
+
+Task: Implement user registration
 
 Previous results:
-- /workflow:plan: WFS-plan-20250124 (IMPL_PLAN.md)
-
-/workflow:execute -y --resume-session="WFS-plan-20250124"' --tool claude --mode write
+- /workflow:plan: WFS-plan-20250124 (IMPL_PLAN.md)' --tool claude --mode write
 ```
 
 **Standalone Lite Execution**:
 ```bash
-ccw cli -p 'Task: Fix login timeout
+ccw cli -p '/workflow:lite-fix -y "Fix login timeout in auth module"
 
-/workflow:lite-fix -y "Fix login timeout in auth module"' --tool claude --mode write
+Task: Fix login timeout' --tool claude --mode write
 ```
 
 ## Execution Flow
@@ -850,31 +849,46 @@ ccw cli -p "PROMPT_CONTENT" --tool <tool> --mode <mode>
 
 ### Prompt Assembly
 
-The prompt content should include the workflow command with `-y` for auto-confirm:
+The prompt content MUST start with the workflow command, followed by task context:
 
 ```
-/workflow:<command> -y "<task description or parameters>"
+/workflow:<command> -y <parameters>
+
+Task: <description>
+
+<optional_context>
 ```
 
 **Examples**:
 ```bash
 # Planning command
-ccw cli -p "/workflow:plan -y \"Implement user registration feature\"" --tool claude --mode write
+ccw cli -p '/workflow:plan -y "Implement user registration feature"
+
+Task: Implement user registration' --tool claude --mode write
 
 # Execution command (with session reference)
-ccw cli -p "/workflow:execute -y --resume-session=\"WFS-plan-20250124\"" --tool claude --mode write
+ccw cli -p '/workflow:execute -y --resume-session="WFS-plan-20250124"
+
+Task: Implement user registration
+
+Previous results:
+- /workflow:plan: WFS-plan-20250124' --tool claude --mode write
 
 # Lite execution (in-memory from previous plan)
-ccw cli -p "/workflow:lite-execute -y --in-memory" --tool claude --mode write
+ccw cli -p '/workflow:lite-execute -y --in-memory
+
+Task: Implement user registration' --tool claude --mode write
 ```
 
 ### Serial Blocking
 
 Commands execute one-by-one. After launching CLI in background, orchestrator stops immediately and waits for hook callback.
 
+**Prompt Structure**: Command must be first in prompt content
+
 ```javascript
 // Example: Execute command and stop
-const prompt = '/workflow:plan -y "Implement user authentication"';
+const prompt = '/workflow:plan -y "Implement user authentication"\n\nTask: Implement user auth system';
 const taskId = Bash(`ccw cli -p "${prompt}" --tool claude --mode write`, { run_in_background: true }).task_id;
 state.execution_results.push({ status: 'in-progress', task_id: taskId, ... });
 Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
