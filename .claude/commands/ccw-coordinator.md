@@ -11,6 +11,75 @@ Interactive orchestration tool: analyze task → discover commands → recommend
 
 **Execution Model**: Pseudocode guidance. Claude intelligently executes each phase based on context.
 
+## Core Concept: Minimum Execution Units (最小执行单元)
+
+### What is a Minimum Execution Unit?
+
+**Definition**: A set of commands that must execute together as an atomic group to achieve a meaningful workflow milestone. Splitting these commands breaks the logical flow and creates incomplete states.
+
+**Why This Matters**:
+- **Prevents Incomplete States**: Avoid stopping after task generation without execution
+- **User Experience**: User gets complete results, not intermediate artifacts requiring manual follow-up
+- **Workflow Integrity**: Maintains logical coherence of multi-step operations
+
+### Minimum Execution Units
+
+**Planning + Execution Units** (规划+执行单元):
+
+| Unit Name | Commands | Purpose | Output |
+|-----------|----------|---------|--------|
+| **Quick Implementation** | lite-plan → lite-execute | Lightweight plan and immediate execution | Working code |
+| **Multi-CLI Planning** | multi-cli-plan → lite-execute | Multi-perspective analysis and execution | Working code |
+| **Bug Fix** | lite-fix → lite-execute | Quick bug diagnosis and fix execution | Fixed code |
+| **Full Planning + Execution** | plan → execute | Detailed planning and execution | Working code |
+| **Verified Planning + Execution** | plan → plan-verify → execute | Planning with verification and execution | Working code |
+| **Replanning + Execution** | replan → execute | Update plan and execute changes | Working code |
+| **TDD Planning + Execution** | tdd-plan → execute | Test-driven development planning and execution | Working code |
+| **Test Generation + Execution** | test-gen → execute | Generate test suite and execute | Generated tests |
+
+**Testing Units** (测试单元):
+
+| Unit Name | Commands | Purpose | Output |
+|-----------|----------|---------|--------|
+| **Test Validation** | test-fix-gen → test-cycle-execute | Generate test tasks and execute test-fix cycle | Tests passed |
+
+**Review Units** (审查单元):
+
+| Unit Name | Commands | Purpose | Output |
+|-----------|----------|---------|--------|
+| **Code Review (Session)** | review-session-cycle → review-fix | Complete review cycle and apply fixes | Fixed code |
+| **Code Review (Module)** | review-module-cycle → review-fix | Module review cycle and apply fixes | Fixed code |
+
+### Command-to-Unit Mapping (命令与最小单元的映射)
+
+| Command | Can Precede | Atomic Units |
+|---------|-----------|--------------|
+| lite-plan | lite-execute | Quick Implementation |
+| multi-cli-plan | lite-execute | Multi-CLI Planning |
+| lite-fix | lite-execute | Bug Fix |
+| plan | plan-verify, execute | Full Planning + Execution, Verified Planning + Execution |
+| plan-verify | execute | Verified Planning + Execution |
+| replan | execute | Replanning + Execution |
+| test-gen | execute | Test Generation + Execution |
+| tdd-plan | execute | TDD Planning + Execution |
+| review-session-cycle | review-fix | Code Review (Session) |
+| review-module-cycle | review-fix | Code Review (Module) |
+| test-fix-gen | test-cycle-execute | Test Validation |
+
+### Atomic Group Rules
+
+1. **Never Split Units**: Coordinator must recommend complete units, not partial chains
+2. **Multi-Unit Participation**: Some commands can participate in multiple units (e.g., plan → execute or plan → plan-verify → execute)
+3. **User Override**: User can explicitly request partial execution (advanced mode)
+4. **Visualization**: Pipeline view shows unit boundaries with `【 】` markers
+5. **Validation**: Before execution, verify all unit commands are included
+
+**Example Pipeline with Units**:
+```
+需求 → 【lite-plan → lite-execute】→ 代码 → 【test-fix-gen → test-cycle-execute】→ 测试通过
+       └──── Quick Implementation ────┘         └────── Test Validation ──────┘
+```
+
 ## 3-Phase Workflow
 
 ### Phase 1: Analyze Requirements
@@ -77,37 +146,71 @@ const commandPorts = {
     name: 'lite-plan',
     input: ['requirement'],                    // 输入端口：需求
     output: ['plan'],                           // 输出端口：计划
-    tags: ['planning']
+    tags: ['planning'],
+    atomic_group: 'quick-implementation'       // 最小单元：与 lite-execute 绑定
   },
   'lite-execute': {
     name: 'lite-execute',
-    input: ['plan'],                            // 输入端口：计划
+    input: ['plan', 'multi-cli-plan', 'lite-fix'], // 输入端口：可接受多种规划输出
     output: ['code'],                           // 输出端口：代码
-    tags: ['execution']
+    tags: ['execution'],
+    atomic_groups: [                           // 可参与多个最小单元
+      'quick-implementation',                  // lite-plan → lite-execute
+      'multi-cli-planning',                    // multi-cli-plan → lite-execute
+      'bug-fix'                                // lite-fix → lite-execute
+    ]
   },
   'plan': {
     name: 'plan',
     input: ['requirement'],
     output: ['detailed-plan'],
-    tags: ['planning']
+    tags: ['planning'],
+    atomic_groups: [                           // 可参与多个最小单元
+      'full-planning-execution',               // plan → execute
+      'verified-planning-execution'            // plan → plan-verify → execute
+    ]
+  },
+  'plan-verify': {
+    name: 'plan-verify',
+    input: ['detailed-plan'],
+    output: ['verified-plan'],
+    tags: ['planning'],
+    atomic_group: 'verified-planning-execution' // 最小单元：plan → plan-verify → execute
+  },
+  'replan': {
+    name: 'replan',
+    input: ['session', 'feedback'],             // 输入端口：会话或反馈
+    output: ['replan'],                         // 输出端口：更新后的计划（供 execute 执行）
+    tags: ['planning'],
+    atomic_group: 'replanning-execution'       // 最小单元：与 execute 绑定
   },
   'execute': {
     name: 'execute',
-    input: ['detailed-plan'],                   // 从 plan 的输出匹配
+    input: ['detailed-plan', 'verified-plan', 'replan', 'test-tasks', 'tdd-tasks'], // 可接受多种规划输出
     output: ['code'],
-    tags: ['execution']
+    tags: ['execution'],
+    atomic_groups: [                           // 可参与多个最小单元
+      'full-planning-execution',               // plan → execute
+      'verified-planning-execution',           // plan → plan-verify → execute
+      'replanning-execution',                  // replan → execute
+      'test-generation-execution',             // test-gen → execute
+      'tdd-planning-execution'                 // tdd-plan → execute
+    ]
   },
   'test-cycle-execute': {
     name: 'test-cycle-execute',
-    input: ['code'],                            // 输入端口：代码
+    input: ['test-tasks'],                      // 输入端口：测试任务(需先test-fix-gen生成)
     output: ['test-passed'],                    // 输出端口：测试通过
-    tags: ['testing']
+    tags: ['testing'],
+    atomic_group: 'test-validation',           // 最小单元：与 test-fix-gen 绑定
+    note: '需要先执行test-fix-gen生成测试任务，再由此命令执行测试周期'
   },
   'tdd-plan': {
     name: 'tdd-plan',
     input: ['requirement'],
-    output: ['tdd-tasks'],                      // TDD 任务
-    tags: ['planning', 'tdd']
+    output: ['tdd-tasks'],                      // TDD 任务（供 execute 执行）
+    tags: ['planning', 'tdd'],
+    atomic_group: 'tdd-planning-execution'     // 最小单元：与 execute 绑定
   },
   'execute': {
     name: 'execute',
@@ -124,8 +227,9 @@ const commandPorts = {
   'lite-fix': {
     name: 'lite-fix',
     input: ['bug-report'],                      // 输入端口：bug 报告
-    output: ['fixed-code'],                     // 输出端口：修复后的代码
-    tags: ['bugfix']
+    output: ['lite-fix'],                       // 输出端口：修复计划（供 lite-execute 执行）
+    tags: ['bugfix'],
+    atomic_group: 'bug-fix'                    // 最小单元：与 lite-execute 绑定
   },
   'debug': {
     name: 'debug',
@@ -136,14 +240,17 @@ const commandPorts = {
   'test-gen': {
     name: 'test-gen',
     input: ['code', 'session'],                 // 可接受代码或会话
-    output: ['tests'],
-    tags: ['testing']
+    output: ['test-tasks'],                     // 输出测试任务(IMPL-001,IMPL-002)，供 execute 执行
+    tags: ['testing'],
+    atomic_group: 'test-generation-execution'  // 最小单元：与 execute 绑定
   },
   'test-fix-gen': {
     name: 'test-fix-gen',
     input: ['failing-tests', 'session'],
-    output: ['test-tasks'],
-    tags: ['testing']
+    output: ['test-tasks'],                     // 输出测试任务，针对特定问题生成测试并在测试中修正
+    tags: ['testing'],
+    atomic_group: 'test-validation',           // 最小单元：与 test-cycle-execute 绑定
+    note: '生成测试任务供test-cycle-execute执行'
   },
   'review': {
     name: 'review',
@@ -153,9 +260,10 @@ const commandPorts = {
   },
   'review-fix': {
     name: 'review-fix',
-    input: ['review-findings'],
+    input: ['review-findings', 'review-verified'],  // Accept output from review-session-cycle or review-module-cycle
     output: ['fixed-code'],
-    tags: ['review']
+    tags: ['review'],
+    atomic_group: 'code-review'                // 最小单元：与 review-session-cycle/review-module-cycle 绑定
   },
   'brainstorm:auto-parallel': {
     name: 'brainstorm:auto-parallel',
@@ -166,8 +274,9 @@ const commandPorts = {
   'multi-cli-plan': {
     name: 'multi-cli-plan',
     input: ['requirement'],
-    output: ['comparison-plan'],                // 对比分析计划
-    tags: ['planning', 'multi-cli']
+    output: ['multi-cli-plan'],                 // 对比分析计划（供 lite-execute 执行）
+    tags: ['planning', 'multi-cli'],
+    atomic_group: 'multi-cli-planning'         // 最小单元：与 lite-execute 绑定
   },
   'plan-verify': {
     name: 'plan-verify',
@@ -179,13 +288,15 @@ const commandPorts = {
     name: 'review-session-cycle',
     input: ['code', 'session'],                 // 可接受代码或会话
     output: ['review-verified'],                // 输出端口:审查通过
-    tags: ['review']
+    tags: ['review'],
+    atomic_group: 'code-review'                // 最小单元：与 review-fix 绑定
   },
   'review-module-cycle': {
     name: 'review-module-cycle',
     input: ['module-pattern'],                  // 输入端口:模块模式
     output: ['review-verified'],                // 输出端口:审查通过
-    tags: ['review']
+    tags: ['review'],
+    atomic_group: 'code-review'                // 最小单元：与 review-fix 绑定
   }
 };
 ```
@@ -639,13 +750,17 @@ Complexity: simple
 Constraints: []
 Task Type: feature
 
-Pipeline:
-需求 → lite-plan → 计划 → lite-execute → 代码 → test-cycle-execute → 测试通过
+Pipeline (with Minimum Execution Units):
+需求 →【lite-plan → lite-execute】→ 代码 →【test-fix-gen → test-cycle-execute】→ 测试通过
 
 Chain:
+# Unit 1: Quick Implementation
 1. /workflow:lite-plan --yes "Add API endpoint..."
 2. /workflow:lite-execute --yes --in-memory
-3. /workflow:test-cycle-execute --yes --session="WFS-xxx"
+
+# Unit 2: Test Validation
+3. /workflow:test-fix-gen --yes --session="WFS-xxx"
+4. /workflow:test-cycle-execute --yes --session="WFS-test-xxx"
 ```
 
 ### Complex Feature with Verification
@@ -656,16 +771,26 @@ Complexity: complex
 Constraints: [no breaking changes]
 Task Type: feature
 
-Pipeline:
-需求 → plan → 详细计划 → plan-verify → 验证计划 → execute → 代码
-     → review-session-cycle → 审查通过 → test-cycle-execute → 测试通过
+Pipeline (with Minimum Execution Units):
+需求 →【plan → plan-verify】→ 验证计划 → execute → 代码
+     →【review-session-cycle → review-fix】→ 修复代码
+     →【test-fix-gen → test-cycle-execute】→ 测试通过
 
 Chain:
+# Unit 1: Full Planning (plan + plan-verify)
 1. /workflow:plan --yes "Implement OAuth2..."
 2. /workflow:plan-verify --yes --session="WFS-xxx"
+
+# Execution phase
 3. /workflow:execute --yes --resume-session="WFS-xxx"
+
+# Unit 2: Code Review (review-session-cycle + review-fix)
 4. /workflow:review-session-cycle --yes --session="WFS-xxx"
-5. /workflow:test-cycle-execute --yes --session="WFS-xxx"
+5. /workflow:review-fix --yes --session="WFS-xxx"
+
+# Unit 3: Test Validation (test-fix-gen + test-cycle-execute)
+6. /workflow:test-fix-gen --yes --session="WFS-xxx"
+7. /workflow:test-cycle-execute --yes --session="WFS-test-xxx"
 ```
 
 ### Quick Bug Fix
@@ -677,11 +802,12 @@ Constraints: [urgent]
 Task Type: bugfix
 
 Pipeline:
-Bug报告 → lite-fix → 修复代码 → test-cycle-execute → 测试通过
+Bug报告 → lite-fix → 修复代码 → test-fix-gen → 测试任务 → test-cycle-execute → 测试通过
 
 Chain:
 1. /workflow:lite-fix --yes "Fix login timeout..."
-2. /workflow:test-cycle-execute --yes --session="WFS-xxx"
+2. /workflow:test-fix-gen --yes --session="WFS-xxx"
+3. /workflow:test-cycle-execute --yes --session="WFS-test-xxx"
 ```
 
 ### Skip Tests
@@ -757,18 +883,22 @@ Chain:
 
 ### Test Generation from Implementation
 ```
-Goal: Generate tests for completed user registration feature
+Goal: Generate comprehensive tests for completed user registration feature
 Scope: [auth, tests]
 Complexity: medium
 Constraints: []
 Task Type: test-gen
 
-Pipeline:
-代码 → test-gen → 测试 → test-cycle-execute → 测试通过
+Pipeline (with Minimum Execution Units):
+代码/会话 →【test-gen → execute】→ 测试通过
 
 Chain:
+# Unit: Test Generation (test-gen + execute)
 1. /workflow:test-gen --yes "WFS-registration-20250124"
-2. /workflow:test-cycle-execute --yes --session="WFS-test-xxx"
+2. /workflow:execute --yes --session="WFS-test-registration"
+
+Note: test-gen creates IMPL-001 (test generation) and IMPL-002 (test execution & fix)
+      execute runs both tasks - this is a Minimum Execution Unit
 ```
 
 ### Review + Fix Workflow
@@ -779,13 +909,18 @@ Complexity: medium
 Constraints: []
 Task Type: review
 
-Pipeline:
-代码 → review → 审查发现 → review-fix → 修复代码 → test-cycle-execute → 测试通过
+Pipeline (with Minimum Execution Units):
+代码 →【review-session-cycle → review-fix】→ 修复代码
+     →【test-fix-gen → test-cycle-execute】→ 测试通过
 
 Chain:
-1. /workflow:review --yes --session="WFS-payment-impl"
+# Unit 1: Code Review (review-session-cycle + review-fix)
+1. /workflow:review-session-cycle --yes --session="WFS-payment-impl"
 2. /workflow:review-fix --yes --session="WFS-payment-impl"
-3. /workflow:test-cycle-execute --yes --session="WFS-payment-impl"
+
+# Unit 2: Test Validation (test-fix-gen + test-cycle-execute)
+3. /workflow:test-fix-gen --yes --session="WFS-payment-impl"
+4. /workflow:test-cycle-execute --yes --session="WFS-test-payment-impl"
 ```
 
 ### Brainstorm Workflow (Uncertain Requirements)
@@ -798,14 +933,15 @@ Task Type: brainstorm
 
 Pipeline:
 探索主题 → brainstorm:auto-parallel → 分析结果 → plan → 详细计划
-     → plan-verify → 验证计划 → execute → 代码 → test-cycle-execute → 测试通过
+     → plan-verify → 验证计划 → execute → 代码 → test-fix-gen → 测试任务 → test-cycle-execute → 测试通过
 
 Chain:
 1. /workflow:brainstorm:auto-parallel --yes "Explore solutions for real-time..."
 2. /workflow:plan --yes "Implement chosen notification approach..."
 3. /workflow:plan-verify --yes --session="WFS-xxx"
 4. /workflow:execute --yes --resume-session="WFS-xxx"
-5. /workflow:test-cycle-execute --yes --session="WFS-xxx"
+5. /workflow:test-fix-gen --yes --session="WFS-xxx"
+6. /workflow:test-cycle-execute --yes --session="WFS-test-xxx"
 ```
 
 ### Multi-CLI Plan (Multi-Perspective Analysis)
@@ -817,12 +953,13 @@ Constraints: []
 Task Type: multi-cli
 
 Pipeline:
-需求 → multi-cli-plan → 对比计划 → lite-execute → 代码 → test-cycle-execute → 测试通过
+需求 → multi-cli-plan → 对比计划 → lite-execute → 代码 → test-fix-gen → 测试任务 → test-cycle-execute → 测试通过
 
 Chain:
 1. /workflow:multi-cli-plan --yes "Compare microservices vs monolith..."
 2. /workflow:lite-execute --yes --in-memory
-3. /workflow:test-cycle-execute --yes --session="WFS-xxx"
+3. /workflow:test-fix-gen --yes --session="WFS-xxx"
+4. /workflow:test-cycle-execute --yes --session="WFS-test-xxx"
 ```
 
 ## Execution Flow
@@ -886,18 +1023,32 @@ All from `~/.claude/commands/workflow/`:
 **Tools**: context-gather, test-context-gather, task-generate, conflict-resolution, action-plan-verify
 **Utility**: clean, init, replan
 
+### Testing Commands Distinction
+
+| Command | Purpose | Output | Follow-up |
+|---------|---------|--------|-----------|
+| **test-gen** | 广泛测试示例生成并进行测试 | test-tasks (IMPL-001, IMPL-002) | `/workflow:execute` |
+| **test-fix-gen** | 针对特定问题生成测试并在测试中修正 | test-tasks | `/workflow:test-cycle-execute` |
+| **test-cycle-execute** | 执行测试周期（迭代测试和修复） | test-passed | N/A (终点) |
+
+**流程说明**:
+- **test-gen → execute**: 生成全面的测试套件，execute 执行生成和测试
+- **test-fix-gen → test-cycle-execute**: 针对特定问题生成修复任务，test-cycle-execute 迭代测试和修复直到通过
+
 ### Task Type Routing (Pipeline View)
+
+**Note**: `【 】` marks Minimum Execution Units (最小执行单元) - these commands must execute together.
 
 | Task Type | Pipeline |
 |-----------|----------|
-| **feature** (simple) | 需求 → lite-plan → 计划 → lite-execute → 代码 → test-cycle-execute → 测试通过 |
-| **feature** (complex) | 需求 → plan → 详细计划 → plan-verify → 验证计划 → execute → 代码 → review-session-cycle → 审查通过 → test-cycle-execute → 测试通过 |
-| **bugfix** | Bug报告 → lite-fix → 修复代码 → test-cycle-execute → 测试通过 |
+| **feature** (simple) | 需求 →【lite-plan → lite-execute】→ 代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 |
+| **feature** (complex) | 需求 →【plan → plan-verify】→ 验证计划 → execute → 代码 →【review-session-cycle → review-fix】→ 修复代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 |
+| **bugfix** | Bug报告 → lite-fix → 修复代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 |
 | **tdd** | 需求 → tdd-plan → TDD任务 → execute → 代码 → tdd-verify → TDD验证通过 |
-| **test-fix** | 失败测试 → test-fix-gen → 测试任务 → test-cycle-execute → 测试通过 |
-| **test-gen** | 代码 → test-gen → 测试 → test-cycle-execute → 测试通过 |
-| **review** | 代码 → review → 审查发现 → review-fix → 修复代码 → test-cycle-execute → 测试通过 |
-| **brainstorm** | 探索主题 → brainstorm:auto-parallel → 分析结果 → plan → 详细计划 → execute → 代码 → test-cycle-execute → 测试通过 |
-| **multi-cli** | 需求 → multi-cli-plan → 对比计划 → lite-execute → 代码 → test-cycle-execute → 测试通过 |
+| **test-fix** | 失败测试 →【test-fix-gen → test-cycle-execute】→ 测试通过 |
+| **test-gen** | 代码/会话 →【test-gen → execute】→ 测试通过 |
+| **review** | 代码 →【review-session-cycle/review-module-cycle → review-fix】→ 修复代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 |
+| **brainstorm** | 探索主题 → brainstorm:auto-parallel → 分析结果 →【plan → plan-verify】→ 验证计划 → execute → 代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 |
+| **multi-cli** | 需求 → multi-cli-plan → 对比计划 → lite-execute → 代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 |
 
 Use `CommandRegistry.getAllCommandsSummary()` to discover all commands dynamically.

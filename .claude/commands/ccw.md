@@ -9,6 +9,28 @@ allowed-tools: SlashCommand(*), TodoWrite(*), AskUserQuestion(*), Read(*), Grep(
 
 Main process orchestrator: intent analysis → workflow selection → command chain execution.
 
+## Core Concept: Minimum Execution Units (最小执行单元)
+
+**Definition**: A set of commands that must execute together as an atomic group to achieve a meaningful workflow milestone.
+
+**Why This Matters**:
+- **Prevents Incomplete States**: Avoid stopping after task generation without execution
+- **User Experience**: User gets complete results, not intermediate artifacts requiring manual follow-up
+- **Workflow Integrity**: Maintains logical coherence of multi-step operations
+
+**Key Units in CCW**:
+
+| Unit Type | Pattern | Example |
+|-----------|---------|---------|
+| **Planning + Execution** | plan-cmd → execute-cmd | lite-plan → lite-execute |
+| **Testing** | test-gen-cmd → test-exec-cmd | test-fix-gen → test-cycle-execute |
+| **Review** | review-cmd → fix-cmd | review-session-cycle → review-fix |
+
+**Atomic Rules**:
+1. CCW automatically groups commands into minimum units - never splits them
+2. Pipeline visualization shows units with `【 】` markers
+3. Error handling preserves unit boundaries (retry/skip affects whole unit)
+
 ## Execution Model
 
 **Synchronous (Main Process)**: Commands execute via SlashCommand in main process, blocking until complete.
@@ -105,7 +127,7 @@ function selectWorkflow(analysis) {
   return buildCommandChain(selected, analysis);
 }
 
-// Build command chain (port-based matching)
+// Build command chain (port-based matching with Minimum Execution Units)
 function buildCommandChain(workflow, analysis) {
   const chains = {
     // Level 1 - Rapid
@@ -115,17 +137,24 @@ function buildCommandChain(workflow, analysis) {
 
     // Level 2 - Lightweight
     'rapid': [
-      { cmd: '/workflow:lite-plan', args: `"${analysis.goal}"` },
-      { cmd: '/workflow:lite-execute', args: '--in-memory' },
+      // Unit: Quick Implementation【lite-plan → lite-execute】
+      { cmd: '/workflow:lite-plan', args: `"${analysis.goal}"`, unit: 'quick-impl' },
+      { cmd: '/workflow:lite-execute', args: '--in-memory', unit: 'quick-impl' },
+      // Unit: Test Validation【test-fix-gen → test-cycle-execute】
       ...(analysis.constraints?.includes('skip-tests') ? [] : [
-        { cmd: '/workflow:test-cycle-execute', args: '' }
+        { cmd: '/workflow:test-fix-gen', args: '', unit: 'test-validation' },
+        { cmd: '/workflow:test-cycle-execute', args: '', unit: 'test-validation' }
       ])
     ],
 
     'bugfix.standard': [
-      { cmd: '/workflow:lite-fix', args: `"${analysis.goal}"` },
+      // Unit: Bug Fix【lite-fix → lite-execute】
+      { cmd: '/workflow:lite-fix', args: `"${analysis.goal}"`, unit: 'bug-fix' },
+      { cmd: '/workflow:lite-execute', args: '--in-memory', unit: 'bug-fix' },
+      // Unit: Test Validation【test-fix-gen → test-cycle-execute】
       ...(analysis.constraints?.includes('skip-tests') ? [] : [
-        { cmd: '/workflow:test-cycle-execute', args: '' }
+        { cmd: '/workflow:test-fix-gen', args: '', unit: 'test-validation' },
+        { cmd: '/workflow:test-cycle-execute', args: '', unit: 'test-validation' }
       ])
     ],
 
@@ -134,59 +163,80 @@ function buildCommandChain(workflow, analysis) {
     ],
 
     'multi-cli-plan': [
-      { cmd: '/workflow:multi-cli-plan', args: `"${analysis.goal}"` },
-      { cmd: '/workflow:lite-execute', args: '--in-memory' },
+      // Unit: Multi-CLI Planning【multi-cli-plan → lite-execute】
+      { cmd: '/workflow:multi-cli-plan', args: `"${analysis.goal}"`, unit: 'multi-cli' },
+      { cmd: '/workflow:lite-execute', args: '--in-memory', unit: 'multi-cli' },
+      // Unit: Test Validation【test-fix-gen → test-cycle-execute】
       ...(analysis.constraints?.includes('skip-tests') ? [] : [
-        { cmd: '/workflow:test-cycle-execute', args: '' }
+        { cmd: '/workflow:test-fix-gen', args: '', unit: 'test-validation' },
+        { cmd: '/workflow:test-cycle-execute', args: '', unit: 'test-validation' }
       ])
     ],
 
     'docs': [
-      { cmd: '/workflow:lite-plan', args: `"${analysis.goal}"` },
-      { cmd: '/workflow:lite-execute', args: '--in-memory' }
+      // Unit: Quick Implementation【lite-plan → lite-execute】
+      { cmd: '/workflow:lite-plan', args: `"${analysis.goal}"`, unit: 'quick-impl' },
+      { cmd: '/workflow:lite-execute', args: '--in-memory', unit: 'quick-impl' }
     ],
 
     // Level 3 - Standard
     'coupled': [
-      { cmd: '/workflow:plan', args: `"${analysis.goal}"` },
-      { cmd: '/workflow:plan-verify', args: '' },
+      // Unit: Verified Planning【plan → plan-verify】
+      { cmd: '/workflow:plan', args: `"${analysis.goal}"`, unit: 'verified-planning' },
+      { cmd: '/workflow:plan-verify', args: '', unit: 'verified-planning' },
+      // Execution
       { cmd: '/workflow:execute', args: '' },
-      { cmd: '/workflow:review-session-cycle', args: '' },
+      // Unit: Code Review【review-session-cycle → review-fix】
+      { cmd: '/workflow:review-session-cycle', args: '', unit: 'code-review' },
+      { cmd: '/workflow:review-fix', args: '', unit: 'code-review' },
+      // Unit: Test Validation【test-fix-gen → test-cycle-execute】
       ...(analysis.constraints?.includes('skip-tests') ? [] : [
-        { cmd: '/workflow:test-cycle-execute', args: '' }
+        { cmd: '/workflow:test-fix-gen', args: '', unit: 'test-validation' },
+        { cmd: '/workflow:test-cycle-execute', args: '', unit: 'test-validation' }
       ])
     ],
 
     'tdd': [
-      { cmd: '/workflow:tdd-plan', args: `"${analysis.goal}"` },
-      { cmd: '/workflow:execute', args: '' },
+      // Unit: TDD Planning + Execution【tdd-plan → execute】
+      { cmd: '/workflow:tdd-plan', args: `"${analysis.goal}"`, unit: 'tdd-planning' },
+      { cmd: '/workflow:execute', args: '', unit: 'tdd-planning' },
+      // TDD Verification
       { cmd: '/workflow:tdd-verify', args: '' }
     ],
 
     'test-fix-gen': [
-      { cmd: '/workflow:test-fix-gen', args: `"${analysis.goal}"` },
-      { cmd: '/workflow:test-cycle-execute', args: '' }
+      // Unit: Test Validation【test-fix-gen → test-cycle-execute】
+      { cmd: '/workflow:test-fix-gen', args: `"${analysis.goal}"`, unit: 'test-validation' },
+      { cmd: '/workflow:test-cycle-execute', args: '', unit: 'test-validation' }
     ],
 
     'review-fix': [
-      { cmd: '/workflow:review', args: '' },
-      { cmd: '/workflow:review-fix', args: '' },
-      { cmd: '/workflow:test-cycle-execute', args: '' }
+      // Unit: Code Review【review-session-cycle → review-fix】
+      { cmd: '/workflow:review-session-cycle', args: '', unit: 'code-review' },
+      { cmd: '/workflow:review-fix', args: '', unit: 'code-review' },
+      // Unit: Test Validation【test-fix-gen → test-cycle-execute】
+      { cmd: '/workflow:test-fix-gen', args: '', unit: 'test-validation' },
+      { cmd: '/workflow:test-cycle-execute', args: '', unit: 'test-validation' }
     ],
 
     'ui': [
       { cmd: '/workflow:ui-design:explore-auto', args: `"${analysis.goal}"` },
-      { cmd: '/workflow:plan', args: '' },
-      { cmd: '/workflow:execute', args: '' }
+      // Unit: Planning + Execution【plan → execute】
+      { cmd: '/workflow:plan', args: '', unit: 'plan-execute' },
+      { cmd: '/workflow:execute', args: '', unit: 'plan-execute' }
     ],
 
     // Level 4 - Brainstorm
     'full': [
       { cmd: '/workflow:brainstorm:auto-parallel', args: `"${analysis.goal}"` },
-      { cmd: '/workflow:plan', args: '' },
-      { cmd: '/workflow:plan-verify', args: '' },
+      // Unit: Verified Planning【plan → plan-verify】
+      { cmd: '/workflow:plan', args: '', unit: 'verified-planning' },
+      { cmd: '/workflow:plan-verify', args: '', unit: 'verified-planning' },
+      // Execution
       { cmd: '/workflow:execute', args: '' },
-      { cmd: '/workflow:test-cycle-execute', args: '' }
+      // Unit: Test Validation【test-fix-gen → test-cycle-execute】
+      { cmd: '/workflow:test-fix-gen', args: '', unit: 'test-validation' },
+      { cmd: '/workflow:test-cycle-execute', args: '', unit: 'test-validation' }
     ],
 
     // Issue Workflow
@@ -351,15 +401,17 @@ Phase 5: Execute Command Chain
 
 ---
 
-## Pipeline Examples
+## Pipeline Examples (with Minimum Execution Units)
 
-| Input | Type | Level | Commands |
-|-------|------|-------|----------|
-| "Add API endpoint" | feature (low) | 2 | lite-plan → lite-execute → test-cycle-execute |
-| "Fix login timeout" | bugfix | 2 | lite-fix → test-cycle-execute |
-| "OAuth2 system" | feature (high) | 3 | plan → plan-verify → execute → review-session-cycle → test-cycle-execute |
-| "Implement with TDD" | tdd | 3 | tdd-plan → execute → tdd-verify |
-| "Uncertain: real-time arch" | exploration | 4 | brainstorm:auto-parallel → plan → plan-verify → execute → test-cycle-execute |
+**Note**: `【 】` marks Minimum Execution Units - commands execute together as atomic groups.
+
+| Input | Type | Level | Pipeline (with Units) |
+|-------|------|-------|-----------------------|
+| "Add API endpoint" | feature (low) | 2 |【lite-plan → lite-execute】→【test-fix-gen → test-cycle-execute】|
+| "Fix login timeout" | bugfix | 2 |【lite-fix → lite-execute】→【test-fix-gen → test-cycle-execute】|
+| "OAuth2 system" | feature (high) | 3 |【plan → plan-verify】→ execute →【review-session-cycle → review-fix】→【test-fix-gen → test-cycle-execute】|
+| "Implement with TDD" | tdd | 3 |【tdd-plan → execute】→ tdd-verify |
+| "Uncertain: real-time arch" | exploration | 4 | brainstorm:auto-parallel →【plan → plan-verify】→ execute →【test-fix-gen → test-cycle-execute】|
 
 ---
 
@@ -368,10 +420,11 @@ Phase 5: Execute Command Chain
 1. **Main Process Execution** - Use SlashCommand in main process, no external CLI
 2. **Intent-Driven** - Auto-select workflow based on task intent
 3. **Port-Based Chaining** - Build command chain using port matching
-4. **Progressive Clarification** - Low clarity triggers clarification phase
-5. **TODO Tracking** - Use CCW prefix to isolate workflow todos
-6. **Error Resilient** - Support retry/skip/abort error handling
-7. **User Control** - Optional user confirmation at each phase
+4. **Minimum Execution Units** - Commands grouped into atomic units, never split (e.g., lite-plan → lite-execute)
+5. **Progressive Clarification** - Low clarity triggers clarification phase
+6. **TODO Tracking** - Use CCW prefix to isolate workflow todos
+7. **Unit-Aware Error Handling** - Retry/skip/abort affects whole unit, not individual commands
+8. **User Control** - Optional user confirmation at each phase
 
 ---
 
