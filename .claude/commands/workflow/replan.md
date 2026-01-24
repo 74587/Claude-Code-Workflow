@@ -1,7 +1,7 @@
 ---
 name: replan
 description: Interactive workflow replanning with session-level artifact updates and boundary clarification through guided questioning
-argument-hint: "[--session session-id] [task-id] \"requirements\"|file.md [--interactive]"
+argument-hint: "[-y|--yes] [--session session-id] [task-id] \"requirements\"|file.md [--interactive]"
 allowed-tools: Read(*), Write(*), Edit(*), TodoWrite(*), Glob(*), Bash(*)
 ---
 
@@ -117,9 +117,47 @@ const taskId = taskIdMatch?.[1]
 
 ---
 
+### Auto Mode Support
+
+When `--yes` or `-y` flag is used, the command skips interactive clarification and uses safe defaults:
+
+```javascript
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+```
+
+**Auto Mode Defaults**:
+- **Modification Scope**: `tasks_only` (safest - only update task details)
+- **Affected Modules**: All modules related to the task
+- **Task Changes**: `update_only` (no structural changes)
+- **Dependency Changes**: `no` (preserve existing dependencies)
+- **User Confirmation**: Auto-confirm execution
+
+**Note**: `--interactive` flag overrides `--yes` flag (forces interactive mode).
+
+---
+
 ### Phase 2: Interactive Requirement Clarification
 
 **Purpose**: Define modification scope through guided questioning
+
+**Auto Mode Check**:
+```javascript
+if (autoYes && !interactive) {
+  // Use defaults and skip to Phase 3
+  console.log(`[--yes] Using safe defaults for replan:`)
+  console.log(`  - Scope: tasks_only`)
+  console.log(`  - Changes: update_only`)
+  console.log(`  - Dependencies: preserve existing`)
+
+  userSelections = {
+    scope: 'tasks_only',
+    modules: 'all_affected',
+    task_changes: 'update_only',
+    dependency_changes: false
+  }
+  // Proceed to Phase 3
+}
+```
 
 #### Session Mode Questions
 
@@ -228,10 +266,29 @@ interface ImpactAnalysis {
 **Step 3.3: User Confirmation**
 
 ```javascript
-Options:
-- 确认执行: 开始应用所有修改
-- 调整计划: 重新回答问题调整范围
-- 取消操作: 放弃本次重规划
+// Parse --yes flag
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+
+if (autoYes) {
+  // Auto mode: Auto-confirm execution
+  console.log(`[--yes] Auto-confirming replan execution`)
+  userConfirmation = '确认执行'
+  // Proceed to Phase 4
+} else {
+  // Interactive mode: Ask user
+  AskUserQuestion({
+    questions: [{
+      question: "修改计划已生成，请确认操作:",
+      header: "Confirm",
+      options: [
+        { label: "确认执行", description: "开始应用所有修改" },
+        { label: "调整计划", description: "重新回答问题调整范围" },
+        { label: "取消操作", description: "放弃本次重规划" }
+      ],
+      multiSelect: false
+    }]
+  })
+}
 ```
 
 **Output**: Modification plan confirmed or adjusted

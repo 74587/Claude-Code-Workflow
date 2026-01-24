@@ -48,7 +48,19 @@ class CommandRegistry {
   }
 
   /**
-   * 解析 YAML 头
+   * 解析 YAML 头 (简化版本)
+   *
+   * 限制:
+   * - 只支持简单的 key: value 对 (单行值)
+   * - 不支持多行值、嵌套对象、复杂列表
+   * - allowed-tools 字段支持逗号分隔的字符串，自动转为数组
+   *
+   * 示例:
+   * ---
+   * name: lite-plan
+   * description: "Lightweight planning workflow"
+   * allowed-tools: Read, Write, Bash
+   * ---
    */
   parseYamlHeader(content) {
     // 处理 Windows 行结尾 (\r\n)
@@ -58,23 +70,36 @@ class CommandRegistry {
     const yamlContent = match[1];
     const result = {};
 
-    const lines = yamlContent.split(/[\r\n]+/);
-    for (const line of lines) {
-      if (!line.trim()) continue;
+    try {
+      const lines = yamlContent.split(/[\r\n]+/);
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue; // 跳过空行和注释
 
-      const colonIndex = line.indexOf(':');
-      if (colonIndex === -1) continue;
+        const colonIndex = trimmed.indexOf(':');
+        if (colonIndex === -1) continue;
 
-      const key = line.substring(0, colonIndex).trim();
-      const value = line.substring(colonIndex + 1).trim();
+        const key = trimmed.substring(0, colonIndex).trim();
+        const value = trimmed.substring(colonIndex + 1).trim();
 
-      let cleanValue = value.replace(/^["']|["']$/g, '');
+        if (!key) continue; // 跳过无效行
 
-      if (key === 'allowed-tools') {
-        cleanValue = cleanValue.split(',').map(t => t.trim());
+        // 去除引号 (单引号或双引号)
+        let cleanValue = value.replace(/^["']|["']$/g, '');
+
+        // allowed-tools 字段特殊处理：转为数组
+        // 支持格式: "Read, Write, Bash" 或 "Read,Write,Bash"
+        if (key === 'allowed-tools') {
+          cleanValue = Array.isArray(cleanValue)
+            ? cleanValue
+            : cleanValue.split(',').map(t => t.trim()).filter(t => t);
+        }
+
+        result[key] = cleanValue;
       }
-
-      result[key] = cleanValue;
+    } catch (error) {
+      console.error('YAML parsing error:', error.message);
+      return null;
     }
 
     return result;

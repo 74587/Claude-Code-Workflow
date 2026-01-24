@@ -1,9 +1,13 @@
 ---
 name: plan
 description: Batch plan issue resolution using issue-plan-agent (explore + plan closed-loop)
-argument-hint: "--all-pending <issue-id>[,<issue-id>,...] [--batch-size 3] "
+argument-hint: "[-y|--yes] --all-pending <issue-id>[,<issue-id>,...] [--batch-size 3]"
 allowed-tools: TodoWrite(*), Task(*), SlashCommand(*), AskUserQuestion(*), Bash(*), Read(*), Write(*)
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Auto-bind solutions without confirmation, use recommended settings.
 
 # Issue Plan Command (/issue:plan)
 

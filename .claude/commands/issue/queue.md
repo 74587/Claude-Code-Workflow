@@ -1,9 +1,13 @@
 ---
 name: queue
 description: Form execution queue from bound solutions using issue-queue-agent (solution-level)
-argument-hint: "[--queues <n>] [--issue <id>]"
+argument-hint: "[-y|--yes] [--queues <n>] [--issue <id>]"
 allowed-tools: TodoWrite(*), Task(*), Bash(*), Read(*), Write(*)
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Auto-confirm queue formation, use recommended conflict resolutions.
 
 # Issue Queue Command (/issue:queue)
 

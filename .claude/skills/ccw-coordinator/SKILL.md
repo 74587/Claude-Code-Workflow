@@ -45,6 +45,7 @@ allowed-tools: Task, AskUserQuestion, Read, Write, Bash, Glob, Grep
 5. **执行透明性**: 展示执行进度、结果和可能的错误
 6. **会话持久化**: 保存编排会话，支持中途暂停和恢复
 7. **智能提示词生成**: 根据任务上下文和前序产物自动生成 ccw cli 提示词
+8. **自动确认**: 所有命令自动添加 `-y` 参数，跳过交互式确认，实现无人值守执行
 
 ## Intelligent Prompt Generation
 

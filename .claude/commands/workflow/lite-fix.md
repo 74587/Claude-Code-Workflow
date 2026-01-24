@@ -1,7 +1,7 @@
 ---
 name: lite-fix
 description: Lightweight bug diagnosis and fix workflow with intelligent severity assessment and optional hotfix mode for production incidents
-argument-hint: "[--hotfix] \"bug description or issue reference\""
+argument-hint: "[-y|--yes] [--hotfix] \"bug description or issue reference\""
 allowed-tools: TodoWrite(*), Task(*), SlashCommand(*), AskUserQuestion(*)
 ---
 
@@ -25,10 +25,32 @@ Intelligent lightweight bug fixing command with dynamic workflow adaptation base
 /workflow:lite-fix [FLAGS] <BUG_DESCRIPTION>
 
 # Flags
+-y, --yes                  Skip all confirmations (auto mode)
 --hotfix, -h               Production hotfix mode (minimal diagnosis, fast fix)
 
 # Arguments
 <bug-description>          Bug description, error message, or path to .md file (required)
+
+# Examples
+/workflow:lite-fix "用户登录失败"                    # Interactive mode
+/workflow:lite-fix --yes "用户登录失败"              # Auto mode (no confirmations)
+/workflow:lite-fix -y --hotfix "生产环境数据库连接失败"   # Auto + hotfix mode
+```
+
+## Auto Mode Defaults
+
+When `--yes` or `-y` flag is used:
+- **Clarification Questions**: Skipped (no clarification phase)
+- **Fix Plan Confirmation**: Auto-selected "Allow"
+- **Execution Method**: Auto-selected "Auto"
+- **Code Review**: Auto-selected "Skip"
+- **Severity**: Uses auto-detected severity (no manual override)
+- **Hotfix Mode**: Respects --hotfix flag if present, otherwise normal mode
+
+**Flag Parsing**:
+```javascript
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+const hotfixMode = $ARGUMENTS.includes('--hotfix') || $ARGUMENTS.includes('-h')
 ```
 
 ## Execution Process
@@ -332,9 +354,17 @@ function deduplicateClarifications(clarifications) {
 
 const uniqueClarifications = deduplicateClarifications(allClarifications)
 
-// Multi-round clarification: batch questions (max 4 per round)
-// ⚠️ MUST execute ALL rounds until uniqueClarifications exhausted
-if (uniqueClarifications.length > 0) {
+// Parse --yes flag
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+
+if (autoYes) {
+  // Auto mode: Skip clarification phase
+  console.log(`[--yes] Skipping ${uniqueClarifications.length} clarification questions`)
+  console.log(`Proceeding to fix planning with diagnosis results...`)
+  // Continue to Phase 3
+} else if (uniqueClarifications.length > 0) {
+  // Interactive mode: Multi-round clarification
+  // ⚠️ MUST execute ALL rounds until uniqueClarifications exhausted
   const BATCH_SIZE = 4
   const totalRounds = Math.ceil(uniqueClarifications.length / BATCH_SIZE)
 
@@ -600,40 +630,60 @@ ${fixPlan.tasks.map((t, i) => `${i+1}. ${t.title} (${t.scope})`).join('\n')}
 
 **Step 4.2: Collect Confirmation**
 ```javascript
-AskUserQuestion({
-  questions: [
-    {
-      question: `Confirm fix plan? (${fixPlan.tasks.length} tasks, ${fixPlan.severity} severity)`,
-      header: "Confirm",
-      multiSelect: true,
-      options: [
-        { label: "Allow", description: "Proceed as-is" },
-        { label: "Modify", description: "Adjust before execution" },
-        { label: "Cancel", description: "Abort workflow" }
-      ]
-    },
-    {
-      question: "Execution method:",
-      header: "Execution",
-      multiSelect: false,
-      options: [
-        { label: "Agent", description: "@code-developer agent" },
-        { label: "Codex", description: "codex CLI tool" },
-        { label: "Auto", description: `Auto: ${fixPlan.severity === 'Low' ? 'Agent' : 'Codex'}` }
-      ]
-    },
-    {
-      question: "Code review after fix?",
-      header: "Review",
-      multiSelect: false,
-      options: [
-        { label: "Gemini Review", description: "Gemini CLI" },
-        { label: "Agent Review", description: "@code-reviewer" },
-        { label: "Skip", description: "No review" }
-      ]
-    }
-  ]
-})
+// Parse --yes flag
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+
+let userSelection
+
+if (autoYes) {
+  // Auto mode: Use defaults
+  console.log(`[--yes] Auto-confirming fix plan:`)
+  console.log(`  - Confirmation: Allow`)
+  console.log(`  - Execution: Auto`)
+  console.log(`  - Review: Skip`)
+
+  userSelection = {
+    confirmation: "Allow",
+    execution_method: "Auto",
+    code_review_tool: "Skip"
+  }
+} else {
+  // Interactive mode: Ask user
+  userSelection = AskUserQuestion({
+    questions: [
+      {
+        question: `Confirm fix plan? (${fixPlan.tasks.length} tasks, ${fixPlan.severity} severity)`,
+        header: "Confirm",
+        multiSelect: false,
+        options: [
+          { label: "Allow", description: "Proceed as-is" },
+          { label: "Modify", description: "Adjust before execution" },
+          { label: "Cancel", description: "Abort workflow" }
+        ]
+      },
+      {
+        question: "Execution method:",
+        header: "Execution",
+        multiSelect: false,
+        options: [
+          { label: "Agent", description: "@code-developer agent" },
+          { label: "Codex", description: "codex CLI tool" },
+          { label: "Auto", description: `Auto: ${fixPlan.severity === 'Low' ? 'Agent' : 'Codex'}` }
+        ]
+      },
+      {
+        question: "Code review after fix?",
+        header: "Review",
+        multiSelect: false,
+        options: [
+          { label: "Gemini Review", description: "Gemini CLI" },
+          { label: "Agent Review", description: "@code-reviewer" },
+          { label: "Skip", description: "No review" }
+        ]
+      }
+    ]
+  })
+}
 ```
 
 ---

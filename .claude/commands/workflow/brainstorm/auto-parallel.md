@@ -1,9 +1,13 @@
 ---
 name: auto-parallel
 description: Parallel brainstorming automation with dynamic role selection and concurrent execution across multiple perspectives
-argument-hint: "topic or challenge description" [--count N]
+argument-hint: "[-y|--yes] topic or challenge description [--count N]"
 allowed-tools: SlashCommand(*), Task(*), TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Auto-select recommended roles, skip all clarification questions, use default answers.
 
 # Workflow Brainstorm Parallel Auto Command
 

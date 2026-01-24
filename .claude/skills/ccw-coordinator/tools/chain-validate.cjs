@@ -254,8 +254,30 @@ function main() {
     chain = args[1].split(',').map(s => s.trim());
   } else if (args[0] === '--file') {
     const filePath = args[1];
-    const fileContent = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    chain = fileContent.chain || fileContent.steps.map(s => s.command);
+
+    // SEC-001: 路径遍历验证 - 只允许访问工作目录下的文件
+    const resolvedPath = path.resolve(filePath);
+    const workDir = path.resolve('.');
+    if (!resolvedPath.startsWith(workDir)) {
+      console.error('Error: File path must be within current working directory');
+      process.exit(1);
+    }
+
+    // CORR-001: JSON 解析错误处理
+    let fileContent;
+    try {
+      fileContent = JSON.parse(fs.readFileSync(resolvedPath, 'utf8'));
+    } catch (error) {
+      console.error(`Error: Failed to parse JSON file ${filePath}: ${error.message}`);
+      process.exit(1);
+    }
+
+    // CORR-002: 嵌套属性 null 检查
+    chain = fileContent.chain || fileContent.steps?.map(s => s.command) || [];
+    if (chain.length === 0) {
+      console.error('Error: No valid chain found in file (expected "chain" array or "steps" with "command" fields)');
+      process.exit(1);
+    }
   } else {
     chain = args;
   }

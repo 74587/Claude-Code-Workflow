@@ -66,8 +66,8 @@ for (let i = current_command_index; i < command_chain.length; i++) {
   const prompt = generatePrompt(cmd, state, commandMeta);
 
   try {
-    // 使用 ccw cli 执行
-    const result = Bash(`ccw cli -p "${prompt.replace(/"/g, '\\"')}" ${cmd.command}`, {
+    // 使用 ccw cli 执行（添加 -y 参数跳过确认）
+    const result = Bash(`ccw cli -p "${prompt.replace(/"/g, '\\"')}" ${cmd.command} -y`, {
       run_in_background: true
     });
 

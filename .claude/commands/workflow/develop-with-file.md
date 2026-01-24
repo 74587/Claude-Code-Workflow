@@ -1,9 +1,13 @@
 ---
 name: develop-with-file
 description: Multi-agent development workflow with documented progress, Gemini-guided planning, and incremental iteration support
-argument-hint: "\"feature description or task file.md\""
+argument-hint: "[-y|--yes] \"feature description or task file.md\""
 allowed-tools: TodoWrite(*), Task(*), AskUserQuestion(*), Read(*), Grep(*), Glob(*), Bash(*), Edit(*), Write(*)
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Auto-confirm all decisions (exploration, planning, execution, verification), use recommended settings.
 
 # Workflow Develop-With-File Command (/workflow:develop-with-file)
 

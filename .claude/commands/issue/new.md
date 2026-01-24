@@ -1,9 +1,13 @@
 ---
 name: new
 description: Create structured issue from GitHub URL or text description
-argument-hint: "<github-url | text-description> [--priority 1-5]"
+argument-hint: "[-y|--yes] <github-url | text-description> [--priority 1-5]"
 allowed-tools: TodoWrite(*), Bash(*), Read(*), AskUserQuestion(*), mcp__ace-tool__search_context(*)
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Skip clarification questions, create issue with inferred details.
 
 # Issue New Command (/issue:new)
 

@@ -1,7 +1,7 @@
 ---
 name: lite-execute
 description: Execute tasks based on in-memory plan, prompt description, or file content
-argument-hint: "[--in-memory] [\"task description\"|file-path]"
+argument-hint: "[-y|--yes] [--in-memory] [\"task description\"|file-path]"
 allowed-tools: TodoWrite(*), Task(*), Bash(*)
 ---
 
@@ -62,31 +62,49 @@ Flexible task execution command supporting three input modes: in-memory plan (fr
 
 **User Interaction**:
 ```javascript
-AskUserQuestion({
-  questions: [
-    {
-      question: "Select execution method:",
-      header: "Execution",
-      multiSelect: false,
-      options: [
-        { label: "Agent", description: "@code-developer agent" },
-        { label: "Codex", description: "codex CLI tool" },
-        { label: "Auto", description: "Auto-select based on complexity" }
-      ]
-    },
-    {
-      question: "Enable code review after execution?",
-      header: "Code Review",
-      multiSelect: false,
-      options: [
-        { label: "Skip", description: "No review" },
-        { label: "Gemini Review", description: "Gemini CLI tool" },
-        { label: "Codex Review", description: "Git-aware review (prompt OR --uncommitted)" },
-        { label: "Agent Review", description: "Current agent review" }
-      ]
-    }
-  ]
-})
+// Parse --yes flag
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+
+let userSelection
+
+if (autoYes) {
+  // Auto mode: Use defaults
+  console.log(`[--yes] Auto-confirming execution:`)
+  console.log(`  - Execution method: Auto`)
+  console.log(`  - Code review: Skip`)
+
+  userSelection = {
+    execution_method: "Auto",
+    code_review_tool: "Skip"
+  }
+} else {
+  // Interactive mode: Ask user
+  userSelection = AskUserQuestion({
+    questions: [
+      {
+        question: "Select execution method:",
+        header: "Execution",
+        multiSelect: false,
+        options: [
+          { label: "Agent", description: "@code-developer agent" },
+          { label: "Codex", description: "codex CLI tool" },
+          { label: "Auto", description: "Auto-select based on complexity" }
+        ]
+      },
+      {
+        question: "Enable code review after execution?",
+        header: "Code Review",
+        multiSelect: false,
+        options: [
+          { label: "Skip", description: "No review" },
+          { label: "Gemini Review", description: "Gemini CLI tool" },
+          { label: "Codex Review", description: "Git-aware review (prompt OR --uncommitted)" },
+          { label: "Agent Review", description: "Current agent review" }
+        ]
+      }
+    ]
+  })
+}
 ```
 
 ### Mode 3: File Content

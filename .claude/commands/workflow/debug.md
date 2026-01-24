@@ -1,9 +1,13 @@
 ---
 name: debug
 description: Interactive hypothesis-driven debugging with NDJSON logging, iterative until resolved
-argument-hint: "\"bug description or error message\""
+argument-hint: "[-y|--yes] \"bug description or error message\""
 allowed-tools: TodoWrite(*), Task(*), AskUserQuestion(*), Read(*), Grep(*), Glob(*), Bash(*), Edit(*), Write(*)
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Auto-confirm all decisions (hypotheses, fixes, iteration), use recommended settings.
 
 # Workflow Debug Command (/workflow:debug)
 

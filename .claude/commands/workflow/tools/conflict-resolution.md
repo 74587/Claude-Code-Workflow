@@ -1,11 +1,15 @@
 ---
 name: conflict-resolution
 description: Detect and resolve conflicts between plan and existing codebase using CLI-powered analysis with Gemini/Qwen
-argument-hint: "--session WFS-session-id --context path/to/context-package.json"
+argument-hint: "[-y|--yes] --session WFS-session-id --context path/to/context-package.json"
 examples:
   - /workflow:tools:conflict-resolution --session WFS-auth --context .workflow/active/WFS-auth/.process/context-package.json
-  - /workflow:tools:conflict-resolution --session WFS-payment --context .workflow/active/WFS-payment/.process/context-package.json
+  - /workflow:tools:conflict-resolution -y --session WFS-payment --context .workflow/active/WFS-payment/.process/context-package.json
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Auto-select recommended strategy for each conflict, skip clarification questions.
 
 # Conflict Resolution Command
 
@@ -209,6 +213,8 @@ Task(subagent_type="cli-execution-agent", run_in_background=false, prompt=`
 ### Phase 3: User Interaction Loop
 
 ```javascript
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+
 FOR each conflict:
   round = 0, clarified = false, userClarifications = []
 
@@ -216,8 +222,13 @@ FOR each conflict:
     // 1. Display conflict info (text output for context)
     displayConflictSummary(conflict)  // id, brief, severity, overlap_analysis if ModuleOverlap
 
-    // 2. Strategy selection via AskUserQuestion
-    AskUserQuestion({
+    // 2. Strategy selection
+    if (autoYes) {
+      console.log(`[--yes] Auto-selecting recommended strategy`)
+      selectedStrategy = conflict.strategies[conflict.recommended || 0]
+      clarified = true  // Skip clarification loop
+    } else {
+      AskUserQuestion({
       questions: [{
         question: formatStrategiesForDisplay(conflict.strategies),
         header: "策略选择",
@@ -230,18 +241,19 @@ FOR each conflict:
           { label: "自定义修改", description: `建议: ${conflict.modification_suggestions?.slice(0,2).join('; ')}` }
         ]
       }]
-    })
+      })
 
-    // 3. Handle selection
-    if (userChoice === "自定义修改") {
-      customConflicts.push({ id, brief, category, suggestions, overlap_analysis })
-      break
+      // 3. Handle selection
+      if (userChoice === "自定义修改") {
+        customConflicts.push({ id, brief, category, suggestions, overlap_analysis })
+        break
+      }
+
+      selectedStrategy = findStrategyByName(userChoice)
     }
 
-    selectedStrategy = findStrategyByName(userChoice)
-
     // 4. Clarification (if needed) - batched max 4 per call
-    if (selectedStrategy.clarification_needed?.length > 0) {
+    if (!autoYes && selectedStrategy.clarification_needed?.length > 0) {
       for (batch of chunk(selectedStrategy.clarification_needed, 4)) {
         AskUserQuestion({
           questions: batch.map((q, i) => ({

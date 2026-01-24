@@ -1,8 +1,10 @@
 ---
 name: complete
 description: Mark active workflow session as complete, archive with lessons learned, update manifest, remove active flag
+argument-hint: "[-y|--yes] [--detailed]"
 examples:
   - /workflow:session:complete
+  - /workflow:session:complete --yes
   - /workflow:session:complete --detailed
 ---
 
@@ -139,20 +141,41 @@ test -f .workflow/project-tech.json || echo "SKIP"
 After successful archival, prompt user to capture learnings:
 
 ```javascript
-AskUserQuestion({
-  questions: [{
-    question: "Would you like to solidify learnings from this session into project guidelines?",
-    header: "Solidify",
-    options: [
-      { label: "Yes, solidify now", description: "Extract learnings and update project-guidelines.json" },
-      { label: "Skip", description: "Archive complete, no learnings to capture" }
-    ],
-    multiSelect: false
-  }]
-})
+// Parse --yes flag
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+
+if (autoYes) {
+  // Auto mode: Skip solidify
+  console.log(`[--yes] Auto-selecting: Skip solidify`)
+  console.log(`Session archived successfully.`)
+  // Done - no solidify
+} else {
+  // Interactive mode: Ask user
+  AskUserQuestion({
+    questions: [{
+      question: "Would you like to solidify learnings from this session into project guidelines?",
+      header: "Solidify",
+      options: [
+        { label: "Yes, solidify now", description: "Extract learnings and update project-guidelines.json" },
+        { label: "Skip", description: "Archive complete, no learnings to capture" }
+      ],
+      multiSelect: false
+    }]
+  })
+
+  // **If "Yes, solidify now"**: Execute `/workflow:session:solidify` with the archived session ID.
+}
 ```
 
-**If "Yes, solidify now"**: Execute `/workflow:session:solidify` with the archived session ID.
+## Auto Mode Defaults
+
+When `--yes` or `-y` flag is used:
+- **Solidify Learnings**: Auto-selected "Skip" (archive only, no solidify)
+
+**Flag Parsing**:
+```javascript
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+```
 
 **Output**:
 ```

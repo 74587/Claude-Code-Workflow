@@ -1,9 +1,13 @@
 ---
 name: execute
 description: Execute queue with DAG-based parallel orchestration (one commit per solution)
-argument-hint: "--queue <queue-id> [--worktree [<existing-path>]]"
+argument-hint: "[-y|--yes] --queue <queue-id> [--worktree [<existing-path>]]"
 allowed-tools: TodoWrite(*), Bash(*), Read(*), AskUserQuestion(*)
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Auto-confirm execution, use recommended settings.
 
 # Issue Execute Command (/issue:execute)
 

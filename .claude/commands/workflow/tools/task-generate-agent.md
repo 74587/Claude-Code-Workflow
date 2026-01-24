@@ -1,10 +1,15 @@
 ---
 name: task-generate-agent
 description: Generate implementation plan documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) using action-planning-agent - produces planning artifacts, does NOT execute code implementation
-argument-hint: "--session WFS-session-id"
+argument-hint: "[-y|--yes] --session WFS-session-id"
 examples:
   - /workflow:tools:task-generate-agent --session WFS-auth
+  - /workflow:tools:task-generate-agent -y --session WFS-auth
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Skip user questions, use defaults (no materials, Agent executor, Codex CLI tool).
 
 # Generate Implementation Plan Command
 
@@ -67,9 +72,25 @@ Phase 3: Integration (+1 Coordinator, Multi-Module Only)
 
 **Purpose**: Collect user preferences before task generation to ensure generated tasks match execution expectations.
 
-**User Questions**:
+**Auto Mode Check**:
 ```javascript
-AskUserQuestion({
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+
+if (autoYes) {
+  console.log(`[--yes] Using defaults: No materials, Agent executor, Codex CLI`)
+  userConfig = {
+    supplementaryMaterials: { type: "none", content: [] },
+    executionMethod: "agent",
+    preferredCliTool: "codex",
+    enableResume: true
+  }
+  // Skip to Phase 1
+}
+```
+
+**User Questions** (skipped if autoYes):
+```javascript
+if (!autoYes) AskUserQuestion({
   questions: [
     {
       question: "Do you have supplementary materials or guidelines to include?",
@@ -104,11 +125,10 @@ AskUserQuestion({
     }
   ]
 })
-```
 
-**Handle Materials Response**:
+**Handle Materials Response** (skipped if autoYes):
 ```javascript
-if (userConfig.materials === "Provide file paths") {
+if (!autoYes && userConfig.materials === "Provide file paths") {
   // Follow-up question for file paths
   const pathsResponse = AskUserQuestion({
     questions: [{

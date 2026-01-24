@@ -1,9 +1,13 @@
 ---
 name: artifacts
 description: Interactive clarification generating confirmed guidance specification through role-based analysis and synthesis
-argument-hint: "topic or challenge description [--count N]"
+argument-hint: "[-y|--yes] topic or challenge description [--count N]"
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), AskUserQuestion(*)
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Auto-select recommended roles, skip all clarification questions, use default answers.
 
 ## Overview
 

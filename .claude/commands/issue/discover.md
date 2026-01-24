@@ -1,9 +1,13 @@
 ---
 name: issue:discover
 description: Discover potential issues from multiple perspectives (bug, UX, test, quality, security, performance, maintainability, best-practices) using CLI explore. Supports Exa external research for security and best-practices perspectives.
-argument-hint: "<path-pattern> [--perspectives=bug,ux,...] [--external]"
+argument-hint: "[-y|--yes] <path-pattern> [--perspectives=bug,ux,...] [--external]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*), AskUserQuestion(*), Glob(*), Grep(*)
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Auto-select all perspectives, skip confirmations.
 
 # Issue Discovery Command
 

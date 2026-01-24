@@ -1,8 +1,12 @@
 ---
 name: breakdown
 description: Decompose complex task into subtasks with dependency mapping, creates child task JSONs with parent references and execution order
-argument-hint: "task-id"
+argument-hint: "[-y|--yes] task-id"
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Auto-confirm breakdown, use recommended subtask structure.
 
 # Task Breakdown Command (/task:breakdown)
 

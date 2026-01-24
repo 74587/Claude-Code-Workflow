@@ -1,9 +1,13 @@
 ---
 name: issue:discover-by-prompt
 description: Discover issues from user prompt with Gemini-planned iterative multi-agent exploration. Uses ACE semantic search for context gathering and supports cross-module comparison (e.g., frontend vs backend API contracts).
-argument-hint: "<prompt> [--scope=src/**] [--depth=standard|deep] [--max-iterations=5]"
+argument-hint: "[-y|--yes] <prompt> [--scope=src/**] [--depth=standard|deep] [--max-iterations=5]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*), AskUserQuestion(*), Glob(*), Grep(*), mcp__ace-tool__search_context(*), mcp__exa__search(*)
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Auto-continue all iterations, skip confirmations.
 
 # Issue Discovery by Prompt
 

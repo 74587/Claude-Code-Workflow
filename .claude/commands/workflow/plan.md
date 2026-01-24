@@ -1,9 +1,13 @@
 ---
 name: plan
 description: 5-phase planning workflow with action-planning-agent task generation, outputs IMPL_PLAN.md and task JSONs
-argument-hint: "\"text description\"|file.md"
+argument-hint: "[-y|--yes] \"text description\"|file.md"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Auto-continue all phases (skip confirmations), use recommended conflict resolutions.
 
 # Workflow Plan Command (/workflow:plan)
 

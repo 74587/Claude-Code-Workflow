@@ -1,9 +1,13 @@
 ---
 name: workflow:lite-lite-lite
 description: Ultra-lightweight multi-tool analysis and direct execution. No artifacts for simple tasks; auto-creates planning docs in .workflow/.scratchpad/ for complex tasks. Auto tool selection based on task analysis, user-driven iteration via AskUser.
-argument-hint: "<task description>"
+argument-hint: "[-y|--yes] <task description>"
 allowed-tools: TodoWrite(*), Task(*), AskUserQuestion(*), Read(*), Bash(*), Write(*), mcp__ace-tool__search_context(*), mcp__ccw-tools__write_file(*)
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Skip clarification questions, auto-select tools, execute directly with recommended settings.
 
 # Ultra-Lite Multi-Tool Workflow
 

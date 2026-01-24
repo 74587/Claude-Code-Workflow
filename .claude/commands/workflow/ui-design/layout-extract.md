@@ -1,9 +1,13 @@
 ---
 name: layout-extract
 description: Extract structural layout information from reference images or text prompts using Claude analysis with variant generation or refinement mode
-argument-hint: [--design-id <id>] [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--targets "<list>"] [--variants <count>] [--device-type <desktop|mobile|tablet|responsive>] [--interactive] [--refine]
+argument-hint: "[-y|--yes] [--design-id <id>] [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--targets "<list>"] [--variants <count>] [--device-type <desktop|mobile|tablet|responsive>] [--interactive] [--refine]"
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), AskUserQuestion(*), Task(ui-design-agent), mcp__exa__web_search_exa(*)
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Skip all clarification questions, use AI-inferred layout decisions.
 
 # Layout Extraction Command
 

@@ -1,7 +1,7 @@
 ---
 name: lite-plan
 description: Lightweight interactive planning workflow with in-memory planning, code exploration, and execution execute to lite-execute after user confirmation
-argument-hint: "[-e|--explore] \"task description\"|file.md"
+argument-hint: "[-y|--yes] [-e|--explore] \"task description\"|file.md"
 allowed-tools: TodoWrite(*), Task(*), SlashCommand(*), AskUserQuestion(*)
 ---
 
@@ -25,10 +25,30 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 /workflow:lite-plan [FLAGS] <TASK_DESCRIPTION>
 
 # Flags
+-y, --yes                  Skip all confirmations (auto mode)
 -e, --explore              Force code exploration phase (overrides auto-detection)
 
 # Arguments
 <task-description>         Task description or path to .md file (required)
+
+# Examples
+/workflow:lite-plan "实现JWT认证"                    # Interactive mode
+/workflow:lite-plan --yes "实现JWT认证"              # Auto mode (no confirmations)
+/workflow:lite-plan -y -e "优化数据库查询性能"       # Auto mode + force exploration
+```
+
+## Auto Mode Defaults
+
+When `--yes` or `-y` flag is used:
+- **Clarification Questions**: Skipped (no clarification phase)
+- **Plan Confirmation**: Auto-selected "Allow"
+- **Execution Method**: Auto-selected "Auto"
+- **Code Review**: Auto-selected "Skip"
+
+**Flag Parsing**:
+```javascript
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+const forceExplore = $ARGUMENTS.includes('--explore') || $ARGUMENTS.includes('-e')
 ```
 
 ## Execution Process
@@ -323,8 +343,16 @@ explorations.forEach(exp => {
 // - Produce dedupedClarifications with unique intents only
 const dedupedClarifications = intelligentMerge(allClarifications)
 
-// Multi-round clarification: batch questions (max 4 per round)
-if (dedupedClarifications.length > 0) {
+// Parse --yes flag
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+
+if (autoYes) {
+  // Auto mode: Skip clarification phase
+  console.log(`[--yes] Skipping ${dedupedClarifications.length} clarification questions`)
+  console.log(`Proceeding to planning with exploration results...`)
+  // Continue to Phase 3
+} else if (dedupedClarifications.length > 0) {
+  // Interactive mode: Multi-round clarification
   const BATCH_SIZE = 4
   const totalRounds = Math.ceil(dedupedClarifications.length / BATCH_SIZE)
 
@@ -497,42 +525,62 @@ ${plan.tasks.map((t, i) => `${i+1}. ${t.title} (${t.file})`).join('\n')}
 
 **Step 4.2: Collect Confirmation**
 ```javascript
-// Note: Execution "Other" option allows specifying CLI tools from ~/.claude/cli-tools.json
-AskUserQuestion({
-  questions: [
-    {
-      question: `Confirm plan? (${plan.tasks.length} tasks, ${plan.complexity})`,
-      header: "Confirm",
-      multiSelect: true,
-      options: [
-        { label: "Allow", description: "Proceed as-is" },
-        { label: "Modify", description: "Adjust before execution" },
-        { label: "Cancel", description: "Abort workflow" }
-      ]
-    },
-    {
-      question: "Execution method:",
-      header: "Execution",
-      multiSelect: false,
-      options: [
-        { label: "Agent", description: "@code-developer agent" },
-        { label: "Codex", description: "codex CLI tool" },
-        { label: "Auto", description: `Auto: ${plan.complexity === 'Low' ? 'Agent' : 'Codex'}` }
-      ]
-    },
-    {
-      question: "Code review after execution?",
-      header: "Review",
-      multiSelect: false,
-      options: [
-        { label: "Gemini Review", description: "Gemini CLI review" },
-        { label: "Codex Review", description: "Git-aware review (prompt OR --uncommitted)" },
-        { label: "Agent Review", description: "@code-reviewer agent" },
-        { label: "Skip", description: "No review" }
-      ]
-    }
-  ]
-})
+// Parse --yes flag
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+
+let userSelection
+
+if (autoYes) {
+  // Auto mode: Use defaults
+  console.log(`[--yes] Auto-confirming plan:`)
+  console.log(`  - Confirmation: Allow`)
+  console.log(`  - Execution: Auto`)
+  console.log(`  - Review: Skip`)
+
+  userSelection = {
+    confirmation: "Allow",
+    execution_method: "Auto",
+    code_review_tool: "Skip"
+  }
+} else {
+  // Interactive mode: Ask user
+  // Note: Execution "Other" option allows specifying CLI tools from ~/.claude/cli-tools.json
+  userSelection = AskUserQuestion({
+    questions: [
+      {
+        question: `Confirm plan? (${plan.tasks.length} tasks, ${plan.complexity})`,
+        header: "Confirm",
+        multiSelect: false,
+        options: [
+          { label: "Allow", description: "Proceed as-is" },
+          { label: "Modify", description: "Adjust before execution" },
+          { label: "Cancel", description: "Abort workflow" }
+        ]
+      },
+      {
+        question: "Execution method:",
+        header: "Execution",
+        multiSelect: false,
+        options: [
+          { label: "Agent", description: "@code-developer agent" },
+          { label: "Codex", description: "codex CLI tool" },
+          { label: "Auto", description: `Auto: ${plan.complexity === 'Low' ? 'Agent' : 'Codex'}` }
+        ]
+      },
+      {
+        question: "Code review after execution?",
+        header: "Review",
+        multiSelect: false,
+        options: [
+          { label: "Gemini Review", description: "Gemini CLI review" },
+          { label: "Codex Review", description: "Git-aware review (prompt OR --uncommitted)" },
+          { label: "Agent Review", description: "@code-reviewer agent" },
+          { label: "Skip", description: "No review" }
+        ]
+      }
+    ]
+  })
+}
 ```
 
 ---

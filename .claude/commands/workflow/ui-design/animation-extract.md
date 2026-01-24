@@ -1,9 +1,13 @@
 ---
 name: animation-extract
 description: Extract animation and transition patterns from prompt inference and image references for design system documentation
-argument-hint: "[--design-id <id>] [--session <id>] [--images "<glob>"] [--focus "<types>"] [--interactive] [--refine]"
+argument-hint: "[-y|--yes] [--design-id <id>] [--session <id>] [--images "<glob>"] [--focus "<types>"] [--interactive] [--refine]"
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), AskUserQuestion(*), Task(ui-design-agent)
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Skip all clarification questions, use AI-inferred animation decisions.
 
 # Animation Extraction Command
 

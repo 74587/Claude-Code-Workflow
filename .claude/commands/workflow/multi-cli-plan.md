@@ -1,9 +1,13 @@
 ---
 name: workflow:multi-cli-plan
 description: Multi-CLI collaborative planning workflow with ACE context gathering and iterative cross-verification. Uses cli-discuss-agent for Gemini+Codex+Claude analysis to converge on optimal execution plan.
-argument-hint: "<task description> [--max-rounds=3] [--tools=gemini,codex] [--mode=parallel|serial]"
+argument-hint: "[-y|--yes] <task description> [--max-rounds=3] [--tools=gemini,codex] [--mode=parallel|serial]"
 allowed-tools: TodoWrite(*), Task(*), AskUserQuestion(*), Read(*), Bash(*), Write(*), mcp__ace-tool__search_context(*)
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Auto-approve plan, use recommended solution and execution method (Agent, Skip review).
 
 # Multi-CLI Collaborative Planning Command
 

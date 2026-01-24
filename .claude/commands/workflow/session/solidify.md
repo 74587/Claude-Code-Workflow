@@ -1,13 +1,17 @@
 ---
 name: solidify
 description: Crystallize session learnings and user-defined constraints into permanent project guidelines
-argument-hint: "[--type <convention|constraint|learning>] [--category <category>] \"rule or insight\""
+argument-hint: "[-y|--yes] [--type <convention|constraint|learning>] [--category <category>] \"rule or insight\""
 examples:
   - /workflow:session:solidify "Use functional components for all React code" --type convention
-  - /workflow:session:solidify "No direct DB access from controllers" --type constraint --category architecture
+  - /workflow:session:solidify -y "No direct DB access from controllers" --type constraint --category architecture
   - /workflow:session:solidify "Cache invalidation requires event sourcing" --type learning --category architecture
   - /workflow:session:solidify --interactive
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Auto-categorize and add guideline without confirmation.
 
 # Session Solidify Command (/workflow:session:solidify)
 

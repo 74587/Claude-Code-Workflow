@@ -1,9 +1,13 @@
 ---
 name: debug-with-file
 description: Interactive hypothesis-driven debugging with documented exploration, understanding evolution, and Gemini-assisted correction
-argument-hint: "\"bug description or error message\""
+argument-hint: "[-y|--yes] \"bug description or error message\""
 allowed-tools: TodoWrite(*), Task(*), AskUserQuestion(*), Read(*), Grep(*), Glob(*), Bash(*), Edit(*), Write(*)
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Auto-confirm all decisions (hypotheses, fixes, iteration), use recommended settings.
 
 # Workflow Debug-With-File Command (/workflow:debug-with-file)
 

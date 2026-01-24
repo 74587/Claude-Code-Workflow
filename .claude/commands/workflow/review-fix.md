@@ -606,5 +606,3 @@ Use `ccw view` to open the workflow dashboard in browser:
 ```bash
 ccw view
 ```
-
-

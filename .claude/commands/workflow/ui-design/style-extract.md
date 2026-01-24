@@ -1,9 +1,13 @@
 ---
 name: style-extract
 description: Extract design style from reference images or text prompts using Claude analysis with variant generation or refinement mode
-argument-hint: "[--design-id <id>] [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--variants <count>] [--interactive] [--refine]"
+argument-hint: "[-y|--yes] [--design-id <id>] [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--variants <count>] [--interactive] [--refine]"
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), AskUserQuestion(*)
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Skip all clarification questions, use AI-inferred design decisions.
 
 # Style Extraction Command
 

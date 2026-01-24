@@ -1,7 +1,7 @@
 ---
 name: execute
 description: Coordinate agent execution for workflow tasks with automatic session discovery, parallel task processing, and status tracking
-argument-hint: "[--resume-session=\"session-id\"]"
+argument-hint: "[-y|--yes] [--resume-session=\"session-id\"]"
 ---
 
 # Workflow Execute Command
@@ -10,6 +10,30 @@ argument-hint: "[--resume-session=\"session-id\"]"
 Orchestrates autonomous workflow execution through systematic task discovery, agent coordination, and progress tracking. **Executes entire workflow without user interruption** (except initial session selection if multiple active sessions exist), providing complete context to agents and ensuring proper flow control execution with comprehensive TodoWrite tracking.
 
 **Resume Mode**: When called with `--resume-session` flag, skips discovery phase and directly enters TodoWrite generation and agent execution for the specified session.
+
+## Usage
+
+```bash
+# Interactive mode (with confirmations)
+/workflow:execute
+/workflow:execute --resume-session="WFS-auth"
+
+# Auto mode (skip confirmations, use defaults)
+/workflow:execute --yes
+/workflow:execute -y
+/workflow:execute -y --resume-session="WFS-auth"
+```
+
+## Auto Mode Defaults
+
+When `--yes` or `-y` flag is used:
+- **Session Selection**: Automatically selects the first (most recent) active session
+- **Completion Choice**: Automatically completes session (runs `/workflow:session:complete --yes`)
+
+**Flag Parsing**:
+```javascript
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+```
 
 ## Performance Optimization Strategy
 
@@ -122,24 +146,38 @@ List sessions with metadata and prompt user selection:
 bash(for dir in .workflow/active/WFS-*/; do [ -d "$dir" ] || continue; session=$(basename "$dir"); project=$(jq -r '.project // "Unknown"' "${dir}workflow-session.json" 2>/dev/null || echo "Unknown"); total=$(grep -c '^\- \[' "${dir}TODO_LIST.md" 2>/dev/null || echo 0); completed=$(grep -c '^\- \[x\]' "${dir}TODO_LIST.md" 2>/dev/null || echo 0); if [ "$total" -gt 0 ]; then progress=$((completed * 100 / total)); else progress=0; fi; echo "$session | $project | $completed/$total tasks ($progress%)"; done)
 ```
 
-Use AskUserQuestion to present formatted options (max 4 options shown):
+**Parse --yes flag**:
 ```javascript
-// If more than 4 sessions, show most recent 4 with "Other" option for manual input
-const sessions = getActiveSessions()  // sorted by last modified
-const displaySessions = sessions.slice(0, 4)
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+```
 
-AskUserQuestion({
-  questions: [{
-    question: "Multiple active sessions detected. Select one:",
-    header: "Session",
-    multiSelect: false,
-    options: displaySessions.map(s => ({
-      label: s.id,
-      description: `${s.project} | ${s.progress}`
-    }))
-    // Note: User can select "Other" to manually enter session ID
-  }]
-})
+**Conditional Selection**:
+```javascript
+if (autoYes) {
+  // Auto mode: Select first session (most recent)
+  const firstSession = sessions[0]
+  console.log(`[--yes] Auto-selecting session: ${firstSession.id}`)
+  selectedSessionId = firstSession.id
+  // Continue to Phase 2
+} else {
+  // Interactive mode: Use AskUserQuestion to present formatted options (max 4 options shown)
+  // If more than 4 sessions, show most recent 4 with "Other" option for manual input
+  const sessions = getActiveSessions()  // sorted by last modified
+  const displaySessions = sessions.slice(0, 4)
+
+  AskUserQuestion({
+    questions: [{
+      question: "Multiple active sessions detected. Select one:",
+      header: "Session",
+      multiSelect: false,
+      options: displaySessions.map(s => ({
+        label: s.id,
+        description: `${s.project} | ${s.progress}`
+      }))
+      // Note: User can select "Other" to manually enter session ID
+    }]
+  })
+}
 ```
 
 **Input Validation**:
@@ -252,23 +290,33 @@ while (TODO_LIST.md has pending tasks) {
 6. **User Choice**: When all tasks finished, ask user to choose next step:
 
 ```javascript
-AskUserQuestion({
-  questions: [{
-    question: "All tasks completed. What would you like to do next?",
-    header: "Next Step",
-    multiSelect: false,
-    options: [
-      {
-        label: "Enter Review",
-        description: "Run specialized review (security/architecture/quality/action-items)"
-      },
-      {
-        label: "Complete Session",
-        description: "Archive session and update manifest"
-      }
-    ]
-  }]
-})
+// Parse --yes flag
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+
+if (autoYes) {
+  // Auto mode: Complete session automatically
+  console.log(`[--yes] Auto-selecting: Complete Session`)
+  SlashCommand("/workflow:session:complete --yes")
+} else {
+  // Interactive mode: Ask user
+  AskUserQuestion({
+    questions: [{
+      question: "All tasks completed. What would you like to do next?",
+      header: "Next Step",
+      multiSelect: false,
+      options: [
+        {
+          label: "Enter Review",
+          description: "Run specialized review (security/architecture/quality/action-items)"
+        },
+        {
+          label: "Complete Session",
+          description: "Archive session and update manifest"
+        }
+      ]
+    }]
+  })
+}
 ```
 
 **Based on user selection**:

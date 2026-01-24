@@ -1,7 +1,7 @@
 ---
 name: clean
 description: Intelligent code cleanup with mainline detection, stale artifact discovery, and safe execution
-argument-hint: "[--dry-run] [\"focus area\"]"
+argument-hint: "[-y|--yes] [--dry-run] [\"focus area\"]"
 allowed-tools: TodoWrite(*), Task(*), AskUserQuestion(*), Read(*), Glob(*), Bash(*), Write(*)
 ---
 
@@ -21,8 +21,22 @@ Intelligent cleanup command that explores the codebase to identify the developme
 
 ```bash
 /workflow:clean                          # Full intelligent cleanup (explore → analyze → confirm → execute)
+/workflow:clean --yes                    # Auto mode (use safe defaults, no confirmation)
 /workflow:clean --dry-run                # Explore and analyze only, no execution
-/workflow:clean "auth module"            # Focus cleanup on specific area
+/workflow:clean -y "auth module"         # Auto mode with focus area
+```
+
+## Auto Mode Defaults
+
+When `--yes` or `-y` flag is used:
+- **Categories to Clean**: Auto-selects `["Sessions"]` only (safest - only workflow sessions)
+- **Risk Level**: Auto-selects `"Low only"` (only low-risk items)
+- All confirmations skipped, proceeds directly to execution
+
+**Flag Parsing**:
+```javascript
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+const dryRun = $ARGUMENTS.includes('--dry-run')
 ```
 
 ## Execution Process
@@ -329,39 +343,57 @@ To execute cleanup: /workflow:clean
 
 **Step 3.3: User Confirmation**
 ```javascript
-AskUserQuestion({
-  questions: [
-    {
-      question: "Which categories to clean?",
-      header: "Categories",
-      multiSelect: true,
-      options: [
-        {
-          label: "Sessions",
-          description: `${manifest.summary.by_category.stale_sessions} stale workflow sessions`
-        },
-        {
-          label: "Documents",
-          description: `${manifest.summary.by_category.drifted_documents} drifted documents`
-        },
-        {
-          label: "Dead Code",
-          description: `${manifest.summary.by_category.dead_code} unused code files`
-        }
-      ]
-    },
-    {
-      question: "Risk level to include?",
-      header: "Risk",
-      multiSelect: false,
-      options: [
-        { label: "Low only", description: "Safest - only obviously stale items" },
-        { label: "Low + Medium", description: "Recommended - includes likely unused items" },
-        { label: "All", description: "Aggressive - includes high-risk items" }
-      ]
-    }
-  ]
-})
+// Parse --yes flag
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+
+let userSelection
+
+if (autoYes) {
+  // Auto mode: Use safe defaults
+  console.log(`[--yes] Auto-selecting safe cleanup defaults:`)
+  console.log(`  - Categories: Sessions only`)
+  console.log(`  - Risk level: Low only`)
+
+  userSelection = {
+    categories: ["Sessions"],
+    risk: "Low only"
+  }
+} else {
+  // Interactive mode: Ask user
+  userSelection = AskUserQuestion({
+    questions: [
+      {
+        question: "Which categories to clean?",
+        header: "Categories",
+        multiSelect: true,
+        options: [
+          {
+            label: "Sessions",
+            description: `${manifest.summary.by_category.stale_sessions} stale workflow sessions`
+          },
+          {
+            label: "Documents",
+            description: `${manifest.summary.by_category.drifted_documents} drifted documents`
+          },
+          {
+            label: "Dead Code",
+            description: `${manifest.summary.by_category.dead_code} unused code files`
+          }
+        ]
+      },
+      {
+        question: "Risk level to include?",
+        header: "Risk",
+        multiSelect: false,
+        options: [
+          { label: "Low only", description: "Safest - only obviously stale items" },
+          { label: "Low + Medium", description: "Recommended - includes likely unused items" },
+          { label: "All", description: "Aggressive - includes high-risk items" }
+        ]
+      }
+    ]
+  })
+}
 ```
 
 ---

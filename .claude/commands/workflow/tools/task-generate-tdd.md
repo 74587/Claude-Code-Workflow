@@ -1,10 +1,15 @@
 ---
 name: task-generate-tdd
 description: Autonomous TDD task generation using action-planning-agent with Red-Green-Refactor cycles, test-first structure, and cycle validation
-argument-hint: "--session WFS-session-id"
+argument-hint: "[-y|--yes] --session WFS-session-id"
 examples:
   - /workflow:tools:task-generate-tdd --session WFS-auth
+  - /workflow:tools:task-generate-tdd -y --session WFS-auth
 ---
+
+## Auto Mode
+
+When `--yes` or `-y`: Skip user questions, use defaults (no materials, Agent executor).
 
 # Autonomous TDD Task Generation Command
 
