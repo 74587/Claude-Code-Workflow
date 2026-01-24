@@ -5,23 +5,26 @@
 CCW 提供两类工作流体系：**主干工作流** (Main Workflow) 和 **Issue 工作流** (Issue Workflow)，它们协同覆盖软件开发的完整生命周期。
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          Main Workflow (主干工作流)                          │
-│                                                                             │
-│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐     │
-│  │   Level 1   │ → │   Level 2   │ → │   Level 3   │ → │   Level 4   │     │
-│  │   急速执行   │   │   轻量规划   │   │   标准规划   │   │  头脑风暴   │     │
-│  │             │   │             │   │             │   │             │     │
-│  │ lite-lite-  │   │ lite-plan   │   │    plan     │   │ brainstorm  │     │
-│  │    lite     │   │ lite-fix    │   │  tdd-plan   │   │  :auto-     │     │
-│  │             │   │ multi-cli-  │   │ test-fix-   │   │  parallel   │     │
-│  │             │   │    plan     │   │    gen      │   │     ↓       │     │
-│  │             │   │             │   │             │   │   plan      │     │
-│  └─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘     │
-│                                                                             │
-│  复杂度: ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━▶  │
-│          低                                                        高       │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────────────────────┐
+│                              Main Workflow (主干工作流)                                    │
+│                                                                                           │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────────────┐    │
+│  │ Level 1  │→ │ Level 2  │→ │ Level 3  │→ │ Level 4  │→ │       Level 5           │    │
+│  │ 急速执行  │  │ 轻量规划  │  │ 标准规划  │  │ 头脑风暴 │  │      智能编排            │    │
+│  │          │  │          │  │          │  │          │  │                          │    │
+│  │ lite-    │  │lite-plan │  │   plan   │  │brainstorm│  │   自动分析需求           │    │
+│  │ lite-    │  │lite-fix  │  │ tdd-plan │  │  :auto-  │  │   ↓                      │    │
+│  │ lite     │  │multi-cli-│  │test-fix- │  │ parallel │  │   智能推荐命令链         │    │
+│  │          │  │   plan   │  │   gen    │  │    ↓     │  │   ↓                      │    │
+│  │          │  │          │  │          │  │   plan   │  │   序列执行 (最小单元)    │    │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘  └──────────────────────────┘    │
+│                                                                                           │
+│  手动程度: ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━▶  │
+│            高 (手动选择每个命令)                                            低 (全自动)   │
+│                                                                                           │
+│  复杂度: ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━▶  │
+│          低                                                                        高     │
+└───────────────────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     │ 开发完成后
                                     ▼
@@ -496,6 +499,583 @@ Phase 3: Synthesis Integration
 
 ---
 
+## Level 5: 智能编排 (CCW Coordinator)
+
+**最智能 - 自动化命令链编排 + 序列执行 + 状态持久化**
+
+### 特点
+
+| 属性 | 值 |
+|------|-----|
+| **复杂度** | 高 |
+| **产物** | 完整编排会话状态 |
+| **状态** | 完整状态追踪 |
+| **执行模式** | 3 阶段智能编排 |
+| **适用** | 多命令协作、复杂流程自动化 |
+
+### 核心概念
+
+#### 全生命周期命令选择流程图
+
+```mermaid
+flowchart TD
+    Start([开始新任务]) --> Q0{这是Bug修复吗?}
+
+    Q0 -->|是| BugFix[🐛 Bug修复流程]
+    Q0 -->|否| Q1{知道要做什么吗?}
+
+    BugFix --> BugSeverity{了解问题根因?}
+    BugSeverity -->|清楚| LiteFix[/ /workflow:lite-fix<br>标准Bug修复 /]
+    BugSeverity -->|生产事故| HotFix[/ /workflow:lite-fix --hotfix<br>热修复模式 /]
+    BugSeverity -->|不清楚| BugDiag[/ /workflow:lite-fix<br>自动诊断根因 /]
+
+    BugDiag --> LiteFix
+    LiteFix --> BugComplete[Bug修复完成]
+    HotFix --> FollowUp[/ 自动生成跟进任务<br>全面修复+事后分析 /]
+    FollowUp --> BugComplete
+    BugComplete --> End([任务完成])
+
+    Q1 -->|不知道| Ideation[💡 构思阶段<br>需求探索]
+    Q1 -->|知道| Q2{知道怎么做吗?}
+
+    Ideation --> BrainIdea[/ /workflow:brainstorm:auto-parallel<br>探索产品方向和功能定位 /]
+    BrainIdea --> Q2
+
+    Q2 -->|不知道| Design[🏗️ 设计探索阶段<br>架构方案探索]
+    Q2 -->|知道| Q3{是否需要规划?}
+
+    Design --> BrainDesign[/ /workflow:brainstorm:auto-parallel<br>探索技术方案和架构 /]
+    BrainDesign --> Q3
+
+    Q3 -->|简单快速| LitePlan[⚡ 轻量规划<br>/workflow:lite-plan]
+    Q3 -->|复杂完整| FullPlan[📋 完整规划<br>/workflow:plan]
+
+    LitePlan --> Q4{需要代码探索?}
+    Q4 -->|需要| LitePlanE[/ /workflow:lite-plan -e<br>任务描述 /]
+    Q4 -->|不需要| LitePlanNormal[/ /workflow:lite-plan<br>任务描述 /]
+
+    LitePlanE --> LiteConfirm[三维确认:<br>1️⃣ 任务批准<br>2️⃣ 执行方式<br>3️⃣ 代码审查]
+    LitePlanNormal --> LiteConfirm
+
+    LiteConfirm --> Q5{选择执行方式}
+    Q5 -->|Agent| LiteAgent[/ /workflow:lite-execute<br>使用@code-developer /]
+    Q5 -->|CLI工具| LiteCLI[CLI执行<br>Gemini/Qwen/Codex]
+    Q5 -->|仅计划| UserImpl[用户手动实现]
+
+    FullPlan --> PlanVerify{验证计划质量?}
+    PlanVerify -->|是| Verify[/ /workflow:action-plan-verify /]
+    PlanVerify -->|否| Execute
+    Verify --> Q6{验证通过?}
+    Q6 -->|否| FixPlan[修复计划问题]
+    Q6 -->|是| Execute
+    FixPlan --> Execute
+
+    Execute[🚀 执行阶段<br>/workflow:execute]
+    LiteAgent --> TestDecision
+    LiteCLI --> TestDecision
+    UserImpl --> TestDecision
+    Execute --> TestDecision
+
+    TestDecision{需要测试吗?}
+    TestDecision -->|TDD模式| TDD[/ /workflow:tdd-plan<br>测试驱动开发 /]
+    TestDecision -->|后置测试| TestGen[/ /workflow:test-gen<br>生成测试 /]
+    TestDecision -->|已有测试| TestCycle[/ /workflow:test-cycle-execute<br>测试修复循环 /]
+    TestDecision -->|不需要| Review
+
+    TDD --> TDDExecute[/ /workflow:execute<br>Red-Green-Refactor /]
+    TDDExecute --> TDDVerify[/ /workflow:tdd-verify<br>验证TDD合规 /]
+    TDDVerify --> Review
+
+    TestGen --> TestExecute[/ /workflow:execute<br>执行测试任务 /]
+    TestExecute --> TestResult{测试通过?}
+    TestResult -->|否| TestCycle
+    TestResult -->|是| Review
+
+    TestCycle --> TestPass{通过率≥95%?}
+    TestPass -->|否,继续修复| TestCycle
+    TestPass -->|是| Review
+
+    Review[📝 审查阶段]
+    Review --> Q7{需要专项审查?}
+    Q7 -->|安全| SecurityReview[/ /workflow:review<br>--type security /]
+    Q7 -->|架构| ArchReview[/ /workflow:review<br>--type architecture /]
+    Q7 -->|质量| QualityReview[/ /workflow:review<br>--type quality /]
+    Q7 -->|综合| GeneralReview[/ /workflow:review<br>综合审查 /]
+    Q7 -->|不需要| Complete
+
+    SecurityReview --> Complete
+    ArchReview --> Complete
+    QualityReview --> Complete
+    GeneralReview --> Complete
+
+    Complete[✅ 完成阶段<br>/workflow:session:complete]
+    Complete --> End
+
+    style Start fill:#e1f5ff
+    style BugFix fill:#ffccbc
+    style LiteFix fill:#ffccbc
+    style HotFix fill:#ff8a65
+    style BugDiag fill:#ffccbc
+    style BugComplete fill:#c8e6c9
+    style End fill:#c8e6c9
+    style BrainIdea fill:#fff9c4
+    style BrainDesign fill:#fff9c4
+    style LitePlan fill:#b3e5fc
+    style FullPlan fill:#b3e5fc
+    style Execute fill:#c5e1a5
+    style TDD fill:#ffccbc
+    style TestGen fill:#ffccbc
+    style TestCycle fill:#ffccbc
+    style Review fill:#d1c4e9
+    style Complete fill:#c8e6c9
+```
+
+**流程图说明**:
+- 从"这是Bug修复吗？"开始的首要决策
+- 包含构思 (Ideation)、设计 (Design)、规划 (Planning)、执行 (Execution)、测试 (Testing)、审查 (Review) 完整阶段
+- 每个阶段都有具体的命令推荐
+- 支持轻量规划和完整规划两条路径
+- 包含测试决策（TDD、后置测试、测试修复）
+- 包含多种代码审查选项
+
+#### 最小执行单元 (Minimum Execution Units)
+
+**定义**: 一组必须一起执行的原子命令组合，分割后会破坏逻辑流程。
+
+**设计理念**:
+- **防止不完整状态**: 避免只生成任务但不执行
+- **用户体验**: 用户获得完整结果，而非中间产物
+- **工作流完整性**: 保持多步操作的逻辑连贯性
+
+**Planning + Execution Units** (规划+执行单元):
+
+| 单元名称 | 命令组合 | 目的 | 输出 |
+|---------|----------|------|------|
+| **Quick Implementation** | lite-plan → lite-execute | 轻量规划与立即执行 | 工作代码 |
+| **Multi-CLI Planning** | multi-cli-plan → lite-execute | 多视角分析与执行 | 工作代码 |
+| **Bug Fix** | lite-fix → lite-execute | 快速 Bug 诊断与修复执行 | 修复代码 |
+| **Full Planning + Execution** | plan → execute | 详细规划与执行 | 工作代码 |
+| **Verified Planning + Execution** | plan → plan-verify → execute | 规划验证与执行 | 工作代码 |
+| **Replanning + Execution** | replan → execute | 更新规划与执行 | 工作代码 |
+| **TDD Planning + Execution** | tdd-plan → execute | 测试驱动开发规划与执行 | 工作代码 |
+| **Test Generation + Execution** | test-gen → execute | 测试套件生成与执行 | 生成的测试 |
+
+**Testing Units** (测试单元):
+
+| 单元名称 | 命令组合 | 目的 | 输出 |
+|---------|----------|------|------|
+| **Test Validation** | test-fix-gen → test-cycle-execute | 生成测试任务并执行测试修复循环 | 测试通过 |
+
+**Review Units** (审查单元):
+
+| 单元名称 | 命令组合 | 目的 | 输出 |
+|---------|----------|------|------|
+| **Code Review (Session)** | review-session-cycle → review-fix | 完整审查循环与应用修复 | 修复代码 |
+| **Code Review (Module)** | review-module-cycle → review-fix | 模块审查循环与应用修复 | 修复代码 |
+
+### 3 阶段工作流程
+
+#### Phase 1: 需求分析 (Analyze Requirements)
+
+解析任务描述，提取关键信息：
+
+```javascript
+function analyzeRequirements(taskDescription) {
+  return {
+    goal: extractMainGoal(taskDescription),           // 主目标
+    scope: extractScope(taskDescription),             // 范围
+    constraints: extractConstraints(taskDescription), // 约束
+    complexity: determineComplexity(taskDescription), // 复杂度
+    task_type: detectTaskType(taskDescription)        // 任务类型
+  };
+}
+```
+
+**任务类型检测模式**:
+
+| 任务类型 | 检测关键词 | 示例 |
+|---------|-----------|------|
+| `bugfix` | fix, bug, error, crash, fail, debug | "修复登录超时问题" |
+| `tdd` | tdd, test-driven, 先写测试, test first | "用 TDD 开发支付模块" |
+| `test-fix` | 测试失败, test fail, fix test, failing test | "修复失败的集成测试" |
+| `test-gen` | generate test, 写测试, add test, 补充测试 | "为认证模块生成测试" |
+| `review` | review, 审查, code review | "审查支付模块代码" |
+| `brainstorm` | 不确定, explore, 研究, what if, 权衡 | "探索缓存方案" |
+| `multi-cli` | 多视角, 比较方案, cross-verify, multi-cli | "比较 OAuth 方案" |
+| `feature` | (默认) | "实现用户注册" |
+
+**复杂度评估**:
+
+| 权重 | 关键词 |
+|------|--------|
+| +2 | refactor, 重构, migrate, 迁移, architect, 架构, system, 系统 |
+| +2 | multiple, 多个, across, 跨, all, 所有, entire, 整个 |
+| +1 | integrate, 集成, api, database, 数据库 |
+| +1 | security, 安全, performance, 性能, scale, 扩展 |
+
+- **高复杂度** (≥4): 自动选择复杂工作流
+- **中复杂度** (2-3): 自动选择标准工作流
+- **低复杂度** (<2): 自动选择轻量工作流
+
+#### Phase 2: 命令发现与推荐 (Discover Commands & Recommend Chain)
+
+**命令端口系统** - 基于端口的动态命令链组装:
+
+```javascript
+// 命令端口定义示例
+const commandPorts = {
+  'lite-plan': {
+    input: ['requirement'],                    // 输入端口: 需求
+    output: ['plan'],                          // 输出端口: 计划
+    atomic_group: 'quick-implementation'       // 最小单元
+  },
+  'lite-execute': {
+    input: ['plan', 'multi-cli-plan', 'lite-fix'], // 可接受多种输入
+    output: ['code'],                          // 输出端口: 代码
+    atomic_groups: [                           // 可参与多个单元
+      'quick-implementation',
+      'multi-cli-planning',
+      'bug-fix'
+    ]
+  },
+  'plan': {
+    input: ['requirement'],
+    output: ['detailed-plan'],
+    atomic_groups: [
+      'full-planning-execution',
+      'verified-planning-execution'
+    ]
+  },
+  'execute': {
+    input: ['detailed-plan', 'verified-plan', 'replan', 'test-tasks', 'tdd-tasks'],
+    output: ['code'],
+    atomic_groups: [
+      'full-planning-execution',
+      'verified-planning-execution',
+      'replanning-execution',
+      'test-generation-execution',
+      'tdd-planning-execution'
+    ]
+  }
+};
+```
+
+**任务类型到端口流映射**:
+
+| 任务类型 | 输入端口 | 输出端口 | 示例管道 |
+|---------|---------|---------|---------|
+| `bugfix` | bug-report | test-passed | Bug报告 → lite-fix → 修复 → test-passed |
+| `tdd` | requirement | tdd-verified | 需求 → tdd-plan → execute → tdd-verify |
+| `test-fix` | failing-tests | test-passed | 失败测试 → test-fix-gen → test-cycle-execute |
+| `test-gen` | code/session | test-passed | 代码 → test-gen → execute → test-passed |
+| `review` | code/session | review-verified | 代码 → review-* → review-fix |
+| `feature` | requirement | code/test-passed | 需求 → plan → execute → code |
+
+**管道可视化示例**:
+
+```
+需求 → 【lite-plan → lite-execute】→ 代码 → 【test-fix-gen → test-cycle-execute】→ 测试通过
+       └──── Quick Implementation ────┘         └────── Test Validation ──────┘
+```
+
+**用户确认界面**:
+
+```
+Recommended Command Chain:
+
+Pipeline (管道视图):
+需求 → lite-plan → 计划 → lite-execute → 代码 → test-cycle-execute → 测试通过
+
+Commands (命令列表):
+1. /workflow:lite-plan
+2. /workflow:lite-execute
+3. /workflow:test-cycle-execute
+
+Proceed? [Confirm / Show Details / Adjust / Cancel]
+```
+
+#### Phase 3: 序列执行 (Execute Sequential Command Chain)
+
+**串行阻塞模型** - 一次执行一个命令，通过 hook 回调延续:
+
+```javascript
+async function executeCommandChain(chain, analysis) {
+  const sessionId = `ccw-coord-${Date.now()}`;
+  const stateDir = `.workflow/.ccw-coordinator/${sessionId}`;
+
+  // 初始化状态
+  const state = {
+    session_id: sessionId,
+    status: 'running',
+    created_at: new Date().toISOString(),
+    analysis: analysis,
+    command_chain: chain.map((cmd, idx) => ({ ...cmd, index: idx, status: 'pending' })),
+    execution_results: [],
+    prompts_used: []
+  };
+
+  // 立即保存初始状态
+  Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
+
+  // 执行第一个命令
+  for (let i = 0; i < chain.length; i++) {
+    const cmd = chain[i];
+
+    // 组装提示词
+    let prompt = formatCommand(cmd, state.execution_results, analysis);
+    prompt += `\n\nTask: ${analysis.goal}`;
+
+    // 启动后台 CLI 执行
+    const taskId = Bash(
+      `ccw cli -p "${escapePrompt(prompt)}" --tool claude --mode write`,
+      { run_in_background: true }
+    ).task_id;
+
+    // 保存检查点
+    state.execution_results.push({
+      index: i,
+      command: cmd.command,
+      status: 'in-progress',
+      task_id: taskId,
+      session_id: null,
+      artifacts: [],
+      timestamp: new Date().toISOString()
+    });
+    state.command_chain[i].status = 'running';
+    Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
+
+    // 立即停止，等待 hook 回调
+    break;
+  }
+
+  state.status = 'waiting';
+  Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
+
+  return state;
+}
+```
+
+**智能参数组装**:
+
+| 命令类型 | 参数模式 | 示例 |
+|---------|---------|------|
+| 规划命令 | 任务描述 | `/workflow:lite-plan -y "实现用户认证"` |
+| 执行命令 (有计划) | `--resume-session` | `/workflow:execute -y --resume-session="WFS-plan-001"` |
+| 执行命令 (独立) | `--in-memory` 或任务描述 | `/workflow:lite-execute -y --in-memory` |
+| 基于会话 | `--session` | `/workflow:test-fix-gen -y --session="WFS-impl-001"` |
+| Bug 修复 | 问题描述 | `/workflow:lite-fix -y "修复超时错误"` |
+
+### 状态文件结构
+
+**位置**: `.workflow/.ccw-coordinator/{session_id}/state.json`
+
+```json
+{
+  "session_id": "ccw-coord-20250124-143025",
+  "status": "running|waiting|completed|failed",
+  "created_at": "2025-01-24T14:30:25Z",
+  "updated_at": "2025-01-24T14:35:45Z",
+  "analysis": {
+    "goal": "实现用户注册",
+    "scope": ["authentication", "user_management"],
+    "constraints": ["no breaking changes"],
+    "complexity": "medium",
+    "task_type": "feature"
+  },
+  "command_chain": [
+    {
+      "index": 0,
+      "command": "/workflow:plan",
+      "name": "plan",
+      "description": "详细规划",
+      "status": "completed"
+    },
+    {
+      "index": 1,
+      "command": "/workflow:execute",
+      "name": "execute",
+      "description": "执行实现",
+      "status": "running"
+    },
+    {
+      "index": 2,
+      "command": "/workflow:test-cycle-execute",
+      "name": "test-cycle-execute",
+      "status": "pending"
+    }
+  ],
+  "execution_results": [
+    {
+      "index": 0,
+      "command": "/workflow:plan",
+      "status": "completed",
+      "task_id": "task-001",
+      "session_id": "WFS-plan-20250124",
+      "artifacts": ["IMPL_PLAN.md", "exploration-architecture.json"],
+      "timestamp": "2025-01-24T14:30:25Z",
+      "completed_at": "2025-01-24T14:30:45Z"
+    },
+    {
+      "index": 1,
+      "command": "/workflow:execute",
+      "status": "in-progress",
+      "task_id": "task-002",
+      "session_id": null,
+      "artifacts": [],
+      "timestamp": "2025-01-24T14:32:00Z"
+    }
+  ],
+  "prompts_used": [
+    {
+      "index": 0,
+      "command": "/workflow:plan",
+      "prompt": "/workflow:plan -y \"实现用户注册...\"\n\nTask: 实现用户注册..."
+    },
+    {
+      "index": 1,
+      "command": "/workflow:execute",
+      "prompt": "/workflow:execute -y --resume-session=\"WFS-plan-20250124\"\n\nTask: 实现用户注册\n\nPrevious results:\n- /workflow:plan: WFS-plan-20250124 (IMPL_PLAN.md)"
+    }
+  ]
+}
+```
+
+**状态流转**:
+
+```
+running → waiting → [hook callback] → waiting → [hook callback] → completed
+   ↓                                                                    ↑
+failed ←────────────────────────────────────────────────────────────┘
+```
+
+**状态值说明**:
+- `running`: 编排器主动执行 (启动 CLI 命令)
+- `waiting`: 暂停，等待 hook 回调触发继续
+- `completed`: 所有命令成功完成
+- `failed`: 用户中止或不可恢复错误
+
+### 产物结构
+
+```
+.workflow/.ccw-coordinator/{session_id}/
+└── state.json                        # 完整会话状态
+    ├── session_id                    # 会话 ID
+    ├── status                        # 当前状态
+    ├── analysis                      # 需求分析结果
+    ├── command_chain                 # 命令链定义
+    ├── execution_results             # 执行结果列表
+    └── prompts_used                  # 已使用的提示词
+```
+
+### 典型场景
+
+#### 场景 1: 简单功能开发
+
+```bash
+用户: "实现用户头像上传功能"
+
+# CCW Coordinator 自动执行:
+Phase 1: 分析
+  Goal: 实现用户头像上传
+  Complexity: simple
+  Task Type: feature
+
+Phase 2: 推荐命令链
+  Pipeline: 需求 → 【lite-plan → lite-execute】→ 代码 → 【test-fix-gen → test-cycle-execute】→ 测试通过
+  Commands: lite-plan, lite-execute, test-fix-gen, test-cycle-execute
+
+Phase 3: 用户确认并执行
+  → lite-plan: 生成规划 (内存)
+  → lite-execute: 实现代码
+  → test-fix-gen: 生成测试任务
+  → test-cycle-execute: 测试修复循环
+
+产物: .workflow/.ccw-coordinator/ccw-coord-20250124-xxx/state.json
+```
+
+#### 场景 2: Bug 修复
+
+```bash
+用户: "修复支付超时问题"
+
+# CCW Coordinator 自动执行:
+Phase 1: 分析
+  Goal: 修复支付超时
+  Task Type: bugfix
+
+Phase 2: 推荐命令链
+  Pipeline: Bug报告 → 【lite-fix → lite-execute】→ 修复 → 【test-fix-gen → test-cycle-execute】→ 测试通过
+  Commands: lite-fix, lite-execute, test-fix-gen, test-cycle-execute
+
+Phase 3: 执行
+  → lite-fix: 诊断根因，生成修复计划
+  → lite-execute: 应用修复
+  → test-fix-gen: 生成回归测试
+  → test-cycle-execute: 验证修复
+
+产物:
+  .workflow/.ccw-coordinator/ccw-coord-20250124-xxx/state.json
+  .workflow/.lite-fix/payment-timeout-20250124-xxx/diagnosis.json
+```
+
+#### 场景 3: 复杂功能开发
+
+```bash
+用户: "实现完整的实时协作编辑系统"
+
+# CCW Coordinator 自动执行:
+Phase 1: 分析
+  Goal: 实现实时协作编辑
+  Complexity: complex
+  Task Type: feature
+
+Phase 2: 推荐命令链
+  Pipeline: 需求 → 【plan → plan-verify → execute】→ 代码 → 【review-session-cycle → review-fix】→ 修复
+  Commands: plan, plan-verify, execute, review-session-cycle, review-fix
+
+Phase 3: 执行
+  → plan: 完整规划 (持久化)
+  → plan-verify: 验证计划质量
+  → execute: 实现功能
+  → review-session-cycle: 多维度审查
+  → review-fix: 应用审查修复
+
+产物:
+  .workflow/.ccw-coordinator/ccw-coord-20250124-xxx/state.json
+  .workflow/active/WFS-realtime-collab-xxx/IMPL_PLAN.md
+```
+
+### 命令
+
+```bash
+/ccw-coordinator "任务描述"
+# 自动分析、推荐命令链、用户确认、序列执行
+```
+
+### 适用场景
+
+- ✅ 需要多命令协作的复杂任务
+- ✅ 不确定需要哪些命令组合
+- ✅ 希望自动化端到端流程
+- ✅ 需要完整状态追踪和可恢复性
+- ✅ 团队协作需要统一执行流程
+- ❌ 单一简单命令即可完成
+- ❌ 已明确知道要用的具体命令
+
+### 与其他 Level 的关系
+
+| Level | 手动程度 | CCW Coordinator 角色 |
+|-------|---------|---------------------|
+| Level 1-4 | 手动选择命令 | 自动组合这些命令 |
+| Level 5 | 自动选择命令 | 智能编排器 |
+
+**CCW Coordinator 内部使用 Level 1-4 命令**:
+- 分析任务 → 自动选择合适的 Level
+- 组装命令链 → 包含 Level 1-4 的命令
+- 序列执行 → 按最小单元执行
+
+---
+
 ## Issue 工作流
 
 **主干工作流的补充 - 开发后的持续维护**
@@ -595,6 +1175,8 @@ Phase 3: Synthesis Integration
 | 测试驱动开发 | `tdd-plan → execute → tdd-verify` | 3 |
 | 测试失败修复 | `test-fix-gen → test-cycle-execute` | 3 |
 | 全新功能、架构设计 | `brainstorm:auto-parallel → plan → execute` | 4 |
+| 不确定需要哪些命令 | `ccw-coordinator` (自动分析) | 5 |
+| 需要端到端自动化 | `ccw-coordinator` (自动推荐+执行) | 5 |
 | 开发后问题修复 | Issue Workflow | - |
 
 ### 决策流程图
@@ -605,6 +1187,12 @@ Phase 3: Synthesis Integration
   ├─ 是开发后的维护问题？
   │     ├─ 是 → Issue Workflow
   │     └─ 否 ↓
+  │
+  ├─ 明确知道要用哪些命令？
+  │     ├─ 是 → 直接使用对应 Level 1-4 命令
+  │     └─ 否 → Level 5 (ccw-coordinator 自动编排)
+  │              │
+  │              └─ 自动分析 → 推荐命令链 → 用户确认 → 序列执行
   │
   ├─ 需求是否明确？
   │     ├─ 不确定 → Level 4 (brainstorm:auto-parallel)
@@ -713,6 +1301,7 @@ mcp__ace-tool__search_context({
 | **2** | 轻量规划 | `lite-plan`, `lite-fix`, `multi-cli-plan` | 内存/轻量文件 | → `lite-execute` |
 | **3** | 标准规划 | `plan`, `tdd-plan`, `test-fix-gen` | Session 持久化 | → `execute` / `test-cycle-execute` |
 | **4** | 头脑风暴 | `brainstorm:auto-parallel` → `plan` | 多角色分析 + Session | → `execute` |
+| **5** | 智能编排 | `ccw-coordinator` | 完整编排状态 | 自动分析 → 推荐链 → 序列执行 |
 | **-** | Issue | `discover` → `plan` → `queue` → `execute` | Issue 记录 | Worktree 隔离 (可选) |
 
 ### 核心原则
@@ -720,11 +1309,16 @@ mcp__ace-tool__search_context({
 1. **主干工作流**通过**依赖分析 + Agent 并行**解决并行问题，无需 worktree
 2. **Issue 工作流**作为**补充机制**，支持 worktree 隔离以保持主分支稳定
 3. 根据任务复杂度选择合适的工作流层级，**避免过度工程化**
-4. Level 2 的三个工作流选择依据：
+4. **Level 1-4** 手动选择具体命令，**Level 5** 自动编排命令链
+5. Level 2 的三个工作流选择依据：
    - 需求明确 → `lite-plan`
    - Bug 修复 → `lite-fix`
    - 需要多视角 → `multi-cli-plan`
-5. Level 3 的三个工作流选择依据：
+6. Level 3 的三个工作流选择依据：
    - 标准开发 → `plan`
    - 测试驱动 → `tdd-plan`
    - 测试修复 → `test-fix-gen`
+7. Level 5 的使用场景：
+   - 不确定需要哪些命令组合 → `ccw-coordinator`
+   - 需要端到端流程自动化 → `ccw-coordinator`
+   - 需要完整状态追踪和可恢复性 → `ccw-coordinator`
