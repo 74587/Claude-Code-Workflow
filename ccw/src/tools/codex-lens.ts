@@ -670,14 +670,26 @@ async function bootstrapWithUv(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResul
 
   if (!codexLensPath) {
     // codex-lens is a local-only package, not published to PyPI
+    // Generate dynamic paths for error message (cross-platform)
+    const possiblePaths = [
+      join(process.cwd(), 'codex-lens'),
+      join(__dirname, '..', '..', '..', 'codex-lens'),
+      join(homedir(), 'codex-lens'),
+    ];
+    const cwd = process.cwd();
+    const cwdParent = dirname(cwd);
+    if (cwdParent !== cwd) {
+      possiblePaths.push(join(cwdParent, 'codex-lens'));
+    }
+    const pathsList = possiblePaths.map(p => `   - ${p}`).join('\n');
+
     const errorMsg = `Cannot find codex-lens directory for local installation.\n\n` +
       `codex-lens is a local development package (not published to PyPI) and must be installed from local files.\n\n` +
       `To fix this:\n` +
-      `1. Ensure the 'codex-lens' directory exists in your project root\n` +
-      `   Expected location: D:\\Claude_dms3\\codex-lens\n` +
-      `2. Verify pyproject.toml exists: D:\\Claude_dms3\\codex-lens\\pyproject.toml\n` +
-      `3. Run ccw from the correct working directory (e.g., D:\\Claude_dms3)\n` +
-      `4. Or manually install: cd D:\\Claude_dms3\\codex-lens && pip install -e .[${extras.join(',')}]`;
+      `1. Ensure 'codex-lens' directory exists at one of these locations:\n${pathsList}\n` +
+      `2. Verify pyproject.toml exists in the codex-lens directory\n` +
+      `3. Run ccw from the correct working directory\n` +
+      `4. Or manually install: cd /path/to/codex-lens && pip install -e .[${extras.join(',')}]`;
     return { success: false, error: errorMsg };
   }
 
@@ -744,13 +756,26 @@ async function installSemanticWithUv(gpuMode: GpuMode = 'cpu'): Promise<Bootstra
   // Install with extras - UV handles dependency conflicts automatically
   if (!codexLensPath) {
     // codex-lens is a local-only package, not published to PyPI
+    // Generate dynamic paths for error message (cross-platform)
+    const possiblePaths = [
+      join(process.cwd(), 'codex-lens'),
+      join(__dirname, '..', '..', '..', 'codex-lens'),
+      join(homedir(), 'codex-lens'),
+    ];
+    const cwd = process.cwd();
+    const cwdParent = dirname(cwd);
+    if (cwdParent !== cwd) {
+      possiblePaths.push(join(cwdParent, 'codex-lens'));
+    }
+    const pathsList = possiblePaths.map(p => `   - ${p}`).join('\n');
+
     const errorMsg = `Cannot find codex-lens directory for local installation.\n\n` +
       `codex-lens is a local development package (not published to PyPI) and must be installed from local files.\n\n` +
       `To fix this:\n` +
-      `1. Ensure the 'codex-lens' directory exists in your project root\n` +
-      `2. Verify pyproject.toml exists in codex-lens directory\n` +
+      `1. Ensure 'codex-lens' directory exists at one of these locations:\n${pathsList}\n` +
+      `2. Verify pyproject.toml exists in the codex-lens directory\n` +
       `3. Run ccw from the correct working directory\n` +
-      `4. Or manually install: cd codex-lens && pip install -e .[${extras.join(',')}]`;
+      `4. Or manually install: cd /path/to/codex-lens && pip install -e .[${extras.join(',')}]`;
     return { success: false, error: errorMsg };
   }
 
