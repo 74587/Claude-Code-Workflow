@@ -401,7 +401,10 @@ async function executeCommandChain(chain, analysis) {
     state.updated_at = new Date().toISOString();
     Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
 
-    // Assemble prompt with previous results
+    // Assemble prompt: Task context + Command instruction
+    let promptContent = formatCommand(cmd, state.execution_results, analysis);
+
+    // Build full prompt with context
     let prompt = `Task: ${analysis.goal}\n`;
     if (state.execution_results.length > 0) {
       prompt += '\nPrevious results:\n';
@@ -411,7 +414,7 @@ async function executeCommandChain(chain, analysis) {
         }
       });
     }
-    prompt += `\n${formatCommand(cmd, state.execution_results, analysis)}\n`;
+    prompt += `\n${promptContent}`;
 
     // Record prompt used
     state.prompts_used.push({
@@ -421,9 +424,12 @@ async function executeCommandChain(chain, analysis) {
     });
 
     // Execute CLI command in background and stop
+    // Format: ccw cli -p "PROMPT" --tool <tool> --mode <mode>
+    // Note: -y is a command parameter INSIDE the prompt, not a ccw cli parameter
+    // Example prompt: "/workflow:plan -y \"task description here\""
     try {
       const taskId = Bash(
-        `ccw cli -p "${escapePrompt(prompt)}" --tool claude --mode write -y`,
+        `ccw cli -p "${escapePrompt(prompt)}" --tool claude --mode write`,
         { run_in_background: true }
       ).task_id;
 
@@ -486,69 +492,71 @@ async function executeCommandChain(chain, analysis) {
 }
 
 // Smart parameter assembly
+// Returns prompt content to be used with: ccw cli -p "RETURNED_VALUE" --tool claude --mode write
 function formatCommand(cmd, previousResults, analysis) {
-  let line = cmd.command + ' --yes';
+  // Format: /workflow:<command> -y <parameters>
+  let prompt = `/workflow:${cmd.name} -y`;
   const name = cmd.name;
 
   // Planning commands - take task description
   if (['lite-plan', 'plan', 'tdd-plan', 'multi-cli-plan'].includes(name)) {
-    line += ` "${analysis.goal}"`;
+    prompt += ` "${analysis.goal}"`;
 
   // Lite execution - use --in-memory if plan exists
   } else if (name === 'lite-execute') {
     const hasPlan = previousResults.some(r => r.command.includes('plan'));
-    line += hasPlan ? ' --in-memory' : ` "${analysis.goal}"`;
+    prompt += hasPlan ? ' --in-memory' : ` "${analysis.goal}"`;
 
   // Standard execution - resume from planning session
   } else if (name === 'execute') {
     const plan = previousResults.find(r => r.command.includes('plan'));
-    if (plan?.session_id) line += ` --resume-session="${plan.session_id}"`;
+    if (plan?.session_id) prompt += ` --resume-session="${plan.session_id}"`;
 
   // Bug fix commands - take bug description
   } else if (['lite-fix', 'debug'].includes(name)) {
-    line += ` "${analysis.goal}"`;
+    prompt += ` "${analysis.goal}"`;
 
   // Brainstorm - take topic description
   } else if (name === 'brainstorm:auto-parallel' || name === 'auto-parallel') {
-    line += ` "${analysis.goal}"`;
+    prompt += ` "${analysis.goal}"`;
 
   // Test generation from session - needs source session
   } else if (name === 'test-gen') {
     const impl = previousResults.find(r =>
       r.command.includes('execute') || r.command.includes('lite-execute')
     );
-    if (impl?.session_id) line += ` "${impl.session_id}"`;
-    else line += ` "${analysis.goal}"`;
+    if (impl?.session_id) prompt += ` "${impl.session_id}"`;
+    else prompt += ` "${analysis.goal}"`;
 
   // Test fix generation - session or description
   } else if (name === 'test-fix-gen') {
     const latest = previousResults.filter(r => r.session_id).pop();
-    if (latest?.session_id) line += ` "${latest.session_id}"`;
-    else line += ` "${analysis.goal}"`;
+    if (latest?.session_id) prompt += ` "${latest.session_id}"`;
+    else prompt += ` "${analysis.goal}"`;
 
   // Review commands - take session or use latest
   } else if (name === 'review') {
     const latest = previousResults.filter(r => r.session_id).pop();
-    if (latest?.session_id) line += ` --session="${latest.session_id}"`;
+    if (latest?.session_id) prompt += ` --session="${latest.session_id}"`;
 
   // Review fix - takes session from review
   } else if (name === 'review-fix') {
     const review = previousResults.find(r => r.command.includes('review'));
     const latest = review || previousResults.filter(r => r.session_id).pop();
-    if (latest?.session_id) line += ` --session="${latest.session_id}"`;
+    if (latest?.session_id) prompt += ` --session="${latest.session_id}"`;
 
   // TDD verify - takes execution session
   } else if (name === 'tdd-verify') {
     const exec = previousResults.find(r => r.command.includes('execute'));
-    if (exec?.session_id) line += ` --session="${exec.session_id}"`;
+    if (exec?.session_id) prompt += ` --session="${exec.session_id}"`;
 
   // Session-based commands (test-cycle, review-session, plan-verify)
   } else if (name.includes('test') || name.includes('review') || name.includes('verify')) {
     const latest = previousResults.filter(r => r.session_id).pop();
-    if (latest?.session_id) line += ` --session="${latest.session_id}"`;
+    if (latest?.session_id) prompt += ` --session="${latest.session_id}"`;
   }
 
-  return line;
+  return prompt;
 }
 
 // Hook callback: Called when background CLI completes
@@ -728,226 +736,68 @@ const cmd = registry.getCommand('lite-plan');
 // {name, command, description, argumentHint, allowedTools, filePath}
 ```
 
-## Execution Examples
+## Universal Prompt Template
 
-### Simple Feature
-```
-Goal: Add API endpoint for user profile
-Scope: [api]
-Complexity: simple
-Constraints: []
-Task Type: feature
+### Standard Format
 
-Pipeline (with Minimum Execution Units):
-需求 →【lite-plan → lite-execute】→ 代码 →【test-fix-gen → test-cycle-execute】→ 测试通过
-
-Chain:
-# Unit 1: Quick Implementation
-1. /workflow:lite-plan --yes "Add API endpoint..."
-2. /workflow:lite-execute --yes --in-memory
-
-# Unit 2: Test Validation
-3. /workflow:test-fix-gen --yes --session="WFS-xxx"
-4. /workflow:test-cycle-execute --yes --session="WFS-test-xxx"
+```bash
+ccw cli -p "PROMPT_CONTENT" --tool <tool> --mode <mode>
 ```
 
-### Complex Feature with Verification
+### Prompt Content Template
+
 ```
-Goal: Implement OAuth2 authentication system
-Scope: [auth, database, api, frontend]
-Complexity: complex
-Constraints: [no breaking changes]
-Task Type: feature
+Task: <task_description>
 
-Pipeline (with Minimum Execution Units):
-需求 →【plan → plan-verify】→ 验证计划 → execute → 代码
-     →【review-session-cycle → review-fix】→ 修复代码
-     →【test-fix-gen → test-cycle-execute】→ 测试通过
+<optional_previous_results>
 
-Chain:
-# Unit 1: Full Planning (plan + plan-verify)
-1. /workflow:plan --yes "Implement OAuth2..."
-2. /workflow:plan-verify --yes --session="WFS-xxx"
-
-# Execution phase
-3. /workflow:execute --yes --resume-session="WFS-xxx"
-
-# Unit 2: Code Review (review-session-cycle + review-fix)
-4. /workflow:review-session-cycle --yes --session="WFS-xxx"
-5. /workflow:review-fix --yes --session="WFS-xxx"
-
-# Unit 3: Test Validation (test-fix-gen + test-cycle-execute)
-6. /workflow:test-fix-gen --yes --session="WFS-xxx"
-7. /workflow:test-cycle-execute --yes --session="WFS-test-xxx"
+/workflow:<command> -y <command_parameters>
 ```
 
-### Quick Bug Fix
-```
-Goal: Fix login timeout issue
-Scope: [auth]
-Complexity: simple
-Constraints: [urgent]
-Task Type: bugfix
+### Template Variables
 
-Pipeline:
-Bug报告 → lite-fix → 修复代码 → test-fix-gen → 测试任务 → test-cycle-execute → 测试通过
+| Variable | Description | Examples |
+|----------|-------------|----------|
+| `<task_description>` | Brief task description | "Implement user authentication", "Fix memory leak" |
+| `<optional_previous_results>` | Context from previous commands | "Previous results:\n- /workflow:plan: WFS-xxx" |
+| `<command>` | Workflow command name | `plan`, `lite-execute`, `test-cycle-execute` |
+| `-y` | Auto-confirm flag (inside prompt) | Always include for automation |
+| `<command_parameters>` | Command-specific parameters | Task description, session ID, flags |
 
-Chain:
-1. /workflow:lite-fix --yes "Fix login timeout..."
-2. /workflow:test-fix-gen --yes --session="WFS-xxx"
-3. /workflow:test-cycle-execute --yes --session="WFS-test-xxx"
-```
+### Command Parameter Patterns
 
-### Skip Tests
-```
-Goal: Update documentation
-Scope: [docs]
-Complexity: simple
-Constraints: [skip-tests]
-Task Type: feature
+| Command Type | Parameter Pattern | Example |
+|--------------|------------------|---------|
+| **Planning** | `"task description"` | `/workflow:plan -y "Implement OAuth2"` |
+| **Execution (with plan)** | `--resume-session="WFS-xxx"` | `/workflow:execute -y --resume-session="WFS-plan-001"` |
+| **Execution (standalone)** | `--in-memory` or `"task"` | `/workflow:lite-execute -y --in-memory` |
+| **Session-based** | `--session="WFS-xxx"` | `/workflow:test-fix-gen -y --session="WFS-impl-001"` |
+| **Fix/Debug** | `"problem description"` | `/workflow:lite-fix -y "Fix timeout bug"` |
 
-Pipeline:
-需求 → lite-plan → 计划 → lite-execute → 代码
+### Complete Examples
 
-Chain:
-1. /workflow:lite-plan --yes "Update documentation..."
-2. /workflow:lite-execute --yes --in-memory
+**Planning Command**:
+```bash
+ccw cli -p 'Task: Implement user registration
+
+/workflow:plan -y "Implement user registration with email validation"' --tool claude --mode write
 ```
 
-### TDD Workflow
-```
-Goal: Implement user authentication with test-first approach
-Scope: [auth]
-Complexity: medium
-Constraints: [test-driven]
-Task Type: tdd
+**Execution with Context**:
+```bash
+ccw cli -p 'Task: Implement user registration
 
-Pipeline:
-需求 → tdd-plan → TDD任务 → execute → 代码 → tdd-verify → TDD验证通过
+Previous results:
+- /workflow:plan: WFS-plan-20250124 (IMPL_PLAN.md)
 
-Chain:
-1. /workflow:tdd-plan --yes "Implement user authentication..."
-2. /workflow:execute --yes --resume-session="WFS-xxx"
-3. /workflow:tdd-verify --yes --session="WFS-xxx"
+/workflow:execute -y --resume-session="WFS-plan-20250124"' --tool claude --mode write
 ```
 
-### Debug Workflow
-```
-Goal: Fix memory leak in WebSocket handler
-Scope: [websocket]
-Complexity: medium
-Constraints: [production-issue]
-Task Type: bugfix
+**Standalone Lite Execution**:
+```bash
+ccw cli -p 'Task: Fix login timeout
 
-Pipeline (快速修复):
-Bug报告 → lite-fix → 修复代码 → test-cycle-execute → 测试通过
-
-Pipeline (系统调试):
-Bug报告 → debug → 调试日志 → 分析定位 → 修复
-
-Chain:
-1. /workflow:lite-fix --yes "Fix memory leak in WebSocket..."
-2. /workflow:test-cycle-execute --yes --session="WFS-xxx"
-
-OR (for hypothesis-driven debugging):
-1. /workflow:debug --yes "Memory leak in WebSocket handler..."
-```
-
-### Test Fix Workflow
-```
-Goal: Fix failing authentication tests
-Scope: [auth, tests]
-Complexity: simple
-Constraints: []
-Task Type: test-fix
-
-Pipeline:
-失败测试 → test-fix-gen → 测试任务 → test-cycle-execute → 测试通过
-
-Chain:
-1. /workflow:test-fix-gen --yes "WFS-auth-impl-001"
-2. /workflow:test-cycle-execute --yes --session="WFS-test-xxx"
-```
-
-### Test Generation from Implementation
-```
-Goal: Generate comprehensive tests for completed user registration feature
-Scope: [auth, tests]
-Complexity: medium
-Constraints: []
-Task Type: test-gen
-
-Pipeline (with Minimum Execution Units):
-代码/会话 →【test-gen → execute】→ 测试通过
-
-Chain:
-# Unit: Test Generation (test-gen + execute)
-1. /workflow:test-gen --yes "WFS-registration-20250124"
-2. /workflow:execute --yes --session="WFS-test-registration"
-
-Note: test-gen creates IMPL-001 (test generation) and IMPL-002 (test execution & fix)
-      execute runs both tasks - this is a Minimum Execution Unit
-```
-
-### Review + Fix Workflow
-```
-Goal: Code review of payment module
-Scope: [payment]
-Complexity: medium
-Constraints: []
-Task Type: review
-
-Pipeline (with Minimum Execution Units):
-代码 →【review-session-cycle → review-fix】→ 修复代码
-     →【test-fix-gen → test-cycle-execute】→ 测试通过
-
-Chain:
-# Unit 1: Code Review (review-session-cycle + review-fix)
-1. /workflow:review-session-cycle --yes --session="WFS-payment-impl"
-2. /workflow:review-fix --yes --session="WFS-payment-impl"
-
-# Unit 2: Test Validation (test-fix-gen + test-cycle-execute)
-3. /workflow:test-fix-gen --yes --session="WFS-payment-impl"
-4. /workflow:test-cycle-execute --yes --session="WFS-test-payment-impl"
-```
-
-### Brainstorm Workflow (Uncertain Requirements)
-```
-Goal: Explore solutions for real-time notification system
-Scope: [notifications, architecture]
-Complexity: complex
-Constraints: []
-Task Type: brainstorm
-
-Pipeline:
-探索主题 → brainstorm:auto-parallel → 分析结果 → plan → 详细计划
-     → plan-verify → 验证计划 → execute → 代码 → test-fix-gen → 测试任务 → test-cycle-execute → 测试通过
-
-Chain:
-1. /workflow:brainstorm:auto-parallel --yes "Explore solutions for real-time..."
-2. /workflow:plan --yes "Implement chosen notification approach..."
-3. /workflow:plan-verify --yes --session="WFS-xxx"
-4. /workflow:execute --yes --resume-session="WFS-xxx"
-5. /workflow:test-fix-gen --yes --session="WFS-xxx"
-6. /workflow:test-cycle-execute --yes --session="WFS-test-xxx"
-```
-
-### Multi-CLI Plan (Multi-Perspective Analysis)
-```
-Goal: Compare microservices vs monolith architecture
-Scope: [architecture]
-Complexity: complex
-Constraints: []
-Task Type: multi-cli
-
-Pipeline:
-需求 → multi-cli-plan → 对比计划 → lite-execute → 代码 → test-fix-gen → 测试任务 → test-cycle-execute → 测试通过
-
-Chain:
-1. /workflow:multi-cli-plan --yes "Compare microservices vs monolith..."
-2. /workflow:lite-execute --yes --in-memory
-3. /workflow:test-fix-gen --yes --session="WFS-xxx"
-4. /workflow:test-cycle-execute --yes --session="WFS-test-xxx"
+/workflow:lite-fix -y "Fix login timeout in auth module"' --tool claude --mode write
 ```
 
 ## Execution Flow
@@ -983,11 +833,49 @@ async function ccwCoordinator(taskDescription) {
 
 ## CLI Execution Model
 
-**Serial Blocking**: Commands execute one-by-one. After launching CLI in background, orchestrator stops immediately and waits for hook callback.
+### CLI Invocation Format
+
+**IMPORTANT**: The `ccw cli` command executes prompts through external tools. The format is:
+
+```bash
+ccw cli -p "PROMPT_CONTENT" --tool <tool> --mode <mode>
+```
+
+**Parameters**:
+- `-p "PROMPT_CONTENT"`: The prompt content to execute (required)
+- `--tool <tool>`: CLI tool to use (e.g., `claude`, `gemini`, `qwen`)
+- `--mode <mode>`: Execution mode (`analysis` or `write`)
+
+**Note**: `-y` is a **command parameter inside the prompt**, NOT a `ccw cli` parameter.
+
+### Prompt Assembly
+
+The prompt content should include the workflow command with `-y` for auto-confirm:
+
+```
+/workflow:<command> -y "<task description or parameters>"
+```
+
+**Examples**:
+```bash
+# Planning command
+ccw cli -p "/workflow:plan -y \"Implement user registration feature\"" --tool claude --mode write
+
+# Execution command (with session reference)
+ccw cli -p "/workflow:execute -y --resume-session=\"WFS-plan-20250124\"" --tool claude --mode write
+
+# Lite execution (in-memory from previous plan)
+ccw cli -p "/workflow:lite-execute -y --in-memory" --tool claude --mode write
+```
+
+### Serial Blocking
+
+Commands execute one-by-one. After launching CLI in background, orchestrator stops immediately and waits for hook callback.
 
 ```javascript
 // Example: Execute command and stop
-const taskId = Bash(`ccw cli -p "..." --tool claude --mode write -y`, { run_in_background: true }).task_id;
+const prompt = '/workflow:plan -y "Implement user authentication"';
+const taskId = Bash(`ccw cli -p "${prompt}" --tool claude --mode write`, { run_in_background: true }).task_id;
 state.execution_results.push({ status: 'in-progress', task_id: taskId, ... });
 Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
 break; // Stop, wait for hook callback
@@ -1023,20 +911,20 @@ All from `~/.claude/commands/workflow/`:
 - **test-gen → execute**: 生成全面的测试套件，execute 执行生成和测试
 - **test-fix-gen → test-cycle-execute**: 针对特定问题生成修复任务，test-cycle-execute 迭代测试和修复直到通过
 
-### Task Type Routing (Pipeline View)
+### Task Type Routing (Pipeline Summary)
 
 **Note**: `【 】` marks Minimum Execution Units (最小执行单元) - these commands must execute together.
 
-| Task Type | Pipeline |
-|-----------|----------|
-| **feature** (simple) | 需求 →【lite-plan → lite-execute】→ 代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 |
-| **feature** (complex) | 需求 →【plan → plan-verify】→ 验证计划 → execute → 代码 →【review-session-cycle → review-fix】→ 修复代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 |
-| **bugfix** | Bug报告 → lite-fix → 修复代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 |
-| **tdd** | 需求 → tdd-plan → TDD任务 → execute → 代码 → tdd-verify → TDD验证通过 |
-| **test-fix** | 失败测试 →【test-fix-gen → test-cycle-execute】→ 测试通过 |
-| **test-gen** | 代码/会话 →【test-gen → execute】→ 测试通过 |
-| **review** | 代码 →【review-session-cycle/review-module-cycle → review-fix】→ 修复代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 |
-| **brainstorm** | 探索主题 → brainstorm:auto-parallel → 分析结果 →【plan → plan-verify】→ 验证计划 → execute → 代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 |
-| **multi-cli** | 需求 → multi-cli-plan → 对比计划 → lite-execute → 代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 |
+| Task Type | Pipeline | Minimum Units |
+|-----------|----------|---|
+| **feature** (simple) | 需求 →【lite-plan → lite-execute】→ 代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 | Quick Implementation + Test Validation |
+| **feature** (complex) | 需求 →【plan → plan-verify】→ validate → execute → 代码 → review → fix | Full Planning + Code Review + Testing |
+| **bugfix** | Bug报告 → lite-fix → 修复代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 | Bug Fix + Test Validation |
+| **tdd** | 需求 → tdd-plan → TDD任务 → execute → 代码 → tdd-verify | TDD Planning + Execution |
+| **test-fix** | 失败测试 →【test-fix-gen → test-cycle-execute】→ 测试通过 | Test Validation |
+| **test-gen** | 代码/会话 →【test-gen → execute】→ 测试通过 | Test Generation + Execution |
+| **review** | 代码 →【review-* → review-fix】→ 修复代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 | Code Review + Testing |
+| **brainstorm** | 探索主题 → brainstorm → 分析 →【plan → plan-verify】→ execute → test | Exploration + Planning + Execution |
+| **multi-cli** | 需求 → multi-cli-plan → 对比分析 → lite-execute → test | Multi-Perspective + Testing |
 
 Use `CommandRegistry.getAllCommandsSummary()` to discover all commands dynamically.
