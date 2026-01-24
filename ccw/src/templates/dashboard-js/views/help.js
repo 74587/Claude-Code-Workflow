@@ -726,7 +726,7 @@ function getWorkflowGraphData(workflow) {
         { data: { id: 'start', label: ht('help.workflows.planFull.start') } },
         { data: { id: 'cli-analyze', label: ht('help.workflows.planFull.cliAnalyze') } },
         { data: { id: 'plan', label: '/workflow:plan' } },
-        { data: { id: 'verify', label: '/workflow:action-plan-verify' } },
+        { data: { id: 'verify', label: '/workflow:plan-verify' } },
         { data: { id: 'execute', label: '/workflow:execute' } },
         { data: { id: 'test', label: '/workflow:test-gen' } },
         { data: { id: 'review', label: '/workflow:review' } },

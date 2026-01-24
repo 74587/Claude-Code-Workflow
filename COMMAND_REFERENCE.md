@@ -60,7 +60,7 @@ These commands orchestrate complex, multi-phase development processes, from plan
 
 | Command | Description |
 |---|---|
-| `/workflow:action-plan-verify`| Perform non-destructive cross-artifact consistency and quality analysis of IMPL_PLAN.md and task.json before execution. |
+| `/workflow:plan-verify`| Perform non-destructive cross-artifact consistency and quality analysis of IMPL_PLAN.md and task.json before execution. |
 
 ### Code Review Cycle
 

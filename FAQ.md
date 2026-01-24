@@ -665,7 +665,7 @@ CCW ensures dependencies are completed before dependent tasks execute.
 
 2. **Run verification**:
    ```bash
-   /workflow:action-plan-verify
+   /workflow:plan-verify
    ```
 
 3. **Automated reviews**:

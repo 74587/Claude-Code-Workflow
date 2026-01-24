@@ -22,7 +22,7 @@
     },
     "verify": {
       "description": "Plan and quality verification",
-      "commands": ["/workflow:action-plan-verify", "/workflow:tdd-verify"]
+      "commands": ["/workflow:plan-verify", "/workflow:tdd-verify"]
     },
     "execute": {
       "description": "Task execution and implementation",
@@ -152,7 +152,7 @@
       "artifacts": ".workflow/active/{session}/",
       "steps": [
         { "command": "/workflow:plan", "optional": false },
-        { "command": "/workflow:action-plan-verify", "optional": false, "auto_continue": true },
+        { "command": "/workflow:plan-verify", "optional": false, "auto_continue": true },
         { "command": "/workflow:execute", "optional": false },
         { "command": "/workflow:review", "optional": true }
       ],
@@ -171,7 +171,7 @@
       "steps": [
         { "command": "/workflow:brainstorm:auto-parallel", "optional": false, "confirm_before": true },
         { "command": "/workflow:plan", "optional": false },
-        { "command": "/workflow:action-plan-verify", "optional": true, "auto_continue": true },
+        { "command": "/workflow:plan-verify", "optional": true, "auto_continue": true },
         { "command": "/workflow:execute", "optional": false }
       ],
       "cli_hints": {
@@ -244,7 +244,7 @@
       "artifacts": ".workflow/active/{session}/",
       "steps": [
         { "command": "/workflow:tdd-plan", "optional": false },
-        { "command": "/workflow:action-plan-verify", "optional": true, "auto_continue": true },
+        { "command": "/workflow:plan-verify", "optional": true, "auto_continue": true },
         { "command": "/workflow:execute", "optional": false },
         { "command": "/workflow:tdd-verify", "optional": false }
       ],

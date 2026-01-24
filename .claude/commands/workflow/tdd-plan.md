@@ -449,11 +449,11 @@ User Configuration Applied:
    This is crucial for valid TDD - if you don't know why the test fails, you can't verify it tests the right thing.
 
 Recommended Next Steps:
-1. /workflow:action-plan-verify --session [sessionId]  # Verify TDD plan quality and dependencies
+1. /workflow:plan-verify --session [sessionId]  # Verify TDD plan quality and dependencies
 2. /workflow:execute --session [sessionId]  # Start TDD execution with CLI strategies
 3. /workflow:tdd-verify [sessionId]  # Post-execution TDD compliance check
 
-Quality Gate: Consider running /workflow:action-plan-verify to validate TDD task structure, dependencies, and CLI execution strategies
+Quality Gate: Consider running /workflow:plan-verify to validate TDD task structure, dependencies, and CLI execution strategies
 ```
 
 ## TodoWrite Pattern
@@ -531,7 +531,7 @@ TDD Workflow Orchestrator
 │
 └─ Phase 6: TDD Structure Validation
    └─ Internal validation + summary returned
-   └─ Recommend: /workflow:action-plan-verify
+   └─ Recommend: /workflow:plan-verify
 
 Key Points:
 • ← ATTACHED: SlashCommand attaches sub-tasks to orchestrator TodoWrite
@@ -598,7 +598,7 @@ Convert user input to TDD-structured format:
 - `/workflow:tools:task-generate-tdd` - Phase 5: Generate TDD tasks (CLI tool usage determined semantically)
 
 **Follow-up Commands**:
-- `/workflow:action-plan-verify` - Recommended: Verify TDD plan quality and structure before execution
+- `/workflow:plan-verify` - Recommended: Verify TDD plan quality and structure before execution
 - `/workflow:status` - Review TDD task breakdown
 - `/workflow:execute` - Begin TDD implementation
 - `/workflow:tdd-verify` - Post-execution: Verify TDD compliance and generate quality report
@@ -607,7 +607,7 @@ Convert user input to TDD-structured format:
 
 | Situation | Recommended Command | Purpose |
 |-----------|---------------------|---------|
-| First time planning | `/workflow:action-plan-verify` | Validate task structure before execution |
+| First time planning | `/workflow:plan-verify` | Validate task structure before execution |
 | Warnings in tdd-warnings.log | Review log, refine tasks | Address Red Flags before proceeding |
 | High task count warning | Consider `/workflow:session:start` | Split into focused sub-sessions |
 | Ready to implement | `/workflow:execute` | Begin TDD Red-Green-Refactor cycles |
@@ -620,7 +620,7 @@ Convert user input to TDD-structured format:
 ```
 /workflow:tdd-plan
         ↓
-[Planning Complete] ──→ /workflow:action-plan-verify (recommended)
+[Planning Complete] ──→ /workflow:plan-verify (recommended)
         ↓
 [Verified/Ready] ─────→ /workflow:execute
         ↓

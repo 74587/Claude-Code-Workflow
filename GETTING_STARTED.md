@@ -153,7 +153,7 @@ After planning, validate your implementation plan for consistency and completene
 
 ```bash
 # After /workflow:plan completes, verify task quality
-/workflow:action-plan-verify
+/workflow:plan-verify
 
 # The command will:
 # 1. Check requirements coverage (all requirements have tasks)

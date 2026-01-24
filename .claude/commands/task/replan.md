@@ -357,7 +357,7 @@ Review error details in summary report
 
 # No replan recommendations found
 Verification report contains no replan recommendations
-Check report content or use /workflow:action-plan-verify first
+Check report content or use /workflow:plan-verify first
 ```
 
 ## Batch Mode Integration

@@ -15,7 +15,7 @@
     "/workflow:review-session-cycle",
     "/memory:docs",
     "/workflow:brainstorm:artifacts",
-    "/workflow:action-plan-verify",
+    "/workflow:plan-verify",
     "/version"
   ],
 
@@ -69,7 +69,7 @@
       "difficulty": "Intermediate",
       "essential": true,
       "flow": {
-        "next_steps": ["/workflow:action-plan-verify", "/workflow:execute"],
+        "next_steps": ["/workflow:plan-verify", "/workflow:execute"],
         "alternatives": ["/workflow:tdd-plan"]
       },
       "source": "../../../commands/workflow/plan.md"
@@ -89,8 +89,8 @@
       "source": "../../../commands/workflow/execute.md"
     },
     {
-      "name": "action-plan-verify",
-      "command": "/workflow:action-plan-verify",
+      "name": "plan-verify",
+      "command": "/workflow:plan-verify",
       "description": "Cross-artifact consistency analysis",
       "arguments": "[--session session-id]",
       "category": "workflow",
@@ -100,7 +100,7 @@
         "prerequisites": ["/workflow:plan"],
         "next_steps": ["/workflow:execute"]
       },
-      "source": "../../../commands/workflow/action-plan-verify.md"
+      "source": "../../../commands/workflow/plan-verify.md"
     },
     {
       "name": "init",

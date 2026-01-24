@@ -310,7 +310,7 @@ Return: Summary + Next Steps
 
 ```bash
 /workflow:plan "task description"   # Complete planning
-/workflow:action-plan-verify        # Verify plan (recommended)
+/workflow:plan-verify        # Verify plan (recommended)
 /workflow:execute                   # Execute
 /workflow:review                    # (optional) Review
 ```
@@ -354,7 +354,7 @@ Phase 6: TDD Structure Validation
 
 ```bash
 /workflow:tdd-plan "feature description"  # TDD planning
-/workflow:action-plan-verify              # Verify (recommended)
+/workflow:plan-verify              # Verify (recommended)
 /workflow:execute                         # Execute (follow Red-Green-Refactor)
 /workflow:tdd-verify                      # Verify TDD compliance
 ```
@@ -454,7 +454,7 @@ Phase 3: Synthesis Integration
 ```bash
 /workflow:brainstorm:auto-parallel "topic" [--count N] [--style-skill package]
 /workflow:plan --session {sessionId}     # Plan based on brainstorm results
-/workflow:action-plan-verify             # Verify
+/workflow:plan-verify             # Verify
 /workflow:execute                        # Execute
 ```
 

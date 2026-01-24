@@ -46,7 +46,7 @@
 | `/workflow:review-session-cycle` | 会话审查 | L3 |
 | `/workflow:review-module-cycle` | 模块审查 | L3 |
 | `/workflow:review-fix` | 审查修复 | L3 |
-| `/workflow:action-plan-verify` | 计划验证 | L3 |
+| `/workflow:plan-verify` | 计划验证 | L3 |
 
 ### Documentation Commands
 
@@ -82,7 +82,7 @@
 
 ```
 1. /workflow:plan
-2. /workflow:action-plan-verify
+2. /workflow:plan-verify
 3. /workflow:execute
 4. /workflow:review-session-cycle
 ```
@@ -254,7 +254,7 @@ tdd-plan → lite-execute
 | review | review-session-cycle, review-module-cycle, review-fix |
 | bugfix | lite-fix, debug, debug-with-file |
 | maintenance | clean, replan |
-| verification | action-plan-verify, tdd-verify |
+| verification | plan-verify, tdd-verify |
 
 ### 兼容性矩阵
 

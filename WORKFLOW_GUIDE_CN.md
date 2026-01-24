@@ -309,7 +309,7 @@ Return: Summary + Next Steps
 
 ```bash
 /workflow:plan "task description"   # 完整规划
-/workflow:action-plan-verify        # 验证计划 (推荐)
+/workflow:plan-verify        # 验证计划 (推荐)
 /workflow:execute                   # 执行
 /workflow:review                    # (可选) 审查
 ```
@@ -353,7 +353,7 @@ Phase 6: TDD Structure Validation
 
 ```bash
 /workflow:tdd-plan "feature description"  # TDD 规划
-/workflow:action-plan-verify              # 验证 (推荐)
+/workflow:plan-verify              # 验证 (推荐)
 /workflow:execute                         # 执行 (遵循 Red-Green-Refactor)
 /workflow:tdd-verify                      # 验证 TDD 流程合规
 ```
@@ -453,7 +453,7 @@ Phase 3: Synthesis Integration
 ```bash
 /workflow:brainstorm:auto-parallel "topic" [--count N] [--style-skill package]
 /workflow:plan --session {sessionId}     # 基于头脑风暴结果规划
-/workflow:action-plan-verify             # 验证
+/workflow:plan-verify             # 验证
 /workflow:execute                        # 执行
 ```
 

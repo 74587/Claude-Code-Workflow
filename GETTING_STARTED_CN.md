@@ -158,7 +158,7 @@
 
 ```bash
 # /workflow:plan 完成后，验证任务质量
-/workflow:action-plan-verify
+/workflow:plan-verify
 
 # 该命令将：
 # 1. 检查需求覆盖率（所有需求都有任务）

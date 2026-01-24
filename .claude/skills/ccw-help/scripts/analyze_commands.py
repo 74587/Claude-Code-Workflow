@@ -144,7 +144,7 @@ def build_command_relationships() -> Dict[str, Any]:
     return {
         "workflow:plan": {
             "calls_internally": ["workflow:session:start", "workflow:tools:context-gather", "workflow:tools:conflict-resolution", "workflow:tools:task-generate-agent"],
-            "next_steps": ["workflow:action-plan-verify", "workflow:status", "workflow:execute"],
+            "next_steps": ["workflow:plan-verify", "workflow:status", "workflow:execute"],
             "alternatives": ["workflow:tdd-plan"],
             "prerequisites": []
         },
@@ -159,7 +159,7 @@ def build_command_relationships() -> Dict[str, Any]:
             "related": ["workflow:status", "workflow:resume"],
             "next_steps": ["workflow:review", "workflow:tdd-verify"]
         },
-        "workflow:action-plan-verify": {
+        "workflow:plan-verify": {
             "prerequisites": ["workflow:plan"],
             "next_steps": ["workflow:execute"],
             "related": ["workflow:status"]
@@ -217,7 +217,7 @@ def identify_essential_commands(all_commands: List[Dict]) -> List[Dict]:
         "workflow:execute", "workflow:status", "workflow:session:start",
         "workflow:review-session-cycle", "cli:analyze", "cli:chat",
         "memory:docs", "workflow:brainstorm:artifacts",
-        "workflow:action-plan-verify", "workflow:resume", "version"
+        "workflow:plan-verify", "workflow:resume", "version"
     ]
 
     essential = []
