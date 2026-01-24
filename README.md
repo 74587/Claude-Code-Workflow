@@ -275,8 +275,8 @@ Open Dashboard via `ccw view`, manage indexes and execute searches in **CodexLen
 </tr>
 <tr>
   <td><b>/ccw-coordinator</b></td>
-  <td>Manual orchestrator - recommends command chains, executes via external CLI with state persistence</td>
-  <td>🔧 Complex multi-step workflows, custom chains, resumable sessions</td>
+  <td>Smart orchestrator - intelligently recommends command chains, allows manual adjustment, executes via external CLI with state persistence</td>
+  <td>🔧 Complex multi-step workflows, customizable chains, resumable sessions</td>
 </tr>
 </table>
 </div>
@@ -298,7 +298,7 @@ Open Dashboard via `ccw view`, manage indexes and execute searches in **CodexLen
 | Aspect | /ccw | /ccw-coordinator |
 |--------|------|------------------|
 | **Execution** | Main process (SlashCommand) | External CLI (background tasks) |
-| **Selection** | Auto intent-based | Manual chain confirmation |
+| **Selection** | Auto intent-based | Smart recommendation + optional adjustment |
 | **State** | TodoWrite tracking | Persistent state.json |
 | **Use Case** | General tasks, quick dev | Complex chains, resumable |
 

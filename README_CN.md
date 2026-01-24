@@ -275,8 +275,8 @@ codexlens index /path/to/project
 </tr>
 <tr>
   <td><b>/ccw-coordinator</b></td>
-  <td>手动编排器 - 推荐命令链、通过外部 CLI 执行、持久化状态</td>
-  <td>🔧 复杂多步骤工作流、自定义链、可恢复会话</td>
+  <td>智能编排器 - 智能推荐命令链、支持手动调整、通过外部 CLI 执行、持久化状态</td>
+  <td>🔧 复杂多步骤工作流、可自定义链、可恢复会话</td>
 </tr>
 </table>
 </div>
@@ -298,7 +298,7 @@ codexlens index /path/to/project
 | 方面 | /ccw | /ccw-coordinator |
 |------|------|------------------|
 | **执行方式** | 主进程（SlashCommand） | 外部 CLI（后台任务） |
-| **选择方式** | 自动基于意图识别 | 手动链确认 |
+| **选择方式** | 自动基于意图识别 | 智能推荐 + 可选调整 |
 | **状态管理** | TodoWrite 跟踪 | 持久化 state.json |
 | **适用场景** | 通用任务、快速开发 | 复杂链条、可恢复 |
 
