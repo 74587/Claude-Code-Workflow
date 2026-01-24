@@ -83,8 +83,8 @@ function findLocalPackagePath(packageName: string): string | null {
     possiblePaths.push(join(cwdParent, packageName));
   }
 
+  // First pass: prefer non-node_modules paths (development environment)
   for (const localPath of possiblePaths) {
-    // Skip paths inside node_modules
     if (isInsideNodeModules(localPath)) {
       continue;
     }
@@ -94,8 +94,12 @@ function findLocalPackagePath(packageName: string): string | null {
     }
   }
 
-  if (!isDevEnvironment()) {
-    console.log(`[CodexLens] Running from node_modules - will try PyPI for ${packageName}`);
+  // Second pass: allow node_modules paths (NPM global install)
+  for (const localPath of possiblePaths) {
+    if (existsSync(join(localPath, 'pyproject.toml'))) {
+      console.log(`[CodexLens] Found ${packageName} in node_modules at: ${localPath}`);
+      return localPath;
+    }
   }
 
   return null;
