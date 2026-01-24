@@ -316,65 +316,60 @@ batch.forEach(id => updateTodo(id, 'completed'));
 function dispatchExecutor(solutionId, executorType, worktreePath = null) {
   // If worktree is provided, executor works in that directory
   // No per-solution worktree creation - ONE worktree for entire queue
-  const cdCommand = worktreePath ? `cd "${worktreePath}"` : '';
 
+  // Pre-defined values (replaced at dispatch time, NOT by executor)
+  const SOLUTION_ID = solutionId;
+  const WORK_DIR = worktreePath || null;
+
+  // Build prompt without markdown code blocks to avoid escaping issues
   const prompt = `
-## Execute Solution ${solutionId}
-${worktreePath ? `
-### Step 0: Enter Queue Worktree
-\`\`\`bash
-cd "${worktreePath}"
-\`\`\`
-` : ''}
-### Step 1: Get Solution (read-only)
-\`\`\`bash
-ccw issue detail ${solutionId}
-\`\`\`
+## Execute Solution: ${SOLUTION_ID}
+${WORK_DIR ? `Working Directory: ${WORK_DIR}` : ''}
+
+### Step 1: Get Solution Details
+Run this command to get the full solution with all tasks:
+  ccw issue detail ${SOLUTION_ID}
 
 ### Step 2: Execute All Tasks Sequentially
 The detail command returns a FULL SOLUTION with all tasks.
 Execute each task in order (T1 → T2 → T3 → ...):
 
 For each task:
-1. Follow task.implementation steps
-2. Run task.test commands
-3. Verify task.acceptance criteria
-(Do NOT commit after each task)
+- Follow task.implementation steps
+- Run task.test commands
+- Verify task.acceptance criteria
+- Do NOT commit after each task
 
 ### Step 3: Commit Solution (Once)
-After ALL tasks pass, commit once with formatted summary:
-\`\`\`bash
-git add <all-modified-files>
-git commit -m "[type](scope): [solution.description]
+After ALL tasks pass, commit once with formatted summary.
 
-## Solution Summary
-- Solution-ID: ${solutionId}
-- Tasks: T1, T2, ...
+Command:
+  git add -A
+  git commit -m "<type>(<scope>): <description>
 
-## Tasks Completed
-- [T1] task1.title: action
-- [T2] task2.title: action
+  Solution: ${SOLUTION_ID}
+  Tasks completed: <list task IDs>
 
-## Files Modified
-- file1.ts
-- file2.ts
+  Changes:
+  - <file1>: <what changed>
+  - <file2>: <what changed>
 
-## Verification
-- All tests passed
-- All acceptance criteria verified"
-\`\`\`
+  Verified: all tests passed"
+
+Replace <type> with: feat|fix|refactor|docs|test
+Replace <scope> with: affected module name
+Replace <description> with: brief summary from solution
 
 ### Step 4: Report Completion
-\`\`\`bash
-ccw issue done ${solutionId} --result '{"summary": "...", "files_modified": [...], "commit": {"hash": "...", "type": "feat"}, "tasks_completed": N}'
-\`\`\`
+On success, run:
+  ccw issue done ${SOLUTION_ID} --result '{"summary": "<brief>", "files_modified": ["<file1>", "<file2>"], "commit": {"hash": "<hash>", "type": "<type>"}, "tasks_completed": <N>}'
 
-If any task failed:
-\`\`\`bash
-ccw issue done ${solutionId} --fail --reason '{"task_id": "TX", "error_type": "test_failure", "message": "..."}'
-\`\`\`
+On failure, run:
+  ccw issue done ${SOLUTION_ID} --fail --reason '{"task_id": "<TX>", "error_type": "<test_failure|build_error|other>", "message": "<error details>"}'
 
-**Note**: Do NOT cleanup worktree after this solution. Worktree is shared by all solutions in the queue.
+### Important Notes
+- Do NOT cleanup worktree - it is shared by all solutions in the queue
+- Replace all <placeholder> values with actual values from your execution
 `;
 
   // For CLI tools, pass --cd to set working directory

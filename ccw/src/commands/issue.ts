@@ -234,6 +234,28 @@ const ISSUES_DIR = '.workflow/issues';
 // ============ Storage Layer (JSONL) ============
 
 /**
+ * Cached project root to avoid repeated git command execution
+ */
+let cachedProjectRoot: string | null = null;
+
+/**
+ * Clear cached project root (for testing)
+ */
+export function clearProjectRootCache(): void {
+  cachedProjectRoot = null;
+}
+
+/**
+ * Debug logging helper (enabled via CCW_DEBUG=true)
+ */
+const DEBUG = process.env.CCW_DEBUG === 'true';
+function debugLog(msg: string): void {
+  if (DEBUG) {
+    console.log(`[ccw:worktree] ${msg}`);
+  }
+}
+
+/**
  * Normalize path for comparison (handles Windows case sensitivity)
  */
 function normalizePath(p: string): string {
@@ -271,7 +293,32 @@ function resolveMainRepoFromGitFile(gitFilePath: string): string | null {
  * This ensures .workflow/issues/ is always accessed from the main repo.
  */
 function getProjectRoot(): string {
-  // First, try to detect if we're in a git worktree using git commands
+  // Return cached result if available
+  if (cachedProjectRoot) {
+    debugLog(`Using cached project root: ${cachedProjectRoot}`);
+    return cachedProjectRoot;
+  }
+
+  debugLog(`Detecting project root from cwd: ${process.cwd()}`);
+
+  // Priority 1: Check CCW_MAIN_REPO environment variable
+  const envMainRepo = process.env.CCW_MAIN_REPO;
+  if (envMainRepo) {
+    debugLog(`Found CCW_MAIN_REPO env: ${envMainRepo}`);
+    const hasWorkflow = existsSync(join(envMainRepo, '.workflow'));
+    const hasGit = existsSync(join(envMainRepo, '.git'));
+
+    if (hasWorkflow || hasGit) {
+      debugLog(`CCW_MAIN_REPO validated (workflow=${hasWorkflow}, git=${hasGit})`);
+      cachedProjectRoot = envMainRepo;
+      return envMainRepo;
+    } else {
+      console.warn('[ccw] CCW_MAIN_REPO is set but path is invalid (no .workflow or .git)');
+      console.warn(`[ccw] Path: ${envMainRepo}`);
+    }
+  }
+
+  // Priority 2: Try to detect if we're in a git worktree using git commands
   try {
     // Get the common git directory (points to main repo's .git)
     const gitCommonDir = execSync('git rev-parse --git-common-dir', {
@@ -287,6 +334,9 @@ function getProjectRoot(): string {
       timeout: EXEC_TIMEOUTS.GIT_QUICK,
     }).trim();
 
+    debugLog(`Git common dir: ${gitCommonDir}`);
+    debugLog(`Git dir: ${gitDir}`);
+
     // Normalize paths for comparison (Windows case insensitive)
     const normalizedCommon = normalizePath(gitCommonDir);
     const normalizedGit = normalizePath(gitDir);
@@ -298,8 +348,12 @@ function getProjectRoot(): string {
       // .git directory's parent is the repo root
       const mainRepoRoot = resolve(absoluteCommonDir, '..');
 
+      debugLog(`Detected worktree, main repo: ${mainRepoRoot}`);
+
       // Verify .workflow or .git exists in main repo
       if (existsSync(join(mainRepoRoot, '.workflow')) || existsSync(join(mainRepoRoot, '.git'))) {
+        debugLog(`Main repo validated, returning: ${mainRepoRoot}`);
+        cachedProjectRoot = mainRepoRoot;
         return mainRepoRoot;
       }
     }
@@ -307,10 +361,11 @@ function getProjectRoot(): string {
     if (isExecTimeoutError(err)) {
       console.warn(`[issue] git rev-parse timed out after ${EXEC_TIMEOUTS.GIT_QUICK}ms; falling back to filesystem detection`);
     }
+    debugLog(`Git command failed, falling back to filesystem detection`);
     // Git command failed - fall through to manual detection
   }
 
-  // Standard detection with worktree file support: walk up to find .workflow or .git
+  // Priority 3: Standard detection with worktree file support: walk up to find .workflow or .git
   let dir = process.cwd();
   while (dir !== resolve(dir, '..')) {
     const gitPath = join(dir, '.git');
@@ -322,22 +377,45 @@ function getProjectRoot(): string {
         if (gitStat.isFile()) {
           // .git is a file - this is a worktree, try to resolve main repo
           const mainRepo = resolveMainRepoFromGitFile(gitPath);
-          if (mainRepo && existsSync(join(mainRepo, '.workflow'))) {
-            return mainRepo;
+          debugLog(`Parsed .git file, main repo: ${mainRepo}`);
+
+          if (mainRepo) {
+            // Verify main repo has .git directory (always true for main repo)
+            // Don't require .workflow - it may not exist yet in a new repo
+            const hasGit = existsSync(join(mainRepo, '.git'));
+            const hasWorkflow = existsSync(join(mainRepo, '.workflow'));
+
+            if (hasGit || hasWorkflow) {
+              if (!hasWorkflow) {
+                console.warn('[ccw] Worktree detected but main repo has no .workflow directory');
+                console.warn(`[ccw] Main repo: ${mainRepo}`);
+                console.warn('[ccw] Issue commands may fail until .workflow is created');
+                console.warn('[ccw] Set CCW_MAIN_REPO environment variable to override detection');
+              }
+              debugLog(`Main repo validated via .git file (git=${hasGit}, workflow=${hasWorkflow})`);
+              cachedProjectRoot = mainRepo;
+              return mainRepo;
+            }
           }
-          // If main repo doesn't have .workflow, fall back to current worktree
         }
       } catch {
         // stat failed, continue with normal logic
+        debugLog(`Failed to stat ${gitPath}, continuing`);
       }
     }
 
     if (existsSync(join(dir, '.workflow')) || existsSync(gitPath)) {
+      debugLog(`Found project root at: ${dir}`);
+      cachedProjectRoot = dir;
       return dir;
     }
     dir = resolve(dir, '..');
   }
-  return process.cwd();
+
+  debugLog(`No project root found, using cwd: ${process.cwd()}`);
+  const fallback = process.cwd();
+  cachedProjectRoot = fallback;
+  return fallback;
 }
 
 function getIssuesDir(): string {
