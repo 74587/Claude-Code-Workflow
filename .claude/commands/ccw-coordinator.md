@@ -321,18 +321,14 @@ async function executeCommandChain(chain, analysis) {
       prompt: prompt
     });
 
-    // Execute via ccw cli (background, serial blocking with stop action)
+    // Execute CLI command in background and stop
     try {
-      console.log(`Executing: ${cmd.command}`);
-
-      // Execute CLI command in background
-      // Result will arrive via hook callback (do NOT poll)
       const taskId = Bash(
         `ccw cli -p "${escapePrompt(prompt)}" --tool claude --mode write -y`,
         { run_in_background: true }
       ).task_id;
 
-      // Save state with pending result (checkpoint)
+      // Save checkpoint
       state.execution_results.push({
         index: i,
         command: cmd.command,
@@ -342,15 +338,12 @@ async function executeCommandChain(chain, analysis) {
         artifacts: [],
         timestamp: new Date().toISOString()
       });
-
       state.command_chain[i].status = 'running';
       state.updated_at = new Date().toISOString();
       Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
 
-      // STOP - CLI executes in background, break loop immediately
-      // Hook callback will call handleCliCompletion → resumeChainExecution
-      console.log(`[${i+1}/${chain.length}] Waiting for CLI result...\n`);
-      break; // Serial blocking: one command at a time
+      console.log(`[${i+1}/${chain.length}] ${cmd.command}\n`);
+      break; // Stop, wait for hook callback
 
     } catch (error) {
       state.command_chain[i].status = 'failed';
@@ -381,22 +374,15 @@ async function executeCommandChain(chain, analysis) {
       }
     }
 
-    // Save state checkpoint after each iteration
     Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
   }
 
-  // If no error, orchestrator will continue via hook callbacks
-  // Do NOT set status to 'completed' here - hook callback handles final completion
-  if (state.status !== 'failed' && state.execution_results.length < state.command_chain.length) {
-    state.status = 'waiting'; // Waiting for hook callbacks
-  }
+  // Hook callbacks handle completion
+  if (state.status !== 'failed') state.status = 'waiting';
   state.updated_at = new Date().toISOString();
   Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
 
-  console.log(`\n📋 Orchestrator paused - waiting for CLI callbacks`);
-  console.log(`Session: ${state.session_id}`);
-  console.log(`State: ${stateDir}/state.json\n`);
-
+  console.log(`\n📋 Orchestrator paused: ${state.session_id}\n`);
   return state;
 }
 
@@ -466,24 +452,21 @@ function formatCommand(cmd, previousResults, analysis) {
   return line;
 }
 
-// Hook callback handler for CLI completion
-// IMPORTANT: This is called by user's hook when CLI finishes
+// Hook callback: Called when background CLI completes
 async function handleCliCompletion(sessionId, taskId, output) {
-  // Load current state
   const stateDir = `.workflow/.ccw-coordinator/${sessionId}`;
   const state = JSON.parse(Read(`${stateDir}/state.json`));
 
-  // Find the pending result
   const pendingIdx = state.execution_results.findIndex(r => r.task_id === taskId);
   if (pendingIdx === -1) {
     console.error(`Unknown task_id: ${taskId}`);
     return;
   }
 
-  // Parse CLI output
   const parsed = parseOutput(output);
+  const cmdIdx = state.execution_results[pendingIdx].index;
 
-  // Update execution result
+  // Update result
   state.execution_results[pendingIdx] = {
     ...state.execution_results[pendingIdx],
     status: parsed.sessionId ? 'completed' : 'failed',
@@ -491,26 +474,18 @@ async function handleCliCompletion(sessionId, taskId, output) {
     artifacts: parsed.artifacts,
     completed_at: new Date().toISOString()
   };
-
-  // Update command_chain status
-  const cmdIdx = state.execution_results[pendingIdx].index;
   state.command_chain[cmdIdx].status = parsed.sessionId ? 'completed' : 'failed';
   state.updated_at = new Date().toISOString();
-
-  // Save updated state
   Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
 
-  // Continue to next command in chain
+  // Trigger next command or complete
   const nextIdx = cmdIdx + 1;
   if (nextIdx < state.command_chain.length) {
-    console.log(`\n✓ ${parsed.sessionId || 'Failed'} - Continuing to next command...\n`);
-    // Resume orchestrator from checkpoint (implementation-specific)
     await resumeChainExecution(sessionId, nextIdx);
   } else {
-    console.log(`\n✅ All commands completed! Session: ${sessionId}\n`);
     state.status = 'completed';
-    state.updated_at = new Date().toISOString();
     Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
+    console.log(`✅ Completed: ${sessionId}\n`);
   }
 }
 
@@ -879,118 +854,21 @@ async function ccwCoordinator(taskDescription) {
 5. **User Control** - Confirmation + error handling with user choice
 6. **Context Passing** - Each prompt includes previous results
 7. **Resumable** - Can load state.json to continue
-8. **Serial Blocking Execution** - Commands execute one-by-one with stop-action blocking (no polling)
+8. **Serial Blocking** - Commands execute one-by-one with hook-based continuation
 
-## CLI Execution Mechanism
+## CLI Execution Model
 
-### Execution Model: Serial Blocking with Stop Action
-
-```
-Command 1 Start → Background Execution → STOP (save checkpoint)
-                                          ↓
-                                     Hook Callback
-                                          ↓
-Command 2 Start → Background Execution → STOP (save checkpoint)
-                                          ↓
-                                     Hook Callback
-                                          ↓
-                                        ...
-```
-
-**Key Principles**:
-- ✅ **Serial**: Commands execute one-by-one (not parallel)
-- ✅ **Blocking**: Each command waits for completion before next
-- ✅ **Stop Action**: No polling - execution stops and waits for hook callback
-- ✅ **Checkpoint**: State saved after each command launch
-- ❌ **No Polling**: Never use `TaskOutput` to poll for results
-
-### CLI Invocation Example (Claude Tool)
+**Serial Blocking**: Commands execute one-by-one. After launching CLI in background, orchestrator stops immediately and waits for hook callback.
 
 ```javascript
-// Step 1: Prepare prompt
-const prompt = `Task: Implement user registration
-
-Previous results:
-- /workflow:plan: WFS-plan-20250124 (IMPL_PLAN.md)
-
-/workflow:execute --yes --resume-session="WFS-plan-20250124"`;
-
-// Step 2: Execute CLI in background
-const taskId = Bash(
-  `ccw cli -p "${escapePrompt(prompt)}" --tool claude --mode write -y`,
-  { run_in_background: true }
-).task_id;
-
-// Step 3: Save checkpoint
-state.execution_results.push({
-  index: 1,
-  command: '/workflow:execute',
-  status: 'in-progress',
-  task_id: taskId,
-  timestamp: '2025-01-24T14:32:00Z'
-});
+// Example: Execute command and stop
+const taskId = Bash(`ccw cli -p "..." --tool claude --mode write -y`, { run_in_background: true }).task_id;
+state.execution_results.push({ status: 'in-progress', task_id: taskId, ... });
 Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
+break; // Stop, wait for hook callback
 
-// Step 4: STOP - Output immediately stops here
-console.log(`[2/3] Waiting for CLI result (${taskId})...\n`);
-
-// Step 5: Hook callback will call handleCliCompletion(sessionId, taskId, output)
-// when CLI finishes, which will:
-// - Parse output for WFS-* session ID
-// - Update state.execution_results with result
-// - Trigger next command in chain
-```
-
-### Hook Configuration
-
-User should configure hook in `~/.claude/hooks/`:
-
-```bash
-# ~/.claude/hooks/task-complete.sh
-#!/bin/bash
-# Called when background task completes
-
-TASK_ID="$1"
-OUTPUT="$2"
-SESSION_ID=$(grep -o 'ccw-coord-[0-9]\+' .workflow/.ccw-coordinator/*/state.json | head -1 | cut -d: -f2)
-
-# Trigger orchestrator callback
-node <<EOF
-const { handleCliCompletion } = require('./.claude/commands/ccw-coordinator');
-handleCliCompletion('${SESSION_ID}', '${TASK_ID}', \`${OUTPUT}\`);
-EOF
-```
-
-### Error Handling via Hook
-
-If CLI fails, hook callback receives error:
-
-```javascript
-// In handleCliCompletion
-if (!parsed.sessionId) {
-  // CLI failed - prompt user
-  const action = await AskUserQuestion({
-    questions: [{
-      question: `CLI command failed. What to do?`,
-      header: 'CLI Error',
-      options: [
-        { label: 'Retry', description: 'Re-run command' },
-        { label: 'Skip', description: 'Continue to next' },
-        { label: 'Abort', description: 'Stop workflow' }
-      ]
-    }]
-  });
-
-  // Handle user choice
-  if (action.error === 'Retry') {
-    await resumeChainExecution(sessionId, cmdIdx); // Same command
-  } else if (action.error === 'Skip') {
-    await resumeChainExecution(sessionId, cmdIdx + 1); // Next command
-  } else {
-    state.status = 'failed';
-    Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
-  }
-}
+// Hook calls handleCliCompletion(sessionId, taskId, output) when done
+// → Updates state → Triggers next command via resumeChainExecution()
 ```
 
 ## Available Commands
