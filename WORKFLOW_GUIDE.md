@@ -5,23 +5,27 @@
 CCW provides two workflow systems: **Main Workflow** and **Issue Workflow**, working together to cover the complete software development lifecycle.
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              Main Workflow                                  │
-│                                                                             │
-│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐     │
-│  │   Level 1   │ → │   Level 2   │ → │   Level 3   │ → │   Level 4   │     │
-│  │   Rapid     │   │ Lightweight │   │  Standard   │   │ Brainstorm  │     │
-│  │             │   │             │   │             │   │             │     │
-│  │ lite-lite-  │   │ lite-plan   │   │    plan     │   │ brainstorm  │     │
-│  │    lite     │   │ lite-fix    │   │  tdd-plan   │   │  :auto-     │     │
-│  │             │   │ multi-cli-  │   │ test-fix-   │   │  parallel   │     │
-│  │             │   │    plan     │   │    gen      │   │     ↓       │     │
-│  │             │   │             │   │             │   │   plan      │     │
-│  └─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘     │
-│                                                                             │
-│  Complexity: ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━▶  │
-│              Low                                                    High    │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   Main Workflow                                              │
+│                                                                                              │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐  ┌──────────────┐   │
+│  │   Level 1   │ → │   Level 2   │ → │   Level 3   │ → │   Level 4   │→ │   Level 5    │   │
+│  │   Rapid     │   │ Lightweight │   │  Standard   │   │ Brainstorm  │  │ Intelligent  │   │
+│  │             │   │             │   │             │   │             │  │ Orchestration│   │
+│  │ lite-lite-  │   │ lite-plan   │   │    plan     │   │ brainstorm  │  │     ccw-     │   │
+│  │    lite     │   │ lite-fix    │   │  tdd-plan   │   │  :auto-     │  │ coordinator  │   │
+│  │             │   │ multi-cli-  │   │ test-fix-   │   │  parallel   │  │              │   │
+│  │             │   │    plan     │   │    gen      │   │     ↓       │  │  Auto-       │   │
+│  │             │   │             │   │             │   │   plan      │  │  analyze &   │   │
+│  │             │   │             │   │             │   │             │  │  recommend   │   │
+│  └─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘  └──────────────┘   │
+│                                                                                              │
+│  Manual Degree: ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━▶        │
+│                 High (manual selection)                                    Low (fully auto) │
+│                                                                                              │
+│  Complexity: ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━▶         │
+│             Low                                                                    High     │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     │ After development
                                     ▼
@@ -497,6 +501,374 @@ Phase 3: Synthesis Integration
 
 ---
 
+## Level 5: Intelligent Orchestration (CCW Coordinator)
+
+**Most Intelligent - Automated command chain orchestration + Sequential execution + State persistence**
+
+### Core Concept: Minimum Execution Units
+
+**Definition**: A set of commands that must execute together as an atomic group to achieve a meaningful workflow milestone. Splitting these commands breaks the logical flow and creates incomplete states.
+
+**Why This Matters**:
+- **Prevents Incomplete States**: Avoid stopping after task generation without execution
+- **User Experience**: User gets complete results, not intermediate artifacts requiring manual follow-up
+- **Workflow Integrity**: Maintains logical coherence of multi-step operations
+
+### Minimum Execution Units
+
+**Planning + Execution Units**:
+
+| Unit Name | Commands | Purpose | Output |
+|-----------|----------|---------|--------|
+| **Quick Implementation** | lite-plan → lite-execute | Lightweight plan and immediate execution | Working code |
+| **Multi-CLI Planning** | multi-cli-plan → lite-execute | Multi-perspective analysis and execution | Working code |
+| **Bug Fix** | lite-fix → lite-execute | Quick bug diagnosis and fix execution | Fixed code |
+| **Full Planning + Execution** | plan → execute | Detailed planning and execution | Working code |
+| **Verified Planning + Execution** | plan → plan-verify → execute | Planning with verification and execution | Working code |
+| **Replanning + Execution** | replan → execute | Update plan and execute changes | Working code |
+| **TDD Planning + Execution** | tdd-plan → execute | Test-driven development planning and execution | Working code |
+| **Test Generation + Execution** | test-gen → execute | Generate test suite and execute | Generated tests |
+
+**Testing Units**:
+
+| Unit Name | Commands | Purpose | Output |
+|-----------|----------|---------|--------|
+| **Test Validation** | test-fix-gen → test-cycle-execute | Generate test tasks and execute test-fix cycle | Tests passed |
+
+**Review Units**:
+
+| Unit Name | Commands | Purpose | Output |
+|-----------|----------|---------|--------|
+| **Code Review (Session)** | review-session-cycle → review-fix | Complete review cycle and apply fixes | Fixed code |
+| **Code Review (Module)** | review-module-cycle → review-fix | Module review cycle and apply fixes | Fixed code |
+
+### 3-Phase Workflow
+
+#### Phase 1: Analyze Requirements
+
+Parse task description to extract: goal, scope, constraints, complexity, and task type.
+
+```javascript
+function analyzeRequirements(taskDescription) {
+  return {
+    goal: extractMainGoal(taskDescription),           // e.g., "Implement user registration"
+    scope: extractScope(taskDescription),             // e.g., ["auth", "user_management"]
+    constraints: extractConstraints(taskDescription), // e.g., ["no breaking changes"]
+    complexity: determineComplexity(taskDescription), // 'simple' | 'medium' | 'complex'
+    task_type: detectTaskType(taskDescription)        // See task type patterns below
+  };
+}
+
+// Task Type Detection Patterns
+function detectTaskType(text) {
+  // Priority order (first match wins)
+  if (/fix|bug|error|crash|fail|debug|diagnose/.test(text)) return 'bugfix';
+  if (/tdd|test-driven|test first/.test(text)) return 'tdd';
+  if (/test fail|fix test|failing test/.test(text)) return 'test-fix';
+  if (/generate test|add test/.test(text)) return 'test-gen';
+  if (/review/.test(text)) return 'review';
+  if (/explore|brainstorm/.test(text)) return 'brainstorm';
+  if (/multi-perspective|comparison/.test(text)) return 'multi-cli';
+  return 'feature';  // Default
+}
+
+// Complexity Assessment
+function determineComplexity(text) {
+  let score = 0;
+  if (/refactor|migrate|architect|system/.test(text)) score += 2;
+  if (/multiple|across|all|entire/.test(text)) score += 2;
+  if (/integrate|api|database/.test(text)) score += 1;
+  if (/security|performance|scale/.test(text)) score += 1;
+  return score >= 4 ? 'complex' : score >= 2 ? 'medium' : 'simple';
+}
+```
+
+#### Phase 2: Discover Commands & Recommend Chain
+
+Dynamic command chain assembly using port-based matching.
+
+**Display to user**:
+```
+Recommended Command Chain:
+
+Pipeline (visual):
+Requirement → lite-plan → Plan → lite-execute → Code → test-cycle-execute → Tests Passed
+
+Commands:
+1. /workflow:lite-plan
+2. /workflow:lite-execute
+3. /workflow:test-cycle-execute
+
+Proceed? [Confirm / Show Details / Adjust / Cancel]
+```
+
+**User Confirmation**:
+```javascript
+async function getUserConfirmation(chain) {
+  // Present chain with options:
+  // - Confirm and execute
+  // - Show details
+  // - Adjust chain
+  // - Cancel
+}
+```
+
+#### Phase 3: Execute Sequential Command Chain
+
+```javascript
+async function executeCommandChain(chain, analysis) {
+  const sessionId = `ccw-coord-${Date.now()}`;
+  const stateDir = `.workflow/.ccw-coordinator/${sessionId}`;
+
+  // Initialize state
+  const state = {
+    session_id: sessionId,
+    status: 'running',
+    created_at: new Date().toISOString(),
+    analysis: analysis,
+    command_chain: chain.map((cmd, idx) => ({ ...cmd, index: idx, status: 'pending' })),
+    execution_results: [],
+    prompts_used: []
+  };
+
+  // Save initial state
+  Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
+
+  for (let i = 0; i < chain.length; i++) {
+    const cmd = chain[i];
+
+    // Assemble prompt
+    let prompt = formatCommand(cmd, state.execution_results, analysis);
+    prompt += `\n\nTask: ${analysis.goal}`;
+    if (state.execution_results.length > 0) {
+      prompt += '\n\nPrevious results:\n';
+      state.execution_results.forEach(r => {
+        if (r.session_id) {
+          prompt += `- ${r.command}: ${r.session_id}\n`;
+        }
+      });
+    }
+
+    // Launch CLI in background
+    const taskId = Bash(
+      `ccw cli -p "${escapePrompt(prompt)}" --tool claude --mode write`,
+      { run_in_background: true }
+    ).task_id;
+
+    // Save checkpoint
+    state.execution_results.push({
+      index: i,
+      command: cmd.command,
+      status: 'in-progress',
+      task_id: taskId,
+      session_id: null,
+      artifacts: [],
+      timestamp: new Date().toISOString()
+    });
+
+    // Stop here - wait for hook callback
+    Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
+    break;
+  }
+
+  state.status = 'waiting';
+  Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
+  return state;
+}
+```
+
+### State File Structure
+
+**Location**: `.workflow/.ccw-coordinator/{session_id}/state.json`
+
+```json
+{
+  "session_id": "ccw-coord-20250124-143025",
+  "status": "running|waiting|completed|failed",
+  "created_at": "2025-01-24T14:30:25Z",
+  "updated_at": "2025-01-24T14:35:45Z",
+  "analysis": {
+    "goal": "Implement user registration",
+    "scope": ["authentication", "user_management"],
+    "constraints": ["no breaking changes"],
+    "complexity": "medium",
+    "task_type": "feature"
+  },
+  "command_chain": [
+    {
+      "index": 0,
+      "command": "/workflow:plan",
+      "name": "plan",
+      "status": "completed"
+    },
+    {
+      "index": 1,
+      "command": "/workflow:execute",
+      "name": "execute",
+      "status": "running"
+    }
+  ],
+  "execution_results": [
+    {
+      "index": 0,
+      "command": "/workflow:plan",
+      "status": "completed",
+      "task_id": "task-001",
+      "session_id": "WFS-plan-20250124",
+      "artifacts": ["IMPL_PLAN.md"],
+      "timestamp": "2025-01-24T14:30:25Z",
+      "completed_at": "2025-01-24T14:30:45Z"
+    }
+  ]
+}
+```
+
+### Complete Lifecycle Decision Flowchart
+
+```mermaid
+flowchart TD
+    Start([Start New Task]) --> Q0{Is this a bug fix?}
+
+    Q0 -->|Yes| BugFix[🐛 Bug Fix Process]
+    Q0 -->|No| Q1{Do you know what to do?}
+
+    BugFix --> BugSeverity{Understand root cause?}
+    BugSeverity -->|Clear| LiteFix[/workflow:lite-fix<br>Standard fix /]
+    BugSeverity -->|Production incident| HotFix[/workflow:lite-fix --hotfix<br>Emergency hotfix /]
+    BugSeverity -->|Unclear| BugDiag[/workflow:lite-fix<br>Auto-diagnose root cause /]
+
+    BugDiag --> LiteFix
+    LiteFix --> BugComplete[Bug fixed]
+    HotFix --> FollowUp[/Auto-generate follow-up tasks<br>Complete fix + post-mortem /]
+    FollowUp --> BugComplete
+    BugComplete --> End([Task Complete])
+
+    Q1 -->|No| Ideation[💡 Exploration Phase<br>Clarify requirements]
+    Q1 -->|Yes| Q2{Do you know how to do it?}
+
+    Ideation --> BrainIdea[/workflow:brainstorm:auto-parallel<br>Explore product direction /]
+    BrainIdea --> Q2
+
+    Q2 -->|No| Design[🏗️ Design Exploration<br>Explore architecture]
+    Q2 -->|Yes| Q3{Need planning?}
+
+    Design --> BrainDesign[/workflow:brainstorm:auto-parallel<br>Explore technical solutions /]
+    BrainDesign --> Q3
+
+    Q3 -->|Quick and simple| LitePlan[⚡ Lightweight Planning<br>/workflow:lite-plan]
+    Q3 -->|Complex and complete| FullPlan[📋 Standard Planning<br>/workflow:plan]
+
+    LitePlan --> Q4{Need code exploration?}
+    Q4 -->|Yes| LitePlanE[/workflow:lite-plan -e<br>Task description /]
+    Q4 -->|No| LitePlanNormal[/workflow:lite-plan<br>Task description /]
+
+    LitePlanE --> LiteConfirm[Three-dimensional confirmation:<br>1️⃣ Task approval<br>2️⃣ Execution method<br>3️⃣ Code review]
+    LitePlanNormal --> LiteConfirm
+
+    LiteConfirm --> Q5{Select execution method}
+    Q5 -->|Agent| LiteAgent[/workflow:lite-execute<br>Use @code-developer /]
+    Q5 -->|CLI tool| LiteCLI[CLI Execution<br>Gemini/Qwen/Codex]
+    Q5 -->|Plan only| UserImpl[User manual implementation]
+
+    FullPlan --> PlanVerify{Verify plan quality?}
+    PlanVerify -->|Yes| Verify[/workflow:action-plan-verify /]
+    PlanVerify -->|No| Execute
+    Verify --> Q6{Verification passed?}
+    Q6 -->|No| FixPlan[Fix plan issues]
+    Q6 -->|Yes| Execute
+    FixPlan --> Execute
+
+    Execute[🚀 Execution Phase<br>/workflow:execute]
+    LiteAgent --> TestDecision
+    LiteCLI --> TestDecision
+    UserImpl --> TestDecision
+    Execute --> TestDecision
+
+    TestDecision{Need tests?}
+    TestDecision -->|TDD mode| TDD[/workflow:tdd-plan<br>Test-driven development /]
+    TestDecision -->|Post-test| TestGen[/workflow:test-gen<br>Generate tests /]
+    TestDecision -->|Tests exist| TestCycle[/workflow:test-cycle-execute<br>Test-fix cycle /]
+    TestDecision -->|Not needed| Review
+
+    TDD --> TDDExecute[/workflow:execute<br>Red-Green-Refactor /]
+    TDDExecute --> TDDVerify[/workflow:tdd-verify<br>Verify TDD compliance /]
+    TDDVerify --> Review
+
+    TestGen --> TestExecute[/workflow:execute<br>Execute test tasks /]
+    TestExecute --> TestResult{Tests passed?}
+    TestResult -->|No| TestCycle
+    TestResult -->|Yes| Review
+
+    TestCycle --> TestPass{Pass rate ≥ 95%?}
+    TestPass -->|No, continue fixing| TestCycle
+    TestPass -->|Yes| Review
+
+    Review[📝 Review Phase]
+    Review --> Q7{Need specialized review?}
+    Q7 -->|Security| SecurityReview[/workflow:review<br>--type security /]
+    Q7 -->|Architecture| ArchReview[/workflow:review<br>--type architecture /]
+    Q7 -->|Quality| QualityReview[/workflow:review<br>--type quality /]
+    Q7 -->|General| GeneralReview[/workflow:review<br>General review /]
+    Q7 -->|Not needed| Complete
+
+    SecurityReview --> Complete
+    ArchReview --> Complete
+    QualityReview --> Complete
+    GeneralReview --> Complete
+
+    Complete[✅ Completion Phase<br>/workflow:session:complete]
+    Complete --> End
+
+    style Start fill:#e1f5ff
+    style BugFix fill:#ffccbc
+    style LiteFix fill:#ffccbc
+    style HotFix fill:#ff8a65
+    style BugDiag fill:#ffccbc
+    style BugComplete fill:#c8e6c9
+    style End fill:#c8e6c9
+    style BrainIdea fill:#fff9c4
+    style BrainDesign fill:#fff9c4
+    style LitePlan fill:#b3e5fc
+    style FullPlan fill:#b3e5fc
+    style Execute fill:#c5e1a5
+    style TDD fill:#ffccbc
+    style TestGen fill:#ffccbc
+    style TestCycle fill:#ffccbc
+    style Review fill:#d1c4e9
+    style Complete fill:#c8e6c9
+```
+
+### Commands
+
+```bash
+/ccw-coordinator "task description"
+# Auto-analyze → recommend command chain → execute sequentially
+```
+
+### Use Cases
+
+- ✅ Complex multi-step workflows
+- ✅ Uncertain which commands to use
+- ✅ Desire end-to-end automation
+- ✅ Need full state tracking and resumability
+- ✅ Team collaboration with unified execution flow
+- ❌ Simple single-command tasks
+- ❌ Already know exact commands needed
+
+### Relationship with Other Levels
+
+| Level | Manual Degree | CCW Coordinator Role |
+|-------|---------------|-----------------------|
+| Level 1-4 | Manual command selection | Auto-combine these commands |
+| Level 5 | Auto command selection | Intelligent orchestrator |
+
+**CCW Coordinator uses Level 1-4 internally**:
+- Analyzes task → Auto-selects appropriate Level
+- Assembles command chain → Includes Level 1-4 commands
+- Executes sequentially → Follows Minimum Execution Units
+
+---
+
 ## Issue Workflow
 
 **Main Workflow Supplement - Post-development continuous maintenance**
@@ -596,6 +968,7 @@ Phase 3: Synthesis Integration
 | Test-driven development | `tdd-plan → execute → tdd-verify` | 3 |
 | Test failure fixes | `test-fix-gen → test-cycle-execute` | 3 |
 | New features, architecture design | `brainstorm:auto-parallel → plan → execute` | 4 |
+| Complex multi-step workflows, uncertain commands | `ccw-coordinator` | 5 |
 | Post-development issue fixes | Issue Workflow | - |
 
 ### Decision Flowchart
@@ -605,6 +978,10 @@ Start
   │
   ├─ Is it post-development maintenance?
   │     ├─ Yes → Issue Workflow
+  │     └─ No ↓
+  │
+  ├─ Uncertain which commands to use?
+  │     ├─ Yes → Level 5 (ccw-coordinator - auto-analyze & recommend)
   │     └─ No ↓
   │
   ├─ Are requirements clear?
@@ -714,6 +1091,7 @@ mcp__ace-tool__search_context({
 | **2** | Lightweight | `lite-plan`, `lite-fix`, `multi-cli-plan` | Memory/Lightweight files | → `lite-execute` |
 | **3** | Standard | `plan`, `tdd-plan`, `test-fix-gen` | Session persistence | → `execute` / `test-cycle-execute` |
 | **4** | Brainstorm | `brainstorm:auto-parallel` → `plan` | Multi-role analysis + Session | → `execute` |
+| **5** | Intelligent | `ccw-coordinator` | Full state persistence | Auto-analyze & recommend |
 | **-** | Issue | `discover` → `plan` → `queue` → `execute` | Issue records | Worktree isolation (optional) |
 
 ### Core Principles
@@ -721,11 +1099,16 @@ mcp__ace-tool__search_context({
 1. **Main Workflow** solves parallelism through **dependency analysis + Agent parallel execution**, no worktree needed
 2. **Issue Workflow** serves as a **supplementary mechanism**, supporting worktree isolation to maintain main branch stability
 3. Select appropriate workflow level based on task complexity, **avoid over-engineering**
-4. Level 2 workflow selection criteria:
+4. **Level 1-4** require manual command selection; **Level 5** auto-analyzes and recommends optimal command chains
+5. Level 2 workflow selection criteria:
    - Clear requirements → `lite-plan`
    - Bug fix → `lite-fix`
    - Need multi-perspective → `multi-cli-plan`
-5. Level 3 workflow selection criteria:
+6. Level 3 workflow selection criteria:
    - Standard development → `plan`
    - Test-driven → `tdd-plan`
    - Test fix → `test-fix-gen`
+7. Level 5 usage:
+   - Uncertain which commands to use → `ccw-coordinator`
+   - Need end-to-end workflow automation → `ccw-coordinator`
+   - Require complete state tracking and resumability → `ccw-coordinator`
