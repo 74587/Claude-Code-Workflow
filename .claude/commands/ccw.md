@@ -7,169 +7,101 @@ allowed-tools: SlashCommand(*), TodoWrite(*), AskUserQuestion(*), Read(*), Grep(
 
 # CCW Command - Main Workflow Orchestrator
 
-Main process workflow orchestrator: intent analysis → workflow selection → command chain execution.
+Main process orchestrator: intent analysis → workflow selection → command chain execution.
 
-**Execution Model**: Execute command chain directly in main process using SlashCommand.
+## Execution Model
+
+**Synchronous (Main Process)**: Commands execute via SlashCommand in main process, blocking until complete.
+
+```
+User Input → Analyze Intent → Select Workflow → [Confirm] → Execute Chain
+                                                              ↓
+                                                    SlashCommand (blocking)
+                                                              ↓
+                                                    Update TodoWrite
+                                                              ↓
+                                                    Next Command...
+```
+
+**vs ccw-coordinator**: External CLI execution with background tasks and hook callbacks.
 
 ## 5-Phase Workflow
 
 ### Phase 1: Analyze Intent
 
-Analyze user input to extract task intent and characteristics.
-
 ```javascript
 function analyzeIntent(input) {
   return {
-    goal: extractGoal(input),                    // Main objective
-    scope: extractScope(input),                  // Affected scope
-    constraints: extractConstraints(input),      // Constraints
-    task_type: detectTaskType(input),            // Task type
-    complexity: assessComplexity(input),         // Complexity level
-    clarity_score: calculateClarity(input)       // Requirement clarity (0-3)
+    goal: extractGoal(input),
+    scope: extractScope(input),
+    constraints: extractConstraints(input),
+    task_type: detectTaskType(input),       // bugfix|feature|tdd|review|exploration|...
+    complexity: assessComplexity(input),    // low|medium|high
+    clarity_score: calculateClarity(input)  // 0-3 (>=2 = clear)
   };
 }
 
 // Task type detection (priority order)
 function detectTaskType(text) {
-  if (/urgent|production|critical/.test(text) && /fix|bug/.test(text)) return 'bugfix-hotfix';
-  if (/fix|bug|error|crash|fail|debug/.test(text)) return 'bugfix';
-  if (/issues?|batch/.test(text) && /fix|resolve/.test(text)) return 'issue-batch';
-  if (/uncertain|explore|research|what if/.test(text)) return 'exploration';
-  if (/multi-perspective|compare|cross-verify/.test(text)) return 'multi-perspective';
-  if (/quick|simple|small/.test(text) && /feature|function/.test(text)) return 'quick-task';
-  if (/ui|design|component|style/.test(text)) return 'ui-design';
-  if (/tdd|test-driven|test first/.test(text)) return 'tdd';
-  if (/test fail|fix test|failing test/.test(text)) return 'test-fix';
-  if (/review|code review/.test(text)) return 'review';
-  if (/docs|documentation|readme/.test(text)) return 'documentation';
+  const patterns = {
+    'bugfix-hotfix': /urgent|production|critical/ && /fix|bug/,
+    'bugfix': /fix|bug|error|crash|fail|debug/,
+    'issue-batch': /issues?|batch/ && /fix|resolve/,
+    'exploration': /uncertain|explore|research|what if/,
+    'multi-perspective': /multi-perspective|compare|cross-verify/,
+    'quick-task': /quick|simple|small/ && /feature|function/,
+    'ui-design': /ui|design|component|style/,
+    'tdd': /tdd|test-driven|test first/,
+    'test-fix': /test fail|fix test|failing test/,
+    'review': /review|code review/,
+    'documentation': /docs|documentation|readme/
+  };
+  for (const [type, pattern] of Object.entries(patterns)) {
+    if (pattern.test(text)) return type;
+  }
   return 'feature';
 }
-
-// Complexity assessment
-function assessComplexity(text) {
-  let score = 0;
-  if (/refactor|migrate|architect|system/.test(text)) score += 2;
-  if (/multiple|across|all|entire/.test(text)) score += 2;
-  if (/integrate|api|database/.test(text)) score += 1;
-  if (/security|performance|scale/.test(text)) score += 1;
-  return score >= 4 ? 'high' : score >= 2 ? 'medium' : 'low';
-}
-
-// Requirement clarity calculation
-function calculateClarity(text) {
-  let score = 0;
-  if (/create|fix|refactor|optimize|analyze/.test(text)) score += 0.5;  // Has action
-  if (/\.(ts|js|py|java|go|md)/.test(text)) score += 0.5;               // Has file path
-  if (/for|because|to achieve/.test(text)) score += 0.5;                // Has goal
-  if (/must|should|no|without/.test(text)) score += 0.5;                // Has constraints
-  if (/uncertain|maybe|how to/.test(text)) score -= 0.5;                // Has uncertainty
-  return Math.max(0, Math.min(3, score));
-}
 ```
 
-**Display to user**:
-```
-Intent Analysis:
-  Type: [task_type]
-  Goal: [goal]
-  Complexity: [complexity]
-  Clarity: [clarity_score]/3
-```
+**Output**: `Type: [task_type] | Goal: [goal] | Complexity: [complexity] | Clarity: [clarity_score]/3`
 
 ---
 
-### Phase 1.5: Requirement Clarification (if needed)
-
-When clarity_score < 2, clarify requirements through questions.
+### Phase 1.5: Requirement Clarification (if clarity_score < 2)
 
 ```javascript
 async function clarifyRequirements(analysis) {
   if (analysis.clarity_score >= 2) return analysis;
 
-  const questions = generateClarificationQuestions(analysis);
+  const questions = generateClarificationQuestions(analysis);  // Goal, Scope, Constraints
   const answers = await AskUserQuestion({ questions });
-
-  // Update analysis based on user answers
   return updateAnalysis(analysis, answers);
 }
-
-function generateClarificationQuestions(analysis) {
-  const questions = [];
-
-  if (!analysis.goal) {
-    questions.push({
-      question: "What is the main goal of this task?",
-      header: "Goal",
-      options: [
-        { label: "Create new feature", description: "Implement new functionality" },
-        { label: "Fix issue", description: "Fix bugs or errors" },
-        { label: "Optimize/Improve", description: "Refactor or performance optimization" },
-        { label: "Analyze/Research", description: "Explore or analyze code" }
-      ],
-      multiSelect: false
-    });
-  }
-
-  if (!analysis.scope || analysis.scope.length === 0) {
-    questions.push({
-      question: "What is the scope of this task?",
-      header: "Scope",
-      options: [
-        { label: "Single file", description: "Modify single file" },
-        { label: "Single module", description: "One functional module" },
-        { label: "Multiple modules", description: "Cross-module changes" },
-        { label: "Entire system", description: "System-level changes" }
-      ],
-      multiSelect: false
-    });
-  }
-
-  if (!analysis.constraints || analysis.constraints.length === 0) {
-    questions.push({
-      question: "Any special requirements or constraints?",
-      header: "Constraints",
-      options: [
-        { label: "No constraints", description: "No special requirements" },
-        { label: "Backward compatible", description: "Maintain compatibility" },
-        { label: "Skip tests", description: "No test execution needed" },
-        { label: "Urgent hotfix", description: "Production issue" }
-      ],
-      multiSelect: true
-    });
-  }
-
-  return questions;
-}
 ```
+
+**Questions**: Goal (Create/Fix/Optimize/Analyze), Scope (Single file/Module/Cross-module/System), Constraints (Backward compat/Skip tests/Urgent hotfix)
 
 ---
 
 ### Phase 2: Select Workflow & Build Command Chain
 
-Select workflow level and build command chain based on intent analysis.
-
 ```javascript
 function selectWorkflow(analysis) {
-  const { task_type, complexity, constraints } = analysis;
-
-  // Level mapping
   const levelMap = {
     'bugfix-hotfix':     { level: 2, flow: 'bugfix.hotfix' },
     'bugfix':            { level: 2, flow: 'bugfix.standard' },
     'issue-batch':       { level: 'Issue', flow: 'issue' },
     'exploration':       { level: 4, flow: 'full' },
-    'multi-perspective': { level: 2, flow: 'multi-cli-plan' },
     'quick-task':        { level: 1, flow: 'lite-lite-lite' },
-    'ui-design':         { level: complexity === 'high' ? 4 : 3, flow: 'ui' },
+    'ui-design':         { level: analysis.complexity === 'high' ? 4 : 3, flow: 'ui' },
     'tdd':               { level: 3, flow: 'tdd' },
     'test-fix':          { level: 3, flow: 'test-fix-gen' },
     'review':            { level: 3, flow: 'review-fix' },
     'documentation':     { level: 2, flow: 'docs' },
-    'feature':           { level: complexity === 'high' ? 3 : 2, flow: complexity === 'high' ? 'coupled' : 'rapid' }
+    'feature':           { level: analysis.complexity === 'high' ? 3 : 2, flow: analysis.complexity === 'high' ? 'coupled' : 'rapid' }
   };
 
-  const selected = levelMap[task_type] || levelMap['feature'];
-  
+  const selected = levelMap[analysis.task_type] || levelMap['feature'];
   return buildCommandChain(selected, analysis);
 }
 
@@ -270,79 +202,35 @@ function buildCommandChain(workflow, analysis) {
 }
 ```
 
-**Display to user**:
-```
-Selected Workflow: Level [X] - [flow_name]
-
-Pipeline:
-requirement -> lite-plan -> plan -> lite-execute -> code -> test-cycle-execute -> test-passed
-
-Commands:
-1. /workflow:lite-plan
-2. /workflow:lite-execute
-3. /workflow:test-cycle-execute
-
-Proceed? [Confirm / Adjust / Cancel]
-```
+**Output**: `Level [X] - [flow] | Pipeline: [...] | Commands: [1. /cmd1 2. /cmd2 ...]`
 
 ---
 
-### Phase 3: User Confirmation (Optional)
-
-Get user confirmation or adjust command chain.
+### Phase 3: User Confirmation
 
 ```javascript
-async function getUserConfirmation(chain, analysis) {
+async function getUserConfirmation(chain) {
   const response = await AskUserQuestion({
     questions: [{
       question: "Execute this command chain?",
       header: "Confirm",
       options: [
-        { label: "Confirm", description: "Start execution" },
-        { label: "Adjust", description: "Modify commands" },
+        { label: "Confirm", description: "Start" },
+        { label: "Adjust", description: "Modify" },
         { label: "Cancel", description: "Abort" }
-      ],
-      multiSelect: false
+      ]
     }]
   });
 
-  if (response.Confirm === "Cancel") {
-    throw new Error("User cancelled");
-  }
-
-  if (response.Confirm === "Adjust") {
-    return await adjustChain(chain);
-  }
-
+  if (response.error === "Cancel") throw new Error("Cancelled");
+  if (response.error === "Adjust") return await adjustChain(chain);
   return chain;
-}
-
-async function adjustChain(chain) {
-  // Show current chain, allow user to remove or reorder
-  const adjustOptions = chain.map((step, i) => ({
-    label: `${i + 1}. ${step.cmd}`,
-    description: step.args || "No arguments"
-  }));
-
-  const response = await AskUserQuestion({
-    questions: [{
-      question: "Select commands to keep (multi-select)",
-      header: "Adjust",
-      options: adjustOptions,
-      multiSelect: true
-    }]
-  });
-
-  // Rebuild chain based on user selection
-  return rebuildChain(chain, response);
 }
 ```
 
 ---
 
 ### Phase 4: Setup TODO Tracking
-
-Initialize TodoWrite to track command execution progress.
 
 ```javascript
 function setupTodoTracking(chain, workflow) {
@@ -351,138 +239,81 @@ function setupTodoTracking(chain, workflow) {
     status: i === 0 ? 'in_progress' : 'pending',
     activeForm: `Executing ${step.cmd}`
   }));
-
   TodoWrite({ todos });
 }
 ```
 
-**Display to user**:
-```
-TODO Tracking Initialized:
--> CCW:rapid: [1/3] /workflow:lite-plan
-   CCW:rapid: [2/3] /workflow:lite-execute
-   CCW:rapid: [3/3] /workflow:test-cycle-execute
-```
+**Output**: `-> CCW:rapid: [1/3] /workflow:lite-plan | CCW:rapid: [2/3] /workflow:lite-execute | ...`
 
 ---
 
 ### Phase 5: Execute Command Chain
 
-Execute commands sequentially, update TODO status.
-
 ```javascript
-async function executeCommandChain(chain, workflow, analysis) {
+async function executeCommandChain(chain, workflow) {
   let previousResult = null;
 
   for (let i = 0; i < chain.length; i++) {
-    const step = chain[i];
-    
-    console.log(`\n[${i + 1}/${chain.length}] Executing: ${step.cmd}`);
-
     try {
-      // Assemble full command
-      const fullCommand = assembleCommand(step, previousResult, analysis);
+      const fullCommand = assembleCommand(chain[i], previousResult);
+      const result = await SlashCommand({ command: fullCommand });
 
-      // Execute via SlashCommand (in main process)
-      const result = await SlashCommand({
-        command: fullCommand
-      });
-
-      // Record result
-      previousResult = {
-        command: step.cmd,
-        success: true,
-        output: result
-      };
-
-      // Update TODO status
+      previousResult = { ...result, success: true };
       updateTodoStatus(i, chain.length, workflow, 'completed');
 
-      console.log(`Done: ${step.cmd}`);
-
     } catch (error) {
-      console.error(`Failed: ${step.cmd}: ${error.message}`);
-
-      // Ask user how to handle error
-      const action = await handleError(step, error, i, chain.length);
-
+      const action = await handleError(chain[i], error, i);
       if (action === 'retry') {
-        i--;  // Retry current step
+        i--;  // Retry
       } else if (action === 'abort') {
-        console.log("Workflow aborted");
-        return { success: false, error: error.message, completed: i };
+        return { success: false, error: error.message };
       }
-      // 'skip' - continue to next step
+      // 'skip' - continue
     }
   }
 
-  console.log("\nWorkflow completed successfully!");
   return { success: true, completed: chain.length };
 }
 
-// Assemble command arguments
-function assembleCommand(step, previousResult, analysis) {
+// Assemble full command with session/plan parameters
+function assembleCommand(step, previousResult) {
   let command = step.cmd;
-
-  // Dynamically assemble arguments based on command type
   if (step.args) {
-    // Use existing arguments
     command += ` ${step.args}`;
   } else if (previousResult?.session_id) {
-    // Use previous step's session
     command += ` --session="${previousResult.session_id}"`;
-  } else if (previousResult?.plan_exists) {
-    // execute command uses --resume-session
-    if (step.cmd.includes('execute')) {
-      command += ` --resume-session="${previousResult.session_id}"`;
-    }
   }
-
   return command;
 }
 
-// Update TODO status
-function updateTodoStatus(currentIndex, total, workflow, status) {
-  const todos = getAllCurrentTodos();  // Get all current todos
-
-  const updatedTodos = todos.map((todo, i) => {
+// Update TODO: mark current as complete, next as in-progress
+function updateTodoStatus(index, total, workflow, status) {
+  const todos = getAllCurrentTodos();
+  const updated = todos.map(todo => {
     if (todo.content.startsWith(`CCW:${workflow}:`)) {
-      const stepIndex = extractStepIndex(todo.content);
-      if (stepIndex === currentIndex + 1) {
-        return { ...todo, status };
-      }
-      if (stepIndex === currentIndex + 2 && status === 'completed') {
-        return { ...todo, status: 'in_progress' };
-      }
+      const stepNum = extractStepIndex(todo.content);
+      if (stepNum === index + 1) return { ...todo, status };
+      if (stepNum === index + 2 && status === 'completed') return { ...todo, status: 'in_progress' };
     }
     return todo;
   });
-
-  TodoWrite({ todos: updatedTodos });
+  TodoWrite({ todos: updated });
 }
 
-// Error handling
-async function handleError(step, error, index, total) {
+// Error handling: Retry/Skip/Abort
+async function handleError(step, error, index) {
   const response = await AskUserQuestion({
     questions: [{
-      question: `Command ${step.cmd} failed. How to proceed?`,
+      question: `${step.cmd} failed: ${error.message}`,
       header: "Error",
       options: [
-        { label: "Retry", description: "Re-execute this command" },
-        { label: "Skip", description: "Skip and continue next" },
-        { label: "Abort", description: "Stop execution" }
-      ],
-      multiSelect: false
+        { label: "Retry", description: "Re-execute" },
+        { label: "Skip", description: "Continue next" },
+        { label: "Abort", description: "Stop" }
+      ]
     }]
   });
-
-  const actionMap = {
-    "Retry": "retry",
-    "Skip": "skip",
-    "Abort": "abort"
-  };
-
-  return actionMap[response.Error] || "abort";
+  return { Retry: 'retry', Skip: 'skip', Abort: 'abort' }[response.Error] || 'abort';
 }
 ```
 
@@ -522,100 +353,13 @@ Phase 5: Execute Command Chain
 
 ## Pipeline Examples
 
-### Simple Feature (Level 2 - Rapid)
-```
-Input: "Add user profile API endpoint"
-
-Analysis:
-  Type: feature
-  Complexity: low
-  Level: 2
-
-Pipeline:
-requirement -> lite-plan -> plan -> lite-execute -> code -> test-cycle-execute -> test-passed
-
-Execution:
-1. SlashCommand("/workflow:lite-plan \"Add user profile API endpoint\"")
-2. SlashCommand("/workflow:lite-execute --in-memory")
-3. SlashCommand("/workflow:test-cycle-execute")
-```
-
-### Bug Fix (Level 2 - Bugfix)
-```
-Input: "Fix login timeout issue"
-
-Analysis:
-  Type: bugfix
-  Complexity: low
-  Level: 2
-
-Pipeline:
-bug-report -> lite-fix -> fixed-code -> test-cycle-execute -> test-passed
-
-Execution:
-1. SlashCommand("/workflow:lite-fix \"Fix login timeout issue\"")
-2. SlashCommand("/workflow:test-cycle-execute")
-```
-
-### Complex Feature (Level 3 - Coupled)
-```
-Input: "Implement OAuth2 authentication system"
-
-Analysis:
-  Type: feature
-  Complexity: high
-  Level: 3
-
-Pipeline:
-requirement -> plan -> detailed-plan -> plan-verify -> verified-plan -> execute -> code
-     -> review-session-cycle -> review-passed -> test-cycle-execute -> test-passed
-
-Execution:
-1. SlashCommand("/workflow:plan \"Implement OAuth2...\"")
-2. SlashCommand("/workflow:plan-verify")
-3. SlashCommand("/workflow:execute")
-4. SlashCommand("/workflow:review-session-cycle")
-5. SlashCommand("/workflow:test-cycle-execute")
-```
-
-### TDD Workflow (Level 3)
-```
-Input: "Implement authentication with TDD"
-
-Analysis:
-  Type: tdd
-  Complexity: medium
-  Level: 3
-
-Pipeline:
-requirement -> tdd-plan -> tdd-tasks -> execute -> code -> tdd-verify -> tdd-verified
-
-Execution:
-1. SlashCommand("/workflow:tdd-plan \"Implement authentication...\"")
-2. SlashCommand("/workflow:execute")
-3. SlashCommand("/workflow:tdd-verify")
-```
-
-### Exploration (Level 4 - Brainstorm)
-```
-Input: "Uncertain about real-time notification architecture"
-
-Analysis:
-  Type: exploration
-  Clarity: 1.5 -> needs clarification
-  Level: 4
-
-Pipeline:
-exploration-topic -> brainstorm:auto-parallel -> analysis -> plan -> detailed-plan
-     -> execute -> code -> test-cycle-execute -> test-passed
-
-Execution:
-1. SlashCommand("/workflow:brainstorm:auto-parallel \"Real-time notification...\"")
-2. SlashCommand("/workflow:plan")
-3. SlashCommand("/workflow:plan-verify")
-4. SlashCommand("/workflow:execute")
-5. SlashCommand("/workflow:test-cycle-execute")
-```
+| Input | Type | Level | Commands |
+|-------|------|-------|----------|
+| "Add API endpoint" | feature (low) | 2 | lite-plan → lite-execute → test-cycle-execute |
+| "Fix login timeout" | bugfix | 2 | lite-fix → test-cycle-execute |
+| "OAuth2 system" | feature (high) | 3 | plan → plan-verify → execute → review-session-cycle → test-cycle-execute |
+| "Implement with TDD" | tdd | 3 | tdd-plan → execute → tdd-verify |
+| "Uncertain: real-time arch" | exploration | 4 | brainstorm:auto-parallel → plan → plan-verify → execute → test-cycle-execute |
 
 ---
 
@@ -631,16 +375,41 @@ Execution:
 
 ---
 
-## Difference from ccw-coordinator
+## State Management
+
+**TodoWrite-Based Tracking**: All execution state tracked via TodoWrite with `CCW:` prefix.
+
+```javascript
+// Initial state
+todos = [
+  { content: "CCW:rapid: [1/3] /workflow:lite-plan", status: "in_progress" },
+  { content: "CCW:rapid: [2/3] /workflow:lite-execute", status: "pending" },
+  { content: "CCW:rapid: [3/3] /workflow:test-cycle-execute", status: "pending" }
+];
+
+// After command 1 completes
+todos = [
+  { content: "CCW:rapid: [1/3] /workflow:lite-plan", status: "completed" },
+  { content: "CCW:rapid: [2/3] /workflow:lite-execute", status: "in_progress" },
+  { content: "CCW:rapid: [3/3] /workflow:test-cycle-execute", status: "pending" }
+];
+```
+
+**vs ccw-coordinator**: Extensive state.json with task_id, status transitions, hook callbacks.
+
+---
+
+## Type Comparison: ccw vs ccw-coordinator
 
 | Aspect | ccw | ccw-coordinator |
 |--------|-----|-----------------|
-| **Execution** | SlashCommand (main process) | Bash + ccw cli (external) |
-| **Workflow Selection** | Auto by intent | Manual chain building |
-| **Intent Analysis** | 5-phase with clarity check | 3-phase requirement analysis |
-| **Error Handling** | Interactive retry/skip/abort | Retry/skip/abort via AskUser |
-| **State Tracking** | TodoWrite only | state.json + TodoWrite |
-| **Use Case** | Auto workflow selection | Manual command orchestration |
+| **Type** | Main process (SlashCommand) | External CLI (ccw cli + hook callbacks) |
+| **Execution** | Synchronous blocking | Async background with hook completion |
+| **Workflow** | Auto intent-based selection | Manual chain building |
+| **Intent Analysis** | 5-phase clarity check | 3-phase requirement analysis |
+| **State** | TodoWrite only (in-memory) | state.json + checkpoint/resume |
+| **Error Handling** | Retry/skip/abort (interactive) | Retry/skip/abort (via AskUser) |
+| **Use Case** | Auto workflow for any task | Manual orchestration, large chains |
 
 ---
 
