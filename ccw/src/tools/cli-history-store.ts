@@ -5,9 +5,9 @@
 
 import Database from 'better-sqlite3';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, rmdirSync } from 'fs';
-import { join } from 'path';
+import { join, dirname, resolve } from 'path';
 import { parseSessionFile, formatConversation, extractConversationPairs, type ParsedSession, type ParsedTurn } from './session-content-parser.js';
-import { StoragePaths, ensureStorageDir, getProjectId } from '../config/storage-paths.js';
+import { StoragePaths, ensureStorageDir, getProjectId, getCCWHome } from '../config/storage-paths.js';
 import type { CliOutputUnit } from './cli-output-converter.js';
 
 // Types
@@ -1402,6 +1402,96 @@ export function closeAllStores(): void {
     store.close();
   }
   storeCache.clear();
+}
+
+/**
+ * Find project path that contains the given execution
+ * Searches upward through parent directories and all registered projects
+ * @param conversationId - Execution ID to search for
+ * @param startDir - Starting directory (default: process.cwd())
+ * @returns Object with projectPath and projectId if found, null otherwise
+ */
+export function findProjectWithExecution(
+  conversationId: string,
+  startDir: string = process.cwd()
+): { projectPath: string; projectId: string } | null {
+  // Strategy 1: Search upward in parent directories
+  let currentPath = resolve(startDir);
+  const visited = new Set<string>();
+
+  while (true) {
+    // Avoid infinite loops
+    if (visited.has(currentPath)) break;
+    visited.add(currentPath);
+
+    const projectId = getProjectId(currentPath);
+    const paths = StoragePaths.project(currentPath);
+
+    // Check if database exists for this path
+    if (existsSync(paths.historyDb)) {
+      try {
+        const store = getHistoryStore(currentPath);
+        const result = store.getCachedOutput(conversationId);
+        if (result) {
+          return { projectPath: currentPath, projectId };
+        }
+      } catch {
+        // Database might be locked or corrupted, continue searching
+      }
+    }
+
+    // Move to parent directory
+    const parentPath = dirname(currentPath);
+    if (parentPath === currentPath) {
+      // Reached filesystem root
+      break;
+    }
+    currentPath = parentPath;
+  }
+
+  // Strategy 2: Search in all registered projects (global search)
+  // This covers cases where execution might be in a completely different project tree
+  const projectsDir = join(getCCWHome(), 'projects');
+  if (existsSync(projectsDir)) {
+    try {
+      const entries = readdirSync(projectsDir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+
+        const projectId = entry.name;
+        const historyDb = join(projectsDir, projectId, 'cli-history', 'history.db');
+
+        if (!existsSync(historyDb)) continue;
+
+        try {
+          // Open and query this database directly
+          const db = new Database(historyDb, { readonly: true });
+          const turn = db.prepare(`
+            SELECT * FROM turns
+            WHERE conversation_id = ?
+            ORDER BY turn_number DESC
+            LIMIT 1
+          `).get(conversationId);
+
+          db.close();
+
+          if (turn) {
+            // Found in this project - return the projectId
+            // Note: projectPath is set to projectId since we don't have the original path stored
+            return { projectPath: projectId, projectId };
+          }
+        } catch {
+          // Skip this database (might be corrupted or locked)
+          continue;
+        }
+      }
+    } catch {
+      // Failed to read projects directory
+    }
+  }
+
+  return null;
 }
 
 // Re-export types from session-content-parser

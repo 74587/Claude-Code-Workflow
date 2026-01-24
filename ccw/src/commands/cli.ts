@@ -28,7 +28,7 @@ import {
   projectExists,
   getStorageLocationInstructions
 } from '../tools/storage-manager.js';
-import { getHistoryStore } from '../tools/cli-history-store.js';
+import { getHistoryStore, findProjectWithExecution } from '../tools/cli-history-store.js';
 import { createSpinner } from '../utils/ui.js';
 import { loadClaudeCliSettings } from '../tools/claude-cli-tools.js';
 
@@ -163,6 +163,7 @@ interface OutputViewOptions {
   turn?: string;
   raw?: boolean;
   final?: boolean; // Only output final result with usage hint
+  project?: string; // Optional project path for lookup
 }
 
 /**
@@ -355,16 +356,21 @@ function showStorageHelp(): void {
 
 /**
  * Show cached output for a conversation with pagination
+ * Supports automatic discovery of project path from current directory or parents
  */
 async function outputAction(conversationId: string | undefined, options: OutputViewOptions): Promise<void> {
   if (!conversationId) {
     console.error(chalk.red('Error: Conversation ID is required'));
-    console.error(chalk.gray('Usage: ccw cli output <conversation-id> [--offset N] [--limit N]'));
+    console.error(chalk.gray('Usage: ccw cli output <conversation-id> [--offset N] [--limit N] [--project <path>]'));
     process.exit(1);
   }
 
-  const store = getHistoryStore(process.cwd());
-  const result = store.getCachedOutput(
+  // Determine project path to use
+  let projectPath = options.project || process.cwd();
+  let store = getHistoryStore(projectPath);
+
+  // Try to get result from specified/current directory
+  let result = store.getCachedOutput(
     conversationId,
     options.turn ? parseInt(options.turn) : undefined,
     {
@@ -374,8 +380,31 @@ async function outputAction(conversationId: string | undefined, options: OutputV
     }
   );
 
+  // If not found and no explicit project specified, try to find it
+  if (!result && !options.project) {
+    const found = findProjectWithExecution(conversationId, process.cwd());
+    if (found) {
+      projectPath = found.projectPath;
+      store = getHistoryStore(projectPath);
+      result = store.getCachedOutput(
+        conversationId,
+        options.turn ? parseInt(options.turn) : undefined,
+        {
+          offset: parseInt(options.offset || '0'),
+          limit: parseInt(options.limit || '10000'),
+          outputType: options.outputType || 'both'
+        }
+      );
+    }
+  }
+
   if (!result) {
+    const hint = options.project
+      ? `in project: ${options.project}`
+      : 'in current directory or parent directories';
     console.error(chalk.red(`Error: Execution not found: ${conversationId}`));
+    console.error(chalk.gray(`  Searched ${hint}`));
+    console.error(chalk.gray('Usage: ccw cli output <conversation-id> [--project <path>]'));
     process.exit(1);
   }
 
@@ -395,9 +424,10 @@ async function outputAction(conversationId: string | undefined, options: OutputV
     console.log();
     console.log(chalk.gray('─'.repeat(60)));
     console.log(chalk.dim(`Usage: ccw cli output ${conversationId} [options]`));
-    console.log(chalk.dim('  --raw           Raw output (no hint)'));
+    console.log(chalk.dim('  --raw           Raw output (no formatting)'));
     console.log(chalk.dim('  --offset <n>    Start from byte offset'));
     console.log(chalk.dim('  --limit <n>     Limit output bytes'));
+    console.log(chalk.dim('  --project <p>   Specify project path explicitly'));
     console.log(chalk.dim(`  --resume        ccw cli -p "..." --resume ${conversationId}`));
     return;
   }
@@ -409,6 +439,7 @@ async function outputAction(conversationId: string | undefined, options: OutputV
   console.log(`  ${chalk.gray('Cached:')}    ${result.cached ? chalk.green('Yes') : chalk.yellow('No')}`);
   console.log(`  ${chalk.gray('Status:')}    ${result.status}`);
   console.log(`  ${chalk.gray('Time:')}      ${result.timestamp}`);
+  console.log(`  ${chalk.gray('Project:')}   ${chalk.cyan(projectPath)}`);
   console.log();
 
   if (result.stdout) {
