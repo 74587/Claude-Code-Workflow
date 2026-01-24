@@ -6,63 +6,115 @@ allowed-tools: Task, AskUserQuestion, Read, Write, Bash, Glob, Grep
 
 # CCW Coordinator
 
-交互式命令编排工具：允许用户依次选择命令，形成命令串，然后依次调用claude cli执行整个命令串。
+交互式命令编排工具：允许用户依次选择命令，形成命令链，然后通过 ccw cli 调用 Claude 循环执行每个命令。
 
-支持灵活的工作流组合，提供交互式界面用于命令选择、编排和执行管理。
+**核心特性**：
+- **保持为 Skill**：用户通过 `/ccw-coordinator` 触发
+- **仅支持 Claude**：所有执行通过 `ccw cli --tool claude` 调用
+- **命令在提示词中体现**：提示词直接包含完整命令调用（如 `/workflow:lite-plan --yes "任务"`）
+- **智能参数组装**：根据命令 YAML 头的 `argument-hint` 组装正确参数
+- **循环执行**：每次根据上次完成情况和下个命令参数动态组装提示词
 
 ## Architecture Overview
 
 ```
+用户: /ccw-coordinator
+    ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│           Orchestrator (状态驱动决策)                             │
-│     根据用户选择编排命令和执行流程                                  │
+│           Orchestrator (主流程状态机)                              │
+│           直接在 Claude Code 主流程中运行                          │
 └───────────────┬─────────────────────────────────────────────────┘
                 │
     ┌───────────┼───────────┬───────────────┐
     ↓           ↓           ↓               ↓
 ┌─────────┐ ┌──────────────┐ ┌────────────┐ ┌──────────┐
-│  Init   │ │   Command    │ │  Command   │ │ Execute  │
+│  Init   │ │   Command    │ │  Command   │ │ Execute  │ ← 核心
 │         │ │  Selection   │ │   Build    │ │          │
-│         │ │              │ │            │ │          │
-│ 初始化  │ │ 选择命令     │ │ 编排调整   │ │ 执行链   │
-└─────────┘ └──────────────┘ └────────────┘ └──────────┘
-    │               │              │            │
-    └───────────────┼──────────────┴────────────┘
-                    │
+│ 初始化  │ │ 选择命令     │ │ 编排调整   │ │ 循环调用  │
+│ 会话    │ │ 推荐确认     │ │ （可选）   │ │ ccw cli  │
+└─────────┘ └──────────────┘ └────────────┘ └────┬─────┘
+    │               │              │              │
+    └───────────────┼──────────────┴──────────────┘
+                    │                              │
+                    ↓                              │
+            ┌──────────────┐                       │
+            │   Complete   │                       │
+            │   生成报告   │                       │
+            └──────────────┘                       │
+                                                   │
+                    ┌──────────────────────────────┘
+                    │ 循环执行每个命令
                     ↓
-            ┌──────────────┐
-            │   Complete   │
-            │   生成报告   │
-            └──────────────┘
+    ┌───────────────────────────────────────┐
+    │  action-command-execute               │
+    │  for each command in chain:           │
+    │    1. 组装提示词                       │
+    │    2. 调用 ccw cli --tool claude      │
+    │    3. 解析产物                        │
+    │    4. 更新状态                        │
+    └───────────────────┬───────────────────┘
+                        │
+                        ↓
+        ┌───────────────────────────────┐
+        │ ccw cli -p "                  │
+        │ 任务: xxx                      │
+        │ 前序: /workflow:lite-plan     │
+        │ /workflow:lite-execute ..."   │
+        │ --tool claude --mode write    │
+        └───────────────┬───────────────┘
+                        │
+                        ↓
+                ┌───────────────┐
+                │ Claude 执行    │
+                │ workflow 命令  │
+                └───────────────┘
 ```
 
 ## Key Design Principles
 
-1. **智能推荐**: Claude 根据用户任务描述，自动推荐最优命令链
-2. **交互式编排**: 用户通过交互式界面选择和编排命令，实时反馈
-3. **无状态动作**: 每个动作独立执行，通过共享状态进行通信
-4. **灵活的命令库**: 支持ccw workflow命令和标准claude cli命令
-5. **执行透明性**: 展示执行进度、结果和可能的错误
-6. **会话持久化**: 保存编排会话，支持中途暂停和恢复
-7. **智能提示词生成**: 根据任务上下文和前序产物自动生成 ccw cli 提示词
-8. **自动确认**: 所有命令自动添加 `-y` 参数，跳过交互式确认，实现无人值守执行
+1. **智能推荐**：Claude 根据用户任务描述自动推荐最优命令链
+2. **交互式编排**：用户通过交互界面选择和编排命令，实时反馈推荐
+3. **状态持久化**：会话状态保存到 `state.json`，支持中途暂停和恢复
+4. **仅支持 Claude**：所有执行通过 `ccw cli --tool claude` 调用
+5. **命令在提示词中**：提示词直接包含完整命令调用，不是告诉 Claude 去执行什么
+6. **智能参数组装**：根据命令的 YAML 头 `argument-hint` 动态生成参数
+7. **循环执行**：每个命令执行后立即更新状态，根据产物组装下个命令的提示词
+8. **自动确认**：所有命令自动添加 `-y` 参数，跳过交互式确认
+9. **产物追踪**：自动提取会话 ID 和产物文件，用于后续命令链接
 
 ## Intelligent Prompt Generation
 
-执行命令时，系统根据以下信息智能生成 `ccw cli -p` 提示词：
+执行命令时，系统智能生成 `ccw cli -p` 提示词。
+
+### 核心原则
+
+**提示词直接包含完整命令调用**，而不是告诉 Claude 去执行什么：
+
+```
+✅ 正确：
+任务: 实现用户注册
+
+/workflow:lite-plan --yes "实现用户注册"
+
+❌ 错误：
+任务: 实现用户注册
+命令: /workflow:lite-plan
+参数格式: [--yes] "task"
+执行要求: 请执行 lite-plan 命令
+```
 
 ### 提示词构成
 
 ```javascript
-// 集成命令注册表 (~/.claude/tools/command-registry.js)
+// 集成命令注册表（按需提取）
 const registry = new CommandRegistry();
-registry.buildRegistry();
+const commandMeta = registry.getCommands(commandNames);
 
-function generatePrompt(cmd, state) {
-  const cmdMeta = registry.getCommand(cmd.command);
-
+function generatePrompt(cmd, state, commandMeta) {
+  // 1. 任务描述
   let prompt = `任务: ${state.task_description}\n`;
 
+  // 2. 前序完成情况
   if (state.execution_results.length > 0) {
     const previousOutputs = state.execution_results
       .filter(r => r.status === 'success')
@@ -77,15 +129,36 @@ function generatePrompt(cmd, state) {
     prompt += `\n前序完成:\n${previousOutputs}\n`;
   }
 
-  // 从 YAML 头提取命令元数据
-  if (cmdMeta) {
-    prompt += `\n命令: ${cmd.command}`;
-    if (cmdMeta.argumentHint) {
-      prompt += ` ${cmdMeta.argumentHint}`;
-    }
-  }
+  // 3. 组装完整命令行（关键）
+  const commandLine = assembleCommandLine(cmd, state, commandMeta);
+  prompt += `\n${commandLine}`;
 
   return prompt;
+}
+
+// 根据 argument-hint 智能组装参数
+function assembleCommandLine(cmd, state, commandMeta) {
+  let commandLine = cmd.command;  // /workflow:lite-plan
+
+  // 添加 --yes 标志
+  commandLine += ' --yes';
+
+  // 根据命令类型添加特定参数
+  const cmdName = cmd.command.split(':').pop();
+
+  if (cmdName === 'lite-plan') {
+    commandLine += ` "${state.task_description}"`;
+  } else if (cmdName === 'lite-execute') {
+    // 如果有前序规划，使用 --in-memory
+    if (state.execution_results.some(r => r.command.includes('plan'))) {
+      commandLine += ' --in-memory';
+    } else {
+      commandLine += ` "${state.task_description}"`;
+    }
+  }
+  // ... 其他命令类型
+
+  return commandLine;
 }
 ```
 
@@ -108,14 +181,32 @@ function generatePrompt(cmd, state) {
 
 ### 命令调用示例
 
+**第一个命令（lite-plan）**：
 ```bash
-# 自动生成的智能提示词
+ccw cli -p "任务: 实现用户认证功能
+
+/workflow:lite-plan --yes \"实现用户认证功能\"" --tool claude --mode write -y
+```
+
+**第二个命令（lite-execute）**：
+```bash
 ccw cli -p "任务: 实现用户认证功能
 
 前序完成:
-- /workflow:lite-plan: WFS-plan-20250123 (.workflow/IMPL_PLAN.md)
+- /workflow:lite-plan: WFS-auth-2025-01-24 (IMPL_PLAN.md, exploration-architecture.json)
 
-命令: /workflow:lite-execute [--resume-session=\"session-id\"]" /workflow:lite-execute
+/workflow:lite-execute --yes --in-memory" --tool claude --mode write -y
+```
+
+**第三个命令（test-cycle-execute）**：
+```bash
+ccw cli -p "任务: 实现用户认证功能
+
+前序完成:
+- /workflow:lite-plan: WFS-auth-2025-01-24 (IMPL_PLAN.md)
+- /workflow:lite-execute: WFS-auth-2025-01-24 (完成)
+
+/workflow:test-cycle-execute --yes --session=\"WFS-auth-2025-01-24\"" --tool claude --mode write -y
 ```
 
 ### 命令注册表集成

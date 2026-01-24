@@ -344,19 +344,28 @@ const cmdInfo = commandMeta[cmd.command];
 
 ### 提示词生成
 
-智能提示词自动包含：
+智能提示词直接包含完整命令调用：
 
-1. **任务上下文**: 用户任务描述
-2. **前序产物**: 已完成命令的产物信息
-3. **命令元数据**: 命令的参数提示和描述
+1. **任务描述**: 用户的任务描述
+2. **前序产物**: 已完成命令的会话和产物信息
+3. **完整命令行**: 下个命令的完整调用（通过 `argument-hint` 组装）
 
+**✅ 正确示例**：
 ```
 任务: 实现用户注册功能
 
 前序完成:
 - /workflow:lite-plan: WFS-plan-001 (IMPL_PLAN.md)
 
+/workflow:lite-execute --yes --in-memory
+```
+
+**❌ 旧的错误示例**（不再使用）：
+```
+任务: 实现用户注册功能
+前序完成:
+- /workflow:lite-plan: WFS-plan-001 (IMPL_PLAN.md)
 命令: /workflow:lite-execute [--resume-session="session-id"]
 ```
 
-详见 `tools/README.md`。
+详见 `tools/README.md` 和 `specs/prompt-templates.md`。

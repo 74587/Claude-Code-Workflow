@@ -70,20 +70,42 @@ node .claude/skills/ccw-coordinator/tools/command-registry.cjs lite-plan lite-ex
 const commandNames = command_chain.map(cmd => cmd.command);
 const commandMeta = registry.getCommands(commandNames);
 
-// 2. 生成提示词时使用
-function generatePrompt(cmd, state, commandMeta) {
+// 2. 参数组装时使用 argumentHint
+function assembleCommandLine(cmd, state, commandMeta) {
   const cmdInfo = commandMeta[cmd.command];
+  let commandLine = cmd.command;  // /workflow:lite-plan
+
+  commandLine += ' --yes';  // 自动确认
+
+  // 根据 argumentHint 智能组装参数
+  const cmdName = cmd.command.split(':').pop();
+  if (cmdName === 'lite-plan') {
+    commandLine += ` "${state.task_description}"`;
+  } else if (cmdName === 'lite-execute' && hasPlanResult(state)) {
+    commandLine += ' --in-memory';
+  }
+
+  return commandLine;
+}
+
+// 3. 生成提示词（直接包含完整命令）
+function generatePrompt(cmd, state, commandMeta) {
   let prompt = `任务: ${state.task_description}\n`;
 
-  if (cmdInfo?.argumentHint) {
-    prompt += `命令: ${cmd.command} ${cmdInfo.argumentHint}`;
+  // 添加前序完成
+  if (state.execution_results.length > 0) {
+    prompt += `\n前序完成:\n${formatResults(state.execution_results)}\n`;
   }
+
+  // 组装完整命令行（关键）
+  const commandLine = assembleCommandLine(cmd, state, commandMeta);
+  prompt += `\n${commandLine}`;
 
   return prompt;
 }
 ```
 
-确保 `ccw cli -p "..."` 提示词包含准确的命令参数提示。
+确保 `ccw cli -p "..."` 提示词直接包含完整命令调用，而不是准则。
 
 ### 目录查找逻辑
 
