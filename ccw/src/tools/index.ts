@@ -378,3 +378,7 @@ export { registerTool };
 
 // Export ToolSchema type
 export type { ToolSchema };
+
+// Export CommandRegistry for direct import
+export { CommandRegistry, createCommandRegistry, getAllCommandsSync, getCommandSync } from './command-registry.js';
+export type { CommandMetadata, CommandSummary } from './command-registry.js';
