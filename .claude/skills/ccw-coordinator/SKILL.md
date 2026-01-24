@@ -224,10 +224,9 @@ Bash(`mkdir -p "${workDir}/logs"`);
 | [phases/actions/action-command-execute.md](phases/actions/action-command-execute.md) | 命令执行动作 |
 | [phases/actions/action-complete.md](phases/actions/action-complete.md) | 完成动作 |
 | [phases/actions/action-abort.md](phases/actions/action-abort.md) | 中止动作 |
-| [specs/command-library.md](specs/command-library.md) | 命令库 |
-| [specs/chain-registry.json](specs/chain-registry.json) | 命令元数据 |
-| [specs/chain-validation-rules.md](specs/chain-validation-rules.md) | 验证规则 |
-| [tools/chain-validate.js](tools/chain-validate.js) | 验证工具 |
+| [specs/specs.md](specs/specs.md) | 命令库、验证规则、注册表 |
+| [tools/chain-validate.cjs](tools/chain-validate.cjs) | 验证工具 |
+| [tools/command-registry.cjs](tools/command-registry.cjs) | 命令注册表工具 |
 
 ---
 

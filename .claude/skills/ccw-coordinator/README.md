@@ -40,6 +40,6 @@
 | phases/orchestrator.md | 编排逻辑 |
 | phases/state-schema.md | 状态定义 |
 | phases/actions/*.md | 动作实现 |
-| specs/chain-registry.json | 命令元数据 |
-| specs/chain-validation-rules.md | 验证规则 |
-| tools/chain-validate.js | 验证工具 |
+| specs/specs.md | 命令库、验证规则、注册表 |
+| tools/chain-validate.cjs | 验证工具 |
+| tools/command-registry.cjs | 命令注册表工具 |

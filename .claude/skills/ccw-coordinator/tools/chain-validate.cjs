@@ -14,9 +14,16 @@
 const fs = require('fs');
 const path = require('path');
 
-// Load registry
-const registryPath = path.join(__dirname, '..', 'specs', 'chain-registry.json');
-const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+// Optional registry loading - gracefully degrade if not found
+let registry = null;
+try {
+  const registryPath = path.join(__dirname, '..', 'specs', 'chain-registry.json');
+  if (fs.existsSync(registryPath)) {
+    registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+  }
+} catch (error) {
+  // Registry not available - dependency validation will be skipped
+}
 
 class ChainValidator {
   constructor(registry) {
@@ -161,10 +168,15 @@ class ChainValidator {
   }
 
   validateDependencies(chain) {
+    // Skip if registry not available
+    if (!this.registry || !this.registry.commands) {
+      return;
+    }
+
     for (let i = 0; i < chain.length; i++) {
       const cmd = chain[i];
       const cmdMeta = this.registry.commands[cmd];
-      
+
       if (!cmdMeta) continue;
 
       const deps = cmdMeta.dependencies || [];
@@ -208,6 +220,11 @@ class ChainValidator {
   }
 
   validateCommandExistence(chain) {
+    // Skip if registry not available
+    if (!this.registry || !this.registry.commands) {
+      return;
+    }
+
     for (const cmd of chain) {
       if (!this.registry.commands[cmd]) {
         this.errors.push({

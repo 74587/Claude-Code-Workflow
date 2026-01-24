@@ -12,6 +12,7 @@ const state = {
   session_id: `coord-${timestamp}`,
   status: 'running',
   started_at: new Date().toISOString(),
+  task_description: '',
   command_chain: [],
   current_command_index: 0,
   execution_results: [],

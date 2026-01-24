@@ -276,14 +276,14 @@ tdd-plan → lite-execute
 
 ## 验证工具
 
-### chain-validate.js
+### chain-validate.cjs
 
-位置: `tools/chain-validate.js`
+位置: `tools/chain-validate.cjs`
 
 验证命令链合法性：
 
 ```bash
-node tools/chain-validate.js plan execute test-cycle-execute
+node tools/chain-validate.cjs plan execute test-cycle-execute
 ```
 
 输出:
