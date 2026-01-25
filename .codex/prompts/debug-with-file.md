@@ -506,7 +506,7 @@ Each line is a JSON object:
 ## Iteration Flow
 
 ```
-First Call (/prompts:debug-with-file BUG="error"):
+First Call (BUG="error"):
    ├─ No session exists → Explore mode
    ├─ Extract error keywords, search codebase
    ├─ Document initial understanding in understanding.md
@@ -514,7 +514,7 @@ First Call (/prompts:debug-with-file BUG="error"):
    ├─ Add logging instrumentation
    └─ Await user reproduction
 
-After Reproduction (/prompts:debug-with-file BUG="error"):
+After Reproduction (BUG="error"):
    ├─ Session exists + debug.log has content → Analyze mode
    ├─ Parse log, evaluate hypotheses
    ├─ Update understanding.md with:
@@ -578,31 +578,26 @@ Also we checked A and found B, and then we checked C...
 Why is config value None during update?
 ```
 
-## Comparison with /prompts:debug
+## Key Features
 
-| Feature | /prompts:debug | /prompts:debug-with-file |
-|---------|-----------------|---------------------------|
-| NDJSON logging | ✅ | ✅ |
-| Hypothesis generation | Manual | Analysis-assisted |
-| Exploration documentation | ❌ | ✅ understanding.md |
-| Understanding evolution | ❌ | ✅ Timeline + corrections |
-| Error correction | ❌ | ✅ Strikethrough + reasoning |
-| Consolidated learning | ❌ | ✅ Current understanding section |
-| Hypothesis history | ❌ | ✅ hypotheses.json |
-| Analysis validation | ❌ | ✅ At key decision points |
+| Feature | Description |
+|---------|-------------|
+| NDJSON logging | Structured debug log with hypothesis tracking |
+| Hypothesis generation | Analysis-assisted hypothesis creation |
+| Exploration documentation | understanding.md with timeline |
+| Understanding evolution | Timeline + corrections tracking |
+| Error correction | Strikethrough + reasoning for wrong assumptions |
+| Consolidated learning | Current understanding section |
+| Hypothesis history | hypotheses.json with verdicts |
+| Analysis validation | At key decision points |
 
-## Usage Recommendations
+## When to Use
 
-Use `/prompts:debug-with-file` when:
+Best suited for:
 - Complex bugs requiring multiple investigation rounds
 - Learning from debugging process is valuable
 - Team needs to understand debugging rationale
 - Bug might recur, documentation helps prevention
-
-Use `/prompts:debug` when:
-- Simple, quick bugs
-- One-off issues
-- Documentation overhead not needed
 
 ---
 
