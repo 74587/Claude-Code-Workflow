@@ -299,25 +299,22 @@ function computeCliStrategy(task, allTasks) {
 
 **execution_config Alignment Rules** (MANDATORY):
 ```
-userConfig.executionMethod → meta.execution_config + implementation_approach
+userConfig.executionMethod → meta.execution_config
 
 "agent" →
   meta.execution_config = { method: "agent", cli_tool: null, enable_resume: false }
-  implementation_approach steps: NO command field (agent direct execution)
-
-"hybrid" →
-  meta.execution_config = { method: "hybrid", cli_tool: userConfig.preferredCliTool }
-  implementation_approach steps: command field ONLY on complex steps
+  Execution: Agent executes pre_analysis, then directly implements implementation_approach
 
 "cli" →
-  meta.execution_config = { method: "cli", cli_tool: userConfig.preferredCliTool }
-  implementation_approach steps: command field on ALL steps
+  meta.execution_config = { method: "cli", cli_tool: userConfig.preferredCliTool, enable_resume: true }
+  Execution: Agent executes pre_analysis, then hands off context + implementation_approach to CLI
+
+"hybrid" →
+  meta.execution_config = { method: "hybrid", cli_tool: userConfig.preferredCliTool, enable_resume: true }
+  Execution: Agent decides which tasks to handoff to CLI based on complexity
 ```
 
-**Consistency Check**: `meta.execution_config.method` MUST match presence of `command` fields:
-- `method: "agent"` → 0 steps have command field
-- `method: "hybrid"` → some steps have command field
-- `method: "cli"` → all steps have command field
+**Note**: implementation_approach steps NO LONGER contain `command` fields. CLI execution is controlled by task-level `meta.execution_config` only.
 
 **Test Task Extensions** (for type="test-gen" or type="test-fix"):
 
@@ -638,32 +635,6 @@ Agent determines CLI tool usage per-step based on user semantics and task nature
     "output": "implementation"
   },
 
-  // === CLI MODE: Command Execution (optional command field) ===
-  {
-    "step": 3,
-    "title": "Execute implementation using CLI tool",
-    "description": "Use Codex/Gemini for complex autonomous execution",
-    "command": "ccw cli -p '[prompt]' --tool codex --mode write --cd [path]",
-    "modification_points": ["[Same as default mode]"],
-    "logic_flow": ["[Same as default mode]"],
-    "depends_on": [1, 2],
-    "output": "cli_implementation",
-    "cli_output_id": "step3_cli_id"  // Store execution ID for resume
-  },
-
-  // === CLI MODE with Resume: Continue from previous CLI execution ===
-  {
-    "step": 4,
-    "title": "Continue implementation with context",
-    "description": "Resume from previous step with accumulated context",
-    "command": "ccw cli -p '[continuation prompt]' --resume ${step3_cli_id} --tool codex --mode write",
-    "resume_from": "step3_cli_id",  // Reference previous step's CLI ID
-    "modification_points": ["[Continue from step 3]"],
-    "logic_flow": ["[Build on previous output]"],
-    "depends_on": [3],
-    "output": "continued_implementation",
-    "cli_output_id": "step4_cli_id"
-  }
 ]
 ```
 

@@ -113,7 +113,28 @@ const taskId = taskIdMatch?.[1]
    - List existing tasks
    - Read `IMPL_PLAN.md` and `TODO_LIST.md`
 
-**Output**: Session validated, context loaded, mode determined
+4. **Parse Execution Intent** (from requirements text):
+   ```javascript
+   // Extract execution method change from requirements
+   const execPatterns = {
+     cli_codex: /使用\s*(codex|Codex)\s*执行|改用\s*(codex|Codex)/i,
+     cli_gemini: /使用\s*(gemini|Gemini)\s*执行|改用\s*(gemini|Gemini)/i,
+     cli_qwen: /使用\s*(qwen|Qwen)\s*执行|改用\s*(qwen|Qwen)/i,
+     agent: /改为\s*Agent\s*执行|使用\s*Agent\s*执行/i
+   }
+
+   let executionIntent = null
+   for (const [key, pattern] of Object.entries(execPatterns)) {
+     if (pattern.test(requirements)) {
+       executionIntent = key.startsWith('cli_')
+         ? { method: 'cli', cli_tool: key.replace('cli_', '') }
+         : { method: 'agent', cli_tool: null }
+       break
+     }
+   }
+   ```
+
+**Output**: Session validated, context loaded, mode determined, **executionIntent parsed**
 
 ---
 
@@ -356,7 +377,18 @@ const updated_task = {
   flow_control: {
     ...task.flow_control,
     implementation_approach: [...updated_steps]
-  }
+  },
+  // Update execution config if intent detected
+  ...(executionIntent && {
+    meta: {
+      ...task.meta,
+      execution_config: {
+        method: executionIntent.method,
+        cli_tool: executionIntent.cli_tool,
+        enable_resume: executionIntent.method !== 'agent'
+      }
+    }
+  })
 };
 
 Write({
@@ -364,6 +396,8 @@ Write({
   content: JSON.stringify(updated_task, null, 2)
 });
 ```
+
+**Note**: Implementation approach steps are NO LONGER modified. CLI execution is controlled by task-level `meta.execution_config` only.
 
 **Step 5.4: Create New Tasks** (if needed)
 
@@ -569,4 +603,34 @@ A: 是,需要同步更新依赖任务
 ✓ 更新 IMPL-002.json (依赖任务)
 
 任务重规划完成! 更新 2 个任务
+```
+
+### Task Replan - Change Execution Method
+
+```bash
+/workflow:replan IMPL-001 "改用 Codex 执行"
+
+# Semantic parsing detects executionIntent:
+# { method: 'cli', cli_tool: 'codex' }
+
+# Execution (no interactive questions needed)
+✓ 创建备份
+✓ 更新 IMPL-001.json
+  - meta.execution_config = { method: 'cli', cli_tool: 'codex', enable_resume: true }
+
+任务执行方式已更新: Agent → CLI (codex)
+```
+
+```bash
+/workflow:replan IMPL-002 "改为 Agent 执行"
+
+# Semantic parsing detects executionIntent:
+# { method: 'agent', cli_tool: null }
+
+# Execution
+✓ 创建备份
+✓ 更新 IMPL-002.json
+  - meta.execution_config = { method: 'agent', cli_tool: null }
+
+任务执行方式已更新: CLI → Agent
 ```

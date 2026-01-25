@@ -186,34 +186,143 @@ output               → Variable name to store this step's result
 
 **Execution Flow**:
 ```
-FOR each step in implementation_approach[] (ordered by step number):
-  1. Check depends_on: Wait for all listed step numbers to complete
-  2. Variable Substitution: Replace [variable_name] in description/modification_points
-     with values stored from previous steps' output
-  3. Execute step (choose one):
+// Read task-level execution config (Single Source of Truth)
+const executionMethod = task.meta?.execution_config?.method || 'agent';
+const cliTool = task.meta?.execution_config?.cli_tool || 'codex';
 
-     IF step.command exists:
-       → Execute the CLI command via Bash tool
-       → Capture output
+// Phase 1: Execute pre_analysis (always by Agent)
+const preAnalysisResults = {};
+for (const step of task.flow_control.pre_analysis || []) {
+  const result = executePreAnalysisStep(step);
+  preAnalysisResults[step.output_to] = result;
+}
 
-     ELSE (no command - Agent direct implementation):
-       → Read modification_points[] as list of files to create/modify
-       → Read logic_flow[] as implementation sequence
-       → For each file in modification_points:
-         • If "Create new file: path" → Use Write tool to create
-         • If "Modify file: path" → Use Edit tool to modify
-         • If "Add to file: path" → Use Edit tool to append
-       → Follow logic_flow sequence for implementation logic
-       → Use [focus_paths] from context as working directory scope
+// Phase 2: Determine execution mode
+const hasLegacyCommands = task.flow_control.implementation_approach
+  .some(step => step.command);
 
-  4. Store result in [step.output] variable for later steps
-  5. Mark step complete, proceed to next
+IF hasLegacyCommands:
+  // Backward compatibility: Old mode with step.command fields
+  FOR each step in implementation_approach[]:
+    IF step.command exists:
+      → Execute via Bash: Bash({ command: step.command, timeout: 3600000 })
+    ELSE:
+      → Agent direct implementation
+
+ELSE IF executionMethod === 'cli':
+  // New mode: CLI Handoff
+  → const cliPrompt = buildCliHandoffPrompt(preAnalysisResults, task)
+  → const cliCommand = buildCliCommand(task, cliTool, cliPrompt)
+  → Bash({ command: cliCommand, run_in_background: false, timeout: 3600000 })
+
+ELSE IF executionMethod === 'hybrid':
+  // Hybrid mode: Agent decides based on task complexity
+  → IF task is complex (multiple files, complex logic):
+      Use CLI Handoff (same as cli mode)
+    ELSE:
+      Use Agent direct implementation
+
+ELSE (executionMethod === 'agent'):
+  // Default: Agent direct implementation
+  FOR each step in implementation_approach[]:
+    1. Variable Substitution: Replace [variable_name] with preAnalysisResults
+    2. Read modification_points[] as files to create/modify
+    3. Read logic_flow[] as implementation sequence
+    4. For each file in modification_points:
+       • If "Create new file: path" → Use Write tool
+       • If "Modify file: path" → Use Edit tool
+       • If "Add to file: path" → Use Edit tool (append)
+    5. Follow logic_flow sequence
+    6. Use [focus_paths] from context as working directory scope
+    7. Store result in [step.output] variable
 ```
 
-**CLI Command Execution (CLI Execute Mode)**:
-When step contains `command` field with Codex CLI, execute via CCW CLI. For Codex resume:
-- First task (`depends_on: []`): `ccw cli -p "..." --tool codex --mode write --cd [path]`
-- Subsequent tasks (has `depends_on`): Use CCW CLI with resume context to maintain session
+**CLI Handoff Functions**:
+
+```javascript
+// Build CLI prompt from pre-analysis results and task
+function buildCliHandoffPrompt(preAnalysisResults, task) {
+  const contextSection = Object.entries(preAnalysisResults)
+    .map(([key, value]) => `### ${key}\n${value}`)
+    .join('\n\n');
+
+  const approachSection = task.flow_control.implementation_approach
+    .map((step, i) => `
+### Step ${step.step}: ${step.title}
+${step.description}
+
+**Modification Points**:
+${step.modification_points?.map(m => `- ${m}`).join('\n') || 'N/A'}
+
+**Logic Flow**:
+${step.logic_flow?.map((l, j) => `${j + 1}. ${l}`).join('\n') || 'Follow modification points'}
+`).join('\n');
+
+  return `
+PURPOSE: ${task.title}
+Complete implementation based on pre-analyzed context.
+
+## PRE-ANALYSIS CONTEXT
+${contextSection}
+
+## REQUIREMENTS
+${task.context.requirements?.map(r => `- ${r}`).join('\n') || task.context.requirements}
+
+## IMPLEMENTATION APPROACH
+${approachSection}
+
+## ACCEPTANCE CRITERIA
+${task.context.acceptance?.map(a => `- ${a}`).join('\n') || task.context.acceptance}
+
+## TARGET FILES
+${task.flow_control.target_files?.map(f => `- ${f}`).join('\n') || 'See modification points above'}
+
+MODE: write
+CONSTRAINTS: Follow existing patterns | No breaking changes
+`.trim();
+}
+
+// Build CLI command with resume strategy
+function buildCliCommand(task, cliTool, cliPrompt) {
+  const cli = task.cli_execution || {};
+  const escapedPrompt = cliPrompt.replace(/"/g, '\\"');
+  const baseCmd = `ccw cli -p "${escapedPrompt}"`;
+
+  switch (cli.strategy) {
+    case 'new':
+      return `${baseCmd} --tool ${cliTool} --mode write --id ${task.cli_execution_id}`;
+    case 'resume':
+      return `${baseCmd} --resume ${cli.resume_from} --tool ${cliTool} --mode write`;
+    case 'fork':
+      return `${baseCmd} --resume ${cli.resume_from} --id ${task.cli_execution_id} --tool ${cliTool} --mode write`;
+    case 'merge_fork':
+      return `${baseCmd} --resume ${cli.merge_from.join(',')} --id ${task.cli_execution_id} --tool ${cliTool} --mode write`;
+    default:
+      // Fallback: no resume, no id
+      return `${baseCmd} --tool ${cliTool} --mode write`;
+  }
+}
+```
+
+**Execution Config Reference** (from task.meta.execution_config):
+| Field | Values | Description |
+|-------|--------|-------------|
+| `method` | `agent` / `cli` / `hybrid` | Execution mode (default: agent) |
+| `cli_tool` | `codex` / `gemini` / `qwen` | CLI tool preference (default: codex) |
+| `enable_resume` | `true` / `false` | Enable CLI session resume |
+
+**CLI Execution Reference** (from task.cli_execution):
+| Field | Values | Description |
+|-------|--------|-------------|
+| `strategy` | `new` / `resume` / `fork` / `merge_fork` | Resume strategy |
+| `resume_from` | `{session}-{task_id}` | Parent task CLI ID (resume/fork) |
+| `merge_from` | `[{id1}, {id2}]` | Parent task CLI IDs (merge_fork) |
+
+**Resume Strategy Examples**:
+- **New task** (no dependencies): `--id WFS-001-IMPL-001`
+- **Resume** (single dependency, single child): `--resume WFS-001-IMPL-001`
+- **Fork** (single dependency, multiple children): `--resume WFS-001-IMPL-001 --id WFS-001-IMPL-002`
+- **Merge** (multiple dependencies): `--resume WFS-001-IMPL-001,WFS-001-IMPL-002 --id WFS-001-IMPL-003`
 
 **Test-Driven Development**:
 - Write tests first (red → green → refactor)
