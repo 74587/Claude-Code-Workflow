@@ -702,7 +702,7 @@ function renderQueueCard(queue, isActive) {
   const completedCount = queue.completed_solutions || queue.completed_tasks || 0;
   const progressPercent = itemCount > 0 ? Math.round((completedCount / itemCount) * 100) : 0;
   const issueCount = queue.issue_ids?.length || 0;
-  const statusClass = queue.status === 'merged' ? 'merged' : queue.status || '';
+  const statusClass = queue.status || '';
   const safeQueueId = escapeHtml(queue.id || '');
 
   return `
@@ -740,17 +740,17 @@ function renderQueueCard(queue, isActive) {
         <button class="btn-sm" onclick="toggleQueueExpand('${safeQueueId}')" title="View details">
           <i data-lucide="eye" class="w-3 h-3"></i>
         </button>
-        ${!isActive && queue.status !== 'merged' ? `
+        ${!isActive && queue.status !== 'archived' ? `
           <button class="btn-sm btn-primary" onclick="activateQueue('${safeQueueId}')" title="Set as active">
             <i data-lucide="check-circle" class="w-3 h-3"></i>
           </button>
         ` : ''}
-        ${queue.status !== 'merged' ? `
+        ${queue.status !== 'archived' ? `
           <button class="btn-sm" onclick="showMergeQueueModal('${safeQueueId}')" title="Merge into another queue">
             <i data-lucide="git-merge" class="w-3 h-3"></i>
           </button>
         ` : ''}
-        ${queue.status !== 'merged' && issueCount > 1 ? `
+        ${queue.status !== 'archived' && issueCount > 1 ? `
           <button class="btn-sm" onclick="showSplitQueueModal('${safeQueueId}')" title="Split queue into multiple queues">
             <i data-lucide="git-branch" class="w-3 h-3"></i>
           </button>
@@ -896,7 +896,7 @@ async function renderExpandedQueueView(queueId) {
         </div>
       </div>
       <div class="queue-detail-actions">
-        ${!isActive && queue.status !== 'merged' ? `
+        ${!isActive && queue.status !== 'archived' ? `
           <button class="btn-primary" onclick="activateQueue('${safeQueueId}')">
             <i data-lucide="check-circle" class="w-4 h-4"></i>
             <span>${t('issues.activate') || 'Activate'}</span>
@@ -1141,7 +1141,7 @@ function showMergeQueueModal(sourceQueueId) {
   }
 
   const otherQueues = queueData.queues.filter(q =>
-    q.id !== sourceQueueId && q.status !== 'merged'
+    q.id !== sourceQueueId && q.status !== 'archived'
   );
 
   const safeSourceId = escapeHtml(sourceQueueId || '');
@@ -1170,7 +1170,7 @@ function showMergeQueueModal(sourceQueueId) {
           </div>
           <p class="text-sm text-muted-foreground mt-2">
             <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
-            Items from source queue will be appended to target queue. Source queue will be marked as "merged".
+            Items from source queue will be appended to target queue. Source queue will be archived.
           </p>
         `}
       </div>

@@ -172,7 +172,7 @@ interface ExecutionGroup {
 interface Queue {
   id: string;                    // Queue unique ID: QUE-YYYYMMDD-HHMMSS (derived from filename)
   name?: string;                 // Optional queue name
-  status: 'active' | 'completed' | 'archived' | 'failed' | 'merged';
+  status: 'active' | 'completed' | 'archived' | 'failed';
   issue_ids: string[];           // Issues in this queue
   tasks: QueueItem[];            // Task items (task-level queue)
   solutions?: QueueItem[];       // Solution items (solution-level queue)
@@ -235,7 +235,7 @@ const ISSUES_DIR = '.workflow/issues';
 
 // ============ Status Constants ============
 
-const VALID_QUEUE_STATUSES = ['active', 'completed', 'archived', 'failed', 'merged'] as const;
+const VALID_QUEUE_STATUSES = ['active', 'completed', 'archived', 'failed'] as const;
 const VALID_ITEM_STATUSES = ['pending', 'ready', 'executing', 'completed', 'failed', 'blocked'] as const;
 const VALID_ISSUE_STATUSES = ['registered', 'planning', 'planned', 'queued', 'executing', 'completed', 'failed', 'paused'] as const;
 
@@ -777,7 +777,7 @@ interface MergeResult {
  * Merge items from source queue into target queue
  * - Skips duplicate items (same issue_id + solution_id)
  * - Re-generates item IDs for merged items
- * - Marks source queue as 'merged' with metadata (or deletes if deleteSource=true)
+ * - Marks source queue as 'archived' with metadata (or deletes if deleteSource=true)
  * - Updates queue index
  */
 function mergeQueues(target: Queue, source: Queue, options?: { deleteSource?: boolean }): MergeResult {
@@ -832,7 +832,7 @@ function mergeQueues(target: Queue, source: Queue, options?: { deleteSource?: bo
   // Write updated target queue
   writeQueue(target);
 
-  // Handle source queue: delete or mark as merged
+  // Handle source queue: delete or mark as archived
   const index = readQueueIndex();
 
   if (options?.deleteSource) {
@@ -843,8 +843,8 @@ function mergeQueues(target: Queue, source: Queue, options?: { deleteSource?: bo
     }
     index.queues = index.queues.filter(q => q.id !== source.id);
   } else {
-    // Mark source queue as merged
-    source.status = 'merged';
+    // Mark source queue as archived (was merged)
+    source.status = 'archived';
     if (!source._metadata) {
       source._metadata = {
         version: '2.1',
@@ -862,7 +862,7 @@ function mergeQueues(target: Queue, source: Queue, options?: { deleteSource?: bo
 
     const sourceEntry = index.queues.find(q => q.id === source.id);
     if (sourceEntry) {
-      sourceEntry.status = 'merged';
+      sourceEntry.status = 'archived';
     }
   }
 
@@ -2265,7 +2265,7 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
       process.exit(1);
     }
 
-    // mergeQueues marks source as 'merged' and updates index
+    // mergeQueues marks source as 'archived' and updates index
     const result = mergeQueues(targetQueue, sourceQueue);
 
     if (options.json) {
@@ -2285,7 +2285,7 @@ async function queueAction(subAction: string | undefined, issueId: string | unde
           console.log(chalk.gray(`  Skipped ${result.skippedDuplicates} duplicate items`));
         }
         console.log(chalk.gray(`  Total items in target: ${result.totalItems}`));
-        console.log(chalk.gray(`  Source queue ${sourceQueueId} marked as 'merged'`));
+        console.log(chalk.gray(`  Source queue ${sourceQueueId} archived`));
       } else {
         console.log(chalk.yellow(`⚠ Merge skipped: ${result.reason}`));
       }
