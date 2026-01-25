@@ -29,8 +29,7 @@ import {
   loadCliConfig,
   getToolConfig,
   updateToolConfig,
-  getFullConfigResponse,
-  PREDEFINED_MODELS
+  getFullConfigResponse
 } from '../../tools/cli-config-manager.js';
 import {
   loadClaudeCliTools,

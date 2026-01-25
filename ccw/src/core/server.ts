@@ -8,6 +8,7 @@ import { resolvePath, getRecentPaths, normalizePathForDisplay } from '../utils/p
 import { handleStatusRoutes } from './routes/status-routes.js';
 import { handleCliRoutes, cleanupStaleExecutions } from './routes/cli-routes.js';
 import { handleCliSettingsRoutes } from './routes/cli-settings-routes.js';
+import { handleProviderRoutes } from './routes/provider-routes.js';
 import { handleMemoryRoutes } from './routes/memory-routes.js';
 import { handleCoreMemoryRoutes } from './routes/core-memory-routes.js';
 import { handleMcpRoutes } from './routes/mcp-routes.js';
@@ -516,6 +517,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         // CLI Settings routes first (more specific path /api/cli/settings/*)
         if (await handleCliSettingsRoutes(routeContext)) return;
         if (await handleCliRoutes(routeContext)) return;
+      }
+
+      // Provider routes (/api/providers/*)
+      if (pathname.startsWith('/api/providers')) {
+        if (await handleProviderRoutes(routeContext)) return;
       }
 
       // Claude CLAUDE.md routes (/api/memory/claude/*) and Language routes (/api/language/*)

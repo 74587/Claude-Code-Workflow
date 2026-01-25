@@ -11,8 +11,6 @@ import {
   saveClaudeCliTools,
   getToolConfig as getToolConfigFromClaude,
   updateToolConfig as updateToolConfigFromClaude,
-  getPredefinedModels as getPredefinedModelsFromClaude,
-  getAllPredefinedModels,
   getPrimaryModel as getPrimaryModelFromClaude,
   getSecondaryModel as getSecondaryModelFromClaude,
   isToolEnabled as isToolEnabledFromClaude,
@@ -38,27 +36,6 @@ export interface CliConfig {
 }
 
 export type { CliToolName };
-
-// ========== Re-exported Constants ==========
-
-/**
- * @deprecated Use getPredefinedModels() or getAllPredefinedModels() instead
- */
-export const PREDEFINED_MODELS = getAllPredefinedModels();
-
-/**
- * @deprecated Default config is now managed in claude-cli-tools.ts
- */
-export const DEFAULT_CONFIG: CliConfig = {
-  version: 1,
-  tools: {
-    gemini: { enabled: true, primaryModel: 'gemini-2.5-pro', secondaryModel: 'gemini-2.5-flash' },
-    qwen: { enabled: true, primaryModel: 'coder-model', secondaryModel: 'coder-model' },
-    codex: { enabled: true, primaryModel: 'gpt-5.2', secondaryModel: 'gpt-5.2' },
-    claude: { enabled: true, primaryModel: 'sonnet', secondaryModel: 'haiku' },
-    opencode: { enabled: true, primaryModel: 'opencode/glm-4.7-free', secondaryModel: 'opencode/glm-4.7-free' }
-  }
-};
 
 // ========== Re-exported Functions ==========
 
@@ -163,18 +140,11 @@ export function getSecondaryModel(baseDir: string, tool: string): string {
 }
 
 /**
- * Get all predefined models for a tool
- */
-export function getPredefinedModels(tool: string): string[] {
-  return getPredefinedModelsFromClaude(tool);
-}
-
-/**
  * Get full config response for API
+ * Note: Provider model reference has been moved to system reference (see provider-routes.ts)
  */
 export function getFullConfigResponse(baseDir: string): {
   config: CliConfig;
-  predefinedModels: Record<string, string[]>;
 } {
   const response = getFullConfigResponseFromClaude(baseDir);
 
@@ -194,7 +164,6 @@ export function getFullConfigResponse(baseDir: string): {
     config: {
       version: parseFloat(response.config.version) || 1,
       tools
-    },
-    predefinedModels: response.predefinedModels
+    }
   };
 }

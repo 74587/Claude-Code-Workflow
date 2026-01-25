@@ -115,13 +115,25 @@ const taskId = taskIdMatch?.[1]
 
 4. **Parse Execution Intent** (from requirements text):
    ```javascript
-   // Extract execution method change from requirements
-   const execPatterns = {
-     cli_codex: /使用\s*(codex|Codex)\s*执行|改用\s*(codex|Codex)/i,
-     cli_gemini: /使用\s*(gemini|Gemini)\s*执行|改用\s*(gemini|Gemini)/i,
-     cli_qwen: /使用\s*(qwen|Qwen)\s*执行|改用\s*(qwen|Qwen)/i,
-     agent: /改为\s*Agent\s*执行|使用\s*Agent\s*执行/i
+   // Dynamic tool detection from cli-tools.json
+   // Read enabled tools: ["gemini", "qwen", "codex", ...]
+   const enabledTools = loadEnabledToolsFromConfig();  // See ~/.claude/cli-tools.json
+
+   // Build dynamic patterns from enabled tools
+   function buildExecPatterns(tools) {
+     const patterns = {
+       agent: /改为\s*Agent\s*执行|使用\s*Agent\s*执行/i
+     };
+     tools.forEach(tool => {
+       // Pattern: "使用 {tool} 执行" or "改用 {tool}"
+       patterns[`cli_${tool}`] = new RegExp(
+         `使用\\s*(${tool})\\s*执行|改用\\s*(${tool})`, 'i'
+       );
+     });
+     return patterns;
    }
+
+   const execPatterns = buildExecPatterns(enabledTools);
 
    let executionIntent = null
    for (const [key, pattern] of Object.entries(execPatterns)) {

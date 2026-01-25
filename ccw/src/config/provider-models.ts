@@ -1,222 +1,123 @@
 /**
- * Provider Model Presets
+ * CLI Tool Model Reference Library
  *
- * Predefined model information for each supported LLM provider.
- * Used for UI dropdowns and validation.
+ * System reference for available models per CLI tool provider.
+ * This is a read-only reference, NOT user configuration.
+ * User configuration is managed via tools.{tool}.primaryModel/secondaryModel in cli-tools.json
  */
 
-import type { ProviderType } from '../types/litellm-api-config.js';
-
-/**
- * Model information metadata
- */
-export interface ModelInfo {
-  /** Model identifier (used in API calls) */
+export interface ProviderModelInfo {
   id: string;
-
-  /** Human-readable display name */
   name: string;
+  capabilities?: string[];
+  contextWindow?: number;
+  deprecated?: boolean;
+}
 
-  /** Context window size in tokens */
-  contextWindow: number;
-
-  /** Whether this model supports prompt caching */
-  supportsCaching: boolean;
+export interface ProviderInfo {
+  name: string;
+  models: ProviderModelInfo[];
 }
 
 /**
- * Embedding model information metadata
+ * System reference for CLI tool models
+ * Maps provider names to their available models
  */
-export interface EmbeddingModelInfo {
-  /** Model identifier (used in API calls) */
-  id: string;
-
-  /** Human-readable display name */
-  name: string;
-
-  /** Embedding dimensions */
-  dimensions: number;
-
-  /** Maximum input tokens */
-  maxTokens: number;
-
-  /** Provider identifier */
-  provider: string;
-}
-
-
-/**
- * Predefined models for each API format
- * Used for UI selection and validation
- * Note: Most providers use OpenAI-compatible format
- */
-export const PROVIDER_MODELS: Record<ProviderType, ModelInfo[]> = {
-  // OpenAI-compatible format (used by OpenAI, DeepSeek, Ollama, etc.)
-  openai: [
-    {
-      id: 'gpt-4o',
-      name: 'GPT-4o',
-      contextWindow: 128000,
-      supportsCaching: true
-    },
-    {
-      id: 'gpt-4o-mini',
-      name: 'GPT-4o Mini',
-      contextWindow: 128000,
-      supportsCaching: true
-    },
-    {
-      id: 'o1',
-      name: 'O1',
-      contextWindow: 200000,
-      supportsCaching: true
-    },
-    {
-      id: 'deepseek-chat',
-      name: 'DeepSeek Chat',
-      contextWindow: 64000,
-      supportsCaching: false
-    },
-    {
-      id: 'deepseek-coder',
-      name: 'DeepSeek Coder',
-      contextWindow: 64000,
-      supportsCaching: false
-    },
-    {
-      id: 'llama3.2',
-      name: 'Llama 3.2',
-      contextWindow: 128000,
-      supportsCaching: false
-    },
-    {
-      id: 'qwen2.5-coder',
-      name: 'Qwen 2.5 Coder',
-      contextWindow: 32000,
-      supportsCaching: false
-    }
-  ],
-
-  // Anthropic format
-  anthropic: [
-    {
-      id: 'claude-sonnet-4-20250514',
-      name: 'Claude Sonnet 4',
-      contextWindow: 200000,
-      supportsCaching: true
-    },
-    {
-      id: 'claude-3-5-sonnet-20241022',
-      name: 'Claude 3.5 Sonnet',
-      contextWindow: 200000,
-      supportsCaching: true
-    },
-    {
-      id: 'claude-3-5-haiku-20241022',
-      name: 'Claude 3.5 Haiku',
-      contextWindow: 200000,
-      supportsCaching: true
-    },
-    {
-      id: 'claude-3-opus-20240229',
-      name: 'Claude 3 Opus',
-      contextWindow: 200000,
-      supportsCaching: false
-    }
-  ],
-
-  // Custom format
-  custom: [
-    {
-      id: 'custom-model',
-      name: 'Custom Model',
-      contextWindow: 128000,
-      supportsCaching: false
-    }
-  ]
-};
+export const PROVIDER_MODELS: Record<string, ProviderInfo> = {
+  google: {
+    name: 'Google AI',
+    models: [
+      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', capabilities: ['text', 'vision', 'code'], contextWindow: 1000000 },
+      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', capabilities: ['text', 'code'], contextWindow: 1000000 },
+      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', capabilities: ['text'], contextWindow: 1000000 },
+      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', capabilities: ['text', 'vision'], contextWindow: 2000000 },
+      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', capabilities: ['text'], contextWindow: 1000000 }
+    ]
+  },
+  qwen: {
+    name: 'Qwen',
+    models: [
+      { id: 'coder-model', name: 'Qwen Coder', capabilities: ['code'] },
+      { id: 'vision-model', name: 'Qwen Vision', capabilities: ['vision'] },
+      { id: 'qwen2.5-coder-32b', name: 'Qwen 2.5 Coder 32B', capabilities: ['code'] }
+    ]
+  },
+  openai: {
+    name: 'OpenAI',
+    models: [
+      { id: 'gpt-5.2', name: 'GPT-5.2', capabilities: ['text', 'code'] },
+      { id: 'gpt-4.1', name: 'GPT-4.1', capabilities: ['text', 'code'] },
+      { id: 'o4-mini', name: 'O4 Mini', capabilities: ['text'] },
+      { id: 'o3', name: 'O3', capabilities: ['text'] }
+    ]
+  },
+  anthropic: {
+    name: 'Anthropic',
+    models: [
+      { id: 'sonnet', name: 'Claude Sonnet', capabilities: ['text', 'code'] },
+      { id: 'opus', name: 'Claude Opus', capabilities: ['text', 'code', 'vision'] },
+      { id: 'haiku', name: 'Claude Haiku', capabilities: ['text'] },
+      { id: 'claude-sonnet-4-5-20250929', name: 'Claude 4.5 Sonnet (2025-09-29)', capabilities: ['text', 'code'] },
+      { id: 'claude-opus-4-5-20251101', name: 'Claude 4.5 Opus (2025-11-01)', capabilities: ['text', 'code', 'vision'] }
+    ]
+  },
+  litellm: {
+    name: 'LiteLLM Aggregator',
+    models: [
+      { id: 'opencode/glm-4.7-free', name: 'GLM-4.7 Free', capabilities: ['text'] },
+      { id: 'opencode/gpt-5-nano', name: 'GPT-5 Nano', capabilities: ['text'] },
+      { id: 'opencode/grok-code', name: 'Grok Code', capabilities: ['code'] },
+      { id: 'opencode/minimax-m2.1-free', name: 'MiniMax M2.1 Free', capabilities: ['text'] },
+      { id: 'anthropic/claude-sonnet-4-20250514', name: 'Claude Sonnet 4 (via LiteLLM)', capabilities: ['text'] },
+      { id: 'anthropic/claude-opus-4-20250514', name: 'Claude Opus 4 (via LiteLLM)', capabilities: ['text'] },
+      { id: 'openai/gpt-4.1', name: 'GPT-4.1 (via LiteLLM)', capabilities: ['text'] },
+      { id: 'openai/o3', name: 'O3 (via LiteLLM)', capabilities: ['text'] },
+      { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro (via LiteLLM)', capabilities: ['text'] },
+      { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash (via LiteLLM)', capabilities: ['text'] }
+    ]
+  }
+} as const;
 
 /**
  * Get models for a specific provider
- * @param providerType - Provider type to get models for
+ * @param provider - Provider name (e.g., 'google', 'qwen', 'openai', 'anthropic', 'litellm')
  * @returns Array of model information
  */
-export function getModelsForProvider(providerType: ProviderType): ModelInfo[] {
-  return PROVIDER_MODELS[providerType] || [];
+export function getProviderModels(provider: string): ProviderModelInfo[] {
+  return PROVIDER_MODELS[provider]?.models || [];
 }
 
 /**
- * Predefined embedding models for each API format
- * Used for UI selection and validation
+ * Get all provider names
+ * @returns Array of provider names
  */
-export const EMBEDDING_MODELS: Record<ProviderType, EmbeddingModelInfo[]> = {
-  // OpenAI embedding models
-  openai: [
-    {
-      id: 'text-embedding-3-small',
-      name: 'Text Embedding 3 Small',
-      dimensions: 1536,
-      maxTokens: 8191,
-      provider: 'openai'
-    },
-    {
-      id: 'text-embedding-3-large',
-      name: 'Text Embedding 3 Large',
-      dimensions: 3072,
-      maxTokens: 8191,
-      provider: 'openai'
-    },
-    {
-      id: 'text-embedding-ada-002',
-      name: 'Ada 002',
-      dimensions: 1536,
-      maxTokens: 8191,
-      provider: 'openai'
-    }
-  ],
-
-  // Anthropic doesn't have embedding models
-  anthropic: [],
-
-  // Custom embedding models
-  custom: [
-    {
-      id: 'custom-embedding',
-      name: 'Custom Embedding',
-      dimensions: 1536,
-      maxTokens: 8192,
-      provider: 'custom'
-    }
-  ]
-};
-
-/**
- * Get embedding models for a specific provider
- * @param providerType - Provider type to get embedding models for
- * @returns Array of embedding model information
- */
-export function getEmbeddingModelsForProvider(providerType: ProviderType): EmbeddingModelInfo[] {
-  return EMBEDDING_MODELS[providerType] || [];
+export function getAllProviders(): string[] {
+  return Object.keys(PROVIDER_MODELS);
 }
 
-
 /**
- * Get model information by ID within a provider
- * @param providerType - Provider type
- * @param modelId - Model identifier
+ * Find model information across all providers
+ * @param modelId - Model identifier to search for
  * @returns Model information or undefined if not found
  */
-export function getModelInfo(providerType: ProviderType, modelId: string): ModelInfo | undefined {
-  const models = PROVIDER_MODELS[providerType] || [];
-  return models.find(m => m.id === modelId);
+export function findModelInfo(modelId: string): ProviderModelInfo | undefined {
+  for (const provider of Object.values(PROVIDER_MODELS)) {
+    const model = provider.models.find(m => m.id === modelId);
+    if (model) return model;
+  }
+  return undefined;
 }
 
 /**
- * Validate if a model ID is supported by a provider
- * @param providerType - Provider type
- * @param modelId - Model identifier to validate
- * @returns true if model is valid for provider
+ * Get provider name for a model ID
+ * @param modelId - Model identifier
+ * @returns Provider name or undefined if not found
  */
-export function isValidModel(providerType: ProviderType, modelId: string): boolean {
-  return getModelInfo(providerType, modelId) !== undefined;
+export function getProviderForModel(modelId: string): string | undefined {
+  for (const [providerId, provider] of Object.entries(PROVIDER_MODELS)) {
+    if (provider.models.some(m => m.id === modelId)) {
+      return providerId;
+    }
+  }
+  return undefined;
 }

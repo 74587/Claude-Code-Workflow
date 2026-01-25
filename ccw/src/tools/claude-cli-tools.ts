@@ -80,7 +80,6 @@ export interface ClaudeCacheSettings {
 export interface ClaudeCliToolsConfig {
   $schema?: string;
   version: string;
-  models?: Record<string, string[]>;  // PREDEFINED_MODELS
   tools: Record<string, ClaudeCliTool>;  // All tools: builtin, cli-wrapper, api-endpoint
   apiEndpoints?: ClaudeApiEndpoint[];  // @deprecated Use tools with type: 'api-endpoint' instead
   customEndpoints?: ClaudeCustomEndpoint[];  // @deprecated Use tools with type: 'cli-wrapper' or 'api-endpoint' instead
@@ -100,6 +99,8 @@ export interface ClaudeCliSettingsConfig {
   recursiveQuery: boolean;
   cache: ClaudeCacheSettings;
   codeIndexMcp: 'codexlens' | 'ace' | 'none';
+  defaultModel?: string;
+  autoSyncEnabled?: boolean;
 }
 
 // Legacy combined config (for backward compatibility)
@@ -120,29 +121,8 @@ export interface ClaudeCliCombinedConfig extends ClaudeCliToolsConfig {
 
 // ========== Default Config ==========
 
-// Predefined models for each tool
-const PREDEFINED_MODELS: Record<CliToolName, string[]> = {
-  gemini: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
-  qwen: ['coder-model', 'vision-model', 'qwen2.5-coder-32b'],
-  codex: ['gpt-5.2', 'gpt-4.1', 'o4-mini', 'o3'],
-  claude: ['sonnet', 'opus', 'haiku', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101'],
-  opencode: [
-    'opencode/glm-4.7-free',
-    'opencode/gpt-5-nano',
-    'opencode/grok-code',
-    'opencode/minimax-m2.1-free',
-    'anthropic/claude-sonnet-4-20250514',
-    'anthropic/claude-opus-4-20250514',
-    'openai/gpt-4.1',
-    'openai/o3',
-    'google/gemini-2.5-pro',
-    'google/gemini-2.5-flash'
-  ]
-};
-
 const DEFAULT_TOOLS_CONFIG: ClaudeCliToolsConfig = {
-  version: '3.2.0',
-  models: { ...PREDEFINED_MODELS },
+  version: '3.3.0',
   tools: {
     gemini: {
       enabled: true,
@@ -261,6 +241,28 @@ function resolveSettingsPath(projectDir: string): { path: string; source: 'proje
 // ========== Main Functions ==========
 
 /**
+ * Create a timestamped backup of the config file
+ * @param filePath - Path to the config file to backup
+ * @returns Path to the backup file
+ */
+function backupConfigFile(filePath: string): string {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0] + '-' +
+                    new Date().toISOString().replace(/[:.]/g, '-').split('T')[1].substring(0, 8);
+  const backupPath = `${filePath}.${timestamp}.bak`;
+
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.copyFileSync(filePath, backupPath);
+      debugLog(`[claude-cli-tools] Created backup: ${backupPath}`);
+    }
+    return backupPath;
+  } catch (err) {
+    console.warn('[claude-cli-tools] Failed to create backup:', err);
+    return '';
+  }
+}
+
+/**
  * Ensure tool has required fields (for backward compatibility)
  */
 function ensureToolTags(tool: Partial<ClaudeCliTool>): ClaudeCliTool {
@@ -274,18 +276,31 @@ function ensureToolTags(tool: Partial<ClaudeCliTool>): ClaudeCliTool {
 }
 
 /**
- * Migrate config from older versions to v3.2.0
+ * Migrate config from older versions to v3.3.0
  * v3.2.0: All endpoints (cli-wrapper, api-endpoint) are in tools with type field
+ * v3.3.0: Remove models field (moved to system reference)
  */
-function migrateConfig(config: any, projectDir: string): ClaudeCliToolsConfig {
+function migrateConfig(config: any, projectDir: string, configPath?: string): ClaudeCliToolsConfig {
   const version = parseFloat(config.version || '1.0');
+  let needsMigration = false;
 
-  // Already v3.2+, no migration needed
-  if (version >= 3.2) {
+  // Check if models field exists (v3.3.0 migration)
+  if (config.models) {
+    needsMigration = true;
+    debugLog('[claude-cli-tools] Detected models field, will remove (moved to system reference)');
+  }
+
+  // Already v3.3+, no migration needed
+  if (version >= 3.3 && !needsMigration) {
     return config as ClaudeCliToolsConfig;
   }
 
-  debugLog(`[claude-cli-tools] Migrating config from v${config.version || '1.0'} to v3.2.0`);
+  // Create backup before migration if config path is provided
+  if (configPath && (version < 3.3 || needsMigration)) {
+    backupConfigFile(configPath);
+  }
+
+  debugLog(`[claude-cli-tools] Migrating config from v${config.version || '1.0'} to v3.3.0`);
 
   // Try to load legacy cli-config.json for model data
   let legacyCliConfig: any = null;
@@ -372,9 +387,13 @@ function migrateConfig(config: any, projectDir: string): ClaudeCliToolsConfig {
     }
   }
 
+  // Remove models field if it exists (v3.3.0 migration)
+  if (config.models) {
+    debugLog('[claude-cli-tools] Removed models field (moved to system reference)');
+  }
+
   return {
-    version: '3.2.0',
-    models: { ...PREDEFINED_MODELS },
+    version: '3.3.0',
     tools: migratedTools,
     $schema: config.$schema
   };
@@ -485,9 +504,8 @@ export function loadClaudeCliTools(projectDir: string): ClaudeCliToolsConfig & {
     const content = fs.readFileSync(resolved.path, 'utf-8');
     const parsed = JSON.parse(content) as Partial<ClaudeCliCombinedConfig>;
 
-    // Migrate older versions to v3.2.0
-    const migrated = migrateConfig(parsed, projectDir);
-    const needsSave = migrated.version !== parsed.version;
+    // Migrate older versions to v3.3.0 (pass config path for backup)
+    const migrated = migrateConfig(parsed, projectDir, resolved.path);
 
     // Load user-configured tools only (defaults NOT merged)
     const mergedTools: Record<string, ClaudeCliTool> = {};
@@ -501,14 +519,15 @@ export function loadClaudeCliTools(projectDir: string): ClaudeCliToolsConfig & {
 
     const config: ClaudeCliToolsConfig & { _source?: string } = {
       version: migrated.version || DEFAULT_TOOLS_CONFIG.version,
-      models: migrated.models || DEFAULT_TOOLS_CONFIG.models,
       tools: mergedTools,
       $schema: migrated.$schema,
       _source: resolved.source
     };
 
-    // Save migrated config if version changed
-    if (needsSave) {
+    // Save migrated config if version changed or models field exists
+    const needsVersionUpdate = migrated.version !== (parsed as any).version;
+    const hasModelsField = (parsed as any).models !== undefined;
+    if (needsVersionUpdate || hasModelsField) {
       try {
         saveClaudeCliTools(projectDir, config);
         debugLog(`[claude-cli-tools] Saved migrated config to: ${resolved.path}`);
@@ -671,6 +690,161 @@ export function getDefaultTool(projectDir: string): string {
     return settings.defaultTool || 'gemini';
   } catch {
     return 'gemini';
+  }
+}
+
+// ========== Settings Persistence Functions ==========
+
+/**
+ * Update prompt format setting
+ * @param projectDir - Project directory path
+ * @param format - Prompt format: 'plain' | 'yaml' | 'json'
+ * @returns Updated settings config
+ */
+export function setPromptFormat(
+  projectDir: string,
+  format: 'plain' | 'yaml' | 'json'
+): ClaudeCliSettingsConfig {
+  const settings = loadClaudeCliSettings(projectDir);
+  settings.promptFormat = format;
+  saveClaudeCliSettings(projectDir, settings);
+  return settings;
+}
+
+/**
+ * Get prompt format setting
+ * @param projectDir - Project directory path
+ * @returns Current prompt format or 'plain' as fallback
+ */
+export function getPromptFormat(projectDir: string): 'plain' | 'yaml' | 'json' {
+  try {
+    const settings = loadClaudeCliSettings(projectDir);
+    return settings.promptFormat || 'plain';
+  } catch {
+    return 'plain';
+  }
+}
+
+/**
+ * Update default model setting
+ * @param projectDir - Project directory path
+ * @param model - Default model name
+ * @returns Updated settings config
+ */
+export function setDefaultModel(
+  projectDir: string,
+  model: string
+): ClaudeCliSettingsConfig {
+  const settings = loadClaudeCliSettings(projectDir);
+  settings.defaultModel = model;
+  saveClaudeCliSettings(projectDir, settings);
+  return settings;
+}
+
+/**
+ * Get default model setting
+ * @param projectDir - Project directory path
+ * @returns Current default model or undefined if not set
+ */
+export function getDefaultModel(projectDir: string): string | undefined {
+  try {
+    const settings = loadClaudeCliSettings(projectDir);
+    return settings.defaultModel;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Update auto-sync enabled setting
+ * @param projectDir - Project directory path
+ * @param enabled - Whether auto-sync is enabled
+ * @returns Updated settings config
+ */
+export function setAutoSyncEnabled(
+  projectDir: string,
+  enabled: boolean
+): ClaudeCliSettingsConfig {
+  const settings = loadClaudeCliSettings(projectDir);
+  settings.autoSyncEnabled = enabled;
+  saveClaudeCliSettings(projectDir, settings);
+  return settings;
+}
+
+/**
+ * Get auto-sync enabled setting
+ * @param projectDir - Project directory path
+ * @returns Current auto-sync status or undefined if not set
+ */
+export function getAutoSyncEnabled(projectDir: string): boolean | undefined {
+  try {
+    const settings = loadClaudeCliSettings(projectDir);
+    return settings.autoSyncEnabled;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Update smart context enabled setting
+ * @param projectDir - Project directory path
+ * @param enabled - Whether smart context is enabled
+ * @returns Updated settings config
+ */
+export function setSmartContextEnabled(
+  projectDir: string,
+  enabled: boolean
+): ClaudeCliSettingsConfig {
+  const settings = loadClaudeCliSettings(projectDir);
+  settings.smartContext = {
+    ...settings.smartContext,
+    enabled
+  };
+  saveClaudeCliSettings(projectDir, settings);
+  return settings;
+}
+
+/**
+ * Get smart context enabled setting
+ * @param projectDir - Project directory path
+ * @returns Current smart context status or false as fallback
+ */
+export function getSmartContextEnabled(projectDir: string): boolean {
+  try {
+    const settings = loadClaudeCliSettings(projectDir);
+    return settings.smartContext?.enabled ?? false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Update native resume setting
+ * @param projectDir - Project directory path
+ * @param enabled - Whether native resume is enabled
+ * @returns Updated settings config
+ */
+export function setNativeResume(
+  projectDir: string,
+  enabled: boolean
+): ClaudeCliSettingsConfig {
+  const settings = loadClaudeCliSettings(projectDir);
+  settings.nativeResume = enabled;
+  saveClaudeCliSettings(projectDir, settings);
+  return settings;
+}
+
+/**
+ * Get native resume setting
+ * @param projectDir - Project directory path
+ * @returns Current native resume status or true as fallback
+ */
+export function getNativeResume(projectDir: string): boolean {
+  try {
+    const settings = loadClaudeCliSettings(projectDir);
+    return settings.nativeResume ?? true;
+  } catch {
+    return true;
   }
 }
 
@@ -879,21 +1053,8 @@ export function getContextToolsPath(provider: 'codexlens' | 'ace' | 'none'): str
 }
 
 // ========== Model Configuration Functions ==========
-
-/**
- * Get predefined models for a specific tool
- */
-export function getPredefinedModels(tool: string): string[] {
-  const toolName = tool as CliToolName;
-  return PREDEFINED_MODELS[toolName] ? [...PREDEFINED_MODELS[toolName]] : [];
-}
-
-/**
- * Get all predefined models
- */
-export function getAllPredefinedModels(): Record<string, string[]> {
-  return { ...PREDEFINED_MODELS };
-}
+// NOTE: Model reference data has been moved to system reference (src/config/provider-models.ts)
+// User configuration only manages primaryModel/secondaryModel per tool via tools.{tool}
 
 /**
  * Get tool configuration (compatible with cli-config-manager interface)
@@ -995,16 +1156,15 @@ export function isToolEnabled(projectDir: string, tool: string): boolean {
 }
 
 /**
- * Get full config response for API (includes predefined models)
+ * Get full config response for API
+ * Note: Provider model reference has been moved to system reference (see provider-routes.ts)
  */
 export function getFullConfigResponse(projectDir: string): {
   config: ClaudeCliToolsConfig;
-  predefinedModels: Record<string, string[]>;
 } {
   const config = loadClaudeCliTools(projectDir);
   return {
-    config,
-    predefinedModels: { ...PREDEFINED_MODELS }
+    config
   };
 }
 

@@ -477,7 +477,7 @@ Task(subagent_type="{meta.agent}",
      - TODO List: {session.todo_list_path}
      - Summaries: {session.summaries_dir}
 
-     **Execution**: Read task JSON → Parse flow_control → Execute implementation_approach → Update TODO_LIST.md → Generate summary",
+     **Execution**: Read task JSON → Execute pre_analysis → Check execution_config.method → (CLI: handoff to CLI tool | Agent: direct implementation) → Update TODO_LIST.md → Generate summary",
      description="Implement: {task.id}")
 ```
 
@@ -486,9 +486,11 @@ Task(subagent_type="{meta.agent}",
 - `[FLOW_CONTROL]`: Triggers flow_control.pre_analysis execution
 
 **Why Path-Based**: Agent (code-developer.md) autonomously:
-- Reads and parses task JSON (requirements, acceptance, flow_control)
-- Loads tech stack guidelines based on detected language
-- Executes pre_analysis steps and implementation_approach
+- Reads and parses task JSON (requirements, acceptance, flow_control, execution_config)
+- Executes pre_analysis steps (Phase 1: context gathering)
+- Checks execution_config.method (Phase 2: determine mode)
+- CLI mode: Builds handoff prompt and executes via ccw cli with resume strategy
+- Agent mode: Directly implements using modification_points and logic_flow
 - Generates structured summary with integration points
 
 Embedding task content in prompt creates duplication and conflicts with agent's parsing logic.

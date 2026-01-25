@@ -188,7 +188,7 @@ output               → Variable name to store this step's result
 ```
 // Read task-level execution config (Single Source of Truth)
 const executionMethod = task.meta?.execution_config?.method || 'agent';
-const cliTool = task.meta?.execution_config?.cli_tool || 'codex';
+const cliTool = task.meta?.execution_config?.cli_tool || getDefaultCliTool();  // See ~/.claude/cli-tools.json
 
 // Phase 1: Execute pre_analysis (always by Agent)
 const preAnalysisResults = {};
@@ -240,6 +240,13 @@ ELSE (executionMethod === 'agent'):
 **CLI Handoff Functions**:
 
 ```javascript
+// Get default CLI tool from cli-tools.json
+function getDefaultCliTool() {
+  // Read ~/.claude/cli-tools.json and return first enabled tool
+  // Fallback order: gemini → qwen → codex (first enabled in config)
+  return firstEnabledTool || 'gemini';  // System default fallback
+}
+
 // Build CLI prompt from pre-analysis results and task
 function buildCliHandoffPrompt(preAnalysisResults, task) {
   const contextSection = Object.entries(preAnalysisResults)
@@ -308,7 +315,7 @@ function buildCliCommand(task, cliTool, cliPrompt) {
 | Field | Values | Description |
 |-------|--------|-------------|
 | `method` | `agent` / `cli` / `hybrid` | Execution mode (default: agent) |
-| `cli_tool` | `codex` / `gemini` / `qwen` | CLI tool preference (default: codex) |
+| `cli_tool` | See `~/.claude/cli-tools.json` | CLI tool preference (first enabled tool as default) |
 | `enable_resume` | `true` / `false` | Enable CLI session resume |
 
 **CLI Execution Reference** (from task.cli_execution):
@@ -498,7 +505,8 @@ Before completing any task, verify:
 - Use `run_in_background=false` for all Bash/CLI calls - agent cannot receive task hook callbacks
 - Set timeout ≥60 minutes for CLI commands (hooks don't propagate to subagents):
   ```javascript
-  Bash(command="ccw cli -p '...' --tool codex --mode write", timeout=3600000)  // 60 min
+  Bash(command="ccw cli -p '...' --tool <cli-tool> --mode write", timeout=3600000)  // 60 min
+  // <cli-tool>: First enabled tool from ~/.claude/cli-tools.json (e.g., gemini, qwen, codex)
   ```
 
 **ALWAYS:**

@@ -8,7 +8,7 @@
 import { homedir } from 'os';
 import { join, resolve, dirname, relative, sep } from 'path';
 import { createHash } from 'crypto';
-import { existsSync, mkdirSync, renameSync, rmSync, readdirSync } from 'fs';
+import { existsSync, mkdirSync, renameSync, rmSync, readdirSync, cpSync } from 'fs';
 import { readdir } from 'fs/promises';
 
 // Environment variable override for custom storage location
@@ -211,14 +211,29 @@ function migrateToHierarchical(legacyDir: string, targetDir: string): void {
       const target = join(targetDir, subDir);
 
       if (existsSync(source)) {
-        // Use atomic rename (same filesystem)
+        // Try atomic rename first (fastest, same filesystem)
         try {
           renameSync(source, target);
           console.log(`  ✓ 迁移 ${subDir}`);
         } catch (error: any) {
-          // If rename fails (cross-filesystem), fallback to copy-delete
-          // For now, we'll just throw the error
-          throw new Error(`无法迁移 ${subDir}: ${error.message}`);
+          // If rename fails (EPERM, cross-filesystem, etc.), fallback to copy-delete
+          if (error.code === 'EPERM' || error.code === 'EXDEV' || error.code === 'EBUSY') {
+            try {
+              console.log(`  ⚠️  rename 失败，使用 copy-delete 方式迁移 ${subDir}...`);
+              cpSync(source, target, { recursive: true, force: true });
+              // Verify copy succeeded before deleting source
+              if (existsSync(target)) {
+                rmSync(source, { recursive: true, force: true });
+                console.log(`  ✓ 迁移 ${subDir} (copy-delete)`);
+              } else {
+                throw new Error('复制失败：目标目录不存在');
+              }
+            } catch (copyError: any) {
+              throw new Error(`无法迁移 ${subDir}: ${copyError.message}`);
+            }
+          } else {
+            throw new Error(`无法迁移 ${subDir}: ${error.message}`);
+          }
         }
       }
     }
