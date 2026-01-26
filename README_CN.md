@@ -393,7 +393,7 @@ MIT License - 详见 [LICENSE](LICENSE)
 
 欢迎加入 CCW 交流群，与其他开发者一起讨论使用心得、分享经验！
 
-<img src="assets/wechat-group-qr.jpg" width="300" alt="CCW 微信交流群"/>
+<img src="assets/wechat-group-qr.png" width="300" alt="CCW 微信交流群"/>
 
 <sub>扫码加入微信交流群（如二维码过期，请提 Issue 获取最新二维码）</sub>
 
