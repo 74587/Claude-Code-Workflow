@@ -94,7 +94,7 @@ function saveDisabledSkillsConfig(location: SkillLocation, projectPath: string, 
 }
 
 /**
- * Move directory with fallback to copy-delete
+ * Move directory with fallback to copy-delete and rollback on failure
  */
 function moveDirectory(source: string, target: string): void {
   try {
@@ -105,7 +105,17 @@ function moveDirectory(source: string, target: string): void {
     // If rename fails (cross-filesystem, permission issues), fallback to copy-delete
     if (err.code === 'EXDEV' || err.code === 'EPERM' || err.code === 'EBUSY') {
       cpSync(source, target, { recursive: true, force: true });
-      rmSync(source, { recursive: true, force: true });
+      try {
+        rmSync(source, { recursive: true, force: true });
+      } catch (rmError) {
+        // Rollback: remove the copied target directory to avoid duplicates
+        try {
+          rmSync(target, { recursive: true, force: true });
+        } catch {
+          // Ignore rollback errors
+        }
+        throw new Error(`Failed to remove source directory after copy: ${(rmError as Error).message}`);
+      }
     } else {
       throw error;
     }
@@ -161,13 +171,23 @@ async function disableSkill(
     // Move skill to disabled directory
     moveDirectory(sourceDir, targetDir);
 
-    // Update config
-    const config = loadDisabledSkillsConfig(location, projectPath);
-    config.skills[skillName] = {
-      disabledAt: new Date().toISOString(),
-      reason
-    };
-    saveDisabledSkillsConfig(location, projectPath, config);
+    // Update config with rollback on failure
+    try {
+      const config = loadDisabledSkillsConfig(location, projectPath);
+      config.skills[skillName] = {
+        disabledAt: new Date().toISOString(),
+        reason
+      };
+      saveDisabledSkillsConfig(location, projectPath, config);
+    } catch (configError) {
+      // Rollback: move the skill back to original location
+      try {
+        moveDirectory(targetDir, sourceDir);
+      } catch {
+        // Ignore rollback errors - skill is in disabled directory but not in config
+      }
+      throw new Error(`Failed to update config: ${(configError as Error).message}`);
+    }
 
     return { success: true, message: 'Skill disabled', skillName, location };
   } catch (error) {
@@ -223,10 +243,20 @@ async function enableSkill(
     // Move skill back to skills directory
     moveDirectory(sourceDir, targetDir);
 
-    // Update config
-    const config = loadDisabledSkillsConfig(location, projectPath);
-    delete config.skills[skillName];
-    saveDisabledSkillsConfig(location, projectPath, config);
+    // Update config with rollback on failure
+    try {
+      const config = loadDisabledSkillsConfig(location, projectPath);
+      delete config.skills[skillName];
+      saveDisabledSkillsConfig(location, projectPath, config);
+    } catch (configError) {
+      // Rollback: move the skill back to disabled directory
+      try {
+        moveDirectory(targetDir, sourceDir);
+      } catch {
+        // Ignore rollback errors - skill is in skills directory but still in config
+      }
+      throw new Error(`Failed to update config: ${(configError as Error).message}`);
+    }
 
     return { success: true, message: 'Skill enabled', skillName, location };
   } catch (error) {
