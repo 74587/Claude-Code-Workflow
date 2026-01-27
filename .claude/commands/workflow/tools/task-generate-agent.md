@@ -398,7 +398,7 @@ This document contains consolidated constraints and user intent to guide module-
 - Module: ${module.name} (${module.type})
 - Focus Paths: ${module.paths.join(', ')}
 - Task ID Prefix: IMPL-${module.prefix}
-- Task Limit: ≤9 tasks (hard limit for this module)
+- Task Limit: ≤6 tasks (hard limit for this module)
 - Other Modules: ${otherModules.join(', ')} (reference only, do NOT generate tasks for them)
 
 ## SESSION PATHS

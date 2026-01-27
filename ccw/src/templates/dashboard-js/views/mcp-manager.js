@@ -1,18 +1,13 @@
 // MCP Manager View
 // Renders the MCP server management interface
 
-// CCW Tools available for MCP
+// CCW Tools available for MCP (file operations + core memory only)
 const CCW_MCP_TOOLS = [
   // Core tools (always recommended)
   { name: 'write_file', desc: 'Write/create files', core: true },
   { name: 'edit_file', desc: 'Edit/replace content', core: true },
-  { name: 'smart_search', desc: 'Hybrid search (regex + semantic)', core: true },
+  { name: 'read_file', desc: 'Read file contents', core: true },
   { name: 'core_memory', desc: 'Core memory management', core: true },
-  // Optional tools
-  { name: 'session_manager', desc: 'Workflow sessions', core: false },
-  { name: 'generate_module_docs', desc: 'Generate docs', core: false },
-  { name: 'update_module_claude', desc: 'Update CLAUDE.md', core: false },
-  { name: 'cli_executor', desc: 'Gemini/Qwen/Codex CLI', core: false },
 ];
 
 // Get currently enabled tools from installed config (Claude)

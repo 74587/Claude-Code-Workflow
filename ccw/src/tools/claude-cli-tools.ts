@@ -104,8 +104,6 @@ export interface ClaudeCliSettingsConfig {
   recursiveQuery: boolean;
   cache: ClaudeCacheSettings;
   codeIndexMcp: 'codexlens' | 'ace' | 'none';
-  defaultModel?: string;
-  autoSyncEnabled?: boolean;
 }
 
 // Legacy combined config (for backward compatibility)

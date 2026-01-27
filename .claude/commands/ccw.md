@@ -69,6 +69,7 @@ function detectTaskType(text) {
     'bugfix-hotfix': /urgent|production|critical/ && /fix|bug/,
     'bugfix': /fix|bug|error|crash|fail|debug/,
     'issue-batch': /issues?|batch/ && /fix|resolve/,
+    'issue-transition': /issue workflow|structured workflow|queue|multi-stage/,
     'exploration': /uncertain|explore|research|what if/,
     'multi-perspective': /multi-perspective|compare|cross-verify/,
     'quick-task': /quick|simple|small/ && /feature|function/,
@@ -113,6 +114,7 @@ function selectWorkflow(analysis) {
     'bugfix-hotfix':     { level: 2, flow: 'bugfix.hotfix' },
     'bugfix':            { level: 2, flow: 'bugfix.standard' },
     'issue-batch':       { level: 'Issue', flow: 'issue' },
+    'issue-transition':  { level: 2.5, flow: 'rapid-to-issue' },  // Bridge workflow
     'exploration':       { level: 4, flow: 'full' },
     'quick-task':        { level: 1, flow: 'lite-lite-lite' },
     'ui-design':         { level: analysis.complexity === 'high' ? 4 : 3, flow: 'ui' },
@@ -145,6 +147,16 @@ function buildCommandChain(workflow, analysis) {
         { cmd: '/workflow:test-fix-gen', args: '', unit: 'test-validation' },
         { cmd: '/workflow:test-cycle-execute', args: '', unit: 'test-validation' }
       ])
+    ],
+
+    // Level 2 Bridge - Lightweight to Issue Workflow
+    'rapid-to-issue': [
+      // Unit: Quick Implementation【lite-plan → convert-to-plan】
+      { cmd: '/workflow:lite-plan', args: `"${analysis.goal}"`, unit: 'quick-impl-to-issue' },
+      { cmd: '/issue:convert-to-plan', args: '--latest-lite-plan -y', unit: 'quick-impl-to-issue' },
+      // Auto-continue to issue workflow
+      { cmd: '/issue:queue', args: '' },
+      { cmd: '/issue:execute', args: '--queue auto' }
     ],
 
     'bugfix.standard': [
@@ -409,6 +421,7 @@ Phase 5: Execute Command Chain
 |-------|------|-------|-----------------------|
 | "Add API endpoint" | feature (low) | 2 |【lite-plan → lite-execute】→【test-fix-gen → test-cycle-execute】|
 | "Fix login timeout" | bugfix | 2 |【lite-fix → lite-execute】→【test-fix-gen → test-cycle-execute】|
+| "Use issue workflow" | issue-transition | 2.5 |【lite-plan → convert-to-plan】→ queue → execute |
 | "OAuth2 system" | feature (high) | 3 |【plan → plan-verify】→ execute →【review-session-cycle → review-fix】→【test-fix-gen → test-cycle-execute】|
 | "Implement with TDD" | tdd | 3 |【tdd-plan → execute】→ tdd-verify |
 | "Uncertain: real-time arch" | exploration | 4 | brainstorm:auto-parallel →【plan → plan-verify】→ execute →【test-fix-gen → test-cycle-execute】|

@@ -767,13 +767,13 @@ Generate at `.workflow/active/{session_id}/TODO_LIST.md`:
 Use `analysis_results.complexity` or task count to determine structure:
 
 **Single Module Mode**:
-- **Simple Tasks** (≤5 tasks): Flat structure
-- **Medium Tasks** (6-12 tasks): Flat structure
-- **Complex Tasks** (>12 tasks): Re-scope required (maximum 12 tasks hard limit)
+- **Simple Tasks** (≤4 tasks): Flat structure
+- **Medium Tasks** (5-8 tasks): Flat structure
+- **Complex Tasks** (>8 tasks): Re-scope required (maximum 8 tasks hard limit)
 
 **Multi-Module Mode** (N+1 parallel planning):
-- **Per-module limit**: ≤9 tasks per module
-- **Total limit**: Sum of all module tasks ≤27 (3 modules × 9 tasks)
+- **Per-module limit**: ≤6 tasks per module
+- **Total limit**: No total limit (each module independently capped at 6 tasks)
 - **Task ID format**: `IMPL-{prefix}{seq}` (e.g., IMPL-A1, IMPL-B1)
 - **Structure**: Hierarchical by module in IMPL_PLAN.md and TODO_LIST.md
 
@@ -848,7 +848,7 @@ Use `analysis_results.complexity` or task count to determine structure:
 - **Compute CLI execution strategy**: Based on `depends_on`, set `cli_execution.strategy` (new/resume/fork/merge_fork)
 - Map artifacts: Use artifacts_inventory to populate task.context.artifacts array
 - Add MCP integration: Include MCP tool steps in flow_control.pre_analysis when capabilities available
-- Validate task count: Maximum 12 tasks hard limit, request re-scope if exceeded
+- Validate task count: Maximum 8 tasks (single module) or 6 tasks per module (multi-module), request re-scope if exceeded
 - Use session paths: Construct all paths using provided session_id
 - Link documents properly: Use correct linking format (📋 for JSON, ✅ for summaries)
 - Run validation checklist: Verify all quantification requirements before finalizing task JSONs
@@ -862,7 +862,7 @@ Use `analysis_results.complexity` or task count to determine structure:
 - Load files directly (use provided context package instead)
 - Assume default locations (always use session_id in paths)
 - Create circular dependencies in task.depends_on
-- Exceed 12 tasks without re-scoping
+- Exceed 8 tasks (single module) or 6 tasks per module (multi-module) without re-scoping
 - Skip artifact integration when artifacts_inventory is provided
 - Ignore MCP capabilities when available
 - Use fixed pre-analysis steps without task-specific adaptation
