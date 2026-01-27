@@ -72,8 +72,8 @@ Phase 2: Clarification (optional, multi-round)
 
 Phase 3: Planning (NO CODE EXECUTION - planning only)
    └─ Decision (based on Phase 1 complexity):
-      ├─ Low → Load schema: cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json → Direct Claude planning (following schema) → plan.json → MUST proceed to Phase 4
-      └─ Medium/High → cli-lite-planning-agent → plan.json → MUST proceed to Phase 4
+      ├─ Low → Load schema: cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json → Direct Claude planning (following schema) → plan.json
+      └─ Medium/High → cli-lite-planning-agent → plan.json (agent internally executes quality check)
 
 Phase 4: Confirmation & Selection
    ├─ Display plan summary (tasks, complexity, estimated time)
