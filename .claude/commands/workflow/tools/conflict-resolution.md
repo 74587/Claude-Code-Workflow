@@ -186,6 +186,17 @@ Task(subagent_type="cli-execution-agent", run_in_background=false, prompt=`
   - modifications.old_content: 20-100 chars for unique Edit tool matching
   - modifications.new_content: preserves markdown formatting
   - modification_suggestions: 2-5 actionable suggestions for custom handling
+
+  ### 5. Planning Notes Record (REQUIRED)
+  After analysis complete, append a brief execution record to planning-notes.md:
+
+  **File**: .workflow/active/{session_id}/planning-notes.md
+  **Location**: Under "## Conflict Decisions (Phase 3)" section
+  **Format**:
+  \`\`\`
+  ### [Conflict-Resolution Agent] YYYY-MM-DD
+  - **Note**: [智能补充：简短总结冲突类型、解决策略、关键决策等]
+  \`\`\`
 `)
 ```
 

@@ -35,7 +35,7 @@ Step 1: Context-Package Detection
       ├─ Valid package exists → Return existing (skip execution)
       └─ No valid package → Continue to Step 2
 
-Step 2: Complexity Assessment & Parallel Explore (NEW)
+Step 2: Complexity Assessment & Parallel Explore
    ├─ Analyze task_description → classify Low/Medium/High
    ├─ Select exploration angles (1-4 based on complexity)
    ├─ Launch N cli-explore-agents in parallel
@@ -213,18 +213,36 @@ Write(`${sessionFolder}/explorations-manifest.json`, JSON.stringify(explorationM
 **Only execute after Step 2 completes**
 
 ```javascript
+// Load user intent from planning-notes.md (from Phase 1)
+const planningNotesPath = `.workflow/active/${session_id}/planning-notes.md`;
+let userIntent = { goal: task_description, key_constraints: "None specified" };
+
+if (file_exists(planningNotesPath)) {
+  const notesContent = Read(planningNotesPath);
+  const goalMatch = notesContent.match(/\*\*GOAL\*\*:\s*(.+)/);
+  const constraintsMatch = notesContent.match(/\*\*KEY_CONSTRAINTS\*\*:\s*(.+)/);
+  if (goalMatch) userIntent.goal = goalMatch[1].trim();
+  if (constraintsMatch) userIntent.key_constraints = constraintsMatch[1].trim();
+}
+
 Task(
   subagent_type="context-search-agent",
   run_in_background=false,
   description="Gather comprehensive context for plan",
   prompt=`
 ## Execution Mode
-**PLAN MODE** (Comprehensive) - Full Phase 1-3 execution
+**PLAN MODE** (Comprehensive) - Full Phase 1-3 execution with priority sorting
 
 ## Session Information
 - **Session ID**: ${session_id}
 - **Task Description**: ${task_description}
 - **Output Path**: .workflow/${session_id}/.process/context-package.json
+
+## User Intent (from Phase 1 - Planning Notes)
+**GOAL**: ${userIntent.goal}
+**KEY_CONSTRAINTS**: ${userIntent.key_constraints}
+
+This is the PRIMARY context source - all subsequent analysis must align with user intent.
 
 ## Exploration Input (from Step 2)
 - **Manifest**: ${sessionFolder}/explorations-manifest.json
@@ -245,7 +263,13 @@ Execute complete context-search-agent workflow for implementation planning:
 4. **Analysis**: Extract keywords, determine scope, classify complexity based on task description and project state
 
 ### Phase 2: Multi-Source Context Discovery
-Execute all discovery tracks:
+Execute all discovery tracks (WITH USER INTENT INTEGRATION):
+- **Track -1**: User Intent & Priority Foundation (EXECUTE FIRST)
+  - Load user intent (GOAL, KEY_CONSTRAINTS) from session input
+  - Map user requirements to codebase entities (files, modules, patterns)
+  - Establish baseline priority scores based on user goal alignment
+  - Output: user_intent_mapping.json with preliminary priority scores
+
 - **Track 0**: Exploration Synthesis (load ${sessionFolder}/explorations-manifest.json, prioritize critical_files, deduplicate patterns/integration_points)
 - **Track 1**: Historical archive analysis (query manifest.json for lessons learned)
 - **Track 2**: Reference documentation (CLAUDE.md, architecture docs)
@@ -254,13 +278,45 @@ Execute all discovery tracks:
 
 ### Phase 3: Synthesis, Assessment & Packaging
 1. Apply relevance scoring and build dependency graph
-2. **Synthesize 4-source data**: Merge findings from all sources (archive > docs > code > web). **Prioritize the context from `project-tech.json`** for architecture and tech stack unless code analysis reveals it's outdated.
-3. **Populate `project_context`**: Directly use the `overview` from `project-tech.json` to fill the `project_context` section. Include description, technology_stack, architecture, and key_components.
-4. **Populate `project_guidelines`**: Load conventions, constraints, and learnings from `project-guidelines.json` into a dedicated section.
-5. Integrate brainstorm artifacts (if .brainstorming/ exists, read content)
-6. Perform conflict detection with risk assessment
-7. **Inject historical conflicts** from archive analysis into conflict_detection
-8. Generate and validate context-package.json
+2. **Synthesize 5-source data** (including Track -1): Merge findings from all sources
+   - Priority order: User Intent > Archive > Docs > Exploration > Code > Web
+   - **Prioritize the context from `project-tech.json`** for architecture and tech stack unless code analysis reveals it's outdated
+3. **Context Priority Sorting**:
+   a. Combine scores from Track -1 (user intent alignment) + relevance scores + exploration critical_files
+   b. Classify files into priority tiers:
+      - **Critical** (score ≥ 0.85): Directly mentioned in user goal OR exploration critical_files
+      - **High** (0.70-0.84): Key dependencies, patterns required for goal
+      - **Medium** (0.50-0.69): Supporting files, indirect dependencies
+      - **Low** (< 0.50): Contextual awareness only
+   c. Generate dependency_order: Based on dependency graph + user goal sequence
+   d. Document sorting_rationale: Explain prioritization logic
+
+4. **Populate `project_context`**: Directly use the `overview` from `project-tech.json` to fill the `project_context` section. Include description, technology_stack, architecture, and key_components.
+5. **Populate `project_guidelines`**: Load conventions, constraints, and learnings from `project-guidelines.json` into a dedicated section.
+6. Integrate brainstorm artifacts (if .brainstorming/ exists, read content)
+7. Perform conflict detection with risk assessment
+8. **Inject historical conflicts** from archive analysis into conflict_detection
+9. **Generate prioritized_context section**:
+   ```json
+   {
+     "prioritized_context": {
+       "user_intent": {
+         "goal": "...",
+         "scope": "...",
+         "key_constraints": ["..."]
+       },
+       "priority_tiers": {
+         "critical": [{ "path": "...", "relevance": 0.95, "rationale": "..." }],
+         "high": [...],
+         "medium": [...],
+         "low": [...]
+       },
+       "dependency_order": ["module1", "module2", "module3"],
+       "sorting_rationale": "Based on user goal alignment (Track -1), exploration critical files, and dependency graph analysis"
+     }
+   }
+   ```
+10. Generate and validate context-package.json with prioritized_context field
 
 ## Output Requirements
 Complete context-package.json with:
@@ -272,6 +328,7 @@ Complete context-package.json with:
 - **brainstorm_artifacts**: {guidance_specification, role_analyses[], synthesis_output} with content
 - **conflict_detection**: {risk_level, risk_factors, affected_modules[], mitigation_strategy, historical_conflicts[]}
 - **exploration_results**: {manifest_path, exploration_count, angles, explorations[], aggregated_insights} (from Track 0)
+- **prioritized_context**: {user_intent, priority_tiers{critical, high, medium, low}, dependency_order[], sorting_rationale}
 
 ## Quality Validation
 Before completion verify:
@@ -281,6 +338,17 @@ Before completion verify:
 - [ ] Conflict risk level calculated correctly
 - [ ] No sensitive data exposed
 - [ ] Total files ≤50 (prioritize high-relevance)
+
+## Planning Notes Record (REQUIRED)
+After completing context-package.json, append a brief execution record to planning-notes.md:
+
+**File**: .workflow/active/${session_id}/planning-notes.md
+**Location**: Under "## Context Findings (Phase 2)" section
+**Format**:
+\`\`\`
+### [Context-Search Agent] YYYY-MM-DD
+- **Note**: [智能补充：简短总结关键发现，如探索角度、关键文件、冲突风险等]
+\`\`\`
 
 Execute autonomously following agent documentation.
 Report completion with statistics.
@@ -326,6 +394,7 @@ Refer to `context-search-agent.md` Phase 3.7 for complete `context-package.json`
 - **brainstorm_artifacts**: Brainstorm documents with full content (if exists)
 - **conflict_detection**: Risk assessment with mitigation strategies and historical conflicts
 - **exploration_results**: Aggregated exploration insights (from parallel explore phase)
+- **prioritized_context**: Pre-sorted context with user intent and priority tiers (critical/high/medium/low)
 
 ## Historical Archive Analysis
 
@@ -435,7 +504,10 @@ if (historicalConflicts.length > 0 && currentRisk === "low") {
 ## Notes
 
 - **Detection-first**: Always check for existing package before invoking agent
+- **User intent integration**: Load user intent from planning-notes.md (Phase 1 output) to ensure context aligns with user goals
+- **Priority sorting in Phase 2**: Track -1 (User Intent & Priority Foundation) establishes baseline priorities BEFORE other track analysis
 - **Dual project file integration**: Agent reads both `.workflow/project-tech.json` (tech analysis) and `.workflow/project-guidelines.json` (user constraints) as primary sources
 - **Guidelines injection**: Project guidelines are included in context-package to ensure task generation respects user-defined constraints
-- **No redundancy**: This command is a thin orchestrator, all logic in agent
+- **Prioritized context output**: `prioritized_context` field provides pre-sorted context with priority tiers
+- **No redundancy**: Context sorting happens once (Phase 2 Track -1 + Phase 3), not duplicated in Phase 4
 - **Plan-specific**: Use this for implementation planning; brainstorm mode uses direct agent call

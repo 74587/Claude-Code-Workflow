@@ -169,6 +169,7 @@ SlashCommand(command="/workflow:tools:context-gather --session [sessionId] \"[st
 **Validation**:
 - Context package path extracted
 - File exists and is valid JSON
+- `prioritized_context` field exists
 
 <!-- TodoWrite: When context-gather executed, INSERT 3 context-gather tasks, mark first as in_progress -->
 
@@ -419,19 +420,54 @@ SlashCommand(command="/workflow:tools:task-generate-agent --session [sessionId]"
 
 **Note**: Agent task completed. No collapse needed (single task).
 
-**Return to User**:
-```
-Planning complete for session: [sessionId]
-Tasks generated: [count]
-Plan: .workflow/active/[sessionId]/IMPL_PLAN.md
+**Step 4.2: User Decision** - Choose next action
 
-Recommended Next Steps:
-1. /workflow:plan-verify --session [sessionId]  # Verify plan quality before execution
-2. /workflow:status  # Review task breakdown
-3. /workflow:execute  # Start implementation (after verification)
+After Phase 4 completes, present user with action choices:
 
-Quality Gate: Consider running /workflow:plan-verify to catch issues early
+```javascript
+console.log(`
+✅ Planning complete for session: ${sessionId}
+📊 Tasks generated: ${taskCount}
+📋 Plan: .workflow/active/${sessionId}/IMPL_PLAN.md
+`);
+
+// Ask user for next action
+const userChoice = AskUserQuestion({
+  questions: [{
+    question: "Planning complete. What would you like to do next?",
+    header: "Next Action",
+    multiSelect: false,
+    options: [
+      {
+        label: "Verify Plan Quality (Recommended)",
+        description: "Run quality verification to catch issues before execution. Checks plan structure, task dependencies, and completeness."
+      },
+      {
+        label: "Start Execution",
+        description: "Begin implementing tasks immediately. Use this if you've already reviewed the plan or want to start quickly."
+      },
+      {
+        label: "Review Status Only",
+        description: "View task breakdown and session status without taking further action. You can decide what to do next manually."
+      }
+    ]
+  }]
+});
+
+// Execute based on user choice
+if (userChoice.answers["Next Action"] === "Verify Plan Quality (Recommended)") {
+  console.log("\n🔍 Starting plan verification...\n");
+  SlashCommand(command="/workflow:plan-verify --session " + sessionId);
+} else if (userChoice.answers["Next Action"] === "Start Execution") {
+  console.log("\n🚀 Starting task execution...\n");
+  SlashCommand(command="/workflow:execute --session " + sessionId);
+} else if (userChoice.answers["Next Action"] === "Review Status Only") {
+  console.log("\n📊 Displaying session status...\n");
+  SlashCommand(command="/workflow:status --session " + sessionId);
+}
 ```
+
+**Return to User**: Based on user's choice, execute the corresponding workflow command.
 
 ## TodoWrite Pattern
 
@@ -511,8 +547,11 @@ Phase 1: session:start --auto "structured-description"
     ↓ Write: planning-notes.md (User Intent section)
     ↓
 Phase 2: context-gather --session sessionId "structured-description"
-    ↓ Input: sessionId + structured description
-    ↓ Output: contextPath (context-package.json) + conflict_risk
+    ↓ Input: sessionId + structured description + planning-notes.md (Phase 1 user intent)
+    ↓ CONTEXT PRIORITY SORTING IN CONTEXT-GATHER (Phase 2 Track -1 + Phase 3)
+    ↓ Output: contextPath (context-package.json with prioritized_context) + conflict_risk
+    ↓   - prioritized_context contains: user_intent, priority_tiers, dependency_order
+    ↓   - Eliminates redundant sorting in task-generate-agent Phase 1
     ↓ Update: planning-notes.md (Context Findings + Consolidated Constraints)
     ↓
 Phase 3: conflict-resolution [AUTO-TRIGGERED if conflict_risk ≥ medium]
@@ -522,8 +561,10 @@ Phase 3: conflict-resolution [AUTO-TRIGGERED if conflict_risk ≥ medium]
     ↓ Skip if conflict_risk is none/low → proceed directly to Phase 4
     ↓
 Phase 4: task-generate-agent --session sessionId
-    ↓ Input: sessionId + planning-notes.md + context-package.json + brainstorm artifacts
-    ↓ planning-notes.md provides: User Intent, Context Findings, Constraints
+    ↓ Input: sessionId + planning-notes.md + context-package.json (with prioritized_context) + brainstorm artifacts
+    ↓ USE PRIORITIZED_CONTEXT DIRECTLY - NO REDUNDANT SORTING
+    ↓   - planning-notes.md provides: User Intent, Context Findings, Constraints
+    ↓   - context-package.prioritized_context provides: Pre-sorted priority_tiers, dependency_order
     ↓ Output: IMPL_PLAN.md, task JSONs, TODO_LIST.md
     ↓
 Return summary to user

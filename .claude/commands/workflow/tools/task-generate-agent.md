@@ -19,6 +19,10 @@ Generate implementation planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.
 ## Core Philosophy
 - **Planning Only**: Generate planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) - does NOT implement code
 - **Agent-Driven Document Generation**: Delegate plan generation to action-planning-agent
+- **NO Redundant Context Sorting**: Context priority sorting is ALREADY completed in context-gather Phase 2/3
+  - Use `context-package.json.prioritized_context` directly
+  - DO NOT re-sort files or re-compute priorities
+  - `priority_tiers` and `dependency_order` are pre-computed and ready-to-use
 - **N+1 Parallel Planning**: Auto-detect multi-module projects, enable parallel planning (2+1 or 3+1 mode)
 - **Progressive Loading**: Load context incrementally (Core → Selective → On-Demand) due to analysis.md file size
 - **Memory-First**: Reuse loaded documents from conversation memory
@@ -161,13 +165,13 @@ const userConfig = {
 
 ### Phase 1: Context Preparation & Module Detection (Command Responsibility)
 
-**Command prepares session paths, metadata, detects module structure, and loads planning-notes.md.**
+**Command prepares session paths, metadata, detects module structure. Context priority sorting is NOT performed here - it's already completed in context-gather Phase 2/3.**
 
 **Session Path Structure**:
 ```
 .workflow/active/WFS-{session-id}/
 ├── workflow-session.json          # Session metadata
-├── planning-notes.md              # Consolidated planning notes (NEW)
+├── planning-notes.md              # Consolidated planning notes
 ├── .process/
 │   └── context-package.json       # Context package with artifact catalog
 ├── .task/                         # Output: Task JSON files
@@ -263,7 +267,7 @@ This document contains:
 ## SESSION PATHS
 Input:
   - Session Metadata: .workflow/active/{session-id}/workflow-session.json
-  - Planning Notes: .workflow/active/{session-id}/planning-notes.md (NEW)
+  - Planning Notes: .workflow/active/{session-id}/planning-notes.md
   - Context Package: .workflow/active/{session-id}/.process/context-package.json
 
 Output:
@@ -291,7 +295,17 @@ CLI Resume Support (MANDATORY for all CLI commands):
 - Read previous task's cliExecutionId from session state
 - Format: ccw cli -p "[prompt]" --resume ${previousCliId} --tool ${tool} --mode write
 
-## EXPLORATION CONTEXT (from context-package.exploration_results)
+## PRIORITIZED CONTEXT (from context-package.prioritized_context) - ALREADY SORTED
+Context sorting is ALREADY COMPLETED in context-gather Phase 2/3. DO NOT re-sort.
+Direct usage:
+- **user_intent**: Use goal/scope/key_constraints for task alignment
+- **priority_tiers.critical**: These files are PRIMARY focus for task generation
+- **priority_tiers.high**: These files are SECONDARY focus
+- **dependency_order**: Use this for task sequencing - already computed
+- **sorting_rationale**: Reference for understanding priority decisions
+
+## EXPLORATION CONTEXT (from context-package.exploration_results) - SUPPLEMENT ONLY
+If prioritized_context is incomplete, fall back to exploration_results:
 - Load exploration_results from context-package.json
 - Use aggregated_insights.critical_files for focus_paths generation
 - Apply aggregated_insights.constraints to acceptance criteria
@@ -311,8 +325,10 @@ CLI Resume Support (MANDATORY for all CLI commands):
    - 6-field schema (id, title, status, context_package_path, meta, context, flow_control)
    - Quantified requirements with explicit counts
    - Artifacts integration from context package
-   - **focus_paths enhanced with exploration critical_files**
-   - Flow control with pre_analysis steps (include exploration integration_points analysis)
+   - **focus_paths generated directly from prioritized_context.priority_tiers (critical + high)**
+     - NO re-sorting or re-prioritization - use pre-computed tiers as-is
+     - Critical files are PRIMARY focus, High files are SECONDARY
+   - Flow control with pre_analysis steps (use prioritized_context.dependency_order for task sequencing)
    - **CLI Execution IDs and strategies (MANDATORY)**
 
 2. Implementation Plan (IMPL_PLAN.md)
@@ -360,6 +376,19 @@ Hard Constraints:
   - IMPL_PLAN.md created with complete structure
   - TODO_LIST.md generated matching task JSONs
 - Return completion status with document count and task breakdown summary
+
+## PLANNING NOTES RECORD (REQUIRED)
+After completing all documents, append a brief execution record to planning-notes.md:
+
+**File**: .workflow/active/{session_id}/planning-notes.md
+**Location**: Create new section after "## Consolidated Constraints"
+**Format**:
+\`\`\`
+## Task Generation (Phase 4)
+
+### [Action-Planning Agent] YYYY-MM-DD
+- **Note**: [智能补充：简短总结任务数量、关键任务、依赖关系等]
+\`\`\`
 `
 )
 ```
@@ -404,7 +433,7 @@ This document contains consolidated constraints and user intent to guide module-
 ## SESSION PATHS
 Input:
   - Session Metadata: .workflow/active/{session-id}/workflow-session.json
-  - Planning Notes: .workflow/active/{session-id}/planning-notes.md (NEW)
+  - Planning Notes: .workflow/active/{session-id}/planning-notes.md
   - Context Package: .workflow/active/{session-id}/.process/context-package.json
 
 Output:
@@ -430,7 +459,16 @@ CLI Resume Support (MANDATORY for all CLI commands):
 - Read previous task's cliExecutionId from session state
 - Format: ccw cli -p "[prompt]" --resume ${previousCliId} --tool ${tool} --mode write
 
-## EXPLORATION CONTEXT (from context-package.exploration_results)
+## PRIORITIZED CONTEXT (from context-package.prioritized_context) - ALREADY SORTED
+Context sorting is ALREADY COMPLETED in context-gather Phase 2/3. DO NOT re-sort.
+Filter by module scope (${module.paths.join(', ')}):
+- **user_intent**: Use for task alignment within module
+- **priority_tiers.critical**: Filter for files in ${module.paths.join(', ')} → PRIMARY focus
+- **priority_tiers.high**: Filter for files in ${module.paths.join(', ')} → SECONDARY focus
+- **dependency_order**: Use module-relevant entries for task sequencing
+
+## EXPLORATION CONTEXT (from context-package.exploration_results) - SUPPLEMENT ONLY
+If prioritized_context is incomplete for this module, fall back to exploration_results:
 - Load exploration_results from context-package.json
 - Filter for ${module.name} module: Use aggregated_insights.critical_files matching ${module.paths.join(', ')}
 - Apply module-relevant constraints from aggregated_insights.constraints
@@ -457,8 +495,10 @@ Task JSON Files (.task/IMPL-${module.prefix}*.json):
   - Task ID format: IMPL-${module.prefix}1, IMPL-${module.prefix}2, ...
   - Quantified requirements with explicit counts
   - Artifacts integration from context package (filtered for ${module.name})
-  - **focus_paths enhanced with exploration critical_files (module-scoped)**
-  - Flow control with pre_analysis steps (include exploration integration_points analysis)
+  - **focus_paths generated directly from prioritized_context.priority_tiers filtered by ${module.paths.join(', ')}**
+    - NO re-sorting - use pre-computed tiers filtered for this module
+    - Critical files are PRIMARY focus, High files are SECONDARY
+  - Flow control with pre_analysis steps (use prioritized_context.dependency_order for module task sequencing)
   - **CLI Execution IDs and strategies (MANDATORY)**
   - Focus ONLY on ${module.name} module scope
 
@@ -501,6 +541,21 @@ Hard Constraints:
 - Cross-module dependencies use CROSS:: placeholder format consistently
 - Focus paths scoped to ${module.paths.join(', ')} only
 - Return: task count, task IDs, dependency summary (internal + cross-module)
+
+## PLANNING NOTES RECORD (REQUIRED)
+After completing module task JSONs, append a brief execution record to planning-notes.md:
+
+**File**: .workflow/active/{session_id}/planning-notes.md
+**Location**: Create new section after "## Consolidated Constraints" (if not exists)
+**Format**:
+\`\`\`
+## Task Generation (Phase 4)
+
+### [Action-Planning Agent - ${module.name}] YYYY-MM-DD
+- **Note**: [智能补充：简短总结本模块任务数量、关键任务等]
+\`\`\`
+
+**Note**: Multiple module agents will append their records. Phase 3 Integration Coordinator will add final summary.
     `
   )
 );
@@ -581,6 +636,17 @@ Module Count: ${modules.length}
 - No CROSS:: placeholders remaining in task JSONs
 - IMPL_PLAN.md and TODO_LIST.md generated with multi-module structure
 - Return: task count, per-module breakdown, resolved dependency count
+
+## PLANNING NOTES RECORD (REQUIRED)
+After completing integration, append final summary to planning-notes.md:
+
+**File**: .workflow/active/{session_id}/planning-notes.md
+**Location**: Under "## Task Generation (Phase 4)" section (after module agent records)
+**Format**:
+\`\`\`
+### [Integration Coordinator] YYYY-MM-DD
+- **Note**: [智能补充：简短总结总任务数、跨模块依赖解决情况等]
+\`\`\`
   `
 )
 ```

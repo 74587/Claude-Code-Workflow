@@ -734,66 +734,6 @@ export function getPromptFormat(projectDir: string): 'plain' | 'yaml' | 'json' {
 }
 
 /**
- * Update default model setting
- * @param projectDir - Project directory path
- * @param model - Default model name
- * @returns Updated settings config
- */
-export function setDefaultModel(
-  projectDir: string,
-  model: string
-): ClaudeCliSettingsConfig {
-  const settings = loadClaudeCliSettings(projectDir);
-  settings.defaultModel = model;
-  saveClaudeCliSettings(projectDir, settings);
-  return settings;
-}
-
-/**
- * Get default model setting
- * @param projectDir - Project directory path
- * @returns Current default model or undefined if not set
- */
-export function getDefaultModel(projectDir: string): string | undefined {
-  try {
-    const settings = loadClaudeCliSettings(projectDir);
-    return settings.defaultModel;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Update auto-sync enabled setting
- * @param projectDir - Project directory path
- * @param enabled - Whether auto-sync is enabled
- * @returns Updated settings config
- */
-export function setAutoSyncEnabled(
-  projectDir: string,
-  enabled: boolean
-): ClaudeCliSettingsConfig {
-  const settings = loadClaudeCliSettings(projectDir);
-  settings.autoSyncEnabled = enabled;
-  saveClaudeCliSettings(projectDir, settings);
-  return settings;
-}
-
-/**
- * Get auto-sync enabled setting
- * @param projectDir - Project directory path
- * @returns Current auto-sync status or undefined if not set
- */
-export function getAutoSyncEnabled(projectDir: string): boolean | undefined {
-  try {
-    const settings = loadClaudeCliSettings(projectDir);
-    return settings.autoSyncEnabled;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
  * Update smart context enabled setting
  * @param projectDir - Project directory path
  * @param enabled - Whether smart context is enabled
