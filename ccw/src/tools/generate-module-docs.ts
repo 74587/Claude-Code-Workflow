@@ -280,11 +280,12 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
     // Scan directory
     const { info: structureInfo, folderType } = scanDirectoryStructure(targetPath);
 
-    // Calculate output path
+    // Calculate output path (relative for display, absolute for CLI prompt)
     const outputPath = calculateOutputPath(targetPath, projectName, process.cwd());
+    const absOutputPath = resolve(process.cwd(), outputPath);
 
     // Ensure output directory exists
-    mkdirSync(outputPath, { recursive: true });
+    mkdirSync(absOutputPath, { recursive: true });
 
     // Build prompt based on strategy
     let prompt: string;
@@ -304,7 +305,7 @@ Generate documentation files:
 - API.md: Code API documentation
 - README.md: Module overview and usage
 
-Output directory: ${outputPath}
+Output directory: ${absOutputPath}
 
 Template Guidelines:
 ${templateContent}`;
@@ -318,7 +319,7 @@ Read: @*/API.md @*/README.md
 Generate documentation file:
 - README.md: Navigation overview of subdirectories
 
-Output directory: ${outputPath}
+Output directory: ${absOutputPath}
 
 Template Guidelines:
 ${templateContent}`;
@@ -327,12 +328,13 @@ ${templateContent}`;
 
       case 'project-readme':
         templateContent = loadTemplate('project-readme');
+        const projectDocsDir = resolve(process.cwd(), '.workflow', 'docs', projectName);
         prompt = `Read all module documentation:
 @.workflow/docs/${projectName}/**/API.md
 @.workflow/docs/${projectName}/**/README.md
 
 Generate project-level documentation:
-- README.md in .workflow/docs/${projectName}/
+- README.md in ${projectDocsDir}/
 
 Template Guidelines:
 ${templateContent}`;
@@ -340,6 +342,7 @@ ${templateContent}`;
 
       case 'project-architecture':
         templateContent = loadTemplate('project-architecture');
+        const projectArchDir = resolve(process.cwd(), '.workflow', 'docs', projectName);
         prompt = `Read project documentation:
 @.workflow/docs/${projectName}/README.md
 @.workflow/docs/${projectName}/**/API.md
@@ -348,13 +351,14 @@ Generate:
 - ARCHITECTURE.md: System design documentation
 - EXAMPLES.md: Usage examples
 
-Output directory: .workflow/docs/${projectName}/
+Output directory: ${projectArchDir}/
 
 Template Guidelines:
 ${templateContent}`;
         break;
 
       case 'http-api':
+        const apiDocsDir = resolve(process.cwd(), '.workflow', 'docs', projectName, 'api');
         prompt = `Read API route files:
 @**/routes/**/*.ts @**/routes/**/*.js
 @**/api/**/*.ts @**/api/**/*.js
@@ -362,7 +366,7 @@ ${templateContent}`;
 Generate HTTP API documentation:
 - api/README.md: REST API endpoints documentation
 
-Output directory: .workflow/docs/${projectName}/api/`;
+Output directory: ${apiDocsDir}/`;
         break;
     }
 

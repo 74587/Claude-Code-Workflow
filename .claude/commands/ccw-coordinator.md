@@ -50,11 +50,26 @@ Interactive orchestration tool: analyze task → discover commands → recommend
 | **Code Review (Session)** | review-session-cycle → review-fix | Complete review cycle and apply fixes | Fixed code |
 | **Code Review (Module)** | review-module-cycle → review-fix | Module review cycle and apply fixes | Fixed code |
 
+**Issue Units** (Issue单元):
+
+| Unit Name | Commands | Purpose | Output |
+|-----------|----------|---------|--------|
+| **Issue Workflow** | discover → plan → queue → execute | Complete issue lifecycle | Completed issues |
+| **Rapid-to-Issue** | lite-plan → convert-to-plan → queue → execute | Bridge lite workflow to issue workflow | Completed issues |
+
+**With-File Units** (文档化单元):
+
+| Unit Name | Commands | Purpose | Output |
+|-----------|----------|---------|--------|
+| **Brainstorm With File** | brainstorm-with-file | Multi-perspective ideation with documentation | brainstorm.md |
+| **Debug With File** | debug-with-file | Hypothesis-driven debugging with documentation | understanding.md |
+| **Analyze With File** | analyze-with-file | Collaborative analysis with documentation | discussion.md |
+
 ### Command-to-Unit Mapping (命令与最小单元的映射)
 
 | Command | Can Precede | Atomic Units |
 |---------|-----------|--------------|
-| lite-plan | lite-execute | Quick Implementation |
+| lite-plan | lite-execute, convert-to-plan | Quick Implementation, Rapid-to-Issue |
 | multi-cli-plan | lite-execute | Multi-CLI Planning |
 | lite-fix | lite-execute | Bug Fix |
 | plan | plan-verify, execute | Full Planning + Execution, Verified Planning + Execution |
@@ -65,6 +80,13 @@ Interactive orchestration tool: analyze task → discover commands → recommend
 | review-session-cycle | review-fix | Code Review (Session) |
 | review-module-cycle | review-fix | Code Review (Module) |
 | test-fix-gen | test-cycle-execute | Test Validation |
+| issue:discover | issue:plan | Issue Workflow |
+| issue:plan | issue:queue | Issue Workflow |
+| convert-to-plan | issue:queue | Rapid-to-Issue |
+| issue:queue | issue:execute | Issue Workflow, Rapid-to-Issue |
+| brainstorm-with-file | (standalone) | Brainstorm With File |
+| debug-with-file | (standalone) | Debug With File |
+| analyze-with-file | (standalone) | Analyze With File |
 
 ### Atomic Group Rules
 
@@ -105,6 +127,13 @@ function detectTaskType(text) {
   if (/测试失败|test fail|fix test|failing test/.test(text)) return 'test-fix';
   if (/generate test|写测试|add test|补充测试/.test(text)) return 'test-gen';
   if (/review|审查|code review/.test(text)) return 'review';
+  // Issue workflow patterns
+  if (/issues?.*batch|batch.*issues?|批量.*issue|issue.*批量/.test(text)) return 'issue-batch';
+  if (/issue workflow|structured workflow|queue|multi-stage|转.*issue|issue.*流程/.test(text)) return 'issue-transition';
+  // With-File workflow patterns
+  if (/brainstorm|ideation|头脑风暴|创意|发散思维|creative thinking/.test(text)) return 'brainstorm-file';
+  if (/debug.*document|hypothesis.*debug|深度调试|假设.*验证|systematic debug/.test(text)) return 'debug-file';
+  if (/analyze.*document|collaborative analysis|协作分析|深度.*理解/.test(text)) return 'analyze-file';
   if (/不确定|explore|研究|what if|brainstorm|权衡/.test(text)) return 'brainstorm';
   if (/多视角|比较方案|cross-verify|multi-cli/.test(text)) return 'multi-cli';
   return 'feature';  // Default
@@ -285,6 +314,66 @@ const commandPorts = {
     output: ['review-verified'],                // 输出端口:审查通过
     tags: ['review'],
     atomic_group: 'code-review'                // 最小单元：与 review-fix 绑定
+  },
+
+  // Issue workflow commands
+  'issue:discover': {
+    name: 'issue:discover',
+    input: ['codebase'],                        // 输入端口：代码库
+    output: ['pending-issues'],                 // 输出端口：待处理 issues
+    tags: ['issue'],
+    atomic_group: 'issue-workflow'             // 最小单元：discover → plan → queue → execute
+  },
+  'issue:plan': {
+    name: 'issue:plan',
+    input: ['pending-issues'],                  // 输入端口：待处理 issues
+    output: ['issue-plans'],                    // 输出端口：issue 计划
+    tags: ['issue'],
+    atomic_group: 'issue-workflow'
+  },
+  'issue:queue': {
+    name: 'issue:queue',
+    input: ['issue-plans', 'converted-plan'],   // 可接受 issue:plan 或 convert-to-plan 输出
+    output: ['execution-queue'],                // 输出端口：执行队列
+    tags: ['issue'],
+    atomic_groups: ['issue-workflow', 'rapid-to-issue']
+  },
+  'issue:execute': {
+    name: 'issue:execute',
+    input: ['execution-queue'],                 // 输入端口：执行队列
+    output: ['completed-issues'],               // 输出端口：已完成 issues
+    tags: ['issue'],
+    atomic_groups: ['issue-workflow', 'rapid-to-issue']
+  },
+  'issue:convert-to-plan': {
+    name: 'issue:convert-to-plan',
+    input: ['plan'],                            // 输入端口：lite-plan 输出
+    output: ['converted-plan'],                 // 输出端口：转换后的 issue 计划
+    tags: ['issue', 'planning'],
+    atomic_group: 'rapid-to-issue'             // 最小单元：lite-plan → convert-to-plan → queue → execute
+  },
+
+  // With-File workflows (documented exploration with multi-CLI collaboration)
+  'brainstorm-with-file': {
+    name: 'brainstorm-with-file',
+    input: ['exploration-topic'],               // 输入端口：探索主题
+    output: ['brainstorm-document'],            // 输出端口：brainstorm.md + 综合结论
+    tags: ['brainstorm', 'with-file'],
+    note: 'Self-contained workflow with multi-round diverge-converge cycles'
+  },
+  'debug-with-file': {
+    name: 'debug-with-file',
+    input: ['bug-report'],                      // 输入端口：bug 报告
+    output: ['understanding-document'],         // 输出端口：understanding.md + 修复
+    tags: ['bugfix', 'with-file'],
+    note: 'Self-contained workflow with hypothesis-driven iteration'
+  },
+  'analyze-with-file': {
+    name: 'analyze-with-file',
+    input: ['analysis-topic'],                  // 输入端口：分析主题
+    output: ['discussion-document'],            // 输出端口：discussion.md + 结论
+    tags: ['analysis', 'with-file'],
+    note: 'Self-contained workflow with multi-round discussion'
   }
 };
 ```
@@ -306,14 +395,21 @@ async function recommendCommandChain(analysis) {
 // 任务类型对应的端口流
 function determinePortFlow(taskType, constraints) {
   const flows = {
-    'bugfix':     { inputPort: 'bug-report', outputPort: constraints?.includes('skip-tests') ? 'fixed-code' : 'test-passed' },
-    'tdd':        { inputPort: 'requirement', outputPort: 'tdd-verified' },
-    'test-fix':   { inputPort: 'failing-tests', outputPort: 'test-passed' },
-    'test-gen':   { inputPort: 'code', outputPort: 'test-passed' },
-    'review':     { inputPort: 'code', outputPort: 'review-verified' },
-    'brainstorm': { inputPort: 'exploration-topic', outputPort: 'test-passed' },
-    'multi-cli':  { inputPort: 'requirement', outputPort: 'test-passed' },
-    'feature':    { inputPort: 'requirement', outputPort: constraints?.includes('skip-tests') ? 'code' : 'test-passed' }
+    'bugfix':         { inputPort: 'bug-report', outputPort: constraints?.includes('skip-tests') ? 'fixed-code' : 'test-passed' },
+    'tdd':            { inputPort: 'requirement', outputPort: 'tdd-verified' },
+    'test-fix':       { inputPort: 'failing-tests', outputPort: 'test-passed' },
+    'test-gen':       { inputPort: 'code', outputPort: 'test-passed' },
+    'review':         { inputPort: 'code', outputPort: 'review-verified' },
+    'brainstorm':     { inputPort: 'exploration-topic', outputPort: 'test-passed' },
+    'multi-cli':      { inputPort: 'requirement', outputPort: 'test-passed' },
+    // Issue workflow types
+    'issue-batch':      { inputPort: 'codebase', outputPort: 'completed-issues' },
+    'issue-transition': { inputPort: 'requirement', outputPort: 'completed-issues' },
+    // With-File workflow types
+    'brainstorm-file':  { inputPort: 'exploration-topic', outputPort: 'brainstorm-document' },
+    'debug-file':       { inputPort: 'bug-report', outputPort: 'understanding-document' },
+    'analyze-file':     { inputPort: 'analysis-topic', outputPort: 'discussion-document' },
+    'feature':          { inputPort: 'requirement', outputPort: constraints?.includes('skip-tests') ? 'code' : 'test-passed' }
   };
   return flows[taskType] || flows['feature'];
 }
@@ -553,6 +649,34 @@ function formatCommand(cmd, previousResults, analysis) {
   } else if (name.includes('test') || name.includes('review') || name.includes('verify')) {
     const latest = previousResults.filter(r => r.session_id).pop();
     if (latest?.session_id) prompt += ` --session="${latest.session_id}"`;
+
+  // Issue workflow commands
+  } else if (name === 'issue:discover') {
+    // No parameters needed - discovers from codebase
+    prompt = `/issue:discover -y`;
+
+  } else if (name === 'issue:plan') {
+    prompt = `/issue:plan -y --all-pending`;
+
+  } else if (name === 'issue:queue') {
+    prompt = `/issue:queue -y`;
+
+  } else if (name === 'issue:execute') {
+    prompt = `/issue:execute -y --queue auto`;
+
+  } else if (name === 'issue:convert-to-plan' || name === 'convert-to-plan') {
+    // Convert latest lite-plan to issue plan
+    prompt = `/issue:convert-to-plan -y --latest-lite-plan`;
+
+  // With-File workflows (self-contained)
+  } else if (name === 'brainstorm-with-file') {
+    prompt = `/workflow:brainstorm-with-file -y "${analysis.goal}"`;
+
+  } else if (name === 'debug-with-file') {
+    prompt = `/workflow:debug-with-file -y "${analysis.goal}"`;
+
+  } else if (name === 'analyze-with-file') {
+    prompt = `/workflow:analyze-with-file -y "${analysis.goal}"`;
   }
 
   return prompt;
@@ -904,7 +1028,7 @@ break; // ⚠️ STOP HERE - DO NOT use TaskOutput polling
 
 ## Available Commands
 
-All from `~/.claude/commands/workflow/`:
+All from `~/.claude/commands/workflow/` and `~/.claude/commands/issue/`:
 
 **Planning**: lite-plan, plan, multi-cli-plan, plan-verify, tdd-plan
 **Execution**: lite-execute, execute, develop-with-file
@@ -916,6 +1040,8 @@ All from `~/.claude/commands/workflow/`:
 **Session Management**: session:start, session:resume, session:complete, session:solidify, session:list
 **Tools**: context-gather, test-context-gather, task-generate, conflict-resolution, action-plan-verify
 **Utility**: clean, init, replan
+**Issue Workflow**: issue:discover, issue:plan, issue:queue, issue:execute, issue:convert-to-plan
+**With-File Workflows**: brainstorm-with-file, debug-with-file, analyze-with-file
 
 ### Testing Commands Distinction
 
@@ -944,5 +1070,10 @@ All from `~/.claude/commands/workflow/`:
 | **review** | 代码 →【review-* → review-fix】→ 修复代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 | Code Review + Testing |
 | **brainstorm** | 探索主题 → brainstorm → 分析 →【plan → plan-verify】→ execute → test | Exploration + Planning + Execution |
 | **multi-cli** | 需求 → multi-cli-plan → 对比分析 → lite-execute → test | Multi-Perspective + Testing |
+| **issue-batch** | 代码库 →【discover → plan → queue → execute】→ 完成 issues | Issue Workflow |
+| **issue-transition** | 需求 →【lite-plan → convert-to-plan → queue → execute】→ 完成 issues | Rapid-to-Issue |
+| **brainstorm-file** | 主题 → brainstorm-with-file → brainstorm.md (自包含) | Brainstorm With File |
+| **debug-file** | Bug报告 → debug-with-file → understanding.md (自包含) | Debug With File |
+| **analyze-file** | 分析主题 → analyze-with-file → discussion.md (自包含) | Analyze With File |
 
 Use `CommandRegistry.getAllCommandsSummary()` to discover all commands dynamically.

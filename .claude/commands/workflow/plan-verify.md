@@ -170,652 +170,152 @@ Create internal representations (do not include raw artifacts in output):
 
 #### Phase 4.1: Launch Unified Verification Agent
 
-**Single Agent, Multi-Dimensional Analysis**:
-
 ```javascript
 Task(
   subagent_type="cli-explore-agent",
-  run_in_background=false,  // ⚠️ MANDATORY: Must wait for results
+  run_in_background=false,
   description="Multi-dimensional plan verification",
   prompt=`
 ## Plan Verification Task
 
-Execute comprehensive verification across dimensions A-H, using Gemini CLI for semantic analysis.
-
 ### MANDATORY FIRST STEPS
-1. Read: ${session_file} (user intent/context)
-2. Read: ${IMPL_PLAN} (implementation plan)
-3. Glob: ${task_dir}/*.json (all task JSON files)
-4. Glob: ${SYNTHESIS_DIR}/*/analysis.md (role analysis documents)
-5. Read: \~/.claude/workflows/cli-templates/schemas/verify-json-schema.json (output schema reference)
+1. Read: ~/.claude/workflows/cli-templates/schemas/plan-verify-agent-schema.json (dimensions & rules)
+2. Read: ~/.claude/workflows/cli-templates/schemas/verify-json-schema.json (output schema)
+3. Read: ${session_file} (user intent)
+4. Read: ${IMPL_PLAN} (implementation plan)
+5. Glob: ${task_dir}/*.json (task files)
+6. Glob: ${SYNTHESIS_DIR}/*/analysis.md (role analyses)
 
-### Output Location
-${process_dir}/verification-findings.json
+### Execution Flow
 
-### Verification Dimensions
+**Load schema → Execute tiered CLI analysis → Aggregate findings → Write JSON**
 
-#### Dimension A: User Intent Alignment (CRITICAL - Tier 1)
-- Goal Alignment: IMPL_PLAN objectives match user's original intent
-- Scope Drift: Plan covers user's stated scope without unauthorized expansion
-- Success Criteria Match: Plan's success criteria reflect user's expectations
-- Intent Conflicts: Tasks contradicting user's original objectives
+FOR each tier in [1, 2, 3, 4]:
+  - Load tier config from plan-verify-agent-schema.json
+  - Execute: ccw cli -p "PURPOSE: Verify dimensions {tier.dimensions}
+    TASK: {tier.checks from schema}
+    CONTEXT: @${session_dir}/**/*
+    EXPECTED: Findings JSON with dimension, severity, location, summary, recommendation
+    CONSTRAINTS: Limit {tier.limit} findings
+    " --tool gemini --mode analysis --rule {tier.rule}
+  - Parse findings, check early exit condition
+  - IF tier == 1 AND critical_count > 0: skip tier 3-4
 
-#### Dimension B: Requirements Coverage Analysis (CRITICAL - Tier 1)
-- Orphaned Requirements: Requirements in synthesis with zero associated tasks
-- Unmapped Tasks: Tasks with no clear requirement linkage
-- NFR Coverage Gaps: Non-functional requirements not reflected in tasks
-
-#### Dimension C: Consistency Validation (CRITICAL - Tier 1)
-- Requirement Conflicts: Tasks contradicting synthesis requirements
-- Architecture Drift: IMPL_PLAN architecture not matching synthesis ADRs
-- Terminology Drift: Same concept named differently across artifacts
-- Data Model Inconsistency: Tasks referencing entities/fields not in synthesis
-
-#### Dimension D: Dependency Integrity (HIGH - Tier 2)
-- Circular Dependencies: Cyclic task dependencies
-- Missing Dependencies: Task requires outputs from another task but no explicit dependency
-- Broken Dependencies: Task depends on non-existent task ID
-- Logical Ordering Issues: Implementation tasks before foundational setup
-
-#### Dimension E: Synthesis Alignment (HIGH - Tier 2)
-- Priority Conflicts: High-priority synthesis requirements mapped to low-priority tasks
-- Success Criteria Mismatch: IMPL_PLAN success criteria not covering synthesis acceptance criteria
-- Risk Mitigation Gaps: Critical risks without corresponding mitigation tasks
-
-#### Dimension F: Task Specification Quality (MEDIUM - Tier 3)
-- Ambiguous Focus Paths: Tasks with vague/missing focus_paths
-- Underspecified Acceptance: Tasks without clear acceptance criteria
-- Missing Artifacts References: Tasks not referencing brainstorming artifacts
-- Weak Flow Control: Tasks without clear implementation_approach or pre_analysis
-- Missing Target Files: Tasks without flow_control.target_files
-
-#### Dimension G: Duplication Detection (LOW - Tier 4)
-- Overlapping Task Scope: Multiple tasks with nearly identical descriptions
-- Redundant Requirements Coverage: Same requirement covered by multiple tasks
-
-#### Dimension H: Feasibility Assessment (LOW - Tier 4)
-- Complexity Misalignment: Task marked "simple" but requires multiple file modifications
-- Resource Conflicts: Parallel tasks requiring same resources/files
-- Skill Gap Risks: Tasks requiring unavailable team skills
-
-### CLI Analysis Execution
-
-**Execute Tier 1 Analysis (All Dimensions)**:
-
-\`\`\`bash
-ccw cli -p "PURPOSE: Multi-dimensional plan verification for Tier 1 (user intent, coverage, consistency)
-TASK:
-• Verify user original intent matches IMPL_PLAN objectives (dimension A)
-• Check all synthesis requirements have corresponding tasks (dimension B)
-• Identify conflicts between tasks and synthesis decisions (dimension C)
-• Find orphaned requirements or unmapped tasks
-CONTEXT: @${session_dir}/**/* | Memory: Verification session WFS-${session_id}
-EXPECTED: Findings JSON array with: dimension, severity, location, summary, recommendation
-CONSTRAINTS: Focus on CRITICAL issues only | Identify all intent misalignments
-" --tool gemini --mode analysis --rule analysis-review-architecture
-\`\`\`
-
-**If CRITICAL findings == 0, continue to Tier 2**:
-
-\`\`\`bash
-ccw cli -p "PURPOSE: Plan verification for Tier 2 (dependencies and synthesis alignment)
-TASK:
-• Detect circular or broken task dependencies (dimension D)
-• Identify priority conflicts between synthesis and tasks (dimension E)
-• Check risk mitigation coverage
-CONTEXT: @${session_dir}/**/* | Previous: Tier 1 verified, no critical issues
-EXPECTED: Findings JSON with dimension D-E results
-CONSTRAINTS: Limit to 15 HIGH severity findings
-" --tool gemini --mode analysis --rule analysis-diagnose-bug-root-cause
-\`\`\`
-
-**If High findings <= 15, continue to Tier 3**:
-
-\`\`\`bash
-ccw cli -p "PURPOSE: Plan verification for Tier 3 (task specification quality)
-TASK:
-• Check for missing or vague acceptance criteria (dimension F)
-• Validate flow control specifications in tasks
-• Identify missing artifact references
-CONTEXT: @${task_dir}/**/* @${IMPL_PLAN}
-EXPECTED: Findings JSON with dimension F results
-CONSTRAINTS: Limit to 20 MEDIUM severity findings
-" --tool gemini --mode analysis --rule analysis-analyze-code-patterns
-\`\`\`
-
-**If Medium findings <= 20, execute Tier 4**:
-
-\`\`\`bash
-ccw cli -p "PURPOSE: Plan verification for Tier 4 (duplication and feasibility)
-TASK:
-• Detect overlapping task scopes (dimension G)
-• Assess complexity alignment and resource conflicts (dimension H)
-CONTEXT: @${task_dir}/**/*
-EXPECTED: Findings JSON with dimension G-H results
-CONSTRAINTS: Limit to 15 LOW severity findings
-" --tool gemini --mode analysis --rule analysis-analyze-code-patterns
-\`\`\`
-
-### Severity Assignment
-
-**CRITICAL**:
-- Violates user's original intent (goal misalignment, scope drift)
-- Violates synthesis authority (requirement conflict)
-- Core requirement with zero coverage
-- Circular dependencies
-- Broken dependencies
-
-**HIGH**:
-- NFR coverage gaps
-- Priority conflicts
-- Missing risk mitigation tasks
-- Ambiguous acceptance criteria
-
-**MEDIUM**:
-- Terminology drift
-- Missing artifacts references
-- Weak flow control
-- Logical ordering issues
-
-**LOW**:
-- Style/wording improvements
-- Minor redundancy not affecting execution
-
-### Output Schema
-
-JSON findings array (reference from step 5 above):
-
-\`\`\`json
-{
-  "session_id": "${session_id}",
-  "timestamp": "2025-01-27T...",
-  "verification_tiers_completed": ["Tier 1", "Tier 2"],
-  "findings": [
-    {
-      "id": "C1",
-      "dimension": "A",
-      "dimension_name": "User Intent Alignment",
-      "severity": "CRITICAL",
-      "location": ["${IMPL_PLAN}:L45", "synthesis:FR-03"],
-      "summary": "User goal: add user profiles, but IMPL_PLAN focuses on authentication",
-      "recommendation": "Update IMPL_PLAN to include profile management tasks"
-    },
-    {
-      "id": "H1",
-      "dimension": "D",
-      "dimension_name": "Dependency Integrity",
-      "severity": "HIGH",
-      "location": ["task:IMPL-2.3"],
-      "summary": "Depends on non-existent IMPL-2.4",
-      "recommendation": "Fix depends_on reference or remove dependency"
-    }
-  ],
-  "summary": {
-    "critical_count": 2,
-    "high_count": 3,
-    "medium_count": 5,
-    "low_count": 8,
-    "total_findings": 18,
-    "coverage_percentage": 92,
-    "recommendation": "PROCEED_WITH_FIXES"
-  }
-}
-\`\`\`
-
-### Success Criteria
-
-- [ ] All Tier 1 findings identified (no early exit)
-- [ ] Tier 2-4 executed in sequence (skipped only by token budget exhaustion)
-- [ ] Each finding includes: dimension, severity, location, recommendation
-- [ ] Findings aggregated in single JSON output file
-- [ ] Agent returns completion summary with quality gate recommendation
-
-### Return Output
-
-Write: \`${process_dir}/verification-findings.json\`
-
-Return: 2-3 sentence summary with quality gate decision (BLOCK_EXECUTION / PROCEED_WITH_FIXES / PROCEED_WITH_CAUTION / PROCEED)
+### Output
+Write: ${process_dir}/verification-findings.json (follow verify-json-schema.json)
+Return: Quality gate decision + 2-3 sentence summary
 `
 )
 ```
 
 ---
 
-#### Phase 4.2: Parse and Aggregate Agent Results
+#### Phase 4.2: Load and Organize Findings
 
 ```javascript
-// Load agent findings
-const findings = JSON.parse(Read(\`${process_dir}/verification-findings.json\`))
-
-// Organize by severity
-const byServerity = {
-  CRITICAL: findings.findings.filter(f => f.severity === 'CRITICAL'),
-  HIGH: findings.findings.filter(f => f.severity === 'HIGH'),
-  MEDIUM: findings.findings.filter(f => f.severity === 'MEDIUM'),
-  LOW: findings.findings.filter(f => f.severity === 'LOW')
-}
-
-// Determine quality gate
-const recommendation =
-  byServerity.CRITICAL.length > 0 ? 'BLOCK_EXECUTION' :
-  byServerity.HIGH.length > 0 ? 'PROCEED_WITH_FIXES' :
-  byServerity.MEDIUM.length > 0 ? 'PROCEED_WITH_CAUTION' :
-  'PROCEED'
-```
-
-### 5. Generate Human-Readable Report
-
-**Report Generation**: Transform agent findings JSON into comprehensive Markdown report.
-
-**Step 5.1: Load Agent Findings**
-```javascript
-// Load verification findings from agent
-const findingsData = JSON.parse(Read(`${process_dir}/verification-findings.json`))
-
-// Extract key metrics
-const { session_id, timestamp, verification_tiers_completed, findings, summary } = findingsData
+// Load findings (single parse for all subsequent use)
+const data = JSON.parse(Read(`${process_dir}/verification-findings.json`))
+const { session_id, timestamp, verification_tiers_completed, findings, summary } = data
 const { critical_count, high_count, medium_count, low_count, total_findings, coverage_percentage, recommendation } = summary
 
-// Organize findings by severity
-const bySeverity = {
-  CRITICAL: findings.filter(f => f.severity === 'CRITICAL'),
-  HIGH: findings.filter(f => f.severity === 'HIGH'),
-  MEDIUM: findings.filter(f => f.severity === 'MEDIUM'),
-  LOW: findings.filter(f => f.severity === 'LOW')
-}
+// Group by severity and dimension
+const bySeverity = Object.groupBy(findings, f => f.severity)
+const byDimension = Object.groupBy(findings, f => f.dimension)
 
-// Organize findings by dimension
-const byDimension = findings.reduce((acc, f) => {
-  acc[f.dimension] = acc[f.dimension] || []
-  acc[f.dimension].push(f)
-  return acc
-}, {})
+// Dimension metadata (from schema)
+const DIMS = {
+  A: "User Intent Alignment", B: "Requirements Coverage", C: "Consistency Validation",
+  D: "Dependency Integrity", E: "Synthesis Alignment", F: "Task Specification Quality",
+  G: "Duplication Detection", H: "Feasibility Assessment"
+}
 ```
 
-**Step 5.2: Generate Markdown Report**
+### 5. Generate Report
 
-Output a Markdown report with the following structure:
+```javascript
+// Helper: render dimension section
+const renderDimension = (dim) => {
+  const items = byDimension[dim] || []
+  return items.length > 0
+    ? items.map(f => `### ${f.id}: ${f.summary}\n- **Severity**: ${f.severity}\n- **Location**: ${f.location.join(', ')}\n- **Recommendation**: ${f.recommendation}`).join('\n\n')
+    : `> ✅ No ${DIMS[dim]} issues detected.`
+}
 
-```markdown
+// Helper: render severity section
+const renderSeverity = (severity, impact) => {
+  const items = bySeverity[severity] || []
+  return items.length > 0
+    ? items.map(f => `#### ${f.id}: ${f.summary}\n- **Dimension**: ${f.dimension_name}\n- **Location**: ${f.location.join(', ')}\n- **Impact**: ${impact}\n- **Recommendation**: ${f.recommendation}`).join('\n\n')
+    : `> ✅ No ${severity.toLowerCase()}-severity issues detected.`
+}
+
+// Build Markdown report
+const fullReport = `
 # Plan Verification Report
 
-**Session**: WFS-${session_id}
-**Generated**: ${timestamp}
-**Verification Tiers Completed**: ${verification_tiers_completed.join(', ')}
-**Artifacts Analyzed**: role analysis documents, IMPL_PLAN.md, ${task_files_count} task files
+**Session**: WFS-${session_id} | **Generated**: ${timestamp}
+**Tiers Completed**: ${verification_tiers_completed.join(', ')}
 
 ---
 
 ## Executive Summary
 
-### Quality Gate Decision
-
 | Metric | Value | Status |
 |--------|-------|--------|
-| Overall Risk Level | ${critical_count > 0 ? 'CRITICAL' : high_count > 0 ? 'HIGH' : medium_count > 0 ? 'MEDIUM' : 'LOW'} | ${critical_count > 0 ? '🔴' : high_count > 0 ? '🟠' : medium_count > 0 ? '🟡' : '🟢'} |
-| Critical Issues | ${critical_count} | 🔴 |
-| High Issues | ${high_count} | 🟠 |
-| Medium Issues | ${medium_count} | 🟡 |
-| Low Issues | ${low_count} | 🟢 |
-| Requirements Coverage | ${coverage_percentage}% | ${coverage_percentage >= 90 ? '🟢' : coverage_percentage >= 75 ? '🟡' : '🔴'} |
+| Risk Level | ${critical_count > 0 ? 'CRITICAL' : high_count > 0 ? 'HIGH' : medium_count > 0 ? 'MEDIUM' : 'LOW'} | ${critical_count > 0 ? '🔴' : high_count > 0 ? '🟠' : medium_count > 0 ? '🟡' : '🟢'} |
+| Critical/High/Medium/Low | ${critical_count}/${high_count}/${medium_count}/${low_count} | |
+| Coverage | ${coverage_percentage}% | ${coverage_percentage >= 90 ? '🟢' : coverage_percentage >= 75 ? '🟡' : '🔴'} |
 
-### Recommendation
-
-**${recommendation}**
-
-**Decision Rationale**:
-${
-  recommendation === 'BLOCK_EXECUTION' ?
-    `Critical issues detected that violate core requirements or user intent. Must be resolved before implementation.` :
-  recommendation === 'PROCEED_WITH_FIXES' ?
-    `No critical issues, but high-severity concerns exist. Recommended to fix before execution to ensure quality.` :
-  recommendation === 'PROCEED_WITH_CAUTION' ?
-    `Medium-severity issues detected. May proceed but address concerns during/after implementation.` :
-    `No significant issues detected. Safe to proceed with implementation.`
-}
-
-**Quality Gate Criteria**:
-- **BLOCK_EXECUTION**: Critical issues > 0 (must fix before proceeding)
-- **PROCEED_WITH_FIXES**: Critical = 0, High > 0 (fix recommended before execution)
-- **PROCEED_WITH_CAUTION**: Critical = 0, High = 0, Medium > 0 (proceed with awareness)
-- **PROCEED**: Only Low issues or None (safe to execute)
+**Recommendation**: **${recommendation}**
 
 ---
 
 ## Findings Summary
 
-| ID | Dimension | Severity | Location(s) | Summary | Recommendation |
-|----|-----------|----------|-------------|---------|----------------|
-${findings.map(f => `| ${f.id} | ${f.dimension_name} | ${f.severity} | ${f.location.join(', ')} | ${f.summary} | ${f.recommendation} |`).join('\n')}
-
-(IDs prefixed by severity initial: C/H/M/L + number)
+| ID | Dimension | Severity | Location | Summary |
+|----|-----------|----------|----------|---------|
+${findings.map(f => `| ${f.id} | ${f.dimension_name} | ${f.severity} | ${f.location.join(', ')} | ${f.summary} |`).join('\n')}
 
 ---
 
-## User Intent Alignment Analysis (Dimension A)
+## Analysis by Dimension
 
-${
-  byDimension['A'] && byDimension['A'].length > 0 ?
-    byDimension['A'].map(f => `
-### ${f.summary}
-
-**Severity**: ${f.severity}
-**Location**: ${f.location.join(', ')}
-
-**Issue Description**:
-${f.summary}
-
-**Recommendation**:
-${f.recommendation}
-`).join('\n') :
-    `> ✅ No user intent alignment issues detected. IMPL_PLAN objectives and scope match user's original intent.`
-}
+${['A','B','C','D','E','F','G','H'].map(d => `### ${d}. ${DIMS[d]}\n\n${renderDimension(d)}`).join('\n\n---\n\n')}
 
 ---
 
-## Requirements Coverage Analysis (Dimension B)
+## Findings by Severity
 
-### Coverage Metrics
+### CRITICAL (${critical_count})
+${renderSeverity('CRITICAL', 'Blocks execution')}
 
-| Metric | Value |
-|--------|-------|
-| Overall Coverage | ${coverage_percentage}% |
-| Total Findings | ${byDimension['B']?.length || 0} |
+### HIGH (${high_count})
+${renderSeverity('HIGH', 'Fix before execution recommended')}
 
-### Findings
+### MEDIUM (${medium_count})
+${renderSeverity('MEDIUM', 'Address during/after implementation')}
 
-${
-  byDimension['B'] && byDimension['B'].length > 0 ?
-    byDimension['B'].map(f => `
-#### ${f.id}: ${f.summary}
-
-- **Severity**: ${f.severity}
-- **Location**: ${f.location.join(', ')}
-- **Recommendation**: ${f.recommendation}
-`).join('\n') :
-    `> ✅ All synthesis requirements have corresponding tasks. No coverage gaps detected.`
-}
+### LOW (${low_count})
+${renderSeverity('LOW', 'Optional improvement')}
 
 ---
 
-## Consistency Validation (Dimension C)
+## Next Steps
 
-${
-  byDimension['C'] && byDimension['C'].length > 0 ?
-    byDimension['C'].map(f => `
-### ${f.id}: ${f.summary}
+${recommendation === 'BLOCK_EXECUTION' ? '🛑 **BLOCK**: Fix critical issues → Re-verify' :
+  recommendation === 'PROCEED_WITH_FIXES' ? '⚠️ **FIX RECOMMENDED**: Address high issues → Re-verify or Execute' :
+  '✅ **READY**: Proceed to /workflow:execute'}
 
-- **Severity**: ${f.severity}
-- **Location**: ${f.location.join(', ')}
-- **Recommendation**: ${f.recommendation}
-`).join('\n') :
-    `> ✅ No consistency issues detected. Tasks align with synthesis requirements and architecture.`
-}
-
----
-
-## Dependency Integrity (Dimension D)
-
-${
-  byDimension['D'] && byDimension['D'].length > 0 ?
-    byDimension['D'].map(f => `
-### ${f.id}: ${f.summary}
-
-- **Severity**: ${f.severity}
-- **Location**: ${f.location.join(', ')}
-- **Recommendation**: ${f.recommendation}
-`).join('\n') :
-    `> ✅ No dependency issues detected. All task dependencies are valid and logically ordered.`
-}
-
----
-
-## Synthesis Alignment (Dimension E)
-
-${
-  byDimension['E'] && byDimension['E'].length > 0 ?
-    byDimension['E'].map(f => `
-### ${f.id}: ${f.summary}
-
-- **Severity**: ${f.severity}
-- **Location**: ${f.location.join(', ')}
-- **Recommendation**: ${f.recommendation}
-`).join('\n') :
-    `> ✅ No synthesis alignment issues. Task priorities and success criteria match synthesis specifications.`
-}
-
----
-
-## Task Specification Quality (Dimension F)
-
-${
-  byDimension['F'] && byDimension['F'].length > 0 ?
-    byDimension['F'].map(f => `
-### ${f.id}: ${f.summary}
-
-- **Severity**: ${f.severity}
-- **Location**: ${f.location.join(', ')}
-- **Recommendation**: ${f.recommendation}
-`).join('\n') :
-    `> ✅ All tasks have clear specifications with proper focus_paths, acceptance criteria, and flow control.`
-}
-
----
-
-## Duplication Detection (Dimension G)
-
-${
-  byDimension['G'] && byDimension['G'].length > 0 ?
-    byDimension['G'].map(f => `
-### ${f.id}: ${f.summary}
-
-- **Severity**: ${f.severity}
-- **Location**: ${f.location.join(', ')}
-- **Recommendation**: ${f.recommendation}
-`).join('\n') :
-    `> ✅ No duplicate task scopes detected. All tasks have distinct responsibilities.`
-}
-
----
-
-## Feasibility Assessment (Dimension H)
-
-${
-  byDimension['H'] && byDimension['H'].length > 0 ?
-    byDimension['H'].map(f => `
-### ${f.id}: ${f.summary}
-
-- **Severity**: ${f.severity}
-- **Location**: ${f.location.join(', ')}
-- **Recommendation**: ${f.recommendation}
-`).join('\n') :
-    `> ✅ No feasibility concerns. Task complexity assessments and resource allocations are appropriate.`
-}
-
----
-
-## Detailed Findings by Severity
-
-### CRITICAL Issues (${critical_count})
-
-${
-  bySeverity.CRITICAL.length > 0 ?
-    bySeverity.CRITICAL.map(f => `
-#### ${f.id}: ${f.summary}
-
-- **Dimension**: ${f.dimension_name} (${f.dimension})
-- **Location**: ${f.location.join(', ')}
-- **Impact**: Blocks execution - must be resolved before implementation
-- **Recommendation**: ${f.recommendation}
-`).join('\n') :
-    `> ✅ No critical issues detected.`
-}
-
-### HIGH Issues (${high_count})
-
-${
-  bySeverity.HIGH.length > 0 ?
-    bySeverity.HIGH.map(f => `
-#### ${f.id}: ${f.summary}
-
-- **Dimension**: ${f.dimension_name} (${f.dimension})
-- **Location**: ${f.location.join(', ')}
-- **Impact**: Significant quality concern - recommended to fix before execution
-- **Recommendation**: ${f.recommendation}
-`).join('\n') :
-    `> ✅ No high-severity issues detected.`
-}
-
-### MEDIUM Issues (${medium_count})
-
-${
-  bySeverity.MEDIUM.length > 0 ?
-    bySeverity.MEDIUM.map(f => `
-#### ${f.id}: ${f.summary}
-
-- **Dimension**: ${f.dimension_name} (${f.dimension})
-- **Location**: ${f.location.join(', ')}
-- **Impact**: Quality improvement opportunity - address during/after implementation
-- **Recommendation**: ${f.recommendation}
-`).join('\n') :
-    `> ✅ No medium-severity issues detected.`
-}
-
-### LOW Issues (${low_count})
-
-${
-  bySeverity.LOW.length > 0 ?
-    bySeverity.LOW.map(f => `
-#### ${f.id}: ${f.summary}
-
-- **Dimension**: ${f.dimension_name} (${f.dimension})
-- **Location**: ${f.location.join(', ')}
-- **Impact**: Minor improvement - optional
-- **Recommendation**: ${f.recommendation}
-`).join('\n') :
-    `> ✅ No low-severity issues detected.`
-}
-
----
-
-## Metrics Summary
-
-| Metric | Value |
-|--------|-------|
-| Requirements Coverage | ${coverage_percentage}% |
-| Total Findings | ${total_findings} |
-| Critical Issues | ${critical_count} |
-| High Issues | ${high_count} |
-| Medium Issues | ${medium_count} |
-| Low Issues | ${low_count} |
-| Verification Tiers Completed | ${verification_tiers_completed.join(', ')} |
-
----
-
-## Remediation Recommendations
-
-### Priority Order
-
-1. **CRITICAL** - Must fix before proceeding
-2. **HIGH** - Fix before execution
-3. **MEDIUM** - Fix during or after implementation
-4. **LOW** - Optional improvements
-
-### Next Steps
-
-Based on the quality gate recommendation (**${recommendation}**):
-
-${
-  recommendation === 'BLOCK_EXECUTION' ?
-    `
-**🛑 BLOCK EXECUTION**
-
-You must resolve all CRITICAL issues before proceeding with implementation:
-
-1. Review each critical issue in detail (see section "CRITICAL Issues" above)
-2. Determine remediation approach:
-   - Modify IMPL_PLAN.md for goal/scope conflicts
-   - Update task.json for requirement misalignments
-   - Add new tasks for coverage gaps
-   - Fix dependencies for circular/broken references
-3. Apply fixes systematically
-4. Re-run verification to confirm resolution: \`/workflow:plan-verify --session ${session_id}\`
-` :
-  recommendation === 'PROCEED_WITH_FIXES' ?
-    `
-**⚠️ PROCEED WITH FIXES RECOMMENDED**
-
-No critical issues detected, but HIGH issues exist. Recommended workflow:
-
-1. Review high-priority issues (see section "HIGH Issues" above)
-2. Apply fixes before execution for optimal results:
-   - Use IMPL_PLAN.md for architecture/priority misalignments
-   - Update task.json for specification improvements
-   - Add missing dependencies or risk mitigation tasks
-3. Re-run verification to confirm resolution: \`/workflow:plan-verify --session ${session_id}\`
-4. Proceed to implementation when ready
-` :
-  recommendation === 'PROCEED_WITH_CAUTION' ?
-    `
-**✅ PROCEED WITH CAUTION**
-
-Only MEDIUM issues detected. You may proceed with implementation:
-
-- Review medium-severity issues (see section "MEDIUM Issues" above)
-- Address concerns during or after implementation
-- Maintain awareness of identified concerns
-- Schedule remediation for future improvement cycles
-` :
-    `
-**✅ PROCEED**
-
-No significant issues detected. Safe to execute implementation workflow:
-
-- Requirements fully covered
-- User intent aligned
-- Dependencies valid and logically ordered
-- All tasks properly specified
-- Ready for immediate execution
+Re-verify: \`/workflow:plan-verify --session ${session_id}\`
+Execute: \`/workflow:execute --resume-session="${session_id}"\`
 `
-}
 
----
-
-**Report End**
-\`\`\`
-
-### 6. Save and Display Report
-
-**Step 6.1: Generate Complete Markdown Report**
-
-```javascript
-// Build complete report from template above using findings data
-const fullReport = \`
-# Plan Verification Report
-... [complete markdown template generated above] ...
-\`
-
-// Write report to file
-const reportPath = \`${process_dir}/PLAN_VERIFICATION.md\`
-Write(reportPath, fullReport)
+// Write report
+Write(`${process_dir}/PLAN_VERIFICATION.md`, fullReport)
+console.log(`✅ Report: ${process_dir}/PLAN_VERIFICATION.md\n📊 ${recommendation} | C:${critical_count} H:${high_count} M:${medium_count} L:${low_count} | Coverage:${coverage_percentage}%`)
 ```
 
-**Step 6.2: Display Summary to User**
-
-```javascript
-console.log(\`
-=== Plan Verification Complete ===
-Report saved to: ${reportPath}
-
-Quality Gate: \${recommendation}
-Critical: \${critical_count} | High: \${high_count} | Medium: \${medium_count} | Low: \${low_count}
-Coverage: \${coverage_percentage}%
-
-Next: Review full report at ${reportPath} for detailed findings and recommendations
-\`)
-```
-
-**Step 6.3: Next Step Selection**
+### 6. Next Step Selection
 
 ```javascript
 const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')

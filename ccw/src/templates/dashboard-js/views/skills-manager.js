@@ -4,10 +4,13 @@
 // ========== Skills State ==========
 var skillsData = {
   projectSkills: [],
-  userSkills: []
+  userSkills: [],
+  disabledProjectSkills: [],
+  disabledUserSkills: []
 };
 var selectedSkill = null;
 var skillsLoading = false;
+var showDisabledSkills = false;
 
 // ========== Main Render Function ==========
 async function renderSkillsManager() {
@@ -36,18 +39,20 @@ async function renderSkillsManager() {
 async function loadSkillsData() {
   skillsLoading = true;
   try {
-    const response = await fetch('/api/skills?path=' + encodeURIComponent(projectPath));
+    const response = await fetch('/api/skills?path=' + encodeURIComponent(projectPath) + '&includeDisabled=true');
     if (!response.ok) throw new Error('Failed to load skills');
     const data = await response.json();
     skillsData = {
       projectSkills: data.projectSkills || [],
-      userSkills: data.userSkills || []
+      userSkills: data.userSkills || [],
+      disabledProjectSkills: data.disabledProjectSkills || [],
+      disabledUserSkills: data.disabledUserSkills || []
     };
     // Update badge
     updateSkillsBadge();
   } catch (err) {
     console.error('Failed to load skills:', err);
-    skillsData = { projectSkills: [], userSkills: [] };
+    skillsData = { projectSkills: [], userSkills: [], disabledProjectSkills: [], disabledUserSkills: [] };
   } finally {
     skillsLoading = false;
   }
@@ -67,6 +72,9 @@ function renderSkillsView() {
 
   const projectSkills = skillsData.projectSkills || [];
   const userSkills = skillsData.userSkills || [];
+  const disabledProjectSkills = skillsData.disabledProjectSkills || [];
+  const disabledUserSkills = skillsData.disabledUserSkills || [];
+  const totalDisabled = disabledProjectSkills.length + disabledUserSkills.length;
 
   container.innerHTML = `
     <div class="skills-manager">
@@ -109,7 +117,7 @@ function renderSkillsView() {
           </div>
         ` : `
           <div class="skills-grid grid gap-3">
-            ${projectSkills.map(skill => renderSkillCard(skill, 'project')).join('')}
+            ${projectSkills.map(skill => renderSkillCard(skill, 'project', false)).join('')}
           </div>
         `}
       </div>
@@ -133,10 +141,47 @@ function renderSkillsView() {
           </div>
         ` : `
           <div class="skills-grid grid gap-3">
-            ${userSkills.map(skill => renderSkillCard(skill, 'user')).join('')}
+            ${userSkills.map(skill => renderSkillCard(skill, 'user', false)).join('')}
           </div>
         `}
       </div>
+
+      <!-- Disabled Skills Section -->
+      ${totalDisabled > 0 ? `
+        <div class="skills-section mb-6">
+          <div class="flex items-center justify-between mb-4 cursor-pointer" onclick="toggleDisabledSkillsSection()">
+            <div class="flex items-center gap-2">
+              <i data-lucide="${showDisabledSkills ? 'chevron-down' : 'chevron-right'}" class="w-5 h-5 text-muted-foreground transition-transform"></i>
+              <i data-lucide="eye-off" class="w-5 h-5 text-muted-foreground"></i>
+              <h3 class="text-lg font-semibold text-muted-foreground">${t('skills.disabledSkills')}</h3>
+            </div>
+            <span class="text-sm text-muted-foreground">${totalDisabled} ${t('skills.skillsCount')}</span>
+          </div>
+
+          ${showDisabledSkills ? `
+            ${disabledProjectSkills.length > 0 ? `
+              <div class="mb-4">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded-full">${t('skills.projectSkills')}</span>
+                </div>
+                <div class="skills-grid grid gap-3">
+                  ${disabledProjectSkills.map(skill => renderSkillCard(skill, 'project', true)).join('')}
+                </div>
+              </div>
+            ` : ''}
+            ${disabledUserSkills.length > 0 ? `
+              <div>
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded-full">${t('skills.userSkills')}</span>
+                </div>
+                <div class="skills-grid grid gap-3">
+                  ${disabledUserSkills.map(skill => renderSkillCard(skill, 'user', true)).join('')}
+                </div>
+              </div>
+            ` : ''}
+          ` : ''}
+        </div>
+      ` : ''}
 
       <!-- Skill Detail Panel -->
       ${selectedSkill ? renderSkillDetailPanel(selectedSkill) : ''}
@@ -147,19 +192,19 @@ function renderSkillsView() {
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-function renderSkillCard(skill, location) {
+function renderSkillCard(skill, location, isDisabled = false) {
   const hasAllowedTools = skill.allowedTools && skill.allowedTools.length > 0;
   const hasSupportingFiles = skill.supportingFiles && skill.supportingFiles.length > 0;
   const locationIcon = location === 'project' ? 'folder' : 'user';
   const locationClass = location === 'project' ? 'text-primary' : 'text-indigo';
   const locationBg = location === 'project' ? 'bg-primary/10' : 'bg-indigo/10';
   const folderName = skill.folderName || skill.name;
+  const cardOpacity = isDisabled ? 'opacity-60' : '';
 
   return `
-    <div class="skill-card bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer"
-         onclick="showSkillDetail('${escapeHtml(folderName)}', '${location}')">
+    <div class="skill-card bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all ${cardOpacity}">
       <div class="flex items-start justify-between mb-3">
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 cursor-pointer" onclick="showSkillDetail('${escapeHtml(folderName)}', '${location}')">
           <div class="w-10 h-10 ${locationBg} rounded-lg flex items-center justify-center">
             <i data-lucide="sparkles" class="w-5 h-5 ${locationClass}"></i>
           </div>
@@ -168,27 +213,39 @@ function renderSkillCard(skill, location) {
             ${skill.version ? `<span class="text-xs text-muted-foreground">v${escapeHtml(skill.version)}</span>` : ''}
           </div>
         </div>
-        <div class="flex items-center gap-1">
+        <div class="flex items-center gap-2">
           <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${locationBg} ${locationClass}">
             <i data-lucide="${locationIcon}" class="w-3 h-3 mr-1"></i>
             ${location}
           </span>
+          <button class="p-1.5 rounded-lg transition-colors ${isDisabled ? 'text-green-600 hover:bg-green-100' : 'text-amber-600 hover:bg-amber-100'}"
+                  onclick="event.stopPropagation(); toggleSkillEnabled('${escapeHtml(folderName)}', '${location}', ${!isDisabled})"
+                  title="${isDisabled ? t('skills.enable') : t('skills.disable')}">
+            <i data-lucide="${isDisabled ? 'toggle-left' : 'toggle-right'}" class="w-4 h-4"></i>
+          </button>
         </div>
       </div>
 
-      <p class="text-sm text-muted-foreground mb-3 line-clamp-2">${escapeHtml(skill.description || t('skills.noDescription'))}</p>
+      <p class="text-sm text-muted-foreground mb-3 line-clamp-2 cursor-pointer" onclick="showSkillDetail('${escapeHtml(folderName)}', '${location}')">${escapeHtml(skill.description || t('skills.noDescription'))}</p>
 
-      <div class="flex items-center gap-3 text-xs text-muted-foreground">
-        ${hasAllowedTools ? `
-          <span class="flex items-center gap-1">
-            <i data-lucide="lock" class="w-3 h-3"></i>
-            ${skill.allowedTools.length} ${t('skills.tools')}
-          </span>
-        ` : ''}
-        ${hasSupportingFiles ? `
-          <span class="flex items-center gap-1">
-            <i data-lucide="file-text" class="w-3 h-3"></i>
-            ${skill.supportingFiles.length} ${t('skills.files')}
+      <div class="flex items-center justify-between text-xs text-muted-foreground">
+        <div class="flex items-center gap-3">
+          ${hasAllowedTools ? `
+            <span class="flex items-center gap-1">
+              <i data-lucide="lock" class="w-3 h-3"></i>
+              ${skill.allowedTools.length} ${t('skills.tools')}
+            </span>
+          ` : ''}
+          ${hasSupportingFiles ? `
+            <span class="flex items-center gap-1">
+              <i data-lucide="file-text" class="w-3 h-3"></i>
+              ${skill.supportingFiles.length} ${t('skills.files')}
+            </span>
+          ` : ''}
+        </div>
+        ${isDisabled && skill.disabledAt ? `
+          <span class="text-xs text-muted-foreground/70">
+            ${t('skills.disabledAt')}: ${formatDisabledDate(skill.disabledAt)}
           </span>
         ` : ''}
       </div>
@@ -370,6 +427,61 @@ function editSkill(skillName, location) {
   // Open edit modal (to be implemented with modal)
   if (window.showToast) {
     showToast(t('skills.editNotImplemented'), 'info');
+  }
+}
+
+// ========== Enable/Disable Skills Functions ==========
+
+async function toggleSkillEnabled(skillName, location, currentlyEnabled) {
+  const action = currentlyEnabled ? 'disable' : 'enable';
+  const confirmMessage = currentlyEnabled 
+    ? t('skills.disableConfirm', { name: skillName })
+    : t('skills.enableConfirm', { name: skillName });
+  
+  if (!confirm(confirmMessage)) return;
+
+  try {
+    const response = await fetch('/api/skills/' + encodeURIComponent(skillName) + '/' + action, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ location, projectPath })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Operation failed');
+    }
+
+    // Close detail panel if open
+    selectedSkill = null;
+
+    // Reload skills data
+    await loadSkillsData();
+    renderSkillsView();
+
+    if (window.showToast) {
+      const message = currentlyEnabled ? t('skills.disabled') : t('skills.enabled');
+      showToast(message, 'success');
+    }
+  } catch (err) {
+    console.error('Failed to toggle skill:', err);
+    if (window.showToast) {
+      showToast(err.message || t('skills.toggleError'), 'error');
+    }
+  }
+}
+
+function toggleDisabledSkillsSection() {
+  showDisabledSkills = !showDisabledSkills;
+  renderSkillsView();
+}
+
+function formatDisabledDate(isoString) {
+  try {
+    const date = new Date(isoString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return isoString;
   }
 }
 
