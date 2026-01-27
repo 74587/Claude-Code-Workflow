@@ -55,6 +55,17 @@ color: yellow
 **Step-by-step execution**:
 
 ```
+0. Load planning notes → Extract phase-level constraints (NEW)
+   Commands: Read('.workflow/active/{session-id}/planning-notes.md')
+   Output: Consolidated constraints from all workflow phases
+   Structure:
+     - User Intent: Original GOAL, KEY_CONSTRAINTS
+     - Context Findings: Critical files, architecture notes, constraints
+     - Conflict Decisions: Resolved conflicts, modified artifacts
+     - Consolidated Constraints: Numbered list of ALL constraints (Phase 1-3)
+
+   USAGE: This is the PRIMARY source of constraints. All task generation MUST respect these constraints.
+
 1. Load session metadata → Extract user input
    - User description: Original task/feature requirements
    - Project scope: User-specified boundaries and goals
@@ -826,6 +837,7 @@ Use `analysis_results.complexity` or task count to determine structure:
 ### 3.3 Guidelines Checklist
 
 **ALWAYS:**
+- **Load planning-notes.md FIRST**: Read planning-notes.md before context-package.json. Use its Consolidated Constraints as primary constraint source for all task generation
 - **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) / Built-in (`Grep`, `Glob`, `Read`)
 - Apply Quantification Requirements to all requirements, acceptance criteria, and modification points
 - Load IMPL_PLAN template: `Read(~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)` before generating IMPL_PLAN.md

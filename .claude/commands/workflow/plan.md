@@ -115,7 +115,38 @@ CONTEXT: Existing user database schema, REST API endpoints
 
 **TodoWrite**: Mark phase 1 completed, phase 2 in_progress
 
-**After Phase 1**: Return to user showing Phase 1 results, then auto-continue to Phase 2
+**After Phase 1**: Initialize planning-notes.md with user intent
+
+```javascript
+// Create minimal planning notes document
+const planningNotesPath = `.workflow/active/${sessionId}/planning-notes.md`
+const userGoal = structuredDescription.goal
+const userConstraints = structuredDescription.context || "None specified"
+
+Write(planningNotesPath, `# Planning Notes
+
+**Session**: ${sessionId}
+**Created**: ${new Date().toISOString()}
+
+## User Intent (Phase 1)
+
+- **GOAL**: ${userGoal}
+- **KEY_CONSTRAINTS**: ${userConstraints}
+
+---
+
+## Context Findings (Phase 2)
+(To be filled by context-gather)
+
+## Conflict Decisions (Phase 3)
+(To be filled if conflicts detected)
+
+## Consolidated Constraints (Phase 4 Input)
+1. ${userConstraints}
+`)
+```
+
+Return to user showing Phase 1 results, then auto-continue to Phase 2
 
 ---
 
@@ -168,7 +199,37 @@ SlashCommand(command="/workflow:tools:context-gather --session [sessionId] \"[st
 
 **Note**: Phase 2 tasks completed and collapsed to summary.
 
-**After Phase 2**: Return to user showing Phase 2 results, then auto-continue to Phase 3/4 (depending on conflict_risk)
+**After Phase 2**: Update planning-notes.md with context findings, then auto-continue
+
+```javascript
+// Read context-package to extract key findings
+const contextPackage = JSON.parse(Read(contextPath))
+const conflictRisk = contextPackage.conflict_detection?.risk_level || 'low'
+const criticalFiles = (contextPackage.exploration_results?.aggregated_insights?.critical_files || [])
+  .slice(0, 5).map(f => f.path)
+const archPatterns = contextPackage.project_context?.architecture_patterns || []
+const constraints = contextPackage.exploration_results?.aggregated_insights?.constraints || []
+
+// Append Phase 2 findings to planning-notes.md
+Edit(planningNotesPath, {
+  old: '## Context Findings (Phase 2)\n(To be filled by context-gather)',
+  new: `## Context Findings (Phase 2)
+
+- **CRITICAL_FILES**: ${criticalFiles.join(', ') || 'None identified'}
+- **ARCHITECTURE**: ${archPatterns.join(', ') || 'Not detected'}
+- **CONFLICT_RISK**: ${conflictRisk}
+- **CONSTRAINTS**: ${constraints.length > 0 ? constraints.join('; ') : 'None'}`
+})
+
+// Append Phase 2 constraints to consolidated list
+Edit(planningNotesPath, {
+  old: '## Consolidated Constraints (Phase 4 Input)',
+  new: `## Consolidated Constraints (Phase 4 Input)
+${constraints.map((c, i) => `${i + 2}. [Context] ${c}`).join('\n')}`
+})
+```
+
+Return to user showing Phase 2 results, then auto-continue to Phase 3/4 (depending on conflict_risk)
 
 ---
 
@@ -229,7 +290,45 @@ SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] 
 
 **Note**: Phase 3 tasks completed and collapsed to summary.
 
-**After Phase 3**: Return to user showing conflict resolution results (if executed) and selected strategies, then auto-continue to Phase 3.5
+**After Phase 3**: Update planning-notes.md with conflict decisions (if executed), then auto-continue
+
+```javascript
+// If Phase 3 was executed, update planning-notes.md
+if (conflictRisk >= 'medium') {
+  const conflictResPath = `.workflow/active/${sessionId}/.process/conflict-resolution.json`
+
+  if (fs.existsSync(conflictResPath)) {
+    const conflictRes = JSON.parse(Read(conflictResPath))
+    const resolved = conflictRes.resolved_conflicts || []
+    const modifiedArtifacts = conflictRes.modified_artifacts || []
+    const planningConstraints = conflictRes.planning_constraints || []
+
+    // Update Phase 3 section
+    Edit(planningNotesPath, {
+      old: '## Conflict Decisions (Phase 3)\n(To be filled if conflicts detected)',
+      new: `## Conflict Decisions (Phase 3)
+
+- **RESOLVED**: ${resolved.map(r => `${r.type} → ${r.strategy}`).join('; ') || 'None'}
+- **MODIFIED_ARTIFACTS**: ${modifiedArtifacts.join(', ') || 'None'}
+- **CONSTRAINTS**: ${planningConstraints.join('; ') || 'None'}`
+    })
+
+    // Append Phase 3 constraints to consolidated list
+    if (planningConstraints.length > 0) {
+      const currentNotes = Read(planningNotesPath)
+      const constraintCount = (currentNotes.match(/^\d+\./gm) || []).length
+
+      Edit(planningNotesPath, {
+        old: '## Consolidated Constraints (Phase 4 Input)',
+        new: `## Consolidated Constraints (Phase 4 Input)
+${planningConstraints.map((c, i) => `${constraintCount + i + 1}. [Conflict] ${c}`).join('\n')}`
+      })
+    }
+  }
+}
+```
+
+Return to user showing conflict resolution results (if executed) and selected strategies, then auto-continue to Phase 3.5
 
 **Memory State Check**:
 - Evaluate current context window usage and memory state
@@ -282,7 +381,12 @@ SlashCommand(command="/workflow:tools:task-generate-agent --session [sessionId]"
 
 **CLI Execution Note**: CLI tool usage is now determined semantically by action-planning-agent based on user's task description. If user specifies "use Codex/Gemini/Qwen for X", the agent embeds `command` fields in relevant `implementation_approach` steps.
 
-**Input**: `sessionId` from Phase 1
+**Input**:
+- `sessionId` from Phase 1
+- **planning-notes.md**: Consolidated constraints from all phases (Phase 1-3)
+  - Path: `.workflow/active/[sessionId]/planning-notes.md`
+  - Contains: User intent, context findings, conflict decisions, consolidated constraints
+  - **Purpose**: Provides structured, minimal context summary to action-planning-agent
 
 **Validation**:
 - `.workflow/active/[sessionId]/IMPL_PLAN.md` exists
@@ -404,26 +508,22 @@ User Input (task description)
     ↓
 Phase 1: session:start --auto "structured-description"
     ↓ Output: sessionId
-    ↓ Session Memory: Previous tasks, context, artifacts
+    ↓ Write: planning-notes.md (User Intent section)
     ↓
 Phase 2: context-gather --session sessionId "structured-description"
-    ↓ Input: sessionId + session memory + structured description
+    ↓ Input: sessionId + structured description
     ↓ Output: contextPath (context-package.json) + conflict_risk
+    ↓ Update: planning-notes.md (Context Findings + Consolidated Constraints)
     ↓
 Phase 3: conflict-resolution [AUTO-TRIGGERED if conflict_risk ≥ medium]
     ↓ Input: sessionId + contextPath + conflict_risk
-    ↓ CLI-powered conflict detection (JSON output)
-    ↓ AskUserQuestion: Present conflicts + resolution strategies
-    ↓ User selects strategies (or skip)
-    ↓ Apply modifications via Edit tool:
-    ↓   - Update guidance-specification.md
-    ↓   - Update role analyses (*.md)
-    ↓   - Mark context-package.json as "resolved"
-    ↓ Output: Modified brainstorm artifacts (NO report file)
+    ↓ Output: Modified brainstorm artifacts
+    ↓ Update: planning-notes.md (Conflict Decisions + Consolidated Constraints)
     ↓ Skip if conflict_risk is none/low → proceed directly to Phase 4
     ↓
 Phase 4: task-generate-agent --session sessionId
-    ↓ Input: sessionId + resolved brainstorm artifacts + session memory
+    ↓ Input: sessionId + planning-notes.md + context-package.json + brainstorm artifacts
+    ↓ planning-notes.md provides: User Intent, Context Findings, Constraints
     ↓ Output: IMPL_PLAN.md, task JSONs, TODO_LIST.md
     ↓
 Return summary to user

@@ -482,6 +482,18 @@ function buildToolConfigModalContent(tool, config, models, status) {
       '</div>' +
     '</div>' +
 
+    // Available Models Section - Unified input with inline models
+    '<div class="tool-config-section">' +
+      '<h4>Available Models <span class="text-muted">(shown in dropdowns below)</span></h4>' +
+      '<div class="tags-unified-input" id="modelsUnifiedInput">' +
+        (config.availableModels || models).map(function(model) {
+          return '<span class="tag-item tag-model">' + escapeHtml(model) + '<button type="button" class="tag-remove" data-model="' + escapeHtml(model) + '">&times;</button></span>';
+        }).join('') +
+        '<input type="text" id="modelInput" class="tag-inline-input" placeholder="Enter model name and press Enter" />' +
+      '</div>' +
+      '<p class="text-muted text-xs mt-1"><i data-lucide="info" class="w-3 h-3"></i> Click × to remove, type to add new models</p>' +
+    '</div>' +
+
     // Primary Model Section
     '<div class="tool-config-section">' +
       '<h4>Primary Model <span class="text-muted">(CLI endpoint calls)</span></h4>' +
@@ -855,6 +867,8 @@ function closeFileBrowserModal(selectedPath) {
 function initToolConfigModalEvents(tool, currentConfig, models) {
   // Local tags state (copy from config)
   var currentTags = (currentConfig.tags || []).slice();
+  // Local available models state (copy from config or use defaults)
+  var currentModels = (currentConfig.availableModels || models).slice();
 
   // Helper to render tags inline with input
   function renderTags() {
@@ -896,12 +910,74 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
     });
   }
 
+  // Helper to render available models inline with input
+  function renderModels() {
+    var container = document.getElementById('modelsUnifiedInput');
+    var input = document.getElementById('modelInput');
+    if (!container) return;
+
+    // Remove existing model items but keep the input
+    container.querySelectorAll('.tag-item').forEach(function(el) { el.remove(); });
+
+    // Insert models before the input
+    currentModels.forEach(function(model) {
+      var modelEl = document.createElement('span');
+      modelEl.className = 'tag-item tag-model';
+      modelEl.innerHTML = escapeHtml(model) + '<button type="button" class="tag-remove" data-model="' + escapeHtml(model) + '">&times;</button>';
+      container.insertBefore(modelEl, input);
+    });
+
+    // Re-attach remove handlers
+    container.querySelectorAll('.tag-remove').forEach(function(btn) {
+      btn.onclick = function(e) {
+        e.stopPropagation();
+        var modelToRemove = this.getAttribute('data-model');
+        currentModels = currentModels.filter(function(m) { return m !== modelToRemove; });
+        renderModels();
+        updateModelSelects();
+      };
+    });
+  }
+
+  // Helper to update model select dropdowns with current model list
+  function updateModelSelects() {
+    var primarySelect = document.getElementById('primaryModelSelect');
+    var secondarySelect = document.getElementById('secondaryModelSelect');
+    if (!primarySelect || !secondarySelect) return;
+
+    var primaryValue = primarySelect.value;
+    var secondaryValue = secondarySelect.value;
+
+    // Rebuild options
+    var buildOptions = function(selectedValue) {
+      var html = '';
+      currentModels.forEach(function(m) {
+        html += '<option value="' + escapeHtml(m) + '"' + (m === selectedValue ? ' selected' : '') + '>' + escapeHtml(m) + '</option>';
+      });
+      html += '<option value="__custom__"' + (selectedValue === '__custom__' ? ' selected' : '') + '>Custom...</option>';
+      return html;
+    };
+
+    primarySelect.innerHTML = buildOptions(primaryValue);
+    secondarySelect.innerHTML = buildOptions(secondaryValue);
+  }
+
   // Click on unified input container focuses the input
   var unifiedInput = document.getElementById('tagsUnifiedInput');
   if (unifiedInput) {
     unifiedInput.onclick = function(e) {
       if (e.target === this) {
         document.getElementById('tagInput').focus();
+      }
+    };
+  }
+
+  // Click on models unified input container focuses the input
+  var modelsUnifiedInput = document.getElementById('modelsUnifiedInput');
+  if (modelsUnifiedInput) {
+    modelsUnifiedInput.onclick = function(e) {
+      if (e.target === this) {
+        document.getElementById('modelInput').focus();
       }
     };
   }
@@ -933,8 +1009,27 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
     };
   });
 
+  // Model input handler
+  var modelInput = document.getElementById('modelInput');
+  if (modelInput) {
+    modelInput.onkeydown = function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var newModel = this.value.trim();
+        if (newModel && currentModels.indexOf(newModel) === -1) {
+          currentModels.push(newModel);
+          renderModels();
+          updateModelSelects();
+        }
+        this.value = '';
+      }
+    };
+  }
+
   // Initialize tags display
   renderTags();
+  // Initialize models display
+  renderModels();
   // Initialize lucide icons for predefined buttons
   if (window.lucide) lucide.createIcons();
 
@@ -1020,6 +1115,11 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
         return;
       }
 
+      if (currentModels.length === 0) {
+        showRefreshToast('At least one available model is required', 'error');
+        return;
+      }
+
       // Get envFile value (only for gemini/qwen)
       var envFileInput = document.getElementById('envFileInput');
       var envFile = envFileInput ? envFileInput.value.trim() : '';
@@ -1028,6 +1128,7 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
         var updateData = {
           primaryModel: primaryModel,
           secondaryModel: secondaryModel,
+          availableModels: currentModels,
           tags: currentTags
         };
 

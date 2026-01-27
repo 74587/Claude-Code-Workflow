@@ -19,7 +19,7 @@ Interactive brainstorming workflow with **multi-CLI collaboration** and **docume
 
 **Key features**:
 - **brainstorm.md**: Complete thought evolution timeline
-- **Multi-CLI collaboration**: Gemini (creative), Codex (pragmatic), Qwen (systematic) perspectives
+- **Multi-CLI collaboration**: Gemini (creative), Codex (pragmatic), Claude (systematic) perspectives
 - **Idea expansion**: Progressive questioning and exploration
 - **Diverge-Converge cycles**: Generate options then focus on best paths
 - **Synthesis**: Merge multiple perspectives into coherent solutions
@@ -61,8 +61,8 @@ Phase 1: Seed Understanding
 
 Phase 2: Divergent Exploration (Multi-CLI Parallel)
    ├─ Gemini CLI: Creative/innovative perspectives
-   ├─ Codex CLI: Pragmatic/implementation perspectives  
-   ├─ Qwen CLI: Systematic/architectural perspectives
+   ├─ Codex CLI: Pragmatic/implementation perspectives
+   ├─ Claude CLI: Systematic/architectural perspectives
    └─ Aggregate diverse viewpoints
 
 Phase 3: Interactive Refinement (Multi-Round)
@@ -375,7 +375,7 @@ CONSTRAINTS: Focus on what can actually be built with current tech stack
   })
 )
 
-// 3. Qwen: Systematic/Architectural Perspective
+// 3. Claude: Systematic/Architectural Perspective
 cliPromises.push(
   Bash({
     command: `ccw cli -p "
@@ -404,7 +404,7 @@ EXPECTED:
 - Risk matrix
 
 CONSTRAINTS: Consider existing system architecture
-" --tool qwen --mode analysis`,
+" --tool claude --mode analysis`,
     run_in_background: true
   })
 )
@@ -436,7 +436,7 @@ const perspectives = {
   },
   
   systematic: {
-    source: 'qwen',
+    source: 'claude',
     decomposition: [...],
     patterns: [...],
     tradeoffs: [...]
@@ -488,7 +488,7 @@ ${blockers.map(b => `- ⚠️ ${b}`).join('\n')}
 
 ---
 
-#### Systematic Perspective (Qwen)
+#### Systematic Perspective (Claude)
 
 **Problem Decomposition**:
 ${decomposition}
@@ -956,7 +956,7 @@ ${decisionFramework}
 - **Total Rounds**: ${totalRounds}
 - **Ideas Generated**: ${totalIdeas}
 - **Ideas Survived**: ${survivedIdeas}
-- **Perspectives Used**: Gemini (creative), Codex (pragmatic), Qwen (systematic)
+- **Perspectives Used**: Gemini (creative), Codex (pragmatic), Claude (systematic)
 - **Duration**: ${duration}
 - **Artifacts**: brainstorm.md, perspectives.json, synthesis.json, ${ideaFiles.length} idea deep-dives
 ```
@@ -1056,7 +1056,7 @@ if (selection.includes("导出分享")) {
 #### Pragmatic Perspective (Codex)
 ...
 
-#### Systematic Perspective (Qwen)
+#### Systematic Perspective (Claude)
 ...
 
 #### Perspective Synthesis
@@ -1105,7 +1105,7 @@ if (selection.includes("导出分享")) {
 |-----|------|-------|----------|
 | Gemini | Creative | Innovation, cross-domain | Generating novel ideas |
 | Codex | Pragmatic | Implementation, feasibility | Reality-checking ideas |
-| Qwen | Systematic | Architecture, structure | Organizing solutions |
+| Claude | Systematic | Architecture, structure | Organizing solutions |
 
 ### Collaboration Patterns
 

@@ -161,12 +161,13 @@ const userConfig = {
 
 ### Phase 1: Context Preparation & Module Detection (Command Responsibility)
 
-**Command prepares session paths, metadata, and detects module structure.**
+**Command prepares session paths, metadata, detects module structure, and loads planning-notes.md.**
 
 **Session Path Structure**:
 ```
 .workflow/active/WFS-{session-id}/
 ├── workflow-session.json          # Session metadata
+├── planning-notes.md              # Consolidated planning notes (NEW)
 ├── .process/
 │   └── context-package.json       # Context package with artifact catalog
 ├── .task/                         # Output: Task JSON files
@@ -248,9 +249,21 @@ IMPORTANT: This is PLANNING ONLY - you are generating planning documents, NOT im
 
 CRITICAL: Follow the progressive loading strategy defined in agent specification (load analysis.md files incrementally due to file size)
 
+## PLANNING NOTES (PHASE 1-3 CONTEXT)
+Load: .workflow/active/{session-id}/planning-notes.md
+
+This document contains:
+- User Intent: Original GOAL and KEY_CONSTRAINTS from Phase 1
+- Context Findings: Critical files, architecture, and constraints from Phase 2
+- Conflict Decisions: Resolved conflicts and planning constraints from Phase 3
+- Consolidated Constraints: All constraints from all phases
+
+**USAGE**: Read planning-notes.md FIRST. Use Consolidated Constraints list to guide task sequencing and dependencies.
+
 ## SESSION PATHS
 Input:
   - Session Metadata: .workflow/active/{session-id}/workflow-session.json
+  - Planning Notes: .workflow/active/{session-id}/planning-notes.md (NEW)
   - Context Package: .workflow/active/{session-id}/.process/context-package.json
 
 Output:
@@ -376,6 +389,11 @@ IMPORTANT: Generate Task JSONs ONLY. IMPL_PLAN.md and TODO_LIST.md by Phase 3 Co
 
 CRITICAL: Follow the progressive loading strategy defined in agent specification (load analysis.md files incrementally due to file size)
 
+## PLANNING NOTES (PHASE 1-3 CONTEXT)
+Load: .workflow/active/{session-id}/planning-notes.md
+
+This document contains consolidated constraints and user intent to guide module-scoped task generation.
+
 ## MODULE SCOPE
 - Module: ${module.name} (${module.type})
 - Focus Paths: ${module.paths.join(', ')}
@@ -386,6 +404,7 @@ CRITICAL: Follow the progressive loading strategy defined in agent specification
 ## SESSION PATHS
 Input:
   - Session Metadata: .workflow/active/{session-id}/workflow-session.json
+  - Planning Notes: .workflow/active/{session-id}/planning-notes.md (NEW)
   - Context Package: .workflow/active/{session-id}/.process/context-package.json
 
 Output:
