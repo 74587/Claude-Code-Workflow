@@ -547,11 +547,8 @@ Phase 1: session:start --auto "structured-description"
     ↓ Write: planning-notes.md (User Intent section)
     ↓
 Phase 2: context-gather --session sessionId "structured-description"
-    ↓ Input: sessionId + structured description + planning-notes.md (Phase 1 user intent)
-    ↓ CONTEXT PRIORITY SORTING IN CONTEXT-GATHER (Phase 2 Track -1 + Phase 3)
+    ↓ Input: sessionId + structured description
     ↓ Output: contextPath (context-package.json with prioritized_context) + conflict_risk
-    ↓   - prioritized_context contains: user_intent, priority_tiers, dependency_order
-    ↓   - Eliminates redundant sorting in task-generate-agent Phase 1
     ↓ Update: planning-notes.md (Context Findings + Consolidated Constraints)
     ↓
 Phase 3: conflict-resolution [AUTO-TRIGGERED if conflict_risk ≥ medium]
@@ -561,10 +558,7 @@ Phase 3: conflict-resolution [AUTO-TRIGGERED if conflict_risk ≥ medium]
     ↓ Skip if conflict_risk is none/low → proceed directly to Phase 4
     ↓
 Phase 4: task-generate-agent --session sessionId
-    ↓ Input: sessionId + planning-notes.md + context-package.json (with prioritized_context) + brainstorm artifacts
-    ↓ USE PRIORITIZED_CONTEXT DIRECTLY - NO REDUNDANT SORTING
-    ↓   - planning-notes.md provides: User Intent, Context Findings, Constraints
-    ↓   - context-package.prioritized_context provides: Pre-sorted priority_tiers, dependency_order
+    ↓ Input: sessionId + planning-notes.md + context-package.json + brainstorm artifacts
     ↓ Output: IMPL_PLAN.md, task JSONs, TODO_LIST.md
     ↓
 Return summary to user

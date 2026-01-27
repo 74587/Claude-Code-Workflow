@@ -25,10 +25,10 @@ Analyzes conflicts between implementation plans and existing codebase, **includi
 | Responsibility | Description |
 |---------------|-------------|
 | **Detect Conflicts** | Analyze plan vs existing code inconsistencies |
-| **Scenario Uniqueness** | **NEW**: Search and compare new modules with existing modules for functional overlaps |
+| **Scenario Uniqueness** | Search and compare new modules with existing modules for functional overlaps |
 | **Generate Strategies** | Provide 2-4 resolution options per conflict |
-| **Iterative Clarification** | **NEW**: Ask unlimited questions until scenario boundaries are clear and unique |
-| **Agent Re-analysis** | **NEW**: Dynamically update strategies based on user clarifications |
+| **Iterative Clarification** | Ask unlimited questions until scenario boundaries are clear and unique |
+| **Agent Re-analysis** | Dynamically update strategies based on user clarifications |
 | **CLI Analysis** | Use Gemini/Qwen (Claude fallback) |
 | **User Decision** | Present options ONE BY ONE, never auto-apply |
 | **Direct Text Output** | Output questions via text directly, NEVER use bash echo/printf |
@@ -57,7 +57,7 @@ Analyzes conflicts between implementation plans and existing codebase, **includi
 - Breaking updates
 
 ### 5. Module Scenario Overlap
-- **NEW**: Functional overlap between new and existing modules
+- Functional overlap between new and existing modules
 - Scenario boundary ambiguity
 - Duplicate responsibility detection
 - Module merge/split decisions
@@ -134,7 +134,7 @@ Task(subagent_type="cli-execution-agent", run_in_background=false, prompt=`
   ### 1. Load Context
   - Read existing files from conflict_detection.existing_files
   - Load plan from .workflow/active/{session_id}/.process/context-package.json
-  - **NEW**: Load exploration_results and use aggregated_insights for enhanced analysis
+  - Load exploration_results and use aggregated_insights for enhanced analysis
   - Extract role analyses and requirements
 
   ### 2. Execute CLI Analysis (Enhanced with Exploration + Scenario Uniqueness)
@@ -198,27 +198,6 @@ Task(subagent_type="cli-execution-agent", run_in_background=false, prompt=`
   - **Note**: [智能补充：简短总结冲突类型、解决策略、关键决策等]
   \`\`\`
 `)
-```
-
-**Agent Internal Flow** (Enhanced):
-```
-1. Load context package
-2. Check conflict_risk (exit if none/low)
-3. Read existing files + plan artifacts
-4. Run CLI analysis (Gemini→Qwen→Claude) with enhanced tasks:
-   - Standard conflict detection (Architecture/API/Data/Dependency)
-   - **NEW: Module scenario uniqueness detection**
-     * Extract new module functionality from plan
-     * Search all existing modules with similar keywords/functionality
-     * Compare scenario coverage and responsibilities
-     * Identify functional overlaps and boundary ambiguities
-     * Generate ModuleOverlap conflicts with overlap_analysis
-5. Parse conflict findings (including ModuleOverlap category)
-6. Generate 2-4 strategies per conflict:
-   - Include modifications for each strategy
-   - **For ModuleOverlap**: Add clarification_needed questions for boundary definition
-7. Return JSON to stdout (NOT file write)
-8. Return execution log path
 ```
 
 ### Phase 3: User Interaction Loop

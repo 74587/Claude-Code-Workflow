@@ -815,11 +815,48 @@ Next: Review full report at ${reportPath} for detailed findings and recommendati
 \`)
 ```
 
-**Step 6.3: Completion**
+**Step 6.3: Next Step Selection**
 
-- ✅ Agent JSON findings saved to: \`${process_dir}/verification-findings.json\`
-- ✅ Human-readable report saved to: \`${process_dir}/PLAN_VERIFICATION.md\`
-- ✅ Quality gate decision: \`${recommendation}\`
-- ℹ️ No automatic modifications to IMPL_PLAN.md, tasks, or synthesis artifacts
-- ℹ️ User can review findings and decide on remediation approach
-- ℹ️ Re-run verification after fixes: \`/workflow:plan-verify --session ${session_id}\`
+```javascript
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+const canExecute = recommendation !== 'BLOCK_EXECUTION'
+
+// Auto mode
+if (autoYes) {
+  if (canExecute) {
+    SlashCommand("/workflow:execute --yes --resume-session=\"${session_id}\"")
+  } else {
+    console.log(`[--yes] BLOCK_EXECUTION - Fix ${critical_count} critical issues first.`)
+  }
+  return
+}
+
+// Interactive mode - build options based on quality gate
+const options = canExecute
+  ? [
+      { label: canExecute && recommendation === 'PROCEED_WITH_FIXES' ? "Execute Anyway" : "Execute (Recommended)",
+        description: "Proceed to /workflow:execute" },
+      { label: "Review Report", description: "Review findings before deciding" },
+      { label: "Re-verify", description: "Re-run after manual fixes" }
+    ]
+  : [
+      { label: "Review Report", description: "Review critical issues" },
+      { label: "Re-verify", description: "Re-run after fixing issues" }
+    ]
+
+const selection = AskUserQuestion({
+  questions: [{
+    question: `Quality gate: ${recommendation}. Next step?`,
+    header: "Action",
+    multiSelect: false,
+    options
+  }]
+})
+
+// Handle selection
+if (selection.includes("Execute")) {
+  SlashCommand("/workflow:execute --resume-session=\"${session_id}\"")
+} else if (selection === "Re-verify") {
+  SlashCommand("/workflow:plan-verify --session ${session_id}")
+}
+```
