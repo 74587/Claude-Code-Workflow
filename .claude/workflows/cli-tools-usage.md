@@ -14,7 +14,7 @@
 
 ### Configuration File
 
-**Path**: `.claude/cli-tools.json`
+**Path**: `~/.claude/cli-tools.json`
 
 All tool availability, model selection, and routing are defined in this configuration file.
 

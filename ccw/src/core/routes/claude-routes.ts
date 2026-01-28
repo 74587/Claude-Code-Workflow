@@ -1002,7 +1002,6 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
         if (isCodex) {
           // Codex: Direct content concatenation (does not support @ references)
           const chineseSectionPattern = /\n*## 中文回复\n[\s\S]*?(?=\n## |$)/;
-          const cliToolsSectionPattern = /\n*## CLI \u5de5\u5177\u8c03\u7528\n[\s\S]*?(?=\n## |$)/;
 
           if (enabled) {
             // Check if section already exists
@@ -1013,34 +1012,12 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
             // Read chinese-response.md content
             const chineseResponseContent = readFileSync(userGuidelinesPath, 'utf8');
 
-            // Read cli-tools-usage.md content
-            const cliToolsUsagePath = join(homedir(), '.claude', 'workflows', 'cli-tools-usage.md');
-            let cliToolsUsageContent = '';
-            if (existsSync(cliToolsUsagePath)) {
-              cliToolsUsageContent = readFileSync(cliToolsUsagePath, 'utf8');
-            }
-
-            // Read and format cli-tools.json
-            const cliToolsJsonPath = join(homedir(), '.claude', 'cli-tools.json');
-            let cliToolsJsonContent = '';
-            if (existsSync(cliToolsJsonPath)) {
-              const cliToolsJson = JSON.parse(readFileSync(cliToolsJsonPath, 'utf8'));
-              cliToolsJsonContent = `\n### CLI Tools Configuration\n\n\`\`\`json\n${JSON.stringify(cliToolsJson, null, 2)}\n\`\`\`\n`;
-            }
-
-            // Add Chinese response section
-            let newSection = `\n## 中文回复\n\n${chineseResponseContent}\n`;
-
-            // Add CLI tools section if usage content exists
-            if (cliToolsUsageContent) {
-              newSection += `\n## CLI 工具调用\n\n${cliToolsUsageContent}\n${cliToolsJsonContent}`;
-            }
-
+            // Add Chinese response section only
+            const newSection = `\n## 中文回复\n\n${chineseResponseContent}\n`;
             content = content.trimEnd() + '\n' + newSection;
           } else {
-            // Remove both sections
+            // Remove Chinese response section
             content = content.replace(chineseSectionPattern, '\n');
-            content = content.replace(cliToolsSectionPattern, '\n');
             content = content.replace(/\n{3,}/g, '\n\n').trim();
             if (content) content += '\n';
           }
@@ -1075,6 +1052,120 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
         });
 
         return { success: true, enabled, target };
+      } catch (error) {
+        return { error: (error as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // API: Get Codex CLI Enhancement setting status
+  if (pathname === '/api/language/codex-cli-enhancement' && req.method === 'GET') {
+    try {
+      const userCodexPath = join(homedir(), '.codex', 'AGENTS.md');
+      const cliEnhancementSectionPattern = /## CLI 工具调用/; // For Codex CLI enhancement
+
+      let enabled = false;
+      let guidelinesPath = '';
+
+      // Check if user AGENTS.md exists and contains CLI enhancement section
+      if (existsSync(userCodexPath)) {
+        const content = readFileSync(userCodexPath, 'utf8');
+        enabled = cliEnhancementSectionPattern.test(content);
+      }
+
+      // Find guidelines file path
+      const userGuidelinesPath = join(homedir(), '.claude', 'workflows', 'cli-tools-usage.md');
+
+      if (existsSync(userGuidelinesPath)) {
+        guidelinesPath = userGuidelinesPath;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        enabled,
+        guidelinesPath,
+        guidelinesExists: !!guidelinesPath,
+        userCodexAgentsExists: existsSync(userCodexPath)
+      }));
+      return true;
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (error as Error).message }));
+      return true;
+    }
+  }
+
+  // API: Toggle Codex CLI Enhancement setting
+  if (pathname === '/api/language/codex-cli-enhancement' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body: any) => {
+      const { enabled } = body;
+
+      if (typeof enabled !== 'boolean') {
+        return { error: 'Missing or invalid enabled parameter', status: 400 };
+      }
+
+      try {
+        const targetDir = join(homedir(), '.codex');
+        const targetFile = join(targetDir, 'AGENTS.md');
+
+        // Ensure target directory exists
+        if (!existsSync(targetDir)) {
+          mkdirSync(targetDir, { recursive: true });
+        }
+
+        let content = '';
+        if (existsSync(targetFile)) {
+          content = readFileSync(targetFile, 'utf8');
+        } else {
+          // Create new file with minimal header
+          content = '# Codex Code Guidelines\n\n';
+        }
+
+        const cliEnhancementSectionPattern = /\n*## CLI 工具调用\n[\s\S]*?(?=\n## |$)/;
+
+        if (enabled) {
+          // Check if section already exists
+          if (cliEnhancementSectionPattern.test(content)) {
+            return { success: true, message: 'Already enabled' };
+          }
+
+          // Read cli-tools-usage.md content
+          const cliToolsUsagePath = join(homedir(), '.claude', 'workflows', 'cli-tools-usage.md');
+          let cliToolsUsageContent = '';
+          if (existsSync(cliToolsUsagePath)) {
+            cliToolsUsageContent = readFileSync(cliToolsUsagePath, 'utf8');
+          } else {
+            return { error: 'CLI tools usage guidelines file not found at ~/.claude/workflows/cli-tools-usage.md', status: 404 };
+          }
+
+          // Read and format cli-tools.json
+          const cliToolsJsonPath = join(homedir(), '.claude', 'cli-tools.json');
+          let cliToolsJsonContent = '';
+          if (existsSync(cliToolsJsonPath)) {
+            const cliToolsJson = JSON.parse(readFileSync(cliToolsJsonPath, 'utf8'));
+            cliToolsJsonContent = `\n### CLI Tools Configuration\n\n\`\`\`json\n${JSON.stringify(cliToolsJson, null, 2)}\n\`\`\`\n`;
+          }
+
+          // Add CLI enhancement section
+          const newSection = `\n## CLI 工具调用\n\n${cliToolsUsageContent}\n${cliToolsJsonContent}`;
+          content = content.trimEnd() + '\n' + newSection;
+        } else {
+          // Remove CLI enhancement section
+          content = content.replace(cliEnhancementSectionPattern, '\n');
+          content = content.replace(/\n{3,}/g, '\n\n').trim();
+          if (content) content += '\n';
+        }
+
+        writeFileSync(targetFile, content, 'utf8');
+
+        // Broadcast update
+        broadcastToClients({
+          type: 'CLI_ENHANCEMENT_SETTING_CHANGED',
+          data: { cliEnhancement: enabled }
+        });
+
+        return { success: true, enabled };
       } catch (error) {
         return { error: (error as Error).message, status: 500 };
       }

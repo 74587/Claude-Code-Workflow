@@ -1613,6 +1613,8 @@ var chineseResponseEnabled = false;
 var chineseResponseLoading = false;
 var codexChineseResponseEnabled = false;
 var codexChineseResponseLoading = false;
+var codexCliEnhancementEnabled = false;
+var codexCliEnhancementLoading = false;
 var windowsPlatformEnabled = false;
 var windowsPlatformLoading = false;
 
@@ -1643,6 +1645,20 @@ async function loadWindowsPlatformSettings() {
   } catch (err) {
     console.error('Failed to load Windows platform settings:', err);
     windowsPlatformEnabled = false;
+    return { enabled: false, guidelinesExists: false };
+  }
+}
+
+async function loadCodexCliEnhancementSettings() {
+  try {
+    var response = await fetch('/api/language/codex-cli-enhancement');
+    if (!response.ok) throw new Error('Failed to load Codex CLI enhancement settings');
+    var data = await response.json();
+    codexCliEnhancementEnabled = data.enabled || false;
+    return data;
+  } catch (err) {
+    console.error('Failed to load Codex CLI enhancement settings:', err);
+    codexCliEnhancementEnabled = false;
     return { enabled: false, guidelinesExists: false };
   }
 }
@@ -1763,6 +1779,55 @@ async function toggleWindowsPlatform(enabled) {
   }
 }
 
+async function toggleCodexCliEnhancement(enabled) {
+  if (codexCliEnhancementLoading) return;
+
+  // Pre-check: verify CCW workflows are installed (only when enabling)
+  if (enabled && typeof ccwInstallStatus !== 'undefined' && !ccwInstallStatus.installed) {
+    var missingFile = ccwInstallStatus.missingFiles.find(function(f) { return f === 'cli-tools-usage.md'; });
+    if (missingFile) {
+      showRefreshToast(t('lang.installRequired'), 'warning');
+      return;
+    }
+  }
+
+  codexCliEnhancementLoading = true;
+
+  try {
+    var response = await fetch('/api/language/codex-cli-enhancement', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: enabled })
+    });
+
+    if (!response.ok) {
+      var errData = await response.json();
+      // Show specific error message from backend
+      var errorMsg = errData.error || 'Failed to update setting';
+      if (errorMsg.includes('not found')) {
+        showRefreshToast(t('lang.installRequired'), 'warning');
+      } else {
+        showRefreshToast((enabled ? t('lang.enableFailed') : t('lang.disableFailed')) + ': ' + errorMsg, 'error');
+      }
+      throw new Error(errorMsg);
+    }
+
+    var data = await response.json();
+    codexCliEnhancementEnabled = data.enabled;
+
+    // Update UI
+    renderLanguageSettingsSection();
+
+    // Show toast
+    showRefreshToast('Codex CLI Enhancement: ' + (enabled ? t('lang.enableSuccess') : t('lang.disableSuccess')), 'success');
+  } catch (err) {
+    console.error('Failed to toggle Codex CLI enhancement:', err);
+    // Error already shown in the !response.ok block
+  } finally {
+    codexCliEnhancementLoading = false;
+  }
+}
+
 async function renderLanguageSettingsSection() {
   var container = document.getElementById('language-settings-section');
   if (!container) return;
@@ -1773,6 +1838,9 @@ async function renderLanguageSettingsSection() {
   }
   if (!windowsPlatformEnabled && !windowsPlatformLoading) {
     await loadWindowsPlatformSettings();
+  }
+  if (!codexCliEnhancementEnabled && !codexCliEnhancementLoading) {
+    await loadCodexCliEnhancementSettings();
   }
 
   var settingsHtml = '<div class="section-header">' +
@@ -1831,6 +1899,23 @@ async function renderLanguageSettingsSection() {
           '</span>' +
         '</div>' +
         '<p class="cli-setting-desc">' + t('lang.windowsDesc') + '</p>' +
+      '</div>' +
+      // CLI Enhancement - Codex
+      '<div class="cli-setting-item">' +
+        '<label class="cli-setting-label">' +
+          '<i data-lucide="terminal" class="w-3 h-3"></i>' +
+          'CLI 调用增强 <span class="badge badge-sm badge-secondary">Codex</span>' +
+        '</label>' +
+        '<div class="cli-setting-control">' +
+          '<label class="cli-toggle">' +
+            '<input type="checkbox"' + (codexCliEnhancementEnabled ? ' checked' : '') + ' onchange="toggleCodexCliEnhancement(this.checked)"' + (codexCliEnhancementLoading ? ' disabled' : '') + '>' +
+            '<span class="cli-toggle-slider"></span>' +
+          '</label>' +
+          '<span class="cli-setting-status ' + (codexCliEnhancementEnabled ? 'enabled' : 'disabled') + '">' +
+            (codexCliEnhancementEnabled ? t('lang.enabled') : t('lang.disabled')) +
+          '</span>' +
+        '</div>' +
+        '<p class="cli-setting-desc">为 Codex 启用多 CLI 工具调用功能，自动拼接 cli-tools-usage.md 和 cli-tools.json 配置</p>' +
       '</div>' +
     '</div>';
 
