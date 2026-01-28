@@ -6,6 +6,7 @@ import type { Server } from 'http';
 import { readFileSync, existsSync, promises as fsPromises } from 'fs';
 import { join } from 'path';
 import { resolvePath, getRecentPaths, trackRecentPath, removeRecentPath, normalizePathForDisplay } from '../../utils/path-resolver.js';
+import { validatePath as validateAllowedPath } from '../../utils/path-validator.js';
 import { scanSessions } from '../session-scanner.js';
 import { aggregateData } from '../data-aggregator.js';
 import {
@@ -286,7 +287,12 @@ export async function handleSystemRoutes(ctx: SystemRouteContext): Promise<boole
     }
 
     try {
-      const content = await fsPromises.readFile(filePath, 'utf-8');
+      // Validate path is within allowed directories (fix: sec-001-a1b2c3d4)
+      const validatedPath = await validateAllowedPath(filePath, {
+        mustExist: true,
+        allowedDirectories: [process.cwd(), resolvePath('.ccw', 'sessions')]
+      });
+      const content = await fsPromises.readFile(validatedPath, 'utf-8');
       const json = JSON.parse(content);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(json));
@@ -442,6 +448,15 @@ export async function handleSystemRoutes(ctx: SystemRouteContext): Promise<boole
         targetPath = path.resolve(targetPath);
       }
 
+      // Validate path is within allowed directories (fix: sec-003-c3d4e5f6)
+      const initialPath = process.cwd();
+      if (browsePath) {
+        targetPath = await validateAllowedPath(targetPath, {
+          mustExist: true,
+          allowedDirectories: [initialPath, os.homedir()]
+        });
+      }
+
       try {
         const stat = await fs.promises.stat(targetPath);
         if (!stat.isDirectory()) {
@@ -501,6 +516,13 @@ export async function handleSystemRoutes(ctx: SystemRouteContext): Promise<boole
       if (!path.isAbsolute(targetPath)) {
         targetPath = path.resolve(targetPath);
       }
+
+      // Validate path is within allowed directories (fix: sec-003-c3d4e5f6)
+      const initialPath = process.cwd();
+      targetPath = await validateAllowedPath(targetPath, {
+        mustExist: true,
+        allowedDirectories: [initialPath, os.homedir()]
+      });
 
       try {
         await fs.promises.access(targetPath, fs.constants.R_OK);
