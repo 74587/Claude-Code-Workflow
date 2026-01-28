@@ -431,4 +431,3 @@ CONTEXT_VARS:
 ```
 
 **Template Source**: `~/.claude/workflows/cli-templates/planning-roles/`
-
