@@ -918,9 +918,11 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
       const userCodexPath = join(homedir(), '.codex', 'AGENTS.md');
       const chineseRefPattern = /@.*chinese-response\.md/i;
       const chineseSectionPattern = /## 中文回复/; // For Codex direct content
+      const oldCodexRefPattern = /- \*\*中文回复准则\*\*:\s*@.*chinese-response\.md/i; // Old Codex format
 
       let claudeEnabled = false;
       let codexEnabled = false;
+      let codexNeedsMigration = false;
       let guidelinesPath = '';
 
       // Check if user CLAUDE.md exists and contains Chinese response reference
@@ -934,6 +936,10 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
       if (existsSync(userCodexPath)) {
         const content = readFileSync(userCodexPath, 'utf8');
         codexEnabled = chineseSectionPattern.test(content);
+        // Check if Codex has old @ reference format that needs migration
+        if (codexEnabled && oldCodexRefPattern.test(content)) {
+          codexNeedsMigration = true;
+        }
       }
 
       // Find guidelines file path - always use user-level path
@@ -948,6 +954,7 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
         enabled: claudeEnabled, // backward compatibility
         claudeEnabled,
         codexEnabled,
+        codexNeedsMigration, // New field: true if Codex has old @ reference format
         guidelinesPath,
         guidelinesExists: !!guidelinesPath,
         userClaudeMdExists: existsSync(userClaudePath),
@@ -1002,11 +1009,36 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
         if (isCodex) {
           // Codex: Direct content concatenation (does not support @ references)
           const chineseSectionPattern = /\n*## 中文回复\n[\s\S]*?(?=\n## |$)/;
+          const oldRefPattern = /- \*\*中文回复准则\*\*:\s*@.*chinese-response\.md/i; // Old @ reference format
 
           if (enabled) {
-            // Check if section already exists
-            if (chineseSectionPattern.test(content)) {
-              return { success: true, message: 'Already enabled' };
+            // Check if section exists and if it needs migration
+            const hasSection = chineseSectionPattern.test(content);
+
+            if (hasSection) {
+              // Check if it's the old format with @ reference
+              const hasOldRef = oldRefPattern.test(content);
+
+              if (hasOldRef) {
+                // Migrate: remove old section and add new content
+                content = content.replace(chineseSectionPattern, '\n');
+                content = content.replace(/\n{3,}/g, '\n\n').trim();
+                if (content) content += '\n';
+
+                // Read chinese-response.md content
+                const chineseResponseContent = readFileSync(userGuidelinesPath, 'utf8');
+
+                // Add new section with direct content
+                const newSection = `\n## 中文回复\n\n${chineseResponseContent}\n`;
+                content = content.trimEnd() + '\n' + newSection;
+
+                writeFileSync(targetFile, content, 'utf8');
+
+                return { success: true, enabled, migrated: true, message: 'Migrated from @ reference to direct content' };
+              }
+
+              // Already has correct format
+              return { success: true, message: 'Already enabled with correct format' };
             }
 
             // Read chinese-response.md content
@@ -1016,7 +1048,7 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
             const newSection = `\n## 中文回复\n\n${chineseResponseContent}\n`;
             content = content.trimEnd() + '\n' + newSection;
           } else {
-            // Remove Chinese response section
+            // Remove Chinese response section (both old and new format)
             content = content.replace(chineseSectionPattern, '\n');
             content = content.replace(/\n{3,}/g, '\n\n').trim();
             if (content) content += '\n';

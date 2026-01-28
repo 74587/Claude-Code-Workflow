@@ -1613,6 +1613,7 @@ var chineseResponseEnabled = false;
 var chineseResponseLoading = false;
 var codexChineseResponseEnabled = false;
 var codexChineseResponseLoading = false;
+var codexChineseNeedsMigration = false; // Track if Codex needs migration from old @ reference
 var codexCliEnhancementEnabled = false;
 var codexCliEnhancementLoading = false;
 var windowsPlatformEnabled = false;
@@ -1626,12 +1627,14 @@ async function loadLanguageSettings() {
     var data = await response.json();
     chineseResponseEnabled = data.claudeEnabled || data.enabled || false;
     codexChineseResponseEnabled = data.codexEnabled || false;
+    codexChineseNeedsMigration = data.codexNeedsMigration || false; // Track migration status
     return data;
   } catch (err) {
     console.error('Failed to load language settings:', err);
     chineseResponseEnabled = false;
     codexChineseResponseEnabled = false;
-    return { claudeEnabled: false, codexEnabled: false, guidelinesExists: false };
+    codexChineseNeedsMigration = false;
+    return { claudeEnabled: false, codexEnabled: false, codexNeedsMigration: false, guidelinesExists: false };
   }
 }
 
@@ -1708,6 +1711,11 @@ async function toggleChineseResponse(enabled, target) {
     var data = await response.json();
     if (isCodex) {
       codexChineseResponseEnabled = data.enabled;
+      // Handle migration status
+      if (data.migrated) {
+        codexChineseNeedsMigration = false;
+        showRefreshToast('Codex: 已从 @ 引用迁移到直接文本拼接', 'success');
+      }
     } else {
       chineseResponseEnabled = data.enabled;
     }
@@ -1715,9 +1723,11 @@ async function toggleChineseResponse(enabled, target) {
     // Update UI
     renderLanguageSettingsSection();
 
-    // Show toast
+    // Show toast (skip if migration message already shown)
     var toolName = isCodex ? 'Codex' : 'Claude';
-    showRefreshToast(toolName + ': ' + (enabled ? t('lang.enableSuccess') : t('lang.disableSuccess')), 'success');
+    if (!data.migrated) {
+      showRefreshToast(toolName + ': ' + (enabled ? t('lang.enableSuccess') : t('lang.disableSuccess')), 'success');
+    }
   } catch (err) {
     console.error('Failed to toggle Chinese response:', err);
     // Error already shown in the !response.ok block
@@ -1921,7 +1931,9 @@ async function renderLanguageSettingsSection() {
             (codexChineseResponseEnabled ? t('lang.enabled') : t('lang.disabled')) +
           '</span>' +
         '</div>' +
-        '<p class="cli-setting-desc">' + t('lang.chineseDescCodex') + '</p>' +
+        '<p class="cli-setting-desc">' + t('lang.chineseDescCodex') +
+          (codexChineseNeedsMigration ? '<br><span style="color: #f59e0b; font-size: 0.85em;">⚠️ 检测到旧格式（@引用），请关闭后重新启用以迁移到新格式</span>' : '') +
+        '</p>' +
       '</div>' +
       // Windows Platform
       '<div class="cli-setting-item">' +
