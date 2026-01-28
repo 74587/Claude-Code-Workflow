@@ -1797,7 +1797,7 @@ async function toggleCodexCliEnhancement(enabled) {
     var response = await fetch('/api/language/codex-cli-enhancement', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: enabled })
+      body: JSON.stringify({ enabled: enabled, action: 'toggle' })
     });
 
     if (!response.ok) {
@@ -1822,6 +1822,46 @@ async function toggleCodexCliEnhancement(enabled) {
     showRefreshToast('Codex CLI Enhancement: ' + (enabled ? t('lang.enableSuccess') : t('lang.disableSuccess')), 'success');
   } catch (err) {
     console.error('Failed to toggle Codex CLI enhancement:', err);
+    // Error already shown in the !response.ok block
+  } finally {
+    codexCliEnhancementLoading = false;
+  }
+}
+
+async function refreshCodexCliEnhancement() {
+  if (codexCliEnhancementLoading) return;
+
+  codexCliEnhancementLoading = true;
+
+  try {
+    var response = await fetch('/api/language/codex-cli-enhancement', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'refresh' })
+    });
+
+    if (!response.ok) {
+      var errData = await response.json();
+      var errorMsg = errData.error || 'Failed to refresh setting';
+      if (errorMsg.includes('not found')) {
+        showRefreshToast(t('lang.installRequired'), 'warning');
+      } else if (errorMsg.includes('not enabled')) {
+        showRefreshToast('CLI 调用增强未启用', 'warning');
+      } else {
+        showRefreshToast('刷新失败: ' + errorMsg, 'error');
+      }
+      throw new Error(errorMsg);
+    }
+
+    var data = await response.json();
+
+    // Update UI
+    renderLanguageSettingsSection();
+
+    // Show toast
+    showRefreshToast('CLI 调用增强已刷新', 'success');
+  } catch (err) {
+    console.error('Failed to refresh Codex CLI enhancement:', err);
     // Error already shown in the !response.ok block
   } finally {
     codexCliEnhancementLoading = false;
@@ -1914,8 +1954,15 @@ async function renderLanguageSettingsSection() {
           '<span class="cli-setting-status ' + (codexCliEnhancementEnabled ? 'enabled' : 'disabled') + '">' +
             (codexCliEnhancementEnabled ? t('lang.enabled') : t('lang.disabled')) +
           '</span>' +
+          (codexCliEnhancementEnabled ?
+            '<button class="btn-icon-sm" onclick="refreshCodexCliEnhancement()" title="刷新 CLI 配置"' + (codexCliEnhancementLoading ? ' disabled' : '') + '>' +
+              '<i data-lucide="refresh-cw" class="w-3 h-3"></i>' +
+            '</button>'
+            : '') +
         '</div>' +
-        '<p class="cli-setting-desc">为 Codex 启用多 CLI 工具调用功能，自动拼接 cli-tools-usage.md 和 cli-tools.json 配置</p>' +
+        '<p class="cli-setting-desc">为 Codex 启用多 CLI 工具调用功能，自动拼接 cli-tools-usage.md 和 cli-tools.json 配置' +
+          (codexCliEnhancementEnabled ? '<br><span style="color: var(--text-muted); font-size: 0.85em;">💡 配置文件变更后，点击刷新按钮更新内容</span>' : '') +
+        '</p>' +
       '</div>' +
     '</div>';
 

@@ -1099,9 +1099,12 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
   // API: Toggle Codex CLI Enhancement setting
   if (pathname === '/api/language/codex-cli-enhancement' && req.method === 'POST') {
     handlePostRequest(req, res, async (body: any) => {
-      const { enabled } = body;
+      const { enabled, action } = body;
 
-      if (typeof enabled !== 'boolean') {
+      // Support two actions: 'toggle' (default) and 'refresh'
+      const actionType = action || 'toggle';
+
+      if (actionType === 'toggle' && typeof enabled !== 'boolean') {
         return { error: 'Missing or invalid enabled parameter', status: 400 };
       }
 
@@ -1123,10 +1126,52 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
         }
 
         const cliEnhancementSectionPattern = /\n*## CLI 工具调用\n[\s\S]*?(?=\n## |$)/;
+        const isCurrentlyEnabled = cliEnhancementSectionPattern.test(content);
 
+        // Handle refresh action
+        if (actionType === 'refresh') {
+          if (!isCurrentlyEnabled) {
+            return { error: 'CLI enhancement is not enabled, cannot refresh', status: 400 };
+          }
+
+          // Remove existing section
+          content = content.replace(cliEnhancementSectionPattern, '\n');
+          content = content.replace(/\n{3,}/g, '\n\n').trim();
+          if (content) content += '\n';
+
+          // Read and add updated section
+          const cliToolsUsagePath = join(homedir(), '.claude', 'workflows', 'cli-tools-usage.md');
+          let cliToolsUsageContent = '';
+          if (existsSync(cliToolsUsagePath)) {
+            cliToolsUsageContent = readFileSync(cliToolsUsagePath, 'utf8');
+          } else {
+            return { error: 'CLI tools usage guidelines file not found at ~/.claude/workflows/cli-tools-usage.md', status: 404 };
+          }
+
+          const cliToolsJsonPath = join(homedir(), '.claude', 'cli-tools.json');
+          let cliToolsJsonContent = '';
+          if (existsSync(cliToolsJsonPath)) {
+            const cliToolsJson = JSON.parse(readFileSync(cliToolsJsonPath, 'utf8'));
+            cliToolsJsonContent = `\n### CLI Tools Configuration\n\n\`\`\`json\n${JSON.stringify(cliToolsJson, null, 2)}\n\`\`\`\n`;
+          }
+
+          const newSection = `\n## CLI 工具调用\n\n${cliToolsUsageContent}\n${cliToolsJsonContent}`;
+          content = content.trimEnd() + '\n' + newSection;
+
+          writeFileSync(targetFile, content, 'utf8');
+
+          broadcastToClients({
+            type: 'CLI_ENHANCEMENT_SETTING_CHANGED',
+            data: { cliEnhancement: true, refreshed: true }
+          });
+
+          return { success: true, refreshed: true };
+        }
+
+        // Handle toggle action
         if (enabled) {
           // Check if section already exists
-          if (cliEnhancementSectionPattern.test(content)) {
+          if (isCurrentlyEnabled) {
             return { success: true, message: 'Already enabled' };
           }
 

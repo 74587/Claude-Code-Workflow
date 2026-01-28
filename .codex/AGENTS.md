@@ -1,8 +1,5 @@
 # Codex Code Guidelines
 
-**Strictly follow the cli-tools.json configuration**
-
-Available CLI endpoints are dynamically defined by the config file
 
 ## Code Quality Standards
 
