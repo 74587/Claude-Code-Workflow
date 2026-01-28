@@ -56,6 +56,7 @@ Interactive orchestration tool: analyze task → discover commands → recommend
 |-----------|----------|---------|--------|
 | **Issue Workflow** | discover → plan → queue → execute | Complete issue lifecycle | Completed issues |
 | **Rapid-to-Issue** | lite-plan → convert-to-plan → queue → execute | Bridge lite workflow to issue workflow | Completed issues |
+| **Brainstorm-to-Issue** | from-brainstorm → queue → execute | Bridge brainstorm session to issue workflow | Completed issues |
 
 **With-File Units** (文档化单元):
 
@@ -83,8 +84,9 @@ Interactive orchestration tool: analyze task → discover commands → recommend
 | issue:discover | issue:plan | Issue Workflow |
 | issue:plan | issue:queue | Issue Workflow |
 | convert-to-plan | issue:queue | Rapid-to-Issue |
-| issue:queue | issue:execute | Issue Workflow, Rapid-to-Issue |
-| brainstorm-with-file | (standalone) | Brainstorm With File |
+| issue:queue | issue:execute | Issue Workflow, Rapid-to-Issue, Brainstorm-to-Issue |
+| issue:from-brainstorm | issue:queue | Brainstorm-to-Issue |
+| brainstorm-with-file | issue:from-brainstorm (optional) | Brainstorm With File, Brainstorm-to-Issue |
 | debug-with-file | (standalone) | Debug With File |
 | analyze-with-file | (standalone) | Analyze With File |
 
@@ -132,6 +134,7 @@ function detectTaskType(text) {
   if (/issue workflow|structured workflow|queue|multi-stage|转.*issue|issue.*流程/.test(text)) return 'issue-transition';
   // With-File workflow patterns
   if (/brainstorm|ideation|头脑风暴|创意|发散思维|creative thinking/.test(text)) return 'brainstorm-file';
+  if (/brainstorm.*issue|头脑风暴.*issue|idea.*issue|想法.*issue|从.*头脑风暴|convert.*brainstorm/.test(text)) return 'brainstorm-to-issue';
   if (/debug.*document|hypothesis.*debug|深度调试|假设.*验证|systematic debug/.test(text)) return 'debug-file';
   if (/analyze.*document|collaborative analysis|协作分析|深度.*理解/.test(text)) return 'analyze-file';
   if (/不确定|explore|研究|what if|brainstorm|权衡/.test(text)) return 'brainstorm';
@@ -361,6 +364,13 @@ const commandPorts = {
     tags: ['brainstorm', 'with-file'],
     note: 'Self-contained workflow with multi-round diverge-converge cycles'
   },
+  'issue:from-brainstorm': {
+    name: 'issue:from-brainstorm',
+    input: ['brainstorm-document'],             // 输入端口：brainstorm 产物（synthesis.json）
+    output: ['converted-plan'],                 // 输出端口：issue + solution
+    tags: ['issue', 'brainstorm'],
+    atomic_group: 'brainstorm-to-issue'        // 最小单元：from-brainstorm → queue → execute
+  },
   'debug-with-file': {
     name: 'debug-with-file',
     input: ['bug-report'],                      // 输入端口：bug 报告
@@ -406,10 +416,11 @@ function determinePortFlow(taskType, constraints) {
     'issue-batch':      { inputPort: 'codebase', outputPort: 'completed-issues' },
     'issue-transition': { inputPort: 'requirement', outputPort: 'completed-issues' },
     // With-File workflow types
-    'brainstorm-file':  { inputPort: 'exploration-topic', outputPort: 'brainstorm-document' },
-    'debug-file':       { inputPort: 'bug-report', outputPort: 'understanding-document' },
-    'analyze-file':     { inputPort: 'analysis-topic', outputPort: 'discussion-document' },
-    'feature':          { inputPort: 'requirement', outputPort: constraints?.includes('skip-tests') ? 'code' : 'test-passed' }
+    'brainstorm-file':    { inputPort: 'exploration-topic', outputPort: 'brainstorm-document' },
+    'brainstorm-to-issue': { inputPort: 'brainstorm-document', outputPort: 'completed-issues' },
+    'debug-file':         { inputPort: 'bug-report', outputPort: 'understanding-document' },
+    'analyze-file':       { inputPort: 'analysis-topic', outputPort: 'discussion-document' },
+    'feature':            { inputPort: 'requirement', outputPort: constraints?.includes('skip-tests') ? 'code' : 'test-passed' }
   };
   return flows[taskType] || flows['feature'];
 }
@@ -677,6 +688,17 @@ function formatCommand(cmd, previousResults, analysis) {
 
   } else if (name === 'analyze-with-file') {
     prompt = `/workflow:analyze-with-file -y "${analysis.goal}"`;
+
+  // Brainstorm-to-issue bridge
+  } else if (name === 'issue:from-brainstorm' || name === 'from-brainstorm') {
+    // Extract session ID from analysis.goal or latest brainstorm
+    const sessionMatch = analysis.goal.match(/BS-[\w-]+/);
+    if (sessionMatch) {
+      prompt = `/issue:from-brainstorm -y SESSION="${sessionMatch[0]}" --auto`;
+    } else {
+      // Find latest brainstorm session
+      prompt = `/issue:from-brainstorm -y --auto`;
+    }
   }
 
   return prompt;
@@ -1040,7 +1062,7 @@ All from `~/.claude/commands/workflow/` and `~/.claude/commands/issue/`:
 **Session Management**: session:start, session:resume, session:complete, session:solidify, session:list
 **Tools**: context-gather, test-context-gather, task-generate, conflict-resolution, action-plan-verify
 **Utility**: clean, init, replan
-**Issue Workflow**: issue:discover, issue:plan, issue:queue, issue:execute, issue:convert-to-plan
+**Issue Workflow**: issue:discover, issue:plan, issue:queue, issue:execute, issue:convert-to-plan, issue:from-brainstorm
 **With-File Workflows**: brainstorm-with-file, debug-with-file, analyze-with-file
 
 ### Testing Commands Distinction
@@ -1073,6 +1095,7 @@ All from `~/.claude/commands/workflow/` and `~/.claude/commands/issue/`:
 | **issue-batch** | 代码库 →【discover → plan → queue → execute】→ 完成 issues | Issue Workflow |
 | **issue-transition** | 需求 →【lite-plan → convert-to-plan → queue → execute】→ 完成 issues | Rapid-to-Issue |
 | **brainstorm-file** | 主题 → brainstorm-with-file → brainstorm.md (自包含) | Brainstorm With File |
+| **brainstorm-to-issue** | brainstorm.md →【from-brainstorm → queue → execute】→ 完成 issues | Brainstorm to Issue |
 | **debug-file** | Bug报告 → debug-with-file → understanding.md (自包含) | Debug With File |
 | **analyze-file** | 分析主题 → analyze-with-file → discussion.md (自包含) | Analyze With File |
 

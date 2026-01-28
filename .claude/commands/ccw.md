@@ -69,6 +69,7 @@ function detectTaskType(text) {
     'bugfix-hotfix': /urgent|production|critical/ && /fix|bug/,
     // With-File workflows (documented exploration with multi-CLI collaboration)
     'brainstorm': /brainstorm|ideation|头脑风暴|创意|发散思维|creative thinking|multi-perspective.*think|compare perspectives|探索.*可能/,
+    'brainstorm-to-issue': /brainstorm.*issue|头脑风暴.*issue|idea.*issue|想法.*issue|从.*头脑风暴|convert.*brainstorm/,
     'debug-file': /debug.*document|hypothesis.*debug|troubleshoot.*track|investigate.*log|调试.*记录|假设.*验证|systematic debug|深度调试/,
     'analyze-file': /analyze.*document|explore.*concept|understand.*architecture|investigate.*discuss|collaborative analysis|分析.*讨论|深度.*理解|协作.*分析/,
     // Standard workflows
@@ -118,6 +119,7 @@ function selectWorkflow(analysis) {
     'bugfix-hotfix':     { level: 2, flow: 'bugfix.hotfix' },
     // With-File workflows (documented exploration with multi-CLI collaboration)
     'brainstorm':        { level: 4, flow: 'brainstorm-with-file' },   // Multi-perspective ideation
+    'brainstorm-to-issue': { level: 4, flow: 'brainstorm-to-issue' }, // Brainstorm → Issue workflow
     'debug-file':        { level: 3, flow: 'debug-with-file' },         // Hypothesis-driven debugging
     'analyze-file':      { level: 3, flow: 'analyze-with-file' },       // Collaborative analysis
     // Standard workflows
@@ -204,6 +206,14 @@ function buildCommandChain(workflow, analysis) {
     'brainstorm-with-file': [
       { cmd: '/workflow:brainstorm-with-file', args: `"${analysis.goal}"` }
       // Note: Has built-in post-completion options (create plan, create issue, deep analysis)
+    ],
+
+    // Brainstorm-to-Issue workflow (bridge from brainstorm to issue execution)
+    'brainstorm-to-issue': [
+      // Note: Assumes brainstorm session already exists, or run brainstorm first
+      { cmd: '/issue:from-brainstorm', args: `SESSION="${extractBrainstormSession(analysis)}" --auto` },
+      { cmd: '/issue:queue', args: '' },
+      { cmd: '/issue:execute', args: '--queue auto' }
     ],
 
     'debug-with-file': [
@@ -448,6 +458,7 @@ Phase 5: Execute Command Chain
 | "Fix login timeout" | bugfix | 2 |【lite-fix → lite-execute】→【test-fix-gen → test-cycle-execute】|
 | "Use issue workflow" | issue-transition | 2.5 |【lite-plan → convert-to-plan】→ queue → execute |
 | "头脑风暴: 通知系统重构" | brainstorm | 4 | brainstorm-with-file → (built-in post-completion) |
+| "从头脑风暴创建 issue" | brainstorm-to-issue | 4 | from-brainstorm → queue → execute |
 | "深度调试 WebSocket 连接断开" | debug-file | 3 | debug-with-file → (hypothesis iteration) |
 | "协作分析: 认证架构优化" | analyze-file | 3 | analyze-with-file → (multi-round discussion) |
 | "OAuth2 system" | feature (high) | 3 |【plan → plan-verify】→ execute →【review-session-cycle → review-cycle-fix】→【test-fix-gen → test-cycle-execute】|
@@ -550,6 +561,7 @@ ccw "Uncertain about architecture for real-time notifications"
 
 # With-File workflows (documented exploration with multi-CLI collaboration)
 ccw "头脑风暴: 用户通知系统重新设计"           # → brainstorm-with-file
+ccw "从头脑风暴 BS-通知系统-2025-01-28 创建 issue"  # → brainstorm-to-issue (bridge)
 ccw "深度调试: 系统随机崩溃问题"              # → debug-with-file
 ccw "协作分析: 理解现有认证架构的设计决策"     # → analyze-with-file
 ```
