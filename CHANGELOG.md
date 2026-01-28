@@ -376,7 +376,7 @@ This release significantly enhances the code review capabilities with a new fix-
 - **Enhanced Export Notifications**: Export notifications now include detailed usage instructions and recommended file locations (`6467480`).
 
 #### 🔄 Changed
-- **Dashboard Data Integration**: `fix-dashboard.html` now consumes more JSON fields from the `review-fix` workflow for richer data display (`b000359`).
+- **Dashboard Data Integration**: `fix-dashboard.html` now consumes more JSON fields from the `review-cycle-fix` workflow for richer data display (`b000359`).
 - **Dashboard Generation**: Optimized the generation process for the review cycle dashboard and merged JSON state files for efficiency (`2cf8efe`).
 - **Agent Schema Requirements**: Added explicit JSON schema requirements to review cycle agent prompts to ensure structured output (`34a9a23`).
 - **Standardized Naming**: Standardized "Execution Flow" phase naming across commands and removed redundant `REVIEW-SUMMARY.md` output (`ef09914`).
@@ -409,7 +409,7 @@ This release introduces the new `lite-fix` workflow for streamlined bug resoluti
 - **`docs-related-cli` Command**: New command for CLI-related documentation (`7453987`).
 - **Session Artifacts**: `lite-fix` workflow now creates a dedicated session folder with artifacts like `diagnosis.json` and `fix-plan.json` (`0207677`).
 - **`review-session-cycle` Command**: A comprehensive command for multi-dimensional code analysis (`93d8e79`).
-- **`review-fix` Workflow**: Automated workflow for reviewing fixes with an enhanced exploration schema (`a6561a7`).
+- **`review-cycle-fix` Workflow**: Automated workflow for reviewing fixes with an enhanced exploration schema (`a6561a7`).
 - **JSON Schemas**: Added new JSON schemas for deep-dive results and dimension analysis to structure agent outputs (`cd206f2`).
 
 #### 🔄 Changed
