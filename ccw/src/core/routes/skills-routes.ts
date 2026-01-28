@@ -64,19 +64,28 @@ function getDisabledSkillsConfigPath(location: SkillLocation, projectPath: strin
 
 /**
  * Load disabled skills configuration
+ * Throws on JSON parse errors to surface config corruption
  */
 function loadDisabledSkillsConfig(location: SkillLocation, projectPath: string): DisabledSkillsConfig {
   const configPath = getDisabledSkillsConfigPath(location, projectPath);
-  try {
-    if (existsSync(configPath)) {
-      const content = readFileSync(configPath, 'utf8');
-      const config = JSON.parse(content);
-      return { skills: config.skills || {} };
-    }
-  } catch (error) {
-    console.error(`[Skills] Failed to load disabled skills config: ${error}`);
+  
+  if (!existsSync(configPath)) {
+    return { skills: {} };
   }
-  return { skills: {} };
+  
+  try {
+    const content = readFileSync(configPath, 'utf8');
+    const config = JSON.parse(content);
+    return { skills: config.skills || {} };
+  } catch (error) {
+    // Throw on JSON parse errors to surface config corruption
+    if (error instanceof SyntaxError) {
+      throw new Error(`Config file corrupted: ${configPath}`);
+    }
+    // Log and return empty for other errors (permission, etc.)
+    console.error(`[Skills] Failed to load disabled skills config: ${error}`);
+    return { skills: {} };
+  }
 }
 
 /**

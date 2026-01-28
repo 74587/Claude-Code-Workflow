@@ -219,6 +219,7 @@ function renderSkillCard(skill, location, isDisabled = false) {
             ${location}
           </span>
           <button class="p-1.5 rounded-lg transition-colors ${isDisabled ? 'text-green-600 hover:bg-green-100' : 'text-amber-600 hover:bg-amber-100'}"
+                  data-skill-toggle="${escapeHtml(folderName)}"
                   onclick="event.stopPropagation(); toggleSkillEnabled('${escapeHtml(folderName)}', '${location}', ${!isDisabled})"
                   title="${isDisabled ? t('skills.enable') : t('skills.disable')}">
             <i data-lucide="${isDisabled ? 'toggle-left' : 'toggle-right'}" class="w-4 h-4"></i>
@@ -432,24 +433,47 @@ function editSkill(skillName, location) {
 
 // ========== Enable/Disable Skills Functions ==========
 
+// Track loading state for skill toggle operations
+var toggleLoadingSkills = {};
+
 async function toggleSkillEnabled(skillName, location, currentlyEnabled) {
-  const action = currentlyEnabled ? 'disable' : 'enable';
-  const confirmMessage = currentlyEnabled 
+  // Prevent double-click
+  var loadingKey = skillName + '-' + location;
+  if (toggleLoadingSkills[loadingKey]) return;
+
+  var action = currentlyEnabled ? 'disable' : 'enable';
+  var confirmMessage = currentlyEnabled 
     ? t('skills.disableConfirm', { name: skillName })
     : t('skills.enableConfirm', { name: skillName });
   
   if (!confirm(confirmMessage)) return;
 
+  // Set loading state
+  toggleLoadingSkills[loadingKey] = true;
+  var toggleBtn = document.querySelector('[data-skill-toggle="' + skillName + '"]');
+  if (toggleBtn) {
+    toggleBtn.disabled = true;
+    toggleBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>';
+    if (window.lucide) lucide.createIcons();
+  }
+
   try {
-    const response = await fetch('/api/skills/' + encodeURIComponent(skillName) + '/' + action, {
+    var response = await fetch('/api/skills/' + encodeURIComponent(skillName) + '/' + action, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ location, projectPath })
+      body: JSON.stringify({ location: location, projectPath: projectPath })
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Operation failed');
+      // Robust JSON parsing with fallback
+      var errorMessage = 'Operation failed';
+      try {
+        var error = await response.json();
+        errorMessage = error.message || errorMessage;
+      } catch (jsonErr) {
+        errorMessage = response.statusText || errorMessage;
+      }
+      throw new Error(errorMessage);
     }
 
     // Close detail panel if open
@@ -460,7 +484,9 @@ async function toggleSkillEnabled(skillName, location, currentlyEnabled) {
     renderSkillsView();
 
     if (window.showToast) {
-      const message = currentlyEnabled ? t('skills.disabled') : t('skills.enabled');
+      var message = currentlyEnabled 
+        ? t('skills.disableSuccess', { name: skillName })
+        : t('skills.enableSuccess', { name: skillName });
       showToast(message, 'success');
     }
   } catch (err) {
@@ -468,6 +494,9 @@ async function toggleSkillEnabled(skillName, location, currentlyEnabled) {
     if (window.showToast) {
       showToast(err.message || t('skills.toggleError'), 'error');
     }
+  } finally {
+    // Clear loading state
+    delete toggleLoadingSkills[loadingKey];
   }
 }
 
