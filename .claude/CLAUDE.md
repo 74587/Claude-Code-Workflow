@@ -9,12 +9,7 @@
 
 **Strictly follow the cli-tools.json configuration**
 
-Available CLI endpoints are dynamically defined by the config file:
-- Built-in tools and their enable/disable status
-- Custom API endpoints registered via the Dashboard
-- Managed through the CCW Dashboard Status page
-
-
+Available CLI endpoints are dynamically defined by the config file
 ## Tool Execution
 
 - **Context Requirements**: @~/.claude/workflows/context-tools.md

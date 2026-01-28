@@ -84,9 +84,41 @@ return {
 | `{{error_handling_table}}` | 错误处理表格 |
 | `{{next_actions_hints}}` | 后续动作提示 |
 
+## 动作生命周期
+
+```
+状态驱动执行流:
+
+  state.status === 'pending'
+       ↓
+  ┌─ Init ─┐          ← 1次执行，环境准备
+  │ 创建工作目录        │
+  │ 初始化 context     │
+  │ status → running   │
+  └────┬────┘
+       ↓
+  ┌─ CRUD Loop ─┐     ← N次迭代，核心业务
+  │ 编排器选择动作  │    List / Create / Edit / Delete
+  │ execute(state)  │    共享模式: 收集输入 → 操作 context.items → 返回更新
+  │ 更新 state      │
+  └────┬────┘
+       ↓
+  ┌─ Complete ─┐      ← 1次执行，保存结果
+  │ 序列化输出    │
+  │ status → completed │
+  └──────────┘
+
+共享状态结构:
+  state.status          → 'pending' | 'running' | 'completed'
+  state.context.items   → 业务数据数组
+  state.completed_actions → 已执行动作 ID 列表
+```
+
 ## 动作类型模板
 
 ### 1. 初始化动作 (Init)
+
+**触发条件**: `state.status === 'pending'`，仅执行一次
 
 ```markdown
 # Action: Initialize
@@ -105,101 +137,29 @@ return {
 
 \`\`\`javascript
 async function execute(state) {
-  // 1. 创建工作目录
   Bash(\`mkdir -p "\${workDir}"\`);
-  
-  // 2. 初始化数据
-  const initialData = {
-    items: [],
-    metadata: {}
-  };
-  
-  // 3. 返回状态更新
+
   return {
     stateUpdates: {
       status: 'running',
-      context: initialData
+      started_at: new Date().toISOString(),
+      context: { items: [], metadata: {} }
     }
   };
 }
 \`\`\`
 
-## State Updates
-
-\`\`\`javascript
-return {
-  stateUpdates: {
-    status: 'running',
-    started_at: new Date().toISOString(),
-    context: { /* 初始数据 */ }
-  }
-};
-\`\`\`
-
 ## Next Actions
 
-- 成功: 进入主处理循环
+- 成功: 进入主处理循环 (由编排器选择首个 CRUD 动作)
 - 失败: action-abort
 ```
 
-### 2. 列表动作 (List)
+### 2. CRUD 动作 (List / Create / Edit / Delete)
 
-```markdown
-# Action: List Items
+**触发条件**: `state.status === 'running'`，循环执行直至用户退出
 
-显示当前项目列表。
-
-## Purpose
-
-展示所有项目供用户查看和选择。
-
-## Preconditions
-
-- [ ] state.status === 'running'
-
-## Execution
-
-\`\`\`javascript
-async function execute(state) {
-  const items = state.context.items || [];
-  
-  if (items.length === 0) {
-    console.log('暂无项目');
-  } else {
-    console.log('项目列表:');
-    items.forEach((item, i) => {
-      console.log(\`\${i + 1}. \${item.name} - \${item.status}\`);
-    });
-  }
-  
-  return {
-    stateUpdates: {
-      last_action: 'list',
-      current_view: 'list'
-    }
-  };
-}
-\`\`\`
-
-## State Updates
-
-\`\`\`javascript
-return {
-  stateUpdates: {
-    current_view: 'list',
-    last_viewed_at: new Date().toISOString()
-  }
-};
-\`\`\`
-
-## Next Actions
-
-- 用户选择创建: action-create
-- 用户选择编辑: action-edit
-- 用户退出: action-complete
-```
-
-### 3. 创建动作 (Create)
+> 以 Create 为示例展示共享模式。List / Edit / Delete 遵循同一结构，仅 `执行逻辑` 和 `状态更新字段` 不同。
 
 ```markdown
 # Action: Create Item
@@ -208,7 +168,7 @@ return {
 
 ## Purpose
 
-引导用户创建新项目。
+收集用户输入，向 context.items 追加新记录。
 
 ## Preconditions
 
@@ -218,26 +178,24 @@ return {
 
 \`\`\`javascript
 async function execute(state) {
-  // 1. 收集信息
+  // 1. 收集输入
   const input = await AskUserQuestion({
     questions: [{
       question: "请输入项目名称：",
       header: "名称",
       multiSelect: false,
-      options: [
-        { label: "手动输入", description: "输入自定义名称" }
-      ]
+      options: [{ label: "手动输入", description: "输入自定义名称" }]
     }]
   });
-  
-  // 2. 创建项目
+
+  // 2. 操作 context.items (核心逻辑因动作类型而异)
   const newItem = {
     id: Date.now().toString(),
     name: input["名称"],
     status: 'pending',
     created_at: new Date().toISOString()
   };
-  
+
   // 3. 返回状态更新
   return {
     stateUpdates: {
@@ -245,177 +203,30 @@ async function execute(state) {
         ...state.context,
         items: [...(state.context.items || []), newItem]
       },
-      last_created_id: newItem.id
+      last_action: 'create'
     }
   };
 }
 \`\`\`
 
-## State Updates
-
-\`\`\`javascript
-return {
-  stateUpdates: {
-    'context.items': [...items, newItem],
-    last_action: 'create',
-    last_created_id: newItem.id
-  }
-};
-\`\`\`
-
 ## Next Actions
 
-- 继续创建: action-create
-- 返回列表: action-list
+- 继续操作: 编排器根据 state 选择下一动作
+- 用户退出: action-complete
 ```
 
-### 4. 编辑动作 (Edit)
+**其他 CRUD 动作差异对照:**
 
-```markdown
-# Action: Edit Item
+| 动作 | 核心逻辑 | 额外前置条件 | 关键状态字段 |
+|------|---------|------------|------------|
+| List | `items.forEach(→ console.log)` | 无 | `current_view: 'list'` |
+| Create | `items.push(newItem)` | 无 | `last_created_id` |
+| Edit | `items.map(→ 替换匹配项)` | `selected_item_id !== null` | `updated_at` |
+| Delete | `items.filter(→ 排除匹配项)` | `selected_item_id !== null` | 确认对话 → 执行 |
 
-编辑现有项目。
+### 3. 完成动作 (Complete)
 
-## Purpose
-
-修改已存在的项目。
-
-## Preconditions
-
-- [ ] state.status === 'running'
-- [ ] state.selected_item_id !== null
-
-## Execution
-
-\`\`\`javascript
-async function execute(state) {
-  const itemId = state.selected_item_id;
-  const items = state.context.items || [];
-  const item = items.find(i => i.id === itemId);
-  
-  if (!item) {
-    throw new Error(\`Item not found: \${itemId}\`);
-  }
-  
-  // 1. 显示当前值
-  console.log(\`当前名称: \${item.name}\`);
-  
-  // 2. 收集新值
-  const input = await AskUserQuestion({
-    questions: [{
-      question: "请输入新名称（留空保持不变）：",
-      header: "新名称",
-      multiSelect: false,
-      options: [
-        { label: "保持不变", description: \`当前: \${item.name}\` },
-        { label: "手动输入", description: "输入新名称" }
-      ]
-    }]
-  });
-  
-  // 3. 更新项目
-  const updatedItems = items.map(i => 
-    i.id === itemId 
-      ? { ...i, name: input["新名称"] || i.name, updated_at: new Date().toISOString() }
-      : i
-  );
-  
-  return {
-    stateUpdates: {
-      context: { ...state.context, items: updatedItems },
-      selected_item_id: null
-    }
-  };
-}
-\`\`\`
-
-## State Updates
-
-\`\`\`javascript
-return {
-  stateUpdates: {
-    'context.items': updatedItems,
-    selected_item_id: null,
-    last_action: 'edit'
-  }
-};
-\`\`\`
-
-## Next Actions
-
-- 返回列表: action-list
-```
-
-### 5. 删除动作 (Delete)
-
-```markdown
-# Action: Delete Item
-
-删除项目。
-
-## Purpose
-
-从列表中移除项目。
-
-## Preconditions
-
-- [ ] state.status === 'running'
-- [ ] state.selected_item_id !== null
-
-## Execution
-
-\`\`\`javascript
-async function execute(state) {
-  const itemId = state.selected_item_id;
-  const items = state.context.items || [];
-  
-  // 1. 确认删除
-  const confirm = await AskUserQuestion({
-    questions: [{
-      question: "确认删除此项目？",
-      header: "确认",
-      multiSelect: false,
-      options: [
-        { label: "确认删除", description: "不可恢复" },
-        { label: "取消", description: "返回列表" }
-      ]
-    }]
-  });
-  
-  if (confirm["确认"] === "取消") {
-    return { stateUpdates: { selected_item_id: null } };
-  }
-  
-  // 2. 执行删除
-  const updatedItems = items.filter(i => i.id !== itemId);
-  
-  return {
-    stateUpdates: {
-      context: { ...state.context, items: updatedItems },
-      selected_item_id: null
-    }
-  };
-}
-\`\`\`
-
-## State Updates
-
-\`\`\`javascript
-return {
-  stateUpdates: {
-    'context.items': filteredItems,
-    selected_item_id: null,
-    last_action: 'delete'
-  }
-};
-\`\`\`
-
-## Next Actions
-
-- 返回列表: action-list
-```
-
-### 6. 完成动作 (Complete)
+**触发条件**: 用户明确退出或终止条件满足，仅执行一次
 
 ```markdown
 # Action: Complete
@@ -424,7 +235,7 @@ return {
 
 ## Purpose
 
-保存最终状态，结束 Skill 执行。
+序列化最终状态，结束 Skill 执行。
 
 ## Preconditions
 
@@ -434,39 +245,24 @@ return {
 
 \`\`\`javascript
 async function execute(state) {
-  // 1. 保存最终数据
   Write(\`\${workDir}/final-output.json\`, JSON.stringify(state.context, null, 2));
-  
-  // 2. 生成摘要
+
   const summary = {
     total_items: state.context.items?.length || 0,
     duration: Date.now() - new Date(state.started_at).getTime(),
     actions_executed: state.completed_actions.length
   };
-  
-  console.log('任务完成！');
-  console.log(\`处理项目: \${summary.total_items}\`);
-  console.log(\`执行动作: \${summary.actions_executed}\`);
-  
+
+  console.log(\`任务完成: \${summary.total_items} 项, \${summary.actions_executed} 次操作\`);
+
   return {
     stateUpdates: {
       status: 'completed',
-      summary: summary
+      completed_at: new Date().toISOString(),
+      summary
     }
   };
 }
-\`\`\`
-
-## State Updates
-
-\`\`\`javascript
-return {
-  stateUpdates: {
-    status: 'completed',
-    completed_at: new Date().toISOString(),
-    summary: { /* 统计信息 */ }
-  }
-};
 \`\`\`
 
 ## Next Actions

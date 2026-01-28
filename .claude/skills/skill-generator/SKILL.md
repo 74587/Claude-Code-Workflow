@@ -105,8 +105,7 @@ Phase 01 → Phase 02 → Phase 03 → ... → Phase N
 | [templates/autonomous-action.md](templates/autonomous-action.md) | Autonomous Action 模板 |
 | [templates/code-analysis-action.md](templates/code-analysis-action.md) | 代码分析 Action 模板 |
 | [templates/llm-action.md](templates/llm-action.md) | LLM Action 模板 |
-| [templates/script-bash.md](templates/script-bash.md) | Bash 脚本模板 |
-| [templates/script-python.md](templates/script-python.md) | Python 脚本模板 |
+| [templates/script-template.md](templates/script-template.md) | 统一脚本模板 (Bash + Python) |
 
 ### 规范文档 (按需阅读)
 
@@ -371,8 +370,7 @@ ELSE IF execution_mode === "autonomous":
 | [autonomous-action.md](templates/autonomous-action.md) | Action files | Phase 3 |
 | [code-analysis-action.md](templates/code-analysis-action.md) | Code analysis actions | Phase 3 |
 | [llm-action.md](templates/llm-action.md) | LLM-powered actions | Phase 3 |
-| [script-bash.md](templates/script-bash.md) | Bash scripts | Phase 3/4 |
-| [script-python.md](templates/script-python.md) | Python scripts | Phase 3/4 |
+| [script-template.md](templates/script-template.md) | Bash + Python scripts | Phase 3/4 |
 
 ## Output Structure
 
