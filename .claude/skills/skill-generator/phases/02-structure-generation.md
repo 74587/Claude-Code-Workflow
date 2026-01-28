@@ -21,19 +21,79 @@ const skillDir = `.claude/skills/${config.skill_name}`;
 
 ### Step 2: 创建目录结构
 
-```javascript
-// 基础目录
-Bash(`mkdir -p "${skillDir}/phases"`);
-Bash(`mkdir -p "${skillDir}/specs"`);
-Bash(`mkdir -p "${skillDir}/templates"`);
+#### 基础目录（所有模式）
 
-// Autonomous 模式额外目录
+```javascript
+// 基础架构
+Bash(`mkdir -p "${skillDir}/{phases,specs,templates,scripts}"`);
+```
+
+#### 执行模式特定目录
+
+```
+config.execution_mode
+    ↓
+    ├─ "sequential"
+    │   ↓ Creates:
+    │   └─ phases/ (基础目录已包含)
+    │      ├─ _orchestrator.md
+    │      └─ workflow.json
+    │
+    └─ "autonomous" | "hybrid"
+        ↓ Creates:
+        └─ phases/actions/
+           ├─ state-schema.md
+           └─ *.md (动作文件)
+```
+
+```javascript
+// Autonomous/Hybrid 模式额外目录
 if (config.execution_mode === 'autonomous' || config.execution_mode === 'hybrid') {
   Bash(`mkdir -p "${skillDir}/phases/actions"`);
 }
+```
 
-// scripts 目录（默认创建，用于存放确定性脚本）
-Bash(`mkdir -p "${skillDir}/scripts"`);
+#### Context Strategy 特定目录 (P0 增强)
+
+```javascript
+// ========== P0: 根据上下文策略创建目录 ==========
+const contextStrategy = config.context_strategy || 'file';
+
+if (contextStrategy === 'file') {
+  // 文件策略：创建上下文持久化目录
+  Bash(`mkdir -p "${skillDir}/.scratchpad-template/context"`);
+
+  // 创建上下文模板文件
+  Write(
+    `${skillDir}/.scratchpad-template/context/.gitkeep`,
+    "# Runtime context storage for file-based strategy"
+  );
+}
+// 内存策略无需创建目录 (in-memory only)
+```
+
+**目录树视图**:
+
+```
+Sequential + File Strategy:
+  .claude/skills/{skill-name}/
+  ├── phases/
+  │   ├── _orchestrator.md
+  │   ├── workflow.json
+  │   ├── 01-*.md
+  │   └── 02-*.md
+  ├── .scratchpad-template/
+  │   └── context/           ← File strategy persistent storage
+  └── specs/
+
+Autonomous + Memory Strategy:
+  .claude/skills/{skill-name}/
+  ├── phases/
+  │   ├── orchestrator.md
+  │   ├── state-schema.md
+  │   └── actions/
+  │       └── *.md
+  └── specs/
 ```
 
 ### Step 3: 生成 SKILL.md
