@@ -9,12 +9,13 @@
 import { after, before, describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { tmpdir, homedir } from 'node:os';
+import { join, parse } from 'node:path';
 
 const CCW_HOME = mkdtempSync(join(tmpdir(), 'ccw-system-routes-home-'));
 const PROJECT_ROOT = mkdtempSync(join(tmpdir(), 'ccw-system-routes-project-'));
+const OUTSIDE_ROOT = mkdtempSync(join(tmpdir(), 'ccw-system-routes-outside-'));
 
 const systemRoutesUrl = new URL('../../dist/core/routes/system-routes.js', import.meta.url);
 systemRoutesUrl.searchParams.set('t', String(Date.now()));
@@ -140,6 +141,7 @@ describe('system routes integration', async () => {
     process.env.CCW_DATA_DIR = originalEnv.CCW_DATA_DIR;
     rmSync(CCW_HOME, { recursive: true, force: true });
     rmSync(PROJECT_ROOT, { recursive: true, force: true });
+    rmSync(OUTSIDE_ROOT, { recursive: true, force: true });
   });
 
   it('GET /api/health returns ok payload', async () => {
@@ -237,5 +239,60 @@ describe('system routes integration', async () => {
       await new Promise<void>((resolve) => originalClose(() => resolve()));
     }
   });
-});
 
+  it('GET /api/file reads JSON within initialPath and rejects outside paths', async () => {
+    const insideFile = join(PROJECT_ROOT, '.review', 'fixes', 'active-fix-session.json');
+    mkdirSync(join(PROJECT_ROOT, '.review', 'fixes'), { recursive: true });
+    writeFileSync(insideFile, JSON.stringify({ ok: true }), 'utf8');
+
+    const outsideFile = join(OUTSIDE_ROOT, 'outside.json');
+    writeFileSync(outsideFile, JSON.stringify({ ok: true }), 'utf8');
+
+    const { server, baseUrl } = await createServer(PROJECT_ROOT);
+    try {
+      const ok = await requestJson(baseUrl, 'GET', `/api/file?path=${encodeURIComponent(insideFile)}`);
+      assert.equal(ok.status, 200);
+      assert.equal(ok.json.ok, true);
+
+      const denied = await requestJson(baseUrl, 'GET', `/api/file?path=${encodeURIComponent(outsideFile)}`);
+      assert.equal(denied.status, 403);
+      assert.equal(denied.json.error, 'Access denied');
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  it('POST /api/dialog/browse rejects paths outside allowed roots', async () => {
+    const { server, baseUrl } = await createServer(PROJECT_ROOT);
+    try {
+      const rootPath = parse(homedir()).root;
+      const denied = await requestJson(baseUrl, 'POST', '/api/dialog/browse', { path: rootPath, showHidden: true });
+      assert.equal(denied.status, 403);
+      assert.equal(denied.json.error, 'Access denied');
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  it('POST /api/dialog/open-file accepts files under initialPath and rejects outside paths', async () => {
+    const allowedFile = join(PROJECT_ROOT, 'allowed.txt');
+    writeFileSync(allowedFile, 'ok', 'utf8');
+
+    const rootPath = parse(homedir()).root;
+    const deniedPath = join(rootPath, 'ccw-not-allowed.txt');
+
+    const { server, baseUrl } = await createServer(PROJECT_ROOT);
+    try {
+      const ok = await requestJson(baseUrl, 'POST', '/api/dialog/open-file', { path: allowedFile });
+      assert.equal(ok.status, 200);
+      assert.equal(ok.json.success, true);
+      assert.equal(ok.json.isFile, true);
+
+      const denied = await requestJson(baseUrl, 'POST', '/api/dialog/open-file', { path: deniedPath });
+      assert.equal(denied.status, 403);
+      assert.equal(denied.json.error, 'Access denied');
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+});
