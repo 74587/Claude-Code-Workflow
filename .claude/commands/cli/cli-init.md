@@ -3,6 +3,7 @@ name: cli-init
 description: Generate .gemini/ and .qwen/ config directories with settings.json and ignore files based on workspace technology detection
 argument-hint: "[--tool gemini|qwen|all] [--output path] [--preview]"
 allowed-tools: Bash(*), Read(*), Write(*), Glob(*)
+group: cli
 ---
 
 # CLI Initialization Command (/cli:cli-init)

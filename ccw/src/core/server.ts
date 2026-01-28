@@ -18,6 +18,7 @@ import { handleGraphRoutes } from './routes/graph-routes.js';
 import { handleSystemRoutes } from './routes/system-routes.js';
 import { handleFilesRoutes } from './routes/files-routes.js';
 import { handleSkillsRoutes } from './routes/skills-routes.js';
+import { handleCommandsRoutes } from './routes/commands-routes.js';
 import { handleIssueRoutes } from './routes/issue-routes.js';
 import { handleDiscoveryRoutes } from './routes/discovery-routes.js';
 import { handleRulesRoutes } from './routes/rules-routes.js';
@@ -598,6 +599,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // Skills routes (/api/skills*)
       if (pathname.startsWith('/api/skills')) {
         if (await handleSkillsRoutes(routeContext)) return;
+      }
+
+      // Commands routes (/api/commands*)
+      if (pathname.startsWith('/api/commands')) {
+        if (await handleCommandsRoutes(routeContext)) return;
       }
 
       // Queue routes (/api/queue*) - top-level queue API

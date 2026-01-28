@@ -102,7 +102,8 @@ const MODULE_CSS_FILES = [
   '32-issue-manager.css',
   '33-cli-stream-viewer.css',
   '34-discovery.css',
-  '36-loop-monitor.css'
+  '36-loop-monitor.css',
+  '37-commands.css'
 ];
 
 const MODULE_FILES = [
@@ -151,6 +152,7 @@ const MODULE_FILES = [
   'views/prompt-history.js',
   'views/skills-manager.js',
   'views/rules-manager.js',
+  'views/commands-manager.js',
   'views/claude-manager.js',
   'views/api-settings.js',
   'views/issue-manager.js',

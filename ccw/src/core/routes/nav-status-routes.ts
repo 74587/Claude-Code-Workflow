@@ -52,6 +52,92 @@ function countDiscoveries(projectPath: string): number {
 }
 
 /**
+ * Recursively count command files in a directory
+ */
+function countCommandsInDir(dirPath: string): { enabled: number; disabled: number } {
+  let enabled = 0;
+  let disabled = 0;
+
+  if (!existsSync(dirPath)) {
+    return { enabled, disabled };
+  }
+
+  try {
+    const entries = readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === '_disabled') {
+          // Count disabled commands recursively
+          disabled += countAllMdFiles(fullPath);
+        } else {
+          // Recursively count enabled commands
+          const subCounts = countCommandsInDir(fullPath);
+          enabled += subCounts.enabled;
+          disabled += subCounts.disabled;
+        }
+      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+        enabled++;
+      }
+    }
+  } catch { /* ignore */ }
+
+  return { enabled, disabled };
+}
+
+/**
+ * Count all .md files recursively (for disabled directory)
+ */
+function countAllMdFiles(dirPath: string): number {
+  let count = 0;
+  if (!existsSync(dirPath)) return count;
+
+  try {
+    const entries = readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        count += countAllMdFiles(fullPath);
+      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+        count++;
+      }
+    }
+  } catch { /* ignore */ }
+
+  return count;
+}
+
+/**
+ * Count commands from project and user directories
+ */
+function countCommands(projectPath: string): {
+  project: { enabled: number; disabled: number };
+  user: { enabled: number; disabled: number };
+  total: number;
+  enabled: number;
+  disabled: number;
+} {
+  // Project commands
+  const projectDir = join(projectPath, '.claude', 'commands');
+  const projectCounts = countCommandsInDir(projectDir);
+
+  // User commands
+  const userDir = join(homedir(), '.claude', 'commands');
+  const userCounts = countCommandsInDir(userDir);
+
+  const totalEnabled = projectCounts.enabled + userCounts.enabled;
+  const totalDisabled = projectCounts.disabled + userCounts.disabled;
+
+  return {
+    project: projectCounts,
+    user: userCounts,
+    total: totalEnabled + totalDisabled,
+    enabled: totalEnabled,
+    disabled: totalDisabled
+  };
+}
+
+/**
  * Count skills from project and user directories
  */
 function countSkills(projectPath: string): { project: number; user: number; total: number } {
@@ -197,10 +283,11 @@ export async function handleNavStatusRoutes(ctx: RouteContext): Promise<boolean>
       const projectPath = url.searchParams.get('path') || initialPath;
 
       // Execute all counts (synchronous file reads wrapped in Promise.resolve for consistency)
-      const [issues, discoveries, skills, rules, claude, hooks] = await Promise.all([
+      const [issues, discoveries, skills, commands, rules, claude, hooks] = await Promise.all([
         Promise.resolve(countIssues(projectPath)),
         Promise.resolve(countDiscoveries(projectPath)),
         Promise.resolve(countSkills(projectPath)),
+        Promise.resolve(countCommands(projectPath)),
         Promise.resolve(countRules(projectPath)),
         Promise.resolve(countClaudeFiles(projectPath)),
         Promise.resolve(countHooks(projectPath))
@@ -210,6 +297,13 @@ export async function handleNavStatusRoutes(ctx: RouteContext): Promise<boolean>
         issues: { count: issues },
         discoveries: { count: discoveries },
         skills: { count: skills.total, project: skills.project, user: skills.user },
+        commands: {
+          count: commands.total,
+          enabled: commands.enabled,
+          disabled: commands.disabled,
+          project: commands.project,
+          user: commands.user
+        },
         rules: { count: rules.total, project: rules.project, user: rules.user },
         claude: { count: claude },
         hooks: { count: hooks.total, global: hooks.global, project: hooks.project },

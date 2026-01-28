@@ -143,6 +143,8 @@ function initNavigation() {
         renderSkillsManager();
       } else if (currentView === 'rules-manager') {
         renderRulesManager();
+      } else if (currentView === 'commands-manager') {
+        renderCommandsManager();
       } else if (currentView === 'claude-manager') {
         renderClaudeManager();
         // Register destroy function for claude-manager view
@@ -223,6 +225,8 @@ function updateContentTitle() {
     titleEl.textContent = t('title.skillsManager');
   } else if (currentView === 'rules-manager') {
     titleEl.textContent = t('title.rulesManager');
+  } else if (currentView === 'commands-manager') {
+    titleEl.textContent = t('title.commandsManager') || 'Commands Manager';
   } else if (currentView === 'claude-manager') {
     titleEl.textContent = t('title.claudeManager');
   } else if (currentView === 'graph-explorer') {

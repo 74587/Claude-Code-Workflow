@@ -19,6 +19,7 @@ export interface CommandMetadata {
   argumentHint: string;
   allowedTools: string[];
   filePath: string;
+  group?: string;
 }
 
 export interface CommandSummary {
@@ -103,6 +104,7 @@ export class CommandRegistry {
             .join(','); // Keep as comma-separated for now, will convert in getCommand
         }
 
+        // Note: 'group' field is automatically extracted like other fields
         result[key] = cleanValue;
       }
     } catch (error) {
@@ -159,7 +161,8 @@ export class CommandRegistry {
           description: header.description || '',
           argumentHint: header['argument-hint'] || '',
           allowedTools: allowedTools,
-          filePath: filePath
+          filePath: filePath,
+          group: header.group || undefined
         };
 
         // Cache result
@@ -207,6 +210,9 @@ export class CommandRegistry {
       const files = readdirSync(this.commandDir);
 
       for (const file of files) {
+        // Skip _disabled directory
+        if (file === '_disabled') continue;
+
         if (!file.endsWith('.md')) continue;
 
         const filePath = join(this.commandDir, file);
@@ -281,6 +287,15 @@ export class CommandRegistry {
       result[`/workflow:${key}`] = value;
     }
     return result;
+  }
+
+  /**
+   * Clear the command cache
+   * Use this to invalidate cached commands after enable/disable operations
+   * @returns void
+   */
+  public clearCache(): void {
+    this.cache.clear();
   }
 }
 
