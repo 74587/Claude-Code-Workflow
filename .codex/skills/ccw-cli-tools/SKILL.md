@@ -12,12 +12,14 @@ version: 1.0.0
 
 ## Initialization (Required First Step)
 
-**Before any tool selection or recommendation, ALWAYS**:
+**Before any tool selection or recommendation**:
 
-1. Read the configuration file:
-   ```bash
-   Read(file_path="~/.claude/cli-tools.json")
-   ```
+1. Check if configuration exists in memory:
+   - If configuration is already in conversation memory → Use it directly
+   - If NOT in memory → Read the configuration file:
+     ```bash
+     Read(file_path="~/.claude/cli-tools.json")
+     ```
 
 2. Parse the JSON to understand:
    - Available tools and their `enabled` status
@@ -28,14 +30,16 @@ version: 1.0.0
 3. Use configuration throughout the selection process
 
 **Why**: Tools, models, and tags may change. Configuration file is the single source of truth.
+**Optimization**: Reuse in-memory configuration to avoid redundant file reads.
 
 ## Process Flow
 
 ```
 ┌─ USER REQUEST
 │
-├─ STEP 1: Read Configuration
-│  └─ Read(file_path="~/.claude/cli-tools.json")
+├─ STEP 1: Load Configuration
+│  ├─ Check if configuration exists in conversation memory
+│  └─ If NOT in memory → Read(file_path="~/.claude/cli-tools.json")
 │
 ├─ STEP 2: Understand User Intent
 │  ├─ Parse task type (analysis, implementation, security, etc.)
@@ -70,19 +74,22 @@ version: 1.0.0
 
 **Path**: `~/.claude/cli-tools.json` (Global configuration)
 
-**IMPORTANT**: Always read this file first before making tool selections or recommendations.
+**IMPORTANT**: Check conversation memory first. Only read file if configuration is not in memory.
 
 ### Reading Configuration
 
-```bash
-# Read the configuration file
-cat ~/.claude/cli-tools.json
+**Priority**: Check conversation memory first
 
-# Or use Read tool
-Read(file_path="~/.claude/cli-tools.json")
+**Loading Options**:
+- **Option 1** (Preferred): Use in-memory configuration if already loaded in conversation
+- **Option 2** (Fallback): Read from file when not in memory
+
+```bash
+# Read configuration file
+cat ~/.claude/cli-tools.json
 ```
 
-The configuration file defines all available tools with their settings.
+The configuration defines all available tools with their enabled status, models, and tags.
 
 ### Configuration Structure
 
@@ -108,7 +115,7 @@ Typical tools found in configuration (actual availability determined by reading 
 | `claude` | builtin | General tasks |
 | `opencode` | builtin | Open-source model fallback |
 
-**Note**: Tool availability, models, and tags may differ. Always read `~/.claude/cli-tools.json` for current configuration.
+**Note**: Tool availability, models, and tags may differ. Use in-memory configuration or read `~/.claude/cli-tools.json` if not cached.
 
 ### Configuration Fields
 
@@ -404,11 +411,12 @@ ccw cli --tool codex --mode review --commit abc123
 
 ### Selection Algorithm
 
-**STEP 0 (REQUIRED)**: Read `~/.claude/cli-tools.json` to get current configuration
+**STEP 0 (REQUIRED)**: Load configuration (memory-first strategy)
 
 ```bash
-# Always start with this
-Read(file_path="~/.claude/cli-tools.json")
+# Check if configuration exists in conversation memory
+# If YES → Use in-memory configuration
+# If NO → Read(file_path="~/.claude/cli-tools.json")
 ```
 
 Then proceed with selection:
@@ -422,7 +430,9 @@ Then proceed with selection:
 ### Selection Decision Tree
 
 ```
-0. READ ~/.claude/cli-tools.json
+0. LOAD CONFIGURATION (memory-first)
+   ├─ In memory? → Use it
+   └─ Not in memory? → Read ~/.claude/cli-tools.json
    ↓
 1. Explicit --tool specified?
    YES → Validate tool is enabled in config → Use it
