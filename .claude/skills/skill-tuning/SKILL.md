@@ -278,6 +278,83 @@ Bash(`mkdir -p "${workDir}/backups"`);
 - `issues`: 发现的问题列表
 - `proposed_fixes`: 建议的修复方案
 
+---
+
+## Action Reference Guide
+
+Navigation and entry points for each action in the autonomous workflow:
+
+### Core Orchestration
+
+**Document**: 🔗 [phases/orchestrator.md](phases/orchestrator.md)
+
+| Attribute | Value |
+|-----------|-------|
+| **Purpose** | Drive tuning workflow via state-driven action selection |
+| **Decision Logic** | Termination checks → Action preconditions → Selection |
+| **Related** | [phases/state-schema.md](phases/state-schema.md) |
+
+---
+
+### Initialization & Requirements
+
+| Action | Document | Purpose | Preconditions |
+|--------|----------|---------|---------------|
+| **action-init** | [action-init.md](phases/actions/action-init.md) | Initialize session, backup target skill | `state.status === 'pending'` |
+| **action-analyze-requirements** | [action-analyze-requirements.md](phases/actions/action-analyze-requirements.md) | Decompose user request into dimensions via Gemini CLI | After init, before diagnosis |
+
+---
+
+### Diagnosis Actions
+
+| Action | Document | Purpose | Detects |
+|--------|----------|---------|---------|
+| **action-diagnose-context** | [action-diagnose-context.md](phases/actions/action-diagnose-context.md) | Context explosion analysis | Token accumulation, multi-turn bloat |
+| **action-diagnose-memory** | [action-diagnose-memory.md](phases/actions/action-diagnose-memory.md) | Long-tail forgetting analysis | Early constraint loss |
+| **action-diagnose-dataflow** | [action-diagnose-dataflow.md](phases/actions/action-diagnose-dataflow.md) | Data flow analysis | State inconsistency, format drift |
+| **action-diagnose-agent** | [action-diagnose-agent.md](phases/actions/action-diagnose-agent.md) | Agent coordination analysis | Call chain failures, merge issues |
+| **action-diagnose-docs** | [action-diagnose-docs.md](phases/actions/action-diagnose-docs.md) | Documentation structure analysis | Missing specs, unclear flow |
+| **action-diagnose-token-consumption** | [action-diagnose-token-consumption.md](phases/actions/action-diagnose-token-consumption.md) | Token consumption analysis | Verbose prompts, redundant I/O |
+
+---
+
+### Analysis & Reporting
+
+| Action | Document | Purpose | Output |
+|--------|----------|---------|--------|
+| **action-gemini-analysis** | [action-gemini-analysis.md](phases/actions/action-gemini-analysis.md) | Deep analysis via Gemini CLI | Custom issue diagnosis |
+| **action-generate-report** | [action-generate-report.md](phases/actions/action-generate-report.md) | Consolidate diagnosis results | `state.final_report` |
+| **action-propose-fixes** | [action-propose-fixes.md](phases/actions/action-propose-fixes.md) | Generate fix strategies | `state.proposed_fixes[]` |
+
+---
+
+### Fix & Verification
+
+| Action | Document | Purpose | Preconditions |
+|--------|----------|---------|---------------|
+| **action-apply-fix** | [action-apply-fix.md](phases/actions/action-apply-fix.md) | Apply selected fix with backup | User selected fix |
+| **action-verify** | [action-verify.md](phases/actions/action-verify.md) | Re-run diagnosis, check quality gates | After fix applied |
+
+---
+
+### Termination
+
+| Action | Document | Purpose | Trigger |
+|--------|----------|---------|---------|
+| **action-complete** | [action-complete.md](phases/actions/action-complete.md) | Finalize session with report | All quality gates pass |
+| **action-abort** | [action-abort.md](phases/actions/action-abort.md) | Abort session, restore backup | Error limit exceeded |
+
+---
+
+## Template Reference
+
+| Template | Purpose | When Used |
+|----------|---------|-----------|
+| [templates/diagnosis-report.md](templates/diagnosis-report.md) | Diagnosis report structure | action-generate-report |
+| [templates/fix-proposal.md](templates/fix-proposal.md) | Fix proposal format | action-propose-fixes |
+
+---
+
 ## Reference Documents
 
 | Document | Purpose |

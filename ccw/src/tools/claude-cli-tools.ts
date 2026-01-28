@@ -802,13 +802,15 @@ export function getNativeResume(projectDir: string): boolean {
  */
 export function addClaudeApiEndpoint(
   projectDir: string,
-  endpoint: { id: string; name: string; enabled: boolean }
+  endpoint: { id: string; name: string; enabled: boolean; model?: string }
 ): ClaudeCliToolsConfig {
   const config = loadClaudeCliTools(projectDir);
 
   // Add as a tool with type: 'api-endpoint'
   config.tools[endpoint.name] = {
     enabled: endpoint.enabled,
+    primaryModel: endpoint.model,  // Use endpoint.model as primaryModel (can be overridden via --model)
+    secondaryModel: endpoint.model,  // Same as primary for fallback
     tags: [],
     type: 'api-endpoint',
     id: endpoint.id  // Store endpoint ID for settings lookup

@@ -2,6 +2,18 @@
 
 代码分析动作模板，用于在 Skill 中集成代码探索和分析能力。
 
+## Purpose
+
+为 Skill 生成代码分析动作，集成 MCP 工具 (ACE) 和 Agent 进行语义搜索和深度分析。
+
+## Usage Context
+
+| Phase | Usage |
+|-------|-------|
+| Optional | 当 Skill 需要代码探索和分析能力时使用 |
+| Generation Trigger | 用户选择添加 code-analysis 动作类型 |
+| Agent Types | Explore, cli-explore-agent, universal-executor |
+
 ---
 
 ## 配置结构

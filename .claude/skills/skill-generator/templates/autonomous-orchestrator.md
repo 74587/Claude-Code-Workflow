@@ -2,6 +2,20 @@
 
 自主模式编排器的模板。
 
+## Purpose
+
+生成 Autonomous 执行模式的 Orchestrator 文件，负责状态驱动的动作选择和执行循环。
+
+## Usage Context
+
+| Phase | Usage |
+|-------|-------|
+| Phase 3 (Phase Generation) | `config.execution_mode === 'autonomous'` 时生成 |
+| Generation Trigger | 创建编排器逻辑，管理动作选择和状态更新 |
+| Output Location | `.claude/skills/{skill-name}/phases/orchestrator.md` |
+
+---
+
 ## ⚠️ 重要提示
 
 > **Phase 0 是强制前置阶段**：在 Orchestrator 启动执行循环之前，必须先完成 Phase 0 的规范研读。

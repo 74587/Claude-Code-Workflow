@@ -205,6 +205,50 @@ function renderCommandsView() {
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
+// Format group name for display (e.g., 'workflow/review' -> 'Workflow > Review')
+function formatGroupName(groupName) {
+  if (!groupName.includes('/')) {
+    return t('commands.group.' + groupName) || groupName;
+  }
+
+  // Split path and translate each part
+  const parts = groupName.split('/');
+  const translatedParts = parts.map(part => t('commands.group.' + part) || part);
+  return translatedParts.join(' › ');
+}
+
+// Get icon for a group (use top-level parent's icon for nested groups)
+function getGroupIcon(groupName) {
+  const groupIcons = {
+    cli: 'terminal',
+    workflow: 'git-branch',
+    memory: 'brain',
+    task: 'clipboard-list',
+    issue: 'alert-circle',
+    other: 'folder'
+  };
+
+  // For nested groups, use the top-level parent's icon
+  const topLevel = groupName.split('/')[0];
+  return groupIcons[topLevel] || 'folder';
+}
+
+// Get color for a group (use top-level parent's color for nested groups)
+function getGroupColor(groupName) {
+  const groupColors = {
+    cli: 'text-primary bg-primary/10',
+    workflow: 'text-success bg-success/10',
+    memory: 'text-indigo bg-indigo/10',
+    task: 'text-warning bg-warning/10',
+    issue: 'text-destructive bg-destructive/10',
+    other: 'text-muted-foreground bg-muted'
+  };
+
+  // For nested groups, use the top-level parent's color
+  const topLevel = groupName.split('/')[0];
+  return groupColors[topLevel] || 'text-muted-foreground bg-muted';
+}
+
 function renderAccordionGroup(groupName, commands) {
   // Default to expanded for new/custom groups
   if (expandedGroups[groupName] === undefined) expandedGroups[groupName] = true;
@@ -217,31 +261,14 @@ function renderAccordionGroup(groupName, commands) {
     ? commands
     : enabledCommands;
 
-  // Group icons
-  const groupIcons = {
-    cli: 'terminal',
-    workflow: 'workflow',
-    memory: 'brain',
-    task: 'clipboard-list',
-    issue: 'alert-circle',
-    other: 'folder'
-  };
-
-  // Group colors
-  const groupColors = {
-    cli: 'text-primary bg-primary/10',
-    workflow: 'text-success bg-success/10',
-    memory: 'text-indigo bg-indigo/10',
-    task: 'text-warning bg-warning/10',
-    issue: 'text-destructive bg-destructive/10',
-    other: 'text-muted-foreground bg-muted'
-  };
-
-  const icon = groupIcons[groupName] || 'folder';
-  const colorClass = groupColors[groupName] || 'text-muted-foreground bg-muted';
+  const icon = getGroupIcon(groupName);
+  const colorClass = getGroupColor(groupName);
+  const displayName = formatGroupName(groupName);
+  const indentLevel = (groupName.match(/\//g) || []).length;
+  const indentStyle = indentLevel > 0 ? `style="margin-left: ${indentLevel * 20}px;"` : '';
 
   return `
-    <div class="accordion-group mb-4">
+    <div class="accordion-group mb-4" ${indentStyle}>
       <!-- Group Header -->
       <div class="accordion-header flex items-center justify-between px-4 py-3 bg-card border border-border rounded-lg hover:bg-hover transition-colors">
         <div class="flex items-center gap-3 flex-1 cursor-pointer" onclick="toggleAccordionGroup('${groupName}')">
@@ -250,7 +277,7 @@ function renderAccordionGroup(groupName, commands) {
             <i data-lucide="${icon}" class="w-4 h-4"></i>
           </div>
           <div>
-            <h3 class="text-base font-semibold text-foreground capitalize">${t('commands.group.' + groupName) || groupName}</h3>
+            <h3 class="text-base font-semibold text-foreground">${displayName}</h3>
             <p class="text-xs text-muted-foreground">${enabledCommands.length}/${commands.length} ${t('commands.enabled') || 'enabled'}</p>
           </div>
         </div>

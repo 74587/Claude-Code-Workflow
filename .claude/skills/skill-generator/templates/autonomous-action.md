@@ -2,6 +2,20 @@
 
 自主模式动作文件的模板。
 
+## Purpose
+
+生成 Autonomous 执行模式的 Action 文件，定义可独立执行的动作单元。
+
+## Usage Context
+
+| Phase | Usage |
+|-------|-------|
+| Phase 3 (Phase Generation) | `config.execution_mode === 'autonomous'` 时生成 |
+| Generation Trigger | 为每个 `config.autonomous_config.actions` 生成一个 action 文件 |
+| Output Location | `.claude/skills/{skill-name}/phases/actions/{action-id}.md` |
+
+---
+
 ## 模板结构
 
 ```markdown

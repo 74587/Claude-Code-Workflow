@@ -7,7 +7,7 @@
  * - POST /api/commands/:name/toggle - Enable/disable single command
  * - POST /api/commands/group/:groupName/toggle - Batch toggle commands by group
  */
-import { existsSync, readdirSync, readFileSync, mkdirSync, cpSync, rmSync, renameSync, statSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, mkdirSync, renameSync } from 'fs';
 import { join, relative, dirname, basename } from 'path';
 import { homedir } from 'os';
 import { validatePath as validateAllowedPath } from '../../utils/path-validator.js';
@@ -78,15 +78,6 @@ function getCommandsDir(location: CommandLocation, projectPath: string): string 
   return join(homedir(), '.claude', 'commands');
 }
 
-/**
- * Get disabled commands directory path
- */
-function getDisabledCommandsDir(location: CommandLocation, projectPath: string): string {
-  if (location === 'project') {
-    return join(projectPath, '.claude', 'commands', '_disabled');
-  }
-  return join(homedir(), '.claude', 'commands', '_disabled');
-}
 
 /**
  * Parse YAML frontmatter from command file
@@ -221,7 +212,6 @@ function scanCommandsRecursive(
   baseDir: string,
   currentDir: string,
   location: CommandLocation,
-  enabled: boolean,
   projectPath: string
 ): CommandInfo[] {
   const results: CommandInfo[] = [];
@@ -235,37 +225,46 @@ function scanCommandsRecursive(
 
     for (const entry of entries) {
       const fullPath = join(currentDir, entry.name);
-      const relativePath = relative(baseDir, fullPath);
+      let relativePath = relative(baseDir, fullPath);
 
       if (entry.isDirectory()) {
-        // Skip _disabled directory when scanning enabled commands
-        if (entry.name === '_disabled') continue;
-
         // Recursively scan subdirectories
-        results.push(...scanCommandsRecursive(baseDir, fullPath, location, enabled, projectPath));
-      } else if (entry.isFile() && entry.name.endsWith('.md')) {
-        try {
-          const content = readFileSync(fullPath, 'utf8');
-          const metadata = parseCommandFrontmatter(content);
-          const commandName = metadata.name || basename(entry.name, '.md');
+        results.push(...scanCommandsRecursive(baseDir, fullPath, location, projectPath));
+      } else if (entry.isFile()) {
+        // Check for .md or .md.disabled files
+        const isEnabled = entry.name.endsWith('.md') && !entry.name.endsWith('.md.disabled');
+        const isDisabled = entry.name.endsWith('.md.disabled');
 
-          // Get group from external config (not from frontmatter)
-          const group = getCommandGroup(commandName, relativePath, location, projectPath);
+        if (isEnabled || isDisabled) {
+          try {
+            const content = readFileSync(fullPath, 'utf8');
+            const metadata = parseCommandFrontmatter(content);
 
-          results.push({
-            name: commandName,
-            description: metadata.description,
-            group,
-            enabled,
-            location,
-            path: fullPath,
-            relativePath,
-            argumentHint: metadata.argumentHint,
-            allowedTools: metadata.allowedTools
-          });
-        } catch (err) {
-          // Skip files that fail to read
-          console.error(`[Commands] Failed to read ${fullPath}:`, err);
+            // For disabled files, remove .disabled from relativePath for consistency
+            if (isDisabled) {
+              relativePath = relativePath.replace(/\.disabled$/, '');
+            }
+
+            const commandName = metadata.name || basename(relativePath, '.md');
+
+            // Get group from external config (not from frontmatter)
+            const group = getCommandGroup(commandName, relativePath, location, projectPath);
+
+            results.push({
+              name: commandName,
+              description: metadata.description,
+              group,
+              enabled: isEnabled,
+              location,
+              path: fullPath,
+              relativePath,
+              argumentHint: metadata.argumentHint,
+              allowedTools: metadata.allowedTools
+            });
+          } catch (err) {
+            // Skip files that fail to read
+            console.error(`[Commands] Failed to read ${fullPath}:`, err);
+          }
         }
       }
     }
@@ -289,33 +288,13 @@ function getCommandsConfig(projectPath: string): CommandsConfig {
   const groupSet = new Set<string>();
 
   try {
-    // Scan project commands
+    // Scan project commands (includes both .md and .md.disabled)
     const projectDir = getCommandsDir('project', projectPath);
-    const projectDisabledDir = getDisabledCommandsDir('project', projectPath);
+    result.projectCommands = scanCommandsRecursive(projectDir, projectDir, 'project', projectPath);
 
-    // Enabled project commands
-    const enabledProject = scanCommandsRecursive(projectDir, projectDir, 'project', true, projectPath);
-    result.projectCommands.push(...enabledProject);
-
-    // Disabled project commands
-    if (existsSync(projectDisabledDir)) {
-      const disabledProject = scanCommandsRecursive(projectDisabledDir, projectDisabledDir, 'project', false, projectPath);
-      result.projectCommands.push(...disabledProject);
-    }
-
-    // Scan user commands
+    // Scan user commands (includes both .md and .md.disabled)
     const userDir = getCommandsDir('user', projectPath);
-    const userDisabledDir = getDisabledCommandsDir('user', projectPath);
-
-    // Enabled user commands
-    const enabledUser = scanCommandsRecursive(userDir, userDir, 'user', true, projectPath);
-    result.userCommands.push(...enabledUser);
-
-    // Disabled user commands
-    if (existsSync(userDisabledDir)) {
-      const disabledUser = scanCommandsRecursive(userDisabledDir, userDisabledDir, 'user', false, projectPath);
-      result.userCommands.push(...disabledUser);
-    }
+    result.userCommands = scanCommandsRecursive(userDir, userDir, 'user', projectPath);
 
     // Collect all groups
     for (const cmd of [...result.projectCommands, ...result.userCommands]) {
@@ -330,40 +309,6 @@ function getCommandsConfig(projectPath: string): CommandsConfig {
   return result;
 }
 
-/**
- * Move directory with fallback to copy-delete and rollback on failure
- */
-function moveDirectory(source: string, target: string): void {
-  try {
-    // Ensure target parent directory exists
-    const targetParent = dirname(target);
-    if (!existsSync(targetParent)) {
-      mkdirSync(targetParent, { recursive: true });
-    }
-
-    // Try atomic rename first
-    renameSync(source, target);
-  } catch (error: unknown) {
-    const err = error as NodeJS.ErrnoException;
-    // If rename fails (cross-filesystem, permission issues), fallback to copy-delete
-    if (err.code === 'EXDEV' || err.code === 'EPERM' || err.code === 'EBUSY') {
-      cpSync(source, target, { recursive: true, force: true });
-      try {
-        rmSync(source, { recursive: true, force: true });
-      } catch (rmError) {
-        // Rollback: remove the copied target to avoid duplicates
-        try {
-          rmSync(target, { recursive: true, force: true });
-        } catch {
-          // Ignore rollback errors
-        }
-        throw new Error(`Failed to remove source after copy: ${(rmError as Error).message}`);
-      }
-    } else {
-      throw error;
-    }
-  }
-}
 
 /**
  * Find command by name in commands list
@@ -416,47 +361,48 @@ async function toggleCommand(
     }
 
     const commandsDir = getCommandsDir(location, projectPath);
-    const disabledDir = getDisabledCommandsDir(location, projectPath);
+    // relativePath already includes .md extension (e.g., 'workflow/plan.md')
+    const commandPath = join(commandsDir, command.relativePath);
+    const disabledPath = commandPath + '.disabled';
 
     if (command.enabled) {
-      // Disable: move from commands to _disabled
-      const targetPath = join(disabledDir, command.relativePath);
-      
-      // Check if target already exists
-      if (existsSync(targetPath)) {
-        return { success: false, message: 'Command already exists in disabled directory', status: 409 };
+      // Disable: rename .md to .md.disabled
+      if (!existsSync(commandPath)) {
+        return { success: false, message: 'Command file not found', status: 404 };
+      }
+      if (existsSync(disabledPath)) {
+        return { success: false, message: 'Command already disabled', status: 409 };
       }
 
-      moveDirectory(command.path, targetPath);
-      return { 
-        success: true, 
-        message: 'Command disabled', 
-        commandName: command.name, 
-        location 
+      renameSync(commandPath, disabledPath);
+      return {
+        success: true,
+        message: 'Command disabled',
+        commandName: command.name,
+        location
       };
     } else {
-      // Enable: move from _disabled back to commands
-      // Calculate target path in enabled directory
-      const targetPath = join(commandsDir, command.relativePath);
-
-      // Check if target already exists
-      if (existsSync(targetPath)) {
-        return { success: false, message: 'Command already exists in commands directory', status: 409 };
+      // Enable: rename .md.disabled back to .md
+      if (!existsSync(disabledPath)) {
+        return { success: false, message: 'Disabled command not found', status: 404 };
+      }
+      if (existsSync(commandPath)) {
+        return { success: false, message: 'Command already enabled', status: 409 };
       }
 
-      moveDirectory(command.path, targetPath);
-      return { 
-        success: true, 
-        message: 'Command enabled', 
-        commandName: command.name, 
-        location 
+      renameSync(disabledPath, commandPath);
+      return {
+        success: true,
+        message: 'Command enabled',
+        commandName: command.name,
+        location
       };
     }
   } catch (error) {
-    return { 
-      success: false, 
-      message: (error as Error).message, 
-      status: 500 
+    return {
+      success: false,
+      message: (error as Error).message,
+      status: 500
     };
   }
 }

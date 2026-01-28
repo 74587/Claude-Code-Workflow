@@ -19,6 +19,7 @@ export interface LiteLLMExecutionOptions {
   cwd?: string; // Working directory for file resolution
   includeDirs?: string[]; // Additional directories for @patterns
   enableCache?: boolean; // Override endpoint cache setting
+  model?: string; // Override model for this execution (if not specified, uses endpoint.model)
   onOutput?: (unit: CliOutputUnit) => void;
   /** Number of retries after the initial attempt (default: 0) */
   maxRetries?: number;
@@ -56,7 +57,7 @@ export function extractPatterns(prompt: string): string[] {
 export async function executeLiteLLMEndpoint(
   options: LiteLLMExecutionOptions
 ): Promise<LiteLLMExecutionResult> {
-  const { prompt, endpointId, baseDir, cwd, includeDirs, enableCache, onOutput } = options;
+  const { prompt, endpointId, baseDir, cwd, includeDirs, enableCache, model: modelOverride, onOutput } = options;
 
   // 1. Find endpoint configuration
   const endpoint = findEndpointById(baseDir, endpointId);
@@ -96,7 +97,10 @@ export async function executeLiteLLMEndpoint(
     };
   }
 
-  // 3. Process context cache if enabled
+  // 3. Determine effective model: use override if provided, otherwise use endpoint.model
+  const effectiveModel = modelOverride || endpoint.model;
+
+  // 4. Process context cache if enabled
   let finalPrompt = prompt;
   let cacheUsed = false;
   let cachedFiles: string[] = [];
@@ -168,12 +172,12 @@ export async function executeLiteLLMEndpoint(
     }
   }
 
-  // 4. Call LiteLLM
+  // 5. Call LiteLLM
   try {
     if (onOutput) {
       onOutput({
         type: 'stderr',
-        content: `[LiteLLM: Calling ${provider.type}/${endpoint.model}]\n`,
+        content: `[LiteLLM: Calling ${provider.type}/${effectiveModel}]\n`,
         timestamp: new Date().toISOString()
       });
     }
@@ -206,14 +210,14 @@ export async function executeLiteLLMEndpoint(
       delete process.env['CCW_LITELLM_EXTRA_HEADERS'];
     }
 
-    // Use litellm-client to call chat
+    // Use litellm-client to call chat with effective model
     const response = await callWithRetries(
-      () => client.chat(finalPrompt, endpoint.model),
+      () => client.chat(finalPrompt, effectiveModel),
       {
         maxRetries: options.maxRetries ?? 0,
         baseDelayMs: options.retryBaseDelayMs ?? 1000,
         onOutput,
-        rateLimitKey: `${provider.type}:${endpoint.model}`,
+        rateLimitKey: `${provider.type}:${effectiveModel}`,
       },
     );
 
@@ -228,7 +232,7 @@ export async function executeLiteLLMEndpoint(
     return {
       success: true,
       output: response,
-      model: endpoint.model,
+      model: effectiveModel,
       provider: provider.type,
       cacheUsed,
       cachedFiles,
@@ -246,7 +250,7 @@ export async function executeLiteLLMEndpoint(
     return {
       success: false,
       output: '',
-      model: endpoint.model,
+      model: effectiveModel,
       provider: provider.type,
       cacheUsed,
       error: errorMsg,

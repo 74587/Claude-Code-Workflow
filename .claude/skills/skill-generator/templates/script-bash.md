@@ -2,6 +2,20 @@
 
 Bash 脚本模板，用于生成技能中的确定性脚本。
 
+## Purpose
+
+为 Skill 生成 Bash 脚本，用于执行确定性操作（文件处理、系统命令、数据转换等）。
+
+## Usage Context
+
+| Phase | Usage |
+|-------|-------|
+| Optional | Phase/Action 中声明 `## Scripts` 时使用 |
+| Execution | 通过 `ExecuteScript('script-id', params)` 调用 |
+| Output Location | `.claude/skills/{skill-name}/scripts/{script-id}.sh` |
+
+---
+
 ## 模板代码
 
 ```bash

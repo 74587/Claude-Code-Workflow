@@ -132,55 +132,30 @@ SlashCommand(command="/workflow:brainstorm:artifacts \"{topic}\" --count {N}")
 
 ### Phase 2: Parallel Role Analysis Execution
 
-**For Each Selected Role**:
+**For Each Selected Role** (unified role-analysis command):
 ```bash
-Task(conceptual-planning-agent): "
-[FLOW_CONTROL]
-
-Execute {role-name} analysis for existing topic framework
-
-## Context Loading
-ASSIGNED_ROLE: {role-name}
-OUTPUT_LOCATION: .workflow/active/WFS-{session}/.brainstorming/{role}/
-TOPIC: {user-provided-topic}
-
-## Flow Control Steps
-1. load_topic_framework → .workflow/active/WFS-{session}/.brainstorming/guidance-specification.md
-2. load_role_template → ~/.claude/workflows/cli-templates/planning-roles/{role}.md
-3. load_session_metadata → .workflow/active/WFS-{session}/workflow-session.json
-4. load_style_skill (ui-designer only, if style_skill_package) → .claude/skills/style-{style_skill_package}/
-
-## Analysis Requirements
-**Primary Reference**: Original user prompt from workflow-session.json is authoritative
-**Framework Source**: Address all discussion points in guidance-specification.md from {role-name} perspective
-**Role Focus**: {role-name} domain expertise aligned with user intent
-**Structured Approach**: Create analysis.md addressing framework discussion points
-**Template Integration**: Apply role template guidelines within framework structure
-
-## Expected Deliverables
-1. **analysis.md** (optionally with analysis-{slug}.md sub-documents)
-2. **Framework Reference**: @../guidance-specification.md
-3. **User Intent Alignment**: Validate against session_context
-
-## Completion Criteria
-- Address each discussion point from guidance-specification.md with {role-name} expertise
-- Provide actionable recommendations from {role-name} perspective within analysis files
-- All output files MUST start with `analysis` prefix (no recommendations.md or other naming)
-- Reference framework document using @ notation for integration
-- Update workflow-session.json with completion status
-"
+SlashCommand(command="/workflow:brainstorm:role-analysis {role-name} --session {session-id} --skip-questions")
 ```
 
-**Parallel Execute**:
-- Launch N agents simultaneously (one message with multiple Task calls)
-- Each agent task **attached** to orchestrator's TodoWrite
-- All agents execute concurrently, each attaching their own analysis sub-tasks
-- Each agent operates independently reading same guidance-specification.md
+**What It Does**:
+- Unified command execution for each role
+- Loads topic framework from guidance-specification.md
+- Applies role-specific template and context
+- Generates analysis.md addressing framework discussion points
+- Supports optional interactive context gathering (via --include-questions flag)
+
+**Parallel Execution**:
+- Launch N SlashCommand calls simultaneously (one message with multiple SlashCommand invokes)
+- Each role command **attached** to orchestrator's TodoWrite
+- All roles execute concurrently, each reading same guidance-specification.md
+- Each role operates independently
+- For ui-designer only: append `--style-skill {style_skill_package}` if provided
 
 **Input**:
 - `selected_roles[]` from Phase 1
 - `session_id` from Phase 1
-- guidance-specification.md path
+- `guidance-specification.md` (framework reference)
+- `style_skill_package` (for ui-designer only)
 
 **Validation**:
 - Each role creates `.workflow/active/WFS-{topic}/.brainstorming/{role}/analysis.md`
@@ -188,6 +163,7 @@ TOPIC: {user-provided-topic}
 - **File pattern**: `analysis*.md` for globbing
 - **FORBIDDEN**: `recommendations.md` or any non-`analysis` prefixed files
 - All N role analyses completed
+
 
 **TodoWrite Update (Phase 2 agents executed - tasks attached in parallel)**:
 ```json

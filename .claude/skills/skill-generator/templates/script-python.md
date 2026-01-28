@@ -2,6 +2,20 @@
 
 Python 脚本模板，用于生成技能中的确定性脚本。
 
+## Purpose
+
+为 Skill 生成 Python 脚本，用于执行确定性操作（数据处理、分析、转换等），比 Bash 提供更强的数据处理能力。
+
+## Usage Context
+
+| Phase | Usage |
+|-------|-------|
+| Optional | Phase/Action 中声明 `## Scripts` 时使用 |
+| Execution | 通过 `ExecuteScript('script-id', params)` 调用 |
+| Output Location | `.claude/skills/{skill-name}/scripts/{script-id}.py` |
+
+---
+
 ## 模板代码
 
 ```python

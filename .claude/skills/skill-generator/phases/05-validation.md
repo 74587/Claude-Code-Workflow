@@ -1,27 +1,119 @@
 # Phase 5: Validation & Documentation
 
-验证生成的 Skill 完整性并生成使用说明。
+Verify generated skill completeness and generate user documentation.
 
 ## Objective
 
-- 验证所有必需文件存在
-- 检查文件内容完整性
-- 生成 README.md 使用说明
-- 输出验证报告
+Comprehensive validation and documentation:
+- Verify all required files exist
+- Check file content quality and completeness
+- Generate validation report with issues and recommendations
+- Generate README.md usage documentation
+- Output final status and next steps
 
 ## Input
 
-- 依赖: 所有前序阶段产出
-- 生成的 Skill 目录
+**File Dependencies**:
+- `skill-config.json` (from Phase 1)
+- `.claude/skills/{skill-name}/` directory (from Phase 2)
+- All generated phase/action files (from Phase 3)
+- All generated specs/templates files (from Phase 4)
 
-## Execution Steps
+**Required Information**:
+- Skill name, display name, description
+- Execution mode
+- Trigger words
+- Output configuration
+- Complete skill directory structure
 
-### Step 1: 文件完整性检查
+## Output
+
+**Generated Files**:
+
+| File | Purpose | Content |
+|------|---------|---------|
+| `validation-report.json` (workDir) | Validation report with detailed checks | File completeness, content quality, issues, recommendations |
+| `README.md` (skillDir) | User documentation | Quick Start, Usage, Output, Directory Structure, Customization |
+
+**Validation Report Structure** (`validation-report.json`):
+```json
+{
+  "skill_name": "...",
+  "execution_mode": "sequential|autonomous",
+  "generated_at": "ISO timestamp",
+  "file_checks": {
+    "total": N,
+    "existing": N,
+    "with_content": N,
+    "with_todos": N,
+    "details": [...]
+  },
+  "content_checks": {
+    "files_checked": N,
+    "all_passed": true|false,
+    "details": [...]
+  },
+  "summary": {
+    "status": "PASS|REVIEW|FAIL",
+    "issues": [...],
+    "recommendations": [...]
+  }
+}
+```
+
+**README Structure** (`README.md`):
+```markdown
+# {display_name}
+- Quick Start (Triggers, Execution Mode)
+- Usage (Examples)
+- Output (Format, Location, Filename)
+- Directory Structure (Tree view)
+- Customization (How to modify)
+- Related Documents (Links)
+```
+
+**Validation Status Gates**:
+
+| Status | Condition | Meaning |
+|--------|-----------|---------|
+| PASS | All files exist + All content checks passed | Ready for use |
+| REVIEW | All files exist + Some content checks failed | Needs refinement |
+| FAIL | Missing files | Incomplete generation |
+
+## Decision Logic
+
+```
+Decision (Validation Flow):
+   ├─ File Completeness Check
+   │  ├─ All files exist → Continue to content checks
+   │  └─ Missing files → Status = FAIL, collect missing file errors
+   │
+   ├─ Content Quality Check
+   │  ├─ Sequential mode → Check phase files for structure
+   │  ├─ Autonomous mode → Check orchestrator + action files
+   │  └─ Common → Check SKILL.md, specs/, templates/
+   │
+   ├─ Status Calculation
+   │  ├─ All files exist + All checks pass → Status = PASS
+   │  ├─ All files exist + Some checks fail → Status = REVIEW
+   │  └─ Missing files → Status = FAIL
+   │
+   └─ Generate Report & README
+      ├─ validation-report.json (with issues and recommendations)
+      └─ README.md (with usage documentation)
+```
+
+## Execution Protocol
 
 ```javascript
+// Phase 5: Validation & Documentation
+// Reference: phases/05-validation.md
+
+// Load config and setup
 const config = JSON.parse(Read(`${workDir}/skill-config.json`));
 const skillDir = `.claude/skills/${config.skill_name}`;
 
+// Step 1: File completeness check
 const requiredFiles = {
   common: [
     'SKILL.md',
@@ -64,14 +156,11 @@ const fileCheckResults = filesToCheck.map(file => {
     };
   }
 });
-```
 
-### Step 2: 内容质量检查
-
-```javascript
+// Step 2: Content quality check
 const contentChecks = [];
 
-// 检查 SKILL.md
+// Check SKILL.md structure
 const skillMd = Read(`${skillDir}/SKILL.md`);
 contentChecks.push({
   file: 'SKILL.md',
@@ -83,11 +172,11 @@ contentChecks.push({
   ]
 });
 
-// 检查 Phase 文件
+// Check phase files
 const phaseFiles = Glob(`${skillDir}/phases/*.md`);
 for (const phaseFile of phaseFiles) {
-  if (phaseFile.includes('/actions/')) continue; // 单独检查
-  
+  if (phaseFile.includes('/actions/')) continue; // Check separately
+
   const content = Read(phaseFile);
   contentChecks.push({
     file: phaseFile.replace(skillDir + '/', ''),
@@ -100,7 +189,7 @@ for (const phaseFile of phaseFiles) {
   });
 }
 
-// 检查 Specs 文件
+// Check specs files
 const specFiles = Glob(`${skillDir}/specs/*.md`);
 for (const specFile of specFiles) {
   const content = Read(specFile);
@@ -113,16 +202,13 @@ for (const specFile of specFiles) {
     ]
   });
 }
-```
 
-### Step 3: 生成验证报告
-
-```javascript
+// Step 3: Generate validation report
 const report = {
   skill_name: config.skill_name,
   execution_mode: config.execution_mode,
   generated_at: new Date().toISOString(),
-  
+
   file_checks: {
     total: fileCheckResults.length,
     existing: fileCheckResults.filter(f => f.exists).length,
@@ -130,13 +216,13 @@ const report = {
     with_todos: fileCheckResults.filter(f => f.hasTodo).length,
     details: fileCheckResults
   },
-  
+
   content_checks: {
     files_checked: contentChecks.length,
     all_passed: contentChecks.every(c => c.checks.every(ch => ch.pass)),
     details: contentChecks
   },
-  
+
   summary: {
     status: calculateOverallStatus(fileCheckResults, contentChecks),
     issues: collectIssues(fileCheckResults, contentChecks),
@@ -146,10 +232,11 @@ const report = {
 
 Write(`${workDir}/validation-report.json`, JSON.stringify(report, null, 2));
 
+// Helper functions
 function calculateOverallStatus(fileResults, contentResults) {
   const allFilesExist = fileResults.every(f => f.exists);
   const allContentPassed = contentResults.every(c => c.checks.every(ch => ch.pass));
-  
+
   if (allFilesExist && allContentPassed) return 'PASS';
   if (allFilesExist) return 'REVIEW';
   return 'FAIL';
@@ -157,44 +244,41 @@ function calculateOverallStatus(fileResults, contentResults) {
 
 function collectIssues(fileResults, contentResults) {
   const issues = [];
-  
+
   fileResults.filter(f => !f.exists).forEach(f => {
     issues.push({ type: 'ERROR', message: `文件缺失: ${f.file}` });
   });
-  
+
   fileResults.filter(f => f.hasTodo).forEach(f => {
     issues.push({ type: 'WARNING', message: `包含 TODO: ${f.file}` });
   });
-  
+
   contentResults.forEach(c => {
     c.checks.filter(ch => !ch.pass).forEach(ch => {
       issues.push({ type: 'WARNING', message: `${c.file}: 缺少 ${ch.name}` });
     });
   });
-  
+
   return issues;
 }
 
 function generateRecommendations(fileResults, contentResults) {
   const recommendations = [];
-  
+
   if (fileResults.some(f => f.hasTodo)) {
     recommendations.push('替换所有 TODO 占位符为实际内容');
   }
-  
+
   contentResults.forEach(c => {
     if (c.checks.some(ch => !ch.pass)) {
       recommendations.push(`完善 ${c.file} 的结构`);
     }
   });
-  
+
   return recommendations;
 }
-```
 
-### Step 4: 生成 README.md
-
-```javascript
+// Step 4: Generate README.md
 const readme = `# ${config.display_name}
 
 ${config.description}
@@ -210,10 +294,10 @@ ${config.triggers.map(t => `- "${t}"`).join('\n')}
 **${config.execution_mode === 'sequential' ? 'Sequential (顺序)' : 'Autonomous (自主)'}**
 
 ${config.execution_mode === 'sequential' ?
-  `阶段按固定顺序执行：\n${config.sequential_config.phases.map((p, i) => 
+  `阶段按固定顺序执行：\n${config.sequential_config.phases.map((p, i) =>
     `${i + 1}. ${p.name}`
   ).join('\n')}` :
-  `动作由编排器动态选择：\n${config.autonomous_config.actions.map(a => 
+  `动作由编排器动态选择：\n${config.autonomous_config.actions.map(a =>
     `- ${a.name}: ${a.description || ''}`
   ).join('\n')}`}
 
@@ -283,24 +367,21 @@ ${config.execution_mode === 'sequential' ?
 `;
 
 Write(`${skillDir}/README.md`, readme);
-```
 
-### Step 5: 输出最终结果
-
-```javascript
+// Step 5: Output final result
 const finalResult = {
   skill_name: config.skill_name,
   skill_path: skillDir,
   execution_mode: config.execution_mode,
-  
+
   generated_files: [
     'SKILL.md',
     'README.md',
     ...filesToCheck
   ],
-  
+
   validation: report.summary,
-  
+
   next_steps: [
     '1. 审阅生成的文件结构',
     '2. 替换 TODO 占位符',
@@ -319,16 +400,18 @@ console.log('下一步:');
 finalResult.next_steps.forEach(s => console.log(s));
 ```
 
-## Output
+## Workflow Completion
 
-- `{workDir}/validation-report.json` - 验证报告
-- `{skillDir}/README.md` - 使用说明
+**Final Status**: Skill generation pipeline complete
 
-## Completion
+**Generated Artifacts**:
+- Complete skill directory structure in `.claude/skills/{skill-name}/`
+- Validation report in `{workDir}/validation-report.json`
+- User documentation in `{skillDir}/README.md`
 
-Skill 生成流程完成。用户可以：
-
-1. 查看生成的 Skill 目录
-2. 根据验证报告修复问题
-3. 自定义执行逻辑
-4. 测试 Skill 功能
+**Next Steps**:
+1. Review validation report for any issues or recommendations
+2. Replace TODO placeholders with actual implementation
+3. Test skill execution with trigger words
+4. Customize phase logic based on specific requirements
+5. Update triggers and descriptions as needed

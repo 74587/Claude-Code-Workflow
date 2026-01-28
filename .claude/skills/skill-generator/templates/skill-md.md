@@ -2,6 +2,20 @@
 
 用于生成新 Skill 入口文件的模板。
 
+## Purpose
+
+生成新 Skill 的入口文件 (SKILL.md)，作为 Skill 的主文档和执行入口点。
+
+## Usage Context
+
+| Phase | Usage |
+|-------|-------|
+| Phase 2 (Structure Generation) | 创建 SKILL.md 入口文件 |
+| Generation Trigger | `config.execution_mode` 决定架构图样式 |
+| Output Location | `.claude/skills/{skill-name}/SKILL.md` |
+
+---
+
 ## ⚠️ 重要：YAML Front Matter 规范
 
 > **CRITICAL**: SKILL.md 文件必须以 YAML front matter 开头，即以 `---` 作为文件第一行。

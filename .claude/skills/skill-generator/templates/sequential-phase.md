@@ -2,6 +2,20 @@
 
 顺序模式 Phase 文件的模板。
 
+## Purpose
+
+生成 Sequential 执行模式的 Phase 文件，定义固定顺序的执行步骤。
+
+## Usage Context
+
+| Phase | Usage |
+|-------|-------|
+| Phase 3 (Phase Generation) | `config.execution_mode === 'sequential'` 时生成 |
+| Generation Trigger | 为每个 `config.sequential_config.phases` 生成一个 phase 文件 |
+| Output Location | `.claude/skills/{skill-name}/phases/{phase-id}.md` |
+
+---
+
 ## ⚠️ 重要提示
 
 > **Phase 0 是强制前置阶段**：在实现任何 Phase (1, 2, 3...) 之前，必须先完成 Phase 0 的规范研读。

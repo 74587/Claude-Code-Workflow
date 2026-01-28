@@ -281,7 +281,8 @@ export function addEndpoint(
     addClaudeApiEndpoint(homedir(), {
       id: endpoint.id,
       name: endpoint.id,  // Use endpoint ID as tool name for CLI access
-      enabled: endpoint.enabled !== false
+      enabled: endpoint.enabled !== false,
+      model: endpoint.model  // Sync model as primaryModel/secondaryModel
     });
     console.log(`[LiteLLM Config] Synced endpoint ${endpoint.id} to cli-tools.json (api-endpoint)`);
   } catch (syncError) {
@@ -320,13 +321,14 @@ export function updateEndpoint(
 
   saveConfig(baseDir, config);
 
-  // Sync enabled status to cli-tools.json
+  // Sync enabled status and model to cli-tools.json
   const updatedEndpoint = config.endpoints[endpointIndex];
   try {
     addClaudeApiEndpoint(homedir(), {
       id: updatedEndpoint.id,
       name: updatedEndpoint.id,
-      enabled: updatedEndpoint.enabled !== false
+      enabled: updatedEndpoint.enabled !== false,
+      model: updatedEndpoint.model  // Sync model as primaryModel/secondaryModel
     });
     console.log(`[LiteLLM Config] Synced endpoint ${updatedEndpoint.id} update to cli-tools.json`);
   } catch (syncError) {

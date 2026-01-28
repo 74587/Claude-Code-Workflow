@@ -191,3 +191,12 @@ function generateReferenceTable(config) {
 ```
 
 
+
+## Next Phase
+
+→ [Phase 3: Phase Generation](03-phase-generation.md)
+
+**Data Flow to Phase 3**:
+- Complete directory structure in .claude/skills/{skill-name}/
+- SKILL.md entry file ready for phase/action generation
+- skill-config.json for template population

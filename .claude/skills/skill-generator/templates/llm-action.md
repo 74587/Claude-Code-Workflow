@@ -2,6 +2,18 @@
 
 LLM 动作模板，用于在 Skill 中集成 LLM 调用能力。
 
+## Purpose
+
+为 Skill 生成 LLM 动作，通过 CCW CLI 统一接口调用 Gemini/Qwen/Codex 进行分析或生成。
+
+## Usage Context
+
+| Phase | Usage |
+|-------|-------|
+| Optional | 当 Skill 需要 LLM 能力时使用 |
+| Generation Trigger | 用户选择添加 llm 动作类型 |
+| Tools | gemini, qwen, codex (支持 fallback chain) |
+
 ---
 
 ## 配置结构

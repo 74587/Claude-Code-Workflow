@@ -557,6 +557,11 @@ async function executeCliTool(
       // id field is the LiteLLM endpoint ID (e.g., "g25")
       const litellmEndpointId = toolConfig.id || toolName;
 
+      // Use configured primary model if no explicit model provided
+      // This allows --model parameter to override the tool's primaryModel
+      // Use undefined if primaryModel is empty string (endpoint.model will be used as fallback)
+      const apiEndpointEffectiveModel = model || (toolConfig.primaryModel || undefined);
+
       // Find LiteLLM endpoint configuration
       const litellmEndpoint = findEndpointById(workingDir, litellmEndpointId);
       if (litellmEndpoint) {
@@ -568,13 +573,14 @@ async function executeCliTool(
           });
         }
 
-        // Execute via LiteLLM
+        // Execute via LiteLLM with model override
         const result = await executeLiteLLMEndpoint({
           prompt,
           endpointId: litellmEndpointId,
           baseDir: workingDir,
           cwd: cd || workingDir,
           includeDirs: includeDirs ? includeDirs.split(',').map(d => d.trim()) : undefined,
+          model: apiEndpointEffectiveModel, // Pass effective model (--model or primaryModel)
           onOutput: onOutput || undefined,
         });
 
@@ -587,7 +593,7 @@ async function executeCliTool(
           id: customId || `${Date.now()}-litellm`,
           timestamp: new Date(startTime).toISOString(),
           tool: toolName,
-          model: litellmEndpoint.model,
+          model: result.model, // Use effective model from result (reflects any override)
           mode,
           prompt,
           status: result.success ? 'success' : 'error',
