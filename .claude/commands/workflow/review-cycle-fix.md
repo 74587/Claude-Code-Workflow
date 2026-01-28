@@ -1,26 +1,26 @@
 ---
-name: review-fix
+name: review-cycle-fix
 description: Automated fixing of code review findings with AI-powered planning and coordinated execution. Uses intelligent grouping, multi-stage timeline coordination, and test-driven verification.
 argument-hint: "<export-file|review-dir> [--resume] [--max-iterations=N]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*), Edit(*), Write(*)
 ---
 
-# Workflow Review-Fix Command
+# Workflow Review-Cycle-Fix Command
 
 ## Quick Start
 
 ```bash
 # Fix from exported findings file (session-based path)
-/workflow:review-fix .workflow/active/WFS-123/.review/fix-export-1706184622000.json
+/workflow:review-cycle-fix .workflow/active/WFS-123/.review/fix-export-1706184622000.json
 
 # Fix from review directory (auto-discovers latest export)
-/workflow:review-fix .workflow/active/WFS-123/.review/
+/workflow:review-cycle-fix .workflow/active/WFS-123/.review/
 
 # Resume interrupted fix session
-/workflow:review-fix --resume
+/workflow:review-cycle-fix --resume
 
 # Custom max retry attempts per finding
-/workflow:review-fix .workflow/active/WFS-123/.review/ --max-iterations=5
+/workflow:review-cycle-fix .workflow/active/WFS-123/.review/ --max-iterations=5
 ```
 
 **Fix Source**: Exported findings from review cycle dashboard

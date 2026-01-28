@@ -257,7 +257,7 @@
       "essential": true,
       "flow": {
         "prerequisites": ["/workflow:execute"],
-        "next_steps": ["/workflow:review-fix"]
+        "next_steps": ["/workflow:review-cycle-fix"]
       },
       "source": "../../../commands/workflow/review-session-cycle.md"
     },
@@ -271,8 +271,8 @@
       "source": "../../../commands/workflow/review-module-cycle.md"
     },
     {
-      "name": "review-fix",
-      "command": "/workflow:review-fix",
+      "name": "review-cycle-fix",
+      "command": "/workflow:review-cycle-fix",
       "description": "Automated fixing of review findings",
       "arguments": "<export-file|review-dir>",
       "category": "workflow",
@@ -280,7 +280,7 @@
       "flow": {
         "prerequisites": ["/workflow:review-session-cycle", "/workflow:review-module-cycle"]
       },
-      "source": "../../../commands/workflow/review-fix.md"
+      "source": "../../../commands/workflow/review-cycle-fix.md"
     },
     {
       "name": "test-gen",

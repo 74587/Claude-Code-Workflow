@@ -24,7 +24,7 @@ Main process orchestrator: intent analysis → workflow selection → command ch
 |-----------|---------|---------|
 | **Planning + Execution** | plan-cmd → execute-cmd | lite-plan → lite-execute |
 | **Testing** | test-gen-cmd → test-exec-cmd | test-fix-gen → test-cycle-execute |
-| **Review** | review-cmd → fix-cmd | review-session-cycle → review-fix |
+| **Review** | review-cmd → fix-cmd | review-session-cycle → review-cycle-fix |
 
 **Atomic Rules**:
 1. CCW automatically groups commands into minimum units - never splits them
@@ -129,7 +129,7 @@ function selectWorkflow(analysis) {
     'ui-design':         { level: analysis.complexity === 'high' ? 4 : 3, flow: 'ui' },
     'tdd':               { level: 3, flow: 'tdd' },
     'test-fix':          { level: 3, flow: 'test-fix-gen' },
-    'review':            { level: 3, flow: 'review-fix' },
+    'review':            { level: 3, flow: 'review-cycle-fix' },
     'documentation':     { level: 2, flow: 'docs' },
     'feature':           { level: analysis.complexity === 'high' ? 3 : 2, flow: analysis.complexity === 'high' ? 'coupled' : 'rapid' }
   };
@@ -223,9 +223,9 @@ function buildCommandChain(workflow, analysis) {
       { cmd: '/workflow:plan-verify', args: '', unit: 'verified-planning' },
       // Execution
       { cmd: '/workflow:execute', args: '' },
-      // Unit: Code Review【review-session-cycle → review-fix】
+      // Unit: Code Review【review-session-cycle → review-cycle-fix】
       { cmd: '/workflow:review-session-cycle', args: '', unit: 'code-review' },
-      { cmd: '/workflow:review-fix', args: '', unit: 'code-review' },
+      { cmd: '/workflow:review-cycle-fix', args: '', unit: 'code-review' },
       // Unit: Test Validation【test-fix-gen → test-cycle-execute】
       ...(analysis.constraints?.includes('skip-tests') ? [] : [
         { cmd: '/workflow:test-fix-gen', args: '', unit: 'test-validation' },
@@ -247,10 +247,10 @@ function buildCommandChain(workflow, analysis) {
       { cmd: '/workflow:test-cycle-execute', args: '', unit: 'test-validation' }
     ],
 
-    'review-fix': [
-      // Unit: Code Review【review-session-cycle → review-fix】
+    'review-cycle-fix': [
+      // Unit: Code Review【review-session-cycle → review-cycle-fix】
       { cmd: '/workflow:review-session-cycle', args: '', unit: 'code-review' },
-      { cmd: '/workflow:review-fix', args: '', unit: 'code-review' },
+      { cmd: '/workflow:review-cycle-fix', args: '', unit: 'code-review' },
       // Unit: Test Validation【test-fix-gen → test-cycle-execute】
       { cmd: '/workflow:test-fix-gen', args: '', unit: 'test-validation' },
       { cmd: '/workflow:test-cycle-execute', args: '', unit: 'test-validation' }
@@ -450,7 +450,7 @@ Phase 5: Execute Command Chain
 | "头脑风暴: 通知系统重构" | brainstorm | 4 | brainstorm-with-file → (built-in post-completion) |
 | "深度调试 WebSocket 连接断开" | debug-file | 3 | debug-with-file → (hypothesis iteration) |
 | "协作分析: 认证架构优化" | analyze-file | 3 | analyze-with-file → (multi-round discussion) |
-| "OAuth2 system" | feature (high) | 3 |【plan → plan-verify】→ execute →【review-session-cycle → review-fix】→【test-fix-gen → test-cycle-execute】|
+| "OAuth2 system" | feature (high) | 3 |【plan → plan-verify】→ execute →【review-session-cycle → review-cycle-fix】→【test-fix-gen → test-cycle-execute】|
 | "Implement with TDD" | tdd | 3 |【tdd-plan → execute】→ tdd-verify |
 | "Uncertain: real-time arch" | exploration | 4 | brainstorm:auto-parallel →【plan → plan-verify】→ execute →【test-fix-gen → test-cycle-execute】|
 

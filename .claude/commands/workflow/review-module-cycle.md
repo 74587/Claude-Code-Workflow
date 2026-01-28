@@ -764,8 +764,8 @@ After completing a module review, use the generated findings JSON for automated 
 /workflow:review-module-cycle src/auth/**
 
 # Step 2: Run automated fixes using dimension findings
-/workflow:review-fix .workflow/active/WFS-{session-id}/.review/
+/workflow:review-cycle-fix .workflow/active/WFS-{session-id}/.review/
 ```
 
-See `/workflow:review-fix` for automated fixing with smart grouping, parallel execution, and test verification.
+See `/workflow:review-cycle-fix` for automated fixing with smart grouping, parallel execution, and test verification.
 

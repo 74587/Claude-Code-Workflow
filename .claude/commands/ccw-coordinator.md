@@ -47,8 +47,8 @@ Interactive orchestration tool: analyze task → discover commands → recommend
 
 | Unit Name | Commands | Purpose | Output |
 |-----------|----------|---------|--------|
-| **Code Review (Session)** | review-session-cycle → review-fix | Complete review cycle and apply fixes | Fixed code |
-| **Code Review (Module)** | review-module-cycle → review-fix | Module review cycle and apply fixes | Fixed code |
+| **Code Review (Session)** | review-session-cycle → review-cycle-fix | Complete review cycle and apply fixes | Fixed code |
+| **Code Review (Module)** | review-module-cycle → review-cycle-fix | Module review cycle and apply fixes | Fixed code |
 
 **Issue Units** (Issue单元):
 
@@ -77,8 +77,8 @@ Interactive orchestration tool: analyze task → discover commands → recommend
 | replan | execute | Replanning + Execution |
 | test-gen | execute | Test Generation + Execution |
 | tdd-plan | execute | TDD Planning + Execution |
-| review-session-cycle | review-fix | Code Review (Session) |
-| review-module-cycle | review-fix | Code Review (Module) |
+| review-session-cycle | review-cycle-fix | Code Review (Session) |
+| review-module-cycle | review-cycle-fix | Code Review (Module) |
 | test-fix-gen | test-cycle-execute | Test Validation |
 | issue:discover | issue:plan | Issue Workflow |
 | issue:plan | issue:queue | Issue Workflow |
@@ -281,8 +281,8 @@ const commandPorts = {
     output: ['review-findings'],
     tags: ['review']
   },
-  'review-fix': {
-    name: 'review-fix',
+  'review-cycle-fix': {
+    name: 'review-cycle-fix',
     input: ['review-findings', 'review-verified'],  // Accept output from review-session-cycle or review-module-cycle
     output: ['fixed-code'],
     tags: ['review'],
@@ -306,14 +306,14 @@ const commandPorts = {
     input: ['code', 'session'],                 // 可接受代码或会话
     output: ['review-verified'],                // 输出端口:审查通过
     tags: ['review'],
-    atomic_group: 'code-review'                // 最小单元：与 review-fix 绑定
+    atomic_group: 'code-review'                // 最小单元：与 review-cycle-fix 绑定
   },
   'review-module-cycle': {
     name: 'review-module-cycle',
     input: ['module-pattern'],                  // 输入端口:模块模式
     output: ['review-verified'],                // 输出端口:审查通过
     tags: ['review'],
-    atomic_group: 'code-review'                // 最小单元：与 review-fix 绑定
+    atomic_group: 'code-review'                // 最小单元：与 review-cycle-fix 绑定
   },
 
   // Issue workflow commands
@@ -635,7 +635,7 @@ function formatCommand(cmd, previousResults, analysis) {
     if (latest?.session_id) prompt += ` --session="${latest.session_id}"`;
 
   // Review fix - takes session from review
-  } else if (name === 'review-fix') {
+  } else if (name === 'review-cycle-fix') {
     const review = previousResults.find(r => r.command.includes('review'));
     const latest = review || previousResults.filter(r => r.session_id).pop();
     if (latest?.session_id) prompt += ` --session="${latest.session_id}"`;
@@ -1033,7 +1033,7 @@ All from `~/.claude/commands/workflow/` and `~/.claude/commands/issue/`:
 **Planning**: lite-plan, plan, multi-cli-plan, plan-verify, tdd-plan
 **Execution**: lite-execute, execute, develop-with-file
 **Testing**: test-cycle-execute, test-gen, test-fix-gen, tdd-verify
-**Review**: review, review-session-cycle, review-module-cycle, review-fix
+**Review**: review, review-session-cycle, review-module-cycle, review-cycle-fix
 **Bug Fixes**: lite-fix, debug, debug-with-file
 **Brainstorming**: brainstorm:auto-parallel, brainstorm:artifacts, brainstorm:synthesis
 **Design**: ui-design:*, animation-extract, layout-extract, style-extract, codify-style
@@ -1067,7 +1067,7 @@ All from `~/.claude/commands/workflow/` and `~/.claude/commands/issue/`:
 | **tdd** | 需求 → tdd-plan → TDD任务 → execute → 代码 → tdd-verify | TDD Planning + Execution |
 | **test-fix** | 失败测试 →【test-fix-gen → test-cycle-execute】→ 测试通过 | Test Validation |
 | **test-gen** | 代码/会话 →【test-gen → execute】→ 测试通过 | Test Generation + Execution |
-| **review** | 代码 →【review-* → review-fix】→ 修复代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 | Code Review + Testing |
+| **review** | 代码 →【review-* → review-cycle-fix】→ 修复代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 | Code Review + Testing |
 | **brainstorm** | 探索主题 → brainstorm → 分析 →【plan → plan-verify】→ execute → test | Exploration + Planning + Execution |
 | **multi-cli** | 需求 → multi-cli-plan → 对比分析 → lite-execute → test | Multi-Perspective + Testing |
 | **issue-batch** | 代码库 →【discover → plan → queue → execute】→ 完成 issues | Issue Workflow |
