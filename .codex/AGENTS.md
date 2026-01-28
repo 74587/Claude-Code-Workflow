@@ -1,10 +1,5 @@
 # Codex Code Guidelines
 
-## CLI Endpoints
-
-- **CLI Tools Usage**: @~/.claude/workflows/cli-tools-usage.md
-- **CLI Endpoints Config**: @~/.claude/cli-tools.json
-
 **Strictly follow the cli-tools.json configuration**
 
 Available CLI endpoints are dynamically defined by the config file
@@ -30,10 +25,7 @@ Available CLI endpoints are dynamically defined by the config file
 - Graceful degradation
 - Don't expose sensitive info
 
-
-
 ## Core Principles
-
 
 **Incremental Progress**:
 - Small, testable changes
