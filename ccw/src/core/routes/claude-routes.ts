@@ -917,6 +917,7 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
       const userClaudePath = join(homedir(), '.claude', 'CLAUDE.md');
       const userCodexPath = join(homedir(), '.codex', 'AGENTS.md');
       const chineseRefPattern = /@.*chinese-response\.md/i;
+      const chineseSectionPattern = /## 中文回复/; // For Codex direct content
 
       let claudeEnabled = false;
       let codexEnabled = false;
@@ -928,10 +929,11 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
         claudeEnabled = chineseRefPattern.test(content);
       }
 
-      // Check if user AGENTS.md exists and contains Chinese response reference
+      // Check if user AGENTS.md exists and contains Chinese response section
+      // Codex uses direct content concatenation, not @ references
       if (existsSync(userCodexPath)) {
         const content = readFileSync(userCodexPath, 'utf8');
-        codexEnabled = chineseRefPattern.test(content);
+        codexEnabled = chineseSectionPattern.test(content);
       }
 
       // Find guidelines file path - always use user-level path
@@ -983,10 +985,6 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
         const targetDir = isCodex ? join(homedir(), '.codex') : join(homedir(), '.claude');
         const targetFile = isCodex ? join(targetDir, 'AGENTS.md') : join(targetDir, 'CLAUDE.md');
 
-        const chineseRefLine = `- **中文回复准则**: @${guidelinesRef}`;
-        const chineseRefPattern = /^- \*\*中文回复准则\*\*:.*chinese-response\.md.*$/gm;
-        const chineseSectionPattern = /\n*## 中文回复\n+- \*\*中文回复准则\*\*:.*chinese-response\.md.*\n*/gm;
-
         // Ensure target directory exists
         if (!existsSync(targetDir)) {
           mkdirSync(targetDir, { recursive: true });
@@ -1001,19 +999,71 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
           content = headerText;
         }
 
-        if (enabled) {
-          // Check if reference already exists
-          if (chineseRefPattern.test(content)) {
-            return { success: true, message: 'Already enabled' };
-          }
+        if (isCodex) {
+          // Codex: Direct content concatenation (does not support @ references)
+          const chineseSectionPattern = /\n*## 中文回复\n[\s\S]*?(?=\n## |$)/;
+          const cliToolsSectionPattern = /\n*## CLI \u5de5\u5177\u8c03\u7528\n[\s\S]*?(?=\n## |$)/;
 
-          // Add new section at the end of file
-          const newSection = `\n## 中文回复\n\n${chineseRefLine}\n`;
-          content = content.trimEnd() + '\n' + newSection;
+          if (enabled) {
+            // Check if section already exists
+            if (chineseSectionPattern.test(content)) {
+              return { success: true, message: 'Already enabled' };
+            }
+
+            // Read chinese-response.md content
+            const chineseResponseContent = readFileSync(userGuidelinesPath, 'utf8');
+
+            // Read cli-tools-usage.md content
+            const cliToolsUsagePath = join(homedir(), '.claude', 'workflows', 'cli-tools-usage.md');
+            let cliToolsUsageContent = '';
+            if (existsSync(cliToolsUsagePath)) {
+              cliToolsUsageContent = readFileSync(cliToolsUsagePath, 'utf8');
+            }
+
+            // Read and format cli-tools.json
+            const cliToolsJsonPath = join(homedir(), '.claude', 'cli-tools.json');
+            let cliToolsJsonContent = '';
+            if (existsSync(cliToolsJsonPath)) {
+              const cliToolsJson = JSON.parse(readFileSync(cliToolsJsonPath, 'utf8'));
+              cliToolsJsonContent = `\n### CLI Tools Configuration\n\n\`\`\`json\n${JSON.stringify(cliToolsJson, null, 2)}\n\`\`\`\n`;
+            }
+
+            // Add Chinese response section
+            let newSection = `\n## 中文回复\n\n${chineseResponseContent}\n`;
+
+            // Add CLI tools section if usage content exists
+            if (cliToolsUsageContent) {
+              newSection += `\n## CLI 工具调用\n\n${cliToolsUsageContent}\n${cliToolsJsonContent}`;
+            }
+
+            content = content.trimEnd() + '\n' + newSection;
+          } else {
+            // Remove both sections
+            content = content.replace(chineseSectionPattern, '\n');
+            content = content.replace(cliToolsSectionPattern, '\n');
+            content = content.replace(/\n{3,}/g, '\n\n').trim();
+            if (content) content += '\n';
+          }
         } else {
-          // Remove the entire section
-          content = content.replace(chineseSectionPattern, '\n').replace(/\n{3,}/g, '\n\n').trim();
-          if (content) content += '\n';
+          // Claude: Use @ reference (original behavior)
+          const chineseRefLine = `- **中文回复准则**: @${guidelinesRef}`;
+          const chineseRefPattern = /^- \*\*中文回复准则\*\*:.*chinese-response\.md.*$/gm;
+          const chineseSectionPattern = /\n*## 中文回复\n+- \*\*中文回复准则\*\*:.*chinese-response\.md.*\n*/gm;
+
+          if (enabled) {
+            // Check if reference already exists
+            if (chineseRefPattern.test(content)) {
+              return { success: true, message: 'Already enabled' };
+            }
+
+            // Add new section at the end of file
+            const newSection = `\n## 中文回复\n\n${chineseRefLine}\n`;
+            content = content.trimEnd() + '\n' + newSection;
+          } else {
+            // Remove the entire section
+            content = content.replace(chineseSectionPattern, '\n').replace(/\n{3,}/g, '\n\n').trim();
+            if (content) content += '\n';
+          }
         }
 
         writeFileSync(targetFile, content, 'utf8');

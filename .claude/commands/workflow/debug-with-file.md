@@ -17,6 +17,8 @@ Enhanced evidence-based debugging with **documented exploration process**. Recor
 
 **Core workflow**: Explore → Document → Log → Analyze → Correct Understanding → Fix → Verify
 
+**Scope**: Adds temporary debug logging to observe program state; cleans up all instrumentation after resolution. Does NOT execute code injection, security testing, or modify program behavior.
+
 **Key enhancements over /workflow:debug**:
 - **understanding.md**: Timeline of exploration and learning
 - **Gemini-assisted correction**: Validates and corrects hypotheses
@@ -44,7 +46,7 @@ Explore Mode:
    ├─ Locate error source in codebase
    ├─ Document initial understanding in understanding.md
    ├─ Generate testable hypotheses with Gemini validation
-   ├─ Add NDJSON logging instrumentation
+   ├─ Add NDJSON debug logging statements
    └─ Output: Hypothesis list + await user reproduction
 
 Analyze Mode:
@@ -216,9 +218,9 @@ Save Gemini output to `hypotheses.json`:
 }
 ```
 
-**Step 1.4: Add NDJSON Instrumentation**
+**Step 1.4: Add NDJSON Debug Logging**
 
-For each hypothesis, add logging (same as original debug command).
+For each hypothesis, add temporary logging statements to observe program state at key execution points. Use NDJSON format for structured log parsing. These are read-only observations that do not modify program behavior.
 
 **Step 1.5: Update understanding.md**
 
@@ -441,7 +443,7 @@ What we learned from this debugging session:
 
 **Step 3.3: Cleanup**
 
-Remove debug instrumentation (same as original command).
+Remove all temporary debug logging statements added during investigation. Verify no instrumentation code remains in production code.
 
 ---
 
@@ -647,7 +649,7 @@ Why is config value None during update?
 
 | Feature | /workflow:debug | /workflow:debug-with-file |
 |---------|-----------------|---------------------------|
-| NDJSON logging | ✅ | ✅ |
+| NDJSON debug logging | ✅ | ✅ |
 | Hypothesis generation | Manual | Gemini-assisted |
 | Exploration documentation | ❌ | ✅ understanding.md |
 | Understanding evolution | ❌ | ✅ Timeline + corrections |
