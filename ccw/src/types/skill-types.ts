@@ -9,25 +9,6 @@
 export type SkillLocation = 'project' | 'user';
 
 /**
- * Information about a disabled skill
- */
-export interface DisabledSkillInfo {
-  /** When the skill was disabled */
-  disabledAt: string;
-  /** Optional reason for disabling */
-  reason?: string;
-}
-
-/**
- * Configuration for disabled skills
- * Stored in disabled-skills.json
- */
-export interface DisabledSkillsConfig {
-  /** Map of skill name to disabled info */
-  skills: Record<string, DisabledSkillInfo>;
-}
-
-/**
  * Result of a skill operation (enable/disable)
  */
 export interface SkillOperationResult {

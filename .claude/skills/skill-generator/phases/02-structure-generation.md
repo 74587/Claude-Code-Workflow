@@ -8,9 +8,7 @@
 - 生成 SKILL.md 入口文件
 - 根据执行模式创建对应的子目录
 
-## Input
 
-- 依赖: `skill-config.json` (Phase 1 产出)
 
 ## Execution Steps
 
@@ -192,16 +190,4 @@ function generateReferenceTable(config) {
 }
 ```
 
-## Output
 
-- **Directory**: `.claude/skills/{skill-name}/`
-- **Files**:
-  - `SKILL.md` (入口文件)
-  - `phases/` (执行阶段目录)
-  - `specs/` (规范文档目录)
-  - `templates/` (模板目录)
-  - `scripts/` (脚本目录，存放 Python/Bash 确定性脚本)
-
-## Next Phase
-
-→ [Phase 3: Phase Generation](03-phase-generation.md)

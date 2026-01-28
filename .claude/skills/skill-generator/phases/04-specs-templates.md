@@ -1,26 +1,107 @@
-# Phase 4: Specs & Templates Generation
+# Phase 4: Specifications & Templates Generation
 
-生成规范文件和模板文件。
+Generate domain requirements, quality standards, agent templates, and action catalogs.
 
 ## Objective
 
-- 生成领域规范 (`specs/{domain}-requirements.md`)
-- 生成质量标准 (`specs/quality-standards.md`)
-- 生成 Agent 模板 (`templates/agent-base.md`)
-- Autonomous 模式额外生成动作目录 (`specs/action-catalog.md`)
+Generate comprehensive specifications and templates:
+- Domain requirements document with validation function
+- Quality standards with automated check system
+- Agent base template with prompt structure
+- Action catalog for autonomous mode (conditional)
 
 ## Input
 
-- 依赖: `skill-config.json`, SKILL.md, phases/*.md
+**File Dependencies**:
+- `skill-config.json` (from Phase 1)
+- `.claude/skills/{skill-name}/` directory (from Phase 2)
+- Generated phase/action files (from Phase 3)
 
-## Execution Steps
+**Required Information**:
+- Skill name, display name, description
+- Execution mode (determines if action-catalog.md is generated)
+- Output format and location
+- Phase/action definitions
 
-### Step 1: 生成领域规范
+## Output
+
+**Generated Files**:
+
+| File | Purpose | Generation Condition |
+|------|---------|---------------------|
+| `specs/{skill-name}-requirements.md` | Domain requirements with validation | Always |
+| `specs/quality-standards.md` | Quality evaluation criteria | Always |
+| `templates/agent-base.md` | Agent prompt template | Always |
+| `specs/action-catalog.md` | Action dependency graph and selection priority | Autonomous/Hybrid mode only |
+
+**File Structure**:
+
+**Domain Requirements** (`specs/{skill-name}-requirements.md`):
+```markdown
+# {display_name} Requirements
+- When to Use (phase/action reference table)
+- Domain Requirements (功能要求, 输出要求, 质量要求)
+- Validation Function (JavaScript code)
+- Error Handling (recovery strategies)
+```
+
+**Quality Standards** (`specs/quality-standards.md`):
+```markdown
+# Quality Standards
+- Quality Dimensions (Completeness 25%, Consistency 25%, Accuracy 25%, Usability 25%)
+- Quality Gates (Pass ≥80%, Review 60-79%, Fail <60%)
+- Issue Classification (Errors, Warnings, Info)
+- Automated Checks (runQualityChecks function)
+```
+
+**Agent Base** (`templates/agent-base.md`):
+```markdown
+# Agent Base Template
+- 通用 Prompt 结构 (ROLE, PROJECT CONTEXT, TASK, CONSTRAINTS, OUTPUT_FORMAT, QUALITY_CHECKLIST)
+- 变量说明 (workDir, output_path)
+- 返回格式 (AgentReturn interface)
+- 角色定义参考 (phase/action specific agents)
+```
+
+**Action Catalog** (`specs/action-catalog.md`, Autonomous/Hybrid only):
+```markdown
+# Action Catalog
+- Available Actions (table with Purpose, Preconditions, Effects)
+- Action Dependencies (Mermaid diagram)
+- State Transitions (state machine table)
+- Selection Priority (ordered action list)
+```
+
+## Decision Logic
+
+```
+Decision (execution_mode check):
+   ├─ mode === 'sequential' → Generate 3 files only
+   │  └─ Files: requirements.md, quality-standards.md, agent-base.md
+   │
+   ├─ mode === 'autonomous' → Generate 4 files
+   │  ├─ Files: requirements.md, quality-standards.md, agent-base.md
+   │  └─ Additional: action-catalog.md (with action dependencies)
+   │
+   └─ mode === 'hybrid' → Generate 4 files
+      ├─ Files: requirements.md, quality-standards.md, agent-base.md
+      └─ Additional: action-catalog.md (with hybrid logic)
+```
+
+## Execution Protocol
 
 ```javascript
+// Phase 4: Generate Specifications & Templates
+// Reference: phases/04-specs-templates.md
+
+// Load config and setup
 const config = JSON.parse(Read(`${workDir}/skill-config.json`));
 const skillDir = `.claude/skills/${config.skill_name}`;
 
+// Ensure specs and templates directories exist (created in Phase 2)
+// skillDir structure: phases/, specs/, templates/
+
+// Step 1: Generate domain requirements
 const domainRequirements = `# ${config.display_name} Requirements
 
 ${config.description}
@@ -29,8 +110,8 @@ ${config.description}
 
 | Phase | Usage | Reference |
 |-------|-------|-----------|
-${config.execution_mode === 'sequential' ? 
-  config.sequential_config.phases.map((p, i) => 
+${config.execution_mode === 'sequential' ?
+  config.sequential_config.phases.map((p, i) =>
     `| Phase ${i+1} | ${p.name} | ${p.id}.md |`
   ).join('\n') :
   `| Orchestrator | 动作选择 | orchestrator.md |
@@ -67,7 +148,7 @@ function validate${toPascalCase(config.skill_name)}(output) {
     { name: "格式正确", pass: output.format === "${config.output.format}" },
     { name: "内容完整", pass: output.content?.length > 0 }
   ];
-  
+
   return {
     passed: checks.filter(c => c.pass).length,
     total: checks.length,
@@ -86,11 +167,8 @@ function validate${toPascalCase(config.skill_name)}(output) {
 `;
 
 Write(`${skillDir}/specs/${config.skill_name}-requirements.md`, domainRequirements);
-```
 
-### Step 2: 生成质量标准
-
-```javascript
+// Step 2: Generate quality standards
 const qualityStandards = `# Quality Standards
 
 ${config.display_name} 的质量评估标准。
@@ -176,7 +254,7 @@ function runQualityChecks(workDir) {
 
   return {
     score: results.overall,
-    gate: results.overall >= 80 ? 'pass' : 
+    gate: results.overall >= 80 ? 'pass' :
           results.overall >= 60 ? 'review' : 'fail',
     details: results
   };
@@ -185,11 +263,8 @@ function runQualityChecks(workDir) {
 `;
 
 Write(`${skillDir}/specs/quality-standards.md`, qualityStandards);
-```
 
-### Step 3: 生成 Agent 模板
-
-```javascript
+// Step 3: Generate agent base template
 const agentBase = `# Agent Base Template
 
 ${config.display_name} 的 Agent 基础模板。
@@ -246,20 +321,17 @@ interface AgentReturn {
 ## 角色定义参考
 
 ${config.execution_mode === 'sequential' ?
-  config.sequential_config.phases.map((p, i) => 
+  config.sequential_config.phases.map((p, i) =>
     `- **Phase ${i+1} Agent**: ${p.name} 专家`
   ).join('\n') :
-  config.autonomous_config.actions.map(a => 
+  config.autonomous_config.actions.map(a =>
     `- **${a.name} Agent**: ${a.description || a.name + ' 执行者'}`
   ).join('\n')}
 `;
 
 Write(`${skillDir}/templates/agent-base.md`, agentBase);
-```
 
-### Step 4: Autonomous 模式 - 动作目录
-
-```javascript
+// Step 4: Conditional - Generate action catalog for autonomous/hybrid mode
 if (config.execution_mode === 'autonomous' || config.execution_mode === 'hybrid') {
   const actionCatalog = `# Action Catalog
 
@@ -269,7 +341,7 @@ ${config.display_name} 的可用动作目录。
 
 | Action | Purpose | Preconditions | Effects |
 |--------|---------|---------------|---------|
-${config.autonomous_config.actions.map(a => 
+${config.autonomous_config.actions.map(a =>
   `| [${a.id}](../phases/actions/${a.id}.md) | ${a.description || a.name} | ${a.preconditions?.join(', ') || '-'} | ${a.effects?.join(', ') || '-'} |`
 ).join('\n')}
 
@@ -289,7 +361,7 @@ ${config.autonomous_config.actions.map((a, i, arr) => {
 | From State | Action | To State |
 |------------|--------|----------|
 | pending | action-init | running |
-${config.autonomous_config.actions.slice(1).map(a => 
+${config.autonomous_config.actions.slice(1).map(a =>
   `| running | ${a.id} | running |`
 ).join('\n')}
 | running | action-complete | completed |
@@ -299,30 +371,28 @@ ${config.autonomous_config.actions.slice(1).map(a =>
 
 当多个动作的前置条件都满足时，按以下优先级选择：
 
-${config.autonomous_config.actions.map((a, i) => 
+${config.autonomous_config.actions.map((a, i) =>
   `${i + 1}. \`${a.id}\` - ${a.name}`
 ).join('\n')}
 `;
 
   Write(`${skillDir}/specs/action-catalog.md`, actionCatalog);
 }
-```
 
-### Step 5: 辅助函数
-
-```javascript
+// Helper function
 function toPascalCase(str) {
   return str.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
 }
+
+// Phase output summary
+console.log('Phase 4 complete: Generated specs and templates');
 ```
-
-## Output
-
-- `specs/{skill-name}-requirements.md` - 领域规范
-- `specs/quality-standards.md` - 质量标准
-- `specs/action-catalog.md` - 动作目录 (Autonomous 模式)
-- `templates/agent-base.md` - Agent 模板
 
 ## Next Phase
 
 → [Phase 5: Validation](05-validation.md)
+
+**Data Flow to Phase 5**:
+- All generated files in `specs/` and `templates/`
+- skill-config.json for validation reference
+- Complete skill directory structure ready for final validation

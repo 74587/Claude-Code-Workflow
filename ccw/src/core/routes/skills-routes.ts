@@ -2,7 +2,7 @@
  * Skills Routes Module
  * Handles all Skills-related API endpoints
  */
-import { readFileSync, existsSync, readdirSync, statSync, unlinkSync, renameSync, writeFileSync, mkdirSync, cpSync, rmSync, promises as fsPromises } from 'fs';
+import { readFileSync, existsSync, readdirSync, statSync, unlinkSync, renameSync, promises as fsPromises } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { executeCliTool } from '../../tools/cli-executor.js';
@@ -16,8 +16,6 @@ import type {
   SkillsConfig,
   SkillInfo,
   SkillFolderValidation,
-  DisabledSkillInfo,
-  DisabledSkillsConfig,
   DisabledSkillSummary,
   ExtendedSkillsConfig,
   SkillOperationResult
@@ -40,106 +38,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 // ========== Skills Helper Functions ==========
 
-// ========== Disabled Skills Helper Functions ==========
-
 /**
- * Get disabled skills directory path
- */
-function getDisabledSkillsDir(location: SkillLocation, projectPath: string): string {
-  if (location === 'project') {
-    return join(projectPath, '.claude', '.disabled-skills');
-  }
-  return join(homedir(), '.claude', '.disabled-skills');
-}
-
-/**
- * Get disabled skills config file path
- */
-function getDisabledSkillsConfigPath(location: SkillLocation, projectPath: string): string {
-  if (location === 'project') {
-    return join(projectPath, '.claude', 'disabled-skills.json');
-  }
-  return join(homedir(), '.claude', 'disabled-skills.json');
-}
-
-/**
- * Load disabled skills configuration
- * Throws on JSON parse errors to surface config corruption
- */
-function loadDisabledSkillsConfig(location: SkillLocation, projectPath: string): DisabledSkillsConfig {
-  const configPath = getDisabledSkillsConfigPath(location, projectPath);
-  
-  if (!existsSync(configPath)) {
-    return { skills: {} };
-  }
-  
-  try {
-    const content = readFileSync(configPath, 'utf8');
-    const config = JSON.parse(content);
-    return { skills: config.skills || {} };
-  } catch (error) {
-    // Throw on JSON parse errors to surface config corruption
-    if (error instanceof SyntaxError) {
-      throw new Error(`Config file corrupted: ${configPath}`);
-    }
-    // Log and return empty for other errors (permission, etc.)
-    console.error(`[Skills] Failed to load disabled skills config: ${error}`);
-    return { skills: {} };
-  }
-}
-
-/**
- * Save disabled skills configuration
- */
-function saveDisabledSkillsConfig(location: SkillLocation, projectPath: string, config: DisabledSkillsConfig): void {
-  const configPath = getDisabledSkillsConfigPath(location, projectPath);
-  const configDir = join(configPath, '..');
-  
-  if (!existsSync(configDir)) {
-    mkdirSync(configDir, { recursive: true });
-  }
-  
-  writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
-}
-
-/**
- * Move directory with fallback to copy-delete and rollback on failure
- */
-function moveDirectory(source: string, target: string): void {
-  try {
-    // Try atomic rename first
-    renameSync(source, target);
-  } catch (error: unknown) {
-    const err = error as NodeJS.ErrnoException;
-    // If rename fails (cross-filesystem, permission issues), fallback to copy-delete
-    if (err.code === 'EXDEV' || err.code === 'EPERM' || err.code === 'EBUSY') {
-      cpSync(source, target, { recursive: true, force: true });
-      try {
-        rmSync(source, { recursive: true, force: true });
-      } catch (rmError) {
-        // Rollback: remove the copied target directory to avoid duplicates
-        try {
-          rmSync(target, { recursive: true, force: true });
-        } catch {
-          // Ignore rollback errors
-        }
-        throw new Error(`Failed to remove source directory after copy: ${(rmError as Error).message}`);
-      }
-    } else {
-      throw error;
-    }
-  }
-}
-
-/**
- * Disable a skill by moving it to disabled directory
+ * Disable a skill by renaming SKILL.md to SKILL.md.disabled
  */
 async function disableSkill(
   skillName: string,
   location: SkillLocation,
   projectPath: string,
   initialPath: string,
-  reason?: string
+  reason?: string  // Kept for API compatibility but no longer used
 ): Promise<SkillOperationResult> {
   try {
     // Validate skill name
@@ -147,7 +54,7 @@ async function disableSkill(
       return { success: false, message: 'Invalid skill name', status: 400 };
     }
 
-    // Get source directory
+    // Get skill directory
     let skillsDir: string;
     if (location === 'project') {
       try {
@@ -161,42 +68,23 @@ async function disableSkill(
       skillsDir = join(homedir(), '.claude', 'skills');
     }
 
-    const sourceDir = join(skillsDir, skillName);
-    if (!existsSync(sourceDir)) {
+    const skillDir = join(skillsDir, skillName);
+    if (!existsSync(skillDir)) {
       return { success: false, message: 'Skill not found', status: 404 };
     }
 
-    // Get target directory
-    const disabledDir = getDisabledSkillsDir(location, projectPath);
-    if (!existsSync(disabledDir)) {
-      mkdirSync(disabledDir, { recursive: true });
+    const skillMdPath = join(skillDir, 'SKILL.md');
+    if (!existsSync(skillMdPath)) {
+      return { success: false, message: 'SKILL.md not found', status: 404 };
     }
 
-    const targetDir = join(disabledDir, skillName);
-    if (existsSync(targetDir)) {
-      return { success: false, message: 'Skill already exists in disabled directory', status: 409 };
+    const disabledPath = join(skillDir, 'SKILL.md.disabled');
+    if (existsSync(disabledPath)) {
+      return { success: false, message: 'Skill already disabled', status: 409 };
     }
 
-    // Move skill to disabled directory
-    moveDirectory(sourceDir, targetDir);
-
-    // Update config with rollback on failure
-    try {
-      const config = loadDisabledSkillsConfig(location, projectPath);
-      config.skills[skillName] = {
-        disabledAt: new Date().toISOString(),
-        reason
-      };
-      saveDisabledSkillsConfig(location, projectPath, config);
-    } catch (configError) {
-      // Rollback: move the skill back to original location
-      try {
-        moveDirectory(targetDir, sourceDir);
-      } catch {
-        // Ignore rollback errors - skill is in disabled directory but not in config
-      }
-      throw new Error(`Failed to update config: ${(configError as Error).message}`);
-    }
+    // Rename: SKILL.md → SKILL.md.disabled
+    renameSync(skillMdPath, disabledPath);
 
     return { success: true, message: 'Skill disabled', skillName, location };
   } catch (error) {
@@ -205,7 +93,7 @@ async function disableSkill(
 }
 
 /**
- * Enable a skill by moving it back from disabled directory
+ * Enable a skill by renaming SKILL.md.disabled back to SKILL.md
  */
 async function enableSkill(
   skillName: string,
@@ -219,14 +107,7 @@ async function enableSkill(
       return { success: false, message: 'Invalid skill name', status: 400 };
     }
 
-    // Get source directory (disabled)
-    const disabledDir = getDisabledSkillsDir(location, projectPath);
-    const sourceDir = join(disabledDir, skillName);
-    if (!existsSync(sourceDir)) {
-      return { success: false, message: 'Disabled skill not found', status: 404 };
-    }
-
-    // Get target directory (skills)
+    // Get skill directory
     let skillsDir: string;
     if (location === 'project') {
       try {
@@ -240,32 +121,23 @@ async function enableSkill(
       skillsDir = join(homedir(), '.claude', 'skills');
     }
 
-    if (!existsSync(skillsDir)) {
-      mkdirSync(skillsDir, { recursive: true });
+    const skillDir = join(skillsDir, skillName);
+    if (!existsSync(skillDir)) {
+      return { success: false, message: 'Skill not found', status: 404 };
     }
 
-    const targetDir = join(skillsDir, skillName);
-    if (existsSync(targetDir)) {
-      return { success: false, message: 'Skill already exists in skills directory', status: 409 };
+    const disabledPath = join(skillDir, 'SKILL.md.disabled');
+    if (!existsSync(disabledPath)) {
+      return { success: false, message: 'Disabled skill not found', status: 404 };
     }
 
-    // Move skill back to skills directory
-    moveDirectory(sourceDir, targetDir);
-
-    // Update config with rollback on failure
-    try {
-      const config = loadDisabledSkillsConfig(location, projectPath);
-      delete config.skills[skillName];
-      saveDisabledSkillsConfig(location, projectPath, config);
-    } catch (configError) {
-      // Rollback: move the skill back to disabled directory
-      try {
-        moveDirectory(targetDir, sourceDir);
-      } catch {
-        // Ignore rollback errors - skill is in skills directory but still in config
-      }
-      throw new Error(`Failed to update config: ${(configError as Error).message}`);
+    const skillMdPath = join(skillDir, 'SKILL.md');
+    if (existsSync(skillMdPath)) {
+      return { success: false, message: 'Skill already enabled', status: 409 };
     }
+
+    // Rename: SKILL.md.disabled → SKILL.md
+    renameSync(disabledPath, skillMdPath);
 
     return { success: true, message: 'Skill enabled', skillName, location };
   } catch (error) {
@@ -274,28 +146,33 @@ async function enableSkill(
 }
 
 /**
- * Get list of disabled skills
+ * Get list of disabled skills by checking for SKILL.md.disabled files
  */
 function getDisabledSkillsList(location: SkillLocation, projectPath: string): DisabledSkillSummary[] {
-  const disabledDir = getDisabledSkillsDir(location, projectPath);
-  const config = loadDisabledSkillsConfig(location, projectPath);
   const result: DisabledSkillSummary[] = [];
 
-  if (!existsSync(disabledDir)) {
+  // Get skills directory (not a separate disabled directory)
+  let skillsDir: string;
+  if (location === 'project') {
+    skillsDir = join(projectPath, '.claude', 'skills');
+  } else {
+    skillsDir = join(homedir(), '.claude', 'skills');
+  }
+
+  if (!existsSync(skillsDir)) {
     return result;
   }
 
   try {
-    const skills = readdirSync(disabledDir, { withFileTypes: true });
+    const skills = readdirSync(skillsDir, { withFileTypes: true });
     for (const skill of skills) {
       if (skill.isDirectory()) {
-        const skillMdPath = join(disabledDir, skill.name, 'SKILL.md');
-        if (existsSync(skillMdPath)) {
-          const content = readFileSync(skillMdPath, 'utf8');
+        const disabledPath = join(skillsDir, skill.name, 'SKILL.md.disabled');
+        if (existsSync(disabledPath)) {
+          const content = readFileSync(disabledPath, 'utf8');
           const parsed = parseSkillFrontmatter(content);
-          const skillDir = join(disabledDir, skill.name);
+          const skillDir = join(skillsDir, skill.name);
           const supportingFiles = getSupportingFiles(skillDir);
-          const disabledInfo = config.skills[skill.name] || { disabledAt: new Date().toISOString() };
 
           result.push({
             name: parsed.name || skill.name,
@@ -306,8 +183,8 @@ function getDisabledSkillsList(location: SkillLocation, projectPath: string): Di
             location,
             path: skillDir,
             supportingFiles,
-            disabledAt: disabledInfo.disabledAt,
-            reason: disabledInfo.reason
+            disabledAt: new Date().toISOString(),  // Cannot get exact time without config file
+            reason: undefined  // No longer stored
           });
         }
       }
@@ -396,7 +273,8 @@ function getSupportingFiles(skillDir: string): string[] {
   try {
     const entries = readdirSync(skillDir, { withFileTypes: true });
     for (const entry of entries) {
-      if (entry.name !== 'SKILL.md') {
+      // Exclude SKILL.md and SKILL.md.disabled from supporting files
+      if (entry.name !== 'SKILL.md' && entry.name !== 'SKILL.md.disabled') {
         if (entry.isFile()) {
           files.push(entry.name);
         } else if (entry.isDirectory()) {

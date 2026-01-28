@@ -164,6 +164,7 @@ const MODULE_FILES = [
   'views/prompt-history.js',
   'views/skills-manager.js',
   'views/rules-manager.js',
+  'views/commands-manager.js',
   'views/claude-manager.js',
   'views/api-settings.js',
   'views/help.js',

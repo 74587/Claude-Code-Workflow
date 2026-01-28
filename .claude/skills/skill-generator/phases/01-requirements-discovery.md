@@ -1,15 +1,4 @@
-# Phase 1: Requirements Discovery
 
-收集新 Skill 的需求信息，生成配置文件。
-
-## Objective
-
-- 收集 Skill 基本信息（名称、描述、触发词）
-- 确定执行模式（Sequential / Autonomous）
-- 定义阶段/动作
-- 配置工具依赖和输出格式
-
-## Execution Steps
 
 ### Step 1: 基本信息收集
 
@@ -228,12 +217,4 @@ Bash(`mkdir -p "${workDir}"`);
 Write(`${workDir}/skill-config.json`, JSON.stringify(config, null, 2));
 ```
 
-## Output
 
-- **File**: `skill-config.json`
-- **Location**: `.workflow/.scratchpad/skill-gen-{timestamp}/`
-- **Format**: JSON
-
-## Next Phase
-
-→ [Phase 2: Structure Generation](02-structure-generation.md)

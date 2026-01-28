@@ -8,10 +8,7 @@
 - Autonomous 模式：生成编排器和动作文件
 - 支持 **文件上下文** 和 **内存上下文** 两种策略
 
-## Input
 
-- 依赖: `skill-config.json`, SKILL.md (Phase 1-2 产出)
-- 模板: `templates/sequential-phase.md`, `templates/autonomous-*.md`
 
 ## 上下文策略 (P0 增强)
 
@@ -782,21 +779,4 @@ function getPreconditionCheck(action) {
 }
 ```
 
-## Output
 
-### Sequential 模式
-
-- `phases/_orchestrator.md` (声明式编排器)
-- `workflow.json` (工作流定义)
-- `phases/01-{step}.md`, `02-{step}.md`, ...
-
-### Autonomous 模式
-
-- `phases/orchestrator.md` (增强版编排器)
-- `phases/state-schema.md`
-- `specs/action-catalog.md` (声明式动作目录)
-- `phases/actions/action-{name}.md` (多个)
-
-## Next Phase
-
-→ [Phase 4: Specs & Templates](04-specs-templates.md)

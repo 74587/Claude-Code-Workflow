@@ -51,6 +51,17 @@ interface CommandOperationResult {
   status?: number;
 }
 
+interface GroupDefinition {
+  name: string;
+  icon?: string;
+  color?: string;
+}
+
+interface CommandGroupsConfig {
+  groups: Record<string, GroupDefinition>;  // Custom group definitions
+  assignments: Record<string, string>;      // commandName -> groupId mapping
+}
+
 // ========== Helper Functions ==========
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -125,19 +136,79 @@ function parseCommandFrontmatter(content: string): CommandMetadata {
 }
 
 /**
- * Infer group from command path if not specified in frontmatter
+ * Get command groups config file path
  */
-function inferGroupFromPath(relativePath: string, metadata: CommandMetadata): string {
-  // If group is specified in frontmatter, use it
-  if (metadata.group && metadata.group !== 'other') {
-    return metadata.group;
+function getGroupsConfigPath(location: CommandLocation, projectPath: string): string {
+  const baseDir = location === 'project'
+    ? join(projectPath, '.claude')
+    : join(homedir(), '.claude');
+  return join(baseDir, 'command-groups.json');
+}
+
+/**
+ * Load command groups configuration
+ */
+function loadGroupsConfig(location: CommandLocation, projectPath: string): CommandGroupsConfig {
+  const configPath = getGroupsConfigPath(location, projectPath);
+
+  const defaultConfig: CommandGroupsConfig = {
+    groups: {},
+    assignments: {}
+  };
+
+  if (!existsSync(configPath)) {
+    return defaultConfig;
   }
 
-  // Infer from directory structure
+  try {
+    const content = readFileSync(configPath, 'utf8');
+    const parsed = JSON.parse(content);
+
+    return {
+      groups: isRecord(parsed.groups) ? parsed.groups as Record<string, GroupDefinition> : {},
+      assignments: isRecord(parsed.assignments) ? parsed.assignments as Record<string, string> : {}
+    };
+  } catch (err) {
+    console.error(`[Commands] Failed to load groups config from ${configPath}:`, err);
+    return defaultConfig;
+  }
+}
+
+/**
+ * Save command groups configuration
+ */
+function saveGroupsConfig(location: CommandLocation, projectPath: string, config: CommandGroupsConfig): void {
+  const configPath = getGroupsConfigPath(location, projectPath);
+  const configDir = dirname(configPath);
+
+  if (!existsSync(configDir)) {
+    mkdirSync(configDir, { recursive: true });
+  }
+
+  try {
+    const content = JSON.stringify(config, null, 2);
+    require('fs').writeFileSync(configPath, content, 'utf8');
+  } catch (err) {
+    console.error(`[Commands] Failed to save groups config to ${configPath}:`, err);
+  }
+}
+
+/**
+ * Get group for a command (from config or inferred from path)
+ */
+function getCommandGroup(commandName: string, relativePath: string, location: CommandLocation, projectPath: string): string {
+  // First check custom assignments
+  const config = loadGroupsConfig(location, projectPath);
+  if (config.assignments[commandName]) {
+    return config.assignments[commandName];
+  }
+
+  // Fallback to path-based inference - use full directory path as group
   const parts = relativePath.split(/[/\\]/);
   if (parts.length > 1) {
-    // Use first directory as group (e.g., 'workflow', 'issue', 'memory')
-    return parts[0];
+    // Use full directory path (excluding filename) as group
+    // e.g., 'workflow/review/code-review.md' -> 'workflow/review'
+    return parts.slice(0, -1).join('/');
   }
 
   return 'other';
@@ -150,7 +221,8 @@ function scanCommandsRecursive(
   baseDir: string,
   currentDir: string,
   location: CommandLocation,
-  enabled: boolean
+  enabled: boolean,
+  projectPath: string
 ): CommandInfo[] {
   const results: CommandInfo[] = [];
 
@@ -168,17 +240,20 @@ function scanCommandsRecursive(
       if (entry.isDirectory()) {
         // Skip _disabled directory when scanning enabled commands
         if (entry.name === '_disabled') continue;
-        
+
         // Recursively scan subdirectories
-        results.push(...scanCommandsRecursive(baseDir, fullPath, location, enabled));
+        results.push(...scanCommandsRecursive(baseDir, fullPath, location, enabled, projectPath));
       } else if (entry.isFile() && entry.name.endsWith('.md')) {
         try {
           const content = readFileSync(fullPath, 'utf8');
           const metadata = parseCommandFrontmatter(content);
-          const group = inferGroupFromPath(relativePath, metadata);
+          const commandName = metadata.name || basename(entry.name, '.md');
+
+          // Get group from external config (not from frontmatter)
+          const group = getCommandGroup(commandName, relativePath, location, projectPath);
 
           results.push({
-            name: metadata.name || basename(entry.name, '.md'),
+            name: commandName,
             description: metadata.description,
             group,
             enabled,
@@ -217,28 +292,28 @@ function getCommandsConfig(projectPath: string): CommandsConfig {
     // Scan project commands
     const projectDir = getCommandsDir('project', projectPath);
     const projectDisabledDir = getDisabledCommandsDir('project', projectPath);
-    
+
     // Enabled project commands
-    const enabledProject = scanCommandsRecursive(projectDir, projectDir, 'project', true);
+    const enabledProject = scanCommandsRecursive(projectDir, projectDir, 'project', true, projectPath);
     result.projectCommands.push(...enabledProject);
-    
+
     // Disabled project commands
     if (existsSync(projectDisabledDir)) {
-      const disabledProject = scanCommandsRecursive(projectDisabledDir, projectDisabledDir, 'project', false);
+      const disabledProject = scanCommandsRecursive(projectDisabledDir, projectDisabledDir, 'project', false, projectPath);
       result.projectCommands.push(...disabledProject);
     }
 
     // Scan user commands
     const userDir = getCommandsDir('user', projectPath);
     const userDisabledDir = getDisabledCommandsDir('user', projectPath);
-    
+
     // Enabled user commands
-    const enabledUser = scanCommandsRecursive(userDir, userDir, 'user', true);
+    const enabledUser = scanCommandsRecursive(userDir, userDir, 'user', true, projectPath);
     result.userCommands.push(...enabledUser);
-    
+
     // Disabled user commands
     if (existsSync(userDisabledDir)) {
-      const disabledUser = scanCommandsRecursive(userDisabledDir, userDisabledDir, 'user', false);
+      const disabledUser = scanCommandsRecursive(userDisabledDir, userDisabledDir, 'user', false, projectPath);
       result.userCommands.push(...disabledUser);
     }
 
@@ -449,8 +524,17 @@ export async function handleCommandsRoutes(ctx: RouteContext): Promise<boolean> 
       });
       
       const config = getCommandsConfig(validatedProjectPath);
+
+      // Include groups config from both project and user
+      const projectGroupsConfig = loadGroupsConfig('project', validatedProjectPath);
+      const userGroupsConfig = loadGroupsConfig('user', validatedProjectPath);
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(config));
+      res.end(JSON.stringify({
+        ...config,
+        projectGroupsConfig,
+        userGroupsConfig
+      }));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const status = message.includes('Access denied') ? 403 : 400;
@@ -509,6 +593,79 @@ export async function handleCommandsRoutes(ctx: RouteContext): Promise<boolean> 
 
       const projectPath = projectPathParam || initialPath;
       return toggleGroup(groupName, locationValue, enable, projectPath, initialPath);
+    });
+    return true;
+  }
+
+  // GET /api/commands/groups - Get groups configuration
+  if (pathname === '/api/commands/groups' && req.method === 'GET') {
+    const projectPathParam = url.searchParams.get('path') || initialPath;
+    const location = url.searchParams.get('location') || 'project';
+
+    try {
+      const validatedProjectPath = await validateAllowedPath(projectPathParam, {
+        mustExist: true,
+        allowedDirectories: [initialPath]
+      });
+
+      if (location !== 'project' && location !== 'user') {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid location' }));
+        return true;
+      }
+
+      const groupsConfig = loadGroupsConfig(location as CommandLocation, validatedProjectPath);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(groupsConfig));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const status = message.includes('Access denied') ? 403 : 400;
+      res.writeHead(status, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: message }));
+    }
+    return true;
+  }
+
+  // PUT /api/commands/groups - Update groups configuration
+  if (pathname === '/api/commands/groups' && req.method === 'PUT') {
+    const projectPathParam = url.searchParams.get('path') || initialPath;
+    const location = url.searchParams.get('location') || 'project';
+
+    handlePostRequest(req, res, async (body) => {
+      try {
+        const validatedProjectPath = await validateAllowedPath(projectPathParam, {
+          mustExist: true,
+          allowedDirectories: [initialPath]
+        });
+
+        if (location !== 'project' && location !== 'user') {
+          return { error: 'Invalid location', status: 400 };
+        }
+
+        if (!isRecord(body)) {
+          return { error: 'Invalid request body', status: 400 };
+        }
+
+        // Validate and save groups config
+        const config: CommandGroupsConfig = {
+          groups: isRecord(body.groups) ? body.groups as Record<string, GroupDefinition> : {},
+          assignments: isRecord(body.assignments) ? body.assignments as Record<string, string> : {}
+        };
+
+        saveGroupsConfig(location as CommandLocation, validatedProjectPath, config);
+
+        return {
+          success: true,
+          message: 'Groups configuration updated',
+          data: config,
+          status: 200
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const status = message.includes('Access denied') ? 403 : 400;
+        console.error(`[Commands] Failed to update groups config: ${message}`);
+        return { error: message, status };
+      }
     });
     return true;
   }

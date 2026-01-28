@@ -4,7 +4,9 @@
 // ========== Commands State ==========
 var commandsData = {
   groups: {}, // Organized by group name: { cli: [...], workflow: [...], memory: [...], task: [...], issue: [...] }
-  allCommands: []
+  allCommands: [],
+  projectGroupsConfig: { groups: {}, assignments: {} },
+  userGroupsConfig: { groups: {}, assignments: {} }
 };
 var expandedGroups = {
   cli: true,
@@ -15,6 +17,7 @@ var expandedGroups = {
 };
 var showDisabledCommands = false;
 var commandsLoading = false;
+var currentLocation = 'project'; // 'project' or 'user'
 
 // ========== Main Render Function ==========
 async function renderCommandsManager() {
@@ -47,11 +50,20 @@ async function loadCommandsData() {
     if (!response.ok) throw new Error('Failed to load commands');
     const data = await response.json();
 
+    // Store groups config
+    commandsData.projectGroupsConfig = data.projectGroupsConfig || { groups: {}, assignments: {} };
+    commandsData.userGroupsConfig = data.userGroupsConfig || { groups: {}, assignments: {} };
+
+    // Filter commands based on currentLocation
+    const allCommands = currentLocation === 'project'
+      ? (data.projectCommands || [])
+      : (data.userCommands || []);
+
     // Organize commands by group
     commandsData.groups = {};
-    commandsData.allCommands = data.commands || [];
+    commandsData.allCommands = allCommands;
 
-    data.commands.forEach(cmd => {
+    allCommands.forEach(cmd => {
       const group = cmd.group || 'other';
       if (!commandsData.groups[group]) {
         commandsData.groups[group] = [];
@@ -63,7 +75,12 @@ async function loadCommandsData() {
     updateCommandsBadge();
   } catch (err) {
     console.error('Failed to load commands:', err);
-    commandsData = { groups: {}, allCommands: [] };
+    commandsData = {
+      groups: {},
+      allCommands: [],
+      projectGroupsConfig: { groups: {}, assignments: {} },
+      userGroupsConfig: { groups: {}, assignments: {} }
+    };
   } finally {
     commandsLoading = false;
   }
@@ -77,12 +94,47 @@ function updateCommandsBadge() {
   }
 }
 
+async function switchLocation(location) {
+  if (location === currentLocation) return;
+  currentLocation = location;
+  await loadCommandsData();
+  renderCommandsView();
+}
+
 function renderCommandsView() {
   const container = document.getElementById('mainContent');
   if (!container) return;
 
   const groups = commandsData.groups || {};
-  const groupNames = ['cli', 'workflow', 'memory', 'task', 'issue', 'other'];
+
+  // Dynamic groups: known groups first, then custom groups hierarchically sorted, 'other' last
+  const knownOrder = ['cli', 'workflow', 'memory', 'task', 'issue'];
+  const allGroupNames = Object.keys(groups);
+
+  // Separate top-level known groups and nested groups
+  const topLevelKnown = allGroupNames.filter(g => knownOrder.includes(g));
+  const nestedAndCustom = allGroupNames.filter(g => g !== 'other' && !knownOrder.includes(g));
+
+  // Sort nested/custom groups hierarchically
+  nestedAndCustom.sort((a, b) => {
+    // Split by path separator
+    const aParts = a.split('/');
+    const bParts = b.split('/');
+
+    // Compare level by level
+    for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
+      if (aParts[i] !== bParts[i]) {
+        return aParts[i].localeCompare(bParts[i]);
+      }
+    }
+
+    // If all parts are equal, shorter path comes first
+    return aParts.length - bParts.length;
+  });
+
+  const groupNames = [...topLevelKnown.filter(g => groups[g] && groups[g].length > 0),
+                      ...nestedAndCustom.filter(g => groups[g] && groups[g].length > 0),
+                      'other'].filter(g => groups[g] && groups[g].length > 0);
   const totalEnabled = commandsData.allCommands.filter(cmd => cmd.enabled).length;
   const totalDisabled = commandsData.allCommands.filter(cmd => !cmd.enabled).length;
 
@@ -100,11 +152,27 @@ function renderCommandsView() {
               <p class="text-sm text-muted-foreground">${t('commands.description') || 'Enable/disable CCW commands'}</p>
             </div>
           </div>
-          <button class="px-4 py-2 text-sm ${showDisabledCommands ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'} rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2"
-                  onclick="toggleShowDisabledCommands()">
-            <i data-lucide="${showDisabledCommands ? 'eye' : 'eye-off'}" class="w-4 h-4"></i>
-            ${showDisabledCommands ? (t('commands.hideDisabled') || 'Hide Disabled') : (t('commands.showDisabled') || 'Show Disabled')} (${totalDisabled})
-          </button>
+          <div class="flex items-center gap-2">
+            <!-- Location Switcher -->
+            <div class="inline-flex bg-muted rounded-lg p-1">
+              <button class="px-3 py-1.5 text-sm rounded-md transition-all ${currentLocation === 'project' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+                      onclick="switchLocation('project')">
+                <i data-lucide="folder" class="w-3.5 h-3.5 inline mr-1"></i>
+                ${t('commands.locationProject') || 'Project'}
+              </button>
+              <button class="px-3 py-1.5 text-sm rounded-md transition-all ${currentLocation === 'user' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+                      onclick="switchLocation('user')">
+                <i data-lucide="user" class="w-3.5 h-3.5 inline mr-1"></i>
+                ${t('commands.locationUser') || 'Global'}
+              </button>
+            </div>
+            <!-- Show Disabled Toggle -->
+            <button class="px-4 py-2 text-sm ${showDisabledCommands ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'} rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2"
+                    onclick="toggleShowDisabledCommands()">
+              <i data-lucide="${showDisabledCommands ? 'eye' : 'eye-off'}" class="w-4 h-4"></i>
+              ${showDisabledCommands ? (t('commands.hideDisabled') || 'Hide Disabled') : (t('commands.showDisabled') || 'Show Disabled')} (${totalDisabled})
+            </button>
+          </div>
         </div>
       </div>
 
@@ -128,11 +196,7 @@ function renderCommandsView() {
 
       <!-- Accordion Groups -->
       <div class="commands-accordion">
-        ${groupNames.map(groupName => {
-          const commands = groups[groupName] || [];
-          if (commands.length === 0) return '';
-          return renderAccordionGroup(groupName, commands);
-        }).join('')}
+        ${groupNames.map(groupName => renderAccordionGroup(groupName, groups[groupName])).join('')}
       </div>
     </div>
   `;
@@ -142,6 +206,8 @@ function renderCommandsView() {
 }
 
 function renderAccordionGroup(groupName, commands) {
+  // Default to expanded for new/custom groups
+  if (expandedGroups[groupName] === undefined) expandedGroups[groupName] = true;
   const isExpanded = expandedGroups[groupName];
   const enabledCommands = commands.filter(cmd => cmd.enabled);
   const disabledCommands = commands.filter(cmd => !cmd.enabled);
@@ -177,26 +243,53 @@ function renderAccordionGroup(groupName, commands) {
   return `
     <div class="accordion-group mb-4">
       <!-- Group Header -->
-      <div class="accordion-header flex items-center justify-between px-4 py-3 bg-card border border-border rounded-lg cursor-pointer hover:bg-hover transition-colors"
-           onclick="toggleAccordionGroup('${groupName}')">
-        <div class="flex items-center gap-3">
+      <div class="accordion-header flex items-center justify-between px-4 py-3 bg-card border border-border rounded-lg hover:bg-hover transition-colors">
+        <div class="flex items-center gap-3 flex-1 cursor-pointer" onclick="toggleAccordionGroup('${groupName}')">
           <i data-lucide="${isExpanded ? 'chevron-down' : 'chevron-right'}" class="w-5 h-5 text-muted-foreground transition-transform"></i>
           <div class="w-8 h-8 ${colorClass} rounded-lg flex items-center justify-center">
             <i data-lucide="${icon}" class="w-4 h-4"></i>
           </div>
           <div>
-            <h3 class="text-base font-semibold text-foreground capitalize">${groupName}</h3>
-            <p class="text-xs text-muted-foreground">${enabledCommands.length}/${commands.length} enabled</p>
+            <h3 class="text-base font-semibold text-foreground capitalize">${t('commands.group.' + groupName) || groupName}</h3>
+            <p class="text-xs text-muted-foreground">${enabledCommands.length}/${commands.length} ${t('commands.enabled') || 'enabled'}</p>
           </div>
         </div>
-        <span class="text-xs px-2 py-1 bg-muted rounded-full text-muted-foreground">${commands.length}</span>
+        <div class="flex items-center gap-3">
+          <!-- Group Toggle Switch -->
+          <label class="group-toggle-switch relative inline-flex items-center cursor-pointer" title="${enabledCommands.length === commands.length ? (t('commands.clickToDisableAll') || 'Click to disable all') : (t('commands.clickToEnableAll') || 'Click to enable all')}">
+            <input type="checkbox"
+                   class="sr-only peer"
+                   ${enabledCommands.length === commands.length ? 'checked' : ''}
+                   onchange="toggleGroupEnabled('${groupName}', ${enabledCommands.length === commands.length})">
+            <div class="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
+          </label>
+          <span class="text-xs px-2 py-1 bg-muted rounded-full text-muted-foreground">${commands.length}</span>
+        </div>
       </div>
 
-      <!-- Group Content (Cards Grid) -->
+      <!-- Group Content (Compact Table) -->
       ${isExpanded ? `
         <div class="accordion-content mt-3">
-          <div class="commands-grid grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
-            ${visibleCommands.map(cmd => renderCommandCard(cmd)).join('')}
+          <div class="bg-card border border-border rounded-lg overflow-hidden">
+            <table class="w-full commands-table" style="table-layout: fixed;">
+              <colgroup>
+                <col style="width: 200px;">
+                <col style="width: auto;">
+                <col style="width: 100px;">
+                <col style="width: 80px;">
+              </colgroup>
+              <thead class="bg-muted/30 border-b border-border">
+                <tr>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">${t('commands.name') || 'Name'}</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">${t('commands.description') || 'Description'}</th>
+                  <th class="px-4 py-2 text-center text-xs font-medium text-muted-foreground uppercase">${t('commands.scope') || 'Scope'}</th>
+                  <th class="px-4 py-2 text-center text-xs font-medium text-muted-foreground uppercase">${t('commands.status') || 'Status'}</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border">
+                ${visibleCommands.map(cmd => renderCommandRow(cmd)).join('')}
+              </tbody>
+            </table>
           </div>
         </div>
       ` : ''}
@@ -204,53 +297,40 @@ function renderAccordionGroup(groupName, commands) {
   `;
 }
 
-function renderCommandCard(command) {
+function renderCommandRow(command) {
   const isDisabled = !command.enabled;
-  const cardOpacity = isDisabled ? 'opacity-60' : '';
 
   return `
-    <div class="command-card bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all ${cardOpacity}">
-      <div class="flex items-start justify-between mb-3">
-        <div class="flex-1 min-w-0">
-          <h4 class="font-semibold text-foreground truncate">${escapeHtml(command.name)}</h4>
-          <span class="text-xs px-2 py-0.5 rounded-full ${getGroupBadgeClass(command.group)} inline-block mt-1">
-            ${command.group || 'other'}
-          </span>
-        </div>
-        <div class="ml-2 flex-shrink-0">
-          <label class="command-toggle-switch relative inline-block w-11 h-6 cursor-pointer">
-            <input type="checkbox"
-                   class="sr-only"
-                   ${command.enabled ? 'checked' : ''}
-                   onchange="toggleCommandEnabled('${escapeHtml(command.name)}', ${command.enabled})"
-                   data-command-toggle="${escapeHtml(command.name)}">
-            <span class="command-toggle-slider absolute inset-0 rounded-full transition-all duration-200 ${command.enabled ? 'bg-success' : 'bg-muted'}"></span>
-          </label>
-        </div>
-      </div>
-
-      <p class="text-sm text-muted-foreground mb-3 line-clamp-2">${escapeHtml(command.description || t('commands.noDescription') || 'No description available')}</p>
-
-      <div class="flex items-center justify-between text-xs text-muted-foreground">
-        <div class="flex items-center gap-2">
-          <span class="flex items-center gap-1">
-            <i data-lucide="folder" class="w-3 h-3"></i>
-            ${command.scope || 'project'}
-          </span>
+    <tr class="hover:bg-muted/20 transition-colors ${isDisabled ? 'opacity-60' : ''}">
+      <td class="px-4 py-3 text-sm font-medium text-foreground">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="break-words">${escapeHtml(command.name)}</span>
           ${command.triggers && command.triggers.length > 0 ? `
-            <span class="flex items-center gap-1">
-              <i data-lucide="zap" class="w-3 h-3"></i>
-              ${command.triggers.length} trigger${command.triggers.length > 1 ? 's' : ''}
+            <span class="text-xs px-1.5 py-0.5 bg-warning/10 text-warning rounded flex-shrink-0" title="${command.triggers.length} trigger(s)">
+              <i data-lucide="zap" class="w-3 h-3 inline mr-0.5"></i>${command.triggers.length}
             </span>
           ` : ''}
         </div>
-        ${isDisabled && command.disabledAt ? `
-          <span class="text-xs text-muted-foreground/70">
-            ${t('commands.disabledAt') || 'Disabled'}: ${formatDisabledDate(command.disabledAt)}
-          </span>
-        ` : ''}
-      </div>
-    </div>
+      </td>
+      <td class="px-4 py-3 text-sm text-muted-foreground">
+        <div class="line-clamp-3 break-words">${escapeHtml(command.description || t('commands.noDescription') || '-')}</div>
+      </td>
+      <td class="px-4 py-3 text-center text-xs text-muted-foreground">
+        <span class="whitespace-nowrap">${command.scope || 'project'}</span>
+      </td>
+      <td class="px-4 py-3">
+        <div class="flex justify-center">
+          <label class="command-toggle-switch relative inline-flex items-center cursor-pointer">
+            <input type="checkbox"
+                   class="sr-only peer"
+                   ${command.enabled ? 'checked' : ''}
+                   onchange="toggleCommandEnabled('${escapeHtml(command.name)}', ${command.enabled})"
+                   data-command-toggle="${escapeHtml(command.name)}">
+            <div class="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+          </label>
+        </div>
+      </td>
+    </tr>
   `;
 }
 
@@ -284,20 +364,6 @@ async function toggleCommandEnabled(commandName, currentlyEnabled) {
   var loadingKey = commandName;
   if (toggleLoadingCommands[loadingKey]) return;
 
-  var action = currentlyEnabled ? 'disable' : 'enable';
-  var confirmMessage = currentlyEnabled
-    ? t('commands.disableConfirm', { name: commandName }) || `Disable command "${commandName}"?`
-    : t('commands.enableConfirm', { name: commandName }) || `Enable command "${commandName}"?`;
-
-  if (!confirm(confirmMessage)) {
-    // Reset toggle state if user cancels
-    const toggleInput = document.querySelector(`[data-command-toggle="${commandName}"]`);
-    if (toggleInput) {
-      toggleInput.checked = currentlyEnabled;
-    }
-    return;
-  }
-
   // Set loading state
   toggleLoadingCommands[loadingKey] = true;
   var toggleInput = document.querySelector('[data-command-toggle="' + commandName + '"]');
@@ -306,10 +372,14 @@ async function toggleCommandEnabled(commandName, currentlyEnabled) {
   }
 
   try {
-    var response = await fetch('/api/commands/' + encodeURIComponent(commandName) + '/' + action, {
+    var response = await fetch('/api/commands/' + encodeURIComponent(commandName) + '/toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ projectPath: projectPath })
+      body: JSON.stringify({
+        projectPath: projectPath,
+        location: currentLocation,
+        enable: !currentlyEnabled
+      })
     });
 
     if (!response.ok) {
@@ -348,6 +418,50 @@ async function toggleCommandEnabled(commandName, currentlyEnabled) {
     delete toggleLoadingCommands[loadingKey];
     if (toggleInput) {
       toggleInput.disabled = false;
+    }
+  }
+}
+
+async function toggleGroupEnabled(groupName, currentlyAllEnabled) {
+  const enable = !currentlyAllEnabled;
+
+  try {
+    const response = await fetch('/api/commands/group/' + encodeURIComponent(groupName) + '/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectPath: projectPath,
+        location: currentLocation,
+        enable: enable
+      })
+    });
+
+    if (!response.ok) {
+      var errorMessage = 'Operation failed';
+      try {
+        var error = await response.json();
+        errorMessage = error.message || errorMessage;
+      } catch (jsonErr) {
+        errorMessage = response.statusText || errorMessage;
+      }
+      throw new Error(errorMessage);
+    }
+
+    // Reload commands data
+    await loadCommandsData();
+    renderCommandsView();
+
+    if (window.showToast) {
+      const groupLabel = t('commands.group.' + groupName) || groupName;
+      const message = enable
+        ? (t('commands.enableGroupSuccess', { group: groupLabel }) || `Group "${groupLabel}" enabled`)
+        : (t('commands.disableGroupSuccess', { group: groupLabel }) || `Group "${groupLabel}" disabled`);
+      showToast(message, 'success');
+    }
+  } catch (err) {
+    console.error('Failed to toggle group:', err);
+    if (window.showToast) {
+      showToast(err.message || t('commands.toggleError') || 'Failed to toggle group', 'error');
     }
   }
 }
