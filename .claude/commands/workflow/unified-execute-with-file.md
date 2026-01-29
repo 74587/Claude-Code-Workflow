@@ -389,11 +389,14 @@ for (let waveIndex = 0; waveIndex < executionWaves.length; waveIndex++) {
         completedCount++
         task.status = 'completed'
         console.log(`✅ ${task.id}: Completed`)
+      } else if (result.value.retry) {
+        console.log(`⚠️ ${task.id}: Will retry`)
+        task.status = 'pending'
       } else {
-        handleTaskFailure(task, result.value.error, autoYes)
+        console.log(`❌ ${task.id}: Failed`)
       }
     } else {
-      handleTaskFailure(task, result.reason, autoYes)
+      console.log(`❌ ${task.id}: Execution error`)
     }
 
     // Progress is tracked in execution-events.md (appended by executeTask)
@@ -549,6 +552,38 @@ ${generateRecoveryNotes(error, task)}
 
     appendToEventLog(eventLogPath, failureEntry)
 
+    // Handle failure: retry, skip, or abort
+    task.attempts++
+    if (task.attempts < task.max_retries && autoYes) {
+      console.log(`⚠️ ${task.id}: Failed, retrying (${task.attempts}/${task.max_retries})`)
+      return { success: false, task_id: task.id, error: error.message, retry: true, duration: calculateDuration(startTime) }
+    } else if (task.attempts >= task.max_retries && !autoYes) {
+      const decision = AskUserQuestion({
+        questions: [{
+          question: `任务失败: ${task.id}\n错误: ${error.message}`,
+          header: "Decision",
+          multiSelect: false,
+          options: [
+            { label: "重试", description: "重新执行该任务" },
+            { label: "跳过", description: "跳过此任务，继续下一个" },
+            { label: "终止", description: "停止整个执行" }
+          ]
+        }]
+      })
+      if (decision === 'retry') {
+        task.attempts = 0
+        return { success: false, task_id: task.id, error: error.message, retry: true, duration: calculateDuration(startTime) }
+      } else if (decision === 'skip') {
+        task.status = 'skipped'
+        skipDependentTasks(task.id, normalizedTasks)
+      } else {
+        throw new Error('Execution aborted by user')
+      }
+    } else {
+      task.status = 'failed'
+      skipDependentTasks(task.id, normalizedTasks)
+    }
+
     return {
       success: false,
       task_id: task.id,
@@ -567,348 +602,77 @@ function appendToEventLog(logPath, eventEntry) {
     Write(logPath, eventEntry)
   }
 }
-
-// Helper to generate context for next agent
-function generateNotesForNextAgent(result, task) {
-  return `
-- This task completed successfully and generated code/artifacts
-- Downstream tasks can reference: ${task.id}
-- Key decisions made: [summarize important choices]
-- Potential issues for next agent: [list any gotchas]
-`
-}
-
-async function handleTaskFailure(task, error, autoYes) {
-  task.attempts++
-
-  if (task.attempts < task.max_retries && autoYes) {
-    console.log(`⚠️ ${task.id}: Failed, retrying (${task.attempts}/${task.max_retries})`)
-    // Retry
-  } else if (task.attempts >= task.max_retries) {
-    if (!autoYes) {
-      const decision = AskUserQuestion({
-        questions: [{
-          question: `任务失败: ${task.id}\n错误: ${error}`,
-          header: "Decision",
-          multiSelect: false,
-          options: [
-            { label: "重试", description: "重新执行该任务" },
-            { label: "跳过", description: "跳过此任务，继续下一个" },
-            { label: "终止", description: "停止整个执行" }
-          ]
-        }]
-      })
-
-      if (decision === 'retry') {
-        task.attempts = 0 // Reset counter
-      } else if (decision === 'skip') {
-        task.status = 'skipped'
-        // Skip dependent tasks
-        skipDependentTasks(task.id, normalizedTasks)
-      } else {
-        throw new Error('Execution aborted by user')
-      }
-    } else {
-      task.status = 'failed'
-      skipDependentTasks(task.id, normalizedTasks)
-    }
-  }
-}
 ```
 
 ---
 
 ## Phase 3: Progress Tracking & Event Logging
 
-### Unified Event Log Format
+The `execution-events.md` file is the **single source of truth** for all agent executions:
+- Each agent **reads** previous execution events for context
+- **Executes** its task (with full knowledge of what was done before)
+- **Writes** its execution event (success or failure) in markdown format
+- Next agent **reads** all previous events, creating a "knowledge chain"
 
-The `execution-events.md` file serves as the **single source of truth** for all agent executions. Each agent:
-1. **Reads** previous execution events for context
-2. **Executes** its task
-3. **Writes** its execution event (success or failure)
-4. Subsequent agents **read** all previous events
-
-This creates a "knowledge chain" where agents can learn from and build upon previous agent work.
-
-**Step 3.1: Unified Event Log Structure**
-
+**Event log format** (appended entry):
 ```markdown
-# Execution Events Log
+## Task {id} - {STATUS} {emoji}
 
-**Session ID**: EXEC-xxx-2025-01-27-abcd
-**Started**: 2025-01-27T10:00:00+08:00
-
----
-
-## Task TASK-001 - COMPLETED ✅
-
-**Timestamp**: 2025-01-27T10:05:00+08:00
-**Duration**: 300000ms (5 minutes)
-**Agent**: code-developer
+**Timestamp**: {time}
+**Duration**: {ms}
+**Agent**: {type}
 
 ### Execution Summary
-
-Implemented authentication types module as per specification. Created:
-- `src/types/auth.ts` with JWT payload types
-- Type definitions for user sessions
-
-### Key Outputs
-
-- ✅ TypeScript type definitions
-- ✅ JSDoc comments for all exports
-- ✅ Export statements verified
+{What was done}
 
 ### Generated Artifacts
-
-- **Source Code**: `artifacts/src/types/auth.ts` (2.3KB)
-- **Type Definitions**: `artifacts/src/types/index.ts` (0.8KB)
+- `src/types/auth.ts` (2.3KB)
 
 ### Notes for Next Agent
-
-- **Reference**: Use types from `src/types/auth.ts` in JWT handler implementation
-- **Key Decisions**: Used discriminated unions for different token types
-- **Potential Issues**: None identified
-- **Artifacts Available**: Type definitions in artifacts/src/types/
-
----
-
-## Task TASK-002 - COMPLETED ✅
-
-**Timestamp**: 2025-01-27T10:15:00+08:00
-**Duration**: 450000ms (7.5 minutes)
-**Agent**: code-developer
-
-### Execution Summary
-
-Implemented JWT token handler using types from TASK-001.
-- Successfully imported and used types from previous task
-- Implemented sign/verify/refresh token methods
-- Added comprehensive error handling
-
-### Key Outputs
-
-- ✅ JWT handler implementation
-- ✅ Integration with auth types from TASK-001
-- ✅ Token validation logic
-- ✅ Refresh token mechanism
-
-### Generated Artifacts
-
-- **Source Code**: `artifacts/src/handlers/jwt.ts` (4.2KB)
-- **Tests**: `artifacts/tests/handlers/jwt.test.ts` (3.1KB)
-
-### Notes for Next Agent
-
-- **Depends On**: TASK-001 (auth types) - successfully integrated ✅
-- **Key Decisions**: Used HS256 algorithm with configurable secret
-- **Potential Issues**: Token expiration handling assumes UTC timestamps
-- **Ready For**: Middleware integration (TASK-003)
-- **Artifacts Available**: JWT handler in artifacts/src/handlers/
-
----
-
-## Task TASK-003 - FAILED ❌
-
-**Timestamp**: 2025-01-27T10:25:00+08:00
-**Duration**: 180000ms (3 minutes)
-**Agent**: code-developer
-**Error**: Missing dependency - TASK-002 artifacts not properly integrated
-
-### Error Details
-
-\`\`\`
-Error: Cannot find module 'src/handlers/jwt'
-  at Module._load (internal/modules/node_modules/module.js:...)
-```
-
-Attempted to import JWT handler from TASK-002, but path resolution failed in test environment.
-
-### Recovery Notes for Next Attempt
-
-- **Root Cause**: Artifacts path resolution differs in test vs build environment
-- **Solution**: Use relative path `../artifacts/src/handlers/jwt` or adjust import configuration
-- **Next Attempt Should**:
-  - Verify artifacts are properly copied to correct location
-  - Update path resolution to handle both test and build environments
-  - Run integration test after fix
-
----
-
-## Task TASK-004 - IN PROGRESS ⏳
-
-**Timestamp**: 2025-01-27T10:30:00+08:00
-**Agent**: code-developer
-
-Building on previous tasks:
-- Artifact: `artifacts/src/types/auth.ts` (from TASK-001)
-- Artifact: `artifacts/src/handlers/jwt.ts` (from TASK-002)
-- Context: TASK-003 failed, will skip dependent tasks...
-
----
-```
-
-**Step 3.2: Event Log Integration with Execution Plan**
-
-Update `execution.md` to reference the unified event log:
-
-```markdown
-### Wave 2 - Execution (2025-01-27 10:05)
-
-**Tasks**: TASK-001, TASK-002, TASK-004 (parallel)
-
-#### Execution Results
-
-For detailed execution records, see: `execution-events.md`
-
-| Task | Status | Duration | Artifacts |
-|------|--------|----------|-----------|
-| TASK-001 | ✅ Complete | 5m | src/types/auth.ts |
-| TASK-002 | ✅ Complete | 7.5m | src/handlers/jwt.ts |
-| TASK-004 | ⏳ In Progress | - | - |
-
-#### Next Steps
-
-- TASK-003 failed due to path resolution
-- Dependent tasks automatically skipped
-- Review execution-events.md for recovery notes
-
----
-```
-
-**Step 3.3: Agent-Readable Execution Context**
-
-When executing each task, agents receive full context:
-
-```javascript
-// Each agent receives this as context:
-const agentExecutionContext = {
-  // Summary of all previous task executions
-  previousExecutions: readPreviousEvents(eventLogPath),
-
-  // Direct references to previous artifacts
-  previousArtifacts: {
-    'TASK-001': 'artifacts/src/types/auth.ts',
-    'TASK-002': 'artifacts/src/handlers/jwt.ts'
-  },
-
-  // Notes from previous agents about current task
-  contextFromPreviousAgent: loadContextNotes(currentTask),
-
-  // Failed tasks to avoid/handle
-  failedTasks: ['TASK-003'],
-  failureReason: 'Path resolution issue - use relative paths',
-
-  // Recommended practices based on what worked
-  successPatterns: [
-    'TASK-001: Direct imports from types work well',
-    'TASK-002: Relative path imports to artifacts successful'
-  ]
-}
-```
-
-**Step 3.4: Todo List Integration**
-
-```javascript
-// Use TodoWrite to track task execution with previous events visible
-const todos = normalizedTasks.map(task => {
-  const previousEvent = readEventForTask(eventLogPath, task.id)
-
-  return {
-    content: task.title,
-    status: task.status,
-    activeForm: `Executing: ${task.title}`,
-    // Include previous attempt notes if exists
-    notes: previousEvent ? `Previous: ${previousEvent.status}` : null
-  }
-})
-
-TodoWrite({ todos })
+- Key decisions made
+- Potential issues
+- Ready for: TASK-003
 ```
 
 ---
 
 ## Phase 4: Completion & Summary
 
-**Step 4.1: Generate Completion Report**
+After all tasks complete or max failures reached:
+
+1. **Collect results**: Count completed/failed/skipped tasks
+2. **Update execution.md**: Add "Execution Completed" section with statistics
+3. **execution-events.md**: Already contains all detailed execution records
 
 ```javascript
-const completionReport = {
-  execution_id: executionId,
-  plan_source: planPath,
-  start_time: progressJson.start_time,
-  end_time: getUtc8ISOString(),
-
-  statistics: {
-    total_tasks: normalizedTasks.length,
-    completed: completedCount,
-    failed: failedCount,
-    skipped: normalizedTasks.filter(t => t.status === 'skipped').length,
-    success_rate: (completedCount / normalizedTasks.length * 100).toFixed(1)
-  },
-
-  results: results,
-
-  artifacts: {
-    generated_files: getAllGeneratedFiles(executionFolder),
-    modified_files: getAllModifiedFiles(executionFolder)
-  }
+const statistics = {
+  total_tasks: normalizedTasks.length,
+  completed: normalizedTasks.filter(t => t.status === 'completed').length,
+  failed: normalizedTasks.filter(t => t.status === 'failed').length,
+  skipped: normalizedTasks.filter(t => t.status === 'skipped').length,
+  success_rate: (completedCount / normalizedTasks.length * 100).toFixed(1)
 }
+
+// Update execution.md with final status
+appendExecutionSummary(executionPath, statistics)
 ```
 
-**Step 4.2: Final execution.md Update**
-
-```markdown
----
-
-## Execution Completed
-
-**Status**: ${completionReport.statistics.success_rate === '100' ? 'SUCCESS ✅' : 'PARTIAL ⚠️'}
-
-**Statistics**:
-- Total Tasks: ${completionReport.statistics.total_tasks}
-- Completed: ${completionReport.statistics.completed}
-- Failed: ${completionReport.statistics.failed}
-- Skipped: ${completionReport.statistics.skipped}
-- Success Rate: ${completionReport.statistics.success_rate}%
-
-**Duration**: ${calculateDuration(progressJson.start_time, getUtc8ISOString())}
-
-### Summary
-
-${generateExecutionSummary(completionReport)}
-
-### Generated Artifacts
-
-${completionReport.artifacts.generated_files.map(f => `- ${f}`).join('\n')}
-
-### Modified Files
-
-${completionReport.artifacts.modified_files.map(f => `- ${f}`).join('\n')}
-
-### Recommendations
-
-${generateRecommendations(completionReport)}
-```
-
-**Step 4.3: Post-Completion Options**
+**Post-Completion Options** (unless --yes):
 
 ```javascript
-if (!autoYes) {
-  AskUserQuestion({
-    questions: [{
-      question: "执行完成。是否需要后续操作?",
-      header: "Next Steps",
-      multiSelect: true,
-      options: [
-        { label: "查看详情", description: "查看完整执行日志" },
-        { label: "调试失败项", description: "对失败任务进行调试" },
-        { label: "优化执行", description: "分析执行改进建议" },
-        { label: "生成报告", description: "导出执行报告" },
-        { label: "完成", description: "不需要后续操作" }
-      ]
-    }]
-  })
-}
+AskUserQuestion({
+  questions: [{
+    question: "执行完成。是否需要后续操作?",
+    header: "Next Steps",
+    multiSelect: true,
+    options: [
+      { label: "查看详情", description: "查看完整执行日志" },
+      { label: "调试失败项", description: "对失败任务进行调试" },
+      { label: "优化执行", description: "分析执行改进建议" },
+      { label: "完成", description: "不需要后续操作" }
+    ]
+  }]
+})
 ```
 
 ---
@@ -933,58 +697,7 @@ if (!autoYes) {
 - Progress tracking: Read task count by parsing status indicators
 - No redundancy: One unified log for all purposes
 
-## Execution Document Template
-
-```markdown
-# Execution Progress
-
-**Execution ID**: EXEC-xxx-2025-01-27-abcd
-**Plan Source**: .workflow/plans/IMPL_PLAN.md
-**Started**: 2025-01-27T10:00:00+08:00
-**Mode**: parallel
-
-**Plan Summary**:
-- Title: Authentication System Refactoring
-- Total Tasks: 12
-- Phases: 3
-
 ---
-
-## Execution Plan
-
-### Task Overview
-
-| Task ID | Title | Type | Status |
-|---------|-------|------|--------|
-| TASK-001 | Setup auth types | code | pending |
-| TASK-002 | Implement JWT handler | code | pending |
-
-### Dependency Graph
-
-```
-TASK-001 → TASK-002 → TASK-003
-       ↘                    ↗
-         TASK-004 --------→ TASK-005
-```
-
----
-
-## Execution Timeline
-
-### Wave 1 - Setup (2025-01-27 10:00)
-
-- ✅ **TASK-001**: Completed
-- ⏳ **TASK-002**: In Progress
-
----
-
-## Current Status
-
-- **Progress**: 1/12 (8%)
-- **In Progress**: 1 task
-- **Pending**: 10 tasks
-- **Failed**: 0 tasks
-```
 
 ## Agent Selection Strategy
 
