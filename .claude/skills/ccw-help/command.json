@@ -1,9 +1,10 @@
 {
   "_metadata": {
-    "version": "2.1.0",
+    "version": "2.3.0",
     "total_commands": 51,
     "total_agents": 16,
-    "description": "Unified CCW-Help command index"
+    "description": "Unified CCW-Help command index",
+    "update": "User prompted to update on skill execution. Run 'python scripts/auto-update.py' for manual update."
   },
 
   "essential_commands": [

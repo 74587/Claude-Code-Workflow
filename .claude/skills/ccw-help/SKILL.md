@@ -132,14 +132,33 @@ Single source of truth: **[command.json](command.json)**
 
 ## Maintenance
 
-### Update Index
+### Update Mechanism
+
+CCW-Help skill supports manual updates through user confirmation dialog.
+
+#### How to Update
+
+**Option 1: When executing the skill, user will be prompted:**
+
+```
+Would you like to update CCW-Help command index?
+- Yes: Run auto-update and regenerate command.json
+- No: Use current index
+```
+
+**Option 2: Manual update**
 
 ```bash
 cd D:/Claude_dms3/.claude/skills/ccw-help
-python scripts/analyze_commands.py
+python scripts/auto-update.py
 ```
 
-脚本功能：扫描 commands/ 和 agents/ 目录，生成统一的 command.json
+This runs `analyze_commands.py` to scan commands/ and agents/ directories and regenerate `command.json`.
+
+#### Update Scripts
+
+- **`auto-update.py`**: Simple wrapper that runs analyze_commands.py
+- **`analyze_commands.py`**: Scans directories and generates command index
 
 ## Statistics
 
