@@ -3,7 +3,7 @@ description: Create structured issue from GitHub URL or text description
 argument-hint: "<github-url | text-description> [--priority 1-5]"
 ---
 
-# Issue New (Codex Version)
+# Issue New 
 
 ## Goal
 
@@ -241,28 +241,6 @@ Before completing, verify:
 | Very vague input | Ask clarifying questions |
 | Issue already exists | Report duplicate, show existing |
 
-## Examples
-
-### Clear Input (No Questions)
-
-```bash
-# GitHub URL
-codex -p "@.codex/prompts/issue-new.md https://github.com/org/repo/issues/42"
-# → Fetches, parses, creates immediately
-
-# Structured text
-codex -p "@.codex/prompts/issue-new.md 'Login fails with special chars. Expected: success. Actual: 500'"
-# → Parses structure, creates immediately
-```
-
-### Vague Input (Clarification)
-
-```bash
-codex -p "@.codex/prompts/issue-new.md 'auth broken'"
-# → Asks: "Please describe the issue in more detail"
-# → User provides details
-# → Creates issue
-```
 
 ## Start Execution
 
