@@ -929,6 +929,10 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
     mode
   });
 
+  if (process.env.DEBUG) {
+    console.error(`[CLI] Generated executionId: ${executionId}`);
+  }
+
   // Buffer to accumulate output when both --stream and --to-file are specified
   let streamBuffer = '';
 
@@ -994,7 +998,7 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       includeDirs,
       // timeout removed - controlled by external caller (bash timeout)
       resume,
-      id, // custom execution ID
+      id: executionId, // unified execution ID (matches broadcast events)
       noNative,
       stream: !!stream, // stream=true → streaming enabled (no cache), stream=false → cache output (default)
       outputFormat, // Enable JSONL parsing for tools that support it
