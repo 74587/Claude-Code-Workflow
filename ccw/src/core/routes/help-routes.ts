@@ -388,7 +388,7 @@ export async function handleHelpRoutes(ctx: RouteContext): Promise<boolean> {
       // We need to resolve this against that actual location, not the project root
 
       const baseDir = initialPath || join(homedir(), '.claude');
-      const commandJsonDir = join(baseDir, '.claude', 'skills', 'ccw-help');
+      const commandJsonDir = join(baseDir, 'skills', 'ccw-help');
 
       // Resolve the source path against where command.json actually is
       const resolvedPath = resolve(commandJsonDir, sourceParam);

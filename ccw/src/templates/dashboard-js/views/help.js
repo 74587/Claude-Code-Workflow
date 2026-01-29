@@ -262,6 +262,8 @@ function renderCommandsTab(category) {
 
   // Initialize accordion handlers
   initializeAccordions();
+  // Initialize command card click handlers
+  initializeCommandCardHandlers();
 }
 
 function renderCommandCard(cmd) {
@@ -271,8 +273,13 @@ function renderCommandCard(cmd) {
     'Advanced': 'bg-error-light text-error'
   }[cmd.difficulty] || 'bg-muted text-muted-foreground';
 
+  // Create safe JSON string for command data
+  var cmdJson = escapeHtml(JSON.stringify(cmd));
+
   return `
-    <div class="bg-background border border-border rounded-lg p-4 hover:border-primary transition-colors">
+    <div class="command-card cursor-pointer bg-background border border-border rounded-lg p-4 hover:border-primary transition-all hover:shadow-md"
+         data-command='${cmdJson}'
+         title="Click to view details">
       <div class="flex items-start justify-between mb-2">
         <div class="flex-1">
           <div class="flex items-center gap-2 mb-1">
@@ -281,6 +288,7 @@ function renderCommandCard(cmd) {
           </div>
           <p class="text-sm text-muted-foreground">${escapeHtml(cmd.description)}</p>
         </div>
+        <i data-lucide="arrow-right" class="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-2"></i>
       </div>
       ${cmd.arguments ? `
         <div class="mt-2 text-xs">
@@ -853,4 +861,408 @@ function renderCodexLensQuickStart() {
 
   container.innerHTML = html;
   if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// ========== Command Detail Modal ==========
+function showCommandDetailModal(cmd) {
+  var modal = document.createElement('div');
+  modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+  modal.id = 'commandDetailModal';
+
+  var difficultyColor = {
+    'Beginner': 'bg-success/10 text-success',
+    'Intermediate': 'bg-warning/10 text-warning',
+    'Advanced': 'bg-error/10 text-error'
+  }[cmd.difficulty] || 'bg-muted/10 text-muted-foreground';
+
+  var sourceLink = cmd.source ? cmd.source.replace(/\.\.\/..\/..\//g, '') : '';
+
+  var html = `
+    <div class="bg-card border border-border rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <!-- Header -->
+      <div class="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-start justify-between">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-2">
+            <code class="text-lg font-mono text-primary font-bold">${escapeHtml(cmd.command)}</code>
+            <span class="text-xs px-3 py-1 rounded-full ${difficultyColor} font-medium">${escapeHtml(cmd.difficulty || 'Intermediate')}</span>
+          </div>
+          <p class="text-sm text-muted-foreground">${escapeHtml(cmd.category || 'general')}${cmd.subcategory ? ' / ' + escapeHtml(cmd.subcategory) : ''}</p>
+        </div>
+        <button class="close-modal text-muted-foreground hover:text-foreground transition-colors" title="Close">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+
+      <!-- Content - Tabs -->
+      <div class="border-b border-border flex">
+        <button class="detail-tab active px-4 py-3 text-sm font-medium transition-colors border-b-2 border-primary" data-tab="overview">
+          Overview
+        </button>
+        ${cmd.source ? `
+        <button class="detail-tab px-4 py-3 text-sm font-medium transition-colors border-b-2 border-transparent text-muted-foreground hover:text-foreground" data-tab="document">
+          <i data-lucide="file-text" class="w-4 h-4 inline-block mr-1"></i>
+          Full Document
+        </button>
+        ` : ''}
+      </div>
+
+      <!-- Tab Content -->
+      <div class="flex-1 overflow-y-auto">
+        <!-- Overview Tab -->
+        <div id="overview-tab" class="detail-tab-content p-6 space-y-6">
+          <!-- Description -->
+          <div>
+            <h3 class="text-sm font-semibold text-foreground mb-2">Description</h3>
+            <p class="text-sm text-muted-foreground leading-relaxed">${escapeHtml(cmd.description || 'No description available')}</p>
+          </div>
+
+          <!-- Usage Scenario -->
+          ${cmd.usage_scenario ? `
+          <div>
+            <h3 class="text-sm font-semibold text-foreground mb-2">Use Case</h3>
+            <p class="text-sm text-muted-foreground">${escapeHtml(cmd.usage_scenario)}</p>
+          </div>
+          ` : ''}
+
+          <!-- Arguments -->
+          ${cmd.arguments ? `
+          <div>
+            <h3 class="text-sm font-semibold text-foreground mb-2">Arguments</h3>
+            <div class="bg-background rounded-lg p-3 border border-border">
+              <code class="text-xs font-mono text-foreground">${escapeHtml(cmd.arguments)}</code>
+            </div>
+          </div>
+          ` : ''}
+
+          <!-- Flow Information -->
+          ${cmd.flow ? `
+          <div>
+            <h3 class="text-sm font-semibold text-foreground mb-3">Workflow</h3>
+            <div class="space-y-2">
+              ${cmd.flow.prerequisites ? `
+              <div class="text-xs">
+                <span class="text-muted-foreground">Prerequisites:</span>
+                <div class="mt-1 space-y-1">
+                  ${cmd.flow.prerequisites.map(p => `
+                    <div class="inline-block px-2 py-1 bg-primary/10 text-primary rounded text-xs mr-2">
+                      ${escapeHtml(p)}
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+              ` : ''}
+
+              ${cmd.flow.next_steps ? `
+              <div class="text-xs">
+                <span class="text-muted-foreground">Next Steps:</span>
+                <div class="mt-1 space-y-1">
+                  ${cmd.flow.next_steps.map(n => `
+                    <div class="inline-block px-2 py-1 bg-success/10 text-success rounded text-xs mr-2">
+                      ${escapeHtml(n)}
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+              ` : ''}
+
+              ${cmd.flow.alternatives ? `
+              <div class="text-xs">
+                <span class="text-muted-foreground">Alternatives:</span>
+                <div class="mt-1 space-y-1">
+                  ${cmd.flow.alternatives.map(a => `
+                    <div class="inline-block px-2 py-1 bg-warning/10 text-warning rounded text-xs mr-2">
+                      ${escapeHtml(a)}
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+              ` : ''}
+            </div>
+          </div>
+          ` : ''}
+
+          <!-- Source -->
+          ${sourceLink ? `
+          <div>
+            <h3 class="text-sm font-semibold text-foreground mb-2">Source File</h3>
+            <div class="text-xs text-muted-foreground font-mono break-all">${escapeHtml(sourceLink)}</div>
+          </div>
+          ` : ''}
+        </div>
+
+        <!-- Document Tab -->
+        ${cmd.source ? `
+        <div id="document-tab" class="detail-tab-content hidden p-6">
+          <div class="bg-background border border-border rounded-lg p-4">
+            <div id="document-loader" class="flex items-center justify-center py-8">
+              <i data-lucide="loader-2" class="w-5 h-5 animate-spin text-primary mr-2"></i>
+              <span class="text-sm text-muted-foreground">Loading document...</span>
+            </div>
+            <div id="document-content" class="hidden prose prose-invert max-w-none text-sm">
+              <!-- Markdown content will be loaded here -->
+            </div>
+            <div id="document-error" class="hidden text-sm text-error">
+              Failed to load document
+            </div>
+          </div>
+        </div>
+        ` : ''}
+      </div>
+
+      <!-- Footer -->
+      <div class="border-t border-border px-6 py-3 flex gap-2 justify-end bg-background rounded-b-lg">
+        <button class="close-modal px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-muted/80 rounded-lg transition-colors">
+          Close
+        </button>
+      </div>
+    </div>
+  `;
+
+  modal.innerHTML = html;
+  document.body.appendChild(modal);
+
+  // Initialize tab switching
+  var tabButtons = modal.querySelectorAll('.detail-tab');
+  tabButtons.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var tabName = this.getAttribute('data-tab');
+
+      // Update active tab button
+      tabButtons.forEach(function(b) {
+        b.classList.remove('active', 'border-primary', 'text-foreground');
+        b.classList.add('border-transparent', 'text-muted-foreground');
+      });
+      this.classList.add('active', 'border-primary', 'text-foreground');
+      this.classList.remove('border-transparent', 'text-muted-foreground');
+
+      // Show/hide tab content
+      var tabContents = modal.querySelectorAll('.detail-tab-content');
+      tabContents.forEach(function(content) {
+        content.classList.add('hidden');
+      });
+      var activeTab = modal.querySelector('#' + tabName + '-tab');
+      if (activeTab) {
+        activeTab.classList.remove('hidden');
+      }
+
+      // Load document content if needed
+      if (tabName === 'document' && cmd.source) {
+        loadCommandDocument(modal, cmd.source);
+      }
+    });
+  });
+
+  // Close handlers
+  var closeButtons = modal.querySelectorAll('.close-modal');
+  closeButtons.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      modal.remove();
+    });
+  });
+
+  // Close on background click
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+
+  // Close on Escape key
+  var closeOnEscape = function(e) {
+    if (e.key === 'Escape') {
+      modal.remove();
+      document.removeEventListener('keydown', closeOnEscape);
+    }
+  };
+  document.addEventListener('keydown', closeOnEscape);
+
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// ========== Load Command Document ==========
+function loadCommandDocument(modal, sourcePath) {
+  var contentDiv = modal.querySelector('#document-content');
+  var loaderDiv = modal.querySelector('#document-loader');
+  var errorDiv = modal.querySelector('#document-error');
+
+  // Check if already loaded
+  if (contentDiv && !contentDiv.classList.contains('hidden')) {
+    return;
+  }
+
+  // Start loading
+  if (loaderDiv) loaderDiv.classList.remove('hidden');
+  if (errorDiv) errorDiv.classList.add('hidden');
+  if (contentDiv) contentDiv.classList.add('hidden');
+
+  // Fetch document content
+  fetch('/api/help/command-content?source=' + encodeURIComponent(sourcePath))
+    .then(function(response) {
+      if (!response.ok) {
+        throw new Error('Failed to load document');
+      }
+      return response.text();
+    })
+    .then(function(markdown) {
+      // Parse markdown to HTML
+      var html = parseMarkdown(markdown);
+
+      if (contentDiv) {
+        contentDiv.innerHTML = html;
+        contentDiv.classList.remove('hidden');
+      }
+      if (loaderDiv) loaderDiv.classList.add('hidden');
+
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    })
+    .catch(function(error) {
+      console.error('Failed to load document:', error);
+      if (errorDiv) {
+        errorDiv.classList.remove('hidden');
+      }
+      if (loaderDiv) loaderDiv.classList.add('hidden');
+    });
+}
+
+// ========== Markdown Parser (Simple) ==========
+function parseMarkdown(markdown) {
+  // Remove frontmatter
+  var lines = markdown.split('\n');
+  var startIdx = 0;
+  if (lines[0] === '---') {
+    for (var i = 1; i < lines.length; i++) {
+      if (lines[i] === '---') {
+        startIdx = i + 1;
+        break;
+      }
+    }
+  }
+
+  var content = lines.slice(startIdx).join('\n').trim();
+
+  var html = '';
+  var currentList = null;
+  var inCodeBlock = false;
+  var codeBlockContent = '';
+  var codeBlockLang = '';
+
+  lines = content.split('\n');
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+
+    // Code blocks
+    if (line.startsWith('```')) {
+      if (!inCodeBlock) {
+        inCodeBlock = true;
+        codeBlockLang = line.substring(3).trim();
+        codeBlockContent = '';
+      } else {
+        inCodeBlock = false;
+        var langClass = codeBlockLang ? ' language-' + escapeHtml(codeBlockLang) : '';
+        html += '<pre class="bg-background border border-border rounded-lg p-4 overflow-x-auto my-3"><code class="text-xs font-mono text-foreground' + langClass + '">' +
+                escapeHtml(codeBlockContent).replace(/\n/g, '<br>') + '</code></pre>';
+      }
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeBlockContent += line + '\n';
+      continue;
+    }
+
+    // Headings
+    if (line.startsWith('# ')) {
+      html += '<h1 class="text-2xl font-bold text-foreground mt-6 mb-3">' + escapeHtml(line.substring(2)) + '</h1>';
+      continue;
+    }
+    if (line.startsWith('## ')) {
+      html += '<h2 class="text-xl font-bold text-foreground mt-5 mb-2">' + escapeHtml(line.substring(3)) + '</h2>';
+      continue;
+    }
+    if (line.startsWith('### ')) {
+      html += '<h3 class="text-lg font-semibold text-foreground mt-4 mb-2">' + escapeHtml(line.substring(4)) + '</h3>';
+      continue;
+    }
+
+    // Lists
+    if (line.match(/^[\s]*[-*+]\s/)) {
+      var listContent = line.replace(/^[\s]*[-*+]\s/, '');
+      if (currentList !== 'ul') {
+        if (currentList === 'ol') html += '</ol>';
+        html += '<ul class="list-disc list-inside text-sm text-muted-foreground space-y-1 my-2">';
+        currentList = 'ul';
+      }
+      html += '<li>' + escapeHtml(listContent) + '</li>';
+      continue;
+    }
+
+    if (line.match(/^[\s]*\d+\.\s/)) {
+      var listContent = line.replace(/^[\s]*\d+\.\s/, '');
+      if (currentList !== 'ol') {
+        if (currentList === 'ul') html += '</ul>';
+        html += '<ol class="list-decimal list-inside text-sm text-muted-foreground space-y-1 my-2">';
+        currentList = 'ol';
+      }
+      html += '<li>' + escapeHtml(listContent) + '</li>';
+      continue;
+    }
+
+    // Close list if we encounter non-list content
+    if (line.trim() && (currentList === 'ul' || currentList === 'ol')) {
+      html += currentList === 'ul' ? '</ul>' : '</ol>';
+      currentList = null;
+    }
+
+    // Paragraphs
+    if (line.trim()) {
+      // Convert inline formatting
+      var formatted = line
+        .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-foreground">$1</strong>')
+        .replace(/\*([^*]+)\*/g, '<em class="italic">$1</em>')
+        .replace(/`([^`]+)`/g, '<code class="bg-background px-1 rounded text-xs font-mono text-primary">$1</code>')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-primary hover:underline">$1</a>');
+
+      html += '<p class="text-sm text-muted-foreground leading-relaxed my-2">' + formatted + '</p>';
+    }
+  }
+
+  // Close any open lists
+  if (currentList === 'ul') html += '</ul>';
+  if (currentList === 'ol') html += '</ol>';
+
+  return html;
+}
+
+// ========== Command Card Click Handlers ==========
+function initializeCommandCardHandlers() {
+  var cards = document.querySelectorAll('.command-card');
+  cards.forEach(function(card) {
+    card.addEventListener('click', function(e) {
+      e.preventDefault();
+      var cmdJson = this.getAttribute('data-command');
+      if (cmdJson) {
+        try {
+          var cmd = JSON.parse(unescapeHtml(cmdJson));
+          showCommandDetailModal(cmd);
+        } catch (err) {
+          console.error('Failed to parse command data:', err);
+        }
+      }
+    });
+  });
+}
+
+// Helper function to unescape HTML
+function unescapeHtml(html) {
+  var map = {
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#039;': "'"
+  };
+  return html.replace(/&(?:amp|lt|gt|quot|#039);/g, function(match) {
+    return map[match];
+  });
 }
