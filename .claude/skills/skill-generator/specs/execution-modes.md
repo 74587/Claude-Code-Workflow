@@ -1,40 +1,40 @@
 # Execution Modes Specification
 
-两种 Skill 执行模式的详细规范定义。
+Detailed specification definitions for two Skill execution modes.
 
 ---
 
-## 模式概览
+## Mode Overview
 
-| 特性 | Sequential (顺序) | Autonomous (自主) |
-|------|-------------------|-------------------|
-| 执行顺序 | 固定（数字前缀） | 动态（编排器决策） |
-| 阶段依赖 | 强依赖 | 弱依赖/无依赖 |
-| 状态管理 | 隐式（阶段产出） | 显式（状态文件） |
-| 适用场景 | 流水线任务 | 交互式任务 |
-| 复杂度 | 低 | 中-高 |
-| 可扩展性 | 插入子阶段 | 添加新动作 |
+| Feature | Sequential (Fixed Order) | Autonomous (Dynamic) |
+|---------|--------------------------|----------------------|
+| Execution Order | Fixed (numeric prefix) | Dynamic (orchestrator decision) |
+| Phase Dependencies | Strong dependencies | Weak/no dependencies |
+| State Management | Implicit (phase output) | Explicit (state file) |
+| Use Cases | Pipeline tasks | Interactive tasks |
+| Complexity | Low | Medium-High |
+| Extensibility | Insert sub-phases | Add new actions |
 
 ---
 
-## Mode 1: Sequential (顺序模式)
+## Mode 1: Sequential (Fixed Order Mode)
 
-### 定义
+### Definition
 
-阶段按固定顺序线性执行，每个阶段的输出作为下一阶段的输入。
+Phases execute linearly in fixed order, with each phase's output serving as input to the next phase.
 
-### 目录结构
+### Directory Structure
 
 ```
 phases/
 ├── 01-{first-step}.md
 ├── 02-{second-step}.md
-├── 02.5-{sub-step}.md      # 可选：子阶段
+├── 02.5-{sub-step}.md      # Optional: sub-phase
 ├── 03-{third-step}.md
 └── ...
 ```
 
-### 执行流程
+### Execution Flow
 
 ```
 ┌─────────┐     ┌─────────┐     ┌─────────┐
@@ -45,33 +45,33 @@ phases/
   output1.json   output2.md      output3.md
 ```
 
-### Phase 文件规范
+### Phase File Specification
 
 ```markdown
-# Phase N: {阶段名称}
+# Phase N: {Phase Name}
 
-{一句话描述}
+{One-sentence description}
 
 ## Objective
 
-{详细目标}
+{Detailed objective}
 
 ## Input
 
-- 依赖: {上一阶段产出}
-- 配置: {配置文件}
+- Dependencies: {Previous phase output}
+- Configuration: {Configuration file}
 
 ## Execution Steps
 
-### Step 1: {步骤}
-{执行代码或说明}
+### Step 1: {Step}
+{Execution code or description}
 
-### Step 2: {步骤}
-{执行代码或说明}
+### Step 2: {Step}
+{Execution code or description}
 
 ## Output
 
-- **File**: `{输出文件}`
+- **File**: `{Output file}`
 - **Format**: {JSON/Markdown}
 
 ## Next Phase
@@ -79,74 +79,74 @@ phases/
 → [Phase N+1: xxx](0N+1-xxx.md)
 ```
 
-### 适用场景
+### Applicable Scenarios
 
-- **文档生成**: 收集 → 分析 → 组装 → 优化
-- **代码分析**: 扫描 → 解析 → 报告
-- **数据处理**: 提取 → 转换 → 加载
+- **Document Generation**: Collect → Analyze → Assemble → Optimize
+- **Code Analysis**: Scan → Parse → Report
+- **Data Processing**: Extract → Transform → Load
 
-### 优点
+### Advantages
 
-- 逻辑清晰，易于理解
-- 调试简单，可逐阶段验证
-- 输出可预测
+- Clear logic, easy to understand
+- Simple debugging, can validate phase by phase
+- Predictable output
 
-### 缺点
+### Disadvantages
 
-- 灵活性低
-- 难以处理分支逻辑
-- 用户交互受限
+- Low flexibility
+- Difficult to handle branching logic
+- Limited user interaction
 
 ---
 
-## Mode 2: Autonomous (自主模式)
+## Mode 2: Autonomous (Dynamic Mode)
 
-### 定义
+### Definition
 
-无固定执行顺序，由编排器 (Orchestrator) 根据当前状态动态选择下一个动作。
+No fixed execution order. The orchestrator dynamically selects the next action based on current state.
 
-### 目录结构
+### Directory Structure
 
 ```
 phases/
-├── orchestrator.md          # 编排器：核心决策逻辑
-├── state-schema.md          # 状态结构定义
-└── actions/                 # 独立动作（无顺序）
+├── orchestrator.md          # Orchestrator: core decision logic
+├── state-schema.md          # State structure definition
+└── actions/                 # Independent actions (no order)
     ├── action-{a}.md
     ├── action-{b}.md
     ├── action-{c}.md
     └── ...
 ```
 
-### 核心组件
+### Core Components
 
-#### 1. Orchestrator (编排器)
+#### 1. Orchestrator
 
 ```markdown
 # Orchestrator
 
 ## Role
 
-根据当前状态选择并执行下一个动作。
+Select and execute the next action based on current state.
 
 ## State Reading
 
-读取状态文件: `{workDir}/state.json`
+Read state file: `{workDir}/state.json`
 
 ## Decision Logic
 
 ```javascript
 function selectNextAction(state) {
-  // 1. 检查终止条件
+  // 1. Check termination conditions
   if (state.status === 'completed') return null;
   if (state.error_count > MAX_RETRIES) return 'action-abort';
-  
-  // 2. 根据状态选择动作
+
+  // 2. Select action based on state
   if (!state.initialized) return 'action-init';
   if (state.pending_items.length > 0) return 'action-process';
   if (state.needs_review) return 'action-review';
-  
-  // 3. 默认动作
+
+  // 3. Default action
   return 'action-complete';
 }
 ```
@@ -158,42 +158,42 @@ while (true) {
   state = readState();
   action = selectNextAction(state);
   if (!action) break;
-  
+
   result = executeAction(action, state);
   updateState(result);
 }
 ```
 ```
 
-#### 2. State Schema (状态结构)
+#### 2. State Schema
 
 ```markdown
 # State Schema
 
-## 状态文件
+## State File
 
-位置: `{workDir}/state.json`
+Location: `{workDir}/state.json`
 
-## 结构定义
+## Structure Definition
 
 ```typescript
 interface SkillState {
-  // 元信息
+  // Metadata
   skill_name: string;
   started_at: string;
   updated_at: string;
-  
-  // 执行状态
+
+  // Execution state
   status: 'pending' | 'running' | 'completed' | 'failed';
   current_action: string | null;
   completed_actions: string[];
-  
-  // 业务数据
+
+  // Business data
   context: Record<string, any>;
   pending_items: any[];
   results: Record<string, any>;
-  
-  // 错误追踪
+
+  // Error tracking
   errors: Array<{
     action: string;
     message: string;
@@ -203,7 +203,7 @@ interface SkillState {
 }
 ```
 
-## 初始状态
+## Initial State
 
 ```json
 {
@@ -222,23 +222,23 @@ interface SkillState {
 ```
 ```
 
-#### 3. Action (动作)
+#### 3. Action
 
 ```markdown
 # Action: {action-name}
 
 ## Purpose
 
-{动作目的}
+{Action purpose}
 
 ## Preconditions
 
-- [ ] 条件1
-- [ ] 条件2
+- [ ] Condition 1
+- [ ] Condition 2
 
 ## Execution
 
-{执行逻辑}
+{Execution logic}
 
 ## State Updates
 
@@ -247,19 +247,19 @@ return {
   completed_actions: [...state.completed_actions, 'action-name'],
   results: {
     ...state.results,
-    action_name: { /* 结果 */ }
+    action_name: { /* result */ }
   },
-  // 其他状态更新
+  // Other state updates
 };
 ```
 
 ## Next Actions (Hints)
 
-- 成功时: `action-{next}`
-- 失败时: `action-retry` 或 `action-abort`
+- On success: `action-{next}`
+- On failure: `action-retry` or `action-abort`
 ```
 
-### 执行流程
+### Execution Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -289,9 +289,9 @@ return {
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 动作目录 (Action Catalog)
+### Action Catalog
 
-在 `specs/action-catalog.md` 中定义：
+Defined in `specs/action-catalog.md`:
 
 ```markdown
 # Action Catalog
@@ -300,11 +300,11 @@ return {
 
 | Action | Purpose | Preconditions | Effects |
 |--------|---------|---------------|---------|
-| action-init | 初始化状态 | status=pending | status=running |
-| action-process | 处理待办项 | pending_items.length>0 | pending_items-- |
-| action-review | 用户审核 | needs_review=true | needs_review=false |
-| action-complete | 完成任务 | pending_items.length=0 | status=completed |
-| action-abort | 中止任务 | error_count>MAX | status=failed |
+| action-init | Initialize state | status=pending | status=running |
+| action-process | Process pending items | pending_items.length>0 | pending_items-- |
+| action-review | User review | needs_review=true | needs_review=false |
+| action-complete | Complete task | pending_items.length=0 | status=completed |
+| action-abort | Abort task | error_count>MAX | status=failed |
 
 ## Action Dependencies Graph
 
@@ -319,78 +319,81 @@ graph TD
 ```
 ```
 
-### 适用场景
+### Applicable Scenarios
 
-- **交互式任务**: 问答、对话、表单填写
-- **状态机任务**: Issue 管理、工作流审批
-- **探索式任务**: 调试、诊断、搜索
+- **Interactive Tasks**: Q&A, dialog, form filling
+- **State Machine Tasks**: Issue management, workflow approval
+- **Exploratory Tasks**: Debugging, diagnosis, search
 
-### 优点
+### Advantages
 
-- 高度灵活，适应动态需求
-- 支持复杂分支逻辑
-- 易于扩展新动作
+- Highly flexible, adapts to dynamic requirements
+- Supports complex branching logic
+- Easy to extend with new actions
 
-### 缺点
+### Disadvantages
 
-- 复杂度高
-- 状态管理开销
-- 调试难度大
+- High complexity
+- State management overhead
+- Large debugging difficulty
 
 ---
 
-## 模式选择指南
+## Mode Selection Guide
 
-### 决策流程
+### Decision Flow
 
 ```
-用户需求分析
+Analyze user requirements
      │
      ▼
 ┌────────────────────────────┐
-│ 阶段间是否有强依赖关系？     │
+│ Are there strong           │
+│ dependencies between       │
+│ phases?                    │
 └────────────────────────────┘
      │
-     ├── 是 → Sequential
+     ├── Yes → Sequential
      │
-     └── 否 → 继续判断
+     └── No → Continue decision
               │
               ▼
      ┌────────────────────────────┐
-     │ 是否需要动态响应用户意图？   │
+     │ Do you need dynamic         │
+     │ response to user intent?    │
      └────────────────────────────┘
               │
-              ├── 是 → Autonomous
+              ├── Yes → Autonomous
               │
-              └── 否 → Sequential
+              └── No → Sequential
 ```
 
-### 快速判断表
+### Quick Decision Table
 
-| 问题 | Sequential | Autonomous |
-|------|------------|------------|
-| 输出结构是否固定？ | ✓ | ✗ |
-| 是否需要用户多轮交互？ | ✗ | ✓ |
-| 阶段是否可以跳过/重复？ | ✗ | ✓ |
-| 是否有复杂分支逻辑？ | ✗ | ✓ |
-| 调试是否需要简单？ | ✓ | ✗ |
+| Question | Sequential | Autonomous |
+|----------|------------|------------|
+| Is output structure fixed? | Yes | No |
+| Do you need multi-turn user interaction? | No | Yes |
+| Can phases be skipped/repeated? | No | Yes |
+| Is there complex branching logic? | No | Yes |
+| Should debugging be simple? | Yes | No |
 
 ---
 
-## 混合模式
+## Hybrid Mode
 
-某些复杂 Skill 可能需要混合使用两种模式：
+Some complex Skills may need to use both modes in combination:
 
 ```
 phases/
-├── 01-init.md                 # Sequential: 初始化
-├── 02-orchestrator.md         # Autonomous: 核心交互循环
+├── 01-init.md                 # Sequential: initialization
+├── 02-orchestrator.md         # Autonomous: core interaction loop
 │   └── actions/
 │       ├── action-a.md
 │       └── action-b.md
-└── 03-finalize.md             # Sequential: 收尾
+└── 03-finalize.md             # Sequential: finalization
 ```
 
-**适用场景**:
-- 初始化和收尾固定，中间交互灵活
-- 多阶段任务，某阶段需要动态决策
+**Applicable Scenarios**:
+- Initialization and finalization are fixed, middle interaction is flexible
+- Multi-phase tasks where certain phases need dynamic decisions

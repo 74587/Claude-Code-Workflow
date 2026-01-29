@@ -1,41 +1,40 @@
 # Phase 2: Structure Generation
 
-根据配置创建 Skill 目录结构和入口文件。
+Create Skill directory structure and entry file based on configuration.
 
 ## Objective
 
-- 创建标准目录结构
-- 生成 SKILL.md 入口文件
-- 根据执行模式创建对应的子目录
-
+- Create standard directory structure
+- Generate SKILL.md entry file
+- Create corresponding subdirectories based on execution mode
 
 
 ## Execution Steps
 
-### Step 1: 读取配置
+### Step 1: Read Configuration
 
 ```javascript
 const config = JSON.parse(Read(`${workDir}/skill-config.json`));
 const skillDir = `.claude/skills/${config.skill_name}`;
 ```
 
-### Step 2: 创建目录结构
+### Step 2: Create Directory Structure
 
-#### 基础目录（所有模式）
+#### Base Directories (All Modes)
 
 ```javascript
-// 基础架构
+// Base infrastructure
 Bash(`mkdir -p "${skillDir}/{phases,specs,templates,scripts}"`);
 ```
 
-#### 执行模式特定目录
+#### Execution Mode-Specific Directories
 
 ```
 config.execution_mode
     ↓
     ├─ "sequential"
     │   ↓ Creates:
-    │   └─ phases/ (基础目录已包含)
+    │   └─ phases/ (base directory already included)
     │      ├─ _orchestrator.md
     │      └─ workflow.json
     │
@@ -43,36 +42,36 @@ config.execution_mode
         ↓ Creates:
         └─ phases/actions/
            ├─ state-schema.md
-           └─ *.md (动作文件)
+           └─ *.md (action files)
 ```
 
 ```javascript
-// Autonomous/Hybrid 模式额外目录
+// Additional directories for Autonomous/Hybrid mode
 if (config.execution_mode === 'autonomous' || config.execution_mode === 'hybrid') {
   Bash(`mkdir -p "${skillDir}/phases/actions"`);
 }
 ```
 
-#### Context Strategy 特定目录 (P0 增强)
+#### Context Strategy-Specific Directories (P0 Enhancement)
 
 ```javascript
-// ========== P0: 根据上下文策略创建目录 ==========
+// ========== P0: Create directories based on context strategy ==========
 const contextStrategy = config.context_strategy || 'file';
 
 if (contextStrategy === 'file') {
-  // 文件策略：创建上下文持久化目录
+  // File strategy: Create persistent context directory
   Bash(`mkdir -p "${skillDir}/.scratchpad-template/context"`);
 
-  // 创建上下文模板文件
+  // Create context template file
   Write(
     `${skillDir}/.scratchpad-template/context/.gitkeep`,
     "# Runtime context storage for file-based strategy"
   );
 }
-// 内存策略无需创建目录 (in-memory only)
+// Memory strategy does not require directory creation (in-memory only)
 ```
 
-**目录树视图**:
+**Directory Tree View**:
 
 ```
 Sequential + File Strategy:
@@ -83,7 +82,7 @@ Sequential + File Strategy:
   │   ├── 01-*.md
   │   └── 02-*.md
   ├── .scratchpad-template/
-  │   └── context/           ← File strategy persistent storage
+  │   └── context/           <- File strategy persistent storage
   └── specs/
 
 Autonomous + Memory Strategy:
@@ -96,7 +95,7 @@ Autonomous + Memory Strategy:
   └── specs/
 ```
 
-### Step 3: 生成 SKILL.md
+### Step 3: Generate SKILL.md
 
 ```javascript
 const skillMdTemplate = `---
@@ -130,8 +129,8 @@ const timestamp = new Date().toISOString().slice(0,19).replace(/[-:T]/g, '');
 const workDir = \`${config.output.location.replace('{timestamp}', '${timestamp}')}\`;
 
 Bash(\`mkdir -p "\${workDir}"\`);
-${config.execution_mode === 'sequential' ? 
-  `Bash(\`mkdir -p "\${workDir}/sections"\`);` : 
+${config.execution_mode === 'sequential' ?
+  `Bash(\`mkdir -p "\${workDir}/sections"\`);` :
   `Bash(\`mkdir -p "\${workDir}/state"\`);`}
 \`\`\`
 
@@ -149,53 +148,53 @@ ${generateReferenceTable(config)}
 Write(`${skillDir}/SKILL.md`, skillMdTemplate);
 ```
 
-### Step 4: 架构图生成函数
+### Step 4: Architecture Diagram Generation Functions
 
 ```javascript
 function generateArchitectureDiagram(config) {
   if (config.execution_mode === 'sequential') {
-    return config.sequential_config.phases.map((p, i) => 
+    return config.sequential_config.phases.map((p, i) =>
       `│  Phase ${i+1}: ${p.name.padEnd(15)} → ${p.output || 'output-' + (i+1) + '.json'}${' '.repeat(10)}│`
     ).join('\n│           ↓' + ' '.repeat(45) + '│\n');
   } else {
     return `
 ┌─────────────────────────────────────────────────────────────────┐
-│           Orchestrator (状态驱动决策)                             │
+│           Orchestrator (State-driven decision-making)             │
 └───────────────┬─────────────────────────────────────────────────┘
                 │
     ┌───────────┼───────────┐
     ↓           ↓           ↓
-${config.autonomous_config.actions.slice(0, 3).map(a => 
+${config.autonomous_config.actions.slice(0, 3).map(a =>
   `┌─────────┐  `).join('')}
-${config.autonomous_config.actions.slice(0, 3).map(a => 
+${config.autonomous_config.actions.slice(0, 3).map(a =>
   `│${a.name.slice(0, 7).padEnd(7)}│  `).join('')}
-${config.autonomous_config.actions.slice(0, 3).map(a => 
+${config.autonomous_config.actions.slice(0, 3).map(a =>
   `└─────────┘  `).join('')}`;
   }
 }
 
 function generateDesignPrinciples(config) {
   const common = [
-    "1. **规范遵循**: 严格遵循 `_shared/SKILL-DESIGN-SPEC.md`",
-    "2. **简要返回**: Agent 返回路径+摘要，避免上下文溢出"
+    "1. **Specification Compliance**: Strictly follow `_shared/SKILL-DESIGN-SPEC.md`",
+    "2. **Brief Return**: Agent returns path+summary, avoiding context overflow"
   ];
-  
+
   if (config.execution_mode === 'sequential') {
     return [...common,
-      "3. **阶段隔离**: 每个阶段独立可测",
-      "4. **链式输出**: 阶段产出作为下阶段输入"
+      "3. **Phase Isolation**: Each phase is independently testable",
+      "4. **Chained Output**: Phase output becomes next phase input"
     ].join('\n');
   } else {
     return [...common,
-      "3. **状态驱动**: 显式状态管理，动态决策",
-      "4. **动作独立**: 每个动作无副作用依赖"
+      "3. **State-driven**: Explicit state management, dynamic decision-making",
+      "4. **Action Independence**: Each action has no side-effect dependencies"
     ].join('\n');
   }
 }
 
 function generateExecutionFlow(config) {
   if (config.execution_mode === 'sequential') {
-    return '```\n' + config.sequential_config.phases.map((p, i) => 
+    return '```\n' + config.sequential_config.phases.map((p, i) =>
       `├─ Phase ${i+1}: ${p.name}\n│  → Output: ${p.output || 'output.json'}`
     ).join('\n') + '\n```';
   } else {
@@ -216,9 +215,9 @@ function generateExecutionFlow(config) {
 function generateOutputStructure(config) {
   const base = `${config.output.location}/
 ├── ${config.execution_mode === 'sequential' ? 'sections/' : 'state.json'}`;
-  
+
   if (config.execution_mode === 'sequential') {
-    return base + '\n' + config.sequential_config.phases.map(p => 
+    return base + '\n' + config.sequential_config.phases.map(p =>
       `│   └── ${p.output || 'section-' + p.id + '.md'}`
     ).join('\n') + `\n└── ${config.output.filename_pattern}`;
   } else {
@@ -230,22 +229,22 @@ function generateOutputStructure(config) {
 
 function generateReferenceTable(config) {
   const rows = [];
-  
+
   if (config.execution_mode === 'sequential') {
     config.sequential_config.phases.forEach(p => {
       rows.push(`| [phases/${p.id}.md](phases/${p.id}.md) | ${p.name} |`);
     });
   } else {
-    rows.push(`| [phases/orchestrator.md](phases/orchestrator.md) | 编排器 |`);
-    rows.push(`| [phases/state-schema.md](phases/state-schema.md) | 状态定义 |`);
+    rows.push(`| [phases/orchestrator.md](phases/orchestrator.md) | Orchestrator |`);
+    rows.push(`| [phases/state-schema.md](phases/state-schema.md) | State Definition |`);
     config.autonomous_config.actions.forEach(a => {
       rows.push(`| [phases/actions/${a.id}.md](phases/actions/${a.id}.md) | ${a.name} |`);
     });
   }
-  
-  rows.push(`| [specs/${config.skill_name}-requirements.md](specs/${config.skill_name}-requirements.md) | 领域规范 |`);
-  rows.push(`| [specs/quality-standards.md](specs/quality-standards.md) | 质量标准 |`);
-  
+
+  rows.push(`| [specs/${config.skill_name}-requirements.md](specs/${config.skill_name}-requirements.md) | Domain Requirements |`);
+  rows.push(`| [specs/quality-standards.md](specs/quality-standards.md) | Quality Standards |`);
+
   return `| Document | Purpose |\n|----------|---------||\n` + rows.join('\n');
 }
 ```

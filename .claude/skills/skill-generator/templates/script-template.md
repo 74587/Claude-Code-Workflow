@@ -1,56 +1,56 @@
 # Script Template
 
-统一的脚本模板，覆盖 Bash 和 Python 两种运行时。
+Unified script template covering both Bash and Python runtimes.
 
 ## Usage Context
 
 | Phase | Usage |
 |-------|-------|
-| Optional | Phase/Action 中声明 `## Scripts` 时使用 |
-| Execution | 通过 `ExecuteScript('script-id', params)` 调用 |
+| Optional | Use when declaring `## Scripts` in Phase/Action |
+| Execution | Invoke via `ExecuteScript('script-id', params)` |
 | Output Location | `.claude/skills/{skill-name}/scripts/{script-id}.{ext}` |
 
 ---
 
-## 调用接口规范
+## Invocation Interface Specification
 
-所有脚本共享相同的调用约定：
+All scripts share the same calling convention:
 
 ```
-调用者
-    ↓ ExecuteScript('script-id', { key: value })
-    ↓
-脚本入口
-    ├─ 参数解析 (--key value)
-    ├─ 输入验证 (必需参数检查, 文件存在)
-    ├─ 核心处理 (数据读取 → 转换 → 写入)
-    └─ 输出结果 (最后一行: 单行 JSON → stdout)
-         ├─ 成功: {"status":"success", "output_file":"...", ...}
-         └─ 失败: stderr 输出错误信息, exit 1
+Caller
+    | ExecuteScript('script-id', { key: value })
+    |
+Script Entry
+    ├─ Parameter parsing (--key value)
+    ├─ Input validation (required parameter checks, file exists)
+    ├─ Core processing (data read -> transform -> write)
+    └─ Output result (last line: single-line JSON -> stdout)
+         ├─ Success: {"status":"success", "output_file":"...", ...}
+         └─ Failure: stderr output error message, exit 1
 ```
 
-### 返回格式
+### Return Format
 
 ```typescript
 interface ScriptResult {
   success: boolean;    // exit code === 0
-  stdout: string;      // 标准输出
-  stderr: string;      // 标准错误
-  outputs: object;     // 从 stdout 最后一行解析的 JSON
+  stdout: string;      // Standard output
+  stderr: string;      // Standard error
+  outputs: object;     // JSON output parsed from stdout last line
 }
 ```
 
-### 参数约定
+### Parameter Convention
 
-| 参数 | 必需 | 说明 |
-|------|------|------|
-| `--input-path` | ✓ | 输入文件路径 |
-| `--output-dir` | ✓ | 输出目录（由调用方指定） |
-| 其他 | 按需 | 脚本特定参数 |
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `--input-path` | Yes | Input file path |
+| `--output-dir` | Yes | Output directory (specified by caller) |
+| Others | Optional | Script-specific parameters |
 
 ---
 
-## Bash 实现
+## Bash Implementation
 
 ```bash
 #!/bin/bash
@@ -59,7 +59,7 @@ interface ScriptResult {
 set -euo pipefail
 
 # ============================================================
-# 参数解析
+# Parameter Parsing
 # ============================================================
 
 INPUT_PATH=""
@@ -70,11 +70,11 @@ while [[ "$#" -gt 0 ]]; do
         --input-path)  INPUT_PATH="$2"; shift ;;
         --output-dir)  OUTPUT_DIR="$2"; shift ;;
         --help)
-            echo "用法: $0 --input-path <path> --output-dir <dir>"
+            echo "Usage: $0 --input-path <path> --output-dir <dir>"
             exit 0
             ;;
         *)
-            echo "错误: 未知参数 $1" >&2
+            echo "Error: Unknown parameter $1" >&2
             exit 1
             ;;
     esac
@@ -82,31 +82,31 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # ============================================================
-# 参数验证
+# Parameter Validation
 # ============================================================
 
-[[ -z "$INPUT_PATH" ]] && { echo "错误: --input-path 是必需参数" >&2; exit 1; }
-[[ -z "$OUTPUT_DIR" ]] && { echo "错误: --output-dir 是必需参数" >&2; exit 1; }
-[[ ! -f "$INPUT_PATH" ]] && { echo "错误: 输入文件不存在: $INPUT_PATH" >&2; exit 1; }
-command -v jq &> /dev/null || { echo "错误: 需要安装 jq" >&2; exit 1; }
+[[ -z "$INPUT_PATH" ]] && { echo "Error: --input-path is required parameter" >&2; exit 1; }
+[[ -z "$OUTPUT_DIR" ]] && { echo "Error: --output-dir is required parameter" >&2; exit 1; }
+[[ ! -f "$INPUT_PATH" ]] && { echo "Error: Input file does not exist: $INPUT_PATH" >&2; exit 1; }
+command -v jq &> /dev/null || { echo "Error: jq is required" >&2; exit 1; }
 
 mkdir -p "$OUTPUT_DIR"
 
 # ============================================================
-# 核心逻辑
+# Core Logic
 # ============================================================
 
 OUTPUT_FILE="$OUTPUT_DIR/result.txt"
 ITEMS_COUNT=0
 
-# TODO: 实现处理逻辑
+# TODO: Implement processing logic
 while IFS= read -r line; do
     echo "$line" >> "$OUTPUT_FILE"
     ((ITEMS_COUNT++))
 done < "$INPUT_PATH"
 
 # ============================================================
-# 输出 JSON 结果（使用 jq 构建，避免转义问题）
+# Output JSON Result (use jq to build, avoid escaping issues)
 # ============================================================
 
 jq -n \
@@ -115,34 +115,34 @@ jq -n \
     '{output_file: $output_file, items_processed: $items_processed, status: "success"}'
 ```
 
-### Bash 常用模式
+### Bash Common Patterns
 
 ```bash
-# 文件遍历
+# File iteration
 for file in "$INPUT_DIR"/*.json; do
     [[ -f "$file" ]] || continue
-    # 处理逻辑...
+    # Processing logic...
 done
 
-# 临时文件 (自动清理)
+# Temp file (auto cleanup)
 TEMP_FILE=$(mktemp)
 trap "rm -f $TEMP_FILE" EXIT
 
-# 工具依赖检查
+# Tool dependency check
 require_command() {
-    command -v "$1" &> /dev/null || { echo "错误: 需要 $1" >&2; exit 1; }
+    command -v "$1" &> /dev/null || { echo "Error: $1 required" >&2; exit 1; }
 }
 require_command jq
 
-# jq 处理
-VALUE=$(jq -r '.field' "$INPUT_PATH")                    # 读取字段
-jq '.field = "new"' input.json > output.json             # 修改字段
-jq -s 'add' file1.json file2.json > merged.json          # 合并文件
+# jq processing
+VALUE=$(jq -r '.field' "$INPUT_PATH")                    # Read field
+jq '.field = "new"' input.json > output.json             # Modify field
+jq -s 'add' file1.json file2.json > merged.json          # Merge files
 ```
 
 ---
 
-## Python 实现
+## Python Implementation
 
 ```python
 #!/usr/bin/env python3
@@ -158,33 +158,33 @@ from pathlib import Path
 
 def main():
     parser = argparse.ArgumentParser(description='{{script_description}}')
-    parser.add_argument('--input-path', type=str, required=True, help='输入文件路径')
-    parser.add_argument('--output-dir', type=str, required=True, help='输出目录')
+    parser.add_argument('--input-path', type=str, required=True, help='Input file path')
+    parser.add_argument('--output-dir', type=str, required=True, help='Output directory')
     args = parser.parse_args()
 
-    # 验证输入
+    # Validate input
     input_path = Path(args.input_path)
     if not input_path.exists():
-        print(f"错误: 输入文件不存在: {input_path}", file=sys.stderr)
+        print(f"Error: Input file does not exist: {input_path}", file=sys.stderr)
         sys.exit(1)
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # 执行处理
+    # Execute processing
     try:
         result = process(input_path, output_dir)
     except Exception as e:
-        print(f"错误: {e}", file=sys.stderr)
+        print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # 输出 JSON 结果
+    # Output JSON result
     print(json.dumps(result))
 
 
 def process(input_path: Path, output_dir: Path) -> dict:
-    """核心处理逻辑"""
-    # TODO: 实现处理逻辑
+    """Core processing logic"""
+    # TODO: Implement processing logic
 
     output_file = output_dir / 'result.json'
 
@@ -207,17 +207,17 @@ if __name__ == '__main__':
     main()
 ```
 
-### Python 常用模式
+### Python Common Patterns
 
 ```python
-# 文件遍历
+# File iteration
 def process_files(input_dir: Path, pattern: str = '*.json') -> list:
     return [
         {'file': str(f), 'data': json.load(f.open())}
         for f in input_dir.glob(pattern)
     ]
 
-# 数据转换
+# Data transformation
 def transform(data: dict) -> dict:
     return {
         'id': data.get('id'),
@@ -225,7 +225,7 @@ def transform(data: dict) -> dict:
         'timestamp': datetime.now().isoformat()
     }
 
-# 外部命令调用
+# External command invocation
 import subprocess
 
 def run_command(cmd: list) -> str:
@@ -237,24 +237,24 @@ def run_command(cmd: list) -> str:
 
 ---
 
-## 运行时选择指南
+## Runtime Selection Guide
 
 ```
-任务特征
-    ↓
-    ├─ 文件处理 / 系统命令 / 管道操作
-    │   └─ 选 Bash (.sh)
+Task Characteristics
+    |
+    ├─ File processing / system commands / pipeline operations
+    │   └─ Choose Bash (.sh)
     │
-    ├─ JSON 数据处理 / 复杂转换 / 数据分析
-    │   └─ 选 Python (.py)
+    ├─ JSON data processing / complex transformation / data analysis
+    │   └─ Choose Python (.py)
     │
-    └─ 简单读写 / 格式转换
-        └─ 任选（Bash 更轻量）
+    └─ Simple read/write / format conversion
+        └─ Either (Bash is lighter)
 ```
 
 ---
 
-## 生成函数
+## Generation Function
 
 ```javascript
 function generateScript(scriptConfig) {
@@ -280,7 +280,7 @@ function generateBashScript(scriptConfig) {
 
   const paramValidation = inputs.filter(i => i.required).map(i => {
     const VAR = i.name.toUpperCase().replace(/-/g, '_');
-    return `[[ -z "$${VAR}" ]] && { echo "错误: --${i.name} 是必需参数" >&2; exit 1; }`;
+    return `[[ -z "$${VAR}" ]] && { echo "Error: --${i.name} is required parameter" >&2; exit 1; }`;
   }).join('\n');
 
   return `#!/bin/bash
@@ -293,16 +293,16 @@ ${paramDefs}
 while [[ "$#" -gt 0 ]]; do
     case $1 in
 ${paramParse}
-        *) echo "未知参数: $1" >&2; exit 1 ;;
+        *) echo "Unknown parameter: $1" >&2; exit 1 ;;
     esac
     shift
 done
 
 ${paramValidation}
 
-# TODO: 实现处理逻辑
+# TODO: Implement processing logic
 
-# 输出结果 (jq 构建)
+# Output result (jq build)
 jq -n ${outputs.map(o =>
   `--arg ${o.name} "$${o.name.toUpperCase().replace(/-/g, '_')}"`
 ).join(' \\\n    ')} \
@@ -339,7 +339,7 @@ def main():
 ${argDefs}
     args = parser.parse_args()
 
-    # TODO: 实现处理逻辑
+    # TODO: Implement processing logic
     result = {
 ${resultFields}
     }
@@ -355,7 +355,7 @@ if __name__ == '__main__':
 
 ---
 
-## 目录约定
+## Directory Convention
 
 ```
 scripts/
@@ -364,5 +364,5 @@ scripts/
 └── transform.js       # id: transform, runtime: node
 ```
 
-- **命名即 ID**: 文件名（不含扩展名）= 脚本 ID
-- **扩展名即运行时**: `.py` → python, `.sh` → bash, `.js` → node
+- **Name is ID**: Filename (without extension) = script ID
+- **Extension is runtime**: `.py` -> python, `.sh` -> bash, `.js` -> node

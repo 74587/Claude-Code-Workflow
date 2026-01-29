@@ -1,14 +1,14 @@
 # Reference Documents Generation Specification
 
-> **重要**: 本规范定义如何在生成的skill中组织和展现参考文档，避免重复问题。
+> **IMPORTANT**: This specification defines how to organize and present reference documents in generated skills to avoid duplication issues.
 
-## 核心原则
+## Core Principles
 
-### 1. 分阶段组织 (Phase-Based Organization)
+### 1. Phase-Based Organization
 
-参考文档必须按照skill的执行阶段组织，而不是平铺列表。
+Reference documents must be organized by skill execution phases, not as a flat list.
 
-**❌ 错误方式** (平铺列表):
+**Wrong Approach** (Flat List):
 ```markdown
 ## Reference Documents
 
@@ -19,203 +19,203 @@
 | doc3.md | ... |
 ```
 
-**✅ 正确方式** (分阶段导航):
+**Correct Approach** (Phase-Based Navigation):
 ```markdown
 ## Reference Documents by Phase
 
-### 📋 Phase 1: Analysis
-执行Phase 1时查阅的文档
+### Phase 1: Analysis
+Documents to refer to when executing Phase 1
 
 | Document | Purpose | When to Use |
 |----------|---------|-------------|
-| doc1.md | ... | 理解x概念 |
+| doc1.md | ... | Understand concept x |
 
-### ⚙️ Phase 2: Implementation
-执行Phase 2时查阅的文档
+### Phase 2: Implementation
+Documents to refer to when executing Phase 2
 
 | Document | Purpose | When to Use |
 |----------|---------|-------------|
-| doc2.md | ... | 实现y功能 |
+| doc2.md | ... | Implement feature y |
 ```
 
-### 2. 四个标准分组
+### 2. Four Standard Groupings
 
-参考文档必须分为以下四个分组：
+Reference documents must be divided into the following four groupings:
 
-| 分组 | 使用时机 | 内容 |
-|-----|---------|------|
-| **Phase N: [Name]** | 执行该Phase时 | 该阶段相关的所有文档 |
-| **🔍 Debugging** | 遇到问题时 | 问题→文档映射表 |
-| **📚 Reference** | 深度学习时 | 模板、原始实现、最佳实践 |
-| (可选) **📌 Quick Links** | 快速导航 | 最常查阅的5-7个文档 |
+| Grouping | When to Use | Content |
+|----------|------------|---------|
+| **Phase N: [Name]** | When executing this phase | All documents related to this phase |
+| **Debugging** | When encountering problems | Issue to documentation mapping table |
+| **Reference** | When learning in depth | Templates, original implementations, best practices |
+| (Optional) **Quick Links** | Quick navigation | Most frequently consulted 5-7 documents |
 
-### 3. 每个文档条目必须包含
+### 3. Each Document Entry Must Include
 
 ```
 | [path](path) | Purpose | When to Use |
 ```
 
-**When to Use 列要求**:
-- ✅ 清晰说明使用场景
-- ✅ 描述解决什么问题
-- ❌ 不要简单说 "参考" 或 "了解"
+**When to Use Column Requirements**:
+- Clear explanation of usage scenarios
+- Describe what problem is solved
+- Do not simply say "refer to" or "learn about"
 
-**良好例子**:
-- "理解issue数据结构"
-- "学习Planning Agent的角色"
-- "检查implementation是否达到质量标准"
-- "快速定位状态异常的原因"
+**Good Examples**:
+- "Understand issue data structure"
+- "Learn about the Planning Agent role"
+- "Check if implementation meets quality standards"
+- "Quickly locate the reason for status anomalies"
 
-**糟糕例子**:
-- "参考文档"
-- "更多信息"
-- "背景知识"
+**Poor Examples**:
+- "Reference document"
+- "More information"
+- "Background knowledge"
 
-### 4. 执行流程中嵌入文档指引
+### 4. Embedding Document Guidance in Execution Flow
 
-在"Execution Flow"部分，每个Phase说明中应包含"查阅"提示：
+In the "Execution Flow" section, each Phase description should include "Refer to" hints:
 
 ```markdown
 ### Phase 2: Planning Pipeline
-→ **查阅**: action-plan.md, subagent-roles.md
-→ 具体流程说明...
+→ **Refer to**: action-plan.md, subagent-roles.md
+→ Detailed flow description...
 ```
 
-### 5. 问题排查快速查询表
+### 5. Quick Troubleshooting Reference Table
 
-应包含常见问题到文档的映射：
+Should contain common issue to documentation mapping:
 
 ```markdown
-### 🔍 Debugging & Troubleshooting
+### Debugging & Troubleshooting
 
 | Issue | Solution Document |
 |-------|------------------|
-| Phase执行失败 | 查阅相应Phase文档 |
-| 输出格式不符 | specs/quality-standards.md |
-| 数据验证失败 | specs/schema-validation.md |
+| Phase execution failed | Refer to corresponding phase documentation |
+| Output format incorrect | specs/quality-standards.md |
+| Data validation failed | specs/schema-validation.md |
 ```
 
 ---
 
-## 生成规则
+## Generation Rules
 
-### 规则 1: 文档分类识别
+### Rule 1: Document Classification Recognition
 
-根据skill的phases自动生成分组：
+Automatically generate groupings based on skill phases:
 
 ```javascript
 const phaseEmojis = {
-  'discovery': '📋',      // 收集、探索
-  'generation': '🔧',     // 生成、创建
-  'analysis': '🔍',       // 分析、审查
-  'implementation': '⚙️', // 实现、执行
-  'validation': '✅',     // 验证、测试
-  'completion': '🏁',     // 完成、收尾
+  'discovery': '📋',      // Collection, exploration
+  'generation': '🔧',     // Generation, creation
+  'analysis': '🔍',       // Analysis, review
+  'implementation': '⚙️', // Implementation, execution
+  'validation': '✅',     // Validation, testing
+  'completion': '🏁',     // Completion, wrap-up
 };
 
-// 为每个phase生成一个章节
+// Generate a section for each phase
 phases.forEach((phase, index) => {
   const emoji = phaseEmojis[phase.type] || '📌';
   const title = `### ${emoji} Phase ${index + 1}: ${phase.name}`;
-  // 列出该phase相关的所有文档
+  // List all documents related to this phase
 });
 ```
 
-### 规则 2: 文档到Phase的映射
+### Rule 2: Document to Phase Mapping
 
-在config中，specs和templates应标注所属的phases：
+In config, specs and templates should be annotated with their belonging phases:
 
 ```json
 {
   "specs": [
     {
       "path": "specs/issue-handling.md",
-      "purpose": "Issue数据规范",
-      "phases": ["phase-2", "phase-3"],  // 这个spec与哪些phase相关
-      "context": "理解issue结构和验证规则"
+      "purpose": "Issue data specification",
+      "phases": ["phase-2", "phase-3"],  // Which phases this spec is related to
+      "context": "Understand issue structure and validation rules"
     }
   ]
 }
 ```
 
-### 规则 3: 优先级和必读性
+### Rule 3: Priority and Mandatory Reading
 
-用视觉符号区分文档的重要性：
+Use visual symbols to distinguish document importance:
 
 ```markdown
 | Document | When | Notes |
 |----------|------|-------|
-| spec.md | **执行前必读** | ✅ 强制前置 |
-| action.md | 执行时查阅 | 操作指南 |
-| template.md | 参考学习 | 可选深入 |
+| spec.md | **Must Read Before Execution** | Mandatory prerequisite |
+| action.md | Refer to during execution | Operation guide |
+| template.md | Reference for learning | Optional in-depth |
 ```
 
-### 规则 4: 避免重复
+### Rule 4: Avoid Duplication
 
-- **Mandatory Prerequisites** 部分：列出强制必读的P0规范
-- **Reference Documents by Phase** 部分：列出所有文档 (包括强制必读的)
-- 两个部分的文档可以重叠，但目的不同：
-  - Prerequisites：强调"必须先读"
-  - Reference：提供"完整导航"
+- **Mandatory Prerequisites** section: List mandatory P0 specifications
+- **Reference Documents by Phase** section: List all documents (including mandatory prerequisites)
+- Documents in both sections can overlap, but their purposes differ:
+  - Prerequisites: Emphasize "must read first"
+  - Reference: Provide "complete navigation"
 
 ---
 
-## 实现示例
+## Implementation Example
 
-### Sequential Skill 示例
+### Sequential Skill Example
 
 ```markdown
-## ⚠️ Mandatory Prerequisites (强制前置条件)
+## Mandatory Prerequisites
 
 | Document | Purpose | When |
 |----------|---------|------|
-| [specs/issue-handling.md](specs/issue-handling.md) | Issue数据规范 | **执行前必读** |
-| [specs/solution-schema.md](specs/solution-schema.md) | 解决方案结构 | **执行前必读** |
+| [specs/issue-handling.md](specs/issue-handling.md) | Issue data specification | **Must Read Before Execution** |
+| [specs/solution-schema.md](specs/solution-schema.md) | Solution structure | **Must Read Before Execution** |
 
 ---
 
 ## Reference Documents by Phase
 
-### 📋 Phase 1: Issue Collection
-执行Phase 1时查阅的文档
+### Phase 1: Issue Collection
+Documents to refer to when executing Phase 1
 
 | Document | Purpose | When to Use |
 |----------|---------|-------------|
-| [phases/actions/action-list.md](phases/actions/action-list.md) | Issue加载逻辑 | 理解如何收集issues |
-| [specs/issue-handling.md](specs/issue-handling.md) | Issue数据规范 | 验证issue格式 ✅ **必读** |
+| [phases/actions/action-list.md](phases/actions/action-list.md) | Issue loading logic | Understand how to collect issues |
+| [specs/issue-handling.md](specs/issue-handling.md) | Issue data specification | Verify issue format **Required Reading** |
 
-### ⚙️ Phase 2: Planning
-执行Phase 2时查阅的文档
+### Phase 2: Planning
+Documents to refer to when executing Phase 2
 
 | Document | Purpose | When to Use |
 |----------|---------|-------------|
-| [phases/actions/action-plan.md](phases/actions/action-plan.md) | Planning流程 | 理解issue→solution转换 |
-| [specs/solution-schema.md](specs/solution-schema.md) | 解决方案结构 | 验证solution JSON格式 ✅ **必读** |
+| [phases/actions/action-plan.md](phases/actions/action-plan.md) | Planning process | Understand issue to solution transformation |
+| [specs/solution-schema.md](specs/solution-schema.md) | Solution structure | Verify solution JSON format **Required Reading** |
 
-### 🔍 Debugging & Troubleshooting
+### Debugging & Troubleshooting
 
 | Issue | Solution Document |
 |-------|------------------|
-| Phase 1失败 | [phases/actions/action-list.md](phases/actions/action-list.md) |
-| Planning输出不符 | [phases/actions/action-plan.md](phases/actions/action-plan.md) + [specs/solution-schema.md](specs/solution-schema.md) |
-| 数据验证失败 | [specs/issue-handling.md](specs/issue-handling.md) |
+| Phase 1 failed | [phases/actions/action-list.md](phases/actions/action-list.md) |
+| Planning output incorrect | [phases/actions/action-plan.md](phases/actions/action-plan.md) + [specs/solution-schema.md](specs/solution-schema.md) |
+| Data validation failed | [specs/issue-handling.md](specs/issue-handling.md) |
 
-### 📚 Reference & Background
+### Reference & Background
 
 | Document | Purpose | Notes |
 |----------|---------|-------|
-| [../issue-plan.md](../../.codex/prompts/issue-plan.md) | 原始实现 | Planning Agent system prompt |
+| [../issue-plan.md](../../.codex/prompts/issue-plan.md) | Original implementation | Planning Agent system prompt |
 ```
 
 ---
 
-## 生成算法
+## Generation Algorithm
 
 ```javascript
 function generateReferenceDocuments(config) {
   let result = '## Reference Documents by Phase\n\n';
 
-  // 为每个phase生成一个章节
+  // Generate a section for each phase
   const phases = config.phases || config.actions || [];
 
   phases.forEach((phase, index) => {
@@ -224,9 +224,9 @@ function generateReferenceDocuments(config) {
     const title = phase.display_name || phase.name;
 
     result += `### ${emoji} Phase ${phaseNum}: ${title}\n`;
-    result += `执行Phase ${phaseNum}时查阅的文档\n\n`;
+    result += `Documents to refer to when executing Phase ${phaseNum}\n\n`;
 
-    // 找出该phase相关的所有文档
+    // Find all documents related to this phase
     const docs = config.specs.filter(spec =>
       (spec.phases || []).includes(`phase-${phaseNum}`) ||
       matchesByName(spec.path, phase.name)
@@ -236,19 +236,19 @@ function generateReferenceDocuments(config) {
       result += '| Document | Purpose | When to Use |\n';
       result += '|----------|---------|-------------|\n';
       docs.forEach(doc => {
-        const required = doc.phases && doc.phases[0] === `phase-${phaseNum}` ? ' ✅ **必读**' : '';
+        const required = doc.phases && doc.phases[0] === `phase-${phaseNum}` ? ' **Required Reading**' : '';
         result += `| [${doc.path}](${doc.path}) | ${doc.purpose} | ${doc.context}${required} |\n`;
       });
       result += '\n';
     }
   });
 
-  // 问题排查部分
-  result += '### 🔍 Debugging & Troubleshooting\n\n';
+  // Troubleshooting section
+  result += '### Debugging & Troubleshooting\n\n';
   result += generateDebuggingTable(config);
 
-  // 深度学习参考
-  result += '### 📚 Reference & Background\n\n';
+  // In-depth reference learning
+  result += '### Reference & Background\n\n';
   result += generateReferenceTable(config);
 
   return result;
@@ -257,15 +257,15 @@ function generateReferenceDocuments(config) {
 
 ---
 
-## 检查清单
+## Checklist
 
-生成skill的SKILL.md时，参考文档部分应满足：
+When generating skill's SKILL.md, the reference documents section should satisfy:
 
-- [ ] 有明确的"## Reference Documents by Phase"标题
-- [ ] 每个Phase都有对应的章节 (用emoji标识)
-- [ ] 每个文档条目包含"When to Use"列
-- [ ] 包含"🔍 Debugging & Troubleshooting"部分
-- [ ] 包含"📚 Reference & Background"部分
-- [ ] 强制必读文档用✅和**粗体**标记
-- [ ] Execution Flow部分中有"→ **查阅**: ..."指引
-- [ ] 避免过长的文档列表 (一个Phase最多5-8个文档)
+- [ ] Has clear "## Reference Documents by Phase" heading
+- [ ] Each phase has a corresponding section (identified with symbols)
+- [ ] Each document entry includes "When to Use" column
+- [ ] Includes "Debugging & Troubleshooting" section
+- [ ] Includes "Reference & Background" section
+- [ ] Mandatory reading documents are marked with **bold** text
+- [ ] Execution Flow section includes "→ **Refer to**: ..." guidance
+- [ ] Avoid overly long document lists (maximum 5-8 documents per phase)

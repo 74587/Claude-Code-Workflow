@@ -1,22 +1,22 @@
 # Autonomous Action Template
 
-自主模式动作文件的模板。
+Template for action files in Autonomous execution mode.
 
 ## Purpose
 
-生成 Autonomous 执行模式的 Action 文件，定义可独立执行的动作单元。
+Generate Action files for Autonomous execution mode, defining independent executable action units.
 
 ## Usage Context
 
 | Phase | Usage |
 |-------|-------|
-| Phase 3 (Phase Generation) | `config.execution_mode === 'autonomous'` 时生成 |
-| Generation Trigger | 为每个 `config.autonomous_config.actions` 生成一个 action 文件 |
+| Phase 3 (Phase Generation) | Generated when `config.execution_mode === 'autonomous'` |
+| Generation Trigger | Generate one action file for each `config.autonomous_config.actions` |
 | Output Location | `.claude/skills/{skill-name}/phases/actions/{action-id}.md` |
 
 ---
 
-## 模板结构
+## Template Structure
 
 ```markdown
 # Action: {{action_name}}
@@ -34,8 +34,8 @@
 ## Scripts
 
 \`\`\`yaml
-# 声明本动作使用的脚本（可选）
-# - script-id        # 对应 scripts/script-id.py 或 .sh
+# Declare scripts used in this action (optional)
+# - script-id        # Corresponds to scripts/script-id.py or .sh
 \`\`\`
 
 ## Execution
@@ -44,7 +44,7 @@
 async function execute(state) {
   {{execution_code}}
 
-  // 调用脚本示例
+  // Script execution example
   // const result = await ExecuteScript('script-id', { input: state.context.data });
   // if (!result.success) throw new Error(result.stderr);
 }
@@ -71,63 +71,66 @@ return {
 {{next_actions_hints}}
 ```
 
-## 变量说明
+## Variable Descriptions
 
-| 变量 | 说明 |
-|------|------|
-| `{{action_name}}` | 动作名称 |
-| `{{action_description}}` | 动作描述 |
-| `{{purpose}}` | 详细目的 |
-| `{{preconditions_list}}` | 前置条件列表 |
-| `{{execution_code}}` | 执行代码 |
-| `{{state_updates}}` | 状态更新 |
-| `{{error_handling_table}}` | 错误处理表格 |
-| `{{next_actions_hints}}` | 后续动作提示 |
+| Variable | Description |
+|----------|-------------|
+| `{{action_name}}` | Action name |
+| `{{action_description}}` | Action description |
+| `{{purpose}}` | Detailed purpose |
+| `{{preconditions_list}}` | List of preconditions |
+| `{{execution_code}}` | Execution code |
+| `{{state_updates}}` | State updates |
+| `{{error_handling_table}}` | Error handling table |
+| `{{next_actions_hints}}` | Next action hints |
 
-## 动作生命周期
+## Action Lifecycle
 
 ```
-状态驱动执行流:
+State-driven execution flow:
 
   state.status === 'pending'
-       ↓
-  ┌─ Init ─┐          ← 1次执行，环境准备
-  │ 创建工作目录        │
-  │ 初始化 context     │
-  │ status → running   │
-  └────┬────┘
-       ↓
-  ┌─ CRUD Loop ─┐     ← N次迭代，核心业务
-  │ 编排器选择动作  │    List / Create / Edit / Delete
-  │ execute(state)  │    共享模式: 收集输入 → 操作 context.items → 返回更新
-  │ 更新 state      │
-  └────┬────┘
-       ↓
-  ┌─ Complete ─┐      ← 1次执行，保存结果
-  │ 序列化输出    │
-  │ status → completed │
-  └──────────┘
+       |
+       v
+  +-- Init --+          <- 1 execution, environment preparation
+  | Create working directory
+  | Initialize context
+  | status -> running
+  +----+----+
+       |
+       v
+  +-- CRUD Loop --+     <- N iterations, core business
+  | Orchestrator selects action  |    List / Create / Edit / Delete
+  | execute(state)  |    Shared pattern: collect input -> operate context.items -> return updates
+  | Update state
+  +----+----+
+       |
+       v
+  +-- Complete --+      <- 1 execution, save results
+  | Serialize output
+  | status -> completed
+  +----------+
 
-共享状态结构:
-  state.status          → 'pending' | 'running' | 'completed'
-  state.context.items   → 业务数据数组
-  state.completed_actions → 已执行动作 ID 列表
+Shared state structure:
+  state.status          -> 'pending' | 'running' | 'completed'
+  state.context.items   -> Business data array
+  state.completed_actions -> List of executed action IDs
 ```
 
-## 动作类型模板
+## Action Type Templates
 
-### 1. 初始化动作 (Init)
+### 1. Initialize Action (Init)
 
-**触发条件**: `state.status === 'pending'`，仅执行一次
+**Trigger condition**: `state.status === 'pending'`, executes once
 
 ```markdown
 # Action: Initialize
 
-初始化 Skill 执行状态。
+Initialize Skill execution state.
 
 ## Purpose
 
-设置初始状态，准备执行环境。
+Set initial state, prepare execution environment.
 
 ## Preconditions
 
@@ -151,24 +154,24 @@ async function execute(state) {
 
 ## Next Actions
 
-- 成功: 进入主处理循环 (由编排器选择首个 CRUD 动作)
-- 失败: action-abort
+- Success: Enter main processing loop (Orchestrator selects first CRUD action)
+- Failure: action-abort
 ```
 
-### 2. CRUD 动作 (List / Create / Edit / Delete)
+### 2. CRUD Actions (List / Create / Edit / Delete)
 
-**触发条件**: `state.status === 'running'`，循环执行直至用户退出
+**Trigger condition**: `state.status === 'running'`, loop until user exits
 
-> 以 Create 为示例展示共享模式。List / Edit / Delete 遵循同一结构，仅 `执行逻辑` 和 `状态更新字段` 不同。
+> Example shows Create action demonstrating shared pattern. List / Edit / Delete follow same structure with different execution logic and state update fields.
 
 ```markdown
 # Action: Create Item
 
-创建新项目。
+Create new item.
 
 ## Purpose
 
-收集用户输入，向 context.items 追加新记录。
+Collect user input, append new record to context.items.
 
 ## Preconditions
 
@@ -178,25 +181,25 @@ async function execute(state) {
 
 \`\`\`javascript
 async function execute(state) {
-  // 1. 收集输入
+  // 1. Collect input
   const input = await AskUserQuestion({
     questions: [{
-      question: "请输入项目名称：",
-      header: "名称",
+      question: "Please enter item name:",
+      header: "Name",
       multiSelect: false,
-      options: [{ label: "手动输入", description: "输入自定义名称" }]
+      options: [{ label: "Manual input", description: "Enter custom name" }]
     }]
   });
 
-  // 2. 操作 context.items (核心逻辑因动作类型而异)
+  // 2. Operate context.items (core logic differs by action type)
   const newItem = {
     id: Date.now().toString(),
-    name: input["名称"],
+    name: input["Name"],
     status: 'pending',
     created_at: new Date().toISOString()
   };
 
-  // 3. 返回状态更新
+  // 3. Return state update
   return {
     stateUpdates: {
       context: {
@@ -211,31 +214,31 @@ async function execute(state) {
 
 ## Next Actions
 
-- 继续操作: 编排器根据 state 选择下一动作
-- 用户退出: action-complete
+- Continue operations: Orchestrator selects next action based on state
+- User exit: action-complete
 ```
 
-**其他 CRUD 动作差异对照:**
+**Other CRUD Actions Differences:**
 
-| 动作 | 核心逻辑 | 额外前置条件 | 关键状态字段 |
-|------|---------|------------|------------|
-| List | `items.forEach(→ console.log)` | 无 | `current_view: 'list'` |
-| Create | `items.push(newItem)` | 无 | `last_created_id` |
-| Edit | `items.map(→ 替换匹配项)` | `selected_item_id !== null` | `updated_at` |
-| Delete | `items.filter(→ 排除匹配项)` | `selected_item_id !== null` | 确认对话 → 执行 |
+| Action | Core Logic | Extra Preconditions | Key State Field |
+|--------|-----------|-------------------|-----------------|
+| List | `items.forEach(-> console.log)` | None | `current_view: 'list'` |
+| Create | `items.push(newItem)` | None | `last_created_id` |
+| Edit | `items.map(-> replace matching)` | `selected_item_id !== null` | `updated_at` |
+| Delete | `items.filter(-> exclude matching)` | `selected_item_id !== null` | Confirm dialog -> execute |
 
-### 3. 完成动作 (Complete)
+### 3. Complete Action
 
-**触发条件**: 用户明确退出或终止条件满足，仅执行一次
+**Trigger condition**: User explicitly exits or termination condition met, executes once
 
 ```markdown
 # Action: Complete
 
-完成任务并退出。
+Complete task and exit.
 
 ## Purpose
 
-序列化最终状态，结束 Skill 执行。
+Serialize final state, end Skill execution.
 
 ## Preconditions
 
@@ -253,7 +256,7 @@ async function execute(state) {
     actions_executed: state.completed_actions.length
   };
 
-  console.log(\`任务完成: \${summary.total_items} 项, \${summary.actions_executed} 次操作\`);
+  console.log(\`Task complete: \${summary.total_items} items, \${summary.actions_executed} operations\`);
 
   return {
     stateUpdates: {
@@ -267,31 +270,31 @@ async function execute(state) {
 
 ## Next Actions
 
-- 无（终止状态）
+- None (terminal state)
 ```
 
-## 生成函数
+## Generation Function
 
 ```javascript
 function generateAction(actionConfig, skillConfig) {
   return `# Action: ${actionConfig.name}
 
-${actionConfig.description || `执行 ${actionConfig.name} 操作`}
+${actionConfig.description || `Execute ${actionConfig.name} operation`}
 
 ## Purpose
 
-${actionConfig.purpose || 'TODO: 描述此动作的详细目的'}
+${actionConfig.purpose || 'TODO: Describe detailed purpose of this action'}
 
 ## Preconditions
 
-${actionConfig.preconditions?.map(p => `- [ ] ${p}`).join('\n') || '- [ ] 无特殊前置条件'}
+${actionConfig.preconditions?.map(p => `- [ ] ${p}`).join('\n') || '- [ ] No special preconditions'}
 
 ## Execution
 
 \`\`\`javascript
 async function execute(state) {
-  // TODO: 实现动作逻辑
-  
+  // TODO: Implement action logic
+
   return {
     stateUpdates: {
       completed_actions: [...state.completed_actions, '${actionConfig.id}']
@@ -305,7 +308,7 @@ async function execute(state) {
 \`\`\`javascript
 return {
   stateUpdates: {
-    // TODO: 定义状态更新
+    // TODO: Define state updates
 ${actionConfig.effects?.map(e => `    // Effect: ${e}`).join('\n') || ''}
   }
 };
@@ -315,13 +318,13 @@ ${actionConfig.effects?.map(e => `    // Effect: ${e}`).join('\n') || ''}
 
 | Error Type | Recovery |
 |------------|----------|
-| 数据验证失败 | 返回错误，不更新状态 |
-| 执行异常 | 记录错误，增加 error_count |
+| Data validation failed | Return error, no state update |
+| Execution exception | Log error, increment error_count |
 
 ## Next Actions (Hints)
 
-- 成功: 由编排器根据状态决定
-- 失败: 重试或 action-abort
+- Success: Orchestrator decides based on state
+- Failure: Retry or action-abort
 `;
 }
 ```

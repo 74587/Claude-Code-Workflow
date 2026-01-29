@@ -1,111 +1,111 @@
 # CLI Integration Specification
 
-CCW CLI 集成规范，定义 Skill 中如何正确调用外部 CLI 工具。
+CCW CLI integration specification that defines how to properly call external CLI tools within Skills.
 
 ---
 
-## 执行模式
+## Execution Modes
 
-### 1. 同步执行 (Blocking)
+### 1. Synchronous Execution (Blocking)
 
-适用于需要立即获取结果的场景。
+Suitable for scenarios that need immediate results.
 
 ```javascript
-// Agent 调用 - 同步
+// Agent call - synchronous
 const result = Task({
   subagent_type: 'universal-executor',
-  prompt: '执行任务...',
-  run_in_background: false  // 关键: 同步执行
+  prompt: 'Execute task...',
+  run_in_background: false  // Key: synchronous execution
 });
 
-// 结果立即可用
+// Result immediately available
 console.log(result);
 ```
 
-### 2. 异步执行 (Background)
+### 2. Asynchronous Execution (Background)
 
-适用于长时间运行的 CLI 命令。
+Suitable for long-running CLI commands.
 
 ```javascript
-// CLI 调用 - 异步
+// CLI call - asynchronous
 const task = Bash({
   command: 'ccw cli -p "..." --tool gemini --mode analysis',
-  run_in_background: true  // 关键: 后台执行
+  run_in_background: true  // Key: background execution
 });
 
-// 立即返回，不等待结果
-// task.task_id 可用于后续查询
+// Returns immediately without waiting for result
+// task.task_id available for later queries
 ```
 
 ---
 
-## CCW CLI 调用规范
+## CCW CLI Call Specification
 
-### 基础命令结构
+### Basic Command Structure
 
 ```bash
 ccw cli -p "<PROMPT>" --tool <gemini|qwen|codex> --mode <analysis|write>
 ```
 
-### 参数说明
+### Parameter Description
 
-| 参数 | 必需 | 说明 |
-|------|------|------|
-| `-p "<prompt>"` | ✓ | 提示词（使用双引号） |
-| `--tool <tool>` | ✓ | 工具选择: gemini, qwen, codex |
-| `--mode <mode>` | ✓ | 执行模式: analysis, write |
-| `--cd <path>` | - | 工作目录 |
-| `--includeDirs <dirs>` | - | 包含额外目录（逗号分隔） |
-| `--resume [id]` | - | 恢复会话 |
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `-p "<prompt>"` | Yes | Prompt text (use double quotes) |
+| `--tool <tool>` | Yes | Tool selection: gemini, qwen, codex |
+| `--mode <mode>` | Yes | Execution mode: analysis, write |
+| `--cd <path>` | - | Working directory |
+| `--includeDirs <dirs>` | - | Additional directories (comma-separated) |
+| `--resume [id]` | - | Resume session |
 
-### 模式选择
+### Mode Selection
 
 ```
-┌─ 分析/文档任务?
-│  └─→ --mode analysis (只读)
-│
-└─ 实现/修改任务?
-   └─→ --mode write (读写)
+- Analysis/Documentation tasks?
+  → --mode analysis (read-only)
+
+- Implementation/Modification tasks?
+  → --mode write (read-write)
 ```
 
 ---
 
-## Agent 类型与选择
+## Agent Types and Selection
 
 ### universal-executor
 
-通用执行器，最常用的 Agent 类型。
+General-purpose executor, the most commonly used agent type.
 
 ```javascript
 Task({
   subagent_type: 'universal-executor',
   prompt: `
-执行任务:
-1. 读取配置文件
-2. 分析依赖关系
-3. 生成报告到 ${outputPath}
+Execute task:
+1. Read configuration file
+2. Analyze dependencies
+3. Generate report to ${outputPath}
   `,
   run_in_background: false
 });
 ```
 
-**适用场景**:
-- 多步骤任务执行
-- 文件操作（读/写/编辑）
-- 需要工具调用的任务
+**Applicable Scenarios**:
+- Multi-step task execution
+- File operations (read/write/edit)
+- Tasks that require tool invocation
 
 ### Explore
 
-代码探索 Agent，快速理解代码库。
+Code exploration agent for quick codebase understanding.
 
 ```javascript
 Task({
   subagent_type: 'Explore',
   prompt: `
-探索 src/ 目录:
-- 识别主要模块
-- 理解目录结构
-- 找到入口点
+Explore src/ directory:
+- Identify main modules
+- Understand directory structure
+- Find entry points
 
 Thoroughness: medium
   `,
@@ -113,104 +113,104 @@ Thoroughness: medium
 });
 ```
 
-**适用场景**:
-- 代码库探索
-- 文件发现
-- 结构理解
+**Applicable Scenarios**:
+- Codebase exploration
+- File discovery
+- Structure understanding
 
 ### cli-explore-agent
 
-深度代码分析 Agent。
+Deep code analysis agent.
 
 ```javascript
 Task({
   subagent_type: 'cli-explore-agent',
   prompt: `
-深度分析 src/auth/ 模块:
-- 认证流程
-- 会话管理
-- 安全机制
+Deep analysis of src/auth/ module:
+- Authentication flow
+- Session management
+- Security mechanisms
   `,
   run_in_background: false
 });
 ```
 
-**适用场景**:
-- 深度代码理解
-- 设计模式识别
-- 复杂逻辑分析
+**Applicable Scenarios**:
+- Deep code understanding
+- Design pattern identification
+- Complex logic analysis
 
 ---
 
-## 会话管理
+## Session Management
 
-### 会话恢复
+### Session Recovery
 
 ```javascript
-// 保存会话 ID
+// Save session ID
 const session = Bash({
-  command: 'ccw cli -p "初始分析..." --tool gemini --mode analysis',
+  command: 'ccw cli -p "Initial analysis..." --tool gemini --mode analysis',
   run_in_background: true
 });
 
-// 后续恢复
+// Resume later
 const continuation = Bash({
-  command: `ccw cli -p "继续分析..." --tool gemini --mode analysis --resume ${session.id}`,
+  command: `ccw cli -p "Continue analysis..." --tool gemini --mode analysis --resume ${session.id}`,
   run_in_background: true
 });
 ```
 
-### 多会话合并
+### Multi-Session Merge
 
 ```javascript
-// 合并多个会话的上下文
+// Merge context from multiple sessions
 const merged = Bash({
-  command: `ccw cli -p "汇总分析..." --tool gemini --mode analysis --resume ${id1},${id2}`,
+  command: `ccw cli -p "Aggregate analysis..." --tool gemini --mode analysis --resume ${id1},${id2}`,
   run_in_background: true
 });
 ```
 
 ---
 
-## Skill 中的 CLI 集成模式
+## CLI Integration Patterns in Skills
 
-### 模式 1: 单次调用
+### Pattern 1: Single Call
 
-简单任务，一次调用完成。
+Simple tasks completed in one call.
 
 ```javascript
-// Phase 执行
+// Phase execution
 async function executePhase(context) {
   const result = Bash({
     command: `ccw cli -p "
-PURPOSE: 分析项目结构
-TASK: 识别模块、依赖、入口点
+PURPOSE: Analyze project structure
+TASK: Identify modules, dependencies, entry points
 MODE: analysis
 CONTEXT: @src/**/*
-EXPECTED: JSON 格式的结构报告
+EXPECTED: JSON format structure report
 " --tool gemini --mode analysis --cd ${context.projectRoot}`,
     run_in_background: true,
     timeout: 600000
   });
 
-  // 等待完成
+  // Wait for completion
   return await waitForCompletion(result.task_id);
 }
 ```
 
-### 模式 2: 链式调用
+### Pattern 2: Chained Calls
 
-多步骤任务，每步依赖前一步结果。
+Multi-step tasks where each step depends on previous results.
 
 ```javascript
 async function executeChain(context) {
-  // Step 1: 收集
+  // Step 1: Collect
   const collectId = await runCLI('collect', context);
 
-  // Step 2: 分析 (依赖 Step 1)
+  // Step 2: Analyze (depends on Step 1)
   const analyzeId = await runCLI('analyze', context, `--resume ${collectId}`);
 
-  // Step 3: 生成 (依赖 Step 2)
+  // Step 3: Generate (depends on Step 2)
   const generateId = await runCLI('generate', context, `--resume ${analyzeId}`);
 
   return generateId;
@@ -218,9 +218,9 @@ async function executeChain(context) {
 
 async function runCLI(step, context, resumeFlag = '') {
   const prompts = {
-    collect: 'PURPOSE: 收集代码文件...',
-    analyze: 'PURPOSE: 分析代码模式...',
-    generate: 'PURPOSE: 生成文档...'
+    collect: 'PURPOSE: Collect code files...',
+    analyze: 'PURPOSE: Analyze code patterns...',
+    generate: 'PURPOSE: Generate documentation...'
   };
 
   const result = Bash({
@@ -232,9 +232,9 @@ async function runCLI(step, context, resumeFlag = '') {
 }
 ```
 
-### 模式 3: 并行调用
+### Pattern 3: Parallel Calls
 
-独立任务并行执行。
+Independent tasks executed in parallel.
 
 ```javascript
 async function executeParallel(context) {
@@ -244,15 +244,15 @@ async function executeParallel(context) {
     { type: 'patterns', tool: 'qwen' }
   ];
 
-  // 并行启动
+  // Start tasks in parallel
   const taskIds = tasks.map(task =>
     Bash({
-      command: `ccw cli -p "分析 ${task.type}..." --tool ${task.tool} --mode analysis`,
+      command: `ccw cli -p "Analyze ${task.type}..." --tool ${task.tool} --mode analysis`,
       run_in_background: true
     }).task_id
   );
 
-  // 等待全部完成
+  // Wait for all to complete
   const results = await Promise.all(
     taskIds.map(id => waitForCompletion(id))
   );
@@ -261,9 +261,9 @@ async function executeParallel(context) {
 }
 ```
 
-### 模式 4: Fallback 链
+### Pattern 4: Fallback Chain
 
-工具失败时自动切换。
+Automatically switch tools on failure.
 
 ```javascript
 async function executeWithFallback(context) {
@@ -299,9 +299,9 @@ async function runWithTool(tool, context) {
 
 ---
 
-## 提示词模板集成
+## Prompt Template Integration
 
-### 引用协议模板
+### Reference Protocol Templates
 
 ```bash
 # Analysis mode - use --rule to auto-load protocol and template (appended to prompt)
@@ -315,7 +315,7 @@ CONSTRAINTS: ...
 ..." --tool codex --mode write --rule development-feature
 ```
 
-### 动态模板构建
+### Dynamic Template Building
 
 ```javascript
 function buildPrompt(config) {
@@ -334,21 +334,21 @@ CONSTRAINTS: ${constraints || ''}
 
 ---
 
-## 超时配置
+## Timeout Configuration
 
-### 推荐超时值
+### Recommended Timeout Values
 
-| 任务类型 | 超时 (ms) | 说明 |
-|---------|----------|------|
-| 快速分析 | 300000 | 5 分钟 |
-| 标准分析 | 600000 | 10 分钟 |
-| 深度分析 | 1200000 | 20 分钟 |
-| 代码生成 | 1800000 | 30 分钟 |
-| 复杂任务 | 3600000 | 60 分钟 |
+| Task Type | Timeout (ms) | Description |
+|-----------|--------------|-------------|
+| Quick analysis | 300000 | 5 minutes |
+| Standard analysis | 600000 | 10 minutes |
+| Deep analysis | 1200000 | 20 minutes |
+| Code generation | 1800000 | 30 minutes |
+| Complex tasks | 3600000 | 60 minutes |
 
-### Codex 特殊处理
+### Special Codex Handling
 
-Codex 需要更长的超时时间（建议 3x）。
+Codex requires longer timeout (recommend 3x).
 
 ```javascript
 const timeout = tool === 'codex' ? baseTimeout * 3 : baseTimeout;
@@ -362,17 +362,17 @@ Bash({
 
 ---
 
-## 错误处理
+## Error Handling
 
-### 常见错误
+### Common Errors
 
-| 错误 | 原因 | 处理 |
-|------|------|------|
-| ETIMEDOUT | 网络超时 | 重试或切换工具 |
-| Exit code 1 | 命令执行失败 | 检查参数，切换工具 |
-| Context overflow | 上下文过大 | 减少输入范围 |
+| Error | Cause | Handler |
+|-------|-------|---------|
+| ETIMEDOUT | Network timeout | Retry or switch tool |
+| Exit code 1 | Command execution failed | Check parameters, switch tool |
+| Context overflow | Input context too large | Reduce input scope |
 
-### 重试策略
+### Retry Strategy
 
 ```javascript
 async function executeWithRetry(command, maxRetries = 3) {
@@ -391,7 +391,7 @@ async function executeWithRetry(command, maxRetries = 3) {
       lastError = error;
       console.log(`Attempt ${attempt} failed: ${error.message}`);
 
-      // 指数退避
+      // Exponential backoff
       if (attempt < maxRetries) {
         await sleep(Math.pow(2, attempt) * 1000);
       }
@@ -404,30 +404,30 @@ async function executeWithRetry(command, maxRetries = 3) {
 
 ---
 
-## 最佳实践
+## Best Practices
 
-### 1. run_in_background 规则
-
-```
-Agent 调用 (Task):
-  run_in_background: false  → 同步，立即获取结果
-
-CLI 调用 (Bash + ccw cli):
-  run_in_background: true   → 异步，后台执行
-```
-
-### 2. 工具选择
+### 1. run_in_background Rule
 
 ```
-分析任务: gemini > qwen
-生成任务: codex > gemini > qwen
-代码修改: codex > gemini
+Agent calls (Task):
+  run_in_background: false  → Synchronous, get result immediately
+
+CLI calls (Bash + ccw cli):
+  run_in_background: true   → Asynchronous, run in background
 ```
 
-### 3. 会话管理
+### 2. Tool Selection
 
-- 相关任务使用 `--resume` 保持上下文
-- 独立任务不使用 `--resume`
+```
+Analysis tasks: gemini > qwen
+Generation tasks: codex > gemini > qwen
+Code modification: codex > gemini
+```
+
+### 3. Session Management
+
+- Use `--resume` for related tasks to maintain context
+- Do not use `--resume` for independent tasks
 
 ### 4. Prompt Specification
 
@@ -435,8 +435,8 @@ CLI 调用 (Bash + ccw cli):
 - Use `--rule <template>` to auto-append protocol + template to prompt
 - Template name format: `category-function` (e.g., `analysis-code-patterns`)
 
-### 5. 结果处理
+### 5. Result Processing
 
-- 持久化重要结果到 workDir
-- Brief returns: 路径 + 摘要，避免上下文溢出
-- JSON 格式便于后续处理
+- Persist important results to workDir
+- Brief returns: path + summary, avoid context overflow
+- JSON format convenient for downstream processing

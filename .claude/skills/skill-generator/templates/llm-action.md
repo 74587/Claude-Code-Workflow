@@ -1,56 +1,56 @@
 # LLM Action Template
 
-LLM 动作模板，用于在 Skill 中集成 LLM 调用能力。
+LLM action template for integrating LLM call capabilities into a Skill.
 
 ## Purpose
 
-为 Skill 生成 LLM 动作，通过 CCW CLI 统一接口调用 Gemini/Qwen/Codex 进行分析或生成。
+Generate LLM actions for a Skill, call Gemini/Qwen/Codex through CCW CLI unified interface for analysis or generation.
 
 ## Usage Context
 
 | Phase | Usage |
 |-------|-------|
-| Optional | 当 Skill 需要 LLM 能力时使用 |
-| Generation Trigger | 用户选择添加 llm 动作类型 |
-| Tools | gemini, qwen, codex (支持 fallback chain) |
+| Optional | Use when Skill requires LLM capabilities |
+| Generation Trigger | User selects to add llm action type |
+| Tools | gemini, qwen, codex (supports fallback chain) |
 
 ---
 
-## 配置结构
+## Configuration Structure
 
 ```typescript
 interface LLMActionConfig {
   id: string;                    // "llm-analyze", "llm-generate"
   name: string;                  // "LLM Analysis"
-  type: 'llm';                   // 动作类型标识
+  type: 'llm';                   // Action type identifier
 
-  // LLM 工具配置
+  // LLM tool config
   tool: {
     primary: 'gemini' | 'qwen' | 'codex';
     fallback_chain: string[];    // ['gemini', 'qwen', 'codex']
   };
 
-  // 执行模式
+  // Execution mode
   mode: 'analysis' | 'write';
 
-  // 提示词配置
+  // Prompt config
   prompt: {
-    template: string;            // 提示词模板路径或内联
-    variables: string[];         // 需要替换的变量
+    template: string;            // Prompt template path or inline
+    variables: string[];         // Variables to replace
   };
 
-  // 输入输出
-  input: string[];               // 依赖的上下文文件
-  output: string;                // 输出文件路径
+  // Input/Output
+  input: string[];               // Dependent context files
+  output: string;                // Output file path
 
-  // 超时配置
-  timeout?: number;              // 毫秒，默认 600000 (10min)
+  // Timeout config
+  timeout?: number;              // Milliseconds, default 600000 (10min)
 }
 ```
 
 ---
 
-## 模板生成函数
+## Template Generation Function
 
 ```javascript
 function generateLLMAction(config) {
@@ -61,25 +61,25 @@ function generateLLMAction(config) {
 
 ## Action: ${id}
 
-### 执行逻辑
+### Execution Logic
 
 \`\`\`javascript
 async function execute${toPascalCase(id)}(context) {
   const workDir = context.workDir;
   const state = context.state;
 
-  // 1. 收集输入上下文
+  // 1. Collect input context
   const inputContext = ${JSON.stringify(input)}.map(f => {
     const path = \`\${workDir}/\${f}\`;
     return Read(path);
   }).join('\\n\\n---\\n\\n');
 
-  // 2. 构建提示词
+  // 2. Build prompt
   const promptTemplate = \`${prompt.template}\`;
   const finalPrompt = promptTemplate
     ${prompt.variables.map(v => `.replace('{{${v}}}', context.${v} || '')`).join('\n    ')};
 
-  // 3. 执行 LLM 调用 (带 fallback)
+  // 3. Execute LLM call (with fallback)
   const tools = ['${tool.primary}', ${tool.fallback_chain.map(t => `'${t}'`).join(', ')}];
   let result = null;
   let usedTool = null;
@@ -98,10 +98,10 @@ async function execute${toPascalCase(id)}(context) {
     throw new Error('All LLM tools failed');
   }
 
-  // 4. 保存结果
+  // 4. Save result
   Write(\`\${workDir}/${output}\`, result);
 
-  // 5. 更新状态
+  // 5. Update state
   state.llm_calls = (state.llm_calls || 0) + 1;
   state.last_llm_tool = usedTool;
 
@@ -112,38 +112,38 @@ async function execute${toPascalCase(id)}(context) {
   };
 }
 
-// LLM 调用封装
+// LLM call wrapper
 async function callLLM(tool, prompt, mode, timeout) {
   const modeFlag = mode === 'write' ? '--mode write' : '--mode analysis';
 
-  // 使用 CCW CLI 统一接口
+  // Use CCW CLI unified interface
   const command = \`ccw cli -p "\${escapePrompt(prompt)}" --tool \${tool} \${modeFlag}\`;
 
   const result = Bash({
     command,
     timeout,
-    run_in_background: true  // 异步执行
+    run_in_background: true  // Async execution
   });
 
-  // 等待完成
+  // Wait for completion
   return await waitForResult(result.task_id, timeout);
 }
 
 function escapePrompt(prompt) {
-  // 转义双引号和特殊字符
+  // Escape double quotes and special characters
   return prompt.replace(/"/g, '\\\\"').replace(/\$/g, '\\\\$');
 }
 \`\`\`
 
-### Prompt 模板
+### Prompt Template
 
 \`\`\`
 ${prompt.template}
 \`\`\`
 
-### 变量说明
+### Variable Descriptions
 
-${prompt.variables.map(v => `- \`{{${v}}}\`: ${v} 变量`).join('\n')}
+${prompt.variables.map(v => `- \`{{${v}}}\`: ${v} variable`).join('\n')}
 `;
 }
 
@@ -154,11 +154,11 @@ function toPascalCase(str) {
 
 ---
 
-## 预置 LLM 动作模板
+## Preset LLM Action Templates
 
-### 1. 代码分析动作
+### 1. Code Analysis Action
 
-```yaml
+\`\`\`yaml
 id: llm-code-analysis
 name: LLM Code Analysis
 type: llm
@@ -168,15 +168,15 @@ tool:
 mode: analysis
 prompt:
   template: |
-    PURPOSE: 分析代码结构和模式，提取关键设计特征
+    PURPOSE: Analyze code structure and patterns, extract key design features
     TASK:
-    • 识别主要模块和组件
-    • 分析依赖关系
-    • 提取设计模式
-    • 评估代码质量
+    • Identify main modules and components
+    • Analyze dependencies
+    • Extract design patterns
+    • Evaluate code quality
     MODE: analysis
     CONTEXT: {{code_context}}
-    EXPECTED: JSON 格式的分析报告，包含 modules, dependencies, patterns, quality_score
+    EXPECTED: JSON formatted analysis report with modules, dependencies, patterns, quality_score
     RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md)
   variables:
     - code_context
@@ -184,11 +184,11 @@ input:
   - collected-code.md
 output: analysis-report.json
 timeout: 900000
-```
+\`\`\`
 
-### 2. 文档生成动作
+### 2. Documentation Generation Action
 
-```yaml
+\`\`\`yaml
 id: llm-doc-generation
 name: LLM Documentation Generation
 type: llm
@@ -198,15 +198,15 @@ tool:
 mode: write
 prompt:
   template: |
-    PURPOSE: 根据分析结果生成高质量文档
+    PURPOSE: Generate high-quality documentation based on analysis results
     TASK:
-    • 基于分析报告生成文档大纲
-    • 填充各章节内容
-    • 添加代码示例和说明
-    • 生成 Mermaid 图表
+    • Generate documentation outline based on analysis report
+    • Populate chapter content
+    • Add code examples and explanations
+    • Generate Mermaid diagrams
     MODE: write
     CONTEXT: {{analysis_report}}
-    EXPECTED: 完整的 Markdown 文档，包含目录、章节、图表
+    EXPECTED: Complete Markdown documentation with table of contents, chapters, diagrams
     RULES: $(cat ~/.claude/workflows/cli-templates/protocols/write-protocol.md)
   variables:
     - analysis_report
@@ -214,11 +214,11 @@ input:
   - analysis-report.json
 output: generated-doc.md
 timeout: 1200000
-```
+\`\`\`
 
-### 3. 代码重构建议动作
+### 3. Code Refactoring Suggestions Action
 
-```yaml
+\`\`\`yaml
 id: llm-refactor-suggest
 name: LLM Refactoring Suggestions
 type: llm
@@ -228,15 +228,15 @@ tool:
 mode: analysis
 prompt:
   template: |
-    PURPOSE: 分析代码并提供重构建议
+    PURPOSE: Analyze code and provide refactoring suggestions
     TASK:
-    • 识别代码异味 (code smells)
-    • 评估复杂度热点
-    • 提出具体重构方案
-    • 估算重构影响范围
+    • Identify code smells
+    • Evaluate complexity hotspots
+    • Propose specific refactoring plans
+    • Estimate refactoring impact scope
     MODE: analysis
     CONTEXT: {{source_code}}
-    EXPECTED: 重构建议列表，每项包含 location, issue, suggestion, impact
+    EXPECTED: List of refactoring suggestions with location, issue, suggestion, impact fields
     RULES: $(cat ~/.claude/workflows/cli-templates/protocols/analysis-protocol.md)
   variables:
     - source_code
@@ -244,15 +244,15 @@ input:
   - source-files.md
 output: refactor-suggestions.json
 timeout: 600000
-```
+\`\`\`
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 在 Phase 中使用 LLM 动作
+### Using LLM Actions in Phase
 
-```javascript
+\`\`\`javascript
 // phases/02-llm-analysis.md
 
 const llmConfig = {
@@ -265,39 +265,39 @@ const llmConfig = {
   },
   mode: 'analysis',
   prompt: {
-    template: `
-PURPOSE: 分析现有 Skill 的设计模式
+    template: \`
+PURPOSE: Analyze design patterns of existing Skills
 TASK:
-• 提取 Skill 结构规范
-• 识别 Phase 组织模式
-• 分析 Agent 调用模式
+• Extract Skill structure specification
+• Identify Phase organization patterns
+• Analyze Agent invocation patterns
 MODE: analysis
 CONTEXT: {{skill_source}}
-EXPECTED: 结构化的设计模式分析
-`,
+EXPECTED: Structured design pattern analysis
+\`,
     variables: ['skill_source']
   },
   input: ['collected-skills.md'],
   output: 'skill-patterns.json'
 };
 
-// 执行
+// Execute
 const result = await executeLLMAction(llmConfig, {
   workDir: '.workflow/.scratchpad/skill-gen-xxx',
   skill_source: Read('.workflow/.scratchpad/skill-gen-xxx/collected-skills.md')
 });
-```
+\`\`\`
 
-### 在 Orchestrator 中调度 LLM 动作
+### Scheduling LLM Actions in Orchestrator
 
-```javascript
-// autonomous-orchestrator 中的 LLM 动作调度
+\`\`\`javascript
+// Schedule LLM actions in autonomous-orchestrator
 
 const actions = [
   { type: 'collect', priority: 100 },
-  { type: 'llm', id: 'llm-analyze', priority: 90 },  // LLM 分析
+  { type: 'llm', id: 'llm-analyze', priority: 90 },  // LLM analysis
   { type: 'process', priority: 80 },
-  { type: 'llm', id: 'llm-generate', priority: 70 }, // LLM 生成
+  { type: 'llm', id: 'llm-generate', priority: 70 }, // LLM generation
   { type: 'validate', priority: 60 }
 ];
 
@@ -310,13 +310,13 @@ for (const action of sortByPriority(actions)) {
     context.state[action.id] = llmResult;
   }
 }
-```
+\`\`\`
 
 ---
 
-## 错误处理
+## Error Handling
 
-```javascript
+\`\`\`javascript
 async function executeLLMActionWithRetry(config, context, maxRetries = 3) {
   let lastError = null;
 
@@ -325,43 +325,43 @@ async function executeLLMActionWithRetry(config, context, maxRetries = 3) {
       return await executeLLMAction(config, context);
     } catch (error) {
       lastError = error;
-      console.log(`Attempt ${attempt} failed: ${error.message}`);
+      console.log(\`Attempt ${attempt} failed: ${error.message}\`);
 
-      // 指数退避
+      // Exponential backoff
       if (attempt < maxRetries) {
         await sleep(Math.pow(2, attempt) * 1000);
       }
     }
   }
 
-  // 所有重试失败
+  // All retries failed
   return {
     success: false,
     error: lastError.message,
     fallback: 'manual_review_required'
   };
 }
-```
+\`\`\`
 
 ---
 
-## 最佳实践
+## Best Practices
 
-1. **选择合适的工具**
-   - 分析任务：Gemini（大上下文）> Qwen
-   - 生成任务：Codex（自主执行）> Gemini > Qwen
-   - 代码修改：Codex > Gemini
+1. **Select Appropriate Tool**
+   - Analysis tasks: Gemini (large context) > Qwen
+   - Generation tasks: Codex (autonomous execution) > Gemini > Qwen
+   - Code modification: Codex > Gemini
 
-2. **配置 Fallback Chain**
-   - 总是配置至少一个 fallback
-   - 考虑工具特性选择 fallback 顺序
+2. **Configure Fallback Chain**
+   - Always configure at least one fallback
+   - Consider tool characteristics when ordering fallbacks
 
-3. **超时设置**
-   - 分析任务：10-15 分钟
-   - 生成任务：15-20 分钟
-   - 复杂任务：20-60 分钟
+3. **Timeout Settings**
+   - Analysis tasks: 10-15 minutes
+   - Generation tasks: 15-20 minutes
+   - Complex tasks: 20-60 minutes
 
-4. **提示词设计**
-   - 使用 PURPOSE/TASK/MODE/CONTEXT/EXPECTED/RULES 结构
-   - 引用标准协议模板
-   - 明确输出格式要求
+4. **Prompt Design**
+   - Use PURPOSE/TASK/MODE/CONTEXT/EXPECTED/RULES structure
+   - Reference standard protocol templates
+   - Clearly specify output format requirements

@@ -1,31 +1,31 @@
 # Sequential Phase Template
 
-顺序模式 Phase 文件的模板。
+Template for Phase files in Sequential execution mode.
 
 ## Purpose
 
-生成 Sequential 执行模式的 Phase 文件，定义固定顺序的执行步骤。
+Generate Phase files for Sequential execution mode, defining fixed-order execution steps.
 
 ## Usage Context
 
 | Phase | Usage |
 |-------|-------|
-| Phase 3 (Phase Generation) | `config.execution_mode === 'sequential'` 时生成 |
-| Generation Trigger | 为每个 `config.sequential_config.phases` 生成一个 phase 文件 |
+| Phase 3 (Phase Generation) | Generated when `config.execution_mode === 'sequential'` |
+| Generation Trigger | Generate one phase file for each `config.sequential_config.phases` |
 | Output Location | `.claude/skills/{skill-name}/phases/{phase-id}.md` |
 
 ---
 
-## ⚠️ 重要提示
+## Important Notes
 
-> **Phase 0 是强制前置阶段**：在实现任何 Phase (1, 2, 3...) 之前，必须先完成 Phase 0 的规范研读。
+> **Phase 0 is mandatory prerequisite**: Before implementing any Phase (1, 2, 3...), Phase 0 specification review must be completed first.
 >
-> 生成 Sequential Phase 时，需要确保：
-> 1. SKILL.md 中已包含 Phase 0 规范研读步骤
-> 2. 每个 Phase 文件都引用相关的规范文档
-> 3. 执行流程明确标注 Phase 0 为禁止跳过的前置步骤
+> When generating Sequential Phase, ensure:
+> 1. Phase 0 specification review step is included in SKILL.md
+> 2. Each Phase file references related specification documents
+> 3. Execution flow clearly marks Phase 0 as non-skippable prerequisite
 
-## 模板结构
+## Template Structure
 
 ```markdown
 # Phase {{phase_number}}: {{phase_name}}
@@ -38,14 +38,14 @@
 
 ## Input
 
-- 依赖: `{{input_dependency}}`
-- 配置: `{workDir}/skill-config.json`
+- Dependency: `{{input_dependency}}`
+- Config: `{workDir}/skill-config.json`
 
 ## Scripts
 
 \`\`\`yaml
-# 声明本阶段使用的脚本（可选）
-# - script-id        # 对应 scripts/script-id.py 或 .sh
+# Declare scripts used in this phase (optional)
+# - script-id        # Corresponds to scripts/script-id.py or .sh
 \`\`\`
 
 ## Execution Steps
@@ -62,10 +62,10 @@
 {{step_2_code}}
 \`\`\`
 
-### Step 3: 执行脚本（可选）
+### Step 3: Execute Script (Optional)
 
 \`\`\`javascript
-// 调用脚本示例
+// Script execution example
 // const result = await ExecuteScript('script-id', { input_path: `${workDir}/data.json` });
 // if (!result.success) throw new Error(result.stderr);
 // console.log(result.outputs.output_file);
@@ -85,25 +85,25 @@
 {{next_phase_link}}
 ```
 
-## 变量说明
+## Variable Descriptions
 
-| 变量 | 说明 |
-|------|------|
-| `{{phase_number}}` | 阶段序号 (1, 2, 3...) |
-| `{{phase_name}}` | 阶段名称 |
-| `{{phase_description}}` | 一句话描述 |
-| `{{objectives}}` | 目标列表 |
-| `{{input_dependency}}` | 输入依赖文件 |
-| `{{step_N_name}}` | 步骤名称 |
-| `{{step_N_code}}` | 步骤代码 |
-| `{{output_file}}` | 输出文件名 |
-| `{{output_format}}` | 输出格式 |
-| `{{quality_checklist}}` | 质量检查项 |
-| `{{next_phase_link}}` | 下一阶段链接 |
+| Variable | Description |
+|----------|-------------|
+| `{{phase_number}}` | Phase number (1, 2, 3...) |
+| `{{phase_name}}` | Phase name |
+| `{{phase_description}}` | One-line description |
+| `{{objectives}}` | List of objectives |
+| `{{input_dependency}}` | Input dependency file |
+| `{{step_N_name}}` | Step name |
+| `{{step_N_code}}` | Step code |
+| `{{output_file}}` | Output filename |
+| `{{output_format}}` | Output format |
+| `{{quality_checklist}}` | Quality checklist items |
+| `{{next_phase_link}}` | Next phase link |
 
-## 脚本调用说明
+## Script Invocation Guide
 
-### 目录约定
+### Directory Convention
 
 ```
 scripts/
@@ -112,154 +112,154 @@ scripts/
 └── transform.js       # id: transform, runtime: node
 ```
 
-- **命名即 ID**：文件名（不含扩展名）= 脚本 ID
-- **扩展名即运行时**：`.py` → python, `.sh` → bash, `.js` → node
+- **Name is ID**: Filename (without extension) = script ID
+- **Extension is runtime**: `.py` → python, `.sh` → bash, `.js` → node
 
-### 调用语法
+### Invocation Syntax
 
 ```javascript
-// 一行调用
+// Single-line invocation
 const result = await ExecuteScript('script-id', { key: value });
 
-// 检查结果
+// Check result
 if (!result.success) throw new Error(result.stderr);
 
-// 获取输出
+// Get output
 const { output_file } = result.outputs;
 ```
 
-### 返回格式
+### Return Format
 
 ```typescript
 interface ScriptResult {
   success: boolean;    // exit code === 0
-  stdout: string;      // 标准输出
-  stderr: string;      // 标准错误
-  outputs: object;     // 从 stdout 解析的 JSON 输出
+  stdout: string;      // Standard output
+  stderr: string;      // Standard error
+  outputs: object;     // JSON output parsed from stdout
 }
 ```
 
-## Phase 类型模板
+## Phase Type Templates
 
-### 1. 收集型 Phase (Collection)
+### 1. Collection Phase
 
 ```markdown
 # Phase 1: Requirements Collection
 
-收集用户需求和项目配置。
+Collect user requirements and project configuration.
 
 ## Objective
 
-- 收集用户输入
-- 自动检测项目信息
-- 生成配置文件
+- Collect user input
+- Auto-detect project information
+- Generate configuration file
 
 ## Execution Steps
 
-### Step 1: 用户交互
+### Step 1: User Interaction
 
 \`\`\`javascript
 const userInput = await AskUserQuestion({
   questions: [
     {
-      question: "请选择...",
-      header: "选项",
+      question: "Please select...",
+      header: "Option",
       multiSelect: false,
       options: [
-        { label: "选项A", description: "..." },
-        { label: "选项B", description: "..." }
+        { label: "Option A", description: "..." },
+        { label: "Option B", description: "..." }
       ]
     }
   ]
 });
 \`\`\`
 
-### Step 2: 自动检测
+### Step 2: Auto-detection
 
 \`\`\`javascript
-// 检测项目信息
+// Detect project information
 const packageJson = JSON.parse(Read('package.json'));
 const projectName = packageJson.name;
 \`\`\`
 
-### Step 3: 生成配置
+### Step 3: Generate Configuration
 
 \`\`\`javascript
 const config = {
   name: projectName,
-  userChoice: userInput["选项"],
+  userChoice: userInput["Option"],
   // ...
 };
 
-Write(`${workDir}/config.json`, JSON.stringify(config, null, 2));
+Write(\`${workDir}/config.json\`, JSON.stringify(config, null, 2));
 \`\`\`
 
 ## Output
 
-- **File**: `config.json`
+- **File**: \`config.json\`
 - **Format**: JSON
 ```
 
-### 2. 分析型 Phase (Analysis)
+### 2. Analysis Phase
 
 ```markdown
 # Phase 2: Deep Analysis
 
-深度分析代码结构。
+Analyze code structure in depth.
 
 ## Objective
 
-- 扫描代码文件
-- 提取关键信息
-- 生成分析报告
+- Scan code files
+- Extract key information
+- Generate analysis report
 
 ## Execution Steps
 
-### Step 1: 文件扫描
+### Step 1: File Scanning
 
 \`\`\`javascript
 const files = Glob('src/**/*.ts');
 \`\`\`
 
-### Step 2: 内容分析
+### Step 2: Content Analysis
 
 \`\`\`javascript
 const analysisResults = [];
 for (const file of files) {
   const content = Read(file);
-  // 分析逻辑
-  analysisResults.push({ file, /* 分析结果 */ });
+  // Analysis logic
+  analysisResults.push({ file, /* analysis results */ });
 }
 \`\`\`
 
-### Step 3: 生成报告
+### Step 3: Generate Report
 
 \`\`\`javascript
-Write(`${workDir}/analysis.json`, JSON.stringify(analysisResults, null, 2));
+Write(\`${workDir}/analysis.json\`, JSON.stringify(analysisResults, null, 2));
 \`\`\`
 
 ## Output
 
-- **File**: `analysis.json`
+- **File**: \`analysis.json\`
 - **Format**: JSON
 ```
 
-### 3. 并行型 Phase (Parallel)
+### 3. Parallel Phase
 
 ```markdown
 # Phase 3: Parallel Processing
 
-并行处理多个子任务。
+Process multiple subtasks in parallel.
 
 ## Objective
 
-- 启动多个 Agent 并行执行
-- 收集各 Agent 结果
-- 合并输出
+- Launch multiple agents for parallel execution
+- Collect results from each agent
+- Merge outputs
 
 ## Execution Steps
 
-### Step 1: 准备任务
+### Step 1: Prepare Tasks
 
 \`\`\`javascript
 const tasks = [
@@ -269,11 +269,11 @@ const tasks = [
 ];
 \`\`\`
 
-### Step 2: 并行执行
+### Step 2: Parallel Execution
 
 \`\`\`javascript
 const results = await Promise.all(
-  tasks.map(task => 
+  tasks.map(task =>
     Task({
       subagent_type: 'universal-executor',
       run_in_background: false,
@@ -283,7 +283,7 @@ const results = await Promise.all(
 );
 \`\`\`
 
-### Step 3: 合并结果
+### Step 3: Merge Results
 
 \`\`\`javascript
 const merged = results.map((r, i) => ({
@@ -291,83 +291,83 @@ const merged = results.map((r, i) => ({
   result: JSON.parse(r)
 }));
 
-Write(`${workDir}/parallel-results.json`, JSON.stringify(merged, null, 2));
+Write(\`${workDir}/parallel-results.json\`, JSON.stringify(merged, null, 2));
 \`\`\`
 
 ## Output
 
-- **File**: `parallel-results.json`
+- **File**: \`parallel-results.json\`
 - **Format**: JSON
 ```
 
-### 4. 组装型 Phase (Assembly)
+### 4. Assembly Phase
 
 ```markdown
 # Phase 4: Document Assembly
 
-组装最终输出文档。
+Assemble final output documents.
 
 ## Objective
 
-- 读取各阶段产出
-- 合并内容
-- 生成最终文档
+- Read outputs from each phase
+- Merge content
+- Generate final document
 
 ## Execution Steps
 
-### Step 1: 读取产出
+### Step 1: Read Outputs
 
 \`\`\`javascript
-const config = JSON.parse(Read(`${workDir}/config.json`));
-const analysis = JSON.parse(Read(`${workDir}/analysis.json`));
-const sections = Glob(`${workDir}/sections/*.md`).map(f => Read(f));
+const config = JSON.parse(Read(\`${workDir}/config.json\`));
+const analysis = JSON.parse(Read(\`${workDir}/analysis.json\`));
+const sections = Glob(\`${workDir}/sections/*.md\`).map(f => Read(f));
 \`\`\`
 
-### Step 2: 组装内容
+### Step 2: Assemble Content
 
 \`\`\`javascript
 const document = \`
 # \${config.name}
 
-## 概述
+## Overview
 \${config.description}
 
-## 详细内容
+## Detailed Content
 \${sections.join('\\n\\n')}
 \`;
 \`\`\`
 
-### Step 3: 写入文件
+### Step 3: Write File
 
 \`\`\`javascript
-Write(`${workDir}/${config.name}-output.md`, document);
+Write(\`${workDir}/\${config.name}-output.md\`, document);
 \`\`\`
 
 ## Output
 
-- **File**: `{name}-output.md`
+- **File**: \`{name}-output.md\`
 - **Format**: Markdown
 ```
 
-### 5. 验证型 Phase (Validation)
+### 5. Validation Phase
 
 ```markdown
 # Phase 5: Validation
 
-验证输出质量。
+Verify output quality.
 
 ## Objective
 
-- 检查输出完整性
-- 验证内容质量
-- 生成验证报告
+- Check output completeness
+- Verify content quality
+- Generate validation report
 
 ## Execution Steps
 
-### Step 1: 完整性检查
+### Step 1: Completeness Check
 
 \`\`\`javascript
-const outputFile = `${workDir}/${config.name}-output.md`;
+const outputFile = \`${workDir}/\${config.name}-output.md\`;
 const content = Read(outputFile);
 const completeness = {
   hasTitle: content.includes('# '),
@@ -376,16 +376,16 @@ const completeness = {
 };
 \`\`\`
 
-### Step 2: 质量评估
+### Step 2: Quality Assessment
 
 \`\`\`javascript
 const quality = {
   completeness: Object.values(completeness).filter(v => v).length / 3 * 100,
-  // 其他维度...
+  // Other dimensions...
 };
 \`\`\`
 
-### Step 3: 生成报告
+### Step 3: Generate Report
 
 \`\`\`javascript
 const report = {
@@ -394,55 +394,55 @@ const report = {
   issues: []
 };
 
-Write(`${workDir}/validation-report.json`, JSON.stringify(report, null, 2));
+Write(\`${workDir}/validation-report.json\`, JSON.stringify(report, null, 2));
 \`\`\`
 
 ## Output
 
-- **File**: `validation-report.json`
+- **File**: \`validation-report.json\`
 - **Format**: JSON
 ```
 
-## 生成函数
+## Generation Function
 
 ```javascript
 function generateSequentialPhase(phaseConfig, index, phases, skillConfig) {
   const prevPhase = index > 0 ? phases[index - 1] : null;
   const nextPhase = index < phases.length - 1 ? phases[index + 1] : null;
-  
+
   return `# Phase ${index + 1}: ${phaseConfig.name}
 
-${phaseConfig.description || `执行 ${phaseConfig.name}`}
+${phaseConfig.description || `Execute ${phaseConfig.name}`}
 
 ## Objective
 
-- ${phaseConfig.objectives?.join('\n- ') || 'TODO: 定义目标'}
+- ${phaseConfig.objectives?.join('\n- ') || 'TODO: Define objectives'}
 
 ## Input
 
-- 依赖: \`${prevPhase ? prevPhase.output : 'user input'}\`
-- 配置: \`{workDir}/skill-config.json\`
+- Dependency: \`${prevPhase ? prevPhase.output : 'user input'}\`
+- Config: \`{workDir}/skill-config.json\`
 
 ## Execution Steps
 
-### Step 1: 准备
+### Step 1: Preparation
 
 \`\`\`javascript
-${prevPhase ? 
-  `const prevOutput = JSON.parse(Read(\`\${workDir}/${prevPhase.output}\`));` :
-  '// 首阶段，从配置开始'}
+${prevPhase ?
+  `const prevOutput = JSON.parse(Read(\`${workDir}/${prevPhase.output}\`));` :
+  '// First phase, start from configuration'}
 \`\`\`
 
-### Step 2: 处理
+### Step 2: Processing
 
 \`\`\`javascript
-// TODO: 实现核心逻辑
+// TODO: Implement core logic
 \`\`\`
 
-### Step 3: 输出
+### Step 3: Output
 
 \`\`\`javascript
-Write(\`\${workDir}/${phaseConfig.output}\`, JSON.stringify(result, null, 2));
+Write(\`${workDir}/${phaseConfig.output}\`, JSON.stringify(result, null, 2));
 \`\`\`
 
 ## Output
@@ -452,13 +452,13 @@ Write(\`\${workDir}/${phaseConfig.output}\`, JSON.stringify(result, null, 2));
 
 ## Quality Checklist
 
-- [ ] 输入验证通过
-- [ ] 核心逻辑执行成功
-- [ ] 输出格式正确
+- [ ] Input validation passed
+- [ ] Core logic executed successfully
+- [ ] Output format correct
 
-${nextPhase ? 
+${nextPhase ?
   `## Next Phase\n\n→ [Phase ${index + 2}: ${nextPhase.name}](${nextPhase.id}.md)` :
-  '## Completion\n\n此为最后阶段。'}
+  '## Completion\n\nThis is the final phase.'}
 `;
 }
 ```

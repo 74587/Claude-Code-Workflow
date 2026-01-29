@@ -1,59 +1,59 @@
 # Code Analysis Action Template
 
-代码分析动作模板，用于在 Skill 中集成代码探索和分析能力。
+Code analysis action template for integrating code exploration and analysis capabilities into a Skill.
 
 ## Purpose
 
-为 Skill 生成代码分析动作，集成 MCP 工具 (ACE) 和 Agent 进行语义搜索和深度分析。
+Generate code analysis actions for a Skill, integrating MCP tools (ACE) and Agents for semantic search and in-depth analysis.
 
 ## Usage Context
 
 | Phase | Usage |
 |-------|-------|
-| Optional | 当 Skill 需要代码探索和分析能力时使用 |
-| Generation Trigger | 用户选择添加 code-analysis 动作类型 |
+| Optional | Use when Skill requires code exploration and analysis capabilities |
+| Generation Trigger | User selects to add code-analysis action type |
 | Agent Types | Explore, cli-explore-agent, universal-executor |
 
 ---
 
-## 配置结构
+## Configuration Structure
 
 ```typescript
 interface CodeAnalysisActionConfig {
   id: string;                    // "analyze-structure", "explore-patterns"
   name: string;                  // "Code Structure Analysis"
-  type: 'code-analysis';         // 动作类型标识
+  type: 'code-analysis';         // Action type identifier
 
-  // 分析范围
+  // Analysis scope
   scope: {
-    paths: string[];             // 目标路径
-    patterns: string[];          // Glob 模式
-    excludes?: string[];         // 排除模式
+    paths: string[];             // Target paths
+    patterns: string[];          // Glob patterns
+    excludes?: string[];         // Exclude patterns
   };
 
-  // 分析类型
+  // Analysis type
   analysis_type: 'structure' | 'patterns' | 'dependencies' | 'quality' | 'security';
 
-  // Agent 配置
+  // Agent config
   agent: {
     type: 'Explore' | 'cli-explore-agent' | 'universal-executor';
     thoroughness: 'quick' | 'medium' | 'very thorough';
   };
 
-  // 输出配置
+  // Output config
   output: {
     format: 'json' | 'markdown';
     file: string;
   };
 
-  // MCP 工具增强
+  // MCP tool enhancement
   mcp_tools?: string[];          // ['mcp__ace-tool__search_context']
 }
 ```
 
 ---
 
-## 模板生成函数
+## Template Generation Function
 
 ```javascript
 function generateCodeAnalysisAction(config) {
@@ -64,20 +64,20 @@ function generateCodeAnalysisAction(config) {
 
 ## Action: ${id}
 
-### 分析范围
+### Analysis Scope
 
-- **路径**: ${scope.paths.join(', ')}
-- **模式**: ${scope.patterns.join(', ')}
-${scope.excludes ? `- **排除**: ${scope.excludes.join(', ')}` : ''}
+- **Paths**: ${scope.paths.join(', ')}
+- **Patterns**: ${scope.patterns.join(', ')}
+${scope.excludes ? `- **Excludes**: ${scope.excludes.join(', ')}` : ''}
 
-### 执行逻辑
+### Execution Logic
 
 \`\`\`javascript
 async function execute${toPascalCase(id)}(context) {
   const workDir = context.workDir;
   const results = [];
 
-  // 1. 文件发现
+  // 1. File discovery
   const files = await discoverFiles({
     paths: ${JSON.stringify(scope.paths)},
     patterns: ${JSON.stringify(scope.patterns)},
@@ -86,34 +86,34 @@ async function execute${toPascalCase(id)}(context) {
 
   console.log(\`Found \${files.length} files to analyze\`);
 
-  // 2. 使用 MCP 工具进行语义搜索（如果配置）
-  ${mcp_tools.length > 0 ? `
+  // 2. Semantic search using MCP tools (if configured)
+  ${mcp_tools.length > 0 ? \`
   const semanticResults = await mcp__ace_tool__search_context({
     project_root_path: context.projectRoot,
-    query: '${getQueryForAnalysisType(analysis_type)}'
+    query: '\${getQueryForAnalysisType(analysis_type)}'
   });
   results.push({ type: 'semantic', data: semanticResults });
-  ` : '// No MCP tools configured'}
+  \` : '// No MCP tools configured'}
 
-  // 3. 启动 Agent 进行深度分析
+  // 3. Launch Agent for in-depth analysis
   const agentResult = await Task({
-    subagent_type: '${agent.type}',
+    subagent_type: '\${agent.type}',
     prompt: \`
-${generateAgentPrompt(analysis_type, scope)}
+\${generateAgentPrompt(analysis_type, scope)}
     \`,
     run_in_background: false
   });
 
   results.push({ type: 'agent', data: agentResult });
 
-  // 4. 汇总结果
+  // 4. Aggregate results
   const summary = aggregateResults(results);
 
-  // 5. 输出结果
+  // 5. Output results
   const outputPath = \`\${workDir}/${output.file}\`;
   ${output.format === 'json'
-    ? `Write(outputPath, JSON.stringify(summary, null, 2));`
-    : `Write(outputPath, formatAsMarkdown(summary));`}
+    ? \`Write(outputPath, JSON.stringify(summary, null, 2));\`
+    : \`Write(outputPath, formatAsMarkdown(summary));\`}
 
   return {
     success: true,
@@ -122,8 +122,7 @@ ${generateAgentPrompt(analysis_type, scope)}
     analysis_type: '${analysis_type}'
   };
 }
-\`\`\`
-`;
+\`\`\`;
 }
 
 function getQueryForAnalysisType(type) {
@@ -139,101 +138,101 @@ function getQueryForAnalysisType(type) {
 
 function generateAgentPrompt(type, scope) {
   const prompts = {
-    structure: `分析以下路径的代码结构:
-${scope.paths.map(p => `- ${p}`).join('\\n')}
+    structure: \`Analyze code structure of the following paths:
+\${scope.paths.map(p => \`- \${p}\`).join('\\n')}
 
-任务:
-1. 识别主要模块和入口点
-2. 分析目录组织结构
-3. 提取模块间的导入导出关系
-4. 生成结构概览图 (Mermaid)
+Tasks:
+1. Identify main modules and entry points
+2. Analyze directory organization structure
+3. Extract module import/export relationships
+4. Generate structure overview diagram (Mermaid)
 
-输出格式: JSON
+Output format: JSON
 {
   "modules": [...],
   "entry_points": [...],
   "structure_diagram": "mermaid code"
-}`,
+}\`,
 
-    patterns: `分析以下路径的设计模式:
-${scope.paths.map(p => `- ${p}`).join('\\n')}
+    patterns: \`Analyze design patterns in the following paths:
+\${scope.paths.map(p => \`- \${p}\`).join('\\n')}
 
-任务:
-1. 识别使用的设计模式 (Factory, Strategy, Observer 等)
-2. 分析抽象层级
-3. 评估模式使用的恰当性
-4. 提取可复用的模式实例
+Tasks:
+1. Identify design patterns used (Factory, Strategy, Observer, etc.)
+2. Analyze abstraction levels
+3. Evaluate appropriateness of pattern usage
+4. Extract reusable pattern instances
 
-输出格式: JSON
+Output format: JSON
 {
   "patterns": [{ "name": "...", "location": "...", "usage": "..." }],
   "abstractions": [...],
   "reusable_components": [...]
-}`,
+}\`,
 
-    dependencies: `分析以下路径的依赖关系:
-${scope.paths.map(p => `- ${p}`).join('\\n')}
+    dependencies: \`Analyze dependencies in the following paths:
+\${scope.paths.map(p => \`- \${p}\`).join('\\n')}
 
-任务:
-1. 提取内部模块依赖
-2. 识别外部包依赖
-3. 分析耦合度
-4. 检测循环依赖
+Tasks:
+1. Extract internal module dependencies
+2. Identify external package dependencies
+3. Analyze coupling degree
+4. Detect circular dependencies
 
-输出格式: JSON
+Output format: JSON
 {
   "internal_deps": [...],
   "external_deps": [...],
   "coupling_score": 0-100,
   "circular_deps": [...]
-}`,
+}\`,
 
-    quality: `分析以下路径的代码质量:
-${scope.paths.map(p => `- ${p}`).join('\\n')}
+    quality: \`Analyze code quality in the following paths:
+\${scope.paths.map(p => \`- \${p}\`).join('\\n')}
 
-任务:
-1. 评估代码复杂度
-2. 检查测试覆盖率
-3. 分析文档完整性
-4. 识别技术债务
+Tasks:
+1. Assess code complexity
+2. Check test coverage
+3. Analyze documentation completeness
+4. Identify technical debt
 
-输出格式: JSON
+Output format: JSON
 {
   "complexity": { "avg": 0, "max": 0, "hotspots": [...] },
   "test_coverage": { "percentage": 0, "gaps": [...] },
   "documentation": { "score": 0, "missing": [...] },
   "tech_debt": [...]
-}`,
+}\`,
 
-    security: `分析以下路径的安全性:
-${scope.paths.map(p => `- ${p}`).join('\\n')}
+    security: \`Analyze security in the following paths:
+\${scope.paths.map(p => \`- \${p}\`).join('\\n')}
 
-任务:
-1. 检查认证授权实现
-2. 分析输入验证
-3. 检测敏感数据处理
-4. 识别常见漏洞模式
+Tasks:
+1. Check authentication/authorization implementation
+2. Analyze input validation
+3. Detect sensitive data handling
+4. Identify common vulnerability patterns
 
-输出格式: JSON
+Output format: JSON
 {
   "auth": { "methods": [...], "issues": [...] },
   "input_validation": { "coverage": 0, "gaps": [...] },
   "sensitive_data": { "found": [...], "protected": true/false },
   "vulnerabilities": [{ "type": "...", "severity": "...", "location": "..." }]
-}`
+}\`
   };
 
   return prompts[type] || prompts.structure;
 }
-```
+\`\`\`
 
 ---
 
-## 预置代码分析动作
+## Preset Code Analysis Actions
 
-### 1. 项目结构分析
+### 1. Project Structure Analysis
 
-```yaml
+\`\`\`yaml
 id: analyze-project-structure
 name: Project Structure Analysis
 type: code-analysis
@@ -255,11 +254,11 @@ output:
   file: structure-analysis.json
 mcp_tools:
   - mcp__ace-tool__search_context
-```
+\`\`\`
 
-### 2. 设计模式提取
+### 2. Design Pattern Extraction
 
-```yaml
+\`\`\`yaml
 id: extract-design-patterns
 name: Design Pattern Extraction
 type: code-analysis
@@ -275,11 +274,11 @@ agent:
 output:
   format: markdown
   file: patterns-report.md
-```
+\`\`\`
 
-### 3. 依赖关系分析
+### 3. Dependency Analysis
 
-```yaml
+\`\`\`yaml
 id: analyze-dependencies
 name: Dependency Analysis
 type: code-analysis
@@ -297,11 +296,11 @@ agent:
 output:
   format: json
   file: dependency-graph.json
-```
+\`\`\`
 
-### 4. 安全审计
+### 4. Security Audit
 
-```yaml
+\`\`\`yaml
 id: security-audit
 name: Security Audit
 type: code-analysis
@@ -320,15 +319,15 @@ output:
   file: security-report.json
 mcp_tools:
   - mcp__ace-tool__search_context
-```
+\`\`\`
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 在 Phase 中使用
+### Using in Phase
 
-```javascript
+\`\`\`javascript
 // phases/01-code-exploration.md
 
 const analysisConfig = {
@@ -351,14 +350,14 @@ const analysisConfig = {
   }
 };
 
-// 执行
+// Execute
 const result = await executeCodeAnalysis(analysisConfig, context);
-```
+\`\`\`
 
-### 组合多种分析
+### Combining Multiple Analyses
 
-```javascript
-// 串行执行多种分析
+\`\`\`javascript
+// Serial execution of multiple analyses
 const analyses = [
   { type: 'structure', file: 'structure.json' },
   { type: 'patterns', file: 'patterns.json' },
@@ -373,7 +372,7 @@ for (const analysis of analyses) {
   }, context);
 }
 
-// 并行执行（独立分析）
+// Parallel execution (independent analyses)
 const parallelResults = await Promise.all(
   analyses.map(a => executeCodeAnalysis({
     ...baseConfig,
@@ -381,51 +380,51 @@ const parallelResults = await Promise.all(
     output: { format: 'json', file: a.file }
   }, context))
 );
-```
+\`\`\`
 
 ---
 
-## Agent 选择指南
+## Agent Selection Guide
 
-| 分析类型 | 推荐 Agent | Thoroughness | 原因 |
-|---------|-----------|--------------|------|
-| structure | Explore | medium | 快速获取目录结构 |
-| patterns | cli-explore-agent | very thorough | 需要深度代码理解 |
-| dependencies | Explore | medium | 主要分析 import 语句 |
-| quality | universal-executor | medium | 需要运行分析工具 |
-| security | universal-executor | very thorough | 需要全面扫描 |
+| Analysis Type | Recommended Agent | Thoroughness | Reason |
+|-------------|-----------------|--------------|--------|
+| structure | Explore | medium | Quick directory structure retrieval |
+| patterns | cli-explore-agent | very thorough | Requires deep code understanding |
+| dependencies | Explore | medium | Mainly analyzes import statements |
+| quality | universal-executor | medium | Requires running analysis tools |
+| security | universal-executor | very thorough | Requires comprehensive scanning |
 
 ---
 
-## MCP 工具集成
+## MCP Tool Integration
 
-### 语义搜索增强
+### Semantic Search Enhancement
 
-```javascript
-// 使用 ACE 工具进行语义搜索
+\`\`\`javascript
+// Use ACE tool for semantic search
 const semanticContext = await mcp__ace_tool__search_context({
   project_root_path: projectRoot,
   query: 'authentication logic, user session management'
 });
 
-// 将语义搜索结果作为 Agent 的输入上下文
+// Use semantic search results as Agent input context
 const agentResult = await Task({
   subagent_type: 'Explore',
-  prompt: `
-基于以下语义搜索结果进行深度分析:
+  prompt: \`
+Based on following semantic search results, perform in-depth analysis:
 
-${semanticContext}
+\${semanticContext}
 
-任务: 分析认证逻辑的实现细节...
-  `,
+Task: Analyze authentication logic implementation details...
+  \`,
   run_in_background: false
 });
-```
+\`\`\`
 
-### smart_search 集成
+### smart_search Integration
 
-```javascript
-// 使用 smart_search 进行精确搜索
+\`\`\`javascript
+// Use smart_search for exact matching
 const exactMatches = await mcp__ccw_tools__smart_search({
   action: 'search',
   query: 'class.*Controller',
@@ -433,19 +432,19 @@ const exactMatches = await mcp__ccw_tools__smart_search({
   path: 'src/'
 });
 
-// 使用 find_files 发现文件
+// Use find_files for file discovery
 const configFiles = await mcp__ccw_tools__smart_search({
   action: 'find_files',
   pattern: '**/*.config.ts',
   path: 'src/'
 });
-```
+\`\`\`
 
 ---
 
-## 结果聚合
+## Results Aggregation
 
-```javascript
+\`\`\`javascript
 function aggregateResults(results) {
   const aggregated = {
     timestamp: new Date().toISOString(),
@@ -478,38 +477,38 @@ function aggregateResults(results) {
 }
 
 function extractKeyFindings(agentResult) {
-  // 从 Agent 结果中提取关键发现
-  // 实现取决于 Agent 的输出格式
+  // Extract key findings from Agent result
+  // Implementation depends on Agent output format
   return {
     modules: agentResult.modules?.length || 0,
     patterns: agentResult.patterns?.length || 0,
     issues: agentResult.issues?.length || 0
   };
 }
-```
+\`\`\`
 
 ---
 
-## 最佳实践
+## Best Practices
 
-1. **范围控制**
-   - 使用精确的 patterns 减少分析范围
-   - 配置 excludes 排除无关文件
+1. **Scope Control**
+   - Use precise patterns to reduce analysis scope
+   - Configure excludes to ignore irrelevant files
 
-2. **Agent 选择**
-   - 快速探索用 Explore
-   - 深度分析用 cli-explore-agent
-   - 需要执行操作用 universal-executor
+2. **Agent Selection**
+   - Use Explore for quick exploration
+   - Use cli-explore-agent for in-depth analysis
+   - Use universal-executor when execution is required
 
-3. **MCP 工具组合**
-   - 先用 mcp__ace-tool__search_context 获取语义上下文
-   - 再用 Agent 进行深度分析
-   - 最后用 smart_search 补充精确匹配
+3. **MCP Tool Combination**
+   - First use mcp__ace-tool__search_context for semantic context
+   - Then use Agent for in-depth analysis
+   - Finally use smart_search for exact matching
 
-4. **结果缓存**
-   - 将分析结果持久化到 workDir
-   - 后续阶段可直接读取，避免重复分析
+4. **Result Caching**
+   - Persist analysis results to workDir
+   - Subsequent phases can read directly, avoiding re-analysis
 
 5. **Brief Returns**
-   - Agent 返回路径 + 摘要，而非完整内容
-   - 避免上下文溢出
+   - Agent returns path + summary, not full content
+   - Prevents context overflow

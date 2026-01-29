@@ -1,102 +1,102 @@
 # Skill Requirements Specification
 
-新 Skill 创建的需求收集规范。
+Requirements collection specification for new Skill creation.
 
 ---
 
-## 必需信息
+## Required Information
 
-### 1. 基本信息
+### 1. Basic Information
 
-| 字段 | 类型 | 必需 | 说明 |
-|------|------|------|------|
-| `skill_name` | string | ✓ | Skill 标识符（小写-连字符） |
-| `display_name` | string | ✓ | 显示名称 |
-| `description` | string | ✓ | 一句话描述 |
-| `triggers` | string[] | ✓ | 触发关键词列表 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `skill_name` | string | Yes | Skill identifier (lowercase with hyphens) |
+| `display_name` | string | Yes | Display name |
+| `description` | string | Yes | One-sentence description |
+| `triggers` | string[] | Yes | List of trigger keywords |
 
-### 2. 执行模式
+### 2. Execution Mode
 
-| 字段 | 类型 | 必需 | 说明 |
-|------|------|------|------|
-| `execution_mode` | enum | ✓ | `sequential` \| `autonomous` \| `hybrid` |
-| `phase_count` | number | 条件 | Sequential 模式下的阶段数 |
-| `action_count` | number | 条件 | Autonomous 模式下的动作数 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `execution_mode` | enum | Yes | `sequential` \| `autonomous` \| `hybrid` |
+| `phase_count` | number | Conditional | Number of phases in Sequential mode |
+| `action_count` | number | Conditional | Number of actions in Autonomous mode |
 
-### 2.5 上下文策略 (P0 增强)
+### 2.5 Context Strategy (P0 Enhancement)
 
-| 字段 | 类型 | 必需 | 说明 |
-|------|------|------|------|
-| `context_strategy` | enum | ✓ | `file` \| `memory` |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `context_strategy` | enum | Yes | `file` \| `memory` |
 
-**策略对比**:
+**Strategy Comparison**:
 
-| 策略 | 持久化 | 可调试 | 可恢复 | 适用场景 |
-|------|--------|--------|--------|----------|
-| `file` | ✓ | ✓ | ✓ | 复杂多阶段任务（推荐） |
-| `memory` | ✗ | ✗ | ✗ | 简单线性任务 |
+| Strategy | Persistence | Debuggable | Recoverable | Applicable Scenarios |
+|----------|-------------|-----------|------------|----------------------|
+| `file` | Yes | Yes | Yes | Complex multi-phase tasks (recommended) |
+| `memory` | No | No | No | Simple linear tasks |
 
-### 2.6 LLM 集成配置 (P1 增强)
+### 2.6 LLM Integration Configuration (P1 Enhancement)
 
-| 字段 | 类型 | 必需 | 说明 |
-|------|------|------|------|
-| `llm_integration` | object | 可选 | LLM 调用配置 |
-| `llm_integration.enabled` | boolean | - | 是否启用 LLM 调用 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `llm_integration` | object | Optional | LLM invocation configuration |
+| `llm_integration.enabled` | boolean | - | Enable LLM invocation |
 | `llm_integration.default_tool` | enum | - | `gemini` \| `qwen` \| `codex` |
-| `llm_integration.fallback_chain` | string[] | - | 失败时的备选工具链 |
+| `llm_integration.fallback_chain` | string[] | - | Fallback tool chain on failure |
 
-### 3. 工具依赖
+### 3. Tool Dependencies
 
-| 字段 | 类型 | 必需 | 说明 |
-|------|------|------|------|
-| `allowed_tools` | string[] | ✓ | 允许使用的工具列表 |
-| `mcp_tools` | string[] | 可选 | 需要的 MCP 工具 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `allowed_tools` | string[] | Yes | List of allowed tools |
+| `mcp_tools` | string[] | Optional | Required MCP tools |
 
-### 4. 输出配置
+### 4. Output Configuration
 
-| 字段 | 类型 | 必需 | 说明 |
-|------|------|------|------|
-| `output_format` | enum | ✓ | `markdown` \| `html` \| `json` |
-| `output_location` | string | ✓ | 输出目录模式 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `output_format` | enum | Yes | `markdown` \| `html` \| `json` |
+| `output_location` | string | Yes | Output directory pattern |
 
 ---
 
-## 配置文件结构
+## Configuration File Structure
 
 ```typescript
 interface SkillConfig {
-  // 基本信息
+  // Basic information
   skill_name: string;           // "my-skill"
   display_name: string;         // "My Skill"
-  description: string;          // "一句话描述"
+  description: string;          // "One-sentence description"
   triggers: string[];           // ["keyword1", "keyword2"]
-  
-  // 执行模式
+
+  // Execution mode
   execution_mode: 'sequential' | 'autonomous' | 'hybrid';
 
-  // 上下文策略 (P0 增强)
-  context_strategy: 'file' | 'memory';  // 默认: 'file'
+  // Context strategy (P0 Enhancement)
+  context_strategy: 'file' | 'memory';  // Default: 'file'
 
-  // LLM 集成配置 (P1 增强)
+  // LLM Integration Configuration (P1 Enhancement)
   llm_integration?: {
-    enabled: boolean;                    // 是否启用 LLM 调用
+    enabled: boolean;                    // Enable LLM invocation
     default_tool: 'gemini' | 'qwen' | 'codex';
     fallback_chain: string[];            // ['gemini', 'qwen', 'codex']
-    mode: 'analysis' | 'write';          // 默认 mode
+    mode: 'analysis' | 'write';          // Default mode
   };
 
-  // Sequential 模式配置
+  // Sequential mode configuration
   sequential_config?: {
     phases: Array<{
       id: string;               // "01-init"
       name: string;             // "Initialization"
-      description: string;      // "收集初始配置"
-      input: string[];          // 输入依赖
-      output: string;           // 输出文件
+      description: string;      // "Collect initial configuration"
+      input: string[];          // Input dependencies
+      output: string;           // Output file
     }>;
   };
-  
-  // Autonomous 模式配置
+
+  // Autonomous mode configuration
   autonomous_config?: {
     state_schema: {
       fields: Array<{
@@ -108,31 +108,31 @@ interface SkillConfig {
     actions: Array<{
       id: string;               // "action-init"
       name: string;             // "Initialize"
-      description: string;      // "初始化状态"
-      preconditions: string[];  // 前置条件
-      effects: string[];        // 执行效果
+      description: string;      // "Initialize state"
+      preconditions: string[];  // Preconditions
+      effects: string[];        // Execution effects
     }>;
     termination_conditions: string[];
   };
-  
-  // 工具依赖
+
+  // Tool dependencies
   allowed_tools: string[];      // ["Task", "Read", "Write", ...]
   mcp_tools?: string[];         // ["mcp__chrome__*"]
-  
-  // 输出配置
+
+  // Output configuration
   output: {
     format: 'markdown' | 'html' | 'json';
     location: string;           // ".workflow/.scratchpad/{skill}-{timestamp}"
     filename_pattern: string;   // "{name}-output.{ext}"
   };
-  
-  // 质量配置
+
+  // Quality configuration
   quality?: {
     dimensions: string[];       // ["completeness", "consistency", ...]
     pass_threshold: number;     // 80
   };
-  
-  // 元数据
+
+  // Metadata
   created_at: string;
   version: string;
 }
@@ -140,59 +140,59 @@ interface SkillConfig {
 
 ---
 
-## 需求收集问题
+## Requirements Collection Questions
 
-### Phase 1: 基本信息
+### Phase 1: Basic Information
 
 ```javascript
 AskUserQuestion({
   questions: [
     {
-      question: "Skill 的名称是什么？（英文，小写-连字符格式）",
-      header: "Skill 名称",
+      question: "What is the Skill name? (English, lowercase with hyphens)",
+      header: "Skill Name",
       multiSelect: false,
       options: [
-        { label: "自动生成", description: "根据描述自动生成名称" },
-        { label: "手动输入", description: "输入自定义名称" }
+        { label: "Auto-generate", description: "Auto-generate name from description" },
+        { label: "Manual input", description: "Enter custom name" }
       ]
     },
     {
-      question: "Skill 的主要用途是什么？",
-      header: "用途类型",
+      question: "What is the primary purpose of this Skill?",
+      header: "Purpose Type",
       multiSelect: false,
       options: [
-        { label: "文档生成", description: "生成 Markdown/HTML 文档" },
-        { label: "代码分析", description: "分析代码结构、质量、安全" },
-        { label: "交互管理", description: "管理 Issue、任务、工作流" },
-        { label: "数据处理", description: "ETL、转换、报告生成" },
-        { label: "自定义", description: "其他用途" }
+        { label: "Document Generation", description: "Generate Markdown/HTML documents" },
+        { label: "Code Analysis", description: "Analyze code structure, quality, security" },
+        { label: "Interactive Management", description: "Manage Issues, tasks, workflows" },
+        { label: "Data Processing", description: "ETL, transformation, report generation" },
+        { label: "Custom", description: "Other purposes" }
       ]
     }
   ]
 });
 ```
 
-### Phase 2: 执行模式
+### Phase 2: Execution Mode
 
 ```javascript
 AskUserQuestion({
   questions: [
     {
-      question: "选择执行模式：",
-      header: "执行模式",
+      question: "Select execution mode:",
+      header: "Execution Mode",
       multiSelect: false,
       options: [
-        { 
-          label: "Sequential (顺序)", 
-          description: "阶段按固定顺序执行，适合流水线任务（推荐）" 
+        {
+          label: "Sequential (Fixed Order)",
+          description: "Phases execute in fixed order, suitable for pipeline tasks (recommended)"
         },
-        { 
-          label: "Autonomous (自主)", 
-          description: "动态选择执行路径，适合交互式任务" 
+        {
+          label: "Autonomous (Dynamic)",
+          description: "Dynamically select execution path, suitable for interactive tasks"
         },
-        { 
-          label: "Hybrid (混合)", 
-          description: "初始化和收尾固定，中间交互灵活" 
+        {
+          label: "Hybrid (Mixed)",
+          description: "Fixed initialization and finalization, flexible middle interaction"
         }
       ]
     }
@@ -200,67 +200,67 @@ AskUserQuestion({
 });
 ```
 
-### Phase 3: 阶段/动作定义
+### Phase 3: Phase/Action Definition
 
-#### Sequential 模式
+#### Sequential Mode
 
 ```javascript
 AskUserQuestion({
   questions: [
     {
-      question: "需要多少个执行阶段？",
-      header: "阶段数量",
+      question: "How many execution phases do you need?",
+      header: "Phase Count",
       multiSelect: false,
       options: [
-        { label: "3 阶段", description: "简单: 收集 → 处理 → 输出" },
-        { label: "5 阶段", description: "标准: 收集 → 探索 → 分析 → 组装 → 验证" },
-        { label: "7 阶段", description: "完整: 包含并行处理和迭代优化" },
-        { label: "自定义", description: "手动指定阶段" }
+        { label: "3 phases", description: "Simple: Collect → Process → Output" },
+        { label: "5 phases", description: "Standard: Collect → Explore → Analyze → Assemble → Validate" },
+        { label: "7 phases", description: "Complete: Include parallel processing and iterative optimization" },
+        { label: "Custom", description: "Manually specify phases" }
       ]
     }
   ]
 });
 ```
 
-#### Autonomous 模式
+#### Autonomous Mode
 
 ```javascript
 AskUserQuestion({
   questions: [
     {
-      question: "核心动作有哪些？",
-      header: "动作定义",
+      question: "What are the core actions?",
+      header: "Action Definition",
       multiSelect: true,
       options: [
-        { label: "初始化 (init)", description: "设置初始状态" },
-        { label: "列表 (list)", description: "显示当前项目" },
-        { label: "创建 (create)", description: "创建新项目" },
-        { label: "编辑 (edit)", description: "修改现有项目" },
-        { label: "删除 (delete)", description: "删除项目" },
-        { label: "完成 (complete)", description: "完成任务" }
+        { label: "Initialize (init)", description: "Set initial state" },
+        { label: "List (list)", description: "Display current items" },
+        { label: "Create (create)", description: "Create new item" },
+        { label: "Edit (edit)", description: "Modify existing item" },
+        { label: "Delete (delete)", description: "Delete item" },
+        { label: "Complete (complete)", description: "Complete task" }
       ]
     }
   ]
 });
 ```
 
-### Phase 4: 上下文策略 (P0 增强)
+### Phase 4: Context Strategy (P0 Enhancement)
 
 ```javascript
 AskUserQuestion({
   questions: [
     {
-      question: "选择上下文管理策略：",
-      header: "上下文策略",
+      question: "Select context management strategy:",
+      header: "Context Strategy",
       multiSelect: false,
       options: [
         {
-          label: "文件策略 (file)",
-          description: "持久化到 .scratchpad，支持调试和恢复（推荐）"
+          label: "File Strategy (file)",
+          description: "Persist to .scratchpad, supports debugging and recovery (recommended)"
         },
         {
-          label: "内存策略 (memory)",
-          description: "仅在运行时保持，速度快但无法恢复"
+          label: "Memory Strategy (memory)",
+          description: "Keep only at runtime, fast but no recovery"
         }
       ]
     }
@@ -268,41 +268,41 @@ AskUserQuestion({
 });
 ```
 
-### Phase 5: LLM 集成 (P1 增强)
+### Phase 5: LLM Integration (P1 Enhancement)
 
 ```javascript
 AskUserQuestion({
   questions: [
     {
-      question: "是否需要 LLM 调用能力？",
-      header: "LLM 集成",
+      question: "Do you need LLM invocation capability?",
+      header: "LLM Integration",
       multiSelect: false,
       options: [
         {
-          label: "启用 LLM 调用",
-          description: "使用 gemini/qwen/codex 进行分析或生成"
+          label: "Enable LLM Invocation",
+          description: "Use gemini/qwen/codex for analysis or generation"
         },
         {
-          label: "不需要",
-          description: "仅使用本地工具"
+          label: "Not needed",
+          description: "Only use local tools"
         }
       ]
     }
   ]
 });
 
-// 如果启用 LLM
+// If LLM enabled
 if (llmEnabled) {
   AskUserQuestion({
     questions: [
       {
-        question: "选择默认 LLM 工具：",
-        header: "LLM 工具",
+        question: "Select default LLM tool:",
+        header: "LLM Tool",
         multiSelect: false,
         options: [
-          { label: "Gemini", description: "大上下文，适合分析任务（推荐）" },
-          { label: "Qwen", description: "代码生成能力强" },
-          { label: "Codex", description: "自主执行能力强，适合实现任务" }
+          { label: "Gemini", description: "Large context, suitable for analysis tasks (recommended)" },
+          { label: "Qwen", description: "Strong code generation capability" },
+          { label: "Codex", description: "Strong autonomous execution, suitable for implementation tasks" }
         ]
       }
     ]
@@ -310,21 +310,21 @@ if (llmEnabled) {
 }
 ```
 
-### Phase 6: 工具依赖
+### Phase 6: Tool Dependencies
 
 ```javascript
 AskUserQuestion({
   questions: [
     {
-      question: "需要哪些工具？",
-      header: "工具选择",
+      question: "What tools do you need?",
+      header: "Tool Selection",
       multiSelect: true,
       options: [
-        { label: "基础工具", description: "Task, Read, Write, Glob, Grep, Bash" },
-        { label: "用户交互", description: "AskUserQuestion" },
-        { label: "Chrome 截图", description: "mcp__chrome__*" },
-        { label: "外部搜索", description: "mcp__exa__search" },
-        { label: "CCW CLI 调用", description: "ccw cli (gemini/qwen/codex)" }
+        { label: "Basic tools", description: "Task, Read, Write, Glob, Grep, Bash" },
+        { label: "User interaction", description: "AskUserQuestion" },
+        { label: "Chrome screenshot", description: "mcp__chrome__*" },
+        { label: "External search", description: "mcp__exa__search" },
+        { label: "CCW CLI invocation", description: "ccw cli (gemini/qwen/codex)" }
       ]
     }
   ]
@@ -333,19 +333,19 @@ AskUserQuestion({
 
 ---
 
-## 验证规则
+## Validation Rules
 
-### 名称验证
+### Name Validation
 
 ```javascript
 function validateSkillName(name) {
   const rules = [
-    { test: /^[a-z][a-z0-9-]*$/, msg: "必须以小写字母开头，只包含小写字母、数字、连字符" },
-    { test: /^.{3,30}$/, msg: "长度 3-30 字符" },
-    { test: /^(?!.*--)/, msg: "不能有连续连字符" },
-    { test: /[^-]$/, msg: "不能以连字符结尾" }
+    { test: /^[a-z][a-z0-9-]*$/, msg: "Must start with lowercase letter, only contain lowercase letters, digits, hyphens" },
+    { test: /^.{3,30}$/, msg: "Length 3-30 characters" },
+    { test: /^(?!.*--)/, msg: "Cannot have consecutive hyphens" },
+    { test: /[^-]$/, msg: "Cannot end with hyphen" }
   ];
-  
+
   for (const rule of rules) {
     if (!rule.test.test(name)) {
       return { valid: false, error: rule.msg };
@@ -355,37 +355,37 @@ function validateSkillName(name) {
 }
 ```
 
-### 配置验证
+### Configuration Validation
 
 ```javascript
 function validateSkillConfig(config) {
   const errors = [];
-  
-  // 必需字段
-  if (!config.skill_name) errors.push("缺少 skill_name");
-  if (!config.description) errors.push("缺少 description");
-  if (!config.execution_mode) errors.push("缺少 execution_mode");
-  
-  // 模式特定验证
+
+  // Required fields
+  if (!config.skill_name) errors.push("Missing skill_name");
+  if (!config.description) errors.push("Missing description");
+  if (!config.execution_mode) errors.push("Missing execution_mode");
+
+  // Mode-specific validation
   if (config.execution_mode === 'sequential') {
     if (!config.sequential_config?.phases?.length) {
-      errors.push("Sequential 模式需要定义 phases");
+      errors.push("Sequential mode requires phases definition");
     }
   } else if (config.execution_mode === 'autonomous') {
     if (!config.autonomous_config?.actions?.length) {
-      errors.push("Autonomous 模式需要定义 actions");
+      errors.push("Autonomous mode requires actions definition");
     }
   }
-  
+
   return { valid: errors.length === 0, errors };
 }
 ```
 
 ---
 
-## 示例配置
+## Example Configurations
 
-### Sequential 模式示例 (增强版)
+### Sequential Mode Example (Enhanced)
 
 ```json
 {
@@ -432,7 +432,7 @@ function validateSkillConfig(config) {
 }
 ```
 
-### Autonomous 模式示例
+### Autonomous Mode Example
 
 ```json
 {
@@ -444,15 +444,15 @@ function validateSkillConfig(config) {
   "autonomous_config": {
     "state_schema": {
       "fields": [
-        { "name": "tasks", "type": "Task[]", "description": "任务列表" },
-        { "name": "current_view", "type": "string", "description": "当前视图" }
+        { "name": "tasks", "type": "Task[]", "description": "Task list" },
+        { "name": "current_view", "type": "string", "description": "Current view" }
       ]
     },
     "actions": [
-      { "id": "action-list", "name": "List Tasks", "preconditions": [], "effects": ["显示任务列表"] },
-      { "id": "action-create", "name": "Create Task", "preconditions": [], "effects": ["添加新任务"] },
-      { "id": "action-edit", "name": "Edit Task", "preconditions": ["task_selected"], "effects": ["更新任务"] },
-      { "id": "action-delete", "name": "Delete Task", "preconditions": ["task_selected"], "effects": ["删除任务"] }
+      { "id": "action-list", "name": "List Tasks", "preconditions": [], "effects": ["Display task list"] },
+      { "id": "action-create", "name": "Create Task", "preconditions": [], "effects": ["Add new task"] },
+      { "id": "action-edit", "name": "Edit Task", "preconditions": ["task_selected"], "effects": ["Update task"] },
+      { "id": "action-delete", "name": "Delete Task", "preconditions": ["task_selected"], "effects": ["Delete task"] }
     ],
     "termination_conditions": ["user_exit", "error_limit"]
   },
