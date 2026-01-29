@@ -94,6 +94,7 @@ Phase 01 → Phase 02 → Phase 03 → ... → Phase N
 | Document | Purpose | Priority |
 |----------|---------|----------|
 | [../_shared/SKILL-DESIGN-SPEC.md](../_shared/SKILL-DESIGN-SPEC.md) | 通用设计规范 - 定义所有 Skill 的结构、命名、质量标准 | **P0 - 最高** |
+| [specs/reference-docs-spec.md](specs/reference-docs-spec.md) | **参考文档生成规范** - 确保生成的skill中Reference Documents部分有正确的分阶段组织和使用时机指引 | **P0 - 最高** |
 
 ### 模板文件 (生成前必读)
 
@@ -193,6 +194,7 @@ Phase 3: Phase/Action Generation
 Phase 4: Specs & Templates
    └─ Generate domain specifications and templates
       ├─ Input: skill-config.json (domain context)
+      ├─ ⚠️ 参考规范: [specs/reference-docs-spec.md](specs/reference-docs-spec.md) - 确保生成的参考文档有正确的分阶段组织
       ├─ Tool: Write
       │   ├─ Generate: specs/{domain}-requirements.md
       │   ├─ Generate: specs/quality-standards.md
@@ -273,104 +275,88 @@ Write(`${skillDir}/README.md`, generateReadme(config, validation));
 
 ---
 
-## Phase Reference Guide
 
-Navigation and entry points for each execution phase:
+## Reference Documents by Phase
 
-### Phase 0: Specification Study (Mandatory)
+> **重要**: 本部分展示skill-generator如何组织自己的参考文档，这是生成的skill应该模仿的示例。详见 [specs/reference-docs-spec.md](specs/reference-docs-spec.md)
 
-**Document**: 🔗 [SKILL-DESIGN-SPEC.md](../_shared/SKILL-DESIGN-SPEC.md)
+### 🔧 Phase 0: Specification Study (强制前置)
 
-**Purpose**: Understand skill design standards before generating
+所有生成操作前必须阅读的规范
 
-**What to Read**:
-- Skill structure conventions
-- Naming standards
-- Quality criteria
-- Output format specifications
+| Document | Purpose | When to Use |
+|----------|---------|-------------|
+| [../_shared/SKILL-DESIGN-SPEC.md](../_shared/SKILL-DESIGN-SPEC.md) | Skill设计通用规范 | 理解Skill结构和命名规范 ✅ **必读** |
+| [specs/reference-docs-spec.md](specs/reference-docs-spec.md) | 参考文档生成规范 | 确保Reference Documents有正确的组织方式 ✅ **必读** |
 
----
+### 📋 Phase 1: Requirements Discovery
 
-### Phase 1: Requirements Discovery
+收集Skill需求和配置
 
-**Document**: 🔗 [phases/01-requirements-discovery.md](phases/01-requirements-discovery.md)
+| Document | Purpose | When to Use |
+|----------|---------|-------------|
+| [phases/01-requirements-discovery.md](phases/01-requirements-discovery.md) | Phase 1执行指南 | 理解如何收集用户需求和生成配置 |
+| [specs/skill-requirements.md](specs/skill-requirements.md) | Skill需求规范 | 理解Skill应包含哪些信息 |
 
-| Attribute | Value |
-|-----------|-------|
-| **Purpose** | Gather configuration from user via interactive prompts |
-| **Input** | User responses (Skill name, purpose, execution mode) |
-| **Output** | `skill-config.json` (configuration file) |
-| **Key Decision** | Execution mode: Sequential vs Autonomous vs Hybrid |
+### 🔧 Phase 2: Structure Generation
 
----
+生成目录结构和入口文件
 
-### Phase 2: Structure Generation
+| Document | Purpose | When to Use |
+|----------|---------|-------------|
+| [phases/02-structure-generation.md](phases/02-structure-generation.md) | Phase 2执行指南 | 理解如何生成目录结构 |
+| [templates/skill-md.md](templates/skill-md.md) | SKILL.md模板 | 了解如何生成入口文件 |
 
-**Document**: 🔗 [phases/02-structure-generation.md](phases/02-structure-generation.md)
+### ⚙️ Phase 3: Phase/Action Generation
 
-| Attribute | Value |
-|-----------|-------|
-| **Purpose** | Create directory structure and entry file |
-| **Input** | `skill-config.json` (from Phase 1) |
-| **Output** | `.claude/skills/{skill-name}/` directory + `SKILL.md` |
+根据执行模式生成具体的phase或action文件
 
----
+| Document | Purpose | When to Use |
+|----------|---------|-------------|
+| [phases/03-phase-generation.md](phases/03-phase-generation.md) | Phase 3执行指南 | 理解Sequential vs Autonomous生成逻辑 |
+| [templates/sequential-phase.md](templates/sequential-phase.md) | Sequential Phase模板 | 生成Sequential模式的phase文件 |
+| [templates/autonomous-orchestrator.md](templates/autonomous-orchestrator.md) | Orchestrator模板 | 生成Autonomous模式的编排器 |
+| [templates/autonomous-action.md](templates/autonomous-action.md) | Action模板 | 生成Autonomous模式的action |
 
-### Phase 3: Phase/Action Generation
+### ✅ Phase 4: Specs & Templates
 
-**Document**: 🔗 [phases/03-phase-generation.md](phases/03-phase-generation.md)
+生成领域特定的规范和模板
 
-| Attribute | Value |
-|-----------|-------|
-| **Purpose** | Generate execution phases or actions based on mode |
-| **Input** | `skill-config.json` + Templates |
-| **Output** | Sequential: `phases/01-*.md` ... OR Autonomous: `phases/orchestrator.md` + `actions/*.md` |
+| Document | Purpose | When to Use |
+|----------|---------|-------------|
+| [phases/04-specs-templates.md](phases/04-specs-templates.md) | Phase 4执行指南 | 理解如何生成domain-specific文档 |
+| [specs/reference-docs-spec.md](specs/reference-docs-spec.md) | 参考文档规范 | ⭐ 生成Specs时要遵循的规范 |
 
-**Decision Logic**:
-```
-IF execution_mode === "sequential":
-  └─ Generate sequential phases with linear flow
-ELSE IF execution_mode === "autonomous":
-  └─ Generate orchestrator + independent actions
-```
+### 🏁 Phase 5: Validation & Documentation
 
----
+验证生成结果并生成最终文档
 
-### Phase 4: Specs & Templates
+| Document | Purpose | When to Use |
+|----------|---------|-------------|
+| [phases/05-validation.md](phases/05-validation.md) | Phase 5执行指南 | 理解如何验证生成的skill完整性 |
 
-**Document**: 🔗 [phases/04-specs-templates.md](phases/04-specs-templates.md)
+### 🔍 Debugging & Troubleshooting
 
-| Attribute | Value |
-|-----------|-------|
-| **Purpose** | Generate domain specifications and template files |
-| **Input** | `skill-config.json` (domain context) |
-| **Output** | `specs/{skill-name}-requirements.md`, `specs/quality-standards.md` |
+遇到问题时查阅
 
----
+| Issue | Solution Document |
+|-------|------------------|
+| 生成的Skill缺少Reference Documents | [specs/reference-docs-spec.md](specs/reference-docs-spec.md) - 检查是否遵循分阶段组织 |
+| 参考文档组织混乱 | [specs/reference-docs-spec.md](specs/reference-docs-spec.md) - 核心原则部分 |
+| 生成的文档不符合质量标准 | [../_shared/SKILL-DESIGN-SPEC.md](../_shared/SKILL-DESIGN-SPEC.md) |
 
-### Phase 5: Validation & Documentation
+### 📚 Reference & Background
 
-**Document**: 🔗 [phases/05-validation.md](phases/05-validation.md)
+用于深度学习和设计决策
 
-| Attribute | Value |
-|-----------|-------|
-| **Purpose** | Verify completeness and generate usage documentation |
-| **Input** | All files from previous phases |
-| **Output** | `README.md`, `validation-report.json` |
+| Document | Purpose | Notes |
+|----------|---------|-------|
+| [specs/execution-modes.md](specs/execution-modes.md) | 执行模式详细规范 | Sequential vs Autonomous的对比和适用场景 |
+| [specs/cli-integration.md](specs/cli-integration.md) | CLI集成规范 | 生成的Skill如何与CLI集成 |
+| [specs/scripting-integration.md](specs/scripting-integration.md) | 脚本集成规范 | Phase中如何使用脚本 |
+| [templates/script-template.md](templates/script-template.md) | 脚本模板 | Bash + Python统一模板 |
 
 ---
-
-## Template Reference
-
-| Template | Generated For | When Used |
-|----------|--------------|-----------|
-| [skill-md.md](templates/skill-md.md) | SKILL.md entry file | Phase 2 |
-| [sequential-phase.md](templates/sequential-phase.md) | Sequential phase files | Phase 3 |
-| [autonomous-orchestrator.md](templates/autonomous-orchestrator.md) | Orchestrator (autonomous) | Phase 3 |
-| [autonomous-action.md](templates/autonomous-action.md) | Action files | Phase 3 |
-| [code-analysis-action.md](templates/code-analysis-action.md) | Code analysis actions | Phase 3 |
-| [llm-action.md](templates/llm-action.md) | LLM-powered actions | Phase 3 |
-| [script-template.md](templates/script-template.md) | Bash + Python scripts | Phase 3/4 |
 
 ## Output Structure
 
@@ -416,3 +402,85 @@ ELSE IF execution_mode === "autonomous":
 ├── scripts/
 └── README.md
 ```
+
+---
+
+## Reference Documents by Phase
+
+> **重要**: 本部分展示skill-generator如何组织自己的参考文档，这是生成的skill应该模仿的示例。详见 [specs/reference-docs-spec.md](specs/reference-docs-spec.md)
+
+### 🔧 Phase 0: Specification Study (强制前置)
+
+所有生成操作前必须阅读的规范
+
+| Document | Purpose | When to Use |
+|----------|---------|-------------|
+| [../_shared/SKILL-DESIGN-SPEC.md](../_shared/SKILL-DESIGN-SPEC.md) | Skill设计通用规范 | 理解Skill结构和命名规范 ✅ **必读** |
+| [specs/reference-docs-spec.md](specs/reference-docs-spec.md) | 参考文档生成规范 | 确保Reference Documents有正确的组织方式 ✅ **必读** |
+
+### 📋 Phase 1: Requirements Discovery
+
+收集Skill需求和配置
+
+| Document | Purpose | When to Use |
+|----------|---------|-------------|
+| [phases/01-requirements-discovery.md](phases/01-requirements-discovery.md) | Phase 1执行指南 | 理解如何收集用户需求和生成配置 |
+| [specs/skill-requirements.md](specs/skill-requirements.md) | Skill需求规范 | 理解Skill应包含哪些信息 |
+
+### 🔧 Phase 2: Structure Generation
+
+生成目录结构和入口文件
+
+| Document | Purpose | When to Use |
+|----------|---------|-------------|
+| [phases/02-structure-generation.md](phases/02-structure-generation.md) | Phase 2执行指南 | 理解如何生成目录结构 |
+| [templates/skill-md.md](templates/skill-md.md) | SKILL.md模板 | 了解如何生成入口文件 |
+
+### ⚙️ Phase 3: Phase/Action Generation
+
+根据执行模式生成具体的phase或action文件
+
+| Document | Purpose | When to Use |
+|----------|---------|-------------|
+| [phases/03-phase-generation.md](phases/03-phase-generation.md) | Phase 3执行指南 | 理解Sequential vs Autonomous生成逻辑 |
+| [templates/sequential-phase.md](templates/sequential-phase.md) | Sequential Phase模板 | 生成Sequential模式的phase文件 |
+| [templates/autonomous-orchestrator.md](templates/autonomous-orchestrator.md) | Orchestrator模板 | 生成Autonomous模式的编排器 |
+| [templates/autonomous-action.md](templates/autonomous-action.md) | Action模板 | 生成Autonomous模式的action |
+
+### ✅ Phase 4: Specs & Templates
+
+生成领域特定的规范和模板
+
+| Document | Purpose | When to Use |
+|----------|---------|-------------|
+| [phases/04-specs-templates.md](phases/04-specs-templates.md) | Phase 4执行指南 | 理解如何生成domain-specific文档 |
+| [specs/reference-docs-spec.md](specs/reference-docs-spec.md) | 参考文档规范 | ⭐ 生成Specs时要遵循的规范 |
+
+### 🏁 Phase 5: Validation & Documentation
+
+验证生成结果并生成最终文档
+
+| Document | Purpose | When to Use |
+|----------|---------|-------------|
+| [phases/05-validation.md](phases/05-validation.md) | Phase 5执行指南 | 理解如何验证生成的skill完整性 |
+
+### 🔍 Debugging & Troubleshooting
+
+遇到问题时查阅
+
+| Issue | Solution Document |
+|-------|------------------|
+| 生成的Skill缺少Reference Documents | [specs/reference-docs-spec.md](specs/reference-docs-spec.md) - 检查是否遵循分阶段组织 |
+| 参考文档组织混乱 | [specs/reference-docs-spec.md](specs/reference-docs-spec.md) - 核心原则部分 |
+| 生成的文档不符合质量标准 | [../_shared/SKILL-DESIGN-SPEC.md](../_shared/SKILL-DESIGN-SPEC.md) |
+
+### 📚 Reference & Background
+
+用于深度学习和设计决策
+
+| Document | Purpose | Notes |
+|----------|---------|-------|
+| [specs/execution-modes.md](specs/execution-modes.md) | 执行模式详细规范 | Sequential vs Autonomous的对比和适用场景 |
+| [specs/cli-integration.md](specs/cli-integration.md) | CLI集成规范 | 生成的Skill如何与CLI集成 |
+| [specs/scripting-integration.md](specs/scripting-integration.md) | 脚本集成规范 | Phase中如何使用脚本 |
+| [templates/script-template.md](templates/script-template.md) | 脚本模板 | Bash + Python统一模板 |

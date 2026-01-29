@@ -80,7 +80,9 @@ Bash(\`mkdir -p "\${workDir}"\`);
 {{output_structure}}
 \`\`\`
 
-## Reference Documents
+## Reference Documents by Phase
+
+> **重要**: 参考文档应按执行阶段组织，清晰标注使用时机和场景。避免平铺文档列表。
 
 {{reference_table}}
 
@@ -132,12 +134,12 @@ function generatePrerequisites(config) {
   const templates = config.templates || [];
 
   let result = '### 规范文档 (必读)\n\n';
-  result += '| Document | Purpose | Priority |\n';
-  result += '|----------|---------|----------|\n';
+  result += '| Document | Purpose | When |\n';
+  result += '|----------|---------|------|\n';
 
   specs.forEach((spec, index) => {
-    const priority = index === 0 ? '**P0 - 最高**' : 'P1';
-    result += `| [${spec.path}](${spec.path}) | ${spec.purpose} | ${priority} |\n`;
+    const when = index === 0 ? '**执行前必读**' : '执行前推荐';
+    result += `| [${spec.path}](${spec.path}) | ${spec.purpose} | ${when} |\n`;
   });
 
   if (templates.length > 0) {
@@ -150,6 +152,80 @@ function generatePrerequisites(config) {
   }
 
   return result;
+}
+
+// ⭐ 新增：生成分阶段参考文档指南
+function generateReferenceTable(config) {
+  const phases = config.phases || config.actions || [];
+  const specs = config.specs || [];
+  const templates = config.templates || [];
+
+  let result = '';
+
+  // 为每个执行阶段生成文档导航
+  phases.forEach((phase, index) => {
+    const phaseNum = index + 1;
+    const phaseEmoji = getPhaseEmoji(phase.type || 'default');
+    const phaseTitle = phase.display_name || phase.name;
+
+    result += `### ${phaseEmoji} Phase ${phaseNum}: ${phaseTitle}\n`;
+    result += `执行Phase ${phaseNum}时查阅的文档\n\n`;
+
+    // 列出该阶段相关的文档
+    const relatedDocs = filterDocsByPhase(specs, phase, index);
+    if (relatedDocs.length > 0) {
+      result += '| Document | Purpose | When to Use |\n';
+      result += '|----------|---------|-------------|\n';
+      relatedDocs.forEach(doc => {
+        result += `| [${doc.path}](${doc.path}) | ${doc.purpose} | ${doc.context || '查阅内容'} |\n`;
+      });
+      result += '\n';
+    }
+  });
+
+  // 问题排查部分
+  result += '### 🔍 Debugging & Troubleshooting (问题排查)\n';
+  result += '遇到问题时查阅的文档\n\n';
+  result += '| Issue | Solution Document |\n';
+  result += '|-------|-------------------|\n';
+  result += `| Phase执行失败 | 查阅相应Phase的文档 |\n`;
+  result += `| 输出不符合预期 | [specs/quality-standards.md](specs/quality-standards.md) - 验证质量标准 |\n`;
+  result += '\n';
+
+  // 深度学习参考
+  result += '### 📚 Reference & Background (深度学习)\n';
+  result += '用于理解原始实现和设计决策\n\n';
+  result += '| Document | Purpose | Notes |\n';
+  result += '|----------|---------|-------|\n';
+  templates.forEach(tmpl => {
+    result += `| [${tmpl.path}](${tmpl.path}) | ${tmpl.purpose} | 生成时参考 |\n`;
+  });
+
+  return result;
+}
+
+// 辅助函数：获取Phase表情符号
+function getPhaseEmoji(phaseType) {
+  const emojiMap = {
+    'discovery': '📋',
+    'generation': '🔧',
+    'analysis': '🔍',
+    'implementation': '⚙️',
+    'validation': '✅',
+    'completion': '🏁',
+    'default': '📌'
+  };
+  return emojiMap[phaseType] || emojiMap['default'];
+}
+
+// 辅助函数：根据Phase过滤文档
+function filterDocsByPhase(specs, phase, phaseIndex) {
+  // 简单过滤逻辑：匹配phase名称关键词
+  const keywords = phase.name.toLowerCase().split('-');
+  return specs.filter(spec => {
+    const specName = spec.path.toLowerCase();
+    return keywords.some(kw => specName.includes(kw));
+  });
 }
 ```
 
