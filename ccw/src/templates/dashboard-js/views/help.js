@@ -909,7 +909,7 @@ function showCommandDetailModal(cmd) {
       <!-- Tab Content -->
       <div class="flex-1 overflow-y-auto">
         <!-- Overview Tab -->
-        <div id="overview-tab" class="detail-tab-content p-6 space-y-6">
+        <div id="overview-tab" class="detail-tab-content p-6 space-y-6 active">
           <!-- Description -->
           <div>
             <h3 class="text-sm font-semibold text-foreground mb-2">Description</h3>
@@ -992,7 +992,7 @@ function showCommandDetailModal(cmd) {
 
         <!-- Document Tab -->
         ${cmd.source ? `
-        <div id="document-tab" class="detail-tab-content hidden p-6">
+        <div id="document-tab" class="detail-tab-content p-6">
           <div class="bg-background border border-border rounded-lg p-4">
             <div id="document-loader" class="flex items-center justify-center py-8">
               <i data-lucide="loader-2" class="w-5 h-5 animate-spin text-primary mr-2"></i>
@@ -1038,11 +1038,11 @@ function showCommandDetailModal(cmd) {
       // Show/hide tab content
       var tabContents = modal.querySelectorAll('.detail-tab-content');
       tabContents.forEach(function(content) {
-        content.classList.add('hidden');
+        content.classList.remove('active');
       });
       var activeTab = modal.querySelector('#' + tabName + '-tab');
       if (activeTab) {
-        activeTab.classList.remove('hidden');
+        activeTab.classList.add('active');
       }
 
       // Load document content if needed
@@ -1099,13 +1099,21 @@ function loadCommandDocument(modal, sourcePath) {
   fetch('/api/help/command-content?source=' + encodeURIComponent(sourcePath))
     .then(function(response) {
       if (!response.ok) {
-        throw new Error('Failed to load document');
+        throw new Error('HTTP ' + response.status + ': ' + response.statusText);
       }
       return response.text();
     })
     .then(function(markdown) {
       // Parse markdown to HTML
-      var html = parseMarkdown(markdown);
+      try {
+        var html = parseMarkdown(markdown);
+        if (!html) {
+          throw new Error('parseMarkdown returned empty result');
+        }
+      } catch (parseError) {
+        console.error('[Help] parseMarkdown failed:', parseError.message, parseError.stack);
+        throw parseError;
+      }
 
       if (contentDiv) {
         contentDiv.innerHTML = html;
@@ -1116,11 +1124,13 @@ function loadCommandDocument(modal, sourcePath) {
       if (typeof lucide !== 'undefined') lucide.createIcons();
     })
     .catch(function(error) {
-      console.error('Failed to load document:', error);
+      console.error('[Help] Failed to load document:', error.message || error);
+      if (contentDiv) contentDiv.classList.add('hidden');
+      if (loaderDiv) loaderDiv.classList.add('hidden');
       if (errorDiv) {
+        errorDiv.textContent = 'Failed to load document: ' + (error.message || 'Unknown error');
         errorDiv.classList.remove('hidden');
       }
-      if (loaderDiv) loaderDiv.classList.add('hidden');
     });
 }
 
