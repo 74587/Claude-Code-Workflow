@@ -10,40 +10,13 @@ Streamlined autonomous workflow for Codex that integrates issue planning, queue 
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│  Main Orchestrator (Claude Code Entry Point)                        │
-│  • Loads issues                                                      │
-│  • Spawns persistent agents                                          │
-│  • Manages pipeline flow                                             │
-└──────┬──────────────────────────────────────┬──────────────────────┘
-       │ spawn_agent(planning-system-prompt)  │ spawn_agent(execution-system-prompt)
-       │ (创建一次)                            │ (创建一次)
-       ▼                                       ▼
-┌─────────────────────────────┐     ┌────────────────────────────────┐
-│   Planning Agent            │     │   Execution Agent              │
-│   (持久化 - 不关闭)         │     │   (持久化 - 不关闭)            │
-│                             │     │                                │
-│ Loop: receive issue →       │     │ Loop: receive solution →       │
-│       analyze & design      │     │       implement & test         │
-│       return solution       │     │       return results           │
-└────────┬────────────────────┘     └────────┬─────────────────────┘
-         │ send_input(issue)                  │ send_input(solution)
-         │ wait for response                  │ wait for response
-         │ (逐个 issue)                       │ (逐个 solution)
-         ▼                                    ▼
-   Planning Results                    Execution Results
-   (unified JSON)                      (unified JSON)
-```
+For complete architecture details, system diagrams, and design principles, see **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 
-
-## Key Design Principles
-
-1. **Persistent Agent Architecture**: Two long-running agents (Planning + Execution) that never close until all work completes
-2. **Pipeline Flow**: Main orchestrator feeds issues sequentially to Planning Agent via `send_input`, then feeds solutions to Execution Agent via `send_input`
-3. **Unified Results Storage**: Single JSON files (`planning-results.json`, `execution-results.json`) accumulate all results instead of per-issue files
-4. **Context Preservation**: Agents maintain context across multiple tasks without being recreated
-5. **Efficient Communication**: Uses `send_input()` mechanism to communicate with agents without spawn/close overhead
+Key concepts:
+- **Persistent Dual-Agent System**: Two long-running agents (Planning + Execution) that maintain context across all tasks
+- **Sequential Pipeline**: Issues → Planning Agent → Solutions → Execution Agent → Results
+- **Unified Results**: All results accumulated in single `planning-results.json` and `execution-results.json` files
+- **Efficient Communication**: Uses `send_input()` for task routing without agent recreation overhead
 
 ---
 
@@ -61,9 +34,10 @@ Streamlined autonomous workflow for Codex that integrates issue planning, queue 
 ## Execution Flow
 
 ### Phase 1: Initialize Persistent Agents
-→ **查阅**: [phases/orchestrator.md](phases/orchestrator.md) - 理解编排逻辑
-→ Spawn Planning Agent with `planning-agent-system.md` prompt (stays alive)
-→ Spawn Execution Agent with `execution-agent-system.md` prompt (stays alive)
+→ **查阅**: [ARCHITECTURE.md](ARCHITECTURE.md) - 系统架构  
+→ **查阅**: [phases/orchestrator.md](phases/orchestrator.md) - 编排逻辑  
+→ Spawn Planning Agent with `prompts/planning-agent.md` (stays alive)  
+→ Spawn Execution Agent with `prompts/execution-agent.md` (stays alive)
 
 ### Phase 2: Planning Pipeline
 → **查阅**: [phases/actions/action-plan.md](phases/actions/action-plan.md), [specs/subagent-roles.md](specs/subagent-roles.md)
@@ -163,7 +137,7 @@ Bash(`mkdir -p "${workDir}/snapshots"`);
 |----------|---------|-----------|
 | [phases/orchestrator.md](phases/orchestrator.md) | 编排器核心逻辑 | 如何管理agents、pipeline流程、状态转换 |
 | [phases/state-schema.md](phases/state-schema.md) | 状态结构定义 | 完整状态模型、验证规则、持久化 |
-| [specs/subagent-roles.md](specs/subagent-roles.md) | Subagent角色定义 | Planning Agent & Execution Agent职责 |
+| [specs/agent-roles.md](specs/agent-roles.md) | Agent角色和职责定义 | Planning & Execution Agent详细说明 |
 
 ### 📋 Planning Phase (规划阶段)
 执行Phase 2时查阅 - Planning逻辑和Issue处理
@@ -200,14 +174,15 @@ Bash(`mkdir -p "${workDir}/snapshots"`);
 | Execution Agent实现失败 | [phases/actions/action-execute.md](phases/actions/action-execute.md) + [specs/quality-standards.md](specs/quality-standards.md) |
 | Issue数据格式错误 | [specs/issue-handling.md](specs/issue-handling.md) |
 
-### 📚 Reference & Background (深度学习)
-用于理解原始实现和设计决策
+### 📚 Architecture & Agent Definitions (架构和Agent定义)
+核心设计文档
 
 | Document | Purpose | Notes |
 |----------|---------|-------|
-| [../issue-plan.md](../../.codex/prompts/issue-plan.md) | Codex Issue Plan 原始实现 | Planning Agent system prompt原型 |
-| [../issue-execute.md](../../.codex/prompts/issue-execute.md) | Codex Issue Execute 原始实现 | Execution Agent system prompt原型 |
-| [../codex SUBAGENT 策略补充.md](../../workflow/.scratchpad/codex%20SUBAGENT%20策略补充.md) | Subagent使用指南 | Agent交互最佳实践 |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | 系统架构和设计原则 | 启动前必读 |
+| [specs/agent-roles.md](specs/agent-roles.md) | Agent角色定义 | Planning & Execution Agent详细职责 |
+| [prompts/planning-agent.md](prompts/planning-agent.md) | Planning Agent统一提示词 | 用于初始化Planning Agent |
+| [prompts/execution-agent.md](prompts/execution-agent.md) | Execution Agent统一提示词 | 用于初始化Execution Agent |
 
 ---
 

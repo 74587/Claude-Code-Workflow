@@ -369,6 +369,7 @@ const ParamsSchema = z.object({
   base: z.string().optional(), // Review changes against base branch
   commit: z.string().optional(), // Review changes from specific commit
   title: z.string().optional(), // Optional title for review summary
+  skipGitRepoCheck: z.boolean().optional(), // Skip git repository check (codex only)
   // Rules env vars (PROTO, TMPL) - will be passed to subprocess environment
   rulesEnv: z.object({
     PROTO: z.string().optional(),

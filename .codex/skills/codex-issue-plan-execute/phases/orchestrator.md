@@ -2,6 +2,8 @@
 
 主流程编排器：创建两个持久化 agent（规划和执行），流水线式处理所有 issue。
 
+> **Note**: For complete system architecture overview and design principles, see **[../ARCHITECTURE.md](../ARCHITECTURE.md)**
+
 ## Architecture Overview
 
 ```
