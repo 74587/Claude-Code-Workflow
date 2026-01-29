@@ -605,7 +605,7 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
   // API: Execute CLI Tool
   if (pathname === '/api/cli/execute' && req.method === 'POST') {
     handlePostRequest(req, res, async (body) => {
-      const { tool, prompt, mode, format, model, dir, includeDirs, timeout, smartContext, parentExecutionId, category } = body as any;
+      const { tool, prompt, mode, format, model, dir, includeDirs, timeout, smartContext, parentExecutionId, category, toFile } = body as any;
 
       if (!tool || !prompt) {
         return { error: 'tool and prompt are required', status: 400 };
@@ -694,6 +694,21 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
           activeExec.status = result.success ? 'completed' : 'error';
           activeExec.completedTimestamp = Date.now();
           console.log(`[ActiveExec] Direct execution ${executionId} marked as ${activeExec.status}, retained for ${EXECUTION_RETENTION_MS / 1000}s`);
+        }
+
+        // Save output to file if --to-file is specified
+        if (toFile && result.stdout) {
+          try {
+            const { writeFileSync, mkdirSync } = await import('fs');
+            const { dirname, resolve } = await import('path');
+            const filePath = resolve(dir || initialPath, toFile);
+            const dirPath = dirname(filePath);
+            mkdirSync(dirPath, { recursive: true });
+            writeFileSync(filePath, result.stdout, 'utf8');
+            console.log(`[API] Output saved to: ${filePath}`);
+          } catch (err) {
+            console.warn(`[API] Failed to save output to file: ${(err as Error).message}`);
+          }
         }
 
         // Broadcast completion

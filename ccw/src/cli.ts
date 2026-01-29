@@ -209,6 +209,7 @@ export function run(argv: string[]): void {
     .option('--turn <n>', 'Turn number for cache (default: latest)')
     .option('--raw', 'Raw output only (no formatting)')
     .option('--final', 'Output final result only with usage hint')
+    .option('--to-file <path>', 'Save output to file')
     .action((subcommand, args, options) => cliCommand(subcommand, args, options));
 
   // Memory command

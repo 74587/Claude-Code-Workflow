@@ -132,6 +132,8 @@ interface CliExecOptions {
   title?: string; // Optional title for review summary
   // Template/Rules options
   rule?: string; // Template name for auto-discovery (defines $PROTO and $TMPL env vars)
+  // Output options
+  toFile?: string; // Save output to file
 }
 
 /** Cache configuration parsed from --cache */
@@ -580,7 +582,7 @@ async function statusAction(debug?: boolean): Promise<void> {
  * @param {Object} options - CLI options
  */
 async function execAction(positionalPrompt: string | undefined, options: CliExecOptions): Promise<void> {
-  const { prompt: optionPrompt, file, tool: userTool, mode = 'analysis', model, cd, includeDirs, stream, resume, id, noNative, cache, injectMode, debug, uncommitted, base, commit, title, rule } = options;
+  const { prompt: optionPrompt, file, tool: userTool, mode = 'analysis', model, cd, includeDirs, stream, resume, id, noNative, cache, injectMode, debug, uncommitted, base, commit, title, rule, toFile } = options;
 
   // Determine the tool to use: explicit --tool option, or defaultTool from config
   let tool = userTool;
@@ -919,6 +921,9 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
     mode
   });
 
+  // Buffer to accumulate output when both --stream and --to-file are specified
+  let streamBuffer = '';
+
   // Streaming output handler - broadcasts to dashboard AND writes to stdout
   const onOutput = (unit: CliOutputUnit) => {
     // Always broadcast to dashboard for real-time viewing
@@ -939,10 +944,14 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
         case 'stdout':
         case 'code':
         case 'streaming_content':  // Show streaming delta content in real-time
-          process.stdout.write(typeof unit.content === 'string' ? unit.content : JSON.stringify(unit.content));
+          const content1 = typeof unit.content === 'string' ? unit.content : JSON.stringify(unit.content);
+          process.stdout.write(content1);
+          if (toFile) streamBuffer += content1;
           break;
         case 'stderr':
-          process.stderr.write(typeof unit.content === 'string' ? unit.content : JSON.stringify(unit.content));
+          const content2 = typeof unit.content === 'string' ? unit.content : JSON.stringify(unit.content);
+          process.stderr.write(content2);
+          if (toFile) streamBuffer += content2;
           break;
         case 'thought':
           // Optional: display thinking process with different color
@@ -955,7 +964,9 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
         default:
           // Other types: output content if available
           if (unit.content) {
-            process.stdout.write(typeof unit.content === 'string' ? unit.content : '');
+            const content3 = typeof unit.content === 'string' ? unit.content : '';
+            process.stdout.write(content3);
+            if (toFile) streamBuffer += content3;
           }
       }
     }
@@ -1006,12 +1017,43 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       const output = result.parsedOutput || result.stdout;
       if (output) {
         console.log(output);
+
+        // Save to file if --to-file is specified
+        if (toFile) {
+          try {
+            const { writeFileSync, mkdirSync } = await import('fs');
+            const { dirname, resolve } = await import('path');
+            const filePath = resolve(cd || process.cwd(), toFile);
+            const dir = dirname(filePath);
+            mkdirSync(dir, { recursive: true });
+            writeFileSync(filePath, output, 'utf8');
+            if (debug) {
+              console.log(chalk.gray(`  Saved output to: ${filePath}`));
+            }
+          } catch (err) {
+            console.error(chalk.red(`  Error saving to file: ${(err as Error).message}`));
+          }
+        }
       }
     }
 
     // Print summary with execution ID and turn info
     console.log();
     if (result.success) {
+      // Save streaming output to file if needed
+      if (stream && toFile && streamBuffer) {
+        try {
+          const { writeFileSync, mkdirSync } = await import('fs');
+          const { dirname, resolve } = await import('path');
+          const filePath = resolve(cd || process.cwd(), toFile);
+          const dir = dirname(filePath);
+          mkdirSync(dir, { recursive: true });
+          writeFileSync(filePath, streamBuffer, 'utf8');
+        } catch (err) {
+          console.error(chalk.red(`  Error saving to file: ${(err as Error).message}`));
+        }
+      }
+
       if (!spinner) {
         const turnInfo = result.conversation.turn_count > 1
           ? ` (turn ${result.conversation.turn_count})`
@@ -1032,6 +1074,11 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       console.log(chalk.dim(`  Continue: ccw cli -p "..." --resume ${result.execution.id}`));
       if (!stream) {
         console.log(chalk.dim(`  Output (optional): ccw cli output ${result.execution.id}`));
+      }
+      if (toFile) {
+        const { resolve } = await import('path');
+        const filePath = resolve(cd || process.cwd(), toFile);
+        console.log(chalk.green(`  Saved to: ${filePath}`));
       }
 
       // Notify dashboard: execution completed (legacy)
