@@ -166,7 +166,7 @@ export function buildCommand(params: {
     commit?: string;
     title?: string;
   };
-}): { command: string; args: string[]; useStdin: boolean } {
+}): { command: string; args: string[]; useStdin: boolean; outputFormat?: 'text' | 'json-lines' } {
   const { tool, prompt, mode = 'analysis', model, dir, include, nativeResume, settingsFile, reviewOptions } = params;
 
   debugLog('BUILD_CMD', `Building command for tool: ${tool}`, {
@@ -381,5 +381,8 @@ export function buildCommand(params: {
     fullCommand: `${command} ${args.join(' ')}${useStdin ? ' (stdin)' : ''}`,
   });
 
-  return { command, args, useStdin };
+  // Auto-detect output format: Codex uses --json flag for JSONL output
+  const outputFormat = tool.toLowerCase() === 'codex' ? 'json-lines' : 'text';
+
+  return { command, args, useStdin, outputFormat };
 }

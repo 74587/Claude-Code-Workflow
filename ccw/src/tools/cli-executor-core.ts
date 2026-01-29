@@ -795,7 +795,7 @@ async function executeCliTool(
   const effectiveModel = model || getPrimaryModel(workingDir, tool);
 
   // Build command
-  const { command, args, useStdin } = buildCommand({
+  const { command, args, useStdin, outputFormat: autoDetectedFormat } = buildCommand({
     tool,
     prompt: finalPrompt,
     mode,
@@ -806,8 +806,11 @@ async function executeCliTool(
     reviewOptions: mode === 'review' ? { uncommitted, base, commit, title } : undefined
   });
 
+  // Use auto-detected format (from buildCommand) if available, otherwise use passed outputFormat
+  const finalOutputFormat = autoDetectedFormat || outputFormat;
+  
   // Create output parser and IR storage
-  const parser = createOutputParser(outputFormat);
+  const parser = createOutputParser(finalOutputFormat);
   const allOutputUnits: CliOutputUnit[] = [];
 
   const startTime = Date.now();
@@ -820,7 +823,7 @@ async function executeCliTool(
     promptLength: finalPrompt.length,
     hasResume: !!resume,
     hasCustomId: !!customId,
-    outputFormat
+    outputFormat: finalOutputFormat
   });
 
   return new Promise((resolve, reject) => {
