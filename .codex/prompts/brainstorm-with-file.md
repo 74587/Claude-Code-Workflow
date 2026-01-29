@@ -231,59 +231,126 @@ ${newFocusFromUser}
 
 ### Phase 2: Divergent Exploration (Multi-Perspective)
 
-#### Step 2.1: Creative Perspective Analysis
+Launch 3 parallel agents for multi-perspective brainstorming:
 
-Explore from creative/innovative angle:
+```javascript
+const cliPromises = []
 
-- Think beyond obvious solutions - what would be surprising/delightful?
-- Cross-domain inspiration (what can we learn from other industries?)
-- Challenge assumptions - what if the opposite were true?
-- Generate 'moonshot' ideas alongside practical ones
-- Consider future trends and emerging technologies
+// Agent 1: Creative/Innovative Perspective (Gemini)
+cliPromises.push(
+  Bash({
+    command: `ccw cli -p "
+PURPOSE: Creative brainstorming for '$TOPIC' - generate innovative, unconventional ideas
+Success: 5+ unique creative solutions that push boundaries
 
-Output:
+TASK:
+• Think beyond obvious solutions - what would be surprising/delightful?
+• Explore cross-domain inspiration (what can we learn from other industries?)
+• Challenge assumptions - what if the opposite were true?
+• Generate 'moonshot' ideas alongside practical ones
+• Consider future trends and emerging technologies
+
+MODE: analysis
+
+CONTEXT: @**/* | Topic: $TOPIC
+Exploration vectors: ${explorationVectors.map(v => v.title).join(', ')}
+
+EXPECTED:
 - 5+ creative ideas with brief descriptions
 - Each idea rated: novelty (1-5), potential impact (1-5)
 - Key assumptions challenged
 - Cross-domain inspirations
 - One 'crazy' idea that might just work
 
-#### Step 2.2: Pragmatic Perspective Analysis
+CONSTRAINTS: ${brainstormMode === 'structured' ? 'Keep ideas technically feasible' : 'No constraints - think freely'}
+" --tool gemini --mode analysis`,
+    run_in_background: true
+  })
+)
 
-Evaluate from implementation reality:
+// Agent 2: Pragmatic/Implementation Perspective (Codex)
+cliPromises.push(
+  Bash({
+    command: \`ccw cli -p "
+PURPOSE: Pragmatic analysis for '$TOPIC' - focus on implementation reality
+Success: Actionable approaches with clear implementation paths
 
-- Technical feasibility of core concept
-- Existing patterns/libraries that could help
-- Integration with current codebase
-- Implementation complexity estimates
-- Potential technical blockers
-- Incremental implementation approach
+TASK:
+• Evaluate technical feasibility of core concept
+• Identify existing patterns/libraries that could help
+• Consider integration with current codebase
+• Estimate implementation complexity
+• Highlight potential technical blockers
+• Suggest incremental implementation approach
 
-Output:
+MODE: analysis
+
+CONTEXT: @**/* | Topic: $TOPIC
+Exploration vectors: \${explorationVectors.map(v => v.title).join(', ')}
+
+EXPECTED:
 - 3-5 practical implementation approaches
 - Each rated: effort (1-5), risk (1-5), reuse potential (1-5)
 - Technical dependencies identified
 - Quick wins vs long-term solutions
 - Recommended starting point
 
-#### Step 2.3: Systematic Perspective Analysis
+CONSTRAINTS: Focus on what can actually be built with current tech stack
+" --tool codex --mode analysis\`,
+    run_in_background: true
+  })
+)
 
-Analyze from architectural standpoint:
+// Agent 3: Systematic/Architectural Perspective (Claude)
+cliPromises.push(
+  Bash({
+    command: \`ccw cli -p "
+PURPOSE: Systematic analysis for '$TOPIC' - architectural and structural thinking
+Success: Well-structured solution framework with clear tradeoffs
 
-- Decompose the problem into sub-problems
-- Identify architectural patterns that apply
-- Map dependencies and interactions
-- Consider scalability implications
-- Evaluate long-term maintainability
-- Propose systematic solution structure
+TASK:
+• Decompose the problem into sub-problems
+• Identify architectural patterns that apply
+• Map dependencies and interactions
+• Consider scalability implications
+• Evaluate long-term maintainability
+• Propose systematic solution structure
 
-Output:
+MODE: analysis
+
+CONTEXT: @**/* | Topic: $TOPIC
+Exploration vectors: \${explorationVectors.map(v => v.title).join(', ')}
+
+EXPECTED:
 - Problem decomposition diagram (text)
 - 2-3 architectural approaches with tradeoffs
 - Dependency mapping
 - Scalability assessment
 - Recommended architecture pattern
 - Risk matrix
+
+CONSTRAINTS: Consider existing system architecture
+" --tool claude --mode analysis\`,
+    run_in_background: true
+  })
+)
+
+// Wait for all CLI analyses to complete
+const [creativeResult, pragmaticResult, systematicResult] = await Promise.all(cliPromises)
+
+// Parse results from each perspective
+const creativeIdeas = parseCreativeResult(creativeResult)
+const pragmaticApproaches = parsePragmaticResult(pragmaticResult)
+const architecturalOptions = parseSystematicResult(systematicResult)
+```
+
+**Multi-Perspective Coordination**:
+
+| Agent | Perspective | Tool | Focus Areas |
+|-------|-------------|------|-------------|
+| 1 | Creative/Innovative | Gemini | Novel ideas, cross-domain inspiration, moonshots |
+| 2 | Pragmatic/Implementation | Codex | Feasibility, tech stack, blockers, quick wins |
+| 3 | Systematic/Architectural | Claude | Decomposition, patterns, scalability, risks |
 
 #### Step 2.4: Aggregate Multi-Perspective Findings
 
