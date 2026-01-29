@@ -414,4 +414,3 @@ function parseMarkdownBody(body) {
 ## Related Commands
 
 - `/issue:plan` - Plan solution for issue
-
