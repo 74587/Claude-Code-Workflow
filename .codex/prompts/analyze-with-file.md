@@ -1,6 +1,6 @@
 ---
-description: Interactive collaborative analysis with documented discussions, CLI-assisted exploration, and evolving understanding
-argument-hint: TOPIC="<topic or question to analyze>"
+description: Interactive collaborative analysis with documented discussions, CLI-assisted exploration, and evolving understanding. Supports depth control and iteration limits.
+argument-hint: "TOPIC=\"<topic or question>\" [--depth=standard|deep|full] [--max-iterations=<n>] [--verbose]"
 ---
 
 # Codex Analyze-With-File Prompt
@@ -21,6 +21,9 @@ Interactive collaborative analysis workflow with **documented discussion process
 ## Target Topic
 
 **$TOPIC**
+
+- `--depth`: Analysis depth (standard|deep|full)
+- `--max-iterations`: Max discussion rounds
 
 ## Execution Process
 

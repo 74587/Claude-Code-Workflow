@@ -1,6 +1,6 @@
 ---
-description: Interactive brainstorming with multi-perspective analysis, idea expansion, and documented thought evolution
-argument-hint: TOPIC="<idea or topic to brainstorm>"
+description: Interactive brainstorming with multi-perspective analysis, idea expansion, and documented thought evolution. Supports perspective selection and idea limits.
+argument-hint: "TOPIC=\"<idea or topic>\" [--perspectives=role1,role2,...] [--max-ideas=<n>] [--focus=<area>] [--verbose]"
 ---
 
 # Codex Brainstorm-With-File Prompt
@@ -21,6 +21,10 @@ Interactive brainstorming workflow with **documented thought evolution**. Expand
 ## Target Topic
 
 **$TOPIC**
+
+- `--perspectives`: Analysis perspectives (role1,role2,...)
+- `--max-ideas`: Max number of ideas
+- `--focus`: Focus area
 
 ## Execution Process
 

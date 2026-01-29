@@ -1,6 +1,6 @@
 ---
-description: Intelligent code cleanup with mainline detection, stale artifact discovery, and safe execution
-argument-hint: [--dry-run] [FOCUS="<area>"]
+description: Intelligent code cleanup with mainline detection, stale artifact discovery, and safe execution. Supports targeted cleanup and confirmation.
+argument-hint: "[--dry-run] [--focus=<area>] [--target=sessions|documents|dead-code] [--confirm]"
 ---
 
 # Workflow Clean Command
@@ -15,6 +15,11 @@ Evidence-based intelligent cleanup command. Systematically identifies stale arti
 
 **Focus area**: $FOCUS (or entire project if not specified)
 **Mode**: $ARGUMENTS
+
+- `--dry-run`: Preview cleanup without executing
+- `--focus`: Focus area (module or path)
+- `--target`: Cleanup target (sessions|documents|dead-code)
+- `--confirm`: Skip confirmation, execute directly
 
 ## Execution Process
 

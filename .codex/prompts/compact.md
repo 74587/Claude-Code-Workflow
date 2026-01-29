@@ -1,6 +1,6 @@
 ---
-description: Compact current session memory into structured text for session recovery
-argument-hint: "[optional: session description]"
+description: Compact current session memory into structured text for session recovery. Supports custom descriptions and tagging.
+argument-hint: "[--description=\"...\"] [--tags=<tag1,tag2>] [--force]"
 ---
 
 # Memory Compact Command (/memory:compact)
@@ -17,9 +17,11 @@ The `memory:compact` command **compresses current session working memory** into 
 
 ## 2. Parameters
 
-- `"session description"` (Optional): Session description to supplement objective
+- `--description`: Custom session description (optional)
   - Example: "completed core-memory module"
   - Example: "debugging JWT refresh - suspected memory leak"
+- `--tags`: Comma-separated tags for categorization (optional)
+- `--force`: Skip confirmation, save directly
 
 ## 3. Structured Output Format
 

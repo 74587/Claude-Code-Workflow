@@ -1,6 +1,6 @@
 ---
-description: Convert brainstorm session output to parallel-dev-cycle input with idea selection and context enrichment
-argument-hint: SESSION="<brainstorm-session-id>" [--idea=<index>] [--auto]
+description: Convert brainstorm session output to parallel-dev-cycle input with idea selection and context enrichment. Unified parameter format.
+argument-hint: "--session=<id> [--idea=<index>] [--auto] [--launch]"
 ---
 
 # Brainstorm to Cycle Adapter
@@ -15,9 +15,10 @@ Bridge workflow that converts **brainstorm-with-file** output to **parallel-dev-
 
 | Argument | Required | Description |
 |----------|----------|-------------|
-| SESSION | Yes | Brainstorm session ID (e.g., `BS-rate-limiting-2025-01-28`) |
+| --session | Yes | Brainstorm session ID (e.g., `BS-rate-limiting-2025-01-28`) |
 | --idea | No | Pre-select idea by index (0-based, from top_ideas) |
 | --auto | No | Auto-select top-scored idea without confirmation |
+| --launch | No | Auto-launch parallel-dev-cycle without preview |
 
 ## Output
 

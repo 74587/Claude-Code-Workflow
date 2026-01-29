@@ -1,6 +1,6 @@
 ---
-description: Lightweight interactive planning workflow with Codex subagent orchestration, outputs plan.json after user confirmation
-argument-hint: TASK="<task description or file.md path>" [EXPLORE="true"]
+description: Lightweight interactive planning workflow with Codex subagent orchestration, outputs plan.json after user confirmation. Supports depth and exploration control.
+argument-hint: "TASK=\"<description or file.md path>\" [--depth=standard|deep] [--explore] [--auto]"
 ---
 
 # Workflow Lite-Plan Command (Codex Subagent Version)
@@ -21,6 +21,10 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 
 **Target task**: $TASK
 **Force exploration**: $EXPLORE
+
+- `--depth`: Exploration depth (standard|deep)
+- `--explore`: Force exploration phase
+- `--auto`: Auto mode, skip confirmation
 
 ## Execution Process
 

@@ -1,6 +1,6 @@
 ---
-description: Execute all solutions from issue queue with git commit after each solution
-argument-hint: "--queue <queue-id> [--worktree [<existing-path>]]"
+description: Execute all solutions from issue queue with git commit after each solution. Supports batch processing and execution control.
+argument-hint: "--queue=<id> [--worktree=<path|new>] [--skip-tests] [--skip-build] [--dry-run] [--verbose]"
 ---
 
 # Issue Execute (Codex Version)
@@ -18,6 +18,14 @@ Before starting execution, load project context:
 3. **Read solution schema**: `~/.claude/workflows/cli-templates/schemas/solution-schema.json`
 
 This ensures execution follows project conventions and patterns.
+
+## Parameters
+
+- `--queue=<id>`: Queue ID to execute (REQUIRED)
+- `--worktree=<path|new>`: Worktree path or 'new' for creating new worktree
+- `--skip-tests`: Skip test execution during solution implementation
+- `--skip-build`: Skip build step
+- `--dry-run`: Preview execution without making changes
 
 ## Queue ID Requirement (MANDATORY)
 

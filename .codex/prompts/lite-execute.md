@@ -1,6 +1,6 @@
 ---
-description: Execute tasks based on in-memory plan, prompt description, or file content (Codex Subagent Version)
-argument-hint: "[--in-memory] [\"task description\"|file-path]"
+description: Execute tasks based on in-memory plan, prompt description, or file content with optimized Codex subagent orchestration. Supports multiple input modes and execution control.
+argument-hint: "[--plan=in-memory|<file-path>] [--parallel] [--skip-tests] [--dry-run]"
 ---
 
 # Workflow Lite-Execute Command (Codex Subagent Version)
@@ -28,13 +28,14 @@ Flexible task execution command with **optimized Codex subagent orchestration**.
 ### Command Syntax
 ```bash
 /workflow:lite-execute [FLAGS] <INPUT>
-
-# Flags
---in-memory                Use plan from memory (called by lite-plan)
-
-# Arguments
-<input>                    Task description string, or path to file (required)
 ```
+
+### Flags
+
+- `--plan=in-memory|<file-path>`: Input mode (in-memory plan or file path)
+- `--parallel`: Execute tasks in parallel (default: sequential)
+- `--skip-tests`: Skip test execution
+- `--dry-run`: Preview execution without making changes
 
 ## Input Modes
 

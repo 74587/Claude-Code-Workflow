@@ -1,6 +1,6 @@
 ---
-description: Lightweight interactive planning workflow with single-agent merged mode for explore → clarify → plan full flow
-argument-hint: TASK="<task description or file.md path>"
+description: Lightweight interactive planning workflow with single-agent merged mode for explore → clarify → plan full flow. Supports depth control and auto-clarification.
+argument-hint: "TASK=\"<task description or file.md path>\" [--depth=standard|deep] [--auto-clarify] [--max-rounds=<n>] [--verbose]"
 ---
 
 # Workflow Lite-Plan-A (Merged Mode)
@@ -34,6 +34,10 @@ Single-agent merged mode for lightweight planning. One agent handles exploration
 ## Task Description
 
 **Target task**: $TASK
+
+- `--depth`: Exploration depth (standard|deep)
+- `--auto-clarify`: Auto clarify, skip confirmation
+- `--max-rounds`: Max interaction rounds
 
 ## Execution Process
 

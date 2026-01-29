@@ -1,6 +1,6 @@
 ---
-description: Interactive hypothesis-driven debugging with documented exploration, understanding evolution, and analysis-assisted correction
-argument-hint: BUG="<bug description or error message>"
+description: Interactive hypothesis-driven debugging with documented exploration, understanding evolution, and analysis-assisted correction. Supports scope and focus control.
+argument-hint: "BUG=\"<bug description or error message>\" [--scope=<path>] [--focus=<component>] [--depth=standard|deep] [--verbose]"
 ---
 
 # Codex Debug-With-File Prompt
@@ -20,6 +20,10 @@ Enhanced evidence-based debugging with **documented exploration process**. Recor
 ## Target Bug
 
 **$BUG**
+
+- `--scope`: Debug scope limit (file path)
+- `--focus`: Focus component
+- `--depth`: Debug depth (standard|deep)
 
 ## Execution Process
 

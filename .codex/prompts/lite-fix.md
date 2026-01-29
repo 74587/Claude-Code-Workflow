@@ -1,6 +1,6 @@
 ---
-description: Lightweight bug diagnosis and fix workflow with optimized Codex subagent patterns (merged mode)
-argument-hint: BUG="<bug description or error message>" [HOTFIX="true"]
+description: Lightweight bug diagnosis and fix workflow with optimized Codex subagent patterns. Supports severity and scope control.
+argument-hint: "BUG=\"<description or error message>\" [--hotfix] [--severity=critical|high|medium|low] [--scope=<path>]"
 ---
 
 # Workflow Lite-Fix Command (Codex Optimized Version)
@@ -27,6 +27,10 @@ Intelligent lightweight bug fixing command with **optimized subagent orchestrati
 
 **Target bug**: $BUG
 **Hotfix mode**: $HOTFIX
+
+- `--hotfix`: Hotfix mode, prioritize speed
+- `--severity`: Bug severity (critical|high|medium|low)
+- `--scope`: Debug scope limit (file path)
 
 ## Execution Modes
 

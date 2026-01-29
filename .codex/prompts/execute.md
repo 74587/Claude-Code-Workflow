@@ -1,6 +1,6 @@
 ---
-description: Execute workflow tasks sequentially from session folder
-argument-hint: SESSION=<path-to-session-folder>
+description: Execute workflow tasks sequentially from session folder. Supports parallel execution and task filtering.
+argument-hint: "SESSION=<path-to-session-folder> [--parallel] [--filter=<pattern>] [--skip-tests]"
 ---
 
 # Workflow Execute (Codex Version)
@@ -12,6 +12,10 @@ argument-hint: SESSION=<path-to-session-folder>
 ## Input
 
 Session folder path via `$SESSION` (e.g., `.workflow/active/WFS-auth-system`)
+
+- `--parallel`: Execute tasks in parallel (default: sequential)
+- `--filter`: Filter tasks by pattern (e.g., `IMPL-1.*`)
+- `--skip-tests`: Skip test execution
 
 ## Task Tracking (JSON Source of Truth + Codex TODO Tool)
 

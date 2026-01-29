@@ -1,6 +1,6 @@
 ---
-description: Lightweight interactive planning workflow with hybrid mode - multi-agent parallel exploration + primary agent merge/clarify/plan
-argument-hint: TASK="<task description or file.md path>"
+description: Lightweight interactive planning workflow with hybrid mode - multi-agent parallel exploration + primary agent merge/clarify/plan. Supports agent count and iteration control.
+argument-hint: "TASK=\"<task description or file.md path>\" [--num-agents=<n>] [--max-iterations=<n>] [--angles=role1,role2,...]"
 ---
 
 # Workflow Lite-Plan-B (Hybrid Mode)
@@ -34,6 +34,10 @@ Hybrid mode for complex planning tasks. Multiple agents explore in parallel from
 ## Task Description
 
 **Target task**: $TASK
+
+- `--num-agents`: Number of parallel agents (default: 4)
+- `--max-iterations`: Max iteration rounds
+- `--angles`: Exploration angles (role1,role2,...)
 
 ## Execution Process
 
