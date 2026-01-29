@@ -138,7 +138,6 @@ interface CliExecOptions {
   base?: string; // Review changes against base branch
   commit?: string; // Review changes from specific commit
   title?: string; // Optional title for review summary
-  skipGitRepoCheck?: boolean; // Skip git repository check (codex only)
   // Template/Rules options
   rule?: string; // Template name for auto-discovery (defines $PROTO and $TMPL env vars)
   // Output options
@@ -1007,8 +1006,7 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       uncommitted,
       base,
       commit,
-      title,
-      skipGitRepoCheck
+      title
       // Rules are now concatenated directly into prompt (no env vars)
     }, onOutput); // Always pass onOutput for real-time dashboard streaming
 

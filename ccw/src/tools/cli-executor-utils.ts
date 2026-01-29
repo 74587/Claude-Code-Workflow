@@ -254,6 +254,8 @@ export function buildCommand(params: {
           // codex review uses -c key=value for config override, not -m
           args.push('-c', `model=${model}`);
         }
+        // Skip git repo check by default for codex (allows non-git directories)
+        args.push('--skip-git-repo-check');
         // codex review uses positional prompt argument, not stdin
         useStdin = false;
         if (prompt) {
@@ -280,6 +282,8 @@ export function buildCommand(params: {
             args.push('--add-dir', addDir);
           }
         }
+        // Skip git repo check by default for codex (allows non-git directories)
+        args.push('--skip-git-repo-check');
         // Enable JSON output for structured parsing
         args.push('--json');
         // codex resume uses positional prompt argument, not stdin
@@ -302,6 +306,8 @@ export function buildCommand(params: {
             args.push('--add-dir', addDir);
           }
         }
+        // Skip git repo check by default for codex (allows non-git directories)
+        args.push('--skip-git-repo-check');
         // Enable JSON output for structured parsing
         args.push('--json');
         args.push('-');
