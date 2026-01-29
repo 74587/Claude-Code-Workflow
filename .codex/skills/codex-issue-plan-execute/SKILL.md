@@ -49,33 +49,24 @@ Streamlined autonomous workflow for Codex that integrates issue planning, queue 
 
 ## ⚠️ Mandatory Prerequisites (强制前置条件)
 
-> **⛔ 禁止跳过**: 在执行任何操作之前，**必须**完整阅读以下文档。未阅读规范直接执行将导致输出不符合质量标准。
+> **⛔ 禁止跳过**: 在执行任何操作之前，**必须**阅读以下两份P0规范文档。未理解规范直接执行将导致输出质量不符合标准。
 
-### 规范文档 (必读)
-
-| Document | Purpose | Priority |
-|----------|---------|----------|
-| [specs/issue-handling.md](specs/issue-handling.md) | Issue 处理规范和数据结构 | **P0 - 最高** |
-| [specs/solution-schema.md](specs/solution-schema.md) | 解决方案数据结构和验证规则 | **P0 - 最高** |
-| [specs/quality-standards.md](specs/quality-standards.md) | 质量标准和验收条件 | P1 |
-
-### 参考文档 (背景知识)
-
-| Document | Purpose |
-|----------|---------|
-| [../issue-plan.md](../../.codex/prompts/issue-plan.md) | Codex Issue Plan 原始实现 |
-| [../issue-execute.md](../../.codex/prompts/issue-execute.md) | Codex Issue Execute 原始实现 |
-| [../codex SUBAGENT 策略补充.md](../../workflow/.scratchpad/codex%20SUBAGENT%20策略补充.md) | Codex Subagent 使用指南 |
+| Document | Purpose | When |
+|----------|---------|------|
+| [specs/issue-handling.md](specs/issue-handling.md) | Issue 处理规范和数据结构 | **执行前必读** |
+| [specs/solution-schema.md](specs/solution-schema.md) | 解决方案数据结构和验证规则 | **执行前必读** |
 
 ---
 
 ## Execution Flow
 
 ### Phase 1: Initialize Persistent Agents
+→ **查阅**: [phases/orchestrator.md](phases/orchestrator.md) - 理解编排逻辑
 → Spawn Planning Agent with `planning-agent-system.md` prompt (stays alive)
 → Spawn Execution Agent with `execution-agent-system.md` prompt (stays alive)
 
 ### Phase 2: Planning Pipeline
+→ **查阅**: [phases/actions/action-plan.md](phases/actions/action-plan.md), [specs/subagent-roles.md](specs/subagent-roles.md)
 For each issue sequentially:
 1. Send issue to Planning Agent via `send_input()` with planning request
 2. Wait for Planning Agent to return solution JSON
@@ -83,6 +74,7 @@ For each issue sequentially:
 4. Continue to next issue (agent stays alive)
 
 ### Phase 3: Execution Pipeline
+→ **查阅**: [phases/actions/action-execute.md](phases/actions/action-execute.md), [specs/quality-standards.md](specs/quality-standards.md)
 For each successful planning result sequentially:
 1. Send solution to Execution Agent via `send_input()` with execution request
 2. Wait for Execution Agent to complete implementation and testing
@@ -90,6 +82,7 @@ For each successful planning result sequentially:
 4. Continue to next solution (agent stays alive)
 
 ### Phase 4: Finalize
+→ **查阅**: [phases/actions/action-complete.md](phases/actions/action-complete.md)
 → Close Planning Agent (after all issues planned)
 → Close Execution Agent (after all solutions executed)
 → Generate final report with statistics
@@ -161,20 +154,60 @@ Bash(`mkdir -p "${workDir}/snapshots"`);
 
 ---
 
-## Reference Documents
+## Reference Documents by Phase
 
-| Document | Purpose |
-|----------|---------|
-| [phases/orchestrator.md](phases/orchestrator.md) | Orchestrator 编排器逻辑 |
-| [phases/actions/action-list.md](phases/actions/action-list.md) | List Issues 动作 |
-| [phases/actions/action-plan.md](phases/actions/action-plan.md) | Plan Solutions 动作 |
-| [phases/actions/action-execute.md](phases/actions/action-execute.md) | Execute Solutions 动作 |
-| [phases/actions/action-complete.md](phases/actions/action-complete.md) | Complete 动作 |
-| [phases/state-schema.md](phases/state-schema.md) | 状态结构定义和验证 |
-| [specs/issue-handling.md](specs/issue-handling.md) | Issue 处理规范 |
-| [specs/solution-schema.md](specs/solution-schema.md) | 解决方案数据结构 |
-| [specs/quality-standards.md](specs/quality-standards.md) | 质量标准 |
-| [specs/subagent-roles.md](specs/subagent-roles.md) | Subagent 角色定义 |
+### 🔧 Setup & Understanding (初始化阶段)
+用于理解整个系统架构和执行流程
+
+| Document | Purpose | Key Topics |
+|----------|---------|-----------|
+| [phases/orchestrator.md](phases/orchestrator.md) | 编排器核心逻辑 | 如何管理agents、pipeline流程、状态转换 |
+| [phases/state-schema.md](phases/state-schema.md) | 状态结构定义 | 完整状态模型、验证规则、持久化 |
+| [specs/subagent-roles.md](specs/subagent-roles.md) | Subagent角色定义 | Planning Agent & Execution Agent职责 |
+
+### 📋 Planning Phase (规划阶段)
+执行Phase 2时查阅 - Planning逻辑和Issue处理
+
+| Document | Purpose | When to Use |
+|----------|---------|-------------|
+| [phases/actions/action-plan.md](phases/actions/action-plan.md) | Planning流程详解 | 理解issue→solution转换逻辑 |
+| [phases/actions/action-list.md](phases/actions/action-list.md) | Issue列表处理 | 学习issue加载和列举逻辑 |
+| [specs/issue-handling.md](specs/issue-handling.md) | Issue数据规范 | 理解issue结构和验证规则 ✅ **必读** |
+| [specs/solution-schema.md](specs/solution-schema.md) | 解决方案数据结构 | 了解solution JSON格式 ✅ **必读** |
+
+### ⚙️ Execution Phase (执行阶段)
+执行Phase 3时查阅 - 实现和验证逻辑
+
+| Document | Purpose | When to Use |
+|----------|---------|-------------|
+| [phases/actions/action-execute.md](phases/actions/action-execute.md) | Execution流程详解 | 理解solution→implementation逻辑 |
+| [specs/quality-standards.md](specs/quality-standards.md) | 质量标准和验收条件 | 检查implementation是否达标 |
+
+### 🏁 Completion Phase (完成阶段)
+执行Phase 4时查阅 - 收尾和报告逻辑
+
+| Document | Purpose | When to Use |
+|----------|---------|-------------|
+| [phases/actions/action-complete.md](phases/actions/action-complete.md) | 完成流程 | 生成最终报告、统计信息 |
+
+### 🔍 Debugging & Troubleshooting (问题排查)
+遇到问题时查阅 - 快速定位和解决
+
+| Issue | Solution Document |
+|-------|------------------|
+| 执行过程中状态异常 | [phases/state-schema.md](phases/state-schema.md) - 验证状态结构 |
+| Planning Agent输出不符合预期 | [phases/actions/action-plan.md](phases/actions/action-plan.md) + [specs/solution-schema.md](specs/solution-schema.md) |
+| Execution Agent实现失败 | [phases/actions/action-execute.md](phases/actions/action-execute.md) + [specs/quality-standards.md](specs/quality-standards.md) |
+| Issue数据格式错误 | [specs/issue-handling.md](specs/issue-handling.md) |
+
+### 📚 Reference & Background (深度学习)
+用于理解原始实现和设计决策
+
+| Document | Purpose | Notes |
+|----------|---------|-------|
+| [../issue-plan.md](../../.codex/prompts/issue-plan.md) | Codex Issue Plan 原始实现 | Planning Agent system prompt原型 |
+| [../issue-execute.md](../../.codex/prompts/issue-execute.md) | Codex Issue Execute 原始实现 | Execution Agent system prompt原型 |
+| [../codex SUBAGENT 策略补充.md](../../workflow/.scratchpad/codex%20SUBAGENT%20策略补充.md) | Subagent使用指南 | Agent交互最佳实践 |
 
 ---
 
