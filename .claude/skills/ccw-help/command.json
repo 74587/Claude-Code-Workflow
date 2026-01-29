@@ -1,12 +1,13 @@
 {
   "_metadata": {
-    "version": "2.0.0",
-    "total_commands": 45,
+    "version": "2.1.0",
+    "total_commands": 51,
     "total_agents": 16,
     "description": "Unified CCW-Help command index"
   },
 
   "essential_commands": [
+    "/ccw",
     "/workflow:lite-plan",
     "/workflow:lite-fix",
     "/workflow:plan",
@@ -20,6 +21,19 @@
   ],
 
   "commands": [
+    {
+      "name": "ccw",
+      "command": "/ccw",
+      "description": "Main workflow orchestrator - analyze intent, auto-select workflow, execute command chain",
+      "arguments": "\"task description\"",
+      "category": "general",
+      "difficulty": "Beginner",
+      "essential": true,
+      "flow": {
+        "next_steps": ["/workflow:lite-plan", "/workflow:lite-fix", "/workflow:plan"]
+      },
+      "source": "../../../commands/ccw.md"
+    },
     {
       "name": "lite-plan",
       "command": "/workflow:lite-plan",
@@ -214,6 +228,45 @@
       "source": "../../../commands/workflow/brainstorm/synthesis.md"
     },
     {
+      "name": "brainstorm-with-file",
+      "command": "/workflow:brainstorm-with-file",
+      "description": "Multi-perspective ideation with documented exploration and multi-CLI collaboration",
+      "arguments": "\"topic\" [--count N]",
+      "category": "workflow",
+      "subcategory": "brainstorm",
+      "difficulty": "Advanced",
+      "flow": {
+        "next_steps": ["/workflow:plan", "/issue:new"]
+      },
+      "source": "../../../commands/workflow/brainstorm-with-file.md"
+    },
+    {
+      "name": "debug-with-file",
+      "command": "/workflow:debug-with-file",
+      "description": "Hypothesis-driven debugging with documented understanding evolution",
+      "arguments": "\"bug description\" [--hotfix]",
+      "category": "workflow",
+      "subcategory": "debug",
+      "difficulty": "Advanced",
+      "flow": {
+        "next_steps": ["/workflow:execute"]
+      },
+      "source": "../../../commands/workflow/debug-with-file.md"
+    },
+    {
+      "name": "analyze-with-file",
+      "command": "/workflow:analyze-with-file",
+      "description": "Collaborative analysis with multi-round Q&A and CLI exploration",
+      "arguments": "\"topic\" [--depth N]",
+      "category": "workflow",
+      "subcategory": "analyze",
+      "difficulty": "Advanced",
+      "flow": {
+        "next_steps": ["/workflow:plan"]
+      },
+      "source": "../../../commands/workflow/analyze-with-file.md"
+    },
+    {
       "name": "tdd-plan",
       "command": "/workflow:tdd-plan",
       "description": "TDD planning with Red-Green-Refactor cycles",
@@ -365,6 +418,19 @@
       "source": "../../../commands/issue/execute.md"
     },
     {
+      "name": "issue:from-brainstorm",
+      "command": "/issue:from-brainstorm",
+      "description": "Convert brainstorm session ideas into executable issue with solutions",
+      "arguments": "SESSION=\"<session-id>\" [--auto]",
+      "category": "issue",
+      "difficulty": "Intermediate",
+      "flow": {
+        "prerequisites": ["/workflow:brainstorm-with-file"],
+        "next_steps": ["/issue:queue"]
+      },
+      "source": "../../../commands/issue/from-brainstorm.md"
+    },
+    {
       "name": "docs",
       "command": "/memory:docs",
       "description": "Plan documentation workflow",
@@ -485,6 +551,18 @@
       "category": "general",
       "difficulty": "Intermediate",
       "source": "../../../commands/enhance-prompt.md"
+    },
+    {
+      "name": "view",
+      "command": "ccw view",
+      "description": "Open CCW workflow dashboard for managing tasks and sessions",
+      "arguments": "[--path <path>] [--port <port>] [--host <host>] [--no-browser]",
+      "category": "general",
+      "difficulty": "Beginner",
+      "flow": {
+        "next_steps": ["/workflow:session:list"]
+      },
+      "source": "../../../commands/view.md"
     },
     {
       "name": "cli-init",
