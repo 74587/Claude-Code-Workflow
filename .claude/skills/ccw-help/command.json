@@ -18,7 +18,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/ccw-coordinator.md"
+      "source": "../../commands/ccw-coordinator.md"
     },
     {
       "name": "ccw-debug",
@@ -29,7 +29,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/ccw-debug.md"
+      "source": "../../commands/ccw-debug.md"
     },
     {
       "name": "ccw",
@@ -40,7 +40,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/ccw.md"
+      "source": "../../commands/ccw.md"
     },
     {
       "name": "cli-init",
@@ -51,7 +51,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/cli/cli-init.md"
+      "source": "../../commands/cli/cli-init.md"
     },
     {
       "name": "codex-review",
@@ -62,7 +62,7 @@
       "subcategory": null,
       "usage_scenario": "analysis",
       "difficulty": "Intermediate",
-      "source": "../../../commands/cli/codex-review.md"
+      "source": "../../commands/cli/codex-review.md"
     },
     {
       "name": "convert-to-plan",
@@ -73,7 +73,7 @@
       "subcategory": null,
       "usage_scenario": "planning",
       "difficulty": "Intermediate",
-      "source": "../../../commands/issue/convert-to-plan.md"
+      "source": "../../commands/issue/convert-to-plan.md"
     },
     {
       "name": "issue:discover-by-prompt",
@@ -84,7 +84,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/issue/discover-by-prompt.md"
+      "source": "../../commands/issue/discover-by-prompt.md"
     },
     {
       "name": "issue:discover",
@@ -95,7 +95,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/issue/discover.md"
+      "source": "../../commands/issue/discover.md"
     },
     {
       "name": "execute",
@@ -106,7 +106,7 @@
       "subcategory": null,
       "usage_scenario": "implementation",
       "difficulty": "Intermediate",
-      "source": "../../../commands/issue/execute.md"
+      "source": "../../commands/issue/execute.md"
     },
     {
       "name": "from-brainstorm",
@@ -117,7 +117,7 @@
       "subcategory": null,
       "usage_scenario": "planning",
       "difficulty": "Intermediate",
-      "source": "../../../commands/issue/from-brainstorm.md"
+      "source": "../../commands/issue/from-brainstorm.md"
     },
     {
       "name": "new",
@@ -128,7 +128,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/issue/new.md"
+      "source": "../../commands/issue/new.md"
     },
     {
       "name": "plan",
@@ -139,7 +139,7 @@
       "subcategory": null,
       "usage_scenario": "planning",
       "difficulty": "Intermediate",
-      "source": "../../../commands/issue/plan.md"
+      "source": "../../commands/issue/plan.md"
     },
     {
       "name": "queue",
@@ -150,7 +150,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/issue/queue.md"
+      "source": "../../commands/issue/queue.md"
     },
     {
       "name": "compact",
@@ -161,7 +161,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/memory/compact.md"
+      "source": "../../commands/memory/compact.md"
     },
     {
       "name": "docs-full-cli",
@@ -172,7 +172,7 @@
       "subcategory": null,
       "usage_scenario": "documentation",
       "difficulty": "Intermediate",
-      "source": "../../../commands/memory/docs-full-cli.md"
+      "source": "../../commands/memory/docs-full-cli.md"
     },
     {
       "name": "docs-related-cli",
@@ -183,7 +183,7 @@
       "subcategory": null,
       "usage_scenario": "documentation",
       "difficulty": "Intermediate",
-      "source": "../../../commands/memory/docs-related-cli.md"
+      "source": "../../commands/memory/docs-related-cli.md"
     },
     {
       "name": "load",
@@ -194,7 +194,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/memory/load.md"
+      "source": "../../commands/memory/load.md"
     },
     {
       "name": "style-skill-memory",
@@ -205,7 +205,7 @@
       "subcategory": null,
       "usage_scenario": "documentation",
       "difficulty": "Intermediate",
-      "source": "../../../commands/memory/style-skill-memory.md"
+      "source": "../../commands/memory/style-skill-memory.md"
     },
     {
       "name": "tips",
@@ -216,7 +216,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/memory/tips.md"
+      "source": "../../commands/memory/tips.md"
     },
     {
       "name": "update-full",
@@ -227,7 +227,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/memory/update-full.md"
+      "source": "../../commands/memory/update-full.md"
     },
     {
       "name": "update-related",
@@ -238,7 +238,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/memory/update-related.md"
+      "source": "../../commands/memory/update-related.md"
     },
     {
       "name": "ccw view",
@@ -249,7 +249,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/view.md"
+      "source": "../../commands/view.md"
     },
     {
       "name": "analyze-with-file",
@@ -260,7 +260,7 @@
       "subcategory": null,
       "usage_scenario": "analysis",
       "difficulty": "Beginner",
-      "source": "../../../commands/workflow/analyze-with-file.md"
+      "source": "../../commands/workflow/analyze-with-file.md"
     },
     {
       "name": "artifacts",
@@ -271,7 +271,7 @@
       "subcategory": "brainstorm",
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/brainstorm/artifacts.md"
+      "source": "../../commands/workflow/brainstorm/artifacts.md"
     },
     {
       "name": "auto-parallel",
@@ -282,7 +282,7 @@
       "subcategory": "brainstorm",
       "usage_scenario": "general",
       "difficulty": "Advanced",
-      "source": "../../../commands/workflow/brainstorm/auto-parallel.md"
+      "source": "../../commands/workflow/brainstorm/auto-parallel.md"
     },
     {
       "name": "role-analysis",
@@ -293,7 +293,7 @@
       "subcategory": "brainstorm",
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/brainstorm/role-analysis.md"
+      "source": "../../commands/workflow/brainstorm/role-analysis.md"
     },
     {
       "name": "synthesis",
@@ -304,7 +304,7 @@
       "subcategory": "brainstorm",
       "usage_scenario": "general",
       "difficulty": "Advanced",
-      "source": "../../../commands/workflow/brainstorm/synthesis.md"
+      "source": "../../commands/workflow/brainstorm/synthesis.md"
     },
     {
       "name": "brainstorm-with-file",
@@ -315,7 +315,7 @@
       "subcategory": null,
       "usage_scenario": "planning",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/brainstorm-with-file.md"
+      "source": "../../commands/workflow/brainstorm-with-file.md"
     },
     {
       "name": "clean",
@@ -326,7 +326,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/clean.md"
+      "source": "../../commands/workflow/clean.md"
     },
     {
       "name": "debug-with-file",
@@ -337,7 +337,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/debug-with-file.md"
+      "source": "../../commands/workflow/debug-with-file.md"
     },
     {
       "name": "execute",
@@ -348,7 +348,7 @@
       "subcategory": null,
       "usage_scenario": "implementation",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/execute.md"
+      "source": "../../commands/workflow/execute.md"
     },
     {
       "name": "init",
@@ -359,7 +359,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/init.md"
+      "source": "../../commands/workflow/init.md"
     },
     {
       "name": "lite-execute",
@@ -370,7 +370,7 @@
       "subcategory": null,
       "usage_scenario": "implementation",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/lite-execute.md"
+      "source": "../../commands/workflow/lite-execute.md"
     },
     {
       "name": "lite-fix",
@@ -381,7 +381,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/lite-fix.md"
+      "source": "../../commands/workflow/lite-fix.md"
     },
     {
       "name": "workflow:lite-lite-lite",
@@ -392,7 +392,7 @@
       "subcategory": null,
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/lite-lite-lite.md"
+      "source": "../../commands/workflow/lite-lite-lite.md"
     },
     {
       "name": "lite-plan",
@@ -403,7 +403,7 @@
       "subcategory": null,
       "usage_scenario": "planning",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/lite-plan.md"
+      "source": "../../commands/workflow/lite-plan.md"
     },
     {
       "name": "workflow:multi-cli-plan",
@@ -414,7 +414,7 @@
       "subcategory": null,
       "usage_scenario": "planning",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/multi-cli-plan.md"
+      "source": "../../commands/workflow/multi-cli-plan.md"
     },
     {
       "name": "plan-verify",
@@ -425,7 +425,7 @@
       "subcategory": null,
       "usage_scenario": "planning",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/plan-verify.md"
+      "source": "../../commands/workflow/plan-verify.md"
     },
     {
       "name": "plan",
@@ -436,7 +436,7 @@
       "subcategory": null,
       "usage_scenario": "planning",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/plan.md"
+      "source": "../../commands/workflow/plan.md"
     },
     {
       "name": "replan",
@@ -447,7 +447,7 @@
       "subcategory": null,
       "usage_scenario": "planning",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/replan.md"
+      "source": "../../commands/workflow/replan.md"
     },
     {
       "name": "review-cycle-fix",
@@ -458,7 +458,7 @@
       "subcategory": null,
       "usage_scenario": "analysis",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/review-cycle-fix.md"
+      "source": "../../commands/workflow/review-cycle-fix.md"
     },
     {
       "name": "review-module-cycle",
@@ -469,7 +469,7 @@
       "subcategory": null,
       "usage_scenario": "analysis",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/review-module-cycle.md"
+      "source": "../../commands/workflow/review-module-cycle.md"
     },
     {
       "name": "review-session-cycle",
@@ -480,7 +480,7 @@
       "subcategory": null,
       "usage_scenario": "session-management",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/review-session-cycle.md"
+      "source": "../../commands/workflow/review-session-cycle.md"
     },
     {
       "name": "review",
@@ -491,7 +491,7 @@
       "subcategory": null,
       "usage_scenario": "analysis",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/review.md"
+      "source": "../../commands/workflow/review.md"
     },
     {
       "name": "complete",
@@ -502,7 +502,7 @@
       "subcategory": "session",
       "usage_scenario": "session-management",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/session/complete.md"
+      "source": "../../commands/workflow/session/complete.md"
     },
     {
       "name": "list",
@@ -513,7 +513,7 @@
       "subcategory": "session",
       "usage_scenario": "general",
       "difficulty": "Beginner",
-      "source": "../../../commands/workflow/session/list.md"
+      "source": "../../commands/workflow/session/list.md"
     },
     {
       "name": "resume",
@@ -524,7 +524,7 @@
       "subcategory": "session",
       "usage_scenario": "session-management",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/session/resume.md"
+      "source": "../../commands/workflow/session/resume.md"
     },
     {
       "name": "solidify",
@@ -535,7 +535,7 @@
       "subcategory": "session",
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/session/solidify.md"
+      "source": "../../commands/workflow/session/solidify.md"
     },
     {
       "name": "start",
@@ -546,7 +546,7 @@
       "subcategory": "session",
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/session/start.md"
+      "source": "../../commands/workflow/session/start.md"
     },
     {
       "name": "tdd-plan",
@@ -557,7 +557,7 @@
       "subcategory": null,
       "usage_scenario": "planning",
       "difficulty": "Advanced",
-      "source": "../../../commands/workflow/tdd-plan.md"
+      "source": "../../commands/workflow/tdd-plan.md"
     },
     {
       "name": "tdd-verify",
@@ -568,7 +568,7 @@
       "subcategory": null,
       "usage_scenario": "testing",
       "difficulty": "Advanced",
-      "source": "../../../commands/workflow/tdd-verify.md"
+      "source": "../../commands/workflow/tdd-verify.md"
     },
     {
       "name": "test-cycle-execute",
@@ -579,7 +579,7 @@
       "subcategory": null,
       "usage_scenario": "implementation",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/test-cycle-execute.md"
+      "source": "../../commands/workflow/test-cycle-execute.md"
     },
     {
       "name": "test-fix-gen",
@@ -590,7 +590,7 @@
       "subcategory": null,
       "usage_scenario": "testing",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/test-fix-gen.md"
+      "source": "../../commands/workflow/test-fix-gen.md"
     },
     {
       "name": "test-gen",
@@ -601,7 +601,7 @@
       "subcategory": null,
       "usage_scenario": "testing",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/test-gen.md"
+      "source": "../../commands/workflow/test-gen.md"
     },
     {
       "name": "conflict-resolution",
@@ -612,7 +612,7 @@
       "subcategory": "tools",
       "usage_scenario": "general",
       "difficulty": "Advanced",
-      "source": "../../../commands/workflow/tools/conflict-resolution.md"
+      "source": "../../commands/workflow/tools/conflict-resolution.md"
     },
     {
       "name": "gather",
@@ -623,7 +623,7 @@
       "subcategory": "tools",
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/tools/context-gather.md"
+      "source": "../../commands/workflow/tools/context-gather.md"
     },
     {
       "name": "task-generate-agent",
@@ -634,7 +634,7 @@
       "subcategory": "tools",
       "usage_scenario": "implementation",
       "difficulty": "Advanced",
-      "source": "../../../commands/workflow/tools/task-generate-agent.md"
+      "source": "../../commands/workflow/tools/task-generate-agent.md"
     },
     {
       "name": "task-generate-tdd",
@@ -645,7 +645,7 @@
       "subcategory": "tools",
       "usage_scenario": "implementation",
       "difficulty": "Advanced",
-      "source": "../../../commands/workflow/tools/task-generate-tdd.md"
+      "source": "../../commands/workflow/tools/task-generate-tdd.md"
     },
     {
       "name": "tdd-coverage-analysis",
@@ -656,7 +656,7 @@
       "subcategory": "tools",
       "usage_scenario": "testing",
       "difficulty": "Advanced",
-      "source": "../../../commands/workflow/tools/tdd-coverage-analysis.md"
+      "source": "../../commands/workflow/tools/tdd-coverage-analysis.md"
     },
     {
       "name": "test-concept-enhanced",
@@ -667,7 +667,7 @@
       "subcategory": "tools",
       "usage_scenario": "testing",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/tools/test-concept-enhanced.md"
+      "source": "../../commands/workflow/tools/test-concept-enhanced.md"
     },
     {
       "name": "test-context-gather",
@@ -678,7 +678,7 @@
       "subcategory": "tools",
       "usage_scenario": "testing",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/tools/test-context-gather.md"
+      "source": "../../commands/workflow/tools/test-context-gather.md"
     },
     {
       "name": "test-task-generate",
@@ -689,7 +689,7 @@
       "subcategory": "tools",
       "usage_scenario": "implementation",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/tools/test-task-generate.md"
+      "source": "../../commands/workflow/tools/test-task-generate.md"
     },
     {
       "name": "animation-extract",
@@ -700,7 +700,7 @@
       "subcategory": "ui-design",
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/ui-design/animation-extract.md"
+      "source": "../../commands/workflow/ui-design/animation-extract.md"
     },
     {
       "name": "workflow:ui-design:codify-style",
@@ -711,7 +711,7 @@
       "subcategory": "ui-design",
       "usage_scenario": "planning",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/ui-design/codify-style.md"
+      "source": "../../commands/workflow/ui-design/codify-style.md"
     },
     {
       "name": "design-sync",
@@ -722,7 +722,7 @@
       "subcategory": "ui-design",
       "usage_scenario": "planning",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/ui-design/design-sync.md"
+      "source": "../../commands/workflow/ui-design/design-sync.md"
     },
     {
       "name": "explore-auto",
@@ -733,7 +733,7 @@
       "subcategory": "ui-design",
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/ui-design/explore-auto.md"
+      "source": "../../commands/workflow/ui-design/explore-auto.md"
     },
     {
       "name": "generate",
@@ -744,7 +744,7 @@
       "subcategory": "ui-design",
       "usage_scenario": "implementation",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/ui-design/generate.md"
+      "source": "../../commands/workflow/ui-design/generate.md"
     },
     {
       "name": "imitate-auto",
@@ -755,7 +755,7 @@
       "subcategory": "ui-design",
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/ui-design/imitate-auto.md"
+      "source": "../../commands/workflow/ui-design/imitate-auto.md"
     },
     {
       "name": "workflow:ui-design:import-from-code",
@@ -766,7 +766,7 @@
       "subcategory": "ui-design",
       "usage_scenario": "planning",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/ui-design/import-from-code.md"
+      "source": "../../commands/workflow/ui-design/import-from-code.md"
     },
     {
       "name": "layout-extract",
@@ -777,7 +777,7 @@
       "subcategory": "ui-design",
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/ui-design/layout-extract.md"
+      "source": "../../commands/workflow/ui-design/layout-extract.md"
     },
     {
       "name": "workflow:ui-design:reference-page-generator",
@@ -788,7 +788,7 @@
       "subcategory": "ui-design",
       "usage_scenario": "planning",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/ui-design/reference-page-generator.md"
+      "source": "../../commands/workflow/ui-design/reference-page-generator.md"
     },
     {
       "name": "style-extract",
@@ -799,7 +799,7 @@
       "subcategory": "ui-design",
       "usage_scenario": "general",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/ui-design/style-extract.md"
+      "source": "../../commands/workflow/ui-design/style-extract.md"
     },
     {
       "name": "unified-execute-with-file",
@@ -810,7 +810,7 @@
       "subcategory": null,
       "usage_scenario": "implementation",
       "difficulty": "Intermediate",
-      "source": "../../../commands/workflow/unified-execute-with-file.md"
+      "source": "../../commands/workflow/unified-execute-with-file.md"
     }
   ],
   "agents": [

@@ -3,7 +3,7 @@
  * Handles all Help-related API endpoints for command guide and CodexLens docs
  */
 import { readFileSync, existsSync, watch } from 'fs';
-import { join } from 'path';
+import { join, normalize, relative, resolve, sep } from 'path';
 import { homedir } from 'os';
 import type { RouteContext } from './types.js';
 
@@ -369,6 +369,65 @@ export async function handleHelpRoutes(ctx: RouteContext): Promise<boolean> {
       agents: commandData.agents || [],
       total: (commandData.agents || []).length
     }));
+    return true;
+  }
+
+  // API: Get command document content by source path
+  if (pathname === '/api/help/command-content') {
+    const sourceParam = url.searchParams.get('source');
+    if (!sourceParam) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing source parameter' }));
+      return true;
+    }
+
+    try {
+      // Determine the source path's actual location:
+      // The source in command.json is relative to .claude/skills/ccw-help/
+      // E.g., "../../commands/cli/cli-init.md"
+      // We need to resolve this against that actual location, not the project root
+
+      const baseDir = initialPath || join(homedir(), '.claude');
+      const commandJsonDir = join(baseDir, '.claude', 'skills', 'ccw-help');
+
+      // Resolve the source path against where command.json actually is
+      const resolvedPath = resolve(commandJsonDir, sourceParam);
+
+      // Normalize the path for the OS
+      const normalizedPath = normalize(resolvedPath);
+
+      // Security: Verify path is within base directory (prevent path traversal)
+      const relPath = relative(baseDir, normalizedPath);
+      if (relPath.startsWith('..') || relPath.startsWith('~')) {
+        console.warn(`[help-content] Access denied: Path traversal attempt - ${relPath}`);
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Access denied' }));
+        return true;
+      }
+
+      console.log(`[help-content] Base directory: ${baseDir}`);
+      console.log(`[help-content] Command.json dir: ${commandJsonDir}`);
+      console.log(`[help-content] Source parameter: ${sourceParam}`);
+      console.log(`[help-content] Attempting to load: ${normalizedPath}`);
+      console.log(`[help-content] Relative path check: ${relPath}`);
+
+      if (!existsSync(normalizedPath)) {
+        console.warn(`[help-content] File not found: ${normalizedPath}`);
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Document not found' }));
+        return true;
+      }
+
+      const content = readFileSync(normalizedPath, 'utf8');
+      console.log(`[help-content] Successfully served: ${normalizedPath}`);
+
+      res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8' });
+      res.end(content);
+    } catch (error) {
+      console.error('[help-content] Error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to read document', message: (error as any).message }));
+    }
     return true;
   }
 
