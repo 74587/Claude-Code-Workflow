@@ -72,12 +72,18 @@ IF NOT EXISTS(process_dir):
 SYNTHESIS_DIR = brainstorm_dir  # Contains role analysis files: */analysis.md
 IMPL_PLAN = session_dir/IMPL_PLAN.md
 TASK_FILES = Glob(task_dir/*.json)
+PLANNING_NOTES = session_dir/planning-notes.md  # N+1 context and constraints
 
 # Abort if missing - in order of dependency
 SESSION_FILE_EXISTS = EXISTS(session_file)
 IF NOT SESSION_FILE_EXISTS:
     WARNING: "workflow-session.json not found. User intent alignment verification will be skipped."
     # Continue execution - this is optional context, not blocking
+
+PLANNING_NOTES_EXISTS = EXISTS(PLANNING_NOTES)
+IF NOT PLANNING_NOTES_EXISTS:
+    WARNING: "planning-notes.md not found. Constraints/N+1 context verification will be skipped."
+    # Continue execution - optional context
 
 SYNTHESIS_FILES = Glob(brainstorm_dir/*/analysis.md)
 IF SYNTHESIS_FILES.count == 0:
@@ -103,6 +109,13 @@ Load only minimal necessary context from each artifact:
 - User's stated goals and objectives
 - User's scope definition
 - **IF MISSING**: Set user_intent_analysis = "SKIPPED: workflow-session.json not found"
+
+**From planning-notes.md** (OPTIONAL - Constraints & N+1 Context):
+- **ONLY IF EXISTS**: Load planning context
+- Consolidated Constraints (numbered list from Phase 1-3)
+- N+1 Context: Decisions table (Decision | Rationale | Revisit?)
+- N+1 Context: Deferred items list
+- **IF MISSING**: Set planning_notes_analysis = "SKIPPED: planning-notes.md not found"
 
 **From role analysis documents** (AUTHORITATIVE SOURCE):
 - Functional Requirements (IDs, descriptions, acceptance criteria)
@@ -161,8 +174,8 @@ Create internal representations (do not include raw artifacts in output):
 
 **Execution Order** (Agent orchestrates internally):
 
-1. **Tier 1 (CRITICAL Path)**: A, B, C - User intent, coverage, consistency (full analysis)
-2. **Tier 2 (HIGH Priority)**: D, E - Dependencies, synthesis alignment (limit 15 findings)
+1. **Tier 1 (CRITICAL Path)**: A, B, C, I - User intent, coverage, consistency, constraints compliance (full analysis)
+2. **Tier 2 (HIGH Priority)**: D, E, J - Dependencies, synthesis alignment, N+1 context validation (limit 15 findings)
 3. **Tier 3 (MEDIUM Priority)**: F - Specification quality (limit 20 findings)
 4. **Tier 4 (LOW Priority)**: G, H - Duplication, feasibility (limit 15 findings)
 
@@ -182,9 +195,10 @@ Task(
 1. Read: ~/.claude/workflows/cli-templates/schemas/plan-verify-agent-schema.json (dimensions & rules)
 2. Read: ~/.claude/workflows/cli-templates/schemas/verify-json-schema.json (output schema)
 3. Read: ${session_file} (user intent)
-4. Read: ${IMPL_PLAN} (implementation plan)
-5. Glob: ${task_dir}/*.json (task files)
-6. Glob: ${SYNTHESIS_DIR}/*/analysis.md (role analyses)
+4. Read: ${PLANNING_NOTES} (constraints & N+1 context)
+5. Read: ${IMPL_PLAN} (implementation plan)
+6. Glob: ${task_dir}/*.json (task files)
+7. Glob: ${SYNTHESIS_DIR}/*/analysis.md (role analyses)
 
 ### Execution Flow
 
@@ -226,7 +240,8 @@ const byDimension = Object.groupBy(findings, f => f.dimension)
 const DIMS = {
   A: "User Intent Alignment", B: "Requirements Coverage", C: "Consistency Validation",
   D: "Dependency Integrity", E: "Synthesis Alignment", F: "Task Specification Quality",
-  G: "Duplication Detection", H: "Feasibility Assessment"
+  G: "Duplication Detection", H: "Feasibility Assessment",
+  I: "Constraints Compliance", J: "N+1 Context Validation"
 }
 ```
 
@@ -280,7 +295,7 @@ ${findings.map(f => `| ${f.id} | ${f.dimension_name} | ${f.severity} | ${f.locat
 
 ## Analysis by Dimension
 
-${['A','B','C','D','E','F','G','H'].map(d => `### ${d}. ${DIMS[d]}\n\n${renderDimension(d)}`).join('\n\n---\n\n')}
+${['A','B','C','D','E','F','G','H','I','J'].map(d => `### ${d}. ${DIMS[d]}\n\n${renderDimension(d)}`).join('\n\n---\n\n')}
 
 ---
 

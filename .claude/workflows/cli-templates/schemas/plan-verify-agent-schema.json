@@ -19,19 +19,23 @@
     "G": { "name": "Duplication Detection", "tier": 4, "severity": "LOW",
            "checks": ["Overlapping Task Scope", "Redundant Coverage"] },
     "H": { "name": "Feasibility Assessment", "tier": 4, "severity": "LOW",
-           "checks": ["Complexity Misalignment", "Resource Conflicts", "Skill Gap Risks"] }
+           "checks": ["Complexity Misalignment", "Resource Conflicts", "Skill Gap Risks"] },
+    "I": { "name": "Constraints Compliance", "tier": 1, "severity": "CRITICAL",
+           "checks": ["Consolidated Constraints Violation", "Phase Constraint Ignored", "User Constraint Override"] },
+    "J": { "name": "N+1 Context Validation", "tier": 2, "severity": "HIGH",
+           "checks": ["Deferred Item Included", "Decision Contradiction", "Revisit Flag Ignored"] }
   },
 
   "tiers": {
-    "1": { "dimensions": ["A", "B", "C"], "priority": "CRITICAL", "limit": null, "rule": "analysis-review-architecture" },
-    "2": { "dimensions": ["D", "E"], "priority": "HIGH", "limit": 15, "rule": "analysis-diagnose-bug-root-cause" },
+    "1": { "dimensions": ["A", "B", "C", "I"], "priority": "CRITICAL", "limit": null, "rule": "analysis-review-architecture" },
+    "2": { "dimensions": ["D", "E", "J"], "priority": "HIGH", "limit": 15, "rule": "analysis-diagnose-bug-root-cause" },
     "3": { "dimensions": ["F"], "priority": "MEDIUM", "limit": 20, "rule": "analysis-analyze-code-patterns" },
     "4": { "dimensions": ["G", "H"], "priority": "LOW", "limit": 15, "rule": "analysis-analyze-code-patterns" }
   },
 
   "severity_rules": {
-    "CRITICAL": ["User intent violation", "Synthesis authority violation", "Zero coverage", "Circular/broken deps"],
-    "HIGH": ["NFR gaps", "Priority conflicts", "Missing risk mitigation"],
+    "CRITICAL": ["User intent violation", "Synthesis authority violation", "Zero coverage", "Circular/broken deps", "Constraint violation"],
+    "HIGH": ["NFR gaps", "Priority conflicts", "Missing risk mitigation", "Deferred item included", "Decision contradiction"],
     "MEDIUM": ["Terminology drift", "Missing refs", "Weak flow control"],
     "LOW": ["Style improvements", "Minor redundancy"]
   },
