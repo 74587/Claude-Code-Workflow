@@ -1,0 +1,54 @@
+{
+  "notFound": {
+    "title": "Session Not Found",
+    "message": "The session you're looking for doesn't exist or has been deleted."
+  },
+  "tabs": {
+    "tasks": "Tasks",
+    "context": "Context",
+    "summary": "Summary"
+  },
+  "tasks": {
+    "completed": "completed",
+    "inProgress": "in progress",
+    "pending": "pending",
+    "blocked": "blocked",
+    "status": {
+      "pending": "Pending",
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "blocked": "Blocked",
+      "skipped": "Skipped"
+    },
+    "untitled": "Untitled Task",
+    "empty": {
+      "title": "No Tasks Found",
+      "message": "This session has no tasks yet."
+    }
+  },
+  "context": {
+    "requirements": "Requirements",
+    "focusPaths": "Focus Paths",
+    "artifacts": "Artifacts",
+    "sharedContext": "Shared Context",
+    "techStack": "Tech Stack",
+    "conventions": "Conventions",
+    "empty": {
+      "title": "No Context Available",
+      "message": "This session has no context information."
+    }
+  },
+  "summary": {
+    "title": "Session Summary",
+    "empty": {
+      "title": "No Summary Available",
+      "message": "This session has no summary yet."
+    }
+  },
+  "info": {
+    "created": "Created",
+    "updated": "Updated",
+    "tasks": "Tasks",
+    "description": "Description"
+  }
+}

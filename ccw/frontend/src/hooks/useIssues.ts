@@ -125,7 +125,10 @@ export function useIssues(options: UseIssuesOptions = {}): UseIssuesReturn {
   };
 
   for (const issue of allIssues) {
-    issuesByStatus[issue.status].push(issue);
+    // Defensive check: only push if the status key exists
+    if (issue.status in issuesByStatus) {
+      issuesByStatus[issue.status].push(issue);
+    }
   }
 
   // Group by priority
@@ -137,7 +140,10 @@ export function useIssues(options: UseIssuesOptions = {}): UseIssuesReturn {
   };
 
   for (const issue of allIssues) {
-    issuesByPriority[issue.priority].push(issue);
+    // Defensive check: only push if the priority key exists
+    if (issue.priority in issuesByPriority) {
+      issuesByPriority[issue.priority].push(issue);
+    }
   }
 
   const refetch = async () => {

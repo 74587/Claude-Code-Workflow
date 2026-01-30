@@ -1,0 +1,37 @@
+{
+  "title": "首页",
+  "description": "仪表板概览与统计",
+  "stats": {
+    "activeSessions": "活跃会话",
+    "totalTasks": "总任务",
+    "completedTasks": "已完成",
+    "pendingTasks": "待处理",
+    "runningLoops": "运行中的循环",
+    "openIssues": "开放问题"
+  },
+  "sections": {
+    "statistics": "统计",
+    "recentSessions": "最近会话",
+    "activeLoops": "活跃循环",
+    "openIssues": "开放问题",
+    "quickActions": "快速操作"
+  },
+  "emptyState": {
+    "noSessions": {
+      "title": "未找到会话",
+      "message": "没有符合当前筛选条件的工作流会话。"
+    },
+    "noLoops": {
+      "title": "无活跃循环",
+      "message": "启动新的开发循环以开始监控进度。"
+    },
+    "noIssues": {
+      "title": "无开放问题",
+      "message": "创建问题以跟踪错误或功能请求。"
+    }
+  },
+  "errors": {
+    "loadFailed": "加载仪表板数据失败",
+    "retry": "重试"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "title": "MCP 服务器",
+  "description": "管理模型上下文协议 (MCP) 服务器以实现跨 CLI 集成",
+  "scope": {
+    "global": "全局",
+    "project": "项目"
+  },
+  "status": {
+    "enabled": "已启用",
+    "disabled": "已禁用"
+  },
+  "stats": {
+    "total": "服务器总数",
+    "enabled": "已启用",
+    "global": "全局",
+    "project": "项目"
+  },
+  "command": "命令",
+  "args": "参数",
+  "env": "环境变量",
+  "filters": {
+    "all": "全部",
+    "searchPlaceholder": "按名称或命令搜索服务器..."
+  },
+  "actions": {
+    "add": "添加服务器",
+    "edit": "编辑服务器",
+    "delete": "删除服务器",
+    "toggle": "切换服务器",
+    "expand": "查看详情"
+  },
+  "deleteConfirm": "确定要删除 MCP 服务器 \"{name}\" 吗?",
+  "emptyState": {
+    "title": "未找到 MCP 服务器",
+    "message": "添加 MCP 服务器以启用与 Claude、Codex 和 Qwen 等工具的跨 CLI 集成。"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "title": "MCP Servers",
+  "description": "Manage Model Context Protocol (MCP) servers for cross-CLI integration",
+  "scope": {
+    "global": "Global",
+    "project": "Project"
+  },
+  "status": {
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "stats": {
+    "total": "Total Servers",
+    "enabled": "Enabled",
+    "global": "Global",
+    "project": "Project"
+  },
+  "command": "Command",
+  "args": "Arguments",
+  "env": "Environment Variables",
+  "filters": {
+    "all": "All",
+    "searchPlaceholder": "Search servers by name or command..."
+  },
+  "actions": {
+    "add": "Add Server",
+    "edit": "Edit Server",
+    "delete": "Delete Server",
+    "toggle": "Toggle Server",
+    "expand": "View Details"
+  },
+  "deleteConfirm": "Are you sure you want to delete the MCP server \"{name}\"?",
+  "emptyState": {
+    "title": "No MCP Servers Found",
+    "message": "Add an MCP server to enable cross-CLI integration with tools like Claude, Codex, and Qwen."
+  }
+}

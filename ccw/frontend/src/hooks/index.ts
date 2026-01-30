@@ -119,3 +119,50 @@ export type {
   UseUpdateMemoryReturn,
   UseDeleteMemoryReturn,
 } from './useMemory';
+
+// ========== MCP Servers ==========
+export {
+  useMcpServers,
+  useUpdateMcpServer,
+  useCreateMcpServer,
+  useDeleteMcpServer,
+  useToggleMcpServer,
+  useMcpServerMutations,
+  mcpServersKeys,
+} from './useMcpServers';
+export type {
+  UseMcpServersOptions,
+  UseMcpServersReturn,
+  UseUpdateMcpServerReturn,
+  UseCreateMcpServerReturn,
+  UseDeleteMcpServerReturn,
+  UseToggleMcpServerReturn,
+} from './useMcpServers';
+
+// ========== CLI ==========
+export {
+  useCliEndpoints,
+  useToggleCliEndpoint,
+  cliEndpointsKeys,
+  useCliInstallations,
+  useInstallCliTool,
+  useUninstallCliTool,
+  useUpgradeCliTool,
+  cliInstallationsKeys,
+  useHooks,
+  useToggleHook,
+  hooksKeys,
+  useRules,
+  useToggleRule,
+  rulesKeys,
+} from './useCli';
+export type {
+  UseCliEndpointsOptions,
+  UseCliEndpointsReturn,
+  UseCliInstallationsOptions,
+  UseCliInstallationsReturn,
+  UseHooksOptions,
+  UseHooksReturn,
+  UseRulesOptions,
+  UseRulesReturn,
+} from './useCli';

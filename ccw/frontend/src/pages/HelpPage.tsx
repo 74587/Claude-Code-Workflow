@@ -14,6 +14,7 @@ import {
   Terminal,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useIntl } from 'react-intl';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 
@@ -53,16 +54,18 @@ const helpSections: HelpSection[] = [
 ];
 
 export function HelpPage() {
+  const { formatMessage } = useIntl();
+
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <HelpCircle className="w-6 h-6 text-primary" />
-          Help & Documentation
+          {formatMessage({ id: 'help.title' })}
         </h1>
         <p className="text-muted-foreground mt-1">
-          Learn how to use CCW Dashboard and get the most out of your workflows
+          {formatMessage({ id: 'help.description' })}
         </p>
       </div>
 
@@ -182,19 +185,19 @@ export function HelpPage() {
           </div>
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-foreground">
-              Need more help?
+              {formatMessage({ id: 'help.support.title' })}
             </h3>
             <p className="text-muted-foreground mt-1 mb-4">
-              Check the project documentation or reach out for support.
+              {formatMessage({ id: 'help.support.description' })}
             </p>
             <div className="flex gap-3">
               <Button variant="outline" size="sm">
                 <Book className="w-4 h-4 mr-2" />
-                Documentation
+                {formatMessage({ id: 'help.support.documentation' })}
               </Button>
               <Button variant="outline" size="sm">
                 <Video className="w-4 h-4 mr-2" />
-                Tutorials
+                {formatMessage({ id: 'help.support.tutorials' })}
               </Button>
             </div>
           </div>

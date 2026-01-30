@@ -1,0 +1,64 @@
+{
+  "title": "Issues",
+  "description": "Track and manage issues",
+  "status": {
+    "open": "Open",
+    "inProgress": "In Progress",
+    "resolved": "Resolved",
+    "closed": "Closed",
+    "completed": "Completed"
+  },
+  "priority": {
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "critical": "Critical"
+  },
+  "actions": {
+    "create": "New Issue",
+    "edit": "Edit",
+    "delete": "Delete",
+    "viewDetails": "View Details",
+    "changeStatus": "Change Status",
+    "changePriority": "Change Priority",
+    "startProgress": "Start Progress",
+    "markResolved": "Mark Resolved",
+    "github": "Pull from GitHub"
+  },
+  "filters": {
+    "all": "All",
+    "open": "Open",
+    "inProgress": "In Progress",
+    "resolved": "Resolved",
+    "closed": "Closed",
+    "byPriority": "By Priority"
+  },
+  "emptyState": {
+    "title": "No Issues Found",
+    "message": "No issues match your current filter.",
+    "createFirst": "Create your first issue to get started"
+  },
+  "createDialog": {
+    "title": "Create New Issue",
+    "labels": {
+      "title": "Title",
+      "context": "Context",
+      "priority": "Priority"
+    },
+    "placeholders": {
+      "title": "Enter issue title...",
+      "context": "Describe the issue context..."
+    },
+    "buttons": {
+      "create": "Create",
+      "cancel": "Cancel",
+      "creating": "Creating..."
+    }
+  },
+  "card": {
+    "id": "ID",
+    "createdAt": "Created",
+    "updatedAt": "Updated",
+    "solutions": "{count, plural, one {solution} other {solutions}}"
+  }
+}

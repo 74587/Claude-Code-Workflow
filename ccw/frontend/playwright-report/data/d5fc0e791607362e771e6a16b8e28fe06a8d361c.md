@@ -1,0 +1,183 @@
+# Page snapshot
+
+```yaml
+- generic:
+  - generic:
+    - generic:
+      - banner:
+        - generic:
+          - link:
+            - /url: /
+            - img
+            - generic: navigation.header.brand
+        - generic:
+          - combobox [expanded]:
+            - img
+            - generic:
+              - generic:
+                - generic: 🇨🇳
+                - generic: 中文
+            - img
+          - button:
+            - img
+          - generic:
+            - button:
+              - img
+      - generic:
+        - navigation:
+          - navigation:
+            - list:
+              - listitem:
+                - link:
+                  - /url: /
+                  - img
+                  - generic: navigation.main.home
+              - listitem:
+                - link:
+                  - /url: /sessions
+                  - img
+                  - generic: navigation.main.sessions
+              - listitem:
+                - link:
+                  - /url: /lite-tasks
+                  - img
+                  - generic: navigation.main.liteTasks
+              - listitem:
+                - link:
+                  - /url: /project
+                  - img
+                  - generic: navigation.main.project
+              - listitem:
+                - link:
+                  - /url: /history
+                  - img
+                  - generic: navigation.main.history
+              - listitem:
+                - link:
+                  - /url: /orchestrator
+                  - img
+                  - generic: navigation.main.orchestrator
+              - listitem:
+                - link:
+                  - /url: /loops
+                  - img
+                  - generic: navigation.main.loops
+              - listitem:
+                - link:
+                  - /url: /issues
+                  - img
+                  - generic: navigation.main.issues
+              - listitem:
+                - link:
+                  - /url: /skills
+                  - img
+                  - generic: navigation.main.skills
+              - listitem:
+                - link:
+                  - /url: /commands
+                  - img
+                  - generic: navigation.main.commands
+              - listitem:
+                - link:
+                  - /url: /memory
+                  - img
+                  - generic: navigation.main.memory
+              - listitem:
+                - link:
+                  - /url: /settings
+                  - img
+                  - generic: navigation.main.settings
+              - listitem:
+                - link:
+                  - /url: /help
+                  - img
+                  - generic: navigation.main.help
+          - generic:
+            - button:
+              - img
+              - generic: navigation.sidebar.collapse
+        - main:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: home.title
+                - paragraph: home.description
+              - button:
+                - img
+                - text: common.actions.refresh
+            - generic:
+              - heading [level=2]: home.sections.statistics
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - paragraph: home.stats.activeSessions
+                        - generic:
+                          - paragraph: "0"
+                      - generic:
+                        - img
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - paragraph: home.stats.totalTasks
+                        - generic:
+                          - paragraph: "0"
+                      - generic:
+                        - img
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - paragraph: home.stats.completedTasks
+                        - generic:
+                          - paragraph: "0"
+                      - generic:
+                        - img
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - paragraph: home.stats.pendingTasks
+                        - generic:
+                          - paragraph: "0"
+                      - generic:
+                        - img
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - paragraph: common.status.failed
+                        - generic:
+                          - paragraph: "0"
+                      - generic:
+                        - img
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - paragraph: common.stats.todayActivity
+                        - generic:
+                          - paragraph: "0"
+                      - generic:
+                        - img
+            - generic:
+              - generic:
+                - heading [level=2]: home.sections.recentSessions
+                - button: common.actions.viewAll
+              - generic:
+                - img
+                - heading [level=3]: home.emptyState.noSessions.title
+                - paragraph: home.emptyState.noSessions.message
+  - listbox [ref=e1]:
+    - option "🇺🇸 English" [ref=e2]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: 🇺🇸
+        - generic [ref=e7]: English
+    - option "🇨🇳 中文" [active] [selected] [ref=e8]:
+      - img [ref=e11]
+      - generic [ref=e14]:
+        - generic [ref=e15]: 🇨🇳
+        - generic [ref=e16]: 中文
+```

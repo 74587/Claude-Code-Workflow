@@ -1,0 +1,68 @@
+{
+  "title": "循环监控",
+  "description": "监控和控制运行中的开发循环",
+  "status": {
+    "created": "待处理",
+    "running": "运行中",
+    "paused": "已暂停",
+    "completed": "已完成",
+    "failed": "失败"
+  },
+  "actions": {
+    "create": "新建循环",
+    "pause": "暂停",
+    "resume": "继续",
+    "stop": "停止",
+    "restart": "重新开始",
+    "viewDetails": "查看详情"
+  },
+  "emptyState": {
+    "title": "无活跃循环",
+    "message": "启动新的开发循环以开始监控进度。",
+    "createFirst": "启动新循环"
+  },
+  "card": {
+    "step": "步骤",
+    "of": "/",
+    "progress": "进度",
+    "prompt": "提示词",
+    "tool": "工具",
+    "iteration": "迭代",
+    "error": "错误"
+  },
+  "createDialog": {
+    "title": "启动新循环",
+    "labels": {
+      "prompt": "提示词",
+      "tool": "CLI 工具（可选）"
+    },
+    "placeholders": {
+      "prompt": "输入开发循环提示词...",
+      "tool": "例如：gemini、qwen、codex"
+    },
+    "buttons": {
+      "create": "启动",
+      "cancel": "取消"
+    }
+  },
+  "monitor": {
+    "title": "循环监控",
+    "loops": "循环",
+    "tasks": "任务",
+    "iterations": "迭代",
+    "timeline": "时间线"
+  },
+  "taskStatus": {
+    "pending": "待处理",
+    "inProgress": "进行中",
+    "blocked": "已阻塞",
+    "done": "完成"
+  },
+  "columns": {
+    "pending": "待处理",
+    "running": "运行中",
+    "paused": "已暂停",
+    "completed": "已完成",
+    "failed": "失败"
+  }
+}

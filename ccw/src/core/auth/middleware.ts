@@ -71,11 +71,64 @@ function writeJson(res: ServerResponse, status: number, body: Record<string, unk
   res.end(JSON.stringify(body));
 }
 
+/**
+ * Public API endpoints that can be accessed from localhost without authentication
+ * These are read-only endpoints used by the dashboard for data fetching
+ */
+const LOCALHOST_PUBLIC_PATHS = [
+  '/api/data',
+  '/api/orchestrator/flows',
+  '/api/orchestrator/templates',
+  '/api/orchestrator/executions',
+  '/api/orchestrator/templates/remote',
+  '/api/mcp-config',
+  '/api/ccw/tools',
+  '/api/ccw/installations',
+  '/api/cli/endpoints',
+  '/api/skills',
+  '/api/providers',
+  '/api/litellm-api/providers',
+  '/api/litellm-api/endpoints',
+  '/api/health',
+];
+
+/**
+ * Check if a path is a public API endpoint (accessible from localhost without auth)
+ */
+function isLocalPublicPath(pathname: string): boolean {
+  // Exact match
+  if (LOCALHOST_PUBLIC_PATHS.includes(pathname)) return true;
+
+  // Prefix match for paths with parameters (e.g., /api/orchestrator/flows/:id)
+  for (const publicPath of LOCALHOST_PUBLIC_PATHS) {
+    if (pathname.startsWith(publicPath + '/') || pathname.startsWith(publicPath.replace(/\/[^/]*$/, '/'))) {
+      return true;
+    }
+  }
+
+  // Special handling for paths with wildcards
+  if (pathname.startsWith('/api/orchestrator/flows/')) return true;
+  if (pathname.startsWith('/api/orchestrator/executions/')) return true;
+  if (pathname.startsWith('/api/orchestrator/templates/')) return true;
+  if (pathname.startsWith('/api/litellm-api/providers/')) return true;
+  if (pathname.startsWith('/api/litellm-api/endpoints/')) return true;
+  if (pathname.startsWith('/api/litellm-api/models/')) return true;
+
+  return false;
+}
+
 export function authMiddleware(ctx: AuthMiddlewareContext): boolean {
   const { pathname, req, res, tokenManager, secretKey, unauthenticatedPaths } = ctx;
 
   if (!pathname.startsWith('/api/')) return true;
   if (unauthenticatedPaths?.has(pathname)) return true;
+
+  // Allow localhost requests to public API endpoints without authentication
+  // This enables the Vite dev server (localhost:5173) to proxy API requests
+  if (isLocalhostRequest(req) && isLocalPublicPath(pathname)) {
+    (req as http.IncomingMessage & { authenticated?: boolean }).authenticated = true;
+    return true;
+  }
 
   const token = extractAuthToken(req);
   if (!token) {

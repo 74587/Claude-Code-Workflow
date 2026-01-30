@@ -1,0 +1,38 @@
+{
+  "main": {
+    "home": "首页",
+    "sessions": "会话",
+    "liteTasks": "轻量任务",
+    "project": "项目",
+    "history": "历史",
+    "orchestrator": "编排器",
+    "loops": "循环监控",
+    "issues": "问题",
+    "skills": "技能",
+    "commands": "命令",
+    "memory": "记忆",
+    "settings": "设置",
+    "mcp": "MCP 服务器",
+    "endpoints": "CLI 端点",
+    "installations": "安装",
+    "help": "帮助"
+  },
+  "sidebar": {
+    "collapse": "收起",
+    "expand": "展开侧边栏",
+    "collapseAria": "收起侧边栏"
+  },
+  "header": {
+    "brand": "Claude Code Workflow",
+    "brandShort": "CCW",
+    "noProject": "未选择项目",
+    "settings": "设置",
+    "logout": "退出"
+  },
+  "breadcrumbs": {
+    "home": "首页",
+    "sessions": "会话",
+    "detail": "详情",
+    "settings": "设置"
+  }
+}

@@ -1,0 +1,448 @@
+// ========================================
+// useCliEndpoints Hook
+// ========================================
+// TanStack Query hooks for CLI endpoint management
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  fetchCliEndpoints,
+  toggleCliEndpoint,
+  type CliEndpoint,
+  type CliEndpointsResponse,
+} from '../lib/api';
+
+// Query key factory
+export const cliEndpointsKeys = {
+  all: ['cliEndpoints'] as const,
+  lists: () => [...cliEndpointsKeys.all, 'list'] as const,
+};
+
+const STALE_TIME = 2 * 60 * 1000;
+
+export interface UseCliEndpointsOptions {
+  staleTime?: number;
+  enabled?: boolean;
+}
+
+export interface UseCliEndpointsReturn {
+  endpoints: CliEndpoint[];
+  litellmEndpoints: CliEndpoint[];
+  customEndpoints: CliEndpoint[];
+  wrapperEndpoints: CliEndpoint[];
+  totalCount: number;
+  enabledCount: number;
+  isLoading: boolean;
+  isFetching: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+  invalidate: () => Promise<void>;
+}
+
+export function useCliEndpoints(options: UseCliEndpointsOptions = {}): UseCliEndpointsReturn {
+  const { staleTime = STALE_TIME, enabled = true } = options;
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: cliEndpointsKeys.lists(),
+    queryFn: fetchCliEndpoints,
+    staleTime,
+    enabled,
+    retry: 2,
+  });
+
+  const endpoints = query.data?.endpoints ?? [];
+  const enabledEndpoints = endpoints.filter((e) => e.enabled);
+
+  const litellmEndpoints = endpoints.filter((e) => e.type === 'litellm');
+  const customEndpoints = endpoints.filter((e) => e.type === 'custom');
+  const wrapperEndpoints = endpoints.filter((e) => e.type === 'wrapper');
+
+  const refetch = async () => {
+    await query.refetch();
+  };
+
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({ queryKey: cliEndpointsKeys.all });
+  };
+
+  return {
+    endpoints,
+    litellmEndpoints,
+    customEndpoints,
+    wrapperEndpoints,
+    totalCount: endpoints.length,
+    enabledCount: enabledEndpoints.length,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    error: query.error,
+    refetch,
+    invalidate,
+  };
+}
+
+export function useToggleCliEndpoint() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: ({ endpointId, enabled }: { endpointId: string; enabled: boolean }) =>
+      toggleCliEndpoint(endpointId, enabled),
+    onMutate: async ({ endpointId, enabled }) => {
+      await queryClient.cancelQueries({ queryKey: cliEndpointsKeys.all });
+      const previousEndpoints = queryClient.getQueryData<CliEndpointsResponse>(cliEndpointsKeys.lists());
+
+      queryClient.setQueryData<CliEndpointsResponse>(cliEndpointsKeys.lists(), (old) => {
+        if (!old) return old;
+        return {
+          endpoints: old.endpoints.map((e) => (e.id === endpointId ? { ...e, enabled } : e)),
+        };
+      });
+
+      return { previousEndpoints };
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.previousEndpoints) {
+        queryClient.setQueryData(cliEndpointsKeys.lists(), context.previousEndpoints);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: cliEndpointsKeys.all });
+    },
+  });
+
+  return {
+    toggleEndpoint: (endpointId: string, enabled: boolean) => mutation.mutateAsync({ endpointId, enabled }),
+    isToggling: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+// ========================================
+// useCliInstallations Hook
+// ========================================
+
+import {
+  fetchCliInstallations,
+  installCliTool,
+  uninstallCliTool,
+  upgradeCliTool,
+  type CliInstallation,
+} from '../lib/api';
+
+export const cliInstallationsKeys = {
+  all: ['cliInstallations'] as const,
+  lists: () => [...cliInstallationsKeys.all, 'list'] as const,
+};
+
+export interface UseCliInstallationsOptions {
+  staleTime?: number;
+  enabled?: boolean;
+}
+
+export interface UseCliInstallationsReturn {
+  installations: CliInstallation[];
+  installedTools: CliInstallation[];
+  totalCount: number;
+  installedCount: number;
+  isLoading: boolean;
+  isFetching: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+  invalidate: () => Promise<void>;
+}
+
+export function useCliInstallations(options: UseCliInstallationsOptions = {}): UseCliInstallationsReturn {
+  const { staleTime = STALE_TIME, enabled = true } = options;
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: cliInstallationsKeys.lists(),
+    queryFn: fetchCliInstallations,
+    staleTime,
+    enabled,
+    retry: 2,
+  });
+
+  const installations = query.data?.tools ?? [];
+  const installedTools = installations.filter((t) => t.installed);
+
+  const refetch = async () => {
+    await query.refetch();
+  };
+
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({ queryKey: cliInstallationsKeys.all });
+  };
+
+  return {
+    installations,
+    installedTools,
+    totalCount: installations.length,
+    installedCount: installedTools.length,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    error: query.error,
+    refetch,
+    invalidate,
+  };
+}
+
+export function useInstallCliTool() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (toolName: string) => installCliTool(toolName),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: cliInstallationsKeys.all });
+    },
+  });
+
+  return {
+    installTool: mutation.mutateAsync,
+    isInstalling: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+export function useUninstallCliTool() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (toolName: string) => uninstallCliTool(toolName),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: cliInstallationsKeys.all });
+    },
+  });
+
+  return {
+    uninstallTool: mutation.mutateAsync,
+    isUninstalling: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+export function useUpgradeCliTool() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (toolName: string) => upgradeCliTool(toolName),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: cliInstallationsKeys.all });
+    },
+  });
+
+  return {
+    upgradeTool: mutation.mutateAsync,
+    isUpgrading: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+// ========================================
+// useHooks Hook
+// ========================================
+
+import {
+  fetchHooks,
+  toggleHook,
+  type Hook,
+  type HooksResponse,
+} from '../lib/api';
+
+export const hooksKeys = {
+  all: ['hooks'] as const,
+  lists: () => [...hooksKeys.all, 'list'] as const,
+};
+
+export interface UseHooksOptions {
+  staleTime?: number;
+  enabled?: boolean;
+}
+
+export interface UseHooksReturn {
+  hooks: Hook[];
+  enabledHooks: Hook[];
+  totalCount: number;
+  enabledCount: number;
+  isLoading: boolean;
+  isFetching: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+  invalidate: () => Promise<void>;
+}
+
+export function useHooks(options: UseHooksOptions = {}): UseHooksReturn {
+  const { staleTime = STALE_TIME, enabled = true } = options;
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: hooksKeys.lists(),
+    queryFn: fetchHooks,
+    staleTime,
+    enabled,
+    retry: 2,
+  });
+
+  const hooks = query.data?.hooks ?? [];
+  const enabledHooks = hooks.filter((h) => h.enabled);
+
+  const refetch = async () => {
+    await query.refetch();
+  };
+
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({ queryKey: hooksKeys.all });
+  };
+
+  return {
+    hooks,
+    enabledHooks,
+    totalCount: hooks.length,
+    enabledCount: enabledHooks.length,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    error: query.error,
+    refetch,
+    invalidate,
+  };
+}
+
+export function useToggleHook() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: ({ hookName, enabled }: { hookName: string; enabled: boolean }) =>
+      toggleHook(hookName, enabled),
+    onMutate: async ({ hookName, enabled }) => {
+      await queryClient.cancelQueries({ queryKey: hooksKeys.all });
+      const previousHooks = queryClient.getQueryData<HooksResponse>(hooksKeys.lists());
+
+      queryClient.setQueryData<HooksResponse>(hooksKeys.lists(), (old) => {
+        if (!old) return old;
+        return {
+          hooks: old.hooks.map((h) => (h.name === hookName ? { ...h, enabled } : h)),
+        };
+      });
+
+      return { previousHooks };
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.previousHooks) {
+        queryClient.setQueryData(hooksKeys.lists(), context.previousHooks);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: hooksKeys.all });
+    },
+  });
+
+  return {
+    toggleHook: (hookName: string, enabled: boolean) => mutation.mutateAsync({ hookName, enabled }),
+    isToggling: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+// ========================================
+// useRules Hook
+// ========================================
+
+import {
+  fetchRules,
+  toggleRule,
+  type Rule,
+  type RulesResponse,
+} from '../lib/api';
+
+export const rulesKeys = {
+  all: ['rules'] as const,
+  lists: () => [...rulesKeys.all, 'list'] as const,
+};
+
+export interface UseRulesOptions {
+  staleTime?: number;
+  enabled?: boolean;
+}
+
+export interface UseRulesReturn {
+  rules: Rule[];
+  enabledRules: Rule[];
+  totalCount: number;
+  enabledCount: number;
+  isLoading: boolean;
+  isFetching: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+  invalidate: () => Promise<void>;
+}
+
+export function useRules(options: UseRulesOptions = {}): UseRulesReturn {
+  const { staleTime = STALE_TIME, enabled = true } = options;
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: rulesKeys.lists(),
+    queryFn: fetchRules,
+    staleTime,
+    enabled,
+    retry: 2,
+  });
+
+  const rules = query.data?.rules ?? [];
+  const enabledRules = rules.filter((r) => r.enabled);
+
+  const refetch = async () => {
+    await query.refetch();
+  };
+
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({ queryKey: rulesKeys.all });
+  };
+
+  return {
+    rules,
+    enabledRules,
+    totalCount: rules.length,
+    enabledCount: enabledRules.length,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    error: query.error,
+    refetch,
+    invalidate,
+  };
+}
+
+export function useToggleRule() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: ({ ruleId, enabled }: { ruleId: string; enabled: boolean }) =>
+      toggleRule(ruleId, enabled),
+    onMutate: async ({ ruleId, enabled }) => {
+      await queryClient.cancelQueries({ queryKey: rulesKeys.all });
+      const previousRules = queryClient.getQueryData<RulesResponse>(rulesKeys.lists());
+
+      queryClient.setQueryData<RulesResponse>(rulesKeys.lists(), (old) => {
+        if (!old) return old;
+        return {
+          rules: old.rules.map((r) => (r.id === ruleId ? { ...r, enabled } : r)),
+        };
+      });
+
+      return { previousRules };
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.previousRules) {
+        queryClient.setQueryData(rulesKeys.lists(), context.previousRules);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: rulesKeys.all });
+    },
+  });
+
+  return {
+    toggleRule: (ruleId: string, enabled: boolean) => mutation.mutateAsync({ ruleId, enabled }),
+    isToggling: mutation.isPending,
+    error: mutation.error,
+  };
+}

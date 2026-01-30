@@ -1,0 +1,44 @@
+{
+  "progress": {
+    "title": "Fix Progress"
+  },
+  "tasks": {
+    "title": "Fix Tasks"
+  },
+  "stats": {
+    "total": "Total",
+    "fixed": "Fixed",
+    "failed": "Failed",
+    "pending": "Pending"
+  },
+  "status": {
+    "fixed": "Fixed",
+    "failed": "Failed",
+    "inProgress": "In Progress",
+    "pending": "Pending"
+  },
+  "filter": {
+    "all": "All",
+    "pending": "Pending",
+    "inProgress": "In Progress",
+    "fixed": "Fixed",
+    "failed": "Failed"
+  },
+  "task": {
+    "untitled": "Untitled Task",
+    "attempts": "{count} attempts"
+  },
+  "info": {
+    "created": "Created",
+    "updated": "Updated",
+    "description": "Description"
+  },
+  "notFound": {
+    "title": "Session Not Found",
+    "message": "The fix session you're looking for doesn't exist or has been deleted."
+  },
+  "empty": {
+    "title": "No Tasks Found",
+    "message": "No fix tasks match the current filter."
+  }
+}

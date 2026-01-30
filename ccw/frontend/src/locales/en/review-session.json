@@ -1,0 +1,41 @@
+{
+  "title": "Review Session",
+  "type": "Review",
+  "severity": {
+    "critical": "Critical",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low"
+  },
+  "stats": {
+    "total": "Total Findings",
+    "dimensions": "Dimensions"
+  },
+  "search": {
+    "placeholder": "Search findings..."
+  },
+  "sort": {
+    "severity": "By Severity",
+    "dimension": "By Dimension",
+    "file": "By File"
+  },
+  "selection": {
+    "count": "{count} selected",
+    "selectAll": "Select All",
+    "clearAll": "Clear All",
+    "clear": "Clear"
+  },
+  "export": "Export Fix JSON",
+  "codeContext": "Code Context",
+  "rootCause": "Root Cause",
+  "impact": "Impact",
+  "recommendations": "Recommendations",
+  "empty": {
+    "title": "No findings found",
+    "message": "Try adjusting your filters or search query."
+  },
+  "notFound": {
+    "title": "Review Session Not Found",
+    "message": "The requested review session could not be found."
+  }
+}

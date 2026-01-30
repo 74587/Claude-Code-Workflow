@@ -6,6 +6,7 @@
 // ========== App Store Types ==========
 
 export type Theme = 'light' | 'dark' | 'system';
+export type Locale = 'en' | 'zh';
 export type ViewMode = 'sessions' | 'liteTasks' | 'project-overview' | 'sessionDetail' | 'liteTaskDetail' | 'loop-monitor' | 'issue-manager' | 'orchestrator';
 export type SessionFilter = 'all' | 'active' | 'archived';
 export type LiteTaskType = 'lite-plan' | 'lite-fix' | null;
@@ -14,6 +15,9 @@ export interface AppState {
   // Theme
   theme: Theme;
   resolvedTheme: 'light' | 'dark';
+
+  // Locale
+  locale: Locale;
 
   // Sidebar
   sidebarOpen: boolean;
@@ -36,6 +40,9 @@ export interface AppActions {
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
 
+  // Locale actions
+  setLocale: (locale: Locale) => void;
+
   // Sidebar actions
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
@@ -57,6 +64,30 @@ export type AppStore = AppState & AppActions;
 
 // ========== Workflow Store Types ==========
 
+/**
+ * Frontend session metadata type transformed from backend session data.
+ *
+ * @remarks
+ * This interface is the frontend representation of workflow sessions after transformation
+ * from the raw backend `BackendSessionData` type.
+ *
+ * **Transformation from BackendSessionData:**
+ * - `project` field is split into `title` and `description` (separator: ':')
+ * - `status: 'active'` is mapped to `status: 'in_progress'`
+ * - `location` is added based on which array the session came from ('active' | 'archived')
+ *
+ * **Field mappings:**
+ * | Backend Field | Frontend Field | Notes |
+ * |---------------|----------------|-------|
+ * | `project` | `title`, `description` | Split on first ':' |
+ * | `status: 'active'` | `status: 'in_progress'` | Status enum mapping |
+ * | N/A | `location` | Derived from source array |
+ *
+ * **Transformation function:** `transformBackendSession()` in `api.ts`
+ * **Backend type:** {@link BackendSessionData | BackendSessionData} (api.ts)
+ *
+ * @see {@link https://github.com/claudews/ccw/blob/main/ccw/frontend/src/lib/api.ts | api.ts} for transformation logic
+ */
 export interface SessionMetadata {
   session_id: string;
   title?: string;
@@ -75,6 +106,7 @@ export interface SessionMetadata {
   };
   summaries?: Array<{ task_id: string; content: unknown }>;
   tasks?: TaskData[];
+  phase?: string;
 }
 
 export interface TaskData {
@@ -206,6 +238,7 @@ export interface UserPreferences {
   defaultSessionFilter: SessionFilter;
   defaultSortField: WorkflowSorting['field'];
   defaultSortDirection: WorkflowSorting['direction'];
+  locale?: Locale;
 }
 
 export interface ConfigState {

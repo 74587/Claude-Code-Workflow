@@ -1,0 +1,68 @@
+{
+  "title": "Loop Monitor",
+  "description": "Monitor and control running development loops",
+  "status": {
+    "created": "Pending",
+    "running": "Running",
+    "paused": "Paused",
+    "completed": "Completed",
+    "failed": "Failed"
+  },
+  "actions": {
+    "create": "New Loop",
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop",
+    "restart": "Restart",
+    "viewDetails": "View Details"
+  },
+  "emptyState": {
+    "title": "No Active Loops",
+    "message": "Start a new development loop to begin monitoring progress.",
+    "createFirst": "Start New Loop"
+  },
+  "card": {
+    "step": "Step",
+    "of": "of",
+    "progress": "Progress",
+    "prompt": "Prompt",
+    "tool": "Tool",
+    "iteration": "Iteration",
+    "error": "Error"
+  },
+  "createDialog": {
+    "title": "Start New Loop",
+    "labels": {
+      "prompt": "Prompt",
+      "tool": "CLI Tool (optional)"
+    },
+    "placeholders": {
+      "prompt": "Enter your development loop prompt...",
+      "tool": "e.g., gemini, qwen, codex"
+    },
+    "buttons": {
+      "create": "Start",
+      "cancel": "Cancel"
+    }
+  },
+  "monitor": {
+    "title": "Loop Monitor",
+    "loops": "Loops",
+    "tasks": "Tasks",
+    "iterations": "Iterations",
+    "timeline": "Timeline"
+  },
+  "taskStatus": {
+    "pending": "Pending",
+    "inProgress": "In Progress",
+    "blocked": "Blocked",
+    "done": "Done"
+  },
+  "columns": {
+    "pending": "Pending",
+    "running": "Running",
+    "paused": "Paused",
+    "completed": "Completed",
+    "failed": "Failed"
+  }
+}

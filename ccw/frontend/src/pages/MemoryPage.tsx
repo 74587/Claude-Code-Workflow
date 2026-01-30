@@ -4,6 +4,7 @@
 // View and manage core memory and context with CRUD operations
 
 import { useState } from 'react';
+import { useIntl } from 'react-intl';
 import {
   Brain,
   Search,
@@ -171,6 +172,7 @@ function NewMemoryDialog({
   isCreating,
   editingMemory,
 }: NewMemoryDialogProps) {
+  const { formatMessage } = useIntl();
   const [content, setContent] = useState(editingMemory?.content || '');
   const [tagsInput, setTagsInput] = useState(editingMemory?.tags?.join(', ') || '');
 
@@ -192,43 +194,43 @@ function NewMemoryDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            {editingMemory ? 'Edit Memory' : 'Add New Memory'}
+            {editingMemory ? formatMessage({ id: 'memory.createDialog.editTitle' }) : formatMessage({ id: 'memory.createDialog.title' })}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div>
-            <label className="text-sm font-medium text-foreground">Content</label>
+            <label className="text-sm font-medium text-foreground">{formatMessage({ id: 'memory.createDialog.labels.content' })}</label>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Enter memory content..."
+              placeholder={formatMessage({ id: 'memory.createDialog.placeholders.content' })}
               className="mt-1 w-full min-h-[200px] p-3 bg-background border border-input rounded-md text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary"
               required
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-foreground">Tags (comma-separated)</label>
+            <label className="text-sm font-medium text-foreground">{formatMessage({ id: 'memory.createDialog.labels.tags' })}</label>
             <Input
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="e.g., project, config, api"
+              placeholder={formatMessage({ id: 'memory.createDialog.placeholders.tags' })}
               className="mt-1"
             />
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {formatMessage({ id: 'memory.createDialog.buttons.cancel' })}
             </Button>
             <Button type="submit" disabled={isCreating || !content.trim()}>
               {isCreating ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {editingMemory ? 'Updating...' : 'Creating...'}
+                  {editingMemory ? formatMessage({ id: 'memory.createDialog.buttons.updating' }) : formatMessage({ id: 'memory.createDialog.buttons.creating' })}
                 </>
               ) : (
                 <>
                   <Plus className="w-4 h-4 mr-2" />
-                  {editingMemory ? 'Update Memory' : 'Add Memory'}
+                  {editingMemory ? formatMessage({ id: 'memory.createDialog.buttons.update' }) : formatMessage({ id: 'memory.createDialog.buttons.create' })}
                 </>
               )}
             </Button>
@@ -242,6 +244,7 @@ function NewMemoryDialog({
 // ========== Main Page Component ==========
 
 export function MemoryPage() {
+  const { formatMessage } = useIntl();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isNewMemoryOpen, setIsNewMemoryOpen] = useState(false);
@@ -327,20 +330,20 @@ export function MemoryPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Brain className="w-6 h-6 text-primary" />
-            Memory
+            {formatMessage({ id: 'memory.title' })}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage core memory, context, and knowledge base
+            {formatMessage({ id: 'memory.description' })}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={cn('w-4 h-4 mr-2', isFetching && 'animate-spin')} />
-            Refresh
+            {formatMessage({ id: 'common.actions.refresh' })}
           </Button>
           <Button onClick={() => { setEditingMemory(null); setIsNewMemoryOpen(true); }}>
             <Plus className="w-4 h-4 mr-2" />
-            Add Memory
+            {formatMessage({ id: 'memory.actions.add' })}
           </Button>
         </div>
       </div>
@@ -354,7 +357,7 @@ export function MemoryPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-foreground">{memories.length}</div>
-              <p className="text-sm text-muted-foreground">Core Memories</p>
+              <p className="text-sm text-muted-foreground">{formatMessage({ id: 'memory.stats.count' })}</p>
             </div>
           </div>
         </Card>
@@ -365,7 +368,7 @@ export function MemoryPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-foreground">{claudeMdCount}</div>
-              <p className="text-sm text-muted-foreground">CLAUDE.md Files</p>
+              <p className="text-sm text-muted-foreground">{formatMessage({ id: 'memory.stats.claudeMdCount' })}</p>
             </div>
           </div>
         </Card>
@@ -376,7 +379,7 @@ export function MemoryPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-foreground">{formattedTotalSize}</div>
-              <p className="text-sm text-muted-foreground">Total Size</p>
+              <p className="text-sm text-muted-foreground">{formatMessage({ id: 'memory.stats.totalSize' })}</p>
             </div>
           </div>
         </Card>
@@ -387,7 +390,7 @@ export function MemoryPage() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search memories..."
+            placeholder={formatMessage({ id: 'memory.filters.search' })}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -397,7 +400,7 @@ export function MemoryPage() {
         {/* Tags Filter */}
         {allTags.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            <span className="text-sm text-muted-foreground py-1">Tags:</span>
+            <span className="text-sm text-muted-foreground py-1">{formatMessage({ id: 'memory.card.tags' })}:</span>
             {allTags.map((tag) => (
               <Button
                 key={tag}
@@ -417,7 +420,7 @@ export function MemoryPage() {
                 className="h-7"
                 onClick={() => setSelectedTags([])}
               >
-                Clear
+                {formatMessage({ id: 'memory.filters.clear' })}
               </Button>
             )}
           </div>
@@ -435,14 +438,14 @@ export function MemoryPage() {
         <Card className="p-8 text-center">
           <Brain className="w-12 h-12 mx-auto text-muted-foreground/50" />
           <h3 className="mt-4 text-lg font-medium text-foreground">
-            No memories stored
+            {formatMessage({ id: 'memory.emptyState.title' })}
           </h3>
           <p className="mt-2 text-muted-foreground">
-            Add context and knowledge to help Claude understand your project better.
+            {formatMessage({ id: 'memory.emptyState.message' })}
           </p>
           <Button className="mt-4" onClick={() => { setEditingMemory(null); setIsNewMemoryOpen(true); }}>
             <Plus className="w-4 h-4 mr-2" />
-            Add First Memory
+            {formatMessage({ id: 'memory.emptyState.createFirst' })}
           </Button>
         </Card>
       ) : (

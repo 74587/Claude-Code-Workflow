@@ -8,6 +8,10 @@ import { AppShell } from '@/components/layout';
 import {
   HomePage,
   SessionsPage,
+  FixSessionPage,
+  ProjectOverviewPage,
+  SessionDetailPage,
+  HistoryPage,
   OrchestratorPage,
   LoopMonitorPage,
   IssueManagerPage,
@@ -16,6 +20,13 @@ import {
   MemoryPage,
   SettingsPage,
   HelpPage,
+  NotFoundPage,
+  LiteTasksPage,
+  LiteTaskDetailPage,
+  ReviewSessionPage,
+  McpManagerPage,
+  EndpointsPage,
+  InstallationsPage,
 } from '@/pages';
 
 /**
@@ -34,6 +45,34 @@ const routes: RouteObject[] = [
       {
         path: 'sessions',
         element: <SessionsPage />,
+      },
+      {
+        path: 'sessions/:sessionId',
+        element: <SessionDetailPage />,
+      },
+      {
+        path: 'sessions/:sessionId/fix',
+        element: <FixSessionPage />,
+      },
+      {
+        path: 'sessions/:sessionId/review',
+        element: <ReviewSessionPage />,
+      },
+      {
+        path: 'lite-tasks',
+        element: <LiteTasksPage />,
+      },
+      {
+        path: 'lite-tasks/:sessionId',
+        element: <LiteTaskDetailPage />,
+      },
+      {
+        path: 'project',
+        element: <ProjectOverviewPage />,
+      },
+      {
+        path: 'history',
+        element: <HistoryPage />,
       },
       {
         path: 'orchestrator',
@@ -64,8 +103,25 @@ const routes: RouteObject[] = [
         element: <SettingsPage />,
       },
       {
+        path: 'settings/mcp',
+        element: <McpManagerPage />,
+      },
+      {
+        path: 'settings/endpoints',
+        element: <EndpointsPage />,
+      },
+      {
+        path: 'settings/installations',
+        element: <InstallationsPage />,
+      },
+      {
         path: 'help',
         element: <HelpPage />,
+      },
+      // Catch-all route for 404
+      {
+        path: '*',
+        element: <NotFoundPage />,
       },
     ],
   },
@@ -82,6 +138,13 @@ export const router = createBrowserRouter(routes);
 export const ROUTES = {
   HOME: '/',
   SESSIONS: '/sessions',
+  SESSION_DETAIL: '/sessions/:sessionId',
+  FIX_SESSION: '/sessions/:sessionId/fix',
+  REVIEW_SESSION: '/sessions/:sessionId/review',
+  LITE_TASKS: '/lite-tasks',
+  LITE_TASK_DETAIL: '/lite-tasks/:sessionId',
+  PROJECT: '/project',
+  HISTORY: '/history',
   ORCHESTRATOR: '/orchestrator',
   LOOPS: '/loops',
   ISSUES: '/issues',
@@ -89,6 +152,9 @@ export const ROUTES = {
   COMMANDS: '/commands',
   MEMORY: '/memory',
   SETTINGS: '/settings',
+  MCP_MANAGER: '/settings/mcp',
+  ENDPOINTS: '/settings/endpoints',
+  INSTALLATIONS: '/settings/installations',
   HELP: '/help',
 } as const;
 

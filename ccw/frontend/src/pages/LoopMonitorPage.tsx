@@ -4,6 +4,7 @@
 // Monitor running development loops with Kanban board
 
 import { useState, useCallback } from 'react';
+import { useIntl } from 'react-intl';
 import {
   RefreshCw,
   Play,
@@ -157,6 +158,7 @@ interface NewLoopDialogProps {
 }
 
 function NewLoopDialog({ open, onOpenChange, onSubmit, isCreating }: NewLoopDialogProps) {
+  const { formatMessage } = useIntl();
   const [prompt, setPrompt] = useState('');
   const [tool, setTool] = useState('');
 
@@ -173,42 +175,42 @@ function NewLoopDialog({ open, onOpenChange, onSubmit, isCreating }: NewLoopDial
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Start New Loop</DialogTitle>
+          <DialogTitle>{formatMessage({ id: 'loops.createDialog.title' })}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div>
-            <label className="text-sm font-medium text-foreground">Prompt</label>
+            <label className="text-sm font-medium text-foreground">{formatMessage({ id: 'loops.createDialog.labels.prompt' })}</label>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Enter your development loop prompt..."
+              placeholder={formatMessage({ id: 'loops.createDialog.placeholders.prompt' })}
               className="mt-1 w-full min-h-[100px] p-3 bg-background border border-input rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
               required
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-foreground">CLI Tool (optional)</label>
+            <label className="text-sm font-medium text-foreground">{formatMessage({ id: 'loops.createDialog.labels.tool' })}</label>
             <Input
               value={tool}
               onChange={(e) => setTool(e.target.value)}
-              placeholder="e.g., gemini, qwen, codex"
+              placeholder={formatMessage({ id: 'loops.createDialog.placeholders.tool' })}
               className="mt-1"
             />
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {formatMessage({ id: 'loops.createDialog.buttons.cancel' })}
             </Button>
             <Button type="submit" disabled={isCreating || !prompt.trim()}>
               {isCreating ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating...
+                  {formatMessage({ id: 'common.status.creating' })}
                 </>
               ) : (
                 <>
                   <Play className="w-4 h-4 mr-2" />
-                  Start Loop
+                  {formatMessage({ id: 'loops.createDialog.buttons.create' })}
                 </>
               )}
             </Button>
@@ -222,6 +224,7 @@ function NewLoopDialog({ open, onOpenChange, onSubmit, isCreating }: NewLoopDial
 // ========== Main Page Component ==========
 
 export function LoopMonitorPage() {
+  const { formatMessage } = useIntl();
   const [searchQuery, setSearchQuery] = useState('');
   const [isNewLoopOpen, setIsNewLoopOpen] = useState(false);
 
@@ -322,20 +325,20 @@ export function LoopMonitorPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <RefreshCw className="w-6 h-6 text-primary" />
-            Loop Monitor
+            {formatMessage({ id: 'loops.title' })}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Monitor and control running development loops
+            {formatMessage({ id: 'loops.description' })}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={cn('w-4 h-4 mr-2', isFetching && 'animate-spin')} />
-            Refresh
+            {formatMessage({ id: 'common.actions.refresh' })}
           </Button>
           <Button onClick={() => setIsNewLoopOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            New Loop
+            {formatMessage({ id: 'loops.actions.create' })}
           </Button>
         </div>
       </div>
@@ -347,28 +350,28 @@ export function LoopMonitorPage() {
             <Loader2 className="w-5 h-5 text-primary" />
             <span className="text-2xl font-bold">{runningCount}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Running</p>
+          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'loops.columns.running' })}</p>
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <Pause className="w-5 h-5 text-warning" />
             <span className="text-2xl font-bold">{loopsByStatus.paused?.length || 0}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Paused</p>
+          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'loops.columns.paused' })}</p>
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <CheckCircle className="w-5 h-5 text-success" />
             <span className="text-2xl font-bold">{completedCount}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Completed</p>
+          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'loops.columns.completed' })}</p>
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <XCircle className="w-5 h-5 text-destructive" />
             <span className="text-2xl font-bold">{failedCount}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Failed</p>
+          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'loops.columns.failed' })}</p>
         </Card>
       </div>
 
@@ -376,7 +379,7 @@ export function LoopMonitorPage() {
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
-          placeholder="Search loops..."
+          placeholder={formatMessage({ id: 'common.actions.searchLoops' })}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-9"
@@ -401,14 +404,14 @@ export function LoopMonitorPage() {
         <Card className="p-8 text-center">
           <RefreshCw className="w-12 h-12 mx-auto text-muted-foreground/50" />
           <h3 className="mt-4 text-lg font-medium text-foreground">
-            No active loops
+            {formatMessage({ id: 'loops.emptyState.title' })}
           </h3>
           <p className="mt-2 text-muted-foreground">
-            Start a new development loop to begin monitoring progress.
+            {formatMessage({ id: 'loops.emptyState.message' })}
           </p>
           <Button className="mt-4" onClick={() => setIsNewLoopOpen(true)}>
             <Play className="w-4 h-4 mr-2" />
-            Start New Loop
+            {formatMessage({ id: 'loops.emptyState.createFirst' })}
           </Button>
         </Card>
       ) : (
@@ -416,7 +419,7 @@ export function LoopMonitorPage() {
           columns={columns}
           onDragEnd={handleDragEnd}
           renderItem={renderLoopItem}
-          emptyColumnMessage="No loops"
+          emptyColumnMessage={formatMessage({ id: 'loops.card.error' })}
           className="min-h-[400px]"
         />
       )}

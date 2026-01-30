@@ -1,0 +1,26 @@
+{
+  "title": "Lite Tasks",
+  "subtitle": "{count} session(s)",
+  "type": {
+    "plan": "Lite Plan",
+    "fix": "Lite Fix",
+    "multiCli": "Multi-CLI"
+  },
+  "rounds": "rounds",
+  "empty": {
+    "title": "No {type} sessions",
+    "message": "Create a new session to get started."
+  },
+  "flowchart": "Flowchart",
+  "implementationFlow": "Implementation Flow",
+  "focusPaths": "Focus Paths",
+  "acceptanceCriteria": "Acceptance Criteria",
+  "emptyDetail": {
+    "title": "No tasks in this session",
+    "message": "This session does not contain any tasks yet."
+  },
+  "notFound": {
+    "title": "Lite Task Not Found",
+    "message": "The requested lite task session could not be found."
+  }
+}

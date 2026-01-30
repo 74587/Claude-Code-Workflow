@@ -1,0 +1,48 @@
+{
+  "title": "会话",
+  "description": "管理工作流会话并跟踪进度",
+  "status": {
+    "planning": "规划中",
+    "inProgress": "进行中",
+    "completed": "已完成",
+    "archived": "已归档",
+    "paused": "已暂停"
+  },
+  "actions": {
+    "viewDetails": "查看详情",
+    "archive": "归档",
+    "delete": "删除",
+    "restore": "恢复",
+    "pause": "暂停",
+    "resume": "继续"
+  },
+  "filters": {
+    "all": "全部",
+    "active": "活跃",
+    "planning": "规划中",
+    "completed": "已完成",
+    "archived": "已归档",
+    "paused": "已暂停"
+  },
+  "searchPlaceholder": "搜索会话...",
+  "emptyState": {
+    "title": "未找到会话",
+    "message": "没有符合当前筛选条件的工作流会话。",
+    "createFirst": "创建第一个会话以开始"
+  },
+  "card": {
+    "tasks": "任务",
+    "findings": "发现",
+    "dimensions": "维度",
+    "progress": "进度",
+    "createdAt": "创建时间",
+    "updatedAt": "更新时间"
+  },
+  "detail": {
+    "overview": "概览",
+    "tasks": "任务",
+    "summary": "摘要",
+    "metadata": "元数据",
+    "timeline": "时间线"
+  }
+}

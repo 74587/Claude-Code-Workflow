@@ -1,0 +1,65 @@
+{
+  "title": "记忆",
+  "description": "管理核心记忆、上下文和知识库",
+  "actions": {
+    "add": "添加记忆",
+    "edit": "编辑",
+    "delete": "删除",
+    "copy": "复制",
+    "refresh": "刷新",
+    "expand": "展开",
+    "collapse": "收起"
+  },
+  "stats": {
+    "totalSize": "总大小",
+    "count": "数量",
+    "claudeMdCount": "CLAUDE.md 文件",
+    "totalEntries": "总条目"
+  },
+  "filters": {
+    "search": "搜索记忆...",
+    "tags": "标签",
+    "clear": "清除",
+    "all": "全部"
+  },
+  "card": {
+    "id": "ID",
+    "content": "内容",
+    "summary": "摘要",
+    "tags": "标签",
+    "createdAt": "创建时间",
+    "updatedAt": "更新时间",
+    "size": "大小",
+    "favorite": "收藏",
+    "archived": "已归档"
+  },
+  "emptyState": {
+    "title": "未存储记忆",
+    "message": "添加上下文和知识以帮助 Claude 更好地理解您的项目。",
+    "createFirst": "添加第一条记忆"
+  },
+  "createDialog": {
+    "title": "添加记忆",
+    "editTitle": "编辑记忆",
+    "labels": {
+      "content": "内容",
+      "tags": "标签"
+    },
+    "placeholders": {
+      "content": "输入记忆内容...",
+      "tags": "例如：project、config、api"
+    },
+    "buttons": {
+      "create": "添加记忆",
+      "update": "更新记忆",
+      "cancel": "取消",
+      "creating": "创建中...",
+      "updating": "更新中..."
+    }
+  },
+  "types": {
+    "coreMemory": "核心记忆",
+    "workflow": "工作流",
+    "cliHistory": "CLI 历史"
+  }
+}

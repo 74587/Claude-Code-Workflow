@@ -1,0 +1,63 @@
+{
+  "title": "编排器",
+  "description": "管理和执行工作流",
+  "flow": {
+    "title": "流程",
+    "flows": "流程列表",
+    "create": "新建流程",
+    "edit": "编辑流程",
+    "delete": "删除流程",
+    "duplicate": "复制流程",
+    "export": "导出流程",
+    "import": "导入流程"
+  },
+  "execution": {
+    "title": "执行",
+    "status": "状态",
+    "start": "开始",
+    "pause": "暂停",
+    "resume": "继续",
+    "stop": "停止",
+    "restart": "重新开始",
+    "viewLogs": "查看日志"
+  },
+  "status": {
+    "pending": "待处理",
+    "running": "运行中",
+    "paused": "已暂停",
+    "completed": "已完成",
+    "failed": "失败"
+  },
+  "node": {
+    "title": "节点",
+    "nodes": "节点列表",
+    "add": "添加节点",
+    "edit": "编辑节点",
+    "delete": "删除节点",
+    "status": "节点状态",
+    "result": "结果"
+  },
+  "actions": {
+    "execute": "执行",
+    "validate": "验证",
+    "save": "保存",
+    "cancel": "取消"
+  },
+  "emptyState": {
+    "noFlows": {
+      "title": "未找到流程",
+      "message": "创建第一个工作流流程以开始。"
+    },
+    "noExecution": {
+      "title": "无执行历史",
+      "message": "执行流程以查看执行历史。"
+    }
+  },
+  "monitor": {
+    "title": "执行监控",
+    "logs": "日志",
+    "timeline": "时间线",
+    "variables": "变量",
+    "realtime": "实时更新"
+  }
+}

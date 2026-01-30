@@ -1,0 +1,38 @@
+{
+  "main": {
+    "home": "Home",
+    "sessions": "Sessions",
+    "liteTasks": "Lite Tasks",
+    "project": "Project",
+    "history": "History",
+    "orchestrator": "Orchestrator",
+    "loops": "Loop Monitor",
+    "issues": "Issues",
+    "skills": "Skills",
+    "commands": "Commands",
+    "memory": "Memory",
+    "settings": "Settings",
+    "mcp": "MCP Servers",
+    "endpoints": "CLI Endpoints",
+    "installations": "Installations",
+    "help": "Help"
+  },
+  "sidebar": {
+    "collapse": "Collapse",
+    "expand": "Expand sidebar",
+    "collapseAria": "Collapse sidebar"
+  },
+  "header": {
+    "brand": "Claude Code Workflow",
+    "brandShort": "CCW",
+    "noProject": "No project selected",
+    "settings": "Settings",
+    "logout": "Logout"
+  },
+  "breadcrumbs": {
+    "home": "Home",
+    "sessions": "Sessions",
+    "detail": "Details",
+    "settings": "Settings"
+  }
+}

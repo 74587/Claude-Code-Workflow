@@ -5,6 +5,7 @@
 
 import { useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useIntl } from 'react-intl';
 import {
   Workflow,
   Menu,
@@ -18,6 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { useTheme } from '@/hooks';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 export interface HeaderProps {
   /** Callback to toggle mobile sidebar */
@@ -36,6 +38,7 @@ export function Header({
   onRefresh,
   isRefreshing = false,
 }: HeaderProps) {
+  const { formatMessage } = useIntl();
   const { isDark, toggleTheme } = useTheme();
 
   const handleRefresh = useCallback(() => {
@@ -47,7 +50,7 @@ export function Header({
   // Get display path (truncate if too long)
   const displayPath = projectPath.length > 40
     ? '...' + projectPath.slice(-37)
-    : projectPath || 'No project selected';
+    : projectPath || formatMessage({ id: 'navigation.header.noProject' });
 
   return (
     <header
@@ -62,7 +65,7 @@ export function Header({
           size="icon"
           className="md:hidden"
           onClick={onMenuClick}
-          aria-label="Toggle navigation menu"
+          aria-label={formatMessage({ id: 'common.aria.toggleNavigation' })}
         >
           <Menu className="w-5 h-5" />
         </Button>
@@ -73,8 +76,8 @@ export function Header({
           className="flex items-center gap-2 text-lg font-semibold text-primary hover:opacity-80 transition-opacity"
         >
           <Workflow className="w-6 h-6" />
-          <span className="hidden sm:inline">Claude Code Workflow</span>
-          <span className="sm:hidden">CCW</span>
+          <span className="hidden sm:inline">{formatMessage({ id: 'navigation.header.brand' })}</span>
+          <span className="sm:hidden">{formatMessage({ id: 'navigation.header.brandShort' })}</span>
         </Link>
       </div>
 
@@ -96,8 +99,8 @@ export function Header({
             size="icon"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            aria-label="Refresh workspace"
-            title="Refresh workspace"
+            aria-label={formatMessage({ id: 'common.aria.refreshWorkspace' })}
+            title={formatMessage({ id: 'common.aria.refreshWorkspace' })}
           >
             <RefreshCw
               className={cn('w-5 h-5', isRefreshing && 'animate-spin')}
@@ -105,13 +108,22 @@ export function Header({
           </Button>
         )}
 
+        {/* Language switcher */}
+        <LanguageSwitcher compact />
+
         {/* Theme toggle */}
         <Button
           variant="ghost"
           size="icon"
           onClick={toggleTheme}
-          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label={isDark
+            ? formatMessage({ id: 'common.aria.switchToLightMode' })
+            : formatMessage({ id: 'common.aria.switchToDarkMode' })
+          }
+          title={isDark
+            ? formatMessage({ id: 'common.aria.switchToLightMode' })
+            : formatMessage({ id: 'common.aria.switchToDarkMode' })
+          }
         >
           {isDark ? (
             <Sun className="w-5 h-5" />
@@ -126,8 +138,8 @@ export function Header({
             variant="ghost"
             size="icon"
             className="rounded-full"
-            aria-label="User menu"
-            title="User menu"
+            aria-label={formatMessage({ id: 'common.aria.userMenu' })}
+            title={formatMessage({ id: 'common.aria.userMenu' })}
           >
             <User className="w-5 h-5" />
           </Button>
@@ -140,7 +152,7 @@ export function Header({
                 className="flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-hover transition-colors"
               >
                 <Settings className="w-4 h-4" />
-                <span>Settings</span>
+                <span>{formatMessage({ id: 'navigation.header.settings' })}</span>
               </Link>
               <hr className="my-1 border-border" />
               <button
@@ -151,7 +163,7 @@ export function Header({
                 }}
               >
                 <LogOut className="w-4 h-4" />
-                <span>Exit Dashboard</span>
+                <span>{formatMessage({ id: 'navigation.header.logout' })}</span>
               </button>
             </div>
           </div>

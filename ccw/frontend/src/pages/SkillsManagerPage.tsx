@@ -4,6 +4,7 @@
 // Browse and manage skills library with search/filter
 
 import { useState, useMemo } from 'react';
+import { useIntl } from 'react-intl';
 import {
   Sparkles,
   Search,
@@ -34,6 +35,8 @@ interface SkillGridProps {
 }
 
 function SkillGrid({ skills, isLoading, onToggle, onClick, isToggling, compact }: SkillGridProps) {
+  const { formatMessage } = useIntl();
+
   if (isLoading) {
     return (
       <div className={cn(
@@ -51,9 +54,9 @@ function SkillGrid({ skills, isLoading, onToggle, onClick, isToggling, compact }
     return (
       <Card className="p-8 text-center">
         <Sparkles className="w-12 h-12 mx-auto text-muted-foreground/50" />
-        <h3 className="mt-4 text-lg font-medium text-foreground">No skills found</h3>
+        <h3 className="mt-4 text-lg font-medium text-foreground">{formatMessage({ id: 'skills.emptyState.title' })}</h3>
         <p className="mt-2 text-muted-foreground">
-          Try adjusting your search or filters.
+          {formatMessage({ id: 'skills.emptyState.message' })}
         </p>
       </Card>
     );
@@ -81,6 +84,7 @@ function SkillGrid({ skills, isLoading, onToggle, onClick, isToggling, compact }
 // ========== Main Page Component ==========
 
 export function SkillsManagerPage() {
+  const { formatMessage } = useIntl();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
@@ -125,20 +129,20 @@ export function SkillsManagerPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-primary" />
-            Skills Manager
+            {formatMessage({ id: 'skills.title' })}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Browse, install, and manage Claude Code skills
+            {formatMessage({ id: 'skills.description' })}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={cn('w-4 h-4 mr-2', isFetching && 'animate-spin')} />
-            Refresh
+            {formatMessage({ id: 'common.actions.refresh' })}
           </Button>
           <Button>
             <Plus className="w-4 h-4 mr-2" />
-            Install Skill
+            {formatMessage({ id: 'skills.actions.install' })}
           </Button>
         </div>
       </div>
@@ -150,28 +154,28 @@ export function SkillsManagerPage() {
             <Sparkles className="w-5 h-5 text-primary" />
             <span className="text-2xl font-bold">{totalCount}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Total Skills</p>
+          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'common.stats.totalSkills' })}</p>
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <Power className="w-5 h-5 text-success" />
             <span className="text-2xl font-bold">{enabledCount}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Enabled</p>
+          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'skills.state.enabled' })}</p>
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <PowerOff className="w-5 h-5 text-muted-foreground" />
             <span className="text-2xl font-bold">{totalCount - enabledCount}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Disabled</p>
+          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'skills.state.disabled' })}</p>
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <Tag className="w-5 h-5 text-info" />
             <span className="text-2xl font-bold">{categories.length}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Categories</p>
+          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'skills.card.category' })}</p>
         </Card>
       </div>
 
@@ -180,7 +184,7 @@ export function SkillsManagerPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search skills by name, description, or trigger..."
+            placeholder={formatMessage({ id: 'skills.filters.searchPlaceholder' })}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -189,10 +193,10 @@ export function SkillsManagerPage() {
         <div className="flex gap-2">
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Category" />
+              <SelectValue placeholder={formatMessage({ id: 'skills.card.category' })} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="all">{formatMessage({ id: 'skills.filters.all' })}</SelectItem>
               {categories.map((cat) => (
                 <SelectItem key={cat} value={cat}>{cat}</SelectItem>
               ))}
@@ -200,23 +204,23 @@ export function SkillsManagerPage() {
           </Select>
           <Select value={sourceFilter} onValueChange={setSourceFilter}>
             <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Source" />
+              <SelectValue placeholder={formatMessage({ id: 'skills.card.source' })} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Sources</SelectItem>
-              <SelectItem value="builtin">Built-in</SelectItem>
-              <SelectItem value="custom">Custom</SelectItem>
-              <SelectItem value="community">Community</SelectItem>
+              <SelectItem value="all">{formatMessage({ id: 'skills.filters.allSources' })}</SelectItem>
+              <SelectItem value="builtin">{formatMessage({ id: 'skills.source.builtin' })}</SelectItem>
+              <SelectItem value="custom">{formatMessage({ id: 'skills.source.custom' })}</SelectItem>
+              <SelectItem value="community">{formatMessage({ id: 'skills.source.community' })}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={enabledFilter} onValueChange={(v) => setEnabledFilter(v as 'all' | 'enabled' | 'disabled')}>
             <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Status" />
+              <SelectValue placeholder={formatMessage({ id: 'skills.state.enabled' })} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="enabled">Enabled Only</SelectItem>
-              <SelectItem value="disabled">Disabled Only</SelectItem>
+              <SelectItem value="all">{formatMessage({ id: 'skills.filters.all' })}</SelectItem>
+              <SelectItem value="enabled">{formatMessage({ id: 'skills.filters.enabled' })}</SelectItem>
+              <SelectItem value="disabled">{formatMessage({ id: 'skills.filters.disabled' })}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -229,7 +233,7 @@ export function SkillsManagerPage() {
           size="sm"
           onClick={() => setEnabledFilter('all')}
         >
-          All ({totalCount})
+          {formatMessage({ id: 'skills.filters.all' })} ({totalCount})
         </Button>
         <Button
           variant={enabledFilter === 'enabled' ? 'default' : 'outline'}
@@ -237,7 +241,7 @@ export function SkillsManagerPage() {
           onClick={() => setEnabledFilter('enabled')}
         >
           <Power className="w-4 h-4 mr-1" />
-          Enabled ({enabledCount})
+          {formatMessage({ id: 'skills.state.enabled' })} ({enabledCount})
         </Button>
         <Button
           variant={enabledFilter === 'disabled' ? 'default' : 'outline'}
@@ -245,7 +249,7 @@ export function SkillsManagerPage() {
           onClick={() => setEnabledFilter('disabled')}
         >
           <PowerOff className="w-4 h-4 mr-1" />
-          Disabled ({totalCount - enabledCount})
+          {formatMessage({ id: 'skills.state.disabled' })} ({totalCount - enabledCount})
         </Button>
         <div className="flex-1" />
         <Button
@@ -253,7 +257,7 @@ export function SkillsManagerPage() {
           size="sm"
           onClick={() => setViewMode(viewMode === 'grid' ? 'compact' : 'grid')}
         >
-          {viewMode === 'grid' ? 'Compact View' : 'Grid View'}
+          {formatMessage({ id: viewMode === 'grid' ? 'skills.view.compact' : 'skills.view.grid' })}
         </Button>
       </div>
 

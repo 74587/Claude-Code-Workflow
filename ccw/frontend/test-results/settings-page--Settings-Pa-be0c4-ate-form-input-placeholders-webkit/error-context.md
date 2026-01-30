@@ -1,0 +1,265 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - link "navigation.header.brand" [ref=e6]:
+      - /url: /
+      - img [ref=e7]
+      - generic [ref=e11]: navigation.header.brand
+    - generic [ref=e12]:
+      - combobox "Select language" [active] [ref=e13] [cursor=pointer]:
+        - img [ref=e14]
+        - generic:
+          - generic:
+            - generic: 🇨🇳
+            - generic: 中文
+        - img [ref=e18]
+      - button "common.aria.switchToDarkMode" [ref=e20] [cursor=pointer]:
+        - img [ref=e21]
+      - button "common.aria.userMenu" [ref=e24] [cursor=pointer]:
+        - img [ref=e25]
+  - generic [ref=e28]:
+    - navigation "Claude Code Workflow" [ref=e29]:
+      - navigation [ref=e30]:
+        - list [ref=e31]:
+          - listitem [ref=e32]:
+            - link "navigation.main.home" [ref=e33]:
+              - /url: /
+              - img [ref=e34]
+              - generic [ref=e37]: navigation.main.home
+          - listitem [ref=e38]:
+            - link "navigation.main.sessions" [ref=e39]:
+              - /url: /sessions
+              - img [ref=e40]
+              - generic [ref=e42]: navigation.main.sessions
+          - listitem [ref=e43]:
+            - link "navigation.main.liteTasks" [ref=e44]:
+              - /url: /lite-tasks
+              - img [ref=e45]
+              - generic [ref=e47]: navigation.main.liteTasks
+          - listitem [ref=e48]:
+            - link "navigation.main.project" [ref=e49]:
+              - /url: /project
+              - img [ref=e50]
+              - generic [ref=e55]: navigation.main.project
+          - listitem [ref=e56]:
+            - link "navigation.main.history" [ref=e57]:
+              - /url: /history
+              - img [ref=e58]
+              - generic [ref=e61]: navigation.main.history
+          - listitem [ref=e62]:
+            - link "navigation.main.orchestrator" [ref=e63]:
+              - /url: /orchestrator
+              - img [ref=e64]
+              - generic [ref=e68]: navigation.main.orchestrator
+          - listitem [ref=e69]:
+            - link "navigation.main.loops" [ref=e70]:
+              - /url: /loops
+              - img [ref=e71]
+              - generic [ref=e76]: navigation.main.loops
+          - listitem [ref=e77]:
+            - link "navigation.main.issues" [ref=e78]:
+              - /url: /issues
+              - img [ref=e79]
+              - generic [ref=e81]: navigation.main.issues
+          - listitem [ref=e82]:
+            - link "navigation.main.skills" [ref=e83]:
+              - /url: /skills
+              - img [ref=e84]
+              - generic [ref=e86]: navigation.main.skills
+          - listitem [ref=e87]:
+            - link "navigation.main.commands" [ref=e88]:
+              - /url: /commands
+              - img [ref=e89]
+              - generic [ref=e91]: navigation.main.commands
+          - listitem [ref=e92]:
+            - link "navigation.main.memory" [ref=e93]:
+              - /url: /memory
+              - img [ref=e94]
+              - generic [ref=e104]: navigation.main.memory
+          - listitem [ref=e105]:
+            - link "navigation.main.settings" [ref=e106]:
+              - /url: /settings
+              - img [ref=e107]
+              - generic [ref=e110]: navigation.main.settings
+          - listitem [ref=e111]:
+            - link "navigation.main.help" [ref=e112]:
+              - /url: /help
+              - img [ref=e113]
+              - generic [ref=e116]: navigation.main.help
+      - button "navigation.sidebar.collapseAria" [ref=e118] [cursor=pointer]:
+        - img [ref=e119]
+        - generic [ref=e122]: navigation.sidebar.collapse
+    - main [ref=e123]:
+      - generic [ref=e124]:
+        - generic [ref=e125]:
+          - heading "settings.title" [level=1] [ref=e126]:
+            - img [ref=e127]
+            - text: settings.title
+          - paragraph [ref=e130]: settings.description
+        - generic [ref=e131]:
+          - heading "settings.sections.appearance" [level=2] [ref=e132]:
+            - img [ref=e133]
+            - text: settings.sections.appearance
+          - generic [ref=e136]:
+            - generic [ref=e137]:
+              - paragraph [ref=e138]: settings.appearance.theme
+              - paragraph [ref=e139]: settings.appearance.description
+            - generic [ref=e140]:
+              - button "settings.appearance.themeOptions.light" [ref=e141] [cursor=pointer]:
+                - img [ref=e142]
+                - text: settings.appearance.themeOptions.light
+              - button "settings.appearance.themeOptions.dark" [ref=e148] [cursor=pointer]:
+                - img [ref=e149]
+                - text: settings.appearance.themeOptions.dark
+              - button "settings.appearance.themeOptions.system" [ref=e151] [cursor=pointer]
+        - generic [ref=e152]:
+          - heading "settings.sections.language" [level=2] [ref=e153]:
+            - img [ref=e154]
+            - text: settings.sections.language
+          - generic [ref=e159]:
+            - generic [ref=e160]:
+              - paragraph [ref=e161]: settings.language.displayLanguage
+              - paragraph [ref=e162]: settings.language.chooseLanguage
+            - combobox "Select language" [ref=e163] [cursor=pointer]:
+              - generic:
+                - generic:
+                  - generic: 🇨🇳
+                  - generic: 中文
+              - img [ref=e164]
+        - generic [ref=e166]:
+          - heading "settings.sections.cliTools" [level=2] [ref=e167]:
+            - img [ref=e168]
+            - text: settings.sections.cliTools
+          - paragraph [ref=e171]:
+            - text: settings.cliTools.description
+            - strong [ref=e172]: gemini
+          - generic [ref=e173]:
+            - generic [ref=e175] [cursor=pointer]:
+              - generic [ref=e176]:
+                - generic [ref=e177]:
+                  - img [ref=e179]
+                  - generic [ref=e182]:
+                    - generic [ref=e183]:
+                      - generic [ref=e184]: gemini
+                      - generic [ref=e185]: settings.cliTools.default
+                      - generic [ref=e186]: builtin
+                    - paragraph [ref=e187]: gemini-2.5-pro
+                - generic [ref=e188]:
+                  - button "settings.cliTools.enabled" [ref=e189]:
+                    - img [ref=e190]
+                    - text: settings.cliTools.enabled
+                  - img [ref=e192]
+              - generic [ref=e194]:
+                - generic [ref=e195]: analysis
+                - generic [ref=e196]: debug
+            - generic [ref=e199] [cursor=pointer]:
+              - generic [ref=e200]:
+                - img [ref=e202]
+                - generic [ref=e205]:
+                  - generic [ref=e206]:
+                    - generic [ref=e207]: qwen
+                    - generic [ref=e208]: builtin
+                  - paragraph [ref=e209]: coder-model
+              - generic [ref=e210]:
+                - button "settings.cliTools.enabled" [ref=e211]:
+                  - img [ref=e212]
+                  - text: settings.cliTools.enabled
+                - img [ref=e214]
+            - generic [ref=e218] [cursor=pointer]:
+              - generic [ref=e219]:
+                - img [ref=e221]
+                - generic [ref=e224]:
+                  - generic [ref=e225]:
+                    - generic [ref=e226]: codex
+                    - generic [ref=e227]: builtin
+                  - paragraph [ref=e228]: gpt-5.2
+              - generic [ref=e229]:
+                - button "settings.cliTools.enabled" [ref=e230]:
+                  - img [ref=e231]
+                  - text: settings.cliTools.enabled
+                - img [ref=e233]
+            - generic [ref=e237] [cursor=pointer]:
+              - generic [ref=e238]:
+                - img [ref=e240]
+                - generic [ref=e243]:
+                  - generic [ref=e244]:
+                    - generic [ref=e245]: claude
+                    - generic [ref=e246]: builtin
+                  - paragraph [ref=e247]: sonnet
+              - generic [ref=e248]:
+                - button "settings.cliTools.enabled" [ref=e249]:
+                  - img [ref=e250]
+                  - text: settings.cliTools.enabled
+                - img [ref=e252]
+        - generic [ref=e254]:
+          - heading "settings.dataRefresh.title" [level=2] [ref=e255]:
+            - img [ref=e256]
+            - text: settings.dataRefresh.title
+          - generic [ref=e261]:
+            - generic [ref=e262]:
+              - generic [ref=e263]:
+                - paragraph [ref=e264]: settings.dataRefresh.autoRefresh
+                - paragraph [ref=e265]: settings.dataRefresh.autoRefreshDesc
+              - button "settings.dataRefresh.enabled" [ref=e266] [cursor=pointer]
+            - generic [ref=e267]:
+              - generic [ref=e268]:
+                - paragraph [ref=e269]: settings.dataRefresh.refreshInterval
+                - paragraph [ref=e270]: settings.dataRefresh.refreshIntervalDesc
+              - generic [ref=e271]:
+                - button "15s" [ref=e272] [cursor=pointer]
+                - button "30s" [ref=e273] [cursor=pointer]
+                - button "60s" [ref=e274] [cursor=pointer]
+                - button "120s" [ref=e275] [cursor=pointer]
+        - generic [ref=e276]:
+          - heading "settings.notifications.title" [level=2] [ref=e277]:
+            - img [ref=e278]
+            - text: settings.notifications.title
+          - generic [ref=e281]:
+            - generic [ref=e282]:
+              - generic [ref=e283]:
+                - paragraph [ref=e284]: settings.notifications.enableNotifications
+                - paragraph [ref=e285]: settings.notifications.enableNotificationsDesc
+              - button "settings.dataRefresh.enabled" [ref=e286] [cursor=pointer]
+            - generic [ref=e287]:
+              - generic [ref=e288]:
+                - paragraph [ref=e289]: settings.notifications.soundEffects
+                - paragraph [ref=e290]: settings.notifications.soundEffectsDesc
+              - button "settings.notifications.off" [ref=e291] [cursor=pointer]
+        - generic [ref=e292]:
+          - heading "settings.sections.display" [level=2] [ref=e293]:
+            - img [ref=e294]
+            - text: settings.sections.display
+          - generic [ref=e298]:
+            - generic [ref=e299]:
+              - paragraph [ref=e300]: settings.display.showCompletedTasks
+              - paragraph [ref=e301]: settings.display.showCompletedTasksDesc
+            - button "settings.display.show" [ref=e302] [cursor=pointer]
+        - generic [ref=e303]:
+          - generic [ref=e304]:
+            - heading "settings.sections.hooks" [level=2] [ref=e305]:
+              - img [ref=e306]
+              - text: settings.sections.hooks
+            - generic [ref=e312]: 0/0 cliHooks.stats.enabled
+          - generic [ref=e313]:
+            - img [ref=e314]
+            - textbox "cliHooks.filters.searchPlaceholder" [ref=e317]
+        - generic [ref=e323]:
+          - generic [ref=e324]:
+            - heading "settings.sections.rules" [level=2] [ref=e325]:
+              - img [ref=e326]
+              - text: settings.sections.rules
+            - generic [ref=e331]: 0/0 cliRules.stats.enabled
+          - generic [ref=e332]:
+            - img [ref=e333]
+            - textbox "cliRules.filters.searchPlaceholder" [ref=e336]
+        - generic [ref=e342]:
+          - heading "common.actions.reset" [level=2] [ref=e343]:
+            - img [ref=e344]
+            - text: common.actions.reset
+          - paragraph [ref=e347]: settings.reset.description
+          - button "common.actions.resetToDefaults" [ref=e348] [cursor=pointer]:
+            - img [ref=e349]
+            - text: common.actions.resetToDefaults
+```

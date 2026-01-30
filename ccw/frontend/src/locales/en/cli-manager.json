@@ -1,0 +1,127 @@
+{
+  "cliEndpoints": {
+    "title": "CLI Endpoints",
+    "description": "Manage LiteLLM endpoints, custom CLI endpoints, and CLI wrapper configurations",
+    "type": {
+      "litellm": "LiteLLM",
+      "custom": "Custom",
+      "wrapper": "Wrapper"
+    },
+    "status": {
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "stats": {
+      "total": "Total Endpoints",
+      "enabled": "Enabled"
+    },
+    "id": "ID",
+    "config": "Configuration",
+    "filters": {
+      "type": "Type",
+      "allTypes": "All Types",
+      "searchPlaceholder": "Search endpoints by name or ID..."
+    },
+    "actions": {
+      "add": "Add Endpoint",
+      "edit": "Edit Endpoint",
+      "delete": "Delete Endpoint",
+      "toggle": "Toggle Endpoint"
+    },
+    "deleteConfirm": "Are you sure you want to delete the endpoint \"{id}\"?",
+    "emptyState": {
+      "title": "No CLI Endpoints Found",
+      "message": "Add a CLI endpoint to configure custom API endpoints and wrappers."
+    }
+  },
+  "cliInstallations": {
+    "title": "CLI Installations",
+    "description": "Manage CCW CLI tool installations, upgrades, and removals",
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "error": "Error"
+    },
+    "stats": {
+      "total": "Total Tools",
+      "installed": "Installed",
+      "available": "Available"
+    },
+    "installed": "Installed",
+    "lastChecked": "Last Checked",
+    "filters": {
+      "status": "Status",
+      "all": "All",
+      "installed": "Installed",
+      "notInstalled": "Not Installed",
+      "searchPlaceholder": "Search tools by name or version..."
+    },
+    "actions": {
+      "install": "Install",
+      "uninstall": "Uninstall",
+      "upgrade": "Upgrade"
+    },
+    "uninstallConfirm": "Are you sure you want to uninstall \"{name}\"?",
+    "emptyState": {
+      "title": "No CLI Tools Found",
+      "message": "No CLI tools are available for installation at this time."
+    }
+  },
+  "cliHooks": {
+    "title": "Git Hooks",
+    "description": "Manage Git hooks for automated workflows",
+    "trigger": {
+      "pre-commit": "Pre-commit",
+      "post-commit": "Post-commit",
+      "pre-push": "Pre-push",
+      "custom": "Custom"
+    },
+    "stats": {
+      "total": "Total Hooks",
+      "enabled": "Enabled"
+    },
+    "filters": {
+      "trigger": "Trigger",
+      "allTriggers": "All Triggers",
+      "searchPlaceholder": "Search hooks by name..."
+    },
+    "actions": {
+      "add": "Add Hook",
+      "edit": "Edit Hook",
+      "delete": "Delete Hook",
+      "toggle": "Toggle Hook"
+    },
+    "emptyState": {
+      "title": "No Git Hooks Found",
+      "message": "Add a Git hook to automate tasks during Git workflows."
+    }
+  },
+  "cliRules": {
+    "title": "Rules",
+    "description": "Manage code quality rules and linting configurations",
+    "severity": {
+      "error": "Error",
+      "warning": "Warning",
+      "info": "Info"
+    },
+    "stats": {
+      "total": "Total Rules",
+      "enabled": "Enabled"
+    },
+    "filters": {
+      "severity": "Severity",
+      "allSeverities": "All Severities",
+      "searchPlaceholder": "Search rules by name..."
+    },
+    "actions": {
+      "add": "Add Rule",
+      "edit": "Edit Rule",
+      "delete": "Delete Rule",
+      "toggle": "Toggle Rule"
+    },
+    "emptyState": {
+      "title": "No Rules Found",
+      "message": "Add a rule to enforce code quality standards."
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "notFound": {
+    "title": "会话未找到",
+    "message": "您要查找的会话不存在或已被删除。"
+  },
+  "tabs": {
+    "tasks": "任务",
+    "context": "上下文",
+    "summary": "摘要"
+  },
+  "tasks": {
+    "completed": "已完成",
+    "inProgress": "进行中",
+    "pending": "待处理",
+    "blocked": "已阻塞",
+    "status": {
+      "pending": "待处理",
+      "inProgress": "进行中",
+      "completed": "已完成",
+      "blocked": "已阻塞",
+      "skipped": "已跳过"
+    },
+    "untitled": "无标题任务",
+    "empty": {
+      "title": "未找到任务",
+      "message": "该会话暂无任务。"
+    }
+  },
+  "context": {
+    "requirements": "需求",
+    "focusPaths": "关注路径",
+    "artifacts": "产物",
+    "sharedContext": "共享上下文",
+    "techStack": "技术栈",
+    "conventions": "约定",
+    "empty": {
+      "title": "暂无上下文",
+      "message": "该会话暂无上下文信息。"
+    }
+  },
+  "summary": {
+    "title": "会话摘要",
+    "empty": {
+      "title": "暂无摘要",
+      "message": "该会话暂无摘要。"
+    }
+  },
+  "info": {
+    "created": "创建时间",
+    "updated": "更新时间",
+    "tasks": "任务",
+    "description": "描述"
+  }
+}

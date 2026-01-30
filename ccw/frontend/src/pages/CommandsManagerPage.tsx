@@ -4,6 +4,7 @@
 // Manage custom slash commands with search/filter
 
 import { useState, useMemo } from 'react';
+import { useIntl } from 'react-intl';
 import {
   Terminal,
   Search,
@@ -35,6 +36,8 @@ interface CommandCardProps {
 }
 
 function CommandCard({ command, isExpanded, onToggleExpand, onCopy }: CommandCardProps) {
+  const { formatMessage } = useIntl();
+
   return (
     <Card className="overflow-hidden">
       {/* Header */}
@@ -59,7 +62,7 @@ function CommandCard({ command, isExpanded, onToggleExpand, onCopy }: CommandCar
                 )}
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                {command.description}
+                {command.description || formatMessage({ id: 'commands.card.noDescription' })}
               </p>
             </div>
           </div>
@@ -107,7 +110,7 @@ function CommandCard({ command, isExpanded, onToggleExpand, onCopy }: CommandCar
             <div>
               <div className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
                 <Code className="w-4 h-4" />
-                Usage
+                {formatMessage({ id: 'commands.card.usage' })}
               </div>
               <div className="p-3 bg-background rounded-md font-mono text-sm overflow-x-auto">
                 <code>{command.usage}</code>
@@ -120,7 +123,7 @@ function CommandCard({ command, isExpanded, onToggleExpand, onCopy }: CommandCar
             <div>
               <div className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
                 <BookOpen className="w-4 h-4" />
-                Examples
+                {formatMessage({ id: 'commands.card.examples' })}
               </div>
               <div className="space-y-2">
                 {command.examples.map((example, idx) => (
@@ -151,6 +154,7 @@ function CommandCard({ command, isExpanded, onToggleExpand, onCopy }: CommandCar
 // ========== Main Page Component ==========
 
 export function CommandsManagerPage() {
+  const { formatMessage } = useIntl();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
@@ -217,20 +221,20 @@ export function CommandsManagerPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Terminal className="w-6 h-6 text-primary" />
-            Commands Manager
+            {formatMessage({ id: 'commands.title' })}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage custom slash commands for Claude Code
+            {formatMessage({ id: 'commands.description' })}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={cn('w-4 h-4 mr-2', isFetching && 'animate-spin')} />
-            Refresh
+            {formatMessage({ id: 'common.actions.refresh' })}
           </Button>
           <Button>
             <Plus className="w-4 h-4 mr-2" />
-            New Command
+            {formatMessage({ id: 'commands.actions.create' })}
           </Button>
         </div>
       </div>
@@ -242,28 +246,28 @@ export function CommandsManagerPage() {
             <Terminal className="w-5 h-5 text-primary" />
             <span className="text-2xl font-bold">{totalCount}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Total Commands</p>
+          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'common.stats.totalCommands' })}</p>
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <Code className="w-5 h-5 text-info" />
             <span className="text-2xl font-bold">{builtinCount}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Built-in</p>
+          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'commands.source.builtin' })}</p>
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <Plus className="w-5 h-5 text-success" />
             <span className="text-2xl font-bold">{customCount}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Custom</p>
+          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'commands.source.custom' })}</p>
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <Tag className="w-5 h-5 text-warning" />
             <span className="text-2xl font-bold">{categories.length}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Categories</p>
+          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'common.stats.categories' })}</p>
         </Card>
       </div>
 
@@ -272,7 +276,7 @@ export function CommandsManagerPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search commands by name, description, or alias..."
+            placeholder={formatMessage({ id: 'commands.filters.searchPlaceholder' })}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -281,10 +285,10 @@ export function CommandsManagerPage() {
         <div className="flex gap-2">
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Category" />
+              <SelectValue placeholder={formatMessage({ id: 'commands.filters.category' })} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="all">{formatMessage({ id: 'commands.filters.allCategories' })}</SelectItem>
               {categories.map((cat) => (
                 <SelectItem key={cat} value={cat}>{cat}</SelectItem>
               ))}
@@ -292,12 +296,12 @@ export function CommandsManagerPage() {
           </Select>
           <Select value={sourceFilter} onValueChange={setSourceFilter}>
             <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Source" />
+              <SelectValue placeholder={formatMessage({ id: 'commands.filters.source' })} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Sources</SelectItem>
-              <SelectItem value="builtin">Built-in</SelectItem>
-              <SelectItem value="custom">Custom</SelectItem>
+              <SelectItem value="all">{formatMessage({ id: 'commands.filters.allSources' })}</SelectItem>
+              <SelectItem value="builtin">{formatMessage({ id: 'commands.source.builtin' })}</SelectItem>
+              <SelectItem value="custom">{formatMessage({ id: 'commands.source.custom' })}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -306,10 +310,10 @@ export function CommandsManagerPage() {
       {/* Expand/Collapse All */}
       <div className="flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={expandAll}>
-          Expand All
+          {formatMessage({ id: 'commands.actions.expandAll' })}
         </Button>
         <Button variant="ghost" size="sm" onClick={collapseAll}>
-          Collapse All
+          {formatMessage({ id: 'commands.actions.collapseAll' })}
         </Button>
       </div>
 
@@ -323,9 +327,9 @@ export function CommandsManagerPage() {
       ) : commands.length === 0 ? (
         <Card className="p-8 text-center">
           <Terminal className="w-12 h-12 mx-auto text-muted-foreground/50" />
-          <h3 className="mt-4 text-lg font-medium text-foreground">No commands found</h3>
+          <h3 className="mt-4 text-lg font-medium text-foreground">{formatMessage({ id: 'commands.emptyState.title' })}</h3>
           <p className="mt-2 text-muted-foreground">
-            Try adjusting your search or filters.
+            {formatMessage({ id: 'commands.emptyState.message' })}
           </p>
         </Card>
       ) : (

@@ -5,7 +5,8 @@
 
 import { create } from 'zustand';
 import { persist, devtools } from 'zustand/middleware';
-import type { AppStore, Theme, ViewMode, SessionFilter, LiteTaskType } from '../types/store';
+import type { AppStore, Theme, Locale, ViewMode, SessionFilter, LiteTaskType } from '../types/store';
+import { getInitialLocale, updateIntl } from '../lib/i18n';
 
 // Helper to resolve system theme
 const getSystemTheme = (): 'light' | 'dark' => {
@@ -26,6 +27,9 @@ const initialState = {
   // Theme
   theme: 'system' as Theme,
   resolvedTheme: 'light' as 'light' | 'dark',
+
+  // Locale
+  locale: getInitialLocale() as Locale,
 
   // Sidebar
   sidebarOpen: true,
@@ -67,6 +71,13 @@ export const useAppStore = create<AppStore>()(
           const { theme } = get();
           const newTheme: Theme = theme === 'dark' ? 'light' : theme === 'light' ? 'dark' : 'dark';
           get().setTheme(newTheme);
+        },
+
+        // ========== Locale Actions ==========
+
+        setLocale: (locale: Locale) => {
+          set({ locale }, false, 'setLocale');
+          updateIntl(locale);
         },
 
         // ========== Sidebar Actions ==========
@@ -117,9 +128,10 @@ export const useAppStore = create<AppStore>()(
       }),
       {
         name: 'ccw-app-store',
-        // Only persist theme preference
+        // Only persist theme and locale preferences
         partialize: (state) => ({
           theme: state.theme,
+          locale: state.locale,
           sidebarCollapsed: state.sidebarCollapsed,
         }),
         onRehydrateStorage: () => (state) => {
@@ -132,6 +144,10 @@ export const useAppStore = create<AppStore>()(
               document.documentElement.classList.add(resolved);
               document.documentElement.setAttribute('data-theme', resolved);
             }
+          }
+          // Apply locale on rehydration
+          if (state) {
+            updateIntl(state.locale);
           }
         },
       }
@@ -158,6 +174,7 @@ if (typeof window !== 'undefined') {
 // Selectors for common access patterns
 export const selectTheme = (state: AppStore) => state.theme;
 export const selectResolvedTheme = (state: AppStore) => state.resolvedTheme;
+export const selectLocale = (state: AppStore) => state.locale;
 export const selectSidebarOpen = (state: AppStore) => state.sidebarOpen;
 export const selectCurrentView = (state: AppStore) => state.currentView;
 export const selectIsLoading = (state: AppStore) => state.isLoading;

@@ -1,0 +1,64 @@
+{
+  "title": "问题",
+  "description": "跟踪和管理问题",
+  "status": {
+    "open": "开放",
+    "inProgress": "进行中",
+    "resolved": "已解决",
+    "closed": "已关闭",
+    "completed": "已完成"
+  },
+  "priority": {
+    "low": "低",
+    "medium": "中",
+    "high": "高",
+    "critical": "紧急"
+  },
+  "actions": {
+    "create": "新建问题",
+    "edit": "编辑",
+    "delete": "删除",
+    "viewDetails": "查看详情",
+    "changeStatus": "更改状态",
+    "changePriority": "更改优先级",
+    "startProgress": "开始处理",
+    "markResolved": "标记为已解决",
+    "github": "从 GitHub 拉取"
+  },
+  "filters": {
+    "all": "全部",
+    "open": "开放",
+    "inProgress": "进行中",
+    "resolved": "已解决",
+    "closed": "已关闭",
+    "byPriority": "按优先级"
+  },
+  "emptyState": {
+    "title": "未找到问题",
+    "message": "没有符合当前筛选条件的问题。",
+    "createFirst": "创建第一个问题以开始"
+  },
+  "createDialog": {
+    "title": "创建新问题",
+    "labels": {
+      "title": "标题",
+      "context": "上下文",
+      "priority": "优先级"
+    },
+    "placeholders": {
+      "title": "输入问题标题...",
+      "context": "描述问题上下文..."
+    },
+    "buttons": {
+      "create": "创建",
+      "cancel": "取消",
+      "creating": "创建中..."
+    }
+  },
+  "card": {
+    "id": "ID",
+    "createdAt": "创建时间",
+    "updatedAt": "更新时间",
+    "solutions": "{count, plural, one {解决方案} other {解决方案}}"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "title": "Home",
+  "description": "Dashboard overview and statistics",
+  "stats": {
+    "activeSessions": "Active Sessions",
+    "totalTasks": "Total Tasks",
+    "completedTasks": "Completed",
+    "pendingTasks": "Pending",
+    "runningLoops": "Running Loops",
+    "openIssues": "Open Issues"
+  },
+  "sections": {
+    "statistics": "Statistics",
+    "recentSessions": "Recent Sessions",
+    "activeLoops": "Active Loops",
+    "openIssues": "Open Issues",
+    "quickActions": "Quick Actions"
+  },
+  "emptyState": {
+    "noSessions": {
+      "title": "No Sessions Found",
+      "message": "No workflow sessions match your current filter."
+    },
+    "noLoops": {
+      "title": "No Active Loops",
+      "message": "Start a new development loop to begin monitoring progress."
+    },
+    "noIssues": {
+      "title": "No Open Issues",
+      "message": "Create an issue to track bugs or feature requests."
+    }
+  },
+  "errors": {
+    "loadFailed": "Failed to load dashboard data",
+    "retry": "Retry"
+  }
+}

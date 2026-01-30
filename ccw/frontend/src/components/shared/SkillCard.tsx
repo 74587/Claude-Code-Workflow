@@ -4,6 +4,7 @@
 // Card component for displaying skills with enable/disable toggle
 
 import { useState } from 'react';
+import { useIntl } from 'react-intl';
 import {
   Sparkles,
   MoreVertical,
@@ -36,17 +37,29 @@ export interface SkillCardProps {
 
 // ========== Source Badge ==========
 
-const sourceConfig: Record<NonNullable<Skill['source']>, { color: string; label: string }> = {
-  builtin: { color: 'default', label: 'Built-in' },
-  custom: { color: 'secondary', label: 'Custom' },
-  community: { color: 'outline', label: 'Community' },
+// Source color configuration (without labels for i18n)
+const sourceColorConfig: Record<NonNullable<Skill['source']>, { color: string }> = {
+  builtin: { color: 'default' },
+  custom: { color: 'secondary' },
+  community: { color: 'outline' },
+};
+
+// Source label keys for i18n
+const sourceLabelKeys: Record<NonNullable<Skill['source']>, string> = {
+  builtin: 'skills.source.builtin',
+  custom: 'skills.source.custom',
+  community: 'skills.source.community',
 };
 
 export function SourceBadge({ source }: { source?: Skill['source'] }) {
-  const config = sourceConfig[source ?? 'builtin'];
+  const { formatMessage } = useIntl();
+  const config = sourceColorConfig[source ?? 'builtin'];
+  const label = sourceLabelKeys[source ?? 'builtin']
+    ? formatMessage({ id: sourceLabelKeys[source ?? 'builtin'] })
+    : source ?? 'builtin';
   return (
     <Badge variant={config.color as 'default' | 'secondary' | 'destructive' | 'outline'}>
-      {config.label}
+      {label}
     </Badge>
   );
 }
@@ -63,6 +76,7 @@ export function SkillCard({
   showActions = true,
   isToggling = false,
 }: SkillCardProps) {
+  const { formatMessage } = useIntl();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleClick = () => {
@@ -108,12 +122,12 @@ export function SkillCard({
             {skill.enabled ? (
               <>
                 <Power className="w-3 h-3 mr-1" />
-                On
+                {formatMessage({ id: 'skills.state.on' })}
               </>
             ) : (
               <>
                 <PowerOff className="w-3 h-3 mr-1" />
-                Off
+                {formatMessage({ id: 'skills.state.off' })}
               </>
             )}
           </Button>
@@ -162,22 +176,22 @@ export function SkillCard({
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onClick?.(skill)}>
                 <Info className="w-4 h-4 mr-2" />
-                View Details
+                {formatMessage({ id: 'skills.actions.viewDetails' })}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleConfigure}>
                 <Settings className="w-4 h-4 mr-2" />
-                Configure
+                {formatMessage({ id: 'skills.actions.configure' })}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleToggle}>
                 {skill.enabled ? (
                   <>
                     <PowerOff className="w-4 h-4 mr-2" />
-                    Disable
+                    {formatMessage({ id: 'skills.actions.disable' })}
                   </>
                 ) : (
                   <>
                     <Power className="w-4 h-4 mr-2" />
-                    Enable
+                    {formatMessage({ id: 'skills.actions.enable' })}
                   </>
                 )}
               </DropdownMenuItem>
@@ -196,7 +210,7 @@ export function SkillCard({
         <div className="mt-3">
           <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
             <Tag className="w-3 h-3" />
-            Triggers
+            {formatMessage({ id: 'skills.card.triggers' })}
           </div>
           <div className="flex flex-wrap gap-1">
             {skill.triggers.slice(0, 4).map((trigger) => (
@@ -232,12 +246,12 @@ export function SkillCard({
           {skill.enabled ? (
             <>
               <Power className="w-4 h-4 mr-1" />
-              Enabled
+              {formatMessage({ id: 'skills.state.enabled' })}
             </>
           ) : (
             <>
               <PowerOff className="w-4 h-4 mr-1" />
-              Disabled
+              {formatMessage({ id: 'skills.state.disabled' })}
             </>
           )}
         </Button>

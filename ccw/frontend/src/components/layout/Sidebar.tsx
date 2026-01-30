@@ -3,8 +3,9 @@
 // ========================================
 // Collapsible navigation sidebar with route links
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { useIntl } from 'react-intl';
 import {
   Home,
   FolderKanban,
@@ -18,6 +19,9 @@ import {
   HelpCircle,
   PanelLeftClose,
   PanelLeftOpen,
+  LayoutDashboard,
+  Clock,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -41,17 +45,21 @@ interface NavItem {
   badgeVariant?: 'default' | 'success' | 'warning' | 'info';
 }
 
-const navItems: NavItem[] = [
-  { path: '/', label: 'Home', icon: Home },
-  { path: '/sessions', label: 'Sessions', icon: FolderKanban },
-  { path: '/orchestrator', label: 'Orchestrator', icon: Workflow },
-  { path: '/loops', label: 'Loop Monitor', icon: RefreshCw },
-  { path: '/issues', label: 'Issues', icon: AlertCircle },
-  { path: '/skills', label: 'Skills', icon: Sparkles },
-  { path: '/commands', label: 'Commands', icon: Terminal },
-  { path: '/memory', label: 'Memory', icon: Brain },
-  { path: '/settings', label: 'Settings', icon: Settings },
-  { path: '/help', label: 'Help', icon: HelpCircle },
+// Navigation item definitions (without labels for i18n)
+const navItemDefinitions: Omit<NavItem, 'label'>[] = [
+  { path: '/', icon: Home },
+  { path: '/sessions', icon: FolderKanban },
+  { path: '/lite-tasks', icon: Zap },
+  { path: '/project', icon: LayoutDashboard },
+  { path: '/history', icon: Clock },
+  { path: '/orchestrator', icon: Workflow },
+  { path: '/loops', icon: RefreshCw },
+  { path: '/issues', icon: AlertCircle },
+  { path: '/skills', icon: Sparkles },
+  { path: '/commands', icon: Terminal },
+  { path: '/memory', icon: Brain },
+  { path: '/settings', icon: Settings },
+  { path: '/help', icon: HelpCircle },
 ];
 
 export function Sidebar({
@@ -60,6 +68,7 @@ export function Sidebar({
   mobileOpen = false,
   onMobileClose,
 }: SidebarProps) {
+  const { formatMessage } = useIntl();
   const location = useLocation();
   const [internalCollapsed, setInternalCollapsed] = useState(collapsed);
 
@@ -79,6 +88,29 @@ export function Sidebar({
       onMobileClose();
     }
   }, [onMobileClose]);
+
+  // Build nav items with translated labels
+  const navItems = useMemo(() => {
+    const keyMap: Record<string, string> = {
+      '/': 'main.home',
+      '/sessions': 'main.sessions',
+      '/lite-tasks': 'main.liteTasks',
+      '/project': 'main.project',
+      '/history': 'main.history',
+      '/orchestrator': 'main.orchestrator',
+      '/loops': 'main.loops',
+      '/issues': 'main.issues',
+      '/skills': 'main.skills',
+      '/commands': 'main.commands',
+      '/memory': 'main.memory',
+      '/settings': 'main.settings',
+      '/help': 'main.help',
+    };
+    return navItemDefinitions.map((item) => ({
+      ...item,
+      label: formatMessage({ id: `navigation.${keyMap[item.path]}` }),
+    }));
+  }, [formatMessage]);
 
   return (
     <>
@@ -103,7 +135,7 @@ export function Sidebar({
           mobileOpen && 'fixed left-0 top-14 flex translate-x-0 z-50 h-[calc(100vh-56px)] w-64 shadow-lg'
         )}
         role="navigation"
-        aria-label="Main navigation"
+        aria-label={formatMessage({ id: 'header.brand' })}
       >
         <nav className="flex-1 py-3 overflow-y-auto">
           <ul className="space-y-1 px-2">
@@ -164,14 +196,17 @@ export function Sidebar({
               'w-full flex items-center gap-2 text-muted-foreground hover:text-foreground',
               isCollapsed && 'justify-center'
             )}
-            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={isCollapsed
+              ? formatMessage({ id: 'navigation.sidebar.expand' })
+              : formatMessage({ id: 'navigation.sidebar.collapseAria' })
+            }
           >
             {isCollapsed ? (
               <PanelLeftOpen className="w-4 h-4" />
             ) : (
               <>
                 <PanelLeftClose className="w-4 h-4" />
-                <span>Collapse</span>
+                <span>{formatMessage({ id: 'navigation.sidebar.collapse' })}</span>
               </>
             )}
           </Button>

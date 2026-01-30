@@ -1,0 +1,44 @@
+{
+  "progress": {
+    "title": "修复进度"
+  },
+  "tasks": {
+    "title": "修复任务"
+  },
+  "stats": {
+    "total": "总计",
+    "fixed": "已修复",
+    "failed": "失败",
+    "pending": "待处理"
+  },
+  "status": {
+    "fixed": "已修复",
+    "failed": "失败",
+    "inProgress": "进行中",
+    "pending": "待处理"
+  },
+  "filter": {
+    "all": "全部",
+    "pending": "待处理",
+    "inProgress": "进行中",
+    "fixed": "已修复",
+    "failed": "失败"
+  },
+  "task": {
+    "untitled": "无标题任务",
+    "attempts": "{count} 次尝试"
+  },
+  "info": {
+    "created": "创建时间",
+    "updated": "更新时间",
+    "description": "描述"
+  },
+  "notFound": {
+    "title": "会话未找到",
+    "message": "您要查找的修复会话不存在或已被删除。"
+  },
+  "empty": {
+    "title": "未找到任务",
+    "message": "没有匹配当前筛选条件的修复任务。"
+  }
+}

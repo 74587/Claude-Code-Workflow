@@ -1,0 +1,26 @@
+{
+  "title": "轻量任务",
+  "subtitle": "{count} 个会话",
+  "type": {
+    "plan": "轻量规划",
+    "fix": "轻量修复",
+    "multiCli": "多 CLI 规划"
+  },
+  "rounds": "轮",
+  "empty": {
+    "title": "没有 {type} 会话",
+    "message": "创建新会话以开始使用。"
+  },
+  "flowchart": "流程图",
+  "implementationFlow": "实现流程",
+  "focusPaths": "关注路径",
+  "acceptanceCriteria": "验收标准",
+  "emptyDetail": {
+    "title": "此会话中没有任务",
+    "message": "此会话尚不包含任何任务。"
+  },
+  "notFound": {
+    "title": "未找到轻量任务",
+    "message": "无法找到请求的轻量任务会话。"
+  }
+}

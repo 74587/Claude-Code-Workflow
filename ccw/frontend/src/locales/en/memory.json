@@ -1,0 +1,65 @@
+{
+  "title": "Memory",
+  "description": "Manage core memory, context, and knowledge base",
+  "actions": {
+    "add": "Add Memory",
+    "edit": "Edit",
+    "delete": "Delete",
+    "copy": "Copy",
+    "refresh": "Refresh",
+    "expand": "Expand",
+    "collapse": "Collapse"
+  },
+  "stats": {
+    "totalSize": "Total Size",
+    "count": "Count",
+    "claudeMdCount": "CLAUDE.md Files",
+    "totalEntries": "Total Entries"
+  },
+  "filters": {
+    "search": "Search memories...",
+    "tags": "Tags",
+    "clear": "Clear",
+    "all": "All"
+  },
+  "card": {
+    "id": "ID",
+    "content": "Content",
+    "summary": "Summary",
+    "tags": "Tags",
+    "createdAt": "Created",
+    "updatedAt": "Updated",
+    "size": "Size",
+    "favorite": "Favorite",
+    "archived": "Archived"
+  },
+  "emptyState": {
+    "title": "No Memories Stored",
+    "message": "Add context and knowledge to help Claude understand your project better.",
+    "createFirst": "Add First Memory"
+  },
+  "createDialog": {
+    "title": "Add Memory",
+    "editTitle": "Edit Memory",
+    "labels": {
+      "content": "Content",
+      "tags": "Tags"
+    },
+    "placeholders": {
+      "content": "Enter memory content...",
+      "tags": "e.g., project, config, api"
+    },
+    "buttons": {
+      "create": "Add Memory",
+      "update": "Update Memory",
+      "cancel": "Cancel",
+      "creating": "Creating...",
+      "updating": "Updating..."
+    }
+  },
+  "types": {
+    "coreMemory": "Core Memory",
+    "workflow": "Workflow",
+    "cliHistory": "CLI History"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "title": "Sessions",
+  "description": "Manage your workflow sessions and track progress",
+  "status": {
+    "planning": "Planning",
+    "inProgress": "In Progress",
+    "completed": "Completed",
+    "archived": "Archived",
+    "paused": "Paused"
+  },
+  "actions": {
+    "viewDetails": "View Details",
+    "archive": "Archive",
+    "delete": "Delete",
+    "restore": "Restore",
+    "pause": "Pause",
+    "resume": "Resume"
+  },
+  "filters": {
+    "all": "All",
+    "active": "Active",
+    "planning": "Planning",
+    "completed": "Completed",
+    "archived": "Archived",
+    "paused": "Paused"
+  },
+  "searchPlaceholder": "Search sessions...",
+  "emptyState": {
+    "title": "No Sessions Found",
+    "message": "No workflow sessions match your current filter.",
+    "createFirst": "Create your first session to get started"
+  },
+  "card": {
+    "tasks": "tasks",
+    "findings": "findings",
+    "dimensions": "dimensions",
+    "progress": "Progress",
+    "createdAt": "Created",
+    "updatedAt": "Updated"
+  },
+  "detail": {
+    "overview": "Overview",
+    "tasks": "Tasks",
+    "summary": "Summary",
+    "metadata": "Metadata",
+    "timeline": "Timeline"
+  }
+}

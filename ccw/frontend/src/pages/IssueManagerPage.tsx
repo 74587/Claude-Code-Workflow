@@ -4,6 +4,7 @@
 // Track and manage project issues with drag-drop queue
 
 import { useState, useMemo } from 'react';
+import { useIntl } from 'react-intl';
 import {
   AlertCircle,
   Plus,
@@ -41,6 +42,7 @@ interface NewIssueDialogProps {
 }
 
 function NewIssueDialog({ open, onOpenChange, onSubmit, isCreating }: NewIssueDialogProps) {
+  const { formatMessage } = useIntl();
   const [title, setTitle] = useState('');
   const [context, setContext] = useState('');
   const [priority, setPriority] = useState<Issue['priority']>('medium');
@@ -59,56 +61,56 @@ function NewIssueDialog({ open, onOpenChange, onSubmit, isCreating }: NewIssueDi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create New Issue</DialogTitle>
+          <DialogTitle>{formatMessage({ id: 'issues.createDialog.title' })}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div>
-            <label className="text-sm font-medium text-foreground">Title</label>
+            <label className="text-sm font-medium text-foreground">{formatMessage({ id: 'issues.createDialog.labels.title' })}</label>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Issue title..."
+              placeholder={formatMessage({ id: 'issues.createDialog.placeholders.title' })}
               className="mt-1"
               required
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-foreground">Context (optional)</label>
+            <label className="text-sm font-medium text-foreground">{formatMessage({ id: 'issues.createDialog.labels.context' })}</label>
             <textarea
               value={context}
               onChange={(e) => setContext(e.target.value)}
-              placeholder="Describe the issue..."
+              placeholder={formatMessage({ id: 'issues.createDialog.placeholders.context' })}
               className="mt-1 w-full min-h-[100px] p-3 bg-background border border-input rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-foreground">Priority</label>
+            <label className="text-sm font-medium text-foreground">{formatMessage({ id: 'issues.createDialog.labels.priority' })}</label>
             <Select value={priority} onValueChange={(v) => setPriority(v as Issue['priority'])}>
               <SelectTrigger className="mt-1">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="critical">Critical</SelectItem>
+                <SelectItem value="low">{formatMessage({ id: 'issues.priority.low' })}</SelectItem>
+                <SelectItem value="medium">{formatMessage({ id: 'issues.priority.medium' })}</SelectItem>
+                <SelectItem value="high">{formatMessage({ id: 'issues.priority.high' })}</SelectItem>
+                <SelectItem value="critical">{formatMessage({ id: 'issues.priority.critical' })}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {formatMessage({ id: 'issues.createDialog.buttons.cancel' })}
             </Button>
             <Button type="submit" disabled={isCreating || !title.trim()}>
               {isCreating ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating...
+                  {formatMessage({ id: 'issues.createDialog.buttons.creating' })}
                 </>
               ) : (
                 <>
                   <Plus className="w-4 h-4 mr-2" />
-                  Create Issue
+                  {formatMessage({ id: 'issues.createDialog.buttons.create' })}
                 </>
               )}
             </Button>
@@ -138,6 +140,8 @@ function IssueList({
   onIssueDelete,
   onStatusChange,
 }: IssueListProps) {
+  const { formatMessage } = useIntl();
+
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -152,9 +156,9 @@ function IssueList({
     return (
       <Card className="p-8 text-center">
         <AlertCircle className="w-12 h-12 mx-auto text-muted-foreground/50" />
-        <h3 className="mt-4 text-lg font-medium text-foreground">No issues found</h3>
+        <h3 className="mt-4 text-lg font-medium text-foreground">{formatMessage({ id: 'issues.emptyState.title' })}</h3>
         <p className="mt-2 text-muted-foreground">
-          Create a new issue or adjust your filters.
+          {formatMessage({ id: 'issues.emptyState.message' })}
         </p>
       </Card>
     );
@@ -179,6 +183,7 @@ function IssueList({
 // ========== Main Page Component ==========
 
 export function IssueManagerPage() {
+  const { formatMessage } = useIntl();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
@@ -238,24 +243,24 @@ export function IssueManagerPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <AlertCircle className="w-6 h-6 text-primary" />
-            Issue Manager
+            {formatMessage({ id: 'issues.title' })}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Track and manage project issues and bugs
+            {formatMessage({ id: 'issues.description' })}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={cn('w-4 h-4 mr-2', isFetching && 'animate-spin')} />
-            Refresh
+            {formatMessage({ id: 'common.actions.refresh' })}
           </Button>
           <Button variant="outline">
             <Github className="w-4 h-4 mr-2" />
-            Pull from GitHub
+            {formatMessage({ id: 'issues.actions.github' })}
           </Button>
           <Button onClick={() => setIsNewIssueOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            New Issue
+            {formatMessage({ id: 'issues.actions.create' })}
           </Button>
         </div>
       </div>
@@ -267,28 +272,28 @@ export function IssueManagerPage() {
             <AlertCircle className="w-5 h-5 text-info" />
             <span className="text-2xl font-bold">{openCount}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Open Issues</p>
+          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'common.status.openIssues' })}</p>
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-warning" />
             <span className="text-2xl font-bold">{issuesByStatus.in_progress?.length || 0}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">In Progress</p>
+          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'issues.status.inProgress' })}</p>
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-destructive" />
             <span className="text-2xl font-bold">{criticalCount}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Critical</p>
+          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'issues.priority.critical' })}</p>
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <CheckCircle className="w-5 h-5 text-success" />
             <span className="text-2xl font-bold">{issuesByStatus.resolved?.length || 0}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Resolved</p>
+          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'issues.status.resolved' })}</p>
         </Card>
       </div>
 
@@ -297,7 +302,7 @@ export function IssueManagerPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search issues..."
+            placeholder={formatMessage({ id: 'common.actions.searchIssues' })}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -306,26 +311,26 @@ export function IssueManagerPage() {
         <div className="flex gap-2">
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
             <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Status" />
+              <SelectValue placeholder={formatMessage({ id: 'common.status.label' })} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="open">Open</SelectItem>
-              <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="resolved">Resolved</SelectItem>
-              <SelectItem value="closed">Closed</SelectItem>
+              <SelectItem value="all">{formatMessage({ id: 'issues.filters.all' })}</SelectItem>
+              <SelectItem value="open">{formatMessage({ id: 'issues.status.open' })}</SelectItem>
+              <SelectItem value="in_progress">{formatMessage({ id: 'issues.status.inProgress' })}</SelectItem>
+              <SelectItem value="resolved">{formatMessage({ id: 'issues.status.resolved' })}</SelectItem>
+              <SelectItem value="closed">{formatMessage({ id: 'issues.status.closed' })}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as PriorityFilter)}>
             <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Priority" />
+              <SelectValue placeholder={formatMessage({ id: 'issues.priority.label' })} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Priority</SelectItem>
-              <SelectItem value="critical">Critical</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="all">{formatMessage({ id: 'issues.filters.byPriority' })}</SelectItem>
+              <SelectItem value="critical">{formatMessage({ id: 'issues.priority.critical' })}</SelectItem>
+              <SelectItem value="high">{formatMessage({ id: 'issues.priority.high' })}</SelectItem>
+              <SelectItem value="medium">{formatMessage({ id: 'issues.priority.medium' })}</SelectItem>
+              <SelectItem value="low">{formatMessage({ id: 'issues.priority.low' })}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -338,7 +343,7 @@ export function IssueManagerPage() {
           size="sm"
           onClick={() => setStatusFilter('all')}
         >
-          All ({statusCounts.all})
+          {formatMessage({ id: 'issues.filters.all' })} ({statusCounts.all})
         </Button>
         <Button
           variant={statusFilter === 'open' ? 'default' : 'outline'}
@@ -346,7 +351,7 @@ export function IssueManagerPage() {
           onClick={() => setStatusFilter('open')}
         >
           <Badge variant="info" className="mr-2">{statusCounts.open}</Badge>
-          Open
+          {formatMessage({ id: 'issues.status.open' })}
         </Button>
         <Button
           variant={statusFilter === 'in_progress' ? 'default' : 'outline'}
@@ -354,7 +359,7 @@ export function IssueManagerPage() {
           onClick={() => setStatusFilter('in_progress')}
         >
           <Badge variant="warning" className="mr-2">{statusCounts.in_progress}</Badge>
-          In Progress
+          {formatMessage({ id: 'issues.status.inProgress' })}
         </Button>
         <Button
           variant={priorityFilter === 'critical' ? 'destructive' : 'outline'}
@@ -365,7 +370,7 @@ export function IssueManagerPage() {
           }}
         >
           <Badge variant="destructive" className="mr-2">{criticalCount}</Badge>
-          Critical
+          {formatMessage({ id: 'issues.priority.critical' })}
         </Button>
       </div>
 

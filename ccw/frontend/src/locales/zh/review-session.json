@@ -1,0 +1,41 @@
+{
+  "title": "审查会话",
+  "type": "审查",
+  "severity": {
+    "critical": "严重",
+    "high": "高",
+    "medium": "中",
+    "low": "低"
+  },
+  "stats": {
+    "total": "总发现",
+    "dimensions": "维度"
+  },
+  "search": {
+    "placeholder": "搜索发现..."
+  },
+  "sort": {
+    "severity": "按严重程度",
+    "dimension": "按维度",
+    "file": "按文件"
+  },
+  "selection": {
+    "count": "已选择 {count} 项",
+    "selectAll": "全选",
+    "clearAll": "清除全部",
+    "clear": "清除"
+  },
+  "export": "导出修复 JSON",
+  "codeContext": "代码上下文",
+  "rootCause": "根本原因",
+  "impact": "影响",
+  "recommendations": "建议",
+  "empty": {
+    "title": "未找到发现",
+    "message": "尝试调整筛选条件或搜索查询。"
+  },
+  "notFound": {
+    "title": "未找到审查会话",
+    "message": "无法找到请求的审查会话。"
+  }
+}

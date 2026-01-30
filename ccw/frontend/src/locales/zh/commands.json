@@ -1,0 +1,43 @@
+{
+  "title": "命令管理",
+  "description": "管理 Claude Code 自定义斜杠命令",
+  "actions": {
+    "create": "新建命令",
+    "edit": "编辑命令",
+    "delete": "删除命令",
+    "refresh": "刷新",
+    "expandAll": "全部展开",
+    "collapseAll": "全部收起",
+    "copy": "复制"
+  },
+  "source": {
+    "builtin": "内置",
+    "custom": "自定义"
+  },
+  "filters": {
+    "allCategories": "所有类别",
+    "allSources": "所有来源",
+    "category": "类别",
+    "source": "来源",
+    "searchPlaceholder": "按名称、描述或别名搜索命令..."
+  },
+  "card": {
+    "name": "名称",
+    "description": "描述",
+    "usage": "用法",
+    "examples": "示例",
+    "aliases": "别名",
+    "triggers": "触发器",
+    "noDescription": "无描述"
+  },
+  "emptyState": {
+    "title": "未找到命令",
+    "message": "尝试调整搜索或筛选条件。"
+  },
+  "table": {
+    "name": "名称",
+    "description": "描述",
+    "scope": "作用域",
+    "status": "状态"
+  }
+}

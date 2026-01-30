@@ -1,0 +1,128 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - link "navigation.header.brand" [ref=e6] [cursor=pointer]:
+      - /url: /
+      - img [ref=e7]
+      - generic [ref=e11]: navigation.header.brand
+    - generic [ref=e12]:
+      - combobox "Select language" [active] [ref=e13] [cursor=pointer]:
+        - img [ref=e14]
+        - generic:
+          - generic:
+            - generic: 🇨🇳
+            - generic: 中文
+        - img [ref=e18]
+      - button "common.aria.switchToDarkMode" [ref=e20] [cursor=pointer]:
+        - img [ref=e21]
+      - button "common.aria.userMenu" [ref=e24] [cursor=pointer]:
+        - img [ref=e25]
+  - generic [ref=e28]:
+    - navigation "Claude Code Workflow" [ref=e29]:
+      - navigation [ref=e30]:
+        - list [ref=e31]:
+          - listitem [ref=e32]:
+            - link "navigation.main.home" [ref=e33] [cursor=pointer]:
+              - /url: /
+              - img [ref=e34]
+              - generic [ref=e37]: navigation.main.home
+          - listitem [ref=e38]:
+            - link "navigation.main.sessions" [ref=e39] [cursor=pointer]:
+              - /url: /sessions
+              - img [ref=e40]
+              - generic [ref=e42]: navigation.main.sessions
+          - listitem [ref=e43]:
+            - link "navigation.main.liteTasks" [ref=e44] [cursor=pointer]:
+              - /url: /lite-tasks
+              - img [ref=e45]
+              - generic [ref=e47]: navigation.main.liteTasks
+          - listitem [ref=e48]:
+            - link "navigation.main.project" [ref=e49] [cursor=pointer]:
+              - /url: /project
+              - img [ref=e50]
+              - generic [ref=e55]: navigation.main.project
+          - listitem [ref=e56]:
+            - link "navigation.main.history" [ref=e57] [cursor=pointer]:
+              - /url: /history
+              - img [ref=e58]
+              - generic [ref=e61]: navigation.main.history
+          - listitem [ref=e62]:
+            - link "navigation.main.orchestrator" [ref=e63] [cursor=pointer]:
+              - /url: /orchestrator
+              - img [ref=e64]
+              - generic [ref=e68]: navigation.main.orchestrator
+          - listitem [ref=e69]:
+            - link "navigation.main.loops" [ref=e70] [cursor=pointer]:
+              - /url: /loops
+              - img [ref=e71]
+              - generic [ref=e76]: navigation.main.loops
+          - listitem [ref=e77]:
+            - link "navigation.main.issues" [ref=e78] [cursor=pointer]:
+              - /url: /issues
+              - img [ref=e79]
+              - generic [ref=e81]: navigation.main.issues
+          - listitem [ref=e82]:
+            - link "navigation.main.skills" [ref=e83] [cursor=pointer]:
+              - /url: /skills
+              - img [ref=e84]
+              - generic [ref=e86]: navigation.main.skills
+          - listitem [ref=e87]:
+            - link "navigation.main.commands" [ref=e88] [cursor=pointer]:
+              - /url: /commands
+              - img [ref=e89]
+              - generic [ref=e91]: navigation.main.commands
+          - listitem [ref=e92]:
+            - link "navigation.main.memory" [ref=e93] [cursor=pointer]:
+              - /url: /memory
+              - img [ref=e94]
+              - generic [ref=e104]: navigation.main.memory
+          - listitem [ref=e105]:
+            - link "navigation.main.settings" [ref=e106] [cursor=pointer]:
+              - /url: /settings
+              - img [ref=e107]
+              - generic [ref=e110]: navigation.main.settings
+          - listitem [ref=e111]:
+            - link "navigation.main.help" [ref=e112] [cursor=pointer]:
+              - /url: /help
+              - img [ref=e113]
+              - generic [ref=e116]: navigation.main.help
+      - button "navigation.sidebar.collapseAria" [ref=e118] [cursor=pointer]:
+        - img [ref=e119]
+        - generic [ref=e122]: navigation.sidebar.collapse
+    - main [ref=e123]:
+      - generic [ref=e124]:
+        - generic [ref=e125]:
+          - generic [ref=e126]:
+            - heading "memory.title" [level=1] [ref=e127]:
+              - img [ref=e128]
+              - text: memory.title
+            - paragraph [ref=e138]: memory.description
+          - generic [ref=e139]:
+            - button "common.actions.refresh" [disabled]:
+              - img
+              - text: common.actions.refresh
+            - button "memory.actions.add" [ref=e140] [cursor=pointer]:
+              - img [ref=e141]
+              - text: memory.actions.add
+        - generic [ref=e142]:
+          - generic [ref=e144]:
+            - img [ref=e146]
+            - generic [ref=e150]:
+              - generic [ref=e151]: "0"
+              - paragraph [ref=e152]: memory.stats.count
+          - generic [ref=e154]:
+            - img [ref=e156]
+            - generic [ref=e159]:
+              - generic [ref=e160]: "0"
+              - paragraph [ref=e161]: memory.stats.claudeMdCount
+          - generic [ref=e163]:
+            - img [ref=e165]
+            - generic [ref=e175]:
+              - generic [ref=e176]: 0 B
+              - paragraph [ref=e177]: memory.stats.totalSize
+        - generic [ref=e179]:
+          - img [ref=e180]
+          - textbox "memory.filters.search" [ref=e183]
+```

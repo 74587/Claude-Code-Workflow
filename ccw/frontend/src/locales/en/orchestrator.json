@@ -1,0 +1,63 @@
+{
+  "title": "Orchestrator",
+  "description": "Manage and execute workflow flows",
+  "flow": {
+    "title": "Flow",
+    "flows": "Flows",
+    "create": "New Flow",
+    "edit": "Edit Flow",
+    "delete": "Delete Flow",
+    "duplicate": "Duplicate Flow",
+    "export": "Export Flow",
+    "import": "Import Flow"
+  },
+  "execution": {
+    "title": "Execution",
+    "status": "Status",
+    "start": "Start",
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop",
+    "restart": "Restart",
+    "viewLogs": "View Logs"
+  },
+  "status": {
+    "pending": "Pending",
+    "running": "Running",
+    "paused": "Paused",
+    "completed": "Completed",
+    "failed": "Failed"
+  },
+  "node": {
+    "title": "Node",
+    "nodes": "Nodes",
+    "add": "Add Node",
+    "edit": "Edit Node",
+    "delete": "Delete Node",
+    "status": "Node Status",
+    "result": "Result"
+  },
+  "actions": {
+    "execute": "Execute",
+    "validate": "Validate",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "emptyState": {
+    "noFlows": {
+      "title": "No Flows Found",
+      "message": "Create your first workflow flow to get started."
+    },
+    "noExecution": {
+      "title": "No Execution History",
+      "message": "Execute a flow to see the execution history."
+    }
+  },
+  "monitor": {
+    "title": "Execution Monitor",
+    "logs": "Logs",
+    "timeline": "Timeline",
+    "variables": "Variables",
+    "realtime": "Real-time Updates"
+  }
+}

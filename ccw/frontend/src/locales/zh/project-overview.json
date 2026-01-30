@@ -1,0 +1,52 @@
+{
+  "noDescription": "暂无描述",
+  "header": {
+    "initialized": "初始化时间"
+  },
+  "techStack": {
+    "title": "技术栈",
+    "languages": "编程语言",
+    "frameworks": "框架",
+    "buildTools": "构建工具",
+    "testFrameworks": "测试框架",
+    "primary": "主要",
+    "noLanguages": "未检测到编程语言",
+    "noFrameworks": "未检测到框架"
+  },
+  "architecture": {
+    "title": "架构",
+    "style": "架构风格",
+    "layers": "分层",
+    "patterns": "设计模式"
+  },
+  "components": {
+    "title": "核心组件",
+    "importance": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    }
+  },
+  "devIndex": {
+    "title": "开发历史",
+    "categories": "分类",
+    "timeline": "时间线"
+  },
+  "guidelines": {
+    "title": "项目规范",
+    "conventions": "约定",
+    "constraints": "约束",
+    "qualityRules": "质量规则",
+    "learnings": "学习总结",
+    "scope": "范围"
+  },
+  "stats": {
+    "title": "统计",
+    "totalFeatures": "总功能数",
+    "lastUpdated": "最后更新"
+  },
+  "empty": {
+    "title": "暂无项目概览",
+    "message": "运行 /workflow:init 初始化项目分析"
+  }
+}

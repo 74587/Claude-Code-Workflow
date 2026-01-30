@@ -1,0 +1,43 @@
+{
+  "title": "Commands Manager",
+  "description": "Manage custom slash commands for Claude Code",
+  "actions": {
+    "create": "New Command",
+    "edit": "Edit Command",
+    "delete": "Delete Command",
+    "refresh": "Refresh",
+    "expandAll": "Expand All",
+    "collapseAll": "Collapse All",
+    "copy": "Copy"
+  },
+  "source": {
+    "builtin": "Built-in",
+    "custom": "Custom"
+  },
+  "filters": {
+    "allCategories": "All Categories",
+    "allSources": "All Sources",
+    "category": "Category",
+    "source": "Source",
+    "searchPlaceholder": "Search commands by name, description, or alias..."
+  },
+  "card": {
+    "name": "Name",
+    "description": "Description",
+    "usage": "Usage",
+    "examples": "Examples",
+    "aliases": "Aliases",
+    "triggers": "Triggers",
+    "noDescription": "No description"
+  },
+  "emptyState": {
+    "title": "No Commands Found",
+    "message": "Try adjusting your search or filters."
+  },
+  "table": {
+    "name": "Name",
+    "description": "Description",
+    "scope": "Scope",
+    "status": "Status"
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "cliEndpoints": {
+    "title": "CLI 端点",
+    "description": "管理 LiteLLM 端点、自定义 CLI 端点和 CLI 包装器配置",
+    "type": {
+      "litellm": "LiteLLM",
+      "custom": "自定义",
+      "wrapper": "包装器"
+    },
+    "status": {
+      "enabled": "已启用",
+      "disabled": "已禁用"
+    },
+    "stats": {
+      "total": "端点总数",
+      "enabled": "已启用"
+    },
+    "id": "ID",
+    "config": "配置",
+    "filters": {
+      "type": "类型",
+      "allTypes": "全部类型",
+      "searchPlaceholder": "按名称或 ID 搜索端点..."
+    },
+    "actions": {
+      "add": "添加端点",
+      "edit": "编辑端点",
+      "delete": "删除端点",
+      "toggle": "切换端点"
+    },
+    "deleteConfirm": "确定要删除端点 \"{id}\" 吗?",
+    "emptyState": {
+      "title": "未找到 CLI 端点",
+      "message": "添加 CLI 端点以配置自定义 API 端点和包装器。"
+    }
+  },
+  "cliInstallations": {
+    "title": "CLI 安装",
+    "description": "管理 CCW CLI 工具的安装、升级和卸载",
+    "status": {
+      "active": "活动",
+      "inactive": "未活动",
+      "error": "错误"
+    },
+    "stats": {
+      "total": "工具总数",
+      "installed": "已安装",
+      "available": "可用"
+    },
+    "installed": "已安装",
+    "lastChecked": "上次检查",
+    "filters": {
+      "status": "状态",
+      "all": "全部",
+      "installed": "已安装",
+      "notInstalled": "未安装",
+      "searchPlaceholder": "按名称或版本搜索工具..."
+    },
+    "actions": {
+      "install": "安装",
+      "uninstall": "卸载",
+      "upgrade": "升级"
+    },
+    "uninstallConfirm": "确定要卸载 \"{name}\" 吗?",
+    "emptyState": {
+      "title": "未找到 CLI 工具",
+      "message": "目前没有可用于安装的 CLI 工具。"
+    }
+  },
+  "cliHooks": {
+    "title": "Git 钩子",
+    "description": "管理用于自动化工作流的 Git 钩子",
+    "trigger": {
+      "pre-commit": "提交前",
+      "post-commit": "提交后",
+      "pre-push": "推送前",
+      "custom": "自定义"
+    },
+    "stats": {
+      "total": "钩子总数",
+      "enabled": "已启用"
+    },
+    "filters": {
+      "trigger": "触发器",
+      "allTriggers": "全部触发器",
+      "searchPlaceholder": "按名称搜索钩子..."
+    },
+    "actions": {
+      "add": "添加钩子",
+      "edit": "编辑钩子",
+      "delete": "删除钩子",
+      "toggle": "切换钩子"
+    },
+    "emptyState": {
+      "title": "未找到 Git 钩子",
+      "message": "添加 Git 钩子以在 Git 工作流期间自动化任务。"
+    }
+  },
+  "cliRules": {
+    "title": "规则",
+    "description": "管理代码质量规则和检查配置",
+    "severity": {
+      "error": "错误",
+      "warning": "警告",
+      "info": "信息"
+    },
+    "stats": {
+      "total": "规则总数",
+      "enabled": "已启用"
+    },
+    "filters": {
+      "severity": "严重程度",
+      "allSeverities": "全部严重程度",
+      "searchPlaceholder": "按名称搜索规则..."
+    },
+    "actions": {
+      "add": "添加规则",
+      "edit": "编辑规则",
+      "delete": "删除规则",
+      "toggle": "切换规则"
+    },
+    "emptyState": {
+      "title": "未找到规则",
+      "message": "添加规则以强制执行代码质量标准。"
+    }
+  }
+}

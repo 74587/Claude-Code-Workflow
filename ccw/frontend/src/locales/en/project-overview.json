@@ -1,0 +1,52 @@
+{
+  "noDescription": "No description available",
+  "header": {
+    "initialized": "Initialized"
+  },
+  "techStack": {
+    "title": "Technology Stack",
+    "languages": "Languages",
+    "frameworks": "Frameworks",
+    "buildTools": "Build Tools",
+    "testFrameworks": "Test Frameworks",
+    "primary": "Primary",
+    "noLanguages": "No languages detected",
+    "noFrameworks": "No frameworks detected"
+  },
+  "architecture": {
+    "title": "Architecture",
+    "style": "Style",
+    "layers": "Layers",
+    "patterns": "Patterns"
+  },
+  "components": {
+    "title": "Key Components",
+    "importance": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    }
+  },
+  "devIndex": {
+    "title": "Development History",
+    "categories": "Categories",
+    "timeline": "Timeline"
+  },
+  "guidelines": {
+    "title": "Project Guidelines",
+    "conventions": "Conventions",
+    "constraints": "Constraints",
+    "qualityRules": "Quality Rules",
+    "learnings": "Session Learnings",
+    "scope": "Scope"
+  },
+  "stats": {
+    "title": "Statistics",
+    "totalFeatures": "Total Features",
+    "lastUpdated": "Last Updated"
+  },
+  "empty": {
+    "title": "No Project Overview",
+    "message": "Run /workflow:init to initialize project analysis"
+  }
+}

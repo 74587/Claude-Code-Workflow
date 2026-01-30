@@ -5,6 +5,10 @@
 
 export { HomePage } from './HomePage';
 export { SessionsPage } from './SessionsPage';
+export { FixSessionPage } from './FixSessionPage';
+export { ProjectOverviewPage } from './ProjectOverviewPage';
+export { SessionDetailPage } from './SessionDetailPage';
+export { HistoryPage } from './HistoryPage';
 export { OrchestratorPage } from './orchestrator';
 export { LoopMonitorPage } from './LoopMonitorPage';
 export { IssueManagerPage } from './IssueManagerPage';
@@ -13,3 +17,10 @@ export { CommandsManagerPage } from './CommandsManagerPage';
 export { MemoryPage } from './MemoryPage';
 export { SettingsPage } from './SettingsPage';
 export { HelpPage } from './HelpPage';
+export { NotFoundPage } from './NotFoundPage';
+export { LiteTasksPage } from './LiteTasksPage';
+export { LiteTaskDetailPage } from './LiteTaskDetailPage';
+export { ReviewSessionPage } from './ReviewSessionPage';
+export { McpManagerPage } from './McpManagerPage';
+export { EndpointsPage } from './EndpointsPage';
+export { InstallationsPage } from './InstallationsPage';

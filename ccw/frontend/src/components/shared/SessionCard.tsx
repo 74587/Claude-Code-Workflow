@@ -4,6 +4,7 @@
 // Session card with status badge and action menu
 
 import * as React from 'react';
+import { useIntl } from 'react-intl';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -44,16 +45,25 @@ export interface SessionCardProps {
   actionsDisabled?: boolean;
 }
 
-// Status badge configuration
-const statusConfig: Record<
+// Status variant configuration (without labels for i18n)
+const statusVariantConfig: Record<
   SessionMetadata['status'],
-  { label: string; variant: 'default' | 'secondary' | 'destructive' | 'success' | 'warning' | 'info' }
+  { variant: 'default' | 'secondary' | 'destructive' | 'success' | 'warning' | 'info' }
 > = {
-  planning: { label: 'Planning', variant: 'info' },
-  in_progress: { label: 'In Progress', variant: 'warning' },
-  completed: { label: 'Completed', variant: 'success' },
-  archived: { label: 'Archived', variant: 'secondary' },
-  paused: { label: 'Paused', variant: 'default' },
+  planning: { variant: 'info' },
+  in_progress: { variant: 'warning' },
+  completed: { variant: 'success' },
+  archived: { variant: 'secondary' },
+  paused: { variant: 'default' },
+};
+
+// Status label keys for i18n
+const statusLabelKeys: Record<SessionMetadata['status'], string> = {
+  planning: 'sessions.status.planning',
+  in_progress: 'sessions.status.inProgress',
+  completed: 'sessions.status.completed',
+  archived: 'sessions.status.archived',
+  paused: 'sessions.status.paused',
 };
 
 /**
@@ -116,10 +126,14 @@ export function SessionCard({
   showActions = true,
   actionsDisabled = false,
 }: SessionCardProps) {
-  const { label: statusLabel, variant: statusVariant } = statusConfig[session.status] || {
-    label: 'Unknown',
+  const { formatMessage } = useIntl();
+
+  const { variant: statusVariant } = statusVariantConfig[session.status] || {
     variant: 'default' as const,
   };
+  const statusLabel = statusLabelKeys[session.status]
+    ? formatMessage({ id: statusLabelKeys[session.status] })
+    : formatMessage({ id: 'common.status.unknown' });
 
   const progress = calculateProgress(session.tasks);
   const isPlanning = session.status === 'planning';
@@ -186,20 +200,20 @@ export function SessionCard({
                     disabled={actionsDisabled}
                   >
                     <MoreVertical className="h-4 w-4" />
-                    <span className="sr-only">Actions</span>
+                    <span className="sr-only">{formatMessage({ id: 'common.aria.actions' })}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={(e) => handleAction(e, 'view')}>
                     <Eye className="mr-2 h-4 w-4" />
-                    View Details
+                    {formatMessage({ id: 'sessions.actions.viewDetails' })}
                   </DropdownMenuItem>
                   {!isArchived && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={(e) => handleAction(e, 'archive')}>
                         <Archive className="mr-2 h-4 w-4" />
-                        Archive
+                        {formatMessage({ id: 'sessions.actions.archive' })}
                       </DropdownMenuItem>
                     </>
                   )}
@@ -209,7 +223,7 @@ export function SessionCard({
                     className="text-destructive focus:text-destructive"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
+                    {formatMessage({ id: 'sessions.actions.delete' })}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -225,7 +239,7 @@ export function SessionCard({
           </span>
           <span className="flex items-center gap-1">
             <ListChecks className="h-3.5 w-3.5" />
-            {progress.total} tasks
+            {progress.total} {formatMessage({ id: 'sessions.card.tasks' })}
           </span>
         </div>
 
@@ -233,7 +247,7 @@ export function SessionCard({
         {progress.total > 0 && !isPlanning && (
           <div className="mt-3">
             <div className="flex items-center justify-between text-xs mb-1">
-              <span className="text-muted-foreground">Progress</span>
+              <span className="text-muted-foreground">{formatMessage({ id: 'sessions.card.progress' })}</span>
               <span className="text-card-foreground font-medium">
                 {progress.completed}/{progress.total} ({progress.percentage}%)
               </span>

@@ -1,0 +1,42 @@
+{
+  "title": "Skills",
+  "description": "Manage and configure skills",
+  "source": {
+    "builtin": "Built-in",
+    "custom": "Custom",
+    "community": "Community"
+  },
+  "actions": {
+    "viewDetails": "View Details",
+    "configure": "Configure",
+    "enable": "Enable",
+    "disable": "Disable",
+    "toggle": "Toggle",
+    "install": "Install Skill"
+  },
+  "state": {
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "on": "On",
+    "off": "Off"
+  },
+  "card": {
+    "triggers": "Triggers",
+    "category": "Category",
+    "author": "Author",
+    "version": "Version"
+  },
+  "filters": {
+    "all": "All",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "view": {
+    "grid": "Grid View",
+    "compact": "Compact View"
+  },
+  "emptyState": {
+    "title": "No Skills Found",
+    "message": "No skills match your current filter."
+  }
+}
