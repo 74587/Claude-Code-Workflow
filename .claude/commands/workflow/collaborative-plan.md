@@ -29,13 +29,33 @@ When `--yes` or `-y`: Auto-approve splits, use default merge rule, skip confirma
 **CLI Tools**: cli-lite-planning-agent (internally calls ccw cli with gemini/codex/qwen)
 **Schema**: plan-json-schema.json (sub-plans & final plan share same base schema)
 
+## Output Artifacts
+
+### Per Sub-Agent (Phase 2)
+
+| Artifact | Description |
+|----------|-------------|
+| `planning-context.md` | Evidence paths + synthesized understanding |
+| `sub-plan.json` | Sub-plan following plan-json-schema.json |
+
+### Final Output (Phase 4)
+
+| Artifact | Description |
+|----------|-------------|
+| `requirement-analysis.json` | Requirement breakdown and sub-agent assignments |
+| `conflicts.json` | Detected conflicts between sub-plans |
+| `plan.json` | Merged plan (plan-json-schema + merge_metadata) |
+| `plan.md` | Human-readable plan summary |
+
+**Agent**: `cli-lite-planning-agent` with `process_docs: true` for sub-agents
+
 ## Overview
 
 Unified collaborative planning workflow that:
 
 1. **Analyzes** complex requirements and splits into sub-requirements
 2. **Spawns** parallel sub-agents, each responsible for one sub-requirement
-3. **Each agent** maintains process files: exploration.md → understanding.md → sub-plan.json
+3. **Each agent** maintains process files: planning-refs.md + sub-plan.json
 4. **Merges** all sub-plans into unified plan.json with conflict resolution
 
 ```
@@ -51,10 +71,9 @@ Unified collaborative planning workflow that:
 │  Phase 2: Parallel Sub-Agent Execution                                   │
 │     ┌──────────────┬──────────────┬──────────────┐                       │
 │     │   Agent 1    │   Agent 2    │   Agent N    │                       │
-│     ├──────────────┼──────────────┼──────────────┤                       │
-│     │ exploration  │ exploration  │ exploration  │  → exploration.md     │
-│     │ understanding│ understanding│ understanding│  → understanding.md   │
-│     │ planning     │ planning     │ planning     │  → sub-plan.json      │
+├──────────────┼──────────────┼──────────────┤                       │
+│     │ planning     │ planning     │ planning     │  → planning-context.md│
+│     │ + sub-plan   │ + sub-plan   │ + sub-plan   │  → sub-plan.json      │
 │     └──────────────┴──────────────┴──────────────┘                       │
 │                                                                          │
 │  Phase 3: Cross-Verification & Conflict Detection                        │
@@ -77,9 +96,8 @@ Unified collaborative planning workflow that:
 ├── requirement-analysis.json     # Phase 1: Requirement breakdown
 ├── agents/                       # Phase 2: Per-agent process files
 │   ├── {focus-area-1}/
-│   │   ├── exploration.md        # What was discovered
-│   │   ├── understanding.md      # Synthesized insights
-│   │   └── sub-plan.json         # Agent's plan for this focus area
+│   │   ├── planning-context.md  # Evidence + understanding
+│   │   └── sub-plan.json        # Agent's plan for this focus area
 │   ├── {focus-area-2}/
 │   │   └── ...
 │   └── {focus-area-N}/
@@ -243,129 +261,38 @@ const agentPromises = subRequirements.map((sub, index) => {
     run_in_background: false,
     description: `Plan: ${sub.focus_area}`,
     prompt: `
-## Sub-Agent Mission
+## Sub-Agent Context
 
-You are responsible for planning ONE sub-requirement of a larger task.
-Maintain 3 process files documenting your exploration, understanding, and plan.
+You are planning ONE sub-requirement. Generate process docs + sub-plan.
 
-## Your Focus Area
-
-**Index**: ${index + 1}
 **Focus Area**: ${sub.focus_area}
 **Description**: ${sub.description}
 **Key Concerns**: ${sub.key_concerns.join(', ')}
-**Suggested Tool**: ${sub.suggested_cli_tool}
+**CLI Tool**: ${sub.suggested_cli_tool}
 **Depth**: ${depth}
 
-## Parent Context
+## Input Context
 
-**Original Requirement**: ${taskDescription}
-**Session**: ${sessionId}
-**Your Folder**: ${sessionFolder}/agents/${sub.focus_area}/
-
-## Schema Reference
-
-Execute: cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json
-
-## Execution Process (3 Stages)
-
-### Stage 1: Exploration (→ exploration.md)
-
-Use ccw cli to explore the codebase for your focus area:
-
-\`\`\`bash
-ccw cli -p "
-PURPOSE: Explore codebase for ${sub.focus_area}
-Success: Identify all relevant files, patterns, and constraints
-
-TASK:
-• Find existing code related to ${sub.focus_area}
-• Identify current architecture and patterns
-• Discover integration points and dependencies
-• Note any constraints or limitations
-
-CONTEXT: @**/*
-MODE: analysis
-" --tool ${sub.suggested_cli_tool} --mode analysis
+\`\`\`json
+{
+  "task_description": "${sub.description}",
+  "schema_path": "~/.claude/workflows/cli-templates/schemas/plan-json-schema.json",
+  "session": { "id": "${sessionId}", "folder": "${sessionFolder}" },
+  "process_docs": true,
+  "focus_area": "${sub.focus_area}",
+  "output_folder": "${sessionFolder}/agents/${sub.focus_area}",
+  "cli_config": { "tool": "${sub.suggested_cli_tool}" },
+  "parent_requirement": "${taskDescription}"
+}
 \`\`\`
-
-After CLI completes, write exploration.md:
-
-\`\`\`markdown
-# Exploration: ${sub.focus_area}
-
-## Discovered Files
-- [list relevant files with brief descriptions]
-
-## Current Architecture
-- [describe existing structure]
-
-## Integration Points
-- [list dependencies and interfaces]
-
-## Constraints & Limitations
-- [note any blockers or constraints]
-
-## Key Findings
-- [most important discoveries]
-\`\`\`
-
-### Stage 2: Understanding (→ understanding.md)
-
-Synthesize exploration findings into actionable understanding:
-
-\`\`\`markdown
-# Understanding: ${sub.focus_area}
-
-## Problem Statement
-[Restate what needs to be done for this focus area]
-
-## Current State Analysis
-[What exists now, what's missing]
-
-## Proposed Approach
-[High-level strategy for implementation]
-
-## Technical Decisions
-- Decision 1: [choice] because [rationale]
-- Decision 2: [choice] because [rationale]
-
-## Risks & Mitigations
-- Risk 1: [description] → Mitigation: [approach]
-
-## Dependencies on Other Sub-Requirements
-- Depends on: [list any dependencies on other focus areas]
-- Provides for: [what this provides to other focus areas]
-
-## Key Insights
-[Most important understanding gained]
-\`\`\`
-
-### Stage 3: Planning (→ sub-plan.json)
-
-Generate sub-plan.json following plan-json-schema.json:
-- 2-5 tasks for this focus area
-- Clear modification_points with file, target, change
-- Verification criteria (unit_tests, integration_tests, manual_checks)
-- Risk assessment per task
-- Dependencies (internal to this sub-plan)
-- Add source_agent: "${sub.focus_area}" to _metadata
 
 ## Output Requirements
 
-Write exactly 3 files:
-1. \`${sessionFolder}/agents/${sub.focus_area}/exploration.md\`
-2. \`${sessionFolder}/agents/${sub.focus_area}/understanding.md\`
-3. \`${sessionFolder}/agents/${sub.focus_area}/sub-plan.json\`
+Write 2 files to \`${sessionFolder}/agents/${sub.focus_area}/\`:
+1. **planning-context.md** - Evidence paths + synthesized understanding
+2. **sub-plan.json** - Plan with \`_metadata.source_agent: "${sub.focus_area}"\`
 
-## Success Criteria
-
-- [ ] Exploration covers all relevant code areas
-- [ ] Understanding synthesizes findings into clear approach
-- [ ] sub-plan.json follows plan-json-schema.json with 2-5 tasks
-- [ ] Each task has modification_points, acceptance, verification
-- [ ] Dependencies clearly stated
-- [ ] All 3 files written to correct location
+See cli-lite-planning-agent documentation for file formats.
 `
   })
 })
@@ -515,9 +442,9 @@ TodoWrite({ todos: [
   { content: "Phase 4: Merge & Synthesis", status: "in_progress", activeForm: "Merging plans" }
 ]})
 
-// Collect all understanding documents for context
-const understandingDocs = subRequirements.map(sub => {
-  const path = `${sessionFolder}/agents/${sub.focus_area}/understanding.md`
+// Collect all planning context documents for context
+const contextDocs = subRequirements.map(sub => {
+  const path = `${sessionFolder}/agents/${sub.focus_area}/planning-context.md`
   return {
     focus_area: sub.focus_area,
     content: Read(path)
@@ -559,11 +486,11 @@ ${JSON.stringify(sp.plan, null, 2)}
 \`\`\`
 `).join('\n')}
 
-## Understanding Documents
+## Planning Context Documents
 
-${understandingDocs.map(ud => `
-### Understanding: ${ud.focus_area}
-${ud.content}
+${contextDocs.map(cd => `
+### Context: ${cd.focus_area}
+${cd.content}
 `).join('\n')}
 
 ## Detected Conflicts
@@ -740,8 +667,7 @@ ${task.acceptance?.map(ac => `- ${ac}`).join('\n') || 'N/A'}
 
 ${subRequirements.map(sub => `
 ### ${sub.focus_area}
-- Exploration: \`${sessionFolder}/agents/${sub.focus_area}/exploration.md\`
-- Understanding: \`${sessionFolder}/agents/${sub.focus_area}/understanding.md\`
+- Context: \`${sessionFolder}/agents/${sub.focus_area}/planning-context.md\`
 - Sub-Plan: \`${sessionFolder}/agents/${sub.focus_area}/sub-plan.json\`
 `).join('\n')}
 
@@ -776,8 +702,7 @@ console.log(`
 ├── requirement-analysis.json   # Requirement breakdown
 ├── agents/                     # Per-agent process files
 ${subRequirements.map(sub => `│   ├── ${sub.focus_area}/
-│   │   ├── exploration.md
-│   │   ├── understanding.md
+│   │   ├── planning-context.md
 │   │   └── sub-plan.json`).join('\n')}
 ├── conflicts.json              # Detected conflicts
 ├── plan.json                   # Unified plan (execution-ready)
@@ -792,7 +717,7 @@ Execute the plan:
 
 Review a specific agent's work:
 \`\`\`bash
-cat ${sessionFolder}/agents/{focus-area}/understanding.md
+cat ${sessionFolder}/agents/{focus-area}/planning-context.md
 \`\`\`
 `)
 ```
@@ -827,7 +752,7 @@ cat ${sessionFolder}/agents/{focus-area}/understanding.md
 ## Best Practices
 
 1. **Be Specific**: Detailed requirements lead to better splits
-2. **Review Process Files**: Check exploration.md and understanding.md for insights
+2. **Review Process Files**: Check planning-context.md for insights
 3. **Trust the Merge**: Conflict resolution follows defined rules
 4. **Iterate if Needed**: Re-run with different --merge-rule if results unsatisfactory
 

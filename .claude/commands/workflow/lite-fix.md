@@ -37,6 +37,23 @@ Intelligent lightweight bug fixing command with dynamic workflow adaptation base
 /workflow:lite-fix -y --hotfix "生产环境数据库连接失败"   # Auto + hotfix mode
 ```
 
+## Output Artifacts
+
+| Artifact | Description |
+|----------|-------------|
+| `diagnosis-{angle}.json` | Per-angle diagnosis results (1-4 files based on severity) |
+| `diagnoses-manifest.json` | Index of all diagnosis files |
+| `planning-context.md` | Evidence paths + synthesized understanding |
+| `fix-plan.json` | Structured fix plan (fix-plan-json-schema.json) |
+
+**Output Directory**: `.workflow/.lite-fix/{bug-slug}-{YYYY-MM-DD}/`
+
+**Agent Usage**:
+- Low/Medium severity → Direct Claude planning (no agent)
+- High/Critical severity → `cli-lite-planning-agent` generates `fix-plan.json`
+
+**Schema Reference**: `~/.claude/workflows/cli-templates/schemas/fix-plan-json-schema.json`
+
 ## Auto Mode Defaults
 
 When `--yes` or `-y` flag is used:
@@ -192,11 +209,15 @@ const diagnosisTasks = selectedAngles.map((angle, index) =>
 ## Task Objective
 Execute **${angle}** diagnosis for bug root cause analysis. Analyze codebase from this specific angle to discover root cause, affected paths, and fix hints.
 
+## Output Location
+
+**Session Folder**: ${sessionFolder}
+**Output File**: ${sessionFolder}/diagnosis-${angle}.json
+
 ## Assigned Context
 - **Diagnosis Angle**: ${angle}
 - **Bug Description**: ${bug_description}
 - **Diagnosis Index**: ${index + 1} of ${selectedAngles.length}
-- **Output File**: ${sessionFolder}/diagnosis-${angle}.json
 
 ## MANDATORY FIRST STEPS (Execute by Agent)
 **You (cli-explore-agent) MUST execute these steps in order:**
@@ -224,8 +245,6 @@ Execute **${angle}** diagnosis for bug root cause analysis. Analyze codebase fro
 - Provide fix hints based on ${angle} analysis
 
 ## Expected Output
-
-**File**: ${sessionFolder}/diagnosis-${angle}.json
 
 **Schema Reference**: Schema obtained in MANDATORY FIRST STEPS step 3, follow schema exactly
 
@@ -255,9 +274,9 @@ Execute **${angle}** diagnosis for bug root cause analysis. Analyze codebase fro
 - [ ] JSON output follows schema exactly
 - [ ] clarification_needs includes options + recommended
 
-## Output
-Write: ${sessionFolder}/diagnosis-${angle}.json
-Return: 2-3 sentence summary of ${angle} diagnosis findings
+## Execution
+**Write**: \`${sessionFolder}/diagnosis-${angle}.json\`
+**Return**: 2-3 sentence summary of ${angle} diagnosis findings
 `
   )
 )
@@ -493,6 +512,13 @@ Task(
   prompt=`
 Generate fix plan and write fix-plan.json.
 
+## Output Location
+
+**Session Folder**: ${sessionFolder}
+**Output Files**:
+- ${sessionFolder}/planning-context.md (evidence + understanding)
+- ${sessionFolder}/fix-plan.json (fix plan)
+
 ## Output Schema Reference
 Execute: cat ~/.claude/workflows/cli-templates/schemas/fix-plan-json-schema.json (get schema reference before generating plan)
 
@@ -588,8 +614,9 @@ Generate fix-plan.json with:
    - For High/Critical: REQUIRED new fields (rationale, verification, risks, code_skeleton, data_flow, design_decisions)
    - Each task MUST have rationale (why this fix), verification (how to verify success), and risks (potential issues)
 5. Parse output and structure fix-plan
-6. Write JSON: Write('${sessionFolder}/fix-plan.json', jsonContent)
-7. Return brief completion summary
+6. **Write**: \`${sessionFolder}/planning-context.md\` (evidence paths + understanding)
+7. **Write**: \`${sessionFolder}/fix-plan.json\`
+8. Return brief completion summary
 
 ## Output Format for CLI
 Include these sections in your fix-plan output:
@@ -747,22 +774,24 @@ SlashCommand(command="/workflow:lite-execute --in-memory --mode bugfix")
 
 ```
 .workflow/.lite-fix/{bug-slug}-{YYYY-MM-DD}/
-|- diagnosis-{angle1}.json      # Diagnosis angle 1
-|- diagnosis-{angle2}.json      # Diagnosis angle 2
-|- diagnosis-{angle3}.json      # Diagnosis angle 3 (if applicable)
-|- diagnosis-{angle4}.json      # Diagnosis angle 4 (if applicable)
-|- diagnoses-manifest.json      # Diagnosis index
-+- fix-plan.json                # Fix plan
+├── diagnosis-{angle1}.json      # Diagnosis angle 1
+├── diagnosis-{angle2}.json      # Diagnosis angle 2
+├── diagnosis-{angle3}.json      # Diagnosis angle 3 (if applicable)
+├── diagnosis-{angle4}.json      # Diagnosis angle 4 (if applicable)
+├── diagnoses-manifest.json      # Diagnosis index
+├── planning-context.md          # Evidence + understanding
+└── fix-plan.json                # Fix plan
 ```
 
 **Example**:
 ```
-.workflow/.lite-fix/user-avatar-upload-fails-413-2025-11-25-14-30-25/
-|- diagnosis-error-handling.json
-|- diagnosis-dataflow.json
-|- diagnosis-validation.json
-|- diagnoses-manifest.json
-+- fix-plan.json
+.workflow/.lite-fix/user-avatar-upload-fails-413-2025-11-25/
+├── diagnosis-error-handling.json
+├── diagnosis-dataflow.json
+├── diagnosis-validation.json
+├── diagnoses-manifest.json
+├── planning-context.md
+└── fix-plan.json
 ```
 
 ## Error Handling

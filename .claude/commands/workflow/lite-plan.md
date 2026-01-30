@@ -37,6 +37,23 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 /workflow:lite-plan -y -e "优化数据库查询性能"       # Auto mode + force exploration
 ```
 
+## Output Artifacts
+
+| Artifact | Description |
+|----------|-------------|
+| `exploration-{angle}.json` | Per-angle exploration results (1-4 files based on complexity) |
+| `explorations-manifest.json` | Index of all exploration files |
+| `planning-context.md` | Evidence paths + synthesized understanding |
+| `plan.json` | Structured implementation plan (plan-json-schema.json) |
+
+**Output Directory**: `.workflow/.lite-plan/{task-slug}-{YYYY-MM-DD}/`
+
+**Agent Usage**:
+- Low complexity → Direct Claude planning (no agent)
+- Medium/High complexity → `cli-lite-planning-agent` generates `plan.json`
+
+**Schema Reference**: `~/.claude/workflows/cli-templates/schemas/plan-json-schema.json`
+
 ## Auto Mode Defaults
 
 When `--yes` or `-y` flag is used:
@@ -193,11 +210,15 @@ const explorationTasks = selectedAngles.map((angle, index) =>
 ## Task Objective
 Execute **${angle}** exploration for task planning context. Analyze codebase from this specific angle to discover relevant structure, patterns, and constraints.
 
+## Output Location
+
+**Session Folder**: ${sessionFolder}
+**Output File**: ${sessionFolder}/exploration-${angle}.json
+
 ## Assigned Context
 - **Exploration Angle**: ${angle}
 - **Task Description**: ${task_description}
 - **Exploration Index**: ${index + 1} of ${selectedAngles.length}
-- **Output File**: ${sessionFolder}/exploration-${angle}.json
 
 ## MANDATORY FIRST STEPS (Execute by Agent)
 **You (cli-explore-agent) MUST execute these steps in order:**
@@ -225,8 +246,6 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 
 ## Expected Output
 
-**File**: ${sessionFolder}/exploration-${angle}.json
-
 **Schema Reference**: Schema obtained in MANDATORY FIRST STEPS step 3, follow schema exactly
 
 **Required Fields** (all ${angle} focused):
@@ -252,9 +271,9 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 - [ ] JSON output follows schema exactly
 - [ ] clarification_needs includes options + recommended
 
-## Output
-Write: ${sessionFolder}/exploration-${angle}.json
-Return: 2-3 sentence summary of ${angle} findings
+## Execution
+**Write**: \`${sessionFolder}/exploration-${angle}.json\`
+**Return**: 2-3 sentence summary of ${angle} findings
 `
   )
 )
@@ -443,6 +462,13 @@ Task(
   prompt=`
 Generate implementation plan and write plan.json.
 
+## Output Location
+
+**Session Folder**: ${sessionFolder}
+**Output Files**:
+- ${sessionFolder}/planning-context.md (evidence + understanding)
+- ${sessionFolder}/plan.json (implementation plan)
+
 ## Output Schema Reference
 Execute: cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json (get schema reference before generating plan)
 
@@ -492,8 +518,9 @@ Generate plan.json following the schema obtained above. Key constraints:
 2. Execute CLI planning using Gemini (Qwen fallback)
 3. Read ALL exploration files for comprehensive context
 4. Synthesize findings and generate plan following schema
-5. Write JSON: Write('${sessionFolder}/plan.json', jsonContent)
-6. Return brief completion summary
+5. **Write**: \`${sessionFolder}/planning-context.md\` (evidence paths + understanding)
+6. **Write**: \`${sessionFolder}/plan.json\`
+7. Return brief completion summary
 `
 )
 ```

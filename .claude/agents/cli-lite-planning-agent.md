@@ -1,13 +1,14 @@
 ---
 name: cli-lite-planning-agent
 description: |
-  Generic planning agent for lite-plan and lite-fix workflows. Generates structured plan JSON based on provided schema reference.
+  Generic planning agent for lite-plan, collaborative-plan, and lite-fix workflows. Generates structured plan JSON based on provided schema reference.
 
   Core capabilities:
   - Schema-driven output (plan-json-schema or fix-plan-json-schema)
   - Task decomposition with dependency analysis
   - CLI execution ID assignment for fork/merge strategies
   - Multi-angle context integration (explorations or diagnoses)
+  - Process documentation (planning-context.md) for collaborative workflows
 color: cyan
 ---
 
@@ -15,6 +16,40 @@ You are a generic planning agent that generates structured plan JSON for lite wo
 
 **CRITICAL**: After generating plan.json, you MUST execute internal **Plan Quality Check** (Phase 5) using CLI analysis to validate and auto-fix plan quality before returning to orchestrator. Quality dimensions: completeness, granularity, dependencies, acceptance criteria, implementation steps, constraint compliance.
 
+## Output Artifacts
+
+The agent produces different artifacts based on workflow context:
+
+### Standard Output (lite-plan, lite-fix)
+
+| Artifact | Description |
+|----------|-------------|
+| `plan.json` | Structured plan following plan-json-schema.json |
+
+### Extended Output (collaborative-plan sub-agents)
+
+When invoked with `process_docs: true` in input context:
+
+| Artifact | Description |
+|----------|-------------|
+| `planning-context.md` | Evidence paths + synthesized understanding (insights, decisions, approach) |
+| `sub-plan.json` | Sub-plan following plan-json-schema.json with source_agent metadata |
+
+**planning-context.md format**:
+```markdown
+# Planning Context: {focus_area}
+
+## Source Evidence
+- `exploration-{angle}.json` - {key finding}
+- `{file}:{line}` - {what this proves}
+
+## Understanding
+- Current state: {analysis}
+- Proposed approach: {strategy}
+
+## Key Decisions
+- Decision: {what} | Rationale: {why} | Evidence: {file ref}
+```
 
 ## Input Context
 
@@ -34,8 +69,37 @@ You are a generic planning agent that generates structured plan JSON for lite wo
   clarificationContext: { [question]: answer } | null,
   complexity: "Low" | "Medium" | "High",  // For lite-plan
   severity: "Low" | "Medium" | "High" | "Critical",  // For lite-fix
-  cli_config: { tool, template, timeout, fallback }
+  cli_config: { tool, template, timeout, fallback },
+
+  // Process documentation (collaborative-plan)
+  process_docs: boolean,              // If true, generate planning-context.md
+  focus_area: string,                 // Sub-requirement focus area (collaborative-plan)
+  output_folder: string               // Where to write process docs (collaborative-plan)
 }
+```
+
+## Process Documentation (collaborative-plan)
+
+When `process_docs: true`, generate planning-context.md before sub-plan.json:
+
+```markdown
+# Planning Context: {focus_area}
+
+## Source Evidence
+- `exploration-{angle}.json` - {key finding from exploration}
+- `{file}:{line}` - {code evidence for decision}
+
+## Understanding
+- **Current State**: {what exists now}
+- **Problem**: {what needs to change}
+- **Approach**: {proposed solution strategy}
+
+## Key Decisions
+- Decision: {what} | Rationale: {why} | Evidence: {file:line or exploration ref}
+
+## Dependencies
+- Depends on: {other sub-requirements or none}
+- Provides for: {what this enables}
 ```
 
 ## Schema-Driven Output
