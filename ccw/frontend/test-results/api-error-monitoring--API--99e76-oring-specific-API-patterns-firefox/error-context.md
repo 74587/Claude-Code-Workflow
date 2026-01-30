@@ -8,12 +8,12 @@
       - img [ref=e7]
       - generic [ref=e11]: navigation.header.brand
     - generic [ref=e12]:
-      - combobox "Select language" [active] [ref=e13] [cursor=pointer]:
+      - combobox "Select language" [ref=e13] [cursor=pointer]:
         - img [ref=e14]
         - generic:
           - generic:
-            - generic: 🇨🇳
-            - generic: 中文
+            - generic: 🇺🇸
+            - generic: English
         - img [ref=e21]
       - button "common.aria.switchToDarkMode" [ref=e23] [cursor=pointer]:
         - img [ref=e24]
@@ -95,34 +95,50 @@
       - generic [ref=e139]:
         - generic [ref=e140]:
           - generic [ref=e141]:
-            - heading "memory.title" [level=1] [ref=e142]:
-              - img [ref=e143]
-              - text: memory.title
-            - paragraph [ref=e153]: memory.description
-          - generic [ref=e154]:
-            - button "common.actions.refresh" [disabled]:
-              - img
-              - text: common.actions.refresh
-            - button "memory.actions.add" [ref=e155] [cursor=pointer]:
-              - img [ref=e156]
-              - text: memory.actions.add
-        - generic [ref=e159]:
-          - generic [ref=e161]:
-            - img [ref=e163]
-            - generic [ref=e167]:
-              - generic [ref=e168]: "0"
-              - paragraph [ref=e169]: memory.stats.count
-          - generic [ref=e171]:
-            - img [ref=e173]
-            - generic [ref=e179]:
-              - generic [ref=e180]: "0"
-              - paragraph [ref=e181]: memory.stats.claudeMdCount
-          - generic [ref=e183]:
-            - img [ref=e185]
-            - generic [ref=e195]:
-              - generic [ref=e196]: 0 B
-              - paragraph [ref=e197]: memory.stats.totalSize
-        - generic [ref=e199]:
-          - img [ref=e200]
-          - textbox "memory.filters.search" [ref=e203]
+            - heading "home.title" [level=1] [ref=e142]
+            - paragraph [ref=e143]: home.description
+          - button "common.actions.refresh" [ref=e144] [cursor=pointer]:
+            - img [ref=e145]
+            - text: common.actions.refresh
+        - generic [ref=e150]:
+          - heading "home.sections.statistics" [level=2] [ref=e151]
+          - generic [ref=e152]:
+            - generic [ref=e155]:
+              - generic [ref=e156]:
+                - paragraph [ref=e157]: home.stats.activeSessions
+                - paragraph [ref=e159]: "0"
+              - img [ref=e161]
+            - generic [ref=e168]:
+              - generic [ref=e169]:
+                - paragraph [ref=e170]: home.stats.totalTasks
+                - paragraph [ref=e172]: "0"
+              - img [ref=e174]
+            - generic [ref=e182]:
+              - generic [ref=e183]:
+                - paragraph [ref=e184]: home.stats.completedTasks
+                - paragraph [ref=e186]: "0"
+              - img [ref=e188]
+            - generic [ref=e193]:
+              - generic [ref=e194]:
+                - paragraph [ref=e195]: home.stats.pendingTasks
+                - paragraph [ref=e197]: "0"
+              - img [ref=e199]
+            - generic [ref=e204]:
+              - generic [ref=e205]:
+                - paragraph [ref=e206]: common.status.failed
+                - paragraph [ref=e208]: "0"
+              - img [ref=e210]
+            - generic [ref=e216]:
+              - generic [ref=e217]:
+                - paragraph [ref=e218]: common.stats.todayActivity
+                - paragraph [ref=e220]: "0"
+              - img [ref=e222]
+        - generic [ref=e224]:
+          - generic [ref=e225]:
+            - heading "home.sections.recentSessions" [level=2] [ref=e226]
+            - button "common.actions.viewAll" [ref=e227] [cursor=pointer]
+          - generic [ref=e228]:
+            - img [ref=e229]
+            - heading "home.emptyState.noSessions.title" [level=3] [ref=e234]
+            - paragraph [ref=e235]: home.emptyState.noSessions.message
 ```

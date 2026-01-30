@@ -1,30 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import './styles/typography.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* CSS Custom Properties - Light Mode */
-:root {
-  --background: 0 0% 98%;
-  --foreground: 0 0% 13%;
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 13%;
-  --border: 0 0% 90%;
-  --input: 0 0% 90%;
-  --ring: 220 65% 50%;
-  --primary: 220 65% 50%;
+/* ===========================
+   Multi-Theme Color System
+   4 Colors × 2 Modes = 8 Themes
+   =========================== */
+
+/* Classic Blue - Light Mode */
+:root,
+[data-theme="light-blue"] {
+  --bg: 0 0% 98%;
+  --surface: 220 60% 99%;
+  --border: 220 20% 88%;
+  --text: 220 30% 15%;
+  --text-secondary: 220 15% 45%;
+  --accent: 220 90% 56%;
+
+  /* Legacy variables for backward compatibility */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --primary: var(--accent);
   --primary-foreground: 0 0% 100%;
-  --primary-light: 220 65% 95%;
+  --primary-light: 220 90% 95%;
   --secondary: 220 60% 65%;
   --secondary-foreground: 0 0% 100%;
-  --accent: 220 40% 95%;
-  --accent-foreground: 0 0% 13%;
+  --accent-foreground: 0 0% 100%;
   --destructive: 8 75% 55%;
   --destructive-foreground: 0 0% 100%;
-  --muted: 0 0% 96%;
-  --muted-foreground: 0 0% 45%;
-  --sidebar-background: 0 0% 97%;
-  --sidebar-foreground: 0 0% 13%;
-  --hover: 0 0% 93%;
+  --muted: 220 20% 96%;
+  --muted-foreground: var(--text-secondary);
+  --sidebar-background: 220 40% 97%;
+  --sidebar-foreground: var(--text);
+  --hover: 220 20% 93%;
+  --input: var(--border);
+  --ring: var(--accent);
   --success: 142 71% 45%;
   --success-light: 142 76% 90%;
   --warning: 38 92% 50%;
@@ -37,29 +52,324 @@
   --orange-light: 25 90% 92%;
 }
 
-/* Dark Mode */
-[data-theme="dark"] {
-  --background: 220 13% 10%;
-  --foreground: 0 0% 90%;
-  --card: 220 13% 14%;
-  --card-foreground: 0 0% 90%;
-  --border: 220 13% 20%;
-  --input: 220 13% 20%;
-  --ring: 220 65% 55%;
-  --primary: 220 65% 55%;
-  --primary-foreground: 0 0% 100%;
-  --primary-light: 220 50% 25%;
+/* Classic Blue - Dark Mode */
+[data-theme="dark-blue"] {
+  --bg: 220 30% 10%;
+  --surface: 220 25% 14%;
+  --border: 220 20% 22%;
+  --text: 220 20% 90%;
+  --text-secondary: 220 15% 60%;
+  --accent: 220 90% 60%;
+
+  /* Legacy variables */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --primary: var(--accent);
+  --primary-foreground: 220 30% 10%;
+  --primary-light: 220 70% 25%;
   --secondary: 220 60% 60%;
   --secondary-foreground: 0 0% 100%;
-  --accent: 220 30% 20%;
-  --accent-foreground: 0 0% 90%;
+  --accent-foreground: 220 30% 10%;
   --destructive: 8 70% 50%;
   --destructive-foreground: 0 0% 100%;
-  --muted: 220 13% 18%;
-  --muted-foreground: 0 0% 55%;
-  --sidebar-background: 220 13% 12%;
-  --sidebar-foreground: 0 0% 90%;
-  --hover: 220 13% 22%;
+  --muted: 220 25% 18%;
+  --muted-foreground: var(--text-secondary);
+  --sidebar-background: 220 30% 12%;
+  --sidebar-foreground: var(--text);
+  --hover: 220 20% 24%;
+  --input: var(--border);
+  --ring: var(--accent);
+  --success: 142 71% 40%;
+  --success-light: 142 50% 20%;
+  --warning: 38 85% 45%;
+  --warning-light: 40 50% 20%;
+  --info: 210 75% 50%;
+  --info-light: 210 50% 20%;
+  --indigo: 239 60% 55%;
+  --indigo-light: 239 40% 20%;
+  --orange: 25 85% 50%;
+  --orange-light: 25 50% 20%;
+}
+
+/* Deep Green - Light Mode */
+[data-theme="light-green"] {
+  --bg: 0 0% 98%;
+  --surface: 150 50% 99%;
+  --border: 150 20% 88%;
+  --text: 150 30% 15%;
+  --text-secondary: 150 15% 45%;
+  --accent: 150 75% 42%;
+
+  /* Legacy variables */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --primary: var(--accent);
+  --primary-foreground: 0 0% 100%;
+  --primary-light: 150 75% 95%;
+  --secondary: 150 60% 55%;
+  --secondary-foreground: 0 0% 100%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 8 75% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --muted: 150 20% 96%;
+  --muted-foreground: var(--text-secondary);
+  --sidebar-background: 150 30% 97%;
+  --sidebar-foreground: var(--text);
+  --hover: 150 20% 93%;
+  --input: var(--border);
+  --ring: var(--accent);
+  --success: 142 71% 45%;
+  --success-light: 142 76% 90%;
+  --warning: 38 92% 50%;
+  --warning-light: 48 96% 89%;
+  --info: 210 80% 55%;
+  --info-light: 210 80% 92%;
+  --indigo: 239 65% 60%;
+  --indigo-light: 239 65% 92%;
+  --orange: 25 90% 55%;
+  --orange-light: 25 90% 92%;
+}
+
+/* Deep Green - Dark Mode */
+[data-theme="dark-green"] {
+  --bg: 150 30% 10%;
+  --surface: 150 25% 14%;
+  --border: 150 20% 22%;
+  --text: 150 15% 90%;
+  --text-secondary: 150 12% 60%;
+  --accent: 150 75% 45%;
+
+  /* Legacy variables */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --primary: var(--accent);
+  --primary-foreground: 150 30% 10%;
+  --primary-light: 150 60% 25%;
+  --secondary: 150 55% 50%;
+  --secondary-foreground: 0 0% 100%;
+  --accent-foreground: 150 30% 10%;
+  --destructive: 8 70% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --muted: 150 25% 18%;
+  --muted-foreground: var(--text-secondary);
+  --sidebar-background: 150 30% 12%;
+  --sidebar-foreground: var(--text);
+  --hover: 150 20% 24%;
+  --input: var(--border);
+  --ring: var(--accent);
+  --success: 142 71% 40%;
+  --success-light: 142 50% 20%;
+  --warning: 38 85% 45%;
+  --warning-light: 40 50% 20%;
+  --info: 210 75% 50%;
+  --info-light: 210 50% 20%;
+  --indigo: 239 60% 55%;
+  --indigo-light: 239 40% 20%;
+  --orange: 25 85% 50%;
+  --orange-light: 25 50% 20%;
+}
+
+/* Vibrant Orange - Light Mode */
+[data-theme="light-orange"] {
+  --bg: 0 0% 98%;
+  --surface: 25 70% 99%;
+  --border: 25 30% 88%;
+  --text: 25 30% 15%;
+  --text-secondary: 25 15% 45%;
+  --accent: 25 95% 53%;
+
+  /* Legacy variables */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --primary: var(--accent);
+  --primary-foreground: 0 0% 100%;
+  --primary-light: 25 95% 95%;
+  --secondary: 25 80% 60%;
+  --secondary-foreground: 0 0% 100%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 8 75% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --muted: 25 20% 96%;
+  --muted-foreground: var(--text-secondary);
+  --sidebar-background: 25 40% 97%;
+  --sidebar-foreground: var(--text);
+  --hover: 25 30% 93%;
+  --input: var(--border);
+  --ring: var(--accent);
+  --success: 142 71% 45%;
+  --success-light: 142 76% 90%;
+  --warning: 38 92% 50%;
+  --warning-light: 48 96% 89%;
+  --info: 210 80% 55%;
+  --info-light: 210 80% 92%;
+  --indigo: 239 65% 60%;
+  --indigo-light: 239 65% 92%;
+  --orange: 25 90% 55%;
+  --orange-light: 25 90% 92%;
+}
+
+/* Vibrant Orange - Dark Mode */
+[data-theme="dark-orange"] {
+  --bg: 25 30% 10%;
+  --surface: 25 25% 14%;
+  --border: 25 20% 22%;
+  --text: 25 15% 90%;
+  --text-secondary: 25 12% 60%;
+  --accent: 25 95% 55%;
+
+  /* Legacy variables */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --primary: var(--accent);
+  --primary-foreground: 25 30% 10%;
+  --primary-light: 25 80% 30%;
+  --secondary: 25 75% 55%;
+  --secondary-foreground: 0 0% 100%;
+  --accent-foreground: 25 30% 10%;
+  --destructive: 8 70% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --muted: 25 25% 18%;
+  --muted-foreground: var(--text-secondary);
+  --sidebar-background: 25 30% 12%;
+  --sidebar-foreground: var(--text);
+  --hover: 25 20% 24%;
+  --input: var(--border);
+  --ring: var(--accent);
+  --success: 142 71% 40%;
+  --success-light: 142 50% 20%;
+  --warning: 38 85% 45%;
+  --warning-light: 40 50% 20%;
+  --info: 210 75% 50%;
+  --info-light: 210 50% 20%;
+  --indigo: 239 60% 55%;
+  --indigo-light: 239 40% 20%;
+  --orange: 25 85% 50%;
+  --orange-light: 25 50% 20%;
+}
+
+/* Elegant Purple - Light Mode */
+[data-theme="light-purple"] {
+  --bg: 0 0% 98%;
+  --surface: 270 60% 99%;
+  --border: 270 20% 88%;
+  --text: 270 30% 15%;
+  --text-secondary: 270 15% 45%;
+  --accent: 270 75% 60%;
+
+  /* Legacy variables */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --primary: var(--accent);
+  --primary-foreground: 0 0% 100%;
+  --primary-light: 270 75% 95%;
+  --secondary: 270 65% 65%;
+  --secondary-foreground: 0 0% 100%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 8 75% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --muted: 270 20% 96%;
+  --muted-foreground: var(--text-secondary);
+  --sidebar-background: 270 35% 97%;
+  --sidebar-foreground: var(--text);
+  --hover: 270 20% 93%;
+  --input: var(--border);
+  --ring: var(--accent);
+  --success: 142 71% 45%;
+  --success-light: 142 76% 90%;
+  --warning: 38 92% 50%;
+  --warning-light: 48 96% 89%;
+  --info: 210 80% 55%;
+  --info-light: 210 80% 92%;
+  --indigo: 239 65% 60%;
+  --indigo-light: 239 65% 92%;
+  --orange: 25 90% 55%;
+  --orange-light: 25 90% 92%;
+}
+
+/* Elegant Purple - Dark Mode */
+[data-theme="dark-purple"] {
+  --bg: 270 30% 10%;
+  --surface: 270 25% 14%;
+  --border: 270 20% 22%;
+  --text: 270 15% 90%;
+  --text-secondary: 270 12% 60%;
+  --accent: 270 75% 62%;
+
+  /* Legacy variables */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --primary: var(--accent);
+  --primary-foreground: 270 30% 10%;
+  --primary-light: 270 60% 30%;
+  --secondary: 270 60% 58%;
+  --secondary-foreground: 0 0% 100%;
+  --accent-foreground: 270 30% 10%;
+  --destructive: 8 70% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --muted: 270 25% 18%;
+  --muted-foreground: var(--text-secondary);
+  --sidebar-background: 270 30% 12%;
+  --sidebar-foreground: var(--text);
+  --hover: 270 20% 24%;
+  --input: var(--border);
+  --ring: var(--accent);
+  --success: 142 71% 40%;
+  --success-light: 142 50% 20%;
+  --warning: 38 85% 45%;
+  --warning-light: 40 50% 20%;
+  --info: 210 75% 50%;
+  --info-light: 210 50% 20%;
+  --indigo: 239 60% 55%;
+  --indigo-light: 239 40% 20%;
+  --orange: 25 85% 50%;
+  --orange-light: 25 50% 20%;
+}
+
+/* Alias for legacy dark mode */
+[data-theme="dark"] {
+  --bg: var(--bg, 220 30% 10%);
+  --surface: var(--surface, 220 25% 14%);
+  --border: var(--border, 220 20% 22%);
+  --text: var(--text, 220 20% 90%);
+  --text-secondary: var(--text-secondary, 220 15% 60%);
+  --accent: var(--accent, 220 90% 60%);
+
+  /* Apply dark-blue theme as fallback */
+  --background: 220 30% 10%;
+  --foreground: 220 20% 90%;
+  --card: 220 25% 14%;
+  --card-foreground: 220 20% 90%;
+  --border: 220 20% 22%;
+  --input: 220 20% 22%;
+  --ring: 220 90% 60%;
+  --primary: 220 90% 60%;
+  --primary-foreground: 220 30% 10%;
+  --primary-light: 220 70% 25%;
+  --secondary: 220 60% 60%;
+  --secondary-foreground: 0 0% 100%;
+  --accent: 220 90% 60%;
+  --accent-foreground: 220 30% 10%;
+  --destructive: 8 70% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --muted: 220 25% 18%;
+  --muted-foreground: 220 15% 60%;
+  --sidebar-background: 220 30% 12%;
+  --sidebar-foreground: 220 20% 90%;
+  --hover: 220 20% 24%;
   --success: 142 71% 40%;
   --success-light: 142 50% 20%;
   --warning: 38 85% 45%;
@@ -80,6 +390,14 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Code and data display should use monospace */
+  code, kbd, pre {
+    @apply font-mono;
   }
 }
 

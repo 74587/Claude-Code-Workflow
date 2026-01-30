@@ -19,6 +19,9 @@ import liteTasks from './lite-tasks.json';
 import projectOverview from './project-overview.json';
 import reviewSession from './review-session.json';
 import sessionDetail from './session-detail.json';
+import skills from './skills.json';
+import cliManager from './cli-manager.json';
+import mcpManager from './mcp-manager.json';
 
 /**
  * Flattens nested JSON object to dot-separated keys
@@ -45,20 +48,23 @@ function flattenMessages(obj: Record<string, unknown>, prefix = ''): Record<stri
  * Consolidated and flattened Chinese messages
  */
 export default {
-  ...flattenMessages(common),
-  ...flattenMessages(navigation),
-  ...flattenMessages(sessions),
-  ...flattenMessages(issues),
-  ...flattenMessages(home),
-  ...flattenMessages(orchestrator),
-  ...flattenMessages(loops),
-  ...flattenMessages(commands),
-  ...flattenMessages(memory),
-  ...flattenMessages(settings),
-  ...flattenMessages(fixSession),
-  ...flattenMessages(history),
-  ...flattenMessages(liteTasks),
-  ...flattenMessages(projectOverview),
-  ...flattenMessages(reviewSession),
-  ...flattenMessages(sessionDetail),
+  ...flattenMessages(common, 'common'),
+  ...flattenMessages(navigation, 'navigation'),
+  ...flattenMessages(sessions, 'sessions'),
+  ...flattenMessages(issues, 'issues'),
+  ...flattenMessages(home, 'home'),
+  ...flattenMessages(orchestrator, 'orchestrator'),
+  ...flattenMessages(loops, 'loops'),
+  ...flattenMessages(commands, 'commands'),
+  ...flattenMessages(memory, 'memory'),
+  ...flattenMessages(settings, 'settings'),
+  ...flattenMessages(fixSession, 'fixSession'),
+  ...flattenMessages(history, 'history'),
+  ...flattenMessages(liteTasks, 'liteTasks'),
+  ...flattenMessages(projectOverview, 'projectOverview'),
+  ...flattenMessages(reviewSession, 'reviewSession'),
+  ...flattenMessages(sessionDetail, 'sessionDetail'),
+  ...flattenMessages(skills, 'skills'),
+  ...flattenMessages(cliManager), // No prefix - has cliEndpoints, cliInstallations, etc. as top-level keys
+  ...flattenMessages(mcpManager, 'mcp'),
 } as Record<string, string>;

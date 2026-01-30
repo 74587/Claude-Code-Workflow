@@ -18,9 +18,11 @@ import { useSessionDetail } from '@/hooks/useSessionDetail';
 import { TaskListTab } from './session-detail/TaskListTab';
 import { ContextTab } from './session-detail/ContextTab';
 import { SummaryTab } from './session-detail/SummaryTab';
+import { TaskDrawer } from '@/components/shared/TaskDrawer';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import type { TaskData } from '@/types/store';
 
 type TabValue = 'tasks' | 'context' | 'summary';
 
@@ -33,6 +35,7 @@ export function SessionDetailPage() {
   const { formatMessage } = useIntl();
   const { sessionDetail, isLoading, error, refetch } = useSessionDetail(sessionId!);
   const [activeTab, setActiveTab] = React.useState<TabValue>('tasks');
+  const [selectedTask, setSelectedTask] = React.useState<TaskData | null>(null);
 
   const handleBack = () => {
     navigate('/sessions');
@@ -45,7 +48,7 @@ export function SessionDetailPage() {
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" disabled>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            {formatMessage({ id: 'common.back' })}
+            {formatMessage({ id: 'common.actions.back' })}
           </Button>
           <div className="h-8 w-64 rounded bg-muted animate-pulse" />
         </div>
@@ -83,7 +86,7 @@ export function SessionDetailPage() {
         </p>
         <Button onClick={handleBack}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          {formatMessage({ id: 'common.back' })}
+          {formatMessage({ id: 'common.actions.back' })}
         </Button>
       </div>
     );
@@ -100,7 +103,7 @@ export function SessionDetailPage() {
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={handleBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            {formatMessage({ id: 'common.back' })}
+            {formatMessage({ id: 'common.actions.back' })}
           </Button>
           <div>
             <h1 className="text-2xl font-semibold text-foreground">
@@ -158,7 +161,7 @@ export function SessionDetailPage() {
         </TabsList>
 
         <TabsContent value="tasks" className="mt-4">
-          <TaskListTab session={session} />
+          <TaskListTab session={session} onTaskClick={setSelectedTask} />
         </TabsContent>
 
         <TabsContent value="context" className="mt-4">
@@ -179,6 +182,13 @@ export function SessionDetailPage() {
           <p className="text-sm text-muted-foreground">{session.description}</p>
         </div>
       )}
+
+      {/* TaskDrawer */}
+      <TaskDrawer
+        task={selectedTask}
+        isOpen={!!selectedTask}
+        onClose={() => setSelectedTask(null)}
+      />
     </div>
   );
 }

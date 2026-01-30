@@ -166,3 +166,13 @@ export type {
   UseRulesOptions,
   UseRulesReturn,
 } from './useCli';
+
+// ========== CLI Execution ==========
+export {
+  useCliExecutionDetail,
+  cliExecutionKeys,
+} from './useCliExecution';
+export type {
+  UseCliExecutionOptions,
+  UseCliExecutionReturn,
+} from './useCliExecution';

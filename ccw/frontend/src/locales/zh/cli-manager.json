@@ -123,5 +123,11 @@
       "title": "未找到规则",
       "message": "添加规则以强制执行代码质量标准。"
     }
+  },
+  "executionDetails": "执行详情",
+  "tabs": {
+    "prompt": "提示词",
+    "output": "输出",
+    "details": "详情"
   }
 }

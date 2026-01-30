@@ -5,8 +5,9 @@
 
 import { create } from 'zustand';
 import { persist, devtools } from 'zustand/middleware';
-import type { AppStore, Theme, Locale, ViewMode, SessionFilter, LiteTaskType } from '../types/store';
+import type { AppStore, Theme, ColorScheme, Locale, ViewMode, SessionFilter, LiteTaskType } from '../types/store';
 import { getInitialLocale, updateIntl } from '../lib/i18n';
+import { getThemeId } from '../lib/theme';
 
 // Helper to resolve system theme
 const getSystemTheme = (): 'light' | 'dark' => {
@@ -27,6 +28,7 @@ const initialState = {
   // Theme
   theme: 'system' as Theme,
   resolvedTheme: 'light' as 'light' | 'dark',
+  colorScheme: 'blue' as ColorScheme, // New: default to blue scheme
 
   // Locale
   locale: getInitialLocale() as Locale,
@@ -61,9 +63,23 @@ export const useAppStore = create<AppStore>()(
 
           // Apply theme to document
           if (typeof document !== 'undefined') {
+            const { colorScheme } = get();
+            const themeId = getThemeId(colorScheme, resolved);
             document.documentElement.classList.remove('light', 'dark');
             document.documentElement.classList.add(resolved);
-            document.documentElement.setAttribute('data-theme', resolved);
+            document.documentElement.setAttribute('data-theme', themeId);
+          }
+        },
+
+        setColorScheme: (colorScheme: ColorScheme) => {
+          set({ colorScheme }, false, 'setColorScheme');
+
+          // Apply color scheme to document
+          if (typeof document !== 'undefined') {
+            const { resolvedTheme } = get();
+            const themeId = getThemeId(colorScheme, resolvedTheme);
+            document.documentElement.setAttribute('data-theme', themeId);
+            document.documentElement.setAttribute('data-color-scheme', colorScheme);
           }
         },
 
@@ -131,6 +147,7 @@ export const useAppStore = create<AppStore>()(
         // Only persist theme and locale preferences
         partialize: (state) => ({
           theme: state.theme,
+          colorScheme: state.colorScheme,
           locale: state.locale,
           sidebarCollapsed: state.sidebarCollapsed,
         }),
@@ -139,10 +156,11 @@ export const useAppStore = create<AppStore>()(
           if (state) {
             const resolved = resolveTheme(state.theme);
             state.resolvedTheme = resolved;
+            const themeId = getThemeId(state.colorScheme, resolved);
             if (typeof document !== 'undefined') {
               document.documentElement.classList.remove('light', 'dark');
               document.documentElement.classList.add(resolved);
-              document.documentElement.setAttribute('data-theme', resolved);
+              document.documentElement.setAttribute('data-theme', themeId);
             }
           }
           // Apply locale on rehydration
@@ -164,9 +182,10 @@ if (typeof window !== 'undefined') {
     if (state.theme === 'system') {
       const resolved = getSystemTheme();
       useAppStore.setState({ resolvedTheme: resolved });
+      const themeId = getThemeId(state.colorScheme, resolved);
       document.documentElement.classList.remove('light', 'dark');
       document.documentElement.classList.add(resolved);
-      document.documentElement.setAttribute('data-theme', resolved);
+      document.documentElement.setAttribute('data-theme', themeId);
     }
   });
 }

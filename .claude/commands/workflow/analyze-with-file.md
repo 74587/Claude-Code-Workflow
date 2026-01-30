@@ -242,6 +242,12 @@ ${newFocusFromUser}
 
 ### Phase 2: CLI Exploration
 
+**⚠️ CRITICAL - CLI EXECUTION REQUIREMENT**:
+- **MUST** wait for ALL CLI executions to fully complete before proceeding
+- After launching CLI with `run_in_background: true`, **STOP** and wait for hook callback
+- **DO NOT** proceed to Phase 3 until all CLI results are received
+- Minimize output: No processing until 100% results available
+
 **Step 2.1: Launch Parallel Explorations**
 
 ```javascript
@@ -285,6 +291,7 @@ Schema:
 }
 
 // Gemini CLI for deep analysis
+// ⚠️ CRITICAL: Must wait for CLI completion before aggregating
 explorationPromises.push(
   Bash({
     command: `ccw cli -p "
@@ -313,6 +320,8 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
   })
 )
 ```
+
+**⚠️ STOP POINT**: After launching CLI calls, stop output immediately. Wait for hook callback to receive results before continuing to Step 2.2.
 
 **Step 2.2: Aggregate Findings**
 

@@ -88,7 +88,7 @@ export function LiteTaskDetailPage() {
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" disabled>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            {formatMessage({ id: 'common.back' })}
+            {formatMessage({ id: 'common.actions.back' })}
           </Button>
           <div className="h-8 w-64 rounded bg-muted animate-pulse" />
         </div>
@@ -126,7 +126,7 @@ export function LiteTaskDetailPage() {
         </p>
         <Button onClick={handleBack}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          {formatMessage({ id: 'common.back' })}
+          {formatMessage({ id: 'common.actions.back' })}
         </Button>
       </div>
     );
@@ -143,7 +143,7 @@ export function LiteTaskDetailPage() {
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={handleBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            {formatMessage({ id: 'common.back' })}
+            {formatMessage({ id: 'common.actions.back' })}
           </Button>
           <div>
             <h1 className="text-2xl font-semibold text-foreground">

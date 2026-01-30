@@ -9,11 +9,34 @@ import {
   verifyI18nState,
   verifyPersistenceAfterReload,
   navigateAndVerifyLanguage,
+  setupEnhancedMonitoring,
 } from './helpers/i18n-helpers';
 
 test.describe('[Navigation] - i18n E2E Tests', () => {
   test.beforeEach(async ({ page }) => {
+    // Setup enhanced error monitoring to catch API/proxy errors
+    const monitoring = setupEnhancedMonitoring(page);
+    
+    // Store monitoring on page for afterEach access
+    (page as any).__monitoring = monitoring;
+    
     await page.goto('/', { waitUntil: 'networkidle' });
+  });
+
+  test.afterEach(async ({ page }) => {
+    // Assert no console errors or API failures after each test
+    const monitoring = (page as any).__monitoring as EnhancedMonitoring;
+    if (monitoring) {
+      try {
+        // Allow ignoring known backend dependency issues
+        monitoring.assertClean({ 
+          ignoreAPIPatterns: ['/api/data'],  // Known: backend may not be running
+          allowWarnings: true  // Don't fail on warnings
+        });
+      } finally {
+        monitoring.stop();
+      }
+    }
   });
 
   /**

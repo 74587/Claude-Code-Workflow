@@ -215,6 +215,7 @@ function transformBackendSession(
     created_at: backendSession.created_at,
     updated_at: backendSession.updated_at,
     location,
+    path: (backendSession as unknown as { path?: string }).path,
     // Preserve additional fields if they exist
     has_plan: (backendSession as unknown as { has_plan?: boolean }).has_plan,
     plan_updated_at: (backendSession as unknown as { plan_updated_at?: string }).plan_updated_at,
@@ -871,9 +872,32 @@ export interface SessionDetailResponse {
 
 /**
  * Fetch session detail
+ * First fetches session list to get the session path, then fetches detail data
  */
 export async function fetchSessionDetail(sessionId: string): Promise<SessionDetailResponse> {
-  return fetchApi<SessionDetailResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/detail`);
+  // Step 1: Fetch all sessions to get the session path
+  const sessionsData = await fetchSessions();
+  const allSessions = [...sessionsData.activeSessions, ...sessionsData.archivedSessions];
+  const session = allSessions.find(s => s.session_id === sessionId);
+
+  if (!session) {
+    throw new Error(`Session not found: ${sessionId}`);
+  }
+
+  // Step 2: Use the session path to fetch detail data from the correct endpoint
+  // Backend expects path parameter, not sessionId
+  const sessionPath = (session as any).path || session.session_id;
+  const detailData = await fetchApi<any>(`/api/session-detail?path=${encodeURIComponent(sessionPath)}&type=all`);
+
+  // Step 3: Transform the response to match SessionDetailResponse interface
+  return {
+    session,
+    context: detailData.context,
+    summary: detailData.summary,
+    implPlan: detailData.implPlan,
+    conflicts: detailData.conflicts,
+    review: detailData.review,
+  };
 }
 
 // ========== History / CLI Execution API ==========
@@ -929,6 +953,54 @@ export async function deleteAllHistory(): Promise<void> {
   await fetchApi<void>('/api/cli/history', {
     method: 'DELETE',
   });
+}
+
+/**
+ * Fetch CLI execution detail (conversation records)
+ */
+export async function fetchExecutionDetail(
+  executionId: string,
+  sourceDir?: string
+): Promise<ConversationRecord> {
+  const params = new URLSearchParams({ id: executionId });
+  if (sourceDir) params.set('path', sourceDir);
+
+  const data = await fetchApi<ConversationRecord>(
+    `/api/cli/execution?${params.toString()}`
+  );
+  return data;
+}
+
+// ========== CLI Execution Types ==========
+
+/**
+ * Conversation record for a CLI execution
+ * Contains the full conversation history between user and CLI tool
+ */
+export interface ConversationRecord {
+  id: string;
+  tool: string;
+  mode?: string;
+  turns: ConversationTurn[];
+  turn_count: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+/**
+ * Single turn in a CLI conversation
+ */
+export interface ConversationTurn {
+  turn: number;
+  prompt: string;
+  output: {
+    stdout: string;
+    stderr?: string;
+    truncated?: boolean;
+    structured?: unknown[];
+  };
+  timestamp: string;
+  duration_ms: number;
 }
 
 // ========== CLI Tools Config API ==========

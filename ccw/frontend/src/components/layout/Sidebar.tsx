@@ -135,7 +135,7 @@ export function Sidebar({
           mobileOpen && 'fixed left-0 top-14 flex translate-x-0 z-50 h-[calc(100vh-56px)] w-64 shadow-lg'
         )}
         role="navigation"
-        aria-label={formatMessage({ id: 'header.brand' })}
+        aria-label={formatMessage({ id: 'navigation.header.brand' })}
       >
         <nav className="flex-1 py-3 overflow-y-auto">
           <ul className="space-y-1 px-2">

@@ -219,3 +219,158 @@ async function expectToHaveValue(locator: Locator, value: string): Promise<void>
     throw new Error(`Expected language switcher to show "${expectedText}" but got "${switcherText}"`);
   }
 }
+
+// ========================================
+// Enhanced Error Monitoring (API Gap Fix)
+// ========================================
+
+/**
+ * Console error tracker for catching proxy errors
+ * Usage: Call setupConsoleErrorMonitoring() in test.beforeEach()
+ */
+export interface ConsoleErrorTracker {
+  errors: string[];
+  warnings: string[];
+  start: () => void;
+  stop: () => void;
+  assertNoErrors: () => void;
+  getErrors: () => string[];
+}
+
+export function setupConsoleErrorMonitoring(page: Page): ConsoleErrorTracker {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  const consoleHandler = (msg: any) => {
+    const text = msg.text();
+    if (msg.type() === 'error') {
+      errors.push(text);
+    } else if (msg.type() === 'warning') {
+      warnings.push(text);
+    }
+  };
+
+  return {
+    errors,
+    warnings,
+    start: () => {
+      page.on('console', consoleHandler);
+    },
+    stop: () => {
+      page.off('console', consoleHandler);
+    },
+    assertNoErrors: () => {
+      if (errors.length > 0) {
+        throw new Error(
+          `Console errors detected:\n${errors.map((e, i) => `  ${i + 1}. ${e}`).join('\n')}`
+        );
+      }
+    },
+    getErrors: () => errors,
+  };
+}
+
+/**
+ * API response tracker for catching failed API calls
+ * Usage: Call setupAPIResponseMonitoring(page) in test.beforeEach()
+ */
+export interface APIResponseTracker {
+  failedRequests: Array<{ url: string; status: number; statusText: string }>;
+  start: () => void;
+  stop: () => void;
+  assertNoFailures: (ignorePatterns?: string[]) => void;
+  getFailedRequests: () => Array<{ url: string; status: number; statusText: string }>;
+}
+
+export function setupAPIResponseMonitoring(page: Page): APIResponseTracker {
+  const failedRequests: Array<{ url: string; status: number; statusText: string }> = [];
+
+  const responseHandler = (response: any) => {
+    const url = response.url();
+    // Only track API calls
+    if (url.includes('/api/') && !response.ok()) {
+      failedRequests.push({
+        url,
+        status: response.status(),
+        statusText: response.statusText(),
+      });
+    }
+  };
+
+  return {
+    failedRequests,
+    start: () => {
+      page.on('response', responseHandler);
+    },
+    stop: () => {
+      page.off('response', responseHandler);
+    },
+    assertNoFailures: (ignorePatterns: string[] = []) => {
+      const filtered = failedRequests.filter(
+        (req) => !ignorePatterns.some((pattern) => req.url.includes(pattern))
+      );
+
+      if (filtered.length > 0) {
+        throw new Error(
+          `API failures detected:\n${filtered
+            .map((f, i) => `  ${i + 1}. ${f.url} - ${f.status} ${f.statusText}`)
+            .join('\n')}`
+        );
+      }
+    },
+    getFailedRequests: () => failedRequests,
+  };
+}
+
+/**
+ * Combined error monitoring setup
+ * Sets up both console and API monitoring with automatic cleanup
+ * Usage in test:
+ *
+ * test.beforeEach(async ({ page }) => {
+ *   const monitoring = setupEnhancedMonitoring(page);
+ *   await page.goto('/', { waitUntil: 'networkidle' });
+ *   // ... test code ...
+ *   monitoring.assertClean();
+ * });
+ */
+export interface EnhancedMonitoring {
+  console: ConsoleErrorTracker;
+  api: APIResponseTracker;
+  assertClean: (options?: { ignoreAPIPatterns?: string[]; allowWarnings?: boolean }) => void;
+  stop: () => void;
+}
+
+export function setupEnhancedMonitoring(page: Page): EnhancedMonitoring {
+  const consoleTracker = setupConsoleErrorMonitoring(page);
+  const apiTracker = setupAPIResponseMonitoring(page);
+
+  // Start monitoring immediately
+  consoleTracker.start();
+  apiTracker.start();
+
+  return {
+    console: consoleTracker,
+    api: apiTracker,
+    assertClean: (options = {}) => {
+      const { ignoreAPIPatterns = [], allowWarnings = false } = options;
+
+      // Check for console errors (warnings optional)
+      if (!allowWarnings && consoleTracker.warnings.length > 0) {
+        console.warn(
+          `Console warnings detected:\n${consoleTracker.warnings.map((w, i) => `  ${i + 1}. ${w}`).join('\n')}`
+        );
+      }
+
+      // Assert no console errors
+      consoleTracker.assertNoErrors();
+
+      // Assert no API failures (with optional ignore patterns)
+      apiTracker.assertNoFailures(ignoreAPIPatterns);
+    },
+    stop: () => {
+      consoleTracker.stop();
+      apiTracker.stop();
+    },
+  };
+}

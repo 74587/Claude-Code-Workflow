@@ -17,6 +17,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useHistory } from '@/hooks/useHistory';
 import { ConversationCard } from '@/components/shared/ConversationCard';
+import { CliStreamPanel } from '@/components/shared/CliStreamPanel';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
@@ -35,6 +36,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@/components/ui/Dropdown';
+import type { CliExecution } from '@/lib/api';
 
 /**
  * HistoryPage component - Display CLI execution history
@@ -46,6 +48,8 @@ export function HistoryPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [deleteType, setDeleteType] = React.useState<'single' | 'tool' | 'all' | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<string | null>(null);
+  const [selectedExecution, setSelectedExecution] = React.useState<string | null>(null);
+  const [isPanelOpen, setIsPanelOpen] = React.useState(false);
 
   const {
     executions,
@@ -77,6 +81,12 @@ export function HistoryPage() {
   };
 
   const hasActiveFilters = searchQuery.length > 0 || toolFilter !== undefined;
+
+  // Card click handler - open execution details panel
+  const handleCardClick = (execution: CliExecution) => {
+    setSelectedExecution(execution.id);
+    setIsPanelOpen(true);
+  };
 
   // Delete handlers
   const handleDeleteClick = (id: string) => {
@@ -263,12 +273,20 @@ export function HistoryPage() {
             <ConversationCard
               key={execution.id}
               execution={execution}
+              onClick={handleCardClick}
               onDelete={handleDeleteClick}
               actionsDisabled={isDeleting}
             />
           ))}
         </div>
       )}
+
+      {/* CLI Stream Panel */}
+      <CliStreamPanel
+        executionId={selectedExecution || ''}
+        open={isPanelOpen}
+        onOpenChange={setIsPanelOpen}
+      />
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

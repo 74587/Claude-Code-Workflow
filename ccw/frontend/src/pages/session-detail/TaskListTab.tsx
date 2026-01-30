@@ -13,10 +13,11 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import type { SessionMetadata } from '@/types/store';
+import type { SessionMetadata, TaskData } from '@/types/store';
 
 export interface TaskListTabProps {
   session: SessionMetadata;
+  onTaskClick?: (task: TaskData) => void;
 }
 
 // Status configuration
@@ -51,7 +52,7 @@ const taskStatusConfig: Record<string, { label: string; variant: 'default' | 'se
 /**
  * TaskListTab component - Display tasks in a list format
  */
-export function TaskListTab({ session }: TaskListTabProps) {
+export function TaskListTab({ session, onTaskClick }: TaskListTabProps) {
   const { formatMessage } = useIntl();
 
   const tasks = session.tasks || [];
@@ -104,7 +105,8 @@ export function TaskListTab({ session }: TaskListTabProps) {
             return (
               <Card
                 key={task.task_id || index}
-                className="hover:shadow-sm transition-shadow"
+                className={`hover:shadow-sm transition-shadow ${onTaskClick ? 'cursor-pointer hover:shadow-md' : ''}`}
+                onClick={() => onTaskClick?.(task as TaskData)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">

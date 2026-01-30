@@ -9,7 +9,7 @@ allowed-tools: TodoWrite(*), Task(*), AskUserQuestion(*), Read(*), Grep(*), Glob
 
 When `--yes` or `-y`: Auto-confirm decisions, use balanced exploration across all perspectives.
 
-# Workflow Brainstorm-With-File Command (/workflow:brainstorm-with-file)
+# Workflow Brainstorm-With-File Command
 
 ## Overview
 
@@ -87,6 +87,8 @@ Output:
    └─ .workflow/.brainstorm/{slug}-{date}/ideas/ (individual idea deep-dives)
 ```
 
+---
+
 ## Implementation
 
 ### Session Setup & Mode Detection
@@ -112,7 +114,7 @@ const forcesContinue = $ARGUMENTS.includes('--continue') || $ARGUMENTS.includes(
 const mode = (hasBrainstorm || forcesContinue) ? 'continue' : 'new'
 
 // Brainstorm mode
-const brainstormMode = $ARGUMENTS.includes('--mode') 
+const brainstormMode = $ARGUMENTS.includes('--mode')
   ? $ARGUMENTS.match(/--mode\s+(creative|structured)/)?.[1] || 'balanced'
   : 'balanced'
 
@@ -128,34 +130,25 @@ if (!sessionExists) {
 **Step 1.1: Parse Seed & Identify Dimensions**
 
 ```javascript
-// Brainstorm dimensions for multi-perspective analysis
-const BRAINSTORM_DIMENSIONS = {
-  technical: ['技术', 'technical', 'implementation', 'code', '实现', 'architecture'],
-  ux: ['用户', 'user', 'experience', 'UX', 'UI', '体验', 'interaction'],
-  business: ['业务', 'business', 'value', 'ROI', '价值', 'market'],
-  innovation: ['创新', 'innovation', 'novel', 'creative', '新颖'],
-  feasibility: ['可行', 'feasible', 'practical', 'realistic', '实际'],
-  scalability: ['扩展', 'scale', 'growth', 'performance', '性能'],
-  security: ['安全', 'security', 'risk', 'protection', '风险']
-}
+// See Configuration section for BRAINSTORM_DIMENSIONS definition
 
 function identifyDimensions(topic) {
   const text = topic.toLowerCase()
   const matched = []
-  
+
   for (const [dimension, keywords] of Object.entries(BRAINSTORM_DIMENSIONS)) {
     if (keywords.some(k => text.includes(k))) {
       matched.push(dimension)
     }
   }
-  
+
   // Default dimensions based on mode
   if (matched.length === 0) {
-    return brainstormMode === 'creative' 
+    return brainstormMode === 'creative'
       ? ['innovation', 'ux', 'technical']
       : ['technical', 'feasibility', 'business']
   }
-  
+
   return matched
 }
 
@@ -168,7 +161,6 @@ const dimensions = identifyDimensions(idea_or_topic)
 const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
 
 if (mode === 'new' && !autoYes) {
-  // Expand the seed with targeted questions
   AskUserQuestion({
     questions: [
       {
@@ -230,7 +222,7 @@ Generate 5-7 exploration vectors (questions/directions) to expand this idea:
 Output as structured exploration vectors for multi-perspective analysis.
 `
 
-// Use quick Gemini call to expand seed
+// ⚠️ CRITICAL: Must wait for CLI completion - do NOT proceed until result received
 const expansionResult = await Bash({
   command: `ccw cli -p "${expansionPrompt}" --tool gemini --mode analysis --model gemini-2.5-flash`,
   run_in_background: false
@@ -241,69 +233,21 @@ const explorationVectors = parseExpansionResult(expansionResult)
 
 **Step 1.4: Create brainstorm.md**
 
-```markdown
-# Brainstorm Session
-
-**Session ID**: ${sessionId}
-**Topic**: ${idea_or_topic}
-**Started**: ${getUtc8ISOString()}
-**Mode**: ${brainstormMode}
-**Dimensions**: ${dimensions.join(', ')}
-
----
-
-## Initial Context
-
-**User Focus**: ${userFocusAreas.join(', ')}
-**Depth**: ${analysisDepth}
-**Constraints**: ${constraints.join(', ')}
-
----
-
-## Seed Expansion
-
-### Original Idea
-> ${idea_or_topic}
-
-### Exploration Vectors
-
-${explorationVectors.map((v, i) => `
-#### Vector ${i+1}: ${v.title}
-**Question**: ${v.question}
-**Angle**: ${v.angle}
-**Potential**: ${v.potential}
-`).join('\n')}
-
----
-
-## Thought Evolution Timeline
-
-### Round 1 - Seed Understanding (${timestamp})
-
-#### Initial Parsing
-- **Core concept**: ${coreConcept}
-- **Problem space**: ${problemSpace}
-- **Opportunity**: ${opportunity}
-
-#### Key Questions to Explore
-${keyQuestions.map((q, i) => `${i+1}. ${q}`).join('\n')}
-
----
-
-## Current Ideas
-
-*To be populated after exploration phases*
-
----
-
-## Idea Graveyard
-
-*Discarded ideas with reasons - kept for reference*
-```
+See **Templates** section for complete brainstorm.md structure. Initialize with:
+- Session metadata
+- Initial context (user focus, depth, constraints)
+- Seed expansion (original idea + exploration vectors)
+- Empty sections for thought evolution timeline
 
 ---
 
 ### Phase 2: Divergent Exploration (Multi-CLI Parallel)
+
+**⚠️ CRITICAL - CLI EXECUTION REQUIREMENT**:
+- **MUST** wait for ALL CLI executions to fully complete before proceeding
+- After launching CLI with `run_in_background: true`, **STOP** and wait for hook callback
+- **DO NOT** proceed to Phase 3 until all CLI results are received
+- Minimize output: No processing until 100% results available
 
 **Step 2.1: Launch Multi-CLI Perspectives**
 
@@ -409,9 +353,11 @@ CONSTRAINTS: Consider existing system architecture
   })
 )
 
-// Wait for all CLI analyses
+// ⚠️ CRITICAL: Must wait for ALL results - do NOT proceed until all CLIs complete
 await Promise.all(cliPromises)
 ```
+
+**⚠️ STOP POINT**: After launching CLI calls, stop output immediately. Wait for hook callback to receive results before continuing to Step 2.2.
 
 **Step 2.2: Aggregate Multi-Perspective Findings**
 
@@ -420,28 +366,28 @@ const perspectives = {
   session_id: sessionId,
   timestamp: getUtc8ISOString(),
   topic: idea_or_topic,
-  
+
   creative: {
     source: 'gemini',
     ideas: [...],
     insights: [...],
     challenges: [...]
   },
-  
+
   pragmatic: {
     source: 'codex',
     approaches: [...],
     blockers: [...],
     recommendations: [...]
   },
-  
+
   systematic: {
     source: 'claude',
     decomposition: [...],
     patterns: [...],
     tradeoffs: [...]
   },
-  
+
   synthesis: {
     convergent_themes: [],
     conflicting_views: [],
@@ -454,71 +400,7 @@ Write(perspectivesPath, JSON.stringify(perspectives, null, 2))
 
 **Step 2.3: Update brainstorm.md with Perspectives**
 
-```markdown
-### Round 2 - Multi-Perspective Exploration (${timestamp})
-
-#### Creative Perspective (Gemini)
-
-**Top Creative Ideas**:
-${creativeIdeas.map((idea, i) => `
-${i+1}. **${idea.title}** ⭐ Novelty: ${idea.novelty}/5 | Impact: ${idea.impact}/5
-   ${idea.description}
-`).join('\n')}
-
-**Challenged Assumptions**:
-${challengedAssumptions.map(a => `- ~~${a.assumption}~~ → Consider: ${a.alternative}`).join('\n')}
-
-**Cross-Domain Inspirations**:
-${inspirations.map(i => `- ${i}`).join('\n')}
-
----
-
-#### Pragmatic Perspective (Codex)
-
-**Implementation Approaches**:
-${pragmaticApproaches.map((a, i) => `
-${i+1}. **${a.title}** | Effort: ${a.effort}/5 | Risk: ${a.risk}/5
-   ${a.description}
-   - Quick win: ${a.quickWin}
-   - Dependencies: ${a.dependencies.join(', ')}
-`).join('\n')}
-
-**Technical Blockers**:
-${blockers.map(b => `- ⚠️ ${b}`).join('\n')}
-
----
-
-#### Systematic Perspective (Claude)
-
-**Problem Decomposition**:
-${decomposition}
-
-**Architectural Options**:
-${architecturalOptions.map((opt, i) => `
-${i+1}. **${opt.pattern}**
-   - Pros: ${opt.pros.join(', ')}
-   - Cons: ${opt.cons.join(', ')}
-   - Best for: ${opt.bestFor}
-`).join('\n')}
-
----
-
-#### Perspective Synthesis
-
-**Convergent Themes** (all perspectives agree):
-${convergentThemes.map(t => `- ✅ ${t}`).join('\n')}
-
-**Conflicting Views** (need resolution):
-${conflictingViews.map(v => `
-- 🔄 ${v.topic}
-  - Creative: ${v.creative}
-  - Pragmatic: ${v.pragmatic}
-  - Systematic: ${v.systematic}
-`).join('\n')}
-
-**Unique Contributions**:
-${uniqueContributions.map(c => `- 💡 [${c.source}] ${c.insight}`).join('\n')}
-```
+Append to brainstorm.md the Round 2 multi-perspective exploration findings (see Templates section for format).
 
 ---
 
@@ -532,7 +414,7 @@ let roundNumber = 3  // After initial exploration
 let brainstormComplete = false
 
 while (!brainstormComplete && roundNumber <= MAX_ROUNDS) {
-  
+
   // Present current state
   console.log(`
 ## Brainstorm Round ${roundNumber}
@@ -606,10 +488,9 @@ ${openQuestions.map((q, i) => `${i+1}. ${q}`).join('\n')}
 ```javascript
 async function deepDiveIdeas(selectedIdeas) {
   for (const idea of selectedIdeas) {
-    // Create dedicated idea file
     const ideaPath = `${ideasFolder}/${idea.slug}.md`
-    
-    // Deep dive with targeted CLI call
+
+    // ⚠️ CRITICAL: Must wait for CLI completion before saving results
     await Bash({
       command: `ccw cli -p "
 PURPOSE: Deep dive analysis on idea '${idea.title}'
@@ -625,7 +506,7 @@ TASK:
 
 MODE: analysis
 
-CONTEXT: @**/* 
+CONTEXT: @**/*
 Original idea: ${idea.description}
 Source perspective: ${idea.source}
 User interest reason: ${idea.userReason || 'Selected for exploration'}
@@ -642,8 +523,7 @@ CONSTRAINTS: Focus on actionability
 " --tool gemini --mode analysis`,
       run_in_background: false
     })
-    
-    // Save deep dive to dedicated file
+
     Write(ideaPath, deepDiveContent)
   }
 }
@@ -653,6 +533,7 @@ CONSTRAINTS: Focus on actionability
 
 ```javascript
 async function devilsAdvocate(ideas) {
+  // ⚠️ CRITICAL: Must wait for CLI completion before returning results
   const challengeResult = await Bash({
     command: `ccw cli -p "
 PURPOSE: Devil's advocate - rigorously challenge these brainstorm ideas
@@ -682,7 +563,7 @@ CONSTRAINTS: Be genuinely critical, not just contrarian
 " --tool codex --mode analysis`,
     run_in_background: false
   })
-  
+
   return challengeResult
 }
 ```
@@ -692,7 +573,8 @@ CONSTRAINTS: Be genuinely critical, not just contrarian
 ```javascript
 async function mergeIdeas(ideaIds) {
   const selectedIdeas = ideas.filter(i => ideaIds.includes(i.id))
-  
+
+  // ⚠️ CRITICAL: Must wait for CLI completion before processing merge result
   const mergeResult = await Bash({
     command: `ccw cli -p "
 PURPOSE: Synthesize multiple ideas into unified concept
@@ -726,85 +608,17 @@ CONSTRAINTS: Don't force incompatible ideas together
 " --tool gemini --mode analysis`,
     run_in_background: false
   })
-  
-  // Add merged idea to list
+
   const mergedIdea = parseMergeResult(mergeResult)
   ideas.push(mergedIdea)
-  
+
   return mergedIdea
 }
 ```
 
 **Step 3.5: Document Each Round**
 
-Append to brainstorm.md:
-```markdown
-### Round ${n} - ${roundType} (${timestamp})
-
-#### User Direction
-- **Selected ideas**: ${selectedIdeas.join(', ')}
-- **Action**: ${action}
-- **Reasoning**: ${userReasoning || 'Not specified'}
-
-${roundType === 'deep-dive' ? `
-#### Deep Dive: ${ideaTitle}
-
-**Elaborated Concept**:
-${elaboratedConcept}
-
-**Implementation Requirements**:
-${requirements.map(r => `- ${r}`).join('\n')}
-
-**Challenges & Mitigations**:
-${challenges.map(c => `- ⚠️ ${c.challenge} → ✅ ${c.mitigation}`).join('\n')}
-
-**MVP Definition**:
-${mvpDefinition}
-
-**Recommendation**: ${recommendation}
-` : ''}
-
-${roundType === 'challenge' ? `
-#### Devil's Advocate Results
-
-**Challenges Raised**:
-${challenges.map(c => `
-- 🔴 **${c.idea}**: ${c.objection}
-  - Counter: ${c.counter || 'No strong counter-argument'}
-  - Survivability: ${c.survivability}/5
-`).join('\n')}
-
-**Ideas That Survived**:
-${survivedIdeas.map(i => `- ✅ ${i}`).join('\n')}
-
-**Eliminated/Parked**:
-${eliminatedIdeas.map(i => `- ❌ ${i.title}: ${i.reason}`).join('\n')}
-` : ''}
-
-${roundType === 'merge' ? `
-#### Merged Idea: ${mergedIdea.title}
-
-**Source Ideas Combined**:
-${sourceIdeas.map(i => `- ${i}`).join('\n')}
-
-**Unified Concept**:
-${mergedIdea.description}
-
-**Key Elements Preserved**:
-${preservedElements.map(e => `- ✅ ${e}`).join('\n')}
-
-**Tradeoffs Accepted**:
-${tradeoffs.map(t => `- ⚖️ ${t}`).join('\n')}
-` : ''}
-
-#### Updated Idea Ranking
-
-${updatedRanking.map((idea, i) => `
-${i+1}. **${idea.title}** ${idea.status}
-   - Score: ${idea.score}/10
-   - Source: ${idea.source}
-`).join('\n')}
-```
+Append each round's findings to brainstorm.md (see Templates section for format).
 
 ---
 
@@ -818,8 +632,7 @@ const synthesis = {
   topic: idea_or_topic,
   completed: getUtc8ISOString(),
   total_rounds: roundNumber,
-  
-  // Top ideas with full details
+
   top_ideas: ideas.filter(i => i.status === 'active').sort((a,b) => b.score - a.score).slice(0, 5).map(idea => ({
     title: idea.title,
     description: idea.description,
@@ -831,25 +644,21 @@ const synthesis = {
     main_challenges: idea.challenges,
     next_steps: idea.nextSteps
   })),
-  
-  // Parked ideas for future reference
+
   parked_ideas: ideas.filter(i => i.status === 'parked').map(idea => ({
     title: idea.title,
     reason_parked: idea.parkReason,
     potential_future_trigger: idea.futureTrigger
   })),
-  
-  // Key insights from the process
+
   key_insights: keyInsights,
-  
-  // Recommendations
+
   recommendations: {
     primary: primaryRecommendation,
     alternatives: alternativeApproaches,
     not_recommended: notRecommended
   },
-  
-  // Follow-up suggestions
+
   follow_up: [
     { type: 'implementation', summary: '...' },
     { type: 'research', summary: '...' },
@@ -862,104 +671,7 @@ Write(synthesisPath, JSON.stringify(synthesis, null, 2))
 
 **Step 4.2: Final brainstorm.md Update**
 
-```markdown
----
-
-## Synthesis & Conclusions (${timestamp})
-
-### Executive Summary
-
-${executiveSummary}
-
-### Top Ideas (Final Ranking)
-
-${topIdeas.map((idea, i) => `
-#### ${i+1}. ${idea.title} ⭐ Score: ${idea.score}/10
-
-**Description**: ${idea.description}
-
-**Why This Idea**:
-${idea.strengths.map(s => `- ✅ ${s}`).join('\n')}
-
-**Main Challenges**:
-${idea.challenges.map(c => `- ⚠️ ${c}`).join('\n')}
-
-**Recommended Next Steps**:
-${idea.nextSteps.map((s, j) => `${j+1}. ${s}`).join('\n')}
-
----
-`).join('\n')}
-
-### Primary Recommendation
-
-> ${primaryRecommendation}
-
-**Rationale**: ${primaryRationale}
-
-**Quick Start Path**:
-1. ${step1}
-2. ${step2}
-3. ${step3}
-
-### Alternative Approaches
-
-${alternatives.map((alt, i) => `
-${i+1}. **${alt.title}**
-   - When to consider: ${alt.whenToConsider}
-   - Tradeoff: ${alt.tradeoff}
-`).join('\n')}
-
-### Ideas Parked for Future
-
-${parkedIdeas.map(idea => `
-- **${idea.title}** (Parked: ${idea.reason})
-  - Revisit when: ${idea.futureTrigger}
-`).join('\n')}
-
----
-
-## Key Insights
-
-### Process Discoveries
-
-${processDiscoveries.map(d => `- 💡 ${d}`).join('\n')}
-
-### Assumptions Challenged
-
-${challengedAssumptions.map(a => `- ~~${a.original}~~ → ${a.updated}`).join('\n')}
-
-### Unexpected Connections
-
-${unexpectedConnections.map(c => `- 🔗 ${c}`).join('\n')}
-
----
-
-## Current Understanding (Final)
-
-### Problem Reframed
-
-${reframedProblem}
-
-### Solution Space Mapped
-
-${solutionSpaceMap}
-
-### Decision Framework
-
-When to choose each approach:
-${decisionFramework}
-
----
-
-## Session Statistics
-
-- **Total Rounds**: ${totalRounds}
-- **Ideas Generated**: ${totalIdeas}
-- **Ideas Survived**: ${survivedIdeas}
-- **Perspectives Used**: Gemini (creative), Codex (pragmatic), Claude (systematic)
-- **Duration**: ${duration}
-- **Artifacts**: brainstorm.md, perspectives.json, synthesis.json, ${ideaFiles.length} idea deep-dives
-```
+Update brainstorm.md with synthesis & conclusions (see Templates section for format).
 
 **Step 4.3: Post-Completion Options**
 
@@ -999,7 +711,62 @@ if (selection.includes("导出分享")) {
 
 ---
 
-## Session Folder Structure
+## Configuration
+
+### Brainstorm Dimensions
+
+```javascript
+const BRAINSTORM_DIMENSIONS = {
+  technical: ['技术', 'technical', 'implementation', 'code', '实现', 'architecture'],
+  ux: ['用户', 'user', 'experience', 'UX', 'UI', '体验', 'interaction'],
+  business: ['业务', 'business', 'value', 'ROI', '价值', 'market'],
+  innovation: ['创新', 'innovation', 'novel', 'creative', '新颖'],
+  feasibility: ['可行', 'feasible', 'practical', 'realistic', '实际'],
+  scalability: ['扩展', 'scale', 'growth', 'performance', '性能'],
+  security: ['安全', 'security', 'risk', 'protection', '风险']
+}
+```
+
+### Multi-CLI Collaboration Strategy
+
+**Perspective Roles**
+
+| CLI | Role | Focus | Best For |
+|-----|------|-------|----------|
+| Gemini | Creative | Innovation, cross-domain | Generating novel ideas |
+| Codex | Pragmatic | Implementation, feasibility | Reality-checking ideas |
+| Claude | Systematic | Architecture, structure | Organizing solutions |
+
+**Collaboration Patterns**
+
+1. **Parallel Divergence**: All CLIs explore simultaneously from different angles
+2. **Sequential Deep-Dive**: One CLI expands, others critique/refine
+3. **Debate Mode**: CLIs argue for/against specific approaches
+4. **Synthesis Mode**: Combine insights from all perspectives
+
+**When to Use Each Pattern**
+
+- **New topic**: Parallel Divergence → get diverse initial ideas
+- **Promising idea**: Sequential Deep-Dive → thorough exploration
+- **Controversial approach**: Debate Mode → uncover hidden issues
+- **Ready to decide**: Synthesis Mode → create actionable conclusion
+
+### Error Handling
+
+| Situation | Action |
+|-----------|--------|
+| CLI timeout | Retry with shorter prompt, or continue without that perspective |
+| No good ideas | Reframe the problem, adjust constraints, try different angles |
+| User disengaged | Summarize progress, offer break point with resume option |
+| Perspectives conflict | Present as tradeoff, let user decide direction |
+| Max rounds reached | Force synthesis, highlight unresolved questions |
+| All ideas fail challenge | Return to divergent phase with new constraints |
+
+---
+
+## Templates
+
+### Session Folder Structure
 
 ```
 .workflow/.brainstorm/BS-{slug}-{date}/
@@ -1012,14 +779,14 @@ if (selection.includes("导出分享")) {
     └── merged-idea-1.md
 ```
 
-## Brainstorm Document Template
+### Brainstorm Document Template
 
 ```markdown
 # Brainstorm Session
 
-**Session ID**: BS-xxx-2025-01-27
+**Session ID**: BS-xxx-YYYY-MM-DD
 **Topic**: [idea or topic]
-**Started**: 2025-01-27T10:00:00+08:00
+**Started**: YYYY-MM-DDTHH:mm:ss+08:00
 **Mode**: creative | structured | balanced
 **Dimensions**: [technical, ux, innovation, ...]
 
@@ -1039,115 +806,207 @@ if (selection.includes("导出分享")) {
 > [the initial idea]
 
 ### Exploration Vectors
-[generated questions and directions]
+
+#### Vector 1: [title]
+**Question**: [question]
+**Angle**: [angle]
+**Potential**: [potential]
+
+[... more vectors ...]
 
 ---
 
 ## Thought Evolution Timeline
 
-### Round 1 - Seed Understanding
-...
+### Round 1 - Seed Understanding (timestamp)
 
-### Round 2 - Multi-Perspective Exploration
+#### Initial Parsing
+- **Core concept**: [concept]
+- **Problem space**: [space]
+- **Opportunity**: [opportunity]
 
-#### Creative Perspective (Gemini)
-...
-
-#### Pragmatic Perspective (Codex)
-...
-
-#### Systematic Perspective (Claude)
-...
-
-#### Perspective Synthesis
-...
-
-### Round 3 - Deep Dive
-...
-
-### Round 4 - Challenge
+#### Key Questions to Explore
+1. [question 1]
+2. [question 2]
 ...
 
 ---
 
-## Synthesis & Conclusions
+### Round 2 - Multi-Perspective Exploration (timestamp)
+
+#### Creative Perspective (Gemini)
+
+**Top Creative Ideas**:
+1. **[Title]** ⭐ Novelty: X/5 | Impact: Y/5
+   [description]
+
+**Challenged Assumptions**:
+- ~~[assumption]~~ → Consider: [alternative]
+
+**Cross-Domain Inspirations**:
+- [inspiration]
+
+---
+
+#### Pragmatic Perspective (Codex)
+
+**Implementation Approaches**:
+1. **[Title]** | Effort: X/5 | Risk: Y/5
+   [description]
+   - Quick win: [win]
+   - Dependencies: [deps]
+
+**Technical Blockers**:
+- ⚠️ [blocker]
+
+---
+
+#### Systematic Perspective (Claude)
+
+**Problem Decomposition**:
+[decomposition]
+
+**Architectural Options**:
+1. **[Pattern]**
+   - Pros: [pros]
+   - Cons: [cons]
+   - Best for: [context]
+
+---
+
+#### Perspective Synthesis
+
+**Convergent Themes** (all perspectives agree):
+- ✅ [theme]
+
+**Conflicting Views** (need resolution):
+- 🔄 [topic]
+  - Creative: [view]
+  - Pragmatic: [view]
+  - Systematic: [view]
+
+**Unique Contributions**:
+- 💡 [source] [insight]
+
+---
+
+### Round 3+ - [Round Type] (timestamp)
+
+[Round-specific content: deep-dive, challenge, merge, etc.]
+
+---
+
+## Synthesis & Conclusions (timestamp)
 
 ### Executive Summary
-...
+
+[summary]
 
 ### Top Ideas (Final Ranking)
-...
+
+#### 1. [Title] ⭐ Score: X/10
+
+**Description**: [description]
+
+**Why This Idea**:
+- ✅ [strength]
+
+**Main Challenges**:
+- ⚠️ [challenge]
+
+**Recommended Next Steps**:
+1. [step]
+2. [step]
+
+---
+
+[... more ideas ...]
 
 ### Primary Recommendation
-...
+
+> [recommendation]
+
+**Rationale**: [rationale]
+
+**Quick Start Path**:
+1. [step]
+2. [step]
+3. [step]
+
+### Alternative Approaches
+
+1. **[Title]**
+   - When to consider: [when]
+   - Tradeoff: [tradeoff]
+
+### Ideas Parked for Future
+
+- **[Title]** (Parked: [reason])
+  - Revisit when: [trigger]
 
 ---
 
 ## Key Insights
-...
+
+### Process Discoveries
+
+- 💡 [discovery]
+
+### Assumptions Challenged
+
+- ~~[original]~~ → [updated]
+
+### Unexpected Connections
+
+- 🔗 [connection]
 
 ---
 
 ## Current Understanding (Final)
-...
+
+### Problem Reframed
+
+[reframed problem]
+
+### Solution Space Mapped
+
+[solution space]
+
+### Decision Framework
+
+When to choose each approach:
+[framework]
 
 ---
 
 ## Session Statistics
-...
+
+- **Total Rounds**: [n]
+- **Ideas Generated**: [n]
+- **Ideas Survived**: [n]
+- **Perspectives Used**: Gemini (creative), Codex (pragmatic), Claude (systematic)
+- **Duration**: [duration]
+- **Artifacts**: brainstorm.md, perspectives.json, synthesis.json, [n] idea deep-dives
 ```
 
-## Multi-CLI Collaboration Strategy
-
-### Perspective Roles
-
-| CLI | Role | Focus | Best For |
-|-----|------|-------|----------|
-| Gemini | Creative | Innovation, cross-domain | Generating novel ideas |
-| Codex | Pragmatic | Implementation, feasibility | Reality-checking ideas |
-| Claude | Systematic | Architecture, structure | Organizing solutions |
-
-### Collaboration Patterns
-
-1. **Parallel Divergence**: All CLIs explore simultaneously from different angles
-2. **Sequential Deep-Dive**: One CLI expands, others critique/refine
-3. **Debate Mode**: CLIs argue for/against specific approaches
-4. **Synthesis Mode**: Combine insights from all perspectives
-
-### When to Use Each Pattern
-
-- **New topic**: Parallel Divergence → get diverse initial ideas
-- **Promising idea**: Sequential Deep-Dive → thorough exploration
-- **Controversial approach**: Debate Mode → uncover hidden issues
-- **Ready to decide**: Synthesis Mode → create actionable conclusion
-
-## Error Handling
-
-| Situation | Action |
-|-----------|--------|
-| CLI timeout | Retry with shorter prompt, or continue without that perspective |
-| No good ideas | Reframe the problem, adjust constraints, try different angles |
-| User disengaged | Summarize progress, offer break point with resume option |
-| Perspectives conflict | Present as tradeoff, let user decide direction |
-| Max rounds reached | Force synthesis, highlight unresolved questions |
-| All ideas fail challenge | Return to divergent phase with new constraints |
+---
 
 ## Usage Recommendations
 
-Use `/workflow:brainstorm-with-file` when:
+**Use `/workflow:brainstorm-with-file` when:**
 - Starting a new feature/product without clear direction
 - Facing a complex problem with multiple possible solutions
 - Need to explore alternatives before committing
 - Want documented thinking process for team review
 - Combining multiple stakeholder perspectives
 
-Use `/workflow:analyze-with-file` when:
+**Use `/workflow:analyze-with-file` when:**
 - Investigating existing code/system
 - Need factual analysis over ideation
 - Debugging or troubleshooting
 - Understanding current state
 
-Use `/workflow:plan` when:
+**Use `/workflow:plan` when:**
 - Direction is already clear
 - Ready to move from ideas to execution
 - Need implementation breakdown

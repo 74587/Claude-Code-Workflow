@@ -8,14 +8,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Base colors
+        // New theme system - primary color variables
+        bg: "hsl(var(--bg, 0 0% 98%))",
+        surface: "hsl(var(--surface, 220 60% 99%))",
+        border: "hsl(var(--border, 220 20% 88%))",
+        text: "hsl(var(--text, 220 30% 15%))",
+        "text-secondary": "hsl(var(--text-secondary, 220 15% 45%))",
+        accent: "hsl(var(--accent, 220 90% 56%))",
+
+        // Base colors (backward compatible with legacy system)
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
 
@@ -29,10 +36,7 @@ export default {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
         },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
-        },
+        "accent-foreground": "hsl(var(--accent-foreground))",
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",

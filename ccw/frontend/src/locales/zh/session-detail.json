@@ -50,5 +50,34 @@
     "updated": "更新时间",
     "tasks": "任务",
     "description": "描述"
+  },
+  "taskDrawer": {
+    "status": {
+      "pending": "待处理",
+      "inProgress": "进行中",
+      "completed": "已完成",
+      "blocked": "已阻塞",
+      "skipped": "已跳过",
+      "failed": "失败"
+    },
+    "tabs": {
+      "overview": "概览",
+      "flowchart": "流程图",
+      "files": "文件"
+    },
+    "overview": {
+      "description": "描述",
+      "preAnalysis": "前置分析步骤",
+      "implementationSteps": "实现步骤",
+      "modificationPoints": "修改点",
+      "dependsOn": "依赖于",
+      "empty": "此任务暂无概览信息。"
+    },
+    "flowchart": {
+      "empty": "此任务暂无流程图。"
+    },
+    "files": {
+      "empty": "此任务未指定文件。"
+    }
   }
 }

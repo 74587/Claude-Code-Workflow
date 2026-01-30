@@ -568,7 +568,7 @@ function sortTaskIds(a: string, b: string): number {
  * @param workflowDir - Path to .workflow directory
  * @returns Project overview data or null if not found
  */
-function loadProjectOverview(workflowDir: string): ProjectOverview | null {
+export function loadProjectOverview(workflowDir: string): ProjectOverview | null {
   const techFile = join(workflowDir, 'project-tech.json');
   const guidelinesFile = join(workflowDir, 'project-guidelines.json');
 

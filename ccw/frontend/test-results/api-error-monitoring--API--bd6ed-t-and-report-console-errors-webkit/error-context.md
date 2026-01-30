@@ -8,12 +8,12 @@
       - img [ref=e7]
       - generic [ref=e11]: navigation.header.brand
     - generic [ref=e12]:
-      - combobox "Select language" [active] [ref=e13] [cursor=pointer]:
+      - combobox "Select language" [ref=e13] [cursor=pointer]:
         - img [ref=e14]
         - generic:
           - generic:
-            - generic: 🇨🇳
-            - generic: 中文
+            - generic: 🇺🇸
+            - generic: English
         - img [ref=e18]
       - button "common.aria.switchToDarkMode" [ref=e20] [cursor=pointer]:
         - img [ref=e21]
@@ -95,59 +95,50 @@
       - generic [ref=e124]:
         - generic [ref=e125]:
           - generic [ref=e126]:
-            - heading "skills.title" [level=1] [ref=e127]:
-              - img [ref=e128]
-              - text: skills.title
-            - paragraph [ref=e130]: skills.description
-          - generic [ref=e131]:
-            - button "common.actions.refresh" [disabled]:
-              - img
-              - text: common.actions.refresh
-            - button "skills.actions.install" [ref=e132] [cursor=pointer]:
-              - img [ref=e133]
-              - text: skills.actions.install
-        - generic [ref=e134]:
-          - generic [ref=e135]:
-            - generic [ref=e136]:
-              - img [ref=e137]
-              - generic [ref=e139]: "0"
-            - paragraph [ref=e140]: common.stats.totalSkills
-          - generic [ref=e141]:
-            - generic [ref=e142]:
-              - img [ref=e143]
-              - generic [ref=e145]: "0"
-            - paragraph [ref=e146]: skills.state.enabled
-          - generic [ref=e147]:
-            - generic [ref=e148]:
-              - img [ref=e149]
-              - generic [ref=e153]: "0"
-            - paragraph [ref=e154]: skills.state.disabled
-          - generic [ref=e155]:
-            - generic [ref=e156]:
-              - img [ref=e157]
-              - generic [ref=e160]: "0"
-            - paragraph [ref=e161]: skills.card.category
-        - generic [ref=e162]:
-          - generic [ref=e163]:
-            - img [ref=e164]
-            - textbox "skills.filters.searchPlaceholder" [ref=e167]
-          - generic [ref=e168]:
-            - combobox [ref=e169] [cursor=pointer]:
-              - generic: skills.filters.all
-              - img [ref=e170]
-            - combobox [ref=e172] [cursor=pointer]:
-              - generic: skills.filters.allSources
-              - img [ref=e173]
-            - combobox [ref=e175] [cursor=pointer]:
-              - generic: skills.filters.all
-              - img [ref=e176]
-        - generic [ref=e178]:
-          - button "skills.filters.all (0)" [ref=e179] [cursor=pointer]
-          - button "skills.state.enabled (0)" [ref=e180] [cursor=pointer]:
-            - img [ref=e181]
-            - text: skills.state.enabled (0)
-          - button "skills.state.disabled (0)" [ref=e183] [cursor=pointer]:
-            - img [ref=e184]
-            - text: skills.state.disabled (0)
-          - button "skills.view.compact" [ref=e189] [cursor=pointer]
+            - heading "home.title" [level=1] [ref=e127]
+            - paragraph [ref=e128]: home.description
+          - button "common.actions.refresh" [ref=e129] [cursor=pointer]:
+            - img [ref=e130]
+            - text: common.actions.refresh
+        - generic [ref=e135]:
+          - heading "home.sections.statistics" [level=2] [ref=e136]
+          - generic [ref=e137]:
+            - generic [ref=e140]:
+              - generic [ref=e141]:
+                - paragraph [ref=e142]: home.stats.activeSessions
+                - paragraph [ref=e144]: "0"
+              - img [ref=e146]
+            - generic [ref=e150]:
+              - generic [ref=e151]:
+                - paragraph [ref=e152]: home.stats.totalTasks
+                - paragraph [ref=e154]: "0"
+              - img [ref=e156]
+            - generic [ref=e161]:
+              - generic [ref=e162]:
+                - paragraph [ref=e163]: home.stats.completedTasks
+                - paragraph [ref=e165]: "0"
+              - img [ref=e167]
+            - generic [ref=e172]:
+              - generic [ref=e173]:
+                - paragraph [ref=e174]: home.stats.pendingTasks
+                - paragraph [ref=e176]: "0"
+              - img [ref=e178]
+            - generic [ref=e183]:
+              - generic [ref=e184]:
+                - paragraph [ref=e185]: common.status.failed
+                - paragraph [ref=e187]: "0"
+              - img [ref=e189]
+            - generic [ref=e195]:
+              - generic [ref=e196]:
+                - paragraph [ref=e197]: common.stats.todayActivity
+                - paragraph [ref=e199]: "0"
+              - img [ref=e201]
+        - generic [ref=e203]:
+          - generic [ref=e204]:
+            - heading "home.sections.recentSessions" [level=2] [ref=e205]
+            - button "common.actions.viewAll" [ref=e206] [cursor=pointer]
+          - generic [ref=e207]:
+            - img [ref=e208]
+            - heading "home.emptyState.noSessions.title" [level=3] [ref=e210]
+            - paragraph [ref=e211]: home.emptyState.noSessions.message
 ```

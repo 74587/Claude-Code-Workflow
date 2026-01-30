@@ -22,7 +22,7 @@ import {
   HelpPage,
   NotFoundPage,
   LiteTasksPage,
-  LiteTaskDetailPage,
+  // LiteTaskDetailPage removed - now using TaskDrawer instead
   ReviewSessionPage,
   McpManagerPage,
   EndpointsPage,
@@ -62,10 +62,7 @@ const routes: RouteObject[] = [
         path: 'lite-tasks',
         element: <LiteTasksPage />,
       },
-      {
-        path: 'lite-tasks/:sessionId',
-        element: <LiteTaskDetailPage />,
-      },
+      // /lite-tasks/:sessionId route removed - now using TaskDrawer
       {
         path: 'project',
         element: <ProjectOverviewPage />,
@@ -142,7 +139,7 @@ export const ROUTES = {
   FIX_SESSION: '/sessions/:sessionId/fix',
   REVIEW_SESSION: '/sessions/:sessionId/review',
   LITE_TASKS: '/lite-tasks',
-  LITE_TASK_DETAIL: '/lite-tasks/:sessionId',
+  // LITE_TASK_DETAIL removed - now using TaskDrawer
   PROJECT: '/project',
   HISTORY: '/history',
   ORCHESTRATOR: '/orchestrator',

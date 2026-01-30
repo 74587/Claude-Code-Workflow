@@ -8,7 +8,6 @@ import { useIntl } from 'react-intl';
 import {
   Settings,
   Moon,
-  Sun,
   Bell,
   Cpu,
   RefreshCw,
@@ -28,6 +27,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
+import { ThemeSelector } from '@/components/shared/ThemeSelector';
 import { useTheme } from '@/hooks';
 import { useHooks, useRules, useToggleHook, useToggleRule } from '@/hooks';
 import { useConfigStore, selectCliTools, selectDefaultCliTool, selectUserPreferences } from '@/stores/configStore';
@@ -430,39 +430,33 @@ export function SettingsPage() {
           <Moon className="w-5 h-5" />
           {formatMessage({ id: 'settings.sections.appearance' })}
         </h2>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
+        <div className="space-y-6">
+          {/* Multi-Theme Selector */}
+          <div>
+            <p className="font-medium text-foreground mb-1">
+              {formatMessage({ id: 'settings.appearance.theme' })}
+            </p>
+            <p className="text-sm text-muted-foreground mb-4">
+              {formatMessage({ id: 'settings.appearance.description' })}
+            </p>
+            <ThemeSelector />
+          </div>
+
+          {/* System Theme Toggle (Backward Compatibility) */}
+          <div className="flex items-center justify-between pt-4 border-t border-border">
             <div>
-              <p className="font-medium text-foreground">{formatMessage({ id: 'settings.appearance.theme' })}</p>
+              <p className="font-medium text-foreground">系统跟随</p>
               <p className="text-sm text-muted-foreground">
-                {formatMessage({ id: 'settings.appearance.description' })}
+                使用系统的深色/浅色模式设置
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant={theme === 'light' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTheme('light')}
-              >
-                <Sun className="w-4 h-4 mr-2" />
-                {formatMessage({ id: 'settings.appearance.themeOptions.light' })}
-              </Button>
-              <Button
-                variant={theme === 'dark' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTheme('dark')}
-              >
-                <Moon className="w-4 h-4 mr-2" />
-                {formatMessage({ id: 'settings.appearance.themeOptions.dark' })}
-              </Button>
-              <Button
-                variant={theme === 'system' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTheme('system')}
-              >
-                {formatMessage({ id: 'settings.appearance.themeOptions.system' })}
-              </Button>
-            </div>
+            <Button
+              variant={theme === 'system' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setTheme('system')}
+            >
+              {formatMessage({ id: 'settings.appearance.themeOptions.system' })}
+            </Button>
           </div>
         </div>
       </Card>

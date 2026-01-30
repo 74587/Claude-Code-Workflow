@@ -4,6 +4,9 @@
  */
 import { getAllManifests } from '../manifest.js';
 import { listTools } from '../../tools/index.js';
+import { loadProjectOverview } from '../data-aggregator.js';
+import { resolvePath } from '../../utils/path-resolver.js';
+import { join } from 'path';
 import type { RouteContext } from './types.js';
 
 /**
@@ -12,6 +15,19 @@ import type { RouteContext } from './types.js';
  */
 export async function handleCcwRoutes(ctx: RouteContext): Promise<boolean> {
   const { pathname, url, req, res, initialPath, handlePostRequest, broadcastToClients } = ctx;
+
+  // API: Project Overview
+  if (pathname === '/api/ccw' && req.method === 'GET') {
+    const projectPath = url.searchParams.get('path') || initialPath;
+    const resolvedPath = resolvePath(projectPath);
+    const workflowDir = join(resolvedPath, '.workflow');
+
+    const projectOverview = loadProjectOverview(workflowDir);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ projectOverview }));
+    return true;
+  }
 
   // API: CCW Installation Status
   if (pathname === '/api/ccw/installations') {

@@ -1,10 +1,9 @@
 // ========================================
 // LiteTasksPage Component
 // ========================================
-// Lite-plan and lite-fix task list page with flowchart rendering
+// Lite-plan and lite-fix task list page with TaskDrawer
 
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useIntl } from 'react-intl';
 import {
   ArrowLeft,
@@ -18,12 +17,17 @@ import {
   Activity,
   Repeat,
   MessageCircle,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { useLiteTasks } from '@/hooks/useLiteTasks';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { TaskDrawer } from '@/components/shared/TaskDrawer';
+import type { LiteTask, LiteTaskSession } from '@/lib/api';
+import { useNavigate } from 'react-router-dom';
 
 type LiteTaskTab = 'lite-plan' | 'lite-fix' | 'multi-cli-plan';
 
@@ -37,13 +41,15 @@ function getI18nText(label: string | { en?: string; zh?: string } | undefined, f
 }
 
 /**
- * LiteTasksPage component - Display lite-plan and lite-fix sessions
+ * LiteTasksPage component - Display lite-plan and lite-fix sessions with expandable tasks
  */
 export function LiteTasksPage() {
   const navigate = useNavigate();
   const { formatMessage } = useIntl();
   const { litePlan, liteFix, multiCliPlan, isLoading, error, refetch } = useLiteTasks();
   const [activeTab, setActiveTab] = React.useState<LiteTaskTab>('lite-plan');
+  const [expandedSessionId, setExpandedSessionId] = React.useState<string | null>(null);
+  const [selectedTask, setSelectedTask] = React.useState<LiteTask | null>(null);
 
   const handleBack = () => {
     navigate('/sessions');
@@ -66,53 +72,102 @@ export function LiteTasksPage() {
     return statusColors[status || ''] || 'secondary';
   };
 
-  // Render lite task card
-  const renderLiteTaskCard = (session: { id: string; type: string; createdAt?: string; tasks?: unknown[] }) => {
+  // Render lite task card with expandable tasks
+  const renderLiteTaskCard = (session: LiteTaskSession) => {
     const isLitePlan = session.type === 'lite-plan';
     const taskCount = session.tasks?.length || 0;
+    const isExpanded = expandedSessionId === session.id;
 
     return (
-      <Card
-        key={session.id}
-        className="cursor-pointer hover:shadow-md transition-shadow"
-        onClick={() => navigate(`/lite-tasks/${session.id}`)}
-      >
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex-1 min-w-0">
-              <h3 className="font-medium text-foreground text-sm">{session.id}</h3>
+      <div key={session.id}>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setExpandedSessionId(isExpanded ? null : session.id)}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="flex-shrink-0">
+                  {isExpanded ? (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-foreground text-sm">{session.id}</h3>
+                </div>
+              </div>
+              <Badge variant={isLitePlan ? 'secondary' : 'warning'} className="gap-1 flex-shrink-0">
+                {isLitePlan ? <FileEdit className="h-3 w-3" /> : <Wrench className="h-3 w-3" />}
+                {formatMessage({ id: isLitePlan ? 'liteTasks.type.plan' : 'liteTasks.type.fix' })}
+              </Badge>
             </div>
-            <Badge variant={isLitePlan ? 'info' : 'warning'} className="gap-1">
-              {isLitePlan ? <FileEdit className="h-3 w-3" /> : <Wrench className="h-3 w-3" />}
-              {formatMessage({ id: isLitePlan ? 'liteTasks.type.plan' : 'liteTasks.type.fix' })}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            {session.createdAt && (
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              {session.createdAt && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {new Date(session.createdAt).toLocaleDateString()}
+                </span>
+              )}
               <span className="flex items-center gap-1">
-                <Calendar className="h-3.5 w-3.5" />
-                {new Date(session.createdAt).toLocaleDateString()}
+                <ListChecks className="h-3.5 w-3.5" />
+                {taskCount} {formatMessage({ id: 'session.tasks' })}
               </span>
-            )}
-            <span className="flex items-center gap-1">
-              <ListChecks className="h-3.5 w-3.5" />
-              {taskCount} {formatMessage({ id: 'session.tasks' })}
-            </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Expanded tasks list */}
+        {isExpanded && session.tasks && session.tasks.length > 0 && (
+          <div className="mt-2 ml-6 space-y-2 pb-2">
+            {session.tasks.map((task, index) => {
+              const taskStatusColor = task.status === 'completed' ? 'success' :
+                                    task.status === 'in_progress' ? 'warning' :
+                                    task.status === 'failed' ? 'destructive' : 'secondary';
+
+              return (
+                <Card
+                  key={task.id || index}
+                  className="cursor-pointer hover:shadow-sm hover:border-primary/50 transition-all border-border"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedTask(task);
+                  }}
+                >
+                  <CardContent className="p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-mono text-muted-foreground">
+                            {task.task_id || `#${index + 1}`}
+                          </span>
+                          <Badge variant={taskStatusColor as 'success' | 'warning' | 'destructive' | 'secondary'} className="text-xs">
+                            {task.status}
+                          </Badge>
+                        </div>
+                        <h4 className="text-sm font-medium text-foreground">
+                          {task.title || 'Untitled Task'}
+                        </h4>
+                        {task.description && (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                            {task.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
     );
   };
 
   // Render multi-cli plan card
-  const renderMultiCliCard = (session: {
-    id: string;
-    metadata?: Record<string, unknown>;
-    latestSynthesis?: { title?: string | { en?: string; zh?: string }; status?: string };
-    roundCount?: number;
-    status?: string;
-    createdAt?: string;
-  }) => {
+  const renderMultiCliCard = (session: LiteTaskSession) => {
     const metadata = session.metadata || {};
     const latestSynthesis = session.latestSynthesis || {};
     const roundCount = (metadata.roundId as number) || session.roundCount || 1;
@@ -127,14 +182,23 @@ export function LiteTasksPage() {
       <Card
         key={session.id}
         className="cursor-pointer hover:shadow-md transition-shadow"
-        onClick={() => navigate(`/lite-tasks/${session.id}`)}
+        onClick={() => setExpandedSessionId(expandedSessionId === session.id ? null : session.id)}
       >
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-2">
-            <div className="flex-1 min-w-0">
-              <h3 className="font-medium text-foreground text-sm">{session.id}</h3>
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="flex-shrink-0">
+                {expandedSessionId === session.id ? (
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-foreground text-sm">{session.id}</h3>
+              </div>
             </div>
-            <Badge variant="info" className="gap-1">
+            <Badge variant="secondary" className="gap-1 flex-shrink-0">
               <MessagesSquare className="h-3 w-3" />
               {formatMessage({ id: 'liteTasks.type.multiCli' })}
             </Badge>
@@ -171,7 +235,7 @@ export function LiteTasksPage() {
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" disabled>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            {formatMessage({ id: 'common.back' })}
+            {formatMessage({ id: 'common.actions.back' })}
           </Button>
           <div className="h-8 w-64 rounded bg-muted animate-pulse" />
         </div>
@@ -205,7 +269,7 @@ export function LiteTasksPage() {
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={handleBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            {formatMessage({ id: 'common.back' })}
+            {formatMessage({ id: 'common.actions.back' })}
           </Button>
           <div>
             <h1 className="text-2xl font-semibold text-foreground">
@@ -295,6 +359,13 @@ export function LiteTasksPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* TaskDrawer */}
+      <TaskDrawer
+        task={selectedTask}
+        isOpen={!!selectedTask}
+        onClose={() => setSelectedTask(null)}
+      />
     </div>
   );
 }

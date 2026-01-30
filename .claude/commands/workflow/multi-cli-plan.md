@@ -126,6 +126,13 @@ const aceQueries = [
 
 **Core Principle**: Orchestrator only delegates and reads output - NO direct CLI execution.
 
+**⚠️ CRITICAL - CLI EXECUTION REQUIREMENT**:
+- **MUST** execute CLI calls via `Bash` with `run_in_background: true`
+- **MUST** wait for hook callback to receive complete results
+- **MUST NOT** proceed with next phase until CLI execution fully completes
+- Do NOT use `TaskOutput` polling during CLI execution - wait passively for results
+- Minimize scope: Proceed only when 100% result available
+
 **Agent Invocation**:
 ```javascript
 Task({

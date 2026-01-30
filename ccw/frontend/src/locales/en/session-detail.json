@@ -50,5 +50,34 @@
     "updated": "Updated",
     "tasks": "Tasks",
     "description": "Description"
+  },
+  "taskDrawer": {
+    "status": {
+      "pending": "Pending",
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "blocked": "Blocked",
+      "skipped": "Skipped",
+      "failed": "Failed"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "flowchart": "Flowchart",
+      "files": "Files"
+    },
+    "overview": {
+      "description": "Description",
+      "preAnalysis": "Pre-Analysis Steps",
+      "implementationSteps": "Implementation Steps",
+      "modificationPoints": "Modification Points",
+      "dependsOn": "Depends on",
+      "empty": "No overview information available for this task."
+    },
+    "flowchart": {
+      "empty": "No flowchart available for this task."
+    },
+    "files": {
+      "empty": "No files specified for this task."
+    }
   }
 }

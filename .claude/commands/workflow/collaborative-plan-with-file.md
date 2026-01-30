@@ -135,6 +135,12 @@ Bash(`mkdir -p ${sessionFolder}/agents`)
 
 Use CLI to analyze and split requirements:
 
+**⚠️ CRITICAL - CLI EXECUTION REQUIREMENT**:
+- **MUST** wait for CLI execution to fully complete before proceeding
+- After launching CLI with `run_in_background: true`, **STOP** and wait for hook callback
+- **DO NOT** proceed to Phase 2 until CLI results are fully received
+- Minimize scope: Proceed only when 100% result available
+
 ```javascript
 TodoWrite({ todos: [
   { content: "Phase 1: Requirement Analysis", status: "in_progress", activeForm: "Analyzing requirements" },
@@ -193,8 +199,11 @@ CONSTRAINTS: Maximum ${maxAgents} sub-requirements | Ensure clear boundaries
 })
 
 // Wait for CLI completion and parse result
+// ⚠️ CRITICAL: Must wait for CLI complete - do NOT proceed until results received
 // ... (hook callback will provide result)
 ```
+
+**⚠️ STOP POINT**: After launching CLI, stop output immediately. Wait for hook callback to receive complete result before continuing.
 
 **After CLI completes**:
 

@@ -6,6 +6,7 @@
 // ========== App Store Types ==========
 
 export type Theme = 'light' | 'dark' | 'system';
+export type ColorScheme = 'blue' | 'green' | 'orange' | 'purple';
 export type Locale = 'en' | 'zh';
 export type ViewMode = 'sessions' | 'liteTasks' | 'project-overview' | 'sessionDetail' | 'liteTaskDetail' | 'loop-monitor' | 'issue-manager' | 'orchestrator';
 export type SessionFilter = 'all' | 'active' | 'archived';
@@ -15,6 +16,7 @@ export interface AppState {
   // Theme
   theme: Theme;
   resolvedTheme: 'light' | 'dark';
+  colorScheme: ColorScheme; // New: 4 color scheme options (blue/green/orange/purple)
 
   // Locale
   locale: Locale;
@@ -39,6 +41,7 @@ export interface AppActions {
   // Theme actions
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
+  setColorScheme: (scheme: ColorScheme) => void; // New: set color scheme
 
   // Locale actions
   setLocale: (locale: Locale) => void;
@@ -96,6 +99,7 @@ export interface SessionMetadata {
   created_at: string;
   updated_at?: string;
   location: 'active' | 'archived';
+  path?: string; // Full filesystem path to session directory (from backend)
   has_plan?: boolean;
   plan_updated_at?: string;
   has_review?: boolean;

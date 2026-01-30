@@ -7,6 +7,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useNotificationStore } from '@/stores';
 import { useExecutionStore } from '@/stores/executionStore';
 import { useFlowStore } from '@/stores';
+import { useCliStreamStore } from '@/stores/cliStreamStore';
 import {
   OrchestratorMessageSchema,
   type OrchestratorWebSocketMessage,
@@ -54,6 +55,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   // Flow store for node status updates on canvas
   const updateNode = useFlowStore((state) => state.updateNode);
 
+  // CLI stream store for CLI output handling
+  const addOutput = useCliStreamStore((state) => state.addOutput);
+
   // Handle incoming WebSocket messages
   const handleMessage = useCallback(
     (event: MessageEvent) => {
@@ -62,6 +66,69 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 
         // Store last message for debugging
         setWsLastMessage(data);
+
+        // Handle CLI messages
+        if (data.type?.startsWith('CLI_')) {
+          switch (data.type) {
+            case 'CLI_STARTED': {
+              const { executionId, tool, mode, timestamp } = data.payload;
+
+              // Add system message for CLI start
+              addOutput(executionId, {
+                type: 'system',
+                content: `[${new Date(timestamp).toLocaleTimeString()}] CLI execution started: ${tool} (${mode || 'default'} mode)`,
+                timestamp: Date.now(),
+              });
+              break;
+            }
+
+            case 'CLI_OUTPUT': {
+              const { executionId, chunkType, data: outputData, unit } = data.payload;
+
+              // Handle structured output
+              const unitContent = unit?.content || outputData;
+              const unitType = unit?.type || chunkType;
+
+              // Special handling for tool_call type
+              let content: string;
+              if (unitType === 'tool_call' && typeof unitContent === 'object' && unitContent !== null) {
+                // Format tool_call display
+                content = JSON.stringify(unitContent);
+              } else {
+                content = typeof unitContent === 'string' ? unitContent : JSON.stringify(unitContent);
+              }
+
+              // Split by lines and add each line to store
+              const lines = content.split('\n');
+              lines.forEach((line: string) => {
+                // Add non-empty lines, or single line if that's all we have
+                if (line.trim() || lines.length === 1) {
+                  addOutput(executionId, {
+                    type: unitType as any,
+                    content: line,
+                    timestamp: Date.now(),
+                  });
+                }
+              });
+              break;
+            }
+
+            case 'CLI_COMPLETED': {
+              const { executionId, success, duration } = data.payload;
+
+              const statusText = success ? 'completed successfully' : 'failed';
+              const durationText = duration ? ` (${duration}ms)` : '';
+
+              addOutput(executionId, {
+                type: 'system',
+                content: `[${new Date().toLocaleTimeString()}] CLI execution ${statusText}${durationText}`,
+                timestamp: Date.now(),
+              });
+              break;
+            }
+          }
+          return;
+        }
 
         // Check if this is an orchestrator message
         if (!data.type?.startsWith('ORCHESTRATOR_')) {
@@ -138,6 +205,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       addLog,
       completeExecution,
       updateNode,
+      addOutput,
       onMessage,
     ]
   );

@@ -123,5 +123,11 @@
       "title": "No Rules Found",
       "message": "Add a rule to enforce code quality standards."
     }
+  },
+  "executionDetails": "Execution Details",
+  "tabs": {
+    "prompt": "Prompt",
+    "output": "Output",
+    "details": "Details"
   }
 }
