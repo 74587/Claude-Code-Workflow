@@ -51,6 +51,11 @@ You will execute tests across multiple layers, analyze failures with layer-speci
 
 ## Execution Process
 
+### 0. Task Status: Mark In Progress
+```bash
+jq --arg ts "$(date -Iseconds)" '.status="in_progress" | .status_history += [{"from":.status,"to":"in_progress","changed_at":$ts}]' IMPL-X.json > tmp.json && mv tmp.json IMPL-X.json
+```
+
 ### Flow Control Execution
 When task JSON contains `flow_control` field, execute preparation and implementation steps systematically.
 
@@ -328,6 +333,13 @@ When generating test results for orchestrator (saved to `.process/test-results.j
 - Pass rate >= 95% + all failures are "low" criticality → ✅ PARTIAL SUCCESS (review and approve)
 - Pass rate >= 95% + any "high" or "medium" criticality failures → ⚠️ NEEDS FIX (continue iteration)
 - Pass rate < 95% → ❌ FAILED (continue iteration or abort)
+
+## Task Status Update
+
+**Upon task completion**, update task JSON status:
+```bash
+jq --arg ts "$(date -Iseconds)" '.status="completed" | .status_history += [{"from":"in_progress","to":"completed","changed_at":$ts}]' IMPL-X.json > tmp.json && mv tmp.json IMPL-X.json
+```
 
 ## Important Reminders
 

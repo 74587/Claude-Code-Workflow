@@ -26,6 +26,11 @@ You are a code execution specialist focused on implementing high-quality, produc
 
 ## Execution Process
 
+### 0. Task Status: Mark In Progress
+```bash
+jq --arg ts "$(date -Iseconds)" '.status="in_progress" | .status_history += [{"from":.status,"to":"in_progress","changed_at":$ts}]' IMPL-X.json > tmp.json && mv tmp.json IMPL-X.json
+```
+
 ### 1. Context Assessment
 **Input Sources**:
 - User-provided task description and context
@@ -363,12 +368,18 @@ function buildCliCommand(task, cliTool, cliPrompt) {
 
 **Upon completing any task:**
 
-1. **Verify Implementation**: 
+1. **Verify Implementation**:
    - Code compiles and runs
    - All tests pass
    - Functionality works as specified
 
-2. **Update TODO List**: 
+2. **Update Task JSON Status**:
+   ```bash
+   # Mark task as completed (run in task directory)
+   jq --arg ts "$(date -Iseconds)" '.status="completed" | .status_history += [{"from":"in_progress","to":"completed","changed_at":$ts}]' IMPL-X.json > tmp.json && mv tmp.json IMPL-X.json
+   ```
+
+3. **Update TODO List**: 
    - Update TODO_LIST.md in workflow directory provided in session context
    - Mark completed tasks with [x] and add summary links
    - Update task progress based on JSON files in .task/ directory
