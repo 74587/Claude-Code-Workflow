@@ -8,17 +8,14 @@ import {
   Sparkles,
   Search,
   Plus,
-  Filter,
   RefreshCw,
   Power,
   PowerOff,
   Tag,
-  Loader2,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Badge } from '@/components/ui/Badge';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select';
 import { SkillCard } from '@/components/shared/SkillCard';
 import { useSkills, useSkillMutations } from '@/hooks';
@@ -89,13 +86,10 @@ export function SkillsManagerPage() {
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [enabledFilter, setEnabledFilter] = useState<'all' | 'enabled' | 'disabled'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'compact'>('grid');
-  const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
 
   const {
     skills,
-    enabledSkills,
     categories,
-    skillsByCategory,
     totalCount,
     enabledCount,
     isLoading,
@@ -268,7 +262,7 @@ export function SkillsManagerPage() {
         skills={filteredSkills}
         isLoading={isLoading}
         onToggle={handleToggle}
-        onClick={setSelectedSkill}
+        onClick={() => {}}
         isToggling={isToggling}
         compact={viewMode === 'compact'}
       />

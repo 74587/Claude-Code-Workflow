@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Dropdown, DropdownTrigger, DropdownContent, DropdownItem } from '@/components/ui/Dropdown';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/Dropdown';
 import type { Skill } from '@/lib/api';
 
 // ========== Types ==========
@@ -148,8 +148,8 @@ export function SkillCard({
           </div>
         </div>
         {showActions && (
-          <Dropdown open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-            <DropdownTrigger asChild>
+          <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+            <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
@@ -158,17 +158,17 @@ export function SkillCard({
               >
                 <MoreVertical className="w-4 h-4" />
               </Button>
-            </DropdownTrigger>
-            <DropdownContent align="end">
-              <DropdownItem onClick={() => onClick?.(skill)}>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onClick?.(skill)}>
                 <Info className="w-4 h-4 mr-2" />
                 View Details
-              </DropdownItem>
-              <DropdownItem onClick={handleConfigure}>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleConfigure}>
                 <Settings className="w-4 h-4 mr-2" />
                 Configure
-              </DropdownItem>
-              <DropdownItem onClick={handleToggle}>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleToggle}>
                 {skill.enabled ? (
                   <>
                     <PowerOff className="w-4 h-4 mr-2" />
@@ -180,9 +180,9 @@ export function SkillCard({
                     Enable
                   </>
                 )}
-              </DropdownItem>
-            </DropdownContent>
-          </Dropdown>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 

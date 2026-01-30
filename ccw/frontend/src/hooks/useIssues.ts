@@ -13,7 +13,6 @@ import {
   deleteIssue,
   type Issue,
   type IssuesResponse,
-  type IssueQueue,
 } from '../lib/api';
 
 // Query key factory

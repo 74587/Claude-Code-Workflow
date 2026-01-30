@@ -7,12 +7,10 @@ import { useState, useMemo } from 'react';
 import {
   AlertCircle,
   Plus,
-  Filter,
   Search,
   RefreshCw,
   Loader2,
   Github,
-  ListFilter,
   CheckCircle,
   Clock,
   AlertTriangle,
@@ -21,7 +19,6 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select';
 import { IssueCard } from '@/components/shared/IssueCard';
@@ -31,7 +28,6 @@ import { cn } from '@/lib/utils';
 
 // ========== Types ==========
 
-type ViewMode = 'issues' | 'queue';
 type StatusFilter = 'all' | Issue['status'];
 type PriorityFilter = 'all' | Issue['priority'];
 
@@ -183,17 +179,14 @@ function IssueList({
 // ========== Main Page Component ==========
 
 export function IssueManagerPage() {
-  const [viewMode, setViewMode] = useState<ViewMode>('issues');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
   const [isNewIssueOpen, setIsNewIssueOpen] = useState(false);
-  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
 
   const {
     issues,
     issuesByStatus,
-    issuesByPriority,
     openCount,
     criticalCount,
     isLoading,
@@ -207,7 +200,7 @@ export function IssueManagerPage() {
     },
   });
 
-  const { createIssue, updateIssue, deleteIssue, isCreating, isUpdating } = useIssueMutations();
+  const { createIssue, updateIssue, deleteIssue, isCreating } = useIssueMutations();
 
   // Filter counts
   const statusCounts = useMemo(() => ({
@@ -224,8 +217,7 @@ export function IssueManagerPage() {
     setIsNewIssueOpen(false);
   };
 
-  const handleEditIssue = (issue: Issue) => {
-    setSelectedIssue(issue);
+  const handleEditIssue = (_issue: Issue) => {
     // TODO: Open edit dialog
   };
 
@@ -381,7 +373,7 @@ export function IssueManagerPage() {
       <IssueList
         issues={issues}
         isLoading={isLoading}
-        onIssueClick={setSelectedIssue}
+        onIssueClick={() => {}}
         onIssueEdit={handleEditIssue}
         onIssueDelete={handleDeleteIssue}
         onStatusChange={handleStatusChange}

@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Dropdown, DropdownTrigger, DropdownContent, DropdownItem } from '@/components/ui/Dropdown';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/Dropdown';
 import type { Issue } from '@/lib/api';
 
 // ========== Types ==========
@@ -162,8 +162,8 @@ export function IssueCard({
           <p className="text-xs text-muted-foreground mt-1">#{issue.id}</p>
         </div>
         {showActions && (
-          <Dropdown open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-            <DropdownTrigger asChild>
+          <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+            <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
@@ -172,26 +172,26 @@ export function IssueCard({
               >
                 <MoreVertical className="w-4 h-4" />
               </Button>
-            </DropdownTrigger>
-            <DropdownContent align="end">
-              <DropdownItem onClick={handleEdit}>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleEdit}>
                 <Edit className="w-4 h-4 mr-2" />
                 Edit
-              </DropdownItem>
-              <DropdownItem onClick={() => onStatusChange?.(issue, 'in_progress')}>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onStatusChange?.(issue, 'in_progress')}>
                 <Clock className="w-4 h-4 mr-2" />
                 Start Progress
-              </DropdownItem>
-              <DropdownItem onClick={() => onStatusChange?.(issue, 'resolved')}>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onStatusChange?.(issue, 'resolved')}>
                 <CheckCircle className="w-4 h-4 mr-2" />
                 Mark Resolved
-              </DropdownItem>
-              <DropdownItem onClick={handleDelete} className="text-destructive">
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDelete} className="text-destructive">
                 <Trash2 className="w-4 h-4 mr-2" />
                 Delete
-              </DropdownItem>
-            </DropdownContent>
-          </Dropdown>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 

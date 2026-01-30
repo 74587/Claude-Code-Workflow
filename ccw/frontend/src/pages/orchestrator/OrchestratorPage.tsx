@@ -11,20 +11,10 @@ import { PropertyPanel } from './PropertyPanel';
 import { FlowToolbar } from './FlowToolbar';
 import { ExecutionMonitor } from './ExecutionMonitor';
 import { TemplateLibrary } from './TemplateLibrary';
-import { useWebSocket } from '@/hooks/useWebSocket';
 
 export function OrchestratorPage() {
   const fetchFlows = useFlowStore((state) => state.fetchFlows);
   const [isTemplateLibraryOpen, setIsTemplateLibraryOpen] = useState(false);
-
-  // Initialize WebSocket connection for real-time updates
-  const { isConnected, reconnect } = useWebSocket({
-    enabled: true,
-    onMessage: (message) => {
-      // Additional message handling can be added here if needed
-      console.log('[Orchestrator] WebSocket message:', message.type);
-    },
-  });
 
   // Load flows on mount
   useEffect(() => {

@@ -9,7 +9,6 @@ import {
   Save,
   FolderOpen,
   Download,
-  Play,
   Trash2,
   Copy,
   Workflow,

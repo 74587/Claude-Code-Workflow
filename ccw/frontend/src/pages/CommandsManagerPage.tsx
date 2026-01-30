@@ -8,10 +8,8 @@ import {
   Terminal,
   Search,
   Plus,
-  Filter,
   RefreshCw,
   Copy,
-  Play,
   ChevronDown,
   ChevronUp,
   Code,
@@ -161,7 +159,6 @@ export function CommandsManagerPage() {
   const {
     commands,
     categories,
-    commandsByCategory,
     totalCount,
     isLoading,
     isFetching,

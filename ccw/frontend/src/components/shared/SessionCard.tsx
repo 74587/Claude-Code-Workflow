@@ -22,8 +22,6 @@ import {
   Eye,
   Archive,
   Trash2,
-  Play,
-  Pause,
 } from 'lucide-react';
 import type { SessionMetadata } from '@/types/store';
 

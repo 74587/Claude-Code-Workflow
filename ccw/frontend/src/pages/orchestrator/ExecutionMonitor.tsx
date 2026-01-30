@@ -106,7 +106,6 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
   const isMonitorExpanded = useExecutionStore((state) => state.isMonitorExpanded);
   const autoScrollLogs = useExecutionStore((state) => state.autoScrollLogs);
   const setMonitorExpanded = useExecutionStore((state) => state.setMonitorExpanded);
-  const setAutoScrollLogs = useExecutionStore((state) => state.setAutoScrollLogs);
   const startExecution = useExecutionStore((state) => state.startExecution);
 
   // Local state for elapsed time (calculated from startedAt)

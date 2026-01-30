@@ -3,21 +3,17 @@
 // ========================================
 // Application settings and configuration with CLI tools management
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Settings,
   Moon,
   Sun,
-  Globe,
   Bell,
-  Shield,
   Cpu,
   RefreshCw,
-  Save,
   RotateCcw,
   Check,
   X,
-  Loader2,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -25,7 +21,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
-import { useTheme, useConfig } from '@/hooks';
+import { useTheme } from '@/hooks';
 import { useConfigStore, selectCliTools, selectDefaultCliTool, selectUserPreferences } from '@/stores/configStore';
 import type { CliToolConfig, UserPreferences } from '@/types/store';
 import { cn } from '@/lib/utils';
@@ -170,7 +166,6 @@ export function SettingsPage() {
   const { updateCliTool, setDefaultCliTool, setUserPreferences, resetUserPreferences } = useConfigStore();
 
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
-  const [isSaving, setIsSaving] = useState(false);
 
   const toggleToolExpand = (toolId: string) => {
     setExpandedTools((prev) => {

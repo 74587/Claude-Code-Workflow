@@ -3,7 +3,7 @@
 // ========================================
 // Drag-and-drop kanban board for loops and tasks
 
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import {
   DragDropContext,
   Droppable,

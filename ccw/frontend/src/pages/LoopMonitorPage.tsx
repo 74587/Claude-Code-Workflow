@@ -11,11 +11,9 @@ import {
   StopCircle,
   Plus,
   Search,
-  Filter,
   Clock,
   CheckCircle,
   XCircle,
-  AlertCircle,
   Loader2,
 } from 'lucide-react';
 import type { DropResult, DraggableProvided } from '@hello-pangea/dnd';
@@ -23,7 +21,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/Dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { KanbanBoard, useLoopKanbanColumns, type LoopKanbanItem } from '@/components/shared/KanbanBoard';
 import { useLoops, useLoopMutations } from '@/hooks';
 import type { Loop } from '@/lib/api';
@@ -226,7 +224,6 @@ function NewLoopDialog({ open, onOpenChange, onSubmit, isCreating }: NewLoopDial
 export function LoopMonitorPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isNewLoopOpen, setIsNewLoopOpen] = useState(false);
-  const [selectedLoop, setSelectedLoop] = useState<Loop | null>(null);
 
   const {
     loops,
@@ -242,7 +239,7 @@ export function LoopMonitorPage() {
     refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
   });
 
-  const { createLoop, updateStatus, isCreating, isUpdating } = useLoopMutations();
+  const { createLoop, updateStatus, isCreating } = useLoopMutations();
 
   // Kanban columns
   const columns = useLoopKanbanColumns(loopsByStatus as unknown as Record<string, LoopKanbanItem[]>);
@@ -312,7 +309,7 @@ export function LoopMonitorPage() {
         onPause={handlePause}
         onResume={handleResume}
         onStop={handleStop}
-        onClick={setSelectedLoop}
+        onClick={() => {}}
       />
     ),
     []

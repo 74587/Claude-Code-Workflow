@@ -35,7 +35,7 @@ const initialState = {
 
 export const useExecutionStore = create<ExecutionStore>()(
   devtools(
-    (set, get) => ({
+    (set) => ({
       ...initialState,
 
       // ========== Execution Lifecycle ==========

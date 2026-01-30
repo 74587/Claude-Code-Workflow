@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Trash2,
   Edit,
-  Eye,
   Tag,
   Loader2,
   Copy,
@@ -264,7 +263,7 @@ export function MemoryPage() {
     },
   });
 
-  const { createMemory, updateMemory, deleteMemory, isCreating, isUpdating, isDeleting } =
+  const { createMemory, updateMemory, deleteMemory, isCreating, isUpdating } =
     useMemoryMutations();
 
   const toggleExpand = (memoryId: string) => {
