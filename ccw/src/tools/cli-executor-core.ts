@@ -9,7 +9,7 @@ import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { validatePath } from '../utils/path-resolver.js';
+import { validatePath, resolvePath } from '../utils/path-resolver.js';
 import { escapeWindowsArg } from '../utils/shell-escape.js';
 import { buildCommand, checkToolAvailability, clearToolCache, debugLog, errorLog, type NativeResumeConfig, type ToolAvailability } from './cli-executor-utils.js';
 import type { ConversationRecord, ConversationTurn, ExecutionOutput, ExecutionRecord } from './cli-executor-state.js';
@@ -85,7 +85,7 @@ import { findEndpointById } from '../config/litellm-api-config-manager.js';
 
 // CLI Settings (CLI封装) integration
 import { loadEndpointSettings, getSettingsFilePath, findEndpoint } from '../config/cli-settings-manager.js';
-import { loadClaudeCliTools, getToolConfig } from './claude-cli-tools.js';
+import { loadClaudeCliTools, getToolConfig, getPrimaryModel } from './claude-cli-tools.js';
 
 /**
  * Parse .env file content into key-value pairs
@@ -338,8 +338,7 @@ import {
 import {
   isToolEnabled as isToolEnabledFromConfig,
   enableTool as enableToolFromConfig,
-  disableTool as disableToolFromConfig,
-  getPrimaryModel
+  disableTool as disableToolFromConfig
 } from './cli-config-manager.js';
 
 // Built-in CLI tools
@@ -794,6 +793,25 @@ async function executeCliTool(
   // Use configured primary model if no explicit model provided
   const effectiveModel = model || getPrimaryModel(workingDir, tool);
 
+  // Load and validate settings file for Claude tool (builtin only)
+  let settingsFilePath: string | undefined;
+  if (tool === 'claude') {
+    const toolConfig = getToolConfig(workingDir, tool);
+    if (toolConfig.settingsFile) {
+      try {
+        const resolved = resolvePath(toolConfig.settingsFile);
+        if (fs.existsSync(resolved)) {
+          settingsFilePath = resolved;
+          debugLog('SETTINGS_FILE', `Resolved Claude settings file`, { configured: toolConfig.settingsFile, resolved });
+        } else {
+          errorLog('SETTINGS_FILE', `Claude settings file not found, skipping`, { configured: toolConfig.settingsFile, resolved });
+        }
+      } catch (err) {
+        errorLog('SETTINGS_FILE', `Failed to resolve Claude settings file`, { configured: toolConfig.settingsFile, error: (err as Error).message });
+      }
+    }
+  }
+
   // Build command
   const { command, args, useStdin, outputFormat: autoDetectedFormat } = buildCommand({
     tool,
@@ -803,6 +821,7 @@ async function executeCliTool(
     dir: cd,
     include: includeDirs,
     nativeResume: nativeResumeConfig,
+    settingsFile: settingsFilePath,
     reviewOptions: mode === 'review' ? { uncommitted, base, commit, title } : undefined
   });
 

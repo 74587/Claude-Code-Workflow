@@ -155,25 +155,63 @@ bash(`mkdir -p ${executionFolder}`)
 
 ## Plan Format Parsers
 
-Support multiple plan sources:
+Support multiple plan sources (all JSON plans follow plan-json-schema.json):
 
 ```javascript
 function parsePlan(content, filePath) {
   const ext = filePath.split('.').pop()
 
   if (filePath.includes('IMPL_PLAN')) {
-    return parseImplPlan(content) // From /workflow:plan
+    return parseImplPlan(content) // From /workflow:plan (markdown)
   } else if (filePath.includes('brainstorm')) {
     return parseBrainstormPlan(content) // From /workflow:brainstorm-with-file
   } else if (filePath.includes('synthesis')) {
     return parseSynthesisPlan(content) // From /workflow:brainstorm-with-file synthesis.json
   } else if (filePath.includes('conclusions')) {
     return parseConclusionsPlan(content) // From /workflow:analyze-with-file conclusions.json
-  } else if (filePath.endsWith('.json') && content.includes('tasks')) {
-    return parseTaskJson(content) // Direct task JSON
+  } else if (filePath.endsWith('.json') && content.includes('"tasks"')) {
+    return parsePlanJson(content) // Standard plan-json-schema (lite-plan, collaborative-plan, sub-plans)
   }
 
   throw new Error(`Unsupported plan format: ${filePath}`)
+}
+
+// Standard plan-json-schema parser
+// Handles: lite-plan, collaborative-plan, sub-plans (all follow same schema)
+function parsePlanJson(content) {
+  const plan = JSON.parse(content)
+
+  return {
+    type: plan.merge_metadata ? 'collaborative-plan' : 'lite-plan',
+    title: plan.summary?.split('.')[0] || 'Untitled Plan',
+    slug: plan._metadata?.session_id || generateSlug(plan.summary),
+    summary: plan.summary,
+    approach: plan.approach,
+    tasks: plan.tasks.map(task => ({
+      id: task.id,
+      type: inferTaskTypeFromAction(task.action),
+      title: task.title,
+      description: task.description,
+      dependencies: task.depends_on || [],
+      agent_type: selectAgentFromTask(task),
+      prompt: buildPromptFromTask(task),
+      files_to_modify: task.modification_points?.map(mp => mp.file) || [],
+      expected_output: task.acceptance || [],
+      priority: task.effort?.complexity === 'high' ? 'high' : 'normal',
+      estimated_duration: task.effort?.estimated_hours ? `${task.effort.estimated_hours}h` : null,
+      verification: task.verification,
+      risks: task.risks,
+      source_agent: task.source_agent // From collaborative-plan sub-agents
+    })),
+    flow_control: plan.flow_control,
+    data_flow: plan.data_flow,
+    design_decisions: plan.design_decisions,
+    estimatedDuration: plan.estimated_time,
+    recommended_execution: plan.recommended_execution,
+    complexity: plan.complexity,
+    merge_metadata: plan.merge_metadata, // Present if from collaborative-plan
+    _metadata: plan._metadata
+  }
 }
 
 // IMPL_PLAN.md parser
@@ -215,6 +253,65 @@ function parseSynthesisPlan(content) {
     })),
     recommendations: synthesis.recommendations
   }
+}
+
+// Helper: Infer task type from action field
+function inferTaskTypeFromAction(action) {
+  const actionMap = {
+    'Create': 'code',
+    'Update': 'code',
+    'Implement': 'code',
+    'Refactor': 'code',
+    'Add': 'code',
+    'Delete': 'code',
+    'Configure': 'config',
+    'Test': 'test',
+    'Fix': 'debug'
+  }
+  return actionMap[action] || 'code'
+}
+
+// Helper: Select agent based on task properties
+function selectAgentFromTask(task) {
+  if (task.verification?.unit_tests?.length > 0) {
+    return 'tdd-developer'
+  } else if (task.action === 'Test') {
+    return 'test-fix-agent'
+  } else if (task.action === 'Fix') {
+    return 'debug-explore-agent'
+  } else {
+    return 'code-developer'
+  }
+}
+
+// Helper: Build prompt from task details
+function buildPromptFromTask(task) {
+  let prompt = `## Task: ${task.title}\n\n${task.description}\n\n`
+
+  if (task.modification_points?.length > 0) {
+    prompt += `### Modification Points\n`
+    task.modification_points.forEach(mp => {
+      prompt += `- **${mp.file}**: ${mp.target} → ${mp.change}\n`
+    })
+    prompt += '\n'
+  }
+
+  if (task.implementation?.length > 0) {
+    prompt += `### Implementation Steps\n`
+    task.implementation.forEach((step, i) => {
+      prompt += `${i + 1}. ${step}\n`
+    })
+    prompt += '\n'
+  }
+
+  if (task.acceptance?.length > 0) {
+    prompt += `### Acceptance Criteria\n`
+    task.acceptance.forEach(ac => {
+      prompt += `- ${ac}\n`
+    })
+  }
+
+  return prompt
 }
 ```
 

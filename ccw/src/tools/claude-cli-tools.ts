@@ -56,6 +56,12 @@ export interface ClaudeCliTool {
    * Supports both absolute paths and paths relative to home directory (e.g., ~/.my-env)
    */
   envFile?: string;
+  /**
+   * Path to Claude CLI settings.json file (builtin claude only)
+   * Passed to Claude CLI via --settings parameter
+   * Supports ~, absolute, relative, and Windows paths
+   */
+  settingsFile?: string;
 }
 
 export type CliToolName = 'gemini' | 'qwen' | 'codex' | 'claude' | 'opencode' | string;
@@ -279,7 +285,8 @@ function ensureToolTags(tool: Partial<ClaudeCliTool>): ClaudeCliTool {
     primaryModel: tool.primaryModel,
     secondaryModel: tool.secondaryModel,
     tags: tool.tags ?? [],
-    envFile: tool.envFile
+    envFile: tool.envFile,
+    settingsFile: tool.settingsFile
   };
 }
 
@@ -1015,6 +1022,7 @@ export function getToolConfig(projectDir: string, tool: string): {
   secondaryModel: string;
   tags?: string[];
   envFile?: string;
+  settingsFile?: string;
 } {
   const config = loadClaudeCliTools(projectDir);
   const toolConfig = config.tools[tool];
@@ -1034,7 +1042,8 @@ export function getToolConfig(projectDir: string, tool: string): {
     primaryModel: toolConfig.primaryModel ?? '',
     secondaryModel: toolConfig.secondaryModel ?? '',
     tags: toolConfig.tags,
-    envFile: toolConfig.envFile
+    envFile: toolConfig.envFile,
+    settingsFile: toolConfig.settingsFile
   };
 }
 
@@ -1051,6 +1060,7 @@ export function updateToolConfig(
     availableModels: string[];
     tags: string[];
     envFile: string | null;
+    settingsFile: string | null;
   }>
 ): ClaudeCliToolsConfig {
   const config = loadClaudeCliTools(projectDir);
@@ -1077,6 +1087,14 @@ export function updateToolConfig(
         delete config.tools[tool].envFile;
       } else {
         config.tools[tool].envFile = updates.envFile;
+      }
+    }
+    // Handle settingsFile: set to undefined if null/empty, otherwise set value
+    if (updates.settingsFile !== undefined) {
+      if (updates.settingsFile === null || updates.settingsFile === '') {
+        delete config.tools[tool].settingsFile;
+      } else {
+        config.tools[tool].settingsFile = updates.settingsFile;
       }
     }
     saveClaudeCliTools(projectDir, config);

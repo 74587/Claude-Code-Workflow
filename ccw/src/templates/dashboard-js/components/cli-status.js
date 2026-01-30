@@ -525,6 +525,33 @@ function renderCliStatus() {
     const enabledCliSettings = isClaude ? cliSettingsEndpoints.filter(ep => ep.enabled) : [];
     const hasCliSettings = enabledCliSettings.length > 0;
 
+    // Build Settings File info for builtin Claude
+    let settingsFileInfo = '';
+    if (isClaude && config.type === 'builtin' && config.settingsFile) {
+      const settingsFile = config.settingsFile;
+      // Simple path resolution attempt for display (no actual filesystem access)
+      const resolvedPath = settingsFile.startsWith('~')
+        ? settingsFile.replace('~', (typeof os !== 'undefined' && os.homedir) ? os.homedir() : '~')
+        : settingsFile;
+
+      settingsFileInfo = `
+        <div class="cli-settings-info mt-2 p-2 rounded bg-muted/50 text-xs">
+          <div class="flex items-center gap-1 text-muted-foreground mb-1">
+            <i data-lucide="file-key" class="w-3 h-3"></i>
+            <span>Settings File:</span>
+          </div>
+          <div class="text-foreground font-mono text-[10px] break-all" title="${resolvedPath}">
+            ${settingsFile}
+          </div>
+          ${settingsFile !== resolvedPath ? `
+            <div class="text-muted-foreground mt-1 font-mono text-[10px] break-all">
+              → ${resolvedPath}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
     // Build CLI Settings badge for Claude
     let cliSettingsBadge = '';
     if (isClaude && hasCliSettings) {
@@ -588,6 +615,7 @@ function renderCliStatus() {
             }
           </div>
         </div>
+        ${settingsFileInfo}
         ${cliSettingsInfo}
         <div class="cli-tool-actions mt-3 flex gap-2">
           ${isAvailable ? (isEnabled

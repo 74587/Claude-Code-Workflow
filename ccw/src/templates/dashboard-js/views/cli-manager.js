@@ -562,6 +562,27 @@ function buildToolConfigModalContent(tool, config, models, status) {
     '</div>'
     ) : '') +
 
+    // Claude Settings File Section (only for builtin claude type)
+    (tool === 'claude' && config.type === 'builtin' ? (
+    '<div class="tool-config-section">' +
+      '<h4><i data-lucide="file-key" class="w-3.5 h-3.5"></i> Settings File <span class="text-muted">(optional)</span></h4>' +
+      '<div class="env-file-input-group">' +
+        '<div class="env-file-input-row">' +
+          '<input type="text" id="claudeSettingsFileInput" class="tool-config-input" ' +
+            'placeholder="~/path/to/settings.json or D:\\path\\to\\settings.json" ' +
+            'value="' + (config.settingsFile ? escapeHtml(config.settingsFile) : '') + '" />' +
+          '<button type="button" class="btn-sm btn-outline" id="claudeSettingsFileBrowseBtn">' +
+            '<i data-lucide="folder-open" class="w-3.5 h-3.5"></i> Browse' +
+          '</button>' +
+        '</div>' +
+        '<p class="env-file-hint">' +
+          '<i data-lucide="info" class="w-3 h-3"></i> ' +
+          'Path to Claude CLI settings.json file (supports ~, absolute, and Windows paths)' +
+        '</p>' +
+      '</div>' +
+    '</div>'
+    ) : '') +
+
     // Footer
     '<div class="tool-config-footer">' +
       '<button class="btn btn-outline" onclick="closeModal()">' + t('common.cancel') + '</button>' +
@@ -1124,6 +1145,10 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
       var envFileInput = document.getElementById('envFileInput');
       var envFile = envFileInput ? envFileInput.value.trim() : '';
 
+      // Get settingsFile value (only for builtin claude)
+      var claudeSettingsFileInput = document.getElementById('claudeSettingsFileInput');
+      var settingsFile = claudeSettingsFileInput ? claudeSettingsFileInput.value.trim() : '';
+
       try {
         var updateData = {
           primaryModel: primaryModel,
@@ -1135,6 +1160,11 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
         // Only include envFile for gemini/qwen tools
         if (tool === 'gemini' || tool === 'qwen') {
           updateData.envFile = envFile || null;
+        }
+
+        // Only include settingsFile for builtin claude tool
+        if (tool === 'claude' && config.type === 'builtin') {
+          updateData.settingsFile = settingsFile || null;
         }
 
         await updateCliToolConfig(tool, updateData);
@@ -1159,6 +1189,20 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
         if (envFileInput && selectedPath) {
           envFileInput.value = selectedPath;
           envFileInput.focus();
+        }
+      });
+    };
+  }
+
+  // Claude Settings File browse button (only for builtin claude)
+  var claudeSettingsFileBrowseBtn = document.getElementById('claudeSettingsFileBrowseBtn');
+  if (claudeSettingsFileBrowseBtn) {
+    claudeSettingsFileBrowseBtn.onclick = function() {
+      showFileBrowserModal(function(selectedPath) {
+        var claudeSettingsFileInput = document.getElementById('claudeSettingsFileInput');
+        if (claudeSettingsFileInput && selectedPath) {
+          claudeSettingsFileInput.value = selectedPath;
+          claudeSettingsFileInput.focus();
         }
       });
     };
