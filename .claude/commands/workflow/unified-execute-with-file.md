@@ -873,21 +873,6 @@ function calculateParallel(tasks) {
 | Agent unavailable | Fallback to universal-executor |
 | Execution interrupted | Support resume with `/workflow:unified-execute-with-file --continue` |
 
-## Usage Recommendations
-
-Use `/workflow:unified-execute-with-file` when:
-- Executing any planning document (IMPL_PLAN.md, brainstorm conclusions, analysis recommendations)
-- Multiple tasks with dependencies need orchestration
-- Want minimal progress tracking without clutter
-- Need to handle failures gracefully and resume
-- Want to parallelize where possible but ensure correctness
-
-Use for consuming output from:
-- `/workflow:plan` → IMPL_PLAN.md
-- `/workflow:brainstorm-with-file` → synthesis.json → execution
-- `/workflow:analyze-with-file` → conclusions.json → execution
-- `/workflow:debug-with-file` → recommendations → execution
-- `/workflow:lite-plan` → task JSONs → execution
 
 ## Session Resume
 
