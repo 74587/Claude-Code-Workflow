@@ -834,10 +834,35 @@ Use `analysis_results.complexity` or task count to determine structure:
 - Proper linking between documents
 - Consistent navigation and references
 
-### 3.3 Guidelines Checklist
+### 3.3 N+1 Context Recording
+
+**Purpose**: Record decisions and deferred items for N+1 planning continuity.
+
+**When**: After task generation, update `## N+1 Context` in planning-notes.md.
+
+**What to Record**:
+- **Decisions**: Architecture/technology choices with rationale (mark `Revisit?` if may change)
+- **Deferred**: Items explicitly moved to N+1 with reason
+
+**Example**:
+```markdown
+## N+1 Context
+### Decisions
+| Decision | Rationale | Revisit? |
+|----------|-----------|----------|
+| JWT over Session | Stateless scaling | No |
+| CROSS::B::api → IMPL-B1 | B1 defines base | Yes |
+
+### Deferred
+- [ ] Rate limiting - Requires Redis (N+1)
+- [ ] API versioning - Low priority
+```
+
+### 3.4 Guidelines Checklist
 
 **ALWAYS:**
 - **Load planning-notes.md FIRST**: Read planning-notes.md before context-package.json. Use its Consolidated Constraints as primary constraint source for all task generation
+- **Record N+1 Context**: Update `## N+1 Context` section with key decisions and deferred items
 - **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) / Built-in (`Grep`, `Glob`, `Read`)
 - Apply Quantification Requirements to all requirements, acceptance criteria, and modification points
 - Load IMPL_PLAN template: `Read(~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)` before generating IMPL_PLAN.md

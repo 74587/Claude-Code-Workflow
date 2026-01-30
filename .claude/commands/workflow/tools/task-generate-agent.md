@@ -378,16 +378,26 @@ Hard Constraints:
 - Return completion status with document count and task breakdown summary
 
 ## PLANNING NOTES RECORD (REQUIRED)
-After completing all documents, append a brief execution record to planning-notes.md:
+After completing, update planning-notes.md:
 
 **File**: .workflow/active/{session_id}/planning-notes.md
-**Location**: Create new section after "## Consolidated Constraints"
-**Format**:
-\`\`\`
-## Task Generation (Phase 4)
 
+1. **Task Generation (Phase 4)**: Task count and key tasks
+2. **N+1 Context**: Key decisions (with rationale) + deferred items
+
+\`\`\`markdown
+## Task Generation (Phase 4)
 ### [Action-Planning Agent] YYYY-MM-DD
-- **Note**: [智能补充：简短总结任务数量、关键任务、依赖关系等]
+- **Tasks**: [count] ([IDs])
+
+## N+1 Context
+### Decisions
+| Decision | Rationale | Revisit? |
+|----------|-----------|----------|
+| [choice] | [why] | [Yes/No] |
+
+### Deferred
+- [ ] [item] - [reason]
 \`\`\`
 `
 )
@@ -543,19 +553,13 @@ Hard Constraints:
 - Return: task count, task IDs, dependency summary (internal + cross-module)
 
 ## PLANNING NOTES RECORD (REQUIRED)
-After completing module task JSONs, append a brief execution record to planning-notes.md:
+After completing, append to planning-notes.md:
 
-**File**: .workflow/active/{session_id}/planning-notes.md
-**Location**: Create new section after "## Consolidated Constraints" (if not exists)
-**Format**:
+\`\`\`markdown
+### [${module.name}] YYYY-MM-DD
+- **Tasks**: [count] ([IDs])
+- **CROSS deps**: [placeholders used]
 \`\`\`
-## Task Generation (Phase 4)
-
-### [Action-Planning Agent - ${module.name}] YYYY-MM-DD
-- **Note**: [智能补充：简短总结本模块任务数量、关键任务等]
-\`\`\`
-
-**Note**: Multiple module agents will append their records. Phase 3 Integration Coordinator will add final summary.
     `
   )
 );
@@ -638,14 +642,21 @@ Module Count: ${modules.length}
 - Return: task count, per-module breakdown, resolved dependency count
 
 ## PLANNING NOTES RECORD (REQUIRED)
-After completing integration, append final summary to planning-notes.md:
+After integration, update planning-notes.md:
 
-**File**: .workflow/active/{session_id}/planning-notes.md
-**Location**: Under "## Task Generation (Phase 4)" section (after module agent records)
-**Format**:
-\`\`\`
-### [Integration Coordinator] YYYY-MM-DD
-- **Note**: [智能补充：简短总结总任务数、跨模块依赖解决情况等]
+\`\`\`markdown
+### [Coordinator] YYYY-MM-DD
+- **Total**: [count] tasks
+- **Resolved**: [CROSS:: resolutions]
+
+## N+1 Context
+### Decisions
+| Decision | Rationale | Revisit? |
+|----------|-----------|----------|
+| CROSS::X → IMPL-Y | [why this resolution] | [Yes/No] |
+
+### Deferred
+- [ ] [unresolved CROSS or conflict] - [reason]
 \`\`\`
   `
 )

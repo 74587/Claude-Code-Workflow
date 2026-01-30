@@ -119,7 +119,7 @@ CONTEXT: Existing user database schema, REST API endpoints
 **After Phase 1**: Initialize planning-notes.md with user intent
 
 ```javascript
-// Create minimal planning notes document
+// Create planning notes document with N+1 context support
 const planningNotesPath = `.workflow/active/${sessionId}/planning-notes.md`
 const userGoal = structuredDescription.goal
 const userConstraints = structuredDescription.context || "None specified"
@@ -144,6 +144,19 @@ Write(planningNotesPath, `# Planning Notes
 
 ## Consolidated Constraints (Phase 4 Input)
 1. ${userConstraints}
+
+---
+
+## Task Generation (Phase 4)
+(To be filled by action-planning-agent)
+
+## N+1 Context
+### Decisions
+| Decision | Rationale | Revisit? |
+|----------|-----------|----------|
+
+### Deferred
+- [ ] (For N+1)
 `)
 ```
 
