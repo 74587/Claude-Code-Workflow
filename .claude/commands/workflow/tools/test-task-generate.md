@@ -143,7 +143,7 @@ Determine CLI tool usage per-step based on user's task description:
 (Detailed specifications in your agent definition)
 
 ### Task Structure Requirements
-- Minimum 2 tasks: IMPL-001 (test generation) + IMPL-002 (test execution & fix)
+- Minimum 4 tasks: IMPL-001 (test generation) + IMPL-001.3 (code validation) + IMPL-001.5 (test quality) + IMPL-002 (test execution & fix)
 - Expandable for complex projects: Add IMPL-003+ (per-module, integration, E2E tests)
 
 Task Configuration:
@@ -154,9 +154,29 @@ Task Configuration:
     - flow_control: Test generation strategy from TEST_ANALYSIS_RESULTS.md
     - CLI execution: Add `command` field when user requests (determined semantically)
 
+  IMPL-001.3 (Code Validation Gate) ← NEW:
+    - meta.type: "code-validation"
+    - meta.agent: "@test-fix-agent"
+    - context.depends_on: ["IMPL-001"]
+    - context.validation_config: "~/.claude/workflows/test-quality-config.json"
+    - flow_control.validation_phases: ["compilation", "imports", "variables", "types", "ai_specific"]
+    - flow_control.auto_fix_enabled: true
+    - flow_control.max_retries: 2
+    - flow_control.severity_thresholds: { critical: 0, error: 3, warning: 10 }
+    - acceptance_criteria: Zero compilation errors, all imports resolvable, no variable redeclarations
+
+  IMPL-001.5 (Test Quality Gate):
+    - meta.type: "test-quality-review"
+    - meta.agent: "@test-fix-agent"
+    - context.depends_on: ["IMPL-001", "IMPL-001.3"]
+    - context.quality_config: "~/.claude/workflows/test-quality-config.json"
+    - flow_control: Static analysis, coverage analysis, anti-pattern detection
+    - acceptance_criteria: Coverage ≥ 80%, zero critical anti-patterns
+
   IMPL-002+ (Test Execution & Fix):
     - meta.type: "test-fix"
     - meta.agent: "@test-fix-agent"
+    - context.depends_on: ["IMPL-001", "IMPL-001.3", "IMPL-001.5"]
     - flow_control: Test-fix cycle with iteration limits and diagnosis configuration
     - CLI execution: Add `command` field when user requests (determined semantically)
 
@@ -190,10 +210,17 @@ PRIMARY requirements source - extract and map to task JSONs:
   - Implementation targets → context.files_to_test (absolute paths)
 
 ## EXPECTED DELIVERABLES
-1. Test Task JSON Files (.task/IMPL-*.json)
+1. Test Task JSON Files (.task/IMPL-*.json) - Minimum 4 required:
+   - IMPL-001.json: Test generation task
+   - IMPL-001.3-validation.json: Code validation gate (AI error detection) ← NEW
+   - IMPL-001.5-review.json: Test quality gate
+   - IMPL-002.json: Test execution & fix cycle
+
+   Each task includes:
    - 6-field schema with quantified requirements from TEST_ANALYSIS_RESULTS.md
    - Test-specific metadata: type, agent, test_framework, coverage_target
    - flow_control includes: reusable_test_tools, test_commands (from project config)
+   - Validation config reference for IMPL-001.3: ~/.claude/workflows/test-quality-config.json
    - CLI execution via `command` field when user requests (determined semantically)
    - Artifact references from test-context-package.json
    - Absolute paths in context.files_to_test
@@ -211,7 +238,7 @@ PRIMARY requirements source - extract and map to task JSONs:
 
 ## QUALITY STANDARDS
 Hard Constraints:
-  - Task count: minimum 2, maximum 18
+  - Task count: minimum 4, maximum 18 (IMPL-001, IMPL-001.3, IMPL-001.5, IMPL-002 required)
   - All requirements quantified from TEST_ANALYSIS_RESULTS.md
   - Test framework matches existing project framework
   - flow_control includes reusable_test_tools and test_commands from project
@@ -249,7 +276,11 @@ CLI tool usage is determined semantically from user's task description:
 - Default: Agent execution (no `command` field)
 
 ### Output
-- Test task JSON files in `.task/` directory (minimum 2)
-- IMPL_PLAN.md with test strategy and fix cycle specification
+- Test task JSON files in `.task/` directory (minimum 4):
+  - IMPL-001.json (test generation)
+  - IMPL-001.3-validation.json (code validation gate)
+  - IMPL-001.5-review.json (test quality gate)
+  - IMPL-002.json (test execution & fix)
+- IMPL_PLAN.md with test strategy, validation gates, and fix cycle specification
 - TODO_LIST.md with test phase indicators
 - Session ready for test execution

@@ -1,0 +1,193 @@
+// ========================================
+// useSkills Hook
+// ========================================
+// TanStack Query hooks for skills management
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  fetchSkills,
+  toggleSkill,
+  type Skill,
+  type SkillsResponse,
+} from '../lib/api';
+
+// Query key factory
+export const skillsKeys = {
+  all: ['skills'] as const,
+  lists: () => [...skillsKeys.all, 'list'] as const,
+  list: (filters?: SkillsFilter) => [...skillsKeys.lists(), filters] as const,
+};
+
+// Default stale time: 5 minutes (skills don't change frequently)
+const STALE_TIME = 5 * 60 * 1000;
+
+export interface SkillsFilter {
+  search?: string;
+  category?: string;
+  source?: Skill['source'];
+  enabledOnly?: boolean;
+}
+
+export interface UseSkillsOptions {
+  filter?: SkillsFilter;
+  staleTime?: number;
+  enabled?: boolean;
+}
+
+export interface UseSkillsReturn {
+  skills: Skill[];
+  enabledSkills: Skill[];
+  categories: string[];
+  skillsByCategory: Record<string, Skill[]>;
+  totalCount: number;
+  enabledCount: number;
+  isLoading: boolean;
+  isFetching: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+  invalidate: () => Promise<void>;
+}
+
+/**
+ * Hook for fetching and filtering skills
+ */
+export function useSkills(options: UseSkillsOptions = {}): UseSkillsReturn {
+  const { filter, staleTime = STALE_TIME, enabled = true } = options;
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: skillsKeys.list(filter),
+    queryFn: fetchSkills,
+    staleTime,
+    enabled,
+    retry: 2,
+  });
+
+  const allSkills = query.data?.skills ?? [];
+
+  // Apply filters
+  const filteredSkills = (() => {
+    let skills = allSkills;
+
+    if (filter?.search) {
+      const searchLower = filter.search.toLowerCase();
+      skills = skills.filter(
+        (s) =>
+          s.name.toLowerCase().includes(searchLower) ||
+          s.description.toLowerCase().includes(searchLower) ||
+          s.triggers.some((t) => t.toLowerCase().includes(searchLower))
+      );
+    }
+
+    if (filter?.category) {
+      skills = skills.filter((s) => s.category === filter.category);
+    }
+
+    if (filter?.source) {
+      skills = skills.filter((s) => s.source === filter.source);
+    }
+
+    if (filter?.enabledOnly) {
+      skills = skills.filter((s) => s.enabled);
+    }
+
+    return skills;
+  })();
+
+  // Group by category
+  const skillsByCategory: Record<string, Skill[]> = {};
+  const categories = new Set<string>();
+
+  for (const skill of allSkills) {
+    const category = skill.category || 'Uncategorized';
+    categories.add(category);
+    if (!skillsByCategory[category]) {
+      skillsByCategory[category] = [];
+    }
+    skillsByCategory[category].push(skill);
+  }
+
+  const enabledSkills = allSkills.filter((s) => s.enabled);
+
+  const refetch = async () => {
+    await query.refetch();
+  };
+
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({ queryKey: skillsKeys.all });
+  };
+
+  return {
+    skills: filteredSkills,
+    enabledSkills,
+    categories: Array.from(categories).sort(),
+    skillsByCategory,
+    totalCount: allSkills.length,
+    enabledCount: enabledSkills.length,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    error: query.error,
+    refetch,
+    invalidate,
+  };
+}
+
+// ========== Mutations ==========
+
+export interface UseToggleSkillReturn {
+  toggleSkill: (skillName: string, enabled: boolean) => Promise<Skill>;
+  isToggling: boolean;
+  error: Error | null;
+}
+
+export function useToggleSkill(): UseToggleSkillReturn {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: ({ skillName, enabled }: { skillName: string; enabled: boolean }) =>
+      toggleSkill(skillName, enabled),
+    onMutate: async ({ skillName, enabled }) => {
+      await queryClient.cancelQueries({ queryKey: skillsKeys.all });
+      const previousSkills = queryClient.getQueryData<SkillsResponse>(skillsKeys.list());
+
+      // Optimistic update
+      queryClient.setQueryData<SkillsResponse>(skillsKeys.list(), (old) => {
+        if (!old) return old;
+        return {
+          skills: old.skills.map((s) =>
+            s.name === skillName ? { ...s, enabled } : s
+          ),
+        };
+      });
+
+      return { previousSkills };
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.previousSkills) {
+        queryClient.setQueryData(skillsKeys.list(), context.previousSkills);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: skillsKeys.all });
+    },
+  });
+
+  return {
+    toggleSkill: (skillName, enabled) => mutation.mutateAsync({ skillName, enabled }),
+    isToggling: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+/**
+ * Combined hook for all skill mutations
+ */
+export function useSkillMutations() {
+  const toggle = useToggleSkill();
+
+  return {
+    toggleSkill: toggle.toggleSkill,
+    isToggling: toggle.isToggling,
+    isMutating: toggle.isToggling,
+  };
+}

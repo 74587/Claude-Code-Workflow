@@ -63,6 +63,79 @@ export interface LoopLogEntryMessage {
   timestamp: string;
 }
 
+/**
+ * Orchestrator WebSocket message types
+ */
+export type OrchestratorMessageType =
+  | 'ORCHESTRATOR_STATE_UPDATE'
+  | 'ORCHESTRATOR_NODE_STARTED'
+  | 'ORCHESTRATOR_NODE_COMPLETED'
+  | 'ORCHESTRATOR_NODE_FAILED'
+  | 'ORCHESTRATOR_LOG';
+
+/**
+ * Execution log entry for Orchestrator
+ */
+export interface ExecutionLog {
+  timestamp: string;
+  level: 'info' | 'warn' | 'error' | 'debug';
+  nodeId?: string;
+  message: string;
+}
+
+/**
+ * Orchestrator State Update - fired when execution status changes
+ */
+export interface OrchestratorStateUpdateMessage {
+  type: 'ORCHESTRATOR_STATE_UPDATE';
+  execId: string;
+  status: 'pending' | 'running' | 'paused' | 'completed' | 'failed';
+  currentNodeId?: string;
+  timestamp: string;
+}
+
+/**
+ * Orchestrator Node Started - fired when a node begins execution
+ */
+export interface OrchestratorNodeStartedMessage {
+  type: 'ORCHESTRATOR_NODE_STARTED';
+  execId: string;
+  nodeId: string;
+  timestamp: string;
+}
+
+/**
+ * Orchestrator Node Completed - fired when a node finishes successfully
+ */
+export interface OrchestratorNodeCompletedMessage {
+  type: 'ORCHESTRATOR_NODE_COMPLETED';
+  execId: string;
+  nodeId: string;
+  result?: unknown;
+  timestamp: string;
+}
+
+/**
+ * Orchestrator Node Failed - fired when a node encounters an error
+ */
+export interface OrchestratorNodeFailedMessage {
+  type: 'ORCHESTRATOR_NODE_FAILED';
+  execId: string;
+  nodeId: string;
+  error: string;
+  timestamp: string;
+}
+
+/**
+ * Orchestrator Log - fired for execution log entries
+ */
+export interface OrchestratorLogMessage {
+  type: 'ORCHESTRATOR_LOG';
+  execId: string;
+  log: ExecutionLog;
+  timestamp: string;
+}
+
 export function handleWebSocketUpgrade(req: IncomingMessage, socket: Duplex, _head: Buffer): void {
   const header = req.headers['sec-websocket-key'];
   const key = Array.isArray(header) ? header[0] : header;
@@ -297,6 +370,62 @@ export function broadcastLoopLog(loop_id: string, step_id: string, line: string)
     loop_id,
     step_id,
     line,
+    timestamp: new Date().toISOString()
+  });
+}
+
+/**
+ * Union type for Orchestrator messages (without timestamp - added automatically)
+ */
+export type OrchestratorMessage =
+  | Omit<OrchestratorStateUpdateMessage, 'timestamp'>
+  | Omit<OrchestratorNodeStartedMessage, 'timestamp'>
+  | Omit<OrchestratorNodeCompletedMessage, 'timestamp'>
+  | Omit<OrchestratorNodeFailedMessage, 'timestamp'>
+  | Omit<OrchestratorLogMessage, 'timestamp'>;
+
+/**
+ * Orchestrator-specific broadcast with throttling
+ * Throttles ORCHESTRATOR_STATE_UPDATE messages to avoid flooding clients
+ */
+let lastOrchestratorBroadcast = 0;
+const ORCHESTRATOR_BROADCAST_THROTTLE = 1000; // 1 second
+
+/**
+ * Broadcast orchestrator update with throttling
+ * STATE_UPDATE messages are throttled to 1 per second
+ * Other message types are sent immediately
+ */
+export function broadcastOrchestratorUpdate(message: OrchestratorMessage): void {
+  const now = Date.now();
+
+  // Throttle ORCHESTRATOR_STATE_UPDATE to reduce WebSocket traffic
+  if (message.type === 'ORCHESTRATOR_STATE_UPDATE' && now - lastOrchestratorBroadcast < ORCHESTRATOR_BROADCAST_THROTTLE) {
+    return;
+  }
+
+  if (message.type === 'ORCHESTRATOR_STATE_UPDATE') {
+    lastOrchestratorBroadcast = now;
+  }
+
+  broadcastToClients({
+    ...message,
+    timestamp: new Date().toISOString()
+  });
+}
+
+/**
+ * Broadcast orchestrator log entry (no throttling)
+ * Used for streaming real-time execution logs to Dashboard
+ */
+export function broadcastOrchestratorLog(execId: string, log: Omit<ExecutionLog, 'timestamp'>): void {
+  broadcastToClients({
+    type: 'ORCHESTRATOR_LOG',
+    execId,
+    log: {
+      ...log,
+      timestamp: new Date().toISOString()
+    },
     timestamp: new Date().toISOString()
   });
 }

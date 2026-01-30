@@ -34,6 +34,8 @@ import { handleLoopRoutes } from './routes/loop-routes.js';
 import { handleLoopV2Routes, initializeCliToolsCache } from './routes/loop-v2-routes.js';
 import { handleTestLoopRoutes } from './routes/test-loop-routes.js';
 import { handleTaskRoutes } from './routes/task-routes.js';
+import { handleDashboardRoutes } from './routes/dashboard-routes.js';
+import { handleOrchestratorRoutes } from './routes/orchestrator-routes.js';
 
 // Import WebSocket handling
 import { handleWebSocketUpgrade, broadcastToClients, extractSessionIdFromPath } from './websocket.js';
@@ -514,6 +516,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         if (await handleNavStatusRoutes(routeContext)) return;
       }
 
+      // Dashboard routes (/api/dashboard/*) - Dashboard initialization
+      if (pathname.startsWith('/api/dashboard/')) {
+        if (await handleDashboardRoutes(routeContext)) return;
+      }
+
       // CLI routes (/api/cli/*)
       if (pathname.startsWith('/api/cli/')) {
         // CLI Settings routes first (more specific path /api/cli/settings/*)
@@ -575,6 +582,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // CCW routes (/api/ccw/*)
       if (pathname.startsWith('/api/ccw/')) {
         if (await handleCcwRoutes(routeContext)) return;
+      }
+
+      // Orchestrator routes (/api/orchestrator/*)
+      if (pathname.startsWith('/api/orchestrator/')) {
+        if (await handleOrchestratorRoutes(routeContext)) return;
       }
 
       // Loop V2 routes (/api/loops/v2/*) - must be checked before v1

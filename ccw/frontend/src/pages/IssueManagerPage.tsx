@@ -1,0 +1,401 @@
+// ========================================
+// Issue Manager Page
+// ========================================
+// Track and manage project issues with drag-drop queue
+
+import { useState, useMemo } from 'react';
+import {
+  AlertCircle,
+  Plus,
+  Filter,
+  Search,
+  RefreshCw,
+  Loader2,
+  Github,
+  ListFilter,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+} from 'lucide-react';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Badge } from '@/components/ui/Badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select';
+import { IssueCard } from '@/components/shared/IssueCard';
+import { useIssues, useIssueMutations } from '@/hooks';
+import type { Issue } from '@/lib/api';
+import { cn } from '@/lib/utils';
+
+// ========== Types ==========
+
+type ViewMode = 'issues' | 'queue';
+type StatusFilter = 'all' | Issue['status'];
+type PriorityFilter = 'all' | Issue['priority'];
+
+// ========== New Issue Dialog ==========
+
+interface NewIssueDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (data: { title: string; context?: string; priority?: Issue['priority'] }) => void;
+  isCreating: boolean;
+}
+
+function NewIssueDialog({ open, onOpenChange, onSubmit, isCreating }: NewIssueDialogProps) {
+  const [title, setTitle] = useState('');
+  const [context, setContext] = useState('');
+  const [priority, setPriority] = useState<Issue['priority']>('medium');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (title.trim()) {
+      onSubmit({ title: title.trim(), context: context.trim() || undefined, priority });
+      setTitle('');
+      setContext('');
+      setPriority('medium');
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create New Issue</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <div>
+            <label className="text-sm font-medium text-foreground">Title</label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Issue title..."
+              className="mt-1"
+              required
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground">Context (optional)</label>
+            <textarea
+              value={context}
+              onChange={(e) => setContext(e.target.value)}
+              placeholder="Describe the issue..."
+              className="mt-1 w-full min-h-[100px] p-3 bg-background border border-input rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground">Priority</label>
+            <Select value={priority} onValueChange={(v) => setPriority(v as Issue['priority'])}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="critical">Critical</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isCreating || !title.trim()}>
+              {isCreating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Issue
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ========== Issue List Component ==========
+
+interface IssueListProps {
+  issues: Issue[];
+  isLoading: boolean;
+  onIssueClick: (issue: Issue) => void;
+  onIssueEdit: (issue: Issue) => void;
+  onIssueDelete: (issue: Issue) => void;
+  onStatusChange: (issue: Issue, status: Issue['status']) => void;
+}
+
+function IssueList({
+  issues,
+  isLoading,
+  onIssueClick,
+  onIssueEdit,
+  onIssueDelete,
+  onStatusChange,
+}: IssueListProps) {
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-32 bg-muted animate-pulse rounded-lg" />
+        ))}
+      </div>
+    );
+  }
+
+  if (issues.length === 0) {
+    return (
+      <Card className="p-8 text-center">
+        <AlertCircle className="w-12 h-12 mx-auto text-muted-foreground/50" />
+        <h3 className="mt-4 text-lg font-medium text-foreground">No issues found</h3>
+        <p className="mt-2 text-muted-foreground">
+          Create a new issue or adjust your filters.
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+      {issues.map((issue) => (
+        <IssueCard
+          key={issue.id}
+          issue={issue}
+          onClick={onIssueClick}
+          onEdit={onIssueEdit}
+          onDelete={onIssueDelete}
+          onStatusChange={onStatusChange}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ========== Main Page Component ==========
+
+export function IssueManagerPage() {
+  const [viewMode, setViewMode] = useState<ViewMode>('issues');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
+  const [isNewIssueOpen, setIsNewIssueOpen] = useState(false);
+  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+
+  const {
+    issues,
+    issuesByStatus,
+    issuesByPriority,
+    openCount,
+    criticalCount,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useIssues({
+    filter: {
+      search: searchQuery || undefined,
+      status: statusFilter !== 'all' ? [statusFilter] : undefined,
+      priority: priorityFilter !== 'all' ? [priorityFilter] : undefined,
+    },
+  });
+
+  const { createIssue, updateIssue, deleteIssue, isCreating, isUpdating } = useIssueMutations();
+
+  // Filter counts
+  const statusCounts = useMemo(() => ({
+    all: issues.length,
+    open: issuesByStatus.open?.length || 0,
+    in_progress: issuesByStatus.in_progress?.length || 0,
+    resolved: issuesByStatus.resolved?.length || 0,
+    closed: issuesByStatus.closed?.length || 0,
+    completed: issuesByStatus.completed?.length || 0,
+  }), [issues, issuesByStatus]);
+
+  const handleCreateIssue = async (data: { title: string; context?: string; priority?: Issue['priority'] }) => {
+    await createIssue(data);
+    setIsNewIssueOpen(false);
+  };
+
+  const handleEditIssue = (issue: Issue) => {
+    setSelectedIssue(issue);
+    // TODO: Open edit dialog
+  };
+
+  const handleDeleteIssue = async (issue: Issue) => {
+    if (confirm(`Delete issue "${issue.title}"?`)) {
+      await deleteIssue(issue.id);
+    }
+  };
+
+  const handleStatusChange = async (issue: Issue, status: Issue['status']) => {
+    await updateIssue(issue.id, { status });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <AlertCircle className="w-6 h-6 text-primary" />
+            Issue Manager
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Track and manage project issues and bugs
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={cn('w-4 h-4 mr-2', isFetching && 'animate-spin')} />
+            Refresh
+          </Button>
+          <Button variant="outline">
+            <Github className="w-4 h-4 mr-2" />
+            Pull from GitHub
+          </Button>
+          <Button onClick={() => setIsNewIssueOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            New Issue
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="p-4">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-info" />
+            <span className="text-2xl font-bold">{openCount}</span>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">Open Issues</p>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-warning" />
+            <span className="text-2xl font-bold">{issuesByStatus.in_progress?.length || 0}</span>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">In Progress</p>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-destructive" />
+            <span className="text-2xl font-bold">{criticalCount}</span>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">Critical</p>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-5 h-5 text-success" />
+            <span className="text-2xl font-bold">{issuesByStatus.resolved?.length || 0}</span>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">Resolved</p>
+        </Card>
+      </div>
+
+      {/* Filters and Search */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search issues..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex gap-2">
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="open">Open</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="resolved">Resolved</SelectItem>
+              <SelectItem value="closed">Closed</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as PriorityFilter)}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Priority" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priority</SelectItem>
+              <SelectItem value="critical">Critical</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="low">Low</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Quick Filters */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={statusFilter === 'all' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setStatusFilter('all')}
+        >
+          All ({statusCounts.all})
+        </Button>
+        <Button
+          variant={statusFilter === 'open' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setStatusFilter('open')}
+        >
+          <Badge variant="info" className="mr-2">{statusCounts.open}</Badge>
+          Open
+        </Button>
+        <Button
+          variant={statusFilter === 'in_progress' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setStatusFilter('in_progress')}
+        >
+          <Badge variant="warning" className="mr-2">{statusCounts.in_progress}</Badge>
+          In Progress
+        </Button>
+        <Button
+          variant={priorityFilter === 'critical' ? 'destructive' : 'outline'}
+          size="sm"
+          onClick={() => {
+            setPriorityFilter(priorityFilter === 'critical' ? 'all' : 'critical');
+            setStatusFilter('all');
+          }}
+        >
+          <Badge variant="destructive" className="mr-2">{criticalCount}</Badge>
+          Critical
+        </Button>
+      </div>
+
+      {/* Issue List */}
+      <IssueList
+        issues={issues}
+        isLoading={isLoading}
+        onIssueClick={setSelectedIssue}
+        onIssueEdit={handleEditIssue}
+        onIssueDelete={handleDeleteIssue}
+        onStatusChange={handleStatusChange}
+      />
+
+      {/* New Issue Dialog */}
+      <NewIssueDialog
+        open={isNewIssueOpen}
+        onOpenChange={setIsNewIssueOpen}
+        onSubmit={handleCreateIssue}
+        isCreating={isCreating}
+      />
+    </div>
+  );
+}
+
+export default IssueManagerPage;
