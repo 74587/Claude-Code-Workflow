@@ -4,7 +4,7 @@
 // Manages workflow sessions, tasks, and related data
 
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { devtools, persist } from 'zustand/middleware';
 import type {
   WorkflowStore,
   WorkflowState,
@@ -60,8 +60,9 @@ const initialState: WorkflowState = {
 
 export const useWorkflowStore = create<WorkflowStore>()(
   devtools(
-    (set, get) => ({
-      ...initialState,
+    persist(
+      (set, get) => ({
+        ...initialState,
 
       // ========== Session Actions ==========
 
@@ -510,7 +511,49 @@ export const useWorkflowStore = create<WorkflowStore>()(
       getSessionByKey: (key: string) => {
         return get().sessionDataStore[key];
       },
-    }),
+      }),
+      {
+        name: 'ccw-workflow-store',
+        version: 1, // State version for migration support
+        partialize: (state) => ({
+          projectPath: state.projectPath,
+        }),
+        migrate: (persistedState, version) => {
+          // Migration logic for future state shape changes
+          if (version < 1) {
+            // No migrations needed for initial version
+            // Example: if (version === 0) { persistedState.newField = defaultValue; }
+          }
+          return persistedState as typeof persistedState;
+        },
+        onRehydrateStorage: () => {
+          // Only log in development to avoid noise in production
+          if (process.env.NODE_ENV === 'development') {
+            // eslint-disable-next-line no-console
+            console.log('[WorkflowStore] Hydrating from localStorage...');
+          }
+          return (state, error) => {
+            if (error) {
+              // eslint-disable-next-line no-console
+              console.error('[WorkflowStore] Rehydration error:', error);
+              return;
+            }
+            if (state?.projectPath) {
+              if (process.env.NODE_ENV === 'development') {
+                // eslint-disable-next-line no-console
+                console.log('[WorkflowStore] Found persisted projectPath, re-initializing workspace:', state.projectPath);
+              }
+              // Use setTimeout to ensure the store is fully initialized before calling switchWorkspace
+              setTimeout(() => {
+                if (state.switchWorkspace) {
+                  state.switchWorkspace(state.projectPath);
+                }
+              }, 0);
+            }
+          };
+        },
+      }
+    ),
     { name: 'WorkflowStore' }
   )
 );

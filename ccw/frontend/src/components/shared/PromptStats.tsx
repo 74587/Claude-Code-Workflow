@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { useIntl } from 'react-intl';
-import { StatCard } from '@/components/shared/StatCard';
+import { StatCard, StatCardSkeleton } from '@/components/shared/StatCard';
 import { MessageSquare, FileType, Hash } from 'lucide-react';
 
 export interface PromptStatsProps {

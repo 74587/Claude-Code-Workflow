@@ -63,7 +63,7 @@ export function useMemory(options: UseMemoryOptions = {}): UseMemoryReturn {
 
   const query = useQuery({
     queryKey: workspaceQueryKeys.memoryList(projectPath),
-    queryFn: fetchMemories,
+    queryFn: () => fetchMemories(projectPath),
     staleTime,
     enabled: queryEnabled,
     retry: 2,
@@ -137,7 +137,7 @@ export function useCreateMemory(): UseCreateMemoryReturn {
   const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
-    mutationFn: createMemory,
+    mutationFn: (input: { content: string; tags?: string[] }) => createMemory(input, projectPath),
     onSuccess: () => {
       // Invalidate memory cache to trigger refetch
       queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.memory(projectPath) : ['memory'] });
@@ -163,7 +163,7 @@ export function useUpdateMemory(): UseUpdateMemoryReturn {
 
   const mutation = useMutation({
     mutationFn: ({ memoryId, input }: { memoryId: string; input: Partial<CoreMemory> }) =>
-      updateMemory(memoryId, input),
+      updateMemory(memoryId, input, projectPath),
     onSuccess: () => {
       // Invalidate memory cache to trigger refetch
       queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.memory(projectPath) : ['memory'] });
@@ -188,7 +188,7 @@ export function useDeleteMemory(): UseDeleteMemoryReturn {
   const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
-    mutationFn: deleteMemory,
+    mutationFn: (memoryId: string) => deleteMemory(memoryId, projectPath),
     onSuccess: () => {
       // Invalidate to ensure sync with server
       queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.memory(projectPath) : ['memory'] });

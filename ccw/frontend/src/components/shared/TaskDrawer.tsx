@@ -211,7 +211,7 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
                       </h3>
                       <div className="space-y-3">
                         {flowControl.pre_analysis.map((step, index) => (
-                          <div key={index} className="p-3 bg-secondary rounded-md">
+                          <div key={index} className="p-3 bg-card rounded-md border border-border shadow-sm">
                             <div className="flex items-start gap-2">
                               <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium">
                                 {index + 1}
@@ -221,7 +221,7 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
                                 <p className="text-xs text-muted-foreground mt-1">{step.action}</p>
                                 {step.commands && step.commands.length > 0 && (
                                   <div className="mt-2">
-                                    <code className="text-xs bg-background px-2 py-1 rounded border">
+                                    <code className="text-xs bg-muted px-2 py-1 rounded border">
                                       {step.commands.join('; ')}
                                     </code>
                                   </div>
@@ -241,40 +241,7 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
                         {formatMessage({ id: 'sessionDetail.taskDrawer.overview.implementationSteps' })}
                       </h3>
                       <div className="space-y-3">
-                        {flowControl.implementation_approach.map((step, index) => (
-                          <div key={index} className="p-3 bg-secondary rounded-md">
-                            <div className="flex items-start gap-2">
-                              <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-accent text-accent-foreground text-xs font-medium">
-                                {step.step || index + 1}
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                {step.title && (
-                                  <p className="text-sm font-medium text-foreground">{step.title}</p>
-                                )}
-                                {step.description && (
-                                  <p className="text-xs text-muted-foreground mt-1">{step.description}</p>
-                                )}
-                                {step.modification_points && step.modification_points.length > 0 && (
-                                  <div className="mt-2">
-                                    <p className="text-xs font-medium text-muted-foreground mb-1">
-                                      {formatMessage({ id: 'sessionDetail.taskDrawer.overview.modificationPoints' })}:
-                                    </p>
-                                    <ul className="text-xs space-y-1">
-                                      {step.modification_points.map((point, i) => (
-                                        <li key={i} className="text-muted-foreground">• {point}</li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                                {step.depends_on && step.depends_on.length > 0 && (
-                                  <p className="text-xs text-muted-foreground mt-2">
-                                    {formatMessage({ id: 'sessionDetail.taskDrawer.overview.dependsOn' })}: Step {step.depends_on.join(', ')}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+
                       </div>
                     </div>
                   )}
@@ -296,25 +263,21 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
               {/* Flowchart Tab */}
               {hasFlowchart && (
                 <TabsContent value="flowchart" className="mt-4 pb-6">
-                  <div className="bg-secondary rounded-lg p-4 border border-border">
-                    <Flowchart flowControl={flowControl!} />
-                  </div>
+                  <Flowchart flowControl={flowControl!} className="min-h-[400px]" />
                 </TabsContent>
               )}
 
               {/* Files Tab */}
               <TabsContent value="files" className="mt-4 pb-6">
                 {hasFiles ? (
-                  <div className="space-y-2">
-                    {flowControl!.target_files!.map((file, index) => (
+                  <div className="space-y-3">
+                    {flowControl?.target_files?.map((file, index) => (
                       <div
                         key={index}
-                        className="flex items-center gap-2 p-3 bg-secondary rounded-md border border-border hover:bg-secondary/80 transition-colors"
+                        className="flex items-center gap-2 p-3 bg-card rounded-md border border-border shadow-sm hover:shadow-md transition-shadow"
                       >
-                        <Folder className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <code className="text-xs text-foreground flex-1 min-w-0 truncate">
-                          {file}
-                        </code>
+                        <Folder className="h-4 w-4 text-primary flex-shrink-0" />
+                        <span className="text-sm font-mono text-foreground">{file.path || file.name || 'Unknown'}</span>
                       </div>
                     ))}
                   </div>

@@ -36,11 +36,30 @@ export const workspaceQueryKeys = {
   issuesHistory: (projectPath: string) => [...workspaceQueryKeys.issues(projectPath), 'history'] as const,
   issueQueue: (projectPath: string) => [...workspaceQueryKeys.issues(projectPath), 'queue'] as const,
 
+  // ========== Discoveries ==========
+  discoveries: (projectPath: string) => ['workspace', projectPath, 'discoveries'] as const,
+
   // ========== Memory ==========
   memory: (projectPath: string) => [...workspaceQueryKeys.all(projectPath), 'memory'] as const,
   memoryList: (projectPath: string) => [...workspaceQueryKeys.memory(projectPath), 'list'] as const,
   memoryDetail: (projectPath: string, memoryId: string) =>
     [...workspaceQueryKeys.memory(projectPath), 'detail', memoryId] as const,
+
+  // ========== Skills ==========
+  skills: (projectPath: string) => [...workspaceQueryKeys.all(projectPath), 'skills'] as const,
+  skillsList: (projectPath: string) => [...workspaceQueryKeys.skills(projectPath), 'list'] as const,
+
+  // ========== Commands ==========
+  commands: (projectPath: string) => [...workspaceQueryKeys.all(projectPath), 'commands'] as const,
+  commandsList: (projectPath: string) => [...workspaceQueryKeys.commands(projectPath), 'list'] as const,
+
+  // ========== Hooks ==========
+  hooks: (projectPath: string) => [...workspaceQueryKeys.all(projectPath), 'hooks'] as const,
+  hooksList: (projectPath: string) => [...workspaceQueryKeys.hooks(projectPath), 'list'] as const,
+
+  // ========== MCP Servers ==========
+  mcpServers: (projectPath: string) => [...workspaceQueryKeys.all(projectPath), 'mcpServers'] as const,
+  mcpServersList: (projectPath: string) => [...workspaceQueryKeys.mcpServers(projectPath), 'list'] as const,
 
   // ========== Project Overview ==========
   projectOverview: (projectPath: string) => [...workspaceQueryKeys.all(projectPath), 'projectOverview'] as const,

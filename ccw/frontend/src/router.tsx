@@ -15,6 +15,8 @@ import {
   OrchestratorPage,
   LoopMonitorPage,
   IssueManagerPage,
+  QueuePage,
+  DiscoveryPage,
   SkillsManagerPage,
   CommandsManagerPage,
   MemoryPage,
@@ -94,6 +96,14 @@ const routes: RouteObject[] = [
         element: <IssueManagerPage />,
       },
       {
+        path: 'issues/queue',
+        element: <QueuePage />,
+      },
+      {
+        path: 'issues/discovery',
+        element: <DiscoveryPage />,
+      },
+      {
         path: 'skills',
         element: <SkillsManagerPage />,
       },
@@ -156,8 +166,13 @@ const routes: RouteObject[] = [
 
 /**
  * Create the browser router instance
+ * Uses basename from Vite's BASE_URL environment variable
  */
-export const router = createBrowserRouter(routes);
+const basename = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
+
+export const router = createBrowserRouter(routes, {
+  basename,
+});
 
 /**
  * Export route paths for type-safe navigation
@@ -176,6 +191,8 @@ export const ROUTES = {
   EXECUTIONS: '/executions',
   LOOPS: '/loops',
   ISSUES: '/issues',
+  ISSUE_QUEUE: '/issues/queue',
+  ISSUE_DISCOVERY: '/issues/discovery',
   SKILLS: '/skills',
   COMMANDS: '/commands',
   MEMORY: '/memory',

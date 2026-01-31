@@ -10,6 +10,7 @@ import {
   type IndexStatus,
   type IndexRebuildRequest,
 } from '../lib/api';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 // ========== Query Keys ==========
 
@@ -52,11 +53,14 @@ export function useIndexStatus(options: UseIndexStatusOptions = {}): UseIndexSta
   const { staleTime = STALE_TIME, enabled = true, refetchInterval = 0 } = options;
   const queryClient = useQueryClient();
 
+  const projectPath = useWorkflowStore(selectProjectPath);
+  const queryEnabled = enabled && !!projectPath;
+
   const query = useQuery({
     queryKey: indexKeys.status(),
-    queryFn: fetchIndexStatus,
+    queryFn: () => fetchIndexStatus(projectPath),
     staleTime,
-    enabled,
+    enabled: queryEnabled,
     refetchInterval: refetchInterval > 0 ? refetchInterval : false,
     retry: 2,
   });

@@ -12,6 +12,8 @@ export { HistoryPage } from './HistoryPage';
 export { OrchestratorPage } from './orchestrator';
 export { LoopMonitorPage } from './LoopMonitorPage';
 export { IssueManagerPage } from './IssueManagerPage';
+export { QueuePage } from './QueuePage';
+export { DiscoveryPage } from './DiscoveryPage';
 export { SkillsManagerPage } from './SkillsManagerPage';
 export { CommandsManagerPage } from './CommandsManagerPage';
 export { MemoryPage } from './MemoryPage';

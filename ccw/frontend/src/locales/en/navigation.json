@@ -8,6 +8,8 @@
     "orchestrator": "Orchestrator",
     "loops": "Loop Monitor",
     "issues": "Issues",
+    "issueQueue": "Issue Queue",
+    "issueDiscovery": "Issue Discovery",
     "skills": "Skills",
     "commands": "Commands",
     "memory": "Memory",

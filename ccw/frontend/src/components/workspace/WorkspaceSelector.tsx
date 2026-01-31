@@ -112,11 +112,31 @@ export function WorkspaceSelector({ className }: WorkspaceSelectorProps) {
   );
 
   /**
-   * Handle open browse dialog
+   * Handle open browse dialog - tries file dialog first, falls back to manual input
    */
-  const handleBrowseFolder = useCallback(() => {
-    setIsBrowseOpen(true);
+  const handleBrowseFolder = useCallback(async () => {
     setIsDropdownOpen(false);
+
+    // Try to use Electron/Electron-Tauri file dialog API if available
+    if ((window as any).electronAPI?.showOpenDialog) {
+      try {
+        const result = await (window as any).electronAPI.showOpenDialog({
+          properties: ['openDirectory'],
+        });
+
+        if (result && result.filePaths && result.filePaths.length > 0) {
+          const selectedPath = result.filePaths[0];
+          await switchWorkspace(selectedPath);
+          return;
+        }
+      } catch (error) {
+        console.error('Failed to open folder dialog:', error);
+        // Fall through to manual input dialog
+      }
+    }
+
+    // Fallback: open manual path input dialog
+    setIsBrowseOpen(true);
   }, []);
 
   /**

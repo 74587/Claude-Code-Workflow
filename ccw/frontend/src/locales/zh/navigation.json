@@ -8,6 +8,8 @@
     "orchestrator": "编排器",
     "loops": "循环监控",
     "issues": "问题",
+    "issueQueue": "问题队列",
+    "issueDiscovery": "问题发现",
     "skills": "技能",
     "commands": "命令",
     "memory": "记忆",

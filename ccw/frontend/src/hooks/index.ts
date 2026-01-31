@@ -70,6 +70,8 @@ export {
   useUpdateIssue,
   useDeleteIssue,
   useIssueMutations,
+  useQueueMutations,
+  useIssueDiscovery,
   issuesKeys,
 } from './useIssues';
 export type {
@@ -79,6 +81,9 @@ export type {
   UseCreateIssueReturn,
   UseUpdateIssueReturn,
   UseDeleteIssueReturn,
+  UseQueueMutationsReturn,
+  FindingFilters,
+  UseIssueDiscoveryReturn,
 } from './useIssues';
 
 // ========== Skills ==========

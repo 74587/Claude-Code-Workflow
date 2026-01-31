@@ -8,6 +8,7 @@ import {
   fetchCommands,
   type Command,
 } from '../lib/api';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 // Query key factory
 export const commandsKeys = {
@@ -50,11 +51,14 @@ export function useCommands(options: UseCommandsOptions = {}): UseCommandsReturn
   const { filter, staleTime = STALE_TIME, enabled = true } = options;
   const queryClient = useQueryClient();
 
+  const projectPath = useWorkflowStore(selectProjectPath);
+  const queryEnabled = enabled && !!projectPath;
+
   const query = useQuery({
     queryKey: commandsKeys.list(filter),
-    queryFn: fetchCommands,
+    queryFn: () => fetchCommands(projectPath),
     staleTime,
-    enabled,
+    enabled: queryEnabled,
     retry: 2,
   });
 

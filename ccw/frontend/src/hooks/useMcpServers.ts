@@ -13,6 +13,7 @@ import {
   type McpServer,
   type McpServersResponse,
 } from '../lib/api';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 // Query key factory
 export const mcpServersKeys = {
@@ -50,11 +51,14 @@ export function useMcpServers(options: UseMcpServersOptions = {}): UseMcpServers
   const { scope, staleTime = STALE_TIME, enabled = true } = options;
   const queryClient = useQueryClient();
 
+  const projectPath = useWorkflowStore(selectProjectPath);
+  const queryEnabled = enabled && !!projectPath;
+
   const query = useQuery({
     queryKey: mcpServersKeys.list(scope),
-    queryFn: fetchMcpServers,
+    queryFn: () => fetchMcpServers(projectPath),
     staleTime,
-    enabled,
+    enabled: queryEnabled,
     retry: 2,
   });
 

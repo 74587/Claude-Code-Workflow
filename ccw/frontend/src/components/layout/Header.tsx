@@ -22,7 +22,6 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useTheme } from '@/hooks';
-import { LanguageSwitcher } from './LanguageSwitcher';
 import { WorkspaceSelector } from '@/components/workspace/WorkspaceSelector';
 import { useCliStreamStore, selectActiveExecutionCount } from '@/stores/cliStreamStore';
 import { useNotificationStore } from '@/stores';
@@ -30,8 +29,6 @@ import { useNotificationStore } from '@/stores';
 export interface HeaderProps {
   /** Callback to toggle mobile sidebar */
   onMenuClick?: () => void;
-  /** Current project path */
-  projectPath?: string;
   /** Callback for refresh action */
   onRefresh?: () => void;
   /** Whether refresh is in progress */
@@ -42,7 +39,6 @@ export interface HeaderProps {
 
 export function Header({
   onMenuClick,
-  projectPath = '',
   onRefresh,
   isRefreshing = false,
   onCliMonitorClick,
@@ -112,7 +108,7 @@ export function Header({
         </Button>
 
         {/* Workspace selector */}
-        {projectPath && <WorkspaceSelector />}
+        <WorkspaceSelector />
 
         {/* Notification badge */}
         <Button
@@ -146,9 +142,6 @@ export function Header({
             />
           </Button>
         )}
-
-        {/* Language switcher */}
-        <LanguageSwitcher compact />
 
         {/* Theme toggle */}
         <Button

@@ -9,6 +9,7 @@ interface ViewOptions {
   path?: string;
   host?: string;
   browser?: boolean;
+  frontend?: 'js' | 'react' | 'both';
 }
 
 interface SwitchWorkspaceResult {
@@ -72,9 +73,10 @@ export async function viewCommand(options: ViewOptions): Promise<void> {
   // Check for updates (fire-and-forget, non-blocking)
   checkForUpdates().catch(() => { /* ignore errors */ });
 
-  const port = options.port || 3456;
+  const port = Number(options.port) || 3456;
   const host = options.host || '127.0.0.1';
   const browserHost = host === '0.0.0.0' || host === '::' ? 'localhost' : host;
+  const frontend = options.frontend || 'both';
 
   // Resolve workspace path
   let workspacePath = process.cwd();
@@ -101,8 +103,12 @@ export async function viewCommand(options: ViewOptions): Promise<void> {
     if (result.success) {
       console.log(chalk.green(`  Workspace switched successfully`));
 
-      // Open browser with the new path
-      const url = `http://${browserHost}:${port}/?path=${encodeURIComponent(result.path!)}`;
+      // Determine URL based on frontend type
+      let urlPath = '';
+      if (frontend === 'react') {
+        urlPath = '/react';
+      }
+      const url = `http://${browserHost}:${port}${urlPath}/?path=${encodeURIComponent(result.path!)}`;
 
       if (options.browser !== false) {
         console.log(chalk.cyan('  Opening in browser...'));
@@ -127,7 +133,8 @@ export async function viewCommand(options: ViewOptions): Promise<void> {
       path: workspacePath,
       port: port,
       host,
-      browser: options.browser
+      browser: options.browser,
+      frontend: frontend
     });
   }
 }

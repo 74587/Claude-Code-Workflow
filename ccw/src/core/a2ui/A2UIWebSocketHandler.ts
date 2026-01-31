@@ -161,7 +161,7 @@ export class A2UIWebSocketHandler {
     // Convert to QuestionAnswer format
     const questionAnswer: QuestionAnswer = {
       questionId: answer.questionId,
-      value: answer.value,
+      value: answer.value as string | boolean | string[],
       cancelled: answer.cancelled,
     };
 

@@ -18,7 +18,7 @@ interface ServeOptions {
  * @param {Object} options - Command options
  */
 export async function serveCommand(options: ServeOptions): Promise<void> {
-  const port = options.port || 3456;
+  const port = Number(options.port) || 3456;
   const host = options.host || '127.0.0.1';
   const frontend = options.frontend || 'js';
 
@@ -75,9 +75,9 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
     // Display frontend URLs
     if (frontend === 'both') {
       console.log(chalk.gray(`  JS Frontend:    ${boundUrl}`));
-      console.log(chalk.gray(`  React Frontend: ${boundUrl}/react`));
+      console.log(chalk.gray(`  React Frontend: http://${host}:${reactPort}`));
     } else if (frontend === 'react') {
-      console.log(chalk.gray(`  React Frontend: ${boundUrl}/react`));
+      console.log(chalk.gray(`  React Frontend: http://${host}:${reactPort}`));
     }
 
     // Open browser
@@ -86,10 +86,17 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       try {
         // Determine which URL to open based on frontend setting
         let openUrl = browserUrl;
-        if (frontend === 'react') {
-          openUrl = `${browserUrl}/react`;
+        if (frontend === 'react' && reactPort) {
+          // React frontend: access via proxy path /react/
+          openUrl = `http://${host}:${port}/react/`;
+        } else if (frontend === 'both') {
+          // Both frontends: default to JS frontend at root
+          openUrl = browserUrl;
         }
-        await launchBrowser(openUrl);
+
+        // Add path query parameter for workspace switching
+        const pathParam = initialPath ? `?path=${encodeURIComponent(initialPath)}` : '';
+        await launchBrowser(openUrl + pathParam);
         console.log(chalk.green.bold('\n  Dashboard opened in browser!'));
       } catch (err) {
         const error = err as Error;
@@ -101,9 +108,9 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
     console.log(chalk.gray('\n  Press Ctrl+C to stop the server\n'));
 
     // Handle graceful shutdown
-    process.on('SIGINT', () => {
+    process.on('SIGINT', async () => {
       console.log(chalk.yellow('\n  Shutting down server...'));
-      stopReactFrontend();
+      await stopReactFrontend();
       server.close(() => {
         console.log(chalk.green('  Server stopped.\n'));
         process.exit(0);
@@ -117,7 +124,7 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       console.error(chalk.yellow(`  Port ${port} is already in use.`));
       console.error(chalk.gray(`  Try a different port: ccw serve --port ${port + 1}\n`));
     }
-    stopReactFrontend();
+    await stopReactFrontend();
     process.exit(1);
   }
 }

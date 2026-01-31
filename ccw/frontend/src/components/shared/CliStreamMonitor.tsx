@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { LogBlockList } from '@/components/shared/LogBlock';
 import { useCliStreamStore, type CliOutputLine } from '@/stores/cliStreamStore';
 import { useNotificationStore, selectWsLastMessage } from '@/stores';
 import { useActiveCliExecutions, useInvalidateActiveCliExecutions } from '@/hooks/useActiveCliExecutions';
@@ -126,6 +127,7 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [autoScroll, setAutoScroll] = useState(true);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'blocks'>('list');
 
   // Store state
   const executions = useCliStreamStore((state) => state.executions);
@@ -416,6 +418,17 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
+                    {/* View Mode Toggle */}
+                    <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'blocks')}>
+                      <TabsList className="h-7 bg-secondary/50">
+                        <TabsTrigger value="list" className="h-6 px-2 text-xs">
+                          List
+                        </TabsTrigger>
+                        <TabsTrigger value="blocks" className="h-6 px-2 text-xs">
+                          Blocks
+                        </TabsTrigger>
+                      </TabsList>
+                    </Tabs>
                     {currentExecution && (
                       <>
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -443,40 +456,48 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
                   </div>
                 </div>
 
-                {/* Output Content */}
+                {/* Output Content - Based on viewMode */}
                 {currentExecution ? (
-                  <div
-                    ref={logsContainerRef}
-                    className="flex-1 overflow-y-auto p-3 font-mono text-xs bg-background"
-                    onScroll={handleScroll}
-                  >
-                    {filteredOutput.length === 0 ? (
-                      <div className="flex items-center justify-center h-full text-muted-foreground">
-                        {searchQuery ? 'No matching output found' : 'Waiting for output...'}
+                  <div className="flex-1 overflow-hidden">
+                    {viewMode === 'blocks' ? (
+                      <div className="h-full overflow-y-auto bg-background">
+                        <LogBlockList executionId={currentExecutionId} />
                       </div>
                     ) : (
-                      <div className="space-y-1">
-                        {filteredOutput.map((line, index) => (
-                          <div key={index} className={cn('flex gap-2', getOutputLineClass(line.type))}>
-                            <span className="text-muted-foreground shrink-0">
-                              {getOutputLineIcon(line.type)}
-                            </span>
-                            <span className="break-all">{line.content}</span>
-                          </div>
-                        ))}
-                        <div ref={logsEndRef} />
-                      </div>
-                    )}
-                    {isUserScrolling && filteredOutput.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="absolute bottom-4 right-4"
-                        onClick={scrollToBottom}
+                      <div
+                        ref={logsContainerRef}
+                        className="h-full overflow-y-auto p-3 font-mono text-xs bg-background"
+                        onScroll={handleScroll}
                       >
-                        <ArrowDownToLine className="h-4 w-4 mr-1" />
-                        Scroll to bottom
-                      </Button>
+                        {filteredOutput.length === 0 ? (
+                          <div className="flex items-center justify-center h-full text-muted-foreground">
+                            {searchQuery ? 'No matching output found' : 'Waiting for output...'}
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {filteredOutput.map((line, index) => (
+                              <div key={index} className={cn('flex gap-2', getOutputLineClass(line.type))}>
+                                <span className="text-muted-foreground shrink-0">
+                                  {getOutputLineIcon(line.type)}
+                                </span>
+                                <span className="break-all">{line.content}</span>
+                              </div>
+                            ))}
+                            <div ref={logsEndRef} />
+                          </div>
+                        )}
+                        {isUserScrolling && filteredOutput.length > 0 && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="absolute bottom-4 right-4"
+                            onClick={scrollToBottom}
+                          >
+                            <ArrowDownToLine className="h-4 w-4 mr-1" />
+                            Scroll to bottom
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
                 ) : (

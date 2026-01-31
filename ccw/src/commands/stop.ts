@@ -48,6 +48,7 @@ async function killProcess(pid: string): Promise<boolean> {
  */
 export async function stopCommand(options: StopOptions): Promise<void> {
   const port = options.port || 3456;
+  const reactPort = port + 1; // React frontend runs on port + 1
   const force = options.force || false;
 
   console.log(chalk.blue.bold('\n  CCW Dashboard\n'));
@@ -107,6 +108,23 @@ export async function stopCommand(options: StopOptions): Promise<void> {
 
     if (!pid) {
       console.log(chalk.yellow(`  No server running on port ${port}\n`));
+
+      // Also check and clean up React frontend if it's still running
+      const reactPid = await findProcessOnPort(reactPort);
+      if (reactPid) {
+        console.log(chalk.yellow(`  React frontend still running on port ${reactPort} (PID: ${reactPid})`));
+        if (force) {
+          console.log(chalk.cyan('  Cleaning up React frontend...'));
+          const killed = await killProcess(reactPid);
+          if (killed) {
+            console.log(chalk.green('  React frontend stopped!\n'));
+          } else {
+            console.log(chalk.red('  Failed to stop React frontend.\n'));
+          }
+        } else {
+          console.log(chalk.gray(`\n  Use --force to clean it up:\n  ccw stop --force\n`));
+        }
+      }
       process.exit(0);
     }
 
@@ -118,7 +136,17 @@ export async function stopCommand(options: StopOptions): Promise<void> {
       const killed = await killProcess(pid);
 
       if (killed) {
-        console.log(chalk.green.bold('\n  Process killed successfully!\n'));
+        console.log(chalk.green('  Main server killed successfully!'));
+
+        // Also try to kill React frontend
+        const reactPid = await findProcessOnPort(reactPort);
+        if (reactPid) {
+          console.log(chalk.cyan(`  Cleaning up React frontend on port ${reactPort}...`));
+          await killProcess(reactPid);
+          console.log(chalk.green('  React frontend stopped!'));
+        }
+
+        console.log(chalk.green.bold('\n  All processes stopped successfully!\n'));
         process.exit(0);
       } else {
         console.log(chalk.red('\n  Failed to kill process. Try running as administrator.\n'));

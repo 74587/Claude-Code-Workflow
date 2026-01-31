@@ -220,13 +220,13 @@ export async function handleSystemRoutes(ctx: SystemRouteContext): Promise<boole
       return true;
     }
 
-    // Track the path and return success
-    trackRecentPath(resolved);
+    // Get full workflow data for the new path
+    const workflowData = await getWorkflowData(resolved);
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       success: true,
-      path: resolved,
-      recentPaths: getRecentPaths()
+      ...workflowData
     }));
     return true;
   }

@@ -6,12 +6,12 @@
     "current": "当前",
     "browse": "选择文件夹...",
     "removePath": "从最近记录中移除",
-    "ariaLabel": "工作空间选择器"
-  },
-  "dialog": {
-    "title": "选择项目文件夹",
-    "placeholder": "输入项目路径...",
-    "help": "您的项目目录路径"
+    "ariaLabel": "工作空间选择器",
+    "dialog": {
+      "title": "选择项目文件夹",
+      "placeholder": "输入项目路径...",
+      "help": "您的项目目录路径"
+    }
   },
   "actions": {
     "switch": "切换工作空间",

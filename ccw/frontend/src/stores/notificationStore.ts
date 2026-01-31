@@ -11,6 +11,8 @@ import type {
   Toast,
   WebSocketStatus,
   WebSocketMessage,
+  NotificationAction,
+  ActionState,
 } from '../types/store';
 import type { SurfaceUpdate } from '../packages/a2ui-runtime/core/A2UITypes';
 
@@ -77,6 +79,9 @@ const initialState: NotificationState = {
 
   // Current question dialog state
   currentQuestion: null,
+
+  // Action state tracking
+  actionStates: new Map<string, ActionState>(),
 };
 
 export const useNotificationStore = create<NotificationStore>()(
@@ -246,6 +251,115 @@ export const useNotificationStore = create<NotificationStore>()(
         // Also save to localStorage
         const state = get();
         saveToStorage(state.persistentNotifications);
+      },
+
+      // ========== Read Status Management ==========
+
+      toggleNotificationRead: (id: string) => {
+        set(
+          (state) => {
+            // Check both toasts and persistentNotifications
+            const toastIndex = state.toasts.findIndex((t) => t.id === id);
+            const persistentIndex = state.persistentNotifications.findIndex((n) => n.id === id);
+
+            if (toastIndex === -1 && persistentIndex === -1) {
+              return state; // Notification not found
+            }
+
+            const newState = { ...state };
+            if (toastIndex !== -1) {
+              const newToasts = [...state.toasts];
+              newToasts[toastIndex] = {
+                ...newToasts[toastIndex],
+                read: !newToasts[toastIndex].read,
+              };
+              newState.toasts = newToasts;
+            }
+            if (persistentIndex !== -1) {
+              const newPersistent = [...state.persistentNotifications];
+              newPersistent[persistentIndex] = {
+                ...newPersistent[persistentIndex],
+                read: !newPersistent[persistentIndex].read,
+              };
+              newState.persistentNotifications = newPersistent;
+              // Save to localStorage for persistent notifications
+              saveToStorage(newPersistent);
+            }
+
+            return newState;
+          },
+          false,
+          'toggleNotificationRead'
+        );
+      },
+
+      // ========== Action State Management ==========
+
+      setActionState: (actionKey: string, actionState: ActionState) => {
+        set(
+          (state) => {
+            const newActionStates = new Map(state.actionStates);
+            newActionStates.set(actionKey, actionState);
+            return { actionStates: newActionStates };
+          },
+          false,
+          'setActionState'
+        );
+      },
+
+      executeAction: async (action: NotificationAction, notificationId: string, actionKey?: string) => {
+        const key = actionKey || `${notificationId}-${action.label}`;
+        const state = get();
+
+        // Check if action is disabled
+        const currentActionState = state.actionStates.get(key);
+        if (currentActionState?.status === 'loading' || action.disabled) {
+          return;
+        }
+
+        // Set loading state
+        const newActionStates = new Map(state.actionStates);
+        newActionStates.set(key, {
+          status: 'loading',
+          lastAttempt: new Date().toISOString(),
+        });
+        set({ actionStates: newActionStates });
+
+        try {
+          await action.onClick();
+          // Set success state
+          const successStates = new Map(get().actionStates);
+          successStates.set(key, {
+            status: 'success',
+            lastAttempt: new Date().toISOString(),
+          });
+          set({ actionStates: successStates });
+        } catch (error) {
+          // Set error state
+          const errorStates = new Map(get().actionStates);
+          errorStates.set(key, {
+            status: 'error',
+            error: error instanceof Error ? error.message : String(error),
+            lastAttempt: new Date().toISOString(),
+          });
+          set({ actionStates: errorStates });
+        }
+      },
+
+      retryAction: async (actionKey: string, notificationId: string) => {
+        const state = get();
+        const actionState = state.actionStates.get(actionKey);
+
+        if (!actionState) {
+          console.warn(`[NotificationStore] No action state found for key: ${actionKey}`);
+          return;
+        }
+
+        // Reset to idle and let executeAction handle it
+        get().setActionState(actionKey, { status: 'idle', lastAttempt: new Date().toISOString() });
+
+        // Note: The caller should re-invoke executeAction with the original action
+        // This method just resets the state for retry
       },
 
       // ========== A2UI Actions ==========

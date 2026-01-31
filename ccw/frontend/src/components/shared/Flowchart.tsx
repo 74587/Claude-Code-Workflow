@@ -183,16 +183,24 @@ export function Flowchart({ flowControl, className = '' }: FlowchartProps) {
 
     implSteps.forEach((step, idx) => {
       const nodeId = `impl-${idx}`;
+
+      // Handle both string and ImplementationStep types
+      const isString = typeof step === 'string';
+      const label = isString ? step : (step.title || `Step ${step.step}`);
+      const description = isString ? undefined : step.description;
+      const stepNumber = isString ? (idx + 1) : step.step;
+      const dependsOn = isString ? undefined : step.depends_on?.map((d: number | string) => `impl-${Number(d) - 1}`);
+
       initialNodes.push({
         id: nodeId,
         type: 'custom',
         position: { x: 0, y: currentY },
         data: {
-          label: step.title || `Step ${step.step}`,
-          description: step.description,
-          step: step.step,
+          label,
+          description,
+          step: stepNumber,
           type: 'implementation' as const,
-          dependsOn: step.depends_on?.map(d => `impl-${d - 1}`),
+          dependsOn,
         },
       });
 
@@ -217,9 +225,9 @@ export function Flowchart({ flowControl, className = '' }: FlowchartProps) {
       }
 
       // Dependency edges
-      if (step.depends_on && step.depends_on.length > 0) {
-        step.depends_on.forEach(depIdx => {
-          const depNodeId = `impl-${depIdx - 1}`;
+      if (!isString && step.depends_on && step.depends_on.length > 0) {
+        step.depends_on.forEach((depIdx: number | string) => {
+          const depNodeId = `impl-${Number(depIdx) - 1}`;
           initialEdges.push({
             id: `dep-${depIdx}-${idx}`,
             source: depNodeId,
@@ -285,16 +293,16 @@ export function Flowchart({ flowControl, className = '' }: FlowchartProps) {
         zoomOnScroll={true}
         panOnScroll={true}
       >
-        <Background />
-        <Controls />
+        <Background color="var(--color-border, #e0e0e0)" style={{ backgroundColor: 'var(--color-background, white)' }} />
+        <Controls className="bg-card border border-border rounded shadow-sm" />
         <MiniMap
           nodeColor={(node) => {
             const data = node.data as FlowchartNodeData;
-            if (data.type === 'section') return '#e5e7eb';
+            if (data.type === 'section') return '#9ca3af';
             if (data.type === 'pre-analysis') return '#f59e0b';
             return '#3b82f6';
           }}
-          className="!bg-background !border-border"
+          className="!bg-card !border-border !rounded !shadow-sm"
         />
       </ReactFlow>
     </div>

@@ -231,11 +231,13 @@ function transformBackendSession(
 // ========== Dashboard API ==========
 
 /**
- * Fetch dashboard statistics
+ * Fetch dashboard statistics for a specific workspace
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchDashboardStats(): Promise<DashboardStats> {
+export async function fetchDashboardStats(projectPath?: string): Promise<DashboardStats> {
   try {
-    const data = await fetchApi<{ statistics?: DashboardStats }>('/api/data');
+    const url = projectPath ? `/api/data?path=${encodeURIComponent(projectPath)}` : '/api/data';
+    const data = await fetchApi<{ statistics?: DashboardStats }>(url);
 
     // Validate response structure
     if (!data) {
@@ -279,15 +281,17 @@ function getEmptyDashboardStats(): DashboardStats {
 // ========== Sessions API ==========
 
 /**
- * Fetch all sessions (active and archived)
+ * Fetch all sessions (active and archived) for a specific workspace
  * Applies transformation layer to map backend data to frontend SessionMetadata interface
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchSessions(): Promise<SessionsResponse> {
+export async function fetchSessions(projectPath?: string): Promise<SessionsResponse> {
   try {
+    const url = projectPath ? `/api/data?path=${encodeURIComponent(projectPath)}` : '/api/data';
     const data = await fetchApi<{
       activeSessions?: BackendSessionData[];
       archivedSessions?: BackendSessionData[];
-    }>('/api/data');
+    }>(url);
 
     // Validate response structure
     if (!data) {
@@ -513,10 +517,12 @@ export interface LoopsResponse {
 }
 
 /**
- * Fetch all loops
+ * Fetch all loops for a specific workspace
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchLoops(): Promise<LoopsResponse> {
-  const data = await fetchApi<{ loops?: Loop[] }>('/api/loops');
+export async function fetchLoops(projectPath?: string): Promise<LoopsResponse> {
+  const url = projectPath ? `/api/loops?path=${encodeURIComponent(projectPath)}` : '/api/loops';
+  const data = await fetchApi<{ loops?: Loop[] }>(url);
   return {
     loops: data.loops ?? [],
     total: data.loops?.length ?? 0,
@@ -524,10 +530,15 @@ export async function fetchLoops(): Promise<LoopsResponse> {
 }
 
 /**
- * Fetch a single loop by ID
+ * Fetch a single loop by ID for a specific workspace
+ * @param loopId - The loop ID to fetch
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchLoop(loopId: string): Promise<Loop> {
-  return fetchApi<Loop>(`/api/loops/${encodeURIComponent(loopId)}`);
+export async function fetchLoop(loopId: string, projectPath?: string): Promise<Loop> {
+  const url = projectPath
+    ? `/api/loops/${encodeURIComponent(loopId)}?path=${encodeURIComponent(projectPath)}`
+    : `/api/loops/${encodeURIComponent(loopId)}`;
+  return fetchApi<Loop>(url);
 }
 
 /**
@@ -672,6 +683,97 @@ export async function deleteIssue(issueId: string): Promise<void> {
   });
 }
 
+/**
+ * Activate a queue
+ */
+export async function activateQueue(queueId: string, projectPath: string): Promise<void> {
+  return fetchApi<void>(`/api/queue/${encodeURIComponent(queueId)}/activate?path=${encodeURIComponent(projectPath)}`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * Deactivate the current queue
+ */
+export async function deactivateQueue(projectPath: string): Promise<void> {
+  return fetchApi<void>(`/api/queue/deactivate?path=${encodeURIComponent(projectPath)}`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * Delete a queue
+ */
+export async function deleteQueue(queueId: string, projectPath: string): Promise<void> {
+  return fetchApi<void>(`/api/queue/${encodeURIComponent(queueId)}?path=${encodeURIComponent(projectPath)}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Merge queues
+ */
+export async function mergeQueues(sourceId: string, targetId: string, projectPath: string): Promise<void> {
+  return fetchApi<void>(`/api/queue/merge?path=${encodeURIComponent(projectPath)}`, {
+    method: 'POST',
+    body: JSON.stringify({ sourceId, targetId }),
+  });
+}
+
+// ========== Discovery API ==========
+
+export interface DiscoverySession {
+  id: string;
+  name: string;
+  status: 'running' | 'completed' | 'failed';
+  progress: number; // 0-100
+  findings_count: number;
+  created_at: string;
+  completed_at?: string;
+}
+
+export interface Finding {
+  id: string;
+  sessionId: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  type: string;
+  title: string;
+  description: string;
+  file?: string;
+  line?: number;
+  code_snippet?: string;
+  created_at: string;
+}
+
+export async function fetchDiscoveries(projectPath?: string): Promise<DiscoverySession[]> {
+  const url = projectPath
+    ? `/api/discoveries?path=${encodeURIComponent(projectPath)}`
+    : '/api/discoveries';
+  const data = await fetchApi<{ sessions?: DiscoverySession[] }>(url);
+  return data.sessions ?? [];
+}
+
+export async function fetchDiscoveryDetail(
+  sessionId: string,
+  projectPath?: string
+): Promise<DiscoverySession> {
+  const url = projectPath
+    ? `/api/discoveries/${encodeURIComponent(sessionId)}?path=${encodeURIComponent(projectPath)}`
+    : `/api/discoveries/${encodeURIComponent(sessionId)}`;
+  return fetchApi<DiscoverySession>(url);
+}
+
+export async function fetchDiscoveryFindings(
+  sessionId: string,
+  projectPath?: string
+): Promise<Finding[]> {
+  const url = projectPath
+    ? `/api/discoveries/${encodeURIComponent(sessionId)}/findings?path=${encodeURIComponent(projectPath)}`
+    : `/api/discoveries/${encodeURIComponent(sessionId)}/findings`;
+  const data = await fetchApi<{ findings?: Finding[] }>(url);
+  return data.findings ?? [];
+}
+
 // ========== Skills API ==========
 
 export interface Skill {
@@ -690,10 +792,12 @@ export interface SkillsResponse {
 }
 
 /**
- * Fetch all skills
+ * Fetch all skills for a specific workspace
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchSkills(): Promise<SkillsResponse> {
-  const data = await fetchApi<{ skills?: Skill[] }>('/api/skills');
+export async function fetchSkills(projectPath?: string): Promise<SkillsResponse> {
+  const url = projectPath ? `/api/skills?path=${encodeURIComponent(projectPath)}` : '/api/skills';
+  const data = await fetchApi<{ skills?: Skill[] }>(url);
   return {
     skills: data.skills ?? [],
   };
@@ -726,10 +830,12 @@ export interface CommandsResponse {
 }
 
 /**
- * Fetch all commands
+ * Fetch all commands for a specific workspace
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchCommands(): Promise<CommandsResponse> {
-  const data = await fetchApi<{ commands?: Command[] }>('/api/commands');
+export async function fetchCommands(projectPath?: string): Promise<CommandsResponse> {
+  const url = projectPath ? `/api/commands?path=${encodeURIComponent(projectPath)}` : '/api/commands';
+  const data = await fetchApi<{ commands?: Command[] }>(url);
   return {
     commands: data.commands ?? [],
   };
@@ -754,14 +860,16 @@ export interface MemoryResponse {
 }
 
 /**
- * Fetch all memories
+ * Fetch all memories for a specific workspace
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchMemories(): Promise<MemoryResponse> {
+export async function fetchMemories(projectPath?: string): Promise<MemoryResponse> {
+  const url = projectPath ? `/api/memory?path=${encodeURIComponent(projectPath)}` : '/api/memory';
   const data = await fetchApi<{
     memories?: CoreMemory[];
     totalSize?: number;
     claudeMdCount?: number;
-  }>('/api/memory');
+  }>(url);
   return {
     memories: data.memories ?? [],
     totalSize: data.totalSize ?? 0,
@@ -770,36 +878,51 @@ export async function fetchMemories(): Promise<MemoryResponse> {
 }
 
 /**
- * Create a new memory entry
+ * Create a new memory entry for a specific workspace
+ * @param input - Memory input data
+ * @param projectPath - Optional project path to filter data by workspace
  */
 export async function createMemory(input: {
   content: string;
   tags?: string[];
-}): Promise<CoreMemory> {
-  return fetchApi<CoreMemory>('/api/memory', {
+}, projectPath?: string): Promise<CoreMemory> {
+  const url = projectPath ? `/api/memory?path=${encodeURIComponent(projectPath)}` : '/api/memory';
+  return fetchApi<CoreMemory>(url, {
     method: 'POST',
     body: JSON.stringify(input),
   });
 }
 
 /**
- * Update a memory entry
+ * Update a memory entry for a specific workspace
+ * @param memoryId - Memory ID to update
+ * @param input - Partial memory data
+ * @param projectPath - Optional project path to filter data by workspace
  */
 export async function updateMemory(
   memoryId: string,
-  input: Partial<CoreMemory>
+  input: Partial<CoreMemory>,
+  projectPath?: string
 ): Promise<CoreMemory> {
-  return fetchApi<CoreMemory>(`/api/memory/${encodeURIComponent(memoryId)}`, {
+  const url = projectPath
+    ? `/api/memory/${encodeURIComponent(memoryId)}?path=${encodeURIComponent(projectPath)}`
+    : `/api/memory/${encodeURIComponent(memoryId)}`;
+  return fetchApi<CoreMemory>(url, {
     method: 'PATCH',
     body: JSON.stringify(input),
   });
 }
 
 /**
- * Delete a memory entry
+ * Delete a memory entry for a specific workspace
+ * @param memoryId - Memory ID to delete
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function deleteMemory(memoryId: string): Promise<void> {
-  return fetchApi<void>(`/api/memory/${encodeURIComponent(memoryId)}`, {
+export async function deleteMemory(memoryId: string, projectPath?: string): Promise<void> {
+  const url = projectPath
+    ? `/api/memory/${encodeURIComponent(memoryId)}?path=${encodeURIComponent(projectPath)}`
+    : `/api/memory/${encodeURIComponent(memoryId)}`;
+  return fetchApi<void>(url, {
     method: 'DELETE',
   });
 }
@@ -885,10 +1008,12 @@ export interface ProjectOverview {
 }
 
 /**
- * Fetch project overview
+ * Fetch project overview for a specific workspace
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchProjectOverview(): Promise<ProjectOverview | null> {
-  const data = await fetchApi<{ projectOverview?: ProjectOverview }>('/api/ccw');
+export async function fetchProjectOverview(projectPath?: string): Promise<ProjectOverview | null> {
+  const url = projectPath ? `/api/ccw?path=${encodeURIComponent(projectPath)}` : '/api/ccw';
+  const data = await fetchApi<{ projectOverview?: ProjectOverview }>(url);
   return data.projectOverview ?? null;
 }
 
@@ -914,12 +1039,14 @@ export interface SessionDetailResponse {
 }
 
 /**
- * Fetch session detail
+ * Fetch session detail for a specific workspace
  * First fetches session list to get the session path, then fetches detail data
+ * @param sessionId - Session ID to fetch details for
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchSessionDetail(sessionId: string): Promise<SessionDetailResponse> {
+export async function fetchSessionDetail(sessionId: string, projectPath?: string): Promise<SessionDetailResponse> {
   // Step 1: Fetch all sessions to get the session path
-  const sessionsData = await fetchSessions();
+  const sessionsData = await fetchSessions(projectPath);
   const allSessions = [...sessionsData.activeSessions, ...sessionsData.archivedSessions];
   const session = allSessions.find(s => s.session_id === sessionId);
 
@@ -930,7 +1057,8 @@ export async function fetchSessionDetail(sessionId: string): Promise<SessionDeta
   // Step 2: Use the session path to fetch detail data from the correct endpoint
   // Backend expects path parameter, not sessionId
   const sessionPath = (session as any).path || session.session_id;
-  const detailData = await fetchApi<any>(`/api/session-detail?path=${encodeURIComponent(sessionPath)}&type=all`);
+  const pathParam = projectPath || sessionPath;
+  const detailData = await fetchApi<any>(`/api/session-detail?path=${encodeURIComponent(pathParam)}&type=all`);
 
   // Step 3: Transform the response to match SessionDetailResponse interface
   return {
@@ -962,10 +1090,12 @@ export interface HistoryResponse {
 }
 
 /**
- * Fetch CLI execution history
+ * Fetch CLI execution history for a specific workspace
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchHistory(): Promise<HistoryResponse> {
-  const data = await fetchApi<{ executions?: CliExecution[] }>('/api/cli/history');
+export async function fetchHistory(projectPath?: string): Promise<HistoryResponse> {
+  const url = projectPath ? `/api/cli/history?path=${encodeURIComponent(projectPath)}` : '/api/cli/history';
+  const data = await fetchApi<{ executions?: CliExecution[] }>(url);
   return {
     executions: data.executions ?? [],
   };
@@ -1082,25 +1212,34 @@ export async function updateCliToolsConfig(
 // ========== Lite Tasks API ==========
 
 export interface ImplementationStep {
-  step: number;
+  step?: number | string;
+  phase?: string;
   title?: string;
+  action?: string;
   description?: string;
-  modification_points?: string[];
+  modification_points?: string[] | Array<{ file: string; target: string; change: string }>;
   logic_flow?: string[];
-  depends_on?: number[];
+  depends_on?: number[] | string[];
   output?: string;
+  output_to?: string;
+  commands?: string[];
+  steps?: string[];
+  test_patterns?: string;
+  [key: string]: unknown;
+}
+
+export interface PreAnalysisStep {
+  step?: string;
+  action?: string;
+  output_to?: string;
+  commands?: string[];
 }
 
 export interface FlowControl {
-  pre_analysis?: Array<{
-    step: string;
-    action: string;
-    commands?: string[];
-    output_to: string;
-    on_error?: 'fail' | 'continue' | 'skip';
-  }>;
-  implementation_approach?: ImplementationStep[];
-  target_files?: string[];
+  pre_analysis?: PreAnalysisStep[];
+  implementation_approach?: (ImplementationStep | string)[];
+  target_files?: Array<{ path: string; name?: string }>;
+  [key: string]: unknown;
 }
 
 export interface LiteTask {
@@ -1149,21 +1288,27 @@ export interface LiteTasksResponse {
 }
 
 /**
- * Fetch all lite tasks sessions
+ * Fetch all lite tasks sessions for a specific workspace
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchLiteTasks(): Promise<LiteTasksResponse> {
-  const data = await fetchApi<{ liteTasks?: LiteTasksResponse }>('/api/data');
+export async function fetchLiteTasks(projectPath?: string): Promise<LiteTasksResponse> {
+  const url = projectPath ? `/api/data?path=${encodeURIComponent(projectPath)}` : '/api/data';
+  const data = await fetchApi<{ liteTasks?: LiteTasksResponse }>(url);
   return data.liteTasks || {};
 }
 
 /**
- * Fetch a single lite task session by ID
+ * Fetch a single lite task session by ID for a specific workspace
+ * @param sessionId - Session ID to fetch
+ * @param type - Type of lite task
+ * @param projectPath - Optional project path to filter data by workspace
  */
 export async function fetchLiteTaskSession(
   sessionId: string,
-  type: 'lite-plan' | 'lite-fix' | 'multi-cli-plan'
+  type: 'lite-plan' | 'lite-fix' | 'multi-cli-plan',
+  projectPath?: string
 ): Promise<LiteTaskSession | null> {
-  const data = await fetchLiteTasks();
+  const data = await fetchLiteTasks(projectPath);
   const sessions = type === 'lite-plan' ? (data.litePlan || []) :
     type === 'lite-fix' ? (data.liteFix || []) :
     (data.multiCliPlan || []);
@@ -1246,10 +1391,12 @@ export interface McpServersResponse {
 }
 
 /**
- * Fetch all MCP servers (project and global scope)
+ * Fetch all MCP servers (project and global scope) for a specific workspace
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchMcpServers(): Promise<McpServersResponse> {
-  const data = await fetchApi<{ project?: McpServer[]; global?: McpServer[] }>('/api/mcp/servers');
+export async function fetchMcpServers(projectPath?: string): Promise<McpServersResponse> {
+  const url = projectPath ? `/api/mcp/servers?path=${encodeURIComponent(projectPath)}` : '/api/mcp/servers';
+  const data = await fetchApi<{ project?: McpServer[]; global?: McpServer[] }>(url);
   return {
     project: data.project ?? [],
     global: data.global ?? [],
@@ -1485,10 +1632,12 @@ export interface HooksResponse {
 }
 
 /**
- * Fetch all hooks
+ * Fetch all hooks for a specific workspace
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchHooks(): Promise<HooksResponse> {
-  const data = await fetchApi<{ hooks?: Hook[] }>('/api/hooks');
+export async function fetchHooks(projectPath?: string): Promise<HooksResponse> {
+  const url = projectPath ? `/api/hooks?path=${encodeURIComponent(projectPath)}` : '/api/hooks';
+  const data = await fetchApi<{ hooks?: Hook[] }>(url);
   return {
     hooks: data.hooks ?? [],
   };
@@ -1567,10 +1716,12 @@ export async function installHookTemplate(templateId: string): Promise<Hook> {
 // ========== Rules API ==========
 
 /**
- * Fetch all rules
+ * Fetch all rules for a specific workspace
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchRules(): Promise<RulesResponse> {
-  const data = await fetchApi<{ rules?: Rule[] }>('/api/rules');
+export async function fetchRules(projectPath?: string): Promise<RulesResponse> {
+  const url = projectPath ? `/api/rules?path=${encodeURIComponent(projectPath)}` : '/api/rules';
+  const data = await fetchApi<{ rules?: Rule[] }>(url);
   return {
     rules: data.rules ?? [],
   };
@@ -1682,10 +1833,12 @@ export async function uninstallCcwMcp(): Promise<void> {
 // ========== Index Management API ==========
 
 /**
- * Fetch current index status
+ * Fetch current index status for a specific workspace
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchIndexStatus(): Promise<IndexStatus> {
-  return fetchApi<IndexStatus>('/api/index/status');
+export async function fetchIndexStatus(projectPath?: string): Promise<IndexStatus> {
+  const url = projectPath ? `/api/index/status?path=${encodeURIComponent(projectPath)}` : '/api/index/status';
+  return fetchApi<IndexStatus>(url);
 }
 
 /**
@@ -1727,17 +1880,21 @@ export interface AnalyzePromptsRequest {
 }
 
 /**
- * Fetch all prompts from history
+ * Fetch all prompts from history for a specific workspace
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchPrompts(): Promise<PromptsResponse> {
-  return fetchApi<PromptsResponse>('/api/memory/prompts');
+export async function fetchPrompts(projectPath?: string): Promise<PromptsResponse> {
+  const url = projectPath ? `/api/memory/prompts?path=${encodeURIComponent(projectPath)}` : '/api/memory/prompts';
+  return fetchApi<PromptsResponse>(url);
 }
 
 /**
- * Fetch prompt insights from backend
+ * Fetch prompt insights from backend for a specific workspace
+ * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchPromptInsights(): Promise<PromptInsightsResponse> {
-  return fetchApi<PromptInsightsResponse>('/api/memory/insights');
+export async function fetchPromptInsights(projectPath?: string): Promise<PromptInsightsResponse> {
+  const url = projectPath ? `/api/memory/insights?path=${encodeURIComponent(projectPath)}` : '/api/memory/insights';
+  return fetchApi<PromptInsightsResponse>(url);
 }
 
 /**

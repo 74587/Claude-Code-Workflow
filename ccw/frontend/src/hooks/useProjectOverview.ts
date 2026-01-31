@@ -5,6 +5,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { fetchProjectOverview } from '../lib/api';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 // Query key factory
 export const projectOverviewKeys = {
@@ -33,11 +34,14 @@ export interface UseProjectOverviewOptions {
 export function useProjectOverview(options: UseProjectOverviewOptions = {}) {
   const { staleTime = STALE_TIME, enabled = true } = options;
 
+  const projectPath = useWorkflowStore(selectProjectPath);
+  const queryEnabled = enabled && !!projectPath;
+
   const query = useQuery({
     queryKey: projectOverviewKeys.detail(),
-    queryFn: fetchProjectOverview,
+    queryFn: () => fetchProjectOverview(projectPath),
     staleTime,
-    enabled,
+    enabled: queryEnabled,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });

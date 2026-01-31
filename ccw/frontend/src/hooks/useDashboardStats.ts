@@ -73,7 +73,7 @@ export function useDashboardStats(
 
   const query = useQuery({
     queryKey: workspaceQueryKeys.projectOverview(projectPath),
-    queryFn: fetchDashboardStats,
+    queryFn: () => fetchDashboardStats(projectPath),
     staleTime,
     enabled: queryEnabled,
     refetchInterval: refetchInterval > 0 ? refetchInterval : false,
@@ -114,7 +114,7 @@ export function usePrefetchDashboardStats() {
     if (projectPath) {
       queryClient.prefetchQuery({
         queryKey: workspaceQueryKeys.projectOverview(projectPath),
-        queryFn: fetchDashboardStats,
+        queryFn: () => fetchDashboardStats(projectPath),
         staleTime: STALE_TIME,
       });
     }

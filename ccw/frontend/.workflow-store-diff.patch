@@ -1,0 +1,59 @@
+diff --git a/ccw/frontend/src/stores/workflowStore.ts b/ccw/frontend/src/stores/workflowStore.ts
+index 66419b2e..7ae5b1bf 100644
+--- a/ccw/frontend/src/stores/workflowStore.ts
++++ b/ccw/frontend/src/stores/workflowStore.ts
+@@ -4,7 +4,7 @@
+ // Manages workflow sessions, tasks, and related data
+ 
+ import { create } from 'zustand';
+-import { devtools } from 'zustand/middleware';
++import { devtools, persist } from 'zustand/middleware';
+ import type {
+   WorkflowStore,
+   WorkflowState,
+@@ -60,8 +60,9 @@ const initialState: WorkflowState = {
+ 
+ export const useWorkflowStore = create<WorkflowStore>()(
+   devtools(
+-    (set, get) => ({
+-      ...initialState,
++    persist(
++      (set, get) => ({
++        ...initialState,
+ 
+       // ========== Session Actions ==========
+ 
+@@ -510,7 +511,32 @@ export const useWorkflowStore = create<WorkflowStore>()(
+       getSessionByKey: (key: string) => {
+         return get().sessionDataStore[key];
+       },
+-    }),
++      }),
++      {
++        name: 'ccw-workflow-store',
++        partialize: (state) => ({
++          projectPath: state.projectPath,
++        }),
++        onRehydrateStorage: () => {
++          console.log('[WorkflowStore] Hydrating from localStorage...');
++          return (state, error) => {
++            if (error) {
++              console.error('[WorkflowStore] Rehydration error:', error);
++              return;
++            }
++            if (state?.projectPath) {
++              console.log('[WorkflowStore] Found persisted projectPath, re-initializing workspace:', state.projectPath);
++              // Use setTimeout to ensure the store is fully initialized before calling switchWorkspace
++              setTimeout(() => {
++                if (state.switchWorkspace) {
++                  state.switchWorkspace(state.projectPath);
++                }
++              }, 0);
++            }
++          };
++        },
++      }
++    ),
+     { name: 'WorkflowStore' }
+   )
+ );

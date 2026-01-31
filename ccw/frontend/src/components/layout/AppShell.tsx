@@ -4,6 +4,7 @@
 // Root layout component combining Header, Sidebar, and MainContent
 
 import { useState, useCallback, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
@@ -12,13 +13,12 @@ import { CliStreamMonitor } from '@/components/shared/CliStreamMonitor';
 import { NotificationPanel } from '@/components/notification';
 import { AskQuestionDialog } from '@/components/a2ui/AskQuestionDialog';
 import { useNotificationStore, selectCurrentQuestion } from '@/stores';
+import { useWorkflowStore } from '@/stores/workflowStore';
 import { useWebSocketNotifications } from '@/hooks';
 
 export interface AppShellProps {
   /** Initial sidebar collapsed state */
   defaultCollapsed?: boolean;
-  /** Current project path to display in header */
-  projectPath?: string;
   /** Callback for refresh action */
   onRefresh?: () => void;
   /** Whether refresh is in progress */
@@ -32,11 +32,32 @@ const SIDEBAR_COLLAPSED_KEY = 'ccw-sidebar-collapsed';
 
 export function AppShell({
   defaultCollapsed = false,
-  projectPath = '',
   onRefresh,
   isRefreshing = false,
   children,
 }: AppShellProps) {
+  // Workspace initialization from URL query parameter
+  const switchWorkspace = useWorkflowStore((state) => state.switchWorkspace);
+  const projectPath = useWorkflowStore((state) => state.projectPath);
+  const location = useLocation();
+
+  // Initialize workspace from URL path parameter on mount
+  useEffect(() => {
+    // Only initialize if no workspace is currently set
+    if (projectPath) return;
+
+    // Read path from URL query parameter
+    const searchParams = new URLSearchParams(location.search);
+    const pathParam = searchParams.get('path');
+
+    if (pathParam) {
+      console.log('[AppShell] Initializing workspace from URL:', pathParam);
+      switchWorkspace(pathParam).catch((error) => {
+        console.error('[AppShell] Failed to initialize workspace:', error);
+      });
+    }
+  }, [location.search, projectPath, switchWorkspace]);
+
   // Sidebar collapse state (persisted)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -120,7 +141,6 @@ export function AppShell({
       {/* Header - fixed at top */}
       <Header
         onMenuClick={handleMenuClick}
-        projectPath={projectPath}
         onRefresh={onRefresh}
         isRefreshing={isRefreshing}
         onCliMonitorClick={handleCliMonitorClick}

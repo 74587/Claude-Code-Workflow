@@ -299,6 +299,46 @@ import type { SurfaceUpdate } from '../packages/a2ui-runtime/core/A2UITypes';
 export type ToastType = 'info' | 'success' | 'warning' | 'error' | 'a2ui';
 export type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error' | 'reconnecting';
 
+// Notification source types
+export type NotificationSource = 'system' | 'websocket' | 'cli' | 'workflow' | 'user' | 'external';
+
+// Notification attachment types
+export type AttachmentType = 'image' | 'code' | 'file' | 'data';
+
+export interface NotificationAttachment {
+  type: AttachmentType;
+  url?: string;
+  content?: string;
+  filename?: string;
+  mimeType?: string;
+  size?: number;
+  thumbnail?: string;
+}
+
+// Action state types
+export type ActionStateType = 'idle' | 'loading' | 'success' | 'error';
+
+export interface ActionState {
+  status: ActionStateType;
+  error?: string;
+  lastAttempt?: string;
+}
+
+// Notification action with extended properties
+export interface NotificationAction {
+  label: string;
+  onClick: () => void | Promise<void>;
+  loading?: boolean;
+  disabled?: boolean;
+  confirm?: {
+    title?: string;
+    message?: string;
+    confirmText?: string;
+    cancelText?: string;
+  };
+  primary?: boolean;
+}
+
 export interface Toast {
   id: string;
   type: ToastType;
@@ -308,10 +348,16 @@ export interface Toast {
   timestamp: string;
   dismissible?: boolean;
   read?: boolean; // Track read status for persistent notifications
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
+  // Extended action field - now uses NotificationAction type
+  action?: NotificationAction;
+  // New optional fields for enhanced notifications
+  source?: NotificationSource; // Origin of the notification
+  category?: string; // Category for grouping/filtering
+  priority?: 'low' | 'medium' | 'high' | 'critical'; // Priority level
+  attachments?: NotificationAttachment[]; // Attached resources
+  actions?: NotificationAction[]; // Multiple actions support
+  metadata?: Record<string, unknown>; // Additional metadata
+  status?: 'pending' | 'active' | 'resolved' | 'archived'; // Notification status
   // A2UI fields
   a2uiSurface?: SurfaceUpdate; // A2UI surface data for type='a2ui'
   a2uiState?: Record<string, unknown>; // A2UI component state
@@ -377,6 +423,9 @@ export interface NotificationState {
 
   // Current question dialog state
   currentQuestion: AskQuestionPayload | null;
+
+  // Action state tracking (Map of actionKey to ActionState)
+  actionStates: Map<string, ActionState>;
 }
 
 export interface NotificationActions {
@@ -402,6 +451,14 @@ export interface NotificationActions {
   loadPersistentNotifications: () => void;
   savePersistentNotifications: () => void;
   markAllAsRead: () => void;
+
+  // Read status management
+  toggleNotificationRead: (id: string) => void;
+
+  // Action state management
+  setActionState: (actionKey: string, state: ActionState) => void;
+  executeAction: (action: NotificationAction, notificationId: string, actionKey?: string) => Promise<void>;
+  retryAction: (actionKey: string, notificationId: string) => Promise<void>;
 
   // A2UI actions
   addA2UINotification: (surface: SurfaceUpdate, title?: string) => string;

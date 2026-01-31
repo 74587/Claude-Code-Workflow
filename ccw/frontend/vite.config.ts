@@ -7,9 +7,14 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
+// Get base path from environment variable
+// Always use VITE_BASE_URL if set (for both dev and production)
+const basePath = process.env.VITE_BASE_URL || '/'
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  base: basePath,
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -17,7 +22,9 @@ export default defineConfig({
     extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
   },
   server: {
-    port: 5173,
+    // Don't hardcode port - allow command line override
+    // strictPort: true ensures the specified port is used or fails
+    strictPort: true,
     proxy: {
       '/api': {
         target: 'http://localhost:3456',

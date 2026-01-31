@@ -57,7 +57,14 @@ import { getCliToolsStatus } from '../tools/cli-executor.js';
 import type { ServerConfig } from '../types/config.js';
 import type { PostRequestHandler } from './routes/types.js';
 
-
+interface ServerOptions {
+  port?: number;
+  initialPath?: string;
+  host?: string;
+  open?: boolean;
+  frontend?: 'js' | 'react' | 'both';
+  reactPort?: number;
+}
 
 type PostHandler = PostRequestHandler;
 
@@ -414,6 +421,20 @@ window.INITIAL_PATH = '${normalizePathForDisplay(initialPath).replace(/\\/g, '/'
 }
 
 /**
+ * Read request body as text for proxy requests
+ * @param req - HTTP request object
+ * @returns Promise that resolves to body text
+ */
+async function readRequestBody(req: http.IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => { resolve(body); });
+    req.on('error', reject);
+  });
+}
+
+/**
  * Create and start the dashboard server
  * @param {Object} options - Server options
  * @param {number} options.port - Port to listen on (default: 3456)
@@ -424,6 +445,14 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
   let serverPort = options.port ?? 3456;
   const initialPath = options.initialPath || process.cwd();
   const host = options.host ?? '127.0.0.1';
+  const frontend = options.frontend || 'js';
+  const reactPort = options.reactPort || serverPort + 1;
+
+  // Log frontend configuration
+  console.log(`[Server] Frontend mode: ${frontend}`);
+  if (frontend === 'react' || frontend === 'both') {
+    console.log(`[Server] React proxy configured: /react/* -> http://localhost:${reactPort}`);
+  }
 
   const tokenManager = getTokenManager();
   const secretKey = tokenManager.getSecretKey();
@@ -694,6 +723,69 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
           res.end(content);
           return;
         }
+      }
+
+      // React frontend proxy - proxy requests to React dev server
+      // Use the frontend and reactPort variables defined at startServer scope
+      if (frontend === 'react' || frontend === 'both') {
+        if (pathname === '/react' || pathname.startsWith('/react/')) {
+          // Don't strip the /react prefix - Vite knows it's serving under /react/
+          const reactUrl = `http://localhost:${reactPort}${pathname}${url.search}`;
+
+          console.log(`[React Proxy] Proxying ${pathname} -> ${reactUrl}`);
+
+          try {
+            // Convert headers to plain object for fetch
+            const proxyHeaders: Record<string, string> = {};
+            for (const [key, value] of Object.entries(req.headers)) {
+              if (typeof value === 'string') {
+                proxyHeaders[key] = value;
+              } else if (Array.isArray(value)) {
+                proxyHeaders[key] = value.join(', ');
+              }
+            }
+            proxyHeaders['host'] = `localhost:${reactPort}`;
+
+            const reactResponse = await fetch(reactUrl, {
+              method: req.method,
+              headers: proxyHeaders,
+              body: req.method !== 'GET' && req.method !== 'HEAD' ? await readRequestBody(req) : undefined,
+            });
+
+            const contentType = reactResponse.headers.get('content-type') || 'text/html';
+            const body = await reactResponse.text();
+
+            console.log(`[React Proxy] Response ${reactResponse.status}: ${contentType}`);
+
+            res.writeHead(reactResponse.status, {
+              'Content-Type': contentType,
+              'Cache-Control': 'no-cache',
+            });
+            res.end(body);
+            return;
+          } catch (err) {
+            console.error(`[React Proxy] Failed to proxy to ${reactUrl}:`, err);
+            console.error(`[React Proxy] Error details:`, (err as Error).message);
+            res.writeHead(502, { 'Content-Type': 'text/plain' });
+            res.end(`Bad Gateway: React frontend not available at ${reactUrl}\nError: ${(err as Error).message}`);
+            return;
+          }
+        }
+
+        // Redirect root to React if react-only mode
+        if (frontend === 'react' && (pathname === '/' || pathname === '/index.html')) {
+          res.writeHead(302, { 'Location': `/react${url.search}` });
+          res.end();
+          return;
+        }
+      }
+
+      // Root path - serve JS frontend HTML (default or both mode)
+      if (pathname === '/' || pathname === '/index.html') {
+        const html = generateServerDashboard(initialPath);
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(html);
+        return;
       }
 
       // 404

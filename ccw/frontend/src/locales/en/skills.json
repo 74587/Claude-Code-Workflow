@@ -23,13 +23,19 @@
   "card": {
     "triggers": "Triggers",
     "category": "Category",
+    "source": "Source",
     "author": "Author",
     "version": "Version"
   },
   "filters": {
     "all": "All",
     "enabled": "Enabled",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "searchPlaceholder": "Search skills...",
+    "allSources": "All Sources"
+  },
+  "stats": {
+    "totalSkills": "Total Skills"
   },
   "view": {
     "grid": "Grid View",

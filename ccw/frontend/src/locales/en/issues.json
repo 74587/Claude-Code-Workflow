@@ -60,5 +60,80 @@
     "createdAt": "Created",
     "updatedAt": "Updated",
     "solutions": "{count, plural, one {solution} other {solutions}}"
+  },
+  "queue": {
+    "title": "Queue",
+    "pageTitle": "Issue Queue",
+    "description": "Manage issue execution queue with execution groups",
+    "stats": {
+      "totalItems": "Total Items",
+      "groups": "Groups",
+      "tasks": "Tasks",
+      "solutions": "Solutions"
+    },
+    "actions": {
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "delete": "Delete",
+      "merge": "Merge",
+      "confirmDelete": "Are you sure you want to delete this queue?"
+    },
+    "executionGroup": "Execution Group",
+    "parallel": "Parallel",
+    "sequential": "Sequential",
+    "emptyState": "No queue data available",
+    "conflicts": "Conflicts detected in queue",
+    "noQueueData": "No queue data"
+  },
+  "discovery": {
+    "title": "Discovery",
+    "pageTitle": "Issue Discovery",
+    "description": "View and manage issue discovery sessions",
+    "stats": {
+      "totalSessions": "Total Sessions",
+      "completed": "Completed",
+      "running": "Running",
+      "findings": "Findings"
+    },
+    "session": {
+      "status": {
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed"
+      },
+      "findings": "{count} findings",
+      "startedAt": "Started"
+    },
+    "findings": {
+      "title": "Findings",
+      "filters": {
+        "severity": "Severity",
+        "type": "Type",
+        "search": "Search findings..."
+      },
+      "severity": {
+        "all": "All Severities",
+        "critical": "Critical",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "type": {
+        "all": "All Types"
+      },
+      "noFindings": "No findings found",
+      "export": "Export"
+    },
+    "tabs": {
+      "findings": "Findings",
+      "progress": "Progress",
+      "info": "Session Info"
+    },
+    "emptyState": "No discovery sessions found",
+    "noSessionSelected": "Select a session to view findings",
+    "actions": {
+      "export": "Export Findings",
+      "refresh": "Refresh"
+    }
   }
 }

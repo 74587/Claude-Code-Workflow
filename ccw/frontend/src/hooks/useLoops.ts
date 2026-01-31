@@ -13,6 +13,7 @@ import {
   type Loop,
   type LoopsResponse,
 } from '../lib/api';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 // Query key factory
 export const loopsKeys = {
@@ -58,11 +59,14 @@ export function useLoops(options: UseLoopsOptions = {}): UseLoopsReturn {
   const { filter, staleTime = STALE_TIME, enabled = true, refetchInterval = 0 } = options;
   const queryClient = useQueryClient();
 
+  const projectPath = useWorkflowStore(selectProjectPath);
+  const queryEnabled = enabled && !!projectPath;
+
   const query = useQuery({
     queryKey: loopsKeys.list(filter),
-    queryFn: fetchLoops,
+    queryFn: () => fetchLoops(projectPath),
     staleTime,
-    enabled,
+    enabled: queryEnabled,
     refetchInterval: refetchInterval > 0 ? refetchInterval : false,
     retry: 2,
   });
@@ -129,10 +133,13 @@ export function useLoops(options: UseLoopsOptions = {}): UseLoopsReturn {
  * Hook for fetching a single loop
  */
 export function useLoop(loopId: string, options: { enabled?: boolean } = {}) {
+  const projectPath = useWorkflowStore(selectProjectPath);
+  const queryEnabled = (options.enabled ?? !!loopId) && !!projectPath;
+
   return useQuery({
     queryKey: loopsKeys.detail(loopId),
-    queryFn: () => fetchLoop(loopId),
-    enabled: options.enabled ?? !!loopId,
+    queryFn: () => fetchLoop(loopId, projectPath),
+    enabled: queryEnabled,
     staleTime: STALE_TIME,
   });
 }

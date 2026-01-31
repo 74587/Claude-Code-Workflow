@@ -6,12 +6,12 @@
     "current": "Current",
     "browse": "Select Folder...",
     "removePath": "Remove from recent",
-    "ariaLabel": "Workspace selector"
-  },
-  "dialog": {
-    "title": "Select Project Folder",
-    "placeholder": "Enter project path...",
-    "help": "The path to your project directory"
+    "ariaLabel": "Workspace selector",
+    "dialog": {
+      "title": "Select Project Folder",
+      "placeholder": "Enter project path...",
+      "help": "The path to your project directory"
+    }
   },
   "actions": {
     "switch": "Switch Workspace",

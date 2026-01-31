@@ -60,5 +60,80 @@
     "createdAt": "创建时间",
     "updatedAt": "更新时间",
     "solutions": "{count, plural, one {解决方案} other {解决方案}}"
+  },
+  "queue": {
+    "title": "队列",
+    "pageTitle": "问题队列",
+    "description": "管理问题执行队列和执行组",
+    "stats": {
+      "totalItems": "总项目",
+      "groups": "执行组",
+      "tasks": "任务",
+      "solutions": "解决方案"
+    },
+    "actions": {
+      "activate": "激活",
+      "deactivate": "停用",
+      "delete": "删除",
+      "merge": "合并",
+      "confirmDelete": "确定要删除此队列吗？"
+    },
+    "executionGroup": "执行组",
+    "parallel": "并行",
+    "sequential": "顺序",
+    "emptyState": "无队列数据",
+    "conflicts": "队列中检测到冲突",
+    "noQueueData": "无队列数据"
+  },
+  "discovery": {
+    "title": "发现",
+    "pageTitle": "问题发现",
+    "description": "查看和管理问题发现会话",
+    "stats": {
+      "totalSessions": "总会话数",
+      "completed": "已完成",
+      "running": "运行中",
+      "findings": "发现"
+    },
+    "session": {
+      "status": {
+        "running": "运行中",
+        "completed": "已完成",
+        "failed": "失败"
+      },
+      "findings": "{count} 个发现",
+      "startedAt": "开始时间"
+    },
+    "findings": {
+      "title": "发现",
+      "filters": {
+        "severity": "严重程度",
+        "type": "类型",
+        "search": "搜索发现..."
+      },
+      "severity": {
+        "all": "全部严重程度",
+        "critical": "严重",
+        "high": "高",
+        "medium": "中",
+        "low": "低"
+      },
+      "type": {
+        "all": "全部类型"
+      },
+      "noFindings": "未发现结果",
+      "export": "导出"
+    },
+    "tabs": {
+      "findings": "发现",
+      "progress": "进度",
+      "info": "会话信息"
+    },
+    "emptyState": "未发现发现会话",
+    "noSessionSelected": "选择会话以查看发现",
+    "actions": {
+      "export": "导出发现",
+      "refresh": "刷新"
+    }
   }
 }

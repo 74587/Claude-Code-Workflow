@@ -63,7 +63,7 @@ export function useSkills(options: UseSkillsOptions = {}): UseSkillsReturn {
 
   const query = useQuery({
     queryKey: workspaceQueryKeys.skillsList(projectPath),
-    queryFn: fetchSkills,
+    queryFn: () => fetchSkills(projectPath),
     staleTime,
     enabled: queryEnabled,
     retry: 2,

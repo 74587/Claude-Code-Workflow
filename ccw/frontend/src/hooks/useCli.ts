@@ -10,6 +10,8 @@ import {
   type CliEndpoint,
   type CliEndpointsResponse,
 } from '../lib/api';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
+import { workspaceQueryKeys } from '@/lib/queryKeys';
 
 // Query key factory
 export const cliEndpointsKeys = {
@@ -273,12 +275,15 @@ export interface UseHooksReturn {
 export function useHooks(options: UseHooksOptions = {}): UseHooksReturn {
   const { staleTime = STALE_TIME, enabled = true } = options;
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
+
+  const queryEnabled = enabled && !!projectPath;
 
   const query = useQuery({
-    queryKey: hooksKeys.lists(),
-    queryFn: fetchHooks,
+    queryKey: workspaceQueryKeys.rulesList(projectPath),
+    queryFn: () => fetchHooks(projectPath),
     staleTime,
-    enabled,
+    enabled: queryEnabled,
     retry: 2,
   });
 
@@ -381,12 +386,15 @@ export interface UseRulesReturn {
 export function useRules(options: UseRulesOptions = {}): UseRulesReturn {
   const { staleTime = STALE_TIME, enabled = true } = options;
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
+
+  const queryEnabled = enabled && !!projectPath;
 
   const query = useQuery({
-    queryKey: rulesKeys.lists(),
-    queryFn: fetchRules,
+    queryKey: workspaceQueryKeys.rulesList(projectPath),
+    queryFn: () => fetchRules(projectPath),
     staleTime,
-    enabled,
+    enabled: queryEnabled,
     retry: 2,
   });
 

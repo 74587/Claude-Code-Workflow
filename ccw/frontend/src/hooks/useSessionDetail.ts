@@ -5,6 +5,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { fetchSessionDetail } from '../lib/api';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 // Query key factory
 export const sessionDetailKeys = {
@@ -33,11 +34,14 @@ export interface UseSessionDetailOptions {
 export function useSessionDetail(sessionId: string, options: UseSessionDetailOptions = {}) {
   const { staleTime = STALE_TIME, enabled = true } = options;
 
+  const projectPath = useWorkflowStore(selectProjectPath);
+  const queryEnabled = enabled && !!sessionId && !!projectPath;
+
   const query = useQuery({
     queryKey: sessionDetailKeys.detail(sessionId),
-    queryFn: () => fetchSessionDetail(sessionId),
+    queryFn: () => fetchSessionDetail(sessionId, projectPath),
     staleTime,
-    enabled: enabled && !!sessionId,
+    enabled: queryEnabled,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });

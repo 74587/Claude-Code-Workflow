@@ -1,5 +1,6 @@
 {
   "title": "通知",
+  "close": "关闭通知",
   "empty": "暂无通知",
   "emptyHint": "通知将显示在这里",
   "markAllRead": "全部已读",
@@ -14,5 +15,38 @@
   "daysAgo": "{0}天前",
   "oneMinuteAgo": "1分钟前",
   "oneHourAgo": "1小时前",
-  "oneDayAgo": "1天前"
+  "oneDayAgo": "1天前",
+  "sources": {
+    "system": "系统",
+    "websocket": "WebSocket",
+    "cli": "命令行",
+    "workflow": "工作流",
+    "user": "用户",
+    "external": "外部"
+  },
+  "priorities": {
+    "low": "低",
+    "medium": "中",
+    "high": "高",
+    "critical": "紧急"
+  },
+  "attachments": {
+    "image": "图片",
+    "code": "代码",
+    "file": "文件",
+    "data": "数据",
+    "download": "下载"
+  },
+  "actions": {
+    "loading": "加载中...",
+    "success": "完成",
+    "retry": "重试"
+  },
+  "timestamps": {
+    "today": "今天",
+    "yesterday": "昨天",
+    "atTime": "{0}"
+  },
+  "markAsRead": "标为已读",
+  "markAsUnread": "标为未读"
 }

@@ -16,6 +16,7 @@ import {
   type PromptsResponse,
   type PromptInsightsResponse,
 } from '../lib/api';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 // Query key factory
 export const promptHistoryKeys = {
@@ -63,11 +64,14 @@ export function usePromptHistory(options: UsePromptHistoryOptions = {}): UseProm
   const { filter, staleTime = STALE_TIME, enabled = true } = options;
   const queryClient = useQueryClient();
 
+  const projectPath = useWorkflowStore(selectProjectPath);
+  const queryEnabled = enabled && !!projectPath;
+
   const query = useQuery({
     queryKey: promptHistoryKeys.list(filter),
-    queryFn: fetchPrompts,
+    queryFn: () => fetchPrompts(projectPath),
     staleTime,
-    enabled,
+    enabled: queryEnabled,
     retry: 2,
   });
 
@@ -159,11 +163,14 @@ export function usePromptHistory(options: UsePromptHistoryOptions = {}): UseProm
 export function usePromptInsights(options: { enabled?: boolean; staleTime?: number } = {}) {
   const { enabled = true, staleTime = STALE_TIME } = options;
 
+  const projectPath = useWorkflowStore(selectProjectPath);
+  const queryEnabled = enabled && !!projectPath;
+
   return useQuery({
     queryKey: promptHistoryKeys.insights(),
-    queryFn: fetchPromptInsights,
+    queryFn: () => fetchPromptInsights(projectPath),
     staleTime,
-    enabled,
+    enabled: queryEnabled,
     retry: 2,
   });
 }

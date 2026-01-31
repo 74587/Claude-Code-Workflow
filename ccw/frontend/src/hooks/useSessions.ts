@@ -89,7 +89,7 @@ export function useSessions(options: UseSessionsOptions = {}): UseSessionsReturn
 
   const query = useQuery({
     queryKey: workspaceQueryKeys.sessionsList(projectPath),
-    queryFn: fetchSessions,
+    queryFn: () => fetchSessions(projectPath),
     staleTime,
     enabled: queryEnabled,
     refetchInterval: refetchInterval > 0 ? refetchInterval : false,

@@ -144,18 +144,56 @@ export async function startReactFrontend(port: number): Promise<void> {
 /**
  * Stop React frontend development server
  */
-export function stopReactFrontend(): void {
+export async function stopReactFrontend(): Promise<void> {
   if (reactProcess) {
     console.log(chalk.yellow('  Stopping React frontend...'));
+
+    // Try graceful shutdown first
     reactProcess.kill('SIGTERM');
-    
-    // Force kill after timeout
-    setTimeout(() => {
-      if (reactProcess && !reactProcess.killed) {
+
+    // Wait up to 5 seconds for graceful shutdown
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => {
+        resolve();
+      }, 5000);
+
+      reactProcess?.once('exit', () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+    });
+
+    // Force kill if still running
+    if (reactProcess && !reactProcess.killed) {
+      // On Windows with shell: true, we need to kill the entire process group
+      if (process.platform === 'win32') {
+        try {
+          // Use taskkill to forcefully terminate the process tree
+          const { exec } = await import('child_process');
+          const pid = reactProcess.pid;
+          if (pid) {
+            await new Promise<void>((resolve) => {
+              exec(`taskkill /F /T /PID ${pid}`, (err) => {
+                if (err) {
+                  // Fallback to SIGKILL if taskkill fails
+                  reactProcess?.kill('SIGKILL');
+                }
+                resolve();
+              });
+            });
+          }
+        } catch {
+          // Fallback to SIGKILL
+          reactProcess.kill('SIGKILL');
+        }
+      } else {
         reactProcess.kill('SIGKILL');
       }
-    }, 5000);
-    
+    }
+
+    // Wait a bit more for force kill to complete
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     reactProcess = null;
     reactPort = null;
   }

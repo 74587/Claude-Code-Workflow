@@ -12,6 +12,7 @@ import {
   deleteAllHistory,
   type HistoryResponse,
 } from '../lib/api';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 // Query key factory
 export const historyKeys = {
@@ -70,11 +71,14 @@ export function useHistory(options: UseHistoryOptions = {}): UseHistoryReturn {
   const { filter, staleTime = STALE_TIME, enabled = true } = options;
   const queryClient = useQueryClient();
 
+  const projectPath = useWorkflowStore(selectProjectPath);
+  const queryEnabled = enabled && !!projectPath;
+
   const query = useQuery({
     queryKey: historyKeys.list(filter),
-    queryFn: fetchHistory,
+    queryFn: () => fetchHistory(projectPath),
     staleTime,
-    enabled,
+    enabled: queryEnabled,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });

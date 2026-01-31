@@ -1,160 +1,160 @@
 {
-  "title": "Hook Manager",
-  "description": "Manage CLI hooks for automated workflows",
-  "allTools": "All tools",
+  "title": "钩子管理器",
+  "description": "管理自动化工作流的 CLI 钩子",
+  "allTools": "所有工具",
   "trigger": {
-    "UserPromptSubmit": "User Prompt Submit",
-    "PreToolUse": "Pre Tool Use",
-    "PostToolUse": "Post Tool Use",
-    "Stop": "Stop"
+    "UserPromptSubmit": "用户提交提示",
+    "PreToolUse": "工具使用前",
+    "PostToolUse": "工具使用后",
+    "Stop": "停止"
   },
   "form": {
-    "name": "Hook Name",
+    "name": "钩子名称",
     "namePlaceholder": "my-hook",
-    "description": "Description",
-    "descriptionPlaceholder": "What does this hook do?",
-    "trigger": "Trigger Event",
-    "matcher": "Tool Matcher",
-    "matcherPlaceholder": "e.g., Write|Edit (optional)",
-    "matcherHelp": "Regex pattern to match tool names. Leave empty to match all tools.",
-    "command": "Command",
+    "description": "描述",
+    "descriptionPlaceholder": "这个钩子是做什么的？",
+    "trigger": "触发事件",
+    "matcher": "工具匹配器",
+    "matcherPlaceholder": "例如：Write|Edit（可选）",
+    "matcherHelp": "用于匹配工具名称的正则表达式。留空以匹配所有工具。",
+    "command": "命令",
     "commandPlaceholder": "echo 'Hello World'",
-    "commandHelp": "Shell command to execute. Use environment variables like $CLAUDE_TOOL_NAME."
+    "commandHelp": "要执行的 Shell 命令。可以使用环境变量，如 $CLAUDE_TOOL_NAME。"
   },
   "validation": {
-    "nameRequired": "Hook name is required",
-    "nameInvalid": "Hook name can only contain letters, numbers, hyphens, and underscores",
-    "triggerRequired": "Trigger event is required",
-    "commandRequired": "Command is required"
+    "nameRequired": "钩子名称为必填项",
+    "nameInvalid": "钩子名称只能包含字母、数字、连字符和下划线",
+    "triggerRequired": "触发事件为必填项",
+    "commandRequired": "命令为必填项"
   },
   "actions": {
-    "add": "Add Hook",
-    "addFirst": "Create Your First Hook",
-    "edit": "Edit",
-    "delete": "Delete",
-    "deleteConfirm": "Are you sure you want to delete hook \"{hookName}\"?",
-    "enable": "Enable",
-    "disable": "Disable",
-    "expand": "Expand details",
-    "collapse": "Collapse details",
-    "expandAll": "Expand All",
-    "collapseAll": "Collapse All"
+    "add": "添加钩子",
+    "addFirst": "创建您的第一个钩子",
+    "edit": "编辑",
+    "delete": "删除",
+    "deleteConfirm": "确定要删除钩子 \"{hookName}\" 吗？",
+    "enable": "启用",
+    "disable": "禁用",
+    "expand": "展开详情",
+    "collapse": "折叠详情",
+    "expandAll": "全部展开",
+    "collapseAll": "全部折叠"
   },
   "dialog": {
-    "createTitle": "Create Hook",
-    "editTitle": "Edit Hook \"{hookName}\""
+    "createTitle": "创建钩子",
+    "editTitle": "编辑钩子 \"{hookName}\""
   },
   "stats": {
-    "total": "{count} total",
-    "enabled": "{count} enabled",
-    "count": "{enabled}/{total} hooks"
+    "total": "共 {count} 个",
+    "enabled": "{count} 个已启用",
+    "count": "{enabled}/{total} 个钩子"
   },
   "filters": {
-    "searchPlaceholder": "Search hooks by name, description, or trigger..."
+    "searchPlaceholder": "按名称、描述或触发事件搜索钩子..."
   },
   "empty": {
-    "title": "No hooks found",
-    "description": "Create your first hook to automate your CLI workflow",
-    "noHooksInEvent": "No hooks configured for this event"
+    "title": "未找到钩子",
+    "description": "创建您的第一个钩子以自动化 CLI 工作流",
+    "noHooksInEvent": "此事件未配置钩子"
   },
   "templates": {
-    "title": "Quick Install Templates",
-    "description": "One-click installation for common hook patterns",
+    "title": "快速安装模板",
+    "description": "常见钩子模式的一键安装",
     "categories": {
-      "notification": "Notification",
-      "indexing": "Indexing",
-      "automation": "Automation"
+      "notification": "通知",
+      "indexing": "索引",
+      "automation": "自动化"
     },
     "templates": {
       "ccw-notify": {
-        "name": "CCW Dashboard Notify",
-        "description": "Send notifications to CCW dashboard when files are written"
+        "name": "CCW 面板通知",
+        "description": "当文件被写入时向 CCW 面板发送通知"
       },
       "codexlens-update": {
-        "name": "CodexLens Auto-Update",
-        "description": "Update CodexLens index when files are written or edited"
+        "name": "CodexLens 自动更新",
+        "description": "当文件被写入或编辑时更新 CodexLens 索引"
       },
       "git-add": {
-        "name": "Auto Git Stage",
-        "description": "Automatically stage written files to git"
+        "name": "自动 Git 暂存",
+        "description": "自动将写入的文件暂存到 git"
       },
       "lint-check": {
-        "name": "Auto ESLint",
-        "description": "Run ESLint on JavaScript/TypeScript files after write"
+        "name": "自动 ESLint",
+        "description": "在写入后对 JavaScript/TypeScript 文件运行 ESLint"
       },
       "log-tool": {
-        "name": "Tool Usage Logger",
-        "description": "Log all tool executions to a file for audit trail"
+        "name": "工具使用日志",
+        "description": "将所有工具执行记录到文件以供审计"
       }
     },
     "actions": {
-      "install": "Install",
-      "installed": "Installed"
+      "install": "安装",
+      "installed": "已安装"
     }
   },
   "wizards": {
-    "title": "Hook Wizard",
-    "launch": "Wizard",
-    "sectionTitle": "Hook Wizards",
-    "sectionDescription": "Create hooks with guided step-by-step wizards",
+    "title": "钩子向导",
+    "launch": "向导",
+    "sectionTitle": "钩子向导",
+    "sectionDescription": "通过引导式分步向导创建钩子",
     "platform": {
-      "detected": "Detected Platform",
-      "compatible": "Compatible",
-      "incompatible": "Incompatible",
-      "compatibilityError": "This hook is not compatible with your platform",
-      "compatibilityWarning": "Some features may not work on your platform"
+      "detected": "检测到的平台",
+      "compatible": "兼容",
+      "incompatible": "不兼容",
+      "compatibilityError": "此钩子与您的平台不兼容",
+      "compatibilityWarning": "某些功能可能在您的平台上无法正常工作"
     },
     "steps": {
-      "triggerEvent": "This hook will trigger on",
+      "triggerEvent": "此钩子将触发于",
       "review": {
-        "title": "Review Configuration",
-        "description": "Review your hook configuration before creating",
-        "hookType": "Hook Type",
-        "trigger": "Trigger Event",
-        "platform": "Platform",
-        "commandPreview": "Command Preview"
+        "title": "检查配置",
+        "description": "创建前检查您的钩子配置",
+        "hookType": "钩子类型",
+        "trigger": "触发事件",
+        "platform": "平台",
+        "commandPreview": "命令预览"
       }
     },
     "navigation": {
-      "previous": "Previous",
-      "next": "Next",
-      "create": "Create Hook",
-      "creating": "Creating..."
+      "previous": "上一步",
+      "next": "下一步",
+      "create": "创建钩子",
+      "creating": "创建中..."
     },
     "memoryUpdate": {
-      "title": "Memory Update Wizard",
-      "description": "Configure hook to update CLAUDE.md on session end",
-      "shortDescription": "Update CLAUDE.md automatically",
-      "claudePath": "CLAUDE.md Path",
-      "updateFrequency": "Update Frequency",
+      "title": "记忆更新向导",
+      "description": "配置钩子以在会话结束时更新 CLAUDE.md",
+      "shortDescription": "自动更新 CLAUDE.md",
+      "claudePath": "CLAUDE.md 路径",
+      "updateFrequency": "更新频率",
       "frequency": {
-        "sessionEnd": "Session End",
-        "hourly": "Hourly",
-        "daily": "Daily"
+        "sessionEnd": "会话结束时",
+        "hourly": "每小时",
+        "daily": "每天"
       }
     },
     "dangerProtection": {
-      "title": "Danger Protection Wizard",
-      "description": "Configure confirmation hook for dangerous operations",
-      "shortDescription": "Confirm dangerous operations",
-      "keywords": "Dangerous Keywords",
-      "keywordsHelp": "Enter one keyword per line",
-      "confirmationMessage": "Confirmation Message",
-      "allowBypass": "Allow bypass with --force flag"
+      "title": "危险操作保护向导",
+      "description": "配置危险操作的确认钩子",
+      "shortDescription": "确认危险操作",
+      "keywords": "危险关键词",
+      "keywordsHelp": "每行输入一个关键词",
+      "confirmationMessage": "确认消息",
+      "allowBypass": "允许使用 --force 标志绕过"
     },
     "skillContext": {
-      "title": "SKILL Context Wizard",
-      "description": "Configure hook to load SKILL based on prompt keywords",
-      "shortDescription": "Auto-load SKILL based on keywords",
-      "loadingSkills": "Loading available skills...",
-      "keywordPlaceholder": "Enter keyword",
-      "selectSkill": "Select skill",
-      "addPair": "Add Keyword-Skill Pair",
-      "priority": "Priority",
-      "priorityHigh": "High",
-      "priorityMedium": "Medium",
-      "priorityLow": "Low",
-      "keywordMappings": "Keyword Mappings"
+      "title": "SKILL 上下文向导",
+      "description": "配置钩子以根据提示关键词加载 SKILL",
+      "shortDescription": "根据关键词自动加载 SKILL",
+      "loadingSkills": "正在加载可用的技能...",
+      "keywordPlaceholder": "输入关键词",
+      "selectSkill": "选择技能",
+      "addPair": "添加关键词-技能对",
+      "priority": "优先级",
+      "priorityHigh": "高",
+      "priorityMedium": "中",
+      "priorityLow": "低",
+      "keywordMappings": "关键词映射"
     }
   }
 }

@@ -3,7 +3,7 @@
 // ========================================
 // TanStack Query hooks for issues with queue management
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import {
   fetchIssues,
   fetchIssueHistory,
@@ -11,11 +11,21 @@ import {
   createIssue,
   updateIssue,
   deleteIssue,
+  activateQueue,
+  deactivateQueue,
+  deleteQueue as deleteQueueApi,
+  mergeQueues as mergeQueuesApi,
+  fetchDiscoveries,
+  fetchDiscoveryFindings,
   type Issue,
+  type IssueQueue,
   type IssuesResponse,
+  type DiscoverySession,
+  type Finding,
 } from '../lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import { workspaceQueryKeys } from '@/lib/queryKeys';
+import { useState, useMemo } from 'react';
 
 // Query key factory
 export const issuesKeys = {
@@ -181,9 +191,9 @@ export function useIssues(options: UseIssuesOptions = {}): UseIssuesReturn {
 /**
  * Hook for fetching issue queue
  */
-export function useIssueQueue(): ReturnType<typeof useQuery> {
+export function useIssueQueue(): UseQueryResult<IssueQueue> {
   const projectPath = useWorkflowStore(selectProjectPath);
-  return useQuery({
+  return useQuery<IssueQueue>({
     queryKey: projectPath ? workspaceQueryKeys.issueQueue(projectPath) : ['issueQueue', 'no-project'],
     queryFn: () => fetchIssueQueue(projectPath),
     staleTime: STALE_TIME,
@@ -286,5 +296,173 @@ export function useIssueMutations() {
     isUpdating: update.isUpdating,
     isDeleting: remove.isDeleting,
     isMutating: create.isCreating || update.isUpdating || remove.isDeleting,
+  };
+}
+
+// ========== Queue Mutations ==========
+
+export interface UseQueueMutationsReturn {
+  activateQueue: (queueId: string) => Promise<void>;
+  deactivateQueue: () => Promise<void>;
+  deleteQueue: (queueId: string) => Promise<void>;
+  mergeQueues: (sourceId: string, targetId: string) => Promise<void>;
+  isActivating: boolean;
+  isDeactivating: boolean;
+  isDeleting: boolean;
+  isMerging: boolean;
+  isMutating: boolean;
+}
+
+export function useQueueMutations(): UseQueueMutationsReturn {
+  const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
+
+  const activateMutation = useMutation({
+    mutationFn: (queueId: string) => activateQueue(queueId, projectPath),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issueQueue(projectPath) });
+    },
+  });
+
+  const deactivateMutation = useMutation({
+    mutationFn: () => deactivateQueue(projectPath),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issueQueue(projectPath) });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (queueId: string) => deleteQueueApi(queueId, projectPath),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issueQueue(projectPath) });
+    },
+  });
+
+  const mergeMutation = useMutation({
+    mutationFn: ({ sourceId, targetId }: { sourceId: string; targetId: string }) =>
+      mergeQueuesApi(sourceId, targetId, projectPath),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issueQueue(projectPath) });
+    },
+  });
+
+  return {
+    activateQueue: activateMutation.mutateAsync,
+    deactivateQueue: deactivateMutation.mutateAsync,
+    deleteQueue: deleteMutation.mutateAsync,
+    mergeQueues: (sourceId, targetId) => mergeMutation.mutateAsync({ sourceId, targetId }),
+    isActivating: activateMutation.isPending,
+    isDeactivating: deactivateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+    isMerging: mergeMutation.isPending,
+    isMutating: activateMutation.isPending || deactivateMutation.isPending || deleteMutation.isPending || mergeMutation.isPending,
+  };
+}
+
+// ========== Discovery Hook ==========
+
+export interface FindingFilters {
+  severity?: 'critical' | 'high' | 'medium' | 'low';
+  type?: string;
+  search?: string;
+}
+
+export interface UseIssueDiscoveryReturn {
+  sessions: DiscoverySession[];
+  activeSession: DiscoverySession | null;
+  findings: Finding[];
+  filteredFindings: Finding[];
+  isLoadingSessions: boolean;
+  isLoadingFindings: boolean;
+  error: Error | null;
+  filters: FindingFilters;
+  setFilters: (filters: FindingFilters) => void;
+  selectSession: (sessionId: string) => void;
+  refetchSessions: () => void;
+  exportFindings: () => void;
+}
+
+export function useIssueDiscovery(options?: { refetchInterval?: number }): UseIssueDiscoveryReturn {
+  const { refetchInterval = 0 } = options ?? {};
+  const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<FindingFilters>({});
+
+  const sessionsQuery = useQuery({
+    queryKey: workspaceQueryKeys.discoveries(projectPath),
+    queryFn: () => fetchDiscoveries(projectPath),
+    staleTime: STALE_TIME,
+    enabled: !!projectPath,
+    refetchInterval: refetchInterval > 0 ? refetchInterval : false,
+    retry: 2,
+  });
+
+  const findingsQuery = useQuery({
+    queryKey: activeSessionId ? ['discoveryFindings', activeSessionId, projectPath] : ['discoveryFindings', 'no-session'],
+    queryFn: () => activeSessionId ? fetchDiscoveryFindings(activeSessionId, projectPath) : [],
+    staleTime: STALE_TIME,
+    enabled: !!activeSessionId && !!projectPath,
+    retry: 2,
+  });
+
+  const activeSession = useMemo(
+    () => sessionsQuery.data?.find(s => s.id === activeSessionId) ?? null,
+    [sessionsQuery.data, activeSessionId]
+  );
+
+  const filteredFindings = useMemo(() => {
+    let findings = findingsQuery.data ?? [];
+    if (filters.severity) {
+      findings = findings.filter(f => f.severity === filters.severity);
+    }
+    if (filters.type) {
+      findings = findings.filter(f => f.type === filters.type);
+    }
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      findings = findings.filter(f =>
+        f.title.toLowerCase().includes(searchLower) ||
+        f.description.toLowerCase().includes(searchLower)
+      );
+    }
+    return findings;
+  }, [findingsQuery.data, filters]);
+
+  const selectSession = (sessionId: string) => {
+    setActiveSessionId(sessionId);
+  };
+
+  const exportFindings = () => {
+    if (!activeSessionId || !findingsQuery.data) return;
+    const data = {
+      session: activeSession,
+      findings: findingsQuery.data,
+      exported_at: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `discovery-${activeSessionId}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return {
+    sessions: sessionsQuery.data ?? [],
+    activeSession,
+    findings: findingsQuery.data ?? [],
+    filteredFindings,
+    isLoadingSessions: sessionsQuery.isLoading,
+    isLoadingFindings: findingsQuery.isLoading,
+    error: sessionsQuery.error || findingsQuery.error,
+    filters,
+    setFilters,
+    selectSession,
+    refetchSessions: () => {
+      sessionsQuery.refetch();
+    },
+    exportFindings,
   };
 }
