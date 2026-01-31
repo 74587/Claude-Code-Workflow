@@ -44,11 +44,16 @@ Analysis Flow:
    │   └─ Write .workflow/project-tech.json
    ├─ Create guidelines scaffold (if not exists)
    │   └─ Write .workflow/project-guidelines.json (empty structure)
-   └─ Display summary
+   ├─ Display summary
+   └─ Ask about guidelines configuration
+       ├─ If guidelines empty → Ask user: "Configure now?" or "Skip"
+       │   ├─ Configure now → SlashCommand(/workflow:init-guidelines)
+       │   └─ Skip → Show next steps
+       └─ If guidelines populated → Show next steps only
 
 Output:
    ├─ .workflow/project-tech.json (+ .backup if regenerate)
-   └─ .workflow/project-guidelines.json (scaffold if new)
+   └─ .workflow/project-guidelines.json (scaffold or configured)
 ```
 
 ## Implementation
@@ -210,11 +215,63 @@ Files created:
 - Tech analysis: .workflow/project-tech.json
 - Guidelines: .workflow/project-guidelines.json ${guidelinesExists ? '(scaffold)' : ''}
 ${regenerate ? '- Backup: .workflow/project-tech.json.backup' : ''}
+`);
+```
 
+### Step 5: Ask About Guidelines Configuration
+
+After displaying the summary, ask the user if they want to configure project guidelines interactively.
+
+```javascript
+// Check if guidelines are just a scaffold (empty) or already populated
+const guidelines = JSON.parse(Read('.workflow/project-guidelines.json'));
+const isGuidelinesPopulated =
+  guidelines.conventions.coding_style.length > 0 ||
+  guidelines.conventions.naming_patterns.length > 0 ||
+  guidelines.constraints.architecture.length > 0 ||
+  guidelines.constraints.security.length > 0;
+
+// Only ask if guidelines are not yet populated
+if (!isGuidelinesPopulated) {
+  const userChoice = AskUserQuestion({
+    questions: [{
+      question: "Would you like to configure project guidelines now? The wizard will ask targeted questions based on your tech stack.",
+      header: "Guidelines",
+      multiSelect: false,
+      options: [
+        {
+          label: "Configure now (Recommended)",
+          description: "Interactive wizard to set up coding conventions, constraints, and quality rules"
+        },
+        {
+          label: "Skip for now",
+          description: "You can run /workflow:init-guidelines later or use /workflow:session:solidify to add rules individually"
+        }
+      ]
+    }]
+  });
+
+  if (userChoice.answers["Guidelines"] === "Configure now (Recommended)") {
+    console.log("\n🔧 Starting guidelines configuration wizard...\n");
+    SlashCommand(command="/workflow:init-guidelines");
+  } else {
+    console.log(`
 Next steps:
-- Use /workflow:session:solidify to add project guidelines
+- Use /workflow:init-guidelines to configure guidelines interactively
+- Use /workflow:session:solidify to add individual rules
 - Use /workflow:plan to start planning
 `);
+  }
+} else {
+  console.log(`
+Guidelines already configured (${guidelines.conventions.coding_style.length + guidelines.constraints.architecture.length}+ rules).
+
+Next steps:
+- Use /workflow:init-guidelines --reset to reconfigure
+- Use /workflow:session:solidify to add individual rules
+- Use /workflow:plan to start planning
+`);
+}
 ```
 
 ## Error Handling
@@ -222,3 +279,10 @@ Next steps:
 **Agent Failure**: Fall back to basic initialization with placeholder overview
 **Missing Tools**: Agent uses Qwen fallback or bash-only
 **Empty Project**: Create minimal JSON with all gaps identified
+
+## Related Commands
+
+- `/workflow:init-guidelines` - Interactive wizard to configure project guidelines (called after init)
+- `/workflow:session:solidify` - Add individual rules/constraints one at a time
+- `/workflow:plan` - Start planning with initialized project context
+- `/workflow:status --project` - View project state and guidelines
