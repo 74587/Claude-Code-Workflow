@@ -13,7 +13,7 @@ import type { DateTimeInputComponent } from '../../core/A2UITypes';
  */
 function isoToDateTimeLocal(isoString: string): string {
   if (!isoString) return '';
-  
+
   const date = new Date(isoString);
   if (isNaN(date.getTime())) return '';
 
@@ -46,6 +46,7 @@ function dateTimeLocalToIso(dateTimeLocal: string, includeTime: boolean): string
 export const A2UIDateTimeInput: ComponentRenderer = ({ component, state, onAction, resolveBinding }) => {
   const dateTimeComp = component as DateTimeInputComponent;
   const { DateTimeInput: config } = dateTimeComp;
+  const includeTime = config.includeTime ?? true;
 
   // Resolve initial value
   const getInitialValue = (): string => {
@@ -55,7 +56,6 @@ export const A2UIDateTimeInput: ComponentRenderer = ({ component, state, onActio
   };
 
   const [internalValue, setInternalValue] = useState(getInitialValue);
-  const includeTime = config.includeTime ?? true;
 
   // Update internal value when binding changes
   useEffect(() => {

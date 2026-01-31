@@ -162,12 +162,20 @@ describe('Header Component - i18n Tests', () => {
       expect(brandLink).toBeInTheDocument();
     });
 
-    it('should display project path when provided', () => {
+    it('should render workspace selector when project path is provided', () => {
       render(<Header projectPath="/test/path" />);
 
-      // Should show the path indicator
-      const pathDisplay = screen.getByTitle('/test/path');
-      expect(pathDisplay).toBeInTheDocument();
+      // Should render the workspace selector button with aria-label
+      const workspaceButton = screen.getByRole('button', { name: /workspace selector/i });
+      expect(workspaceButton).toBeInTheDocument();
+    });
+
+    it('should not render workspace selector when project path is empty', () => {
+      render(<Header projectPath="" />);
+
+      // Should NOT render the workspace selector button
+      const workspaceButton = screen.queryByRole('button', { name: /workspace selector/i });
+      expect(workspaceButton).not.toBeInTheDocument();
     });
   });
 

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import type { ComponentRenderer } from '../../core/A2UIComponentRegistry';
 import type { A2UIState, ActionHandler, BindingResolver } from '../../core/A2UIComponentRegistry';
 import type { ButtonComponent, A2UIComponent } from '../../core/A2UITypes';
+import { resolveLiteralOrBinding } from '../A2UIRenderer';
 
 interface A2UIButtonRendererProps {
   component: A2UIComponent;
@@ -28,11 +29,9 @@ export const A2UIButton: ComponentRenderer = ({ component, state, onAction, reso
   const ContentComponent = () => {
     const contentType = Object.keys(buttonConfig.content)[0];
     if (contentType === 'Text') {
-      const text = buttonConfig.content.Text.text;
-      const resolved = typeof text === 'string' && text.startsWith('{')
-        ? resolveBinding({ path: JSON.parse(text).path })
-        : text;
-      return <>{resolved}</>;
+      const textValue = buttonConfig.content.Text.text;
+      const resolved = resolveLiteralOrBinding(textValue, resolveBinding);
+      return <>{String(resolved)}</>;
     }
     return <>{contentType}</>;
   };

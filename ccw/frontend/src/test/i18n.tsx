@@ -24,6 +24,9 @@ const mockMessages: Record<Locale, Record<string, string>> = {
     'common.loading': 'Loading...',
     'common.error': 'Error',
     'common.success': 'Success',
+    'common.actions.cancel': 'Cancel',
+    'common.actions.submit': 'Submit',
+    'common.actions.close': 'Close',
     // Aria labels
     'common.aria.toggleNavigation': 'Toggle navigation',
     'common.aria.switchToDarkMode': 'Switch to dark mode',
@@ -42,6 +45,18 @@ const mockMessages: Record<Locale, Record<string, string>> = {
     'navigation.issues': 'Issues',
     'navigation.orchestrator': 'Orchestrator',
     'navigation.settings': 'Settings',
+    // Workspace selector
+    'workspace.selector.noWorkspace': 'No workspace selected',
+    'workspace.selector.recentPaths': 'Recent Projects',
+    'workspace.selector.noRecentPaths': 'No recent projects',
+    'workspace.selector.current': 'Current',
+    'workspace.selector.browse': 'Select Folder...',
+    'workspace.selector.removePath': 'Remove from recent',
+    'workspace.selector.ariaLabel': 'Workspace selector',
+    'workspace.selector.dialog.title': 'Select Project Folder',
+    'workspace.selector.dialog.placeholder': 'Enter project path...',
+    // Notifications
+    'common.aria.notifications': 'Notifications',
   },
   zh: {
     // Common
@@ -54,6 +69,9 @@ const mockMessages: Record<Locale, Record<string, string>> = {
     'common.loading': '加载中...',
     'common.error': '错误',
     'common.success': '成功',
+    'common.actions.cancel': '取消',
+    'common.actions.submit': '提交',
+    'common.actions.close': '关闭',
     // Aria labels
     'common.aria.toggleNavigation': '切换导航',
     'common.aria.switchToDarkMode': '切换到深色模式',
@@ -72,6 +90,18 @@ const mockMessages: Record<Locale, Record<string, string>> = {
     'navigation.issues': '问题',
     'navigation.orchestrator': '编排器',
     'navigation.settings': '设置',
+    // Workspace selector
+    'workspace.selector.noWorkspace': '未选择工作空间',
+    'workspace.selector.recentPaths': '最近的项目',
+    'workspace.selector.noRecentPaths': '没有最近的项目',
+    'workspace.selector.current': '当前',
+    'workspace.selector.browse': '选择文件夹...',
+    'workspace.selector.removePath': '从最近记录中移除',
+    'workspace.selector.ariaLabel': '工作空间选择器',
+    'workspace.selector.dialog.title': '选择项目文件夹',
+    'workspace.selector.dialog.placeholder': '输入项目路径...',
+    // Notifications
+    'common.aria.notifications': '通知',
   },
 };
 

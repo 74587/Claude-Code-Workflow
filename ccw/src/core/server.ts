@@ -57,12 +57,7 @@ import { getCliToolsStatus } from '../tools/cli-executor.js';
 import type { ServerConfig } from '../types/config.js';
 import type { PostRequestHandler } from './routes/types.js';
 
-interface ServerOptions {
-  port?: number;
-  initialPath?: string;
-  host?: string;
-  open?: boolean;
-}
+
 
 type PostHandler = PostRequestHandler;
 
@@ -664,22 +659,7 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         if (await handleSystemRoutes(routeContext)) return;
       }
 
-      // Serve dashboard HTML
-      if (pathname === '/' || pathname === '/index.html') {
-        // Set session cookie and CSRF token for all requests
-        const tokenResult = tokenManager.getOrCreateAuthToken();
-        setAuthCookie(res, tokenResult.token, tokenResult.expiresAt);
 
-        const sessionId = getOrCreateSessionId(req, res);
-        const csrfToken = getCsrfTokenManager().generateToken(sessionId);
-        res.setHeader('X-CSRF-Token', csrfToken);
-        setCsrfCookie(res, csrfToken, 15 * 60);
-
-        const html = generateServerDashboard(initialPath);
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(html);
-        return;
-      }
 
       // Handle favicon.ico (return empty response to prevent 404)
       if (pathname === '/favicon.ico') {

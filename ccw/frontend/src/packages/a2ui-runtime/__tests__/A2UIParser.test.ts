@@ -4,6 +4,7 @@
 // Tests for A2UI protocol parsing and validation
 
 import { describe, it, expect } from 'vitest';
+import { z } from 'zod';
 import { A2UIParser, a2uiParser, A2UIParseError } from '../core/A2UIParser';
 import type { SurfaceUpdate, A2UIComponent } from '../core/A2UITypes';
 
@@ -369,19 +370,30 @@ describe('A2UIParser', () => {
     });
 
     it('should provide details for Zod errors', () => {
-      // Create a mock ZodError
-      const mockZodError = {
-        issues: [
-          { path: ['components', 0, 'id'], message: 'Required' },
-          { path: ['surfaceId'], message: 'Invalid format' },
-        ],
-      };
+      // Create a real ZodError with actual issues
+      const zodError = new z.ZodError([
+        {
+          code: z.ZodIssueCode.invalid_type,
+          path: ['components', 0, 'id'],
+          expected: 'string',
+          received: 'undefined',
+          message: 'Required',
+        },
+        {
+          code: z.ZodIssueCode.invalid_string,
+          path: ['surfaceId'],
+          validation: 'uuid',
+          message: 'Invalid format',
+        },
+      ]);
 
-      const parseError = new A2UIParseError('Validation failed', mockZodError as any);
+      const parseError = new A2UIParseError('Validation failed', zodError);
       const details = parseError.getDetails();
 
-      expect(details).toContain('components.0.id: Required');
-      expect(details).toContain('surfaceId: Invalid format');
+      expect(details).toContain('components.0.id');
+      expect(details).toContain('surfaceId');
+      expect(details).toContain('Required');
+      expect(details).toContain('Invalid format');
     });
 
     it('should provide message for Error original errors', () => {

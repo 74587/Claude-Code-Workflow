@@ -87,6 +87,7 @@ export function run(argv: string[]): void {
     .option('--port <port>', 'Server port', '3456')
     .option('--host <host>', 'Server host to bind', '127.0.0.1')
     .option('--no-browser', 'Start server without opening browser')
+    .option('--frontend <type>', 'Frontend type: js, react, both', 'both')
     .action(viewCommand);
 
   // Serve command (alias for view)
@@ -97,6 +98,7 @@ export function run(argv: string[]): void {
     .option('--port <port>', 'Server port', '3456')
     .option('--host <host>', 'Server host to bind', '127.0.0.1')
     .option('--no-browser', 'Start server without opening browser')
+    .option('--frontend <type>', 'Frontend type: js, react, both', 'both')
     .action(serveCommand);
 
   // Stop command
