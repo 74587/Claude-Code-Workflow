@@ -1,7 +1,7 @@
 ---
 name: execute
 description: Coordinate agent execution for workflow tasks with automatic session discovery, parallel task processing, and status tracking
-argument-hint: "[-y|--yes] [--resume-session=\"session-id\"]"
+argument-hint: "[-y|--yes] [--resume-session=\"session-id\"] [--with-commit]"
 ---
 
 # Workflow Execute Command
@@ -22,6 +22,11 @@ Orchestrates autonomous workflow execution through systematic task discovery, ag
 /workflow:execute --yes
 /workflow:execute -y
 /workflow:execute -y --resume-session="WFS-auth"
+
+# With auto-commit (commit after each task completion)
+/workflow:execute --with-commit
+/workflow:execute -y --with-commit
+/workflow:execute -y --with-commit --resume-session="WFS-auth"
 ```
 
 ## Auto Mode Defaults
@@ -30,9 +35,15 @@ When `--yes` or `-y` flag is used:
 - **Session Selection**: Automatically selects the first (most recent) active session
 - **Completion Choice**: Automatically completes session (runs `/workflow:session:complete --yes`)
 
+When `--with-commit` flag is used:
+- **Auto-Commit**: After each agent task completes, commit changes based on summary document
+- **Commit Principle**: Minimal commits - only commit files modified by the completed task
+- **Commit Message**: Generated from task summary with format: "feat/fix/refactor: {task-title} - {summary}"
+
 **Flag Parsing**:
 ```javascript
 const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+const withCommit = $ARGUMENTS.includes('--with-commit')
 ```
 
 ## Performance Optimization Strategy
@@ -95,6 +106,11 @@ Phase 4: Execution Strategy & Task Execution
          ├─ Mark task completed (update IMPL-*.json status)
          │  # Quick fix: Update task status for ccw dashboard
          │  # TS=$(date -Iseconds) && jq --arg ts "$TS" '.status="completed" | .status_history=(.status_history // [])+[{"from":"in_progress","to":"completed","changed_at":$ts}]' IMPL-X.json > tmp.json && mv tmp.json IMPL-X.json
+         ├─ [with-commit] Commit changes based on summary (minimal principle)
+         │  # Read summary from .summaries/IMPL-X-summary.md
+         │  # Extract changed files from summary's "Files Modified" section
+         │  # Generate commit message: "feat/fix/refactor: {task-title} - {summary}"
+         │  # git add <changed-files> && git commit -m "<commit-message>"
          └─ Advance to next task
 
 Phase 5: Completion
@@ -273,7 +289,13 @@ while (TODO_LIST.md has pending tasks) {
 4. **Launch Agent**: Invoke specialized agent with complete context including flow control steps
 5. **Monitor Progress**: Track agent execution and handle errors without user interruption
 6. **Collect Results**: Gather implementation results and outputs
-7. **Continue Workflow**: Identify next pending task from TODO_LIST.md and repeat
+7. **[with-commit] Auto-Commit**: If `--with-commit` flag enabled, commit changes based on summary
+   - Read summary from `.summaries/{task-id}-summary.md`
+   - Extract changed files from summary's "Files Modified" section
+   - Determine commit type from `meta.type` (feature→feat, bugfix→fix, refactor→refactor)
+   - Generate commit message: "{type}: {task-title} - {summary-first-line}"
+   - Commit only modified files (minimal principle): `git add <files> && git commit -m "<message>"`
+8. **Continue Workflow**: Identify next pending task from TODO_LIST.md and repeat
 
 **Note**: TODO_LIST.md updates are handled by agents (e.g., code-developer.md), not by the orchestrator.
 
@@ -545,4 +567,27 @@ meta.agent missing → Infer from meta.type:
 - **Atomic Updates**: Update JSON files atomically to prevent corruption
 - **Dependency Validation**: Check all depends_on references exist
 - **Context Verification**: Ensure all required context is available
+
+## Auto-Commit Mode (--with-commit)
+
+**Behavior**: After each agent task completes, automatically commit changes based on summary document.
+
+**Minimal Principle**: Only commit files modified by the completed task.
+
+**Commit Message Format**: `{type}: {task-title} - {summary}`
+
+**Type Mapping** (from `meta.type`):
+- `feature` → `feat` | `bugfix` → `fix` | `refactor` → `refactor`
+- `test-gen` → `test` | `docs` → `docs` | `review` → `chore`
+
+**Implementation**:
+```bash
+# 1. Read summary from .summaries/{task-id}-summary.md
+# 2. Extract files from "Files Modified" section
+# 3. Commit: git add <files> && git commit -m "{type}: {title} - {summary}"
+```
+
+**Error Handling**: Skip commit on no changes/missing summary, log errors, continue workflow.
+
+
 
