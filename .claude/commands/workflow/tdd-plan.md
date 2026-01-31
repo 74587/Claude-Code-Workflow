@@ -2,7 +2,7 @@
 name: tdd-plan
 description: TDD workflow planning with Red-Green-Refactor task chain generation, test-first development structure, and cycle tracking
 argument-hint: "\"feature description\"|file.md"
-allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
+allowed-tools: Skill(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
 # TDD Workflow Plan Command (/workflow:tdd-plan)
@@ -14,7 +14,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 **CLI Tool Selection**: CLI tool usage is determined semantically from user's task description. Include "use Codex/Gemini/Qwen" in your request for CLI execution.
 
 **Task Attachment Model**:
-- SlashCommand execute **expands workflow** by attaching sub-tasks to current TodoWrite
+- Skill execute **expands workflow** by attaching sub-tasks to current TodoWrite
 - When executing a sub-command (e.g., `/workflow:tools:test-context-gather`), its internal tasks are attached to the orchestrator's TodoWrite
 - Orchestrator **executes these attached tasks** sequentially
 - After completion, attached tasks are **collapsed** back to high-level phase summary
@@ -34,7 +34,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 4. **Auto-Continue via TodoList**: Check TodoList status to execute next pending phase automatically
 5. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
 6. **TDD Context**: All descriptions include "TDD:" prefix
-7. **Task Attachment Model**: SlashCommand execute **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
+7. **Task Attachment Model**: Skill execute **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
 8. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and execute next phase
 
 ## TDD Compliance Requirements
@@ -82,7 +82,7 @@ NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
 **Step 1.1: Execute** - Session discovery and initialization
 
 ```javascript
-SlashCommand(command="/workflow:session:start --type tdd --auto \"TDD: [structured-description]\"")
+Skill(skill="workflow:session:start", args="--type tdd --auto \"TDD: [structured-description]\"")
 ```
 
 **TDD Structured Format**:
@@ -107,7 +107,7 @@ TEST_FOCUS: [Test scenarios]
 **Step 2.1: Execute** - Context gathering and analysis
 
 ```javascript
-SlashCommand(command="/workflow:tools:context-gather --session [sessionId] \"TDD: [structured-description]\"")
+Skill(skill="workflow:tools:context-gather", args="--session [sessionId] \"TDD: [structured-description]\"")
 ```
 
 **Use Same Structured Description**: Pass the same structured format from Phase 1
@@ -133,7 +133,7 @@ SlashCommand(command="/workflow:tools:context-gather --session [sessionId] \"TDD
 **Step 3.1: Execute** - Test coverage analysis and framework detection
 
 ```javascript
-SlashCommand(command="/workflow:tools:test-context-gather --session [sessionId]")
+Skill(skill="workflow:tools:test-context-gather", args="--session [sessionId]")
 ```
 
 **Purpose**: Analyze existing codebase for:
@@ -148,7 +148,7 @@ SlashCommand(command="/workflow:tools:test-context-gather --session [sessionId]"
 
 <!-- TodoWrite: When test-context-gather executed, INSERT 3 test-context-gather tasks -->
 
-**TodoWrite Update (Phase 3 SlashCommand executed - tasks attached)**:
+**TodoWrite Update (Phase 3 Skill executed - tasks attached)**:
 ```json
 [
   {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
@@ -162,7 +162,7 @@ SlashCommand(command="/workflow:tools:test-context-gather --session [sessionId]"
 ]
 ```
 
-**Note**: SlashCommand execute **attaches** test-context-gather's 3 tasks. Orchestrator **executes** these tasks.
+**Note**: Skill execute **attaches** test-context-gather's 3 tasks. Orchestrator **executes** these tasks.
 
 **Next Action**: Tasks attached → **Execute Phase 3.1-3.3** sequentially
 
@@ -192,7 +192,7 @@ SlashCommand(command="/workflow:tools:test-context-gather --session [sessionId]"
 **Step 4.1: Execute** - Conflict detection and resolution
 
 ```javascript
-SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] --context [contextPath]")
+Skill(skill="workflow:tools:conflict-resolution", args="--session [sessionId] --context [contextPath]")
 ```
 
 **Input**:
@@ -213,7 +213,7 @@ SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] 
 
 <!-- TodoWrite: If conflict_risk ≥ medium, INSERT 3 conflict-resolution tasks when executed -->
 
-**TodoWrite Update (Phase 4 SlashCommand executed - tasks attached, if conflict_risk ≥ medium)**:
+**TodoWrite Update (Phase 4 Skill executed - tasks attached, if conflict_risk ≥ medium)**:
 ```json
 [
   {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
@@ -228,7 +228,7 @@ SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] 
 ]
 ```
 
-**Note**: SlashCommand execute **attaches** conflict-resolution's 3 tasks. Orchestrator **executes** these tasks.
+**Note**: Skill execute **attaches** conflict-resolution's 3 tasks. Orchestrator **executes** these tasks.
 
 **Next Action**: Tasks attached → **Execute Phase 4.1-4.3** sequentially
 
@@ -257,7 +257,7 @@ SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] 
   **Step 4.5: Execute** - Memory compaction
 
   ```javascript
-  SlashCommand(command="/compact")
+  Skill(skill="compact")
   ```
 
   - This optimizes memory before proceeding to Phase 5
@@ -271,7 +271,7 @@ SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] 
 **Step 5.1: Execute** - TDD task generation via action-planning-agent with Phase 0 user configuration
 
 ```javascript
-SlashCommand(command="/workflow:tools:task-generate-tdd --session [sessionId]")
+Skill(skill="workflow:tools:task-generate-tdd", args="--session [sessionId]")
 ```
 
 **Note**: Phase 0 now includes:
@@ -311,7 +311,7 @@ SlashCommand(command="/workflow:tools:task-generate-tdd --session [sessionId]")
 
 <!-- TodoWrite: When task-generate-tdd executed, INSERT 3 task-generate-tdd tasks -->
 
-**TodoWrite Update (Phase 5 SlashCommand executed - tasks attached)**:
+**TodoWrite Update (Phase 5 Skill executed - tasks attached)**:
 ```json
 [
   {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
@@ -325,7 +325,7 @@ SlashCommand(command="/workflow:tools:task-generate-tdd --session [sessionId]")
 ]
 ```
 
-**Note**: SlashCommand execute **attaches** task-generate-tdd's 3 tasks. Orchestrator **executes** these tasks. Each generated IMPL task will contain internal Red-Green-Refactor cycle.
+**Note**: Skill execute **attaches** task-generate-tdd's 3 tasks. Orchestrator **executes** these tasks. Each generated IMPL task will contain internal Red-Green-Refactor cycle.
 
 **Next Action**: Tasks attached → **Execute Phase 5.1-5.3** sequentially
 
@@ -462,7 +462,7 @@ Quality Gate: Consider running /workflow:plan-verify to validate TDD task struct
 
 ### Key Principles
 
-1. **Task Attachment** (when SlashCommand executed):
+1. **Task Attachment** (when Skill executed):
    - Sub-command's internal tasks are **attached** to orchestrator's TodoWrite
    - Example: `/workflow:tools:test-context-gather` attaches 3 sub-tasks (Phase 3.1, 3.2, 3.3)
    - First attached task marked as `in_progress`, others as `pending`
@@ -534,7 +534,7 @@ TDD Workflow Orchestrator
    └─ Recommend: /workflow:plan-verify
 
 Key Points:
-• ← ATTACHED: SlashCommand attaches sub-tasks to orchestrator TodoWrite
+• ← ATTACHED: Skill attaches sub-tasks to orchestrator TodoWrite
 • ← COLLAPSED: Sub-tasks executed and collapsed to phase summary
 • TDD-specific: Each generated IMPL task contains complete Red-Green-Refactor cycle
 ```

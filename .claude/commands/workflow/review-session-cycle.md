@@ -2,7 +2,7 @@
 name: review-session-cycle
 description: Session-based comprehensive multi-dimensional code review. Analyzes git changes from workflow session across 7 dimensions with hybrid parallel-iterative execution, aggregates findings, and performs focused deep-dives on critical issues until quality gates met.
 argument-hint: "[session-id] [--dimensions=security,architecture,...] [--max-iterations=N]"
-allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
+allowed-tools: Skill(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 ---
 
 # Workflow Review-Session-Cycle Command

@@ -47,7 +47,7 @@ Analysis Flow:
    ├─ Display summary
    └─ Ask about guidelines configuration
        ├─ If guidelines empty → Ask user: "Configure now?" or "Skip"
-       │   ├─ Configure now → SlashCommand(/workflow:init-guidelines)
+       │   ├─ Configure now → Skill(skill="workflow:init-guidelines")
        │   └─ Skip → Show next steps
        └─ If guidelines populated → Show next steps only
 
@@ -253,7 +253,7 @@ if (!isGuidelinesPopulated) {
 
   if (userChoice.answers["Guidelines"] === "Configure now (Recommended)") {
     console.log("\n🔧 Starting guidelines configuration wizard...\n");
-    SlashCommand(command="/workflow:init-guidelines");
+    Skill(skill="workflow:init-guidelines");
   } else {
     console.log(`
 Next steps:

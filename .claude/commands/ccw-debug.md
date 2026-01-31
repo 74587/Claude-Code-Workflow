@@ -2,7 +2,7 @@
 name: ccw-debug
 description: Aggregated debug command - combines debugging diagnostics and test verification in a synergistic workflow supporting cli-quick / debug-first / test-first / bidirectional-verification modes
 argument-hint: "[--mode cli|debug|test|bidirectional] [--yes|-y] [--hotfix] \"bug description or error message\""
-allowed-tools: SlashCommand(*), TodoWrite(*), AskUserQuestion(*), Read(*), Bash(*)
+allowed-tools: Skill(*), TodoWrite(*), AskUserQuestion(*), Read(*), Bash(*)
 ---
 
 # CCW-Debug Aggregated Command
@@ -237,10 +237,10 @@ User Input → Quick Context Gather → ccw cli (Gemini/Qwen/Codex)
        applyFixFromCLIRecommendation(cliOutput)
      } else if (decision === "Escalate to Debug") {
        // Re-invoke ccw-debug with --mode debug
-       SlashCommand(command=`/ccw-debug --mode debug "${bug_description}"`)
+       Skill(skill="ccw-debug", args=`--mode debug "${bug_description}"`)
      } else if (decision === "Escalate to Test") {
        // Re-invoke ccw-debug with --mode test
-       SlashCommand(command=`/ccw-debug --mode test "${bug_description}"`)
+       Skill(skill="ccw-debug", args=`--mode test "${bug_description}"`)
      }
    }
    ```
@@ -303,7 +303,7 @@ User Input → Session Init → /workflow:debug-with-file
 
 2. **Start Debug** (Phase 3)
    ```javascript
-   SlashCommand(command=`/workflow:debug-with-file "${bug_description}"`)
+   Skill(skill="workflow:debug-with-file", args=`"${bug_description}"`)
 
    // Update TodoWrite
    TodoWrite({
@@ -321,8 +321,8 @@ User Input → Session Init → /workflow:debug-with-file
 4. **Test Generation & Execution**
    ```javascript
    // Auto-continue after debug command completes
-   SlashCommand(command=`/workflow:test-fix-gen "Test validation for: ${bug_description}"`)
-   SlashCommand(command="/workflow:test-cycle-execute")
+   Skill(skill="workflow:test-fix-gen", args=`"Test validation for: ${bug_description}"`)
+   Skill(skill="workflow:test-cycle-execute")
    ```
 
 5. **Generate Report** (Phase 5)
@@ -383,7 +383,7 @@ User Input → Session Init → /workflow:test-fix-gen
 
 2. **Generate Tests** (Phase 3)
    ```javascript
-   SlashCommand(command=`/workflow:test-fix-gen "${bug_description}"`)
+   Skill(skill="workflow:test-fix-gen", args=`"${bug_description}"`)
 
    // Update TodoWrite
    TodoWrite({
@@ -398,7 +398,7 @@ User Input → Session Init → /workflow:test-fix-gen
 
 3. **Execute & Iterate** (Phase 3 cont.)
    ```javascript
-   SlashCommand(command="/workflow:test-cycle-execute")
+   Skill(skill="workflow:test-cycle-execute")
 
    // test-cycle-execute handles:
    // - Execute tests
@@ -442,22 +442,13 @@ User Input → Session Init → Parallel execution:
 1. **Parallel Execution** (Phase 3)
    ```javascript
    // Start debug
-   const debugTask = SlashCommand(
-     command=`/workflow:debug-with-file "${bug_description}"`,
-     run_in_background=false
-   )
+   const debugTask = Skill(skill="workflow:debug-with-file", args=`"${bug_description}"`)
 
-   // Start test generation (synchronous execution, SlashCommand blocks)
-   const testTask = SlashCommand(
-     command=`/workflow:test-fix-gen "${bug_description}"`,
-     run_in_background=false
-   )
+   // Start test generation
+   const testTask = Skill(skill="workflow:test-fix-gen", args=`"${bug_description}"`)
 
    // Execute test cycle
-   const testCycleTask = SlashCommand(
-     command="/workflow:test-cycle-execute",
-     run_in_background=false
-   )
+   const testCycleTask = Skill(skill="workflow:test-cycle-execute")
    ```
 
 2. **Merge Findings** (Phase 4)

@@ -2,7 +2,7 @@
 name: tdd-verify
 description: Verify TDD workflow compliance against Red-Green-Refactor cycles. Generates quality report with coverage analysis and quality gate recommendation. Orchestrates sub-commands for comprehensive validation.
 argument-hint: "[optional: --session WFS-session-id]"
-allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
+allowed-tools: Skill(*), TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 ---
 
 # TDD Verification Command (/workflow:tdd-verify)
@@ -179,7 +179,7 @@ Calculate:
 
 **Step 3.1: Call Coverage Analysis Sub-command**
 ```bash
-SlashCommand(command="/workflow:tools:tdd-coverage-analysis --session {session_id}")
+Skill(skill="workflow:tools:tdd-coverage-analysis", args="--session {session_id}")
 ```
 
 **Step 3.2: Parse Output Files**

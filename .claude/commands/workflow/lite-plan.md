@@ -2,7 +2,7 @@
 name: lite-plan
 description: Lightweight interactive planning workflow with in-memory planning, code exploration, and execution execute to lite-execute after user confirmation
 argument-hint: "[-y|--yes] [-e|--explore] \"task description\"|file.md"
-allowed-tools: TodoWrite(*), Task(*), SlashCommand(*), AskUserQuestion(*)
+allowed-tools: TodoWrite(*), Task(*), Skill(*), AskUserQuestion(*)
 ---
 
 # Workflow Lite-Plan Command (/workflow:lite-plan)
@@ -101,7 +101,7 @@ Phase 4: Confirmation & Selection
 
 Phase 5: Execute
    ├─ Build executionContext (plan + explorations + clarifications + selections)
-   └─ SlashCommand("/workflow:lite-execute --in-memory")
+   └─ Skill(skill="workflow:lite-execute", args="--in-memory")
 ```
 
 ## Implementation
@@ -662,7 +662,7 @@ executionContext = {
 **Step 5.2: Execute**
 
 ```javascript
-SlashCommand(command="/workflow:lite-execute --in-memory")
+Skill(skill="workflow:lite-execute", args="--in-memory")
 ```
 
 ## Session Folder Structure

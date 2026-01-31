@@ -593,10 +593,10 @@ AskUserQuestion({
 
 // Handle selections
 if (selection.includes("创建Issue")) {
-  SlashCommand("/issue:new", `${topic_or_question} - 分析结论实施`)
+  Skill(skill="issue:new", args=`${topic_or_question} - 分析结论实施`)
 }
 if (selection.includes("生成任务")) {
-  SlashCommand("/workflow:lite-plan", `实施分析结论: ${summary}`)
+  Skill(skill="workflow:lite-plan", args=`实施分析结论: ${summary}`)
 }
 if (selection.includes("导出报告")) {
   exportAnalysisReport(sessionFolder)

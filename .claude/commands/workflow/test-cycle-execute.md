@@ -2,7 +2,7 @@
 name: test-cycle-execute
 description: Execute test-fix workflow with dynamic task generation and iterative fix cycles until test pass rate >= 95% or max iterations reached. Uses @cli-planning-agent for failure analysis and task generation.
 argument-hint: "[--resume-session=\"session-id\"] [--max-iterations=N]"
-allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
+allowed-tools: Skill(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 ---
 
 # Workflow Test-Cycle-Execute Command

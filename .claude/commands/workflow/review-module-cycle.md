@@ -2,7 +2,7 @@
 name: review-module-cycle
 description: Independent multi-dimensional code review for specified modules/files. Analyzes specific code paths across 7 dimensions with hybrid parallel-iterative execution, independent of workflow sessions.
 argument-hint: "<path-pattern> [--dimensions=security,architecture,...] [--max-iterations=N]"
-allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
+allowed-tools: Skill(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 ---
 
 # Workflow Review-Module-Cycle Command
@@ -187,7 +187,7 @@ const CATEGORIES = {
 **Step 1: Session Creation**
 ```javascript
 // Create workflow session for this review (type: review)
-SlashCommand(command="/workflow:session:start --type review \"Code review for [target_pattern]\"")
+Skill(skill="workflow:session:start", args="--type review \"Code review for [target_pattern]\"")
 
 // Parse output
 const sessionId = output.match(/SESSION_ID: (WFS-[^\s]+)/)[1];

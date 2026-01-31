@@ -753,15 +753,15 @@ AskUserQuestion({
 // Handle selections
 if (selection.includes("创建实施计划")) {
   const topIdea = synthesis.top_ideas[0]
-  SlashCommand("/workflow:plan", `实施: ${topIdea.title} - ${topIdea.description}`)
+  Skill(skill="workflow:plan", args=`实施: ${topIdea.title} - ${topIdea.description}`)
 }
 if (selection.includes("创建Issue")) {
   for (const idea of synthesis.top_ideas.slice(0, 3)) {
-    SlashCommand("/issue:new", `${idea.title}: ${idea.next_steps[0]}`)
+    Skill(skill="issue:new", args=`${idea.title}: ${idea.next_steps[0]}`)
   }
 }
 if (selection.includes("深入分析")) {
-  SlashCommand("/workflow:analyze-with-file", synthesis.top_ideas[0].title)
+  Skill(skill="workflow:analyze-with-file", args=synthesis.top_ideas[0].title)
 }
 if (selection.includes("导出分享")) {
   exportBrainstormReport(sessionFolder)

@@ -2,7 +2,7 @@
 name: ccw
 description: Main workflow orchestrator - analyze intent, select workflow, execute command chain in main process
 argument-hint: "\"task description\""
-allowed-tools: SlashCommand(*), TodoWrite(*), AskUserQuestion(*), Read(*), Grep(*), Glob(*)
+allowed-tools: Skill(*), TodoWrite(*), AskUserQuestion(*), Read(*), Grep(*), Glob(*)
 ---
 
 # CCW Command - Main Workflow Orchestrator
@@ -33,12 +33,12 @@ Main process orchestrator: intent analysis → workflow selection → command ch
 
 ## Execution Model
 
-**Synchronous (Main Process)**: Commands execute via SlashCommand in main process, blocking until complete.
+**Synchronous (Main Process)**: Commands execute via Skill in main process, blocking until complete.
 
 ```
 User Input → Analyze Intent → Select Workflow → [Confirm] → Execute Chain
                                                               ↓
-                                                    SlashCommand (blocking)
+                                                    Skill (blocking)
                                                               ↓
                                                     Update TodoWrite
                                                               ↓
@@ -353,7 +353,7 @@ async function executeCommandChain(chain, workflow) {
   for (let i = 0; i < chain.length; i++) {
     try {
       const fullCommand = assembleCommand(chain[i], previousResult);
-      const result = await SlashCommand({ command: fullCommand });
+      const result = await Skill({ skill: fullCommand });
 
       previousResult = { ...result, success: true };
       updateTodoStatus(i, chain.length, workflow, 'completed');
@@ -440,7 +440,7 @@ Phase 4: Setup TODO Tracking
 Phase 5: Execute Command Chain
     |-- For each command:
     |   |-- Assemble full command
-    |   |-- Execute via SlashCommand
+    |   |-- Execute via Skill
     |   |-- Update TODO status
     |   +-- Handle errors (retry/skip/abort)
     +-- Return workflow result
@@ -469,7 +469,7 @@ Phase 5: Execute Command Chain
 
 ## Key Design Principles
 
-1. **Main Process Execution** - Use SlashCommand in main process, no external CLI
+1. **Main Process Execution** - Use Skill in main process, no external CLI
 2. **Intent-Driven** - Auto-select workflow based on task intent
 3. **Port-Based Chaining** - Build command chain using port matching
 4. **Minimum Execution Units** - Commands grouped into atomic units, never split (e.g., lite-plan → lite-execute)
@@ -531,7 +531,7 @@ todos = [
 
 | Aspect | ccw | ccw-coordinator |
 |--------|-----|-----------------|
-| **Type** | Main process (SlashCommand) | External CLI (ccw cli + hook callbacks) |
+| **Type** | Main process (Skill) | External CLI (ccw cli + hook callbacks) |
 | **Execution** | Synchronous blocking | Async background with hook completion |
 | **Workflow** | Auto intent-based selection | Manual chain building |
 | **Intent Analysis** | 5-phase clarity check | 3-phase requirement analysis |

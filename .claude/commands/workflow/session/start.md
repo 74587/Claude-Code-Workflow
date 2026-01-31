@@ -50,7 +50,7 @@ bash(test -f .workflow/project-guidelines.json && echo "GUIDELINES_EXISTS" || ec
 **If either NOT_FOUND**, delegate to `/workflow:init`:
 ```javascript
 // Call workflow:init for intelligent project analysis
-SlashCommand({command: "/workflow:init"});
+Skill(skill="workflow:init");
 
 // Wait for init completion
 // project-tech.json and project-guidelines.json will be created

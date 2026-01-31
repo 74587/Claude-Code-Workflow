@@ -318,7 +318,7 @@ const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
 if (autoYes) {
   // Auto mode: Complete session automatically
   console.log(`[--yes] Auto-selecting: Complete Session`)
-  SlashCommand("/workflow:session:complete --yes")
+  Skill(skill="workflow:session:complete", args="--yes")
 } else {
   // Interactive mode: Ask user
   AskUserQuestion({

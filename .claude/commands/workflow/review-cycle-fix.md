@@ -2,7 +2,7 @@
 name: review-cycle-fix
 description: Automated fixing of code review findings with AI-powered planning and coordinated execution. Uses intelligent grouping, multi-stage timeline coordination, and test-driven verification.
 argument-hint: "<export-file|review-dir> [--resume] [--max-iterations=N]"
-allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*), Edit(*), Write(*)
+allowed-tools: Skill(*), TodoWrite(*), Read(*), Bash(*), Task(*), Edit(*), Write(*)
 ---
 
 # Workflow Review-Cycle-Fix Command

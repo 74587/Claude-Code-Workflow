@@ -339,7 +339,7 @@ const canExecute = recommendation !== 'BLOCK_EXECUTION'
 // Auto mode
 if (autoYes) {
   if (canExecute) {
-    SlashCommand("/workflow:execute --yes --resume-session=\"${session_id}\"")
+    Skill(skill="workflow:execute", args="--yes --resume-session=\"${session_id}\"")
   } else {
     console.log(`[--yes] BLOCK_EXECUTION - Fix ${critical_count} critical issues first.`)
   }
@@ -370,8 +370,8 @@ const selection = AskUserQuestion({
 
 // Handle selection
 if (selection.includes("Execute")) {
-  SlashCommand("/workflow:execute --resume-session=\"${session_id}\"")
+  Skill(skill="workflow:execute", args="--resume-session=\"${session_id}\"")
 } else if (selection === "Re-verify") {
-  SlashCommand("/workflow:plan-verify --session ${session_id}")
+  Skill(skill="workflow:plan-verify", args="--session ${session_id}")
 }
 ```

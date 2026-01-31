@@ -2,7 +2,7 @@
 name: lite-fix
 description: Lightweight bug diagnosis and fix workflow with intelligent severity assessment and optional hotfix mode for production incidents
 argument-hint: "[-y|--yes] [--hotfix] \"bug description or issue reference\""
-allowed-tools: TodoWrite(*), Task(*), SlashCommand(*), AskUserQuestion(*)
+allowed-tools: TodoWrite(*), Task(*), Skill(*), AskUserQuestion(*)
 ---
 
 # Workflow Lite-Fix Command (/workflow:lite-fix)
@@ -103,7 +103,7 @@ Phase 4: Confirmation & Selection
 
 Phase 5: Execute
    |- Build executionContext (fix-plan + diagnoses + clarifications + selections)
-   +- SlashCommand("/workflow:lite-execute --in-memory --mode bugfix")
+   +- Skill(skill="workflow:lite-execute", args="--in-memory --mode bugfix")
 ```
 
 ## Implementation
@@ -767,7 +767,7 @@ executionContext = {
 **Step 5.2: Execute**
 
 ```javascript
-SlashCommand(command="/workflow:lite-execute --in-memory --mode bugfix")
+Skill(skill="workflow:lite-execute", args="--in-memory --mode bugfix")
 ```
 
 ## Session Folder Structure

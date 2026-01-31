@@ -432,7 +432,7 @@ executionContext = {
 **Step 4: Hand off to Execution**:
 ```javascript
 // Execute to lite-execute with in-memory context
-SlashCommand("/workflow:lite-execute --in-memory")
+Skill(skill="workflow:lite-execute", args="--in-memory")
 ```
 
 ## Output File Structure

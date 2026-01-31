@@ -2,7 +2,7 @@
 name: plan
 description: 5-phase planning workflow with action-planning-agent task generation, outputs IMPL_PLAN.md and task JSONs
 argument-hint: "[-y|--yes] \"text description\"|file.md"
-allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
+allowed-tools: Skill(*), TodoWrite(*), Read(*), Bash(*)
 group: workflow
 ---
 
@@ -28,7 +28,7 @@ This workflow runs **fully autonomously** once triggered. Phase 3 (conflict reso
 5. **Phase 4 executes** → Task generation (task-generate-agent) → Reports final summary
 
 **Task Attachment Model**:
-- SlashCommand execute **expands workflow** by attaching sub-tasks to current TodoWrite
+- Skill execute **expands workflow** by attaching sub-tasks to current TodoWrite
 - When a sub-command is executed (e.g., `/workflow:tools:context-gather`), its internal tasks are attached to the orchestrator's TodoWrite
 - Orchestrator **executes these attached tasks** sequentially
 - After completion, attached tasks are **collapsed** back to high-level phase summary
@@ -48,7 +48,7 @@ This workflow runs **fully autonomously** once triggered. Phase 3 (conflict reso
 3. **Parse Every Output**: Extract required data from each command/agent output for next phase
 4. **Auto-Continue via TodoList**: Check TodoList status to execute next pending phase automatically
 5. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
-6. **Task Attachment Model**: SlashCommand execute **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
+6. **Task Attachment Model**: Skill execute **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
 7. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and execute next phase
 
 ## Execution Process
@@ -88,7 +88,7 @@ Return:
 **Step 1.1: Execute** - Create or discover workflow session
 
 ```javascript
-SlashCommand(command="/workflow:session:start --auto \"[structured-task-description]\"")
+Skill(skill="workflow:session:start", args="--auto \"[structured-task-description]\"")
 ```
 
 **Task Description Structure**:
@@ -169,7 +169,7 @@ Return to user showing Phase 1 results, then auto-continue to Phase 2
 **Step 2.1: Execute** - Gather project context and analyze codebase
 
 ```javascript
-SlashCommand(command="/workflow:tools:context-gather --session [sessionId] \"[structured-task-description]\"")
+Skill(skill="workflow:tools:context-gather", args="--session [sessionId] \"[structured-task-description]\"")
 ```
 
 **Use Same Structured Description**: Pass the same structured format from Phase 1
@@ -187,7 +187,7 @@ SlashCommand(command="/workflow:tools:context-gather --session [sessionId] \"[st
 
 <!-- TodoWrite: When context-gather executed, INSERT 3 context-gather tasks, mark first as in_progress -->
 
-**TodoWrite Update (Phase 2 SlashCommand executed - tasks attached)**:
+**TodoWrite Update (Phase 2 Skill executed - tasks attached)**:
 ```json
 [
   {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
@@ -199,7 +199,7 @@ SlashCommand(command="/workflow:tools:context-gather --session [sessionId] \"[st
 ]
 ```
 
-**Note**: SlashCommand execute **attaches** context-gather's 3 tasks. Orchestrator **executes** these tasks sequentially.
+**Note**: Skill execute **attaches** context-gather's 3 tasks. Orchestrator **executes** these tasks sequentially.
 
 <!-- TodoWrite: After Phase 2 tasks complete, REMOVE Phase 2.1-2.3, restore to orchestrator view -->
 
@@ -255,7 +255,7 @@ Return to user showing Phase 2 results, then auto-continue to Phase 3/4 (dependi
 **Step 3.1: Execute** - Detect and resolve conflicts with CLI analysis
 
 ```javascript
-SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] --context [contextPath]")
+Skill(skill="workflow:tools:conflict-resolution", args="--session [sessionId] --context [contextPath]")
 ```
 
 **Input**:
@@ -276,7 +276,7 @@ SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] 
 
 <!-- TodoWrite: If conflict_risk ≥ medium, INSERT 3 conflict-resolution tasks -->
 
-**TodoWrite Update (Phase 3 SlashCommand executed - tasks attached, if conflict_risk ≥ medium)**:
+**TodoWrite Update (Phase 3 Skill executed - tasks attached, if conflict_risk ≥ medium)**:
 ```json
 [
   {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
@@ -289,7 +289,7 @@ SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] 
 ]
 ```
 
-**Note**: SlashCommand execute **attaches** conflict-resolution's 3 tasks. Orchestrator **executes** these tasks sequentially.
+**Note**: Skill execute **attaches** conflict-resolution's 3 tasks. Orchestrator **executes** these tasks sequentially.
 
 <!-- TodoWrite: After Phase 3 tasks complete, REMOVE Phase 3.1-3.3, restore to orchestrator view -->
 
@@ -352,7 +352,7 @@ Return to user showing conflict resolution results (if executed) and selected st
   **Step 3.2: Execute** - Optimize memory before proceeding
 
   ```javascript
-  SlashCommand(command="/compact")
+  Skill(skill="compact")
   ```
 
 - Memory compaction is particularly important after analysis phase which may generate extensive documentation
@@ -391,7 +391,7 @@ Return to user showing conflict resolution results (if executed) and selected st
 **Step 4.1: Execute** - Generate implementation plan and task JSONs
 
 ```javascript
-SlashCommand(command="/workflow:tools:task-generate-agent --session [sessionId]")
+Skill(skill="workflow:tools:task-generate-agent", args="--session [sessionId]")
 ```
 
 **CLI Execution Note**: CLI tool usage is now determined semantically by action-planning-agent based on user's task description. If user specifies "use Codex/Gemini/Qwen for X", the agent embeds `command` fields in relevant `implementation_approach` steps.
@@ -410,7 +410,7 @@ SlashCommand(command="/workflow:tools:task-generate-agent --session [sessionId]"
 
 <!-- TodoWrite: When task-generate-agent executed, ATTACH 1 agent task -->
 
-**TodoWrite Update (Phase 4 SlashCommand executed - agent task attached)**:
+**TodoWrite Update (Phase 4 Skill executed - agent task attached)**:
 ```json
 [
   {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
@@ -471,13 +471,13 @@ const userChoice = AskUserQuestion({
 // Execute based on user choice
 if (userChoice.answers["Next Action"] === "Verify Plan Quality (Recommended)") {
   console.log("\n🔍 Starting plan verification...\n");
-  SlashCommand(command="/workflow:plan-verify --session " + sessionId);
+  Skill(skill="workflow:plan-verify", args="--session " + sessionId);
 } else if (userChoice.answers["Next Action"] === "Start Execution") {
   console.log("\n🚀 Starting task execution...\n");
-  SlashCommand(command="/workflow:execute --session " + sessionId);
+  Skill(skill="workflow:execute", args="--session " + sessionId);
 } else if (userChoice.answers["Next Action"] === "Review Status Only") {
   console.log("\n📊 Displaying session status...\n");
-  SlashCommand(command="/workflow:status --session " + sessionId);
+  Skill(skill="workflow:status", args="--session " + sessionId);
 }
 ```
 
@@ -489,7 +489,7 @@ if (userChoice.answers["Next Action"] === "Verify Plan Quality (Recommended)") {
 
 ### Key Principles
 
-1. **Task Attachment** (when SlashCommand executed):
+1. **Task Attachment** (when Skill executed):
    - Sub-command's internal tasks are **attached** to orchestrator's TodoWrite
    - **Phase 2, 3**: Multiple sub-tasks attached (e.g., Phase 2.1, 2.2, 2.3)
    - **Phase 4**: Single agent task attached (e.g., "Execute task-generate-agent")
@@ -595,7 +595,7 @@ User triggers: /workflow:plan "Build authentication system"
 Phase 1: Session Discovery
   → sessionId extracted
   ↓
-Phase 2: Context Gathering (SlashCommand executed)
+Phase 2: Context Gathering (Skill executed)
   → ATTACH 3 sub-tasks: ← ATTACHED
     - → Analyze codebase structure
     - → Identify integration points
@@ -606,7 +606,7 @@ Phase 2: Context Gathering (SlashCommand executed)
   ↓
 Conditional Branch: Check conflict_risk
   ├─ IF conflict_risk ≥ medium:
-  │   Phase 3: Conflict Resolution (SlashCommand executed)
+  │   Phase 3: Conflict Resolution (Skill executed)
   │     → ATTACH 3 sub-tasks: ← ATTACHED
   │       - → Detect conflicts with CLI analysis
   │       - → Present conflicts to user
@@ -616,7 +616,7 @@ Conditional Branch: Check conflict_risk
   │
   └─ ELSE: Skip Phase 3, proceed to Phase 4
   ↓
-Phase 4: Task Generation (SlashCommand executed)
+Phase 4: Task Generation (Skill executed)
   → Single agent task (no sub-tasks)
   → Agent autonomously completes internally:
     (discovery → planning → output)
@@ -626,7 +626,7 @@ Return summary to user
 ```
 
 **Key Points**:
-- **← ATTACHED**: Tasks attached to TodoWrite when SlashCommand executed
+- **← ATTACHED**: Tasks attached to TodoWrite when Skill executed
   - Phase 2, 3: Multiple sub-tasks
   - Phase 4: Single agent task
 - **← COLLAPSED**: Sub-tasks collapsed to summary after completion (Phase 2, 3 only)

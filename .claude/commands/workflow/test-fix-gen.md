@@ -2,7 +2,7 @@
 name: test-fix-gen
 description: Create test-fix workflow session with progressive test layers (L0-L3), AI code validation, and test task generation
 argument-hint: "(source-session-id | \"feature description\" | /path/to/file.md)"
-allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
+allowed-tools: Skill(*), TodoWrite(*), Read(*), Bash(*)
 group: workflow
 ---
 
@@ -23,7 +23,7 @@ This workflow runs **fully autonomously** once triggered. Phase 3 (test analysis
 5. **Phase 4 executes** → Task generation (test-task-generate) → Reports final summary
 
 **Task Attachment Model**:
-- SlashCommand execute **expands workflow** by attaching sub-tasks to current TodoWrite
+- Skill execute **expands workflow** by attaching sub-tasks to current TodoWrite
 - When a sub-command is executed, its internal tasks are attached to the orchestrator's TodoWrite
 - Orchestrator **executes these attached tasks** sequentially
 - After completion, attached tasks are **collapsed** back to high-level phase summary
@@ -42,7 +42,7 @@ This workflow runs **fully autonomously** once triggered. Phase 3 (test analysis
 3. **Parse Every Output**: Extract required data from each command output for next phase
 4. **Auto-Continue via TodoList**: Check TodoList status to execute next pending phase automatically
 5. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
-6. **Task Attachment Model**: SlashCommand execute **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
+6. **Task Attachment Model**: Skill execute **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
 7. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and execute next phase
 
 ---
@@ -103,7 +103,7 @@ Phase 5: Return Summary
 
 **Step 1.0: Detect Input Mode**
 
-```javascript
+```
 // Automatic mode detection based on input pattern
 if (input.startsWith("WFS-")) {
   MODE = "session"
@@ -116,12 +116,12 @@ if (input.startsWith("WFS-")) {
 
 **Step 1.1: Execute** - Create test workflow session
 
-```javascript
+```
 // Session Mode - preserve original task description
-SlashCommand(command="/workflow:session:start --type test --new \"Test validation for [sourceSessionId]: [originalTaskDescription]\"")
+Skill(skill="workflow:session:start", args="--type test --new \"Test validation for [sourceSessionId]: [originalTaskDescription]\"")
 
 // Prompt Mode - use user's description directly
-SlashCommand(command="/workflow:session:start --type test --new \"Test generation for: [description]\"")
+Skill(skill="workflow:session:start", args="--type test --new \"Test generation for: [description]\"")
 ```
 
 **Parse Output**:
@@ -139,12 +139,12 @@ SlashCommand(command="/workflow:session:start --type test --new \"Test generatio
 
 **Step 2.1: Execute** - Gather context based on mode
 
-```javascript
+```
 // Session Mode - gather from source session
-SlashCommand(command="/workflow:tools:test-context-gather --session [testSessionId]")
+Skill(skill="workflow:tools:test-context-gather", args="--session [testSessionId]")
 
 // Prompt Mode - gather from codebase
-SlashCommand(command="/workflow:tools:context-gather --session [testSessionId] \"[task_description]\"")
+Skill(skill="workflow:tools:context-gather", args="--session [testSessionId] \"[task_description]\"")
 ```
 
 **Input**: `testSessionId` from Phase 1
@@ -189,8 +189,8 @@ SlashCommand(command="/workflow:tools:context-gather --session [testSessionId] \
 
 **Step 3.1: Execute** - Analyze test requirements with Gemini
 
-```javascript
-SlashCommand(command="/workflow:tools:test-concept-enhanced --session [testSessionId] --context [contextPath]")
+```
+Skill(skill="workflow:tools:test-concept-enhanced", args="--session [testSessionId] --context [contextPath]")
 ```
 
 **Input**:
@@ -224,8 +224,8 @@ SlashCommand(command="/workflow:tools:test-concept-enhanced --session [testSessi
 
 **Step 4.1: Execute** - Generate test planning documents
 
-```javascript
-SlashCommand(command="/workflow:tools:test-task-generate --session [testSessionId]")
+```
+Skill(skill="workflow:tools:test-task-generate", args="--session [testSessionId]")
 ```
 
 **Input**: `testSessionId` from Phase 1
@@ -337,7 +337,7 @@ Phase 1: Create Test Session
   → /workflow:session:start --type test
   → testSessionId extracted (WFS-test-user-auth)
   ↓
-Phase 2: Gather Test Context (SlashCommand executed)
+Phase 2: Gather Test Context (Skill executed)
   → ATTACH 3 sub-tasks: ← ATTACHED
     - → Load codebase context
     - → Analyze test coverage
@@ -346,7 +346,7 @@ Phase 2: Gather Test Context (SlashCommand executed)
   → COLLAPSE tasks ← COLLAPSED
   → contextPath extracted
   ↓
-Phase 3: Test Generation Analysis (SlashCommand executed)
+Phase 3: Test Generation Analysis (Skill executed)
   → ATTACH 3 sub-tasks: ← ATTACHED
     - → Analyze coverage gaps with Gemini
     - → Detect AI code issues (L0.5)
@@ -355,7 +355,7 @@ Phase 3: Test Generation Analysis (SlashCommand executed)
   → COLLAPSE tasks ← COLLAPSED
   → TEST_ANALYSIS_RESULTS.md created
   ↓
-Phase 4: Generate Test Tasks (SlashCommand executed)
+Phase 4: Generate Test Tasks (Skill executed)
   → Single agent task (test-task-generate → action-planning-agent)
   → Agent autonomously generates:
     - IMPL-001.json (test generation)
