@@ -1,7 +1,12 @@
 // ========================================
 // LiteTaskDetailPage Component
 // ========================================
-// Lite task detail page with flowchart visualization
+// Lite task detail page with multi-tab task view supporting:
+// - Lite-Plan/Lite-Fix: Tasks, Plan, Diagnoses, Context, Summary tabs
+// - Multi-CLI: Tasks, Discussion, Context, Summary tabs
+// - Context Package parsing with collapsible sections
+// - Exploration packages with multiple analysis angles
+// - Flowchart visualization for implementation steps
 
 import * as React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -17,32 +22,219 @@ import {
   Clock,
   Code,
   Zap,
+  ListTodo,
+  Package,
+  FileCode,
+  Settings,
+  BookOpen,
+  Search,
+  Folder,
+  MessageSquare,
+  FileText,
   ChevronDown,
   ChevronRight,
+  Ruler,
+  Stethoscope,
 } from 'lucide-react';
 import { useLiteTaskSession } from '@/hooks/useLiteTasks';
 import { Flowchart } from '@/components/shared/Flowchart';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Card, CardContent } from '@/components/ui/Card';
-import type { LiteTask } from '@/lib/api';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/Collapsible';
+import type { LiteTask, LiteTaskSession } from '@/lib/api';
+
+// ========================================
+// Type Definitions
+// ========================================
+
+type SessionType = 'lite-plan' | 'lite-fix' | 'multi-cli-plan';
+
+type LitePlanTab = 'tasks' | 'plan' | 'diagnoses' | 'context' | 'summary';
+type MultiCliTab = 'tasks' | 'discussion' | 'context' | 'summary';
+
+type TaskTabValue = 'task' | 'context';
+
+// Context Package Structure
+interface ContextPackage {
+  task_description?: string;
+  constraints?: string[];
+  focus_paths?: string[];
+  relevant_files?: Array<string | { path: string; reason?: string }>;
+  dependencies?: string[] | Array<{ name: string; type: string; version: string }>;
+  conflict_risks?: string[] | Array<{ description: string; severity: string }>;
+  session_id?: string;
+  metadata?: {
+    created_at: string;
+    version: string;
+    source: string;
+  };
+}
+
+// Exploration Structure
+interface Exploration {
+  name: string;
+  path: string;
+  content?: string;
+}
+
+interface ExplorationData {
+  manifest?: {
+    task_description: string;
+    complexity: 'low' | 'medium' | 'high';
+    exploration_count: number;
+    created_at: string;
+  };
+  data?: {
+    architecture?: ExplorationAngle;
+    dependencies?: ExplorationAngle;
+    patterns?: ExplorationAngle;
+    'integration-points'?: ExplorationAngle;
+    testing?: ExplorationAngle;
+  };
+}
+
+interface ExplorationAngle {
+  findings: string[];
+  recommendations: string[];
+  patterns: string[];
+  risks: string[];
+}
+
+// Diagnosis Structure
+interface Diagnosis {
+  symptom: string;
+  root_cause: string;
+  issues: Array<{
+    file: string;
+    line: number;
+    severity: 'high' | 'medium' | 'low';
+    message: string;
+  }>;
+  affected_files: string[];
+  fix_hints: string[];
+  recommendations: string[];
+}
+
+// Discussion/Round Structure
+interface DiscussionRound {
+  metadata: {
+    roundId: number;
+    timestamp: string;
+    durationSeconds: number;
+    contributingAgents: Array<{ name: string; id: string }>;
+  };
+  solutions: DiscussionSolution[];
+  _internal: {
+    convergence: {
+      score: number;
+      recommendation: 'proceed' | 'continue' | 'pause';
+      reasoning: string;
+    };
+    cross_verification: {
+      agreements: string[];
+      disagreements: string[];
+      resolution: string;
+    };
+  };
+}
+
+interface DiscussionSolution {
+  id: string;
+  name: string;
+  summary: string | { en: string; zh: string };
+  feasibility: number;
+  effort: 'low' | 'medium' | 'high';
+  risk: 'low' | 'medium' | 'high';
+  source_cli: string[];
+  implementation_plan: {
+    approach: string;
+    tasks: ImplementationTask[];
+    milestones: Milestone[];
+  };
+}
+
+// Synthesis Structure
+interface Synthesis {
+  convergence: {
+    summary: string | { en: string; zh: string };
+    score: number;
+    recommendation: 'proceed' | 'continue' | 'pause' | 'complete' | 'halt';
+  };
+  cross_verification: {
+    agreements: string[];
+    disagreements: string[];
+    resolution: string;
+  };
+  final_solution: DiscussionSolution;
+  alternative_solutions: DiscussionSolution[];
+}
+
+// ========================================
+// Helper Functions
+// ========================================
 
 /**
- * LiteTaskDetailPage component - Display single lite task session with flowchart
+ * Get i18n text (handles both string and {en, zh} object)
+ */
+function getI18nText(text: string | { en?: string; zh?: string } | undefined, locale: string = 'zh'): string {
+  if (!text) return '';
+  if (typeof text === 'string') return text;
+  return text[locale as keyof typeof text] || text.en || text.zh || '';
+}
+
+/**
+ * Get task status badge configuration
+ */
+function getTaskStatusBadge(
+  status: LiteTask['status'],
+  formatMessage: (key: { id: string }) => string
+) {
+  switch (status) {
+    case 'completed':
+      return { variant: 'success' as const, label: formatMessage({ id: 'sessionDetail.status.completed' }), icon: CheckCircle };
+    case 'in_progress':
+      return { variant: 'warning' as const, label: formatMessage({ id: 'sessionDetail.status.inProgress' }), icon: Loader2 };
+    case 'blocked':
+      return { variant: 'destructive' as const, label: formatMessage({ id: 'sessionDetail.status.blocked' }), icon: XCircle };
+    case 'failed':
+      return { variant: 'destructive' as const, label: formatMessage({ id: 'fixSession.status.failed' }), icon: XCircle };
+    default:
+      return { variant: 'secondary' as const, label: formatMessage({ id: 'sessionDetail.status.pending' }), icon: Clock };
+  }
+}
+
+// ========================================
+// Main Component
+// ========================================
+
+/**
+ * LiteTaskDetailPage component - Display single lite task session with multi-tab view
+ * Supports:
+ * - Lite-Plan/Lite-Fix: Tasks, Plan, Diagnoses, Context, Summary tabs
+ * - Multi-CLI: Tasks, Discussion, Context, Summary tabs
+ * - Context Package parsing with collapsible sections
+ * - Exploration packages with multiple analysis angles
+ * - Flowchart visualization for implementation steps
  */
 export function LiteTaskDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const { formatMessage } = useIntl();
+  const { formatMessage, locale } = useIntl();
 
-  // Determine type from URL or state
-  const [sessionType, setSessionType] = React.useState<'lite-plan' | 'lite-fix' | 'multi-cli-plan'>('lite-plan');
+  // Session type state
+  const [sessionType, setSessionType] = React.useState<SessionType>('lite-plan');
+
+  // Fetch session data
   const { session, isLoading, error, refetch } = useLiteTaskSession(sessionId, sessionType);
 
-  // Track expanded tasks
-  const [expandedTasks, setExpandedTasks] = React.useState<Set<string>>(new Set());
+  // Tab states
+  const [litePlanActiveTab, setLitePlanActiveTab] = React.useState<LitePlanTab>('tasks');
+  const [multiCliActiveTab, setMultiCliActiveTab] = React.useState<MultiCliTab>('tasks');
+  const [activeTaskTabs, setActiveTaskTabs] = React.useState<Record<string, TaskTabValue>>({});
 
-  // Try to detect type from session data
+  // Detect session type from data
   React.useEffect(() => {
     if (session?.type) {
       setSessionType(session.type);
@@ -53,32 +245,8 @@ export function LiteTaskDetailPage() {
     navigate('/lite-tasks');
   };
 
-  const toggleTaskExpanded = (taskId: string) => {
-    setExpandedTasks(prev => {
-      const next = new Set(prev);
-      if (next.has(taskId)) {
-        next.delete(taskId);
-      } else {
-        next.add(taskId);
-      }
-      return next;
-    });
-  };
-
-  // Get task status badge
-  const getTaskStatusBadge = (task: LiteTask) => {
-    switch (task.status) {
-      case 'completed':
-        return { variant: 'success' as const, label: formatMessage({ id: 'sessionDetail.status.completed' }), icon: CheckCircle };
-      case 'in_progress':
-        return { variant: 'warning' as const, label: formatMessage({ id: 'sessionDetail.status.inProgress' }), icon: Loader2 };
-      case 'blocked':
-        return { variant: 'destructive' as const, label: formatMessage({ id: 'sessionDetail.status.blocked' }), icon: XCircle };
-      case 'failed':
-        return { variant: 'destructive' as const, label: formatMessage({ id: 'fixSession.status.failed' }), icon: XCircle };
-      default:
-        return { variant: 'secondary' as const, label: formatMessage({ id: 'sessionDetail.status.pending' }), icon: Clock };
-    }
+  const handleTaskTabChange = (taskId: string, tab: TaskTabValue) => {
+    setActiveTaskTabs(prev => ({ ...prev, [taskId]: tab }));
   };
 
   // Loading state
@@ -113,7 +281,7 @@ export function LiteTaskDetailPage() {
     );
   }
 
-  // Session not found
+  // Not found state
   if (!session) {
     return (
       <div className="flex flex-col items-center justify-center py-16 px-4">
@@ -132,9 +300,9 @@ export function LiteTaskDetailPage() {
     );
   }
 
-  const tasks = session.tasks || [];
-  const completedTasks = tasks.filter(t => t.status === 'completed').length;
   const isLitePlan = session.type === 'lite-plan';
+  const isLiteFix = session.type === 'lite-fix';
+  const isMultiCli = session.type === 'multi-cli-plan';
 
   return (
     <div className="space-y-6">
@@ -154,162 +322,280 @@ export function LiteTaskDetailPage() {
             )}
           </div>
         </div>
-        <Badge variant={isLitePlan ? 'info' : 'warning'} className="gap-1">
-          {isLitePlan ? <FileEdit className="h-3 w-3" /> : <Wrench className="h-3 w-3" />}
-          {formatMessage({ id: isLitePlan ? 'liteTasks.type.plan' : 'liteTasks.type.fix' })}
+        <Badge variant={isLitePlan ? 'info' : isLiteFix ? 'warning' : 'default'} className="gap-1">
+          {isLitePlan ? <FileEdit className="h-3 w-3" /> : isLiteFix ? <Wrench className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />}
+          {formatMessage({ id: isLitePlan ? 'liteTasks.type.plan' : isLiteFix ? 'liteTasks.type.fix' : 'liteTasks.type.multiCli' })}
         </Badge>
       </div>
 
-      {/* Info Bar */}
-      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground p-4 bg-background rounded-lg border">
-        <div className="flex items-center gap-1">
-          <Calendar className="h-4 w-4" />
-          <span className="font-medium">{formatMessage({ id: 'sessionDetail.info.created' })}:</span>{' '}
-          {session.createdAt ? new Date(session.createdAt).toLocaleString() : 'N/A'}
-        </div>
-        <div className="flex items-center gap-1">
-          <CheckCircle className="h-4 w-4" />
-          <span className="font-medium">{formatMessage({ id: 'sessionDetail.info.tasks' })}:</span>{' '}
-          {completedTasks}/{tasks.length}
-        </div>
-      </div>
-
-      {/* Description (if exists) */}
-      {session.description && (
-        <div className="p-4 bg-background rounded-lg border">
-          <h3 className="text-sm font-semibold text-foreground mb-2">
-            {formatMessage({ id: 'sessionDetail.info.description' })}
-          </h3>
-          <p className="text-sm text-muted-foreground">{session.description}</p>
-        </div>
+      {/* Session Type-Specific Tabs */}
+      {isMultiCli ? (
+        <Tabs value={multiCliActiveTab} onValueChange={(v) => setMultiCliActiveTab(v as MultiCliTab)}>
+          <TabsList className="w-full">
+            <TabsTrigger value="tasks" className="flex-1 gap-1">
+              <ListTodo className="h-4 w-4" />
+              {formatMessage({ id: 'liteTasksDetail.tabs.tasks' })}
+            </TabsTrigger>
+            <TabsTrigger value="discussion" className="flex-1 gap-1">
+              <MessageSquare className="h-4 w-4" />
+              {formatMessage({ id: 'liteTasksDetail.tabs.discussion' })}
+            </TabsTrigger>
+            <TabsTrigger value="context" className="flex-1 gap-1">
+              <Package className="h-4 w-4" />
+              {formatMessage({ id: 'liteTasksDetail.tabs.context' })}
+            </TabsTrigger>
+            <TabsTrigger value="summary" className="flex-1 gap-1">
+              <FileText className="h-4 w-4" />
+              {formatMessage({ id: 'liteTasksDetail.tabs.summary' })}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      ) : (
+        <Tabs value={litePlanActiveTab} onValueChange={(v) => setLitePlanActiveTab(v as LitePlanTab)}>
+          <TabsList className="w-full">
+            <TabsTrigger value="tasks" className="flex-1 gap-1">
+              <ListTodo className="h-4 w-4" />
+              {formatMessage({ id: 'liteTasksDetail.tabs.tasks' })}
+            </TabsTrigger>
+            <TabsTrigger value="plan" className="flex-1 gap-1">
+              <Ruler className="h-4 w-4" />
+              {formatMessage({ id: 'liteTasksDetail.tabs.plan' })}
+            </TabsTrigger>
+            {isLiteFix && (
+              <TabsTrigger value="diagnoses" className="flex-1 gap-1">
+                <Stethoscope className="h-4 w-4" />
+                {formatMessage({ id: 'liteTasksDetail.tabs.diagnoses' })}
+              </TabsTrigger>
+            )}
+            <TabsTrigger value="context" className="flex-1 gap-1">
+              <Package className="h-4 w-4" />
+              {formatMessage({ id: 'liteTasksDetail.tabs.context' })}
+            </TabsTrigger>
+            <TabsTrigger value="summary" className="flex-1 gap-1">
+              <FileText className="h-4 w-4" />
+              {formatMessage({ id: 'liteTasksDetail.tabs.summary' })}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       )}
 
-      {/* Tasks List */}
-      {tasks.length === 0 ? (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <Zap className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">
-              {formatMessage({ id: 'liteTasksDetail.empty.title' })}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {formatMessage({ id: 'liteTasksDetail.empty.message' })}
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {tasks.map((task, index) => {
-            const taskId = task.task_id || task.id || `T${index + 1}`;
-            const isExpanded = expandedTasks.has(taskId);
-            const statusBadge = getTaskStatusBadge(task);
-            const StatusIcon = statusBadge.icon;
-            const hasFlowchart = task.flow_control?.implementation_approach &&
-              task.flow_control.implementation_approach.length > 0;
+      {/* Task List with Multi-Tab Content */}
+      <div className="space-y-4">
+        {session.tasks?.map((task, index) => {
+          const taskId = task.task_id || task.id || `T${index + 1}`;
+          const activeTaskTab = activeTaskTabs[taskId] || 'task';
+          const hasFlowchart = task.flow_control?.implementation_approach && task.flow_control.implementation_approach.length > 0;
 
-            return (
-              <Card key={taskId} className="overflow-hidden">
-                <CardContent className="p-4">
-                  {/* Task Header */}
-                  <div
-                    className="flex items-start justify-between gap-3 cursor-pointer"
-                    onClick={() => toggleTaskExpanded(taskId)}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-mono text-muted-foreground">{taskId}</span>
-                        <Badge variant={statusBadge.variant} className="gap-1">
-                          <StatusIcon className="h-3 w-3" />
-                          {statusBadge.label}
-                        </Badge>
-                        {task.priority && (
-                          <Badge variant="outline" className="text-xs">
-                            {task.priority}
-                          </Badge>
-                        )}
-                        {hasFlowchart && (
-                          <Badge variant="info" className="gap-1">
-                            <Code className="h-3 w-3" />
-                            {formatMessage({ id: 'liteTasksDetail.flowchart' })}
-                          </Badge>
-                        )}
-                      </div>
-                      <h4 className="font-medium text-foreground text-sm">
-                        {task.title || formatMessage({ id: 'sessionDetail.tasks.untitled' })}
-                      </h4>
-                      {task.description && (
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                          {task.description}
-                        </p>
+          return (
+            <Card key={taskId} className="overflow-hidden">
+              {/* Task Header */}
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-base font-medium flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-mono text-muted-foreground">{taskId}</span>
+                      <Badge
+                        variant={task.status === 'completed' ? 'success' : task.status === 'in_progress' ? 'warning' : 'secondary'}
+                      >
+                        {task.status}
+                      </Badge>
+                      {task.priority && (
+                        <Badge variant="outline" className="text-xs">{task.priority}</Badge>
                       )}
-                      {task.context?.depends_on && task.context.depends_on.length > 0 && (
-                        <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                      {hasFlowchart && (
+                        <Badge variant="info" className="gap-1 text-xs">
                           <Code className="h-3 w-3" />
-                          <span>Depends on: {task.context.depends_on.join(', ')}</span>
-                        </div>
+                          Flowchart
+                        </Badge>
                       )}
-                    </div>
-                    <Button variant="ghost" size="sm" className="flex-shrink-0">
-                      {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    </Button>
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">{task.title || 'Untitled Task'}</p>
+                    {task.description && (
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
+                    )}
                   </div>
+                </div>
+              </CardHeader>
 
-                  {/* Expanded Content */}
-                  {isExpanded && (
-                    <div className="mt-4 pt-4 border-t border-border">
-                      {/* Flowchart */}
-                      {hasFlowchart && task.flow_control && (
-                        <div className="mb-4">
-                          <h5 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                            <Code className="h-4 w-4" />
-                            {formatMessage({ id: 'liteTasksDetail.implementationFlow' })}
-                          </h5>
-                          <Flowchart flowControl={task.flow_control} className="border border-border rounded-lg" />
-                        </div>
-                      )}
+              {/* Multi-Tab Content */}
+              <Tabs
+                value={activeTaskTab}
+                onValueChange={(v) => handleTaskTabChange(taskId, v as TaskTabValue)}
+                className="w-full"
+              >
+                <TabsList className="w-full rounded-none border-y border-border bg-muted/50 px-4">
+                  <TabsTrigger value="task" className="flex-1 gap-1.5">
+                    <ListTodo className="h-4 w-4" />
+                    Task
+                  </TabsTrigger>
+                  <TabsTrigger value="context" className="flex-1 gap-1.5">
+                    <Package className="h-4 w-4" />
+                    Context
+                  </TabsTrigger>
+                </TabsList>
 
-                      {/* Focus Paths */}
-                      {task.context?.focus_paths && task.context.focus_paths.length > 0 && (
-                        <div className="mb-4">
-                          <h5 className="text-sm font-semibold text-foreground mb-2">
-                            {formatMessage({ id: 'liteTasksDetail.focusPaths' })}
-                          </h5>
-                          <div className="space-y-1">
-                            {task.context.focus_paths.map((path, idx) => (
-                              <code
-                                key={idx}
-                                className="block text-xs bg-muted px-2 py-1 rounded font-mono"
-                              >
-                                {path}
-                              </code>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Acceptance Criteria */}
-                      {task.context?.acceptance && task.context.acceptance.length > 0 && (
-                        <div>
-                          <h5 className="text-sm font-semibold text-foreground mb-2">
-                            {formatMessage({ id: 'liteTasksDetail.acceptanceCriteria' })}
-                          </h5>
-                          <ul className="space-y-1">
-                            {task.context.acceptance.map((criteria, idx) => (
-                              <li key={idx} className="text-xs text-muted-foreground flex items-start gap-2">
-                                <span className="text-primary font-bold">{idx + 1}.</span>
-                                <span>{criteria}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                {/* Task Tab - Implementation Details */}
+                <TabsContent value="task" className="p-4 space-y-4">
+                  {/* Flowchart */}
+                  {hasFlowchart && task.flow_control && (
+                    <div>
+                      <h5 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                        <Code className="h-4 w-4" />
+                        Implementation Flow
+                      </h5>
+                      <Flowchart flowControl={task.flow_control} className="border border-border rounded-lg" />
                     </div>
                   )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+
+                  {/* Target Files */}
+                  {task.flow_control?.target_files && task.flow_control.target_files.length > 0 && (
+                    <div>
+                      <h5 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                        <FileCode className="h-4 w-4" />
+                        Target Files
+                      </h5>
+                      <div className="space-y-1">
+                        {task.flow_control.target_files.map((file, idx) => {
+                          const displayPath = typeof file === 'string' ? file : (file.path || file.name || 'Unknown');
+                          return (
+                            <code key={idx} className="block text-xs bg-muted px-2 py-1 rounded font-mono">
+                              {displayPath}
+                            </code>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dependencies */}
+                  {task.context?.depends_on && task.context.depends_on.length > 0 && (
+                    <div>
+                      <h5 className="text-sm font-semibold text-foreground mb-2">Dependencies</h5>
+                      <div className="flex flex-wrap gap-1">
+                        {task.context.depends_on.map((dep, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">{dep}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Context Tab - Planning Context */}
+                <TabsContent value="context" className="p-4 space-y-4">
+                  {/* Focus Paths */}
+                  {task.context?.focus_paths && task.context.focus_paths.length > 0 && (
+                    <div>
+                      <h5 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                        <Search className="h-4 w-4" />
+                        Focus Paths
+                      </h5>
+                      <div className="flex flex-wrap gap-1">
+                        {task.context.focus_paths.map((path, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs font-mono">{path}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Acceptance Criteria */}
+                  {task.context?.acceptance && task.context.acceptance.length > 0 && (
+                    <div>
+                      <h5 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        Acceptance Criteria
+                      </h5>
+                      <ul className="space-y-1">
+                        {task.context.acceptance.map((criteria, idx) => (
+                          <li key={idx} className="text-xs text-muted-foreground flex items-start gap-2">
+                            <span className="text-primary font-bold">{idx + 1}.</span>
+                            <span>{criteria}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Tech Stack from Session Metadata */}
+                  {session.metadata?.tech_stack && (
+                    <div>
+                      <h5 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                        <Settings className="h-4 w-4" />
+                        Tech Stack
+                      </h5>
+                      <div className="flex flex-wrap gap-1">
+                        {(session.metadata.tech_stack as string[]).map((tech, idx) => (
+                          <Badge key={idx} variant="success" className="text-xs">{tech}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Conventions from Session Metadata */}
+                  {session.metadata?.conventions && (
+                    <div>
+                      <h5 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                        <BookOpen className="h-4 w-4" />
+                        Conventions
+                      </h5>
+                      <ul className="space-y-1">
+                        {(session.metadata.conventions as string[]).map((conv, idx) => (
+                          <li key={idx} className="text-xs text-muted-foreground flex items-start gap-2">
+                            <span className="text-primary">•</span>
+                            <span>{conv}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Session-Level Explorations (if available) */}
+      {session.metadata?.explorations && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Search className="w-5 h-5" />
+              Explorations
+              <Badge variant="secondary">{(session.metadata.explorations as Exploration[]).length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {(session.metadata.explorations as Exploration[]).map((exp, idx) => (
+                <Collapsible key={idx}>
+                  <CollapsibleTrigger className="w-full flex items-center gap-2 p-3 bg-background rounded-lg border hover:bg-muted/50 transition-colors">
+                    <Folder className="h-4 w-4 text-primary flex-shrink-0" />
+                    <span className="text-sm font-medium text-foreground flex-1 text-left truncate">
+                      {exp.name}
+                    </span>
+                    {exp.content && (
+                      <Badge variant="outline" className="text-xs flex-shrink-0">
+                        Has Content
+                      </Badge>
+                    )}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2 ml-4">
+                    {exp.content ? (
+                      <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground whitespace-pre-wrap">
+                        {exp.content}
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+                        No content available for this exploration.
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

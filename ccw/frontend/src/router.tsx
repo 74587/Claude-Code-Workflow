@@ -3,7 +3,7 @@
 // ========================================
 // React Router v6 configuration with all dashboard routes
 
-import { createBrowserRouter, RouteObject } from 'react-router-dom';
+import { createBrowserRouter, RouteObject, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout';
 import {
   HomePage,
@@ -14,6 +14,7 @@ import {
   HistoryPage,
   OrchestratorPage,
   LoopMonitorPage,
+  IssueHubPage,
   IssueManagerPage,
   QueuePage,
   DiscoveryPage,
@@ -93,15 +94,16 @@ const routes: RouteObject[] = [
       },
       {
         path: 'issues',
-        element: <IssueManagerPage />,
+        element: <IssueHubPage />,
       },
+      // Legacy routes - redirect to hub with tab parameter
       {
         path: 'issues/queue',
-        element: <QueuePage />,
+        element: <Navigate to="/issues?tab=queue" replace />,
       },
       {
         path: 'issues/discovery',
-        element: <DiscoveryPage />,
+        element: <Navigate to="/issues?tab=discovery" replace />,
       },
       {
         path: 'skills',
@@ -191,8 +193,9 @@ export const ROUTES = {
   EXECUTIONS: '/executions',
   LOOPS: '/loops',
   ISSUES: '/issues',
-  ISSUE_QUEUE: '/issues/queue',
-  ISSUE_DISCOVERY: '/issues/discovery',
+  // Legacy issue routes - use ISSUES with ?tab parameter instead
+  ISSUE_QUEUE: '/issues?tab=queue',
+  ISSUE_DISCOVERY: '/issues?tab=discovery',
   SKILLS: '/skills',
   COMMANDS: '/commands',
   MEMORY: '/memory',

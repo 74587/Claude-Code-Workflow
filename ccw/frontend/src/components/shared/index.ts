@@ -60,11 +60,71 @@ export type { FlowchartProps } from './Flowchart';
 export { CliStreamPanel } from './CliStreamPanel';
 export type { CliStreamPanelProps } from './CliStreamPanel';
 
-export { CliStreamMonitor } from './CliStreamMonitor';
-export type { CliStreamMonitorProps } from './CliStreamMonitor';
+// New CliStreamMonitor with message-based layout
+export { CliStreamMonitor } from './CliStreamMonitor/index';
+export type { CliStreamMonitorProps } from './CliStreamMonitor/index';
+
+// Legacy CliStreamMonitor (old layout)
+export { default as CliStreamMonitorLegacy } from './CliStreamMonitorLegacy';
+export type { CliStreamMonitorProps as CliStreamMonitorLegacyProps } from './CliStreamMonitorLegacy';
 
 export { StreamingOutput } from './StreamingOutput';
 export type { StreamingOutputProps } from './StreamingOutput';
+
+// CliStreamMonitor sub-components
+export { MonitorHeader } from './CliStreamMonitor/index';
+export type { MonitorHeaderProps } from './CliStreamMonitor/index';
+
+export { MonitorToolbar } from './CliStreamMonitor/index';
+export type { MonitorToolbarProps, FilterType, ViewMode } from './CliStreamMonitor/index';
+
+export { MonitorBody } from './CliStreamMonitor/index';
+export type { MonitorBodyProps, MonitorBodyRef } from './CliStreamMonitor/index';
+
+export { MessageRenderer } from './CliStreamMonitor/index';
+export type { MessageRendererProps } from './CliStreamMonitor/index';
+
+// Message components for CLI streaming
+export {
+  SystemMessage,
+  UserMessage,
+  AssistantMessage,
+  ErrorMessage
+} from './CliStreamMonitor/messages';
+export type {
+  SystemMessageProps,
+  UserMessageProps,
+  AssistantMessageProps,
+  ErrorMessageProps
+} from './CliStreamMonitor/messages';
+
+// LogBlock components
+export {
+  LogBlock,
+  LogBlockList,
+  getOutputLineClass,
+} from './LogBlock';
+export type {
+  LogBlockProps,
+  LogBlockData,
+  LogLine,
+  LogBlockListProps,
+} from './LogBlock';
+
+// JsonFormatter
+export { JsonFormatter } from './LogBlock/JsonFormatter';
+export type { JsonFormatterProps, JsonDisplayMode } from './LogBlock/JsonFormatter';
+
+// JSON utilities
+export {
+  detectJson,
+  detectJsonContent,
+  extractJson,
+  formatJson,
+  getJsonSummary,
+  getJsonValueTypeColor,
+} from './LogBlock/jsonUtils';
+export type { JsonDetectionResult, JsonDisplayMode as JsonMode } from './LogBlock/jsonUtils';
 
 // Dialog components
 export { RuleDialog } from './RuleDialog';

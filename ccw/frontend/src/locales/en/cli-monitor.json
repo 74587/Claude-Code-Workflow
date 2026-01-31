@@ -1,6 +1,6 @@
 {
   "title": "CLI Stream Monitor",
-  "searchPlaceholder": "Search output...",
+  "searchPlaceholder": "Search logs...",
   "noExecutions": "No active CLI executions",
   "noExecutionsHint": "Start a CLI command to see streaming output",
   "selectExecution": "Select an execution to view output",
@@ -14,5 +14,36 @@
   "autoScroll": "Auto-scroll",
   "scrollToBottom": "Scroll to bottom",
   "close": "Close",
-  "refresh": "Refresh"
+  "refresh": "Refresh",
+  "refreshing": "Refreshing...",
+  "live": "Live",
+  "executions": "{count} execution{count, plural, =1 {} other {s}}",
+  "active": "{count} active",
+  "filter": {
+    "all": "All",
+    "errors": "Errors",
+    "content": "Content",
+    "system": "System"
+  },
+  "view": {
+    "preview": "Preview",
+    "json": "JSON",
+    "raw": "Raw"
+  },
+  "viewMode": "View Mode",
+  "settings": "Settings",
+  "noMessages": "Waiting for messages...",
+  "noMatch": "No matching messages found",
+  "statusBar": "{total} executions | {active} active | {error} error | {lines} lines",
+  "copy": "Copy",
+  "copied": "Copied",
+  "rawJson": "Raw JSON",
+  "retry": "Retry",
+  "dismiss": "Dismiss",
+  "thinking": "Thinking...",
+  "streaming": "Streaming...",
+  "tokens": "Tokens: {count}",
+  "duration": "Duration: {value}",
+  "model": "Model: {name}",
+  "user": "User"
 }

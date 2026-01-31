@@ -11,6 +11,7 @@ export { SessionDetailPage } from './SessionDetailPage';
 export { HistoryPage } from './HistoryPage';
 export { OrchestratorPage } from './orchestrator';
 export { LoopMonitorPage } from './LoopMonitorPage';
+export { IssueHubPage } from './IssueHubPage';
 export { IssueManagerPage } from './IssueManagerPage';
 export { QueuePage } from './QueuePage';
 export { DiscoveryPage } from './DiscoveryPage';

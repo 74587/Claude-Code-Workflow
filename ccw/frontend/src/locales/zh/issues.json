@@ -89,6 +89,14 @@
     "title": "发现",
     "pageTitle": "问题发现",
     "description": "查看和管理问题发现会话",
+    "totalSessions": "总会话数",
+    "completedSessions": "已完成",
+    "runningSessions": "运行中",
+    "totalFindings": "发现",
+    "sessionList": "会话列表",
+    "noSessions": "未发现会话",
+    "noSessionsDescription": "启动新的问题发现会话以开始",
+    "findingsDetail": "发现详情",
     "stats": {
       "totalSessions": "总会话数",
       "completed": "已完成",
@@ -134,6 +142,15 @@
     "actions": {
       "export": "导出发现",
       "refresh": "刷新"
+    }
+  },
+  "hub": {
+    "title": "问题中心",
+    "description": "统一管理问题、队列和发现",
+    "tabs": {
+      "issues": "问题列表",
+      "queue": "执行队列",
+      "discovery": "问题发现"
     }
   }
 }

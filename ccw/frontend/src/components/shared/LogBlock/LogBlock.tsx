@@ -22,8 +22,9 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import type { LogBlockProps, LogLine } from './types';
+import { getOutputLineClass } from './utils';
 
-// Re-use output line styling helpers from CliStreamMonitor
+// Local function for icon rendering (uses JSX, must stay in .tsx file)
 function getOutputLineIcon(type: LogLine['type']) {
   switch (type) {
     case 'thought':
@@ -39,24 +40,6 @@ function getOutputLineIcon(type: LogLine['type']) {
     case 'stdout':
     default:
       return <MessageCircle className="h-3 w-3" />;
-  }
-}
-
-function getOutputLineClass(type: LogLine['type']): string {
-  switch (type) {
-    case 'thought':
-      return 'text-purple-400';
-    case 'system':
-      return 'text-blue-400';
-    case 'stderr':
-      return 'text-red-400';
-    case 'metadata':
-      return 'text-yellow-400';
-    case 'tool_call':
-      return 'text-green-400';
-    case 'stdout':
-    default:
-      return 'text-foreground';
   }
 }
 
@@ -247,13 +230,22 @@ export const LogBlock = memo(function LogBlock({
   );
 }, (prevProps, nextProps) => {
   // Custom comparison for performance
+  // Compare all relevant block fields to detect changes
+  const prevBlock = prevProps.block;
+  const nextBlock = nextProps.block;
+
   return (
-    prevProps.block.id === nextProps.block.id &&
-    prevProps.block.status === nextProps.block.status &&
-    prevProps.block.lineCount === nextProps.block.lineCount &&
-    prevProps.block.duration === nextProps.block.duration &&
     prevProps.isExpanded === nextProps.isExpanded &&
-    prevProps.className === nextProps.className
+    prevProps.className === nextProps.className &&
+    prevBlock.id === nextBlock.id &&
+    prevBlock.status === nextBlock.status &&
+    prevBlock.title === nextBlock.title &&
+    prevBlock.toolName === nextBlock.toolName &&
+    prevBlock.lineCount === nextBlock.lineCount &&
+    prevBlock.duration === nextBlock.duration
+    // Note: We don't compare block.lines deeply for performance reasons.
+    // The store's getBlocks method returns cached arrays, so if lines change
+    // significantly, a new block object will be created and the id will change.
   );
 });
 

@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { LogBlockList } from '@/components/shared/LogBlock';
+import { LogBlockList, getOutputLineClass } from '@/components/shared/LogBlock';
 import { useCliStreamStore, type CliOutputLine } from '@/stores/cliStreamStore';
 import { useNotificationStore, selectWsLastMessage } from '@/stores';
 import { useActiveCliExecutions, useInvalidateActiveCliExecutions } from '@/hooks/useActiveCliExecutions';
@@ -77,6 +77,7 @@ function formatDuration(ms: number): string {
   return `${hours}h ${remainingMinutes}m`;
 }
 
+// Local function for icon rendering (uses JSX, must stay in .tsx file)
 function getOutputLineIcon(type: CliOutputLine['type']) {
   switch (type) {
     case 'thought':
@@ -92,24 +93,6 @@ function getOutputLineIcon(type: CliOutputLine['type']) {
     case 'stdout':
     default:
       return <MessageCircle className="h-3 w-3" />;
-  }
-}
-
-function getOutputLineClass(type: CliOutputLine['type']): string {
-  switch (type) {
-    case 'thought':
-      return 'text-purple-400';
-    case 'system':
-      return 'text-blue-400';
-    case 'stderr':
-      return 'text-red-400';
-    case 'metadata':
-      return 'text-yellow-400';
-    case 'tool_call':
-      return 'text-green-400';
-    case 'stdout':
-    default:
-      return 'text-foreground';
   }
 }
 

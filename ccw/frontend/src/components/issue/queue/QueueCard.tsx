@@ -46,7 +46,7 @@ export function QueueCard({
   const { formatMessage } = useIntl();
 
   // Get queue ID - IssueQueue interface doesn't have an id field, using tasks array as key
-  const queueId = queue.tasks.join(',') || queue.solutions.join(',');
+  const queueId = (queue.tasks || []).join(',') || (queue.solutions || []).join(',') || 'unknown';
 
   // Calculate item counts
   const taskCount = queue.tasks?.length || 0;

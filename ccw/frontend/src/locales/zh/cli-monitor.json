@@ -1,6 +1,6 @@
 {
   "title": "CLI 流式监控",
-  "searchPlaceholder": "搜索输出...",
+  "searchPlaceholder": "搜索日志...",
   "noExecutions": "没有正在执行的 CLI 任务",
   "noExecutionsHint": "启动 CLI 命令以查看实时输出",
   "selectExecution": "选择一个任务以查看输出",
@@ -14,5 +14,36 @@
   "autoScroll": "自动滚动",
   "scrollToBottom": "滚动到底部",
   "close": "关闭",
-  "refresh": "刷新"
+  "refresh": "刷新",
+  "refreshing": "刷新中...",
+  "live": "实时",
+  "executions": "{count} 个执行",
+  "active": "{count} 个活跃",
+  "filter": {
+    "all": "全部",
+    "errors": "错误",
+    "content": "内容",
+    "system": "系统"
+  },
+  "view": {
+    "preview": "预览",
+    "json": "JSON",
+    "raw": "原始"
+  },
+  "viewMode": "视图模式",
+  "settings": "设置",
+  "noMessages": "等待消息...",
+  "noMatch": "没有匹配的消息",
+  "statusBar": "{total} 个执行 | {active} 个活跃 | {error} 个错误 | {lines} 行",
+  "copy": "复制",
+  "copied": "已复制",
+  "rawJson": "原始 JSON",
+  "retry": "重试",
+  "dismiss": "关闭",
+  "thinking": "思考中...",
+  "streaming": "流式输出中...",
+  "tokens": "令牌: {count}",
+  "duration": "时长: {value}",
+  "model": "模型: {name}",
+  "user": "用户"
 }

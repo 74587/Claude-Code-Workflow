@@ -85,3 +85,10 @@ export {
   ToastClose,
   ToastAction,
 } from "./Toast";
+
+// Collapsible (Radix)
+export {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "./Collapsible";

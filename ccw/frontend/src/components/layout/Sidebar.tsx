@@ -60,8 +60,8 @@ const navItemDefinitions: Omit<NavItem, 'label'>[] = [
   { path: '/orchestrator', icon: Workflow },
   { path: '/loops', icon: RefreshCw },
   { path: '/issues', icon: AlertCircle },
-  { path: '/issues/queue', icon: ListTodo },
-  { path: '/issues/discovery', icon: Search },
+  { path: '/issues?tab=queue', icon: ListTodo },
+  { path: '/issues?tab=discovery', icon: Search },
   { path: '/skills', icon: Sparkles },
   { path: '/commands', icon: Terminal },
   { path: '/memory', icon: Brain },
@@ -110,8 +110,8 @@ export function Sidebar({
       '/orchestrator': 'main.orchestrator',
       '/loops': 'main.loops',
       '/issues': 'main.issues',
-      '/issues/queue': 'main.issueQueue',
-      '/issues/discovery': 'main.issueDiscovery',
+      '/issues?tab=queue': 'main.issueQueue',
+      '/issues?tab=discovery': 'main.issueDiscovery',
       '/skills': 'main.skills',
       '/commands': 'main.commands',
       '/memory': 'main.memory',
@@ -155,8 +155,13 @@ export function Sidebar({
           <ul className="space-y-1 px-2">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = location.pathname === item.path ||
-                (item.path !== '/' && location.pathname.startsWith(item.path));
+              // Parse item path to extract base path and query params
+              const [basePath, searchParams] = item.path.split('?');
+              const isActive = location.pathname === basePath ||
+                (basePath !== '/' && location.pathname.startsWith(basePath));
+              // For query param items, also check if search matches
+              const isQueryParamActive = searchParams &&
+                location.search.includes(searchParams);
 
               return (
                 <li key={item.path}>
@@ -166,7 +171,7 @@ export function Sidebar({
                     className={cn(
                       'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors',
                       'hover:bg-hover hover:text-foreground',
-                      isActive
+                      (isActive && !searchParams) || isQueryParamActive
                         ? 'bg-primary/10 text-primary font-medium'
                         : 'text-muted-foreground',
                       isCollapsed && 'justify-center px-2'

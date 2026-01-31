@@ -1033,6 +1033,7 @@ export interface SessionDetailResponse {
   session: SessionMetadata;
   context?: SessionDetailContext;
   summary?: string;
+  summaries?: Array<{ name: string; content: string }>;
   implPlan?: unknown;
   conflicts?: unknown[];
   review?: unknown;
@@ -1061,10 +1062,17 @@ export async function fetchSessionDetail(sessionId: string, projectPath?: string
   const detailData = await fetchApi<any>(`/api/session-detail?path=${encodeURIComponent(pathParam)}&type=all`);
 
   // Step 3: Transform the response to match SessionDetailResponse interface
+  // Also check for summaries array and extract first one if summary is empty
+  let finalSummary = detailData.summary;
+  if (!finalSummary && detailData.summaries && detailData.summaries.length > 0) {
+    finalSummary = detailData.summaries[0].content || detailData.summaries[0].name || '';
+  }
+
   return {
     session,
     context: detailData.context,
-    summary: detailData.summary,
+    summary: finalSummary,
+    summaries: detailData.summaries,
     implPlan: detailData.implPlan,
     conflicts: detailData.conflicts,
     review: detailData.review,
