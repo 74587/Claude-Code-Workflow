@@ -1,0 +1,18 @@
+{
+  "title": "Notifications",
+  "empty": "No notifications",
+  "emptyHint": "Notifications will appear here",
+  "markAllRead": "Mark Read",
+  "clearAll": "Clear All",
+  "showMore": "Show more",
+  "showLess": "Show less",
+  "systemNotifications": "System Notifications",
+  "systemNotificationsDesc": "Show browser native notifications for important events",
+  "justNow": "just now",
+  "minutesAgo": "{0}m ago",
+  "hoursAgo": "{0}h ago",
+  "daysAgo": "{0}d ago",
+  "oneMinuteAgo": "1m ago",
+  "oneHourAgo": "1h ago",
+  "oneDayAgo": "1d ago"
+}

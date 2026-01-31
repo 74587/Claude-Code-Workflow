@@ -33,11 +33,12 @@ type LiteTaskTab = 'lite-plan' | 'lite-fix' | 'multi-cli-plan';
 
 /**
  * Get i18n text from label object (supports {en, zh} format)
+ * Note: fallback should be provided dynamically from component context
  */
-function getI18nText(label: string | { en?: string; zh?: string } | undefined, fallback: string): string {
-  if (!label) return fallback;
+function getI18nText(label: string | { en?: string; zh?: string } | undefined): string | undefined {
+  if (!label) return undefined;
   if (typeof label === 'string') return label;
-  return label.en || label.zh || fallback;
+  return label.en || label.zh;
 }
 
 /**
@@ -147,7 +148,7 @@ export function LiteTasksPage() {
                           </Badge>
                         </div>
                         <h4 className="text-sm font-medium text-foreground">
-                          {task.title || 'Untitled Task'}
+                          {task.title || formatMessage({ id: 'liteTasks.untitled' })}
                         </h4>
                         {task.description && (
                           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
@@ -172,9 +173,8 @@ export function LiteTasksPage() {
     const latestSynthesis = session.latestSynthesis || {};
     const roundCount = (metadata.roundId as number) || session.roundCount || 1;
     const topicTitle = getI18nText(
-      latestSynthesis.title as string | { en?: string; zh?: string } | undefined,
-      'Discussion Topic'
-    );
+      latestSynthesis.title as string | { en?: string; zh?: string } | undefined
+    ) || formatMessage({ id: 'liteTasks.discussionTopic' });
     const status = latestSynthesis.status || session.status || 'analyzing';
     const createdAt = (metadata.timestamp as string) || session.createdAt || '';
 

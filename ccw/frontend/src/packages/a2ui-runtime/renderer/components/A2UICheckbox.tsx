@@ -1,0 +1,67 @@
+// ========================================
+// A2UI Checkbox Component Renderer
+// ========================================
+// Maps A2UI Checkbox component to shadcn/ui Checkbox
+
+import React, { useState, useCallback } from 'react';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { Label } from '@/components/ui/Label';
+import type { ComponentRenderer } from '../../core/A2UIComponentRegistry';
+import { resolveLiteralOrBinding, resolveTextContent } from '../A2UIRenderer';
+import type { CheckboxComponent } from '../../core/A2UITypes';
+
+interface A2UICheckboxProps {
+  component: CheckboxComponent;
+  state: Record<string, unknown>;
+  onAction: (actionId: string, params: Record<string, unknown>) => void | Promise<void>;
+  resolveBinding: (binding: { path: string }) => unknown;
+}
+
+/**
+ * A2UI Checkbox Component Renderer
+ * Boolean state binding with onChange handler
+ */
+export const A2UICheckbox: ComponentRenderer = ({ component, state, onAction, resolveBinding }) => {
+  const checkboxComp = component as CheckboxComponent;
+  const { Checkbox: checkboxConfig } = checkboxComp;
+
+  // Resolve initial checked state from binding
+  const getInitialChecked = (): boolean => {
+    if (!checkboxConfig.checked) return false;
+    const resolved = resolveLiteralOrBinding(checkboxConfig.checked, resolveBinding);
+    return Boolean(resolved);
+  };
+
+  // Local state for controlled checkbox
+  const [checked, setChecked] = useState(getInitialChecked());
+
+  // Handle change with two-way binding
+  const handleChange = useCallback((newChecked: boolean) => {
+    setChecked(newChecked);
+
+    // Trigger action with new checked state
+    onAction(checkboxConfig.onChange.actionId, {
+      checked: newChecked,
+      ...(checkboxConfig.onChange.parameters || {}),
+    });
+  }, [checkboxConfig.onChange, onAction]);
+
+  // Resolve label text
+  const labelText = checkboxConfig.label
+    ? resolveTextContent(checkboxConfig.label, resolveBinding)
+    : '';
+
+  return (
+    <div className="flex items-center space-x-2">
+      <Checkbox
+        checked={checked}
+        onCheckedChange={handleChange}
+      />
+      {labelText && (
+        <Label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+          {labelText}
+        </Label>
+      )}
+    </div>
+  );
+};

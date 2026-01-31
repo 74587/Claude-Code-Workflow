@@ -10,6 +10,8 @@ import {
   type Skill,
   type SkillsResponse,
 } from '../lib/api';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
+import { workspaceQueryKeys } from '@/lib/queryKeys';
 
 // Query key factory
 export const skillsKeys = {
@@ -54,12 +56,16 @@ export interface UseSkillsReturn {
 export function useSkills(options: UseSkillsOptions = {}): UseSkillsReturn {
   const { filter, staleTime = STALE_TIME, enabled = true } = options;
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
+
+  // Only enable query when projectPath is available
+  const queryEnabled = enabled && !!projectPath;
 
   const query = useQuery({
-    queryKey: skillsKeys.list(filter),
+    queryKey: workspaceQueryKeys.skillsList(projectPath),
     queryFn: fetchSkills,
     staleTime,
-    enabled,
+    enabled: queryEnabled,
     retry: 2,
   });
 
@@ -114,7 +120,9 @@ export function useSkills(options: UseSkillsOptions = {}): UseSkillsReturn {
   };
 
   const invalidate = async () => {
-    await queryClient.invalidateQueries({ queryKey: skillsKeys.all });
+    if (projectPath) {
+      await queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.skills(projectPath) });
+    }
   };
 
   return {
@@ -142,33 +150,14 @@ export interface UseToggleSkillReturn {
 
 export function useToggleSkill(): UseToggleSkillReturn {
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
     mutationFn: ({ skillName, enabled }: { skillName: string; enabled: boolean }) =>
       toggleSkill(skillName, enabled),
-    onMutate: async ({ skillName, enabled }) => {
-      await queryClient.cancelQueries({ queryKey: skillsKeys.all });
-      const previousSkills = queryClient.getQueryData<SkillsResponse>(skillsKeys.list());
-
-      // Optimistic update
-      queryClient.setQueryData<SkillsResponse>(skillsKeys.list(), (old) => {
-        if (!old) return old;
-        return {
-          skills: old.skills.map((s) =>
-            s.name === skillName ? { ...s, enabled } : s
-          ),
-        };
-      });
-
-      return { previousSkills };
-    },
-    onError: (_error, _vars, context) => {
-      if (context?.previousSkills) {
-        queryClient.setQueryData(skillsKeys.list(), context.previousSkills);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: skillsKeys.all });
+    onSuccess: () => {
+      // Invalidate to ensure sync with server
+      queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.skills(projectPath) : ['skills'] });
     },
   });
 

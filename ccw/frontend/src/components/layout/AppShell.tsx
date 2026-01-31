@@ -8,6 +8,10 @@ import { cn } from '@/lib/utils';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { MainContent } from './MainContent';
+import { CliStreamMonitor } from '@/components/shared/CliStreamMonitor';
+import { NotificationPanel } from '@/components/notification';
+import { useNotificationStore } from '@/stores';
+import { useWebSocketNotifications } from '@/hooks';
 
 export interface AppShellProps {
   /** Initial sidebar collapsed state */
@@ -44,6 +48,23 @@ export function AppShell({
   // Mobile sidebar open state
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // CLI Monitor open state
+  const [isCliMonitorOpen, setIsCliMonitorOpen] = useState(false);
+
+  // Notification panel store integration
+  const isNotificationPanelVisible = useNotificationStore((state) => state.isPanelVisible);
+  const loadPersistentNotifications = useNotificationStore(
+    (state) => state.loadPersistentNotifications
+  );
+
+  // Initialize WebSocket notifications handler
+  useWebSocketNotifications();
+
+  // Load persistent notifications from localStorage on mount
+  useEffect(() => {
+    loadPersistentNotifications();
+  }, [loadPersistentNotifications]);
+
   // Persist sidebar state
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, JSON.stringify(sidebarCollapsed));
@@ -73,6 +94,18 @@ export function AppShell({
     setSidebarCollapsed(collapsed);
   }, []);
 
+  const handleCliMonitorClick = useCallback(() => {
+    setIsCliMonitorOpen(true);
+  }, []);
+
+  const handleCliMonitorClose = useCallback(() => {
+    setIsCliMonitorOpen(false);
+  }, []);
+
+  const handleNotificationPanelClose = useCallback(() => {
+    useNotificationStore.getState().setPanelVisible(false);
+  }, []);
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Header - fixed at top */}
@@ -81,6 +114,7 @@ export function AppShell({
         projectPath={projectPath}
         onRefresh={onRefresh}
         isRefreshing={isRefreshing}
+        onCliMonitorClick={handleCliMonitorClick}
       />
 
       {/* Main layout - sidebar + content */}
@@ -97,13 +131,25 @@ export function AppShell({
         <MainContent
           className={cn(
             'transition-all duration-300',
-            // Adjust padding on mobile when sidebar is hidden
-            'md:ml-0'
+            // Add left margin on desktop to account for fixed sidebar
+            sidebarCollapsed ? 'md:ml-16' : 'md:ml-64'
           )}
         >
           {children}
         </MainContent>
       </div>
+
+      {/* CLI Stream Monitor - Global Drawer */}
+      <CliStreamMonitor
+        isOpen={isCliMonitorOpen}
+        onClose={handleCliMonitorClose}
+      />
+
+      {/* Notification Panel - Global Drawer */}
+      <NotificationPanel
+        isOpen={isNotificationPanelVisible}
+        onClose={handleNotificationPanelClose}
+      />
     </div>
   );
 }

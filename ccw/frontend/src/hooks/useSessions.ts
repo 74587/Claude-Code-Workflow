@@ -16,6 +16,8 @@ import {
 } from '../lib/api';
 import type { SessionMetadata } from '../types/store';
 import { dashboardStatsKeys } from './useDashboardStats';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
+import { workspaceQueryKeys } from '@/lib/queryKeys';
 
 // Query key factory
 export const sessionsKeys = {
@@ -80,12 +82,16 @@ export interface UseSessionsReturn {
 export function useSessions(options: UseSessionsOptions = {}): UseSessionsReturn {
   const { filter, staleTime = STALE_TIME, enabled = true, refetchInterval = 0 } = options;
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
+
+  // Only enable query when projectPath is available
+  const queryEnabled = enabled && !!projectPath;
 
   const query = useQuery({
-    queryKey: sessionsKeys.list(filter),
+    queryKey: workspaceQueryKeys.sessionsList(projectPath),
     queryFn: fetchSessions,
     staleTime,
-    enabled,
+    enabled: queryEnabled,
     refetchInterval: refetchInterval > 0 ? refetchInterval : false,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
@@ -130,7 +136,7 @@ export function useSessions(options: UseSessionsOptions = {}): UseSessionsReturn
   };
 
   const invalidate = async () => {
-    await queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+    await queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.sessions(projectPath) });
   };
 
   return {
@@ -163,14 +169,8 @@ export function useCreateSession(): UseCreateSessionReturn {
   const mutation = useMutation({
     mutationFn: createSession,
     onSuccess: (newSession) => {
-      // Update sessions cache
-      queryClient.setQueryData<SessionsResponse>(sessionsKeys.list(), (old) => {
-        if (!old) return { activeSessions: [newSession], archivedSessions: [] };
-        return {
-          ...old,
-          activeSessions: [newSession, ...old.activeSessions],
-        };
-      });
+      // Invalidate sessions cache to trigger refetch
+      queryClient.invalidateQueries({ queryKey: ['workspace'] });
       // Invalidate dashboard stats
       queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
@@ -198,19 +198,9 @@ export function useUpdateSession(): UseUpdateSessionReturn {
   const mutation = useMutation({
     mutationFn: ({ sessionId, input }: { sessionId: string; input: UpdateSessionInput }) =>
       updateSession(sessionId, input),
-    onSuccess: (updatedSession) => {
-      // Update sessions cache
-      queryClient.setQueryData<SessionsResponse>(sessionsKeys.list(), (old) => {
-        if (!old) return old;
-        return {
-          activeSessions: old.activeSessions.map((s) =>
-            s.session_id === updatedSession.session_id ? updatedSession : s
-          ),
-          archivedSessions: old.archivedSessions.map((s) =>
-            s.session_id === updatedSession.session_id ? updatedSession : s
-          ),
-        };
-      });
+    onSuccess: () => {
+      // Invalidate sessions cache to trigger refetch
+      queryClient.invalidateQueries({ queryKey: ['workspace'] });
     },
   });
 
@@ -235,43 +225,9 @@ export function useArchiveSession(): UseArchiveSessionReturn {
 
   const mutation = useMutation({
     mutationFn: archiveSession,
-    onMutate: async (sessionId) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: sessionsKeys.all });
-
-      // Snapshot previous value
-      const previousSessions = queryClient.getQueryData<SessionsResponse>(sessionsKeys.list());
-
-      // Optimistically update
-      queryClient.setQueryData<SessionsResponse>(sessionsKeys.list(), (old) => {
-        if (!old) return old;
-        const session = old.activeSessions.find((s) => s.session_id === sessionId);
-        if (!session) return old;
-
-        const archivedSession: SessionMetadata = {
-          ...session,
-          status: 'archived',
-          location: 'archived',
-          updated_at: new Date().toISOString(),
-        };
-
-        return {
-          activeSessions: old.activeSessions.filter((s) => s.session_id !== sessionId),
-          archivedSessions: [archivedSession, ...old.archivedSessions],
-        };
-      });
-
-      return { previousSessions };
-    },
-    onError: (_error, _sessionId, context) => {
-      // Rollback on error
-      if (context?.previousSessions) {
-        queryClient.setQueryData(sessionsKeys.list(), context.previousSessions);
-      }
-    },
-    onSettled: () => {
+    onSuccess: () => {
       // Invalidate to ensure sync with server
-      queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['workspace'] });
       queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
@@ -297,33 +253,9 @@ export function useDeleteSession(): UseDeleteSessionReturn {
 
   const mutation = useMutation({
     mutationFn: deleteSession,
-    onMutate: async (sessionId) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: sessionsKeys.all });
-
-      // Snapshot previous value
-      const previousSessions = queryClient.getQueryData<SessionsResponse>(sessionsKeys.list());
-
-      // Optimistically remove
-      queryClient.setQueryData<SessionsResponse>(sessionsKeys.list(), (old) => {
-        if (!old) return old;
-        return {
-          activeSessions: old.activeSessions.filter((s) => s.session_id !== sessionId),
-          archivedSessions: old.archivedSessions.filter((s) => s.session_id !== sessionId),
-        };
-      });
-
-      return { previousSessions };
-    },
-    onError: (_error, _sessionId, context) => {
-      // Rollback on error
-      if (context?.previousSessions) {
-        queryClient.setQueryData(sessionsKeys.list(), context.previousSessions);
-      }
-    },
-    onSettled: () => {
+    onSuccess: () => {
       // Invalidate to ensure sync with server
-      queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['workspace'] });
       queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });

@@ -1,0 +1,57 @@
+{
+  "title": "文件浏览器",
+  "description": "浏览和搜索项目文件",
+  "viewMode": {
+    "tree": "树形",
+    "list": "列表",
+    "compact": "紧凑"
+  },
+  "sortOrder": {
+    "name": "名称",
+    "size": "大小",
+    "modified": "修改时间",
+    "type": "类型"
+  },
+  "tree": {
+    "loading": "正在加载文件树...",
+    "stats": "{files} 个项目",
+    "empty": "未找到文件",
+    "error": "加载文件树失败"
+  },
+  "preview": {
+    "loading": "正在加载文件内容...",
+    "errorTitle": "加载文件错误",
+    "emptyTitle": "未选择文件",
+    "emptyMessage": "从树形视图中选择一个文件以预览其内容",
+    "binaryTitle": "二进制文件",
+    "binaryMessage": "此文件类型无法预览",
+    "tooLargeTitle": "文件过大",
+    "tooLargeMessage": "文件超过预览限制 {size}",
+    "copy": "复制到剪贴板",
+    "lastModified": "最后修改: {time}"
+  },
+  "toolbar": {
+    "searchPlaceholder": "搜索文件...",
+    "selectRoot": "选择目录",
+    "rootDirectory": "根目录",
+    "noRoots": "没有可用目录",
+    "viewMode": "视图模式",
+    "sortBy": "排序方式",
+    "moreOptions": "更多选项",
+    "options": "选项",
+    "showHidden": "显示隐藏文件",
+    "expandAll": "全部展开",
+    "collapseAll": "全部折叠"
+  },
+  "errors": {
+    "loadFailed": "加载文件树失败",
+    "loadFileFailed": "加载文件内容失败",
+    "searchFailed": "搜索失败",
+    "networkError": "发生网络错误"
+  },
+  "context": {
+    "hasClaudeMd": "包含 CLAUDE.md 上下文",
+    "gitRoot": "Git 仓库根目录",
+    "workspace": "工作区目录"
+  }
+}

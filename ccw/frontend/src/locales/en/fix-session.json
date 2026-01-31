@@ -40,5 +40,8 @@
   "empty": {
     "title": "No Tasks Found",
     "message": "No fix tasks match the current filter."
+  },
+  "phase": {
+    "execution": "Execution"
   }
 }

@@ -12,6 +12,8 @@ import {
   type CoreMemory,
   type MemoryResponse,
 } from '../lib/api';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
+import { workspaceQueryKeys } from '@/lib/queryKeys';
 
 // Query key factory
 export const memoryKeys = {
@@ -54,12 +56,16 @@ export interface UseMemoryReturn {
 export function useMemory(options: UseMemoryOptions = {}): UseMemoryReturn {
   const { filter, staleTime = STALE_TIME, enabled = true } = options;
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
+
+  // Only enable query when projectPath is available
+  const queryEnabled = enabled && !!projectPath;
 
   const query = useQuery({
-    queryKey: memoryKeys.list(filter),
+    queryKey: workspaceQueryKeys.memoryList(projectPath),
     queryFn: fetchMemories,
     staleTime,
-    enabled,
+    enabled: queryEnabled,
     retry: 2,
   });
 
@@ -100,7 +106,9 @@ export function useMemory(options: UseMemoryOptions = {}): UseMemoryReturn {
   };
 
   const invalidate = async () => {
-    await queryClient.invalidateQueries({ queryKey: memoryKeys.all });
+    if (projectPath) {
+      await queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.memory(projectPath) });
+    }
   };
 
   return {
@@ -126,18 +134,13 @@ export interface UseCreateMemoryReturn {
 
 export function useCreateMemory(): UseCreateMemoryReturn {
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
     mutationFn: createMemory,
-    onSuccess: (newMemory) => {
-      queryClient.setQueryData<MemoryResponse>(memoryKeys.list(), (old) => {
-        if (!old) return { memories: [newMemory], totalSize: 0, claudeMdCount: 0 };
-        return {
-          ...old,
-          memories: [newMemory, ...old.memories],
-          totalSize: old.totalSize + (newMemory.size ?? 0),
-        };
-      });
+    onSuccess: () => {
+      // Invalidate memory cache to trigger refetch
+      queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.memory(projectPath) : ['memory'] });
     },
   });
 
@@ -156,20 +159,14 @@ export interface UseUpdateMemoryReturn {
 
 export function useUpdateMemory(): UseUpdateMemoryReturn {
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
     mutationFn: ({ memoryId, input }: { memoryId: string; input: Partial<CoreMemory> }) =>
       updateMemory(memoryId, input),
-    onSuccess: (updatedMemory) => {
-      queryClient.setQueryData<MemoryResponse>(memoryKeys.list(), (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          memories: old.memories.map((m) =>
-            m.id === updatedMemory.id ? updatedMemory : m
-          ),
-        };
-      });
+    onSuccess: () => {
+      // Invalidate memory cache to trigger refetch
+      queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.memory(projectPath) : ['memory'] });
     },
   });
 
@@ -188,32 +185,13 @@ export interface UseDeleteMemoryReturn {
 
 export function useDeleteMemory(): UseDeleteMemoryReturn {
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
     mutationFn: deleteMemory,
-    onMutate: async (memoryId) => {
-      await queryClient.cancelQueries({ queryKey: memoryKeys.all });
-      const previousMemories = queryClient.getQueryData<MemoryResponse>(memoryKeys.list());
-
-      queryClient.setQueryData<MemoryResponse>(memoryKeys.list(), (old) => {
-        if (!old) return old;
-        const removedMemory = old.memories.find((m) => m.id === memoryId);
-        return {
-          ...old,
-          memories: old.memories.filter((m) => m.id !== memoryId),
-          totalSize: old.totalSize - (removedMemory?.size ?? 0),
-        };
-      });
-
-      return { previousMemories };
-    },
-    onError: (_error, _memoryId, context) => {
-      if (context?.previousMemories) {
-        queryClient.setQueryData(memoryKeys.list(), context.previousMemories);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: memoryKeys.all });
+    onSuccess: () => {
+      // Invalidate to ensure sync with server
+      queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.memory(projectPath) : ['memory'] });
     },
   });
 

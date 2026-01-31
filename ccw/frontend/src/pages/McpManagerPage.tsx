@@ -2,9 +2,11 @@
 // MCP Manager Page
 // ========================================
 // Manage MCP servers (Model Context Protocol) with project/global scope switching
+// Supports both Claude and Codex CLI modes
 
 import { useState } from 'react';
 import { useIntl } from 'react-intl';
+import { useQuery } from '@tanstack/react-query';
 import {
   Server,
   Plus,
@@ -23,8 +25,19 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
+import { McpServerDialog } from '@/components/mcp/McpServerDialog';
+import { CliModeToggle, type CliMode } from '@/components/mcp/CliModeToggle';
+import { CodexMcpCard } from '@/components/mcp/CodexMcpCard';
+import { CcwToolsMcpCard } from '@/components/mcp/CcwToolsMcpCard';
 import { useMcpServers, useMcpServerMutations } from '@/hooks';
-import type { McpServer } from '@/lib/api';
+import {
+  fetchCodexMcpServers,
+  fetchCcwMcpConfig,
+  updateCcwConfig,
+  type McpServer,
+  type CodexMcpServer,
+  type CcwMcpConfig,
+} from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 // ========== MCP Server Card Component ==========
@@ -180,6 +193,10 @@ export function McpManagerPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [scopeFilter, setScopeFilter] = useState<'all' | 'project' | 'global'>('all');
   const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingServer, setEditingServer] = useState<McpServer | undefined>(undefined);
+  const [cliMode, setCliMode] = useState<CliMode>('claude');
+  const [codexExpandedServers, setCodexExpandedServers] = useState<Set<string>>(new Set());
 
   const {
     servers,
@@ -194,6 +211,22 @@ export function McpManagerPage() {
     scope: scopeFilter === 'all' ? undefined : scopeFilter,
   });
 
+  // Fetch Codex MCP servers when in codex mode
+  const codexQuery = useQuery({
+    queryKey: ['codexMcpServers'],
+    queryFn: fetchCodexMcpServers,
+    enabled: cliMode === 'codex',
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+
+  // Fetch CCW Tools MCP configuration (Claude mode only)
+  const ccwMcpQuery = useQuery({
+    queryKey: ['ccwMcpConfig'],
+    queryFn: fetchCcwMcpConfig,
+    enabled: cliMode === 'claude',
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
   const {
     toggleServer,
     deleteServer,
@@ -201,6 +234,18 @@ export function McpManagerPage() {
 
   const toggleExpand = (serverName: string) => {
     setExpandedServers((prev) => {
+      const next = new Set(prev);
+      if (next.has(serverName)) {
+        next.delete(serverName);
+      } else {
+        next.add(serverName);
+      }
+      return next;
+    });
+  };
+
+  const toggleCodexExpand = (serverName: string) => {
+    setCodexExpandedServers((prev) => {
       const next = new Set(prev);
       if (next.has(serverName)) {
         next.delete(serverName);
@@ -222,8 +267,54 @@ export function McpManagerPage() {
   };
 
   const handleEdit = (server: McpServer) => {
-    // TODO: Implement edit dialog
-    console.log('Edit server:', server);
+    setEditingServer(server);
+    setDialogOpen(true);
+  };
+
+  const handleAddClick = () => {
+    setEditingServer(undefined);
+    setDialogOpen(true);
+  };
+
+  const handleDialogClose = () => {
+    setDialogOpen(false);
+    setEditingServer(undefined);
+  };
+
+  const handleDialogSave = () => {
+    setDialogOpen(false);
+    setEditingServer(undefined);
+    refetch();
+  };
+
+  const handleModeChange = (mode: CliMode) => {
+    setCliMode(mode);
+  };
+
+  // CCW MCP handlers
+  const ccwConfig = ccwMcpQuery.data ?? {
+    isInstalled: false,
+    enabledTools: [],
+    projectRoot: undefined,
+    allowedDirs: undefined,
+    disableSandbox: undefined,
+  };
+
+  const handleToggleCcwTool = async (tool: string, enabled: boolean) => {
+    const updatedTools = enabled
+      ? [...ccwConfig.enabledTools, tool]
+      : ccwConfig.enabledTools.filter((t) => t !== tool);
+    await updateCcwConfig({ enabledTools: updatedTools });
+    ccwMcpQuery.refetch();
+  };
+
+  const handleUpdateCcwConfig = async (config: Partial<CcwMcpConfig>) => {
+    await updateCcwConfig(config);
+    ccwMcpQuery.refetch();
+  };
+
+  const handleCcwInstall = () => {
+    ccwMcpQuery.refetch();
   };
 
   // Filter servers by search query
@@ -231,6 +322,21 @@ export function McpManagerPage() {
     s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.command.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Filter Codex servers by search query
+  const codexServers = codexQuery.data?.servers ?? [];
+  const codexConfigPath = codexQuery.data?.configPath ?? '';
+  const filteredCodexServers = codexServers.filter((s) =>
+    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.command.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const currentServers = cliMode === 'codex' ? filteredCodexServers : filteredServers;
+  const currentExpanded = cliMode === 'codex' ? codexExpandedServers : expandedServers;
+  const currentToggleExpand = cliMode === 'codex' ? toggleCodexExpand : toggleExpand;
+  const currentIsLoading = cliMode === 'codex' ? codexQuery.isLoading : isLoading;
+  const currentIsFetching = cliMode === 'codex' ? codexQuery.isFetching : isFetching;
+  const currentRefetch = cliMode === 'codex' ? (() => codexQuery.refetch()) : refetch;
 
   return (
     <div className="space-y-6">
@@ -246,51 +352,102 @@ export function McpManagerPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
-            <RefreshCw className={cn('w-4 h-4 mr-2', isFetching && 'animate-spin')} />
+          <Button variant="outline" onClick={() => currentRefetch()} disabled={currentIsFetching}>
+            <RefreshCw className={cn('w-4 h-4 mr-2', currentIsFetching && 'animate-spin')} />
             {formatMessage({ id: 'common.actions.refresh' })}
           </Button>
-          <Button>
-            <Plus className="w-4 h-4 mr-2" />
-            {formatMessage({ id: 'mcp.actions.add' })}
-          </Button>
+          {cliMode === 'claude' && (
+            <Button onClick={handleAddClick}>
+              <Plus className="w-4 h-4 mr-2" />
+              {formatMessage({ id: 'mcp.actions.add' })}
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <div className="flex items-center gap-2">
-            <Server className="w-5 h-5 text-primary" />
-            <span className="text-2xl font-bold">{totalCount}</span>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'mcp.stats.total' })}</p>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-2">
-            <Power className="w-5 h-5 text-green-600" />
-            <span className="text-2xl font-bold">{enabledCount}</span>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'mcp.stats.enabled' })}</p>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-2">
-            <Globe className="w-5 h-5 text-info" />
-            <span className="text-2xl font-bold">{globalServers.length}</span>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'mcp.stats.global' })}</p>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-2">
-            <Folder className="w-5 h-5 text-warning" />
-            <span className="text-2xl font-bold">{projectServers.length}</span>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'mcp.stats.project' })}</p>
-        </Card>
-      </div>
+      {/* CLI Mode Toggle */}
+      <CliModeToggle
+        currentMode={cliMode}
+        onModeChange={handleModeChange}
+        codexConfigPath={codexConfigPath}
+      />
 
-      {/* Filters and Search */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      {/* Stats Cards - Claude mode only */}
+      {cliMode === 'claude' && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="p-4">
+            <div className="flex items-center gap-2">
+              <Server className="w-5 h-5 text-primary" />
+              <span className="text-2xl font-bold">{totalCount}</span>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'mcp.stats.total' })}</p>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center gap-2">
+              <Power className="w-5 h-5 text-green-600" />
+              <span className="text-2xl font-bold">{enabledCount}</span>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'mcp.stats.enabled' })}</p>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center gap-2">
+              <Globe className="w-5 h-5 text-info" />
+              <span className="text-2xl font-bold">{globalServers.length}</span>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'mcp.stats.global' })}</p>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center gap-2">
+              <Folder className="w-5 h-5 text-warning" />
+              <span className="text-2xl font-bold">{projectServers.length}</span>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'mcp.stats.project' })}</p>
+          </Card>
+        </div>
+      )}
+
+      {/* Filters and Search - Claude mode only */}
+      {cliMode === 'claude' && (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder={formatMessage({ id: 'mcp.filters.searchPlaceholder' })}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant={scopeFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setScopeFilter('all')}
+            >
+              {formatMessage({ id: 'mcp.filters.all' })}
+            </Button>
+            <Button
+              variant={scopeFilter === 'global' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setScopeFilter('global')}
+            >
+              <Globe className="w-4 h-4 mr-1" />
+              {formatMessage({ id: 'mcp.scope.global' })}
+            </Button>
+            <Button
+              variant={scopeFilter === 'project' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setScopeFilter('project')}
+            >
+              <Folder className="w-4 h-4 mr-1" />
+              {formatMessage({ id: 'mcp.scope.project' })}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Codex mode search only */}
+      {cliMode === 'codex' && (
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -300,41 +457,30 @@ export function McpManagerPage() {
             className="pl-9"
           />
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant={scopeFilter === 'all' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setScopeFilter('all')}
-          >
-            {formatMessage({ id: 'mcp.filters.all' })}
-          </Button>
-          <Button
-            variant={scopeFilter === 'global' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setScopeFilter('global')}
-          >
-            <Globe className="w-4 h-4 mr-1" />
-            {formatMessage({ id: 'mcp.scope.global' })}
-          </Button>
-          <Button
-            variant={scopeFilter === 'project' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setScopeFilter('project')}
-          >
-            <Folder className="w-4 h-4 mr-1" />
-            {formatMessage({ id: 'mcp.scope.project' })}
-          </Button>
-        </div>
-      </div>
+      )}
+
+      {/* CCW Tools MCP Card - Claude mode only */}
+      {cliMode === 'claude' && (
+        <CcwToolsMcpCard
+          isInstalled={ccwConfig.isInstalled}
+          enabledTools={ccwConfig.enabledTools}
+          projectRoot={ccwConfig.projectRoot}
+          allowedDirs={ccwConfig.allowedDirs}
+          disableSandbox={ccwConfig.disableSandbox}
+          onToggleTool={handleToggleCcwTool}
+          onUpdateConfig={handleUpdateCcwConfig}
+          onInstall={handleCcwInstall}
+        />
+      )}
 
       {/* Servers List */}
-      {isLoading ? (
+      {currentIsLoading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
           ))}
         </div>
-      ) : filteredServers.length === 0 ? (
+      ) : currentServers.length === 0 ? (
         <Card className="p-8 text-center">
           <Server className="w-12 h-12 mx-auto text-muted-foreground/50" />
           <h3 className="mt-4 text-lg font-medium text-foreground">{formatMessage({ id: 'mcp.emptyState.title' })}</h3>
@@ -344,18 +490,39 @@ export function McpManagerPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {filteredServers.map((server) => (
-            <McpServerCard
-              key={server.name}
-              server={server}
-              isExpanded={expandedServers.has(server.name)}
-              onToggleExpand={() => toggleExpand(server.name)}
-              onToggle={handleToggle}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
+          {currentServers.map((server) => (
+            cliMode === 'codex' ? (
+              <CodexMcpCard
+                key={server.name}
+                server={server as CodexMcpServer}
+                enabled={server.enabled}
+                isExpanded={currentExpanded.has(server.name)}
+                onToggleExpand={() => currentToggleExpand(server.name)}
+              />
+            ) : (
+              <McpServerCard
+                key={server.name}
+                server={server}
+                isExpanded={currentExpanded.has(server.name)}
+                onToggleExpand={() => currentToggleExpand(server.name)}
+                onToggle={handleToggle}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            )
           ))}
         </div>
+      )}
+
+      {/* Add/Edit Dialog - Claude mode only */}
+      {cliMode === 'claude' && (
+        <McpServerDialog
+          mode={editingServer ? 'edit' : 'add'}
+          server={editingServer}
+          open={dialogOpen}
+          onClose={handleDialogClose}
+          onSave={handleDialogSave}
+        />
       )}
     </div>
   );

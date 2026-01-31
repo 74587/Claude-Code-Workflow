@@ -1,0 +1,21 @@
+{
+  "title": {
+    "colorScheme": "颜色主题",
+    "themeMode": "明暗模式"
+  },
+  "colorScheme": {
+    "blue": "经典蓝",
+    "green": "深邃绿",
+    "orange": "活力橙",
+    "purple": "优雅紫"
+  },
+  "themeMode": {
+    "light": "浅色",
+    "dark": "深色"
+  },
+  "select": {
+    "colorScheme": "选择{name}主题",
+    "themeMode": "选择{name}模式"
+  },
+  "current": "当前主题: {name}"
+}

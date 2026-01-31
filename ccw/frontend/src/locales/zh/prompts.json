@@ -1,0 +1,74 @@
+{
+  "title": "提示历史",
+  "description": "查看和分析您的提示历史记录，获取 AI 洞察",
+  "searchPlaceholder": "搜索提示...",
+  "filterByIntent": "按意图筛选",
+  "intents": {
+    "all": "所有意图",
+    "intent": "意图",
+    "bug-fix": "修复",
+    "feature": "功能",
+    "refactor": "重构",
+    "document": "文档",
+    "analyze": "分析"
+  },
+  "stats": {
+    "totalCount": "总提示数",
+    "totalCountDesc": "所有存储的提示",
+    "avgLength": "平均长度",
+    "avgLengthDesc": "平均字符数",
+    "topIntent": "主要意图",
+    "topIntentDesc": "最常用的类别",
+    "noIntent": "无"
+  },
+  "card": {
+    "untitled": "未命名提示",
+    "used": "已使用 {count} 次"
+  },
+  "timeline": {
+    "ungrouped": "未分组",
+    "session": "会话: {session}"
+  },
+  "actions": {
+    "copy": "复制提示",
+    "copied": "已复制!",
+    "delete": "删除",
+    "expand": "展开",
+    "collapse": "收起"
+  },
+  "insights": {
+    "title": "AI 洞察",
+    "analyze": "分析",
+    "analyzing": "正在分析提示...",
+    "selectTool": "选择工具",
+    "confidence": "置信度",
+    "empty": {
+      "title": "暂无洞察",
+      "message": "运行分析以获取关于您提示模式的 AI 驱动洞察和改进建议。"
+    },
+    "sections": {
+      "insights": "洞察",
+      "patterns": "检测到的模式",
+      "suggestions": "建议"
+    }
+  },
+  "suggestions": {
+    "types": {
+      "refactor": "重构",
+      "optimize": "优化",
+      "fix": "修复",
+      "document": "文档"
+    },
+    "effort": "工作量"
+  },
+  "dialog": {
+    "deleteTitle": "删除提示",
+    "deleteConfirm": "确定要删除此提示吗？此操作无法撤销。"
+  },
+  "emptyState": {
+    "title": "未找到提示",
+    "message": "没有提示匹配当前筛选条件。",
+    "noPrompts": "暂无提示",
+    "createFirst": "创建您的第一个提示以开始构建历史记录"
+  }
+}

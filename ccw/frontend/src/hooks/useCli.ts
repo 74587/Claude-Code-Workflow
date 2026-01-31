@@ -349,8 +349,11 @@ export function useToggleHook() {
 import {
   fetchRules,
   toggleRule,
+  createRule as createRuleApi,
+  deleteRule as deleteRuleApi,
   type Rule,
   type RulesResponse,
+  type RuleCreateInput,
 } from '../lib/api';
 
 export const rulesKeys = {
@@ -443,6 +446,67 @@ export function useToggleRule() {
   return {
     toggleRule: (ruleId: string, enabled: boolean) => mutation.mutateAsync({ ruleId, enabled }),
     isToggling: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+export function useCreateRule() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (input: RuleCreateInput) => createRuleApi(input),
+    onSuccess: (newRule) => {
+      queryClient.setQueryData<RulesResponse>(rulesKeys.lists(), (old) => {
+        if (!old) return { rules: [newRule] };
+        return {
+          rules: [newRule, ...old.rules],
+        };
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: rulesKeys.all });
+    },
+  });
+
+  return {
+    createRule: mutation.mutateAsync,
+    isCreating: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+export function useDeleteRule() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: ({ ruleId, location }: { ruleId: string; location?: string }) =>
+      deleteRuleApi(ruleId, location),
+    onMutate: async ({ ruleId }) => {
+      await queryClient.cancelQueries({ queryKey: rulesKeys.all });
+      const previousRules = queryClient.getQueryData<RulesResponse>(rulesKeys.lists());
+
+      queryClient.setQueryData<RulesResponse>(rulesKeys.lists(), (old) => {
+        if (!old) return old;
+        return {
+          rules: old.rules.filter((r) => r.id !== ruleId),
+        };
+      });
+
+      return { previousRules };
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.previousRules) {
+        queryClient.setQueryData(rulesKeys.lists(), context.previousRules);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: rulesKeys.all });
+    },
+  });
+
+  return {
+    deleteRule: (ruleId: string, location?: string) => mutation.mutateAsync({ ruleId, location }),
+    isDeleting: mutation.isPending,
     error: mutation.error,
   };
 }

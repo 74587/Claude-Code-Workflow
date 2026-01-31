@@ -97,7 +97,7 @@ When task JSON contains implementation_approach array:
   - L1 (Unit): `*.test.*`, `*.spec.*` in `__tests__/`, `tests/unit/`
   - L2 (Integration): `tests/integration/`, `*.integration.test.*`
   - L3 (E2E): `tests/e2e/`, `*.e2e.test.*`, `cypress/`, `playwright/`
-- **context-package.json** (CCW Workflow): Use Read tool to get context package from `.workflow/active/{session}/.process/context-package.json`
+- **context-package.json** : Use Read tool to get context package from `.workflow/active/{session}/.process/context-package.json`
 - Identify test commands from project configuration
 
 ```bash

@@ -12,6 +12,7 @@ import type {
   WebSocketStatus,
   WebSocketMessage,
 } from '../types/store';
+import type { SurfaceUpdate } from '../packages/a2ui-runtime/core/A2UITypes';
 
 // Constants
 const NOTIFICATION_STORAGE_KEY = 'ccw_notifications';
@@ -70,6 +71,9 @@ const initialState: NotificationState = {
 
   // Persistent notifications (stored in localStorage)
   persistentNotifications: [],
+
+  // A2UI surfaces
+  a2uiSurfaces: new Map<string, SurfaceUpdate>(),
 };
 
 export const useNotificationStore = create<NotificationStore>()(
@@ -222,6 +226,113 @@ export const useNotificationStore = create<NotificationStore>()(
       savePersistentNotifications: () => {
         const state = get();
         saveToStorage(state.persistentNotifications);
+      },
+
+      markAllAsRead: () => {
+        set(
+          (state) => ({
+            persistentNotifications: state.persistentNotifications.map((n) => ({
+              ...n,
+              read: true,
+            })),
+          }),
+          false,
+          'markAllAsRead'
+        );
+
+        // Also save to localStorage
+        const state = get();
+        saveToStorage(state.persistentNotifications);
+      },
+
+      // ========== A2UI Actions ==========
+
+      addA2UINotification: (surface: SurfaceUpdate, title = 'A2UI Surface') => {
+        const id = generateId();
+        const newToast: Toast = {
+          id,
+          type: 'a2ui',
+          title,
+          timestamp: new Date().toISOString(),
+          dismissible: true,
+          duration: 0, // Persistent by default
+          a2uiSurface: surface,
+          a2uiState: surface.initialState || {},
+        };
+
+        set(
+          (state) => {
+            // Add to toasts array
+            const { maxToasts } = state;
+            let newToasts = [...state.toasts, newToast];
+            if (newToasts.length > maxToasts) {
+              newToasts = newToasts.slice(-maxToasts);
+            }
+
+            // Store surface in a2uiSurfaces Map
+            const newSurfaces = new Map(state.a2uiSurfaces);
+            newSurfaces.set(surface.surfaceId, surface);
+
+            return {
+              toasts: newToasts,
+              a2uiSurfaces: newSurfaces,
+            };
+          },
+          false,
+          'addA2UINotification'
+        );
+
+        return id;
+      },
+
+      updateA2UIState: (surfaceId: string, updates: Record<string, unknown>) => {
+        set(
+          (state) => {
+            // Update a2uiSurfaces Map
+            const newSurfaces = new Map(state.a2uiSurfaces);
+            const surface = newSurfaces.get(surfaceId);
+            if (surface) {
+              // Update surface initial state
+              newSurfaces.set(surfaceId, {
+                ...surface,
+                initialState: { ...surface.initialState, ...updates } as Record<string, unknown>,
+              });
+            }
+
+            // Update notification's a2uiState
+            const newToasts = state.toasts.map((toast) => {
+              if (toast.a2uiSurface && toast.a2uiSurface.surfaceId === surfaceId) {
+                return {
+                  ...toast,
+                  a2uiState: { ...toast.a2uiState, ...updates },
+                };
+              }
+              return toast;
+            });
+
+            return {
+              toasts: newToasts,
+              a2uiSurfaces: newSurfaces,
+            };
+          },
+          false,
+          'updateA2UIState'
+        );
+      },
+
+      sendA2UIAction: (actionId: string, surfaceId: string, parameters = {}) => {
+        // This will be called by components to send actions via WebSocket
+        // The actual WebSocket send will be handled by the WebSocket manager
+        // For now, we just dispatch a custom event that the WebSocket handler can listen to
+        const event = new CustomEvent('a2ui-action', {
+          detail: {
+            type: 'a2ui-action',
+            actionId,
+            surfaceId,
+            parameters,
+          },
+        });
+        window.dispatchEvent(event);
       },
     }),
     { name: 'NotificationStore' }

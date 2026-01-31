@@ -39,7 +39,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 
 type DevIndexView = 'category' | 'timeline';
 
-// Helper function to format date
+// Helper function to format date (currently unused but kept for future use)
+// @ts-ignore - kept for potential future use
 function formatDate(dateString: string | undefined): string {
   if (!dateString) return '-';
   try {
@@ -61,6 +62,74 @@ export function ProjectOverviewPage() {
   const { formatMessage } = useIntl();
   const { projectOverview, isLoading, error, refetch } = useProjectOverview();
   const [devIndexView, setDevIndexView] = React.useState<DevIndexView>('category');
+
+  // Helper function to format date
+  function formatDate(dateString: string | undefined): string {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return '-';
+    }
+  }
+
+  // Define dev index categories (before any conditional logic)
+  const devIndexCategories = [
+    { key: 'feature', i18nKey: 'projectOverview.devIndex.category.features', icon: Sparkles, color: 'primary' },
+    { key: 'enhancement', i18nKey: 'projectOverview.devIndex.category.enhancements', icon: Zap, color: 'success' },
+    { key: 'bugfix', i18nKey: 'projectOverview.devIndex.category.bugfixes', icon: Bug, color: 'destructive' },
+    { key: 'refactor', i18nKey: 'projectOverview.devIndex.category.refactorings', icon: Wrench, color: 'warning' },
+    { key: 'docs', i18nKey: 'projectOverview.devIndex.category.documentation', icon: BookOpen, color: 'muted' },
+  ];
+
+  // Collect all entries for timeline (compute before any conditional logic)
+  const allDevEntries = React.useMemo(() => {
+    if (!projectOverview?.developmentIndex) return [];
+
+    const entries: Array<{
+      title: string;
+      description?: string;
+      type: string;
+      typeLabel: string;
+      typeIcon: React.ElementType;
+      typeColor: string;
+      date: string;
+      sessionId?: string;
+      sub_feature?: string;
+      tags?: string[];
+    }> = [];
+
+    devIndexCategories.forEach((cat) => {
+      (projectOverview.developmentIndex?.[cat.key] || []).forEach((entry: DevelopmentIndexEntry) => {
+        entries.push({
+          ...entry,
+          type: cat.key,
+          typeLabel: formatMessage({ id: cat.i18nKey }),
+          typeIcon: cat.icon,
+          typeColor: cat.color,
+          date: entry.archivedAt || entry.date || entry.implemented_at || '',
+        });
+      });
+    });
+
+    return entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [projectOverview?.developmentIndex]);
+
+  // Calculate totals for development index
+  const devIndexTotals = devIndexCategories.reduce((acc, cat) => {
+    acc[cat.key] = (projectOverview?.developmentIndex?.[cat.key] || []).length;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const totalEntries = Object.values(devIndexTotals).reduce((sum, count) => sum + count, 0);
+
+  // Calculate statistics
+  const totalFeatures = devIndexCategories.reduce((sum, cat) => sum + devIndexTotals[cat.key], 0);
 
   // Render loading state
   if (isLoading) {
@@ -107,58 +176,7 @@ export function ProjectOverviewPage() {
     );
   }
 
-  const { technologyStack, architecture, keyComponents, developmentIndex, guidelines, metadata } =
-    projectOverview;
-
-  // Calculate totals for development index
-  const devIndexCategories = [
-    { key: 'feature', label: 'Features', icon: Sparkles, color: 'primary' },
-    { key: 'enhancement', label: 'Enhancements', icon: Zap, color: 'success' },
-    { key: 'bugfix', label: 'Bug Fixes', icon: Bug, color: 'destructive' },
-    { key: 'refactor', label: 'Refactorings', icon: Wrench, color: 'warning' },
-    { key: 'docs', label: 'Documentation', icon: BookOpen, color: 'muted' },
-  ];
-
-  const devIndexTotals = devIndexCategories.reduce((acc, cat) => {
-    acc[cat.key] = (developmentIndex?.[cat.key] || []).length;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const totalEntries = Object.values(devIndexTotals).reduce((sum, count) => sum + count, 0);
-
-  // Collect all entries for timeline
-  const allDevEntries = React.useMemo(() => {
-    const entries: Array<{
-      title: string;
-      description?: string;
-      type: string;
-      typeLabel: string;
-      typeIcon: React.ElementType;
-      typeColor: string;
-      date: string;
-      sessionId?: string;
-      sub_feature?: string;
-      tags?: string[];
-    }> = [];
-
-    devIndexCategories.forEach((cat) => {
-      (developmentIndex?.[cat.key] || []).forEach((entry: DevelopmentIndexEntry) => {
-        entries.push({
-          ...entry,
-          type: cat.key,
-          typeLabel: cat.label,
-          typeIcon: cat.icon,
-          typeColor: cat.color,
-          date: entry.archivedAt || entry.date || entry.implemented_at || '',
-        });
-      });
-    });
-
-    return entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [developmentIndex, devIndexCategories]);
-
-  // Calculate statistics
-  const totalFeatures = devIndexCategories.reduce((sum, cat) => sum + devIndexTotals[cat.key], 0);
+  const { technologyStack, architecture, keyComponents, developmentIndex, guidelines, metadata } = projectOverview;
 
   return (
     <div className="space-y-6">
@@ -451,7 +469,7 @@ export function ProjectOverviewPage() {
                       <div key={cat.key}>
                         <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                           <Icon className="w-4 h-4" />
-                          <span>{cat.label}</span>
+                          <span>{formatMessage({ id: cat.i18nKey })}</span>
                           <Badge variant="secondary">{entries.length}</Badge>
                         </h4>
                         <div className="space-y-2">

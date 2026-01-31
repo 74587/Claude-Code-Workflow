@@ -1,0 +1,160 @@
+{
+  "title": "Hook Manager",
+  "description": "Manage CLI hooks for automated workflows",
+  "allTools": "All tools",
+  "trigger": {
+    "UserPromptSubmit": "User Prompt Submit",
+    "PreToolUse": "Pre Tool Use",
+    "PostToolUse": "Post Tool Use",
+    "Stop": "Stop"
+  },
+  "form": {
+    "name": "Hook Name",
+    "namePlaceholder": "my-hook",
+    "description": "Description",
+    "descriptionPlaceholder": "What does this hook do?",
+    "trigger": "Trigger Event",
+    "matcher": "Tool Matcher",
+    "matcherPlaceholder": "e.g., Write|Edit (optional)",
+    "matcherHelp": "Regex pattern to match tool names. Leave empty to match all tools.",
+    "command": "Command",
+    "commandPlaceholder": "echo 'Hello World'",
+    "commandHelp": "Shell command to execute. Use environment variables like $CLAUDE_TOOL_NAME."
+  },
+  "validation": {
+    "nameRequired": "Hook name is required",
+    "nameInvalid": "Hook name can only contain letters, numbers, hyphens, and underscores",
+    "triggerRequired": "Trigger event is required",
+    "commandRequired": "Command is required"
+  },
+  "actions": {
+    "add": "Add Hook",
+    "addFirst": "Create Your First Hook",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Are you sure you want to delete hook \"{hookName}\"?",
+    "enable": "Enable",
+    "disable": "Disable",
+    "expand": "Expand details",
+    "collapse": "Collapse details",
+    "expandAll": "Expand All",
+    "collapseAll": "Collapse All"
+  },
+  "dialog": {
+    "createTitle": "Create Hook",
+    "editTitle": "Edit Hook \"{hookName}\""
+  },
+  "stats": {
+    "total": "{count} total",
+    "enabled": "{count} enabled",
+    "count": "{enabled}/{total} hooks"
+  },
+  "filters": {
+    "searchPlaceholder": "Search hooks by name, description, or trigger..."
+  },
+  "empty": {
+    "title": "No hooks found",
+    "description": "Create your first hook to automate your CLI workflow",
+    "noHooksInEvent": "No hooks configured for this event"
+  },
+  "templates": {
+    "title": "Quick Install Templates",
+    "description": "One-click installation for common hook patterns",
+    "categories": {
+      "notification": "Notification",
+      "indexing": "Indexing",
+      "automation": "Automation"
+    },
+    "templates": {
+      "ccw-notify": {
+        "name": "CCW Dashboard Notify",
+        "description": "Send notifications to CCW dashboard when files are written"
+      },
+      "codexlens-update": {
+        "name": "CodexLens Auto-Update",
+        "description": "Update CodexLens index when files are written or edited"
+      },
+      "git-add": {
+        "name": "Auto Git Stage",
+        "description": "Automatically stage written files to git"
+      },
+      "lint-check": {
+        "name": "Auto ESLint",
+        "description": "Run ESLint on JavaScript/TypeScript files after write"
+      },
+      "log-tool": {
+        "name": "Tool Usage Logger",
+        "description": "Log all tool executions to a file for audit trail"
+      }
+    },
+    "actions": {
+      "install": "Install",
+      "installed": "Installed"
+    }
+  },
+  "wizards": {
+    "title": "Hook Wizard",
+    "launch": "Wizard",
+    "sectionTitle": "Hook Wizards",
+    "sectionDescription": "Create hooks with guided step-by-step wizards",
+    "platform": {
+      "detected": "Detected Platform",
+      "compatible": "Compatible",
+      "incompatible": "Incompatible",
+      "compatibilityError": "This hook is not compatible with your platform",
+      "compatibilityWarning": "Some features may not work on your platform"
+    },
+    "steps": {
+      "triggerEvent": "This hook will trigger on",
+      "review": {
+        "title": "Review Configuration",
+        "description": "Review your hook configuration before creating",
+        "hookType": "Hook Type",
+        "trigger": "Trigger Event",
+        "platform": "Platform",
+        "commandPreview": "Command Preview"
+      }
+    },
+    "navigation": {
+      "previous": "Previous",
+      "next": "Next",
+      "create": "Create Hook",
+      "creating": "Creating..."
+    },
+    "memoryUpdate": {
+      "title": "Memory Update Wizard",
+      "description": "Configure hook to update CLAUDE.md on session end",
+      "shortDescription": "Update CLAUDE.md automatically",
+      "claudePath": "CLAUDE.md Path",
+      "updateFrequency": "Update Frequency",
+      "frequency": {
+        "sessionEnd": "Session End",
+        "hourly": "Hourly",
+        "daily": "Daily"
+      }
+    },
+    "dangerProtection": {
+      "title": "Danger Protection Wizard",
+      "description": "Configure confirmation hook for dangerous operations",
+      "shortDescription": "Confirm dangerous operations",
+      "keywords": "Dangerous Keywords",
+      "keywordsHelp": "Enter one keyword per line",
+      "confirmationMessage": "Confirmation Message",
+      "allowBypass": "Allow bypass with --force flag"
+    },
+    "skillContext": {
+      "title": "SKILL Context Wizard",
+      "description": "Configure hook to load SKILL based on prompt keywords",
+      "shortDescription": "Auto-load SKILL based on keywords",
+      "loadingSkills": "Loading available skills...",
+      "keywordPlaceholder": "Enter keyword",
+      "selectSkill": "Select skill",
+      "addPair": "Add Keyword-Skill Pair",
+      "priority": "Priority",
+      "priorityHigh": "High",
+      "priorityMedium": "Medium",
+      "priorityLow": "Low",
+      "keywordMappings": "Keyword Mappings"
+    }
+  }
+}

@@ -129,5 +129,34 @@
     "prompt": "提示词",
     "output": "输出",
     "details": "详情"
+  },
+  "streamPanel": {
+    "turns": "回合",
+    "perTurnView": "分回合视图",
+    "concatenatedView": "连接视图",
+    "userPrompt": "用户提示词",
+    "assistantResponse": "助手响应",
+    "errors": "错误",
+    "truncatedNotice": "输出因大小限制被截断。",
+    "latest": "最新",
+    "copyId": "复制 ID",
+    "copyPrompt": "复制提示词",
+    "concatenatedPrompt": "连接提示词",
+    "newRequest": "新请求",
+    "noOutput": "[无输出]",
+    "yourNextPrompt": "[您的下一条提示词]",
+    "conversationHistory": "对话历史",
+    "loading": "加载中...",
+    "noDetails": "无执行详情"
+  },
+  "details": {
+    "turn": "回合",
+    "tool": "工具",
+    "mode": "模式",
+    "duration": "时长",
+    "created": "创建时间",
+    "id": "ID",
+    "timestamp": "时间戳",
+    "status": "状态"
   }
 }

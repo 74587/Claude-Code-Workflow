@@ -1,0 +1,79 @@
+{
+  "title": "Rules Manager",
+  "description": "Manage Claude Code memory rules and configurations",
+  "severity": {
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Info"
+  },
+  "location": {
+    "project": "Project",
+    "user": "User"
+  },
+  "actions": {
+    "edit": "Edit",
+    "delete": "Delete",
+    "create": "Create Rule",
+    "update": "Update Rule",
+    "toggle": "Toggle Enabled",
+    "enable": "Enable Rule",
+    "disable": "Disable Rule"
+  },
+  "filters": {
+    "all": "All",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "location": "Location",
+    "category": "Category"
+  },
+  "searchPlaceholder": "Search rules...",
+  "emptyState": {
+    "title": "No Rules Found",
+    "message": "No rules match your current filter.",
+    "createFirst": "Create your first rule to get started"
+  },
+  "card": {
+    "pattern": "Pattern",
+    "subdirectory": "Directory"
+  },
+  "dialog": {
+    "addTitle": "Create New Rule",
+    "editTitle": "Edit Rule: {name}",
+    "deleteTitle": "Delete Rule",
+    "deleteConfirm": "Are you sure you want to delete this rule? This action cannot be undone.",
+    "description": "Configure Claude Code memory rules to guide AI behavior",
+    "form": {
+      "name": "Rule Name",
+      "namePlaceholder": "e.g., Code Style Guide",
+      "description": "Description",
+      "descriptionPlaceholder": "Brief description of what this rule enforces",
+      "category": "Category",
+      "severity": "Severity",
+      "fileName": "File Name",
+      "fileNamePlaceholder": "rule-name.md",
+      "location": "Location",
+      "subdirectory": "Subdirectory (optional)",
+      "subdirectoryPlaceholder": "e.g., coding/security",
+      "pattern": "File Pattern (optional)",
+      "patternPlaceholder": "e.g., src/**/*.ts",
+      "content": "Rule Content",
+      "contentPlaceholder": "Enter the rule content in markdown format...",
+      "enabled": "Enabled"
+    },
+    "validation": {
+      "nameRequired": "Rule name is required",
+      "fileNameRequired": "File name is required",
+      "fileNameMd": "File name must end with .md",
+      "locationRequired": "Location is required",
+      "contentRequired": "Rule content is required"
+    },
+    "actions": {
+      "saving": "Saving..."
+    }
+  },
+  "status": {
+    "creating": "Creating...",
+    "updating": "Updating...",
+    "deleting": "Deleting..."
+  }
+}

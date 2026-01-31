@@ -1,0 +1,45 @@
+{
+  "title": "Code Index",
+  "description": "Manage the code search index for faster navigation and code discovery",
+  "sections": {
+    "status": "Status",
+    "actions": "Actions",
+    "settings": "Settings"
+  },
+  "status": {
+    "idle": "Idle",
+    "building": "Building",
+    "completed": "Ready",
+    "failed": "Failed"
+  },
+  "actions": {
+    "rebuild": "Rebuild Index",
+    "rebuildFull": "Full Rebuild",
+    "cancel": "Cancel"
+  },
+  "stats": {
+    "totalFiles": "Total Files",
+    "totalFilesDesc": "Files in the index",
+    "lastUpdated": "Last Updated",
+    "lastUpdatedDesc": "When the index was last built",
+    "buildTime": "Build Time",
+    "buildTimeDesc": "Time taken for last build",
+    "never": "Never indexed"
+  },
+  "time": {
+    "justNow": "Just now",
+    "minutesAgo": "{value}m ago",
+    "hoursAgo": "{value}h ago",
+    "daysAgo": "{value}d ago"
+  },
+  "errors": {
+    "rebuildFailed": "Index rebuild failed",
+    "loadFailed": "Failed to load index status"
+  },
+  "settings": {
+    "autoRebuild": "Auto Rebuild",
+    "autoRebuildDesc": "Automatically rebuild index when code changes",
+    "rebuildInterval": "Rebuild Interval",
+    "rebuildIntervalDesc": "How often to check for code changes"
+  }
+}

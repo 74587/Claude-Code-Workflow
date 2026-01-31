@@ -15,11 +15,15 @@ import {
   Settings,
   User,
   LogOut,
+  Terminal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 import { useTheme } from '@/hooks';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { WorkspaceSelector } from '@/components/workspace/WorkspaceSelector';
+import { useCliStreamStore, selectActiveExecutionCount } from '@/stores/cliStreamStore';
 
 export interface HeaderProps {
   /** Callback to toggle mobile sidebar */
@@ -30,6 +34,8 @@ export interface HeaderProps {
   onRefresh?: () => void;
   /** Whether refresh is in progress */
   isRefreshing?: boolean;
+  /** Callback to open CLI monitor */
+  onCliMonitorClick?: () => void;
 }
 
 export function Header({
@@ -37,20 +43,17 @@ export function Header({
   projectPath = '',
   onRefresh,
   isRefreshing = false,
+  onCliMonitorClick,
 }: HeaderProps) {
   const { formatMessage } = useIntl();
   const { isDark, toggleTheme } = useTheme();
+  const activeCliCount = useCliStreamStore(selectActiveExecutionCount);
 
   const handleRefresh = useCallback(() => {
     if (onRefresh && !isRefreshing) {
       onRefresh();
     }
   }, [onRefresh, isRefreshing]);
-
-  // Get display path (truncate if too long)
-  const displayPath = projectPath.length > 40
-    ? '...' + projectPath.slice(-37)
-    : projectPath || formatMessage({ id: 'navigation.header.noProject' });
 
   return (
     <header
@@ -83,14 +86,24 @@ export function Header({
 
       {/* Right side - Actions */}
       <div className="flex items-center gap-2">
-        {/* Project path indicator */}
-        {projectPath && (
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md text-sm text-muted-foreground max-w-[300px]">
-            <span className="truncate" title={projectPath}>
-              {displayPath}
-            </span>
-          </div>
-        )}
+        {/* CLI Monitor button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onCliMonitorClick}
+          className="gap-2"
+        >
+          <Terminal className="h-4 w-4" />
+          <span className="hidden sm:inline">CLI Monitor</span>
+          {activeCliCount > 0 && (
+            <Badge variant="default" className="h-5 px-1.5 text-xs">
+              {activeCliCount}
+            </Badge>
+          )}
+        </Button>
+
+        {/* Workspace selector */}
+        {projectPath && <WorkspaceSelector />}
 
         {/* Refresh button */}
         {onRefresh && (

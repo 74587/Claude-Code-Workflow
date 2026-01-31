@@ -579,8 +579,8 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         if (await handleGraphRoutes(routeContext)) return;
       }
 
-      // CCW routes (/api/ccw/*)
-      if (pathname.startsWith('/api/ccw/')) {
+      // CCW routes (/api/ccw and /api/ccw/*)
+      if (pathname.startsWith('/api/ccw')) {
         if (await handleCcwRoutes(routeContext)) return;
       }
 

@@ -1,0 +1,29 @@
+{
+  "selector": {
+    "noWorkspace": "No workspace selected",
+    "recentPaths": "Recent Projects",
+    "noRecentPaths": "No recent projects",
+    "current": "Current",
+    "browse": "Select Folder...",
+    "removePath": "Remove from recent",
+    "ariaLabel": "Workspace selector"
+  },
+  "dialog": {
+    "title": "Select Project Folder",
+    "placeholder": "Enter project path...",
+    "help": "The path to your project directory"
+  },
+  "actions": {
+    "switch": "Switch Workspace",
+    "switchFailed": "Failed to switch workspace",
+    "switchSuccess": "Successfully switched to {path}"
+  },
+  "validation": {
+    "pathRequired": "Project path is required",
+    "invalidPath": "Invalid project path: {path}"
+  },
+  "notifications": {
+    "switching": "Switching workspace...",
+    "refreshing": "Refreshing recent paths..."
+  }
+}

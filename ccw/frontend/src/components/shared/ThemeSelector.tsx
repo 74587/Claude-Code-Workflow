@@ -1,4 +1,5 @@
 import React from 'react';
+import { useIntl } from 'react-intl';
 import { useTheme } from '@/hooks/useTheme';
 import { COLOR_SCHEMES, THEME_MODES, getThemeName } from '@/lib/theme';
 import type { ColorScheme, ThemeMode } from '@/lib/theme';
@@ -16,6 +17,7 @@ import type { ColorScheme, ThemeMode } from '@/lib/theme';
  * - System dark mode detection
  */
 export function ThemeSelector() {
+  const { formatMessage } = useIntl();
   const { colorScheme, resolvedTheme, setColorScheme, setTheme } = useTheme();
 
   // Resolved mode is either 'light' or 'dark'
@@ -48,7 +50,7 @@ export function ThemeSelector() {
       {/* Color Scheme Selection */}
       <div>
         <h3 className="text-sm font-medium text-text mb-3">
-          颜色主题
+          {formatMessage({ id: 'theme.title.colorScheme' })}
         </h3>
         <div
           className="grid grid-cols-4 gap-3"
@@ -60,7 +62,7 @@ export function ThemeSelector() {
             <button
               key={scheme.id}
               onClick={() => handleSchemeSelect(scheme.id)}
-              aria-label={`选择${scheme.name}主题`}
+              aria-label={formatMessage({ id: 'theme.select.colorScheme' }, { name: formatMessage({ id: `theme.colorScheme.${scheme.id}` }) })}
               aria-selected={colorScheme === scheme.id}
               role="radio"
               className={`
@@ -81,7 +83,7 @@ export function ThemeSelector() {
               />
               {/* Label */}
               <span className="text-xs font-medium text-text text-center">
-                {scheme.name}
+                {formatMessage({ id: `theme.colorScheme.${scheme.id}` })}
               </span>
             </button>
           ))}
@@ -91,7 +93,7 @@ export function ThemeSelector() {
       {/* Theme Mode Selection */}
       <div>
         <h3 className="text-sm font-medium text-text mb-3">
-          明暗模式
+          {formatMessage({ id: 'theme.title.themeMode' })}
         </h3>
         <div
           className="grid grid-cols-2 gap-3"
@@ -102,7 +104,7 @@ export function ThemeSelector() {
             <button
               key={modeOption.id}
               onClick={() => handleModeSelect(modeOption.id)}
-              aria-label={`选择${modeOption.name}模式`}
+              aria-label={formatMessage({ id: 'theme.select.themeMode' }, { name: formatMessage({ id: `theme.themeMode.${modeOption.id}` }) })}
               aria-selected={mode === modeOption.id}
               role="radio"
               className={`
@@ -121,7 +123,7 @@ export function ThemeSelector() {
               </span>
               {/* Label */}
               <span className="text-sm font-medium text-text">
-                {modeOption.name}
+                {formatMessage({ id: `theme.themeMode.${modeOption.id}` })}
               </span>
             </button>
           ))}
@@ -131,7 +133,7 @@ export function ThemeSelector() {
       {/* Current Theme Display */}
       <div className="p-3 rounded-lg bg-surface border border-border">
         <p className="text-xs text-text-secondary">
-          当前主题: <span className="font-medium text-text">{getThemeName(colorScheme, mode)}</span>
+          {formatMessage({ id: 'theme.current' }, { name: getThemeName(colorScheme, mode) })}
         </p>
       </div>
     </div>

@@ -168,6 +168,9 @@ export interface WorkflowState {
   // Filters and sorting
   filters: WorkflowFilters;
   sorting: WorkflowSorting;
+
+  // Query invalidation callback (internal)
+  _invalidateQueriesCallback?: () => void;
 }
 
 export interface WorkflowActions {
@@ -198,6 +201,10 @@ export interface WorkflowActions {
   setProjectPath: (path: string) => void;
   addRecentPath: (path: string) => void;
   setServerPlatform: (platform: 'win32' | 'darwin' | 'linux') => void;
+  switchWorkspace: (path: string) => Promise<void>;
+  removeRecentPath: (path: string) => Promise<void>;
+  refreshRecentPaths: () => Promise<void>;
+  registerQueryInvalidator: (callback: () => void) => void;
 
   // Filters and sorting
   setFilters: (filters: Partial<WorkflowFilters>) => void;
@@ -282,9 +289,14 @@ export interface ConfigActions {
 
 export type ConfigStore = ConfigState & ConfigActions;
 
+// ========== A2UI Types Import ==========
+
+// Import A2UI types for notification store integration
+import type { SurfaceUpdate } from '../packages/a2ui-runtime/core/A2UITypes';
+
 // ========== Notification Store Types ==========
 
-export type ToastType = 'info' | 'success' | 'warning' | 'error';
+export type ToastType = 'info' | 'success' | 'warning' | 'error' | 'a2ui';
 export type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error' | 'reconnecting';
 
 export interface Toast {
@@ -295,10 +307,14 @@ export interface Toast {
   duration?: number; // milliseconds, 0 = persistent
   timestamp: string;
   dismissible?: boolean;
+  read?: boolean; // Track read status for persistent notifications
   action?: {
     label: string;
     onClick: () => void;
   };
+  // A2UI fields
+  a2uiSurface?: SurfaceUpdate; // A2UI surface data for type='a2ui'
+  a2uiState?: Record<string, unknown>; // A2UI component state
 }
 
 export interface WebSocketMessage {
@@ -324,6 +340,9 @@ export interface NotificationState {
 
   // Persistent notifications (stored in localStorage)
   persistentNotifications: Toast[];
+
+  // A2UI surfaces (Map of surfaceId to SurfaceUpdate)
+  a2uiSurfaces: Map<string, SurfaceUpdate>;
 }
 
 export interface NotificationActions {
@@ -348,6 +367,263 @@ export interface NotificationActions {
   clearPersistentNotifications: () => void;
   loadPersistentNotifications: () => void;
   savePersistentNotifications: () => void;
+  markAllAsRead: () => void;
+
+  // A2UI actions
+  addA2UINotification: (surface: SurfaceUpdate, title?: string) => string;
+  updateA2UIState: (surfaceId: string, state: Record<string, unknown>) => void;
+  sendA2UIAction: (actionId: string, surfaceId: string, parameters?: Record<string, unknown>) => void;
 }
 
 export type NotificationStore = NotificationState & NotificationActions;
+
+// ========== Index Manager Types ==========
+
+/**
+ * Index status information from backend
+ */
+export interface IndexStatus {
+  /** Total number of files indexed */
+  totalFiles: number;
+  /** Last index timestamp (ISO string) */
+  lastUpdated: string;
+  /** Time taken for last index build (ms) */
+  buildTime: number;
+  /** Current index status */
+  status: 'idle' | 'building' | 'completed' | 'failed';
+  /** Progress percentage (0-100) when building */
+  progress?: number;
+  /** Current file being indexed */
+  currentFile?: string;
+  /** Error message if status is failed */
+  error?: string;
+}
+
+/**
+ * Request body for index rebuild operation
+ */
+export interface IndexRebuildRequest {
+  /** Force full rebuild (default: false) */
+  force?: boolean;
+  /** Specific paths to index (empty = all) */
+  paths?: string[];
+}
+
+// ========== Rule Types ==========
+
+/**
+ * Rule configuration for Claude Code memory
+ */
+export interface Rule {
+  /** Unique rule identifier */
+  id: string;
+  /** Rule name (display name) */
+  name: string;
+  /** Rule description */
+  description?: string;
+  /** Whether rule is enabled */
+  enabled: boolean;
+  /** Rule category (e.g., coding, testing, security) */
+  category?: string;
+  /** File pattern for conditional rules */
+  pattern?: string;
+  /** Severity level for rule violations */
+  severity?: 'error' | 'warning' | 'info';
+  /** Rule file path (filesystem location) */
+  path?: string;
+  /** Rule location: project or user */
+  location?: 'project' | 'user';
+  /** Subdirectory path (if rule is in subdirectory) */
+  subdirectory?: string | null;
+}
+
+/**
+ * Input for creating a new rule
+ */
+export interface RuleCreateInput {
+  /** Rule name (display name) */
+  name: string;
+  /** Rule description */
+  description?: string;
+  /** Whether rule is enabled */
+  enabled?: boolean;
+  /** Rule category */
+  category?: string;
+  /** File pattern */
+  pattern?: string;
+  /** Severity level */
+  severity?: 'error' | 'warning' | 'info';
+  /** Rule content (markdown) */
+  content?: string;
+  /** File name (with .md extension) */
+  fileName: string;
+  /** Rule location */
+  location: 'project' | 'user';
+  /** Subdirectory path */
+  subdirectory?: string;
+  /** Paths for conditional rules */
+  paths?: string[];
+}
+
+/**
+ * Input for updating an existing rule
+ */
+export interface RuleUpdateInput {
+  /** Rule name */
+  name?: string;
+  /** Rule description */
+  description?: string;
+  /** Whether rule is enabled */
+  enabled?: boolean;
+  /** Rule category */
+  category?: string;
+  /** File pattern */
+  pattern?: string;
+  /** Severity level */
+  severity?: 'error' | 'warning' | 'info';
+}
+
+/**
+ * Response from rules list API
+ */
+export interface RulesResponse {
+  rules: Rule[];
+}
+
+// ========== Prompt Assistant Types ==========
+
+/**
+ * Prompt template with AI-generated insights
+ *
+ * @example
+ * ```typescript
+ * const prompt: Prompt = {
+ *   id: 'fix-bug',
+ *   title: 'Fix Bug',
+ *   content: 'PURPOSE: Fix bug in...',
+ *   category: 'bug-fix',
+ *   tags: ['bug', 'fix']
+ * };
+ * ```
+ */
+export interface Prompt {
+  /** Unique prompt identifier */
+  id: string;
+  /** Prompt title */
+  title: string;
+  /** Prompt content/template */
+  content: string;
+  /** Category for organization */
+  category?: string;
+  /** Search tags */
+  tags?: string[];
+  /** Usage count */
+  useCount?: number;
+  /** Last used timestamp */
+  lastUsed?: string;
+  /** Created timestamp */
+  createdAt: string;
+  /** Updated timestamp */
+  updatedAt?: string;
+}
+
+/**
+ * AI-generated insight for a prompt
+ *
+ * @example
+ * ```typescript
+ * const insight: PromptInsight = {
+ *   id: 'insight-1',
+ *   promptId: 'fix-bug',
+ *   type: 'suggestion',
+ *   content: 'Consider adding error handling',
+ *   confidence: 0.85
+ * };
+ * ```
+ */
+export interface PromptInsight {
+  /** Unique insight identifier */
+  id: string;
+  /** Associated prompt ID */
+  promptId: string;
+  /** Insight type */
+  type: 'suggestion' | 'optimization' | 'warning';
+  /** Insight content */
+  content: string;
+  /** Confidence score (0-1) */
+  confidence: number;
+  /** Generated timestamp */
+  timestamp: string;
+}
+
+/**
+ * Code pattern detected by AI analysis
+ *
+ * @example
+ * ```typescript
+ * const pattern: Pattern = {
+ *   id: 'react-use-effect-deps',
+ *   name: 'React useEffect Dependencies',
+ *   description: 'Missing dependencies in useEffect',
+ *   example: 'useEffect(() => { ... }, [count])',
+ *   severity: 'warning'
+ * };
+ * ```
+ */
+export interface Pattern {
+  /** Unique pattern identifier */
+  id: string;
+  /** Pattern name */
+  name: string;
+  /** Pattern description */
+  description: string;
+  /** Code example */
+  example?: string;
+  /** Severity level */
+  severity?: 'error' | 'warning' | 'info';
+  /** Related patterns */
+  relatedPatterns?: string[];
+  /** Applicable file extensions */
+  fileTypes?: string[];
+}
+
+/**
+ * AI-generated suggestion for code improvement
+ *
+ * @example
+ * ```typescript
+ * const suggestion: Suggestion = {
+ *   id: 'sugg-1',
+ *   type: 'refactor',
+ *   title: 'Extract to function',
+ *   description: 'This logic can be extracted into a reusable function',
+ *   code: 'function extractLogic() { ... }',
+ *   filePath: 'src/app.ts',
+ *   lineRange: { start: 10, end: 25 }
+ * };
+ * ```
+ */
+export interface Suggestion {
+  /** Unique suggestion identifier */
+  id: string;
+  /** Suggestion type */
+  type: 'refactor' | 'optimize' | 'fix' | 'document';
+  /** Suggestion title */
+  title: string;
+  /** Detailed description */
+  description: string;
+  /** Suggested code replacement */
+  code?: string;
+  /** Target file path */
+  filePath?: string;
+  /** Line range for the suggestion */
+  lineRange?: { start: number; end: number };
+  /** Confidence score (0-1) */
+  confidence?: number;
+  /** Estimated effort (low/medium/high) */
+  effort?: 'low' | 'medium' | 'high';
+  /** Generated timestamp */
+  timestamp: string;
+  /** Whether suggestion was applied */
+  applied?: boolean;
+}

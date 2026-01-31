@@ -14,6 +14,7 @@ import type {
   WorkflowFilters,
   WorkflowSorting,
 } from '../types/store';
+import { switchWorkspace as apiSwitchWorkspace, fetchRecentPaths, removeRecentPath as apiRemoveRecentPath } from '../lib/api';
 
 // Helper to generate session key from ID
 const sessionKey = (sessionId: string): string => {
@@ -363,6 +364,53 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
       setServerPlatform: (platform: 'win32' | 'darwin' | 'linux') => {
         set({ serverPlatform: platform }, false, 'setServerPlatform');
+      },
+
+      // ========== Workspace Actions ==========
+
+      switchWorkspace: async (path: string) => {
+        const response = await apiSwitchWorkspace(path);
+        const sessionDataStore: Record<string, SessionMetadata> = {};
+
+        // Build sessionDataStore from both arrays
+        [...response.activeSessions, ...response.archivedSessions].forEach((session) => {
+          const key = sessionKey(session.session_id);
+          sessionDataStore[key] = session;
+        });
+
+        set(
+          {
+            projectPath: response.projectPath,
+            recentPaths: response.recentPaths,
+            workflowData: {
+              activeSessions: response.activeSessions,
+              archivedSessions: response.archivedSessions,
+            },
+            sessionDataStore,
+          },
+          false,
+          'switchWorkspace'
+        );
+
+        // Trigger query invalidation callback
+        const callback = get()._invalidateQueriesCallback;
+        if (callback) {
+          callback();
+        }
+      },
+
+      removeRecentPath: async (path: string) => {
+        const updatedPaths = await apiRemoveRecentPath(path);
+        set({ recentPaths: updatedPaths }, false, 'removeRecentPath');
+      },
+
+      refreshRecentPaths: async () => {
+        const paths = await fetchRecentPaths();
+        set({ recentPaths: paths }, false, 'refreshRecentPaths');
+      },
+
+      registerQueryInvalidator: (callback: () => void) => {
+        set({ _invalidateQueriesCallback: callback }, false, 'registerQueryInvalidator');
       },
 
       // ========== Filters and Sorting ==========

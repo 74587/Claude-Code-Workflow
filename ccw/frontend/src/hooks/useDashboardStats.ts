@@ -5,6 +5,8 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchDashboardStats, type DashboardStats } from '../lib/api';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
+import { workspaceQueryKeys } from '@/lib/queryKeys';
 
 // Query key factory
 export const dashboardStatsKeys = {
@@ -64,12 +66,16 @@ export function useDashboardStats(
 ): UseDashboardStatsReturn {
   const { staleTime = STALE_TIME, enabled = true, refetchInterval = 0 } = options;
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
+
+  // Only enable query when projectPath is available
+  const queryEnabled = enabled && !!projectPath;
 
   const query = useQuery({
-    queryKey: dashboardStatsKeys.detail(),
+    queryKey: workspaceQueryKeys.projectOverview(projectPath),
     queryFn: fetchDashboardStats,
     staleTime,
-    enabled,
+    enabled: queryEnabled,
     refetchInterval: refetchInterval > 0 ? refetchInterval : false,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
@@ -80,7 +86,9 @@ export function useDashboardStats(
   };
 
   const invalidate = async () => {
-    await queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+    if (projectPath) {
+      await queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.all(projectPath) });
+    }
   };
 
   return {
@@ -100,12 +108,15 @@ export function useDashboardStats(
  */
 export function usePrefetchDashboardStats() {
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
 
   return () => {
-    queryClient.prefetchQuery({
-      queryKey: dashboardStatsKeys.detail(),
-      queryFn: fetchDashboardStats,
-      staleTime: STALE_TIME,
-    });
+    if (projectPath) {
+      queryClient.prefetchQuery({
+        queryKey: workspaceQueryKeys.projectOverview(projectPath),
+        queryFn: fetchDashboardStats,
+        staleTime: STALE_TIME,
+      });
+    }
   };
 }

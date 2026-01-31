@@ -21,7 +21,19 @@ import reviewSession from './review-session.json';
 import sessionDetail from './session-detail.json';
 import skills from './skills.json';
 import cliManager from './cli-manager.json';
+import cliMonitor from './cli-monitor.json';
 import mcpManager from './mcp-manager.json';
+import theme from './theme.json';
+import executionMonitor from './execution-monitor.json';
+import cliHooks from './cli-hooks.json';
+import index from './index.json';
+import rules from './rules.json';
+import prompts from './prompts.json';
+import explorer from './explorer.json';
+import graph from './graph.json';
+import notification from './notification.json';
+import notifications from './notifications.json';
+import workspace from './workspace.json';
 
 /**
  * Flattens nested JSON object to dot-separated keys
@@ -66,5 +78,17 @@ export default {
   ...flattenMessages(sessionDetail, 'sessionDetail'),
   ...flattenMessages(skills, 'skills'),
   ...flattenMessages(cliManager), // No prefix - has cliEndpoints, cliInstallations, etc. as top-level keys
+  ...flattenMessages(cliMonitor, 'cliMonitor'),
   ...flattenMessages(mcpManager, 'mcp'),
+  ...flattenMessages(theme, 'theme'),
+  ...flattenMessages(cliHooks, 'cliHooks'),
+  ...flattenMessages(executionMonitor, 'executionMonitor'),
+  ...flattenMessages(index, 'index'),
+  ...flattenMessages(rules, 'rules'),
+  ...flattenMessages(prompts, 'prompts'),
+  ...flattenMessages(explorer, 'explorer'),
+  ...flattenMessages(graph, 'graph'),
+  ...flattenMessages(notification, 'notificationPanel'),
+  ...flattenMessages(notifications, 'notifications'),
+  ...flattenMessages(workspace, 'workspace'),
 } as Record<string, string>;

@@ -30,7 +30,14 @@
   "devIndex": {
     "title": "Development History",
     "categories": "Categories",
-    "timeline": "Timeline"
+    "timeline": "Timeline",
+    "category": {
+      "features": "Features",
+      "enhancements": "Enhancements",
+      "bugfixes": "Bug Fixes",
+      "refactorings": "Refactorings",
+      "documentation": "Documentation"
+    }
   },
   "guidelines": {
     "title": "Project Guidelines",

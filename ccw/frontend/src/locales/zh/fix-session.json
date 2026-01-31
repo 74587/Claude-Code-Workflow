@@ -40,5 +40,8 @@
   "empty": {
     "title": "未找到任务",
     "message": "没有匹配当前筛选条件的修复任务。"
+  },
+  "phase": {
+    "execution": "执行"
   }
 }

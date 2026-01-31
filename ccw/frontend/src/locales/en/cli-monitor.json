@@ -1,0 +1,18 @@
+{
+  "title": "CLI Stream Monitor",
+  "searchPlaceholder": "Search output...",
+  "noExecutions": "No active CLI executions",
+  "noExecutionsHint": "Start a CLI command to see streaming output",
+  "selectExecution": "Select an execution to view output",
+  "status": {
+    "running": "Running",
+    "completed": "Completed",
+    "error": "Error"
+  },
+  "recovered": "Recovered",
+  "lines": "lines",
+  "autoScroll": "Auto-scroll",
+  "scrollToBottom": "Scroll to bottom",
+  "close": "Close",
+  "refresh": "Refresh"
+}

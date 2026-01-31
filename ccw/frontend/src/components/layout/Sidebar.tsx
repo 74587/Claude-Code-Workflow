@@ -22,6 +22,11 @@ import {
   LayoutDashboard,
   Clock,
   Zap,
+  GitFork,
+  Shield,
+  History,
+  Folder,
+  Network,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -58,7 +63,12 @@ const navItemDefinitions: Omit<NavItem, 'label'>[] = [
   { path: '/skills', icon: Sparkles },
   { path: '/commands', icon: Terminal },
   { path: '/memory', icon: Brain },
+  { path: '/prompts', icon: History },
+  { path: '/hooks', icon: GitFork },
+  { path: '/explorer', icon: Folder },
+  { path: '/graph', icon: Network },
   { path: '/settings', icon: Settings },
+  { path: '/settings/rules', icon: Shield },
   { path: '/help', icon: HelpCircle },
 ];
 
@@ -103,7 +113,12 @@ export function Sidebar({
       '/skills': 'main.skills',
       '/commands': 'main.commands',
       '/memory': 'main.memory',
+      '/prompts': 'main.prompts',
+      '/hooks': 'main.hooks',
+      '/explorer': 'main.explorer',
+      '/graph': 'main.graph',
       '/settings': 'main.settings',
+      '/settings/rules': 'main.rules',
       '/help': 'main.help',
     };
     return navItemDefinitions.map((item) => ({
@@ -127,12 +142,11 @@ export function Sidebar({
       <aside
         className={cn(
           'bg-sidebar-background border-r border-border flex flex-col transition-all duration-300',
-          // Desktop styles
-          'hidden md:flex sticky top-14 h-[calc(100vh-56px)]',
+          // Desktop styles - fixed position for floating behavior
+          'hidden md:flex fixed left-0 top-14 h-[calc(100vh-56px)] z-40',
           isCollapsed ? 'w-16' : 'w-64',
           // Mobile styles
-          'md:translate-x-0',
-          mobileOpen && 'fixed left-0 top-14 flex translate-x-0 z-50 h-[calc(100vh-56px)] w-64 shadow-lg'
+          mobileOpen && 'flex z-50 w-64 shadow-lg'
         )}
         role="navigation"
         aria-label={formatMessage({ id: 'navigation.header.brand' })}

@@ -1,0 +1,399 @@
+// ========================================
+// Hook Manager Page
+// ========================================
+// Full CRUD page for managing CLI hooks
+
+import { useState, useMemo } from 'react';
+import { useIntl } from 'react-intl';
+import {
+  GitFork,
+  Plus,
+  Search,
+  RefreshCw,
+  Zap,
+  Wrench,
+  CheckCircle,
+  StopCircle,
+  Wand2,
+  Brain,
+  Shield,
+  Sparkles,
+} from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { EventGroup, HookFormDialog, HookQuickTemplates, HookWizard, type HookCardData, type HookFormData, type HookTriggerType, HOOK_TEMPLATES, type WizardType } from '@/components/hook';
+import { useHooks, useToggleHook } from '@/hooks';
+import { installHookTemplate, createHook } from '@/lib/api';
+import { cn } from '@/lib/utils';
+
+// ========== Types ==========
+
+interface HooksByTrigger {
+  UserPromptSubmit: HookCardData[];
+  PreToolUse: HookCardData[];
+  PostToolUse: HookCardData[];
+  Stop: HookCardData[];
+}
+
+// ========== Helper Functions ==========
+
+function isHookTriggerType(value: string): value is HookTriggerType {
+  return ['UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop'].includes(value);
+}
+
+function toHookCardData(hook: { name: string; description?: string; enabled: boolean; trigger: string; matcher?: string; command?: string; script?: string }): HookCardData | null {
+  if (!isHookTriggerType(hook.trigger)) {
+    return null;
+  }
+  return {
+    name: hook.name,
+    description: hook.description,
+    enabled: hook.enabled,
+    trigger: hook.trigger,
+    matcher: hook.matcher,
+    command: hook.command || hook.script,
+  };
+}
+
+function groupHooksByTrigger(hooks: HookCardData[]): HooksByTrigger {
+  return {
+    UserPromptSubmit: hooks.filter((h) => h.trigger === 'UserPromptSubmit'),
+    PreToolUse: hooks.filter((h) => h.trigger === 'PreToolUse'),
+    PostToolUse: hooks.filter((h) => h.trigger === 'PostToolUse'),
+    Stop: hooks.filter((h) => h.trigger === 'Stop'),
+  };
+}
+
+function getTriggerStats(hooksByTrigger: HooksByTrigger) {
+  return {
+    UserPromptSubmit: {
+      total: hooksByTrigger.UserPromptSubmit.length,
+      enabled: hooksByTrigger.UserPromptSubmit.filter((h) => h.enabled).length,
+    },
+    PreToolUse: {
+      total: hooksByTrigger.PreToolUse.length,
+      enabled: hooksByTrigger.PreToolUse.filter((h) => h.enabled).length,
+    },
+    PostToolUse: {
+      total: hooksByTrigger.PostToolUse.length,
+      enabled: hooksByTrigger.PostToolUse.filter((h) => h.enabled).length,
+    },
+    Stop: {
+      total: hooksByTrigger.Stop.length,
+      enabled: hooksByTrigger.Stop.filter((h) => h.enabled).length,
+    },
+  };
+}
+
+// ========== Main Page Component ==========
+
+export function HookManagerPage() {
+  const { formatMessage } = useIntl();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
+  const [editingHook, setEditingHook] = useState<HookCardData | undefined>();
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardType, setWizardType] = useState<WizardType>('memory-update');
+
+  const { hooks, enabledCount, totalCount, isLoading, refetch } = useHooks();
+  const { toggleHook } = useToggleHook();
+
+  // Convert hooks to HookCardData and filter by search query
+  const filteredHooks = useMemo(() => {
+    const validHooks = hooks.map(toHookCardData).filter((h): h is HookCardData => h !== null);
+
+    if (!searchQuery.trim()) return validHooks;
+
+    const query = searchQuery.toLowerCase();
+    return validHooks.filter(
+      (h) =>
+        h.name.toLowerCase().includes(query) ||
+        (h.description && h.description.toLowerCase().includes(query)) ||
+        h.trigger.toLowerCase().includes(query) ||
+        (h.command && h.command.toLowerCase().includes(query))
+    );
+  }, [hooks, searchQuery]);
+
+  // Group hooks by trigger type
+  const hooksByTrigger = useMemo(() => groupHooksByTrigger(filteredHooks), [filteredHooks]);
+
+  // Get stats for each trigger type
+  const triggerStats = useMemo(() => getTriggerStats(hooksByTrigger), [hooksByTrigger]);
+
+  // Handlers
+  const handleAddClick = () => {
+    setDialogMode('create');
+    setEditingHook(undefined);
+    setDialogOpen(true);
+  };
+
+  const handleEditClick = (hook: HookCardData) => {
+    setDialogMode('edit');
+    setEditingHook(hook);
+    setDialogOpen(true);
+  };
+
+  const handleDeleteClick = async (hookName: string) => {
+    // This will be implemented when delete API is added
+    console.log('Delete hook:', hookName);
+  };
+
+  const handleSave = async (data: HookFormData) => {
+    // This will be implemented when create/update APIs are added
+    console.log('Save hook:', data);
+    await refetch();
+  };
+
+  // ========== Wizard Handlers ==========
+
+  const wizardTypes: Array<{ type: WizardType; icon: typeof Brain; label: string; description: string }> = [
+    {
+      type: 'memory-update',
+      icon: Brain,
+      label: formatMessage({ id: 'cliHooks.wizards.memoryUpdate.title' }),
+      description: formatMessage({ id: 'cliHooks.wizards.memoryUpdate.shortDescription' }),
+    },
+    {
+      type: 'danger-protection',
+      icon: Shield,
+      label: formatMessage({ id: 'cliHooks.wizards.dangerProtection.title' }),
+      description: formatMessage({ id: 'cliHooks.wizards.dangerProtection.shortDescription' }),
+    },
+    {
+      type: 'skill-context',
+      icon: Sparkles,
+      label: formatMessage({ id: 'cliHooks.wizards.skillContext.title' }),
+      description: formatMessage({ id: 'cliHooks.wizards.skillContext.shortDescription' }),
+    },
+  ];
+
+  const handleLaunchWizard = (type: WizardType) => {
+    setWizardType(type);
+    setWizardOpen(true);
+  };
+
+  const handleWizardComplete = async (hookConfig: {
+    name: string;
+    description: string;
+    trigger: string;
+    matcher?: string;
+    command: string;
+  }) => {
+    await createHook(hookConfig);
+    await refetch();
+  };
+
+  // ========== Quick Templates Logic ==========
+
+  // Determine which templates are already installed
+  const installedTemplates = useMemo(() => {
+    return HOOK_TEMPLATES.filter(template => {
+      return hooks.some(hook => {
+        // Check if hook name contains template ID
+        return hook.name.includes(template.id) ||
+               (hook.command && hook.command.includes(template.command));
+      });
+    }).map(t => t.id);
+  }, [hooks]);
+
+  // Mutation for installing templates
+  const installMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      return await installHookTemplate(templateId);
+    },
+    onSuccess: () => {
+      refetch();
+    },
+  });
+
+  const handleInstallTemplate = async (templateId: string) => {
+    await installMutation.mutateAsync(templateId);
+  };
+
+  const TRIGGER_TYPES: Array<{ type: HookTriggerType; icon: typeof Zap }> = [
+    { type: 'UserPromptSubmit', icon: Zap },
+    { type: 'PreToolUse', icon: Wrench },
+    { type: 'PostToolUse', icon: CheckCircle },
+    { type: 'Stop', icon: StopCircle },
+  ];
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-6">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <GitFork className="w-6 h-6 text-primary" />
+            {formatMessage({ id: 'cliHooks.title' })}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {formatMessage({ id: 'cliHooks.description' })}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isLoading}
+          >
+            <RefreshCw className={cn('w-4 h-4 mr-1', isLoading && 'animate-spin')} />
+            {formatMessage({ id: 'common.actions.refresh' })}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleAddClick}>
+            <Plus className="w-4 h-4 mr-1" />
+            {formatMessage({ id: 'cliHooks.actions.add' })}
+          </Button>
+          <Button size="sm" onClick={() => handleLaunchWizard('memory-update')} variant="secondary">
+            <Wand2 className="w-4 h-4 mr-1" />
+            {formatMessage({ id: 'cliHooks.wizards.launch' })}
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {TRIGGER_TYPES.map(({ type, icon: Icon }) => {
+          const stats = triggerStats[type];
+          return (
+            <Card key={type} className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Icon className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    {formatMessage({ id: `cliHooks.trigger.${type}` })}
+                  </p>
+                  <p className="text-lg font-semibold text-foreground">
+                    {stats.enabled}/{stats.total}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Search and Global Stats */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder={formatMessage({ id: 'cliHooks.filters.searchPlaceholder' })}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="flex items-center gap-4">
+            <Badge variant="outline" className="text-sm">
+              {formatMessage({ id: 'cliHooks.stats.total' }, { count: totalCount })}
+            </Badge>
+            <Badge variant="default" className="text-sm">
+              {formatMessage({ id: 'cliHooks.stats.enabled' }, { count: enabledCount })}
+            </Badge>
+          </div>
+        </div>
+      </Card>
+
+      {/* Quick Templates */}
+      <Card className="p-6">
+        <HookQuickTemplates
+          onInstallTemplate={handleInstallTemplate}
+          installedTemplates={installedTemplates}
+          isLoading={installMutation.isPending}
+        />
+      </Card>
+
+      {/* Wizard Launchers */}
+      <Card className="p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Wand2 className="w-5 h-5 text-primary" />
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">
+              {formatMessage({ id: 'cliHooks.wizards.sectionTitle' })}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {formatMessage({ id: 'cliHooks.wizards.sectionDescription' })}
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {wizardTypes.map(({ type, icon: Icon, label, description }) => (
+            <Card key={type} className="p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleLaunchWizard(type)}>
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                  <Icon className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-medium text-foreground mb-1">
+                    {label}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {description}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </Card>
+
+      {/* Event Groups */}
+      <div className="space-y-4">
+        {TRIGGER_TYPES.map(({ type }) => (
+          <EventGroup
+            key={type}
+            eventType={type}
+            hooks={hooksByTrigger[type]}
+            onHookToggle={(hookName, enabled) => toggleHook(hookName, enabled)}
+            onHookEdit={handleEditClick}
+            onHookDelete={handleDeleteClick}
+          />
+        ))}
+      </div>
+
+      {/* Empty State */}
+      {!isLoading && filteredHooks.length === 0 && (
+        <Card className="p-12 text-center">
+          <GitFork className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">
+            {formatMessage({ id: 'cliHooks.empty.title' })}
+          </h3>
+          <p className="text-muted-foreground mb-6">
+            {formatMessage({ id: 'cliHooks.empty.description' })}
+          </p>
+          <Button onClick={handleAddClick}>
+            <Plus className="w-4 h-4 mr-1" />
+            {formatMessage({ id: 'cliHooks.actions.addFirst' })}
+          </Button>
+        </Card>
+      )}
+
+      {/* Form Dialog */}
+      <HookFormDialog
+        mode={dialogMode}
+        hook={editingHook}
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onSave={handleSave}
+      />
+
+      {/* Hook Wizard */}
+      <HookWizard
+        wizardType={wizardType}
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onComplete={handleWizardComplete}
+      />
+    </div>
+  );
+}
+
+export default HookManagerPage;

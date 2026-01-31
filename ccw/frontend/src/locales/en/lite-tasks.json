@@ -19,6 +19,8 @@
     "title": "No tasks in this session",
     "message": "This session does not contain any tasks yet."
   },
+  "untitled": "Untitled Task",
+  "discussionTopic": "Discussion Topic",
   "notFound": {
     "title": "Lite Task Not Found",
     "message": "The requested lite task session could not be found."

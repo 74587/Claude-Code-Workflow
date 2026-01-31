@@ -34,6 +34,7 @@ import { useConfigStore, selectCliTools, selectDefaultCliTool, selectUserPrefere
 import type { CliToolConfig, UserPreferences } from '@/types/store';
 import { cn } from '@/lib/utils';
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher';
+import { IndexManager } from '@/components/shared/IndexManager';
 
 // ========== CLI Tool Card Component ==========
 
@@ -625,6 +626,9 @@ export function SettingsPage() {
 
       {/* Rules */}
       <RulesSection />
+
+      {/* Index Manager */}
+      <IndexManager />
 
       {/* Reset Settings */}
       <Card className="p-6 border-destructive/50">

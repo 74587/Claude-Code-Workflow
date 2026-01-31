@@ -59,5 +59,136 @@
     "timeline": "Timeline",
     "variables": "Variables",
     "realtime": "Real-time Updates"
+  },
+  "notifications": {
+    "flowCreated": "Flow Created",
+    "flowSaved": "Flow Saved",
+    "saveFailed": "Save Failed",
+    "flowLoaded": "Flow Loaded",
+    "loadFailed": "Load Failed",
+    "flowDeleted": "Flow Deleted",
+    "deleteFailed": "Delete Failed",
+    "flowDuplicated": "Flow Duplicated",
+    "duplicateFailed": "Duplicate Failed"
+  },
+  "templateLibrary": {
+    "title": "Template Library",
+    "description": "Browse and import workflow templates, or export your current flow as a template.",
+    "searchPlaceholder": "Search templates...",
+    "allCategories": "All",
+    "exportCurrent": "Export Current",
+    "close": "Close",
+    "errors": {
+      "loadFailed": "Failed to load templates"
+    },
+    "emptyState": {
+      "title": "No templates found",
+      "searchSuggestion": "Try a different search query"
+    },
+    "footer": {
+      "templateCount": "{count} template",
+      "templateCount_plural": "{count} templates"
+    },
+    "card": {
+      "nodes": "nodes",
+      "import": "Import",
+      "delete": "Delete"
+    },
+    "exportDialog": {
+      "title": "Export as Template",
+      "description": "Save this flow as a reusable template in your library.",
+      "fields": {
+        "name": "Name",
+        "namePlaceholder": "Template name",
+        "description": "Description",
+        "descriptionPlaceholder": "Brief description of this template",
+        "category": "Category",
+        "categoryPlaceholder": "e.g., Development, Testing, Deployment",
+        "tags": "Tags (comma-separated)",
+        "tagsPlaceholder": "e.g., react, testing, ci/cd"
+      },
+      "actions": {
+        "cancel": "Cancel",
+        "export": "Export"
+      }
+    }
+  },
+  "toolbar": {
+    "placeholder": "Flow name",
+    "unsavedChanges": "Unsaved changes",
+    "new": "New",
+    "save": "Save",
+    "load": "Load",
+    "export": "Export",
+    "templates": "Templates",
+    "savedFlows": "Saved Flows ({count})",
+    "loading": "Loading...",
+    "noSavedFlows": "No saved flows",
+    "duplicate": "Duplicate",
+    "delete": "Delete"
+  },
+  "palette": {
+    "title": "Node Palette",
+    "open": "Open node palette",
+    "collapse": "Collapse palette",
+    "instructions": "Drag nodes onto the canvas to add them to your workflow",
+    "nodeTypes": "Node Types",
+    "tipLabel": "Tip:",
+    "tip": "Connect nodes by dragging from output to input handles"
+  },
+  "propertyPanel": {
+    "title": "Properties",
+    "open": "Open properties panel",
+    "close": "Close panel",
+    "selectNode": "Select a node to edit its properties",
+    "deleteNode": "Delete Node",
+    "placeholders": {
+      "nodeLabel": "Node label",
+      "commandName": "/command-name",
+      "commandArgs": "Command arguments",
+      "timeout": "60000",
+      "path": "/path/to/file",
+      "content": "File content...",
+      "destinationPath": "/path/to/destination",
+      "variableName": "variableName",
+      "condition": "e.g., result.success === true",
+      "trueLabel": "True",
+      "falseLabel": "False"
+    },
+    "labels": {
+      "label": "Label",
+      "command": "Command",
+      "arguments": "Arguments",
+      "executionMode": "Execution Mode",
+      "onError": "On Error",
+      "timeout": "Timeout (ms)",
+      "operation": "Operation",
+      "path": "Path",
+      "content": "Content",
+      "destinationPath": "Destination Path",
+      "outputVariable": "Output Variable",
+      "addToContext": "Add to context",
+      "condition": "Condition",
+      "trueLabel": "True Label",
+      "falseLabel": "False Label",
+      "joinMode": "Join Mode",
+      "failFast": "Fail fast (stop all branches on first error)"
+    },
+    "options": {
+      "modeAnalysis": "Analysis (Read-only)",
+      "modeWrite": "Write (Modify files)",
+      "errorStop": "Stop execution",
+      "errorContinue": "Continue",
+      "errorRetry": "Retry",
+      "operationRead": "Read",
+      "operationWrite": "Write",
+      "operationAppend": "Append",
+      "operationDelete": "Delete",
+      "operationCopy": "Copy",
+      "operationMove": "Move",
+      "joinModeAll": "Wait for all branches",
+      "joinModeAny": "Complete when any branch finishes",
+      "joinModeNone": "No synchronization"
+    }
   }
 }

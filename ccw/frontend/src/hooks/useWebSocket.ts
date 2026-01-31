@@ -13,6 +13,7 @@ import {
   type OrchestratorWebSocketMessage,
   type ExecutionLog,
 } from '../types/execution';
+import { SurfaceUpdateSchema } from '../packages/a2ui-runtime/core/A2UITypes';
 
 // Constants
 const RECONNECT_DELAY_BASE = 1000; // 1 second
@@ -42,6 +43,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   const setWsLastMessage = useNotificationStore((state) => state.setWsLastMessage);
   const incrementReconnectAttempts = useNotificationStore((state) => state.incrementReconnectAttempts);
   const resetReconnectAttempts = useNotificationStore((state) => state.resetReconnectAttempts);
+  const addA2UINotification = useNotificationStore((state) => state.addA2UINotification);
 
   // Execution store for state updates
   const setExecutionStatus = useExecutionStore((state) => state.setExecutionStatus);
@@ -126,6 +128,17 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
               });
               break;
             }
+          }
+          return;
+        }
+
+        // Handle A2UI surface messages
+        if (data.type === 'a2ui-surface') {
+          const parsed = SurfaceUpdateSchema.safeParse(data.payload);
+          if (parsed.success) {
+            addA2UINotification(parsed.data, 'Interactive UI');
+          } else {
+            console.warn('[WebSocket] Invalid A2UI surface:', parsed.error.issues);
           }
           return;
         }

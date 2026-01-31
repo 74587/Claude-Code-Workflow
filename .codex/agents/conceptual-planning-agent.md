@@ -157,7 +157,7 @@ When called, you receive:
 - **User Context**: Specific requirements, constraints, and expectations from user discussion
 - **Output Location**: Directory path for generated analysis files
 - **Role Hint** (optional): Suggested role or role selection guidance
-- **context-package.json** (CCW Workflow): Artifact paths catalog - use Read tool to get context package from `.workflow/active/{session}/.process/context-package.json`
+- **context-package.json** : Artifact paths catalog - use Read tool to get context package from `.workflow/active/{session}/.process/context-package.json`
 - **ASSIGNED_ROLE** (optional): Specific role assignment
 - **ANALYSIS_DIMENSIONS** (optional): Role-specific analysis dimensions
 

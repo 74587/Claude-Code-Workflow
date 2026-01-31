@@ -27,6 +27,12 @@ import {
   McpManagerPage,
   EndpointsPage,
   InstallationsPage,
+  ExecutionMonitorPage,
+  HookManagerPage,
+  RulesManagerPage,
+  PromptHistoryPage,
+  ExplorerPage,
+  GraphExplorerPage,
 } from '@/pages';
 
 /**
@@ -76,6 +82,10 @@ const routes: RouteObject[] = [
         element: <OrchestratorPage />,
       },
       {
+        path: 'executions',
+        element: <ExecutionMonitorPage />,
+      },
+      {
         path: 'loops',
         element: <LoopMonitorPage />,
       },
@@ -96,6 +106,10 @@ const routes: RouteObject[] = [
         element: <MemoryPage />,
       },
       {
+        path: 'prompts',
+        element: <PromptHistoryPage />,
+      },
+      {
         path: 'settings',
         element: <SettingsPage />,
       },
@@ -112,8 +126,24 @@ const routes: RouteObject[] = [
         element: <InstallationsPage />,
       },
       {
+        path: 'settings/rules',
+        element: <RulesManagerPage />,
+      },
+      {
         path: 'help',
         element: <HelpPage />,
+      },
+      {
+        path: 'hooks',
+        element: <HookManagerPage />,
+      },
+      {
+        path: 'explorer',
+        element: <ExplorerPage />,
+      },
+      {
+        path: 'graph',
+        element: <GraphExplorerPage />,
       },
       // Catch-all route for 404
       {
@@ -143,16 +173,22 @@ export const ROUTES = {
   PROJECT: '/project',
   HISTORY: '/history',
   ORCHESTRATOR: '/orchestrator',
+  EXECUTIONS: '/executions',
   LOOPS: '/loops',
   ISSUES: '/issues',
   SKILLS: '/skills',
   COMMANDS: '/commands',
   MEMORY: '/memory',
+  PROMPT_HISTORY: '/prompts',
   SETTINGS: '/settings',
+  HOOKS_MANAGER: '/hooks',
   MCP_MANAGER: '/settings/mcp',
   ENDPOINTS: '/settings/endpoints',
   INSTALLATIONS: '/settings/installations',
+  SETTINGS_RULES: '/settings/rules',
   HELP: '/help',
+  EXPLORER: '/explorer',
+  GRAPH: '/graph',
 } as const;
 
 export type RoutePath = (typeof ROUTES)[keyof typeof ROUTES];

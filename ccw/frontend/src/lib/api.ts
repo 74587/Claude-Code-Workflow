@@ -3,9 +3,11 @@
 // ========================================
 // Typed fetch functions for API communication with CSRF token handling
 
-import type { SessionMetadata, TaskData } from '../types/store';
+import type { SessionMetadata, TaskData, IndexStatus, IndexRebuildRequest, Rule, RuleCreateInput, RulesResponse, Prompt, PromptInsight, Pattern, Suggestion } from '../types/store';
 
-// ========== Types ==========
+// Re-export types for backward compatibility
+export type { IndexStatus, IndexRebuildRequest, Rule, RuleCreateInput, RulesResponse, Prompt, PromptInsight, Pattern, Suggestion };
+
 
 /**
  * Raw backend session data structure matching the backend API response.
@@ -431,6 +433,33 @@ export async function removeRecentPath(path: string): Promise<string[]> {
 }
 
 /**
+ * Switch workspace response
+ */
+export interface SwitchWorkspaceResponse {
+  projectPath: string;
+  recentPaths: string[];
+  activeSessions: SessionMetadata[];
+  archivedSessions: SessionMetadata[];
+  statistics: DashboardStats;
+}
+
+/**
+ * Remove recent path response
+ */
+export interface RemoveRecentPathResponse {
+  paths: string[];
+}
+
+/**
+ * Fetch data for path response
+ */
+export interface FetchDataForPathResponse {
+  projectOverview?: ProjectOverview | null;
+  sessions?: SessionsResponse;
+  statistics?: DashboardStats;
+}
+
+/**
  * Switch to a different project path and load its data
  */
 export async function loadDashboardData(path: string): Promise<{
@@ -441,6 +470,20 @@ export async function loadDashboardData(path: string): Promise<{
   recentPaths: string[];
 }> {
   return fetchApi(`/api/data?path=${encodeURIComponent(path)}`);
+}
+
+/**
+ * Switch workspace to a different project path
+ */
+export async function switchWorkspace(path: string): Promise<SwitchWorkspaceResponse> {
+  return fetchApi<SwitchWorkspaceResponse>(`/api/switch-path?path=${encodeURIComponent(path)}`);
+}
+
+/**
+ * Fetch data for a specific path
+ */
+export async function fetchDataForPath(path: string): Promise<FetchDataForPathResponse> {
+  return fetchApi<FetchDataForPathResponse>(`/api/data?path=${encodeURIComponent(path)}`);
 }
 
 // ========== Loops API ==========
@@ -1001,6 +1044,7 @@ export interface ConversationTurn {
   };
   timestamp: string;
   duration_ms: number;
+  status?: 'success' | 'error' | 'timeout';
 }
 
 // ========== CLI Tools Config API ==========
@@ -1259,6 +1303,39 @@ export async function toggleMcpServer(
   });
 }
 
+// ========== Codex MCP API ==========
+/**
+ * Codex MCP Server - Read-only server with config path
+ * Extends McpServer with optional configPath field
+ */
+export interface CodexMcpServer extends McpServer {
+  configPath?: string;
+}
+
+export interface CodexMcpServersResponse {
+  servers: CodexMcpServer[];
+  configPath: string;
+}
+
+/**
+ * Fetch Codex MCP servers from config.toml
+ * Codex MCP servers are read-only (managed via config file)
+ */
+export async function fetchCodexMcpServers(): Promise<CodexMcpServersResponse> {
+  return fetchApi<CodexMcpServersResponse>('/api/mcp/codex-servers');
+}
+
+/**
+ * Add a new MCP server to Codex config
+ * Note: This requires write access to Codex config.toml
+ */
+export async function addCodexMcpServer(server: Omit<McpServer, 'name'>): Promise<CodexMcpServer> {
+  return fetchApi<CodexMcpServer>('/api/mcp/codex-add', {
+    method: 'POST',
+    body: JSON.stringify(server),
+  });
+}
+
 // ========== CLI Endpoints API ==========
 
 export interface CliEndpoint {
@@ -1398,7 +1475,9 @@ export interface Hook {
   description?: string;
   enabled: boolean;
   script?: string;
-  trigger: 'pre-commit' | 'post-commit' | 'pre-push' | 'custom';
+  command?: string;
+  trigger: string;
+  matcher?: string;
 }
 
 export interface HooksResponse {
@@ -1441,21 +1520,51 @@ export async function toggleHook(
   });
 }
 
+/**
+ * Create a new hook
+ */
+export async function createHook(
+  input: { name: string; description?: string; trigger: string; matcher?: string; command: string }
+): Promise<Hook> {
+  return fetchApi<Hook>('/api/hooks/create', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+/**
+ * Update hook using dedicated update endpoint with partial input
+ */
+export async function updateHookConfig(
+  hookName: string,
+  input: { description?: string; trigger?: string; matcher?: string; command?: string }
+): Promise<Hook> {
+  return fetchApi<Hook>('/api/hooks/update', {
+    method: 'POST',
+    body: JSON.stringify({ name: hookName, ...input }),
+  });
+}
+
+/**
+ * Delete a hook
+ */
+export async function deleteHook(hookName: string): Promise<void> {
+  return fetchApi<void>(`/api/hooks/delete/${encodeURIComponent(hookName)}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Install a hook from predefined template
+ */
+export async function installHookTemplate(templateId: string): Promise<Hook> {
+  return fetchApi<Hook>('/api/hooks/install-template', {
+    method: 'POST',
+    body: JSON.stringify({ templateId }),
+  });
+}
+
 // ========== Rules API ==========
-
-export interface Rule {
-  id: string;
-  name: string;
-  description?: string;
-  enabled: boolean;
-  category?: string;
-  pattern?: string;
-  severity?: 'error' | 'warning' | 'info';
-}
-
-export interface RulesResponse {
-  rules: Rule[];
-}
 
 /**
  * Fetch all rules
@@ -1492,3 +1601,328 @@ export async function toggleRule(
     body: JSON.stringify({ enabled }),
   });
 }
+
+/**
+ * Create a new rule
+ */
+export async function createRule(input: RuleCreateInput): Promise<Rule> {
+  return fetchApi<Rule>('/api/rules/create', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+/**
+ * Delete a rule
+ */
+export async function deleteRule(
+  ruleId: string,
+  location?: string
+): Promise<void> {
+  return fetchApi<void>(`/api/rules/${encodeURIComponent(ruleId)}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ location }),
+  });
+}
+
+// ========== CCW Tools MCP API ==========
+
+/**
+ * CCW MCP configuration interface
+ */
+export interface CcwMcpConfig {
+  isInstalled: boolean;
+  enabledTools: string[];
+  projectRoot?: string;
+  allowedDirs?: string;
+  disableSandbox?: boolean;
+}
+
+/**
+ * Fetch CCW Tools MCP configuration
+ */
+export async function fetchCcwMcpConfig(): Promise<CcwMcpConfig> {
+  const data = await fetchApi<CcwMcpConfig>('/api/mcp/ccw-config');
+  return data;
+}
+
+/**
+ * Update CCW Tools MCP configuration
+ */
+export async function updateCcwConfig(config: {
+  enabledTools?: string[];
+  projectRoot?: string;
+  allowedDirs?: string;
+  disableSandbox?: boolean;
+}): Promise<CcwMcpConfig> {
+  return fetchApi<CcwMcpConfig>('/api/mcp/ccw-config', {
+    method: 'PATCH',
+    body: JSON.stringify(config),
+  });
+}
+
+/**
+ * Install CCW Tools MCP server
+ */
+export async function installCcwMcp(): Promise<CcwMcpConfig> {
+  return fetchApi<CcwMcpConfig>('/api/mcp/ccw-install', {
+    method: 'POST',
+  });
+}
+
+/**
+ * Uninstall CCW Tools MCP server
+ */
+export async function uninstallCcwMcp(): Promise<void> {
+  await fetchApi<void>('/api/mcp/ccw-uninstall', {
+    method: 'POST',
+  });
+}
+
+// ========== Index Management API ==========
+
+/**
+ * Fetch current index status
+ */
+export async function fetchIndexStatus(): Promise<IndexStatus> {
+  return fetchApi<IndexStatus>('/api/index/status');
+}
+
+/**
+ * Rebuild index
+ */
+export async function rebuildIndex(request: IndexRebuildRequest = {}): Promise<IndexStatus> {
+  return fetchApi<IndexStatus>('/api/index/rebuild', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+// ========== Prompt History API ==========
+
+/**
+ * Prompt history response from backend
+ */
+export interface PromptsResponse {
+  prompts: Prompt[];
+  total: number;
+}
+
+/**
+ * Prompt insights response from backend
+ */
+export interface PromptInsightsResponse {
+  insights: PromptInsight[];
+  patterns: Pattern[];
+  suggestions: Suggestion[];
+}
+
+/**
+ * Analyze prompts request
+ */
+export interface AnalyzePromptsRequest {
+  tool?: 'gemini' | 'qwen' | 'codex';
+  promptIds?: string[];
+  limit?: number;
+}
+
+/**
+ * Fetch all prompts from history
+ */
+export async function fetchPrompts(): Promise<PromptsResponse> {
+  return fetchApi<PromptsResponse>('/api/memory/prompts');
+}
+
+/**
+ * Fetch prompt insights from backend
+ */
+export async function fetchPromptInsights(): Promise<PromptInsightsResponse> {
+  return fetchApi<PromptInsightsResponse>('/api/memory/insights');
+}
+
+/**
+ * Analyze prompts using AI tool
+ */
+export async function analyzePrompts(request: AnalyzePromptsRequest = {}): Promise<PromptInsightsResponse> {
+  return fetchApi<PromptInsightsResponse>('/api/memory/analyze', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+/**
+ * Delete a prompt from history
+ */
+export async function deletePrompt(promptId: string): Promise<void> {
+  await fetchApi<void>('/api/memory/prompts/' + encodeURIComponent(promptId), {
+    method: 'DELETE',
+  });
+}
+
+// ========== File Explorer API ==========
+
+/**
+ * File tree response from backend
+ */
+export interface FileTreeResponse {
+  rootNodes: import('../types/file-explorer').FileSystemNode[];
+  fileCount: number;
+  directoryCount: number;
+  totalSize: number;
+  buildTime: number;
+}
+
+/**
+ * Fetch file tree for a given root path
+ */
+export async function fetchFileTree(rootPath: string = '/', options: {
+  maxDepth?: number;
+  includeHidden?: boolean;
+  excludePatterns?: string[];
+} = {}): Promise<FileTreeResponse> {
+  const params = new URLSearchParams();
+  params.append('rootPath', rootPath);
+  if (options.maxDepth !== undefined) params.append('maxDepth', String(options.maxDepth));
+  if (options.includeHidden !== undefined) params.append('includeHidden', String(options.includeHidden));
+  if (options.excludePatterns) params.append('excludePatterns', options.excludePatterns.join(','));
+
+  return fetchApi<FileTreeResponse>(`/api/explorer/tree?${params.toString()}`);
+}
+
+/**
+ * Fetch file content
+ */
+export async function fetchFileContent(filePath: string, options: {
+  encoding?: 'utf8' | 'ascii' | 'base64';
+  maxSize?: number;
+} = {}): Promise<import('../types/file-explorer').FileContent> {
+  const params = new URLSearchParams();
+  params.append('path', filePath);
+  if (options.encoding) params.append('encoding', options.encoding);
+  if (options.maxSize !== undefined) params.append('maxSize', String(options.maxSize));
+
+  return fetchApi<import('../types/file-explorer').FileContent>(`/api/explorer/file?${params.toString()}`);
+}
+
+/**
+ * Search files request
+ */
+export interface SearchFilesRequest {
+  rootPath?: string;
+  query: string;
+  filePatterns?: string[];
+  excludePatterns?: string[];
+  maxResults?: number;
+  caseSensitive?: boolean;
+}
+
+/**
+ * Search files response
+ */
+export interface SearchFilesResponse {
+  results: Array<{
+    path: string;
+    name: string;
+    type: 'file' | 'directory';
+    matches: Array<{
+      line: number;
+      column: number;
+      context: string;
+    }>;
+  }>;
+  totalMatches: number;
+  searchTime: number;
+}
+
+/**
+ * Search files by content or name
+ */
+export async function searchFiles(request: SearchFilesRequest): Promise<SearchFilesResponse> {
+  return fetchApi<SearchFilesResponse>('/api/explorer/search', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+/**
+ * Get available root directories
+ */
+export interface RootDirectory {
+  path: string;
+  name: string;
+  isWorkspace: boolean;
+  isGitRoot: boolean;
+}
+
+export async function fetchRootDirectories(): Promise<RootDirectory[]> {
+  return fetchApi<RootDirectory[]>('/api/explorer/roots');
+}
+
+// ========== Graph Explorer API ==========
+
+/**
+ * Graph dependencies request
+ */
+export interface GraphDependenciesRequest {
+  rootPath?: string;
+  maxDepth?: number;
+  includeTypes?: string[];
+  excludePatterns?: string[];
+}
+
+/**
+ * Graph dependencies response
+ */
+export interface GraphDependenciesResponse {
+  nodes: import('../types/graph-explorer').GraphNode[];
+  edges: import('../types/graph-explorer').GraphEdge[];
+  metadata: import('../types/graph-explorer').GraphMetadata;
+}
+
+/**
+ * Fetch graph dependencies for code visualization
+ */
+export async function fetchGraphDependencies(request: GraphDependenciesRequest = {}): Promise<GraphDependenciesResponse> {
+  const params = new URLSearchParams();
+  if (request.rootPath) params.append('rootPath', request.rootPath);
+  if (request.maxDepth !== undefined) params.append('maxDepth', String(request.maxDepth));
+  if (request.includeTypes) params.append('includeTypes', request.includeTypes.join(','));
+  if (request.excludePatterns) params.append('excludePatterns', request.excludePatterns.join(','));
+
+  return fetchApi<GraphDependenciesResponse>(`/api/graph/dependencies?${params.toString()}`);
+}
+
+/**
+ * Graph impact analysis request
+ */
+export interface GraphImpactRequest {
+  nodeId: string;
+  direction?: 'upstream' | 'downstream' | 'both';
+  maxDepth?: number;
+}
+
+/**
+ * Graph impact analysis response
+ */
+export interface GraphImpactResponse {
+  nodeId: string;
+  dependencies: import('../types/graph-explorer').GraphNode[];
+  dependents: import('../types/graph-explorer').GraphNode[];
+  paths: Array<{
+    nodes: string[];
+    edges: string[];
+  }>;
+}
+
+/**
+ * Fetch impact analysis for a specific node
+ */
+export async function fetchGraphImpact(request: GraphImpactRequest): Promise<GraphImpactResponse> {
+  const params = new URLSearchParams();
+  params.append('nodeId', request.nodeId);
+  if (request.direction) params.append('direction', request.direction);
+  if (request.maxDepth !== undefined) params.append('maxDepth', String(request.maxDepth));
+
+  return fetchApi<GraphImpactResponse>(`/api/graph/impact?${params.toString()}`);
+}
+

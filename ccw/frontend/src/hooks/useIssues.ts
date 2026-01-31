@@ -14,6 +14,8 @@ import {
   type Issue,
   type IssuesResponse,
 } from '../lib/api';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
+import { workspaceQueryKeys } from '@/lib/queryKeys';
 
 // Query key factory
 export const issuesKeys = {
@@ -63,23 +65,27 @@ export interface UseIssuesReturn {
  * Hook for fetching and filtering issues
  */
 export function useIssues(options: UseIssuesOptions = {}): UseIssuesReturn {
-  const { filter, projectPath, staleTime = STALE_TIME, enabled = true, refetchInterval = 0 } = options;
+  const { filter, staleTime = STALE_TIME, enabled = true, refetchInterval = 0 } = options;
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
+
+  // Only enable query when projectPath is available
+  const queryEnabled = enabled && !!projectPath;
 
   const issuesQuery = useQuery({
-    queryKey: issuesKeys.list(filter),
+    queryKey: workspaceQueryKeys.issuesList(projectPath),
     queryFn: () => fetchIssues(projectPath),
     staleTime,
-    enabled,
+    enabled: queryEnabled,
     refetchInterval: refetchInterval > 0 ? refetchInterval : false,
     retry: 2,
   });
 
   const historyQuery = useQuery({
-    queryKey: issuesKeys.history(),
+    queryKey: workspaceQueryKeys.issuesHistory(projectPath),
     queryFn: () => fetchIssueHistory(projectPath),
     staleTime,
-    enabled: enabled && (filter?.includeHistory ?? false),
+    enabled: queryEnabled && (filter?.includeHistory ?? false),
     retry: 2,
   });
 
@@ -151,7 +157,9 @@ export function useIssues(options: UseIssuesOptions = {}): UseIssuesReturn {
   };
 
   const invalidate = async () => {
-    await queryClient.invalidateQueries({ queryKey: issuesKeys.all });
+    if (projectPath) {
+      await queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issues(projectPath) });
+    }
   };
 
   return {
@@ -173,11 +181,13 @@ export function useIssues(options: UseIssuesOptions = {}): UseIssuesReturn {
 /**
  * Hook for fetching issue queue
  */
-export function useIssueQueue(projectPath?: string) {
+export function useIssueQueue(): ReturnType<typeof useQuery> {
+  const projectPath = useWorkflowStore(selectProjectPath);
   return useQuery({
-    queryKey: issuesKeys.queue(),
+    queryKey: projectPath ? workspaceQueryKeys.issueQueue(projectPath) : ['issueQueue', 'no-project'],
     queryFn: () => fetchIssueQueue(projectPath),
     staleTime: STALE_TIME,
+    enabled: !!projectPath,
     retry: 2,
   });
 }
@@ -192,16 +202,13 @@ export interface UseCreateIssueReturn {
 
 export function useCreateIssue(): UseCreateIssueReturn {
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
     mutationFn: createIssue,
-    onSuccess: (newIssue) => {
-      queryClient.setQueryData<IssuesResponse>(issuesKeys.list(), (old) => {
-        if (!old) return { issues: [newIssue] };
-        return {
-          issues: [newIssue, ...old.issues],
-        };
-      });
+    onSuccess: () => {
+      // Invalidate issues cache to trigger refetch
+      queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.issues(projectPath) : ['issues'] });
     },
   });
 
@@ -220,17 +227,14 @@ export interface UseUpdateIssueReturn {
 
 export function useUpdateIssue(): UseUpdateIssueReturn {
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
     mutationFn: ({ issueId, input }: { issueId: string; input: Partial<Issue> }) =>
       updateIssue(issueId, input),
-    onSuccess: (updatedIssue) => {
-      queryClient.setQueryData<IssuesResponse>(issuesKeys.list(), (old) => {
-        if (!old) return old;
-        return {
-          issues: old.issues.map((i) => (i.id === updatedIssue.id ? updatedIssue : i)),
-        };
-      });
+    onSuccess: () => {
+      // Invalidate issues cache to trigger refetch
+      queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.issues(projectPath) : ['issues'] });
     },
   });
 
@@ -249,29 +253,13 @@ export interface UseDeleteIssueReturn {
 
 export function useDeleteIssue(): UseDeleteIssueReturn {
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
     mutationFn: deleteIssue,
-    onMutate: async (issueId) => {
-      await queryClient.cancelQueries({ queryKey: issuesKeys.all });
-      const previousIssues = queryClient.getQueryData<IssuesResponse>(issuesKeys.list());
-
-      queryClient.setQueryData<IssuesResponse>(issuesKeys.list(), (old) => {
-        if (!old) return old;
-        return {
-          issues: old.issues.filter((i) => i.id !== issueId),
-        };
-      });
-
-      return { previousIssues };
-    },
-    onError: (_error, _issueId, context) => {
-      if (context?.previousIssues) {
-        queryClient.setQueryData(issuesKeys.list(), context.previousIssues);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: issuesKeys.all });
+    onSuccess: () => {
+      // Invalidate to ensure sync with server
+      queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.issues(projectPath) : ['issues'] });
     },
   });
 

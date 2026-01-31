@@ -1,0 +1,51 @@
+{
+  "page": {
+    "title": "Execution Monitor",
+    "subtitle": "View real-time execution status and history"
+  },
+  "currentExecution": {
+    "title": "Current Execution",
+    "noExecution": "No workflow is currently executing",
+    "expand": "Expand",
+    "collapse": "Collapse"
+  },
+  "stats": {
+    "title": "Statistics",
+    "totalExecutions": "Total Executions",
+    "successRate": "Success Rate",
+    "avgDuration": "Avg Duration",
+    "nodeSuccessRate": "Node Success Rate"
+  },
+  "history": {
+    "title": "Execution History",
+    "empty": "No execution history",
+    "tabs": {
+      "byWorkflow": "By Workflow",
+      "timeline": "Timeline",
+      "list": "List View"
+    }
+  },
+  "filters": {
+    "workflow": "Workflow",
+    "status": "Status",
+    "dateRange": "Date Range",
+    "all": "All Workflows",
+    "allStatus": "All Status"
+  },
+  "execution": {
+    "status": {
+      "pending": "Pending",
+      "running": "Running",
+      "paused": "Paused",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "duration": "Duration",
+    "startedAt": "Started",
+    "completedAt": "Completed",
+    "nodes": "Nodes",
+    "progress": "Progress",
+    "logs": "Logs",
+    "viewDetails": "View Details"
+  }
+}

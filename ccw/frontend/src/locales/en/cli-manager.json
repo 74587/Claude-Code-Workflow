@@ -129,5 +129,34 @@
     "prompt": "Prompt",
     "output": "Output",
     "details": "Details"
+  },
+  "streamPanel": {
+    "turns": "turns",
+    "perTurnView": "Per-Turn View",
+    "concatenatedView": "Concatenated View",
+    "userPrompt": "User Prompt",
+    "assistantResponse": "Assistant Response",
+    "errors": "Errors",
+    "truncatedNotice": "Output was truncated due to size limits.",
+    "latest": "Latest",
+    "copyId": "Copy ID",
+    "copyPrompt": "Copy Prompt",
+    "concatenatedPrompt": "Concatenated Prompt",
+    "newRequest": "NEW REQUEST",
+    "noOutput": "[No output]",
+    "yourNextPrompt": "[Your next prompt here]",
+    "conversationHistory": "CONVERSATION HISTORY",
+    "loading": "Loading...",
+    "noDetails": "No execution details available"
+  },
+  "details": {
+    "turn": "Turn",
+    "tool": "Tool",
+    "mode": "Mode",
+    "duration": "Duration",
+    "created": "Created",
+    "id": "ID",
+    "timestamp": "Timestamp",
+    "status": "Status"
   }
 }

@@ -11,11 +11,16 @@
     "skills": "Skills",
     "commands": "Commands",
     "memory": "Memory",
+    "prompts": "Prompt History",
     "settings": "Settings",
     "mcp": "MCP Servers",
     "endpoints": "CLI Endpoints",
     "installations": "Installations",
-    "help": "Help"
+    "help": "Help",
+    "hooks": "Hooks",
+    "rules": "Rules",
+    "explorer": "File Explorer",
+    "graph": "Graph Explorer"
   },
   "sidebar": {
     "collapse": "Collapse",

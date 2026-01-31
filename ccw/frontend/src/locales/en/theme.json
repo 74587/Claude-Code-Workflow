@@ -1,0 +1,21 @@
+{
+  "title": {
+    "colorScheme": "Color Scheme",
+    "themeMode": "Theme Mode"
+  },
+  "colorScheme": {
+    "blue": "Classic Blue",
+    "green": "Deep Green",
+    "orange": "Vibrant Orange",
+    "purple": "Elegant Purple"
+  },
+  "themeMode": {
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "select": {
+    "colorScheme": "Select {name} theme",
+    "themeMode": "Select {name} mode"
+  },
+  "current": "Current theme: {name}"
+}

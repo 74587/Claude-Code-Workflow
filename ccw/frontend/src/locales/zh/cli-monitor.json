@@ -1,0 +1,18 @@
+{
+  "title": "CLI 流式监控",
+  "searchPlaceholder": "搜索输出...",
+  "noExecutions": "没有正在执行的 CLI 任务",
+  "noExecutionsHint": "启动 CLI 命令以查看实时输出",
+  "selectExecution": "选择一个任务以查看输出",
+  "status": {
+    "running": "运行中",
+    "completed": "已完成",
+    "error": "错误"
+  },
+  "recovered": "已恢复",
+  "lines": "行",
+  "autoScroll": "自动滚动",
+  "scrollToBottom": "滚动到底部",
+  "close": "关闭",
+  "refresh": "刷新"
+}

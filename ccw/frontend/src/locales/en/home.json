@@ -30,6 +30,26 @@
       "message": "Create an issue to track bugs or feature requests."
     }
   },
+  "help": {
+    "gettingStarted": {
+      "title": "Getting Started",
+      "description": "Learn the basics of CCW Dashboard and workflow management",
+      "heading": "Getting Started with CCW"
+    },
+    "orchestratorGuide": {
+      "title": "Orchestrator Guide",
+      "description": "Master the visual workflow editor with drag-drop flows"
+    },
+    "sessionsManagement": {
+      "title": "Sessions Management",
+      "description": "Understanding workflow sessions and task tracking"
+    },
+    "cliIntegration": {
+      "title": "CLI Integration",
+      "description": "Using CCW commands and CLI tool integration",
+      "heading": "CLI Integration"
+    }
+  },
   "errors": {
     "loadFailed": "Failed to load dashboard data",
     "retry": "Retry"

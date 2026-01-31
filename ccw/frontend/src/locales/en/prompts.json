@@ -1,0 +1,74 @@
+{
+  "title": "Prompt History",
+  "description": "View and analyze your prompt history with AI insights",
+  "searchPlaceholder": "Search prompts...",
+  "filterByIntent": "Filter by intent",
+  "intents": {
+    "all": "All Intents",
+    "intent": "Intent",
+    "bug-fix": "Bug Fix",
+    "feature": "Feature",
+    "refactor": "Refactor",
+    "document": "Document",
+    "analyze": "Analyze"
+  },
+  "stats": {
+    "totalCount": "Total Prompts",
+    "totalCountDesc": "All stored prompts",
+    "avgLength": "Avg Length",
+    "avgLengthDesc": "Mean character count",
+    "topIntent": "Top Intent",
+    "topIntentDesc": "Most used category",
+    "noIntent": "N/A"
+  },
+  "card": {
+    "untitled": "Untitled Prompt",
+    "used": "Used {count} times"
+  },
+  "timeline": {
+    "ungrouped": "Ungrouped",
+    "session": "Session: {session}"
+  },
+  "actions": {
+    "copy": "Copy prompt",
+    "copied": "Copied!",
+    "delete": "Delete",
+    "expand": "Expand",
+    "collapse": "Collapse"
+  },
+  "insights": {
+    "title": "AI Insights",
+    "analyze": "Analyze",
+    "analyzing": "Analyzing prompts...",
+    "selectTool": "Select tool",
+    "confidence": "confidence",
+    "empty": {
+      "title": "No insights yet",
+      "message": "Run an analysis to get AI-powered insights about your prompt patterns and suggestions for improvement."
+    },
+    "sections": {
+      "insights": "Insights",
+      "patterns": "Detected Patterns",
+      "suggestions": "Suggestions"
+    }
+  },
+  "suggestions": {
+    "types": {
+      "refactor": "Refactor",
+      "optimize": "Optimize",
+      "fix": "Fix",
+      "document": "Document"
+    },
+    "effort": "Effort"
+  },
+  "dialog": {
+    "deleteTitle": "Delete Prompt",
+    "deleteConfirm": "Are you sure you want to delete this prompt? This action cannot be undone."
+  },
+  "emptyState": {
+    "title": "No prompts found",
+    "message": "No prompts match your current filter.",
+    "noPrompts": "No prompts yet",
+    "createFirst": "Create your first prompt to start building history"
+  }
+}

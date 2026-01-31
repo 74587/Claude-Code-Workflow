@@ -1,0 +1,51 @@
+{
+  "page": {
+    "title": "执行监控",
+    "subtitle": "查看实时执行状态和历史记录"
+  },
+  "currentExecution": {
+    "title": "当前执行",
+    "noExecution": "当前没有正在执行的工作流",
+    "expand": "展开",
+    "collapse": "收起"
+  },
+  "stats": {
+    "title": "统计数据",
+    "totalExecutions": "总执行次数",
+    "successRate": "成功率",
+    "avgDuration": "平均时长",
+    "nodeSuccessRate": "节点成功率"
+  },
+  "history": {
+    "title": "执行历史",
+    "empty": "暂无执行历史",
+    "tabs": {
+      "byWorkflow": "按工作流",
+      "timeline": "时间线",
+      "list": "列表视图"
+    }
+  },
+  "filters": {
+    "workflow": "工作流",
+    "status": "状态",
+    "dateRange": "日期范围",
+    "all": "所有工作流",
+    "allStatus": "所有状态"
+  },
+  "execution": {
+    "status": {
+      "pending": "待执行",
+      "running": "执行中",
+      "paused": "已暂停",
+      "completed": "已完成",
+      "failed": "已失败"
+    },
+    "duration": "时长",
+    "startedAt": "开始时间",
+    "completedAt": "完成时间",
+    "nodes": "节点",
+    "progress": "进度",
+    "logs": "日志",
+    "viewDetails": "查看详情"
+  }
+}

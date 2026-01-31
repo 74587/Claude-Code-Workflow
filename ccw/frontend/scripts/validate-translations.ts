@@ -33,23 +33,24 @@ const LOCALES_DIR = join(__dirname, '../src/locales');
 const SUPPORTED_LOCALES = ['en', 'zh'] as const;
 
 /**
- * Recursively get all translation keys from a nested object
+ * Recursively get all translation keys and values from a nested object
  */
-function flattenObject(obj: Record<string, unknown>, prefix = ''): string[] {
-  const keys: string[] = [];
+function flattenObject(obj: Record<string, unknown>, prefix = ''): Map<string, string> {
+  const map = new Map<string, string>();
 
   for (const key in obj) {
     const fullKey = prefix ? `${prefix}.${key}` : key;
     const value = obj[key];
 
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-      keys.push(...flattenObject(value as Record<string, unknown>, fullKey));
+      const nestedMap = flattenObject(value as Record<string, unknown>, fullKey);
+      nestedMap.forEach((v, k) => map.set(k, v));
     } else if (typeof value === 'string') {
-      keys.push(fullKey);
+      map.set(fullKey, value);
     }
   }
 
-  return keys;
+  return map;
 }
 
 /**
@@ -66,11 +67,11 @@ function loadJsonFile(filePath: string): Record<string, unknown> {
 }
 
 /**
- * Get all translation keys for a locale
+ * Get all translation keys and values for a locale
  */
-function getLocaleKeys(locale: string): string[] {
+function getLocaleKeys(locale: string): Map<string, string> {
   const localeDir = join(LOCALES_DIR, locale);
-  const keys: string[] = [];
+  const map = new Map<string, string>();
 
   try {
     const files = readdirSync(localeDir).filter((f) => f.endsWith('.json'));
@@ -78,17 +79,27 @@ function getLocaleKeys(locale: string): string[] {
     for (const file of files) {
       const filePath = join(localeDir, file);
       const content = loadJsonFile(filePath);
-      keys.push(...flattenObject(content));
+      const flatMap = flattenObject(content);
+      flatMap.forEach((v, k) => map.set(k, v));
     }
   } catch (error) {
     console.error(`Error reading locale directory for ${locale}:`, error);
   }
 
-  return keys;
+  return map;
 }
 
 /**
- * Compare translation keys between locales
+ * Check if a value is a non-translatable (numbers, symbols, placeholders only)
+ */
+function isNonTranslatable(value: string): boolean {
+  // Check if it's just numbers, symbols, or contains only placeholders like {count}, {name}, etc.
+  const nonTranslatablePattern = /^[0-9%\$#\-\+\=\[\]{}()\/\\.,:;!?<>|"'\s_@*~`^&]*$/;
+  return nonTranslatablePattern.test(value) && !/[a-zA-Z\u4e00-\u9fa5]/.test(value);
+}
+
+/**
+ * Compare translation keys and values between locales
  */
 function compareTranslations(): ValidationResult {
   const result: ValidationResult = {
@@ -99,27 +110,41 @@ function compareTranslations(): ValidationResult {
     extraKeys: { en: [], zh: [] },
   };
 
-  // Get keys for each locale
-  const enKeys = getLocaleKeys('en');
-  const zhKeys = getLocaleKeys('zh');
+  // Get keys and values for each locale
+  const enMap = getLocaleKeys('en');
+  const zhMap = getLocaleKeys('zh');
 
-  // Sort for comparison
-  enKeys.sort();
-  zhKeys.sort();
+  // Get all unique keys
+  const allKeys = new Set([...enMap.keys(), ...zhMap.keys()]);
 
   // Find keys missing in Chinese
-  for (const key of enKeys) {
-    if (!zhKeys.includes(key)) {
+  for (const key of enMap.keys()) {
+    if (!zhMap.has(key)) {
       result.missingKeys.zh.push(key);
       result.isValid = false;
     }
   }
 
   // Find keys missing in English
-  for (const key of zhKeys) {
-    if (!enKeys.includes(key)) {
+  for (const key of zhMap.keys()) {
+    if (!enMap.has(key)) {
       result.missingKeys.en.push(key);
       result.isValid = false;
+    }
+  }
+
+  // Check for untranslated values (identical en and zh values)
+  for (const key of allKeys) {
+    const enValue = enMap.get(key);
+    const zhValue = zhMap.get(key);
+
+    if (enValue && zhValue && enValue === zhValue) {
+      // Skip if the value is non-translatable (numbers, symbols, etc.)
+      if (!isNonTranslatable(enValue)) {
+        result.warnings.push(
+          `Untranslated value in zh/ for key "${key}": en="${enValue}" == zh="${zhValue}"`
+        );
+      }
     }
   }
 
@@ -153,10 +178,19 @@ function displayResults(result: ValidationResult): void {
     console.log('');
   }
 
-  // Display warnings
-  if (result.warnings.length > 0) {
+  // Display untranslated values warnings
+  const untranslatedWarnings = result.warnings.filter(w => w.startsWith('Untranslated value'));
+  if (untranslatedWarnings.length > 0) {
+    console.log(`Untranslated values in zh/ (${untranslatedWarnings.length}):`);
+    untranslatedWarnings.forEach((warning) => console.log(`  ⚠️  ${warning}`));
+    console.log('');
+  }
+
+  // Display other warnings
+  const otherWarnings = result.warnings.filter(w => !w.startsWith('Untranslated value'));
+  if (otherWarnings.length > 0) {
     console.log('Warnings:');
-    result.warnings.forEach((warning) => console.log(`  ⚠️  ${warning}`));
+    otherWarnings.forEach((warning) => console.log(`  ⚠️  ${warning}`));
     console.log('');
   }
 

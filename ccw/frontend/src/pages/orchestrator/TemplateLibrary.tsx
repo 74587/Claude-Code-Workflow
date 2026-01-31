@@ -4,6 +4,7 @@
 // Template browser with import/export functionality
 
 import { useState, useCallback, useMemo } from 'react';
+import { useIntl } from 'react-intl';
 import {
   Library,
   Search,
@@ -64,6 +65,7 @@ function TemplateCard({
   isInstalling,
   isDeleting,
 }: TemplateCardProps) {
+  const { formatMessage } = useIntl();
   const isGrid = viewMode === 'grid';
 
   return (
@@ -98,7 +100,7 @@ function TemplateCard({
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <GitBranch className="h-3 w-3" />
-                {template.nodeCount} nodes
+                {template.nodeCount} {formatMessage({ id: 'orchestrator.templateLibrary.card.nodes' })}
               </span>
               <span className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
@@ -233,6 +235,7 @@ function ExportDialog({
   isExporting,
   flowName,
 }: ExportDialogProps) {
+  const { formatMessage } = useIntl();
   const [name, setName] = useState(flowName);
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
@@ -250,46 +253,46 @@ function ExportDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Export as Template</DialogTitle>
+          <DialogTitle>{formatMessage({ id: 'orchestrator.templateLibrary.exportDialog.title' })}</DialogTitle>
           <DialogDescription>
-            Save this flow as a reusable template in your library.
+            {formatMessage({ id: 'orchestrator.templateLibrary.exportDialog.description' })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Name</label>
+            <label className="text-sm font-medium">{formatMessage({ id: 'orchestrator.templateLibrary.exportDialog.fields.name' })}</label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Template name"
+              placeholder={formatMessage({ id: 'orchestrator.templateLibrary.exportDialog.fields.namePlaceholder' })}
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Description</label>
+            <label className="text-sm font-medium">{formatMessage({ id: 'orchestrator.templateLibrary.exportDialog.fields.description' })}</label>
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Brief description of this template"
+              placeholder={formatMessage({ id: 'orchestrator.templateLibrary.exportDialog.fields.descriptionPlaceholder' })}
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Category</label>
+            <label className="text-sm font-medium">{formatMessage({ id: 'orchestrator.templateLibrary.exportDialog.fields.category' })}</label>
             <Input
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              placeholder="e.g., Development, Testing, Deployment"
+              placeholder={formatMessage({ id: 'orchestrator.templateLibrary.exportDialog.fields.categoryPlaceholder' })}
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Tags (comma-separated)</label>
+            <label className="text-sm font-medium">{formatMessage({ id: 'orchestrator.templateLibrary.exportDialog.fields.tags' })}</label>
             <Input
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="e.g., react, testing, ci/cd"
+              placeholder={formatMessage({ id: 'orchestrator.templateLibrary.exportDialog.fields.tagsPlaceholder' })}
             />
           </div>
         </div>
@@ -320,6 +323,7 @@ interface TemplateLibraryProps {
 }
 
 export function TemplateLibrary({ open, onOpenChange }: TemplateLibraryProps) {
+  const { formatMessage } = useIntl();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -419,7 +423,7 @@ export function TemplateLibrary({ open, onOpenChange }: TemplateLibraryProps) {
               Template Library
             </DialogTitle>
             <DialogDescription>
-              Browse and import workflow templates, or export your current flow as a template.
+              {formatMessage({ id: 'orchestrator.templateLibrary.description' })}
             </DialogDescription>
           </DialogHeader>
 
@@ -431,7 +435,7 @@ export function TemplateLibrary({ open, onOpenChange }: TemplateLibraryProps) {
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search templates..."
+                placeholder={formatMessage({ id: 'orchestrator.templateLibrary.searchPlaceholder' })}
                 className="pl-9"
               />
             </div>
@@ -501,15 +505,15 @@ export function TemplateLibrary({ open, onOpenChange }: TemplateLibraryProps) {
             ) : error ? (
               <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
                 <FileText className="h-12 w-12 mb-2" />
-                <p>Failed to load templates</p>
+                <p>{formatMessage({ id: 'orchestrator.templateLibrary.errors.loadFailed' })}</p>
                 <p className="text-sm">{(error as Error).message}</p>
               </div>
             ) : filteredTemplates.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
                 <Library className="h-12 w-12 mb-2" />
-                <p>No templates found</p>
+                <p>{formatMessage({ id: 'orchestrator.templateLibrary.emptyState.title' })}</p>
                 {searchQuery && (
-                  <p className="text-sm">Try a different search query</p>
+                  <p className="text-sm">{formatMessage({ id: 'orchestrator.templateLibrary.emptyState.searchSuggestion' })}</p>
                 )}
               </div>
             ) : (
@@ -539,7 +543,10 @@ export function TemplateLibrary({ open, onOpenChange }: TemplateLibraryProps) {
           <DialogFooter className="border-t border-border pt-4">
             <div className="flex items-center justify-between w-full">
               <span className="text-sm text-muted-foreground">
-                {filteredTemplates.length} template{filteredTemplates.length !== 1 ? 's' : ''}
+                {formatMessage(
+                { id: 'orchestrator.templateLibrary.footer.templateCount' },
+                { count: filteredTemplates.length }
+              )}
               </span>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Close

@@ -4,6 +4,7 @@
 // Draggable node palette for creating new nodes
 
 import { DragEvent, useState } from 'react';
+import { useIntl } from 'react-intl';
 import { Terminal, FileText, GitBranch, GitMerge, ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -75,6 +76,7 @@ function NodeTypeCard({ type }: NodeTypeCardProps) {
 }
 
 export function NodePalette({ className }: NodePaletteProps) {
+  const { formatMessage } = useIntl();
   const [isExpanded, setIsExpanded] = useState(true);
   const isPaletteOpen = useFlowStore((state) => state.isPaletteOpen);
   const setIsPaletteOpen = useFlowStore((state) => state.setIsPaletteOpen);
@@ -86,7 +88,7 @@ export function NodePalette({ className }: NodePaletteProps) {
           variant="ghost"
           size="icon"
           onClick={() => setIsPaletteOpen(true)}
-          title="Open node palette"
+          title={formatMessage({ id: 'orchestrator.palette.open' })}
         >
           <ChevronRight className="w-4 h-4" />
         </Button>
@@ -98,13 +100,13 @@ export function NodePalette({ className }: NodePaletteProps) {
     <div className={cn('w-64 bg-card border-r border-border flex flex-col', className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h3 className="font-semibold text-foreground">Node Palette</h3>
+        <h3 className="font-semibold text-foreground">{formatMessage({ id: 'orchestrator.palette.title' })}</h3>
         <Button
           variant="ghost"
           size="icon"
           className="h-6 w-6"
           onClick={() => setIsPaletteOpen(false)}
-          title="Collapse palette"
+          title={formatMessage({ id: 'orchestrator.palette.collapse' })}
         >
           <ChevronDown className="w-4 h-4" />
         </Button>
@@ -112,7 +114,7 @@ export function NodePalette({ className }: NodePaletteProps) {
 
       {/* Instructions */}
       <div className="px-4 py-2 text-xs text-muted-foreground bg-muted/50 border-b border-border">
-        Drag nodes onto the canvas to add them to your workflow
+        {formatMessage({ id: 'orchestrator.palette.instructions' })}
       </div>
 
       {/* Node Type Categories */}
@@ -128,7 +130,7 @@ export function NodePalette({ className }: NodePaletteProps) {
             ) : (
               <ChevronRight className="w-3 h-3" />
             )}
-            Node Types
+            {formatMessage({ id: 'orchestrator.palette.nodeTypes' })}
           </button>
 
           {isExpanded && (
@@ -144,7 +146,7 @@ export function NodePalette({ className }: NodePaletteProps) {
       {/* Footer */}
       <div className="px-4 py-3 border-t border-border bg-muted/30">
         <div className="text-xs text-muted-foreground">
-          <span className="font-medium">Tip:</span> Connect nodes by dragging from output to input handles
+          <span className="font-medium">{formatMessage({ id: 'orchestrator.palette.tipLabel' })}</span> {formatMessage({ id: 'orchestrator.palette.tip' })}
         </div>
       </div>
     </div>

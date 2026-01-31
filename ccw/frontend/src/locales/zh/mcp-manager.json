@@ -1,6 +1,10 @@
 {
   "title": "MCP 服务器",
   "description": "管理模型上下文协议 (MCP) 服务器以实现跨 CLI 集成",
+  "mode": {
+    "claude": "Claude",
+    "codex": "Codex"
+  },
   "scope": {
     "global": "全局",
     "project": "项目"
@@ -18,6 +22,11 @@
   "command": "命令",
   "args": "参数",
   "env": "环境变量",
+  "codex": {
+    "configPath": "配置路径",
+    "readOnly": "只读",
+    "readOnlyNotice": "Codex MCP 服务器通过 config.toml 管理，无法在此处编辑。"
+  },
   "filters": {
     "all": "全部",
     "searchPlaceholder": "按名称或命令搜索服务器..."
@@ -33,5 +42,89 @@
   "emptyState": {
     "title": "未找到 MCP 服务器",
     "message": "添加 MCP 服务器以启用与 Claude、Codex 和 Qwen 等工具的跨 CLI 集成。"
+  },
+  "dialog": {
+    "addTitle": "添加 MCP 服务器",
+    "editTitle": "编辑 MCP 服务器 \"{name}\"",
+    "form": {
+      "template": "模板",
+      "templatePlaceholder": "选择模板以预填充表单",
+      "name": "服务器名称",
+      "namePlaceholder": "例如：my-mcp-server",
+      "command": "命令",
+      "commandPlaceholder": "例如：npx、python、node",
+      "args": "参数",
+      "argsPlaceholder": "逗号分隔的参数，例如：-v, --option=value",
+      "argsHint": "使用逗号分隔多个参数",
+      "env": "环境变量",
+      "envPlaceholder": "键=值对（每行一个），例如：\nAPI_KEY=your_key\nDEBUG=true",
+      "envHint": "每行输入一个键=值对",
+      "scope": "作用域",
+      "enabled": "启用此服务器"
+    },
+    "templates": {
+      "npx-stdio": "NPX STDIO",
+      "python-stdio": "Python STDIO",
+      "sse-server": "SSE 服务器"
+    },
+    "validation": {
+      "nameRequired": "服务器名称不能为空",
+      "nameExists": "已存在同名服务器",
+      "commandRequired": "命令不能为空"
+    },
+    "actions": {
+      "save": "保存",
+      "saving": "保存中...",
+      "cancel": "取消"
+    }
+  },
+  "ccw": {
+    "title": "CCW MCP 服务器",
+    "description": "用于 CCW 文件操作和内存管理的特殊内置 MCP 服务器",
+    "status": {
+      "installed": "已安装",
+      "notInstalled": "未安装",
+      "special": "内置"
+    },
+    "tools": {
+      "label": "可用工具",
+      "core": "核心",
+      "write_file": {
+        "name": "write_file",
+        "desc": "写入或创建新文件"
+      },
+      "edit_file": {
+        "name": "edit_file",
+        "desc": "编辑或替换文件内容"
+      },
+      "read_file": {
+        "name": "read_file",
+        "desc": "读取文件内容"
+      },
+      "core_memory": {
+        "name": "core_memory",
+        "desc": "管理核心内存条目"
+      }
+    },
+    "paths": {
+      "label": "路径配置",
+      "projectRoot": "项目根目录",
+      "projectRootPlaceholder": "例如：D:\\Projects\\MyProject",
+      "allowedDirs": "允许的目录",
+      "allowedDirsPlaceholder": "目录1,目录2,目录3",
+      "allowedDirsHint": "逗号分隔的允许目录列表",
+      "disableSandbox": "禁用沙箱"
+    },
+    "actions": {
+      "enableAll": "全部启用",
+      "disableAll": "全部禁用",
+      "install": "安装 CCW MCP",
+      "installing": "安装中...",
+      "uninstall": "卸载",
+      "uninstalling": "卸载中...",
+      "uninstallConfirm": "确定要卸载 CCW MCP 吗？",
+      "saveConfig": "保存配置",
+      "saving": "保存中..."
+    }
   }
 }

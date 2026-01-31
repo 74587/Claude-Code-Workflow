@@ -4,6 +4,7 @@
 // Toolbar for flow operations: New, Save, Load, Export
 
 import { useState, useCallback, useEffect } from 'react';
+import { useIntl } from 'react-intl';
 import {
   Plus,
   Save,
@@ -28,6 +29,7 @@ interface FlowToolbarProps {
 }
 
 export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarProps) {
+  const { formatMessage } = useIntl();
   const [isFlowListOpen, setIsFlowListOpen] = useState(false);
   const [flowName, setFlowName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -174,7 +176,7 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
         <Input
           value={flowName}
           onChange={(e) => setFlowName(e.target.value)}
-          placeholder="Flow name"
+          placeholder={formatMessage({ id: 'orchestrator.toolbar.placeholder' })}
           className="max-w-[200px] h-8 text-sm"
         />
         {isModified && (
@@ -265,7 +267,7 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
                             size="icon"
                             className="h-6 w-6"
                             onClick={(e) => handleDuplicate(flow, e)}
-                            title="Duplicate"
+                            title={formatMessage({ id: 'orchestrator.toolbar.duplicate' })}
                           >
                             <Copy className="w-3 h-3" />
                           </Button>
@@ -274,7 +276,7 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
                             size="icon"
                             className="h-6 w-6 text-destructive hover:text-destructive"
                             onClick={(e) => handleDelete(flow, e)}
-                            title="Delete"
+                            title={formatMessage({ id: 'orchestrator.toolbar.delete' })}
                           >
                             <Trash2 className="w-3 h-3" />
                           </Button>

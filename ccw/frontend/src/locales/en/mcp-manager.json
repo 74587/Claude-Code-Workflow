@@ -1,6 +1,10 @@
 {
   "title": "MCP Servers",
   "description": "Manage Model Context Protocol (MCP) servers for cross-CLI integration",
+  "mode": {
+    "claude": "Claude",
+    "codex": "Codex"
+  },
   "scope": {
     "global": "Global",
     "project": "Project"
@@ -18,6 +22,11 @@
   "command": "Command",
   "args": "Arguments",
   "env": "Environment Variables",
+  "codex": {
+    "configPath": "Config Path",
+    "readOnly": "Read-only",
+    "readOnlyNotice": "Codex MCP servers are managed via config.toml and cannot be edited here."
+  },
   "filters": {
     "all": "All",
     "searchPlaceholder": "Search servers by name or command..."
@@ -33,5 +42,89 @@
   "emptyState": {
     "title": "No MCP Servers Found",
     "message": "Add an MCP server to enable cross-CLI integration with tools like Claude, Codex, and Qwen."
+  },
+  "dialog": {
+    "addTitle": "Add MCP Server",
+    "editTitle": "Edit MCP Server \"{name}\"",
+    "form": {
+      "template": "Template",
+      "templatePlaceholder": "Select a template to pre-fill the form",
+      "name": "Server Name",
+      "namePlaceholder": "e.g., my-mcp-server",
+      "command": "Command",
+      "commandPlaceholder": "e.g., npx, python, node",
+      "args": "Arguments",
+      "argsPlaceholder": "Comma-separated arguments, e.g., -v, --option=value",
+      "argsHint": "Separate multiple arguments with commas",
+      "env": "Environment Variables",
+      "envPlaceholder": "Key=value pairs (one per line), e.g.,\nAPI_KEY=your_key\nDEBUG=true",
+      "envHint": "Enter one key=value pair per line",
+      "scope": "Scope",
+      "enabled": "Enable this server"
+    },
+    "templates": {
+      "npx-stdio": "NPX STDIO",
+      "python-stdio": "Python STDIO",
+      "sse-server": "SSE Server"
+    },
+    "validation": {
+      "nameRequired": "Server name is required",
+      "nameExists": "A server with this name already exists",
+      "commandRequired": "Command is required"
+    },
+    "actions": {
+      "save": "Save",
+      "saving": "Saving...",
+      "cancel": "Cancel"
+    }
+  },
+  "ccw": {
+    "title": "CCW MCP Server",
+    "description": "Special built-in MCP server for CCW file operations and memory management",
+    "status": {
+      "installed": "Installed",
+      "notInstalled": "Not Installed",
+      "special": "Built-in"
+    },
+    "tools": {
+      "label": "Available Tools",
+      "core": "Core",
+      "write_file": {
+        "name": "write_file",
+        "desc": "Write or create new files"
+      },
+      "edit_file": {
+        "name": "edit_file",
+        "desc": "Edit or replace file contents"
+      },
+      "read_file": {
+        "name": "read_file",
+        "desc": "Read file contents"
+      },
+      "core_memory": {
+        "name": "core_memory",
+        "desc": "Manage core memory entries"
+      }
+    },
+    "paths": {
+      "label": "Path Configuration",
+      "projectRoot": "Project Root",
+      "projectRootPlaceholder": "e.g., D:\\Projects\\MyProject",
+      "allowedDirs": "Allowed Directories",
+      "allowedDirsPlaceholder": "dir1,dir2,dir3",
+      "allowedDirsHint": "Comma-separated list of allowed directories",
+      "disableSandbox": "Disable Sandbox"
+    },
+    "actions": {
+      "enableAll": "Enable All",
+      "disableAll": "Disable All",
+      "install": "Install CCW MCP",
+      "installing": "Installing...",
+      "uninstall": "Uninstall",
+      "uninstalling": "Uninstalling...",
+      "uninstallConfirm": "Are you sure you want to uninstall CCW MCP?",
+      "saveConfig": "Save Configuration",
+      "saving": "Saving..."
+    }
   }
 }

@@ -1,0 +1,18 @@
+{
+  "title": "通知",
+  "empty": "暂无通知",
+  "emptyHint": "通知将显示在这里",
+  "markAllRead": "全部已读",
+  "clearAll": "清空全部",
+  "showMore": "显示更多",
+  "showLess": "收起",
+  "systemNotifications": "系统通知",
+  "systemNotificationsDesc": "为重要事件显示浏览器原生通知",
+  "justNow": "刚刚",
+  "minutesAgo": "{0}分钟前",
+  "hoursAgo": "{0}小时前",
+  "daysAgo": "{0}天前",
+  "oneMinuteAgo": "1分钟前",
+  "oneHourAgo": "1小时前",
+  "oneDayAgo": "1天前"
+}

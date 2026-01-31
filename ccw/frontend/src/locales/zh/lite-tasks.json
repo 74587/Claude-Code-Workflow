@@ -19,6 +19,8 @@
     "title": "此会话中没有任务",
     "message": "此会话尚不包含任何任务。"
   },
+  "untitled": "无标题任务",
+  "discussionTopic": "讨论主题",
   "notFound": {
     "title": "未找到轻量任务",
     "message": "无法找到请求的轻量任务会话。"

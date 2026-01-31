@@ -1,0 +1,45 @@
+{
+  "title": "代码索引",
+  "description": "管理代码搜索索引以实现更快的导航和代码发现",
+  "sections": {
+    "status": "状态",
+    "actions": "操作",
+    "settings": "设置"
+  },
+  "status": {
+    "idle": "空闲",
+    "building": "构建中",
+    "completed": "就绪",
+    "failed": "失败"
+  },
+  "actions": {
+    "rebuild": "重建索引",
+    "rebuildFull": "完全重建",
+    "cancel": "取消"
+  },
+  "stats": {
+    "totalFiles": "总文件数",
+    "totalFilesDesc": "索引中的文件数",
+    "lastUpdated": "最后更新",
+    "lastUpdatedDesc": "上次构建索引的时间",
+    "buildTime": "构建时间",
+    "buildTimeDesc": "上次构建所花费的时间",
+    "never": "从未索引"
+  },
+  "time": {
+    "justNow": "刚刚",
+    "minutesAgo": "{value}分钟前",
+    "hoursAgo": "{value}小时前",
+    "daysAgo": "{value}天前"
+  },
+  "errors": {
+    "rebuildFailed": "索引重建失败",
+    "loadFailed": "加载索引状态失败"
+  },
+  "settings": {
+    "autoRebuild": "自动重建",
+    "autoRebuildDesc": "代码更改时自动重建索引",
+    "rebuildInterval": "重建间隔",
+    "rebuildIntervalDesc": "检查代码更改的频率"
+  }
+}

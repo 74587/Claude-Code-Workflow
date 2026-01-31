@@ -1,0 +1,57 @@
+{
+  "title": "File Explorer",
+  "description": "Browse and search files in your project",
+  "viewMode": {
+    "tree": "Tree",
+    "list": "List",
+    "compact": "Compact"
+  },
+  "sortOrder": {
+    "name": "Name",
+    "size": "Size",
+    "modified": "Modified",
+    "type": "Type"
+  },
+  "tree": {
+    "loading": "Loading file tree...",
+    "stats": "{files} items",
+    "empty": "No files found",
+    "error": "Failed to load file tree"
+  },
+  "preview": {
+    "loading": "Loading file content...",
+    "errorTitle": "Error loading file",
+    "emptyTitle": "No file selected",
+    "emptyMessage": "Select a file from the tree view to preview its content",
+    "binaryTitle": "Binary file",
+    "binaryMessage": "This file type cannot be previewed",
+    "tooLargeTitle": "File too large",
+    "tooLargeMessage": "File exceeds preview limit of {size}",
+    "copy": "Copy to clipboard",
+    "lastModified": "Last modified: {time}"
+  },
+  "toolbar": {
+    "searchPlaceholder": "Search files...",
+    "selectRoot": "Select directory",
+    "rootDirectory": "Root Directory",
+    "noRoots": "No directories available",
+    "viewMode": "View Mode",
+    "sortBy": "Sort By",
+    "moreOptions": "More Options",
+    "options": "Options",
+    "showHidden": "Show hidden files",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all"
+  },
+  "errors": {
+    "loadFailed": "Failed to load file tree",
+    "loadFileFailed": "Failed to load file content",
+    "searchFailed": "Search failed",
+    "networkError": "Network error occurred"
+  },
+  "context": {
+    "hasClaudeMd": "Contains CLAUDE.md context",
+    "gitRoot": "Git repository root",
+    "workspace": "Workspace directory"
+  }
+}

@@ -15,6 +15,11 @@ export type { UseConfigReturn } from './useConfig';
 export { useNotifications } from './useNotifications';
 export type { UseNotificationsReturn, ToastOptions } from './useNotifications';
 
+export { useWebSocketNotifications } from './useWebSocketNotifications';
+
+export { useSystemNotifications } from './useSystemNotifications';
+export type { UseSystemNotificationsReturn, SystemNotificationOptions } from './useSystemNotifications';
+
 export { useDashboardStats, usePrefetchDashboardStats, dashboardStatsKeys } from './useDashboardStats';
 export type { UseDashboardStatsOptions, UseDashboardStatsReturn } from './useDashboardStats';
 
@@ -154,6 +159,8 @@ export {
   hooksKeys,
   useRules,
   useToggleRule,
+  useCreateRule,
+  useDeleteRule,
   rulesKeys,
 } from './useCli';
 export type {
@@ -176,3 +183,11 @@ export type {
   UseCliExecutionOptions,
   UseCliExecutionReturn,
 } from './useCliExecution';
+
+// ========== Workspace Query Keys ==========
+export {
+  useWorkspaceQueryKeys,
+} from './useWorkspaceQueryKeys';
+export type {
+  WorkspaceQueryKeys,
+} from './useWorkspaceQueryKeys';

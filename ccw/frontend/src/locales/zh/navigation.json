@@ -11,11 +11,16 @@
     "skills": "技能",
     "commands": "命令",
     "memory": "记忆",
+    "prompts": "提示历史",
     "settings": "设置",
     "mcp": "MCP 服务器",
     "endpoints": "CLI 端点",
     "installations": "安装",
-    "help": "帮助"
+    "help": "帮助",
+    "hooks": "Hooks",
+    "rules": "规则",
+    "explorer": "文件浏览器",
+    "graph": "图浏览器"
   },
   "sidebar": {
     "collapse": "收起",

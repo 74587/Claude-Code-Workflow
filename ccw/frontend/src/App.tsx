@@ -6,9 +6,11 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from 'react-router-dom';
 import { IntlProvider } from 'react-intl';
+import { useEffect } from 'react';
 import { router } from './router';
 import queryClient from './lib/query-client';
 import type { Locale } from './lib/i18n';
+import { useWorkflowStore } from '@/stores/workflowStore';
 
 interface AppProps {
   locale: Locale;
@@ -23,10 +25,36 @@ function App({ locale, messages }: AppProps) {
   return (
     <IntlProvider locale={locale} messages={messages}>
       <QueryClientProvider client={queryClient}>
+        <QueryInvalidator />
         <RouterProvider router={router} />
       </QueryClientProvider>
     </IntlProvider>
   );
+}
+
+/**
+ * Query invalidator component
+ * Registers callback with workflowStore to invalidate workspace queries on workspace switch
+ */
+function QueryInvalidator() {
+  const registerQueryInvalidator = useWorkflowStore((state) => state.registerQueryInvalidator);
+
+  useEffect(() => {
+    // Register callback to invalidate all 'workspace' prefixed queries
+    const callback = () => {
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const queryKey = query.queryKey;
+          // Check if the first element of the query key is 'workspace'
+          return Array.isArray(queryKey) && queryKey[0] === 'workspace';
+        },
+      });
+    };
+
+    registerQueryInvalidator(callback);
+  }, [registerQueryInvalidator]);
+
+  return null;
 }
 
 export default App;

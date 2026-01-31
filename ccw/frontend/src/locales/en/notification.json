@@ -1,0 +1,9 @@
+{
+  "title": "Notifications",
+  "markAllRead": "Mark Read",
+  "clearAll": "Clear All",
+  "showMore": "Show more",
+  "showLess": "Show less",
+  "empty": "No notifications",
+  "emptyHint": "Notifications will appear here"
+}

@@ -1,0 +1,97 @@
+{
+  "title": "Graph Explorer",
+  "description": "Visualize code dependencies and relationships",
+  "filters": {
+    "title": "Filters",
+    "nodeTypes": "Node Types",
+    "edgeTypes": "Edge Types",
+    "selectNodeTypes": "Select Node Types",
+    "selectEdgeTypes": "Select Edge Types",
+    "searchPlaceholder": "Search nodes...",
+    "showOnlyIssues": "Show Only Issues",
+    "showIsolatedNodes": "Show Isolated Nodes",
+    "minComplexity": "Min Complexity",
+    "maxDepth": "Max Depth",
+    "reset": "Reset"
+  },
+  "nodeTypes": {
+    "component": "Component",
+    "module": "Module",
+    "function": "Function",
+    "class": "Class",
+    "interface": "Interface",
+    "variable": "Variable",
+    "file": "File",
+    "folder": "Folder",
+    "dependency": "Dependency",
+    "api": "API",
+    "database": "Database",
+    "service": "Service",
+    "hook": "Hook",
+    "utility": "Utility",
+    "unknown": "Unknown"
+  },
+  "edgeTypes": {
+    "imports": "Imports",
+    "exports": "Exports",
+    "extends": "Extends",
+    "implements": "Implements",
+    "uses": "Uses",
+    "dependsOn": "Depends On",
+    "calls": "Calls",
+    "instantiates": "Instantiates",
+    "contains": "Contains",
+    "relatedTo": "Related To",
+    "dataFlow": "Data Flow",
+    "event": "Event",
+    "unknown": "Unknown"
+  },
+  "actions": {
+    "fitView": "Fit to Screen",
+    "refresh": "Refresh",
+    "resetFilters": "Reset Filters",
+    "export": "Export",
+    "settings": "Settings",
+    "zoomIn": "Zoom In",
+    "zoomOut": "Zoom Out"
+  },
+  "legend": {
+    "title": "Legend",
+    "nodeTypes": "Node Types",
+    "edgeTypes": "Edge Types",
+    "component": "Component",
+    "module": "Module",
+    "class": "Class",
+    "function": "Function",
+    "variable": "Variable",
+    "imports": "Imports (solid line)",
+    "calls": "Calls (green line)",
+    "extends": "Extends (dashed line)"
+  },
+  "sidebar": {
+    "title": "Graph Explorer",
+    "nodeDetails": "Node Details",
+    "hasIssues": "Has Issues",
+    "filePath": "File Path",
+    "lineNumber": "Line Number",
+    "category": "Category",
+    "lineCount": "Lines of Code",
+    "documentation": "Documentation",
+    "tags": "Tags",
+    "issues": "Issues",
+    "instructions": "Click on a node to view details. Use the toolbar to filter nodes and edges."
+  },
+  "status": {
+    "nodes": "Nodes",
+    "edges": "Edges",
+    "loading": "Loading graph...",
+    "updating": "Updating...",
+    "filtered": "Showing {count} of {total} nodes"
+  },
+  "error": {
+    "loading": "Failed to load graph: {message}",
+    "empty": "No graph data available",
+    "unknown": "An unknown error occurred"
+  },
+  "empty": "No graph data available. Try adjusting filters or refresh the page."
+}

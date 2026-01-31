@@ -30,7 +30,14 @@
   "devIndex": {
     "title": "开发历史",
     "categories": "分类",
-    "timeline": "时间线"
+    "timeline": "时间线",
+    "category": {
+      "features": "功能",
+      "enhancements": "增强",
+      "bugfixes": "错误修复",
+      "refactorings": "重构",
+      "documentation": "文档"
+    }
   },
   "guidelines": {
     "title": "项目规范",

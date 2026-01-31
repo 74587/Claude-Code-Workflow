@@ -192,7 +192,7 @@ export function FixSessionPage() {
               <Wrench className="h-5 w-5" />
               {formatMessage({ id: 'fixSession.progress.title' })}
             </h3>
-            <Badge variant="secondary">{session.phase || 'Execution'}</Badge>
+            <Badge variant="secondary">{session.phase || formatMessage({ id: 'fixSession.phase.execution' })}</Badge>
           </div>
 
           {/* Progress Bar */}

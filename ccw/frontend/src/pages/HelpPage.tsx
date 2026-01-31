@@ -19,35 +19,47 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 
 interface HelpSection {
-  title: string;
-  description: string;
+  i18nKey: string;
+  descriptionI18nKey: string;
+  headingI18nKey?: string;
   icon: React.ElementType;
   link?: string;
   isExternal?: boolean;
 }
 
-const helpSections: HelpSection[] = [
+interface HelpSectionConfig {
+  i18nKey: string;
+  descriptionKey: string;
+  headingKey?: string;
+  icon: React.ElementType;
+  link?: string;
+  isExternal?: boolean;
+}
+
+const helpSectionsConfig: HelpSectionConfig[] = [
   {
-    title: 'Getting Started',
-    description: 'Learn the basics of CCW Dashboard and workflow management',
+    i18nKey: 'home.help.gettingStarted.title',
+    descriptionKey: 'home.help.gettingStarted.description',
+    headingKey: 'home.help.gettingStarted.heading',
     icon: Book,
     link: '#getting-started',
   },
   {
-    title: 'Orchestrator Guide',
-    description: 'Master the visual workflow editor with drag-drop flows',
+    i18nKey: 'home.help.orchestratorGuide.title',
+    descriptionKey: 'home.help.orchestratorGuide.description',
     icon: Workflow,
     link: '/orchestrator',
   },
   {
-    title: 'Sessions Management',
-    description: 'Understanding workflow sessions and task tracking',
+    i18nKey: 'home.help.sessionsManagement.title',
+    descriptionKey: 'home.help.sessionsManagement.description',
     icon: FolderKanban,
     link: '/sessions',
   },
   {
-    title: 'CLI Integration',
-    description: 'Using CCW commands and CLI tool integration',
+    i18nKey: 'home.help.cliIntegration.title',
+    descriptionKey: 'home.help.cliIntegration.description',
+    headingKey: 'home.help.cliIntegration.heading',
     icon: Terminal,
     link: '#cli-integration',
   },
@@ -55,6 +67,13 @@ const helpSections: HelpSection[] = [
 
 export function HelpPage() {
   const { formatMessage } = useIntl();
+
+  // Build help sections with i18n
+  const helpSections: HelpSection[] = helpSectionsConfig.map(section => ({
+    ...section,
+    descriptionI18nKey: section.descriptionKey,
+    headingI18nKey: section.headingKey,
+  }));
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -81,10 +100,10 @@ export function HelpPage() {
                 </div>
                 <div className="flex-1">
                   <h3 className="font-medium text-foreground group-hover:text-primary transition-colors">
-                    {section.title}
+                    {formatMessage({ id: section.i18nKey })}
                   </h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {section.description}
+                    {formatMessage({ id: section.descriptionI18nKey })}
                   </p>
                 </div>
                 {section.isExternal && (
@@ -96,14 +115,14 @@ export function HelpPage() {
 
           if (section.link?.startsWith('/')) {
             return (
-              <Link key={section.title} to={section.link}>
+              <Link key={section.i18nKey} to={section.link}>
                 {content}
               </Link>
             );
           }
 
           return (
-            <a key={section.title} href={section.link}>
+            <a key={section.i18nKey} href={section.link}>
               {content}
             </a>
           );
@@ -113,7 +132,7 @@ export function HelpPage() {
       {/* Getting Started Section */}
       <Card className="p-6" id="getting-started">
         <h2 className="text-xl font-semibold text-foreground mb-4">
-          Getting Started with CCW
+          {formatMessage({ id: 'home.help.gettingStarted.heading' })}
         </h2>
         <div className="prose prose-sm max-w-none text-muted-foreground">
           <p>
@@ -148,7 +167,7 @@ export function HelpPage() {
       {/* CLI Integration Section */}
       <Card className="p-6" id="cli-integration">
         <h2 className="text-xl font-semibold text-foreground mb-4">
-          CLI Integration
+          {formatMessage({ id: 'home.help.cliIntegration.heading' })}
         </h2>
         <div className="prose prose-sm max-w-none text-muted-foreground">
           <p>

@@ -30,6 +30,26 @@
       "message": "创建问题以跟踪错误或功能请求。"
     }
   },
+  "help": {
+    "gettingStarted": {
+      "title": "入门指南",
+      "description": "了解 CCW 仪表盘和工作流管理的基础知识",
+      "heading": "CCW 入门指南"
+    },
+    "orchestratorGuide": {
+      "title": "编排器指南",
+      "description": "掌握可视化拖放式工作流编辑器"
+    },
+    "sessionsManagement": {
+      "title": "会话管理",
+      "description": "了解工作流会话和任务跟踪"
+    },
+    "cliIntegration": {
+      "title": "CLI 集成",
+      "description": "使用 CCW 命令和 CLI 工具集成",
+      "heading": "CLI 集成"
+    }
+  },
   "errors": {
     "loadFailed": "加载仪表板数据失败",
     "retry": "重试"

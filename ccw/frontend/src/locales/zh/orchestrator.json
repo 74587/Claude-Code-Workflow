@@ -59,5 +59,135 @@
     "timeline": "时间线",
     "variables": "变量",
     "realtime": "实时更新"
+  },
+  "notifications": {
+    "flowCreated": "流程已创建",
+    "flowSaved": "流程已保存",
+    "saveFailed": "保存失败",
+    "flowLoaded": "流程已加载",
+    "loadFailed": "加载失败",
+    "flowDeleted": "流程已删除",
+    "deleteFailed": "删除失败",
+    "flowDuplicated": "流程已复制",
+    "duplicateFailed": "复制失败"
+  },
+  "templateLibrary": {
+    "title": "模板库",
+    "description": "浏览和导入工作流模板,或将当前流程导出为模板。",
+    "searchPlaceholder": "搜索模板...",
+    "allCategories": "全部",
+    "exportCurrent": "导出当前流程",
+    "close": "关闭",
+    "errors": {
+      "loadFailed": "加载模板失败"
+    },
+    "emptyState": {
+      "title": "未找到模板",
+      "searchSuggestion": "尝试不同的搜索查询"
+    },
+    "footer": {
+      "templateCount": "{count} 个模板"
+    },
+    "card": {
+      "nodes": "个节点",
+      "import": "导入",
+      "delete": "删除"
+    },
+    "exportDialog": {
+      "title": "导出为模板",
+      "description": "将此流程保存为可重用的模板到您的库中。",
+      "fields": {
+        "name": "名称",
+        "namePlaceholder": "模板名称",
+        "description": "描述",
+        "descriptionPlaceholder": "此模板的简要描述",
+        "category": "类别",
+        "categoryPlaceholder": "例如: 开发、测试、部署",
+        "tags": "标签 (逗号分隔)",
+        "tagsPlaceholder": "例如: react、testing、ci/cd"
+      },
+      "actions": {
+        "cancel": "取消",
+        "export": "导出"
+      }
+    }
+  },
+  "toolbar": {
+    "placeholder": "流程名称",
+    "unsavedChanges": "未保存的更改",
+    "new": "新建",
+    "save": "保存",
+    "load": "加载",
+    "export": "导出",
+    "templates": "模板",
+    "savedFlows": "已保存的流程 ({count})",
+    "loading": "加载中...",
+    "noSavedFlows": "无已保存的流程",
+    "duplicate": "复制",
+    "delete": "删除"
+  },
+  "palette": {
+    "title": "节点面板",
+    "open": "打开节点面板",
+    "collapse": "折叠面板",
+    "instructions": "将节点拖到画布上以将其添加到您的工作流中",
+    "nodeTypes": "节点类型",
+    "tipLabel": "提示:",
+    "tip": "通过从输出拖动到输入句柄来连接节点"
+  },
+  "propertyPanel": {
+    "title": "属性",
+    "open": "打开属性面板",
+    "close": "关闭面板",
+    "selectNode": "选择节点以编辑其属性",
+    "deleteNode": "删除节点",
+    "placeholders": {
+      "nodeLabel": "节点标签",
+      "commandName": "/命令名称",
+      "commandArgs": "命令参数",
+      "timeout": "60000",
+      "path": "/文件路径",
+      "content": "文件内容...",
+      "destinationPath": "/目标路径",
+      "variableName": "变量名称",
+      "condition": "例如: result.success === true",
+      "trueLabel": "真",
+      "falseLabel": "假"
+    },
+    "labels": {
+      "label": "标签",
+      "command": "命令",
+      "arguments": "参数",
+      "executionMode": "执行模式",
+      "onError": "出错时",
+      "timeout": "超时 (毫秒)",
+      "operation": "操作",
+      "path": "路径",
+      "content": "内容",
+      "destinationPath": "目标路径",
+      "outputVariable": "输出变量",
+      "addToContext": "添加到上下文",
+      "condition": "条件",
+      "trueLabel": "真标签",
+      "falseLabel": "假标签",
+      "joinMode": "加入模式",
+      "failFast": "快速失败 (首次错误时停止所有分支)"
+    },
+    "options": {
+      "modeAnalysis": "分析 (只读)",
+      "modeWrite": "写入 (修改文件)",
+      "errorStop": "停止执行",
+      "errorContinue": "继续",
+      "errorRetry": "重试",
+      "operationRead": "读取",
+      "operationWrite": "写入",
+      "operationAppend": "追加",
+      "operationDelete": "删除",
+      "operationCopy": "复制",
+      "operationMove": "移动",
+      "joinModeAll": "等待所有分支",
+      "joinModeAny": "任一分支完成时完成",
+      "joinModeNone": "无同步"
+    }
   }
 }
