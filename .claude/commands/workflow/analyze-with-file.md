@@ -242,25 +242,23 @@ ${newFocusFromUser}
 
 ### Phase 2: CLI Exploration
 
-**⚠️ CRITICAL - CLI EXECUTION REQUIREMENT**:
-- **MUST** wait for ALL CLI executions to fully complete before proceeding
-- After launching CLI with `run_in_background: true`, **STOP** and wait for hook callback
-- **DO NOT** proceed to Phase 3 until all CLI results are received
+**⚠️ CRITICAL - EXPLORATION PRIORITY**:
+- **cli-explore-agent FIRST**: Always use cli-explore-agent as primary exploration method
+- **CLI calls AFTER**: Use Gemini/other CLI tools only after cli-explore-agent provides context
+- **Sequential execution**: cli-explore-agent → CLI deep analysis (not parallel)
 - Minimize output: No processing until 100% results available
 
-**Step 2.1: Launch Parallel Explorations**
+**Step 2.1: Primary Exploration via cli-explore-agent**
 
 ```javascript
-const explorationPromises = []
+// ⚠️ PRIORITY: cli-explore-agent is the PRIMARY exploration method
+// MUST complete before any CLI calls
 
-// CLI Explore Agent for codebase
-if (dimensions.includes('implementation') || dimensions.includes('architecture')) {
-  explorationPromises.push(
-    Task(
-      subagent_type="cli-explore-agent",
-      run_in_background=false,
-      description=`Explore codebase: ${topicSlug}`,
-      prompt=`
+const codebaseExploration = await Task(
+  subagent_type="cli-explore-agent",
+  run_in_background=false,
+  description=`Explore codebase: ${topicSlug}`,
+  prompt=`
 ## Analysis Context
 Topic: ${topic_or_question}
 Dimensions: ${dimensions.join(', ')}
@@ -286,20 +284,29 @@ Schema:
   "_metadata": { "exploration_type": "codebase", "timestamp": "..." }
 }
 `
-    )
-  )
-}
+)
 
-// Gemini CLI for deep analysis
+// Read exploration results for CLI context enrichment
+const explorationResults = Read(`${sessionFolder}/exploration-codebase.json`)
+```
+
+**Step 2.2: CLI Deep Analysis (Using Exploration Context)**
+
+```javascript
+// Gemini CLI for deep analysis - AFTER cli-explore-agent completes
 // ⚠️ CRITICAL: Must wait for CLI completion before aggregating
-explorationPromises.push(
-  Bash({
-    command: `ccw cli -p "
+Bash({
+  command: `ccw cli -p "
 PURPOSE: Analyze topic '${topic_or_question}' from ${dimensions.join(', ')} perspectives
 Success criteria: Actionable insights with clear reasoning
 
+PRIOR EXPLORATION CONTEXT:
+- Key files: ${explorationResults.relevant_files.slice(0,5).map(f => f.path).join(', ')}
+- Patterns found: ${explorationResults.patterns.slice(0,3).join(', ')}
+- Key findings: ${explorationResults.key_findings.slice(0,3).join(', ')}
+
 TASK:
-• Identify key considerations for this topic
+• Build on exploration findings above
 • Analyze common patterns and anti-patterns
 • Highlight potential issues or opportunities
 • Generate discussion points for user clarification
@@ -316,14 +323,13 @@ EXPECTED:
 
 CONSTRAINTS: Focus on ${dimensions.join(', ')}
 " --tool gemini --mode analysis`,
-    run_in_background: true
-  })
-)
+  run_in_background: true
+})
 ```
 
-**⚠️ STOP POINT**: After launching CLI calls, stop output immediately. Wait for hook callback to receive results before continuing to Step 2.2.
+**⚠️ STOP POINT**: After launching CLI call, stop output immediately. Wait for hook callback to receive results before continuing to Step 2.3.
 
-**Step 2.2: Aggregate Findings**
+**Step 2.3: Aggregate Findings**
 
 ```javascript
 // After explorations complete, aggregate into explorations.json
@@ -344,7 +350,7 @@ const explorations = {
 Write(explorationsPath, JSON.stringify(explorations, null, 2))
 ```
 
-**Step 2.3: Update discussion.md**
+**Step 2.4: Update discussion.md**
 
 ```markdown
 #### Exploration Results (${timestamp})

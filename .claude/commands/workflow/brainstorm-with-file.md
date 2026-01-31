@@ -241,65 +241,156 @@ See **Templates** section for complete brainstorm.md structure. Initialize with:
 
 ---
 
-### Phase 2: Divergent Exploration (Multi-CLI Parallel)
+### Phase 2: Divergent Exploration (cli-explore-agent + Multi-CLI)
 
-**⚠️ CRITICAL - CLI EXECUTION REQUIREMENT**:
-- **MUST** wait for ALL CLI executions to fully complete before proceeding
-- After launching CLI with `run_in_background: true`, **STOP** and wait for hook callback
-- **DO NOT** proceed to Phase 3 until all CLI results are received
+**⚠️ CRITICAL - EXPLORATION PRIORITY**:
+- **cli-explore-agent FIRST**: Always use cli-explore-agent as primary exploration method
+- **Multi-CLI AFTER**: Use Gemini/Codex/Claude only after cli-explore-agent provides context
+- **Sequential execution**: cli-explore-agent → Multi-CLI perspectives (not all parallel)
 - Minimize output: No processing until 100% results available
 
-**Step 2.1: Launch Multi-CLI Perspectives**
+**Step 2.1: Primary Exploration via cli-explore-agent**
 
 ```javascript
-const cliPromises = []
+// ⚠️ PRIORITY: cli-explore-agent is the PRIMARY exploration method
+// MUST complete before any CLI calls
 
-// 1. Gemini: Creative/Innovative Perspective
-cliPromises.push(
-  Bash({
-    command: `ccw cli -p "
-PURPOSE: Creative brainstorming for '${idea_or_topic}' - generate innovative, unconventional ideas
-Success: 5+ unique creative solutions that push boundaries
+const codebaseExploration = await Task(
+  subagent_type="cli-explore-agent",
+  run_in_background=false,
+  description=`Explore codebase for brainstorm: ${topicSlug}`,
+  prompt=`
+## Brainstorm Context
+Topic: ${idea_or_topic}
+Dimensions: ${dimensions.join(', ')}
+Mode: ${brainstormMode}
+Session: ${sessionFolder}
 
-TASK:
-• Think beyond obvious solutions - what would be surprising/delightful?
-• Explore cross-domain inspiration (what can we learn from other industries?)
-• Challenge assumptions - what if the opposite were true?
-• Generate 'moonshot' ideas alongside practical ones
-• Consider future trends and emerging technologies
+## MANDATORY FIRST STEPS
+1. Run: ccw tool exec get_modules_by_depth '{}'
+2. Search for code related to topic keywords
+3. Read: .workflow/project-tech.json (if exists)
 
-MODE: analysis
+## Exploration Focus
+- Identify existing implementations related to the topic
+- Find patterns that could inspire solutions
+- Map current architecture constraints
+- Locate integration points
 
-CONTEXT: @**/* | Topic: ${idea_or_topic}
-Exploration vectors: ${explorationVectors.map(v => v.title).join(', ')}
+## Output
+Write findings to: ${sessionFolder}/exploration-codebase.json
 
-EXPECTED:
-- 5+ creative ideas with brief descriptions
-- Each idea rated: novelty (1-5), potential impact (1-5)
-- Key assumptions challenged
-- Cross-domain inspirations
-- One 'crazy' idea that might just work
-
-CONSTRAINTS: ${brainstormMode === 'structured' ? 'Keep ideas technically feasible' : 'No constraints - think freely'}
-" --tool gemini --mode analysis`,
-    run_in_background: true
-  })
+Schema:
+{
+  "relevant_files": [{path, relevance, rationale}],
+  "existing_patterns": [],
+  "architecture_constraints": [],
+  "integration_points": [],
+  "inspiration_sources": [],
+  "_metadata": { "exploration_type": "brainstorm-codebase", "timestamp": "..." }
+}
+`
 )
 
-// 2. Codex: Pragmatic/Implementation Perspective
-cliPromises.push(
-  Bash({
-    command: `ccw cli -p "
-PURPOSE: Pragmatic analysis for '${idea_or_topic}' - focus on implementation reality
-Success: Actionable approaches with clear implementation paths
+// Read exploration results for CLI context enrichment
+const explorationResults = Read(`${sessionFolder}/exploration-codebase.json`)
+```
+
+**Step 2.2: Multi-CLI Perspectives (Using Exploration Context)**
+
+```javascript
+// ============================================
+// Perspective Configuration (Data-Driven)
+// ============================================
+const PERSPECTIVES = {
+  creative: {
+    tool: 'gemini',
+    focus: 'generate innovative, unconventional ideas',
+    success: '5+ unique creative solutions that push boundaries',
+    tasks: [
+      'Build on existing patterns found - how can they be extended creatively?',
+      'Think beyond obvious solutions - what would be surprising/delightful?',
+      'Explore cross-domain inspiration (what can we learn from other industries?)',
+      'Challenge assumptions - what if the opposite were true?',
+      'Generate "moonshot" ideas alongside practical ones'
+    ],
+    expected: [
+      '5+ creative ideas with brief descriptions',
+      'Each idea rated: novelty (1-5), potential impact (1-5)',
+      'Key assumptions challenged',
+      'Cross-domain inspirations',
+      'One "crazy" idea that might just work'
+    ],
+    constraints: mode => mode === 'structured' ? 'Keep ideas technically feasible' : 'No constraints - think freely'
+  },
+
+  pragmatic: {
+    tool: 'codex',
+    focus: 'focus on implementation reality',
+    success: 'Actionable approaches with clear implementation paths',
+    tasks: [
+      'Build on explored codebase - how to integrate with existing patterns?',
+      'Evaluate technical feasibility of core concept',
+      'Identify existing patterns/libraries that could help',
+      'Estimate implementation complexity',
+      'Highlight potential technical blockers',
+      'Suggest incremental implementation approach'
+    ],
+    expected: [
+      '3-5 practical implementation approaches',
+      'Each rated: effort (1-5), risk (1-5), reuse potential (1-5)',
+      'Technical dependencies identified',
+      'Quick wins vs long-term solutions',
+      'Recommended starting point'
+    ],
+    constraints: () => 'Focus on what can actually be built with current tech stack'
+  },
+
+  systematic: {
+    tool: 'claude',
+    focus: 'architectural and structural thinking',
+    success: 'Well-structured solution framework with clear tradeoffs',
+    tasks: [
+      'Build on explored architecture - how to extend systematically?',
+      'Decompose the problem into sub-problems',
+      'Identify architectural patterns that apply',
+      'Map dependencies and interactions',
+      'Consider scalability implications',
+      'Propose systematic solution structure'
+    ],
+    expected: [
+      'Problem decomposition diagram (text)',
+      '2-3 architectural approaches with tradeoffs',
+      'Dependency mapping',
+      'Scalability assessment',
+      'Recommended architecture pattern',
+      'Risk matrix'
+    ],
+    constraints: () => 'Consider existing system architecture'
+  }
+}
+
+// ============================================
+// Shared Context Builder
+// ============================================
+const buildExplorationContext = (results) => `
+PRIOR EXPLORATION CONTEXT (from cli-explore-agent):
+- Key files: ${results.relevant_files.slice(0,5).map(f => f.path).join(', ')}
+- Existing patterns: ${results.existing_patterns.slice(0,3).join(', ')}
+- Architecture constraints: ${results.architecture_constraints.slice(0,3).join(', ')}
+- Integration points: ${results.integration_points.slice(0,3).join(', ')}`
+
+// ============================================
+// Universal CLI Prompt Template
+// ============================================
+const buildCLIPrompt = (perspective, config) => `
+PURPOSE: ${perspective.charAt(0).toUpperCase() + perspective.slice(1)} brainstorming for '${idea_or_topic}' - ${config.focus}
+Success: ${config.success}
+
+${buildExplorationContext(explorationResults)}
 
 TASK:
-• Evaluate technical feasibility of core concept
-• Identify existing patterns/libraries that could help
-• Consider integration with current codebase
-• Estimate implementation complexity
-• Highlight potential technical blockers
-• Suggest incremental implementation approach
+${config.tasks.map(t => `• ${t}`).join('\n')}
 
 MODE: analysis
 
@@ -307,48 +398,16 @@ CONTEXT: @**/* | Topic: ${idea_or_topic}
 Exploration vectors: ${explorationVectors.map(v => v.title).join(', ')}
 
 EXPECTED:
-- 3-5 practical implementation approaches
-- Each rated: effort (1-5), risk (1-5), reuse potential (1-5)
-- Technical dependencies identified
-- Quick wins vs long-term solutions
-- Recommended starting point
+${config.expected.map(e => `- ${e}`).join('\n')}
 
-CONSTRAINTS: Focus on what can actually be built with current tech stack
-" --tool codex --mode analysis`,
-    run_in_background: true
-  })
-)
+CONSTRAINTS: ${config.constraints(brainstormMode)}`
 
-// 3. Claude: Systematic/Architectural Perspective
-cliPromises.push(
+// ============================================
+// Launch Multi-CLI (Parallel)
+// ============================================
+const cliPromises = Object.entries(PERSPECTIVES).map(([name, config]) =>
   Bash({
-    command: `ccw cli -p "
-PURPOSE: Systematic analysis for '${idea_or_topic}' - architectural and structural thinking
-Success: Well-structured solution framework with clear tradeoffs
-
-TASK:
-• Decompose the problem into sub-problems
-• Identify architectural patterns that apply
-• Map dependencies and interactions
-• Consider scalability implications
-• Evaluate long-term maintainability
-• Propose systematic solution structure
-
-MODE: analysis
-
-CONTEXT: @**/* | Topic: ${idea_or_topic}
-Exploration vectors: ${explorationVectors.map(v => v.title).join(', ')}
-
-EXPECTED:
-- Problem decomposition diagram (text)
-- 2-3 architectural approaches with tradeoffs
-- Dependency mapping
-- Scalability assessment
-- Recommended architecture pattern
-- Risk matrix
-
-CONSTRAINTS: Consider existing system architecture
-" --tool claude --mode analysis`,
+    command: `ccw cli -p "${buildCLIPrompt(name, config)}" --tool ${config.tool} --mode analysis`,
     run_in_background: true
   })
 )
@@ -357,9 +416,9 @@ CONSTRAINTS: Consider existing system architecture
 await Promise.all(cliPromises)
 ```
 
-**⚠️ STOP POINT**: After launching CLI calls, stop output immediately. Wait for hook callback to receive results before continuing to Step 2.2.
+**⚠️ STOP POINT**: After launching CLI calls, stop output immediately. Wait for hook callback to receive results before continuing to Step 2.3.
 
-**Step 2.2: Aggregate Multi-Perspective Findings**
+**Step 2.3: Aggregate Multi-Perspective Findings**
 
 ```javascript
 const perspectives = {
@@ -398,7 +457,7 @@ const perspectives = {
 Write(perspectivesPath, JSON.stringify(perspectives, null, 2))
 ```
 
-**Step 2.3: Update brainstorm.md with Perspectives**
+**Step 2.4: Update brainstorm.md with Perspectives**
 
 Append to brainstorm.md the Round 2 multi-perspective exploration findings (see Templates section for format).
 

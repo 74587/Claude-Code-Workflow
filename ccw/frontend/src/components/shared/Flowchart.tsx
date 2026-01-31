@@ -156,7 +156,7 @@ export function Flowchart({ flowControl, className = '' }: FlowchartProps) {
   // Add Implementation section
   if (implSteps.length > 0) {
     // Section header node
-    const implSectionId = `impl-section-${Date.now()}`;
+    const implSectionId = 'impl-section';
     initialNodes.push({
       id: implSectionId,
       type: 'custom',
@@ -214,13 +214,14 @@ export function Flowchart({ flowControl, className = '' }: FlowchartProps) {
           animated: false,
         });
       } else {
-        // Sequential edge
+        // Sequential edge with styled connection
         initialEdges.push({
           id: `impl-${idx - 1}-${idx}`,
           source: `impl-${idx - 1}`,
           target: nodeId,
           type: 'smoothstep',
           animated: false,
+          style: { stroke: 'hsl(var(--primary))', strokeWidth: 2 },
         });
       }
 

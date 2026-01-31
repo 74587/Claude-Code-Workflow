@@ -241,7 +241,28 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
                         {formatMessage({ id: 'sessionDetail.taskDrawer.overview.implementationSteps' })}
                       </h3>
                       <div className="space-y-3">
+                        {flowControl.implementation_approach.map((step, index) => {
+                          const isString = typeof step === 'string';
+                          const title = isString ? step : (step.title || `Step ${step.step || index + 1}`);
+                          const description = isString ? undefined : step.description;
+                          const stepNumber = isString ? (index + 1) : (step.step || index + 1);
 
+                          return (
+                            <div key={index} className="p-3 bg-card rounded-md border border-border shadow-sm">
+                              <div className="flex items-start gap-2">
+                                <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                                  {stepNumber}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-foreground">{title}</p>
+                                  {description && (
+                                    <p className="text-xs text-muted-foreground mt-1">{description}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -271,15 +292,27 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
               <TabsContent value="files" className="mt-4 pb-6">
                 {hasFiles ? (
                   <div className="space-y-3">
-                    {flowControl?.target_files?.map((file, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-2 p-3 bg-card rounded-md border border-border shadow-sm hover:shadow-md transition-shadow"
-                      >
-                        <Folder className="h-4 w-4 text-primary flex-shrink-0" />
-                        <span className="text-sm font-mono text-foreground">{file.path || file.name || 'Unknown'}</span>
-                      </div>
-                    ))}
+                    {flowControl?.target_files?.map((file, index) => {
+                      // Support multiple file formats: string, { path: string }, { name: string }, { path, name }
+                      let displayPath: string;
+                      if (typeof file === 'string') {
+                        displayPath = file;
+                      } else if (file && typeof file === 'object') {
+                        displayPath = file.path || file.name || 'Unknown';
+                      } else {
+                        displayPath = 'Unknown';
+                      }
+
+                      return (
+                        <div
+                          key={index}
+                          className="flex items-center gap-2 p-3 bg-card rounded-md border border-border shadow-sm hover:shadow-md transition-shadow"
+                        >
+                          <Folder className="h-4 w-4 text-primary flex-shrink-0" />
+                          <span className="text-sm font-mono text-foreground">{displayPath}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-12">
