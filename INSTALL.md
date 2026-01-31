@@ -14,6 +14,22 @@ Installation guide for Claude Code Agent workflow coordination and distributed m
 npm install -g claude-code-workflow
 ```
 
+### Complete Installation
+
+After installing the npm package, you need to run the installation command to set up workflows, scripts, and templates:
+
+```bash
+# Install CCW system files (workflows, scripts, templates)
+ccw install
+```
+
+The `ccw install` command will:
+- Install workflow definitions to `~/.claude/workflows/`
+- Install utility scripts to `~/.claude/scripts/`
+- Install prompt templates to `~/.claude/templates/`
+- Install skill definitions to `~/.codex/skills/`
+- Configure shell integration (optional)
+
 ### Verify Installation
 
 ```bash

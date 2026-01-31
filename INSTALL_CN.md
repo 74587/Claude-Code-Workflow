@@ -14,6 +14,22 @@ Claude Code Agent 工作流协调和分布式内存系统的安装指南。
 npm install -g claude-code-workflow
 ```
 
+### 完成安装
+
+安装 npm 包后，需要运行安装命令来设置工作流、脚本和模板：
+
+```bash
+# 安装 CCW 系统文件（工作流、脚本、模板）
+ccw install
+```
+
+`ccw install` 命令将会：
+- 安装工作流定义到 `~/.claude/workflows/`
+- 安装实用脚本到 `~/.claude/scripts/`
+- 安装提示模板到 `~/.claude/templates/`
+- 安装技能定义到 `~/.codex/skills/`
+- 配置 shell 集成（可选）
+
 ### 验证安装
 
 ```bash
