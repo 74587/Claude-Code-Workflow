@@ -20,6 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { A2UIRenderer } from '@/packages/a2ui-runtime/renderer/A2UIRenderer';
 import { useNotificationStore, selectPersistentNotifications } from '@/stores';
 import type { Toast } from '@/types/store';
 
@@ -161,6 +162,9 @@ function NotificationItem({ notification, onDelete }: NotificationItemProps) {
   const hasDetails = notification.message && notification.message.length > 100;
   const { formatMessage } = useIntl();
 
+  // Check if this is an A2UI notification
+  const isA2UI = notification.type === 'a2ui' && notification.a2uiSurface;
+
   return (
     <div
       className={cn(
@@ -194,44 +198,54 @@ function NotificationItem({ notification, onDelete }: NotificationItemProps) {
             </div>
           </div>
 
-          {notification.message && (
-            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-              {isExpanded || !hasDetails
-                ? notification.message
-                : notification.message.slice(0, 100) + '...'}
-            </p>
-          )}
-
-          {/* Expand toggle */}
-          {hasDetails && (
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="flex items-center gap-1 mt-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {isExpanded ? (
-                <>
-                  <ChevronUp className="h-3 w-3" />
-                  {formatMessage({ id: 'notificationPanel.showLess' }) || 'Show less'}
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="h-3 w-3" />
-                  {formatMessage({ id: 'notificationPanel.showMore' }) || 'Show more'}
-                </>
+          {/* A2UI Surface Content */}
+          {isA2UI && notification.a2uiSurface ? (
+            <div className="mt-2">
+              <A2UIRenderer surface={notification.a2uiSurface} />
+            </div>
+          ) : (
+            <>
+              {/* Regular message content */}
+              {notification.message && (
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                  {isExpanded || !hasDetails
+                    ? notification.message
+                    : notification.message.slice(0, 100) + '...'}
+                </p>
               )}
-            </button>
-          )}
 
-          {/* Action button */}
-          {notification.action && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={notification.action.onClick}
-              className="mt-2 h-7 text-xs"
-            >
-              {notification.action.label}
-            </Button>
+              {/* Expand toggle */}
+              {hasDetails && (
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="flex items-center gap-1 mt-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {isExpanded ? (
+                    <>
+                      <ChevronUp className="h-3 w-3" />
+                      {formatMessage({ id: 'notificationPanel.showLess' }) || 'Show less'}
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-3 w-3" />
+                      {formatMessage({ id: 'notificationPanel.showMore' }) || 'Show more'}
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* Action button */}
+              {notification.action && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={notification.action.onClick}
+                  className="mt-2 h-7 text-xs"
+                >
+                  {notification.action.label}
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -316,9 +330,21 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
   // Delete handler
   const handleDelete = useCallback(
     (id: string) => {
+      // Find the notification being deleted
+      const notification = persistentNotifications.find((n) => n.id === id);
+
+      // If it's an A2UI notification, also remove from a2uiSurfaces Map
+      if (notification?.type === 'a2ui' && notification.a2uiSurface) {
+        const store = useNotificationStore.getState();
+        const newSurfaces = new Map(store.a2uiSurfaces);
+        newSurfaces.delete(notification.a2uiSurface.surfaceId);
+        // Update the store's a2uiSurfaces directly
+        useNotificationStore.setState({ a2uiSurfaces: newSurfaces });
+      }
+
       removePersistentNotification(id);
     },
-    [removePersistentNotification]
+    [removePersistentNotification, persistentNotifications]
   );
 
   // Mark all read handler

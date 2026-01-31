@@ -16,6 +16,7 @@ import {
   User,
   LogOut,
   Terminal,
+  Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -24,6 +25,7 @@ import { useTheme } from '@/hooks';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { WorkspaceSelector } from '@/components/workspace/WorkspaceSelector';
 import { useCliStreamStore, selectActiveExecutionCount } from '@/stores/cliStreamStore';
+import { useNotificationStore } from '@/stores';
 
 export interface HeaderProps {
   /** Callback to toggle mobile sidebar */
@@ -48,6 +50,13 @@ export function Header({
   const { formatMessage } = useIntl();
   const { isDark, toggleTheme } = useTheme();
   const activeCliCount = useCliStreamStore(selectActiveExecutionCount);
+
+  // Notification state for badge
+  const persistentNotifications = useNotificationStore((state) => state.persistentNotifications);
+  const togglePanel = useNotificationStore((state) => state.togglePanel);
+
+  // Calculate unread count
+  const unreadCount = persistentNotifications.filter((n) => !n.read).length;
 
   const handleRefresh = useCallback(() => {
     if (onRefresh && !isRefreshing) {
@@ -104,6 +113,23 @@ export function Header({
 
         {/* Workspace selector */}
         {projectPath && <WorkspaceSelector />}
+
+        {/* Notification badge */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={togglePanel}
+          aria-label={formatMessage({ id: 'common.aria.notifications' }) || 'Notifications'}
+          title={formatMessage({ id: 'common.aria.notifications' }) || 'Notifications'}
+          className="relative"
+        >
+          <Bell className="w-5 h-5" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-[10px] text-destructive-foreground flex items-center justify-center font-medium">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </Button>
 
         {/* Refresh button */}
         {onRefresh && (

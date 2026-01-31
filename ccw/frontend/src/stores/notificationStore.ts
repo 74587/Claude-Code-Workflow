@@ -74,6 +74,9 @@ const initialState: NotificationState = {
 
   // A2UI surfaces
   a2uiSurfaces: new Map<string, SurfaceUpdate>(),
+
+  // Current question dialog state
+  currentQuestion: null,
 };
 
 export const useNotificationStore = create<NotificationStore>()(
@@ -334,6 +337,12 @@ export const useNotificationStore = create<NotificationStore>()(
         });
         window.dispatchEvent(event);
       },
+
+      // ========== Current Question Actions ==========
+
+      setCurrentQuestion: (question: any) => {
+        set({ currentQuestion: question }, false, 'setCurrentQuestion');
+      },
     }),
     { name: 'NotificationStore' }
   )
@@ -354,6 +363,7 @@ export const selectWsLastMessage = (state: NotificationStore) => state.wsLastMes
 export const selectIsPanelVisible = (state: NotificationStore) => state.isPanelVisible;
 export const selectPersistentNotifications = (state: NotificationStore) =>
   state.persistentNotifications;
+export const selectCurrentQuestion = (state: NotificationStore) => state.currentQuestion;
 
 // Helper to create toast shortcuts
 export const toast = {

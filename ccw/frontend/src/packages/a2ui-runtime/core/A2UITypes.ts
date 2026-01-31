@@ -129,20 +129,31 @@ export const CardComponentSchema = z.object({
   }),
 });
 
-// ========== Component Union ==========
+/** CLIOutput component - for streaming CLI output with syntax highlighting */
+export const CLIOutputComponentSchema = z.object({
+  CLIOutput: z.object({
+    output: TextContentSchema,
+    language: z.string().optional(),
+    streaming: z.boolean().optional(),
+    maxLines: z.number().optional(),
+  }),
+});
 
+/** DateTimeInput component - for date/time selection */
+export const DateTimeInputComponentSchema = z.object({
+  DateTimeInput: z.object({
+    value: TextContentSchema.optional(),
+    onChange: ActionSchema,
+    placeholder: z.string().optional(),
+    minDate: TextContentSchema.optional(),
+    maxDate: TextContentSchema.optional(),
+    includeTime: z.boolean().optional(),
+  }),
+});
+
+// ========== Component Union ==========
 /** All A2UI component types */
-export const ComponentSchema: z.ZodType<
-  | z.infer<typeof TextComponentSchema>
-  | z.infer<typeof ButtonComponentSchema>
-  | z.infer<typeof DropdownComponentSchema>
-  | z.infer<typeof TextFieldComponentSchema>
-  | z.infer<typeof TextAreaComponentSchema>
-  | z.infer<typeof CheckboxComponentSchema>
-  | z.infer<typeof CodeBlockComponentSchema>
-  | z.infer<typeof ProgressComponentSchema>
-  | z.infer<typeof CardComponentSchema>
-> = z.union([
+export const ComponentSchema: z.ZodType<any> = z.union([
   TextComponentSchema,
   ButtonComponentSchema,
   DropdownComponentSchema,
@@ -152,6 +163,8 @@ export const ComponentSchema: z.ZodType<
   CodeBlockComponentSchema,
   ProgressComponentSchema,
   CardComponentSchema,
+  CLIOutputComponentSchema,
+  DateTimeInputComponentSchema,
 ]);
 
 // ========== Surface Schemas ==========
@@ -187,6 +200,8 @@ export type CheckboxComponent = z.infer<typeof CheckboxComponentSchema>;
 export type CodeBlockComponent = z.infer<typeof CodeBlockComponentSchema>;
 export type ProgressComponent = z.infer<typeof ProgressComponentSchema>;
 export type CardComponent = z.infer<typeof CardComponentSchema>;
+export type CLIOutputComponent = z.infer<typeof CLIOutputComponentSchema>;
+export type DateTimeInputComponent = z.infer<typeof DateTimeInputComponentSchema>;
 
 export type A2UIComponent = z.infer<typeof ComponentSchema>;
 export type SurfaceComponent = z.infer<typeof SurfaceComponentSchema>;
@@ -204,7 +219,9 @@ export type A2UIComponentType =
   | 'Checkbox'
   | 'CodeBlock'
   | 'Progress'
-  | 'Card';
+  | 'Card'
+  | 'CLIOutput'
+  | 'DateTimeInput';
 
 /** Get component type from discriminated union */
 export function getComponentType(component: A2UIComponent): A2UIComponentType {

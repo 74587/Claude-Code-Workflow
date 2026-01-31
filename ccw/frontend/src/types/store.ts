@@ -325,6 +325,37 @@ export interface WebSocketMessage {
   timestamp?: string;
 }
 
+// ========== Ask Question Types ==========
+
+/** Question type for ask_question tool */
+export type QuestionType = 'single' | 'multi' | 'text' | 'yes_no';
+
+/** Single question definition */
+export interface Question {
+  /** Question ID */
+  id: string;
+  /** Question text */
+  question: string;
+  /** Question type */
+  type: QuestionType;
+  /** Whether this question is required */
+  required: boolean;
+  /** Default value */
+  default?: string | string[];
+  /** Options for single/multi/yes_no questions */
+  options?: string[];
+}
+
+/** Ask question payload from MCP ask_question tool */
+export interface AskQuestionPayload {
+  /** Surface ID for this question */
+  surfaceId: string;
+  /** List of questions to ask */
+  questions: Question[];
+  /** Title for the question dialog */
+  title?: string;
+}
+
 export interface NotificationState {
   // Toast queue
   toasts: Toast[];
@@ -343,6 +374,9 @@ export interface NotificationState {
 
   // A2UI surfaces (Map of surfaceId to SurfaceUpdate)
   a2uiSurfaces: Map<string, SurfaceUpdate>;
+
+  // Current question dialog state
+  currentQuestion: AskQuestionPayload | null;
 }
 
 export interface NotificationActions {
@@ -373,6 +407,9 @@ export interface NotificationActions {
   addA2UINotification: (surface: SurfaceUpdate, title?: string) => string;
   updateA2UIState: (surfaceId: string, state: Record<string, unknown>) => void;
   sendA2UIAction: (actionId: string, surfaceId: string, parameters?: Record<string, unknown>) => void;
+
+  // Current question actions
+  setCurrentQuestion: (question: AskQuestionPayload | null) => void;
 }
 
 export type NotificationStore = NotificationState & NotificationActions;

@@ -5,7 +5,8 @@
     "switchToLightMode": "切换到浅色模式",
     "switchToDarkMode": "切换到深色模式",
     "userMenu": "用户菜单",
-    "actions": "操作"
+    "actions": "操作",
+    "notifications": "通知"
   },
   "actions": {
     "save": "保存",
@@ -179,5 +180,13 @@
       "documentation": "文档",
       "tutorials": "教程"
     }
+  },
+  "askQuestion": {
+    "defaultTitle": "问题",
+    "description": "请回答以下问题",
+    "textPlaceholder": "输入您的答案...",
+    "yes": "是",
+    "no": "否",
+    "required": "此问题为必填项"
   }
 }

@@ -219,6 +219,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       completeExecution,
       updateNode,
       addOutput,
+      addA2UINotification,
       onMessage,
     ]
   );
@@ -314,7 +315,20 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       connect();
     }
 
+    // Listen for A2UI action events and send via WebSocket
+    const handleA2UIAction = (event: CustomEvent) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify(event.detail));
+      } else {
+        console.warn('[WebSocket] Cannot send A2UI action: not connected');
+      }
+    };
+
+    // Type the event listener properly
+    window.addEventListener('a2ui-action', handleA2UIAction as EventListener);
+
     return () => {
+      window.removeEventListener('a2ui-action', handleA2UIAction as EventListener);
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }

@@ -10,7 +10,8 @@ import { Sidebar } from './Sidebar';
 import { MainContent } from './MainContent';
 import { CliStreamMonitor } from '@/components/shared/CliStreamMonitor';
 import { NotificationPanel } from '@/components/notification';
-import { useNotificationStore } from '@/stores';
+import { AskQuestionDialog } from '@/components/a2ui/AskQuestionDialog';
+import { useNotificationStore, selectCurrentQuestion } from '@/stores';
 import { useWebSocketNotifications } from '@/hooks';
 
 export interface AppShellProps {
@@ -56,6 +57,10 @@ export function AppShell({
   const loadPersistentNotifications = useNotificationStore(
     (state) => state.loadPersistentNotifications
   );
+
+  // Current question dialog state
+  const currentQuestion = useNotificationStore(selectCurrentQuestion);
+  const setCurrentQuestion = useNotificationStore((state) => state.setCurrentQuestion);
 
   // Initialize WebSocket notifications handler
   useWebSocketNotifications();
@@ -106,6 +111,10 @@ export function AppShell({
     useNotificationStore.getState().setPanelVisible(false);
   }, []);
 
+  const handleQuestionDialogClose = useCallback(() => {
+    setCurrentQuestion(null);
+  }, [setCurrentQuestion]);
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Header - fixed at top */}
@@ -150,6 +159,14 @@ export function AppShell({
         isOpen={isNotificationPanelVisible}
         onClose={handleNotificationPanelClose}
       />
+
+      {/* Ask Question Dialog - For ask_question MCP tool */}
+      {currentQuestion && (
+        <AskQuestionDialog
+          payload={currentQuestion}
+          onClose={handleQuestionDialogClose}
+        />
+      )}
     </div>
   );
 }

@@ -45,6 +45,7 @@ export {
   selectWsLastMessage,
   selectIsPanelVisible,
   selectPersistentNotifications,
+  selectCurrentQuestion,
   toast,
 } from './notificationStore';
 
@@ -113,6 +114,9 @@ export type {
   ToastType,
   WebSocketStatus,
   WebSocketMessage,
+  QuestionType,
+  Question,
+  AskQuestionPayload,
 } from '../types/store';
 
 // Execution Types

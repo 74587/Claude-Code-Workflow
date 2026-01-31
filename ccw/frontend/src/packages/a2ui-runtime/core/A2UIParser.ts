@@ -111,8 +111,8 @@ export class A2UIParser {
       return SurfaceUpdateSchema.safeParse(data);
     } catch (error) {
       return {
-        success: false,
-        error: error instanceof Error ? error : new Error(String(error)),
+        success: false as const,
+        error: error as z.ZodError,
       };
     }
   }
