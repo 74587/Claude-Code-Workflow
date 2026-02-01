@@ -141,6 +141,8 @@ Unified collaborative planning workflow using **Plan Note** architecture:
 - Session initialized with valid sessionId and sessionFolder
 - Task description available from $ARGUMENTS
 
+**Guideline**: In Understanding phase, prioritize identifying latest documentation (README, design docs, architecture guides). When ambiguities exist, ask user for clarification instead of assuming interpretations.
+
 **Workflow Steps**:
 
 1. **Initialize Progress Tracking**
@@ -152,8 +154,10 @@ Unified collaborative planning workflow using **Plan Note** architecture:
    - Execution mode: synchronous (run_in_background: false)
 
 3. **Agent Tasks**:
-   - **Understand Requirements**: Extract core objective, key points, constraints from task description
-   - **Form Checklist**: Identify critical questions needing clarification
+   - **Identify Latest Documentation**: Search for and prioritize latest README, design docs, architecture guides
+   - **Understand Requirements**: Extract core objective, key points, constraints from task description and latest docs
+   - **Identify Ambiguities**: List any unclear points or multiple possible interpretations
+   - **Form Clarification Checklist**: Prepare questions for user if ambiguities found (use AskUserQuestion)
    - **Split Sub-Domains**: Identify 2-{maxAgents} parallelizable focus areas
    - **Create Plan Note**: Generate plan-note.md with pre-allocated sections
 
@@ -172,6 +176,8 @@ Unified collaborative planning workflow using **Plan Note** architecture:
 - `total_agents`: Number of agents to spawn
 
 **Success Criteria**:
+- Latest documentation identified and referenced (if available)
+- Ambiguities resolved via user clarification (if any found)
 - 2-{maxAgents} clear sub-domains identified
 - Each sub-domain can be planned independently
 - Plan Note template includes all pre-allocated sections
@@ -191,14 +197,19 @@ Task(
   prompt=`
 ## Mission: Create Plan Note Template
 
+### Key Guidelines
+1. **Prioritize Latest Documentation**: Search for and reference latest README, design docs, architecture guides when available
+2. **Handle Ambiguities**: When requirement ambiguities exist, ask user for clarification (use AskUserQuestion) instead of assuming interpretations
+
 ### Input Requirements
 ${taskDescription}
 
 ### Tasks
-1. **Understand Requirements**: Extract core objective, key points, constraints
-2. **Form Checklist**: Identify critical questions needing clarification
-3. **Split Sub-Domains**: Identify 2-${maxAgents} parallelizable focus areas
-4. **Create Plan Note**: Generate plan-note.md with pre-allocated sections
+1. **Understand Requirements**: Extract core objective, key points, constraints (reference latest docs when available)
+2. **Identify Ambiguities**: List any unclear points or multiple possible interpretations
+3. **Form Clarification Checklist**: Prepare questions for user if ambiguities found
+4. **Split Sub-Domains**: Identify 2-${maxAgents} parallelizable focus areas
+5. **Create Plan Note**: Generate plan-note.md with pre-allocated sections
 
 ### Output Files
 
@@ -595,9 +606,11 @@ Schema: ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json
 ## Best Practices
 
 1. **Clear Requirements**: Detailed requirements → better sub-domain splitting
-2. **Review Plan Note**: Check plan-note.md before execution
-3. **Resolve Conflicts**: Address high/critical conflicts before execution
-4. **Inspect Details**: Use agents/{focus-area}/plan.json for deep dive
+2. **Reference Latest Documentation**: Understanding agent should prioritize identifying and referencing latest docs (README, design docs, architecture guides)
+3. **Ask When Uncertain**: When ambiguities or multiple interpretations exist, ask user for clarification instead of assuming
+4. **Review Plan Note**: Check plan-note.md before execution
+5. **Resolve Conflicts**: Address high/critical conflicts before execution
+6. **Inspect Details**: Use agents/{focus-area}/plan.json for deep dive
 
 ---
 
