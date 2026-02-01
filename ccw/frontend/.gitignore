@@ -1,1 +1,28 @@
+# Test results and reports
+playwright-report/
+test-results/
+/dist/
+
+# Build outputs
+node_modules/
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+tmp.json
+nul
+
+# CCW tools
 .ace-tool/
