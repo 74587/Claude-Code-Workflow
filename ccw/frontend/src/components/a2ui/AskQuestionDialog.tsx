@@ -12,13 +12,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
+import { Label } from '@/components/ui/Label';
 import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNotificationStore } from '@/stores';

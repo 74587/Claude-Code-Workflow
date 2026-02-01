@@ -148,7 +148,7 @@ test.describe('[Workspace Switching] - E2E Data Isolation Tests', () => {
   test('WS-05: should clear workspace data on logout', async ({ page }) => {
     // Set some workspace-specific data
     await page.evaluate(() => {
-      localStorage.setItem('workspace-1-data', JSON.stringify { user: 'alice' }));
+      localStorage.setItem('workspace-1-data', JSON.stringify({ user: 'alice' }));
       localStorage.setItem('ccw-current-workspace', 'workspace-1');
     });
 

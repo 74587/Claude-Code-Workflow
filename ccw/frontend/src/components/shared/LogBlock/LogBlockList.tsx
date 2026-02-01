@@ -29,7 +29,7 @@ export function LogBlockList({ executionId, className }: LogBlockListProps) {
   // This avoids duplicate logic and leverages store-side caching
   const blocks = useCliStreamStore(
     (state) => executionId ? state.getBlocks(executionId) : [],
-    (a, b) => a === b // Shallow comparison - arrays are cached in store
+    (a: LogBlockData[], b: LogBlockData[]) => a === b // Shallow comparison - arrays are cached in store
   );
 
   // Get execution status for empty state display

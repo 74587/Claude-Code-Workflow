@@ -606,11 +606,11 @@ test.describe('[A2UI Notifications] - E2E Rendering Tests', () => {
     });
 
     // Check for email field
-    await expect(page.getByPlaceholderText('Email address')).toBeVisible();
-    await expect(page.getByPlaceholderText('Email address')).toHaveAttribute('type', 'email');
+    await expect(page.getByPlaceholder('Email address')).toBeVisible();
+    await expect(page.getByPlaceholder('Email address')).toHaveAttribute('type', 'email');
 
     // Check for password field
-    await expect(page.getByPlaceholderText('Password')).toBeVisible();
-    await expect(page.getByPlaceholderText('Password')).toHaveAttribute('type', 'password');
+    await expect(page.getByPlaceholder('Password')).toBeVisible();
+    await expect(page.getByPlaceholder('Password')).toHaveAttribute('type', 'password');
   });
 });

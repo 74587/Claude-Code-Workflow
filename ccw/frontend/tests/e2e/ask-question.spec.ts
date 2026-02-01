@@ -254,7 +254,7 @@ test.describe('[ask_question] - E2E Workflow Tests', () => {
     await expect(page.getByText('Please enter your name')).toBeVisible();
 
     // Type in text field
-    const inputField = page.getByPlaceholderText('Enter your name');
+    const inputField = page.getByPlaceholder('Enter your name');
     await inputField.fill('John Doe');
 
     // Submit

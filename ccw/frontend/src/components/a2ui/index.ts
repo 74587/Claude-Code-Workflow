@@ -4,4 +4,3 @@
 // Export all A2UI-related components
 
 export { AskQuestionDialog } from './AskQuestionDialog';
-export { default as AskQuestionDialog } from './AskQuestionDialog';
