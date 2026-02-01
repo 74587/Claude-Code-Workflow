@@ -1,13 +1,13 @@
 ---
 name: unified-execute-with-file
 description: Universal execution engine for consuming any planning/brainstorm/analysis output with minimal progress tracking, multi-agent coordination, and incremental execution
-argument-hint: "[-y|--yes] [-p|--plan <path>[,<path2>]] [--merge-agents] [--auto-commit] [--commit-prefix \"prefix\"] [-m|--mode sequential|parallel] [\"execution context or task name\"]"
+argument-hint: "[-y|--yes] [<path>[,<path2>] | -p|--plan <path>[,<path2>]] [--auto-commit] [--commit-prefix \"prefix\"] [\"execution context or task name\"]"
 allowed-tools: TodoWrite(*), Task(*), AskUserQuestion(*), Read(*), Grep(*), Glob(*), Bash(*), Edit(*), Write(*)
 ---
 
 ## Auto Mode
 
-When `--yes` or `-y`: Auto-confirm execution decisions, use default parallel strategy where possible.
+When `--yes` or `-y`: Auto-confirm execution decisions, follow plan's DAG dependencies.
 
 # Unified Execute-With-File Command
 
@@ -17,23 +17,20 @@ When `--yes` or `-y`: Auto-confirm execution decisions, use default parallel str
 # Basic usage (auto-detect plan, ask for execution method)
 /workflow:unified-execute-with-file
 
-# Execute with specific plan
-/workflow:unified-execute-with-file -p .workflow/plans/auth-plan.md
+# Execute with specific plan (no -p needed for default paths)
+/workflow:unified-execute-with-file .workflow/plans/auth-plan.md
 
-# Merge multiple plans
-/workflow:unified-execute-with-file -p plan.json,agents/auth/plan.json
+# Execute multiple plans sequentially (comma-separated)
+/workflow:unified-execute-with-file plan1.json,plan2.json,plan3.json
 
-# Collaborative plan execution (auto-discover sub-plans)
-/workflow:unified-execute-with-file -p .workflow/.planning/CPLAN-xxx --merge-agents
+# With explicit -p flag (still supported)
+/workflow:unified-execute-with-file -p .workflow/.planning/CPLAN-xxx
 
 # With auto-commit (conventional commits)
-/workflow:unified-execute-with-file --auto-commit -p plan.json
-
-# Sequential execution (no parallelization)
-/workflow:unified-execute-with-file -m sequential -p plan.json
+/workflow:unified-execute-with-file --auto-commit plan.json
 
 # Auto mode (skip prompts, use Agent for simple tasks, CLI for complex)
-/workflow:unified-execute-with-file -y -p plan.json
+/workflow:unified-execute-with-file -y plan.json
 ```
 
 **Execution Methods**:
@@ -44,7 +41,9 @@ When `--yes` or `-y`: Auto-confirm execution decisions, use default parallel str
 
 **Context Source**: Plan files (IMPL_PLAN.md, plan.json, synthesis.json, etc.)
 **Output Directory**: `.workflow/.execution/{session-id}/`
-**Default Mode**: Parallel execution with smart dependency resolution
+**Execution Strategy**:
+- Multiple plans: Sequential execution (plan1 → plan2 → plan3)
+- Within each plan: DAG-based dependency resolution with parallel execution where possible
 **Core Innovation**: Unified event log + structured notes + auto-commit
 
 ## Output Artifacts
@@ -56,9 +55,6 @@ When `--yes` or `-y`: Auto-confirm execution decisions, use default parallel str
 | `execution.md` | Plan overview, task table, execution timeline |
 | `execution-events.md` | ⭐ Unified log (all task executions) - SINGLE SOURCE OF TRUTH |
 
-### Generated Code
-
-Files generated directly to project directories (`src/`, `tests/`, `docs/`, etc.), not into execution folder.
 
 ## Overview
 
@@ -71,12 +67,12 @@ Universal execution engine consuming **any** planning output and executing it wi
 │                    UNIFIED EXECUTION WORKFLOW                            │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
-│  Phase 1: Plan Detection & Multi-Plan Merging                           │
+│  Phase 1: Plan Detection & Sequential Execution                         │
 │     ├─ Auto-detect or explicit --plan path                              │
-│     ├─ Support multiple plans (comma-separated or --merge-agents)       │
-│     ├─ Deduplicate tasks (file overlap + 90% title similarity)          │
-│     ├─ Assign global IDs: GTASK-{plan-index}-{original-id}              │
-│     └─ Remap cross-plan dependencies                                    │
+│     ├─ Support multiple plans (comma-separated)                         │
+│     ├─ Execute plans sequentially: plan1 → plan2 → plan3                │
+│     ├─ Each plan: independent session with own execution-events.md      │
+│     └─ Global session ID for multi-plan execution tracking              │
 │                                                                          │
 │  Phase 2: Session Initialization                                        │
 │     ├─ Create .workflow/.execution/{sessionId}/                         │
@@ -91,7 +87,7 @@ Universal execution engine consuming **any** planning output and executing it wi
 │     ├─ Generate validation report with recommendations                  │
 │     └─ Ask user: execution method (Agent/CLI-Codex/CLI-Gemini/Auto)     │
 │                                                                          │
-│  Phase 4: Wave Execution (Parallel/Sequential)                          │
+│  Phase 4: Wave Execution (DAG-based Dependencies)                       │
 │     ┌──────────────┬──────────────┬──────────────┐                      │
 │     │   Wave 1     │   Wave 2     │   Wave N     │                      │
 │     ├──────────────┼──────────────┼──────────────┤                      │
@@ -122,13 +118,11 @@ Universal execution engine consuming **any** planning output and executing it wi
 ```
 .workflow/.execution/{EXEC-slug-YYYY-MM-DD}/
 ├── execution.md              # Plan overview + task table + timeline
-└── execution-events.md       # ⭐ Unified log (all task executions) - SINGLE SOURCE OF TRUTH
+└── execution-events.md       # ⭐ Unified log (all task executions + review checkpoints) - SINGLE SOURCE OF TRUTH
 
-# Generated files (direct to project):
-src/*, tests/*, docs/*
 ```
 
-**Key Concept**: execution-events.md serves as both human-readable log AND machine-parseable state store. No redundancy, one unified source.
+**Key Concept**: execution-events.md serves as both human-readable log AND machine-parseable state store. All execution data (tasks, reviews, checkpoints) in one unified source.
 
 ## Implementation
 
@@ -141,33 +135,28 @@ src/*, tests/*, docs/*
 **Workflow Steps**:
 
 1. **Parse Command Flags**
-   - Extract plan paths from `--plan` or `-p` argument
-   - Detect `--merge-agents` flag for collaborative plan auto-discovery
+   - Extract plan paths from `--plan` or `-p` argument (or positional)
    - Detect `--auto-commit` and `--commit-prefix` for git integration
-   - Detect `--mode` for execution strategy (parallel/sequential)
    - Detect `-y` or `--yes` for auto-confirmation mode
 
 2. **Resolve Plan Paths**
 
    | Input Format | Resolution Strategy |
    |--------------|---------------------|
-   | Comma-separated | Split by comma: `plan1.json,plan2.json` |
-   | `--merge-agents` | Auto-discover: `plan-note.md` + `agents/**/plan.json` |
+   | Comma-separated | Execute sequentially: `plan1.json → plan2.json → plan3.json` |
    | Single path | Direct use |
    | No path | Auto-detect from `.workflow/` (IMPL_PLAN.md or task JSONs) |
 
-3. **Build Unified Graph**
-   - Parse all plans via format-agnostic `parsePlan()`
-   - Assign global IDs: `GTASK-{plan-index}-{original-id}`
-   - Deduplicate tasks (file overlap + 90% title similarity)
-   - Remap dependencies (handle merged tasks + cross-plan refs)
+3. **Parse Current Plan**
+   - Parse plan via format-agnostic `parsePlan()`
+   - Build task graph from plan's DAG dependencies
    - Validate (detect cycles), topological sort
-   - Return: `{ tasks, executionOrder, planSources, metadata }`
+   - Return: `{ tasks, executionOrder, planSource, metadata }`
 
 4. **Create Session Directory**
    - Generate session ID: `EXEC-{slug}-{date}-{random}`
    - Create `.workflow/.execution/{sessionId}/`
-   - Initialize `execution.md` with plan sources and merge statistics
+   - Initialize `execution.md` with plan source
    - Initialize `execution-events.md` (empty, will be appended)
 
 **Success Criteria**:
@@ -182,13 +171,15 @@ src/*, tests/*, docs/*
 
 ### Pre-Execution Validation (Agent-Assisted)
 
-**Objective**: Use validation agent to check execution feasibility, then ask user about execution method.
+**Objective**: Use validation agent to check execution feasibility and launch review agent for quality oversight.
 
 **Prerequisites**: Session initialized, unified graph built
 
 **Workflow Steps**:
 
-1. **Launch Validation Agent**
+1. **Launch Parallel Agents**
+
+   **A. Validation Agent**
 
    ```javascript
    Task(
@@ -224,8 +215,46 @@ Generate validation-report.json in ${sessionFolder}:
   "file_conflicts": [{ "file": "", "tasks": [], "wave": 0 }],
   "complexity_assessment": { "low": 0, "medium": 0, "high": 0 },
   "risks": [{ "severity": "critical|high|medium|low", "description": "" }],
-  "recommendations": []
+  "recommendations": [],
+  "review_checkpoints": [{ "after_tasks": [], "focus_areas": [] }]
 }
+`
+   )
+   ```
+
+   **B. Review Agent (Parallel)**
+
+   ```javascript
+   Task(
+     subagent_type="universal-executor",
+     run_in_background=false,
+     description="Initialize review oversight system",
+     prompt=`
+## Review Agent Initialization
+
+Set up incremental review system for execution quality oversight.
+
+### Review Strategy
+- **Checkpoint Interval**: Every 2-4 tasks
+- **Focus Areas**: Code quality, plan compliance, integration risks
+- **Update Principle**: Minimal changes only
+
+### Output to execution-events.md
+Append review configuration section (once, at initialization):
+
+---
+## REVIEW CONFIG - INITIALIZED ⚙️
+
+**Timestamp**: ${timestamp}
+**Strategy**: Incremental review every 2-4 tasks
+**Focus Areas**: code_quality, plan_compliance, integration_risks
+
+### Checkpoint Configuration
+- **Interval**: Min 2 tasks, Max 4 tasks (adaptive)
+- **Review Agent**: universal-executor
+- **Plan Note Fields**: implementation_notes, quality_concerns, integration_risks, next_task_dependencies
+
+---
 `
    )
    ```
@@ -290,9 +319,9 @@ Generate validation-report.json in ${sessionFolder}:
 
 ### Wave Execution
 
-**Objective**: Execute tasks in waves, respecting dependencies and file conflicts.
+**Objective**: Execute tasks in waves with review checkpoints, respecting dependencies and file conflicts.
 
-**Prerequisites**: Validation completed, user confirmed
+**Prerequisites**: Validation completed, user confirmed, review config initialized in execution-events.md
 
 **Workflow Steps**:
 
@@ -302,6 +331,7 @@ Generate validation-report.json in ${sessionFolder}:
    - Tasks with dependencies must wait for completion
    - Same file modifications → Sequential (no parallel)
    - Max 3 parallel tasks per wave (resource limit)
+   - Review checkpoints every 2-4 tasks (adaptive)
 
    **Algorithm**:
    - Find available tasks (dependencies satisfied, not completed)
@@ -316,18 +346,112 @@ Generate validation-report.json in ${sessionFolder}:
    - Update execution.md timeline
    - Append events to execution-events.md
 
-3. **Handle Failures**
+3. **Review Checkpoint Trigger** (Every 2-4 Tasks) - **Non-Blocking Parallel Execution**
+
+   **Conditions**:
+   - Completed tasks count ≥ checkpoint.min_tasks (default: 2)
+   - No pending tasks in current wave
+   - Previous checkpoint passed or first checkpoint
+
+   **Workflow** (Parallel with Next Wave):
+   ```javascript
+   if (completedTasksCount % checkpointInterval === 0) {
+     // Launch review agent in background (non-blocking)
+     Task(
+       subagent_type="universal-executor",
+       run_in_background=true,  // ⭐ Parallel execution - does NOT block next wave
+       description="Review checkpoint CHK-{id}",
+       prompt=`
+## Review Checkpoint: CHK-{id}
+
+### Completed Tasks Since Last Checkpoint
+${recentCompletedTasks.map(t => `- ${t.id}: ${t.title}`).join('\n')}
+
+### Consume Plan Notes
+${extractPlanNotes(recentCompletedTasks)}
+
+### Review Focus Areas
+1. **Code Quality**: Check implementations against standards
+2. **Plan Compliance**: Verify tasks match expected outcomes
+3. **Integration Risks**: Identify potential conflicts
+4. **Next Dependencies**: Validate dependency chain for upcoming tasks
+
+### Update Review Content (Minimal Changes Only)
+- Read: execution-events.md (for plan notes and task history)
+- Append to: execution-events.md (review checkpoint section)
+- Principle: Only note critical issues, no full rewrite
+
+### Output Format (Append to execution-events.md)
+
+---
+## REVIEW CHECKPOINT CHK-{id} - ${status} ${statusEmoji}
+
+**Timestamp**: ${timestamp}
+**Reviewed Tasks**: ${reviewedTaskIds.join(', ')}
+**Duration**: ${durationMs}ms
+
+### Findings
+
+${findings.critical.length > 0 ? \`
+#### 🔴 Critical
+${findings.critical.map(f => \`- ${f}\`).join('\\n')}
+\` : ''}
+
+${findings.high.length > 0 ? \`
+#### 🟠 High
+${findings.high.map(f => \`- ${f}\`).join('\\n')}
+\` : ''}
+
+${findings.medium.length > 0 ? \`
+#### 🟡 Medium
+${findings.medium.map(f => \`- ${f}\`).join('\\n')}
+\` : ''}
+
+${findings.low.length > 0 ? \`
+#### 🟢 Low
+${findings.low.map(f => \`- ${f}\`).join('\\n')}
+\` : ''}
+
+### Plan Note Updates (Extended)
+
+**Implementation Notes**: ${implementationNotes}
+**Quality Concerns**: ${qualityConcerns.join('; ')}
+**Integration Risks**: ${integrationRisks.join('; ')}
+**Next Task Dependencies**: ${nextTaskDependencies.join('; ')}
+
+### Recommendations
+${recommendations.map(r => \`- ${r}\`).join('\\n')}
+
+---
+`
+     )
+
+     // Immediately proceed to next wave (parallel execution)
+     console.log(`[Review] CHK-{id} launched in background, continuing with next wave...`)
+   }
+   ```
+
+   **Key Design**:
+   - Review agent runs in background (`run_in_background=true`)
+   - Next wave tasks start immediately (no waiting)
+   - Review findings appended to execution-events.md (single source of truth)
+   - Critical findings visible in unified log for next tasks to consume
+
+4. **Handle Failures**
 
    | Failure Type | Action |
    |--------------|--------|
    | Task timeout | Ask: retry/skip/abort |
    | Dependency failed | Auto-skip dependent tasks |
    | Max retries reached | Ask: retry/skip/abort (unless auto-mode) |
+   | Review checkpoint fail | Ask: fix issues/continue/abort |
 
 **Success Criteria**:
 - [ ] All waves executed
+- [ ] Review checkpoints completed (every 2-4 tasks)
 - [ ] Results captured in execution-events.md
 - [ ] Failed tasks handled appropriately
+- [ ] Review findings documented in checkpoint files
 
 ---
 
@@ -528,23 +652,23 @@ Generate validation-report.json in ${sessionFolder}:
 
 ## Helper Functions
 
-### Multi-Plan Support
+### Sequential Multi-Plan Execution
 
-**discoverCollaborativePlans(basePath)**:
-- Search for `plan-note.md` or `plan.json` in base path
-- Glob `agents/*/plan.json` for sub-plans
-- Return: Array of plan paths
+**executeSequentialPlans(planPaths)**:
+- Execute plans in order: `plan1 → plan2 → plan3`
+- Each plan gets independent session
+- All sessions grouped under global session ID
 
-**buildUnifiedGraph(planPaths)**:
-- Parse each plan, assign global IDs
-- Deduplicate tasks (file overlap + 90% title similarity via Levenshtein)
-- Remap dependencies (merged tasks + cross-plan refs)
-- Validate (detect cycles), topological sort
-- Return: `{ tasks, executionOrder, planSources, metadata }`
+**Per-Plan Execution**:
+- Parse plan → Build DAG → Validate → Execute tasks
+- Follow plan's internal DAG dependencies
+- Create execution-events.md for each plan
+- Track progress in parent session
 
-**Deduplication Logic**:
-- Same files + 90%+ title similarity → Merge
-- Merge metadata: `source_plans`, `merged_from`
+**Global Session Tracking**:
+- Parent session ID: `EXEC-multi-{date}`
+- Child sessions: `EXEC-{slug}-{plan-index}-{date}`
+- Aggregate statistics across all plans
 
 ---
 
@@ -700,11 +824,9 @@ Algorithm: Find available → Check conflicts → Group → Repeat
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-p, --plan <path>` | Auto-detect | Plan file(s), comma-separated for multiple |
-| `--merge-agents` | false | Auto-discover collaborative plan sub-plans |
+| `-p, --plan <path>` | Auto-detect | Plan file(s), comma-separated for sequential execution |
 | `--auto-commit` | false | Commit after each successful task |
 | `--commit-prefix` | null | Custom commit message prefix |
-| `-m, --mode` | parallel | Execution strategy: sequential or parallel |
 | `-y, --yes` | false | Auto-confirm all decisions |
 
 ---
@@ -722,48 +844,6 @@ Algorithm: Find available → Check conflicts → Group → Repeat
 5. **Resolve Conflicts Early**: Address file conflicts before execution
 6. **Monitor Events Log**: Check execution-events.md for detailed progress
 7. **Resume on Failure**: Use `--continue` to resume interrupted executions (Agent) or fixed ID (CLI)
-8. **Multi-Plan Merging**: Leverage `--merge-agents` for collaborative plan execution
+8. **Sequential Multi-Plan**: Use comma-separated paths for executing multiple plans in order
 
----
-
-## Advanced Features
-
-### Multi-Plan Merging
-
-**Use Cases**:
-- Collaborative planning output (plan-note.md + agents/**/plan.json)
-- Multiple feature plans to execute together
-- Incremental plan additions
-
-**Edge Cases**:
-- Same title, different files → Keep both
-- Same files, different title → Merge if 90%+ similarity
-- Same task in multiple plans → Merge once
-
-### Structured Execution Notes
-
-**Categories & Severity**:
-- `WARNING` (High): Security risks, potential issues
-- `DECISION` (Medium): Architectural choices
-- `API_CHANGE` (Critical): Breaking changes
-- `FILE_CONFLICT` (High): Multi-task file modifications
-- `DEPENDENCY` (Medium): Package/module changes
-- `PATTERN` (Low): Coding patterns established
-
-**Note Filtering**:
-- File overlap: Show notes affecting task.files_to_modify
-- Always show: Critical severity (regardless of files)
-
-### Auto-Commit
-
-**Conventional Commit Format**:
-- Structure: `type(scope): subject`
-- Types: feat, fix, refactor, test, docs
-- Scope: Inferred from file paths (frontend, backend, ui, api, auth)
-- Footer: Task-ID, Plan source
-
-**Safety**:
-- Never commit on task failure
-- Never skip hooks (no --no-verify)
-- Use heredoc for commit messages (avoid shell injection)
 
