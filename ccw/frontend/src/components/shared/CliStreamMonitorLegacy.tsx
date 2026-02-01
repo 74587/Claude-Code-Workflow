@@ -9,27 +9,24 @@ import {
   X,
   Terminal,
   Loader2,
-  AlertCircle,
   Clock,
   RefreshCw,
   Search,
-  XCircle,
   ArrowDownToLine,
-  Brain,
-  Settings,
-  Info,
-  MessageCircle,
-  Wrench,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { LogBlockList, getOutputLineClass } from '@/components/shared/LogBlock';
+import { Badge } from '@/components/ui/Badge';
+import { LogBlockList } from '@/components/shared/LogBlock';
 import { useCliStreamStore, type CliOutputLine } from '@/stores/cliStreamStore';
 import { useNotificationStore, selectWsLastMessage } from '@/stores';
 import { useActiveCliExecutions, useInvalidateActiveCliExecutions } from '@/hooks/useActiveCliExecutions';
+
+// New components for Tab + JSON Cards
+import { ExecutionTab } from './CliStreamMonitor/components/ExecutionTab';
+import { OutputLine } from './CliStreamMonitor/components/OutputLine';
 
 // ========== Types for CLI WebSocket Messages ==========
 
@@ -75,25 +72,6 @@ function formatDuration(ms: number): string {
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   return `${hours}h ${remainingMinutes}m`;
-}
-
-// Local function for icon rendering (uses JSX, must stay in .tsx file)
-function getOutputLineIcon(type: CliOutputLine['type']) {
-  switch (type) {
-    case 'thought':
-      return <Brain className="h-3 w-3" />;
-    case 'system':
-      return <Settings className="h-3 w-3" />;
-    case 'stderr':
-      return <AlertCircle className="h-3 w-3" />;
-    case 'metadata':
-      return <Info className="h-3 w-3" />;
-    case 'tool_call':
-      return <Wrench className="h-3 w-3" />;
-    case 'stdout':
-    default:
-      return <MessageCircle className="h-3 w-3" />;
-  }
 }
 
 // ========== Component ==========
@@ -343,43 +321,18 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
               className="w-full"
             >
               <TabsList className="w-full h-auto flex-wrap gap-1 bg-secondary/50 p-1">
-                {sortedExecutionIds.map((id) => {
-                  const exec = executions[id];
-                  return (
-                    <TabsTrigger
-                      key={id}
-                      value={id}
-                      className={cn(
-                        'gap-1.5 text-xs px-2 py-1',
-                        exec.status === 'running' && 'bg-primary text-primary-foreground'
-                      )}
-                    >
-                      <span className={cn('w-1.5 h-1.5 rounded-full', {
-                        'bg-green-500 animate-pulse': exec.status === 'running',
-                        'bg-blue-500': exec.status === 'completed',
-                        'bg-red-500': exec.status === 'error'
-                      })} />
-                      <span className="font-medium">{exec.tool}</span>
-                      <span className="text-muted-foreground">{exec.mode}</span>
-                      {exec.recovered && (
-                        <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
-                          Recovered
-                        </Badge>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-4 w-4 p-0 ml-1 hover:bg-destructive hover:text-destructive-foreground"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeExecution(id);
-                        }}
-                      >
-                        <XCircle className="h-3 w-3" />
-                      </Button>
-                    </TabsTrigger>
-                  );
-                })}
+                {sortedExecutionIds.map((id) => (
+                  <ExecutionTab
+                    key={id}
+                    execution={{ ...executions[id], id }}
+                    isActive={currentExecutionId === id}
+                    onClick={() => setCurrentExecution(id)}
+                    onClose={(e) => {
+                      e.stopPropagation();
+                      removeExecution(id);
+                    }}
+                  />
+                ))}
               </TabsList>
 
               {/* Output Panel */}
@@ -459,12 +412,11 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
                         ) : (
                           <div className="space-y-1">
                             {filteredOutput.map((line, index) => (
-                              <div key={index} className={cn('flex gap-2', getOutputLineClass(line.type))}>
-                                <span className="text-muted-foreground shrink-0">
-                                  {getOutputLineIcon(line.type)}
-                                </span>
-                                <span className="break-all">{line.content}</span>
-                              </div>
+                              <OutputLine
+                                key={`${line.timestamp}-${index}`}
+                                line={line}
+                                onCopy={(content) => navigator.clipboard.writeText(content)}
+                              />
                             ))}
                             <div ref={logsEndRef} />
                           </div>

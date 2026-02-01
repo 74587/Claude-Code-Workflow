@@ -60,18 +60,18 @@ export type { FlowchartProps } from './Flowchart';
 export { CliStreamPanel } from './CliStreamPanel';
 export type { CliStreamPanelProps } from './CliStreamPanel';
 
-// New CliStreamMonitor with message-based layout
-export { CliStreamMonitor } from './CliStreamMonitor/index';
-export type { CliStreamMonitorProps } from './CliStreamMonitor/index';
+// CliStreamMonitor (updated with Tab + JSON Cards - v3 design)
+export { default as CliStreamMonitor } from './CliStreamMonitorLegacy';
+export type { CliStreamMonitorProps } from './CliStreamMonitorLegacy';
 
-// Legacy CliStreamMonitor (old layout)
-export { default as CliStreamMonitorLegacy } from './CliStreamMonitorLegacy';
-export type { CliStreamMonitorProps as CliStreamMonitorLegacyProps } from './CliStreamMonitorLegacy';
+// Alternative: New message-based layout (CliStreamMonitorNew)
+export { CliStreamMonitor as CliStreamMonitorNew } from './CliStreamMonitor/index';
+export type { CliStreamMonitorProps as CliStreamMonitorNewProps } from './CliStreamMonitor/index';
 
 export { StreamingOutput } from './StreamingOutput';
 export type { StreamingOutputProps } from './StreamingOutput';
 
-// CliStreamMonitor sub-components
+// CliStreamMonitor sub-components (new design)
 export { MonitorHeader } from './CliStreamMonitor/index';
 export type { MonitorHeaderProps } from './CliStreamMonitor/index';
 
