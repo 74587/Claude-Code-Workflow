@@ -27,6 +27,7 @@ import {
   GitFork,
   Shield,
   History,
+  Server,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -68,6 +69,7 @@ const navItemDefinitions: Omit<NavItem, 'label'>[] = [
   { path: '/settings', icon: Settings },
   { path: '/settings/rules', icon: Shield },
   { path: '/settings/codexlens', icon: Sparkles },
+  { path: '/api-settings', icon: Server },
   { path: '/help', icon: HelpCircle },
 ];
 
@@ -117,6 +119,7 @@ export function Sidebar({
       '/settings': 'main.settings',
       '/settings/rules': 'main.rules',
       '/settings/codexlens': 'main.codexlens',
+      '/api-settings': 'main.apiSettings',
       '/help': 'main.help',
     };
     return navItemDefinitions.map((item) => ({

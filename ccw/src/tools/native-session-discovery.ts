@@ -94,6 +94,12 @@ abstract class SessionDiscoverer {
 
     // Try to match by prompt content (fallback for parallel execution)
     const matched = this.matchSessionByPrompt(sessions, prompt);
+
+    // Warn if multiple sessions and no prompt match found (low confidence)
+    if (!matched && sessions.length > 1) {
+      console.warn(`[ccw] Session tracking: multiple candidates found (${sessions.length}), using latest session`);
+    }
+
     return matched || sessions[0]; // Fallback to latest if no match
   }
 

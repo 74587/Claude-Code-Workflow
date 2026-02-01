@@ -128,7 +128,14 @@
     "modelBaseUrlHint": "Override base URL for this model",
     "basicInfo": "Basic Information",
     "endpointSettings": "Endpoint Settings",
-    "apiBaseUpdated": "Base URL updated"
+    "apiBaseUpdated": "Base URL updated",
+    "showDisabled": "Show Disabled",
+    "hideDisabled": "Hide Disabled",
+    "showAll": "Show All",
+    "saveError": "Failed to save provider",
+    "deleteError": "Failed to delete provider",
+    "toggleError": "Failed to toggle provider",
+    "testError": "Failed to test provider"
   },
   "endpoints": {
     "title": "Endpoints",
@@ -168,7 +175,13 @@
     "noEndpointsHint": "Add an endpoint to create custom API mappings with caching.",
     "providerBased": "Provider-based",
     "direct": "Direct",
-    "off": "Off"
+    "off": "Off",
+    "showDisabled": "Show Disabled",
+    "showAll": "Show All",
+    "basicInfo": "Basic Information",
+    "saveError": "Failed to save endpoint",
+    "deleteError": "Failed to delete endpoint",
+    "toggleError": "Failed to toggle endpoint"
   },
   "cache": {
     "title": "Cache",
@@ -249,6 +262,7 @@
   "cliSettings": {
     "title": "CLI Settings",
     "description": "Configure CLI tool settings and modes",
+    "modalDescription": "Configure Claude CLI wrapper settings for different endpoints",
     "stats": {
       "total": "Total Settings",
       "enabled": "Enabled"
@@ -263,12 +277,24 @@
       "title": "No CLI Settings Found",
       "message": "Add CLI settings to configure tool-specific options."
     },
+    "searchPlaceholder": "Search by name or description...",
     "mode": "Mode",
     "providerBased": "Provider-based",
     "direct": "Direct",
     "authToken": "Auth Token",
     "baseUrl": "Base URL",
-    "model": "Model"
+    "model": "Model",
+    "namePlaceholder": "e.g., production-claude",
+    "descriptionPlaceholder": "Optional description for this configuration",
+    "selectProvider": "Select a provider",
+    "includeCoAuthoredBy": "Include co-authored-by in commits",
+    "validation": {
+      "providerRequired": "Please select a provider",
+      "authOrBaseUrlRequired": "Please enter auth token or base URL"
+    },
+    "saveError": "Failed to save CLI settings",
+    "deleteError": "Failed to delete CLI settings",
+    "toggleError": "Failed to toggle CLI settings"
   },
   "ccwLitellm": {
     "title": "CCW-LiteLLM Package",
@@ -299,6 +325,7 @@
     "add": "Add",
     "close": "Close",
     "loading": "Loading...",
+    "saving": "Saving...",
     "error": "Error",
     "success": "Success",
     "warning": "Warning",
@@ -311,7 +338,12 @@
     "name": "Name",
     "description": "Description",
     "type": "Type",
-    "status": "Status"
+    "status": "Status",
+    "provider": "Provider",
+    "enableThis": "Enable this",
+    "validation": {
+      "nameRequired": "Name is required"
+    }
   },
   "messages": {
     "settingsSaved": "Settings saved successfully",

@@ -47,6 +47,39 @@
       "lastCheck": "最后检查时间"
     }
   },
+  "index": {
+    "operationComplete": "索引操作完成",
+    "operationFailed": "索引操作失败",
+    "noProject": "未选择项目",
+    "noProjectDesc": "请打开一个项目以执行索引操作。",
+    "starting": "正在启动索引操作...",
+    "cancelFailed": "取消操作失败",
+    "unknownError": "发生未知错误",
+    "complete": "完成",
+    "failed": "失败",
+    "cancelled": "已取消",
+    "inProgress": "进行中"
+  },
+  "semantic": {
+    "installTitle": "安装语义搜索",
+    "installDescription": "安装 FastEmbed 和语义搜索依赖，支持 GPU 加速。",
+    "installInfo": "GPU 加速需要兼容的硬件。CPU 模式在所有系统上都可用，但速度较慢。",
+    "gpu": {
+      "cpu": "CPU 模式",
+      "cpuDesc": "通用兼容，处理较慢。适用于所有系统。",
+      "directml": "DirectML（Windows GPU）",
+      "directmlDesc": "最适合带 AMD/Intel GPU 的 Windows 系统。推荐大多数用户使用。",
+      "cuda": "CUDA（NVIDIA GPU）",
+      "cudaDesc": "NVIDIA GPU 性能最佳。需要 CUDA 工具包。"
+    },
+    "recommended": "推荐",
+    "install": "安装",
+    "installing": "安装中...",
+    "installSuccess": "安装完成",
+    "installSuccessDesc": "语义搜索已成功安装，使用 {mode} 模式",
+    "installFailed": "安装失败",
+    "unknownError": "发生未知错误"
+  },
   "settings": {
     "currentCount": "当前索引数量",
     "currentWorkers": "当前工作线程",

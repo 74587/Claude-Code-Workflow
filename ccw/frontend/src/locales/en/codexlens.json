@@ -60,6 +60,26 @@
     "cancelled": "Cancelled",
     "inProgress": "In Progress"
   },
+  "semantic": {
+    "installTitle": "Install Semantic Search",
+    "installDescription": "Install FastEmbed and semantic search dependencies with GPU acceleration support.",
+    "installInfo": "GPU acceleration requires compatible hardware. CPU mode works on all systems but is slower.",
+    "gpu": {
+      "cpu": "CPU Mode",
+      "cpuDesc": "Universal compatibility, slower processing. Works on all systems.",
+      "directml": "DirectML (Windows GPU)",
+      "directmlDesc": "Best for Windows with AMD/Intel GPUs. Recommended for most users.",
+      "cuda": "CUDA (NVIDIA GPU)",
+      "cudaDesc": "Best performance with NVIDIA GPUs. Requires CUDA toolkit."
+    },
+    "recommended": "Recommended",
+    "install": "Install",
+    "installing": "Installing...",
+    "installSuccess": "Installation Complete",
+    "installSuccessDesc": "Semantic search installed successfully with {mode} mode",
+    "installFailed": "Installation Failed",
+    "unknownError": "An unknown error occurred"
+  },
   "settings": {
     "currentCount": "Current Index Count",
     "currentWorkers": "Current Workers",

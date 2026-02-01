@@ -220,6 +220,11 @@ export {
   useUpdateIgnorePatterns,
   useCodexLensMutations,
   codexLensKeys,
+  useCodexLensIndexes,
+  useCodexLensIndexingStatus,
+  useRebuildIndex,
+  useUpdateIndex,
+  useCancelIndexing,
 } from './useCodexLens';
 export type {
   UseCodexLensDashboardOptions,
@@ -248,4 +253,10 @@ export type {
   UseUpdateCodexLensEnvReturn,
   UseSelectGpuReturn,
   UseUpdateIgnorePatternsReturn,
+  UseCodexLensIndexesOptions,
+  UseCodexLensIndexesReturn,
+  UseCodexLensIndexingStatusReturn,
+  UseRebuildIndexReturn,
+  UseUpdateIndexReturn,
+  UseCancelIndexingReturn,
 } from './useCodexLens';

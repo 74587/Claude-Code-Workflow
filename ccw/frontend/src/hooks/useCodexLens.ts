@@ -11,6 +11,7 @@ import {
   fetchCodexLensConfig,
   updateCodexLensConfig,
   bootstrapCodexLens,
+  installCodexLensSemantic,
   uninstallCodexLens,
   fetchCodexLensModels,
   fetchCodexLensModelInfo,
@@ -52,6 +53,7 @@ import {
   type CodexLensSymbolSearchResponse,
   type CodexLensIndexesResponse,
   type CodexLensIndexingStatusResponse,
+  type CodexLensSemanticInstallResponse,
 } from '../lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
@@ -553,6 +555,33 @@ export function useBootstrapCodexLens(): UseBootstrapCodexLensReturn {
   };
 }
 
+export interface UseInstallSemanticReturn {
+  installSemantic: (gpuMode: 'cpu' | 'cuda' | 'directml') => Promise<{ success: boolean; message?: string; gpuMode?: string }>;
+  isInstalling: boolean;
+  error: Error | null;
+}
+
+/**
+ * Hook for installing CodexLens semantic dependencies
+ */
+export function useInstallSemantic(): UseInstallSemanticReturn {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: installCodexLensSemantic,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: codexLensKeys.all });
+      queryClient.invalidateQueries({ queryKey: codexLensKeys.dashboard() });
+    },
+  });
+
+  return {
+    installSemantic: mutation.mutateAsync,
+    isInstalling: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
 export interface UseUninstallCodexLensReturn {
   uninstall: () => Promise<{ success: boolean; message?: string }>;
   isUninstalling: boolean;
@@ -922,6 +951,7 @@ export function useCancelIndexing(): UseCancelIndexingReturn {
 export function useCodexLensMutations() {
   const updateConfig = useUpdateCodexLensConfig();
   const bootstrap = useBootstrapCodexLens();
+  const installSemantic = useInstallSemantic();
   const uninstall = useUninstallCodexLens();
   const download = useDownloadModel();
   const deleteModel = useDeleteModel();
@@ -937,6 +967,8 @@ export function useCodexLensMutations() {
     isUpdatingConfig: updateConfig.isUpdating,
     bootstrap: bootstrap.bootstrap,
     isBootstrapping: bootstrap.isBootstrapping,
+    installSemantic: installSemantic.installSemantic,
+    isInstallingSemantic: installSemantic.isInstalling,
     uninstall: uninstall.uninstall,
     isUninstalling: uninstall.isUninstalling,
     downloadModel: download.downloadModel,
@@ -961,6 +993,7 @@ export function useCodexLensMutations() {
     isMutating:
       updateConfig.isUpdating ||
       bootstrap.isBootstrapping ||
+      installSemantic.isInstalling ||
       uninstall.isUninstalling ||
       download.isDownloading ||
       deleteModel.isDeleting ||

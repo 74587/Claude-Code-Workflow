@@ -34,3 +34,4 @@ export { PromptHistoryPage } from './PromptHistoryPage';
 export { ExplorerPage } from './ExplorerPage';
 export { GraphExplorerPage } from './GraphExplorerPage';
 export { CodexLensManagerPage } from './CodexLensManagerPage';
+export { ApiSettingsPage } from './ApiSettingsPage';

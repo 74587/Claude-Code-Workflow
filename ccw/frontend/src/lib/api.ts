@@ -2829,6 +2829,30 @@ export async function bootstrapCodexLens(): Promise<CodexLensBootstrapResponse> 
 }
 
 /**
+ * CodexLens semantic install response
+ */
+export interface CodexLensSemanticInstallResponse {
+  success: boolean;
+  message?: string;
+  gpuMode?: string;
+  available?: boolean;
+  backend?: string;
+  accelerator?: string;
+  providers?: string[];
+  error?: string;
+}
+
+/**
+ * Install CodexLens semantic dependencies with GPU mode
+ */
+export async function installCodexLensSemantic(gpuMode: 'cpu' | 'cuda' | 'directml' = 'cpu'): Promise<CodexLensSemanticInstallResponse> {
+  return fetchApi<CodexLensSemanticInstallResponse>('/api/codexlens/semantic/install', {
+    method: 'POST',
+    body: JSON.stringify({ gpuMode }),
+  });
+}
+
+/**
  * Uninstall CodexLens
  */
 export async function uninstallCodexLens(): Promise<CodexLensUninstallResponse> {
@@ -3684,4 +3708,117 @@ export async function uninstallCcwLitellm(): Promise<{ success: boolean; message
   return fetchApi('/api/litellm-api/ccw-litellm/uninstall', {
     method: 'POST',
   });
+}
+
+// ========== CLI Settings Management ==========
+
+/**
+ * CLI Settings (Claude CLI endpoint configuration)
+ * Maps to backend EndpointSettings from /api/cli/settings
+ */
+export interface CliSettingsEndpoint {
+  id: string;
+  name: string;
+  description?: string;
+  settings: {
+    env: {
+      ANTHROPIC_AUTH_TOKEN?: string;
+      ANTHROPIC_BASE_URL?: string;
+      DISABLE_AUTOUPDATER?: string;
+      [key: string]: string | undefined;
+    };
+    model?: string;
+    includeCoAuthoredBy?: boolean;
+  };
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * CLI Settings list response
+ */
+export interface CliSettingsListResponse {
+  endpoints: CliSettingsEndpoint[];
+  total: number;
+}
+
+/**
+ * Save CLI Settings request
+ */
+export interface SaveCliSettingsRequest {
+  id?: string;
+  name: string;
+  description?: string;
+  settings: {
+    env: {
+      ANTHROPIC_AUTH_TOKEN?: string;
+      ANTHROPIC_BASE_URL?: string;
+      DISABLE_AUTOUPDATER?: string;
+      [key: string]: string | undefined;
+    };
+    model?: string;
+    includeCoAuthoredBy?: boolean;
+  };
+  enabled?: boolean;
+}
+
+/**
+ * Fetch all CLI settings endpoints
+ */
+export async function fetchCliSettings(): Promise<CliSettingsListResponse> {
+  return fetchApi('/api/cli/settings');
+}
+
+/**
+ * Fetch single CLI settings endpoint
+ */
+export async function fetchCliSettingsEndpoint(endpointId: string): Promise<{ endpoint: CliSettingsEndpoint; filePath?: string }> {
+  return fetchApi(`/api/cli/settings/${encodeURIComponent(endpointId)}`);
+}
+
+/**
+ * Create CLI settings endpoint
+ */
+export async function createCliSettings(request: SaveCliSettingsRequest): Promise<{ success: boolean; endpoint?: CliSettingsEndpoint; filePath?: string; message?: string }> {
+  return fetchApi('/api/cli/settings', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+/**
+ * Update CLI settings endpoint
+ */
+export async function updateCliSettings(endpointId: string, request: Partial<SaveCliSettingsRequest>): Promise<{ success: boolean; endpoint?: CliSettingsEndpoint; message?: string }> {
+  return fetchApi(`/api/cli/settings/${encodeURIComponent(endpointId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(request),
+  });
+}
+
+/**
+ * Delete CLI settings endpoint
+ */
+export async function deleteCliSettings(endpointId: string): Promise<{ success: boolean; message?: string }> {
+  return fetchApi(`/api/cli/settings/${encodeURIComponent(endpointId)}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Toggle CLI settings enabled status
+ */
+export async function toggleCliSettingsEnabled(endpointId: string, enabled: boolean): Promise<{ success: boolean; message?: string }> {
+  return fetchApi(`/api/cli/settings/${encodeURIComponent(endpointId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ enabled }),
+  });
+}
+
+/**
+ * Get CLI settings file path
+ */
+export async function getCliSettingsPath(endpointId: string): Promise<{ endpointId: string; filePath: string; enabled: boolean }> {
+  return fetchApi(`/api/cli/settings/${encodeURIComponent(endpointId)}/path`);
 }

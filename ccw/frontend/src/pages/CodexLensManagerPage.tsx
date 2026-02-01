@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Download,
   Trash2,
+  Zap,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -32,6 +33,7 @@ import { AdvancedTab } from '@/components/codexlens/AdvancedTab';
 import { GpuSelector } from '@/components/codexlens/GpuSelector';
 import { ModelsTab } from '@/components/codexlens/ModelsTab';
 import { SearchTab } from '@/components/codexlens/SearchTab';
+import { SemanticInstallDialog } from '@/components/codexlens/SemanticInstallDialog';
 import { useCodexLensDashboard, useCodexLensMutations } from '@/hooks';
 import { cn } from '@/lib/utils';
 
@@ -39,11 +41,13 @@ export function CodexLensManagerPage() {
   const { formatMessage } = useIntl();
   const [activeTab, setActiveTab] = useState('overview');
   const [isUninstallDialogOpen, setIsUninstallDialogOpen] = useState(false);
+  const [isSemanticInstallOpen, setIsSemanticInstallOpen] = useState(false);
 
   const {
     installed,
     status,
     config,
+    semantic,
     isLoading,
     isFetching,
     refetch,
@@ -109,45 +113,55 @@ export function CodexLensManagerPage() {
               }
             </Button>
           ) : (
-            <AlertDialog open={isUninstallDialogOpen} onOpenChange={setIsUninstallDialogOpen}>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="destructive"
-                  disabled={isUninstalling}
-                >
-                  <Trash2 className={cn('w-4 h-4 mr-2', isUninstalling && 'animate-spin')} />
-                  {isUninstalling
-                    ? formatMessage({ id: 'codexlens.uninstalling' })
-                    : formatMessage({ id: 'codexlens.uninstall' })
-                  }
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>
-                    {formatMessage({ id: 'codexlens.confirmUninstallTitle' })}
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {formatMessage({ id: 'codexlens.confirmUninstall' })}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={isUninstalling}>
-                    {formatMessage({ id: 'common.actions.cancel' })}
-                  </AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleUninstall}
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setIsSemanticInstallOpen(true)}
+                disabled={!semantic?.available}
+              >
+                <Zap className="w-4 h-4 mr-2" />
+                {formatMessage({ id: 'codexlens.semantic.install' })}
+              </Button>
+              <AlertDialog open={isUninstallDialogOpen} onOpenChange={setIsUninstallDialogOpen}>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
                     disabled={isUninstalling}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
+                    <Trash2 className={cn('w-4 h-4 mr-2', isUninstalling && 'animate-spin')} />
                     {isUninstalling
                       ? formatMessage({ id: 'codexlens.uninstalling' })
-                      : formatMessage({ id: 'common.actions.confirm' })
+                      : formatMessage({ id: 'codexlens.uninstall' })
                     }
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {formatMessage({ id: 'codexlens.confirmUninstallTitle' })}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {formatMessage({ id: 'codexlens.confirmUninstall' })}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isUninstalling}>
+                      {formatMessage({ id: 'common.actions.cancel' })}
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleUninstall}
+                      disabled={isUninstalling}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {isUninstalling
+                        ? formatMessage({ id: 'codexlens.uninstalling' })
+                        : formatMessage({ id: 'common.actions.confirm' })
+                      }
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
           )}
         </div>
       </div>
@@ -207,6 +221,13 @@ export function CodexLensManagerPage() {
           <AdvancedTab enabled={installed} />
         </TabsContent>
       </Tabs>
+
+      {/* Semantic Install Dialog */}
+      <SemanticInstallDialog
+        open={isSemanticInstallOpen}
+        onOpenChange={setIsSemanticInstallOpen}
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 }

@@ -33,6 +33,11 @@ import {
   checkCcwLitellmStatus,
   installCcwLitellm,
   uninstallCcwLitellm,
+  fetchCliSettings,
+  createCliSettings,
+  updateCliSettings,
+  deleteCliSettings,
+  toggleCliSettingsEnabled,
   type ProviderCredential,
   type CustomEndpoint,
   type CacheStats,
@@ -40,6 +45,8 @@ import {
   type ModelPoolConfig,
   type ModelPoolType,
   type DiscoveredProvider,
+  type CliSettingsEndpoint,
+  type SaveCliSettingsRequest,
 } from '../lib/api';
 
 // Query key factory
@@ -53,6 +60,8 @@ export const apiSettingsKeys = {
   modelPools: () => [...apiSettingsKeys.all, 'modelPools'] as const,
   modelPool: (id: string) => [...apiSettingsKeys.modelPools(), id] as const,
   ccwLitellm: () => [...apiSettingsKeys.all, 'ccwLitellm'] as const,
+  cliSettings: () => [...apiSettingsKeys.all, 'cliSettings'] as const,
+  cliSetting: (id: string) => [...apiSettingsKeys.cliSettings(), id] as const,
 };
 
 const STALE_TIME = 2 * 60 * 1000;
@@ -618,6 +627,145 @@ export function useUninstallCcwLitellm() {
   return {
     uninstall: mutation.mutateAsync,
     isUninstalling: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+// ========================================
+// CLI Settings Hooks
+// ========================================
+
+export interface UseCliSettingsOptions {
+  staleTime?: number;
+  enabled?: boolean;
+}
+
+export interface UseCliSettingsReturn {
+  cliSettings: CliSettingsEndpoint[];
+  totalCount: number;
+  enabledCount: number;
+  providerBasedCount: number;
+  directCount: number;
+  isLoading: boolean;
+  isFetching: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+  invalidate: () => Promise<void>;
+}
+
+export function useCliSettings(options: UseCliSettingsOptions = {}): UseCliSettingsReturn {
+  const { staleTime = STALE_TIME, enabled = true } = options;
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: apiSettingsKeys.cliSettings(),
+    queryFn: fetchCliSettings,
+    staleTime,
+    enabled,
+    retry: 2,
+  });
+
+  const cliSettings = query.data?.endpoints ?? [];
+  const enabledCliSettings = cliSettings.filter((s) => s.enabled);
+
+  // Determine mode based on whether settings have providerId in description or env vars
+  const providerBasedCount = cliSettings.filter((s) => {
+    // Provider-based: has ANTHROPIC_BASE_URL set to provider's apiBase
+    return s.settings.env.ANTHROPIC_BASE_URL && !s.settings.env.ANTHROPIC_BASE_URL.includes('api.anthropic.com');
+  }).length;
+
+  const directCount = cliSettings.length - providerBasedCount;
+
+  const refetch = async () => {
+    await query.refetch();
+  };
+
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({ queryKey: apiSettingsKeys.cliSettings() });
+  };
+
+  return {
+    cliSettings,
+    totalCount: cliSettings.length,
+    enabledCount: enabledCliSettings.length,
+    providerBasedCount,
+    directCount,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    error: query.error,
+    refetch,
+    invalidate,
+  };
+}
+
+export function useCreateCliSettings() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (request: SaveCliSettingsRequest) => createCliSettings(request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: apiSettingsKeys.cliSettings() });
+    },
+  });
+
+  return {
+    createCliSettings: mutation.mutateAsync,
+    isCreating: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+export function useUpdateCliSettings() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: ({ endpointId, request }: { endpointId: string; request: Partial<SaveCliSettingsRequest> }) =>
+      updateCliSettings(endpointId, request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: apiSettingsKeys.cliSettings() });
+    },
+  });
+
+  return {
+    updateCliSettings: (endpointId: string, request: Partial<SaveCliSettingsRequest>) =>
+      mutation.mutateAsync({ endpointId, request }),
+    isUpdating: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+export function useDeleteCliSettings() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (endpointId: string) => deleteCliSettings(endpointId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: apiSettingsKeys.cliSettings() });
+    },
+  });
+
+  return {
+    deleteCliSettings: mutation.mutateAsync,
+    isDeleting: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+export function useToggleCliSettings() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: ({ endpointId, enabled }: { endpointId: string; enabled: boolean }) =>
+      toggleCliSettingsEnabled(endpointId, enabled),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: apiSettingsKeys.cliSettings() });
+    },
+  });
+
+  return {
+    toggleCliSettings: (endpointId: string, enabled: boolean) =>
+      mutation.mutateAsync({ endpointId, enabled }),
+    isToggling: mutation.isPending,
     error: mutation.error,
   };
 }

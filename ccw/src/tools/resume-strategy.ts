@@ -5,6 +5,13 @@
 
 import type { ConversationTurn, ConversationRecord, NativeSessionMapping } from './cli-history-store.js';
 
+/**
+ * Emit user warning for silent fallback scenarios
+ */
+function warnUser(message: string): void {
+  console.warn(`[ccw] ${message}`);
+}
+
 // Strategy types
 export type ResumeStrategy = 'native' | 'prompt-concat' | 'hybrid';
 
@@ -78,6 +85,7 @@ export function determineResumeStrategy(options: ResumeStrategyOptions): ResumeD
   });
 
   if (crossTool) {
+    warnUser('Cross-tool resume: using prompt concatenation (different tool)');
     return buildPromptConcatDecision(resumeIds, getConversation);
   }
 
@@ -94,6 +102,7 @@ export function determineResumeStrategy(options: ResumeStrategyOptions): ResumeD
     }
 
     // No native mapping, fall back to prompt-concat
+    warnUser('No native session mapping found, using prompt concatenation');
     return buildPromptConcatDecision(resumeIds, getConversation);
   }
 
@@ -109,6 +118,7 @@ function buildPromptConcatDecision(
   getConversation: (ccwId: string) => ConversationRecord | null
 ): ResumeDecision {
   const allTurns: ConversationTurn[] = [];
+  let hasMissingConversation = false;
 
   for (const id of resumeIds) {
     const conversation = getConversation(id);
@@ -119,7 +129,14 @@ function buildPromptConcatDecision(
         _sourceId: id
       }));
       allTurns.push(...turnsWithSource as ConversationTurn[]);
+    } else {
+      hasMissingConversation = true;
     }
+  }
+
+  // Warn if any conversation was not found
+  if (hasMissingConversation) {
+    warnUser('One or more resume IDs not found, using prompt concatenation (new session created)');
   }
 
   // Sort by timestamp

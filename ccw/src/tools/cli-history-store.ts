@@ -82,6 +82,7 @@ export interface NativeSessionMapping {
   native_session_id: string;   // Native UUID
   native_session_path?: string; // Native file path
   project_hash?: string;       // Project hash (Gemini/Qwen)
+  transaction_id?: string;     // Transaction ID for concurrent session disambiguation
   created_at: string;
 }
 
@@ -359,6 +360,23 @@ export class CliHistoryStore {
         }
 
         console.log('[CLI History] Migration complete: turns table updated');
+      }
+
+      // Add transaction_id column to native_session_mapping table for concurrent session disambiguation
+      const mappingInfo = this.db.prepare('PRAGMA table_info(native_session_mapping)').all() as Array<{ name: string }>;
+      const hasTransactionId = mappingInfo.some(col => col.name === 'transaction_id');
+
+      if (!hasTransactionId) {
+        console.log('[CLI History] Migrating database: adding transaction_id column to native_session_mapping...');
+        this.db.exec(`
+          ALTER TABLE native_session_mapping ADD COLUMN transaction_id TEXT;
+        `);
+        try {
+          this.db.exec(`CREATE INDEX IF NOT EXISTS idx_native_transaction_id ON native_session_mapping(transaction_id);`);
+        } catch (indexErr) {
+          console.warn('[CLI History] Transaction ID index creation warning:', (indexErr as Error).message);
+        }
+        console.log('[CLI History] Migration complete: transaction_id column added');
       }
     } catch (err) {
       console.error('[CLI History] Migration error:', (err as Error).message);
@@ -926,12 +944,13 @@ export class CliHistoryStore {
    */
   saveNativeSessionMapping(mapping: NativeSessionMapping): void {
     const stmt = this.db.prepare(`
-      INSERT INTO native_session_mapping (ccw_id, tool, native_session_id, native_session_path, project_hash, created_at)
-      VALUES (@ccw_id, @tool, @native_session_id, @native_session_path, @project_hash, @created_at)
+      INSERT INTO native_session_mapping (ccw_id, tool, native_session_id, native_session_path, project_hash, transaction_id, created_at)
+      VALUES (@ccw_id, @tool, @native_session_id, @native_session_path, @project_hash, @transaction_id, @created_at)
       ON CONFLICT(ccw_id) DO UPDATE SET
         native_session_id = @native_session_id,
         native_session_path = @native_session_path,
-        project_hash = @project_hash
+        project_hash = @project_hash,
+        transaction_id = @transaction_id
     `);
 
     this.withRetry(() => stmt.run({
@@ -940,6 +959,7 @@ export class CliHistoryStore {
       native_session_id: mapping.native_session_id,
       native_session_path: mapping.native_session_path || null,
       project_hash: mapping.project_hash || null,
+      transaction_id: mapping.transaction_id || null,
       created_at: mapping.created_at || new Date().toISOString()
     }));
   }
@@ -962,6 +982,16 @@ export class CliHistoryStore {
       SELECT ccw_id FROM native_session_mapping WHERE tool = ? AND native_session_id = ?
     `).get(tool, nativeSessionId) as any;
     return row?.ccw_id || null;
+  }
+
+  /**
+   * Get transaction ID by CCW ID
+   */
+  getTransactionId(ccwId: string): string | null {
+    const row = this.db.prepare(`
+      SELECT transaction_id FROM native_session_mapping WHERE ccw_id = ?
+    `).get(ccwId) as any;
+    return row?.transaction_id || null;
   }
 
   /**
