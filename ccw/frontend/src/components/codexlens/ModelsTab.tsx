@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Package,
   Filter,
+  AlertCircle,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -69,6 +70,7 @@ export function ModelsTab({ installed = false }: ModelsTabProps) {
   const {
     models,
     isLoading,
+    error,
     refetch,
   } = useCodexLensModels({
     enabled: installed,
@@ -243,7 +245,25 @@ export function ModelsTab({ installed = false }: ModelsTabProps) {
       />
 
       {/* Model List */}
-      {isLoading ? (
+      {error ? (
+        <Card className="p-8 text-center">
+          <AlertCircle className="w-12 h-12 mx-auto text-destructive/50 mb-3" />
+          <h3 className="text-sm font-medium text-destructive-foreground mb-1">
+            {formatMessage({ id: 'codexlens.models.error.title' })}
+          </h3>
+          <p className="text-xs text-muted-foreground mb-3">
+            {error.message || formatMessage({ id: 'codexlens.models.error.description' })}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+          >
+            <RefreshCw className="w-3 h-3 mr-1" />
+            {formatMessage({ id: 'common.actions.retry' })}
+          </Button>
+        </Card>
+      ) : isLoading ? (
         <Card className="p-8 text-center">
           <p className="text-muted-foreground">{formatMessage({ id: 'common.actions.loading' })}</p>
         </Card>
@@ -251,10 +271,16 @@ export function ModelsTab({ installed = false }: ModelsTabProps) {
         <Card className="p-8 text-center">
           <Package className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
           <h3 className="text-sm font-medium text-foreground mb-1">
-            {formatMessage({ id: 'codexlens.models.empty.title' })}
+            {models && models.length > 0
+              ? formatMessage({ id: 'codexlens.models.empty.filtered' })
+              : formatMessage({ id: 'codexlens.models.empty.title' })
+            }
           </h3>
           <p className="text-xs text-muted-foreground">
-            {formatMessage({ id: 'codexlens.models.empty.description' })}
+            {models && models.length > 0
+              ? formatMessage({ id: 'codexlens.models.empty.filteredDesc' })
+              : formatMessage({ id: 'codexlens.models.empty.description' })
+            }
           </p>
         </Card>
       ) : (

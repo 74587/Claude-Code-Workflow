@@ -31,6 +31,7 @@ import { SettingsTab } from '@/components/codexlens/SettingsTab';
 import { AdvancedTab } from '@/components/codexlens/AdvancedTab';
 import { GpuSelector } from '@/components/codexlens/GpuSelector';
 import { ModelsTab } from '@/components/codexlens/ModelsTab';
+import { SearchTab } from '@/components/codexlens/SearchTab';
 import { useCodexLensDashboard, useCodexLensMutations } from '@/hooks';
 import { cn } from '@/lib/utils';
 
@@ -172,6 +173,9 @@ export function CodexLensManagerPage() {
           <TabsTrigger value="models">
             {formatMessage({ id: 'codexlens.tabs.models' })}
           </TabsTrigger>
+          <TabsTrigger value="search">
+            {formatMessage({ id: 'codexlens.tabs.search' })}
+          </TabsTrigger>
           <TabsTrigger value="advanced">
             {formatMessage({ id: 'codexlens.tabs.advanced' })}
           </TabsTrigger>
@@ -183,6 +187,7 @@ export function CodexLensManagerPage() {
             status={status}
             config={config}
             isLoading={isLoading}
+            onRefresh={handleRefresh}
           />
         </TabsContent>
 
@@ -192,6 +197,10 @@ export function CodexLensManagerPage() {
 
         <TabsContent value="models">
           <ModelsTab installed={installed} />
+        </TabsContent>
+
+        <TabsContent value="search">
+          <SearchTab enabled={installed} />
         </TabsContent>
 
         <TabsContent value="advanced">

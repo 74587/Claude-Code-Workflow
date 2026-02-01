@@ -1249,6 +1249,11 @@ export interface ProjectGuidelines {
   constraints?: Record<string, string[]>;
   quality_rules?: GuidelineEntry[];
   learnings?: LearningEntry[];
+  _metadata?: {
+    created_at?: string;
+    updated_at?: string;
+    version?: string;
+  };
 }
 
 export interface ProjectOverviewMetadata {
@@ -1283,6 +1288,23 @@ export async function fetchProjectOverview(projectPath?: string): Promise<Projec
   const url = projectPath ? `/api/ccw?path=${encodeURIComponent(projectPath)}` : '/api/ccw';
   const data = await fetchApi<{ projectOverview?: ProjectOverview }>(url);
   return data.projectOverview ?? null;
+}
+
+/**
+ * Update project guidelines for a specific workspace
+ */
+export async function updateProjectGuidelines(
+  guidelines: ProjectGuidelines,
+  projectPath?: string
+): Promise<{ success: boolean; guidelines?: ProjectGuidelines; error?: string }> {
+  const url = projectPath
+    ? `/api/ccw/guidelines?path=${encodeURIComponent(projectPath)}`
+    : '/api/ccw/guidelines';
+  return fetchApi(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(guidelines),
+  });
 }
 
 // ========== Session Detail API ==========
@@ -2937,5 +2959,729 @@ export async function updateCodexLensIgnorePatterns(request: CodexLensUpdateIgno
   return fetchApi<CodexLensIgnorePatternsResponse>('/api/codexlens/ignore-patterns', {
     method: 'POST',
     body: JSON.stringify(request),
+  });
+}
+
+// ========== CodexLens Search API ==========
+
+/**
+ * CodexLens search request parameters
+ */
+export interface CodexLensSearchParams {
+  query: string;
+  limit?: number;
+  mode?: 'dense_rerank' | 'fts' | 'fuzzy';
+  max_content_length?: number;
+  extra_files_count?: number;
+}
+
+/**
+ * CodexLens search result
+ */
+export interface CodexLensSearchResult {
+  path: string;
+  score: number;
+  content?: string;
+  line_start?: number;
+  line_end?: number;
+  [key: string]: unknown;
+}
+
+/**
+ * CodexLens search response
+ */
+export interface CodexLensSearchResponse {
+  success: boolean;
+  results: CodexLensSearchResult[];
+  total?: number;
+  query: string;
+  error?: string;
+}
+
+/**
+ * CodexLens symbol search response
+ */
+export interface CodexLensSymbolSearchResponse {
+  success: boolean;
+  symbols: Array<{
+    name: string;
+    kind: string;
+    path: string;
+    line: number;
+    [key: string]: unknown;
+  }>;
+  error?: string;
+}
+
+/**
+ * Perform content search using CodexLens
+ */
+export async function searchCodexLens(params: CodexLensSearchParams): Promise<CodexLensSearchResponse> {
+  const queryParams = new URLSearchParams();
+  queryParams.append('query', params.query);
+  if (params.limit) queryParams.append('limit', String(params.limit));
+  if (params.mode) queryParams.append('mode', params.mode);
+  if (params.max_content_length) queryParams.append('max_content_length', String(params.max_content_length));
+  if (params.extra_files_count) queryParams.append('extra_files_count', String(params.extra_files_count));
+
+  return fetchApi<CodexLensSearchResponse>(`/api/codexlens/search?${queryParams.toString()}`);
+}
+
+/**
+ * Perform file search using CodexLens
+ */
+export async function searchFilesCodexLens(params: CodexLensSearchParams): Promise<CodexLensSearchResponse> {
+  const queryParams = new URLSearchParams();
+  queryParams.append('query', params.query);
+  if (params.limit) queryParams.append('limit', String(params.limit));
+  if (params.mode) queryParams.append('mode', params.mode);
+  if (params.max_content_length) queryParams.append('max_content_length', String(params.max_content_length));
+  if (params.extra_files_count) queryParams.append('extra_files_count', String(params.extra_files_count));
+
+  return fetchApi<CodexLensSearchResponse>(`/api/codexlens/search_files?${queryParams.toString()}`);
+}
+
+/**
+ * Perform symbol search using CodexLens
+ */
+export async function searchSymbolCodexLens(params: Pick<CodexLensSearchParams, 'query' | 'limit'>): Promise<CodexLensSymbolSearchResponse> {
+  const queryParams = new URLSearchParams();
+  queryParams.append('query', params.query);
+  if (params.limit) queryParams.append('limit', String(params.limit));
+
+  return fetchApi<CodexLensSymbolSearchResponse>(`/api/codexlens/symbol?${queryParams.toString()}`);
+}
+
+// ========== CodexLens Index Management API ==========
+
+/**
+ * Index operation type
+ */
+export type CodexLensIndexOperation = 'fts_full' | 'fts_incremental' | 'vector_full' | 'vector_incremental';
+
+/**
+ * CodexLens index entry
+ */
+export interface CodexLensIndex {
+  id: string;
+  path: string;
+  indexPath: string;
+  size: number;
+  sizeFormatted: string;
+  fileCount: number;
+  dirCount: number;
+  hasVectorIndex: boolean;
+  hasNormalIndex: boolean;
+  status: string;
+  lastModified: string | null;
+}
+
+/**
+ * CodexLens index list response
+ */
+export interface CodexLensIndexesResponse {
+  success: boolean;
+  indexDir: string;
+  indexes: CodexLensIndex[];
+  summary: {
+    totalSize: number;
+    totalSizeFormatted: string;
+    vectorIndexCount: number;
+    normalIndexCount: number;
+    totalProjects?: number;
+    totalFiles?: number;
+    totalDirs?: number;
+    indexSizeBytes?: number;
+    indexSizeMb?: number;
+    embeddings?: any;
+    fullIndexDirSize?: number;
+    fullIndexDirSizeFormatted?: string;
+  };
+  error?: string;
+}
+
+/**
+ * CodexLens index operation request
+ */
+export interface CodexLensIndexOperationRequest {
+  path: string;
+  operation: CodexLensIndexOperation;
+  indexType?: 'normal' | 'vector';
+  embeddingModel?: string;
+  embeddingBackend?: 'fastembed' | 'litellm';
+  maxWorkers?: number;
+}
+
+/**
+ * CodexLens index operation response
+ */
+export interface CodexLensIndexOperationResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  result?: any;
+  output?: string;
+}
+
+/**
+ * CodexLens indexing status response
+ */
+export interface CodexLensIndexingStatusResponse {
+  success: boolean;
+  inProgress: boolean;
+  error?: string;
+}
+
+/**
+ * Fetch all CodexLens indexes
+ */
+export async function fetchCodexLensIndexes(): Promise<CodexLensIndexesResponse> {
+  return fetchApi<CodexLensIndexesResponse>('/api/codexlens/indexes');
+}
+
+/**
+ * Rebuild CodexLens index (full rebuild)
+ * @param projectPath - Project path to index
+ * @param options - Index options
+ */
+export async function rebuildCodexLensIndex(
+  projectPath: string,
+  options: {
+    indexType?: 'normal' | 'vector';
+    embeddingModel?: string;
+    embeddingBackend?: 'fastembed' | 'litellm';
+    maxWorkers?: number;
+  } = {}
+): Promise<CodexLensIndexOperationResponse> {
+  return fetchApi<CodexLensIndexOperationResponse>('/api/codexlens/init', {
+    method: 'POST',
+    body: JSON.stringify({
+      path: projectPath,
+      indexType: options.indexType || 'vector',
+      embeddingModel: options.embeddingModel || 'code',
+      embeddingBackend: options.embeddingBackend || 'fastembed',
+      maxWorkers: options.maxWorkers || 1
+    }),
+  });
+}
+
+/**
+ * Incremental update CodexLens index
+ * @param projectPath - Project path to update
+ * @param options - Index options
+ */
+export async function updateCodexLensIndex(
+  projectPath: string,
+  options: {
+    indexType?: 'normal' | 'vector';
+    embeddingModel?: string;
+    embeddingBackend?: 'fastembed' | 'litellm';
+    maxWorkers?: number;
+  } = {}
+): Promise<CodexLensIndexOperationResponse> {
+  return fetchApi<CodexLensIndexOperationResponse>('/api/codexlens/update', {
+    method: 'POST',
+    body: JSON.stringify({
+      path: projectPath,
+      indexType: options.indexType || 'vector',
+      embeddingModel: options.embeddingModel || 'code',
+      embeddingBackend: options.embeddingBackend || 'fastembed',
+      maxWorkers: options.maxWorkers || 1
+    }),
+  });
+}
+
+/**
+ * Cancel ongoing CodexLens indexing
+ */
+export async function cancelCodexLensIndexing(): Promise<{ success: boolean; error?: string }> {
+  return fetchApi('/api/codexlens/cancel', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+/**
+ * Check if CodexLens indexing is in progress
+ */
+export async function checkCodexLensIndexingStatus(): Promise<CodexLensIndexingStatusResponse> {
+  return fetchApi<CodexLensIndexingStatusResponse>('/api/codexlens/indexing-status');
+}
+
+/**
+ * Clean CodexLens indexes
+ * @param options - Clean options
+ */
+export async function cleanCodexLensIndexes(options: {
+  all?: boolean;
+  path?: string;
+} = {}): Promise<{ success: boolean; message?: string; error?: string }> {
+  return fetchApi('/api/codexlens/clean', {
+    method: 'POST',
+    body: JSON.stringify(options),
+  });
+}
+
+// ========== LiteLLM API Settings API ==========
+
+/**
+ * Provider credential types
+ */
+export type ProviderType = 'openai' | 'anthropic' | 'custom';
+
+/**
+ * Advanced provider settings
+ */
+export interface ProviderAdvancedSettings {
+  timeout?: number;
+  maxRetries?: number;
+  organization?: string;
+  apiVersion?: string;
+  customHeaders?: Record<string, string>;
+  rpm?: number;
+  tpm?: number;
+  proxy?: string;
+}
+
+/**
+ * Routing strategy types
+ */
+export type RoutingStrategy = 'simple-shuffle' | 'weighted' | 'latency-based' | 'cost-based' | 'least-busy';
+
+/**
+ * Individual API key entry
+ */
+export interface ApiKeyEntry {
+  id: string;
+  key: string;
+  label?: string;
+  weight?: number;
+  enabled: boolean;
+  healthStatus?: 'healthy' | 'unhealthy' | 'unknown';
+  lastHealthCheck?: string;
+  lastError?: string;
+  lastLatencyMs?: number;
+}
+
+/**
+ * Health check configuration
+ */
+export interface HealthCheckConfig {
+  enabled: boolean;
+  intervalSeconds: number;
+  cooldownSeconds: number;
+  failureThreshold: number;
+}
+
+/**
+ * Model capabilities
+ */
+export interface ModelCapabilities {
+  streaming?: boolean;
+  functionCalling?: boolean;
+  vision?: boolean;
+  contextWindow?: number;
+  embeddingDimension?: number;
+  maxOutputTokens?: number;
+}
+
+/**
+ * Model endpoint settings
+ */
+export interface ModelEndpointSettings {
+  baseUrl?: string;
+  timeout?: number;
+  maxRetries?: number;
+  customHeaders?: Record<string, string>;
+  cacheStrategy?: CacheStrategy;
+}
+
+/**
+ * Model definition
+ */
+export interface ModelDefinition {
+  id: string;
+  name: string;
+  type: 'llm' | 'embedding' | 'reranker';
+  series: string;
+  enabled: boolean;
+  capabilities?: ModelCapabilities;
+  endpointSettings?: ModelEndpointSettings;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Provider credential
+ */
+export interface ProviderCredential {
+  id: string;
+  name: string;
+  type: ProviderType;
+  apiKey: string;
+  apiBase?: string;
+  enabled: boolean;
+  advancedSettings?: ProviderAdvancedSettings;
+  apiKeys?: ApiKeyEntry[];
+  routingStrategy?: RoutingStrategy;
+  healthCheck?: HealthCheckConfig;
+  llmModels?: ModelDefinition[];
+  embeddingModels?: ModelDefinition[];
+  rerankerModels?: ModelDefinition[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Cache strategy
+ */
+export interface CacheStrategy {
+  enabled: boolean;
+  ttlMinutes: number;
+  maxSizeKB: number;
+  filePatterns: string[];
+}
+
+/**
+ * Custom endpoint
+ */
+export interface CustomEndpoint {
+  id: string;
+  name: string;
+  providerId: string;
+  model: string;
+  description?: string;
+  cacheStrategy: CacheStrategy;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Global cache settings
+ */
+export interface GlobalCacheSettings {
+  enabled: boolean;
+  cacheDir: string;
+  maxTotalSizeMB: number;
+}
+
+/**
+ * Cache statistics
+ */
+export interface CacheStats {
+  totalSize: number;
+  maxSize: number;
+  entries: number;
+}
+
+/**
+ * Model pool type
+ */
+export type ModelPoolType = 'embedding' | 'llm' | 'reranker';
+
+/**
+ * Model pool config
+ */
+export interface ModelPoolConfig {
+  id: string;
+  modelType: ModelPoolType;
+  enabled: boolean;
+  targetModel: string;
+  strategy: 'round_robin' | 'latency_aware' | 'weighted_random';
+  autoDiscover: boolean;
+  excludedProviderIds?: string[];
+  defaultCooldown: number;
+  defaultMaxConcurrentPerKey: number;
+  name?: string;
+  description?: string;
+}
+
+/**
+ * Provider for model pool discovery
+ */
+export interface DiscoveredProvider {
+  providerId: string;
+  providerName: string;
+  models: string[];
+}
+
+/**
+ * CLI settings mode
+ */
+export type CliSettingsMode = 'provider-based' | 'direct';
+
+/**
+ * CLI settings
+ */
+export interface CliSettings {
+  id: string;
+  name: string;
+  description?: string;
+  enabled: boolean;
+  mode: CliSettingsMode;
+  providerId?: string;
+  settings?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ========== Provider Management ==========
+
+/**
+ * Fetch all providers
+ */
+export async function fetchProviders(): Promise<{ providers: ProviderCredential[]; count: number }> {
+  return fetchApi('/api/litellm-api/providers');
+}
+
+/**
+ * Create provider
+ */
+export async function createProvider(provider: Omit<ProviderCredential, 'id' | 'createdAt' | 'updatedAt'>): Promise<{ success: boolean; provider: ProviderCredential }> {
+  return fetchApi('/api/litellm-api/providers', {
+    method: 'POST',
+    body: JSON.stringify(provider),
+  });
+}
+
+/**
+ * Update provider
+ */
+export async function updateProvider(providerId: string, updates: Partial<Omit<ProviderCredential, 'id' | 'createdAt' | 'updatedAt'>>): Promise<{ success: boolean; provider: ProviderCredential }> {
+  return fetchApi(`/api/litellm-api/providers/${encodeURIComponent(providerId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
+}
+
+/**
+ * Delete provider
+ */
+export async function deleteProvider(providerId: string): Promise<{ success: boolean; message: string }> {
+  return fetchApi(`/api/litellm-api/providers/${encodeURIComponent(providerId)}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Test provider connection
+ */
+export async function testProvider(providerId: string): Promise<{ success: boolean; provider: string; latencyMs?: number; error?: string }> {
+  return fetchApi(`/api/litellm-api/providers/${encodeURIComponent(providerId)}/test`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * Test specific API key
+ */
+export async function testProviderKey(providerId: string, keyId: string): Promise<{ valid: boolean; error?: string; latencyMs?: number; keyLabel?: string }> {
+  return fetchApi(`/api/litellm-api/providers/${encodeURIComponent(providerId)}/test-key`, {
+    method: 'POST',
+    body: JSON.stringify({ keyId }),
+  });
+}
+
+/**
+ * Get provider health status
+ */
+export async function getProviderHealthStatus(providerId: string): Promise<{ providerId: string; providerName: string; keys: Array<{ keyId: string; label: string; status: string; lastCheck?: string; lastLatencyMs?: number; consecutiveFailures?: number; inCooldown?: boolean; lastError?: string }> }> {
+  return fetchApi(`/api/litellm-api/providers/${encodeURIComponent(providerId)}/health-status`);
+}
+
+/**
+ * Trigger health check now
+ */
+export async function triggerProviderHealthCheck(providerId: string): Promise<{ success: boolean; providerId: string; providerName?: string; keys: Array<any>; checkedAt: string }> {
+  return fetchApi(`/api/litellm-api/providers/${encodeURIComponent(providerId)}/health-check-now`, {
+    method: 'POST',
+  });
+}
+
+// ========== Endpoint Management ==========
+
+/**
+ * Fetch all endpoints
+ */
+export async function fetchEndpoints(): Promise<{ endpoints: CustomEndpoint[]; count: number }> {
+  return fetchApi('/api/litellm-api/endpoints');
+}
+
+/**
+ * Create endpoint
+ */
+export async function createEndpoint(endpoint: Omit<CustomEndpoint, 'createdAt' | 'updatedAt'>): Promise<{ success: boolean; endpoint: CustomEndpoint }> {
+  return fetchApi('/api/litellm-api/endpoints', {
+    method: 'POST',
+    body: JSON.stringify(endpoint),
+  });
+}
+
+/**
+ * Update endpoint
+ */
+export async function updateEndpoint(endpointId: string, updates: Partial<Omit<CustomEndpoint, 'id' | 'createdAt' | 'updatedAt'>>): Promise<{ success: boolean; endpoint: CustomEndpoint }> {
+  return fetchApi(`/api/litellm-api/endpoints/${encodeURIComponent(endpointId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
+}
+
+/**
+ * Delete endpoint
+ */
+export async function deleteEndpoint(endpointId: string): Promise<{ success: boolean; message: string }> {
+  return fetchApi(`/api/litellm-api/endpoints/${encodeURIComponent(endpointId)}`, {
+    method: 'DELETE',
+  });
+}
+
+// ========== Model Discovery ==========
+
+/**
+ * Get available models for provider type
+ */
+export async function getProviderModels(providerType: string): Promise<{ providerType: string; models: Array<{ id: string; name: string; provider: string; description?: string }>; count: number }> {
+  return fetchApi(`/api/litellm-api/models/${encodeURIComponent(providerType)}`);
+}
+
+// ========== Cache Management ==========
+
+/**
+ * Fetch cache statistics
+ */
+export async function fetchCacheStats(): Promise<CacheStats> {
+  return fetchApi('/api/litellm-api/cache/stats');
+}
+
+/**
+ * Clear cache
+ */
+export async function clearCache(): Promise<{ success: boolean; removed: number }> {
+  return fetchApi('/api/litellm-api/cache/clear', {
+    method: 'POST',
+  });
+}
+
+/**
+ * Update cache settings
+ */
+export async function updateCacheSettings(settings: Partial<{ enabled: boolean; cacheDir: string; maxTotalSizeMB: number }>): Promise<{ success: boolean; settings: GlobalCacheSettings }> {
+  return fetchApi('/api/litellm-api/config/cache', {
+    method: 'PUT',
+    body: JSON.stringify(settings),
+  });
+}
+
+// ========== Model Pool Management ==========
+
+/**
+ * Fetch all model pools
+ */
+export async function fetchModelPools(): Promise<{ pools: ModelPoolConfig[] }> {
+  return fetchApi('/api/litellm-api/model-pools');
+}
+
+/**
+ * Fetch single model pool
+ */
+export async function fetchModelPool(poolId: string): Promise<{ pool: ModelPoolConfig }> {
+  return fetchApi(`/api/litellm-api/model-pools/${encodeURIComponent(poolId)}`);
+}
+
+/**
+ * Create model pool
+ */
+export async function createModelPool(pool: Omit<ModelPoolConfig, 'id'>): Promise<{ success: boolean; poolId: string; syncResult?: any }> {
+  return fetchApi('/api/litellm-api/model-pools', {
+    method: 'POST',
+    body: JSON.stringify(pool),
+  });
+}
+
+/**
+ * Update model pool
+ */
+export async function updateModelPool(poolId: string, updates: Partial<ModelPoolConfig>): Promise<{ success: boolean; poolId?: string; syncResult?: any }> {
+  return fetchApi(`/api/litellm-api/model-pools/${encodeURIComponent(poolId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
+}
+
+/**
+ * Delete model pool
+ */
+export async function deleteModelPool(poolId: string): Promise<{ success: boolean; syncResult?: any }> {
+  return fetchApi(`/api/litellm-api/model-pools/${encodeURIComponent(poolId)}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Get available models for pool type
+ */
+export async function getAvailableModelsForPool(modelType: ModelPoolType): Promise<{ availableModels: Array<{ modelId: string; modelName: string; providers: string[] }> }> {
+  return fetchApi(`/api/litellm-api/model-pools/available-models/${encodeURIComponent(modelType)}`);
+}
+
+/**
+ * Discover providers for model
+ */
+export async function discoverModelsForPool(modelType: ModelPoolType, targetModel: string): Promise<{ modelType: string; targetModel: string; discovered: DiscoveredProvider[]; count: number }> {
+  return fetchApi(`/api/litellm-api/model-pools/discover/${encodeURIComponent(modelType)}/${encodeURIComponent(targetModel)}`);
+}
+
+// ========== Config Management ==========
+
+/**
+ * Get full config
+ */
+export async function fetchApiConfig(): Promise<any> {
+  return fetchApi('/api/litellm-api/config');
+}
+
+/**
+ * Sync config to YAML
+ */
+export async function syncApiConfig(): Promise<{ success: boolean; message: string; yamlPath?: string }> {
+  return fetchApi('/api/litellm-api/config/sync', {
+    method: 'POST',
+  });
+}
+
+/**
+ * Preview YAML config
+ */
+export async function previewYamlConfig(): Promise<{ success: boolean; config: string }> {
+  return fetchApi('/api/litellm-api/config/yaml-preview');
+}
+
+// ========== CCW-LiteLLM Package Management ==========
+
+/**
+ * Check ccw-litellm status
+ */
+export async function checkCcwLitellmStatus(refresh = false): Promise<{ installed: boolean; version?: string; error?: string }> {
+  return fetchApi(`/api/litellm-api/ccw-litellm/status${refresh ? '?refresh=true' : ''}`);
+}
+
+/**
+ * Install ccw-litellm
+ */
+export async function installCcwLitellm(): Promise<{ success: boolean; message?: string; error?: string; path?: string }> {
+  return fetchApi('/api/litellm-api/ccw-litellm/install', {
+    method: 'POST',
+  });
+}
+
+/**
+ * Uninstall ccw-litellm
+ */
+export async function uninstallCcwLitellm(): Promise<{ success: boolean; message?: string; error?: string }> {
+  return fetchApi('/api/litellm-api/ccw-litellm/uninstall', {
+    method: 'POST',
   });
 }

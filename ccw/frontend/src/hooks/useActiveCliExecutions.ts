@@ -105,8 +105,12 @@ export function useActiveCliExecutions(
   refetchInterval: number = 5000
 ) {
   const upsertExecution = useCliStreamStore(state => state.upsertExecution);
+  const removeExecution = useCliStreamStore(state => state.removeExecution);
   const executions = useCliStreamStore(state => state.executions);
   const setCurrentExecution = useCliStreamStore(state => state.setCurrentExecution);
+  const markExecutionClosedByUser = useCliStreamStore(state => state.markExecutionClosedByUser);
+  const isExecutionClosedByUser = useCliStreamStore(state => state.isExecutionClosedByUser);
+  const cleanupUserClosedExecutions = useCliStreamStore(state => state.cleanupUserClosedExecutions);
 
   return useQuery({
     queryKey: ACTIVE_CLI_EXECUTIONS_QUERY_KEY,
@@ -117,11 +121,33 @@ export function useActiveCliExecutions(
       }
       const data: ActiveCliExecutionsResponse = await response.json();
 
+      // Get server execution IDs
+      const serverIds = new Set(data.executions.map(e => e.id));
+
+      // Clean up userClosedExecutions - remove those no longer on server
+      cleanupUserClosedExecutions(serverIds);
+
+      // Remove executions that are no longer on server and were closed by user
+      for (const [id, exec] of Object.entries(executions)) {
+        if (isExecutionClosedByUser(id)) {
+          // User closed this execution, remove from local state
+          removeExecution(id);
+        } else if (exec.status !== 'running' && !serverIds.has(id) && exec.recovered) {
+          // Not running, not on server, and was recovered (not user-created)
+          removeExecution(id);
+        }
+      }
+
       // Process executions and sync to store
       let hasNewExecution = false;
       const now = Date.now();
 
       for (const exec of data.executions) {
+        // Skip if user closed this execution
+        if (isExecutionClosedByUser(exec.id)) {
+          continue;
+        }
+
         const existing = executions[exec.id];
         const historicalOutput = parseHistoricalOutput(exec.output || '', exec.startTime);
 
@@ -175,7 +201,7 @@ export function useActiveCliExecutions(
 
       // Set current execution to first running execution if none selected
       if (hasNewExecution) {
-        const runningExec = data.executions.find(e => e.status === 'running');
+        const runningExec = data.executions.find(e => e.status === 'running' && !isExecutionClosedByUser(e.id));
         if (runningExec && !executions[runningExec.id]) {
           setCurrentExecution(runningExec.id);
         }

@@ -13,6 +13,114 @@ export interface JsonDetectionResult {
 }
 
 /**
+ * Try to recover truncated JSON by completing brackets
+ * This handles cases where JSON is split during streaming
+ */
+function tryRecoverTruncatedJson(content: string): Record<string, unknown> | null {
+  const trimmed = content.trim();
+
+  // Must start with { to be recoverable JSON
+  if (!trimmed.startsWith('{')) {
+    return null;
+  }
+
+  // Count opening vs closing braces
+  let openBraces = 0;
+  let closeBraces = 0;
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = 0; i < trimmed.length; i++) {
+    const char = trimmed[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (!inString) {
+      if (char === '{') openBraces++;
+      if (char === '}') closeBraces++;
+    }
+  }
+
+  // If we're missing closing braces, try to complete them
+  if (openBraces > closeBraces) {
+    const missingBraces = openBraces - closeBraces;
+    const recovered = trimmed + '}'.repeat(missingBraces);
+
+    // Also close any open quote
+    let finalRecovered = recovered;
+    if (inString) {
+      finalRecovered = recovered + '"';
+      // Add closing braces after the quote
+      finalRecovered = finalRecovered + '}'.repeat(missingBraces);
+    }
+
+    try {
+      return JSON.parse(finalRecovered) as Record<string, unknown>;
+    } catch {
+      // Recovery failed, try one more approach
+    }
+  }
+
+  // Try parsing as-is first
+  try {
+    return JSON.parse(trimmed) as Record<string, unknown>;
+  } catch {
+    // If still failing, try to close any hanging structures
+    // Remove trailing incomplete key/value and try again
+    const lastCommaIndex = trimmed.lastIndexOf(',');
+    if (lastCommaIndex > 0) {
+      const truncated = trimmed.substring(0, lastCommaIndex) + '}';
+      try {
+        return JSON.parse(truncated) as Record<string, unknown>;
+      } catch {
+        // Still failed
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Detect token usage stats pattern (common in CLI output)
+ * Pattern: {"type":"result","status":"success","stats":{"total_tokens":...,"input_tokens":...,...}
+ */
+function detectTokenStats(content: string): Record<string, unknown> | null {
+  // Check for common token stat patterns
+  const patterns = [
+    /"type"\s*:\s*"result"/,
+    /"status"\s*:\s*"success"/,
+    /"stats"\s*:\s*\{/,
+    /"total_tokens"\s*:\s*\d+/,
+  ];
+
+  const matchCount = patterns.filter(p => p.test(content)).length;
+
+  // If at least 3 patterns match, this is likely token stats
+  if (matchCount >= 3) {
+    const recovered = tryRecoverTruncatedJson(content);
+    if (recovered) {
+      return recovered;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Detect if a line contains JSON data
  * Supports multiple formats:
  * - Direct JSON: {...} or [...]
@@ -20,17 +128,29 @@ export interface JsonDetectionResult {
  * - Tool Result: [Tool Result] status: {...}
  * - Embedded JSON: trailing JSON object
  * - Code block JSON: ```json ... ```
+ * - Truncated JSON: handles streaming incomplete JSON
  */
 export function detectJsonInLine(content: string): JsonDetectionResult {
   const trimmed = content.trim();
 
   // 1. Direct JSON object or array
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    // First try normal parse
     try {
       const parsed = JSON.parse(trimmed);
       return { isJson: true, parsed: parsed as Record<string, unknown> };
     } catch {
-      // Continue to other patterns
+      // Normal parse failed, try recovery for truncated JSON
+      const recovered = tryRecoverTruncatedJson(trimmed);
+      if (recovered) {
+        return { isJson: true, parsed: recovered };
+      }
+
+      // Check for token stats pattern specifically
+      const tokenStats = detectTokenStats(trimmed);
+      if (tokenStats) {
+        return { isJson: true, parsed: tokenStats };
+      }
     }
   }
 

@@ -341,6 +341,108 @@ export async function handleCodexLensIndexRoutes(ctx: RouteContext): Promise<boo
     return true;
   }
 
+  // API: CodexLens Update (Incremental index update)
+  if (pathname === '/api/codexlens/update' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { path: projectPath, indexType = 'vector', embeddingModel = 'code', embeddingBackend = 'fastembed', maxWorkers = 1 } = body as {
+        path?: unknown;
+        indexType?: unknown;
+        embeddingModel?: unknown;
+        embeddingBackend?: unknown;
+        maxWorkers?: unknown;
+      };
+      const targetPath = typeof projectPath === 'string' && projectPath.trim().length > 0 ? projectPath : initialPath;
+      const resolvedIndexType = indexType === 'normal' ? 'normal' : 'vector';
+      const resolvedEmbeddingModel = typeof embeddingModel === 'string' && embeddingModel.trim().length > 0 ? embeddingModel : 'code';
+      const resolvedEmbeddingBackend = typeof embeddingBackend === 'string' && embeddingBackend.trim().length > 0 ? embeddingBackend : 'fastembed';
+      const resolvedMaxWorkers = typeof maxWorkers === 'number' ? maxWorkers : Number(maxWorkers);
+
+      // Pre-check: Verify embedding backend availability before proceeding with vector indexing
+      if (resolvedIndexType !== 'normal') {
+        if (resolvedEmbeddingBackend === 'litellm') {
+          const installResult = await ensureLiteLLMEmbedderReady();
+          if (!installResult.success) {
+            return {
+              success: false,
+              error: installResult.error || 'LiteLLM embedding backend is not available. Please install ccw-litellm first.',
+              status: 500
+            };
+          }
+        } else {
+          const semanticStatus = await checkSemanticStatus();
+          if (!semanticStatus.available) {
+            return {
+              success: false,
+              error: semanticStatus.error || 'FastEmbed semantic backend is not available. Please install semantic dependencies first.',
+              status: 500
+            };
+          }
+        }
+      }
+
+      // Build CLI arguments for incremental update using 'index update' subcommand
+      const args = ['index', 'update', targetPath, '--json'];
+      if (resolvedIndexType === 'normal') {
+        args.push('--no-embeddings');
+      } else {
+        args.push('--model', resolvedEmbeddingModel);
+        if (resolvedEmbeddingBackend && resolvedEmbeddingBackend !== 'fastembed') {
+          args.push('--backend', resolvedEmbeddingBackend);
+        }
+        if (!Number.isNaN(resolvedMaxWorkers) && resolvedMaxWorkers > 1) {
+          args.push('--max-workers', String(resolvedMaxWorkers));
+        }
+      }
+
+      // Broadcast start event
+      broadcastToClients({
+        type: 'CODEXLENS_INDEX_PROGRESS',
+        payload: { stage: 'start', message: 'Starting incremental index update...', percent: 0, path: targetPath, indexType: resolvedIndexType }
+      });
+
+      try {
+        const result = await executeCodexLens(args, {
+          cwd: targetPath,
+          timeout: 1800000,
+          onProgress: (progress: ProgressInfo) => {
+            broadcastToClients({
+              type: 'CODEXLENS_INDEX_PROGRESS',
+              payload: { ...progress, path: targetPath }
+            });
+          }
+        });
+
+        if (result.success) {
+          broadcastToClients({
+            type: 'CODEXLENS_INDEX_PROGRESS',
+            payload: { stage: 'complete', message: 'Incremental update complete', percent: 100, path: targetPath }
+          });
+
+          try {
+            const parsed = extractJSON(result.output ?? '');
+            return { success: true, result: parsed };
+          } catch {
+            return { success: true, output: result.output ?? '' };
+          }
+        } else {
+          broadcastToClients({
+            type: 'CODEXLENS_INDEX_PROGRESS',
+            payload: { stage: 'error', message: result.error || 'Unknown error', percent: 0, path: targetPath }
+          });
+          return { success: false, error: result.error, status: 500 };
+        }
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        broadcastToClients({
+          type: 'CODEXLENS_INDEX_PROGRESS',
+          payload: { stage: 'error', message, percent: 0, path: targetPath }
+        });
+        return { success: false, error: message, status: 500 };
+      }
+    });
+    return true;
+  }
+
   // API: Check if indexing is in progress
   if (pathname === '/api/codexlens/indexing-status') {
     const inProgress = isIndexingInProgress();

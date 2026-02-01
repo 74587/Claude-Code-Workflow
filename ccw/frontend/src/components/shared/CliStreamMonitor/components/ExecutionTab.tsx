@@ -19,6 +19,9 @@ export function ExecutionTab({ execution, isActive, onClick, onClose }: Executio
   // Simplify tool name (e.g., gemini-2.5-pro -> gemini)
   const toolNameShort = execution.tool.split('-')[0];
 
+  // Mode display - use icon for visual clarity
+  const modeDisplay = execution.mode === 'write' ? '✏️' : '🔍';
+
   // Status color mapping - using softer, semantic colors
   const statusColor = {
     running: 'bg-indigo-500 shadow-[0_0_6px_rgba(99,102,241,0.4)] animate-pulse',
@@ -31,7 +34,7 @@ export function ExecutionTab({ execution, isActive, onClick, onClose }: Executio
       value={execution.id}
       onClick={onClick}
       className={cn(
-        'gap-1.5 text-xs px-2.5 py-1 rounded-md border border-border/50 group',
+        'gap-1.5 text-xs px-2.5 py-1 rounded-md border border-border/50 group shrink-0',
         isActive
           ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600 shadow-sm'
           : 'bg-muted/30 hover:bg-muted/50 border-border/30',
@@ -41,13 +44,13 @@ export function ExecutionTab({ execution, isActive, onClick, onClose }: Executio
       {/* Status indicator dot */}
       <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', statusColor)} />
 
+      {/* Mode indicator */}
+      <span className="text-[10px]" title={execution.mode}>
+        {modeDisplay}
+      </span>
+
       {/* Simplified tool name */}
       <span className="font-medium text-[11px]">{toolNameShort}</span>
-
-      {/* Execution mode - show on hover */}
-      <span className="opacity-0 group-hover:opacity-70 text-[10px] transition-opacity">
-        {execution.mode}
-      </span>
 
       {/* Line count statistics - show on hover */}
       <span className="opacity-0 group-hover:opacity-50 text-[9px] tabular-nums transition-opacity">

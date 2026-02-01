@@ -112,3 +112,19 @@ export const workspaceQueryKeys = {
   cliExecutionDetail: (projectPath: string, executionId: string) =>
     [...workspaceQueryKeys.cliHistory(projectPath), 'detail', executionId] as const,
 };
+
+// ========== API Settings Keys ==========
+/**
+ * API Settings query keys (global, not workspace-specific)
+ */
+export const apiSettingsKeys = {
+  all: ['apiSettings'] as const,
+  providers: () => [...apiSettingsKeys.all, 'providers'] as const,
+  provider: (id: string) => [...apiSettingsKeys.providers(), id] as const,
+  endpoints: () => [...apiSettingsKeys.all, 'endpoints'] as const,
+  endpoint: (id: string) => [...apiSettingsKeys.endpoints(), id] as const,
+  cache: () => [...apiSettingsKeys.all, 'cache'] as const,
+  modelPools: () => [...apiSettingsKeys.all, 'modelPools'] as const,
+  modelPool: (id: string) => [...apiSettingsKeys.modelPools(), id] as const,
+  ccwLitellm: () => [...apiSettingsKeys.all, 'ccwLitellm'] as const,
+};

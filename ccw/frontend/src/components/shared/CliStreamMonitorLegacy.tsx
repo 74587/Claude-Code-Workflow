@@ -3,7 +3,7 @@
 // ========================================
 // Global CLI streaming monitor with multi-execution support
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo, memo } from 'react';
 import { useIntl } from 'react-intl';
 import {
   X,
@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Search,
   ArrowDownToLine,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -26,8 +27,6 @@ import { useActiveCliExecutions, useInvalidateActiveCliExecutions } from '@/hook
 
 // New components for Tab + JSON Cards
 import { ExecutionTab } from './CliStreamMonitor/components/ExecutionTab';
-import { OutputLine } from './CliStreamMonitor/components/OutputLine';
-import { JsonCard } from './CliStreamMonitor/components/JsonCard';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -95,54 +94,98 @@ function getBorderColorForType(type: CliOutputLine['type']): string {
 }
 
 /**
- * Render a single output line as a card
+ * Extract content from a line (handle JSON with 'content' field)
  */
-interface OutputLineCardProps {
-  line: CliOutputLine;
-  onCopy?: (content: string) => void;
-}
-
-function OutputLineCard({ line, onCopy }: OutputLineCardProps) {
-  const borderColor = getBorderColorForType(line.type);
+function extractContentFromLine(line: CliOutputLine): { content: string; isMarkdown: boolean } {
   const trimmed = line.content.trim();
-
-  // Check if line is JSON with 'content' field
-  let contentToRender = trimmed;
-  let isMarkdown = false;
 
   try {
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
       const parsed = JSON.parse(trimmed);
       if ('content' in parsed && typeof parsed.content === 'string') {
-        contentToRender = parsed.content;
-        // Check if content looks like markdown
-        isMarkdown = !!contentToRender.match(/^#{1,6}\s|^\*{3,}$|^\s*[-*+]\s+|^\s*\d+\.\s+|\*\*.*?\*\*|`{3,}/m);
+        const content = parsed.content;
+        const isMarkdown = !!content.match(/^#{1,6}\s|^\*{3,}$|^\s*[-*+]\s+|^\s*\d+\.\s+|\*\*.*?\*\*|`{3,}/m);
+        return { content, isMarkdown };
       }
     }
   } catch {
     // Not valid JSON, use original content
-    // Check if original content looks like markdown
-    isMarkdown = !!trimmed.match(/^#{1,6}\s|^\*{3,}$|^\s*[-*+]\s+|^\s*\d+\.\s+|\*\*.*?\*\*|`{3,}/m);
   }
 
+  // Check if original content looks like markdown
+  const isMarkdown = !!trimmed.match(/^#{1,6}\s|^\*{3,}$|^\s*[-*+]\s+|^\s*\d+\.\s+|\*\*.*?\*\*|`{3,}/m);
+  return { content: trimmed, isMarkdown };
+}
+
+/**
+ * Group consecutive output lines by type
+ */
+interface OutputLineGroup {
+  type: CliOutputLine['type'];
+  lines: CliOutputLine[];
+}
+
+function groupConsecutiveLinesByType(lines: CliOutputLine[]): OutputLineGroup[] {
+  const groups: OutputLineGroup[] = [];
+
+  for (const line of lines) {
+    // Start new group if type changes
+    if (groups.length === 0 || groups[groups.length - 1].type !== line.type) {
+      groups.push({
+        type: line.type,
+        lines: [line],
+      });
+    } else {
+      // Append to existing group
+      groups[groups.length - 1].lines.push(line);
+    }
+  }
+
+  return groups;
+}
+
+/**
+ * Render a group of output lines as a merged card
+ */
+interface OutputLineCardProps {
+  group: OutputLineGroup;
+  onCopy?: (content: string) => void;
+}
+
+function OutputLineCard({ group, onCopy }: OutputLineCardProps) {
+  const borderColor = getBorderColorForType(group.type);
+
+  // Extract content from all lines in the group
+  const lineContents = group.lines.map(line => extractContentFromLine(line));
+
+  // Check if any line has markdown
+  const hasMarkdown = lineContents.some(c => c.isMarkdown);
+
   return (
-    <div className={`border-l-2 rounded-r my-1 py-1 px-2 group relative bg-background ${borderColor}`}>
-      <div className="pr-6">
-        {isMarkdown ? (
-          <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {contentToRender}
-            </ReactMarkdown>
+    <div className={`border-l-2 rounded-r my-1 py-1 px-2 group relative bg-background contain-content ${borderColor}`}>
+      <div className="pr-6 space-y-1">
+        {lineContents.map((item, index) => (
+          <div key={index} className="contain-layout">
+            {item.isMarkdown || hasMarkdown ? (
+              <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed contain-layout">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {item.content}
+                </ReactMarkdown>
+              </div>
+            ) : (
+              <div className="text-xs whitespace-pre-wrap break-words leading-relaxed contain-layout">
+                {item.content}
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="text-xs whitespace-pre-wrap break-words leading-relaxed">
-            {contentToRender}
-          </div>
-        )}
+        ))}
       </div>
     </div>
   );
 }
+
+// Memoize the OutputLineCard component to prevent unnecessary re-renders
+const MemoizedOutputLineCard = memo(OutputLineCard);
 
 // ========== Component ==========
 
@@ -160,11 +203,15 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'blocks'>('list');
 
+  // Track last output length to detect new output
+  const lastOutputLengthRef = useRef<Record<string, number>>({});
+
   // Store state
   const executions = useCliStreamStore((state) => state.executions);
   const currentExecutionId = useCliStreamStore((state) => state.currentExecutionId);
   const setCurrentExecution = useCliStreamStore((state) => state.setCurrentExecution);
   const removeExecution = useCliStreamStore((state) => state.removeExecution);
+  const markExecutionClosedByUser = useCliStreamStore((state) => state.markExecutionClosedByUser);
 
   // Active execution sync
   const { isLoading: isSyncing, refetch } = useActiveCliExecutions(isOpen);
@@ -264,21 +311,42 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
       });
       invalidateActive();
     }
-  }, [lastMessage, currentExecutionId, setCurrentExecution, invalidateActive]);
+  }, [lastMessage, invalidateActive]);
 
-  // Auto-scroll to bottom when new output arrives
+  // Auto-scroll to bottom when new output arrives (optimized - only scroll when output length changes)
   useEffect(() => {
-    if (autoScroll && !isUserScrolling && logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [executions, autoScroll, isUserScrolling, currentExecutionId]);
+    if (!currentExecutionId || !autoScroll || isUserScrolling) return;
 
-  // Handle scroll to detect user scrolling
+    const currentExecution = executions[currentExecutionId];
+    if (!currentExecution) return;
+
+    const currentLength = currentExecution.output.length;
+    const lastLength = lastOutputLengthRef.current[currentExecutionId] || 0;
+
+    // Only scroll if new output was added
+    if (currentLength > lastLength) {
+      lastOutputLengthRef.current[currentExecutionId] = currentLength;
+      requestAnimationFrame(() => {
+        if (logsEndRef.current) {
+          logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+    }
+  }, [executions, currentExecutionId, autoScroll, isUserScrolling]);
+
+  // Handle scroll to detect user scrolling (with debounce for performance)
+  const handleScrollRef = useRef<NodeJS.Timeout | null>(null);
   const handleScroll = useCallback(() => {
-    if (!logsContainerRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = logsContainerRef.current;
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
-    setIsUserScrolling(!isAtBottom);
+    if (handleScrollRef.current) {
+      clearTimeout(handleScrollRef.current);
+    }
+
+    handleScrollRef.current = setTimeout(() => {
+      if (!logsContainerRef.current) return;
+      const { scrollTop, scrollHeight, clientHeight } = logsContainerRef.current;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+      setIsUserScrolling(!isAtBottom);
+    }, 50); // 50ms debounce
   }, []);
 
   // Scroll to bottom handler
@@ -286,6 +354,28 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     setIsUserScrolling(false);
   }, []);
+
+  // Handle closing an execution tab
+  const handleCloseExecution = useCallback((executionId: string) => {
+    // Mark as closed by user so it won't be re-added by server sync
+    markExecutionClosedByUser(executionId);
+    // Remove from local state
+    removeExecution(executionId);
+    // If this was the current execution, clear current selection
+    if (currentExecutionId === executionId) {
+      const remainingIds = Object.keys(executions).filter(id => id !== executionId);
+      setCurrentExecution(remainingIds.length > 0 ? remainingIds[0] : null);
+    }
+  }, [markExecutionClosedByUser, removeExecution, currentExecutionId, executions, setCurrentExecution]);
+
+  // Close all executions
+  const handleCloseAll = useCallback(() => {
+    for (const id of Object.keys(executions)) {
+      markExecutionClosedByUser(id);
+      removeExecution(id);
+    }
+    setCurrentExecution(null);
+  }, [markExecutionClosedByUser, removeExecution, executions, setCurrentExecution]);
 
   // ESC key to close
   useEffect(() => {
@@ -302,27 +392,67 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
     return () => window.removeEventListener('keydown', handleEsc);
   }, [isOpen, onClose, searchQuery]);
 
-  // Get sorted execution IDs (running first, then by start time)
-  const sortedExecutionIds = Object.keys(executions).sort((a, b) => {
-    const execA = executions[a];
-    const execB = executions[b];
-    if (execA.status === 'running' && execB.status !== 'running') return -1;
-    if (execA.status !== 'running' && execB.status === 'running') return 1;
-    return execB.startTime - execA.startTime;
-  });
+  // Cleanup scroll handler timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (handleScrollRef.current) {
+        clearTimeout(handleScrollRef.current);
+      }
+    };
+  }, []);
 
-  // Active execution count for badge
-  const activeCount = Object.values(executions).filter(e => e.status === 'running').length;
+  // Get sorted execution IDs (memoized to avoid unnecessary recalculations)
+  const sortedExecutionIds = useMemo(() => {
+    return Object.keys(executions).sort((a, b) => {
+      const execA = executions[a];
+      const execB = executions[b];
+      if (execA.status === 'running' && execB.status !== 'running') return -1;
+      if (execA.status !== 'running' && execB.status === 'running') return 1;
+      return execB.startTime - execA.startTime;
+    });
+  }, [executions]);
 
-  // Current execution
-  const currentExecution = currentExecutionId ? executions[currentExecutionId] : null;
+  // Active execution count for badge (memoized)
+  const activeCount = useMemo(() => {
+    return Object.values(executions).filter(e => e.status === 'running').length;
+  }, [executions]);
 
-  // Filter output lines based on search
-  const filteredOutput = currentExecution && searchQuery
-    ? currentExecution.output.filter(line =>
+  // Current execution (memoized)
+  const currentExecution = useMemo(() => {
+    return currentExecutionId ? executions[currentExecutionId] : null;
+  }, [currentExecutionId, executions]);
+
+  // Maximum lines to display (for performance)
+  const MAX_DISPLAY_LINES = 1000;
+
+  // Filter output lines based on search (memoized with limit)
+  const filteredOutput = useMemo(() => {
+    if (!currentExecution) return [];
+
+    let output = currentExecution.output;
+
+    // Apply search filter
+    if (searchQuery) {
+      output = output.filter(line =>
         line.content.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : currentExecution?.output || [];
+      );
+    }
+
+    // Limit display for performance
+    if (output.length > MAX_DISPLAY_LINES) {
+      return output.slice(-MAX_DISPLAY_LINES);
+    }
+
+    return output;
+  }, [currentExecution, searchQuery]);
+
+  // Check if output was truncated
+  const isOutputTruncated = currentExecution && currentExecution.output.length > MAX_DISPLAY_LINES;
+
+  // Group output lines by type (memoized for performance)
+  const groupedOutput = useMemo(() => {
+    return groupConsecutiveLinesByType(filteredOutput);
+  }, [filteredOutput]);
 
   if (!isOpen) {
     return null;
@@ -367,6 +497,16 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {sortedExecutionIds.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleCloseAll}
+                title="Close all executions"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -390,7 +530,7 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
               onValueChange={(v) => setCurrentExecution(v || null)}
               className="w-full"
             >
-              <TabsList className="w-full h-auto flex-wrap gap-1 bg-secondary/50 p-1">
+              <TabsList className="w-full h-auto gap-1 bg-secondary/50 p-1 overflow-x-auto overflow-y-hidden no-scrollbar">
                 {sortedExecutionIds.map((id) => (
                   <ExecutionTab
                     key={id}
@@ -399,7 +539,7 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
                     onClick={() => setCurrentExecution(id)}
                     onClose={(e) => {
                       e.stopPropagation();
-                      removeExecution(id);
+                      handleCloseExecution(id);
                     }}
                   />
                 ))}
@@ -472,26 +612,27 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
                     ) : (
                       <div
                         ref={logsContainerRef}
-                        className="h-full overflow-y-auto p-3 font-mono text-xs bg-background"
+                        className="h-full overflow-y-auto p-3 font-mono text-xs bg-background contain-strict"
                         onScroll={handleScroll}
                       >
+                        {isOutputTruncated && (
+                          <div className="mb-2 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded text-amber-800 dark:text-amber-200 text-xs">
+                            Showing last {MAX_DISPLAY_LINES} lines of {currentExecution?.output.length} total lines. Use search to find specific content.
+                          </div>
+                        )}
                         {filteredOutput.length === 0 ? (
                           <div className="flex items-center justify-center h-full text-muted-foreground">
                             {searchQuery ? 'No matching output found' : 'Waiting for output...'}
                           </div>
                         ) : (
-                          <div className="space-y-1">
-                            {(() => {
-                              // Group output lines by type
-                              const groupedOutput = groupOutputLines(filteredOutput);
-                              return groupedOutput.map((group, groupIndex) => (
-                                <OutputGroupRenderer
-                                  key={`group-${group.type}-${groupIndex}`}
-                                  group={group}
-                                  onCopy={(content) => navigator.clipboard.writeText(content)}
-                                />
-                              ));
-                            })()}
+                          <div>
+                            {groupedOutput.map((group, groupIndex) => (
+                              <MemoizedOutputLineCard
+                                key={`group-${group.type}-${groupIndex}`}
+                                group={group}
+                                onCopy={(content) => navigator.clipboard.writeText(content)}
+                              />
+                            ))}
                             <div ref={logsEndRef} />
                           </div>
                         )}

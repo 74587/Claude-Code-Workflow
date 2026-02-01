@@ -3,8 +3,8 @@
 // ========================================
 // TanStack Query hook for project overview data
 
-import { useQuery } from '@tanstack/react-query';
-import { fetchProjectOverview } from '../lib/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchProjectOverview, updateProjectGuidelines, type ProjectGuidelines } from '../lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 // Query key factory
@@ -51,5 +51,41 @@ export function useProjectOverview(options: UseProjectOverviewOptions = {}) {
     isLoading: query.isLoading,
     error: query.error,
     refetch: query.refetch,
+  };
+}
+
+// ========== Mutations ==========
+
+export interface UseUpdateGuidelinesReturn {
+  updateGuidelines: (guidelines: ProjectGuidelines) => Promise<{ success: boolean; guidelines?: ProjectGuidelines; error?: string }>;
+  isUpdating: boolean;
+  error: Error | null;
+}
+
+/**
+ * Hook for updating project guidelines
+ *
+ * @example
+ * ```tsx
+ * const { updateGuidelines, isUpdating } = useUpdateGuidelines();
+ * await updateGuidelines({ conventions: { ... }, constraints: { ... } });
+ * ```
+ */
+export function useUpdateGuidelines(): UseUpdateGuidelinesReturn {
+  const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
+
+  const mutation = useMutation({
+    mutationFn: (guidelines: ProjectGuidelines) => updateProjectGuidelines(guidelines, projectPath),
+    onSuccess: () => {
+      // Invalidate project overview cache to trigger refetch
+      queryClient.invalidateQueries({ queryKey: projectOverviewKeys.detail() });
+    },
+  });
+
+  return {
+    updateGuidelines: mutation.mutateAsync,
+    isUpdating: mutation.isPending,
+    error: mutation.error,
   };
 }

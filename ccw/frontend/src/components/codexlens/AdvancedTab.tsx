@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useIntl } from 'react-intl';
-import { Save, RefreshCw, AlertTriangle, FileCode } from 'lucide-react';
+import { Save, RefreshCw, AlertTriangle, FileCode, AlertCircle } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
@@ -32,6 +32,7 @@ export function AdvancedTab({ enabled = true }: AdvancedTabProps) {
     env,
     settings,
     isLoading: isLoadingEnv,
+    error: envError,
     refetch,
   } = useCodexLensEnv({ enabled });
 
@@ -43,23 +44,25 @@ export function AdvancedTab({ enabled = true }: AdvancedTabProps) {
   const [hasChanges, setHasChanges] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
 
-  // Initialize form from env
+  // Initialize form from env - handles both undefined (loading) and empty string (empty file)
+  // The hook returns raw directly, so we check if it's been set (not undefined means data loaded)
   useEffect(() => {
-    if (raw !== undefined) {
-      setEnvInput(raw);
+    // Initialize when data is loaded (raw may be empty string but not undefined during loading)
+    // Note: During initial load, raw is undefined. After load completes, raw is set (even if empty string)
+    if (!isLoadingEnv) {
+      setEnvInput(raw ?? ''); // Use empty string if raw is undefined/null
       setErrors({});
       setHasChanges(false);
       setShowWarning(false);
     }
-  }, [raw]);
+  }, [raw, isLoadingEnv]);
 
   const handleEnvChange = (value: string) => {
     setEnvInput(value);
-    // Check if there are changes
-    if (raw !== undefined) {
-      setHasChanges(value !== raw);
-      setShowWarning(value !== raw);
-    }
+    // Check if there are changes - compare with raw value (handle undefined as empty)
+    const currentRaw = raw ?? '';
+    setHasChanges(value !== currentRaw);
+    setShowWarning(value !== currentRaw);
     if (errors.env) {
       setErrors((prev) => ({ ...prev, env: undefined }));
     }
@@ -132,12 +135,11 @@ export function AdvancedTab({ enabled = true }: AdvancedTabProps) {
   };
 
   const handleReset = () => {
-    if (raw !== undefined) {
-      setEnvInput(raw);
-      setErrors({});
-      setHasChanges(false);
-      setShowWarning(false);
-    }
+    // Reset to current raw value (handle undefined as empty)
+    setEnvInput(raw ?? '');
+    setErrors({});
+    setHasChanges(false);
+    setShowWarning(false);
   };
 
   const isLoading = isLoadingEnv;
@@ -154,6 +156,32 @@ export function AdvancedTab({ enabled = true }: AdvancedTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Error Card */}
+      {envError && (
+        <Card className="p-4 bg-destructive/10 border-destructive/20">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-destructive-foreground">
+                {formatMessage({ id: 'codexlens.advanced.loadError' })}
+              </h4>
+              <p className="text-xs text-destructive-foreground/80 mt-1">
+                {envError.message || formatMessage({ id: 'codexlens.advanced.loadErrorDesc' })}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => refetch()}
+                className="mt-2"
+              >
+                <RefreshCw className="w-3 h-3 mr-1" />
+                {formatMessage({ id: 'common.actions.retry' })}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Sensitivity Warning Card */}
       {showWarning && (
         <Card className="p-4 bg-warning/10 border-warning/20">

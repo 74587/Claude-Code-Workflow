@@ -26,6 +26,14 @@ import {
   resetCodexLensGpu,
   fetchCodexLensIgnorePatterns,
   updateCodexLensIgnorePatterns,
+  searchCodexLens,
+  searchFilesCodexLens,
+  searchSymbolCodexLens,
+  fetchCodexLensIndexes,
+  rebuildCodexLensIndex,
+  updateCodexLensIndex,
+  cancelCodexLensIndexing,
+  checkCodexLensIndexingStatus,
   type CodexLensDashboardInitResponse,
   type CodexLensVenvStatus,
   type CodexLensConfig,
@@ -39,6 +47,11 @@ import {
   type CodexLensUpdateEnvRequest,
   type CodexLensUpdateIgnorePatternsRequest,
   type CodexLensWorkspaceStatus,
+  type CodexLensSearchParams,
+  type CodexLensSearchResponse,
+  type CodexLensSymbolSearchResponse,
+  type CodexLensIndexesResponse,
+  type CodexLensIndexingStatusResponse,
 } from '../lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
@@ -56,6 +69,11 @@ export const codexLensKeys = {
   gpuList: () => [...codexLensKeys.gpu(), 'list'] as const,
   gpuDetect: () => [...codexLensKeys.gpu(), 'detect'] as const,
   ignorePatterns: () => [...codexLensKeys.all, 'ignorePatterns'] as const,
+  indexes: () => [...codexLensKeys.all, 'indexes'] as const,
+  indexingStatus: () => [...codexLensKeys.all, 'indexingStatus'] as const,
+  search: (params: CodexLensSearchParams) => [...codexLensKeys.all, 'search', params] as const,
+  filesSearch: (params: CodexLensSearchParams) => [...codexLensKeys.all, 'filesSearch', params] as const,
+  symbolSearch: (params: Pick<CodexLensSearchParams, 'query' | 'limit'>) => [...codexLensKeys.all, 'symbolSearch', params] as const,
 };
 
 // Default stale times
@@ -715,6 +733,189 @@ export function useUpdateIgnorePatterns(): UseUpdateIgnorePatternsReturn {
   };
 }
 
+// ========== Index Management Hooks ==========
+
+export interface UseCodexLensIndexesOptions {
+  enabled?: boolean;
+  staleTime?: number;
+}
+
+export interface UseCodexLensIndexesReturn {
+  data: CodexLensIndexesResponse | undefined;
+  indexes: CodexLensIndexesResponse['indexes'] | undefined;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+}
+
+/**
+ * Hook for fetching CodexLens indexes
+ */
+export function useCodexLensIndexes(options: UseCodexLensIndexesOptions = {}): UseCodexLensIndexesReturn {
+  const { enabled = true, staleTime = STALE_TIME_MEDIUM } = options;
+
+  const query = useQuery({
+    queryKey: codexLensKeys.indexes(),
+    queryFn: fetchCodexLensIndexes,
+    staleTime,
+    enabled,
+    retry: 2,
+  });
+
+  const refetch = async () => {
+    await query.refetch();
+  };
+
+  return {
+    data: query.data,
+    indexes: query.data?.indexes,
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch,
+  };
+}
+
+export interface UseCodexLensIndexingStatusReturn {
+  data: CodexLensIndexingStatusResponse | undefined;
+  inProgress: boolean;
+  isLoading: boolean;
+  error: Error | null;
+}
+
+/**
+ * Hook for checking CodexLens indexing status
+ */
+export function useCodexLensIndexingStatus(): UseCodexLensIndexingStatusReturn {
+  const query = useQuery({
+    queryKey: codexLensKeys.indexingStatus(),
+    queryFn: checkCodexLensIndexingStatus,
+    staleTime: STALE_TIME_SHORT,
+    refetchInterval: (data) => (data?.inProgress ? 2000 : false), // Poll every 2s when indexing
+    retry: false,
+  });
+
+  return {
+    data: query.data,
+    inProgress: query.data?.inProgress ?? false,
+    isLoading: query.isLoading,
+    error: query.error,
+  };
+}
+
+export interface UseRebuildIndexReturn {
+  rebuildIndex: (projectPath: string, options?: {
+    indexType?: 'normal' | 'vector';
+    embeddingModel?: string;
+    embeddingBackend?: 'fastembed' | 'litellm';
+    maxWorkers?: number;
+  }) => Promise<{ success: boolean; message?: string; error?: string }>;
+  isRebuilding: boolean;
+  error: Error | null;
+}
+
+/**
+ * Hook for rebuilding CodexLens index (full rebuild)
+ */
+export function useRebuildIndex(): UseRebuildIndexReturn {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: async ({
+      projectPath,
+      options = {},
+    }: {
+      projectPath: string;
+      options?: {
+        indexType?: 'normal' | 'vector';
+        embeddingModel?: string;
+        embeddingBackend?: 'fastembed' | 'litellm';
+        maxWorkers?: number;
+      };
+    }) => rebuildCodexLensIndex(projectPath, options),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: codexLensKeys.indexes() });
+      queryClient.invalidateQueries({ queryKey: codexLensKeys.dashboard() });
+    },
+  });
+
+  return {
+    rebuildIndex: (projectPath, options) =>
+      mutation.mutateAsync({ projectPath, options }),
+    isRebuilding: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+export interface UseUpdateIndexReturn {
+  updateIndex: (projectPath: string, options?: {
+    indexType?: 'normal' | 'vector';
+    embeddingModel?: string;
+    embeddingBackend?: 'fastembed' | 'litellm';
+    maxWorkers?: number;
+  }) => Promise<{ success: boolean; message?: string; error?: string }>;
+  isUpdating: boolean;
+  error: Error | null;
+}
+
+/**
+ * Hook for updating CodexLens index (incremental update)
+ */
+export function useUpdateIndex(): UseUpdateIndexReturn {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: async ({
+      projectPath,
+      options = {},
+    }: {
+      projectPath: string;
+      options?: {
+        indexType?: 'normal' | 'vector';
+        embeddingModel?: string;
+        embeddingBackend?: 'fastembed' | 'litellm';
+        maxWorkers?: number;
+      };
+    }) => updateCodexLensIndex(projectPath, options),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: codexLensKeys.indexes() });
+      queryClient.invalidateQueries({ queryKey: codexLensKeys.dashboard() });
+    },
+  });
+
+  return {
+    updateIndex: (projectPath, options) =>
+      mutation.mutateAsync({ projectPath, options }),
+    isUpdating: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+export interface UseCancelIndexingReturn {
+  cancelIndexing: () => Promise<{ success: boolean; error?: string }>;
+  isCancelling: boolean;
+  error: Error | null;
+}
+
+/**
+ * Hook for canceling CodexLens indexing
+ */
+export function useCancelIndexing(): UseCancelIndexingReturn {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: cancelCodexLensIndexing,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: codexLensKeys.indexingStatus() });
+    },
+  });
+
+  return {
+    cancelIndexing: mutation.mutateAsync,
+    isCancelling: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
 /**
  * Combined hook for all CodexLens mutations
  */
@@ -727,6 +928,9 @@ export function useCodexLensMutations() {
   const updateEnv = useUpdateCodexLensEnv();
   const gpu = useSelectGpu();
   const updatePatterns = useUpdateIgnorePatterns();
+  const rebuildIndex = useRebuildIndex();
+  const updateIndex = useUpdateIndex();
+  const cancelIndexing = useCancelIndexing();
 
   return {
     updateConfig: updateConfig.updateConfig,
@@ -748,6 +952,12 @@ export function useCodexLensMutations() {
     isSelectingGpu: gpu.isSelecting || gpu.isResetting,
     updatePatterns: updatePatterns.updatePatterns,
     isUpdatingPatterns: updatePatterns.isUpdating,
+    rebuildIndex: rebuildIndex.rebuildIndex,
+    isRebuildingIndex: rebuildIndex.isRebuilding,
+    updateIndex: updateIndex.updateIndex,
+    isUpdatingIndex: updateIndex.isUpdating,
+    cancelIndexing: cancelIndexing.cancelIndexing,
+    isCancellingIndexing: cancelIndexing.isCancelling,
     isMutating:
       updateConfig.isUpdating ||
       bootstrap.isBootstrapping ||
@@ -757,6 +967,119 @@ export function useCodexLensMutations() {
       updateEnv.isUpdating ||
       gpu.isSelecting ||
       gpu.isResetting ||
-      updatePatterns.isUpdating,
+      updatePatterns.isUpdating ||
+      rebuildIndex.isRebuilding ||
+      updateIndex.isUpdating ||
+      cancelIndexing.isCancelling,
+  };
+}
+
+// ========== Search Hooks ==========
+
+export interface UseCodexLensSearchOptions {
+  enabled?: boolean;
+}
+
+export interface UseCodexLensSearchReturn {
+  data: CodexLensSearchResponse | undefined;
+  results: CodexLensSearchResponse['results'] | undefined;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+}
+
+/**
+ * Hook for content search using CodexLens
+ */
+export function useCodexLensSearch(params: CodexLensSearchParams, options: UseCodexLensSearchOptions = {}): UseCodexLensSearchReturn {
+  const { enabled = false } = options;
+
+  const query = useQuery({
+    queryKey: codexLensKeys.search(params),
+    queryFn: () => searchCodexLens(params),
+    enabled,
+    staleTime: STALE_TIME_SHORT,
+    retry: 1,
+  });
+
+  const refetch = async () => {
+    await query.refetch();
+  };
+
+  return {
+    data: query.data,
+    results: query.data?.results,
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch,
+  };
+}
+
+/**
+ * Hook for file search using CodexLens
+ */
+export function useCodexLensFilesSearch(params: CodexLensSearchParams, options: UseCodexLensSearchOptions = {}): UseCodexLensSearchReturn {
+  const { enabled = false } = options;
+
+  const query = useQuery({
+    queryKey: codexLensKeys.filesSearch(params),
+    queryFn: () => searchFilesCodexLens(params),
+    enabled,
+    staleTime: STALE_TIME_SHORT,
+    retry: 1,
+  });
+
+  const refetch = async () => {
+    await query.refetch();
+  };
+
+  return {
+    data: query.data,
+    results: query.data?.results,
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch,
+  };
+}
+
+export interface UseCodexLensSymbolSearchOptions {
+  enabled?: boolean;
+}
+
+export interface UseCodexLensSymbolSearchReturn {
+  data: CodexLensSymbolSearchResponse | undefined;
+  symbols: CodexLensSymbolSearchResponse['symbols'] | undefined;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+}
+
+/**
+ * Hook for symbol search using CodexLens
+ */
+export function useCodexLensSymbolSearch(
+  params: Pick<CodexLensSearchParams, 'query' | 'limit'>,
+  options: UseCodexLensSymbolSearchOptions = {}
+): UseCodexLensSymbolSearchReturn {
+  const { enabled = false } = options;
+
+  const query = useQuery({
+    queryKey: codexLensKeys.symbolSearch(params),
+    queryFn: () => searchSymbolCodexLens(params),
+    enabled,
+    staleTime: STALE_TIME_SHORT,
+    retry: 1,
+  });
+
+  const refetch = async () => {
+    await query.refetch();
+  };
+
+  return {
+    data: query.data,
+    symbols: query.data?.symbols,
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch,
   };
 }

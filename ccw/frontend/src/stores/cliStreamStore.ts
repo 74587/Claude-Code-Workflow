@@ -77,6 +77,7 @@ interface CliStreamState extends BlockCacheState {
   outputs: Record<string, CliOutputLine[]>;
   executions: Record<string, CliExecutionState>;
   currentExecutionId: string | null;
+  userClosedExecutions: Set<string>;  // Track executions closed by user
 
   // Legacy methods
   addOutput: (executionId: string, line: CliOutputLine) => void;
@@ -87,6 +88,9 @@ interface CliStreamState extends BlockCacheState {
   getAllExecutions: () => CliExecutionState[];
   upsertExecution: (executionId: string, exec: Partial<CliExecutionState> & { tool?: string; mode?: string }) => void;
   removeExecution: (executionId: string) => void;
+  markExecutionClosedByUser: (executionId: string) => void;
+  isExecutionClosedByUser: (executionId: string) => boolean;
+  cleanupUserClosedExecutions: (serverIds: Set<string>) => void;
   setCurrentExecution: (executionId: string | null) => void;
 
   // Block cache methods
@@ -320,6 +324,7 @@ export const useCliStreamStore = create<CliStreamState>()(
       outputs: {},
       executions: {},
       currentExecutionId: null,
+      userClosedExecutions: new Set<string>(),
 
       // Block cache state
       blocks: {},
@@ -424,6 +429,35 @@ export const useCliStreamStore = create<CliStreamState>()(
             currentExecutionId: state.currentExecutionId === executionId ? null : state.currentExecutionId,
           };
         }, false, 'cliStream/removeExecution');
+      },
+
+      markExecutionClosedByUser: (executionId: string) => {
+        set((state) => {
+          const newUserClosedExecutions = new Set(state.userClosedExecutions);
+          newUserClosedExecutions.add(executionId);
+          return {
+            userClosedExecutions: newUserClosedExecutions,
+          };
+        }, false, 'cliStream/markExecutionClosedByUser');
+      },
+
+      isExecutionClosedByUser: (executionId: string) => {
+        return get().userClosedExecutions.has(executionId);
+      },
+
+      cleanupUserClosedExecutions: (serverIds: Set<string>) => {
+        set((state) => {
+          const newUserClosedExecutions = new Set<string>();
+          for (const executionId of state.userClosedExecutions) {
+            // Only keep if still on server (user might want to keep it closed)
+            if (serverIds.has(executionId)) {
+              newUserClosedExecutions.add(executionId);
+            }
+          }
+          return {
+            userClosedExecutions: newUserClosedExecutions,
+          };
+        }, false, 'cliStream/cleanupUserClosedExecutions');
       },
 
       setCurrentExecution: (executionId: string | null) => {

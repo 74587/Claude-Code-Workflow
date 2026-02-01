@@ -7,6 +7,7 @@ import { listTools } from '../../tools/index.js';
 import { loadProjectOverview } from '../data-aggregator.js';
 import { resolvePath } from '../../utils/path-resolver.js';
 import { join } from 'path';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import type { RouteContext } from './types.js';
 
 /**
@@ -42,6 +43,77 @@ export async function handleCcwRoutes(ctx: RouteContext): Promise<boolean> {
     const tools = listTools();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ tools }));
+    return true;
+  }
+
+  // API: Get Project Guidelines
+  if (pathname === '/api/ccw/guidelines' && req.method === 'GET') {
+    const projectPath = url.searchParams.get('path') || initialPath;
+    const resolvedPath = resolvePath(projectPath);
+    const guidelinesFile = join(resolvedPath, '.workflow', 'project-guidelines.json');
+
+    if (!existsSync(guidelinesFile)) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ guidelines: null }));
+      return true;
+    }
+
+    try {
+      const content = readFileSync(guidelinesFile, 'utf-8');
+      const guidelines = JSON.parse(content);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ guidelines }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to read guidelines file' }));
+    }
+    return true;
+  }
+
+  // API: Update Project Guidelines
+  if (pathname === '/api/ccw/guidelines' && req.method === 'PUT') {
+    handlePostRequest(req, res, async (body) => {
+      const projectPath = url.searchParams.get('path') || initialPath;
+      const resolvedPath = resolvePath(projectPath);
+      const guidelinesFile = join(resolvedPath, '.workflow', 'project-guidelines.json');
+
+      try {
+        const data = body as Record<string, unknown>;
+
+        // Read existing file to preserve _metadata.created_at
+        let existingMetadata: Record<string, unknown> = {};
+        if (existsSync(guidelinesFile)) {
+          try {
+            const existing = JSON.parse(readFileSync(guidelinesFile, 'utf-8'));
+            existingMetadata = existing._metadata || {};
+          } catch { /* ignore parse errors */ }
+        }
+
+        // Build the guidelines object
+        const guidelines = {
+          conventions: data.conventions || { coding_style: [], naming_patterns: [], file_structure: [], documentation: [] },
+          constraints: data.constraints || { architecture: [], tech_stack: [], performance: [], security: [] },
+          quality_rules: data.quality_rules || [],
+          learnings: data.learnings || [],
+          _metadata: {
+            created_at: (existingMetadata.created_at as string) || new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            version: (existingMetadata.version as string) || '1.0.0',
+          },
+        };
+
+        writeFileSync(guidelinesFile, JSON.stringify(guidelines, null, 2), 'utf-8');
+
+        broadcastToClients({
+          type: 'PROJECT_GUIDELINES_UPDATED',
+          payload: { timestamp: new Date().toISOString() },
+        });
+
+        return { success: true, guidelines };
+      } catch (err) {
+        return { error: (err as Error).message, status: 500 };
+      }
+    });
     return true;
   }
 

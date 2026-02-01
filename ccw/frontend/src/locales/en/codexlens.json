@@ -13,6 +13,7 @@
     "overview": "Overview",
     "settings": "Settings",
     "models": "Models",
+    "search": "Search",
     "advanced": "Advanced"
   },
   "overview": {
@@ -45,6 +46,19 @@
       "venvPath": "Virtual Environment Path",
       "lastCheck": "Last Check Time"
     }
+  },
+  "index": {
+    "operationComplete": "Index Operation Complete",
+    "operationFailed": "Index Operation Failed",
+    "noProject": "No Project Selected",
+    "noProjectDesc": "Please open a project to perform index operations.",
+    "starting": "Starting index operation...",
+    "cancelFailed": "Failed to cancel operation",
+    "unknownError": "An unknown error occurred",
+    "complete": "Complete",
+    "failed": "Failed",
+    "cancelled": "Cancelled",
+    "inProgress": "In Progress"
   },
   "settings": {
     "currentCount": "Current Index Count",
@@ -114,6 +128,8 @@
   "advanced": {
     "warningTitle": "Sensitive Operations Warning",
     "warningMessage": "Modifying environment variables may affect CodexLens operation. Ensure you understand each variable's purpose.",
+    "loadError": "Failed to load environment variables",
+    "loadErrorDesc": "Unable to fetch environment configuration. Please check if CodexLens is properly installed.",
     "currentVars": "Current Environment Variables",
     "settingsVars": "Settings Variables",
     "customVars": "Custom Variables",
@@ -170,9 +186,35 @@
       "title": "CodexLens Not Installed",
       "description": "Please install CodexLens to use model management features."
     },
+    "error": {
+      "title": "Failed to load models",
+      "description": "Unable to fetch model list. Please check if CodexLens is properly installed."
+    },
     "empty": {
       "title": "No models found",
-      "description": "Try adjusting your search or filter criteria"
+      "description": "No models are available. Try downloading models from the list.",
+      "filtered": "No models match your filter",
+      "filteredDesc": "Try adjusting your search or filter criteria"
+    }
+  },
+  "search": {
+    "type": "Search Type",
+    "content": "Content Search",
+    "files": "File Search",
+    "symbol": "Symbol Search",
+    "mode": "Mode",
+    "mode.semantic": "Semantic (default)",
+    "mode.exact": "Exact (FTS)",
+    "mode.fuzzy": "Fuzzy",
+    "query": "Query",
+    "queryPlaceholder": "Enter search query...",
+    "button": "Search",
+    "searching": "Searching...",
+    "results": "Results",
+    "resultsCount": "results",
+    "notInstalled": {
+      "title": "CodexLens Not Installed",
+      "description": "Please install CodexLens to use semantic code search features."
     }
   }
 }

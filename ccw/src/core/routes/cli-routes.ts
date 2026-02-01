@@ -58,13 +58,24 @@ interface ActiveExecution {
   mode: string;
   prompt: string;
   startTime: number;
-  output: string;
+  output: string[];  // Array-based buffer to limit memory usage
   status: 'running' | 'completed' | 'error';
   completedTimestamp?: number;  // When execution completed (for 5-minute retention)
 }
 
+// API response type with output as string (for backward compatibility)
+type ActiveExecutionDto = Omit<ActiveExecution, 'output'> & { output: string };
+
 const activeExecutions = new Map<string, ActiveExecution>();
 const EXECUTION_RETENTION_MS = 5 * 60 * 1000;  // 5 minutes
+const CLEANUP_INTERVAL_MS = 60 * 1000;  // 1 minute - periodic cleanup interval
+const MAX_OUTPUT_BUFFER_LINES = 1000;  // Max lines to keep in memory per execution
+const MAX_ACTIVE_EXECUTIONS = 200;  // Max concurrent executions in memory
+
+// Enable periodic cleanup to prevent memory buildup
+setInterval(() => {
+  cleanupStaleExecutions();
+}, CLEANUP_INTERVAL_MS);
 
 /**
  * Cleanup stale completed executions older than retention period
@@ -93,9 +104,13 @@ export function cleanupStaleExecutions(): void {
 /**
  * Get all active CLI executions
  * Used by frontend to restore state when view is opened during execution
+ * Note: Converts output array back to string for API compatibility
  */
-export function getActiveExecutions(): ActiveExecution[] {
-  return Array.from(activeExecutions.values());
+export function getActiveExecutions(): ActiveExecutionDto[] {
+  return Array.from(activeExecutions.values()).map(exec => ({
+    ...exec,
+    output: exec.output.join('')  // Convert array buffer to string for API
+  }));
 }
 
 /**
@@ -122,21 +137,30 @@ export function updateActiveExecution(event: {
   }
 
   if (type === 'started') {
-    // Create new active execution
+    // Check map size limit before creating new execution
+    if (activeExecutions.size >= MAX_ACTIVE_EXECUTIONS) {
+      console.warn(`[ActiveExec] Max executions limit reached (${MAX_ACTIVE_EXECUTIONS}), cleanup may be needed`);
+    }
+
+    // Create new active execution with array-based output buffer
     activeExecutions.set(executionId, {
       id: executionId,
       tool: tool || 'unknown',
       mode: mode || 'analysis',
       prompt: (prompt || '').substring(0, 500),
       startTime: Date.now(),
-      output: '',
+      output: [],  // Initialize as empty array instead of empty string
       status: 'running'
     });
   } else if (type === 'output') {
-    // Append output to existing execution
+    // Append output to existing execution using array with size limit
     const activeExec = activeExecutions.get(executionId);
     if (activeExec && output) {
-      activeExec.output += output;
+      activeExec.output.push(output);
+      // Keep buffer size under limit by shifting old entries
+      if (activeExec.output.length > MAX_OUTPUT_BUFFER_LINES) {
+        activeExec.output.shift();  // Remove oldest entry
+      }
     }
   } else if (type === 'completed') {
     // Mark as completed with timestamp for retention-based cleanup
@@ -487,6 +511,7 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
     const activeExec = activeExecutions.get(executionId);
     if (activeExec) {
       // Return active execution data as conversation record format
+      // Note: Convert output array buffer back to string for API compatibility
       const activeConversation = {
         id: activeExec.id,
         tool: activeExec.tool,
@@ -497,7 +522,7 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
           turn: 1,
           timestamp: new Date(activeExec.startTime).toISOString(),
           prompt: activeExec.prompt,
-          output: { stdout: activeExec.output, stderr: '' },
+          output: { stdout: activeExec.output.join(''), stderr: '' },  // Convert array to string
           duration_ms: activeExec.completedTimestamp
             ? activeExec.completedTimestamp - activeExec.startTime
             : Date.now() - activeExec.startTime
@@ -662,13 +687,17 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
       const executionId = `${Date.now()}-${tool}`;
 
       // Store active execution for state recovery
+      // Check map size limit before creating new execution
+      if (activeExecutions.size >= MAX_ACTIVE_EXECUTIONS) {
+        console.warn(`[ActiveExec] Max executions limit reached (${MAX_ACTIVE_EXECUTIONS}), cleanup may be needed`);
+      }
       activeExecutions.set(executionId, {
         id: executionId,
         tool,
         mode: mode || 'analysis',
         prompt: prompt.substring(0, 500), // Truncate for display
         startTime: Date.now(),
-        output: '',
+        output: [],  // Initialize as empty array for memory-efficient buffering
         status: 'running'
       });
 
@@ -701,10 +730,14 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
           // CliOutputUnit handler: use SmartContentFormatter for intelligent formatting (never returns null)
           const content = SmartContentFormatter.format(unit.content, unit.type);
 
-          // Append to active execution buffer
+          // Append to active execution buffer using array with size limit
           const activeExec = activeExecutions.get(executionId);
           if (activeExec) {
-            activeExec.output += content || '';
+            activeExec.output.push(content || '');
+            // Keep buffer size under limit by shifting old entries
+            if (activeExec.output.length > MAX_OUTPUT_BUFFER_LINES) {
+              activeExec.output.shift();  // Remove oldest entry
+            }
           }
 
           broadcastToClients({
@@ -753,7 +786,9 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
 
         return {
           success: result.success,
-          execution: result.execution
+          execution: result.execution,
+          parsedOutput: result.parsedOutput,  // Filtered output (excludes metadata/progress)
+          finalOutput: result.finalOutput     // Agent message only (for --final flag)
         };
 
       } catch (error: unknown) {

@@ -174,8 +174,11 @@ type Params = z.infer<typeof ParamsSchema>;
 
 interface ReadyStatus {
   ready: boolean;
+  installed: boolean;
   error?: string;
   version?: string;
+  pythonVersion?: string;
+  venvPath?: string;
 }
 
 interface SemanticStatus {
@@ -246,28 +249,32 @@ async function checkVenvStatus(force = false): Promise<ReadyStatus> {
     return venvStatusCache.status;
   }
 
+  const venvPath = getCodexLensVenvDir();
+
   // Check venv exists
-  if (!existsSync(getCodexLensVenvDir())) {
-    const result = { ready: false, error: 'Venv not found' };
+  if (!existsSync(venvPath)) {
+    const result = { ready: false, installed: false, error: 'Venv not found', venvPath };
     venvStatusCache = { status: result, timestamp: Date.now() };
     console.log(`[PERF][CodexLens] checkVenvStatus (no venv): ${Date.now() - funcStart}ms`);
     return result;
   }
 
+  const pythonPath = getCodexLensPython();
+
   // Check python executable exists
-  if (!existsSync(getCodexLensPython())) {
-    const result = { ready: false, error: 'Python executable not found in venv' };
+  if (!existsSync(pythonPath)) {
+    const result = { ready: false, installed: false, error: 'Python executable not found in venv', venvPath };
     venvStatusCache = { status: result, timestamp: Date.now() };
     console.log(`[PERF][CodexLens] checkVenvStatus (no python): ${Date.now() - funcStart}ms`);
     return result;
   }
 
-  // Check codexlens and core dependencies are importable
+  // Check codexlens and core dependencies are importable, and get Python version
   const spawnStart = Date.now();
   console.log('[PERF][CodexLens] checkVenvStatus spawning Python...');
 
   return new Promise((resolve) => {
-    const child = spawn(getCodexLensPython(), ['-c', 'import codexlens; import watchdog; print(codexlens.__version__)'], {
+    const child = spawn(pythonPath, ['-c', 'import sys; import codexlens; import watchdog; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"); print(codexlens.__version__)'], {
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 10000,
     });
@@ -285,9 +292,18 @@ async function checkVenvStatus(force = false): Promise<ReadyStatus> {
     child.on('close', (code) => {
       let result: ReadyStatus;
       if (code === 0) {
-        result = { ready: true, version: stdout.trim() };
+        const lines = stdout.trim().split('\n');
+        const pythonVersion = lines[0]?.trim() || '';
+        const codexlensVersion = lines[1]?.trim() || '';
+        result = {
+          ready: true,
+          installed: true,
+          version: codexlensVersion,
+          pythonVersion,
+          venvPath
+        };
       } else {
-        result = { ready: false, error: `CodexLens not installed: ${stderr}` };
+        result = { ready: false, installed: false, error: `CodexLens not installed: ${stderr}`, venvPath };
       }
       // Cache the result
       venvStatusCache = { status: result, timestamp: Date.now() };
@@ -296,7 +312,7 @@ async function checkVenvStatus(force = false): Promise<ReadyStatus> {
     });
 
     child.on('error', (err) => {
-      const result = { ready: false, error: `Failed to check venv: ${err.message}` };
+      const result = { ready: false, installed: false, error: `Failed to check venv: ${err.message}`, venvPath };
       venvStatusCache = { status: result, timestamp: Date.now() };
       console.log(`[PERF][CodexLens] checkVenvStatus ERROR: ${Date.now() - funcStart}ms`);
       resolve(result);
