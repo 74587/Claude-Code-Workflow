@@ -24,13 +24,20 @@ import {
   ShieldAlert,
   LayoutGrid,
   GitCommitHorizontal,
+  Edit,
+  Save,
+  X,
+  Plus,
+  Trash2,
 } from 'lucide-react';
-import { useProjectOverview } from '@/hooks/useProjectOverview';
+import { useProjectOverview, useUpdateGuidelines } from '@/hooks/useProjectOverview';
+import { toast } from 'sonner';
 import type {
   KeyComponent,
   DevelopmentIndexEntry,
   GuidelineEntry,
   LearningEntry,
+  ProjectGuidelines,
 } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -61,7 +68,10 @@ function formatDate(dateString: string | undefined): string {
 export function ProjectOverviewPage() {
   const { formatMessage } = useIntl();
   const { projectOverview, isLoading, error, refetch } = useProjectOverview();
+  const { updateGuidelines, isUpdating } = useUpdateGuidelines();
   const [devIndexView, setDevIndexView] = React.useState<DevIndexView>('category');
+  const [isEditMode, setIsEditMode] = React.useState(false);
+  const [editedGuidelines, setEditedGuidelines] = React.useState<ProjectGuidelines | null>(null);
 
   // Helper function to format date
   function formatDate(dateString: string | undefined): string {
@@ -130,6 +140,45 @@ export function ProjectOverviewPage() {
 
   // Calculate statistics
   const totalFeatures = devIndexCategories.reduce((sum, cat) => sum + devIndexTotals[cat.key], 0);
+
+  // Guidelines edit handlers
+  const handleEditStart = React.useCallback(() => {
+    const g = projectOverview?.guidelines;
+    setEditedGuidelines({
+      conventions: {
+        coding_style: [...(g?.conventions?.coding_style || [])],
+        naming_patterns: [...(g?.conventions?.naming_patterns || [])],
+        file_structure: [...(g?.conventions?.file_structure || [])],
+        documentation: [...(g?.conventions?.documentation || [])],
+      },
+      constraints: {
+        architecture: [...(g?.constraints?.architecture || [])],
+        tech_stack: [...(g?.constraints?.tech_stack || [])],
+        performance: [...(g?.constraints?.performance || [])],
+        security: [...(g?.constraints?.security || [])],
+      },
+      quality_rules: (g?.quality_rules || []).map((r) => ({ ...r })),
+      learnings: (g?.learnings || []).map((l) => ({ ...l })),
+    });
+    setIsEditMode(true);
+  }, [projectOverview?.guidelines]);
+
+  const handleEditCancel = React.useCallback(() => {
+    setIsEditMode(false);
+    setEditedGuidelines(null);
+  }, []);
+
+  const handleSave = React.useCallback(async () => {
+    if (!editedGuidelines) return;
+    try {
+      await updateGuidelines(editedGuidelines);
+      toast.success(formatMessage({ id: 'projectOverview.guidelines.saveSuccess' }));
+      setIsEditMode(false);
+      setEditedGuidelines(null);
+    } catch {
+      toast.error(formatMessage({ id: 'projectOverview.guidelines.saveError' }));
+    }
+  }, [editedGuidelines, updateGuidelines, formatMessage]);
 
   // Render loading state
   if (isLoading) {
@@ -598,139 +647,443 @@ export function ProjectOverviewPage() {
       {guidelines && (
         <Card>
           <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-              <ScrollText className="w-5 h-5" />
-              {formatMessage({ id: 'projectOverview.guidelines.title' })}
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <ScrollText className="w-5 h-5" />
+                {formatMessage({ id: 'projectOverview.guidelines.title' })}
+              </h3>
+              <div className="flex gap-2">
+                {!isEditMode ? (
+                  <Button variant="outline" size="sm" onClick={handleEditStart}>
+                    <Edit className="w-4 h-4 mr-1" />
+                    {formatMessage({ id: 'projectOverview.guidelines.edit' })}
+                  </Button>
+                ) : (
+                  <>
+                    <Button variant="outline" size="sm" onClick={handleEditCancel} disabled={isUpdating}>
+                      <X className="w-4 h-4 mr-1" />
+                      {formatMessage({ id: 'projectOverview.guidelines.cancel' })}
+                    </Button>
+                    <Button variant="default" size="sm" onClick={handleSave} disabled={isUpdating}>
+                      <Save className="w-4 h-4 mr-1" />
+                      {isUpdating ? formatMessage({ id: 'projectOverview.guidelines.saving' }) : formatMessage({ id: 'projectOverview.guidelines.save' })}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
 
             <div className="space-y-6">
-              {/* Conventions */}
-              {guidelines.conventions && (
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <BookMarked className="w-4 h-4" />
-                    <span>{formatMessage({ id: 'projectOverview.guidelines.conventions' })}</span>
-                  </h4>
-                  <div className="space-y-2">
-                    {Object.entries(guidelines.conventions).slice(0, 4).map(([key, items]) => {
-                      const itemList = Array.isArray(items) ? items : [];
-                      if (itemList.length === 0) return null;
-                      return (
-                        <div key={key} className="space-y-1">
-                          {itemList.slice(0, 3).map((item: string, i: number) => (
-                            <div
-                              key={i}
-                              className="flex items-start gap-3 p-3 bg-background border border-border rounded-lg"
-                            >
-                              <span className="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded">
-                                {key}
-                              </span>
-                              <span className="text-sm text-foreground">{item as string}</span>
+              {!isEditMode ? (
+                <>
+                  {/* Read-only Mode - Conventions */}
+                  {guidelines.conventions && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                        <BookMarked className="w-4 h-4" />
+                        <span>{formatMessage({ id: 'projectOverview.guidelines.conventions' })}</span>
+                      </h4>
+                      <div className="space-y-2">
+                        {Object.entries(guidelines.conventions).map(([key, items]) => {
+                          const itemList = Array.isArray(items) ? items : [];
+                          if (itemList.length === 0) return null;
+                          return (
+                            <div key={key} className="space-y-1">
+                              {itemList.map((item: string, i: number) => (
+                                <div
+                                  key={i}
+                                  className="flex items-start gap-3 p-3 bg-background border border-border rounded-lg"
+                                >
+                                  <span className="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded">
+                                    {key}
+                                  </span>
+                                  <span className="text-sm text-foreground">{item}</span>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Constraints */}
-              {guidelines.constraints && (
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <ShieldAlert className="w-4 h-4" />
-                    <span>{formatMessage({ id: 'projectOverview.guidelines.constraints' })}</span>
-                  </h4>
-                  <div className="space-y-2">
-                    {Object.entries(guidelines.constraints).slice(0, 4).map(([key, items]) => {
-                      const itemList = Array.isArray(items) ? items : [];
-                      if (itemList.length === 0) return null;
-                      return (
-                        <div key={key} className="space-y-1">
-                          {itemList.slice(0, 3).map((item: string, i: number) => (
-                            <div
-                              key={i}
-                              className="flex items-start gap-3 p-3 bg-background border border-border rounded-lg"
-                            >
-                              <span className="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded">
-                                {key}
-                              </span>
-                              <span className="text-sm text-foreground">{item as string}</span>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Quality Rules */}
-              {guidelines.quality_rules && guidelines.quality_rules.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <CheckSquare className="w-4 h-4" />
-                    <span>{formatMessage({ id: 'projectOverview.guidelines.qualityRules' })}</span>
-                  </h4>
-                  <div className="space-y-2">
-                    {guidelines.quality_rules.slice(0, 5).map((rule: GuidelineEntry, i: number) => (
-                      <div key={i} className="p-3 bg-background border border-border rounded-lg">
-                        <div className="flex items-start justify-between mb-1">
-                          <span className="text-sm text-foreground font-medium">{rule.rule}</span>
-                          {rule.enforced_by && (
-                            <span className="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded">
-                              {rule.enforced_by}
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {formatMessage({ id: 'projectOverview.guidelines.scope' })}: {rule.scope}
-                        </span>
+                          );
+                        })}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    </div>
+                  )}
 
-              {/* Learnings */}
-              {guidelines.learnings && guidelines.learnings.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <Lightbulb className="w-4 h-4" />
-                    <span>{formatMessage({ id: 'projectOverview.guidelines.learnings' })}</span>
-                  </h4>
-                  <div className="space-y-2">
-                    {guidelines.learnings.slice(0, 5).map((learning: LearningEntry, i: number) => (
-                      <div
-                        key={i}
-                        className="p-3 bg-background border border-border rounded-lg border-l-4 border-l-primary"
+                  {/* Read-only Mode - Constraints */}
+                  {guidelines.constraints && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                        <ShieldAlert className="w-4 h-4" />
+                        <span>{formatMessage({ id: 'projectOverview.guidelines.constraints' })}</span>
+                      </h4>
+                      <div className="space-y-2">
+                        {Object.entries(guidelines.constraints).map(([key, items]) => {
+                          const itemList = Array.isArray(items) ? items : [];
+                          if (itemList.length === 0) return null;
+                          return (
+                            <div key={key} className="space-y-1">
+                              {itemList.map((item: string, i: number) => (
+                                <div
+                                  key={i}
+                                  className="flex items-start gap-3 p-3 bg-background border border-border rounded-lg"
+                                >
+                                  <span className="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded">
+                                    {key}
+                                  </span>
+                                  <span className="text-sm text-foreground">{item}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Read-only Mode - Quality Rules */}
+                  {guidelines.quality_rules && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                        <CheckSquare className="w-4 h-4" />
+                        <span>{formatMessage({ id: 'projectOverview.guidelines.qualityRules' })}</span>
+                      </h4>
+                      {guidelines.quality_rules.length > 0 ? (
+                        <div className="space-y-2">
+                          {guidelines.quality_rules.map((rule: GuidelineEntry, i: number) => (
+                            <div key={i} className="p-3 bg-background border border-border rounded-lg">
+                              <div className="flex items-start justify-between mb-1">
+                                <span className="text-sm text-foreground font-medium">{rule.rule}</span>
+                                {rule.enforced_by && (
+                                  <span className="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded">
+                                    {rule.enforced_by}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                {formatMessage({ id: 'projectOverview.guidelines.scope' })}: {rule.scope}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">
+                          {formatMessage({ id: 'projectOverview.guidelines.noQualityRules' }) || 'No quality rules defined yet. Switch to edit mode to add rules.'}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Read-only Mode - Learnings */}
+                  {guidelines.learnings && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                        <Lightbulb className="w-4 h-4" />
+                        <span>{formatMessage({ id: 'projectOverview.guidelines.learnings' })}</span>
+                      </h4>
+                      {guidelines.learnings.length > 0 ? (
+                        <div className="space-y-2">
+                          {guidelines.learnings.map((learning: LearningEntry, i: number) => (
+                            <div
+                              key={i}
+                              className="p-3 bg-background border border-border rounded-lg border-l-4 border-l-primary"
+                            >
+                              <div className="flex items-start justify-between mb-2">
+                                <span className="text-sm text-foreground">{learning.insight}</span>
+                                <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
+                                  {formatDate(learning.date)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs">
+                                {learning.category && (
+                                  <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded">
+                                    {learning.category}
+                                  </span>
+                                )}
+                                {learning.session_id && (
+                                  <span className="px-2 py-0.5 bg-primary-light text-primary rounded font-mono">
+                                    {learning.session_id}
+                                  </span>
+                                )}
+                              </div>
+                              {learning.context && (
+                                <p className="text-xs text-muted-foreground mt-2">{learning.context}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">
+                          {formatMessage({ id: 'projectOverview.guidelines.noLearnings' }) || 'No learning summaries yet. Switch to edit mode to add learnings.'}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* Edit Mode - Conventions */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <BookMarked className="w-4 h-4" />
+                      <span>{formatMessage({ id: 'projectOverview.guidelines.conventions' })}</span>
+                    </h4>
+                    <div className="space-y-3">
+                      {Object.entries({
+                        coding_style: 'codingStyle',
+                        naming_patterns: 'namingPatterns',
+                        file_structure: 'fileStructure',
+                        documentation: 'documentation',
+                      }).map(([key, labelKey]) => (
+                        <div key={key}>
+                          <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                            {formatMessage({ id: `projectOverview.guidelines.conventionCategories.${labelKey}` })}
+                          </label>
+                          <div className="flex flex-wrap gap-2 p-2 border border-border rounded-lg bg-background min-h-[40px]">
+                            {((editedGuidelines?.conventions as any)?.[key] || []).map((item: string, idx: number) => (
+                              <div key={idx} className="flex items-center gap-1 px-2 py-1 bg-muted rounded text-sm">
+                                <span>{item}</span>
+                                <button
+                                  className="ml-1 text-muted-foreground hover:text-foreground"
+                                  onClick={() => {
+                                    const updated = { ...editedGuidelines };
+                                    (updated.conventions as any)[key] = ((updated.conventions as any)[key] as string[]).filter((_: string, i: number) => i !== idx);
+                                    setEditedGuidelines(updated);
+                                  }}
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                            <input
+                              type="text"
+                              className="flex-1 min-w-[120px] bg-transparent outline-none text-sm"
+                              placeholder={formatMessage({ id: 'projectOverview.guidelines.placeholders.addItem' })}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                                  const updated = { ...editedGuidelines };
+                                  (updated.conventions as any)[key] = [...((updated.conventions as any)[key] || []), e.currentTarget.value.trim()];
+                                  setEditedGuidelines(updated);
+                                  e.currentTarget.value = '';
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Edit Mode - Constraints */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4" />
+                      <span>{formatMessage({ id: 'projectOverview.guidelines.constraints' })}</span>
+                    </h4>
+                    <div className="space-y-3">
+                      {Object.entries({
+                        architecture: 'architecture',
+                        tech_stack: 'techStack',
+                        performance: 'performance',
+                        security: 'security',
+                      }).map(([key, labelKey]) => (
+                        <div key={key}>
+                          <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                            {formatMessage({ id: `projectOverview.guidelines.constraintCategories.${labelKey}` })}
+                          </label>
+                          <div className="flex flex-wrap gap-2 p-2 border border-border rounded-lg bg-background min-h-[40px]">
+                            {((editedGuidelines?.constraints as any)?.[key] || []).map((item: string, idx: number) => (
+                              <div key={idx} className="flex items-center gap-1 px-2 py-1 bg-muted rounded text-sm">
+                                <span>{item}</span>
+                                <button
+                                  className="ml-1 text-muted-foreground hover:text-foreground"
+                                  onClick={() => {
+                                    const updated = { ...editedGuidelines };
+                                    (updated.constraints as any)[key] = ((updated.constraints as any)[key] as string[]).filter((_: string, i: number) => i !== idx);
+                                    setEditedGuidelines(updated);
+                                  }}
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                            <input
+                              type="text"
+                              className="flex-1 min-w-[120px] bg-transparent outline-none text-sm"
+                              placeholder={formatMessage({ id: 'projectOverview.guidelines.placeholders.addItem' })}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                                  const updated = { ...editedGuidelines };
+                                  (updated.constraints as any)[key] = [...((updated.constraints as any)[key] || []), e.currentTarget.value.trim()];
+                                  setEditedGuidelines(updated);
+                                  e.currentTarget.value = '';
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Edit Mode - Quality Rules */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        <CheckSquare className="w-4 h-4" />
+                        <span>{formatMessage({ id: 'projectOverview.guidelines.qualityRules' })}</span>
+                      </h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const updated = { ...editedGuidelines };
+                          updated.quality_rules = [...(updated.quality_rules || []), { rule: '', scope: '', enforced_by: '' }];
+                          setEditedGuidelines(updated);
+                        }}
                       >
-                        <div className="flex items-start justify-between mb-2">
-                          <span className="text-sm text-foreground">{learning.insight}</span>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                            {formatDate(learning.date)}
-                          </span>
+                        <Plus className="w-4 h-4 mr-1" />
+                        {formatMessage({ id: 'projectOverview.guidelines.qualityRuleFields.addRule' })}
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {(editedGuidelines?.quality_rules || []).map((rule, idx) => (
+                        <div key={idx} className="p-3 border border-border rounded-lg space-y-2">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              className="flex-1 px-2 py-1 text-sm border border-border rounded bg-background"
+                              placeholder={formatMessage({ id: 'projectOverview.guidelines.placeholders.rule' })}
+                              value={rule.rule}
+                              onChange={(e) => {
+                                const updated = { ...editedGuidelines };
+                                updated.quality_rules![idx].rule = e.target.value;
+                                setEditedGuidelines(updated);
+                              }}
+                            />
+                            <button
+                              className="text-destructive hover:bg-destructive/10 p-2 rounded"
+                              onClick={() => {
+                                const updated = { ...editedGuidelines };
+                                updated.quality_rules = updated.quality_rules!.filter((_, i) => i !== idx);
+                                setEditedGuidelines(updated);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              className="px-2 py-1 text-sm border border-border rounded bg-background"
+                              placeholder={formatMessage({ id: 'projectOverview.guidelines.placeholders.scope' })}
+                              value={rule.scope}
+                              onChange={(e) => {
+                                const updated = { ...editedGuidelines };
+                                updated.quality_rules![idx].scope = e.target.value;
+                                setEditedGuidelines(updated);
+                              }}
+                            />
+                            <input
+                              type="text"
+                              className="px-2 py-1 text-sm border border-border rounded bg-background"
+                              placeholder={formatMessage({ id: 'projectOverview.guidelines.placeholders.enforcedBy' })}
+                              value={rule.enforced_by || ''}
+                              onChange={(e) => {
+                                const updated = { ...editedGuidelines };
+                                updated.quality_rules![idx].enforced_by = e.target.value;
+                                setEditedGuidelines(updated);
+                              }}
+                            />
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 text-xs">
-                          {learning.category && (
-                            <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded">
-                              {learning.category}
-                            </span>
-                          )}
-                          {learning.session_id && (
-                            <span className="px-2 py-0.5 bg-primary-light text-primary rounded font-mono">
-                              {learning.session_id}
-                            </span>
-                          )}
-                        </div>
-                        {learning.context && (
-                          <p className="text-xs text-muted-foreground mt-2">{learning.context}</p>
-                        )}
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
+
+                  {/* Edit Mode - Learnings */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        <Lightbulb className="w-4 h-4" />
+                        <span>{formatMessage({ id: 'projectOverview.guidelines.learnings' })}</span>
+                      </h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const updated = { ...editedGuidelines };
+                          updated.learnings = [...(updated.learnings || []), { insight: '', category: '', session_id: '', context: '', date: new Date().toISOString() }];
+                          setEditedGuidelines(updated);
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        {formatMessage({ id: 'projectOverview.guidelines.learningFields.addLearning' })}
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {(editedGuidelines?.learnings || []).map((learning, idx) => (
+                        <div key={idx} className="p-3 border border-border rounded-lg space-y-2">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              className="flex-1 px-2 py-1 text-sm border border-border rounded bg-background"
+                              placeholder={formatMessage({ id: 'projectOverview.guidelines.placeholders.insight' })}
+                              value={learning.insight}
+                              onChange={(e) => {
+                                const updated = { ...editedGuidelines };
+                                updated.learnings![idx].insight = e.target.value;
+                                setEditedGuidelines(updated);
+                              }}
+                            />
+                            <button
+                              className="text-destructive hover:bg-destructive/10 p-2 rounded"
+                              onClick={() => {
+                                const updated = { ...editedGuidelines };
+                                updated.learnings = updated.learnings!.filter((_, i) => i !== idx);
+                                setEditedGuidelines(updated);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              className="px-2 py-1 text-sm border border-border rounded bg-background"
+                              placeholder={formatMessage({ id: 'projectOverview.guidelines.placeholders.category' })}
+                              value={learning.category || ''}
+                              onChange={(e) => {
+                                const updated = { ...editedGuidelines };
+                                updated.learnings![idx].category = e.target.value;
+                                setEditedGuidelines(updated);
+                              }}
+                            />
+                            <input
+                              type="text"
+                              className="px-2 py-1 text-sm border border-border rounded bg-background"
+                              placeholder={formatMessage({ id: 'projectOverview.guidelines.placeholders.sessionId' })}
+                              value={learning.session_id || ''}
+                              onChange={(e) => {
+                                const updated = { ...editedGuidelines };
+                                updated.learnings![idx].session_id = e.target.value;
+                                setEditedGuidelines(updated);
+                              }}
+                            />
+                          </div>
+                          <textarea
+                            className="w-full px-2 py-1 text-sm border border-border rounded bg-background"
+                            placeholder={formatMessage({ id: 'projectOverview.guidelines.placeholders.context' })}
+                            rows={2}
+                            value={learning.context || ''}
+                            onChange={(e) => {
+                              const updated = { ...editedGuidelines };
+                              updated.learnings![idx].context = e.target.value;
+                              setEditedGuidelines(updated);
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           </CardContent>

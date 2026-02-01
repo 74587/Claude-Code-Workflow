@@ -45,7 +45,54 @@
     "constraints": "约束",
     "qualityRules": "质量规则",
     "learnings": "学习总结",
-    "scope": "范围"
+    "scope": "范围",
+    "noQualityRules": "暂无质量规则。切换到编辑模式添加规则。",
+    "noLearnings": "暂无学习总结。切换到编辑模式添加总结。",
+    "edit": "编辑",
+    "save": "保存",
+    "cancel": "取消",
+    "saving": "正在保存...",
+    "saveSuccess": "规范已保存成功",
+    "saveError": "保存规范失败",
+    "conventionCategories": {
+      "codingStyle": "编码风格",
+      "namingPatterns": "命名规范",
+      "fileStructure": "文件结构",
+      "documentation": "文档规范"
+    },
+    "constraintCategories": {
+      "architecture": "架构",
+      "techStack": "技术栈",
+      "performance": "性能",
+      "security": "安全性"
+    },
+    "qualityRuleFields": {
+      "rule": "规则",
+      "scope": "范围",
+      "enforcedBy": "执行方式",
+      "addRule": "添加质量规则",
+      "removeRule": "删除"
+    },
+    "learningFields": {
+      "insight": "见解",
+      "category": "分类",
+      "sessionId": "会话ID",
+      "context": "上下文",
+      "date": "日期",
+      "addLearning": "添加学习总结",
+      "removeLearning": "删除"
+    },
+    "placeholders": {
+      "addItem": "按Enter添加条目",
+      "rule": "输入质量规则",
+      "scope": "输入范围",
+      "enforcedBy": "输入执行方式",
+      "insight": "输入见解",
+      "category": "输入分类",
+      "sessionId": "输入会话ID",
+      "context": "输入上下文",
+      "selectDate": "选择日期"
+    }
   },
   "stats": {
     "title": "统计",

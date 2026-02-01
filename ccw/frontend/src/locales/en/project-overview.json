@@ -45,7 +45,54 @@
     "constraints": "Constraints",
     "qualityRules": "Quality Rules",
     "learnings": "Session Learnings",
-    "scope": "Scope"
+    "scope": "Scope",
+    "noQualityRules": "No quality rules defined yet. Switch to edit mode to add rules.",
+    "noLearnings": "No learning summaries yet. Switch to edit mode to add learnings.",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saving": "Saving...",
+    "saveSuccess": "Guidelines saved successfully",
+    "saveError": "Failed to save guidelines",
+    "conventionCategories": {
+      "codingStyle": "Coding Style",
+      "namingPatterns": "Naming Patterns",
+      "fileStructure": "File Structure",
+      "documentation": "Documentation"
+    },
+    "constraintCategories": {
+      "architecture": "Architecture",
+      "techStack": "Tech Stack",
+      "performance": "Performance",
+      "security": "Security"
+    },
+    "qualityRuleFields": {
+      "rule": "Rule",
+      "scope": "Scope",
+      "enforcedBy": "Enforced By",
+      "addRule": "Add Quality Rule",
+      "removeRule": "Remove"
+    },
+    "learningFields": {
+      "insight": "Insight",
+      "category": "Category",
+      "sessionId": "Session ID",
+      "context": "Context",
+      "date": "Date",
+      "addLearning": "Add Learning",
+      "removeLearning": "Remove"
+    },
+    "placeholders": {
+      "addItem": "Press Enter to add item",
+      "rule": "Enter quality rule",
+      "scope": "Enter scope",
+      "enforcedBy": "Enter enforcement method",
+      "insight": "Enter insight",
+      "category": "Enter category",
+      "sessionId": "Enter session ID",
+      "context": "Enter context",
+      "selectDate": "Select date"
+    }
   },
   "stats": {
     "title": "Statistics",
