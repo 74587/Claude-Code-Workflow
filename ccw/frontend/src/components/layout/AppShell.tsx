@@ -41,22 +41,42 @@ export function AppShell({
   const projectPath = useWorkflowStore((state) => state.projectPath);
   const location = useLocation();
 
-  // Initialize workspace from URL path parameter on mount
+  // Workspace initialization logic (URL > localStorage)
+  const [isWorkspaceInitialized, setWorkspaceInitialized] = useState(false);
+
   useEffect(() => {
-    // Only initialize if no workspace is currently set
-    if (projectPath) return;
-
-    // Read path from URL query parameter
-    const searchParams = new URLSearchParams(location.search);
-    const pathParam = searchParams.get('path');
-
-    if (pathParam) {
-      console.log('[AppShell] Initializing workspace from URL:', pathParam);
-      switchWorkspace(pathParam).catch((error) => {
-        console.error('[AppShell] Failed to initialize workspace:', error);
-      });
+    // This effect should only run once to decide the initial workspace.
+    if (isWorkspaceInitialized) {
+      return;
     }
-  }, [location.search, projectPath, switchWorkspace]);
+
+    const searchParams = new URLSearchParams(location.search);
+    const urlPath = searchParams.get('path');
+    const persistedPath = projectPath; // Path from rehydrated store
+
+    let pathFound = false;
+
+    // Priority 1: URL parameter.
+    if (urlPath) {
+      console.log('[AppShell] Initializing workspace from URL parameter:', urlPath);
+      switchWorkspace(urlPath).catch((error) => {
+        console.error('[AppShell] Failed to initialize from URL:', error);
+      });
+      pathFound = true;
+    }
+    // Priority 2: Rehydrated path from localStorage.
+    else if (persistedPath) {
+      console.log('[AppShell] Initializing workspace from persisted state:', persistedPath);
+      // The path is already in the store, but we need to trigger the data fetch.
+      switchWorkspace(persistedPath).catch((error) => {
+        console.error('[AppShell] Failed to re-initialize from persisted state:', error);
+      });
+      pathFound = true;
+    }
+
+    // Mark as initialized regardless of whether a path was found.
+    setWorkspaceInitialized(true);
+  }, [isWorkspaceInitialized, projectPath, location.search, switchWorkspace]);
 
   // Sidebar collapse state (persisted)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {

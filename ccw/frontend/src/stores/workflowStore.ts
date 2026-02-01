@@ -541,14 +541,10 @@ export const useWorkflowStore = create<WorkflowStore>()(
             if (state?.projectPath) {
               if (process.env.NODE_ENV === 'development') {
                 // eslint-disable-next-line no-console
-                console.log('[WorkflowStore] Found persisted projectPath, re-initializing workspace:', state.projectPath);
+                console.log('[WorkflowStore] Rehydrated with persisted projectPath:', state.projectPath);
               }
-              // Use setTimeout to ensure the store is fully initialized before calling switchWorkspace
-              setTimeout(() => {
-                if (state.switchWorkspace) {
-                  state.switchWorkspace(state.projectPath);
-                }
-              }, 0);
+              // The initialization logic is now handled by AppShell.tsx
+              // to correctly prioritize URL parameters over localStorage.
             }
           };
         },
