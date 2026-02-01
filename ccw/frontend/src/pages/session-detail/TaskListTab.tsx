@@ -3,51 +3,27 @@
 // ========================================
 // Tasks tab for session detail page
 
+import { useState } from 'react';
 import { useIntl } from 'react-intl';
 import {
   ListChecks,
-  Loader2,
-  Circle,
-  CheckCircle,
   Code,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
+import { TaskStatsBar, TaskStatusDropdown } from '@/components/session-detail/tasks';
 import type { SessionMetadata, TaskData } from '@/types/store';
+import type { TaskStatus } from '@/lib/api';
+import { bulkUpdateTaskStatus, updateTaskStatus } from '@/lib/api';
 
 export interface TaskListTabProps {
   session: SessionMetadata;
   onTaskClick?: (task: TaskData) => void;
 }
 
-// Status configuration
-const taskStatusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'info' | null; icon: React.ComponentType<{ className?: string }> }> = {
-  pending: {
-    label: 'sessionDetail.tasks.status.pending',
-    variant: 'secondary',
-    icon: Circle,
-  },
-  in_progress: {
-    label: 'sessionDetail.tasks.status.inProgress',
-    variant: 'warning',
-    icon: Loader2,
-  },
-  completed: {
-    label: 'sessionDetail.tasks.status.completed',
-    variant: 'success',
-    icon: CheckCircle,
-  },
-  blocked: {
-    label: 'sessionDetail.tasks.status.blocked',
-    variant: 'destructive',
-    icon: Circle,
-  },
-  skipped: {
-    label: 'sessionDetail.tasks.status.skipped',
-    variant: 'default',
-    icon: Circle,
-  },
-};
+export interface TaskListTabProps {
+  session: SessionMetadata;
+  onTaskClick?: (task: TaskData) => void;
+}
 
 /**
  * TaskListTab component - Display tasks in a list format
@@ -59,34 +35,129 @@ export function TaskListTab({ session, onTaskClick }: TaskListTabProps) {
   const completed = tasks.filter((t) => t.status === 'completed').length;
   const inProgress = tasks.filter((t) => t.status === 'in_progress').length;
   const pending = tasks.filter((t) => t.status === 'pending').length;
-  const blocked = tasks.filter((t) => t.status === 'blocked').length;
+
+  // Loading states for bulk actions
+  const [isLoadingPending, setIsLoadingPending] = useState(false);
+  const [isLoadingInProgress, setIsLoadingInProgress] = useState(false);
+  const [isLoadingCompleted, setIsLoadingCompleted] = useState(false);
+
+  // Local task state for optimistic updates
+  const [localTasks, setLocalTasks] = useState<TaskData[]>(tasks);
+
+  // Update local tasks when session tasks change
+  if (tasks !== localTasks && !isLoadingPending && !isLoadingInProgress && !isLoadingCompleted) {
+    setLocalTasks(tasks);
+  }
+
+  // Get session path for API calls
+  const sessionPath = (session as any).path || session.session_id;
+
+  // Bulk action handlers
+  const handleMarkAllPending = async () => {
+    const targetTasks = localTasks.filter((t) => t.status === 'pending');
+    if (targetTasks.length === 0) return;
+
+    setIsLoadingPending(true);
+    try {
+      const taskIds = targetTasks.map((t) => t.task_id);
+      const result = await bulkUpdateTaskStatus(sessionPath, taskIds, 'pending');
+      if (result.success) {
+        // Optimistic update - will be refreshed when parent re-renders
+      } else {
+        console.error('[TaskListTab] Failed to mark all as pending:', result.error);
+      }
+    } catch (error) {
+      console.error('[TaskListTab] Failed to mark all as pending:', error);
+    } finally {
+      setIsLoadingPending(false);
+    }
+  };
+
+  const handleMarkAllInProgress = async () => {
+    const targetTasks = localTasks.filter((t) => t.status === 'in_progress');
+    if (targetTasks.length === 0) return;
+
+    setIsLoadingInProgress(true);
+    try {
+      const taskIds = targetTasks.map((t) => t.task_id);
+      const result = await bulkUpdateTaskStatus(sessionPath, taskIds, 'in_progress');
+      if (result.success) {
+        // Optimistic update - will be refreshed when parent re-renders
+      } else {
+        console.error('[TaskListTab] Failed to mark all as in_progress:', result.error);
+      }
+    } catch (error) {
+      console.error('[TaskListTab] Failed to mark all as in_progress:', error);
+    } finally {
+      setIsLoadingInProgress(false);
+    }
+  };
+
+  const handleMarkAllCompleted = async () => {
+    const targetTasks = localTasks.filter((t) => t.status === 'completed');
+    if (targetTasks.length === 0) return;
+
+    setIsLoadingCompleted(true);
+    try {
+      const taskIds = targetTasks.map((t) => t.task_id);
+      const result = await bulkUpdateTaskStatus(sessionPath, taskIds, 'completed');
+      if (result.success) {
+        // Optimistic update - will be refreshed when parent re-renders
+      } else {
+        console.error('[TaskListTab] Failed to mark all as completed:', result.error);
+      }
+    } catch (error) {
+      console.error('[TaskListTab] Failed to mark all as completed:', error);
+    } finally {
+      setIsLoadingCompleted(false);
+    }
+  };
+
+  // Individual task status change handler
+  const handleTaskStatusChange = async (taskId: string, newStatus: TaskStatus) => {
+    const previousTasks = [...localTasks];
+    const previousTask = previousTasks.find((t) => t.task_id === taskId);
+
+    if (!previousTask) return;
+
+    // Optimistic update
+    setLocalTasks((prev) =>
+      prev.map((t) =>
+        t.task_id === taskId ? { ...t, status: newStatus } : t
+      )
+    );
+
+    try {
+      const result = await updateTaskStatus(sessionPath, taskId, newStatus);
+      if (!result.success) {
+        // Rollback on error
+        setLocalTasks(previousTasks);
+        console.error('[TaskListTab] Failed to update task status:', result.error);
+      }
+    } catch (error) {
+      // Rollback on error
+      setLocalTasks(previousTasks);
+      console.error('[TaskListTab] Failed to update task status:', error);
+    }
+  };
 
   return (
     <div className="space-y-4">
-      {/* Stats Bar */}
-      <div className="flex flex-wrap items-center gap-4 p-4 bg-background rounded-lg border">
-        <span className="flex items-center gap-1 text-sm">
-          <CheckCircle className="h-4 w-4 text-success" />
-          <strong>{completed}</strong> {formatMessage({ id: 'sessionDetail.tasks.completed' })}
-        </span>
-        <span className="flex items-center gap-1 text-sm">
-          <Loader2 className="h-4 w-4 text-warning" />
-          <strong>{inProgress}</strong> {formatMessage({ id: 'sessionDetail.tasks.inProgress' })}
-        </span>
-        <span className="flex items-center gap-1 text-sm">
-          <Circle className="h-4 w-4 text-muted-foreground" />
-          <strong>{pending}</strong> {formatMessage({ id: 'sessionDetail.tasks.pending' })}
-        </span>
-        {blocked > 0 && (
-          <span className="flex items-center gap-1 text-sm">
-            <Circle className="h-4 w-4 text-destructive" />
-            <strong>{blocked}</strong> {formatMessage({ id: 'sessionDetail.tasks.blocked' })}
-          </span>
-        )}
-      </div>
+      {/* Stats Bar with Bulk Actions */}
+      <TaskStatsBar
+        completed={completed}
+        inProgress={inProgress}
+        pending={pending}
+        onMarkAllPending={handleMarkAllPending}
+        onMarkAllInProgress={handleMarkAllInProgress}
+        onMarkAllCompleted={handleMarkAllCompleted}
+        isLoadingPending={isLoadingPending}
+        isLoadingInProgress={isLoadingInProgress}
+        isLoadingCompleted={isLoadingCompleted}
+      />
 
       {/* Tasks List */}
-      {tasks.length === 0 ? (
+      {localTasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <ListChecks className="h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium text-foreground mb-2">
@@ -98,10 +169,7 @@ export function TaskListTab({ session, onTaskClick }: TaskListTabProps) {
         </div>
       ) : (
         <div className="space-y-2">
-          {tasks.map((task, index) => {
-            const currentStatusConfig = task.status ? taskStatusConfig[task.status] : taskStatusConfig.pending;
-            const StatusIcon = currentStatusConfig.icon;
-
+          {localTasks.map((task, index) => {
             return (
               <Card
                 key={task.task_id || index}
@@ -111,18 +179,19 @@ export function TaskListTab({ session, onTaskClick }: TaskListTabProps) {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="text-xs font-mono text-muted-foreground">
                           {task.task_id}
                         </span>
-                        <Badge variant={currentStatusConfig.variant} className="gap-1">
-                          <StatusIcon className="h-3 w-3" />
-                          {formatMessage({ id: currentStatusConfig.label })}
-                        </Badge>
+                        <TaskStatusDropdown
+                          currentStatus={task.status as TaskStatus}
+                          onStatusChange={(newStatus) => handleTaskStatusChange(task.task_id, newStatus)}
+                          size="sm"
+                        />
                         {task.priority && (
-                          <Badge variant="outline" className="text-xs">
+                          <span className="text-xs text-muted-foreground">
                             {task.priority}
-                          </Badge>
+                          </span>
                         )}
                       </div>
                       <h4 className="font-medium text-foreground text-sm">

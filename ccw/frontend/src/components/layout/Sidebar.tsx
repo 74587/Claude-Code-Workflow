@@ -60,8 +60,6 @@ const navItemDefinitions: Omit<NavItem, 'label'>[] = [
   { path: '/orchestrator', icon: Workflow },
   { path: '/loops', icon: RefreshCw },
   { path: '/issues', icon: AlertCircle },
-  { path: '/issues?tab=queue', icon: ListTodo },
-  { path: '/issues?tab=discovery', icon: Search },
   { path: '/skills', icon: Sparkles },
   { path: '/commands', icon: Terminal },
   { path: '/memory', icon: Brain },
@@ -69,6 +67,7 @@ const navItemDefinitions: Omit<NavItem, 'label'>[] = [
   { path: '/hooks', icon: GitFork },
   { path: '/settings', icon: Settings },
   { path: '/settings/rules', icon: Shield },
+  { path: '/settings/codexlens', icon: Sparkles },
   { path: '/help', icon: HelpCircle },
 ];
 
@@ -110,8 +109,6 @@ export function Sidebar({
       '/orchestrator': 'main.orchestrator',
       '/loops': 'main.loops',
       '/issues': 'main.issues',
-      '/issues?tab=queue': 'main.issueQueue',
-      '/issues?tab=discovery': 'main.issueDiscovery',
       '/skills': 'main.skills',
       '/commands': 'main.commands',
       '/memory': 'main.memory',
@@ -119,6 +116,7 @@ export function Sidebar({
       '/hooks': 'main.hooks',
       '/settings': 'main.settings',
       '/settings/rules': 'main.rules',
+      '/settings/codexlens': 'main.codexlens',
       '/help': 'main.help',
     };
     return navItemDefinitions.map((item) => ({

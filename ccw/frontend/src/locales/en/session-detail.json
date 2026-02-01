@@ -6,13 +6,25 @@
   "tabs": {
     "tasks": "Tasks",
     "context": "Context",
-    "summary": "Summary"
+    "summary": "Summary",
+    "implPlan": "IMPL Plan",
+    "conflict": "Conflict",
+    "review": "Review"
   },
   "tasks": {
     "completed": "completed",
     "inProgress": "in progress",
     "pending": "pending",
     "blocked": "blocked",
+    "quickActions": {
+      "markAllPending": "All Pending",
+      "markAllInProgress": "All In Progress",
+      "markAllCompleted": "All Completed"
+    },
+    "statusUpdate": {
+      "success": "Task status updated successfully",
+      "error": "Failed to update task status"
+    },
     "status": {
       "pending": "Pending",
       "inProgress": "In Progress",
@@ -36,13 +48,112 @@
     "empty": {
       "title": "No Context Available",
       "message": "This session has no context information."
+    },
+    "explorations": {
+      "title": "Explorations",
+      "angles": "angles",
+      "projectStructure": "Project Structure",
+      "relevantFiles": "Relevant Files",
+      "patterns": "Patterns",
+      "dependencies": "Dependencies",
+      "integrationPoints": "Integration Points",
+      "testing": "Testing"
+    },
+    "categories": {
+      "documentation": "Documentation",
+      "sourceCode": "Source Code",
+      "tests": "Tests"
+    },
+    "assets": {
+      "title": "Assets",
+      "noData": "No assets found",
+      "scope": "Scope",
+      "contains": "Contains"
+    },
+    "dependencies": {
+      "title": "Dependencies",
+      "internal": "Internal",
+      "external": "External",
+      "from": "From",
+      "to": "To",
+      "type": "Type"
+    },
+    "testContext": {
+      "title": "Test Context",
+      "tests": "tests",
+      "existingTests": "existing tests",
+      "markers": "markers",
+      "coverage": "Coverage Configuration",
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "framework": "Framework"
+    },
+    "conflictDetection": {
+      "title": "Conflict Detection",
+      "riskLevel": {
+        "low": "Low Risk",
+        "medium": "Medium Risk",
+        "high": "High Risk",
+        "critical": "Critical Risk"
+      },
+      "mitigation": "Mitigation Strategy",
+      "riskFactors": "Risk Factors",
+      "testGaps": "Test Gaps",
+      "existingImplementations": "Existing Implementations",
+      "affectedModules": "Affected Modules"
     }
   },
   "summary": {
+    "default": "Summary",
     "title": "Session Summary",
+    "lines": "lines",
     "empty": {
       "title": "No Summary Available",
       "message": "This session has no summary yet."
+    }
+  },
+  "implPlan": {
+    "title": "Implementation Plan",
+    "empty": {
+      "title": "No IMPL Plan Available",
+      "message": "This session has no implementation plan yet."
+    },
+    "viewFull": "View Full Plan ({count} lines)"
+  },
+  "conflict": {
+    "title": "Conflict Resolution",
+    "comingSoon": "Conflict Resolution (Coming Soon)",
+    "comingSoonMessage": "This tab will display conflict resolution decisions and user choices.",
+    "empty": {
+      "title": "No Conflict Resolution Data",
+      "message": "This session has no conflict resolution information."
+    },
+    "resolvedAt": "Resolved",
+    "userDecisions": "User Decisions",
+    "description": "Description",
+    "implications": "Implications",
+    "resolvedConflicts": "Resolved Conflicts",
+    "strategy": "Strategy"
+  },
+  "review": {
+    "title": "Code Review",
+    "comingSoon": "Code Review (Coming Soon)",
+    "comingSoonMessage": "This tab will display review findings and recommendations.",
+    "empty": {
+      "title": "No Review Data",
+      "message": "This session has no review information."
+    },
+    "noFindings": {
+      "title": "No Findings Found",
+      "message": "No findings match the current severity filter."
+    },
+    "filterBySeverity": "Filter by Severity",
+    "severity": {
+      "all": "All Severities",
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
     }
   },
   "info": {

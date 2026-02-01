@@ -412,6 +412,116 @@ export async function handleHooksRoutes(ctx: HooksRouteContext): Promise<boolean
     return true;
   }
 
+  // API: Execute CCW CLI command and parse status
+  if (pathname === '/api/hook/ccw-exec' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      if (typeof body !== 'object' || body === null) {
+        return { error: 'Invalid request body', status: 400 };
+      }
+
+      const { filePath, command = 'parse-status' } = body as { filePath?: unknown; command?: unknown };
+
+      if (typeof filePath !== 'string') {
+        return { error: 'filePath is required', status: 400 };
+      }
+
+      // Check if this is a CCW status.json file
+      if (!filePath.includes('status.json') ||
+          !filePath.match(/\.(ccw|ccw-coordinator|ccw-debug)\//)) {
+        return { success: false, message: 'Not a CCW status file' };
+      }
+
+      try {
+        // Execute CCW CLI command to parse status
+        const result = await executeCliCommand('ccw', ['hook', 'parse-status', filePath]);
+
+        if (result.success) {
+          const parsed = JSON.parse(result.output);
+          return {
+            success: true,
+            ...parsed
+          };
+        } else {
+          return {
+            success: false,
+            error: result.error
+          };
+        }
+      } catch (error) {
+        console.error('[Hooks] Failed to execute CCW command:', error);
+        return {
+          success: false,
+          error: (error as Error).message
+        };
+      }
+    });
+    return true;
+  }
+
+  // API: Parse CCW status.json and return formatted status (fallback)
+  if (pathname === '/api/hook/ccw-status' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      if (typeof body !== 'object' || body === null) {
+        return { error: 'Invalid request body', status: 400 };
+      }
+
+      const { filePath } = body as { filePath?: unknown };
+
+      if (typeof filePath !== 'string') {
+        return { error: 'filePath is required', status: 400 };
+      }
+
+      // Check if this is a CCW status.json file
+      if (!filePath.includes('status.json') ||
+          !filePath.match(/\.(ccw|ccw-coordinator|ccw-debug)\//)) {
+        return { success: false, message: 'Not a CCW status file' };
+      }
+
+      try {
+        // Read and parse status.json
+        if (!existsSync(filePath)) {
+          return { success: false, message: 'Status file not found' };
+        }
+
+        const statusContent = readFileSync(filePath, 'utf8');
+        const status = JSON.parse(statusContent);
+
+        // Extract key information
+        const sessionId = status.session_id || 'unknown';
+        const workflow = status.workflow || status.mode || 'unknown';
+
+        // Find current command (running or last completed)
+        let currentCommand = status.command_chain?.find((cmd: { status: string }) => cmd.status === 'running')?.command;
+        if (!currentCommand) {
+          const completed = status.command_chain?.filter((cmd: { status: string }) => cmd.status === 'completed');
+          currentCommand = completed?.[completed.length - 1]?.command || 'unknown';
+        }
+
+        // Find next command (first pending)
+        const nextCommand = status.command_chain?.find((cmd: { status: string }) => cmd.status === 'pending')?.command || '无';
+
+        // Format status message
+        const message = `📋 CCW Status [${sessionId}] (${workflow}): 当前处于 ${currentCommand}，下一个命令 ${nextCommand}`;
+
+        return {
+          success: true,
+          message,
+          sessionId,
+          workflow,
+          currentCommand,
+          nextCommand
+        };
+      } catch (error) {
+        console.error('[Hooks] Failed to parse CCW status:', error);
+        return {
+          success: false,
+          error: (error as Error).message
+        };
+      }
+    });
+    return true;
+  }
+
   // API: Get hooks configuration
   if (pathname === '/api/hooks' && req.method === 'GET') {
     const projectPathParam = url.searchParams.get('path');
@@ -470,4 +580,64 @@ export async function handleHooksRoutes(ctx: HooksRouteContext): Promise<boolean
   }
 
   return false;
+}
+
+// ========================================
+// Helper: Execute CLI Command
+// ========================================
+
+/**
+ * Execute a CLI command and capture output
+ * @param {string} command - Command name (e.g., 'ccw', 'npx')
+ * @param {string[]} args - Command arguments
+ * @returns {Promise<{success: boolean; output: string; error?: string}>}
+ */
+async function executeCliCommand(
+  command: string,
+  args: string[]
+): Promise<{ success: boolean; output: string; error?: string }> {
+  return new Promise((resolve) => {
+    let output = '';
+    let errorOutput = '';
+
+    const child = spawn(command, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 30000  // 30 second timeout
+    });
+
+    if (child.stdout) {
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+    }
+
+    if (child.stderr) {
+      child.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+      });
+    }
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve({
+          success: true,
+          output: output.trim()
+        });
+      } else {
+        resolve({
+          success: false,
+          output: output.trim(),
+          error: errorOutput.trim() || `Command failed with exit code ${code}`
+        });
+      }
+    });
+
+    child.on('error', (err) => {
+      resolve({
+        success: false,
+        output: '',
+        error: (err as Error).message
+      });
+    });
+  });
 }

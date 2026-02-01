@@ -52,13 +52,12 @@ export function useCommands(options: UseCommandsOptions = {}): UseCommandsReturn
   const queryClient = useQueryClient();
 
   const projectPath = useWorkflowStore(selectProjectPath);
-  const queryEnabled = enabled && !!projectPath;
 
   const query = useQuery({
     queryKey: commandsKeys.list(filter),
     queryFn: () => fetchCommands(projectPath),
     staleTime,
-    enabled: queryEnabled,
+    enabled: enabled, // Remove projectPath requirement
     retry: 2,
   });
 

@@ -57,6 +57,19 @@ export interface HookQuickTemplatesProps {
  */
 export const HOOK_TEMPLATES: readonly HookTemplate[] = [
   {
+    id: 'ccw-status-tracker',
+    name: 'CCW Status Tracker',
+    description: 'Parse CCW status.json and display current/next command',
+    category: 'notification',
+    trigger: 'PostToolUse',
+    matcher: 'Write',
+    command: 'bash',
+    args: [
+      '-c',
+      'INPUT=$(cat); FILE_PATH=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); [ -n "$FILE_PATH" ] && [[ "$FILE_PATH" == *"status.json" ]] && ccw hook parse-status --path "$FILE_PATH" || true'
+    ]
+  },
+  {
     id: 'ccw-notify',
     name: 'CCW Dashboard Notify',
     description: 'Send notifications to CCW dashboard when files are written',

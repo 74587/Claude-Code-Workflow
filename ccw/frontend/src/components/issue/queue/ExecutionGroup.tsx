@@ -9,20 +9,22 @@ import { ChevronDown, ChevronRight, GitMerge, ArrowRight } from 'lucide-react';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils';
+import type { QueueItem } from '@/lib/api';
 
 // ========== Types ==========
 
 export interface ExecutionGroupProps {
   group: string;
-  items: string[];
+  items: QueueItem[];
   type?: 'parallel' | 'sequential';
+  onItemClick?: (item: QueueItem) => void;
 }
 
 // ========== Component ==========
 
-export function ExecutionGroup({ group, items, type = 'sequential' }: ExecutionGroupProps) {
+export function ExecutionGroup({ group, items, type = 'sequential', onItemClick }: ExecutionGroupProps) {
   const { formatMessage } = useIntl();
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const isParallel = type === 'parallel';
 
   return (
@@ -56,7 +58,7 @@ export function ExecutionGroup({ group, items, type = 'sequential' }: ExecutionG
             </span>
           </div>
           <Badge variant="outline" className="text-xs">
-            {items.length} {items.length === 1 ? 'item' : 'items'}
+            {formatMessage({ id: 'issues.queue.itemCount' }, { count: items.length })}
           </Badge>
         </div>
       </CardHeader>
@@ -67,22 +69,38 @@ export function ExecutionGroup({ group, items, type = 'sequential' }: ExecutionG
             "space-y-1 mt-2",
             isParallel ? "grid grid-cols-1 sm:grid-cols-2 gap-2" : "space-y-1"
           )}>
-            {items.map((item, index) => (
-              <div
-                key={item}
-                className={cn(
-                  "flex items-center gap-2 p-2 rounded-md bg-muted/50 text-sm",
-                  "hover:bg-muted transition-colors"
-                )}
-              >
-                <span className="text-muted-foreground text-xs w-6">
-                  {isParallel ? '' : `${index + 1}.`}
-                </span>
-                <span className="font-mono text-xs truncate flex-1">
-                  {item}
-                </span>
-              </div>
-            ))}
+            {items.map((item, index) => {
+              // Parse item_id to extract type and ID
+              const [itemType, ...idParts] = item.item_id.split('-');
+              const displayId = idParts.join('-');
+              const typeLabel = itemType === 'issue' ? formatMessage({ id: 'issues.solution.shortIssue' })
+                : itemType === 'solution' ? formatMessage({ id: 'issues.solution.shortSolution' })
+                : itemType;
+
+              return (
+                <div
+                  key={item.item_id}
+                  onClick={() => onItemClick?.(item)}
+                  className={cn(
+                    "flex items-center gap-2 p-2 rounded-md bg-muted/50 text-sm",
+                    "hover:bg-muted transition-colors cursor-pointer"
+                  )}
+                >
+                  <span className="text-muted-foreground text-xs w-6">
+                    {isParallel ? '' : `${index + 1}.`}
+                  </span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {typeLabel}
+                  </span>
+                  <span className="font-mono text-xs truncate flex-1">
+                    {displayId}
+                  </span>
+                  <Badge variant="outline" className="text-xs shrink-0">
+                    {formatMessage({ id: `issues.queue.status.${item.status}` })}
+                  </Badge>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

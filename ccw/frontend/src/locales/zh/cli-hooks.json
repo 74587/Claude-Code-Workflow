@@ -66,6 +66,10 @@
       "automation": "自动化"
     },
     "templates": {
+      "ccw-status-tracker": {
+        "name": "CCW 状态追踪器",
+        "description": "解析 CCW status.json 并显示当前/下一个命令"
+      },
       "ccw-notify": {
         "name": "CCW 面板通知",
         "description": "当文件被写入时向 CCW 面板发送通知"

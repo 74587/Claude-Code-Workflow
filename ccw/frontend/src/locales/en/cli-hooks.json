@@ -66,6 +66,10 @@
       "automation": "Automation"
     },
     "templates": {
+      "ccw-status-tracker": {
+        "name": "CCW Status Tracker",
+        "description": "Parse CCW status.json and display current/next command"
+      },
       "ccw-notify": {
         "name": "CCW Dashboard Notify",
         "description": "Send notifications to CCW dashboard when files are written"

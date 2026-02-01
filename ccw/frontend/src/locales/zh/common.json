@@ -36,7 +36,10 @@
     "submit": "提交",
     "reset": "重置",
     "resetDesc": "将所有用户偏好重置为默认值。此操作无法撤销。",
-    "saving": "Saving...",
+    "saving": "保存中...",
+    "deleting": "删除中...",
+    "merging": "合并中...",
+    "splitting": "拆分中...",
     "resetConfirm": "确定要将所有设置重置为默认值吗？",
     "resetToDefaults": "重置为默认值",
     "enable": "启用",
@@ -51,7 +54,8 @@
     "clearAll": "清除全部",
     "select": "选择",
     "selectAll": "全选",
-    "deselectAll": "取消全选"
+    "deselectAll": "取消全选",
+    "openMenu": "打开菜单"
   },
   "status": {
     "active": "活跃",

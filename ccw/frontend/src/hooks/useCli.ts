@@ -388,13 +388,11 @@ export function useRules(options: UseRulesOptions = {}): UseRulesReturn {
   const queryClient = useQueryClient();
   const projectPath = useWorkflowStore(selectProjectPath);
 
-  const queryEnabled = enabled && !!projectPath;
-
   const query = useQuery({
     queryKey: workspaceQueryKeys.rulesList(projectPath),
     queryFn: () => fetchRules(projectPath),
     staleTime,
-    enabled: queryEnabled,
+    enabled: enabled, // Remove projectPath requirement
     retry: 2,
   });
 

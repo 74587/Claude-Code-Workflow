@@ -1,7 +1,7 @@
 // ========================================
 // SessionDetailPage Component
 // ========================================
-// Session detail page with tabs for tasks, context, and summary
+// Session detail page with tabs for tasks, context, summary, impl-plan, conflict, and review
 
 import * as React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -13,18 +13,24 @@ import {
   Package,
   FileText,
   XCircle,
+  Ruler,
+  Scale,
+  Search,
 } from 'lucide-react';
 import { useSessionDetail } from '@/hooks/useSessionDetail';
 import { TaskListTab } from './session-detail/TaskListTab';
 import { ContextTab } from './session-detail/ContextTab';
 import { SummaryTab } from './session-detail/SummaryTab';
+import ImplPlanTab from './session-detail/ImplPlanTab';
+import { ConflictTab } from './session-detail/ConflictTab';
+import { ReviewTab } from './session-detail/ReviewTab';
 import { TaskDrawer } from '@/components/shared/TaskDrawer';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import type { TaskData } from '@/types/store';
 
-type TabValue = 'tasks' | 'context' | 'summary';
+type TabValue = 'tasks' | 'context' | 'summary' | 'impl-plan' | 'conflict' | 'review';
 
 /**
  * SessionDetailPage component - Main session detail page with tabs
@@ -92,9 +98,10 @@ export function SessionDetailPage() {
     );
   }
 
-  const { session, context, summary } = sessionDetail;
+  const { session, context, summary, summaries, implPlan, conflicts, review } = sessionDetail;
   const tasks = session.tasks || [];
   const completedTasks = tasks.filter((t) => t.status === 'completed').length;
+  const hasReview = session.has_review || session.review;
 
   return (
     <div className="space-y-6">
@@ -158,6 +165,20 @@ export function SessionDetailPage() {
             <FileText className="h-4 w-4 mr-2" />
             {formatMessage({ id: 'sessionDetail.tabs.summary' })}
           </TabsTrigger>
+          <TabsTrigger value="impl-plan">
+            <Ruler className="h-4 w-4 mr-2" />
+            {formatMessage({ id: 'sessionDetail.tabs.implPlan' })}
+          </TabsTrigger>
+          <TabsTrigger value="conflict">
+            <Scale className="h-4 w-4 mr-2" />
+            {formatMessage({ id: 'sessionDetail.tabs.conflict' })}
+          </TabsTrigger>
+          {hasReview && (
+            <TabsTrigger value="review">
+              <Search className="h-4 w-4 mr-2" />
+              {formatMessage({ id: 'sessionDetail.tabs.review' })}
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="tasks" className="mt-4">
@@ -169,8 +190,22 @@ export function SessionDetailPage() {
         </TabsContent>
 
         <TabsContent value="summary" className="mt-4">
-          <SummaryTab summary={summary} />
+          <SummaryTab summary={summary} summaries={summaries} />
         </TabsContent>
+
+        <TabsContent value="impl-plan" className="mt-4">
+          <ImplPlanTab implPlan={implPlan} />
+        </TabsContent>
+
+        <TabsContent value="conflict" className="mt-4">
+          <ConflictTab conflicts={conflicts as any} />
+        </TabsContent>
+
+        {hasReview && (
+          <TabsContent value="review" className="mt-4">
+            <ReviewTab review={review as any} />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Description (if exists) */}

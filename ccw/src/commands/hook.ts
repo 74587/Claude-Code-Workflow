@@ -13,6 +13,7 @@ interface HookOptions {
   sessionId?: string;
   prompt?: string;
   type?: 'session-start' | 'context';
+  path?: string;
 }
 
 interface HookData {
@@ -210,6 +211,59 @@ async function sessionContextAction(options: HookOptions): Promise<void> {
 }
 
 /**
+ * Parse CCW status.json and output formatted status
+ */
+async function parseStatusAction(options: HookOptions): Promise<void> {
+  const { path: filePath } = options;
+
+  if (!filePath) {
+    console.error(chalk.red('Error: --path is required'));
+    process.exit(1);
+  }
+
+  try {
+    // Check if this is a CCW status.json file
+    if (!filePath.includes('status.json') ||
+        !filePath.match(/\.(ccw|ccw-coordinator|ccw-debug)[/\\]/)) {
+      console.log(chalk.gray('(Not a CCW status file)'));
+      process.exit(0);
+    }
+
+    // Read and parse status.json
+    if (!existsSync(filePath)) {
+      console.log(chalk.gray('(Status file not found)'));
+      process.exit(0);
+    }
+
+    const statusContent = readFileSync(filePath, 'utf8');
+    const status = JSON.parse(statusContent);
+
+    // Extract key information
+    const sessionId = status.session_id || 'unknown';
+    const workflow = status.workflow || status.mode || 'unknown';
+
+    // Find current command (running or last completed)
+    let currentCommand = status.command_chain?.find((cmd: { status: string }) => cmd.status === 'running')?.command;
+    if (!currentCommand) {
+      const completed = status.command_chain?.filter((cmd: { status: string }) => cmd.status === 'completed');
+      currentCommand = completed?.[completed.length - 1]?.command || 'unknown';
+    }
+
+    // Find next command (first pending)
+    const nextCommand = status.command_chain?.find((cmd: { status: string }) => cmd.status === 'pending')?.command || '无';
+
+    // Format status message
+    const message = `📋 CCW Status [${sessionId}] (${workflow}): 当前处于 ${currentCommand}，下一个命令 ${nextCommand}`;
+
+    console.log(message);
+    process.exit(0);
+  } catch (error) {
+    console.error(chalk.red(`Error: ${(error as Error).message}`));
+    process.exit(1);
+  }
+}
+
+/**
  * Notify dashboard action - send notification to running ccw view server
  */
 async function notifyAction(options: HookOptions): Promise<void> {
@@ -255,15 +309,20 @@ ${chalk.bold('USAGE')}
   ccw hook <subcommand> [options]
 
 ${chalk.bold('SUBCOMMANDS')}
+  parse-status      Parse CCW status.json and display current/next command
   session-context   Progressive session context loading (replaces curl/bash hook)
   notify            Send notification to ccw view dashboard
 
 ${chalk.bold('OPTIONS')}
   --stdin           Read input from stdin (for Claude Code hooks)
+  --path            Path to status.json file (for parse-status)
   --session-id      Session ID (alternative to stdin)
   --prompt          Current prompt text (alternative to stdin)
 
 ${chalk.bold('EXAMPLES')}
+  ${chalk.gray('# Parse CCW status file:')}
+  ccw hook parse-status --path .workflow/.ccw/ccw-123/status.json
+
   ${chalk.gray('# Use in Claude Code hook (settings.json):')}
   ccw hook session-context --stdin
 
@@ -274,14 +333,14 @@ ${chalk.bold('EXAMPLES')}
   ccw hook notify --stdin
 
 ${chalk.bold('HOOK CONFIGURATION')}
-  ${chalk.gray('Add to .claude/settings.json:')}
+  ${chalk.gray('Add to .claude/settings.json for status tracking:')}
   {
     "hooks": {
-      "UserPromptSubmit": [{
-        "hooks": [{
-          "type": "command",
-          "command": "ccw hook session-context --stdin"
-        }]
+      "PostToolUse": [{
+        "trigger": "PostToolUse",
+        "matcher": "Write",
+        "command": "bash",
+        "args": ["-c", "INPUT=$(cat); FILE_PATH=$(echo \\"$INPUT\\" | jq -r \\".tool_input.file_path // empty\\"); [ -n \\"$FILE_PATH\\" ] && ccw hook parse-status --path \\"$FILE_PATH\\""]
       }]
     }
   }
@@ -297,6 +356,9 @@ export async function hookCommand(
   options: HookOptions
 ): Promise<void> {
   switch (subcommand) {
+    case 'parse-status':
+      await parseStatusAction(options);
+      break;
     case 'session-context':
     case 'context':
       await sessionContextAction(options);

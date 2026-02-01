@@ -5,13 +5,15 @@
 
 import { useState } from 'react';
 import { useIntl } from 'react-intl';
-import { Download, FileText, BarChart3, Info } from 'lucide-react';
+import { Download, FileText, BarChart3, Info, Upload } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { Badge } from '@/components/ui/Badge';
 import { Progress } from '@/components/ui/Progress';
+import { IssueDrawer } from '@/components/issue/hub/IssueDrawer';
 import type { DiscoverySession, Finding } from '@/lib/api';
+import type { Issue } from '@/lib/api';
 import type { FindingFilters } from '@/hooks/useIssues';
 import { FindingList } from './FindingList';
 
@@ -22,6 +24,9 @@ interface DiscoveryDetailProps {
   filters: FindingFilters;
   onFilterChange: (filters: FindingFilters) => void;
   onExport: () => void;
+  onExportSelected?: (findingIds: string[]) => Promise<{ success: boolean; message?: string; exported?: number }>;
+  isExporting?: boolean;
+  issues?: Issue[]; // Optional: pass issues to find related ones
 }
 
 export function DiscoveryDetail({
@@ -31,9 +36,35 @@ export function DiscoveryDetail({
   filters,
   onFilterChange,
   onExport,
+  onExportSelected,
+  isExporting = false,
+  issues = [],
 }: DiscoveryDetailProps) {
   const { formatMessage } = useIntl();
   const [activeTab, setActiveTab] = useState('findings');
+  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const handleFindingClick = (finding: Finding) => {
+    // If finding has an associated issue_id, find and show that issue
+    if (finding.issue_id) {
+      const relatedIssue = issues.find(i => i.id === finding.issue_id);
+      if (relatedIssue) {
+        setSelectedIssue(relatedIssue);
+      }
+    }
+  };
+
+  const handleCloseDrawer = () => {
+    setSelectedIssue(null);
+  };
+
+  const handleExportSelected = async () => {
+    if (onExportSelected && selectedIds.length > 0) {
+      await onExportSelected(selectedIds);
+      setSelectedIds([]); // Clear selection after export
+    }
+  };
 
   if (!session) {
     return (
@@ -73,10 +104,25 @@ export function DiscoveryDetail({
             {formatMessage({ id: 'issues.discovery.sessionId' })}: {session.id}
           </p>
         </div>
-        <Button variant="outline" onClick={onExport} disabled={findings.length === 0}>
-          <Download className="w-4 h-4 mr-2" />
-          {formatMessage({ id: 'issues.discovery.export' })}
-        </Button>
+        <div className="flex items-center gap-2">
+          {selectedIds.length > 0 && onExportSelected && (
+            <Button
+              variant="default"
+              onClick={handleExportSelected}
+              disabled={isExporting || selectedIds.length === 0}
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              {isExporting
+                ? formatMessage({ id: 'issues.discovery.exporting' })
+                : formatMessage({ id: 'issues.discovery.exportSelected' }, { count: selectedIds.length })
+              }
+            </Button>
+          )}
+          <Button variant="outline" onClick={onExport} disabled={findings.length === 0}>
+            <Download className="w-4 h-4 mr-2" />
+            {formatMessage({ id: 'issues.discovery.export' })}
+          </Button>
+        </div>
       </div>
 
       {/* Status Badge */}
@@ -125,7 +171,14 @@ export function DiscoveryDetail({
         </TabsList>
 
         <TabsContent value="findings" className="mt-4">
-          <FindingList findings={findings} filters={filters} onFilterChange={onFilterChange} />
+          <FindingList
+            findings={findings}
+            filters={filters}
+            onFilterChange={onFilterChange}
+            onFindingClick={handleFindingClick}
+            selectedIds={selectedIds}
+            onSelectionChange={onExportSelected ? setSelectedIds : undefined}
+          />
         </TabsContent>
 
         <TabsContent value="progress" className="mt-4 space-y-4">
@@ -219,6 +272,15 @@ export function DiscoveryDetail({
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Issue Detail Drawer */}
+      <IssueDrawer
+        issue={selectedIssue}
+        isOpen={selectedIssue !== null}
+        onClose={handleCloseDrawer}
+      />
     </div>
   );
 }
+
+export default DiscoveryDetail;

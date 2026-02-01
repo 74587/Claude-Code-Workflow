@@ -23,6 +23,7 @@ import skills from './skills.json';
 import cliManager from './cli-manager.json';
 import cliMonitor from './cli-monitor.json';
 import mcpManager from './mcp-manager.json';
+import codexlens from './codexlens.json';
 import theme from './theme.json';
 import executionMonitor from './execution-monitor.json';
 import cliHooks from './cli-hooks.json';
@@ -77,9 +78,10 @@ export default {
   ...flattenMessages(reviewSession, 'reviewSession'),
   ...flattenMessages(sessionDetail, 'sessionDetail'),
   ...flattenMessages(skills, 'skills'),
-  ...flattenMessages(cliManager), // No prefix - has cliEndpoints, cliInstallations, etc. as top-level keys
+  ...flattenMessages(cliManager, 'cli-manager'),
   ...flattenMessages(cliMonitor, 'cliMonitor'),
   ...flattenMessages(mcpManager, 'mcp'),
+  ...flattenMessages(codexlens, 'codexlens'),
   ...flattenMessages(theme, 'theme'),
   ...flattenMessages(cliHooks, 'cliHooks'),
   ...flattenMessages(executionMonitor, 'executionMonitor'),

@@ -58,14 +58,11 @@ export function useSkills(options: UseSkillsOptions = {}): UseSkillsReturn {
   const queryClient = useQueryClient();
   const projectPath = useWorkflowStore(selectProjectPath);
 
-  // Only enable query when projectPath is available
-  const queryEnabled = enabled && !!projectPath;
-
   const query = useQuery({
     queryKey: workspaceQueryKeys.skillsList(projectPath),
     queryFn: () => fetchSkills(projectPath),
     staleTime,
-    enabled: queryEnabled,
+    enabled: enabled, // Remove projectPath requirement - API works without it
     retry: 2,
   });
 

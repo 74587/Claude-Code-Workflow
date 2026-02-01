@@ -146,13 +146,16 @@ async function fetchApi<T>(
       status: response.status,
     };
 
-    try {
-      const body = await response.json();
-      if (body.message) error.message = body.message;
-      if (body.code) error.code = body.code;
-    } catch (parseError) {
-      // Log parse errors instead of silently ignoring
-      console.warn('[API] Failed to parse error response:', parseError);
+    // Only try to parse JSON if the content type indicates JSON
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      try {
+        const body = await response.json();
+        if (body.message) error.message = body.message;
+        if (body.code) error.code = body.code;
+      } catch (parseError) {
+        // Silently ignore JSON parse errors for non-JSON responses
+      }
     }
 
     throw error;
@@ -599,12 +602,26 @@ export interface Issue {
   assignee?: string;
 }
 
+export interface QueueItem {
+  item_id: string;
+  issue_id: string;
+  solution_id: string;
+  task_id?: string;
+  status: 'pending' | 'ready' | 'executing' | 'completed' | 'failed' | 'blocked';
+  execution_order: number;
+  execution_group: string;
+  depends_on: string[];
+  semantic_priority: number;
+  files_touched?: string[];
+  task_count?: number;
+}
+
 export interface IssueQueue {
   tasks: string[];
   solutions: string[];
   conflicts: string[];
   execution_groups: string[];
-  grouped_items: Record<string, string[]>;
+  grouped_items: Record<string, QueueItem[]>;
 }
 
 export interface IssuesResponse {
@@ -684,6 +701,37 @@ export async function deleteIssue(issueId: string): Promise<void> {
 }
 
 /**
+ * Pull issues from GitHub
+ */
+export interface GitHubPullOptions {
+  state?: 'open' | 'closed' | 'all';
+  limit?: number;
+  labels?: string;
+  downloadImages?: boolean;
+}
+
+export interface GitHubPullResponse {
+  imported: number;
+  updated: number;
+  skipped: number;
+  images_downloaded: number;
+  total: number;
+}
+
+export async function pullIssuesFromGitHub(options: GitHubPullOptions = {}): Promise<GitHubPullResponse> {
+  const params = new URLSearchParams();
+  if (options.state) params.set('state', options.state);
+  if (options.limit) params.set('limit', String(options.limit));
+  if (options.labels) params.set('labels', options.labels);
+  if (options.downloadImages) params.set('downloadImages', 'true');
+
+  const url = `/api/issues/pull${params.toString() ? '?' + params.toString() : ''}`;
+  return fetchApi<GitHubPullResponse>(url, {
+    method: 'POST',
+  });
+}
+
+/**
  * Activate a queue
  */
 export async function activateQueue(queueId: string, projectPath: string): Promise<void> {
@@ -720,6 +768,16 @@ export async function mergeQueues(sourceId: string, targetId: string, projectPat
   });
 }
 
+/**
+ * Split queue - split items from source queue into a new queue
+ */
+export async function splitQueue(sourceQueueId: string, itemIds: string[], projectPath: string): Promise<void> {
+  return fetchApi<void>(`/api/queue/split?path=${encodeURIComponent(projectPath)}`, {
+    method: 'POST',
+    body: JSON.stringify({ sourceQueueId, itemIds }),
+  });
+}
+
 // ========== Discovery API ==========
 
 export interface DiscoverySession {
@@ -743,14 +801,42 @@ export interface Finding {
   line?: number;
   code_snippet?: string;
   created_at: string;
+  issue_id?: string; // Associated issue ID if exported
+  exported?: boolean; // Whether this finding has been exported as an issue
 }
 
 export async function fetchDiscoveries(projectPath?: string): Promise<DiscoverySession[]> {
   const url = projectPath
     ? `/api/discoveries?path=${encodeURIComponent(projectPath)}`
     : '/api/discoveries';
-  const data = await fetchApi<{ sessions?: DiscoverySession[] }>(url);
-  return data.sessions ?? [];
+  const data = await fetchApi<{ discoveries?: any[]; sessions?: DiscoverySession[] }>(url);
+
+  // Backend returns 'discoveries' with different schema, transform to frontend format
+  const rawDiscoveries = data.discoveries ?? data.sessions ?? [];
+
+  // Map backend schema to frontend DiscoverySession interface
+  return rawDiscoveries.map((d: any) => {
+    // Map phase to status
+    let status: 'running' | 'completed' | 'failed' = 'running';
+    if (d.phase === 'complete' || d.phase === 'completed') {
+      status = 'completed';
+    } else if (d.phase === 'failed') {
+      status = 'failed';
+    }
+
+    // Extract progress percentage from nested progress object
+    const progress = d.progress?.perspective_analysis?.percent_complete ?? 0;
+
+    return {
+      id: d.discovery_id || d.id,
+      name: d.target_pattern || d.discovery_id || d.name || 'Discovery',
+      status,
+      progress,
+      findings_count: d.total_findings ?? d.findings_count ?? 0,
+      created_at: d.created_at,
+      completed_at: d.completed_at
+    };
+  });
 }
 
 export async function fetchDiscoveryDetail(
@@ -772,6 +858,27 @@ export async function fetchDiscoveryFindings(
     : `/api/discoveries/${encodeURIComponent(sessionId)}/findings`;
   const data = await fetchApi<{ findings?: Finding[] }>(url);
   return data.findings ?? [];
+}
+
+/**
+ * Export findings as issues
+ * @param sessionId - Discovery session ID
+ * @param findingIds - Array of finding IDs to export
+ * @param exportAll - Export all findings if true
+ * @param projectPath - Optional project path
+ */
+export async function exportDiscoveryFindingsAsIssues(
+  sessionId: string,
+  { findingIds, exportAll }: { findingIds?: string[]; exportAll?: boolean },
+  projectPath?: string
+): Promise<{ success: boolean; message?: string; exported?: number }> {
+  const url = projectPath
+    ? `/api/discoveries/${encodeURIComponent(sessionId)}/export?path=${encodeURIComponent(projectPath)}`
+    : `/api/discoveries/${encodeURIComponent(sessionId)}/export`;
+  return fetchApi<{ success: boolean; message?: string; exported?: number }>(url, {
+    method: 'POST',
+    body: JSON.stringify({ finding_ids: findingIds, export_all: exportAll }),
+  });
 }
 
 // ========== Skills API ==========
@@ -796,10 +903,30 @@ export interface SkillsResponse {
  * @param projectPath - Optional project path to filter data by workspace
  */
 export async function fetchSkills(projectPath?: string): Promise<SkillsResponse> {
-  const url = projectPath ? `/api/skills?path=${encodeURIComponent(projectPath)}` : '/api/skills';
-  const data = await fetchApi<{ skills?: Skill[] }>(url);
+  // Try with project path first, fall back to global on 403/404
+  if (projectPath) {
+    try {
+      const url = `/api/skills?path=${encodeURIComponent(projectPath)}`;
+      const data = await fetchApi<{ skills?: Skill[]; projectSkills?: Skill[]; userSkills?: Skill[] }>(url);
+      const allSkills = [...(data.projectSkills ?? []), ...(data.userSkills ?? [])];
+      return {
+        skills: data.skills ?? allSkills,
+      };
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
+      if (apiError.status === 403 || apiError.status === 404) {
+        // Fall back to global skills list
+        console.warn('[fetchSkills] 403/404 for project path, falling back to global skills');
+      } else {
+        throw error;
+      }
+    }
+  }
+  // Fallback: fetch global skills
+  const data = await fetchApi<{ skills?: Skill[]; projectSkills?: Skill[]; userSkills?: Skill[] }>('/api/skills');
+  const allSkills = [...(data.projectSkills ?? []), ...(data.userSkills ?? [])];
   return {
-    skills: data.skills ?? [],
+    skills: data.skills ?? allSkills,
   };
 }
 
@@ -834,10 +961,30 @@ export interface CommandsResponse {
  * @param projectPath - Optional project path to filter data by workspace
  */
 export async function fetchCommands(projectPath?: string): Promise<CommandsResponse> {
-  const url = projectPath ? `/api/commands?path=${encodeURIComponent(projectPath)}` : '/api/commands';
-  const data = await fetchApi<{ commands?: Command[] }>(url);
+  // Try with project path first, fall back to global on 403/404
+  if (projectPath) {
+    try {
+      const url = `/api/commands?path=${encodeURIComponent(projectPath)}`;
+      const data = await fetchApi<{ commands?: Command[]; projectCommands?: Command[]; userCommands?: Command[] }>(url);
+      const allCommands = [...(data.projectCommands ?? []), ...(data.userCommands ?? [])];
+      return {
+        commands: data.commands ?? allCommands,
+      };
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
+      if (apiError.status === 403 || apiError.status === 404) {
+        // Fall back to global commands list
+        console.warn('[fetchCommands] 403/404 for project path, falling back to global commands');
+      } else {
+        throw error;
+      }
+    }
+  }
+  // Fallback: fetch global commands
+  const data = await fetchApi<{ commands?: Command[]; projectCommands?: Command[]; userCommands?: Command[] }>('/api/commands');
+  const allCommands = [...(data.projectCommands ?? []), ...(data.userCommands ?? [])];
   return {
-    commands: data.commands ?? [],
+    commands: data.commands ?? allCommands,
   };
 }
 
@@ -864,12 +1011,36 @@ export interface MemoryResponse {
  * @param projectPath - Optional project path to filter data by workspace
  */
 export async function fetchMemories(projectPath?: string): Promise<MemoryResponse> {
-  const url = projectPath ? `/api/memory?path=${encodeURIComponent(projectPath)}` : '/api/memory';
+  // Try with project path first, fall back to global on 403/404
+  if (projectPath) {
+    try {
+      const url = `/api/memory?path=${encodeURIComponent(projectPath)}`;
+      const data = await fetchApi<{
+        memories?: CoreMemory[];
+        totalSize?: number;
+        claudeMdCount?: number;
+      }>(url);
+      return {
+        memories: data.memories ?? [],
+        totalSize: data.totalSize ?? 0,
+        claudeMdCount: data.claudeMdCount ?? 0,
+      };
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
+      if (apiError.status === 403 || apiError.status === 404) {
+        // Fall back to global memories list
+        console.warn('[fetchMemories] 403/404 for project path, falling back to global memories');
+      } else {
+        throw error;
+      }
+    }
+  }
+  // Fallback: fetch global memories
   const data = await fetchApi<{
     memories?: CoreMemory[];
     totalSize?: number;
     claudeMdCount?: number;
-  }>(url);
+  }>('/api/memory');
   return {
     memories: data.memories ?? [],
     totalSize: data.totalSize ?? 0,
@@ -1027,6 +1198,65 @@ export interface SessionDetailContext {
     tech_stack?: string[];
     conventions?: string[];
   };
+  // Extended context fields for context-package.json
+  context?: {
+    metadata?: {
+      task_description?: string;
+      session_id?: string;
+      complexity?: string;
+      keywords?: string[];
+    };
+    project_context?: {
+      tech_stack?: {
+        languages?: Array<{ name: string; file_count?: number }>;
+        frameworks?: string[];
+        libraries?: string[];
+      };
+      architecture_patterns?: string[];
+    };
+    assets?: {
+      documentation?: Array<{ path: string; relevance_score?: number; scope?: string; contains?: string[] }>;
+      source_code?: Array<{ path: string; relevance_score?: number; scope?: string; contains?: string[] }>;
+      tests?: Array<{ path: string; relevance_score?: number; scope?: string; contains?: string[] }>;
+    };
+    dependencies?: {
+      internal?: Array<{ from: string; type: string; to: string }>;
+      external?: Array<{ package: string; version?: string; usage?: string }>;
+    };
+    test_context?: {
+      frameworks?: {
+        backend?: { name?: string; plugins?: string[] };
+        frontend?: { name?: string };
+      };
+      existing_tests?: string[];
+      coverage_config?: Record<string, unknown>;
+      test_markers?: string[];
+    };
+    conflict_detection?: {
+      risk_level?: 'low' | 'medium' | 'high' | 'critical';
+      mitigation_strategy?: string;
+      risk_factors?: {
+        test_gaps?: string[];
+        existing_implementations?: string[];
+      };
+      affected_modules?: string[];
+    };
+  };
+  explorations?: {
+    manifest: {
+      task_description: string;
+      complexity?: string;
+      exploration_count: number;
+    };
+    data: Record<string, {
+      project_structure?: string[];
+      relevant_files?: string[];
+      patterns?: string[];
+      dependencies?: string[];
+      integration_points?: string[];
+      testing?: string[];
+    }>;
+  };
 }
 
 export interface SessionDetailResponse {
@@ -1135,6 +1365,47 @@ export async function deleteAllHistory(): Promise<void> {
     method: 'DELETE',
   });
 }
+
+// ========== Task Status Update API ==========
+
+/**
+ * Bulk update task status for multiple tasks
+ * @param sessionPath - Path to session directory
+ * @param taskIds - Array of task IDs to update
+ * @param newStatus - New status to set
+ */
+export async function bulkUpdateTaskStatus(
+  sessionPath: string,
+  taskIds: string[],
+  newStatus: TaskStatus
+): Promise<{ success: boolean; updated: number; error?: string }> {
+  return fetchApi('/api/bulk-update-task-status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionPath, taskIds, newStatus }),
+  });
+}
+
+/**
+ * Update single task status
+ * @param sessionPath - Path to session directory
+ * @param taskId - Task ID to update
+ * @param newStatus - New status to set
+ */
+export async function updateTaskStatus(
+  sessionPath: string,
+  taskId: string,
+  newStatus: TaskStatus
+): Promise<{ success: boolean; error?: string }> {
+  return fetchApi('/api/update-task-status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionPath, taskId, newStatus }),
+  });
+}
+
+// Task status type (matches TaskData.status)
+export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'blocked' | 'skipped';
 
 /**
  * Fetch CLI execution detail (conversation records)
@@ -1728,10 +1999,30 @@ export async function installHookTemplate(templateId: string): Promise<Hook> {
  * @param projectPath - Optional project path to filter data by workspace
  */
 export async function fetchRules(projectPath?: string): Promise<RulesResponse> {
-  const url = projectPath ? `/api/rules?path=${encodeURIComponent(projectPath)}` : '/api/rules';
-  const data = await fetchApi<{ rules?: Rule[] }>(url);
+  // Try with project path first, fall back to global on 403/404
+  if (projectPath) {
+    try {
+      const url = `/api/rules?path=${encodeURIComponent(projectPath)}`;
+      const data = await fetchApi<{ rules?: Rule[]; projectRules?: Rule[]; userRules?: Rule[] }>(url);
+      const allRules = [...(data.projectRules ?? []), ...(data.userRules ?? [])];
+      return {
+        rules: data.rules ?? allRules,
+      };
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
+      if (apiError.status === 403 || apiError.status === 404) {
+        // Fall back to global rules list
+        console.warn('[fetchRules] 403/404 for project path, falling back to global rules');
+      } else {
+        throw error;
+      }
+    }
+  }
+  // Fallback: fetch global rules
+  const data = await fetchApi<{ rules?: Rule[]; projectRules?: Rule[]; userRules?: Rule[] }>('/api/rules');
+  const allRules = [...(data.projectRules ?? []), ...(data.userRules ?? [])];
   return {
-    rules: data.rules ?? [],
+    rules: data.rules ?? allRules,
   };
 }
 
@@ -2091,3 +2382,428 @@ export async function fetchGraphImpact(request: GraphImpactRequest): Promise<Gra
   return fetchApi<GraphImpactResponse>(`/api/graph/impact?${params.toString()}`);
 }
 
+// ========== CodexLens API ==========
+
+/**
+ * CodexLens venv status response
+ */
+export interface CodexLensVenvStatus {
+  ready: boolean;
+  installed: boolean;
+  version?: string;
+  pythonVersion?: string;
+  venvPath?: string;
+  error?: string;
+}
+
+/**
+ * CodexLens status data
+ */
+export interface CodexLensStatusData {
+  projects_count?: number;
+  total_files?: number;
+  total_chunks?: number;
+  api_url?: string;
+  api_ready?: boolean;
+  [key: string]: unknown;
+}
+
+/**
+ * CodexLens configuration
+ */
+export interface CodexLensConfig {
+  index_dir: string;
+  index_count: number;
+  api_max_workers: number;
+  api_batch_size: number;
+}
+
+/**
+ * Semantic search status
+ */
+export interface CodexLensSemanticStatus {
+  available: boolean;
+  backend?: string;
+  model?: string;
+  hasEmbeddings?: boolean;
+  [key: string]: unknown;
+}
+
+/**
+ * Dashboard init response
+ */
+export interface CodexLensDashboardInitResponse {
+  installed: boolean;
+  status: CodexLensVenvStatus;
+  config: CodexLensConfig;
+  semantic: CodexLensSemanticStatus;
+  statusData?: CodexLensStatusData;
+}
+
+/**
+ * Workspace index status
+ */
+export interface CodexLensWorkspaceStatus {
+  success: boolean;
+  hasIndex: boolean;
+  path?: string;
+  fts: {
+    percent: number;
+    indexedFiles: number;
+    totalFiles: number;
+  };
+  vector: {
+    percent: number;
+    filesWithEmbeddings: number;
+    totalFiles: number;
+    totalChunks: number;
+  };
+}
+
+/**
+ * GPU device info
+ */
+export interface CodexLensGpuDevice {
+  name: string;
+  type: 'integrated' | 'discrete';
+  index: number;
+  device_id?: string;
+  memory?: {
+    total?: number;
+    free?: number;
+  };
+}
+
+/**
+ * GPU detect response
+ */
+export interface CodexLensGpuDetectResponse {
+  success: boolean;
+  supported: boolean;
+  platform: string;
+  deviceCount?: number;
+  devices?: CodexLensGpuDevice[];
+  error?: string;
+}
+
+/**
+ * GPU list response
+ */
+export interface CodexLensGpuListResponse {
+  success: boolean;
+  devices: CodexLensGpuDevice[];
+  selected_device_id?: string | number;
+}
+
+/**
+ * Model info
+ */
+export interface CodexLensModel {
+  profile: string;
+  name: string;
+  type: 'embedding' | 'reranker';
+  backend: string;
+  size?: string;
+  installed: boolean;
+  cache_path?: string;
+}
+
+/**
+ * Model list response
+ */
+export interface CodexLensModelsResponse {
+  success: boolean;
+  models: CodexLensModel[];
+}
+
+/**
+ * Model info response
+ */
+export interface CodexLensModelInfoResponse {
+  success: boolean;
+  profile: string;
+  info: {
+    name: string;
+    backend: string;
+    type: string;
+    size?: string;
+    path?: string;
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * Download model response
+ */
+export interface CodexLensDownloadModelResponse {
+  success: boolean;
+  message?: string;
+  profile?: string;
+  progress?: number;
+  error?: string;
+}
+
+/**
+ * Delete model response
+ */
+export interface CodexLensDeleteModelResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Environment variables response
+ */
+export interface CodexLensEnvResponse {
+  success: boolean;
+  path?: string;
+  env: Record<string, string>;
+  raw?: string;
+  settings?: Record<string, string>;
+}
+
+/**
+ * Update environment request
+ */
+export interface CodexLensUpdateEnvRequest {
+  env: Record<string, string>;
+}
+
+/**
+ * Update environment response
+ */
+export interface CodexLensUpdateEnvResponse {
+  success: boolean;
+  message?: string;
+  path?: string;
+  settingsPath?: string;
+}
+
+/**
+ * Ignore patterns response
+ */
+export interface CodexLensIgnorePatternsResponse {
+  success: boolean;
+  patterns: string[];
+  extensionFilters: string[];
+  defaults: {
+    patterns: string[];
+    extensionFilters: string[];
+  };
+}
+
+/**
+ * Update ignore patterns request
+ */
+export interface CodexLensUpdateIgnorePatternsRequest {
+  patterns?: string[];
+  extensionFilters?: string[];
+}
+
+/**
+ * Bootstrap install response
+ */
+export interface CodexLensBootstrapResponse {
+  success: boolean;
+  message?: string;
+  version?: string;
+  error?: string;
+}
+
+/**
+ * Uninstall response
+ */
+export interface CodexLensUninstallResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Fetch CodexLens dashboard initialization data
+ */
+export async function fetchCodexLensDashboardInit(): Promise<CodexLensDashboardInitResponse> {
+  return fetchApi<CodexLensDashboardInitResponse>('/api/codexlens/dashboard-init');
+}
+
+/**
+ * Fetch CodexLens venv status
+ */
+export async function fetchCodexLensStatus(): Promise<CodexLensVenvStatus> {
+  return fetchApi<CodexLensVenvStatus>('/api/codexlens/status');
+}
+
+/**
+ * Fetch CodexLens workspace index status
+ */
+export async function fetchCodexLensWorkspaceStatus(projectPath: string): Promise<CodexLensWorkspaceStatus> {
+  const params = new URLSearchParams();
+  params.append('path', projectPath);
+  return fetchApi<CodexLensWorkspaceStatus>(`/api/codexlens/workspace-status?${params.toString()}`);
+}
+
+/**
+ * Fetch CodexLens configuration
+ */
+export async function fetchCodexLensConfig(): Promise<CodexLensConfig> {
+  return fetchApi<CodexLensConfig>('/api/codexlens/config');
+}
+
+/**
+ * Update CodexLens configuration
+ */
+export async function updateCodexLensConfig(config: {
+  index_dir: string;
+  api_max_workers?: number;
+  api_batch_size?: number;
+}): Promise<{ success: boolean; message?: string; error?: string }> {
+  return fetchApi('/api/codexlens/config', {
+    method: 'POST',
+    body: JSON.stringify(config),
+  });
+}
+
+/**
+ * Bootstrap/install CodexLens
+ */
+export async function bootstrapCodexLens(): Promise<CodexLensBootstrapResponse> {
+  return fetchApi<CodexLensBootstrapResponse>('/api/codexlens/bootstrap', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+/**
+ * Uninstall CodexLens
+ */
+export async function uninstallCodexLens(): Promise<CodexLensUninstallResponse> {
+  return fetchApi<CodexLensUninstallResponse>('/api/codexlens/uninstall', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+/**
+ * Fetch CodexLens models list
+ */
+export async function fetchCodexLensModels(): Promise<CodexLensModelsResponse> {
+  return fetchApi<CodexLensModelsResponse>('/api/codexlens/models');
+}
+
+/**
+ * Fetch CodexLens model info by profile
+ */
+export async function fetchCodexLensModelInfo(profile: string): Promise<CodexLensModelInfoResponse> {
+  const params = new URLSearchParams();
+  params.append('profile', profile);
+  return fetchApi<CodexLensModelInfoResponse>(`/api/codexlens/models/info?${params.toString()}`);
+}
+
+/**
+ * Download CodexLens model by profile
+ */
+export async function downloadCodexLensModel(profile: string): Promise<CodexLensDownloadModelResponse> {
+  return fetchApi<CodexLensDownloadModelResponse>('/api/codexlens/models/download', {
+    method: 'POST',
+    body: JSON.stringify({ profile }),
+  });
+}
+
+/**
+ * Download custom CodexLens model from HuggingFace
+ */
+export async function downloadCodexLensCustomModel(modelName: string, modelType: string = 'embedding'): Promise<CodexLensDownloadModelResponse> {
+  return fetchApi<CodexLensDownloadModelResponse>('/api/codexlens/models/download-custom', {
+    method: 'POST',
+    body: JSON.stringify({ model_name: modelName, model_type: modelType }),
+  });
+}
+
+/**
+ * Delete CodexLens model by profile
+ */
+export async function deleteCodexLensModel(profile: string): Promise<CodexLensDeleteModelResponse> {
+  return fetchApi<CodexLensDeleteModelResponse>('/api/codexlens/models/delete', {
+    method: 'POST',
+    body: JSON.stringify({ profile }),
+  });
+}
+
+/**
+ * Delete CodexLens model by cache path
+ */
+export async function deleteCodexLensModelByPath(cachePath: string): Promise<CodexLensDeleteModelResponse> {
+  return fetchApi<CodexLensDeleteModelResponse>('/api/codexlens/models/delete-path', {
+    method: 'POST',
+    body: JSON.stringify({ cache_path: cachePath }),
+  });
+}
+
+/**
+ * Fetch CodexLens environment variables
+ */
+export async function fetchCodexLensEnv(): Promise<CodexLensEnvResponse> {
+  return fetchApi<CodexLensEnvResponse>('/api/codexlens/env');
+}
+
+/**
+ * Update CodexLens environment variables
+ */
+export async function updateCodexLensEnv(request: CodexLensUpdateEnvRequest): Promise<CodexLensUpdateEnvResponse> {
+  return fetchApi<CodexLensUpdateEnvResponse>('/api/codexlens/env', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+/**
+ * Detect GPU support for CodexLens
+ */
+export async function fetchCodexLensGpuDetect(): Promise<CodexLensGpuDetectResponse> {
+  return fetchApi<CodexLensGpuDetectResponse>('/api/codexlens/gpu/detect');
+}
+
+/**
+ * Fetch available GPU devices
+ */
+export async function fetchCodexLensGpuList(): Promise<CodexLensGpuListResponse> {
+  return fetchApi<CodexLensGpuListResponse>('/api/codexlens/gpu/list');
+}
+
+/**
+ * Select GPU device for CodexLens
+ */
+export async function selectCodexLensGpu(deviceId: string | number): Promise<{ success: boolean; message?: string; error?: string }> {
+  return fetchApi('/api/codexlens/gpu/select', {
+    method: 'POST',
+    body: JSON.stringify({ device_id: deviceId }),
+  });
+}
+
+/**
+ * Reset GPU selection to auto-detection
+ */
+export async function resetCodexLensGpu(): Promise<{ success: boolean; message?: string; error?: string }> {
+  return fetchApi('/api/codexlens/gpu/reset', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+/**
+ * Fetch CodexLens ignore patterns
+ */
+export async function fetchCodexLensIgnorePatterns(): Promise<CodexLensIgnorePatternsResponse> {
+  return fetchApi<CodexLensIgnorePatternsResponse>('/api/codexlens/ignore-patterns');
+}
+
+/**
+ * Update CodexLens ignore patterns
+ */
+export async function updateCodexLensIgnorePatterns(request: CodexLensUpdateIgnorePatternsRequest): Promise<CodexLensIgnorePatternsResponse> {
+  return fetchApi<CodexLensIgnorePatternsResponse>('/api/codexlens/ignore-patterns', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}

@@ -1,0 +1,178 @@
+{
+  "title": "CodexLens",
+  "description": "Semantic code search engine",
+  "bootstrap": "Bootstrap",
+  "bootstrapping": "Bootstrapping...",
+  "uninstall": "Uninstall",
+  "uninstalling": "Uninstalling...",
+  "confirmUninstall": "Are you sure you want to uninstall CodexLens? This action cannot be undone.",
+  "confirmUninstallTitle": "Confirm Uninstall",
+  "notInstalled": "CodexLens is not installed",
+  "comingSoon": "Coming Soon",
+  "tabs": {
+    "overview": "Overview",
+    "settings": "Settings",
+    "models": "Models",
+    "advanced": "Advanced"
+  },
+  "overview": {
+    "status": {
+      "installation": "Installation Status",
+      "ready": "Ready",
+      "notReady": "Not Ready",
+      "version": "Version",
+      "indexPath": "Index Path",
+      "indexCount": "Index Count"
+    },
+    "notInstalled": {
+      "title": "CodexLens Not Installed",
+      "message": "Please install CodexLens to use semantic code search features."
+    },
+    "actions": {
+      "title": "Quick Actions",
+      "ftsFull": "FTS Full",
+      "ftsFullDesc": "Rebuild full-text index",
+      "ftsIncremental": "FTS Incremental",
+      "ftsIncrementalDesc": "Incremental update full-text index",
+      "vectorFull": "Vector Full",
+      "vectorFullDesc": "Rebuild vector index",
+      "vectorIncremental": "Vector Incremental",
+      "vectorIncrementalDesc": "Incremental update vector index"
+    },
+    "venv": {
+      "title": "Python Virtual Environment Details",
+      "pythonVersion": "Python Version",
+      "venvPath": "Virtual Environment Path",
+      "lastCheck": "Last Check Time"
+    }
+  },
+  "settings": {
+    "currentCount": "Current Index Count",
+    "currentWorkers": "Current Workers",
+    "currentBatchSize": "Current Batch Size",
+    "configTitle": "Basic Configuration",
+    "indexDir": {
+      "label": "Index Directory",
+      "placeholder": "~/.codexlens/indexes",
+      "hint": "Directory path for storing code indexes"
+    },
+    "maxWorkers": {
+      "label": "Max Workers",
+      "hint": "API concurrent processing threads (1-32)"
+    },
+    "batchSize": {
+      "label": "Batch Size",
+      "hint": "Number of files processed per batch (1-64)"
+    },
+    "validation": {
+      "indexDirRequired": "Index directory is required",
+      "maxWorkersRange": "Workers must be between 1 and 32",
+      "batchSizeRange": "Batch size must be between 1 and 64"
+    },
+    "save": "Save",
+    "saving": "Saving...",
+    "reset": "Reset",
+    "saveSuccess": "Configuration saved",
+    "saveFailed": "Save failed",
+    "configUpdated": "Configuration updated successfully",
+    "saveError": "Error saving configuration",
+    "unknownError": "An unknown error occurred"
+  },
+  "gpu": {
+    "title": "GPU Settings",
+    "status": "GPU Status",
+    "enabled": "Enabled",
+    "available": "Available",
+    "unavailable": "Unavailable",
+    "supported": "Your system supports GPU acceleration",
+    "notSupported": "Your system does not support GPU acceleration",
+    "detect": "Detect",
+    "detectSuccess": "GPU detection completed",
+    "detectFailed": "GPU detection failed",
+    "detectComplete": "Detected {count} GPU devices",
+    "detectError": "Error detecting GPU",
+    "select": "Select",
+    "selected": "Selected",
+    "active": "Current",
+    "selectSuccess": "GPU selected",
+    "selectFailed": "GPU selection failed",
+    "gpuSelected": "GPU device enabled",
+    "selectError": "Error selecting GPU",
+    "reset": "Reset",
+    "resetSuccess": "GPU reset",
+    "resetFailed": "GPU reset failed",
+    "gpuReset": "GPU disabled, will use CPU",
+    "resetError": "Error resetting GPU",
+    "unknownError": "An unknown error occurred",
+    "noDevices": "No GPU devices detected",
+    "notAvailable": "GPU functionality not available",
+    "unknownDevice": "Unknown device",
+    "type": "Type",
+    "driver": "Driver Version",
+    "memory": "Memory"
+  },
+  "advanced": {
+    "warningTitle": "Sensitive Operations Warning",
+    "warningMessage": "Modifying environment variables may affect CodexLens operation. Ensure you understand each variable's purpose.",
+    "currentVars": "Current Environment Variables",
+    "settingsVars": "Settings Variables",
+    "customVars": "Custom Variables",
+    "envEditor": "Environment Variable Editor",
+    "envFile": "File",
+    "envContent": "Environment Variable Content",
+    "envPlaceholder": "# Comment lines start with #\nKEY=value\nANOTHER_KEY=\"another value\"",
+    "envHint": "One variable per line, format: KEY=value. Comment lines start with #",
+    "save": "Save",
+    "saving": "Saving...",
+    "reset": "Reset",
+    "saveSuccess": "Environment variables saved",
+    "saveFailed": "Save failed",
+    "envUpdated": "Environment variables updated, restart service to take effect",
+    "saveError": "Error saving environment variables",
+    "unknownError": "An unknown error occurred",
+    "validation": {
+      "invalidKeys": "Invalid variable names: {keys}"
+    },
+    "helpTitle": "Format Help",
+    "helpComment": "Comment lines start with #",
+    "helpFormat": "Variable format: KEY=value",
+    "helpQuotes": "Values with spaces should use quotes",
+    "helpRestart": "Restart service after changes to take effect"
+  },
+  "models": {
+    "title": "Model Management",
+    "searchPlaceholder": "Search models...",
+    "downloading": "Downloading...",
+    "status": {
+      "downloaded": "Downloaded",
+      "available": "Available"
+    },
+    "types": {
+      "embedding": "Embedding Models",
+      "reranker": "Reranker Models"
+    },
+    "filters": {
+      "label": "Filter",
+      "all": "All"
+    },
+    "actions": {
+      "download": "Download",
+      "delete": "Delete",
+      "cancel": "Cancel"
+    },
+    "custom": {
+      "title": "Custom Model",
+      "placeholder": "HuggingFace model name (e.g., BAAI/bge-small-zh-v1.5)",
+      "description": "Download custom models from HuggingFace. Ensure the model name is correct."
+    },
+    "deleteConfirm": "Are you sure you want to delete model {modelName}?",
+    "notInstalled": {
+      "title": "CodexLens Not Installed",
+      "description": "Please install CodexLens to use model management features."
+    },
+    "empty": {
+      "title": "No models found",
+      "description": "Try adjusting your search or filter criteria"
+    }
+  }
+}

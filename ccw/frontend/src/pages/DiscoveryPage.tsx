@@ -25,6 +25,8 @@ export function DiscoveryPage() {
     setFilters,
     selectSession,
     exportFindings,
+    exportSelectedFindings,
+    isExporting,
   } = useIssueDiscovery({ refetchInterval: 3000 });
 
   if (error) {
@@ -163,6 +165,8 @@ export function DiscoveryPage() {
               filters={filters}
               onFilterChange={setFilters}
               onExport={exportFindings}
+              onExportSelected={exportSelectedFindings}
+              isExporting={isExporting}
             />
           )}
         </div>

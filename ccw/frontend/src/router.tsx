@@ -36,6 +36,7 @@ import {
   PromptHistoryPage,
   ExplorerPage,
   GraphExplorerPage,
+  CodexLensManagerPage,
 } from '@/pages';
 
 /**
@@ -142,6 +143,10 @@ const routes: RouteObject[] = [
         element: <RulesManagerPage />,
       },
       {
+        path: 'settings/codexlens',
+        element: <CodexLensManagerPage />,
+      },
+      {
         path: 'help',
         element: <HelpPage />,
       },
@@ -206,6 +211,7 @@ export const ROUTES = {
   ENDPOINTS: '/settings/endpoints',
   INSTALLATIONS: '/settings/installations',
   SETTINGS_RULES: '/settings/rules',
+  CODEXLENS_MANAGER: '/settings/codexlens',
   HELP: '/help',
   EXPLORER: '/explorer',
   GRAPH: '/graph',

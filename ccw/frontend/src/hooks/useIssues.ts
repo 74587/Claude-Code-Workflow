@@ -15,8 +15,10 @@ import {
   deactivateQueue,
   deleteQueue as deleteQueueApi,
   mergeQueues as mergeQueuesApi,
+  splitQueue as splitQueueApi,
   fetchDiscoveries,
   fetchDiscoveryFindings,
+  exportDiscoveryFindingsAsIssues,
   type Issue,
   type IssueQueue,
   type IssuesResponse,
@@ -306,10 +308,12 @@ export interface UseQueueMutationsReturn {
   deactivateQueue: () => Promise<void>;
   deleteQueue: (queueId: string) => Promise<void>;
   mergeQueues: (sourceId: string, targetId: string) => Promise<void>;
+  splitQueue: (sourceQueueId: string, itemIds: string[]) => Promise<void>;
   isActivating: boolean;
   isDeactivating: boolean;
   isDeleting: boolean;
   isMerging: boolean;
+  isSplitting: boolean;
   isMutating: boolean;
 }
 
@@ -346,16 +350,26 @@ export function useQueueMutations(): UseQueueMutationsReturn {
     },
   });
 
+  const splitMutation = useMutation({
+    mutationFn: ({ sourceQueueId, itemIds }: { sourceQueueId: string; itemIds: string[] }) =>
+      splitQueueApi(sourceQueueId, itemIds, projectPath),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issueQueue(projectPath) });
+    },
+  });
+
   return {
     activateQueue: activateMutation.mutateAsync,
     deactivateQueue: deactivateMutation.mutateAsync,
     deleteQueue: deleteMutation.mutateAsync,
     mergeQueues: (sourceId, targetId) => mergeMutation.mutateAsync({ sourceId, targetId }),
+    splitQueue: (sourceQueueId, itemIds) => splitMutation.mutateAsync({ sourceQueueId, itemIds }),
     isActivating: activateMutation.isPending,
     isDeactivating: deactivateMutation.isPending,
     isDeleting: deleteMutation.isPending,
     isMerging: mergeMutation.isPending,
-    isMutating: activateMutation.isPending || deactivateMutation.isPending || deleteMutation.isPending || mergeMutation.isPending,
+    isSplitting: splitMutation.isPending,
+    isMutating: activateMutation.isPending || deactivateMutation.isPending || deleteMutation.isPending || mergeMutation.isPending || splitMutation.isPending,
   };
 }
 
@@ -365,6 +379,8 @@ export interface FindingFilters {
   severity?: 'critical' | 'high' | 'medium' | 'low';
   type?: string;
   search?: string;
+  exported?: boolean;
+  hasIssue?: boolean;
 }
 
 export interface UseIssueDiscoveryReturn {
@@ -380,6 +396,8 @@ export interface UseIssueDiscoveryReturn {
   selectSession: (sessionId: string) => void;
   refetchSessions: () => void;
   exportFindings: () => void;
+  exportSelectedFindings: (findingIds: string[]) => Promise<{ success: boolean; message?: string; exported?: number }>;
+  isExporting: boolean;
 }
 
 export function useIssueDiscovery(options?: { refetchInterval?: number }): UseIssueDiscoveryReturn {
@@ -388,6 +406,7 @@ export function useIssueDiscovery(options?: { refetchInterval?: number }): UseIs
   const projectPath = useWorkflowStore(selectProjectPath);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [filters, setFilters] = useState<FindingFilters>({});
+  const [isExporting, setIsExporting] = useState(false);
 
   const sessionsQuery = useQuery({
     queryKey: workspaceQueryKeys.discoveries(projectPath),
@@ -426,6 +445,14 @@ export function useIssueDiscovery(options?: { refetchInterval?: number }): UseIs
         f.description.toLowerCase().includes(searchLower)
       );
     }
+    // Filter by exported status
+    if (filters.exported !== undefined) {
+      findings = findings.filter(f => f.exported === filters.exported);
+    }
+    // Filter by hasIssue (has associated issue_id)
+    if (filters.hasIssue !== undefined) {
+      findings = findings.filter(f => !!f.issue_id === filters.hasIssue);
+    }
     return findings;
   }, [findingsQuery.data, filters]);
 
@@ -449,6 +476,26 @@ export function useIssueDiscovery(options?: { refetchInterval?: number }): UseIs
     URL.revokeObjectURL(url);
   };
 
+  const exportSelectedFindings = async (findingIds: string[]) => {
+    if (!activeSessionId) return { success: false, message: 'No active session' };
+    setIsExporting(true);
+    try {
+      const result = await exportDiscoveryFindingsAsIssues(
+        activeSessionId,
+        { findingIds },
+        projectPath
+      );
+      // Invalidate queries to refresh findings with updated exported status
+      await queryClient.invalidateQueries({ queryKey: ['discoveryFindings', activeSessionId, projectPath] });
+      await queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issues(projectPath) });
+      return result;
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : 'Export failed' };
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return {
     sessions: sessionsQuery.data ?? [],
     activeSession,
@@ -464,5 +511,7 @@ export function useIssueDiscovery(options?: { refetchInterval?: number }): UseIs
       sessionsQuery.refetch();
     },
     exportFindings,
+    exportSelectedFindings,
+    isExporting,
   };
 }

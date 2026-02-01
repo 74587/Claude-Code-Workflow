@@ -1,18 +1,11 @@
 // ========================================
 // QueueActions Component
 // ========================================
-// Queue operations menu component with delete confirmation and merge dialog
+// Queue operations with direct action buttons (no dropdown menu)
 
 import { useState } from 'react';
 import { useIntl } from 'react-intl';
-import { Play, Pause, Trash2, Merge, Loader2 } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from '@/components/ui/Dropdown';
+import { Play, Pause, Trash2, Merge, GitBranch, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -32,7 +25,9 @@ import {
 } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import type { IssueQueue } from '@/lib/api';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { cn } from '@/lib/utils';
+import type { IssueQueue, QueueItem } from '@/lib/api';
 
 // ========== Types ==========
 
@@ -43,10 +38,12 @@ export interface QueueActionsProps {
   onDeactivate?: () => void;
   onDelete?: (queueId: string) => void;
   onMerge?: (sourceId: string, targetId: string) => void;
+  onSplit?: (sourceQueueId: string, itemIds: string[]) => void;
   isActivating?: boolean;
   isDeactivating?: boolean;
   isDeleting?: boolean;
   isMerging?: boolean;
+  isSplitting?: boolean;
 }
 
 // ========== Component ==========
@@ -58,18 +55,25 @@ export function QueueActions({
   onDeactivate,
   onDelete,
   onMerge,
+  onSplit,
   isActivating = false,
   isDeactivating = false,
   isDeleting = false,
   isMerging = false,
+  isSplitting = false,
 }: QueueActionsProps) {
   const { formatMessage } = useIntl();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isMergeOpen, setIsMergeOpen] = useState(false);
+  const [isSplitOpen, setIsSplitOpen] = useState(false);
   const [mergeTargetId, setMergeTargetId] = useState('');
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
 
   // Get queue ID - IssueQueue interface doesn't have an id field, using tasks array as key
-  const queueId = queue.tasks.join(',') || queue.solutions.join(',');
+  const queueId = (queue.tasks?.join(',') || queue.solutions?.join(',') || 'default');
+
+  // Get all items from grouped_items for split dialog
+  const allItems: QueueItem[] = Object.values(queue.grouped_items || {}).flat();
 
   const handleDelete = () => {
     onDelete?.(queueId);
@@ -84,68 +88,122 @@ export function QueueActions({
     }
   };
 
+  const handleSplit = () => {
+    if (selectedItemIds.length > 0 && selectedItemIds.length < allItems.length) {
+      onSplit?.(queueId, selectedItemIds);
+      setIsSplitOpen(false);
+      setSelectedItemIds([]);
+    }
+  };
+
+  const toggleItemSelection = (itemId: string) => {
+    setSelectedItemIds(prev =>
+      prev.includes(itemId)
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
+  const selectAll = () => {
+    setSelectedItemIds(allItems.map(item => item.item_id));
+  };
+
+  const clearAll = () => {
+    setSelectedItemIds([]);
+  };
+
+  // Calculate item count
+  const totalItems = (queue.tasks?.length || 0) + (queue.solutions?.length || 0);
+  const canSplit = totalItems > 1;
+
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-            <span className="sr-only">{formatMessage({ id: 'common.actions.openMenu' })}</span>
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <circle cx="12" cy="12" r="1" />
-              <circle cx="12" cy="5" r="1" />
-              <circle cx="12" cy="19" r="1" />
-            </svg>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          {!isActive && onActivate && (
-            <DropdownMenuItem onClick={() => onActivate(queueId)} disabled={isActivating}>
-              {isActivating ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Play className="w-4 h-4 mr-2" />
-              )}
-              {formatMessage({ id: 'issues.queue.actions.activate' })}
-            </DropdownMenuItem>
-          )}
-          {isActive && onDeactivate && (
-            <DropdownMenuItem onClick={() => onDeactivate()} disabled={isDeactivating}>
-              {isDeactivating ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Pause className="w-4 h-4 mr-2" />
-              )}
-              {formatMessage({ id: 'issues.queue.actions.deactivate' })}
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuItem onClick={() => setIsMergeOpen(true)} disabled={isMerging}>
-            {isMerging ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Merge className="w-4 h-4 mr-2" />
-            )}
-            {formatMessage({ id: 'issues.queue.actions.merge' })}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => setIsDeleteOpen(true)}
-            disabled={isDeleting}
-            className="text-destructive"
+      {/* Direct action buttons */}
+      <div className="flex items-center gap-1">
+        {/* Activate/Deactivate button */}
+        {!isActive && onActivate && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => onActivate(queueId)}
+            disabled={isActivating}
+            title={formatMessage({ id: 'issues.queue.actions.activate' })}
           >
-            {isDeleting ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            {isActivating ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <Trash2 className="w-4 h-4 mr-2" />
+              <Play className="w-4 h-4 text-success" />
             )}
-            {formatMessage({ id: 'issues.queue.actions.delete' })}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </Button>
+        )}
+        {isActive && onDeactivate && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => onDeactivate()}
+            disabled={isDeactivating}
+            title={formatMessage({ id: 'issues.queue.actions.deactivate' })}
+          >
+            {isDeactivating ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Pause className="w-4 h-4 text-warning" />
+            )}
+          </Button>
+        )}
+
+        {/* Merge button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={() => setIsMergeOpen(true)}
+          disabled={isMerging}
+          title={formatMessage({ id: 'issues.queue.actions.merge' })}
+        >
+          {isMerging ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Merge className="w-4 h-4 text-info" />
+          )}
+        </Button>
+
+        {/* Split button - only show if more than 1 item */}
+        {canSplit && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => setIsSplitOpen(true)}
+            disabled={isSplitting}
+            title={formatMessage({ id: 'issues.queue.actions.split' })}
+          >
+            {isSplitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <GitBranch className="w-4 h-4 text-muted-foreground" />
+            )}
+          </Button>
+        )}
+
+        {/* Delete button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={() => setIsDeleteOpen(true)}
+          disabled={isDeleting}
+          title={formatMessage({ id: 'issues.queue.actions.delete' })}
+        >
+          {isDeleting ? (
+            <Loader2 className="w-4 h-4 animate-spin text-destructive" />
+          ) : (
+            <Trash2 className="w-4 h-4 text-destructive" />
+          )}
+        </Button>
+      </div>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
@@ -221,6 +279,100 @@ export function QueueActions({
                 <>
                   <Merge className="w-4 h-4 mr-2" />
                   {formatMessage({ id: 'issues.queue.actions.merge' })}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Split Dialog */}
+      <Dialog open={isSplitOpen} onOpenChange={setIsSplitOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {formatMessage({ id: 'issues.queue.splitDialog.title' })}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden flex flex-col py-4">
+            {/* Selection info */}
+            <div className="flex items-center justify-between mb-4 pb-4 border-b">
+              <span className="text-sm text-muted-foreground">
+                {formatMessage({ id: 'issues.queue.splitDialog.selected' }, { count: selectedItemIds.length, total: allItems.length })}
+              </span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={selectAll}>
+                  {formatMessage({ id: 'issues.queue.splitDialog.selectAll' })}
+                </Button>
+                <Button variant="outline" size="sm" onClick={clearAll}>
+                  {formatMessage({ id: 'issues.queue.splitDialog.clearAll' })}
+                </Button>
+              </div>
+            </div>
+
+            {/* Items list with checkboxes */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+              {allItems.map((item) => {
+                const isSelected = selectedItemIds.includes(item.item_id);
+                return (
+                  <div
+                    key={item.item_id}
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-md border transition-colors cursor-pointer",
+                      isSelected ? "bg-primary/10 border-primary" : "bg-card hover:bg-muted/50"
+                    )}
+                    onClick={() => toggleItemSelection(item.item_id)}
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      onChange={() => toggleItemSelection(item.item_id)}
+                    />
+                    <span className="font-mono text-xs flex-1 truncate">
+                      {item.item_id}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatMessage({ id: `issues.queue.status.${item.status}` })}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Validation message */}
+            {selectedItemIds.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-2">
+                {formatMessage({ id: 'issues.queue.splitDialog.noSelection' })}
+              </p>
+            )}
+            {selectedItemIds.length >= allItems.length && (
+              <p className="text-sm text-destructive text-center py-2">
+                {formatMessage({ id: 'issues.queue.splitDialog.cannotSplitAll' })}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsSplitOpen(false);
+                setSelectedItemIds([]);
+              }}
+            >
+              {formatMessage({ id: 'common.actions.cancel' })}
+            </Button>
+            <Button
+              onClick={handleSplit}
+              disabled={selectedItemIds.length === 0 || selectedItemIds.length >= allItems.length || isSplitting}
+            >
+              {isSplitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {formatMessage({ id: 'common.actions.splitting' })}
+                </>
+              ) : (
+                <>
+                  <GitBranch className="w-4 h-4 mr-2" />
+                  {formatMessage({ id: 'issues.queue.actions.split' })}
                 </>
               )}
             </Button>

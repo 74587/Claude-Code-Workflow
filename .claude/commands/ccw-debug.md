@@ -148,6 +148,8 @@ User Input → Quick Context Gather → ccw cli (Gemini/Qwen/Codex)
    // - Read error file if path provided
    // - Extract error patterns from description
    // - Identify likely affected files (basic grep)
+
+   // Note: CLI mode does not generate status.json (lightweight)
    ```
 
 2. **Execute CLI Analysis** (Phase 3)
@@ -299,6 +301,27 @@ User Input → Session Init → /workflow:debug-with-file
      flags: { hotfix, autoYes }
    }
    Write(`${sessionFolder}/mode-config.json`, JSON.stringify(modeConfig, null, 2))
+
+   // Initialize status.json for hook tracking
+   const state = {
+     session_id: sessionId,
+     mode: "debug",
+     status: "running",
+     created_at: new Date().toISOString(),
+     updated_at: new Date().toISOString(),
+     bug_description: bug_description,
+     command_chain: [
+       { index: 0, command: "Phase 1: Debug & Analysis", status: "running" },
+       { index: 1, command: "Phase 2: Apply Fix from Debug Findings", status: "pending" },
+       { index: 2, command: "Phase 3: Generate & Execute Tests", status: "pending" },
+       { index: 3, command: "Phase 4: Generate Report", status: "pending" }
+     ],
+     current_index: 0
+   }
+   Write(`${sessionFolder}/status.json`, JSON.stringify(state, null, 2))
+
+   // Output session ID for hook matching
+   console.log(`📋 Session Started: ${sessionId}`)
    ```
 
 2. **Start Debug** (Phase 3)
@@ -373,12 +396,38 @@ User Input → Session Init → /workflow:test-fix-gen
 
 1. **Session Initialization** (Phase 2)
    ```javascript
+   const sessionId = `CCWD-${bugSlug}-${dateStr}`
+   const sessionFolder = `.workflow/.ccw-debug/${sessionId}`
+   bash(`mkdir -p ${sessionFolder}`)
+
    const modeConfig = {
      mode: "test",
      original_input: bug_description,
      timestamp: getUtc8ISOString(),
      flags: { hotfix, autoYes }
    }
+   Write(`${sessionFolder}/mode-config.json`, JSON.stringify(modeConfig, null, 2))
+
+   // Initialize status.json for hook tracking
+   const state = {
+     session_id: sessionId,
+     mode: "test",
+     status: "running",
+     created_at: new Date().toISOString(),
+     updated_at: new Date().toISOString(),
+     bug_description: bug_description,
+     command_chain: [
+       { index: 0, command: "Phase 1: Generate Tests", status: "running" },
+       { index: 1, command: "Phase 2: Execute & Fix Tests", status: "pending" },
+       { index: 2, command: "Phase 3: Final Validation", status: "pending" },
+       { index: 3, command: "Phase 4: Generate Report", status: "pending" }
+     ],
+     current_index: 0
+   }
+   Write(`${sessionFolder}/status.json`, JSON.stringify(state, null, 2))
+
+   // Output session ID for hook matching
+   console.log(`📋 Session Started: ${sessionId}`)
    ```
 
 2. **Generate Tests** (Phase 3)
@@ -439,8 +488,32 @@ User Input → Session Init → Parallel execution:
 
 **Execution Steps**:
 
-1. **Parallel Execution** (Phase 3)
+1. **Session Initialization & Parallel Execution** (Phase 2-3)
    ```javascript
+   const sessionId = `CCWD-${bugSlug}-${dateStr}`
+   const sessionFolder = `.workflow/.ccw-debug/${sessionId}`
+   bash(`mkdir -p ${sessionFolder}`)
+
+   // Initialize status.json for hook tracking
+   const state = {
+     session_id: sessionId,
+     mode: "bidirectional",
+     status: "running",
+     created_at: new Date().toISOString(),
+     updated_at: new Date().toISOString(),
+     bug_description: bug_description,
+     command_chain: [
+       { index: 0, command: "Phase 1: Parallel Debug & Test", status: "running" },
+       { index: 1, command: "Phase 2: Merge Findings", status: "pending" },
+       { index: 2, command: "Phase 3: Generate Report", status: "pending" }
+     ],
+     current_index: 0
+   }
+   Write(`${sessionFolder}/status.json`, JSON.stringify(state, null, 2))
+
+   // Output session ID for hook matching
+   console.log(`📋 Session Started: ${sessionId}`)
+
    // Start debug
    const debugTask = Skill(skill="workflow:debug-with-file", args=`"${bug_description}"`)
 
@@ -579,18 +652,24 @@ Arguments:
 
 ### Session State Management
 
+**Status JSON Location**: `.workflow/.ccw-debug/{session_id}/status.json`
+
+**Status JSON Structure**:
 ```json
 {
   "session_id": "CCWD-login-timeout-2025-01-27",
-  "mode": "debug|test|bidirectional",
+  "mode": "debug|test|bidirectional|cli",
   "status": "running|completed|failed|paused",
-  "phases": {
-    "phase_1": { "status": "completed", "timestamp": "..." },
-    "phase_2": { "status": "in_progress", "timestamp": "..." },
-    "phase_3": { "status": "pending" },
-    "phase_4": { "status": "pending" },
-    "phase_5": { "status": "pending" }
-  },
+  "created_at": "2025-01-27T10:30:00Z",
+  "updated_at": "2025-01-27T10:35:00Z",
+  "bug_description": "User login timeout after 30 seconds",
+  "command_chain": [
+    { "index": 0, "command": "Phase 1: Debug & Analysis", "status": "completed" },
+    { "index": 1, "command": "Phase 2: Apply Fix from Debug Findings", "status": "in_progress" },
+    { "index": 2, "command": "Phase 3: Generate & Execute Tests", "status": "pending" },
+    { "index": 3, "command": "Phase 4: Generate Report", "status": "pending" }
+  ],
+  "current_index": 1,
   "sub_sessions": {
     "debug_session": "DBG-...",
     "test_session": "WFS-test-..."
@@ -602,6 +681,13 @@ Arguments:
   }
 }
 ```
+
+**Session ID Output**: When session starts, ccw-debug outputs:
+```
+📋 Session Started: CCWD-login-timeout-2025-01-27
+```
+
+This output is captured by hooks for status.json path matching.
 
 ---
 

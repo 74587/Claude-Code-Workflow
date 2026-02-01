@@ -6,115 +6,27 @@
 import { useState, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import {
-  Plus,
   Search,
-  RefreshCw,
-  Loader2,
-  Github,
   CheckCircle,
   Clock,
   AlertTriangle,
   AlertCircle,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
+import { Button } from '@/components/ui/Button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select';
 import { IssueCard } from '@/components/shared/IssueCard';
+import { IssueDrawer } from '@/components/issue/hub/IssueDrawer';
 import { useIssues, useIssueMutations } from '@/hooks';
 import type { Issue } from '@/lib/api';
-import { cn } from '@/lib/utils';
 
 type StatusFilter = 'all' | Issue['status'];
 type PriorityFilter = 'all' | Issue['priority'];
 
-interface NewIssueDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: (data: { title: string; context?: string; priority?: Issue['priority'] }) => void;
-  isCreating: boolean;
-}
-
-function NewIssueDialog({ open, onOpenChange, onSubmit, isCreating }: NewIssueDialogProps) {
-  const { formatMessage } = useIntl();
-  const [title, setTitle] = useState('');
-  const [context, setContext] = useState('');
-  const [priority, setPriority] = useState<Issue['priority']>('medium');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (title.trim()) {
-      onSubmit({ title: title.trim(), context: context.trim() || undefined, priority });
-      setTitle('');
-      setContext('');
-      setPriority('medium');
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{formatMessage({ id: 'issues.createDialog.title' })}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-          <div>
-            <label className="text-sm font-medium text-foreground">{formatMessage({ id: 'issues.createDialog.labels.title' })}</label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={formatMessage({ id: 'issues.createDialog.placeholders.title' })}
-              className="mt-1"
-              required
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-foreground">{formatMessage({ id: 'issues.createDialog.labels.context' })}</label>
-            <textarea
-              value={context}
-              onChange={(e) => setContext(e.target.value)}
-              placeholder={formatMessage({ id: 'issues.createDialog.placeholders.context' })}
-              className="mt-1 w-full min-h-[100px] p-3 bg-background border border-input rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-foreground">{formatMessage({ id: 'issues.createDialog.labels.priority' })}</label>
-            <Select value={priority} onValueChange={(v) => setPriority(v as Issue['priority'])}>
-              <SelectTrigger className="mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">{formatMessage({ id: 'issues.priority.low' })}</SelectItem>
-                <SelectItem value="medium">{formatMessage({ id: 'issues.priority.medium' })}</SelectItem>
-                <SelectItem value="high">{formatMessage({ id: 'issues.priority.high' })}</SelectItem>
-                <SelectItem value="critical">{formatMessage({ id: 'issues.priority.critical' })}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              {formatMessage({ id: 'issues.createDialog.buttons.cancel' })}
-            </Button>
-            <Button type="submit" disabled={isCreating || !title.trim()}>
-              {isCreating ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {formatMessage({ id: 'issues.createDialog.buttons.creating' })}
-                </>
-              ) : (
-                <>
-                  <Plus className="w-4 h-4 mr-2" />
-                  {formatMessage({ id: 'issues.createDialog.buttons.create' })}
-                </>
-              )}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
+interface IssuesPanelProps {
+  onCreateIssue?: () => void;
 }
 
 interface IssueListProps {
@@ -165,14 +77,14 @@ function IssueList({ issues, isLoading, onIssueClick, onIssueEdit, onIssueDelete
   );
 }
 
-export function IssuesPanel() {
+export function IssuesPanel({ onCreateIssue: _onCreateIssue }: IssuesPanelProps) {
   const { formatMessage } = useIntl();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
-  const [isNewIssueOpen, setIsNewIssueOpen] = useState(false);
+  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
 
-  const { issues, issuesByStatus, openCount, criticalCount, isLoading, isFetching, refetch } = useIssues({
+  const { issues, issuesByStatus, openCount, criticalCount, isLoading } = useIssues({
     filter: {
       search: searchQuery || undefined,
       status: statusFilter !== 'all' ? [statusFilter] : undefined,
@@ -180,7 +92,7 @@ export function IssuesPanel() {
     },
   });
 
-  const { createIssue, updateIssue, deleteIssue, isCreating } = useIssueMutations();
+  const { updateIssue, deleteIssue } = useIssueMutations();
 
   const statusCounts = useMemo(() => ({
     all: issues.length,
@@ -190,11 +102,6 @@ export function IssuesPanel() {
     closed: issuesByStatus.closed?.length || 0,
     completed: issuesByStatus.completed?.length || 0,
   }), [issues, issuesByStatus]);
-
-  const handleCreateIssue = async (data: { title: string; context?: string; priority?: Issue['priority'] }) => {
-    await createIssue(data);
-    setIsNewIssueOpen(false);
-  };
 
   const handleEditIssue = (_issue: Issue) => {};
 
@@ -208,23 +115,16 @@ export function IssuesPanel() {
     await updateIssue(issue.id, { status });
   };
 
+  const handleIssueClick = (issue: Issue) => {
+    setSelectedIssue(issue);
+  };
+
+  const handleCloseDrawer = () => {
+    setSelectedIssue(null);
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 justify-end">
-        <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={cn('w-4 h-4 mr-2', isFetching && 'animate-spin')} />
-          {formatMessage({ id: 'common.actions.refresh' })}
-        </Button>
-        <Button variant="outline">
-          <Github className="w-4 h-4 mr-2" />
-          {formatMessage({ id: 'issues.actions.github' })}
-        </Button>
-        <Button onClick={() => setIsNewIssueOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          {formatMessage({ id: 'issues.actions.create' })}
-        </Button>
-      </div>
-
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="p-4">
           <div className="flex items-center gap-2">
@@ -312,9 +212,21 @@ export function IssuesPanel() {
         </Button>
       </div>
 
-      <IssueList issues={issues} isLoading={isLoading} onIssueClick={() => {}} onIssueEdit={handleEditIssue} onIssueDelete={handleDeleteIssue} onStatusChange={handleStatusChange} />
+      <IssueList
+        issues={issues}
+        isLoading={isLoading}
+        onIssueClick={handleIssueClick}
+        onIssueEdit={handleEditIssue}
+        onIssueDelete={handleDeleteIssue}
+        onStatusChange={handleStatusChange}
+      />
 
-      <NewIssueDialog open={isNewIssueOpen} onOpenChange={setIsNewIssueOpen} onSubmit={handleCreateIssue} isCreating={isCreating} />
+      {/* Issue Detail Drawer */}
+      <IssueDrawer
+        issue={selectedIssue}
+        isOpen={selectedIssue !== null}
+        onClose={handleCloseDrawer}
+      />
     </div>
   );
 }

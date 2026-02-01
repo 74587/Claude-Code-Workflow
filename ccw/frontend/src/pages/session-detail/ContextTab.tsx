@@ -15,6 +15,13 @@ import {
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import type { SessionDetailContext } from '@/lib/api';
+import {
+  ExplorationsSection,
+  AssetsCard,
+  DependenciesCard,
+  TestContextCard,
+  ConflictDetectionCard,
+} from '@/components/session-detail/context';
 
 export interface ContextTabProps {
   context?: SessionDetailContext;
@@ -44,12 +51,16 @@ export function ContextTab({ context }: ContextTabProps) {
   const hasFocusPaths = context.focus_paths && context.focus_paths.length > 0;
   const hasArtifacts = context.artifacts && context.artifacts.length > 0;
   const hasSharedContext = context.shared_context;
+  const hasExtendedContext = context.context;
+  const hasExplorations = context.explorations;
 
   if (
     !hasRequirements &&
     !hasFocusPaths &&
     !hasArtifacts &&
-    !hasSharedContext
+    !hasSharedContext &&
+    !hasExtendedContext &&
+    !hasExplorations
   ) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -66,7 +77,7 @@ export function ContextTab({ context }: ContextTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Requirements */}
+      {/* Original Context Sections - Maintained for backward compatibility */}
       {hasRequirements && (
         <Card>
           <CardContent className="p-6">
@@ -90,7 +101,6 @@ export function ContextTab({ context }: ContextTabProps) {
         </Card>
       )}
 
-      {/* Focus Paths */}
       {hasFocusPaths && (
         <Card>
           <CardContent className="p-6">
@@ -113,7 +123,6 @@ export function ContextTab({ context }: ContextTabProps) {
         </Card>
       )}
 
-      {/* Artifacts */}
       {hasArtifacts && (
         <Card>
           <CardContent className="p-6">
@@ -133,7 +142,6 @@ export function ContextTab({ context }: ContextTabProps) {
         </Card>
       )}
 
-      {/* Shared Context */}
       {hasSharedContext && (
         <Card>
           <CardContent className="p-6">
@@ -142,7 +150,6 @@ export function ContextTab({ context }: ContextTabProps) {
               {formatMessage({ id: 'sessionDetail.context.sharedContext' })}
             </h3>
 
-            {/* Tech Stack */}
             {context.shared_context!.tech_stack && context.shared_context!.tech_stack.length > 0 && (
               <div className="mb-4">
                 <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
@@ -158,7 +165,6 @@ export function ContextTab({ context }: ContextTabProps) {
               </div>
             )}
 
-            {/* Conventions */}
             {context.shared_context!.conventions && context.shared_context!.conventions.length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
@@ -176,6 +182,25 @@ export function ContextTab({ context }: ContextTabProps) {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* New Extended Context Sections from context-package.json */}
+      {hasExplorations && <ExplorationsSection data={context.explorations} />}
+
+      {hasExtendedContext && context.context!.assets && (
+        <AssetsCard data={context.context!.assets} />
+      )}
+
+      {hasExtendedContext && context.context!.dependencies && (
+        <DependenciesCard data={context.context!.dependencies} />
+      )}
+
+      {hasExtendedContext && context.context!.test_context && (
+        <TestContextCard data={context.context!.test_context} />
+      )}
+
+      {hasExtendedContext && context.context!.conflict_detection && (
+        <ConflictDetectionCard data={context.context!.conflict_detection} />
       )}
     </div>
   );

@@ -3,9 +3,9 @@
 // ========================================
 // Content panel for Queue tab in IssueHub
 
+import { useState } from 'react';
 import { useIntl } from 'react-intl';
 import {
-  RefreshCw,
   AlertCircle,
   CheckCircle,
   Clock,
@@ -13,11 +13,11 @@ import {
   GitMerge,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { QueueCard } from '@/components/issue/queue/QueueCard';
+import { SolutionDrawer } from '@/components/issue/queue/SolutionDrawer';
 import { useIssueQueue, useQueueMutations } from '@/hooks';
-import { cn } from '@/lib/utils';
+import type { QueueItem } from '@/lib/api';
 
 // ========== Loading Skeleton ==========
 
@@ -70,17 +70,20 @@ function QueueEmptyState() {
 
 export function QueuePanel() {
   const { formatMessage } = useIntl();
+  const [selectedItem, setSelectedItem] = useState<QueueItem | null>(null);
 
-  const { data: queueData, isLoading, isFetching, refetch, error } = useIssueQueue();
+  const { data: queueData, isLoading, error } = useIssueQueue();
   const {
     activateQueue,
     deactivateQueue,
     deleteQueue,
     mergeQueues,
+    splitQueue,
     isActivating,
     isDeactivating,
     isDeleting,
     isMerging,
+    isSplitting,
   } = useQueueMutations();
 
   // Get queue data with proper type
@@ -123,6 +126,22 @@ export function QueuePanel() {
     }
   };
 
+  const handleSplit = async (sourceQueueId: string, itemIds: string[]) => {
+    try {
+      await splitQueue(sourceQueueId, itemIds);
+    } catch (err) {
+      console.error('Failed to split queue:', err);
+    }
+  };
+
+  const handleItemClick = (item: QueueItem) => {
+    setSelectedItem(item);
+  };
+
+  const handleCloseDrawer = () => {
+    setSelectedItem(null);
+  };
+
   if (isLoading) {
     return <QueuePanelSkeleton />;
   }
@@ -150,18 +169,6 @@ export function QueuePanel() {
 
   return (
     <div className="space-y-6">
-      {/* Header Actions */}
-      <div className="flex justify-end">
-        <Button
-          variant="outline"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
-          <RefreshCw className={cn('w-4 h-4 mr-2', isFetching && 'animate-spin')} />
-          {formatMessage({ id: 'common.actions.refresh' })}
-        </Button>
-      </div>
-
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="p-4">
@@ -229,12 +236,22 @@ export function QueuePanel() {
           onDeactivate={handleDeactivate}
           onDelete={handleDelete}
           onMerge={handleMerge}
+          onSplit={handleSplit}
+          onItemClick={handleItemClick}
           isActivating={isActivating}
           isDeactivating={isDeactivating}
           isDeleting={isDeleting}
           isMerging={isMerging}
+          isSplitting={isSplitting}
         />
       </div>
+
+      {/* Solution Detail Drawer */}
+      <SolutionDrawer
+        item={selectedItem}
+        isOpen={selectedItem !== null}
+        onClose={handleCloseDrawer}
+      />
 
       {/* Status Footer */}
       <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">

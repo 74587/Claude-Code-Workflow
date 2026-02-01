@@ -21,10 +21,13 @@ export interface QueueCardProps {
   onDeactivate?: () => void;
   onDelete?: (queueId: string) => void;
   onMerge?: (sourceId: string, targetId: string) => void;
+  onSplit?: (sourceQueueId: string, itemIds: string[]) => void;
+  onItemClick?: (item: import('@/lib/api').QueueItem) => void;
   isActivating?: boolean;
   isDeactivating?: boolean;
   isDeleting?: boolean;
   isMerging?: boolean;
+  isSplitting?: boolean;
   className?: string;
 }
 
@@ -37,10 +40,13 @@ export function QueueCard({
   onDeactivate,
   onDelete,
   onMerge,
+  onSplit,
+  onItemClick,
   isActivating = false,
   isDeactivating = false,
   isDeleting = false,
   isMerging = false,
+  isSplitting = false,
   className,
 }: QueueCardProps) {
   const { formatMessage } = useIntl();
@@ -101,10 +107,12 @@ export function QueueCard({
           onDeactivate={onDeactivate}
           onDelete={onDelete}
           onMerge={onMerge}
+          onSplit={onSplit}
           isActivating={isActivating}
           isDeactivating={isDeactivating}
           isDeleting={isDeleting}
           isMerging={isMerging}
+          isSplitting={isSplitting}
         />
       </div>
 
@@ -143,6 +151,7 @@ export function QueueCard({
                 group={group.id}
                 items={group.items}
                 type={group.type}
+                onItemClick={onItemClick}
               />
             ))}
           </div>

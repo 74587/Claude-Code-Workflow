@@ -97,6 +97,23 @@
     "noSessions": "No sessions found",
     "noSessionsDescription": "Start a new discovery session to begin",
     "findingsDetail": "Findings Detail",
+    "selectSession": "Select a session to view findings",
+    "sessionId": "Session ID",
+    "name": "Name",
+    "status": "Status",
+    "createdAt": "Created At",
+    "completedAt": "Completed At",
+    "progress": "Progress",
+    "findingsCount": "Findings Count",
+    "export": "Export JSON",
+    "exportSelected": "Export Selected ({count})",
+    "exporting": "Exporting...",
+    "exportAsIssues": "Export as Issues",
+    "severityBreakdown": "Severity Breakdown",
+    "typeBreakdown": "Type Breakdown",
+    "tabFindings": "Findings",
+    "tabProgress": "Progress",
+    "tabInfo": "Session Info",
     "stats": {
       "totalSessions": "Total Sessions",
       "completed": "Completed",
@@ -129,8 +146,31 @@
       "type": {
         "all": "All Types"
       },
+      "exportedStatus": {
+        "all": "All Export Status",
+        "exported": "Exported",
+        "notExported": "Not Exported"
+      },
+      "issueStatus": {
+        "all": "All Issue Status",
+        "hasIssue": "Has Issue",
+        "noIssue": "No Issue"
+      },
       "noFindings": "No findings found",
-      "export": "Export"
+      "noFindingsDescription": "No matching findings found",
+      "searchPlaceholder": "Search findings...",
+      "filterBySeverity": "Filter by severity",
+      "filterByType": "Filter by type",
+      "filterByExported": "Filter by export status",
+      "filterByIssue": "Filter by issue link",
+      "allSeverities": "All severities",
+      "allTypes": "All types",
+      "showingCount": "Showing {count} findings",
+      "exported": "Exported",
+      "hasIssue": "Linked",
+      "export": "Export",
+      "selectAll": "Select All",
+      "deselectAll": "Deselect All"
     },
     "tabs": {
       "findings": "Findings",

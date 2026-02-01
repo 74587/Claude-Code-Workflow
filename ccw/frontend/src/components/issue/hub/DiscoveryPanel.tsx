@@ -7,7 +7,7 @@ import { useIntl } from 'react-intl';
 import { Radar, AlertCircle, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { useIssueDiscovery } from '@/hooks/useIssues';
+import { useIssueDiscovery, useIssues } from '@/hooks/useIssues';
 import { DiscoveryCard } from '@/components/issue/discovery/DiscoveryCard';
 import { DiscoveryDetail } from '@/components/issue/discovery/DiscoveryDetail';
 
@@ -27,7 +27,15 @@ export function DiscoveryPanel() {
     setFilters,
     selectSession,
     exportFindings,
+    exportSelectedFindings,
+    isExporting,
   } = useIssueDiscovery({ refetchInterval: 3000 });
+
+  // Fetch issues to find related ones when clicking findings
+  const { issues } = useIssues({
+    // Don't apply filters to get all issues for matching
+    filter: undefined
+  });
 
   if (error) {
     return (
@@ -144,6 +152,9 @@ export function DiscoveryPanel() {
               filters={filters}
               onFilterChange={setFilters}
               onExport={exportFindings}
+              onExportSelected={exportSelectedFindings}
+              isExporting={isExporting}
+              issues={issues}
             />
           )}
         </div>

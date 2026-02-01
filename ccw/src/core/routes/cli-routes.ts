@@ -483,6 +483,35 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
     }
 
     // Handle GET request - return conversation with native session info
+    // First check in-memory active executions (for running/recently completed)
+    const activeExec = activeExecutions.get(executionId);
+    if (activeExec) {
+      // Return active execution data as conversation record format
+      const activeConversation = {
+        id: activeExec.id,
+        tool: activeExec.tool,
+        mode: activeExec.mode,
+        created_at: new Date(activeExec.startTime).toISOString(),
+        turn_count: 1,
+        turns: [{
+          turn: 1,
+          timestamp: new Date(activeExec.startTime).toISOString(),
+          prompt: activeExec.prompt,
+          output: { stdout: activeExec.output, stderr: '' },
+          duration_ms: activeExec.completedTimestamp
+            ? activeExec.completedTimestamp - activeExec.startTime
+            : Date.now() - activeExec.startTime
+        }],
+        // Active execution flag for frontend to handle appropriately
+        _active: true,
+        _status: activeExec.status
+      };
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(activeConversation));
+      return true;
+    }
+
+    // Fall back to database query for saved conversations
     const conversation = getConversationDetailWithNativeInfo(projectPath, executionId);
     if (!conversation) {
       res.writeHead(404, { 'Content-Type': 'application/json' });

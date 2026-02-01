@@ -61,29 +61,130 @@
     "updatedAt": "更新时间",
     "solutions": "{count, plural, one {解决方案} other {解决方案}}"
   },
+  "detail": {
+    "title": "问题详情",
+    "tabs": {
+      "overview": "概览",
+      "solutions": "解决方案",
+      "history": "历史",
+      "json": "JSON"
+    },
+    "overview": {
+      "title": "标题",
+      "status": "状态",
+      "priority": "优先级",
+      "createdAt": "创建时间",
+      "updatedAt": "更新时间",
+      "context": "上下文",
+      "labels": "标签",
+      "assignee": "受理人"
+    },
+    "solutions": {
+      "title": "解决方案",
+      "empty": "暂无解决方案",
+      "addSolution": "添加解决方案",
+      "boundSolution": "已绑定解决方案"
+    },
+    "history": {
+      "title": "历史记录",
+      "empty": "暂无历史记录"
+    }
+  },
   "queue": {
     "title": "队列",
     "pageTitle": "问题队列",
     "description": "管理问题执行队列和执行组",
+    "status": {
+      "pending": "待处理",
+      "ready": "就绪",
+      "executing": "执行中",
+      "completed": "已完成",
+      "failed": "失败",
+      "blocked": "已阻塞",
+      "active": "活动",
+      "inactive": "非活动"
+    },
     "stats": {
       "totalItems": "总项目",
       "groups": "执行组",
       "tasks": "任务",
-      "solutions": "解决方案"
+      "solutions": "解决方案",
+      "items": "项目",
+      "executionGroups": "执行组"
     },
     "actions": {
       "activate": "激活",
       "deactivate": "停用",
       "delete": "删除",
       "merge": "合并",
+      "split": "拆分",
       "confirmDelete": "确定要删除此队列吗？"
     },
     "executionGroup": "执行组",
+    "executionGroups": "执行组",
+    "parallelGroup": "并行组",
+    "sequentialGroup": "顺序组",
+    "items": "项目",
+    "itemCount": "{count} 项",
+    "groups": "组",
     "parallel": "并行",
     "sequential": "顺序",
     "emptyState": "无队列数据",
+    "empty": "无数据",
     "conflicts": "队列中检测到冲突",
-    "noQueueData": "无队列数据"
+    "noQueueData": "无队列数据",
+    "emptyState": {
+      "title": "暂无队列",
+      "description": "当前没有可用的执行队列"
+    },
+    "error": {
+      "title": "加载失败",
+      "message": "无法加载队列数据，请稍后重试"
+    },
+    "conflicts": {
+      "title": "队列冲突",
+      "description": "个冲突"
+    },
+    "deleteDialog": {
+      "title": "删除队列",
+      "description": "确定要删除此队列吗？此操作无法撤销。"
+    },
+    "mergeDialog": {
+      "title": "合并队列",
+      "targetQueueLabel": "目标队列ID",
+      "targetQueuePlaceholder": "输入要合并到的队列ID"
+    },
+    "splitDialog": {
+      "title": "拆分队列",
+      "selected": "已选择 {count}/{total} 项",
+      "selectAll": "全选",
+      "clearAll": "清空",
+      "noSelection": "请选择要拆分的项目",
+      "cannotSplitAll": "不能拆分所有项目，源队列至少需保留一项"
+    }
+  },
+  "solution": {
+    "issue": "问题",
+    "solution": "解决方案",
+    "shortIssue": "问题",
+    "shortSolution": "方案",
+    "tabs": {
+      "overview": "概览",
+      "tasks": "任务",
+      "json": "JSON"
+    },
+    "overview": {
+      "executionInfo": "执行信息",
+      "executionOrder": "执行顺序",
+      "semanticPriority": "语义优先级",
+      "group": "执行组",
+      "taskCount": "任务数量",
+      "dependencies": "依赖项",
+      "filesTouched": "涉及文件"
+    },
+    "tasks": {
+      "comingSoon": "任务列表即将推出"
+    }
   },
   "discovery": {
     "title": "发现",
@@ -97,6 +198,23 @@
     "noSessions": "未发现会话",
     "noSessionsDescription": "启动新的问题发现会话以开始",
     "findingsDetail": "发现详情",
+    "selectSession": "选择会话以查看发现",
+    "sessionId": "会话ID",
+    "name": "名称",
+    "status": "状态",
+    "createdAt": "创建时间",
+    "completedAt": "完成时间",
+    "progress": "进度",
+    "findingsCount": "发现数量",
+    "export": "导出JSON",
+    "exportSelected": "导出选中的 {count} 项",
+    "exporting": "导出中...",
+    "exportAsIssues": "导出为问题",
+    "severityBreakdown": "严重程度分布",
+    "typeBreakdown": "类型分布",
+    "tabFindings": "发现",
+    "tabProgress": "进度",
+    "tabInfo": "会话信息",
     "stats": {
       "totalSessions": "总会话数",
       "completed": "已完成",
@@ -124,13 +242,37 @@
         "critical": "严重",
         "high": "高",
         "medium": "中",
-        "low": "低"
+        "low": "低",
+        "unknown": "未知"
       },
       "type": {
         "all": "全部类型"
       },
+      "exportedStatus": {
+        "all": "全部导出状态",
+        "exported": "已导出",
+        "notExported": "未导出"
+      },
+      "issueStatus": {
+        "all": "全部问题状态",
+        "hasIssue": "已关联问题",
+        "noIssue": "未关联问题"
+      },
       "noFindings": "未发现结果",
-      "export": "导出"
+      "noFindingsDescription": "没有找到匹配的发现结果",
+      "searchPlaceholder": "搜索发现...",
+      "filterBySeverity": "按严重程度筛选",
+      "filterByType": "按类型筛选",
+      "filterByExported": "按导出状态筛选",
+      "filterByIssue": "按关联问题筛选",
+      "allSeverities": "全部严重程度",
+      "allTypes": "全部类型",
+      "showingCount": "显示 {count} 条发现",
+      "exported": "已导出",
+      "hasIssue": "已关联",
+      "export": "导出",
+      "selectAll": "全选",
+      "deselectAll": "取消全选"
     },
     "tabs": {
       "findings": "发现",

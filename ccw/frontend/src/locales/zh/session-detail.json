@@ -6,13 +6,25 @@
   "tabs": {
     "tasks": "任务",
     "context": "上下文",
-    "summary": "摘要"
+    "summary": "摘要",
+    "implPlan": "IMPL 计划",
+    "conflict": "冲突",
+    "review": "审查"
   },
   "tasks": {
     "completed": "已完成",
     "inProgress": "进行中",
     "pending": "待处理",
     "blocked": "已阻塞",
+    "quickActions": {
+      "markAllPending": "全部待处理",
+      "markAllInProgress": "全部进行中",
+      "markAllCompleted": "全部已完成"
+    },
+    "statusUpdate": {
+      "success": "任务状态更新成功",
+      "error": "更新任务状态失败"
+    },
     "status": {
       "pending": "待处理",
       "inProgress": "进行中",
@@ -36,6 +48,59 @@
     "empty": {
       "title": "暂无上下文",
       "message": "该会话暂无上下文信息。"
+    },
+    "explorations": {
+      "title": "探索结果",
+      "angles": "个角度",
+      "projectStructure": "项目结构",
+      "relevantFiles": "相关文件",
+      "patterns": "模式",
+      "dependencies": "依赖关系",
+      "integrationPoints": "集成点",
+      "testing": "测试"
+    },
+    "categories": {
+      "documentation": "文档",
+      "sourceCode": "源代码",
+      "tests": "测试"
+    },
+    "assets": {
+      "title": "资源",
+      "noData": "未找到资源",
+      "scope": "范围",
+      "contains": "包含"
+    },
+    "dependencies": {
+      "title": "依赖",
+      "internal": "内部依赖",
+      "external": "外部依赖",
+      "from": "来源",
+      "to": "目标",
+      "type": "类型"
+    },
+    "testContext": {
+      "title": "测试上下文",
+      "tests": "个测试",
+      "existingTests": "个现有测试",
+      "markers": "个标记",
+      "coverage": "覆盖率配置",
+      "backend": "后端",
+      "frontend": "前端",
+      "framework": "框架"
+    },
+    "conflictDetection": {
+      "title": "冲突检测",
+      "riskLevel": {
+        "low": "低风险",
+        "medium": "中等风险",
+        "high": "高风险",
+        "critical": "严重风险"
+      },
+      "mitigation": "缓解策略",
+      "riskFactors": "风险因素",
+      "testGaps": "测试缺失",
+      "existingImplementations": "现有实现",
+      "affectedModules": "受影响模块"
     }
   },
   "summary": {
@@ -43,6 +108,50 @@
     "empty": {
       "title": "暂无摘要",
       "message": "该会话暂无摘要。"
+    }
+  },
+  "implPlan": {
+    "title": "实现计划",
+    "empty": {
+      "title": "暂无 IMPL 计划",
+      "message": "该会话暂无实现计划。"
+    },
+    "viewFull": "查看完整计划（{count} 行）"
+  },
+  "conflict": {
+    "title": "冲突解决",
+    "comingSoon": "冲突解决（即将推出）",
+    "comingSoonMessage": "此标签页将显示冲突解决决策和用户选择。",
+    "empty": {
+      "title": "暂无冲突解决数据",
+      "message": "该会话暂无冲突解决信息。"
+    },
+    "resolvedAt": "已解决",
+    "userDecisions": "用户决策",
+    "description": "描述",
+    "implications": "影响",
+    "resolvedConflicts": "已解决冲突",
+    "strategy": "策略"
+  },
+  "review": {
+    "title": "代码审查",
+    "comingSoon": "代码审查（即将推出）",
+    "comingSoonMessage": "此标签页将显示审查结果和建议。",
+    "empty": {
+      "title": "暂无审查数据",
+      "message": "该会话暂无审查信息。"
+    },
+    "noFindings": {
+      "title": "未发现审查结果",
+      "message": "没有匹配当前严重程度筛选器的审查结果。"
+    },
+    "filterBySeverity": "按严重程度筛选",
+    "severity": {
+      "all": "全部严重程度",
+      "critical": "严重",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
     }
   },
   "info": {
